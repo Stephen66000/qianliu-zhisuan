@@ -17,6 +17,7 @@ import {
   GatewayLedgerRepository,
   ResourcePoolRepository,
   DispatchPolicyRepository,
+  QuotaGateRepository,
   type Database,
 } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -40,6 +41,7 @@ let stub: StubUpstream;
 let poolRepo: ResourcePoolRepository;
 let ledgerRepo: GatewayLedgerRepository;
 let dispatchRepo: DispatchPolicyRepository;
+let quotaRepo: QuotaGateRepository;
 const ENT_ID = randomUUID();
 const PRINCIPAL_ID = randomUUID();
 const PEPPER = "w16-dispatch-pepper-32bytes-min!";
@@ -94,6 +96,7 @@ async function buildApp(
     ledgerRepo,
     caller,
     poolRepo,
+    quotaRepo,
     dispatchRepo,
     listCandidates,
     resolveDispatchInput: resolveDispatchInput
@@ -114,6 +117,7 @@ beforeAll(async () => {
   poolRepo = new ResourcePoolRepository(db);
   ledgerRepo = new GatewayLedgerRepository(db);
   dispatchRepo = new DispatchPolicyRepository(db);
+  quotaRepo = new QuotaGateRepository(db);
 
   await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流测试-W16调度" }).execute();
   await db.insertInto("principal").values({ id: PRINCIPAL_ID, enterprise_id: ENT_ID, type: "EMPLOYEE", name: "测试员工" }).execute();
@@ -162,6 +166,19 @@ beforeAll(async () => {
     priority: 200, // B 低优先级（数值大）
     weight: 1,
   }).execute();
+
+  // W14：CODING_PLAN 模式额度门禁需要 principal_grant + quota_counter（F-01 接入后必填）。
+  // 两智谱资源同 provider(zhipu)/alias(qianliu-glm-coding)，共享一个 grant；quota_value 充足覆盖多用例。
+  // deepseek API 模式不触发门禁（无 deducted_quota），无需 grant。
+  const grant = await db.insertInto("principal_grant").values({
+    enterprise_id: ENT_ID,
+    principal_id: PRINCIPAL_ID,
+    provider: "zhipu",
+    model_alias: "qianliu-glm-coding",
+    quota_value: 10_000_000n,
+    allow_overage: false,
+  }).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto("quota_counter").values({ grant_id: grant.id }).execute();
 
   // 另一组 deepseek API 资源对（用于 WT-17 可计算节省：API 模式有 api_cost）
   await db.insertInto("unified_model").values({

@@ -19,6 +19,7 @@ import {
   migrateToLatest,
   GatewayLedgerRepository,
   ResourcePoolRepository,
+  QuotaGateRepository,
   type Database,
 } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -44,6 +45,7 @@ let resB: string;
 let stub: StubUpstream;
 let poolRepo: ResourcePoolRepository;
 let ledgerRepo: GatewayLedgerRepository;
+let quotaRepo: QuotaGateRepository;
 
 function authHeader(): Record<string, string> {
   return { authorization: `Bearer ${validKey}`, "content-type": "application/json" };
@@ -89,6 +91,7 @@ async function buildApp(affinityResourceId: string | null): Promise<FastifyInsta
     ledgerRepo,
     caller,
     poolRepo,
+    quotaRepo,
     listCandidates,
     resolveAffinity: async () => affinityResourceId,
     maxAttempts: 2,
@@ -104,6 +107,7 @@ beforeAll(async () => {
   await migrateToLatest(db);
   poolRepo = new ResourcePoolRepository(db);
   ledgerRepo = new GatewayLedgerRepository(db);
+  quotaRepo = new QuotaGateRepository(db);
 
   await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流测试-W12路由" }).execute();
   await db.insertInto("principal").values({ id: PRINCIPAL_ID, enterprise_id: ENT_ID, type: "EMPLOYEE", name: "测试员工" }).execute();
@@ -138,6 +142,18 @@ beforeAll(async () => {
   };
   resA = await mkRes("kimi-A");
   resB = await mkRes("kimi-B");
+
+  // W14：CODING_PLAN 模式额度门禁需要 principal_grant + quota_counter（F-01 接入后必填）。
+  // 两资源同 provider(kimi)/alias(qianliu-kimi-k3)，共享一个 grant；quota_value 充足覆盖多用例。
+  const grant = await db.insertInto("principal_grant").values({
+    enterprise_id: ENT_ID,
+    principal_id: PRINCIPAL_ID,
+    provider: "kimi",
+    model_alias: "qianliu-kimi-k3",
+    quota_value: 10_000_000n,
+    allow_overage: false,
+  }).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto("quota_counter").values({ grant_id: grant.id }).execute();
 }, 120_000);
 
 afterAll(async () => {

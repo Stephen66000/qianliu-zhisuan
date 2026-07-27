@@ -14,7 +14,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { sql } from "kysely";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, GatewayLedgerRepository, ResourcePoolRepository, type Database } from "@qianliu/database";
+import { createKysely, migrateToLatest, GatewayLedgerRepository, ResourcePoolRepository, QuotaGateRepository, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createPgCanarySink, scanCanary } from "@qianliu/observability";
 import {
@@ -78,6 +78,18 @@ beforeAll(async () => {
     upstream_model: "glm-5.2",
   }).execute();
 
+  // W14：CODING_PLAN 模式额度门禁需要 principal_grant + quota_counter（F-01 接入后必填）。
+  // quota_value 充足，覆盖本测试的预占/结算校正。
+  const grant = await db.insertInto("principal_grant").values({
+    enterprise_id: ENT_ID,
+    principal_id: PRINCIPAL_ID,
+    provider: "zhipu",
+    model_alias: "qianliu-glm-coding",
+    quota_value: 1_000_000n,
+    allow_overage: false,
+  }).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto("quota_counter").values({ grant_id: grant.id }).execute();
+
   // StubUpstream：智谱 Coding Plan 返回原始口径 usage（无 cache 分项）
   const stub = new StubUpstream({
     default: { kind: "SUCCESS", usage: { input: 760, output: 318, cache: 0 } },
@@ -88,6 +100,7 @@ beforeAll(async () => {
 
   const ledgerRepo = new GatewayLedgerRepository(db);
   const poolRepo = new ResourcePoolRepository(db);
+  const quotaRepo = new QuotaGateRepository(db);
   // W12：findResource（单资源）→ listCandidates（多候选）
   const listCandidates = async (entId: string, model: string) => {
     const routes = await db
@@ -121,7 +134,7 @@ beforeAll(async () => {
     }));
   };
 
-  const pipeline = createRealPipeline({ db, ledgerRepo, caller, poolRepo, listCandidates });
+  const pipeline = createRealPipeline({ db, ledgerRepo, caller, poolRepo, quotaRepo, listCandidates });
   app = buildGateway(db, PEPPER, pipeline);
   await app.ready();
 }, 120_000);
@@ -205,7 +218,7 @@ describe("W09 端到端 智谱 Coding Plan 代表链", () => {
     // Coding Plan 模式：不产生 API 费用（TRD §7.2 / §10 边界；扣减额度归 W13/W14）
     expect(line.resource_mode).toBe("CODING_PLAN");
     expect(line.api_cost).toBeNull();
-    expect(tx.total_api_cost).toBe("0");
+    expect(Number(tx.total_api_cost)).toBe(0); // F-03：聚合后为 "0.00000000"，数值断言
     expect(line.usage_quality).toBe("PROVIDER_REPORTED");
   });
 

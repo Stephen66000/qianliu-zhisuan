@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, GatewayLedgerRepository, ResourcePoolRepository, type Database } from "@qianliu/database";
+import { createKysely, migrateToLatest, GatewayLedgerRepository, ResourcePoolRepository, QuotaGateRepository, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import {
   generateApiKey,
@@ -75,6 +75,7 @@ beforeAll(async () => {
 
   const ledgerRepo = new GatewayLedgerRepository(db);
   const poolRepo = new ResourcePoolRepository(db);
+  const quotaRepo = new QuotaGateRepository(db);
   // W12：findResource（单资源）→ listCandidates（多候选）
   const listCandidates = async (entId: string, model: string) => {
     const routes = await db
@@ -108,7 +109,7 @@ beforeAll(async () => {
     }));
   };
 
-  const pipeline = createRealPipeline({ db, ledgerRepo, caller, poolRepo, listCandidates });
+  const pipeline = createRealPipeline({ db, ledgerRepo, caller, poolRepo, quotaRepo, listCandidates });
   app = buildGateway(db, PEPPER, pipeline);
   await app.ready();
 }, 120_000);

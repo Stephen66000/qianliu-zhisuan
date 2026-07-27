@@ -73,6 +73,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     "keyRepo",
     new KeyRepository(
       db,
+      // F-02：dev fallback 仅测试态可达；生产入口 main.ts 已用 requireEnv 拦截缺失
       process.env.GATEWAY_KEY_PEPPER ?? "dev-only-pepper",
       generateApiKey,
       digestApiKey,
@@ -81,7 +82,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   );
   app.decorate("grantRepo", new GrantRepository(db));
   app.decorate("providerRepo", new ProviderRepository(db));
-  // KEK：从环境注入；开发期用占位值（32 字节）。生产由部署 Secret 注入。
+  // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
     decodeKek(
@@ -95,6 +96,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   // 在插件作用域内注册 cookie/cors/路由，保证 ready 时全部就绪
   void app.register(async (child) => {
     await child.register(cookie, {
+      // F-02：dev fallback 仅测试态可达；生产入口 main.ts 已用 requireEnv 拦截缺失
       secret: process.env.COOKIE_SECRET ?? "dev-only-cookie-secret-REPLACE",
     });
     await child.register(cors, {

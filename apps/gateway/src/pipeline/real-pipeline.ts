@@ -16,7 +16,7 @@
  * 真实 HTTP 调用在 DEP-PROVIDER-CREDENTIALS 解锁后把 caller 替换为真实实现。
  */
 import type { Kysely } from "kysely";
-import type { Database, GatewayLedgerRepository, ResourcePoolRepository, DispatchPolicyRepository } from "@qianliu/database";
+import type { Database, GatewayLedgerRepository, ResourcePoolRepository, DispatchPolicyRepository, QuotaGateRepository } from "@qianliu/database";
 import { SecretValue, type UpstreamCaller } from "@qianliu/provider-adapters";
 import {
   isSwitchable,
@@ -29,6 +29,7 @@ import {
   computeApiCostFromRule,
   decideDispatch,
   computeDispatchSaving,
+  QUOTA_DECISION,
   type BillingRule,
   type DispatchInput,
   type DispatchPolicy,
@@ -61,6 +62,12 @@ export interface RealPipelineDeps {
   poolRepo: ResourcePoolRepository;
   /** W16 经营调度策略仓储（查已发布策略 + 落决策）。可选；未提供则跳过 dispatch。 */
   dispatchRepo?: DispatchPolicyRepository;
+  /**
+   * W14 额度门禁仓储（预占/结算/并发租约）。必填——M4 DoD 核心验收。
+   * 在步骤 3b 前 reserve + acquireLease，Attempt 后 settle/release；
+   * deducted_quota 通过 settleQuota 回写 quota_counter（多退少补）。
+   */
+  quotaRepo: QuotaGateRepository;
   /**
    * W12 多候选查找：enterprise + alias → model_route 启用的全部候选
    * （与 W11 listServableResources 硬过滤取交集后评分）。
@@ -238,6 +245,43 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         });
       }
 
+      // 3a-bis. W14 额度门禁（步骤 3b 前；TRD §8 行 504 + §8.2 行 527-537）。
+      // 仅 CODING_PLAN 模式：API 模式无 deducted_quota（monetary 计费），门禁跳过。
+      // per-attempt reserve：grant 键为 (principal, provider, model_alias)，跨 provider
+      // failover 命中不同 grant，故每个 attempt 针对其自身的 grant 预占/结算。
+      // 并发租约 acquireLease 按 provider_resource_id 限流；耗尽 REJECT 不无账放行。
+      let leaseId: string | null = null;
+      let grantId: string | null = null;
+      let reservedEstimate = 0n;
+      if (cand.mode === "CODING_PLAN") {
+        const lease = await deps.quotaRepo.acquireLease({
+          enterpriseId: principal.enterpriseId,
+          providerResourceId: cand.resourceId,
+          aiRequestId: requestId,
+        });
+        if (lease === null) {
+          // 并发达 concurrency_limit：排除该资源，重评其他候选
+          triedResourceIds.add(cand.resourceId);
+          continue;
+        }
+        leaseId = lease;
+        const reserve = await deps.quotaRepo.reserveQuota({
+          enterpriseId: principal.enterpriseId,
+          principalId,
+          provider: cand.providerCode,
+          modelAlias: body.model,
+          estimatedCost: estimateRawTokens(body),
+        });
+        if (reserve.decision !== QUOTA_DECISION.ALLOW && reserve.decision !== QUOTA_DECISION.ALLOW_OVERAGE) {
+          // REJECT_EXHAUSTED / REJECT_NO_GRANT / REJECT_GRANT_EXPIRED：释放租约，排除资源重评
+          await deps.quotaRepo.releaseLease(leaseId);
+          triedResourceIds.add(cand.resourceId);
+          continue;
+        }
+        grantId = reserve.grantId;
+        reservedEstimate = reserve.reservedEstimate;
+      }
+
       // 3b. Attempt
       const attempt = await deps.ledgerRepo.createAttempt({
         ai_request_id: requestId,
@@ -280,6 +324,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       }
 
       // 3d. usage + ledger（每次有可证明用量的 Attempt 独立明细；WT-11 双 Attempt 双明细）
+      // 捕获本 attempt 的 billing（deducted_quota/api_cost）供额度结算使用。
+      let attemptBilling: BillingOutcome | null = null;
       if (outcome.usage.input + outcome.usage.output > 0) {
         const usage = await deps.ledgerRepo.createUsageEventIfAbsent({
           ai_request_id: requestId,
@@ -303,6 +349,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
             attempt.started_at.getTime(),
             outcome.usage,
           );
+          attemptBilling = billing;
           await deps.ledgerRepo.createLedgerLine({
             ai_request_id: requestId,
             enterprise_id: principal.enterpriseId,
@@ -324,6 +371,21 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         }
       }
 
+      // 3d-bis. W14 额度结算（committed → settleQuota 按实际 deducted_quota 校正回写 quota_counter；
+      // 失败/可切换 → releaseQuota 释放预占）。F-01 核心：deducted_quota 回写 quota_counter。
+      if (cand.mode === "CODING_PLAN" && grantId) {
+        if (outcome.committed && !outcome.error) {
+          const actualDeducted = attemptBilling?.deductedQuota !== null && attemptBilling?.deductedQuota !== undefined
+            ? BigInt(attemptBilling.deductedQuota)
+            : 0n;
+          await deps.quotaRepo.settleQuota(grantId, reservedEstimate, actualDeducted);
+        } else {
+          await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
+        }
+      }
+      if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
+      leaseId = null;
+
       finalOutcome = outcome;
 
       // 3e. 切换判定：committed=true 绝不切换（WT-12）；committed=false 且可切换错误 → 重评
@@ -334,29 +396,35 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     }
 
     // 4. ledger_transaction（唯一汇总；多 Attempt 聚合 token + 费用）
+    // F-03 修复：TRD §5.7 行 348 + §10.1 行 653——请求级总费用=全部账本明细之和，
+    // 不只计算最终成功 Attempt。原实现用 finalOutcome.usage（末次 Attempt）会漏算
+    // failover 前置 Attempt 的 ESTIMATED usage；且 transaction 级二次 computeBilling
+    // 用 Date.now() 可能选到与 line 不同的规则版本。改为对 ledger_line 聚合（明细已冻结
+    // billing_rule/multiplier/cost，事务级不再二次匹配）。
+    let transactionApiCost: string | null = null; // 供 dispatch 节复用（避免二次重算）
     if (finalOutcome) {
-      const totalIn = BigInt(finalOutcome.usage.input);
-      const totalOut = BigInt(finalOutcome.usage.output);
-      const mode = winner?.input.mode ?? "API";
-      const billing = await computeBilling(
-        deps.ledgerRepo,
-        principal.enterpriseId,
-        winner?.input.resourceId ?? "",
-        winner?.input.upstreamModel ?? "",
-        mode,
-        Date.now(),
-        finalOutcome.usage,
-      );
+      const lines = await deps.ledgerRepo.listLedgerLines(requestId);
+      const sumIn = lines.reduce((acc, l) => acc + l.raw_input_tokens, 0n);
+      const sumOut = lines.reduce((acc, l) => acc + l.raw_output_tokens, 0n);
+      const sumCache = lines.reduce((acc, l) => acc + l.raw_cache_tokens, 0n);
+      const sumDeducted = lines.reduce((acc, l) => acc + (l.deducted_quota ?? 0n), 0n);
+      // api_cost 为 8 位小数字符串；单请求明细 ≤ maxAttempts（≤2 条），用 Number 求和
+      // 在 double 精度内无误差，toFixed(8) 规整后与明细口径一致。
+      const sumApiCostNum = lines.reduce((acc, l) => acc + Number(l.api_cost ?? "0"), 0);
+      const sumApiCost = sumApiCostNum.toFixed(8);
+      transactionApiCost = sumApiCostNum === 0 ? null : sumApiCost;
+      // usage_quality：单请求同质，取首条明细；无明细时回退 finalOutcome。
+      const usageQuality = lines[0]?.usage_quality ?? finalOutcome.usage.quality;
       await deps.ledgerRepo.createLedgerTransactionIfAbsent({
         ai_request_id: requestId,
         enterprise_id: principal.enterpriseId,
         principal_id: principalId,
-        total_input_tokens: totalIn,
-        total_output_tokens: totalOut,
-        total_cache_tokens: BigInt(finalOutcome.usage.cache),
-        total_deducted_quota: billing.deductedQuota !== null ? BigInt(billing.deductedQuota) : 0n,
-        total_api_cost: billing.apiCost ?? "0",
-        usage_quality: finalOutcome.usage.quality,
+        total_input_tokens: sumIn,
+        total_output_tokens: sumOut,
+        total_cache_tokens: sumCache,
+        total_deducted_quota: sumDeducted,
+        total_api_cost: sumApiCost,
+        usage_quality: usageQuality,
         attempt_count: attemptNo,
       });
       await deps.ledgerRepo.updateRequestStatus(
@@ -369,12 +437,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
 
     // 4b. W16 落 dispatch_decision（首次 Attempt 决策冻结，§5.7 行 342 不可覆盖；幂等 UNIQUE(ai_request_id)）
     if (deps.dispatchRepo && dispatchFinalAction !== null && dispatchDispatchInput !== null) {
-      // 反事实节省：actual 来自最终结算；counterfactual 来自原 winner（若 SWITCH）或同资源（无切换基线不可比）
-      const actualCost = finalOutcome ? (await computeBilling(
-        deps.ledgerRepo, principal.enterpriseId,
-        winner?.input.resourceId ?? "", winner?.input.upstreamModel ?? "",
-        winner?.input.mode ?? "API", Date.now(), finalOutcome.usage,
-      )).apiCost : null;
+      // 反事实节省：actual 来自事务聚合（明细之和），不二次 computeBilling（F-03 一致性）。
+      const actualCost = transactionApiCost;
       // 反事实基线：SWITCH 时为原评分 winner（被切换走的资源）的预期成本；否则 null（基线不可比）
       const counterfactualCost =
         dispatchFinalAction === "SWITCH" && dispatchSwitchTargetId
@@ -552,4 +616,31 @@ async function computeBilling(
 function legacyApiCost(input: number, output: number): string {
   const cost = (input / 1000) * 0.001 + (output / 1000) * 0.002;
   return cost.toFixed(8);
+}
+
+/**
+ * W14 预请求 token 估算（保守上界）。
+ *
+ * 预占发生在 Attempt 之前，此时真实 usage 未知。代码库无 tokenizer 依赖；
+ * 此处用 body 字符数 / 4 的粗略估算（OpenAI 经验值，对 CJK 偏保守——实际 token 数通常更高）。
+ * 倍率折算在 settle 时按实际 deducted_quota 校正（settleQuota 多退少补），故预占只需"够大"。
+ * 用 multiplier="1" 口径预占（即 raw token），有计价倍率时预占略偏低，settle 补足。
+ *
+ * 返回 raw token 估计（bigint）。仅用于 CODING_PLAN 模式 reserveQuota 的 estimatedCost。
+ */
+function estimateRawTokens(body: { messages?: unknown[] }): bigint {
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+  // input 估计：messages 各项 JSON 序列化后字符数 / 4
+  let inputChars = 0;
+  for (const m of messages) {
+    try {
+      inputChars += JSON.stringify(m).length;
+    } catch {
+      inputChars += 32; // 序列化失败时的兜底
+    }
+  }
+  const inputEstimate = Math.ceil(inputChars / 4);
+  // output 预留：保守上界（真实 output 由上游决定，settle 校正）
+  const outputReserve = 256;
+  return BigInt(inputEstimate + outputReserve);
 }
