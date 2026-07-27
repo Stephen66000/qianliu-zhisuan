@@ -51,9 +51,9 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-M1-M4-FUNC-AUDIT-PASS"
-  text: "M1~M4 第一道功能与验收 Audit 通过（round 3 PASS：R2-N1 CLOSED、F-12 整体 CLOSED、F-01/F-03/F-02 CLOSED、P1=0、无新 blocker）。三轮审核独立性均为 I1（同模型族 GLM 换会话），任务书要求 R3 最低 I2——佳哥须独立判断是否接受 I1 结论或要求 I2（不同模型族）复核。接受 I1 → 进入第二道代码质量 Audit；代码质量 Audit PASS 前不进 M5。"
-  owner: "佳哥（Owner 决策 I1 接受与否；或交独立会话开第二道）"
+  id: "STAGE03-M1-M4-CODE-AUDIT"
+  text: "M1~M4 第一道功能 Audit 已 PASS（round 3，R2-N1/F-12/F-01/F-03/F-02 全 CLOSED，P1=0）。Owner 已接受 I1 独立性结论，现进入第二道代码质量 Audit（V1.4 AI代码质量审计模板，R3 风险分级门禁，7 维代码阅读矩阵 + 覆盖率/复杂度/变异测试 Evidence Gap 判定）。审核对象 = 第一道 PASS 的同一候选（产品代码 HEAD 8d7fe18）。代码质量 Audit PASS 前 M1~M4 不算正式通过，不进 M5。"
+  owner: "佳哥（交独立 AI 会话执行第二道代码质量 Audit）"
   evidence_target: "V3/Evidence/M4/audit/M4-审核任务书-v1.md#8-审核轮次记录"
 
 allowed_actions:
