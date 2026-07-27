@@ -49,11 +49,11 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     const db = createKysely(pg.connectionString);
     try {
       const rolled = await migrateDown(db);
-      // 最后一条迁移是 0006_operation_log
-      expect(rolled).toBe("0006_operation_log");
+      // 最后一条迁移是 0009_ledger
+      expect(rolled).toBe("0009_ledger");
 
-      // 回滚后 operation_log 表应不存在
-      const result = await sql`SELECT to_regclass('public.operation_log') AS reg`.execute(db);
+      // 回滚后 ledger_transaction 表应不存在
+      const result = await sql`SELECT to_regclass('public.ledger_transaction') AS reg`.execute(db);
       const reg = (result.rows[0] as { reg: string | null }).reg;
       expect(reg).toBeNull();
     } finally {
@@ -65,9 +65,9 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     const db = createKysely(pg.connectionString);
     try {
       const executed = await migrateToLatest(db);
-      expect(executed).toContain("0006_operation_log");
+      expect(executed).toContain("0009_ledger");
 
-      const result = await sql`SELECT to_regclass('public.operation_log') AS reg`.execute(db);
+      const result = await sql`SELECT to_regclass('public.ledger_transaction') AS reg`.execute(db);
       const reg = (result.rows[0] as { reg: string | null }).reg;
       expect(reg).not.toBeNull();
     } finally {

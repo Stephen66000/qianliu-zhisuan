@@ -121,7 +121,10 @@ export const NORTHBOUND_ENDPOINTS = [
 export type NorthboundEndpoint = (typeof NORTHBOUND_ENDPOINTS)[number];
 
 /** 协议能力支持声明（TRD §6.3 行 424：原样/转换/不支持三选一）。 */
-export type CapabilitySupport = "NATIVE" | "TRANSFORMED" | "UNSUPPORTED";
+export type { CapabilitySupport } from "./northbound.js";
+
+// 北向协议合同 DTO（W05 冻结）——见 northbound.ts
+export * from "./northbound.js";
 
 /** 资源模式（TRD §5.4）。 */
 export type ResourceMode = "API" | "CODING_PLAN";

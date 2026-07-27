@@ -133,9 +133,15 @@ importers:
         specifier: 4.1.11
         version: 4.1.11
     devDependencies:
+      '@qianliu/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
       '@types/node':
         specifier: 22.10.10
         version: 22.10.10
+      kysely:
+        specifier: 0.28.7
+        version: 0.28.7
       tsx:
         specifier: 4.19.2
         version: 4.19.2

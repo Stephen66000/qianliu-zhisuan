@@ -113,3 +113,10 @@ export {
   credentialFingerprint,
   type EncryptedCredential,
 } from "./crypto.js";
+
+// Adapter 与 Stub 上游（W06 起启用）
+export {
+  DeepSeekAdapter,
+  type UpstreamCaller,
+} from "./adapters/deepseek-adapter.js";
+export { StubUpstream, type StubMode, type StubUpstreamConfig } from "./adapters/stub-upstream.js";

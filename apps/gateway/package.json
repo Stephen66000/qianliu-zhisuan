@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "node --import tsx src/server.ts",
+    "dev": "tsx watch src/main.ts",
+    "start": "node --import tsx src/main.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run --config ../../vitest.config.ts",
-    "test:integration": "vitest run --config ../../vitest.config.ts --dir src/__tests-integration__",
+    "test:integration": "vitest run --config ../../vitest.config.ts src/__tests-integration__",
     "test:e2e": "echo 'gateway e2e deferred to M2' && exit 0"
   },
   "dependencies": {
@@ -26,7 +26,9 @@
     "zod": "4.1.11"
   },
   "devDependencies": {
+    "@qianliu/testing": "workspace:*",
     "@types/node": "22.10.10",
+    "kysely": "0.28.7",
     "tsx": "4.19.2"
   }
 }

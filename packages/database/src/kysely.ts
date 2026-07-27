@@ -175,6 +175,106 @@ export interface ModelRouteTable {
   updated_at: Generated<Date>;
 }
 
+// ===== M2：Gateway 请求/Attempt/账本 =====
+
+export interface AiRequestTable {
+  id: string; // 由 Gateway 分配，非自增
+  enterprise_id: string;
+  principal_id: string;
+  principal_key_id: string;
+  idempotency_key: string | null;
+  protocol: string;
+  unified_model: string;
+  stream: Generated<boolean>;
+  status: Generated<string>;
+  client_id: string | null;
+  started_at: Generated<Date>;
+  finished_at: Date | null;
+  error_classification: string | null;
+  error_code: string | null;
+}
+
+export interface RouteCandidateTable {
+  id: Generated<string>;
+  ai_request_id: string;
+  enterprise_id: string;
+  provider_resource_id: string;
+  upstream_model: string;
+  priority: number;
+  weight: number;
+  selected: Generated<boolean>;
+  score_factors: Record<string, unknown> | null;
+  total_score: string | null;
+  reason_code: string | null;
+  created_at: Generated<Date>;
+}
+
+export interface UpstreamAttemptTable {
+  id: Generated<string>;
+  ai_request_id: string;
+  enterprise_id: string;
+  attempt_no: number;
+  provider_resource_id: string;
+  upstream_model: string;
+  started_at: Generated<Date>;
+  first_byte_at: Date | null;
+  finished_at: Date | null;
+  http_status: number | null;
+  error_classification: string | null;
+  error_code: string | null;
+  response_committed: Generated<boolean>;
+  switch_reason: string | null;
+}
+
+export interface UsageEventTable {
+  id: Generated<string>;
+  ai_request_id: string;
+  enterprise_id: string;
+  upstream_attempt_id: string;
+  provider_resource_id: string;
+  input_tokens: Generated<bigint>;
+  output_tokens: Generated<bigint>;
+  cache_tokens: Generated<bigint>;
+  usage_quality: string;
+  upstream_usage_id: string | null;
+  dedup_key: string;
+  created_at: Generated<Date>;
+}
+
+export interface LedgerLineTable {
+  id: Generated<string>;
+  ai_request_id: string;
+  enterprise_id: string;
+  usage_event_id: string;
+  upstream_attempt_id: string;
+  provider_resource_id: string;
+  principal_id: string;
+  resource_mode: string;
+  raw_input_tokens: bigint;
+  raw_output_tokens: bigint;
+  raw_cache_tokens: bigint;
+  deducted_quota: bigint | null;
+  api_cost: string | null;
+  usage_quality: string;
+  created_at: Generated<Date>;
+}
+
+export interface LedgerTransactionTable {
+  id: Generated<string>;
+  ai_request_id: string;
+  enterprise_id: string;
+  principal_id: string;
+  total_input_tokens: Generated<bigint>;
+  total_output_tokens: Generated<bigint>;
+  total_cache_tokens: Generated<bigint>;
+  total_deducted_quota: Generated<bigint>;
+  total_api_cost: Generated<string>;
+  usage_quality: string;
+  attempt_count: Generated<number>;
+  status: Generated<string>;
+  created_at: Generated<Date>;
+}
+
 /**
  * Database Schema 根类型。W02 后含 enterprise/admin/principal/audit；
  * W03/W04 追加 principal_key/grant/provider 等表。
@@ -195,6 +295,12 @@ export interface Database {
   provider_resource: ProviderResourceTable;
   unified_model: UnifiedModelTable;
   model_route: ModelRouteTable;
+  ai_request: AiRequestTable;
+  route_candidate: RouteCandidateTable;
+  upstream_attempt: UpstreamAttemptTable;
+  usage_event: UsageEventTable;
+  ledger_line: LedgerLineTable;
+  ledger_transaction: LedgerTransactionTable;
   operation_log: OperationLogTable;
 }
 

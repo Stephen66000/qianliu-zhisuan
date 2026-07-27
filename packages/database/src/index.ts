@@ -46,5 +46,18 @@ export {
   type CreateProviderInput,
   type CreateProviderResourceInput,
 } from "./repositories/provider-repository.js";
+export {
+  GatewayLedgerRepository,
+  type AiRequest,
+  type UpstreamAttempt,
+  type UsageEvent,
+  type LedgerLine,
+  type LedgerTransaction,
+  type RouteCandidate,
+  type CreateRequestInput,
+  type CreateAttemptInput,
+  type UsageInput,
+  type LedgerLineInput,
+} from "./repositories/gateway-ledger-repository.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;

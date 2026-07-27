@@ -104,4 +104,44 @@ export const DEFAULT_CONTENT_RETENTION_MODE = "METADATA_ONLY" as const;
 
 export type ContentRetentionMode = "METADATA_ONLY";
 
+// ===== M2：错误分类与提交边界（ai_request/ledger 状态已在前面定义）=====
+
+/**
+ * 错误分类（TRD §9 行 588-596）。
+ * 每类有明确的"是否切换上游"策略。
+ */
+export const ERROR_CLASSIFICATION = {
+  CLIENT_INVALID: "CLIENT_INVALID", // 参数错误、上下文超限 — 不切换
+  CAPABILITY_UNSUPPORTED: "CAPABILITY_UNSUPPORTED", // 工具/内容块不支持 — 不切换
+  DOWNSTREAM_AUTH_OR_QUOTA: "DOWNSTREAM_AUTH_OR_QUOTA", // Key/主体/授权/额度 — 不切换
+  UPSTREAM_CREDENTIAL_INVALID: "UPSTREAM_CREDENTIAL_INVALID", // 401/403 — 提交前可切换
+  UPSTREAM_RATE_LIMITED: "UPSTREAM_RATE_LIMITED", // 429 — 提交前可切换
+  UPSTREAM_TEMPORARY: "UPSTREAM_TEMPORARY", // 连接失败/超时/5xx — 提交前可切换
+  UPSTREAM_BILLING_BLOCKED: "UPSTREAM_BILLING_BLOCKED", // 上游余额/套餐耗尽 — 按兜底切换
+  STREAM_INTERRUPTED_AFTER_COMMIT: "STREAM_INTERRUPTED_AFTER_COMMIT", // 已输出后断流 — 不切换
+  LEDGER_FAILURE: "LEDGER_FAILURE", // 内部记账失败 — 不切换
+  TRANSPORT_ERROR: "TRANSPORT_ERROR", // 传输层错误 — 可切换
+  UNKNOWN: "UNKNOWN",
+} as const;
+
+export type ErrorClassification =
+  (typeof ERROR_CLASSIFICATION)[keyof typeof ERROR_CLASSIFICATION];
+
+/** 错误分类是否允许切换上游（提交前）。 */
+export function isSwitchable(classification: ErrorClassification): boolean {
+  return (
+    classification === ERROR_CLASSIFICATION.UPSTREAM_CREDENTIAL_INVALID ||
+    classification === ERROR_CLASSIFICATION.UPSTREAM_RATE_LIMITED ||
+    classification === ERROR_CLASSIFICATION.UPSTREAM_TEMPORARY ||
+    classification === ERROR_CLASSIFICATION.UPSTREAM_BILLING_BLOCKED ||
+    classification === ERROR_CLASSIFICATION.TRANSPORT_ERROR
+  );
+}
+
+/** 流式提交状态（TRD §8.3 response_committed 边界）。 */
+export const COMMIT_STATE = {
+  NOT_COMMITTED: "NOT_COMMITTED", // 响应头/空白保活阶段
+  COMMITTED: "COMMITTED", // 首个有效输出已发给客户端
+} as const;
+
 export const DOMAIN_VERSION = "0.3.0" as const;

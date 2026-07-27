@@ -1,43 +1,53 @@
 /**
- * @qianliu/gateway —— 北向 Gateway 数据平面。
+ * @qianliu/gateway —— 北向 Gateway 数据平面构建器（W05）。
  *
- * W01 仅提供 health 路由骨架，证明 Fastify + TS workspace 可启动。
- * 北向 /v1/* 路由（models/chat/messages）在 W05-W08（M2）落地。
- * 鉴权、能力校验、Attempt、usage、ledger 在 M2 实现。
+ * buildGateway(db, pepper, pipelineHandler) 同步注册插件与路由。
+ * W05：北向合同 + 鉴权 + request_id + 能力拒绝（422）。
+ * W06/W07：pipelineHandler 注入完整 Adapter + 账本。
  */
 import Fastify, { type FastifyInstance } from "fastify";
-import { CONTRACTS_VERSION } from "@qianliu/contracts";
+import type { Kysely } from "kysely";
+import type { Database } from "@qianliu/database";
+import { registerRequestId } from "./plugins/request-id.js";
+import { createPrincipalAuth, type PrincipalAuthResult } from "./auth/principal-auth.js";
+import { registerModelsRoute, type AuthHandler } from "./routes/models.js";
+import { registerChatRoute, type PipelineHandler } from "./routes/chat.js";
+import { registerMessagesRoute } from "./routes/messages.js";
+import { registerUnsupportedRoutes } from "./routes/unsupported.js";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    requestId: string;
+    principal?: PrincipalAuthResult;
+  }
+}
 
 export interface GatewayOptions {
   port?: number;
   host?: string;
 }
 
-export function buildGateway(_opts: GatewayOptions = {}): FastifyInstance {
+export function buildGateway(
+  db: Kysely<Database>,
+  pepper: string,
+  pipelineHandler: PipelineHandler,
+  _opts: GatewayOptions = {},
+): FastifyInstance {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info" },
+    genReqId: () => crypto.randomUUID(), // 兜底；request-id 插件会覆盖
   });
 
-  app.get("/health", async () => ({
-    status: "ok",
-    service: "gateway",
-    contractsVersion: CONTRACTS_VERSION,
-  }));
+  void app.register(async (child) => {
+    await registerRequestId(child);
+    const auth: AuthHandler = createPrincipalAuth(db, pepper);
+    registerModelsRoute(child, db, auth);
+    registerChatRoute(child, auth, pipelineHandler);
+    registerMessagesRoute(child, auth, pipelineHandler);
+    registerUnsupportedRoutes(child, auth);
+  });
+
+  app.get("/health", async () => ({ status: "ok", service: "gateway" }));
 
   return app;
 }
-
-async function start(): Promise<void> {
-  const port = Number(process.env.GATEWAY_PORT ?? 8787);
-  const host = process.env.GATEWAY_HOST ?? "127.0.0.1";
-  const app = buildGateway({ port, host });
-  await app.listen({ port, host });
-  app.log.info({ port, host }, "gateway listening (W01 baseline)");
-}
-
-// 入口文件直接启动。tsx watch / node 直接运行本文件时都会执行 start()。
-// 测试通过 buildGateway() 导入构建实例，不会触发此处的 start()。
-start().catch((err) => {
-  console.error("gateway 启动失败:", err);
-  process.exit(1);
-});

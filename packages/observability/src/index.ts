@@ -15,5 +15,6 @@ export {
   scanCanary,
   createLogSinkFromBuffer,
 } from "./canary.js";
+export { createPgCanarySink } from "./pg-canary-sink.js";
 
 export const OBSERVABILITY_VERSION = "0.3.0" as const;
