@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-27T18:46:00+08:00"
+updated_at: "2026-07-27T19:35:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -39,8 +39,8 @@ handoff:
   audited_candidate_lock: "V3/仟流智算-Stage02评审候选锁-v0.3.2.sha256"
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
-  current_milestone: "M4"
-  current_work_package: "W16"
+  current_milestone: "M5"
+  current_work_package: "W18"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -51,10 +51,10 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-W15"
-  text: "W15 供给预测已完成（computeForecast 多窗口速度 + 耗尽/恢复/覆盖 + 可信度分级 + supply_forecast 快照；数据不足不伪精确）；domain 72 单测 + gateway 54 集成全绿，canary 0。下一步 W16：峰谷/成本/额度/周期策略、等价资源、限流/拒绝、反事实节省（WT-16/17，无基线 NOT_CALCULABLE）。"
+  id: "STAGE03-W17"
+  text: "M4 全部完成（W13 计价 + W14 额度 + W15 预测 + W16 调度 + W17 对账）。W17 对账任务 + 重复0/丢失<0.1% + 异常队列 + M4 全链回归；domain 108 单测 + database 8 + gateway 61 集成全绿，canary 0。下一步进入 M5（完整桌面 Web，W18~W20）。"
   owner: "佳哥（AI 执行）"
-  evidence_target: "V3/Evidence/M4/W15/20260727-1844-w15-audit/README.md"
+  evidence_target: "V3/Evidence/M4/W17/20260727-1935-w17-m4-audit/README.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"

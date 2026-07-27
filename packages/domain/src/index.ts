@@ -227,4 +227,18 @@ export {
   type EquivalentResourceGroup,
 } from "./dispatch-policy.js";
 
+// ===== M4/W17：对账（重复 0/丢失<0.1%、异常队列）=====
+export {
+  RECONCILIATION_ALGORITHM_VERSION,
+  DISCREPANCY_TYPE,
+  RECONCILIATION_RESULT,
+  DISCREPANCY_SEVERITY,
+  evaluateReconciliation,
+  type DiscrepancyType,
+  type ReconciliationResultVerdict,
+  type DiscrepancyRecord,
+  type ReconciliationScan,
+  type ReconciliationVerdict,
+} from "./reconciliation.js";
+
 export const DOMAIN_VERSION = "0.3.0" as const;

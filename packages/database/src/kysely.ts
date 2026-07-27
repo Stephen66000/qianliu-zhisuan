@@ -252,6 +252,47 @@ export interface DispatchDecisionTable {
   decided_at: Generated<Date>;
 }
 
+/** W17：对账运行汇总（0015）。 */
+export interface ReconciliationRunTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  range_from: Date;
+  range_to: Date;
+  requests_scanned: Generated<number>;
+  usage_events_scanned: Generated<number>;
+  ledger_lines_scanned: Generated<number>;
+  transactions_scanned: Generated<number>;
+  duplicate_count: Generated<number>;
+  missing_count: Generated<number>;
+  mismatch_count: Generated<number>;
+  total_discrepancies: Generated<number>;
+  result: string; // PASS/FAIL/REVIEW
+  duplicate_rate: string | null;
+  missing_rate: string | null;
+  summary: Record<string, unknown> | null;
+  algorithm_version: string;
+  started_at: Generated<Date>;
+  finished_at: Date | null;
+}
+
+/** W17：对账差异明细 / 异常队列（0015）。 */
+export interface ReconciliationDiscrepancyTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  reconciliation_run_id: string;
+  discrepancy_type: string; // DUPLICATE_USAGE/MISSING_LEDGER_LINE/MISSING_USAGE/ORPHAN_LEDGER_LINE/SETTLEMENT_MISMATCH
+  ai_request_id: string | null;
+  usage_event_id: string | null;
+  ledger_line_id: string | null;
+  ledger_transaction_id: string | null;
+  detail: Record<string, unknown> | null;
+  severity: Generated<string>; // HIGH/MEDIUM/LOW
+  status: Generated<string>; // OPEN/INVESTIGATING/RESOLVED/IGNORED
+  resolution_note: string | null;
+  created_at: Generated<Date>;
+  resolved_at: Date | null;
+}
+
 export interface UnifiedModelTable {
   id: Generated<string>;
   enterprise_id: string;
@@ -427,6 +468,8 @@ export interface Database {
   supply_forecast: SupplyForecastTable;
   dispatch_policy: DispatchPolicyTable;
   dispatch_decision: DispatchDecisionTable;
+  reconciliation_run: ReconciliationRunTable;
+  reconciliation_discrepancy: ReconciliationDiscrepancyTable;
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
   resource_status_event: ResourceStatusEventTable;

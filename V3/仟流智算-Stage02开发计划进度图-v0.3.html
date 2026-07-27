@@ -93,11 +93,11 @@
 <script type="application/json" id="stage02-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "9c8137670fd80e6139712dffbbb3ed9260107b8c5e2815d70cc01bd512a5f665",
+  "sourceSha256": "10f398f8d815a397f030f1aa40d987a3e33a8a6f49325ae24afb132def09b09f",
   "projectName": "仟流智算",
   "productVersion": "v0.3",
   "planVersion": "v0.3.1",
-  "updatedAt": "2026-07-27T18:46:00+08:00",
+  "updatedAt": "2026-07-27T19:35:00+08:00",
   "stage01": {
     "id": "STAGE-01",
     "name": "方案准备",
@@ -123,13 +123,13 @@
     "candidateLock": "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   },
   "nextAction": {
-    "id": "STAGE03-W15",
-    "text": "W15 供给预测已完成（computeForecast 多窗口速度 + 耗尽/恢复/覆盖 + 可信度分级 + supply_forecast 快照；数据不足不伪精确）；domain 72 单测 + gateway 54 集成全绿，canary 0。下一步 W16：峰谷/成本/额度/周期策略、等价资源、限流/拒绝、反事实节省（WT-16/17，无基线 NOT_CALCULABLE）。",
+    "id": "STAGE03-W17",
+    "text": "M4 全部完成（W13 计价 + W14 额度 + W15 预测 + W16 调度 + W17 对账）。W17 对账任务 + 重复0/丢失<0.1% + 异常队列 + M4 全链回归；domain 108 单测 + database 8 + gateway 61 集成全绿，canary 0。下一步进入 M5（完整桌面 Web，W18~W20）。",
     "owner": "佳哥（AI 执行）",
-    "evidence_target": "V3/Evidence/M4/W15/20260727-1844-w15-audit/README.md"
+    "evidence_target": "V3/Evidence/M4/W17/20260727-1935-w17-m4-audit/README.md"
   },
-  "currentMilestone": "M4",
-  "currentWorkPackage": "W16",
+  "currentMilestone": "M5",
+  "currentWorkPackage": "W18",
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
     "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",

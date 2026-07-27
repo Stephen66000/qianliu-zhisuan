@@ -49,11 +49,11 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     const db = createKysely(pg.connectionString);
     try {
       const rolled = await migrateDown(db);
-      // 最后一条迁移是 0014_dispatch_policy（W16）
-      expect(rolled).toBe("0014_dispatch_policy");
+      // 最后一条迁移是 0015_reconciliation（W17）
+      expect(rolled).toBe("0015_reconciliation");
 
-      // 回滚后 dispatch_policy/dispatch_decision 表应不存在
-      const result = await sql`SELECT to_regclass('public.dispatch_policy') AS reg`.execute(db);
+      // 回滚后 reconciliation_run/reconciliation_discrepancy 表应不存在
+      const result = await sql`SELECT to_regclass('public.reconciliation_run') AS reg`.execute(db);
       const reg = (result.rows[0] as { reg: string | null }).reg;
       expect(reg).toBeNull();
     } finally {
@@ -65,9 +65,9 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     const db = createKysely(pg.connectionString);
     try {
       const executed = await migrateToLatest(db);
-      expect(executed).toContain("0014_dispatch_policy");
+      expect(executed).toContain("0015_reconciliation");
 
-      const result = await sql`SELECT to_regclass('public.dispatch_policy') AS reg`.execute(db);
+      const result = await sql`SELECT to_regclass('public.reconciliation_run') AS reg`.execute(db);
       const reg = (result.rows[0] as { reg: string | null }).reg;
       expect(reg).not.toBeNull();
     } finally {
