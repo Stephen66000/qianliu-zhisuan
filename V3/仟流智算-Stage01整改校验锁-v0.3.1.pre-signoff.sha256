@@ -1,0 +1,23 @@
+# PRE-SIGNOFF：三方 SOP 审核文档整改后的校验锁；WT-01～20 尚未由佳哥签字，不得用于正式独立评审。
+# WT 签字后必须重新计算全部哈希并生成 仟流智算-Stage01评审候选锁-v0.3.1.sha256。
+146d97ba3a20c41c823c7c0738bc851e4e784d5f35448993f6040ee42a13786a  V3/仟流智算-产品需求文档-v0.3.md
+217a0fe38d8ea119577af0ad86106617b8eed20cfd9fb9f51837ed321655623c  V3/仟流智算-技术需求文档-v0.3.md
+0bde5d9c2cde22905f22a328ee3ded8ad5260684691ec8a4855da2c912b58f48  V3/仟流智算-开发规划-v0.3.md
+b147c9f6308d2579cb46b1b8de65ba0b8bfc19449b184bf5faa3f880a38325c2  V3/仟流智算-产品架构图-v0.3.html
+d4729aa78e3058885c586b61abcfbe90efae292fe0ec38e60b9d2f1a53a86525  原型/V3/仟流智算-原型-v4.html
+75b77543401af92804298c8aee3bac9b31c0c6192399d1d930558cbb4ea3e499  原型/V3/仟流智算-WT01-WT20逐项签字走查-v0.3.md
+dbfdd03f0fdd7dba35e1e396f0dfbec61a79fd6254a4ba7febc8903542f13edd  V3/PoC/POC-01-北向客户端兼容-Evidence.md
+3c3781c949c0ece51b816617feb29ce911a85b9a4ca957e39683f4f9b2af74aa  V3/PoC/POC-02-三类上游-Evidence.md
+4408d4d0406503db7b2741855a3ff3df25d9dfdc6b03b839a248dddaa608e987  V3/PoC/POC-02-既有结论继承记录-v0.3.md
+3247b91dccf935ed63968462b5f7846cb951653f0e40512cde0e18ff189b1ed7  V3/PoC/POC-03-计量闭环-Evidence.md
+bef80ea4a22c7490ce036760e5ef3072e31953ce4a9a79e1d1ed2cf6dd0cc9b5  V3/PoC/POC-04-Gateway基线对照-Evidence.md
+46a5da18dc76014e4fe35700474f9ec278a8c01c342e087df80d29a885912dc2  V3/ADR-GATEWAY-BASELINE.md
+23720cf9d2e87686d9c5ff1efed4c641a272868103c16ac7357146d3c7a30251  V3/第三方源码来源与许可证清单-v0.3.md
+62022ec30037dedcda59b88895273aa4d4fc2fb53e7fa0e2b1ae0be398911754  V3/仟流智算-stage-state-v0.3.yaml
+1a334ccf10cef2da9c4ff55acde32384d74e48fb3a54dadc0cbd924270e5e3ea  V3/仟流智算-Stage01方案准备进度图-v0.3.html
+1cfa02dc0f5b970e8c17c6ea00eacb5342c21a7650879755cf3ca5c04780886a  V3/仟流智算-项目工程规则-v0.3.md
+cc828fbcea2685898e96fc78e0939a2b4b85b5a3b9d2554a625ebe3ff6b55348  V3/Planning-Change-Log.md
+d0bc2177da9dbff523ba41c058d438c506b4d3d23f1268c9b23a3449740a219c  V3/仟流智算-Stage01审核依据与来源-v0.3.1.md
+c9bfbb4cfe8f5ab6c33bad923a5bfd7fee11abe3d09bc518f216f5e30efbfb44  V3/tools/render-stage01-progress.rb
+1ddafaa199cbfae8ce361576c7223d1cadd2a92803ec81edd39470c6b1eaaee8  仟流智算-Stage01-SOP合规审核报告-20260726.md
+48d3a0dcd28920479724b6bebd4071f1fc578b1f00b050aa43876cdf68ea052b  /Users/mac/Documents/AI专区/仟流 规范与体系/编程规范/仟流AI开发SOP/01-方案准备-v1.0.md

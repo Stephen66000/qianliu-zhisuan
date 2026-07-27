@@ -1,0 +1,32 @@
+{
+  "name": "@qianliu/gateway",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node --import tsx src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "test:integration": "vitest run --config ../../vitest.config.ts --dir src/__tests-integration__",
+    "test:e2e": "echo 'gateway e2e deferred to M2' && exit 0"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.9.0",
+    "@qianliu/config": "workspace:*",
+    "@qianliu/contracts": "workspace:*",
+    "@qianliu/database": "workspace:*",
+    "@qianliu/domain": "workspace:*",
+    "@qianliu/observability": "workspace:*",
+    "@qianliu/provider-adapters": "workspace:*",
+    "fastify": "5.6.1",
+    "undici": "7.16.0",
+    "zod": "4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.10",
+    "tsx": "4.19.2"
+  }
+}

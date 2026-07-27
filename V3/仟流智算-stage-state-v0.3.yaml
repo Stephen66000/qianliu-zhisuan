@@ -1,0 +1,110 @@
+schema_version: "1.0"
+project: "仟流智算"
+product_name: "仟流智算"
+product_version: "v0.3"
+plan_version: "v0.3.1"
+updated_at: "2026-07-27T08:35:00+08:00"
+product_owner: "佳哥"
+tech_owner: "佳哥"
+
+stage:
+  id: "STAGE-01"
+  name: "方案准备"
+  status: "DONE"
+  review_status: "OWNER_APPROVED"
+  review_recommendation: "NOT_READY"
+  review_conclusion: null
+  review_file: "V3/仟流智算-Stage01方案准备评审-v0.3.md"
+  owner_decision: "OWNER_APPROVED"
+  owner_decision_file: "V3/仟流智算-Stage01-Owner最终放行决定-v0.3.3.md"
+  process_model: "DUAL_AI_REVIEW_OWNER_GATE"
+  sop_compliance: "COMPLIANT_WITH_SOP_3.2.1"
+  historical_waiver_file: "V3/仟流智算-Stage01独立性门禁豁免决定-v0.3.2.md"
+  seal_file: "V3/仟流智算-Stage01封板锁-v0.3.3.owner-approved.sha256"
+  external_audit: "NOT_READY"
+  external_audit_file: "仟流智算-Stage01-SOP合规审核报告-20260726.md"
+
+handoff:
+  target_stage: "STAGE-03"
+  target_name: "开发执行"
+  status: "OWNER_APPROVED"
+  review_status: "AUDIT_COMPLETE"
+  review_recommendation: "NOT_READY"
+  review_conclusion: "NOT_READY_RECORDED_OWNER_APPROVED"
+  owner_decision: "OWNER_APPROVED"
+  owner_decision_file: "V3/仟流智算-Stage02-Owner最终放行决定-v0.3.3.md"
+  review_file: "V3/仟流智算-Stage02开发执行就绪评审-v0.3.md"
+  review_task: "V3/仟流智算-Stage02独立评审任务书-v0.3.1.md"
+  review_report: "仟流智算-Stage02-SOP合规审核报告-20260727.md"
+  audited_candidate_lock: "V3/仟流智算-Stage02评审候选锁-v0.3.2.sha256"
+  candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
+  owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
+  current_milestone: "M1"
+  current_work_package: "W01"
+  current_owner: "佳哥"
+  risk: "HIGH"
+  risk_basis:
+    - "Stage 01 已按双 AI 审核与 Owner 放行流程完成，审核建议和 Owner 决定必须分别保留"
+    - "Stage 02 已由 Owner 放行，审核 NOT_READY 建议作为 Evidence 保留"
+    - "POC-02 为 OWNER_ATTESTED_LEGACY_RESULT，真实上线前仍需对应 Provider 回归"
+    - "Stage 03 计划涉及认证、密钥、协议、账本、隐私和外部源码边界"
+    - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
+
+next_action:
+  id: "STAGE03-W01"
+  text: "W01 建立 Git 工程基线与正式工程命令，按 Local First 初始化；不 push 远程。"
+  owner: "佳哥（AI 执行）"
+  evidence_target: "V3/仟流智算-详细开发计划与排期-v0.3.md"
+
+allowed_actions:
+  - "进入 Stage 03 并从 W01 开始执行产品编码"
+  - "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29"
+  - "W01 在 Local First 下初始化 Git 仓库并做本地 commit"
+  - "离线 Adapter 契约与故障夹具可在无真实凭证下开发"
+  - "执行 M1～M7 中间 Audit 与最终 Audit，结果落入 Evidence"
+  - "由主 AI 验证 Stage 01／02 封板锁"
+  - "若 Owner 退回，只针对明确问题做 Planning 精准修正并重新锁定"
+
+forbidden_actions:
+  - "把审核 AI 的 NOT_READY 建议改写成 READY 或其他三态值"
+  - "在 M7 最终候选锁定前修改技术栈、依赖版本或核心架构合同"
+  - "未经佳哥显式授权执行 commit 到远程、push、PR、merge 或对外发布"
+  - "复制 TokenHub 或 Sub2API 源码进入产品目录"
+  - "将真实 Secret、请求正文或生产数据写入仓库、日志、数据库、Redis 或 Trace"
+  - "把 DEP-PROVIDER-CREDENTIALS 未达成伪装成 W06/W09/W10 真实上线签字"
+  - "把 DEP-WINDOWS 未达成伪装成 W22 真机证据或 M6 最终签字"
+  - "把 DEP-DEPLOYMENT 未达成伪装成 W24 部署证据或 M7 发布"
+  - "把无 Windows 真机、无真实凭证、无正式域名伪装成 AI 编程工时阻塞"
+  - "使用真实生产流量或真实扣费"
+
+blockers: []
+conditional_dependencies:
+  - id: "DEP-PROVIDER-CREDENTIALS"
+    blocks: ["W06真实上线签字", "W09真实上线签字", "W10真实上线签字"]
+    does_not_block: ["W01-W05", "离线Adapter契约开发", "其他Provider工作"]
+    owner: "佳哥"
+  - id: "DEP-WINDOWS"
+    blocks: ["W22", "M6最终签字"]
+    does_not_block: ["M1-M5"]
+    owner: "佳哥"
+  - id: "DEP-DEPLOYMENT"
+    blocks: ["W24", "M7发布"]
+    due: "质量候选完成后、外部发布前"
+    owner: "佳哥"
+
+authoritative_files:
+  product: "V3/仟流智算-产品需求文档-v0.3.md"
+  technical: "V3/仟流智算-技术需求文档-v0.3.md"
+  initiation_baseline: "V3/仟流智算-开发规划-v0.3.md"
+  stage02_plan_candidate: "V3/仟流智算-详细开发计划与排期-v0.3.md"
+  stage02_engineering_rules_candidate: "V3/仟流智算-项目工程规则-v0.3.md"
+  progress: "V3/仟流智算-Stage01方案准备进度图-v0.3.html"
+  stage02_progress: "V3/仟流智算-Stage02开发计划进度图-v0.3.html"
+  planning_change: "V3/Planning-Change-Log.md"
+
+progress_update_rule: "阶段事实只修改本 YAML；随后分别运行 V3/tools/render-stage01-progress.rb 和 V3/tools/render-stage02-progress.rb 生成 HTML 快照，禁止手工双写阶段状态。"
+recheck_triggers:
+  - "Stage 01 或 Stage 02 当前候选锁校验失败"
+  - "Owner 决定后候选内容发生变化"
+  - "发现 Stage 01 或 Stage 02 阻断性 Evidence Gap"
+  - "目标、范围、安全、关键依赖、验收或真实业务周期发生实质变化"

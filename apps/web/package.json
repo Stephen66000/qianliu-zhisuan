@@ -1,0 +1,27 @@
+{
+  "name": "@qianliu/web",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "test:integration": "echo 'web integration deferred' && exit 0",
+    "test:e2e": "echo 'web e2e deferred to M5 (Playwright)' && exit 0"
+  },
+  "dependencies": {
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "zod": "4.1.11"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.1",
+    "@types/react-dom": "19.1.1",
+    "@vitejs/plugin-react": "4.3.4",
+    "vite": "7.1.7"
+  }
+}

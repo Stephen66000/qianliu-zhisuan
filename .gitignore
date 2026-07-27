@@ -1,0 +1,52 @@
+# === 仟流智算 .gitignore（W01）===
+# 工程规则 §5/§9：真实 Secret、正文、个人数据、生产快照不得进入仓库。
+
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# 运行时与缓存
+.runtime/
+.cache/
+*.log
+
+# 环境变量（含真实 Secret，绝不进仓库）
+.env
+.env.*
+!.env.example
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# 编辑器与系统
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.json.example
+*.swp
+*~
+
+# === 外部源码与旧版本（ADR 行 34：不复制 TokenHub/Sub2API 进产品目录）===
+参考/
+old version/
+
+# === 知识库运行期产物 ===
+_knowledge_base/.runtime/
+
+# === PoC 运行期产物（PoC 仅作 Evidence/行为对照，非产品源码）===
+V3/PoC/**/.runtime/
+V3/PoC/**/node_modules/
+V3/PoC/**/.env
+
+# === Evidence 运行期临时产物（Evidence 文档本身进仓库）===
+V3/Evidence/**/*.tmp
+.corepack-bin/
+.zcode/

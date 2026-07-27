@@ -1,0 +1,17 @@
+# FORMAL REVIEW CANDIDATE：Stage 01 Owner 封板后重新冻结的 Stage 02 v0.3.2 评审候选；15/15 已机械验证。
+# Reviewer 应先验证本锁；任一受审文件发生字节变化，本锁立即失效，必须重新计算。
+47df2764799712504365204ffed3e72ed5733b35ba1f5d2f8dcfc517065894eb  V3/仟流智算-Stage01封板锁-v0.3.2.owner-waiver.sha256
+61ac7f012a5b9c93e31955fe51f2f0fc121a576ca3a0e769760adad6d2ee9f3c  V3/仟流智算-Stage01独立性门禁豁免决定-v0.3.2.md
+3497005d1b9e37668a57d1d9b5f45b02849646c4c877b259a19665890f6b4b59  V3/仟流智算-Stage01方案准备评审-v0.3.md
+146d97ba3a20c41c823c7c0738bc851e4e784d5f35448993f6040ee42a13786a  V3/仟流智算-产品需求文档-v0.3.md
+217a0fe38d8ea119577af0ad86106617b8eed20cfd9fb9f51837ed321655623c  V3/仟流智算-技术需求文档-v0.3.md
+9b35f00cf07f37cbf7934dbdd505773407c805ff701136bdf891c3d84de886fc  V3/仟流智算-详细开发计划与排期-v0.3.md
+2b0903f75d43f7397ea1a9345e55a506af78e307fbe901b055326e94d28f3b80  V3/仟流智算-项目工程规则-v0.3.md
+5993e327704826765d903218eee0dc196d79f560a384bd587fed0fd6030543c8  V3/仟流智算-stage-state-v0.3.yaml
+10851a395bc9457b02254faa149277b924df2eb48c7bb8f3d3e7719348c52dc9  V3/仟流智算-Stage02开发计划进度图-v0.3.html
+20f44a050e2e5e605e86f9ae84ae11d64141f959af636d0333966048f41ebe33  V3/仟流智算-Stage02校验记录-v0.3.md
+169fa582cd6b0a13bcd06eefbd2337485886981083ca7239a1a8b7b795cc95f3  V3/Planning-Change-Log.md
+53e7ca3b66077a375a8b9e97580c0c2bba04125512f2f3a721e68572aa5a1368  V3/仟流智算-Stage02独立评审任务书-v0.3.1.md
+39d79c7d9c178923d1888460c99e3cc08b495e4682c52d3594e563cf4ff43605  V3/仟流智算-Stage02开发执行就绪评审-v0.3.md
+6ea8dd64afe13ab49757791a05e09877ab394110aa692505afeec408dd82a1c0  /Users/mac/Documents/AI专区/仟流 规范与体系/编程规范/仟流AI开发SOP/02-开发计划-v1.0.md
+03adeecbc72a7b2bd7862f70beb64a2283e5e523405006c6b91e758672eef236  /Users/mac/Documents/AI专区/仟流 规范与体系/编程规范/仟流AI开发SOP/仟流AI开发SOP-v1.0.md

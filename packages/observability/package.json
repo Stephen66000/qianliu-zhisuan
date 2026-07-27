@@ -1,0 +1,29 @@
+{
+  "name": "@qianliu/observability",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "test:integration": "vitest run --config ../../vitest.config.ts --dir src/__tests-integration__",
+    "test:e2e": "echo 'no e2e tests in observability' && exit 0",
+    "evidence:canary": "tsx src/cli/evidence-canary.ts"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.9.0",
+    "@opentelemetry/sdk-trace-base": "2.0.1",
+    "@qianliu/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "11.6.0",
+    "@testcontainers/redis": "11.6.0",
+    "redis": "5.8.2",
+    "testcontainers": "11.6.0",
+    "tsx": "4.19.2"
+  }
+}

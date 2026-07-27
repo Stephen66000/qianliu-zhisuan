@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>仟流智算｜Stage 01 方案准备进度图</title>
+  <style>
+    :root {
+      --ink:#152238; --muted:#66758c; --paper:#f5f7fb; --card:#fff;
+      --line:#d5deea; --blue:#1769e0; --blue-soft:#eaf2ff;
+      --green:#087f5b; --green-soft:#e9f8f2; --amber:#9a5b00;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--paper); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1400px,calc(100% - 32px)); margin:28px auto 60px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { margin-bottom:6px; font-size:clamp(28px,4vw,44px); letter-spacing:-.04em; }
+    h2 { margin-bottom:12px; font-size:21px; }
+    header { display:flex; justify-content:space-between; gap:24px; align-items:end; }
+    .meta { color:var(--muted); text-align:right; }
+    .notice { margin:18px 0; padding:13px 16px; border-left:4px solid var(--amber); border-radius:8px; background:#fff4df; }
+    .summary { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .card,.group,.review { border:1px solid var(--line); border-radius:16px; background:var(--card); box-shadow:0 8px 24px rgba(24,42,70,.05); }
+    .card { padding:16px; }
+    .card span { display:block; color:var(--muted); font-size:12px; }
+    .card strong { display:block; margin-top:4px; font-size:24px; }
+    .groups { display:grid; gap:16px; margin-top:18px; }
+    .group { overflow:hidden; }
+    .group-head { display:flex; justify-content:space-between; gap:16px; padding:16px 18px; background:var(--blue-soft); }
+    .group-head h2 { margin:0; }
+    .group-head p { margin:3px 0 0; color:var(--muted); }
+    .progress { height:7px; background:#e3e9f2; }
+    .progress div { height:100%; background:var(--green); }
+    .items { display:grid; grid-template-columns:repeat(2,1fr); gap:0; margin:0; padding:0; list-style:none; }
+    .item { display:grid; grid-template-columns:64px 1fr auto; gap:12px; padding:13px 16px; border-top:1px solid var(--line); }
+    .item:nth-child(odd) { border-right:1px solid var(--line); }
+    .id { color:var(--blue); font-weight:800; }
+    .title { font-weight:700; }
+    .evidence { margin-top:4px; color:var(--muted); font-size:12px; }
+    .evidence a { color:var(--blue); text-decoration:none; }
+    .status { align-self:start; padding:4px 8px; border-radius:999px; color:var(--green); background:var(--green-soft); font-size:12px; font-weight:800; }
+    .status.blocked { color:#b42318; background:#fee4e2; }
+    .status.waiting_owner_signoff { color:#9a6700; background:#fff3c4; }
+    .status.not_due { color:var(--muted); background:#eef1f5; }
+    .status.cancelled { color:#9a6700; background:#fff3c4; }
+    .review { margin-top:18px; padding:20px; }
+    .review-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .review-grid div { padding:12px; border-radius:10px; background:#f7f9fc; }
+    .review-grid span { display:block; margin-bottom:4px; color:var(--muted); font-size:12px; }
+    .review-state { font-size:22px; font-weight:900; }
+    .review-state.pending { color:var(--amber); }
+    .review-state.approved { color:var(--green); }
+    .review-state.ready { color:var(--green); }
+    .review-state.not-ready { color:#b42318; }
+    footer { margin-top:18px; color:var(--muted); text-align:right; font-size:12px; }
+    @media (max-width:900px) {
+      header { display:block; } .meta { text-align:left; }
+      .summary,.review-grid,.items { grid-template-columns:1fr; }
+      .item:nth-child(odd) { border-right:0; }
+    }
+    @media print {
+      body { background:#fff; } main { width:100%; margin:0; }
+      .card,.group,.review { box-shadow:none; break-inside:avoid; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>仟流智算 · Stage 01 方案准备进度图</h1>
+      <p>依据《仟流 AI 开发 SOP v1.0》第一阶段 39 项检查合同</p>
+    </div>
+    <div class="meta">
+      <div>产品：<span id="product-name"></span> · 版本：<span id="product-version"></span></div>
+      <div>产品 Owner：<span id="product-owner"></span> · 技术 Owner：<span id="tech-owner"></span></div>
+      <div>状态源更新：<span id="updated-at"></span></div>
+    </div>
+  </header>
+
+  <div class="notice">
+    <strong>口径说明：</strong>Stage 01 已完成 Claude 独立审核、主 AI 整改和 Owner 最终放行。审核建议与 Owner 决定分别保留；当前只开放 Stage 02 Owner 决策，不授权开发。
+  </div>
+
+  <section class="summary">
+    <article class="card"><span>阶段状态</span><strong id="stage-state"></strong></article>
+    <article class="card"><span>总进度</span><strong id="overall"></strong></article>
+    <article class="card"><span>P0/P1 阻塞</span><strong id="blockers"></strong></article>
+    <article class="card"><span>唯一下一步</span><strong style="font-size:16px" id="next-action"></strong></article>
+  </section>
+
+  <div id="groups" class="groups"></div>
+
+  <section class="review">
+    <h2>阶段退出评审</h2>
+    <div class="review-grid">
+      <div><span>结论</span><b class="review-state" id="review-status"></b></div>
+      <div><span>允许动作</span><b id="allowed"></b></div>
+      <div><span>禁止动作</span><b id="forbidden"></b></div>
+      <div><span>复查触发点</span><b id="trigger"></b></div>
+    </div>
+  </section>
+
+  <footer>阶段级事实唯一来源：<code>V3/仟流智算-stage-state-v0.3.yaml</code>（SHA-256：<span id="source-hash"></span>）；本 HTML 是生成快照，每个 done 项均绑定 Evidence。</footer>
+</main>
+
+<script type="application/json" id="stage-state-snapshot">
+{
+  "source": "V3/仟流智算-stage-state-v0.3.yaml",
+  "sourceSha256": "c227b9330db03a1694452565d8eba09bce0056c62a4810a3aa42927ea3cd2396",
+  "projectName": "仟流智算",
+  "productName": "仟流智算",
+  "projectVersion": "v0.3",
+  "productOwner": "佳哥",
+  "techOwner": "佳哥",
+  "updatedAt": "2026-07-27T08:35:00+08:00",
+  "stage": {
+    "id": "STAGE-01",
+    "name": "方案准备",
+    "status": "DONE",
+    "review_status": "OWNER_APPROVED",
+    "review_recommendation": "NOT_READY",
+    "review_conclusion": null,
+    "review_file": "V3/仟流智算-Stage01方案准备评审-v0.3.md",
+    "owner_decision": "OWNER_APPROVED",
+    "owner_decision_file": "V3/仟流智算-Stage01-Owner最终放行决定-v0.3.3.md",
+    "process_model": "DUAL_AI_REVIEW_OWNER_GATE",
+    "sop_compliance": "COMPLIANT_WITH_SOP_3.2.1",
+    "historical_waiver_file": "V3/仟流智算-Stage01独立性门禁豁免决定-v0.3.2.md",
+    "seal_file": "V3/仟流智算-Stage01封板锁-v0.3.3.owner-approved.sha256",
+    "external_audit": "NOT_READY",
+    "external_audit_file": "仟流智算-Stage01-SOP合规审核报告-20260726.md"
+  },
+  "nextAction": {
+    "id": "STAGE03-W01",
+    "text": "W01 建立 Git 工程基线与正式工程命令，按 Local First 初始化；不 push 远程。",
+    "owner": "佳哥（AI 执行）",
+    "evidence_target": "V3/仟流智算-详细开发计划与排期-v0.3.md"
+  },
+  "allowedActions": [
+    "进入 Stage 03 并从 W01 开始执行产品编码",
+    "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",
+    "W01 在 Local First 下初始化 Git 仓库并做本地 commit",
+    "离线 Adapter 契约与故障夹具可在无真实凭证下开发",
+    "执行 M1～M7 中间 Audit 与最终 Audit，结果落入 Evidence",
+    "由主 AI 验证 Stage 01／02 封板锁",
+    "若 Owner 退回，只针对明确问题做 Planning 精准修正并重新锁定"
+  ],
+  "forbiddenActions": [
+    "把审核 AI 的 NOT_READY 建议改写成 READY 或其他三态值",
+    "在 M7 最终候选锁定前修改技术栈、依赖版本或核心架构合同",
+    "未经佳哥显式授权执行 commit 到远程、push、PR、merge 或对外发布",
+    "复制 TokenHub 或 Sub2API 源码进入产品目录",
+    "将真实 Secret、请求正文或生产数据写入仓库、日志、数据库、Redis 或 Trace",
+    "把 DEP-PROVIDER-CREDENTIALS 未达成伪装成 W06/W09/W10 真实上线签字",
+    "把 DEP-WINDOWS 未达成伪装成 W22 真机证据或 M6 最终签字",
+    "把 DEP-DEPLOYMENT 未达成伪装成 W24 部署证据或 M7 发布",
+    "把无 Windows 真机、无真实凭证、无正式域名伪装成 AI 编程工时阻塞",
+    "使用真实生产流量或真实扣费"
+  ],
+  "blockers": [
+
+  ],
+  "recheckTriggers": [
+    "Stage 01 或 Stage 02 当前候选锁校验失败",
+    "Owner 决定后候选内容发生变化",
+    "发现 Stage 01 或 Stage 02 阻断性 Evidence Gap",
+    "目标、范围、安全、关键依赖、验收或真实业务周期发生实质变化"
+  ]
+}
+</script>
+<script>
+  const STATE_SNAPSHOT = JSON.parse(document.getElementById("stage-state-snapshot").textContent);
+  const evidence = {
+    prd: [{label:"PRD v0.3",href:"./仟流智算-产品需求文档-v0.3.md"}],
+    trd: [{label:"TRD v0.3",href:"./仟流智算-技术需求文档-v0.3.md"}],
+    plan: [{label:"开发规划 v0.3",href:"./仟流智算-开发规划-v0.3.md"}],
+    architecture: [{label:"产品架构图 v0.3",href:"./仟流智算-产品架构图-v0.3.html"}],
+    prototype: [{label:"V4 原型",href:"../原型/V3/仟流智算-原型-v4.html"}],
+    walkthrough: [{label:"WT-01～20 走查",href:"../原型/V3/仟流智算-WT01-WT20逐项签字走查-v0.3.md"}],
+    poc: [
+      {label:"POC-01",href:"./PoC/POC-01-北向客户端兼容-Evidence.md"},
+      {label:"POC-02",href:"./PoC/POC-02-三类上游-Evidence.md"},
+      {label:"POC-03",href:"./PoC/POC-03-计量闭环-Evidence.md"},
+      {label:"POC-04",href:"./PoC/POC-04-Gateway基线对照-Evidence.md"}
+    ],
+    adr: [
+      {label:"Gateway ADR",href:"./ADR-GATEWAY-BASELINE.md"},
+      {label:"来源清单",href:"./第三方源码来源与许可证清单-v0.3.md"}
+    ],
+    review: [{label:"Stage 01 评审",href:"./仟流智算-Stage01方案准备评审-v0.3.md"}],
+    audit: [
+      {label:"三方 SOP 审核",href:"../仟流智算-Stage01-SOP合规审核报告-20260726.md"},
+      {label:"审核依据与来源",href:"./仟流智算-Stage01审核依据与来源-v0.3.1.md"},
+      {label:"Owner 原始决定",href:"./仟流智算-Stage01独立性门禁豁免决定-v0.3.2.md"},
+      {label:"Owner 最终放行决定",href:"./仟流智算-Stage01-Owner最终放行决定-v0.3.3.md"}
+    ],
+    progress: [{label:"本进度图",href:"./仟流智算-Stage01方案准备进度图-v0.3.html"}]
+  };
+  const item = (id,title,links,note="",status="done",owner="佳哥",severity=null) => ({id,title,status,owner,severity,evidence:links,note});
+  const STAGE_DATA = {
+    meta: {
+      sopVersion:"v1.0",
+      projectName:STATE_SNAPSHOT.projectName,
+      productName:STATE_SNAPSHOT.productName,
+      projectVersion:STATE_SNAPSHOT.projectVersion,
+      productOwner:STATE_SNAPSHOT.productOwner,
+      techOwner:STATE_SNAPSHOT.techOwner,
+      stageState:STATE_SNAPSHOT.stage.status.toLowerCase(),
+      stageStateText:STATE_SNAPSHOT.stage.status === "DONE" && STATE_SNAPSHOT.stage.owner_decision === "OWNER_APPROVED"
+        ? "DONE · Owner 最终放行"
+        : `${STATE_SNAPSHOT.stage.status} · 验证中`,
+      nextAction:STATE_SNAPSHOT.nextAction.text,
+      nextActionOwner:STATE_SNAPSHOT.nextAction.owner,
+      updatedAt:STATE_SNAPSHOT.updatedAt,
+      authoritativeStateSource:STATE_SNAPSHOT.source,
+      sourceSha256:STATE_SNAPSHOT.sourceSha256,
+      generatedProjection:true
+    },
+    review: {
+      status:STATE_SNAPSHOT.stage.review_status === "OWNER_APPROVED"
+        ? "OWNER_APPROVED"
+        : STATE_SNAPSHOT.stage.review_conclusion ?? `待签发（${STATE_SNAPSHOT.stage.review_status}）`,
+      externalAudit:STATE_SNAPSHOT.stage.external_audit,
+      allowedAction:STATE_SNAPSHOT.allowedActions.join("；"),
+      forbiddenAction:STATE_SNAPSHOT.forbiddenActions.join("；"),
+      revisitTrigger:STATE_SNAPSHOT.recheckTriggers.join("；")
+    },
+    blockers: STATE_SNAPSHOT.blockers,
+    groups: [
+      {id:"G1",title:"立项与目标",description:"为什么做、为谁做、当前版本解决什么。",items:[
+        item("SP-01","项目、产品与版本身份",evidence.prd),
+        item("SP-02","真实业务问题",evidence.prd),
+        item("SP-03","目标用户与关键责任人",evidence.prd),
+        item("SP-04","业务价值与成功标准",evidence.prd),
+        item("SP-05","当前版本目标",evidence.prd),
+        item("SP-06","范围与非目标",evidence.prd),
+        item("SP-07","资源、依赖与初步约束",evidence.plan)
+      ]},
+      {id:"G2",title:"产品方案",description:"把目标转成可走查的场景、流程、需求与原型。",items:[
+        item("SP-08","PRD 主线",evidence.prd),
+        item("SP-09","角色与关键使用场景",evidence.prd),
+        item("SP-10","端到端业务流程",evidence.architecture),
+        item("SP-11","需求范围与优先级",evidence.prd),
+        item("SP-12","产品原型覆盖",evidence.prototype),
+        item("SP-13","真实原型走查",evidence.walkthrough,"佳哥已按产品／业务／技术三角色逐项签署 WT-01～20 全部 PASS","done","佳哥"),
+        item("SP-14","空、错、拒绝和恢复状态",[...evidence.prd,...evidence.prototype]),
+        item("SP-15","验收意图",[...evidence.prd,...evidence.walkthrough])
+      ]},
+      {id:"G3",title:"技术方案",description:"在真实技术边界内解释产品主线怎样落地。",items:[
+        item("SP-16","TRD 主线",evidence.trd),
+        item("SP-17","产品与技术架构",[...evidence.architecture,...evidence.trd]),
+        item("SP-18","真实入口与调用链",[...evidence.architecture,...evidence.trd]),
+        item("SP-19","数据模型与事实源",evidence.trd),
+        item("SP-20","接口、协议与兼容边界",evidence.trd),
+        item("SP-21","身份、权限、租户与数据安全",evidence.trd),
+        item("SP-22","状态、副作用与幂等",[...evidence.trd,...evidence.poc.slice(2,3)]),
+        item("SP-23","失败、恢复与回滚",evidence.trd),
+        item("SP-24","NFR 与运行约束",evidence.trd)
+      ]},
+      {id:"G4",title:"可行性、PoC 与风险",description:"只验证会改变产品、架构、成本或交付判断的未知项。",items:[
+        item("SP-25","关键不确定性清单",evidence.trd),
+        item("SP-26","PoC 必要性决策",evidence.trd),
+        item("SP-27","必要 PoC 真实执行",evidence.poc),
+        item("SP-28","PoC 结论进入方案",[...evidence.poc,...evidence.trd]),
+        item("SP-29","风险、Owner 与退出条件",[...evidence.plan,...evidence.review]),
+        item("SP-30","外部依赖与替代路径",evidence.adr)
+      ]},
+      {id:"G5",title:"基线一致性与阶段退出",description:"把产品、技术和立项成果收敛为可进入开发计划的版本基线。",items:[
+        item("SP-31","产品方案基线",[...evidence.prd,...evidence.architecture]),
+        item("SP-32","技术方案基线",[...evidence.trd,...evidence.adr]),
+        item("SP-33","立项与版本基线",[...evidence.prd,...evidence.plan]),
+        item("SP-34","产品、技术与原型一致性",[...evidence.review,...evidence.walkthrough]),
+        item("SP-35","初始验收矩阵",[...evidence.prd,...evidence.plan]),
+        item("SP-39","真实业务周期定义",evidence.prd),
+        item("SP-36","阶段就绪评审输入",[...evidence.review,...evidence.progress]),
+        item("SP-37","产品与技术方案独立审核",[...evidence.review,...evidence.audit],"Claude 输出独立审核报告；主 AI 完成整改；审核建议保持原样","done","Claude／佳哥"),
+        item("SP-38","Owner 最终决定与下一步授权",[...evidence.review,...evidence.progress],"Owner 放行 Stage 01，只开放 Stage 02，不授权开发","done","佳哥／Planning")
+      ]}
+    ]
+  };
+
+  const esc = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  const statusLabels = {
+    done: "✓ 已完成",
+    waiting_owner_signoff: "待 Owner 签字",
+    blocked: "阻断",
+    cancelled: "已取消（有 PC）",
+    verifying: "验证中",
+    not_due: "NOT_DUE"
+  };
+  const allItems = STAGE_DATA.groups.flatMap(group => group.items);
+  const closedStatuses = new Set(["done","cancelled","not_applicable"]);
+  const done = allItems.filter(entry => closedStatuses.has(entry.status) && entry.evidence.length).length;
+  document.getElementById("product-name").textContent = STAGE_DATA.meta.productName;
+  document.getElementById("product-version").textContent = STAGE_DATA.meta.projectVersion;
+  document.getElementById("product-owner").textContent = STAGE_DATA.meta.productOwner;
+  document.getElementById("tech-owner").textContent = STAGE_DATA.meta.techOwner;
+  document.getElementById("updated-at").textContent = STAGE_DATA.meta.updatedAt;
+  document.getElementById("source-hash").textContent = STAGE_DATA.meta.sourceSha256;
+  document.getElementById("stage-state").textContent = STAGE_DATA.meta.stageStateText;
+  document.getElementById("overall").textContent = `${done} / ${allItems.length}`;
+  document.getElementById("blockers").textContent = `${STAGE_DATA.blockers.filter(entry => ["P0","P1"].includes(entry.severity)).length} 项`;
+  document.getElementById("next-action").textContent = STAGE_DATA.meta.nextAction;
+  const reviewStatus = document.getElementById("review-status");
+  reviewStatus.textContent = STAGE_DATA.review.status;
+  reviewStatus.classList.add(
+    STATE_SNAPSHOT.stage.review_status === "OWNER_APPROVED"
+      ? "approved"
+      : STATE_SNAPSHOT.stage.review_conclusion === "READY" || STATE_SNAPSHOT.stage.review_conclusion === "READY_WITH_ACTIONS"
+      ? "ready"
+      : STATE_SNAPSHOT.stage.review_conclusion === "NOT_READY"
+        ? "not-ready"
+        : "pending"
+  );
+  document.getElementById("allowed").textContent = STAGE_DATA.review.allowedAction;
+  document.getElementById("forbidden").textContent = STAGE_DATA.review.forbiddenAction;
+  document.getElementById("trigger").textContent = STAGE_DATA.review.revisitTrigger;
+
+  document.getElementById("groups").innerHTML = STAGE_DATA.groups.map(group => {
+    const closed = group.items.filter(entry => closedStatuses.has(entry.status) && entry.evidence.length).length;
+    const percent = Math.round(closed / group.items.length * 100);
+    const rows = group.items.map(entry => `
+      <li class="item">
+        <div class="id">${esc(entry.id)}</div>
+        <div>
+          <div class="title">${esc(entry.title)}</div>
+          <div class="evidence">Owner：${esc(entry.owner)} · Evidence：${
+            entry.evidence.map(link => `<a href="${esc(link.href)}">${esc(link.label)}</a>`).join(" · ")
+          }</div>
+        </div>
+        <div class="status ${esc(entry.status)}">${esc(statusLabels[entry.status] ?? entry.status)}</div>
+      </li>`).join("");
+    return `
+      <section class="group">
+        <div class="group-head">
+          <div><h2>${esc(group.id)} · ${esc(group.title)}</h2><p>${esc(group.description)}</p></div>
+          <strong>${closed} / ${group.items.length}</strong>
+        </div>
+        <div class="progress"><div style="width:${percent}%"></div></div>
+        <ol class="items">${rows}</ol>
+      </section>`;
+  }).join("");
+</script>
+</body>
+</html>

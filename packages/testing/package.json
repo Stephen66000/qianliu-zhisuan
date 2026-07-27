@@ -1,0 +1,24 @@
+{
+  "name": "@qianliu/testing",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "test": "echo 'testing package has no own tests' && exit 0",
+    "test:integration": "echo 'no integration tests in testing' && exit 0",
+    "test:e2e": "echo 'no e2e tests in testing' && exit 0"
+  },
+  "dependencies": {
+    "@testcontainers/postgresql": "11.6.0",
+    "@testcontainers/redis": "11.6.0",
+    "kysely": "0.28.7",
+    "pg": "8.16.3",
+    "redis": "5.8.2",
+    "testcontainers": "11.6.0"
+  }
+}

@@ -1,0 +1,18 @@
+# OWNER-DECISION CANDIDATE：ZCode 独立审核有效问题整改后的 Stage 02 v0.3.3 候选；16/16 已机械验证。
+# 本锁供 Owner 核对并作最终阶段决定；任一受审文件发生字节变化，本锁立即失效。
+d61f29a86227beced6c25ce36e28ec37f01ae9448b76edac8dd96a359f37fab4  V3/仟流智算-Stage01封板锁-v0.3.3.owner-approved.sha256
+afeef67e2e78b6292db00688ad689ac26cf9414854ae6e85a8b4ef0231f2bb91  V3/仟流智算-Stage01-Owner最终放行决定-v0.3.3.md
+146d97ba3a20c41c823c7c0738bc851e4e784d5f35448993f6040ee42a13786a  V3/仟流智算-产品需求文档-v0.3.md
+217a0fe38d8ea119577af0ad86106617b8eed20cfd9fb9f51837ed321655623c  V3/仟流智算-技术需求文档-v0.3.md
+fca33cd5970b24acc0dcaf3257d3fd6fbb06d4c115ae3f93a3af22997bf0d8dd  V3/仟流智算-详细开发计划与排期-v0.3.md
+05487d90c3aef6f20df029f3951ebfcabe7936d2e01e7d819fc843fc725b4b0d  V3/仟流智算-项目工程规则-v0.3.md
+52d35383268c1d0c3c5f742d389cfa4cbed8c37b778bdb9f8e573b0d45b04948  V3/仟流智算-stage-state-v0.3.yaml
+a9fad893ed60b5d317fe71aa78629ba10a137931bda82ae1b79b9fd811e1ad8b  V3/仟流智算-Stage02开发计划进度图-v0.3.html
+0a5d3f6752aeea182dd66b9c38a0d6aff39777f47c0ac84b7121d7e71868dbef  V3/仟流智算-Stage02校验记录-v0.3.md
+f66ec60254efca4faef52e68ba99f84fd72ba147f01d63a09eb897ae57e8d53c  V3/Planning-Change-Log.md
+11dc1ff3c30adc41526b2b167db6ffebe286144eb577929c7a637cfcad358a69  V3/仟流智算-Stage02独立评审任务书-v0.3.1.md
+01badf17ee47ff0f0a9aba992ae5f143450aa5a2337310dfecf7faa0b47c1953  V3/仟流智算-Stage02开发执行就绪评审-v0.3.md
+b84c52d64f7a932f39fccb0aa00f5023d149fc4b8601232734f700f016eb7163  V3/tools/render-stage02-progress.rb
+e68dc428e87c7a4352c7c51a4d17b0b5f358b7530d4855d575c3c61bb3b2c584  仟流智算-Stage02-SOP合规审核报告-20260727.md
+1a7c0c9a46691e74f5f8f403efc2009564f9d615bf3a4eaee3746092804fb6b2  /Users/mac/Documents/AI专区/仟流 规范与体系/编程规范/仟流AI开发SOP/02-开发计划-v1.0.md
+68d271d591c538f9209728a1ca1e5b9fee6934f6e3940d29c5d8781640885bb1  /Users/mac/Documents/AI专区/仟流 规范与体系/编程规范/仟流AI开发SOP/仟流AI开发SOP-v1.0.md

@@ -1,0 +1,29 @@
+{
+  "name": "@qianliu/database",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "test:integration": "vitest run --config ../../vitest.config.ts src/__tests-integration__",
+    "test:e2e": "echo 'no e2e tests in database' && exit 0",
+    "db:migrate": "tsx src/cli/migrate.ts up",
+    "db:rollback": "tsx src/cli/migrate.ts down"
+  },
+  "dependencies": {
+    "kysely": "0.28.7",
+    "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "@qianliu/testing": "workspace:*",
+    "@testcontainers/postgresql": "11.6.0",
+    "@types/pg": "8.11.10",
+    "testcontainers": "11.6.0",
+    "tsx": "4.19.2"
+  }
+}

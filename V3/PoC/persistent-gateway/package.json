@@ -1,0 +1,19 @@
+{
+  "name": "@qianliu/zhisuan-persistent-gateway-poc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13 <27"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/integration.test.mjs",
+    "start": "node src/server.mjs"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.9.0",
+    "@opentelemetry/sdk-trace-base": "2.0.1",
+    "pg": "8.16.3",
+    "redis": "5.8.2"
+  }
+}

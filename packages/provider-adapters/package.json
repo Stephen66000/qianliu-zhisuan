@@ -1,0 +1,21 @@
+{
+  "name": "@qianliu/provider-adapters",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "test:integration": "vitest run --config ../../vitest.config.ts --dir src/__tests-integration__",
+    "test:e2e": "echo 'no e2e tests in provider-adapters' && exit 0"
+  },
+  "dependencies": {
+    "@qianliu/contracts": "workspace:*",
+    "@qianliu/domain": "workspace:*",
+    "undici": "7.16.0"
+  }
+}

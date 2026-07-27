@@ -1,0 +1,36 @@
+{
+  "name": "qianliu-zhisuan",
+  "version": "0.3.0",
+  "private": true,
+  "description": "仟流智算企业 AI Gateway 与桌面管理 Web（v0.3）",
+  "type": "module",
+  "engines": {
+    "node": ">=22.17 <23"
+  },
+  "packageManager": "pnpm@11.11.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "test:integration": "pnpm -r run test:integration",
+    "test:e2e": "pnpm -r run test:e2e",
+    "db:migrate": "pnpm --filter @qianliu/database run db:migrate",
+    "db:rollback": "pnpm --filter @qianliu/database run db:rollback",
+    "evidence:canary": "pnpm --filter @qianliu/observability run evidence:canary"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.18.0",
+    "@types/node": "22.10.10",
+    "@typescript-eslint/eslint-plugin": "8.20.0",
+    "@typescript-eslint/parser": "8.20.0",
+    "eslint": "9.18.0",
+    "eslint-plugin-react": "7.37.4",
+    "globals": "15.14.0",
+    "prettier": "3.4.2",
+    "tsx": "4.19.2",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  cpu-features: set this to true or false
+  esbuild: set this to true or false
+  protobufjs: set this to true or false
+  ssh2: set this to true or false
+
+# pnpm 11 起，构建脚本许可从 package.json 的 pnpm.onlyBuiltDependencies 迁移到此处。
+# 仅允许 esbuild（vite/vitest 运行依赖）；cpu-features/protobufjs/ssh2 为可选原生绑定，本地开发不需要。
+onlyBuiltDependencies:
+  - "esbuild"

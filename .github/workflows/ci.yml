@@ -1,0 +1,29 @@
+# 仟流智算 CI 骨架（W01）。
+# 依据：W01 DoD 含"基础 CI"。当前 Local First 期无远程仓库，本文件已就绪，push 启用时自动生效。
+# 完整 CI（含 Secrets 注入、Playwright、Testcontainers）推迟到 W24。
+name: ci
+
+on:
+  push:
+    branches: [main, "milestone/**", "wp/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.17.1"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.11.0"
+          run_install: false
+      - run: corepack pnpm@11.11.0 install --frozen-lockfile
+      - run: corepack pnpm@11.11.0 typecheck
+      - run: corepack pnpm@11.11.0 lint
+      - run: corepack pnpm@11.11.0 test
+      - run: corepack pnpm@11.11.0 evidence:canary

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>仟流智算 · Stage 02 开发计划进度图 v0.3</title>
+  <style>
+    :root{--ink:#172033;--muted:#657086;--line:#dce2ec;--bg:#f5f7fb;--card:#fff;--blue:#2267e8;--cyan:#13a8a8;--green:#15966b;--amber:#c98208;--red:#c84040;--shadow:0 10px 32px rgba(27,45,79,.08)}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+    a{color:inherit}.wrap{max-width:1440px;margin:auto;padding:28px}.hero{padding:30px;border-radius:24px;color:white;background:linear-gradient(125deg,#101d3b 0%,#183d7e 52%,#0d7777 100%);box-shadow:var(--shadow)}
+    .eyebrow{opacity:.72;letter-spacing:.13em;font-size:12px}.hero h1{margin:8px 0 4px;font-size:32px}.hero p{margin:0;color:#d7e2f7}.stages{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:24px}
+    .stage{padding:13px 15px;border:1px solid rgba(255,255,255,.25);border-radius:14px;background:rgba(255,255,255,.08)}.stage b{display:block}.stage.current{background:white;color:#173562}.stage small{opacity:.76}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}.card,.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+    .card{padding:18px}.label{color:var(--muted);font-size:12px}.value{font-size:25px;font-weight:760;margin-top:5px}.good{color:var(--green)}.warn{color:var(--amber)}.blue{color:var(--blue)}
+    .panel{padding:20px;margin:16px 0}.panel h2{margin:0 0 4px;font-size:19px}.note{margin:0 0 16px;color:var(--muted)}
+    .callout{display:flex;justify-content:space-between;gap:16px;padding:15px 17px;border-left:4px solid var(--blue);border-radius:12px;background:#eff5ff}.callout strong{display:block}.callout span{color:var(--muted)}
+    .timeline-head,.timeline-row{display:grid;grid-template-columns:165px 1fr 105px;gap:12px;align-items:center}.timeline-head{color:var(--muted);font-size:12px;margin-bottom:9px}.timeline-row{padding:9px 0;border-top:1px solid #edf0f5}
+    .track{height:28px;position:relative;border-radius:8px;background:repeating-linear-gradient(90deg,#f3f5f9 0,#f3f5f9 calc(20% - 1px),#dfe4ed calc(20% - 1px),#dfe4ed 20%)}
+    .bar{position:absolute;top:4px;height:20px;min-width:8px;border-radius:6px;background:linear-gradient(90deg,var(--blue),#6897f3);color:white;font-size:11px;white-space:nowrap;padding:2px 8px;overflow:hidden}.bar.high{background:linear-gradient(90deg,#b85d12,#e39a2f)}.bar.cycle{background:linear-gradient(90deg,var(--cyan),#59c4b8)}.bar.done{background:linear-gradient(90deg,var(--green),#4fc497)}
+    table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 9px;border-bottom:1px solid #e9edf3;vertical-align:top}th{font-size:12px;color:var(--muted);background:#f7f9fc;position:sticky;top:0}.table-wrap{overflow:auto;max-height:610px;border:1px solid var(--line);border-radius:12px}
+    .pill{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#edf2fa;color:#425169}.pill.high{background:#fff1df;color:#a75d00}.pill.done{background:#e3f6ed;color:#08714e}.pill.verifying{background:#fff1df;color:#a75d00}.pill.next{background:#e7efff;color:#164fb9}.pill.nd{background:#eef1f6;color:#697487}
+    .groups{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.group{padding:15px;border:1px solid var(--line);border-radius:14px}.group h3{margin:0 0 9px;font-size:15px}.check{display:flex;gap:8px;padding:5px 0;color:#344056}.tick{color:var(--green);font-weight:800}
+    .progress{height:9px;background:#e8edf5;border-radius:999px;overflow:hidden;margin-top:10px}.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+    .foot{color:var(--muted);text-align:center;padding:15px}.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px}.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+    @media(max-width:900px){.cards,.groups{grid-template-columns:1fr 1fr}.stages{grid-template-columns:1fr}.timeline-head,.timeline-row{grid-template-columns:120px 1fr}.timeline-row> :last-child,.timeline-head> :last-child{display:none}}
+    @media(max-width:600px){.wrap{padding:12px}.cards,.groups{grid-template-columns:1fr}.hero h1{font-size:25px}}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">仟流 AI 开发 SOP v1.0 · 产品 v0.3</div>
+    <h1>Stage 02 · 详细开发计划与排期</h1>
+    <p>Stage 01 已完成独立审核、整改和 Owner 放行。Stage 02 已收到 ZCode 审核报告并完成有效问题整改，当前等待 Owner 最终决定。</p>
+    <div class="stages">
+      <div class="stage"><b>01 · 方案准备</b><small>DONE · Owner 最终放行</small></div>
+      <div class="stage current"><b>02 · 开发计划</b><small id="stage02-status">WAITING_OWNER_DECISION</small></div>
+      <div class="stage"><b>03 · 开发执行</b><small>NOT_DUE · 开发进度 0%</small></div>
+    </div>
+  </section>
+
+  <section class="cards">
+    <div class="card"><div class="label">Stage 02 检查项关闭度</div><div class="value warn" id="planProgress">95.6%</div><div class="progress"><i id="planProgressBar" style="width:95.6%"></i></div></div>
+    <div class="card"><div class="label">Stage 03 开发进度</div><div class="value blue">0%</div><div class="progress"><i style="width:0"></i></div></div>
+    <div class="card"><div class="label">纵向里程碑／工作包</div><div class="value">8 / 29</div><div class="label">M1～M8 · W01～W29</div></div>
+    <div class="card"><div class="label">AI 开发候选</div><div class="value">D4 / D5</div><div class="label">P50 功能候选／P80 质量候选</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="callout">
+      <div><strong id="next-action">唯一下一动作：Owner 最终决定</strong><span>核对 ZCode 报告、整改结果和 v0.3.3 候选锁。</span></div>
+      <div><span>责任</span><strong id="next-owner">佳哥</strong></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>开发日历与进度图</h2>
+    <p class="note">横轴：Stage 03 启动后的 D1～D5。Windows 真机、真实 Provider、10 人入组和完整自然月属于外部验收，不计入 AI 编程工期。</p>
+    <div class="legend"><span><i style="background:#15966b"></i>计划阶段已完成</span><span><i style="background:#c98208"></i>HIGH／最终里程碑</span><span><i style="background:#13a8a8"></i>真实业务周期</span></div>
+    <div id="timeline"></div>
+  </section>
+
+  <section class="panel">
+    <h2>工作包排期</h2>
+    <p class="note">单一主线，同一时间只允许一个工作包 `in_progress`。凭证、Windows、域名分别只阻塞对应工作包。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>里程碑</th><th>时间盒／门禁</th><th>结果</th><th>风险</th><th>当前状态</th></tr></thead>
+        <tbody id="workPackages"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Stage 02 六组检查</h2>
+    <p class="note">42 项 DONE，1 项 N/A，2 项等待 Owner 决定；关闭度 43／45（95.6%）。</p>
+    <div class="groups" id="groups"></div>
+  </section>
+
+  <section class="panel">
+    <h2>开发执行就绪结论</h2>
+    <table>
+      <tr><th>Reviewer 建议</th><td><span class="pill nd" id="review-recommendation">NOT_READY</span></td></tr>
+      <tr><th>Owner 决定</th><td><span class="pill verifying" id="owner-decision">PENDING</span></td></tr>
+      <tr><th>允许动作</th><td id="allowed-actions">验证整改候选锁；Owner 核对并决定。</td></tr>
+      <tr><th>禁止动作</th><td id="forbidden-actions">Owner 放行前进入 Stage 03、执行 W01 或开展产品业务编码。</td></tr>
+      <tr><th>复查触发</th><td id="recheck-triggers">Owner 退回、候选锁失效或执行合同实质变化。</td></tr>
+      <tr><th>权威入口</th><td><a href="./仟流智算-详细开发计划与排期-v0.3.md">详细计划</a> · <a href="./仟流智算-项目工程规则-v0.3.md">工程规则</a> · <a href="./仟流智算-stage-state-v0.3.yaml">执行基线</a> · <a href="./仟流智算-Stage02开发执行就绪评审-v0.3.md">评审档</a></td></tr>
+    </table>
+  </section>
+  <div class="foot">阶段事实来源：<code>V3/仟流智算-stage-state-v0.3.yaml</code>（SHA-256：<span id="source-hash"></span>）· 计划 v0.3.1 · 本图不把外部等待伪装成 AI 编程工期</div>
+</main>
+<script type="application/json" id="stage02-state-snapshot">
+{
+  "source": "V3/仟流智算-stage-state-v0.3.yaml",
+  "sourceSha256": "c227b9330db03a1694452565d8eba09bce0056c62a4810a3aa42927ea3cd2396",
+  "projectName": "仟流智算",
+  "productVersion": "v0.3",
+  "planVersion": "v0.3.1",
+  "updatedAt": "2026-07-27T08:35:00+08:00",
+  "stage01": {
+    "id": "STAGE-01",
+    "name": "方案准备",
+    "status": "DONE",
+    "review_status": "OWNER_APPROVED",
+    "review_recommendation": "NOT_READY",
+    "review_conclusion": null,
+    "review_file": "V3/仟流智算-Stage01方案准备评审-v0.3.md",
+    "owner_decision": "OWNER_APPROVED",
+    "owner_decision_file": "V3/仟流智算-Stage01-Owner最终放行决定-v0.3.3.md",
+    "process_model": "DUAL_AI_REVIEW_OWNER_GATE",
+    "sop_compliance": "COMPLIANT_WITH_SOP_3.2.1",
+    "historical_waiver_file": "V3/仟流智算-Stage01独立性门禁豁免决定-v0.3.2.md",
+    "seal_file": "V3/仟流智算-Stage01封板锁-v0.3.3.owner-approved.sha256",
+    "external_audit": "NOT_READY",
+    "external_audit_file": "仟流智算-Stage01-SOP合规审核报告-20260726.md"
+  },
+  "stage02": {
+    "status": "OWNER_APPROVED",
+    "reviewStatus": "AUDIT_COMPLETE",
+    "reviewRecommendation": "NOT_READY",
+    "ownerDecision": "OWNER_APPROVED",
+    "candidateLock": "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
+  },
+  "nextAction": {
+    "id": "STAGE03-W01",
+    "text": "W01 建立 Git 工程基线与正式工程命令，按 Local First 初始化；不 push 远程。",
+    "owner": "佳哥（AI 执行）",
+    "evidence_target": "V3/仟流智算-详细开发计划与排期-v0.3.md"
+  },
+  "allowedActions": [
+    "进入 Stage 03 并从 W01 开始执行产品编码",
+    "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",
+    "W01 在 Local First 下初始化 Git 仓库并做本地 commit",
+    "离线 Adapter 契约与故障夹具可在无真实凭证下开发",
+    "执行 M1～M7 中间 Audit 与最终 Audit，结果落入 Evidence",
+    "由主 AI 验证 Stage 01／02 封板锁",
+    "若 Owner 退回，只针对明确问题做 Planning 精准修正并重新锁定"
+  ],
+  "forbiddenActions": [
+    "把审核 AI 的 NOT_READY 建议改写成 READY 或其他三态值",
+    "在 M7 最终候选锁定前修改技术栈、依赖版本或核心架构合同",
+    "未经佳哥显式授权执行 commit 到远程、push、PR、merge 或对外发布",
+    "复制 TokenHub 或 Sub2API 源码进入产品目录",
+    "将真实 Secret、请求正文或生产数据写入仓库、日志、数据库、Redis 或 Trace",
+    "把 DEP-PROVIDER-CREDENTIALS 未达成伪装成 W06/W09/W10 真实上线签字",
+    "把 DEP-WINDOWS 未达成伪装成 W22 真机证据或 M6 最终签字",
+    "把 DEP-DEPLOYMENT 未达成伪装成 W24 部署证据或 M7 发布",
+    "把无 Windows 真机、无真实凭证、无正式域名伪装成 AI 编程工时阻塞",
+    "使用真实生产流量或真实扣费"
+  ],
+  "blockers": [
+
+  ],
+  "recheckTriggers": [
+    "Stage 01 或 Stage 02 当前候选锁校验失败",
+    "Owner 决定后候选内容发生变化",
+    "发现 Stage 01 或 Stage 02 阻断性 Evidence Gap",
+    "目标、范围、安全、关键依赖、验收或真实业务周期发生实质变化"
+  ]
+}
+</script>
+<script>
+/*
+  仟流 AI 开发 SOP v1.0｜Stage 02 项目数据
+  阶段状态只修改 YAML，再由 render-stage02-progress.rb 注入快照。
+*/
+const STATE_SNAPSHOT=JSON.parse(document.getElementById("stage02-state-snapshot").textContent);
+const STAGE_DATA={
+meta:{project:STATE_SNAPSHOT.projectName,productVersion:STATE_SNAPSHOT.productVersion,planVersion:STATE_SNAPSHOT.planVersion,stageStatus:STATE_SNAPSHOT.stage02.status,nextAction:STATE_SNAPSHOT.nextAction.text,owner:STATE_SNAPSHOT.nextAction.owner,updatedAt:STATE_SNAPSHOT.updatedAt},
+milestones:[
+  ["Stage 02",0,.15,"开发计划冻结","done"],
+  ["M1",0,1,"主体／资源／Key","high"],
+  ["M2",0,1,"DeepSeek 纵向闭环","high"],
+  ["M3",1,2,"三厂商／资源池","high"],
+  ["M4",1,2,"额度／预测／调度／账本","high"],
+  ["M5",2,3,"桌面 Web","high"],
+  ["M6",2,3,"客户端代码／协议夹具","high"],
+  ["M7",3,5,"部署、回归、双 Audit","high"],
+  ["M8",5,5.2,"外部试点／完整自然月","cycle"]
+],
+workPackages:[
+["W01","M1","D1／3h","工程骨架、锁文件与机械门禁"],["W02","M1","D1／2h","登录与统一主体"],["W03","M1","D1／2h","Key、授权与额度限制"],["W04","M1","D1／2h","资源、模型与路由管理"],
+["W05","M2","D1／2h","北向合同、Models、Chat/SSE"],["W06","M2","D1／2h","DeepSeek Adapter"],["W07","M2","D1／3h","Attempt、账本与结算"],["W08","M2","D1／2h","诊断 Web 与纵向闭环"],
+["W09","M3","D2／2h","智谱 Adapter"],["W10","M3","D2／2h","Kimi Adapter"],["W11","M3","D2／3h","凭证生命周期与账号池"],["W12","M3","D2／3h","多因子路由与 Affinity"],
+["W13","M4","D2／2h","Token、价格与倍率"],["W14","M4","D2／3h","额度、并发与超额"],["W15","M4","D2／2h","供给预测"],["W16","M4","D2／3h","经营调度与节省"],["W17","M4","D2／2h","对账与 M4 收口"],
+["W18","M5","D3／3h","首页与七入口"],["W19","M5","D3／3h","管理写操作"],["W20","M5","D3／3h","账本、异常与全 WT"],
+["W21","M6","D3／2h","Mac 仟流 IDE"],["W22","M6","外部事件","Windows 三客户端"],["W23","M6","D3／3h","扩展协议启用集"],
+["W24","M7","D4／4h","部署、TLS、Secret、迁移"],["W25","M7","D4／4h","监控、备份与恢复"],["W26","M7","外部事件","10 人入组"],["W27","M7","D4＋D5／20h","全量回归、双 Audit 与候选"],
+["W28","M8","完整自然月","真实运行"],["W29","M8","月末后 2 天","对账与业务收口"]
+],
+groups:[
+["G1 输入与版本合同",["DP-01 Stage 01 独立审核＋整改＋Owner 放行","DP-02 产品／技术／版本基线","DP-03 版本目标与退出条件","DP-04 Scope／Non-scope","DP-05 遗留条件","DP-06 Change Scan","DP-07 Stage 02 授权边界"],"Stage 01 审核链＋详细计划 §1"],
+["G2 业务里程碑设计",["DP-08 纵向里程碑清单","DP-09 业务结果","DP-10 验收边界","DP-11 顺序与依赖","DP-12 集成主线","DP-13 风险与审核强度","DP-14 最终候选与收口"],"详细计划 §2～4"],
+["G3 工作包与任务",["DP-15 纵向工作包","DP-16 目标与边界","DP-17 可执行任务","DP-18 Owner／Reviewer","DP-19 输入输出依赖","DP-20 真实入口与集成点","DP-21 容量与缓冲","DP-22 工作包 DoD"],"详细计划 §5"],
+["G4 验收、测试与 Evidence",["DP-23 需求追踪","DP-24 测试分层","DP-25 真实运行路径","DP-26 负向／安全／恢复","DP-27 AI Eval 适用性","DP-28 Golden Set：N/A","DP-29 Evidence 合同","DP-30 Review／Audit 矩阵","DP-45 真实业务周期"],"详细计划 §6～8"],
+["G5 项目工程规则",["DP-31 技术栈与版本","DP-32 目录与权威文件","DP-33 当前命令与 W01 命令合同","DP-34 环境／配置／密钥","DP-35 Git／worktree","DP-36 提交／发布权限","DP-37 质量／安全／出站","DP-38 禁止事项与升级"],"项目工程规则＋Stage 02 校验记录"],
+["G6 执行基线与退出",["DP-39 日历／容量／关键路径","DP-40 风险与 Planning Change","DP-41 机器状态／唯一下一步","DP-42 进度与 Handoff","DP-43 执行就绪评审","DP-44 执行授权"],"stage-state＋Stage 02 评审档"]
+]};
+const pct=d=>Math.max(0,Math.min(100,d/5*100));
+document.querySelector("#timeline").innerHTML=
+  `<div class="timeline-head"><span>阶段／结果</span><span>D1　　　　 D2　　　　 D3　　　　 D4　　　　 D5</span><span>时间盒</span></div>`+
+  STAGE_DATA.milestones.map(m=>{
+    const l=pct(m[1]),r=pct(m[2]);
+    return `<div class="timeline-row"><div><b>${m[0]}</b><br><span class="label">${m[3]}</span></div><div class="track"><div class="bar ${m[4]}" style="left:${l}%;width:${Math.max(1,r-l)}%">${m[0]}</div></div><div class="label">${m[1]===5?"外部事件":`D${m[1]+1}～D${m[2]}`}</div></div>`
+  }).join("");
+
+document.querySelector("#workPackages").innerHTML=STAGE_DATA.workPackages.map(w=>`<tr><td><b>${w[0]}</b></td><td>${w[1]}</td><td>${w[2]}</td><td>${w[3]}</td><td><span class="pill ${w[1]==="M8"?"":"high"}">${w[1]==="M8"?"业务周期":"HIGH"}</span></td><td><span class="pill nd">NOT_DUE</span></td></tr>`).join("");
+
+const checkStatus=x=>x.includes("N/A")?"not_applicable":x.startsWith("DP-43")||x.startsWith("DP-44")?"verifying":"done";
+const groupStatus=g=>g[1].every(x=>["done","not_applicable"].includes(checkStatus(x)))?"done":"verifying";
+const allChecks=STAGE_DATA.groups.flatMap(g=>g[1]);
+const closedChecks=allChecks.filter(x=>["done","not_applicable"].includes(checkStatus(x))).length;
+const closedPercent=(closedChecks/allChecks.length*100).toFixed(1);
+document.getElementById("planProgress").textContent=`${closedPercent}%`;
+document.getElementById("planProgressBar").style.width=`${closedPercent}%`;
+document.getElementById("stage02-status").textContent=STATE_SNAPSHOT.stage02.status;
+document.getElementById("next-action").textContent=`唯一下一动作：${STATE_SNAPSHOT.nextAction.text}`;
+document.getElementById("next-owner").textContent=STATE_SNAPSHOT.nextAction.owner;
+document.getElementById("review-recommendation").textContent=STATE_SNAPSHOT.stage02.reviewRecommendation;
+document.getElementById("owner-decision").textContent=STATE_SNAPSHOT.stage02.ownerDecision;
+document.getElementById("allowed-actions").textContent=STATE_SNAPSHOT.allowedActions.join("；");
+document.getElementById("forbidden-actions").textContent=STATE_SNAPSHOT.forbiddenActions.join("；");
+document.getElementById("recheck-triggers").textContent=STATE_SNAPSHOT.recheckTriggers.join("；");
+document.getElementById("source-hash").textContent=STATE_SNAPSHOT.sourceSha256;
+document.querySelector("#groups").innerHTML=STAGE_DATA.groups.map(g=>{
+  const status=groupStatus(g);
+  const label=status==="done"?"DONE":"VERIFYING";
+  return `<div class="group"><h3>${g[0]} <span class="pill ${status}">${label}</span></h3>${g[1].map(x=>{
+    const state=checkStatus(x);
+    const mark=state==="done"?"✓":state==="not_applicable"?"—":"…";
+    return `<div class="check"><span class="tick">${mark}</span><span>${x}</span></div>`;
+  }).join("")}<div class="label" style="margin-top:8px">Evidence：${g[2]}</div></div>`;
+}).join("");
+</script>
+</body>
+</html>
