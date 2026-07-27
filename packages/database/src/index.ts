@@ -65,5 +65,9 @@ export {
   type ProviderResourceRow,
   type ServableResource,
 } from "./repositories/resource-pool-repository.js";
+export {
+  QuotaGateRepository,
+  type QuotaReserveOutcome,
+} from "./repositories/quota-gate-repository.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;

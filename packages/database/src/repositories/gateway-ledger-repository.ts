@@ -76,6 +76,10 @@ export interface LedgerLineInput {
   deducted_quota?: bigint | null;
   api_cost?: string | null;
   usage_quality: string;
+  /** W13：冻结命中的计价规则（历史不重算）。 */
+  billing_rule_id?: string | null;
+  rule_version?: string | null;
+  multiplier?: string | null;
 }
 
 export class GatewayLedgerRepository {
@@ -135,6 +139,10 @@ export class GatewayLedgerRepository {
     priority: number;
     weight: number;
     selected?: boolean;
+    /** W12：评分因子快照（归一化值数组，WT-18 可解释）。 */
+    score_factors?: Record<string, unknown> | null;
+    /** W12：加权总分（0..1，字符串 numeric）。 */
+    total_score?: string | null;
     reason_code?: string | null;
   }): Promise<RouteCandidate> {
     return this.db
@@ -147,10 +155,24 @@ export class GatewayLedgerRepository {
         priority: input.priority,
         weight: input.weight,
         selected: input.selected ?? true,
+        score_factors: input.score_factors
+          ? (JSON.stringify(input.score_factors) as unknown as Record<string, unknown>)
+          : null,
+        total_score: input.total_score ?? null,
         reason_code: input.reason_code ?? null,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+  }
+
+  /** W12：列出一个请求的全部路由候选快照（含未中选者）。 */
+  async listRouteCandidates(requestId: string): Promise<RouteCandidate[]> {
+    return this.db
+      .selectFrom("route_candidate")
+      .selectAll()
+      .where("ai_request_id", "=", requestId)
+      .orderBy("created_at", "asc")
+      .execute();
   }
 
   // ===== upstream_attempt =====
@@ -248,6 +270,9 @@ export class GatewayLedgerRepository {
         deducted_quota: input.deducted_quota ?? null,
         api_cost: input.api_cost ?? null,
         usage_quality: input.usage_quality,
+        billing_rule_id: input.billing_rule_id ?? null,
+        rule_version: input.rule_version ?? null,
+        multiplier: input.multiplier ?? null,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -307,5 +332,86 @@ export class GatewayLedgerRepository {
       .selectAll()
       .where("ai_request_id", "=", requestId)
       .executeTakeFirst();
+  }
+
+  // ===== billing_rule（W13）=====
+
+  /** 列出企业在某时间点后生效的启用规则（pipeline 按 attempt 时间匹配）。 */
+  async listActiveBillingRules(enterpriseId: string, at: Date): Promise<
+    Array<{
+      id: string;
+      rule_type: string;
+      rule_version: string;
+      provider_resource_id: string | null;
+      upstream_model: string | null;
+      effective_from: Date;
+      effective_to: Date | null;
+      timezone: string | null;
+      days_of_week: number[] | null;
+      start_time: string | null;
+      end_time: string | null;
+      multiplier: string | null;
+      cache_hit_price: string | null;
+      cache_miss_price: string | null;
+      output_price: string | null;
+      currency: string;
+      priority: number;
+    }>
+  > {
+    return this.db
+      .selectFrom("billing_rule")
+      .selectAll()
+      .where("enterprise_id", "=", enterpriseId)
+      .where("enabled", "=", true)
+      .where("effective_from", "<=", at)
+      .execute() as never;
+  }
+
+  async createBillingRule(input: {
+    enterprise_id: string;
+    rule_type: string;
+    rule_version: string;
+    provider_resource_id?: string | null;
+    upstream_model?: string | null;
+    effective_from: Date;
+    effective_to?: Date | null;
+    timezone?: string | null;
+    days_of_week?: number[] | null;
+    start_time?: string | null;
+    end_time?: string | null;
+    multiplier?: string | null;
+    cache_hit_price?: string | null;
+    cache_miss_price?: string | null;
+    output_price?: string | null;
+    currency?: string;
+    priority?: number;
+    source?: string | null;
+  }) {
+    return this.db
+      .insertInto("billing_rule")
+      .values({
+        enterprise_id: input.enterprise_id,
+        rule_type: input.rule_type,
+        rule_version: input.rule_version,
+        provider_resource_id: input.provider_resource_id ?? null,
+        upstream_model: input.upstream_model ?? null,
+        effective_from: input.effective_from,
+        effective_to: input.effective_to ?? null,
+        timezone: input.timezone ?? null,
+        days_of_week: input.days_of_week
+          ? (JSON.stringify(input.days_of_week) as unknown as number[])
+          : null,
+        start_time: input.start_time ?? null,
+        end_time: input.end_time ?? null,
+        multiplier: input.multiplier ?? null,
+        cache_hit_price: input.cache_hit_price ?? null,
+        cache_miss_price: input.cache_miss_price ?? null,
+        output_price: input.output_price ?? null,
+        currency: input.currency ?? "CNY",
+        priority: input.priority ?? 100,
+        source: input.source ?? null,
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
   }
 }

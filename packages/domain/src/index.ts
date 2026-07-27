@@ -164,4 +164,53 @@ export {
   type StateTransition,
 } from "./resource-lifecycle.js";
 
+// ===== M3/W12：路由评分与选择（多因子、稳定 tie-break、Affinity）=====
+export {
+  ROUTING_POLICY,
+  ROUTE_REASON,
+  healthScore,
+  scoreAndSelect,
+  pickWinner,
+  type RoutingCandidateInput,
+  type ScoreFactor,
+  type ScoredCandidate,
+  type RouteReason,
+} from "./routing-policy.js";
+
+// ===== M4/W13：计价规则匹配与计算（版本化、decimal 精度、历史不重算）=====
+export {
+  BILLING_RULE_TYPE_W13,
+  PACKAGE_INCLUDED,
+  toZonedTime,
+  matchesTimeWindow,
+  matchMultiplierRule,
+  matchPriceRule,
+  computeDeductedQuota,
+  computeApiCostFromRule,
+  type BillingRule,
+  type RuleMatch,
+} from "./billing-rule.js";
+
+// ===== M4/W14：额度门禁（预占/结算/耗尽停止/允许超额）=====
+export {
+  QUOTA_DECISION,
+  evaluateQuotaGate,
+  settleQuota,
+  type QuotaDecision,
+  type QuotaGateInput,
+  type QuotaGateResult,
+} from "./quota-gate.js";
+
+// ===== M4/W15：供给预测（多窗口速度、耗尽/恢复/覆盖、可信度）=====
+export {
+  FORECAST_ALGORITHM_VERSION,
+  FORECAST_CONFIDENCE,
+  FORECAST_WINDOWS,
+  computeForecast,
+  type ForecastConfidence,
+  type ForecastInput,
+  type ForecastResult,
+  type WindowUsage,
+} from "./supply-forecast.js";
+
 export const DOMAIN_VERSION = "0.3.0" as const;

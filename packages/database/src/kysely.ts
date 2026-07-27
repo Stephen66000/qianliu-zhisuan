@@ -174,6 +174,36 @@ export interface ResourceStatusEventTable {
   created_at: Generated<Date>;
 }
 
+/** W14：资源并发租约（0012）。 */
+export interface ConcurrencyLeaseTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_resource_id: string;
+  ai_request_id: string | null;
+  acquired_at: Generated<Date>;
+  expires_at: Date;
+  released_at: Date | null;
+}
+
+/** W15：供给预测快照（0013）。 */
+export interface SupplyForecastTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_resource_id: string;
+  rate_1h: string | null;
+  rate_24h: string | null;
+  rate_7d: string | null;
+  forecast_exhaust_at: Date | null;
+  next_recover_at: Date | null;
+  coverage_hours: string | null;
+  remaining_quota: string | null;
+  confidence: string;
+  data_points: Generated<number>;
+  not_calculable_reason: string | null;
+  algorithm_version: string;
+  snapshot_at: Generated<Date>;
+}
+
 export interface UnifiedModelTable {
   id: Generated<string>;
   enterprise_id: string;
@@ -280,7 +310,37 @@ export interface LedgerLineTable {
   deducted_quota: bigint | null;
   api_cost: string | null;
   usage_quality: string;
+  // ===== W13（迁移 0011）：冻结命中的计价规则版本 =====
+  billing_rule_id: string | null;
+  rule_version: string | null;
+  multiplier: string | null;
   created_at: Generated<Date>;
+}
+
+/** W13：计价规则版本（0011）。 */
+export interface BillingRuleTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_resource_id: string | null;
+  upstream_model: string | null;
+  rule_type: string;
+  rule_version: string;
+  effective_from: Date;
+  effective_to: Date | null;
+  timezone: string | null;
+  days_of_week: number[] | null;
+  start_time: string | null;
+  end_time: string | null;
+  multiplier: string | null;
+  cache_hit_price: string | null;
+  cache_miss_price: string | null;
+  output_price: string | null;
+  currency: Generated<string>;
+  priority: Generated<number>;
+  enabled: Generated<boolean>;
+  source: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
 }
 
 export interface LedgerTransactionTable {
@@ -315,6 +375,8 @@ export interface Database {
   principal_key: PrincipalKeyTable;
   principal_grant: PrincipalGrantTable;
   quota_counter: QuotaCounterTable;
+  concurrency_lease: ConcurrencyLeaseTable;
+  supply_forecast: SupplyForecastTable;
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
   resource_status_event: ResourceStatusEventTable;
@@ -325,6 +387,7 @@ export interface Database {
   upstream_attempt: UpstreamAttemptTable;
   usage_event: UsageEventTable;
   ledger_line: LedgerLineTable;
+  billing_rule: BillingRuleTable;
   ledger_transaction: LedgerTransactionTable;
   operation_log: OperationLogTable;
 }
