@@ -144,4 +144,24 @@ export const COMMIT_STATE = {
   COMMITTED: "COMMITTED", // 首个有效输出已发给客户端
 } as const;
 
+// ===== M3/W11：资源池状态机（凭证生命周期、熔断/冷却/半开）=====
+export {
+  RESOURCE_STATUS,
+  STATE_REASON,
+  CREDENTIAL_REFRESH_STATUS,
+  RESOURCE_POOL_POLICY,
+  computeCooldownMs,
+  deriveResourceTransition,
+  deriveSuccessTransition,
+  deriveCredentialExpiry,
+  deriveRefreshFailure,
+  deriveAdminRecovery,
+  evaluateAdmission,
+  type ResourceStatus,
+  type StateReason,
+  type CredentialRefreshStatus,
+  type ResourceRuntimeState,
+  type StateTransition,
+} from "./resource-lifecycle.js";
+
 export const DOMAIN_VERSION = "0.3.0" as const;

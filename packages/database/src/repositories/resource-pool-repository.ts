@@ -1,0 +1,267 @@
+/**
+ * 资源池仓储（W11）—— 凭证生命周期状态机的落库侧。
+ *
+ * 依据：TRD §5.4（provider_resource 凭证/健康字段）、§9 行 598（熔断/冷却/半开；
+ * 健康状态是派生运行状态，事实以 PostgreSQL 为准）、§14 行 853（隔离/恢复审计）。
+ *
+ * 职责边界：
+ *   - 状态推导规则在 @qianliu/domain（resource-lifecycle.ts，纯函数）；
+ *   - 本仓储只做：读当前状态 → 应用迁移（status + 字段更新 + resource_status_event 审计，
+ *     同事务）→ 查询可服务资源（硬过滤，供 W12 评分使用）。
+ *   - 恢复边界：CREDENTIAL_INVALID/EXHAUSTED/EXPIRED 只能 adminRecover（WT-19 受控恢复）。
+ */
+import type { Kysely, Selectable } from "kysely";
+import type { Database, ProviderResourceTable, ResourceStatusEventTable } from "../kysely.js";
+import {
+  deriveResourceTransition,
+  deriveSuccessTransition,
+  deriveCredentialExpiry,
+  deriveRefreshFailure,
+  deriveAdminRecovery,
+  evaluateAdmission,
+  RESOURCE_STATUS,
+  type ErrorClassification,
+  type ResourceRuntimeState,
+  type ResourceStatus,
+  type StateTransition,
+} from "@qianliu/domain";
+
+export type ResourceStatusEvent = Selectable<ResourceStatusEventTable>;
+export type ProviderResourceRow = Selectable<ProviderResourceTable>;
+
+/** 可服务资源视图（硬过滤后的路由候选输入）。 */
+export interface ServableResource {
+  id: string;
+  enterpriseId: string;
+  providerId: string;
+  resourcePoolId: string | null;
+  mode: "API" | "CODING_PLAN";
+  status: ResourceStatus;
+  /** true = 冷却到期后的半开探测（W12 评分时可降权）。 */
+  probe: boolean;
+}
+
+function toRuntimeState(row: ProviderResourceRow): ResourceRuntimeState {
+  return {
+    status: row.status as ResourceStatus,
+    consecutiveFailures: row.consecutive_failures,
+    cooldownUntil: row.cooldown_until ? row.cooldown_until.getTime() : null,
+  };
+}
+
+export class ResourcePoolRepository {
+  constructor(private db: Kysely<Database>) {}
+
+  async getResource(resourceId: string): Promise<ProviderResourceRow | undefined> {
+    return this.db
+      .selectFrom("provider_resource")
+      .selectAll()
+      .where("id", "=", resourceId)
+      .executeTakeFirst();
+  }
+
+  /**
+   * 被动请求失败 → 应用状态迁移（若有）。
+   * 返回应用的迁移；null = 无状态变化（幂等/不计入健康的错误类）。
+   */
+  async recordFailure(
+    resourceId: string,
+    classification: ErrorClassification,
+    now: Date = new Date(),
+  ): Promise<StateTransition | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .selectFrom("provider_resource")
+        .selectAll()
+        .where("id", "=", resourceId)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      const transition = deriveResourceTransition(toRuntimeState(row), classification, now.getTime());
+      if (!transition) return null;
+      await this.applyTransitionTx(trx, row, transition, classification, "system");
+      return transition;
+    });
+  }
+
+  /** 被动请求成功 → 失败计数清零 / 半开探测成功降级恢复。 */
+  async recordSuccess(resourceId: string): Promise<StateTransition | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .selectFrom("provider_resource")
+        .selectAll()
+        .where("id", "=", resourceId)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      const transition = deriveSuccessTransition(toRuntimeState(row));
+      if (!transition) return null;
+      await this.applyTransitionTx(trx, row, transition, null, "system");
+      return transition;
+    });
+  }
+
+  /** 凭证到期检查（WT-19）：到期则迁移 EXPIRED。 */
+  async checkCredentialExpiry(resourceId: string, now: Date = new Date()): Promise<StateTransition | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .selectFrom("provider_resource")
+        .selectAll()
+        .where("id", "=", resourceId)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      const transition = deriveCredentialExpiry(
+        toRuntimeState(row),
+        row.credential_expires_at ? row.credential_expires_at.getTime() : null,
+        now.getTime(),
+      );
+      if (!transition) return null;
+      await this.applyTransitionTx(trx, row, transition, null, "system");
+      return transition;
+    });
+  }
+
+  /** 刷新失败 → 隔离 + 刷新状态落库（WT-19：仅隔离对应资源）。 */
+  async recordRefreshFailure(
+    resourceId: string,
+    errorClassification: string,
+    now: Date = new Date(),
+  ): Promise<StateTransition | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .selectFrom("provider_resource")
+        .selectAll()
+        .where("id", "=", resourceId)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      const transition = deriveRefreshFailure(toRuntimeState(row));
+      await trx
+        .updateTable("provider_resource")
+        .set({
+          credential_refresh_status: "FAILED",
+          refresh_error_classification: errorClassification,
+          last_refresh_at: now,
+          updated_at: now,
+        })
+        .where("id", "=", resourceId)
+        .execute();
+      if (!transition) return null;
+      await this.applyTransitionTx(trx, row, transition, errorClassification, "system");
+      return transition;
+    });
+  }
+
+  /**
+   * 人工受控恢复（WT-19：重新授权/充值后）。
+   * 仅隔离态可恢复；同时可选更新凭证版本/过期时间（新凭证已就位的事实）。
+   */
+  async adminRecover(
+    resourceId: string,
+    opts?: { credentialVersion?: number; credentialExpiresAt?: Date | null },
+    now: Date = new Date(),
+  ): Promise<StateTransition | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .selectFrom("provider_resource")
+        .selectAll()
+        .where("id", "=", resourceId)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      const transition = deriveAdminRecovery(toRuntimeState(row));
+      if (!transition) return null;
+      await trx
+        .updateTable("provider_resource")
+        .set({
+          credential_refresh_status: "OK",
+          refresh_error_classification: null,
+          ...(opts?.credentialVersion !== undefined ? { credential_version: opts.credentialVersion } : {}),
+          ...(opts?.credentialExpiresAt !== undefined ? { credential_expires_at: opts.credentialExpiresAt } : {}),
+          updated_at: now,
+        })
+        .where("id", "=", resourceId)
+        .execute();
+      await this.applyTransitionTx(trx, row, transition, null, "admin");
+      return transition;
+    });
+  }
+
+  /** 状态迁移落库：status/字段更新 + 审计事件（调用方须在事务内）。 */
+  private async applyTransitionTx(
+    trx: Kysely<Database>,
+    row: ProviderResourceRow,
+    transition: StateTransition,
+    errorClassification: string | null,
+    actor: "system" | "admin",
+  ): Promise<void> {
+    const now = new Date();
+    await trx
+      .updateTable("provider_resource")
+      .set({
+        status: transition.toStatus,
+        consecutive_failures: transition.consecutiveFailures,
+        cooldown_until: transition.cooldownUntil ? new Date(transition.cooldownUntil) : null,
+        updated_at: now,
+      })
+      .where("id", "=", row.id)
+      .execute();
+    await trx
+      .insertInto("resource_status_event")
+      .values({
+        enterprise_id: row.enterprise_id,
+        provider_resource_id: row.id,
+        from_status: row.status,
+        to_status: transition.toStatus,
+        reason: transition.reason,
+        error_classification: errorClassification,
+        consecutive_failures: transition.consecutiveFailures,
+        cooldown_until: transition.cooldownUntil ? new Date(transition.cooldownUntil) : null,
+        actor,
+      })
+      .execute();
+  }
+
+  /**
+   * 可服务资源硬过滤（WT-07 同池选择；W12 评分在此之后）。
+   * 规则：ACTIVE/DEGRADED 直接可服务；UNAVAILABLE 且冷却到期 → 半开探测；
+   * 终态隔离（CREDENTIAL_INVALID/EXHAUSTED/EXPIRED）与冷却中 UNAVAILABLE 排除。
+   */
+  async listServableResources(
+    enterpriseId: string,
+    poolId?: string,
+    now: Date = new Date(),
+  ): Promise<ServableResource[]> {
+    let query = this.db
+      .selectFrom("provider_resource")
+      .selectAll()
+      .where("enterprise_id", "=", enterpriseId);
+    if (poolId !== undefined) {
+      query = query.where("resource_pool_id", "=", poolId);
+    }
+    const rows = await query.execute();
+    const servable: ServableResource[] = [];
+    for (const row of rows) {
+      const admission = evaluateAdmission(toRuntimeState(row), now.getTime());
+      if (!admission.admit) continue;
+      servable.push({
+        id: row.id,
+        enterpriseId: row.enterprise_id,
+        providerId: row.provider_id,
+        resourcePoolId: row.resource_pool_id,
+        mode: row.mode,
+        status: row.status as ResourceStatus,
+        probe: admission.probe,
+      });
+    }
+    return servable;
+  }
+
+  /** 资源的状态迁移审计轨迹（WT-19 隔离/恢复留痕核查）。 */
+  async listStatusEvents(resourceId: string): Promise<ResourceStatusEvent[]> {
+    return this.db
+      .selectFrom("resource_status_event")
+      .selectAll()
+      .where("provider_resource_id", "=", resourceId)
+      .orderBy("created_at", "asc")
+      .execute();
+  }
+}
+
+export { RESOURCE_STATUS };

@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-27T15:05:00+08:00"
+updated_at: "2026-07-27T17:10:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -40,7 +40,7 @@ handoff:
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
   current_milestone: "M3"
-  current_work_package: "W11"
+  current_work_package: "W12"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -51,10 +51,10 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-W10"
-  text: "W10 Kimi Adapter 已完成（KimiAdapter + 注册表 case \"kimi\" 落地，三厂商齐备）；provider-adapters 35 单测 + gateway 28 集成测试全绿，正文 canary 0。下一步 W11 账号池状态机（API Key/OAuth/套餐会话刷新退避、冷却、半开恢复）。"
+  id: "STAGE03-W11"
+  text: "W11 凭证生命周期与账号池状态机已完成（迁移 0010 + domain resource-lifecycle 确定性状态机 + ResourcePoolRepository 落库；429 退避冷却/熔断半开/单资源隔离/adminRecover 受控恢复）；domain 23 单测 + gateway 34 集成全绿，canary 0。下一步 W12 多因子路由与 Affinity（硬过滤→版本化评分→稳定 tie-break→提交前切换）。"
   owner: "佳哥（AI 执行）"
-  evidence_target: "V3/Evidence/M3/W10/20260727-1423-w10-audit/README.md"
+  evidence_target: "V3/Evidence/M3/W11/20260727-1700-w11-audit/README.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"

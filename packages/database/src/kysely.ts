@@ -146,8 +146,32 @@ export interface ProviderResourceTable {
   concurrency_limit: number | null;
   status: Generated<string>;
   api_fallback_enabled: Generated<boolean>;
+  // ===== W11（迁移 0010）：资源池与凭证生命周期 =====
+  resource_pool_id: string | null;
+  credential_expires_at: Date | null;
+  credential_refresh_status: Generated<string>; // OK | REFRESHING | FAILED
+  last_refresh_at: Date | null;
+  refresh_error_classification: string | null;
+  consecutive_failures: Generated<number>;
+  cooldown_until: Date | null;
+  last_probe_at: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+}
+
+/** W11：资源状态迁移审计（不可覆盖；每次迁移一行）。 */
+export interface ResourceStatusEventTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_resource_id: string;
+  from_status: string | null;
+  to_status: string;
+  reason: string; // domain STATE_REASON
+  error_classification: string | null;
+  consecutive_failures: number | null;
+  cooldown_until: Date | null;
+  actor: Generated<string>; // system | admin
+  created_at: Generated<Date>;
 }
 
 export interface UnifiedModelTable {
@@ -293,6 +317,7 @@ export interface Database {
   quota_counter: QuotaCounterTable;
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
+  resource_status_event: ResourceStatusEventTable;
   unified_model: UnifiedModelTable;
   model_route: ModelRouteTable;
   ai_request: AiRequestTable;

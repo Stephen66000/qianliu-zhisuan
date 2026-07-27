@@ -212,6 +212,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@qianliu/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@qianliu/provider-adapters':
         specifier: workspace:*
         version: link:../provider-adapters
