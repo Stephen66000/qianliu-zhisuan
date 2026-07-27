@@ -159,7 +159,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let winner: ScoredCandidate | undefined;
     let finalOutcome: { status: number; committed: boolean; usage: { input: number; output: number; cache: number; quality: string }; error?: string } | null = null;
     let attemptNo = 0;
-    let principalId = allCandidates[0]!.principalId;
+    // R2-N1 修复：额度/账本归因用已认证的调用者主体（principal.principalId），
+    // 不是候选行的 principalId。生产 listCandidates 不知道调用者会填空串，
+    // 导致 CODING_PLAN 的 reserveQuota 查不到授权误拒（503）。
+    // 额度本就归调用者，不归路由候选。
+    const principalId = principal.principalId;
     // W16 经营调度：首次 Attempt 决策（冻结 dispatch_decision，failover 重评不重复判定）
     let dispatchFinalAction: "ALLOW" | "SWITCH" | "RATE_LIMIT" | "REJECT" | "ALLOW_OVERAGE" | null = null;
     let dispatchReasonCode = "";
@@ -290,7 +294,6 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         provider_resource_id: cand.resourceId,
         upstream_model: cand.upstreamModel,
       });
-      principalId = allCandidates.find((c) => c.resourceId === cand.resourceId)?.principalId ?? principalId;
 
       const adapter = resolveAdapter(cand.providerCode, deps.caller);
       const outcome = await adapter.invoke(
