@@ -93,11 +93,11 @@
 <script type="application/json" id="stage02-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "81ef993f445304dbef364b4d3f165323ec5c5e9e10b29c39d9897b0b1d68dd01",
+  "sourceSha256": "0d70a3ef1f9ceabca82293b0f3f908c7b4261458873c713753eb4f2b8e242b60",
   "projectName": "仟流智算",
   "productVersion": "v0.3",
   "planVersion": "v0.3.1",
-  "updatedAt": "2026-07-27T15:05:00+08:00",
+  "updatedAt": "2026-07-27T17:10:00+08:00",
   "stage01": {
     "id": "STAGE-01",
     "name": "方案准备",
@@ -123,13 +123,13 @@
     "candidateLock": "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   },
   "nextAction": {
-    "id": "STAGE03-W10",
-    "text": "W10 Kimi Adapter 已完成（KimiAdapter + 注册表 case \"kimi\" 落地，三厂商齐备）；provider-adapters 35 单测 + gateway 28 集成测试全绿，正文 canary 0。下一步 W11 账号池状态机（API Key/OAuth/套餐会话刷新退避、冷却、半开恢复）。",
+    "id": "STAGE03-W11",
+    "text": "W11 凭证生命周期与账号池状态机已完成（迁移 0010 + domain resource-lifecycle 确定性状态机 + ResourcePoolRepository 落库；429 退避冷却/熔断半开/单资源隔离/adminRecover 受控恢复）；domain 23 单测 + gateway 34 集成全绿，canary 0。下一步 W12 多因子路由与 Affinity（硬过滤→版本化评分→稳定 tie-break→提交前切换）。",
     "owner": "佳哥（AI 执行）",
-    "evidence_target": "V3/Evidence/M3/W10/20260727-1423-w10-audit/README.md"
+    "evidence_target": "V3/Evidence/M3/W11/20260727-1700-w11-audit/README.md"
   },
   "currentMilestone": "M3",
-  "currentWorkPackage": "W11",
+  "currentWorkPackage": "W12",
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
     "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",
