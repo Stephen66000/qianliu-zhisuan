@@ -45,14 +45,15 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     }
   });
 
-  it("migrateDown 回滚最近迁移，_w01_baseline_probe 表消失", async () => {
+  it("migrateDown 回滚最近迁移，被回滚的表消失", async () => {
     const db = createKysely(pg.connectionString);
     try {
       const rolled = await migrateDown(db);
-      expect(rolled).toBe("0000_baseline_probe");
+      // 最后一条迁移是 0006_operation_log
+      expect(rolled).toBe("0006_operation_log");
 
-      // 回滚后表应不存在（to_regclass 返回 null）
-      const result = await sql`SELECT to_regclass('public._w01_baseline_probe') AS reg`.execute(db);
+      // 回滚后 operation_log 表应不存在
+      const result = await sql`SELECT to_regclass('public.operation_log') AS reg`.execute(db);
       const reg = (result.rows[0] as { reg: string | null }).reg;
       expect(reg).toBeNull();
     } finally {
@@ -64,9 +65,9 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     const db = createKysely(pg.connectionString);
     try {
       const executed = await migrateToLatest(db);
-      expect(executed).toContain("0000_baseline_probe");
+      expect(executed).toContain("0006_operation_log");
 
-      const result = await sql`SELECT to_regclass('public._w01_baseline_probe') AS reg`.execute(db);
+      const result = await sql`SELECT to_regclass('public.operation_log') AS reg`.execute(db);
       const reg = (result.rows[0] as { reg: string | null }).reg;
       expect(reg).not.toBeNull();
     } finally {

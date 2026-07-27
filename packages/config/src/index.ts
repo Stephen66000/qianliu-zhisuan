@@ -47,6 +47,8 @@ export const AppConfigSchema = z.object({
   gatewayKeyPepper: z.string().min(16),
   /** Session Affinity HMAC 密钥（独立于 Pepper，支持轮换）。从环境注入。 */
   sessionAffinityHmacKey: z.string().min(16),
+  /** 上游凭证信封加密的 KEK（32 字节 base64）。从环境注入，不与密文同库。 */
+  credentialKek: z.string().min(16),
 
   /** Provider 凭证来源描述（不持有明文，只描述是否已配置）。 */
   providers: z.array(ProviderCredentialSchema),
@@ -79,6 +81,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     redis: { url: env.REDIS_URL },
     gatewayKeyPepper: env.GATEWAY_KEY_PEPPER,
     sessionAffinityHmacKey: env.SESSION_AFFINITY_HMAC_KEY,
+    credentialKek: env.CREDENTIAL_KEK,
     providers,
   });
 }

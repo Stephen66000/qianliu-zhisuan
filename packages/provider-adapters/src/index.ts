@@ -99,3 +99,17 @@ export interface ProviderAdapter {
 }
 
 export const PROVIDER_ADAPTERS_VERSION = "0.3.0" as const;
+
+// 密码学原语（W02 起启用）
+export {
+  digestApiKey,
+  generateApiKey,
+  apiKeyPrefix,
+  generateSessionToken,
+  digestSessionToken,
+  decodeKek,
+  encryptCredential,
+  decryptCredential,
+  credentialFingerprint,
+  type EncryptedCredential,
+} from "./crypto.js";

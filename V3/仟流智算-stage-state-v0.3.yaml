@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-27T11:30:00+08:00"
+updated_at: "2026-07-27T12:45:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -39,8 +39,8 @@ handoff:
   audited_candidate_lock: "V3/仟流智算-Stage02评审候选锁-v0.3.2.sha256"
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
-  current_milestone: "M1"
-  current_work_package: "W02"
+  current_milestone: "M2"
+  current_work_package: "W05"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -52,7 +52,7 @@ handoff:
 
 next_action:
   id: "STAGE03-W01"
-  text: "W02 登录与主体 CRUD（principal/admin_user/audit_log 迁移 + Fastify 路由）；W01 已完成，工程基线 commit dd33453。"
+  text: "W05 Gateway 北向合同（/v1/models、/v1/chat/completions、/v1/messages）；M1 已完成（W02-W04 + Audit），23 集成测试全绿，canary 0 命中。"
   owner: "佳哥（AI 执行）"
   evidence_target: "V3/仟流智算-详细开发计划与排期-v0.3.md"
 

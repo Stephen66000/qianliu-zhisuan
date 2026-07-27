@@ -20,10 +20,12 @@ describe("@qianliu/config", () => {
       REDIS_URL: "redis://h:6379",
       GATEWAY_KEY_PEPPER: "a".repeat(32),
       SESSION_AFFINITY_HMAC_KEY: "b".repeat(32),
+      CREDENTIAL_KEK: "c".repeat(32),
       DEEPSEEK_API_KEY: "sk-real",
     });
     expect(cfg.contentRetentionMode).toBe("METADATA_ONLY");
     expect(cfg.database.url).toBe("postgres://u:p@h:5432/db");
+    expect(cfg.credentialKek).toBe("c".repeat(32));
     expect(cfg.providers.find((p) => p.code === "deepseek")?.configured).toBe(true);
     expect(cfg.providers.find((p) => p.code === "zhipu")?.configured).toBe(false);
   });
@@ -35,6 +37,7 @@ describe("@qianliu/config", () => {
         REDIS_URL: "redis://h:6379",
         GATEWAY_KEY_PEPPER: "short",
         SESSION_AFFINITY_HMAC_KEY: "b".repeat(32),
+        CREDENTIAL_KEK: "c".repeat(32),
       }),
     ).toThrow();
   });
