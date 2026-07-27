@@ -51,10 +51,10 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-M1-M4-CODE-AUDIT"
-  text: "M1~M4 第一道功能 Audit 已 PASS（round 3，R2-N1/F-12/F-01/F-03/F-02 全 CLOSED，P1=0）。Owner 已接受 I1 独立性结论，现进入第二道代码质量 Audit（V1.4 AI代码质量审计模板，R3 风险分级门禁，7 维代码阅读矩阵 + 覆盖率/复杂度/变异测试 Evidence Gap 判定）。审核对象 = 第一道 PASS 的同一候选（产品代码 HEAD 8d7fe18）。代码质量 Audit PASS 前 M1~M4 不算正式通过，不进 M5。"
-  owner: "佳哥（交独立 AI 会话执行第二道代码质量 Audit）"
-  evidence_target: "V3/Evidence/M4/audit/M4-审核任务书-v1.md#8-审核轮次记录"
+  id: "STAGE03-M1-M4-CODE-AUDIT-R2"
+  text: "代码质量 Audit round 1 FAIL（GAP-MUT-1 P1 变异测试 Gap + Q-DEP-1 P2 + Q-DOC-1 P3）。主 AI 已整改：Q-DEP-1 CLOSED（undici 7.29.0 + fastify 5.8.5 漏洞清零 + 附带修复 M1~M4 既有 cookie typecheck bug）、Q-DOC-1 CLOSED、GAP-MUT-1 配置完成但 stryker sandbox 兼容性未解→登记 Evidence Gap（非假完）。现交审核方做 round 2 有界复审（Q-DEP-1 升级 diff + cookie 类型修复 + domain 直接回归面 + GAP-MUT-1 Gap 判定）。round 2 PASS 前 M1~M4 不正式通过，不进 M5。"
+  owner: "佳哥（交独立 AI 会话 round 2 代码质量有界复审）"
+  evidence_target: "V3/Evidence/M4/audit/M1-M4-代码质量整改报告-QDEP1-QDOC1-主AI整改-20260728.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"

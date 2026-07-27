@@ -1,8 +1,8 @@
 {
   "digests": {
-    "full_candidate_hash": "57f3d4ad186253859ff09978b9437992e91ccec3a3316eb7fab1cdac88475402",
-    "implementation_hash": "57f3d4ad186253859ff09978b9437992e91ccec3a3316eb7fab1cdac88475402",
-    "manifest_hash": "faa842ed4be3edc88e81c38f773c640620d6fcb156d338d6bdd3a9b78944e665"
+    "full_candidate_hash": "a814a5a86e57a592046ba702f3fe8e2e8f1d95fce6aa060e8386fbb5f404c679",
+    "implementation_hash": "a814a5a86e57a592046ba702f3fe8e2e8f1d95fce6aa060e8386fbb5f404c679",
+    "manifest_hash": "bf910f55ed6382d263c8987c6fec790bdafe02893639951adc0c617471b438a7"
   },
   "entries": [
     {
@@ -47,6 +47,15 @@
       "path": "apps/control-api/src/auth/routes.ts",
       "sha256": "86a597846e6c80c15889f28b54ceefd4a6d91292c2cb4a4919ee012014e7ecf4",
       "size": 4362,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/cookie-types.d.ts",
+      "sha256": "4656ff89fa02eb3caff9559a4f1b5c8aacc2c36f05c3648cd248a3e99bdd8987",
+      "size": 1447,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -252,8 +261,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/main.ts",
-      "sha256": "c2c8b9572523a50b9bf0b40c61c714244997f53a6a39b3d6bbda7503deab1d14",
-      "size": 4180,
+      "sha256": "06f2be51ed8a0a2d6fb6852ba22d335fb4f52c61229945bf32d675f69da48720",
+      "size": 4210,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -1031,11 +1040,11 @@
     ".git/**",
     "V3/Evidence/M4/audit/candidate-lock.json"
   ],
-  "generated_at": "2026-07-27T15:36:03.126382+00:00",
+  "generated_at": "2026-07-27T23:01:52.620162+00:00",
   "git": {
     "branch": "main",
     "deleted": [],
-    "head": "64b7a0837dcfb62183cf8a9f44e945931f09180b",
+    "head": "a06fa25e669b97ef510bc891ef4c76ba3d87aa46",
     "staged": [],
     "untracked": [],
     "worktree_modified": []
