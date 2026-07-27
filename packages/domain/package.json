@@ -12,5 +12,8 @@
     "test": "vitest run --config ../../vitest.config.ts",
     "test:integration": "echo 'no integration tests in domain' && exit 0",
     "test:e2e": "echo 'no e2e tests in domain' && exit 0"
+  },
+  "dependencies": {
+    "decimal.js": "10.6.0"
   }
 }
