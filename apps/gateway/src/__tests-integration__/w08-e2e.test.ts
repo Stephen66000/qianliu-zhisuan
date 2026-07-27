@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, GatewayLedgerRepository, type Database } from "@qianliu/database";
+import { createKysely, migrateToLatest, GatewayLedgerRepository, ResourcePoolRepository, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import {
   generateApiKey,
@@ -74,8 +74,10 @@ beforeAll(async () => {
   const caller = async (res: unknown, req: unknown, n: number) => stub.invoke(res as never, req as never, n);
 
   const ledgerRepo = new GatewayLedgerRepository(db);
-  const findResource = async (entId: string, model: string) => {
-    const route = await db
+  const poolRepo = new ResourcePoolRepository(db);
+  // W12：findResource（单资源）→ listCandidates（多候选）
+  const listCandidates = async (entId: string, model: string) => {
+    const routes = await db
       .selectFrom("model_route")
       .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
       .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
@@ -84,24 +86,29 @@ beforeAll(async () => {
         "provider_resource.id as resource_id",
         "provider.code as provider_code",
         "model_route.upstream_model",
+        "model_route.priority",
+        "model_route.weight",
         "provider_resource.mode",
-        "unified_model.alias",
+        "provider_resource.status",
       ])
       .where("model_route.enterprise_id", "=", entId)
       .where("unified_model.alias", "=", model)
       .where("model_route.enabled", "=", true)
-      .executeTakeFirst();
-    if (!route) return undefined;
-    return {
-      resourceId: route.resource_id,
-      providerCode: route.provider_code,
-      upstreamModel: route.upstream_model,
+      .execute();
+    return routes.map((r) => ({
+      resourceId: r.resource_id,
+      providerCode: r.provider_code,
+      upstreamModel: r.upstream_model,
+      priority: r.priority,
+      weight: r.weight,
+      mode: r.mode as "API" | "CODING_PLAN",
+      status: r.status,
+      probe: false,
       principalId: PRINCIPAL_ID,
-      mode: route.mode,
-    };
+    }));
   };
 
-  const pipeline = createRealPipeline({ db, ledgerRepo, caller, findResource });
+  const pipeline = createRealPipeline({ db, ledgerRepo, caller, poolRepo, listCandidates });
   app = buildGateway(db, PEPPER, pipeline);
   await app.ready();
 }, 120_000);

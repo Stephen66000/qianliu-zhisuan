@@ -14,7 +14,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { sql } from "kysely";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, GatewayLedgerRepository, type Database } from "@qianliu/database";
+import { createKysely, migrateToLatest, GatewayLedgerRepository, ResourcePoolRepository, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createPgCanarySink, scanCanary } from "@qianliu/observability";
 import {
@@ -87,8 +87,10 @@ beforeAll(async () => {
   const caller = async (res: unknown, req: unknown, n: number) => stub.invoke(res as never, req as never, n);
 
   const ledgerRepo = new GatewayLedgerRepository(db);
-  const findResource = async (entId: string, model: string) => {
-    const route = await db
+  const poolRepo = new ResourcePoolRepository(db);
+  // W12：findResource（单资源）→ listCandidates（多候选）
+  const listCandidates = async (entId: string, model: string) => {
+    const routes = await db
       .selectFrom("model_route")
       .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
       .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
@@ -97,24 +99,29 @@ beforeAll(async () => {
         "provider_resource.id as resource_id",
         "provider.code as provider_code",
         "model_route.upstream_model",
+        "model_route.priority",
+        "model_route.weight",
         "provider_resource.mode",
-        "unified_model.alias",
+        "provider_resource.status",
       ])
       .where("model_route.enterprise_id", "=", entId)
       .where("unified_model.alias", "=", model)
       .where("model_route.enabled", "=", true)
-      .executeTakeFirst();
-    if (!route) return undefined;
-    return {
-      resourceId: route.resource_id,
-      providerCode: route.provider_code,
-      upstreamModel: route.upstream_model,
+      .execute();
+    return routes.map((r) => ({
+      resourceId: r.resource_id,
+      providerCode: r.provider_code,
+      upstreamModel: r.upstream_model,
+      priority: r.priority,
+      weight: r.weight,
+      mode: r.mode as "API" | "CODING_PLAN",
+      status: r.status,
+      probe: false,
       principalId: PRINCIPAL_ID,
-      mode: route.mode,
-    };
+    }));
   };
 
-  const pipeline = createRealPipeline({ db, ledgerRepo, caller, findResource });
+  const pipeline = createRealPipeline({ db, ledgerRepo, caller, poolRepo, listCandidates });
   app = buildGateway(db, PEPPER, pipeline);
   await app.ready();
 }, 120_000);
@@ -203,39 +210,23 @@ describe("W09 端到端 智谱 Coding Plan 代表链", () => {
   });
 
   it("多厂商：findResource 带出 provider_code=zhipu，注册表解析到 ZhipuAdapter（不硬编码 deepseek）", async () => {
-    // 通过直接调 findResource 验证带出 providerCode（间接验证注册表分支）
-    const ledgerRepo = new GatewayLedgerRepository(db);
-    const findResource: (entId: string, model: string) => Promise<{
-      resourceId: string; providerCode: string; upstreamModel: string; principalId: string; mode: string;
-    } | undefined> = async (entId, model) => {
-      const route = await db
-        .selectFrom("model_route")
-        .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
-        .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
-        .innerJoin("provider", "provider.id", "provider_resource.provider_id")
-        .select([
-          "provider_resource.id as resource_id",
-          "provider.code as provider_code",
-          "model_route.upstream_model",
-          "provider_resource.mode",
-        ])
-        .where("model_route.enterprise_id", "=", entId)
-        .where("unified_model.alias", "=", model)
-        .where("model_route.enabled", "=", true)
-        .executeTakeFirst();
-      if (!route) return undefined;
-      return {
-        resourceId: route.resource_id,
-        providerCode: route.provider_code,
-        upstreamModel: route.upstream_model,
-        principalId: PRINCIPAL_ID,
-        mode: route.mode,
-      };
-    };
-    void ledgerRepo; // 引用保持导入有效
-    const found = await findResource(ENT_ID, "qianliu-glm-coding");
+    // W12：listCandidates 替代 findResource；此处直接查库验证 provider_code 带出
+    const found = await db
+      .selectFrom("model_route")
+      .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
+      .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
+      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
+      .select([
+        "provider_resource.id as resource_id",
+        "provider.code as provider_code",
+        "provider_resource.mode",
+      ])
+      .where("model_route.enterprise_id", "=", ENT_ID)
+      .where("unified_model.alias", "=", "qianliu-glm-coding")
+      .where("model_route.enabled", "=", true)
+      .executeTakeFirst();
     expect(found).toBeDefined();
-    expect(found!.providerCode).toBe("zhipu");
+    expect(found!.provider_code).toBe("zhipu");
     expect(found!.mode).toBe("CODING_PLAN");
 
     // resolveAdapter("zhipu", ...) 应返回 ZhipuAdapter（providerCode 校验）
