@@ -51,10 +51,10 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-M1-M4-AUDIT"
-  text: "M1~M4 代码已完成（W01~W17），累积冻结为显式 path 对象锁（12 个 src/migrations 目录）。M1~M4 均命中 SOP §3.3 高风险（认证/密钥/协议/账本/资金/迁移/并发/公共合同），但此前均为本 AI 自检；现须由独立 AI 会话执行两道累积 Audit（功能验收 + 代码质量）。审核任务书 v2 已交出，待独立审核 AI 出报告。审核通过前不得进入 M5。"
-  owner: "佳哥（交独立 AI 会话审核）"
-  evidence_target: "V3/Evidence/M4/audit/M4-审核任务书-v1.md"
+  id: "STAGE03-M1-M4-AUDIT-R3"
+  text: "M1~M4 累积审 round 2 有界复审 FAIL（F-01/F-03/F-02 CLOSED；F-12 暴露新 blocker R2-N1：生产 listCandidates 返空 principalId → CODING_PLAN 恒拒）。R2-N1 已有界补修（commit 8d7fe18，real-pipeline principalId 改用 principal.principalId + 回归测试，全工程命令全绿）。现交独立会话做 round 3 有界复审（仅 R2-N1 修复 diff + 直接回归面）。round 3 PASS 前 F-12 不完全 CLOSED，不进 M5。"
+  owner: "佳哥（交独立 AI 会话 round 3 复审）"
+  evidence_target: "V3/Evidence/M4/audit/M4-审核任务书-v1.md#8-审核轮次记录"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"

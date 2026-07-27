@@ -1,8 +1,8 @@
 {
   "digests": {
-    "full_candidate_hash": "cbd7e00ba4969b7c1c2aa7e7d3b628c0531b38e681457aa46e0b0e14e8c550b4",
-    "implementation_hash": "cbd7e00ba4969b7c1c2aa7e7d3b628c0531b38e681457aa46e0b0e14e8c550b4",
-    "manifest_hash": "abcffa113e7d3c6242d7b69cee7dd320ba0d3a70cf661bec4edd1cd88ad3dd25"
+    "full_candidate_hash": "57f3d4ad186253859ff09978b9437992e91ccec3a3316eb7fab1cdac88475402",
+    "implementation_hash": "57f3d4ad186253859ff09978b9437992e91ccec3a3316eb7fab1cdac88475402",
+    "manifest_hash": "97a77e73ddc2f874e257acfe5c9b602f2a81fb4eb0de7420de773e33bc614785"
   },
   "entries": [
     {
@@ -119,6 +119,15 @@
       "path": "apps/control-api/src/server.ts",
       "sha256": "9efda6e8fe65fa5f4e6c4807a19795a22d39dde9ee5260ded137a9c27f6074e8",
       "size": 3628,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/r2-n1-principal-ownership.test.ts",
+      "sha256": "a99d6b9de863e5a619d10607d0a9ffa8b7990a76ae90708bad12ac61f65eb103",
+      "size": 7198,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -261,8 +270,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/pipeline/real-pipeline.ts",
-      "sha256": "f52de041a4ad2530af11d12dd9654b9d7324cb0884bd9e1c1e73c6d56688d1cd",
-      "size": 29749,
+      "sha256": "43bf5b89e4a39dbfda982cc9218fdb00af87b3b6695042a4d3113022b3f977dc",
+      "size": 29965,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -1022,11 +1031,11 @@
     ".git/**",
     "V3/Evidence/M4/audit/candidate-lock.json"
   ],
-  "generated_at": "2026-07-27T14:49:06.179396+00:00",
+  "generated_at": "2026-07-27T15:18:06.480924+00:00",
   "git": {
     "branch": "main",
     "deleted": [],
-    "head": "dd441c7553631ba5c7ed9ce1da3839e80cf9ef10",
+    "head": "8d7fe1850ff5b6905ee4111c4ce7c11b251ee64b",
     "staged": [],
     "untracked": [],
     "worktree_modified": []
