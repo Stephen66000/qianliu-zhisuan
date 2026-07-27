@@ -114,9 +114,11 @@ export {
   type EncryptedCredential,
 } from "./crypto.js";
 
-// Adapter 与 Stub 上游（W06 起启用）
+// Adapter 与 Stub 上游（W06 起启用；W09 起增 ZhipuAdapter；W10 起增 KimiAdapter）
 export {
   DeepSeekAdapter,
   type UpstreamCaller,
 } from "./adapters/deepseek-adapter.js";
+export { ZhipuAdapter } from "./adapters/zhipu-adapter.js";
+export { KimiAdapter } from "./adapters/kimi-adapter.js";
 export { StubUpstream, type StubMode, type StubUpstreamConfig } from "./adapters/stub-upstream.js";

@@ -23,6 +23,11 @@ export interface StubUpstreamConfig {
   default: StubMode;
   /** 按 attempt 序号配置响应（attemptNo 从 1 开始）。用于双 Attempt 测试。 */
   byAttempt?: Record<number, StubMode>;
+  /**
+   * 该 Stub 实例代表的厂商上游（W09 起可配，便于智谱/Kimi Adapter 复用同一 Stub 基础设施）。
+   * 默认 "deepseek"，保持现有 DeepSeek 测试零改动。
+   */
+  providerCode?: "deepseek" | "zhipu" | "kimi";
 }
 
 /**
@@ -30,11 +35,13 @@ export interface StubUpstreamConfig {
  * 调用记录在 calls 数组，便于测试断言。
  */
 export class StubUpstream implements ProviderAdapter {
-  readonly providerCode = "deepseek";
+  readonly providerCode: "deepseek" | "zhipu" | "kimi";
   readonly capabilities = new Set(["chat", "messages", "stream"]);
   readonly calls: Array<{ resource: AdapterResource; request: AdapterRequest; attemptNo: number }> = [];
 
-  constructor(private config: StubUpstreamConfig) {}
+  constructor(private config: StubUpstreamConfig) {
+    this.providerCode = config.providerCode ?? "deepseek";
+  }
 
   async invoke(
     resource: AdapterResource,

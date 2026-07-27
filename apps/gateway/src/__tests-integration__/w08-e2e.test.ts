@@ -18,7 +18,6 @@ import {
   digestApiKey,
   apiKeyPrefix,
   StubUpstream,
-  DeepSeekAdapter,
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
 import { createRealPipeline } from "../pipeline/real-pipeline.js";
@@ -69,8 +68,10 @@ beforeAll(async () => {
   // StubUpstream：返回真实形状 usage（含 cache）
   const stub = new StubUpstream({
     default: { kind: "SUCCESS", usage: { input: 980, output: 412, cache: 100 } },
+    providerCode: "deepseek",
   });
-  const adapter = new DeepSeekAdapter(async (res, req, n) => stub.invoke(res, req, n));
+  // caller：透传给 stub（W09 起由注册表按 providerCode 选 Adapter）
+  const caller = async (res: unknown, req: unknown, n: number) => stub.invoke(res as never, req as never, n);
 
   const ledgerRepo = new GatewayLedgerRepository(db);
   const findResource = async (entId: string, model: string) => {
@@ -78,7 +79,14 @@ beforeAll(async () => {
       .selectFrom("model_route")
       .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
       .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
-      .select(["provider_resource.id as resource_id", "model_route.upstream_model", "provider_resource.mode", "unified_model.alias"])
+      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
+      .select([
+        "provider_resource.id as resource_id",
+        "provider.code as provider_code",
+        "model_route.upstream_model",
+        "provider_resource.mode",
+        "unified_model.alias",
+      ])
       .where("model_route.enterprise_id", "=", entId)
       .where("unified_model.alias", "=", model)
       .where("model_route.enabled", "=", true)
@@ -86,13 +94,14 @@ beforeAll(async () => {
     if (!route) return undefined;
     return {
       resourceId: route.resource_id,
+      providerCode: route.provider_code,
       upstreamModel: route.upstream_model,
       principalId: PRINCIPAL_ID,
       mode: route.mode,
     };
   };
 
-  const pipeline = createRealPipeline({ db, ledgerRepo, adapter, findResource });
+  const pipeline = createRealPipeline({ db, ledgerRepo, caller, findResource });
   app = buildGateway(db, PEPPER, pipeline);
   await app.ready();
 }, 120_000);

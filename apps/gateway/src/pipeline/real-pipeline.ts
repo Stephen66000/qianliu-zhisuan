@@ -1,25 +1,28 @@
 /**
- * real pipeline —— 端到端 DeepSeek 代表链（W08）。
+ * real pipeline —— 端到端代表链（W08 DeepSeek；W09 起多厂商）。
  *
- * 把 StubUpstream（DeepSeek Adapter 注入）+ GatewayLedgerRepository 串起来，
+ * 把 Adapter（按 providerCode 从注册表解析）+ GatewayLedgerRepository 串起来，
  * 完成 TRD §8 行 496-516 的请求流程：
  *   创建请求意图 → 候选快照 → Attempt → usage → ledger_line → ledger_transaction。
  *
- * W08 用于 WT-03/05/12/14 端到端回归；真实 DeepSeek HTTP 在 DEP-PROVIDER-CREDENTIALS 解锁后替换 StubUpstream。
+ * W08 用于 WT-03/05/12/14 端到端回归；W09 解除 deepseek 硬编码，支持智谱 Coding Plan。
+ * 真实 HTTP 调用在 DEP-PROVIDER-CREDENTIALS 解锁后把 caller 替换为真实实现。
  */
 import type { Kysely } from "kysely";
 import type { Database, GatewayLedgerRepository } from "@qianliu/database";
-import { SecretValue, type ProviderAdapter } from "@qianliu/provider-adapters";
+import { SecretValue, type UpstreamCaller } from "@qianliu/provider-adapters";
 import type { PipelineHandler } from "../routes/chat.js";
+import { resolveAdapter } from "./adapter-registry.js";
 
 export interface RealPipelineDeps {
   db: Kysely<Database>;
   ledgerRepo: GatewayLedgerRepository;
-  /** Adapter（实际是 DeepSeekAdapter 包装 StubUpstream）。 */
-  adapter: ProviderAdapter;
-  /** 资源查找：enterprise → 候选资源 + upstream_model。 */
+  /** 上游调用器（StubUpstream / 真实 fetch）。按 providerCode 解析对应 Adapter。 */
+  caller: UpstreamCaller;
+  /** 资源查找：enterprise + alias → 候选资源 + providerCode + mode。 */
   findResource: (enterpriseId: string, unifiedModel: string) => Promise<{
     resourceId: string;
+    providerCode: string;
     upstreamModel: string;
     principalId: string;
     mode: string;
@@ -71,15 +74,16 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       upstream_model: resource.upstreamModel,
     });
 
-    // 5. 调用 Adapter（StubUpstream）
-    const outcome = await deps.adapter.invoke(
+    // 5. 按 providerCode 解析 Adapter（W09：多厂商，不再硬编码 deepseek）
+    const adapter = resolveAdapter(resource.providerCode, deps.caller);
+    const outcome = await adapter.invoke(
       {
-        providerCode: "deepseek",
+        providerCode: resource.providerCode as "deepseek" | "zhipu" | "kimi",
         resourceId: resource.resourceId,
         mode: resource.mode === "CODING_PLAN" ? "CODING_PLAN" : "API",
         upstreamModel: resource.upstreamModel,
         concurrencyLimit: 100,
-        // W08 简化：secret 用空 SecretValue（真实凭证解密在 W06 DEP-PROVIDER-CREDENTIALS 解锁后接入）
+        // 真实凭证解密在 DEP-PROVIDER-CREDENTIALS 解锁后接入；此处空 SecretValue
         secret: new SecretValue(""),
       },
       { requestId, unifiedModel: body.model, stream: body.stream ?? false, body: body.messages },
