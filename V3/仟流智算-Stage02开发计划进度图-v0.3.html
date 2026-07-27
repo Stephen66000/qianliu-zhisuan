@@ -35,14 +35,14 @@
     <div class="stages">
       <div class="stage"><b>01 · 方案准备</b><small>DONE · Owner 最终放行</small></div>
       <div class="stage current"><b>02 · 开发计划</b><small id="stage02-status">WAITING_OWNER_DECISION</small></div>
-      <div class="stage"><b>03 · 开发执行</b><small>NOT_DUE · 开发进度 0%</small></div>
+      <div class="stage"><b>03 · 开发执行</b><small id="stage03-status">NOT_DUE · 开发进度 0%</small></div>
     </div>
   </section>
 
   <section class="cards">
     <div class="card"><div class="label">Stage 02 检查项关闭度</div><div class="value warn" id="planProgress">95.6%</div><div class="progress"><i id="planProgressBar" style="width:95.6%"></i></div></div>
-    <div class="card"><div class="label">Stage 03 开发进度</div><div class="value blue">0%</div><div class="progress"><i style="width:0"></i></div></div>
-    <div class="card"><div class="label">纵向里程碑／工作包</div><div class="value">8 / 29</div><div class="label">M1～M8 · W01～W29</div></div>
+    <div class="card"><div class="label">Stage 03 开发进度</div><div class="value blue" id="devProgress">0%</div><div class="progress"><i id="devProgressBar" style="width:0"></i></div></div>
+    <div class="card"><div class="label">纵向里程碑／工作包</div><div class="value" id="wpCounter">8 / 29</div><div class="label">M1～M8 · W01～W29</div></div>
     <div class="card"><div class="label">AI 开发候选</div><div class="value">D4 / D5</div><div class="label">P50 功能候选／P80 质量候选</div></div>
   </section>
 
@@ -62,7 +62,7 @@
 
   <section class="panel">
     <h2>工作包排期</h2>
-    <p class="note">单一主线，同一时间只允许一个工作包 `in_progress`。凭证、Windows、域名分别只阻塞对应工作包。</p>
+    <p class="note">单一主线，同一时间只允许一个工作包 `in_progress`。工作包状态由 YAML <code>handoff.current_work_package</code> 推导（之前 DONE、当前 IN_PROGRESS、之后 NOT_DUE）。凭证、Windows、域名分别只阻塞对应工作包。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>ID</th><th>里程碑</th><th>时间盒／门禁</th><th>结果</th><th>风险</th><th>当前状态</th></tr></thead>
@@ -128,6 +128,8 @@
     "owner": "佳哥（AI 执行）",
     "evidence_target": "V3/Evidence/M3/W10/20260727-1423-w10-audit/README.md"
   },
+  "currentMilestone": "M3",
+  "currentWorkPackage": "W11",
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
     "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",
@@ -205,7 +207,25 @@ document.querySelector("#timeline").innerHTML=
     return `<div class="timeline-row"><div><b>${m[0]}</b><br><span class="label">${m[3]}</span></div><div class="track"><div class="bar ${m[4]}" style="left:${l}%;width:${Math.max(1,r-l)}%">${m[0]}</div></div><div class="label">${m[1]===5?"外部事件":`D${m[1]+1}～D${m[2]}`}</div></div>`
   }).join("");
 
-document.querySelector("#workPackages").innerHTML=STAGE_DATA.workPackages.map(w=>`<tr><td><b>${w[0]}</b></td><td>${w[1]}</td><td>${w[2]}</td><td>${w[3]}</td><td><span class="pill ${w[1]==="M8"?"":"high"}">${w[1]==="M8"?"业务周期":"HIGH"}</span></td><td><span class="pill nd">NOT_DUE</span></td></tr>`).join("");
+document.querySelector("#workPackages").innerHTML=STAGE_DATA.workPackages.map(w=>{
+  const n=parseInt(w[0].slice(1),10);
+  const cur=parseInt(String(STATE_SNAPSHOT.currentWorkPackage||"W01").slice(1),10);
+  const st=!STATE_SNAPSHOT.currentWorkPackage?"nd":n<cur?"done":n===cur?"verifying":"nd";
+  const stLabel=st==="done"?"DONE":st==="verifying"?"IN_PROGRESS":"NOT_DUE";
+  return `<tr><td><b>${w[0]}</b></td><td>${w[1]}</td><td>${w[2]}</td><td>${w[3]}</td><td><span class="pill ${w[1]==="M8"?"":"high"}">${w[1]==="M8"?"业务周期":"HIGH"}</span></td><td><span class="pill ${st}">${stLabel}</span></td></tr>`;
+}).join("");
+
+// Stage 03 开发进度:由 current_work_package 推导(之前的工作包视为 DONE)
+const wpNums=STAGE_DATA.workPackages.map(w=>parseInt(w[0].slice(1),10));
+const curNum=parseInt(String(STATE_SNAPSHOT.currentWorkPackage||"W01").slice(1),10);
+const doneCount=STATE_SNAPSHOT.currentWorkPackage?wpNums.filter(n=>n<curNum).length:0;
+const devPercent=(doneCount/STAGE_DATA.workPackages.length*100).toFixed(1);
+document.getElementById("devProgress").textContent=`${devPercent}%`;
+document.getElementById("devProgressBar").style.width=`${devPercent}%`;
+document.getElementById("wpCounter").textContent=`${doneCount} / ${STAGE_DATA.workPackages.length}`;
+document.getElementById("stage03-status").textContent=STATE_SNAPSHOT.currentWorkPackage
+  ? `${STATE_SNAPSHOT.currentMilestone} · ${STATE_SNAPSHOT.currentWorkPackage} 进行中 · 开发进度 ${devPercent}%`
+  : `NOT_DUE · 开发进度 0%`;
 
 const checkStatus=x=>x.includes("N/A")?"not_applicable":x.startsWith("DP-43")||x.startsWith("DP-44")?"verifying":"done";
 const groupStatus=g=>g[1].every(x=>["done","not_applicable"].includes(checkStatus(x)))?"done":"verifying";

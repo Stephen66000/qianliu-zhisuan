@@ -25,6 +25,8 @@ snapshot = {
     "candidateLock" => state.fetch("handoff").fetch("candidate_lock")
   },
   "nextAction" => state.fetch("next_action"),
+  "currentMilestone" => state.fetch("handoff").fetch("current_milestone"),
+  "currentWorkPackage" => state.fetch("handoff").fetch("current_work_package"),
   "allowedActions" => state.fetch("allowed_actions"),
   "forbiddenActions" => state.fetch("forbidden_actions"),
   "blockers" => state.fetch("blockers"),
