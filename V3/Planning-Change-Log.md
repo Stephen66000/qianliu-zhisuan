@@ -5,7 +5,7 @@
 | 产品版本 | v0.3 |
 | Owner／批准人 | 佳哥 |
 | 当前有效计划 | [详细开发计划与排期 v0.3.1](./仟流智算-详细开发计划与排期-v0.3.md) |
-| 当前变更数 | 4 |
+| 当前变更数 | 5 |
 
 ## 使用规则
 
@@ -82,3 +82,17 @@
 | 决策 | 按新 SOP §3.2.1 保留 ZCode 报告作为独立审核 Evidence；主 AI 精准整改并形成 v0.3.3 候选；由 Owner 决定是否进入 Stage 03 |
 | 不变项 | 产品目标、scope／non-scope、技术架构、29 个工作包、P50/P80 主排期、外部门禁和 Stage 03 审核强度 |
 | Evidence | [Stage 02 SOP 合规审核报告](../仟流智算-Stage02-SOP合规审核报告-20260727.md) |
+
+### PC-20260727-05：安全依赖升级（代码质量 Audit Q-DEP-1 整改）
+
+| 项目 | 内容 |
+| --- | --- |
+| 日期 | 2026-07-27 |
+| 提出 | ZCode 独立审核（代码质量 Audit round 1，Q-DEP-1 P2） |
+| 批准／执行 | 佳哥授权整改；主 AI 执行 |
+| 变化事实 | undici 7.16.0（GHSA-g8m3-5g58-fq7m，high）→ ≥7.28.0；fastify 5.6.1（body validation bypass，high）→ ≥5.7.2 |
+| 风险 | fastify 升级涉及 breaking change 风险，须全工程 test 验证北向合同（OpenAI/Anthropic DTO）未破 |
+| 影响范围 | apps/gateway、apps/control-api、packages/provider-adapters 的依赖版本；工程规则 §2 版本基线 |
+| 不变项 | 产品目标、scope、技术架构、北向协议合同、29 个工作包 |
+| 决策 | 安全漏洞为实质安全变化，按工程规则 §9 升级处理（不属"悄悄漂移"）；升级后全工程命令复测 + 北向合同回归（w05/w08/w09/w10 e2e） |
+| Evidence | 待整改报告 + pnpm audit 清零 |

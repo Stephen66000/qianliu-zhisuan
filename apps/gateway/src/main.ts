@@ -65,7 +65,7 @@ async function start(): Promise<void> {
       mode: r.mode as "API" | "CODING_PLAN",
       status: r.status,
       probe: false,
-      principalId: "", // 由 pipeline 从 allCandidates 填充（生产查询不直接带 principal_id）
+      principalId: "", // 路由候选不携带主体；pipeline 用已认证的 principal.principalId 做额度/账本归因（R2-N1）
     }));
   };
 

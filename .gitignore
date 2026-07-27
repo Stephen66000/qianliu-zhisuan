@@ -50,3 +50,4 @@ V3/PoC/**/.env
 V3/Evidence/**/*.tmp
 .corepack-bin/
 .zcode/
+.stryker-tmp/
