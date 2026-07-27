@@ -1,8 +1,8 @@
 {
   "digests": {
-    "full_candidate_hash": "6365ce9d82d40125e139186e06ea9c3b7013c06592476c98a550d6146c68654f",
-    "implementation_hash": "6365ce9d82d40125e139186e06ea9c3b7013c06592476c98a550d6146c68654f",
-    "manifest_hash": "09ced91499aaac48454333f50eb60ea23863f83fade89b5dfc4f20a94edd3e9e"
+    "full_candidate_hash": "cbd7e00ba4969b7c1c2aa7e7d3b628c0531b38e681457aa46e0b0e14e8c550b4",
+    "implementation_hash": "cbd7e00ba4969b7c1c2aa7e7d3b628c0531b38e681457aa46e0b0e14e8c550b4",
+    "manifest_hash": "ae7fccddb077d2640e3adb11b4fa20fa295ab5f059f4fc17aae7d273abfba64b"
   },
   "entries": [
     {
@@ -72,8 +72,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/control-api/src/main.ts",
-      "sha256": "a4d76e1f21072cdb4919092beafb0d536c4510340004bfa5b8c48c8d222b5401",
-      "size": 624,
+      "sha256": "1d49971d4e4b13da7b24d040fafe21fa2ab0bd4f6bbf349647aa5adbb5e954ad",
+      "size": 1476,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -117,8 +117,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/control-api/src/server.ts",
-      "sha256": "affb567f326b530c5b8783931d76fc2962c226c1cdc936306017803ebbcd0ab1",
-      "size": 3420,
+      "sha256": "9efda6e8fe65fa5f4e6c4807a19795a22d39dde9ee5260ded137a9c27f6074e8",
+      "size": 3628,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -144,8 +144,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/__tests-integration__/w08-e2e.test.ts",
-      "sha256": "68053ac2952b2d7bf91ce8d1f2e3f0264d1cc935cbbe93b34abeedc704c060cb",
-      "size": 9299,
+      "sha256": "186b3d2e99a62e08d4eba419036ee1dd5f0dad9a62d9261f194d3771fc245d0c",
+      "size": 9380,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -153,8 +153,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/__tests-integration__/w09-zhipu-e2e.test.ts",
-      "sha256": "c19d2e4140fcbd53ad7397d3ece157d242846973903ee6a54af70a98fe368f0c",
-      "size": 12443,
+      "sha256": "60bf99bcffd253fbef09b4364f37c5d93e6cf9d11791a70450b530a29806ab58",
+      "size": 13126,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -162,8 +162,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/__tests-integration__/w10-kimi-e2e.test.ts",
-      "sha256": "7e36283aaf123464604302e26deb505a51f88f419da53196a4b2c0c72a9c88c0",
-      "size": 12898,
+      "sha256": "ed865c0ed01d9975e47e8d8762694a228a31521487c9678de8da1bec2019ea02",
+      "size": 13510,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -180,8 +180,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/__tests-integration__/w12-routing.test.ts",
-      "sha256": "20090a0fa6dd4443f982fe0b8c46b98ed050616b4d6a2885ff30b982dfae7a7f",
-      "size": 14265,
+      "sha256": "2fb7ee211d17e877c505ef366ce7d96c14cb96c52d5b8f2a715120581cc72df6",
+      "size": 14973,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -216,8 +216,17 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/__tests-integration__/w16-dispatch.test.ts",
-      "sha256": "f4481d1f53076ae6a6402b33149f18ecc8a2be8aa4753d95a8a5aceef6849a16",
-      "size": 19243,
+      "sha256": "0e77146bdb18dbf6d06d6eb31ccffa3b26b23fbecbe58ee8a97576392377df49",
+      "size": 20047,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w18-quota-pipeline.test.ts",
+      "sha256": "082abb73b48c058712f3d71a7795c09faf42557df123a2dba42373586eb2ac53",
+      "size": 17296,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -234,8 +243,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/main.ts",
-      "sha256": "4554d4223eba83d5bd355f82206974b2f59e3677b01bdf5ad898cbde4d872fcd",
-      "size": 748,
+      "sha256": "c2c8b9572523a50b9bf0b40c61c714244997f53a6a39b3d6bbda7503deab1d14",
+      "size": 4180,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -252,8 +261,8 @@
       "category": "implementation",
       "mode": "0644",
       "path": "apps/gateway/src/pipeline/real-pipeline.ts",
-      "sha256": "48df9c805dd1b33576447eb0c57e52e0b891152b4eecccfb4e7f44ff0e43945d",
-      "size": 24640,
+      "sha256": "f52de041a4ad2530af11d12dd9654b9d7324cb0884bd9e1c1e73c6d56688d1cd",
+      "size": 29749,
       "status": "tracked_or_explicit",
       "type": "file"
     },
@@ -1013,11 +1022,11 @@
     ".git/**",
     "V3/Evidence/M4/audit/candidate-lock.json"
   ],
-  "generated_at": "2026-07-27T11:59:35.647283+00:00",
+  "generated_at": "2026-07-27T14:43:18.111793+00:00",
   "git": {
     "branch": "main",
     "deleted": [],
-    "head": "4a0678865b3ace4d3c6e5e652cc6523f7e48399e",
+    "head": "b7bc04003cfcec6d0494ebc77a711cc042381ee6",
     "staged": [],
     "untracked": [],
     "worktree_modified": []
