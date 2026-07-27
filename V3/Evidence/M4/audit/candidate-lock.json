@@ -1,0 +1,1045 @@
+{
+  "digests": {
+    "full_candidate_hash": "6365ce9d82d40125e139186e06ea9c3b7013c06592476c98a550d6146c68654f",
+    "implementation_hash": "6365ce9d82d40125e139186e06ea9c3b7013c06592476c98a550d6146c68654f",
+    "manifest_hash": "09ced91499aaac48454333f50eb60ea23863f83fade89b5dfc4f20a94edd3e9e"
+  },
+  "entries": [
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts",
+      "sha256": "7e1a8a0503cf72522f15bf6c945d35153e861c82ac8a853d097d98e46a260dfd",
+      "size": 7776,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/__tests-integration__/w03-key-grant.test.ts",
+      "sha256": "6dccaef2fb5906ca7bab95170b030b44e6a9f329d18e898df0beca6e8a9e570e",
+      "size": 7538,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/__tests-integration__/w04-provider-route.test.ts",
+      "sha256": "65a3199c86dd874d9d3f63174a37f1bc45f3519678c9a6ec43e014240dc10ecc",
+      "size": 7070,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/auth/password.ts",
+      "sha256": "a4bd07569c4ab2c8189566384a6d85180344ae7ffed041179af63daee053ecc9",
+      "size": 1033,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/auth/routes.ts",
+      "sha256": "86a597846e6c80c15889f28b54ceefd4a6d91292c2cb4a4919ee012014e7ecf4",
+      "size": 4362,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/grants/routes.ts",
+      "sha256": "fd3760d1d89fd7dd314fc1ec7f9fae4212a2688cc434d1f66e5b79ada4cb172d",
+      "size": 2672,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/keys/routes.ts",
+      "sha256": "63e486b4be54f74790d8419fedbc22c5656ea2b4f20ca9c2d8533c1cfb3b19b3",
+      "size": 4518,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/main.ts",
+      "sha256": "a4d76e1f21072cdb4919092beafb0d536c4510340004bfa5b8c48c8d222b5401",
+      "size": 624,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/plugins/audit-routes.ts",
+      "sha256": "dc7e0a7c0d3ca3ee822fb2c826444ec576439d2371cfa0e9c83c7a9c22cee8a2",
+      "size": 782,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/plugins/auth-guard.ts",
+      "sha256": "7ac6477776e10ee4de52c4ad6f50f9ecc87d138593074643af44a76ce8ce2e71",
+      "size": 1556,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/principals/routes.ts",
+      "sha256": "53606919b3eded56e25f850cc07b9e61b68be368a864a39cc23dda1830334560",
+      "size": 4306,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/providers/routes.ts",
+      "sha256": "8d18fe2d3263afff1ec716a1d120d9c12380f9adaa1cdf8e290769983b4482d0",
+      "size": 6972,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/server.ts",
+      "sha256": "affb567f326b530c5b8783931d76fc2962c226c1cdc936306017803ebbcd0ab1",
+      "size": 3420,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w05-northbound.test.ts",
+      "sha256": "166ff0731798e79be02a877cf2b0664f694bde439b731ec3e0ccdfdc379f7372",
+      "size": 7449,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w07-ledger.test.ts",
+      "sha256": "b8de30c40c9ba0333a8586e9132369a92084a275ff22424b1da7246ab03b2a78",
+      "size": 11817,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w08-e2e.test.ts",
+      "sha256": "68053ac2952b2d7bf91ce8d1f2e3f0264d1cc935cbbe93b34abeedc704c060cb",
+      "size": 9299,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w09-zhipu-e2e.test.ts",
+      "sha256": "c19d2e4140fcbd53ad7397d3ece157d242846973903ee6a54af70a98fe368f0c",
+      "size": 12443,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w10-kimi-e2e.test.ts",
+      "sha256": "7e36283aaf123464604302e26deb505a51f88f419da53196a4b2c0c72a9c88c0",
+      "size": 12898,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w11-resource-pool.test.ts",
+      "sha256": "af6d94aa201c2b027329724ab7198311b45833b042ce98547adae209d295e005",
+      "size": 11013,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w12-routing.test.ts",
+      "sha256": "20090a0fa6dd4443f982fe0b8c46b98ed050616b4d6a2885ff30b982dfae7a7f",
+      "size": 14265,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w13-billing.test.ts",
+      "sha256": "92653b3a17eaf0d1b9c375aae0c77c0d3ba02214f8791d1d334761ea5c0bcb02",
+      "size": 9293,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w14-quota-gate.test.ts",
+      "sha256": "98760b348cf3cbecd16c9356b5604ee07721eac155c1ad6bfbfd7a2ccef830fc",
+      "size": 7972,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w15-supply-forecast.test.ts",
+      "sha256": "eb4deef59dca26c42ec4d59e78a101ada05d5f1e2e882bc069b00d48e5b9b44e",
+      "size": 8656,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/__tests-integration__/w16-dispatch.test.ts",
+      "sha256": "f4481d1f53076ae6a6402b33149f18ecc8a2be8aa4753d95a8a5aceef6849a16",
+      "size": 19243,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/auth/principal-auth.ts",
+      "sha256": "2892fec0c213d340d90d70c4902364bb81bd3e8b109a1a54b2f19db96dd0d8f9",
+      "size": 3503,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/main.ts",
+      "sha256": "4554d4223eba83d5bd355f82206974b2f59e3677b01bdf5ad898cbde4d872fcd",
+      "size": 748,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/pipeline/adapter-registry.ts",
+      "sha256": "e3e06614c73b4026bf5e9b2175589e6adb72d9116e8abc9182561b2b4c4f3ef3",
+      "size": 1324,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/pipeline/real-pipeline.ts",
+      "sha256": "48df9c805dd1b33576447eb0c57e52e0b891152b4eecccfb4e7f44ff0e43945d",
+      "size": 24640,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/pipeline/stub-pipeline.ts",
+      "sha256": "4680e0105e1c976d9276bb55723b58789e7572bb478020cf635ae7a2c0df81b9",
+      "size": 2904,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/plugins/error-envelope.ts",
+      "sha256": "6c521a607210ae3edf1efda0bc2d8cffcc8e34887dfd48633957fe79229da19a",
+      "size": 3029,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/plugins/request-id.ts",
+      "sha256": "dea134c68e7df83f660d3c344e3a52ff914f75494c59edbb7cc0540c2f72737c",
+      "size": 973,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/routes/chat.ts",
+      "sha256": "32d4472e289ab5fd349f6a2375bb7208731b424660cdf6fc6a97ab2e918087e4",
+      "size": 2366,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/routes/messages.ts",
+      "sha256": "8f383e4acf2b955f029e199505ab99c1674819bc024d376dc78cf3f2d0cfe1c7",
+      "size": 1781,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/routes/models.ts",
+      "sha256": "9ceea6b925aae8f8119553775c3a83cc210b5a9c4ec01bd26883c85a4f26b472",
+      "size": 1232,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/routes/unsupported.ts",
+      "sha256": "e799fb9d467390bf0a94c7ec994f3404341d0904315e41fe3c194b42432c5cde",
+      "size": 1523,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/server.ts",
+      "sha256": "b637624c4bfb3eb3cb47b321c393be11a7f571b37b8746af4e18308cede73023",
+      "size": 1829,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/main.tsx",
+      "sha256": "7458af502420bb349407f0f2495b3fc5d7048b73630c5fa7ebabfe44fedd96af",
+      "size": 584,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/worker/src/main.ts",
+      "sha256": "3855a6ae86586f6ebbf20fc0455e3f29e76458c8a7a13c0532225ddd5a6e0e2a",
+      "size": 2680,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/config/src/__tests__/config.test.ts",
+      "sha256": "bc42bae7220d48baae6349bf19cd909790085dd387327f3d64be1f5a29e7652f",
+      "size": 1496,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/config/src/index.ts",
+      "sha256": "ce3bdfd326ebbc609f8268226fd99df12588865d965223a46945540f3e079bae",
+      "size": 3503,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/contracts/src/__tests__/contracts.test.ts",
+      "sha256": "1fc34a6365b928e1c369868b6d17b7a34c502d73bc7b8cb4401257fe220eb414",
+      "size": 448,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/contracts/src/index.ts",
+      "sha256": "ac8dd6717c189dae939ae2d51259f3cd782206ff61bbc41406477f172ccc03c7",
+      "size": 5237,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/contracts/src/northbound.ts",
+      "sha256": "f95c76e1252d67b807b737ab76a36bb0be0fd0d49fe5ae78f06d26b02160e688",
+      "size": 3754,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0000_baseline_probe.js",
+      "sha256": "130bfefb16681bcc418558e29e66f19354920004d40374bd20e7b7fe5f8ffaa6",
+      "size": 1084,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0001_enterprise_admin_session.js",
+      "sha256": "b6d8e512221c935dd1620dbb3b78fc10c299257cc4720976c3e5add4c41540a6",
+      "size": 3944,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0002_principal.js",
+      "sha256": "22e8954c9f6004859fe75fc2145531afbc680efc656f470e578a7469ba46d088",
+      "size": 2042,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0003_principal_key.js",
+      "sha256": "6d531f5d2a94ec07a00ae3b0d74786042c69d03f27fbfb03d07c505b856d01bd",
+      "size": 2123,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0004_principal_grant.js",
+      "sha256": "7b6191648cf07eac451cb074c645a16bd0897b07b5a1e528fb7a25b4a4dee9c3",
+      "size": 3189,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0005_provider_resource_route.js",
+      "sha256": "abbbd9d12bee1acf8febb16ef843d822186b4266f5056d4f67ed3e40502eebd8",
+      "size": 6273,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0006_operation_log.js",
+      "sha256": "f8a3f09b15dbef4573bbe91618f0141ed3c0eb88b41f1aca578faad9a6be7dca",
+      "size": 1987,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0007_gateway_request.js",
+      "sha256": "58daf8027d9a6e9eec47edf8228fa1e3a3cb1c998cc0330c9c5c6016cf1212ca",
+      "size": 3810,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0008_attempt_usage.js",
+      "sha256": "b2423d234e7ffda5f7c395bccf438fbb05ee34f800d7bdc39263a9220647472b",
+      "size": 3605,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0009_ledger.js",
+      "sha256": "f9d53a9d84bfc7f442f5d44075b4d2827fbeaab60e89ff6c6a98e216bc17e1ae",
+      "size": 4270,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0010_resource_credential_lifecycle.js",
+      "sha256": "97fbce7505e132e19ae9741da625591ba3131e2349d1a4b855ebd7c33822490a",
+      "size": 3859,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0011_billing_rule.js",
+      "sha256": "1f085ec37535cc5bc7d614af9f7cfc0fc12ba9e7890541e6a7bb281bff493c55",
+      "size": 4280,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0012_concurrency_lease.js",
+      "sha256": "55297c198f873eb2ec3e6f94a775887d965d44823e21a6491fff996ca77a6b0e",
+      "size": 2212,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0013_supply_forecast.js",
+      "sha256": "2e19ba38e77e3d8885bd821474023affc6381100e146b8093df22ca6902c92d7",
+      "size": 2730,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0014_dispatch_policy.js",
+      "sha256": "bbc65f225f73215401fe6b0fd63884a29bc7111ef7081dc940a58f2651bfca8f",
+      "size": 7538,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0015_reconciliation.js",
+      "sha256": "d719ec5dc62b3c8790641c854b10a06d0020340bfbadec1cf97a4c254e80c54e",
+      "size": 5725,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/__tests-integration__/migration.integration.test.ts",
+      "sha256": "ae745197b161def955e9142b6eb66c8384dfb0b3e06d248d4e1178f0cd8e741b",
+      "size": 3003,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/__tests-integration__/w17-reconciliation.test.ts",
+      "sha256": "b923f3bdaa62e6a07fac9843aac6e74f8637eecae9c7d46eaace566e06e9c623",
+      "size": 8271,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/cli/migrate.ts",
+      "sha256": "5b2539c9fbd629774b51a6afc498a975496a8ce3609946156fd4e1cf050ef46f",
+      "size": 1366,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/index.ts",
+      "sha256": "6be8659f6d0c9422dfd8b202a2156faa33aaad4fa79dcea0221b72866fabe579",
+      "size": 2234,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/kysely.ts",
+      "sha256": "d891771ee925b401ae239ff140d61e61905c8b3afcb9939d6b193c51dd937a59",
+      "size": 14744,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/migrator.ts",
+      "sha256": "8b63d88526b0806da6cadf7af2b763ff72bda279f6cb07361c28ef2423d1e031",
+      "size": 2403,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/admin-repository.ts",
+      "sha256": "d669c754a0fd8755fdd0c459cfc14e53c0527351b8e47ef507b27c0abdc5277e",
+      "size": 2915,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/audit-repository.ts",
+      "sha256": "d19647fe64900e2223418f61f430eea30693b18fbedf2e43b99c8427c991aac3",
+      "size": 1899,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/dispatch-policy-repository.ts",
+      "sha256": "758fb37c00b067763f9464d2fa1d8aab9569e05d18b220f769b9a7e238f34d4e",
+      "size": 8088,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/gateway-ledger-repository.ts",
+      "sha256": "c1195db1d0fac76a80bd2fd1c849c7f69484be350ad414ae5df006db30b57c8d",
+      "size": 13620,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/grant-repository.ts",
+      "sha256": "b6c6ff9ac3eef709d201fea8fd2ba3de6f11c27a11e34a6b653e7b0d815b4d86",
+      "size": 1869,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/key-repository.ts",
+      "sha256": "598d56478b065dcf082ffbfc4200a4249ff3098e4bfd26ae2563382734d8fa5d",
+      "size": 4646,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/principal-repository.ts",
+      "sha256": "cfef8db2d6b1c9fe7aa0fe72ae15f4af271e5b7f42ea94678642338227c4a041",
+      "size": 2432,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/provider-repository.ts",
+      "sha256": "cd115a8625fbcb2ddf5e1b2c10a3ac1b6daa708e6f03b46f88d28f57f6f9a4a2",
+      "size": 6178,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/quota-gate-repository.ts",
+      "sha256": "511448911f0adf8a652e62b93c956e02407d4169b0738d2fd9382d43bc9fa3fc",
+      "size": 8855,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/reconciliation-repository.ts",
+      "sha256": "45394e10f474f80a3dda8a0855f473e4ab88cfadad7616149933bb720dd23a69",
+      "size": 11273,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/resource-pool-repository.ts",
+      "sha256": "b47bd2f26c28d270fd5a5a6d52377932b0066f5da67f18495e9a2defb5612062",
+      "size": 9591,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/billing-rule.test.ts",
+      "sha256": "17b970fcc2a43593df30eba509ded95e6e0931b1349d2920769dfd1f58205080",
+      "size": 7700,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/dispatch-policy.test.ts",
+      "sha256": "f30d61d951e8a4a0ecf5d55883e6dbd8c11a03edabf4e13a84ae404db590c77e",
+      "size": 11197,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/domain.test.ts",
+      "sha256": "c4dde1eb0f26f8b031d22b611dfcc8d52856dfe1a4e075b9807bd244592f9ca6",
+      "size": 1046,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/quota-gate.test.ts",
+      "sha256": "2afaa8295d6b8df50ccbdc884484612eccd43cdbcb7251fea6c4f45d60645823",
+      "size": 3687,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/reconciliation.test.ts",
+      "sha256": "081c93495a74908332605ce0b20cab258c8de9afdae8434155b6258d1248d002",
+      "size": 5903,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/resource-lifecycle.test.ts",
+      "sha256": "252e148a4176c409dcc17041a676f649ef8706b0bade962a84590aaadbb8dfc4",
+      "size": 9510,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/routing-policy.test.ts",
+      "sha256": "6cd3960154222c98aa645059d35ebec28edd38c774d95f35737b7f51f0e43ff8",
+      "size": 7814,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/supply-forecast.test.ts",
+      "sha256": "e3b9a2cfa2f88afefd8ef54206f89c2862f6c8f4b537ebcb4c43c2ab44643625",
+      "size": 4476,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/billing-rule.ts",
+      "sha256": "7c8d471b21ba5703680022860944a2dfe9bafefaf414b8445a1ed0bbacf7e57f",
+      "size": 7774,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/dispatch-policy.ts",
+      "sha256": "573be4d7afc3e56be5c649cb52ac64dffe68890333165f4ebeab3f307421379e",
+      "size": 13336,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/index.ts",
+      "sha256": "13e980a972206475ef6cb434e3adc0879d926bfa96fc18af4492eb854a242bbb",
+      "size": 7415,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/quota-gate.ts",
+      "sha256": "c532ba01b680de599295bc7dff12262e8ac2d80acf6451d115618558cd527cca",
+      "size": 3811,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/reconciliation.ts",
+      "sha256": "9166600fb05610d6c580ced53c141482f6a565c882eb7493c1d10a8d8e96eaed",
+      "size": 5963,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/resource-lifecycle.ts",
+      "sha256": "a8d71d4c1206441a203132afd2616eb2fffa746290d08abd5b356d00ab5eb8ae",
+      "size": 11462,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/routing-policy.ts",
+      "sha256": "04f69a115273f16d44c7dd363c43f5d2cbb96a527a29252f33fad344fdea1478",
+      "size": 8529,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/supply-forecast.ts",
+      "sha256": "04abfab0fc02e27f12c71297e4b349484382e09fedd0b06557d47113a908a72b",
+      "size": 6041,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/observability/src/__tests__/logger.test.ts",
+      "sha256": "f2a81c9a315c08faf61a099de23c61462b3b6aa97d51e46507c8d4fb6dd517d8",
+      "size": 1381,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/observability/src/canary.ts",
+      "sha256": "b8e65583e66d63161f98b6e058b8b666449d3d73b87c555786a106453940dee9",
+      "size": 1701,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/observability/src/cli/evidence-canary.ts",
+      "sha256": "b39895352a2d4d147a03f6aa6f4e842991179a3994d8e8bcc7ab6ff57bd45f09",
+      "size": 1850,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/observability/src/index.ts",
+      "sha256": "cb82f73fb67573324a1b0c7d11bb6599d49ed274db56431692ec5e4cf3ae8580",
+      "size": 773,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/observability/src/logger.ts",
+      "sha256": "06448b842596659db97af60352a8e977906709b8bc024ed09b3744c6d5e51bce",
+      "size": 1933,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/observability/src/pg-canary-sink.ts",
+      "sha256": "b6f0a7ba530584ed164563ffcc52028385db4d19753e8826e82f7ad856c91fcc",
+      "size": 920,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/__tests__/deepseek-adapter.test.ts",
+      "sha256": "d41ddb831993371709522a4c3a48b1600ea464e561efaaa110d587093bdbc82d",
+      "size": 6199,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/__tests__/kimi-adapter.test.ts",
+      "sha256": "137d85a8527a272b6553988e88b25ecebc4d950aa518a6f0c3c3685b993d6fbd",
+      "size": 8030,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/__tests__/secret-value.test.ts",
+      "sha256": "04c7022492eac61b61da0dda22e06c15cdac84aa2e9237a44109083da4f477a1",
+      "size": 912,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/__tests__/zhipu-adapter.test.ts",
+      "sha256": "45cdd3959a64f69de3e8811f561afc6e5f4604ea3c02cfa26223d2801b2c5768",
+      "size": 7591,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/adapters/deepseek-adapter.ts",
+      "sha256": "3c7fbfafb1c476fe89e60fb1b6dcf6466a7287952f38c6c23a815245fbe75b0d",
+      "size": 4161,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/adapters/kimi-adapter.ts",
+      "sha256": "7ad7bbbcc6d2e51a9d6a638f4019eefa31cb633b60503b2f82dfa76c97a36931",
+      "size": 4612,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/adapters/stub-upstream.ts",
+      "sha256": "d7d6700a2ab6bb076a520b27d7f2a9fa9f72b06b296c1da452502e30ed52a8ee",
+      "size": 4124,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/adapters/zhipu-adapter.ts",
+      "sha256": "1f6379c8d90b478aeb502204a1970dea787f02fcba4c79255cab0d2749b944be",
+      "size": 4483,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/crypto.ts",
+      "sha256": "74c9d3a28e27b65f1687ecfdfcdd4cc3b26c9cb49437b33594374a7d114c794d",
+      "size": 3966,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/index.ts",
+      "sha256": "9275be6dba5f0adbd154ff143cf8c54bacb460e1b58333777bdcac73bb42d15a",
+      "size": 4250,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/testing/src/index.ts",
+      "sha256": "a097919c94ad0cfe80e03481a76ee8786bb63e7074bd9cb265043ccf3809ff90",
+      "size": 521,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/testing/src/postgres-container.ts",
+      "sha256": "48a3a7f315cdaf37daf0352ead9fd24e0aa55f1230ba207fe53d9458abd0f122",
+      "size": 912,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/testing/src/redis-container.ts",
+      "sha256": "186a5817ed59d82807b695c9ef3700e8eca7963352357d21a01787dc37b9224e",
+      "size": 702,
+      "status": "tracked_or_explicit",
+      "type": "file"
+    }
+  ],
+  "evidence_prefixes": [
+    "V3/Evidence"
+  ],
+  "excludes": [
+    ".git",
+    ".git/**",
+    "V3/Evidence/M4/audit/candidate-lock.json"
+  ],
+  "generated_at": "2026-07-27T11:59:35.647283+00:00",
+  "git": {
+    "branch": "main",
+    "deleted": [],
+    "head": "4a0678865b3ace4d3c6e5e652cc6523f7e48399e",
+    "staged": [],
+    "untracked": [],
+    "worktree_modified": []
+  },
+  "root_hint": "/Users/mac/Projects/仟流智算",
+  "schema_version": "1.0",
+  "selection": {
+    "kind": "explicit",
+    "paths": [
+      "apps/control-api/src",
+      "apps/gateway/src",
+      "apps/web/src",
+      "apps/worker/src",
+      "packages/config/src",
+      "packages/contracts/src",
+      "packages/database/migrations",
+      "packages/database/src",
+      "packages/domain/src",
+      "packages/observability/src",
+      "packages/provider-adapters/src",
+      "packages/testing/src"
+    ]
+  },
+  "tool_version": "1.0"
+}

@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-27T19:35:00+08:00"
+updated_at: "2026-07-27T20:10:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -39,8 +39,8 @@ handoff:
   audited_candidate_lock: "V3/仟流智算-Stage02评审候选锁-v0.3.2.sha256"
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
-  current_milestone: "M5"
-  current_work_package: "W18"
+  current_milestone: "M4"
+  current_work_package: "M4-AUDIT"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -51,10 +51,10 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-W17"
-  text: "M4 全部完成（W13 计价 + W14 额度 + W15 预测 + W16 调度 + W17 对账）。W17 对账任务 + 重复0/丢失<0.1% + 异常队列 + M4 全链回归；domain 108 单测 + database 8 + gateway 61 集成全绿，canary 0。下一步进入 M5（完整桌面 Web，W18~W20）。"
-  owner: "佳哥（AI 执行）"
-  evidence_target: "V3/Evidence/M4/W17/20260727-1935-w17-m4-audit/README.md"
+  id: "STAGE03-M1-M4-AUDIT"
+  text: "M1~M4 代码已完成（W01~W17），累积冻结为显式 path 对象锁（12 个 src/migrations 目录）。M1~M4 均命中 SOP §3.3 高风险（认证/密钥/协议/账本/资金/迁移/并发/公共合同），但此前均为本 AI 自检；现须由独立 AI 会话执行两道累积 Audit（功能验收 + 代码质量）。审核任务书 v2 已交出，待独立审核 AI 出报告。审核通过前不得进入 M5。"
+  owner: "佳哥（交独立 AI 会话审核）"
+  evidence_target: "V3/Evidence/M4/audit/M4-审核任务书-v1.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"
