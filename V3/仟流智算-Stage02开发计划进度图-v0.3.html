@@ -55,7 +55,7 @@
 
   <section class="panel">
     <h2>开发日历与进度图</h2>
-    <p class="note">横轴：Stage 03 启动后的 D1～D5。Windows 真机、真实 Provider、10 人入组和完整自然月属于外部验收，不计入 AI 编程工期。</p>
+    <p class="note">横轴：Stage 03 启动后的 D1～D5。里程碑条按 YAML <code>handoff.current_milestone</code> 推导：已完成为绿色，当前及之后为计划色。Windows 真机、真实 Provider、10 人入组和完整自然月属于外部验收，不计入 AI 编程工期。</p>
     <div class="legend"><span><i style="background:#15966b"></i>计划阶段已完成</span><span><i style="background:#c98208"></i>HIGH／最终里程碑</span><span><i style="background:#13a8a8"></i>真实业务周期</span></div>
     <div id="timeline"></div>
   </section>
@@ -204,7 +204,11 @@ document.querySelector("#timeline").innerHTML=
   `<div class="timeline-head"><span>阶段／结果</span><span>D1　　　　 D2　　　　 D3　　　　 D4　　　　 D5</span><span>时间盒</span></div>`+
   STAGE_DATA.milestones.map(m=>{
     const l=pct(m[1]),r=pct(m[2]);
-    return `<div class="timeline-row"><div><b>${m[0]}</b><br><span class="label">${m[3]}</span></div><div class="track"><div class="bar ${m[4]}" style="left:${l}%;width:${Math.max(1,r-l)}%">${m[0]}</div></div><div class="label">${m[1]===5?"外部事件":`D${m[1]+1}～D${m[2]}`}</div></div>`
+    // 里程碑状态由 YAML handoff.current_milestone 推导:之前的 M 视为已完成(绿色),当前及之后保持计划色
+    const mNum=/^M(\d+)$/.exec(m[0])?.[1];
+    const curM=/^M(\d+)$/.exec(String(STATE_SNAPSHOT.currentMilestone||""))?.[1];
+    const cls=mNum&&curM&&parseInt(mNum,10)<parseInt(curM,10)?"done":m[4];
+    return `<div class="timeline-row"><div><b>${m[0]}</b><br><span class="label">${m[3]}</span></div><div class="track"><div class="bar ${cls}" style="left:${l}%;width:${Math.max(1,r-l)}%">${m[0]}</div></div><div class="label">${m[1]===5?"外部事件":`D${m[1]+1}～D${m[2]}`}</div></div>`
   }).join("");
 
 document.querySelector("#workPackages").innerHTML=STAGE_DATA.workPackages.map(w=>{
