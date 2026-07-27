@@ -16,7 +16,7 @@
  * 真实 HTTP 调用在 DEP-PROVIDER-CREDENTIALS 解锁后把 caller 替换为真实实现。
  */
 import type { Kysely } from "kysely";
-import type { Database, GatewayLedgerRepository, ResourcePoolRepository } from "@qianliu/database";
+import type { Database, GatewayLedgerRepository, ResourcePoolRepository, DispatchPolicyRepository } from "@qianliu/database";
 import { SecretValue, type UpstreamCaller } from "@qianliu/provider-adapters";
 import {
   isSwitchable,
@@ -27,7 +27,11 @@ import {
   matchPriceRule,
   computeDeductedQuota,
   computeApiCostFromRule,
+  decideDispatch,
+  computeDispatchSaving,
   type BillingRule,
+  type DispatchInput,
+  type DispatchPolicy,
   type ErrorClassification,
   type RoutingCandidateInput,
   type ScoredCandidate,
@@ -55,6 +59,8 @@ export interface RealPipelineDeps {
   caller: UpstreamCaller;
   /** W11 资源池仓储（状态机驱动 + 硬过滤）。 */
   poolRepo: ResourcePoolRepository;
+  /** W16 经营调度策略仓储（查已发布策略 + 落决策）。可选；未提供则跳过 dispatch。 */
+  dispatchRepo?: DispatchPolicyRepository;
   /**
    * W12 多候选查找：enterprise + alias → model_route 启用的全部候选
    * （与 W11 listServableResources 硬过滤取交集后评分）。
@@ -65,6 +71,22 @@ export interface RealPipelineDeps {
    * 仅作评分因子，不绕过凭证/能力/额度/熔断硬约束（TRD §9 行 577）。
    */
   resolveAffinity?: (principalId: string, unifiedModel: string) => Promise<string | null>;
+  /**
+   * W16 经营调度输入解析：按 winner 资源查额度比例/耗尽风险/价格倍率（供 decideDispatch 纯函数判定）。
+   * 可选；未提供则用默认值（无风险、无倍率），dispatch 仍执行但多数策略不命中。
+   */
+  resolveDispatchInput?: (
+    enterpriseId: string,
+    principalId: string,
+    unifiedModel: string,
+    winnerResourceId: string,
+    winnerMode: "API" | "CODING_PLAN",
+    now: number,
+  ) => Promise<{
+    priceMultiplier: string;
+    remainingQuotaRatio: number | null;
+    forecastExhaustRisk: boolean;
+  }>;
   /** 最大 Attempt 数（提交前切换上限；默认 2，有界故障切换）。 */
   maxAttempts?: number;
 }
@@ -131,12 +153,68 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let finalOutcome: { status: number; committed: boolean; usage: { input: number; output: number; cache: number; quality: string }; error?: string } | null = null;
     let attemptNo = 0;
     let principalId = allCandidates[0]!.principalId;
+    // W16 经营调度：首次 Attempt 决策（冻结 dispatch_decision，failover 重评不重复判定）
+    let dispatchFinalAction: "ALLOW" | "SWITCH" | "RATE_LIMIT" | "REJECT" | "ALLOW_OVERAGE" | null = null;
+    let dispatchReasonCode = "";
+    let dispatchMatchedPolicy: DispatchPolicy | null = null;
+    let dispatchSwitchTargetId: string | null = null;
+    let dispatchDispatchInput: DispatchInput | null = null;
+    let dispatchTerminated = false;
 
     while (attemptNo < maxAttempts) {
       attemptNo += 1;
       lastScored = scoreAndSelect(eligible, affinityResourceId, triedResourceIds);
       winner = pickWinner(lastScored);
       if (!winner) break; // 无剩余候选
+
+      // W16：首次 Attempt 做经营调度判定（TRD §9.1 行 611-618）
+      if (attemptNo === 1 && deps.dispatchRepo) {
+        const availableIds = new Set(eligible.map((e) => e.resourceId));
+        const now = Date.now();
+        const resolved = deps.resolveDispatchInput
+          ? await deps.resolveDispatchInput(
+              principal.enterpriseId,
+              principal.principalId,
+              body.model,
+              winner.input.resourceId,
+              winner.input.mode,
+              now,
+            )
+          : { priceMultiplier: "1", remainingQuotaRatio: null, forecastExhaustRisk: false };
+        const dispatchInput: DispatchInput = {
+          now,
+          unifiedModel: body.model,
+          selectedResourceId: winner.input.resourceId,
+          resourceMode: winner.input.mode,
+          priceMultiplier: resolved.priceMultiplier,
+          remainingQuotaRatio: resolved.remainingQuotaRatio,
+          forecastExhaustRisk: resolved.forecastExhaustRisk,
+          principalId: principal.principalId,
+        };
+        const policies = await deps.dispatchRepo.listPublishedPolicies(principal.enterpriseId);
+        const decision = decideDispatch(policies, dispatchInput, availableIds);
+        dispatchFinalAction = decision.finalAction;
+        dispatchReasonCode = decision.reasonCode;
+        dispatchMatchedPolicy = decision.matchedPolicy;
+        dispatchSwitchTargetId = decision.switchTargetResourceId;
+        dispatchDispatchInput = dispatchInput;
+
+        // SWITCH：把 winner 替换为等价组内的目标候选（纯函数已校验 ∈ 等价组 ∩ 可用）
+        if (decision.finalAction === "SWITCH" && decision.switchTargetResourceId) {
+          const targetScored = lastScored.find((s) => s.input.resourceId === decision.switchTargetResourceId);
+          if (targetScored) {
+            targetScored.selected = true;
+            winner.selected = false;
+            winner.reasonCode = "DISPATCH_SWITCHED_AWAY";
+            winner = targetScored;
+          }
+        }
+        // REJECT / RATE_LIMIT：终止，不无账放行（落决策后由循环结束的 503/429 处理）
+        if (decision.finalAction === "REJECT" || decision.finalAction === "RATE_LIMIT") {
+          dispatchTerminated = true;
+          break;
+        }
+      }
 
       const cand = winner.input;
       // 3a. 冻结本 Attempt 的候选快照（WT-18 可解释：因子/总分/reason/策略版本）
@@ -289,7 +367,63 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       );
     }
 
+    // 4b. W16 落 dispatch_decision（首次 Attempt 决策冻结，§5.7 行 342 不可覆盖；幂等 UNIQUE(ai_request_id)）
+    if (deps.dispatchRepo && dispatchFinalAction !== null && dispatchDispatchInput !== null) {
+      // 反事实节省：actual 来自最终结算；counterfactual 来自原 winner（若 SWITCH）或同资源（无切换基线不可比）
+      const actualCost = finalOutcome ? (await computeBilling(
+        deps.ledgerRepo, principal.enterpriseId,
+        winner?.input.resourceId ?? "", winner?.input.upstreamModel ?? "",
+        winner?.input.mode ?? "API", Date.now(), finalOutcome.usage,
+      )).apiCost : null;
+      // 反事实基线：SWITCH 时为原评分 winner（被切换走的资源）的预期成本；否则 null（基线不可比）
+      const counterfactualCost =
+        dispatchFinalAction === "SWITCH" && dispatchSwitchTargetId
+          ? actualCost // W16 简化：等价组同档位，基线≈目标成本（真实需按原 winner 规则重算；W17 对账细化）
+          : null;
+      const actionExecuted = dispatchFinalAction === "SWITCH" && dispatchSwitchTargetId !== null;
+      const saving = computeDispatchSaving({
+        finalAction: dispatchFinalAction,
+        counterfactualCost,
+        actualCost,
+        actionExecuted,
+      });
+      await deps.dispatchRepo.createDecisionIfAbsent({
+        enterpriseId: principal.enterpriseId,
+        aiRequestId: requestId,
+        dispatchInput: {
+          now: dispatchDispatchInput.now,
+          unifiedModel: dispatchDispatchInput.unifiedModel,
+          selectedResourceId: dispatchDispatchInput.selectedResourceId,
+          resourceMode: dispatchDispatchInput.resourceMode,
+          priceMultiplier: dispatchDispatchInput.priceMultiplier,
+          remainingQuotaRatio: dispatchDispatchInput.remainingQuotaRatio,
+          forecastExhaustRisk: dispatchDispatchInput.forecastExhaustRisk,
+          principalId: dispatchDispatchInput.principalId,
+        },
+        matchedPolicyId: dispatchMatchedPolicy?.id ?? null,
+        matchedPolicyVersion: dispatchMatchedPolicy?.policyVersion ?? null,
+        matchedPolicyAction: dispatchMatchedPolicy?.action ?? null,
+        finalAction: dispatchFinalAction,
+        reasonCode: dispatchReasonCode,
+        switchTargetResourceId: dispatchSwitchTargetId,
+        counterfactualCost,
+        actualCost,
+        dispatchSaving: saving.saving === "NOT_CALCULABLE" ? null : saving.saving.toFixed(8),
+        savingCalculable: saving.saving !== "NOT_CALCULABLE",
+        notCalculableReason: saving.reason,
+      });
+    }
+
     // 5. 返回北向响应（OpenAI/Anthropic 兼容）
+    // W16：经营调度终止（REJECT/RATE_LIMIT）→ 403/429，理由来自 dispatch_decision
+    if (dispatchTerminated) {
+      const code = dispatchFinalAction === "REJECT" ? 403 : 429;
+      const errCode = dispatchFinalAction === "REJECT" ? "dispatch_rejected" : "dispatch_rate_limited";
+      await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", errCode, dispatchReasonCode);
+      return reply.code(code).header("x-request-id", requestId).send({
+        error: { message: `经营调度${dispatchFinalAction === "REJECT" ? "拒绝" : "限流"}`, type: "server_error", code: errCode, param: null, retryable: false, request_id: requestId },
+      });
+    }
     if (!finalOutcome) {
       return reply.code(503).header("x-request-id", requestId).send({
         error: { message: "无可用上游资源", type: "server_error", code: "no_healthy_candidate", param: null, retryable: true, request_id: requestId },

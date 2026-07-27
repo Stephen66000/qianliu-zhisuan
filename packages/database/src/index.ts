@@ -69,5 +69,10 @@ export {
   QuotaGateRepository,
   type QuotaReserveOutcome,
 } from "./repositories/quota-gate-repository.js";
+export {
+  DispatchPolicyRepository,
+  type CreateDispatchPolicyInput,
+  type CreateDispatchDecisionInput,
+} from "./repositories/dispatch-policy-repository.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;

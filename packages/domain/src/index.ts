@@ -213,4 +213,18 @@ export {
   type WindowUsage,
 } from "./supply-forecast.js";
 
+// ===== M4/W16：经营调度（峰谷/成本/额度策略、等价切换、反事实节省）=====
+export {
+  DISPATCH_POLICY_VERSION,
+  DISPATCH_REASON,
+  matchPolicy,
+  decideDispatch,
+  computeDispatchSaving,
+  type DispatchPolicy,
+  type DispatchInput,
+  type DispatchDecision,
+  type DispatchReason,
+  type EquivalentResourceGroup,
+} from "./dispatch-policy.js";
+
 export const DOMAIN_VERSION = "0.3.0" as const;

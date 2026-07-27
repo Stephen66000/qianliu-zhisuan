@@ -204,6 +204,54 @@ export interface SupplyForecastTable {
   snapshot_at: Generated<Date>;
 }
 
+/** W16：经营调度策略（0014）。 */
+export interface DispatchPolicyTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  status: Generated<string>; // DRAFT/VALIDATED/PUBLISHED/RETIRED
+  match_unified_model: string | null;
+  match_resource_mode: string | null; // API|CODING_PLAN
+  match_provider_resource_id: string | null;
+  match_timezone: string | null;
+  match_days_of_week: number[] | null;
+  match_start_time: string | null;
+  match_end_time: string | null;
+  match_price_multiplier_min: string | null;
+  match_remaining_quota_ratio_max: string | null;
+  match_forecast_exhaust_risk: boolean | null;
+  match_principal_scope: string[] | null;
+  action: string; // ALLOW/SWITCH/RATE_LIMIT/REJECT/ALLOW_OVERAGE
+  switch_equivalent_group: string[] | null;
+  rate_limit_per_minute: number | null;
+  policy_version: string;
+  priority: Generated<number>;
+  description: string | null;
+  source: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/** W16：请求前经营决策快照（0014，不可覆盖）。 */
+export interface DispatchDecisionTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  ai_request_id: string;
+  dispatch_input: Record<string, unknown> | null;
+  matched_policy_id: string | null;
+  matched_policy_version: string | null;
+  matched_policy_action: string | null;
+  final_action: string;
+  reason_code: string;
+  reason_detail: string | null;
+  switch_target_resource_id: string | null;
+  counterfactual_cost: string | null;
+  actual_cost: string | null;
+  dispatch_saving: string | null;
+  saving_calculable: Generated<boolean>;
+  not_calculable_reason: string | null;
+  decided_at: Generated<Date>;
+}
+
 export interface UnifiedModelTable {
   id: Generated<string>;
   enterprise_id: string;
@@ -377,6 +425,8 @@ export interface Database {
   quota_counter: QuotaCounterTable;
   concurrency_lease: ConcurrencyLeaseTable;
   supply_forecast: SupplyForecastTable;
+  dispatch_policy: DispatchPolicyTable;
+  dispatch_decision: DispatchDecisionTable;
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
   resource_status_event: ResourceStatusEventTable;
