@@ -2,7 +2,7 @@
   "digests": {
     "full_candidate_hash": "cbd7e00ba4969b7c1c2aa7e7d3b628c0531b38e681457aa46e0b0e14e8c550b4",
     "implementation_hash": "cbd7e00ba4969b7c1c2aa7e7d3b628c0531b38e681457aa46e0b0e14e8c550b4",
-    "manifest_hash": "55372f3f563a6d4a7d7492cfb3da435aeb720d17b8d9853452f24d96a733723c"
+    "manifest_hash": "abcffa113e7d3c6242d7b69cee7dd320ba0d3a70cf661bec4edd1cd88ad3dd25"
   },
   "entries": [
     {
@@ -1022,11 +1022,11 @@
     ".git/**",
     "V3/Evidence/M4/audit/candidate-lock.json"
   ],
-  "generated_at": "2026-07-27T14:46:03.013427+00:00",
+  "generated_at": "2026-07-27T14:49:06.179396+00:00",
   "git": {
     "branch": "main",
     "deleted": [],
-    "head": "6f953b725022efd16b14ec5c02e6a2d8ac65800b",
+    "head": "dd441c7553631ba5c7ed9ce1da3839e80cf9ef10",
     "staged": [],
     "untracked": [],
     "worktree_modified": []
