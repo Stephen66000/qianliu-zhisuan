@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-27T08:35:00+08:00"
+updated_at: "2026-07-27T11:30:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -40,7 +40,7 @@ handoff:
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
   current_milestone: "M1"
-  current_work_package: "W01"
+  current_work_package: "W02"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -52,7 +52,7 @@ handoff:
 
 next_action:
   id: "STAGE03-W01"
-  text: "W01 建立 Git 工程基线与正式工程命令，按 Local First 初始化；不 push 远程。"
+  text: "W02 登录与主体 CRUD（principal/admin_user/audit_log 迁移 + Fastify 路由）；W01 已完成，工程基线 commit dd33453。"
   owner: "佳哥（AI 执行）"
   evidence_target: "V3/仟流智算-详细开发计划与排期-v0.3.md"
 
