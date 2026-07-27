@@ -1,8 +1,8 @@
 {
   "digests": {
-    "full_candidate_hash": "a814a5a86e57a592046ba702f3fe8e2e8f1d95fce6aa060e8386fbb5f404c679",
-    "implementation_hash": "a814a5a86e57a592046ba702f3fe8e2e8f1d95fce6aa060e8386fbb5f404c679",
-    "manifest_hash": "bf910f55ed6382d263c8987c6fec790bdafe02893639951adc0c617471b438a7"
+    "full_candidate_hash": "e37244a0797124574939f9aeba84ecea71b3dd643d6ade73b69bd9b6183f3217",
+    "implementation_hash": "e37244a0797124574939f9aeba84ecea71b3dd643d6ade73b69bd9b6183f3217",
+    "manifest_hash": "9c02594e2c8230b38096cec1c5ab2dadb548a6bb3f7891c0a637f3bcb53b67ea"
   },
   "entries": [
     {
@@ -720,9 +720,9 @@
       "category": "implementation",
       "mode": "0644",
       "path": "packages/domain/src/__tests__/billing-rule.test.ts",
-      "sha256": "17b970fcc2a43593df30eba509ded95e6e0931b1349d2920769dfd1f58205080",
-      "size": 7700,
-      "status": "tracked_or_explicit",
+      "sha256": "2468e8f0d4f9d1fb07761dbbb141a3c9954bff5b46c85e281b90f10e585a519e",
+      "size": 13670,
+      "status": "modified",
       "type": "file"
     },
     {
@@ -774,9 +774,9 @@
       "category": "implementation",
       "mode": "0644",
       "path": "packages/domain/src/__tests__/routing-policy.test.ts",
-      "sha256": "6cd3960154222c98aa645059d35ebec28edd38c774d95f35737b7f51f0e43ff8",
-      "size": 7814,
-      "status": "tracked_or_explicit",
+      "sha256": "c23a5f6b5ef48b14da3479818a2316a07045a436489168374f888c280a2ea37c",
+      "size": 8632,
+      "status": "modified",
       "type": "file"
     },
     {
@@ -1040,14 +1040,17 @@
     ".git/**",
     "V3/Evidence/M4/audit/candidate-lock.json"
   ],
-  "generated_at": "2026-07-27T23:01:52.620162+00:00",
+  "generated_at": "2026-07-27T23:33:22.727042+00:00",
   "git": {
     "branch": "main",
     "deleted": [],
-    "head": "a06fa25e669b97ef510bc891ef4c76ba3d87aa46",
+    "head": "f353344b3ae1444c7df2a74b004aa1eb92945325",
     "staged": [],
     "untracked": [],
-    "worktree_modified": []
+    "worktree_modified": [
+      "packages/domain/src/__tests__/billing-rule.test.ts",
+      "packages/domain/src/__tests__/routing-policy.test.ts"
+    ]
   },
   "root_hint": "/Users/mac/Projects/仟流智算",
   "schema_version": "1.0",

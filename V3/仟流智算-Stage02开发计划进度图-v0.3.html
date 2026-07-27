@@ -93,7 +93,7 @@
 <script type="application/json" id="stage02-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "d55f38f4364be1aeeb0a0b9f12e2b56a45e69edd81b2c09c1c2a58f5f606b41a",
+  "sourceSha256": "5dbb34c0d8673cbbd45b055e120f73ff42dd2d90161f4b3b5b1453e1672337e4",
   "projectName": "仟流智算",
   "productVersion": "v0.3",
   "planVersion": "v0.3.1",
@@ -124,7 +124,7 @@
   },
   "nextAction": {
     "id": "STAGE03-M1-M4-CODE-AUDIT-R2",
-    "text": "代码质量 Audit round 1 FAIL（GAP-MUT-1 P1 变异测试 Gap + Q-DEP-1 P2 + Q-DOC-1 P3）。主 AI 已整改：Q-DEP-1 CLOSED（undici 7.29.0 + fastify 5.8.5 漏洞清零 + 附带修复 M1~M4 既有 cookie typecheck bug）、Q-DOC-1 CLOSED、GAP-MUT-1 配置完成但 stryker sandbox 兼容性未解→登记 Evidence Gap（非假完）。现交审核方做 round 2 有界复审（Q-DEP-1 升级 diff + cookie 类型修复 + domain 直接回归面 + GAP-MUT-1 Gap 判定）。round 2 PASS 前 M1~M4 不正式通过，不进 M5。",
+    "text": "代码质量 Audit round 1 整改完成：Q-DEP-1 CLOSED（undici 7.29.0 + fastify 5.8.5 漏洞清零 + cookie typecheck 修复）、Q-DOC-1 CLOSED、GAP-MUT-1 CLOSED（stryker 配置修复 + 5 个 R3 核心规则变异全部 ≥80%：reconciliation 96.23%/quota-gate 90.57%/routing-policy 86.60%/dispatch-policy 83.41%/billing-rule 81.78%；低分文件补测达标）。domain 117 单测全绿。现交审核方做 round 2 有界复审。round 2 PASS 前 M1~M4 不正式通过，不进 M5。",
     "owner": "佳哥（交独立 AI 会话 round 2 代码质量有界复审）",
     "evidence_target": "V3/Evidence/M4/audit/M1-M4-代码质量整改报告-QDEP1-QDOC1-主AI整改-20260728.md"
   },

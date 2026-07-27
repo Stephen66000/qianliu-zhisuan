@@ -100,7 +100,22 @@ describe("scoreAndSelect priority 分组与评分", () => {
     expect(w1).toBe("res-aaa");
     expect(w2).toBe("res-aaa");
     expect(w3).toBe("res-aaa");
-    expect(pickWinner(scoreAndSelect([x, y, z]))!.reasonCode).toBe(ROUTE_REASON.SELECTED_TIE_BREAK);
+    const results = scoreAndSelect([x, y, z]);
+    expect(pickWinner(results)!.reasonCode).toBe(ROUTE_REASON.SELECTED_TIE_BREAK);
+    // 同分落选者标记 TIE_BREAK_LOST（变异行 182-183 幸存：未断言落选者 reasonCode）
+    const losers = results.filter((r) => !r.selected);
+    expect(losers.length).toBe(2);
+    expect(losers.every((l) => l.reasonCode === ROUTE_REASON.TIE_BREAK_LOST)).toBe(true);
+  });
+
+  it("非同分落选者标记 LOWER_SCORE（区分 TIE_BREAK_LOST 与 LOWER_SCORE）", () => {
+    const heavy = cand({ resourceId: "a-heavy", weight: 9 });
+    const light = cand({ resourceId: "b-light", weight: 1 });
+    const results = scoreAndSelect([heavy, light]);
+    const winner = pickWinner(results)!;
+    const loser = results.find((r) => !r.selected)!;
+    expect(winner.reasonCode).toBe(ROUTE_REASON.SELECTED_TOP_SCORE);
+    expect(loser.reasonCode).toBe(ROUTE_REASON.LOWER_SCORE);
   });
 });
 

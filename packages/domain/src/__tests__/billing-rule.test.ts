@@ -86,6 +86,24 @@ describe("matchesTimeWindow 时段判定", () => {
     expect(matchesTimeWindow(r, night01)).toBe(true);
     expect(matchesTimeWindow(r, MON_1500_CST)).toBe(false);
   });
+
+  it("跨午夜边界：恰好 22:00 命中、21:59 不命中、02:00 不命中", () => {
+    const r = rule({ startTime: "22:00", endTime: "02:00" });
+    const at2200 = Date.UTC(2026, 6, 27, 14, 0); // 22:00 CST
+    const before2159 = Date.UTC(2026, 6, 27, 13, 59); // 21:59 CST
+    const at0200 = Date.UTC(2026, 6, 27, 18, 0); // 02:00 CST
+    expect(matchesTimeWindow(r, at2200)).toBe(true); // 恰好 start
+    expect(matchesTimeWindow(r, before2159)).toBe(false); // start 前
+    expect(matchesTimeWindow(r, at0200)).toBe(false); // 恰好 end（>= end 排除）
+  });
+
+  it("非跨午夜边界：恰好 start 命中、恰好 end 不命中", () => {
+    const r = rule({ startTime: "14:00", endTime: "18:00" });
+    const at1400 = Date.UTC(2026, 6, 27, 6, 0); // 14:00 CST
+    const at1800 = Date.UTC(2026, 6, 27, 10, 0); // 18:00 CST
+    expect(matchesTimeWindow(r, at1400)).toBe(true); // 恰好 start（>= start）
+    expect(matchesTimeWindow(r, at1800)).toBe(false); // 恰好 end（< end 排除）
+  });
 });
 
 describe("matchMultiplierRule 倍率匹配", () => {
@@ -117,6 +135,20 @@ describe("matchMultiplierRule 倍率匹配", () => {
     const specific = rule({ id: "spec", multiplier: "5", providerResourceId: "res-x" });
     expect(matchMultiplierRule([enterprise, specific], "res-x", "m", MON_1500_CST)!.multiplier).toBe("5");
     expect(matchMultiplierRule([enterprise, specific], "res-y", "m", MON_1500_CST)!.multiplier).toBe("2");
+  });
+
+  it("特异性：模型专属 + 资源&模型双专属 > 仅资源 > 企业默认", () => {
+    // 用 MODEL_TIER（无时段干扰）专注验特异性排序
+    const enterprise = rule({ id: "ent", ruleType: "MODEL_TIER", multiplier: "2", providerResourceId: null, upstreamModel: null, timezone: null, startTime: null, endTime: null });
+    const resOnly = rule({ id: "res", ruleType: "MODEL_TIER", multiplier: "3", providerResourceId: "res-x", upstreamModel: null, timezone: null, startTime: null, endTime: null });
+    const modelOnly = rule({ id: "model", ruleType: "MODEL_TIER", multiplier: "4", providerResourceId: null, upstreamModel: "glm-5.2", timezone: null, startTime: null, endTime: null });
+    const both = rule({ id: "both", ruleType: "MODEL_TIER", multiplier: "5", providerResourceId: "res-x", upstreamModel: "glm-5.2", timezone: null, startTime: null, endTime: null });
+    // res-x + glm-5.2：双专属胜
+    expect(matchMultiplierRule([enterprise, resOnly, modelOnly, both], "res-x", "glm-5.2", MON_1500_CST)!.ruleId).toBe("both");
+    // res-x + 其他模型：仅资源胜（modelOnly/both 不命中）
+    expect(matchMultiplierRule([enterprise, resOnly, modelOnly, both], "res-x", "glm-4", MON_1500_CST)!.ruleId).toBe("res");
+    // 其他资源 + glm-5.2：仅模型胜（resOnly/both 不命中）
+    expect(matchMultiplierRule([enterprise, resOnly, modelOnly, both], "res-y", "glm-5.2", MON_1500_CST)!.ruleId).toBe("model");
   });
 
   it("生效区间：历史 attempt 匹配旧版本，不被新规则改写", () => {
@@ -177,5 +209,103 @@ describe("matchPriceRule 价格规则", () => {
     });
     expect(matchPriceRule([price], "res", "m", MON_1500_CST)!.id).toBe("p1");
     expect(matchPriceRule([price], "res", "m", -1)).toBeNull(); // 生效前
+  });
+
+  it("资源专属规则：resourceId 不匹配 → 不命中", () => {
+    const specific = rule({
+      id: "p-specific",
+      ruleType: "API_PRICE",
+      providerResourceId: "res-A",
+      cacheMissPrice: "0.000001",
+      outputPrice: "0.000002",
+      multiplier: null,
+    });
+    // res-A 命中
+    expect(matchPriceRule([specific], "res-A", "m", MON_1500_CST)!.id).toBe("p-specific");
+    // res-B 不命中（资源专属过滤）
+    expect(matchPriceRule([specific], "res-B", "m", MON_1500_CST)).toBeNull();
+  });
+
+  it("模型专属规则：upstreamModel 不匹配 → 不命中", () => {
+    const specific = rule({
+      id: "p-model",
+      ruleType: "API_PRICE",
+      upstreamModel: "glm-5.2",
+      cacheMissPrice: "0.000001",
+      outputPrice: "0.000002",
+      multiplier: null,
+    });
+    expect(matchPriceRule([specific], "res", "glm-5.2", MON_1500_CST)!.id).toBe("p-model");
+    // 其他模型不命中（模型专属过滤）
+    expect(matchPriceRule([specific], "res", "glm-4", MON_1500_CST)).toBeNull();
+  });
+
+  it("effectiveFrom 边界：恰好等于 effectiveFrom → 命中（< 才排除）", () => {
+    const price = rule({
+      id: "p-eff",
+      ruleType: "API_PRICE",
+      effectiveFrom: MON_1500_CST,
+      cacheMissPrice: "0.000001",
+      outputPrice: "0.000002",
+      multiplier: null,
+    });
+    // 恰好等于 effectiveFrom → 命中（变异 < → <= 会把此 case 改为不命中，测试抓住）
+    expect(matchPriceRule([price], "res", "m", MON_1500_CST)!.id).toBe("p-eff");
+    // 早 1ms → 不命中
+    expect(matchPriceRule([price], "res", "m", MON_1500_CST - 1)).toBeNull();
+  });
+
+  it("effectiveTo 过滤：attemptStartedAt >= effectiveTo → 不命中", () => {
+    const price = rule({
+      id: "p-to",
+      ruleType: "API_PRICE",
+      effectiveFrom: 0,
+      effectiveTo: MON_2000_CST,
+      cacheMissPrice: "0.000001",
+      outputPrice: "0.000002",
+      multiplier: null,
+    });
+    // 早于 effectiveTo → 命中
+    expect(matchPriceRule([price], "res", "m", MON_1500_CST)!.id).toBe("p-to");
+    // 等于 effectiveTo → 不命中（>= effectiveTo 排除；变异 if(false) 会放过，测试抓住）
+    expect(matchPriceRule([price], "res", "m", MON_2000_CST)).toBeNull();
+    // 晚于 effectiveTo → 不命中
+    expect(matchPriceRule([price], "res", "m", MON_2000_CST + 1)).toBeNull();
+  });
+
+  it("特异性排序：资源专属 + 模型专属 > 仅资源专属 > 企业默认", () => {
+    const def = rule({
+      id: "p-default",
+      ruleType: "API_PRICE",
+      providerResourceId: null,
+      upstreamModel: null,
+      cacheMissPrice: "0.000001",
+      outputPrice: "0.000002",
+      multiplier: null,
+      priority: 100,
+    });
+    const resSpecific = rule({
+      id: "p-res",
+      ruleType: "API_PRICE",
+      providerResourceId: "res-A",
+      upstreamModel: null,
+      cacheMissPrice: "0.000001",
+      outputPrice: "0.000002",
+      multiplier: null,
+      priority: 100,
+    });
+    const resModelSpecific = rule({
+      id: "p-res-model",
+      ruleType: "API_PRICE",
+      providerResourceId: "res-A",
+      upstreamModel: "glm-5.2",
+      cacheMissPrice: "0.000001",
+      outputPrice: "0.000002",
+      multiplier: null,
+      priority: 100,
+    });
+    // 同 priority：资源+模型专属 > 仅资源 > 默认
+    const matched = matchPriceRule([def, resSpecific, resModelSpecific], "res-A", "glm-5.2", MON_1500_CST);
+    expect(matched!.id).toBe("p-res-model");
   });
 });

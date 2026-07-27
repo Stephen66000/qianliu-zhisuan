@@ -6,7 +6,7 @@
   "plugins": ["@stryker-mutator/vitest-runner"],
   "testRunner": "vitest",
   "vitest": {
-    "configFile": "{configDirectory}/vitest.config.ts"
+    "configFile": "/Users/mac/Projects/仟流智算/vitest.config.ts"
   },
   "coverageAnalysis": "perTest",
   "mutate": [
