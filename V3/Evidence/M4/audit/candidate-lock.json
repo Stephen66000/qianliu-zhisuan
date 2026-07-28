@@ -1,8 +1,8 @@
 {
   "digests": {
-    "full_candidate_hash": "e37244a0797124574939f9aeba84ecea71b3dd643d6ade73b69bd9b6183f3217",
-    "implementation_hash": "e37244a0797124574939f9aeba84ecea71b3dd643d6ade73b69bd9b6183f3217",
-    "manifest_hash": "9c02594e2c8230b38096cec1c5ab2dadb548a6bb3f7891c0a637f3bcb53b67ea"
+    "full_candidate_hash": "f13936539907ce106c7be7dfca684a8d7d98db638717e4a7bf1c27f0b46564f9",
+    "implementation_hash": "f13936539907ce106c7be7dfca684a8d7d98db638717e4a7bf1c27f0b46564f9",
+    "manifest_hash": "32f477c120f933c3b0f66da55bca77a982b3c7dcb9ccdb78f96500587de81705"
   },
   "entries": [
     {
@@ -722,7 +722,7 @@
       "path": "packages/domain/src/__tests__/billing-rule.test.ts",
       "sha256": "2468e8f0d4f9d1fb07761dbbb141a3c9954bff5b46c85e281b90f10e585a519e",
       "size": 13670,
-      "status": "modified",
+      "status": "tracked_or_explicit",
       "type": "file"
     },
     {
@@ -776,7 +776,7 @@
       "path": "packages/domain/src/__tests__/routing-policy.test.ts",
       "sha256": "c23a5f6b5ef48b14da3479818a2316a07045a436489168374f888c280a2ea37c",
       "size": 8632,
-      "status": "modified",
+      "status": "tracked_or_explicit",
       "type": "file"
     },
     {
@@ -1040,17 +1040,14 @@
     ".git/**",
     "V3/Evidence/M4/audit/candidate-lock.json"
   ],
-  "generated_at": "2026-07-27T23:33:22.727042+00:00",
+  "generated_at": "2026-07-27T23:41:21.728189+00:00",
   "git": {
     "branch": "main",
     "deleted": [],
-    "head": "f353344b3ae1444c7df2a74b004aa1eb92945325",
+    "head": "4d282cb876e1ff40db87464e654e9754165a2ba8",
     "staged": [],
     "untracked": [],
-    "worktree_modified": [
-      "packages/domain/src/__tests__/billing-rule.test.ts",
-      "packages/domain/src/__tests__/routing-policy.test.ts"
-    ]
+    "worktree_modified": []
   },
   "root_hint": "/Users/mac/Projects/仟流智算",
   "schema_version": "1.0",

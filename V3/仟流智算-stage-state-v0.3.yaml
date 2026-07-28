@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-27T20:10:00+08:00"
+updated_at: "2026-07-28T08:00:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -39,8 +39,8 @@ handoff:
   audited_candidate_lock: "V3/仟流智算-Stage02评审候选锁-v0.3.2.sha256"
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
-  current_milestone: "M4"
-  current_work_package: "M4-AUDIT"
+  current_milestone: "M5"
+  current_work_package: "W18"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -51,10 +51,10 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-M1-M4-CODE-AUDIT-R2"
-  text: "代码质量 Audit round 1 整改完成：Q-DEP-1 CLOSED（undici 7.29.0 + fastify 5.8.5 漏洞清零 + cookie typecheck 修复）、Q-DOC-1 CLOSED、GAP-MUT-1 CLOSED（stryker 配置修复 + 5 个 R3 核心规则变异全部 ≥80%：reconciliation 96.23%/quota-gate 90.57%/routing-policy 86.60%/dispatch-policy 83.41%/billing-rule 81.78%；低分文件补测达标）。domain 117 单测全绿。现交审核方做 round 2 有界复审。round 2 PASS 前 M1~M4 不正式通过，不进 M5。"
-  owner: "佳哥（交独立 AI 会话 round 2 代码质量有界复审）"
-  evidence_target: "V3/Evidence/M4/audit/M1-M4-代码质量整改报告-QDEP1-QDOC1-主AI整改-20260728.md"
+  id: "STAGE03-M5-W18-START"
+  text: "M1~M4 双审正式收口（SEALED）：功能 Audit round 3 PASS（R2-N1 CLOSED + F-12 整体 CLOSED，F-01/F-03/F-02 维持 CLOSED）+ 代码质量 Audit round 3 PASS（GAP-MUT-1 CLOSED：stryker configFile 绝对路径 + 5 个 R3 核心规则变异全 ≥80%，Q-DEP-1/Q-DOC-1 round 2 已 CLOSED）。佳哥接受 I1 独立性结论。M1~M4 产品代码冻结于 8d7fe18（impl_hash f1393653）。现启动 M5 桌面 Web（W18 七入口骨架+只读聚合API → W19 写操作闭环 → W20 诊断+WT-01~20 E2E）。M5 完成后重新生成对象锁 + 交独立会话做 M5 双审。"
+  owner: "佳哥（主 AI 执行 M5 W18~W20）"
+  evidence_target: "V3/Evidence/M4/audit/M1-M4-代码质量有界复审-round3-zcode-glm52独立会话-20260728.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"
