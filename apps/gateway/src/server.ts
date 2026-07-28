@@ -40,38 +40,40 @@ export function buildGateway(
     genReqId: () => crypto.randomUUID(), // 兜底；request-id 插件会覆盖
   });
 
+  // W23：WebSocket 一期未启用（详细计划 §4.6 默认关闭），握手请求显式拒绝为
+  // 422 capability_not_supported，不得静默降级。WS 握手是带 Upgrade 头的 HTTP
+  // 请求，普通 POST 拒绝路由拦不住，且 Fastify 对未匹配路由直接 404 会跳过
+  // child scope 的 onRequest，故必须在根 scope 拦截（所有请求先经过根 hook）。
+  app.addHook("onRequest", async (req, reply) => {
+    const upgrade = String(req.headers.upgrade ?? "").toLowerCase();
+    if (upgrade === "websocket") {
+      const err = fromClassification(
+        ERROR_CLASSIFICATION.CAPABILITY_UNSUPPORTED,
+        "capability_not_supported",
+        "WebSocket 一期未启用",
+        req.id,
+      );
+      return reply
+        .code(err.status)
+        .header("x-request-id", req.id)
+        .send({
+          error: {
+            message: err.message,
+            type: err.type,
+            code: err.code,
+            param: null,
+            retryable: err.retryable,
+            request_id: req.id,
+            provider: null,
+            capability: "websocket",
+          },
+        });
+    }
+  });
+
   void app.register(async (child) => {
     await registerRequestId(child);
     const auth: AuthHandler = createPrincipalAuth(db, pepper);
-    // W23：WebSocket 一期未启用（详细计划 §4.6 默认关闭），握手请求显式拒绝为
-    // 422 capability_not_supported，不得静默降级。WS 握手是带 Upgrade 头的 HTTP
-    // 请求，普通 POST 拒绝路由拦不住，故在路由前用 onRequest 拦截。
-    child.addHook("onRequest", async (req, reply) => {
-      const upgrade = String(req.headers.upgrade ?? "").toLowerCase();
-      if (upgrade === "websocket") {
-        const err = fromClassification(
-          ERROR_CLASSIFICATION.CAPABILITY_UNSUPPORTED,
-          "capability_not_supported",
-          "WebSocket 一期未启用",
-          req.requestId,
-        );
-        return reply
-          .code(err.status)
-          .header("x-request-id", req.requestId)
-          .send({
-            error: {
-              message: err.message,
-              type: err.type,
-              code: err.code,
-              param: null,
-              retryable: err.retryable,
-              request_id: req.requestId,
-              provider: null,
-              capability: "websocket",
-            },
-          });
-      }
-    });
     registerModelsRoute(child, db, auth);
     registerChatRoute(child, auth, pipelineHandler);
     registerMessagesRoute(child, auth, pipelineHandler);
