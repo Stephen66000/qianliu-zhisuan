@@ -189,10 +189,11 @@ export function useDispatchDecision(requestId: string | null) {
 
 // ---------- W20 告警 + 操作日志 ----------
 
-export function useAlerts() {
+export function useAlerts(history = false) {
   return useQuery({
-    queryKey: QUERY_KEYS.alerts,
-    queryFn: ({ signal }) => get<AlertsResult>("/alerts", signal),
+    queryKey: [...QUERY_KEYS.alerts, history],
+    queryFn: ({ signal }) =>
+      get<AlertsResult>(history ? "/alerts?history=true" : "/alerts", signal),
     retry: 1,
     staleTime: 15_000,
   });

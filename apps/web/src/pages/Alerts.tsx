@@ -30,6 +30,7 @@ const STATUS_LABEL: Record<AlertItem["status"], string> = {
   INVESTIGATING: "处理中",
   RESOLVED: "已处理",
   IGNORED: "已忽略",
+  AUTO_RESOLVED: "已自动恢复",
 };
 
 function severityTone(severity: AlertItem["severity"]): "danger" | "warning" | "neutral" {
@@ -39,38 +40,36 @@ function severityTone(severity: AlertItem["severity"]): "danger" | "warning" | "
 }
 
 export function AlertsPage() {
-  const query = useAlerts();
+  const [showHandled, setShowHandled] = useState(false);
+  const query = useAlerts(showHandled);
   useRedirectOnUnauthorized(query.error);
   const queryClient = useQueryClient();
 
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [showHandled, setShowHandled] = useState(false);
 
   const disposition = useMutation({
     mutationFn: (input: { alert: AlertItem; status: "RESOLVED" | "IGNORED" | "INVESTIGATING" }) =>
       post("/alerts/disposition", {
         alert_key: input.alert.alertKey,
-        domain: input.alert.domain,
         status: input.status,
-        ai_request_id: input.alert.aiRequestId,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.alerts });
     },
   });
 
-  const alerts = query.data?.alerts ?? [];
-  const open = alerts.filter((a) => a.status === "OPEN" || a.status === "INVESTIGATING");
-  const visible = showHandled ? alerts : open;
+  const active = query.data?.alerts ?? [];
+  const history = query.data?.history ?? [];
+  const visible = showHandled ? [...active, ...history] : active;
 
   return (
     <PageShell
-      description="资源可用性与额度/费用异常信号；告警实时派生自源事实，标记已处理只抑制展示"
+      description="资源可用性与额度/费用异常信号；告警实时派生自源事实并落库，源恢复自动归档，可查看处置历史"
       title="异常告警"
     >
       <div className="mb-4 flex items-center justify-between">
         <p className="text-[13px] leading-5 text-ql-fg-secondary">
-          未处理 <span className="font-semibold text-ql-fg">{open.length}</span> 条
+          未处理 <span className="font-semibold text-ql-fg">{active.length}</span> 条
         </p>
         <label className="flex items-center gap-2 text-[13px] text-ql-fg-secondary">
           <input

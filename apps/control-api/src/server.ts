@@ -24,6 +24,7 @@ import {
   DispatchPolicyRepository,
   AdminWriteRepository,
   AlertRepository,
+  AlertEventRepository,
 } from "@qianliu/database";
 import {
   generateApiKey,
@@ -70,6 +71,7 @@ declare module "fastify" {
     dispatchRepo: DispatchPolicyRepository;
     adminWriteRepo: AdminWriteRepository;
     alertRepo: AlertRepository;
+    alertEventRepo: AlertEventRepository;
   }
 }
 
@@ -106,6 +108,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("dispatchRepo", new DispatchPolicyRepository(db));
   app.decorate("adminWriteRepo", new AdminWriteRepository(db));
   app.decorate("alertRepo", new AlertRepository(db));
+  app.decorate("alertEventRepo", new AlertEventRepository(db));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",

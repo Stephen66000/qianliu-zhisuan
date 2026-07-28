@@ -100,5 +100,11 @@ export {
   type AlertItem,
   type AlertDomain,
 } from "./repositories/alert-repository.js";
+export {
+  AlertEventRepository,
+  DEFAULT_THRESHOLDS,
+  type AlertEvent,
+  type AlertThresholds,
+} from "./repositories/alert-event-repository.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;

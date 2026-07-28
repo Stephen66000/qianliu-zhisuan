@@ -54,8 +54,10 @@ vi.mock("./RequestDrilldown", () => ({
 
 function alert(overrides: Partial<AlertItem> = {}): AlertItem {
   return {
-    alertKey: "CREDENTIAL_INVALID:r1",
+    id: "a1",
+    alertKey: "CREDENTIAL_INVALID:credential_invalid:r1",
     domain: "CREDENTIAL_INVALID",
+    signal: "credential_invalid",
     severity: "HIGH",
     title: "凭证失效：Kimi 账号",
     detail: "资源状态 CREDENTIAL_INVALID，需重新授权",
@@ -63,7 +65,10 @@ function alert(overrides: Partial<AlertItem> = {}): AlertItem {
     principalId: null,
     aiRequestId: null,
     status: "OPEN",
-    dispositionId: null,
+    firstSeenAt: "2026-07-28T00:00:00.000Z",
+    lastSeenAt: "2026-07-28T00:00:00.000Z",
+    resolvedAt: null,
+    resolutionNote: null,
     ...overrides,
   };
 }
@@ -122,14 +127,13 @@ describe("W20 异常告警", () => {
       expect(postMock).toHaveBeenCalledWith(
         "/alerts/disposition",
         expect.objectContaining({
-          alert_key: "CREDENTIAL_INVALID:r1",
-          domain: "CREDENTIAL_INVALID",
+          alert_key: "CREDENTIAL_INVALID:credential_invalid:r1",
           status: "RESOLVED",
         }),
       );
     });
     await waitFor(() => {
-      expect(invalidateMock).toHaveBeenCalledWith({ queryKey: ["alerts"] });
+      expect(invalidateMock).toHaveBeenCalledWith({ queryKey: ["alerts", false] });
     });
   });
 

@@ -346,7 +346,7 @@ export interface DispatchDecisionItem {
   notCalculableReason: string | null;
 }
 
-// ---------- W20 异常告警（camelCase） ----------
+// ---------- W20 异常告警（camelCase，alert_event 生命周期） ----------
 
 export type AlertDomain =
   | "RESOURCE_UNAVAILABLE"
@@ -355,20 +355,27 @@ export type AlertDomain =
   | "CREDENTIAL_INVALID";
 
 export interface AlertItem {
+  id: string;
   alertKey: string;
   domain: AlertDomain;
+  signal: string;
   severity: "HIGH" | "MEDIUM" | "LOW";
   title: string;
-  detail: string;
+  detail: string | null;
   resourceId: string | null;
   principalId: string | null;
   aiRequestId: string | null;
-  status: "OPEN" | "INVESTIGATING" | "RESOLVED" | "IGNORED";
-  dispositionId: string | null;
+  status: "OPEN" | "INVESTIGATING" | "RESOLVED" | "IGNORED" | "AUTO_RESOLVED";
+  firstSeenAt: string;
+  lastSeenAt: string;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
 }
 
 export interface AlertsResult {
   alerts: AlertItem[];
+  /** 已处理历史（仅 ?history=true 时返回）。 */
+  history?: AlertItem[];
 }
 
 // ---------- 操作日志（snake_case 直传） ----------

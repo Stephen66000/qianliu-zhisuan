@@ -289,8 +289,8 @@ describe("W20 诊断下钻", () => {
   });
 });
 
-describe("W20 异常告警", () => {
-  it("GET /alerts 派生四域告警（凭证失效 + 提前耗尽）", async () => {
+describe("W20 异常告警（alert_event 生命周期）", () => {
+  it("GET /alerts 派生并落库（凭证失效 + 提前耗尽按最新快照）", async () => {
     const provider = await ensureProvider("kimi");
     const credInvalid = await db
       .insertInto("provider_resource")
@@ -326,10 +326,36 @@ describe("W20 异常告警", () => {
     const alerts = res.json().alerts;
     const domains = new Set(alerts.map((a: { domain: string }) => a.domain));
     expect(domains.has("CREDENTIAL_INVALID")).toBe(true);
-    expect(domains.has("RESOURCE_UNAVAILABLE")).toBe(true); // 提前耗尽 coverage 12h < 24h
+    expect(domains.has("RESOURCE_UNAVAILABLE")).toBe(true);
+
+    // 已落 alert_event（持久化事实）
+    const rows = await db
+      .selectFrom("alert_event")
+      .selectAll()
+      .where("enterprise_id", "=", ENT_ID)
+      .execute();
+    expect(rows.length).toBeGreaterThan(0);
   });
 
-  it("POST /alerts/disposition 标记已处理并抑制 OPEN 展示 + 写 audit", async () => {
+  it("evaluate 幂等：重复调用同 key 不重复插入，只刷新 last_seen", async () => {
+    await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    const before = await db
+      .selectFrom("alert_event")
+      .select("id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("status", "=", "OPEN")
+      .execute();
+    await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    const after = await db
+      .selectFrom("alert_event")
+      .select("id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("status", "=", "OPEN")
+      .execute();
+    expect(after.length).toBe(before.length); // 无重复插入
+  });
+
+  it("处置后转历史：?history=true 可见，未处理列表不再含", async () => {
     const listRes = await app.inject({
       method: "GET",
       url: "/alerts",
@@ -344,23 +370,20 @@ describe("W20 异常告警", () => {
       method: "POST",
       url: "/alerts/disposition",
       headers: { cookie: adminCookie },
-      payload: {
-        alert_key: open.alertKey,
-        domain: open.domain,
-        status: "RESOLVED",
-        resolution_note: "已重新授权",
-      },
+      payload: { alert_key: open.alertKey, status: "RESOLVED", resolution_note: "已重新授权" },
     });
     expect(res.statusCode).toBe(200);
 
-    // 标记后该告警不再是 OPEN
-    const after = await app.inject({
-      method: "GET",
-      url: "/alerts",
-      headers: { cookie: adminCookie },
-    });
-    const target = after.json().alerts.find((a: { alertKey: string }) => a.alertKey === open.alertKey);
-    expect(target.status).toBe("RESOLVED");
+    // 未处理列表不再含（key 不再有 OPEN，故 evaluate 也不会复活它——已 RESOLVED）
+    const active = await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    const stillActive = active.json().alerts.find((a: { alertKey: string }) => a.alertKey === open.alertKey);
+    expect(stillActive).toBeUndefined();
+
+    // 历史可见
+    const hist = await app.inject({ method: "GET", url: "/alerts?history=true", headers: { cookie: adminCookie } });
+    const inHistory = hist.json().history.find((a: { alertKey: string }) => a.alertKey === open.alertKey);
+    expect(inHistory).toBeDefined();
+    expect(inHistory.status).toBe("RESOLVED");
 
     // audit
     const logs = await db
@@ -370,6 +393,39 @@ describe("W20 异常告警", () => {
       .where("action", "=", "alert.disposition")
       .execute();
     expect(logs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("源恢复后 AUTO_RESOLVED 并保留历史", async () => {
+    const provider = await ensureProvider("deepseek");
+    const res = await db
+      .insertInto("provider_resource")
+      .values({
+        enterprise_id: ENT_ID,
+        provider_id: provider.id,
+        name: `临时失效-${randomUUID().slice(0, 8)}`,
+        mode: "API",
+        credential_type: "API_KEY",
+        status: "CREDENTIAL_INVALID",
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    // 评估 → 告警出现
+    await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    // 源恢复（状态改回 ACTIVE）
+    await db
+      .updateTable("provider_resource")
+      .set({ status: "ACTIVE" })
+      .where("id", "=", res.id)
+      .execute();
+    // 再评估 → AUTO_RESOLVED
+    await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    const row = await db
+      .selectFrom("alert_event")
+      .select("status")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("resource_id", "=", res.id)
+      .executeTakeFirstOrThrow();
+    expect(row.status).toBe("AUTO_RESOLVED");
   });
 
   it("未认证 401", async () => {
