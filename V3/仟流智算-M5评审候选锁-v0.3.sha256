@@ -1,22 +1,22 @@
 # M5 评审候选锁 —— M5（W18/W19/W20）交付物完整性封板。
 # 任一受封文件字节变化，本锁立即失效。双审 Reviewer 重算比对即可验证。
 # 范围：计划/规则文档 + M5 Evidence + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。
-# Git commit：f84225f374b8e846b9c96f02eab12ab7c697898e
+# Git commit：bc4e911d3f9c42cd40690b70c2e63ee8026825a2
 # 文件数：236
 
 195eb2f0dc4bebcf7ccc847ee9744099479701e0cae22465a7d78e75b1262801  .npmrc
 f5511e5a2f3c8031a86add824af90080eafe0f6ff057ea3d81ad16a2397557f4  V3/Evidence/M5/M5-W18前端-handoff-20260728.md
-f00c83560bef59fc68766e72a54bf246ed9c5917d6564fc3752b307876d88859  V3/Evidence/M5/M5-双审任务书-20260728.md
-57d3435d0b783a03a5b1e894f67818aa9621577d283012cc2c6138f07435383c  V3/Evidence/M5/M5-双审整改-Evidence-20260728.md
-b8bd1ddbcbf5cee20aa4334a947b7def978fbaae54de137da127b8ad57f4d57b  V3/Evidence/M5/M5-收口执行清单-20260728.md
+6638ed25f62a4da5790c0e077874ea2dc9e07d41bf63722e15f05003f99c3514  V3/Evidence/M5/M5-双审任务书-20260728.md
+e7205ed8777e8d10287f20be9aba74c4ab343059b2b72488d2fea674d741a4a9  V3/Evidence/M5/M5-双审整改-Evidence-20260728.md
+e08afe46809c7165d66d64cb776630da635f3d5f492d5a1800ea1fd8520ee219  V3/Evidence/M5/M5-收口执行清单-20260728.md
 06a55bf02d2f7eed37633f7514d8a44bb2a4ea7f92ac9ff9ae32e1a7532c4422  V3/Evidence/M5/M5-整改-handoff-to-codex-20260728.md
 07c3327ec86985bdcd714addee4fa2e1cf10e5d4ee62cb745bba1adb01c1d299  V3/Evidence/M5/W18/W18前端-Evidence-20260728.md
 7ef0c6f3e7865434f0f2cb9c1d95ec5f3de970cd59fcc01ed10a9db0f240d364  V3/Evidence/M5/W19/W19-Evidence-20260728.md
 482970a341e143169bea45ead61f1a5cc8983ea773ba23633d47b5e6daa9b21b  V3/Evidence/M5/W20/W20-Evidence-20260728.md
-8a3a452bd9dd86bf02625f0015d5576a5a8fa362ab6ab618713cd63b26fcd54a  V3/Evidence/M5/Win11-实机回归-20260728.md
+f761a7fd447c13d52a30c7ffa00099bc1560945312074bbb76de05e28e43f037  V3/Evidence/M5/Win11-实机回归-20260728.md
 3f5026630ff8a309a00f8a56c40b5733c81b32628bd6276a2d262af75db7eca8  V3/Planning-Change-Log.md
 0fbc5b1abd5f97de776731df1fd70d9cb1396a7716b574417046e36830b758aa  V3/tools/candidate_lock.py
-2be9bfa9ded7238c0b3d41131ced1c04ca838f368b325481c1f907d373a76cfd  V3/仟流智算-stage-state-v0.3.yaml
+2252c9de7bcce87946dd10c9be1b46f3093095ff9204ebd99b0cdaaedc2565cf  V3/仟流智算-stage-state-v0.3.yaml
 146d97ba3a20c41c823c7c0738bc851e4e784d5f35448993f6040ee42a13786a  V3/仟流智算-产品需求文档-v0.3.md
 217a0fe38d8ea119577af0ad86106617b8eed20cfd9fb9f51837ed321655623c  V3/仟流智算-技术需求文档-v0.3.md
 fca33cd5970b24acc0dcaf3257d3fd6fbb06d4c115ae3f93a3af22997bf0d8dd  V3/仟流智算-详细开发计划与排期-v0.3.md
@@ -77,7 +77,7 @@ b637624c4bfb3eb3cb47b321c393be11a7f571b37b8746af4e18308cede73023  apps/gateway/s
 6549f95182c0e522f6fe423f472e09a011e8bea22dd5a0654b0ad7cc67f172cb  apps/gateway/tsconfig.json
 aa2958058dabb73b6ce40293cfd5501015e1aa44b144eebe47a1c0eda35500a3  apps/web/e2e/README.md
 bbba04c56f847ed4709a364995524dc4cf107a7fac8f1dfafaaa81eb58040fc3  apps/web/e2e/fixtures.ts
-64ab9388848f153890cdcc0bf9fcb48a89921dfb2dfed6d0618ecc0e9b7de5db  apps/web/e2e/global-setup.ts
+b64be4e6de823ac1db272fd4684a978e548934182dd79cc50a1fd1774d5234c8  apps/web/e2e/global-setup.ts
 b1e7e1b33e78544037a00ed2b4b55f5dc432b1e7b8c63f671fed8a8c059aff40  apps/web/e2e/wt-web.spec.ts
 a9b4550eb96bd0c66bb7014894bed9224151d84c31821f84c4f316fa25d9a84a  apps/web/index.html
 c0f9bb189ad7d844b6e29fc0cf4827c3a82f29383149c34e272ba69434bca4b2  apps/web/package.json
