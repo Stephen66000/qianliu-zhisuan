@@ -1,0 +1,338 @@
+/**
+ * W19 管理写操作路由 —— 更新/停用/凭证恢复（六要素补全）。
+ *
+ * TRD §11.2 六要素：requireAuth（已登录管理员）、zod 校验 + 对象状态校验、
+ * 成功返回最新结果、失败返回明确原因、写操作日志、并发修改乐观锁（409 conflict）。
+ *
+ * 并发语义：expected_updated_at 乐观锁——前端携带读取时的 updated_at，
+ * 期间被他人修改则 409 conflict（W19 DoD「并发修改测试」的落点）。
+ */
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import { encryptCredential, credentialFingerprint } from "@qianliu/provider-adapters";
+import { AdminRecoverNotFoundError } from "@qianliu/database";
+import { requireAuth } from "../plugins/auth-guard.js";
+
+const ExpectedUpdatedAt = z.string().datetime({ offset: true });
+
+const UpdateResourceSchema = z.object({
+  expected_updated_at: ExpectedUpdatedAt,
+  name: z.string().min(1).max(255).optional(),
+  concurrency_limit: z.number().int().positive().nullable().optional(),
+});
+
+const UpdateUnifiedModelSchema = z.object({
+  expected_updated_at: ExpectedUpdatedAt,
+  display_name: z.string().min(1).max(128).optional(),
+  status: z.enum(["ACTIVE", "DISABLED"]).optional(),
+});
+
+const UpdateModelRouteSchema = z.object({
+  expected_updated_at: ExpectedUpdatedAt,
+  priority: z.number().int().optional(),
+  weight: z.number().int().positive().optional(),
+  enabled: z.boolean().optional(),
+});
+
+const UpdateGrantSchema = z.object({
+  expected_updated_at: ExpectedUpdatedAt,
+  quota_value: z
+    .union([z.string(), z.number()])
+    .transform((v) => BigInt(v))
+    .optional(),
+  allow_overage: z.boolean().optional(),
+  valid_until: z.string().datetime().nullable().optional(),
+  status: z.enum(["ACTIVE", "DISABLED"]).optional(),
+});
+
+const RecoverResourceSchema = z.object({
+  /** 可选：同时轮换凭证（明文一次接收，立即加密，绝不入库）。 */
+  credential_plaintext: z.string().min(1).optional(),
+});
+
+/** 资源公开视图（绝不返回密文/明文）。 */
+function resourceView(r: {
+  id: string;
+  name: string;
+  mode: string;
+  credential_type: string;
+  credential_fingerprint: string | null;
+  credential_version: number | null;
+  status: string;
+  updated_at: Date;
+}) {
+  return {
+    id: r.id,
+    name: r.name,
+    mode: r.mode,
+    credential_type: r.credential_type,
+    credential_fingerprint: r.credential_fingerprint,
+    credential_version: r.credential_version,
+    status: r.status,
+    updated_at: r.updated_at,
+  };
+}
+
+export function registerAdminWriteRoutes(app: FastifyInstance): void {
+  // ===== 厂商资源：基础信息更新（并发乐观锁） =====
+  app.patch<{ Params: { id: string } }>(
+    "/provider-resources/:id",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const parsed = UpdateResourceSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+      }
+      const ent = req.admin!.enterpriseId;
+      const before = (await app.providerRepo.listResources(ent)).find(
+        (r) => r.id === req.params.id,
+      );
+      if (!before) {
+        return reply.code(404).send({ error: "not_found", message: "资源不存在" });
+      }
+      const updated = await app.adminWriteRepo.updateProviderResource(
+        ent,
+        req.params.id,
+        new Date(parsed.data.expected_updated_at),
+        { name: parsed.data.name, concurrency_limit: parsed.data.concurrency_limit },
+      );
+      if (!updated) {
+        return reply
+          .code(409)
+          .send({ error: "conflict", message: "该资源刚被其他管理员修改，请刷新后重试" });
+      }
+      await app.auditRepo.write({
+        enterprise_id: ent,
+        admin_user_id: req.admin!.adminUserId,
+        action: "provider_resource.update",
+        target_type: "provider_resource",
+        target_id: updated.id,
+        change_summary: {
+          before: { name: before.name, concurrency_limit: before.concurrency_limit },
+          after: { name: updated.name, concurrency_limit: updated.concurrency_limit },
+        },
+        result: "SUCCESS",
+      });
+      return { resource: resourceView(updated) };
+    },
+  );
+
+  // ===== 统一模型：更新 / 停用 =====
+  app.patch<{ Params: { id: string } }>(
+    "/unified-models/:id",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const parsed = UpdateUnifiedModelSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+      }
+      const ent = req.admin!.enterpriseId;
+      const before = (await app.providerRepo.listUnifiedModels(ent)).find(
+        (m) => m.id === req.params.id,
+      );
+      if (!before) {
+        return reply.code(404).send({ error: "not_found", message: "统一模型不存在" });
+      }
+      const updated = await app.adminWriteRepo.updateUnifiedModel(
+        ent,
+        req.params.id,
+        new Date(parsed.data.expected_updated_at),
+        { display_name: parsed.data.display_name, status: parsed.data.status },
+      );
+      if (!updated) {
+        return reply
+          .code(409)
+          .send({ error: "conflict", message: "该模型刚被其他管理员修改，请刷新后重试" });
+      }
+      const action =
+        parsed.data.status === "DISABLED"
+          ? "unified_model.disable"
+          : "unified_model.update";
+      await app.auditRepo.write({
+        enterprise_id: ent,
+        admin_user_id: req.admin!.adminUserId,
+        action,
+        target_type: "unified_model",
+        target_id: updated.id,
+        change_summary: {
+          before: { display_name: before.display_name, status: before.status },
+          after: { display_name: updated.display_name, status: updated.status },
+        },
+        result: "SUCCESS",
+      });
+      return { model: updated };
+    },
+  );
+
+  // ===== 模型路由：启用/停用/优先级/权重 =====
+  app.patch<{ Params: { id: string } }>(
+    "/model-routes/:id",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const parsed = UpdateModelRouteSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+      }
+      const ent = req.admin!.enterpriseId;
+      const updated = await app.adminWriteRepo.updateModelRoute(
+        ent,
+        req.params.id,
+        new Date(parsed.data.expected_updated_at),
+        {
+          priority: parsed.data.priority,
+          weight: parsed.data.weight,
+          enabled: parsed.data.enabled,
+        },
+      );
+      if (!updated) {
+        // 乐观锁 0 命中：不存在或期间被修改；区分 404/409 需先读
+        const exists = await app.db
+          .selectFrom("model_route")
+          .select("id")
+          .where("id", "=", req.params.id)
+          .where("enterprise_id", "=", ent)
+          .executeTakeFirst();
+        if (!exists) {
+          return reply.code(404).send({ error: "not_found", message: "路由不存在" });
+        }
+        return reply
+          .code(409)
+          .send({ error: "conflict", message: "该路由刚被其他管理员修改，请刷新后重试" });
+      }
+      await app.auditRepo.write({
+        enterprise_id: ent,
+        admin_user_id: req.admin!.adminUserId,
+        action: "model_route.update",
+        target_type: "model_route",
+        target_id: updated.id,
+        change_summary: {
+          after: {
+            priority: updated.priority,
+            weight: updated.weight,
+            enabled: updated.enabled,
+          },
+        },
+        result: "SUCCESS",
+      });
+      return { route: updated };
+    },
+  );
+
+  // ===== 主体额度：调额 / 允许超额 / 停用 =====
+  app.patch<{ Params: { id: string } }>(
+    "/grants/:id",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const parsed = UpdateGrantSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+      }
+      const ent = req.admin!.enterpriseId;
+      const updated = await app.adminWriteRepo.updateGrant(
+        ent,
+        req.params.id,
+        new Date(parsed.data.expected_updated_at),
+        {
+          quota_value: parsed.data.quota_value,
+          allow_overage: parsed.data.allow_overage,
+          valid_until:
+            parsed.data.valid_until === undefined
+              ? undefined
+              : parsed.data.valid_until === null
+                ? null
+                : new Date(parsed.data.valid_until),
+          status: parsed.data.status,
+        },
+      );
+      if (!updated) {
+        const exists = await app.db
+          .selectFrom("principal_grant")
+          .select("id")
+          .where("id", "=", req.params.id)
+          .where("enterprise_id", "=", ent)
+          .executeTakeFirst();
+        if (!exists) {
+          return reply.code(404).send({ error: "not_found", message: "额度授权不存在" });
+        }
+        return reply
+          .code(409)
+          .send({ error: "conflict", message: "该额度刚被其他管理员修改，请刷新后重试" });
+      }
+      const action =
+        parsed.data.status === "DISABLED" ? "grant.disable" : "grant.update";
+      await app.auditRepo.write({
+        enterprise_id: ent,
+        admin_user_id: req.admin!.adminUserId,
+        action,
+        target_type: "principal_grant",
+        target_id: updated.id,
+        change_summary: {
+          after: {
+            quota_value: updated.quota_value.toString(),
+            allow_overage: updated.allow_overage,
+            status: updated.status,
+          },
+        },
+        result: "SUCCESS",
+      });
+      return { grant: updated };
+    },
+  );
+
+  // ===== 凭证恢复（WT-19 受控恢复，可选同时轮换凭证） =====
+  app.post<{ Params: { id: string } }>(
+    "/provider-resources/:id/recover",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const parsed = RecoverResourceSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+      }
+      const ent = req.admin!.enterpriseId;
+
+      const rotation = parsed.data.credential_plaintext
+        ? {
+            credential_encrypted: encryptCredential(
+              parsed.data.credential_plaintext,
+              app.credentialKek,
+            ),
+            credential_fingerprint: credentialFingerprint(parsed.data.credential_plaintext),
+          }
+        : undefined;
+
+      try {
+        const recovered = await app.adminWriteRepo.adminRecoverResource(
+          ent,
+          req.params.id,
+          rotation,
+        );
+        if (!recovered) {
+          return reply.code(409).send({
+            error: "invalid_state",
+            message: "该资源当前不在隔离状态（凭证失效/耗尽/过期/不可用），无需恢复",
+          });
+        }
+        await app.auditRepo.write({
+          enterprise_id: ent,
+          admin_user_id: req.admin!.adminUserId,
+          action: "provider_resource.recover",
+          target_type: "provider_resource",
+          target_id: recovered.id,
+          change_summary: {
+            rotated_credential: rotation !== undefined,
+            credential_fingerprint: recovered.credential_fingerprint,
+            credential_version: recovered.credential_version,
+            to_status: recovered.status,
+          },
+          result: "SUCCESS",
+        });
+        return { resource: resourceView(recovered) };
+      } catch (error) {
+        if (error instanceof AdminRecoverNotFoundError) {
+          return reply.code(404).send({ error: "not_found", message: "资源不存在" });
+        }
+        throw error;
+      }
+    },
+  );
+}

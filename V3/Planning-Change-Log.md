@@ -5,7 +5,7 @@
 | 产品版本 | v0.3 |
 | Owner／批准人 | 佳哥 |
 | 当前有效计划 | [详细开发计划与排期 v0.3.1](./仟流智算-详细开发计划与排期-v0.3.md) |
-| 当前变更数 | 6 |
+| 当前变更数 | 7 |
 
 ## 使用规则
 
@@ -110,3 +110,16 @@
 | 风险 | 无后端合同影响；Tailwind 3.4.17 选 v3 而非 v4 以保持与既有 PostCSS 生态稳定 |
 | 决策 | 按交接文档执行，全部依赖精确锁版本；license 均为 MIT |
 | Evidence | `V3/Evidence/M5/W18/` |
+
+### PC-20260728-07：M5 W19 前端表单依赖与并发语义
+
+| 项目 | 内容 |
+| --- | --- |
+| 日期 | 2026-07-28 |
+| 提出／批准 | 佳哥（W18 handoff §8 W19 范围"前端补表单 + react-hook-form"） |
+| 变化事实 | apps/web 新增 react-hook-form 7.55.0 + @hookform/resolvers 5.5.7（zod4 兼容）+ @testing-library/user-event 14.6.1（写操作交互单测）；后端无新依赖 |
+| 并发语义决定 | 写操作并发修改采用 `updated_at` 乐观锁（前端携带读取快照的 updated_at，0 行命中 → 409 conflict），不引入 ETag/版本号新字段；凭证恢复为单次状态机迁移（WT-19），天然幂等 |
+| 影响范围 | apps/web/package.json、pnpm-lock.yaml；后端新增 admin-write-repository + admin-writes/routes（更新/停用/凭证恢复 + 乐观锁 + audit） |
+| 不变项 | 六要素其余五项不变；W18 已交付功能不受影响；凭证明文绝不入库/回显红线不变 |
+| 决策 | react-hook-form 为一期表单唯一方案；@hookform/resolvers 必须 ≥5.x 以兼容项目 zod 4.1.11 |
+| Evidence | `V3/Evidence/M5/W19/` |

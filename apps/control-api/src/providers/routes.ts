@@ -151,6 +151,16 @@ export function registerProviderRoutes(app: FastifyInstance): void {
       parsed.data.display_name,
       parsed.data.required_capabilities ?? null,
     );
+    // W19 补齐：创建统一模型写操作日志（六要素 §11.2）
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "unified_model.create",
+      target_type: "unified_model",
+      target_id: model.id,
+      change_summary: { alias: model.alias, display_name: model.display_name },
+      result: "SUCCESS",
+    });
     return reply.code(201).send({ model });
   });
 
@@ -167,6 +177,22 @@ export function registerProviderRoutes(app: FastifyInstance): void {
       parsed.data.upstream_model,
       { priority: parsed.data.priority, weight: parsed.data.weight, enabled: parsed.data.enabled },
     );
+    // W19 补齐：创建模型路由写操作日志（六要素 §11.2）
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "model_route.create",
+      target_type: "model_route",
+      target_id: route.id,
+      change_summary: {
+        unified_model_id: route.unified_model_id,
+        provider_resource_id: route.provider_resource_id,
+        upstream_model: route.upstream_model,
+        priority: route.priority,
+        weight: route.weight,
+      },
+      result: "SUCCESS",
+    });
     return reply.code(201).send({ route });
   });
 
