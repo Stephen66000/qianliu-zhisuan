@@ -1,15 +1,16 @@
 # M6 评审候选锁 —— M6（W21/W22/W23）交付物完整性封板。
 # 任一受封文件字节变化，本锁立即失效。双审 Reviewer 重算比对即可验证。
 # 范围：计划/规则文档 + M6 Evidence + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。
-# Git commit：dc7f6d2452082bee89c6c587139db919e083d25f
-# 文件数：229
+# Git commit：a65240d02bfffbab1868f719e01677f2e39a37d4
+# 文件数：230
 
 195eb2f0dc4bebcf7ccc847ee9744099479701e0cae22465a7d78e75b1262801  .npmrc
+a0b487916aaf4c1c1b33a4c8d724b0e9f7f2731c8afdd5f15202eaf4e660c732  V3/Evidence/M6/M6-双审任务书-20260728.md
 f5a5ac3a9915506fd4d8ca9baa5b751d25702f88ecdec89fbcf8f046ed6940ba  V3/Evidence/M6/M6-客户端接入配置-20260728.md
 d8f00714153a05070b600621ed5d7d88b26cde6ec50b99f53c2c683a46aa0de6  V3/Evidence/M6/W21-W23-Evidence-20260728.md
 3f5026630ff8a309a00f8a56c40b5733c81b32628bd6276a2d262af75db7eca8  V3/Planning-Change-Log.md
-3f21a05ec9e125b42bfa235ba5e7a88ec0df62ab1b813ba7ee0855c2cf7843bc  V3/tools/candidate_lock.py
-03f1699ec9c3b7b22666682dd0b8afd9d27c4fc0ff79ac427a0410cb6a55ec10  V3/仟流智算-stage-state-v0.3.yaml
+a36421fd621e535b04470cc2e8e55ed039f755776672a6a29a0f5be359cc19ba  V3/tools/candidate_lock.py
+1a87eb5b81ad7c87bf3ee399da3fbee15691cacb839aae20cc453fa8e425eb81  V3/仟流智算-stage-state-v0.3.yaml
 146d97ba3a20c41c823c7c0738bc851e4e784d5f35448993f6040ee42a13786a  V3/仟流智算-产品需求文档-v0.3.md
 217a0fe38d8ea119577af0ad86106617b8eed20cfd9fb9f51837ed321655623c  V3/仟流智算-技术需求文档-v0.3.md
 fca33cd5970b24acc0dcaf3257d3fd6fbb06d4c115ae3f93a3af22997bf0d8dd  V3/仟流智算-详细开发计划与排期-v0.3.md
@@ -67,7 +68,7 @@ dea134c68e7df83f660d3c344e3a52ff914f75494c59edbb7cc0540c2f72737c  apps/gateway/s
 8f383e4acf2b955f029e199505ab99c1674819bc024d376dc78cf3f2d0cfe1c7  apps/gateway/src/routes/messages.ts
 9ceea6b925aae8f8119553775c3a83cc210b5a9c4ec01bd26883c85a4f26b472  apps/gateway/src/routes/models.ts
 90a6221e9c1763e95b5abeef2535a34e2deedde5ab71092c03beea9a437a5ff5  apps/gateway/src/routes/unsupported.ts
-8623ea89b2e5f83d696f5a7ad56568fa3449be2eb31f7279d32a0bc492b5a627  apps/gateway/src/server.ts
+c48138800846e97312ee3ee96f5d6e77fa91cf2374b3f82aeddf6dc20b822012  apps/gateway/src/server.ts
 6549f95182c0e522f6fe423f472e09a011e8bea22dd5a0654b0ad7cc67f172cb  apps/gateway/tsconfig.json
 aa2958058dabb73b6ce40293cfd5501015e1aa44b144eebe47a1c0eda35500a3  apps/web/e2e/README.md
 bbba04c56f847ed4709a364995524dc4cf107a7fac8f1dfafaaa81eb58040fc3  apps/web/e2e/fixtures.ts
