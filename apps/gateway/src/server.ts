@@ -38,6 +38,8 @@ export function buildGateway(
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info" },
     genReqId: () => crypto.randomUUID(), // 兜底；request-id 插件会覆盖
+    // W24：反代（Caddy/nginx）终止 TLS 时，信任 X-Forwarded-* 以正确判定协议/主机（影响 Cookie secure）。
+    trustProxy: process.env.NODE_ENV === "production",
   });
 
   // W23：WebSocket 一期未启用（详细计划 §4.6 默认关闭），握手请求显式拒绝为

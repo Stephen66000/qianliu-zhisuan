@@ -1,0 +1,25 @@
+# 仟流智算 Caddy 反代配置（W24）。
+# 分流逻辑：/v1/* → Gateway（客户端 API），其余 → control-api（管理 API + 鉴权）。
+# Web 单独暴露（compose 端口 8080），不经过 Caddy，避免 SPA 默认路由与 API 冲突。
+#
+# 入口端口：
+#   :80   → control-api 管理 API（+ /v1/* 转 Gateway）
+#   8080  → Web 管理后台（直连 web 容器，compose 映射）
+#   8787  → Gateway（直连 gateway 容器，compose 映射；客户端也可不经过 Caddy 直连）
+#
+# TLS：部署时按网络拓扑定——公网域名取消注释自动 HTTPS；内网/自签见部署指南。
+# 依据：TRD §3.1（Web/Gateway 经 HTTPS，反代终止 TLS）。
+
+# 公网域名部署示例（取消注释，换真实域名，Caddy 自动申请 Let's Encrypt）：
+# qianliu.example.com {
+# 内网/试点 HTTP（Mac Mini 局域网）：
+:80 {
+	# Gateway 北向 API（OpenAI/Anthropic 兼容；客户端也可直连 gateway:8787）
+	handle /v1/* {
+		reverse_proxy gateway:8787
+	}
+	# 其余全部 → control-api（auth/dashboard/principals/providers/grants/alerts/usage/... 全部管理 API）
+	handle {
+		reverse_proxy control-api:8788
+	}
+}

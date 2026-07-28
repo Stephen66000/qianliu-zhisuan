@@ -1,0 +1,16 @@
+# Docker build context 排除（W24）。避免 node_modules/dist/测试残留/.env 进镜像。
+# 依据：工程规则 §5（Secret 不入镜像）。
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/test-results
+**/playwright-report
+**/.stryker-tmp
+**/__MACOSX
+.git
+._DS_Store
+V3/PoC
+参考
+*.log

@@ -123,6 +123,8 @@ function alertThresholdsFromEnv(env: NodeJS.ProcessEnv): AlertThresholds {
 export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info" },
+    // W24：反代（Caddy/nginx）终止 TLS 时，信任 X-Forwarded-* 以正确判定协议/主机（影响 Cookie secure）。
+    trustProxy: process.env.NODE_ENV === "production",
   });
 
   app.decorate("db", db);

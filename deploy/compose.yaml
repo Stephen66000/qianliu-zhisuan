@@ -1,10 +1,13 @@
-# 仟流智算本地与试点编排
+# 仟流智算本地与试点编排（W24：占位已替换为真实构建）。
 # 依据：工程规则 §2（PG17/Redis8 digest 锁定）、§3（目录）、TRD §3.1（分层边界）、详细计划 §4.1（容量）。
 # 一期形态：Web/Control API/Gateway/Worker/PostgreSQL/Redis 分容器；DB/Redis 不开放公网，Web/Gateway 经 HTTPS（试点由反代终止 TLS）。
 #
-# digest 锁定（工程规则 §2 行 40-41）：镜像用 tag@sha256 引用，避免 tag漂移。下列 digest 为多架构 manifest digest。
+# digest 锁定（工程规则 §2 行 40-41）：PG/Redis 镜像用 tag@sha256 引用，避免 tag 漂移。下列 digest 为多架构 manifest digest。
 #   postgres:17-alpine  sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193  (W01 锁定)
 #   redis:8-alpine      sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb  (W01 锁定)
+#
+# 业务服务（control-api/gateway/worker/web）从源码多阶段构建，架构无关（arm64/x86_64）。
+# 环境变量从 deploy/.env 注入（env_file）；容器间用 compose 服务名互连（postgres/redis）。
 
 name: qianliu-zhisuan
 
@@ -33,7 +36,7 @@ services:
   redis:
     image: *redis-image
     restart: unless-stopped
-    command: ["redis-server", "--save", "", "--appendonly", "no"] # 派生状态可丢弃重建（架构图：Redis 不作为最终账本）
+    command: ["redis-server", "--save", "", "--appendonly", "no"] # 派生状态可丢弃重建
     ports:
       - "127.0.0.1:6380:6379" # 仅本机
     healthcheck:
@@ -42,44 +45,112 @@ services:
       timeout: 2s
       retries: 30
 
-  # 以下四个服务在 W01 仅占位；W02-W08 逐步填充实际镜像与启动命令。
+  # 一次性迁移服务：业务服务启动前跑 db:migrate（成功后退出）。
+  migrate:
+    build:
+      context: ..
+      dockerfile: apps/control-api/Dockerfile
+    restart: "no"
+    env_file: .env
+    environment:
+      # 容器内用 compose 服务名连接，覆盖 .env 里的 127.0.0.1
+      DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
+      REDIS_URL: redis://redis:6379
+    command: ["node", "--import", "tsx", "packages/database/src/cli/migrate.ts", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   control-api:
-    image: node:22.17.1-alpine
-    working_dir: /app
-    command: ["echo", "control-api placeholder; implemented in W02-W04"]
+    build:
+      context: ..
+      dockerfile: apps/control-api/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
+      REDIS_URL: redis://redis:6379
+      CONTROL_API_HOST: 0.0.0.0 # 容器内监听全部接口（对外由反代/端口映射控制）
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:8788:8788"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   gateway:
-    image: node:22.17.1-alpine
-    working_dir: /app
-    command: ["echo", "gateway placeholder; implemented in W05-W08"]
+    build:
+      context: ..
+      dockerfile: apps/gateway/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
+      REDIS_URL: redis://redis:6379
+      GATEWAY_HOST: 0.0.0.0
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:8787:8787"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   worker:
-    image: node:22.17.1-alpine
-    working_dir: /app
-    command: ["echo", "worker placeholder; implemented in later milestones"]
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   web:
-    image: node:22.17.1-alpine
-    working_dir: /app
-    command: ["echo", "web placeholder; implemented in W18-W23"]
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
     depends_on:
       control-api:
         condition: service_started
 
+  # Caddy 反代（W24）：统一管理 API 入口 + /v1/* 转 Gateway。
+  # Web 直连 web:8080，不经 Caddy。TLS 部署时按拓扑配（见 caddy/Caddyfile 注释）。
+  caddy:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"   # 管理 API 入口（Mac Mini 局域网/内网穿透；生产换 443 + 域名）
+      - "443:443" # 预留 HTTPS（Caddyfile 配证书后生效）
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      control-api:
+        condition: service_started
+      gateway:
+        condition: service_started
+
 volumes:
   postgres-data:
+  caddy-data:
+  caddy-config:
