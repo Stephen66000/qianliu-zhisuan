@@ -6,7 +6,7 @@
  *   - GET /gateway-requests/:id/route-candidates（WT-10/18）
  *   - GET /gateway-requests/:id/attempts（WT-11/12：多 attempt + response_committed）
  *   - GET /gateway-requests/:id/dispatch-decision（WT-16/17）
- *   - GET /alerts（四域派生：凭证失效 + 提前耗尽 + 对账差异）
+ *   - GET /alerts（TRD §13 四域八类技术信号）
  *   - POST /alerts/disposition（标记已处理 + audit + 抑制展示）
  *   - 安全：下钻不返回 Secret/Key 摘要
  */
@@ -337,6 +337,158 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
     expect(rows.length).toBeGreaterThan(0);
   });
 
+  it("TRD §13 四域八类技术信号全部落入 alert_event", async () => {
+    const { requestId, principalId, resourceId } = await seedRequestChain();
+    const key = await db
+      .selectFrom("principal_key")
+      .select("id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("principal_id", "=", principalId)
+      .executeTakeFirstOrThrow();
+
+    await db
+      .updateTable("provider_resource")
+      .set({ status: "DEGRADED", consecutive_failures: 4 })
+      .where("id", "=", resourceId)
+      .execute();
+    await db
+      .insertInto("supply_forecast")
+      .values({
+        enterprise_id: ENT_ID,
+        provider_resource_id: resourceId,
+        forecast_exhaust_at: new Date(Date.now() + 2 * 3600 * 1000),
+        coverage_hours: "2",
+        confidence: "HIGH",
+        algorithm_version: "w20-eight-signals",
+      })
+      .execute();
+
+    const grant = await db
+      .insertInto("principal_grant")
+      .values({
+        enterprise_id: ENT_ID,
+        principal_id: principalId,
+        provider: "zhipu",
+        model_alias: `eight-signals-${randomUUID().slice(0, 8)}`,
+        quota_value: 1000n,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto("quota_counter")
+      .values({ grant_id: grant.id, used_value: 950n, overage_value: 10n })
+      .execute();
+
+    const run = await db
+      .insertInto("reconciliation_run")
+      .values({
+        enterprise_id: ENT_ID,
+        range_from: new Date(Date.now() - 3600 * 1000),
+        range_to: new Date(),
+        result: "REVIEW",
+        algorithm_version: "w20-eight-signals",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto("reconciliation_discrepancy")
+      .values({
+        enterprise_id: ENT_ID,
+        reconciliation_run_id: run.id,
+        discrepancy_type: "SETTLEMENT_MISMATCH",
+        ai_request_id: requestId,
+        detail: { expected: "450", actual: "449" },
+      })
+      .execute();
+
+    const routingRequestId = randomUUID();
+    const streamingRequestId = randomUUID();
+    await db
+      .insertInto("ai_request")
+      .values([
+        {
+          id: routingRequestId,
+          enterprise_id: ENT_ID,
+          principal_id: principalId,
+          principal_key_id: key.id,
+          protocol: "openai",
+          unified_model: "glm-4.6",
+          status: "FAILED",
+          error_classification: "NO_AVAILABLE_RESOURCE",
+          error_code: "NO_CANDIDATE",
+        },
+        {
+          id: streamingRequestId,
+          enterprise_id: ENT_ID,
+          principal_id: principalId,
+          principal_key_id: key.id,
+          protocol: "openai",
+          unified_model: "glm-4.6",
+          stream: true,
+          status: "FAILED",
+          error_classification: "STREAM_INTERRUPTED",
+          error_code: "UPSTREAM_STREAM_CLOSED",
+        },
+      ])
+      .execute();
+
+    const provider = await ensureProvider("deepseek");
+    await db
+      .insertInto("provider_resource")
+      .values({
+        enterprise_id: ENT_ID,
+        provider_id: provider.id,
+        name: `八信号凭证-${randomUUID().slice(0, 8)}`,
+        mode: "API",
+        credential_type: "API_KEY",
+        status: "CREDENTIAL_INVALID",
+      })
+      .execute();
+
+    const policy = await db
+      .insertInto("dispatch_policy")
+      .values({
+        enterprise_id: ENT_ID,
+        status: "PUBLISHED",
+        action: "SWITCH",
+        policy_version: `eight-signals-${randomUUID().slice(0, 8)}`,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await db
+      .updateTable("dispatch_decision")
+      .set({
+        matched_policy_id: policy.id,
+        matched_policy_action: "SWITCH",
+        final_action: "ALLOW",
+      })
+      .where("ai_request_id", "=", requestId)
+      .execute();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/alerts",
+      headers: { cookie: adminCookie },
+    });
+    expect(response.statusCode).toBe(200);
+    const signals = new Set(
+      response.json().alerts.map((alert: { signal: string }) => alert.signal),
+    );
+    expect(signals.size).toBeGreaterThanOrEqual(8);
+    for (const signal of [
+      "resource_unavailable",
+      "principal_usage_anomaly",
+      "call_deduction_anomaly",
+      "credential_security_anomaly",
+      "routing_anomaly",
+      "streaming_anomaly",
+      "supply_anomaly",
+      "dispatch_anomaly",
+    ]) {
+      expect(signals.has(signal), signal).toBe(true);
+    }
+  });
+
   it("evaluate 幂等：重复调用同 key 不重复插入，只刷新 last_seen", async () => {
     await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
     const before = await db
@@ -353,6 +505,41 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       .where("status", "=", "OPEN")
       .execute();
     expect(after.length).toBe(before.length); // 无重复插入
+  });
+
+  it("evaluate 并发幂等：同一新信号只产生一条 OPEN 事件", async () => {
+    const provider = await ensureProvider("kimi");
+    const resource = await db
+      .insertInto("provider_resource")
+      .values({
+        enterprise_id: ENT_ID,
+        provider_id: provider.id,
+        name: `并发幂等-${randomUUID().slice(0, 8)}`,
+        mode: "CODING_PLAN",
+        credential_type: "SUBSCRIPTION_SESSION",
+        status: "CREDENTIAL_INVALID",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } }),
+      ),
+    );
+    expect(responses.every((response) => response.statusCode === 200)).toBe(true);
+    const rows = await db
+      .selectFrom("alert_event")
+      .select("id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where(
+        "alert_key",
+        "=",
+        `CREDENTIAL_INVALID:CREDENTIAL_INVALID:${resource.id}`,
+      )
+      .where("status", "=", "OPEN")
+      .execute();
+    expect(rows).toHaveLength(1);
   });
 
   it("处置后转历史：?history=true 可见，未处理列表不再含", async () => {

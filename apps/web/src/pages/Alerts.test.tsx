@@ -14,7 +14,7 @@ const postMock = vi.fn();
 const invalidateMock = vi.fn();
 
 vi.mock("../api/hooks", () => ({
-  useAlerts: () => useAlertsMock(),
+  useAlerts: (history: boolean) => useAlertsMock(history),
   QUERY_KEYS: { alerts: ["alerts"] },
 }));
 
@@ -133,17 +133,19 @@ describe("W20 异常告警", () => {
       );
     });
     await waitFor(() => {
-      expect(invalidateMock).toHaveBeenCalledWith({ queryKey: ["alerts", false] });
+      expect(invalidateMock).toHaveBeenCalledWith({ queryKey: ["alerts"] });
     });
   });
 
   it("已处理告警默认隐藏，勾选后显示", async () => {
-    useAlertsMock.mockReturnValue({
+    useAlertsMock.mockImplementation((history: boolean) => ({
       isLoading: false,
       error: null,
-      data: { alerts: [alert({ status: "RESOLVED" })] },
+      data: history
+        ? { alerts: [], history: [alert({ status: "RESOLVED" })] }
+        : { alerts: [] },
       refetch: vi.fn(),
-    });
+    }));
     const user = userEvent.setup();
     renderPage();
     // 默认只显示未处理 → 空态

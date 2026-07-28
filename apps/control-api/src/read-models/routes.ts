@@ -6,13 +6,80 @@
  * 全部只读；写操作在 W19 落地。
  */
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
+
+const DecimalString = z
+  .union([z.string(), z.number()])
+  .transform(String)
+  .refine((value) => /^\d+(?:\.\d+)?$/.test(value), {
+    message: "价格必须是非负十进制数",
+  });
+
+const CreateBillingRuleSchema = z.object({
+  rule_type: z.enum(["API_PRICE", "TIME_WINDOW", "MODEL_TIER", "CACHE_STATE"]),
+  rule_version: z.string().min(1).max(64),
+  provider_resource_id: z.string().uuid().nullable().optional(),
+  upstream_model: z.string().min(1).max(128).nullable().optional(),
+  effective_from: z.string().datetime(),
+  effective_to: z.string().datetime().nullable().optional(),
+  multiplier: DecimalString.nullable().optional(),
+  cache_hit_price: DecimalString.nullable().optional(),
+  cache_miss_price: DecimalString.nullable().optional(),
+  output_price: DecimalString.nullable().optional(),
+  currency: z.string().length(3).optional(),
+  priority: z.number().int().min(0).optional(),
+  source: z.string().max(255).nullable().optional(),
+});
 
 export function registerReadModelRoutes(app: FastifyInstance): void {
   // GET /billing-rules —— 计价规则列表（含 disabled/历史，管理后台用）
   app.get("/billing-rules", { preHandler: [requireAuth] }, async (req) => {
     const rules = await app.ledgerRepo.listAllBillingRules(req.admin!.enterpriseId);
     return { rules };
+  });
+
+  app.post("/billing-rules", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = CreateBillingRuleSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+    }
+    const input = parsed.data;
+    const rule = await app.ledgerRepo.createBillingRule({
+      enterprise_id: req.admin!.enterpriseId,
+      rule_type: input.rule_type,
+      rule_version: input.rule_version,
+      provider_resource_id: input.provider_resource_id,
+      upstream_model: input.upstream_model,
+      effective_from: new Date(input.effective_from),
+      effective_to:
+        input.effective_to === undefined
+          ? undefined
+          : input.effective_to === null
+            ? null
+            : new Date(input.effective_to),
+      multiplier: input.multiplier,
+      cache_hit_price: input.cache_hit_price,
+      cache_miss_price: input.cache_miss_price,
+      output_price: input.output_price,
+      currency: input.currency,
+      priority: input.priority,
+      source: input.source,
+    });
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "billing_rule.create",
+      target_type: "billing_rule",
+      target_id: rule.id,
+      change_summary: {
+        rule_type: rule.rule_type,
+        rule_version: rule.rule_version,
+        provider_resource_id: rule.provider_resource_id,
+      },
+      result: "SUCCESS",
+    });
+    return reply.code(201).send({ rule });
   });
 
   // GET /dispatch-policies —— 经营策略列表（含全部状态 DRAFT/VALIDATED/PUBLISHED/RETIRED）

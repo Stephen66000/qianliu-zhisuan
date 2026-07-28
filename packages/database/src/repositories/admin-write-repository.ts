@@ -95,6 +95,31 @@ export class AdminWriteRepository {
       .executeTakeFirst() as Promise<PrincipalGrant | null>;
   }
 
+  /** 更新计价规则（version 乐观锁；历史账本仍冻结原 rule_version）。 */
+  async updateBillingRule(
+    enterpriseId: string,
+    id: string,
+    expectedVersion: number,
+    patch: {
+      effective_to?: Date | null;
+      multiplier?: string | null;
+      cache_hit_price?: string | null;
+      cache_miss_price?: string | null;
+      output_price?: string | null;
+      priority?: number;
+      enabled?: boolean;
+    },
+  ) {
+    return this.db
+      .updateTable("billing_rule")
+      .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
+      .where("id", "=", id)
+      .where("enterprise_id", "=", enterpriseId)
+      .where(versionLock(expectedVersion))
+      .returningAll()
+      .executeTakeFirst();
+  }
+
   /**
    * 凭证恢复 + 可选轮换（WT-19 受控恢复）。
    *

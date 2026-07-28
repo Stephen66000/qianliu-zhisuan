@@ -175,10 +175,13 @@ export class DispatchPolicyRepository {
   /** 查询某请求的决策（诊断/WT-16 可解释）。 */
   async getDecision(aiRequestId: string): Promise<{
     id: string;
+    dispatch_input: Record<string, unknown> | null;
     final_action: string;
     reason_code: string;
     reason_detail: string | null;
     matched_policy_id: string | null;
+    matched_policy_version: string | null;
+    matched_policy_action: string | null;
     switch_target_resource_id: string | null;
     counterfactual_cost: string | null;
     actual_cost: string | null;

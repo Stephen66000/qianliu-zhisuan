@@ -1,45 +1,66 @@
-# W20 E2E 运行说明（Playwright WT-01~20 Web 路径）
+# M5 Playwright 真实 API E2E
 
-> **完整收口步骤见根级一页纸清单**：`V3/Evidence/M5/M5-收口执行清单-20260728.md`（含 corepack 修复、Docker、迁移、种子、双浏览器、故障速查）。本文件只列 E2E 专属细节。
+本套件每次运行都由 `global-setup.ts` 调用 `seed:e2e`，在独立数据库重建固定夹具：
+Provider、资源、主体、Key、Grant、请求、路由候选、Attempt、usage_event、ledger_line、
+ledger_transaction、计价规则、预测、调度策略/决策和告警。测试库与试点库物理隔离。
 
-## 前置（一次性）
+## 安全前置
 
-1. 修复 corepack：`corepack prepare pnpm@11.11.0 --activate`
-2. 启动 Postgres（Docker）+ 迁移 + 种子管理员：
+`seed:e2e` 只接受：
 
-   ```bash
-   export PATH="$PWD/.corepack-bin:$PATH"
-   export DATABASE_URL="postgres://postgres:qianliu@127.0.0.1:5432/qianliu"
-   pnpm db:migrate
-   pnpm --filter @qianliu/control-api seed:admin -- \
-     --enterprise "仟流试点企业" --username admin --password admin123
-   ```
+- 主机为 `127.0.0.1` 或 `localhost`；
+- 数据库名以 `_e2e` 结尾。
 
-3. 安装浏览器：`pnpm --filter @qianliu/web exec playwright install chromium`
+不满足任一条件会立即拒绝写入。夹具会清空该专用 E2E 库的业务表，严禁把
+`DATABASE_URL` 指向试点、共享或生产库。
 
-## 运行
+## macOS
 
 ```bash
 export PATH="$PWD/.corepack-bin:$PATH"
+export DATABASE_URL="postgres://postgres:qianliu@127.0.0.1:55432/qianliu_e2e"
+export GATEWAY_KEY_PEPPER="m5-e2e-only-pepper"
+export CREDENTIAL_KEK="ZGV2LW9ubHkta2VrLXJlcGxhY2UtaW4tcGlsb3QAAAA="
+export COOKIE_SECRET="m5-e2e-cookie-secret-at-least-32-bytes"
 pnpm --filter @qianliu/web test:e2e
 ```
 
-Playwright `webServer` 会自动拉起 control-api（8788）与 web dev（5173）。
+## Windows 11 PowerShell
 
-## 覆盖映射（WT-01~20）
+```powershell
+$env:PATH="$PWD\.corepack-bin;$env:PATH"
+$env:DATABASE_URL="postgres://postgres:qianliu@127.0.0.1:55432/qianliu_e2e"
+$env:GATEWAY_KEY_PEPPER="m5-e2e-only-pepper"
+$env:CREDENTIAL_KEK="ZGV2LW9ubHkta2VrLXJlcGxhY2UtaW4tcGlsb3QAAAA="
+$env:COOKIE_SECRET="m5-e2e-cookie-secret-at-least-32-bytes"
+pnpm --filter @qianliu/web test:e2e
+```
 
-| 分类 | WT | 覆盖方式 |
-| --- | --- | --- |
-| **Web 路径（本套件）** | WT-01/02/05/08/09/10/15 + 告警/操作日志/七入口/主题 | `e2e/wt-web.spec.ts` |
-| **网关运行时（非 Web 路径）** | WT-03/04/06/07/11/12/13/14/16/17/18/19/20 | 后端集成测试 `apps/control-api/src/__tests-integration__/`（w02-w20）+ domain 单测 |
+首次运行前需创建 `qianliu_e2e` 数据库并安装 Chromium：
 
-## 双浏览器回归（M5 DoD）
+```bash
+pnpm --filter @qianliu/web exec playwright install chromium
+```
 
-- macOS Chrome：本套件（chromium project）。
-- Win11 Chrome：佳哥本地实机执行同一命令（`test:e2e`），或登记为待验。
+## WT 映射
 
-## 注意
+| WT | Web 断言 |
+| --- | --- |
+| WT-01 | 创建 Provider、登记资源、凭证不回显/不出 API |
+| WT-02/03 | 员工→Key 一次展示→Grant→接入信息 |
+| WT-04 | 项目按相同顺序开通 |
+| WT-05/11 | 请求汇总与两 Attempt 两条账本明细一致 |
+| WT-06 | 允许超额关闭/开启及 version 副作用 |
+| WT-07/14 | 隔离/健康资源与 Provider 协议能力定位 |
+| WT-08 | 首页发现异常、告警处置、operation_log |
+| WT-09 | Key 重置、旧 Key 撤销、新明文不再回显 |
+| WT-10 | 计价规则、统一模型、Model Route 创建/编辑 |
+| WT-12 | 流式提交后中断只有一个 Attempt |
+| WT-13/18 | 路由评分因子、Affinity 与正文零留存 |
+| WT-15 | 速度、耗尽、恢复、覆盖、可信度 |
+| WT-16/17 | 调度输入/策略/动作/反事实/节省 |
+| WT-19 | 隔离资源二次确认受控恢复 |
+| WT-20 | 七入口与协议相关管理配置全部可达 |
 
-- E2E 依赖真实 API + 真实库（DoD：模拟数据不进试点库）；E2E 创建的对象用时间戳后缀幂等命名。
-- 本沙箱无 Docker/浏览器，套件未在此执行；宿主机首次运行如遇失败，按 `trace`（`playwright show-report`）定位。
-
+套件没有 `if visible`、空态二选一或 catch 后跳过。每个写用例同时验证 HTTP/数据库可见
+副作用，每个读用例同时验证 API 事实与页面结果。

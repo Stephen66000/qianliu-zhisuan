@@ -315,6 +315,8 @@ export interface AlertEventTable {
   first_seen_at: Generated<Date>;
   last_seen_at: Generated<Date>;
   resolved_at: Date | null;
+  /** 源事实最近一次恢复时间；用于区分持续异常与恢复后的再次触发。 */
+  source_cleared_at: Date | null;
   resolution_note: string | null;
   resolved_by: string | null;
 }
@@ -458,6 +460,8 @@ export interface BillingRuleTable {
   priority: Generated<number>;
   enabled: Generated<boolean>;
   source: string | null;
+  /** P1-02：管理端编辑使用单调版本号，避免并发覆盖。 */
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

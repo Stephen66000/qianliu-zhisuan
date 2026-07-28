@@ -166,10 +166,13 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
       }
       return {
         decision: {
+          dispatchInput: decision.dispatch_input,
           finalAction: decision.final_action,
           reasonCode: decision.reason_code,
           reasonDetail: decision.reason_detail,
           matchedPolicyId: decision.matched_policy_id,
+          matchedPolicyVersion: decision.matched_policy_version,
+          matchedPolicyAction: decision.matched_policy_action,
           switchTargetResourceId: decision.switch_target_resource_id,
           counterfactualCost: decision.counterfactual_cost,
           actualCost: decision.actual_cost,

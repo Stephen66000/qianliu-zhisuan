@@ -148,6 +148,23 @@ describe("W03 下游 Key 与 Grant", () => {
     expect(grant.quota_unit).toBe("TOKEN");
   });
 
+  it("分配 grant 拒绝负数与非整数额度", async () => {
+    for (const quotaValue of ["-1", "1.5", "abc"]) {
+      const res = await app.inject({
+        method: "POST",
+        url: `/principals/${testPrincipalId}/grants`,
+        headers: { cookie: adminCookie },
+        payload: {
+          provider: "deepseek",
+          model_alias: "qianliu-deepseek",
+          quota_value: quotaValue,
+        },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toBe("invalid_request");
+    }
+  });
+
   it("停用主体同步撤销全部 Key（TRD §5.3 L219）", async () => {
     const pid = await createPrincipal("PROJECT", "停用测试项目");
     await app.inject({

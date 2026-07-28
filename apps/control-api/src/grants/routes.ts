@@ -16,6 +16,8 @@ const CreateGrantSchema = z.object({
   model_alias: z.string().min(1).max(64),
   quota_value: z
     .union([z.string(), z.number()])
+    .transform(String)
+    .refine((value) => /^\d+$/.test(value), { message: "额度必须是非负整数" })
     .transform((v) => BigInt(v)),
   allow_overage: z.boolean().optional(),
   valid_until: z.string().datetime().optional(),

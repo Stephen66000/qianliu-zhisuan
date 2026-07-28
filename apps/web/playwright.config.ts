@@ -2,16 +2,17 @@
  * Playwright 配置（W20）—— Web 七入口真实 API E2E。
  *
  * 工程规则测试栈锁 Playwright 1.55.0。
- * 前置：control-api 与 web dev server 已启动（用 webServer 自动拉起）；
- * 数据库由 control-api 连接的 PG 提供（宿主机 Docker / 本地 PG）。
+ * 前置：专用 `_e2e` 数据库可连接；globalSetup 自动迁移、清库并播种固定夹具，
+ * webServer 自动拉起 control-api 与 Web，禁止复用可能连接其他数据库的旧进程。
  *
  * 运行：pnpm --filter @qianliu/web test:e2e
- * 环境变量：E2E_ADMIN_USERNAME / E2E_ADMIN_PASSWORD（默认 admin / admin123，需先在库中创建）。
+ * 环境变量：DATABASE_URL 与服务端三个安全密钥；管理员固定为 admin / admin123。
  */
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   timeout: 30_000,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -30,13 +31,13 @@ export default defineConfig({
     {
       command: "pnpm --filter @qianliu/control-api dev",
       url: "http://127.0.0.1:8788/health",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
     },
     {
       command: "pnpm --filter @qianliu/web dev",
       url: "http://127.0.0.1:5173",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
     },
   ],

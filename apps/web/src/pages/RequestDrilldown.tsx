@@ -185,6 +185,26 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
             <Field label="最终动作" value={decision.data.decision.finalAction} />
             <Field label="理由码" value={decision.data.decision.reasonCode} />
             <Field
+              label="命中策略"
+              value={
+                decision.data.decision.matchedPolicyVersion ??
+                decision.data.decision.matchedPolicyId ??
+                "未命中"
+              }
+            />
+            <Field
+              label="策略动作"
+              value={decision.data.decision.matchedPolicyAction ?? "—"}
+            />
+            <Field
+              label="调度输入"
+              value={
+                decision.data.decision.dispatchInput
+                  ? JSON.stringify(decision.data.decision.dispatchInput)
+                  : "—"
+              }
+            />
+            <Field
               label="节省"
               value={
                 decision.data.decision.savingCalculable

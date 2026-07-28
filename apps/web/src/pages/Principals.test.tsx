@@ -16,7 +16,38 @@ const invalidateMock = vi.fn();
 
 vi.mock("../api/hooks", () => ({
   usePrincipals: () => usePrincipalsMock(),
-  QUERY_KEYS: { principals: ["principals"] },
+  usePrincipalKeys: () => ({
+    isLoading: false,
+    error: null,
+    data: { keys: [] },
+    refetch: vi.fn(),
+  }),
+  useGrants: () => ({
+    isLoading: false,
+    error: null,
+    data: { grants: [] },
+    refetch: vi.fn(),
+  }),
+  useUnifiedModels: () => ({
+    isLoading: false,
+    error: null,
+    data: {
+      models: [
+        {
+          id: "m1",
+          alias: "qianliu-glm",
+          display_name: "仟流 GLM",
+          status: "ACTIVE",
+        },
+      ],
+    },
+    refetch: vi.fn(),
+  }),
+  QUERY_KEYS: {
+    principals: ["principals"],
+    principalKeys: (id: string) => ["principals", id, "keys"],
+    grants: (id: string) => ["principals", id, "grants"],
+  },
 }));
 
 vi.mock("../api/client", async (importOriginal) => {
@@ -125,5 +156,35 @@ describe("W19 使用主体", () => {
     await user.click(screen.getByRole("button", { name: "停用" }));
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(patchMock).not.toHaveBeenCalled();
+  });
+
+  it("接入配置：Key 一次展示并创建模型额度 Grant", async () => {
+    postMock.mockImplementation((path: string) => {
+      if (path === "/principals/p1/key") {
+        return Promise.resolve({ key: "sk-qianliu-unit-once" });
+      }
+      return Promise.resolve({ grant: { id: "g1" } });
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "接入配置" }));
+    await user.click(screen.getByRole("button", { name: "生成 Key" }));
+    expect(screen.getByText("sk-qianliu-unit-once")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "已安全保存，关闭" }));
+    expect(screen.queryByText("sk-qianliu-unit-once")).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("统一模型"), "qianliu-glm");
+    await user.clear(screen.getByLabelText("Token 额度"));
+    await user.type(screen.getByLabelText("Token 额度"), "88000");
+    await user.click(screen.getByRole("button", { name: "分配" }));
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        "/principals/p1/grants",
+        expect.objectContaining({
+          model_alias: "qianliu-glm",
+          quota_value: "88000",
+        }),
+      );
+    });
   });
 });

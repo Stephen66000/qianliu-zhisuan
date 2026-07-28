@@ -19,9 +19,19 @@ export async function login(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "首页看板" })).toBeVisible();
 }
 
-/** 幂等命名（避免重复运行冲突）。 */
-export function uniqueName(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}`;
+export const E2E_IDS = {
+  resource: "00000000-0000-4000-8000-000000000011",
+  isolatedResource: "00000000-0000-4000-8000-000000000012",
+  model: "00000000-0000-4000-8000-000000000013",
+  principal: "00000000-0000-4000-8000-000000000020",
+  request: "00000000-0000-4000-8000-000000000030",
+  streamRequest: "00000000-0000-4000-8000-000000000050",
+} as const;
+
+export async function apiGet<T>(page: Page, path: string): Promise<T> {
+  const response = await page.context().request.get(path);
+  expect(response.ok(), `${path} 应返回成功`).toBe(true);
+  return response.json() as Promise<T>;
 }
 
 export const test = base.extend({});

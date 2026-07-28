@@ -16,8 +16,10 @@ import type {
   DispatchPoliciesResult,
   GatewayRequestDetail,
   GrantsResult,
+  ModelRoutesResult,
   OperationLogsResult,
   PrincipalsResult,
+  PrincipalKeysResult,
   ProviderResourcesResult,
   ProvidersResult,
   RouteCandidateItem,
@@ -38,6 +40,8 @@ export const QUERY_KEYS = {
   providers: ["providers"] as const,
   unifiedModels: ["unified-models"] as const,
   grants: (principalId: string) => ["principals", principalId, "grants"] as const,
+  principalKeys: (principalId: string) => ["principals", principalId, "keys"] as const,
+  modelRoutes: (modelId: string) => ["unified-models", modelId, "routes"] as const,
   gatewayRequest: (id: string) => ["gateway-requests", id] as const,
   alerts: ["alerts"] as const,
   operationLogs: ["operation-logs"] as const,
@@ -142,6 +146,28 @@ export function useGrants(principalId: string | null) {
     queryKey: QUERY_KEYS.grants(principalId ?? ""),
     queryFn: ({ signal }) => get<GrantsResult>(`/principals/${principalId}/grants`, signal),
     enabled: principalId !== null,
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function usePrincipalKeys(principalId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.principalKeys(principalId ?? ""),
+    queryFn: ({ signal }) =>
+      get<PrincipalKeysResult>(`/principals/${principalId}/key`, signal),
+    enabled: principalId !== null,
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useModelRoutes(modelId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.modelRoutes(modelId ?? ""),
+    queryFn: ({ signal }) =>
+      get<ModelRoutesResult>(`/unified-models/${modelId}/routes`, signal),
+    enabled: modelId !== null,
     retry: 1,
     staleTime: 30_000,
   });

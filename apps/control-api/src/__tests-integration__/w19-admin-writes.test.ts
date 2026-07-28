@@ -6,6 +6,7 @@
  *   - PATCH /unified-models/:id（停用 + audit）
  *   - PATCH /model-routes/:id（权重/启停）
  *   - PATCH /grants/:id（调额/停用）
+ *   - POST/PATCH /billing-rules（创建/编辑 + version 并发）
  *   - POST /provider-resources/:id/recover（WT-19：隔离态恢复 + 轮换凭证；非隔离态 409）
  *   - 六要素：401 未认证、404 越界/不存在、audit 落 operation_log
  *   - canary：轮换凭证的明文绝不进 DB
@@ -238,6 +239,54 @@ describe("W19 管理写操作闭环", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().grant.status).toBe("DISABLED");
     expect(await countAudit("grant.disable")).toBe(1);
+  });
+
+  it("POST/PATCH /billing-rules 创建编辑并拒绝旧 version", async () => {
+    const { resource } = await seedProviderResource();
+    const created = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: {
+        rule_type: "API_PRICE",
+        rule_version: "w19-web-v1",
+        provider_resource_id: resource.id,
+        upstream_model: "glm-4.6",
+        effective_from: new Date().toISOString(),
+        cache_miss_price: "0.000001",
+        output_price: "0.000002",
+        priority: 10,
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().rule.version).toBe(1);
+    expect(await countAudit("billing_rule.create")).toBe(1);
+
+    const rule = created.json().rule;
+    const updated = await app.inject({
+      method: "PATCH",
+      url: `/billing-rules/${rule.id}`,
+      headers: { cookie: adminCookie },
+      payload: {
+        expected_version: rule.version,
+        output_price: "0.000003",
+        enabled: false,
+      },
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().rule.output_price).toBe("0.000003");
+    expect(updated.json().rule.enabled).toBe(false);
+    expect(updated.json().rule.version).toBe(2);
+    expect(await countAudit("billing_rule.update")).toBe(1);
+
+    const stale = await app.inject({
+      method: "PATCH",
+      url: `/billing-rules/${rule.id}`,
+      headers: { cookie: adminCookie },
+      payload: { expected_version: 1, enabled: true },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().error).toBe("conflict");
   });
 
   it("POST /provider-resources/:id/recover：隔离态恢复 + 轮换凭证 + 明文 0 命中 canary", async () => {

@@ -25,6 +25,8 @@ import {
   AdminWriteRepository,
   AlertRepository,
   AlertEventRepository,
+  DEFAULT_THRESHOLDS,
+  type AlertThresholds,
 } from "@qianliu/database";
 import {
   generateApiKey,
@@ -80,6 +82,46 @@ export interface ControlApiOptions {
   host?: string;
 }
 
+function alertThresholdsFromEnv(env: NodeJS.ProcessEnv): AlertThresholds {
+  const numberValue = (
+    name: string,
+    fallback: number,
+    minimum: number,
+    maximum = Number.POSITIVE_INFINITY,
+  ): number => {
+    const raw = env[name];
+    if (raw === undefined) return fallback;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < minimum || value > maximum) {
+      throw new Error(`${name} 必须是 ${minimum}~${maximum} 的有限数字`);
+    }
+    return value;
+  };
+  return {
+    exhaustCoverageHours: numberValue(
+      "ALERT_EXHAUST_COVERAGE_HOURS",
+      DEFAULT_THRESHOLDS.exhaustCoverageHours,
+      0,
+    ),
+    usageSpikeCost: numberValue(
+      "ALERT_USAGE_SPIKE_COST",
+      DEFAULT_THRESHOLDS.usageSpikeCost,
+      0,
+    ),
+    principalQuotaRatio: numberValue(
+      "ALERT_PRINCIPAL_QUOTA_RATIO",
+      DEFAULT_THRESHOLDS.principalQuotaRatio,
+      0,
+      1,
+    ),
+    resourceFailureCount: numberValue(
+      "ALERT_RESOURCE_FAILURE_COUNT",
+      DEFAULT_THRESHOLDS.resourceFailureCount,
+      1,
+    ),
+  };
+}
+
 export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info" },
@@ -108,7 +150,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("dispatchRepo", new DispatchPolicyRepository(db));
   app.decorate("adminWriteRepo", new AdminWriteRepository(db));
   app.decorate("alertRepo", new AlertRepository(db));
-  app.decorate("alertEventRepo", new AlertEventRepository(db));
+  app.decorate("alertEventRepo", new AlertEventRepository(db, alertThresholdsFromEnv(process.env)));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",

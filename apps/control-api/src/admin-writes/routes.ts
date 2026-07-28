@@ -50,6 +50,25 @@ const UpdateGrantSchema = z.object({
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 });
 
+const OptionalDecimalString = z
+  .union([z.string(), z.number()])
+  .transform(String)
+  .refine((value) => /^\d+(?:\.\d+)?$/.test(value), {
+    message: "价格必须是非负十进制数",
+  })
+  .nullable();
+
+const UpdateBillingRuleSchema = z.object({
+  expected_version: ExpectedVersion,
+  effective_to: z.string().datetime().nullable().optional(),
+  multiplier: OptionalDecimalString.optional(),
+  cache_hit_price: OptionalDecimalString.optional(),
+  cache_miss_price: OptionalDecimalString.optional(),
+  output_price: OptionalDecimalString.optional(),
+  priority: z.number().int().min(0).optional(),
+  enabled: z.boolean().optional(),
+});
+
 const RecoverResourceSchema = z.object({
   /** 可选：同时轮换凭证（明文一次接收，立即加密，绝不入库）。 */
   credential_plaintext: z.string().min(1).optional(),
@@ -281,6 +300,71 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         result: "SUCCESS",
       });
       return { grant: updated };
+    },
+  );
+
+  // ===== 计价规则：价格 / 优先级 / 启停 =====
+  app.patch<{ Params: { id: string } }>(
+    "/billing-rules/:id",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const parsed = UpdateBillingRuleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+      }
+      const ent = req.admin!.enterpriseId;
+      const updated = await app.adminWriteRepo.updateBillingRule(
+        ent,
+        req.params.id,
+        parsed.data.expected_version,
+        {
+          effective_to:
+            parsed.data.effective_to === undefined
+              ? undefined
+              : parsed.data.effective_to === null
+                ? null
+                : new Date(parsed.data.effective_to),
+          multiplier: parsed.data.multiplier,
+          cache_hit_price: parsed.data.cache_hit_price,
+          cache_miss_price: parsed.data.cache_miss_price,
+          output_price: parsed.data.output_price,
+          priority: parsed.data.priority,
+          enabled: parsed.data.enabled,
+        },
+      );
+      if (!updated) {
+        const exists = await app.db
+          .selectFrom("billing_rule")
+          .select("id")
+          .where("id", "=", req.params.id)
+          .where("enterprise_id", "=", ent)
+          .executeTakeFirst();
+        if (!exists) {
+          return reply.code(404).send({ error: "not_found", message: "计价规则不存在" });
+        }
+        return reply
+          .code(409)
+          .send({ error: "conflict", message: "该规则刚被其他管理员修改，请刷新后重试" });
+      }
+      await app.auditRepo.write({
+        enterprise_id: ent,
+        admin_user_id: req.admin!.adminUserId,
+        action: "billing_rule.update",
+        target_type: "billing_rule",
+        target_id: updated.id,
+        change_summary: {
+          after: {
+            enabled: updated.enabled,
+            priority: updated.priority,
+            multiplier: updated.multiplier,
+            cache_hit_price: updated.cache_hit_price,
+            cache_miss_price: updated.cache_miss_price,
+            output_price: updated.output_price,
+          },
+        },
+        result: "SUCCESS",
+      });
+      return { rule: updated };
     },
   );
 

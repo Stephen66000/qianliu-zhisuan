@@ -12,7 +12,8 @@
     "test": "vitest run --config ../../vitest.config.ts",
     "test:integration": "vitest run --config ../../vitest.config.ts src/__tests-integration__",
     "test:e2e": "echo 'control-api e2e deferred to M1' && exit 0",
-    "seed:admin": "tsx src/cli/seed-admin.ts"
+    "seed:admin": "tsx src/cli/seed-admin.ts",
+    "seed:e2e": "tsx src/cli/seed-e2e.ts"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",

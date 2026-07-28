@@ -136,6 +136,7 @@ export interface BillingRule {
   priority: number;
   enabled: boolean;
   source: string | null;
+  version: number;
   created_at: string;
   updated_at: string;
 }
@@ -254,6 +255,7 @@ export interface UnifiedModel {
   display_name: string;
   required_capabilities: string[] | null;
   status: string;
+  version: number;
   created_at: string;
   updated_at: string;
 }
@@ -290,12 +292,45 @@ export interface PrincipalGrantItem {
   allow_overage: boolean;
   valid_until: string | null;
   status: string;
+  version: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface GrantsResult {
   grants: PrincipalGrantItem[];
+}
+
+export interface PrincipalKeyItem {
+  id: string;
+  key_prefix: string;
+  status: "ACTIVE" | "REVOKED";
+  created_at: string;
+  revoked_at: string | null;
+  last_used_at: string | null;
+  expires_at: string | null;
+}
+
+export interface PrincipalKeysResult {
+  keys: PrincipalKeyItem[];
+}
+
+export interface ModelRouteItem {
+  id: string;
+  enterprise_id: string;
+  unified_model_id: string;
+  provider_resource_id: string;
+  upstream_model: string;
+  priority: number;
+  weight: number;
+  enabled: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModelRoutesResult {
+  routes: ModelRouteItem[];
 }
 
 // ---------- W20 诊断下钻（camelCase，网关侧已脱敏） ----------
@@ -378,10 +413,13 @@ export interface AttemptsResult {
 }
 
 export interface DispatchDecisionItem {
+  dispatchInput: Record<string, unknown> | null;
   finalAction: string;
   reasonCode: string;
   reasonDetail: string | null;
   matchedPolicyId: string | null;
+  matchedPolicyVersion: string | null;
+  matchedPolicyAction: string | null;
   switchTargetResourceId: string | null;
   counterfactualCost: string | null;
   actualCost: string | null;
