@@ -367,6 +367,41 @@ export class GatewayLedgerRepository {
       .execute() as never;
   }
 
+  /** 列出企业全部计价规则（含 disabled/历史，管理后台用）。 */
+  async listAllBillingRules(enterpriseId: string): Promise<
+    Array<{
+      id: string;
+      rule_type: string;
+      rule_version: string;
+      provider_resource_id: string | null;
+      upstream_model: string | null;
+      effective_from: Date;
+      effective_to: Date | null;
+      timezone: string | null;
+      days_of_week: number[] | null;
+      start_time: string | null;
+      end_time: string | null;
+      multiplier: string | null;
+      cache_hit_price: string | null;
+      cache_miss_price: string | null;
+      output_price: string | null;
+      currency: string;
+      priority: number;
+      enabled: boolean;
+      source: string | null;
+      created_at: Date;
+      updated_at: Date;
+    }>
+  > {
+    return this.db
+      .selectFrom("billing_rule")
+      .selectAll()
+      .where("enterprise_id", "=", enterpriseId)
+      .orderBy("priority", "asc")
+      .orderBy("effective_from", "desc")
+      .execute() as never;
+  }
+
   async createBillingRule(input: {
     enterprise_id: string;
     rule_type: string;

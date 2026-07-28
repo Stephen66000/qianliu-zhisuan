@@ -79,5 +79,17 @@ export {
   type ReconciliationRunInput,
   type ReconciliationOutcome,
 } from "./repositories/reconciliation-repository.js";
+export {
+  DashboardRepository,
+  type DashboardSummary,
+  type ResourceBreakdownItem,
+  type OverageItem,
+} from "./repositories/dashboard-repository.js";
+export {
+  UsageRepository,
+  type UsageQuery,
+  type UsageRecord,
+  type UsageResult,
+} from "./repositories/usage-repository.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;
