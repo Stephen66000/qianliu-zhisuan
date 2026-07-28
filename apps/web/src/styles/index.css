@@ -1,0 +1,4 @@
+/* W18 样式入口：Tailwind 层 + 仟流语义令牌（tokens.css）。 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

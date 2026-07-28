@@ -4,6 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>仟流智算</title>
+    <script>
+      /*
+       * 主题防闪烁初始化（仟流 Web 产品视觉规范 §4）：
+       * 挂载前读取偏好（ql-theme-preference: system|light|dark，默认 system），
+       * 解析后写入 data-theme + color-scheme，避免先闪错主题。
+       * 与 src/theme/theme.ts 的键名/取值保持一致。
+       */
+      (function () {
+        var preference = "system";
+        try {
+          var stored = window.localStorage.getItem("ql-theme-preference");
+          if (stored === "system" || stored === "light" || stored === "dark") {
+            preference = stored;
+          }
+        } catch (e) {
+          /* localStorage 不可用时按 system 处理 */
+        }
+        var resolved = preference;
+        if (preference === "system") {
+          resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,130 @@
+/*
+ * 仟流语义令牌（W18）—— 仟流 Web 产品视觉规范 1.0 §3 + §13.2。
+ *
+ * 色值锁定，禁止修改品牌原色；RGB 通道变量兼容 Tailwind 透明度（rgb(var(--x) / <alpha>)）。
+ * 浅色令牌 = 规范 §3.2；深色令牌 = 规范 §3.3。
+ * 主题切换由 <html data-theme> 驱动（见 src/theme/，规范 §4）。
+ */
+
+:root,
+[data-theme="light"] {
+  --ql-canvas: 244 247 251; /* #F4F7FB 页面总背景 */
+  --ql-surface: 255 255 255; /* #FFFFFF 卡片/侧栏/顶栏 */
+  --ql-surface-raised: 255 255 255; /* #FFFFFF 弹窗/菜单/抽屉 */
+  --ql-surface-subtle: 248 250 252; /* #F8FAFC 阅读区/表格交替底 */
+  --ql-surface-muted: 238 242 246; /* #EEF2F6 禁用/弱信息/骨架屏 */
+  --ql-surface-brand-soft: 238 244 254; /* #EEF4FE 选中/品牌提示/icon box */
+  --ql-border: 216 225 235; /* #D8E1EB 常规边框 */
+  --ql-border-strong: 125 143 164; /* #7D8FA4 输入控件/强调分隔 */
+  --ql-border-zone: 227 234 242; /* #E3EAF2 Zone 外框（比内卡浅一档，仪表盘补充 §1） */
+  --ql-text-primary: 23 32 51; /* #172033 标题/主正文 */
+  --ql-text-secondary: 82 97 117; /* #526175 辅助正文 */
+  --ql-text-tertiary: 107 114 128; /* #6B7280 元信息/时间 */
+  --ql-text-disabled: 154 166 178; /* #9AA6B2 禁用文字 */
+  --ql-action-primary: 47 111 206; /* #2F6FCE 主按钮/链接/选中 */
+  --ql-action-primary-hover: 37 93 178; /* #255DB2 */
+  --ql-action-primary-soft: 232 240 253; /* #E8F0FD 选中/Hover 背景 */
+  --ql-accent-visual: 0 210 212; /* #00D2D4 大数字焦点（浅色小字禁用） */
+  --ql-accent-text: 0 120 122; /* #00787A 浅色主题青色文字 */
+  --ql-success: 38 122 61; /* #267A3D */
+  --ql-success-soft: 234 246 237; /* #EAF6ED */
+  --ql-warning: 154 74 46; /* #9A4A2E */
+  --ql-warning-soft: 251 239 233; /* #FBEFE9 */
+  --ql-danger: 199 53 46; /* #C7352E */
+  --ql-danger-soft: 253 237 236; /* #FDEDEC */
+
+  /* 阴影（规范 §7：默认卡片不用阴影；浮层用 raised；核心区用 zone-focus，仪表盘补充 §2） */
+  --ql-shadow-raised: 0 12px 32px rgb(15 27 46 / 0.12);
+  --ql-shadow-zone-focus: 0 4px 16px rgb(15 27 46 / 0.06);
+}
+
+[data-theme="dark"] {
+  --ql-canvas: 15 27 46; /* #0F1B2E */
+  --ql-surface: 20 36 58; /* #14243A */
+  --ql-surface-raised: 30 58 95; /* #1E3A5F */
+  --ql-surface-subtle: 24 43 69; /* #182B45 */
+  --ql-surface-muted: 27 49 79; /* #1B314F */
+  --ql-surface-brand-soft: 28 52 88; /* #1C3458 */
+  --ql-border: 41 69 100; /* #294564 */
+  --ql-border-strong: 111 143 179; /* #6F8FB3 */
+  /* 深色 Zone 外框比内卡更弱：复用 canvas 与 border 之间的弱分隔（规范只有浅色 #E3EAF2；
+     深色无对应定义，取 border 的 60% 透明度实现同语义"外框若有若无"） */
+  --ql-border-zone: 41 69 100;
+  --ql-text-primary: 245 247 250; /* #F5F7FA */
+  --ql-text-secondary: 196 206 218; /* #C4CEDA */
+  --ql-text-tertiary: 156 163 175; /* #9CA3AF */
+  --ql-text-disabled: 101 117 138; /* #65758A */
+  --ql-action-primary: 110 160 245; /* #6EA0F5 */
+  --ql-action-primary-hover: 138 181 250; /* #8AB5FA */
+  --ql-action-primary-soft: 65 126 224; /* rgba(65,126,224,0.18) → 配合 /0.18 使用 */
+  --ql-accent-visual: 0 210 212; /* #00D2D4 */
+  --ql-accent-text: 93 228 230; /* #5DE4E6 */
+  --ql-success: 92 203 118; /* #5CCB76 */
+  --ql-success-soft: 52 168 83; /* rgba(52,168,83,0.16) → 配合 /0.16 使用 */
+  --ql-warning: 240 160 126; /* #F0A07E */
+  --ql-warning-soft: 217 119 87; /* rgba(217,119,87,0.16) → 配合 /0.16 使用 */
+  --ql-danger: 255 116 108; /* #FF746C */
+  --ql-danger-soft: 234 67 53; /* rgba(234,67,53,0.16) → 配合 /0.16 使用 */
+
+  --ql-shadow-raised: 0 16px 40px rgb(3 9 18 / 0.42);
+  --ql-shadow-zone-focus: 0 4px 16px rgb(3 9 18 / 0.3);
+}
+
+/* 基础排版（规范 §6）：字体栈锁定，不强制下载 Web 字体。 */
+:root {
+  --ql-font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei",
+    "Noto Sans CJK SC", "Segoe UI", sans-serif;
+  /* 等宽（路径/代码/ID，Agent 规范 1.0 §6） */
+  --ql-font-mono: "SFMono-Regular", "SF Mono", "Cascadia Code", "JetBrains Mono", "Menlo",
+    monospace;
+}
+
+/* 主题切换 ≤160ms 完成（规范 §4）：仅背景/文字/边框短过渡。 */
+html {
+  font-family: var(--ql-font-sans);
+}
+
+body {
+  margin: 0;
+  background-color: rgb(var(--ql-canvas));
+  color: rgb(var(--ql-text-primary));
+  font-size: 14px;
+  line-height: 22px;
+}
+
+*,
+::before,
+::after {
+  transition-property: background-color, border-color, color;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* 骨架屏呼吸动画（尊重 prefers-reduced-motion，规范 §10） */
+@keyframes ql-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.ql-skeleton {
+  background-color: rgb(var(--ql-surface-muted));
+  border-radius: 6px;
+  animation: ql-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-skeleton {
+    animation: none;
+  }
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
+  }
+}
