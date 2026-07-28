@@ -95,5 +95,10 @@ export {
   AdminWriteRepository,
   AdminRecoverNotFoundError,
 } from "./repositories/admin-write-repository.js";
+export {
+  AlertRepository,
+  type AlertItem,
+  type AlertDomain,
+} from "./repositories/alert-repository.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;
