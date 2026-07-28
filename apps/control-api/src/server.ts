@@ -23,7 +23,6 @@ import {
   GatewayLedgerRepository,
   DispatchPolicyRepository,
   AdminWriteRepository,
-  AlertRepository,
   AlertEventRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
@@ -72,7 +71,6 @@ declare module "fastify" {
     ledgerRepo: GatewayLedgerRepository;
     dispatchRepo: DispatchPolicyRepository;
     adminWriteRepo: AdminWriteRepository;
-    alertRepo: AlertRepository;
     alertEventRepo: AlertEventRepository;
   }
 }
@@ -149,7 +147,6 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("ledgerRepo", new GatewayLedgerRepository(db));
   app.decorate("dispatchRepo", new DispatchPolicyRepository(db));
   app.decorate("adminWriteRepo", new AdminWriteRepository(db));
-  app.decorate("alertRepo", new AlertRepository(db));
   app.decorate("alertEventRepo", new AlertEventRepository(db, alertThresholdsFromEnv(process.env)));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(

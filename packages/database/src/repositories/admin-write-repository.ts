@@ -2,8 +2,8 @@
  * W19 管理端更新方法与凭证恢复（企业边界 + 并发安全）。
  *
  * 六要素（TRD §11.2）：服务端校验对象状态、企业边界隔离、成功后返回最新结果。
- * 并发修改：updated_at 乐观锁——路由层先读快照，更新时携带 expectedUpdatedAt，
- * 0 行命中即期间被他人修改（路由层判 409 conflict）。
+ * 并发修改：单调 version 乐观锁——路由层先读快照，更新时携带 expectedVersion，
+ * SET version = version + 1，0 行命中即期间被他人修改（路由层判 409 conflict）。
  */
 import type { Kysely } from "kysely";
 import { sql } from "kysely";

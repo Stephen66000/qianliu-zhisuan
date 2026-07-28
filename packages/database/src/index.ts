@@ -96,11 +96,6 @@ export {
   AdminRecoverNotFoundError,
 } from "./repositories/admin-write-repository.js";
 export {
-  AlertRepository,
-  type AlertItem,
-  type AlertDomain,
-} from "./repositories/alert-repository.js";
-export {
   AlertEventRepository,
   DEFAULT_THRESHOLDS,
   type AlertEvent,
