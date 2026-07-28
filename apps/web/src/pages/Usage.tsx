@@ -6,7 +6,7 @@
  * 状态颜色纪律：SUCCEEDED/IN_PROGRESS 中性灰，FAILED 才 danger 红。
  */
 import { useState } from "react";
-import { Inbox } from "lucide-react";
+import { ChevronDown, ChevronRight, Inbox } from "lucide-react";
 
 import { useUsage } from "../api/hooks";
 import type { UsageRecord } from "../api/types";
@@ -17,6 +17,7 @@ import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { formatCount, formatDateTimeFull, formatDuration, formatMoney } from "../lib/format";
+import { RequestDrilldown } from "./RequestDrilldown";
 
 const PAGE_SIZE = 20;
 
@@ -41,8 +42,81 @@ function ApiCostCell({ record }: { record: UsageRecord }) {
   return <span>{formatMoney(record.totalApiCost)}</span>;
 }
 
+/** 单行 + 可展开路由过程下钻（W20）。 */
+function UsageRow({
+  record,
+  expanded,
+  onToggle,
+}: {
+  record: UsageRecord;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <tr
+        className="border-b border-ql-border-zone text-[13px] leading-5 text-ql-fg hover:bg-ql-surface-subtle"
+        key={record.requestId}
+      >
+        <td className="py-2.5 pr-2">
+          <button
+            aria-expanded={expanded}
+            aria-label={expanded ? "收起路由过程" : "展开路由过程"}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-ql-fg-tertiary hover:bg-ql-surface-muted hover:text-ql-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-action"
+            onClick={onToggle}
+            type="button"
+          >
+            {expanded ? (
+              <ChevronDown aria-hidden className="h-4 w-4" />
+            ) : (
+              <ChevronRight aria-hidden className="h-4 w-4" />
+            )}
+          </button>
+        </td>
+        <td className="max-w-[10rem] truncate py-2.5 pr-4 font-mono text-[12px] text-ql-fg-secondary">
+          {record.requestId}
+        </td>
+        <td className="py-2.5 pr-4 font-medium">{record.principalName}</td>
+        <td className="py-2.5 pr-4 text-ql-fg-secondary">{record.unifiedModel}</td>
+        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+          {formatCount(record.totalInputTokens)}
+        </td>
+        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+          {formatCount(record.totalOutputTokens)}
+        </td>
+        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+          {formatCount(record.totalCacheTokens)}
+        </td>
+        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+          {formatCount(record.totalDeductedQuota)}
+        </td>
+        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+          <ApiCostCell record={record} />
+        </td>
+        <td className="py-2.5 pr-4">
+          <StatusCell status={record.status} />
+        </td>
+        <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
+          {formatDateTimeFull(record.startedAt)}
+        </td>
+        <td className="py-2.5 text-right [font-variant-numeric:tabular-nums]">
+          {record.durationMs === null ? "—" : formatDuration(record.durationMs)}
+        </td>
+      </tr>
+      {expanded ? (
+        <tr className="border-b border-ql-border-zone">
+          <td className="bg-ql-surface-subtle p-3" colSpan={13}>
+            <RequestDrilldown requestId={record.requestId} />
+          </td>
+        </tr>
+      ) : null}
+    </>
+  );
+}
+
 export function UsagePage() {
   const [page, setPage] = useState(0);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const query = useUsage({ limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   useRedirectOnUnauthorized(query.error);
 
@@ -71,6 +145,7 @@ export function UsagePage() {
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
+                  <th aria-label="展开" className="py-2 pr-2 font-medium" />
                   <th className="py-2 pr-4 font-medium">请求 ID</th>
                   <th className="py-2 pr-4 font-medium">发起主体</th>
                   <th className="py-2 pr-4 font-medium">模型</th>
@@ -85,42 +160,17 @@ export function UsagePage() {
                 </tr>
               </thead>
               <tbody>
-                {query.data.records.map((record) => (
-                  <tr
-                    className="border-b border-ql-border-zone text-[13px] leading-5 text-ql-fg last:border-b-0 hover:bg-ql-surface-subtle"
-                    key={record.requestId}
-                  >
-                    <td className="max-w-[10rem] truncate py-2.5 pr-4 font-mono text-[12px] text-ql-fg-secondary">
-                      {record.requestId}
-                    </td>
-                    <td className="py-2.5 pr-4 font-medium">{record.principalName}</td>
-                    <td className="py-2.5 pr-4 text-ql-fg-secondary">{record.unifiedModel}</td>
-                    <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                      {formatCount(record.totalInputTokens)}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                      {formatCount(record.totalOutputTokens)}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                      {formatCount(record.totalCacheTokens)}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                      {formatCount(record.totalDeductedQuota)}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                      <ApiCostCell record={record} />
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <StatusCell status={record.status} />
-                    </td>
-                    <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
-                      {formatDateTimeFull(record.startedAt)}
-                    </td>
-                    <td className="py-2.5 text-right [font-variant-numeric:tabular-nums]">
-                      {record.durationMs === null ? "—" : formatDuration(record.durationMs)}
-                    </td>
-                  </tr>
-                ))}
+                {query.data.records.map((record) => {
+                  const expanded = expandedId === record.requestId;
+                  return (
+                    <UsageRow
+                      expanded={expanded}
+                      key={record.requestId}
+                      onToggle={() => setExpandedId(expanded ? null : record.requestId)}
+                      record={record}
+                    />
+                  );
+                })}
               </tbody>
             </table>
           </div>

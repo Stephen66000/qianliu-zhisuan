@@ -8,12 +8,18 @@ import { useQuery } from "@tanstack/react-query";
 
 import { get } from "./client";
 import type {
+  AlertsResult,
+  AttemptItem,
   BillingRulesResult,
   DashboardSummary,
+  DispatchDecisionItem,
   DispatchPoliciesResult,
+  GatewayRequestDetail,
   GrantsResult,
+  OperationLogsResult,
   PrincipalsResult,
   ProviderResourcesResult,
+  RouteCandidateItem,
   SupplyForecastsResult,
   UnifiedModelsResult,
   UsageQueryParams,
@@ -30,6 +36,9 @@ export const QUERY_KEYS = {
   providerResources: ["provider-resources"] as const,
   unifiedModels: ["unified-models"] as const,
   grants: (principalId: string) => ["principals", principalId, "grants"] as const,
+  gatewayRequest: (id: string) => ["gateway-requests", id] as const,
+  alerts: ["alerts"] as const,
+  operationLogs: ["operation-logs"] as const,
 } as const;
 
 export function useDashboard() {
@@ -122,6 +131,77 @@ export function useGrants(principalId: string | null) {
     queryKey: QUERY_KEYS.grants(principalId ?? ""),
     queryFn: ({ signal }) => get<GrantsResult>(`/principals/${principalId}/grants`, signal),
     enabled: principalId !== null,
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+// ---------- W20 诊断下钻 ----------
+
+export function useGatewayRequest(requestId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.gatewayRequest(requestId ?? ""),
+    queryFn: ({ signal }) => get<GatewayRequestDetail>(`/gateway-requests/${requestId}`, signal),
+    enabled: requestId !== null,
+    retry: 1,
+    staleTime: 60_000,
+  });
+}
+
+export function useRouteCandidates(requestId: string | null) {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.gatewayRequest(requestId ?? ""), "route-candidates"],
+    queryFn: ({ signal }) =>
+      get<{ candidates: RouteCandidateItem[] }>(
+        `/gateway-requests/${requestId}/route-candidates`,
+        signal,
+      ),
+    enabled: requestId !== null,
+    retry: 1,
+    staleTime: 60_000,
+  });
+}
+
+export function useAttempts(requestId: string | null) {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.gatewayRequest(requestId ?? ""), "attempts"],
+    queryFn: ({ signal }) =>
+      get<{ attempts: AttemptItem[] }>(`/gateway-requests/${requestId}/attempts`, signal),
+    enabled: requestId !== null,
+    retry: 1,
+    staleTime: 60_000,
+  });
+}
+
+export function useDispatchDecision(requestId: string | null) {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.gatewayRequest(requestId ?? ""), "dispatch-decision"],
+    queryFn: ({ signal }) =>
+      get<{ decision: DispatchDecisionItem | null }>(
+        `/gateway-requests/${requestId}/dispatch-decision`,
+        signal,
+      ),
+    enabled: requestId !== null,
+    retry: 1,
+    staleTime: 60_000,
+  });
+}
+
+// ---------- W20 告警 + 操作日志 ----------
+
+export function useAlerts() {
+  return useQuery({
+    queryKey: QUERY_KEYS.alerts,
+    queryFn: ({ signal }) => get<AlertsResult>("/alerts", signal),
+    retry: 1,
+    staleTime: 15_000,
+  });
+}
+
+export function useOperationLogs(limit = 100) {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.operationLogs, limit],
+    queryFn: ({ signal }) => get<OperationLogsResult>(`/operation-logs?limit=${limit}`, signal),
     retry: 1,
     staleTime: 30_000,
   });

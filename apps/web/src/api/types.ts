@@ -279,3 +279,112 @@ export interface PrincipalGrantItem {
 export interface GrantsResult {
   grants: PrincipalGrantItem[];
 }
+
+// ---------- W20 诊断下钻（camelCase，网关侧已脱敏） ----------
+
+export interface GatewayRequestDetail {
+  request: {
+    id: string;
+    principalId: string;
+    protocol: string;
+    unifiedModel: string;
+    stream: boolean;
+    status: string;
+    clientId: string | null;
+    startedAt: string;
+    finishedAt: string | null;
+    errorClassification: string | null;
+    errorCode: string | null;
+  };
+  settlement: {
+    totalInputTokens: string;
+    totalOutputTokens: string;
+    totalCacheTokens: string;
+    totalDeductedQuota: string;
+    totalApiCost: string;
+    usageQuality: string;
+    attemptCount: number;
+    status: string;
+  } | null;
+}
+
+export interface RouteCandidateItem {
+  providerResourceId: string;
+  upstreamModel: string;
+  priority: number;
+  weight: number;
+  selected: boolean;
+  scoreFactors: Record<string, unknown> | null;
+  totalScore: string | null;
+  reasonCode: string | null;
+}
+
+export interface AttemptItem {
+  attemptNo: number;
+  providerResourceId: string;
+  upstreamModel: string;
+  startedAt: string;
+  firstByteAt: string | null;
+  finishedAt: string | null;
+  httpStatus: number | null;
+  errorClassification: string | null;
+  errorCode: string | null;
+  responseCommitted: boolean;
+  switchReason: string | null;
+}
+
+export interface DispatchDecisionItem {
+  finalAction: string;
+  reasonCode: string;
+  reasonDetail: string | null;
+  matchedPolicyId: string | null;
+  switchTargetResourceId: string | null;
+  counterfactualCost: string | null;
+  actualCost: string | null;
+  dispatchSaving: string | null;
+  savingCalculable: boolean;
+  notCalculableReason: string | null;
+}
+
+// ---------- W20 异常告警（camelCase） ----------
+
+export type AlertDomain =
+  | "RESOURCE_UNAVAILABLE"
+  | "USAGE_SPIKE"
+  | "QUOTA_ANOMALY"
+  | "CREDENTIAL_INVALID";
+
+export interface AlertItem {
+  alertKey: string;
+  domain: AlertDomain;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  title: string;
+  detail: string;
+  resourceId: string | null;
+  principalId: string | null;
+  aiRequestId: string | null;
+  status: "OPEN" | "INVESTIGATING" | "RESOLVED" | "IGNORED";
+  dispositionId: string | null;
+}
+
+export interface AlertsResult {
+  alerts: AlertItem[];
+}
+
+// ---------- 操作日志（snake_case 直传） ----------
+
+export interface OperationLogItem {
+  id: string;
+  admin_user_id: string;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  change_summary: Record<string, unknown> | null;
+  result: string;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+export interface OperationLogsResult {
+  logs: OperationLogItem[];
+}
