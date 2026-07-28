@@ -5,7 +5,7 @@
 | 产品版本 | v0.3 |
 | Owner／批准人 | 佳哥 |
 | 当前有效计划 | [详细开发计划与排期 v0.3.1](./仟流智算-详细开发计划与排期-v0.3.md) |
-| 当前变更数 | 5 |
+| 当前变更数 | 6 |
 
 ## 使用规则
 
@@ -96,3 +96,17 @@
 | 不变项 | 产品目标、scope、技术架构、北向协议合同、29 个工作包 |
 | 决策 | 安全漏洞为实质安全变化，按工程规则 §9 升级处理（不属"悄悄漂移"）；升级后全工程命令复测 + 北向合同回归（w05/w08/w09/w10 e2e） |
 | Evidence | 待整改报告 + pnpm audit 清零 |
+
+### PC-20260728-06：M5 W18 前端首次落地引入新依赖
+
+| 项目 | 内容 |
+| --- | --- |
+| 日期 | 2026-07-28 |
+| 提出／批准 | 佳哥（W18 前端交接文档 §4.2"已与佳哥确认"） |
+| 变化事实 | apps/web 从 W01 占位骨架进入 W18 实际开发，引入前端框架依赖：react-router-dom 7.9.6（七入口路由）、@tanstack/react-query 5.90.20（服务端状态/三态）、lucide-react 0.469.0（功能图标，视觉规范 §9 指定 Lucide）、tailwindcss 3.4.17 + postcss 8.5.6 + autoprefixer 10.4.20（语义令牌样式方案，视觉规范 §13.2）、@testing-library/react 16.3.0 + @testing-library/jest-dom 6.9.1 + jsdom 26.1.0（组件单测）、eslint-plugin-react-hooks 5.2.0（hooks 规则补齐） |
+| 原因 | 仟流视觉规范 §13.2 给出 Tailwind 语义令牌集成方案；交接文档 §4.2 明确引入清单；状态管理只用 TanStack Query + React 内置状态，不引入 Redux/Zustand（已确认） |
+| 影响范围 | apps/web/package.json、pnpm-lock.yaml、eslint.config.mjs（注册 react-hooks）、apps/web test script 指向本包 vitest.config.ts（jsdom 环境 + .tsx include，根配置为 node 环境）；工程规则 §2 版本基线补充前端框架依赖 |
+| 不变项 | React 19.1.1 / Vite 7.1.7 / TS 5.9.3 / Vitest 3.2.4 冻结版本不动；后端零改动；产品范围与 DoD 不变；前端只读消费后端、不重算账本（详细计划行 146） |
+| 风险 | 无后端合同影响；Tailwind 3.4.17 选 v3 而非 v4 以保持与既有 PostCSS 生态稳定 |
+| 决策 | 按交接文档执行，全部依赖精确锁版本；license 均为 MIT |
+| Evidence | `V3/Evidence/M5/W18/` |
