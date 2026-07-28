@@ -93,11 +93,11 @@
 <script type="application/json" id="stage02-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "2252c9de7bcce87946dd10c9be1b46f3093095ff9204ebd99b0cdaaedc2565cf",
+  "sourceSha256": "3aed40aed2d13bc3353b71a664b77b9326a7e173477499db18953235a43c5ece",
   "projectName": "仟流智算",
   "productVersion": "v0.3",
   "planVersion": "v0.3.1",
-  "updatedAt": "2026-07-28T21:29:21+08:00",
+  "updatedAt": "2026-07-28T22:30:00+08:00",
   "stage01": {
     "id": "STAGE-01",
     "name": "方案准备",
@@ -123,13 +123,13 @@
     "candidateLock": "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   },
   "nextAction": {
-    "id": "STAGE03-M5-RECTIFY-READY-FOR-REREVIEW",
-    "text": "M5 桌面 Web（W18/W19/W20）双审整改解除条件已全部闭环：5 P1 + 3 P2 均完成实现与测试，typecheck/lint/build PASS、全量测试 319/319、macOS Chromium 15/15、Win11 企业版 build 26200 Chromium 15/15（38.9s）。Win11 实跑额外暴露的 pnpm.cmd EINVAL 已改为 node.exe 直接执行 tsx JS 入口并在同机复跑通过。下一步重新生成并验证 M5 候选锁，然后交独立会话双审重审；不得把本实现方回执改写为 Reviewer READY。",
-    "owner": "佳哥（主 AI 已闭合整改与双平台门禁，待独立 Reviewer 重审）",
-    "evidence_target": "V3/Evidence/M5/M5-双审整改-Evidence-20260728.md"
+    "id": "STAGE03-M5-SEALED-START-M6",
+    "text": "M5 桌面 Web（W18/W19/W20）双审正式收口（SEALED）：初次双审 NOT_READY（5 P1 + 3 P2），实现方按解除条件全部整改后，独立重审会话（未参与实现）逐条读代码核验解除条件全部满足，签署 READY（双审任务书 §10）。三硬门禁闭合：全量测试 319/319、macOS Chromium 15/15、Win11 企业版 build 26200 Chromium 15/15（38.9s），typecheck/lint/build PASS，候选锁 verify 通过。M5 代码冻结于候选 candidate（含双审整改 + Windows pnpm.cmd EINVAL 修复）。下一步进入 M6（移动端/Win11 真机宽展与发布候选）；M6 首个代码卫生项为清理重审新发现 P2-NEW-01（旧 alert-repository.ts 死代码残留，不阻断 M5 但需在 M6 处理）。",
+    "owner": "佳哥（M5 已封板，启动 M6）",
+    "evidence_target": "V3/Evidence/M5/M5-双审任务书-20260728.md"
   },
   "currentMilestone": "M5",
-  "currentWorkPackage": "M5-双审整改闭环-待独立重审",
+  "currentWorkPackage": "M5-双审READY-封板完成-进入M6",
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
     "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",
