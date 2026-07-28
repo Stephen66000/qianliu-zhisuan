@@ -62,14 +62,15 @@ test.describe("M5 七入口真实 API E2E", () => {
     await expect(row.getByText("已停用")).toBeVisible();
   });
 
-  // WT-05：用量账本 token/扣减/费用列
+  // WT-05：用量账本 token/扣减/费用列（E2E 库为空 → 空态；有数据 → 表头）
   test("WT-05 用量账本列与套餐内展示", async ({ page }) => {
     await page.goto("/usage");
     await expect(page.getByRole("heading", { name: "用量账本" })).toBeVisible();
-    // 空态或表格表头
-    const empty = await page.getByText("没有账本记录").isVisible().catch(() => false);
-    if (!empty) {
-      await expect(page.getByRole("columnheader", { name: "输入 Token" })).toBeVisible();
+    // 等待三态之一稳定（加载态先消失）：空态标题 或 表格表头
+    const emptyState = page.getByText("没有账本记录");
+    const header = page.getByRole("columnheader", { name: "输入 Token" });
+    await expect(emptyState.or(header).first()).toBeVisible();
+    if (await header.isVisible().catch(() => false)) {
       await expect(page.getByRole("columnheader", { name: /API 费用/ })).toBeVisible();
     }
   });
