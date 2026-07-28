@@ -1,0 +1,211 @@
+/**
+ * W18 前端 API 类型契约 —— 管理 API 响应类型。
+ *
+ * 与后端对齐（W18 后端 commit 41e6eb8）：
+ *   - /dashboard、/usage：camelCase（仓储手动映射），类型镜像
+ *     packages/database/src/repositories/{dashboard,usage}-repository.ts；
+ *   - /billing-rules、/supply-forecasts：snake_case 直传（repository 原样返回，项目惯例）；
+ *   - /dispatch-policies：camelCase（仅 PUBLISHED 状态）。
+ *
+ * 金额/额度/token 字段为字符串（十进制或 BigInt 文本），前端只做展示格式化，
+ * 不做账本/额度/节省重算（硬约束：详细开发计划行 146）。
+ */
+
+/** 后端业务错误体（扁平两字段，非嵌套）。 */
+export interface ApiErrorBody {
+  error: string;
+  message: string;
+}
+
+// ---------- /dashboard（camelCase，镜像 DashboardRepository） ----------
+
+export interface EarliestExhaustion {
+  resourceId: string;
+  resourceName: string;
+  providerCode: string;
+  forecastExhaustAt: string | null;
+  nextRecoverAt: string | null;
+  confidence: string;
+  notCalculableReason: string | null;
+}
+
+export interface ResourceBreakdownItem {
+  providerCode: string;
+  providerName: string;
+  mode: "API" | "CODING_PLAN";
+  accountCount: number;
+  totalQuota: string | null;
+  usedQuota: string | null;
+  monthlyCost: string;
+  currentRate24h: string | null;
+  forecastExhaustAt: string | null;
+  /** 当前恒为 "HEALTHY"（W20 才细化），前端不据此渲染异常态。 */
+  status: string;
+}
+
+export interface OverageItem {
+  principalId: string;
+  principalName: string;
+  principalType: string;
+  provider: string;
+  modelAlias: string;
+  quotaValue: string;
+  usedValue: string;
+  overageValue: string;
+  /** 小数文本（如 "0.0500"），展示百分比时需 ×100。 */
+  overageRatio: string;
+}
+
+export interface DashboardSummary {
+  resourceAccountCount: number;
+  activeEmployeeCount: number;
+  currentInUseCount: number;
+  /** 数据源 gap（无支付表），恒 null，前端按空状态展示，不伪造。 */
+  monthlyPackagePayment: string | null;
+  monthlyApiCost: string;
+  /** 数据源 gap（无充值表），恒 null，同上。 */
+  monthlyRechargeAmount: string | null;
+  earliestExhaustion: EarliestExhaustion | null;
+  monthlyDispatchSaving: string;
+  resourceBreakdown: ResourceBreakdownItem[];
+  overageList: OverageItem[];
+}
+
+// ---------- /usage（camelCase，镜像 UsageRepository） ----------
+
+export interface UsageRecord {
+  requestId: string;
+  principalId: string;
+  principalName: string;
+  principalType: string;
+  clientId: string | null;
+  unifiedModel: string;
+  status: string;
+  errorClassification: string | null;
+  errorCode: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+  totalInputTokens: string;
+  totalOutputTokens: string;
+  totalCacheTokens: string;
+  totalDeductedQuota: string;
+  /** 十进制文本；"0" = 套餐内。 */
+  totalApiCost: string;
+  usageQuality: string;
+  attemptCount: number;
+}
+
+export interface UsageResult {
+  records: UsageRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface UsageQueryParams {
+  limit?: number;
+  offset?: number;
+  principal_id?: string;
+  client_id?: string;
+  unified_model?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+}
+
+// ---------- /billing-rules（snake_case 直传） ----------
+
+export interface BillingRule {
+  id: string;
+  rule_type: string;
+  rule_version: number;
+  provider_resource_id: string | null;
+  upstream_model: string | null;
+  effective_from: string;
+  effective_to: string | null;
+  timezone: string | null;
+  days_of_week: number[] | null;
+  start_time: string | null;
+  end_time: string | null;
+  multiplier: string | null;
+  cache_hit_price: string | null;
+  cache_miss_price: string | null;
+  output_price: string | null;
+  currency: string;
+  priority: number;
+  enabled: boolean;
+  source: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BillingRulesResult {
+  rules: BillingRule[];
+}
+
+// ---------- /dispatch-policies（camelCase，仅 PUBLISHED） ----------
+
+export interface DispatchPolicy {
+  id: string;
+  status: string;
+  matchUnifiedModel: string | null;
+  matchResourceMode: string | null;
+  matchProviderResourceId: string | null;
+  matchTimezone: string | null;
+  matchDaysOfWeek: number[] | null;
+  matchStartTime: string | null;
+  matchEndTime: string | null;
+  matchPriceMultiplierMin: string | null;
+  matchRemainingQuotaRatioMax: string | null;
+  matchForecastExhaustRisk: boolean | null;
+  matchPrincipalScope: string[] | null;
+  action: "ALLOW" | "SWITCH" | "RATE_LIMIT" | "REJECT" | "ALLOW_OVERAGE";
+  switchEquivalentGroup: string[];
+  rateLimitPerMinute: number | null;
+  policyVersion: number;
+  priority: number;
+}
+
+export interface DispatchPoliciesResult {
+  policies: DispatchPolicy[];
+}
+
+// ---------- /supply-forecasts（snake_case 直传，全部快照未去重） ----------
+
+export interface SupplyForecast {
+  id: string;
+  provider_resource_id: string;
+  resource_name: string;
+  rate_1h: string | null;
+  rate_24h: string | null;
+  rate_7d: string | null;
+  forecast_exhaust_at: string | null;
+  next_recover_at: string | null;
+  coverage_hours: string | null;
+  remaining_quota: string | null;
+  confidence: string;
+  data_points: number;
+  not_calculable_reason: string | null;
+  snapshot_at: string;
+}
+
+export interface SupplyForecastsResult {
+  forecasts: SupplyForecast[];
+}
+
+// ---------- /auth ----------
+
+export interface AdminSession {
+  adminUserId: string;
+  enterpriseId: string;
+  username: string;
+}
+
+export interface LoginResponse {
+  admin: {
+    id: string;
+    username: string;
+    enterprise_id: string;
+  };
+}
