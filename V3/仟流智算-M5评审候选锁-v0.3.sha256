@@ -1,12 +1,12 @@
 # M5 评审候选锁 —— M5（W18/W19/W20）交付物完整性封板。
 # 任一受封文件字节变化，本锁立即失效。双审 Reviewer 重算比对即可验证。
 # 范围：计划/规则文档 + M5 Evidence + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。
-# Git commit：bc4e911d3f9c42cd40690b70c2e63ee8026825a2
+# Git commit：2ae640640e062cec11bd3b365945eb97c46dbbc9
 # 文件数：236
 
 195eb2f0dc4bebcf7ccc847ee9744099479701e0cae22465a7d78e75b1262801  .npmrc
 f5511e5a2f3c8031a86add824af90080eafe0f6ff057ea3d81ad16a2397557f4  V3/Evidence/M5/M5-W18前端-handoff-20260728.md
-6638ed25f62a4da5790c0e077874ea2dc9e07d41bf63722e15f05003f99c3514  V3/Evidence/M5/M5-双审任务书-20260728.md
+c5aa6a13b4dd42f7b3a97465a182f49c6928d3b6f43aa19df7ce0e204f849b6d  V3/Evidence/M5/M5-双审任务书-20260728.md
 e7205ed8777e8d10287f20be9aba74c4ab343059b2b72488d2fea674d741a4a9  V3/Evidence/M5/M5-双审整改-Evidence-20260728.md
 e08afe46809c7165d66d64cb776630da635f3d5f492d5a1800ea1fd8520ee219  V3/Evidence/M5/M5-收口执行清单-20260728.md
 06a55bf02d2f7eed37633f7514d8a44bb2a4ea7f92ac9ff9ae32e1a7532c4422  V3/Evidence/M5/M5-整改-handoff-to-codex-20260728.md
@@ -16,7 +16,7 @@ e08afe46809c7165d66d64cb776630da635f3d5f492d5a1800ea1fd8520ee219  V3/Evidence/M5
 f761a7fd447c13d52a30c7ffa00099bc1560945312074bbb76de05e28e43f037  V3/Evidence/M5/Win11-实机回归-20260728.md
 3f5026630ff8a309a00f8a56c40b5733c81b32628bd6276a2d262af75db7eca8  V3/Planning-Change-Log.md
 0fbc5b1abd5f97de776731df1fd70d9cb1396a7716b574417046e36830b758aa  V3/tools/candidate_lock.py
-2252c9de7bcce87946dd10c9be1b46f3093095ff9204ebd99b0cdaaedc2565cf  V3/仟流智算-stage-state-v0.3.yaml
+3aed40aed2d13bc3353b71a664b77b9326a7e173477499db18953235a43c5ece  V3/仟流智算-stage-state-v0.3.yaml
 146d97ba3a20c41c823c7c0738bc851e4e784d5f35448993f6040ee42a13786a  V3/仟流智算-产品需求文档-v0.3.md
 217a0fe38d8ea119577af0ad86106617b8eed20cfd9fb9f51837ed321655623c  V3/仟流智算-技术需求文档-v0.3.md
 fca33cd5970b24acc0dcaf3257d3fd6fbb06d4c115ae3f93a3af22997bf0d8dd  V3/仟流智算-详细开发计划与排期-v0.3.md
