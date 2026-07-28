@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-M6 评审候选锁生成器 —— 对 M6 交付物（代码 + Evidence + 计划文档）计算 sha256。
+M7 评审候选锁生成器 —— 对 M7 交付物（代码 + Evidence + 计划文档）计算 sha256。
 
 用法（仓库根目录）：
     python3 V3/tools/candidate_lock.py generate
     python3 V3/tools/candidate_lock.py verify
 
-输出：V3/仟流智算-M6评审候选锁-v0.3.sha256
+输出：V3/仟流智算-M7评审候选锁-v0.3.sha256
 任一受封文件字节变化，锁立即失效（Reviewer 重算比对即可验证完整性）。
 """
 import hashlib
@@ -15,9 +15,9 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LOCK_REL = "V3/仟流智算-M6评审候选锁-v0.3.sha256"
+LOCK_REL = "V3/仟流智算-M7评审候选锁-v0.3.sha256"
 
-# 封板范围：M6 全部交付物（文档/Evidence）+ 根级依赖与构建输入 + 生成器自身
+# 封板范围：M7 全部交付物（文档/Evidence）+ 根级依赖与构建输入 + 生成器自身
 SEAL_PATHS = [
     # 计划/规则文档（跨里程碑基线）
     "V3/仟流智算-产品需求文档-v0.3.md",
@@ -26,12 +26,13 @@ SEAL_PATHS = [
     "V3/仟流智算-项目工程规则-v0.3.md",
     "V3/仟流智算-stage-state-v0.3.yaml",
     "V3/Planning-Change-Log.md",
-    # M6 Evidence
-    "V3/Evidence/M6/M6-客户端接入配置-20260728.md",
-    "V3/Evidence/M6/W21-W23-Evidence-20260728.md",
-    "V3/Evidence/M6/M6-双审任务书-20260728.md",
-    # E2E 覆盖映射文档（M5 双审 §8.4 P1-03 引用的 WT 映射依据）
-    "apps/web/e2e/README.md",
+    # M7 Evidence
+    "V3/Evidence/M7/M7-部署指南-MacMini-20260729.md",
+    # 部署配置（W24 第一层核心交付）
+    "deploy/compose.yaml",
+    "deploy/caddy/Caddyfile",
+    ".env.example",
+    ".dockerignore",
     # 根级依赖与构建输入
     "package.json",
     "pnpm-lock.yaml",
@@ -88,9 +89,9 @@ def generate() -> int:
     files = collect()
     out_path = os.path.join(ROOT, LOCK_REL)
     lines = [
-        "# M6 评审候选锁 —— M6（W21/W22/W23）交付物完整性封板。",
+        "# M7 评审候选锁 —— M7（W24-W25 部署工程）交付物完整性封板。",
         "# 任一受封文件字节变化，本锁立即失效。双审 Reviewer 重算比对即可验证。",
-        "# 范围：计划/规则文档 + M6 Evidence + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。",
+        "# 范围：计划/规则文档 + M7 Evidence + 部署配置 + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。",
         f"# Git commit：{commit}",
         f"# 文件数：{len(files)}",
         "",
