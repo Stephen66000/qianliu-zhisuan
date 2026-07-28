@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-28T08:00:00+08:00"
+updated_at: "2026-07-28T18:00:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -40,7 +40,7 @@ handoff:
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
   current_milestone: "M5"
-  current_work_package: "W18"
+  current_work_package: "M5-双审整改完成-待Win11复跑"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -51,10 +51,10 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-M5-W18-START"
-  text: "M1~M4 双审正式收口（SEALED）：功能 Audit round 3 PASS（R2-N1 CLOSED + F-12 整体 CLOSED，F-01/F-03/F-02 维持 CLOSED）+ 代码质量 Audit round 3 PASS（GAP-MUT-1 CLOSED：stryker configFile 绝对路径 + 5 个 R3 核心规则变异全 ≥80%，Q-DEP-1/Q-DOC-1 round 2 已 CLOSED）。佳哥接受 I1 独立性结论。M1~M4 产品代码冻结于 8d7fe18（impl_hash f1393653）。现启动 M5 桌面 Web（W18 七入口骨架+只读聚合API → W19 写操作闭环 → W20 诊断+WT-01~20 E2E）。M5 完成后重新生成对象锁 + 交独立会话做 M5 双审。"
-  owner: "佳哥（主 AI 执行 M5 W18~W20）"
-  evidence_target: "V3/Evidence/M4/audit/M1-M4-代码质量有界复审-round3-zcode-glm52独立会话-20260728.md"
+  id: "STAGE03-M5-RECTIFY-DONE-WAIT-WIN11"
+  text: "M5 桌面 Web（W18/W19/W20）已交付，双审 Reviewer 判 NOT_READY（5 P1 + 3 P2）；实现方已按解除条件全部完成代码整改：P1-01 候选锁可审计（生成器封入 Git、记 commit、封根配置与生成器自身、锁以独立 carrier 提交）、P1-02 Web 管理写操作闭环（Provider/资源/主体 Key/Grant/额度规则/统一模型/Model Route）、P1-03 确定性 E2E 夹具且禁止条件跳过、P1-04 逐 Attempt 计量明细、P1-05 alert_event 事实与生命周期及四域八类信号、P2-01 单调 version 乐观锁、P2-02 quota 非负校验+DB CHECK、P2-03 BigInt 展示。宿主机门禁全绿：typecheck/lint/build PASS、全量测试 319/319、macOS Chromium E2E 15/15、四域八类告警与并发幂等通过、候选锁 235 文件 verify 通过（candidate 386af23，carrier 7ba8d14）。唯一未闭合项为 Win11 实机复跑整改后套件（DEP-WINDOWS，预期 15/15）；通过后回填 Evidence、重新生成候选锁，再交独立会话做 M5 双审重审。"
+  owner: "佳哥（主 AI 已完成整改，待 Win11 实机 + 独立 Reviewer 重审）"
+  evidence_target: "V3/Evidence/M5/M5-双审整改-Evidence-20260728.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"

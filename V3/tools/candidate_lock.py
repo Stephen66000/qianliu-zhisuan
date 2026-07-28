@@ -36,6 +36,8 @@ SEAL_PATHS = [
     "V3/Evidence/M5/Win11-实机回归-20260728.md",
     "V3/Evidence/M5/M5-双审任务书-20260728.md",
     "V3/Evidence/M5/M5-双审整改-Evidence-20260728.md",
+    # E2E 覆盖映射文档（双审 §8.4 P1-03 引用的 WT 映射依据，须纳入封板可审计）
+    "apps/web/e2e/README.md",
     # 根级依赖与构建输入（P1-01：之前漏封）
     "package.json",
     "pnpm-lock.yaml",

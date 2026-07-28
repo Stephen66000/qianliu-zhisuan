@@ -5,7 +5,7 @@
 | 产品版本 | v0.3 |
 | Owner／批准人 | 佳哥 |
 | 当前有效计划 | [详细开发计划与排期 v0.3.1](./仟流智算-详细开发计划与排期-v0.3.md) |
-| 当前变更数 | 7 |
+| 当前变更数 | 8 |
 
 ## 使用规则
 
@@ -123,3 +123,16 @@
 | 不变项 | 六要素其余五项不变；W18 已交付功能不受影响；凭证明文绝不入库/回显红线不变 |
 | 决策 | react-hook-form 为一期表单唯一方案；@hookform/resolvers 必须 ≥5.x 以兼容项目 zod 4.1.11 |
 | Evidence | `V3/Evidence/M5/W19/` |
+
+### PC-20260728-08：M5 双审整改——并发乐观锁由 updated_at 改为单调 version
+
+| 项目 | 内容 |
+| --- | --- |
+| 日期 | 2026-07-28 |
+| 提出 | M5 双审 Reviewer（Codex 独立会话，P2-01） |
+| 批准／执行 | 佳哥要求全部整改；主 AI 执行 |
+| 变化事实 | PC-20260728-07 曾登记"写操作并发修改采用 `updated_at` 乐观锁，不引入 ETag/版本号新字段"。双审 P2-01 指出 `updated_at` 毫秒截断存在同毫秒 ABA 窗口（`date_trunc` 截断 + JS `new Date()` 同毫秒可不变），旧快照仍可能命中 WHERE，不是可靠版本号。整改引入单调递增 `version` 整数列（迁移 0017），前端 PATCH 改携带 `expected_version`（int），不再用 `expected_updated_at`。 |
+| 影响范围 | `packages/database`（迁移 0017 新增 version 列）、`packages/database/src/repositories/admin-write-repository.ts`（version 乐观锁）、`apps/control-api/src/admin-writes/routes.ts`、`apps/web`（Principals/Grants 写操作改传 expected_version）、W19 并发冲突测试 |
+| 不变项 | 六要素、凭证明文红线、前端只读消费后端、北向协议合同、29 个工作包、M5 DoD |
+| 决策 | 采纳 Reviewer 整改意见，废弃 PC-07 的 `updated_at` 并发决定；version 为单调整数，避免时间戳精度问题；本变更推翻 PC-07 并发条款，故登记 |
+| Evidence | `V3/Evidence/M5/M5-双审整改-Evidence-20260728.md` §2 P2-01 |
