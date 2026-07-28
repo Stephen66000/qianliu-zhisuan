@@ -194,6 +194,33 @@ describe("W05 北向合同", () => {
     expect(res.statusCode).toBe(422);
   });
 
+  it("W23：POST /v1/messages/count_tokens 返回 422 + capability_not_supported", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/messages/count_tokens",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: { model: "qianliu-deepseek", messages: [{ role: "user", content: "hi" }] },
+    });
+    expect(res.statusCode).toBe(422);
+    const body = res.json();
+    expect(body.error.type).toBe("capability_not_supported");
+    expect(body.error.retryable).toBe(false);
+  });
+
+  it("W23：WebSocket 握手（Upgrade 头）返回 422 + capability_not_supported，不静默降级", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/messages",
+      headers: { ...authHeader(), upgrade: "websocket", connection: "Upgrade" },
+    });
+    expect(res.statusCode).toBe(422);
+    const body = res.json();
+    expect(body.error.type).toBe("capability_not_supported");
+    expect(body.error.code).toBe("capability_not_supported");
+    expect(body.error.capability).toBe("websocket");
+    expect(body.error.retryable).toBe(false);
+  });
+
   it("缺少 model 返回 400", async () => {
     const res = await app.inject({
       method: "POST",

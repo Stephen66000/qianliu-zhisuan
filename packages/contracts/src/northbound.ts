@@ -127,13 +127,27 @@ export interface EndpointCapability {
   support: CapabilitySupport;
 }
 
-/** 一期对外端点 + 能力矩阵。 */
+/**
+ * 一期对外端点 + 能力矩阵。
+ *
+ * 单一事实源：gateway 的 unsupported 路由从此矩阵派生（filter UNSUPPORTED 的
+ * POST 端点），避免两份硬编码漂移。W23 冻结启用集（详细计划 §4.6）。
+ */
 export const CAPABILITY_MATRIX: EndpointCapability[] = [
   { endpoint: "GET /v1/models", support: "NATIVE" },
   { endpoint: "POST /v1/chat/completions", support: "NATIVE" },
   { endpoint: "POST /v1/chat/completions#stream", support: "NATIVE" },
   { endpoint: "POST /v1/messages", support: "NATIVE" },
   { endpoint: "POST /v1/messages#stream", support: "NATIVE" },
+  // 默认关闭（详细计划 §4.6）：未启用能力必须显式拒绝，不得静默降级。
   { endpoint: "POST /v1/responses", support: "UNSUPPORTED" },
   { endpoint: "POST /v1/embeddings", support: "UNSUPPORTED" },
+  { endpoint: "POST /v1/messages/count_tokens", support: "UNSUPPORTED" },
+  // WebSocket 握手是带 Upgrade 头的 HTTP GET，由 server onRequest hook 拦截拒绝。
+  { endpoint: "WebSocket /v1/ws#upgrade", support: "UNSUPPORTED" },
 ];
+
+/** 从矩阵派生需要显式拒绝的 POST 路径（gateway unsupported 路由用）。 */
+export const UNSUPPORTED_POST_PATHS: string[] = CAPABILITY_MATRIX.filter(
+  (c) => c.support === "UNSUPPORTED" && c.endpoint.startsWith("POST "),
+).map((c) => c.endpoint.slice("POST ".length));
