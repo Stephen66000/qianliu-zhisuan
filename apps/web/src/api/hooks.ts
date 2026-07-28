@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { get } from "./client";
 import type {
   AlertsResult,
-  AttemptItem,
+  AttemptsResult,
   BillingRulesResult,
   DashboardSummary,
   DispatchDecisionItem,
@@ -166,7 +166,7 @@ export function useAttempts(requestId: string | null) {
   return useQuery({
     queryKey: [...QUERY_KEYS.gatewayRequest(requestId ?? ""), "attempts"],
     queryFn: ({ signal }) =>
-      get<{ attempts: AttemptItem[] }>(`/gateway-requests/${requestId}/attempts`, signal),
+      get<AttemptsResult>(`/gateway-requests/${requestId}/attempts`, signal),
     enabled: requestId !== null,
     retry: 1,
     staleTime: 60_000,

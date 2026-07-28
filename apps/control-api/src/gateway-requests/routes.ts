@@ -89,7 +89,8 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
     },
   );
 
-  // 上游尝试（WT-11/WT-12：顺序、首字节/总耗时、状态码、错误、流式提交、切换原因）
+  // 上游尝试（WT-11/12：顺序、首字节/总耗时、状态码、错误、流式提交、切换原因）
+  // + 每个 Attempt 的逐条计量明细（P1-04：ledger_line 输入/输出/缓存 token、扣减、费用、计量质量）
   app.get<{ Params: { id: string } }>(
     "/gateway-requests/:id/attempts",
     { preHandler: [requireAuth] },
@@ -99,7 +100,17 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
       if (!request) {
         return reply.code(404).send({ error: "not_found", message: "请求不存在" });
       }
-      const attempts = await app.ledgerRepo.listAttempts(req.params.id);
+      const [attempts, ledgerLines] = await Promise.all([
+        app.ledgerRepo.listAttempts(req.params.id),
+        app.ledgerRepo.listLedgerLines(req.params.id),
+      ]);
+      // ledger_line.upstream_attempt_id → 该 attempt 的计量明细（可能多条，但通常一条）
+      const linesByAttempt = new Map<string, typeof ledgerLines>();
+      for (const line of ledgerLines) {
+        const arr = linesByAttempt.get(line.upstream_attempt_id) ?? [];
+        arr.push(line);
+        linesByAttempt.set(line.upstream_attempt_id, arr);
+      }
       return {
         attempts: attempts.map((a) => ({
           attemptNo: a.attempt_no,
@@ -113,6 +124,27 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
           errorCode: a.error_code,
           responseCommitted: a.response_committed,
           switchReason: a.switch_reason,
+          // P1-04：该 Attempt 的逐条计量明细
+          metering: (linesByAttempt.get(a.id) ?? []).map((l) => ({
+            inputTokens: l.raw_input_tokens,
+            outputTokens: l.raw_output_tokens,
+            cacheTokens: l.raw_cache_tokens,
+            deductedQuota: l.deducted_quota,
+            apiCost: l.api_cost,
+            usageQuality: l.usage_quality,
+            billingRuleId: l.billing_rule_id,
+            ruleVersion: l.rule_version,
+          })),
+        })),
+        // 全部不可覆盖账本明细（PRD §10.3）
+        ledgerLines: ledgerLines.map((l) => ({
+          attemptId: l.upstream_attempt_id,
+          inputTokens: l.raw_input_tokens,
+          outputTokens: l.raw_output_tokens,
+          cacheTokens: l.raw_cache_tokens,
+          deductedQuota: l.deducted_quota,
+          apiCost: l.api_cost,
+          usageQuality: l.usage_quality,
         })),
       };
     },

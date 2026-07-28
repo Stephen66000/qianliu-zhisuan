@@ -319,6 +319,17 @@ export interface RouteCandidateItem {
   reasonCode: string | null;
 }
 
+export interface AttemptMetering {
+  inputTokens: string;
+  outputTokens: string;
+  cacheTokens: string;
+  deductedQuota: string | null;
+  apiCost: string | null;
+  usageQuality: string;
+  billingRuleId: string | null;
+  ruleVersion: string | null;
+}
+
 export interface AttemptItem {
   attemptNo: number;
   providerResourceId: string;
@@ -331,6 +342,21 @@ export interface AttemptItem {
   errorCode: string | null;
   responseCommitted: boolean;
   switchReason: string | null;
+  /** P1-04：该 Attempt 的逐条计量明细。 */
+  metering: AttemptMetering[];
+}
+
+export interface AttemptsResult {
+  attempts: AttemptItem[];
+  ledgerLines: Array<{
+    attemptId: string;
+    inputTokens: string;
+    outputTokens: string;
+    cacheTokens: string;
+    deductedQuota: string | null;
+    apiCost: string | null;
+    usageQuality: string;
+  }>;
 }
 
 export interface DispatchDecisionItem {

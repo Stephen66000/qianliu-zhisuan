@@ -125,28 +125,48 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
           <div className="mt-2 flex flex-col gap-2">
             {(attempts.data?.attempts ?? []).map((a) => (
               <div
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-ql-border-zone bg-ql-surface px-3 py-2"
+                className="rounded-lg border border-ql-border-zone bg-ql-surface px-3 py-2"
                 key={a.attemptNo}
               >
-                <span className="text-[13px] font-semibold text-ql-fg">#{a.attemptNo}</span>
-                <span className="text-[13px] text-ql-fg-secondary">{a.upstreamModel}</span>
-                {a.httpStatus !== null ? (
-                  <StatusTag tone={a.httpStatus >= 500 || a.httpStatus >= 400 ? "danger" : "neutral"}>
-                    HTTP {a.httpStatus}
-                  </StatusTag>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span className="text-[13px] font-semibold text-ql-fg">#{a.attemptNo}</span>
+                  <span className="text-[13px] text-ql-fg-secondary">{a.upstreamModel}</span>
+                  {a.httpStatus !== null ? (
+                    <StatusTag tone={a.httpStatus >= 400 ? "danger" : "neutral"}>
+                      HTTP {a.httpStatus}
+                    </StatusTag>
+                  ) : null}
+                  {a.responseCommitted ? <StatusTag tone="neutral">流式已提交</StatusTag> : null}
+                  {a.switchReason ? (
+                    <span className="text-[12px] text-ql-fg-tertiary">切换：{a.switchReason}</span>
+                  ) : null}
+                  {a.errorClassification ? (
+                    <StatusTag tone="warning">{a.errorClassification}</StatusTag>
+                  ) : null}
+                  <span className="ml-auto text-[12px] text-ql-fg-tertiary">
+                    {a.finishedAt
+                      ? formatDuration(new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime())
+                      : "进行中"}
+                  </span>
+                </div>
+                {/* P1-04：该 Attempt 的逐条计量明细（token/扣减/费用/计量质量） */}
+                {a.metering.length > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 border-t border-ql-border-zone pt-1.5">
+                    {a.metering.map((m, i) => (
+                      <span
+                        className="text-[12px] leading-[18px] text-ql-fg-tertiary [font-variant-numeric:tabular-nums]"
+                        key={i}
+                      >
+                        输入 {m.inputTokens} · 输出 {m.outputTokens} · 缓存 {m.cacheTokens}
+                        {m.deductedQuota !== null ? ` · 扣减 ${m.deductedQuota}` : ""}
+                        {m.apiCost !== null && m.apiCost !== "0" && m.apiCost !== "0.00000000"
+                          ? ` · 费用 ${m.apiCost} 元`
+                          : " · 套餐内"}
+                        {m.usageQuality ? ` · ${m.usageQuality}` : ""}
+                      </span>
+                    ))}
+                  </div>
                 ) : null}
-                {a.responseCommitted ? <StatusTag tone="neutral">流式已提交</StatusTag> : null}
-                {a.switchReason ? (
-                  <span className="text-[12px] text-ql-fg-tertiary">切换：{a.switchReason}</span>
-                ) : null}
-                {a.errorClassification ? (
-                  <StatusTag tone="warning">{a.errorClassification}</StatusTag>
-                ) : null}
-                <span className="ml-auto text-[12px] text-ql-fg-tertiary">
-                  {a.finishedAt
-                    ? formatDuration(new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime())
-                    : "进行中"}
-                </span>
               </div>
             ))}
           </div>
