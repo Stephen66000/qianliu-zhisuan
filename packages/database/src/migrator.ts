@@ -6,7 +6,7 @@
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { Migrator, FileMigrationProvider } from "kysely";
 import type { Kysely } from "kysely";
 import type { Database } from "./kysely.js";
@@ -21,13 +21,24 @@ export async function listMigrations(): Promise<string[]> {
   return files.filter((f) => f.endsWith(".js")).sort();
 }
 
+/**
+ * FileMigrationProvider 的 path 包装：join 后转 file:// URL。
+ * Windows 上 FileMigrationProvider 内部用 ESM import() 加载迁移文件，
+ * 盘符路径（D:\...）会被当成非法 URL scheme（ERR_UNSUPPORTED_ESM_URL_SCHEME）。
+ * pathToFileURL 在 POSIX 上是恒等安全（file:///...），Windows 上转成合法 file:// URL。
+ */
+const fileUrlPath = {
+  ...path,
+  join: (...parts: string[]) => pathToFileURL(path.join(...parts)).href,
+};
+
 /** 构造 Migrator（FileMigrationProvider 默认用 dynamic import；tsx 运行时支持 .ts）。 */
 export function createMigrator(db: Kysely<Database>): Migrator {
   return new Migrator({
     db,
     provider: new FileMigrationProvider({
       fs,
-      path,
+      path: fileUrlPath,
       migrationFolder: MIGRATIONS_PATH,
     }),
   });
