@@ -2,6 +2,13 @@ packages:
   - "apps/*"
   - "packages/*"
 
+allowBuilds:
+  argon2: true
+  cpu-features: false
+  esbuild: true
+  protobufjs: false
+  ssh2: false
+
 # pnpm 11 起构建脚本许可在此声明。
 # esbuild：vite/vitest 运行依赖；argon2：密码哈希原生绑定（W02）。
 # cpu-features/protobufjs/ssh2 为可选原生绑定，本地开发不需要。

@@ -58,18 +58,30 @@ afterAll(async () => {
   if (pg) await pg.stop();
 }, 60_000);
 
-async function seedProviderResource(status = "ACTIVE") {
-  const provider = await db
+/** provider 按 code 复用（provider 表 UNIQUE(enterprise_id, code)，重复 insert 会撞唯一约束）。 */
+async function ensureProvider(code: "deepseek" | "zhipu" | "kimi") {
+  const existing = await db
+    .selectFrom("provider")
+    .selectAll()
+    .where("enterprise_id", "=", ENT_ID)
+    .where("code", "=", code)
+    .executeTakeFirst();
+  if (existing) return existing;
+  return db
     .insertInto("provider")
-    .values({ enterprise_id: ENT_ID, code: "zhipu", name: "智谱", adapter_type: "zhipu" })
+    .values({ enterprise_id: ENT_ID, code, name: `${code} 测试`, adapter_type: code })
     .returningAll()
     .executeTakeFirstOrThrow();
+}
+
+async function seedProviderResource(status = "ACTIVE") {
+  const provider = await ensureProvider("zhipu");
   const resource = await db
     .insertInto("provider_resource")
     .values({
       enterprise_id: ENT_ID,
       provider_id: provider.id,
-      name: "智谱主账号",
+      name: `智谱主账号-${randomUUID().slice(0, 8)}`,
       mode: "API",
       credential_type: "API_KEY",
       status,
@@ -93,12 +105,18 @@ async function countAudit(action: string): Promise<number> {
 describe("W19 管理写操作闭环", () => {
   it("PATCH /provider-resources/:id 改名成功并写 audit", async () => {
     const { resource } = await seedProviderResource();
+    // 从 API 侧重新读取快照，保证 expected_updated_at 与实际存储精度一致（timestamptz 微秒）
+    const fresh = await db
+      .selectFrom("provider_resource")
+      .selectAll()
+      .where("id", "=", resource.id)
+      .executeTakeFirstOrThrow();
     const res = await app.inject({
       method: "PATCH",
       url: `/provider-resources/${resource.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: resource.updated_at.toISOString(),
+        expected_updated_at: fresh.updated_at.toISOString(),
         name: "智谱主账号（华北）",
       },
     });
@@ -138,15 +156,24 @@ describe("W19 管理写操作闭环", () => {
   it("PATCH /unified-models/:id 停用并写 audit（W19 补齐 create audit）", async () => {
     const model = await db
       .insertInto("unified_model")
-      .values({ enterprise_id: ENT_ID, alias: "qianliu-glm", display_name: "仟流 GLM" })
+      .values({
+        enterprise_id: ENT_ID,
+        alias: `qianliu-glm-${randomUUID().slice(0, 8)}`,
+        display_name: "仟流 GLM",
+      })
       .returningAll()
+      .executeTakeFirstOrThrow();
+    const fresh = await db
+      .selectFrom("unified_model")
+      .selectAll()
+      .where("id", "=", model.id)
       .executeTakeFirstOrThrow();
     const res = await app.inject({
       method: "PATCH",
       url: `/unified-models/${model.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: model.updated_at.toISOString(),
+        expected_updated_at: fresh.updated_at.toISOString(),
         status: "DISABLED",
       },
     });
@@ -159,7 +186,11 @@ describe("W19 管理写操作闭环", () => {
     const { resource } = await seedProviderResource();
     const model = await db
       .insertInto("unified_model")
-      .values({ enterprise_id: ENT_ID, alias: "route-model", display_name: "路由模型" })
+      .values({
+        enterprise_id: ENT_ID,
+        alias: `route-model-${randomUUID().slice(0, 8)}`,
+        display_name: "路由模型",
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
     const route = await db
@@ -172,12 +203,17 @@ describe("W19 管理写操作闭环", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    const freshRoute = await db
+      .selectFrom("model_route")
+      .selectAll()
+      .where("id", "=", route.id)
+      .executeTakeFirstOrThrow();
     const res = await app.inject({
       method: "PATCH",
       url: `/model-routes/${route.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: route.updated_at.toISOString(),
+        expected_updated_at: freshRoute.updated_at.toISOString(),
         weight: 5,
         enabled: false,
       },
@@ -205,12 +241,17 @@ describe("W19 管理写操作闭环", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    const freshGrant = await db
+      .selectFrom("principal_grant")
+      .selectAll()
+      .where("id", "=", grant.id)
+      .executeTakeFirstOrThrow();
     const res = await app.inject({
       method: "PATCH",
       url: `/grants/${grant.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: grant.updated_at.toISOString(),
+        expected_updated_at: freshGrant.updated_at.toISOString(),
         quota_value: "200000",
         status: "DISABLED",
       },

@@ -43,8 +43,14 @@ export function registerAlertRoutes(app: FastifyInstance): void {
       admin_user_id: req.admin!.adminUserId,
       action: "alert.disposition",
       target_type: "alert",
-      target_id: parsed.data.alert_key,
-      change_summary: { status: parsed.data.status, domain: parsed.data.domain },
+      // operation_log.target_id 是 uuid 类型，alert_key 是 "DOMAIN:uuid" 字符串，
+      // 不能塞进 uuid 列（22P02）；target_id 置 null，alert_key 放 change_summary。
+      target_id: null,
+      change_summary: {
+        alert_key: parsed.data.alert_key,
+        status: parsed.data.status,
+        domain: parsed.data.domain,
+      },
       result: "SUCCESS",
     });
     return { ok: true };

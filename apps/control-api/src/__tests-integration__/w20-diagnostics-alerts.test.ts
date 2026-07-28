@@ -57,19 +57,31 @@ afterAll(async () => {
   if (pg) await pg.stop();
 }, 60_000);
 
-/** seed 一个完整请求链：request + 2 candidates + 2 attempts + transaction + decision。 */
-async function seedRequestChain(): Promise<{ requestId: string; principalId: string; resourceId: string }> {
-  const provider = await db
+/** provider 按 code 复用（UNIQUE(enterprise_id, code)）。 */
+async function ensureProvider(code: "deepseek" | "zhipu" | "kimi") {
+  const existing = await db
+    .selectFrom("provider")
+    .selectAll()
+    .where("enterprise_id", "=", ENT_ID)
+    .where("code", "=", code)
+    .executeTakeFirst();
+  if (existing) return existing;
+  return db
     .insertInto("provider")
-    .values({ enterprise_id: ENT_ID, code: "zhipu", name: "智谱", adapter_type: "zhipu" })
+    .values({ enterprise_id: ENT_ID, code, name: `${code} 测试`, adapter_type: code })
     .returningAll()
     .executeTakeFirstOrThrow();
+}
+
+/** seed 一个完整请求链：request + 2 candidates + 2 attempts + transaction + decision。 */
+async function seedRequestChain(): Promise<{ requestId: string; principalId: string; resourceId: string }> {
+  const provider = await ensureProvider("zhipu");
   const resource = await db
     .insertInto("provider_resource")
     .values({
       enterprise_id: ENT_ID,
       provider_id: provider.id,
-      name: "智谱主账号",
+      name: `智谱主账号-${randomUUID().slice(0, 8)}`,
       mode: "API",
       credential_type: "API_KEY",
       status: "ACTIVE",
@@ -279,17 +291,13 @@ describe("W20 诊断下钻", () => {
 
 describe("W20 异常告警", () => {
   it("GET /alerts 派生四域告警（凭证失效 + 提前耗尽）", async () => {
-    const provider = await db
-      .insertInto("provider")
-      .values({ enterprise_id: ENT_ID, code: "kimi", name: "Kimi", adapter_type: "kimi" })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const provider = await ensureProvider("kimi");
     const credInvalid = await db
       .insertInto("provider_resource")
       .values({
         enterprise_id: ENT_ID,
         provider_id: provider.id,
-        name: "Kimi 失效账号",
+        name: `Kimi 失效账号-${randomUUID().slice(0, 8)}`,
         mode: "CODING_PLAN",
         credential_type: "SUBSCRIPTION_SESSION",
         status: "CREDENTIAL_INVALID",

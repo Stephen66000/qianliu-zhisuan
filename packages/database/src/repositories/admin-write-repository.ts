@@ -6,9 +6,19 @@
  * 0 行命中即期间被他人修改（路由层判 409 conflict）。
  */
 import type { Kysely } from "kysely";
+import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 import type { ProviderResource, UnifiedModel, ModelRoute } from "./provider-repository.js";
 import type { PrincipalGrant } from "./grant-repository.js";
+
+/**
+ * 乐观锁谓词：updated_at 是 timestamptz（now() 微秒精度），JS Date/ISO 只到毫秒。
+ * 必须截断【列】到毫秒再与毫秒参数比较；写成 `updated_at = date_trunc('milliseconds', $1)`
+ * 是左边带微秒、右边毫秒，永远不匹配（方向反了）。
+ */
+function optimisticLock(expectedUpdatedAt: Date) {
+  return sql<boolean>`date_trunc('milliseconds', updated_at) = ${expectedUpdatedAt}::timestamptz`;
+}
 
 export class AdminWriteRepository {
   constructor(private db: Kysely<Database>) {}
@@ -25,7 +35,7 @@ export class AdminWriteRepository {
       .set({ ...patch, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
-      .where("updated_at", "=", expectedUpdatedAt)
+      .where(optimisticLock(expectedUpdatedAt))
       .returningAll()
       .executeTakeFirst() as Promise<ProviderResource | null>;
   }
@@ -42,7 +52,7 @@ export class AdminWriteRepository {
       .set({ ...patch, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
-      .where("updated_at", "=", expectedUpdatedAt)
+      .where(optimisticLock(expectedUpdatedAt))
       .returningAll()
       .executeTakeFirst() as Promise<UnifiedModel | null>;
   }
@@ -59,7 +69,7 @@ export class AdminWriteRepository {
       .set({ ...patch, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
-      .where("updated_at", "=", expectedUpdatedAt)
+      .where(optimisticLock(expectedUpdatedAt))
       .returningAll()
       .executeTakeFirst() as Promise<ModelRoute | null>;
   }
@@ -81,7 +91,7 @@ export class AdminWriteRepository {
       .set({ ...patch, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
-      .where("updated_at", "=", expectedUpdatedAt)
+      .where(optimisticLock(expectedUpdatedAt))
       .returningAll()
       .executeTakeFirst() as Promise<PrincipalGrant | null>;
   }
