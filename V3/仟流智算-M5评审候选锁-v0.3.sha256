@@ -1,13 +1,13 @@
 # M5 评审候选锁 —— M5（W18/W19/W20）交付物完整性封板。
 # 任一受封文件字节变化，本锁立即失效。双审 Reviewer 重算比对即可验证。
 # 范围：计划/规则文档 + M5 Evidence + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。
-# Git commit：3d9c6b9f05196ae2daef9278862387888231b79e
+# Git commit：f84225f374b8e846b9c96f02eab12ab7c697898e
 # 文件数：236
 
 195eb2f0dc4bebcf7ccc847ee9744099479701e0cae22465a7d78e75b1262801  .npmrc
 f5511e5a2f3c8031a86add824af90080eafe0f6ff057ea3d81ad16a2397557f4  V3/Evidence/M5/M5-W18前端-handoff-20260728.md
 f00c83560bef59fc68766e72a54bf246ed9c5917d6564fc3752b307876d88859  V3/Evidence/M5/M5-双审任务书-20260728.md
-60b05cbc07d7128d09ab78bc8077eb2eadbfcd4e4972cc92d51b0977571de1a4  V3/Evidence/M5/M5-双审整改-Evidence-20260728.md
+57d3435d0b783a03a5b1e894f67818aa9621577d283012cc2c6138f07435383c  V3/Evidence/M5/M5-双审整改-Evidence-20260728.md
 b8bd1ddbcbf5cee20aa4334a947b7def978fbaae54de137da127b8ad57f4d57b  V3/Evidence/M5/M5-收口执行清单-20260728.md
 06a55bf02d2f7eed37633f7514d8a44bb2a4ea7f92ac9ff9ae32e1a7532c4422  V3/Evidence/M5/M5-整改-handoff-to-codex-20260728.md
 07c3327ec86985bdcd714addee4fa2e1cf10e5d4ee62cb745bba1adb01c1d299  V3/Evidence/M5/W18/W18前端-Evidence-20260728.md
