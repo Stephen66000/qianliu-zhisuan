@@ -41,9 +41,12 @@ export function buildGateway(
   });
 
   // W23：WebSocket 一期未启用（详细计划 §4.6 默认关闭），握手请求显式拒绝为
-  // 422 capability_not_supported，不得静默降级。WS 握手是带 Upgrade 头的 HTTP
-  // 请求，普通 POST 拒绝路由拦不住，且 Fastify 对未匹配路由直接 404 会跳过
-  // child scope 的 onRequest，故必须在根 scope 拦截（所有请求先经过根 hook）。
+  // 422 capability_not_supported，不得静默降级。
+  // 实现边界：当前未注册任何 'upgrade' 事件监听器，WS 握手请求会走正常 Fastify
+  // 请求生命周期，故根 scope onRequest 能拦住（child scope 会被未匹配路由 404
+  // 短路）。一旦未来注册 upgrade 监听器（如 @fastify/websocket），Node 会把
+  // Upgrade 请求路由到 upgrade 事件、绕过 Fastify 生命周期，此 hook 将失效——
+  // 届时需改用 app.server.on('upgrade', ...) 显式拒绝（M6 双审 P1/A1）。
   app.addHook("onRequest", async (req, reply) => {
     const upgrade = String(req.headers.upgrade ?? "").toLowerCase();
     if (upgrade === "websocket") {

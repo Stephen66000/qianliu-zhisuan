@@ -29,6 +29,7 @@ SEAL_PATHS = [
     # M6 Evidence
     "V3/Evidence/M6/M6-客户端接入配置-20260728.md",
     "V3/Evidence/M6/W21-W23-Evidence-20260728.md",
+    "V3/Evidence/M6/M6-双审任务书-20260728.md",
     # E2E 覆盖映射文档（M5 双审 §8.4 P1-03 引用的 WT 映射依据）
     "apps/web/e2e/README.md",
     # 根级依赖与构建输入

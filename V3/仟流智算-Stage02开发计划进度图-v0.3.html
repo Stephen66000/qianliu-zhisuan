@@ -93,11 +93,11 @@
 <script type="application/json" id="stage02-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "03f1699ec9c3b7b22666682dd0b8afd9d27c4fc0ff79ac427a0410cb6a55ec10",
+  "sourceSha256": "1a87eb5b81ad7c87bf3ee399da3fbee15691cacb839aae20cc453fa8e425eb81",
   "projectName": "仟流智算",
   "productVersion": "v0.3",
   "planVersion": "v0.3.1",
-  "updatedAt": "2026-07-28T23:30:00+08:00",
+  "updatedAt": "2026-07-29T00:30:00+08:00",
   "stage01": {
     "id": "STAGE-01",
     "name": "方案准备",
@@ -123,13 +123,13 @@
     "candidateLock": "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   },
   "nextAction": {
-    "id": "STAGE03-M6-CODE-DONE-WAIT-WIN11",
-    "text": "M6（W21/W22/W23 四种员工工具兼容）AI 可控代码范围已交付：W23 协议能力矩阵冻结（CAPABILITY_MATRIX 单一事实源 + count_tokens/WebSocket 显式 422 拒绝，contracts 测试实跑通过）；停用/重置即时生效门禁（无 Redis 缓存，0 秒生效，满足 DoD ≤5 秒，测试证明）；清理 M5 残留 P2-NEW-01 死代码。Owner 澄清：仟流 IDE 与 WorkBuddy/ZCode 一样填 Key 接入，四客户端统一走 Gateway Bearer Key，不做员工账密登录（employee_login 表保留不用）。剩余为外部门禁：W22 Win11 三客户端实机回归（DEP-WINDOWS）、每工具≥2 真实员工、Mac IDE 现场回归、M6 最终签字——AI 不闭合不伪装。下一步：宿主机复跑全量测试（含 W23 矩阵 + m6-key-revocation），通过后交独立会话做 M6 双审。",
-    "owner": "佳哥（M6 代码完成，待 Win11 实机 + 独立双审）",
-    "evidence_target": "V3/Evidence/M6/W21-W23-Evidence-20260728.md"
+    "id": "STAGE03-M6-REVIEWED-WAIT-EXTERNAL-GATES",
+    "text": "M6（W21/W22/W23 四种员工工具兼容）独立双审签署 READY_WITH_ACTIONS（双审任务书 §3）：代码部分全部满足 DoD（停用/重置即时生效 + 协议矩阵冻结 + 未启用能力显式拒绝），全量测试 327/327 绿（Reviewer 独立实跑确认）。外部门禁如实声明 PENDING 未伪装。剩余为外部门禁：W22 Win11 三客户端实机回归（DEP-WINDOWS）、每工具≥2 真实员工、Mac IDE 现场回归、M6 最终签字——需佳哥闭合。双审 3 个非阻塞 Action：A1 未来接 WebSocket 时改用 app.server.on('upgrade') 拒绝（P1，已修注释论证）、A2 接 Redis 时验证 5 秒边界含余量（P2）、A3 同步 PRD §12.1 与 Owner 澄清（P2）。外部门禁闭合后可进入 M7。",
+    "owner": "佳哥（M6 代码候选就绪，待外部门禁）",
+    "evidence_target": "V3/Evidence/M6/M6-双审任务书-20260728.md"
   },
   "currentMilestone": "M6",
-  "currentWorkPackage": "M6-W23协议矩阵冻结完成-待Win11实机",
+  "currentWorkPackage": "M6-双审READY_WITH_ACTIONS-待外部门禁",
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
     "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",
