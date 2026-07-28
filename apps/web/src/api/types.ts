@@ -262,6 +262,24 @@ export interface UnifiedModelsResult {
   models: UnifiedModel[];
 }
 
+/** GET /providers 响应元素（snake_case）。 */
+export interface Provider {
+  id: string;
+  enterprise_id: string;
+  code: string;
+  name: string;
+  adapter_type: string;
+  supported_protocols: string[] | null;
+  capability_set: Record<string, unknown> | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProvidersResult {
+  providers: Provider[];
+}
+
 export interface PrincipalGrantItem {
   id: string;
   principal_id: string;

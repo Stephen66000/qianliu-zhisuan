@@ -12,7 +12,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { post } from "../api/client";
-import { QUERY_KEYS, useProviderResources } from "../api/hooks";
+import { QUERY_KEYS, useProviderResources, useProviders } from "../api/hooks";
 import type { ProviderResourceItem } from "../api/types";
 import { PageShell } from "../components/layout/PageShell";
 import { StatusTag } from "../components/dashboard/StatusTag";
@@ -50,10 +50,12 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function ResourcesPage() {
   const query = useProviderResources();
-  useRedirectOnUnauthorized(query.error);
+  const providersQuery = useProviders();
+  useRedirectOnUnauthorized(query.error ?? providersQuery.error);
   const queryClient = useQueryClient();
 
   const [showCreate, setShowCreate] = useState(false);
+  const [showNewProvider, setShowNewProvider] = useState(false);
   const [recoverTarget, setRecoverTarget] = useState<ProviderResourceItem | null>(null);
   const [rotateCredential, setRotateCredential] = useState(false);
   const [newCredential, setNewCredential] = useState("");
@@ -67,6 +69,24 @@ export function ResourcesPage() {
       reset();
     },
   });
+
+  const createProviderMutation = useMutation({
+    mutationFn: (values: { code: string; name: string }) =>
+      post<{ provider: { id: string } }>("/providers", {
+        code: values.code,
+        name: values.name,
+        adapter_type: values.code,
+      }),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providers });
+      setShowNewProvider(false);
+      // 新建后自动选中
+      setValue("provider_id", data.provider.id);
+    },
+  });
+
+  const [newProviderName, setNewProviderName] = useState("");
+  const [newProviderCode, setNewProviderCode] = useState("zhipu");
 
   const recoverMutation = useMutation({
     mutationFn: (target: ProviderResourceItem) =>
@@ -87,6 +107,7 @@ export function ResourcesPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<CreateResourceValues, unknown, CreateResourceValues>({
     resolver: zodResolver(CreateResourceSchema),
@@ -100,10 +121,8 @@ export function ResourcesPage() {
   });
 
   const resources = query.data?.resources ?? [];
-  // 表单 provider 选项：直接列已登记厂商（W19 一期无独立 providers 管理页，从资源反推或留空提示）
-  const providerOptions = Array.from(
-    new Map(resources.map((r) => [r.provider_id, r.provider_id])).values(),
-  );
+  // P1-02：厂商选项来自独立 /providers（不再从已有资源反推——新企业为空也能登记第一个厂商）
+  const providerOptions = providersQuery.data?.providers ?? [];
 
   return (
     <PageShell
@@ -128,15 +147,62 @@ export function ResourcesPage() {
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField error={errors.provider_id?.message} htmlFor="res-provider" label="厂商">
-              <select className={INPUT_CLASS} id="res-provider" {...register("provider_id")}>
-                <option value="">请选择厂商</option>
-                {providerOptions.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select className={`${INPUT_CLASS} flex-1`} id="res-provider" {...register("provider_id")}>
+                  <option value="">请选择厂商</option>
+                  {providerOptions.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}（{p.code}）
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="h-10 shrink-0 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                  onClick={() => setShowNewProvider((v) => !v)}
+                  type="button"
+                >
+                  新建厂商
+                </button>
+              </div>
             </FormField>
+            {showNewProvider ? (
+              <div className="sm:col-span-2 flex items-end gap-2 rounded-lg border border-ql-border-zone bg-ql-surface p-3">
+                <FormField htmlFor="new-provider-code" label="厂商代码">
+                  <select
+                    className={INPUT_CLASS}
+                    id="new-provider-code"
+                    onChange={(e) => setNewProviderCode(e.target.value)}
+                    value={newProviderCode}
+                  >
+                    <option value="deepseek">deepseek</option>
+                    <option value="zhipu">zhipu</option>
+                    <option value="kimi">kimi</option>
+                  </select>
+                </FormField>
+                <FormField htmlFor="new-provider-name" label="显示名称">
+                  <input
+                    className={INPUT_CLASS}
+                    id="new-provider-name"
+                    onChange={(e) => setNewProviderName(e.target.value)}
+                    placeholder="如：智谱"
+                    value={newProviderName}
+                  />
+                </FormField>
+                <button
+                  className="h-10 shrink-0 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover disabled:opacity-60"
+                  disabled={createProviderMutation.isPending || !newProviderName}
+                  onClick={() =>
+                    createProviderMutation.mutate({ code: newProviderCode, name: newProviderName })
+                  }
+                  type="button"
+                >
+                  {createProviderMutation.isPending ? "创建中…" : "确认"}
+                </button>
+                {createProviderMutation.error ? (
+                  <p className="text-[12px] text-ql-danger">{createProviderMutation.error.message}</p>
+                ) : null}
+              </div>
+            ) : null}
             <FormField error={errors.name?.message} htmlFor="res-name" label="资源名称">
               <input
                 className={INPUT_CLASS}

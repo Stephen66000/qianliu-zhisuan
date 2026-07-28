@@ -19,6 +19,7 @@ import type {
   OperationLogsResult,
   PrincipalsResult,
   ProviderResourcesResult,
+  ProvidersResult,
   RouteCandidateItem,
   SupplyForecastsResult,
   UnifiedModelsResult,
@@ -34,6 +35,7 @@ export const QUERY_KEYS = {
   supplyForecasts: ["supply-forecasts"] as const,
   principals: ["principals"] as const,
   providerResources: ["provider-resources"] as const,
+  providers: ["providers"] as const,
   unifiedModels: ["unified-models"] as const,
   grants: (principalId: string) => ["principals", principalId, "grants"] as const,
   gatewayRequest: (id: string) => ["gateway-requests", id] as const,
@@ -112,6 +114,15 @@ export function useProviderResources() {
   return useQuery({
     queryKey: QUERY_KEYS.providerResources,
     queryFn: ({ signal }) => get<ProviderResourcesResult>("/provider-resources", signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useProviders() {
+  return useQuery({
+    queryKey: QUERY_KEYS.providers,
+    queryFn: ({ signal }) => get<ProvidersResult>("/providers", signal),
     retry: 1,
     staleTime: 30_000,
   });
