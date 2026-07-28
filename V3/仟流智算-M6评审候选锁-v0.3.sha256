@@ -1,12 +1,12 @@
 # M6 评审候选锁 —— M6（W21/W22/W23）交付物完整性封板。
 # 任一受封文件字节变化，本锁立即失效。双审 Reviewer 重算比对即可验证。
 # 范围：计划/规则文档 + M6 Evidence + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。
-# Git commit：6ccf445dd383f775d9d4ebabf92415b1dfa3fc05
+# Git commit：4e5999b5856caf44545c351dbfd0fed4dc507f58
 # 文件数：229
 
 195eb2f0dc4bebcf7ccc847ee9744099479701e0cae22465a7d78e75b1262801  .npmrc
 f5a5ac3a9915506fd4d8ca9baa5b751d25702f88ecdec89fbcf8f046ed6940ba  V3/Evidence/M6/M6-客户端接入配置-20260728.md
-886e80c6b0f28fcd6d06ff5dc97104aa84a374cdc0794a111edc2d9d5d71e9e5  V3/Evidence/M6/W21-W23-Evidence-20260728.md
+9980bf9be2ee30b363fecffa31c3bdf4d8c1409b207ebe9165f5f5df317aad60  V3/Evidence/M6/W21-W23-Evidence-20260728.md
 3f5026630ff8a309a00f8a56c40b5733c81b32628bd6276a2d262af75db7eca8  V3/Planning-Change-Log.md
 3f21a05ec9e125b42bfa235ba5e7a88ec0df62ab1b813ba7ee0855c2cf7843bc  V3/tools/candidate_lock.py
 03f1699ec9c3b7b22666682dd0b8afd9d27c4fc0ff79ac427a0410cb6a55ec10  V3/仟流智算-stage-state-v0.3.yaml
@@ -42,7 +42,7 @@ dc7e0a7c0d3ca3ee822fb2c826444ec576439d2371cfa0e9c83c7a9c22cee8a2  apps/control-a
 cf2162e741f6da9c1a66a50f743aa74fee7f06145bb4de9f64c7f1610ca93f1c  apps/control-api/src/usage/routes.ts
 6549f95182c0e522f6fe423f472e09a011e8bea22dd5a0654b0ad7cc67f172cb  apps/control-api/tsconfig.json
 4592efafcb76e505926da9842955161179ecc38123c6111977156ba928e817de  apps/gateway/package.json
-263ca8982a4c56a7a26751d3bf5d2499d9c013780aeac31477dd9143a4c2f006  apps/gateway/src/__tests-integration__/m6-key-revocation.test.ts
+93b823825a60aafec660e2f5a1e6d27139008ffeb1f0ee3fa11c7805d1276ccb  apps/gateway/src/__tests-integration__/m6-key-revocation.test.ts
 a99d6b9de863e5a619d10607d0a9ffa8b7990a76ae90708bad12ac61f65eb103  apps/gateway/src/__tests-integration__/r2-n1-principal-ownership.test.ts
 a03303e59a5c5e45787d284b5c40fa5759e7c7eb82fc64f1d318a9d132d9e73c  apps/gateway/src/__tests-integration__/w05-northbound.test.ts
 b8de30c40c9ba0333a8586e9132369a92084a275ff22424b1da7246ab03b2a78  apps/gateway/src/__tests-integration__/w07-ledger.test.ts
@@ -67,7 +67,7 @@ dea134c68e7df83f660d3c344e3a52ff914f75494c59edbb7cc0540c2f72737c  apps/gateway/s
 8f383e4acf2b955f029e199505ab99c1674819bc024d376dc78cf3f2d0cfe1c7  apps/gateway/src/routes/messages.ts
 9ceea6b925aae8f8119553775c3a83cc210b5a9c4ec01bd26883c85a4f26b472  apps/gateway/src/routes/models.ts
 90a6221e9c1763e95b5abeef2535a34e2deedde5ab71092c03beea9a437a5ff5  apps/gateway/src/routes/unsupported.ts
-e2b25cf2a9d2c136e41846a7c013eb9dce07d52b806046aa9c00004211f04b0e  apps/gateway/src/server.ts
+8623ea89b2e5f83d696f5a7ad56568fa3449be2eb31f7279d32a0bc492b5a627  apps/gateway/src/server.ts
 6549f95182c0e522f6fe423f472e09a011e8bea22dd5a0654b0ad7cc67f172cb  apps/gateway/tsconfig.json
 aa2958058dabb73b6ce40293cfd5501015e1aa44b144eebe47a1c0eda35500a3  apps/web/e2e/README.md
 bbba04c56f847ed4709a364995524dc4cf107a7fac8f1dfafaaa81eb58040fc3  apps/web/e2e/fixtures.ts
