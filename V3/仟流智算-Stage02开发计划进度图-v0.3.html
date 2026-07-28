@@ -204,32 +204,36 @@ document.querySelector("#timeline").innerHTML=
   `<div class="timeline-head"><span>阶段／结果</span><span>D1　　　　 D2　　　　 D3　　　　 D4　　　　 D5</span><span>时间盒</span></div>`+
   STAGE_DATA.milestones.map(m=>{
     const l=pct(m[1]),r=pct(m[2]);
-    // 里程碑状态由 YAML handoff.current_milestone 推导:之前的 M 视为已完成(绿色),当前及之后保持计划色
+    // 里程碑状态由 YAML handoff.current_milestone 推导:当前及之前里程碑视为已完成(绿色),之后保持计划色。
+    // current_milestone 表示已收口的里程碑,故用 <= 判定(与工作包表/开发进度一致)。
     const mNum=/^M(\d+)$/.exec(m[0])?.[1];
     const curM=/^M(\d+)$/.exec(String(STATE_SNAPSHOT.currentMilestone||""))?.[1];
-    const cls=mNum&&curM&&parseInt(mNum,10)<parseInt(curM,10)?"done":m[4];
+    const cls=mNum&&curM&&parseInt(mNum,10)<=parseInt(curM,10)?"done":m[4];
     return `<div class="timeline-row"><div><b>${m[0]}</b><br><span class="label">${m[3]}</span></div><div class="track"><div class="bar ${cls}" style="left:${l}%;width:${Math.max(1,r-l)}%">${m[0]}</div></div><div class="label">${m[1]===5?"外部事件":`D${m[1]+1}～D${m[2]}`}</div></div>`
   }).join("");
 
 document.querySelector("#workPackages").innerHTML=STAGE_DATA.workPackages.map(w=>{
-  const n=parseInt(w[0].slice(1),10);
-  const cur=parseInt(String(STATE_SNAPSHOT.currentWorkPackage||"W01").slice(1),10);
-  const st=!STATE_SNAPSHOT.currentWorkPackage?"nd":n<cur?"done":n===cur?"verifying":"nd";
-  const stLabel=st==="done"?"DONE":st==="verifying"?"IN_PROGRESS":"NOT_DUE";
+  // 工作包状态按归属里程碑推导：归属里程碑 < 当前里程碑 → DONE，
+  // = 当前里程碑 → 视为已完成（当前里程碑的工作包均已收口），> 当前里程碑 → NOT_DUE。
+  // 不再解析 currentWorkPackage 字符串编号（该字段现为里程碑描述，非 Wnn）。
+  const wpMilestone=parseInt(String(w[1]).slice(1),10);
+  const curMilestone=parseInt(String(STATE_SNAPSHOT.currentMilestone||"M1").slice(1),10);
+  const st=wpMilestone<curMilestone?"done":wpMilestone===curMilestone?"done":"nd";
+  const stLabel=st==="done"?"DONE":"NOT_DUE";
   return `<tr><td><b>${w[0]}</b></td><td>${w[1]}</td><td>${w[2]}</td><td>${w[3]}</td><td><span class="pill ${w[1]==="M8"?"":"high"}">${w[1]==="M8"?"业务周期":"HIGH"}</span></td><td><span class="pill ${st}">${stLabel}</span></td></tr>`;
 }).join("");
 
-// Stage 03 开发进度:由 current_work_package 推导(之前的工作包视为 DONE)
-const wpNums=STAGE_DATA.workPackages.map(w=>parseInt(w[0].slice(1),10));
-const curNum=parseInt(String(STATE_SNAPSHOT.currentWorkPackage||"W01").slice(1),10);
-const doneCount=STATE_SNAPSHOT.currentWorkPackage?wpNums.filter(n=>n<curNum).length:0;
+// Stage 03 开发进度:按里程碑推导(归属里程碑 <= 当前里程碑的工作包视为已完成)
+const wpMilestones=STAGE_DATA.workPackages.map(w=>parseInt(String(w[1]).slice(1),10));
+const curMilestoneNum=parseInt(String(STATE_SNAPSHOT.currentMilestone||"M1").slice(1),10);
+const doneCount=wpMilestones.filter(m=>m<=curMilestoneNum).length;
 const devPercent=(doneCount/STAGE_DATA.workPackages.length*100).toFixed(1);
 document.getElementById("devProgress").textContent=`${devPercent}%`;
 document.getElementById("devProgressBar").style.width=`${devPercent}%`;
 document.getElementById("wpCounter").textContent=`${doneCount} / ${STAGE_DATA.workPackages.length}`;
 document.getElementById("stage03-status").textContent=STATE_SNAPSHOT.currentWorkPackage
-  ? `${STATE_SNAPSHOT.currentMilestone} · ${STATE_SNAPSHOT.currentWorkPackage} 进行中 · 开发进度 ${devPercent}%`
-  : `NOT_DUE · 开发进度 0%`;
+  ? `${STATE_SNAPSHOT.currentMilestone} 已 SEALED · ${STATE_SNAPSHOT.currentWorkPackage} · 开发进度 ${devPercent}%`
+  : `${STATE_SNAPSHOT.currentMilestone} · 开发进度 ${devPercent}%`;
 
 const checkStatus=x=>x.includes("N/A")?"not_applicable":x.startsWith("DP-43")||x.startsWith("DP-44")?"verifying":"done";
 const groupStatus=g=>g[1].every(x=>["done","not_applicable"].includes(checkStatus(x)))?"done":"verifying";
