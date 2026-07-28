@@ -29,7 +29,7 @@ export class UnauthorizedError extends ApiError {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH";
   body?: unknown;
   signal?: AbortSignal;
 }
@@ -74,4 +74,8 @@ export function get<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 export function post<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   return request<T>(path, { method: "POST", body, signal });
+}
+
+export function patch<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, { method: "PATCH", body, signal });
 }

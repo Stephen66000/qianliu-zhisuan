@@ -11,7 +11,11 @@ import type {
   BillingRulesResult,
   DashboardSummary,
   DispatchPoliciesResult,
+  GrantsResult,
+  PrincipalsResult,
+  ProviderResourcesResult,
   SupplyForecastsResult,
+  UnifiedModelsResult,
   UsageQueryParams,
   UsageResult,
 } from "./types";
@@ -22,6 +26,10 @@ export const QUERY_KEYS = {
   billingRules: ["billing-rules"] as const,
   dispatchPolicies: ["dispatch-policies"] as const,
   supplyForecasts: ["supply-forecasts"] as const,
+  principals: ["principals"] as const,
+  providerResources: ["provider-resources"] as const,
+  unifiedModels: ["unified-models"] as const,
+  grants: (principalId: string) => ["principals", principalId, "grants"] as const,
 } as const;
 
 export function useDashboard() {
@@ -79,5 +87,42 @@ export function useSupplyForecasts() {
     queryFn: ({ signal }) => get<SupplyForecastsResult>("/supply-forecasts", signal),
     retry: 1,
     staleTime: 60_000,
+  });
+}
+
+export function usePrincipals() {
+  return useQuery({
+    queryKey: QUERY_KEYS.principals,
+    queryFn: ({ signal }) => get<PrincipalsResult>("/principals", signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useProviderResources() {
+  return useQuery({
+    queryKey: QUERY_KEYS.providerResources,
+    queryFn: ({ signal }) => get<ProviderResourcesResult>("/provider-resources", signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useUnifiedModels() {
+  return useQuery({
+    queryKey: QUERY_KEYS.unifiedModels,
+    queryFn: ({ signal }) => get<UnifiedModelsResult>("/unified-models", signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useGrants(principalId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.grants(principalId ?? ""),
+    queryFn: ({ signal }) => get<GrantsResult>(`/principals/${principalId}/grants`, signal),
+    enabled: principalId !== null,
+    retry: 1,
+    staleTime: 30_000,
   });
 }

@@ -209,3 +209,73 @@ export interface LoginResponse {
     enterprise_id: string;
   };
 }
+
+// ---------- W19 写操作（snake_case 直传为主，镜像后端 schema） ----------
+
+/** GET /principals 响应元素（snake_case）。 */
+export interface Principal {
+  id: string;
+  enterprise_id: string;
+  type: "EMPLOYEE" | "PROJECT";
+  name: string;
+  department_label: string | null;
+  status: "ACTIVE" | "DISABLED";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrincipalsResult {
+  principals: Principal[];
+}
+
+/** GET /provider-resources 列表元素（后端已裁剪为公开视图，无密文）。 */
+export interface ProviderResourceItem {
+  id: string;
+  provider_id: string;
+  name: string;
+  mode: "API" | "CODING_PLAN";
+  credential_type: "API_KEY" | "OAUTH" | "SUBSCRIPTION_SESSION";
+  credential_fingerprint: string | null;
+  credential_version: number | null;
+  status: string;
+  upstream_models: string[] | null;
+  concurrency_limit: number | null;
+  created_at: string;
+}
+
+export interface ProviderResourcesResult {
+  resources: ProviderResourceItem[];
+}
+
+export interface UnifiedModel {
+  id: string;
+  enterprise_id: string;
+  alias: string;
+  display_name: string;
+  required_capabilities: string[] | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UnifiedModelsResult {
+  models: UnifiedModel[];
+}
+
+export interface PrincipalGrantItem {
+  id: string;
+  principal_id: string;
+  provider: string;
+  model_alias: string;
+  quota_unit: string;
+  quota_value: string;
+  allow_overage: boolean;
+  valid_until: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GrantsResult {
+  grants: PrincipalGrantItem[];
+}
