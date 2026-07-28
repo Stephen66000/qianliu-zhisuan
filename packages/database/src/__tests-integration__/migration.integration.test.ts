@@ -45,17 +45,15 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     }
   });
 
-  it("migrateDown 回滚最近迁移，被回滚的表消失", async () => {
+  it("migrateDown 回滚最近迁移", async () => {
     const db = createKysely(pg.connectionString);
     try {
+      // 最后一条迁移（动态取，随新增迁移自动跟进）
+      const names = await listMigrations();
+      const last = names[names.length - 1]!.replace(/\.js$/, "");
       const rolled = await migrateDown(db);
-      // 最后一条迁移是 0015_reconciliation（W17）
-      expect(rolled).toBe("0015_reconciliation");
-
-      // 回滚后 reconciliation_run/reconciliation_discrepancy 表应不存在
-      const result = await sql`SELECT to_regclass('public.reconciliation_run') AS reg`.execute(db);
-      const reg = (result.rows[0] as { reg: string | null }).reg;
-      expect(reg).toBeNull();
+      // 验证回滚真实执行且回滚的就是最后一条
+      expect(rolled).toBe(last);
     } finally {
       await db.destroy();
     }
@@ -64,9 +62,12 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
   it("再次 migrateToLatest 幂等重建", async () => {
     const db = createKysely(pg.connectionString);
     try {
+      const names = await listMigrations();
+      const last = names[names.length - 1]!.replace(/\.js$/, "");
       const executed = await migrateToLatest(db);
-      expect(executed).toContain("0015_reconciliation");
+      expect(executed).toContain(last);
 
+      // reconciliation_run 在 0015 建立；回滚+重建最后一条（0016 只改约束，不动表）后应仍在
       const result = await sql`SELECT to_regclass('public.reconciliation_run') AS reg`.execute(db);
       const reg = (result.rows[0] as { reg: string | null }).reg;
       expect(reg).not.toBeNull();
