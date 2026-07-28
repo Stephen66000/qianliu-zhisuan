@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-29T00:30:00+08:00"
+updated_at: "2026-07-29T01:00:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -39,8 +39,8 @@ handoff:
   audited_candidate_lock: "V3/仟流智算-Stage02评审候选锁-v0.3.2.sha256"
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
-  current_milestone: "M6"
-  current_work_package: "M6-双审READY_WITH_ACTIONS-待外部门禁"
+  current_milestone: "M7"
+  current_work_package: "M7-W24部署工程-最小可部署层"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -51,10 +51,10 @@ handoff:
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
 
 next_action:
-  id: "STAGE03-M6-REVIEWED-WAIT-EXTERNAL-GATES"
-  text: "M6（W21/W22/W23 四种员工工具兼容）独立双审签署 READY_WITH_ACTIONS（双审任务书 §3）：代码部分全部满足 DoD（停用/重置即时生效 + 协议矩阵冻结 + 未启用能力显式拒绝），全量测试 327/327 绿（Reviewer 独立实跑确认）。外部门禁如实声明 PENDING 未伪装。剩余为外部门禁：W22 Win11 三客户端实机回归（DEP-WINDOWS）、每工具≥2 真实员工、Mac IDE 现场回归、M6 最终签字——需佳哥闭合。双审 3 个非阻塞 Action：A1 未来接 WebSocket 时改用 app.server.on('upgrade') 拒绝（P1，已修注释论证）、A2 接 Redis 时验证 5 秒边界含余量（P2）、A3 同步 PRD §12.1 与 Owner 澄清（P2）。外部门禁闭合后可进入 M7。"
-  owner: "佳哥（M6 代码候选就绪，待外部门禁）"
-  evidence_target: "V3/Evidence/M6/M6-双审任务书-20260728.md"
+  id: "STAGE03-M7-W24-DEPLOY-MINIMAL"
+  text: "M6 代码双审 READY_WITH_ACTIONS（代码候选就绪）；PC-09 将仟流 IDE 移出一期范围（自研缓慢，一期用 WorkBuddy/ZCode 闭合）；PC-10 将 M6 真实员工实测延后至部署后与 W26 Pilot 一起闭合（实测依赖部署，原 M6→M7 排序不现实）。现进入 M7 W24 部署工程：分两层推进——第一层最小可部署（Dockerfile 多阶段构建 + compose 占位换真实 + migrate service + Caddy 反代 + trustProxy），让 Mac Mini docker compose up 能跑、同事用 WorkBuddy 连上测；第二层 W24/W25 完整 DoD（最小权限/出站白名单/Secret 链路/TLS/监控/备份恢复 RPO-RTO 演练/故障手册）。M7 部署后回头闭合 M6 真实员工实测 + W22 Win11 实机。"
+  owner: "佳哥（M7 部署工程，主 AI 执行 W24-W25）"
+  evidence_target: "V3/Evidence/M7/M7-部署指南-MacMini-20260729.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"
