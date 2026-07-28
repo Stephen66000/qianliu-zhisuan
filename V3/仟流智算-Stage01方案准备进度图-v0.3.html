@@ -107,13 +107,13 @@
 <script type="application/json" id="stage-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "3aed40aed2d13bc3353b71a664b77b9326a7e173477499db18953235a43c5ece",
+  "sourceSha256": "03f1699ec9c3b7b22666682dd0b8afd9d27c4fc0ff79ac427a0410cb6a55ec10",
   "projectName": "仟流智算",
   "productName": "仟流智算",
   "projectVersion": "v0.3",
   "productOwner": "佳哥",
   "techOwner": "佳哥",
-  "updatedAt": "2026-07-28T22:30:00+08:00",
+  "updatedAt": "2026-07-28T23:30:00+08:00",
   "stage": {
     "id": "STAGE-01",
     "name": "方案准备",
@@ -132,10 +132,10 @@
     "external_audit_file": "仟流智算-Stage01-SOP合规审核报告-20260726.md"
   },
   "nextAction": {
-    "id": "STAGE03-M5-SEALED-START-M6",
-    "text": "M5 桌面 Web（W18/W19/W20）双审正式收口（SEALED）：初次双审 NOT_READY（5 P1 + 3 P2），实现方按解除条件全部整改后，独立重审会话（未参与实现）逐条读代码核验解除条件全部满足，签署 READY（双审任务书 §10）。三硬门禁闭合：全量测试 319/319、macOS Chromium 15/15、Win11 企业版 build 26200 Chromium 15/15（38.9s），typecheck/lint/build PASS，候选锁 verify 通过。M5 代码冻结于候选 candidate（含双审整改 + Windows pnpm.cmd EINVAL 修复）。下一步进入 M6（移动端/Win11 真机宽展与发布候选）；M6 首个代码卫生项为清理重审新发现 P2-NEW-01（旧 alert-repository.ts 死代码残留，不阻断 M5 但需在 M6 处理）。",
-    "owner": "佳哥（M5 已封板，启动 M6）",
-    "evidence_target": "V3/Evidence/M5/M5-双审任务书-20260728.md"
+    "id": "STAGE03-M6-CODE-DONE-WAIT-WIN11",
+    "text": "M6（W21/W22/W23 四种员工工具兼容）AI 可控代码范围已交付：W23 协议能力矩阵冻结（CAPABILITY_MATRIX 单一事实源 + count_tokens/WebSocket 显式 422 拒绝，contracts 测试实跑通过）；停用/重置即时生效门禁（无 Redis 缓存，0 秒生效，满足 DoD ≤5 秒，测试证明）；清理 M5 残留 P2-NEW-01 死代码。Owner 澄清：仟流 IDE 与 WorkBuddy/ZCode 一样填 Key 接入，四客户端统一走 Gateway Bearer Key，不做员工账密登录（employee_login 表保留不用）。剩余为外部门禁：W22 Win11 三客户端实机回归（DEP-WINDOWS）、每工具≥2 真实员工、Mac IDE 现场回归、M6 最终签字——AI 不闭合不伪装。下一步：宿主机复跑全量测试（含 W23 矩阵 + m6-key-revocation），通过后交独立会话做 M6 双审。",
+    "owner": "佳哥（M6 代码完成，待 Win11 实机 + 独立双审）",
+    "evidence_target": "V3/Evidence/M6/W21-W23-Evidence-20260728.md"
   },
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
