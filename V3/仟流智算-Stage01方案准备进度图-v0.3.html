@@ -107,13 +107,13 @@
 <script type="application/json" id="stage-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "a8f58a55fef7a6474373d5286b28e09e9f3f33842e5a8e783f3c0db801b7713b",
+  "sourceSha256": "2252c9de7bcce87946dd10c9be1b46f3093095ff9204ebd99b0cdaaedc2565cf",
   "projectName": "仟流智算",
   "productName": "仟流智算",
   "projectVersion": "v0.3",
   "productOwner": "佳哥",
   "techOwner": "佳哥",
-  "updatedAt": "2026-07-27T14:45:00+08:00",
+  "updatedAt": "2026-07-28T21:29:21+08:00",
   "stage": {
     "id": "STAGE-01",
     "name": "方案准备",
@@ -132,10 +132,10 @@
     "external_audit_file": "仟流智算-Stage01-SOP合规审核报告-20260726.md"
   },
   "nextAction": {
-    "id": "STAGE03-W01",
-    "text": "W09 智谱 Adapter 与 Coding Plan 能力；M2 已完成（W05-W08 + Audit），gateway 18 集成测试全绿，重复结算 0 + 正文 canary 0。",
-    "owner": "佳哥（AI 执行）",
-    "evidence_target": "V3/仟流智算-详细开发计划与排期-v0.3.md"
+    "id": "STAGE03-M5-RECTIFY-READY-FOR-REREVIEW",
+    "text": "M5 桌面 Web（W18/W19/W20）双审整改解除条件已全部闭环：5 P1 + 3 P2 均完成实现与测试，typecheck/lint/build PASS、全量测试 319/319、macOS Chromium 15/15、Win11 企业版 build 26200 Chromium 15/15（38.9s）。Win11 实跑额外暴露的 pnpm.cmd EINVAL 已改为 node.exe 直接执行 tsx JS 入口并在同机复跑通过。下一步重新生成并验证 M5 候选锁，然后交独立会话双审重审；不得把本实现方回执改写为 Reviewer READY。",
+    "owner": "佳哥（主 AI 已闭合整改与双平台门禁，待独立 Reviewer 重审）",
+    "evidence_target": "V3/Evidence/M5/M5-双审整改-Evidence-20260728.md"
   },
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
