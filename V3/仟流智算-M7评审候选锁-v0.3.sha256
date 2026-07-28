@@ -1,7 +1,7 @@
 # M7 评审候选锁 —— M7（W24-W25 部署工程）交付物完整性封板。
 # 任一受封文件字节变化，本锁立即失效。双审 Reviewer 重算比对即可验证。
 # 范围：计划/规则文档 + M7 Evidence + 部署配置 + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。
-# Git commit：130284036aba671ca4ecc93283ecfdcfab341766
+# Git commit：e38b693d2b1f214b2ebcb427fe085a3989ff8b24
 # 文件数：231
 
 7e08f26ebf0f330b1793201016aad9735757c32608325dff31cc843f6ccc84ff  .dockerignore
