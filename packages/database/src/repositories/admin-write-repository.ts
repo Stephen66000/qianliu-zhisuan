@@ -12,73 +12,72 @@ import type { ProviderResource, UnifiedModel, ModelRoute } from "./provider-repo
 import type { PrincipalGrant } from "./grant-repository.js";
 
 /**
- * 乐观锁谓词：updated_at 是 timestamptz（now() 微秒精度），JS Date/ISO 只到毫秒。
- * 必须截断【列】到毫秒再与毫秒参数比较；写成 `updated_at = date_trunc('milliseconds', $1)`
- * 是左边带微秒、右边毫秒，永远不匹配（方向反了）。
+ * 单调 version 乐观锁（P2-01 整改，替代 updated_at 毫秒截断）。
+ * version 每次更新 +1，比较无精度损耗；同毫秒并发写也不会 ABA。
  */
-function optimisticLock(expectedUpdatedAt: Date) {
-  return sql<boolean>`date_trunc('milliseconds', updated_at) = ${expectedUpdatedAt}::timestamptz`;
+function versionLock(expectedVersion: number) {
+  return sql<boolean>`version = ${expectedVersion}`;
 }
 
 export class AdminWriteRepository {
   constructor(private db: Kysely<Database>) {}
 
-  /** 更新厂商资源基础字段（乐观锁；凭证轮换走 adminRecoverResource）。 */
+  /** 更新厂商资源基础字段（version 乐观锁；凭证轮换走 adminRecoverResource）。 */
   async updateProviderResource(
     enterpriseId: string,
     id: string,
-    expectedUpdatedAt: Date,
+    expectedVersion: number,
     patch: { name?: string; concurrency_limit?: number | null },
   ): Promise<ProviderResource | null> {
     return this.db
       .updateTable("provider_resource")
-      .set({ ...patch, updated_at: new Date() })
+      .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
-      .where(optimisticLock(expectedUpdatedAt))
+      .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst() as Promise<ProviderResource | null>;
   }
 
-  /** 更新统一模型（乐观锁）。 */
+  /** 更新统一模型（version 乐观锁）。 */
   async updateUnifiedModel(
     enterpriseId: string,
     id: string,
-    expectedUpdatedAt: Date,
+    expectedVersion: number,
     patch: { display_name?: string; status?: "ACTIVE" | "DISABLED" },
   ): Promise<UnifiedModel | null> {
     return this.db
       .updateTable("unified_model")
-      .set({ ...patch, updated_at: new Date() })
+      .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
-      .where(optimisticLock(expectedUpdatedAt))
+      .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst() as Promise<UnifiedModel | null>;
   }
 
-  /** 更新模型路由（乐观锁；启用/停用/优先级/权重）。 */
+  /** 更新模型路由（version 乐观锁；启用/停用/优先级/权重）。 */
   async updateModelRoute(
     enterpriseId: string,
     id: string,
-    expectedUpdatedAt: Date,
+    expectedVersion: number,
     patch: { priority?: number; weight?: number; enabled?: boolean },
   ): Promise<ModelRoute | null> {
     return this.db
       .updateTable("model_route")
-      .set({ ...patch, updated_at: new Date() })
+      .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
-      .where(optimisticLock(expectedUpdatedAt))
+      .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst() as Promise<ModelRoute | null>;
   }
 
-  /** 更新主体额度（乐观锁；调额/允许超额/有效期/停用）。 */
+  /** 更新主体额度（version 乐观锁；调额/允许超额/有效期/停用）。 */
   async updateGrant(
     enterpriseId: string,
     id: string,
-    expectedUpdatedAt: Date,
+    expectedVersion: number,
     patch: {
       quota_value?: bigint;
       allow_overage?: boolean;
@@ -88,10 +87,10 @@ export class AdminWriteRepository {
   ): Promise<PrincipalGrant | null> {
     return this.db
       .updateTable("principal_grant")
-      .set({ ...patch, updated_at: new Date() })
+      .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
-      .where(optimisticLock(expectedUpdatedAt))
+      .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst() as Promise<PrincipalGrant | null>;
   }

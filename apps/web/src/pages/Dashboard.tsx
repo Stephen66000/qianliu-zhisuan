@@ -9,6 +9,7 @@
 import { Inbox } from "lucide-react";
 
 import { useDashboard } from "../api/hooks";
+import type { DashboardSummary } from "../api/types";
 import { EarliestExhaustionCard } from "../components/dashboard/EarliestExhaustionCard";
 import { MetricCard } from "../components/dashboard/MetricCard";
 import { OverageList } from "../components/dashboard/OverageList";
@@ -92,16 +93,18 @@ export function DashboardPage() {
             value={formatMoney(data.monthlyDispatchSaving)}
           />
           <MetricCard
+            hint={
+              data.earliestExhaustion
+                ? `可信度 ${CONFIDENCE_LABEL[data.earliestExhaustion.confidence] ?? data.earliestExhaustion.confidence}`
+                : undefined
+            }
             label="最早耗尽资源"
             value={data.earliestExhaustion ? data.earliestExhaustion.resourceName : "无"}
           />
           <MetricCard
-            label="预测可信度"
-            value={
-              data.earliestExhaustion
-                ? data.earliestExhaustion.confidence
-                : "—"
-            }
+            hint="各厂商+模式资源状态聚合见下方资源摘要"
+            label="资源状态"
+            value={resourceHealthSummary(data.resourceBreakdown)}
           />
         </div>
       </Zone>
@@ -133,4 +136,19 @@ function DashboardHeader() {
       </p>
     </header>
   );
+}
+
+const CONFIDENCE_LABEL: Record<string, string> = {
+  HIGH: "高",
+  MEDIUM: "中",
+  LOW: "低",
+};
+
+/** 资源状态聚合（PRD §10.2「资源可用状态和额度状态」）：任一非 HEALTHY 提示数量。 */
+function resourceHealthSummary(items: DashboardSummary["resourceBreakdown"]): string {
+  if (items.length === 0) {
+    return "无资源";
+  }
+  const unhealthy = items.filter((i) => i.status !== "HEALTHY").length;
+  return unhealthy === 0 ? "全部正常" : `${unhealthy} 项需关注`;
 }

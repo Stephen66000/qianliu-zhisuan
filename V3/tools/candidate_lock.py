@@ -10,11 +10,12 @@ M5 评审候选锁生成器 —— 对 M5 交付物（代码 + Evidence + 计划
 """
 import hashlib
 import os
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 封板范围：M5 全部交付物
+# 封板范围：M5 全部交付物（文档/Evidence）+ 根级依赖与构建输入 + 生成器与任务书自身
 SEAL_PATHS = [
     # 计划/规则文档（M5 依据）
     "V3/仟流智算-产品需求文档-v0.3.md",
@@ -30,6 +31,17 @@ SEAL_PATHS = [
     "V3/Evidence/M5/W20/W20-Evidence-20260728.md",
     "V3/Evidence/M5/M5-收口执行清单-20260728.md",
     "V3/Evidence/M5/Win11-实机回归-20260728.md",
+    "V3/Evidence/M5/M5-双审任务书-20260728.md",
+    # 根级依赖与构建输入（P1-01：之前漏封）
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "eslint.config.mjs",
+    "tsconfig.base.json",
+    "vitest.config.ts",
+    ".npmrc",
+    # 生成器自身（可审计）
+    "V3/tools/candidate_lock.py",
 ]
 
 # 代码目录（递归封板，排除 node_modules/dist/测试残留）
@@ -37,6 +49,15 @@ CODE_DIRS = ["apps", "packages"]
 EXCLUDE_DIRS = {"node_modules", "dist", "test-results", "playwright-report", ".stryker-tmp", "__MACOSX"}
 EXCLUDE_FILES = {".DS_Store"}
 INCLUDE_EXTS = {".ts", ".tsx", ".js", ".mjs", ".json", ".yaml", ".yml", ".html", ".css"}
+
+
+def git_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip()
+    except Exception:
+        return "UNKNOWN"
 
 
 def sha256_file(path: str) -> str:
@@ -66,12 +87,14 @@ def main() -> int:
     if len(sys.argv) < 2 or sys.argv[1] != "generate":
         print(__doc__)
         return 2
+    commit = git_commit()
     files = collect()
     out_path = os.path.join(ROOT, "V3/仟流智算-M5评审候选锁-v0.3.sha256")
     lines = [
         "# M5 评审候选锁 —— M5（W18/W19/W20）交付物完整性封板。",
         "# 任一受封文件字节变化，本锁立即失效。双审 Reviewer 重算比对即可验证。",
-        "# 范围：计划/规则文档 + M5 Evidence + apps/packages 全部源码。",
+        "# 范围：计划/规则文档 + M5 Evidence + 根级依赖/构建输入 + apps/packages 全部源码 + 生成器自身。",
+        f"# Git commit：{commit}",
         f"# 文件数：{len(files)}",
         "",
     ]
@@ -84,7 +107,7 @@ def main() -> int:
         lines.append(f"{sha256_file(full)}  {rel}")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
-    print(f"已生成：{os.path.relpath(out_path, ROOT)}（{len(files) - len(missing)} 文件）")
+    print(f"已生成：{os.path.relpath(out_path, ROOT)}（{len(files) - len(missing)} 文件，commit {commit[:8]}）")
     if missing:
         print("缺失（未封入）：")
         for m in missing:

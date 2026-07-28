@@ -103,6 +103,8 @@ export interface PrincipalGrantTable {
   valid_from: Generated<Date>;
   valid_until: Date | null;
   status: Generated<string>;
+  /** W19/P2-01：单调版本号（乐观锁，替代 updated_at 毫秒截断）。 */
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -155,6 +157,8 @@ export interface ProviderResourceTable {
   consecutive_failures: Generated<number>;
   cooldown_until: Date | null;
   last_probe_at: Date | null;
+  /** W19/P2-01：单调版本号（乐观锁）。 */
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -293,6 +297,28 @@ export interface ReconciliationDiscrepancyTable {
   resolved_at: Date | null;
 }
 
+/** W20/P1-05：告警事实表（0017）—— 独立于 reconciliation_discrepancy，保存触发/恢复/处置历史。 */
+export interface AlertEventTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  /** 稳定派生键（domain:signal:entity），活跃告警幂等挂载点。 */
+  alert_key: string;
+  domain: string; // RESOURCE_UNAVAILABLE/USAGE_SPIKE/QUOTA_ANOMALY/CREDENTIAL_INVALID
+  signal: string; // 八类技术信号（TRD §13）
+  severity: Generated<string>; // HIGH/MEDIUM/LOW
+  title: string;
+  detail: string | null;
+  resource_id: string | null;
+  principal_id: string | null;
+  ai_request_id: string | null;
+  status: Generated<string>; // OPEN/INVESTIGATING/RESOLVED/IGNORED/AUTO_RESOLVED
+  first_seen_at: Generated<Date>;
+  last_seen_at: Generated<Date>;
+  resolved_at: Date | null;
+  resolution_note: string | null;
+  resolved_by: string | null;
+}
+
 export interface UnifiedModelTable {
   id: Generated<string>;
   enterprise_id: string;
@@ -300,6 +326,8 @@ export interface UnifiedModelTable {
   display_name: string;
   required_capabilities: string[] | null;
   status: Generated<string>;
+  /** W19/P2-01：单调版本号（乐观锁）。 */
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -314,6 +342,8 @@ export interface ModelRouteTable {
   weight: Generated<number>;
   enabled: Generated<boolean>;
   fallback_policy: string | null;
+  /** W19/P2-01：单调版本号（乐观锁）。 */
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -470,6 +500,7 @@ export interface Database {
   dispatch_decision: DispatchDecisionTable;
   reconciliation_run: ReconciliationRunTable;
   reconciliation_discrepancy: ReconciliationDiscrepancyTable;
+  alert_event: AlertEventTable;
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
   resource_status_event: ResourceStatusEventTable;

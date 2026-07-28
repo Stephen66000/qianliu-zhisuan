@@ -105,18 +105,12 @@ async function countAudit(action: string): Promise<number> {
 describe("W19 管理写操作闭环", () => {
   it("PATCH /provider-resources/:id 改名成功并写 audit", async () => {
     const { resource } = await seedProviderResource();
-    // 从 API 侧重新读取快照，保证 expected_updated_at 与实际存储精度一致（timestamptz 微秒）
-    const fresh = await db
-      .selectFrom("provider_resource")
-      .selectAll()
-      .where("id", "=", resource.id)
-      .executeTakeFirstOrThrow();
     const res = await app.inject({
       method: "PATCH",
       url: `/provider-resources/${resource.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: fresh.updated_at.toISOString(),
+        expected_version: resource.version,
         name: "智谱主账号（华北）",
       },
     });
@@ -134,7 +128,7 @@ describe("W19 管理写操作闭环", () => {
       url: `/provider-resources/${resource.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: resource.updated_at.toISOString(),
+        expected_version: resource.version,
         name: "第一次改名",
       },
     });
@@ -145,7 +139,7 @@ describe("W19 管理写操作闭环", () => {
       url: `/provider-resources/${resource.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: resource.updated_at.toISOString(),
+        expected_version: resource.version,
         name: "过期快照改名",
       },
     });
@@ -163,17 +157,12 @@ describe("W19 管理写操作闭环", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    const fresh = await db
-      .selectFrom("unified_model")
-      .selectAll()
-      .where("id", "=", model.id)
-      .executeTakeFirstOrThrow();
     const res = await app.inject({
       method: "PATCH",
       url: `/unified-models/${model.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: fresh.updated_at.toISOString(),
+        expected_version: model.version,
         status: "DISABLED",
       },
     });
@@ -203,17 +192,12 @@ describe("W19 管理写操作闭环", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    const freshRoute = await db
-      .selectFrom("model_route")
-      .selectAll()
-      .where("id", "=", route.id)
-      .executeTakeFirstOrThrow();
     const res = await app.inject({
       method: "PATCH",
       url: `/model-routes/${route.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: freshRoute.updated_at.toISOString(),
+        expected_version: route.version,
         weight: 5,
         enabled: false,
       },
@@ -241,17 +225,12 @@ describe("W19 管理写操作闭环", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    const freshGrant = await db
-      .selectFrom("principal_grant")
-      .selectAll()
-      .where("id", "=", grant.id)
-      .executeTakeFirstOrThrow();
     const res = await app.inject({
       method: "PATCH",
       url: `/grants/${grant.id}`,
       headers: { cookie: adminCookie },
       payload: {
-        expected_updated_at: freshGrant.updated_at.toISOString(),
+        expected_version: grant.version,
         quota_value: "200000",
         status: "DISABLED",
       },
@@ -336,7 +315,7 @@ describe("W19 管理写操作闭环", () => {
     const noAuth = await app.inject({
       method: "PATCH",
       url: `/provider-resources/${randomUUID()}`,
-      payload: { expected_updated_at: new Date().toISOString(), name: "x" },
+      payload: { expected_version: 1, name: "x" },
     });
     expect(noAuth.statusCode).toBe(401);
 
@@ -344,7 +323,7 @@ describe("W19 管理写操作闭环", () => {
       method: "PATCH",
       url: `/provider-resources/${randomUUID()}`,
       headers: { cookie: adminCookie },
-      payload: { expected_updated_at: new Date().toISOString(), name: "x" },
+      payload: { expected_version: 1, name: "x" },
     });
     expect(notFound.statusCode).toBe(404);
 

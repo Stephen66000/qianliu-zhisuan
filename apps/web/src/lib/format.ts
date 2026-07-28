@@ -18,13 +18,15 @@ export function formatMoney(value: string): string {
   });
 }
 
-/** 额度/token 展示：BigInt 文本 → 千分位整数千分位。 */
+/** 额度/token 展示：BigInt 文本 → 千分位（P2-03：超 MAX_SAFE_INTEGER 用 BigInt，不用 Number）。 */
 export function formatCount(value: string): string {
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    return value;
+  try {
+    return BigInt(value).toLocaleString("zh-CN");
+  } catch {
+    // 非整数字符串（如小数额度），退化为 Number 格式化
+    const num = Number(value);
+    return Number.isFinite(num) ? Math.trunc(num).toLocaleString("zh-CN") : value;
   }
-  return Math.trunc(num).toLocaleString("zh-CN");
 }
 
 /** 超额比例：小数文本（"0.0500"）→ "5.00%"（展示层 ×100，仅格式转换）。 */

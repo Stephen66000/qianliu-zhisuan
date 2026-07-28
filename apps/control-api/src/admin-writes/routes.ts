@@ -4,7 +4,7 @@
  * TRD §11.2 六要素：requireAuth（已登录管理员）、zod 校验 + 对象状态校验、
  * 成功返回最新结果、失败返回明确原因、写操作日志、并发修改乐观锁（409 conflict）。
  *
- * 并发语义：expected_updated_at 乐观锁——前端携带读取时的 updated_at，
+ * 并发语义：单调 version 乐观锁（P2-01）——前端携带读取时的 version，
  * 期间被他人修改则 409 conflict（W19 DoD「并发修改测试」的落点）。
  */
 import type { FastifyInstance } from "fastify";
@@ -13,33 +13,38 @@ import { encryptCredential, credentialFingerprint } from "@qianliu/provider-adap
 import { AdminRecoverNotFoundError } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 
-const ExpectedUpdatedAt = z.string().datetime({ offset: true });
+/** 单调版本号乐观锁（P2-01）：前端携带读取时的 version，期间被改则 409 conflict。 */
+const ExpectedVersion = z.number().int().positive();
+
+/** 额度值（P2-02）：先字符串正则校验非负整数，再转 BigInt；拒绝 abc/1.5/-1（此前会变 500 或接受负值）。 */
+const QuotaValue = z
+  .union([z.string(), z.number()])
+  .transform(String)
+  .refine((v) => /^\d+$/.test(v), { message: "额度必须是非负整数" })
+  .transform((v) => BigInt(v));
 
 const UpdateResourceSchema = z.object({
-  expected_updated_at: ExpectedUpdatedAt,
+  expected_version: ExpectedVersion,
   name: z.string().min(1).max(255).optional(),
   concurrency_limit: z.number().int().positive().nullable().optional(),
 });
 
 const UpdateUnifiedModelSchema = z.object({
-  expected_updated_at: ExpectedUpdatedAt,
+  expected_version: ExpectedVersion,
   display_name: z.string().min(1).max(128).optional(),
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 });
 
 const UpdateModelRouteSchema = z.object({
-  expected_updated_at: ExpectedUpdatedAt,
+  expected_version: ExpectedVersion,
   priority: z.number().int().optional(),
   weight: z.number().int().positive().optional(),
   enabled: z.boolean().optional(),
 });
 
 const UpdateGrantSchema = z.object({
-  expected_updated_at: ExpectedUpdatedAt,
-  quota_value: z
-    .union([z.string(), z.number()])
-    .transform((v) => BigInt(v))
-    .optional(),
+  expected_version: ExpectedVersion,
+  quota_value: QuotaValue.optional(),
   allow_overage: z.boolean().optional(),
   valid_until: z.string().datetime().nullable().optional(),
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
@@ -93,7 +98,7 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
       const updated = await app.adminWriteRepo.updateProviderResource(
         ent,
         req.params.id,
-        new Date(parsed.data.expected_updated_at),
+        parsed.data.expected_version,
         { name: parsed.data.name, concurrency_limit: parsed.data.concurrency_limit },
       );
       if (!updated) {
@@ -136,7 +141,7 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
       const updated = await app.adminWriteRepo.updateUnifiedModel(
         ent,
         req.params.id,
-        new Date(parsed.data.expected_updated_at),
+        parsed.data.expected_version,
         { display_name: parsed.data.display_name, status: parsed.data.status },
       );
       if (!updated) {
@@ -177,7 +182,7 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
       const updated = await app.adminWriteRepo.updateModelRoute(
         ent,
         req.params.id,
-        new Date(parsed.data.expected_updated_at),
+        parsed.data.expected_version,
         {
           priority: parsed.data.priority,
           weight: parsed.data.weight,
@@ -231,7 +236,7 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
       const updated = await app.adminWriteRepo.updateGrant(
         ent,
         req.params.id,
-        new Date(parsed.data.expected_updated_at),
+        parsed.data.expected_version,
         {
           quota_value: parsed.data.quota_value,
           allow_overage: parsed.data.allow_overage,
