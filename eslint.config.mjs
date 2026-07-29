@@ -76,7 +76,7 @@ export default [
       "**/*.config.js",
       "**/*.config.mjs",
       "参考/**",
-      "old version/**",
+      "_quarantine/**",
       "V3/PoC/**",
     ],
   },

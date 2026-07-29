@@ -34,9 +34,8 @@ playwright/.cache/
 *.swp
 *~
 
-# === 外部源码与旧版本（ADR 行 34：不复制 TokenHub/Sub2API 进产品目录）===
+# === 外部源码（ADR 行 34：不复制 TokenHub/Sub2API 进产品目录）===
 参考/
-old version/
 
 # === 知识库运行期产物 ===
 _knowledge_base/.runtime/
