@@ -143,6 +143,14 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                   {a.errorClassification ? (
                     <StatusTag tone="warning">{a.errorClassification}</StatusTag>
                   ) : null}
+                  {a.failureLayer ? (
+                    <span className="text-[12px] text-ql-fg-tertiary">故障层：{a.failureLayer}</span>
+                  ) : null}
+                  {a.firstByteAt ? (
+                    <span className="text-[12px] text-ql-fg-tertiary">
+                      首字节 {formatDuration(new Date(a.firstByteAt).getTime() - new Date(a.startedAt).getTime())}
+                    </span>
+                  ) : null}
                   <span className="ml-auto text-[12px] text-ql-fg-tertiary">
                     {a.finishedAt
                       ? formatDuration(new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime())

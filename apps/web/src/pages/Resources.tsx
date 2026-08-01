@@ -265,6 +265,7 @@ const STATUS_LABEL: Record<string, string> = {
   EXHAUSTED: "额度耗尽",
   EXPIRED: "已过期",
   UNAVAILABLE: "不可用",
+  RATE_LIMITED: "限流冷却",
 };
 
 export function ResourcesPage() {

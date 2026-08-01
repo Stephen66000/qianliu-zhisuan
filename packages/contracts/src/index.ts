@@ -80,6 +80,17 @@ export interface Outcome {
   upstreamCode?: string;
   /** 上游明确恢复时间；没有可靠字段时保持缺失。 */
   recoverAt?: string;
+  /** 收到上游首个响应字节的时间（epoch ms），仅记元数据。 */
+  firstByteAt?: number;
+  /** 故障所在分层；不含上游或请求正文。 */
+  failureLayer?:
+    | "UPSTREAM_HTTP"
+    | "UPSTREAM_NETWORK"
+    | "UPSTREAM_PROTOCOL"
+    | "FIRST_BYTE_TIMEOUT"
+    | "STREAM_IDLE_TIMEOUT"
+    | "REQUEST_TIMEOUT"
+    | "CLIENT";
   cancelled?: boolean;
 }
 
@@ -174,6 +185,7 @@ export type ResourceStatus =
   | "EXHAUSTED"
   | "EXPIRED"
   | "CREDENTIAL_INVALID"
+  | "RATE_LIMITED"
   | "UNAVAILABLE";
 
 /** 主体类型（TRD §5.2）。 */

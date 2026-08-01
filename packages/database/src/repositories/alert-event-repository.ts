@@ -81,7 +81,7 @@ export const DEFAULT_THRESHOLDS: AlertThresholds = {
 };
 
 const CREDENTIAL_INVALID_STATES = new Set(["CREDENTIAL_INVALID", "EXPIRED"]);
-const RESOURCE_UNAVAILABLE_STATES = new Set(["DEGRADED", "EXHAUSTED", "UNAVAILABLE"]);
+const RESOURCE_UNAVAILABLE_STATES = new Set(["DEGRADED", "EXHAUSTED", "RATE_LIMITED", "UNAVAILABLE"]);
 
 export class AlertEventRepository {
   constructor(

@@ -56,7 +56,11 @@ import {
 import type { PipelineHandler } from "../routes/chat.js";
 import { resolveAdapter } from "./adapter-registry.js";
 import { buildResponsesResponse, writeResponsesSse } from "../routes/responses-protocol.js";
-import { writeChatCompletionsSse } from "../routes/chat-protocol.js";
+import {
+  createChatStreamWriter,
+  type GatewayStreamWriter,
+} from "../routes/chat-protocol.js";
+import { createMessagesStreamWriter } from "../routes/messages-protocol.js";
 import { fingerprintRequest } from "./request-idempotency.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
@@ -142,6 +146,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     const principal = request.principal!;
     const downstreamAbort = new AbortController();
     request.raw.once("aborted", () => downstreamAbort.abort());
+    reply.raw.once("close", () => {
+      if (!reply.raw.writableEnded) downstreamAbort.abort();
+    });
     const requestStartedAt = deps.now?.() ?? Date.now();
     const created = Math.floor(requestStartedAt / 1000);
     const requestFingerprint = request.idempotencyKey
@@ -160,12 +167,20 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       protocol: capability,
       unified_model: body.model,
       stream: body.stream ?? false,
+      client_id: clientIdentity(request.headers),
     });
     if (claim.kind !== "CREATED") {
       return sendIdempotencyReplay(reply, traceId, claim);
     }
     reply.header("x-request-id", traceId);
     reply.header("x-ai-request-id", requestId);
+    // Responses 当前是 Chat Completions 转换子集，仍保持缓冲式；
+    // Chat / Messages 由真实上游 chunk 回调驱动北向 SSE。
+    const streamWriter: GatewayStreamWriter | null = body.stream && capability === "chat"
+      ? createChatStreamWriter(reply, { requestId, traceId, createdAt: created, model: body.model })
+      : body.stream && capability === "messages"
+        ? createMessagesStreamWriter(reply, { requestId, traceId, model: body.model })
+        : null;
 
     // 2. 硬过滤（W11）：可服务资源 ∩ model_route 启用候选
     const allCandidates = await deps.listCandidates(principal.enterpriseId, body.model);
@@ -208,8 +223,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       });
     }
 
-    const servableIds = new Set(
-      (await deps.poolRepo.listServableResources(principal.enterpriseId)).map((s) => s.id),
+    const servableById = new Map(
+      (await deps.poolRepo.listServableResources(principal.enterpriseId)).map((s) => [s.id, s]),
     );
     const candidateByResourceId = new Map(
       grantAuthorizedCandidates.map((candidate) => [candidate.resourceId, candidate]),
@@ -217,7 +232,6 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let blockingEvent: AvailabilityEvent | null = null;
     const runtimeAllowedCandidates: RouteCandidateRow[] = [];
     for (const candidate of grantAuthorizedCandidates) {
-      if (!servableIds.has(candidate.resourceId)) continue;
       if (deps.runtimeAssuranceRepo && deps.runtimeAssuranceMode === "ENFORCE") {
         const open = await deps.runtimeAssuranceRepo.findOpenBlock(candidate.resourceId, candidate.upstreamModel);
         if (open) {
@@ -242,24 +256,57 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           }
         }
       }
+      if (!servableById.has(candidate.resourceId)) continue;
       runtimeAllowedCandidates.push(candidate);
     }
     const eligible: RoutingCandidateInput[] = runtimeAllowedCandidates
-      .map((c) => ({
-        resourceId: c.resourceId,
-        upstreamModel: c.upstreamModel,
-        priority: c.priority,
-        weight: c.weight,
-        status: c.status as RoutingCandidateInput["status"],
-        probe: c.probe,
-        mode: c.mode,
-        providerCode: c.providerCode,
-      }));
+      .map((c) => {
+        const admission = servableById.get(c.resourceId)!;
+        return ({
+          resourceId: c.resourceId,
+          upstreamModel: c.upstreamModel,
+          priority: c.priority,
+          weight: c.weight,
+          status: admission.status as RoutingCandidateInput["status"],
+          probe: admission.probe,
+          mode: c.mode,
+          providerCode: c.providerCode,
+        });
+      });
 
     if (eligible.length === 0) {
       if (blockingEvent) {
         await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", "RUNTIME_ASSURANCE_BLOCKED", blockingEvent.event_number);
         return sendRuntimeBlock(reply, capability, traceId, requestId, blockingEvent);
+      }
+      const coolingResources = await Promise.all(
+        grantAuthorizedCandidates.map((candidate) => deps.poolRepo.getResource(candidate.resourceId)),
+      );
+      const resource = coolingResources.find((candidate) => candidate?.status === "RATE_LIMITED");
+      if (resource) {
+        const retryAfterMs = Math.max(
+          1_000,
+          (resource.cooldown_until?.getTime() ?? Date.now() + 1_000) - Date.now(),
+        );
+        await deps.ledgerRepo.updateRequestStatus(
+          requestId,
+          "FAILED",
+          "UPSTREAM_RATE_LIMITED",
+          "resource_rate_limited",
+        );
+        return reply.code(429)
+          .header("retry-after", Math.max(1, Math.ceil(retryAfterMs / 1_000)))
+          .send({
+            error: {
+              message: "上游资源正在限流冷却，请稍后重试",
+              type: "rate_limit_error",
+              code: "resource_rate_limited",
+              param: null,
+              retryable: true,
+              retry_after_ms: retryAfterMs,
+              request_id: requestId,
+            },
+          });
       }
       // 无健康候选：停止对应模型调用，不无账放行（TRD §14 行 854）
       await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", "NO_HEALTHY_CANDIDATE", "no_healthy_candidate");
@@ -296,6 +343,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let keyAuthorizationRevokedDuringDispatch = false;
     let capacityWaitTimedOut = false;
     let capacityRetryAfterMs = capacityPollMs;
+    let halfOpenProbeBusy = false;
     // 请求级超额事实随结算冻结；后续 Grant/Counter 变化不得重算历史。
     let requestOverage = false;
 
@@ -367,6 +415,15 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         triedResourceIds.add(cand.resourceId);
         continue;
       }
+      const probeAcquired = cand.probe
+        ? await deps.poolRepo.tryAcquireHalfOpenProbe(cand.resourceId)
+        : false;
+      if (cand.probe && !probeAcquired) {
+        // 另一个进程/请求已在用真实业务流量探测，本请求不重复打上游。
+        halfOpenProbeBusy = true;
+        triedResourceIds.add(cand.resourceId);
+        continue;
+      }
       // 3a. 冻结本 Attempt 的候选快照（WT-18 可解释：因子/总分/reason/策略版本）
       for (const sc of lastScored) {
         if (triedResourceIds.has(sc.input.resourceId) && !sc.selected) continue; // 已试候选不重复冻结
@@ -412,6 +469,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           capacityWaitTimedOut = true;
           capacityRetryAfterMs = capacityPollMs;
           triedResourceIds.add(cand.resourceId);
+          if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
           continue;
         }
         leaseId = lease;
@@ -425,6 +483,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         if (reserve.decision !== QUOTA_DECISION.ALLOW && reserve.decision !== QUOTA_DECISION.ALLOW_OVERAGE) {
           // REJECT_EXHAUSTED / REJECT_NO_GRANT / REJECT_GRANT_EXPIRED：释放租约，排除资源重评
           await deps.quotaRepo.releaseLease(leaseId);
+          if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
           triedResourceIds.add(cand.resourceId);
           continue;
         }
@@ -462,6 +521,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         });
         if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
         if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
+        if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
         keyAuthorizationRevokedDuringDispatch = true;
         break;
       }
@@ -498,6 +558,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         });
         if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
         if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
+        if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
         if (grantIsCurrent) {
           keyAuthorizationRevokedDuringDispatch = true;
         } else {
@@ -526,6 +587,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           // 请求正文仅驻留内存，账本仍保持 METADATA_ONLY。
           body: capability === "responses" ? body.responsesRequest : body,
           abort: downstreamAbort.signal,
+          ...(streamWriter
+            ? { onStreamChunk: (payload: Record<string, unknown>) => streamWriter.writeChunk(payload) }
+            : {}),
         },
         attemptNo,
       );
@@ -534,9 +598,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       await deps.ledgerRepo.updateAttemptResult(attempt.id, {
         http_status: outcome.status,
         response_committed: outcome.committed,
+        first_byte_at: outcome.firstByteAt ? new Date(outcome.firstByteAt) : null,
         finished_at: new Date(),
         error_classification: classification,
         error_code: outcome.error ?? null,
+        failure_layer: outcome.failureLayer ?? null,
         switch_reason: null,
       });
 
@@ -567,7 +633,17 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       if (outcome.committed && !outcome.error) {
         await deps.poolRepo.recordSuccess(cand.resourceId);
       } else if (classification) {
-        await deps.poolRepo.recordFailure(cand.resourceId, classification as ErrorClassification);
+        const transition = await deps.poolRepo.recordFailure(
+          cand.resourceId,
+          classification as ErrorClassification,
+          new Date(),
+          { retryAfterMs: outcome.retryAfterMs },
+        );
+        if (probeAcquired && !transition) {
+          await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
+        }
+      } else if (probeAcquired) {
+        await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
       }
 
       // 3d. usage + ledger（每次有可证明用量的 Attempt 独立明细；WT-11 双 Attempt 双明细）
@@ -648,20 +724,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       // 3e. 切换判定：committed=true 绝不切换（WT-12）；committed=false 且可切换错误 → 重评
       if (outcome.committed) break;
       if (!classification || !isSwitchable(classification as ErrorClassification)) break;
-      const retrySameOnlyResource =
-        outcome.status === 429
-        && (outcome.upstreamErrorKind === "ENGINE_OVERLOADED"
-          || outcome.upstreamErrorKind === "CONCURRENCY_LIMITED")
-        && eligible.length === 1
-        && attemptNo < maxAttempts;
-      if (retrySameOnlyResource) {
-        await boundedDelay(
-          Math.min(outcome.retryAfterMs ?? 250, 1_000),
-          () => downstreamAbort.signal.aborted,
-        );
-      } else {
-        triedResourceIds.add(cand.resourceId);
-      }
+      // 429 必须保留给客户端并进入资源冷却；唯一资源不在同一
+      // 北向请求内立即重打，避免与 SDK 自动重试叠加放大限流。
+      triedResourceIds.add(cand.resourceId);
       await deps.ledgerRepo.updateAttemptResult(attempt.id, { switch_reason: classification });
     }
 
@@ -823,6 +888,27 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
             },
           });
       }
+      if (halfOpenProbeBusy) {
+        await deps.ledgerRepo.updateRequestStatus(
+          requestId,
+          "FAILED",
+          "UPSTREAM_RATE_LIMITED",
+          "half_open_probe_in_progress",
+        );
+        return reply.code(429)
+          .header("retry-after", "1")
+          .send({
+            error: {
+              message: "上游资源正在半开探测，请稍后重试",
+              type: "rate_limit_error",
+              code: "half_open_probe_in_progress",
+              param: null,
+              retryable: true,
+              retry_after_ms: 1_000,
+              request_id: requestId,
+            },
+          });
+      }
       await deps.ledgerRepo.updateRequestStatus(
         requestId,
         "FAILED",
@@ -837,17 +923,50 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       if (finalSignalResult?.decision === "BLOCKED_UPSTREAM" && finalSignalResult.event) {
         return sendRuntimeBlock(reply, capability, traceId, requestId, finalSignalResult.event);
       }
-      const status = finalOutcome.status === 429 ? 429 : 502;
+      if (streamWriter?.committed) {
+        streamWriter.fail({
+          code: finalOutcome.error === "stream_interrupted_after_commit"
+            ? "upstream_stream_interrupted"
+            : finalOutcome.error,
+          message: finalOutcome.error === "upstream_timeout"
+            ? "上游流超时"
+            : "上游流在输出期间中断",
+          requestId,
+        });
+        return;
+      }
+      const quotaExhausted = finalOutcome.upstreamErrorKind === "QUOTA_EXHAUSTED";
+      const status = finalOutcome.status === 400
+        ? 400
+        : quotaExhausted || finalOutcome.status === 429
+          ? 429
+          : finalOutcome.status === 504
+            ? 504
+            : 502;
+      const retryable = status !== 400 && !quotaExhausted;
+      const errorType = status === 400
+        ? "invalid_request_error"
+        : status === 429
+          ? "rate_limit_error"
+          : "server_error";
+      const errorCode = quotaExhausted
+        ? "upstream_quota_exhausted"
+        : finalOutcome.error;
+      const errorMessage = quotaExhausted
+        ? "上游套餐额度已耗尽，请更换资源或续费"
+        : finalOutcome.status === 429
+          ? "上游套餐暂时限流，请稍后重试"
+          : finalOutcome.error;
       if (finalOutcome.retryAfterMs !== undefined) {
         reply.header("retry-after", Math.max(1, Math.ceil(finalOutcome.retryAfterMs / 1_000)));
       }
       return reply.code(status).header("x-request-id", traceId).send({
         error: {
-          message: finalOutcome.status === 429 ? "上游套餐暂时限流，请稍后重试" : finalOutcome.error,
-          type: finalOutcome.status === 429 ? "rate_limit_error" : "server_error",
-          code: finalOutcome.error,
+          message: errorMessage,
+          type: errorType,
+          code: errorCode,
           param: null,
-          retryable: true,
+          retryable,
           ...(finalOutcome.retryAfterMs === undefined
             ? {}
             : { retry_after_ms: finalOutcome.retryAfterMs }),
@@ -857,6 +976,10 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     }
 
     if (capability === "messages") {
+      if (streamWriter) {
+        streamWriter.complete(finalOutcome);
+        return;
+      }
       const assistant = normalizeAssistantOutput(finalOutcome.responseOutput);
       const content: unknown[] = [];
       if (assistant.text) content.push({ type: "text", text: assistant.text });
@@ -898,19 +1021,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       return reply.header("x-request-id", traceId).code(200).send(response);
     }
     const assistant = normalizeAssistantOutput(finalOutcome.responseOutput);
-    if (body.stream) {
-      writeChatCompletionsSse(reply, {
-        requestId,
-        traceId,
-        createdAt: created,
-        model: body.model,
-        text: assistant.text,
-        functionCalls: assistant.functionCalls,
-        inputTokens: finalOutcome.usage.input,
-        outputTokens: finalOutcome.usage.output,
-        cacheTokens: finalOutcome.usage.cache,
-        reasoningTokens: finalOutcome.usage.reasoning ?? 0,
-      });
+    if (streamWriter) {
+      streamWriter.complete(finalOutcome);
       return;
     }
     return reply.header("x-request-id", traceId).code(200).send({
@@ -1006,6 +1118,18 @@ function idempotencyReplayState(status: string): {
     message: "相同幂等请求已终止；请使用新的 Idempotency-Key 发起新请求",
     retryable: false,
   };
+}
+
+function clientIdentity(headers: Record<string, unknown>): string | null {
+  const explicit = headers["x-client-id"];
+  const userAgent = headers["user-agent"];
+  const value = typeof explicit === "string"
+    ? explicit
+    : typeof userAgent === "string"
+      ? userAgent
+      : "";
+  const normalized = value.replace(/[\r\n\t]/g, " ").trim();
+  return normalized ? normalized.slice(0, 64) : null;
 }
 
 async function hasCurrentKeyModelAuthorization(
@@ -1193,8 +1317,12 @@ async function boundedDelay(
 }
 
 /** 由 Outcome 反推错误分类（Stub 的 error_code → TRD §9 分类）。 */
-function mapToClassification(outcome: { status: number; error?: string }): string | null {
+function mapToClassification(
+  outcome: Pick<Outcome, "status" | "error" | "committed" | "upstreamErrorKind">,
+): string | null {
   if (!outcome.error) return null;
+  if (outcome.committed) return "STREAM_INTERRUPTED_AFTER_COMMIT";
+  if (outcome.upstreamErrorKind === "QUOTA_EXHAUSTED") return "UPSTREAM_BILLING_BLOCKED";
   if (outcome.status === 401 || outcome.status === 403) return "UPSTREAM_CREDENTIAL_INVALID";
   if (outcome.status === 429) return "UPSTREAM_RATE_LIMITED";
   if (outcome.status === 402) return "UPSTREAM_BILLING_BLOCKED";
@@ -1203,6 +1331,7 @@ function mapToClassification(outcome: { status: number; error?: string }): strin
   if (outcome.error === "transport_error") return "TRANSPORT_ERROR";
   if (outcome.error === "stream_interrupted_after_commit") return "STREAM_INTERRUPTED_AFTER_COMMIT";
   if (outcome.error === "client_cancelled") return "CLIENT_INVALID";
+  if (outcome.status >= 400 && outcome.status < 500) return "CLIENT_INVALID";
   return "UNKNOWN";
 }
 

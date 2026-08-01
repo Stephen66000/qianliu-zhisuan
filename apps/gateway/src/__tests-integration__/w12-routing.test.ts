@@ -247,9 +247,9 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
       expect(attempts[1]!.provider_resource_id).toBe(resB);
       expect(attempts[1]!.response_committed).toBe(true);
 
-      // 单次 429 只降级计数，不把共享套餐对其他主体全局隔离。
+      // 单次 429 进入短时限流冷却，不升级为长期 UNAVAILABLE。
       const rowA = await poolRepo.getResource(resA);
-      expect(rowA!.status).toBe("DEGRADED");
+      expect(rowA!.status).toBe("RATE_LIMITED");
       expect(rowA!.consecutive_failures).toBe(1);
 
       // 恢复 A（供后续用例）

@@ -217,8 +217,10 @@ export const CAPABILITY_MATRIX: EndpointCapability[] = [
   { endpoint: "POST /v1/chat/completions#stream", support: "NATIVE" },
   { endpoint: "POST /v1/messages", support: "NATIVE" },
   { endpoint: "POST /v1/messages#stream", support: "NATIVE" },
-  { endpoint: "POST /v1/responses", support: "NATIVE" },
-  { endpoint: "POST /v1/responses#stream", support: "NATIVE" },
+  // 当前由 Responses 子集转换为上游 Chat Completions；不支持托管工具与
+  // 原生事件透传，不得宣称 NATIVE。
+  { endpoint: "POST /v1/responses", support: "TRANSFORMED" },
+  { endpoint: "POST /v1/responses#stream", support: "TRANSFORMED" },
   // 默认关闭（详细计划 §4.6）：未启用能力必须显式拒绝，不得静默降级。
   { endpoint: "POST /v1/embeddings", support: "UNSUPPORTED" },
   { endpoint: "POST /v1/messages/count_tokens", support: "UNSUPPORTED" },

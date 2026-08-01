@@ -64,30 +64,40 @@ describe("deriveResourceTransition 处置矩阵（TRD §9）", () => {
     expect(t!.isolates).toBe(true);
   });
 
-  it("普通 429 无论连续次数都只降级，不触发硬隔离", () => {
-    const t1 = deriveResourceTransition(active(), "UPSTREAM_RATE_LIMITED", T0);
-    expect(t1!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
+  it("429 立即进入短时 RATE_LIMITED，保留 Retry-After 且同波并发去重", () => {
+    const t1 = deriveResourceTransition(
+      active(),
+      "UPSTREAM_RATE_LIMITED",
+      T0,
+      { retryAfterMs: 12_000 },
+    );
+    expect(t1!.toStatus).toBe(RESOURCE_STATUS.RATE_LIMITED);
     expect(t1!.reason).toBe(STATE_REASON.RATE_LIMITED);
-    expect(t1!.cooldownUntil).toBeNull();
-    expect(t1!.isolates).toBe(false);
+    expect(t1!.cooldownUntil).toBe(T0 + 12_000);
+    expect(t1!.isolates).toBe(true);
+    expect(t1!.consecutiveFailures).toBe(1);
 
-    const t2 = deriveResourceTransition(
-      active({ status: RESOURCE_STATUS.DEGRADED, consecutiveFailures: 1 }),
+    const cooling = active({
+      status: RESOURCE_STATUS.RATE_LIMITED,
+      consecutiveFailures: 1,
+      cooldownUntil: T0 + 12_000,
+    });
+    expect(deriveResourceTransition(
+      cooling,
       "UPSTREAM_RATE_LIMITED",
       T0 + 1_000,
-    );
-    expect(t2!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
-    expect(t2!.consecutiveFailures).toBe(2);
-    expect(t2!.cooldownUntil).toBeNull();
+      { retryAfterMs: 60_000 },
+    )).toBeNull();
 
-    const t3 = deriveResourceTransition(
-      active({ status: RESOURCE_STATUS.DEGRADED, consecutiveFailures: 2 }),
+    const nextWave = deriveResourceTransition(
+      cooling,
       "UPSTREAM_RATE_LIMITED",
-      T0 + 2_000,
+      T0 + 12_000,
+      { retryAfterMs: 2_000 },
     );
-    expect(t3!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
-    expect(t3!.cooldownUntil).toBeNull();
-    expect(t3!.isolates).toBe(false);
+    expect(nextWave!.toStatus).toBe(RESOURCE_STATUS.RATE_LIMITED);
+    expect(nextWave!.consecutiveFailures).toBe(2);
+    expect(nextWave!.cooldownUntil).toBe(T0 + 14_000);
   });
 
   it("临时故障达到旧阈值后仍保持 DEGRADED + ALLOW", () => {
@@ -155,6 +165,18 @@ describe("deriveSuccessTransition 成功路径", () => {
     expect(t!.consecutiveFailures).toBe(0);
   });
 
+  it("RATE_LIMITED 半开探测成功 → DEGRADED 并清除冷却", () => {
+    const t = deriveSuccessTransition(
+      active({ status: RESOURCE_STATUS.RATE_LIMITED, consecutiveFailures: 1, cooldownUntil: T0 - 1 }),
+    );
+    expect(t).toMatchObject({
+      toStatus: RESOURCE_STATUS.DEGRADED,
+      reason: STATE_REASON.HALF_OPEN_PROBE_OK,
+      consecutiveFailures: 0,
+      cooldownUntil: null,
+    });
+  });
+
   it("终态隔离资源成功被防御性忽略", () => {
     expect(deriveSuccessTransition(active({ status: RESOURCE_STATUS.CREDENTIAL_INVALID }))).toBeNull();
     expect(deriveSuccessTransition(active({ status: RESOURCE_STATUS.EXHAUSTED }))).toBeNull();
@@ -176,6 +198,20 @@ describe("evaluateAdmission 准入门禁（硬过滤）", () => {
     const probe = evaluateAdmission(cooling, T0 + 10_000);
     expect(probe.admit).toBe(true);
     expect(probe.probe).toBe(true);
+  });
+
+  it("RATE_LIMITED 冷却中保留限流语义；到期允许半开探测", () => {
+    const cooling = active({ status: RESOURCE_STATUS.RATE_LIMITED, cooldownUntil: T0 + 10_000 });
+    expect(evaluateAdmission(cooling, T0)).toEqual({
+      admit: false,
+      probe: false,
+      blockReason: RESOURCE_STATUS.RATE_LIMITED,
+    });
+    expect(evaluateAdmission(cooling, T0 + 10_000)).toEqual({
+      admit: true,
+      probe: true,
+      blockReason: null,
+    });
   });
 
   it("终态隔离（CREDENTIAL_INVALID/EXHAUSTED/EXPIRED）拒绝", () => {

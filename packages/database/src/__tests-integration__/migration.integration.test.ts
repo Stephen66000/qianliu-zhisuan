@@ -78,6 +78,29 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     }
   });
 
+  it("POOL-014 迁移增加失败层并允许 RATE_LIMITED 运行态", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const columns = await sql`
+        SELECT column_name
+          FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'upstream_attempt'
+           AND column_name = 'failure_layer'
+      `.execute(db);
+      expect(columns.rows).toHaveLength(1);
+
+      const constraint = await sql`
+        SELECT pg_get_constraintdef(oid) AS definition
+          FROM pg_constraint
+         WHERE conname = 'provider_resource_status_check'
+      `.execute(db);
+      expect((constraint.rows[0] as { definition: string }).definition).toContain("RATE_LIMITED");
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it("migrateDown 回滚最近迁移", async () => {
     const db = createKysely(pg.connectionString);
     try {

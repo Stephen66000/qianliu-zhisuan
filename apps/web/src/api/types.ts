@@ -503,6 +503,7 @@ export interface AttemptItem {
   httpStatus: number | null;
   errorClassification: string | null;
   errorCode: string | null;
+  failureLayer: string | null;
   responseCommitted: boolean;
   switchReason: string | null;
   /** P1-04：该 Attempt 的逐条计量明细。 */

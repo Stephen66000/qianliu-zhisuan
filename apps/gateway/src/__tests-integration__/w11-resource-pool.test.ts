@@ -133,20 +133,50 @@ describe("W11 凭证生命周期与账号池", () => {
     expect(reasons).toEqual([STATE_REASON.REFRESH_FAILED, STATE_REASON.ADMIN_RECOVER]);
   });
 
-  it("RA-W04：连续普通 429 只降级，资源继续可服务", async () => {
+  it("故障注入：429 短时冷却且同波去重 → 到期半开探测 → 成功降级恢复", async () => {
     const now = Date.now();
-    // 失败次数不再触发硬隔离；明确额度信号由运行保障事件决定。
-    await poolRepo.recordFailure(resC, "UPSTREAM_RATE_LIMITED", new Date(now));
-    await poolRepo.recordFailure(resC, "UPSTREAM_RATE_LIMITED", new Date(now + 1_000));
-    const t = await poolRepo.recordFailure(resC, "UPSTREAM_RATE_LIMITED", new Date(now + 2_000));
-    expect(t!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
-    expect(t!.cooldownUntil).toBeNull();
-    const during = await poolRepo.listServableResources(ENT_ID, undefined, new Date(now + 60_000));
-    expect(during.map((s) => s.id)).toContain(resC);
-    expect(during.find((s) => s.id === resC)!.probe).toBe(false);
+    const wave = await Promise.all([1, 2, 3].map(() => poolRepo.recordFailure(
+      resC,
+      "UPSTREAM_RATE_LIMITED",
+      new Date(now),
+      { retryAfterMs: 5_000 },
+    )));
+    const t = wave.find((transition) => transition !== null)!;
+    expect(wave.filter((transition) => transition !== null)).toHaveLength(1);
+    expect(t!.toStatus).toBe(RESOURCE_STATUS.RATE_LIMITED);
+    expect(t!.cooldownUntil).toBe(now + 5_000);
+    // 同一冷却窗口内并发失败不重复累计，也不延长冷却。
+    expect(await poolRepo.recordFailure(
+      resC,
+      "UPSTREAM_RATE_LIMITED",
+      new Date(now + 1_000),
+      { retryAfterMs: 60_000 },
+    )).toBeNull();
+    expect((await poolRepo.getResource(resC))!.consecutive_failures).toBe(1);
 
+    // 冷却中：不可服务
+    const during = await poolRepo.listServableResources(ENT_ID, undefined, new Date(now + 4_000));
+    expect(during.map((s) => s.id)).not.toContain(resC);
+
+    // 冷却到期：半开探测窗口（admit + probe）
+    const after = await poolRepo.listServableResources(ENT_ID, undefined, new Date(now + 5_000));
+    const probeC = after.find((s) => s.id === resC);
+    expect(probeC).toBeDefined();
+    expect(probeC!.probe).toBe(true);
+
+    // 多实例同时看到半开候选时，只能有一个真实请求获得探针租约。
+    const leases = await Promise.all([1, 2, 3].map(() =>
+      poolRepo.tryAcquireHalfOpenProbe(resC, new Date(now + 5_000))));
+    expect(leases.filter(Boolean)).toHaveLength(1);
+
+    // 半开探测成功 → DEGRADED（一次成功不抹掉趋势）
     const ok = await poolRepo.recordSuccess(resC);
-    expect(ok!.toStatus).toBe(RESOURCE_STATUS.ACTIVE);
+    expect(ok!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
+    expect(ok!.reason).toBe(STATE_REASON.HALF_OPEN_PROBE_OK);
+
+    // 再次成功 → ACTIVE
+    const ok2 = await poolRepo.recordSuccess(resC);
+    expect(ok2!.toStatus).toBe(RESOURCE_STATUS.ACTIVE);
   });
 
   it("RA-W04：连续 5xx/传输故障达到旧阈值仍不硬隔离", async () => {

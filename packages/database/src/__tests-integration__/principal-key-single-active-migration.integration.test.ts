@@ -100,6 +100,7 @@ describe("0023 Principal Key 单 ACTIVE 迁移", () => {
         constraint: "principal_key_one_active_per_principal_uq",
       });
 
+      expect(await migrateDown(db)).toBe("0031_gateway_stream_resilience");
       expect(await migrateDown(db)).toBe("0030_runtime_assurance_foundation");
       expect(await migrateDown(db)).toBe("0029_provider_quota_auto_calculation");
       expect(await migrateDown(db)).toBe("0028_enterprise_reference_guards");

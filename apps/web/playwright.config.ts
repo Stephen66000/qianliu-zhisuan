@@ -10,7 +10,7 @@
  */
 import { defineConfig, devices } from "@playwright/test";
 
-const controlApiPort = Number(process.env.E2E_CONTROL_API_PORT ?? 8788);
+const controlApiPort = Number(process.env.E2E_CONTROL_API_PORT ?? process.env.CONTROL_API_PORT ?? 8788);
 const webPort = Number(process.env.E2E_WEB_PORT ?? 5173);
 
 export default defineConfig({

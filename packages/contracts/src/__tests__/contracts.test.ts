@@ -21,7 +21,7 @@ describe("@qianliu/contracts baseline", () => {
   });
 
   it("W23：协议能力矩阵冻结——启用集与拒绝集稳定，单一事实源", () => {
-    // 启用（NATIVE）：models + chat/messages/responses 非流式/流式
+    // 原生：models + chat/messages 非流式/流式
     const native = CAPABILITY_MATRIX.filter((c) => c.support === "NATIVE");
     expect(native.map((c) => c.endpoint)).toEqual([
       "GET /v1/models",
@@ -29,8 +29,10 @@ describe("@qianliu/contracts baseline", () => {
       "POST /v1/chat/completions#stream",
       "POST /v1/messages",
       "POST /v1/messages#stream",
-      "POST /v1/responses",
-      "POST /v1/responses#stream",
+    ]);
+    expect(CAPABILITY_MATRIX.filter((c) => c.support === "TRANSFORMED")).toEqual([
+      { endpoint: "POST /v1/responses", support: "TRANSFORMED" },
+      { endpoint: "POST /v1/responses#stream", support: "TRANSFORMED" },
     ]);
     // 拒绝（UNSUPPORTED）：Embeddings/count_tokens(POST) + WebSocket
     const unsupported = CAPABILITY_MATRIX.filter((c) => c.support === "UNSUPPORTED");

@@ -87,6 +87,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
+      expect(await migrateDown(db)).toBe("0031_gateway_stream_resilience");
       expect(await migrateDown(db)).toBe("0030_runtime_assurance_foundation");
       expect(await migrateDown(db)).toBe("0029_provider_quota_auto_calculation");
       expect(await migrateDown(db)).toBe("0028_enterprise_reference_guards");
@@ -131,6 +132,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
       expect(rebuilt).toContain("0028_enterprise_reference_guards");
       expect(rebuilt).toContain("0029_provider_quota_auto_calculation");
       expect(rebuilt).toContain("0030_runtime_assurance_foundation");
+      expect(rebuilt).toContain("0031_gateway_stream_resilience");
     } finally {
       await db.destroy();
     }

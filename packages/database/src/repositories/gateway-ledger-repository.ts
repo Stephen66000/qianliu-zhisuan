@@ -246,6 +246,7 @@ export class GatewayLedgerRepository {
       finished_at?: Date | null;
       error_classification?: string | null;
       error_code?: string | null;
+      failure_layer?: string | null;
       switch_reason?: string | null;
     },
   ): Promise<void> {

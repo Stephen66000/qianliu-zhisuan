@@ -192,6 +192,134 @@ describe("Responses → Chat Completions", () => {
       },
     }]);
   });
+
+  it("Claude Web Search 第二轮完整转换 tool_use、tool_result 与 tool_choice", () => {
+    const body = toChatCompletionsRequest(resource({ providerCode: "kimi" }), {
+      requestId: "req-claude-web-search-round-2",
+      unifiedModel: "Kimi",
+      capability: "messages",
+      stream: false,
+      body: {
+        system: [{ type: "text", text: "回答前先搜索最新资料" }],
+        messages: [
+          { role: "user", content: [{ type: "text", text: "查一下最新定价" }] },
+          {
+            role: "assistant",
+            content: [
+              { type: "text", text: "我先搜索。" },
+              {
+                type: "tool_use",
+                id: "toolu_web_1",
+                name: "web_search",
+                input: { query: "OpenAI API pricing" },
+              },
+            ],
+          },
+          {
+            role: "user",
+            content: [{
+              type: "tool_result",
+              tool_use_id: "toolu_web_1",
+              content: [{ type: "text", text: "搜索结果：官方定价页" }],
+            }],
+          },
+        ],
+        tools: [{
+          name: "web_search",
+          description: "搜索网页",
+          input_schema: {
+            type: "object",
+            properties: { query: { type: "string" } },
+            required: ["query"],
+          },
+        }],
+        tool_choice: { type: "tool", name: "web_search" },
+      },
+    });
+
+    expect(body.messages).toEqual([
+      { role: "system", content: "回答前先搜索最新资料" },
+      { role: "user", content: "查一下最新定价" },
+      {
+        role: "assistant",
+        content: "我先搜索。",
+        tool_calls: [{
+          id: "toolu_web_1",
+          type: "function",
+          function: {
+            name: "web_search",
+            arguments: "{\"query\":\"OpenAI API pricing\"}",
+          },
+        }],
+      },
+      {
+        role: "tool",
+        tool_call_id: "toolu_web_1",
+        content: "搜索结果：官方定价页",
+      },
+    ]);
+    expect(body.tool_choice).toEqual({
+      type: "function",
+      function: { name: "web_search" },
+    });
+  });
+
+  it("Claude MCP 第二轮保留并行调用 ID 与对应结果", () => {
+    const body = toChatCompletionsRequest(resource({ providerCode: "kimi" }), {
+      requestId: "req-claude-mcp-round-2",
+      unifiedModel: "Kimi",
+      capability: "messages",
+      stream: false,
+      body: {
+        messages: [
+          { role: "user", content: "检查仓库" },
+          {
+            role: "assistant",
+            content: [
+              { type: "tool_use", id: "toolu_status", name: "mcp_git_status", input: {} },
+              { type: "tool_use", id: "toolu_diff", name: "mcp_git_diff", input: { stat: true } },
+            ],
+          },
+          {
+            role: "user",
+            content: [
+              { type: "tool_result", tool_use_id: "toolu_status", content: "clean" },
+              {
+                type: "tool_result",
+                tool_use_id: "toolu_diff",
+                content: [{ type: "text", text: "2 files changed" }],
+              },
+            ],
+          },
+        ],
+        tools: [],
+        tool_choice: { type: "any" },
+      },
+    });
+
+    expect(body.messages).toEqual([
+      { role: "user", content: "检查仓库" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "toolu_status",
+            type: "function",
+            function: { name: "mcp_git_status", arguments: "{}" },
+          },
+          {
+            id: "toolu_diff",
+            type: "function",
+            function: { name: "mcp_git_diff", arguments: "{\"stat\":true}" },
+          },
+        ],
+      },
+      { role: "tool", tool_call_id: "toolu_status", content: "clean" },
+      { role: "tool", tool_call_id: "toolu_diff", content: "2 files changed" },
+    ]);
+    expect(body.tool_choice).toBe("required");
+  });
 });
 
 describe("OpenAI-compatible HTTP caller", () => {
@@ -347,6 +475,29 @@ describe("OpenAI-compatible HTTP caller", () => {
     });
   });
 
+  it("Kimi 403 套餐额度耗尽不得误判为凭证失效", async () => {
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse({
+        error: {
+          type: "permission_error",
+          message: "Your Kimi Code membership quota has been exhausted.",
+        },
+      }, 403),
+      env: { KIMI_CODING_BASE_URL: "https://kimi.example" },
+    });
+
+    const outcome = await caller(
+      resource({ providerCode: "kimi", secret: new SecretValue("kimi-test") }),
+      responsesRequest(),
+      1,
+    );
+
+    expect(outcome).toMatchObject({
+      status: 403,
+      upstreamErrorKind: "QUOTA_EXHAUSTED",
+    });
+  });
+
   it("流式聚合文本、分片工具参数和最终 Usage，供 Gateway 输出 Responses SSE", async () => {
     const events = [
       "data: {\"choices\":[{\"delta\":{\"content\":\"真实\"}}]}\n\n",
@@ -393,6 +544,123 @@ describe("OpenAI-compatible HTTP caller", () => {
         arguments: "{\"cmd\":\"pwd\"}",
       },
     ]);
+  });
+
+  it("收到上游 SSE 事件即回调，不等待完整响应", async () => {
+    let releaseRest!: () => void;
+    const rest = new Promise<void>((resolve) => { releaseRest = resolve; });
+    let firstForwarded!: () => void;
+    const firstEvent = new Promise<void>((resolve) => { firstForwarded = resolve; });
+    const observed: Record<string, unknown>[] = [];
+    const request = responsesRequest(true);
+    request.onStreamChunk = (payload) => {
+      observed.push(payload);
+      if (observed.length === 1) firstForwarded();
+    };
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => delayedStreamResponse(rest),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+    });
+
+    let settled = false;
+    const pending = caller(resource(), request, 1).finally(() => { settled = true; });
+    await firstEvent;
+
+    expect(settled).toBe(false);
+    expect(observed[0]).toMatchObject({
+      choices: [{ delta: { content: "先到" } }],
+    });
+
+    releaseRest();
+    const outcome = await pending;
+    expect(outcome.committed).toBe(true);
+    expect(outcome.firstByteAt).toEqual(expect.any(Number));
+    expect(observed).toHaveLength(2);
+  });
+
+  it("首字节超时归一化为 504，不透传网络异常正文", async () => {
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async (_url, init) => new Promise<HttpResponseLike>((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => reject(new Error("proxy html")), { once: true });
+      }),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+      firstByteTimeoutMs: 15,
+      requestTimeoutMs: 200,
+    });
+
+    const outcome = await caller(resource(), responsesRequest(true), 1);
+
+    expect(outcome).toMatchObject({
+      status: 504,
+      committed: false,
+      error: "upstream_timeout",
+      failureLayer: "FIRST_BYTE_TIMEOUT",
+    });
+    expect(JSON.stringify(outcome)).not.toContain("proxy html");
+  });
+
+  it("流式空闲超时发生在已提交后，保留首字节与失败层", async () => {
+    const request = responsesRequest(true);
+    request.onStreamChunk = () => undefined;
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async (_url, init) => idleStreamResponse(init.signal),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+      firstByteTimeoutMs: 100,
+      streamIdleTimeoutMs: 15,
+      requestTimeoutMs: 200,
+    });
+
+    const outcome = await caller(resource(), request, 1);
+
+    expect(outcome).toMatchObject({
+      status: 504,
+      committed: true,
+      error: "upstream_timeout",
+      failureLayer: "STREAM_IDLE_TIMEOUT",
+    });
+    expect(outcome.firstByteAt).toEqual(expect.any(Number));
+  });
+
+  it("请求总时长独立于首字节，在非流式解析阶段归一化为 504", async () => {
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async (_url, init) => pendingJsonResponse(init.signal),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+      firstByteTimeoutMs: 100,
+      requestTimeoutMs: 15,
+    });
+
+    const outcome = await caller(resource(), responsesRequest(false), 1);
+
+    expect(outcome).toMatchObject({
+      status: 504,
+      committed: false,
+      error: "upstream_timeout",
+      failureLayer: "REQUEST_TIMEOUT",
+    });
+    expect(outcome.firstByteAt).toEqual(expect.any(Number));
+  });
+
+  it("客户端取消已提交的流时标记 CLIENT，禁止切换上游", async () => {
+    const controller = new AbortController();
+    const request = { ...responsesRequest(true), abort: controller.signal };
+    request.onStreamChunk = () => controller.abort();
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async (_url, init) => idleStreamResponse(init.signal),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+      firstByteTimeoutMs: 100,
+      streamIdleTimeoutMs: 100,
+      requestTimeoutMs: 200,
+    });
+
+    const outcome = await caller(resource(), request, 1);
+
+    expect(outcome).toMatchObject({
+      status: 0,
+      committed: true,
+      error: "client_cancelled",
+      failureLayer: "CLIENT",
+      cancelled: true,
+    });
   });
 
   it("SSE 使用 CRLF 且按单字节切片时仍能识别事件边界", async () => {
@@ -679,4 +947,52 @@ function interruptedStreamResponse(events: string[]): HttpResponseLike {
       throw new Error("upstream socket interrupted");
     })(),
   };
+}
+
+function delayedStreamResponse(rest: Promise<void>): HttpResponseLike {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => { throw new Error("stream response"); },
+    text: async () => "",
+    body: (async function* chunks() {
+      yield Buffer.from("data: {\"choices\":[{\"delta\":{\"content\":\"先到\"}}]}\n\n");
+      await rest;
+      yield Buffer.from("data: {\"choices\":[],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":1}}\n\n");
+      yield Buffer.from("data: [DONE]\n\n");
+    })(),
+  };
+}
+
+function idleStreamResponse(signal: AbortSignal): HttpResponseLike {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => { throw new Error("stream response"); },
+    text: async () => "",
+    body: (async function* chunks() {
+      yield Buffer.from("data: {\"choices\":[{\"delta\":{\"content\":\"首块\"}}]}\n\n");
+      await rejectWhenAborted(signal);
+    })(),
+  };
+}
+
+function pendingJsonResponse(signal: AbortSignal): HttpResponseLike {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => rejectWhenAborted(signal),
+    text: async () => "",
+    body: null,
+  };
+}
+
+function rejectWhenAborted(signal: AbortSignal): Promise<never> {
+  return new Promise((_resolve, reject) => {
+    if (signal.aborted) {
+      reject(new Error("aborted"));
+      return;
+    }
+    signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+  });
 }

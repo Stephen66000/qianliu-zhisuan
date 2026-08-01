@@ -16,7 +16,10 @@
 :80 {
 	# Gateway 北向 API（OpenAI/Anthropic 兼容；客户端也可直连 gateway:8787）
 	handle /v1/* {
-		reverse_proxy gateway:8787
+		reverse_proxy gateway:8787 {
+			# SSE 逐事件立即刷新；不在反代层增加 60s 流式截断。
+			flush_interval -1
+		}
 	}
 	# 其余全部 → control-api（auth/dashboard/principals/providers/grants/alerts/usage/... 全部管理 API）
 	handle {

@@ -123,6 +123,7 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
           httpStatus: a.http_status,
           errorClassification: a.error_classification,
           errorCode: a.error_code,
+          failureLayer: a.failure_layer,
           responseCommitted: a.response_committed,
           switchReason: a.switch_reason,
           // P1-04：该 Attempt 的逐条计量明细

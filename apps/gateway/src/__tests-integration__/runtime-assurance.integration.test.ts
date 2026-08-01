@@ -139,6 +139,9 @@ describe("RA-W04 Gateway 运行保障纵向链路", () => {
   it("普通 5xx 连续发生只 DEGRADED + 预警，不创建硬熔断事件", async () => {
     await db.updateTable("availability_event").set({ status: "CANCELLED", recovered_at: new Date(), recovery_reason: "测试切换" })
       .where("status", "=", "OPEN").execute();
+    const poolRepo = new ResourcePoolRepository(db);
+    await poolRepo.adminRecover(resourceId);
+    await poolRepo.recordSuccess(resourceId);
     mode = "TECHNICAL";
     for (let index = 0; index < 4; index += 1) await request("/v1/chat/completions");
     const resource = await db.selectFrom("provider_resource").selectAll().where("id", "=", resourceId).executeTakeFirstOrThrow();

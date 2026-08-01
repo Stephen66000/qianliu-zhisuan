@@ -582,6 +582,7 @@ export interface UpstreamAttemptTable {
   error_classification: string | null;
   error_code: string | null;
   response_committed: Generated<boolean>;
+  failure_layer: string | null;
   switch_reason: string | null;
 }
 

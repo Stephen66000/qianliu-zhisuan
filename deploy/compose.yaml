@@ -51,7 +51,7 @@ services:
       context: ..
       dockerfile: apps/control-api/Dockerfile
     restart: "no"
-    env_file: .env
+    env_file: ${QIANLIU_ENV_FILE:-.env}
     environment:
       # 容器内用 compose 服务名连接，覆盖 .env 里的 127.0.0.1
       DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
@@ -66,7 +66,7 @@ services:
       context: ..
       dockerfile: apps/control-api/Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file: ${QIANLIU_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
       REDIS_URL: redis://redis:6379
@@ -87,11 +87,12 @@ services:
       context: ..
       dockerfile: apps/gateway/Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file: ${QIANLIU_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
       REDIS_URL: redis://redis:6379
       GATEWAY_HOST: 0.0.0.0
+      KIMI_CODING_BASE_URL: ${KIMI_CODING_BASE_URL:-https://api.kimi.com/coding/v1}
       NODE_ENV: production
     ports:
       - "127.0.0.1:8787:8787"
@@ -108,7 +109,7 @@ services:
       context: ..
       dockerfile: apps/worker/Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file: ${QIANLIU_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
       REDIS_URL: redis://redis:6379

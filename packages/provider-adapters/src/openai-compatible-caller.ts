@@ -61,7 +61,12 @@ export type HttpFetch = (
 export interface OpenAiCompatibleCallerOptions {
   env?: NodeJS.ProcessEnv;
   fetch?: HttpFetch;
+  /** 请求总时长上限，默认 10 分钟，允许 K3 长输出跨过 60 秒。 */
   requestTimeoutMs?: number;
+  /** 从发起请求到首个上游响应字节的上限。 */
+  firstByteTimeoutMs?: number;
+  /** 流式已开始后，两个上游数据块之间的最大空闲时间。 */
+  streamIdleTimeoutMs?: number;
 }
 
 interface ChatToolCall {
@@ -105,7 +110,9 @@ export function createOpenAiCompatibleCaller(
 ): UpstreamCaller {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetch ?? defaultFetch;
-  const timeoutMs = options.requestTimeoutMs ?? 120_000;
+  const requestTimeoutMs = options.requestTimeoutMs ?? 10 * 60_000;
+  const firstByteTimeoutMs = options.firstByteTimeoutMs ?? 30_000;
+  const streamIdleTimeoutMs = options.streamIdleTimeoutMs ?? 45_000;
 
   return async (resource, request) => {
     if (!resource.secret.isConfigured()) {
@@ -119,10 +126,12 @@ export function createOpenAiCompatibleCaller(
     }
 
     const chatBody = toChatCompletionsRequest(resource, request);
-    const timeout = AbortSignal.timeout(timeoutMs);
-    const signal = request.abort
-      ? AbortSignal.any([request.abort, timeout])
-      : timeout;
+    const timeout = createLayeredTimeout({
+      requestAbort: request.abort,
+      requestTimeoutMs,
+      firstByteTimeoutMs,
+      streamIdleTimeoutMs,
+    });
 
     let response: HttpResponseLike;
     try {
@@ -135,23 +144,30 @@ export function createOpenAiCompatibleCaller(
           "x-request-id": request.requestId,
         },
         body: JSON.stringify(chatBody),
-        signal,
+        signal: timeout.signal,
       });
     } catch {
       const cancelled = request.abort?.aborted === true;
+      const failure = timeout.failure(cancelled);
+      timeout.dispose();
       return {
-        ...failedOutcome(0, cancelled ? "client_cancelled" : "transport_error"),
+        ...failedOutcome(failure.status, failure.code),
+        failureLayer: failure.layer,
         cancelled,
       };
     }
 
     if (!response.ok) {
+      timeout.markFirstByte();
       const failure = await upstreamFailure(response, resource.providerCode);
+      timeout.dispose();
       return {
         ...failedOutcome(response.status, failure.code),
         upstreamErrorKind: failure.kind,
         upstreamCode: failure.code,
         unifiedAvailabilitySignal: failure.signal,
+        firstByteAt: timeout.firstByteAt,
+        failureLayer: "UPSTREAM_HTTP",
         ...(failure.recoverAt === undefined ? {} : { recoverAt: failure.recoverAt }),
         ...(failure.retryAfterMs === undefined
           ? {}
@@ -160,9 +176,12 @@ export function createOpenAiCompatibleCaller(
     }
 
     if (request.stream) {
-      return parseStreamingResponse(response, request);
+      return parseStreamingResponse(response, request, timeout);
     }
-    return parseJsonResponse(response, request);
+    timeout.markFirstByte();
+    const outcome = await parseJsonResponse(response, request, timeout);
+    timeout.dispose();
+    return outcome;
   };
 }
 
@@ -219,21 +238,35 @@ export function toChatCompletionsRequest(
     : body && Array.isArray(body.messages)
       ? body.messages
       : [];
-  const messages = messagesValue
-    .map(normalizeExistingChatMessage)
-    .filter((message): message is ChatMessage => message !== null);
+  const messages = request.capability === "messages"
+    ? messagesValue.flatMap(anthropicMessageToChatMessages)
+    : messagesValue
+      .map(normalizeExistingChatMessage)
+      .filter((message): message is ChatMessage => message !== null);
   if (
     request.capability === "messages"
     && body
-    && typeof body.system === "string"
-    && body.system.length > 0
+    && body.system !== undefined
   ) {
-    messages.unshift({ role: "system", content: body.system });
+    const system = contentToText(body.system);
+    if (system.length > 0) messages.unshift({ role: "system", content: system });
   }
   const tools = body && Array.isArray(body.tools)
     ? body.tools.map((tool) => request.capability === "messages"
       ? anthropicToolToChatTool(tool)
       : tool)
+      .filter((tool) => tool !== null)
+    : undefined;
+
+  const toolChoice = body?.tool_choice === undefined
+    ? undefined
+    : request.capability === "messages"
+      ? anthropicToolChoiceToChat(body.tool_choice)
+      : body.tool_choice;
+  const parallelToolCalls = request.capability === "messages"
+    && isRecord(body?.tool_choice)
+    && typeof body.tool_choice.disable_parallel_tool_use === "boolean"
+    ? !body.tool_choice.disable_parallel_tool_use
     : undefined;
 
   return {
@@ -242,7 +275,8 @@ export function toChatCompletionsRequest(
     stream: request.stream,
     ...(request.stream ? { stream_options: { include_usage: true as const } } : {}),
     ...(tools && tools.length > 0 ? { tools } : {}),
-    ...(body?.tool_choice !== undefined ? { tool_choice: body.tool_choice } : {}),
+    ...(toolChoice !== undefined ? { tool_choice: toolChoice } : {}),
+    ...(parallelToolCalls !== undefined ? { parallel_tool_calls: parallelToolCalls } : {}),
   };
 }
 
@@ -351,12 +385,27 @@ export function chatAssistantToResponsesOutput(
 async function parseJsonResponse(
   response: HttpResponseLike,
   request: AdapterRequest,
+  timeout: LayeredTimeout,
 ): Promise<Outcome> {
   let payload: unknown;
   try {
     payload = await response.json();
   } catch {
-    return failedOutcome(0, "upstream_invalid_json");
+    const cancelled = request.abort?.aborted === true;
+    if (cancelled || timeout.timedOut) {
+      const failure = timeout.failure(cancelled);
+      return {
+        ...failedOutcome(failure.status, failure.code),
+        firstByteAt: timeout.firstByteAt,
+        failureLayer: failure.layer,
+        cancelled,
+      };
+    }
+    return {
+      ...failedOutcome(0, "upstream_invalid_json"),
+      firstByteAt: timeout.firstByteAt,
+      failureLayer: "UPSTREAM_PROTOCOL",
+    };
   }
   const root = isRecord(payload) ? payload : {};
   const choices = Array.isArray(root.choices) ? root.choices : [];
@@ -364,7 +413,11 @@ async function parseJsonResponse(
   const usage = normalizeUsage(root.usage);
   if (!isRecord(firstChoice.message) || usage === null) {
     // HTTP 200 但缺少 Chat Completion 必需事实时不能伪装为成功/零用量。
-    return failedOutcome(0, "upstream_invalid_response");
+    return {
+      ...failedOutcome(0, "upstream_invalid_response"),
+      firstByteAt: timeout.firstByteAt,
+      failureLayer: "UPSTREAM_PROTOCOL",
+    };
   }
   const message = firstChoice.message as UpstreamMessage;
 
@@ -372,6 +425,7 @@ async function parseJsonResponse(
     status: response.status,
     committed: true,
     usage,
+    firstByteAt: timeout.firstByteAt,
     responseOutput: chatAssistantToResponsesOutput(message, request.requestId),
   };
 }
@@ -379,8 +433,15 @@ async function parseJsonResponse(
 async function parseStreamingResponse(
   response: HttpResponseLike,
   request: AdapterRequest,
+  timeout: LayeredTimeout,
 ): Promise<Outcome> {
-  if (!response.body) return failedOutcome(0, "upstream_empty_stream");
+  if (!response.body) {
+    timeout.dispose();
+    return {
+      ...failedOutcome(0, "upstream_empty_stream"),
+      failureLayer: "UPSTREAM_PROTOCOL",
+    };
+  }
 
   let text = "";
   let usage: Usage = zeroUsage();
@@ -388,8 +449,9 @@ async function parseStreamingResponse(
   let sawPartialOutput = false;
   let sawDone = false;
   let sawUsage = false;
+  let forwarded = false;
   try {
-    for await (const data of readSseData(response.body)) {
+    for await (const data of readSseData(response.body, () => timeout.markChunk())) {
       if (data === "[DONE]") {
         sawDone = true;
         break;
@@ -400,7 +462,8 @@ async function parseStreamingResponse(
       } catch {
         // caller 尚未向北向提交任何事件；任一损坏 data 都可能是被截断的正文，
         // 不能静默跳过后再用后续 usage/[DONE] 伪装成完整成功。
-        return bufferedStreamFailure(usage, sawPartialOutput, false);
+        timeout.dispose();
+        return streamFailure(usage, sawPartialOutput, forwarded, false, timeout);
       }
       const root = isRecord(payload) ? payload : {};
       if (root.usage !== undefined) {
@@ -413,7 +476,14 @@ async function parseStreamingResponse(
         }
       }
       if (root.error !== undefined) {
-        return bufferedStreamFailure(usage, sawPartialOutput, false);
+        timeout.dispose();
+        return streamFailure(usage, sawPartialOutput, forwarded, false, timeout);
+      }
+
+      // 先转发完整 data 事件，再继续聚合计量与工具调用。回调不做持久化。
+      if (request.onStreamChunk) {
+        await request.onStreamChunk(root);
+        forwarded = true;
       }
 
       const choices = Array.isArray(root.choices) ? root.choices : [];
@@ -445,23 +515,31 @@ async function parseStreamingResponse(
       }
     }
   } catch {
-    return bufferedStreamFailure(
+    const cancelled = request.abort?.aborted === true;
+    const failure = streamFailure(
       usage,
       sawPartialOutput,
-      request.abort?.aborted === true,
+      forwarded,
+      cancelled,
+      timeout,
     );
+    timeout.dispose();
+    return failure;
   }
 
-  // caller 会先完整聚合上游流，随后 Gateway 才开始向北向输出 Responses SSE。
-  // 因此看到上游 delta 不等于“已向下游提交”；无 [DONE] 的正常 EOF 也按中断处理，
-  // committed=false 允许 pipeline 安全切换到下一资源，不会拼接两家输出。
+  // Chat / Messages 通过 onStreamChunk 已逐事件提交；Responses 暂无原生透传，
+  // 仍由 caller 聚合后做受限转换。无 [DONE] 的正常 EOF 一律按中断处理。
   if (!sawDone) {
-    return bufferedStreamFailure(usage, sawPartialOutput, false);
+    const failure = streamFailure(usage, sawPartialOutput, forwarded, false, timeout);
+    timeout.dispose();
+    return failure;
   }
   // 所有真实 caller 都请求 stream_options.include_usage。若流虽发出 [DONE] 却没有
   // 最终 usage，不能把零值冒充厂商精确计量；按不完整流在北向提交前失败并允许切换。
   if (!sawUsage) {
-    return bufferedStreamFailure(usage, sawPartialOutput, false);
+    const failure = streamFailure(usage, sawPartialOutput, forwarded, false, timeout);
+    timeout.dispose();
+    return failure;
   }
 
   const message: UpstreamMessage = {
@@ -470,41 +548,62 @@ async function parseStreamingResponse(
       .sort(([left], [right]) => left - right)
       .map(([, call]) => call),
   };
-  return {
+  const outcome: Outcome = {
     status: response.status,
     committed: true,
     usage,
+    firstByteAt: timeout.firstByteAt,
     responseOutput: chatAssistantToResponsesOutput(message, request.requestId),
   };
+  timeout.dispose();
+  return outcome;
 }
 
-function bufferedStreamFailure(
+function streamFailure(
   usage: Usage,
   sawPartialOutput: boolean,
+  forwarded: boolean,
   cancelled: boolean,
+  timeout: LayeredTimeout,
 ): Outcome {
   const hasReportedUsage = usage.input > 0
     || usage.output > 0
     || usage.cache > 0
     || (usage.reasoning ?? 0) > 0;
+  const timeoutFailure = timeout.failure(cancelled);
+  const error = cancelled
+    ? "client_cancelled"
+    : timeout.timedOut
+      ? "upstream_timeout"
+      : forwarded
+        ? "stream_interrupted_after_commit"
+        : "transport_error";
   return {
-    ...failedOutcome(0, cancelled ? "client_cancelled" : "transport_error"),
-    committed: false,
+    ...failedOutcome(timeout.timedOut ? 504 : 0, error),
+    committed: forwarded,
     // 中断流的最终厂商计量可能不完整；保留已收到的数值，但明确降级为估算，
     // 让 failover 前置 Attempt 仍可独立入账且不会冒充厂商最终精确值。
     usage: sawPartialOutput || hasReportedUsage
       ? { ...usage, quality: "ESTIMATED" }
       : usage,
+    firstByteAt: timeout.firstByteAt,
+    failureLayer: timeout.timedOut
+      ? timeoutFailure.layer
+      : cancelled
+        ? "CLIENT"
+        : "UPSTREAM_NETWORK",
     cancelled,
   };
 }
 
 async function* readSseData(
   body: AsyncIterable<Uint8Array>,
+  onChunk: () => void,
 ): AsyncGenerator<string> {
   const decoder = new TextDecoder();
   let buffer = "";
   for await (const chunk of body) {
+    onChunk();
     buffer += decoder.decode(chunk, { stream: true });
     // 对累计缓冲区归一化，覆盖 "\r" / "\n" 恰好跨 TCP chunk 的边界。
     buffer = buffer.replace(/\r\n/g, "\n");
@@ -590,20 +689,33 @@ function responseToolToChatTool(rawTool: Record<string, unknown>): unknown | nul
   };
 }
 
-function anthropicToolToChatTool(raw: unknown): unknown {
+function anthropicToolToChatTool(raw: unknown): unknown | null {
   const tool = isRecord(raw) ? raw : {};
+  const name = stringValue(tool.name);
+  if (!name) return null;
   return {
     type: "function",
     function: {
-      name: stringValue(tool.name),
+      name,
       ...(typeof tool.description === "string"
         ? { description: tool.description }
         : {}),
       ...(tool.input_schema !== undefined
         ? { parameters: tool.input_schema }
-        : {}),
+        : { parameters: { type: "object", properties: {} } }),
     },
   };
+}
+
+function anthropicToolChoiceToChat(choice: unknown): unknown {
+  if (!isRecord(choice)) return choice;
+  if (choice.type === "auto") return "auto";
+  if (choice.type === "any") return "required";
+  if (choice.type === "none") return "none";
+  if (choice.type === "tool" && typeof choice.name === "string") {
+    return { type: "function", function: { name: choice.name } };
+  }
+  return choice;
 }
 
 function responseToolChoiceToChat(choice: unknown): unknown {
@@ -643,6 +755,55 @@ function normalizeExistingChatMessage(raw: unknown): ChatMessage | null {
       ? { tool_calls: raw.tool_calls as ChatToolCall[] }
       : {}),
   };
+}
+
+/** Anthropic Messages 内容块展开为 OpenAI Chat Completions 消息。 */
+function anthropicMessageToChatMessages(raw: unknown): ChatMessage[] {
+  if (!isRecord(raw) || (raw.role !== "user" && raw.role !== "assistant")) return [];
+  if (!Array.isArray(raw.content)) {
+    return [{ role: raw.role, content: contentToText(raw.content) }];
+  }
+
+  if (raw.role === "assistant") {
+    const toolCalls = raw.content.flatMap((item): ChatToolCall[] => {
+      if (!isRecord(item) || item.type !== "tool_use") return [];
+      const id = stringValue(item.id);
+      const name = stringValue(item.name);
+      if (!id || !name) return [];
+      return [{
+        id,
+        type: "function",
+        function: { name, arguments: argumentString(item.input) },
+      }];
+    });
+    const text = contentToText(raw.content.filter((item) => (
+      !isRecord(item) || item.type !== "tool_use"
+    )));
+    return [{
+      role: "assistant",
+      content: text || null,
+      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+    }];
+  }
+
+  const messages: ChatMessage[] = [];
+  const nonToolResultParts: unknown[] = [];
+  for (const item of raw.content) {
+    if (!isRecord(item) || item.type !== "tool_result") {
+      nonToolResultParts.push(item);
+      continue;
+    }
+    const toolCallId = stringValue(item.tool_use_id);
+    if (!toolCallId) continue;
+    messages.push({
+      role: "tool",
+      tool_call_id: toolCallId,
+      content: contentToText(item.content),
+    });
+  }
+  const userContent = contentToText(nonToolResultParts);
+  if (userContent) messages.push({ role: "user", content: userContent });
+  return messages;
 }
 
 function normalizeRole(role: unknown): ChatMessage["role"] | null {
@@ -701,6 +862,94 @@ function failedOutcome(status: number, error: string): Outcome {
   };
 }
 
+type TimeoutFailureLayer =
+  | "FIRST_BYTE_TIMEOUT"
+  | "STREAM_IDLE_TIMEOUT"
+  | "REQUEST_TIMEOUT";
+
+interface LayeredTimeout {
+  signal: AbortSignal;
+  firstByteAt?: number;
+  timedOut: boolean;
+  markFirstByte(): void;
+  markChunk(): void;
+  failure(cancelled: boolean): {
+    status: number;
+    code: "client_cancelled" | "upstream_timeout" | "transport_error";
+    layer: "CLIENT" | "UPSTREAM_NETWORK" | TimeoutFailureLayer;
+  };
+  dispose(): void;
+}
+
+function createLayeredTimeout(input: {
+  requestAbort?: AbortSignal;
+  requestTimeoutMs: number;
+  firstByteTimeoutMs: number;
+  streamIdleTimeoutMs: number;
+}): LayeredTimeout {
+  const controller = new AbortController();
+  const signal = input.requestAbort
+    ? AbortSignal.any([input.requestAbort, controller.signal])
+    : controller.signal;
+  let firstByteAt: number | undefined;
+  let timeoutLayer: TimeoutFailureLayer | null = null;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const abortFor = (layer: TimeoutFailureLayer) => {
+    if (signal.aborted) return;
+    timeoutLayer = layer;
+    controller.abort(new DOMException(layer, "TimeoutError"));
+  };
+  const firstByteTimer = setTimeout(
+    () => abortFor("FIRST_BYTE_TIMEOUT"),
+    input.firstByteTimeoutMs,
+  );
+  const requestTimer = setTimeout(
+    () => abortFor("REQUEST_TIMEOUT"),
+    input.requestTimeoutMs,
+  );
+  const resetIdle = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(
+      () => abortFor("STREAM_IDLE_TIMEOUT"),
+      input.streamIdleTimeoutMs,
+    );
+  };
+  const markFirstByte = () => {
+    if (firstByteAt !== undefined) return;
+    firstByteAt = Date.now();
+    clearTimeout(firstByteTimer);
+  };
+
+  return {
+    signal,
+    get firstByteAt() {
+      return firstByteAt;
+    },
+    get timedOut() {
+      return timeoutLayer !== null;
+    },
+    markFirstByte,
+    markChunk() {
+      markFirstByte();
+      resetIdle();
+    },
+    failure(cancelled) {
+      if (cancelled) {
+        return { status: 0, code: "client_cancelled", layer: "CLIENT" };
+      }
+      if (timeoutLayer) {
+        return { status: 504, code: "upstream_timeout", layer: timeoutLayer };
+      }
+      return { status: 0, code: "transport_error", layer: "UPSTREAM_NETWORK" };
+    },
+    dispose() {
+      clearTimeout(firstByteTimer);
+      clearTimeout(requestTimer);
+      if (idleTimer) clearTimeout(idleTimer);
+    },
+  };
+}
+
 async function upstreamFailure(response: HttpResponseLike, providerCode: ProviderCode): Promise<{
   code: string;
   kind: NonNullable<Outcome["upstreamErrorKind"]>;
@@ -726,7 +975,11 @@ async function upstreamFailure(response: HttpResponseLike, providerCode: Provide
   } catch {
     // 非 JSON 错误仍保留 HTTP 状态语义，不读取/持久化原始正文。
   }
-  const kind = response.status === 429 ? classifyRateLimit(message) : "UNKNOWN";
+  // Kimi 套餐额度耗尽历史上既出现过 429，也出现过 403；必须先识别
+  // 厂商语义，避免把额度耗尽误判成凭证失效。
+  const kind = response.status === 429 || response.status === 402 || response.status === 403
+    ? classifyRateLimit(message)
+    : "UNKNOWN";
   const retry = parseRetryAfter(response.headers?.get("retry-after") ?? null);
   const recoverAt = parseRecoverAt(resetValue) ??
     (retry.retryAfterMs === undefined ? undefined : new Date(Date.now() + retry.retryAfterMs).toISOString());
@@ -752,6 +1005,9 @@ function classifyAvailabilitySignal(
     if (code === "1309") return "PLAN_EXPIRED";
     if (code === "1311") return "MODEL_UNAUTHORIZED";
     if (code === "1302" || code === "1305") return "TECHNICAL_FAILURE";
+  }
+  if (kind === "QUOTA_EXHAUSTED" && (status === 402 || status === 403)) {
+    return "QUOTA_EXHAUSTED";
   }
   if (status === 429) {
     if ((kind === "WINDOW_EXHAUSTED" || kind === "QUOTA_EXHAUSTED") && recoverAt) {
@@ -800,6 +1056,7 @@ function classifyRateLimit(message: string): NonNullable<Outcome["upstreamErrorK
     normalized.includes("monthly quota")
     || normalized.includes("quota exhausted")
     || normalized.includes("quota limit")
+    || (normalized.includes("quota") && normalized.includes("exhausted"))
   ) return "QUOTA_EXHAUSTED";
   return "UNKNOWN";
 }

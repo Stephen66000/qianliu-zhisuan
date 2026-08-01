@@ -32,7 +32,11 @@ async function start(): Promise<void> {
   const runtimeAssuranceRepo = new RuntimeAssuranceRepository(db);
 
   // 真实 OpenAI-compatible HTTP caller。缺配置时返回可解释错误，不模拟成功。
-  const caller = createOpenAiCompatibleCaller();
+  const caller = createOpenAiCompatibleCaller({
+    firstByteTimeoutMs: positiveEnvMs("GATEWAY_UPSTREAM_FIRST_BYTE_TIMEOUT_MS", 30_000),
+    streamIdleTimeoutMs: positiveEnvMs("GATEWAY_UPSTREAM_STREAM_IDLE_TIMEOUT_MS", 45_000),
+    requestTimeoutMs: positiveEnvMs("GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS", 10 * 60_000),
+  });
 
   // listCandidates：model_route join 查询（与 w08~w16 集成测试一致的生产实现）
   const listCandidates = async (enterpriseId: string, model: string): Promise<RouteCandidateRow[]> => {
@@ -125,6 +129,16 @@ function requireEnv(name: string): string {
     process.exit(1);
   }
   return val;
+}
+
+function positiveEnvMs(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined) return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} 必须是正整数毫秒`);
+  }
+  return value;
 }
 
 start().catch((err) => {

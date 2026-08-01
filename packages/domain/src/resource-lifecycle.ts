@@ -15,7 +15,8 @@ import type { ErrorClassification } from "./index.js";
  * 处置矩阵（deriveResourceTransition）：
  *   - 成功                        → 连续失败清零；UNAVAILABLE(冷却期)+成功 → DEGRADED（一次成功不抹掉趋势，TRD §9 行 598）
  *   - UPSTREAM_CREDENTIAL_INVALID → CREDENTIAL_INVALID（隔离；仅人工恢复，WT-19）
- *   - UPSTREAM_RATE_LIMITED       → 只记录降级／预警；可靠额度与恢复信号由运行保障规则决定
+ *   - UPSTREAM_RATE_LIMITED       → RATE_LIMITED 短时冷却；同一波并发 429 去重，
+ *                                   冷却到期仅允许一个半开探针
  *   - UPSTREAM_BILLING_BLOCKED    → EXHAUSTED（隔离；仅人工恢复）
  *   - UPSTREAM_TEMPORARY/TRANSPORT→ 连续失败+1 且只保持 DEGRADED，不产生硬隔离
  *   - 客户端/能力/账本类错误       → 不计入资源健康
@@ -35,6 +36,7 @@ export const RESOURCE_STATUS = {
   EXHAUSTED: "EXHAUSTED",
   EXPIRED: "EXPIRED",
   CREDENTIAL_INVALID: "CREDENTIAL_INVALID",
+  RATE_LIMITED: "RATE_LIMITED",
   UNAVAILABLE: "UNAVAILABLE",
 } as const;
 
@@ -70,13 +72,13 @@ export type CredentialRefreshStatus =
 export const RESOURCE_POOL_POLICY = {
   /** 连续临时故障熔断阈值（TRD §9 行 598「连续失败达到阈值进入熔断」）。 */
   failureThreshold: 3,
-  /** 429 冷却基准毫秒（指数退避基数）。 */
+  /** 上游未返回 Retry-After 时的 429 默认冷却毫秒。 */
   rateLimitCooldownBaseMs: 30_000,
   /** 熔断冷却基准毫秒。 */
   breakerCooldownBaseMs: 60_000,
   /** 冷却上限毫秒（退避封顶）。 */
   cooldownCapMs: 30 * 60_000,
-  version: "w11-v1",
+  version: "pool014-v2",
 } as const;
 
 // ===== 纯函数推导 =====
@@ -92,7 +94,7 @@ export interface StateTransition {
   reason: StateReason;
   consecutiveFailures: number;
   cooldownUntil: number | null;
-  /** 该迁移是否将资源从可服务集合隔离（CREDENTIAL_INVALID/EXHAUSTED/EXPIRED/UNAVAILABLE）。 */
+  /** 该迁移是否暂时或永久阻止普通请求准入。 */
   isolates: boolean;
 }
 
@@ -100,6 +102,7 @@ const ISOLATED_STATUSES: ReadonlySet<ResourceStatus> = new Set([
   RESOURCE_STATUS.CREDENTIAL_INVALID,
   RESOURCE_STATUS.EXHAUSTED,
   RESOURCE_STATUS.EXPIRED,
+  RESOURCE_STATUS.RATE_LIMITED,
   RESOURCE_STATUS.UNAVAILABLE,
 ]);
 
@@ -120,7 +123,8 @@ export function computeCooldownMs(failures: number, baseMs: number, capMs: numbe
 export function deriveResourceTransition(
   state: ResourceRuntimeState,
   classification: ErrorClassification,
-  _now: number,
+  now: number,
+  options: { retryAfterMs?: number } = {},
 ): StateTransition | null {
   const terminallyIsolated =
     state.status === RESOURCE_STATUS.CREDENTIAL_INVALID ||
@@ -150,16 +154,28 @@ export function deriveResourceTransition(
       };
 
     case "UPSTREAM_RATE_LIMITED": {
-      // RA-W04：普通 429 只影响健康度。明确额度／恢复时间由运行保障规则事件
-      // 决定是否阻断，旧失败阈值不得再把技术故障升级成全局硬隔离。
+      // 同一冷却窗口内的并发 429 是一个故障波次：不重复累计失败，
+      // 不指数放大冷却。冷却到期后的单探针若再次 429，才进入新波次。
       if (terminallyIsolated) return null;
+      if (
+        state.status === RESOURCE_STATUS.RATE_LIMITED
+        && state.cooldownUntil !== null
+        && now < state.cooldownUntil
+      ) return null;
       const failures = state.consecutiveFailures + 1;
+      const cooldownMs = Math.min(
+        Math.max(
+          1_000,
+          options.retryAfterMs ?? RESOURCE_POOL_POLICY.rateLimitCooldownBaseMs,
+        ),
+        RESOURCE_POOL_POLICY.cooldownCapMs,
+      );
       return {
-        toStatus: RESOURCE_STATUS.DEGRADED,
+        toStatus: RESOURCE_STATUS.RATE_LIMITED,
         reason: STATE_REASON.RATE_LIMITED,
         consecutiveFailures: failures,
-        cooldownUntil: null,
-        isolates: false,
+        cooldownUntil: now + cooldownMs,
+        isolates: true,
       };
     }
 
@@ -193,7 +209,10 @@ export function deriveSuccessTransition(state: ResourceRuntimeState): StateTrans
     state.status === RESOURCE_STATUS.EXPIRED
   )
     return null; // 终态隔离资源不会被路由到；防御性忽略
-  if (state.status === RESOURCE_STATUS.UNAVAILABLE) {
+  if (
+    state.status === RESOURCE_STATUS.UNAVAILABLE
+    || state.status === RESOURCE_STATUS.RATE_LIMITED
+  ) {
     // 半开探测成功 → DEGRADED（一次成功不抹掉长期趋势，TRD §9 行 598）
     return {
       toStatus: RESOURCE_STATUS.DEGRADED,
@@ -216,7 +235,7 @@ export function deriveSuccessTransition(state: ResourceRuntimeState): StateTrans
 /**
  * 准入门禁（路由硬过滤前置，W12 评分在此过滤之后）：
  * 资源当前是否可接收新请求。
- * UNAVAILABLE 且冷却到期 → 允许半开探测（probe=true）。
+ * UNAVAILABLE / RATE_LIMITED 且冷却到期 → 允许半开探测（probe=true）。
  */
 export function evaluateAdmission(
   state: ResourceRuntimeState,
@@ -227,10 +246,11 @@ export function evaluateAdmission(
     case RESOURCE_STATUS.DEGRADED:
       return { admit: true, probe: false, blockReason: null };
     case RESOURCE_STATUS.UNAVAILABLE:
+    case RESOURCE_STATUS.RATE_LIMITED:
       if (state.cooldownUntil !== null && now >= state.cooldownUntil) {
         return { admit: true, probe: true, blockReason: null }; // 半开探测窗口
       }
-      return { admit: false, probe: false, blockReason: RESOURCE_STATUS.UNAVAILABLE };
+      return { admit: false, probe: false, blockReason: state.status };
     default:
       return { admit: false, probe: false, blockReason: state.status };
   }

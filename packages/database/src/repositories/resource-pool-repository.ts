@@ -68,6 +68,7 @@ export class ResourcePoolRepository {
     resourceId: string,
     classification: ErrorClassification,
     now: Date = new Date(),
+    options: { retryAfterMs?: number } = {},
   ): Promise<StateTransition | null> {
     return this.db.transaction().execute(async (trx) => {
       const row = await trx
@@ -76,11 +77,50 @@ export class ResourcePoolRepository {
         .where("id", "=", resourceId)
         .forUpdate()
         .executeTakeFirstOrThrow();
-      const transition = deriveResourceTransition(toRuntimeState(row), classification, now.getTime());
+      const transition = deriveResourceTransition(
+        toRuntimeState(row),
+        classification,
+        now.getTime(),
+        options,
+      );
       if (!transition) return null;
       await this.applyTransitionTx(trx, row, transition, classification, "system");
       return transition;
     });
+  }
+
+  /**
+   * 冷却到期的单资源半开租约。条件 UPDATE 保证多进程/多实例同时只有一个
+   * 真实业务请求获得探针资格。
+   */
+  async tryAcquireHalfOpenProbe(
+    resourceId: string,
+    now: Date = new Date(),
+    // 必须覆盖 Gateway 默认 10 分钟总超时，避免 K3 长流仍在探测时租约提前失效。
+    leaseMs = 11 * 60_000,
+  ): Promise<boolean> {
+    const staleBefore = new Date(now.getTime() - leaseMs);
+    const acquired = await this.db
+      .updateTable("provider_resource")
+      .set({ last_probe_at: now, updated_at: now })
+      .where("id", "=", resourceId)
+      .where("status", "in", [RESOURCE_STATUS.UNAVAILABLE, RESOURCE_STATUS.RATE_LIMITED])
+      .where("cooldown_until", "<=", now)
+      .where((eb) => eb.or([
+        eb("last_probe_at", "is", null),
+        eb("last_probe_at", "<=", staleBefore),
+      ]))
+      .returning("id")
+      .executeTakeFirst();
+    return acquired !== undefined;
+  }
+
+  async releaseHalfOpenProbe(resourceId: string): Promise<void> {
+    await this.db
+      .updateTable("provider_resource")
+      .set({ last_probe_at: null, updated_at: new Date() })
+      .where("id", "=", resourceId)
+      .execute();
   }
 
   /** 被动请求成功 → 失败计数清零 / 半开探测成功降级恢复。 */
@@ -198,6 +238,7 @@ export class ResourcePoolRepository {
         status: transition.toStatus,
         consecutive_failures: transition.consecutiveFailures,
         cooldown_until: transition.cooldownUntil ? new Date(transition.cooldownUntil) : null,
+        last_probe_at: null,
         updated_at: now,
       })
       .where("id", "=", row.id)

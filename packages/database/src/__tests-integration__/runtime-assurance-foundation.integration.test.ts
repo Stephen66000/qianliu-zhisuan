@@ -43,7 +43,7 @@ async function schemaFingerprint(db: Kysely<Database>): Promise<string> {
 }
 
 describe("RA-W01 0030 运行保障底座迁移", () => {
-  it("空库升级、0030 回滚、重升后 Schema 指纹一致", async () => {
+  it("空库升级、依次回滚 0031/0030、重升后 Schema 指纹一致", async () => {
     const db = createKysely(pg.connectionString);
     try {
       const executed = await migrateToLatest(db);
@@ -91,13 +91,16 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
       ]);
 
       const before = await schemaFingerprint(db);
+      expect(await migrateDown(db)).toBe("0031_gateway_stream_resilience");
       expect(await migrateDown(db)).toBe("0030_runtime_assurance_foundation");
       const rolledBack = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.availability_rule') AS reg
       `.execute(db);
       expect(rolledBack.rows[0]!.reg).toBeNull();
 
-      expect(await migrateToLatest(db)).toContain("0030_runtime_assurance_foundation");
+      const rebuilt = await migrateToLatest(db);
+      expect(rebuilt).toContain("0030_runtime_assurance_foundation");
+      expect(rebuilt).toContain("0031_gateway_stream_resilience");
       const after = await schemaFingerprint(db);
       expect(after).toBe(before);
     } finally {

@@ -392,8 +392,12 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
     }
   });
 
-  it("唯一套餐遇到瞬时 429 时原资源受控重试，不扩大成全员 503", async () => {
+  it("唯一套餐 429 保留 Retry-After，冷却后用单探针自动恢复", async () => {
     let calls = 0;
+    let releaseProbe!: () => void;
+    const probeGate = new Promise<void>((resolve) => { releaseProbe = resolve; });
+    let markProbeStarted!: () => void;
+    const probeStarted = new Promise<void>((resolve) => { markProbeStarted = resolve; });
     const caller: UpstreamCaller = async () => {
       calls += 1;
       if (calls === 1) {
@@ -406,6 +410,8 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
           retryAfterMs: 1,
         };
       }
+      markProbeStarted();
+      await probeGate;
       return {
         status: 200,
         committed: true,
@@ -425,23 +431,151 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       maxAttempts: 2,
     });
     try {
-      const response = await fx.app.inject({
+      const limited = await fx.app.inject({
         method: "POST",
         url: "/v1/chat/completions",
         headers: authHeader(fx.key),
         payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "重试" }] },
       });
 
-      expect(response.statusCode).toBe(200);
+      expect(limited.statusCode).toBe(429);
+      expect(limited.headers["retry-after"]).toBe("1");
+      expect(calls).toBe(1);
+      expect(await ledgerRepo.listAttempts(limited.headers["x-request-id"] as string)).toHaveLength(1);
+      let resource = await db.selectFrom("provider_resource")
+        .select(["status", "consecutive_failures"])
+        .where("id", "=", fx.resourceId)
+        .executeTakeFirstOrThrow();
+      expect(resource.status).toBe("RATE_LIMITED");
+      expect(resource.consecutive_failures).toBe(1);
+
+      const cooling = await fx.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "冷却中" }] },
+      });
+      expect(cooling.statusCode).toBe(429);
+      expect(cooling.json().error.code).toBe("resource_rate_limited");
+      expect(calls).toBe(1);
+
+      await db.updateTable("provider_resource")
+        .set({ cooldown_until: new Date(Date.now() - 1) })
+        .where("id", "=", fx.resourceId)
+        .execute();
+      const recovering = fx.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "半开恢复" }] },
+      });
+      await probeStarted;
+      const concurrent = await fx.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "并发探针" }] },
+      });
+      expect(concurrent.statusCode).toBe(429);
+      expect(concurrent.json().error.code).toBe("half_open_probe_in_progress");
       expect(calls).toBe(2);
-      const requestId = response.headers["x-request-id"] as string;
-      expect(await ledgerRepo.listAttempts(requestId)).toHaveLength(2);
+      releaseProbe();
+      const recovered = await recovering;
+
+      expect(recovered.statusCode).toBe(200);
+      expect(calls).toBe(2);
+      resource = await db.selectFrom("provider_resource")
+        .select(["status", "consecutive_failures"])
+        .where("id", "=", fx.resourceId)
+        .executeTakeFirstOrThrow();
+      expect(resource.status).toBe("DEGRADED");
+      expect(resource.consecutive_failures).toBe(0);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("上游 400 原样返回且不重试、不污染资源健康", async () => {
+    let calls = 0;
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      caller: async () => {
+        calls += 1;
+        return {
+          status: 400,
+          committed: false,
+          usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+          error: "invalid_request_error",
+          failureLayer: "UPSTREAM_HTTP",
+        };
+      },
+    });
+    try {
+      const response = await fx.app.inject({
+        method: "POST",
+        url: "/v1/messages",
+        headers: authHeader(fx.key),
+        payload: {
+          model: KIMI_ALIAS,
+          max_tokens: 256,
+          messages: [{ role: "user", content: "触发非法工具协议" }],
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toMatchObject({
+        type: "invalid_request_error",
+        code: "invalid_request_error",
+        retryable: false,
+      });
+      expect(calls).toBe(1);
       const resource = await db.selectFrom("provider_resource")
         .select(["status", "consecutive_failures"])
         .where("id", "=", fx.resourceId)
         .executeTakeFirstOrThrow();
-      expect(resource.status).toBe("ACTIVE");
-      expect(resource.consecutive_failures).toBe(0);
+      expect(resource).toMatchObject({ status: "ACTIVE", consecutive_failures: 0 });
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it.each([429, 403])("上游 %i 月度额度耗尽统一返回 429 并隔离为 EXHAUSTED", async (upstreamStatus) => {
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      caller: async () => ({
+        status: upstreamStatus,
+        committed: false,
+        usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+        error: "rate_limit_error",
+        upstreamErrorKind: "QUOTA_EXHAUSTED",
+        failureLayer: "UPSTREAM_HTTP",
+      }),
+    });
+    try {
+      const response = await fx.app.inject({
+        method: "POST",
+        url: "/v1/messages",
+        headers: authHeader(fx.key),
+        payload: {
+          model: KIMI_ALIAS,
+          max_tokens: 256,
+          messages: [{ role: "user", content: "额度测试" }],
+        },
+      });
+
+      expect(response.statusCode).toBe(429);
+      expect(response.json().error).toMatchObject({
+        code: "upstream_quota_exhausted",
+        retryable: false,
+      });
+      const resource = await db.selectFrom("provider_resource")
+        .select(["status", "cooldown_until"])
+        .where("id", "=", fx.resourceId)
+        .executeTakeFirstOrThrow();
+      expect(resource.status).toBe("EXHAUSTED");
+      expect(resource.cooldown_until).toBeNull();
     } finally {
       await fx.close();
     }
@@ -507,7 +641,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
     }
   });
 
-  it("F-01-6：双 Attempt failover → 首失败释放预占 + 第二成功结算", async () => {
+  it("F-01-6：两个独立 K3 资源 → 主资源 429 后切换备用资源并成功结算", async () => {
     // 双资源 failover：需两个 CODING_PLAN 资源同 grant（同 provider/alias）
     // 用 buildFixture 建第一个资源 + grant，再手动加第二个资源
     const stub = new StubUpstream({
@@ -539,6 +673,16 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       const requestId = res.headers["x-request-id"] as string;
       const attempts = await ledgerRepo.listAttempts(requestId);
       expect(attempts).toHaveLength(2); // 双 Attempt
+      expect(attempts.map((attempt) => attempt.provider_resource_id)).toEqual([
+        fx.resourceId,
+        resB.id,
+      ]);
+      const resources = await db.selectFrom("provider_resource")
+        .select(["id", "status"])
+        .where("id", "in", [fx.resourceId, resB.id])
+        .execute();
+      expect(resources.find((resource) => resource.id === fx.resourceId)?.status).toBe("RATE_LIMITED");
+      expect(resources.find((resource) => resource.id === resB.id)?.status).toBe("ACTIVE");
 
       // F-01 核心：首 Attempt 429（zeroUsage 无明细）→ releaseQuota 释放；
       // 第二 Attempt 成功 → settleQuota 结算。used = 仅成功 Attempt 的 deducted_quota

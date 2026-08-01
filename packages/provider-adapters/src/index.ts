@@ -83,6 +83,11 @@ export interface AdapterRequest {
   body: unknown;
   /** 客户端断开信号（AbortSignal），用于取消。 */
   abort?: AbortSignal;
+  /**
+   * 真实流式回调：Caller 解析到一个完整上游 Chat SSE data 后立即交给 Gateway。
+   * payload 只在请求内存中停留，不得写日志或数据库。
+   */
+  onStreamChunk?: (payload: Record<string, unknown>) => void | Promise<void>;
 }
 
 /**
