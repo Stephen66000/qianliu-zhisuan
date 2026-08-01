@@ -5,7 +5,7 @@
  * 用一个唯一 canary 字面量跑 scanCanary 框架，证明：
  *   1. MetadataLogger 白名单过滤生效（canary 写入非白名单字段后被过滤）；
  *   2. scanCanary 框架可执行，对内存日志缓冲返回命中数；
- *   3. 真实业务接入后，正文/Secret canary 命中数必须为 0。
+ *   3. 未接入的 PG/Redis/Trace 明确显示 null，不得伪装成零命中。
  *
  * 本脚本不连真实 PG/Redis（W01 无业务数据）；仅验证框架就位。
  */
@@ -27,11 +27,14 @@ async function main(): Promise<void> {
   // 扫描：canary 不应出现在日志（白名单已过滤 body 字段）
   const result = await scanCanary(CANARY, [
     createLogSinkFromBuffer({ text: () => buf }),
-  ]);
+  ], ["logs"]);
 
   console.log("=== evidence:canary W01 框架验证 ===");
   console.log("canary:", CANARY);
   console.log("hits:", JSON.stringify(result.hits));
+  console.log("scanned:", result.scannedKinds.join(","));
+  console.log("unscanned:", result.unscannedKinds.join(","));
+  console.log("full scan complete:", result.complete);
   console.log("total:", result.total);
   console.log("passed (total===0):", result.passed);
   console.log("");
@@ -42,7 +45,7 @@ async function main(): Promise<void> {
     console.error("FAIL: canary 命中数非 0，白名单过滤失效");
     process.exit(1);
   }
-  console.log("OK: canary 框架就位，白名单过滤生效");
+  console.log("OK: 日志 canary 框架验证通过；PG/Redis/Trace 未在本命令扫描");
 }
 
 main().catch((err) => {

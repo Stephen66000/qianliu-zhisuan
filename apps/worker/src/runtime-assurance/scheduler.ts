@@ -7,7 +7,22 @@ export interface SchedulerHealth {
   lastTickAt: string | null;
   lastSuccessAt: string | null;
   lastErrorAt: string | null;
+  lastErrorCode: "SCHEDULER_TICK_FAILED" | null;
   running: boolean;
+}
+
+export function waitForAbortableInterval(signal: AbortSignal, intervalMs: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    const onAbort = () => finish();
+    const timer = setTimeout(finish, intervalMs);
+    signal.addEventListener("abort", onAbort);
+    if (signal.aborted) finish();
+  });
 }
 
 export async function withRuntimeSchedulerLock<T>(db: Kysely<Database>, task: () => Promise<T>): Promise<T | null> {
@@ -48,14 +63,14 @@ export async function runSchedulerLoop(input: {
     try {
       const result = await withRuntimeSchedulerLock(input.db, input.tick);
       if (result !== null) input.health.lastSuccessAt = new Date().toISOString();
-    } catch {
+    } catch (cause) {
       input.health.lastErrorAt = new Date().toISOString();
+      input.health.lastErrorCode = "SCHEDULER_TICK_FAILED";
+      const errorType = cause instanceof Error ? cause.name : typeof cause;
+      console.error(JSON.stringify({ event: "runtime_assurance_tick_failed", error_type: errorType }));
     }
     if (input.signal.aborted) break;
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, input.intervalMs);
-      input.signal.addEventListener("abort", () => { clearTimeout(timer); resolve(); }, { once: true });
-    });
+    await waitForAbortableInterval(input.signal, input.intervalMs);
   }
   input.health.running = false;
 }

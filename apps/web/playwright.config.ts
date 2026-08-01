@@ -32,13 +32,17 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "corepack pnpm --filter @qianliu/control-api dev",
+      command: "corepack pnpm@11.11.0 --filter @qianliu/control-api dev",
       url: `http://127.0.0.1:${controlApiPort}/health`,
+      env: {
+        CONTROL_API_PORT: String(controlApiPort),
+        WEB_ORIGIN: process.env.WEB_ORIGIN ?? `http://127.0.0.1:${webPort}`,
+      },
       reuseExistingServer: false,
       timeout: 120_000,
     },
     {
-      command: `corepack pnpm --filter @qianliu/web exec vite --port ${webPort}`,
+      command: `corepack pnpm@11.11.0 --filter @qianliu/web exec vite --port ${webPort}`,
       url: `http://127.0.0.1:${webPort}`,
       reuseExistingServer: false,
       timeout: 120_000,

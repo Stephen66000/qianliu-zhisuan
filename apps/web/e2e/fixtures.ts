@@ -29,9 +29,16 @@ export const E2E_IDS = {
 } as const;
 
 export async function apiGet<T>(page: Page, path: string): Promise<T> {
-  const response = await page.context().request.get(`/api${path}`);
-  expect(response.ok(), `${path} 应返回成功`).toBe(true);
-  return response.json() as Promise<T>;
+  const response = await page.evaluate(async (requestPath) => {
+    const browserResponse = await fetch(`/api${requestPath}`, { credentials: "same-origin" });
+    return {
+      ok: browserResponse.ok,
+      status: browserResponse.status,
+      body: await browserResponse.text(),
+    };
+  }, path);
+  expect(response.ok, `${path} 应返回成功，实际 HTTP ${response.status}`).toBe(true);
+  return JSON.parse(response.body) as T;
 }
 
 export const test = base.extend({});

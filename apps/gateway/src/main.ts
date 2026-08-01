@@ -14,6 +14,7 @@ import {
   decodeKek,
   resolveProviderSecret,
 } from "@qianliu/provider-adapters";
+import { installGracefulShutdown } from "@qianliu/observability";
 import { buildGateway } from "./server.js";
 import { createRealPipeline, type RouteCandidateRow } from "./pipeline/real-pipeline.js";
 
@@ -109,7 +110,22 @@ async function start(): Promise<void> {
     maxAttempts: 2,
   });
   const app = buildGateway(db, pepper, pipeline, { port, host });
-  await app.listen({ port, host });
+  const shutdown = installGracefulShutdown({
+    serviceName: "gateway",
+    close: async () => {
+      await app.close();
+      await db.destroy();
+    },
+    log: (message, error) => app.log.info({ error }, message),
+  });
+  try {
+    await app.listen({ port, host });
+  } catch (error) {
+    shutdown.uninstall();
+    await app.close().catch(() => undefined);
+    await db.destroy().catch(() => undefined);
+    throw error;
+  }
   app.log.info({ port, host }, "gateway listening (real-pipeline; caller=openai-compatible-http)");
 }
 
@@ -125,8 +141,7 @@ function runtimeMode(value: string | undefined): "OFF" | "OBSERVE" | "ENFORCE" {
 function requireEnv(name: string): string {
   const val = process.env[name];
   if (!val) {
-    console.error(`启动失败：必需环境变量 ${name} 未设置（不提供 dev fallback；见 F-02 整改）`);
-    process.exit(1);
+    throw new Error(`必需环境变量 ${name} 未设置（不提供 dev fallback；见 F-02 整改）`);
   }
   return val;
 }
@@ -143,5 +158,5 @@ function positiveEnvMs(name: string, fallback: number): number {
 
 start().catch((err) => {
   console.error("gateway 启动失败:", err);
-  process.exit(1);
+  process.exitCode = 1;
 });

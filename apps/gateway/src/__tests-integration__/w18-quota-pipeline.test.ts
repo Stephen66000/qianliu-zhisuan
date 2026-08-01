@@ -491,9 +491,11 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect(resource.status).toBe("DEGRADED");
       expect(resource.consecutive_failures).toBe(0);
     } finally {
+      // 即使用例断言或超时，也要释放正在等待的半开探针，避免关闭 Fastify 时继续悬挂。
+      releaseProbe();
       await fx.close();
     }
-  });
+  }, 60_000);
 
   it("上游 400 原样返回且不重试、不污染资源健康", async () => {
     let calls = 0;

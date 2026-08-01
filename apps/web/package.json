@@ -20,7 +20,7 @@
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "react-hook-form": "7.55.0",
-    "react-router-dom": "7.9.6",
+    "react-router-dom": "7.18.2",
     "zod": "4.1.11"
   },
   "devDependencies": {
@@ -30,7 +30,7 @@
     "@testing-library/user-event": "14.6.1",
     "@types/react": "19.1.1",
     "@types/react-dom": "19.1.1",
-    "@vitejs/plugin-react": "4.3.4",
+    "@vitejs/plugin-react": "5.2.0",
     "autoprefixer": "10.4.20",
     "jsdom": "26.1.0",
     "postcss": "8.5.6",

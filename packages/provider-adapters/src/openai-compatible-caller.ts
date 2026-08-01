@@ -12,8 +12,8 @@ import {
   decryptCredential,
   type EncryptedCredential,
 } from "./crypto.js";
+import { SecretValue } from "./secret-value.js";
 import {
-  SecretValue,
   type AdapterRequest,
   type AdapterResource,
   type UpstreamCaller,

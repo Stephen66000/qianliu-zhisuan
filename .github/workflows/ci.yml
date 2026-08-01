@@ -1,6 +1,4 @@
-# 仟流智算 CI 骨架（W01）。
-# 依据：W01 DoD 含"基础 CI"。当前 Local First 期无远程仓库，本文件已就绪，push 启用时自动生效。
-# 完整 CI（含 Secrets 注入、Playwright、Testcontainers）推迟到 W24。
+# 仟流智算 HIGH 风险候选质量门禁。
 name: ci
 
 on:
@@ -12,7 +10,27 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
+    env:
+      DATABASE_URL: postgresql://postgres:qianliu@127.0.0.1:5432/qianliu_e2e
+      GATEWAY_KEY_PEPPER: ci-only-gateway-key-pepper-32-bytes
+      CREDENTIAL_KEK: ZGV2LW9ubHkta2VrLXJlcGxhY2UtaW4tcGlsb3QAAAA=
+      COOKIE_SECRET: ci-only-cookie-secret-at-least-32-bytes
+      WEB_ORIGIN: http://127.0.0.1:5173
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qianliu
+          POSTGRES_DB: qianliu_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qianliu_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,7 +41,7 @@ jobs:
           version: "11.11.0"
           run_install: false
       - run: corepack pnpm@11.11.0 install --frozen-lockfile
-      - run: corepack pnpm@11.11.0 typecheck
-      - run: corepack pnpm@11.11.0 lint
-      - run: corepack pnpm@11.11.0 test
-      - run: corepack pnpm@11.11.0 evidence:canary
+      - run: corepack pnpm@11.11.0 --filter @qianliu/web exec playwright install --with-deps chromium
+      - run: corepack pnpm@11.11.0 run quality
+      - run: corepack pnpm@11.11.0 run quality:mutation
+      - run: corepack pnpm@11.11.0 run test:e2e

@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "risk_level": "HIGH",
+  "runtime": {
+    "node": "22.17.x",
+    "pnpm": "11.11.0"
+  },
+  "coverage": {
+    "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度）",
+    "statements": 95,
+    "branches": 85,
+    "functions": 90,
+    "lines": 95,
+    "ratchets": [
+      {
+        "scope": "domain",
+        "report": "packages/domain/coverage/coverage-summary.json",
+        "minimum": { "statements": 97.37, "branches": 89.63, "functions": 95.83, "lines": 97.37 }
+      },
+      {
+        "scope": "control-api-security",
+        "report": "apps/control-api/coverage/coverage-summary.json",
+        "minimum": { "statements": 100, "branches": 94.44, "functions": 100, "lines": 100 }
+      },
+      {
+        "scope": "observability-remediation",
+        "report": "packages/observability/coverage/coverage-summary.json",
+        "minimum": { "statements": 100, "branches": 88.88, "functions": 100, "lines": 100 }
+      },
+      {
+        "scope": "provider-secret",
+        "report": "packages/provider-adapters/coverage/coverage-summary.json",
+        "minimum": { "statements": 100, "branches": 87.5, "functions": 100, "lines": 100 }
+      },
+      {
+        "scope": "worker-scheduler",
+        "report": "apps/worker/coverage/coverage-summary.json",
+        "minimum": { "statements": 100, "branches": 96, "functions": 100, "lines": 100 }
+      }
+    ]
+  },
+  "mutation": {
+    "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理",
+    "break": 70,
+    "target": 80,
+    "survivor_dispositions": [
+      {
+        "file": "src/billing-rule.ts", "max_survived": 33, "max_no_coverage": 7,
+        "owner": "仟流智算计费模块负责人", "decision": "TEST_DEBT", "reason": "现有分支覆盖已达门禁，但边界与防御分支仍有存活变异",
+        "action": "补齐时区、空配置、规则排序和价格边界定向测试，禁止数量增长", "due_on": "2026-09-01"
+      },
+      {
+        "file": "src/dispatch-policy.ts", "max_survived": 19, "max_no_coverage": 6,
+        "owner": "仟流智算调度模块负责人", "decision": "TEST_DEBT", "reason": "历史策略组合与异常目标分支未全部被变异断言覆盖",
+        "action": "补齐不完整时间窗、倍率边界和非法切换目标测试，禁止数量增长", "due_on": "2026-09-01"
+      },
+      {
+        "file": "src/quota-gate.ts", "max_survived": 5, "max_no_coverage": 0,
+        "owner": "仟流智算额度模块负责人", "decision": "TEST_DEBT", "reason": "授权起止时刻与零值等价边界仍有存活变异",
+        "action": "补齐 validFrom/validUntil 精确边界断言，禁止数量增长", "due_on": "2026-08-15"
+      },
+      {
+        "file": "src/reconciliation.ts", "max_survived": 2, "max_no_coverage": 0,
+        "owner": "仟流智算对账模块负责人", "decision": "TEST_DEBT", "reason": "两类缺失差异的独立严重度断言不足",
+        "action": "分别覆盖 MISSING_USAGE 与 ORPHAN_LEDGER_LINE，禁止数量增长", "due_on": "2026-08-15"
+      },
+      {
+        "file": "src/routing-policy.ts", "max_survived": 13, "max_no_coverage": 0,
+        "owner": "仟流智算路由模块负责人", "decision": "TEST_DEBT", "reason": "零候选、零权重和评分因子细节断言仍不足",
+        "action": "补齐排除集、空候选、零权重和因子名称/数值断言，禁止数量增长", "due_on": "2026-09-01"
+      }
+    ]
+  },
+  "complexity": {
+    "default_max": 30,
+    "legacy_exceptions_are_locked_in_eslint_config": true,
+    "crap_equivalent": "ESLint 圈复杂度上限 + 覆盖率防下降阀；任一下降即 CI 失败",
+    "exception_policy": {
+      "owner": "仟流智算技术负责人",
+      "reason": "历史生产代码拆分风险高，本轮只锁定现状并禁止继续增长",
+      "reviewed_on": "2026-08-01",
+      "review_due": "2026-09-01",
+      "exit": "函数复杂度降至 30 以下后删除对应 ESLint 例外"
+    },
+    "exceptions": [
+      { "file": "apps/control-api/src/read-models/routes.ts", "max": 35 },
+      { "file": "apps/gateway/src/pipeline/real-pipeline.ts", "max": 182 },
+      { "file": "apps/web/src/pages/Principals.tsx", "max": 48 },
+      { "file": "apps/web/src/pages/QuotaRules.tsx", "max": 84 },
+      { "file": "apps/web/src/pages/RequestDrilldown.tsx", "max": 31 },
+      { "file": "apps/web/src/pages/Resources.tsx", "max": 59 },
+      { "file": "apps/web/src/pages/Usage.tsx", "max": 37 },
+      { "file": "packages/database/src/repositories/dashboard-repository.ts", "max": 31 },
+      { "file": "packages/database/src/repositories/dispatch-policy-repository.ts", "max": 32 }
+    ]
+  },
+  "duplication": {
+    "max_percent": 5,
+    "min_lines": 20,
+    "min_tokens": 100
+  },
+  "source_size": {
+    "default_max_logical_lines": 400,
+    "legacy_exception_policy": "不得超过登记基线；低于 400 行后删除例外",
+    "exception_policy": {
+      "owner": "仟流智算技术负责人",
+      "reason": "历史生产文件拆分需独立回归，本轮通过防增长阀控制风险",
+      "reviewed_on": "2026-08-01",
+      "review_due": "2026-09-01",
+      "exit": "拆分且回归通过后降至 400 逻辑行以内"
+    },
+    "exceptions": [
+      { "file": "apps/gateway/src/pipeline/real-pipeline.ts", "baseline": 1338 },
+      { "file": "apps/web/src/pages/QuotaRules.tsx", "baseline": 1312 },
+      { "file": "apps/web/src/pages/Resources.tsx", "baseline": 1080 },
+      { "file": "packages/provider-adapters/src/openai-compatible-caller.ts", "baseline": 1017 },
+      { "file": "packages/database/src/repositories/runtime-assurance-repository.ts", "baseline": 919 },
+      { "file": "apps/web/src/pages/Principals.tsx", "baseline": 881 },
+      { "file": "packages/database/src/kysely.ts", "baseline": 655 },
+      { "file": "apps/control-api/src/cli/seed-e2e.ts", "baseline": 588 },
+      { "file": "packages/database/src/repositories/dashboard-repository.ts", "baseline": 570 },
+      { "file": "packages/database/src/repositories/alert-event-repository.ts", "baseline": 533 },
+      { "file": "apps/web/src/api/types.ts", "baseline": 506 },
+      { "file": "apps/control-api/src/read-models/routes.ts", "baseline": 489 },
+      { "file": "packages/database/src/repositories/gateway-ledger-repository.ts", "baseline": 455 },
+      { "file": "apps/control-api/src/admin-writes/routes.ts", "baseline": 439 }
+    ]
+  },
+  "security_exceptions": [
+    {
+      "advisory": "GHSA-qwww-vcr4-c8h2",
+      "dependency": "react-router",
+      "reason": "公告仅影响 React Server Components Mode；当前 Web 仅使用 BrowserRouter 客户端 SPA，不包含 RSC/server 路由入口。上游尚无可安装修复版本。",
+      "verification": "rg -n 'react-router/(rsc|dom/server)|createRequestHandler|RSCRouteConfig|decodeReply' apps/web/src",
+      "expires_on": "2026-09-01",
+      "action": "每次依赖审计复核上游修复版本；引入 SSR/RSC 前立即取消例外"
+    }
+  ]
+}

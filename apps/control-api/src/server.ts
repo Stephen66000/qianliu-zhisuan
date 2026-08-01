@@ -47,6 +47,7 @@ import { registerAdminWriteRoutes } from "./admin-writes/routes.js";
 import { registerGatewayRequestRoutes } from "./gateway-requests/routes.js";
 import { registerAlertRoutes } from "./alerts/routes.js";
 import { registerRuntimeAssuranceRoutes } from "./runtime-assurance/routes.js";
+import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
 export interface AdminContext {
@@ -167,13 +168,27 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
 
   // 在插件作用域内注册 cookie/cors/路由，保证 ready 时全部就绪
   void app.register(async (child) => {
+    const allowedOrigins = configuredWebOrigins(process.env);
+    if (process.env.NODE_ENV === "production" && allowedOrigins.length === 0) {
+      throw new Error("生产环境必须配置 WEB_ORIGIN");
+    }
     await child.register(cookie, {
       // F-02：dev fallback 仅测试态可达；生产入口 main.ts 已用 requireEnv 拦截缺失
       secret: process.env.COOKIE_SECRET ?? "dev-only-cookie-secret-REPLACE",
     });
     await child.register(cors, {
-      origin: process.env.WEB_ORIGIN ?? true,
+      origin: allowedOrigins.length > 0 ? allowedOrigins : true,
       credentials: true,
+    });
+    child.addHook("onRequest", async (req, reply) => {
+      if (allowedOrigins.length > 0 && isCrossSiteMutation({
+        method: req.method,
+        origin: req.headers.origin,
+        secFetchSite: req.headers["sec-fetch-site"],
+        allowedOrigins,
+      })) {
+        await reply.code(403).send({ error: "forbidden_origin", message: "禁止跨站写请求" });
+      }
     });
     registerAuthRoutes(child);
     registerPrincipalRoutes(child);

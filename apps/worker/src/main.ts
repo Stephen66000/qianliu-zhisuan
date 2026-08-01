@@ -109,7 +109,8 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   const db = createKysely();
   const controller = new AbortController();
   const health: SchedulerHealth = {
-    startedAt: new Date().toISOString(), lastTickAt: null, lastSuccessAt: null, lastErrorAt: null, running: false,
+    startedAt: new Date().toISOString(), lastTickAt: null, lastSuccessAt: null,
+    lastErrorAt: null, lastErrorCode: null, running: false,
   };
   const port = Number(process.env.WORKER_HEALTH_PORT ?? "9191");
   const intervalMs = Number(process.env.RUNTIME_ASSURANCE_INTERVAL_MS ?? "30000");

@@ -16,14 +16,14 @@
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.0",
-    "@opentelemetry/sdk-trace-base": "2.0.1",
+    "@opentelemetry/sdk-trace-base": "2.8.0",
     "@qianliu/domain": "workspace:*"
   },
   "devDependencies": {
-    "@testcontainers/postgresql": "11.6.0",
-    "@testcontainers/redis": "11.6.0",
+    "@testcontainers/postgresql": "12.0.4",
+    "@testcontainers/redis": "12.0.4",
     "redis": "5.8.2",
-    "testcontainers": "11.6.0",
+    "testcontainers": "12.0.4",
     "tsx": "4.19.2"
   }
 }

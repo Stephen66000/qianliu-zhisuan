@@ -3,7 +3,7 @@
  *
  * 依据：TRD §14.1（账号密码登录，无验证码）、§14.2（Cookie 安全）。
  * 流程：POST /auth/login → 校验 Argon2id → 创建 admin_session → 设置 HttpOnly Cookie。
- * 登录限速：一期内存计数（按 username）；试点前可换 Redis。
+ * 登录限速：有界内存计数（按 IP + username）；多实例部署时应换 Redis。
  */
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -13,16 +13,18 @@ import {
   digestSessionToken,
 } from "@qianliu/provider-adapters";
 import { requireAuth, SESSION_COOKIE_NAME, SESSION_TTL } from "../plugins/auth-guard.js";
+import { LoginRateLimiter } from "./login-rate-limiter.js";
 
 const LoginSchema = z.object({
   username: z.string().min(1).max(128),
   password: z.string().min(1).max(256),
 });
 
-// 简易内存登录限速：username → 失败次数 + 窗口。
-const loginAttempts = new Map<string, { count: number; windowStart: number }>();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 5 * 60 * 1000;
+const loginRateLimiter = new LoginRateLimiter({
+  maxAttempts: 5,
+  windowMs: 5 * 60 * 1000,
+  maxBuckets: 10_000,
+});
 
 export function registerAuthRoutes(app: FastifyInstance): void {
   app.post("/auth/login", async (req, reply) => {
@@ -32,10 +34,10 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     }
     const { username, password } = parsed.data;
     const now = Date.now();
+    const rateLimitKey = `${req.ip}\0${username.trim().toLowerCase()}`;
 
     // 限速
-    const attempts = loginAttempts.get(username);
-    if (attempts && now - attempts.windowStart < WINDOW_MS && attempts.count >= MAX_ATTEMPTS) {
+    if (loginRateLimiter.isBlocked(rateLimitKey, now)) {
       return reply.code(429).send({ error: "rate_limited", message: "尝试过于频繁，请稍后再试" });
     }
 
@@ -48,17 +50,17 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
     const admin = await app.adminRepo.findByUsername(enterprise.id, username);
     if (!admin || admin.status !== "ACTIVE") {
-      recordFailedAttempt(username, now);
+      loginRateLimiter.recordFailure(rateLimitKey, now);
       return reply.code(401).send({ error: "invalid_credentials", message: "用户名或密码错误" });
     }
 
     const ok = await verifyPassword(admin.password_hash, password);
     if (!ok) {
-      recordFailedAttempt(username, now);
+      loginRateLimiter.recordFailure(rateLimitKey, now);
       return reply.code(401).send({ error: "invalid_credentials", message: "用户名或密码错误" });
     }
 
-    loginAttempts.delete(username);
+    loginRateLimiter.clear(rateLimitKey);
 
     const token = generateSessionToken();
     const tokenHash = digestSessionToken(token);
@@ -108,13 +110,4 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.get("/auth/me", { preHandler: [requireAuth] }, async (req) => {
     return { admin: req.admin };
   });
-}
-
-function recordFailedAttempt(username: string, now: number): void {
-  const existing = loginAttempts.get(username);
-  if (existing && now - existing.windowStart < WINDOW_MS) {
-    existing.count++;
-  } else {
-    loginAttempts.set(username, { count: 1, windowStart: now });
-  }
 }

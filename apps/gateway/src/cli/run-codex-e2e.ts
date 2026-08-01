@@ -193,8 +193,13 @@ try {
       path: request.path,
       authorizationMatched: request.authorization === `Bearer ${localUpstreamSecret}`,
       authorization: request.authorization ? "Bearer [REDACTED]" : null,
-      body: request.body,
-      toolResults: request.toolResults,
+      bodyShape: {
+        model: typeof request.body.model === "string" ? request.body.model : null,
+        messageCount: Array.isArray(request.body.messages) ? request.body.messages.length : 0,
+        toolCount: Array.isArray(request.body.tools) ? request.body.tools.length : 0,
+        stream: request.body.stream === true,
+      },
+      toolResultCount: request.toolResults.length,
       reportedUsage: request.reportedUsage,
     })),
     requests: requests.map((request) => ({
@@ -208,11 +213,12 @@ try {
       total_cache_tokens: transaction.total_cache_tokens.toString(),
       total_reasoning_tokens: transaction.total_reasoning_tokens.toString(),
     })),
-    clientEvents: cli.stdout
+    clientEventTypes: cli.stdout
       .split("\n")
       .filter(Boolean)
-      .map((line) => JSON.parse(line) as unknown),
-    stderr: cli.stderr,
+      .map((line) => JSON.parse(line) as { type?: unknown })
+      .map((event) => typeof event.type === "string" ? event.type : "unknown"),
+    stderrLineCount: cli.stderr.split("\n").filter(Boolean).length,
   };
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   const observedToolResult = upstreamRequests.some((request) => request.toolResults.length > 0);

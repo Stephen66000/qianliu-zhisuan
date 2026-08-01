@@ -3,8 +3,8 @@
  * 种子管理员 CLI（E2E / 本地开发前置）—— 创建企业 + 管理员账号。
  *
  * 用法：
- *   DATABASE_URL=postgres://... tsx src/cli/seed-admin.ts \
- *     --enterprise "仟流试点企业" --username admin --password admin123
+ *   ADMIN_SEED_PASSWORD='...' DATABASE_URL=postgres://... tsx src/cli/seed-admin.ts \
+ *     --enterprise "仟流试点企业" --username admin
  *
  * 幂等：同名企业/用户名已存在则复用，不重复创建（返回既有 id）。
  * 安全：密码用 Argon2id 哈希（同 auth/password.ts），绝不打印明文哈希外的信息。
@@ -18,7 +18,6 @@ import { hashPassword } from "../auth/password.js";
 interface Args {
   enterprise: string;
   username: string;
-  password: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -28,11 +27,10 @@ function parseArgs(argv: string[]): Args {
     const value = argv[i + 1];
     if (key === "--enterprise") args.enterprise = value;
     else if (key === "--username") args.username = value;
-    else if (key === "--password") args.password = value;
   }
-  if (!args.enterprise || !args.username || !args.password) {
+  if (!args.enterprise || !args.username) {
     console.error(
-      "用法: tsx src/cli/seed-admin.ts --enterprise <名> --username <用户名> --password <密码>",
+      "用法: ADMIN_SEED_PASSWORD=<密码> tsx src/cli/seed-admin.ts --enterprise <名> --username <用户名>",
     );
     process.exit(2);
   }
@@ -40,7 +38,9 @@ function parseArgs(argv: string[]): Args {
 }
 
 async function main(): Promise<void> {
-  const { enterprise, username, password } = parseArgs(process.argv);
+  const { enterprise, username } = parseArgs(process.argv);
+  const password = process.env.ADMIN_SEED_PASSWORD;
+  if (!password) throw new Error("ADMIN_SEED_PASSWORD 未设置");
   const db = createKysely();
   try {
     await migrateToLatest(db);
@@ -87,9 +87,9 @@ async function main(): Promise<void> {
       console.log(`✓ 创建管理员: ${username} (${admin.id})，状态 ACTIVE`);
     }
 
-    console.log("\n完成。可用以下凭据登录管理后台 / E2E：");
+    console.log("\n完成。可用以下账号登录管理后台 / E2E：");
     console.log(`  用户名: ${username}`);
-    console.log(`  密码:   ${password}`);
+    console.log("  密码:   已从 ADMIN_SEED_PASSWORD 读取（不输出）");
   } finally {
     await db.destroy();
   }

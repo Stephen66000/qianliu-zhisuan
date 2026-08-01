@@ -27,8 +27,8 @@
   },
   "devDependencies": {
     "@qianliu/testing": "workspace:*",
-    "@types/node": "22.10.10",
-    "kysely": "0.28.7",
+    "@types/node": "22.20.1",
+    "kysely": "0.28.17",
     "tsx": "4.19.2"
   }
 }

@@ -11,7 +11,11 @@ import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/test
 import type { Kysely } from "kysely";
 import { runRuntimeAssuranceTick } from "../runtime-assurance/runner.js";
 import { WecomAppClient } from "../runtime-assurance/wecom-client.js";
-import { withRuntimeSchedulerLock } from "../runtime-assurance/scheduler.js";
+import {
+  runSchedulerLoop,
+  withRuntimeSchedulerLock,
+  type SchedulerHealth,
+} from "../runtime-assurance/scheduler.js";
 
 let pg: PostgresTestInstance;
 let db: Kysely<Database>;
@@ -165,6 +169,39 @@ describe("RA-W05A/W05B/W06 Worker 闭环", () => {
     expect(second).toBeNull();
     release();
     expect(await first).toBe("first");
+  });
+
+  it("调度循环成功和失败均更新健康状态并响应停止信号", async () => {
+    const makeHealth = (): SchedulerHealth => ({
+      startedAt: new Date().toISOString(), lastTickAt: null, lastSuccessAt: null,
+      lastErrorAt: null, lastErrorCode: null, running: false,
+    });
+
+    const successController = new AbortController();
+    const successHealth = makeHealth();
+    let successTicks = 0;
+    await runSchedulerLoop({
+      db, intervalMs: 1, signal: successController.signal, health: successHealth,
+      tick: async () => {
+        successTicks += 1;
+        if (successTicks === 2) successController.abort();
+      },
+    });
+    expect(successHealth.running).toBe(false);
+    expect(successHealth.lastSuccessAt).not.toBeNull();
+    expect(successTicks).toBe(2);
+
+    const errorController = new AbortController();
+    const errorHealth = makeHealth();
+    await runSchedulerLoop({
+      db, intervalMs: 1, signal: errorController.signal, health: errorHealth,
+      tick: async () => {
+        errorController.abort();
+        throw new TypeError("test-only failure");
+      },
+    });
+    expect(errorHealth.running).toBe(false);
+    expect(errorHealth.lastErrorCode).toBe("SCHEDULER_TICK_FAILED");
   });
 
   it("企微限频指数退避，不回滚事件", async () => {

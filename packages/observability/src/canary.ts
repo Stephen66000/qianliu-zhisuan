@@ -18,9 +18,15 @@ export interface CanarySink {
 
 export interface CanaryScanResult {
   canary: string;
-  hits: Record<StorageKind, number>;
+  /** 未提供扫描器的存储必须是 null，不能伪装成零命中。 */
+  hits: Record<StorageKind, number | null>;
+  scannedKinds: StorageKind[];
+  unscannedKinds: StorageKind[];
+  /** 是否四类存储都实际执行过扫描。 */
+  complete: boolean;
   total: number;
-  passed: boolean; // total === 0
+  /** 仅表示 requiredKinds 均已扫描且零命中。 */
+  passed: boolean;
 }
 
 /**
@@ -30,18 +36,31 @@ export interface CanaryScanResult {
 export async function scanCanary(
   canary: string,
   sinks: CanarySink[],
+  requiredKinds: readonly StorageKind[] = sinks.map((sink) => sink.kind),
 ): Promise<CanaryScanResult> {
-  const hits: Record<StorageKind, number> = {
-    postgres: 0,
-    redis: 0,
-    logs: 0,
-    traces: 0,
+  const hits: Record<StorageKind, number | null> = {
+    postgres: null,
+    redis: null,
+    logs: null,
+    traces: null,
   };
   for (const sink of sinks) {
     hits[sink.kind] = await sink.scan(canary);
   }
-  const total = hits.postgres + hits.redis + hits.logs + hits.traces;
-  return { canary, hits, total, passed: total === 0 };
+  const storageKinds: StorageKind[] = ["postgres", "redis", "logs", "traces"];
+  const scannedKinds = storageKinds.filter((kind) => hits[kind] !== null);
+  const unscannedKinds = storageKinds.filter((kind) => hits[kind] === null);
+  const total = scannedKinds.reduce((sum, kind) => sum + (hits[kind] ?? 0), 0);
+  const passed = requiredKinds.every((kind) => hits[kind] === 0);
+  return {
+    canary,
+    hits,
+    scannedKinds,
+    unscannedKinds,
+    complete: unscannedKinds.length === 0,
+    total,
+    passed,
+  };
 }
 
 /**

@@ -105,11 +105,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(page.getByText("系统剩余额度")).toBeVisible();
     await expect(page.getByText("下一次重置日期")).toBeVisible();
 
-    const historyResponse = await page.context().request.get(
-      `/api/provider-resources/${E2E_IDS.isolatedResource}/operating-snapshots`,
-    );
-    expect(historyResponse.ok()).toBe(true);
-    const history = await historyResponse.json() as {
+    const history = await apiGet<{
       snapshots: Array<{
         version: number;
         total_quota: string;
@@ -118,7 +114,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
         package_cost: string;
         usage_calculation: string;
       }>;
-    };
+    }>(page, `/provider-resources/${E2E_IDS.isolatedResource}/operating-snapshots`);
     expect(history.snapshots.slice(0, 2).map((snapshot) => snapshot.version)).toEqual([2, 1]);
     expect(history.snapshots[0]).toMatchObject({
       total_quota: "100000.00000000",
