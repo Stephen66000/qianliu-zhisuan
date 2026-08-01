@@ -113,7 +113,7 @@ runtime_assurance:
   local_first: true
   mac_mini_deployed: false
   adr: "V3/ADR-RUNTIME-ASSURANCE-FOUNDATION.md"
-  latest_migration: "0030_runtime_assurance_foundation.js"
+  latest_migration: "0031_gateway_stream_resilience.js"
   evidence: "V3/Evidence/Runtime-Assurance/RA-W08/20260801-084928-local-release-candidate/"
   evidence_root: "V3/Evidence/Runtime-Assurance/"
   quality_gate: "PASS"
