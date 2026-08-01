@@ -93,11 +93,11 @@
 <script type="application/json" id="stage02-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "67e2b9e59eb22d588105bbb6ac80d173fcebdc10312b2914f84d522b9cd9763f",
+  "sourceSha256": "b53280382527b78f26e8e4b09d3eea2c6a3624b20a07947e593008da6bf91c0a",
   "projectName": "仟流智算",
   "productVersion": "v0.3",
   "planVersion": "v0.3.1",
-  "updatedAt": "2026-08-01T09:22:50+08:00",
+  "updatedAt": "2026-08-01T17:30:00+08:00",
   "stage01": {
     "id": "STAGE-01",
     "name": "方案准备",
@@ -123,13 +123,13 @@
     "candidateLock": "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   },
   "nextAction": {
-    "id": "STAGE03-POOL009-012-0029-DEPLOYED-AWAIT-UI-BUSINESS",
-    "text": "POOL-009～012 二次调整已完成并部署到 Mac Mini：归档主体不再进入首页需要处理列表，正常未超额主体不显示；套餐只需录入总额度、套餐、币种、有效期与重置规则，已用/剩余/下次重置由系统按账本计算。发布来自 e1006dc 集成基线工作树发布包，未从 main 或 2e63 部署；生产库已升级到 0029，备份恢复、迁移回滚/重升、Node 22 全量门禁、Chromium 21/21 与公网健康检查通过。下一步：管理员重新登录生产 Chrome 完成页面只读确认，再由业务确认真实套餐数字；生产规模账本压测与 Worker 定时调度仍单独验证。",
-    "owner": "佳哥（待重新登录生产页面只读确认，再做业务验收）",
-    "evidence_target": "V3/Evidence/POOL-009-012-20260731.md"
+    "id": "DAILY-USAGE-AND-POST-RELEASE-BACKLOG",
+    "text": "仟流智算开发完成，首次生产发布及基础验收通过，进入日常使用和蓄水池迭代阶段。POOL-002、POOL-009～012、真实企微成员到达、更多厂商/客户端和生产规模验证按发布后蓄水池推进，不回溯阻塞本次项目完成结论。",
+    "owner": "佳哥（按日常使用反馈排期）",
+    "evidence_target": "V3/Evidence/Production-Release/20260801-final-release/03-production-release.md"
   },
   "currentMilestone": "M7",
-  "currentWorkPackage": "POOL-009～012二次调整已发布-0029自动额度-待生产页面只读确认与业务验收",
+  "currentWorkPackage": "FINAL-PRODUCTION-RELEASE-COMPLETE",
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
     "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",
@@ -154,8 +154,8 @@
     "把 DEP-WINDOWS 未达成伪装成 W22 真机证据或 M6 最终签字",
     "把 DEP-DEPLOYMENT 未达成伪装成 W24 部署证据或 M7 发布",
     "把无 Windows 真机、无真实凭证、无正式域名伪装成 AI 编程工时阻塞",
-    "使用真实生产流量或真实扣费",
-    "从 main 或 2e63 部署 POOL-009～012",
+    "未经 Owner 明确授权扩大真实生产请求、真实扣费或破坏性验证",
+    "把 POOL-009～012 的历史发布事实改写成从 main 或 2e63 发布",
     "未经业务确认擅自回填或修改生产 Kimi/智谱套餐总额度、有效期和重置规则"
   ],
   "blockers": [

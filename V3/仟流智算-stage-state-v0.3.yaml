@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-08-01T09:22:50+08:00"
+updated_at: "2026-08-01T17:30:00+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -40,9 +40,9 @@ handoff:
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
   current_milestone: "M7"
-  current_work_package: "POOL-009～012二次调整已发布-0029自动额度-待生产页面只读确认与业务验收"
+  current_work_package: "FINAL-PRODUCTION-RELEASE-COMPLETE"
   current_owner: "佳哥"
-  risk: "HIGH"
+  risk: "LOW"
   risk_basis:
     - "Stage 01 已按双 AI 审核与 Owner 放行流程完成，审核建议和 Owner 决定必须分别保留"
     - "Stage 02 已由 Owner 放行，审核 NOT_READY 建议作为 Evidence 保留"
@@ -53,15 +53,17 @@ handoff:
     - "2c4618b 已发布到 Mac Mini 公网环境，0025～0028、公开健康检查和 Chrome 线上只读验收通过"
     - "用户反馈后的归档主体看板排除、套餐额度自动计算与官方 Logo 已从 e1006dc 集成基线工作树发布包部署"
     - "生产库已升级到 0029，备份恢复、升级、回滚、重升、Node 22 全量测试、Chromium 21/21 和公网健康检查通过"
-    - "生产 Chrome 管理员会话已过期，最终线上页面只读确认需管理员重新登录"
-    - "真实厂商同步/账单对账和生产规模账本压测仍待业务验收"
-    - "运行保障 Worker 常驻调度、互斥锁、Outbox 和健康检查已通过本地门禁；尚未部署 Mac Mini，生产责任方状态待外部验收"
+    - "2026-08-01 已从 main 精确候选 dd80e975 发布 Mac Mini；Gateway、Control API、Web、Worker 与 Caddy 使用同一 Release"
+    - "生产库已在可恢复备份后依次升级 0030、0031，公网与本机健康检查、容器零异常重启通过"
+    - "POOL-014 真实 Kimi 流式请求首块、结束事件、usage、Usage Event、账本与结算落库通过"
+    - "运行保障 Worker 常驻、单实例、健康检查、互斥锁和受控 Outbox 最小闭环已完成生产确认"
+    - "真实企微成员到达、更多厂商/客户端和生产规模业务验证转入发布后蓄水池，不阻塞项目完成"
 
 next_action:
-  id: "STAGE03-POOL009-012-0029-DEPLOYED-AWAIT-UI-BUSINESS"
-  text: "POOL-009～012 二次调整已完成并部署到 Mac Mini：归档主体不再进入首页需要处理列表，正常未超额主体不显示；套餐只需录入总额度、套餐、币种、有效期与重置规则，已用/剩余/下次重置由系统按账本计算。发布来自 e1006dc 集成基线工作树发布包，未从 main 或 2e63 部署；生产库已升级到 0029，备份恢复、迁移回滚/重升、Node 22 全量门禁、Chromium 21/21 与公网健康检查通过。下一步：管理员重新登录生产 Chrome 完成页面只读确认，再由业务确认真实套餐数字；生产规模账本压测与 Worker 定时调度仍单独验证。"
-  owner: "佳哥（待重新登录生产页面只读确认，再做业务验收）"
-  evidence_target: "V3/Evidence/POOL-009-012-20260731.md"
+  id: "DAILY-USAGE-AND-POST-RELEASE-BACKLOG"
+  text: "仟流智算开发完成，首次生产发布及基础验收通过，进入日常使用和蓄水池迭代阶段。POOL-002、POOL-009～012、真实企微成员到达、更多厂商/客户端和生产规模验证按发布后蓄水池推进，不回溯阻塞本次项目完成结论。"
+  owner: "佳哥（按日常使用反馈排期）"
+  evidence_target: "V3/Evidence/Production-Release/20260801-final-release/03-production-release.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"
@@ -87,8 +89,8 @@ forbidden_actions:
   - "把 DEP-WINDOWS 未达成伪装成 W22 真机证据或 M6 最终签字"
   - "把 DEP-DEPLOYMENT 未达成伪装成 W24 部署证据或 M7 发布"
   - "把无 Windows 真机、无真实凭证、无正式域名伪装成 AI 编程工时阻塞"
-  - "使用真实生产流量或真实扣费"
-  - "从 main 或 2e63 部署 POOL-009～012"
+  - "未经 Owner 明确授权扩大真实生产请求、真实扣费或破坏性验证"
+  - "把 POOL-009～012 的历史发布事实改写成从 main 或 2e63 发布"
   - "未经业务确认擅自回填或修改生产 Kimi/智谱套餐总额度、有效期和重置规则"
 
 blockers: []
@@ -96,9 +98,9 @@ blockers: []
 runtime_assurance:
   planning_change: "PC-20260731-11"
   plan: "V3/仟流智算-运行保障一级模块开发计划-v1.0.md"
-  status: "LOCAL_DEVELOPMENT_COMPLETE_EXTERNAL_GATES_PENDING"
-  current_work_package: "RA-W08"
-  current_work_package_status: "LOCAL_GATES_PASS_EXTERNAL_GATES_PENDING"
+  status: "PRODUCTION_BASELINE_CONFIRMED_POST_RELEASE_ITERATION"
+  current_work_package: "RA-PRODUCTION-CONFIRMATION"
+  current_work_package_status: "PRODUCTION_BASELINE_PASS"
   local_development_completed_at: "2026-08-01T09:22:50+08:00"
   completed_work_packages:
     - "RA-W01"
@@ -111,32 +113,51 @@ runtime_assurance:
     - "RA-W07"
     - "RA-W08_LOCAL"
   local_first: true
-  mac_mini_deployed: false
+  mac_mini_deployed: true
+  mac_mini_deployed_at: "2026-08-01T16:59:55+08:00"
   adr: "V3/ADR-RUNTIME-ASSURANCE-FOUNDATION.md"
   latest_migration: "0031_gateway_stream_resilience.js"
-  evidence: "V3/Evidence/Runtime-Assurance/RA-W08/20260801-084928-local-release-candidate/"
+  evidence: "V3/Evidence/Production-Release/20260801-final-release/03-production-release.md"
   evidence_root: "V3/Evidence/Runtime-Assurance/"
   quality_gate: "PASS"
   next_work_package: null
   next_work_package_status: "NO_LOCAL_DEVELOPMENT_REMAINING"
-  next_action: "等待 Owner 另行授权 Mac Mini 部署并提供独立测试厂商／企微输入；依次闭合备份回滚、真实客户端中文展示、真实成员到达和生产只读核验"
+  next_action: "保持生产 Worker 单实例运行；真实企微成员到达、更多真实信号与客户端展示按蓄水池受控扩大验证"
   remaining_risk:
-    - "真实 Kimi／智谱信号 Evidence 未提供；只完成脱敏夹具和安全通用字段回归"
+    - "真实 Kimi 成功流式链路已确认；智谱和真实故障信号仍按发布后蓄水池扩大验证"
     - "企微真实 CorpID／AgentID／Secret、可见范围和试点 userid 未提供，真实到达未签字"
     - "WorkBuddy／Claude Code／ZCode 中文错误真实展示尚未在部署环境验收"
-    - "按 Local First 冻结口径未部署 Mac Mini；生产备份、迁移、回滚、健康检查和只读核验待 Owner 另行授权"
+    - "真实企微成员到达未执行；本次只以禁用端点和缺失接收身份的受控 Outbox 验证领取、幂等和安全终态"
+    - "更多真实厂商信号和客户端中文展示属于发布后扩大验证"
+
+release:
+  status: "FIRST_PRODUCTION_RELEASE_BASELINE_PASS"
+  version: "v0.3.0"
+  git_commit: "dd80e975ff6cc88e5dab3967479c299bc778b0ac"
+  released_at: "2026-08-01T16:59:55+08:00"
+  production_release: "/Users/stephen/releases/qianliu-zhisuan-v0.3.0-dd80e975-20260801"
+  database_version: "0031_gateway_stream_resilience"
+  pool_014_smoke: "PASS"
+  runtime_assurance_confirmation: "PASS"
+  evidence: "V3/Evidence/Production-Release/20260801-final-release/03-production-release.md"
+  project_conclusion: "仟流智算开发完成，首次生产发布及基础验收通过，进入日常使用和蓄水池迭代阶段"
 
 conditional_dependencies:
   - id: "DEP-PROVIDER-CREDENTIALS"
+    status: "PARTIALLY_RESOLVED_KIMI_POST_RELEASE_BACKLOG"
     blocks: ["W06真实上线签字", "W09真实上线签字", "W10真实上线签字"]
     does_not_block: ["W01-W05", "离线Adapter契约开发", "其他Provider工作"]
     owner: "佳哥"
   - id: "DEP-WINDOWS"
+    status: "DEFERRED_TO_POST_RELEASE_BACKLOG"
     blocks: ["W22", "M6最终签字"]
     does_not_block: ["M1-M5"]
     owner: "佳哥"
   - id: "DEP-DEPLOYMENT"
-    blocks: ["W24", "M7发布"]
+    status: "RESOLVED"
+    resolved_at: "2026-08-01T16:59:55+08:00"
+    blocks: []
+    does_not_block: ["W24", "M7发布"]
     due: "质量候选完成后、外部发布前"
     owner: "佳哥"
 
