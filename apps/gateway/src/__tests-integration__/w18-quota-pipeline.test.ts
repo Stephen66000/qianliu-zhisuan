@@ -4,7 +4,7 @@
  * 验证 F-01（quota gate 接入 real-pipeline）+ F-03（ledger_transaction = SUM(ledger_line)）：
  *   - F-01-1：CODING_PLAN 成功请求 → deducted_quota 回写 quota_counter（settleQuota 多退少补）
  *   - F-01-2：额度耗尽 → reserve REJECT_EXHAUSTED → 排除资源 → 无健康候选 503
- *   - F-01-3：并发达 concurrency_limit → acquireLease 返回 null → 排除资源 → 503
+ *   - F-01-3：并发达 concurrency_limit → 有界等待，超时返回可解释 429
  *   - F-01-4：allow_overage=true → ALLOW_OVERAGE → 成功 + overage_value 记录
  *   - F-01-5：API 模式请求 → 门禁跳过，正常放行（不被误拒）
  *   - F-01-6：双 Attempt failover → 首 Attempt 失败释放预占 + 第二 Attempt 成功结算
@@ -33,6 +33,7 @@ import {
   digestApiKey,
   apiKeyPrefix,
   StubUpstream,
+  type UpstreamCaller,
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
 import { createRealPipeline, type RouteCandidateRow } from "../pipeline/real-pipeline.js";
@@ -70,6 +71,10 @@ async function buildFixture(opts: {
   concurrencyLimit?: number;
   stub?: StubUpstream;
   maxAttempts?: number;
+  caller?: UpstreamCaller;
+  capacityWaitMs?: number;
+  capacityPollMs?: number;
+  afterReserve?: () => Promise<void>;
 }): Promise<{
   app: FastifyInstance;
   key: string;
@@ -105,16 +110,17 @@ async function buildFixture(opts: {
   const key = generateApiKey();
   await db.insertInto("principal_key").values({
     enterprise_id: ENT_ID, principal_id: principalId,
-    key_prefix: apiKeyPrefix(key), key_digest: digestApiKey(key, PEPPER), status: "ACTIVE",
+    key_prefix: apiKeyPrefix(key), key_digest: digestApiKey(key, PEPPER),
+    allowed_model_ids: JSON.stringify([umId]) as unknown as string[],
+    status: "ACTIVE",
   }).execute();
 
-  let grantId = "";
+  const grant = await db.insertInto("principal_grant").values({
+    enterprise_id: ENT_ID, principal_id: principalId, provider: providerCode,
+    model_alias: alias, quota_value: opts.quotaValue ?? 1_000_000n, allow_overage: opts.allowOverage ?? false,
+  }).returningAll().executeTakeFirstOrThrow();
+  const grantId = grant.id;
   if (opts.mode === "CODING_PLAN") {
-    const grant = await db.insertInto("principal_grant").values({
-      enterprise_id: ENT_ID, principal_id: principalId, provider: providerCode,
-      model_alias: alias, quota_value: opts.quotaValue ?? 1_000_000n, allow_overage: opts.allowOverage ?? false,
-    }).returningAll().executeTakeFirstOrThrow();
-    grantId = grant.id;
     await db.insertInto("quota_counter").values({ grant_id: grantId }).execute();
   }
 
@@ -122,8 +128,21 @@ async function buildFixture(opts: {
     default: { kind: "SUCCESS", usage: { input: 100, output: 50, cache: 0 } },
     providerCode: providerCode as "deepseek" | "zhipu" | "kimi",
   });
-  const caller = async (res: unknown, req: unknown, n: number) =>
-    stub.invoke(res as never, req as never, n);
+  const caller = opts.caller ?? (async (res: unknown, req: unknown, n: number) =>
+    stub.invoke(res as never, req as never, n));
+  const fixtureQuotaRepo = new QuotaGateRepository(db);
+  if (opts.afterReserve) {
+    const reserveQuota = fixtureQuotaRepo.reserveQuota.bind(fixtureQuotaRepo);
+    let hookPending = true;
+    fixtureQuotaRepo.reserveQuota = async (input) => {
+      const result = await reserveQuota(input);
+      if (hookPending) {
+        hookPending = false;
+        await opts.afterReserve!();
+      }
+      return result;
+    };
+  }
   // listCandidates 只返回本 fixture 的资源（跨用例隔离，避免共用 alias 污染）
   const ownResourceIds = new Set<string>([resource.id]);
   const listCandidates = async (entId: string, model: string): Promise<RouteCandidateRow[]> => {
@@ -160,8 +179,10 @@ async function buildFixture(opts: {
       }));
   };
   const pipeline = createRealPipeline({
-    db, ledgerRepo, caller, poolRepo, quotaRepo, listCandidates,
+    db, ledgerRepo, caller, poolRepo, quotaRepo: fixtureQuotaRepo, listCandidates,
     maxAttempts: opts.maxAttempts ?? 2,
+    capacityWaitMs: opts.capacityWaitMs,
+    capacityPollMs: opts.capacityPollMs,
   });
   const app = buildGateway(db, PEPPER, pipeline);
   await app.ready();
@@ -248,8 +269,14 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
     }
   });
 
-  it("F-01-3：并发达 concurrency_limit → lease 返回 null → 排除资源 → 503", async () => {
-    const fx = await buildFixture({ mode: "CODING_PLAN", quotaValue: 100_000n, concurrencyLimit: 1 });
+  it("F-01-3：并发达 concurrency_limit → 有界等待后返回 resource_capacity_busy", async () => {
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 1,
+      capacityWaitMs: 20,
+      capacityPollMs: 5,
+    });
     try {
       // 手动占满并发：建 ai_request + acquireLease
       const reqId = randomUUID();
@@ -268,7 +295,153 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
         method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
         payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "hi" }] },
       });
-      expect(res.statusCode).toBe(503); // lease 满 → 排除资源 → 无健康候选
+      expect(res.statusCode).toBe(429);
+      expect(res.json().error).toMatchObject({
+        code: "resource_capacity_busy",
+        retryable: true,
+        retry_after_ms: 5,
+      });
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("并发上限设为 5 时，五个不同主体可同时使用同一套餐并分别记账", async () => {
+    let active = 0;
+    let maxActive = 0;
+    let entered = 0;
+    let releaseBarrier!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      releaseBarrier = resolve;
+    });
+    const caller: UpstreamCaller = async () => {
+      active += 1;
+      entered += 1;
+      maxActive = Math.max(maxActive, active);
+      if (entered === 5) releaseBarrier();
+      await barrier;
+      active -= 1;
+      return {
+        status: 200,
+        committed: true,
+        usage: { input: 10, output: 5, cache: 0, quality: "PROVIDER_REPORTED" },
+        responseOutput: [{
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "OK" }],
+        }],
+      };
+    };
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 5,
+      caller,
+      capacityWaitMs: 200,
+      capacityPollMs: 5,
+    });
+    const actors = [{ key: fx.key, grantId: fx.grantId, principalId: fx.principalId }];
+    try {
+      for (let index = 1; index < 5; index += 1) {
+        const principalId = randomUUID();
+        await db.insertInto("principal").values({
+          id: principalId,
+          enterprise_id: ENT_ID,
+          type: "EMPLOYEE",
+          name: `并发员工-${index + 1}`,
+        }).execute();
+        const key = generateApiKey();
+        await db.insertInto("principal_key").values({
+          enterprise_id: ENT_ID,
+          principal_id: principalId,
+          key_prefix: apiKeyPrefix(key),
+          key_digest: digestApiKey(key, PEPPER),
+          allowed_model_ids: JSON.stringify([kimiUmId]) as unknown as string[],
+          status: "ACTIVE",
+        }).execute();
+        const grant = await db.insertInto("principal_grant").values({
+          enterprise_id: ENT_ID,
+          principal_id: principalId,
+          provider: "kimi",
+          model_alias: KIMI_ALIAS,
+          quota_value: 100_000n,
+        }).returningAll().executeTakeFirstOrThrow();
+        await db.insertInto("quota_counter").values({ grant_id: grant.id }).execute();
+        actors.push({ key, grantId: grant.id, principalId });
+      }
+
+      const responses = await Promise.all(actors.map(({ key }) => fx.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "并发测试" }] },
+      })));
+
+      expect(responses.map((response) => response.statusCode)).toEqual([200, 200, 200, 200, 200]);
+      expect(maxActive).toBe(5);
+      for (const actor of actors) {
+        expect((await counterValue(actor.grantId)).used).toBe(15n);
+      }
+      const principalIds = await Promise.all(responses.map(async (response) => {
+        const requestId = response.headers["x-request-id"] as string;
+        return (await ledgerRepo.getRequest(requestId))?.principal_id;
+      }));
+      expect(new Set(principalIds)).toEqual(new Set(actors.map((actor) => actor.principalId)));
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("唯一套餐遇到瞬时 429 时原资源受控重试，不扩大成全员 503", async () => {
+    let calls = 0;
+    const caller: UpstreamCaller = async () => {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          status: 429,
+          committed: false,
+          usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+          error: "rate_limit_exceeded",
+          upstreamErrorKind: "ENGINE_OVERLOADED",
+          retryAfterMs: 1,
+        };
+      }
+      return {
+        status: 200,
+        committed: true,
+        usage: { input: 10, output: 5, cache: 0, quality: "PROVIDER_REPORTED" },
+        responseOutput: [{
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "重试成功" }],
+        }],
+      };
+    };
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 5,
+      caller,
+      maxAttempts: 2,
+    });
+    try {
+      const response = await fx.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "重试" }] },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(calls).toBe(2);
+      const requestId = response.headers["x-request-id"] as string;
+      expect(await ledgerRepo.listAttempts(requestId)).toHaveLength(2);
+      const resource = await db.selectFrom("provider_resource")
+        .select(["status", "consecutive_failures"])
+        .where("id", "=", fx.resourceId)
+        .executeTakeFirstOrThrow();
+      expect(resource.status).toBe("ACTIVE");
+      expect(resource.consecutive_failures).toBe(0);
     } finally {
       await fx.close();
     }
@@ -284,13 +457,40 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect(res.statusCode).toBe(200);
       const c = await counterValue(fx.grantId);
       expect(c.used).toBeGreaterThan(1n); // 实际 deducted_quota 回写
+      const requestId = res.headers["x-request-id"] as string;
+      const tx = await ledgerRepo.getLedgerTransaction(requestId);
+      expect(tx?.overage).toBe(true);
     } finally {
       await fx.close();
     }
   });
 
-  it("F-01-5：API 模式请求 → 门禁跳过，正常放行（不被误拒）", async () => {
-    // API 模式：无 grant，门禁跳过
+  it("POOL-012：预估超额但实际扣减未超额时冻结为 false", async () => {
+    // 预估固定包含 256 output reserve，因此会超过 200；Stub 实际只扣 150。
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 200n,
+      allowOverage: true,
+    });
+    try {
+      const res = await fx.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "hi" }] },
+      });
+      expect(res.statusCode).toBe(200);
+      const requestId = res.headers["x-request-id"] as string;
+      const tx = await ledgerRepo.getLedgerTransaction(requestId);
+      expect(BigInt(tx?.total_deducted_quota ?? 0)).toBe(150n);
+      expect(tx?.overage).toBe(false);
+      expect((await counterValue(fx.grantId)).overage).toBe(0n);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("F-01-5：API 模式请求也要求 grant，但不预占 Token 额度", async () => {
     const fx = await buildFixture({ mode: "API" });
     try {
       const res = await fx.app.inject({
@@ -346,6 +546,52 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect(lines).toHaveLength(1); // 429 无 usage
       const c = await counterValue(fx.grantId);
       expect(c.used).toBe(BigInt(lines[0]!.deducted_quota ?? 0n)); // 仅成功 Attempt 回写
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("grant 在额度预占后撤销：调用前复核拒绝、释放额度/租约且不产生费用", async () => {
+    let grantIdToRevoke = "";
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 1,
+      afterReserve: async () => {
+        await db
+          .updateTable("principal_grant")
+          .set({ status: "DISABLED" })
+          .where("id", "=", grantIdToRevoke)
+          .execute();
+      },
+    });
+    grantIdToRevoke = fx.grantId;
+    const callsBefore = fx.stub.calls.length;
+    try {
+      const res = await fx.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "grant TOCTOU" }] },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe("principal_grant_required");
+      expect(fx.stub.calls).toHaveLength(callsBefore);
+
+      // reserveQuota 已发生，拒绝分支必须把预占与并发租约完整释放。
+      expect((await counterValue(fx.grantId)).used).toBe(0n);
+      const activeLeases = await db
+        .selectFrom("concurrency_lease")
+        .select((eb) => eb.fn.countAll().as("count"))
+        .where("provider_resource_id", "=", fx.resourceId)
+        .where("released_at", "is", null)
+        .executeTakeFirstOrThrow();
+      expect(Number(activeLeases.count)).toBe(0);
+
+      const requestId = res.headers["x-request-id"] as string;
+      expect(await ledgerRepo.listLedgerLines(requestId)).toHaveLength(0);
+      expect(await ledgerRepo.getLedgerTransaction(requestId)).toBeUndefined();
+      expect((await ledgerRepo.getRequest(requestId))?.status).toBe("FAILED");
     } finally {
       await fx.close();
     }

@@ -10,19 +10,23 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run --config ../../vitest.config.ts",
-    "test:integration": "echo 'worker integration deferred' && exit 0",
+    "test:integration": "vitest run --config ../../vitest.config.ts src/__tests-integration__",
     "test:e2e": "echo 'worker e2e deferred' && exit 0"
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.0",
     "@qianliu/config": "workspace:*",
     "@qianliu/database": "workspace:*",
+    "@qianliu/domain": "workspace:*",
     "@qianliu/observability": "workspace:*",
+    "@qianliu/provider-adapters": "workspace:*",
     "decimal.js": "10.6.0",
+    "kysely": "0.28.7",
     "redis": "5.8.2",
     "zod": "4.1.11"
   },
   "devDependencies": {
+    "@qianliu/testing": "workspace:*",
     "@types/node": "22.10.10",
     "tsx": "4.19.2"
   }

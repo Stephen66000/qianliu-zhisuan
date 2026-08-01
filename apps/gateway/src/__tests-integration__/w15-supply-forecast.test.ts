@@ -66,7 +66,9 @@ beforeAll(async () => {
   const keyId = randomUUID();
   await db.insertInto("principal_key").values({
     id: keyId, enterprise_id: ENT_ID, principal_id: principalId,
-    key_prefix: "ql-w15", key_digest: "digest-w15", status: "ACTIVE",
+    key_prefix: "ql-w15", key_digest: "digest-w15",
+    allowed_model_ids: JSON.stringify([]) as unknown as string[],
+    status: "ACTIVE",
   }).execute();
   const now = Date.now();
   for (let h = 0; h < 24; h++) {

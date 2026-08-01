@@ -10,6 +10,14 @@ import { z } from "zod";
 /** 内容留存模式。TRD §14.3 行 788：当前版本固定 METADATA_ONLY，schema 强制不改值。 */
 const ContentRetentionModeSchema = z.literal("METADATA_ONLY");
 
+/** RA-W01：平台级运行模式。默认 OBSERVE，先观察再执行。 */
+export const RuntimeAssuranceModeSchema = z.enum(["OFF", "OBSERVE", "ENFORCE"]);
+
+/** 环境变量布尔值严格只接受小写 true/false，避免字符串 truthy 误开启通知。 */
+const StrictEnvBooleanSchema = z
+  .enum(["true", "false"])
+  .transform((value) => value === "true");
+
 /** Provider 代码（与上游环境变量一一对应，TRD §17 行 943）。 */
 const ProviderCodeSchema = z.enum(["deepseek", "zhipu", "kimi"]);
 
@@ -50,6 +58,12 @@ export const AppConfigSchema = z.object({
   /** 上游凭证信封加密的 KEK（32 字节 base64）。从环境注入，不与密文同库。 */
   credentialKek: z.string().min(16),
 
+  runtimeAssurance: z.object({
+    mode: RuntimeAssuranceModeSchema.default("OBSERVE"),
+    /** 只控制正式熔断／恢复消息；管理员测试发送不受该开关代替授权。 */
+    wecomNotify: z.boolean().default(false),
+  }),
+
   /** Provider 凭证来源描述（不持有明文，只描述是否已配置）。 */
   providers: z.array(ProviderCredentialSchema),
 });
@@ -82,6 +96,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     gatewayKeyPepper: env.GATEWAY_KEY_PEPPER,
     sessionAffinityHmacKey: env.SESSION_AFFINITY_HMAC_KEY,
     credentialKek: env.CREDENTIAL_KEK,
+    runtimeAssurance: {
+      mode: env.RUNTIME_ASSURANCE_MODE ?? "OBSERVE",
+      wecomNotify: StrictEnvBooleanSchema.parse(
+        env.RUNTIME_ASSURANCE_WECOM_NOTIFY ?? "false",
+      ),
+    },
     providers,
   });
 }

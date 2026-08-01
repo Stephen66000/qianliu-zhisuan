@@ -54,7 +54,9 @@ beforeAll(async () => {
   keyId = randomUUID();
   await db.insertInto("principal_key").values({
     id: keyId, enterprise_id: ENT_ID, principal_id: PRINCIPAL_ID,
-    key_prefix: "ql-test", key_digest: "digest-w14", status: "ACTIVE",
+    key_prefix: "ql-test", key_digest: "digest-w14",
+    allowed_model_ids: JSON.stringify([]) as unknown as string[],
+    status: "ACTIVE",
   }).execute();
 }, 120_000);
 

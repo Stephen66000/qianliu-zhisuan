@@ -13,9 +13,14 @@ export {
 } from "./migrator.js";
 export {
   PrincipalRepository,
+  PrincipalNotActiveError,
   type Principal,
   type CreatePrincipalInput,
   type UpdatePrincipalInput,
+  type PrincipalCleanupPreview,
+  type PrincipalDeactivationResult,
+  type PrincipalDeleteResult,
+  type PrincipalLifecycleAudit,
 } from "./repositories/principal-repository.js";
 export {
   AuditRepository,
@@ -29,6 +34,7 @@ export {
 } from "./repositories/admin-repository.js";
 export {
   KeyRepository,
+  ActiveKeyExistsError,
   type PrincipalKey,
   type CreatedKey,
 } from "./repositories/key-repository.js";
@@ -39,13 +45,24 @@ export {
 } from "./repositories/grant-repository.js";
 export {
   ProviderRepository,
+  EnterpriseReferenceError,
   type Provider,
   type ProviderResource,
+  type ProviderResourceOperatingSnapshot,
+  type OperatingSnapshotInput,
   type UnifiedModel,
   type ModelRoute,
   type CreateProviderInput,
   type CreateProviderResourceInput,
 } from "./repositories/provider-repository.js";
+export {
+  DEFAULT_RESET_TIMEZONE,
+  calculateQuotaPeriod,
+  projectCurrentOperatingSnapshots,
+  type ResetCycle,
+  type QuotaPeriod,
+  type CurrentProviderOperatingSnapshot,
+} from "./repositories/provider-operating.js";
 export {
   GatewayLedgerRepository,
   type AiRequest,
@@ -55,6 +72,7 @@ export {
   type LedgerTransaction,
   type RouteCandidate,
   type CreateRequestInput,
+  type ClaimRequestResult,
   type CreateAttemptInput,
   type UsageInput,
   type LedgerLineInput,
@@ -101,5 +119,23 @@ export {
   type AlertEvent,
   type AlertThresholds,
 } from "./repositories/alert-event-repository.js";
+export {
+  RuntimeAssuranceRepository,
+  RuntimeAssuranceConflictError,
+  type Person,
+  type PersonView,
+  type PersonExternalIdentity,
+  type AvailabilityRule,
+  type AvailabilityRuleVersion,
+  type AvailabilityEvent,
+  type NotificationEndpoint,
+  type NotificationDelivery,
+  type RuleVersionInput,
+  type RuleView,
+  type SignalInput,
+  type SignalResult,
+  type DeliveryContext,
+  type LegacyUnavailableAssessment,
+} from "./repositories/runtime-assurance-repository.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;

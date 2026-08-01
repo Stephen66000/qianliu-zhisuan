@@ -158,10 +158,21 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                         key={i}
                       >
                         输入 {m.inputTokens} · 输出 {m.outputTokens} · 缓存 {m.cacheTokens}
+                        {m.reasoningTokens !== "0" ? ` · 推理 ${m.reasoningTokens}` : ""}
                         {m.deductedQuota !== null ? ` · 扣减 ${m.deductedQuota}` : ""}
                         {m.apiCost !== null && m.apiCost !== "0" && m.apiCost !== "0.00000000"
                           ? ` · 费用 ${m.apiCost} 元`
                           : " · 套餐内"}
+                        {m.billingRuleSnapshot?.matchedWindow
+                          ? ` · 命中时段 ${m.billingRuleSnapshot.matchedWindow.timezone} ${m.billingRuleSnapshot.matchedWindow.startTime}–${m.billingRuleSnapshot.matchedWindow.endTime}`
+                          : m.billingRuleSnapshot?.startTime && m.billingRuleSnapshot?.endTime
+                            ? ` · 时段 ${m.billingRuleSnapshot.timezone ?? ""} ${m.billingRuleSnapshot.startTime}–${m.billingRuleSnapshot.endTime}`
+                          : ""}
+                        {m.ruleVersion ? ` · 规则 ${m.ruleVersion}` : ""}
+                        {m.multiplier ? ` · 倍率 ×${m.multiplier}` : ""}
+                        {m.billingRuleSnapshot?.cacheMissPrice || m.billingRuleSnapshot?.outputPrice
+                          ? ` · 单价 命中/输入/输出 ${m.billingRuleSnapshot.cacheHitPrice ?? "—"}/${m.billingRuleSnapshot.cacheMissPrice ?? "—"}/${m.billingRuleSnapshot.outputPrice ?? "—"}`
+                          : ""}
                         {m.usageQuality ? ` · ${m.usageQuality}` : ""}
                       </span>
                     ))}

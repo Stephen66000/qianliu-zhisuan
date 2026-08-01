@@ -2,9 +2,8 @@
  * DeepSeek Adapter（W06）。
  *
  * 依据：TRD §7（Adapter 统一能力）、§7.1（DeepSeek API 模式）。
- * W06 阶段：实现能力声明、模型映射、usage 三维度解析（cache_hit/cache_miss/output）、
- * 错误归一化（TRD §9 分类）、健康检查骨架。实际 HTTP 调用在 DEP-PROVIDER-CREDENTIALS
- * 解锁后接入；W06 用 upstreamCaller 注入点（测试注入 StubUpstream）。
+ * 实现能力声明、usage 三维度解析（cache_hit/cache_miss/output）、
+ * 错误归一化（TRD §9 分类）与上游调用委托。
  *
  * usage 三维度（TRD §7.1 行 474）：输入缓存命中、输入缓存未命中、输出 Token。
  */
@@ -24,17 +23,12 @@ export type UpstreamCaller = (
   attemptNo: number,
 ) => Promise<Outcome>;
 
-/** DeepSeek 上游模型映射（alias → upstream model）。 */
-const DEEPSEEK_MODEL_MAP: Record<string, string> = {
-  "qianliu-deepseek": "deepseek-chat",
-  "qianliu-deepseek-reasoner": "deepseek-reasoner",
-};
-
 export class DeepSeekAdapter implements ProviderAdapter {
   readonly providerCode = "deepseek" as const;
   readonly capabilities = new Set([
     "chat",
     "messages",
+    "responses",
     "stream",
     "tools",
     "prompt_cache", // DeepSeek 支持 Prompt Cache
@@ -49,23 +43,9 @@ export class DeepSeekAdapter implements ProviderAdapter {
   ): Promise<Outcome> {
     // 鉴权注入：SecretValue 只在调用器内部 reveal（不写日志/Trace）
     // resource.secret 已由上层（Gateway）从凭证密文解密后包装为 SecretValue
-    const mappedRequest: AdapterRequest = {
-      ...request,
-      // 模型别名 → 上游模型（Adapter 责任，TRD §7 行 456）
-      unifiedModel: request.unifiedModel,
-    };
-    // 校验模型映射存在
-    const upstreamModel = DEEPSEEK_MODEL_MAP[request.unifiedModel];
-    if (!upstreamModel) {
-      return {
-        status: 400,
-        committed: false,
-        usage: zeroUsage(),
-        error: "model_not_mapped",
-      };
-    }
-
-    const outcome = await this.caller(resource, mappedRequest, attemptNo);
+    // 统一别名由 Web/model_route 配置；resource.upstreamModel 是唯一上游模型事实源。
+    // Adapter 不维护第二份硬编码别名表，避免合法的企业自定义别名被误拒。
+    const outcome = await this.caller(resource, request, attemptNo);
     // 错误归一化（TRD §9）：将 outcome.error/status 映射到 ErrorClassification
     return outcome;
   }
@@ -101,8 +81,4 @@ export class DeepSeekAdapter implements ProviderAdapter {
       quality: "PROVIDER_REPORTED",
     };
   }
-}
-
-function zeroUsage(): Usage {
-  return { input: 0, output: 0, cache: 0, quality: "UNKNOWN" };
 }

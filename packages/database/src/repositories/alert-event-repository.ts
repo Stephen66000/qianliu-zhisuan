@@ -10,8 +10,19 @@
  *   - 提前耗尽按【最新】supply_forecast 快照判定（旧实现读全部快照会报陈旧告警）；
  *   - 阈值由构造参数注入（配置管理，不硬编码）。
  */
-import type { Kysely } from "kysely";
+import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
+import { ProviderRepository } from "./provider-repository.js";
+
+function equalQuotaText(left: string | null, right: string | null): boolean {
+  if (left === null || right === null) return left === right;
+  const scale = Math.max(left.split(".")[1]?.length ?? 0, right.split(".")[1]?.length ?? 0);
+  const units = (value: string) => {
+    const [whole, fraction = ""] = value.split(".");
+    return BigInt(`${whole}${fraction.padEnd(scale, "0")}`);
+  };
+  return units(left) === units(right);
+}
 
 /** 四告警域（PRD §11）。 */
 export type AlertDomain =
@@ -278,23 +289,41 @@ export class AlertEventRepository {
       }
     }
     // 提前耗尽：每个资源只取最新快照（snapshot_at 最大）
-    const forecasts = await this.db
-      .selectFrom("supply_forecast")
-      .innerJoin("provider_resource", "provider_resource.id", "supply_forecast.provider_resource_id")
-      .select([
-        "supply_forecast.provider_resource_id",
-        "provider_resource.name as resource_name",
-        "supply_forecast.coverage_hours",
-        "supply_forecast.forecast_exhaust_at",
-        "supply_forecast.snapshot_at",
-      ])
-      .where("supply_forecast.enterprise_id", "=", enterpriseId)
-      .where("supply_forecast.forecast_exhaust_at", "is not", null)
-      .orderBy("supply_forecast.snapshot_at", "desc")
-      .execute();
-    const latestByResource = new Map<string, (typeof forecasts)[number]>();
-    for (const f of forecasts) {
-      if (!latestByResource.has(f.provider_resource_id)) {
+    const forecasts = await sql<{
+      provider_resource_id: string;
+      resource_name: string;
+      mode: string;
+      coverage_hours: string | null;
+      forecast_exhaust_at: Date | null;
+      snapshot_at: Date;
+      remaining_quota: string;
+    }>`
+      WITH latest AS (
+        SELECT DISTINCT ON (provider_resource_id) *
+          FROM supply_forecast
+         WHERE enterprise_id = ${enterpriseId}
+         ORDER BY provider_resource_id, snapshot_at DESC
+      )
+      SELECT f.provider_resource_id, pr.name AS resource_name, pr.mode,
+             f.coverage_hours, f.forecast_exhaust_at, f.snapshot_at,
+             f.remaining_quota
+        FROM latest f
+        JOIN provider_resource pr ON pr.id = f.provider_resource_id
+       WHERE pr.enterprise_id = ${enterpriseId}
+         AND f.forecast_exhaust_at IS NOT NULL
+    `.execute(this.db);
+    const current = new Map(
+      (await new ProviderRepository(this.db).listCurrentOperatingSnapshots(enterpriseId))
+        .map((snapshot) => [snapshot.provider_resource_id, snapshot]),
+    );
+    const latestByResource = new Map<string, (typeof forecasts.rows)[number]>();
+    for (const f of forecasts.rows) {
+      const snapshot = current.get(f.provider_resource_id);
+      const remaining = f.mode === "API"
+        ? snapshot?.current_balance ?? null
+        : snapshot?.remaining_quota ?? null;
+      if (snapshot && f.snapshot_at >= snapshot.calculated_at &&
+        equalQuotaText(f.remaining_quota, remaining)) {
         latestByResource.set(f.provider_resource_id, f);
       }
     }

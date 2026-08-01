@@ -51,19 +51,23 @@ beforeAll(async () => {
   await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流测试-智谱" }).execute();
   await db.insertInto("principal").values({ id: PRINCIPAL_ID, enterprise_id: ENT_ID, type: "EMPLOYEE", name: "测试员工" }).execute();
   validKey = generateApiKey();
-  await db.insertInto("principal_key").values({
+  const keyRowId = (await db.insertInto("principal_key").values({
     enterprise_id: ENT_ID,
     principal_id: PRINCIPAL_ID,
     key_prefix: apiKeyPrefix(validKey),
     key_digest: digestApiKey(validKey, PEPPER),
+    allowed_model_ids: JSON.stringify([]) as unknown as string[],
     status: "ACTIVE",
-  }).execute();
-  await db.insertInto("unified_model").values({
+  }).returning("id").executeTakeFirstOrThrow()).id;
+  const authorizedModel = await db.insertInto("unified_model").values({
     enterprise_id: ENT_ID,
     alias: "qianliu-glm-coding",
     display_name: "仟流 智谱 Coding Plan",
     status: "ACTIVE",
-  }).execute();
+  }).returningAll().executeTakeFirstOrThrow();
+  await db.updateTable("principal_key").set({
+    allowed_model_ids: JSON.stringify([authorizedModel.id]) as unknown as string[],
+  }).where("id", "=", keyRowId).execute();
   const provider = await db.insertInto("provider").values({
     enterprise_id: ENT_ID, code: "zhipu", name: "智谱", adapter_type: "zhipu",
   }).returningAll().executeTakeFirstOrThrow();
@@ -73,7 +77,7 @@ beforeAll(async () => {
   }).returningAll().executeTakeFirstOrThrow();
   await db.insertInto("model_route").values({
     enterprise_id: ENT_ID,
-    unified_model_id: (await db.selectFrom("unified_model").select("id").executeTakeFirstOrThrow()).id,
+    unified_model_id: authorizedModel.id,
     provider_resource_id: resource.id,
     upstream_model: "glm-5.2",
   }).execute();

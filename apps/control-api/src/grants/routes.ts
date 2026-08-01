@@ -8,6 +8,7 @@
  * 一期 quota_unit 固定 TOKEN。
  */
 import type { FastifyInstance } from "fastify";
+import { PrincipalNotActiveError } from "@qianliu/database";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 
@@ -49,16 +50,33 @@ export function registerGrantRoutes(app: FastifyInstance): void {
       if (!principal) {
         return reply.code(404).send({ error: "not_found", message: "主体不存在" });
       }
+      if (principal.status !== "ACTIVE" || principal.archived_at !== null) {
+        return reply.code(409).send({
+          error: "invalid_state",
+          message: "主体已停用或归档，不能创建额度授权",
+        });
+      }
 
-      const grant = await app.grantRepo.create({
-        enterprise_id: ent,
-        principal_id: req.params.id,
-        provider: parsed.data.provider,
-        model_alias: parsed.data.model_alias,
-        quota_value: parsed.data.quota_value,
-        allow_overage: parsed.data.allow_overage,
-        valid_until: parsed.data.valid_until ? new Date(parsed.data.valid_until) : null,
-      });
+      let grant;
+      try {
+        grant = await app.grantRepo.create({
+          enterprise_id: ent,
+          principal_id: req.params.id,
+          provider: parsed.data.provider,
+          model_alias: parsed.data.model_alias,
+          quota_value: parsed.data.quota_value,
+          allow_overage: parsed.data.allow_overage,
+          valid_until: parsed.data.valid_until ? new Date(parsed.data.valid_until) : null,
+        });
+      } catch (error) {
+        if (error instanceof PrincipalNotActiveError) {
+          return reply.code(409).send({
+            error: "invalid_state",
+            message: "主体已停用或归档，不能创建额度授权",
+          });
+        }
+        throw error;
+      }
 
       await app.auditRepo.write({
         enterprise_id: ent,

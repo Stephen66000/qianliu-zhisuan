@@ -10,6 +10,9 @@
  */
 import { defineConfig, devices } from "@playwright/test";
 
+const controlApiPort = Number(process.env.E2E_CONTROL_API_PORT ?? 8788);
+const webPort = Number(process.env.E2E_WEB_PORT ?? 5173);
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
@@ -20,7 +23,7 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: `http://127.0.0.1:${webPort}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -29,14 +32,14 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "pnpm --filter @qianliu/control-api dev",
-      url: "http://127.0.0.1:8788/health",
+      command: "corepack pnpm --filter @qianliu/control-api dev",
+      url: `http://127.0.0.1:${controlApiPort}/health`,
       reuseExistingServer: false,
       timeout: 120_000,
     },
     {
-      command: "pnpm --filter @qianliu/web dev",
-      url: "http://127.0.0.1:5173",
+      command: `corepack pnpm --filter @qianliu/web exec vite --port ${webPort}`,
+      url: `http://127.0.0.1:${webPort}`,
       reuseExistingServer: false,
       timeout: 120_000,
     },

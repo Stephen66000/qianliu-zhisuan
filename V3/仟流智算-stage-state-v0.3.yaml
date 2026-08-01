@@ -3,7 +3,7 @@ project: "仟流智算"
 product_name: "仟流智算"
 product_version: "v0.3"
 plan_version: "v0.3.1"
-updated_at: "2026-07-29T01:00:00+08:00"
+updated_at: "2026-08-01T09:22:50+08:00"
 product_owner: "佳哥"
 tech_owner: "佳哥"
 
@@ -40,7 +40,7 @@ handoff:
   candidate_lock: "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   owner_approved_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
   current_milestone: "M7"
-  current_work_package: "M7-W24第一层完成-最小可部署验证通过"
+  current_work_package: "POOL-009～012二次调整已发布-0029自动额度-待生产页面只读确认与业务验收"
   current_owner: "佳哥"
   risk: "HIGH"
   risk_basis:
@@ -49,12 +49,19 @@ handoff:
     - "POC-02 为 OWNER_ATTESTED_LEGACY_RESULT，真实上线前仍需对应 Provider 回归"
     - "Stage 03 计划涉及认证、密钥、协议、账本、隐私和外部源码边界"
     - "三角色合一情形，业务验证独立性弱，需依赖 Audit 强度与独立会话审核"
+    - "POOL-009～012 已在 POOL-007/008 最新生产基线上集成，并通过全新库、Node 22、Kimi、生产构建和独立正式测试环境 Chromium 验收"
+    - "2c4618b 已发布到 Mac Mini 公网环境，0025～0028、公开健康检查和 Chrome 线上只读验收通过"
+    - "用户反馈后的归档主体看板排除、套餐额度自动计算与官方 Logo 已从 e1006dc 集成基线工作树发布包部署"
+    - "生产库已升级到 0029，备份恢复、升级、回滚、重升、Node 22 全量测试、Chromium 21/21 和公网健康检查通过"
+    - "生产 Chrome 管理员会话已过期，最终线上页面只读确认需管理员重新登录"
+    - "真实厂商同步/账单对账和生产规模账本压测仍待业务验收"
+    - "运行保障 Worker 常驻调度、互斥锁、Outbox 和健康检查已通过本地门禁；尚未部署 Mac Mini，生产责任方状态待外部验收"
 
 next_action:
-  id: "STAGE03-M7-W24L1-DONE-WAIT-DEPLOY"
-  text: "M7 W24 第一层（最小可部署）完成并沙箱实跑验证：4 服务 Dockerfile（tsx 方案，架构无关）+ compose 占位换真实 + migrate 自动 service + Caddy 反代 + trustProxy + .env 补 COOKIE_SECRET。docker compose up 全栈启动成功（postgres/redis/migrate/control-api/gateway/web/caddy 全 Up，health ok，迁移 20 个全跑完）。Secret 校验生效（KEK 非 32 字节即拒）。下一步：(1) 佳哥在 Mac Mini 上用部署指南实跑，提供真实 Provider 凭证 + 网络拓扑，切换 StubUpstream→真实 Adapter；(2) 同事用 WorkBuddy 连测，闭合 M6 真实员工门禁；(3) 第二层 W24/W25 完整 DoD（最小权限/出站白名单/Secret 链路/TLS 正式/监控/备份恢复 RPO-RTO/故障手册/worker 调度器）。"
-  owner: "佳哥（M7 第一层完成，待 Mac Mini 实跑 + 凭证 + 第二层 DoD）"
-  evidence_target: "V3/Evidence/M7/M7-部署指南-MacMini-20260729.md"
+  id: "STAGE03-POOL009-012-0029-DEPLOYED-AWAIT-UI-BUSINESS"
+  text: "POOL-009～012 二次调整已完成并部署到 Mac Mini：归档主体不再进入首页需要处理列表，正常未超额主体不显示；套餐只需录入总额度、套餐、币种、有效期与重置规则，已用/剩余/下次重置由系统按账本计算。发布来自 e1006dc 集成基线工作树发布包，未从 main 或 2e63 部署；生产库已升级到 0029，备份恢复、迁移回滚/重升、Node 22 全量门禁、Chromium 21/21 与公网健康检查通过。下一步：管理员重新登录生产 Chrome 完成页面只读确认，再由业务确认真实套餐数字；生产规模账本压测与 Worker 定时调度仍单独验证。"
+  owner: "佳哥（待重新登录生产页面只读确认，再做业务验收）"
+  evidence_target: "V3/Evidence/POOL-009-012-20260731.md"
 
 allowed_actions:
   - "进入 Stage 03 并从 W01 开始执行产品编码"
@@ -64,6 +71,11 @@ allowed_actions:
   - "执行 M1～M7 中间 Audit 与最终 Audit，结果落入 Evidence"
   - "由主 AI 验证 Stage 01／02 封板锁"
   - "若 Owner 退回，只针对明确问题做 Planning 精准修正并重新锁定"
+  - "在 qianliu-pool007012-test 独立环境继续 POOL-009～012 业务验收"
+  - "在 Mac Mini 公网环境对 POOL-009～012 做业务确认"
+  - "管理员重新登录后对 0029 额度表单与首页过滤做生产只读确认"
+  - "使用业务侧提供的测试接口/脱敏账单样本验证余额同步与对账，不使用生产流量"
+  - "在生产等量级脱敏数据上复核 POOL-012 查询性能"
 
 forbidden_actions:
   - "把审核 AI 的 NOT_READY 建议改写成 READY 或其他三态值"
@@ -76,8 +88,44 @@ forbidden_actions:
   - "把 DEP-DEPLOYMENT 未达成伪装成 W24 部署证据或 M7 发布"
   - "把无 Windows 真机、无真实凭证、无正式域名伪装成 AI 编程工时阻塞"
   - "使用真实生产流量或真实扣费"
+  - "从 main 或 2e63 部署 POOL-009～012"
+  - "未经业务确认擅自回填或修改生产 Kimi/智谱套餐总额度、有效期和重置规则"
 
 blockers: []
+
+runtime_assurance:
+  planning_change: "PC-20260731-11"
+  plan: "V3/仟流智算-运行保障一级模块开发计划-v1.0.md"
+  status: "LOCAL_DEVELOPMENT_COMPLETE_EXTERNAL_GATES_PENDING"
+  current_work_package: "RA-W08"
+  current_work_package_status: "LOCAL_GATES_PASS_EXTERNAL_GATES_PENDING"
+  local_development_completed_at: "2026-08-01T09:22:50+08:00"
+  completed_work_packages:
+    - "RA-W01"
+    - "RA-W02"
+    - "RA-W03"
+    - "RA-W04_LOCAL"
+    - "RA-W05A"
+    - "RA-W05B"
+    - "RA-W06_LOCAL"
+    - "RA-W07"
+    - "RA-W08_LOCAL"
+  local_first: true
+  mac_mini_deployed: false
+  adr: "V3/ADR-RUNTIME-ASSURANCE-FOUNDATION.md"
+  latest_migration: "0030_runtime_assurance_foundation.js"
+  evidence: "V3/Evidence/Runtime-Assurance/RA-W08/20260801-084928-local-release-candidate/"
+  evidence_root: "V3/Evidence/Runtime-Assurance/"
+  quality_gate: "PASS"
+  next_work_package: null
+  next_work_package_status: "NO_LOCAL_DEVELOPMENT_REMAINING"
+  next_action: "等待 Owner 另行授权 Mac Mini 部署并提供独立测试厂商／企微输入；依次闭合备份回滚、真实客户端中文展示、真实成员到达和生产只读核验"
+  remaining_risk:
+    - "真实 Kimi／智谱信号 Evidence 未提供；只完成脱敏夹具和安全通用字段回归"
+    - "企微真实 CorpID／AgentID／Secret、可见范围和试点 userid 未提供，真实到达未签字"
+    - "WorkBuddy／Claude Code／ZCode 中文错误真实展示尚未在部署环境验收"
+    - "按 Local First 冻结口径未部署 Mac Mini；生产备份、迁移、回滚、健康检查和只读核验待 Owner 另行授权"
+
 conditional_dependencies:
   - id: "DEP-PROVIDER-CREDENTIALS"
     blocks: ["W06真实上线签字", "W09真实上线签字", "W10真实上线签字"]

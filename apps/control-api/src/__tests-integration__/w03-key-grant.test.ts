@@ -26,14 +26,53 @@ let testPrincipalId: string;
 
 const TEST_PASSWORD = "W03-Test-Password!";
 const ENT_ID = randomUUID();
+const FOREIGN_ENT_ID = randomUUID();
 const ADM_ID = randomUUID();
+const ACTIVE_MODEL_ID = randomUUID();
+const SECOND_ACTIVE_MODEL_ID = randomUUID();
+const INACTIVE_MODEL_ID = randomUUID();
 
 beforeAll(async () => {
   pg = await startPostgresContainer();
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
 
-  await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流测试企业" }).execute();
+  await db
+    .insertInto("enterprise")
+    .values([
+      { id: ENT_ID, name: "仟流测试企业" },
+      { id: FOREIGN_ENT_ID, name: "其他测试企业" },
+    ])
+    .execute();
+  await db
+    .insertInto("unified_model")
+    .values([
+      {
+        id: ACTIVE_MODEL_ID,
+        enterprise_id: ENT_ID,
+        alias: "qianliu-deepseek",
+        display_name: "仟流 DeepSeek",
+      },
+      {
+        id: SECOND_ACTIVE_MODEL_ID,
+        enterprise_id: ENT_ID,
+        alias: "qianliu-glm",
+        display_name: "仟流 GLM",
+      },
+      {
+        id: INACTIVE_MODEL_ID,
+        enterprise_id: ENT_ID,
+        alias: "inactive-model",
+        display_name: "已停用模型",
+        status: "DISABLED",
+      },
+      {
+        enterprise_id: FOREIGN_ENT_ID,
+        alias: "foreign-model",
+        display_name: "其他企业模型",
+      },
+    ])
+    .execute();
   const hash = await hashPassword(TEST_PASSWORD);
   await db
     .insertInto("admin_user")
@@ -72,10 +111,19 @@ async function createPrincipal(type: "EMPLOYEE" | "PROJECT", name: string): Prom
 describe("W03 下游 Key 与 Grant", () => {
   it("生成 Key：响应含明文 + 提示一次展示（WT-02 第二步）", async () => {
     testPrincipalId = await createPrincipal("EMPLOYEE", "Key 测试员工");
+    const omitted = await app.inject({
+      method: "POST",
+      url: `/principals/${testPrincipalId}/key`,
+      headers: { cookie: adminCookie },
+    });
+    expect(omitted.statusCode).toBe(400);
+    expect(omitted.json().error).toBe("invalid_request");
+
     const res = await app.inject({
       method: "POST",
       url: `/principals/${testPrincipalId}/key`,
       headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACTIVE_MODEL_ID] },
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
@@ -83,6 +131,49 @@ describe("W03 下游 Key 与 Grant", () => {
     expect(body.key_prefix).toMatch(/^sk-qianliu-/);
     expect(body.warning).toContain("一次");
     expect(body.metadata.id).toBeDefined();
+    expect(body.metadata.allowed_model_ids).toEqual([ACTIVE_MODEL_ID]);
+
+    const stored = await db
+      .selectFrom("principal_key")
+      .select("allowed_model_ids")
+      .where("id", "=", body.metadata.id)
+      .executeTakeFirstOrThrow();
+    expect(stored.allowed_model_ids).toEqual([ACTIVE_MODEL_ID]);
+  });
+
+  it("生成 Key 拒绝非本企业、非 ACTIVE 与重复模型", async () => {
+    for (const allowedModelIds of [
+      [INACTIVE_MODEL_ID],
+      [
+        (
+          await db
+            .selectFrom("unified_model")
+            .select("id")
+            .where("enterprise_id", "=", FOREIGN_ENT_ID)
+            .executeTakeFirstOrThrow()
+        ).id,
+      ],
+    ]) {
+      const pid = await createPrincipal("EMPLOYEE", `非法授权-${randomUUID().slice(0, 6)}`);
+      const res = await app.inject({
+        method: "POST",
+        url: `/principals/${pid}/key`,
+        headers: { cookie: adminCookie },
+        payload: { allowed_model_ids: allowedModelIds },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toBe("invalid_model_authorization");
+    }
+
+    const duplicatePid = await createPrincipal("EMPLOYEE", "重复模型授权");
+    const duplicate = await app.inject({
+      method: "POST",
+      url: `/principals/${duplicatePid}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACTIVE_MODEL_ID, ACTIVE_MODEL_ID] },
+    });
+    expect(duplicate.statusCode).toBe(400);
+    expect(duplicate.json().error).toBe("invalid_request");
   });
 
   it("重复生成 Key 被拒（每主体默认一把主 Key）", async () => {
@@ -90,8 +181,62 @@ describe("W03 下游 Key 与 Grant", () => {
       method: "POST",
       url: `/principals/${testPrincipalId}/key`,
       headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACTIVE_MODEL_ID] },
     });
     expect(res.statusCode).toBe(409);
+  });
+
+  it("并发生成 Key：数据库门禁保证仅一把 ACTIVE，另一请求稳定返回 409", async () => {
+    const pid = await createPrincipal("EMPLOYEE", "并发创建 Key 员工");
+    const createRequest = () =>
+      app.inject({
+        method: "POST",
+        url: `/principals/${pid}/key`,
+        headers: { cookie: adminCookie },
+        payload: { allowed_model_ids: [ACTIVE_MODEL_ID] },
+      });
+    const results = await Promise.all([createRequest(), createRequest()]);
+    expect(results.map((result) => result.statusCode).sort()).toEqual([201, 409]);
+    const conflict = results.find((result) => result.statusCode === 409);
+    expect(conflict?.json().error).toBe("key_exists");
+
+    const activeKeys = await db
+      .selectFrom("principal_key")
+      .select(["id", "allowed_model_ids"])
+      .where("enterprise_id", "=", ENT_ID)
+      .where("principal_id", "=", pid)
+      .where("status", "=", "ACTIVE")
+      .execute();
+    expect(activeKeys).toHaveLength(1);
+    expect(activeKeys[0]!.allowed_model_ids).toEqual([ACTIVE_MODEL_ID]);
+  });
+
+  it("当前 Key 可更新为显式模型集合或空集合", async () => {
+    const update = await app.inject({
+      method: "PATCH",
+      url: `/principals/${testPrincipalId}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [SECOND_ACTIVE_MODEL_ID] },
+    });
+    expect(update.statusCode).toBe(200);
+    expect(update.json().key.allowed_model_ids).toEqual([SECOND_ACTIVE_MODEL_ID]);
+
+    const denyAll = await app.inject({
+      method: "PATCH",
+      url: `/principals/${testPrincipalId}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [] },
+    });
+    expect(denyAll.statusCode).toBe(200);
+    expect(denyAll.json().key.allowed_model_ids).toEqual([]);
+
+    const restore = await app.inject({
+      method: "PATCH",
+      url: `/principals/${testPrincipalId}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACTIVE_MODEL_ID] },
+    });
+    expect(restore.statusCode).toBe(200);
   });
 
   it("重置 Key：旧 Key 撤销、新 Key 不同（WT-09）", async () => {
@@ -102,6 +247,17 @@ describe("W03 下游 Key 与 Grant", () => {
     });
     const oldActive = beforeKeys.json().keys.find((k: { status: string }) => k.status === "ACTIVE");
     expect(oldActive).toBeDefined();
+    const expiresAt = new Date("2027-01-02T03:04:05.000Z");
+    await db
+      .updateTable("principal_key")
+      .set({
+        ip_allowlist: JSON.stringify(["10.0.0.0/8"]) as unknown as string[],
+        expires_at: expiresAt,
+        quota_limit: 123456n,
+        concurrency_limit: 7,
+      })
+      .where("id", "=", oldActive.id)
+      .execute();
 
     const resetRes = await app.inject({
       method: "POST",
@@ -111,6 +267,7 @@ describe("W03 下游 Key 与 Grant", () => {
     expect(resetRes.statusCode).toBe(200);
     const newKey = resetRes.json().key;
     expect(newKey).toMatch(/^sk-qianliu-/);
+    expect(resetRes.json().warning).toContain("立即失效");
 
     // 旧 Key 应已 REVOKED
     const afterKeys = await app.inject({
@@ -126,6 +283,62 @@ describe("W03 下游 Key 与 Grant", () => {
     const newActive = afterKeys.json().keys.find((k: { status: string }) => k.status === "ACTIVE");
     expect(newActive).toBeDefined();
     expect(newActive.id).not.toBe(oldActive.id);
+
+    const inherited = await db
+      .selectFrom("principal_key")
+      .select([
+        "allowed_model_ids",
+        "ip_allowlist",
+        "expires_at",
+        "quota_limit",
+        "concurrency_limit",
+      ])
+      .where("id", "=", newActive.id)
+      .executeTakeFirstOrThrow();
+    expect(inherited.allowed_model_ids).toEqual([ACTIVE_MODEL_ID]);
+    expect(inherited.ip_allowlist).toEqual(["10.0.0.0/8"]);
+    expect(inherited.expires_at).toEqual(expiresAt);
+    expect(inherited.quota_limit).toBe("123456");
+    expect(inherited.concurrency_limit).toBe(7);
+  });
+
+  it("并发重置串行化，最终只保留一把 ACTIVE Key", async () => {
+    const pid = await createPrincipal("PROJECT", "并发重置项目");
+    const created = await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACTIVE_MODEL_ID] },
+    });
+    expect(created.statusCode).toBe(201);
+
+    const results = await Promise.all([
+      app.inject({
+        method: "POST",
+        url: `/principals/${pid}/key/reset`,
+        headers: { cookie: adminCookie },
+      }),
+      app.inject({
+        method: "POST",
+        url: `/principals/${pid}/key/reset`,
+        headers: { cookie: adminCookie },
+      }),
+    ]);
+    expect(
+      results.every((result) => result.statusCode === 200 || result.statusCode === 404),
+    ).toBe(true);
+    expect(results.some((result) => result.statusCode === 200)).toBe(true);
+
+    const allKeys = await db
+      .selectFrom("principal_key")
+      .select(["id", "status", "allowed_model_ids"])
+      .where("enterprise_id", "=", ENT_ID)
+      .where("principal_id", "=", pid)
+      .execute();
+    const activeKeys = allKeys.filter((key) => key.status === "ACTIVE");
+    expect(activeKeys).toHaveLength(1);
+    expect(activeKeys[0]!.allowed_model_ids).toEqual([ACTIVE_MODEL_ID]);
+    expect(allKeys.filter((key) => key.status === "REVOKED").length).toBeGreaterThanOrEqual(1);
   });
 
   it("分配 grant（WT-02 第三步：分配模型与额度）", async () => {
@@ -171,6 +384,7 @@ describe("W03 下游 Key 与 Grant", () => {
       method: "POST",
       url: `/principals/${pid}/key`,
       headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [] },
     });
     // 停用
     await app.inject({
@@ -199,6 +413,7 @@ describe("W03 下游 Key 与 Grant", () => {
       method: "POST",
       url: `/principals/${pid}/key`,
       headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [] },
     });
     const canaryKey = createRes.json().key as string;
     expect(canaryKey).toMatch(/^sk-qianliu-/);

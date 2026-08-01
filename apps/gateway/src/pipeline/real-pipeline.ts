@@ -16,7 +16,19 @@
  * 真实 HTTP 调用在 DEP-PROVIDER-CREDENTIALS 解锁后把 caller 替换为真实实现。
  */
 import type { Kysely } from "kysely";
-import type { Database, GatewayLedgerRepository, ResourcePoolRepository, DispatchPolicyRepository, QuotaGateRepository } from "@qianliu/database";
+import type { FastifyReply } from "fastify";
+import type { Outcome } from "@qianliu/contracts";
+import type {
+  ClaimRequestResult,
+  Database,
+  GatewayLedgerRepository,
+  ResourcePoolRepository,
+  DispatchPolicyRepository,
+  QuotaGateRepository,
+  RuntimeAssuranceRepository,
+  AvailabilityEvent,
+  SignalResult,
+} from "@qianliu/database";
 import { SecretValue, type UpstreamCaller } from "@qianliu/provider-adapters";
 import {
   isSwitchable,
@@ -25,12 +37,16 @@ import {
   ROUTING_POLICY,
   matchMultiplierRule,
   matchPriceRule,
+  configuredTimeWindows,
+  findMatchedTimeWindow,
   computeDeductedQuota,
   computeApiCostFromRule,
   decideDispatch,
   computeDispatchSaving,
   QUOTA_DECISION,
+  availabilitySignalSummary,
   type BillingRule,
+  type BillingRuleWindow,
   type DispatchInput,
   type DispatchPolicy,
   type ErrorClassification,
@@ -39,6 +55,9 @@ import {
 } from "@qianliu/domain";
 import type { PipelineHandler } from "../routes/chat.js";
 import { resolveAdapter } from "./adapter-registry.js";
+import { buildResponsesResponse, writeResponsesSse } from "../routes/responses-protocol.js";
+import { writeChatCompletionsSse } from "../routes/chat-protocol.js";
+import { fingerprintRequest } from "./request-idempotency.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
 export interface RouteCandidateRow {
@@ -51,6 +70,11 @@ export interface RouteCandidateRow {
   status: string;
   probe: boolean;
   principalId: string;
+  providerId?: string;
+  unifiedModelId?: string;
+  /** 仅驻留于 Gateway 内存；生产由资源密文解密，测试可省略。 */
+  secret?: SecretValue;
+  concurrencyLimit?: number;
 }
 
 export interface RealPipelineDeps {
@@ -60,6 +84,10 @@ export interface RealPipelineDeps {
   caller: UpstreamCaller;
   /** W11 资源池仓储（状态机驱动 + 硬过滤）。 */
   poolRepo: ResourcePoolRepository;
+  /** RA-W04：规则、事件与 Outbox；测试未注入时保持旧链兼容。 */
+  runtimeAssuranceRepo?: RuntimeAssuranceRepository;
+  runtimeAssuranceMode?: "OFF" | "OBSERVE" | "ENFORCE";
+  runtimeAssuranceWecomNotify?: boolean;
   /** W16 经营调度策略仓储（查已发布策略 + 落决策）。可选；未提供则跳过 dispatch。 */
   dispatchRepo?: DispatchPolicyRepository;
   /**
@@ -94,27 +122,50 @@ export interface RealPipelineDeps {
     remainingQuotaRatio: number | null;
     forecastExhaustRisk: boolean;
   }>;
+  /** 请求时钟（测试与回放注入）；同一请求内只读取一次，避免跨边界漂移。 */
+  now?: () => number;
   /** 最大 Attempt 数（提交前切换上限；默认 2，有界故障切换）。 */
   maxAttempts?: number;
+  /** 本地/跨实例并发槽位满时的最长等待；默认 2 秒，超时返回明确 429。 */
+  capacityWaitMs?: number;
+  /** 并发槽位轮询间隔；仅供测试缩短，生产默认 25ms。 */
+  capacityPollMs?: number;
 }
 
 export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
   const maxAttempts = deps.maxAttempts ?? 2;
+  const capacityWaitMs = deps.capacityWaitMs ?? 2_000;
+  const capacityPollMs = deps.capacityPollMs ?? 25;
   return async ({ request, reply, body, capability }) => {
-    const requestId = request.requestId;
+    const requestId = request.aiRequestId;
+    const traceId = request.requestId;
     const principal = request.principal!;
-    const created = Math.floor(Date.now() / 1000);
+    const downstreamAbort = new AbortController();
+    request.raw.once("aborted", () => downstreamAbort.abort());
+    const requestStartedAt = deps.now?.() ?? Date.now();
+    const created = Math.floor(requestStartedAt / 1000);
+    const requestFingerprint = request.idempotencyKey
+      ? fingerprintRequest(capability, body)
+      : null;
 
-    // 1. 创建请求意图
-    await deps.ledgerRepo.createRequest({
+    // 1. 原子认领请求意图。x-request-id 仅追踪；只有显式 Idempotency-Key 才去重。
+    const claim = await deps.ledgerRepo.claimRequest({
       id: requestId,
       enterprise_id: principal.enterpriseId,
       principal_id: principal.principalId,
       principal_key_id: principal.keyId,
+      idempotency_key: request.idempotencyKey,
+      client_request_id: traceId,
+      request_fingerprint: requestFingerprint,
       protocol: capability,
       unified_model: body.model,
       stream: body.stream ?? false,
     });
+    if (claim.kind !== "CREATED") {
+      return sendIdempotencyReplay(reply, traceId, claim);
+    }
+    reply.header("x-request-id", traceId);
+    reply.header("x-ai-request-id", requestId);
 
     // 2. 硬过滤（W11）：可服务资源 ∩ model_route 启用候选
     const allCandidates = await deps.listCandidates(principal.enterpriseId, body.model);
@@ -124,11 +175,76 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         error: { message: "模型未配置", type: "invalid_request_error", code: "model_not_configured", param: "model", retryable: false, request_id: requestId },
       });
     }
+    const grantChecks = await Promise.all(
+      allCandidates.map(async (candidate) => ({
+        candidate,
+        authorized: await deps.quotaRepo.hasActiveGrant({
+          enterpriseId: principal.enterpriseId,
+          principalId: principal.principalId,
+          provider: candidate.providerCode,
+          modelAlias: body.model,
+        }),
+      })),
+    );
+    const grantAuthorizedCandidates = grantChecks
+      .filter((result) => result.authorized)
+      .map((result) => result.candidate);
+    if (grantAuthorizedCandidates.length === 0) {
+      await deps.ledgerRepo.updateRequestStatus(
+        requestId,
+        "FAILED",
+        "DOWNSTREAM_AUTH_OR_QUOTA",
+        "principal_grant_required",
+      );
+      return reply.code(403).header("x-request-id", traceId).send({
+        error: {
+          message: "主体未获该模型的有效资源授权",
+          type: "authentication_error",
+          code: "principal_grant_required",
+          param: "model",
+          retryable: false,
+          request_id: requestId,
+        },
+      });
+    }
+
     const servableIds = new Set(
       (await deps.poolRepo.listServableResources(principal.enterpriseId)).map((s) => s.id),
     );
-    const eligible: RoutingCandidateInput[] = allCandidates
-      .filter((c) => servableIds.has(c.resourceId))
+    const candidateByResourceId = new Map(
+      grantAuthorizedCandidates.map((candidate) => [candidate.resourceId, candidate]),
+    );
+    let blockingEvent: AvailabilityEvent | null = null;
+    const runtimeAllowedCandidates: RouteCandidateRow[] = [];
+    for (const candidate of grantAuthorizedCandidates) {
+      if (!servableIds.has(candidate.resourceId)) continue;
+      if (deps.runtimeAssuranceRepo && deps.runtimeAssuranceMode === "ENFORCE") {
+        const open = await deps.runtimeAssuranceRepo.findOpenBlock(candidate.resourceId, candidate.upstreamModel);
+        if (open) {
+          blockingEvent ??= open;
+          continue;
+        }
+        if (candidate.providerId) {
+          const schedule = await deps.runtimeAssuranceRepo.evaluateSchedule({
+            now: new Date(requestStartedAt), providerId: candidate.providerId,
+            providerResourceId: candidate.resourceId, unifiedModelId: candidate.unifiedModelId ?? null,
+            upstreamModel: candidate.upstreamModel,
+          });
+          if (schedule?.action === "BLOCK") {
+            blockingEvent = await deps.runtimeAssuranceRepo.createScheduleEvent({
+              rule: schedule, enterpriseId: principal.enterpriseId,
+              providerId: candidate.providerId, providerResourceId: candidate.resourceId,
+              unifiedModelId: candidate.unifiedModelId ?? null, upstreamModel: candidate.upstreamModel,
+              aiRequestId: requestId, principalId: principal.principalId,
+              now: new Date(requestStartedAt), wecomNotify: deps.runtimeAssuranceWecomNotify ?? false,
+            });
+            continue;
+          }
+        }
+      }
+      runtimeAllowedCandidates.push(candidate);
+    }
+    const eligible: RoutingCandidateInput[] = runtimeAllowedCandidates
       .map((c) => ({
         resourceId: c.resourceId,
         upstreamModel: c.upstreamModel,
@@ -141,6 +257,10 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       }));
 
     if (eligible.length === 0) {
+      if (blockingEvent) {
+        await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", "RUNTIME_ASSURANCE_BLOCKED", blockingEvent.event_number);
+        return sendRuntimeBlock(reply, capability, traceId, requestId, blockingEvent);
+      }
       // 无健康候选：停止对应模型调用，不无账放行（TRD §14 行 854）
       await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", "NO_HEALTHY_CANDIDATE", "no_healthy_candidate");
       return reply.code(503).send({
@@ -157,7 +277,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     const triedResourceIds = new Set<string>();
     let lastScored: ScoredCandidate[] = [];
     let winner: ScoredCandidate | undefined;
-    let finalOutcome: { status: number; committed: boolean; usage: { input: number; output: number; cache: number; quality: string }; error?: string } | null = null;
+    let finalOutcome: Outcome | null = null;
+    let finalSignalResult: SignalResult | null = null;
     let attemptNo = 0;
     // R2-N1 修复：额度/账本归因用已认证的调用者主体（principal.principalId），
     // 不是候选行的 principalId。生产 listCandidates 不知道调用者会填空串，
@@ -171,6 +292,12 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let dispatchSwitchTargetId: string | null = null;
     let dispatchDispatchInput: DispatchInput | null = null;
     let dispatchTerminated = false;
+    let grantRevokedDuringDispatch = false;
+    let keyAuthorizationRevokedDuringDispatch = false;
+    let capacityWaitTimedOut = false;
+    let capacityRetryAfterMs = capacityPollMs;
+    // 请求级超额事实随结算冻结；后续 Grant/Counter 变化不得重算历史。
+    let requestOverage = false;
 
     while (attemptNo < maxAttempts) {
       attemptNo += 1;
@@ -181,7 +308,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       // W16：首次 Attempt 做经营调度判定（TRD §9.1 行 611-618）
       if (attemptNo === 1 && deps.dispatchRepo) {
         const availableIds = new Set(eligible.map((e) => e.resourceId));
-        const now = Date.now();
+        const now = requestStartedAt;
         const resolved = deps.resolveDispatchInput
           ? await deps.resolveDispatchInput(
               principal.enterpriseId,
@@ -228,6 +355,18 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       }
 
       const cand = winner.input;
+      // grant 可能在候选评分后被管理员撤销；访问上游前再次直查，避免 TOCTOU 放行。
+      const grantStillActive = await deps.quotaRepo.hasActiveGrant({
+        enterpriseId: principal.enterpriseId,
+        principalId,
+        provider: cand.providerCode,
+        modelAlias: body.model,
+      });
+      if (!grantStillActive) {
+        grantRevokedDuringDispatch = true;
+        triedResourceIds.add(cand.resourceId);
+        continue;
+      }
       // 3a. 冻结本 Attempt 的候选快照（WT-18 可解释：因子/总分/reason/策略版本）
       for (const sc of lastScored) {
         if (triedResourceIds.has(sc.input.resourceId) && !sc.selected) continue; // 已试候选不重复冻结
@@ -257,14 +396,21 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       let leaseId: string | null = null;
       let grantId: string | null = null;
       let reservedEstimate = 0n;
+      let reservedProjectedRemaining = 0n;
       if (cand.mode === "CODING_PLAN") {
-        const lease = await deps.quotaRepo.acquireLease({
+        const lease = await acquireConcurrencyLeaseWithWait({
+          quotaRepo: deps.quotaRepo,
           enterpriseId: principal.enterpriseId,
           providerResourceId: cand.resourceId,
           aiRequestId: requestId,
+          waitMs: capacityWaitMs,
+          pollMs: capacityPollMs,
+          cancelled: () => downstreamAbort.signal.aborted,
         });
         if (lease === null) {
-          // 并发达 concurrency_limit：排除该资源，重评其他候选
+          // 槽位暂满是容量状态，不是资源故障；先尝试其他候选，最终返回明确 429。
+          capacityWaitTimedOut = true;
+          capacityRetryAfterMs = capacityPollMs;
           triedResourceIds.add(cand.resourceId);
           continue;
         }
@@ -284,6 +430,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         }
         grantId = reserve.grantId;
         reservedEstimate = reserve.reservedEstimate;
+        reservedProjectedRemaining = reserve.gate.projectedRemaining;
       }
 
       // 3b. Attempt
@@ -295,17 +442,91 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         upstream_model: cand.upstreamModel,
       });
 
+      // preHandler 到实际访问上游之间可能发生 Key 重置、主体停用、模型撤权/停用。
+      // Adapter 前直接查库复核，避免旧请求上下文穿透即时撤权。
+      const keyStillAuthorized = await hasCurrentKeyModelAuthorization(
+        deps.db,
+        principal.enterpriseId,
+        principalId,
+        principal.keyId,
+        body.model,
+      );
+      if (!keyStillAuthorized) {
+        await deps.ledgerRepo.updateAttemptResult(attempt.id, {
+          http_status: 403,
+          response_committed: false,
+          finished_at: new Date(),
+          error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+          error_code: "key_or_model_authorization_revoked",
+          switch_reason: null,
+        });
+        if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
+        if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
+        keyAuthorizationRevokedDuringDispatch = true;
+        break;
+      }
+
+      // 最终提交栅栏用一条 SQL 同时复核 Key、主体、模型和 grant，避免把两次独立
+      // 查询之间的 await 变成另一条 TOCTOU 缝隙。此查询与 adapter.invoke 之间
+      // 不得再增加 await。
+      const invocationStillAuthorized = await hasCurrentInvocationAuthorization(
+        deps.db,
+        principal.enterpriseId,
+        principalId,
+        principal.keyId,
+        body.model,
+        cand.providerCode,
+      );
+      if (!invocationStillAuthorized) {
+        // 已决定不访问上游后才做原因细分；这里的额外查询不再构成放行竞态。
+        const grantIsCurrent = await deps.quotaRepo.hasActiveGrant({
+          enterpriseId: principal.enterpriseId,
+          principalId,
+          provider: cand.providerCode,
+          modelAlias: body.model,
+        });
+        const errorCode = grantIsCurrent
+          ? "key_or_model_authorization_revoked"
+          : "principal_grant_required";
+        await deps.ledgerRepo.updateAttemptResult(attempt.id, {
+          http_status: 403,
+          response_committed: false,
+          finished_at: new Date(),
+          error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+          error_code: errorCode,
+          switch_reason: null,
+        });
+        if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
+        if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
+        if (grantIsCurrent) {
+          keyAuthorizationRevokedDuringDispatch = true;
+        } else {
+          grantRevokedDuringDispatch = true;
+        }
+        break;
+      }
+
       const adapter = resolveAdapter(cand.providerCode, deps.caller);
+      const resourceConfig = candidateByResourceId.get(cand.resourceId);
       const outcome = await adapter.invoke(
         {
           providerCode: cand.providerCode as "deepseek" | "zhipu" | "kimi",
           resourceId: cand.resourceId,
           mode: cand.mode,
           upstreamModel: cand.upstreamModel,
-          concurrencyLimit: 100,
-          secret: new SecretValue(""),
+          concurrencyLimit: resourceConfig?.concurrencyLimit ?? 0,
+          secret: resourceConfig?.secret ?? new SecretValue(""),
         },
-        { requestId, unifiedModel: body.model, stream: body.stream ?? false, body: body.messages },
+        {
+          requestId,
+          unifiedModel: body.model,
+          stream: body.stream ?? false,
+          capability,
+          // 保留完整北向请求，真实 caller 才能转换 tools/tool_choice/system；
+          // 请求正文仅驻留内存，账本仍保持 METADATA_ONLY。
+          body: capability === "responses" ? body.responsesRequest : body,
+          abort: downstreamAbort.signal,
+        },
         attemptNo,
       );
 
@@ -319,7 +540,30 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         switch_reason: null,
       });
 
-      // 3c. 结果驱动 W11 状态机
+      // RA-W04：Adapter 规范化信号进入唯一规则/事件链；Gateway 事务只写事件和 Outbox。
+      if (
+        outcome.error && outcome.unifiedAvailabilitySignal && deps.runtimeAssuranceRepo &&
+        resourceConfig?.providerId
+      ) {
+        finalSignalResult = await deps.runtimeAssuranceRepo.recordSignal({
+          enterpriseId: principal.enterpriseId,
+          providerId: resourceConfig.providerId,
+          providerResourceId: cand.resourceId,
+          unifiedModelId: resourceConfig.unifiedModelId ?? null,
+          upstreamModel: cand.upstreamModel,
+          signal: outcome.unifiedAvailabilitySignal,
+          upstreamCode: outcome.upstreamCode ?? outcome.error,
+          sanitizedSummary: availabilitySignalSummary(outcome.unifiedAvailabilitySignal),
+          upstreamRecoverAt: outcome.recoverAt ? new Date(outcome.recoverAt) : null,
+          aiRequestId: requestId,
+          principalId,
+          now: new Date(requestStartedAt),
+          mode: deps.runtimeAssuranceMode ?? "OBSERVE",
+          wecomNotify: deps.runtimeAssuranceWecomNotify ?? false,
+        });
+      }
+
+      // 3c. 结果驱动健康状态机。技术失败只降级；硬阻断只由上面的事件派生。
       if (outcome.committed && !outcome.error) {
         await deps.poolRepo.recordSuccess(cand.resourceId);
       } else if (classification) {
@@ -338,6 +582,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           input_tokens: BigInt(outcome.usage.input),
           output_tokens: BigInt(outcome.usage.output),
           cache_tokens: BigInt(outcome.usage.cache),
+          reasoning_tokens: BigInt(outcome.usage.reasoning ?? 0),
           usage_quality: outcome.usage.quality,
           dedup_key: `${requestId}:attempt${attemptNo}`,
         });
@@ -364,12 +609,14 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
             raw_input_tokens: BigInt(outcome.usage.input),
             raw_output_tokens: BigInt(outcome.usage.output),
             raw_cache_tokens: BigInt(outcome.usage.cache),
+            raw_reasoning_tokens: BigInt(outcome.usage.reasoning ?? 0),
             deducted_quota: billing.deductedQuota !== null ? BigInt(billing.deductedQuota) : null,
             api_cost: billing.apiCost,
             usage_quality: outcome.usage.quality,
             billing_rule_id: billing.ruleId,
             rule_version: billing.ruleVersion,
             multiplier: billing.multiplier,
+            billing_rule_snapshot: billing.ruleSnapshot,
           });
         }
       }
@@ -381,6 +628,13 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           const actualDeducted = attemptBilling?.deductedQuota !== null && attemptBilling?.deductedQuota !== undefined
             ? BigInt(attemptBilling.deductedQuota)
             : 0n;
+          const availableBeforeRequest =
+            reservedEstimate + reservedProjectedRemaining > 0n
+              ? reservedEstimate + reservedProjectedRemaining
+              : 0n;
+          requestOverage =
+            requestOverage ||
+            (actualDeducted > 0n && actualDeducted > availableBeforeRequest);
           await deps.quotaRepo.settleQuota(grantId, reservedEstimate, actualDeducted);
         } else {
           await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
@@ -394,7 +648,20 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       // 3e. 切换判定：committed=true 绝不切换（WT-12）；committed=false 且可切换错误 → 重评
       if (outcome.committed) break;
       if (!classification || !isSwitchable(classification as ErrorClassification)) break;
-      triedResourceIds.add(cand.resourceId);
+      const retrySameOnlyResource =
+        outcome.status === 429
+        && (outcome.upstreamErrorKind === "ENGINE_OVERLOADED"
+          || outcome.upstreamErrorKind === "CONCURRENCY_LIMITED")
+        && eligible.length === 1
+        && attemptNo < maxAttempts;
+      if (retrySameOnlyResource) {
+        await boundedDelay(
+          Math.min(outcome.retryAfterMs ?? 250, 1_000),
+          () => downstreamAbort.signal.aborted,
+        );
+      } else {
+        triedResourceIds.add(cand.resourceId);
+      }
       await deps.ledgerRepo.updateAttemptResult(attempt.id, { switch_reason: classification });
     }
 
@@ -410,6 +677,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       const sumIn = lines.reduce((acc, l) => acc + l.raw_input_tokens, 0n);
       const sumOut = lines.reduce((acc, l) => acc + l.raw_output_tokens, 0n);
       const sumCache = lines.reduce((acc, l) => acc + l.raw_cache_tokens, 0n);
+      const sumReasoning = lines.reduce((acc, l) => acc + l.raw_reasoning_tokens, 0n);
       const sumDeducted = lines.reduce((acc, l) => acc + (l.deducted_quota ?? 0n), 0n);
       // api_cost 为 8 位小数字符串；单请求明细 ≤ maxAttempts（≤2 条），用 Number 求和
       // 在 double 精度内无误差，toFixed(8) 规整后与明细口径一致。
@@ -425,14 +693,16 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         total_input_tokens: sumIn,
         total_output_tokens: sumOut,
         total_cache_tokens: sumCache,
+        total_reasoning_tokens: sumReasoning,
         total_deducted_quota: sumDeducted,
         total_api_cost: sumApiCost,
         usage_quality: usageQuality,
         attempt_count: attemptNo,
+        overage: requestOverage,
       });
       await deps.ledgerRepo.updateRequestStatus(
         requestId,
-        finalOutcome.committed ? "SUCCEEDED" : "FAILED",
+        finalOutcome.committed && !finalOutcome.error ? "SUCCEEDED" : "FAILED",
         finalOutcome.error ? mapToClassification(finalOutcome) : null,
         finalOutcome.error ?? null,
       );
@@ -466,6 +736,10 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           remainingQuotaRatio: dispatchDispatchInput.remainingQuotaRatio,
           forecastExhaustRisk: dispatchDispatchInput.forecastExhaustRisk,
           principalId: dispatchDispatchInput.principalId,
+          matchedTimezone: dispatchMatchedPolicy?.matchTimezone ?? null,
+          matchedDaysOfWeek: dispatchMatchedPolicy?.matchDaysOfWeek ?? null,
+          matchedStartTime: dispatchMatchedPolicy?.matchStartTime ?? null,
+          matchedEndTime: dispatchMatchedPolicy?.matchEndTime ?? null,
         },
         matchedPolicyId: dispatchMatchedPolicy?.id ?? null,
         matchedPolicyVersion: dispatchMatchedPolicy?.policyVersion ?? null,
@@ -487,38 +761,180 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       const code = dispatchFinalAction === "REJECT" ? 403 : 429;
       const errCode = dispatchFinalAction === "REJECT" ? "dispatch_rejected" : "dispatch_rate_limited";
       await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", errCode, dispatchReasonCode);
-      return reply.code(code).header("x-request-id", requestId).send({
+      return reply.code(code).header("x-request-id", traceId).send({
         error: { message: `经营调度${dispatchFinalAction === "REJECT" ? "拒绝" : "限流"}`, type: "server_error", code: errCode, param: null, retryable: false, request_id: requestId },
       });
     }
     if (!finalOutcome) {
-      return reply.code(503).header("x-request-id", requestId).send({
+      if (keyAuthorizationRevokedDuringDispatch) {
+        await deps.ledgerRepo.updateRequestStatus(
+          requestId,
+          "FAILED",
+          "DOWNSTREAM_AUTH_OR_QUOTA",
+          "key_or_model_authorization_revoked",
+        );
+        return reply.code(403).header("x-request-id", traceId).send({
+          error: {
+            message: "Key 或模型授权在访问上游前已失效",
+            type: "authentication_error",
+            code: "key_or_model_authorization_revoked",
+            param: "model",
+            retryable: false,
+            request_id: requestId,
+          },
+        });
+      }
+      if (grantRevokedDuringDispatch) {
+        await deps.ledgerRepo.updateRequestStatus(
+          requestId,
+          "FAILED",
+          "DOWNSTREAM_AUTH_OR_QUOTA",
+          "principal_grant_required",
+        );
+        return reply.code(403).header("x-request-id", traceId).send({
+          error: {
+            message: "主体授权在访问上游前已失效",
+            type: "authentication_error",
+            code: "principal_grant_required",
+            param: "model",
+            retryable: false,
+            request_id: requestId,
+          },
+        });
+      }
+      if (capacityWaitTimedOut) {
+        await deps.ledgerRepo.updateRequestStatus(
+          requestId,
+          "FAILED",
+          "UPSTREAM_RATE_LIMITED",
+          "resource_capacity_busy",
+        );
+        return reply.code(429)
+          .header("retry-after", Math.max(1, Math.ceil(capacityRetryAfterMs / 1_000)))
+          .send({
+            error: {
+              message: "套餐并发槽位暂满，请稍后重试",
+              type: "rate_limit_error",
+              code: "resource_capacity_busy",
+              param: null,
+              retryable: true,
+              retry_after_ms: capacityRetryAfterMs,
+              request_id: requestId,
+            },
+          });
+      }
+      await deps.ledgerRepo.updateRequestStatus(
+        requestId,
+        "FAILED",
+        "NO_HEALTHY_CANDIDATE",
+        "no_healthy_candidate",
+      );
+      return reply.code(503).header("x-request-id", traceId).send({
         error: { message: "无可用上游资源", type: "server_error", code: "no_healthy_candidate", param: null, retryable: true, request_id: requestId },
       });
     }
     if (finalOutcome.error) {
-      return reply.code(502).header("x-request-id", requestId).send({
-        error: { message: finalOutcome.error, type: "server_error", code: finalOutcome.error, param: null, retryable: true, request_id: requestId },
+      if (finalSignalResult?.decision === "BLOCKED_UPSTREAM" && finalSignalResult.event) {
+        return sendRuntimeBlock(reply, capability, traceId, requestId, finalSignalResult.event);
+      }
+      const status = finalOutcome.status === 429 ? 429 : 502;
+      if (finalOutcome.retryAfterMs !== undefined) {
+        reply.header("retry-after", Math.max(1, Math.ceil(finalOutcome.retryAfterMs / 1_000)));
+      }
+      return reply.code(status).header("x-request-id", traceId).send({
+        error: {
+          message: finalOutcome.status === 429 ? "上游套餐暂时限流，请稍后重试" : finalOutcome.error,
+          type: finalOutcome.status === 429 ? "rate_limit_error" : "server_error",
+          code: finalOutcome.error,
+          param: null,
+          retryable: true,
+          ...(finalOutcome.retryAfterMs === undefined
+            ? {}
+            : { retry_after_ms: finalOutcome.retryAfterMs }),
+          request_id: requestId,
+        },
       });
     }
 
     if (capability === "messages") {
-      return reply.header("x-request-id", requestId).code(200).send({
+      const assistant = normalizeAssistantOutput(finalOutcome.responseOutput);
+      const content: unknown[] = [];
+      if (assistant.text) content.push({ type: "text", text: assistant.text });
+      for (const call of assistant.functionCalls) {
+        content.push({
+          type: "tool_use",
+          id: call.callId,
+          name: call.name,
+          input: parseToolArguments(call.arguments),
+        });
+      }
+      if (content.length === 0) content.push({ type: "text", text: "OK" });
+      return reply.header("x-request-id", traceId).code(200).send({
         id: `msg_${requestId}`,
         type: "message",
         role: "assistant",
         model: body.model,
-        content: [{ type: "text", text: "OK" }],
-        stop_reason: "end_turn",
+        content,
+        stop_reason: assistant.functionCalls.length > 0 ? "tool_use" : "end_turn",
         usage: { input_tokens: finalOutcome.usage.input, output_tokens: finalOutcome.usage.output },
       });
     }
-    return reply.header("x-request-id", requestId).code(200).send({
+    if (capability === "responses") {
+      const response = buildResponsesResponse({
+        requestId,
+        createdAt: created,
+        model: body.model,
+        request: body.responsesRequest!,
+        inputTokens: finalOutcome.usage.input,
+        outputTokens: finalOutcome.usage.output,
+        cacheTokens: finalOutcome.usage.cache,
+        reasoningTokens: finalOutcome.usage.reasoning ?? 0,
+        output: finalOutcome.responseOutput,
+      });
+      if (body.stream) {
+        writeResponsesSse(reply, response, traceId);
+        return;
+      }
+      return reply.header("x-request-id", traceId).code(200).send(response);
+    }
+    const assistant = normalizeAssistantOutput(finalOutcome.responseOutput);
+    if (body.stream) {
+      writeChatCompletionsSse(reply, {
+        requestId,
+        traceId,
+        createdAt: created,
+        model: body.model,
+        text: assistant.text,
+        functionCalls: assistant.functionCalls,
+        inputTokens: finalOutcome.usage.input,
+        outputTokens: finalOutcome.usage.output,
+        cacheTokens: finalOutcome.usage.cache,
+        reasoningTokens: finalOutcome.usage.reasoning ?? 0,
+      });
+      return;
+    }
+    return reply.header("x-request-id", traceId).code(200).send({
       id: `chatcmpl-${requestId}`,
       object: "chat.completion",
       created,
       model: body.model,
-      choices: [{ index: 0, message: { role: "assistant", content: "OK" }, finish_reason: "stop" }],
+      choices: [{
+        index: 0,
+        message: {
+          role: "assistant",
+          content: assistant.text || (assistant.functionCalls.length > 0 ? null : "OK"),
+          ...(assistant.functionCalls.length > 0
+            ? {
+                tool_calls: assistant.functionCalls.map((call) => ({
+                  id: call.callId,
+                  type: "function",
+                  function: { name: call.name, arguments: call.arguments },
+                })),
+              }
+            : {}),
+        },
+        finish_reason: assistant.functionCalls.length > 0 ? "tool_calls" : "stop",
+      }],
       usage: {
         prompt_tokens: finalOutcome.usage.input,
         completion_tokens: finalOutcome.usage.output,
@@ -528,6 +944,254 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
   };
 }
 
+function sendIdempotencyReplay(
+  reply: FastifyReply,
+  traceId: string,
+  claim: Exclude<ClaimRequestResult, { kind: "CREATED" }>,
+): void {
+  const original = claim.request;
+  reply.header("x-request-id", traceId);
+  reply.header("x-ai-request-id", original.id);
+
+  if (claim.kind === "CONFLICT") {
+    reply.code(409).send({
+      error: {
+        message: "同一 Idempotency-Key 已用于不同请求体",
+        type: "invalid_request_error",
+        code: "idempotency_key_conflict",
+        param: "Idempotency-Key",
+        retryable: false,
+        request_id: original.id,
+      },
+    });
+    return;
+  }
+
+  const replay = idempotencyReplayState(original.status);
+  reply.code(409).send({
+    error: {
+      message: replay.message,
+      type: "invalid_request_error",
+      code: replay.code,
+      param: "Idempotency-Key",
+      retryable: replay.retryable,
+      request_id: original.id,
+      original_status: original.status,
+      original_error_code: original.error_code,
+    },
+  });
+}
+
+function idempotencyReplayState(status: string): {
+  code: string;
+  message: string;
+  retryable: boolean;
+} {
+  if (status === "PENDING" || status === "IN_PROGRESS") {
+    return {
+      code: "idempotency_request_in_progress",
+      message: "相同幂等请求正在处理中",
+      retryable: true,
+    };
+  }
+  if (status === "SUCCEEDED") {
+    return {
+      code: "idempotency_request_succeeded",
+      message: "相同幂等请求已成功完成；响应正文未持久化，请使用新的 Idempotency-Key 发起新请求",
+      retryable: false,
+    };
+  }
+  return {
+    code: "idempotency_request_failed",
+    message: "相同幂等请求已终止；请使用新的 Idempotency-Key 发起新请求",
+    retryable: false,
+  };
+}
+
+async function hasCurrentKeyModelAuthorization(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  principalId: string,
+  keyId: string,
+  modelAlias: string,
+): Promise<boolean> {
+  const key = await db
+    .selectFrom("principal_key")
+    .innerJoin("principal", "principal.id", "principal_key.principal_id")
+    .select([
+      "principal_key.allowed_model_ids as allowed_model_ids",
+      "principal_key.expires_at as expires_at",
+    ])
+    .where("principal_key.id", "=", keyId)
+    .where("principal_key.enterprise_id", "=", enterpriseId)
+    .where("principal_key.principal_id", "=", principalId)
+    .where("principal_key.status", "=", "ACTIVE")
+    .where("principal.status", "=", "ACTIVE")
+    .executeTakeFirst();
+  if (!key || (key.expires_at !== null && key.expires_at.getTime() <= Date.now())) {
+    return false;
+  }
+  const allowedModelIds = key.allowed_model_ids ?? [];
+  if (allowedModelIds.length === 0) return false;
+  const model = await db
+    .selectFrom("unified_model")
+    .select("id")
+    .where("enterprise_id", "=", enterpriseId)
+    .where("alias", "=", modelAlias)
+    .where("status", "=", "ACTIVE")
+    .where("id", "in", allowedModelIds)
+    .executeTakeFirst();
+  return model !== undefined;
+}
+
+/**
+ * Adapter 前最终授权栅栏：一条查询同时验证 Key/主体/模型/grant。
+ * 查询返回后紧接同步对象构造与 adapter.invoke，不再穿插异步 I/O。
+ */
+async function hasCurrentInvocationAuthorization(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  principalId: string,
+  keyId: string,
+  modelAlias: string,
+  providerCode: string,
+): Promise<boolean> {
+  const now = new Date();
+  const authorization = await db
+    .selectFrom("principal_key")
+    .innerJoin("principal", "principal.id", "principal_key.principal_id")
+    .innerJoin("unified_model", (join) =>
+      join
+        .onRef("unified_model.enterprise_id", "=", "principal_key.enterprise_id")
+        .on("unified_model.alias", "=", modelAlias)
+        .on("unified_model.status", "=", "ACTIVE"),
+    )
+    .innerJoin("principal_grant", (join) =>
+      join
+        .onRef("principal_grant.enterprise_id", "=", "principal_key.enterprise_id")
+        .onRef("principal_grant.principal_id", "=", "principal_key.principal_id")
+        .onRef("principal_grant.model_alias", "=", "unified_model.alias")
+        .on("principal_grant.provider", "=", providerCode)
+        .on("principal_grant.status", "=", "ACTIVE"),
+    )
+    .select([
+      "principal_key.allowed_model_ids as allowed_model_ids",
+      "principal_key.expires_at as expires_at",
+      "unified_model.id as model_id",
+    ])
+    .where("principal_key.id", "=", keyId)
+    .where("principal_key.enterprise_id", "=", enterpriseId)
+    .where("principal_key.principal_id", "=", principalId)
+    .where("principal_key.status", "=", "ACTIVE")
+    .where("principal.status", "=", "ACTIVE")
+    .where("principal_grant.valid_from", "<=", now)
+    .where((eb) =>
+      eb.or([
+        eb("principal_grant.valid_until", "is", null),
+        eb("principal_grant.valid_until", ">", now),
+      ]),
+    )
+    .executeTakeFirst();
+  if (
+    !authorization
+    || (
+      authorization.expires_at !== null
+      && authorization.expires_at.getTime() <= now.getTime()
+    )
+  ) {
+    return false;
+  }
+  return (authorization.allowed_model_ids ?? []).includes(authorization.model_id);
+}
+
+function normalizeAssistantOutput(output: unknown[] | undefined): {
+  text: string;
+  functionCalls: Array<{
+    callId: string;
+    name: string;
+    arguments: string;
+  }>;
+} {
+  let text = "";
+  const functionCalls: Array<{
+    callId: string;
+    name: string;
+    arguments: string;
+  }> = [];
+  for (const rawItem of output ?? []) {
+    if (typeof rawItem !== "object" || rawItem === null) continue;
+    const item = rawItem as Record<string, unknown>;
+    if (item.type === "message" && Array.isArray(item.content)) {
+      for (const rawPart of item.content) {
+        if (
+          typeof rawPart === "object"
+          && rawPart !== null
+          && typeof (rawPart as Record<string, unknown>).text === "string"
+        ) {
+          text += (rawPart as Record<string, unknown>).text as string;
+        }
+      }
+    }
+    if (
+      item.type === "function_call"
+      && typeof item.call_id === "string"
+      && typeof item.name === "string"
+      && typeof item.arguments === "string"
+    ) {
+      functionCalls.push({
+        callId: item.call_id,
+        name: item.name,
+        arguments: item.arguments,
+      });
+    }
+  }
+  return { text, functionCalls };
+}
+
+function parseToolArguments(argumentsJson: string): unknown {
+  try {
+    return JSON.parse(argumentsJson) as unknown;
+  } catch {
+    return {};
+  }
+}
+
+async function acquireConcurrencyLeaseWithWait(input: {
+  quotaRepo: QuotaGateRepository;
+  enterpriseId: string;
+  providerResourceId: string;
+  aiRequestId: string;
+  waitMs: number;
+  pollMs: number;
+  cancelled: () => boolean;
+}): Promise<string | null> {
+  const deadline = Date.now() + Math.max(0, input.waitMs);
+  while (!input.cancelled()) {
+    const lease = await input.quotaRepo.acquireLease({
+      enterpriseId: input.enterpriseId,
+      providerResourceId: input.providerResourceId,
+      aiRequestId: input.aiRequestId,
+    });
+    if (lease !== null) return lease;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return null;
+    await boundedDelay(Math.min(input.pollMs, remaining), input.cancelled);
+  }
+  return null;
+}
+
+async function boundedDelay(
+  delayMs: number,
+  cancelled: () => boolean,
+): Promise<void> {
+  const deadline = Date.now() + Math.max(0, delayMs);
+  while (!cancelled()) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return;
+    await new Promise<void>((resolve) => setTimeout(resolve, Math.min(remaining, 25)));
+  }
+}
+
 /** 由 Outcome 反推错误分类（Stub 的 error_code → TRD §9 分类）。 */
 function mapToClassification(outcome: { status: number; error?: string }): string | null {
   if (!outcome.error) return null;
@@ -535,10 +1199,47 @@ function mapToClassification(outcome: { status: number; error?: string }): strin
   if (outcome.status === 429) return "UPSTREAM_RATE_LIMITED";
   if (outcome.status === 402) return "UPSTREAM_BILLING_BLOCKED";
   if (outcome.status >= 500) return "UPSTREAM_TEMPORARY";
+  if (outcome.error === "upstream_invalid_response") return "UPSTREAM_TEMPORARY";
   if (outcome.error === "transport_error") return "TRANSPORT_ERROR";
   if (outcome.error === "stream_interrupted_after_commit") return "STREAM_INTERRUPTED_AFTER_COMMIT";
   if (outcome.error === "client_cancelled") return "CLIENT_INVALID";
   return "UNKNOWN";
+}
+
+function sendRuntimeBlock(
+  reply: FastifyReply,
+  capability: "chat" | "messages" | "responses",
+  traceId: string,
+  requestId: string,
+  event: AvailabilityEvent,
+) {
+  const recoverAt = event.recover_at?.toISOString();
+  const retrySeconds = event.recover_at
+    ? Math.max(1, Math.ceil((event.recover_at.getTime() - Date.now()) / 1_000))
+    : null;
+  if (retrySeconds !== null) reply.header("retry-after", retrySeconds);
+  const reason = event.availability_decision === "BLOCKED_SCHEDULE"
+    ? "当前处于计划停用时段"
+    : availabilitySignalSummary(event.unified_signal as NonNullable<Outcome["unifiedAvailabilitySignal"]>);
+  const message = `${event.upstream_model ?? "该模型"}${reason}，${recoverAt ? `预计 ${recoverAt} 恢复` : "等待管理员或上游恢复"}。事件 ${event.event_number}`;
+  const common = {
+    message,
+    code: event.availability_decision === "BLOCKED_SCHEDULE" ? "upstream_scheduled_block" : "upstream_availability_blocked",
+    retryable: Boolean(recoverAt),
+    ...(recoverAt ? { recover_at: recoverAt } : {}),
+    event_id: event.event_number,
+  };
+  if (capability === "messages") {
+    return reply.code(503).header("x-request-id", traceId).send({
+      type: "error",
+      error: { type: "api_error", ...common },
+      request_id: requestId,
+    });
+  }
+  return reply.code(event.unified_signal === "RATE_LIMIT_RETRY_AFTER" ? 429 : 503)
+    .header("x-request-id", traceId).send({
+      error: { ...common, type: "server_error", param: null, request_id: requestId },
+    });
 }
 
 /** W13 计价结果。 */
@@ -548,6 +1249,7 @@ interface BillingOutcome {
   ruleId: string | null;
   ruleVersion: string | null;
   multiplier: string | null;
+  ruleSnapshot: Record<string, unknown> | null;
 }
 
 /**
@@ -579,6 +1281,12 @@ async function computeBilling(
       daysOfWeek: r.days_of_week,
       startTime: r.start_time,
       endTime: r.end_time,
+      timeWindows: r.time_windows?.map((window) => ({
+        timezone: window.timezone,
+        daysOfWeek: window.days_of_week,
+        startTime: window.start_time,
+        endTime: window.end_time,
+      })) ?? null,
       multiplier: r.multiplier,
       cacheHitPrice: r.cache_hit_price,
       cacheMissPrice: r.cache_miss_price,
@@ -591,13 +1299,15 @@ async function computeBilling(
   if (mode === "CODING_PLAN") {
     const match = matchMultiplierRule(rules, resourceId, upstreamModel, attemptStartedAt);
     const multiplier = match?.multiplier ?? "1";
-    const rawTotal = usage.input + usage.output + usage.cache;
+    // cache 是 input 的子集，不能重复相加。
+    const rawTotal = usage.input + usage.output;
     return {
       apiCost: null, // PACKAGE_INCLUDED（TRD §10.2：不写数值 0）
       deductedQuota: computeDeductedQuota(rawTotal, multiplier),
       ruleId: match?.ruleId ?? null,
       ruleVersion: match?.ruleVersion ?? null,
       multiplier,
+      ruleSnapshot: match ? billingRuleSnapshot(match.rule, match.matchedWindow) : null,
     };
   }
 
@@ -612,6 +1322,36 @@ async function computeBilling(
     ruleId: priceRule?.id ?? null,
     ruleVersion: priceRule?.ruleVersion ?? null,
     multiplier: null,
+    ruleSnapshot: priceRule
+      ? billingRuleSnapshot(
+          priceRule,
+          findMatchedTimeWindow(priceRule, attemptStartedAt),
+        )
+      : null,
+  };
+}
+
+function billingRuleSnapshot(
+  rule: BillingRule,
+  matchedWindow: BillingRuleWindow | null,
+): Record<string, unknown> {
+  return {
+    ruleType: rule.ruleType,
+    ruleVersion: rule.ruleVersion,
+    effectiveFrom: new Date(rule.effectiveFrom).toISOString(),
+    effectiveTo: rule.effectiveTo === null ? null : new Date(rule.effectiveTo).toISOString(),
+    timezone: rule.timezone,
+    daysOfWeek: rule.daysOfWeek,
+    startTime: rule.startTime,
+    endTime: rule.endTime,
+    timeWindows: configuredTimeWindows(rule),
+    matchedWindow,
+    multiplier: rule.multiplier,
+    cacheHitPrice: rule.cacheHitPrice,
+    cacheMissPrice: rule.cacheMissPrice,
+    outputPrice: rule.outputPrice,
+    currency: rule.currency,
+    priority: rule.priority,
   };
 }
 

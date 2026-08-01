@@ -1,7 +1,7 @@
 /**
  * W20 E2E 共享夹具 —— 登录 + 通用导航。
  *
- * 认证：通过登录页真实 POST /auth/login（cookie 会话）。
+ * 认证：通过登录页真实 POST /api/auth/login（cookie 会话）。
  * 前置数据：企业/管理员需在库中预置（见 README）；E2E 创建的对象幂等命名（时间戳后缀）。
  */
 import { test as base, expect, type Page } from "@playwright/test";
@@ -29,7 +29,7 @@ export const E2E_IDS = {
 } as const;
 
 export async function apiGet<T>(page: Page, path: string): Promise<T> {
-  const response = await page.context().request.get(path);
+  const response = await page.context().request.get(`/api${path}`);
   expect(response.ok(), `${path} 应返回成功`).toBe(true);
   return response.json() as Promise<T>;
 }

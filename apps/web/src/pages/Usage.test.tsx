@@ -1,7 +1,8 @@
 /**
  * W18 用量账本单测 —— 表格渲染 / 套餐内展示 / 分页 / 空态。
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +13,30 @@ const useUsageMock = vi.fn();
 
 vi.mock("../api/hooks", () => ({
   useUsage: (params: unknown) => useUsageMock(params),
+  usePrincipals: () => ({
+    data: { principals: [{ id: "00000000-0000-4000-8000-000000000001", name: "张三" }] },
+  }),
+  useProviders: () => ({
+    data: { providers: [{ id: "00000000-0000-4000-8000-000000000002", name: "智谱" }] },
+  }),
+  useProviderResources: () => ({
+    data: {
+      resources: [{
+        id: "00000000-0000-4000-8000-000000000003",
+        provider_id: "00000000-0000-4000-8000-000000000002",
+        name: "智谱主资源",
+      }],
+    },
+  }),
+  useUnifiedModels: () => ({
+    data: {
+      models: [{
+        id: "00000000-0000-4000-8000-000000000004",
+        alias: "glm-4.6",
+        display_name: "GLM 4.6",
+      }],
+    },
+  }),
 }));
 
 function usageResult(records: UsageResult["records"], total: number): UsageResult {
@@ -32,6 +57,12 @@ function sampleRecord(): UsageResult["records"][number] {
     startedAt: "2026-07-28T02:00:00.000Z",
     finishedAt: "2026-07-28T02:00:01.200Z",
     durationMs: 1200,
+    finalProviderId: "00000000-0000-4000-8000-000000000002",
+    finalProviderCode: "zhipu",
+    finalProviderName: "智谱",
+    finalProviderResourceId: "00000000-0000-4000-8000-000000000003",
+    finalProviderResourceName: "智谱主资源",
+    overage: false,
     totalInputTokens: "200",
     totalOutputTokens: "100",
     totalCacheTokens: "0",
@@ -42,9 +73,9 @@ function sampleRecord(): UsageResult["records"][number] {
   };
 }
 
-function renderUsage() {
+function renderUsage(initialEntry = "/usage") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <UsagePage />
     </MemoryRouter>,
   );
@@ -75,12 +106,14 @@ describe("W18 用量账本", () => {
       refetch: vi.fn(),
     });
     renderUsage();
-    expect(screen.getByText("张三")).toBeInTheDocument();
-    expect(screen.getByText("glm-4.6")).toBeInTheDocument();
-    expect(screen.getByText("套餐内")).toBeInTheDocument();
-    expect(screen.queryByText("0.00")).toBeNull();
-    expect(screen.getByText("1.2s")).toBeInTheDocument();
-    expect(screen.getByText("成功")).toBeInTheDocument();
+    const row = screen.getByRole("row", { name: /req-0001/ });
+    expect(within(row).getByText("张三")).toBeInTheDocument();
+    expect(within(row).getByText("glm-4.6")).toBeInTheDocument();
+    expect(within(row).getByText("智谱主资源")).toBeInTheDocument();
+    expect(within(row).getByText("套餐内")).toBeInTheDocument();
+    expect(within(row).queryByText("0.00")).toBeNull();
+    expect(within(row).getByText("1.2s")).toBeInTheDocument();
+    expect(within(row).getByText("成功")).toBeInTheDocument();
   });
 
   it("失败记录用 danger 标签", () => {
@@ -116,6 +149,54 @@ describe("W18 用量账本", () => {
       refetch: vi.fn(),
     });
     renderUsage();
-    expect(useUsageMock).toHaveBeenCalledWith({ limit: 20, offset: 0 });
+    expect(useUsageMock).toHaveBeenCalledWith(expect.objectContaining({ limit: 20, offset: 0 }));
+  });
+
+  it("从 URL 恢复组合筛选，清除后恢复完整列表", async () => {
+    const user = userEvent.setup();
+    useUsageMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: usageResult([sampleRecord()], 1),
+      refetch: vi.fn(),
+    });
+    renderUsage(
+      "/usage?search=req-00&principal_id=00000000-0000-4000-8000-000000000001&overage_only=true&page=3",
+    );
+    expect(screen.getByLabelText("搜索请求 ID 或主体名称")).toHaveValue("req-00");
+    expect(screen.getByLabelText("主体")).toHaveValue("00000000-0000-4000-8000-000000000001");
+    expect(screen.getByLabelText("只看超额")).toBeChecked();
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      search: "req-00",
+      principal_id: "00000000-0000-4000-8000-000000000001",
+      overage_only: true,
+      offset: 40,
+    }));
+
+    await user.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByLabelText("搜索请求 ID 或主体名称")).toHaveValue("");
+    expect(screen.getByLabelText("只看超额")).not.toBeChecked();
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      search: undefined,
+      principal_id: undefined,
+      overage_only: undefined,
+      offset: 0,
+    }));
+  });
+
+  it("筛选变化重置页码并传给后端", async () => {
+    const user = userEvent.setup();
+    useUsageMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: usageResult([sampleRecord()], 60),
+      refetch: vi.fn(),
+    });
+    renderUsage("/usage?page=2");
+    await user.type(screen.getByLabelText("工具或客户端"), "WorkBuddy");
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      client_id: "WorkBuddy",
+      offset: 0,
+    }));
   });
 });

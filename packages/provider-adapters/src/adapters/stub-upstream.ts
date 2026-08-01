@@ -12,8 +12,8 @@ import type { ProviderAdapter, AdapterResource, AdapterRequest } from "../index.
 
 /** Stub 响应模式。 */
 export type StubMode =
-  | { kind: "SUCCESS"; usage: { input: number; output: number; cache: number }; content?: string }
-  | { kind: "STREAM"; chunks: string[]; usage: { input: number; output: number; cache: number }; failAfterChunk?: number }
+  | { kind: "SUCCESS"; usage: { input: number; output: number; cache: number; reasoning?: number }; content?: string }
+  | { kind: "STREAM"; chunks: string[]; usage: { input: number; output: number; cache: number; reasoning?: number }; failAfterChunk?: number }
   | { kind: "ERROR"; status: number; errorCode: string; classification: string }
   | { kind: "TIMEOUT" }
   | { kind: "CANCEL" };
@@ -62,6 +62,7 @@ export class StubUpstream implements ProviderAdapter {
           status: 200,
           committed: true,
           usage: { ...mode.usage, quality: "PROVIDER_REPORTED" },
+          responseOutput: responseOutputFor(request, mode.content ?? "OK"),
         };
       case "STREAM": {
         // 模拟流式：若有 failAfterChunk，在输出部分 chunk 后失败（committed=true）
@@ -80,6 +81,7 @@ export class StubUpstream implements ProviderAdapter {
           status: 200,
           committed: true,
           usage: { ...mode.usage, quality: "PROVIDER_REPORTED" },
+          responseOutput: responseOutputFor(request, mode.chunks.join("")),
         };
       }
       case "ERROR":
@@ -102,4 +104,39 @@ export class StubUpstream implements ProviderAdapter {
 
 function zeroUsage() {
   return { input: 0, output: 0, cache: 0, quality: "UNKNOWN" as const };
+}
+
+function responseOutputFor(request: AdapterRequest, content: string): unknown[] | undefined {
+  if (request.capability !== "responses") return undefined;
+  const body = request.body as {
+    input?: unknown;
+    tools?: Array<{ type?: string; name?: string; function?: { name?: string }; parameters?: unknown }>;
+  };
+  const input = Array.isArray(body.input) ? body.input : [];
+  const hasToolOutput = input.some(
+    (item) => typeof item === "object" && item !== null
+      && (item as { type?: string }).type === "function_call_output",
+  );
+  const firstTool = body.tools?.find((tool) => tool.type === "function" || tool.name || tool.function?.name);
+  if (firstTool && !hasToolOutput) {
+    const name = firstTool.name ?? firstTool.function?.name ?? "tool";
+    const args = name === "exec_command"
+      ? JSON.stringify({ cmd: "printf 'Codex gateway tool call OK\\n'" })
+      : "{}";
+    return [{
+      id: `fc_${request.requestId}`,
+      type: "function_call",
+      status: "completed",
+      call_id: `call_${request.requestId}`,
+      name,
+      arguments: args,
+    }];
+  }
+  return [{
+    id: `msg_${request.requestId}`,
+    type: "message",
+    status: "completed",
+    role: "assistant",
+    content: [{ type: "output_text", text: content, annotations: [], logprobs: [] }],
+  }];
 }

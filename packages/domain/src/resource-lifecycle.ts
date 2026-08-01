@@ -15,9 +15,9 @@ import type { ErrorClassification } from "./index.js";
  * 处置矩阵（deriveResourceTransition）：
  *   - 成功                        → 连续失败清零；UNAVAILABLE(冷却期)+成功 → DEGRADED（一次成功不抹掉趋势，TRD §9 行 598）
  *   - UPSTREAM_CREDENTIAL_INVALID → CREDENTIAL_INVALID（隔离；仅人工恢复，WT-19）
- *   - UPSTREAM_RATE_LIMITED       → UNAVAILABLE + 指数退避冷却（提交前可切换，TRD §9 行 593）
+ *   - UPSTREAM_RATE_LIMITED       → 只记录降级／预警；可靠额度与恢复信号由运行保障规则决定
  *   - UPSTREAM_BILLING_BLOCKED    → EXHAUSTED（隔离；仅人工恢复）
- *   - UPSTREAM_TEMPORARY/TRANSPORT→ 连续失败+1；达阈值 → UNAVAILABLE 熔断 + 冷却
+ *   - UPSTREAM_TEMPORARY/TRANSPORT→ 连续失败+1 且只保持 DEGRADED，不产生硬隔离
  *   - 客户端/能力/账本类错误       → 不计入资源健康
  *
  * 恢复边界：
@@ -120,7 +120,7 @@ export function computeCooldownMs(failures: number, baseMs: number, capMs: numbe
 export function deriveResourceTransition(
   state: ResourceRuntimeState,
   classification: ErrorClassification,
-  now: number,
+  _now: number,
 ): StateTransition | null {
   const terminallyIsolated =
     state.status === RESOURCE_STATUS.CREDENTIAL_INVALID ||
@@ -150,20 +150,16 @@ export function deriveResourceTransition(
       };
 
     case "UPSTREAM_RATE_LIMITED": {
-      // 429 → 冷却（指数退避）；终态隔离资源不再处理被动事件
+      // RA-W04：普通 429 只影响健康度。明确额度／恢复时间由运行保障规则事件
+      // 决定是否阻断，旧失败阈值不得再把技术故障升级成全局硬隔离。
       if (terminallyIsolated) return null;
       const failures = state.consecutiveFailures + 1;
-      const cooldownMs = computeCooldownMs(
-        failures,
-        RESOURCE_POOL_POLICY.rateLimitCooldownBaseMs,
-        RESOURCE_POOL_POLICY.cooldownCapMs,
-      );
       return {
-        toStatus: RESOURCE_STATUS.UNAVAILABLE,
+        toStatus: RESOURCE_STATUS.DEGRADED,
         reason: STATE_REASON.RATE_LIMITED,
         consecutiveFailures: failures,
-        cooldownUntil: now + cooldownMs,
-        isolates: true,
+        cooldownUntil: null,
+        isolates: false,
       };
     }
 
@@ -172,21 +168,7 @@ export function deriveResourceTransition(
     case "UNKNOWN": {
       if (terminallyIsolated) return null;
       const failures = state.consecutiveFailures + 1;
-      if (failures >= RESOURCE_POOL_POLICY.failureThreshold) {
-        const cooldownMs = computeCooldownMs(
-          failures,
-          RESOURCE_POOL_POLICY.breakerCooldownBaseMs,
-          RESOURCE_POOL_POLICY.cooldownCapMs,
-        );
-        return {
-          toStatus: RESOURCE_STATUS.UNAVAILABLE,
-          reason: STATE_REASON.FAILURE_THRESHOLD,
-          consecutiveFailures: failures,
-          cooldownUntil: now + cooldownMs,
-          isolates: true,
-        };
-      }
-      // 未达阈值：仅计数，状态降为 DEGRADED（服务中但健康受损）
+      // RA-W04：技术失败无论连续多少次都只降级／预警；不得以失败次数触发硬熔断。
       return {
         toStatus: RESOURCE_STATUS.DEGRADED,
         reason: STATE_REASON.PASSIVE_FAILURE,

@@ -1,0 +1,107 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { sql, type Kysely } from "kysely";
+import {
+  createKysely,
+  migrateDown,
+  migrateToLatest,
+  type Database,
+} from "../index.js";
+import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+
+let pg: PostgresTestInstance;
+
+beforeAll(async () => {
+  pg = await startPostgresContainer("qianliu_ra_w01");
+}, 120_000);
+
+afterAll(async () => {
+  if (pg) await pg.stop();
+}, 60_000);
+
+async function schemaFingerprint(db: Kysely<Database>): Promise<string> {
+  const result = await sql<{ fingerprint: string }>`
+    WITH schema_items AS (
+      SELECT 'column' AS kind,
+             table_name || '.' || column_name || ':' || data_type || ':' || is_nullable || ':' || COALESCE(column_default, '') AS definition
+        FROM information_schema.columns
+       WHERE table_schema = 'public'
+      UNION ALL
+      SELECT 'constraint' AS kind,
+             conrelid::regclass::text || '.' || conname || ':' || pg_get_constraintdef(oid, true) AS definition
+        FROM pg_constraint
+       WHERE connamespace = 'public'::regnamespace
+      UNION ALL
+      SELECT 'index' AS kind,
+             tablename || '.' || indexname || ':' || indexdef AS definition
+        FROM pg_indexes
+       WHERE schemaname = 'public'
+    )
+    SELECT md5(string_agg(kind || ':' || definition, E'\n' ORDER BY kind, definition)) AS fingerprint
+      FROM schema_items
+  `.execute(db);
+  return result.rows[0]!.fingerprint;
+}
+
+describe("RA-W01 0030 运行保障底座迁移", () => {
+  it("空库升级、0030 回滚、重升后 Schema 指纹一致", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const executed = await migrateToLatest(db);
+      expect(executed).toContain("0030_runtime_assurance_foundation");
+
+      const expectedTables = [
+        "availability_event",
+        "availability_rule",
+        "availability_rule_version",
+        "notification_delivery",
+        "notification_endpoint",
+        "person",
+        "person_external_identity",
+      ];
+      const tables = await sql<{ table_name: string }>`
+        SELECT table_name
+          FROM information_schema.tables
+         WHERE table_schema = 'public'
+           AND table_name = ANY(${expectedTables})
+         ORDER BY table_name
+      `.execute(db);
+      expect(tables.rows.map((row) => row.table_name)).toEqual(expectedTables);
+
+      const forbiddenBoundaryColumns = await sql<{ table_name: string; column_name: string }>`
+        SELECT table_name, column_name
+          FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = ANY(${expectedTables})
+           AND column_name IN ('tenant_id', 'enterprise_id')
+      `.execute(db);
+      expect(forbiddenBoundaryColumns.rows).toEqual([]);
+
+      const principalColumns = await sql<{ column_name: string }>`
+        SELECT column_name
+          FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'principal'
+           AND column_name IN ('person_id', 'owner_person_id', 'version')
+         ORDER BY column_name
+      `.execute(db);
+      expect(principalColumns.rows.map((row) => row.column_name)).toEqual([
+        "owner_person_id",
+        "person_id",
+        "version",
+      ]);
+
+      const before = await schemaFingerprint(db);
+      expect(await migrateDown(db)).toBe("0030_runtime_assurance_foundation");
+      const rolledBack = await sql<{ reg: string | null }>`
+        SELECT to_regclass('public.availability_rule') AS reg
+      `.execute(db);
+      expect(rolledBack.rows[0]!.reg).toBeNull();
+
+      expect(await migrateToLatest(db)).toContain("0030_runtime_assurance_foundation");
+      const after = await schemaFingerprint(db);
+      expect(after).toBe(before);
+    } finally {
+      await db.destroy();
+    }
+  });
+});

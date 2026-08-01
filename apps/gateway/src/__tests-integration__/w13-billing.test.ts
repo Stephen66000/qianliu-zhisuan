@@ -83,6 +83,9 @@ describe("W13 计价规则版本", () => {
       providerResourceId: r.provider_resource_id, upstreamModel: r.upstream_model,
       effectiveFrom: r.effective_from.getTime(), effectiveTo: null,
       timezone: r.timezone, daysOfWeek: r.days_of_week, startTime: r.start_time, endTime: r.end_time,
+      timeWindows: r.time_windows?.map((w) => ({
+        timezone: w.timezone, daysOfWeek: w.days_of_week, startTime: w.start_time, endTime: w.end_time,
+      })) ?? null,
       multiplier: r.multiplier, cacheHitPrice: null, cacheMissPrice: null, outputPrice: null,
       currency: r.currency, priority: r.priority,
     }));
@@ -110,6 +113,9 @@ describe("W13 计价规则版本", () => {
       providerResourceId: r.provider_resource_id, upstreamModel: r.upstream_model,
       effectiveFrom: r.effective_from.getTime(), effectiveTo: null,
       timezone: r.timezone, daysOfWeek: r.days_of_week, startTime: r.start_time, endTime: r.end_time,
+      timeWindows: r.time_windows?.map((w) => ({
+        timezone: w.timezone, daysOfWeek: w.days_of_week, startTime: w.start_time, endTime: w.end_time,
+      })) ?? null,
       multiplier: r.multiplier, cacheHitPrice: null, cacheMissPrice: null, outputPrice: null,
       currency: r.currency, priority: r.priority,
     }));
@@ -154,6 +160,9 @@ describe("W13 计价规则版本", () => {
       providerResourceId: r.provider_resource_id, upstreamModel: r.upstream_model,
       effectiveFrom: r.effective_from.getTime(), effectiveTo: r.effective_to ? r.effective_to.getTime() : null,
       timezone: null, daysOfWeek: null, startTime: null, endTime: null,
+      timeWindows: r.time_windows?.map((w) => ({
+        timezone: w.timezone, daysOfWeek: w.days_of_week, startTime: w.start_time, endTime: w.end_time,
+      })) ?? null,
       multiplier: r.multiplier, cacheHitPrice: null, cacheMissPrice: null, outputPrice: null,
       currency: r.currency, priority: r.priority,
     }));

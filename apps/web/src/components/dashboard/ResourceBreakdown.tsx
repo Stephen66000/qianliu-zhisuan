@@ -1,8 +1,7 @@
 /**
  * W18 资源摘要（按厂商+模式分组）—— PRD §10.2 资源摘要。
  *
- * 展示列：厂商 / 模式 / 账号数 / 总额度 / 已用额度 / 剩余展示（后端未给剩余，前端不重算，
- * 总额度与已用均为 null 时显示"—"，API 模式无额度概念）。
+ * 厂商经营快照与主体 Grant 分列，前端只展示后端口径，不重算。
  * 状态：后端当前恒 HEALTHY（W20 细化），按颜色纪律用中性灰，不给蓝绿。
  */
 import type { ResourceBreakdownItem } from "../../api/types";
@@ -27,8 +26,11 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
             <th className="py-2 pr-4 font-medium">厂商</th>
             <th className="py-2 pr-4 font-medium">模式</th>
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
-            <th className="py-2 pr-4 text-right font-medium">总额度</th>
-            <th className="py-2 pr-4 text-right font-medium">已用额度</th>
+            <th className="py-2 pr-4 text-right font-medium">厂商总额度</th>
+            <th className="py-2 pr-4 text-right font-medium">厂商已用额度</th>
+            <th className="py-2 pr-4 text-right font-medium">厂商剩余额度</th>
+            <th className="py-2 pr-4 text-right font-medium">已分配给主体</th>
+            <th className="py-2 pr-4 text-right font-medium">余额/本期费用</th>
             <th className="py-2 pr-4 text-right font-medium">本月费用（元）</th>
             <th className="py-2 pr-4 text-right font-medium">消耗速度</th>
             <th className="py-2 pr-4 font-medium">预计耗尽</th>
@@ -47,10 +49,24 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                 {item.accountCount}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.totalQuota === null ? "—" : formatCount(item.totalQuota)}
+                {item.totalQuota === null ? "未录入/未同步" : `${formatCount(item.totalQuota)} ${item.quotaUnit ?? ""}`}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.usedQuota === null ? "—" : formatCount(item.usedQuota)}
+              </td>
+              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+                {item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
+              </td>
+              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+                {item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}
+              </td>
+              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+                {item.currentBalance === null
+                  ? "未录入/未同步"
+                  : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`}
+                {item.currentPeriodCost === null
+                  ? null
+                  : <span className="block text-[11px] text-ql-fg-tertiary">本期 {formatMoney(item.currentPeriodCost)}</span>}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {formatMoney(item.monthlyCost)}

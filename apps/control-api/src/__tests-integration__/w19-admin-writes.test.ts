@@ -113,11 +113,18 @@ describe("W19 管理写操作闭环", () => {
       payload: {
         expected_version: resource.version,
         name: "智谱主账号（华北）",
+        upstream_models: ["glm-4.6", "glm-z-plan"],
+        concurrency_limit: 32,
       },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().resource.name).toBe("智谱主账号（华北）");
+    expect(res.json().resource.upstream_models).toEqual(["glm-4.6", "glm-z-plan"]);
+    expect(res.json().resource.concurrency_limit).toBe(32);
+    expect(res.json().resource.id).toBe(resource.id);
+    expect(res.json().resource.version).toBe(resource.version + 1);
     expect(res.json().resource.credential_ciphertext).toBeUndefined();
+    expect(res.json().resource.credential_version).toBe(resource.credential_version);
     expect(await countAudit("provider_resource.update")).toBe(1);
   });
 
@@ -241,8 +248,27 @@ describe("W19 管理写操作闭环", () => {
     expect(await countAudit("grant.disable")).toBe(1);
   });
 
-  it("POST/PATCH /billing-rules 创建编辑并拒绝旧 version", async () => {
+  it("POST/PATCH /billing-rules 配置不可原地改写，生命周期修改仍使用乐观锁", async () => {
     const { resource } = await seedProviderResource();
+    const model = await db
+      .insertInto("unified_model")
+      .values({
+        enterprise_id: ENT_ID,
+        alias: `billing-model-${randomUUID().slice(0, 8)}`,
+        display_name: "计价规则模型",
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto("model_route")
+      .values({
+        enterprise_id: ENT_ID,
+        unified_model_id: model.id,
+        provider_resource_id: resource.id,
+        upstream_model: "glm-4.6",
+        enabled: true,
+      })
+      .execute();
     const created = await app.inject({
       method: "POST",
       url: "/billing-rules",
@@ -269,12 +295,11 @@ describe("W19 管理写操作闭环", () => {
       headers: { cookie: adminCookie },
       payload: {
         expected_version: rule.version,
-        output_price: "0.000003",
         enabled: false,
       },
     });
     expect(updated.statusCode).toBe(200);
-    expect(updated.json().rule.output_price).toBe("0.000003");
+    expect(updated.json().rule.output_price).toBe("0.000002");
     expect(updated.json().rule.enabled).toBe(false);
     expect(updated.json().rule.version).toBe(2);
     expect(await countAudit("billing_rule.update")).toBe(1);
@@ -287,6 +312,212 @@ describe("W19 管理写操作闭环", () => {
     });
     expect(stale.statusCode).toBe(409);
     expect(stale.json().error).toBe("conflict");
+
+    const inPlacePriceChange = await app.inject({
+      method: "PATCH",
+      url: `/billing-rules/${rule.id}`,
+      headers: { cookie: adminCookie },
+      payload: { expected_version: 2, output_price: "0.000003" },
+    });
+    expect(inPlacePriceChange.statusCode).toBe(400);
+    expect(inPlacePriceChange.json().error).toBe("invalid_request");
+  });
+
+  it("POST/GET /billing-rules 单条规则持久化两个时窗，并强制价格/倍率语义隔离", async () => {
+    const { resource } = await seedProviderResource();
+    const model = await db
+      .insertInto("unified_model")
+      .values({
+        enterprise_id: ENT_ID,
+        alias: `billing-window-${randomUUID().slice(0, 8)}`,
+        display_name: "多时窗计价模型",
+        status: "ACTIVE",
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID,
+      unified_model_id: model.id,
+      provider_resource_id: resource.id,
+      upstream_model: "deepseek-chat",
+      enabled: true,
+    }).execute();
+    const basePayload = {
+      rule_type: "API_PRICE",
+      rule_version: "deepseek-peak-v1",
+      provider_resource_id: resource.id,
+      upstream_model: "deepseek-chat",
+      effective_from: "2026-07-01T00:00:00.000Z",
+      windows: [
+        {
+          timezone: "Asia/Shanghai",
+          days_of_week: [1, 2, 3, 4, 5, 6, 7],
+          start_time: "09:00",
+          end_time: "12:00",
+        },
+        {
+          timezone: "Asia/Shanghai",
+          days_of_week: [1, 2, 3, 4, 5, 6, 7],
+          start_time: "14:00",
+          end_time: "18:00",
+        },
+      ],
+      cache_hit_price: "0.000001",
+      cache_miss_price: "0.000002",
+      output_price: "0.000004",
+      priority: 10,
+    };
+    const created = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: basePayload,
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().rule).toMatchObject({
+      timezone: "Asia/Shanghai",
+      start_time: "09:00",
+      end_time: "12:00",
+      time_windows: basePayload.windows,
+    });
+
+    const listed = await app.inject({
+      method: "GET",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+    });
+    expect(listed.statusCode).toBe(200);
+    expect(
+      listed.json().rules.find((rule: { id: string }) => rule.id === created.json().rule.id),
+    ).toMatchObject({ time_windows: basePayload.windows });
+
+    const editedWindows = [
+      basePayload.windows[1],
+      basePayload.windows[0],
+    ];
+    const newVersion = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: {
+        ...basePayload,
+        rule_version: "deepseek-peak-v2",
+        effective_from: "2026-08-01T00:00:00.000Z",
+        windows: editedWindows,
+      },
+    });
+    expect(newVersion.statusCode).toBe(201);
+    expect(newVersion.json().rule).toMatchObject({
+      rule_version: "deepseek-peak-v2",
+      time_windows: editedWindows,
+      timezone: "Asia/Shanghai",
+      start_time: "14:00",
+      end_time: "18:00",
+    });
+
+    const immutableWindowPatch = await app.inject({
+      method: "PATCH",
+      url: `/billing-rules/${created.json().rule.id}`,
+      headers: { cookie: adminCookie },
+      payload: {
+        expected_version: created.json().rule.version,
+        windows: editedWindows,
+      },
+    });
+    expect(immutableWindowPatch.statusCode).toBe(400);
+
+    const mixedSemantics = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: { ...basePayload, multiplier: "2" },
+    });
+    expect(mixedSemantics.statusCode).toBe(400);
+    expect(mixedSemantics.json().message).toContain("API 价格规则不能配置额度倍率");
+  });
+
+  it("调度策略草稿经校验后发布并停用，全部状态可查询且写审计", async () => {
+    const { resource } = await seedProviderResource();
+    const model = await db
+      .insertInto("unified_model")
+      .values({
+        enterprise_id: ENT_ID,
+        alias: `glm-dispatch-${randomUUID().slice(0, 8)}`,
+        display_name: "智谱调度模型",
+        status: "ACTIVE",
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const created = await app.inject({
+      method: "POST",
+      url: "/dispatch-policies",
+      headers: { cookie: adminCookie },
+      payload: {
+        match_unified_model: model.alias,
+        match_resource_mode: "CODING_PLAN",
+        match_provider_resource_id: resource.id,
+        match_timezone: "Asia/Shanghai",
+        match_days_of_week: [1, 2, 3, 4, 5, 6, 7],
+        match_start_time: "14:00:00",
+        match_end_time: "18:00:00",
+        action: "REJECT",
+        policy_version: "zhipu-peak-reject-v1",
+        priority: 10,
+        description: "智谱高峰硬拒绝",
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const policy = created.json().policy;
+    expect(policy.status).toBe("DRAFT");
+
+    const directPublish = await app.inject({
+      method: "POST",
+      url: `/dispatch-policies/${policy.id}/publish`,
+      headers: { cookie: adminCookie },
+    });
+    expect(directPublish.statusCode).toBe(409);
+
+    const validated = await app.inject({
+      method: "POST",
+      url: `/dispatch-policies/${policy.id}/validate`,
+      headers: { cookie: adminCookie },
+    });
+    expect(validated.statusCode).toBe(200);
+    expect(validated.json().policy.status).toBe("VALIDATED");
+
+    const published = await app.inject({
+      method: "POST",
+      url: `/dispatch-policies/${policy.id}/publish`,
+      headers: { cookie: adminCookie },
+    });
+    expect(published.statusCode).toBe(200);
+    expect(published.json().policy.status).toBe("PUBLISHED");
+
+    const listed = await app.inject({
+      method: "GET",
+      url: "/dispatch-policies",
+      headers: { cookie: adminCookie },
+    });
+    expect(
+      listed.json().policies.find((item: { id: string }) => item.id === policy.id),
+    ).toMatchObject({
+      status: "PUBLISHED",
+      action: "REJECT",
+      matchStartTime: "14:00:00",
+      matchEndTime: "18:00:00",
+    });
+
+    const retired = await app.inject({
+      method: "POST",
+      url: `/dispatch-policies/${policy.id}/retire`,
+      headers: { cookie: adminCookie },
+    });
+    expect(retired.statusCode).toBe(200);
+    expect(retired.json().policy.status).toBe("RETIRED");
+    expect(await countAudit("dispatch_policy.create")).toBe(1);
+    expect(await countAudit("dispatch_policy.validate")).toBe(1);
+    expect(await countAudit("dispatch_policy.publish")).toBe(1);
+    expect(await countAudit("dispatch_policy.retire")).toBe(1);
   });
 
   it("POST /provider-resources/:id/recover：隔离态恢复 + 轮换凭证 + 明文 0 命中 canary", async () => {

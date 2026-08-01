@@ -16,13 +16,15 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
+import qianliuLogo from "../../assets/qianliu-logo-primary.png";
+
 const NAV_ITEMS = [
   { to: "/dashboard", label: "首页看板", icon: LayoutDashboard },
   { to: "/principals", label: "使用主体", icon: Users },
   { to: "/resources", label: "厂商资源", icon: Server },
   { to: "/quota-rules", label: "额度规则", icon: Gauge },
   { to: "/usage", label: "用量账本", icon: BookOpenText },
-  { to: "/alerts", label: "异常告警", icon: Bell },
+  { to: "/runtime-assurance", label: "运行保障", icon: Bell },
   { to: "/settings", label: "系统设置", icon: Settings },
 ] as const;
 
@@ -30,11 +32,12 @@ export function Sidebar() {
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-ql-border bg-ql-surface">
       <div className="flex h-16 items-center gap-2 border-b border-ql-border px-5">
-        <span
-          aria-hidden
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-ql-surface-brand-soft text-[15px] font-bold text-ql-action"
-        >
-          仟
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden">
+          <img
+            alt="仟流科技 Logo"
+            className="h-12 w-12 max-w-none object-contain"
+            src={qianliuLogo}
+          />
         </span>
         <span className="text-[15px] font-semibold leading-[22px] text-ql-fg">仟流智算</span>
       </div>

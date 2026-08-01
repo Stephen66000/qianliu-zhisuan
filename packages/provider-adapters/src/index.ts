@@ -77,6 +77,8 @@ export interface AdapterRequest {
   unifiedModel: string;
   /** 是否流式。 */
   stream: boolean;
+  /** 北向协议，用于保真转换 Responses 工具/推理字段。 */
+  capability?: "chat" | "messages" | "responses";
   /** 请求正文载荷（仅内存传递；Adapter 不得持久化）。 */
   body: unknown;
   /** 客户端断开信号（AbortSignal），用于取消。 */
@@ -122,3 +124,13 @@ export {
 export { ZhipuAdapter } from "./adapters/zhipu-adapter.js";
 export { KimiAdapter } from "./adapters/kimi-adapter.js";
 export { StubUpstream, type StubMode, type StubUpstreamConfig } from "./adapters/stub-upstream.js";
+export {
+  createOpenAiCompatibleCaller,
+  resolveProviderSecret,
+  toChatCompletionsRequest,
+  responsesToChatCompletions,
+  chatAssistantToResponsesOutput,
+  type HttpFetch,
+  type HttpResponseLike,
+  type OpenAiCompatibleCallerOptions,
+} from "./openai-compatible-caller.js";

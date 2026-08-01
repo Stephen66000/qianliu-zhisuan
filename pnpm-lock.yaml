@@ -230,12 +230,21 @@ importers:
       '@qianliu/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@qianliu/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@qianliu/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@qianliu/provider-adapters':
+        specifier: workspace:*
+        version: link:../../packages/provider-adapters
       decimal.js:
         specifier: 10.6.0
         version: 10.6.0
+      kysely:
+        specifier: 0.28.7
+        version: 0.28.7
       redis:
         specifier: 5.8.2
         version: 5.8.2
@@ -243,6 +252,9 @@ importers:
         specifier: 4.1.11
         version: 4.1.11
     devDependencies:
+      '@qianliu/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
       '@types/node':
         specifier: 22.10.10
         version: 22.10.10

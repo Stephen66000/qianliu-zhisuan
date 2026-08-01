@@ -64,22 +64,33 @@ describe("deriveResourceTransition 处置矩阵（TRD §9）", () => {
     expect(t!.isolates).toBe(true);
   });
 
-  it("429 → UNAVAILABLE + 冷却退避（第 1 次 30s，第 2 次 60s）", () => {
+  it("普通 429 无论连续次数都只降级，不触发硬隔离", () => {
     const t1 = deriveResourceTransition(active(), "UPSTREAM_RATE_LIMITED", T0);
-    expect(t1!.toStatus).toBe(RESOURCE_STATUS.UNAVAILABLE);
+    expect(t1!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
     expect(t1!.reason).toBe(STATE_REASON.RATE_LIMITED);
-    expect(t1!.cooldownUntil).toBe(T0 + 30_000);
+    expect(t1!.cooldownUntil).toBeNull();
+    expect(t1!.isolates).toBe(false);
 
     const t2 = deriveResourceTransition(
-      active({ status: RESOURCE_STATUS.UNAVAILABLE, consecutiveFailures: 1, cooldownUntil: T0 + 30_000 }),
+      active({ status: RESOURCE_STATUS.DEGRADED, consecutiveFailures: 1 }),
       "UPSTREAM_RATE_LIMITED",
-      T0 + 31_000,
+      T0 + 1_000,
     );
+    expect(t2!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
     expect(t2!.consecutiveFailures).toBe(2);
-    expect(t2!.cooldownUntil).toBe(T0 + 31_000 + 60_000);
+    expect(t2!.cooldownUntil).toBeNull();
+
+    const t3 = deriveResourceTransition(
+      active({ status: RESOURCE_STATUS.DEGRADED, consecutiveFailures: 2 }),
+      "UPSTREAM_RATE_LIMITED",
+      T0 + 2_000,
+    );
+    expect(t3!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
+    expect(t3!.cooldownUntil).toBeNull();
+    expect(t3!.isolates).toBe(false);
   });
 
-  it("临时故障未达阈值 → DEGRADED 计数；达阈值 → UNAVAILABLE 熔断", () => {
+  it("临时故障达到旧阈值后仍保持 DEGRADED + ALLOW", () => {
     const t1 = deriveResourceTransition(active(), "UPSTREAM_TEMPORARY", T0);
     expect(t1!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
     expect(t1!.reason).toBe(STATE_REASON.PASSIVE_FAILURE);
@@ -91,21 +102,20 @@ describe("deriveResourceTransition 处置矩阵（TRD §9）", () => {
       "UPSTREAM_TEMPORARY",
       T0,
     );
-    expect(t2!.toStatus).toBe(RESOURCE_STATUS.UNAVAILABLE);
-    expect(t2!.reason).toBe(STATE_REASON.FAILURE_THRESHOLD);
-    expect(t2!.isolates).toBe(true);
-    expect(t2!.cooldownUntil).toBe(
-      T0 + computeCooldownMs(RESOURCE_POOL_POLICY.failureThreshold, RESOURCE_POOL_POLICY.breakerCooldownBaseMs, RESOURCE_POOL_POLICY.cooldownCapMs),
-    );
+    expect(t2!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
+    expect(t2!.reason).toBe(STATE_REASON.PASSIVE_FAILURE);
+    expect(t2!.isolates).toBe(false);
+    expect(t2!.cooldownUntil).toBeNull();
   });
 
-  it("TRANSPORT_ERROR 与 UNKNOWN 计入熔断计数", () => {
+  it("TRANSPORT_ERROR 与 UNKNOWN 只计入健康降级", () => {
     const t = deriveResourceTransition(
       active({ consecutiveFailures: RESOURCE_POOL_POLICY.failureThreshold - 1 }),
       "TRANSPORT_ERROR",
       T0,
     );
-    expect(t!.toStatus).toBe(RESOURCE_STATUS.UNAVAILABLE);
+    expect(t!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
+    expect(t!.isolates).toBe(false);
   });
 
   it("客户端/能力/下游/账本错误不计入资源健康", () => {

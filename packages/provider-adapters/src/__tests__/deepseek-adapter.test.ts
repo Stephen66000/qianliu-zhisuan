@@ -4,7 +4,7 @@
  * 覆盖：
  *   - StubUpstream 各响应模式（SUCCESS/STREAM/ERROR/TIMEOUT/CANCEL）
  *   - DeepSeekAdapter 能力声明
- *   - 模型映射（alias → upstream）
+ *   - 企业自定义 alias 透传，resource.upstreamModel 为唯一上游模型事实源
  *   - usage 三维度解析（cache_hit/cache_miss/output）
  *   - 错误归一化（TRD §9 分类映射）
  *   - committed 边界（failAfterChunk → committed=true 后失败）
@@ -111,17 +111,26 @@ describe("DeepSeekAdapter", () => {
     expect(adapter.providerCode).toBe("deepseek");
   });
 
-  it("未知模型别名返回 model_not_mapped", async () => {
-    const adapter = new DeepSeekAdapter(async () => ({
+  it("企业自定义统一别名不被硬编码拒绝，并以资源 upstreamModel 为准", async () => {
+    let capturedResource: AdapterResource | undefined;
+    let capturedRequest: AdapterRequest | undefined;
+    const adapter = new DeepSeekAdapter(async (resource, request) => {
+      capturedResource = resource;
+      capturedRequest = request;
+      return {
       status: 200,
       committed: true,
       usage: { input: 0, output: 0, cache: 0, quality: "PROVIDER_REPORTED" },
-    }));
+      };
+    });
     const req = makeRequest();
-    req.unifiedModel = "qianliu-unknown";
-    const outcome = await adapter.invoke(makeResource(), req, 1);
-    expect(outcome.status).toBe(400);
-    expect(outcome.error).toBe("model_not_mapped");
+    req.unifiedModel = "enterprise-deepseek-alias";
+    const resource = makeResource();
+    resource.upstreamModel = "deepseek-vendor-custom";
+    const outcome = await adapter.invoke(resource, req, 1);
+    expect(outcome.status).toBe(200);
+    expect(capturedRequest?.unifiedModel).toBe("enterprise-deepseek-alias");
+    expect(capturedResource?.upstreamModel).toBe("deepseek-vendor-custom");
   });
 
   it("usage 三维度解析（prompt_tokens_details.cached_tokens）", () => {

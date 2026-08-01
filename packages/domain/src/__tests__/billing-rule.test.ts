@@ -13,6 +13,7 @@
 import { describe, it, expect } from "vitest";
 import {
   toZonedTime,
+  findMatchedTimeWindow,
   matchesTimeWindow,
   matchMultiplierRule,
   matchPriceRule,
@@ -39,6 +40,7 @@ function rule(overrides: Partial<BillingRule> = {}): BillingRule {
     daysOfWeek: null,
     startTime: "14:00",
     endTime: "18:00",
+    timeWindows: null,
     multiplier: "3",
     cacheHitPrice: null,
     cacheMissPrice: null,
@@ -72,6 +74,33 @@ describe("matchesTimeWindow 时段判定", () => {
     expect(matchesTimeWindow(r, end)).toBe(false);
   });
 
+  it("同一规则两个高峰窗：09:00–12:00、14:00–18:00 任一命中且边界为 [start,end)", () => {
+    const r = rule({
+      ruleType: "API_PRICE",
+      multiplier: null,
+      timeWindows: [
+        {
+          timezone: "Asia/Shanghai",
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 7],
+          startTime: "09:00",
+          endTime: "12:00",
+        },
+        {
+          timezone: "Asia/Shanghai",
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 7],
+          startTime: "14:00",
+          endTime: "18:00",
+        },
+      ],
+    });
+    const at = (hour: number) => Date.UTC(2026, 6, 27, hour - 8, 0);
+    expect(matchesTimeWindow(r, at(9))).toBe(true);
+    expect(matchesTimeWindow(r, at(12))).toBe(false);
+    expect(matchesTimeWindow(r, at(14))).toBe(true);
+    expect(findMatchedTimeWindow(r, at(14))?.startTime).toBe("14:00");
+    expect(matchesTimeWindow(r, at(18))).toBe(false);
+  });
+
   it("星期范围：仅工作日命中，周末不命中", () => {
     const r = rule({ daysOfWeek: [1, 2, 3, 4, 5] });
     expect(matchesTimeWindow(r, MON_1500_CST)).toBe(true); // 周一
@@ -85,6 +114,22 @@ describe("matchesTimeWindow 时段判定", () => {
     expect(matchesTimeWindow(r, night23)).toBe(true);
     expect(matchesTimeWindow(r, night01)).toBe(true);
     expect(matchesTimeWindow(r, MON_1500_CST)).toBe(false);
+  });
+
+  it("跨午夜窗口的星期归属开始日", () => {
+    const mondayOnly = rule({
+      daysOfWeek: [1],
+      startTime: "23:00",
+      endTime: "02:00",
+    });
+    const monday2300 = Date.UTC(2026, 6, 27, 15, 0);
+    const tuesday0100 = Date.UTC(2026, 6, 27, 17, 0);
+    const tuesday2300 = Date.UTC(2026, 6, 28, 15, 0);
+    const wednesday0100 = Date.UTC(2026, 6, 28, 17, 0);
+    expect(matchesTimeWindow(mondayOnly, monday2300)).toBe(true);
+    expect(matchesTimeWindow(mondayOnly, tuesday0100)).toBe(true);
+    expect(matchesTimeWindow(mondayOnly, tuesday2300)).toBe(false);
+    expect(matchesTimeWindow(mondayOnly, wednesday0100)).toBe(false);
   });
 
   it("跨午夜边界：恰好 22:00 命中、21:59 不命中、02:00 不命中", () => {
@@ -103,6 +148,16 @@ describe("matchesTimeWindow 时段判定", () => {
     const at1800 = Date.UTC(2026, 6, 27, 10, 0); // 18:00 CST
     expect(matchesTimeWindow(r, at1400)).toBe(true); // 恰好 start（>= start）
     expect(matchesTimeWindow(r, at1800)).toBe(false); // 恰好 end（< end 排除）
+  });
+
+  it("带秒窗口按秒精确匹配，不提前进入或退出", () => {
+    const r = rule({ startTime: "09:00:30", endTime: "12:00:30" });
+    const at = (hour: number, minute: number, second: number) =>
+      Date.UTC(2026, 6, 27, hour - 8, minute, second);
+    expect(matchesTimeWindow(r, at(9, 0, 29))).toBe(false);
+    expect(matchesTimeWindow(r, at(9, 0, 30))).toBe(true);
+    expect(matchesTimeWindow(r, at(12, 0, 29))).toBe(true);
+    expect(matchesTimeWindow(r, at(12, 0, 30))).toBe(false);
   });
 });
 
@@ -199,6 +254,40 @@ describe("computeApiCostFromRule API 计价（TRD §10.1）", () => {
 });
 
 describe("matchPriceRule 价格规则", () => {
+  it("DeepSeek 单条 API_PRICE 两个高峰窗，09:00/12:00/14:00/18:00 边界正确", () => {
+    const price = rule({
+      id: "deepseek-two-windows",
+      ruleType: "API_PRICE",
+      timezone: null,
+      daysOfWeek: null,
+      startTime: null,
+      endTime: null,
+      timeWindows: [
+        {
+          timezone: "Asia/Shanghai",
+          daysOfWeek: null,
+          startTime: "09:00",
+          endTime: "12:00",
+        },
+        {
+          timezone: "Asia/Shanghai",
+          daysOfWeek: null,
+          startTime: "14:00",
+          endTime: "18:00",
+        },
+      ],
+      multiplier: null,
+      cacheHitPrice: "0.000001",
+      cacheMissPrice: "0.000002",
+      outputPrice: "0.000004",
+    });
+    const at = (hour: number) => Date.UTC(2026, 6, 27, hour - 8, 0);
+    expect(matchPriceRule([price], "res", "deepseek-chat", at(9))?.id).toBe(price.id);
+    expect(matchPriceRule([price], "res", "deepseek-chat", at(12))).toBeNull();
+    expect(matchPriceRule([price], "res", "deepseek-chat", at(14))?.id).toBe(price.id);
+    expect(matchPriceRule([price], "res", "deepseek-chat", at(18))).toBeNull();
+  });
+
   it("按生效版本匹配 API_PRICE", () => {
     const price = rule({
       id: "p1",
@@ -307,5 +396,59 @@ describe("matchPriceRule 价格规则", () => {
     // 同 priority：资源+模型专属 > 仅资源 > 默认
     const matched = matchPriceRule([def, resSpecific, resModelSpecific], "res-A", "glm-5.2", MON_1500_CST);
     expect(matched!.id).toBe("p-res-model");
+  });
+
+  it("DeepSeek 双高峰窗口：[09:00,12:00) 与 [14:00,18:00)，边界正确", () => {
+    const base = rule({
+      id: "deepseek-base",
+      ruleType: "API_PRICE",
+      timezone: null,
+      startTime: null,
+      endTime: null,
+      cacheHitPrice: "0.0000005",
+      cacheMissPrice: "0.000001",
+      outputPrice: "0.000002",
+      multiplier: null,
+      priority: 100,
+    });
+    const morning = rule({
+      ...base,
+      id: "deepseek-peak-am",
+      timezone: "Asia/Shanghai",
+      startTime: "09:00",
+      endTime: "12:00",
+      cacheHitPrice: "0.000001",
+      cacheMissPrice: "0.000002",
+      outputPrice: "0.000004",
+      priority: 10,
+    });
+    const afternoon = rule({
+      ...morning,
+      id: "deepseek-peak-pm",
+      startTime: "14:00",
+      endTime: "18:00",
+    });
+    const at = (hour: number, minute = 0) => Date.UTC(2026, 6, 27, hour - 8, minute);
+    const rules = [base, morning, afternoon];
+
+    expect(matchPriceRule(rules, "res", "m", at(9))!.id).toBe("deepseek-peak-am");
+    expect(matchPriceRule(rules, "res", "m", at(12))!.id).toBe("deepseek-base");
+    expect(matchPriceRule(rules, "res", "m", at(14))!.id).toBe("deepseek-peak-pm");
+    expect(matchPriceRule(rules, "res", "m", at(18))!.id).toBe("deepseek-base");
+  });
+
+  it("完全重叠规则仍确定性命中：较新生效版本优先，最终按 id 兜底", () => {
+    const older = rule({
+      id: "rule-z",
+      ruleType: "API_PRICE",
+      timezone: null,
+      startTime: null,
+      endTime: null,
+      multiplier: null,
+      effectiveFrom: 100,
+    });
+    const newerB = rule({ ...older, id: "rule-b", effectiveFrom: 200 });
+    const newerA = rule({ ...newerB, id: "rule-a" });
+    expect(matchPriceRule([older, newerB, newerA], "res", "m", 300)!.id).toBe("rule-a");
   });
 });

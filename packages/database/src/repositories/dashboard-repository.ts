@@ -18,12 +18,38 @@
  * 当前账期 = 企业自然月（月初 00:00 ~ 月末 23:59:59，按企业时区 UTC+8）。
  * 首页不计算同比、环比和用量增速（TRD §12 行 746）。
  *
- * 数据源 gap 诚实标注：套餐支付/充值金额当前无独立支付表（payment/recharge 未建），
- * 暂从 provider_resource 的套餐信息或返回 null（不伪造数字，PRD §10.4 空状态红线）。
+ * POOL-010：厂商侧经营指标只取最新 provider_resource_operating_snapshot；
+ * 主体 Grant/Counter 仅用于“已分配额度”，禁止冒充厂商购买额度。
  */
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
+import { ProviderRepository } from "./provider-repository.js";
+import type { CurrentProviderOperatingSnapshot } from "./provider-operating.js";
+
+function sumDecimalTexts(values: string[]): string {
+  const scale = values.reduce(
+    (current, value) => Math.max(current, value.split(".")[1]?.length ?? 0),
+    0,
+  );
+  const total = values.reduce((sum, value) => {
+    const [whole, fraction = ""] = value.split(".");
+    return sum + BigInt(`${whole}${fraction.padEnd(scale, "0")}`);
+  }, 0n);
+  if (scale === 0) return total.toString();
+  const padded = total.toString().padStart(scale + 1, "0");
+  return `${padded.slice(0, -scale)}.${padded.slice(-scale)}`;
+}
+
+function decimalTextsEqual(left: string | null, right: string | null): boolean {
+  if (left === null || right === null) return left === right;
+  const scale = Math.max(left.split(".")[1]?.length ?? 0, right.split(".")[1]?.length ?? 0);
+  const units = (value: string) => {
+    const [whole, fraction = ""] = value.split(".");
+    return BigInt(`${whole}${fraction.padEnd(scale, "0")}`);
+  };
+  return units(left) === units(right);
+}
 
 /** 首页聚合结果（八项口径）。 */
 export interface DashboardSummary {
@@ -33,11 +59,11 @@ export interface DashboardSummary {
   activeEmployeeCount: number;
   /** 3. 当前正在使用人数（进行中请求或最近 5 分钟成功请求的员工去重数）。 */
   currentInUseCount: number;
-  /** 4. 本月套餐支付金额（数据源待补，当前 null，不伪造）。 */
+  /** 4. 当前资源快照中的套餐支付金额（未知或混合币种返回 null）。 */
   monthlyPackagePayment: string | null;
   /** 5. 本月 API 费用（账本 ledger_transaction.total_api_cost 之和，当前自然月）。 */
   monthlyApiCost: string;
-  /** 6. 本月充值金额（数据源待补，当前 null，不伪造）。 */
+  /** 6. 当前资源快照中的充值金额（未知或混合币种返回 null）。 */
   monthlyRechargeAmount: string | null;
   /** 7. 预计最早耗尽资源（可计算资源中最早的 forecast_exhaust_at）。 */
   earliestExhaustion: {
@@ -63,10 +89,21 @@ export interface ResourceBreakdownItem {
   providerName: string;
   mode: "API" | "CODING_PLAN";
   accountCount: number;
-  /** 该厂商+模式下的总额度（CODING_PLAN 取 principal_grant.quota_value 之和；API 无额度概念返回 null）。 */
+  /** 厂商总额度（最新资源快照；未知不伪造 0）。 */
   totalQuota: string | null;
-  /** 已用额度（quota_counter.used_value 之和）。 */
+  /** 厂商已用额度（最新资源快照）。 */
   usedQuota: string | null;
+  /** 厂商剩余额度（最新资源快照）。 */
+  remainingQuota: string | null;
+  /** 厂商原生额度单位；同组单位不一致时为 null，且额度不混算。 */
+  quotaUnit: string | null;
+  /** 独立的主体 Grant 分配总额，不代表厂商购买额度。 */
+  allocatedQuota: string | null;
+  currency: string | null;
+  rechargeAmount: string | null;
+  currentBalance: string | null;
+  currentPeriodCost: string | null;
+  snapshotAt: string | null;
   /** 本月使用费用（ledger_line.api_cost 之和，当前自然月）。 */
   monthlyCost: string;
   /** 当前消耗速度（取最新 supply_forecast.rate_24h）。 */
@@ -105,6 +142,8 @@ export class DashboardRepository {
     const monthEnd = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
     // 最近 5 分钟窗口
     const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
+    const currentOperatingSnapshots = await new ProviderRepository(this.db)
+      .listCurrentOperatingSnapshots(enterpriseId, date);
 
     // 并行执行独立聚合查询
     const [
@@ -121,9 +160,14 @@ export class DashboardRepository {
       this.countActiveEmployees(enterpriseId, monthStart, monthEnd),
       this.countInUseEmployees(enterpriseId, now, fiveMinutesAgo),
       this.sumMonthlyApiCost(enterpriseId, monthStart, monthEnd),
-      this.findEarliestExhaustion(enterpriseId),
+      this.findEarliestExhaustion(enterpriseId, currentOperatingSnapshots),
       this.sumMonthlyDispatchSaving(enterpriseId, monthStart, monthEnd),
-      this.buildResourceBreakdown(enterpriseId, monthStart, monthEnd),
+      this.buildResourceBreakdown(
+        enterpriseId,
+        monthStart,
+        monthEnd,
+        currentOperatingSnapshots,
+      ),
       this.listOverages(enterpriseId),
     ]);
 
@@ -131,9 +175,17 @@ export class DashboardRepository {
       resourceAccountCount,
       activeEmployeeCount,
       currentInUseCount,
-      monthlyPackagePayment: null, // 数据源 gap：无独立支付表，不伪造
+      monthlyPackagePayment: await this.sumLatestSnapshotAmount(
+        enterpriseId,
+        "CODING_PLAN",
+        "package_cost",
+      ),
       monthlyApiCost,
-      monthlyRechargeAmount: null, // 数据源 gap：无独立充值表，不伪造
+      monthlyRechargeAmount: await this.sumLatestSnapshotAmount(
+        enterpriseId,
+        "API",
+        "recharge_amount",
+      ),
       earliestExhaustion,
       monthlyDispatchSaving,
       resourceBreakdown,
@@ -209,30 +261,52 @@ export class DashboardRepository {
   /** 7. 预计最早耗尽（可计算资源中最早的 forecast_exhaust_at）。 */
   private async findEarliestExhaustion(
     enterpriseId: string,
+    currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
   ): Promise<DashboardSummary["earliestExhaustion"]> {
-    const row = await this.db
-      .selectFrom("supply_forecast")
-      .innerJoin(
-        "provider_resource",
-        "provider_resource.id",
-        "supply_forecast.provider_resource_id",
+    const result = await sql<{
+      resource_id: string;
+      resource_name: string;
+      provider_code: string;
+      forecast_exhaust_at: Date | null;
+      next_recover_at: Date | null;
+      confidence: string;
+      not_calculable_reason: string | null;
+      mode: string;
+      remaining_quota: string;
+      snapshot_at: Date;
+    }>`
+      WITH latest_forecast AS (
+        SELECT DISTINCT ON (provider_resource_id) *
+          FROM supply_forecast
+         WHERE enterprise_id = ${enterpriseId}
+         ORDER BY provider_resource_id, snapshot_at DESC
       )
-      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
-      .where("supply_forecast.enterprise_id", "=", enterpriseId)
-      .where("supply_forecast.forecast_exhaust_at", "is not", null)
-      .where("supply_forecast.not_calculable_reason", "is", null)
-      .where("provider_resource.status", "<>", "DELETED")
-      .orderBy("supply_forecast.forecast_exhaust_at", "asc")
-      .select([
-        "provider_resource.id as resource_id",
-        "provider_resource.name as resource_name",
-        "provider.code as provider_code",
-        "supply_forecast.forecast_exhaust_at",
-        "supply_forecast.next_recover_at",
-        "supply_forecast.confidence",
-        "supply_forecast.not_calculable_reason",
-      ])
-      .executeTakeFirst();
+      SELECT pr.id AS resource_id, pr.name AS resource_name, p.code AS provider_code,
+             f.forecast_exhaust_at, f.next_recover_at, f.confidence,
+             f.not_calculable_reason, pr.mode, f.remaining_quota, f.snapshot_at
+        FROM latest_forecast f
+        JOIN provider_resource pr ON pr.id = f.provider_resource_id
+        JOIN provider p ON p.id = pr.provider_id
+       WHERE f.forecast_exhaust_at IS NOT NULL
+         AND f.not_calculable_reason IS NULL
+         AND pr.status <> 'DELETED'
+    `.execute(this.db);
+    const current = new Map(
+      currentOperatingSnapshots.map((snapshot) => [snapshot.provider_resource_id, snapshot]),
+    );
+    const row = result.rows
+      .filter((forecast) => {
+        const snapshot = current.get(forecast.resource_id);
+        const remaining = forecast.mode === "API"
+          ? snapshot?.current_balance ?? null
+          : snapshot?.remaining_quota ?? null;
+        return snapshot !== undefined &&
+          forecast.snapshot_at >= snapshot.calculated_at &&
+          decimalTextsEqual(forecast.remaining_quota, remaining);
+      })
+      .sort((left, right) =>
+        left.forecast_exhaust_at!.getTime() - right.forecast_exhaust_at!.getTime(),
+      )[0];
     if (!row) return null;
     return {
       resourceId: row.resource_id,
@@ -268,6 +342,7 @@ export class DashboardRepository {
     enterpriseId: string,
     monthStart: Date,
     monthEnd: Date,
+    currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
   ): Promise<ResourceBreakdownItem[]> {
     // 厂商+模式维度的账号数 + 本月费用 + 最新预测
     const rows = await this.db
@@ -293,18 +368,37 @@ export class DashboardRepository {
     for (const r of rows) {
       const providerCode = r.provider_code;
       const mode = r.mode as "API" | "CODING_PLAN";
-      const [quota, monthlyCost, forecast] = await Promise.all([
-        mode === "CODING_PLAN" ? this.sumProviderQuota(enterpriseId, providerCode) : Promise.resolve(null),
-        this.sumProviderMonthlyCost(enterpriseId, providerCode, monthStart, monthEnd),
-        this.latestProviderForecast(enterpriseId, providerCode),
+      const [operating, allocatedQuota, monthlyCost, forecast] = await Promise.all([
+        this.sumProviderOperatingSnapshot(
+          enterpriseId,
+          providerCode,
+          mode,
+          currentOperatingSnapshots,
+        ),
+        this.sumAllocatedQuota(enterpriseId, providerCode, mode),
+        this.sumProviderMonthlyCost(enterpriseId, providerCode, mode, monthStart, monthEnd),
+        this.latestProviderForecast(
+          enterpriseId,
+          providerCode,
+          mode,
+          currentOperatingSnapshots,
+        ),
       ]);
       breakdown.push({
         providerCode,
         providerName: r.provider_name,
         mode,
         accountCount: Number((r as { account_count: bigint | number }).account_count),
-        totalQuota: quota?.total ?? null,
-        usedQuota: quota?.used ?? null,
+        totalQuota: operating.total,
+        usedQuota: operating.used,
+        remainingQuota: operating.remaining,
+        quotaUnit: operating.quotaUnit,
+        allocatedQuota,
+        currency: operating.currency,
+        rechargeAmount: operating.recharge,
+        currentBalance: operating.balance,
+        currentPeriodCost: operating.periodCost,
+        snapshotAt: operating.snapshotAt,
         monthlyCost,
         currentRate24h: forecast?.rate24h ?? null,
         forecastExhaustAt: forecast?.exhaustAt ?? null,
@@ -314,31 +408,145 @@ export class DashboardRepository {
     return breakdown;
   }
 
-  /** 某厂商 CODING_PLAN 总额度 + 已用（join principal_grant + quota_counter）。 */
-  private async sumProviderQuota(
+  /** 主体已分配额度：仅作为独立列，不参与厂商总额/余量/预测。 */
+  private async sumAllocatedQuota(
     enterpriseId: string,
     providerCode: string,
-  ): Promise<{ total: string; used: string }> {
-    const row = await sql<{ total: string | null; used: string | null }>`
-      SELECT
-        COALESCE(SUM(g.quota_value::numeric), 0)::text AS total,
-        COALESCE(SUM(c.used_value::numeric), 0)::text AS used
+    mode: "API" | "CODING_PLAN",
+  ): Promise<string | null> {
+    // Grant 当前只绑定厂商/统一模型，无法可靠拆到具体资源；额度门禁仅用于套餐模式。
+    if (mode !== "CODING_PLAN") return null;
+    const row = await sql<{ total: string | null }>`
+      SELECT SUM(g.quota_value::numeric)::text AS total
       FROM principal_grant g
-      INNER JOIN quota_counter c ON c.grant_id = g.id
       WHERE g.enterprise_id = ${enterpriseId}
         AND g.provider = ${providerCode}
         AND g.status = 'ACTIVE'
     `.execute(this.db);
+    return row.rows[0]?.total ?? null;
+  }
+
+  /** 最新厂商资源快照聚合；缺值或单位不一致时相应指标返回 null。 */
+  private async sumProviderOperatingSnapshot(
+    enterpriseId: string,
+    providerCode: string,
+    mode: "API" | "CODING_PLAN",
+    currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
+  ): Promise<{
+    total: string | null;
+    used: string | null;
+    remaining: string | null;
+    quotaUnit: string | null;
+    currency: string | null;
+    recharge: string | null;
+    balance: string | null;
+    periodCost: string | null;
+    snapshotAt: string | null;
+  }> {
+    const resources = await this.db
+      .selectFrom("provider_resource")
+      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
+      .select("provider_resource.id")
+      .where("provider_resource.enterprise_id", "=", enterpriseId)
+      .where("provider.code", "=", providerCode)
+      .where("provider_resource.mode", "=", mode)
+      .where("provider_resource.status", "<>", "DELETED")
+      .execute();
+    const resourceIds = new Set(resources.map((resource) => resource.id));
+    const snapshots = currentOperatingSnapshots
+      .filter((snapshot) => resourceIds.has(snapshot.provider_resource_id));
+    const complete = resourceIds.size > 0 && snapshots.length === resourceIds.size;
+    const values = (key: "total_quota" | "used_quota" | "remaining_quota" |
+      "recharge_amount" | "current_balance" | "current_period_cost") =>
+      snapshots.map((snapshot) => snapshot[key]).filter((value): value is string => value !== null);
+    const quotaUnits = new Set(snapshots.map((snapshot) => snapshot.quota_unit).filter(Boolean));
+    const currencies = new Set(snapshots.map((snapshot) => snapshot.currency).filter(Boolean));
+    const allHave = (key: Parameters<typeof values>[0]) =>
+      complete && values(key).length === resourceIds.size;
+    const sameQuotaUnit = complete && quotaUnits.size === 1;
+    const sameCurrency = complete && currencies.size === 1 &&
+      snapshots.every((snapshot) => snapshot.currency !== null);
+    const quotaMode = mode === "CODING_PLAN";
+    const amountMode = mode === "API";
+    const latestCalculatedAt = snapshots.reduce<Date | null>(
+      (latest, snapshot) => !latest || snapshot.calculated_at > latest
+        ? snapshot.calculated_at
+        : latest,
+      null,
+    );
     return {
-      total: row.rows[0]?.total ?? "0",
-      used: row.rows[0]?.used ?? "0",
+      total: quotaMode && sameQuotaUnit && allHave("total_quota")
+        ? sumDecimalTexts(values("total_quota")) : null,
+      used: quotaMode && sameQuotaUnit && allHave("used_quota")
+        ? sumDecimalTexts(values("used_quota")) : null,
+      remaining: quotaMode && sameQuotaUnit && allHave("remaining_quota")
+        ? sumDecimalTexts(values("remaining_quota")) : null,
+      quotaUnit: quotaMode && sameQuotaUnit ? [...quotaUnits][0] ?? null : null,
+      currency: amountMode && sameCurrency ? [...currencies][0] ?? null : null,
+      recharge: amountMode && sameCurrency && allHave("recharge_amount")
+        ? sumDecimalTexts(values("recharge_amount")) : null,
+      balance: amountMode && sameCurrency && allHave("current_balance")
+        ? sumDecimalTexts(values("current_balance")) : null,
+      periodCost:
+        amountMode && sameCurrency && allHave("current_period_cost")
+          ? sumDecimalTexts(values("current_period_cost")) : null,
+      snapshotAt: latestCalculatedAt?.toISOString() ?? null,
     };
+  }
+
+  private async sumLatestSnapshotAmount(
+    enterpriseId: string,
+    mode: "API" | "CODING_PLAN",
+    field: "recharge_amount" | "package_cost",
+  ): Promise<string | null> {
+    const column = field === "recharge_amount"
+      ? sql.ref("latest.recharge_amount")
+      : sql.ref("latest.package_cost");
+    const result = await sql<{
+      resource_count: string;
+      snapshot_count: string;
+      value_count: string;
+      total: string | null;
+      currencies: string;
+      currency_count: string;
+    }>`
+      WITH resources AS (
+        SELECT id
+          FROM provider_resource
+         WHERE enterprise_id = ${enterpriseId}
+           AND mode = ${mode}
+           AND status <> 'DELETED'
+      ), latest AS (
+        SELECT DISTINCT ON (s.provider_resource_id) s.*
+          FROM provider_resource_operating_snapshot s
+          JOIN resources r ON r.id = s.provider_resource_id
+         WHERE s.enterprise_id = ${enterpriseId}
+         ORDER BY s.provider_resource_id, s.version DESC
+      )
+      SELECT (SELECT COUNT(*) FROM resources)::text AS resource_count,
+             COUNT(*)::text AS snapshot_count,
+             COUNT(${column})::text AS value_count,
+             SUM(${column})::text AS total,
+             COUNT(DISTINCT currency)::text AS currencies,
+             COUNT(currency)::text AS currency_count
+        FROM latest
+    `.execute(this.db);
+    const row = result.rows[0];
+    const complete =
+      row &&
+      row.resource_count !== "0" &&
+      row.snapshot_count === row.resource_count &&
+      row.value_count === row.resource_count &&
+      row.currency_count === row.resource_count &&
+      row.currencies === "1";
+    return complete ? row.total : null;
   }
 
   /** 某厂商本月费用（ledger_line join provider_resource）。 */
   private async sumProviderMonthlyCost(
     enterpriseId: string,
     providerCode: string,
+    mode: "API" | "CODING_PLAN",
     monthStart: Date,
     monthEnd: Date,
   ): Promise<string> {
@@ -349,6 +557,7 @@ export class DashboardRepository {
       INNER JOIN provider p ON p.id = pr.provider_id
       WHERE ll.enterprise_id = ${enterpriseId}
         AND p.code = ${providerCode}
+        AND ll.resource_mode = ${mode}
         AND ll.created_at >= ${monthStart}
         AND ll.created_at < ${monthEnd}
     `.execute(this.db);
@@ -359,21 +568,50 @@ export class DashboardRepository {
   private async latestProviderForecast(
     enterpriseId: string,
     providerCode: string,
+    mode: "API" | "CODING_PLAN",
+    currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
   ): Promise<{ rate24h: string | null; exhaustAt: string | null } | null> {
-    const row = await this.db
-      .selectFrom("supply_forecast")
-      .innerJoin(
-        "provider_resource",
-        "provider_resource.id",
-        "supply_forecast.provider_resource_id",
+    const result = await sql<{
+      resource_id: string;
+      rate_24h: string | null;
+      forecast_exhaust_at: Date | null;
+      remaining_quota: string;
+      snapshot_at: Date;
+    }>`
+      WITH latest_forecast AS (
+        SELECT DISTINCT ON (provider_resource_id) *
+          FROM supply_forecast
+         WHERE enterprise_id = ${enterpriseId}
+         ORDER BY provider_resource_id, snapshot_at DESC
       )
-      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
-      .where("supply_forecast.enterprise_id", "=", enterpriseId)
-      .where("provider.code", "=", providerCode)
-      .orderBy("supply_forecast.snapshot_at", "desc")
-      .limit(1)
-      .select(["supply_forecast.rate_24h", "supply_forecast.forecast_exhaust_at"])
-      .executeTakeFirst();
+      SELECT f.provider_resource_id AS resource_id, f.rate_24h,
+             f.forecast_exhaust_at, f.remaining_quota, f.snapshot_at
+        FROM latest_forecast f
+        JOIN provider_resource pr ON pr.id = f.provider_resource_id
+        JOIN provider p ON p.id = pr.provider_id
+       WHERE p.code = ${providerCode}
+         AND pr.enterprise_id = ${enterpriseId}
+         AND p.enterprise_id = ${enterpriseId}
+         AND pr.mode = ${mode}
+    `.execute(this.db);
+    const current = new Map(
+      currentOperatingSnapshots.map((snapshot) => [snapshot.provider_resource_id, snapshot]),
+    );
+    const row = result.rows
+      .filter((forecast) => {
+        const snapshot = current.get(forecast.resource_id);
+        const remaining = mode === "API"
+          ? snapshot?.current_balance ?? null
+          : snapshot?.remaining_quota ?? null;
+        return snapshot !== undefined &&
+          forecast.snapshot_at >= snapshot.calculated_at &&
+          decimalTextsEqual(forecast.remaining_quota, remaining);
+      })
+      .sort((left, right) => {
+        if (!left.forecast_exhaust_at) return 1;
+        if (!right.forecast_exhaust_at) return -1;
+        return left.forecast_exhaust_at.getTime() - right.forecast_exhaust_at.getTime();
+      })[0];
     if (!row) return null;
     return {
       rate24h: row.rate_24h,
@@ -388,6 +626,9 @@ export class DashboardRepository {
       .innerJoin("principal_grant", "principal_grant.id", "quota_counter.grant_id")
       .innerJoin("principal", "principal.id", "principal_grant.principal_id")
       .where("principal_grant.enterprise_id", "=", enterpriseId)
+      .where("principal_grant.status", "=", "ACTIVE")
+      .where("principal.status", "=", "ACTIVE")
+      .where("principal.archived_at", "is", null)
       .where("quota_counter.overage_value", ">", 0n)
       .orderBy("quota_counter.overage_value", "desc")
       .select([

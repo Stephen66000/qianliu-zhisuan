@@ -133,56 +133,42 @@ describe("W11 凭证生命周期与账号池", () => {
     expect(reasons).toEqual([STATE_REASON.REFRESH_FAILED, STATE_REASON.ADMIN_RECOVER]);
   });
 
-  it("故障注入：429 冷却退避 → 冷却中不可服务 → 到期半开探测 → 成功降级恢复", async () => {
+  it("RA-W04：连续普通 429 只降级，资源继续可服务", async () => {
     const now = Date.now();
-    // C 收到 429 → UNAVAILABLE + 30s 冷却
-    const t = await poolRepo.recordFailure(resC, "UPSTREAM_RATE_LIMITED", new Date(now));
-    expect(t!.toStatus).toBe(RESOURCE_STATUS.UNAVAILABLE);
-    expect(t!.cooldownUntil).toBe(now + 30_000);
+    // 失败次数不再触发硬隔离；明确额度信号由运行保障事件决定。
+    await poolRepo.recordFailure(resC, "UPSTREAM_RATE_LIMITED", new Date(now));
+    await poolRepo.recordFailure(resC, "UPSTREAM_RATE_LIMITED", new Date(now + 1_000));
+    const t = await poolRepo.recordFailure(resC, "UPSTREAM_RATE_LIMITED", new Date(now + 2_000));
+    expect(t!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
+    expect(t!.cooldownUntil).toBeNull();
+    const during = await poolRepo.listServableResources(ENT_ID, undefined, new Date(now + 60_000));
+    expect(during.map((s) => s.id)).toContain(resC);
+    expect(during.find((s) => s.id === resC)!.probe).toBe(false);
 
-    // 冷却中：不可服务
-    const during = await poolRepo.listServableResources(ENT_ID, undefined, new Date(now + 10_000));
-    expect(during.map((s) => s.id)).not.toContain(resC);
-
-    // 冷却到期：半开探测窗口（admit + probe）
-    const after = await poolRepo.listServableResources(ENT_ID, undefined, new Date(now + 31_000));
-    const probeC = after.find((s) => s.id === resC);
-    expect(probeC).toBeDefined();
-    expect(probeC!.probe).toBe(true);
-
-    // 半开探测成功 → DEGRADED（一次成功不抹掉趋势）
     const ok = await poolRepo.recordSuccess(resC);
-    expect(ok!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
-    expect(ok!.reason).toBe(STATE_REASON.HALF_OPEN_PROBE_OK);
-
-    // 再次成功 → ACTIVE
-    const ok2 = await poolRepo.recordSuccess(resC);
-    expect(ok2!.toStatus).toBe(RESOURCE_STATUS.ACTIVE);
+    expect(ok!.toStatus).toBe(RESOURCE_STATUS.ACTIVE);
   });
 
-  it("故障注入：连续临时故障达阈值（3 次）→ 熔断 UNAVAILABLE；客户端错误不计数", async () => {
+  it("RA-W04：连续 5xx/传输故障达到旧阈值仍不硬隔离", async () => {
     // 客户端错误不计入健康
     expect(await poolRepo.recordFailure(resC, "CLIENT_INVALID", new Date())).toBeNull();
     let row = await poolRepo.getResource(resC);
     expect(row!.consecutive_failures).toBe(0);
     expect(row!.status).toBe("ACTIVE");
 
-    // 3 次临时故障 → 第 3 次熔断
+    // 3 次技术故障只累计健康事实
     const t1 = await poolRepo.recordFailure(resC, "UPSTREAM_TEMPORARY", new Date());
     expect(t1!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
     expect(t1!.isolates).toBe(false);
     await poolRepo.recordFailure(resC, "TRANSPORT_ERROR", new Date());
     const t3 = await poolRepo.recordFailure(resC, "UPSTREAM_TEMPORARY", new Date());
-    expect(t3!.toStatus).toBe(RESOURCE_STATUS.UNAVAILABLE);
-    expect(t3!.reason).toBe(STATE_REASON.FAILURE_THRESHOLD);
-    expect(t3!.cooldownUntil).not.toBeNull();
+    expect(t3!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
+    expect(t3!.reason).toBe(STATE_REASON.PASSIVE_FAILURE);
+    expect(t3!.cooldownUntil).toBeNull();
 
     row = await poolRepo.getResource(resC);
     expect(row!.consecutive_failures).toBe(3);
-    expect(row!.status).toBe("UNAVAILABLE");
-
-    // 恢复现场（供 canary 测试后无状态依赖）
-    await poolRepo.adminRecover(resC);
+    expect(row!.status).toBe("DEGRADED");
     const ok = await poolRepo.recordSuccess(resC);
     expect(ok!.toStatus).toBe(RESOURCE_STATUS.ACTIVE);
   });

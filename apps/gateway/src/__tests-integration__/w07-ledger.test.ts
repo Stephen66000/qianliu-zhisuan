@@ -60,6 +60,7 @@ beforeAll(async () => {
       principal_id: PRINCIPAL_ID,
       key_prefix: "sk-qianliu-",
       key_digest: "fake-digest-" + randomUUID(),
+      allowed_model_ids: JSON.stringify([]) as unknown as string[],
       status: "ACTIVE",
     })
     .execute();
@@ -88,6 +89,75 @@ afterAll(async () => {
 }, 60_000);
 
 describe("W07 账本闭环与幂等", () => {
+  it("POOL-007：并发认领同一业务幂等键只有一个 CREATED，异体请求稳定冲突", async () => {
+    const idempotencyKey = `pool-007-${randomUUID()}`;
+    const requestFingerprint = "a".repeat(64);
+    const base = {
+      enterprise_id: ENT_ID,
+      principal_id: PRINCIPAL_ID,
+      principal_key_id: KEY_ID,
+      idempotency_key: idempotencyKey,
+      client_request_id: "workbuddy-reused-trace",
+      request_fingerprint: requestFingerprint,
+      protocol: "responses",
+      unified_model: "qianliu-deepseek",
+      stream: true,
+    };
+
+    const claims = await Promise.all(
+      Array.from({ length: 8 }, () => repo.claimRequest({
+        ...base,
+        id: randomUUID(),
+      })),
+    );
+    expect(claims.filter((claim) => claim.kind === "CREATED")).toHaveLength(1);
+    expect(claims.filter((claim) => claim.kind === "REPLAY")).toHaveLength(7);
+    expect(new Set(claims.map((claim) => claim.request.id)).size).toBe(1);
+
+    const conflict = await repo.claimRequest({
+      ...base,
+      id: randomUUID(),
+      request_fingerprint: "b".repeat(64),
+    });
+    expect(conflict.kind).toBe("CONFLICT");
+    expect(conflict.request.id).toBe(claims[0]!.request.id);
+
+    const rows = await db
+      .selectFrom("ai_request")
+      .select("id")
+      .where("principal_key_id", "=", KEY_ID)
+      .where("idempotency_key", "=", idempotencyKey)
+      .execute();
+    expect(rows).toHaveLength(1);
+  });
+
+  it("请求与 Attempt 使用实际写入时间，分时计费不得命中建表时刻", async () => {
+    const requestId = randomUUID();
+    const before = Date.now() - 1_000;
+    const request = await repo.createRequest({
+      id: requestId,
+      enterprise_id: ENT_ID,
+      principal_id: PRINCIPAL_ID,
+      principal_key_id: KEY_ID,
+      protocol: "responses",
+      unified_model: "qianliu-deepseek",
+      stream: true,
+    });
+    const attempt = await repo.createAttempt({
+      ai_request_id: requestId,
+      enterprise_id: ENT_ID,
+      attempt_no: 1,
+      provider_resource_id: RESOURCE_ID,
+      upstream_model: "deepseek-chat",
+    });
+    const after = Date.now() + 1_000;
+
+    expect(request.started_at.getTime()).toBeGreaterThanOrEqual(before);
+    expect(request.started_at.getTime()).toBeLessThanOrEqual(after);
+    expect(attempt.started_at.getTime()).toBeGreaterThanOrEqual(before);
+    expect(attempt.started_at.getTime()).toBeLessThanOrEqual(after);
+  });
+
   it("WT-11：双 Attempt（一失败一成功）→ 一个汇总 + 两条不可覆盖明细", async () => {
     const requestId = randomUUID();
 

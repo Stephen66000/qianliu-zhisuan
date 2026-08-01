@@ -10,18 +10,23 @@
  * 本文件 W05 阶段：DTO 校验 + 调用 pipelineHandler（由 server 注入）。
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { ChatCompletionRequest } from "@qianliu/contracts";
+import type { ChatCompletionRequest, ResponsesRequest } from "@qianliu/contracts";
 import type { AuthHandler } from "./models.js";
 
 /** 北向能力（chat = OpenAI；messages = Anthropic）。 */
-export type NorthboundCapability = "chat" | "messages";
+export type NorthboundCapability = "chat" | "messages" | "responses";
+
+export interface GatewayPipelineBody extends ChatCompletionRequest {
+  /** Responses 原始请求仅在内存中透传给 Adapter；不得持久化。 */
+  responsesRequest?: ResponsesRequest;
+}
 
 /** pipeline 处理器（W07/W08 注入完整实现）。 */
 export interface PipelineHandler {
   (input: {
     request: FastifyRequest;
     reply: FastifyReply;
-    body: ChatCompletionRequest;
+    body: GatewayPipelineBody;
     capability: NorthboundCapability;
   }): Promise<void>;
 }
@@ -29,11 +34,12 @@ export interface PipelineHandler {
 export function registerChatRoute(
   app: FastifyInstance,
   auth: AuthHandler,
+  authorizeModel: AuthHandler,
   pipelineHandler: PipelineHandler,
 ): void {
   app.post(
     "/v1/chat/completions",
-    { preHandler: [auth] },
+    { preHandler: [auth, authorizeModel] },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const body = req.body as Partial<ChatCompletionRequest>;
       // 最小校验：model + messages

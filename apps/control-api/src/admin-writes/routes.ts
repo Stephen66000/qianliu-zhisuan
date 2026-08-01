@@ -12,6 +12,11 @@ import { z } from "zod";
 import { encryptCredential, credentialFingerprint } from "@qianliu/provider-adapters";
 import { AdminRecoverNotFoundError } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
+import {
+  OperatingSnapshotSchema,
+  operatingSnapshotModeError,
+  toOperatingSnapshotInput,
+} from "../providers/routes.js";
 
 /** 单调版本号乐观锁（P2-01）：前端携带读取时的 version，期间被改则 409 conflict。 */
 const ExpectedVersion = z.number().int().positive();
@@ -27,6 +32,8 @@ const UpdateResourceSchema = z.object({
   expected_version: ExpectedVersion,
   name: z.string().min(1).max(255).optional(),
   concurrency_limit: z.number().int().positive().nullable().optional(),
+  upstream_models: z.array(z.string().min(1).max(128)).max(100).nullable().optional(),
+  operating_snapshot: OperatingSnapshotSchema.optional(),
 });
 
 const UpdateUnifiedModelSchema = z.object({
@@ -50,24 +57,15 @@ const UpdateGrantSchema = z.object({
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 });
 
-const OptionalDecimalString = z
-  .union([z.string(), z.number()])
-  .transform(String)
-  .refine((value) => /^\d+(?:\.\d+)?$/.test(value), {
-    message: "价格必须是非负十进制数",
+const UpdateBillingRuleSchema = z
+  .object({
+    expected_version: ExpectedVersion,
+    effective_to: z.string().datetime().nullable().optional(),
+    enabled: z.boolean().optional(),
   })
-  .nullable();
-
-const UpdateBillingRuleSchema = z.object({
-  expected_version: ExpectedVersion,
-  effective_to: z.string().datetime().nullable().optional(),
-  multiplier: OptionalDecimalString.optional(),
-  cache_hit_price: OptionalDecimalString.optional(),
-  cache_miss_price: OptionalDecimalString.optional(),
-  output_price: OptionalDecimalString.optional(),
-  priority: z.number().int().min(0).optional(),
-  enabled: z.boolean().optional(),
-});
+  // 价格、倍率、窗口和优先级共同定义规则版本，禁止原地改写。
+  // 变更这些字段必须 POST 新 rule_version，并用 effective_from/effective_to 切换。
+  .strict();
 
 const RecoverResourceSchema = z.object({
   /** 可选：同时轮换凭证（明文一次接收，立即加密，绝不入库）。 */
@@ -77,23 +75,34 @@ const RecoverResourceSchema = z.object({
 /** 资源公开视图（绝不返回密文/明文）。 */
 function resourceView(r: {
   id: string;
+  provider_id: string;
   name: string;
   mode: string;
   credential_type: string;
   credential_fingerprint: string | null;
   credential_version: number | null;
   status: string;
+  upstream_models: string[] | null;
+  concurrency_limit: number | null;
+  version: number;
+  created_at: Date;
   updated_at: Date;
-}) {
+}, operatingSnapshot: unknown = null) {
   return {
     id: r.id,
+    provider_id: r.provider_id,
     name: r.name,
     mode: r.mode,
     credential_type: r.credential_type,
     credential_fingerprint: r.credential_fingerprint,
     credential_version: r.credential_version,
     status: r.status,
+    upstream_models: r.upstream_models,
+    concurrency_limit: r.concurrency_limit,
+    version: r.version,
+    created_at: r.created_at,
     updated_at: r.updated_at,
+    operating_snapshot: operatingSnapshot,
   };
 }
 
@@ -114,11 +123,29 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
       if (!before) {
         return reply.code(404).send({ error: "not_found", message: "资源不存在" });
       }
+      if (parsed.data.operating_snapshot) {
+        const modeError = operatingSnapshotModeError(
+          before.mode,
+          parsed.data.operating_snapshot,
+        );
+        if (modeError) {
+          return reply
+            .code(400)
+            .send({ error: "invalid_operating_mode", message: modeError });
+        }
+      }
       const updated = await app.adminWriteRepo.updateProviderResource(
         ent,
         req.params.id,
         parsed.data.expected_version,
-        { name: parsed.data.name, concurrency_limit: parsed.data.concurrency_limit },
+        {
+          name: parsed.data.name,
+          concurrency_limit: parsed.data.concurrency_limit,
+          upstream_models: parsed.data.upstream_models,
+          operating_snapshot: parsed.data.operating_snapshot
+            ? toOperatingSnapshotInput(parsed.data.operating_snapshot, before.mode)
+            : undefined,
+        },
       );
       if (!updated) {
         return reply
@@ -132,12 +159,24 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         target_type: "provider_resource",
         target_id: updated.id,
         change_summary: {
-          before: { name: before.name, concurrency_limit: before.concurrency_limit },
-          after: { name: updated.name, concurrency_limit: updated.concurrency_limit },
+          before: {
+            name: before.name,
+            concurrency_limit: before.concurrency_limit,
+            upstream_models: before.upstream_models,
+          },
+          after: {
+            name: updated.name,
+            concurrency_limit: updated.concurrency_limit,
+            upstream_models: updated.upstream_models,
+          },
         },
         result: "SUCCESS",
       });
-      return { resource: resourceView(updated) };
+      const snapshot = parsed.data.operating_snapshot
+        ? (await app.providerRepo.listCurrentOperatingSnapshots(ent))
+            .find((item) => item.provider_resource_id === updated.id) ?? null
+        : null;
+      return { resource: resourceView(updated, snapshot) };
     },
   );
 
@@ -252,6 +291,27 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
       }
       const ent = req.admin!.enterpriseId;
+      const owner = await app.db
+        .selectFrom("principal_grant")
+        .innerJoin("principal", "principal.id", "principal_grant.principal_id")
+        .select([
+          "principal_grant.id",
+          "principal.status as principal_status",
+          "principal.archived_at",
+        ])
+        .where("principal_grant.id", "=", req.params.id)
+        .where("principal_grant.enterprise_id", "=", ent)
+        .where("principal.enterprise_id", "=", ent)
+        .executeTakeFirst();
+      if (!owner) {
+        return reply.code(404).send({ error: "not_found", message: "额度授权不存在" });
+      }
+      if (owner.archived_at !== null) {
+        return reply.code(409).send({
+          error: "principal_archived",
+          message: "已归档主体的额度授权只读，不能重新启用或修改",
+        });
+      }
       const updated = await app.adminWriteRepo.updateGrant(
         ent,
         req.params.id,
@@ -313,6 +373,15 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
       }
       const ent = req.admin!.enterpriseId;
+      const before = await app.db
+        .selectFrom("billing_rule")
+        .selectAll()
+        .where("id", "=", req.params.id)
+        .where("enterprise_id", "=", ent)
+        .executeTakeFirst();
+      if (!before) {
+        return reply.code(404).send({ error: "not_found", message: "计价规则不存在" });
+      }
       const updated = await app.adminWriteRepo.updateBillingRule(
         ent,
         req.params.id,
@@ -324,24 +393,10 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
               : parsed.data.effective_to === null
                 ? null
                 : new Date(parsed.data.effective_to),
-          multiplier: parsed.data.multiplier,
-          cache_hit_price: parsed.data.cache_hit_price,
-          cache_miss_price: parsed.data.cache_miss_price,
-          output_price: parsed.data.output_price,
-          priority: parsed.data.priority,
           enabled: parsed.data.enabled,
         },
       );
       if (!updated) {
-        const exists = await app.db
-          .selectFrom("billing_rule")
-          .select("id")
-          .where("id", "=", req.params.id)
-          .where("enterprise_id", "=", ent)
-          .executeTakeFirst();
-        if (!exists) {
-          return reply.code(404).send({ error: "not_found", message: "计价规则不存在" });
-        }
         return reply
           .code(409)
           .send({ error: "conflict", message: "该规则刚被其他管理员修改，请刷新后重试" });
@@ -355,11 +410,7 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         change_summary: {
           after: {
             enabled: updated.enabled,
-            priority: updated.priority,
-            multiplier: updated.multiplier,
-            cache_hit_price: updated.cache_hit_price,
-            cache_miss_price: updated.cache_miss_price,
-            output_price: updated.output_price,
+            effective_to: updated.effective_to,
           },
         },
         result: "SUCCESS",

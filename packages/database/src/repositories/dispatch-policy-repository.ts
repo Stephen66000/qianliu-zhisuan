@@ -9,8 +9,27 @@
  *   - 只有 PUBLISHED 进热路径（§5.6 行 320）；变更只影响新请求（行 321）。
  */
 import type { Kysely } from "kysely";
+import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 import type { DispatchPolicy } from "@qianliu/domain";
+import { ProviderRepository } from "./provider-repository.js";
+
+function sameDecimal(left: string | null, right: string | null): boolean {
+  if (left === null || right === null) return left === right;
+  const scale = Math.max(left.split(".")[1]?.length ?? 0, right.split(".")[1]?.length ?? 0);
+  const units = (value: string) => {
+    const [whole, fraction = ""] = value.split(".");
+    return BigInt(`${whole}${fraction.padEnd(scale, "0")}`);
+  };
+  return units(left) === units(right);
+}
+
+export interface DispatchPolicyRecord extends DispatchPolicy {
+  description: string | null;
+  source: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /** 策略创建输入（管理员发布；状态默认 DRAFT）。 */
 export interface CreateDispatchPolicyInput {
@@ -58,6 +77,76 @@ export interface CreateDispatchDecisionInput {
 export class DispatchPolicyRepository {
   constructor(private db: Kysely<Database>) {}
 
+  /**
+   * POOL-010：经营调度只读厂商最新快照。
+   * 若快照未知或预测早于当前经营快照，返回未知/无风险，禁止拿 Grant/Counter 代替。
+   */
+  async resolveResourceOperatingInput(
+    enterpriseId: string,
+    providerResourceId: string,
+    now: number = Date.now(),
+  ): Promise<{
+    priceMultiplier: string;
+    remainingQuotaRatio: number | null;
+    forecastExhaustRisk: boolean;
+  }> {
+    const result = await sql<{
+      mode: string;
+      forecast_exhaust_at: Date | null;
+      forecast_remaining_quota: string | null;
+      forecast_snapshot_at: Date | null;
+    }>`
+      WITH latest_forecast AS (
+        SELECT forecast_exhaust_at, snapshot_at, remaining_quota
+          FROM supply_forecast
+         WHERE enterprise_id = ${enterpriseId}
+           AND provider_resource_id = ${providerResourceId}
+         ORDER BY snapshot_at DESC
+         LIMIT 1
+      )
+      SELECT pr.mode, f.forecast_exhaust_at,
+             f.remaining_quota AS forecast_remaining_quota,
+             f.snapshot_at AS forecast_snapshot_at
+        FROM provider_resource pr
+        LEFT JOIN latest_forecast f ON TRUE
+       WHERE pr.id = ${providerResourceId}
+         AND pr.enterprise_id = ${enterpriseId}
+    `.execute(this.db);
+    const row = result.rows[0];
+    const snapshot = (await new ProviderRepository(this.db)
+      .listCurrentOperatingSnapshots(enterpriseId, new Date(now)))
+      .find((item) => item.provider_resource_id === providerResourceId);
+    const total = row?.mode !== "CODING_PLAN" ||
+      snapshot?.total_quota === null || snapshot?.total_quota === undefined
+      ? null
+      : Number(snapshot.total_quota);
+    const remaining = row?.mode !== "CODING_PLAN" ||
+      snapshot?.remaining_quota === null || snapshot?.remaining_quota === undefined
+      ? null
+      : Number(snapshot.remaining_quota);
+    const ratio =
+      total !== null && remaining !== null && Number.isFinite(total) &&
+      Number.isFinite(remaining) && total > 0
+        ? remaining / total
+        : null;
+    return {
+      priceMultiplier: "1",
+      remainingQuotaRatio: ratio,
+      forecastExhaustRisk:
+        snapshot !== undefined &&
+        row?.forecast_snapshot_at !== null &&
+        row?.forecast_snapshot_at !== undefined &&
+        row.forecast_snapshot_at >= snapshot.calculated_at &&
+        sameDecimal(
+          row.forecast_remaining_quota ?? null,
+          row.mode === "API" ? snapshot.current_balance : snapshot.remaining_quota,
+        ) &&
+        row?.forecast_exhaust_at !== null &&
+        row?.forecast_exhaust_at !== undefined &&
+        row.forecast_exhaust_at.getTime() <= now + 24 * 60 * 60 * 1000,
+    };
+  }
+
   /** 创建策略（默认 DRAFT；管理员校验后 PUBLISH）。 */
   async createPolicy(input: CreateDispatchPolicyInput): Promise<string> {
     const row = await this.db
@@ -96,13 +185,46 @@ export class DispatchPolicyRepository {
     return row.id;
   }
 
-  /** 更新策略状态（DRAFT→VALIDATED→PUBLISHED；PUBLISHED→RETIRED）。 */
-  async updateStatus(policyId: string, status: "DRAFT" | "VALIDATED" | "PUBLISHED" | "RETIRED"): Promise<void> {
-    await this.db
+  /** 企业隔离的状态迁移；调用方负责传入允许的前态。 */
+  async transitionStatus(
+    enterpriseId: string,
+    policyId: string,
+    from: DispatchPolicy["status"],
+    to: DispatchPolicy["status"],
+  ): Promise<boolean> {
+    const row = await this.db
       .updateTable("dispatch_policy")
-      .set({ status, updated_at: new Date() })
+      .set({ status: to, updated_at: new Date() })
       .where("id", "=", policyId)
+      .where("enterprise_id", "=", enterpriseId)
+      .where("status", "=", from)
+      .returning("id")
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
+  async getPolicy(
+    enterpriseId: string,
+    policyId: string,
+  ): Promise<DispatchPolicyRecord | undefined> {
+    const row = await this.db
+      .selectFrom("dispatch_policy")
+      .selectAll()
+      .where("enterprise_id", "=", enterpriseId)
+      .where("id", "=", policyId)
+      .executeTakeFirst();
+    return row ? mapPolicy(row) : undefined;
+  }
+
+  /** 管理面查询全部状态；历史版本不覆盖。 */
+  async listPolicies(enterpriseId: string): Promise<DispatchPolicyRecord[]> {
+    const rows = await this.db
+      .selectFrom("dispatch_policy")
+      .selectAll()
+      .where("enterprise_id", "=", enterpriseId)
+      .orderBy("created_at", "desc")
       .execute();
+    return rows.map(mapPolicy);
   }
 
   /** 热路径查询：该企业已发布（PUBLISHED）的全部策略（按 priority 升序）。 */
@@ -114,26 +236,7 @@ export class DispatchPolicyRepository {
       .where("status", "=", "PUBLISHED")
       .orderBy("priority", "asc")
       .execute();
-    return rows.map((r) => ({
-      id: r.id,
-      status: r.status as DispatchPolicy["status"],
-      matchUnifiedModel: r.match_unified_model,
-      matchResourceMode: r.match_resource_mode as DispatchPolicy["matchResourceMode"],
-      matchProviderResourceId: r.match_provider_resource_id,
-      matchTimezone: r.match_timezone,
-      matchDaysOfWeek: r.match_days_of_week,
-      matchStartTime: r.match_start_time,
-      matchEndTime: r.match_end_time,
-      matchPriceMultiplierMin: r.match_price_multiplier_min,
-      matchRemainingQuotaRatioMax: r.match_remaining_quota_ratio_max,
-      matchForecastExhaustRisk: r.match_forecast_exhaust_risk,
-      matchPrincipalScope: r.match_principal_scope,
-      action: r.action as DispatchPolicy["action"],
-      switchEquivalentGroup: r.switch_equivalent_group ?? [],
-      rateLimitPerMinute: r.rate_limit_per_minute,
-      policyVersion: r.policy_version,
-      priority: r.priority,
-    }));
+    return rows.map(mapPolicy);
   }
 
   /**
@@ -195,4 +298,54 @@ export class DispatchPolicyRepository {
       .where("ai_request_id", "=", aiRequestId)
       .executeTakeFirst() as never;
   }
+}
+
+function mapPolicy(row: {
+  id: string;
+  status: string;
+  match_unified_model: string | null;
+  match_resource_mode: string | null;
+  match_provider_resource_id: string | null;
+  match_timezone: string | null;
+  match_days_of_week: number[] | null;
+  match_start_time: string | null;
+  match_end_time: string | null;
+  match_price_multiplier_min: string | null;
+  match_remaining_quota_ratio_max: string | null;
+  match_forecast_exhaust_risk: boolean | null;
+  match_principal_scope: string[] | null;
+  action: string;
+  switch_equivalent_group: string[] | null;
+  rate_limit_per_minute: number | null;
+  policy_version: string;
+  priority: number;
+  description: string | null;
+  source: string | null;
+  created_at: Date;
+  updated_at: Date;
+}): DispatchPolicyRecord {
+  return {
+    id: row.id,
+    status: row.status as DispatchPolicy["status"],
+    matchUnifiedModel: row.match_unified_model,
+    matchResourceMode: row.match_resource_mode as DispatchPolicy["matchResourceMode"],
+    matchProviderResourceId: row.match_provider_resource_id,
+    matchTimezone: row.match_timezone,
+    matchDaysOfWeek: row.match_days_of_week,
+    matchStartTime: row.match_start_time,
+    matchEndTime: row.match_end_time,
+    matchPriceMultiplierMin: row.match_price_multiplier_min,
+    matchRemainingQuotaRatioMax: row.match_remaining_quota_ratio_max,
+    matchForecastExhaustRisk: row.match_forecast_exhaust_risk,
+    matchPrincipalScope: row.match_principal_scope,
+    action: row.action as DispatchPolicy["action"],
+    switchEquivalentGroup: row.switch_equivalent_group ?? [],
+    rateLimitPerMinute: row.rate_limit_per_minute,
+    policyVersion: row.policy_version,
+    priority: row.priority,
+    description: row.description,
+    source: row.source,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }

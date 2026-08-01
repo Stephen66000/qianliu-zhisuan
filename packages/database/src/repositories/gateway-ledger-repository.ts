@@ -35,11 +35,18 @@ export interface CreateRequestInput {
   principal_id: string;
   principal_key_id: string;
   idempotency_key?: string | null;
+  client_request_id?: string | null;
+  request_fingerprint?: string | null;
   protocol: string;
   unified_model: string;
   stream?: boolean;
   client_id?: string | null;
 }
+
+export type ClaimRequestResult =
+  | { kind: "CREATED"; request: AiRequest }
+  | { kind: "REPLAY"; request: AiRequest }
+  | { kind: "CONFLICT"; request: AiRequest };
 
 export interface CreateAttemptInput {
   ai_request_id: string;
@@ -57,6 +64,7 @@ export interface UsageInput {
   input_tokens: bigint;
   output_tokens: bigint;
   cache_tokens: bigint;
+  reasoning_tokens?: bigint;
   usage_quality: string;
   dedup_key: string;
   upstream_usage_id?: string | null;
@@ -73,6 +81,7 @@ export interface LedgerLineInput {
   raw_input_tokens: bigint;
   raw_output_tokens: bigint;
   raw_cache_tokens: bigint;
+  raw_reasoning_tokens?: bigint;
   deducted_quota?: bigint | null;
   api_cost?: string | null;
   usage_quality: string;
@@ -80,6 +89,7 @@ export interface LedgerLineInput {
   billing_rule_id?: string | null;
   rule_version?: string | null;
   multiplier?: string | null;
+  billing_rule_snapshot?: Record<string, unknown> | null;
 }
 
 export class GatewayLedgerRepository {
@@ -89,7 +99,21 @@ export class GatewayLedgerRepository {
 
   /** 创建请求意图（进入上游前；TRD §8.1 行 524）。 */
   async createRequest(input: CreateRequestInput): Promise<AiRequest> {
-    return this.db
+    const result = await this.claimRequest(input);
+    if (result.kind !== "CREATED") {
+      throw new Error(`ai_request claim unexpectedly returned ${result.kind}`);
+    }
+    return result.request;
+  }
+
+  /**
+   * 原子认领请求意图。
+   *
+   * 无幂等键时总是以内部 UUID 新建；有幂等键时由数据库唯一索引保证只有一个
+   * 调用者成为 CREATED，其余调用者读取原请求并按指纹区分 REPLAY/CONFLICT。
+   */
+  async claimRequest(input: CreateRequestInput): Promise<ClaimRequestResult> {
+    const inserted = await this.db
       .insertInto("ai_request")
       .values({
         id: input.id,
@@ -97,14 +121,34 @@ export class GatewayLedgerRepository {
         principal_id: input.principal_id,
         principal_key_id: input.principal_key_id,
         idempotency_key: input.idempotency_key ?? null,
+        client_request_id: input.client_request_id ?? null,
+        request_fingerprint: input.request_fingerprint ?? null,
         protocol: input.protocol,
         unified_model: input.unified_model,
         stream: input.stream ?? false,
         status: "IN_PROGRESS",
         client_id: input.client_id ?? null,
+        started_at: new Date(),
       })
+      .onConflict((oc) => oc
+        .columns(["principal_key_id", "idempotency_key"])
+        .where("idempotency_key", "is not", null)
+        .doNothing())
       .returningAll()
+      .executeTakeFirst();
+    if (inserted) return { kind: "CREATED", request: inserted };
+
+    // 只有显式业务幂等键才可能走到冲突分支；并发 INSERT 完成后 PostgreSQL
+    // 已保证原行可见，不需要应用层锁或二次上游调用。
+    const existing = await this.db
+      .selectFrom("ai_request")
+      .selectAll()
+      .where("principal_key_id", "=", input.principal_key_id)
+      .where("idempotency_key", "=", input.idempotency_key!)
       .executeTakeFirstOrThrow();
+    return existing.request_fingerprint === input.request_fingerprint
+      ? { kind: "REPLAY", request: existing }
+      : { kind: "CONFLICT", request: existing };
   }
 
   async updateRequestStatus(
@@ -160,6 +204,7 @@ export class GatewayLedgerRepository {
           : null,
         total_score: input.total_score ?? null,
         reason_code: input.reason_code ?? null,
+        created_at: new Date(),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -186,6 +231,7 @@ export class GatewayLedgerRepository {
         attempt_no: input.attempt_no,
         provider_resource_id: input.provider_resource_id,
         upstream_model: input.upstream_model,
+        started_at: new Date(),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -232,9 +278,11 @@ export class GatewayLedgerRepository {
         input_tokens: input.input_tokens,
         output_tokens: input.output_tokens,
         cache_tokens: input.cache_tokens,
+        reasoning_tokens: input.reasoning_tokens ?? 0n,
         usage_quality: input.usage_quality,
         dedup_key: input.dedup_key,
         upstream_usage_id: input.upstream_usage_id ?? null,
+        created_at: new Date(),
       })
       .onConflict((oc) => oc.column("dedup_key").doNothing())
       .returningAll()
@@ -267,12 +315,15 @@ export class GatewayLedgerRepository {
         raw_input_tokens: input.raw_input_tokens,
         raw_output_tokens: input.raw_output_tokens,
         raw_cache_tokens: input.raw_cache_tokens,
+        raw_reasoning_tokens: input.raw_reasoning_tokens ?? 0n,
         deducted_quota: input.deducted_quota ?? null,
         api_cost: input.api_cost ?? null,
         usage_quality: input.usage_quality,
         billing_rule_id: input.billing_rule_id ?? null,
         rule_version: input.rule_version ?? null,
         multiplier: input.multiplier ?? null,
+        billing_rule_snapshot: input.billing_rule_snapshot ?? null,
+        created_at: new Date(),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -300,8 +351,11 @@ export class GatewayLedgerRepository {
     total_input_tokens: bigint;
     total_output_tokens: bigint;
     total_cache_tokens: bigint;
+    total_reasoning_tokens?: bigint;
     total_deducted_quota: bigint;
     total_api_cost: string;
+    /** 请求结算时冻结的超额事实。 */
+    overage?: boolean;
     usage_quality: string;
     attempt_count: number;
   }): Promise<LedgerTransaction | undefined> {
@@ -314,11 +368,14 @@ export class GatewayLedgerRepository {
         total_input_tokens: input.total_input_tokens,
         total_output_tokens: input.total_output_tokens,
         total_cache_tokens: input.total_cache_tokens,
+        total_reasoning_tokens: input.total_reasoning_tokens ?? 0n,
         total_deducted_quota: input.total_deducted_quota,
         total_api_cost: input.total_api_cost,
+        overage: input.overage ?? false,
         usage_quality: input.usage_quality,
         attempt_count: input.attempt_count,
         status: "SETTLED",
+        created_at: new Date(),
       })
       .onConflict((oc) => oc.column("ai_request_id").doNothing())
       .returningAll()
@@ -350,6 +407,12 @@ export class GatewayLedgerRepository {
       days_of_week: number[] | null;
       start_time: string | null;
       end_time: string | null;
+      time_windows: Array<{
+        timezone: string;
+        days_of_week: number[] | null;
+        start_time: string;
+        end_time: string;
+      }> | null;
       multiplier: string | null;
       cache_hit_price: string | null;
       cache_miss_price: string | null;
@@ -381,6 +444,12 @@ export class GatewayLedgerRepository {
       days_of_week: number[] | null;
       start_time: string | null;
       end_time: string | null;
+      time_windows: Array<{
+        timezone: string;
+        days_of_week: number[] | null;
+        start_time: string;
+        end_time: string;
+      }> | null;
       multiplier: string | null;
       cache_hit_price: string | null;
       cache_miss_price: string | null;
@@ -414,6 +483,12 @@ export class GatewayLedgerRepository {
     days_of_week?: number[] | null;
     start_time?: string | null;
     end_time?: string | null;
+    time_windows?: Array<{
+      timezone: string;
+      days_of_week: number[] | null;
+      start_time: string;
+      end_time: string;
+    }> | null;
     multiplier?: string | null;
     cache_hit_price?: string | null;
     cache_miss_price?: string | null;
@@ -422,6 +497,7 @@ export class GatewayLedgerRepository {
     priority?: number;
     source?: string | null;
   }) {
+    const firstWindow = input.time_windows?.[0];
     return this.db
       .insertInto("billing_rule")
       .values({
@@ -432,12 +508,15 @@ export class GatewayLedgerRepository {
         upstream_model: input.upstream_model ?? null,
         effective_from: input.effective_from,
         effective_to: input.effective_to ?? null,
-        timezone: input.timezone ?? null,
-        days_of_week: input.days_of_week
-          ? (JSON.stringify(input.days_of_week) as unknown as number[])
+        timezone: firstWindow?.timezone ?? input.timezone ?? null,
+        days_of_week: (firstWindow?.days_of_week ?? input.days_of_week)
+          ? (JSON.stringify(firstWindow?.days_of_week ?? input.days_of_week) as unknown as number[])
           : null,
-        start_time: input.start_time ?? null,
-        end_time: input.end_time ?? null,
+        start_time: firstWindow?.start_time ?? input.start_time ?? null,
+        end_time: firstWindow?.end_time ?? input.end_time ?? null,
+        time_windows: input.time_windows
+          ? (JSON.stringify(input.time_windows) as unknown as typeof input.time_windows)
+          : null,
         multiplier: input.multiplier ?? null,
         cache_hit_price: input.cache_hit_price ?? null,
         cache_miss_price: input.cache_miss_price ?? null,

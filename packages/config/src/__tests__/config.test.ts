@@ -26,6 +26,7 @@ describe("@qianliu/config", () => {
     expect(cfg.contentRetentionMode).toBe("METADATA_ONLY");
     expect(cfg.database.url).toBe("postgres://u:p@h:5432/db");
     expect(cfg.credentialKek).toBe("c".repeat(32));
+    expect(cfg.runtimeAssurance).toEqual({ mode: "OBSERVE", wecomNotify: false });
     expect(cfg.providers.find((p) => p.code === "deepseek")?.configured).toBe(true);
     expect(cfg.providers.find((p) => p.code === "zhipu")?.configured).toBe(false);
   });
@@ -39,6 +40,27 @@ describe("@qianliu/config", () => {
         SESSION_AFFINITY_HMAC_KEY: "b".repeat(32),
         CREDENTIAL_KEK: "c".repeat(32),
       }),
+    ).toThrow();
+  });
+
+  it("严格解析三级运行模式和企微通知开关", () => {
+    const base = {
+      DATABASE_URL: "postgres://u:p@h:5432/db",
+      REDIS_URL: "redis://h:6379",
+      GATEWAY_KEY_PEPPER: "a".repeat(32),
+      SESSION_AFFINITY_HMAC_KEY: "b".repeat(32),
+      CREDENTIAL_KEK: "c".repeat(32),
+    };
+    expect(
+      loadConfig({
+        ...base,
+        RUNTIME_ASSURANCE_MODE: "ENFORCE",
+        RUNTIME_ASSURANCE_WECOM_NOTIFY: "true",
+      }).runtimeAssurance,
+    ).toEqual({ mode: "ENFORCE", wecomNotify: true });
+    expect(() => loadConfig({ ...base, RUNTIME_ASSURANCE_MODE: "enforce" })).toThrow();
+    expect(() =>
+      loadConfig({ ...base, RUNTIME_ASSURANCE_WECOM_NOTIFY: "TRUE" }),
     ).toThrow();
   });
 });

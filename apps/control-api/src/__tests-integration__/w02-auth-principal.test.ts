@@ -14,7 +14,13 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
+import {
+  createKysely,
+  migrateToLatest,
+  PrincipalRepository,
+  type Database,
+} from "@qianliu/database";
+import { digestSessionToken, generateSessionToken } from "@qianliu/provider-adapters";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 
@@ -26,6 +32,7 @@ let adminCookie: string;
 const TEST_PASSWORD = "W02-Test-Password-Strong!";
 const ENT_ID = randomUUID();
 const ADM_ID = randomUUID();
+const ACCESS_MODEL_ID = randomUUID();
 
 beforeAll(async () => {
   pg = await startPostgresContainer();
@@ -34,6 +41,13 @@ beforeAll(async () => {
 
   // 种子：企业 + 管理员
   await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流测试企业" }).execute();
+  await db.insertInto("unified_model").values({
+    id: ACCESS_MODEL_ID,
+    enterprise_id: ENT_ID,
+    alias: "qianliu-glm",
+    display_name: "仟流 GLM",
+    status: "ACTIVE",
+  }).execute();
   const hash = await hashPassword(TEST_PASSWORD);
   await db
     .insertInto("admin_user")
@@ -186,6 +200,305 @@ describe("W02 认证与 Principal", () => {
       payload: { status: "ACTIVE" },
     });
     expect(reactivateRes.json().principal.status).toBe("ACTIVE");
+  });
+
+  it("POOL-009：编辑名称和部门后可追溯，跨企业不可读写", async () => {
+    adminCookie = await loginAsAdmin();
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/principals",
+      headers: { cookie: adminCookie },
+      payload: { type: "EMPLOYEE", name: "待编辑员工", department_label: "旧部门" },
+    });
+    const pid = createRes.json().principal.id;
+    const updateRes = await app.inject({
+      method: "PATCH",
+      url: `/principals/${pid}`,
+      headers: { cookie: adminCookie },
+      payload: { name: "已编辑员工", department_label: "平台部" },
+    });
+    expect(updateRes.statusCode).toBe(200);
+    expect(updateRes.json().principal).toMatchObject({
+      name: "已编辑员工",
+      department_label: "平台部",
+    });
+
+    const otherEnterpriseId = randomUUID();
+    const otherAdminId = randomUUID();
+    await db
+      .insertInto("enterprise")
+      .values({ id: otherEnterpriseId, name: "隔离企业" })
+      .execute();
+    await db
+      .insertInto("admin_user")
+      .values({
+        id: otherAdminId,
+        enterprise_id: otherEnterpriseId,
+        username: "other-admin",
+        password_hash: await hashPassword(TEST_PASSWORD),
+        status: "ACTIVE",
+      })
+      .execute();
+    const otherToken = generateSessionToken();
+    await db
+      .insertInto("admin_session")
+      .values({
+        admin_user_id: otherAdminId,
+        token_hash: digestSessionToken(otherToken),
+        expires_at: new Date(Date.now() + 60_000),
+      })
+      .execute();
+    const cookie = `qianliu_admin_session=${otherToken}`;
+    const crossPreview = await app.inject({
+      method: "GET",
+      url: `/principals/${pid}/cleanup-preview`,
+      headers: { cookie },
+    });
+    const crossDelete = await app.inject({
+      method: "DELETE",
+      url: `/principals/${pid}`,
+      headers: { cookie },
+    });
+    expect(crossPreview.statusCode).toBe(404);
+    expect(crossDelete.statusCode).toBe(404);
+
+    const logs = await db
+      .selectFrom("operation_log")
+      .select(["action", "change_summary"])
+      .where("enterprise_id", "=", ENT_ID)
+      .where("target_id", "=", pid)
+      .execute();
+    expect(logs.some((log) => log.action === "principal.update")).toBe(true);
+    expect(
+      logs.some(
+        (log) =>
+          log.action === "principal.update" &&
+          (log.change_summary as { after?: { name?: string } } | null)?.after?.name ===
+            "已编辑员工",
+      ),
+    ).toBe(true);
+  });
+
+  it("POOL-009：无历史主体删除时同步清理 Key/Grant/Counter 并保留删除审计", async () => {
+    adminCookie = await loginAsAdmin();
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/principals",
+      headers: { cookie: adminCookie },
+      payload: { type: "PROJECT", name: "无历史临时主体" },
+    });
+    const pid = createRes.json().principal.id;
+    await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACCESS_MODEL_ID] },
+    });
+    await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/grants`,
+      headers: { cookie: adminCookie },
+      payload: {
+        provider: "zhipu",
+        model_alias: "qianliu-glm",
+        quota_value: "1000",
+      },
+    });
+
+    const previewRes = await app.inject({
+      method: "GET",
+      url: `/principals/${pid}/cleanup-preview`,
+      headers: { cookie: adminCookie },
+    });
+    expect(previewRes.statusCode).toBe(200);
+    expect(previewRes.json().preview).toMatchObject({
+      keyCount: 1,
+      grantCount: 1,
+      requestCount: 0,
+      usageCount: 0,
+      ledgerCount: 0,
+      canDelete: true,
+    });
+
+    const deleteRes = await app.inject({
+      method: "DELETE",
+      url: `/principals/${pid}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(deleteRes.statusCode).toBe(200);
+    expect(deleteRes.json()).toMatchObject({
+      deleted: true,
+      removed_keys: 1,
+      removed_grants: 1,
+    });
+    expect(
+      await db.selectFrom("principal").select("id").where("id", "=", pid).executeTakeFirst(),
+    ).toBeUndefined();
+    expect(
+      await db
+        .selectFrom("principal_key")
+        .select("id")
+        .where("principal_id", "=", pid)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+    expect(
+      await db
+        .selectFrom("principal_grant")
+        .select("id")
+        .where("principal_id", "=", pid)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+    const deleteAudit = await db
+      .selectFrom("operation_log")
+      .select("action")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("target_id", "=", pid)
+      .where("action", "=", "principal.delete")
+      .executeTakeFirst();
+    expect(deleteAudit?.action).toBe("principal.delete");
+  });
+
+  it("POOL-009：有请求历史禁止删除，只能归档并撤销 Key/Grant，历史请求不丢失", async () => {
+    adminCookie = await loginAsAdmin();
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/principals",
+      headers: { cookie: adminCookie },
+      payload: { type: "PROJECT", name: "有历史主体" },
+    });
+    const pid = createRes.json().principal.id;
+    const keyRes = await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACCESS_MODEL_ID] },
+    });
+    const keyId = keyRes.json().metadata.id;
+    const grantRes = await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/grants`,
+      headers: { cookie: adminCookie },
+      payload: {
+        provider: "zhipu",
+        model_alias: "qianliu-glm",
+        quota_value: "1000",
+      },
+    });
+    const grantId = grantRes.json().grant.id;
+    const requestId = randomUUID();
+    await db
+      .insertInto("ai_request")
+      .values({
+        id: requestId,
+        enterprise_id: ENT_ID,
+        principal_id: pid,
+        principal_key_id: keyId,
+        protocol: "chat",
+        unified_model: "qianliu-glm",
+        status: "SUCCEEDED",
+      })
+      .execute();
+
+    const deleteRes = await app.inject({
+      method: "DELETE",
+      url: `/principals/${pid}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(deleteRes.statusCode).toBe(409);
+    expect(deleteRes.json()).toMatchObject({
+      error: "principal_has_history",
+      preview: { requestCount: 1, canDelete: false },
+    });
+
+    const archiveRes = await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/archive`,
+      headers: { cookie: adminCookie },
+    });
+    expect(archiveRes.statusCode).toBe(200);
+    expect(archiveRes.json().principal.archived_at).toBeTruthy();
+    expect(archiveRes.json().principal.status).toBe("DISABLED");
+    expect(
+      (
+        await db
+          .selectFrom("principal_key")
+          .select("status")
+          .where("id", "=", keyId)
+          .executeTakeFirstOrThrow()
+      ).status,
+    ).toBe("REVOKED");
+    expect(
+      (
+        await db
+          .selectFrom("principal_grant")
+          .select("status")
+          .where("id", "=", grantId)
+          .executeTakeFirstOrThrow()
+      ).status,
+    ).toBe("DISABLED");
+    expect(
+      await db
+        .selectFrom("ai_request")
+        .select("id")
+        .where("id", "=", requestId)
+        .executeTakeFirst(),
+    ).toBeDefined();
+
+    const defaultList = await app.inject({
+      method: "GET",
+      url: "/principals",
+      headers: { cookie: adminCookie },
+    });
+    expect(
+      defaultList.json().principals.some((principal: { id: string }) => principal.id === pid),
+    ).toBe(false);
+    const archivedList = await app.inject({
+      method: "GET",
+      url: "/principals?archived=only",
+      headers: { cookie: adminCookie },
+    });
+    expect(
+      archivedList.json().principals.some((principal: { id: string }) => principal.id === pid),
+    ).toBe(true);
+
+    const reactivateRes = await app.inject({
+      method: "PATCH",
+      url: `/principals/${pid}`,
+      headers: { cookie: adminCookie },
+      payload: { status: "ACTIVE" },
+    });
+    expect(reactivateRes.statusCode).toBe(409);
+    expect(reactivateRes.json().error).toBe("principal_archived");
+  });
+
+  it("POOL-009：审计写入失败时归档和授权撤销整体回滚", async () => {
+    const principal = await db.insertInto("principal").values({
+      enterprise_id: ENT_ID,
+      type: "EMPLOYEE",
+      name: "原子审计测试",
+    }).returningAll().executeTakeFirstOrThrow();
+    const key = await db.insertInto("principal_key").values({
+      enterprise_id: ENT_ID,
+      principal_id: principal.id,
+      key_prefix: "ql_atomic",
+      key_digest: "atomic-digest",
+      status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+
+    await expect(
+      new PrincipalRepository(db).deactivate(ENT_ID, principal.id, true, {
+        adminUserId: randomUUID(),
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      await db.selectFrom("principal").select(["status", "archived_at"])
+        .where("id", "=", principal.id).executeTakeFirstOrThrow(),
+    ).toMatchObject({ status: "ACTIVE", archived_at: null });
+    expect(
+      await db.selectFrom("principal_key").select("status")
+        .where("id", "=", key.id).executeTakeFirstOrThrow(),
+    ).toMatchObject({ status: "ACTIVE" });
   });
 
   it("操作日志记录所有写操作（审计完整性）", async () => {

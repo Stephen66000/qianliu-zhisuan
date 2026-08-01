@@ -110,6 +110,28 @@ describe("matchPolicy 匹配条件", () => {
     expect(matchPolicy(p, input({ now: offPeak }))).toBe(false);
   });
 
+  it("时间窗左闭右开并精确到秒：14:00:00 命中，18:00:00 不命中", () => {
+    const p = policy({
+      matchTimezone: "Asia/Shanghai",
+      matchStartTime: "14:00:00",
+      matchEndTime: "18:00:00",
+    });
+    expect(matchPolicy(p, input({ now: Date.UTC(2026, 6, 27, 6, 0, 0) }))).toBe(true);
+    expect(matchPolicy(p, input({ now: Date.UTC(2026, 6, 27, 9, 59, 59) }))).toBe(true);
+    expect(matchPolicy(p, input({ now: Date.UTC(2026, 6, 27, 10, 0, 0) }))).toBe(false);
+  });
+
+  it("跨午夜时间窗：23:00:30–02:00:15 正确命中两侧", () => {
+    const p = policy({
+      matchTimezone: "Asia/Shanghai",
+      matchStartTime: "23:00:30",
+      matchEndTime: "02:00:15",
+    });
+    expect(matchPolicy(p, input({ now: Date.UTC(2026, 6, 27, 15, 0, 30) }))).toBe(true);
+    expect(matchPolicy(p, input({ now: Date.UTC(2026, 6, 27, 18, 0, 14) }))).toBe(true);
+    expect(matchPolicy(p, input({ now: Date.UTC(2026, 6, 27, 18, 0, 15) }))).toBe(false);
+  });
+
   it("时间窗：星期限定（仅周一）", () => {
     const p = policy({
       matchTimezone: "Asia/Shanghai",
@@ -216,6 +238,16 @@ describe("decideDispatch 动作判定", () => {
     const d = decideDispatch([allowP, rejectP], input(), new Set([RES_A]));
     expect(d.finalAction).toBe("REJECT");
     expect(d.matchedPolicy?.id).toBe("pol-reject");
+  });
+
+  it("同优先级按策略 ID 稳定决胜，与数据库返回顺序无关", () => {
+    const later = policy({ id: "policy-z", action: "ALLOW", priority: 50 });
+    const earlier = policy({ id: "policy-a", action: "REJECT", priority: 50 });
+    const first = decideDispatch([later, earlier], input(), new Set([RES_A]));
+    const second = decideDispatch([earlier, later], input(), new Set([RES_A]));
+    expect(first.matchedPolicy?.id).toBe("policy-a");
+    expect(second.matchedPolicy?.id).toBe("policy-a");
+    expect(first.finalAction).toBe("REJECT");
   });
 });
 

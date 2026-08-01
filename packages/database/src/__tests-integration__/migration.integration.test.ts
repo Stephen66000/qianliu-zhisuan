@@ -45,6 +45,39 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     }
   });
 
+  it("POOL-007 迁移分离追踪 ID、请求指纹与认证 Key 范围幂等唯一索引", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const columns = await sql`
+        SELECT column_name
+          FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'ai_request'
+           AND column_name IN ('client_request_id', 'request_fingerprint')
+         ORDER BY column_name
+      `.execute(db);
+      expect(columns.rows.map((row) => (row as { column_name: string }).column_name)).toEqual([
+        "client_request_id",
+        "request_fingerprint",
+      ]);
+
+      const index = await sql`
+        SELECT indexdef
+          FROM pg_indexes
+         WHERE schemaname = 'public'
+           AND indexname = 'ai_request_principal_key_idempotency_uq'
+      `.execute(db);
+      expect((index.rows[0] as { indexdef: string }).indexdef).toContain(
+        "(principal_key_id, idempotency_key)",
+      );
+      expect((index.rows[0] as { indexdef: string }).indexdef).toContain(
+        "WHERE (idempotency_key IS NOT NULL)",
+      );
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it("migrateDown 回滚最近迁移", async () => {
     const db = createKysely(pg.connectionString);
     try {

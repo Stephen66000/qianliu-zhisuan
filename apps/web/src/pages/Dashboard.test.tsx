@@ -56,6 +56,14 @@ function seededSummary(): DashboardSummary {
         accountCount: 2,
         totalQuota: "100000",
         usedQuota: "50000",
+        remainingQuota: "50000",
+        quotaUnit: "TOKEN",
+        allocatedQuota: "120000",
+        currency: "CNY",
+        rechargeAmount: null,
+        currentBalance: null,
+        currentPeriodCost: null,
+        snapshotAt: "2026-07-29T12:00:00.000Z",
         monthlyCost: "12.50000000",
         currentRate24h: "2400.5",
         forecastExhaustAt: "2026-07-30T12:00:00.000Z",
@@ -158,7 +166,8 @@ describe("W18 首页看板", () => {
     expect(screen.getAllByText("12.50").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.50").length).toBeGreaterThan(0);
     // 核心区：最早耗尽（字体三级：资源名 15px 600）；资源名同时出现在指标卡与核心区，允许多处
-    expect(screen.getByText("当下关注")).toBeInTheDocument();
+    expect(screen.getByText("需要处理")).toBeInTheDocument();
+    expect(screen.getByText(/正常使用中的主体不会出现在这里/)).toBeInTheDocument();
     expect(screen.getAllByText("智谱 GLM 套餐").length).toBeGreaterThan(0);
     expect(screen.getByText(/预计 .* 耗尽/)).toBeInTheDocument();
     expect(screen.getByText(/可信度中/)).toBeInTheDocument();

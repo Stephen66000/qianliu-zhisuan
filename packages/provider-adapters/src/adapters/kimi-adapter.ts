@@ -3,8 +3,8 @@
  *
  * 依据：TRD §7（Adapter 统一能力）、§7.3（Kimi Coding Plan 模式）。
  * W10 阶段：实现能力声明、模型映射、usage 原始口径解析、错误归一化（TRD §9 分类）、
- * 健康检查骨架。实际 HTTP 调用在 DEP-PROVIDER-CREDENTIALS 解锁后接入；
- * W10 用 upstreamCaller 注入点（测试注入 StubUpstream）。
+ * 健康检查骨架。生产由 OpenAI-compatible Caller 注入真实 HTTP 调用；
+ * 测试通过同一 upstreamCaller 注入脱敏夹具。
  *
  * Coding Plan 计量口径（TRD §7.3 行 488-492）：
  *   - 模式：Coding Plan；一期首用模型 Kimi K3；
@@ -22,16 +22,12 @@ import { ERROR_CLASSIFICATION } from "@qianliu/domain";
 import type { ProviderAdapter, AdapterResource, AdapterRequest } from "../index.js";
 import type { UpstreamCaller } from "./deepseek-adapter.js";
 
-/** Kimi Coding Plan 当前模型映射（alias → upstream model）。资源接入时可在 upstream_models 覆盖。 */
-const KIMI_MODEL_MAP: Record<string, string> = {
-  "qianliu-kimi-k3": "kimi-k3", // Kimi K3（TRD §7.3：一期首用模型）
-};
-
 export class KimiAdapter implements ProviderAdapter {
   readonly providerCode = "kimi" as const;
   readonly capabilities = new Set([
     "chat",
     "messages",
+    "responses",
     "stream",
     "tools",
     "coding_plan", // Coding Plan 模式标识（TRD §7.3）
@@ -46,22 +42,9 @@ export class KimiAdapter implements ProviderAdapter {
     attemptNo: number,
   ): Promise<Outcome> {
     // 鉴权注入：SecretValue 只在调用器内部 reveal（不写日志/Trace）
-    const mappedRequest: AdapterRequest = {
-      ...request,
-      unifiedModel: request.unifiedModel,
-    };
-    // 校验模型映射存在（TRD §7 行 456：模型映射是 Adapter 责任）
-    const upstreamModel = KIMI_MODEL_MAP[request.unifiedModel];
-    if (!upstreamModel) {
-      return {
-        status: 400,
-        committed: false,
-        usage: zeroUsage(),
-        error: "model_not_mapped",
-      };
-    }
-
-    const outcome = await this.caller(resource, mappedRequest, attemptNo);
+    // Web/model_route 允许企业自定义统一别名；resource.upstreamModel 是路由冻结后的
+    // 唯一上游模型事实源，Adapter 不再用内置别名表重复门禁。
+    const outcome = await this.caller(resource, request, attemptNo);
     // 错误归一化由调用方按 outcome.status/error 处理（TRD §9）；此处透传结果
     return outcome;
   }
@@ -98,8 +81,4 @@ export class KimiAdapter implements ProviderAdapter {
       quality: "PROVIDER_REPORTED",
     };
   }
-}
-
-function zeroUsage(): Usage {
-  return { input: 0, output: 0, cache: 0, quality: "UNKNOWN" };
 }

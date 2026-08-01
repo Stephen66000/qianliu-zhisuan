@@ -182,12 +182,15 @@ export {
   BILLING_RULE_TYPE_W13,
   PACKAGE_INCLUDED,
   toZonedTime,
+  configuredTimeWindows,
+  findMatchedTimeWindow,
   matchesTimeWindow,
   matchMultiplierRule,
   matchPriceRule,
   computeDeductedQuota,
   computeApiCostFromRule,
   type BillingRule,
+  type BillingRuleWindow,
   type RuleMatch,
 } from "./billing-rule.js";
 
@@ -240,5 +243,37 @@ export {
   type ReconciliationScan,
   type ReconciliationVerdict,
 } from "./reconciliation.js";
+
+// ===== RA-W01：运行保障冻结枚举与既有六态 Shadow 迁移 =====
+export {
+  RUNTIME_ASSURANCE_MODE,
+  AVAILABILITY_RULE_TYPE,
+  AVAILABILITY_RULE_VERSION_STATUS,
+  AVAILABILITY_ACTION,
+  AVAILABILITY_RECOVERY_METHOD,
+  UNIFIED_AVAILABILITY_SIGNAL,
+  UNIFIED_AVAILABILITY_SIGNAL_LABEL,
+  AVAILABILITY_DECISION,
+  availabilitySignalSummary,
+  planLegacyResourceMigration,
+  scheduleMatches,
+  matchAvailabilityRule,
+  findAvailabilityRuleConflicts,
+  recoverAtForRule,
+  type RuntimeAssuranceMode,
+  type AvailabilityRuleType,
+  type AvailabilityRuleVersionStatus,
+  type AvailabilityAction,
+  type AvailabilityRecoveryMethod,
+  type UnifiedAvailabilitySignal,
+  type AvailabilityDecision,
+  type LegacyResourceStatus,
+  type ConfirmedAvailabilitySource,
+  type LegacyResourceMigrationDisposition,
+  type LegacyResourceMigrationInput,
+  type LegacyResourceMigrationPlan,
+  type AvailabilityRuleSnapshot,
+  type AvailabilityMatchContext,
+} from "./runtime-assurance.js";
 
 export const DOMAIN_VERSION = "0.3.0" as const;

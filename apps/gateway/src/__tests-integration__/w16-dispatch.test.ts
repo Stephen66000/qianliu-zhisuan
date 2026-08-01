@@ -57,6 +57,7 @@ async function buildApp(
     remainingQuotaRatio: number | null;
     forecastExhaustRisk: boolean;
   }>,
+  now?: () => number,
 ): Promise<FastifyInstance> {
   const caller = async (res: unknown, req: unknown, n: number) =>
     stub.invoke(res as never, req as never, n);
@@ -103,6 +104,7 @@ async function buildApp(
       ? async (_entId, _pid, _model, winnerResourceId) =>
           resolveDispatchInput(winnerResourceId)
       : undefined,
+    now,
     maxAttempts: 2,
   });
   const app = buildGateway(db, PEPPER, pipeline);
@@ -122,19 +124,23 @@ beforeAll(async () => {
   await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流测试-W16调度" }).execute();
   await db.insertInto("principal").values({ id: PRINCIPAL_ID, enterprise_id: ENT_ID, type: "EMPLOYEE", name: "测试员工" }).execute();
   validKey = generateApiKey();
-  await db.insertInto("principal_key").values({
+  const keyRowId = (await db.insertInto("principal_key").values({
     enterprise_id: ENT_ID,
     principal_id: PRINCIPAL_ID,
     key_prefix: apiKeyPrefix(validKey),
     key_digest: digestApiKey(validKey, PEPPER),
+    allowed_model_ids: JSON.stringify([]) as unknown as string[],
     status: "ACTIVE",
-  }).execute();
-  await db.insertInto("unified_model").values({
+  }).returning("id").executeTakeFirstOrThrow()).id;
+  const authorizedModel = await db.insertInto("unified_model").values({
     enterprise_id: ENT_ID,
     alias: "qianliu-glm-coding",
     display_name: "仟流 智谱 Coding Plan",
     status: "ACTIVE",
-  }).execute();
+  }).returningAll().executeTakeFirstOrThrow();
+  await db.updateTable("principal_key").set({
+    allowed_model_ids: JSON.stringify([authorizedModel.id]) as unknown as string[],
+  }).where("id", "=", keyRowId).execute();
 
   // 两个等价智谱资源 A/B（A 高优先级，B 低优先级备选）
   const provider = await db.insertInto("provider").values({
@@ -152,7 +158,7 @@ beforeAll(async () => {
   resB = b.id;
   await db.insertInto("model_route").values({
     enterprise_id: ENT_ID,
-    unified_model_id: (await db.selectFrom("unified_model").select("id").executeTakeFirstOrThrow()).id,
+    unified_model_id: authorizedModel.id,
     provider_resource_id: resA,
     upstream_model: "glm-5.2",
     priority: 100,
@@ -160,7 +166,7 @@ beforeAll(async () => {
   }).execute();
   await db.insertInto("model_route").values({
     enterprise_id: ENT_ID,
-    unified_model_id: (await db.selectFrom("unified_model").select("id").executeTakeFirstOrThrow()).id,
+    unified_model_id: authorizedModel.id,
     provider_resource_id: resB,
     upstream_model: "glm-5.2",
     priority: 200, // B 低优先级（数值大）
@@ -169,7 +175,7 @@ beforeAll(async () => {
 
   // W14：CODING_PLAN 模式额度门禁需要 principal_grant + quota_counter（F-01 接入后必填）。
   // 两智谱资源同 provider(zhipu)/alias(qianliu-glm-coding)，共享一个 grant；quota_value 充足覆盖多用例。
-  // deepseek API 模式不触发门禁（无 deducted_quota），无需 grant。
+  // API 与 CODING_PLAN 都要求模型 grant；只有 CODING_PLAN 会预占/扣减 quota_counter。
   const grant = await db.insertInto("principal_grant").values({
     enterprise_id: ENT_ID,
     principal_id: PRINCIPAL_ID,
@@ -181,12 +187,18 @@ beforeAll(async () => {
   await db.insertInto("quota_counter").values({ grant_id: grant.id }).execute();
 
   // 另一组 deepseek API 资源对（用于 WT-17 可计算节省：API 模式有 api_cost）
-  await db.insertInto("unified_model").values({
+  const deepseekModel = await db.insertInto("unified_model").values({
     enterprise_id: ENT_ID,
     alias: "qianliu-deepseek",
     display_name: "仟流 DeepSeek",
     status: "ACTIVE",
-  }).execute();
+  }).returningAll().executeTakeFirstOrThrow();
+  await db.updateTable("principal_key").set({
+    allowed_model_ids: JSON.stringify([
+      authorizedModel.id,
+      deepseekModel.id,
+    ]) as unknown as string[],
+  }).where("id", "=", keyRowId).execute();
   const dsProvider = await db.insertInto("provider").values({
     enterprise_id: ENT_ID, code: "deepseek", name: "DeepSeek", adapter_type: "deepseek",
   }).returningAll().executeTakeFirstOrThrow();
@@ -202,15 +214,22 @@ beforeAll(async () => {
   resDsB = dsB.id;
   await db.insertInto("model_route").values({
     enterprise_id: ENT_ID,
-    unified_model_id: (await db.selectFrom("unified_model").where("alias", "=", "qianliu-deepseek").select("id").executeTakeFirstOrThrow()).id,
+    unified_model_id: deepseekModel.id,
     provider_resource_id: resDsA,
     upstream_model: "deepseek-chat",
     priority: 100,
     weight: 1,
   }).execute();
+  await db.insertInto("principal_grant").values({
+    enterprise_id: ENT_ID,
+    principal_id: PRINCIPAL_ID,
+    provider: "deepseek",
+    model_alias: "qianliu-deepseek",
+    quota_value: 10_000_000n,
+  }).execute();
   await db.insertInto("model_route").values({
     enterprise_id: ENT_ID,
-    unified_model_id: (await db.selectFrom("unified_model").where("alias", "=", "qianliu-deepseek").select("id").executeTakeFirstOrThrow()).id,
+    unified_model_id: deepseekModel.id,
     provider_resource_id: resDsB,
     upstream_model: "deepseek-chat",
     priority: 200,
@@ -224,6 +243,94 @@ afterAll(async () => {
 }, 60_000);
 
 describe("W16 经营调度", () => {
+  it("智谱 14:00–18:00 REJECT 边界：峰内不访问上游、不扣额度，18:00 恢复", async () => {
+    const policyId = await dispatchRepo.createPolicy({
+      enterpriseId: ENT_ID,
+      status: "PUBLISHED",
+      matchUnifiedModel: "qianliu-glm-coding",
+      matchResourceMode: "CODING_PLAN",
+      matchProviderResourceId: null,
+      matchTimezone: "Asia/Shanghai",
+      matchDaysOfWeek: [1, 2, 3, 4, 5, 6, 7],
+      matchStartTime: "14:00:00",
+      matchEndTime: "18:00:00",
+      matchPriceMultiplierMin: null,
+      matchRemainingQuotaRatioMax: null,
+      matchForecastExhaustRisk: null,
+      matchPrincipalScope: null,
+      action: "REJECT",
+      switchEquivalentGroup: null,
+      rateLimitPerMinute: null,
+      policyVersion: "zhipu-peak-reject-v1",
+      priority: 1,
+    });
+    stub = new StubUpstream({
+      default: { kind: "SUCCESS", usage: { input: 100, output: 50, cache: 0 } },
+      providerCode: "zhipu",
+    });
+    let now = Date.parse("2026-07-30T05:59:59.000Z");
+    const app = await buildApp(
+      async () => ({
+        priceMultiplier: "1",
+        remainingQuotaRatio: 0.9,
+        forecastExhaustRisk: false,
+      }),
+      () => now,
+    );
+    const send = () => app.inject({
+      method: "POST",
+      url: "/v1/chat/completions",
+      headers: authHeader(),
+      payload: {
+        model: "qianliu-glm-coding",
+        messages: [{ role: "user", content: "boundary" }],
+      },
+    });
+
+    expect((await send()).statusCode).toBe(200);
+    expect(stub.calls).toHaveLength(1);
+    const quotaBeforePeak = await db
+      .selectFrom("quota_counter")
+      .select("used_value")
+      .executeTakeFirstOrThrow();
+
+    now = Date.parse("2026-07-30T06:00:00.000Z");
+    const atStart = await send();
+    expect(atStart.statusCode).toBe(403);
+    expect(atStart.json().error.code).toBe("dispatch_rejected");
+    expect(stub.calls).toHaveLength(1);
+
+    now = Date.parse("2026-07-30T09:59:59.000Z");
+    expect((await send()).statusCode).toBe(403);
+    expect(stub.calls).toHaveLength(1);
+    const quotaAfterPeak = await db
+      .selectFrom("quota_counter")
+      .select("used_value")
+      .executeTakeFirstOrThrow();
+    expect(quotaAfterPeak.used_value).toBe(quotaBeforePeak.used_value);
+
+    const decision = await dispatchRepo.getDecision(atStart.headers["x-request-id"]);
+    expect(decision).toEqual(expect.objectContaining({
+      matched_policy_id: policyId,
+      matched_policy_version: "zhipu-peak-reject-v1",
+      final_action: "REJECT",
+      reason_code: "REJECTED",
+    }));
+    expect(decision!.dispatch_input).toEqual(expect.objectContaining({
+      matchedTimezone: "Asia/Shanghai",
+      matchedStartTime: "14:00:00",
+      matchedEndTime: "18:00:00",
+    }));
+
+    now = Date.parse("2026-07-30T10:00:00.000Z");
+    expect((await send()).statusCode).toBe(200);
+    expect(stub.calls).toHaveLength(2);
+    expect(
+      await dispatchRepo.transitionStatus(ENT_ID, policyId, "PUBLISHED", "RETIRED"),
+    ).toBe(true);
+    await app.close();
+  });
+
   it("WT-16：高峰时段命中 SWITCH 策略 → 在等价资源组内切换（dispatch_decision 可解释）", async () => {
     // 发布高峰 SWITCH 策略：A → 等价组 [A,B] 内切换
     await dispatchRepo.createPolicy({

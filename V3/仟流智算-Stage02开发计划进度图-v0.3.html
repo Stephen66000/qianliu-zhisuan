@@ -31,7 +31,7 @@
   <section class="hero">
     <div class="eyebrow">仟流 AI 开发 SOP v1.0 · 产品 v0.3</div>
     <h1>Stage 02 · 详细开发计划与排期</h1>
-    <p>Stage 01／02 已完成审核、整改与 Owner 放行；Stage 03 开发执行中，M1～M5 已双审 SEALED（M5 桌面 Web 独立重审 READY），现进入 M6。</p>
+    <p>Stage 01／02 已完成审核、整改与 Owner 放行；Stage 03 M1～M7 已收口，POOL-009～012 二次调整和 0029 已发布到 Mac Mini，当前等待生产页面只读确认与业务验收。</p>
     <div class="stages">
       <div class="stage"><b>01 · 方案准备</b><small>DONE · Owner 最终放行</small></div>
       <div class="stage"><b>02 · 开发计划</b><small id="stage02-status">OWNER_APPROVED</small></div>
@@ -43,7 +43,7 @@
     <div class="card"><div class="label">Stage 02 检查项关闭度</div><div class="value warn" id="planProgress">95.6%</div><div class="progress"><i id="planProgressBar" style="width:95.6%"></i></div></div>
     <div class="card"><div class="label">Stage 03 开发进度</div><div class="value blue" id="devProgress">0%</div><div class="progress"><i id="devProgressBar" style="width:0"></i></div></div>
     <div class="card"><div class="label">纵向里程碑／工作包</div><div class="value" id="wpCounter">8 / 29</div><div class="label">M1～M8 · W01～W29</div></div>
-    <div class="card"><div class="label">AI 开发候选</div><div class="value">已过 D5</div><div class="label">M1～M5 SEALED · 进入 M6</div></div>
+    <div class="card"><div class="label">当前发布候选</div><div class="value">M7 已收口</div><div class="label">Mac Mini 已至 0029 · 待业务验收</div></div>
   </section>
 
   <section class="panel">
@@ -62,7 +62,7 @@
 
   <section class="panel">
     <h2>工作包排期</h2>
-    <p class="note">单一主线，同一时间只允许一个工作包 `in_progress`。工作包状态由 YAML <code>handoff.current_work_package</code> 推导（之前 DONE、当前 IN_PROGRESS、之后 NOT_DUE）。凭证、Windows、域名分别只阻塞对应工作包。</p>
+    <p class="note">单一主线，工作包状态由 YAML <code>handoff.current_milestone</code> 推导；M1～M7 已收口，M8 外部试点、完整自然月与业务收口仍属真实业务周期。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>ID</th><th>里程碑</th><th>时间盒／门禁</th><th>结果</th><th>风险</th><th>当前状态</th></tr></thead>
@@ -73,7 +73,7 @@
 
   <section class="panel">
     <h2>Stage 02 六组检查</h2>
-    <p class="note">42 项 DONE，1 项 N/A，2 项等待 Owner 决定；关闭度 43／45（95.6%）。</p>
+    <p class="note">44 项 DONE，1 项 N/A；Owner 已放行，Stage 02 检查项关闭度 45／45（100%）。</p>
     <div class="groups" id="groups"></div>
   </section>
 
@@ -93,11 +93,11 @@
 <script type="application/json" id="stage02-state-snapshot">
 {
   "source": "V3/仟流智算-stage-state-v0.3.yaml",
-  "sourceSha256": "e0ab94adade3b85993f73095bf8bb5517c6b111f2583fa99111b299a3a4903b0",
+  "sourceSha256": "67e2b9e59eb22d588105bbb6ac80d173fcebdc10312b2914f84d522b9cd9763f",
   "projectName": "仟流智算",
   "productVersion": "v0.3",
   "planVersion": "v0.3.1",
-  "updatedAt": "2026-07-29T01:00:00+08:00",
+  "updatedAt": "2026-08-01T09:22:50+08:00",
   "stage01": {
     "id": "STAGE-01",
     "name": "方案准备",
@@ -123,13 +123,13 @@
     "candidateLock": "V3/仟流智算-Stage02整改候选锁-v0.3.3.sha256"
   },
   "nextAction": {
-    "id": "STAGE03-M7-W24L1-DONE-WAIT-DEPLOY",
-    "text": "M7 W24 第一层（最小可部署）完成并沙箱实跑验证：4 服务 Dockerfile（tsx 方案，架构无关）+ compose 占位换真实 + migrate 自动 service + Caddy 反代 + trustProxy + .env 补 COOKIE_SECRET。docker compose up 全栈启动成功（postgres/redis/migrate/control-api/gateway/web/caddy 全 Up，health ok，迁移 20 个全跑完）。Secret 校验生效（KEK 非 32 字节即拒）。下一步：(1) 佳哥在 Mac Mini 上用部署指南实跑，提供真实 Provider 凭证 + 网络拓扑，切换 StubUpstream→真实 Adapter；(2) 同事用 WorkBuddy 连测，闭合 M6 真实员工门禁；(3) 第二层 W24/W25 完整 DoD（最小权限/出站白名单/Secret 链路/TLS 正式/监控/备份恢复 RPO-RTO/故障手册/worker 调度器）。",
-    "owner": "佳哥（M7 第一层完成，待 Mac Mini 实跑 + 凭证 + 第二层 DoD）",
-    "evidence_target": "V3/Evidence/M7/M7-部署指南-MacMini-20260729.md"
+    "id": "STAGE03-POOL009-012-0029-DEPLOYED-AWAIT-UI-BUSINESS",
+    "text": "POOL-009～012 二次调整已完成并部署到 Mac Mini：归档主体不再进入首页需要处理列表，正常未超额主体不显示；套餐只需录入总额度、套餐、币种、有效期与重置规则，已用/剩余/下次重置由系统按账本计算。发布来自 e1006dc 集成基线工作树发布包，未从 main 或 2e63 部署；生产库已升级到 0029，备份恢复、迁移回滚/重升、Node 22 全量门禁、Chromium 21/21 与公网健康检查通过。下一步：管理员重新登录生产 Chrome 完成页面只读确认，再由业务确认真实套餐数字；生产规模账本压测与 Worker 定时调度仍单独验证。",
+    "owner": "佳哥（待重新登录生产页面只读确认，再做业务验收）",
+    "evidence_target": "V3/Evidence/POOL-009-012-20260731.md"
   },
   "currentMilestone": "M7",
-  "currentWorkPackage": "M7-W24第一层完成-最小可部署验证通过",
+  "currentWorkPackage": "POOL-009～012二次调整已发布-0029自动额度-待生产页面只读确认与业务验收",
   "allowedActions": [
     "进入 Stage 03 并从 W01 开始执行产品编码",
     "主 AI 按 PRD/TRD/工程规则/Gateway ADR/详细计划执行 W01～W29",
@@ -137,7 +137,12 @@
     "离线 Adapter 契约与故障夹具可在无真实凭证下开发",
     "执行 M1～M7 中间 Audit 与最终 Audit，结果落入 Evidence",
     "由主 AI 验证 Stage 01／02 封板锁",
-    "若 Owner 退回，只针对明确问题做 Planning 精准修正并重新锁定"
+    "若 Owner 退回，只针对明确问题做 Planning 精准修正并重新锁定",
+    "在 qianliu-pool007012-test 独立环境继续 POOL-009～012 业务验收",
+    "在 Mac Mini 公网环境对 POOL-009～012 做业务确认",
+    "管理员重新登录后对 0029 额度表单与首页过滤做生产只读确认",
+    "使用业务侧提供的测试接口/脱敏账单样本验证余额同步与对账，不使用生产流量",
+    "在生产等量级脱敏数据上复核 POOL-012 查询性能"
   ],
   "forbiddenActions": [
     "把审核 AI 的 NOT_READY 建议改写成 READY 或其他三态值",
@@ -149,7 +154,9 @@
     "把 DEP-WINDOWS 未达成伪装成 W22 真机证据或 M6 最终签字",
     "把 DEP-DEPLOYMENT 未达成伪装成 W24 部署证据或 M7 发布",
     "把无 Windows 真机、无真实凭证、无正式域名伪装成 AI 编程工时阻塞",
-    "使用真实生产流量或真实扣费"
+    "使用真实生产流量或真实扣费",
+    "从 main 或 2e63 部署 POOL-009～012",
+    "未经业务确认擅自回填或修改生产 Kimi/智谱套餐总额度、有效期和重置规则"
   ],
   "blockers": [
 
@@ -235,7 +242,8 @@ document.getElementById("stage03-status").textContent=STATE_SNAPSHOT.currentWork
   ? `${STATE_SNAPSHOT.currentMilestone} 已 SEALED · ${STATE_SNAPSHOT.currentWorkPackage} · 开发进度 ${devPercent}%`
   : `${STATE_SNAPSHOT.currentMilestone} · 开发进度 ${devPercent}%`;
 
-const checkStatus=x=>x.includes("N/A")?"not_applicable":x.startsWith("DP-43")||x.startsWith("DP-44")?"verifying":"done";
+const stage02Closed=STATE_SNAPSHOT.stage02.status==="OWNER_APPROVED"&&STATE_SNAPSHOT.stage02.reviewStatus==="AUDIT_COMPLETE";
+const checkStatus=x=>x.includes("N/A")?"not_applicable":x.startsWith("DP-43")||x.startsWith("DP-44")?(stage02Closed?"done":"verifying"):"done";
 const groupStatus=g=>g[1].every(x=>["done","not_applicable"].includes(checkStatus(x)))?"done":"verifying";
 const allChecks=STAGE_DATA.groups.flatMap(g=>g[1]);
 const closedChecks=allChecks.filter(x=>["done","not_applicable"].includes(checkStatus(x))).length;

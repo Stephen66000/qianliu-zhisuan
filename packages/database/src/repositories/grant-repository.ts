@@ -6,6 +6,7 @@
  */
 import type { Kysely, Selectable } from "kysely";
 import type { Database, PrincipalGrantTable } from "../kysely.js";
+import { PrincipalNotActiveError } from "./principal-repository.js";
 
 export type PrincipalGrant = Selectable<PrincipalGrantTable>;
 
@@ -24,6 +25,16 @@ export class GrantRepository {
 
   async create(input: CreateGrantInput): Promise<PrincipalGrant> {
     return this.db.transaction().execute(async (trx) => {
+      const principal = await trx
+        .selectFrom("principal")
+        .select("id")
+        .where("enterprise_id", "=", input.enterprise_id)
+        .where("id", "=", input.principal_id)
+        .where("status", "=", "ACTIVE")
+        .where("archived_at", "is", null)
+        .forKeyShare()
+        .executeTakeFirst();
+      if (!principal) throw new PrincipalNotActiveError();
       const grant = await trx
         .insertInto("principal_grant")
         .values({

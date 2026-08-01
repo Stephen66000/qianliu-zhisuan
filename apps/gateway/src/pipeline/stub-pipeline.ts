@@ -7,6 +7,7 @@
  * 注意：此 stub 不接入上游、不写账本；仅用于 W05 契约冻结验证。
  */
 import type { PipelineHandler } from "../routes/chat.js";
+import { buildResponsesResponse, writeResponsesSse } from "../routes/responses-protocol.js";
 
 export const stubPipeline: PipelineHandler = async ({ request, reply, body, capability }) => {
   const requestId = request.requestId;
@@ -15,6 +16,26 @@ export const stubPipeline: PipelineHandler = async ({ request, reply, body, capa
   // 固定 usage（W05 stub；W07 来自真实 Attempt）
   const promptTokens = 11;
   const completionTokens = 7;
+
+  if (capability === "responses") {
+    const responsesRequest = body.responsesRequest!;
+    const response = buildResponsesResponse({
+      requestId,
+      createdAt: created,
+      model: body.model,
+      request: responsesRequest,
+      inputTokens: promptTokens,
+      outputTokens: completionTokens,
+      cacheTokens: 2,
+      reasoningTokens: 3,
+      output: responsesStubOutput(responsesRequest, requestId),
+    });
+    if (body.stream) {
+      writeResponsesSse(reply, response, requestId);
+      return;
+    }
+    return reply.header("x-request-id", requestId).code(200).send(response);
+  }
 
   if (body.stream) {
     // SSE 流式（OpenAI chat.completion.chunk）
@@ -95,3 +116,24 @@ export const stubPipeline: PipelineHandler = async ({ request, reply, body, capa
       },
     });
 };
+
+function responsesStubOutput(
+  request: NonNullable<Parameters<PipelineHandler>[0]["body"]["responsesRequest"]>,
+  requestId: string,
+): unknown[] | undefined {
+  const input = Array.isArray(request.input) ? request.input : [];
+  const hasToolOutput = input.some((item) => item.type === "function_call_output");
+  const tool = request.tools?.find((candidate) => candidate.type === "function");
+  if (!tool || hasToolOutput) return undefined;
+  const name = typeof tool.name === "string" ? tool.name : "tool";
+  return [{
+    id: `fc_${requestId}`,
+    type: "function_call",
+    status: "completed",
+    call_id: `call_${requestId}`,
+    name,
+    arguments: name === "exec_command"
+      ? JSON.stringify({ cmd: "printf 'Codex gateway tool call OK\\n'" })
+      : "{}",
+  }];
+}

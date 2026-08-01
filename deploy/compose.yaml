@@ -112,7 +112,15 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
       REDIS_URL: redis://redis:6379
+      WORKER_HEALTH_PORT: 9191
+      RUNTIME_ASSURANCE_INTERVAL_MS: 30000
       NODE_ENV: production
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9191/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy

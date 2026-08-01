@@ -4,14 +4,14 @@
  * PRD §6：创建四步一期只落第一步（建主体）；Key/grant 在详情展开。
  * 停用 = PATCH status=DISABLED（后端级联撤销全部 Key，TRD §5.3），破坏性 → 二次确认。
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Plus, Settings2, Users } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { post, patch } from "../api/client";
+import { del, get, post, patch } from "../api/client";
 import {
   QUERY_KEYS,
   useGrants,
@@ -19,7 +19,11 @@ import {
   usePrincipals,
   useUnifiedModels,
 } from "../api/hooks";
-import type { Principal, PrincipalGrantItem } from "../api/types";
+import type {
+  Principal,
+  PrincipalCleanupPreview,
+  PrincipalGrantItem,
+} from "../api/types";
 import { PageShell } from "../components/layout/PageShell";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { QueryGate } from "../components/states/QueryGate";
@@ -50,13 +54,21 @@ const TYPE_LABEL: Record<Principal["type"], string> = {
 };
 
 export function PrincipalsPage() {
-  const query = usePrincipals();
+  const [archivedFilter, setArchivedFilter] = useState<"exclude" | "only">("exclude");
+  const query = usePrincipals(archivedFilter);
   useRedirectOnUnauthorized(query.error);
   const queryClient = useQueryClient();
 
   const [showCreate, setShowCreate] = useState(false);
   const [disableTarget, setDisableTarget] = useState<Principal | null>(null);
   const [selected, setSelected] = useState<Principal | null>(null);
+  const [editTarget, setEditTarget] = useState<Principal | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDepartment, setEditDepartment] = useState("");
+  const [cleanupTarget, setCleanupTarget] = useState<{
+    principal: Principal;
+    preview: PrincipalCleanupPreview;
+  } | null>(null);
 
   const createMutation = useMutation({
     mutationFn: (values: CreatePrincipalValues) =>
@@ -64,7 +76,7 @@ export function PrincipalsPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
       setShowCreate(false);
-      reset();
+      resetCreate();
     },
   });
 
@@ -77,10 +89,56 @@ export function PrincipalsPage() {
     },
   });
 
+  const reactivateMutation = useMutation({
+    mutationFn: (target: Principal) =>
+      patch<{ principal: Principal }>(`/principals/${target.id}`, { status: "ACTIVE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: (target: Principal) =>
+      patch<{ principal: Principal }>(`/principals/${target.id}`, {
+        name: editName.trim(),
+        department_label: editDepartment.trim() || null,
+      }),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+      setSelected((current) => (current?.id === result.principal.id ? result.principal : current));
+      setEditTarget(null);
+    },
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: (target: Principal) =>
+      get<{ preview: PrincipalCleanupPreview }>(
+        `/principals/${target.id}/cleanup-preview`,
+      ),
+    onSuccess: (result, target) => {
+      setCleanupTarget({ principal: target, preview: result.preview });
+    },
+  });
+
+  const cleanupMutation = useMutation({
+    mutationFn: (target: {
+      principal: Principal;
+      preview: PrincipalCleanupPreview;
+    }) =>
+      target.preview.canDelete
+        ? del(`/principals/${target.principal.id}`)
+        : post(`/principals/${target.principal.id}/archive`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+      setSelected(null);
+      setCleanupTarget(null);
+    },
+  });
+
   const {
     register,
     handleSubmit,
-    reset,
+    reset: resetCreate,
     formState: { errors },
   } = useForm<CreatePrincipalValues, unknown, CreatePrincipalValues>({
     resolver: zodResolver(CreatePrincipalSchema),
@@ -94,7 +152,20 @@ export function PrincipalsPage() {
       description="员工与项目的统一主体管理；停用主体将同步撤销其全部 Key"
       title="使用主体"
     >
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <label className="flex items-center gap-2 text-[13px] text-ql-fg-secondary">
+          显示范围
+          <select
+            className={`${INPUT_CLASS} h-9 w-auto`}
+            onChange={(event) =>
+              setArchivedFilter(event.target.value as "exclude" | "only")
+            }
+            value={archivedFilter}
+          >
+            <option value="exclude">在用与已停用</option>
+            <option value="only">已归档</option>
+          </select>
+        </label>
         <button
           className="flex h-9 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[14px] font-medium text-white hover:bg-ql-action-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
           onClick={() => setShowCreate((v) => !v)}
@@ -148,7 +219,7 @@ export function PrincipalsPage() {
               className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[14px] font-medium text-ql-fg hover:border-ql-border-strong"
               onClick={() => {
                 setShowCreate(false);
-                reset();
+                resetCreate();
               }}
               type="button"
             >
@@ -198,7 +269,11 @@ export function PrincipalsPage() {
                   <td className="py-2.5 pr-4 text-ql-fg-secondary">{p.department_label ?? "—"}</td>
                   <td className="py-2.5 pr-4">
                     <StatusTag tone={p.status === "DISABLED" ? "danger" : "neutral"}>
-                      {p.status === "DISABLED" ? "已停用" : "启用中"}
+                      {p.archived_at
+                        ? "已归档"
+                        : p.status === "DISABLED"
+                          ? "已停用"
+                          : "启用中"}
                     </StatusTag>
                   </td>
                   <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
@@ -213,13 +288,46 @@ export function PrincipalsPage() {
                       >
                         {selected?.id === p.id ? "收起配置" : "接入配置"}
                       </button>
-                      {p.status !== "DISABLED" ? (
+                      {!p.archived_at ? (
+                        <button
+                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                          onClick={() => {
+                            setEditTarget(p);
+                            setEditName(p.name);
+                            setEditDepartment(p.department_label ?? "");
+                          }}
+                          type="button"
+                        >
+                          编辑
+                        </button>
+                      ) : null}
+                      {!p.archived_at && p.status !== "DISABLED" ? (
                         <button
                           className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-danger"
                           onClick={() => setDisableTarget(p)}
                           type="button"
                         >
                           停用
+                        </button>
+                      ) : null}
+                      {!p.archived_at && p.status === "DISABLED" ? (
+                        <button
+                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                          disabled={reactivateMutation.isPending}
+                          onClick={() => reactivateMutation.mutate(p)}
+                          type="button"
+                        >
+                          重新启用
+                        </button>
+                      ) : null}
+                      {!p.archived_at ? (
+                        <button
+                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
+                          disabled={previewMutation.isPending}
+                          onClick={() => previewMutation.mutate(p)}
+                          type="button"
+                        >
+                          清理
                         </button>
                       ) : null}
                     </div>
@@ -231,7 +339,7 @@ export function PrincipalsPage() {
         </div>
       </QueryGate>
 
-      {selected ? <PrincipalAccessPanel principal={selected} /> : null}
+      {selected ? <PrincipalAccessPanel key={selected.id} principal={selected} /> : null}
 
       <ConfirmDialog
         danger
@@ -243,6 +351,54 @@ export function PrincipalsPage() {
         open={disableTarget !== null}
         title="停用主体"
       />
+      <ConfirmDialog
+        confirmLabel="保存修改"
+        impact="主体类型创建后不可修改；名称变更会同步用于列表、接入配置和后续账本展示。"
+        loading={editMutation.isPending}
+        onCancel={() => setEditTarget(null)}
+        onConfirm={() => {
+          if (editTarget && editName.trim()) editMutation.mutate(editTarget);
+        }}
+        open={editTarget !== null}
+        title="编辑主体"
+      >
+        <div className="grid gap-3">
+          <FormField htmlFor="principal-edit-name" label="名称">
+            <input
+              className={INPUT_CLASS}
+              id="principal-edit-name"
+              maxLength={255}
+              onChange={(event) => setEditName(event.target.value)}
+              value={editName}
+            />
+          </FormField>
+          <FormField htmlFor="principal-edit-department" label="部门/标签（可选）">
+            <input
+              className={INPUT_CLASS}
+              id="principal-edit-department"
+              maxLength={255}
+              onChange={(event) => setEditDepartment(event.target.value)}
+              value={editDepartment}
+            />
+          </FormField>
+        </div>
+      </ConfirmDialog>
+      <ConfirmDialog
+        danger
+        confirmLabel={cleanupTarget?.preview.canDelete ? "确认删除" : "确认归档"}
+        impact={
+          cleanupTarget
+            ? cleanupTarget.preview.canDelete
+              ? `「${cleanupTarget.principal.name}」没有请求、Usage 或账本历史，将删除主体及 ${cleanupTarget.preview.keyCount} 把 Key、${cleanupTarget.preview.grantCount} 条 Grant。`
+              : `「${cleanupTarget.principal.name}」已有 ${cleanupTarget.preview.requestCount} 条请求、${cleanupTarget.preview.usageCount} 条 Usage、${cleanupTarget.preview.ledgerCount} 条账本记录，只会停用并归档；将撤销 ${cleanupTarget.preview.activeKeyCount} 把有效 Key、${cleanupTarget.preview.activeGrantCount} 条有效 Grant，历史数据继续保留。`
+            : ""
+        }
+        loading={cleanupMutation.isPending}
+        onCancel={() => setCleanupTarget(null)}
+        onConfirm={() => cleanupTarget && cleanupMutation.mutate(cleanupTarget)}
+        open={cleanupTarget !== null}
+        title={cleanupTarget?.preview.canDelete ? "删除主体" : "归档主体"}
+      />
     </PageShell>
   );
 }
@@ -253,10 +409,31 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
   const grantsQuery = useGrants(principal.id);
   const modelsQuery = useUnifiedModels();
   const [plaintextKey, setPlaintextKey] = useState<string | null>(null);
+  const [keyDialogOpen, setKeyDialogOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
   const [resetConfirm, setResetConfirm] = useState(false);
+  const [modelSelection, setModelSelection] = useState<string[] | null>(null);
   const [quotaTarget, setQuotaTarget] = useState<PrincipalGrantItem | null>(null);
   const [quotaValue, setQuotaValue] = useState("");
   const [disableGrantTarget, setDisableGrantTarget] = useState<PrincipalGrantItem | null>(null);
+  const currentPrincipalIdRef = useRef(principal.id);
+  const mountedRef = useRef(true);
+  currentPrincipalIdRef.current = principal.id;
+
+  useEffect(() => {
+    setModelSelection(null);
+    setPlaintextKey(null);
+    setKeyDialogOpen(false);
+    setCopyStatus("idle");
+    setResetConfirm(false);
+  }, [principal.id]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const {
     register,
@@ -273,26 +450,61 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
     },
   });
 
-  const refreshKeys = () =>
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principalKeys(principal.id) });
+  const refreshKeys = (principalId = principal.id) =>
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principalKeys(principalId) });
   const refreshGrants = () =>
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.grants(principal.id) });
 
   const createKey = useMutation({
     mutationFn: async () => {
-      const result = await post<{ key: string }>(`/principals/${principal.id}/key`);
-      setPlaintextKey(result.key);
+      const requestedPrincipalId = principal.id;
+      const result = await post<{ key: string }>(`/principals/${requestedPrincipalId}/key`, {
+        allowed_model_ids: selectedModelIds,
+      });
+      return { requestedPrincipalId, key: result.key };
     },
-    onSuccess: () => void refreshKeys(),
+    onSuccess: (result) => {
+      void refreshKeys(result.requestedPrincipalId);
+      if (
+        mountedRef.current &&
+        currentPrincipalIdRef.current === result.requestedPrincipalId
+      ) {
+        setPlaintextKey(result.key);
+        setKeyDialogOpen(true);
+        setCopyStatus("idle");
+      }
+    },
   });
 
   const resetKey = useMutation({
     mutationFn: async () => {
-      const result = await post<{ key: string }>(`/principals/${principal.id}/key/reset`);
-      setPlaintextKey(result.key);
+      const requestedPrincipalId = principal.id;
+      const result = await post<{ key: string }>(
+        `/principals/${requestedPrincipalId}/key/reset`,
+      );
+      return { requestedPrincipalId, key: result.key };
     },
+    onSuccess: (result) => {
+      void refreshKeys(result.requestedPrincipalId);
+      if (
+        mountedRef.current &&
+        currentPrincipalIdRef.current === result.requestedPrincipalId
+      ) {
+        setPlaintextKey(result.key);
+        setKeyDialogOpen(true);
+        setCopyStatus("idle");
+        setResetConfirm(false);
+      }
+    },
+  });
+
+  const updateKeyModels = useMutation({
+    mutationFn: () =>
+      patch(`/principals/${principal.id}/key`, {
+        allowed_model_ids: selectedModelIds,
+      }),
     onSuccess: () => {
-      setResetConfirm(false);
+      setModelSelection(null);
       void refreshKeys();
     },
   });
@@ -324,10 +536,44 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
 
   const activeKey = (keysQuery.data?.keys ?? []).find((key) => key.status === "ACTIVE");
   const models = (modelsQuery.data?.models ?? []).filter((model) => model.status === "ACTIVE");
+  const selectedModelIds =
+    modelSelection ??
+    (activeKey
+      ? activeKey.allowed_model_ids ?? []
+      : []);
   const grants = grantsQuery.data?.grants ?? [];
   const gatewayBaseUrl =
     (import.meta.env.VITE_GATEWAY_BASE_URL as string | undefined) ??
-    "http://127.0.0.1:8787/v1";
+    (import.meta.env.PROD
+      ? "https://gw.qianliuai.com/v1"
+      : "http://127.0.0.1:8787/v1");
+  const allowedModelIds = activeKey?.allowed_model_ids ?? selectedModelIds;
+  const now = Date.now();
+  const authorizedAliases = models
+    .filter((model) => allowedModelIds.includes(model.id))
+    .filter((model) =>
+      grants.some((grant) =>
+        grant.status === "ACTIVE"
+        && grant.model_alias === model.alias
+        && (!grant.valid_until || new Date(grant.valid_until).getTime() > now)
+      )
+    )
+    .map((model) => model.alias);
+  const copyConnectionInfo = async () => {
+    if (!plaintextKey) return;
+    const content = [
+      `Gateway Base URL: ${gatewayBaseUrl}`,
+      `API Key: ${plaintextKey}`,
+      `Models: ${authorizedAliases.join(", ") || "暂无已授权且有效额度的模型"}`,
+      "Protocol: OpenAI-compatible (/v1/chat/completions, /v1/responses)",
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopyStatus("success");
+    } catch {
+      setCopyStatus("error");
+    }
+  };
 
   return (
     <section className="mt-5 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
@@ -349,22 +595,63 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
           {keysQuery.isLoading ? (
             <p className="mt-2 text-[13px] text-ql-fg-tertiary">正在读取 Key 元数据…</p>
           ) : activeKey ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <code className="rounded bg-ql-surface-muted px-2 py-1 text-[12px]">
-                {activeKey.key_prefix}••••••••
-              </code>
-              <StatusTag tone="neutral">有效</StatusTag>
-              <button
-                className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-warning hover:bg-ql-warning-soft"
-                onClick={() => setResetConfirm(true)}
-                type="button"
-              >
-                重置 Key
-              </button>
+            <div className="mt-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="rounded bg-ql-surface-muted px-2 py-1 text-[12px]">
+                  {activeKey.key_prefix}••••••••
+                </code>
+                <StatusTag tone="neutral">有效</StatusTag>
+                <button
+                  className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-warning hover:bg-ql-warning-soft"
+                  onClick={() => setResetConfirm(true)}
+                  type="button"
+                >
+                  重置 Key
+                </button>
+              </div>
             </div>
+          ) : null}
+
+          <fieldset className="mt-3 rounded-lg border border-ql-border-zone p-3">
+            <legend className="px-1 text-[12px] font-medium text-ql-fg">Key 模型权限</legend>
+            {models.length > 0 ? (
+              <div className="space-y-2">
+                {models.map((model) => (
+                  <label className="flex items-center gap-2 text-[12px] text-ql-fg" key={model.id}>
+                    <input
+                      checked={selectedModelIds.includes(model.id)}
+                      onChange={(event) => {
+                        const next = event.target.checked
+                          ? [...selectedModelIds, model.id]
+                          : selectedModelIds.filter((id) => id !== model.id);
+                        setModelSelection(next);
+                      }}
+                      type="checkbox"
+                    />
+                    {model.display_name}（{model.alias}）
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[12px] text-ql-fg-tertiary">暂无可授权的 ACTIVE 模型</p>
+            )}
+            <p className="mt-2 text-[11px] text-ql-fg-tertiary">
+              未选择时 Key 不可调用任何模型；新增模型不会自动获得权限。
+            </p>
+          </fieldset>
+
+          {activeKey ? (
+            <button
+              className="mt-3 h-9 rounded-lg border border-ql-action px-3 text-[13px] font-medium text-ql-action disabled:opacity-60"
+              disabled={updateKeyModels.isPending || principal.status !== "ACTIVE"}
+              onClick={() => updateKeyModels.mutate()}
+              type="button"
+            >
+              保存模型权限
+            </button>
           ) : (
             <button
-              className="mt-2 flex h-9 items-center gap-1.5 rounded-lg bg-ql-action px-3 text-[13px] font-medium text-white disabled:opacity-60"
+              className="mt-3 flex h-9 items-center gap-1.5 rounded-lg bg-ql-action px-3 text-[13px] font-medium text-white disabled:opacity-60"
               disabled={createKey.isPending || principal.status !== "ACTIVE"}
               onClick={() => createKey.mutate()}
               type="button"
@@ -373,9 +660,9 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
               生成 Key
             </button>
           )}
-          {createKey.error || resetKey.error ? (
+          {createKey.error || resetKey.error || updateKeyModels.error ? (
             <p className="mt-2 text-[12px] text-ql-danger" role="alert">
-              {(createKey.error ?? resetKey.error)?.message}
+              {(createKey.error ?? resetKey.error ?? updateKeyModels.error)?.message}
             </p>
           ) : null}
 
@@ -386,14 +673,50 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
               <dd className="break-all font-mono text-ql-fg">{gatewayBaseUrl}</dd>
               <dt className="text-ql-fg-tertiary">API Key</dt>
               <dd className="font-mono text-ql-fg">
-                {activeKey ? `${activeKey.key_prefix}••••••••` : "生成后一次展示"}
+                {plaintextKey
+                  ? plaintextKey
+                  : activeKey
+                    ? `${activeKey.key_prefix}••••••••`
+                    : "生成后一次展示"}
               </dd>
               <dt className="text-ql-fg-tertiary">模型</dt>
               <dd className="text-ql-fg">
-                {grants.filter((grant) => grant.status === "ACTIVE").map((grant) => grant.model_alias).join("、") ||
+                {authorizedAliases.join("、") ||
                   "尚未分配"}
               </dd>
             </dl>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                className="h-8 rounded-md bg-ql-action px-3 text-[12px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!plaintextKey}
+                onClick={() => void copyConnectionInfo()}
+                type="button"
+              >
+                复制接入信息
+              </button>
+              {plaintextKey ? (
+                <button
+                  className="h-8 rounded-md border border-ql-border px-3 text-[12px] text-ql-fg-secondary"
+                  onClick={() => {
+                    setPlaintextKey(null);
+                    setCopyStatus("idle");
+                  }}
+                  type="button"
+                >
+                  清除一次性 Key
+                </button>
+              ) : (
+                <span className="text-[11px] text-ql-warning">
+                  完整 Key 已不可恢复；如未保存，请重置 Key。
+                </span>
+              )}
+              {copyStatus === "success" ? (
+                <span className="text-[11px] text-ql-success" role="status">复制成功</span>
+              ) : null}
+              {copyStatus === "error" ? (
+                <span className="text-[11px] text-ql-danger" role="alert">复制失败，请检查剪贴板权限</span>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -430,7 +753,12 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
             <div className="sm:col-span-2 flex justify-end">
               <button
                 className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
-                disabled={createGrant.isPending || models.length === 0}
+                disabled={
+                  createGrant.isPending ||
+                  models.length === 0 ||
+                  principal.status !== "ACTIVE" ||
+                  principal.archived_at !== null
+                }
                 type="submit"
               >
                 分配
@@ -511,7 +839,7 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
       <ConfirmDialog
         danger
         confirmLabel="确认重置"
-        impact={`重置后「${principal.name}」的旧 Key 将立即撤销；新 Key 明文只展示一次。`}
+        impact={`重置后「${principal.name}」的旧 Key 将立即撤销；新 Key 完整继承模型、IP、有效期和限额，新 Key 明文只展示一次。`}
         loading={resetKey.isPending}
         onCancel={() => setResetConfirm(false)}
         onConfirm={() => resetKey.mutate()}
@@ -554,29 +882,42 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
         open={disableGrantTarget !== null}
         title="停用模型授权"
       />
-      {plaintextKey ? (
+      {plaintextKey && keyDialogOpen ? (
         <div
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-ql-canvas/60 p-4"
           role="dialog"
         >
           <div className="w-full max-w-lg rounded-2xl border border-ql-border bg-ql-surface-raised p-6 shadow-ql-raised">
-            <h2 className="text-[16px] font-semibold text-ql-fg">Key 创建成功</h2>
+            <h2 className="text-[16px] font-semibold text-ql-fg">Key 已生成</h2>
             <p className="mt-1 text-[13px] text-ql-warning">
-              明文只展示这一次。关闭后系统无法再次找回，只能重置。
+              明文仅保留在当前页面内存。刷新、切换主体或主动清除后无法找回，只能重置。
             </p>
             <code className="mt-4 block break-all rounded-lg bg-ql-surface-muted p-3 text-[13px] text-ql-fg">
               {plaintextKey}
             </code>
-            <div className="mt-5 flex justify-end">
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
-                className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white"
-                onClick={() => setPlaintextKey(null)}
+                className="h-9 rounded-lg border border-ql-action px-4 text-[13px] font-medium text-ql-action"
+                onClick={() => void copyConnectionInfo()}
                 type="button"
               >
-                已安全保存，关闭
+                复制完整接入信息
+              </button>
+              <button
+                className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white"
+                onClick={() => setKeyDialogOpen(false)}
+                type="button"
+              >
+                继续配置
               </button>
             </div>
+            {copyStatus === "success" ? (
+              <p className="mt-2 text-right text-[12px] text-ql-success" role="status">复制成功</p>
+            ) : null}
+            {copyStatus === "error" ? (
+              <p className="mt-2 text-right text-[12px] text-ql-danger" role="alert">复制失败，请检查剪贴板权限</p>
+            ) : null}
           </div>
         </div>
       ) : null}

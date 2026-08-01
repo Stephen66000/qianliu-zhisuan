@@ -112,16 +112,20 @@ beforeAll(async () => {
   await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流测试-W12路由" }).execute();
   await db.insertInto("principal").values({ id: PRINCIPAL_ID, enterprise_id: ENT_ID, type: "EMPLOYEE", name: "测试员工" }).execute();
   validKey = generateApiKey();
-  await db.insertInto("principal_key").values({
+  const keyRowId = (await db.insertInto("principal_key").values({
     enterprise_id: ENT_ID,
     principal_id: PRINCIPAL_ID,
     key_prefix: apiKeyPrefix(validKey),
     key_digest: digestApiKey(validKey, PEPPER),
+    allowed_model_ids: JSON.stringify([]) as unknown as string[],
     status: "ACTIVE",
-  }).execute();
+  }).returning("id").executeTakeFirstOrThrow()).id;
   const um = await db.insertInto("unified_model").values({
     enterprise_id: ENT_ID, alias: "qianliu-kimi-k3", display_name: "仟流 Kimi", status: "ACTIVE",
   }).returningAll().executeTakeFirstOrThrow();
+  await db.updateTable("principal_key").set({
+    allowed_model_ids: JSON.stringify([um.id]) as unknown as string[],
+  }).where("id", "=", keyRowId).execute();
   const provider = await db.insertInto("provider").values({
     enterprise_id: ENT_ID, code: "kimi", name: "Kimi", adapter_type: "kimi",
   }).returningAll().executeTakeFirstOrThrow();
@@ -243,9 +247,9 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
       expect(attempts[1]!.provider_resource_id).toBe(resB);
       expect(attempts[1]!.response_committed).toBe(true);
 
-      // A 429 → 状态机：UNAVAILABLE + 冷却（W11 驱动）
+      // 单次 429 只降级计数，不把共享套餐对其他主体全局隔离。
       const rowA = await poolRepo.getResource(resA);
-      expect(rowA!.status).toBe("UNAVAILABLE");
+      expect(rowA!.status).toBe("DEGRADED");
       expect(rowA!.consecutive_failures).toBe(1);
 
       // 恢复 A（供后续用例）
@@ -278,6 +282,7 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
       expect(attempts).toHaveLength(1);
       expect(attempts[0]!.response_committed).toBe(true);
       expect(attempts[0]!.error_classification).toBe("STREAM_INTERRUPTED_AFTER_COMMIT");
+      expect((await ledgerRepo.getRequest(requestId))!.status).toBe("FAILED");
     } finally {
       await app.close();
     }

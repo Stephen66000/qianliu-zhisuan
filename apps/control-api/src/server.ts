@@ -24,6 +24,7 @@ import {
   DispatchPolicyRepository,
   AdminWriteRepository,
   AlertEventRepository,
+  RuntimeAssuranceRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
 } from "@qianliu/database";
@@ -45,6 +46,7 @@ import { registerReadModelRoutes } from "./read-models/routes.js";
 import { registerAdminWriteRoutes } from "./admin-writes/routes.js";
 import { registerGatewayRequestRoutes } from "./gateway-requests/routes.js";
 import { registerAlertRoutes } from "./alerts/routes.js";
+import { registerRuntimeAssuranceRoutes } from "./runtime-assurance/routes.js";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
 export interface AdminContext {
@@ -72,6 +74,7 @@ declare module "fastify" {
     dispatchRepo: DispatchPolicyRepository;
     adminWriteRepo: AdminWriteRepository;
     alertEventRepo: AlertEventRepository;
+    runtimeAssuranceRepo: RuntimeAssuranceRepository;
   }
 }
 
@@ -150,6 +153,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("dispatchRepo", new DispatchPolicyRepository(db));
   app.decorate("adminWriteRepo", new AdminWriteRepository(db));
   app.decorate("alertEventRepo", new AlertEventRepository(db, alertThresholdsFromEnv(process.env)));
+  app.decorate("runtimeAssuranceRepo", new RuntimeAssuranceRepository(db));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
@@ -183,6 +187,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerAdminWriteRoutes(child);
     registerGatewayRequestRoutes(child);
     registerAlertRoutes(child);
+    registerRuntimeAssuranceRoutes(child);
   });
 
   return app;

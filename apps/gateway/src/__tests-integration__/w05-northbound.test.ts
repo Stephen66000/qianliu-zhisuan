@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
+import { sql } from "kysely";
 import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import {
@@ -28,6 +29,9 @@ let pg: PostgresTestInstance;
 let db: Database;
 let app: FastifyInstance;
 let validKey: string;
+let keyId: string;
+let allowedModelId: string;
+let pipelineCalls = 0;
 const ENT_ID = randomUUID();
 const PRINCIPAL_ID = randomUUID();
 const PEPPER = "w05-test-pepper-32bytes-min!!!!";
@@ -44,17 +48,19 @@ beforeAll(async () => {
     .values({ id: PRINCIPAL_ID, enterprise_id: ENT_ID, type: "EMPLOYEE", name: "测试员工" })
     .execute();
   validKey = generateApiKey();
-  await db
+  keyId = (await db
     .insertInto("principal_key")
     .values({
       enterprise_id: ENT_ID,
       principal_id: PRINCIPAL_ID,
       key_prefix: apiKeyPrefix(validKey),
       key_digest: digestApiKey(validKey, PEPPER),
+      allowed_model_ids: JSON.stringify([]) as unknown as string[],
       status: "ACTIVE",
     })
-    .execute();
-  await db
+    .returning("id")
+    .executeTakeFirstOrThrow()).id;
+  allowedModelId = (await db
     .insertInto("unified_model")
     .values({
       enterprise_id: ENT_ID,
@@ -62,9 +68,27 @@ beforeAll(async () => {
       display_name: "仟流 DeepSeek",
       status: "ACTIVE",
     })
+    .returning("id")
+    .executeTakeFirstOrThrow()).id;
+  await db
+    .insertInto("unified_model")
+    .values({
+      enterprise_id: ENT_ID,
+      alias: "qianliu-denied",
+      display_name: "未授权模型",
+      status: "ACTIVE",
+    })
+    .execute();
+  await db
+    .updateTable("principal_key")
+    .set({ allowed_model_ids: JSON.stringify([allowedModelId]) as unknown as string[] })
+    .where("id", "=", keyId)
     .execute();
 
-  app = buildGateway(db, PEPPER, stubPipeline);
+  app = buildGateway(db, PEPPER, async (input) => {
+    pipelineCalls += 1;
+    await stubPipeline(input);
+  });
   await app.ready();
 }, 120_000);
 
@@ -90,6 +114,155 @@ describe("W05 北向合同", () => {
       object: "model",
       owned_by: "qianliu",
     });
+  });
+
+  it("Codex 模型目录只返回当前 Key 获授权模型", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/models?client_version=0.146.0",
+      headers: authHeader(),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.models.map((model: { slug: string }) => model.slug)).toEqual([
+      "qianliu-deepseek",
+    ]);
+    expect(body.models[0]).toMatchObject({
+      display_name: "仟流 DeepSeek",
+      shell_type: "unified_exec",
+      supported_in_api: true,
+    });
+  });
+
+  it("allowed_model_ids 过滤模型列表，未授权调用在 pipeline/上游前拒绝", async () => {
+    await db
+      .updateTable("principal_key")
+      .set({ allowed_model_ids: JSON.stringify([allowedModelId]) as unknown as string[] })
+      .where("id", "=", keyId)
+      .execute();
+    const listed = await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() });
+    expect(listed.json().data.map((model: { id: string }) => model.id)).toEqual(["qianliu-deepseek"]);
+
+    const before = pipelineCalls;
+    const denied = await app.inject({
+      method: "POST",
+      url: "/v1/chat/completions",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: {
+        model: "qianliu-denied",
+        messages: [{ role: "user", content: "hi" }],
+      },
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json().error.code).toBe("model_not_allowed");
+    expect(pipelineCalls).toBe(before);
+  });
+
+  it("异常历史 NULL 权限 fail-closed：模型列表为空且调用不进入 pipeline", async () => {
+    await sql`
+      ALTER TABLE principal_key
+      ALTER COLUMN allowed_model_ids DROP NOT NULL
+    `.execute(db);
+    try {
+      await db
+        .updateTable("principal_key")
+        .set({ allowed_model_ids: null })
+        .where("id", "=", keyId)
+        .execute();
+
+      const listed = await app.inject({
+        method: "GET",
+        url: "/v1/models",
+        headers: authHeader(),
+      });
+      expect(listed.json()).toEqual({ object: "list", data: [] });
+      const codexListed = await app.inject({
+        method: "GET",
+        url: "/v1/models?client_version=0.146.0",
+        headers: authHeader(),
+      });
+      expect(codexListed.json()).toEqual({ models: [] });
+
+      const before = pipelineCalls;
+      const denied = await app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: { ...authHeader(), "content-type": "application/json" },
+        payload: {
+          model: "qianliu-deepseek",
+          messages: [{ role: "user", content: "hi" }],
+        },
+      });
+      expect(denied.statusCode).toBe(403);
+      expect(denied.json().error.code).toBe("model_not_allowed");
+      expect(pipelineCalls).toBe(before);
+    } finally {
+      await db
+        .updateTable("principal_key")
+        .set({
+          allowed_model_ids: JSON.stringify([allowedModelId]) as unknown as string[],
+        })
+        .where("id", "=", keyId)
+        .execute();
+      await sql`
+        ALTER TABLE principal_key
+        ALTER COLUMN allowed_model_ids SET NOT NULL
+      `.execute(db);
+    }
+  });
+
+  it("Key 模型撤权下一请求即时生效，恢复授权后可继续调用", async () => {
+    await db
+      .updateTable("principal_key")
+      .set({ allowed_model_ids: JSON.stringify([]) as unknown as string[] })
+      .where("id", "=", keyId)
+      .execute();
+    const before = pipelineCalls;
+    const denied = await app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: { model: "qianliu-deepseek", input: "hi" },
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(pipelineCalls).toBe(before);
+
+    await db
+      .updateTable("principal_key")
+      .set({ allowed_model_ids: JSON.stringify([allowedModelId]) as unknown as string[] })
+      .where("id", "=", keyId)
+      .execute();
+    const restored = await app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: { model: "qianliu-deepseek", input: "hi" },
+    });
+    expect(restored.statusCode).toBe(200);
+  });
+
+  it("模型停用下一请求即时生效，且在 pipeline/上游前拒绝", async () => {
+    await db
+      .updateTable("unified_model")
+      .set({ status: "INACTIVE" })
+      .where("id", "=", allowedModelId)
+      .execute();
+    const before = pipelineCalls;
+    const denied = await app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: { model: "qianliu-deepseek", input: "hi" },
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json().error.code).toBe("model_not_allowed");
+    expect(pipelineCalls).toBe(before);
+
+    await db
+      .updateTable("unified_model")
+      .set({ status: "ACTIVE" })
+      .where("id", "=", allowedModelId)
+      .execute();
   });
 
   it("无 Bearer 返回 401 + OpenAI 错误 envelope", async () => {
@@ -184,14 +357,72 @@ describe("W05 北向合同", () => {
     expect(body.error.request_id).toBeDefined();
   });
 
-  it("WT-14：POST /v1/responses 同样 422", async () => {
+  it("POST /v1/responses 非流式返回 Response + 缓存/推理 Usage", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/v1/responses",
       headers: { ...authHeader(), "content-type": "application/json" },
-      payload: { model: "qianliu-deepseek", input: "hi" },
+      payload: {
+        model: "qianliu-deepseek",
+        input: "hi",
+        reasoning: { effort: "medium", summary: "auto" },
+      },
     });
-    expect(res.statusCode).toBe(422);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.object).toBe("response");
+    expect(body.output[0].type).toBe("message");
+    expect(body.usage.input_tokens_details.cached_tokens).toBe(2);
+    expect(body.usage.output_tokens_details.reasoning_tokens).toBe(3);
+    expect(body.reasoning.effort).toBe("medium");
+  });
+
+  it("POST /v1/responses 流式事件包含 completed 与完整 Usage", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: { model: "qianliu-deepseek", input: "hi", stream: true },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/event-stream");
+    expect(res.body).toContain("event: response.output_text.delta");
+    expect(res.body).toContain("event: response.completed");
+    expect(res.body).toContain("reasoning_tokens");
+  });
+
+  it("POST /v1/responses 工具调用映射 function_call 与参数流事件", async () => {
+    const payload = {
+      model: "qianliu-deepseek",
+      input: [{ role: "user", content: [{ type: "input_text", text: "调用工具" }] }],
+      tools: [{
+        type: "function",
+        name: "get_weather",
+        description: "查询天气",
+        parameters: { type: "object", properties: {} },
+      }],
+    };
+    const nonStream = await app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload,
+    });
+    expect(nonStream.statusCode).toBe(200);
+    expect(nonStream.json().output[0]).toMatchObject({
+      type: "function_call",
+      name: "get_weather",
+      arguments: "{}",
+    });
+
+    const stream = await app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: { ...payload, stream: true },
+    });
+    expect(stream.body).toContain("response.function_call_arguments.delta");
+    expect(stream.body).toContain("response.output_item.done");
   });
 
   it("W23：POST /v1/messages/count_tokens 返回 422 + capability_not_supported", async () => {
@@ -231,7 +462,7 @@ describe("W05 北向合同", () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it("客户端传 x-request-id 被复用（幂等）", async () => {
+  it("客户端传 x-request-id 仅作为追踪 ID 回显", async () => {
     const customId = "client-custom-req-id-123";
     const res = await app.inject({
       method: "GET",
@@ -240,5 +471,40 @@ describe("W05 北向合同", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers["x-request-id"]).toBe(customId);
+    expect(res.headers["x-ai-request-id"]).toBeDefined();
+    expect(res.headers["x-ai-request-id"]).not.toBe(customId);
+  });
+
+  it("非法或相互冲突的 Idempotency-Key 在 pipeline 前返回稳定 400", async () => {
+    const callsBefore = pipelineCalls;
+    const conflicting = await app.inject({
+      method: "POST",
+      url: "/v1/chat/completions",
+      headers: {
+        ...authHeader(),
+        "idempotency-key": "standard-key",
+        "x-idempotency-key": "different-key",
+      },
+      payload: {
+        model: "qianliu-deepseek",
+        messages: [{ role: "user", content: "hi" }],
+      },
+    });
+    expect(conflicting.statusCode).toBe(400);
+    expect(conflicting.json().error.code).toBe("invalid_idempotency_key");
+    expect(conflicting.headers["x-ai-request-id"]).toBeDefined();
+
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/v1/chat/completions",
+      headers: { ...authHeader(), "idempotency-key": "contains whitespace" },
+      payload: {
+        model: "qianliu-deepseek",
+        messages: [{ role: "user", content: "hi" }],
+      },
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json().error.code).toBe("invalid_idempotency_key");
+    expect(pipelineCalls).toBe(callsBefore);
   });
 });

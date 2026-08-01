@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run --config ../../vitest.config.ts",
-    "test:integration": "vitest run --config ../../vitest.config.ts --dir src/__tests-integration__",
+    "test:integration": "vitest run --config ../../vitest.config.ts src/__tests-integration__",
     "test:e2e": "echo 'no e2e tests in provider-adapters' && exit 0"
   },
   "dependencies": {

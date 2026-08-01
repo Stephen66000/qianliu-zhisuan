@@ -36,6 +36,14 @@ export interface ResourceBreakdownItem {
   accountCount: number;
   totalQuota: string | null;
   usedQuota: string | null;
+  remainingQuota: string | null;
+  quotaUnit: string | null;
+  allocatedQuota: string | null;
+  currency: string | null;
+  rechargeAmount: string | null;
+  currentBalance: string | null;
+  currentPeriodCost: string | null;
+  snapshotAt: string | null;
   monthlyCost: string;
   currentRate24h: string | null;
   forecastExhaustAt: string | null;
@@ -86,6 +94,13 @@ export interface UsageRecord {
   startedAt: string;
   finishedAt: string | null;
   durationMs: number | null;
+  finalProviderId: string | null;
+  finalProviderCode: string | null;
+  finalProviderName: string | null;
+  finalProviderResourceId: string | null;
+  finalProviderResourceName: string | null;
+  /** null=迁移前历史未知。 */
+  overage: boolean | null;
   totalInputTokens: string;
   totalOutputTokens: string;
   totalCacheTokens: string;
@@ -106,20 +121,31 @@ export interface UsageResult {
 export interface UsageQueryParams {
   limit?: number;
   offset?: number;
+  search?: string;
   principal_id?: string;
   client_id?: string;
+  provider_id?: string;
+  provider_resource_id?: string;
   unified_model?: string;
   status?: string;
   from?: string;
   to?: string;
+  overage_only?: boolean;
 }
 
 // ---------- /billing-rules（snake_case 直传） ----------
 
+export interface BillingRuleWindow {
+  timezone: string;
+  days_of_week: number[] | null;
+  start_time: string;
+  end_time: string;
+}
+
 export interface BillingRule {
   id: string;
   rule_type: string;
-  rule_version: number;
+  rule_version: string;
   provider_resource_id: string | null;
   upstream_model: string | null;
   effective_from: string;
@@ -128,6 +154,7 @@ export interface BillingRule {
   days_of_week: number[] | null;
   start_time: string | null;
   end_time: string | null;
+  time_windows: BillingRuleWindow[] | null;
   multiplier: string | null;
   cache_hit_price: string | null;
   cache_miss_price: string | null;
@@ -145,11 +172,11 @@ export interface BillingRulesResult {
   rules: BillingRule[];
 }
 
-// ---------- /dispatch-policies（camelCase，仅 PUBLISHED） ----------
+// ---------- /dispatch-policies（camelCase，含全部生命周期状态） ----------
 
 export interface DispatchPolicy {
   id: string;
-  status: string;
+  status: "DRAFT" | "VALIDATED" | "PUBLISHED" | "RETIRED";
   matchUnifiedModel: string | null;
   matchResourceMode: string | null;
   matchProviderResourceId: string | null;
@@ -164,8 +191,12 @@ export interface DispatchPolicy {
   action: "ALLOW" | "SWITCH" | "RATE_LIMIT" | "REJECT" | "ALLOW_OVERAGE";
   switchEquivalentGroup: string[];
   rateLimitPerMinute: number | null;
-  policyVersion: number;
+  policyVersion: string;
   priority: number;
+  description: string | null;
+  source: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DispatchPoliciesResult {
@@ -221,12 +252,28 @@ export interface Principal {
   name: string;
   department_label: string | null;
   status: "ACTIVE" | "DISABLED";
+  archived_at: string | null;
+  person_id?: string | null;
+  owner_person_id?: string | null;
+  version?: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface PrincipalsResult {
   principals: Principal[];
+}
+
+export interface PrincipalCleanupPreview {
+  keyCount: number;
+  activeKeyCount: number;
+  grantCount: number;
+  activeGrantCount: number;
+  requestCount: number;
+  usageCount: number;
+  ledgerCount: number;
+  employeeLoginCount: number;
+  canDelete: boolean;
 }
 
 /** GET /provider-resources 列表元素（后端已裁剪为公开视图，无密文）。 */
@@ -241,7 +288,10 @@ export interface ProviderResourceItem {
   status: string;
   upstream_models: string[] | null;
   concurrency_limit: number | null;
+  version: number;
   created_at: string;
+  updated_at: string;
+  operating_snapshot: ProviderResourceOperatingSnapshot | null;
 }
 
 export interface ProviderResourcesResult {
@@ -258,6 +308,38 @@ export interface UnifiedModel {
   version: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProviderResourceOperatingSnapshot {
+  id: string;
+  provider_resource_id: string;
+  version: number;
+  source: "ADMIN" | "PROVIDER_SYNC" | "BILL_RECONCILIATION";
+  collected_at: string;
+  currency: string | null;
+  recharge_amount: string | null;
+  current_balance: string | null;
+  cumulative_cost: string | null;
+  current_period_cost: string | null;
+  cost_period_start: string | null;
+  cost_period_end: string | null;
+  balance_updated_at: string | null;
+  package_name: string | null;
+  package_cost: string | null;
+  total_quota: string | null;
+  quota_unit: string | null;
+  used_quota: string | null;
+  remaining_quota: string | null;
+  effective_from: string | null;
+  effective_until: string | null;
+  reset_cycle: string | null;
+  reset_anchor_at: string | null;
+  reset_timezone: string | null;
+  usage_calculation: "MANUAL_SNAPSHOT" | "SYSTEM_LEDGER";
+  next_reset_at: string | null;
+  quota_period_start?: string | null;
+  quota_period_end?: string | null;
+  calculated_at?: string;
 }
 
 export interface UnifiedModelsResult {
@@ -305,6 +387,8 @@ export interface PrincipalKeyItem {
   id: string;
   key_prefix: string;
   status: "ACTIVE" | "REVOKED";
+  /** null 仅用于兼容历史“全部模型”Key；新 Key 始终为显式数组。 */
+  allowed_model_ids: string[] | null;
   created_at: string;
   revoked_at: string | null;
   last_used_at: string | null;
@@ -353,6 +437,7 @@ export interface GatewayRequestDetail {
     totalInputTokens: string;
     totalOutputTokens: string;
     totalCacheTokens: string;
+    totalReasoningTokens: string;
     totalDeductedQuota: string;
     totalApiCost: string;
     usageQuality: string;
@@ -376,11 +461,36 @@ export interface AttemptMetering {
   inputTokens: string;
   outputTokens: string;
   cacheTokens: string;
+  reasoningTokens: string;
   deductedQuota: string | null;
   apiCost: string | null;
   usageQuality: string;
   billingRuleId: string | null;
   ruleVersion: string | null;
+  multiplier: string | null;
+  billingRuleSnapshot: {
+    ruleType?: string;
+    timezone?: string | null;
+    daysOfWeek?: number[] | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    timeWindows?: Array<{
+      timezone: string;
+      daysOfWeek: number[] | null;
+      startTime: string;
+      endTime: string;
+    }>;
+    matchedWindow?: {
+      timezone: string;
+      daysOfWeek: number[] | null;
+      startTime: string;
+      endTime: string;
+    } | null;
+    cacheHitPrice?: string | null;
+    cacheMissPrice?: string | null;
+    outputPrice?: string | null;
+    multiplier?: string | null;
+  } | null;
 }
 
 export interface AttemptItem {
@@ -406,9 +516,14 @@ export interface AttemptsResult {
     inputTokens: string;
     outputTokens: string;
     cacheTokens: string;
+    reasoningTokens: string;
     deductedQuota: string | null;
     apiCost: string | null;
     usageQuality: string;
+    billingRuleId: string | null;
+    ruleVersion: string | null;
+    multiplier: string | null;
+    billingRuleSnapshot: AttemptMetering["billingRuleSnapshot"];
   }>;
 }
 

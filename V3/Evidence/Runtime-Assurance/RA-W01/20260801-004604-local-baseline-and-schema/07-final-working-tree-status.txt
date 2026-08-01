@@ -1,0 +1,148 @@
+ M .env.example
+ M V3/Planning-Change-Log.md
+ M "V3/\344\273\237\346\265\201\346\231\272\347\256\227-Stage01\346\226\271\346\241\210\345\207\206\345\244\207\350\277\233\345\272\246\345\233\276-v0.3.html"
+ M "V3/\344\273\237\346\265\201\346\231\272\347\256\227-Stage02\345\274\200\345\217\221\350\256\241\345\210\222\350\277\233\345\272\246\345\233\276-v0.3.html"
+ M "V3/\344\273\237\346\265\201\346\231\272\347\256\227-stage-state-v0.3.yaml"
+ M "V3/\344\273\237\346\265\201\346\231\272\347\256\227-\346\212\200\346\234\257\351\234\200\346\261\202\346\226\207\346\241\243-v0.3.md"
+ M apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts
+ M apps/control-api/src/__tests-integration__/w03-key-grant.test.ts
+ M apps/control-api/src/__tests-integration__/w04-provider-route.test.ts
+ M apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts
+ M apps/control-api/src/__tests-integration__/w19-admin-writes.test.ts
+ M apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts
+ M apps/control-api/src/admin-writes/routes.ts
+ M apps/control-api/src/cli/seed-e2e.ts
+ M apps/control-api/src/gateway-requests/routes.ts
+ M apps/control-api/src/grants/routes.ts
+ M apps/control-api/src/keys/routes.ts
+ M apps/control-api/src/principals/routes.ts
+ M apps/control-api/src/providers/routes.ts
+ M apps/control-api/src/read-models/routes.ts
+ M apps/control-api/src/usage/routes.ts
+ M apps/gateway/package.json
+ M apps/gateway/src/__tests-integration__/m6-key-revocation.test.ts
+ M apps/gateway/src/__tests-integration__/r2-n1-principal-ownership.test.ts
+ M apps/gateway/src/__tests-integration__/w05-northbound.test.ts
+ M apps/gateway/src/__tests-integration__/w07-ledger.test.ts
+ M apps/gateway/src/__tests-integration__/w08-e2e.test.ts
+ M apps/gateway/src/__tests-integration__/w09-zhipu-e2e.test.ts
+ M apps/gateway/src/__tests-integration__/w10-kimi-e2e.test.ts
+ M apps/gateway/src/__tests-integration__/w11-resource-pool.test.ts
+ M apps/gateway/src/__tests-integration__/w12-routing.test.ts
+ M apps/gateway/src/__tests-integration__/w13-billing.test.ts
+ M apps/gateway/src/__tests-integration__/w14-quota-gate.test.ts
+ M apps/gateway/src/__tests-integration__/w15-supply-forecast.test.ts
+ M apps/gateway/src/__tests-integration__/w16-dispatch.test.ts
+ M apps/gateway/src/__tests-integration__/w18-quota-pipeline.test.ts
+ M apps/gateway/src/auth/principal-auth.ts
+ M apps/gateway/src/main.ts
+ M apps/gateway/src/pipeline/real-pipeline.ts
+ M apps/gateway/src/pipeline/stub-pipeline.ts
+ M apps/gateway/src/plugins/request-id.ts
+ M apps/gateway/src/routes/chat.ts
+ M apps/gateway/src/routes/messages.ts
+ M apps/gateway/src/routes/models.ts
+ M apps/gateway/src/server.ts
+ M apps/web/Dockerfile
+ M apps/web/e2e/fixtures.ts
+ M apps/web/e2e/wt-web.spec.ts
+ M apps/web/playwright.config.ts
+ M apps/web/src/api/client.ts
+ M apps/web/src/api/hooks.ts
+ M apps/web/src/api/types.ts
+ M apps/web/src/components/dashboard/ResourceBreakdown.tsx
+ M apps/web/src/components/layout/Sidebar.tsx
+ M apps/web/src/pages/Dashboard.test.tsx
+ M apps/web/src/pages/Dashboard.tsx
+ M apps/web/src/pages/Principals.test.tsx
+ M apps/web/src/pages/Principals.tsx
+ M apps/web/src/pages/QuotaRules.tsx
+ M apps/web/src/pages/RequestDrilldown.tsx
+ M apps/web/src/pages/Resources.tsx
+ M apps/web/src/pages/Usage.test.tsx
+ M apps/web/src/pages/Usage.tsx
+ M apps/web/vite.config.ts
+ M packages/config/src/__tests__/config.test.ts
+ M packages/config/src/index.ts
+ M packages/contracts/src/__tests__/contracts.test.ts
+ M packages/contracts/src/index.ts
+ M packages/contracts/src/northbound.ts
+ M packages/database/src/__tests-integration__/migration.integration.test.ts
+ M packages/database/src/__tests-integration__/w17-reconciliation.test.ts
+ M packages/database/src/index.ts
+ M packages/database/src/kysely.ts
+ M packages/database/src/repositories/admin-write-repository.ts
+ M packages/database/src/repositories/alert-event-repository.ts
+ M packages/database/src/repositories/dashboard-repository.ts
+ M packages/database/src/repositories/dispatch-policy-repository.ts
+ M packages/database/src/repositories/gateway-ledger-repository.ts
+ M packages/database/src/repositories/grant-repository.ts
+ M packages/database/src/repositories/key-repository.ts
+ M packages/database/src/repositories/principal-repository.ts
+ M packages/database/src/repositories/provider-repository.ts
+ M packages/database/src/repositories/quota-gate-repository.ts
+ M packages/database/src/repositories/usage-repository.ts
+ M packages/domain/src/__tests__/billing-rule.test.ts
+ M packages/domain/src/__tests__/dispatch-policy.test.ts
+ M packages/domain/src/__tests__/resource-lifecycle.test.ts
+ M packages/domain/src/billing-rule.ts
+ M packages/domain/src/dispatch-policy.ts
+ M packages/domain/src/index.ts
+ M packages/domain/src/resource-lifecycle.ts
+ M packages/provider-adapters/package.json
+ M packages/provider-adapters/src/__tests__/deepseek-adapter.test.ts
+ M packages/provider-adapters/src/__tests__/kimi-adapter.test.ts
+ M packages/provider-adapters/src/__tests__/zhipu-adapter.test.ts
+ M packages/provider-adapters/src/adapters/deepseek-adapter.ts
+ M packages/provider-adapters/src/adapters/kimi-adapter.ts
+ M packages/provider-adapters/src/adapters/stub-upstream.ts
+ M packages/provider-adapters/src/adapters/zhipu-adapter.ts
+ M packages/provider-adapters/src/index.ts
+?? V3/ADR-RUNTIME-ASSURANCE-FOUNDATION.md
+?? V3/Evidence/Runtime-Assurance/
+?? V3/tools/kimi_usage_snapshot.mjs
+?? "V3/\344\273\237\346\265\201\346\231\272\347\256\227-\346\275\234\346\260\264\346\261\240.md"
+?? "V3/\344\273\237\346\265\201\346\231\272\347\256\227-\350\277\220\350\241\214\344\277\235\351\232\234\344\270\200\347\272\247\346\250\241\345\235\227\345\274\200\345\217\221\350\256\241\345\210\222-v1.0.md"
+?? "_knowledge_base/Claude-Desktop\351\200\232\350\277\207CC-Switch\350\260\203\347\224\250Kimi-K3\346\225\205\351\232\234-2026\345\271\2647\346\234\210.md"
+?? "_knowledge_base/Codex\346\216\245\345\205\245\344\273\237\346\265\201\346\231\272\347\256\227\345\205\274\345\256\271\346\200\247-2026\345\271\2647\346\234\210.md"
+?? "_knowledge_base/DeepSeek-V4\344\270\216\346\231\272\350\260\261\351\253\230\345\263\260\350\256\241\350\264\271\350\247\204\345\210\231-2026\345\271\2647\346\234\210.md"
+?? "_knowledge_base/Kimi-Allegretto-Code\351\242\235\345\272\246-2026\345\271\2647\346\234\210.md"
+?? "_knowledge_base/WorkBuddy\346\216\245\345\205\245\344\273\237\346\265\201\346\231\272\347\256\227-2026\345\271\2647\346\234\210.md"
+?? "_knowledge_base/\344\273\237\346\265\201\346\231\272\347\256\227\347\206\224\346\226\255\346\234\272\345\210\266\350\256\276\350\256\241-2026\345\271\2647\346\234\210.md"
+?? "_knowledge_base/\344\273\237\346\265\201\346\231\272\347\256\227\351\200\232\347\237\245\344\275\223\347\263\273\344\270\216\347\206\224\346\226\255\346\250\241\345\235\227\344\275\215\347\275\256-2026\345\271\2647\346\234\210.md"
+?? apps/gateway/src/__tests-integration__/p0-real-upstream-responses.test.ts
+?? apps/gateway/src/__tests__/
+?? apps/gateway/src/cli/
+?? apps/gateway/src/pipeline/http-caller.ts
+?? apps/gateway/src/pipeline/request-idempotency.ts
+?? apps/gateway/src/routes/chat-protocol.ts
+?? apps/gateway/src/routes/responses-protocol.ts
+?? apps/gateway/src/routes/responses.ts
+?? apps/web/src/assets/
+?? apps/web/src/components/layout/Sidebar.test.tsx
+?? apps/web/src/pages/QuotaRules.test.tsx
+?? apps/web/src/pages/Resources.test.tsx
+?? packages/database/migrations/0020_p0_billing_snapshot_and_reasoning_usage.js
+?? packages/database/migrations/0021_billing_rule_multi_windows.js
+?? packages/database/migrations/0022_principal_key_minimum_model_permissions.js
+?? packages/database/migrations/0023_principal_key_single_active.js
+?? packages/database/migrations/0024_gateway_request_idempotency.js
+?? packages/database/migrations/0025_principal_archive.js
+?? packages/database/migrations/0026_provider_resource_operating_snapshot.js
+?? packages/database/migrations/0027_usage_ledger_filters.js
+?? packages/database/migrations/0028_enterprise_reference_guards.js
+?? packages/database/migrations/0029_provider_quota_auto_calculation.js
+?? packages/database/migrations/0030_runtime_assurance_foundation.js
+?? packages/database/src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts
+?? packages/database/src/__tests-integration__/pool010-provider-operating.test.ts
+?? packages/database/src/__tests-integration__/principal-key-permission-migration.integration.test.ts
+?? packages/database/src/__tests-integration__/principal-key-single-active-migration.integration.test.ts
+?? packages/database/src/__tests-integration__/runtime-assurance-foundation.integration.test.ts
+?? packages/database/src/__tests-integration__/usage-repository.integration.test.ts
+?? packages/database/src/repositories/provider-operating.test.ts
+?? packages/database/src/repositories/provider-operating.ts
+?? packages/domain/src/__tests__/runtime-assurance.test.ts
+?? packages/domain/src/runtime-assurance.ts
+?? packages/provider-adapters/src/__tests-integration__/
+?? packages/provider-adapters/src/__tests__/openai-compatible-caller.test.ts
+?? packages/provider-adapters/src/openai-compatible-caller.ts

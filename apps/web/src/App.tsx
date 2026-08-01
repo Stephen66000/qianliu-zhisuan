@@ -5,7 +5,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { RequireAuth } from "./components/RequireAuth";
-import { AlertsPage } from "./pages/Alerts";
 import { DashboardPage } from "./pages/Dashboard";
 import { LoginPage } from "./pages/Login";
 import { PrincipalsPage } from "./pages/Principals";
@@ -13,6 +12,7 @@ import { QuotaRulesPage } from "./pages/QuotaRules";
 import { ResourcesPage } from "./pages/Resources";
 import { SettingsPage } from "./pages/Settings";
 import { UsagePage } from "./pages/Usage";
+import { RuntimeAssurancePage } from "./pages/RuntimeAssurance";
 
 export function App() {
   return (
@@ -26,7 +26,8 @@ export function App() {
           <Route element={<ResourcesPage />} path="/resources" />
           <Route element={<QuotaRulesPage />} path="/quota-rules" />
           <Route element={<UsagePage />} path="/usage" />
-          <Route element={<AlertsPage />} path="/alerts" />
+          <Route element={<RuntimeAssurancePage />} path="/runtime-assurance" />
+          <Route element={<Navigate replace to="/runtime-assurance?tab=alerts" />} path="/alerts" />
           <Route element={<SettingsPage />} path="/settings" />
         </Route>
         <Route element={<Navigate replace to="/dashboard" />} path="*" />

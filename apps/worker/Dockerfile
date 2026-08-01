@@ -1,5 +1,5 @@
 # 仟流智算 worker 镜像（W24）。
-# 单阶段 tsx 方案，架构无关。worker 为 CLI 任务式，W25 接定时调度器。
+# 单阶段 tsx 方案，架构无关。运行保障 Worker 为唯一常驻调度责任方。
 
 FROM node:22.17.1-alpine
 RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
@@ -24,5 +24,4 @@ COPY packages/ packages/
 COPY apps/worker/ apps/worker/
 
 ENV NODE_ENV=production
-# worker 默认跑一次 reconciliation；W25 调度器就绪后改 CMD
-CMD ["node", "--import", "tsx", "apps/worker/src/main.ts", "reconciliation"]
+CMD ["node", "--import", "tsx", "apps/worker/src/main.ts", "runtime-assurance-scheduler"]

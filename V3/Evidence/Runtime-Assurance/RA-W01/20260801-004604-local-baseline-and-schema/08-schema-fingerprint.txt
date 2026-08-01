@@ -1,0 +1,14 @@
+RA-W01 schema verification
+database: local disposable PostgreSQL 17 only
+migrations: 0000..0030 (31 files)
+fresh-up: PASS
+rollback-0030: PASS
+re-up-0030: PASS
+tables: 39
+columns: 516
+runtime-assurance boundary columns tenant_id/enterprise_id: 0
+normalized columns+constraints+indexes fingerprint before rollback: fb838cb452a93565a8ad2f1aefc09085
+normalized columns+constraints+indexes fingerprint after re-up: fb838cb452a93565a8ad2f1aefc09085
+schema-only sha256 after re-up: 26ba251e19fcc80f3911c83196451e8d8cbd6e17c755e8800a7a06fe4a77f92f
+temporary container removed: yes
+production accessed: no

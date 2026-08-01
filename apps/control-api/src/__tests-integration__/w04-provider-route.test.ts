@@ -95,6 +95,15 @@ describe("W04 Provider/Resource/Model/Route", () => {
         credential_plaintext: "sk-deepseek-test-secret-XXXX",
         upstream_models: ["deepseek-chat", "deepseek-reasoner"],
         concurrency_limit: 100,
+        operating_snapshot: {
+          source: "ADMIN",
+          collected_at: new Date().toISOString(),
+          currency: "CNY",
+          recharge_amount: "1000",
+          current_balance: "800",
+          cumulative_cost: "200",
+          current_period_cost: "50",
+        },
       },
     });
     expect(res.statusCode).toBe(201);
@@ -115,6 +124,63 @@ describe("W04 Provider/Resource/Model/Route", () => {
     expect(listText).not.toContain("sk-deepseek-test-secret-XXXX");
     // 列表含指纹（可展示）
     expect(listText).toContain(body.resource.credential_fingerprint);
+    const listed = listRes.json().resources.find((item: { id: string }) => item.id === resourceId);
+    expect(listed.operating_snapshot).toMatchObject({
+      version: 1,
+      source: "ADMIN",
+      recharge_amount: "1000.00000000",
+      current_balance: "800.00000000",
+      current_period_cost: "50.00000000",
+    });
+  });
+
+  it("POOL-010：编辑追加经营快照，不覆盖历史版本", async () => {
+    const list = await app.inject({
+      method: "GET",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+    });
+    const resource = list.json().resources.find((item: { id: string }) => item.id === resourceId);
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/provider-resources/${resourceId}`,
+      headers: { cookie: adminCookie },
+      payload: {
+        expected_version: resource.version,
+        operating_snapshot: {
+          source: "BILL_RECONCILIATION",
+          collected_at: new Date().toISOString(),
+          currency: "CNY",
+          recharge_amount: "1000",
+          current_balance: "750",
+          cumulative_cost: "250",
+          current_period_cost: "100",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().resource.operating_snapshot).toMatchObject({
+      version: 2,
+      source: "BILL_RECONCILIATION",
+      current_balance: "750.00000000",
+    });
+    const history = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(["version", "current_balance"])
+      .where("provider_resource_id", "=", resourceId)
+      .orderBy("version")
+      .execute();
+    expect(history).toEqual([
+      { version: 1, current_balance: "800.00000000" },
+      { version: 2, current_balance: "750.00000000" },
+    ]);
+    const historyResponse = await app.inject({
+      method: "GET",
+      url: `/provider-resources/${resourceId}/operating-snapshots?limit=10`,
+      headers: { cookie: adminCookie },
+    });
+    expect(historyResponse.statusCode).toBe(200);
+    expect(historyResponse.json().snapshots.map((item: { version: number }) => item.version))
+      .toEqual([2, 1]);
   });
 
   it("创建 unified_model", async () => {
@@ -144,6 +210,175 @@ describe("W04 Provider/Resource/Model/Route", () => {
     expect(res.statusCode).toBe(201);
     expect(res.json().route.priority).toBe(100);
     expect(res.json().route.weight).toBe(1);
+  });
+
+  it("发布门禁：跨企业 Provider/Resource/Model Route 与计价规则引用被拒绝", async () => {
+    const otherEnterpriseId = randomUUID();
+    await db.insertInto("enterprise").values({
+      id: otherEnterpriseId,
+      name: "其他企业",
+    }).execute();
+    const otherProvider = await db.insertInto("provider").values({
+      enterprise_id: otherEnterpriseId,
+      code: "zhipu",
+      name: "其他企业智谱",
+      adapter_type: "zhipu",
+    }).returningAll().executeTakeFirstOrThrow();
+    const otherResource = await db.insertInto("provider_resource").values({
+      enterprise_id: otherEnterpriseId,
+      provider_id: otherProvider.id,
+      name: "其他企业资源",
+      mode: "CODING_PLAN",
+      credential_type: "SUBSCRIPTION_SESSION",
+    }).returningAll().executeTakeFirstOrThrow();
+    const otherModel = await db.insertInto("unified_model").values({
+      enterprise_id: otherEnterpriseId,
+      alias: "other-model",
+      display_name: "其他企业模型",
+    }).returningAll().executeTakeFirstOrThrow();
+
+    const resourceResponse = await app.inject({
+      method: "POST",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+      payload: {
+        provider_id: otherProvider.id,
+        name: "非法跨企业资源",
+        mode: "API",
+        credential_type: "API_KEY",
+        credential_plaintext: "must-not-save",
+      },
+    });
+    expect(resourceResponse.statusCode).toBe(409);
+
+    const routeResponse = await app.inject({
+      method: "POST",
+      url: "/model-routes",
+      headers: { cookie: adminCookie },
+      payload: {
+        unified_model_id: otherModel.id,
+        provider_resource_id: otherResource.id,
+        upstream_model: "glm-test",
+      },
+    });
+    expect(routeResponse.statusCode).toBe(409);
+    await expect(
+      db.insertInto("model_route").values({
+        enterprise_id: ENT_ID,
+        unified_model_id: modelId,
+        provider_resource_id: otherResource.id,
+        upstream_model: "cross-enterprise-direct",
+      }).execute(),
+    ).rejects.toThrow();
+
+    const billingResponse = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: {
+        rule_type: "API_PRICE",
+        rule_version: "cross-enterprise",
+        provider_resource_id: otherResource.id,
+        upstream_model: "glm-test",
+        effective_from: new Date().toISOString(),
+        output_price: "0.000001",
+      },
+    });
+    expect(billingResponse.statusCode).toBe(409);
+  });
+
+  it("POOL-010：API 与套餐经营字段在服务端严格隔离", async () => {
+    const apiWithPlanFields = await app.inject({
+      method: "POST",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+      payload: {
+        provider_id: providerId,
+        name: "非法 API 套餐字段",
+        mode: "API",
+        credential_type: "API_KEY",
+        credential_plaintext: "api-secret",
+        operating_snapshot: {
+          source: "ADMIN",
+          collected_at: new Date().toISOString(),
+          total_quota: "100",
+          quota_unit: "TOKEN",
+        },
+      },
+    });
+    expect(apiWithPlanFields.statusCode).toBe(400);
+    expect(apiWithPlanFields.json().error).toBe("invalid_operating_mode");
+
+    const planWithApiFields = await app.inject({
+      method: "POST",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+      payload: {
+        provider_id: providerId,
+        name: "非法套餐余额字段",
+        mode: "CODING_PLAN",
+        credential_type: "SUBSCRIPTION_SESSION",
+        credential_plaintext: "plan-secret",
+        operating_snapshot: {
+          source: "ADMIN",
+          collected_at: new Date().toISOString(),
+          current_balance: "100",
+          currency: "CNY",
+        },
+      },
+    });
+    expect(planWithApiFields.statusCode).toBe(400);
+    expect(planWithApiFields.json().error).toBe("invalid_operating_mode");
+  });
+
+  it("厂商套餐的已用、剩余和下一重置由服务端生成", async () => {
+    const anchor = "2026-07-31T16:00:00.000Z";
+    const res = await app.inject({
+      method: "POST",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+      payload: {
+        provider_id: providerId,
+        name: "系统统计套餐",
+        mode: "CODING_PLAN",
+        credential_type: "SUBSCRIPTION_SESSION",
+        credential_plaintext: "system-plan-secret",
+        operating_snapshot: {
+          source: "ADMIN",
+          collected_at: "2026-07-31T10:00:00.000Z",
+          total_quota: "1000",
+          used_quota: "999",
+          remaining_quota: "1",
+          quota_unit: "TOKEN",
+          effective_from: "2026-07-01T00:00:00.000Z",
+          reset_cycle: "MONTHLY",
+          reset_anchor_at: anchor,
+          next_reset_at: "2030-01-01T00:00:00.000Z",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().resource.operating_snapshot).toMatchObject({
+      total_quota: "1000.00000000",
+      used_quota: "0.00000000",
+      remaining_quota: "1000.00000000",
+      reset_cycle: "MONTHLY",
+      usage_calculation: "SYSTEM_LEDGER",
+    });
+    expect(res.json().resource.operating_snapshot.next_reset_at).not.toBe(
+      "2030-01-01T00:00:00.000Z",
+    );
+
+    const stored = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(["used_quota", "remaining_quota", "next_reset_at", "usage_calculation"])
+      .where("provider_resource_id", "=", res.json().resource.id)
+      .executeTakeFirstOrThrow();
+    expect(stored).toEqual({
+      used_quota: null,
+      remaining_quota: null,
+      next_reset_at: null,
+      usage_calculation: "SYSTEM_LEDGER",
+    });
   });
 
   it("WT-10：路由详情列出候选、优先级、权重、资源名", async () => {
@@ -195,8 +430,10 @@ describe("W04 Provider/Resource/Model/Route", () => {
     expect(rows.some((r) => r.credential_ciphertext !== null)).toBe(true);
     // 密文不含明文
     for (const row of rows) {
-      expect(row.credential_ciphertext).not.toContain(canarySecret);
-      expect(row.credential_ciphertext).not.toContain("sk-deepseek-test-secret");
+      if (row.credential_ciphertext !== null) {
+        expect(row.credential_ciphertext).not.toContain(canarySecret);
+        expect(row.credential_ciphertext).not.toContain("sk-deepseek-test-secret");
+      }
     }
   });
 });

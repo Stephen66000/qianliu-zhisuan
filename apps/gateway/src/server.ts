@@ -9,10 +9,15 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { registerRequestId } from "./plugins/request-id.js";
-import { createPrincipalAuth, type PrincipalAuthResult } from "./auth/principal-auth.js";
+import {
+  createModelAuthorization,
+  createPrincipalAuth,
+  type PrincipalAuthResult,
+} from "./auth/principal-auth.js";
 import { registerModelsRoute, type AuthHandler } from "./routes/models.js";
 import { registerChatRoute, type PipelineHandler } from "./routes/chat.js";
 import { registerMessagesRoute } from "./routes/messages.js";
+import { registerResponsesRoute } from "./routes/responses.js";
 import { registerUnsupportedRoutes } from "./routes/unsupported.js";
 import { fromClassification } from "./plugins/error-envelope.js";
 import { ERROR_CLASSIFICATION } from "@qianliu/domain";
@@ -79,9 +84,11 @@ export function buildGateway(
   void app.register(async (child) => {
     await registerRequestId(child);
     const auth: AuthHandler = createPrincipalAuth(db, pepper);
+    const authorizeModel: AuthHandler = createModelAuthorization(db);
     registerModelsRoute(child, db, auth);
-    registerChatRoute(child, auth, pipelineHandler);
-    registerMessagesRoute(child, auth, pipelineHandler);
+    registerChatRoute(child, auth, authorizeModel, pipelineHandler);
+    registerMessagesRoute(child, auth, authorizeModel, pipelineHandler);
+    registerResponsesRoute(child, auth, authorizeModel, pipelineHandler);
     registerUnsupportedRoutes(child, auth);
   });
 

@@ -1,41 +1,30 @@
 /**
- * 用量账本仓储（W18/W20）—— 只读查询，支持分页 + 多维筛选。
+ * 用量账本仓储（W18/W20/POOL-012）—— 企业内请求级分页、搜索与组合筛选。
  *
- * 依据：PRD §10.3（用量账本，行 426-458）、TRD §11.2（/usage 端点）。
- *
- * 口径：每条记录对应一次业务请求（ledger_transaction），展示：
- *   仟流请求 ID / 发起主体 / 客户端 / 模型 / 上游账号 /
- *   输入输出缓存 Token / 实际扣减额度 / API 费用或套餐内 / 命中规则版本 /
- *   状态 / 错误类型 / 时间 / 耗时。
- *
- * 路由过程下钻（route-candidates / attempts / dispatch-decision）在 W20 的
- * /gateway-requests/{id} 子路由提供，本仓储只提供请求级列表。
+ * 账本只消费已冻结事实：最终资源来自 ledger_line/upstream_attempt，超额来自
+ * ledger_transaction.overage；不会根据当前 Grant/Counter 重算历史。
  */
-import type { Kysely } from "kysely";
+import type { Kysely, RawBuilder } from "kysely";
+import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 
-/** 用量账本筛选条件（PRD §10.3 行 428-435）。 */
 export interface UsageQuery {
   enterpriseId: string;
-  /** 员工/项目 ID 筛选。 */
+  /** 请求 ID 或主体名称（字面量、不解释 SQL 通配符）的部分搜索。 */
+  search?: string;
   principalId?: string;
-  /** 客户端 ID 筛选。 */
   clientId?: string;
-  /** 统一模型（对外别名）筛选。 */
+  providerId?: string;
+  providerResourceId?: string;
   unifiedModel?: string;
-  /** 时间范围（started_at）。 */
   from?: Date;
   to?: Date;
-  /** 状态筛选：SUCCEEDED / FAILED / IN_PROGRESS。 */
   status?: string;
-  /** 是否只看超额（ledger_transaction.total_deducted_quota 超出 grant.quota_value）。 */
   overageOnly?: boolean;
-  /** 分页。 */
   limit?: number;
   offset?: number;
 }
 
-/** 用量账本单条记录（请求级，PRD §10.3 行 437-448）。 */
 export interface UsageRecord {
   requestId: string;
   principalId: string;
@@ -48,9 +37,14 @@ export interface UsageRecord {
   errorCode: string | null;
   startedAt: string;
   finishedAt: string | null;
-  /** 耗时毫秒（finished_at - started_at）；进行中为 null。 */
   durationMs: number | null;
-  // 聚合 token（来自 ledger_transaction）
+  finalProviderId: string | null;
+  finalProviderCode: string | null;
+  finalProviderName: string | null;
+  finalProviderResourceId: string | null;
+  finalProviderResourceName: string | null;
+  /** null 表示迁移前历史没有保存该事实，禁止按当前配置猜测。 */
+  overage: boolean | null;
   totalInputTokens: string;
   totalOutputTokens: string;
   totalCacheTokens: string;
@@ -60,7 +54,6 @@ export interface UsageRecord {
   attemptCount: number;
 }
 
-/** 用量账本分页结果。 */
 export interface UsageResult {
   records: UsageRecord[];
   total: number;
@@ -68,128 +61,189 @@ export interface UsageResult {
   offset: number;
 }
 
+interface UsageSqlRow {
+  request_id: string;
+  principal_id: string;
+  principal_name: string;
+  principal_type: string;
+  client_id: string | null;
+  unified_model: string;
+  request_status: string;
+  error_classification: string | null;
+  error_code: string | null;
+  started_at: Date;
+  finished_at: Date | null;
+  final_provider_id: string | null;
+  final_provider_code: string | null;
+  final_provider_name: string | null;
+  final_resource_id: string | null;
+  final_resource_name: string | null;
+  overage: boolean | null;
+  total_input_tokens: bigint;
+  total_output_tokens: bigint;
+  total_cache_tokens: bigint;
+  total_deducted_quota: bigint;
+  total_api_cost: string;
+  usage_quality: string;
+  attempt_count: number | bigint;
+}
+
 export class UsageRepository {
   constructor(private db: Kysely<Database>) {}
 
-  /** 用量账本列表（分页 + 筛选，PRD §10.3）。 */
   async list(query: UsageQuery): Promise<UsageResult> {
-    const limit = Math.min(query.limit ?? 50, 500);
-    const offset = query.offset ?? 0;
+    const requestedLimit = Number.isFinite(query.limit) ? Math.trunc(query.limit!) : 50;
+    const requestedOffset = Number.isFinite(query.offset) ? Math.trunc(query.offset!) : 0;
+    const limit = Math.max(1, Math.min(requestedLimit, 500));
+    const offset = Math.max(0, requestedOffset);
+    const conditions: RawBuilder<unknown>[] = [
+      sql`lt.enterprise_id = ${query.enterpriseId}`,
+      sql`ar.enterprise_id = ${query.enterpriseId}`,
+      sql`p.enterprise_id = ${query.enterpriseId}`,
+    ];
 
-    // 始终 join ai_request（usage 列表展示需要 client_id/unified_model/started_at/
-    // finished_at/status/error，且避免二次查询 N+1）+ principal（发起主体名）
-    let baseQuery = this.db
-      .selectFrom("ledger_transaction")
-      .innerJoin("principal", "principal.id", "ledger_transaction.principal_id")
-      .innerJoin("ai_request", "ai_request.id", "ledger_transaction.ai_request_id")
-      .where("ledger_transaction.enterprise_id", "=", query.enterpriseId);
+    const search = query.search?.trim();
+    if (search) {
+      const containsPattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
+      const escapeChar = "\\";
+      conditions.push(sql`(
+        lt.ai_request_id::text ILIKE ${containsPattern} ESCAPE ${escapeChar}
+        OR p.name ILIKE ${containsPattern} ESCAPE ${escapeChar}
+      )`);
+    }
+    if (query.principalId) conditions.push(sql`lt.principal_id = ${query.principalId}`);
+    if (query.clientId) conditions.push(sql`ar.client_id = ${query.clientId}`);
+    if (query.unifiedModel) conditions.push(sql`ar.unified_model = ${query.unifiedModel}`);
+    if (query.status) conditions.push(sql`ar.status = ${query.status}`);
+    if (query.from) conditions.push(sql`ar.started_at >= ${query.from}`);
+    if (query.to) conditions.push(sql`ar.started_at <= ${query.to}`);
+    if (query.overageOnly) conditions.push(sql`lt.overage = true`);
 
-    if (query.principalId) {
-      baseQuery = baseQuery.where("ledger_transaction.principal_id", "=", query.principalId);
-    }
-    if (query.clientId) {
-      baseQuery = baseQuery.where("ai_request.client_id", "=", query.clientId);
-    }
-    if (query.unifiedModel) {
-      baseQuery = baseQuery.where("ai_request.unified_model", "=", query.unifiedModel);
-    }
-    if (query.status) {
-      baseQuery = baseQuery.where("ledger_transaction.status", "=", query.status);
-    }
-    if (query.from) {
-      baseQuery = baseQuery.where("ledger_transaction.created_at", ">=", query.from);
-    }
-    if (query.to) {
-      baseQuery = baseQuery.where("ledger_transaction.created_at", "<=", query.to);
+    if (query.providerId || query.providerResourceId) {
+      conditions.push(sql`EXISTS (
+        SELECT 1
+          FROM (
+            SELECT pv.id AS provider_id, pr.id AS resource_id
+              FROM ledger_line ll
+              INNER JOIN upstream_attempt ua
+                ON ua.id = ll.upstream_attempt_id
+               AND ua.enterprise_id = ${query.enterpriseId}
+              INNER JOIN provider_resource pr
+                ON pr.id = ll.provider_resource_id
+               AND pr.enterprise_id = ${query.enterpriseId}
+              INNER JOIN provider pv
+                ON pv.id = pr.provider_id
+               AND pv.enterprise_id = ${query.enterpriseId}
+             WHERE ll.ai_request_id = lt.ai_request_id
+               AND ll.enterprise_id = ${query.enterpriseId}
+             ORDER BY ua.attempt_no DESC, ll.created_at DESC, ll.id DESC
+             LIMIT 1
+          ) filtered_final_resource
+         WHERE ${query.providerId
+           ? sql`filtered_final_resource.provider_id = ${query.providerId}`
+           : sql`true`}
+           AND ${query.providerResourceId
+             ? sql`filtered_final_resource.resource_id = ${query.providerResourceId}`
+             : sql`true`}
+      )`);
     }
 
-    // 总数（分页元数据）
-    const countQuery = baseQuery.select((eb) => eb.fn.countAll().as("cnt"));
-    const countRow = await countQuery.executeTakeFirstOrThrow();
-    const total = Number((countRow as { cnt: bigint | number }).cnt);
+    const where = sql.join(conditions, sql` AND `);
+    const countResult = await sql<{ cnt: bigint | string }>`
+      SELECT count(*) AS cnt
+        FROM ledger_transaction lt
+        INNER JOIN principal p ON p.id = lt.principal_id
+        INNER JOIN ai_request ar ON ar.id = lt.ai_request_id
+       WHERE ${where}
+    `.execute(this.db);
+    const total = Number(countResult.rows[0]?.cnt ?? 0);
 
-    // 分页数据（一次性 select 全字段，含 ai_request 的展示字段）
-    const rows = await baseQuery
-      .orderBy("ledger_transaction.created_at", "desc")
-      .limit(limit)
-      .offset(offset)
-      .select([
-        "ledger_transaction.ai_request_id as request_id",
-        "ledger_transaction.principal_id",
-        "principal.name as principal_name",
-        "principal.type as principal_type",
-        "ai_request.client_id",
-        "ai_request.unified_model",
-        "ai_request.started_at",
-        "ai_request.finished_at",
-        "ai_request.status as request_status",
-        "ai_request.error_classification",
-        "ai_request.error_code",
-        "ledger_transaction.total_input_tokens",
-        "ledger_transaction.total_output_tokens",
-        "ledger_transaction.total_cache_tokens",
-        "ledger_transaction.total_deducted_quota",
-        "ledger_transaction.total_api_cost",
-        "ledger_transaction.usage_quality",
-        "ledger_transaction.attempt_count",
-        "ledger_transaction.status",
-        "ledger_transaction.created_at",
-      ])
-      .execute();
+    const result = await sql<UsageSqlRow>`
+      SELECT
+        lt.ai_request_id AS request_id,
+        lt.principal_id,
+        p.name AS principal_name,
+        p.type AS principal_type,
+        ar.client_id,
+        ar.unified_model,
+        ar.status AS request_status,
+        ar.error_classification,
+        ar.error_code,
+        ar.started_at,
+        ar.finished_at,
+        final_resource.provider_id AS final_provider_id,
+        final_resource.provider_code AS final_provider_code,
+        final_resource.provider_name AS final_provider_name,
+        final_resource.resource_id AS final_resource_id,
+        final_resource.resource_name AS final_resource_name,
+        lt.overage,
+        lt.total_input_tokens,
+        lt.total_output_tokens,
+        lt.total_cache_tokens,
+        lt.total_deducted_quota,
+        lt.total_api_cost,
+        lt.usage_quality,
+        lt.attempt_count
+      FROM ledger_transaction lt
+      INNER JOIN principal p ON p.id = lt.principal_id
+      INNER JOIN ai_request ar ON ar.id = lt.ai_request_id
+      LEFT JOIN LATERAL (
+        SELECT
+          pv.id AS provider_id,
+          pv.code AS provider_code,
+          pv.name AS provider_name,
+          pr.id AS resource_id,
+          pr.name AS resource_name
+        FROM ledger_line ll
+        INNER JOIN upstream_attempt ua
+          ON ua.id = ll.upstream_attempt_id
+         AND ua.enterprise_id = ${query.enterpriseId}
+        INNER JOIN provider_resource pr
+          ON pr.id = ll.provider_resource_id
+         AND pr.enterprise_id = ${query.enterpriseId}
+        INNER JOIN provider pv
+          ON pv.id = pr.provider_id
+         AND pv.enterprise_id = ${query.enterpriseId}
+        WHERE ll.ai_request_id = lt.ai_request_id
+          AND ll.enterprise_id = ${query.enterpriseId}
+        ORDER BY ua.attempt_no DESC, ll.created_at DESC, ll.id DESC
+        LIMIT 1
+      ) final_resource ON true
+      WHERE ${where}
+      ORDER BY lt.created_at DESC, lt.ai_request_id DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `.execute(this.db);
 
-    const records: UsageRecord[] = rows.map((r) => {
-      const row = r as {
-        request_id: string;
-        principal_id: string;
-        principal_name: string;
-        principal_type: string;
-        client_id: string | null;
-        unified_model: string;
-        started_at: Date;
-        finished_at: Date | null;
-        request_status: string;
-        error_classification: string | null;
-        error_code: string | null;
-        total_input_tokens: bigint;
-        total_output_tokens: bigint;
-        total_cache_tokens: bigint;
-        total_deducted_quota: bigint;
-        total_api_cost: string;
-        usage_quality: string;
-        attempt_count: number | bigint;
-        status: string;
-        created_at: Date;
-      };
-      const finishedAt = row.finished_at;
-      const durationMs = finishedAt
-        ? finishedAt.getTime() - row.started_at.getTime()
-        : null;
-      return {
-        requestId: row.request_id,
-        principalId: row.principal_id,
-        principalName: row.principal_name,
-        principalType: row.principal_type,
-        clientId: row.client_id,
-        unifiedModel: row.unified_model,
-        status: row.request_status || row.status,
-        errorClassification: row.error_classification,
-        errorCode: row.error_code,
-        startedAt: row.started_at.toISOString(),
-        finishedAt: finishedAt ? finishedAt.toISOString() : null,
-        durationMs,
-        totalInputTokens: row.total_input_tokens.toString(),
-        totalOutputTokens: row.total_output_tokens.toString(),
-        totalCacheTokens: row.total_cache_tokens.toString(),
-        totalDeductedQuota: row.total_deducted_quota.toString(),
-        totalApiCost: row.total_api_cost,
-        usageQuality: row.usage_quality,
-        attemptCount: Number(row.attempt_count),
-      };
-    });
-
-    // overageOnly 后置过滤（需 join grant 判定，复杂度高，简化为基于 transaction 状态标记）
-    // 当前 overage 维度在 dashboard 的 overageList 提供，usage 列表暂不做 overage 过滤
-    // （避免 N+1 join grant；如需可后续扩展为 SQL 级筛选）
+    const records: UsageRecord[] = result.rows.map((row) => ({
+      requestId: row.request_id,
+      principalId: row.principal_id,
+      principalName: row.principal_name,
+      principalType: row.principal_type,
+      clientId: row.client_id,
+      unifiedModel: row.unified_model,
+      status: row.request_status,
+      errorClassification: row.error_classification,
+      errorCode: row.error_code,
+      startedAt: row.started_at.toISOString(),
+      finishedAt: row.finished_at?.toISOString() ?? null,
+      durationMs: row.finished_at
+        ? row.finished_at.getTime() - row.started_at.getTime()
+        : null,
+      finalProviderId: row.final_provider_id,
+      finalProviderCode: row.final_provider_code,
+      finalProviderName: row.final_provider_name,
+      finalProviderResourceId: row.final_resource_id,
+      finalProviderResourceName: row.final_resource_name,
+      overage: row.overage,
+      totalInputTokens: row.total_input_tokens.toString(),
+      totalOutputTokens: row.total_output_tokens.toString(),
+      totalCacheTokens: row.total_cache_tokens.toString(),
+      totalDeductedQuota: row.total_deducted_quota.toString(),
+      totalApiCost: row.total_api_cost,
+      usageQuality: row.usage_quality,
+      attemptCount: Number(row.attempt_count),
+    }));
 
     return { records, total, limit, offset };
   }

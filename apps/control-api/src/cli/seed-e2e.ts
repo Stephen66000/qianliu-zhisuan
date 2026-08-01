@@ -70,6 +70,7 @@ async function main(): Promise<void> {
         ledger_transaction, ledger_line, billing_rule, usage_event, upstream_attempt,
         route_candidate, ai_request, resource_status_event, model_route, unified_model,
         quota_counter, principal_grant, principal_key, employee_login, principal,
+        provider_resource_operating_snapshot,
         provider_resource, provider, operation_log, admin_session, admin_user, enterprise
       RESTART IDENTITY CASCADE
     `.execute(db);
@@ -176,6 +177,7 @@ async function main(): Promise<void> {
         principal_id: IDS.principal,
         key_prefix: "sk-e2e01",
         key_digest: "e2e-digest-only-never-plaintext",
+        allowed_model_ids: JSON.stringify([IDS.model]) as unknown as string[],
         status: "ACTIVE",
       })
       .execute();
@@ -471,6 +473,7 @@ async function main(): Promise<void> {
           total_cache_tokens: 20n,
           total_deducted_quota: 320n,
           total_api_cost: "125.00000000",
+          overage: true,
           usage_quality: "PROVIDER_REPORTED",
           attempt_count: 2,
           status: "SETTLED",
@@ -485,11 +488,26 @@ async function main(): Promise<void> {
           total_cache_tokens: 0n,
           total_deducted_quota: 25n,
           total_api_cost: "1.00000000",
+          overage: false,
           usage_quality: "PROVIDER_REPORTED",
           attempt_count: 1,
           status: "SETTLED",
         },
       ])
+      .execute();
+    await db
+      .insertInto("provider_resource_operating_snapshot")
+      .values({
+        enterprise_id: IDS.enterprise,
+        provider_resource_id: IDS.resource,
+        version: 1,
+        source: "PROVIDER_SYNC",
+        collected_at: new Date(now.getTime() - 1_000),
+        currency: "CNY",
+        recharge_amount: "10000",
+        current_balance: "4800",
+        current_period_cost: "5200",
+      })
       .execute();
     await db
       .insertInto("supply_forecast")
@@ -507,6 +525,7 @@ async function main(): Promise<void> {
         confidence: "HIGH",
         data_points: 168,
         algorithm_version: "e2e-v1",
+        snapshot_at: now,
       })
       .execute();
     await db

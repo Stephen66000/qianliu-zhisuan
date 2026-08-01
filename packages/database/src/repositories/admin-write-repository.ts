@@ -8,7 +8,12 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
-import type { ProviderResource, UnifiedModel, ModelRoute } from "./provider-repository.js";
+import type {
+  ProviderResource,
+  UnifiedModel,
+  ModelRoute,
+  OperatingSnapshotInput,
+} from "./provider-repository.js";
 import type { PrincipalGrant } from "./grant-repository.js";
 
 /**
@@ -27,16 +32,76 @@ export class AdminWriteRepository {
     enterpriseId: string,
     id: string,
     expectedVersion: number,
-    patch: { name?: string; concurrency_limit?: number | null },
+    patch: {
+      name?: string;
+      concurrency_limit?: number | null;
+      upstream_models?: string[] | null;
+      operating_snapshot?: OperatingSnapshotInput;
+    },
   ): Promise<ProviderResource | null> {
-    return this.db
-      .updateTable("provider_resource")
-      .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
-      .where("id", "=", id)
-      .where("enterprise_id", "=", enterpriseId)
-      .where(versionLock(expectedVersion))
-      .returningAll()
-      .executeTakeFirst() as Promise<ProviderResource | null>;
+    return this.db.transaction().execute(async (trx) => {
+      const {
+        operating_snapshot: operating,
+        upstream_models: upstreamModels,
+        ...basePatch
+      } = patch;
+      const resourcePatch = {
+        ...basePatch,
+        ...(upstreamModels !== undefined
+          ? {
+              upstream_models: upstreamModels
+                ? (JSON.stringify(upstreamModels) as unknown as string[])
+                : null,
+            }
+          : {}),
+      };
+      const updated = await trx
+        .updateTable("provider_resource")
+        .set({ ...resourcePatch, version: sql`version + 1`, updated_at: new Date() })
+        .where("id", "=", id)
+        .where("enterprise_id", "=", enterpriseId)
+        .where(versionLock(expectedVersion))
+        .returningAll()
+        .executeTakeFirst();
+      if (!updated) return null;
+      if (operating) {
+        const previous = await trx
+          .selectFrom("provider_resource_operating_snapshot")
+          .select("version")
+          .where("provider_resource_id", "=", id)
+          .orderBy("version", "desc")
+          .executeTakeFirst();
+        await trx.insertInto("provider_resource_operating_snapshot").values({
+          enterprise_id: enterpriseId,
+          provider_resource_id: id,
+          version: (previous?.version ?? 0) + 1,
+          source: operating.source,
+          collected_at: operating.collected_at,
+          currency: operating.currency ?? null,
+          recharge_amount: operating.recharge_amount ?? null,
+          current_balance: operating.current_balance ?? null,
+          cumulative_cost: operating.cumulative_cost ?? null,
+          current_period_cost: operating.current_period_cost ?? null,
+          cost_period_start: operating.cost_period_start ?? null,
+          cost_period_end: operating.cost_period_end ?? null,
+          balance_updated_at: operating.balance_updated_at ?? null,
+          package_name: operating.package_name ?? null,
+          package_cost: operating.package_cost ?? null,
+          total_quota: operating.total_quota ?? null,
+          quota_unit: operating.quota_unit ?? null,
+          used_quota: operating.used_quota ?? null,
+          remaining_quota: operating.remaining_quota ?? null,
+          effective_from: operating.effective_from ?? null,
+          effective_until: operating.effective_until ?? null,
+          reset_cycle: operating.reset_cycle ?? null,
+          reset_anchor_at: operating.reset_anchor_at ?? null,
+          reset_timezone: operating.reset_timezone ?? null,
+          usage_calculation: operating.usage_calculation ?? "MANUAL_SNAPSHOT",
+          next_reset_at: operating.next_reset_at ?? null,
+        }).execute();
+      }
+      return updated as ProviderResource;
+    });
   }
 
   /** 更新统一模型（version 乐观锁）。 */
@@ -90,6 +155,16 @@ export class AdminWriteRepository {
       .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
+      .where(
+        "principal_id",
+        "in",
+        this.db
+          .selectFrom("principal")
+          .select("id")
+          .where("enterprise_id", "=", enterpriseId)
+          .where("status", "=", "ACTIVE")
+          .where("archived_at", "is", null),
+      )
       .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst() as Promise<PrincipalGrant | null>;
@@ -102,11 +177,6 @@ export class AdminWriteRepository {
     expectedVersion: number,
     patch: {
       effective_to?: Date | null;
-      multiplier?: string | null;
-      cache_hit_price?: string | null;
-      cache_miss_price?: string | null;
-      output_price?: string | null;
-      priority?: number;
       enabled?: boolean;
     },
   ) {

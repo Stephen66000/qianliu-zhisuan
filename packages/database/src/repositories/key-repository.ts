@@ -9,6 +9,7 @@
  */
 import type { Kysely, Selectable } from "kysely";
 import type { Database, PrincipalKeyTable } from "../kysely.js";
+import { PrincipalNotActiveError } from "./principal-repository.js";
 
 export type PrincipalKey = Selectable<PrincipalKeyTable>;
 
@@ -17,6 +18,26 @@ export interface CreatedKey {
   plaintext: string;
   /** 持久化的记录（不含明文）。 */
   record: PrincipalKey;
+}
+
+const ACTIVE_KEY_UNIQUE_INDEX = "principal_key_one_active_per_principal_uq";
+
+/** 数据库唯一约束判定出的“主体已有 ACTIVE Key”，供 API 稳定映射为 409。 */
+export class ActiveKeyExistsError extends Error {
+  constructor() {
+    super("principal already has an active key");
+    this.name = "ActiveKeyExistsError";
+  }
+}
+
+function isActiveKeyUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const pgError = error as { code?: unknown; constraint?: unknown };
+  return pgError.code === "23505" && pgError.constraint === ACTIVE_KEY_UNIQUE_INDEX;
+}
+
+function jsonArray<T>(value: T[]): T[] {
+  return JSON.stringify(value) as unknown as T[];
 }
 
 export class KeyRepository {
@@ -43,34 +64,79 @@ export class KeyRepository {
       concurrencyLimit?: number | null;
     },
   ): Promise<CreatedKey> {
-    const plaintext = this.generateKey();
-    const digest = this.digestKey(plaintext, this.pepper);
-    const record = await this.db
-      .insertInto("principal_key")
-      .values({
-        enterprise_id: enterpriseId,
-        principal_id: principalId,
-        key_prefix: this.keyPrefix(plaintext),
-        key_digest: digest,
-        allowed_model_ids: opts?.allowedModelIds ?? null,
-        ip_allowlist: opts?.ipAllowlist ?? null,
-        expires_at: opts?.expiresAt ?? null,
-        quota_limit: opts?.quotaLimit ?? null,
-        concurrency_limit: opts?.concurrencyLimit ?? null,
-        status: "ACTIVE",
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    return { plaintext, record };
+    try {
+      return await this.db.transaction().execute(async (trx) => {
+        const principal = await trx
+          .selectFrom("principal")
+          .select("id")
+          .where("enterprise_id", "=", enterpriseId)
+          .where("id", "=", principalId)
+          .where("status", "=", "ACTIVE")
+          .where("archived_at", "is", null)
+          .forKeyShare()
+          .executeTakeFirst();
+        if (!principal) throw new PrincipalNotActiveError();
+
+        const plaintext = this.generateKey();
+        const digest = this.digestKey(plaintext, this.pepper);
+        const record = await trx
+          .insertInto("principal_key")
+          .values({
+            enterprise_id: enterpriseId,
+            principal_id: principalId,
+            key_prefix: this.keyPrefix(plaintext),
+            key_digest: digest,
+            // 安全缺省：未显式传入授权时不允许任何模型，避免 null（全部模型）扩大权限。
+            allowed_model_ids: jsonArray(opts?.allowedModelIds ?? []),
+            ip_allowlist: opts?.ipAllowlist ? jsonArray(opts.ipAllowlist) : null,
+            expires_at: opts?.expiresAt ?? null,
+            quota_limit: opts?.quotaLimit ?? null,
+            concurrency_limit: opts?.concurrencyLimit ?? null,
+            status: "ACTIVE",
+          })
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        return { plaintext, record };
+      });
+    } catch (error) {
+      if (isActiveKeyUniqueViolation(error)) {
+        throw new ActiveKeyExistsError();
+      }
+      throw error;
+    }
   }
 
   /**
    * 重置 Key：单事务撤销旧 Key + 创建新 Key（TRD §5.3 L218）。
    * 返回新 Key 明文（一次展示）。
    */
-  async reset(enterpriseId: string, principalId: string): Promise<CreatedKey> {
+  async reset(enterpriseId: string, principalId: string): Promise<CreatedKey | undefined> {
     return this.db.transaction().execute(async (trx) => {
-      // 撤销所有 ACTIVE Key
+      const principal = await trx
+        .selectFrom("principal")
+        .select("id")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", principalId)
+        .where("status", "=", "ACTIVE")
+        .where("archived_at", "is", null)
+        .forKeyShare()
+        .executeTakeFirst();
+      if (!principal) throw new PrincipalNotActiveError();
+
+      // 锁定当前有效 Key。并发重置中，后到事务会在锁释放后看到已撤销状态并返回 undefined。
+      const activeKeys = await trx
+        .selectFrom("principal_key")
+        .selectAll()
+        .where("enterprise_id", "=", enterpriseId)
+        .where("principal_id", "=", principalId)
+        .where("status", "=", "ACTIVE")
+        .orderBy("created_at", "desc")
+        .forUpdate()
+        .execute();
+      const source = activeKeys[0];
+      if (!source) return undefined;
+
+      // 兼容历史异常数据：撤销该主体全部 ACTIVE Key，但只以最新一把为限制来源。
       await trx
         .updateTable("principal_key")
         .set({ status: "REVOKED", revoked_at: new Date() })
@@ -88,12 +154,35 @@ export class KeyRepository {
           principal_id: principalId,
           key_prefix: this.keyPrefix(plaintext),
           key_digest: digest,
+          // 兼容尚未执行 0022 的滚动升级节点：历史 null 也按最小权限收紧为 []。
+          allowed_model_ids: jsonArray(source.allowed_model_ids ?? []),
+          ip_allowlist:
+            source.ip_allowlist === null ? null : jsonArray(source.ip_allowlist),
+          expires_at: source.expires_at,
+          quota_limit: source.quota_limit,
+          concurrency_limit: source.concurrency_limit,
           status: "ACTIVE",
         })
         .returningAll()
         .executeTakeFirstOrThrow();
       return { plaintext, record };
     });
+  }
+
+  /** 更新当前有效 Key 的模型授权。空数组表示不允许任何模型。 */
+  async updateAllowedModels(
+    enterpriseId: string,
+    principalId: string,
+    allowedModelIds: string[],
+  ): Promise<PrincipalKey | undefined> {
+    return this.db
+      .updateTable("principal_key")
+      .set({ allowed_model_ids: jsonArray(allowedModelIds) })
+      .where("enterprise_id", "=", enterpriseId)
+      .where("principal_id", "=", principalId)
+      .where("status", "=", "ACTIVE")
+      .returningAll()
+      .executeTakeFirst();
   }
 
   /** 停用主体时撤销全部有效 Key（TRD §5.3 L219）。 */

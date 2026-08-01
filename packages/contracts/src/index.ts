@@ -27,6 +27,8 @@ export interface Usage {
   output: number;
   /** 缓存命中 Token（0 表示无）。 */
   cache: number;
+  /** 输出 token 中的推理 token 子集（Responses output_tokens_details.reasoning_tokens）。 */
+  reasoning?: number;
   /** 计量质量。 */
   quality: UsageQuality;
 }
@@ -43,9 +45,41 @@ export interface Outcome {
   /** 是否已向下游提交首个有效输出（TRD §8.3 committed 边界）。提交后禁止切换上游。 */
   committed: boolean;
   usage: Usage;
+  /** 规范化 assistant 输出项；仅驻留内存，供各北向协议转换，不写入账本正文。 */
+  responseOutput?: unknown[];
+  /**
+   * 兼容本地既有真实 Caller 的内存态原始 JSON；不得写入账本、日志或 Evidence。
+   * 新的多厂商 Caller 优先使用 responseOutput，W04 再统一收敛该兼容字段。
+   */
+  responseBody?: unknown;
   /** 该 Attempt 的 API 费用（API 模式）；套餐模式为 undefined，由 settlement 折算。 */
   cost?: string; // decimal.js 字符串（避免 number 精度损失）
   error?: string;
+  /**
+   * 上游 429 的稳定语义。只保存归一化类型，不保存厂商原始正文，满足
+   * METADATA_ONLY；Gateway 据此区分瞬时拥塞、并发占满和额度周期耗尽。
+   */
+  upstreamErrorKind?:
+    | "ENGINE_OVERLOADED"
+    | "CONCURRENCY_LIMITED"
+    | "WINDOW_EXHAUSTED"
+    | "QUOTA_EXHAUSTED"
+    | "UNKNOWN";
+  /** 厂商 Retry-After 归一化后的毫秒数；缺失时不伪造。 */
+  retryAfterMs?: number;
+  /** RA-W04：Adapter 规范化后的稳定可用性信号。 */
+  unifiedAvailabilitySignal?:
+    | "RATE_LIMIT_RETRY_AFTER"
+    | "QUOTA_EXHAUSTED"
+    | "PLAN_EXPIRED"
+    | "MODEL_UNAUTHORIZED"
+    | "UPSTREAM_MAINTENANCE"
+    | "CONFIGURATION_ERROR"
+    | "TECHNICAL_FAILURE";
+  /** 允许落库的稳定业务码，不含上游原始正文。 */
+  upstreamCode?: string;
+  /** 上游明确恢复时间；没有可靠字段时保持缺失。 */
+  recoverAt?: string;
   cancelled?: boolean;
 }
 
@@ -116,6 +150,7 @@ export const NORTHBOUND_ENDPOINTS = [
   "GET /v1/models",
   "POST /v1/chat/completions",
   "POST /v1/messages",
+  "POST /v1/responses",
 ] as const;
 
 export type NorthboundEndpoint = (typeof NORTHBOUND_ENDPOINTS)[number];

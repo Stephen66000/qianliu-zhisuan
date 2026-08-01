@@ -31,6 +31,35 @@ export class QuotaGateRepository {
   constructor(private db: Kysely<Database>) {}
 
   /**
+   * 模型调用授权门禁（API / CODING_PLAN 共用）。
+   * 不做缓存，每次直接查库，使 grant 停用、过期或撤权在下一请求即时生效。
+   */
+  async hasActiveGrant(input: {
+    enterpriseId: string;
+    principalId: string;
+    provider: string;
+    modelAlias: string;
+    now?: Date;
+  }): Promise<boolean> {
+    const now = input.now ?? new Date();
+    const grant = await this.db
+      .selectFrom("principal_grant")
+      .select("id")
+      .where("enterprise_id", "=", input.enterpriseId)
+      .where("principal_id", "=", input.principalId)
+      .where("provider", "=", input.provider)
+      .where("model_alias", "=", input.modelAlias)
+      .where("status", "=", "ACTIVE")
+      .where("valid_from", "<=", now)
+      .where((eb) => eb.or([
+        eb("valid_until", "is", null),
+        eb("valid_until", ">", now),
+      ]))
+      .executeTakeFirst();
+    return Boolean(grant);
+  }
+
+  /**
    * 额度预占（行锁防并发穿透）。
    * 查 principal 在该 provider+model 的 ACTIVE grant + counter，判定后预占 estimated。
    * REJECT 时不改 counter。返回判定结果 + 预估值（结算用）。

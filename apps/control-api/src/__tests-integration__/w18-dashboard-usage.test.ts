@@ -62,6 +62,7 @@ afterAll(async () => {
 /** seed 一套完整数据：provider/resource/principal/key/grant/counter/request/ledger/forecast/dispatch。 */
 async function seedFullData(): Promise<{
   principalId: string;
+  providerId: string;
   resourceId: string;
   requestId: string;
 }> {
@@ -99,6 +100,7 @@ async function seedFullData(): Promise<{
       principal_id: principal.id,
       key_prefix: "sk-test",
       key_digest: "digest-" + randomUUID(),
+      allowed_model_ids: JSON.stringify([]) as unknown as string[],
       status: "ACTIVE",
     })
     .returningAll()
@@ -127,6 +129,20 @@ async function seedFullData(): Promise<{
   // 一次成功请求（当前自然月）+ ledger_transaction（含 API 费用）
   const requestId = randomUUID();
   const now = new Date();
+  await db.insertInto("provider_resource_operating_snapshot").values({
+    enterprise_id: ENT_ID,
+    provider_resource_id: resource.id,
+    version: 1,
+    source: "ADMIN",
+    collected_at: new Date(now.getTime() - 60_000),
+    currency: "CNY",
+    package_cost: "299",
+    total_quota: "150000",
+    used_quota: "40000",
+    remaining_quota: "110000",
+    quota_unit: "TOKEN",
+    next_reset_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+  }).execute();
   await db
     .insertInto("ai_request")
     .values({
@@ -152,9 +168,56 @@ async function seedFullData(): Promise<{
       total_cache_tokens: 0n,
       total_deducted_quota: 300n,
       total_api_cost: "0.00000000", // CODING_PLAN 套餐内
+      overage: true,
       usage_quality: "UPSTREAM_REPORTED",
       attempt_count: 1,
       status: "SETTLED",
+    })
+    .execute();
+  const attempt = await db
+    .insertInto("upstream_attempt")
+    .values({
+      ai_request_id: requestId,
+      enterprise_id: ENT_ID,
+      attempt_no: 1,
+      provider_resource_id: resource.id,
+      upstream_model: "glm-4.6",
+      finished_at: new Date(now.getTime() + 1200),
+      http_status: 200,
+      response_committed: true,
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  const usage = await db
+    .insertInto("usage_event")
+    .values({
+      ai_request_id: requestId,
+      enterprise_id: ENT_ID,
+      upstream_attempt_id: attempt.id,
+      provider_resource_id: resource.id,
+      input_tokens: 200n,
+      output_tokens: 100n,
+      cache_tokens: 0n,
+      usage_quality: "PROVIDER_REPORTED",
+      dedup_key: `usage-${requestId}`,
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  await db
+    .insertInto("ledger_line")
+    .values({
+      ai_request_id: requestId,
+      enterprise_id: ENT_ID,
+      usage_event_id: usage.id,
+      upstream_attempt_id: attempt.id,
+      provider_resource_id: resource.id,
+      principal_id: principal.id,
+      resource_mode: "CODING_PLAN",
+      raw_input_tokens: 200n,
+      raw_output_tokens: 100n,
+      raw_cache_tokens: 0n,
+      deducted_quota: 300n,
+      usage_quality: "PROVIDER_REPORTED",
     })
     .execute();
 
@@ -170,7 +233,7 @@ async function seedFullData(): Promise<{
       forecast_exhaust_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
       next_recover_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
       coverage_hours: "168",
-      remaining_quota: "50000",
+      remaining_quota: "110000",
       confidence: "MEDIUM",
       algorithm_version: "v1",
     })
@@ -236,7 +299,12 @@ async function seedFullData(): Promise<{
     })
     .execute();
 
-  return { principalId: principal.id, resourceId: resource.id, requestId };
+  return {
+    principalId: principal.id,
+    providerId: provider.id,
+    resourceId: resource.id,
+    requestId,
+  };
 }
 
 describe("W18 空状态（新企业无数据）", () => {
@@ -269,12 +337,16 @@ describe("W18 空状态（新企业无数据）", () => {
 
 describe("W18 有数据场景（seed 完整数据后）", () => {
   let seededPrincipalId: string;
+  let seededProviderId: string;
   let seededResourceId: string;
+  let seededRequestId: string;
 
   beforeAll(async () => {
     const seed = await seedFullData();
     seededPrincipalId = seed.principalId;
+    seededProviderId = seed.providerId;
     seededResourceId = seed.resourceId;
+    seededRequestId = seed.requestId;
   }, 120_000);
 
   it("/dashboard 八项口径正确", async () => {
@@ -303,12 +375,47 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(body.resourceBreakdown[0].providerCode).toBe("zhipu");
     expect(body.resourceBreakdown[0].mode).toBe("CODING_PLAN");
     expect(body.resourceBreakdown[0].accountCount).toBe(1);
-    expect(Number(body.resourceBreakdown[0].totalQuota)).toBe(100000);
-    expect(Number(body.resourceBreakdown[0].usedQuota)).toBe(50000);
+    expect(Number(body.resourceBreakdown[0].totalQuota)).toBe(150000);
+    expect(Number(body.resourceBreakdown[0].usedQuota)).toBe(40000);
+    expect(Number(body.resourceBreakdown[0].remainingQuota)).toBe(110000);
+    expect(Number(body.resourceBreakdown[0].allocatedQuota)).toBe(100000);
     // 超额列表：1 条（overage 5000）
     expect(body.overageList).toHaveLength(1);
     expect(body.overageList[0].principalId).toBe(seededPrincipalId);
     expect(Number(body.overageList[0].overageValue)).toBe(5000);
+  });
+
+  it("/dashboard 超额关注排除归档主体和停用 Grant", async () => {
+    const archived = await db.insertInto("principal").values({
+      enterprise_id: ENT_ID,
+      type: "PROJECT",
+      name: "已归档超额主体",
+      status: "DISABLED",
+      archived_at: new Date(),
+    }).returningAll().executeTakeFirstOrThrow();
+    const disabledGrant = await db.insertInto("principal_grant").values({
+      enterprise_id: ENT_ID,
+      principal_id: archived.id,
+      provider: "zhipu",
+      model_alias: "archived-model",
+      quota_value: 10n,
+      status: "DISABLED",
+    }).returningAll().executeTakeFirstOrThrow();
+    await db.insertInto("quota_counter").values({
+      grant_id: disabledGrant.id,
+      used_value: 100n,
+      overage_value: 90n,
+    }).execute();
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/dashboard",
+      headers: { cookie: adminCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().overageList).toEqual([
+      expect.objectContaining({ principalId: seededPrincipalId }),
+    ]);
   });
 
   it("/usage 列表返回请求级账本记录（分页）", async () => {
@@ -326,7 +433,14 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(first.principalName).toBe("测试员工");
     expect(first.unifiedModel).toBe("qianliu-glm-coding");
     expect(first.status).toBe("SUCCEEDED");
-    expect(first.durationMs).toBeGreaterThan(0);
+    const target = body.records.find((record: { requestId: string }) => record.requestId === seededRequestId);
+    expect(target).toMatchObject({
+      finalProviderCode: "zhipu",
+      finalProviderResourceId: seededResourceId,
+      finalProviderResourceName: "智谱主账号",
+      overage: true,
+    });
+    expect(target.durationMs).toBeGreaterThan(0);
   });
 
   it("/usage 按 principal 筛选", async () => {
@@ -339,6 +453,48 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     const body = res.json();
     expect(body.records.length).toBeGreaterThanOrEqual(1);
     expect(body.records.every((r: { principalId: string }) => r.principalId === seededPrincipalId)).toBe(true);
+  });
+
+  it("/usage 请求/主体搜索与厂商资源、状态、超额组合筛选共用分页总数口径", async () => {
+    for (const search of [seededRequestId.slice(0, 8), "测试员"]) {
+      const searched = await app.inject({
+        method: "GET",
+        url: `/usage?search=${encodeURIComponent(search)}&limit=1`,
+        headers: { cookie: adminCookie },
+      });
+      expect(searched.statusCode).toBe(200);
+      expect(searched.json().total).toBeGreaterThanOrEqual(1);
+      expect(searched.json().records).toHaveLength(1);
+    }
+
+    const filtered = await app.inject({
+      method: "GET",
+      url:
+        `/usage?provider_id=${seededProviderId}` +
+        `&provider_resource_id=${seededResourceId}` +
+        "&unified_model=qianliu-glm-coding&status=SUCCEEDED&overage_only=true&limit=1&offset=0",
+      headers: { cookie: adminCookie },
+    });
+    expect(filtered.statusCode).toBe(200);
+    const body = filtered.json();
+    expect(body.total).toBe(1);
+    expect(body.records).toHaveLength(1);
+    expect(body.records[0]).toMatchObject({
+      requestId: seededRequestId,
+      finalProviderResourceId: seededResourceId,
+      overage: true,
+    });
+  });
+
+  it("/usage 非法分页、日期和筛选 ID 返回 400", async () => {
+    for (const query of ["limit=0", "from=not-a-date", "provider_id=bad-id"]) {
+      const res = await app.inject({
+        method: "GET",
+        url: `/usage?${query}`,
+        headers: { cookie: adminCookie },
+      });
+      expect(res.statusCode).toBe(400);
+    }
   });
 
   it("/billing-rules 只读列表（空，未 seed 规则）", async () => {

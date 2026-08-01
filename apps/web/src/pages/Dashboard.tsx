@@ -3,7 +3,7 @@
  *
  * 口径全部来自后端 GET /dashboard（TRD §12），前端只展示不重算。
  * 结构（仪表盘补充 §1-2）：Canvas → Zone（1-4 个，间距 20px）→ Card；
- * 核心区一页最多一个 = "当下关注"（超额与最早耗尽）。
+ * 核心区一页最多一个 = "需要处理"（有效主体超额与最早耗尽）。
  * 只显示当前自然月，不放同比/环比/趋势（TRD §12 行 746）。
  */
 import { Inbox } from "lucide-react";
@@ -56,7 +56,11 @@ export function DashboardPage() {
 
       {/* 核心区（一页最多一个）：当下需要关注的信号 —— 超额 + 最早耗尽 */}
       {hasAttention ? (
-        <Zone focus title="当下关注">
+        <Zone
+          description="仅显示当前有效主体的额度超额，以及厂商资源耗尽风险；正常使用中的主体不会出现在这里。"
+          focus
+          title="需要处理"
+        >
           <div className="flex flex-col gap-4">
             {data.earliestExhaustion ? (
               <EarliestExhaustionCard value={data.earliestExhaustion} />

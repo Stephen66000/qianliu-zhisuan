@@ -22,17 +22,27 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json vitest.config.ts eslint.config.mjs ./
 COPY packages/ packages/
 COPY apps/web/ apps/web/
+ARG VITE_GATEWAY_BASE_URL=https://gw.qianliuai.com/v1
+ENV VITE_GATEWAY_BASE_URL=$VITE_GATEWAY_BASE_URL
 # web build 依赖 contracts 的类型；build contracts 产物
 RUN pnpm --filter "@qianliu/contracts" --filter "@qianliu/domain" run build
 RUN pnpm --filter "@qianliu/web" run build
 
-# ---------- stage 2: runtime（nginx 静态服务）----------
+# ---------- stage 2: runtime（nginx 静态服务 + API 反代）----------
 FROM nginx:1.27-alpine AS runtime
-# SPA：history fallback 到 index.html；/v1 /auth /health 反代到 control-api（由 compose 网络名解析）
+# /api/* 反代到 control-api（rewrite 去掉 /api 前缀）；其余 SPA fallback 到 index.html。
+# 这样 nginx 能区分 API 请求（/api/*）与 SPA 前端路由（两者路径可能重叠）。
 RUN printf 'server {\n\
   listen 80;\n\
   root /usr/share/nginx/html;\n\
   index index.html;\n\
+  location /api/ {\n\
+    rewrite ^/api(/.*)$ $1 break;\n\
+    proxy_pass http://control-api:8788;\n\
+    proxy_set_header Host $host;\n\
+    proxy_set_header X-Forwarded-For $remote_addr;\n\
+    proxy_set_header X-Forwarded-Proto $scheme;\n\
+  }\n\
   location / { try_files $uri $uri/ /index.html; }\n\
 }\n' > /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html

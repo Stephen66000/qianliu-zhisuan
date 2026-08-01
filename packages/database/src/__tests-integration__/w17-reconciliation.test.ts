@@ -38,6 +38,7 @@ beforeAll(async () => {
     principal_id: PRINCIPAL_ID,
     key_prefix: "qianliu-test",
     key_digest: "test-digest-w17",
+    allowed_model_ids: JSON.stringify([]) as unknown as string[],
     status: "ACTIVE",
   }).execute();
   // 真实 provider + resource（外键要求 provider_resource_id 必须存在）

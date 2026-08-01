@@ -25,6 +25,7 @@ import { stubPipeline } from "../pipeline/stub-pipeline.js";
 let pg: PostgresTestInstance;
 let db: Database;
 let app: FastifyInstance;
+let modelId: string;
 const ENT_ID = randomUUID();
 const PEPPER = "m6-revoke-test-pepper-32bytes!!!";
 
@@ -45,6 +46,7 @@ async function provision(): Promise<{ principalId: string; key: string; keyRowId
       principal_id: principalId,
       key_prefix: apiKeyPrefix(key),
       key_digest: digestApiKey(key, PEPPER),
+      allowed_model_ids: JSON.stringify([modelId]) as unknown as string[],
       status: "ACTIVE",
     })
     .execute();
@@ -57,10 +59,11 @@ beforeAll(async () => {
   await migrateToLatest(db);
 
   await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流 M6 测试" }).execute();
-  await db
+  modelId = (await db
     .insertInto("unified_model")
     .values({ enterprise_id: ENT_ID, alias: "qianliu-deepseek", display_name: "DS", status: "ACTIVE" })
-    .execute();
+    .returning("id")
+    .executeTakeFirstOrThrow()).id;
 
   app = buildGateway(db, PEPPER, stubPipeline);
   await app.ready();
@@ -132,6 +135,7 @@ describe("M6：停用／重置即时生效门禁（≤5 秒，实际 0 秒）", 
         principal_id: principalId,
         key_prefix: apiKeyPrefix(newKey),
         key_digest: digestApiKey(newKey, PEPPER),
+        allowed_model_ids: JSON.stringify([modelId]) as unknown as string[],
         status: "ACTIVE",
       })
       .execute();

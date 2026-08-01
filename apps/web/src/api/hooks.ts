@@ -63,12 +63,18 @@ export function useUsage(params: UsageQueryParams) {
       const search = new URLSearchParams();
       if (params.limit !== undefined) search.set("limit", String(params.limit));
       if (params.offset !== undefined) search.set("offset", String(params.offset));
+      if (params.search) search.set("search", params.search);
       if (params.principal_id) search.set("principal_id", params.principal_id);
       if (params.client_id) search.set("client_id", params.client_id);
+      if (params.provider_id) search.set("provider_id", params.provider_id);
+      if (params.provider_resource_id) {
+        search.set("provider_resource_id", params.provider_resource_id);
+      }
       if (params.unified_model) search.set("unified_model", params.unified_model);
       if (params.status) search.set("status", params.status);
       if (params.from) search.set("from", params.from);
       if (params.to) search.set("to", params.to);
+      if (params.overage_only) search.set("overage_only", "true");
       const qs = search.toString();
       return get<UsageResult>(qs ? `/usage?${qs}` : "/usage", signal);
     },
@@ -105,10 +111,11 @@ export function useSupplyForecasts() {
   });
 }
 
-export function usePrincipals() {
+export function usePrincipals(archived: "exclude" | "only" | "all" = "exclude") {
   return useQuery({
-    queryKey: QUERY_KEYS.principals,
-    queryFn: ({ signal }) => get<PrincipalsResult>("/principals", signal),
+    queryKey: [...QUERY_KEYS.principals, archived],
+    queryFn: ({ signal }) =>
+      get<PrincipalsResult>(`/principals?archived=${archived}`, signal),
     retry: 1,
     staleTime: 30_000,
   });

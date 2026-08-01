@@ -16,6 +16,8 @@ export interface PrincipalAuthResult {
   principalId: string;
   enterpriseId: string;
   keyId: string;
+  /** 仅允许对应 unified_model.id；空数组表示不允许任何模型。 */
+  allowedModelIds: string[];
 }
 
 declare module "fastify" {
@@ -54,6 +56,7 @@ export function createPrincipalAuth(db: Kysely<Database>, pepper: string) {
         "principal.status as principal_status",
         "principal_key.status as key_status",
         "principal_key.expires_at as expires_at",
+        "principal_key.allowed_model_ids as allowed_model_ids",
       ])
       .where("principal_key.key_digest", "=", digest)
       .executeTakeFirst();
@@ -90,8 +93,54 @@ export function createPrincipalAuth(db: Kysely<Database>, pepper: string) {
       principalId: row.principal_id,
       enterpriseId: row.enterprise_id,
       keyId: row.key_id,
+      // 防御滚动升级或异常历史数据：NULL 也必须 fail-closed，绝不解释为“全部模型”。
+      allowedModelIds: row.allowed_model_ids ?? [],
     };
   };
+}
+
+/**
+ * 所有模型调用端点共用的 Key 模型硬门禁。
+ * 放在 pipeline 前，拒绝请求不会创建 ai_request/attempt/usage/ledger，也不会访问上游。
+ */
+export function createModelAuthorization(db: Kysely<Database>) {
+  return async function requireAllowedModel(
+    req: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<void> {
+    const body = req.body as { model?: unknown } | null;
+    const model = body?.model;
+    if (typeof model !== "string" || !req.principal) return;
+    const allowed = req.principal.allowedModelIds;
+    if (allowed.length === 0) return sendModelNotAllowed(reply, req, model);
+    let query = db
+      .selectFrom("unified_model")
+      .select("id")
+      .where("enterprise_id", "=", req.principal.enterpriseId)
+      .where("alias", "=", model)
+      .where("status", "=", "ACTIVE")
+      .where("id", "in", allowed);
+    const authorized = await query.executeTakeFirst();
+    if (authorized) return;
+
+    return sendModelNotAllowed(reply, req, model);
+  };
+}
+
+function sendModelNotAllowed(reply: FastifyReply, req: FastifyRequest, model: string): void {
+  reply
+    .code(403)
+    .header("x-request-id", req.requestId)
+    .send({
+      error: {
+        message: `当前主体 Key 未获授权模型 ${model}`,
+        type: "authentication_error",
+        code: "model_not_allowed",
+        param: "model",
+        retryable: false,
+        request_id: req.requestId,
+      },
+    });
 }
 
 function sendAuthError(reply: FastifyReply, err: ReturnType<typeof fromClassification>): void {

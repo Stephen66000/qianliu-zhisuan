@@ -4,7 +4,7 @@
  * 覆盖：
  *   - StubUpstream 以 providerCode=kimi 复用全部 5 种响应模式（SUCCESS/STREAM/ERROR/TIMEOUT/CANCEL）
  *   - KimiAdapter 能力声明（含 coding_plan、不含 prompt_cache）
- *   - 模型映射（qianliu-kimi-k3 → kimi-k3）
+ *   - 企业自定义 alias 透传，resource.upstreamModel 为唯一上游模型事实源
  *   - usage 原始口径解析（无缓存分项时 cache=0）
  *   - 错误归一化（TRD §9 分类映射）
  *   - committed 边界（failAfterChunk → STREAM_INTERRUPTED_AFTER_COMMIT）
@@ -120,7 +120,7 @@ describe("KimiAdapter", () => {
     expect(adapter.providerCode).toBe("kimi");
   });
 
-  it("模型映射 qianliu-kimi-k3 → kimi-k3", async () => {
+  it("资源 upstreamModel 由 model_route 提供并原样传给 caller", async () => {
     const stub = new StubUpstream({
       default: { kind: "SUCCESS", usage: { input: 10, output: 5, cache: 0 } },
       providerCode: "kimi",
@@ -128,21 +128,31 @@ describe("KimiAdapter", () => {
     const adapter = new KimiAdapter(async (res, req, n) => stub.invoke(res, req, n));
     const outcome = await adapter.invoke(makeResource(), makeRequest(), 1);
     expect(outcome.status).toBe(200);
-    // Adapter 校验过别名映射后透传 caller（资源侧 upstreamModel 由 model_route 提供）
+    // Adapter 不维护第二份模型映射，资源侧 upstreamModel 由 model_route 提供。
     expect(stub.calls[0]!.request.unifiedModel).toBe("qianliu-kimi-k3");
+    expect(stub.calls[0]!.resource.upstreamModel).toBe("kimi-k3");
   });
 
-  it("未知模型别名返回 model_not_mapped", async () => {
-    const adapter = new KimiAdapter(async () => ({
+  it("企业自定义统一别名不被硬编码拒绝，并以资源 upstreamModel 为准", async () => {
+    let capturedResource: AdapterResource | undefined;
+    let capturedRequest: AdapterRequest | undefined;
+    const adapter = new KimiAdapter(async (resource, request) => {
+      capturedResource = resource;
+      capturedRequest = request;
+      return {
       status: 200,
       committed: true,
       usage: { input: 0, output: 0, cache: 0, quality: "PROVIDER_REPORTED" },
-    }));
+      };
+    });
     const req = makeRequest();
-    req.unifiedModel = "qianliu-unknown";
-    const outcome = await adapter.invoke(makeResource(), req, 1);
-    expect(outcome.status).toBe(400);
-    expect(outcome.error).toBe("model_not_mapped");
+    req.unifiedModel = "enterprise-kimi-alias";
+    const resource = makeResource();
+    resource.upstreamModel = "kimi-vendor-custom";
+    const outcome = await adapter.invoke(resource, req, 1);
+    expect(outcome.status).toBe(200);
+    expect(capturedRequest?.unifiedModel).toBe("enterprise-kimi-alias");
+    expect(capturedResource?.upstreamModel).toBe("kimi-vendor-custom");
   });
 
   it("invoke 串联 StubUpstream 后 committed=true 且 usage 原样透传", async () => {

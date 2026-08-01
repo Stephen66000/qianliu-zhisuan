@@ -4,7 +4,9 @@
  * 约定（与 W18 后端 commit 41e6eb8 对齐）：
  *   - cookie 会话（qianliu_admin_session），浏览器请求必须 credentials: "include"；
  *   - 业务错误体为扁平 { error, message }；401 由调用侧决定跳转登录；
- *   - 无 /api 前缀；本地开发经 Vite proxy 同源代理到 127.0.0.1:8788（避免 CORS/混合内容）。
+ *   - 所有 API 请求统一加 /api 前缀：本地开发经 Vite proxy 代理到 127.0.0.1:8788
+ *     （proxy 重写去掉 /api）；生产经 nginx 代理（nginx 去掉 /api 转发 control-api）。
+ *     /api 前缀使 nginx 能区分 API 请求与 SPA 前端路由（两者路径可能重叠）。
  */
 
 import type { ApiErrorBody } from "./types";
@@ -29,7 +31,7 @@ export class UnauthorizedError extends ApiError {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
 }
@@ -39,7 +41,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await fetch(`/api${path}`, {
       method,
       credentials: "include",
       signal,
@@ -78,4 +80,8 @@ export function post<T>(path: string, body?: unknown, signal?: AbortSignal): Pro
 
 export function patch<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   return request<T>(path, { method: "PATCH", body, signal });
+}
+
+export function del<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, { method: "DELETE", signal });
 }

@@ -100,6 +100,7 @@ async function seedRequestChain(): Promise<{ requestId: string; principalId: str
       principal_id: principal.id,
       key_prefix: "sk-w20",
       key_digest: "digest-" + randomUUID(),
+      allowed_model_ids: JSON.stringify([]) as unknown as string[],
       status: "ACTIVE",
     })
     .returningAll()
@@ -304,6 +305,17 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: ENT_ID,
+      provider_resource_id: credInvalid.id,
+      version: 1,
+      source: "PROVIDER_SYNC",
+      collected_at: new Date(Date.now() - 60_000),
+      total_quota: "10000",
+      used_quota: "9000",
+      remaining_quota: "1000",
+      quota_unit: "TOKEN",
+    }).execute();
     await db
       .insertInto("supply_forecast")
       .values({
@@ -312,6 +324,7 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
         rate_24h: "1000",
         forecast_exhaust_at: new Date(Date.now() + 12 * 3600 * 1000),
         coverage_hours: "12",
+        remaining_quota: "1000",
         confidence: "HIGH",
         algorithm_version: "v1",
       })
@@ -351,6 +364,17 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       .set({ status: "DEGRADED", consecutive_failures: 4 })
       .where("id", "=", resourceId)
       .execute();
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: ENT_ID,
+      provider_resource_id: resourceId,
+      version: 1,
+      source: "PROVIDER_SYNC",
+      collected_at: new Date(Date.now() - 60_000),
+      total_quota: "1000",
+      used_quota: "900",
+      remaining_quota: "100",
+      quota_unit: "TOKEN",
+    }).execute();
     await db
       .insertInto("supply_forecast")
       .values({
@@ -358,6 +382,7 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
         provider_resource_id: resourceId,
         forecast_exhaust_at: new Date(Date.now() + 2 * 3600 * 1000),
         coverage_hours: "2",
+        remaining_quota: "100",
         confidence: "HIGH",
         algorithm_version: "w20-eight-signals",
       })

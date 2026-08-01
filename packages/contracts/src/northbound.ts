@@ -97,6 +97,81 @@ export interface MessageResponse {
   usage: { input_tokens: number; output_tokens: number };
 }
 
+// ===== POST /v1/responses（OpenAI / 官方 Codex）=====
+
+export interface ResponsesRequest {
+  model: string;
+  input: string | Array<Record<string, unknown>>;
+  instructions?: string;
+  stream?: boolean;
+  tools?: Array<Record<string, unknown>>;
+  tool_choice?: unknown;
+  parallel_tool_calls?: boolean;
+  reasoning?: {
+    effort?: string | null;
+    summary?: string | null;
+  };
+  text?: Record<string, unknown>;
+  max_output_tokens?: number;
+  store?: boolean;
+  previous_response_id?: string | null;
+  metadata?: Record<string, string>;
+}
+
+export interface ResponseUsage {
+  input_tokens: number;
+  input_tokens_details: { cached_tokens: number };
+  output_tokens: number;
+  output_tokens_details: { reasoning_tokens: number };
+  total_tokens: number;
+}
+
+export interface ResponseMessageOutput {
+  id: string;
+  type: "message";
+  status: "completed";
+  role: "assistant";
+  content: Array<{
+    type: "output_text";
+    text: string;
+    annotations: unknown[];
+    logprobs: unknown[];
+  }>;
+}
+
+export interface ResponseFunctionCallOutput {
+  id: string;
+  type: "function_call";
+  status: "completed";
+  call_id: string;
+  name: string;
+  arguments: string;
+}
+
+export type ResponseOutputItem = ResponseMessageOutput | ResponseFunctionCallOutput;
+
+export interface ResponsesResponse {
+  id: string;
+  object: "response";
+  created_at: number;
+  status: "completed";
+  error: null;
+  incomplete_details: null;
+  model: string;
+  output: ResponseOutputItem[];
+  parallel_tool_calls: boolean;
+  previous_response_id: string | null;
+  reasoning: {
+    effort: string | null;
+    summary: string | null;
+  };
+  store: boolean;
+  tool_choice: unknown;
+  tools: Array<Record<string, unknown>>;
+  usage: ResponseUsage;
+  metadata: Record<string, string>;
+}
+
 // ===== 错误 envelope（OpenAI 兼容）=====
 
 export type ErrorType =
@@ -114,6 +189,9 @@ export interface ErrorEnvelope {
     param: string | null;
     retryable: boolean;
     request_id?: string;
+    recover_at?: string;
+    event_id?: string;
+    retry_after_ms?: number;
   };
 }
 
@@ -139,8 +217,9 @@ export const CAPABILITY_MATRIX: EndpointCapability[] = [
   { endpoint: "POST /v1/chat/completions#stream", support: "NATIVE" },
   { endpoint: "POST /v1/messages", support: "NATIVE" },
   { endpoint: "POST /v1/messages#stream", support: "NATIVE" },
+  { endpoint: "POST /v1/responses", support: "NATIVE" },
+  { endpoint: "POST /v1/responses#stream", support: "NATIVE" },
   // 默认关闭（详细计划 §4.6）：未启用能力必须显式拒绝，不得静默降级。
-  { endpoint: "POST /v1/responses", support: "UNSUPPORTED" },
   { endpoint: "POST /v1/embeddings", support: "UNSUPPORTED" },
   { endpoint: "POST /v1/messages/count_tokens", support: "UNSUPPORTED" },
   // WebSocket 握手是带 Upgrade 头的 HTTP GET，由 server onRequest hook 拦截拒绝。

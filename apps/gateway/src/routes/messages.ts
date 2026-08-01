@@ -12,11 +12,12 @@ import type { PipelineHandler } from "./chat.js";
 export function registerMessagesRoute(
   app: FastifyInstance,
   auth: AuthHandler,
+  authorizeModel: AuthHandler,
   pipelineHandler: PipelineHandler,
 ): void {
   app.post(
     "/v1/messages",
-    { preHandler: [auth] },
+    { preHandler: [auth, authorizeModel] },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const body = req.body as Partial<MessageRequest>;
       if (!body?.model || typeof body.model !== "string") {

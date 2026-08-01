@@ -150,19 +150,19 @@ export function matchPolicy(policy: DispatchPolicy, input: DispatchInput): boole
 
 /** 时间窗匹配（内部复用 billing-rule.toZonedTime，支持跨午夜）。 */
 function matchTimeWindowInternal(policy: DispatchPolicy, epochMs: number): boolean {
-  const { dayOfWeek, minutesOfDay } = toZonedTime(epochMs, policy.matchTimezone!);
+  const { dayOfWeek, secondsOfDay } = toZonedTime(epochMs, policy.matchTimezone!);
   if (policy.matchDaysOfWeek && policy.matchDaysOfWeek.length > 0 && !policy.matchDaysOfWeek.includes(dayOfWeek)) {
     return false;
   }
-  const start = parseHHMM(policy.matchStartTime!);
-  const end = parseHHMM(policy.matchEndTime!);
-  if (start <= end) return minutesOfDay >= start && minutesOfDay < end;
-  return minutesOfDay >= start || minutesOfDay < end; // 跨午夜
+  const start = parseTimeSeconds(policy.matchStartTime!);
+  const end = parseTimeSeconds(policy.matchEndTime!);
+  if (start < end) return secondsOfDay >= start && secondsOfDay < end;
+  return secondsOfDay >= start || secondsOfDay < end; // 跨午夜
 }
 
-function parseHHMM(s: string): number {
-  const [h = "0", m = "0"] = s.split(":");
-  return parseInt(h, 10) * 60 + parseInt(m, 10);
+function parseTimeSeconds(s: string): number {
+  const [h = "0", m = "0", second = "0"] = s.split(":");
+  return parseInt(h, 10) * 3600 + parseInt(m, 10) * 60 + parseInt(second, 10);
 }
 
 /** decimal 字符串比较（>0 表示 a>b；避免 number 精度）。 */
@@ -195,7 +195,7 @@ export function decideDispatch(
 ): DispatchDecision {
   const matched = policies
     .filter((p) => matchPolicy(p, input))
-    .sort((a, b) => a.priority - b.priority);
+    .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
 
   if (matched.length === 0) {
     return {
