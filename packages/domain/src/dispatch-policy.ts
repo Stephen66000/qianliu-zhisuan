@@ -262,7 +262,7 @@ export function decideDispatch(
  *   - 反事实基线不可比（counterfactualCost=null 或 actualCost=null）；
  *   - 无价格/倍率证据（行 630）。
  *
- * @returns saving：可计算时为数值（可负）；不可计算时为 "NOT_CALCULABLE"。
+ * @returns saving：可计算时为 8 位小数（可负）；不可计算时为 "NOT_CALCULABLE"。
  */
 export function computeDispatchSaving(input: {
   finalAction: "ALLOW" | "SWITCH" | "RATE_LIMIT" | "REJECT" | "ALLOW_OVERAGE";
@@ -272,7 +272,7 @@ export function computeDispatchSaving(input: {
   actualCost: string | null;
   /** 动作是否实际执行并改变了资源/行为（SWITCH 实际切换=true；仅提示=false）。 */
   actionExecuted: boolean;
-}): { saving: number | "NOT_CALCULABLE"; reason: string | null } {
+}): { saving: string | "NOT_CALCULABLE"; reason: string | null } {
   // 仅提示、用户没有改变行为 → NOT_CALCULABLE（行 631）
   if (!input.actionExecuted) {
     return { saving: "NOT_CALCULABLE", reason: "no_action_executed" };
@@ -281,11 +281,29 @@ export function computeDispatchSaving(input: {
   if (input.counterfactualCost === null || input.actualCost === null) {
     return { saving: "NOT_CALCULABLE", reason: "baseline_not_comparable" };
   }
-  const cf = Number(input.counterfactualCost);
-  const actual = Number(input.actualCost);
-  if (Number.isNaN(cf) || Number.isNaN(actual)) {
+  const cf = decimalToScaled(input.counterfactualCost, 8);
+  const actual = decimalToScaled(input.actualCost, 8);
+  if (cf === null || actual === null) {
     return { saving: "NOT_CALCULABLE", reason: "invalid_cost_value" };
   }
   // 节省 = 反事实 − 实际（可正可负；可负表示实际更贵）
-  return { saving: cf - actual, reason: null };
+  return { saving: scaledToDecimal(cf - actual, 8), reason: null };
+}
+
+function decimalToScaled(value: string, scale: number): bigint | null {
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
+  if (!match) return null;
+  const fraction = match[3] ?? "";
+  if (fraction.length > scale) return null;
+  const scaled = BigInt(match[2]!) * 10n ** BigInt(scale) + BigInt(fraction.padEnd(scale, "0"));
+  return match[1] === "-" ? -scaled : scaled;
+}
+
+function scaledToDecimal(value: bigint, scale: number): string {
+  const negative = value < 0n;
+  const absolute = negative ? -value : value;
+  const factor = 10n ** BigInt(scale);
+  const integer = absolute / factor;
+  const fraction = (absolute % factor).toString().padStart(scale, "0");
+  return `${negative ? "-" : ""}${integer}.${fraction}`;
 }

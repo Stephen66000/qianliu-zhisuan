@@ -351,7 +351,7 @@ describe("W04 Provider/Resource/Model/Route", () => {
           remaining_quota: "1",
           quota_unit: "TOKEN",
           effective_from: "2026-07-01T00:00:00.000Z",
-          reset_cycle: "MONTHLY",
+          reset_cycle: "YEARLY",
           reset_anchor_at: anchor,
           next_reset_at: "2030-01-01T00:00:00.000Z",
         },
@@ -362,7 +362,7 @@ describe("W04 Provider/Resource/Model/Route", () => {
       total_quota: "1000.00000000",
       used_quota: "0.00000000",
       remaining_quota: "1000.00000000",
-      reset_cycle: "MONTHLY",
+      reset_cycle: "YEARLY",
       usage_calculation: "SYSTEM_LEDGER",
     });
     expect(res.json().resource.operating_snapshot.next_reset_at).not.toBe(

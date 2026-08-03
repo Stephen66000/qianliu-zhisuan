@@ -2,7 +2,7 @@
  * W18 资源摘要（按厂商+模式分组）—— PRD §10.2 资源摘要。
  *
  * 厂商经营快照与主体 Grant 分列，前端只展示后端口径，不重算。
- * 状态：后端当前恒 HEALTHY（W20 细化），按颜色纪律用中性灰，不给蓝绿。
+ * API 速度按金额/小时，套餐速度按额度/小时；不可计算原因不伪装成“无风险”。
  */
 import type { ResourceBreakdownItem } from "../../api/types";
 import { formatCount, formatDateTimeShort, formatMoney, formatRatePerHour } from "../../lib/format";
@@ -15,6 +15,17 @@ interface ResourceBreakdownProps {
 const MODE_LABEL: Record<ResourceBreakdownItem["mode"], string> = {
   API: "API",
   CODING_PLAN: "套餐",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  HEALTHY: "正常",
+  ACTIVE: "正常",
+  DEGRADED: "降级",
+  RATE_LIMITED: "限流冷却",
+  UNAVAILABLE: "不可用",
+  EXHAUSTED: "额度耗尽",
+  EXPIRED: "已过期",
+  CREDENTIAL_INVALID: "凭证失效",
 };
 
 export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
@@ -72,13 +83,24 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                 {formatMoney(item.monthlyCost)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.currentRate24h === null ? "—" : formatRatePerHour(item.currentRate24h)}
+                {forecastRateText(item)}
               </td>
               <td className="py-2.5 pr-4 text-ql-fg-secondary">
-                {item.forecastExhaustAt === null ? "—" : formatDateTimeShort(item.forecastExhaustAt)}
+                {forecastExhaustionText(item)}
               </td>
               <td className="py-2.5">
-                <StatusTag tone="neutral">正常</StatusTag>
+                <a href="/resources" title={item.abnormalResources.map((resource) =>
+                  `${resource.resourceName}：${STATUS_LABEL[resource.status] ?? resource.status}`
+                ).join("；") || "全部资源正常"}>
+                  <StatusTag tone={statusTone(item.status)}>
+                    {STATUS_LABEL[item.status] ?? item.status}
+                  </StatusTag>
+                  {item.abnormalResources.length > 0 ? (
+                    <span className="mt-1 block max-w-36 text-[11px] text-ql-fg-tertiary">
+                      {item.abnormalResources.map((resource) => resource.resourceName).join("、")}
+                    </span>
+                  ) : null}
+                </a>
               </td>
             </tr>
           ))}
@@ -86,4 +108,33 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
       </table>
     </div>
   );
+}
+
+function statusTone(status: string): "neutral" | "warning" | "danger" {
+  if (status === "HEALTHY" || status === "ACTIVE") return "neutral";
+  if (status === "DEGRADED" || status === "RATE_LIMITED") return "warning";
+  return "danger";
+}
+
+function forecastRateText(item: ResourceBreakdownItem): string {
+  if (item.forecastConfidence === null) return "暂无预测快照";
+  if (item.currentRate24h !== null) {
+    const rate = formatRatePerHour(item.currentRate24h);
+    return item.currentRateUnit === "CURRENCY_PER_HOUR"
+      ? `${item.currency ?? "金额"} ${rate}`
+      : `${rate} ${item.quotaUnit ?? "额度"}`;
+  }
+  if (item.forecastNotCalculableReason === "remaining_quota_unknown") return "余额未知";
+  if (item.forecastNotCalculableReason === "no_consumption_rate") {
+    return item.forecastDataPoints === 0 ? "暂无用量数据" : "当前速度为零/数据不足";
+  }
+  return "数据不足/不可计算";
+}
+
+function forecastExhaustionText(item: ResourceBreakdownItem): string {
+  if (item.forecastExhaustAt !== null) return formatDateTimeShort(item.forecastExhaustAt);
+  if (item.forecastConfidence === null) return "暂无预测快照";
+  if (item.forecastNotCalculableReason === "remaining_quota_unknown") return "余额未知";
+  if (item.forecastNotCalculableReason === "no_consumption_rate") return "按当前数据不可计算";
+  return "数据不足/不可计算";
 }

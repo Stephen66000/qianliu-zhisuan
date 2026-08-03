@@ -42,6 +42,26 @@ export const RESOURCE_STATUS = {
 
 export type ResourceStatus = (typeof RESOURCE_STATUS)[keyof typeof RESOURCE_STATUS];
 
+/** 首页、告警与运维共用的严重度顺序；数值越大越需要优先处理。 */
+export const RESOURCE_STATUS_SEVERITY: Readonly<Record<ResourceStatus, number>> = {
+  ACTIVE: 0,
+  DEGRADED: 1,
+  RATE_LIMITED: 2,
+  UNAVAILABLE: 3,
+  EXHAUSTED: 4,
+  EXPIRED: 5,
+  CREDENTIAL_INVALID: 6,
+};
+
+export function worstResourceStatus(statuses: readonly ResourceStatus[]): ResourceStatus {
+  return statuses.reduce<ResourceStatus>(
+    (worst, status) => RESOURCE_STATUS_SEVERITY[status] > RESOURCE_STATUS_SEVERITY[worst]
+      ? status
+      : worst,
+    RESOURCE_STATUS.ACTIVE,
+  );
+}
+
 /** 状态迁移原因（resource_status_event.reason；检索/审计用稳定枚举）。 */
 export const STATE_REASON = {
   PASSIVE_SUCCESS: "PASSIVE_SUCCESS", // 被动请求成功

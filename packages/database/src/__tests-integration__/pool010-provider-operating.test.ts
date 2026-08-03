@@ -275,7 +275,7 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
         total_quota: "1000",
         quota_unit: "TOKEN",
         effective_from: anchor,
-        reset_cycle: "MONTHLY",
+        reset_cycle: "QUARTERLY",
         reset_anchor_at: anchor,
         reset_timezone: "Asia/Shanghai",
         usage_calculation: "SYSTEM_LEDGER",
@@ -351,7 +351,7 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
       remaining_quota: "875.00000000",
       usage_calculation: "SYSTEM_LEDGER",
     });
-    expect(current?.next_reset_at?.toISOString()).toBe("2026-07-31T16:00:00.000Z");
+    expect(current?.next_reset_at?.toISOString()).toBe("2026-09-30T16:00:00.000Z");
 
     const history = await providerRepo.listOperatingSnapshotHistory(
       enterpriseId,

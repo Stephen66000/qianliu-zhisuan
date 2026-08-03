@@ -235,6 +235,31 @@ beforeAll(async () => {
     priority: 200,
     weight: 1,
   }).execute();
+  // POOL-021：两侧使用不同且可追溯的 API_PRICE 版本，验证反事实不是复制 actual。
+  await ledgerRepo.createBillingRule({
+    enterprise_id: ENT_ID,
+    rule_type: "API_PRICE",
+    rule_version: "ds-a-expensive-v1",
+    provider_resource_id: resDsA,
+    upstream_model: "deepseek-chat",
+    effective_from: new Date(0),
+    cache_hit_price: "0.000002",
+    cache_miss_price: "0.000004",
+    output_price: "0.000006",
+    priority: 100,
+  });
+  await ledgerRepo.createBillingRule({
+    enterprise_id: ENT_ID,
+    rule_type: "API_PRICE",
+    rule_version: "ds-b-cheap-v1",
+    provider_resource_id: resDsB,
+    upstream_model: "deepseek-chat",
+    effective_from: new Date(0),
+    cache_hit_price: "0.000001",
+    cache_miss_price: "0.000002",
+    output_price: "0.000003",
+    priority: 100,
+  });
 }, 120_000);
 
 afterAll(async () => {
@@ -537,7 +562,7 @@ describe("W16 经营调度", () => {
     // CODING_PLAN 模式 api_cost=null（PACKAGE_INCLUDED，无价格证据）→ 节省 NOT_CALCULABLE（§9.1 行 630）
     // 这是正确语义：套餐模式无 API 费用可比，节省不可计算
     expect(decision!.saving_calculable).toBe(false);
-    expect(decision!.not_calculable_reason).toBe("baseline_not_comparable");
+    expect(decision!.not_calculable_reason).toBe("package_cost_not_comparable");
     expect(decision!.actual_cost).toBeNull(); // CODING_PLAN 不产生 API 费用
   });
 
@@ -586,10 +611,18 @@ describe("W16 经营调度", () => {
 
     const decision = await dispatchRepo.getDecision(requestId);
     expect(decision!.final_action).toBe("SWITCH");
-    // API 模式有 api_cost → 节省可计算
+    // 使用相同 usage：A 反事实成本 0.00310000，B 实际成本 0.00155000。
     expect(decision!.saving_calculable).toBe(true);
-    expect(decision!.actual_cost).not.toBeNull();
-    expect(decision!.dispatch_saving).not.toBeNull();
+    expect(decision!.counterfactual_cost).toBe("0.00310000");
+    expect(decision!.actual_cost).toBe("0.00155000");
+    expect(decision!.dispatch_saving).toBe("0.00155000");
+    expect(decision!.dispatch_input).toEqual(expect.objectContaining({
+      baselineResourceId: resDsA,
+      executedResourceIds: [resDsB],
+      counterfactualRuleVersion: "ds-a-expensive-v1",
+      savingCalculationVersion: "pool-021-v1",
+      usageEvidence: { input: 500, output: 200, cache: 50 },
+    }));
   });
 
   it("正文 canary 为 0：经营调度请求 body 不落库（METADATA_ONLY）", async () => {

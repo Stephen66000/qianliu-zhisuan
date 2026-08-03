@@ -5,14 +5,25 @@
  */
 import { Kysely, PostgresDialect, type Generated } from "kysely";
 import { Pool } from "pg";
+import type {
+  DeploymentLogEventTable,
+  DeploymentLogTable,
+  OperatingBillEventTable,
+  OperatingBillPeriodTable,
+  OperatingBillRequestProjectAssignmentTable,
+  OperatingBillValueItemTable,
+  OperatingBillVersionTable,
+  OperationLogTable,
+  ProviderModelDiscoveryItemTable,
+  ProviderModelDiscoveryTable,
+  ProviderModelOnboardingTable,
+  ProviderResourceOperatingSnapshotTable,
+} from "./kysely-operations-tables.js";
 
-/** Kysely migrator 内部表行类型。 */
-export interface KyselyMigrationTable {
-  name: string;
-}
-export interface KyselyMigrationLockTable {
-  id: number;
-}
+export type * from "./kysely-operations-tables.js";
+
+export interface KyselyMigrationTable { name: string }
+export interface KyselyMigrationLockTable { id: number }
 
 export interface EnterpriseTable {
   id: Generated<string>;
@@ -26,8 +37,11 @@ export interface AdminUserTable {
   id: Generated<string>;
   enterprise_id: string;
   username: string;
+  display_name: Generated<string>;
   password_hash: string; // Argon2id
+  must_change_password: Generated<boolean>;
   status: Generated<string>;
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -66,19 +80,6 @@ export interface PrincipalTable {
   version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
-}
-
-export interface OperationLogTable {
-  id: Generated<string>;
-  enterprise_id: string;
-  admin_user_id: string;
-  action: string;
-  target_type: string;
-  target_id: string | null;
-  change_summary: Record<string, unknown> | null;
-  result: "SUCCESS" | "FAILURE";
-  failure_reason: string | null;
-  created_at: Generated<Date>;
 }
 
 export interface PrincipalKeyTable {
@@ -170,38 +171,6 @@ export interface ProviderResourceTable {
   updated_at: Generated<Date>;
 }
 
-/** POOL-010：厂商侧经营数据不可变快照（与主体 Grant/Counter 独立）。 */
-export interface ProviderResourceOperatingSnapshotTable {
-  id: Generated<string>;
-  enterprise_id: string;
-  provider_resource_id: string;
-  version: number;
-  source: "ADMIN" | "PROVIDER_SYNC" | "BILL_RECONCILIATION";
-  collected_at: Date;
-  currency: string | null;
-  recharge_amount: string | null;
-  current_balance: string | null;
-  cumulative_cost: string | null;
-  current_period_cost: string | null;
-  cost_period_start: Date | null;
-  cost_period_end: Date | null;
-  balance_updated_at: Date | null;
-  package_name: string | null;
-  package_cost: string | null;
-  total_quota: string | null;
-  quota_unit: string | null;
-  used_quota: string | null;
-  remaining_quota: string | null;
-  effective_from: Date | null;
-  effective_until: Date | null;
-  reset_cycle: string | null;
-  reset_anchor_at: Date | null;
-  reset_timezone: string | null;
-  usage_calculation: Generated<"MANUAL_SNAPSHOT" | "SYSTEM_LEDGER">;
-  next_reset_at: Date | null;
-  created_at: Generated<Date>;
-}
-
 /** W11：资源状态迁移审计（不可覆盖；每次迁移一行）。 */
 export interface ResourceStatusEventTable {
   id: Generated<string>;
@@ -244,6 +213,8 @@ export interface SupplyForecastTable {
   data_points: Generated<number>;
   not_calculable_reason: string | null;
   algorithm_version: string;
+  consumption_unit: Generated<string | null>;
+  forecast_key: Generated<string | null>;
   snapshot_at: Generated<Date>;
 }
 
@@ -547,6 +518,11 @@ export interface AiRequestTable {
   stream: Generated<boolean>;
   status: Generated<string>;
   client_id: string | null;
+  agent_family: Generated<string>;
+  agent_version: string | null;
+  agent_identity_source: Generated<string>;
+  agent_identity_confidence: Generated<string>;
+  client_identity_rule_version: Generated<string>;
   started_at: Generated<Date>;
   finished_at: Date | null;
   error_classification: string | null;
@@ -683,6 +659,14 @@ export interface LedgerTransactionTable {
   created_at: Generated<Date>;
 }
 
+export interface PrincipalAgentExpectationTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  principal_id: string;
+  agent_family: string;
+  created_at: Generated<Date>;
+}
+
 /**
  * Database Schema 根类型。W02 后含 enterprise/admin/principal/audit；
  * W03/W04 追加 principal_key/grant/provider 等表。
@@ -696,6 +680,7 @@ export interface Database {
   admin_session: AdminSessionTable;
   employee_login: EmployeeLoginTable;
   principal: PrincipalTable;
+  principal_agent_expectation: PrincipalAgentExpectationTable;
   person: PersonTable;
   person_external_identity: PersonExternalIdentityTable;
   principal_key: PrincipalKeyTable;
@@ -716,6 +701,9 @@ export interface Database {
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
   provider_resource_operating_snapshot: ProviderResourceOperatingSnapshotTable;
+  provider_model_discovery: ProviderModelDiscoveryTable;
+  provider_model_discovery_item: ProviderModelDiscoveryItemTable;
+  provider_model_onboarding: ProviderModelOnboardingTable;
   resource_status_event: ResourceStatusEventTable;
   unified_model: UnifiedModelTable;
   model_route: ModelRouteTable;
@@ -727,6 +715,13 @@ export interface Database {
   billing_rule: BillingRuleTable;
   ledger_transaction: LedgerTransactionTable;
   operation_log: OperationLogTable;
+  deployment_log: DeploymentLogTable;
+  deployment_log_event: DeploymentLogEventTable;
+  operating_bill_period: OperatingBillPeriodTable;
+  operating_bill_value_item: OperatingBillValueItemTable;
+  operating_bill_version: OperatingBillVersionTable;
+  operating_bill_event: OperatingBillEventTable;
+  operating_bill_request_project_assignment: OperatingBillRequestProjectAssignmentTable;
 }
 
 /**

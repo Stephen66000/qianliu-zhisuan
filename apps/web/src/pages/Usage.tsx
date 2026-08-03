@@ -1,6 +1,6 @@
 /** 用量账本：请求级事实、企业内组合筛选、URL 可复现和路由下钻。 */
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Inbox, Search, X } from "lucide-react";
+import { Inbox, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import {
@@ -10,40 +10,22 @@ import {
   useUnifiedModels,
   useUsage,
 } from "../api/hooks";
-import type { UsageQueryParams, UsageRecord } from "../api/types";
+import type { Principal, UsageQueryParams } from "../api/types";
 import { PageShell } from "../components/layout/PageShell";
-import { StatusTag } from "../components/dashboard/StatusTag";
 import { EmptyState } from "../components/states/EmptyState";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
-import { formatCount, formatDateTimeFull, formatDuration, formatMoney } from "../lib/format";
-import { RequestDrilldown } from "./RequestDrilldown";
+import { UsageRow } from "../components/usage/UsageRow";
+import { formatCount } from "../lib/format";
 
 const PAGE_SIZE = 20;
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: "等待中",
-  SUCCEEDED: "成功",
-  FAILED: "失败",
-  IN_PROGRESS: "进行中",
-  CANCELLED: "已取消",
+const AGENT_LABEL: Record<string, string> = {
+  WORKBUDDY: "WorkBuddy", CODEX: "Codex", ZCODE: "Z Code", CLAUDE_CODE: "Claude Code",
+  QIANLIU_IDE: "仟流 IDE", OTHER: "其他", UNKNOWN: "未知",
 };
 
-function StatusCell({ status }: { status: string }) {
-  if (status === "FAILED") {
-    return <StatusTag tone="danger">{STATUS_LABEL[status] ?? status}</StatusTag>;
-  }
-  return <StatusTag tone="neutral">{STATUS_LABEL[status] ?? status}</StatusTag>;
-}
-
-/** API 实际费用："0" = 套餐内（TRD §10.2 PACKAGE_INCLUDED，不写数值 0）。 */
-function ApiCostCell({ record }: { record: UsageRecord }) {
-  if (record.totalApiCost === "0" || record.totalApiCost === "0.00000000") {
-    return <span className="text-ql-fg-secondary">套餐内</span>;
-  }
-  return <span>{formatMoney(record.totalApiCost)}</span>;
-}
 
 function toApiDate(value: string | null): string | undefined {
   if (!value) return undefined;
@@ -51,92 +33,35 @@ function toApiDate(value: string | null): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
-/** 单行 + 可展开路由过程下钻（W20）。 */
-function UsageRow({
-  record,
-  expanded,
-  onToggle,
-}: {
-  record: UsageRecord;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <>
-      <tr className="border-b border-ql-border-zone text-[13px] leading-5 text-ql-fg hover:bg-ql-surface-subtle">
-        <td className="py-2.5 pr-2">
-          <button
-            aria-expanded={expanded}
-            aria-label={expanded ? "收起路由过程" : "展开路由过程"}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-ql-fg-tertiary hover:bg-ql-surface-muted hover:text-ql-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-action"
-            onClick={onToggle}
-            type="button"
-          >
-            {expanded ? (
-              <ChevronDown aria-hidden className="h-4 w-4" />
-            ) : (
-              <ChevronRight aria-hidden className="h-4 w-4" />
-            )}
-          </button>
-        </td>
-        <td className="max-w-[10rem] truncate py-2.5 pr-4 font-mono text-[12px] text-ql-fg-secondary">
-          {record.requestId}
-        </td>
-        <td className="whitespace-nowrap py-2.5 pr-4 font-medium">{record.principalName}</td>
-        <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
-          {record.clientId ?? "—"}
-        </td>
-        <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">{record.unifiedModel}</td>
-        <td className="min-w-[9rem] py-2.5 pr-4 text-ql-fg-secondary">
-          {record.finalProviderResourceName ? (
-            <>
-              <span className="block text-ql-fg">{record.finalProviderResourceName}</span>
-              <span className="block text-[12px]">
-                {record.finalProviderName ?? record.finalProviderCode ?? "未知厂商"}
-              </span>
-            </>
-          ) : "—"}
-        </td>
-        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-          {formatCount(record.totalInputTokens)}
-        </td>
-        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-          {formatCount(record.totalOutputTokens)}
-        </td>
-        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-          {formatCount(record.totalCacheTokens)}
-        </td>
-        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-          {formatCount(record.totalDeductedQuota)}
-          {record.overage === true ? <span className="ml-1 text-[11px] text-ql-danger">超额</span> : null}
-        </td>
-        <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-          <ApiCostCell record={record} />
-        </td>
-        <td className="py-2.5 pr-4">
-          <StatusCell status={record.status} />
-        </td>
-        <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
-          {formatDateTimeFull(record.startedAt)}
-        </td>
-        <td className="py-2.5 text-right [font-variant-numeric:tabular-nums]">
-          {record.durationMs === null ? "—" : formatDuration(record.durationMs)}
-        </td>
-      </tr>
-      {expanded ? (
-        <tr className="border-b border-ql-border-zone">
-          <td className="bg-ql-surface-subtle p-3" colSpan={14}>
-            <RequestDrilldown requestId={record.requestId} />
-          </td>
-        </tr>
-      ) : null}
-    </>
-  );
+function optionalSearchParam(params: URLSearchParams, name: string): string | undefined {
+  return params.get(name) || undefined;
+}
+
+function searchParamValue(params: URLSearchParams, name: string): string {
+  return params.get(name) ?? "";
 }
 
 const inputClass =
   "h-9 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg outline-none focus:border-ql-action focus:ring-1 focus:ring-ql-action";
 
+function ProjectFilter({ principals, value, onChange }: {
+  principals: Principal[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return <label>
+    <span className="mb-1 block text-[12px] text-ql-fg-secondary">项目</span>
+    <select aria-label="项目" className={`${inputClass} w-full`} onChange={(event) => onChange(event.target.value)} value={value}>
+      <option value="">全部项目</option>
+      {principals.filter((principal) => principal.type === "PROJECT").map((principal) => (
+        <option key={principal.id} value={principal.id}>{principal.name}</option>
+      ))}
+    </select>
+  </label>;
+}
+
+// Declarative filter/table states are mutually exclusive UI flows.
+// eslint-disable-next-line complexity
 export function UsagePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -163,7 +88,9 @@ export function UsagePage() {
     offset: page * PAGE_SIZE,
     search: searchParams.get("search") || undefined,
     principal_id: searchParams.get("principal_id") || undefined,
+    project_id: optionalSearchParam(searchParams, "project_id"),
     client_id: searchParams.get("client_id") || undefined,
+    agent_family: searchParams.get("agent_family") || undefined,
     provider_id: searchParams.get("provider_id") || undefined,
     provider_resource_id: searchParams.get("provider_resource_id") || undefined,
     unified_model: searchParams.get("unified_model") || undefined,
@@ -177,6 +104,7 @@ export function UsagePage() {
   const providersQuery = useProviders();
   const resourcesQuery = useProviderResources();
   const modelsQuery = useUnifiedModels();
+  const principalItems = principalsQuery.data?.principals ?? [];
   useRedirectOnUnauthorized(query.error);
 
   const total = query.data?.total ?? 0;
@@ -212,20 +140,18 @@ export function UsagePage() {
               value={searchParams.get("principal_id") ?? ""}
             >
               <option value="">全部主体</option>
-              {(principalsQuery.data?.principals ?? []).map((principal) => (
+              {principalItems.map((principal) => (
                 <option key={principal.id} value={principal.id}>{principal.name}</option>
               ))}
             </select>
           </label>
+          <ProjectFilter principals={principalItems} value={searchParamValue(searchParams, "project_id")} onChange={(value) => setFilter("project_id", value)} />
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">工具 / 客户端</span>
-            <input
-              aria-label="工具或客户端"
-              className={`${inputClass} w-full`}
-              onChange={(event) => setFilter("client_id", event.target.value)}
-              placeholder="如 WorkBuddy"
-              value={searchParams.get("client_id") ?? ""}
-            />
+            <span className="mb-1 block text-[12px] text-ql-fg-secondary">Agent</span>
+            <select aria-label="Agent" className={`${inputClass} w-full`} onChange={(event) => setFilter("agent_family", event.target.value)} value={searchParams.get("agent_family") ?? ""}>
+              <option value="">全部 Agent</option>
+              {Object.entries(AGENT_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
           </label>
           <label>
             <span className="mb-1 block text-[12px] text-ql-fg-secondary">厂商</span>

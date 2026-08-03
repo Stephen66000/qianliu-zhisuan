@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import qianliuLogo from "../assets/qianliu-logo-primary.png";
 import { useAdminSession, useLogin } from "../api/auth";
 import { ApiError } from "../api/client";
 import { LoadingState } from "../components/states/LoadingState";
@@ -62,11 +63,8 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-ql-canvas px-4">
       <div className="w-full max-w-sm rounded-2xl border border-ql-border bg-ql-surface p-8">
         <div className="mb-6 flex items-center gap-2">
-          <span
-            aria-hidden
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-ql-surface-brand-soft text-[16px] font-bold text-ql-action"
-          >
-            仟
+          <span aria-hidden className="flex h-9 w-9 items-center justify-center overflow-hidden">
+            <img className="h-12 w-12 max-w-none object-contain" src={qianliuLogo} />
           </span>
           <div>
             <h1 className="text-[18px] font-semibold leading-[26px] text-ql-fg">仟流智算</h1>

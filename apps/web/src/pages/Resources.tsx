@@ -5,10 +5,9 @@
  * 恢复操作 = POST /provider-resources/:id/recover（WT-19），破坏性 → 二次确认。
  */
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Server } from "lucide-react";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { get, patch, post } from "../api/client";
@@ -24,223 +23,37 @@ import type {
 } from "../api/types";
 import { PageShell } from "../components/layout/PageShell";
 import { StatusTag } from "../components/dashboard/StatusTag";
+import {
+  CreateModelDiscoveryPanel,
+  SyncModelsPanel,
+  type ModelDiscoveryResponse,
+} from "../components/resources/ResourceModelDiscovery";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../components/writes/FormField";
+import {
+  IntegerAmountInput,
+} from "../components/writes/IntegerAmountInput";
+import { MoneyAmountInput } from "../components/writes/MoneyAmountInput";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
-import { formatDateTimeFull } from "../lib/format";
-
-const OptionalDecimal = z.string().refine(
-  (value) => value === "" || /^\d+(?:\.\d+)?$/.test(value),
-  "请输入非负数字",
-);
-
-const CreateResourceSchema = z.object({
-  provider_id: z.string().uuid("请选择厂商"),
-  name: z.string().min(1, "名称不能为空").max(255),
-  mode: z.enum(["API", "CODING_PLAN"]),
-  credential_type: z.enum(["API_KEY", "OAUTH", "SUBSCRIPTION_SESSION"]),
-  credential_plaintext: z.string().min(1, "凭证不能为空"),
-  concurrency_limit: z.string().refine(
-    (value) => value === "" || /^\d+$/.test(value) && Number(value) > 0,
-    "并发上限必须是正整数",
-  ),
-  currency: z.string().max(8),
-  recharge_amount: OptionalDecimal,
-  current_balance: OptionalDecimal,
-  current_period_cost: OptionalDecimal,
-  cumulative_cost: OptionalDecimal,
-  balance_updated_at: z.string(),
-  cost_period_start: z.string(),
-  cost_period_end: z.string(),
-  package_name: z.string().max(255),
-  package_cost: OptionalDecimal,
-  total_quota: OptionalDecimal,
-  quota_unit: z.string().max(32),
-  effective_from: z.string(),
-  effective_until: z.string(),
-  reset_cycle: z.enum(["NONE", "DAILY", "WEEKLY", "MONTHLY"]),
-  reset_anchor_at: z.string(),
-}).superRefine((value, ctx) => {
-  if (value.mode === "CODING_PLAN" && !value.total_quota) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["total_quota"],
-      message: "套餐资源必须填写总额度",
-    });
-  }
-  if (value.mode === "CODING_PLAN" && !value.effective_from) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["effective_from"],
-      message: "请选择套餐生效时间",
-    });
-  }
-  if (value.mode === "CODING_PLAN" && value.reset_cycle !== "NONE" && !value.reset_anchor_at) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["reset_anchor_at"],
-      message: "请选择重置日期",
-    });
-  }
-});
-
-type CreateResourceValues = z.infer<typeof CreateResourceSchema>;
-
-const EditResourceSchema = z.object({
-  name: z.string().min(1, "名称不能为空").max(255),
-  upstream_models: z.string(),
-  concurrency_limit: z.string().refine(
-    (value) => value === "" || /^\d+$/.test(value) && Number(value) > 0,
-    "并发限制必须是正整数",
-  ),
-});
-
-type EditResourceValues = z.infer<typeof EditResourceSchema>;
-
-const EMPTY_OPERATING_DRAFT: Record<string, string> = {
-  currency: "CNY",
-  recharge_amount: "",
-  current_balance: "",
-  current_period_cost: "",
-  cumulative_cost: "",
-  balance_updated_at: "",
-  cost_period_start: "",
-  cost_period_end: "",
-  package_name: "",
-  package_cost: "",
-  total_quota: "",
-  quota_unit: "TOKEN",
-  effective_from: "",
-  effective_until: "",
-  reset_cycle: "NONE",
-  reset_anchor_at: "",
-};
-
-const OPERATING_FIELDS = [
-  ["total_quota", "厂商总额度", "text"],
-  ["quota_unit", "原生单位", "text"],
-  ["package_name", "套餐名称", "text"],
-  ["package_cost", "套餐费用", "text"],
-  ["recharge_amount", "充值金额", "text"],
-  ["current_balance", "当前余额", "text"],
-  ["current_period_cost", "本期实际费用", "text"],
-  ["cumulative_cost", "累计费用", "text"],
-  ["currency", "币种", "text"],
-  ["balance_updated_at", "余额更新时间", "datetime-local"],
-  ["cost_period_start", "费用周期开始", "datetime-local"],
-  ["cost_period_end", "费用周期结束", "datetime-local"],
-  ["effective_from", "套餐生效时间", "datetime-local"],
-  ["effective_until", "套餐失效时间", "datetime-local"],
-  ["reset_cycle", "重置周期", "select"],
-  ["reset_anchor_at", "重置日期", "datetime-local"],
-] as const;
-
-const PLAN_OPERATING_KEYS = new Set([
-  "total_quota",
-  "quota_unit",
-  "package_name",
-  "package_cost",
-  "currency",
-  "effective_from",
-  "effective_until",
-  "reset_cycle",
-  "reset_anchor_at",
-]);
-
-const API_OPERATING_KEYS = new Set([
-  "recharge_amount",
-  "current_balance",
-  "current_period_cost",
-  "cumulative_cost",
-  "currency",
-  "balance_updated_at",
-  "cost_period_start",
-  "cost_period_end",
-]);
-
-function operatingFieldsForMode(mode: ProviderResourceItem["mode"]) {
-  const keys = mode === "API" ? API_OPERATING_KEYS : PLAN_OPERATING_KEYS;
-  return OPERATING_FIELDS.filter(([key]) => keys.has(key));
-}
-
-function operatingPayload(
-  draft: Record<string, string>,
-  mode: ProviderResourceItem["mode"],
-) {
-  const value = (key: string) => draft[key]?.trim() || null;
-  const date = (key: string) => {
-    const raw = draft[key];
-    if (!raw) return null;
-    const withShanghaiOffset = `${raw.length === 16 ? `${raw}:00` : raw}+08:00`;
-    return new Date(withShanghaiOffset).toISOString();
-  };
-  const payload = {
-    source: "ADMIN" as const,
-    collected_at: new Date().toISOString(),
-    currency: value("currency"),
-    recharge_amount: value("recharge_amount"),
-    current_balance: value("current_balance"),
-    current_period_cost: value("current_period_cost"),
-    cumulative_cost: value("cumulative_cost"),
-    balance_updated_at: date("balance_updated_at"),
-    cost_period_start: date("cost_period_start"),
-    cost_period_end: date("cost_period_end"),
-    package_name: value("package_name"),
-    package_cost: value("package_cost"),
-    total_quota: value("total_quota"),
-    quota_unit: value("quota_unit"),
-    effective_from: date("effective_from"),
-    effective_until: date("effective_until"),
-    reset_cycle: value("reset_cycle"),
-    reset_anchor_at: date("reset_anchor_at"),
-  };
-  return mode === "API"
-    ? {
-        ...payload,
-        package_name: null,
-        package_cost: null,
-        total_quota: null,
-        quota_unit: null,
-        effective_from: null,
-        effective_until: null,
-        reset_cycle: null,
-        reset_anchor_at: null,
-      }
-    : {
-        ...payload,
-        recharge_amount: null,
-        current_balance: null,
-        cumulative_cost: null,
-        current_period_cost: null,
-        cost_period_start: null,
-        cost_period_end: null,
-        balance_updated_at: null,
-      };
-}
-
-function operatingDraftFromResource(resource: ProviderResourceItem): Record<string, string> {
-  const snapshot = resource.operating_snapshot;
-  const result = { ...EMPTY_OPERATING_DRAFT };
-  if (!snapshot) return result;
-  for (const [key, , type] of OPERATING_FIELDS) {
-    const raw = snapshot[key as keyof typeof snapshot];
-    result[key] =
-      typeof raw === "string"
-        ? (type === "datetime-local"
-            ? new Date(new Date(raw).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16)
-            : raw)
-        : "";
-  }
-  return result;
-}
-
-function planDraftError(draft: Record<string, string>): string | null {
-  if (!draft.total_quota) return "请填写厂商总额度";
-  if (!draft.effective_from) return "请选择套餐生效时间";
-  if (draft.reset_cycle !== "NONE" && !draft.reset_anchor_at) return "请选择重置日期";
-  return null;
-}
+import { formatCount, formatDateTimeFull, formatMoney } from "../lib/format";
+import {
+  API_OPERATING_KEYS,
+  CreateResourceSchema,
+  EMPTY_OPERATING_DRAFT,
+  EditResourceSchema,
+  MONEY_OPERATING_KEYS,
+  PLAN_OPERATING_KEYS,
+  RESET_CYCLE_LABELS,
+  formError,
+  operatingDraftFromResource,
+  operatingFieldsForMode,
+  operatingMoneyError,
+  operatingPayload,
+  planDraftError,
+  type CreateResourceValues,
+  type EditResourceValues,
+} from "../components/resources/resource-form-contract";
 
 function ReadOnlyMetric({ label, value }: { label: string; value: string }) {
   return (
@@ -268,6 +81,7 @@ const STATUS_LABEL: Record<string, string> = {
   RATE_LIMITED: "限流冷却",
 };
 
+// eslint-disable-next-line complexity -- 资源页聚合登记、发现、同步、经营快照与恢复流程，条件均为互斥 UI 状态。
 export function ResourcesPage() {
   const query = useProviderResources();
   const providersQuery = useProviders();
@@ -281,6 +95,11 @@ export function ResourcesPage() {
   const [editTarget, setEditTarget] = useState<ProviderResourceItem | null>(null);
   const [rotateCredential, setRotateCredential] = useState(false);
   const [newCredential, setNewCredential] = useState("");
+  const [discovery, setDiscovery] = useState<ModelDiscoveryResponse | null>(null);
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  const [createValidationError, setCreateValidationError] = useState("");
+  const [onboardingKey, setOnboardingKey] = useState(() => crypto.randomUUID());
+  const [syncTarget, setSyncTarget] = useState<ProviderResourceItem | null>(null);
 
   const createMutation = useMutation({
     mutationFn: (values: CreateResourceValues) => {
@@ -303,8 +122,10 @@ export function ResourcesPage() {
         package_name, package_cost, total_quota, quota_unit, effective_from,
         effective_until, reset_cycle, reset_anchor_at,
       };
-      return post<{ resource: ProviderResourceItem }>("/provider-resources", {
+      return post<{ result: { resourceId: string } }>("/provider-resources/onboard", {
         ...resource,
+        idempotency_key: onboardingKey,
+        selected_model_ids: selectedModelIds,
         concurrency_limit: resource.concurrency_limit
           ? Number(resource.concurrency_limit)
           : undefined,
@@ -315,6 +136,10 @@ export function ResourcesPage() {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
       setShowCreate(false);
       reset();
+      setDiscovery(null);
+      setSelectedModelIds([]);
+      setCreateValidationError("");
+      setOnboardingKey(crypto.randomUUID());
     },
   });
 
@@ -376,10 +201,6 @@ export function ResourcesPage() {
       patch<{ resource: ProviderResourceItem }>(`/provider-resources/${input.target.id}`, {
         expected_version: input.target.version,
         name: input.values.name,
-        upstream_models: input.values.upstream_models
-          .split(",")
-          .map((model) => model.trim())
-          .filter(Boolean),
         concurrency_limit: input.values.concurrency_limit
           ? Number(input.values.concurrency_limit)
           : null,
@@ -392,8 +213,10 @@ export function ResourcesPage() {
   });
 
   const {
+    control,
     register,
     handleSubmit,
+    getValues,
     reset,
     setValue,
     watch,
@@ -427,6 +250,7 @@ export function ResourcesPage() {
   });
   const createMode = watch("mode");
   const createResetCycle = watch("reset_cycle");
+  const createTotalQuota = watch("total_quota");
   const {
     register: editRegister,
     handleSubmit: handleEditSubmit,
@@ -434,13 +258,17 @@ export function ResourcesPage() {
     formState: { errors: editErrors },
   } = useForm<EditResourceValues>({
     resolver: zodResolver(EditResourceSchema),
-    defaultValues: { name: "", upstream_models: "", concurrency_limit: "" },
+    defaultValues: { name: "", concurrency_limit: "" },
   });
 
   const resources = query.data?.resources ?? [];
   const forecasts = forecastsQuery.data?.forecasts ?? [];
   // P1-02：厂商选项来自独立 /providers（不再从已有资源反推——新企业为空也能登记第一个厂商）
   const providerOptions = providersQuery.data?.providers ?? [];
+  const clearCreateDiscovery = () => {
+    setDiscovery(null);
+    setSelectedModelIds([]);
+  };
 
   return (
     <PageShell
@@ -461,12 +289,25 @@ export function ResourcesPage() {
       {showCreate ? (
         <form
           className="mb-5 flex flex-col gap-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4"
-          onSubmit={handleSubmit((values) => createMutation.mutate(values))}
+          onSubmit={handleSubmit((values) => {
+            if (!discovery || selectedModelIds.length === 0) {
+              setCreateValidationError("请先检测并选择至少一个兼容模型");
+              return;
+            }
+            setCreateValidationError("");
+            createMutation.mutate(values);
+          })}
         >
+          <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[12px] text-ql-fg-secondary">
+            第 1 步填写资源与凭证 → 第 2 步服务端检测模型 → 第 3 步选择兼容模型 → 第 4 步确认接入。
+            系统会自动创建或复用统一模型和路由，但不会扩大任何员工 Key 权限。
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField error={errors.provider_id?.message} htmlFor="res-provider" label="厂商">
               <div className="flex gap-2">
-                <select className={`${INPUT_CLASS} flex-1`} id="res-provider" {...register("provider_id")}>
+                <select className={`${INPUT_CLASS} flex-1`} id="res-provider" {...register("provider_id", {
+                  onChange: clearCreateDiscovery,
+                })}>
                   <option value="">请选择厂商</option>
                   {providerOptions.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -535,6 +376,7 @@ export function ResourcesPage() {
                 id="res-mode"
                 {...register("mode", {
                   onChange: (event) => {
+                    clearCreateDiscovery();
                     const nextMode = event.target.value as ProviderResourceItem["mode"];
                     const forbidden =
                       nextMode === "API" ? PLAN_OPERATING_KEYS : API_OPERATING_KEYS;
@@ -580,7 +422,7 @@ export function ResourcesPage() {
                 id="res-cred"
                 placeholder="sk-..."
                 type="password"
-                {...register("credential_plaintext")}
+                {...register("credential_plaintext", { onChange: clearCreateDiscovery })}
               />
             </FormField>
             <FormField
@@ -596,6 +438,25 @@ export function ResourcesPage() {
                 {...register("concurrency_limit")}
               />
             </FormField>
+            <CreateModelDiscoveryPanel
+              discovery={discovery}
+              getCredentials={() => {
+                const values = getValues();
+                return {
+                  provider_id: values.provider_id,
+                  mode: values.mode,
+                  credential_plaintext: values.credential_plaintext,
+                };
+              }}
+              onDiscovery={(result) => {
+                setDiscovery(result);
+                setSelectedModelIds(result.models.filter((model) => model.compatible).map((model) => model.id));
+                setCreateValidationError("");
+              }}
+              onSelectedModelIdsChange={setSelectedModelIds}
+              onValidationError={setCreateValidationError}
+              selectedModelIds={selectedModelIds}
+            />
             <div className="sm:col-span-2 border-t border-ql-border pt-3">
               <h3 className="text-[13px] font-semibold text-ql-fg">厂商经营快照（可选）</h3>
               <p className="mt-1 text-[12px] text-ql-fg-tertiary">
@@ -605,7 +466,13 @@ export function ResourcesPage() {
             {createMode === "CODING_PLAN" ? (
               <>
                 <FormField error={errors.total_quota?.message} htmlFor="res-total-quota" label="厂商总额度">
-                  <input className={INPUT_CLASS} id="res-total-quota" {...register("total_quota")} />
+                  <IntegerAmountInput
+                    aria-invalid={Boolean(errors.total_quota)}
+                    id="res-total-quota"
+                    name="total_quota"
+                    onChange={(value) => setValue("total_quota", value, { shouldDirty: true })}
+                    value={createTotalQuota}
+                  />
                 </FormField>
                 <FormField htmlFor="res-quota-unit" label="原生单位">
                   <input className={INPUT_CLASS} id="res-quota-unit" {...register("quota_unit")} />
@@ -620,22 +487,22 @@ export function ResourcesPage() {
                   <input className={INPUT_CLASS} id="res-package-name" {...register("package_name")} />
                 </FormField>
                 <FormField error={errors.package_cost?.message} htmlFor="res-package-cost" label="套餐费用">
-                  <input className={INPUT_CLASS} id="res-package-cost" {...register("package_cost")} />
+                  <Controller control={control} name="package_cost" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.package_cost)} id="res-package-cost" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
                 </FormField>
               </>
             ) : (
               <>
                 <FormField error={errors.recharge_amount?.message} htmlFor="res-recharge" label="充值金额">
-                  <input className={INPUT_CLASS} id="res-recharge" {...register("recharge_amount")} />
+                  <Controller control={control} name="recharge_amount" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.recharge_amount)} id="res-recharge" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
                 </FormField>
                 <FormField error={errors.current_balance?.message} htmlFor="res-balance" label="当前余额">
-                  <input className={INPUT_CLASS} id="res-balance" {...register("current_balance")} />
+                  <Controller control={control} name="current_balance" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.current_balance)} id="res-balance" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
                 </FormField>
                 <FormField error={errors.current_period_cost?.message} htmlFor="res-period-cost" label="本期实际费用">
-                  <input className={INPUT_CLASS} id="res-period-cost" {...register("current_period_cost")} />
+                  <Controller control={control} name="current_period_cost" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.current_period_cost)} id="res-period-cost" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
                 </FormField>
                 <FormField error={errors.cumulative_cost?.message} htmlFor="res-cumulative-cost" label="累计费用">
-                  <input className={INPUT_CLASS} id="res-cumulative-cost" {...register("cumulative_cost")} />
+                  <Controller control={control} name="cumulative_cost" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.cumulative_cost)} id="res-cumulative-cost" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
                 </FormField>
               </>
             )}
@@ -644,7 +511,7 @@ export function ResourcesPage() {
             </FormField>
             {createMode === "CODING_PLAN" ? (
               <>
-                <FormField htmlFor="res-effective-until" label="有效期">
+                <FormField error={formError(errors, "effective_until")} htmlFor="res-effective-until" label="有效期">
                   <input className={INPUT_CLASS} id="res-effective-until" type="datetime-local" {...register("effective_until")} />
                 </FormField>
                 <FormField error={errors.effective_from?.message} htmlFor="res-effective-from" label="生效时间">
@@ -656,6 +523,8 @@ export function ResourcesPage() {
                     <option value="DAILY">每日</option>
                     <option value="WEEKLY">每周</option>
                     <option value="MONTHLY">每月</option>
+                    <option value="QUARTERLY">每季</option>
+                    <option value="YEARLY">每年</option>
                   </select>
                 </FormField>
                 {createResetCycle !== "NONE" ? (
@@ -678,7 +547,9 @@ export function ResourcesPage() {
               </>
             )}
           </div>
-          {createMutation.error ? (
+          {createValidationError ? (
+            <p className="text-[13px] leading-5 text-ql-danger" role="alert">{createValidationError}</p>
+          ) : createMutation.error ? (
             <p className="text-[13px] leading-5 text-ql-danger" role="alert">
               {createMutation.error.message}
             </p>
@@ -699,7 +570,7 @@ export function ResourcesPage() {
               disabled={createMutation.isPending}
               type="submit"
             >
-              {createMutation.isPending ? "登记中…" : "登记"}
+              {createMutation.isPending ? "接入中…" : "确认接入"}
             </button>
           </div>
         </form>
@@ -718,17 +589,9 @@ export function ResourcesPage() {
               厂商、模式和凭证类型不可原地修改；凭证轮换使用独立恢复流程。
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField error={editErrors.name?.message} htmlFor="edit-resource-name" label="资源名称">
               <input className={INPUT_CLASS} id="edit-resource-name" {...editRegister("name")} />
-            </FormField>
-            <FormField
-              error={editErrors.upstream_models?.message}
-              hint="多个模型用英文逗号分隔"
-              htmlFor="edit-resource-models"
-              label="上游模型"
-            >
-              <input className={INPUT_CLASS} id="edit-resource-models" {...editRegister("upstream_models")} />
             </FormField>
             <FormField
               error={editErrors.concurrency_limit?.message}
@@ -771,14 +634,15 @@ export function ResourcesPage() {
         </form>
       ) : null}
 
+      {syncTarget ? <SyncModelsPanel onClose={() => setSyncTarget(null)} target={syncTarget} /> : null}
+
       {operatingTarget ? (
         <form
           className="mb-5 rounded-xl border border-ql-border bg-ql-surface-subtle p-4"
           onSubmit={(event) => {
             event.preventDefault();
-            const validationError = operatingTarget.mode === "CODING_PLAN"
-              ? planDraftError(operatingDraft)
-              : null;
+            const validationError = operatingMoneyError(operatingDraft) ??
+              (operatingTarget.mode === "CODING_PLAN" ? planDraftError(operatingDraft) : null);
             if (validationError) {
               setOperatingValidationError(validationError);
               return;
@@ -796,8 +660,18 @@ export function ResourcesPage() {
           </p>
           {operatingTarget.mode === "CODING_PLAN" ? (
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <ReadOnlyMetric label="系统已用额度" value={operatingTarget.operating_snapshot?.used_quota ?? "未知"} />
-              <ReadOnlyMetric label="系统剩余额度" value={operatingTarget.operating_snapshot?.remaining_quota ?? "未知"} />
+              <ReadOnlyMetric
+                label="系统已用额度"
+                value={operatingTarget.operating_snapshot?.used_quota
+                  ? formatCount(operatingTarget.operating_snapshot.used_quota)
+                  : "未知"}
+              />
+              <ReadOnlyMetric
+                label="系统剩余额度"
+                value={operatingTarget.operating_snapshot?.remaining_quota
+                  ? formatCount(operatingTarget.operating_snapshot.remaining_quota)
+                  : "未知"}
+              />
               <ReadOnlyMetric
                 label="下一次重置日期"
                 value={operatingTarget.operating_snapshot?.next_reset_at
@@ -824,7 +698,25 @@ export function ResourcesPage() {
                       <option value="DAILY">每日</option>
                       <option value="WEEKLY">每周</option>
                       <option value="MONTHLY">每月</option>
+                      <option value="QUARTERLY">每季</option>
+                      <option value="YEARLY">每年</option>
                     </select>
+                  ) : key === "total_quota" ? (
+                    <IntegerAmountInput
+                      id={`operating-${key}`}
+                      onChange={(rawValue) =>
+                        setOperatingDraft((current) => ({ ...current, [key]: rawValue }))
+                      }
+                      value={operatingDraft[key] ?? ""}
+                    />
+                  ) : MONEY_OPERATING_KEYS.has(key) ? (
+                    <MoneyAmountInput
+                      id={`operating-${key}`}
+                      onChange={(rawValue) =>
+                        setOperatingDraft((current) => ({ ...current, [key]: rawValue }))
+                      }
+                      value={operatingDraft[key] ?? ""}
+                    />
                   ) : (
                     <input
                       className={INPUT_CLASS}
@@ -857,12 +749,12 @@ export function ResourcesPage() {
                       <td className="p-2">v{snapshot.version} · {snapshot.source}</td>
                       <td className="p-2">
                         {operatingTarget.mode === "CODING_PLAN"
-                          ? `总 ${snapshot.total_quota ?? "未知"} ${snapshot.quota_unit ?? ""} · ${snapshot.package_name ?? "未命名套餐"} · ${snapshot.currency ?? ""} ${snapshot.package_cost ?? "费用未知"}`
-                          : `充值 ${snapshot.currency ?? ""} ${snapshot.recharge_amount ?? "未知"} · 余额 ${snapshot.current_balance ?? "未知"} · 本期费用 ${snapshot.current_period_cost ?? "未知"}`}
+                          ? `总 ${snapshot.total_quota ? formatCount(snapshot.total_quota) : "未知"} ${snapshot.quota_unit ?? ""} · ${snapshot.package_name ?? "未命名套餐"} · ${snapshot.currency ?? ""} ${snapshot.package_cost === null ? "费用未知" : formatMoney(snapshot.package_cost)}`
+                          : `充值 ${snapshot.currency ?? ""} ${snapshot.recharge_amount === null ? "未知" : formatMoney(snapshot.recharge_amount)} · 余额 ${snapshot.current_balance === null ? "未知" : formatMoney(snapshot.current_balance)} · 本期费用 ${snapshot.current_period_cost === null ? "未知" : formatMoney(snapshot.current_period_cost)}`}
                       </td>
                       <td className="p-2">
                         {operatingTarget.mode === "CODING_PLAN"
-                          ? `${snapshot.reset_cycle ?? "NONE"} · ${snapshot.reset_anchor_at ? formatDateTimeFull(snapshot.reset_anchor_at) : "无重置日期"}`
+                          ? `${RESET_CYCLE_LABELS[snapshot.reset_cycle ?? "NONE"] ?? snapshot.reset_cycle} · ${snapshot.reset_anchor_at ? formatDateTimeFull(snapshot.reset_anchor_at) : "无重置日期"}`
                           : `${snapshot.cost_period_start ? formatDateTimeFull(snapshot.cost_period_start) : "—"} ～ ${snapshot.cost_period_end ? formatDateTimeFull(snapshot.cost_period_end) : "—"}`}
                       </td>
                       <td className="p-2">{formatDateTimeFull(snapshot.collected_at)}</td>
@@ -945,17 +837,17 @@ export function ResourcesPage() {
                     {r.operating_snapshot ? (
                       r.mode === "CODING_PLAN" ? (
                         <>
-                          总 {r.operating_snapshot.total_quota ?? "未知"} / 系统已用{" "}
-                          {r.operating_snapshot.used_quota ?? "未知"} / 剩余{" "}
-                          {r.operating_snapshot.remaining_quota ?? "未知"}{" "}
+                          总 {r.operating_snapshot.total_quota ? formatCount(r.operating_snapshot.total_quota) : "未知"} / 系统已用{" "}
+                          {r.operating_snapshot.used_quota ? formatCount(r.operating_snapshot.used_quota) : "未知"} / 剩余{" "}
+                          {r.operating_snapshot.remaining_quota ? formatCount(r.operating_snapshot.remaining_quota) : "未知"}{" "}
                           {r.operating_snapshot.quota_unit ?? ""}
                         </>
                       ) : (
                         <>
                           充值 {r.operating_snapshot.currency ?? ""}{" "}
-                          {r.operating_snapshot.recharge_amount ?? "未知"} / 余额{" "}
-                          {r.operating_snapshot.current_balance ?? "未知"} / 本期费用{" "}
-                          {r.operating_snapshot.current_period_cost ?? "未知"}
+                          {r.operating_snapshot.recharge_amount === null ? "未知" : formatMoney(r.operating_snapshot.recharge_amount)} / 余额{" "}
+                          {r.operating_snapshot.current_balance === null ? "未知" : formatMoney(r.operating_snapshot.current_balance)} / 本期费用{" "}
+                          {r.operating_snapshot.current_period_cost === null ? "未知" : formatMoney(r.operating_snapshot.current_period_cost)}
                         </>
                       )
                     ) : "未录入/未同步"}
@@ -994,7 +886,6 @@ export function ResourcesPage() {
                           setEditTarget(r);
                           editReset({
                             name: r.name,
-                            upstream_models: r.upstream_models?.join(", ") ?? "",
                             concurrency_limit: r.concurrency_limit?.toString() ?? "",
                           });
                         }}
@@ -1002,6 +893,13 @@ export function ResourcesPage() {
                       >
                         编辑
                       </button>
+                      <button
+                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                        onClick={() => {
+                          setSyncTarget(r);
+                        }}
+                        type="button"
+                      >同步模型</button>
                       <button
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={async () => {

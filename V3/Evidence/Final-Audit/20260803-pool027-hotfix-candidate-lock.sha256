@@ -1,0 +1,5 @@
+5cf0b103543f9aaca5a0320c3ceaf3223fc52685dcff0cbb5952ba0d0474c6dc  apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts
+8f13f536f800b70412d82950741b6b912c8498e1e63e45e41b0731cf77f03938  packages/database/src/repositories/provider-repository.ts
+97f3f3da5dc33aec4db44c46080b6a58140bed26c3bafcf4decf5cbc239d1d6e  packages/provider-adapters/src/model-discovery.ts
+d630b0490ec0dcc3dd8bcf1c071d350e8729f0ea7aee25f68bcfcc7c07326d00  packages/provider-adapters/src/__tests__/model-discovery.test.ts
+ffa22762ae8e2fe65841551ef2c2a2b96a881cfaa28c57a0b1ac56407de6517c  packages/database/src/repositories/provider-model-discovery-repository.ts

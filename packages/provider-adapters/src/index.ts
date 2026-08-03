@@ -70,6 +70,17 @@ export interface ProviderAdapter {
 
 export const PROVIDER_ADAPTERS_VERSION = "0.3.0" as const;
 
+export {
+  discoverProviderModels,
+  providerModelDiscoveryDescriptor,
+  ProviderModelDiscoveryError,
+  type DiscoveredProviderModel,
+  type DiscoveryFetch,
+  type ModelDiscoveryResult,
+  type ProviderCode,
+  type ResourceMode,
+} from "./model-discovery.js";
+
 // 密码学原语（W02 起启用）
 export {
   digestApiKey,

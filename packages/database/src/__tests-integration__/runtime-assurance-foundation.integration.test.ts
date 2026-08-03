@@ -91,6 +91,12 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
       ]);
 
       const before = await schemaFingerprint(db);
+      expect(await migrateDown(db)).toBe("0037_client_identity");
+      expect(await migrateDown(db)).toBe("0036_provider_model_discovery");
+      expect(await migrateDown(db)).toBe("0035_deployment_log");
+      expect(await migrateDown(db)).toBe("0034_supply_forecast_production");
+      expect(await migrateDown(db)).toBe("0033_operating_bill");
+      expect(await migrateDown(db)).toBe("0032_admin_lifecycle");
       expect(await migrateDown(db)).toBe("0031_gateway_stream_resilience");
       expect(await migrateDown(db)).toBe("0030_runtime_assurance_foundation");
       const rolledBack = await sql<{ reg: string | null }>`

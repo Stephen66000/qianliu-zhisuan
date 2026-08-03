@@ -28,6 +28,10 @@ function emptySummary(): DashboardSummary {
     monthlyDispatchSaving: "0",
     resourceBreakdown: [],
     overageList: [],
+    monthlyTokenUsage: {
+      totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
+      totalReasoningTokens: "0", totalTokens: "0", employeeRanking: [],
+    },
   };
 }
 
@@ -66,8 +70,14 @@ function seededSummary(): DashboardSummary {
         snapshotAt: "2026-07-29T12:00:00.000Z",
         monthlyCost: "12.50000000",
         currentRate24h: "2400.5",
+        currentRateUnit: "QUOTA_PER_HOUR",
+        forecastConfidence: "MEDIUM",
+        forecastNotCalculableReason: null,
+        forecastDataPoints: 20,
         forecastExhaustAt: "2026-07-30T12:00:00.000Z",
         status: "HEALTHY",
+        statusCounts: { ACTIVE: 2 },
+        abnormalResources: [],
       },
     ],
     overageList: [
@@ -83,6 +93,18 @@ function seededSummary(): DashboardSummary {
         overageRatio: "0.0500",
       },
     ],
+    monthlyTokenUsage: {
+      totalInputTokens: "9007199254740993000",
+      totalOutputTokens: "2000",
+      totalCacheTokens: "3000",
+      totalReasoningTokens: "400",
+      totalTokens: "9007199254740995000",
+      employeeRanking: [{
+        principalId: "p1", principalName: "张三", inputTokens: "6000",
+        outputTokens: "4000", cacheTokens: "3000", reasoningTokens: "400",
+        totalTokens: "10000", share: "0.25",
+      }],
+    },
   };
 }
 
@@ -134,6 +156,7 @@ describe("W18 首页看板", () => {
     renderDashboard();
     expect(screen.getByText("厂商资源账号")).toBeInTheDocument();
     expect(screen.getByText("尚未登记厂商资源")).toBeInTheDocument();
+    expect(screen.getByText("暂无员工消耗")).toBeInTheDocument();
     expect(screen.getByText(/无法产生模型和路由候选/)).toBeInTheDocument();
     // 调度节省为 "0" → 展示 0.00，不伪造（API 费用同为 0.00，允许出现多处）
     expect(screen.getByText("本月调度节省（元）")).toBeInTheDocument();
@@ -172,10 +195,31 @@ describe("W18 首页看板", () => {
     expect(screen.getByText(/预计 .* 耗尽/)).toBeInTheDocument();
     expect(screen.getByText(/可信度中/)).toBeInTheDocument();
     // 超额列表：比例 "0.0500" → "5.00%"
-    expect(screen.getByText("张三")).toBeInTheDocument();
+    expect(screen.getAllByText("张三").length).toBe(2);
     expect(screen.getByText("5.00%")).toBeInTheDocument();
     // 资源摘要
     expect(screen.getByText("智谱")).toBeInTheDocument();
     expect(screen.getAllByText("100,000").length).toBeGreaterThan(0);
+    expect(screen.getByText("员工 Token 消耗")).toBeInTheDocument();
+    expect(screen.getByText("9,007,199,254,740,995,000")).toBeInTheDocument();
+    expect(screen.getByText("25.00%")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看完整用量账本" })).toHaveAttribute("href", "/usage");
+  });
+
+  it("POOL-023：降级资源不再显示全部正常", () => {
+    const data = seededSummary();
+    data.resourceBreakdown[0]!.status = "DEGRADED";
+    data.resourceBreakdown[0]!.statusCounts = { ACTIVE: 1, DEGRADED: 1 };
+    data.resourceBreakdown[0]!.abnormalResources = [{
+      resourceId: "r2", resourceName: "智谱备用账号", status: "DEGRADED",
+    }];
+    useDashboardMock.mockReturnValue({
+      isLoading: false, error: null, data, refetch: vi.fn(),
+    });
+    renderDashboard();
+    expect(screen.getByText("1 项需关注 · 降级")).toBeInTheDocument();
+    expect(screen.getByText("降级")).toBeInTheDocument();
+    expect(screen.getByText("智谱备用账号")).toBeInTheDocument();
+    expect(screen.queryByText("全部正常")).not.toBeInTheDocument();
   });
 });

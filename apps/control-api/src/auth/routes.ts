@@ -86,7 +86,13 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       })
       .code(200)
       .send({
-        admin: { id: admin.id, username: admin.username, enterprise_id: admin.enterprise_id },
+        admin: {
+          id: admin.id,
+          username: admin.username,
+          display_name: admin.display_name,
+          enterprise_id: admin.enterprise_id,
+          must_change_password: admin.must_change_password,
+        },
       });
   });
 

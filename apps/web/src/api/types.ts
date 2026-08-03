@@ -46,9 +46,14 @@ export interface ResourceBreakdownItem {
   snapshotAt: string | null;
   monthlyCost: string;
   currentRate24h: string | null;
+  currentRateUnit: "CURRENCY_PER_HOUR" | "QUOTA_PER_HOUR" | null;
+  forecastConfidence: string | null;
+  forecastNotCalculableReason: string | null;
+  forecastDataPoints: number | null;
   forecastExhaustAt: string | null;
-  /** 当前恒为 "HEALTHY"（W20 才细化），前端不据此渲染异常态。 */
   status: string;
+  statusCounts: Record<string, number>;
+  abnormalResources: Array<{ resourceId: string; resourceName: string; status: string }>;
 }
 
 export interface OverageItem {
@@ -77,6 +82,23 @@ export interface DashboardSummary {
   monthlyDispatchSaving: string;
   resourceBreakdown: ResourceBreakdownItem[];
   overageList: OverageItem[];
+  monthlyTokenUsage: {
+    totalInputTokens: string;
+    totalOutputTokens: string;
+    totalCacheTokens: string;
+    totalReasoningTokens: string;
+    totalTokens: string;
+    employeeRanking: Array<{
+      principalId: string;
+      principalName: string;
+      inputTokens: string;
+      outputTokens: string;
+      cacheTokens: string;
+      reasoningTokens: string;
+      totalTokens: string;
+      share: string;
+    }>;
+  };
 }
 
 // ---------- /usage（camelCase，镜像 UsageRepository） ----------
@@ -87,6 +109,11 @@ export interface UsageRecord {
   principalName: string;
   principalType: string;
   clientId: string | null;
+  agentFamily: string;
+  agentVersion: string | null;
+  agentIdentitySource: string;
+  agentIdentityConfidence: string;
+  clientIdentityRuleVersion: string;
   unifiedModel: string;
   status: string;
   errorClassification: string | null;
@@ -123,7 +150,9 @@ export interface UsageQueryParams {
   offset?: number;
   search?: string;
   principal_id?: string;
+  project_id?: string;
   client_id?: string;
+  agent_family?: string;
   provider_id?: string;
   provider_resource_id?: string;
   unified_model?: string;
@@ -131,6 +160,24 @@ export interface UsageQueryParams {
   from?: string;
   to?: string;
   overage_only?: boolean;
+}
+
+export interface AgentUsageSummary {
+  agentFamily: string;
+  latestVersion: string | null;
+  identitySource: string;
+  identityConfidence: string;
+  firstUsedAt: string;
+  lastUsedAt: string;
+  requestCount: string;
+  totalTokens: string;
+  totalApiCost: string;
+  models: string[];
+}
+
+export interface AgentUsageResult {
+  agents: AgentUsageSummary[];
+  expectedAgentFamilies: string[];
 }
 
 // ---------- /billing-rules（snake_case 直传） ----------
@@ -232,14 +279,30 @@ export interface AdminSession {
   adminUserId: string;
   enterpriseId: string;
   username: string;
+  displayName: string;
+  mustChangePassword: boolean;
 }
 
 export interface LoginResponse {
   admin: {
     id: string;
     username: string;
+    display_name: string;
     enterprise_id: string;
+    must_change_password: boolean;
   };
+}
+
+export interface AdminAccount {
+  id: string;
+  enterprise_id: string;
+  username: string;
+  display_name: string;
+  status: "ACTIVE" | "DISABLED";
+  must_change_password: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // ---------- W19 写操作（snake_case 直传为主，镜像后端 schema） ----------
@@ -417,179 +480,4 @@ export interface ModelRoutesResult {
   routes: ModelRouteItem[];
 }
 
-// ---------- W20 诊断下钻（camelCase，网关侧已脱敏） ----------
-
-export interface GatewayRequestDetail {
-  request: {
-    id: string;
-    principalId: string;
-    protocol: string;
-    unifiedModel: string;
-    stream: boolean;
-    status: string;
-    clientId: string | null;
-    startedAt: string;
-    finishedAt: string | null;
-    errorClassification: string | null;
-    errorCode: string | null;
-  };
-  settlement: {
-    totalInputTokens: string;
-    totalOutputTokens: string;
-    totalCacheTokens: string;
-    totalReasoningTokens: string;
-    totalDeductedQuota: string;
-    totalApiCost: string;
-    usageQuality: string;
-    attemptCount: number;
-    status: string;
-  } | null;
-}
-
-export interface RouteCandidateItem {
-  providerResourceId: string;
-  upstreamModel: string;
-  priority: number;
-  weight: number;
-  selected: boolean;
-  scoreFactors: Record<string, unknown> | null;
-  totalScore: string | null;
-  reasonCode: string | null;
-}
-
-export interface AttemptMetering {
-  inputTokens: string;
-  outputTokens: string;
-  cacheTokens: string;
-  reasoningTokens: string;
-  deductedQuota: string | null;
-  apiCost: string | null;
-  usageQuality: string;
-  billingRuleId: string | null;
-  ruleVersion: string | null;
-  multiplier: string | null;
-  billingRuleSnapshot: {
-    ruleType?: string;
-    timezone?: string | null;
-    daysOfWeek?: number[] | null;
-    startTime?: string | null;
-    endTime?: string | null;
-    timeWindows?: Array<{
-      timezone: string;
-      daysOfWeek: number[] | null;
-      startTime: string;
-      endTime: string;
-    }>;
-    matchedWindow?: {
-      timezone: string;
-      daysOfWeek: number[] | null;
-      startTime: string;
-      endTime: string;
-    } | null;
-    cacheHitPrice?: string | null;
-    cacheMissPrice?: string | null;
-    outputPrice?: string | null;
-    multiplier?: string | null;
-  } | null;
-}
-
-export interface AttemptItem {
-  attemptNo: number;
-  providerResourceId: string;
-  upstreamModel: string;
-  startedAt: string;
-  firstByteAt: string | null;
-  finishedAt: string | null;
-  httpStatus: number | null;
-  errorClassification: string | null;
-  errorCode: string | null;
-  failureLayer: string | null;
-  responseCommitted: boolean;
-  switchReason: string | null;
-  /** P1-04：该 Attempt 的逐条计量明细。 */
-  metering: AttemptMetering[];
-}
-
-export interface AttemptsResult {
-  attempts: AttemptItem[];
-  ledgerLines: Array<{
-    attemptId: string;
-    inputTokens: string;
-    outputTokens: string;
-    cacheTokens: string;
-    reasoningTokens: string;
-    deductedQuota: string | null;
-    apiCost: string | null;
-    usageQuality: string;
-    billingRuleId: string | null;
-    ruleVersion: string | null;
-    multiplier: string | null;
-    billingRuleSnapshot: AttemptMetering["billingRuleSnapshot"];
-  }>;
-}
-
-export interface DispatchDecisionItem {
-  dispatchInput: Record<string, unknown> | null;
-  finalAction: string;
-  reasonCode: string;
-  reasonDetail: string | null;
-  matchedPolicyId: string | null;
-  matchedPolicyVersion: string | null;
-  matchedPolicyAction: string | null;
-  switchTargetResourceId: string | null;
-  counterfactualCost: string | null;
-  actualCost: string | null;
-  dispatchSaving: string | null;
-  savingCalculable: boolean;
-  notCalculableReason: string | null;
-}
-
-// ---------- W20 异常告警（camelCase，alert_event 生命周期） ----------
-
-export type AlertDomain =
-  | "RESOURCE_UNAVAILABLE"
-  | "USAGE_SPIKE"
-  | "QUOTA_ANOMALY"
-  | "CREDENTIAL_INVALID";
-
-export interface AlertItem {
-  id: string;
-  alertKey: string;
-  domain: AlertDomain;
-  signal: string;
-  severity: "HIGH" | "MEDIUM" | "LOW";
-  title: string;
-  detail: string | null;
-  resourceId: string | null;
-  principalId: string | null;
-  aiRequestId: string | null;
-  status: "OPEN" | "INVESTIGATING" | "RESOLVED" | "IGNORED" | "AUTO_RESOLVED";
-  firstSeenAt: string;
-  lastSeenAt: string;
-  resolvedAt: string | null;
-  resolutionNote: string | null;
-}
-
-export interface AlertsResult {
-  alerts: AlertItem[];
-  /** 已处理历史（仅 ?history=true 时返回）。 */
-  history?: AlertItem[];
-}
-
-// ---------- 操作日志（snake_case 直传） ----------
-
-export interface OperationLogItem {
-  id: string;
-  admin_user_id: string;
-  action: string;
-  target_type: string;
-  target_id: string | null;
-  change_summary: Record<string, unknown> | null;
-  result: string;
-  failure_reason: string | null;
-  created_at: string;
-}
-
-export interface OperationLogsResult {
-  logs: OperationLogItem[];
-}
+export * from "./diagnostic-types";

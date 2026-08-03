@@ -259,8 +259,7 @@ describe("computeDispatchSaving 反事实节省（WT-17，§9.1 行 620-632）",
       actualCost: "0.060",
       actionExecuted: true,
     });
-    expect(r.saving).not.toBe("NOT_CALCULABLE");
-    expect(Number(r.saving)).toBeCloseTo(0.04, 6); // 派生值，落库时 toFixed(8)
+    expect(r.saving).toBe("0.04000000");
     expect(r.reason).toBeNull();
   });
 
@@ -271,8 +270,7 @@ describe("computeDispatchSaving 反事实节省（WT-17，§9.1 行 620-632）",
       actualCost: "0.080",
       actionExecuted: true,
     });
-    expect(r.saving).not.toBe("NOT_CALCULABLE");
-    expect(Number(r.saving)).toBeCloseTo(-0.03, 6);
+    expect(r.saving).toBe("-0.03000000");
   });
 
   it("仅提示（actionExecuted=false）→ NOT_CALCULABLE（行 631：仅提示/未改变行为）", () => {
@@ -317,5 +315,63 @@ describe("computeDispatchSaving 反事实节省（WT-17，§9.1 行 620-632）",
     });
     expect(r.saving).toBe("NOT_CALCULABLE");
     expect(r.reason).toBe("invalid_cost_value");
+  });
+
+  it("大额小数仍按 decimal 精确相减，不经过浮点数", () => {
+    const r = computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: "9007199254740993.10000000",
+      actualCost: "9007199254740993.09000000",
+      actionExecuted: true,
+    });
+    expect(r.saving).toBe("0.01000000");
+  });
+
+  it("整数、首尾空白与零节省按 8 位小数稳定归一", () => {
+    expect(computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: " 2 ",
+      actualCost: "1",
+      actionExecuted: true,
+    })).toEqual({ saving: "1.00000000", reason: null });
+    expect(computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: "1",
+      actualCost: "1",
+      actionExecuted: true,
+    }).saving).toBe("0.00000000");
+  });
+
+  it("负成本输入仍按符号和小数位精确换算", () => {
+    expect(computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: "-1.25000000",
+      actualCost: "-2.50000000",
+      actionExecuted: true,
+    }).saving).toBe("1.25000000");
+    expect(computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: "12.34567890",
+      actualCost: "2.00000001",
+      actionExecuted: true,
+    }).saving).toBe("10.34567889");
+  });
+
+  it.each(["1.000000000", "1x", "x1", "1.", ".1"])("拒绝非规范成本 %s", (invalid) => {
+    expect(computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: invalid,
+      actualCost: "0",
+      actionExecuted: true,
+    })).toEqual({ saving: "NOT_CALCULABLE", reason: "invalid_cost_value" });
+  });
+
+  it("实际成本格式错误同样不可计算", () => {
+    expect(computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: "1.00000000",
+      actualCost: "not-a-cost",
+      actionExecuted: true,
+    })).toEqual({ saving: "NOT_CALCULABLE", reason: "invalid_cost_value" });
   });
 });

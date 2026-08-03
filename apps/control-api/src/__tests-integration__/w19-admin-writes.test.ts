@@ -448,6 +448,14 @@ describe("W19 管理写操作闭环", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    const principals = await db
+      .insertInto("principal")
+      .values([
+        { enterprise_id: ENT_ID, type: "EMPLOYEE", name: "于滔", department_label: "研发部", status: "ACTIVE" },
+        { enterprise_id: ENT_ID, type: "PROJECT", name: "智算项目", department_label: null, status: "ACTIVE" },
+      ])
+      .returning("id")
+      .execute();
     const created = await app.inject({
       method: "POST",
       url: "/dispatch-policies",
@@ -469,6 +477,33 @@ describe("W19 管理写操作闭环", () => {
     expect(created.statusCode).toBe(201);
     const policy = created.json().policy;
     expect(policy.status).toBe("DRAFT");
+
+    const edited = await app.inject({
+      method: "PATCH",
+      url: `/dispatch-policies/${policy.id}`,
+      headers: { cookie: adminCookie },
+      payload: {
+        match_unified_model: model.alias,
+        match_resource_mode: "CODING_PLAN",
+        match_provider_resource_id: resource.id,
+        match_timezone: "Asia/Shanghai",
+        match_days_of_week: [1, 2, 3, 4, 5, 6, 7],
+        match_start_time: "14:00:00",
+        match_end_time: "18:00:00",
+        match_principal_scope: principals.map((principal) => principal.id),
+        action: "REJECT",
+        policy_version: "zhipu-peak-reject-v2",
+        priority: 9,
+        description: "指定主体高峰硬拒绝",
+      },
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().policy).toMatchObject({
+      status: "DRAFT",
+      policyVersion: "zhipu-peak-reject-v2",
+      matchPrincipalScope: principals.map((principal) => principal.id),
+      priority: 9,
+    });
 
     const directPublish = await app.inject({
       method: "POST",
@@ -493,6 +528,19 @@ describe("W19 管理写操作闭环", () => {
     expect(published.statusCode).toBe(200);
     expect(published.json().policy.status).toBe("PUBLISHED");
 
+    const immutableEdit = await app.inject({
+      method: "PATCH",
+      url: `/dispatch-policies/${policy.id}`,
+      headers: { cookie: adminCookie },
+      payload: {
+        match_principal_scope: null,
+        action: "REJECT",
+        policy_version: "forbidden",
+        priority: 1,
+      },
+    });
+    expect(immutableEdit.statusCode).toBe(409);
+
     const listed = await app.inject({
       method: "GET",
       url: "/dispatch-policies",
@@ -514,7 +562,42 @@ describe("W19 管理写操作闭环", () => {
     });
     expect(retired.statusCode).toBe(200);
     expect(retired.json().policy.status).toBe("RETIRED");
-    expect(await countAudit("dispatch_policy.create")).toBe(1);
+
+    const otherEnterpriseId = randomUUID();
+    await db.insertInto("enterprise").values({ id: otherEnterpriseId, name: "POOL-016 隔离企业" }).execute();
+    const otherPrincipal = await db
+      .insertInto("principal")
+      .values({
+        enterprise_id: otherEnterpriseId,
+        type: "EMPLOYEE",
+        name: "其他企业员工",
+        department_label: null,
+        status: "ACTIVE",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    const crossEnterpriseDraft = await app.inject({
+      method: "POST",
+      url: "/dispatch-policies",
+      headers: { cookie: adminCookie },
+      payload: {
+        match_principal_scope: [otherPrincipal.id],
+        action: "REJECT",
+        policy_version: "pool016-cross-enterprise",
+        priority: 100,
+      },
+    });
+    expect(crossEnterpriseDraft.statusCode).toBe(201);
+    const crossEnterpriseValidation = await app.inject({
+      method: "POST",
+      url: `/dispatch-policies/${crossEnterpriseDraft.json().policy.id}/validate`,
+      headers: { cookie: adminCookie },
+    });
+    expect(crossEnterpriseValidation.statusCode).toBe(400);
+    expect(crossEnterpriseValidation.json().error).toBe("invalid_reference");
+
+    expect(await countAudit("dispatch_policy.create")).toBe(2);
+    expect(await countAudit("dispatch_policy.update")).toBe(1);
     expect(await countAudit("dispatch_policy.validate")).toBe(1);
     expect(await countAudit("dispatch_policy.publish")).toBe(1);
     expect(await countAudit("dispatch_policy.retire")).toBe(1);

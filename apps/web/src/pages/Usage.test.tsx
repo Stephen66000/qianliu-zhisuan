@@ -50,6 +50,11 @@ function sampleRecord(): UsageResult["records"][number] {
     principalName: "张三",
     principalType: "EMPLOYEE",
     clientId: "cli-1",
+    agentFamily: "CODEX",
+    agentVersion: "0.146.0",
+    agentIdentitySource: "DECLARED_HEADER",
+    agentIdentityConfidence: "DECLARED",
+    clientIdentityRuleVersion: "2026-08-03.v1",
     unifiedModel: "glm-4.6",
     status: "SUCCEEDED",
     errorClassification: null,
@@ -193,9 +198,9 @@ describe("W18 用量账本", () => {
       refetch: vi.fn(),
     });
     renderUsage("/usage?page=2");
-    await user.type(screen.getByLabelText("工具或客户端"), "WorkBuddy");
+    await user.selectOptions(screen.getByLabelText("Agent"), "WORKBUDDY");
     expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({
-      client_id: "WorkBuddy",
+      agent_family: "WORKBUDDY",
       offset: 0,
     }));
   });

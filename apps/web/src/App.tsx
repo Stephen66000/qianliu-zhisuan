@@ -13,6 +13,9 @@ import { ResourcesPage } from "./pages/Resources";
 import { SettingsPage } from "./pages/Settings";
 import { UsagePage } from "./pages/Usage";
 import { RuntimeAssurancePage } from "./pages/RuntimeAssurance";
+import { AdminsPage } from "./pages/Admins";
+import { ChangePasswordPage } from "./pages/ChangePassword";
+import { OperatingBillPage } from "./pages/OperatingBill";
 
 export function App() {
   return (
@@ -26,9 +29,15 @@ export function App() {
           <Route element={<ResourcesPage />} path="/resources" />
           <Route element={<QuotaRulesPage />} path="/quota-rules" />
           <Route element={<UsagePage />} path="/usage" />
+          <Route element={<OperatingBillPage />} path="/operating-bill" />
           <Route element={<RuntimeAssurancePage />} path="/runtime-assurance" />
-          <Route element={<Navigate replace to="/runtime-assurance?tab=alerts" />} path="/alerts" />
+          <Route
+            element={<Navigate replace to="/runtime-assurance?tab=alerts" />}
+            path="/alerts"
+          />
           <Route element={<SettingsPage />} path="/settings" />
+          <Route element={<AdminsPage />} path="/admins" />
+          <Route element={<ChangePasswordPage />} path="/change-password" />
         </Route>
         <Route element={<Navigate replace to="/dashboard" />} path="*" />
       </Routes>

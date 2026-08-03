@@ -28,3 +28,18 @@ export async function verifyPassword(hash: string, plaintext: string): Promise<b
     return false;
   }
 }
+
+export const PASSWORD_POLICY_MESSAGE =
+  "密码需为 12～128 位，并同时包含大写字母、小写字母、数字和特殊字符";
+
+/** 管理员新密码统一策略；登录校验不受该策略影响，避免锁死历史账号。 */
+export function isStrongPassword(plaintext: string): boolean {
+  return (
+    plaintext.length >= 12 &&
+    plaintext.length <= 128 &&
+    /[a-z]/.test(plaintext) &&
+    /[A-Z]/.test(plaintext) &&
+    /\d/.test(plaintext) &&
+    /[^A-Za-z0-9]/.test(plaintext)
+  );
+}

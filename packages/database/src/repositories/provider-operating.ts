@@ -6,7 +6,7 @@ import type { ProviderResourceOperatingSnapshot } from "./provider-repository.js
 
 export const DEFAULT_RESET_TIMEZONE = "Asia/Shanghai";
 
-export type ResetCycle = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY";
+export type ResetCycle = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
 
 export interface QuotaPeriod {
   start: Date;
@@ -23,7 +23,8 @@ const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function normalizedCycle(value: string | null): ResetCycle {
   const upper = value?.toUpperCase();
-  return upper === "DAILY" || upper === "WEEKLY" || upper === "MONTHLY"
+  return upper === "DAILY" || upper === "WEEKLY" || upper === "MONTHLY" ||
+      upper === "QUARTERLY" || upper === "YEARLY"
     ? upper
     : "NONE";
 }
@@ -71,17 +72,21 @@ function monthlyCandidate(anchor: Date, monthIndex: number): Date {
   );
 }
 
-function monthlyPeriod(anchor: Date, now: Date): QuotaPeriod {
+function calendarMonthPeriod(anchor: Date, now: Date, monthsPerPeriod: number): QuotaPeriod {
   const anchorParts = shanghaiParts(anchor);
   const nowParts = shanghaiParts(now);
-  let index =
+  const elapsedMonths =
     nowParts.year * 12 + nowParts.month - (anchorParts.year * 12 + anchorParts.month);
-  let start = monthlyCandidate(anchor, index);
+  let index = Math.floor(elapsedMonths / monthsPerPeriod);
+  let start = monthlyCandidate(anchor, index * monthsPerPeriod);
   if (start.getTime() > now.getTime()) {
     index -= 1;
-    start = monthlyCandidate(anchor, index);
+    start = monthlyCandidate(anchor, index * monthsPerPeriod);
   }
-  return { start, end: monthlyCandidate(anchor, index + 1) };
+  return {
+    start,
+    end: monthlyCandidate(anchor, (index + 1) * monthsPerPeriod),
+  };
 }
 
 export function calculateQuotaPeriod(input: {
@@ -95,7 +100,9 @@ export function calculateQuotaPeriod(input: {
   const anchor = input.resetAnchorAt ?? input.effectiveFrom ?? input.collectedAt;
   if (cycle === "DAILY") return fixedPeriod(anchor, input.now, 24 * 60 * 60 * 1000);
   if (cycle === "WEEKLY") return fixedPeriod(anchor, input.now, 7 * 24 * 60 * 60 * 1000);
-  if (cycle === "MONTHLY") return monthlyPeriod(anchor, input.now);
+  if (cycle === "MONTHLY") return calendarMonthPeriod(anchor, input.now, 1);
+  if (cycle === "QUARTERLY") return calendarMonthPeriod(anchor, input.now, 3);
+  if (cycle === "YEARLY") return calendarMonthPeriod(anchor, input.now, 12);
   return { start: input.effectiveFrom ?? input.collectedAt, end: null };
 }
 

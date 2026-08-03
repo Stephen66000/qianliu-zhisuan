@@ -79,6 +79,7 @@ async function main(): Promise<void> {
           id: randomUUID(),
           enterprise_id: ent.id,
           username,
+          display_name: username,
           password_hash: passwordHash,
           status: "ACTIVE",
         })

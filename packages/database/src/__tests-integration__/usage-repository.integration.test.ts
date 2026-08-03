@@ -92,6 +92,11 @@ async function seedUsage(): Promise<SeededUsage> {
       protocol: "chat",
       unified_model: "qianliu-glm",
       client_id: "WorkBuddy",
+      agent_family: "WORKBUDDY",
+      agent_version: "1.8.2",
+      agent_identity_source: "VERIFIED_USER_AGENT",
+      agent_identity_confidence: "OBSERVED",
+      client_identity_rule_version: "2026-08-03.v1",
       status: "SUCCEEDED",
       started_at: new Date(now - 2_000),
       finished_at: new Date(now - 1_000),
@@ -104,6 +109,11 @@ async function seedUsage(): Promise<SeededUsage> {
       protocol: "chat",
       unified_model: "qianliu-glm",
       client_id: "Codex",
+      agent_family: "CODEX",
+      agent_version: "0.146.0",
+      agent_identity_source: "DECLARED_HEADER",
+      agent_identity_confidence: "DECLARED",
+      client_identity_rule_version: "2026-08-03.v1",
       status: "FAILED",
       started_at: new Date(now - 4_000),
       finished_at: new Date(now - 3_000),
@@ -116,6 +126,7 @@ async function seedUsage(): Promise<SeededUsage> {
       protocol: "chat",
       unified_model: "qianliu-glm",
       client_id: "WorkBuddy",
+      agent_family: "WORKBUDDY",
       status: "SUCCEEDED",
       started_at: new Date(now - 2_000),
       finished_at: new Date(now - 1_000),
@@ -279,5 +290,23 @@ describe("POOL-012 UsageRepository 数据库筛选", () => {
     });
     expect(result.total).toBe(0);
     expect(result.records).toHaveLength(0);
+  });
+
+  it("按标准 Agent 家族筛选并按主体汇总，不跨企业", async () => {
+    const repo = new UsageRepository(db);
+    const filtered = await repo.list({ enterpriseId: seeded.enterpriseId, agentFamily: "WORKBUDDY" });
+    expect(filtered.total).toBe(1);
+    expect(filtered.records[0]).toMatchObject({
+      agentFamily: "WORKBUDDY",
+      agentVersion: "1.8.2",
+      agentIdentitySource: "VERIFIED_USER_AGENT",
+    });
+
+    const summary = await repo.summarizePrincipalAgents(seeded.enterpriseId, seeded.principalId);
+    expect(summary.map((item) => item.agentFamily)).toEqual(["WORKBUDDY", "CODEX"]);
+    expect(summary.find((item) => item.agentFamily === "WORKBUDDY")).toMatchObject({
+      requestCount: "1",
+      latestVersion: "1.8.2",
+    });
   });
 });

@@ -290,6 +290,9 @@ importers:
       '@qianliu/provider-adapters':
         specifier: workspace:*
         version: link:../provider-adapters
+      decimal.js:
+        specifier: 10.6.0
+        version: 10.6.0
       kysely:
         specifier: 0.28.17
         version: 0.28.17

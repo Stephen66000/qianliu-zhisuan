@@ -11,86 +11,23 @@
  *
  * 安全：所有方法只存元数据，绝不接受 messages/prompt/system 正文参数。
  */
-import type { Kysely, Selectable } from "kysely";
+import type { Kysely } from "kysely";
+import type { Database } from "../kysely.js";
 import type {
-  Database,
-  AiRequestTable,
-  UpstreamAttemptTable,
-  UsageEventTable,
-  LedgerLineTable,
-  LedgerTransactionTable,
-  RouteCandidateTable,
-} from "../kysely.js";
+  AiRequest,
+  ClaimRequestResult,
+  CreateAttemptInput,
+  CreateRequestInput,
+  LedgerLine,
+  LedgerLineInput,
+  LedgerTransaction,
+  RouteCandidate,
+  UpstreamAttempt,
+  UsageEvent,
+  UsageInput,
+} from "./gateway-ledger-types.js";
 
-export type AiRequest = Selectable<AiRequestTable>;
-export type UpstreamAttempt = Selectable<UpstreamAttemptTable>;
-export type UsageEvent = Selectable<UsageEventTable>;
-export type LedgerLine = Selectable<LedgerLineTable>;
-export type LedgerTransaction = Selectable<LedgerTransactionTable>;
-export type RouteCandidate = Selectable<RouteCandidateTable>;
-
-export interface CreateRequestInput {
-  id: string;
-  enterprise_id: string;
-  principal_id: string;
-  principal_key_id: string;
-  idempotency_key?: string | null;
-  client_request_id?: string | null;
-  request_fingerprint?: string | null;
-  protocol: string;
-  unified_model: string;
-  stream?: boolean;
-  client_id?: string | null;
-}
-
-export type ClaimRequestResult =
-  | { kind: "CREATED"; request: AiRequest }
-  | { kind: "REPLAY"; request: AiRequest }
-  | { kind: "CONFLICT"; request: AiRequest };
-
-export interface CreateAttemptInput {
-  ai_request_id: string;
-  enterprise_id: string;
-  attempt_no: number;
-  provider_resource_id: string;
-  upstream_model: string;
-}
-
-export interface UsageInput {
-  ai_request_id: string;
-  enterprise_id: string;
-  upstream_attempt_id: string;
-  provider_resource_id: string;
-  input_tokens: bigint;
-  output_tokens: bigint;
-  cache_tokens: bigint;
-  reasoning_tokens?: bigint;
-  usage_quality: string;
-  dedup_key: string;
-  upstream_usage_id?: string | null;
-}
-
-export interface LedgerLineInput {
-  ai_request_id: string;
-  enterprise_id: string;
-  usage_event_id: string;
-  upstream_attempt_id: string;
-  provider_resource_id: string;
-  principal_id: string;
-  resource_mode: string;
-  raw_input_tokens: bigint;
-  raw_output_tokens: bigint;
-  raw_cache_tokens: bigint;
-  raw_reasoning_tokens?: bigint;
-  deducted_quota?: bigint | null;
-  api_cost?: string | null;
-  usage_quality: string;
-  /** W13：冻结命中的计价规则（历史不重算）。 */
-  billing_rule_id?: string | null;
-  rule_version?: string | null;
-  multiplier?: string | null;
-  billing_rule_snapshot?: Record<string, unknown> | null;
-}
+export type * from "./gateway-ledger-types.js";
 
 export class GatewayLedgerRepository {
   constructor(private db: Kysely<Database>) {}
@@ -128,6 +65,11 @@ export class GatewayLedgerRepository {
         stream: input.stream ?? false,
         status: "IN_PROGRESS",
         client_id: input.client_id ?? null,
+        agent_family: input.agent_family ?? "UNKNOWN",
+        agent_version: input.agent_version ?? null,
+        agent_identity_source: input.agent_identity_source ?? "NONE",
+        agent_identity_confidence: input.agent_identity_confidence ?? "UNKNOWN",
+        client_identity_rule_version: input.client_identity_rule_version ?? "legacy",
         started_at: new Date(),
       })
       .onConflict((oc) => oc

@@ -4,7 +4,10 @@ import {
   RETRYABLE_UPSTREAM_STATUS,
   LOG_WHITELIST_FIELDS,
   DEFAULT_CONTENT_RETENTION_MODE,
+  ERROR_CLASSIFICATION,
+  isSwitchable,
 } from "../index.js";
+import type { ErrorClassification } from "../index.js";
 
 describe("@qianliu/domain", () => {
   it("exposes version", () => {
@@ -28,5 +31,19 @@ describe("@qianliu/domain", () => {
 
   it("默认 METADATA_ONLY", () => {
     expect(DEFAULT_CONTENT_RETENTION_MODE).toBe("METADATA_ONLY");
+  });
+
+  it("仅允许提交前可恢复的上游错误切换路由", () => {
+    const switchable = new Set<ErrorClassification>([
+      ERROR_CLASSIFICATION.UPSTREAM_CREDENTIAL_INVALID,
+      ERROR_CLASSIFICATION.UPSTREAM_RATE_LIMITED,
+      ERROR_CLASSIFICATION.UPSTREAM_TEMPORARY,
+      ERROR_CLASSIFICATION.UPSTREAM_BILLING_BLOCKED,
+      ERROR_CLASSIFICATION.TRANSPORT_ERROR,
+    ]);
+    const fixed = Object.values(ERROR_CLASSIFICATION).filter((item) => !switchable.has(item));
+
+    expect([...switchable].every(isSwitchable)).toBe(true);
+    expect(fixed.some(isSwitchable)).toBe(false);
   });
 });

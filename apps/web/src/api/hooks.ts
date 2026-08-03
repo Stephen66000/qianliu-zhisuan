@@ -9,11 +9,15 @@ import { useQuery } from "@tanstack/react-query";
 import { get } from "./client";
 import type {
   AlertsResult,
+  AgentUsageResult,
   AttemptsResult,
   BillingRulesResult,
   DashboardSummary,
   DispatchDecisionItem,
   DispatchPoliciesResult,
+  DeploymentLogDetail,
+  DeploymentLogsResult,
+  DeploymentStatus,
   GatewayRequestDetail,
   GrantsResult,
   ModelRoutesResult,
@@ -41,10 +45,12 @@ export const QUERY_KEYS = {
   unifiedModels: ["unified-models"] as const,
   grants: (principalId: string) => ["principals", principalId, "grants"] as const,
   principalKeys: (principalId: string) => ["principals", principalId, "keys"] as const,
+  principalAgentUsage: (principalId: string) => ["principals", principalId, "agent-usage"] as const,
   modelRoutes: (modelId: string) => ["unified-models", modelId, "routes"] as const,
   gatewayRequest: (id: string) => ["gateway-requests", id] as const,
   alerts: ["alerts"] as const,
   operationLogs: ["operation-logs"] as const,
+  deploymentLogs: ["deployment-logs"] as const,
 } as const;
 
 export function useDashboard() {
@@ -65,7 +71,9 @@ export function useUsage(params: UsageQueryParams) {
       if (params.offset !== undefined) search.set("offset", String(params.offset));
       if (params.search) search.set("search", params.search);
       if (params.principal_id) search.set("principal_id", params.principal_id);
+      if (params.project_id) search.set("project_id", params.project_id);
       if (params.client_id) search.set("client_id", params.client_id);
+      if (params.agent_family) search.set("agent_family", params.agent_family);
       if (params.provider_id) search.set("provider_id", params.provider_id);
       if (params.provider_resource_id) {
         search.set("provider_resource_id", params.provider_resource_id);
@@ -81,6 +89,16 @@ export function useUsage(params: UsageQueryParams) {
     retry: 1,
     staleTime: 15_000,
     placeholderData: (previous) => previous,
+  });
+}
+
+export function usePrincipalAgentUsage(principalId: string) {
+  return useQuery({
+    queryKey: QUERY_KEYS.principalAgentUsage(principalId),
+    queryFn: ({ signal }) => get<AgentUsageResult>(`/principals/${principalId}/agent-usage`, signal),
+    enabled: Boolean(principalId),
+    retry: 1,
+    staleTime: 15_000,
   });
 }
 
@@ -247,6 +265,33 @@ export function useOperationLogs(limit = 100) {
   return useQuery({
     queryKey: [...QUERY_KEYS.operationLogs, limit],
     queryFn: ({ signal }) => get<OperationLogsResult>(`/operation-logs?limit=${limit}`, signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useDeploymentLogs(params: {
+  status?: DeploymentStatus;
+  version?: string;
+  poolRef?: string;
+} = {}) {
+  const search = new URLSearchParams({ limit: "100", offset: "0" });
+  if (params.status) search.set("status", params.status);
+  if (params.version) search.set("version", params.version);
+  if (params.poolRef) search.set("pool_ref", params.poolRef);
+  return useQuery({
+    queryKey: [...QUERY_KEYS.deploymentLogs, params],
+    queryFn: ({ signal }) => get<DeploymentLogsResult>(`/deployment-logs?${search}`, signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useDeploymentLog(id: string | null) {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.deploymentLogs, id],
+    queryFn: ({ signal }) => get<DeploymentLogDetail>(`/deployment-logs/${id}`, signal),
+    enabled: id !== null,
     retry: 1,
     staleTime: 30_000,
   });
