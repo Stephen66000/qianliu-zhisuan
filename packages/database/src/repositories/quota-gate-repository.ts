@@ -9,7 +9,7 @@
  *     并发租约获取（活跃数 < limit，行锁防穿透）/释放。
  *   - 并发不穿透：PostgreSQL 行锁（W14 离线可测）；Redis 短期计数在 W25 叠加。
  */
-import type { Kysely } from "kysely";
+import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import {
   evaluateQuotaGate,
@@ -82,6 +82,13 @@ export class QuotaGateRepository {
         .where("provider", "=", input.provider)
         .where("model_alias", "=", input.modelAlias)
         .where("status", "=", "ACTIVE")
+        .where("valid_from", "<=", now)
+        .where((eb) => eb.or([
+          eb("valid_until", "is", null),
+          eb("valid_until", ">", now),
+        ]))
+        .orderBy(sql`authorization_rule_version_id IS NOT NULL`, "desc")
+        .orderBy("created_at", "desc")
         .executeTakeFirst();
 
       if (!grant) {

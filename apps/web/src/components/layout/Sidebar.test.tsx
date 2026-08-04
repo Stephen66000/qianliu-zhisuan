@@ -15,5 +15,6 @@ describe("Sidebar", () => {
     expect(screen.getByRole("img", { name: "仟流科技 Logo" })).toBeInTheDocument();
     expect(screen.getByText("仟流智算")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "运行保障" })).toHaveAttribute("href", "/runtime-assurance");
+    expect(screen.getByRole("link", { name: "员工使用规则" })).toHaveAttribute("href", "/employee-model-rules");
   });
 });

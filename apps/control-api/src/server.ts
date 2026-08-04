@@ -27,6 +27,7 @@ import {
   RuntimeAssuranceRepository,
   OperatingBillRepository,
   DeploymentLogRepository,
+  EmployeeModelRuleRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
 } from "@qianliu/database";
@@ -52,6 +53,7 @@ import { registerRuntimeAssuranceRoutes } from "./runtime-assurance/routes.js";
 import { registerAdminRoutes } from "./admins/routes.js";
 import { registerOperatingBillRoutes } from "./operating-bills/routes.js";
 import { registerDeploymentLogRoutes } from "./deployment-logs/routes.js";
+import { registerEmployeeModelRuleRoutes } from "./employee-model-rules/routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
@@ -85,6 +87,7 @@ declare module "fastify" {
     runtimeAssuranceRepo: RuntimeAssuranceRepository;
     operatingBillRepo: OperatingBillRepository;
     deploymentLogRepo: DeploymentLogRepository;
+    employeeModelRuleRepo: EmployeeModelRuleRepository;
   }
 }
 
@@ -166,6 +169,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("runtimeAssuranceRepo", new RuntimeAssuranceRepository(db));
   app.decorate("operatingBillRepo", new OperatingBillRepository(db));
   app.decorate("deploymentLogRepo", new DeploymentLogRepository(db));
+  app.decorate("employeeModelRuleRepo", new EmployeeModelRuleRepository(db));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
@@ -217,6 +221,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerRuntimeAssuranceRoutes(child);
     registerOperatingBillRoutes(child);
     registerDeploymentLogRoutes(child);
+    registerEmployeeModelRuleRoutes(child);
   });
 
   return app;

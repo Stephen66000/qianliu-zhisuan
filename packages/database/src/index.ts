@@ -55,6 +55,14 @@ export {
   type CreateGrantInput,
 } from "./repositories/grant-repository.js";
 export {
+  EmployeeModelRuleRepository,
+  EmployeeModelRuleError,
+  type EmployeeModelRuleVersion,
+  type EmployeeModelRuleInput,
+  type RuleValidationResult,
+  type RuleReadinessIssue,
+} from "./repositories/employee-model-rule-repository.js";
+export {
   ProviderRepository,
   EnterpriseReferenceError,
   IdempotencyConflictError,

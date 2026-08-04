@@ -1,0 +1,121 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { EmployeeModelRulesPage } from "./EmployeeModelRules";
+
+const mutate = vi.fn();
+vi.mock("../api/employee-model-rules", () => ({
+  useEmployeeRuleCatalog: () => ({
+    data: {
+      principals: [
+        { id: "p1", name: "员工 A", department_label: "研发", ready: true, unavailable_reason: null },
+        { id: "p2", name: "员工 B", department_label: null, ready: false, unavailable_reason: "员工尚无有效 Key" },
+      ],
+      models: [
+        { unified_model_id: "m1", provider_resource_id: "r1", provider_name: "Kimi", resource_name: "Plan A", display_name: "Kimi High", alias: "kimi-high", upstream_model: "kimi-for-coding-highspeed", mode: "CODING_PLAN", ready: true, unavailable_reasons: [] },
+        { unified_model_id: "m2", provider_resource_id: "r2", provider_name: "智谱", resource_name: "Plan B", display_name: "GLM 5.2", alias: "glm-5-2", upstream_model: "glm-5.2", mode: "CODING_PLAN", ready: false, unavailable_reasons: ["Model Route 未启用"] },
+      ],
+    }, isLoading: false, error: null, refetch: vi.fn(),
+  }),
+  useEmployeeModelRules: () => ({
+    data: { rules: [{
+      id: "v1", rule_id: "rule1", version: 1, name: "研发规则", status: "VALIDATED",
+      employee_scope: "SELECTED", principal_ids: ["p1"], model_scope: "SELECTED",
+      model_targets: [{ unified_model_id: "m1", provider_resource_id: "r1" }], quota_value: "1000000",
+      allow_overage: false, valid_from: "2026-08-01T00:00:00.000Z", valid_until: null,
+      lock_version: 2, validation_snapshot: {
+        ready: true, principal_ids: ["p1"],
+        model_targets: [{ unified_model_id: "m1", provider_resource_id: "r1" }],
+        principal_count: 1, model_count: 1, assignment_count: 1, issues: [],
+        changes: {
+          added: [{ principal_id: "p1", principal_name: "员工 A", unified_model_id: "m1", model_name: "Kimi High", provider_resource_id: "r1", resource_name: "Plan A" }],
+          retained: [], removed: [],
+        },
+      },
+      published_at: null, disabled_at: null, created_at: "2026-08-04T00:00:00Z", updated_at: "2026-08-04T00:00:00Z",
+    }, {
+      id: "v2", rule_id: "rule2", version: 1, name: "已发布规则", status: "PUBLISHED",
+      employee_scope: "ALL", principal_ids: [], model_scope: "ALL", model_targets: [], quota_value: "200",
+      allow_overage: true, valid_from: "2026-08-01T00:00:00.000Z", valid_until: "2026-09-01T00:00:00.000Z",
+      lock_version: 3, validation_snapshot: { ready: true, principal_ids: ["p1"], model_targets: [],
+        principal_count: 1, model_count: 0, assignment_count: 0, issues: [] },
+      published_at: "2026-08-02T00:00:00Z", disabled_at: null,
+      created_at: "2026-08-02T00:00:00Z", updated_at: "2026-08-02T00:00:00Z",
+    }, {
+      id: "v3", rule_id: "rule3", version: 1, name: "草稿规则", status: "DRAFT",
+      employee_scope: "SELECTED", principal_ids: ["p1"], model_scope: "SELECTED",
+      model_targets: [{ unified_model_id: "m1", provider_resource_id: "r1" }], quota_value: "300",
+      allow_overage: false, valid_from: "2026-08-01T00:00:00.000Z", valid_until: null,
+      lock_version: 1, validation_snapshot: null, published_at: null, disabled_at: null,
+      created_at: "2026-08-03T00:00:00Z", updated_at: "2026-08-03T00:00:00Z",
+    }] }, isLoading: false, error: null, refetch: vi.fn(),
+  }),
+  useCreateEmployeeModelRule: () => ({ mutate, isPending: false, error: null }),
+  useUpdateEmployeeModelRule: () => ({ mutate, isPending: false, error: null }),
+  useValidateEmployeeModelRule: () => ({ mutate, error: null }),
+  usePublishEmployeeModelRule: () => ({ mutate, error: null }),
+  useDisableEmployeeModelRule: () => ({ mutate, error: null }),
+  useCreateEmployeeModelRuleVersion: () => ({ mutate, error: null }),
+}));
+
+describe("POOL-029 员工使用规则页面", () => {
+  beforeEach(() => mutate.mockReset());
+
+  it("按员工和厂商模型展示就绪原因、权限变更预览、版本历史和显式发布入口", async () => {
+    render(<MemoryRouter><EmployeeModelRulesPage /></MemoryRouter>);
+    expect(screen.getByRole("heading", { name: "员工使用规则" })).toBeInTheDocument();
+    expect(screen.getByText("员工 A · 研发")).toBeInTheDocument();
+    expect(screen.getByText("员工尚无有效 Key")).toBeInTheDocument();
+    expect(screen.getByText("Kimi High · Plan A")).toBeInTheDocument();
+    expect(screen.getByText("Model Route 未启用")).toBeInTheDocument();
+    expect(screen.getByText("1 人 × 1 模型 = 1 项")).toBeInTheDocument();
+    expect(screen.getByText("新增 1 / 保留 0 / 撤销 0")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "发布" })).toBeInTheDocument();
+    screen.getAllByRole("button", { name: "历史" })[0]!.click();
+    const history = await screen.findByRole("region", { name: "规则版本历史" });
+    expect(history).toBeInTheDocument();
+    expect(history).toHaveTextContent("v1");
+  });
+
+  it("创建、编辑、校验、发布、停用与新版本操作都调用对应 mutation", async () => {
+    const user = userEvent.setup();
+    mutate.mockImplementationOnce((_payload, options) => options?.onSuccess?.());
+    vi.stubGlobal("scrollTo", vi.fn());
+    render(<MemoryRouter><EmployeeModelRulesPage /></MemoryRouter>);
+    await user.type(screen.getByPlaceholderText("搜索员工或部门"), "员工 A");
+    await user.type(screen.getByPlaceholderText("搜索厂商、资源或模型"), "Kimi");
+    await user.click(screen.getByText("员工 A · 研发").closest("label")!.querySelector("input")!);
+    await user.click(screen.getByText("员工 A · 研发").closest("label")!.querySelector("input")!);
+    await user.click(screen.getByText("员工 A · 研发").closest("label")!.querySelector("input")!);
+    await user.click(screen.getByText("Kimi High · Plan A").closest("label")!.querySelector("input")!);
+    await user.click(screen.getByText("Kimi High · Plan A").closest("label")!.querySelector("input")!);
+    await user.click(screen.getByText("Kimi High · Plan A").closest("label")!.querySelector("input")!);
+    await user.type(screen.getByLabelText("规则名称"), "新规则");
+    await user.clear(screen.getByLabelText("Token 额度"));
+    await user.type(screen.getByLabelText("Token 额度"), "2000000");
+    await user.type(screen.getByLabelText("失效时间（可选）"), "2026-09-01T00:00");
+    await user.click(screen.getByLabelText("当前全部员工"));
+    await user.click(screen.getByLabelText("指定员工"));
+    await user.click(screen.getByLabelText("当前全部就绪模型"));
+    await user.click(screen.getByLabelText("指定模型"));
+    await user.click(screen.getByLabelText("允许超额使用"));
+    await user.click(screen.getByRole("button", { name: "创建草稿" }));
+    expect(mutate).toHaveBeenCalled();
+
+    await user.click(screen.getAllByRole("button", { name: "编辑" })[0]!);
+    expect(screen.getByRole("heading", { name: /编辑/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "保存草稿" }));
+    await user.click(screen.getByRole("button", { name: "取消编辑" }));
+    await user.click(screen.getAllByRole("button", { name: "校验" })[0]!);
+    await user.click(screen.getByRole("button", { name: "发布" }));
+    await user.click(screen.getByRole("button", { name: "新建版本" }));
+    await user.click(screen.getByRole("button", { name: "停用" }));
+    expect(mutate.mock.calls.length).toBeGreaterThanOrEqual(6);
+
+    await user.click(screen.getAllByRole("button", { name: "历史" })[0]!);
+    await user.click(screen.getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("region", { name: "规则版本历史" })).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+});

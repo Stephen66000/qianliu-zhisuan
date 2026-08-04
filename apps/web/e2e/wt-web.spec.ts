@@ -904,4 +904,64 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByText("运维验收管理员")).toBeVisible();
   });
+
+  test("POOL-029 员工使用规则校验、发布、历史与停用形成真实 Web 闭环", async ({ page }) => {
+    const suffix = Date.now();
+    const principalName = `POOL-029 E2E 员工 ${suffix}`;
+    const ruleName = `POOL-029 E2E 规则 ${suffix}`;
+    await page.goto("/principals");
+    await page.getByRole("button", { name: "新建主体" }).click();
+    await page.getByLabel("名称").fill(principalName);
+    await page.getByLabel("部门/标签（可选）").fill("模型授权验收");
+    await page.getByRole("button", { name: "创建", exact: true }).click();
+    const principalRow = page.getByRole("row", { name: new RegExp(principalName) });
+    await principalRow.getByRole("button", { name: "接入配置" }).click();
+    const keyResponse = page.waitForResponse((response) =>
+      /\/principals\/[^/]+\/key$/.test(new URL(response.url()).pathname)
+      && response.request().method() === "POST");
+    await page.getByRole("button", { name: "生成 Key" }).click();
+    expect((await keyResponse).status()).toBe(201);
+    await page.getByRole("button", { name: "继续配置" }).click();
+
+    await page.goto("/employee-model-rules");
+    await expect(page.getByRole("heading", { name: "员工使用规则", exact: true })).toBeVisible();
+    await page.getByLabel("规则名称").fill(ruleName);
+    await page.getByLabel("Token 额度").fill("660000");
+    await page.getByLabel(new RegExp(principalName)).check();
+    await page.getByLabel(/仟流 GLM · E2E 智谱主资源/).check();
+    const createResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/employee-model-rules") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "创建草稿" }).click();
+    expect((await createResponse).status()).toBe(201);
+
+    const ruleRow = page.getByRole("row", { name: new RegExp(ruleName) });
+    const validateResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/validate") && response.request().method() === "POST");
+    await ruleRow.getByRole("button", { name: "校验" }).click();
+    expect((await validateResponse).status()).toBe(200);
+    await expect(ruleRow).toContainText("新增 1 / 保留 0 / 撤销 0");
+    const publishResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/publish") && response.request().method() === "POST");
+    await ruleRow.getByRole("button", { name: "发布" }).click();
+    expect((await publishResponse).status()).toBe(200);
+    await expect(ruleRow).toContainText("PUBLISHED");
+
+    const principals = await apiGet<{ principals: PrincipalApi[] }>(page, "/principals");
+    const principal = principals.principals.find((item) => item.name === principalName);
+    expect(principal).toBeDefined();
+    const keys = await apiGet<{ keys: Array<{ allowed_model_ids: string[]; status: string }> }>(page, `/principals/${principal!.id}/key`);
+    expect(keys.keys.find((key) => key.status === "ACTIVE")?.allowed_model_ids).toContain(E2E_IDS.model);
+    const grants = await apiGet<{ grants: Array<GrantApi & { authorization_rule_version_id?: string | null }> }>(page, `/principals/${principal!.id}/grants`);
+    expect(grants.grants).toEqual(expect.arrayContaining([expect.objectContaining({ model_alias: "qianliu-glm", quota_value: "660000", status: "ACTIVE" })]));
+
+    await ruleRow.getByRole("button", { name: "历史" }).click();
+    await expect(page.getByRole("region", { name: "规则版本历史" })).toContainText("v1");
+    const disableResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/disable") && response.request().method() === "POST");
+    await ruleRow.getByRole("button", { name: "停用" }).click();
+    expect((await disableResponse).status()).toBe(200);
+    await expect(ruleRow).toContainText("DISABLED");
+    const revokedKeys = await apiGet<{ keys: Array<{ allowed_model_ids: string[]; status: string }> }>(page, `/principals/${principal!.id}/key`);
+    expect(revokedKeys.keys.find((key) => key.status === "ACTIVE")?.allowed_model_ids).toEqual([]);
+  });
 });

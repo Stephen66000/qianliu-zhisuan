@@ -16,6 +16,7 @@ import { RuntimeAssurancePage } from "./pages/RuntimeAssurance";
 import { AdminsPage } from "./pages/Admins";
 import { ChangePasswordPage } from "./pages/ChangePassword";
 import { OperatingBillPage } from "./pages/OperatingBill";
+import { EmployeeModelRulesPage } from "./pages/EmployeeModelRules";
 
 export function App() {
   return (
@@ -26,6 +27,7 @@ export function App() {
           <Route element={<Navigate replace to="/dashboard" />} path="/" />
           <Route element={<DashboardPage />} path="/dashboard" />
           <Route element={<PrincipalsPage />} path="/principals" />
+          <Route element={<EmployeeModelRulesPage />} path="/employee-model-rules" />
           <Route element={<ResourcesPage />} path="/resources" />
           <Route element={<QuotaRulesPage />} path="/quota-rules" />
           <Route element={<UsagePage />} path="/usage" />

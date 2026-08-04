@@ -9,6 +9,7 @@ node_modules/
 dist/
 build/
 coverage/
+reports/
 *.tsbuildinfo
 
 # 运行时与缓存

@@ -6,7 +6,7 @@
     "pnpm": "11.11.0"
   },
   "coverage": {
-    "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度）",
+    "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度、员工模型规则授权）",
     "statements": 95,
     "branches": 85,
     "functions": 90,
@@ -36,11 +36,21 @@
         "scope": "worker-scheduler",
         "report": "apps/worker/coverage/coverage-summary.json",
         "minimum": { "statements": 100, "branches": 96, "functions": 100, "lines": 100 }
+      },
+      {
+        "scope": "pool029-node-authorization",
+        "report": "coverage/pool029-node/coverage-summary.json",
+        "minimum": { "statements": 95.73, "branches": 86.19, "functions": 92.68, "lines": 95.73 }
+      },
+      {
+        "scope": "pool029-web-authorization",
+        "report": "apps/web/coverage/pool029-web/coverage-summary.json",
+        "minimum": { "statements": 99.65, "branches": 88.81, "functions": 95.23, "lines": 99.65 }
       }
     ]
   },
   "mutation": {
-    "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理",
+    "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理 + packages/database 员工模型授权集合规则",
     "break": 70,
     "target": 80,
     "survivor_dispositions": [

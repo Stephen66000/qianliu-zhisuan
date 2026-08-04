@@ -186,6 +186,21 @@ describe("W03 下游 Key 与 Grant", () => {
     expect(res.statusCode).toBe(409);
   });
 
+  it("重新创建 Key 时以本次显式选择替换历史手工权限基线", async () => {
+    const pid = await createPrincipal("EMPLOYEE", "历史基线替换员工");
+    await db.insertInto("principal_model_manual_authorization").values({
+      enterprise_id: ENT_ID, principal_id: pid, unified_model_id: ACTIVE_MODEL_ID,
+    }).execute();
+    const created = await app.inject({
+      method: "POST", url: `/principals/${pid}/key`, headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [SECOND_ACTIVE_MODEL_ID] },
+    });
+    expect(created.statusCode).toBe(201);
+    const baseline = await db.selectFrom("principal_model_manual_authorization")
+      .select("unified_model_id").where("principal_id", "=", pid).execute();
+    expect(baseline.map((item) => item.unified_model_id)).toEqual([SECOND_ACTIVE_MODEL_ID]);
+  });
+
   it("并发生成 Key：数据库门禁保证仅一把 ACTIVE，另一请求稳定返回 409", async () => {
     const pid = await createPrincipal("EMPLOYEE", "并发创建 Key 员工");
     const createRequest = () =>
@@ -237,6 +252,22 @@ describe("W03 下游 Key 与 Grant", () => {
       payload: { allowed_model_ids: [ACTIVE_MODEL_ID] },
     });
     expect(restore.statusCode).toBe(200);
+  });
+
+  it("主体没有有效 Key 时不写入手工授权基线并返回 404", async () => {
+    const pid = await createPrincipal("EMPLOYEE", "无 Key 员工");
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/principals/${pid}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACTIVE_MODEL_ID] },
+    });
+    expect(response.statusCode).toBe(404);
+    expect(await db.selectFrom("principal_model_manual_authorization")
+      .select("unified_model_id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("principal_id", "=", pid)
+      .execute()).toEqual([]);
   });
 
   it("重置 Key：旧 Key 撤销、新 Key 不同（WT-09）", async () => {
@@ -300,6 +331,35 @@ describe("W03 下游 Key 与 Grant", () => {
     expect(inherited.expires_at).toEqual(expiresAt);
     expect(inherited.quota_limit).toBe("123456");
     expect(inherited.concurrency_limit).toBe(7);
+  });
+
+  it("重置兼容仅在旧 Key 保存模型、尚无手工授权基线的历史记录", async () => {
+    const pid = await createPrincipal("EMPLOYEE", "历史 Key 员工");
+    const created = await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/key`,
+      headers: { cookie: adminCookie },
+      payload: { allowed_model_ids: [ACTIVE_MODEL_ID] },
+    });
+    expect(created.statusCode).toBe(201);
+    await db.deleteFrom("principal_model_manual_authorization")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("principal_id", "=", pid)
+      .execute();
+
+    const reset = await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/key/reset`,
+      headers: { cookie: adminCookie },
+    });
+    expect(reset.statusCode).toBe(200);
+    const active = await db.selectFrom("principal_key")
+      .select("allowed_model_ids")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("principal_id", "=", pid)
+      .where("status", "=", "ACTIVE")
+      .executeTakeFirstOrThrow();
+    expect(active.allowed_model_ids).toEqual([ACTIVE_MODEL_ID]);
   });
 
   it("并发重置串行化，最终只保留一把 ACTIVE Key", async () => {

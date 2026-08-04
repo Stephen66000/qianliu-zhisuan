@@ -38,6 +38,7 @@ export interface PrincipalCleanupPreview {
   usageCount: number;
   ledgerCount: number;
   employeeLoginCount: number;
+  authorizationRuleAssignmentCount: number;
   canDelete: boolean;
 }
 
@@ -280,6 +281,11 @@ export class PrincipalRepository {
         .where("principal_id", "=", id)
         .execute();
       await trx
+        .deleteFrom("principal_model_manual_authorization")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("principal_id", "=", id)
+        .execute();
+      await trx
         .deleteFrom("principal")
         .where("enterprise_id", "=", enterpriseId)
         .where("id", "=", id)
@@ -319,6 +325,7 @@ export class PrincipalRepository {
       usage_count: string;
       ledger_count: string;
       employee_login_count: string;
+      authorization_rule_assignment_count: string;
     }>`
       SELECT
         (SELECT count(*) FROM principal_key
@@ -342,7 +349,10 @@ export class PrincipalRepository {
          (SELECT count(*) FROM ledger_transaction
           WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid)) AS ledger_count,
         (SELECT count(*) FROM employee_login
-          WHERE principal_id = ${id}::uuid) AS employee_login_count
+          WHERE principal_id = ${id}::uuid) AS employee_login_count,
+        (SELECT count(*) FROM employee_model_rule_assignment
+          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid)
+          AS authorization_rule_assignment_count
     `.execute(db);
     const result = queryResult.rows[0];
     if (!result) throw new Error("principal cleanup preview query returned no row");
@@ -355,13 +365,15 @@ export class PrincipalRepository {
       usageCount: Number(result.usage_count),
       ledgerCount: Number(result.ledger_count),
       employeeLoginCount: Number(result.employee_login_count),
+      authorizationRuleAssignmentCount: Number(result.authorization_rule_assignment_count),
       canDelete: false,
     };
     preview.canDelete =
       preview.requestCount === 0 &&
       preview.usageCount === 0 &&
       preview.ledgerCount === 0 &&
-      preview.employeeLoginCount === 0;
+      preview.employeeLoginCount === 0 &&
+      preview.authorizationRuleAssignmentCount === 0;
     return preview;
   }
 

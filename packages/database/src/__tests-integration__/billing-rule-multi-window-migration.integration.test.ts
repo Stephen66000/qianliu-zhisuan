@@ -87,6 +87,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
+      expect(await migrateDown(db)).toBe("0038_employee_model_authorization_rule");
       expect(await migrateDown(db)).toBe("0037_client_identity");
       expect(await migrateDown(db)).toBe("0036_provider_model_discovery");
       expect(await migrateDown(db)).toBe("0035_deployment_log");

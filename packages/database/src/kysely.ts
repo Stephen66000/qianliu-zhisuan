@@ -19,8 +19,9 @@ import type {
   ProviderModelOnboardingTable,
   ProviderResourceOperatingSnapshotTable,
 } from "./kysely-operations-tables.js";
+import type { EmployeeModelRuleAssignmentTable, EmployeeModelRuleVersionTable, PrincipalModelManualAuthorizationTable } from "./employee-model-rule-types.js";
 
-export type * from "./kysely-operations-tables.js";
+export type * from "./kysely-operations-tables.js"; export type * from "./employee-model-rule-types.js";
 
 export interface KyselyMigrationTable { name: string }
 export interface KyselyMigrationLockTable { id: number }
@@ -111,6 +112,8 @@ export interface PrincipalGrantTable {
   valid_from: Generated<Date>;
   valid_until: Date | null;
   status: Generated<string>;
+  /** POOL-029：null 表示既有手工 Grant；非 null 表示由员工使用规则管理。 */
+  authorization_rule_version_id: string | null;
   /** W19/P2-01：单调版本号（乐观锁，替代 updated_at 毫秒截断）。 */
   version: Generated<number>;
   created_at: Generated<Date>;
@@ -685,6 +688,7 @@ export interface Database {
   person_external_identity: PersonExternalIdentityTable;
   principal_key: PrincipalKeyTable;
   principal_grant: PrincipalGrantTable;
+  employee_model_rule_version: EmployeeModelRuleVersionTable; employee_model_rule_assignment: EmployeeModelRuleAssignmentTable; principal_model_manual_authorization: PrincipalModelManualAuthorizationTable;
   quota_counter: QuotaCounterTable;
   concurrency_lease: ConcurrencyLeaseTable;
   supply_forecast: SupplyForecastTable;

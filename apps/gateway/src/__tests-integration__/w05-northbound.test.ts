@@ -84,6 +84,15 @@ beforeAll(async () => {
     .set({ allowed_model_ids: JSON.stringify([allowedModelId]) as unknown as string[] })
     .where("id", "=", keyId)
     .execute();
+  const grant = await db.insertInto("principal_grant").values({
+    enterprise_id: ENT_ID,
+    principal_id: PRINCIPAL_ID,
+    provider: "deepseek",
+    model_alias: "qianliu-deepseek",
+    quota_value: 1_000_000n,
+    status: "ACTIVE",
+  }).returning("id").executeTakeFirstOrThrow();
+  await db.insertInto("quota_counter").values({ grant_id: grant.id }).execute();
 
   app = buildGateway(db, PEPPER, async (input) => {
     pipelineCalls += 1;
@@ -132,6 +141,19 @@ describe("W05 北向合同", () => {
       shell_type: "unified_exec",
       supported_in_api: true,
     });
+  });
+
+  it("Grant 撤权或过期后模型目录即时隐藏，不能只依赖 Key 白名单", async () => {
+    await db.updateTable("principal_grant").set({ status: "DISABLED" })
+      .where("principal_id", "=", PRINCIPAL_ID).where("model_alias", "=", "qianliu-deepseek").execute();
+    const revoked = await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() });
+    expect(revoked.json()).toEqual({ object: "list", data: [] });
+    await db.updateTable("principal_grant").set({ status: "ACTIVE", valid_until: new Date(Date.now() - 1_000) })
+      .where("principal_id", "=", PRINCIPAL_ID).where("model_alias", "=", "qianliu-deepseek").execute();
+    const expired = await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() });
+    expect(expired.json()).toEqual({ object: "list", data: [] });
+    await db.updateTable("principal_grant").set({ valid_until: null })
+      .where("principal_id", "=", PRINCIPAL_ID).where("model_alias", "=", "qianliu-deepseek").execute();
   });
 
   it("allowed_model_ids 过滤模型列表，未授权调用在 pipeline/上游前拒绝", async () => {

@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const maxLogicalLines = 400;
+const generatedDirectories = new Set([".stryker-tmp", "coverage", "dist", "node_modules", "reports"]);
 const gateConfig = JSON.parse(await readFile("V3/仟流智算-质量门禁-v1.0.json", "utf8"));
 const legacyBaselines = new Map(
   gateConfig.source_size.exceptions.map((item) => [item.file, item.baseline]),
@@ -16,7 +17,10 @@ async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map(async (entry) => {
     const target = path.join(directory, entry.name);
-    return entry.isDirectory() ? walk(target) : [target];
+    if (entry.isDirectory()) {
+      return generatedDirectories.has(entry.name) ? [] : walk(target);
+    }
+    return [target];
   }));
   return nested.flat();
 }

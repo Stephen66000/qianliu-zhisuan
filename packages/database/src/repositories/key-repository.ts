@@ -10,6 +10,7 @@
 import type { Kysely, Selectable } from "kysely";
 import type { Database, PrincipalKeyTable } from "../kysely.js";
 import { PrincipalNotActiveError } from "./principal-repository.js";
+import { mergeDeclaredModelIds } from "./employee-model-authorization-policy.js";
 
 export type PrincipalKey = Selectable<PrincipalKeyTable>;
 
@@ -77,6 +78,19 @@ export class KeyRepository {
           .executeTakeFirst();
         if (!principal) throw new PrincipalNotActiveError();
 
+        const manualModelIds = opts?.allowedModelIds ?? [];
+        const managedModels = await trx.selectFrom("employee_model_rule_assignment")
+          .innerJoin("principal_grant", "principal_grant.id", "employee_model_rule_assignment.grant_id")
+          .select("employee_model_rule_assignment.unified_model_id")
+          .where("employee_model_rule_assignment.enterprise_id", "=", enterpriseId)
+          .where("employee_model_rule_assignment.principal_id", "=", principalId)
+          .where("employee_model_rule_assignment.status", "=", "ACTIVE")
+          .where("principal_grant.status", "=", "ACTIVE")
+          .execute();
+        const effectiveModelIds = mergeDeclaredModelIds(
+          manualModelIds,
+          managedModels.map((item) => item.unified_model_id),
+        );
         const plaintext = this.generateKey();
         const digest = this.digestKey(plaintext, this.pepper);
         const record = await trx
@@ -87,7 +101,7 @@ export class KeyRepository {
             key_prefix: this.keyPrefix(plaintext),
             key_digest: digest,
             // 安全缺省：未显式传入授权时不允许任何模型，避免 null（全部模型）扩大权限。
-            allowed_model_ids: jsonArray(opts?.allowedModelIds ?? []),
+            allowed_model_ids: jsonArray(effectiveModelIds),
             ip_allowlist: opts?.ipAllowlist ? jsonArray(opts.ipAllowlist) : null,
             expires_at: opts?.expiresAt ?? null,
             quota_limit: opts?.quotaLimit ?? null,
@@ -96,6 +110,20 @@ export class KeyRepository {
           })
           .returningAll()
           .executeTakeFirstOrThrow();
+        await trx.deleteFrom("principal_model_manual_authorization")
+          .where("enterprise_id", "=", enterpriseId)
+          .where("principal_id", "=", principalId)
+          .execute();
+        if (manualModelIds.length > 0) {
+          await trx.insertInto("principal_model_manual_authorization")
+            .values(manualModelIds.map((modelId) => ({
+              enterprise_id: enterpriseId,
+              principal_id: principalId,
+              unified_model_id: modelId,
+            })))
+            .onConflict((oc) => oc.doNothing())
+            .execute();
+        }
         return { plaintext, record };
       });
     } catch (error) {
@@ -145,6 +173,28 @@ export class KeyRepository {
         .where("status", "=", "ACTIVE")
         .execute();
       // 创建新 Key（复用 create 逻辑但用 trx）
+      const [manualModels, managedModels] = await Promise.all([
+        trx.selectFrom("principal_model_manual_authorization")
+          .select("unified_model_id")
+          .where("enterprise_id", "=", enterpriseId)
+          .where("principal_id", "=", principalId)
+          .execute(),
+        trx.selectFrom("employee_model_rule_assignment")
+          .innerJoin("principal_grant", "principal_grant.id", "employee_model_rule_assignment.grant_id")
+          .select("employee_model_rule_assignment.unified_model_id")
+          .where("employee_model_rule_assignment.enterprise_id", "=", enterpriseId)
+          .where("employee_model_rule_assignment.principal_id", "=", principalId)
+          .where("employee_model_rule_assignment.status", "=", "ACTIVE")
+          .where("principal_grant.status", "=", "ACTIVE")
+          .execute(),
+      ]);
+      const effectiveAllowedModelIds = mergeDeclaredModelIds(
+        manualModels.length > 0
+          ? manualModels.map((item) => item.unified_model_id)
+          : (source.allowed_model_ids ?? []).filter((modelId) =>
+            !managedModels.some((item) => item.unified_model_id === modelId)),
+        managedModels.map((item) => item.unified_model_id),
+      );
       const plaintext = this.generateKey();
       const digest = this.digestKey(plaintext, this.pepper);
       const record = await trx
@@ -155,7 +205,7 @@ export class KeyRepository {
           key_prefix: this.keyPrefix(plaintext),
           key_digest: digest,
           // 兼容尚未执行 0022 的滚动升级节点：历史 null 也按最小权限收紧为 []。
-          allowed_model_ids: jsonArray(source.allowed_model_ids ?? []),
+          allowed_model_ids: jsonArray(effectiveAllowedModelIds),
           ip_allowlist:
             source.ip_allowlist === null ? null : jsonArray(source.ip_allowlist),
           expires_at: source.expires_at,
@@ -175,14 +225,47 @@ export class KeyRepository {
     principalId: string,
     allowedModelIds: string[],
   ): Promise<PrincipalKey | undefined> {
-    return this.db
-      .updateTable("principal_key")
-      .set({ allowed_model_ids: jsonArray(allowedModelIds) })
-      .where("enterprise_id", "=", enterpriseId)
-      .where("principal_id", "=", principalId)
-      .where("status", "=", "ACTIVE")
-      .returningAll()
-      .executeTakeFirst();
+    return this.db.transaction().execute(async (trx) => {
+      // 与规则发布/停用共用同一把 Key 行锁；必须先锁后读取 Grant，避免用旧快照覆盖新发布权限。
+      const activeKey = await trx.selectFrom("principal_key")
+        .select("id")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("principal_id", "=", principalId)
+        .where("status", "=", "ACTIVE")
+        .forUpdate()
+        .executeTakeFirst();
+      if (!activeKey) return undefined;
+      await trx.deleteFrom("principal_model_manual_authorization")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("principal_id", "=", principalId)
+        .execute();
+      if (allowedModelIds.length > 0) {
+        await trx.insertInto("principal_model_manual_authorization")
+          .values(allowedModelIds.map((modelId) => ({
+            enterprise_id: enterpriseId,
+            principal_id: principalId,
+            unified_model_id: modelId,
+          })))
+          .execute();
+      }
+      const managed = await trx.selectFrom("employee_model_rule_assignment")
+        .innerJoin("principal_grant", "principal_grant.id", "employee_model_rule_assignment.grant_id")
+        .select("employee_model_rule_assignment.unified_model_id")
+        .where("employee_model_rule_assignment.enterprise_id", "=", enterpriseId)
+        .where("employee_model_rule_assignment.principal_id", "=", principalId)
+        .where("employee_model_rule_assignment.status", "=", "ACTIVE")
+        .where("principal_grant.status", "=", "ACTIVE")
+        .execute();
+      const effectiveIds = mergeDeclaredModelIds(
+        allowedModelIds,
+        managed.map((item) => item.unified_model_id),
+      );
+      return trx.updateTable("principal_key")
+        .set({ allowed_model_ids: jsonArray(effectiveIds) })
+        .where("id", "=", activeKey.id)
+        .returningAll()
+        .executeTakeFirst();
+    });
   }
 
   /** 停用主体时撤销全部有效 Key（TRD §5.3 L219）。 */
