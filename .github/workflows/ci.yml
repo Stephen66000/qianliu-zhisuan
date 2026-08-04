@@ -41,6 +41,7 @@ jobs:
           version: "11.11.0"
           run_install: false
       - run: corepack pnpm@11.11.0 install --frozen-lockfile
+      - run: npm install --global @openai/codex@0.146.0
       - run: corepack pnpm@11.11.0 --filter @qianliu/web exec playwright install --with-deps chromium
       - run: corepack pnpm@11.11.0 run quality
       - run: corepack pnpm@11.11.0 run quality:mutation
