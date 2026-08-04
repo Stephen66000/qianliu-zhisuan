@@ -14,7 +14,9 @@ auditConfig:
     - GHSA-qwww-vcr4-c8h2
 
 overrides:
-  "brace-expansion@>=2.0.0 <2.1.3": "2.1.3"
+  "brace-expansion@>=2.0.0 <2.1.4": "2.1.4"
+  "fast-uri@>=3.0.0 <3.1.5": "3.1.5"
+  "fast-uri@>=4.0.0 <4.1.2": "4.1.2"
 
 # pnpm 11 起构建脚本许可在此声明。
 # esbuild：vite/vitest 运行依赖；argon2：密码哈希原生绑定（W02）。

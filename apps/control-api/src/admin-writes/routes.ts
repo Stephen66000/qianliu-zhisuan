@@ -16,7 +16,7 @@ import {
   OperatingSnapshotSchema,
   operatingSnapshotModeError,
   toOperatingSnapshotInput,
-} from "../providers/routes.js";
+} from "../providers/contracts.js";
 
 /** 单调版本号乐观锁（P2-01）：前端携带读取时的 version，期间被改则 409 conflict。 */
 const ExpectedVersion = z.number().int().positive();

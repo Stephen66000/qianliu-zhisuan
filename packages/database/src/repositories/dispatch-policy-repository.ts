@@ -185,6 +185,49 @@ export class DispatchPolicyRepository {
     return row.id;
   }
 
+  /** 仅允许原地编辑草稿；已校验/发布版本保持不可变。 */
+  async updateDraftPolicy(
+    enterpriseId: string,
+    policyId: string,
+    input: Omit<CreateDispatchPolicyInput, "enterpriseId" | "status">,
+  ): Promise<boolean> {
+    const row = await this.db
+      .updateTable("dispatch_policy")
+      .set({
+        match_unified_model: input.matchUnifiedModel,
+        match_resource_mode: input.matchResourceMode,
+        match_provider_resource_id: input.matchProviderResourceId,
+        match_timezone: input.matchTimezone,
+        match_days_of_week: input.matchDaysOfWeek
+          ? (JSON.stringify(input.matchDaysOfWeek) as unknown as number[])
+          : null,
+        match_start_time: input.matchStartTime,
+        match_end_time: input.matchEndTime,
+        match_price_multiplier_min: input.matchPriceMultiplierMin,
+        match_remaining_quota_ratio_max: input.matchRemainingQuotaRatioMax,
+        match_forecast_exhaust_risk: input.matchForecastExhaustRisk,
+        match_principal_scope: input.matchPrincipalScope
+          ? (JSON.stringify(input.matchPrincipalScope) as unknown as string[])
+          : null,
+        action: input.action,
+        switch_equivalent_group: input.switchEquivalentGroup
+          ? (JSON.stringify(input.switchEquivalentGroup) as unknown as string[])
+          : null,
+        rate_limit_per_minute: input.rateLimitPerMinute,
+        policy_version: input.policyVersion,
+        priority: input.priority ?? 100,
+        description: input.description ?? null,
+        source: input.source ?? null,
+        updated_at: new Date(),
+      })
+      .where("enterprise_id", "=", enterpriseId)
+      .where("id", "=", policyId)
+      .where("status", "=", "DRAFT")
+      .returning("id")
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
   /** 企业隔离的状态迁移；调用方负责传入允许的前态。 */
   async transitionStatus(
     enterpriseId: string,

@@ -22,6 +22,16 @@ vi.mock("../api/hooks", () => ({
   usePrincipals: () => usePrincipalsMock(),
   usePrincipalKeys: () => usePrincipalKeysMock(),
   useGrants: () => useGrantsMock(),
+  usePrincipalAgentUsage: () => ({
+    isLoading: false,
+    error: null,
+    data: { expectedAgentFamilies: ["CODEX"], agents: [{
+      agentFamily: "CODEX", latestVersion: "0.146.0", identitySource: "DECLARED_HEADER",
+      identityConfidence: "DECLARED", firstUsedAt: "2026-08-03T01:00:00.000Z",
+      lastUsedAt: "2026-08-03T02:00:00.000Z", requestCount: "2", totalTokens: "300",
+      totalApiCost: "1.20", models: ["qianliu-glm"],
+    }] },
+  }),
   useUnifiedModels: () => ({
     isLoading: false,
     error: null,
@@ -41,6 +51,7 @@ vi.mock("../api/hooks", () => ({
     principals: ["principals"],
     principalKeys: (id: string) => ["principals", id, "keys"],
     grants: (id: string) => ["principals", id, "grants"],
+    principalAgentUsage: (id: string) => ["principals", id, "agent-usage"],
   },
 }));
 
@@ -266,6 +277,7 @@ describe("W19 使用主体", () => {
     await user.selectOptions(screen.getByLabelText("统一模型"), "qianliu-glm");
     await user.clear(screen.getByLabelText("Token 额度"));
     await user.type(screen.getByLabelText("Token 额度"), "88000");
+    expect(screen.getByLabelText("Token 额度")).toHaveValue("88,000");
     await user.click(screen.getByRole("button", { name: "分配" }));
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(

@@ -25,6 +25,8 @@ import {
   AdminWriteRepository,
   AlertEventRepository,
   RuntimeAssuranceRepository,
+  OperatingBillRepository,
+  DeploymentLogRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
 } from "@qianliu/database";
@@ -47,6 +49,9 @@ import { registerAdminWriteRoutes } from "./admin-writes/routes.js";
 import { registerGatewayRequestRoutes } from "./gateway-requests/routes.js";
 import { registerAlertRoutes } from "./alerts/routes.js";
 import { registerRuntimeAssuranceRoutes } from "./runtime-assurance/routes.js";
+import { registerAdminRoutes } from "./admins/routes.js";
+import { registerOperatingBillRoutes } from "./operating-bills/routes.js";
+import { registerDeploymentLogRoutes } from "./deployment-logs/routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
@@ -54,6 +59,8 @@ export interface AdminContext {
   adminUserId: string;
   enterpriseId: string;
   username: string;
+  displayName: string;
+  mustChangePassword: boolean;
 }
 
 declare module "fastify" {
@@ -76,6 +83,8 @@ declare module "fastify" {
     adminWriteRepo: AdminWriteRepository;
     alertEventRepo: AlertEventRepository;
     runtimeAssuranceRepo: RuntimeAssuranceRepository;
+    operatingBillRepo: OperatingBillRepository;
+    deploymentLogRepo: DeploymentLogRepository;
   }
 }
 
@@ -155,6 +164,8 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("adminWriteRepo", new AdminWriteRepository(db));
   app.decorate("alertEventRepo", new AlertEventRepository(db, alertThresholdsFromEnv(process.env)));
   app.decorate("runtimeAssuranceRepo", new RuntimeAssuranceRepository(db));
+  app.decorate("operatingBillRepo", new OperatingBillRepository(db));
+  app.decorate("deploymentLogRepo", new DeploymentLogRepository(db));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
@@ -191,6 +202,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
       }
     });
     registerAuthRoutes(child);
+    registerAdminRoutes(child);
     registerPrincipalRoutes(child);
     registerAuditRoutes(child);
     registerKeyRoutes(child);
@@ -203,6 +215,8 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerGatewayRequestRoutes(child);
     registerAlertRoutes(child);
     registerRuntimeAssuranceRoutes(child);
+    registerOperatingBillRoutes(child);
+    registerDeploymentLogRoutes(child);
   });
 
   return app;

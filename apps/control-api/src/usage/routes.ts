@@ -15,7 +15,9 @@ const UsageListQuerySchema = z
     offset: z.coerce.number().int().min(0).optional(),
     search: z.string().trim().max(255).optional(),
     principal_id: z.string().uuid().optional(),
+    project_id: z.string().uuid().optional(),
     client_id: z.string().trim().min(1).max(64).optional(),
+    agent_family: z.enum(["WORKBUDDY", "CODEX", "ZCODE", "CLAUDE_CODE", "QIANLIU_IDE", "OTHER", "UNKNOWN"]).optional(),
     provider_id: z.string().uuid().optional(),
     provider_resource_id: z.string().uuid().optional(),
     unified_model: z.string().trim().min(1).max(64).optional(),
@@ -31,6 +33,7 @@ const UsageListQuerySchema = z
   });
 
 export function registerUsageRoutes(app: FastifyInstance): void {
+  const AgentFamilySchema = z.enum(["WORKBUDDY", "CODEX", "ZCODE", "CLAUDE_CODE", "QIANLIU_IDE", "OTHER", "UNKNOWN"]);
   // GET /usage —— 用量账本列表（分页 + 筛选）
   app.get("/usage", { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = UsageListQuerySchema.safeParse(req.query ?? {});
@@ -43,7 +46,9 @@ export function registerUsageRoutes(app: FastifyInstance): void {
       enterpriseId: req.admin!.enterpriseId,
       search: q.search,
       principalId: q.principal_id,
+      projectId: q.project_id,
       clientId: q.client_id,
+      agentFamily: q.agent_family,
       providerId: q.provider_id,
       providerResourceId: q.provider_resource_id,
       unifiedModel: q.unified_model,
@@ -55,5 +60,37 @@ export function registerUsageRoutes(app: FastifyInstance): void {
       offset: q.offset,
     };
     return app.usageRepo.list(query);
+  });
+
+  app.get("/principals/:id/agent-usage", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    const principal = await app.principalRepo.findById(req.admin!.enterpriseId, parsed.data.id);
+    if (!principal) return reply.code(404).send({ error: "not_found" });
+    return {
+      agents: await app.usageRepo.summarizePrincipalAgents(req.admin!.enterpriseId, parsed.data.id),
+      expectedAgentFamilies: await app.usageRepo.listExpectedAgentFamilies(req.admin!.enterpriseId, parsed.data.id),
+    };
+  });
+
+  app.patch("/principals/:id/agent-expectations", { preHandler: [requireAuth] }, async (req, reply) => {
+    const params = z.object({ id: z.string().uuid() }).safeParse(req.params);
+    const body = z.object({ agent_families: z.array(AgentFamilySchema).max(8) }).safeParse(req.body);
+    if (!params.success || !body.success) return reply.code(400).send({ error: "invalid_request" });
+    const principal = await app.principalRepo.findById(req.admin!.enterpriseId, params.data.id);
+    if (!principal) return reply.code(404).send({ error: "not_found" });
+    const expectedAgentFamilies = await app.usageRepo.replaceExpectedAgentFamilies(
+      req.admin!.enterpriseId, params.data.id, body.data.agent_families,
+    );
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "principal.agent_expectations.update",
+      target_type: "principal",
+      target_id: params.data.id,
+      change_summary: { expected_agent_families: expectedAgentFamilies },
+      result: "SUCCESS",
+    });
+    return { expectedAgentFamilies };
   });
 }

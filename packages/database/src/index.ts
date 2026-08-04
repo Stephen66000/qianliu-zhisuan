@@ -28,7 +28,18 @@ export {
   type WriteAuditInput,
 } from "./repositories/audit-repository.js";
 export {
+  DeploymentLogRepository,
+  DeploymentLogImmutableError,
+  type DeploymentLog,
+  type DeploymentLogEvent,
+  type DeploymentManifest,
+  type DeploymentStatus,
+} from "./repositories/deployment-log-repository.js";
+export {
   AdminRepository,
+  AdminNotFoundError,
+  SelfDisableError,
+  LastActiveAdminError,
   type AdminUser,
   type AdminSession,
 } from "./repositories/admin-repository.js";
@@ -46,6 +57,7 @@ export {
 export {
   ProviderRepository,
   EnterpriseReferenceError,
+  IdempotencyConflictError,
   type Provider,
   type ProviderResource,
   type ProviderResourceOperatingSnapshot,
@@ -104,11 +116,33 @@ export {
   type OverageItem,
 } from "./repositories/dashboard-repository.js";
 export {
+  SupplyForecastRepository,
+  type SupplyForecastTickResult,
+} from "./repositories/supply-forecast-repository.js";
+export {
   UsageRepository,
   type UsageQuery,
   type UsageRecord,
   type UsageResult,
+  type AgentUsageSummary,
 } from "./repositories/usage-repository.js";
+export {
+  OperatingBillRepository,
+  InvalidOperatingBillMonthError,
+  OperatingBillClosedError,
+  OperatingBillAlreadyClosedError,
+  OperatingBillNotClosedError,
+  OperatingBillReferenceError,
+  OperatingBillCloseNoteRequiredError,
+  OperatingBillIncompleteError,
+  operatingBillMonthRange,
+  type OperatingBillView,
+  type OperatingBillSnapshot,
+  type OperatingBillProviderRow,
+  type OperatingBillSubjectRow,
+  type OperatingBillGap,
+  type OperatingBillValueItemView,
+} from "./repositories/operating-bill-repository.js";
 export {
   AdminWriteRepository,
   AdminRecoverNotFoundError,

@@ -152,6 +152,12 @@ async function seedFullData(): Promise<{
       principal_key_id: pkey.id,
       protocol: "openai",
       unified_model: "qianliu-glm-coding",
+      client_id: "Codex/0.146.0",
+      agent_family: "CODEX",
+      agent_version: "0.146.0",
+      agent_identity_source: "DECLARED_HEADER",
+      agent_identity_confidence: "DECLARED",
+      client_identity_rule_version: "2026-08-03.v1",
       status: "SUCCEEDED",
       started_at: now,
       finished_at: new Date(now.getTime() + 1200),
@@ -245,7 +251,7 @@ async function seedFullData(): Promise<{
     .values({
       enterprise_id: ENT_ID,
       ai_request_id: requestId,
-      final_action: "ALLOW",
+      final_action: "SWITCH",
       reason_code: "POLICY_MATCHED",
       dispatch_saving: "1.50000000",
       saving_calculable: true,
@@ -324,6 +330,10 @@ describe("W18 空状态（新企业无数据）", () => {
     expect(body.earliestExhaustion).toBeNull();
     expect(body.resourceBreakdown).toEqual([]);
     expect(body.overageList).toEqual([]);
+    expect(body.monthlyTokenUsage).toEqual({
+      totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
+      totalReasoningTokens: "0", totalTokens: "0", employeeRanking: [],
+    });
     // 数据源 gap 字段诚实为 null（不伪造）
     expect(body.monthlyPackagePayment).toBeNull();
     expect(body.monthlyRechargeAmount).toBeNull();
@@ -383,6 +393,153 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(body.overageList).toHaveLength(1);
     expect(body.overageList[0].principalId).toBe(seededPrincipalId);
     expect(Number(body.overageList[0].overageValue)).toBe(5000);
+    // POOL-024：总量只加输入+输出，缓存/推理只展示子集；员工排行来自已结算账本。
+    expect(body.monthlyTokenUsage).toMatchObject({
+      totalInputTokens: "210", totalOutputTokens: "105", totalCacheTokens: "0",
+      totalReasoningTokens: "0", totalTokens: "315",
+      employeeRanking: [{
+        principalId: seededPrincipalId, principalName: "测试员工",
+        inputTokens: "210", outputTokens: "105", totalTokens: "315", share: "1.00000000000000000000",
+      }],
+    });
+  });
+
+  it("POOL-024：大整数、项目排除与并列稳定排序", async () => {
+    const insertSettled = async (type: "EMPLOYEE" | "PROJECT", name: string, input: bigint, output: bigint) => {
+      const principal = await db.insertInto("principal").values({
+        enterprise_id: ENT_ID, type, name,
+      }).returningAll().executeTakeFirstOrThrow();
+      const key = await db.insertInto("principal_key").values({
+        enterprise_id: ENT_ID, principal_id: principal.id, key_prefix: `pool024-${name}`,
+        key_digest: `pool024-${randomUUID()}`, allowed_model_ids: JSON.stringify([]) as unknown as string[],
+        status: "ACTIVE",
+      }).returningAll().executeTakeFirstOrThrow();
+      const requestId = randomUUID();
+      await db.insertInto("ai_request").values({
+        id: requestId, enterprise_id: ENT_ID, principal_id: principal.id,
+        principal_key_id: key.id, protocol: "openai", unified_model: "pool024",
+        status: "FAILED", started_at: new Date(), finished_at: new Date(),
+      }).execute();
+      await db.insertInto("ledger_transaction").values({
+        ai_request_id: requestId, enterprise_id: ENT_ID, principal_id: principal.id,
+        total_input_tokens: input, total_output_tokens: output,
+        total_cache_tokens: 3n, total_reasoning_tokens: 2n,
+        total_deducted_quota: 0n, total_api_cost: "0", usage_quality: "PROVIDER_REPORTED",
+        attempt_count: 1, status: "SETTLED", created_at: new Date(),
+      }).execute();
+      return principal;
+    };
+    const huge = 9_007_199_254_740_993n;
+    const employeeA = await insertSettled("EMPLOYEE", "并列甲", huge, 7n);
+    const employeeB = await insertSettled("EMPLOYEE", "并列乙", huge, 7n);
+    const project = await insertSettled("PROJECT", "项目主体", 100n, 0n);
+    const response = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie: adminCookie } });
+    const usage = response.json().monthlyTokenUsage;
+    expect(usage.totalTokens).toBe((315n + (huge + 7n) * 2n + 100n).toString());
+    const tiedOrder = usage.employeeRanking.slice(0, 2)
+      .map((item: { principalId: string }) => item.principalId);
+    expect(new Set(tiedOrder)).toEqual(new Set([employeeA.id, employeeB.id]));
+    const repeated = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie: adminCookie } });
+    expect(repeated.json().monthlyTokenUsage.employeeRanking.slice(0, 2)
+      .map((item: { principalId: string }) => item.principalId)).toEqual(tiedOrder);
+    expect(usage.employeeRanking.map((item: { principalId: string }) => item.principalId)).not.toContain(project.id);
+    expect(usage.employeeRanking[0]).toMatchObject({
+      inputTokens: huge.toString(), outputTokens: "7", cacheTokens: "3",
+      reasoningTokens: "2", totalTokens: (huge + 7n).toString(),
+    });
+  });
+
+  it("POOL-023：资源真实降级后首页返回最严重状态、数量和异常资源", async () => {
+    await db.updateTable("provider_resource").set({ status: "DEGRADED" })
+      .where("id", "=", seededResourceId).execute();
+    const response = await app.inject({
+      method: "GET", url: "/dashboard", headers: { cookie: adminCookie },
+    });
+    expect(response.statusCode).toBe(200);
+    const item = response.json().resourceBreakdown.find(
+      (row: { mode: string }) => row.mode === "CODING_PLAN",
+    );
+    expect(item).toEqual(expect.objectContaining({
+      status: "DEGRADED",
+      statusCounts: { DEGRADED: 1 },
+      abnormalResources: [{
+        resourceId: seededResourceId,
+        resourceName: "智谱主账号",
+        status: "DEGRADED",
+      }],
+    }));
+    await db.updateTable("provider_resource").set({ status: "ACTIVE" })
+      .where("id", "=", seededResourceId).execute();
+  });
+
+  it("POOL-020：API 费用按上海自然月和资源模式硬隔离", async () => {
+    const provider = await db.selectFrom("provider").selectAll()
+      .where("id", "=", seededProviderId).executeTakeFirstOrThrow();
+    const apiResource = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID, provider_id: provider.id, name: "DeepSeek API 计费账号",
+      mode: "API", credential_type: "API_KEY", status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    const principalKey = await db.selectFrom("principal_key").select("id")
+      .where("principal_id", "=", seededPrincipalId).executeTakeFirstOrThrow();
+    const shanghaiOffsetMs = 8 * 60 * 60 * 1000;
+    const localNow = new Date(Date.now() + shanghaiOffsetMs);
+    const monthStart = new Date(Date.UTC(
+      localNow.getUTCFullYear(), localNow.getUTCMonth(), 1,
+    ) - shanghaiOffsetMs);
+    const monthEnd = new Date(Date.UTC(
+      localNow.getUTCFullYear(), localNow.getUTCMonth() + 1, 1,
+    ) - shanghaiOffsetMs);
+
+    const addCost = async (input: {
+      resourceId: string;
+      mode: "API" | "CODING_PLAN";
+      cost: string;
+      at: Date;
+    }) => {
+      const requestId = randomUUID();
+      await db.insertInto("ai_request").values({
+        id: requestId, enterprise_id: ENT_ID, principal_id: seededPrincipalId,
+        principal_key_id: principalKey.id, protocol: "openai", unified_model: "pool-020",
+        status: "SUCCEEDED", started_at: input.at, finished_at: input.at,
+      }).execute();
+      const attempt = await db.insertInto("upstream_attempt").values({
+        ai_request_id: requestId, enterprise_id: ENT_ID, attempt_no: 1,
+        provider_resource_id: input.resourceId, upstream_model: "pool-020",
+        finished_at: input.at, http_status: 200, response_committed: true,
+      }).returningAll().executeTakeFirstOrThrow();
+      const usage = await db.insertInto("usage_event").values({
+        ai_request_id: requestId, enterprise_id: ENT_ID, upstream_attempt_id: attempt.id,
+        provider_resource_id: input.resourceId, input_tokens: 1n, output_tokens: 1n,
+        cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: "PROVIDER_REPORTED",
+        dedup_key: `pool020-${requestId}`, created_at: input.at,
+      }).returningAll().executeTakeFirstOrThrow();
+      await db.insertInto("ledger_line").values({
+        ai_request_id: requestId, enterprise_id: ENT_ID, usage_event_id: usage.id,
+        upstream_attempt_id: attempt.id, provider_resource_id: input.resourceId,
+        principal_id: seededPrincipalId, resource_mode: input.mode, raw_input_tokens: 1n,
+        raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+        api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", created_at: input.at,
+      }).execute();
+      await db.insertInto("ledger_transaction").values({
+        ai_request_id: requestId, enterprise_id: ENT_ID, principal_id: seededPrincipalId,
+        total_input_tokens: 1n, total_output_tokens: 1n, total_cache_tokens: 0n,
+        total_deducted_quota: input.mode === "CODING_PLAN" ? 2n : 0n,
+        total_api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
+        status: "SETTLED", created_at: input.at,
+      }).execute();
+    };
+
+    await addCost({ resourceId: apiResource.id, mode: "API", cost: "12.34", at: monthStart });
+    await addCost({ resourceId: apiResource.id, mode: "API", cost: "99.99", at: monthEnd });
+    await addCost({ resourceId: seededResourceId, mode: "CODING_PLAN", cost: "777.77", at: new Date() });
+
+    const response = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie: adminCookie } });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().monthlyApiCost).toBe("12.34");
+    expect(response.json().resourceBreakdown).toEqual(expect.arrayContaining([
+      expect.objectContaining({ mode: "API", monthlyCost: "12.34" }),
+      expect.objectContaining({ mode: "CODING_PLAN", monthlyCost: "0" }),
+    ]));
   });
 
   it("/dashboard 超额关注排除归档主体和停用 Grant", async () => {
@@ -428,13 +585,11 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     const body = res.json();
     expect(body.total).toBeGreaterThanOrEqual(2);
     expect(body.records.length).toBeGreaterThanOrEqual(2);
-    const first = body.records[0];
-    expect(first.requestId).toBeDefined();
-    expect(first.principalName).toBe("测试员工");
-    expect(first.unifiedModel).toBe("qianliu-glm-coding");
-    expect(first.status).toBe("SUCCEEDED");
     const target = body.records.find((record: { requestId: string }) => record.requestId === seededRequestId);
     expect(target).toMatchObject({
+      principalName: "测试员工",
+      unifiedModel: "qianliu-glm-coding",
+      status: "SUCCEEDED",
       finalProviderCode: "zhipu",
       finalProviderResourceId: seededResourceId,
       finalProviderResourceName: "智谱主账号",
@@ -453,6 +608,36 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     const body = res.json();
     expect(body.records.length).toBeGreaterThanOrEqual(1);
     expect(body.records.every((r: { principalId: string }) => r.principalId === seededPrincipalId)).toBe(true);
+  });
+
+  it("Agent 家族筛选、主体汇总和预期 Agent 分开保存", async () => {
+    const filtered = await app.inject({
+      method: "GET", url: "/usage?agent_family=CODEX", headers: { cookie: adminCookie },
+    });
+    expect(filtered.statusCode).toBe(200);
+    expect(filtered.json().records).toEqual(expect.arrayContaining([
+      expect.objectContaining({ requestId: seededRequestId, agentFamily: "CODEX", agentVersion: "0.146.0" }),
+    ]));
+
+    const saved = await app.inject({
+      method: "PATCH",
+      url: `/principals/${seededPrincipalId}/agent-expectations`,
+      headers: { cookie: adminCookie },
+      payload: { agent_families: ["WORKBUDDY", "CODEX"] },
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().expectedAgentFamilies).toEqual(["CODEX", "WORKBUDDY"]);
+
+    const summary = await app.inject({
+      method: "GET", url: `/principals/${seededPrincipalId}/agent-usage`, headers: { cookie: adminCookie },
+    });
+    expect(summary.statusCode).toBe(200);
+    expect(summary.json()).toMatchObject({
+      expectedAgentFamilies: ["CODEX", "WORKBUDDY"],
+      agents: expect.arrayContaining([
+        expect.objectContaining({ agentFamily: "CODEX", requestCount: "1" }),
+      ]),
+    });
   });
 
   it("/usage 请求/主体搜索与厂商资源、状态、超额组合筛选共用分页总数口径", async () => {

@@ -147,10 +147,12 @@ export const COMMIT_STATE = {
 // ===== M3/W11：资源池状态机（凭证生命周期、熔断/冷却/半开）=====
 export {
   RESOURCE_STATUS,
+  RESOURCE_STATUS_SEVERITY,
   STATE_REASON,
   CREDENTIAL_REFRESH_STATUS,
   RESOURCE_POOL_POLICY,
   computeCooldownMs,
+  worstResourceStatus,
   deriveResourceTransition,
   deriveSuccessTransition,
   deriveCredentialExpiry,
@@ -275,5 +277,7 @@ export {
   type AvailabilityRuleSnapshot,
   type AvailabilityMatchContext,
 } from "./runtime-assurance.js";
+
+export * from "./client-identity.js";
 
 export const DOMAIN_VERSION = "0.3.0" as const;

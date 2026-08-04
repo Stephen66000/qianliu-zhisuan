@@ -588,6 +588,10 @@ describe("P0 Responses → 真实 Chat Completions caller → 账本", () => {
         protocol: "messages",
         stream: true,
         client_id: "claude-desktop-via-cc-switch",
+        agent_family: "OTHER",
+        agent_identity_source: "DECLARED_HEADER",
+        agent_identity_confidence: "DECLARED",
+        client_identity_rule_version: "2026-08-03.v1",
       });
       expect(attempts[0]).toMatchObject({
         http_status: 200,

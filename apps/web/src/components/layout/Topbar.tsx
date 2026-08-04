@@ -62,7 +62,7 @@ export function Topbar({ admin, theme }: TopbarProps) {
         })}
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-[13px] leading-5 text-ql-fg-secondary">{admin.username}</span>
+        <span className="text-[13px] leading-5 text-ql-fg-secondary">{admin.displayName || admin.username}</span>
         <button
           className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-ql-fg-tertiary hover:bg-ql-surface-subtle hover:text-ql-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
           disabled={logout.isPending}

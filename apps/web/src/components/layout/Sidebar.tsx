@@ -10,9 +10,11 @@ import {
   BookOpenText,
   Gauge,
   LayoutDashboard,
+  ReceiptText,
   Settings,
   Server,
   Users,
+  UserCog,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -24,7 +26,9 @@ const NAV_ITEMS = [
   { to: "/resources", label: "厂商资源", icon: Server },
   { to: "/quota-rules", label: "额度规则", icon: Gauge },
   { to: "/usage", label: "用量账本", icon: BookOpenText },
+  { to: "/operating-bill", label: "经营账单", icon: ReceiptText },
   { to: "/runtime-assurance", label: "运行保障", icon: Bell },
+  { to: "/admins", label: "管理员", icon: UserCog },
   { to: "/settings", label: "系统设置", icon: Settings },
 ] as const;
 
@@ -39,7 +43,9 @@ export function Sidebar() {
             src={qianliuLogo}
           />
         </span>
-        <span className="text-[15px] font-semibold leading-[22px] text-ql-fg">仟流智算</span>
+        <span className="text-[15px] font-semibold leading-[22px] text-ql-fg">
+          仟流智算
+        </span>
       </div>
       <nav aria-label="主导航" className="flex flex-col gap-1 px-3 py-4">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (

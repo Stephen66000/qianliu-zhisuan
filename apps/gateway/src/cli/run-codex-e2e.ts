@@ -36,7 +36,7 @@ const enterpriseId = randomUUID();
 const principalId = randomUUID();
 const localUpstreamSecret = "codex-e2e-local-upstream-secret";
 const codexBinary = process.env.CODEX_E2E_BIN
-  ?? "/Applications/ChatGPT.app/Contents/Resources/codex";
+  ?? "codex";
 
 const pg = await startPostgresContainer("qianliu_codex_e2e");
 const db = createKysely(pg.connectionString);

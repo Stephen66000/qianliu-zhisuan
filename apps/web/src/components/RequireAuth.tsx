@@ -36,5 +36,9 @@ export function RequireAuth() {
     );
   }
 
+  if (session.data.admin.mustChangePassword && location.pathname !== "/change-password") {
+    return <Navigate replace to="/change-password" />;
+  }
+
   return <AppLayout admin={session.data.admin} />;
 }

@@ -54,6 +54,21 @@ const resource: ProviderResourceItem = {
   operating_snapshot: null,
 };
 
+const discovery = {
+  source: "PROVIDER_API",
+  source_version: "kimi-list-models-v1",
+  discovered_at: "2026-08-03T00:00:00.000Z",
+  models: [
+    { id: "kimi-k2", displayName: "Kimi K2", modelType: "CHAT", capabilities: ["chat", "stream"], source: "PROVIDER_API", compatible: true, unavailableReason: null },
+    { id: "kimi-embedding", displayName: "Kimi Embedding", modelType: "EMBEDDING", capabilities: ["embedding"], source: "PROVIDER_API", compatible: false, unavailableReason: "Gateway 暂不承载向量模型" },
+  ],
+};
+
+async function detectModels(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "检测可用模型" }));
+  expect((await screen.findAllByText("kimi-k2")).length).toBeGreaterThan(0);
+}
+
 function renderPage() {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -73,7 +88,12 @@ describe("POOL-010 厂商经营快照", () => {
       isLoading: false,
       refetch: vi.fn(),
     });
-    postMock.mockResolvedValue({ resource });
+    postMock.mockImplementation(async (path: string) =>
+      path.includes("model-discovery") || path.includes("models/sync")
+        ? discovery
+        : path.includes("/onboard")
+          ? { result: { resourceId: resource.id, models: [] } }
+          : { resource });
     patchMock.mockResolvedValue({ resource });
     getMock.mockResolvedValue({
       snapshots: [
@@ -106,27 +126,37 @@ describe("POOL-010 厂商经营快照", () => {
     await user.type(screen.getByLabelText("资源名称"), "新套餐");
     await user.type(screen.getByLabelText("上游凭证"), "secret");
     await user.selectOptions(screen.getByLabelText("模式"), "CODING_PLAN");
-    await user.type(screen.getByLabelText("厂商总额度"), "100");
+    await detectModels(user);
+    await user.type(screen.getByLabelText("厂商总额度"), "30000000");
+    expect(screen.getByLabelText("厂商总额度")).toHaveValue("30,000,000");
     await user.type(screen.getByLabelText("生效时间"), "2026-07-01T00:00");
+    await user.type(screen.getByLabelText("套餐费用"), "299.4");
+    await user.tab();
+    expect(screen.getByLabelText("套餐费用")).toHaveValue("299.40");
     expect(screen.queryByLabelText("厂商已用额度")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("厂商剩余额度")).not.toBeInTheDocument();
     expect(screen.getByText(/已用额度取当前周期内该资源的账本扣减/)).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("重置周期"), "MONTHLY");
+    expect(screen.getByRole("option", { name: "每季" })).toHaveValue("QUARTERLY");
+    expect(screen.getByRole("option", { name: "每年" })).toHaveValue("YEARLY");
+    await user.selectOptions(screen.getByLabelText("重置周期"), "QUARTERLY");
     await user.type(screen.getByLabelText("重置日期"), "2026-08-01T00:00");
-    await user.click(screen.getByRole("button", { name: /^登记$/ }));
+    await user.click(screen.getByRole("button", { name: "确认接入" }));
     await waitFor(() => expect(postMock).toHaveBeenCalled());
-    expect(postMock.mock.calls[0]?.[1]).toMatchObject({
+    const onboardPayload = postMock.mock.calls.find(([path]) => path === "/provider-resources/onboard")?.[1];
+    expect(onboardPayload).toMatchObject({
+      selected_model_ids: ["kimi-k2"],
       operating_snapshot: {
         source: "ADMIN",
-        total_quota: "100",
+        total_quota: "30000000",
         quota_unit: "TOKEN",
-        reset_cycle: "MONTHLY",
+        package_cost: "299.40",
+        reset_cycle: "QUARTERLY",
         reset_anchor_at: "2026-07-31T16:00:00.000Z",
       },
     });
-    expect(postMock.mock.calls[0]?.[1].operating_snapshot).not.toHaveProperty("used_quota");
-    expect(postMock.mock.calls[0]?.[1].operating_snapshot).not.toHaveProperty("remaining_quota");
-    expect(postMock.mock.calls[0]?.[1].operating_snapshot).not.toHaveProperty("next_reset_at");
+    expect(onboardPayload.operating_snapshot).not.toHaveProperty("used_quota");
+    expect(onboardPayload.operating_snapshot).not.toHaveProperty("remaining_quota");
+    expect(onboardPayload.operating_snapshot).not.toHaveProperty("next_reset_at");
   });
 
   it("API 与套餐表单只展示各自经营字段", async () => {
@@ -152,9 +182,10 @@ describe("POOL-010 厂商经营快照", () => {
     await user.selectOptions(screen.getByLabelText("模式"), "CODING_PLAN");
     await user.selectOptions(screen.getByLabelText("重置周期"), "MONTHLY");
     await user.selectOptions(screen.getByLabelText("模式"), "API");
-    await user.click(screen.getByRole("button", { name: /^登记$/ }));
+    await detectModels(user);
+    await user.click(screen.getByRole("button", { name: "确认接入" }));
     await waitFor(() => expect(postMock).toHaveBeenCalled());
-    expect(postMock.mock.calls[0]?.[1]).toMatchObject({
+    expect(postMock.mock.calls.find(([path]) => path === "/provider-resources/onboard")?.[1]).toMatchObject({
       mode: "API",
       operating_snapshot: undefined,
     });
@@ -188,6 +219,57 @@ describe("POOL-010 厂商经营快照", () => {
     expect(payload).not.toHaveProperty("remaining_quota");
     expect(payload).not.toHaveProperty("next_reset_at");
   });
+
+  it("套餐失效时间不得早于或等于生效时间", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "更新套餐配置" }));
+    await user.type(screen.getByLabelText("厂商总额度"), "100");
+    await user.type(screen.getByLabelText("套餐生效时间"), "2026-08-03T11:49");
+    await user.type(screen.getByLabelText("套餐失效时间"), "2026-08-03T11:49");
+    await user.click(screen.getByRole("button", { name: "追加快照" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "套餐失效时间必须晚于生效时间",
+    );
+    expect(patchMock).not.toHaveBeenCalled();
+  });
+
+  it("金额输入拒绝三位小数且列表只展示两位", async () => {
+    const user = userEvent.setup();
+    useProviderResourcesMock.mockReturnValue({
+      data: {
+        resources: [{
+          ...resource,
+          name: "API 金额资源",
+          mode: "API",
+          operating_snapshot: {
+            id: "snapshot-api", provider_resource_id: resource.id, version: 1,
+            source: "ADMIN", collected_at: "2026-08-03T00:00:00.000Z", currency: "CNY",
+            recharge_amount: "109.41000000", current_balance: "68.00000000",
+            cumulative_cost: "47.41000000", current_period_cost: "47.41000000",
+            cost_period_start: null, cost_period_end: null, balance_updated_at: null,
+            package_name: null, package_cost: null, total_quota: null, quota_unit: null,
+            used_quota: null, remaining_quota: null, effective_from: null, effective_until: null,
+            reset_cycle: null, reset_anchor_at: null, reset_timezone: null,
+            usage_calculation: "MANUAL_SNAPSHOT", next_reset_at: null,
+          },
+        }],
+      },
+      error: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+    renderPage();
+    expect(screen.getByText(/充值 CNY 109\.41 \/ 余额 68\.00 \/ 本期费用 47\.41/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "更新经营数据" }));
+    const balance = screen.getByLabelText("当前余额");
+    expect(balance).toHaveValue("68.00");
+    await user.clear(balance);
+    await user.type(balance, "68.001");
+    await user.click(screen.getByRole("button", { name: "追加快照" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("当前余额：请输入非负金额，最多保留两位小数");
+    expect(patchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("厂商资源基础信息编辑", () => {
@@ -202,7 +284,7 @@ describe("厂商资源基础信息编辑", () => {
     patchMock.mockResolvedValue({ resource });
   });
 
-  it("保持资源 ID 和凭证不变，更新名称、模型声明与并发限制", async () => {
+  it("保持资源 ID、凭证和已发现模型不变，只更新名称与并发限制", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -210,9 +292,7 @@ describe("厂商资源基础信息编辑", () => {
     const name = screen.getByLabelText("资源名称");
     await user.clear(name);
     await user.type(name, "Kimi 新套餐");
-    const models = screen.getByLabelText("上游模型");
-    await user.clear(models);
-    await user.type(models, "kimi-k2, kimi-k2-thinking");
+    expect(screen.queryByLabelText("上游模型")).not.toBeInTheDocument();
     const concurrency = screen.getByLabelText("并发上限");
     await user.clear(concurrency);
     await user.type(concurrency, "16");
@@ -224,11 +304,50 @@ describe("厂商资源基础信息编辑", () => {
         {
           expected_version: 3,
           name: "Kimi 新套餐",
-          upstream_models: ["kimi-k2", "kimi-k2-thinking"],
           concurrency_limit: 16,
         },
       );
     });
     expect(screen.queryByDisplayValue(resource.credential_fingerprint ?? "")).not.toBeInTheDocument();
+  });
+});
+
+describe("POOL-027 模型发现向导", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useProviderResourcesMock.mockReturnValue({
+      data: { resources: [resource] }, error: null, isLoading: false, refetch: vi.fn(),
+    });
+    postMock.mockImplementation(async (path: string) =>
+      path.includes("model-discovery") || path.includes("models/sync")
+        ? discovery
+        : path.includes("models/confirm") ? { models: [] } : { result: { resourceId: resource.id } });
+  });
+
+  it("检测后默认只全选兼容模型，向量模型不可误选", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "登记资源" }));
+    await user.selectOptions(screen.getByLabelText("厂商"), resource.provider_id);
+    await user.type(screen.getByLabelText("资源名称"), "Kimi API");
+    await user.type(screen.getByLabelText("上游凭证"), "secret");
+    await detectModels(user);
+    expect(screen.getByRole("checkbox", { name: /kimi-k2 chat、stream/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /kimi-embedding/ })).toBeDisabled();
+    expect(screen.getByText("Gateway 暂不承载向量模型")).toBeInTheDocument();
+  });
+
+  it("已有资源可同步并确认加入，不再提供自由文本模型入口", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "同步模型" }));
+    await user.click(screen.getByRole("button", { name: "立即同步" }));
+    expect(await screen.findByText("可加入")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "确认加入所选模型" }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith(
+      `/provider-resources/${resource.id}/models/confirm`,
+      { selected_model_ids: ["kimi-k2"] },
+    ));
+    expect(screen.queryByText("多个模型用英文逗号分隔")).not.toBeInTheDocument();
   });
 });

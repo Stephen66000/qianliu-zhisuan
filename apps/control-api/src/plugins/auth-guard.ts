@@ -35,7 +35,19 @@ export async function requireAuth(
     adminUserId: session.admin_id,
     enterpriseId: session.admin_enterprise_id,
     username: session.admin_username,
+    displayName: session.admin_display_name,
+    mustChangePassword: session.admin_must_change_password,
   } satisfies AdminContext;
+  if (
+    session.admin_must_change_password &&
+    !new Set(["/auth/me", "/auth/logout", "/auth/change-password"]).has(req.routeOptions.url ?? "")
+  ) {
+    await reply.code(403).send({
+      error: "password_change_required",
+      message: "首次登录必须先修改密码",
+    });
+    return;
+  }
 }
 
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;

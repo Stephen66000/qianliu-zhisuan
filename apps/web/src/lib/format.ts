@@ -8,14 +8,16 @@
 
 /** 金额展示：十进制字符串 → "12.50"（两位小数 + 千分位）。null 由调用方按空状态处理。 */
 export function formatMoney(value: string): string {
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    return value;
-  }
-  return num.toLocaleString("zh-CN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const match = /^([+-]?)(\d+)(?:\.(\d*))?$/.exec(value);
+  if (!match) return value;
+  const sign = match[1] === "-" ? "-" : "";
+  const fraction = match[3] ?? "";
+  const hundredths = BigInt(match[2]!) * 100n + BigInt((fraction + "00").slice(0, 2));
+  const rounded = (fraction[2] ?? "0") >= "5" ? hundredths + 1n : hundredths;
+  const integer = rounded / 100n;
+  const decimals = String(rounded % 100n).padStart(2, "0");
+  const displaySign = sign && rounded !== 0n ? sign : "";
+  return `${displaySign}${integer.toLocaleString("zh-CN")}.${decimals}`;
 }
 
 /** 额度/token 展示：BigInt 文本 → 千分位（P2-03：超 MAX_SAFE_INTEGER 用 BigInt，不用 Number）。 */

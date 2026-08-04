@@ -26,106 +26,16 @@ import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 import { ProviderRepository } from "./provider-repository.js";
 import type { CurrentProviderOperatingSnapshot } from "./provider-operating.js";
+import { worstResourceStatus, type ResourceStatus } from "@qianliu/domain";
+import {
+  decimalTextsEqual,
+  getMonthlyTokenUsage,
+  shanghaiNaturalMonth,
+  sumDecimalTexts,
+} from "./dashboard-helpers.js";
+import type { DashboardSummary, OverageItem, ResourceBreakdownItem } from "./dashboard-types.js";
 
-function sumDecimalTexts(values: string[]): string {
-  const scale = values.reduce(
-    (current, value) => Math.max(current, value.split(".")[1]?.length ?? 0),
-    0,
-  );
-  const total = values.reduce((sum, value) => {
-    const [whole, fraction = ""] = value.split(".");
-    return sum + BigInt(`${whole}${fraction.padEnd(scale, "0")}`);
-  }, 0n);
-  if (scale === 0) return total.toString();
-  const padded = total.toString().padStart(scale + 1, "0");
-  return `${padded.slice(0, -scale)}.${padded.slice(-scale)}`;
-}
-
-function decimalTextsEqual(left: string | null, right: string | null): boolean {
-  if (left === null || right === null) return left === right;
-  const scale = Math.max(left.split(".")[1]?.length ?? 0, right.split(".")[1]?.length ?? 0);
-  const units = (value: string) => {
-    const [whole, fraction = ""] = value.split(".");
-    return BigInt(`${whole}${fraction.padEnd(scale, "0")}`);
-  };
-  return units(left) === units(right);
-}
-
-/** 首页聚合结果（八项口径）。 */
-export interface DashboardSummary {
-  /** 1. 资源账号数（未删除的资源账号数量）。 */
-  resourceAccountCount: number;
-  /** 2. 本账期活跃人数（当月至少一次成功调用的 EMPLOYEE 去重数）。 */
-  activeEmployeeCount: number;
-  /** 3. 当前正在使用人数（进行中请求或最近 5 分钟成功请求的员工去重数）。 */
-  currentInUseCount: number;
-  /** 4. 当前资源快照中的套餐支付金额（未知或混合币种返回 null）。 */
-  monthlyPackagePayment: string | null;
-  /** 5. 本月 API 费用（账本 ledger_transaction.total_api_cost 之和，当前自然月）。 */
-  monthlyApiCost: string;
-  /** 6. 当前资源快照中的充值金额（未知或混合币种返回 null）。 */
-  monthlyRechargeAmount: string | null;
-  /** 7. 预计最早耗尽资源（可计算资源中最早的 forecast_exhaust_at）。 */
-  earliestExhaustion: {
-    resourceId: string;
-    resourceName: string;
-    providerCode: string;
-    forecastExhaustAt: string | null;
-    nextRecoverAt: string | null;
-    confidence: string;
-    notCalculableReason: string | null;
-  } | null;
-  /** 8. 本月调度节省（dispatch_decision 中 saving_calculable=true 且动作已执行的节省之和）。 */
-  monthlyDispatchSaving: string;
-  /** 资源摘要按厂商分组（PRD §10.2 行 406-415）。 */
-  resourceBreakdown: ResourceBreakdownItem[];
-  /** 超额列表（PRD §10.2 行 417-424）。 */
-  overageList: OverageItem[];
-}
-
-/** 资源摘要项（按厂商分组）。 */
-export interface ResourceBreakdownItem {
-  providerCode: string;
-  providerName: string;
-  mode: "API" | "CODING_PLAN";
-  accountCount: number;
-  /** 厂商总额度（最新资源快照；未知不伪造 0）。 */
-  totalQuota: string | null;
-  /** 厂商已用额度（最新资源快照）。 */
-  usedQuota: string | null;
-  /** 厂商剩余额度（最新资源快照）。 */
-  remainingQuota: string | null;
-  /** 厂商原生额度单位；同组单位不一致时为 null，且额度不混算。 */
-  quotaUnit: string | null;
-  /** 独立的主体 Grant 分配总额，不代表厂商购买额度。 */
-  allocatedQuota: string | null;
-  currency: string | null;
-  rechargeAmount: string | null;
-  currentBalance: string | null;
-  currentPeriodCost: string | null;
-  snapshotAt: string | null;
-  /** 本月使用费用（ledger_line.api_cost 之和，当前自然月）。 */
-  monthlyCost: string;
-  /** 当前消耗速度（取最新 supply_forecast.rate_24h）。 */
-  currentRate24h: string | null;
-  /** 预计耗尽时间（取 supply_forecast.forecast_exhaust_at）。 */
-  forecastExhaustAt: string | null;
-  /** 资源当前状态（聚合：任一资源非 HEALTHY 则标记）。 */
-  status: string;
-}
-
-/** 超额列表项（PRD §10.2 行 417-424）。 */
-export interface OverageItem {
-  principalId: string;
-  principalName: string;
-  principalType: string;
-  provider: string;
-  modelAlias: string;
-  quotaValue: string;
-  usedValue: string;
-  overageValue: string;
-  overageRatio: string;
-}
+export type * from "./dashboard-types.js";
 
 export class DashboardRepository {
   constructor(private db: Kysely<Database>) {}
@@ -137,9 +47,7 @@ export class DashboardRepository {
    */
   async getSummary(enterpriseId: string, now: number = Date.now()): Promise<DashboardSummary> {
     const date = new Date(now);
-    // 当前自然月范围（UTC+8 企业时区）：月初 00:00 ~ 下月初 00:00
-    const monthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-    const monthEnd = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+    const { start: monthStart, end: monthEnd } = shanghaiNaturalMonth(date);
     // 最近 5 分钟窗口
     const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
     const currentOperatingSnapshots = await new ProviderRepository(this.db)
@@ -155,6 +63,7 @@ export class DashboardRepository {
       monthlyDispatchSaving,
       resourceBreakdown,
       overageList,
+      monthlyTokenUsage,
     ] = await Promise.all([
       this.countResources(enterpriseId),
       this.countActiveEmployees(enterpriseId, monthStart, monthEnd),
@@ -169,6 +78,7 @@ export class DashboardRepository {
         currentOperatingSnapshots,
       ),
       this.listOverages(enterpriseId),
+      getMonthlyTokenUsage(this.db, enterpriseId, monthStart, monthEnd),
     ]);
 
     return {
@@ -190,6 +100,7 @@ export class DashboardRepository {
       monthlyDispatchSaving,
       resourceBreakdown,
       overageList,
+      monthlyTokenUsage,
     };
   }
 
@@ -242,18 +153,23 @@ export class DashboardRepository {
     return Number(row.rows[0]?.cnt ?? 0n);
   }
 
-  /** 5. 本月 API 费用（ledger_transaction.total_api_cost 之和，当前自然月，非空才计入）。 */
+  /** 5. 本月 API 调用费用：仅 API 资源的实际账本明细，套餐异常金额也不计入。 */
   private async sumMonthlyApiCost(
     enterpriseId: string,
     monthStart: Date,
     monthEnd: Date,
   ): Promise<string> {
     const row = await sql<{ total: string | null }>`
-      SELECT COALESCE(SUM(total_api_cost::numeric), 0)::text AS total
-      FROM ledger_transaction
-      WHERE enterprise_id = ${enterpriseId}
-        AND created_at >= ${monthStart}
-        AND created_at < ${monthEnd}
+      SELECT COALESCE(SUM(ll.api_cost::numeric), 0)::text AS total
+        FROM ledger_line ll
+        JOIN provider_resource pr
+          ON pr.id = ll.provider_resource_id AND pr.enterprise_id = ${enterpriseId}
+       WHERE ll.enterprise_id = ${enterpriseId}
+         AND ll.resource_mode = 'API'
+         AND pr.mode = 'API'
+         AND ll.api_cost IS NOT NULL
+         AND ll.created_at >= ${monthStart}
+         AND ll.created_at < ${monthEnd}
     `.execute(this.db);
     return row.rows[0]?.total ?? "0";
   }
@@ -329,6 +245,7 @@ export class DashboardRepository {
       SELECT COALESCE(SUM(dispatch_saving::numeric), 0)::text AS total
       FROM dispatch_decision
       WHERE enterprise_id = ${enterpriseId}
+        AND final_action = 'SWITCH'
         AND saving_calculable = true
         AND dispatch_saving IS NOT NULL
         AND decided_at >= ${monthStart}
@@ -362,12 +279,36 @@ export class DashboardRepository {
         (eb) => eb.fn.countAll().as("account_count"),
       ])
       .execute();
+    const statusRows = await this.db
+      .selectFrom("provider_resource")
+      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
+      .select([
+        "provider_resource.id as resource_id",
+        "provider_resource.name as resource_name",
+        "provider_resource.mode",
+        "provider_resource.status",
+        "provider.code as provider_code",
+      ])
+      .where("provider_resource.enterprise_id", "=", enterpriseId)
+      .where("provider.enterprise_id", "=", enterpriseId)
+      .where("provider_resource.status", "<>", "DELETED")
+      .execute();
 
     // 批量取每个厂商+模式的额度聚合 + 本月费用 + 最新预测（避免 N+1）
     const breakdown: ResourceBreakdownItem[] = [];
     for (const r of rows) {
       const providerCode = r.provider_code;
       const mode = r.mode as "API" | "CODING_PLAN";
+      const groupStatuses = statusRows.filter((row) =>
+        row.provider_code === providerCode && row.mode === mode
+      );
+      const worstStatus = worstResourceStatus(
+        groupStatuses.map((row) => row.status as ResourceStatus),
+      );
+      const statusCounts = groupStatuses.reduce<Record<string, number>>((counts, row) => {
+        counts[row.status] = (counts[row.status] ?? 0) + 1;
+        return counts;
+      }, {});
       const [operating, allocatedQuota, monthlyCost, forecast] = await Promise.all([
         this.sumProviderOperatingSnapshot(
           enterpriseId,
@@ -401,8 +342,20 @@ export class DashboardRepository {
         snapshotAt: operating.snapshotAt,
         monthlyCost,
         currentRate24h: forecast?.rate24h ?? null,
+        currentRateUnit: forecast?.unit ?? null,
+        forecastConfidence: forecast?.confidence ?? null,
+        forecastNotCalculableReason: forecast?.reason ?? null,
+        forecastDataPoints: forecast?.dataPoints ?? null,
         forecastExhaustAt: forecast?.exhaustAt ?? null,
-        status: "HEALTHY", // 简化：资源池状态聚合在 W20 alerts 细化
+        status: worstStatus === "ACTIVE" ? "HEALTHY" : worstStatus,
+        statusCounts,
+        abnormalResources: groupStatuses
+          .filter((row) => row.status !== "ACTIVE")
+          .map((row) => ({
+            resourceId: row.resource_id,
+            resourceName: row.resource_name,
+            status: row.status,
+          })),
       });
     }
     return breakdown;
@@ -542,7 +495,7 @@ export class DashboardRepository {
     return complete ? row.total : null;
   }
 
-  /** 某厂商本月费用（ledger_line join provider_resource）。 */
+  /** 某厂商本月 API 调用费用；套餐行固定为 0，套餐费用由经营快照单列。 */
   private async sumProviderMonthlyCost(
     enterpriseId: string,
     providerCode: string,
@@ -550,14 +503,18 @@ export class DashboardRepository {
     monthStart: Date,
     monthEnd: Date,
   ): Promise<string> {
+    if (mode !== "API") return "0";
     const row = await sql<{ total: string | null }>`
       SELECT COALESCE(SUM(ll.api_cost::numeric), 0)::text AS total
       FROM ledger_line ll
       INNER JOIN provider_resource pr ON pr.id = ll.provider_resource_id
       INNER JOIN provider p ON p.id = pr.provider_id
       WHERE ll.enterprise_id = ${enterpriseId}
+        AND pr.enterprise_id = ${enterpriseId}
+        AND p.enterprise_id = ${enterpriseId}
         AND p.code = ${providerCode}
-        AND ll.resource_mode = ${mode}
+        AND ll.resource_mode = 'API'
+        AND pr.mode = 'API'
         AND ll.created_at >= ${monthStart}
         AND ll.created_at < ${monthEnd}
     `.execute(this.db);
@@ -570,13 +527,24 @@ export class DashboardRepository {
     providerCode: string,
     mode: "API" | "CODING_PLAN",
     currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
-  ): Promise<{ rate24h: string | null; exhaustAt: string | null } | null> {
+  ): Promise<{
+    rate24h: string | null;
+    exhaustAt: string | null;
+    unit: "CURRENCY_PER_HOUR" | "QUOTA_PER_HOUR" | null;
+    confidence: string;
+    reason: string | null;
+    dataPoints: number;
+  } | null> {
     const result = await sql<{
       resource_id: string;
       rate_24h: string | null;
       forecast_exhaust_at: Date | null;
       remaining_quota: string;
       snapshot_at: Date;
+      consumption_unit: "CURRENCY_PER_HOUR" | "QUOTA_PER_HOUR" | null;
+      confidence: string;
+      not_calculable_reason: string | null;
+      data_points: number;
     }>`
       WITH latest_forecast AS (
         SELECT DISTINCT ON (provider_resource_id) *
@@ -585,14 +553,15 @@ export class DashboardRepository {
          ORDER BY provider_resource_id, snapshot_at DESC
       )
       SELECT f.provider_resource_id AS resource_id, f.rate_24h,
-             f.forecast_exhaust_at, f.remaining_quota, f.snapshot_at
+             f.forecast_exhaust_at, f.remaining_quota, f.snapshot_at,
+             f.consumption_unit, f.confidence, f.not_calculable_reason, f.data_points
         FROM latest_forecast f
         JOIN provider_resource pr ON pr.id = f.provider_resource_id
         JOIN provider p ON p.id = pr.provider_id
        WHERE p.code = ${providerCode}
          AND pr.enterprise_id = ${enterpriseId}
          AND p.enterprise_id = ${enterpriseId}
-         AND pr.mode = ${mode}
+         AND pr.mode = ${mode} AND pr.status <> 'DELETED'
     `.execute(this.db);
     const current = new Map(
       currentOperatingSnapshots.map((snapshot) => [snapshot.provider_resource_id, snapshot]),
@@ -616,6 +585,10 @@ export class DashboardRepository {
     return {
       rate24h: row.rate_24h,
       exhaustAt: row.forecast_exhaust_at ? row.forecast_exhaust_at.toISOString() : null,
+      unit: row.consumption_unit,
+      confidence: row.confidence,
+      reason: row.not_calculable_reason,
+      dataPoints: row.data_points,
     };
   }
 

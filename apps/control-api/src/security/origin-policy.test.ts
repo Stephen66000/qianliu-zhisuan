@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { configuredWebOrigins, isCrossSiteMutation } from "./origin-policy.js";
 
 describe("origin policy", () => {
+  it("未配置 WEB_ORIGIN 时返回空列表", () => {
+    expect(configuredWebOrigins({})).toEqual([]);
+  });
+
   it("支持逗号分隔的精确 Origin", () => {
     expect(configuredWebOrigins({ WEB_ORIGIN: "https://a.example, http://127.0.0.1:8080" })).toEqual([
       "https://a.example",

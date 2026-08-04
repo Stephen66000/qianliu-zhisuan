@@ -5,89 +5,41 @@
  * 凭证安全：上游 Secret 用 AES-256-GCM 加密后存密文 + 指纹；
  * 明文绝不入库（TRD §5.4 L252）；列表只返回指纹。
  */
-import type { Kysely, Selectable } from "kysely";
+import type { Selectable } from "kysely";
 import { sql } from "kysely";
 import type {
-  Database,
   ProviderTable,
   ProviderResourceTable,
-  ProviderResourceOperatingSnapshotTable,
   UnifiedModelTable,
   ModelRouteTable,
 } from "../kysely.js";
-import type { EncryptedCredential } from "@qianliu/provider-adapters";
+import type { DiscoveredProviderModel } from "@qianliu/provider-adapters";
+import { ProviderModelDiscoveryRepository } from "./provider-model-discovery-repository.js";
 import {
-  projectCurrentOperatingSnapshots,
-  type CurrentProviderOperatingSnapshot,
-} from "./provider-operating.js";
+  EnterpriseReferenceError,
+  IdempotencyConflictError,
+  type CreateProviderInput,
+  type CreateProviderResourceInput,
+  type OnboardResourceModelsInput,
+  type ProviderModelOnboardingResult,
+} from "./provider-types.js";
+
+export {
+  EnterpriseReferenceError,
+  IdempotencyConflictError,
+  type CreateProviderInput,
+  type CreateProviderResourceInput,
+  type OperatingSnapshotInput,
+  type ProviderModelOnboardingResult,
+} from "./provider-types.js";
+export type { ProviderResourceOperatingSnapshot } from "./provider-operating-repository.js";
 
 export type Provider = Selectable<ProviderTable>;
 export type ProviderResource = Selectable<ProviderResourceTable>;
-export type ProviderResourceOperatingSnapshot =
-  Selectable<ProviderResourceOperatingSnapshotTable>;
 export type UnifiedModel = Selectable<UnifiedModelTable>;
 export type ModelRoute = Selectable<ModelRouteTable>;
 
-export class EnterpriseReferenceError extends Error {
-  constructor(message: string = "referenced object does not belong to enterprise") {
-    super(message);
-    this.name = "EnterpriseReferenceError";
-  }
-}
-
-export interface CreateProviderInput {
-  enterprise_id: string;
-  code: string;
-  name: string;
-  adapter_type: string;
-  supported_protocols?: string[] | null;
-  capability_set?: Record<string, unknown> | null;
-}
-
-export interface CreateProviderResourceInput {
-  enterprise_id: string;
-  provider_id: string;
-  name: string;
-  mode: "API" | "CODING_PLAN";
-  credential_type: "API_KEY" | "OAUTH" | "SUBSCRIPTION_SESSION";
-  /** 凭证密文（调用方先用 encryptCredential 加密）。 */
-  credential_encrypted?: EncryptedCredential | null;
-  /** 凭证指纹（展示用，不可还原）。 */
-  credential_fingerprint?: string | null;
-  upstream_models?: string[] | null;
-  concurrency_limit?: number | null;
-  operating_snapshot?: OperatingSnapshotInput;
-}
-
-/** 所有金额/额度均为十进制文本，避免 JS number 精度损失。 */
-export interface OperatingSnapshotInput {
-  source: "ADMIN" | "PROVIDER_SYNC" | "BILL_RECONCILIATION";
-  collected_at: Date;
-  currency?: string | null;
-  recharge_amount?: string | null;
-  current_balance?: string | null;
-  cumulative_cost?: string | null;
-  current_period_cost?: string | null;
-  cost_period_start?: Date | null;
-  cost_period_end?: Date | null;
-  balance_updated_at?: Date | null;
-  package_name?: string | null;
-  package_cost?: string | null;
-  total_quota?: string | null;
-  quota_unit?: string | null;
-  used_quota?: string | null;
-  remaining_quota?: string | null;
-  effective_from?: Date | null;
-  effective_until?: Date | null;
-  reset_cycle?: string | null;
-  reset_anchor_at?: Date | null;
-  reset_timezone?: string | null;
-  usage_calculation?: "MANUAL_SNAPSHOT" | "SYSTEM_LEDGER";
-  next_reset_at?: Date | null;
-}
-
-export class ProviderRepository {
-  constructor(private db: Kysely<Database>) {}
+export class ProviderRepository extends ProviderModelDiscoveryRepository {
 
   // ===== Provider =====
   async createProvider(input: CreateProviderInput): Promise<Provider> {
@@ -177,124 +129,144 @@ export class ProviderRepository {
       .execute();
   }
 
-  /** 每个资源当前快照；历史行仍保留且从不随当前值修改而重算。 */
-  async listLatestOperatingSnapshots(
-    enterpriseId: string,
-  ): Promise<ProviderResourceOperatingSnapshot[]> {
-    const result = await sql<ProviderResourceOperatingSnapshot>`
-      SELECT DISTINCT ON (provider_resource_id) *
-        FROM provider_resource_operating_snapshot
-       WHERE enterprise_id = ${enterpriseId}
-       ORDER BY provider_resource_id, version DESC
-    `.execute(this.db);
-    return result.rows;
-  }
-
-  /**
-   * 当前经营视图：旧快照原样返回；SYSTEM_LEDGER 快照按当前重置周期汇总账本。
-   * 历史快照行保持不可变，自动值只存在于当前读取投影。
-   */
-  async listCurrentOperatingSnapshots(
-    enterpriseId: string,
-    now: Date = new Date(),
-  ): Promise<CurrentProviderOperatingSnapshot[]> {
-    const [snapshots, resources] = await Promise.all([
-      this.listLatestOperatingSnapshots(enterpriseId),
-      this.listResources(enterpriseId),
-    ]);
-    return projectCurrentOperatingSnapshots(
-      this.db,
-      enterpriseId,
-      snapshots,
-      new Map(resources.map((resource) => [resource.id, resource.mode])),
-      now,
-    );
-  }
-
-  async listOperatingSnapshotHistory(
-    enterpriseId: string,
-    providerResourceId: string,
-    limit: number = 20,
-  ): Promise<ProviderResourceOperatingSnapshot[]> {
-    return this.db
-      .selectFrom("provider_resource_operating_snapshot")
-      .selectAll()
-      .where("enterprise_id", "=", enterpriseId)
-      .where("provider_resource_id", "=", providerResourceId)
-      .orderBy("version", "desc")
-      .limit(limit)
-      .execute();
-  }
-
-  async appendOperatingSnapshot(
-    enterpriseId: string,
-    providerResourceId: string,
-    input: OperatingSnapshotInput,
-  ): Promise<ProviderResourceOperatingSnapshot | null> {
+  async onboardResourceModels(
+    input: OnboardResourceModelsInput,
+  ): Promise<ProviderModelOnboardingResult> {
     return this.db.transaction().execute(async (trx) => {
-      const resource = await trx
-        .selectFrom("provider_resource")
-        .select("id")
-        .where("id", "=", providerResourceId)
-        .where("enterprise_id", "=", enterpriseId)
-        .forUpdate()
-        .executeTakeFirst();
-      if (!resource) return null;
-      const latest = await trx
-        .selectFrom("provider_resource_operating_snapshot")
-        .select("version")
-        .where("provider_resource_id", "=", providerResourceId)
-        .orderBy("version", "desc")
-        .executeTakeFirst();
-      return this.insertOperatingSnapshot(
-        trx,
-        enterpriseId,
-        providerResourceId,
-        (latest?.version ?? 0) + 1,
-        input,
-      );
+      await sql`select pg_advisory_xact_lock(hashtext(${`${input.enterpriseId}:${input.idempotencyKey}`}))`
+        .execute(trx);
+      const prior = await trx.selectFrom("provider_model_onboarding")
+        .select(["result", "request_fingerprint"])
+        .where("enterprise_id", "=", input.enterpriseId)
+        .where("idempotency_key", "=", input.idempotencyKey).executeTakeFirst();
+      if (prior) {
+        if (prior.request_fingerprint !== input.requestFingerprint) {
+          throw new IdempotencyConflictError();
+        }
+        return prior.result as unknown as ProviderModelOnboardingResult;
+      }
+      const provider = await trx.selectFrom("provider").select("id")
+        .where("id", "=", input.resource.provider_id)
+        .where("enterprise_id", "=", input.enterpriseId).where("status", "=", "ACTIVE")
+        .forKeyShare().executeTakeFirst();
+      if (!provider) throw new EnterpriseReferenceError("provider is not active in enterprise");
+      const resource = await trx.insertInto("provider_resource").values({
+        enterprise_id: input.enterpriseId,
+        provider_id: input.resource.provider_id,
+        name: input.resource.name,
+        mode: input.resource.mode,
+        credential_type: input.resource.credential_type,
+        credential_ciphertext: input.resource.credential_encrypted
+          ? JSON.stringify(input.resource.credential_encrypted) : null,
+        credential_fingerprint: input.resource.credential_fingerprint ?? null,
+        credential_version: input.resource.credential_encrypted ? 1 : null,
+        upstream_models: JSON.stringify(input.selectedModels.map((model) => model.id)) as unknown as string[],
+        concurrency_limit: input.resource.concurrency_limit ?? null,
+        status: "ACTIVE",
+      }).returningAll().executeTakeFirstOrThrow();
+      if (input.resource.operating_snapshot) {
+        await this.insertOperatingSnapshot(trx, input.enterpriseId, resource.id, 1, input.resource.operating_snapshot);
+      }
+      const discoveryRow = await trx.insertInto("provider_model_discovery").values({
+        enterprise_id: input.enterpriseId, provider_resource_id: resource.id,
+        source: input.discovery.source, source_version: input.discovery.sourceVersion,
+        status: "SUCCEEDED", discovered_at: input.discovery.discoveredAt, failure_code: null,
+      }).returningAll().executeTakeFirstOrThrow();
+      await trx.insertInto("provider_model_discovery_item").values(input.discovery.models.map((model) => ({
+        enterprise_id: input.enterpriseId, discovery_id: discoveryRow.id,
+        provider_resource_id: resource.id, upstream_model: model.id,
+        display_name: model.displayName, model_type: model.modelType,
+        capabilities: JSON.stringify(model.capabilities) as unknown as string[], source: model.source,
+        compatible: model.compatible, unavailable_reason: model.unavailableReason,
+        availability_status: "AVAILABLE" as const, first_discovered_at: input.discovery.discoveredAt,
+        last_discovered_at: input.discovery.discoveredAt,
+        last_validated_at: input.discovery.source === "PROVIDER_API" ? input.discovery.discoveredAt : null,
+      }))).execute();
+      const models: ProviderModelOnboardingResult["models"] = [];
+      for (const discovered of input.selectedModels) {
+        const alias = stableModelAlias(input.providerCode, discovered.id);
+        let unified = await trx.selectFrom("unified_model").selectAll()
+          .where("enterprise_id", "=", input.enterpriseId).where("alias", "=", alias)
+          .executeTakeFirst();
+        const reused = Boolean(unified);
+        if (!unified) {
+          unified = await trx.insertInto("unified_model").values({
+            enterprise_id: input.enterpriseId, alias, display_name: discovered.displayName,
+            required_capabilities: JSON.stringify(discovered.capabilities) as unknown as string[],
+            status: "PENDING_CONFIG",
+          }).returningAll().executeTakeFirstOrThrow();
+        }
+        const route = await trx.insertInto("model_route").values({
+          enterprise_id: input.enterpriseId, unified_model_id: unified.id,
+          provider_resource_id: resource.id, upstream_model: discovered.id,
+          priority: 100, weight: 1, enabled: false,
+        }).returningAll().executeTakeFirstOrThrow();
+        models.push({
+          upstreamModel: discovered.id, unifiedModelId: unified.id, alias,
+          routeId: route.id, reused, status: unified.status === "ACTIVE" ? "ACTIVE" : "PENDING_CONFIG",
+        });
+      }
+      const result: ProviderModelOnboardingResult = {
+        resourceId: resource.id, discoveryId: discoveryRow.id, models,
+      };
+      await trx.insertInto("provider_model_onboarding").values({
+        enterprise_id: input.enterpriseId, idempotency_key: input.idempotencyKey,
+        request_fingerprint: input.requestFingerprint,
+        provider_resource_id: resource.id, result: result as unknown as Record<string, unknown>,
+      }).execute();
+      return result;
     });
   }
 
-  private async insertOperatingSnapshot(
-    db: Kysely<Database>,
-    enterpriseId: string,
-    providerResourceId: string,
-    version: number,
-    input: OperatingSnapshotInput,
-  ): Promise<ProviderResourceOperatingSnapshot> {
-    return db
-      .insertInto("provider_resource_operating_snapshot")
-      .values({
-        enterprise_id: enterpriseId,
-        provider_resource_id: providerResourceId,
-        version,
-        source: input.source,
-        collected_at: input.collected_at,
-        currency: input.currency ?? null,
-        recharge_amount: input.recharge_amount ?? null,
-        current_balance: input.current_balance ?? null,
-        cumulative_cost: input.cumulative_cost ?? null,
-        current_period_cost: input.current_period_cost ?? null,
-        cost_period_start: input.cost_period_start ?? null,
-        cost_period_end: input.cost_period_end ?? null,
-        balance_updated_at: input.balance_updated_at ?? null,
-        package_name: input.package_name ?? null,
-        package_cost: input.package_cost ?? null,
-        total_quota: input.total_quota ?? null,
-        quota_unit: input.quota_unit ?? null,
-        used_quota: input.used_quota ?? null,
-        remaining_quota: input.remaining_quota ?? null,
-        effective_from: input.effective_from ?? null,
-        effective_until: input.effective_until ?? null,
-        reset_cycle: input.reset_cycle ?? null,
-        reset_anchor_at: input.reset_anchor_at ?? null,
-        reset_timezone: input.reset_timezone ?? null,
-        usage_calculation: input.usage_calculation ?? "MANUAL_SNAPSHOT",
-        next_reset_at: input.next_reset_at ?? null,
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+  async attachDiscoveredModels(input: {
+    enterpriseId: string;
+    providerCode: string;
+    resourceId: string;
+    models: DiscoveredProviderModel[];
+  }): Promise<ProviderModelOnboardingResult["models"]> {
+    return this.db.transaction().execute(async (trx) => {
+      const resource = await trx.selectFrom("provider_resource").selectAll()
+        .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.resourceId)
+        .where("status", "in", ["ACTIVE", "DEGRADED"]).forUpdate().executeTakeFirst();
+      if (!resource) throw new EnterpriseReferenceError("resource is not serviceable in enterprise");
+      const result: ProviderModelOnboardingResult["models"] = [];
+      for (const discovered of input.models) {
+        const alias = stableModelAlias(input.providerCode, discovered.id);
+        let unified = await trx.selectFrom("unified_model").selectAll()
+          .where("enterprise_id", "=", input.enterpriseId).where("alias", "=", alias)
+          .executeTakeFirst();
+        const reused = Boolean(unified);
+        if (!unified) {
+          unified = await trx.insertInto("unified_model").values({
+            enterprise_id: input.enterpriseId, alias, display_name: discovered.displayName,
+            required_capabilities: JSON.stringify(discovered.capabilities) as unknown as string[],
+            status: "PENDING_CONFIG",
+          }).returningAll().executeTakeFirstOrThrow();
+        }
+        let route = await trx.selectFrom("model_route").selectAll()
+          .where("enterprise_id", "=", input.enterpriseId)
+          .where("unified_model_id", "=", unified.id)
+          .where("provider_resource_id", "=", resource.id)
+          .where("upstream_model", "=", discovered.id).executeTakeFirst();
+        if (!route) {
+          route = await trx.insertInto("model_route").values({
+            enterprise_id: input.enterpriseId, unified_model_id: unified.id,
+            provider_resource_id: resource.id, upstream_model: discovered.id,
+            priority: 100, weight: 1, enabled: false,
+          }).returningAll().executeTakeFirstOrThrow();
+        }
+        result.push({
+          upstreamModel: discovered.id, unifiedModelId: unified.id, alias,
+          routeId: route.id, reused, status: unified.status === "ACTIVE" ? "ACTIVE" : "PENDING_CONFIG",
+        });
+      }
+      const upstreamModels = [...new Set([...(resource.upstream_models ?? []), ...input.models.map((model) => model.id)])].sort();
+      await trx.updateTable("provider_resource").set({
+        upstream_models: JSON.stringify(upstreamModels) as unknown as string[],
+        version: sql`version + 1`, updated_at: new Date(),
+      }).where("id", "=", resource.id).execute();
+      return result;
+    });
   }
 
   // ===== Unified Model =====
@@ -396,4 +368,9 @@ export class ProviderRepository {
       .orderBy("model_route.weight", "desc")
       .execute() as Promise<Array<ModelRoute & { resource_name: string; resource_status: string }>>;
   }
+}
+
+function stableModelAlias(providerCode: string, upstreamModel: string): string {
+  const slug = upstreamModel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `qianliu-${providerCode}-${slug}`.slice(0, 64);
 }

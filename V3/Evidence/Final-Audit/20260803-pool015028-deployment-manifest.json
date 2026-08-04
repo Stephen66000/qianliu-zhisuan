@@ -1,0 +1,56 @@
+{
+  "deploymentId": "deploy-pool015028-20260803-185239",
+  "startedAt": "2026-08-03T10:52:39Z",
+  "finishedAt": "2026-08-03T10:55:35Z",
+  "status": "SUCCEEDED",
+  "fromVersion": "qianliu-zhisuan-pool015017-43d4bdc4-20260802",
+  "toVersion": "pool015028-1cd8157b",
+  "gitCommit": null,
+  "artifactSha256": "73f2947e8edcbb0332a05a0be66564d2859e8394b3ad5f8cd254d3db694c2693",
+  "migrationFrom": "0032_admin_lifecycle",
+  "migrationTo": "0037_client_identity",
+  "releaseId": "qianliu-zhisuan-pool015028-1cd8157b-20260803",
+  "actor": "Codex（Owner 授权）",
+  "summary": "POOL-015～028 候选通过 v1.4 R3/I2 审计后发布；先完成数据库备份，再停流执行迁移并同批启动 Gateway、Control API、Worker、Web 与 Caddy。",
+  "poolRefs": [
+    "POOL-015",
+    "POOL-016",
+    "POOL-017",
+    "POOL-018",
+    "POOL-019",
+    "POOL-020",
+    "POOL-021",
+    "POOL-022",
+    "POOL-023",
+    "POOL-024",
+    "POOL-025",
+    "POOL-026",
+    "POOL-027",
+    "POOL-028"
+  ],
+  "backupRef": "backup:qianliu-zhisuan/pre-pool015028-20260803-185239",
+  "rollbackTarget": "qianliu-zhisuan-pool015017-43d4bdc4-20260802",
+  "healthSummary": {
+    "controlApi": "PASS",
+    "gateway": "PASS",
+    "caddy": "PASS",
+    "web": "PASS",
+    "worker": "PASS",
+    "postgres": "PASS",
+    "redis": "PASS"
+  },
+  "smokeSummary": {
+    "latestMigration": "0037_client_identity",
+    "controlApiHealth": 200,
+    "gatewayHealth": 200,
+    "caddyHealth": 200,
+    "webIndex": 200,
+    "unauthenticatedAuthMe": 401,
+    "recentSevereLogs": 0
+  },
+  "evidenceRefs": [
+    "V3/Evidence/Final-Audit/20260803-pool015028-code-quality-audit-v1.4.md",
+    "V3/Evidence/Final-Audit/20260803-pool015028-deployment-evidence.md"
+  ],
+  "failureClassification": null
+}

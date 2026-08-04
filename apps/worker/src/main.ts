@@ -8,10 +8,12 @@
  *
  * 预测快照、周期重置、恢复任务、备份在后续工作包（W25）。
  */
-import { createKysely, ReconciliationRepository, RuntimeAssuranceRepository } from "@qianliu/database";
+import { createKysely, OperatingBillRepository, ReconciliationRepository, RuntimeAssuranceRepository, SupplyForecastRepository } from "@qianliu/database";
+import { generateOperatingBill } from "./operating-bill/runner.js";
 import { WecomAppClient } from "./runtime-assurance/wecom-client.js";
 import { runRuntimeAssuranceTick } from "./runtime-assurance/runner.js";
 import { runSchedulerLoop, startHealthServer, type SchedulerHealth } from "./runtime-assurance/scheduler.js";
+import { runSupplyForecastTick } from "./supply-forecast/runner.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -37,10 +39,22 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "operating-bill") {
+    await runOperatingBillTask(args.slice(1));
+    return;
+  }
+
+  if (command === "supply-forecast-once") {
+    await runSupplyForecastOnce();
+    return;
+  }
+
   console.log("[worker] 用法：worker reconciliation --enterprise <id> [--from <iso>] [--to <iso>]");
   console.log("[worker]       worker runtime-assurance-once");
   console.log("[worker]       worker runtime-assurance-scheduler");
   console.log("[worker]       worker runtime-assurance-migrate-legacy");
+  console.log("[worker]       worker operating-bill --enterprise <id> --month <YYYY-MM>");
+  console.log("[worker]       worker supply-forecast-once");
 }
 
 function arg(args: string[], name: string): string | undefined {
@@ -72,6 +86,25 @@ async function runReconciliationTask(args: string[]): Promise<void> {
     if (v.result === "REVIEW") {
       console.warn(`[worker] 对账需复核：存在汇总不一致（SETTLEMENT_MISMATCH）。runId=${outcome.runId}`);
     }
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runOperatingBillTask(args: string[]): Promise<void> {
+  const enterpriseId = arg(args, "--enterprise");
+  const month = arg(args, "--month");
+  if (!enterpriseId || !month) {
+    throw new Error("operating-bill 需要 --enterprise 与 --month");
+  }
+  const db = createKysely();
+  try {
+    const bill = await generateOperatingBill(new OperatingBillRepository(db), enterpriseId, month);
+    console.log(JSON.stringify({
+      event: "operating_bill_generated", enterprise_id: enterpriseId, month,
+      status: bill.status, version: bill.version, total_cost: bill.summary.totalCost,
+      gap_count: bill.gaps.length, generated_at: bill.generatedAt,
+    }));
   } finally {
     await db.destroy();
   }
@@ -122,16 +155,42 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   process.once("SIGTERM", stop);
   process.once("SIGINT", stop);
   const repository = new RuntimeAssuranceRepository(db);
+  const supplyForecastRepository = new SupplyForecastRepository(db);
   const wecom = new WecomAppClient(
     requiredEnv("CREDENTIAL_KEK"), fetch, Date.now, process.env.RUNTIME_ASSURANCE_ADMIN_URL,
   );
   try {
     await runSchedulerLoop({
       db, intervalMs, signal: controller.signal, health,
-      tick: () => runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() }),
+      tick: async () => {
+        const runtime = await runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() });
+        const forecast = await runSupplyForecastTick(supplyForecastRepository);
+        console.log(JSON.stringify({
+          event: "supply_forecast_tick_completed",
+          resources_scanned: forecast.resourcesScanned,
+          snapshots_created: forecast.snapshotsCreated,
+          snapshots_skipped: forecast.snapshotsSkipped,
+        }));
+        return { runtime, forecast };
+      },
     });
   } finally {
     await new Promise<void>((resolve) => healthServer.close(() => resolve()));
+    await db.destroy();
+  }
+}
+
+async function runSupplyForecastOnce(): Promise<void> {
+  const db = createKysely();
+  try {
+    const result = await runSupplyForecastTick(new SupplyForecastRepository(db));
+    console.log(JSON.stringify({
+      event: "supply_forecast_tick_completed",
+      resources_scanned: result.resourcesScanned,
+      snapshots_created: result.snapshotsCreated,
+      snapshots_skipped: result.snapshotsSkipped,
+    }));
+  } finally {
     await db.destroy();
   }
 }

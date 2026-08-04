@@ -35,18 +35,10 @@ import {
   scoreAndSelect,
   pickWinner,
   ROUTING_POLICY,
-  matchMultiplierRule,
-  matchPriceRule,
-  configuredTimeWindows,
-  findMatchedTimeWindow,
-  computeDeductedQuota,
-  computeApiCostFromRule,
   decideDispatch,
-  computeDispatchSaving,
   QUOTA_DECISION,
   availabilitySignalSummary,
-  type BillingRule,
-  type BillingRuleWindow,
+  identifyClient,
   type DispatchInput,
   type DispatchPolicy,
   type ErrorClassification,
@@ -62,6 +54,14 @@ import {
 } from "../routes/chat-protocol.js";
 import { createMessagesStreamWriter } from "../routes/messages-protocol.js";
 import { fingerprintRequest } from "./request-idempotency.js";
+import {
+  calculateDispatchSaving,
+  computeBilling,
+  dispatchCounterfactualEvidence,
+  dispatchSavingFields,
+  summarizePricingEvidence,
+  type BillingOutcome,
+} from "./billing.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
 export interface RouteCandidateRow {
@@ -154,6 +154,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     const requestFingerprint = request.idempotencyKey
       ? fingerprintRequest(capability, body)
       : null;
+    const client = identifyClient({
+      headers: request.headers,
+      protocol: capability,
+      url: request.url,
+    });
 
     // 1. 原子认领请求意图。x-request-id 仅追踪；只有显式 Idempotency-Key 才去重。
     const claim = await deps.ledgerRepo.claimRequest({
@@ -167,7 +172,12 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       protocol: capability,
       unified_model: body.model,
       stream: body.stream ?? false,
-      client_id: clientIdentity(request.headers),
+      client_id: client.rawClientId,
+      agent_family: client.family,
+      agent_version: client.version,
+      agent_identity_source: client.source,
+      agent_identity_confidence: client.confidence,
+      client_identity_rule_version: client.ruleVersion,
     });
     if (claim.kind !== "CREATED") {
       return sendIdempotencyReplay(reply, traceId, claim);
@@ -338,6 +348,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let dispatchMatchedPolicy: DispatchPolicy | null = null;
     let dispatchSwitchTargetId: string | null = null;
     let dispatchDispatchInput: DispatchInput | null = null;
+    let dispatchBaselineCandidate: RoutingCandidateInput | null = null;
+    const invokedResourceIds = new Set<string>();
     let dispatchTerminated = false;
     let grantRevokedDuringDispatch = false;
     let keyAuthorizationRevokedDuringDispatch = false;
@@ -377,6 +389,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           forecastExhaustRisk: resolved.forecastExhaustRisk,
           principalId: principal.principalId,
         };
+        // 冻结经营动作发生前的评分 winner。SWITCH 后 winner 会被替换，不能再从
+        // 最终 Attempt 反推反事实基线。
+        dispatchBaselineCandidate = { ...winner.input };
         const policies = await deps.dispatchRepo.listPublishedPolicies(principal.enterpriseId);
         const decision = decideDispatch(policies, dispatchInput, availableIds);
         dispatchFinalAction = decision.finalAction;
@@ -569,6 +584,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
 
       const adapter = resolveAdapter(cand.providerCode, deps.caller);
       const resourceConfig = candidateByResourceId.get(cand.resourceId);
+      invokedResourceIds.add(cand.resourceId);
       const outcome = await adapter.invoke(
         {
           providerCode: cand.providerCode as "deepseek" | "zhipu" | "kimi",
@@ -737,6 +753,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     // 用 Date.now() 可能选到与 line 不同的规则版本。改为对 ledger_line 聚合（明细已冻结
     // billing_rule/multiplier/cost，事务级不再二次匹配）。
     let transactionApiCost: string | null = null; // 供 dispatch 节复用（避免二次重算）
+    let transactionUsage: { input: number; output: number; cache: number } | null = null;
+    let actualPricingEvidenceComplete = false;
+    let actualPricingEvidence: Array<Record<string, unknown>> = [];
     if (finalOutcome) {
       const lines = await deps.ledgerRepo.listLedgerLines(requestId);
       const sumIn = lines.reduce((acc, l) => acc + l.raw_input_tokens, 0n);
@@ -744,11 +763,15 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       const sumCache = lines.reduce((acc, l) => acc + l.raw_cache_tokens, 0n);
       const sumReasoning = lines.reduce((acc, l) => acc + l.raw_reasoning_tokens, 0n);
       const sumDeducted = lines.reduce((acc, l) => acc + (l.deducted_quota ?? 0n), 0n);
-      // api_cost 为 8 位小数字符串；单请求明细 ≤ maxAttempts（≤2 条），用 Number 求和
-      // 在 double 精度内无误差，toFixed(8) 规整后与明细口径一致。
-      const sumApiCostNum = lines.reduce((acc, l) => acc + Number(l.api_cost ?? "0"), 0);
-      const sumApiCost = sumApiCostNum.toFixed(8);
-      transactionApiCost = sumApiCostNum === 0 ? null : sumApiCost;
+      transactionUsage = {
+        input: Number(sumIn),
+        output: Number(sumOut),
+        cache: Number(sumCache),
+      };
+      const pricingEvidence = summarizePricingEvidence(lines);
+      transactionApiCost = pricingEvidence.actualCost;
+      actualPricingEvidenceComplete = pricingEvidence.complete;
+      actualPricingEvidence = pricingEvidence.items;
       // usage_quality：单请求同质，取首条明细；无明细时回退 finalOutcome。
       const usageQuality = lines[0]?.usage_quality ?? finalOutcome.usage.quality;
       await deps.ledgerRepo.createLedgerTransactionIfAbsent({
@@ -760,7 +783,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         total_cache_tokens: sumCache,
         total_reasoning_tokens: sumReasoning,
         total_deducted_quota: sumDeducted,
-        total_api_cost: sumApiCost,
+        total_api_cost: transactionApiCost ?? "0.00000000",
         usage_quality: usageQuality,
         attempt_count: attemptNo,
         overage: requestOverage,
@@ -775,20 +798,22 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
 
     // 4b. W16 落 dispatch_decision（首次 Attempt 决策冻结，§5.7 行 342 不可覆盖；幂等 UNIQUE(ai_request_id)）
     if (deps.dispatchRepo && dispatchFinalAction !== null && dispatchDispatchInput !== null) {
-      // 反事实节省：actual 来自事务聚合（明细之和），不二次 computeBilling（F-03 一致性）。
+      // actual 来自已冻结账本明细；counterfactual 用完全相同的 Usage 按动作前
+      // winner 在请求时刻命中的规则重放。两侧缺少真实价格规则时一律不可比较。
       const actualCost = transactionApiCost;
-      // 反事实基线：SWITCH 时为原评分 winner（被切换走的资源）的预期成本；否则 null（基线不可比）
-      const counterfactualCost =
-        dispatchFinalAction === "SWITCH" && dispatchSwitchTargetId
-          ? actualCost // W16 简化：等价组同档位，基线≈目标成本（真实需按原 winner 规则重算；W17 对账细化）
-          : null;
-      const actionExecuted = dispatchFinalAction === "SWITCH" && dispatchSwitchTargetId !== null;
-      const saving = computeDispatchSaving({
-        finalAction: dispatchFinalAction,
-        counterfactualCost,
-        actualCost,
-        actionExecuted,
-      });
+      const { counterfactualBilling, counterfactualCost, saving } =
+        await calculateDispatchSaving({
+          finalAction: dispatchFinalAction,
+          switchTargetId: dispatchSwitchTargetId,
+          baselineCandidate: dispatchBaselineCandidate,
+          invokedResourceIds,
+          transactionUsage,
+          actualCost,
+          actualPricingEvidenceComplete,
+          ledgerRepo: deps.ledgerRepo,
+          enterpriseId: principal.enterpriseId,
+          requestStartedAt,
+        });
       await deps.dispatchRepo.createDecisionIfAbsent({
         enterpriseId: principal.enterpriseId,
         aiRequestId: requestId,
@@ -805,6 +830,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           matchedDaysOfWeek: dispatchMatchedPolicy?.matchDaysOfWeek ?? null,
           matchedStartTime: dispatchMatchedPolicy?.matchStartTime ?? null,
           matchedEndTime: dispatchMatchedPolicy?.matchEndTime ?? null,
+          ...dispatchCounterfactualEvidence(dispatchBaselineCandidate, counterfactualBilling),
+          executedResourceIds: [...invokedResourceIds],
+          usageEvidence: transactionUsage,
+          actualPricingEvidence,
+          savingCalculationVersion: "pool-021-v1",
         },
         matchedPolicyId: dispatchMatchedPolicy?.id ?? null,
         matchedPolicyVersion: dispatchMatchedPolicy?.policyVersion ?? null,
@@ -814,9 +844,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         switchTargetResourceId: dispatchSwitchTargetId,
         counterfactualCost,
         actualCost,
-        dispatchSaving: saving.saving === "NOT_CALCULABLE" ? null : saving.saving.toFixed(8),
-        savingCalculable: saving.saving !== "NOT_CALCULABLE",
-        notCalculableReason: saving.reason,
+        ...dispatchSavingFields(saving),
       });
     }
 
@@ -1120,18 +1148,6 @@ function idempotencyReplayState(status: string): {
   };
 }
 
-function clientIdentity(headers: Record<string, unknown>): string | null {
-  const explicit = headers["x-client-id"];
-  const userAgent = headers["user-agent"];
-  const value = typeof explicit === "string"
-    ? explicit
-    : typeof userAgent === "string"
-      ? userAgent
-      : "";
-  const normalized = value.replace(/[\r\n\t]/g, " ").trim();
-  return normalized ? normalized.slice(0, 64) : null;
-}
-
 async function hasCurrentKeyModelAuthorization(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -1369,125 +1385,6 @@ function sendRuntimeBlock(
     .header("x-request-id", traceId).send({
       error: { ...common, type: "server_error", param: null, request_id: requestId },
     });
-}
-
-/** W13 计价结果。 */
-interface BillingOutcome {
-  apiCost: string | null;
-  deductedQuota: string | null;
-  ruleId: string | null;
-  ruleVersion: string | null;
-  multiplier: string | null;
-  ruleSnapshot: Record<string, unknown> | null;
-}
-
-/**
- * W13：按 Attempt 开始时间 + 资源 + 模型匹配生效规则版本，计算费用/扣减。
- * - API 模式：API_PRICE 规则（cache 命中/未命中/输出分项 × 单价）；无规则回退 M2 简化价。
- * - CODING_PLAN 模式：api_cost=null（PACKAGE_INCLUDED 语义，不写数值 0）；
- *   deducted_quota = raw × matched_multiplier（无倍数规则时 multiplier="1"，原始口径）。
- * 历史不重算：命中规则的 id/version/multiplier 冻结到 ledger_line。
- */
-async function computeBilling(
-  ledgerRepo: GatewayLedgerRepository,
-  enterpriseId: string,
-  resourceId: string,
-  upstreamModel: string,
-  mode: "API" | "CODING_PLAN",
-  attemptStartedAt: number,
-  usage: { input: number; output: number; cache: number },
-): Promise<BillingOutcome> {
-  const rules = (await ledgerRepo.listActiveBillingRules(enterpriseId, new Date(attemptStartedAt))).map(
-    (r): BillingRule => ({
-      id: r.id,
-      ruleType: r.rule_type as BillingRule["ruleType"],
-      ruleVersion: r.rule_version,
-      providerResourceId: r.provider_resource_id,
-      upstreamModel: r.upstream_model,
-      effectiveFrom: r.effective_from.getTime(),
-      effectiveTo: r.effective_to ? r.effective_to.getTime() : null,
-      timezone: r.timezone,
-      daysOfWeek: r.days_of_week,
-      startTime: r.start_time,
-      endTime: r.end_time,
-      timeWindows: r.time_windows?.map((window) => ({
-        timezone: window.timezone,
-        daysOfWeek: window.days_of_week,
-        startTime: window.start_time,
-        endTime: window.end_time,
-      })) ?? null,
-      multiplier: r.multiplier,
-      cacheHitPrice: r.cache_hit_price,
-      cacheMissPrice: r.cache_miss_price,
-      outputPrice: r.output_price,
-      currency: r.currency,
-      priority: r.priority,
-    }),
-  );
-
-  if (mode === "CODING_PLAN") {
-    const match = matchMultiplierRule(rules, resourceId, upstreamModel, attemptStartedAt);
-    const multiplier = match?.multiplier ?? "1";
-    // cache 是 input 的子集，不能重复相加。
-    const rawTotal = usage.input + usage.output;
-    return {
-      apiCost: null, // PACKAGE_INCLUDED（TRD §10.2：不写数值 0）
-      deductedQuota: computeDeductedQuota(rawTotal, multiplier),
-      ruleId: match?.ruleId ?? null,
-      ruleVersion: match?.ruleVersion ?? null,
-      multiplier,
-      ruleSnapshot: match ? billingRuleSnapshot(match.rule, match.matchedWindow) : null,
-    };
-  }
-
-  // API 模式
-  const priceRule = matchPriceRule(rules, resourceId, upstreamModel, attemptStartedAt);
-  const apiCost = priceRule
-    ? computeApiCostFromRule(priceRule, usage.input, usage.output, usage.cache)
-    : legacyApiCost(usage.input, usage.output); // 无规则回退 M2 简化价（过渡期）
-  return {
-    apiCost,
-    deductedQuota: null,
-    ruleId: priceRule?.id ?? null,
-    ruleVersion: priceRule?.ruleVersion ?? null,
-    multiplier: null,
-    ruleSnapshot: priceRule
-      ? billingRuleSnapshot(
-          priceRule,
-          findMatchedTimeWindow(priceRule, attemptStartedAt),
-        )
-      : null,
-  };
-}
-
-function billingRuleSnapshot(
-  rule: BillingRule,
-  matchedWindow: BillingRuleWindow | null,
-): Record<string, unknown> {
-  return {
-    ruleType: rule.ruleType,
-    ruleVersion: rule.ruleVersion,
-    effectiveFrom: new Date(rule.effectiveFrom).toISOString(),
-    effectiveTo: rule.effectiveTo === null ? null : new Date(rule.effectiveTo).toISOString(),
-    timezone: rule.timezone,
-    daysOfWeek: rule.daysOfWeek,
-    startTime: rule.startTime,
-    endTime: rule.endTime,
-    timeWindows: configuredTimeWindows(rule),
-    matchedWindow,
-    multiplier: rule.multiplier,
-    cacheHitPrice: rule.cacheHitPrice,
-    cacheMissPrice: rule.cacheMissPrice,
-    outputPrice: rule.outputPrice,
-    currency: rule.currency,
-    priority: rule.priority,
-  };
-}
-
-/** M2 简化计价回退（无 API_PRICE 规则时）：input $0.001/1k + output $0.002/1k。 */
-function legacyApiCost(input: number, output: number): string {
-  const cost = (input / 1000) * 0.001 + (output / 1000) * 0.002;
-  return cost.toFixed(8);
 }
 
 /**

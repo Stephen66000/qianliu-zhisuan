@@ -17,6 +17,7 @@ import {
   STATE_REASON,
   RESOURCE_POOL_POLICY,
   computeCooldownMs,
+  worstResourceStatus,
   deriveResourceTransition,
   deriveSuccessTransition,
   deriveCredentialExpiry,
@@ -33,6 +34,11 @@ function active(overrides: Partial<ResourceRuntimeState> = {}): ResourceRuntimeS
 }
 
 describe("computeCooldownMs 指数退避", () => {
+  it("混合资源取唯一最严重状态", () => {
+    expect(worstResourceStatus(["ACTIVE", "DEGRADED", "RATE_LIMITED"])).toBe("RATE_LIMITED");
+    expect(worstResourceStatus(["EXHAUSTED", "CREDENTIAL_INVALID", "EXPIRED"])).toBe("CREDENTIAL_INVALID");
+    expect(worstResourceStatus([])).toBe("ACTIVE");
+  });
   it("指数增长且确定性", () => {
     expect(computeCooldownMs(1, 30_000, 1_800_000)).toBe(30_000);
     expect(computeCooldownMs(2, 30_000, 1_800_000)).toBe(60_000);

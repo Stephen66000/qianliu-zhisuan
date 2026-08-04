@@ -18,6 +18,7 @@ interface RequestDrilldownProps {
   requestId: string;
 }
 
+// eslint-disable-next-line complexity -- 下钻页按四类独立异步结果分别呈现加载、空态与明细，分支均为声明式展示。
 export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
   const detail = useGatewayRequest(requestId);
   const candidates = useRouteCandidates(requestId);
@@ -169,7 +170,7 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                         {m.reasoningTokens !== "0" ? ` · 推理 ${m.reasoningTokens}` : ""}
                         {m.deductedQuota !== null ? ` · 扣减 ${m.deductedQuota}` : ""}
                         {m.apiCost !== null && m.apiCost !== "0" && m.apiCost !== "0.00000000"
-                          ? ` · 费用 ${m.apiCost} 元`
+                          ? ` · 费用 ${formatMoney(m.apiCost)} 元`
                           : " · 套餐内"}
                         {m.billingRuleSnapshot?.matchedWindow
                           ? ` · 命中时段 ${m.billingRuleSnapshot.matchedWindow.timezone} ${m.billingRuleSnapshot.matchedWindow.startTime}–${m.billingRuleSnapshot.matchedWindow.endTime}`
@@ -232,6 +233,18 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                     : "—"
                   : `不可计算${decision.data.decision.notCalculableReason ? `（${decision.data.decision.notCalculableReason}）` : ""}`
               }
+            />
+            <Field
+              label="反事实成本"
+              value={decision.data.decision.counterfactualCost
+                ? `${formatMoney(decision.data.decision.counterfactualCost)} 元`
+                : "—"}
+            />
+            <Field
+              label="实际成本"
+              value={decision.data.decision.actualCost
+                ? `${formatMoney(decision.data.decision.actualCost)} 元`
+                : "—"}
             />
           </div>
         )}

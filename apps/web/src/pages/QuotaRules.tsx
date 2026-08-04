@@ -14,6 +14,7 @@ import {
   useBillingRules,
   useDispatchPolicies,
   useModelRoutes,
+  usePrincipals,
   useProviderResources,
   useUnifiedModels,
 } from "../api/hooks";
@@ -21,9 +22,21 @@ import type {
   BillingRule,
   DispatchPolicy,
   ModelRouteItem,
+  Principal,
   UnifiedModel,
 } from "../api/types";
 import { StatusTag } from "../components/dashboard/StatusTag";
+import {
+  PrincipalScopeField,
+  policyTransitionImpact,
+  principalScopeText,
+} from "../components/quota/PrincipalScopeField";
+import {
+  DispatchPolicyFormSchema,
+  buildDispatchPolicyPayload,
+  type DispatchPolicyInput,
+  type DispatchPolicyValues,
+} from "../components/quota/dispatch-policy-form";
 import { PageShell } from "../components/layout/PageShell";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
@@ -120,70 +133,12 @@ const RouteSchema = z.object({
   weight: z.coerce.number().int().positive(),
 });
 
-const DispatchPolicyFormSchema = z
-  .object({
-    match_unified_model: z.string(),
-    match_resource_mode: z.enum(["", "API", "CODING_PLAN"]),
-    match_provider_resource_id: z.string(),
-    match_timezone: z.string().max(64),
-    match_days_of_week: z.string().refine(
-      (value) =>
-        value === ""
-        || value.split(",").every((day) => /^[1-7]$/.test(day.trim())),
-      "星期使用 1-7，以逗号分隔",
-    ),
-    match_start_time: OptionalTime,
-    match_end_time: OptionalTime,
-    match_price_multiplier_min: OptionalDecimal,
-    match_remaining_quota_ratio_max: z.string().refine(
-      (value) =>
-        value === ""
-        || /^\d+(?:\.\d+)?$/.test(value) && Number(value) >= 0 && Number(value) <= 1,
-      "额度比例应为 0 到 1",
-    ),
-    match_forecast_exhaust_risk: z.boolean(),
-    match_principal_scope: z.string(),
-    action: z.enum(["ALLOW", "SWITCH", "RATE_LIMIT", "REJECT", "ALLOW_OVERAGE"]),
-    switch_equivalent_group: z.string(),
-    rate_limit_per_minute: z.string().refine(
-      (value) => value === "" || /^\d+$/.test(value) && Number(value) > 0,
-      "限流值必须是正整数",
-    ),
-    policy_version: z.string().min(1, "版本不能为空").max(32),
-    priority: z.coerce.number().int().min(0),
-    description: z.string().max(2000),
-  })
-  .superRefine((input, ctx) => {
-    const timeParts = [
-      input.match_timezone,
-      input.match_start_time,
-      input.match_end_time,
-    ].filter(Boolean);
-    if (timeParts.length !== 0 && timeParts.length !== 3) {
-      ctx.addIssue({ code: "custom", path: ["match_timezone"], message: "时区和起止时间必须同时填写" });
-    }
-    if (input.match_start_time && input.match_start_time === input.match_end_time) {
-      ctx.addIssue({ code: "custom", path: ["match_end_time"], message: "起止时间不能相同" });
-    }
-    if (input.action === "SWITCH") {
-      const ids = input.switch_equivalent_group.split(",").map((id) => id.trim()).filter(Boolean);
-      if (ids.length < 2) {
-        ctx.addIssue({ code: "custom", path: ["switch_equivalent_group"], message: "至少选择两个等价资源" });
-      }
-    }
-    if (input.action === "RATE_LIMIT" && !input.rate_limit_per_minute) {
-      ctx.addIssue({ code: "custom", path: ["rate_limit_per_minute"], message: "请填写每分钟请求数" });
-    }
-  });
-
 export type BillingRuleValues = z.infer<typeof BillingRuleSchema>;
 type BillingRuleInput = z.input<typeof BillingRuleSchema>;
 type BillingWindowForm = z.infer<typeof BillingWindowFormSchema>;
 type UnifiedModelValues = z.infer<typeof UnifiedModelSchema>;
 type RouteValues = z.infer<typeof RouteSchema>;
 type RouteInput = z.input<typeof RouteSchema>;
-type DispatchPolicyValues = z.infer<typeof DispatchPolicyFormSchema>;
-type DispatchPolicyInput = z.input<typeof DispatchPolicyFormSchema>;
 
 function localDateTimeValue(date = new Date()): string {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
@@ -240,38 +195,15 @@ export function buildBillingRulePayload(values: BillingRuleValues) {
   };
 }
 
-export function buildDispatchPolicyPayload(values: DispatchPolicyValues) {
-  const split = (value: string) =>
-    value.split(",").map((item) => item.trim()).filter(Boolean);
-  return {
-    match_unified_model: values.match_unified_model || null,
-    match_resource_mode: values.match_resource_mode || null,
-    match_provider_resource_id: values.match_provider_resource_id || null,
-    match_timezone: values.match_timezone || null,
-    match_days_of_week: values.match_days_of_week
-      ? split(values.match_days_of_week).map(Number)
-      : null,
-    match_start_time: values.match_start_time || null,
-    match_end_time: values.match_end_time || null,
-    match_price_multiplier_min: values.match_price_multiplier_min || null,
-    match_remaining_quota_ratio_max: values.match_remaining_quota_ratio_max || null,
-    match_forecast_exhaust_risk: values.match_forecast_exhaust_risk || null,
-    match_principal_scope: values.match_principal_scope
-      ? split(values.match_principal_scope)
-      : null,
-    action: values.action,
-    switch_equivalent_group: values.action === "SWITCH"
-      ? split(values.switch_equivalent_group)
-      : null,
-    rate_limit_per_minute: values.action === "RATE_LIMIT"
-      ? Number(values.rate_limit_per_minute)
-      : null,
-    policy_version: values.policy_version,
-    priority: values.priority,
-    description: values.description || null,
-    source: "WEB_ADMIN",
-  };
+function principalList(data: { principals: Principal[] } | undefined): Principal[] {
+  return data?.principals ?? [];
 }
+
+function firstQueryError(errors: Array<Error | null>): Error | null {
+  return errors.find((error) => error !== null && error !== undefined) ?? null;
+}
+
+export { buildDispatchPolicyPayload } from "../components/quota/dispatch-policy-form";
 
 export function QuotaRulesPage() {
   const queryClient = useQueryClient();
@@ -279,12 +211,18 @@ export function QuotaRulesPage() {
   const policiesQuery = useDispatchPolicies();
   const modelsQuery = useUnifiedModels();
   const resourcesQuery = useProviderResources();
-  useRedirectOnUnauthorized(
-    rulesQuery.error ?? policiesQuery.error ?? modelsQuery.error ?? resourcesQuery.error,
-  );
+  const principalsQuery = usePrincipals("all");
+  useRedirectOnUnauthorized(firstQueryError([
+    rulesQuery.error,
+    policiesQuery.error,
+    modelsQuery.error,
+    resourcesQuery.error,
+    principalsQuery.error,
+  ]));
 
   const models = useMemo(() => modelsQuery.data?.models ?? [], [modelsQuery.data?.models]);
   const resources = resourcesQuery.data?.resources ?? [];
+  const principals = useMemo(() => principalList(principalsQuery.data), [principalsQuery.data]);
   const [showRuleForm, setShowRuleForm] = useState(false);
   const [showPolicyForm, setShowPolicyForm] = useState(false);
   const [showModelForm, setShowModelForm] = useState(false);
@@ -297,6 +235,8 @@ export function QuotaRulesPage() {
     policy: DispatchPolicy;
     action: "publish" | "retire";
   } | null>(null);
+  const [editingPolicy, setEditingPolicy] = useState<DispatchPolicy | null>(null);
+  const [principalSearch, setPrincipalSearch] = useState("");
   const routesQuery = useModelRoutes(selectedModelId);
 
   useEffect(() => {
@@ -356,7 +296,8 @@ export function QuotaRulesPage() {
       match_price_multiplier_min: "",
       match_remaining_quota_ratio_max: "",
       match_forecast_exhaust_risk: false,
-      match_principal_scope: "",
+      match_principal_scope_mode: "ALL",
+      match_principal_scope: [],
       action: "REJECT",
       switch_equivalent_group: "",
       rate_limit_per_minute: "",
@@ -366,6 +307,8 @@ export function QuotaRulesPage() {
     },
   });
   const selectedPolicyAction = policyForm.watch("action");
+  const principalScopeMode = policyForm.watch("match_principal_scope_mode");
+  const selectedPrincipalIds = policyForm.watch("match_principal_scope");
 
   useEffect(() => {
     if (selectedRuleType === "API_PRICE") {
@@ -412,9 +355,13 @@ export function QuotaRulesPage() {
   });
   const createPolicy = useMutation({
     mutationFn: (values: DispatchPolicyValues) =>
-      post("/dispatch-policies", buildDispatchPolicyPayload(values)),
+      editingPolicy
+        ? patch(`/dispatch-policies/${editingPolicy.id}`, buildDispatchPolicyPayload(values))
+        : post("/dispatch-policies", buildDispatchPolicyPayload(values)),
     onSuccess: () => {
       setShowPolicyForm(false);
+      setEditingPolicy(null);
+      policyForm.reset();
       void refreshPolicies();
     },
   });
@@ -476,6 +423,33 @@ export function QuotaRulesPage() {
   const canCreateRoute = hasActiveModels && resources.length > 0;
   const enabledRoutes = routes.filter((route) => route.enabled);
   const canCreateRule = canCreateRoute && enabledRoutes.length > 0;
+  const principalById = new Map(principals.map((principal) => [principal.id, principal]));
+
+  const editPolicy = (policy: DispatchPolicy) => {
+    const scope = policy.matchPrincipalScope ?? [];
+    setEditingPolicy(policy);
+    setShowPolicyForm(true);
+    policyForm.reset({
+      match_unified_model: policy.matchUnifiedModel ?? "",
+      match_resource_mode: (policy.matchResourceMode as "" | "API" | "CODING_PLAN") ?? "",
+      match_provider_resource_id: policy.matchProviderResourceId ?? "",
+      match_timezone: policy.matchTimezone ?? "",
+      match_days_of_week: policy.matchDaysOfWeek?.join(",") ?? "",
+      match_start_time: policy.matchStartTime?.slice(0, 5) ?? "",
+      match_end_time: policy.matchEndTime?.slice(0, 5) ?? "",
+      match_price_multiplier_min: policy.matchPriceMultiplierMin ?? "",
+      match_remaining_quota_ratio_max: policy.matchRemainingQuotaRatioMax ?? "",
+      match_forecast_exhaust_risk: policy.matchForecastExhaustRisk ?? false,
+      match_principal_scope_mode: scope.length > 0 ? "SELECTED" : "ALL",
+      match_principal_scope: scope,
+      action: policy.action,
+      switch_equivalent_group: policy.switchEquivalentGroup.join(","),
+      rate_limit_per_minute: policy.rateLimitPerMinute?.toString() ?? "",
+      policy_version: policy.policyVersion,
+      priority: policy.priority,
+      description: policy.description ?? "",
+    });
+  };
   const error =
     createRule.error ??
     updateRule.error ??
@@ -1005,7 +979,11 @@ export function QuotaRulesPage() {
       <ManagementSection
         actionLabel="新建调度策略"
         hint="第 4 步：计价规则准备完成后，已发布策略才会参与请求调度；策略版本和历史决策保持不变。"
-        onAction={() => setShowPolicyForm((value) => !value)}
+        onAction={() => {
+          setEditingPolicy(null);
+          policyForm.reset();
+          setShowPolicyForm((value) => !value);
+        }}
         title="调度策略"
       >
         {showPolicyForm ? (
@@ -1145,14 +1123,21 @@ export function QuotaRulesPage() {
             >
               <input className={INPUT_CLASS} id="policy-quota-ratio" {...policyForm.register("match_remaining_quota_ratio_max")} />
             </FormField>
-            <FormField
+            <PrincipalScopeField
               error={policyForm.formState.errors.match_principal_scope?.message}
-              hint="主体 ID 用英文逗号分隔；留空表示全部主体"
-              htmlFor="policy-principals"
-              label="主体范围（可空）"
-            >
-              <input className={INPUT_CLASS} id="policy-principals" {...policyForm.register("match_principal_scope")} />
-            </FormField>
+              mode={principalScopeMode}
+              onModeChange={(mode) => {
+                policyForm.setValue("match_principal_scope_mode", mode, { shouldValidate: true });
+                policyForm.setValue("match_principal_scope", [], { shouldValidate: true });
+              }}
+              onSearch={setPrincipalSearch}
+              onSelectedIdsChange={(ids) =>
+                policyForm.setValue("match_principal_scope", ids, { shouldValidate: true })
+              }
+              principals={principals}
+              search={principalSearch}
+              selectedIds={selectedPrincipalIds}
+            />
             <label className="flex items-center gap-2 self-end pb-2 text-[12px] text-ql-fg">
               <input type="checkbox" {...policyForm.register("match_forecast_exhaust_risk")} />
               仅预计耗尽时命中
@@ -1170,7 +1155,7 @@ export function QuotaRulesPage() {
                 disabled={createPolicy.isPending}
                 type="submit"
               >
-                创建草稿
+                {editingPolicy ? "保存草稿" : "创建草稿"}
               </button>
             </div>
           </form>
@@ -1195,6 +1180,7 @@ export function QuotaRulesPage() {
                   <th className="p-2 font-medium">模型 / 资源</th>
                   <th className="p-2 font-medium">时段</th>
                   <th className="p-2 font-medium">动作</th>
+                  <th className="p-2 font-medium">主体范围</th>
                   <th className="p-2 text-right font-medium">优先级</th>
                   <th className="p-2 font-medium">状态</th>
                   <th className="p-2 text-right font-medium">操作</th>
@@ -1217,6 +1203,9 @@ export function QuotaRulesPage() {
                         : "全天"}
                     </td>
                     <td className="p-2 font-mono">{policy.action}</td>
+                    <td className="p-2">
+                      {principalScopeText(policy.matchPrincipalScope, principalById)}
+                    </td>
                     <td className="p-2 text-right">{policy.priority}</td>
                     <td className="p-2">
                       <StatusTag tone={policy.status === "PUBLISHED" ? "neutral" : "warning"}>
@@ -1225,13 +1214,22 @@ export function QuotaRulesPage() {
                     </td>
                     <td className="p-2 text-right">
                       {policy.status === "DRAFT" ? (
-                        <button
-                          className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
-                          onClick={() => transitionPolicy.mutate({ policy, action: "validate" })}
-                          type="button"
-                        >
-                          校验
-                        </button>
+                        <>
+                          <button
+                            className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                            onClick={() => editPolicy(policy)}
+                            type="button"
+                          >
+                            编辑
+                          </button>
+                          <button
+                            className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                            onClick={() => transitionPolicy.mutate({ policy, action: "validate" })}
+                            type="button"
+                          >
+                            校验
+                          </button>
+                        </>
                       ) : null}
                       {policy.status === "VALIDATED" ? (
                         <button
@@ -1263,11 +1261,7 @@ export function QuotaRulesPage() {
       <ConfirmDialog
         danger={policyActionTarget?.action === "retire"}
         confirmLabel={policyActionTarget?.action === "publish" ? "确认发布" : "确认停用"}
-        impact={
-          policyActionTarget?.action === "publish"
-            ? `发布策略 ${policyActionTarget.policy.policyVersion} 后，新请求将立即执行 ${policyActionTarget.policy.action}。`
-            : `停用策略 ${policyActionTarget?.policy.policyVersion ?? ""} 后，新请求将立即停止命中；历史决策不变。`
-        }
+        impact={policyTransitionImpact(policyActionTarget, principalById)}
         loading={transitionPolicy.isPending}
         onCancel={() => setPolicyActionTarget(null)}
         onConfirm={() => {
