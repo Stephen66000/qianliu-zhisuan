@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createOpenAiCompatibleCaller,
   encryptCredential,
@@ -599,6 +599,95 @@ describe("OpenAI-compatible HTTP caller", () => {
     expect(JSON.stringify(outcome)).not.toContain("proxy html");
   });
 
+  it("29.9 秒首字节继续成功，Kimi 30 秒后首字节使用独立门限", async () => {
+    vi.useFakeTimers();
+    try {
+      const events = [
+        "data: {\"choices\":[{\"delta\":{\"content\":\"慢响应\"}}]}\n\n",
+        "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":2}}\n\n",
+        "data: [DONE]\n\n",
+      ];
+      const options = {
+        env: {},
+        firstByteTimeoutMs: 30_000,
+        firstByteTimeoutMsForResource: (item: AdapterResource) =>
+          item.providerCode === "kimi" ? 120_000 : 30_000,
+        requestTimeoutMs: 10 * 60_000,
+      };
+      const deepseekCaller = createOpenAiCompatibleCaller({
+        ...options,
+        fetch: delayedResponseFetch(29_900, streamResponse(events)),
+      });
+      const deepseekPending = deepseekCaller(resource(), responsesRequest(true), 1);
+      await vi.advanceTimersByTimeAsync(29_900);
+      const deepseekOutcome = await deepseekPending;
+
+      const kimiCaller = createOpenAiCompatibleCaller({
+        ...options,
+        fetch: delayedResponseFetch(30_100, streamResponse(events)),
+      });
+      const kimiPending = kimiCaller(
+        resource({ providerCode: "kimi", mode: "CODING_PLAN" }),
+        responsesRequest(true),
+        1,
+      );
+      await vi.advanceTimersByTimeAsync(30_100);
+      const kimiOutcome = await kimiPending;
+
+      expect(deepseekOutcome).toMatchObject({ committed: true, status: 200 });
+      expect(kimiOutcome).toMatchObject({
+        committed: true,
+        status: 200,
+        usage: { input: 9, output: 2 },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("Kimi 超过 120 秒首字节门限仍稳定记录 FIRST_BYTE_TIMEOUT", async () => {
+    vi.useFakeTimers();
+    try {
+      const caller = createOpenAiCompatibleCaller({
+        fetch: delayedResponseFetch(120_100, streamResponse([])),
+        env: {},
+        firstByteTimeoutMsForResource: () => 120_000,
+        requestTimeoutMs: 10 * 60_000,
+      });
+      const pending = caller(
+        resource({ providerCode: "kimi", mode: "CODING_PLAN" }),
+        responsesRequest(true),
+        1,
+      );
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      await expect(pending).resolves.toMatchObject({
+        status: 504,
+        committed: false,
+        error: "upstream_timeout",
+        failureLayer: "FIRST_BYTE_TIMEOUT",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("上游真实 504 保持 UPSTREAM_HTTP，不伪装成 Gateway 主动超时", async () => {
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse({ error: { code: "vendor_timeout" } }, 504),
+      env: {},
+    });
+
+    const outcome = await caller(resource({ providerCode: "kimi" }), responsesRequest(), 1);
+
+    expect(outcome).toMatchObject({
+      status: 504,
+      committed: false,
+      failureLayer: "UPSTREAM_HTTP",
+      upstreamCode: "vendor_timeout",
+    });
+  });
+
   it("流式空闲超时发生在已提交后，保留首字节与失败层", async () => {
     const request = responsesRequest(true);
     request.onStreamChunk = () => undefined;
@@ -903,6 +992,21 @@ function jsonResponse(
     text: async () => JSON.stringify(payload),
     body: null,
   };
+}
+
+function delayedResponseFetch(delayMs: number, response: HttpResponseLike): HttpFetch {
+  return async (_url, init) => new Promise<HttpResponseLike>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      settled = true;
+      resolve(response);
+    }, delayMs);
+    init.signal.addEventListener("abort", () => {
+      if (settled) return;
+      clearTimeout(timer);
+      reject(new Error("aborted"));
+    }, { once: true });
+  });
 }
 
 function streamResponse(events: string[]): HttpResponseLike {

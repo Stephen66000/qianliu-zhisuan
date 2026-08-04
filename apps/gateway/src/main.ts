@@ -9,14 +9,11 @@
  *   - 缺凭证/Base URL 明确失败，生产路径不返回 Stub 模拟结果。
  */
 import { createKysely, GatewayLedgerRepository, ResourcePoolRepository, DispatchPolicyRepository, QuotaGateRepository, RuntimeAssuranceRepository } from "@qianliu/database";
-import {
-  createOpenAiCompatibleCaller,
-  decodeKek,
-  resolveProviderSecret,
-} from "@qianliu/provider-adapters";
+import { decodeKek, resolveProviderSecret } from "@qianliu/provider-adapters";
 import { installGracefulShutdown } from "@qianliu/observability";
 import { buildGateway } from "./server.js";
 import { createRealPipeline, type RouteCandidateRow } from "./pipeline/real-pipeline.js";
+import { createProductionUpstreamCaller } from "./upstream-caller-factory.js";
 
 async function start(): Promise<void> {
   const port = Number(process.env.GATEWAY_PORT ?? 8787);
@@ -33,11 +30,7 @@ async function start(): Promise<void> {
   const runtimeAssuranceRepo = new RuntimeAssuranceRepository(db);
 
   // 真实 OpenAI-compatible HTTP caller。缺配置时返回可解释错误，不模拟成功。
-  const caller = createOpenAiCompatibleCaller({
-    firstByteTimeoutMs: positiveEnvMs("GATEWAY_UPSTREAM_FIRST_BYTE_TIMEOUT_MS", 30_000),
-    streamIdleTimeoutMs: positiveEnvMs("GATEWAY_UPSTREAM_STREAM_IDLE_TIMEOUT_MS", 45_000),
-    requestTimeoutMs: positiveEnvMs("GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS", 10 * 60_000),
-  });
+  const caller = createProductionUpstreamCaller(process.env);
 
   // listCandidates：model_route join 查询（与 w08~w16 集成测试一致的生产实现）
   const listCandidates = async (enterpriseId: string, model: string): Promise<RouteCandidateRow[]> => {
@@ -144,16 +137,6 @@ function requireEnv(name: string): string {
     throw new Error(`必需环境变量 ${name} 未设置（不提供 dev fallback；见 F-02 整改）`);
   }
   return val;
-}
-
-function positiveEnvMs(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (raw === undefined) return fallback;
-  const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`${name} 必须是正整数毫秒`);
-  }
-  return value;
 }
 
 start().catch((err) => {

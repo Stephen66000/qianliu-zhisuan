@@ -8,16 +8,14 @@
  */
 import type { Outcome, ResponsesRequest, Usage } from "@qianliu/contracts";
 import { fetch as undiciFetch } from "undici";
-import {
-  decryptCredential,
-  type EncryptedCredential,
-} from "./crypto.js";
+import { decryptCredential, type EncryptedCredential } from "./crypto.js";
 import { SecretValue } from "./secret-value.js";
 import {
   type AdapterRequest,
   type AdapterResource,
   type UpstreamCaller,
 } from "./index.js";
+import { resolveFirstByteTimeoutMs } from "./resource-timeout-policy.js";
 
 type ProviderCode = AdapterResource["providerCode"];
 
@@ -65,6 +63,7 @@ export interface OpenAiCompatibleCallerOptions {
   requestTimeoutMs?: number;
   /** 从发起请求到首个上游响应字节的上限。 */
   firstByteTimeoutMs?: number;
+  firstByteTimeoutMsForResource?: (resource: AdapterResource) => number;
   /** 流式已开始后，两个上游数据块之间的最大空闲时间。 */
   streamIdleTimeoutMs?: number;
 }
@@ -108,8 +107,7 @@ interface UpstreamMessage {
 export function createOpenAiCompatibleCaller(
   options: OpenAiCompatibleCallerOptions = {},
 ): UpstreamCaller {
-  const env = options.env ?? process.env;
-  const fetchImpl = options.fetch ?? defaultFetch;
+  const { env = process.env, fetch: fetchImpl = defaultFetch } = options;
   const requestTimeoutMs = options.requestTimeoutMs ?? 10 * 60_000;
   const firstByteTimeoutMs = options.firstByteTimeoutMs ?? 30_000;
   const streamIdleTimeoutMs = options.streamIdleTimeoutMs ?? 45_000;
@@ -129,7 +127,7 @@ export function createOpenAiCompatibleCaller(
     const timeout = createLayeredTimeout({
       requestAbort: request.abort,
       requestTimeoutMs,
-      firstByteTimeoutMs,
+      firstByteTimeoutMs: resolveFirstByteTimeoutMs(resource, firstByteTimeoutMs, options.firstByteTimeoutMsForResource),
       streamIdleTimeoutMs,
     });
 

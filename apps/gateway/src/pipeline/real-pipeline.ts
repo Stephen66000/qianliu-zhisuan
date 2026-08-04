@@ -31,7 +31,6 @@ import type {
 } from "@qianliu/database";
 import { SecretValue, type UpstreamCaller } from "@qianliu/provider-adapters";
 import {
-  isSwitchable,
   scoreAndSelect,
   pickWinner,
   ROUTING_POLICY,
@@ -62,6 +61,7 @@ import {
   summarizePricingEvidence,
   type BillingOutcome,
 } from "./billing.js";
+import { shouldAttemptUpstreamFailover } from "../upstream-failover-policy.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
 export interface RouteCandidateRow {
@@ -737,9 +737,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
 
       finalOutcome = outcome;
 
-      // 3e. 切换判定：committed=true 绝不切换（WT-12）；committed=false 且可切换错误 → 重评
-      if (outcome.committed) break;
-      if (!classification || !isSwitchable(classification as ErrorClassification)) break;
+      // 3e. 切换判定：已提交、首字节超时或不可切换分类都停止重打。
+      if (!shouldAttemptUpstreamFailover(
+        outcome,
+        classification as ErrorClassification | null,
+      )) break;
       // 429 必须保留给客户端并进入资源冷却；唯一资源不在同一
       // 北向请求内立即重打，避免与 SDK 自动重试叠加放大限流。
       triedResourceIds.add(cand.resourceId);

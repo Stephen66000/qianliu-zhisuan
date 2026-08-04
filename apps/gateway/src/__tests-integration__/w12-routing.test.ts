@@ -28,6 +28,7 @@ import {
   digestApiKey,
   apiKeyPrefix,
   StubUpstream,
+  type UpstreamCaller,
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
 import { createRealPipeline, type RouteCandidateRow } from "../pipeline/real-pipeline.js";
@@ -52,9 +53,12 @@ function authHeader(): Record<string, string> {
 }
 
 /** 用当前 stub 配置构建 app（每个用例可重建 stub 故障模式）。 */
-async function buildApp(affinityResourceId: string | null): Promise<FastifyInstance> {
-  const caller = async (res: unknown, req: unknown, n: number) =>
-    stub.invoke(res as never, req as never, n);
+async function buildApp(
+  affinityResourceId: string | null,
+  callerOverride?: UpstreamCaller,
+): Promise<FastifyInstance> {
+  const caller = callerOverride ?? (async (res: unknown, req: unknown, n: number) =>
+    stub.invoke(res as never, req as never, n));
   const listCandidates = async (entId: string, model: string): Promise<RouteCandidateRow[]> => {
     const routes = await db
       .selectFrom("model_route")
@@ -284,6 +288,42 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
       expect(attempts[0]!.error_classification).toBe("STREAM_INTERRUPTED_AFTER_COMMIT");
       expect((await ledgerRepo.getRequest(requestId))!.status).toBe("FAILED");
     } finally {
+      await app.close();
+    }
+  });
+
+  it("Kimi 首字节超时不盲目调用第二资源，且不产生 Usage 或账本明细", async () => {
+    let upstreamCalls = 0;
+    const caller: UpstreamCaller = async () => {
+      upstreamCalls += 1;
+      return {
+        status: 504,
+        committed: false,
+        usage: { input: 0, output: 0, cache: 0, reasoning: 0, quality: "UNKNOWN" },
+        error: "upstream_timeout",
+        failureLayer: "FIRST_BYTE_TIMEOUT",
+      };
+    };
+    const app = await buildApp(resA, caller);
+    try {
+      const res = await app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(),
+        payload: { model: "qianliu-kimi-k3", messages: [{ role: "user", content: "长输入" }], stream: true },
+      });
+      expect(res.statusCode).toBe(504);
+      const requestId = res.headers["x-request-id"] as string;
+      const attempts = await ledgerRepo.listAttempts(requestId);
+      expect(upstreamCalls).toBe(1);
+      expect(attempts).toHaveLength(1);
+      expect(attempts[0]).toMatchObject({
+        provider_resource_id: resA,
+        failure_layer: "FIRST_BYTE_TIMEOUT",
+        switch_reason: null,
+      });
+      expect(await ledgerRepo.listUsageEvents(requestId)).toHaveLength(0);
+      expect(await ledgerRepo.listLedgerLines(requestId)).toHaveLength(0);
+    } finally {
+      await poolRepo.recordSuccess(resA);
       await app.close();
     }
   });

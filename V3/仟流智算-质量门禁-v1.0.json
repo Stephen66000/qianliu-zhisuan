@@ -6,7 +6,7 @@
     "pnpm": "11.11.0"
   },
   "coverage": {
-    "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度、员工模型规则授权）",
+    "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度、员工模型规则授权、厂商分层超时与上游切换）",
     "statements": 95,
     "branches": 85,
     "functions": 90,
@@ -46,11 +46,21 @@
         "scope": "pool029-web-authorization",
         "report": "apps/web/coverage/pool029-web/coverage-summary.json",
         "minimum": { "statements": 99.65, "branches": 88.81, "functions": 95.23, "lines": 99.65 }
+      },
+      {
+        "scope": "pool030-gateway-timeout",
+        "report": "apps/gateway/coverage/pool030-gateway/coverage-summary.json",
+        "minimum": { "statements": 100, "branches": 100, "functions": 100, "lines": 100 }
+      },
+      {
+        "scope": "pool030-provider-timeout",
+        "report": "packages/provider-adapters/coverage/pool030-provider/coverage-summary.json",
+        "minimum": { "statements": 100, "branches": 100, "functions": 100, "lines": 100 }
       }
     ]
   },
   "mutation": {
-    "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理 + packages/database 员工模型授权集合规则",
+    "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理 + packages/database 员工模型授权集合规则 + Gateway/Provider Adapter 分层超时与切换策略",
     "break": 70,
     "target": 80,
     "survivor_dispositions": [
