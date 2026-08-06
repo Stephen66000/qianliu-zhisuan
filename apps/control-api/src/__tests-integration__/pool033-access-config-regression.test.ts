@@ -145,7 +145,7 @@ describe("POOL-033 接入配置回归：DeepSeek Flash/Pro 双模型完整流程
     expect(allowed).toHaveLength(2);
   });
 
-  it("掐掉 Pro 后，Pro 进显式禁用清单（Gateway 池门禁层会据此拒绝 Pro 调用）", async () => {
+  it("掐掉 Pro 后，白名单只剩 Flash；Pro 进显式禁用清单且其 assignment 已停用", async () => {
     const principalId = await createEmployeeWithKey("FlashPro-掐Pro");
     await putAccessConfig(principalId, 1, "regression-disable-001", [
       { provider_code: "deepseek", quota_value: "300000000", enabled_model_ids: [flashModelId, proModelId] },
@@ -155,21 +155,24 @@ describe("POOL-033 接入配置回归：DeepSeek Flash/Pro 双模型完整流程
     ]);
     expect(put.statusCode).toBe(200);
 
-    // 掐掉的 Pro 进显式禁用清单——这是撤权的真实生效点（Gateway findAdmissibleGrant
-    // 查禁用清单后返回 null，拒绝实际调用）。
+    // 掐掉的 Pro 进显式禁用清单。
     const disabled = await db.selectFrom("principal_provider_disabled_model").select("unified_model_id")
       .where("principal_id", "=", principalId).execute();
     expect(disabled.map((r) => r.unified_model_id)).toContain(proModelId);
-    // Flash 不在禁用清单。
     expect(disabled.map((r) => r.unified_model_id)).not.toContain(flashModelId);
 
-    // 已知限制（不在本次修复范围）：refreshKeyModels 的 poolAllowed 正确排除了 Pro，
-    // 但 employee_model_rule_assignment 里 Pro 的旧 assignment 未被本次保存停用，
-    // 导致 managed 来源仍含 Pro、白名单最终仍含 Pro。Pro 的实际拒绝由 Gateway 禁用清单
-    // 保障（findAdmissibleGrant），白名单层的这点冗余不构成权限泄露（Gateway 会拦）。
-    // 待后续单独修 assignment 清理逻辑后，此处可收紧为 toHaveLength(1)。
+    // Pro 的 assignment 已被停用（修复后：同一规则版本内掐型号会停用旧 assignment）。
+    const proAssignment = await db.selectFrom("employee_model_rule_assignment").select("status")
+      .where("principal_id", "=", principalId)
+      .where("unified_model_id", "=", proModelId).execute();
+    expect(proAssignment.length).toBe(1);
+    expect(proAssignment[0]!.status).toBe("DISABLED");
+
+    // 白名单只剩 Flash（Pro 被禁用清单排除 + assignment 停用，两层都不再含 Pro）。
     const allowed = await readAllowedModelIds(principalId);
     expect(allowed).toContain(flashModelId);
+    expect(allowed).not.toContain(proModelId);
+    expect(allowed).toHaveLength(1);
   });
 
   it("重新勾选 Pro 后，白名单恢复 Flash + Pro", async () => {

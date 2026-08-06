@@ -461,6 +461,21 @@ export class PrincipalAccessConfigRepository {
 
     // 建 assignment（指向池 grant_id）。
     const targetKeys = new Set(targets.map((t) => `${t.unified_model_id}:${t.provider_resource_id}`));
+    // 修复（POOL-033 回归）：同一规则版本内"掐型号"时，被掐型号的旧 assignment 必须停用。
+    // 原实现只为 targets 建 assignment（onConflict doNothing），但不触碰本次未选中的旧 ACTIVE
+    // assignment → refreshKeyModels 的 managed 来源仍含被掐型号 → 白名单冗余。
+    // 虽 Gateway 禁用清单会兜底拒绝实际调用，但白名单冗余违反"静态授权集即真实可用集"语义，
+    // 也让回归测试无法收紧断言。此处停用该规则版本下不在 targets 里的 ACTIVE assignment。
+    const targetModelIds = new Set(targets.map((t) => t.unified_model_id));
+    // targets 非空时停用被掐型号的旧 assignment（targets 为空时本函数不会走到这里——
+    // 就绪校验拒绝 quota>0 但 enabled_model_ids 为空，且 poolGrantByProvider 为空时无池可挂）。
+    if (targetModelIds.size > 0) {
+      await trx.updateTable("employee_model_rule_assignment")
+        .set({ status: "DISABLED", disabled_at: new Date() })
+        .where("rule_version_id", "=", ruleVersionId)
+        .where("status", "=", "ACTIVE")
+        .where("unified_model_id", "not in", [...targetModelIds]).execute();
+    }
     for (const target of targets) {
       const m = modelById.get(target.unified_model_id)!;
       const poolGrantId = poolGrantByProvider.get(m.provider_code);
