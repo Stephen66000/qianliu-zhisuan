@@ -11,8 +11,8 @@ umask 077
 export PATH="/usr/local/bin:/opt/homebrew/bin:/Applications/Docker.app/Contents/Resources/bin:${PATH}"
 
 repo_url="https://github.com/Stephen66000/qianliu-zhisuan.git"
-candidate_commit="bed91986a6594ee2c37c83936f86a2c88d5ff931"
-release="/Users/stephen/releases/qianliu-zhisuan-pool033fix-bed9198-$(date '+%Y%m%d')"
+candidate_commit="e69616a1121263c77e41cf7efdc297f80f14c354"
+release="/Users/stephen/releases/qianliu-zhisuan-pool033fix-e69616a-$(date '+%Y%m%d')"
 previous="$(cat /Users/stephen/qianliu-current-release.txt)"
 stamp="$(date '+%Y%m%d-%H%M%S')"
 backup_dir="/Users/stephen/backups/qianliu-zhisuan"
@@ -31,7 +31,7 @@ rollback() {
   if test "$paused" = 1; then
     log "attempting application rollback; database may already be at 0039 (additive, 不回滚)"
     for service in control-api gateway worker web; do
-      docker image tag "qianliu-rollback-bed9198-${service}" "qianliu-zhisuan-${service}" || true
+      docker image tag "qianliu-rollback-e69616a-${service}" "qianliu-zhisuan-${service}" || true
     done
     (cd "$previous/deploy" && docker compose up -d --no-build) || true
     log "若数据库已升到 0039，需用 ${backup} 恢复回 0038 才能完整回到 029/030"
@@ -79,7 +79,7 @@ log "step 3: freezing rollback images"
 for service in control-api gateway worker web; do
   old_id="$(docker inspect --format '{{.Image}}' "qianliu-zhisuan-${service}-1")"
   test -n "$old_id"
-  docker image tag "$old_id" "qianliu-rollback-bed9198-${service}"
+  docker image tag "$old_id" "qianliu-rollback-e69616a-${service}"
 done
 log "已冻结回滚镜像（回到 029/030）"
 
