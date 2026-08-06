@@ -1212,7 +1212,12 @@ async function hasCurrentInvocationAuthorization(
       join
         .onRef("principal_grant.enterprise_id", "=", "principal_key.enterprise_id")
         .onRef("principal_grant.principal_id", "=", "principal_key.principal_id")
-        .onRef("principal_grant.model_alias", "=", "unified_model.alias")
+        // POOL-033：池化后 grant 的 model_alias='*'（厂商池），不再等于具体 unified_model.alias。
+        // 改为：池行（pool_model_alias='*'）或精确型号行（model_alias=alias）都匹配。
+        .on((eb) => eb.or([
+          eb("principal_grant.pool_model_alias", "=", "*"),
+          eb("principal_grant.model_alias", "=", "unified_model.alias"),
+        ]))
         .on("principal_grant.provider", "=", providerCode)
         .on("principal_grant.status", "=", "ACTIVE"),
     )
