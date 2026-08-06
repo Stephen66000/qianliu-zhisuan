@@ -17,7 +17,8 @@ export interface EmployeeModelRuleVersionTable {
   principal_ids: string[];
   model_scope: "SELECTED" | "ALL";
   model_targets: EmployeeModelTarget[];
-  quota_value: bigint;
+  /** POOL-033：允许 NULL，表示额度不在规则上（已迁移到主体×厂商池）；旧版本数值仅用于回放。 */
+  quota_value: bigint | null;
   allow_overage: Generated<boolean>;
   valid_from: Date;
   valid_until: Date | null;
@@ -27,6 +28,8 @@ export interface EmployeeModelRuleVersionTable {
   published_at: Date | null;
   disabled_at: Date | null;
   created_by_admin_user_id: string;
+  /** POOL-033：单人规则归属主体（决策点①）；批量规则为 NULL。每主体至多一条单人规则。 */
+  owner_principal_id: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

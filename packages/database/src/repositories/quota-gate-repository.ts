@@ -9,7 +9,7 @@
  *     并发租约获取（活跃数 < limit，行锁防穿透）/释放。
  *   - 并发不穿透：PostgreSQL 行锁（W14 离线可测）；Redis 短期计数在 W25 叠加。
  */
-import { sql, type Kysely } from "kysely";
+import { type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import {
   evaluateQuotaGate,
@@ -33,6 +33,9 @@ export class QuotaGateRepository {
   /**
    * 模型调用授权门禁（API / CODING_PLAN 共用）。
    * 不做缓存，每次直接查库，使 grant 停用、过期或撤权在下一请求即时生效。
+   *
+   * POOL-033：池模型下准入 = 厂商池 ACTIVE 且型号未被主体显式禁用。
+   * 历史型号级行（pool_model_alias IS NULL）仅在过渡期作为回退兼容，长期只剩池行。
    */
   async hasActiveGrant(input: {
     enterpriseId: string;
@@ -42,13 +45,27 @@ export class QuotaGateRepository {
     now?: Date;
   }): Promise<boolean> {
     const now = input.now ?? new Date();
-    const grant = await this.db
+    const grant = await this.findAdmissibleGrant(input, now);
+    return Boolean(grant);
+  }
+
+  /**
+   * 准入授权查询：型号精确行（旧数据/过渡）优先；否则回退厂商池，并校验显式禁用清单。
+   * 命中池行时若该型号被主体显式掐掉（principal_provider_disabled_model），返回 null。
+   */
+  private async findAdmissibleGrant(
+    input: { enterpriseId: string; principalId: string; provider: string; modelAlias: string },
+    now: Date,
+  ) {
+    // 1. 精确型号行（pool_model_alias IS NULL）——旧数据或过渡期兼容。
+    const exact = await this.db
       .selectFrom("principal_grant")
-      .select("id")
+      .select(["id", "pool_model_alias"])
       .where("enterprise_id", "=", input.enterpriseId)
       .where("principal_id", "=", input.principalId)
       .where("provider", "=", input.provider)
       .where("model_alias", "=", input.modelAlias)
+      .where("pool_model_alias", "is", null)
       .where("status", "=", "ACTIVE")
       .where("valid_from", "<=", now)
       .where((eb) => eb.or([
@@ -56,7 +73,37 @@ export class QuotaGateRepository {
         eb("valid_until", ">", now),
       ]))
       .executeTakeFirst();
-    return Boolean(grant);
+    if (exact) return exact;
+
+    // 2. 厂商池行（pool_model_alias = '*'）+ 显式禁用校验。
+    const pool = await this.db
+      .selectFrom("principal_grant")
+      .select(["id", "pool_model_alias"])
+      .where("enterprise_id", "=", input.enterpriseId)
+      .where("principal_id", "=", input.principalId)
+      .where("provider", "=", input.provider)
+      .where("pool_model_alias", "=", "*")
+      .where("status", "=", "ACTIVE")
+      .where("valid_from", "<=", now)
+      .where((eb) => eb.or([
+        eb("valid_until", "is", null),
+        eb("valid_until", ">", now),
+      ]))
+      .executeTakeFirst();
+    if (!pool) return null;
+
+    // 该型号是否被主体显式掐掉。modelAlias 对应 unified_model.alias。
+    const disabled = await this.db
+      .selectFrom("principal_provider_disabled_model")
+      .innerJoin("unified_model", "unified_model.id", "principal_provider_disabled_model.unified_model_id")
+      .select("principal_provider_disabled_model.unified_model_id")
+      .where("principal_provider_disabled_model.enterprise_id", "=", input.enterpriseId)
+      .where("principal_provider_disabled_model.principal_id", "=", input.principalId)
+      .where("principal_provider_disabled_model.provider", "=", input.provider)
+      .where("unified_model.alias", "=", input.modelAlias)
+      .executeTakeFirst();
+    if (disabled) return null;
+    return pool;
   }
 
   /**
@@ -74,22 +121,56 @@ export class QuotaGateRepository {
   }): Promise<QuotaReserveOutcome> {
     const now = input.now ?? new Date();
     return this.db.transaction().execute(async (trx) => {
-      const grant = await trx
+      // POOL-033：池模型下的可准入 Grant 查询，复用 findAdmissibleGrant 语义但走事务。
+      // 1. 精确型号行（旧数据/过渡期）。
+      let grant = await trx
         .selectFrom("principal_grant")
         .selectAll()
         .where("enterprise_id", "=", input.enterpriseId)
         .where("principal_id", "=", input.principalId)
         .where("provider", "=", input.provider)
         .where("model_alias", "=", input.modelAlias)
+        .where("pool_model_alias", "is", null)
         .where("status", "=", "ACTIVE")
         .where("valid_from", "<=", now)
         .where((eb) => eb.or([
           eb("valid_until", "is", null),
           eb("valid_until", ">", now),
         ]))
-        .orderBy(sql`authorization_rule_version_id IS NOT NULL`, "desc")
         .orderBy("created_at", "desc")
         .executeTakeFirst();
+
+      // 2. 池行 + 显式禁用校验。
+      if (!grant) {
+        grant = await trx
+          .selectFrom("principal_grant")
+          .selectAll()
+          .where("enterprise_id", "=", input.enterpriseId)
+          .where("principal_id", "=", input.principalId)
+          .where("provider", "=", input.provider)
+          .where("pool_model_alias", "=", "*")
+          .where("status", "=", "ACTIVE")
+          .where("valid_from", "<=", now)
+          .where((eb) => eb.or([
+            eb("valid_until", "is", null),
+            eb("valid_until", ">", now),
+          ]))
+          .executeTakeFirst();
+        if (grant) {
+          // 该型号被主体显式掐掉 → 视同无授权。
+          const disabled = await trx
+            .selectFrom("principal_provider_disabled_model")
+            .innerJoin("unified_model", "unified_model.id", "principal_provider_disabled_model.unified_model_id")
+            .select("principal_provider_disabled_model.unified_model_id")
+            .where("principal_provider_disabled_model.enterprise_id", "=", input.enterpriseId)
+            .where("principal_provider_disabled_model.principal_id", "=", input.principalId)
+            .where("principal_provider_disabled_model.provider", "=", input.provider)
+            .where("unified_model.alias", "=", input.modelAlias)
+            .forUpdate()
+            .executeTakeFirst();
+          if (disabled) grant = undefined;
+        }
+      }
 
       if (!grant) {
         const gate = evaluateQuotaGate({

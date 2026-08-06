@@ -12,6 +12,7 @@ import { PrincipalsPage } from "./Principals";
 const usePrincipalsMock = vi.fn();
 const usePrincipalKeysMock = vi.fn();
 const useGrantsMock = vi.fn();
+const useAccessConfigurationMock = vi.fn();
 const getMock = vi.fn();
 const postMock = vi.fn();
 const patchMock = vi.fn();
@@ -22,6 +23,7 @@ vi.mock("../api/hooks", () => ({
   usePrincipals: () => usePrincipalsMock(),
   usePrincipalKeys: () => usePrincipalKeysMock(),
   useGrants: () => useGrantsMock(),
+  useAccessConfiguration: () => useAccessConfigurationMock(),
   usePrincipalAgentUsage: () => ({
     isLoading: false,
     error: null,
@@ -127,6 +129,42 @@ describe("W19 使用主体", () => {
       isLoading: false,
       error: null,
       data: { grants: [] },
+      refetch: vi.fn(),
+    });
+    useAccessConfigurationMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        principal: { id: "p1", name: "测试员工", status: "ACTIVE", department_label: null },
+        key: null,
+        providers: [{
+          provider_code: "zhipu",
+          provider_name: "智谱",
+          pool: {
+            grant_id: "g1",
+            quota_value: "50000000",
+            quota_used: "0",
+            allow_overage: false,
+            valid_until: null,
+            source: "MANAGED_SINGLE",
+            over_limit: false,
+          },
+          models: [{
+            unified_model_id: "m1",
+            display_name: "仟流 GLM",
+            alias: "qianliu-glm",
+            provider_resource_id: "r1",
+            resource_name: "智谱 API",
+            resource_mode: "API",
+            ready: true,
+            unavailable_reasons: [],
+            enabled: true,
+          }],
+        }],
+        summary: { total_quota: "50000000", provider_count: 1, model_count: 1 },
+        manual_pending_takeover: [],
+        config_version: 1,
+      },
       refetch: vi.fn(),
     });
     Object.defineProperty(navigator, "clipboard", {
@@ -262,10 +300,9 @@ describe("W19 使用主体", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: "接入配置" }));
-    await user.click(screen.getByRole("checkbox", { name: /仟流 GLM/ }));
     await user.click(screen.getByRole("button", { name: "生成 Key" }));
     expect(postMock).toHaveBeenCalledWith("/principals/p1/key", {
-      allowed_model_ids: ["m1"],
+      allowed_model_ids: [],
     });
     expect(screen.getAllByText("sk-qianliu-unit-once")).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "继续配置" }));
@@ -273,21 +310,6 @@ describe("W19 使用主体", () => {
     expect(screen.getByText("sk-qianliu-unit-once")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "清除一次性 Key" }));
     expect(screen.queryByText("sk-qianliu-unit-once")).not.toBeInTheDocument();
-
-    await user.selectOptions(screen.getByLabelText("统一模型"), "qianliu-glm");
-    await user.clear(screen.getByLabelText("Token 额度"));
-    await user.type(screen.getByLabelText("Token 额度"), "88000");
-    expect(screen.getByLabelText("Token 额度")).toHaveValue("88,000");
-    await user.click(screen.getByRole("button", { name: "分配" }));
-    await waitFor(() => {
-      expect(postMock).toHaveBeenCalledWith(
-        "/principals/p1/grants",
-        expect.objectContaining({
-          model_alias: "qianliu-glm",
-          quota_value: "88000",
-        }),
-      );
-    });
   });
 
   it("一次性复制接入信息包含完整 Key、Base URL 与有效授权模型", async () => {
@@ -316,7 +338,6 @@ describe("W19 使用主体", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: "接入配置" }));
-    await user.click(screen.getByRole("checkbox", { name: /仟流 GLM/ }));
     await user.click(screen.getByRole("button", { name: "生成 Key" }));
     await user.click(screen.getByRole("button", { name: "复制完整接入信息" }));
     const copied = await navigator.clipboard.readText();
@@ -324,77 +345,6 @@ describe("W19 使用主体", () => {
     expect(copied).toContain("Gateway Base URL: http://127.0.0.1:8787/v1");
     expect(copied).toContain("Models: qianliu-glm");
     expect(copied).not.toContain("••••");
-  });
-
-  it("现有 Key 可更新模型权限，重置明确继承原限制", async () => {
-    usePrincipalKeysMock.mockReturnValue({
-      isLoading: false,
-      error: null,
-      data: {
-        keys: [
-          {
-            id: "k1",
-            key_prefix: "sk-qianliu-abcd",
-            status: "ACTIVE",
-            allowed_model_ids: [],
-            created_at: "2026-07-28T02:00:00.000Z",
-            revoked_at: null,
-            last_used_at: null,
-            expires_at: null,
-          },
-        ],
-      },
-      refetch: vi.fn(),
-    });
-    postMock.mockResolvedValue({ key: "sk-qianliu-reset-once" });
-    const user = userEvent.setup();
-    renderPage();
-    await user.click(screen.getByRole("button", { name: "接入配置" }));
-
-    await user.click(screen.getByRole("checkbox", { name: /仟流 GLM/ }));
-    await user.click(screen.getByRole("button", { name: "保存模型权限" }));
-    await waitFor(() => {
-      expect(patchMock).toHaveBeenCalledWith("/principals/p1/key", {
-        allowed_model_ids: ["m1"],
-      });
-    });
-
-    await user.click(screen.getByRole("button", { name: "重置 Key" }));
-    expect(screen.getByText(/完整继承模型、IP、有效期和限额/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "确认重置" }));
-    await waitFor(() => {
-      expect(postMock).toHaveBeenCalledWith("/principals/p1/key/reset");
-    });
-  });
-
-  it("切换主体时清空未保存的模型权限选择", async () => {
-    usePrincipalsMock.mockReturnValue({
-      isLoading: false,
-      error: null,
-      data: {
-        principals: [
-          principal({ id: "p1", name: "主体 A" }),
-          principal({ id: "p2", name: "主体 B" }),
-        ],
-      },
-      refetch: vi.fn(),
-    });
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(pageRow("主体 A").getByRole("button", { name: "接入配置" }));
-    const modelPermission = screen.getByRole("checkbox", { name: /仟流 GLM/ });
-    await user.click(modelPermission);
-    expect(modelPermission).toBeChecked();
-
-    await user.click(pageRow("主体 B").getByRole("button", { name: "接入配置" }));
-    await waitFor(() => {
-      expect(screen.getByRole("checkbox", { name: /仟流 GLM/ })).not.toBeChecked();
-    });
-    await user.click(screen.getByRole("button", { name: "生成 Key" }));
-    expect(postMock).toHaveBeenCalledWith("/principals/p2/key", {
-      allowed_model_ids: [],
-    });
   });
 
   it("切换主体后不展示上一主体延迟返回的一次性 Key 明文", async () => {

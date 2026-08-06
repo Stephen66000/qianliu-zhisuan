@@ -31,7 +31,7 @@ export class UnauthorizedError extends ApiError {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
 }
@@ -80,6 +80,10 @@ export function post<T>(path: string, body?: unknown, signal?: AbortSignal): Pro
 
 export function patch<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   return request<T>(path, { method: "PATCH", body, signal });
+}
+
+export function put<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, { method: "PUT", body, signal });
 }
 
 export function del<T>(path: string, signal?: AbortSignal): Promise<T> {

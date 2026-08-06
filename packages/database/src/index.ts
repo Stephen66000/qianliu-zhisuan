@@ -63,6 +63,13 @@ export {
   type RuleReadinessIssue,
 } from "./repositories/employee-model-rule-repository.js";
 export {
+  PrincipalAccessConfigRepository,
+  PrincipalAccessConfigError,
+  type PoolSpec,
+  type AccessConfigPutInput,
+  computeAllowedModelIds,
+} from "./repositories/principal-access-config-repository.js";
+export {
   ProviderRepository,
   EnterpriseReferenceError,
   IdempotencyConflictError,

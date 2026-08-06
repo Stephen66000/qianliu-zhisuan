@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { get } from "./client";
 import type {
+  AccessConfiguration,
   AlertsResult,
   AgentUsageResult,
   AttemptsResult,
@@ -40,6 +41,7 @@ export const QUERY_KEYS = {
   dispatchPolicies: ["dispatch-policies"] as const,
   supplyForecasts: ["supply-forecasts"] as const,
   principals: ["principals"] as const,
+  accessConfiguration: (principalId: string) => ["principals", principalId, "access-configuration"] as const,
   providerResources: ["provider-resources"] as const,
   providers: ["providers"] as const,
   unifiedModels: ["unified-models"] as const,
@@ -181,6 +183,18 @@ export function usePrincipalKeys(principalId: string | null) {
     queryKey: QUERY_KEYS.principalKeys(principalId ?? ""),
     queryFn: ({ signal }) =>
       get<PrincipalKeysResult>(`/principals/${principalId}/key`, signal),
+    enabled: principalId !== null,
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+/** POOL-033：单主体接入配置（厂商池）读模型。 */
+export function useAccessConfiguration(principalId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.accessConfiguration(principalId ?? ""),
+    queryFn: ({ signal }) =>
+      get<AccessConfiguration>(`/principals/${principalId}/access-configuration`, signal),
     enabled: principalId !== null,
     retry: 1,
     staleTime: 30_000,

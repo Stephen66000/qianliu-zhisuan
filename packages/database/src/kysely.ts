@@ -114,10 +114,41 @@ export interface PrincipalGrantTable {
   status: Generated<string>;
   /** POOL-029：null 表示既有手工 Grant；非 null 表示由员工使用规则管理。 */
   authorization_rule_version_id: string | null;
+  /** POOL-033：'*' 表示主体×厂商额度池（model_alias 同步为 '*'）；null 表示旧型号级手工 Grant（过渡/识别用）。 */
+  pool_model_alias: string | null;
   /** W19/P2-01：单调版本号（乐观锁，替代 updated_at 毫秒截断）。 */
   version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+}
+
+/** POOL-033：接入配置编排端点幂等存档。 */
+export interface PrincipalAccessIdempotencyTable {
+  enterprise_id: string;
+  principal_id: string;
+  idempotency_key: string;
+  request_hash: string;
+  response_snapshot: Record<string, unknown>;
+  created_at: Generated<Date>;
+}
+
+/** POOL-033：单主体配置乐观锁版本。 */
+export interface PrincipalAccessConfigStateTable {
+  enterprise_id: string;
+  principal_id: string;
+  config_version: Generated<number>;
+  updated_at: Generated<Date>;
+}
+
+/** POOL-033：主体×厂商的显式禁用型号清单（决策点④：新型号默认并入，掐型号走显式记录）。 */
+export interface PrincipalProviderDisabledModelTable {
+  enterprise_id: string;
+  principal_id: string;
+  provider: string;
+  unified_model_id: string;
+  disabled_at: Generated<Date>;
+  /** 掐掉该型号的规则版本（追溯用）。 */
+  disable_rule_version_id: string | null;
 }
 
 export interface QuotaCounterTable {
@@ -688,6 +719,9 @@ export interface Database {
   person_external_identity: PersonExternalIdentityTable;
   principal_key: PrincipalKeyTable;
   principal_grant: PrincipalGrantTable;
+  principal_access_idempotency: PrincipalAccessIdempotencyTable;
+  principal_access_config_state: PrincipalAccessConfigStateTable;
+  principal_provider_disabled_model: PrincipalProviderDisabledModelTable;
   employee_model_rule_version: EmployeeModelRuleVersionTable; employee_model_rule_assignment: EmployeeModelRuleAssignmentTable; principal_model_manual_authorization: PrincipalModelManualAuthorizationTable;
   quota_counter: QuotaCounterTable;
   concurrency_lease: ConcurrencyLeaseTable;

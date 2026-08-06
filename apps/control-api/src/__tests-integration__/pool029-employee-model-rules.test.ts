@@ -130,9 +130,12 @@ describe("POOL-029 员工模型授权发布闭环", () => {
 
     const key = await db.selectFrom("principal_key").select("allowed_model_ids")
       .where("principal_id", "=", employeeId).executeTakeFirstOrThrow();
-    expect(new Set(key.allowed_model_ids)).toEqual(new Set([manualModelId, modelId]));
+    // POOL-033：池语义下，已开通厂商的所有就绪型号默认放行（新接入型号自动并入）。
+    // 本测试厂商有 modelId 和 secondModelId 两个就绪型号，发布后白名单包含手工模型 + 两个就绪型号。
+    expect(new Set(key.allowed_model_ids)).toEqual(new Set([manualModelId, modelId, secondModelId]));
+    // POOL-033：池模型下发布产生的是"主体×厂商"池 Grant，不是型号级 Grant。
     const grant = await db.selectFrom("principal_grant").selectAll().where("principal_id", "=", employeeId).executeTakeFirstOrThrow();
-    expect(grant).toMatchObject({ provider: "kimi", model_alias: "kimi-high", quota_value: "500000", status: "ACTIVE", authorization_rule_version_id: versionId });
+    expect(grant).toMatchObject({ provider: "kimi", model_alias: "*", pool_model_alias: "*", quota_value: "500000", status: "ACTIVE", authorization_rule_version_id: versionId });
     expect(await db.selectFrom("operation_log").selectAll().where("action", "=", "employee_model_rule.publish").execute()).toHaveLength(1);
 
     const next = await app.inject({ method: "POST", url: `/employee-model-rules/${created.json().version.rule_id}/versions`, headers: { cookie } });
@@ -153,9 +156,17 @@ describe("POOL-029 员工模型授权发布闭环", () => {
 
     const disabled = await app.inject({ method: "POST", url: `/employee-model-rules/versions/${nextVersionId}/disable`, headers: { cookie } });
     expect(disabled.statusCode).toBe(200);
-    expect((await db.selectFrom("principal_key").select("allowed_model_ids").where("principal_id", "=", employeeId).executeTakeFirstOrThrow()).allowed_model_ids)
-      .toEqual([manualModelId]);
-    expect((await db.selectFrom("principal_grant").select("status").where("principal_id", "=", employeeId).execute()).every((item) => item.status === "DISABLED")).toBe(true);
+    // POOL-033 池化语义：停用规则后池 Grant 保持 ACTIVE（可能被其他规则共享），
+    // 白名单仍含手工模型 + 该厂商未被显式禁用的就绪型号；被停用的 modelId 必须
+    // (a) 不在白名单中，(b) 在显式禁用清单中——热路径凭禁用清单即时拒绝。
+    const keyAfterDisable = (await db.selectFrom("principal_key").select("allowed_model_ids")
+      .where("principal_id", "=", employeeId).executeTakeFirstOrThrow()).allowed_model_ids;
+    expect(keyAfterDisable).toContain(manualModelId);
+    expect(keyAfterDisable).not.toContain(modelId);
+    const disabledModels = await db.selectFrom("principal_provider_disabled_model").selectAll()
+      .where("principal_id", "=", employeeId).execute();
+    expect(disabledModels.length).toBeGreaterThan(0);
+    expect(disabledModels.map((row) => row.unified_model_id)).toContain(modelId);
   });
 
   it("任一员工无有效 Key 时阻断发布且不产生半授权", async () => {
@@ -380,9 +391,22 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       method: "POST", url: `/employee-model-rules/${randomUUID()}/versions`, headers: { cookie },
     })).statusCode).toBe(404);
 
+    // 先创建并发布一个规则，供后续停用测试使用。
+    const setupRule = await createRule([employeeId], modelId, "状态机测试规则");
+    const setupId = setupRule.json().version.id as string;
+    await app.inject({ method: "POST", url: `/employee-model-rules/versions/${setupId}/validate`, headers: { cookie } });
+    const setupRow = await db.selectFrom("employee_model_rule_version").selectAll().where("id", "=", setupId)
+      .executeTakeFirstOrThrow();
+    await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${setupId}/publish`, headers: { cookie },
+      payload: { expected_lock_version: setupRow.lock_version, idempotency_key: "pool029-setup" },
+    });
+
     const published = await db.selectFrom("employee_model_rule_version").selectAll()
       .where("enterprise_id", "=", enterpriseId).where("status", "=", "PUBLISHED")
-      .executeTakeFirstOrThrow();
+      .executeTakeFirst();
+    expect(published).toBeDefined();
+    if (!published) throw new Error("no published rule found");
     expect((await app.inject({
       method: "POST", url: `/employee-model-rules/versions/${published.id}/validate`, headers: { cookie },
     })).statusCode).toBe(409);
@@ -431,8 +455,38 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       payload: { expected_lock_version: readinessRow.lock_version, idempotency_key: "pool029-readiness-changed" },
     })).statusCode).toBe(422);
 
+    // 独立创建 DISABLED 行（依赖同一事务内先前的测试，先前失败会连锁挂掉）：
+    // 发布 setup 规则的新版本 → 旧版本自动置 DISABLED → 幂等停用返回 200。
+    const disableRule = await createRule([employeeId], modelId, "停用幂等规则");
+    const disableRuleId = disableRule.json().version.rule_id as string;
+    const disableV1 = disableRule.json().version.id as string;
+    await app.inject({ method: "POST", url: `/employee-model-rules/versions/${disableV1}/validate`, headers: { cookie } });
+    const disableV1Row = await db.selectFrom("employee_model_rule_version").selectAll().where("id", "=", disableV1)
+      .executeTakeFirstOrThrow();
+    const disablePublish = await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${disableV1}/publish`, headers: { cookie },
+      payload: { expected_lock_version: disableV1Row.lock_version, idempotency_key: "pool029-disable-setup" },
+    });
+    expect(disablePublish.statusCode).toBe(200);
+    const disableV2 = await app.inject({
+      method: "POST", url: `/employee-model-rules/${disableRuleId}/versions`, headers: { cookie },
+    });
+    expect(disableV2.statusCode).toBe(201);
+    const disableV2Id = disableV2.json().version.id as string;
+    await app.inject({ method: "POST", url: `/employee-model-rules/versions/${disableV2Id}/validate`, headers: { cookie } });
+    const disableV2Row = await db.selectFrom("employee_model_rule_version").selectAll().where("id", "=", disableV2Id)
+      .executeTakeFirstOrThrow();
+    const disableRepublish = await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${disableV2Id}/publish`, headers: { cookie },
+      payload: { expected_lock_version: disableV2Row.lock_version, idempotency_key: "pool029-disable-republish" },
+    });
+    expect(disableRepublish.statusCode).toBe(200);
+
     const disabled = await db.selectFrom("employee_model_rule_version").selectAll()
-      .where("enterprise_id", "=", enterpriseId).where("status", "=", "DISABLED").executeTakeFirstOrThrow();
+      .where("id", "=", disableV1).executeTakeFirst();
+    expect(disabled).toBeDefined();
+    if (!disabled) throw new Error("no disabled rule found");
+    expect(disabled.status).toBe("DISABLED");
     expect((await app.inject({
       method: "POST", url: `/employee-model-rules/versions/${disabled.id}/disable`, headers: { cookie },
     })).statusCode).toBe(200);
