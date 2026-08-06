@@ -38,6 +38,8 @@ const UpdateSchema = z.object({
 const PublishSchema = z.object({
   expected_lock_version: z.number().int().positive(),
   idempotency_key: z.string().trim().min(8).max(128),
+  /** POOL-033 §6：池额度语义——SET 设为规则值（默认，兼容旧客户端）；ADD 锁内追加规则值。 */
+  quota_mode: z.enum(["SET", "ADD"]).default("SET"),
 });
 
 function inputOf(value: z.infer<typeof RuleSchema>): EmployeeModelRuleInput {
@@ -146,6 +148,7 @@ export function registerEmployeeModelRuleRoutes(app: FastifyInstance): void {
           enterpriseId: req.admin!.enterpriseId, versionId: req.params.versionId,
           expectedLockVersion: parsed.data.expected_lock_version,
           idempotencyKey: parsed.data.idempotency_key, adminUserId: req.admin!.adminUserId,
+          quotaMode: parsed.data.quota_mode,
         }));
       } catch (error) {
         if (error instanceof EmployeeModelRuleError) return sendRuleError(reply, error);

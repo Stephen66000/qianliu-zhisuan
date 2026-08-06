@@ -5,7 +5,7 @@
  * 停用 = PATCH status=DISABLED（后端级联撤销全部 Key，TRD §5.3），破坏性 → 二次确认。
  */
 import { useEffect, useRef, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Plus, Settings2, Users } from "lucide-react";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { del, get, post, patch } from "../api/client";
 import {
   QUERY_KEYS,
+  useAccessConfiguration,
   useGrants,
   usePrincipalKeys,
   usePrincipals,
@@ -22,20 +23,15 @@ import {
 import type {
   Principal,
   PrincipalCleanupPreview,
-  PrincipalGrantItem,
 } from "../api/types";
 import { PageShell } from "../components/layout/PageShell";
 import { AgentUsagePanel } from "../components/principals/AgentUsagePanel";
+import { PrincipalAccessConfigPanel } from "../components/principals/PrincipalAccessConfigPanel";
 import { PrincipalKeyDialog } from "../components/principals/PrincipalKeyDialog";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../components/writes/FormField";
-import {
-  IntegerAmountInput,
-  POSTGRES_BIGINT_MAX,
-  validateIntegerAmount,
-} from "../components/writes/IntegerAmountInput";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { formatCount, formatDateTimeFull } from "../lib/format";
 
@@ -45,28 +41,9 @@ const CreatePrincipalSchema = z.object({
   department_label: z.string().max(255).optional(),
 });
 
-const CreateGrantSchema = z.object({
-  provider: z.enum(["deepseek", "zhipu", "kimi"]),
-  model_alias: z.string().min(1, "请选择模型"),
-  quota_value: z.string().superRefine((value, ctx) => {
-    const message = validateIntegerAmount(value, POSTGRES_BIGINT_MAX);
-    if (message) ctx.addIssue({ code: "custom", message });
-  }),
-  allow_overage: z.boolean(),
-});
-
 type CreatePrincipalValues = z.infer<typeof CreatePrincipalSchema>;
-type CreateGrantValues = z.infer<typeof CreateGrantSchema>;
 
 const TYPE_LABEL: Record<Principal["type"], string> = { EMPLOYEE: "员工", PROJECT: "项目" };
-
-function quotaConfirmationValue(value: string): string {
-  return /^\d+$/.test(value) ? formatCount(value) : "无效值";
-}
-
-function quotaValidationMessage(value: string): string | undefined {
-  return validateIntegerAmount(value, POSTGRES_BIGINT_MAX) ?? undefined;
-}
 
 export function PrincipalsPage() {
   const [archivedFilter, setArchivedFilter] = useState<"exclude" | "only">("exclude");
@@ -427,16 +404,13 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
   const [resetConfirm, setResetConfirm] = useState(false);
-  const [modelSelection, setModelSelection] = useState<string[] | null>(null);
-  const [quotaTarget, setQuotaTarget] = useState<PrincipalGrantItem | null>(null);
-  const [quotaValue, setQuotaValue] = useState("");
-  const [disableGrantTarget, setDisableGrantTarget] = useState<PrincipalGrantItem | null>(null);
+  // POOL-033（GLM 评审 P0-1）：池化后额度只读展示——调额/超额/停用统一走上方
+  // 接入配置面板（编排端点单事务），不再提供 PATCH /grants/:id 直写入口。
   const currentPrincipalIdRef = useRef(principal.id);
   const mountedRef = useRef(true);
   currentPrincipalIdRef.current = principal.id;
 
   useEffect(() => {
-    setModelSelection(null);
     setPlaintextKey(null);
     setKeyDialogOpen(false);
     setCopyStatus("idle");
@@ -450,37 +424,14 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
     };
   }, []);
 
-  const {
-    control,
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CreateGrantValues, unknown, CreateGrantValues>({
-    resolver: zodResolver(CreateGrantSchema),
-    defaultValues: {
-      provider: "zhipu",
-      model_alias: "",
-      quota_value: "100000",
-      allow_overage: false,
-    },
-  });
-
   const refreshKeys = (principalId = principal.id) =>
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principalKeys(principalId) });
-  const refreshGrants = () =>
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.grants(principal.id) });
-  const confirmQuotaUpdate = () => {
-    if (quotaTarget && validateIntegerAmount(quotaValue, POSTGRES_BIGINT_MAX) === null) {
-      updateGrant.mutate({ grant: quotaTarget, patch: { quota_value: quotaValue } });
-    }
-  };
 
   const createKey = useMutation({
     mutationFn: async () => {
       const requestedPrincipalId = principal.id;
       const result = await post<{ key: string }>(`/principals/${requestedPrincipalId}/key`, {
-        allowed_model_ids: selectedModelIds,
+        allowed_model_ids: [],
       });
       return { requestedPrincipalId, key: result.key };
     },
@@ -519,66 +470,30 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
     },
   });
 
-  const updateKeyModels = useMutation({
-    mutationFn: () =>
-      patch(`/principals/${principal.id}/key`, {
-        allowed_model_ids: selectedModelIds,
-      }),
-    onSuccess: () => {
-      setModelSelection(null);
-      void refreshKeys();
-    },
-  });
-
-  const createGrant = useMutation({
-    mutationFn: (values: CreateGrantValues) =>
-      post(`/principals/${principal.id}/grants`, values),
-    onSuccess: () => {
-      void refreshGrants();
-      reset();
-    },
-  });
-
-  const updateGrant = useMutation({
-    mutationFn: (input: {
-      grant: PrincipalGrantItem;
-      patch: Record<string, unknown>;
-    }) =>
-      patch(`/grants/${input.grant.id}`, {
-        expected_version: input.grant.version,
-        ...input.patch,
-      }),
-    onSuccess: () => {
-      setQuotaTarget(null);
-      setDisableGrantTarget(null);
-      void refreshGrants();
-    },
-  });
   const activeKey = (keysQuery.data?.keys ?? []).find((key) => key.status === "ACTIVE");
   const models = (modelsQuery.data?.models ?? []).filter((model) => model.status === "ACTIVE");
-  const selectedModelIds =
-    modelSelection ??
-    (activeKey
-      ? activeKey.allowed_model_ids ?? []
-      : []);
   const grants = grantsQuery.data?.grants ?? [];
   const gatewayBaseUrl =
     (import.meta.env.VITE_GATEWAY_BASE_URL as string | undefined) ??
     (import.meta.env.PROD
       ? "https://gw.qianliuai.com/v1"
       : "http://127.0.0.1:8787/v1");
-  const allowedModelIds = activeKey?.allowed_model_ids ?? selectedModelIds;
-  const now = Date.now();
-  const authorizedAliases = models
-    .filter((model) => allowedModelIds.includes(model.id))
-    .filter((model) =>
-      grants.some((grant) =>
-        grant.status === "ACTIVE"
-        && grant.model_alias === model.alias
-        && (!grant.valid_until || new Date(grant.valid_until).getTime() > now)
-      )
-    )
-    .map((model) => model.alias);
+  const allowedModelIds = activeKey?.allowed_model_ids ?? [];
+  // POOL-033：授权型号以接入配置为准（池化后 allowed_model_ids 由编排端点维护）。
+  const accessConfigQuery = useAccessConfiguration(principal.id);
+  const accessConfig = accessConfigQuery.data;
+  const authorizedAliases = accessConfig
+    ? accessConfig.providers.flatMap((p) => p.models.filter((m) => m.enabled).map((m) => m.alias))
+    : models
+        .filter((model) => allowedModelIds.includes(model.id))
+        .filter((model) =>
+          grants.some((grant) =>
+            grant.status === "ACTIVE"
+            && grant.model_alias === model.alias
+            && (!grant.valid_until || new Date(grant.valid_until).getTime() > Date.now())
+          )
+        )
+        .map((model) => model.alias);
   const copyConnectionInfo = async () => {
     if (!plaintextKey) return;
     const content = [
@@ -604,7 +519,7 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
             {principal.name} · 接入配置
           </h2>
           <p className="mt-1 text-[12px] text-ql-fg-tertiary">
-            固定顺序：生成 Key → 分配模型与额度 → 复制接入信息。
+            生成 Key → 按厂商配置额度与型号 → 保存生效 → 复制接入信息。
           </p>
         </div>
       </div>
@@ -632,44 +547,7 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
             </div>
           ) : null}
 
-          <fieldset className="mt-3 rounded-lg border border-ql-border-zone p-3">
-            <legend className="px-1 text-[12px] font-medium text-ql-fg">Key 模型权限</legend>
-            {models.length > 0 ? (
-              <div className="space-y-2">
-                {models.map((model) => (
-                  <label className="flex items-center gap-2 text-[12px] text-ql-fg" key={model.id}>
-                    <input
-                      checked={selectedModelIds.includes(model.id)}
-                      onChange={(event) => {
-                        const next = event.target.checked
-                          ? [...selectedModelIds, model.id]
-                          : selectedModelIds.filter((id) => id !== model.id);
-                        setModelSelection(next);
-                      }}
-                      type="checkbox"
-                    />
-                    {model.display_name}（{model.alias}）
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[12px] text-ql-fg-tertiary">暂无可授权的 ACTIVE 模型</p>
-            )}
-            <p className="mt-2 text-[11px] text-ql-fg-tertiary">
-              未选择时 Key 不可调用任何模型；新增模型不会自动获得权限。
-            </p>
-          </fieldset>
-
-          {activeKey ? (
-            <button
-              className="mt-3 h-9 rounded-lg border border-ql-action px-3 text-[13px] font-medium text-ql-action disabled:opacity-60"
-              disabled={updateKeyModels.isPending || principal.status !== "ACTIVE"}
-              onClick={() => updateKeyModels.mutate()}
-              type="button"
-            >
-              保存模型权限
-            </button>
-          ) : (
+          {activeKey ? null : (
             <button
               className="mt-3 flex h-9 items-center gap-1.5 rounded-lg bg-ql-action px-3 text-[13px] font-medium text-white disabled:opacity-60"
               disabled={createKey.isPending || principal.status !== "ACTIVE"}
@@ -680,9 +558,9 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
               生成 Key
             </button>
           )}
-          {createKey.error || resetKey.error || updateKeyModels.error ? (
+          {createKey.error || resetKey.error ? (
             <p className="mt-2 text-[12px] text-ql-danger" role="alert">
-              {(createKey.error ?? resetKey.error ?? updateKeyModels.error)?.message}
+              {(createKey.error ?? resetKey.error)?.message}
             </p>
           ) : null}
 
@@ -741,68 +619,13 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
         </div>
 
         <div className="rounded-lg border border-ql-border-zone bg-ql-surface p-4">
-          <h3 className="text-[13px] font-semibold text-ql-fg">分配模型与额度</h3>
-          <form
-            className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
-            onSubmit={handleSubmit((values) => createGrant.mutate(values))}
-          >
-            <FormField error={errors.provider?.message} htmlFor="grant-provider" label="厂商">
-              <select className={INPUT_CLASS} id="grant-provider" {...register("provider")}>
-                <option value="deepseek">DeepSeek</option>
-                <option value="zhipu">智谱</option>
-                <option value="kimi">Kimi</option>
-              </select>
-            </FormField>
-            <FormField error={errors.model_alias?.message} htmlFor="grant-model" label="统一模型">
-              <select className={INPUT_CLASS} id="grant-model" {...register("model_alias")}>
-                <option value="">请选择</option>
-                {models.map((model) => (
-                  <option key={model.id} value={model.alias}>
-                    {model.display_name}（{model.alias}）
-                  </option>
-                ))}
-              </select>
-            </FormField>
-            <FormField error={errors.quota_value?.message} htmlFor="grant-quota" label="Token 额度">
-              <Controller
-                control={control}
-                name="quota_value"
-                render={({ field }) => (
-                  <IntegerAmountInput
-                    aria-invalid={Boolean(errors.quota_value)}
-                    id="grant-quota"
-                    name={field.name}
-                    onBlur={field.onBlur}
-                    onChange={field.onChange}
-                    value={field.value}
-                  />
-                )}
-              />
-            </FormField>
-            <label className="flex items-center gap-2 self-end pb-2 text-[13px] text-ql-fg">
-              <input type="checkbox" {...register("allow_overage")} />
-              允许超额
-            </label>
-            <div className="sm:col-span-2 flex justify-end">
-              <button
-                className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
-                disabled={
-                  createGrant.isPending ||
-                  models.length === 0 ||
-                  principal.status !== "ACTIVE" ||
-                  principal.archived_at !== null
-                }
-                type="submit"
-              >
-                分配
-              </button>
-            </div>
-          </form>
-          {createGrant.error ? (
-            <p className="mt-2 text-[12px] text-ql-danger" role="alert">
-              {createGrant.error.message}
-            </p>
-          ) : null}
+          <h3 className="text-[13px] font-semibold text-ql-fg">型号与额度</h3>
+          <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+            按厂商开通额度池；厂商下型号默认全开，可单个掐掉。
+          </p>
+          <div className="mt-3">
+            <PrincipalAccessConfigPanel principalId={principal.id} />
+          </div>
         </div>
       </div>
 
@@ -816,7 +639,6 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                 <th className="p-2 text-right font-medium">额度</th>
                 <th className="p-2 font-medium">超额</th>
                 <th className="p-2 font-medium">状态</th>
-                <th className="p-2 text-right font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -827,45 +649,13 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                   <td className="p-2 text-right font-mono">{formatCount(grant.quota_value)}</td>
                   <td className="p-2">{grant.allow_overage ? "允许" : "不允许"}</td>
                   <td className="p-2">{grant.status === "ACTIVE" ? "有效" : "已停用"}</td>
-                  <td className="p-2 text-right">
-                    {grant.status === "ACTIVE" ? (
-                      <div className="flex justify-end gap-1">
-                        <button
-                          className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
-                          onClick={() => {
-                            setQuotaTarget(grant);
-                            setQuotaValue(grant.quota_value);
-                          }}
-                          type="button"
-                        >
-                          调额
-                        </button>
-                        <button
-                          className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                          onClick={() =>
-                            updateGrant.mutate({
-                              grant,
-                              patch: { allow_overage: !grant.allow_overage },
-                            })
-                          }
-                          type="button"
-                        >
-                          {grant.allow_overage ? "关闭超额" : "开启超额"}
-                        </button>
-                        <button
-                          className="rounded px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
-                          onClick={() => setDisableGrantTarget(grant)}
-                          type="button"
-                        >
-                          停用
-                        </button>
-                      </div>
-                    ) : null}
-                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="border-t border-ql-border-zone p-2 text-[12px] text-ql-fg-tertiary">
+            额度为只读展示；调额、超额开关与停用请在上方「接入配置」面板中操作。
+          </p>
         </div>
       ) : null}
 
@@ -880,41 +670,6 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
         onConfirm={() => resetKey.mutate()}
         open={resetConfirm}
         title="重置主体 Key"
-      />
-      <ConfirmDialog
-        confirmLabel="确认调额"
-        impact={`将 ${quotaTarget?.model_alias ?? ""} 的 Token 额度更新为 ${quotaConfirmationValue(quotaValue)}。`}
-        loading={updateGrant.isPending}
-        onCancel={() => setQuotaTarget(null)}
-        onConfirm={confirmQuotaUpdate}
-        open={quotaTarget !== null}
-        title="调整额度"
-      >
-        <FormField
-          error={quotaValidationMessage(quotaValue)}
-          htmlFor="quota-update-value"
-          label="新额度"
-        >
-          <IntegerAmountInput
-            className={`${INPUT_CLASS} w-full`}
-            id="quota-update-value"
-            onChange={setQuotaValue}
-            value={quotaValue}
-          />
-        </FormField>
-      </ConfirmDialog>
-      <ConfirmDialog
-        danger
-        confirmLabel="确认停用"
-        impact={`停用 ${disableGrantTarget?.model_alias ?? ""} 授权后，该主体不能再调用此模型。`}
-        loading={updateGrant.isPending}
-        onCancel={() => setDisableGrantTarget(null)}
-        onConfirm={() =>
-          disableGrantTarget &&
-          updateGrant.mutate({ grant: disableGrantTarget, patch: { status: "DISABLED" } })
-        }
-        open={disableGrantTarget !== null}
-        title="停用模型授权"
       />
       <PrincipalKeyDialog
         copyStatus={copyStatus}

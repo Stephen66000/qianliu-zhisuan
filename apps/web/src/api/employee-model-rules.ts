@@ -70,9 +70,12 @@ export const usePublishEmployeeModelRule = mutation((input: {
   versionId: string;
   expectedLockVersion: number;
   idempotencyKey: string;
+  /** POOL-033 §6：SET=池额度设为规则值（默认）；ADD=锁内追加规则值。 */
+  quotaMode?: "SET" | "ADD";
 }) => post(`/employee-model-rules/versions/${input.versionId}/publish`, {
   expected_lock_version: input.expectedLockVersion,
   idempotency_key: input.idempotencyKey,
+  quota_mode: input.quotaMode ?? "SET",
 }));
 
 export const useDisableEmployeeModelRule = mutation((versionId: string) =>

@@ -28,6 +28,7 @@ import {
   OperatingBillRepository,
   DeploymentLogRepository,
   EmployeeModelRuleRepository,
+  PrincipalAccessConfigRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
 } from "@qianliu/database";
@@ -39,6 +40,7 @@ import {
 } from "@qianliu/provider-adapters";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerPrincipalRoutes } from "./principals/routes.js";
+import { registerPrincipalAccessConfigRoutes } from "./principals/access-configuration.js";
 import { registerAuditRoutes } from "./plugins/audit-routes.js";
 import { registerKeyRoutes } from "./keys/routes.js";
 import { registerGrantRoutes } from "./grants/routes.js";
@@ -88,6 +90,7 @@ declare module "fastify" {
     operatingBillRepo: OperatingBillRepository;
     deploymentLogRepo: DeploymentLogRepository;
     employeeModelRuleRepo: EmployeeModelRuleRepository;
+    principalAccessConfigRepo: PrincipalAccessConfigRepository;
   }
 }
 
@@ -170,6 +173,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("operatingBillRepo", new OperatingBillRepository(db));
   app.decorate("deploymentLogRepo", new DeploymentLogRepository(db));
   app.decorate("employeeModelRuleRepo", new EmployeeModelRuleRepository(db));
+  app.decorate("principalAccessConfigRepo", new PrincipalAccessConfigRepository(db));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
@@ -222,6 +226,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerOperatingBillRoutes(child);
     registerDeploymentLogRoutes(child);
     registerEmployeeModelRuleRoutes(child);
+    registerPrincipalAccessConfigRoutes(child);
   });
 
   return app;

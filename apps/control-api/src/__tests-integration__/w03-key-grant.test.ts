@@ -235,6 +235,9 @@ describe("W03 下游 Key 与 Grant", () => {
     });
     expect(update.statusCode).toBe(200);
     expect(update.json().key.allowed_model_ids).toEqual([SECOND_ACTIVE_MODEL_ID]);
+    // POOL-033：直写路径已标记废弃（仅旧客户端保留），响应须携带 Deprecation/Sunset 头。
+    expect(update.headers["deprecation"]).toBe("true");
+    expect(update.headers["sunset"]).toBeDefined();
 
     const denyAll = await app.inject({
       method: "PATCH",
@@ -414,6 +417,9 @@ describe("W03 下游 Key 与 Grant", () => {
       },
     });
     expect(res.statusCode).toBe(201);
+    // POOL-033：直建 Grant 路径已标记废弃（仅旧客户端保留）。
+    expect(res.headers["deprecation"]).toBe("true");
+    expect(res.headers["sunset"]).toBeDefined();
     const grant = res.json().grant;
     expect(grant.provider).toBe("deepseek");
     expect(grant.model_alias).toBe("qianliu-deepseek");

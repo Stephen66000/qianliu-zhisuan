@@ -5,6 +5,9 @@
  * - GET /principals/:id/grants —— 列表
  * - POST /principals/:id/grants —— 创建授权（WT-02/WT-04 第三步）
  *
+ * @deprecated POST 直建路径自 POOL-033 起仅为旧客户端保留；新 UI 走编排端点
+ * PUT /principals/:id/access-configuration。GET 列表仍为有效读路径。
+ *
  * 一期 quota_unit 固定 TOKEN。
  */
 import type { FastifyInstance } from "fastify";
@@ -37,10 +40,15 @@ export function registerGrantRoutes(app: FastifyInstance): void {
     },
   );
 
+  // @deprecated POOL-033：直建 Grant 路径仅为旧客户端保留。新 UI 一律走编排端点
+  // PUT /principals/:id/access-configuration（池 Grant 由单事务统一创建/调整）。
   app.post<{ Params: { id: string } }>(
     "/principals/:id/grants",
     { preHandler: [requireAuth] },
     async (req, reply) => {
+      void reply.header("Deprecation", "true")
+        .header("Sunset", "Wed, 30 Sep 2026 00:00:00 GMT")
+        .header("Link", '</principals/:id/access-configuration>; rel="successor-version"');
       const parsed = CreateGrantSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });

@@ -100,6 +100,7 @@ describe("0023 Principal Key 单 ACTIVE 迁移", () => {
         constraint: "principal_key_one_active_per_principal_uq",
       });
 
+      expect(await migrateDown(db)).toBe("0039_principal_provider_pool");
       expect(await migrateDown(db)).toBe("0038_employee_model_authorization_rule");
       expect(await migrateDown(db)).toBe("0037_client_identity");
       expect(await migrateDown(db)).toBe("0036_provider_model_discovery");

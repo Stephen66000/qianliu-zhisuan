@@ -282,10 +282,15 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
   );
 
   // ===== 主体额度：调额 / 允许超额 / 停用 =====
+  // @deprecated POOL-033（GLM 评审 P0-1）：直改 Grant 路径仅为旧客户端保留。
+  // 新 UI 一律走编排端点 PUT /principals/:id/access-configuration（池额度单事务调整）。
   app.patch<{ Params: { id: string } }>(
     "/grants/:id",
     { preHandler: [requireAuth] },
     async (req, reply) => {
+      void reply.header("Deprecation", "true")
+        .header("Sunset", "Wed, 30 Sep 2026 00:00:00 GMT")
+        .header("Link", '</principals/:id/access-configuration>; rel="successor-version"');
       const parsed = UpdateGrantSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
