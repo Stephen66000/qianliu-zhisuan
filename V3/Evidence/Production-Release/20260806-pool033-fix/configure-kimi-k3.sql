@@ -3,13 +3,15 @@
 -- enterprise_id 与 resource_id 已内联（从生产数据库查得）。
 -- 用法：psql ... -f configure-kimi-k3.sql
 
--- 1. 建 k3 计价规则（MODEL_TIER 倍率 1，基础档）
+-- 1. 建 k3/k3-256k 计价规则（MODEL_TIER 倍率 1）
+-- Kimi Coding Plan 是固定套餐（总价固定、token 用完即止），k3 与 k3-256k 不区分单价。
+-- 倍率统一 1：扣费 = (输入+输出 token) × 1。256k 版本因上下文长、token 多而自然扣得多。
 INSERT INTO billing_rule (enterprise_id, provider_resource_id, upstream_model, rule_type, rule_version, effective_from, multiplier, currency, priority, enabled, source)
 VALUES
   ('77967fc2-93a5-44e9-889f-e52fce509616', 'e75fe982-c83b-46a7-9fcb-c7876754e5a9', 'k3', 'MODEL_TIER', 'kimi-k3-base-v1', now(),
-   1, 'CNY', 100, true, 'Kimi Coding Plan 初始倍率，待按官方计价调整'),
+   1, 'CNY', 100, true, 'Kimi Coding Plan 套餐制，倍率 1（token 用完即止）'),
   ('77967fc2-93a5-44e9-889f-e52fce509616', 'e75fe982-c83b-46a7-9fcb-c7876754e5a9', 'k3-256k', 'MODEL_TIER', 'kimi-k3-256k-base-v1', now(),
-   2, 'CNY', 100, true, 'Kimi Coding Plan 初始倍率（256k长上下文2倍），待按官方计价调整');
+   1, 'CNY', 100, true, 'Kimi Coding Plan 套餐制，倍率 1（与 k3 同价，256k 因上下文长自然扣得多）');
 
 -- 2. 启用 k3/k3-256k 的 model_route
 UPDATE model_route SET enabled = true, updated_at = now()
