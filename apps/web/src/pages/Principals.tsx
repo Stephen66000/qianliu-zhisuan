@@ -382,7 +382,7 @@ export function PrincipalsPage() {
           cleanupTarget
             ? cleanupTarget.preview.canDelete
               ? `「${cleanupTarget.principal.name}」没有请求、Usage 或账本历史，将删除主体及 ${cleanupTarget.preview.keyCount} 把 Key、${cleanupTarget.preview.grantCount} 条 Grant。`
-              : `「${cleanupTarget.principal.name}」已有 ${cleanupTarget.preview.requestCount} 条请求、${cleanupTarget.preview.usageCount} 条 Usage、${cleanupTarget.preview.ledgerCount} 条账本记录、${cleanupTarget.preview.authorizationRuleAssignmentCount ?? 0} 条员工使用规则授权，只会停用并归档；将撤销 ${cleanupTarget.preview.activeKeyCount} 把有效 Key、${cleanupTarget.preview.activeGrantCount} 条有效 Grant，历史数据继续保留。`
+              : `「${cleanupTarget.principal.name}」已有 ${cleanupTarget.preview.requestCount} 条请求、${cleanupTarget.preview.usageCount} 条 Usage、${cleanupTarget.preview.ledgerCount} 条账本记录、${cleanupTarget.preview.authorizationRuleAssignmentCount ?? 0} 条批量模型授权，只会停用并归档；将撤销 ${cleanupTarget.preview.activeKeyCount} 把有效 Key、${cleanupTarget.preview.activeGrantCount} 条有效 Grant，历史数据继续保留。`
             : ""
         }
         loading={cleanupMutation.isPending}

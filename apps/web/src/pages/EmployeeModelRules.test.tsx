@@ -59,12 +59,12 @@ vi.mock("../api/employee-model-rules", () => ({
   useCreateEmployeeModelRuleVersion: () => ({ mutate, error: null }),
 }));
 
-describe("POOL-029 员工使用规则页面", () => {
+describe("POOL-029 批量模型授权页面", () => {
   beforeEach(() => mutate.mockReset());
 
   it("按员工和厂商模型展示就绪原因、权限变更预览、版本历史和显式发布入口", async () => {
     render(<MemoryRouter><EmployeeModelRulesPage /></MemoryRouter>);
-    expect(screen.getByRole("heading", { name: "员工使用规则" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "批量模型授权" })).toBeInTheDocument();
     expect(screen.getByText("员工 A · 研发")).toBeInTheDocument();
     expect(screen.getByText("员工尚无有效 Key")).toBeInTheDocument();
     expect(screen.getByText("Kimi High · Plan A")).toBeInTheDocument();

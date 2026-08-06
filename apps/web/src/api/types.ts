@@ -318,7 +318,8 @@ export interface Principal {
   archived_at: string | null;
   person_id?: string | null;
   owner_person_id?: string | null;
-  version?: number;
+  /** 主体行级乐观并发版本；后端 principal 表始终回传（selectAll）。 */
+  version: number;
   created_at: string;
   updated_at: string;
 }

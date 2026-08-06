@@ -96,6 +96,7 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     department_label: "研发部",
     status: "ACTIVE",
     archived_at: null,
+    version: 1,
     created_at: "2026-07-28T02:00:00.000Z",
     updated_at: "2026-07-28T02:00:00.000Z",
     ...overrides,

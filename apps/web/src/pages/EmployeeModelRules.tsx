@@ -160,11 +160,11 @@ export function EmployeeModelRulesPage() {
   };
 
   return (
-    <PageShell title="员工使用规则" description="集中选择员工、模型与额度；校验通过后显式发布，原子更新 Key 权限和 Grant">
+    <PageShell title="批量模型授权" description="多名员工的模型授权辅助入口；集中选择员工、模型与额度，校验通过后显式发布，原子更新 Key 权限和 Grant。单名员工请在「使用主体」开通">
       {mutationError ? <p className="mb-4 rounded-lg bg-ql-danger-soft px-3 py-2 text-sm text-ql-danger" role="alert">{mutationError}</p> : null}
       <form className="mb-6 rounded-xl border border-ql-border p-5" onSubmit={submit}>
         <div className="mb-4 flex items-center justify-between">
-          <div><h2 className="font-semibold">{editing ? `编辑 ${editing.name} v${editing.version}` : "新建员工使用规则"}</h2><p className="mt-1 text-xs text-ql-fg-tertiary">保存只形成草稿，不会扩大任何员工权限。</p></div>
+          <div><h2 className="font-semibold">{editing ? `编辑 ${editing.name} v${editing.version}` : "新建批量授权规则"}</h2><p className="mt-1 text-xs text-ql-fg-tertiary">保存只形成草稿，不会扩大任何员工权限。</p></div>
           {editing ? <button className="text-sm text-ql-action" onClick={() => { setEditing(null); setForm(initialForm()); }} type="button">取消编辑</button> : null}
         </div>
         <div className="grid gap-4 md:grid-cols-4">
@@ -206,7 +206,7 @@ export function EmployeeModelRulesPage() {
         <div className="mt-4 flex justify-end"><button className={BUTTON} disabled={createRule.isPending || updateRule.isPending} type="submit">{editing ? "保存草稿" : "创建草稿"}</button></div>
       </form>
 
-      <QueryGate emptyDescription="先创建草稿，校验就绪后再发布。" emptyIcon={ShieldCheck} emptyTitle="暂无员工使用规则" error={rules.error ?? catalog.error} isEmpty={latestRules.length === 0} isLoading={rules.isLoading || catalog.isLoading} onRetry={() => { void rules.refetch(); void catalog.refetch(); }}>
+      <QueryGate emptyDescription="先创建草稿，校验就绪后再发布。" emptyIcon={ShieldCheck} emptyTitle="暂无批量授权规则" error={rules.error ?? catalog.error} isEmpty={latestRules.length === 0} isLoading={rules.isLoading || catalog.isLoading} onRetry={() => { void rules.refetch(); void catalog.refetch(); }}>
         <div className="overflow-x-auto rounded-xl border border-ql-border">
           <table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-xs text-ql-fg-tertiary"><th className="p-3">规则/版本</th><th className="p-3">范围</th><th className="p-3">额度</th><th className="p-3">状态</th><th className="p-3">就绪结果</th><th className="p-3">操作</th></tr></thead>
             <tbody>{latestRules.map((rule) => <tr className="border-b border-ql-border-zone last:border-0" key={rule.id}>

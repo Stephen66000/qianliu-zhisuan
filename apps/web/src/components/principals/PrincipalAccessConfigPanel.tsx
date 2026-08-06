@@ -85,8 +85,13 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
     onSuccess: () => {
       setSaveSuccess(true);
       setSaveError(null);
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accessConfiguration(principalId) });
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principalKeys(principalId) });
+      // POOL-033：保存会原子改写该主体的授权规则、Grant、额度计数器与 Key 白名单，
+      // 因此除本面板外，还需连带刷新下方 Grant 只读表、首页超额名单与主体列表额度状态，
+      // 避免管理员切页后看到陈旧的额度/超额/Grant 数据。
+      // invalidateQueries 按前缀匹配：["principals"] 会连带刷新所有 principal 子查询。
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.grants(principalId) });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       setTimeout(() => setSaveSuccess(false), 3000);
     },
     onError: (error) => {
