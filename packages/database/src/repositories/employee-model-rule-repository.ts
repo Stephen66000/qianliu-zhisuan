@@ -407,18 +407,26 @@ export class EmployeeModelRuleRepository {
     ]);
     // POOL-033：池化语义下，已开通厂商的型号默认放行（新接入型号自动并入），仅显式禁用清单
     // 中的型号被剔除。池厂商的型号集合 = 该厂商所有 ACTIVE 池对应的 unified_model。
+    //
+    // 修复（POOL-033 回滚后复测）：不再依赖 model_route.enabled 决定白名单。
+    // 原实现要求 route.enabled=true，但 onboardResourceModels 新建路由默认 enabled=false，
+    // 管理员若未逐个启用路由，refreshKeyModels 会算出空 poolModels → 白名单为空 →
+    // model_not_allowed。白名单语义是"该员工已开通厂商下所有型号"，路由启停属于调度层
+    // 关注点（Gateway 选哪个上游资源），不该让 Key 静态授权集变空。
+    // 同时修 join 笛卡尔积：原 join 只按 enterprise 关联，一个 unified_model 多路由时会
+    // 重复；改为按 provider 严格关联 + DISTINCT 去重。
     const poolModels = await trx.selectFrom("principal_grant")
       .innerJoin("model_route", (join) => join
-        .on("model_route.enterprise_id", "=", enterpriseId))
+        .onRef("model_route.enterprise_id", "=", "principal_grant.enterprise_id"))
       .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
       .innerJoin("provider", "provider.id", "provider_resource.provider_id")
       .select("model_route.unified_model_id")
+      .distinct()
       .where("principal_grant.enterprise_id", "=", enterpriseId)
       .where("principal_grant.principal_id", "=", principalId)
       .where("principal_grant.pool_model_alias", "=", "*")
       .where("principal_grant.status", "=", "ACTIVE")
       .whereRef("provider.code", "=", "principal_grant.provider")
-      .where("model_route.enabled", "=", true)
       .execute();
     const disabledSet = new Set(disabled.map((row) => row.unified_model_id));
     const poolAllowed = poolModels.map((row) => row.unified_model_id).filter((id) => !disabledSet.has(id));
