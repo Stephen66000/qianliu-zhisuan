@@ -10,7 +10,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Save } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 
 import { put } from "../../api/client";
 import { QUERY_KEYS, useAccessConfiguration } from "../../api/hooks";
@@ -74,8 +74,8 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
   useEffect(() => {
     if (config) {
       setDrafts(draftFromConfig(config));
-      // 默认展开全部厂商，让管理员一眼看到可配置的厂商与型号。
-      setExpanded(new Set(config.providers.map((p) => p.provider_code)));
+      // 默认全部折叠，管理员点击厂商标题展开配置。
+      setExpanded(new Set());
     }
   }, [config]);
 
@@ -203,6 +203,10 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                           ? new Set(readyModels.map((m) => m.unified_model_id))
                           : new Set(),
                       });
+                      // 勾"开通"时自动展开该厂商，让额度输入和型号勾选立即可见。
+                      if (enabled) {
+                        setExpanded((prev) => new Set([...prev, provider.provider_code]));
+                      }
                     }}
                   />
                   开通
@@ -298,11 +302,10 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
           {saveError && <span className="text-sm text-destructive">{saveError}</span>}
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary"
+            className="rounded-md border border-primary/30 bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:border-primary/20 disabled:bg-primary/5 disabled:opacity-50"
             onClick={handleSave}
             disabled={saveMutation.isPending || summary.providerCount === 0}
           >
-            <Save className="h-4 w-4" />
             {saveMutation.isPending ? "保存中…" : "保存并生效"}
           </button>
         </div>
