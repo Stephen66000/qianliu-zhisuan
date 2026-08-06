@@ -202,6 +202,8 @@ export class EmployeeModelRuleRepository {
   async publish(input: {
     enterpriseId: string; versionId: string; expectedLockVersion: number;
     idempotencyKey: string; adminUserId: string;
+    /** POOL-033 §6：SET（默认）= 池额度设为规则值；ADD = 行锁内追加规则值。 */
+    quotaMode?: "SET" | "ADD";
   }): Promise<{ version: EmployeeModelRuleVersion; validation: RuleValidationResult; assignment_count: number }> {
     return this.db.transaction().execute(async (trx) => {
       const version = await this.lockRuleVersion(trx, input.enterpriseId, input.versionId);
@@ -290,6 +292,14 @@ export class EmployeeModelRuleRepository {
                 .forUpdate()
                 .executeTakeFirstOrThrow();
             }
+          } else if (input.quotaMode === "ADD") {
+            // POOL-033 §6：批量"追加额度"——池行已持行锁（forUpdate），锁内自增，禁止应用层读改写。
+            if (version.quota_value === null) {
+              throw new EmployeeModelRuleError("INVALID_STATE", "追加额度要求规则携带 quota_value");
+            }
+            await trx.updateTable("principal_grant")
+              .set({ quota_value: sql`quota_value + ${version.quota_value}`, updated_at: new Date() })
+              .where("id", "=", poolGrant.id).execute();
           }
           // 每个 target 建一条型号级行（pool_model_alias=NULL）用于"准入开关 + 池回退查询"，
           // 不再独立计数；assignment 指向池 grant_id。
@@ -314,7 +324,8 @@ export class EmployeeModelRuleRepository {
         action: "employee_model_rule.publish", target_type: "employee_model_rule",
         target_id: version.rule_id, result: "SUCCESS", failure_reason: null,
         change_summary: jsonValue({ version: version.version, principal_count: validation.principal_count,
-          model_count: validation.model_count, assignment_count: validation.assignment_count }),
+          model_count: validation.model_count, assignment_count: validation.assignment_count,
+          quota_mode: input.quotaMode ?? "SET" }),
       }).execute();
       return { version: published, validation, assignment_count: validation.assignment_count };
     });

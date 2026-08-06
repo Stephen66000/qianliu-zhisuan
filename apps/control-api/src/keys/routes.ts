@@ -210,10 +210,15 @@ export function registerKeyRoutes(app: FastifyInstance): void {
   );
 
   // 更新当前有效 Key 的模型授权；空数组会立即禁用全部模型调用。
+  // @deprecated POOL-033：直写白名单路径仅为旧客户端保留。新 UI 一律走编排端点
+  // PUT /principals/:id/access-configuration（单事务完成池+开关+白名单+审计）。
   app.patch<{ Params: { id: string } }>(
     "/principals/:id/key",
     { preHandler: [requireAuth] },
     async (req, reply) => {
+      void reply.header("Deprecation", "true")
+        .header("Sunset", "Wed, 30 Sep 2026 00:00:00 GMT")
+        .header("Link", '</principals/:id/access-configuration>; rel="successor-version"');
       const { id: principalId } = req.params;
       const ent = req.admin!.enterpriseId;
       const parsed = KeyModelAuthorizationSchema.safeParse(req.body);

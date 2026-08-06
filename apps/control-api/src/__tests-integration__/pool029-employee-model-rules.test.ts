@@ -492,6 +492,52 @@ describe("POOL-029 员工模型授权发布闭环", () => {
     })).statusCode).toBe(200);
   });
 
+  it("POOL-033 §6：批量发布 ADD 模式在池行锁内追加额度，SET 语义不变", async () => {
+    const principalId = randomUUID();
+    await db.insertInto("principal").values({
+      id: principalId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "追加员工", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("principal_key").values({
+      enterprise_id: enterpriseId, principal_id: principalId, key_prefix: "pool029-add",
+      key_digest: randomUUID(), allowed_model_ids: JSON.stringify([]) as unknown as string[], status: "ACTIVE",
+    }).execute();
+
+    const poolOf = () => db.selectFrom("principal_grant").selectAll()
+      .where("principal_id", "=", principalId).where("provider", "=", "kimi")
+      .where("pool_model_alias", "=", "*").where("status", "=", "ACTIVE").executeTakeFirstOrThrow();
+
+    // 第一次发布（默认 SET）：建池，额度 = 规则值 500000。
+    const first = await createRule([principalId], modelId, "追加规则 v1");
+    const firstId = first.json().version.id as string;
+    await app.inject({ method: "POST", url: `/employee-model-rules/versions/${firstId}/validate`, headers: { cookie } });
+    const firstRow = await db.selectFrom("employee_model_rule_version").selectAll().where("id", "=", firstId)
+      .executeTakeFirstOrThrow();
+    expect((await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${firstId}/publish`, headers: { cookie },
+      payload: { expected_lock_version: firstRow.lock_version, idempotency_key: "pool029-add-set" },
+    })).statusCode).toBe(200);
+    expect((await poolOf()).quota_value).toBe("500000");
+
+    // 第二次发布（ADD）：同一厂商池已存在 → 锁内追加 500000 → 1000000。
+    const second = await createRule([principalId], modelId, "追加规则 v2");
+    const secondId = second.json().version.id as string;
+    await app.inject({ method: "POST", url: `/employee-model-rules/versions/${secondId}/validate`, headers: { cookie } });
+    const secondRow = await db.selectFrom("employee_model_rule_version").selectAll().where("id", "=", secondId)
+      .executeTakeFirstOrThrow();
+    const added = await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${secondId}/publish`, headers: { cookie },
+      payload: { expected_lock_version: secondRow.lock_version, idempotency_key: "pool029-add-add", quota_mode: "ADD" },
+    });
+    expect(added.statusCode).toBe(200);
+    expect((await poolOf()).quota_value).toBe("1000000");
+
+    // 非法 quota_mode 被 schema 拒绝。
+    expect((await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${secondId}/publish`, headers: { cookie },
+      payload: { expected_lock_version: secondRow.lock_version, idempotency_key: "pool029-add-bad", quota_mode: "MUL" },
+    })).statusCode).toBe(400);
+  });
+
   it("全部员工与全部就绪模型范围也执行完整校验", async () => {
     const created = await app.inject({
       method: "POST", url: "/employee-model-rules", headers: { cookie }, payload: {

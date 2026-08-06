@@ -92,6 +92,8 @@ export function EmployeeModelRulesPage() {
   const [historyRuleId, setHistoryRuleId] = useState<string | null>(null);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [modelSearch, setModelSearch] = useState("");
+  // POOL-033 §6：发布时显式选择池额度语义（SET=设为规则值 / ADD=锁内追加）。
+  const [quotaMode, setQuotaMode] = useState<"SET" | "ADD">("SET");
 
   const employees = useMemo(() => (catalog.data?.principals ?? []).filter((item) =>
     `${item.name} ${item.department_label ?? ""}`.toLowerCase().includes(employeeSearch.toLowerCase())),
@@ -217,7 +219,18 @@ export function EmployeeModelRulesPage() {
                 <button className="text-ql-action" onClick={() => setHistoryRuleId(rule.rule_id)} type="button">历史</button>
                 {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <button className="text-ql-action" onClick={() => edit(rule)} type="button">编辑</button> : null}
                 {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <button className="text-ql-action" onClick={() => validateRule.mutate(rule.id)} type="button">校验</button> : null}
-                {rule.status === "VALIDATED" ? <button className="text-ql-action" onClick={() => publishRule.mutate({ versionId: rule.id, expectedLockVersion: rule.lock_version, idempotencyKey: crypto.randomUUID() })} type="button">发布</button> : null}
+                {rule.status === "VALIDATED" ? <span className="inline-flex items-center gap-2">
+                  <select
+                    aria-label="池额度方式"
+                    className="text-ql-fg"
+                    onChange={(event) => setQuotaMode(event.target.value as "SET" | "ADD")}
+                    value={quotaMode}
+                  >
+                    <option value="SET">设置总额度</option>
+                    <option value="ADD">追加额度</option>
+                  </select>
+                  <button className="text-ql-action" onClick={() => publishRule.mutate({ versionId: rule.id, expectedLockVersion: rule.lock_version, idempotencyKey: crypto.randomUUID(), quotaMode })} type="button">发布</button>
+                </span> : null}
                 {rule.status === "PUBLISHED" ? <><button className="text-ql-action" onClick={() => createVersion.mutate(rule.rule_id)} type="button">新建版本</button><button className="text-ql-danger" onClick={() => disableRule.mutate(rule.id)} type="button">停用</button></> : null}
               </div></td>
             </tr>)}</tbody>
