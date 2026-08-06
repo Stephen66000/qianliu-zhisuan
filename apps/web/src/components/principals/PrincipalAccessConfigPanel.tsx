@@ -10,7 +10,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Save } from "lucide-react";
 
 import { put } from "../../api/client";
 import { QUERY_KEYS, useAccessConfiguration } from "../../api/hooks";
@@ -74,8 +74,8 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
   useEffect(() => {
     if (config) {
       setDrafts(draftFromConfig(config));
-      // 默认展开有池的厂商。
-      setExpanded(new Set(config.providers.filter((p) => p.pool !== null).map((p) => p.provider_code)));
+      // 默认展开全部厂商，让管理员一眼看到可配置的厂商与型号。
+      setExpanded(new Set(config.providers.map((p) => p.provider_code)));
     }
   }, [config]);
 
@@ -298,10 +298,11 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
           {saveError && <span className="text-sm text-destructive">{saveError}</span>}
           <button
             type="button"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary"
             onClick={handleSave}
             disabled={saveMutation.isPending || summary.providerCount === 0}
           >
+            <Save className="h-4 w-4" />
             {saveMutation.isPending ? "保存中…" : "保存并生效"}
           </button>
         </div>
