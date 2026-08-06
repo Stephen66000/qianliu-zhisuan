@@ -23,7 +23,6 @@ import {
 import type {
   Principal,
   PrincipalCleanupPreview,
-  PrincipalGrantItem,
 } from "../api/types";
 import { PageShell } from "../components/layout/PageShell";
 import { AgentUsagePanel } from "../components/principals/AgentUsagePanel";
@@ -33,11 +32,6 @@ import { StatusTag } from "../components/dashboard/StatusTag";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../components/writes/FormField";
-import {
-  IntegerAmountInput,
-  POSTGRES_BIGINT_MAX,
-  validateIntegerAmount,
-} from "../components/writes/IntegerAmountInput";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { formatCount, formatDateTimeFull } from "../lib/format";
 
@@ -50,14 +44,6 @@ const CreatePrincipalSchema = z.object({
 type CreatePrincipalValues = z.infer<typeof CreatePrincipalSchema>;
 
 const TYPE_LABEL: Record<Principal["type"], string> = { EMPLOYEE: "员工", PROJECT: "项目" };
-
-function quotaConfirmationValue(value: string): string {
-  return /^\d+$/.test(value) ? formatCount(value) : "无效值";
-}
-
-function quotaValidationMessage(value: string): string | undefined {
-  return validateIntegerAmount(value, POSTGRES_BIGINT_MAX) ?? undefined;
-}
 
 export function PrincipalsPage() {
   const [archivedFilter, setArchivedFilter] = useState<"exclude" | "only">("exclude");
@@ -418,9 +404,8 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
   const [resetConfirm, setResetConfirm] = useState(false);
-  const [quotaTarget, setQuotaTarget] = useState<PrincipalGrantItem | null>(null);
-  const [quotaValue, setQuotaValue] = useState("");
-  const [disableGrantTarget, setDisableGrantTarget] = useState<PrincipalGrantItem | null>(null);
+  // POOL-033（GLM 评审 P0-1）：池化后额度只读展示——调额/超额/停用统一走上方
+  // 接入配置面板（编排端点单事务），不再提供 PATCH /grants/:id 直写入口。
   const currentPrincipalIdRef = useRef(principal.id);
   const mountedRef = useRef(true);
   currentPrincipalIdRef.current = principal.id;
@@ -441,13 +426,6 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
 
   const refreshKeys = (principalId = principal.id) =>
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principalKeys(principalId) });
-  const refreshGrants = () =>
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.grants(principal.id) });
-  const confirmQuotaUpdate = () => {
-    if (quotaTarget && validateIntegerAmount(quotaValue, POSTGRES_BIGINT_MAX) === null) {
-      updateGrant.mutate({ grant: quotaTarget, patch: { quota_value: quotaValue } });
-    }
-  };
 
   const createKey = useMutation({
     mutationFn: async () => {
@@ -492,21 +470,6 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
     },
   });
 
-  const updateGrant = useMutation({
-    mutationFn: (input: {
-      grant: PrincipalGrantItem;
-      patch: Record<string, unknown>;
-    }) =>
-      patch(`/grants/${input.grant.id}`, {
-        expected_version: input.grant.version,
-        ...input.patch,
-      }),
-    onSuccess: () => {
-      setQuotaTarget(null);
-      setDisableGrantTarget(null);
-      void refreshGrants();
-    },
-  });
   const activeKey = (keysQuery.data?.keys ?? []).find((key) => key.status === "ACTIVE");
   const models = (modelsQuery.data?.models ?? []).filter((model) => model.status === "ACTIVE");
   const grants = grantsQuery.data?.grants ?? [];
@@ -676,7 +639,6 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                 <th className="p-2 text-right font-medium">额度</th>
                 <th className="p-2 font-medium">超额</th>
                 <th className="p-2 font-medium">状态</th>
-                <th className="p-2 text-right font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -687,45 +649,13 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                   <td className="p-2 text-right font-mono">{formatCount(grant.quota_value)}</td>
                   <td className="p-2">{grant.allow_overage ? "允许" : "不允许"}</td>
                   <td className="p-2">{grant.status === "ACTIVE" ? "有效" : "已停用"}</td>
-                  <td className="p-2 text-right">
-                    {grant.status === "ACTIVE" ? (
-                      <div className="flex justify-end gap-1">
-                        <button
-                          className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
-                          onClick={() => {
-                            setQuotaTarget(grant);
-                            setQuotaValue(grant.quota_value);
-                          }}
-                          type="button"
-                        >
-                          调额
-                        </button>
-                        <button
-                          className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                          onClick={() =>
-                            updateGrant.mutate({
-                              grant,
-                              patch: { allow_overage: !grant.allow_overage },
-                            })
-                          }
-                          type="button"
-                        >
-                          {grant.allow_overage ? "关闭超额" : "开启超额"}
-                        </button>
-                        <button
-                          className="rounded px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
-                          onClick={() => setDisableGrantTarget(grant)}
-                          type="button"
-                        >
-                          停用
-                        </button>
-                      </div>
-                    ) : null}
-                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="border-t border-ql-border-zone p-2 text-[12px] text-ql-fg-tertiary">
+            额度为只读展示；调额、超额开关与停用请在上方「接入配置」面板中操作。
+          </p>
         </div>
       ) : null}
 
@@ -740,41 +670,6 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
         onConfirm={() => resetKey.mutate()}
         open={resetConfirm}
         title="重置主体 Key"
-      />
-      <ConfirmDialog
-        confirmLabel="确认调额"
-        impact={`将 ${quotaTarget?.model_alias ?? ""} 的 Token 额度更新为 ${quotaConfirmationValue(quotaValue)}。`}
-        loading={updateGrant.isPending}
-        onCancel={() => setQuotaTarget(null)}
-        onConfirm={confirmQuotaUpdate}
-        open={quotaTarget !== null}
-        title="调整额度"
-      >
-        <FormField
-          error={quotaValidationMessage(quotaValue)}
-          htmlFor="quota-update-value"
-          label="新额度"
-        >
-          <IntegerAmountInput
-            className={`${INPUT_CLASS} w-full`}
-            id="quota-update-value"
-            onChange={setQuotaValue}
-            value={quotaValue}
-          />
-        </FormField>
-      </ConfirmDialog>
-      <ConfirmDialog
-        danger
-        confirmLabel="确认停用"
-        impact={`停用 ${disableGrantTarget?.model_alias ?? ""} 授权后，该主体不能再调用此模型。`}
-        loading={updateGrant.isPending}
-        onCancel={() => setDisableGrantTarget(null)}
-        onConfirm={() =>
-          disableGrantTarget &&
-          updateGrant.mutate({ grant: disableGrantTarget, patch: { status: "DISABLED" } })
-        }
-        open={disableGrantTarget !== null}
-        title="停用模型授权"
       />
       <PrincipalKeyDialog
         copyStatus={copyStatus}

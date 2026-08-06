@@ -538,6 +538,80 @@ describe("POOL-029 员工模型授权发布闭环", () => {
     })).statusCode).toBe(400);
   });
 
+  it("POOL-033：编排端点 PUT 全链路（池 upsert+开关+白名单）与 GET over_limit 标记", async () => {
+    const principalId = randomUUID();
+    await db.insertInto("principal").values({
+      id: principalId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "编排员工", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("principal_key").values({
+      enterprise_id: enterpriseId, principal_id: principalId, key_prefix: "pool029-orchestration",
+      key_digest: randomUUID(), allowed_model_ids: JSON.stringify([]) as unknown as string[], status: "ACTIVE",
+    }).execute();
+
+    // GET 初始：无池，config_version=1。
+    const initial = await app.inject({
+      method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+    });
+    expect(initial.statusCode).toBe(200);
+    expect(initial.json().config_version).toBe(1);
+    expect(initial.json().summary.provider_count).toBe(0);
+
+    // PUT：开通 kimi 池（额度 500000），只启用 modelId（secondModelId 掐掉）。
+    const put = await app.inject({
+      method: "PUT", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+      payload: {
+        expected_version: 1, idempotency_key: "pool029-orch-put-001",
+        providers: [{ provider_code: "kimi", quota_value: "500000", allow_overage: false,
+          valid_until: null, enabled_model_ids: [modelId] }],
+      },
+    });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().config_version).toBe(2);
+    expect(put.json().changes.pools_added).toEqual(["kimi"]);
+
+    // 池建成；白名单含 modelId，secondModelId 进显式禁用清单。
+    const pool = await db.selectFrom("principal_grant").selectAll()
+      .where("principal_id", "=", principalId).where("provider", "=", "kimi")
+      .where("pool_model_alias", "=", "*").where("status", "=", "ACTIVE").executeTakeFirstOrThrow();
+    expect(pool.quota_value).toBe("500000");
+    const key = await db.selectFrom("principal_key").select("allowed_model_ids")
+      .where("principal_id", "=", principalId).executeTakeFirstOrThrow();
+    expect(key.allowed_model_ids).toContain(modelId);
+    expect(key.allowed_model_ids).not.toContain(secondModelId);
+    const disabledRows = await db.selectFrom("principal_provider_disabled_model").selectAll()
+      .where("principal_id", "=", principalId).execute();
+    expect(disabledRows.map((row) => row.unified_model_id)).toContain(secondModelId);
+
+    // 幂等重放：同键同请求返回原响应、config_version 不再自增。
+    const replay = await app.inject({
+      method: "PUT", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+      payload: {
+        expected_version: 1, idempotency_key: "pool029-orch-put-001",
+        providers: [{ provider_code: "kimi", quota_value: "500000", allow_overage: false,
+          valid_until: null, enabled_model_ids: [modelId] }],
+      },
+    });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json().replayed).toBe(true);
+    expect(replay.json().config_version).toBe(2);
+
+    // 乐观锁：过期 expected_version 409。
+    expect((await app.inject({
+      method: "PUT", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+      payload: { expected_version: 1, idempotency_key: "pool029-orch-put-002", providers: [] },
+    })).statusCode).toBe(409);
+
+    // over_limit：已用量 > 额度时 GET 标 true（GLM 评审 P1-1）。
+    await db.updateTable("quota_counter").set({ used_value: 600000n })
+      .where("grant_id", "=", pool.id).execute();
+    const over = await app.inject({
+      method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+    });
+    const kimiBlock = over.json().providers.find((p: { provider_code: string }) => p.provider_code === "kimi");
+    expect(kimiBlock.pool.over_limit).toBe(true);
+    expect(kimiBlock.pool.quota_used).toBe("600000");
+  });
+
   it("全部员工与全部就绪模型范围也执行完整校验", async () => {
     const created = await app.inject({
       method: "POST", url: "/employee-model-rules", headers: { cookie }, payload: {
