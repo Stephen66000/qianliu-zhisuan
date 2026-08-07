@@ -37,6 +37,7 @@ import {
   type DispatchPolicyInput,
   type DispatchPolicyValues,
 } from "../components/quota/dispatch-policy-form";
+import { WeekdayPicker, formatDaysOfWeek, parseDaysOfWeek } from "../components/quota/WeekdayPicker";
 import { PageShell } from "../components/layout/PageShell";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
@@ -820,12 +821,13 @@ export function QuotaRulesPage() {
                       <FormField
                         error={ruleForm.formState.errors.windows?.[index]?.days_of_week?.message}
                         htmlFor={`rule-window-${index}-days`}
-                        label="星期（1-7）"
+                        label="星期"
                       >
-                        <input
-                          className={INPUT_CLASS}
-                          id={`rule-window-${index}-days`}
-                          {...ruleForm.register(`windows.${index}.days_of_week`)}
+                        <WeekdayPicker
+                          value={ruleForm.watch(`windows.${index}.days_of_week`) ?? ""}
+                          onChange={(next) =>
+                            ruleForm.setValue(`windows.${index}.days_of_week`, next, { shouldValidate: true })
+                          }
                         />
                       </FormField>
                       <FormField
@@ -946,7 +948,8 @@ export function QuotaRulesPage() {
                   <td className="p-2 font-mono">
                     {editableWindows(rule).length > 0
                       ? editableWindows(rule)
-                          .map((window) => `${window.timezone} ${window.start_time}–${window.end_time}`)
+                          .map((window) =>
+                            `${formatDaysOfWeek(parseDaysOfWeek(window.days_of_week))} ${window.timezone} ${window.start_time}–${window.end_time}`)
                           .join("；")
                       : "基础规则（全天）"}
                   </td>
@@ -1054,9 +1057,12 @@ export function QuotaRulesPage() {
             <FormField
               error={policyForm.formState.errors.match_days_of_week?.message}
               htmlFor="policy-days"
-              label="星期（1-7）"
+              label="星期"
             >
-              <input className={INPUT_CLASS} id="policy-days" {...policyForm.register("match_days_of_week")} />
+              <WeekdayPicker
+                value={policyForm.watch("match_days_of_week") ?? ""}
+                onChange={(next) => policyForm.setValue("match_days_of_week", next, { shouldValidate: true })}
+              />
             </FormField>
             <FormField
               error={policyForm.formState.errors.match_start_time?.message}
@@ -1199,7 +1205,7 @@ export function QuotaRulesPage() {
                     </td>
                     <td className="p-2 font-mono">
                       {policy.matchTimezone && policy.matchStartTime && policy.matchEndTime
-                        ? `${policy.matchTimezone} ${policy.matchStartTime}–${policy.matchEndTime}`
+                        ? `${formatDaysOfWeek(policy.matchDaysOfWeek)} ${policy.matchTimezone} ${policy.matchStartTime}–${policy.matchEndTime}`
                         : "全天"}
                     </td>
                     <td className="p-2 font-mono">{policy.action}</td>
