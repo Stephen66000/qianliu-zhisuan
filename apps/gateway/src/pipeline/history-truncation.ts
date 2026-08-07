@@ -9,7 +9,11 @@
  * 仅作用于 chat / messages 协议的 messages[]；Responses 暂不截断。
  * 不依赖 tokenizer——用字符数 / 4 粗估（与 estimateRawTokens 同口径，仅 input）。
  */
-import type { FastifyBaseLogger } from "fastify";
+/** 截断日志的最小接口（只需 info/warn；Fastify request.log 天然满足）。 */
+export interface TruncationLogger {
+  info: (obj: unknown, msg?: string) => void;
+  warn: (obj: unknown, msg?: string) => void;
+}
 
 /** 截断配置；null 表示不启用。 */
 export interface TruncationConfig {
@@ -118,32 +122,54 @@ export function truncateHistory(
   if (conversation.length === 0) return messages; // 只有 system，无需裁
 
   // 从末尾倒序累加到 keepTokens，确定保留起点。
+  // F-2：累加后判定（原 break 先于累加导致 off-by-one）。当前条累加后若已达
+  // keepTokens，仍保留它（因为它已计入 acc），循环在下一轮 break。
+  // 净效果：保留段 token 可能略超 keepTokens（最后一条完整保留），方向安全
+  //（多留优于少留——少留可能丢必要上下文）。
   let acc = 0;
   let start = conversation.length; // 保留 [start, length)
   for (let i = conversation.length - 1; i >= 0; i--) {
-    if (acc >= config.keepTokens) break;
     acc += estimateMessageTokens(conversation[i]);
     start = i;
+    if (acc >= config.keepTokens) break;
   }
 
-  // tool 配对保护：跳过开头孤立的 tool 消息（对应 assistant 被截掉）。
-  // 同时若保留段第一条 assistant 带了 tool_calls，但其部分响应被截，
-  // 不强制丢弃该 assistant——保留段内若有该 id 的 tool 响应即视为配对完整。
-  // 这里只处理"开头是孤立 tool 消息"这一最常见的破坏点。
+  // tool 配对保护（双向）：
+  // (a) 保留段开头是孤立的 tool 消息（其 assistant 被截掉）→ 向后跳过。
+  // (b) 保留段开头是 assistant 带 tool_calls，但其任一响应被截在保留段外
+  //     → 向后跳过该 assistant（避免上游收到"有调用无结果"）。
+  // 跳过后重新检查新的开头，循环直到开头不再违反配对。
   while (start < conversation.length) {
     const first = conversation[start];
     const toolId = toolCallIdOf(first);
-    if (toolId === null) break; // 非 tool 消息，无需跳过
-    // 这条 tool 消息对应的 assistant 是否在保留段内？
-    let matched = false;
-    for (let j = start + 1; j < conversation.length; j++) {
-      if (assistantToolCallIds(conversation[j]).has(toolId)) {
-        matched = true;
-        break;
+    if (toolId !== null) {
+      // (a) 孤立 tool：对应的 assistant 是否在保留段内？
+      let matched = false;
+      for (let j = start + 1; j < conversation.length; j++) {
+        if (assistantToolCallIds(conversation[j]).has(toolId)) {
+          matched = true;
+          break;
+        }
+      }
+      if (matched) break; // 配对完整
+      start++; // 孤立 tool，丢弃
+      continue;
+    }
+    // (b) 反向：开头 assistant 的所有 tool_calls 响应是否都在保留段内？
+    const callIds = assistantToolCallIds(first);
+    if (callIds.size > 0) {
+      const retainedToolIds = new Set<string>();
+      for (let j = start + 1; j < conversation.length; j++) {
+        const tid = toolCallIdOf(conversation[j]);
+        if (tid !== null) retainedToolIds.add(tid);
+      }
+      const allAnswered = [...callIds].every((id) => retainedToolIds.has(id));
+      if (!allAnswered) {
+        start++; // assistant 的部分响应被截，丢弃该 assistant
+        continue;
       }
     }
-    if (matched) break; // 配对完整，停止跳过
-    start++; // 孤立 tool，丢弃
+    break; // 非 tool、无 tool_calls 或配对完整
   }
 
   // 兜底：跳过后保留段空了（极端情况），至少保留最后一条。
@@ -161,7 +187,7 @@ export function truncateHistory(
 export function applyHistoryTruncation(
   messages: unknown[],
   config: TruncationConfig | null,
-  log?: FastifyBaseLogger,
+  log?: TruncationLogger,
   requestId?: string,
 ): unknown[] {
   if (config === null) return messages;
@@ -203,7 +229,7 @@ export function buildEffectiveBody<B extends { messages?: unknown[] }>(
   body: B,
   capability: "chat" | "messages" | "responses",
   config: TruncationConfig | null,
-  log?: FastifyBaseLogger,
+  log?: TruncationLogger,
   requestId?: string,
 ): B {
   if (capability !== "chat" && capability !== "messages") return body;

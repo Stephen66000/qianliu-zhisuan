@@ -116,8 +116,12 @@ export function buildGateway(
       );
       return sendErrorEnvelope(reply, ge);
     }
-    // 其余错误沿用 Fastify 默认处理（含 validation、notFound 等）。
-    reply.send(err);
+    // B-1：其余错误复刻 Fastify 默认 errorHandler 行为（含日志 + 状态码 + 序列化）。
+    // 原 reply.send(err) 会丢失默认的 req.log.error 日志记录。
+    const status = reply.statusCode >= 400 ? reply.statusCode : 500;
+    const level = status >= 500 ? "error" : "info";
+    req.log[level]({ err }, err instanceof Error ? err.message : String(err));
+    reply.code(status).send(err);
   });
 
   void app.register(async (child) => {
