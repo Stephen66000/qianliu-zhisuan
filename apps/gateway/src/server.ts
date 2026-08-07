@@ -19,8 +19,9 @@ import { registerChatRoute, type PipelineHandler } from "./routes/chat.js";
 import { registerMessagesRoute } from "./routes/messages.js";
 import { registerResponsesRoute } from "./routes/responses.js";
 import { registerUnsupportedRoutes } from "./routes/unsupported.js";
-import { fromClassification } from "./plugins/error-envelope.js";
+import { fromClassification, sendErrorEnvelope } from "./plugins/error-envelope.js";
 import { ERROR_CLASSIFICATION } from "@qianliu/domain";
+import { readPositiveIntEnv } from "@qianliu/config";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -34,6 +35,18 @@ export interface GatewayOptions {
   host?: string;
 }
 
+/**
+ * 入站请求体上限（字节）。Fastify 默认仅 1MB，ZCode coding-plan 等长会话单轮
+ * 累积上下文几轮即超 1MB，会在 application/json 解析阶段被拒（FST_ERR_CTP_BODY_TOO_LARGE → 413）。
+ * 默认 10MB 给足余量；可通过 GATEWAY_REQUEST_BODY_LIMIT_BYTES 覆盖。
+ * H-1：校验逻辑复用 @qianliu/config 的 readPositiveIntEnv（与 control-api 共享，防漂移）。
+ */
+const REQUEST_BODY_LIMIT_DEFAULT = 10 * 1024 * 1024;
+
+export function readRequestBodyLimit(env: NodeJS.ProcessEnv): number {
+  return readPositiveIntEnv(env, "GATEWAY_REQUEST_BODY_LIMIT_BYTES", REQUEST_BODY_LIMIT_DEFAULT, "字节");
+}
+
 export function buildGateway(
   db: Kysely<Database>,
   pepper: string,
@@ -45,6 +58,8 @@ export function buildGateway(
     genReqId: () => crypto.randomUUID(), // 兜底；request-id 插件会覆盖
     // W24：反代（Caddy/nginx）终止 TLS 时，信任 X-Forwarded-* 以正确判定协议/主机（影响 Cookie secure）。
     trustProxy: process.env.NODE_ENV === "production",
+    // 入站 bodyLimit：默认 1MB 太小，长会话会撞 FST_ERR_CTP_BODY_TOO_LARGE。
+    bodyLimit: readRequestBodyLimit(process.env),
   });
 
   // W23：WebSocket 一期未启用（详细计划 §4.6 默认关闭），握手请求显式拒绝为
@@ -79,6 +94,30 @@ export function buildGateway(
           },
         });
     }
+  });
+
+  // 入站请求体超 bodyLimit 时，Fastify 默认走原生错误 JSON（非 OpenAI envelope，
+  // 且会被日志层记成 reason=unknown）。这里统一拦截 FST_ERR_CTP_BODY_TOO_LARGE，
+  // 转成 OpenAI 兼容 envelope + code=payload_too_large，便于客户端识别。
+  app.setErrorHandler((err, req, reply) => {
+    // Fastify 5 的 error handler 入参为 unknown；FST_ERR_CTP_BODY_TOO_LARGE 是
+    // Fastify 内部错误（Error 子类，带 .code 字符串）。
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      err.code === "FST_ERR_CTP_BODY_TOO_LARGE"
+    ) {
+      const ge = fromClassification(
+        ERROR_CLASSIFICATION.PAYLOAD_TOO_LARGE,
+        "payload_too_large",
+        "请求体超过上限，请减少消息历史或附件后重试",
+        req.id,
+      );
+      return sendErrorEnvelope(reply, ge);
+    }
+    // 其余错误沿用 Fastify 默认处理（含 validation、notFound 等）。
+    reply.send(err);
   });
 
   void app.register(async (child) => {

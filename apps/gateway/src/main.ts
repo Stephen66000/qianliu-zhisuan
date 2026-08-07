@@ -13,6 +13,7 @@ import { decodeKek, resolveProviderSecret } from "@qianliu/provider-adapters";
 import { installGracefulShutdown } from "@qianliu/observability";
 import { buildGateway } from "./server.js";
 import { createRealPipeline, type RouteCandidateRow } from "./pipeline/real-pipeline.js";
+import { readTruncationConfig } from "./pipeline/history-truncation.js";
 import { createProductionUpstreamCaller } from "./upstream-caller-factory.js";
 
 async function start(): Promise<void> {
@@ -101,6 +102,7 @@ async function start(): Promise<void> {
       now,
     ) => dispatchRepo.resolveResourceOperatingInput(enterpriseId, winnerResourceId, now),
     maxAttempts: 2,
+    truncationConfig: readTruncationConfig(process.env),
   });
   const app = buildGateway(db, pepper, pipeline, { port, host });
   const shutdown = installGracefulShutdown({

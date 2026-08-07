@@ -121,6 +121,7 @@ export const ERROR_CLASSIFICATION = {
   STREAM_INTERRUPTED_AFTER_COMMIT: "STREAM_INTERRUPTED_AFTER_COMMIT", // 已输出后断流 — 不切换
   LEDGER_FAILURE: "LEDGER_FAILURE", // 内部记账失败 — 不切换
   TRANSPORT_ERROR: "TRANSPORT_ERROR", // 传输层错误 — 可切换
+  PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE", // 入站请求体超过 gateway bodyLimit — 不切换
   UNKNOWN: "UNKNOWN",
 } as const;
 

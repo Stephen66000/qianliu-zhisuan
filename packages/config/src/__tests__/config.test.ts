@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { loadConfig, PROVIDER_SECRET_ENV, CONFIG_VERSION } from "../index.js";
+import { loadConfig, PROVIDER_SECRET_ENV, CONFIG_VERSION, readPositiveIntEnv } from "../index.js";
 
 describe("@qianliu/config", () => {
   it("exposes version", () => {
@@ -62,5 +62,27 @@ describe("@qianliu/config", () => {
     expect(() =>
       loadConfig({ ...base, RUNTIME_ASSURANCE_WECOM_NOTIFY: "TRUE" }),
     ).toThrow();
+  });
+});
+
+describe("readPositiveIntEnv（H-1：gateway/control-api 共享）", () => {
+  it("未设 → 默认值", () => {
+    expect(readPositiveIntEnv({}, "FOO", 42)).toBe(42);
+    expect(readPositiveIntEnv({ FOO: "" }, "FOO", 42)).toBe(42);
+  });
+
+  it("合法正整数 → 采用", () => {
+    expect(readPositiveIntEnv({ FOO: "1048576" }, "FOO", 42)).toBe(1_048_576);
+  });
+
+  it("非法值 → 抛错（fail-fast）", () => {
+    expect(() => readPositiveIntEnv({ FOO: "abc" }, "FOO", 42)).toThrow();
+    expect(() => readPositiveIntEnv({ FOO: "0" }, "FOO", 42)).toThrow();
+    expect(() => readPositiveIntEnv({ FOO: "-1" }, "FOO", 42)).toThrow();
+    expect(() => readPositiveIntEnv({ FOO: "1.5" }, "FOO", 42)).toThrow();
+  });
+
+  it("错误信息含 unitLabel", () => {
+    expect(() => readPositiveIntEnv({ FOO: "x" }, "FOO", 42, "字节")).toThrow(/字节/);
   });
 });

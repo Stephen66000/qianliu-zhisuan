@@ -59,6 +59,7 @@ import { registerOperatingBillRoutes } from "./operating-bills/routes.js";
 import { registerDeploymentLogRoutes } from "./deployment-logs/routes.js";
 import { registerEmployeeModelRuleRoutes } from "./employee-model-rules/routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
+import { readPositiveIntEnv } from "@qianliu/config";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
 export interface AdminContext {
@@ -96,6 +97,18 @@ declare module "fastify" {
     quotaWindowRepo: ProviderQuotaWindowRepository;
     poolRepo: ResourcePoolRepository;
   }
+}
+
+/**
+ * 入站请求体上限（字节）。Fastify 默认仅 1MB，账单快照导入、部署清单导入等
+ * bulk 端点在大批量场景会超限（FST_ERR_CTP_BODY_TOO_LARGE → 413）。
+ * 默认 10MB；可通过 CONTROL_API_REQUEST_BODY_LIMIT_BYTES 覆盖。
+ * H-1：校验逻辑复用 @qianliu/config 的 readPositiveIntEnv（与 gateway 共享，防漂移）。
+ */
+const REQUEST_BODY_LIMIT_DEFAULT = 10 * 1024 * 1024;
+
+export function readRequestBodyLimit(env: NodeJS.ProcessEnv): number {
+  return readPositiveIntEnv(env, "CONTROL_API_REQUEST_BODY_LIMIT_BYTES", REQUEST_BODY_LIMIT_DEFAULT, "字节");
 }
 
 export interface ControlApiOptions {
@@ -148,6 +161,8 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     logger: { level: process.env.LOG_LEVEL ?? "info" },
     // W24：反代（Caddy/nginx）终止 TLS 时，信任 X-Forwarded-* 以正确判定协议/主机（影响 Cookie secure）。
     trustProxy: process.env.NODE_ENV === "production",
+    // 入站 bodyLimit：默认 1MB 对 bulk import 端点有风险。
+    bodyLimit: readRequestBodyLimit(process.env),
   });
 
   app.decorate("db", db);

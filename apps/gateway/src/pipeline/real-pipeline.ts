@@ -62,6 +62,7 @@ import {
   type BillingOutcome,
 } from "./billing.js";
 import { shouldAttemptUpstreamFailover } from "../upstream-failover-policy.js";
+import { buildEffectiveBody, type TruncationConfig } from "./history-truncation.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
 export interface RouteCandidateRow {
@@ -134,12 +135,19 @@ export interface RealPipelineDeps {
   capacityWaitMs?: number;
   /** 并发槽位轮询间隔；仅供测试缩短，生产默认 25ms。 */
   capacityPollMs?: number;
+  /**
+   * 历史截断配置（安全网，默认 null=不启用）。仅作用于 chat/messages 协议：
+   * messages 估算 token 超阈值时，保留 system + 末尾一段、中间丢弃。
+   * Responses 协议不截断。由运维通过 env 成对配置，未配置时零行为变化。
+   */
+  truncationConfig?: TruncationConfig | null;
 }
 
 export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
   const maxAttempts = deps.maxAttempts ?? 2;
   const capacityWaitMs = deps.capacityWaitMs ?? 2_000;
   const capacityPollMs = deps.capacityPollMs ?? 25;
+  const truncationConfig = deps.truncationConfig ?? null;
   return async ({ request, reply, body, capability }) => {
     const requestId = request.aiRequestId;
     const traceId = request.requestId;
@@ -359,6 +367,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     // 请求级超额事实随结算冻结；后续 Grant/Counter 变化不得重算历史。
     let requestOverage = false;
 
+    // 历史截断（安全网，默认 null=不启用）：仅 chat/messages，在 attempt 循环外
+    // 做一次，避免对同一 body 重复裁剪或重复记日志。Responses 不截断。
+    // effectiveBody 同时用于 adapter 发送与 reserveQuota 预占（口径一致，G-3）。
+    const effectiveBody = buildEffectiveBody(body, capability, truncationConfig, request.log, requestId);
+
     while (attemptNo < maxAttempts) {
       attemptNo += 1;
       lastScored = scoreAndSelect(eligible, affinityResourceId, triedResourceIds);
@@ -493,7 +506,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           principalId,
           provider: cand.providerCode,
           modelAlias: body.model,
-          estimatedCost: estimateRawTokens(body),
+          // 预占口径与实际发送一致：chat/messages 用截断后的 effectiveBody，
+          // Responses 时 effectiveBody === body（未截断），等价于原口径。
+          estimatedCost: estimateRawTokens(effectiveBody),
         });
         if (reserve.decision !== QUOTA_DECISION.ALLOW && reserve.decision !== QUOTA_DECISION.ALLOW_OVERAGE) {
           // REJECT_EXHAUSTED / REJECT_NO_GRANT / REJECT_GRANT_EXPIRED：释放租约，排除资源重评
@@ -601,7 +616,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           capability,
           // 保留完整北向请求，真实 caller 才能转换 tools/tool_choice/system；
           // 请求正文仅驻留内存，账本仍保持 METADATA_ONLY。
-          body: capability === "responses" ? body.responsesRequest : body,
+          // chat/messages 经 effectiveBody（可能已截断历史）；Responses 透传 responsesRequest。
+          body: capability === "responses" ? body.responsesRequest : effectiveBody,
           abort: downstreamAbort.signal,
           ...(streamWriter
             ? { onStreamChunk: (payload: Record<string, unknown>) => streamWriter.writeChunk(payload) }

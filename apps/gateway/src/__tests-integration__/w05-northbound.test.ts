@@ -484,6 +484,42 @@ describe("W05 北向合同", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("bodyLimit 已从 Fastify 默认 1MB 抬高：1.5MB 请求体正常进入路由（不再 413）", async () => {
+    // 1.5MB 文本内容，超过 Fastify 默认 bodyLimit 1MB；旧实现会返回 413。
+    const bigContent = "x".repeat(1.5 * 1024 * 1024);
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/chat/completions",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: {
+        model: "qianliu-deepseek",
+        messages: [{ role: "user", content: bigContent }],
+      },
+    });
+    // 进入路由即返回 200（stub pipeline 回声），证明未被 bodyLimit 拦截。
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("请求体超过 bodyLimit 上限返回 413 + OpenAI envelope + payload_too_large（不再 reason=unknown）", async () => {
+    // 11MB 文本内容，超过默认 10MB bodyLimit；触发 FST_ERR_CTP_BODY_TOO_LARGE。
+    const oversized = "y".repeat(11 * 1024 * 1024);
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/chat/completions",
+      headers: { ...authHeader(), "content-type": "application/json" },
+      payload: {
+        model: "qianliu-deepseek",
+        messages: [{ role: "user", content: oversized }],
+      },
+    });
+    expect(res.statusCode).toBe(413);
+    const body = res.json();
+    expect(body.error.type).toBe("invalid_request_error");
+    expect(body.error.code).toBe("payload_too_large");
+    expect(body.error.retryable).toBe(false);
+    expect(body.error.request_id).toBeDefined();
+  });
+
   it("客户端传 x-request-id 仅作为追踪 ID 回显", async () => {
     const customId = "client-custom-req-id-123";
     const res = await app.inject({

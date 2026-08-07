@@ -35,6 +35,8 @@ function classifyToHttp(classification: ErrorClassification): {
       return { status: 400, type: "invalid_request_error", retryable: false };
     case "CAPABILITY_UNSUPPORTED":
       return { status: 422, type: "capability_not_supported", retryable: false };
+    case "PAYLOAD_TOO_LARGE":
+      return { status: 413, type: "invalid_request_error", retryable: false };
     case "DOWNSTREAM_AUTH_OR_QUOTA":
       return { status: 401, type: "authentication_error", retryable: false };
     case "UPSTREAM_CREDENTIAL_INVALID":

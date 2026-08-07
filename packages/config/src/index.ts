@@ -107,3 +107,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 }
 
 export const CONFIG_VERSION = "0.3.0" as const;
+
+/**
+ * 读取正整数环境变量（H-1：gateway/control-api 共享，避免两份同构逻辑漂移）。
+ *
+ * 未设或空串 → 返回 defaultValue；非法值（非整数、<=0）→ 启动期抛错（fail-fast）。
+ * 用于 bodyLimit 字节数等"正整数"配置。unitLabel 仅用于错误信息。
+ */
+export function readPositiveIntEnv(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  defaultValue: number,
+  unitLabel = "",
+): number {
+  const raw = env[name];
+  if (raw === undefined || raw === "") return defaultValue;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} 必须是正整数${unitLabel ? `（${unitLabel}）` : ""}`);
+  }
+  return value;
+}
