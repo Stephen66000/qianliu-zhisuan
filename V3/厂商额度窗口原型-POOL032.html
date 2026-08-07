@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POOL-032 厂商额度窗口 — 原型</title>
+<style>
+  :root {
+    --canvas: #F4F7FB; --surface: #FFFFFF; --surface-subtle: #F8FAFC; --surface-muted: #EEF2F6;
+    --border: #D8E1EB; --border-zone: #E3EAF2; --border-strong: #7D8FA4;
+    --fg: #172033; --fg-secondary: #526175; --fg-tertiary: #6B7280;
+    --action: #2F6FCE; --action-hover: #255DB2; --action-soft: #E8F0FD;
+    --accent: #00D2D4; --success: #267A3D; --success-soft: #EAF6ED;
+    --warning: #9A4A2E; --warning-soft: #FBEFE9; --danger: #C7352E; --danger-soft: #FDEDEC;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--canvas); color: var(--fg); font-size: 13px; line-height: 1.5; padding: 24px; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  h2 { font-size: 14px; font-weight: 600; }
+  .lead { color: var(--fg-tertiary); font-size: 12px; margin-bottom: 20px; }
+  .proto-note { background: var(--action-soft); border-left: 3px solid var(--action); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12px; color: var(--fg-secondary); margin-bottom: 20px; }
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .section-head h2 { font-size: 14px; }
+  .section-desc { color: var(--fg-tertiary); font-size: 12px; margin-bottom: 14px; }
+  .btn-sync { background: var(--surface); border: 1px solid var(--action); color: var(--action); padding: 5px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 500; }
+  .btn-sync:hover { background: var(--action-soft); }
+  .btn-sync:disabled { opacity: .5; cursor: default; }
+  .resource-card { border: 1px solid var(--border-zone); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .resource-card:last-child { margin-bottom: 0; }
+  .resource-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .resource-name { font-weight: 600; font-size: 13px; }
+  .resource-meta { color: var(--fg-tertiary); font-size: 11px; margin-top: 2px; }
+  .badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; font-weight: 500; }
+  .badge-coding { background: var(--action-soft); color: var(--action); }
+  .badge-api { background: var(--surface-muted); color: var(--fg-secondary); }
+  .windows { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .window { background: var(--surface-subtle); border-radius: 8px; padding: 12px; }
+  .window-title { font-size: 12px; font-weight: 600; color: var(--fg-secondary); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .window-title .reset { font-weight: 400; color: var(--fg-tertiary); font-size: 11px; }
+  .metric-row { display: flex; align-items: baseline; gap: 4px; margin-bottom: 8px; }
+  .metric-val { font-size: 20px; font-weight: 700; font-family: "SF Mono", "Roboto Mono", monospace; }
+  .metric-val.accent { color: var(--action); }
+  .metric-val.warn { color: var(--warning); }
+  .metric-limit { color: var(--fg-tertiary); font-size: 13px; }
+  .metric-unit { color: var(--fg-tertiary); font-size: 11px; }
+  .progress { height: 8px; background: var(--surface-muted); border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+  .progress-bar { height: 100%; border-radius: 4px; }
+  .progress-bar.action { background: var(--action); }
+  .progress-bar.warning { background: var(--warning); }
+  .progress-bar.accent { background: var(--accent); }
+  .window-foot { font-size: 11px; color: var(--fg-tertiary); }
+  .na { color: var(--fg-tertiary); font-size: 12px; padding: 8px 0; }
+  .fresh { font-size: 11px; color: var(--fg-tertiary); }
+  .fresh.warn { color: var(--warning); }
+  .fresh.ok { color: var(--success); }
+  .sync-error { background: var(--danger-soft); color: var(--danger); font-size: 11px; padding: 6px 10px; border-radius: 6px; margin-top: 8px; }
+  .sync-pending { background: var(--warning-soft); color: var(--warning); font-size: 11px; padding: 6px 10px; border-radius: 6px; margin-top: 8px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11px; color: var(--fg-tertiary); margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-zone); }
+  .legend strong { color: var(--fg-secondary); }
+  .state-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .state-nav button { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; color: var(--fg-secondary); }
+  .state-nav button.active { border-color: var(--action); color: var(--action); background: var(--action-soft); }
+</style>
+</head>
+<body>
+
+<h1>厂商额度窗口（POOL-032）</h1>
+<p class="lead">原型 · 展示 Coding Plan 厂商实时额度窗口。页面顺序：厂商额度窗口 → 供给预测 → 资源健康。点击下方按钮切换不同资源/状态。</p>
+
+<div class="proto-note">
+  <strong>原型说明</strong>：Kimi/智谱额度为厂商返回的<strong>百分比/额度点（100 制），非 token</strong>。
+  缺失字段一律显示「厂商未提供」，绝不显示 0；同步失败保留最后一次成功快照。
+  单位、口径与本地累计、供给预测严格区分。
+</div>
+
+<div class="state-nav" id="nav">
+  <button data-key="kimi" class="active">Kimi（正常）</button>
+  <button data-key="zhipu">智谱（周额度不支持）</button>
+  <button data-key="deepseek">DeepSeek（不适用）</button>
+  <button data-key="failed">同步失败（保鲜）</button>
+  <button data-key="never">从未同步</button>
+  <button data-key="syncing">同步中</button>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <h2>厂商额度窗口</h2>
+    <button class="btn-sync">立即同步</button>
+  </div>
+  <p class="section-desc">厂商 Coding Plan 返回的实时窗口额度。与仟流本地累计、供给预测口径独立，缺失字段显示「厂商未提供」。</p>
+
+  <div id="panel"></div>
+
+  <div class="legend">
+    <span><strong>口径说明</strong></span>
+    <span>● 厂商事实（本区，百分比/额度点）</span>
+    <span>○ 本地累计（账本 token）</span>
+    <span>○ 供给预测（算法估算）</span>
+    <span>数据来源：<strong>PROVIDER_SYNC</strong>（厂商接口自动同步）</span>
+  </div>
+</div>
+
+<div class="section" style="opacity:.55">
+  <h2 style="margin-bottom:4px">供给预测</h2>
+  <p class="section-desc">（POOL-022 已有模块，本原型不展开。厂商额度窗口固定在其上方。）</p>
+</div>
+
+<script>
+const states = {
+  kimi: '<div class="resource-card"><div class="resource-head"><div><div class="resource-name">Kimi Coding Plan · 主账号</div><div class="resource-meta">kimi · CODING_PLAN · 资源 ID 74f8cb60…</div></div><span class="badge badge-coding">Coding Plan</span></div><div class="windows"><div class="window"><div class="window-title">周额度 <span class="reset">约 2 天 21 时后重置</span></div><div class="metric-row"><span class="metric-val accent">60</span><span class="metric-limit">/ 100</span><span class="metric-unit">额度点</span></div><div class="progress"><div class="progress-bar action" style="width:60%"></div></div><div class="window-foot">已用 60 · 剩余 40 · 重置 2026-08-10 03:00 (CST)</div></div><div class="window"><div class="window-title">滚动 5 小时额度 <span class="reset">43 分后刷新</span></div><div class="metric-row"><span class="metric-val">3</span><span class="metric-limit">/ 100</span><span class="metric-unit">额度点</span></div><div class="progress"><div class="progress-bar accent" style="width:3%"></div></div><div class="window-foot">已用 3 · 剩余 97 · 刷新 2026-08-07 11:16 (CST)</div></div></div><div class="fresh ok" style="margin-top:10px">✓ 同步成功 · 数据截至 2026-08-07 10:33:42 · 来源 Kimi /coding/v1/usages</div></div>',
+  zhipu: '<div class="resource-card"><div class="resource-head"><div><div class="resource-name">智谱个人 Coding Plan</div><div class="resource-meta">zhipu · CODING_PLAN · 资源 ID a3b1c…</div></div><span class="badge badge-coding">Coding Plan</span></div><div class="windows"><div class="window"><div class="window-title">5 小时额度 <span class="reset">下次窗口 2026-08-07 14:00</span></div><div class="metric-row"><span class="metric-val warn">72</span><span class="metric-limit">/ 100</span><span class="metric-unit">%</span></div><div class="progress"><div class="progress-bar warning" style="width:72%"></div></div><div class="window-foot">使用比例 72% · 来源 glm-plan-usage TOKENS_LIMIT</div></div><div class="window"><div class="window-title">周额度</div><div class="na">厂商未提供实时查询<br><small style="color:var(--fg-tertiary)">智谱公开插件未解析周已用/剩余，不显示估算值</small></div></div></div><div class="fresh ok" style="margin-top:10px">✓ 同步成功 · 数据截至 2026-08-07 10:33:42 · 来源 智谱 quota/limit</div></div>',
+  deepseek: '<div class="resource-card"><div class="resource-head"><div><div class="resource-name">DeepSeek 按量 API</div><div class="resource-meta">deepseek · API · 按 token 计费</div></div><span class="badge badge-api">API 计费</span></div><div class="na">不适用 — 非 Coding Plan 套餐资源，无厂商窗口额度。<br><small>额度与用量见「厂商经营数据」与「账本」。</small></div></div>',
+  failed: '<div class="resource-card"><div class="resource-head"><div><div class="resource-name">Kimi Coding Plan · 主账号</div><div class="resource-meta">kimi · CODING_PLAN · 资源 ID 74f8cb60…</div></div><span class="badge badge-coding">Coding Plan</span></div><div class="windows"><div class="window"><div class="window-title">周额度 <span class="reset">约 2 天 21 时后重置</span></div><div class="metric-row"><span class="metric-val accent">60</span><span class="metric-limit">/ 100</span><span class="metric-unit">额度点</span></div><div class="progress"><div class="progress-bar action" style="width:60%"></div></div><div class="window-foot">已用 60 · 剩余 40 · 重置 2026-08-10 03:00 (CST)</div></div><div class="window"><div class="window-title">滚动 5 小时额度 <span class="reset">43 分后刷新</span></div><div class="metric-row"><span class="metric-val">3</span><span class="metric-limit">/ 100</span><span class="metric-unit">额度点</span></div><div class="progress"><div class="progress-bar accent" style="width:3%"></div></div><div class="window-foot">已用 3 · 剩余 97 · 刷新 2026-08-07 11:16 (CST)</div></div></div><div class="fresh warn" style="margin-top:10px">⚠ 数据已过期 · 最后成功 2026-08-07 08:00:12</div><div class="sync-error">同步失败 · 厂商返回 429（限流），已保留上次成功快照，不影响 Gateway 正常请求与资源健康状态。重试将在下个周期自动进行。</div></div>',
+  never: '<div class="resource-card"><div class="resource-head"><div><div class="resource-name">Kimi Coding Plan · 备用号</div><div class="resource-meta">kimi · CODING_PLAN · 资源 ID 9e2d1a…</div></div><span class="badge badge-coding">Coding Plan</span></div><div class="na">未同步 — 点击右上「立即同步」首次拉取厂商额度。</div><div class="fresh" style="margin-top:8px">○ 从未成功同步</div></div>',
+  syncing: '<div class="resource-card"><div class="resource-head"><div><div class="resource-name">Kimi Coding Plan · 主账号</div><div class="resource-meta">kimi · CODING_PLAN · 资源 ID 74f8cb60…</div></div><span class="badge badge-coding">Coding Plan</span></div><div class="sync-pending">同步中… 正在调用 Kimi /coding/v1/usages（超时 10s，最多重试 2 次）。</div></div>',
+};
+const panel = document.getElementById('panel');
+const nav = document.getElementById('nav');
+nav.addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  [...nav.children].forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  panel.innerHTML = states[e.target.dataset.key];
+});
+panel.innerHTML = states.kimi;
+</script>
+</body>
+</html>

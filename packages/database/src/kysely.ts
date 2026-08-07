@@ -20,8 +20,10 @@ import type {
   ProviderResourceOperatingSnapshotTable,
 } from "./kysely-operations-tables.js";
 import type { EmployeeModelRuleAssignmentTable, EmployeeModelRuleVersionTable, PrincipalModelManualAuthorizationTable } from "./employee-model-rule-types.js";
+import type { ProviderQuotaWindowTable } from "./provider-quota-window-types.js";
 
 export type * from "./kysely-operations-tables.js"; export type * from "./employee-model-rule-types.js";
+export type * from "./provider-quota-window-types.js";
 
 export interface KyselyMigrationTable { name: string }
 export interface KyselyMigrationLockTable { id: number }
@@ -739,6 +741,7 @@ export interface Database {
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
   provider_resource_operating_snapshot: ProviderResourceOperatingSnapshotTable;
+  provider_quota_window: ProviderQuotaWindowTable;
   provider_model_discovery: ProviderModelDiscoveryTable;
   provider_model_discovery_item: ProviderModelDiscoveryItemTable;
   provider_model_onboarding: ProviderModelOnboardingTable;

@@ -81,6 +81,17 @@ export {
   type ResourceMode,
 } from "./model-discovery.js";
 
+export {
+  queryCodingPlanQuota,
+  ProviderCodingPlanQuotaError,
+  CODING_PLAN_QUOTA_ADAPTER_VERSION,
+  type QuotaWindow,
+  type QuotaWindowType,
+  type QuotaWindowUnit,
+  type CodingPlanQuotaResult,
+  type QuotaFetch,
+} from "./coding-plan-quota.js";
+
 // 密码学原语（W02 起启用）
 export {
   digestApiKey,

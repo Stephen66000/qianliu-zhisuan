@@ -188,4 +188,10 @@ export {
   type LegacyUnavailableAssessment,
 } from "./repositories/runtime-assurance-repository.js";
 
+export {
+  ProviderQuotaWindowRepository,
+  type QuotaWindowUpsertInput,
+  type CurrentQuotaWindow,
+} from "./repositories/provider-quota-window-repository.js";
+
 export const DATABASE_VERSION = "0.3.0" as const;
