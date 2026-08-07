@@ -7,3 +7,11 @@ export function resolveFirstByteTimeoutMs(
 ): number {
   return resolver?.(resource) ?? fallbackMs;
 }
+
+export function resolveStreamIdleTimeoutMs(
+  resource: AdapterResource,
+  fallbackMs: number,
+  resolver?: (resource: AdapterResource) => number,
+): number {
+  return resolver?.(resource) ?? fallbackMs;
+}

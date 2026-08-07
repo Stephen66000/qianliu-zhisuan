@@ -3,7 +3,7 @@ import {
   type OpenAiCompatibleCallerOptions,
   type UpstreamCaller,
 } from "@qianliu/provider-adapters";
-import { createFirstByteTimeoutPolicy } from "./upstream-timeout-policy.js";
+import { createFirstByteTimeoutPolicy, createStreamIdleTimeoutPolicy } from "./upstream-timeout-policy.js";
 
 type CallerFactory = (options: OpenAiCompatibleCallerOptions) => UpstreamCaller;
 
@@ -21,7 +21,7 @@ export function createProductionCallerOptions(
   return {
     env,
     firstByteTimeoutMsForResource: createFirstByteTimeoutPolicy(env),
-    streamIdleTimeoutMs: positiveEnvMs(env, "GATEWAY_UPSTREAM_STREAM_IDLE_TIMEOUT_MS", 45_000),
+    streamIdleTimeoutMsForResource: createStreamIdleTimeoutPolicy(env),
     requestTimeoutMs: positiveEnvMs(env, "GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS", 10 * 60_000),
   };
 }

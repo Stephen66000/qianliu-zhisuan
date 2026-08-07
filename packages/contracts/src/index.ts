@@ -82,6 +82,8 @@ export interface Outcome {
   recoverAt?: string;
   /** 收到上游首个响应字节的时间（epoch ms），仅记元数据。 */
   firstByteAt?: number;
+  /** 收到上游最后一个数据块的时间（epoch ms），仅用于超时排障，不落库（POOL-034）。 */
+  lastByteAt?: number;
   /** 故障所在分层；不含上游或请求正文。 */
   failureLayer?:
     | "UPSTREAM_HTTP"

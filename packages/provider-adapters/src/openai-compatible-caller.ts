@@ -15,7 +15,7 @@ import {
   type AdapterResource,
   type UpstreamCaller,
 } from "./index.js";
-import { resolveFirstByteTimeoutMs } from "./resource-timeout-policy.js";
+import { resolveFirstByteTimeoutMs, resolveStreamIdleTimeoutMs } from "./resource-timeout-policy.js";
 
 type ProviderCode = AdapterResource["providerCode"];
 
@@ -66,6 +66,8 @@ export interface OpenAiCompatibleCallerOptions {
   firstByteTimeoutMsForResource?: (resource: AdapterResource) => number;
   /** 流式已开始后，两个上游数据块之间的最大空闲时间。 */
   streamIdleTimeoutMs?: number;
+  /** 按资源（厂商/模式）解析的流式空闲门限，覆盖 streamIdleTimeoutMs（POOL-034）。 */
+  streamIdleTimeoutMsForResource?: (resource: AdapterResource) => number;
 }
 
 interface ChatToolCall {
@@ -128,7 +130,7 @@ export function createOpenAiCompatibleCaller(
       requestAbort: request.abort,
       requestTimeoutMs,
       firstByteTimeoutMs: resolveFirstByteTimeoutMs(resource, firstByteTimeoutMs, options.firstByteTimeoutMsForResource),
-      streamIdleTimeoutMs,
+      streamIdleTimeoutMs: resolveStreamIdleTimeoutMs(resource, streamIdleTimeoutMs, options.streamIdleTimeoutMsForResource),
     });
 
     let response: HttpResponseLike;
@@ -585,6 +587,7 @@ function streamFailure(
       ? { ...usage, quality: "ESTIMATED" }
       : usage,
     firstByteAt: timeout.firstByteAt,
+    lastByteAt: timeout.lastChunkAt,
     failureLayer: timeout.timedOut
       ? timeoutFailure.layer
       : cancelled
@@ -868,6 +871,8 @@ type TimeoutFailureLayer =
 interface LayeredTimeout {
   signal: AbortSignal;
   firstByteAt?: number;
+  /** 最近一次收到上游原始数据块的时间，超时排障用于推算空闲起点（POOL-034）。 */
+  lastChunkAt?: number;
   timedOut: boolean;
   markFirstByte(): void;
   markChunk(): void;
@@ -890,6 +895,7 @@ function createLayeredTimeout(input: {
     ? AbortSignal.any([input.requestAbort, controller.signal])
     : controller.signal;
   let firstByteAt: number | undefined;
+  let lastChunkAt: number | undefined;
   let timeoutLayer: TimeoutFailureLayer | null = null;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   const abortFor = (layer: TimeoutFailureLayer) => {
@@ -923,12 +929,16 @@ function createLayeredTimeout(input: {
     get firstByteAt() {
       return firstByteAt;
     },
+    get lastChunkAt() {
+      return lastChunkAt;
+    },
     get timedOut() {
       return timeoutLayer !== null;
     },
     markFirstByte,
     markChunk() {
       markFirstByte();
+      lastChunkAt = Date.now();
       resetIdle();
     },
     failure(cancelled) {

@@ -708,6 +708,124 @@ describe("OpenAI-compatible HTTP caller", () => {
       failureLayer: "STREAM_IDLE_TIMEOUT",
     });
     expect(outcome.firstByteAt).toEqual(expect.any(Number));
+    expect(outcome.lastByteAt).toEqual(expect.any(Number));
+  });
+
+  it("智谱 Coding Plan 资源首块后空闲超过 45 秒但在策略门限内恢复时请求成功", async () => {
+    vi.useFakeTimers();
+    try {
+      const request = responsesRequest(true);
+      request.onStreamChunk = () => undefined;
+      const caller = createOpenAiCompatibleCaller({
+        fetch: async () => delayedStreamResponse(new Promise((resolve) => setTimeout(resolve, 60_000))),
+        env: { ZHIPU_BASE_URL: "https://zhipu.example" },
+        firstByteTimeoutMs: 5_000,
+        streamIdleTimeoutMsForResource: (item) =>
+          item.providerCode === "zhipu" && item.mode === "CODING_PLAN" ? 120_000 : 45_000,
+        requestTimeoutMs: 10 * 60_000,
+      });
+
+      const pending = caller(
+        resource({ providerCode: "zhipu", mode: "CODING_PLAN" }),
+        request,
+        1,
+      );
+      // 跨过旧的全局 45 秒门限，但仍在智谱 120 秒门限内；流在 60 秒恢复并补齐 usage 与 [DONE]。
+      await vi.advanceTimersByTimeAsync(60_000);
+      const outcome = await pending;
+
+      expect(outcome).toMatchObject({ committed: true, status: 200 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("智谱 Coding Plan 资源首块后连续超过 120 秒无数据时记录 STREAM_IDLE_TIMEOUT", async () => {
+    vi.useFakeTimers();
+    try {
+      const request = responsesRequest(true);
+      request.onStreamChunk = () => undefined;
+      const caller = createOpenAiCompatibleCaller({
+        fetch: async (_url, init) => idleStreamResponse(init.signal),
+        env: { ZHIPU_BASE_URL: "https://zhipu.example" },
+        firstByteTimeoutMs: 5_000,
+        streamIdleTimeoutMsForResource: (item) =>
+          item.providerCode === "zhipu" && item.mode === "CODING_PLAN" ? 120_000 : 45_000,
+        requestTimeoutMs: 10 * 60_000,
+      });
+
+      const pending = caller(
+        resource({ providerCode: "zhipu", mode: "CODING_PLAN" }),
+        request,
+        1,
+      );
+      await vi.advanceTimersByTimeAsync(120_000);
+      const outcome = await pending;
+
+      expect(outcome).toMatchObject({
+        status: 504,
+        committed: true,
+        error: "upstream_timeout",
+        failureLayer: "STREAM_IDLE_TIMEOUT",
+      });
+      expect(outcome.firstByteAt).toEqual(expect.any(Number));
+      expect(outcome.lastByteAt).toEqual(expect.any(Number));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("DeepSeek 与 Kimi 资源仍按 45 秒流式空闲门限触发 STREAM_IDLE_TIMEOUT", async () => {
+    vi.useFakeTimers();
+    try {
+      const request = responsesRequest(true);
+      request.onStreamChunk = () => undefined;
+      const options = {
+        env: {
+          DEEPSEEK_BASE_URL: "https://deepseek.example",
+          KIMI_BASE_URL: "https://kimi.example",
+        },
+        firstByteTimeoutMs: 5_000,
+        streamIdleTimeoutMsForResource: (item: AdapterResource) =>
+          item.providerCode === "zhipu" && item.mode === "CODING_PLAN" ? 120_000 : 45_000,
+        requestTimeoutMs: 10 * 60_000,
+      };
+
+      const deepseekCaller = createOpenAiCompatibleCaller({
+        ...options,
+        fetch: async (_url, init) => idleStreamResponse(init.signal),
+      });
+      const deepseekPending = deepseekCaller(
+        resource({ providerCode: "deepseek", mode: "API" }),
+        request,
+        1,
+      );
+      await vi.advanceTimersByTimeAsync(45_000);
+      const deepseekOutcome = await deepseekPending;
+
+      const kimiCaller = createOpenAiCompatibleCaller({
+        ...options,
+        fetch: async (_url, init) => idleStreamResponse(init.signal),
+      });
+      const kimiPending = kimiCaller(
+        resource({ providerCode: "kimi", mode: "CODING_PLAN" }),
+        request,
+        1,
+      );
+      await vi.advanceTimersByTimeAsync(45_000);
+      const kimiOutcome = await kimiPending;
+
+      expect(deepseekOutcome).toMatchObject({
+        status: 504,
+        failureLayer: "STREAM_IDLE_TIMEOUT",
+      });
+      expect(kimiOutcome).toMatchObject({
+        status: 504,
+        failureLayer: "STREAM_IDLE_TIMEOUT",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("请求总时长独立于首字节，在非流式解析阶段归一化为 504", async () => {
