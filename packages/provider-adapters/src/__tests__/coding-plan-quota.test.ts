@@ -25,8 +25,10 @@ describe("POOL-032 厂商 Coding Plan 额度窗口查询", () => {
 
   it("Kimi 解析周额度与 5 小时窗口（POINT 制），含比率与重置时间", async () => {
     const fetch = ok({
-      weekly: { limit: 100, used: 60, remaining: 40, reset_at: "2026-08-10T03:00:00+08:00" },
-      five_hour: { limit: 100, used: 3, remaining: 97, reset_at: "2026-08-07T11:16:00+08:00" },
+      usage: { limit: "100", used: "60", remaining: "40", resetTime: "2026-08-10T03:00:00+08:00" },
+      limits: [
+        { window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" }, detail: { limit: "100", used: "3", remaining: "97", resetTime: "2026-08-07T11:16:00+08:00" } },
+      ],
     });
     const result = await queryCodingPlanQuota({ providerCode: "kimi", mode: "CODING_PLAN", credential: "kimi-token", fetch });
     expect(result.adapterVersion).toBe(CODING_PLAN_QUOTA_ADAPTER_VERSION);
@@ -46,33 +48,43 @@ describe("POOL-032 厂商 Coding Plan 额度窗口查询", () => {
   });
 
   it("Kimi 字符串承载与字段缺失时防御性解析，缺失窗口不返回", async () => {
-    const fetch = ok({ weekly: { limit: "100", used: "60" }, five_hour: {} });
+    const fetch = ok({ usage: { limit: "100", used: "60" }, limits: [] });
     const result = await queryCodingPlanQuota({ providerCode: "kimi", mode: "CODING_PLAN", credential: "sk", fetch });
-    // five_hour 无有效字段 → 不进 windows（不伪造 0）。
+    // limits 为空 → 只有周窗口，无 5h 窗口（不伪造 0）。
     expect(result.windows).toHaveLength(1);
     expect(result.windows[0]!.windowType).toBe("WEEKLY");
     expect(result.windows[0]!.remaining).toBeNull();
   });
 
-  it("智谱解析 5 小时百分比，周额度明确 UNSUPPORTED 不伪造", async () => {
-    const fetch = ok({ TOKENS_LIMIT: 72 });
+  it("智谱解析 5 小时百分比与周百分比（PERCENT 制），含重置时间戳", async () => {
+    const fetch = ok({
+      data: {
+        limits: [
+          { type: "TOKENS_LIMIT", unit: 3, number: 5, percentage: 8, nextResetTime: 1786095078043 },
+          { type: "TOKENS_LIMIT", unit: 6, number: 1, percentage: 33, nextResetTime: 1786094589998 },
+        ],
+        level: "max",
+      },
+      success: true,
+    });
     const result = await queryCodingPlanQuota({ providerCode: "zhipu", mode: "CODING_PLAN", credential: "zhipu-token", fetch });
     const fiveHour = result.windows.find((w) => w.windowType === "FIVE_HOUR")!;
-    expect(fiveHour).toMatchObject({ limit: "100", used: "72", remaining: "28", unit: "PERCENT", unsupported: false });
-    expect(fiveHour.ratio).toBe("0.720000");
+    expect(fiveHour).toMatchObject({ limit: "100", used: "8", remaining: "92", unit: "PERCENT", unsupported: false });
+    expect(fiveHour.ratio).toBe("0.080000");
+    expect(fiveHour.resetAt).toEqual(new Date(1786095078043));
     const weekly = result.windows.find((w) => w.windowType === "WEEKLY")!;
-    expect(weekly.unsupported).toBe(true);
-    expect(weekly.limit).toBeNull();
-    expect(weekly.used).toBeNull();
+    expect(weekly).toMatchObject({ limit: "100", used: "33", remaining: "67", unit: "PERCENT", unsupported: false });
+    expect(weekly.ratio).toBe("0.330000");
     expect(fetch).toHaveBeenCalledWith("https://open.bigmodel.cn/api/monitor/usage/quota/limit", expect.objectContaining({
       headers: expect.objectContaining({ Authorization: "Bearer zhipu-token" }),
     }));
   });
 
-  it("智谱缺失 TOKENS_LIMIT 时 5h 也标记 UNSUPPORTED，不显示 0", async () => {
-    const fetch = ok({ other_field: "noise" });
+  it("智谱缺失 TOKENS_LIMIT 窗口时标记 UNSUPPORTED，不显示 0", async () => {
+    const fetch = ok({ data: { limits: [{ type: "TIME_LIMIT", unit: 5, percentage: 1 }] } });
     const result = await queryCodingPlanQuota({ providerCode: "zhipu", mode: "CODING_PLAN", credential: "sk", fetch });
     expect(result.windows.find((w) => w.windowType === "FIVE_HOUR")?.unsupported).toBe(true);
+    expect(result.windows.find((w) => w.windowType === "WEEKLY")?.unsupported).toBe(true);
   });
 
   it("401/403 归 UNAUTHORIZED 且不重试", async () => {

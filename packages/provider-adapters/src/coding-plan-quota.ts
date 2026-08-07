@@ -148,11 +148,18 @@ function computeRatio(used: string | null, limit: string | null): string | null 
   return r.toFixed(6);
 }
 
-/** 防御性重置时间解析：尝试多个候选字段名（文档未给出确切字段名）。 */
+/** 防御性重置时间解析：支持 ISO 字符串、Date 对象、Unix 毫秒时间戳（number/string）。 */
 function parseResetAt(raw: unknown): Date | null {
-  for (const candidate of [raw]) {
-    if (candidate === null || candidate === undefined) continue;
-    const date = candidate instanceof Date ? candidate : new Date(String(candidate));
+  if (raw === null || raw === undefined) return null;
+  if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? null : raw;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return new Date(raw);
+  }
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    // 纯数字字符串 → Unix 毫秒时间戳。
+    if (/^\d+$/.test(s)) return new Date(Number(s));
+    const date = new Date(s);
     if (!Number.isNaN(date.getTime())) return date;
   }
   return null;
@@ -171,12 +178,14 @@ function toWindow(
   windowType: QuotaWindowType,
   unit: QuotaWindowUnit,
   resetKeys: string[],
+  limitKeys: string[] = ["limit", "limit_value", "total"],
+  usedKeys: string[] = ["used", "used_value", "usage"],
+  remainingKeys: string[] = ["remaining", "remaining_value", "left"],
 ): QuotaWindow {
   const obj = (record && typeof record === "object" ? record : {}) as Record<string, unknown>;
-  const limit = parseNumber(pickByKeys(obj, ["limit", "limit_value", "total", "tokens_limit", "TOKENS_LIMIT"]));
-  const used = parseNumber(pickByKeys(obj, ["used", "used_value", "usage", "tokens_used", "TOKENS_USED"]));
-  const remaining = parseNumber(pickByKeys(obj, ["remaining", "remaining_value", "left"]));
-  // 厂商只给百分比（智谱 TOKENS_LIMIT）时，把百分比当作 limit=100 的隐含比率。
+  const limit = parseNumber(pickByKeys(obj, limitKeys));
+  const used = parseNumber(pickByKeys(obj, usedKeys));
+  const remaining = parseNumber(pickByKeys(obj, remainingKeys));
   const hasValues = limit !== null || used !== null || remaining !== null;
   return {
     windowType,
@@ -196,14 +205,39 @@ async function queryKimiQuota(input: {
   const fetchImpl = input.fetch ?? (globalThis.fetch as unknown as QuotaFetch);
   const data = await fetchJson(KIMI_USAGES_ENDPOINT, input.credential, fetchImpl, input.timeoutMs ?? 10_000);
   const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-  // Kimi 响应结构文档未给逐字段 schema，按候选 key 防御性解析周/5h 窗口。
-  const weeklyRaw = pickByKeys(obj, ["weekly", "week", "weekly_usage", "weeklyQuota"]);
-  const fiveHourRaw = pickByKeys(obj, ["five_hour", "fiveHour", "rolling_5h", "rolling5h", "hour5"]);
   const windows: QuotaWindow[] = [];
-  const weekly = toWindow(weeklyRaw, "WEEKLY", "POINT", ["reset_at", "resetAt", "expires_at", "next_reset_at"]);
+  // 周额度：顶层 usage 对象（limit/used/remaining/resetTime）。
+  const usageRaw = obj.usage as Record<string, unknown> | undefined;
+  const weekly = toWindow(
+    usageRaw ?? {},
+    "WEEKLY",
+    "POINT",
+    ["resetTime", "reset_time", "expires_at"],
+    ["limit", "total"],
+    ["used", "usage"],
+    ["remaining", "left"],
+  );
   if (!weekly.unsupported) windows.push(weekly);
-  const fiveHour = toWindow(fiveHourRaw, "FIVE_HOUR", "POINT", ["reset_at", "resetAt", "refresh_at", "next_refresh_at"]);
-  if (!fiveHour.unsupported) windows.push(fiveHour);
+  // 5 小时额度：limits 数组中 window.duration=300 分钟（5h）的 detail。
+  const limitsRaw = Array.isArray(obj.limits) ? obj.limits : [];
+  for (const item of limitsRaw) {
+    const entry = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const window = (entry.window ?? {}) as Record<string, unknown>;
+    const detail = (entry.detail ?? {}) as Record<string, unknown>;
+    // duration=300 + TIME_UNIT_MINUTE = 滚动 5 小时窗口。
+    if (Number(window.duration) === 300) {
+      const fiveHour = toWindow(
+        detail,
+        "FIVE_HOUR",
+        "POINT",
+        ["resetTime", "reset_time"],
+        ["limit", "total"],
+        ["used", "usage"],
+        ["remaining", "left"],
+      );
+      if (!fiveHour.unsupported) windows.push(fiveHour);
+    }
+  }
   return {
     adapterVersion: CODING_PLAN_QUOTA_ADAPTER_VERSION,
     providerDataAt: input.now ?? new Date(),
@@ -217,23 +251,56 @@ async function queryZhipuQuota(input: {
   const fetchImpl = input.fetch ?? (globalThis.fetch as unknown as QuotaFetch);
   const data = await fetchJson(ZHIPU_QUOTA_LIMIT_ENDPOINT, input.credential, fetchImpl, input.timeoutMs ?? 10_000);
   const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-  // 智谱 5 小时：TOKENS_LIMIT 是使用百分比（glm-plan-usage 插件口径）。
-  const tokensLimit = parseNumber(pickByKeys(obj, ["TOKENS_LIMIT", "tokens_limit", "tokensLimit"]));
-  const fiveHour: QuotaWindow = {
-    windowType: "FIVE_HOUR",
-    limit: tokensLimit !== null ? "100" : null,
-    used: tokensLimit,
-    remaining: tokensLimit !== null ? String(Math.max(0, 100 - Number(tokensLimit))) : null,
-    unit: "PERCENT",
-    ratio: tokensLimit !== null ? (Number(tokensLimit) / 100).toFixed(6) : null,
-    resetAt: parseResetAt(pickByKeys(obj, ["reset_at", "resetAt", "next_reset_at", "expire_at"])),
-    unsupported: tokensLimit === null,
-  };
+  // 智谱真实结构：{ data: { limits: [ {type, unit, number, percentage, ...} ] } }
+  // unit 语义：3=小时(number=5 → 5h窗口)，6=天(number=1 → 周窗口)。
+  // percentage 是已用百分比（0-100），limit 固定 100。
+  const dataObj = (obj.data ?? obj) as Record<string, unknown>;
+  const limitsRaw = Array.isArray(dataObj.limits) ? dataObj.limits : [];
   const windows: QuotaWindow[] = [];
-  // 智谱 5h：始终 push——有 TOKENS_LIMIT 显示百分比，缺失则标记 unsupported（前端显示「厂商未提供」）。
-  windows.push(fiveHour);
-  // 智谱周额度：公开插件未提供实时解析，明确返回 UNSUPPORTED，不伪造。
-  windows.push({ windowType: "WEEKLY", limit: null, used: null, remaining: null, unit: "PERCENT", ratio: null, resetAt: null, unsupported: true });
+  let fiveHourPercentage: string | null = null;
+  let fiveHourReset: Date | null = null;
+  let weeklyPercentage: string | null = null;
+  let weeklyReset: Date | null = null;
+  for (const item of limitsRaw) {
+    const entry = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const type = String(entry.type ?? "");
+    const unit = Number(entry.unit);
+    const number = Number(entry.number);
+    const percentage = parseNumber(entry.percentage);
+    const nextReset = parseResetAt(entry.nextResetTime ?? entry.next_reset_time);
+    // TOKENS_LIMIT type：unit=3(小时) number=5 → 5小时窗口；unit=6(天) number=1 → 周窗口。
+    if (type === "TOKENS_LIMIT" && percentage !== null) {
+      if (unit === 3 && number === 5) {
+        fiveHourPercentage = percentage;
+        fiveHourReset = nextReset;
+      } else if (unit === 6 && number === 1) {
+        weeklyPercentage = percentage;
+        weeklyReset = nextReset;
+      }
+    }
+  }
+  // 5 小时窗口（智谱只提供百分比，limit 固定 100）。
+  if (fiveHourPercentage !== null) {
+    windows.push({
+      windowType: "FIVE_HOUR", limit: "100", used: fiveHourPercentage,
+      remaining: String(Math.max(0, 100 - Number(fiveHourPercentage))),
+      unit: "PERCENT", ratio: (Number(fiveHourPercentage) / 100).toFixed(6),
+      resetAt: fiveHourReset, unsupported: false,
+    });
+  } else {
+    windows.push({ windowType: "FIVE_HOUR", limit: null, used: null, remaining: null, unit: "PERCENT", ratio: null, resetAt: null, unsupported: true });
+  }
+  // 周窗口（同口径百分比）。
+  if (weeklyPercentage !== null) {
+    windows.push({
+      windowType: "WEEKLY", limit: "100", used: weeklyPercentage,
+      remaining: String(Math.max(0, 100 - Number(weeklyPercentage))),
+      unit: "PERCENT", ratio: (Number(weeklyPercentage) / 100).toFixed(6),
+      resetAt: weeklyReset, unsupported: false,
+    });
+  } else {
+    windows.push({ windowType: "WEEKLY", limit: null, used: null, remaining: null, unit: "PERCENT", ratio: null, resetAt: null, unsupported: true });
+  }
   return {
     adapterVersion: CODING_PLAN_QUOTA_ADAPTER_VERSION,
     providerDataAt: input.now ?? new Date(),
