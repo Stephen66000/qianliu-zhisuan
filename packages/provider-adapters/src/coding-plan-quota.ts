@@ -183,9 +183,18 @@ function toWindow(
   remainingKeys: string[] = ["remaining", "remaining_value", "left"],
 ): QuotaWindow {
   const obj = (record && typeof record === "object" ? record : {}) as Record<string, unknown>;
-  const limit = parseNumber(pickByKeys(obj, limitKeys));
-  const used = parseNumber(pickByKeys(obj, usedKeys));
-  const remaining = parseNumber(pickByKeys(obj, remainingKeys));
+  let limit = parseNumber(pickByKeys(obj, limitKeys));
+  let used = parseNumber(pickByKeys(obj, usedKeys));
+  let remaining = parseNumber(pickByKeys(obj, remainingKeys));
+  // 厂商在 used=0 时可能省略该字段（如 Kimi 5h 窗口重置后只返回 limit+remaining）。
+  // 此时从 limit-remaining 推导 used，避免显示空值。
+  if (used === null && limit !== null && remaining !== null) {
+    used = String(Math.max(0, Number(limit) - Number(remaining)));
+  }
+  // 反过来 remaining 缺失时也推导。
+  if (remaining === null && limit !== null && used !== null) {
+    remaining = String(Math.max(0, Number(limit) - Number(used)));
+  }
   const hasValues = limit !== null || used !== null || remaining !== null;
   return {
     windowType,

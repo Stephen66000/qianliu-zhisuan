@@ -47,13 +47,29 @@ describe("POOL-032 厂商 Coding Plan 额度窗口查询", () => {
     }));
   });
 
-  it("Kimi 字符串承载与字段缺失时防御性解析，缺失窗口不返回", async () => {
+  it("Kimi 字符串承载与字段缺失时防御性解析，缺失窗口不返回；remaining 从 limit-used 推导", async () => {
     const fetch = ok({ usage: { limit: "100", used: "60" }, limits: [] });
     const result = await queryCodingPlanQuota({ providerCode: "kimi", mode: "CODING_PLAN", credential: "sk", fetch });
     // limits 为空 → 只有周窗口，无 5h 窗口（不伪造 0）。
     expect(result.windows).toHaveLength(1);
     expect(result.windows[0]!.windowType).toBe("WEEKLY");
-    expect(result.windows[0]!.remaining).toBeNull();
+    // remaining 缺失时从 limit-used 推导：100-60=40。
+    expect(result.windows[0]!.remaining).toBe("40");
+  });
+
+  it("Kimi 5h 窗口 used 缺失时从 limit-remaining 推导", async () => {
+    const fetch = ok({
+      usage: { limit: "100", used: "38", remaining: "62" },
+      limits: [
+        { window: { duration: 300 }, detail: { limit: "100", remaining: "100", resetTime: "2026-08-07T11:16:04Z" } },
+      ],
+    });
+    const result = await queryCodingPlanQuota({ providerCode: "kimi", mode: "CODING_PLAN", credential: "sk", fetch });
+    const fiveHour = result.windows.find((w) => w.windowType === "FIVE_HOUR")!;
+    // used 缺失但 limit+remaining 都在 → used = 100-100 = 0。
+    expect(fiveHour.used).toBe("0");
+    expect(fiveHour.limit).toBe("100");
+    expect(fiveHour.remaining).toBe("100");
   });
 
   it("智谱解析 5 小时百分比与周百分比（PERCENT 制），含重置时间戳", async () => {
