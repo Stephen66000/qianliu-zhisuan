@@ -67,6 +67,7 @@ export function PrincipalsPage() {
       post<{ principal: Principal }>("/principals", values),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       setShowCreate(false);
       resetCreate();
     },
@@ -77,6 +78,7 @@ export function PrincipalsPage() {
       patch<{ principal: Principal }>(`/principals/${target.id}`, { status: "DISABLED" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       setDisableTarget(null);
     },
   });
@@ -86,6 +88,7 @@ export function PrincipalsPage() {
       patch<{ principal: Principal }>(`/principals/${target.id}`, { status: "ACTIVE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
     },
   });
 
@@ -97,6 +100,7 @@ export function PrincipalsPage() {
       }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       setSelected((current) => (current?.id === result.principal.id ? result.principal : current));
       setEditTarget(null);
     },
@@ -122,6 +126,7 @@ export function PrincipalsPage() {
         : post(`/principals/${target.principal.id}/archive`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       setSelected(null);
       setCleanupTarget(null);
     },
@@ -437,6 +442,7 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
     },
     onSuccess: (result) => {
       void refreshKeys(result.requestedPrincipalId);
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       if (
         mountedRef.current &&
         currentPrincipalIdRef.current === result.requestedPrincipalId
@@ -458,6 +464,7 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
     },
     onSuccess: (result) => {
       void refreshKeys(result.requestedPrincipalId);
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       if (
         mountedRef.current &&
         currentPrincipalIdRef.current === result.requestedPrincipalId
