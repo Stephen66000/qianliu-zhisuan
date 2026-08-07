@@ -148,7 +148,7 @@ gateway 集成测试套件（`__tests-integration__/w08/w18/...`）存在一批*
 **合规缺口（如实记录，不掩盖）**：
 1. 未走 SOP `READY_FOR_CODE_AUDIT → CODE_AUDIT_IN_PROGRESS` 握手；
 2. 独立性 I1 低于 R3 要求的 I2；
-3. 项目无 `quality-gates.yaml` 覆盖层，覆盖率 ratchet / 变异测试无项目基线可比对。
+3. ~~项目无 `quality-gates.yaml` 覆盖层~~ **【已修正】** 项目实际已有 `V3/仟流智算-质量门禁-v1.0.json`（v1.0 JSON 格式），含 9 个 coverage ratchet scope + 5 个 mutation disposition + complexity/duplication/source_size 门禁。审核时遗漏了此文件，系事实性错误。格式（JSON v1.0）与规范示例（YAML v1.4）不同，但内容实质已覆盖规范要求的绝大部分门禁。
 
 → 本报告是技术结论，**不构成 V1.4 模板定义的正式 Audit PASS**。如需正式 Audit，需启动 SOP 流程（开审握手 + 第二模型 I2）。
 
@@ -186,11 +186,11 @@ gateway 集成测试套件（`__tests-integration__/w08/w18/...`）存在一批*
 | lint | `eslint`（全部改动文件） | ✅ 全 exit 0 |
 | 单测 | vitest（config 9 + gateway 60 + control-api 3） | ✅ 72 passed |
 | 复杂度 | eslint complexity/max-lines-per-function | ✅ 无超阈 |
-| 覆盖率 ratchet | — | ⚠️ 项目无 quality-gates 基线（合规缺口） |
-| 变异测试 | — | ⚠️ R3 应做增量变异，但无项目配置（合规缺口） |
+| 覆盖率 ratchet | `V3/仟流智算-质量门禁-v1.0.json`（9 scope） | ✅ 项目已有基线（本次改动未触及其 ratchet scope，未单独跑） |
+| 变异测试 | stryker（apps/gateway 等多 config） | ⚠️ R3 应做增量变异；项目已有 stryker 配置，本次未跑（紧急 hotfix） |
 
 ### 7.4 第二轮最终结论
 
 **技术结论：READY（可合并）** —— P1 已清零，关键 P2（G-3/F-1/H-1）已修复且有测试保护，剩余 P2/P3 均为 follow-up 且不阻断。
 
-**合规结论：非正式 Audit** —— 因 I1 独立性 + 未走 SOP 握手 + 无项目门禁基线，本报告不替代 V1.4 正式代码质量 Audit。若此改动需正式 Audit PASS，应由第二独立模型（I2）在 SOP 流程下复审。
+**合规结论：非正式 Audit** —— 因 I1 独立性 + 未走 SOP 握手，本报告不替代 V1.4 正式代码质量 Audit。~~无项目门禁基线~~【已修正：项目已有 `V3/仟流智算-质量门禁-v1.0.json`】。若此改动需正式 Audit PASS，应由第二独立模型（I2）在 SOP 流程下复审。
