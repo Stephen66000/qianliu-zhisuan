@@ -40,6 +40,7 @@ vi.mock("../api/hooks", () => ({
   useQuotaWindows: () => useQuotaWindowsMock() ?? { data: { windows: [] } },
   useSyncQuotaWindow: () =>
     useSyncQuotaWindowMock() ?? { isPending: false, mutate: vi.fn(), isError: false },
+  useResourceHealth: () => ({ data: null, isLoading: false, isError: false }),
 }));
 
 const resource: ProviderResourceItem = {
