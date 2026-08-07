@@ -29,6 +29,8 @@ import {
   DeploymentLogRepository,
   EmployeeModelRuleRepository,
   PrincipalAccessConfigRepository,
+  ProviderQuotaWindowRepository,
+  ResourcePoolRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
 } from "@qianliu/database";
@@ -91,6 +93,8 @@ declare module "fastify" {
     deploymentLogRepo: DeploymentLogRepository;
     employeeModelRuleRepo: EmployeeModelRuleRepository;
     principalAccessConfigRepo: PrincipalAccessConfigRepository;
+    quotaWindowRepo: ProviderQuotaWindowRepository;
+    poolRepo: ResourcePoolRepository;
   }
 }
 
@@ -174,6 +178,8 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("deploymentLogRepo", new DeploymentLogRepository(db));
   app.decorate("employeeModelRuleRepo", new EmployeeModelRuleRepository(db));
   app.decorate("principalAccessConfigRepo", new PrincipalAccessConfigRepository(db));
+  app.decorate("quotaWindowRepo", new ProviderQuotaWindowRepository(db));
+  app.decorate("poolRepo", new ResourcePoolRepository(db));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",

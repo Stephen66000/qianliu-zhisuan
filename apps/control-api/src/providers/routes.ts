@@ -23,9 +23,13 @@ import {
   toOperatingSnapshotInput,
 } from "./contracts.js";
 import { registerProviderModelDiscoveryRoutes } from "./model-discovery-routes.js";
+import { registerProviderQuotaWindowRoutes } from "./quota-window-routes.js";
+import { registerProviderHealthRoutes } from "./health-routes.js";
 
 export function registerProviderRoutes(app: FastifyInstance): void {
   registerProviderModelDiscoveryRoutes(app);
+  registerProviderQuotaWindowRoutes(app);
+  registerProviderHealthRoutes(app);
   // ===== Provider =====
   app.get("/providers", { preHandler: [requireAuth] }, async (req) => {
     return { providers: await app.providerRepo.listProviders(req.admin!.enterpriseId) };
@@ -74,6 +78,14 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         credential_fingerprint: r.credential_fingerprint,
         credential_version: r.credential_version,
         status: r.status,
+        // POOL-031：资源健康详情字段（脱敏运行元数据，不含凭证/正文）。
+        consecutive_failures: r.consecutive_failures,
+        cooldown_until: r.cooldown_until?.toISOString() ?? null,
+        last_probe_at: r.last_probe_at?.toISOString() ?? null,
+        credential_refresh_status: r.credential_refresh_status,
+        refresh_error_classification: r.refresh_error_classification ?? null,
+        credential_expires_at: r.credential_expires_at?.toISOString() ?? null,
+        resource_pool_id: r.resource_pool_id ?? null,
         upstream_models: r.upstream_models,
         concurrency_limit: r.concurrency_limit,
         version: r.version,

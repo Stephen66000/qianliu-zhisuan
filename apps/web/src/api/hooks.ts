@@ -4,9 +4,9 @@
  * 约定：401（UnauthorizedError）说明会话失效，由调用侧跳 /login；
  * 其余错误进 ErrorState 并可重试。无界重试禁止（工程规则 §7），retry 收敛为 1 次。
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { get } from "./client";
+import { get, post } from "./client";
 import type {
   AccessConfiguration,
   AlertsResult,
@@ -25,8 +25,10 @@ import type {
   OperationLogsResult,
   PrincipalsResult,
   PrincipalKeysResult,
+  ProviderQuotaWindowsResult,
   ProviderResourcesResult,
   ProvidersResult,
+  ResourceHealth,
   RouteCandidateItem,
   SupplyForecastsResult,
   UnifiedModelsResult,
@@ -43,6 +45,10 @@ export const QUERY_KEYS = {
   principals: ["principals"] as const,
   accessConfiguration: (principalId: string) => ["principals", principalId, "access-configuration"] as const,
   providerResources: ["provider-resources"] as const,
+  quotaWindows: (resourceId: string) =>
+    ["provider-resources", resourceId, "quota-windows"] as const,
+  resourceHealth: (resourceId: string) =>
+    ["provider-resources", resourceId, "health"] as const,
   providers: ["providers"] as const,
   unifiedModels: ["unified-models"] as const,
   grants: (principalId: string) => ["principals", principalId, "grants"] as const,
@@ -154,6 +160,43 @@ export function useProviders() {
   return useQuery({
     queryKey: QUERY_KEYS.providers,
     queryFn: ({ signal }) => get<ProvidersResult>("/providers", signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+/** POOL-032：厂商 Coding Plan 额度窗口快照（按资源）。 */
+export function useQuotaWindows(resourceId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.quotaWindows(resourceId ?? ""),
+    queryFn: ({ signal }) =>
+      get<ProviderQuotaWindowsResult>(`/provider-resources/${resourceId}/quota-windows`, signal),
+    enabled: resourceId !== null,
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+/** POOL-032：管理员手动触发厂商额度同步。失败保鲜由后端处理；成功后刷新资源列表与窗口。 */
+export function useSyncQuotaWindow(resourceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      post<ProviderQuotaWindowsResult>(`/provider-resources/${resourceId}/quota-sync`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.quotaWindows(resourceId) });
+    },
+  });
+}
+
+/** POOL-031：资源健康详情（服务端聚合原因/可用性/调度影响/恢复说明）。 */
+export function useResourceHealth(resourceId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.resourceHealth(resourceId ?? ""),
+    queryFn: ({ signal }) =>
+      get<ResourceHealth>(`/provider-resources/${resourceId}/health`, signal),
+    enabled: resourceId !== null,
     retry: 1,
     staleTime: 30_000,
   });

@@ -351,6 +351,14 @@ export interface ProviderResourceItem {
   credential_fingerprint: string | null;
   credential_version: number | null;
   status: string;
+  /** POOL-031：资源健康详情字段（脱敏运行元数据）。 */
+  consecutive_failures: number;
+  cooldown_until: string | null;
+  last_probe_at: string | null;
+  credential_refresh_status: string;
+  refresh_error_classification: string | null;
+  credential_expires_at: string | null;
+  resource_pool_id: string | null;
   upstream_models: string[] | null;
   concurrency_limit: number | null;
   version: number;
@@ -405,6 +413,58 @@ export interface ProviderResourceOperatingSnapshot {
   quota_period_start?: string | null;
   quota_period_end?: string | null;
   calculated_at?: string;
+}
+
+/** POOL-032：厂商 Coding Plan 额度窗口快照（GET /provider-resources/:id/quota-windows）。
+ * 与 operating_snapshot 的 token 口径独立——这里承载厂商返回的百分比/额度点（100 制）。
+ * 日期字段由后端序列化为 ISO 字符串；数值字段为 numeric 字符串或 null。 */
+export interface ProviderQuotaWindow {
+  id: string;
+  provider_resource_id: string;
+  window_type: "FIVE_HOUR" | "WEEKLY";
+  limit_value: string | null;
+  used_value: string | null;
+  remaining_value: string | null;
+  unit: "PERCENT" | "POINT" | null;
+  /** used/limit 比率（0-1 小数文本），便于进度条；可空。 */
+  ratio: string | null;
+  reset_at: string | null;
+  provider_data_at: string | null;
+  collected_at: string;
+  source: "PROVIDER_SYNC" | "MANUAL_SYNC";
+  adapter_version: string;
+  sync_status: "SUCCESS" | "STALE" | "FAILED" | "UNSUPPORTED";
+  sync_error_code: string | null;
+  last_success_at: string | null;
+}
+
+export interface ProviderQuotaWindowsResult {
+  windows: ProviderQuotaWindow[];
+}
+
+/** POOL-031：资源健康详情（服务端聚合，不要求前端解析日志）。 */
+export interface ResourceHealth {
+  resource_id: string;
+  resource_name: string;
+  status: string;
+  status_label: string;
+  available: boolean;
+  probe: boolean;
+  reason_code: string | null;
+  reason_label: string | null;
+  error_classification: string | null;
+  consecutive_failures: number;
+  first_occurred_at: string | null;
+  last_occurred_at: string | null;
+  last_success_at: string | null;
+  cooldown_until: string | null;
+  last_probe_at: string | null;
+  credential_refresh_status: string;
+  refresh_error_classification: string | null;
+  credential_expires_at: string | null;
+  dispatch_impact: string;
+  recovery_guide: string;
+  can_recover: boolean;
 }
 
 export interface UnifiedModelsResult {

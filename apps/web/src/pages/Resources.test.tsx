@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +11,8 @@ const postMock = vi.fn();
 const patchMock = vi.fn();
 const getMock = vi.fn();
 const useProviderResourcesMock = vi.fn();
+const useQuotaWindowsMock = vi.fn();
+const useSyncQuotaWindowMock = vi.fn();
 
 vi.mock("../api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClient>();
@@ -35,6 +37,9 @@ vi.mock("../api/hooks", () => ({
     error: null,
   }),
   useSupplyForecasts: () => ({ data: { forecasts: [] }, error: null }),
+  useQuotaWindows: () => useQuotaWindowsMock() ?? { data: { windows: [] } },
+  useSyncQuotaWindow: () =>
+    useSyncQuotaWindowMock() ?? { isPending: false, mutate: vi.fn(), isError: false },
 }));
 
 const resource: ProviderResourceItem = {
@@ -46,6 +51,14 @@ const resource: ProviderResourceItem = {
   credential_fingerprint: "1234567890abcdef",
   credential_version: 1,
   status: "ACTIVE",
+  // POOL-031：资源健康详情字段（脱敏运行元数据）。
+  consecutive_failures: 0,
+  cooldown_until: null,
+  last_probe_at: null,
+  credential_refresh_status: "NOT_NEEDED",
+  refresh_error_classification: null,
+  credential_expires_at: null,
+  resource_pool_id: null,
   upstream_models: ["kimi-k2"],
   concurrency_limit: 10,
   version: 3,
@@ -341,7 +354,10 @@ describe("POOL-027 模型发现向导", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: "同步模型" }));
-    await user.click(screen.getByRole("button", { name: "立即同步" }));
+    // 页面另含「厂商额度窗口」的「立即同步」按钮（POOL-032），限定到模型同步面板内点击。
+    const syncModelsSection = screen.getByRole("heading", { name: /同步「Kimi 套餐」可用模型/ })
+      .closest("section")!;
+    await user.click(within(syncModelsSection).getByRole("button", { name: "立即同步" }));
     expect(await screen.findByText("可加入")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "确认加入所选模型" }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith(
@@ -349,5 +365,103 @@ describe("POOL-027 模型发现向导", () => {
       { selected_model_ids: ["kimi-k2"] },
     ));
     expect(screen.queryByText("多个模型用英文逗号分隔")).not.toBeInTheDocument();
+  });
+});
+
+describe("POOL-032 厂商额度窗口", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useProviderResourcesMock.mockReturnValue({
+      data: { resources: [resource] }, error: null, isLoading: false, refetch: vi.fn(),
+    });
+    useQuotaWindowsMock.mockReturnValue({ data: { windows: [] } });
+    useSyncQuotaWindowMock.mockReturnValue({ isPending: false, mutate: vi.fn(), isError: false });
+  });
+
+  it("缺失字段显示厂商未提供，绝不显示 0；UNSUPPORTED 不渲染数值", () => {
+    useQuotaWindowsMock.mockReturnValue({
+      data: {
+        windows: [
+          {
+            id: "w1", provider_resource_id: resource.id, window_type: "WEEKLY",
+            limit_value: "100", used_value: "60", remaining_value: "40",
+            unit: "POINT", ratio: "0.6", reset_at: "2026-08-10T03:00:00.000Z",
+            provider_data_at: "2026-08-07T02:33:42.000Z", collected_at: "2026-08-07T02:33:42.000Z",
+            source: "PROVIDER_SYNC", adapter_version: "pool032-v1", sync_status: "SUCCESS",
+            sync_error_code: null, last_success_at: "2026-08-07T02:33:42.000Z",
+          },
+          {
+            id: "w2", provider_resource_id: resource.id, window_type: "FIVE_HOUR",
+            limit_value: null, used_value: null, remaining_value: null, unit: null, ratio: null,
+            reset_at: null, provider_data_at: "2026-08-07T02:33:42.000Z",
+            collected_at: "2026-08-07T02:33:42.000Z", source: "PROVIDER_SYNC",
+            adapter_version: "pool032-v1", sync_status: "UNSUPPORTED",
+            sync_error_code: null, last_success_at: "2026-08-07T02:33:42.000Z",
+          },
+        ],
+      },
+    });
+    renderPage();
+    // 周额度展示已用 60。
+    expect(screen.getByText("周额度")).toBeInTheDocument();
+    expect(screen.getByText("60")).toBeInTheDocument();
+    // 5 小时窗口不支持 → 显示厂商未提供，不出现数值。
+    expect(screen.getByText("滚动 5 小时额度")).toBeInTheDocument();
+    expect(screen.getByText("厂商未提供实时查询")).toBeInTheDocument();
+    // 绝不出现 0 作为已用数值。
+    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument();
+  });
+
+  it("点击立即同步触发 POST /quota-sync", async () => {
+    const mutate = vi.fn();
+    useSyncQuotaWindowMock.mockReturnValue({ isPending: false, mutate, isError: false });
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "立即同步" }));
+    expect(mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("STALE 保留上次成功快照并显示过期提示与失败原因", () => {
+    useQuotaWindowsMock.mockReturnValue({
+      data: {
+        windows: [
+          {
+            id: "w1", provider_resource_id: resource.id, window_type: "WEEKLY",
+            limit_value: "100", used_value: "60", remaining_value: "40",
+            unit: "POINT", ratio: "0.6", reset_at: "2026-08-10T03:00:00.000Z",
+            provider_data_at: "2026-08-07T00:00:00.000Z", collected_at: "2026-08-07T02:33:42.000Z",
+            source: "PROVIDER_SYNC", adapter_version: "pool032-v1", sync_status: "STALE",
+            sync_error_code: "RATE_LIMITED", last_success_at: "2026-08-07T00:00:12.000Z",
+          },
+        ],
+      },
+    });
+    renderPage();
+    // 保鲜：数值仍在（60），同时显示过期与限流原因。
+    expect(screen.getByText("60")).toBeInTheDocument();
+    expect(screen.getByText(/数据已过期/)).toBeInTheDocument();
+    expect(screen.getByText(/厂商返回 429（限流）/)).toBeInTheDocument();
+  });
+
+  it("从未同步显示未同步与「从未成功同步」", () => {
+    useQuotaWindowsMock.mockReturnValue({ data: { windows: [] } });
+    renderPage();
+    expect(screen.getByText(/未同步 — 点击右上「立即同步」首次拉取厂商额度/)).toBeInTheDocument();
+    expect(screen.getByText("○ 从未成功同步")).toBeInTheDocument();
+  });
+
+  it("非 Coding Plan（API）资源显示不适用，不展示窗口", () => {
+    useProviderResourcesMock.mockReturnValue({
+      data: {
+        resources: [
+          { ...resource, name: "DeepSeek API", mode: "API" as const },
+        ],
+      },
+      error: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+    renderPage();
+    expect(screen.getByText("不适用 — 非 Coding Plan 套餐资源，无厂商窗口额度。")).toBeInTheDocument();
+    expect(screen.queryByText("周额度")).not.toBeInTheDocument();
   });
 });

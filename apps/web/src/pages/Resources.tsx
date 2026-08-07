@@ -28,6 +28,8 @@ import {
   SyncModelsPanel,
   type ModelDiscoveryResponse,
 } from "../components/resources/ResourceModelDiscovery";
+import { QuotaWindowPanel } from "../components/resources/QuotaWindowPanel";
+import { ResourceHealthPanel } from "../components/resources/ResourceHealthPanel";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../components/writes/FormField";
@@ -64,7 +66,7 @@ function ReadOnlyMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-const ISOLATED = new Set(["CREDENTIAL_INVALID", "EXHAUSTED", "EXPIRED", "UNAVAILABLE"]);
+const ISOLATED = new Set(["CREDENTIAL_INVALID", "EXHAUSTED", "EXPIRED", "UNAVAILABLE", "RATE_LIMITED"]);
 
 const MODE_LABEL: Record<ProviderResourceItem["mode"], string> = {
   API: "API",
@@ -863,17 +865,21 @@ export function ResourcesPage() {
                     {r.credential_fingerprint ?? "—"}
                   </td>
                   <td className="py-2.5 pr-4">
-                    <StatusTag
-                      tone={
-                        ISOLATED.has(r.status)
-                          ? "warning"
-                          : r.status === "DEGRADED"
-                            ? "warning"
-                            : "neutral"
-                      }
-                    >
-                      {STATUS_LABEL[r.status] ?? r.status}
-                    </StatusTag>
+                    {r.status === "ACTIVE" ? (
+                      <StatusTag tone="neutral">{STATUS_LABEL[r.status] ?? r.status}</StatusTag>
+                    ) : (
+                      <a
+                        href={`#health-${r.id}`}
+                        className="inline-block"
+                        title="查看健康详情"
+                      >
+                        <StatusTag
+                          tone={ISOLATED.has(r.status) || r.status === "DEGRADED" ? "warning" : "neutral"}
+                        >
+                          {r.status === "DEGRADED" ? "降级（仍可使用）" : (STATUS_LABEL[r.status] ?? r.status)}
+                        </StatusTag>
+                      </a>
+                    )}
                   </td>
                   <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
                     {formatDateTimeFull(r.created_at)}
@@ -933,6 +939,8 @@ export function ResourcesPage() {
         </div>
       </QueryGate>
 
+      <QuotaWindowPanel providers={providerOptions} resources={resources} />
+
       <section className="mt-5 rounded-xl border border-ql-border bg-ql-surface p-4">
         <h2 className="text-[14px] font-semibold text-ql-fg">供给预测</h2>
         <p className="mt-1 text-[12px] text-ql-fg-tertiary">
@@ -982,6 +990,8 @@ export function ResourcesPage() {
           </div>
         )}
       </section>
+
+      <ResourceHealthPanel providers={providerOptions} resources={resources} />
 
       {/* 凭证恢复：二次确认 + 可选轮换（WT-19） */}
       <ConfirmDialog

@@ -1,5 +1,5 @@
 /** POOL-032：厂商 Coding Plan 额度窗口快照仓储。 */
-import { sql, type Kysely } from "kysely";
+import { type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import type {
   QuotaWindowSource,

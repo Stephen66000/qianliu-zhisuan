@@ -87,6 +87,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
+      expect(await migrateDown(db)).toBe("0041_provider_quota_window");
       expect(await migrateDown(db)).toBe("0040_employee_model_rule_pool_quotas");
       expect(await migrateDown(db)).toBe("0039_principal_provider_pool");
       expect(await migrateDown(db)).toBe("0038_employee_model_authorization_rule");

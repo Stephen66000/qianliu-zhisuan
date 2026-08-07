@@ -14,6 +14,7 @@ import { WecomAppClient } from "./runtime-assurance/wecom-client.js";
 import { runRuntimeAssuranceTick } from "./runtime-assurance/runner.js";
 import { runSchedulerLoop, startHealthServer, type SchedulerHealth } from "./runtime-assurance/scheduler.js";
 import { runSupplyForecastTick } from "./supply-forecast/runner.js";
+import { runCodingPlanQuotaTick } from "./coding-plan-quota/runner.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -165,13 +166,21 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
       tick: async () => {
         const runtime = await runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() });
         const forecast = await runSupplyForecastTick(supplyForecastRepository);
+        // POOL-032：厂商 Coding Plan 额度窗口同步（失败保鲜，不影响 runtime/forecast）。
+        const quota = await runCodingPlanQuotaTick({ db, kekBase64: requiredEnv("CREDENTIAL_KEK") });
         console.log(JSON.stringify({
           event: "supply_forecast_tick_completed",
           resources_scanned: forecast.resourcesScanned,
           snapshots_created: forecast.snapshotsCreated,
           snapshots_skipped: forecast.snapshotsSkipped,
         }));
-        return { runtime, forecast };
+        console.log(JSON.stringify({
+          event: "quota_window_tick_completed",
+          resources_scanned: quota.resourcesScanned,
+          windows_upserted: quota.windowsUpserted,
+          failed: quota.failed,
+        }));
+        return { runtime, forecast, quota };
       },
     });
   } finally {
