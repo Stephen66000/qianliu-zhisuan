@@ -23,6 +23,7 @@ import { StatusTag } from "../components/dashboard/StatusTag";
 import {
   formatIntegerAmountInput,
   IntegerAmountInput,
+  normalizeIntegerAmountInput,
 } from "../components/writes/IntegerAmountInput";
 
 const INPUT = "h-10 w-full rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-sm focus:outline focus:outline-2 focus:outline-ql-action";
@@ -31,6 +32,13 @@ const BUTTON = "h-9 rounded-lg bg-ql-action px-4 text-sm font-medium text-white 
 function localDateTime(date: Date): string {
   const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return shifted.toISOString().slice(0, 16);
+}
+
+/** POOL-035：厂商级额度草稿，quota_value 千分位字符串承载 bigint。 */
+interface ProviderPoolDraft {
+  quota_value: string;
+  allow_overage: boolean;
+  valid_until: string;
 }
 
 const initialForm = () => ({
@@ -43,6 +51,8 @@ const initialForm = () => ({
   allowOverage: false,
   validFrom: localDateTime(new Date()),
   validUntil: "",
+  /** POOL-035：按 provider_code 索引的厂商级额度；空对象表示回退版本级单值。 */
+  poolQuotas: {} as Record<string, ProviderPoolDraft>,
 });
 
 function errorText(error: unknown): string | null {
@@ -59,7 +69,28 @@ function statusTone(status: EmployeeModelRuleVersion["status"]): "success" | "wa
   return "neutral";
 }
 
-function PermissionChangeSummary({ validation }: { validation: EmployeeModelRuleValidation }) {
+/** POOL-035：额度摘要——有厂商级额度时按厂商展开，否则回退版本级单值。 */
+function formatPoolQuotaSummary(
+  rule: Pick<EmployeeModelRuleVersion, "quota_value" | "allow_overage" | "pool_quotas">,
+  providerNameOf: (code: string) => string,
+): string {
+  const pools = rule.pool_quotas ?? [];
+  if (pools.length > 0) {
+    return pools.map((quota) =>
+      `${providerNameOf(quota.provider_code)} ${formatIntegerAmountInput(quota.quota_value)} Token${quota.allow_overage ? "（可超额）" : ""}`,
+    ).join(" / ");
+  }
+  return `${formatIntegerAmountInput(rule.quota_value)} Token${rule.allow_overage ? "（可超额）" : ""}`;
+}
+
+function PermissionChangeSummary({
+  validation,
+  providerNameOfResource,
+}: {
+  validation: EmployeeModelRuleValidation;
+  /** POOL-035：按 provider_resource_id 反查厂商名，用于变更预览按厂商分组。 */
+  providerNameOfResource: (resourceId: string) => string;
+}) {
   const changes = validation.changes;
   if (!changes) return <>{validation.principal_count} 人 × {validation.model_count} 模型 = {validation.assignment_count} 项</>;
   const sections = [
@@ -72,7 +103,21 @@ function PermissionChangeSummary({ validation }: { validation: EmployeeModelRule
     <details className="mt-1 text-xs text-ql-fg-tertiary">
       <summary className="cursor-pointer text-ql-action">新增 {changes.added.length} / 保留 {changes.retained.length} / 撤销 {changes.removed.length}</summary>
       <div className="mt-2 space-y-2">
-        {sections.map(([label, items]) => <div key={label}><strong>{label}</strong>{items.length === 0 ? "：无" : <ul className="ml-4 list-disc">{items.map((item) => <li key={`${label}:${item.principal_id}:${item.unified_model_id}:${item.provider_resource_id}`}>{item.principal_name} → {item.model_name}（{item.resource_name}）</li>)}</ul>}</div>)}
+        {sections.map(([label, items]) => {
+          if (items.length === 0) return <div key={label}><strong>{label}</strong>：无</div>;
+          // POOL-035：按厂商分组聚合，厂商标题后列该厂商的变更明细。
+          const byProvider = new Map<string, typeof items>();
+          for (const item of items) {
+            const provider = providerNameOfResource(item.provider_resource_id);
+            byProvider.set(provider, [...(byProvider.get(provider) ?? []), item]);
+          }
+          return <div key={label}><strong>{label}</strong>
+            <div className="mt-1 space-y-1">{[...byProvider.entries()].map(([provider, providerItems]) => <div key={`${label}:${provider}`}>
+              <span className="text-ql-fg-secondary">{provider}</span>
+              <ul className="ml-4 list-disc">{providerItems.map((item) => <li key={`${label}:${item.principal_id}:${item.unified_model_id}:${item.provider_resource_id}`}>{item.principal_name} → {item.model_name}（{item.resource_name}）</li>)}</ul>
+            </div>)}</div>
+          </div>;
+        })}
       </div>
     </details>
   </div>;
@@ -106,6 +151,22 @@ export function EmployeeModelRulesPage() {
     for (const item of models) grouped.set(item.provider_name, [...(grouped.get(item.provider_name) ?? []), item]);
     return grouped;
   }, [models]);
+  // POOL-035：当前规则涉及哪些厂商（按 provider_code 去重，保留展示名）。ALL 时取全部就绪模型厂商。
+  const selectedProviders = useMemo(() => {
+    const byResource = new Map((catalog.data?.models ?? []).map((item) => [item.provider_resource_id, item]));
+    const sources = form.modelScope === "ALL"
+      ? (catalog.data?.models ?? []).filter((item) => item.ready)
+      : form.modelTargets.map((target) => byResource.get(target.provider_resource_id)).filter(Boolean);
+    const seen = new Map<string, string>();
+    for (const item of sources) seen.set(item!.provider_code, item!.provider_name);
+    return [...seen.entries()].map(([code, name]) => ({ code, name }));
+  }, [catalog.data?.models, form.modelScope, form.modelTargets]);
+  // POOL-035：provider_code → 展示名（用于额度摘要）；catalog 缺失时回退大写 code。
+  const providerNameOf = (code: string): string =>
+    (catalog.data?.models ?? []).find((item) => item.provider_code === code)?.provider_name ?? code.toUpperCase();
+  // POOL-035：provider_resource_id → 厂商展示名（用于变更预览按厂商分组）。
+  const providerNameOfResource = (resourceId: string): string =>
+    (catalog.data?.models ?? []).find((item) => item.provider_resource_id === resourceId)?.provider_name ?? "未知厂商";
   const latestRules = useMemo(() => {
     const latest = new Map<string, EmployeeModelRuleVersion>();
     for (const rule of rules.data?.rules ?? []) {
@@ -142,6 +203,13 @@ export function EmployeeModelRulesPage() {
       allow_overage: form.allowOverage,
       valid_from: new Date(form.validFrom).toISOString(),
       valid_until: form.validUntil ? new Date(form.validUntil).toISOString() : null,
+      // POOL-035：厂商级额度——千分位转纯数字，valid_until 转 ISO；空草稿对象发空数组（回退版本级）。
+      pool_quotas: Object.entries(form.poolQuotas).map(([providerCode, draft]) => ({
+        provider_code: providerCode,
+        quota_value: normalizeIntegerAmountInput(draft.quota_value),
+        allow_overage: draft.allow_overage,
+        valid_until: draft.valid_until ? new Date(draft.valid_until).toISOString() : null,
+      })),
     };
     const done = () => { setForm(initialForm()); setEditing(null); };
     if (editing) updateRule.mutate({ versionId: editing.id, expectedLockVersion: editing.lock_version, rule: payload }, { onSuccess: done });
@@ -155,6 +223,12 @@ export function EmployeeModelRulesPage() {
       modelScope: rule.model_scope, modelTargets: rule.model_targets, quotaValue: rule.quota_value,
       allowOverage: rule.allow_overage, validFrom: localDateTime(new Date(rule.valid_from)),
       validUntil: rule.valid_until ? localDateTime(new Date(rule.valid_until)) : "",
+      // POOL-035：回填厂商级额度；旧版本无 pool_quotas 时为空对象（回退版本级单值）。
+      poolQuotas: Object.fromEntries((rule.pool_quotas ?? []).map((quota) => [quota.provider_code, {
+        quota_value: normalizeIntegerAmountInput(quota.quota_value),
+        allow_overage: quota.allow_overage,
+        valid_until: quota.valid_until ? localDateTime(new Date(quota.valid_until)) : "",
+      }])),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -174,6 +248,27 @@ export function EmployeeModelRulesPage() {
           <label className="text-sm">失效时间（可选）<input className={`${INPUT} mt-1`} onChange={(event) => setForm((old) => ({ ...old, validUntil: event.target.value }))} type="datetime-local" value={form.validUntil} /></label>
         </div>
         <label className="mt-4 flex items-center gap-2 text-sm"><input checked={form.allowOverage} onChange={(event) => setForm((old) => ({ ...old, allowOverage: event.target.checked }))} type="checkbox" />允许超额使用</label>
+
+        {/* POOL-035：厂商级额度——勾选某厂商型号后展开该厂商额度输入；未填厂商回退上方版本级 Token 额度。 */}
+        {selectedProviders.length > 0 ? (
+          <div className="mt-4 rounded-xl border border-ql-border p-4">
+            <legend className="px-2 text-sm font-semibold">厂商级池额度（可选）</legend>
+            <p className="mb-3 mt-1 text-xs text-ql-fg-tertiary">为每个厂商单独设置池额度；未填或留空的厂商回退上方版本级 Token 额度。</p>
+            <div className="space-y-3">
+              {selectedProviders.map((provider) => {
+                const draft = form.poolQuotas[provider.code];
+                return (
+                  <div className="grid items-end gap-3 rounded-lg border border-ql-border-zone p-3 md:grid-cols-12" key={provider.code}>
+                    <div className="text-sm font-medium md:col-span-2">{provider.name}</div>
+                    <label className="text-xs md:col-span-4">池额度<IntegerAmountInput className={`${INPUT} mt-1`} id={`pool-quota-${provider.code}`} onChange={(quotaValue) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: quotaValue, allow_overage: draft?.allow_overage ?? false, valid_until: draft?.valid_until ?? "" } } }))} value={draft?.quota_value ?? ""} /></label>
+                    <label className="flex items-center gap-2 text-xs md:col-span-2"><input checked={draft?.allow_overage ?? false} onChange={(event) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: draft?.quota_value ?? "", allow_overage: event.target.checked, valid_until: draft?.valid_until ?? "" } } }))} type="checkbox" />允许超额</label>
+                    <label className="text-xs md:col-span-4">池失效时间（可选）<input className={`${INPUT} mt-1`} aria-label={`${provider.name} 池失效时间`} onChange={(event) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: draft?.quota_value ?? "", allow_overage: draft?.allow_overage ?? false, valid_until: event.target.value } } }))} type="datetime-local" value={draft?.valid_until ?? ""} /></label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <fieldset className="rounded-xl border border-ql-border p-4">
@@ -212,9 +307,9 @@ export function EmployeeModelRulesPage() {
             <tbody>{latestRules.map((rule) => <tr className="border-b border-ql-border-zone last:border-0" key={rule.id}>
               <td className="p-3 font-medium">{rule.name}<small className="block text-ql-fg-tertiary">v{rule.version}</small></td>
               <td className="p-3">{rule.employee_scope === "ALL" ? "当前全部员工" : `${rule.principal_ids.length} 名员工`} / {rule.model_scope === "ALL" ? "当前全部就绪模型" : `${rule.model_targets.length} 个模型`}</td>
-              <td className="p-3">{formatIntegerAmountInput(rule.quota_value)} Token{rule.allow_overage ? "（可超额）" : ""}</td>
+              <td className="p-3">{formatPoolQuotaSummary(rule, providerNameOf)}</td>
               <td className="p-3"><StatusTag tone={statusTone(rule.status)}>{rule.status}</StatusTag></td>
-              <td className="p-3">{rule.validation_snapshot ? rule.validation_snapshot.ready ? <PermissionChangeSummary validation={rule.validation_snapshot} /> : rule.validation_snapshot.issues.map((issue) => issue.message).join("；") : "尚未校验"}</td>
+              <td className="p-3">{rule.validation_snapshot ? rule.validation_snapshot.ready ? <PermissionChangeSummary validation={rule.validation_snapshot} providerNameOfResource={providerNameOfResource} /> : rule.validation_snapshot.issues.map((issue) => issue.message).join("；") : "尚未校验"}</td>
               <td className="p-3"><div className="flex flex-wrap gap-3 whitespace-nowrap">
                 <button className="text-ql-action" onClick={() => setHistoryRuleId(rule.rule_id)} type="button">历史</button>
                 {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <button className="text-ql-action" onClick={() => edit(rule)} type="button">编辑</button> : null}
@@ -238,7 +333,7 @@ export function EmployeeModelRulesPage() {
         </div>
         {historyRuleId ? <section className="mt-4 rounded-xl border border-ql-border p-4" aria-label="规则版本历史">
           <div className="flex items-center justify-between"><h2 className="font-semibold">规则版本历史</h2><button className="text-sm text-ql-action" onClick={() => setHistoryRuleId(null)} type="button">关闭</button></div>
-          <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-xs text-ql-fg-tertiary"><th className="p-2">版本</th><th className="p-2">状态</th><th className="p-2">员工/模型范围</th><th className="p-2">额度</th><th className="p-2">发布时间</th><th className="p-2">停用时间</th></tr></thead><tbody>{historyVersions.map((version) => <tr className="border-b border-ql-border-zone last:border-0" key={version.id}><td className="p-2">v{version.version}</td><td className="p-2"><StatusTag tone={statusTone(version.status)}>{version.status}</StatusTag></td><td className="p-2">{version.employee_scope === "ALL" ? "当前全部员工" : `${version.principal_ids.length} 名员工`} / {version.model_scope === "ALL" ? "当前全部就绪模型" : `${version.model_targets.length} 个模型`}</td><td className="p-2">{formatIntegerAmountInput(version.quota_value)} Token</td><td className="p-2">{version.published_at ? new Date(version.published_at).toLocaleString() : "—"}</td><td className="p-2">{version.disabled_at ? new Date(version.disabled_at).toLocaleString() : "—"}</td></tr>)}</tbody></table></div>
+          <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-xs text-ql-fg-tertiary"><th className="p-2">版本</th><th className="p-2">状态</th><th className="p-2">员工/模型范围</th><th className="p-2">额度</th><th className="p-2">发布时间</th><th className="p-2">停用时间</th></tr></thead><tbody>{historyVersions.map((version) => <tr className="border-b border-ql-border-zone last:border-0" key={version.id}><td className="p-2">v{version.version}</td><td className="p-2"><StatusTag tone={statusTone(version.status)}>{version.status}</StatusTag></td><td className="p-2">{version.employee_scope === "ALL" ? "当前全部员工" : `${version.principal_ids.length} 名员工`} / {version.model_scope === "ALL" ? "当前全部就绪模型" : `${version.model_targets.length} 个模型`}</td><td className="p-2">{formatPoolQuotaSummary(version, providerNameOf)}</td><td className="p-2">{version.published_at ? new Date(version.published_at).toLocaleString() : "—"}</td><td className="p-2">{version.disabled_at ? new Date(version.disabled_at).toLocaleString() : "—"}</td></tr>)}</tbody></table></div>
         </section> : null}
       </QueryGate>
     </PageShell>

@@ -27,6 +27,7 @@ const payload: EmployeeModelRulePayload = {
   name: "规则", employee_scope: "SELECTED", principal_ids: ["p1"], model_scope: "SELECTED",
   model_targets: [{ unified_model_id: "m1", provider_resource_id: "r1" }], quota_value: "100",
   allow_overage: false, valid_from: "2026-08-01T00:00:00Z", valid_until: null,
+  pool_quotas: [{ provider_code: "zhipu", quota_value: "5000000", allow_overage: false, valid_until: null }],
 };
 
 describe("员工使用规则 API hooks", () => {

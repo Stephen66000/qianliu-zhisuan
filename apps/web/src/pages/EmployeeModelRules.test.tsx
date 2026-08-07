@@ -13,8 +13,8 @@ vi.mock("../api/employee-model-rules", () => ({
         { id: "p2", name: "员工 B", department_label: null, ready: false, unavailable_reason: "员工尚无有效 Key" },
       ],
       models: [
-        { unified_model_id: "m1", provider_resource_id: "r1", provider_name: "Kimi", resource_name: "Plan A", display_name: "Kimi High", alias: "kimi-high", upstream_model: "kimi-for-coding-highspeed", mode: "CODING_PLAN", ready: true, unavailable_reasons: [] },
-        { unified_model_id: "m2", provider_resource_id: "r2", provider_name: "智谱", resource_name: "Plan B", display_name: "GLM 5.2", alias: "glm-5-2", upstream_model: "glm-5.2", mode: "CODING_PLAN", ready: false, unavailable_reasons: ["Model Route 未启用"] },
+        { unified_model_id: "m1", provider_resource_id: "r1", provider_code: "kimi", provider_name: "Kimi", resource_name: "Plan A", display_name: "Kimi High", alias: "kimi-high", upstream_model: "kimi-for-coding-highspeed", mode: "CODING_PLAN", ready: true, unavailable_reasons: [] },
+        { unified_model_id: "m2", provider_resource_id: "r2", provider_code: "zhipu", provider_name: "智谱", resource_name: "Plan B", display_name: "GLM 5.2", alias: "glm-5-2", upstream_model: "glm-5.2", mode: "CODING_PLAN", ready: false, unavailable_reasons: ["Model Route 未启用"] },
       ],
     }, isLoading: false, error: null, refetch: vi.fn(),
   }),
@@ -38,6 +38,7 @@ vi.mock("../api/employee-model-rules", () => ({
       id: "v2", rule_id: "rule2", version: 1, name: "已发布规则", status: "PUBLISHED",
       employee_scope: "ALL", principal_ids: [], model_scope: "ALL", model_targets: [], quota_value: "200",
       allow_overage: true, valid_from: "2026-08-01T00:00:00.000Z", valid_until: "2026-09-01T00:00:00.000Z",
+      pool_quotas: [{ provider_code: "kimi", quota_value: "5000000", allow_overage: false, valid_until: null }],
       lock_version: 3, validation_snapshot: { ready: true, principal_ids: ["p1"], model_targets: [],
         principal_count: 1, model_count: 0, assignment_count: 0, issues: [] },
       published_at: "2026-08-02T00:00:00Z", disabled_at: null,
@@ -117,5 +118,28 @@ describe("POOL-029 批量模型授权页面", () => {
     await user.click(screen.getByRole("button", { name: "关闭" }));
     expect(screen.queryByRole("region", { name: "规则版本历史" })).not.toBeInTheDocument();
     vi.unstubAllGlobals();
+  });
+
+  it("POOL-035 勾选厂商型号后展开厂商级额度输入并随 payload 提交，旧版本回退展示版本级额度", async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><EmployeeModelRulesPage /></MemoryRouter>);
+
+    // 已发布规则 v2 带 pool_quotas（Kimi 500 万），额度列按厂商展示而非版本级单值。
+    expect(screen.getByText("Kimi 5,000,000 Token")).toBeInTheDocument();
+
+    // 勾选 Kimi 型号后厂商级额度块出现该厂商输入。
+    await user.type(screen.getByPlaceholderText("搜索厂商、资源或模型"), "Kimi");
+    await user.click(screen.getByText("Kimi High · Plan A").closest("label")!.querySelector("input")!);
+    await screen.findByText("厂商级池额度（可选）");
+    const kimiQuota = screen.getByLabelText("池额度");
+    await user.clear(kimiQuota);
+    await user.type(kimiQuota, "300000000");
+    await user.type(screen.getByLabelText("规则名称"), "厂商规则");
+    await user.click(screen.getByRole("button", { name: "创建草稿" }));
+
+    const payload = mutate.mock.calls[0]?.[0] as { pool_quotas?: Array<{ provider_code: string; quota_value: string }> };
+    expect(payload?.pool_quotas).toEqual([
+      expect.objectContaining({ provider_code: "kimi", quota_value: "300000000" }),
+    ]);
   });
 });

@@ -5,6 +5,7 @@ import type {
   Database,
   EmployeeModelTarget,
 } from "../kysely.js";
+import type { EmployeeModelPoolQuota } from "../employee-model-rule-types.js";
 import {
   validateEmployeeModelRule,
   type EmployeeModelRuleVersion,
@@ -29,6 +30,8 @@ export interface EmployeeModelRuleInput {
   allow_overage: boolean;
   valid_from: Date;
   valid_until: Date | null;
+  /** POOL-035：厂商级池额度；空数组表示无厂商级额度，发布时回退版本级单值。 */
+  pool_quotas: EmployeeModelPoolQuota[];
 }
 
 export class EmployeeModelRuleError extends Error {
@@ -48,6 +51,30 @@ function jsonValue<T>(value: T): T {
 
 function unique<T>(values: T[]): T[] {
   return [...new Set(values)];
+}
+
+/**
+ * POOL-035：解析某厂商的池额度。优先取 pool_quotas 里该厂商的厂商级值；
+ * pool_quotas 为空/NULL 或不含该厂商时回退版本级 quota_value/allow_overage/valid_until。
+ * 厂商级 quota_value 用字符串承载 bigint，这里转回 bigint。
+ */
+function resolvePoolQuota(
+  version: { pool_quotas: EmployeeModelPoolQuota[] | null; quota_value: bigint | null; allow_overage: boolean; valid_until: Date | null },
+  providerCode: string,
+): { quota_value: bigint; allow_overage: boolean; valid_until: Date | null } {
+  const providerQuota = (version.pool_quotas ?? []).find((item) => item.provider_code === providerCode);
+  if (providerQuota) {
+    return {
+      quota_value: BigInt(providerQuota.quota_value),
+      allow_overage: providerQuota.allow_overage,
+      valid_until: providerQuota.valid_until ? new Date(providerQuota.valid_until) : null,
+    };
+  }
+  return {
+    quota_value: version.quota_value ?? 0n,
+    allow_overage: version.allow_overage,
+    valid_until: version.valid_until,
+  };
 }
 
 export class EmployeeModelRuleRepository {
@@ -145,6 +172,7 @@ export class EmployeeModelRuleRepository {
       allow_overage: input.allow_overage,
       valid_from: input.valid_from,
       valid_until: input.valid_until,
+      pool_quotas: jsonValue(input.pool_quotas),
       created_by_admin_user_id: adminUserId,
     }).returningAll().executeTakeFirstOrThrow();
   }
@@ -164,7 +192,8 @@ export class EmployeeModelRuleRepository {
         principal_ids: jsonValue(latest.principal_ids), model_scope: latest.model_scope,
         model_targets: jsonValue(latest.model_targets), quota_value: latest.quota_value,
         allow_overage: latest.allow_overage, valid_from: latest.valid_from,
-        valid_until: latest.valid_until, created_by_admin_user_id: adminUserId,
+        valid_until: latest.valid_until, pool_quotas: jsonValue(latest.pool_quotas ?? []),
+        created_by_admin_user_id: adminUserId,
       }).returningAll().executeTakeFirstOrThrow();
     });
   }
@@ -175,7 +204,8 @@ export class EmployeeModelRuleRepository {
       principal_ids: jsonValue(input.principal_ids), model_scope: input.model_scope,
       model_targets: jsonValue(input.model_targets), quota_value: input.quota_value,
       allow_overage: input.allow_overage, valid_from: input.valid_from,
-      valid_until: input.valid_until, status: "DRAFT", validation_snapshot: null,
+      valid_until: input.valid_until, pool_quotas: jsonValue(input.pool_quotas),
+      status: "DRAFT", validation_snapshot: null,
       lock_version: sql`lock_version + 1`, updated_at: new Date(),
     }).where("enterprise_id", "=", enterpriseId).where("id", "=", versionId)
       .where("status", "in", ["DRAFT", "VALIDATED"]).where("lock_version", "=", expectedLockVersion)
@@ -259,6 +289,9 @@ export class EmployeeModelRuleRepository {
           targetByProvider.set(route.code, bucket);
         }
         for (const [providerCode, targets] of targetByProvider) {
+          // POOL-035：该厂商的池额度——优先厂商级 pool_quotas，否则回退版本级单值。
+          const providerQuota = (version.pool_quotas ?? []).find((item) => item.provider_code === providerCode);
+          const poolQuota = resolvePoolQuota(version, providerCode);
           // 查找或建立该主体×厂商的 ACTIVE 池 Grant。
           let poolGrant = await trx.selectFrom("principal_grant").select("id")
             .where("enterprise_id", "=", input.enterpriseId)
@@ -269,13 +302,13 @@ export class EmployeeModelRuleRepository {
             .forUpdate()
             .executeTakeFirst();
           if (!poolGrant) {
-            // 建池：用规则的 quota_value（029 批量规则仍承载额度；单人页保存时规则 quota_value 为 NULL，
-            // 池额度由编排端点单独管理）。并发安全：唯一索引冲突时重查（另一事务已建池）。
+            // 建池：用该厂商的额度（厂商级优先，回退版本级）。单人页保存时规则额度为 NULL，池额度由
+            // 编排端点单独管理。并发安全：唯一索引冲突时重查（另一事务已建池）。
             const inserted = await trx.insertInto("principal_grant").values({
               enterprise_id: input.enterpriseId, principal_id: principalId, provider: providerCode,
               model_alias: "*", pool_model_alias: "*", quota_unit: "TOKEN",
-              quota_value: version.quota_value ?? 0n,
-              allow_overage: version.allow_overage, valid_from: version.valid_from, valid_until: version.valid_until,
+              quota_value: poolQuota.quota_value,
+              allow_overage: poolQuota.allow_overage, valid_from: version.valid_from, valid_until: poolQuota.valid_until,
               status: "ACTIVE", authorization_rule_version_id: version.id,
             }).onConflict((oc) => oc.doNothing()).returning("id").executeTakeFirst();
             if (inserted) {
@@ -293,12 +326,13 @@ export class EmployeeModelRuleRepository {
                 .executeTakeFirstOrThrow();
             }
           } else if (input.quotaMode === "ADD") {
-            // POOL-033 §6：批量"追加额度"——池行已持行锁（forUpdate），锁内自增，禁止应用层读改写。
-            if (version.quota_value === null) {
-              throw new EmployeeModelRuleError("INVALID_STATE", "追加额度要求规则携带 quota_value");
+            // POOL-033 §6 + POOL-035：批量"追加额度"——按厂商分别锁内追加；厂商级缺失时要求
+            // 版本级 quota_value 非 NULL，否则该厂商无可追加的额度。
+            if (!providerQuota && version.quota_value === null) {
+              throw new EmployeeModelRuleError("INVALID_STATE", `厂商 ${providerCode} 缺少可追加的额度`);
             }
             await trx.updateTable("principal_grant")
-              .set({ quota_value: sql`quota_value + ${version.quota_value}`, updated_at: new Date() })
+              .set({ quota_value: sql`quota_value + ${poolQuota.quota_value}`, updated_at: new Date() })
               .where("id", "=", poolGrant.id).execute();
           }
           // 每个 target 建一条型号级行（pool_model_alias=NULL）用于"准入开关 + 池回退查询"，

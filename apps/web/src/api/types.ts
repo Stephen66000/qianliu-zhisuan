@@ -489,6 +489,14 @@ export interface EmployeeModelTarget {
   provider_resource_id: string;
 }
 
+/** POOL-035：批量规则厂商级池额度，与单人侧 PoolSpec 形态对齐。 */
+export interface EmployeeModelPoolQuota {
+  provider_code: string;
+  quota_value: string;
+  allow_overage: boolean;
+  valid_until: string | null;
+}
+
 export interface EmployeeModelRuleVersion {
   id: string;
   enterprise_id: string;
@@ -504,6 +512,8 @@ export interface EmployeeModelRuleVersion {
   allow_overage: boolean;
   valid_from: string;
   valid_until: string | null;
+  /** POOL-035：厂商级池额度；空数组或缺失时回退版本级 quota_value。 */
+  pool_quotas: EmployeeModelPoolQuota[];
   lock_version: number;
   validation_snapshot: EmployeeModelRuleValidation | null;
   published_at: string | null;

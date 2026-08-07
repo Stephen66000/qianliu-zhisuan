@@ -62,6 +62,7 @@ export {
   type RuleValidationResult,
   type RuleReadinessIssue,
 } from "./repositories/employee-model-rule-repository.js";
+export { type EmployeeModelPoolQuota } from "./employee-model-rule-types.js";
 export {
   PrincipalAccessConfigRepository,
   PrincipalAccessConfigError,

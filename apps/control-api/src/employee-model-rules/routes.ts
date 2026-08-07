@@ -9,6 +9,13 @@ const TargetSchema = z.object({
   provider_resource_id: z.string().uuid(),
 });
 
+const PoolQuotaSchema = z.object({
+  provider_code: z.string().trim().min(1).max(32),
+  quota_value: z.coerce.bigint().min(0n),
+  allow_overage: z.boolean().default(false),
+  valid_until: z.coerce.date().nullable().default(null),
+});
+
 const RuleSchema = z.object({
   name: z.string().trim().min(1).max(128),
   employee_scope: z.enum(["SELECTED", "ALL"]),
@@ -19,6 +26,8 @@ const RuleSchema = z.object({
   allow_overage: z.boolean().default(false),
   valid_from: z.coerce.date(),
   valid_until: z.coerce.date().nullable().default(null),
+  /** POOL-035：厂商级池额度；空数组表示无厂商级额度，发布时回退版本级 quota_value。 */
+  pool_quotas: z.array(PoolQuotaSchema).default([]),
 }).superRefine((input, ctx) => {
   if (input.employee_scope === "SELECTED" && input.principal_ids.length === 0) {
     ctx.addIssue({ code: "custom", path: ["principal_ids"], message: "至少选择一名员工" });
@@ -28,6 +37,17 @@ const RuleSchema = z.object({
   }
   if (input.valid_until !== null && input.valid_until <= input.valid_from) {
     ctx.addIssue({ code: "custom", path: ["valid_until"], message: "失效时间必须晚于生效时间" });
+  }
+  // POOL-035：厂商级额度 provider_code 不可重复。
+  const providers = input.pool_quotas.map((item) => item.provider_code);
+  if (new Set(providers).size !== providers.length) {
+    ctx.addIssue({ code: "custom", path: ["pool_quotas"], message: "同一厂商在厂商级额度中不可重复" });
+  }
+  // 厂商级 valid_until 不得早于版本级 valid_from。
+  for (const quota of input.pool_quotas) {
+    if (quota.valid_until !== null && quota.valid_until <= input.valid_from) {
+      ctx.addIssue({ code: "custom", path: ["pool_quotas"], message: `厂商 ${quota.provider_code} 的失效时间必须晚于生效时间` });
+    }
   }
 });
 
@@ -48,6 +68,16 @@ function inputOf(value: z.infer<typeof RuleSchema>): EmployeeModelRuleInput {
     principal_ids: [...new Set(value.principal_ids)],
     model_targets: [...new Map(value.model_targets.map((target) => [
       `${target.unified_model_id}:${target.provider_resource_id}`, target,
+    ])).values()],
+    // POOL-035：pool_quotas 入库为 jsonb，bigint/Date 转字符串承载，按 provider_code 去重。
+    pool_quotas: [...new Map(value.pool_quotas.map((quota) => [
+      quota.provider_code,
+      {
+        provider_code: quota.provider_code,
+        quota_value: quota.quota_value.toString(),
+        allow_overage: quota.allow_overage,
+        valid_until: quota.valid_until ? quota.valid_until.toISOString() : null,
+      },
     ])).values()],
   };
 }

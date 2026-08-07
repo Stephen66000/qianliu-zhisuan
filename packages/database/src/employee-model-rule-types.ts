@@ -6,6 +6,14 @@ export interface EmployeeModelTarget {
   provider_resource_id: string;
 }
 
+/** POOL-035：批量规则厂商级池额度，与单人侧 PoolSpec 形态对齐。jsonb 内 bigint 用字符串承载。 */
+export interface EmployeeModelPoolQuota {
+  provider_code: string;
+  quota_value: string;
+  allow_overage: boolean;
+  valid_until: string | null;
+}
+
 export interface EmployeeModelRuleVersionTable {
   id: Generated<string>;
   enterprise_id: string;
@@ -22,6 +30,8 @@ export interface EmployeeModelRuleVersionTable {
   allow_overage: Generated<boolean>;
   valid_from: Date;
   valid_until: Date | null;
+  /** POOL-035：厂商级池额度；空数组或 NULL 时回退版本级 quota_value/allow_overage/valid_until。 */
+  pool_quotas: Generated<EmployeeModelPoolQuota[] | null>;
   lock_version: Generated<number>;
   validation_snapshot: Record<string, unknown> | null;
   publish_idempotency_key: string | null;

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get, patch, post } from "./client";
 import type {
+  EmployeeModelPoolQuota,
   EmployeeModelRuleValidation,
   EmployeeModelRuleVersion,
   EmployeeModelTarget,
@@ -20,6 +21,8 @@ export interface EmployeeModelRulePayload {
   allow_overage: boolean;
   valid_from: string;
   valid_until: string | null;
+  /** POOL-035：厂商级池额度；空数组表示无厂商级额度，回退版本级 quota_value。 */
+  pool_quotas: EmployeeModelPoolQuota[];
 }
 
 export function useEmployeeRuleCatalog() {
