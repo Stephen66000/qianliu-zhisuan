@@ -575,6 +575,64 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     ]);
   });
 
+  it("/dashboard 活跃人数与员工榜排除归档/停用员工（POOL-008 验收遗留清理口径）", async () => {
+    // 记录改动前活跃人数；随后插入一个归档/停用员工并给一条当月成功请求 + 大额已结算账本，
+    // 它不应让活跃人数增加，也不应进入员工榜（即便 token 量最大）。
+    const before = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie: adminCookie } });
+    const activeBefore = before.json().activeEmployeeCount;
+
+    const archivedEmp = await db.insertInto("principal").values({
+      enterprise_id: ENT_ID,
+      type: "EMPLOYEE",
+      name: "归档验收员工",
+      status: "DISABLED",
+      archived_at: new Date(),
+    }).returningAll().executeTakeFirstOrThrow();
+    const archivedKey = await db.insertInto("principal_key").values({
+      enterprise_id: ENT_ID,
+      principal_id: archivedEmp.id,
+      key_prefix: "archived-emp",
+      key_digest: "archived-" + randomUUID(),
+      allowed_model_ids: JSON.stringify([]) as unknown as string[],
+      status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    const archivedReq = randomUUID();
+    await db.insertInto("ai_request").values({
+      id: archivedReq,
+      enterprise_id: ENT_ID,
+      principal_id: archivedEmp.id,
+      principal_key_id: archivedKey.id,
+      protocol: "openai",
+      unified_model: "archived-model",
+      status: "SUCCEEDED",
+      started_at: new Date(),
+      finished_at: new Date(),
+    }).execute();
+    await db.insertInto("ledger_transaction").values({
+      ai_request_id: archivedReq,
+      enterprise_id: ENT_ID,
+      principal_id: archivedEmp.id,
+      total_input_tokens: 999_999n,
+      total_output_tokens: 1n,
+      total_cache_tokens: 0n,
+      total_deducted_quota: 0n,
+      total_api_cost: "0",
+      usage_quality: "PROVIDER_REPORTED",
+      attempt_count: 1,
+      status: "SETTLED",
+    }).execute();
+
+    const after = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie: adminCookie } });
+    const body = after.json();
+    // 归档/停用员工有当月成功请求，但不应计入活跃人数
+    expect(body.activeEmployeeCount).toBe(activeBefore);
+    // 归档/停用员工不应进入员工榜（即便 token 量最大）
+    const rankingIds = body.monthlyTokenUsage.employeeRanking.map(
+      (item: { principalId: string }) => item.principalId,
+    );
+    expect(rankingIds).not.toContain(archivedEmp.id);
+  });
+
   it("/usage 列表返回请求级账本记录（分页）", async () => {
     const res = await app.inject({
       method: "GET",

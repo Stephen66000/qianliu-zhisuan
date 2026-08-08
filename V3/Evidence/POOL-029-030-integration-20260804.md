@@ -4,7 +4,7 @@
 - 集成基线：`486c8d8290d8cfa77923a6ad10acdee2e50f120d`
 - POOL-029 集成提交：`2ea490b`（候选提交 `a6f8bc7`）
 - POOL-030 集成提交：`9b8bd5e`（候选提交 `dd33eb5`）
-- 当前结论：按 POOL-029 → POOL-030 顺序集成完成，全项目回归与质量门禁 PASS；尚未推送、部署，生产业务验收待 Mac Mini 发布后执行。
+- 当前结论：按 POOL-029 → POOL-030 顺序集成并发布 Mac Mini；全项目回归、质量门禁、数据库迁移、容器健康与公网最小冒烟 PASS。生产真实业务验收仍待执行，不提前关闭问题。
 
 ## 集成处理
 
@@ -48,3 +48,18 @@
 3. 执行迁移 `0038_employee_model_authorization_rule`，Control API、Gateway、Web 同批发布。
 4. 生产环境显式配置 `GATEWAY_KIMI_FIRST_BYTE_TIMEOUT_MS=120000`。
 5. 发布后完成公网健康、容器重启计数、关键日志、双员工授权／越权／撤权／账本以及 Kimi 短请求和超过 30 秒长输入验收，再关闭问题。
+
+## Mac Mini 生产发布（2026-08-04）
+
+- 发布脚本提交：`08e104f0ecebe847794bf7a562aaaa26918a0a1f`；脚本从私有 GitHub 锁定拉取已回归候选 `9da9ab12c42b1168485592ef75a5a4c35ca06fec`。
+- Release：`/Users/stephen/releases/qianliu-zhisuan-pool029030-9da9ab1-20260804`。
+- 发布前数据库备份：`/Users/stephen/backups/qianliu-zhisuan/pre-pool029030-20260804-225105.dump`；SHA-256：`6c65212e2d5315369a9d2f910da39fb129b17180a157b8d0f09eff60a0ba5691`；备份目录校验通过。
+- 数据库从 `0037_client_identity` 升级到 `0038_employee_model_authorization_rule`；迁移执行 1/1 PASS。
+- 生产显式配置 `GATEWAY_KIMI_FIRST_BYTE_TIMEOUT_MS=120000`；发布脚本已在 Gateway 容器内复核实际环境值。
+- Control API、Gateway、Web 均为 HTTP 200，Worker `healthy`；七个生产容器均运行且 RestartCount=0，当前 Release 工作目录校验通过。
+- 数据库最小冒烟：`principal_model_manual_authorization=12`、有效 Key `=5`。
+- 外部独立复核：`https://gw.qianliuai.com/health`、`https://ic.qianliuai.com/login`、`https://ic.qianliuai.com/api/health` 均返回 HTTP 200。
+- POOL-029 管理后台生产闭环已执行：创建 `POOL-029生产验收-20260804 v1`，选择于滔、曹磊与 `qianliu-deepseek`；校验显示 `2 人 × 1 模型 = 2 项`、`新增 0 / 保留 2 / 撤销 0`，草稿、校验、发布、停用状态均成功。
+- 停用后两名员工原手工 Key 权限和 `50,000,000` DeepSeek 有效 Grant 均保留；规则生成的 `1,000,000` Grant 明确显示“已停用”，没有覆盖或撤销手工基线。
+- 双员工真实 WorkBuddy 请求与 Kimi 长输入因非工作时间暂缓，规则已停用，生产权限恢复原基线；上班后新建版本再继续，不以后台闭环代替真实业务验收。
+- 发布脚本最终输出 `COMPLETE`，未触发应用回滚。当前仍需按验收标准完成双员工授权／越权／撤权／账本与真实 Kimi 长输入，完成后方可关闭 POOL-029/030。

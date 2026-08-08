@@ -272,14 +272,23 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                           <span className="text-muted-foreground">({model.alias})</span>
                         </label>
                       ))}
-                      {notReadyModels.map((model) => (
-                        <div key={model.unified_model_id} className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <input type="checkbox" disabled />
-                          <span>{model.display_name}</span>
-                          <span className="text-muted-foreground">({model.alias})</span>
-                          <span className="text-xs">未就绪：{model.unavailable_reasons.join("；")}</span>
-                        </div>
-                      ))}
+                      {notReadyModels.length > 0 && (
+                        <details className="mt-1 rounded border border-dashed bg-muted/30 px-3 py-1.5">
+                          <summary className="cursor-pointer select-none text-xs text-muted-foreground">
+                            另有 {notReadyModels.length} 个未就绪型号（未启用，不参与授权，点击展开详情）
+                          </summary>
+                          <div className="mt-1 space-y-1">
+                            {notReadyModels.map((model) => (
+                              <div key={model.unified_model_id} className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <input type="checkbox" disabled />
+                                <span>{model.display_name}</span>
+                                <span className="text-muted-foreground">({model.alias})</span>
+                                <span className="text-xs">未就绪：{model.unavailable_reasons.join("；")}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
                     </div>
                   </div>
                 </div>

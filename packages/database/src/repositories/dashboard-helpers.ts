@@ -72,7 +72,8 @@ export async function getMonthlyTokenUsage(
       FROM ledger_transaction lt
       JOIN principal p ON p.id = lt.principal_id AND p.enterprise_id = ${enterpriseId}
      WHERE lt.enterprise_id = ${enterpriseId} AND lt.status = 'SETTLED'
-       AND lt.created_at >= ${monthStart} AND lt.created_at < ${monthEnd} AND p.type = 'EMPLOYEE'
+       AND lt.created_at >= ${monthStart} AND lt.created_at < ${monthEnd}
+       AND p.type = 'EMPLOYEE' AND p.status = 'ACTIVE' AND p.archived_at IS NULL
      GROUP BY p.id, p.name
      ORDER BY SUM(lt.total_input_tokens + lt.total_output_tokens) DESC, p.name ASC, p.id ASC
      LIMIT 10

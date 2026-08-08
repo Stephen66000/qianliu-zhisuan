@@ -9,8 +9,8 @@
  *
  * 口径（TRD §12）：
  *   1. 资源账号数：当前企业未删除的资源账号数量；
- *   2. 本账期活跃人数：当月至少一次成功调用的 EMPLOYEE 数量；
- *   3. 当前正在使用人数：存在进行中请求或最近 5 分钟有成功请求的员工去重数；
+ *   2. 本账期活跃人数：当月至少一次成功调用的、启用中（status=ACTIVE 且未归档）的 EMPLOYEE 数量；
+ *   3. 当前正在使用人数：存在进行中请求或最近 5 分钟有成功请求的、启用中（status=ACTIVE 且未归档）的员工去重数；
  *   4. 本月套餐支付金额 / 5. 本月 API 费用 / 6. 本月充值金额；
  *   7. 预计最早耗尽：可计算资源中最早的 forecast_exhaust_at + 可信度 + 下一恢复时间；
  *   8. 本月调度节省：只汇总 dispatch_decision 中 saving_calculable=true 且动作已执行的节省值。
@@ -115,18 +115,22 @@ export class DashboardRepository {
     return Number((row as { cnt: bigint | number }).cnt);
   }
 
-  /** 2. 本账期活跃人数（当月至少一次成功调用的 EMPLOYEE 去重数）。 */
+  /** 2. 本账期活跃人数（当月至少一次成功调用的、启用中且未归档的 EMPLOYEE 去重数）。 */
   private async countActiveEmployees(
     enterpriseId: string,
     monthStart: Date,
     monthEnd: Date,
   ): Promise<number> {
+    // 仅统计启用中（status=ACTIVE）且未归档的员工，与超额列表口径一致；
+    // 归档/停用主体（如 POOL-008/009 验收遗留）不计入，避免首页人数虚高。
     const row = await sql<{ cnt: bigint }>`
       SELECT COUNT(DISTINCT r.principal_id) AS cnt
       FROM ai_request r
       INNER JOIN principal p ON p.id = r.principal_id
       WHERE r.enterprise_id = ${enterpriseId}
         AND p.type = 'EMPLOYEE'
+        AND p.status = 'ACTIVE'
+        AND p.archived_at IS NULL
         AND r.status = 'SUCCEEDED'
         AND r.started_at >= ${monthStart}
         AND r.started_at < ${monthEnd}
@@ -134,19 +138,22 @@ export class DashboardRepository {
     return Number(row.rows[0]?.cnt ?? 0n);
   }
 
-  /** 3. 当前正在使用人数（进行中请求或最近 5 分钟成功请求的员工去重数）。 */
+  /** 3. 当前正在使用人数（进行中请求或最近 5 分钟成功请求的、启用中且未归档的员工去重数）。 */
   private async countInUseEmployees(
     enterpriseId: string,
     _now: number,
     fiveMinutesAgo: Date,
   ): Promise<number> {
-    // 进行中（finished_at IS NULL）或最近 5 分钟成功（finished_at >= now-5min）
+    // 进行中（finished_at IS NULL）或最近 5 分钟成功（finished_at >= now-5min）；
+    // 仅统计启用中（status=ACTIVE）且未归档的员工，与活跃人数口径一致。
     const row = await sql<{ cnt: bigint }>`
       SELECT COUNT(DISTINCT r.principal_id) AS cnt
       FROM ai_request r
       INNER JOIN principal p ON p.id = r.principal_id
       WHERE r.enterprise_id = ${enterpriseId}
         AND p.type = 'EMPLOYEE'
+        AND p.status = 'ACTIVE'
+        AND p.archived_at IS NULL
         AND (r.finished_at IS NULL
              OR (r.status = 'SUCCEEDED' AND r.finished_at >= ${fiveMinutesAgo}))
     `.execute(this.db);
