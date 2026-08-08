@@ -21,6 +21,9 @@ const resourceId = randomUUID();
 const modelId = randomUUID();
 const secondModelId = randomUUID();
 const manualModelId = randomUUID();
+const disabledRouteModelId = randomUUID();
+const legacyProviderId = randomUUID();
+const legacyResourceId = randomUUID();
 
 beforeAll(async () => {
   pg = await startPostgresContainer();
@@ -49,12 +52,24 @@ beforeAll(async () => {
     { id: modelId, enterprise_id: enterpriseId, alias: "kimi-high", display_name: "Kimi High", status: "ACTIVE" },
     { id: secondModelId, enterprise_id: enterpriseId, alias: "kimi-second", display_name: "Kimi Second", status: "ACTIVE" },
     { id: manualModelId, enterprise_id: enterpriseId, alias: "manual-only", display_name: "手工模型", status: "ACTIVE" },
+    // 旧笼统别名（模拟 pool033 切型号时停用的 route）：catalog 应过滤掉，不展示。
+    { id: disabledRouteModelId, enterprise_id: enterpriseId, alias: "legacy-alias", display_name: "停用别名", status: "DISABLED" },
   ]).execute();
+  // 停用别名挂到独立厂商/资源上，避免污染 Kimi 厂商池的白名单计算（refreshKeyModels 按 provider 关联）。
+  await db.insertInto("provider").values({
+    id: legacyProviderId, enterprise_id: enterpriseId, code: "legacy", name: "Legacy", adapter_type: "kimi", status: "ACTIVE",
+  }).execute();
+  await db.insertInto("provider_resource").values({
+    id: legacyResourceId, enterprise_id: enterpriseId, provider_id: legacyProviderId, name: "Legacy Plan",
+    mode: "CODING_PLAN", credential_type: "API_KEY", status: "ACTIVE",
+  }).execute();
   await db.insertInto("model_route").values([
     { enterprise_id: enterpriseId, unified_model_id: modelId, provider_resource_id: resourceId,
       upstream_model: "kimi-for-coding-highspeed", enabled: true },
     { enterprise_id: enterpriseId, unified_model_id: secondModelId, provider_resource_id: resourceId,
       upstream_model: "kimi-second", enabled: true },
+    { enterprise_id: enterpriseId, unified_model_id: disabledRouteModelId, provider_resource_id: legacyResourceId,
+      upstream_model: "legacy-model", enabled: false },
   ]).execute();
   await db.insertInto("billing_rule").values([
     { enterprise_id: enterpriseId, provider_resource_id: resourceId, upstream_model: "kimi-for-coding-highspeed",
@@ -107,6 +122,9 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       .toMatchObject({ ready: false, unavailable_reason: "员工主体未启用" });
     // 已归档主体不应出现在批量授权目录中（POOL-008/009 验收遗留隐藏）。
     expect(response.json().principals.find((item: { id: string }) => item.id === archivedEmployeeId))
+      .toBeUndefined();
+    // 未启用 route（旧笼统别名）不应出现在批量授权目录中。
+    expect(response.json().models.find((item: { unified_model_id: string }) => item.unified_model_id === disabledRouteModelId))
       .toBeUndefined();
   });
 

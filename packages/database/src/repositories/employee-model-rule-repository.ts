@@ -111,6 +111,10 @@ export class EmployeeModelRuleRepository {
           "provider.status as provider_status",
         ])
         .where("model_route.enterprise_id", "=", enterpriseId)
+        // 隐藏未启用 route（pool033 切型号时停用的旧笼统别名，如 K3/zhipu）；
+        // 与 validation 的 ALL 范围语义一致（enabled=false 本就不会进 readyTargets 被发布）。
+        // 历史用量仍可在用量账本按 alias 查到，不删除。
+        .where("model_route.enabled", "=", true)
         .orderBy("provider.name")
         .orderBy("unified_model.display_name")
         .execute(),
