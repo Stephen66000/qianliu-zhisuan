@@ -19,6 +19,7 @@ import { createKysely, migrateToLatest, type Database } from "@qianliu/database"
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 import { EmployeeModelRuleRepository } from "@qianliu/database";
+import { sql } from "kysely";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -130,6 +131,33 @@ async function readAllowedModelIds(principalId: string): Promise<string[]> {
   return row.allowed_model_ids ?? [];
 }
 
+async function accessConfigurationSideEffects(principalId: string) {
+  const counts = await sql<{
+    versions: string;
+    assignments: string;
+    grants: string;
+    counters: string;
+    disabled_models: string;
+    idempotency_rows: string;
+    config_states: string;
+    operation_logs: string;
+  }>`
+    SELECT
+      (SELECT count(*)::text FROM employee_model_rule_version WHERE enterprise_id = ${enterpriseId}::uuid) AS versions,
+      (SELECT count(*)::text FROM employee_model_rule_assignment WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS assignments,
+      (SELECT count(*)::text FROM principal_grant WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS grants,
+      (SELECT count(*)::text FROM quota_counter qc JOIN principal_grant pg ON pg.id = qc.grant_id WHERE pg.enterprise_id = ${enterpriseId}::uuid AND pg.principal_id = ${principalId}::uuid) AS counters,
+      (SELECT count(*)::text FROM principal_provider_disabled_model WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS disabled_models,
+      (SELECT count(*)::text FROM principal_access_idempotency WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS idempotency_rows,
+      (SELECT count(*)::text FROM principal_access_config_state WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS config_states,
+      (SELECT count(*)::text FROM operation_log WHERE enterprise_id = ${enterpriseId}::uuid) AS operation_logs
+  `.execute(db);
+  return {
+    counts: counts.rows[0],
+    allowedModelIds: await readAllowedModelIds(principalId),
+  };
+}
+
 describe("POOL-033 接入配置回归：DeepSeek Flash/Pro 双模型完整流程", () => {
   it("开通 DeepSeek 池（Flash+Pro 全选），白名单含两个型号", async () => {
     const principalId = await createEmployeeWithKey("FlashPro-全选");
@@ -196,6 +224,41 @@ describe("POOL-033 接入配置回归：DeepSeek Flash/Pro 双模型完整流程
     const disabled = await db.selectFrom("principal_provider_disabled_model").select("unified_model_id")
       .where("principal_id", "=", principalId).execute();
     expect(disabled.map((r) => r.unified_model_id)).not.toContain(proModelId);
+  });
+});
+
+describe("POOL-041 接入配置重复输入 fail-fast", () => {
+  it("重复 provider_code 返回稳定 400，数据库零副作用", async () => {
+    const principalId = await createEmployeeWithKey("POOL041-重复厂商");
+    const before = await accessConfigurationSideEffects(principalId);
+    const response = await putAccessConfig(principalId, 1, "pool041-provider-duplicate", [
+      { provider_code: "deepseek", quota_value: "1000000", enabled_model_ids: [flashModelId] },
+      { provider_code: "deepseek", quota_value: "2000000", enabled_model_ids: [proModelId] },
+    ]);
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "invalid_request",
+      message: "provider_code 不能重复",
+    });
+    expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
+  });
+
+  it("同一 provider 内重复 enabled_model_ids 返回稳定 400，数据库零副作用", async () => {
+    const principalId = await createEmployeeWithKey("POOL041-重复型号");
+    const before = await accessConfigurationSideEffects(principalId);
+    const response = await putAccessConfig(principalId, 1, "pool041-model-duplicate", [
+      {
+        provider_code: "deepseek",
+        quota_value: "1000000",
+        enabled_model_ids: [flashModelId, flashModelId],
+      },
+    ]);
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "invalid_request",
+      message: "enabled_model_ids 不能重复",
+    });
+    expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
   });
 });
 

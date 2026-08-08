@@ -41,6 +41,7 @@ async function start(): Promise<void> {
       .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
       .innerJoin("provider", "provider.id", "provider_resource.provider_id")
       .select([
+        "model_route.id as route_id",
         "provider_resource.id as resource_id",
         "provider_resource.provider_id",
         "unified_model.id as unified_model_id",
@@ -59,8 +60,10 @@ async function start(): Promise<void> {
       .where("provider.enterprise_id", "=", enterpriseId)
       .where("unified_model.alias", "=", model)
       .where("model_route.enabled", "=", true)
+      .where("provider.status", "=", "ACTIVE")
       .execute();
     return routes.map((r) => ({
+      routeId: r.route_id,
       resourceId: r.resource_id,
       providerCode: r.provider_code,
       upstreamModel: r.upstream_model,

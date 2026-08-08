@@ -74,12 +74,17 @@ async function buildFixture(opts: {
   caller?: UpstreamCaller;
   capacityWaitMs?: number;
   capacityPollMs?: number;
+  poolGrant?: boolean;
+  omitRouteId?: boolean;
+  routeIdOverride?: string;
   afterReserve?: () => Promise<void>;
 }): Promise<{
   app: FastifyInstance;
   key: string;
   grantId: string;
   resourceId: string;
+  routeId: string;
+  providerId: string;
   stub: StubUpstream;
   principalId: string;
   ownResourceIds: Set<string>;
@@ -102,10 +107,10 @@ async function buildFixture(opts: {
     mode: opts.mode, credential_type: opts.mode === "API" ? "API_KEY" : "SUBSCRIPTION_SESSION",
     concurrency_limit: opts.concurrencyLimit ?? null,
   }).returningAll().executeTakeFirstOrThrow();
-  await db.insertInto("model_route").values({
+  const route = await db.insertInto("model_route").values({
     enterprise_id: ENT_ID, unified_model_id: umId,
     provider_resource_id: resource.id, upstream_model: upstreamModel, priority: 100, weight: 1,
-  }).execute();
+  }).returningAll().executeTakeFirstOrThrow();
 
   const key = generateApiKey();
   await db.insertInto("principal_key").values({
@@ -117,7 +122,9 @@ async function buildFixture(opts: {
 
   const grant = await db.insertInto("principal_grant").values({
     enterprise_id: ENT_ID, principal_id: principalId, provider: providerCode,
-    model_alias: alias, quota_value: opts.quotaValue ?? 1_000_000n, allow_overage: opts.allowOverage ?? false,
+    model_alias: opts.poolGrant ? "*" : alias,
+    pool_model_alias: opts.poolGrant ? "*" : null,
+    quota_value: opts.quotaValue ?? 1_000_000n, allow_overage: opts.allowOverage ?? false,
   }).returningAll().executeTakeFirstOrThrow();
   const grantId = grant.id;
   if (opts.mode === "CODING_PLAN") {
@@ -152,6 +159,7 @@ async function buildFixture(opts: {
       .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
       .innerJoin("provider", "provider.id", "provider_resource.provider_id")
       .select([
+        "model_route.id as route_id",
         "provider_resource.id as resource_id",
         "provider.code as provider_code",
         "model_route.upstream_model",
@@ -167,6 +175,7 @@ async function buildFixture(opts: {
     return routes
       .filter((r) => ownResourceIds.has(r.resource_id))
       .map((r) => ({
+        routeId: opts.omitRouteId ? undefined : opts.routeIdOverride ?? r.route_id,
         resourceId: r.resource_id,
         providerCode: r.provider_code,
         upstreamModel: r.upstream_model,
@@ -187,7 +196,8 @@ async function buildFixture(opts: {
   const app = buildGateway(db, PEPPER, pipeline);
   await app.ready();
   return {
-    app, key, grantId, resourceId: resource.id, stub, principalId, ownResourceIds,
+    app, key, grantId, resourceId: resource.id, routeId: route.id, providerId,
+    stub, principalId, ownResourceIds,
     close: async () => { await app.close(); },
   };
 }
@@ -230,7 +240,11 @@ afterAll(async () => {
 
 describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）", () => {
   it("F-01-1：CODING_PLAN 成功 → deducted_quota 回写 quota_counter", async () => {
-    const fx = await buildFixture({ mode: "CODING_PLAN", quotaValue: 100_000n });
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      omitRouteId: true,
+    });
     try {
       const res = await fx.app.inject({
         method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
@@ -740,6 +754,298 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect((await ledgerRepo.getRequest(requestId))?.status).toBe("FAILED");
     } finally {
       await fx.close();
+    }
+  });
+
+  it.each([
+    {
+      name: "Route",
+      revoke: async (_fixture: Awaited<ReturnType<typeof buildFixture>>) => {
+        await db.updateTable("model_route").set({ enabled: false })
+          .where("unified_model_id", "=", kimiUmId).execute();
+      },
+      restore: async (_fixture: Awaited<ReturnType<typeof buildFixture>>) => {
+        await db.updateTable("model_route").set({ enabled: true })
+          .where("unified_model_id", "=", kimiUmId).execute();
+      },
+    },
+    {
+      name: "Resource",
+      revoke: async (_fixture: Awaited<ReturnType<typeof buildFixture>>) => {
+        await db.updateTable("provider_resource").set({ status: "EXHAUSTED" })
+          .where("provider_id", "=", kimiProviderId).execute();
+      },
+      restore: async (_fixture: Awaited<ReturnType<typeof buildFixture>>) => {
+        await db.updateTable("provider_resource").set({ status: "ACTIVE" })
+          .where("provider_id", "=", kimiProviderId).execute();
+      },
+    },
+    {
+      name: "Provider",
+      revoke: async (fixture: Awaited<ReturnType<typeof buildFixture>>) => {
+        await db.updateTable("provider").set({ status: "DISABLED" })
+          .where("id", "=", fixture.providerId).execute();
+      },
+      restore: async (fixture: Awaited<ReturnType<typeof buildFixture>>) => {
+        await db.updateTable("provider").set({ status: "ACTIVE" })
+          .where("id", "=", fixture.providerId).execute();
+      },
+    },
+  ])("POOL-040：额度预占后停用 $name，最终栅栏拒绝并完整释放", async ({ revoke, restore }) => {
+    let fixture: Awaited<ReturnType<typeof buildFixture>> | undefined;
+    fixture = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 1,
+      afterReserve: async () => revoke(fixture!),
+    });
+    const callsBefore = fixture.stub.calls.length;
+    try {
+      const response = await fixture.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fixture.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "POOL-040 fence" }] },
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json().error.code).toBe("candidate_admission_revoked");
+      expect(fixture.stub.calls).toHaveLength(callsBefore);
+      expect((await counterValue(fixture.grantId)).used).toBe(0n);
+
+      const activeLeases = await db.selectFrom("concurrency_lease")
+        .select((eb) => eb.fn.countAll().as("count"))
+        .where("provider_resource_id", "=", fixture.resourceId)
+        .where("released_at", "is", null)
+        .executeTakeFirstOrThrow();
+      expect(Number(activeLeases.count)).toBe(0);
+
+      const requestId = response.headers["x-ai-request-id"] as string;
+      expect(await ledgerRepo.listAttempts(requestId)).toEqual([
+        expect.objectContaining({
+          http_status: 503,
+          response_committed: false,
+          error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+          error_code: "candidate_admission_revoked",
+        }),
+      ]);
+      expect(await ledgerRepo.listLedgerLines(requestId)).toHaveLength(0);
+      expect(await ledgerRepo.getLedgerTransaction(requestId)).toBeUndefined();
+      expect((await ledgerRepo.getRequest(requestId))?.status).toBe("FAILED");
+
+      const models = await fixture.app.inject({
+        method: "GET",
+        url: "/v1/models",
+        headers: authHeader(fixture.key),
+      });
+      expect(models.statusCode).toBe(200);
+      expect(models.json().data).toEqual([]);
+    } finally {
+      await restore(fixture);
+      await fixture.close();
+    }
+  });
+
+  it("POOL-040：已选 Route 撤权时不得被其他可用 Route 误放行，应切换后再调上游", async () => {
+    let fixture: Awaited<ReturnType<typeof buildFixture>> | undefined;
+    fixture = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 1,
+      afterReserve: async () => {
+        await db.updateTable("model_route").set({ enabled: false })
+          .where("id", "=", fixture!.routeId).execute();
+      },
+    });
+    const backup = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID,
+      provider_id: kimiProviderId,
+      name: `W18-fence-backup-${randomUUID().slice(0, 8)}`,
+      mode: "CODING_PLAN",
+      credential_type: "SUBSCRIPTION_SESSION",
+      concurrency_limit: 1,
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID,
+      unified_model_id: kimiUmId,
+      provider_resource_id: backup.id,
+      upstream_model: "kimi-k3",
+      priority: 200,
+      weight: 1,
+    }).execute();
+    fixture.ownResourceIds.add(backup.id);
+    try {
+      const response = await fixture.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fixture.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "route-bound fence" }] },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(fixture.stub.calls).toHaveLength(1);
+      expect(fixture.stub.calls[0]?.resource.resourceId).toBe(backup.id);
+
+      const requestId = response.headers["x-ai-request-id"] as string;
+      expect((await ledgerRepo.listAttempts(requestId)).map((attempt) => ({
+        resourceId: attempt.provider_resource_id,
+        committed: attempt.response_committed,
+        errorCode: attempt.error_code,
+      }))).toEqual([
+        {
+          resourceId: fixture.resourceId,
+          committed: false,
+          errorCode: "candidate_admission_revoked",
+        },
+        { resourceId: backup.id, committed: true, errorCode: null },
+      ]);
+      const models = await fixture.app.inject({
+        method: "GET",
+        url: "/v1/models",
+        headers: authHeader(fixture.key),
+      });
+      expect(models.json().data.map((model: { id: string }) => model.id)).toEqual([KIMI_ALIAS]);
+    } finally {
+      await db.updateTable("model_route").set({ enabled: true })
+        .where("id", "=", fixture.routeId).execute();
+      await fixture.close();
+    }
+  });
+
+  it("POOL-040：同一资源的备用 Route 撤权后仍可按 route 身份切换", async () => {
+    let fixture: Awaited<ReturnType<typeof buildFixture>> | undefined;
+    fixture = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 1,
+      afterReserve: async () => {
+        await db.updateTable("model_route").set({ enabled: false })
+          .where("id", "=", fixture!.routeId).execute();
+      },
+    });
+    const alternateRoute = await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID,
+      unified_model_id: kimiUmId,
+      provider_resource_id: fixture.resourceId,
+      upstream_model: "kimi-k3-alternate",
+      priority: 200,
+      weight: 1,
+    }).returning("id").executeTakeFirstOrThrow();
+    try {
+      const response = await fixture.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fixture.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "same-resource route failover" }] },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(fixture.stub.calls).toHaveLength(1);
+      expect(fixture.stub.calls[0]?.resource.resourceId).toBe(fixture.resourceId);
+      expect(fixture.stub.calls[0]?.resource.upstreamModel).toBe("kimi-k3-alternate");
+      const requestId = response.headers["x-ai-request-id"] as string;
+      expect((await ledgerRepo.listAttempts(requestId)).map((attempt) => ({
+        upstreamModel: attempt.upstream_model,
+        errorCode: attempt.error_code,
+        committed: attempt.response_committed,
+      }))).toEqual([
+        { upstreamModel: "kimi-k3", errorCode: "candidate_admission_revoked", committed: false },
+        { upstreamModel: "kimi-k3-alternate", errorCode: null, committed: true },
+      ]);
+    } finally {
+      await db.updateTable("model_route").set({ enabled: true })
+        .where("id", "=", fixture.routeId).execute();
+      await db.deleteFrom("model_route").where("id", "=", alternateRoute.id).execute();
+      await fixture.close();
+    }
+  });
+
+  it("POOL-040：最终栅栏必须精确绑定已选 model_route.id", async () => {
+    const fixture = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 1,
+      routeIdOverride: randomUUID(),
+    });
+    try {
+      const response = await fixture.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fixture.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "route id binding" }] },
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json().error.code).toBe("candidate_admission_revoked");
+      expect(fixture.stub.calls).toHaveLength(0);
+      expect((await counterValue(fixture.grantId)).used).toBe(0n);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("POOL-040：厂商池型号在额度预占后被禁用，最终栅栏拒绝且列表同步隐藏", async () => {
+    let fixture: Awaited<ReturnType<typeof buildFixture>> | undefined;
+    fixture = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      concurrencyLimit: 1,
+      poolGrant: true,
+      afterReserve: async () => {
+        await db.insertInto("principal_provider_disabled_model").values({
+          enterprise_id: ENT_ID,
+          principal_id: fixture!.principalId,
+          provider: "kimi",
+          unified_model_id: kimiUmId,
+          disable_rule_version_id: null,
+        }).execute();
+      },
+    });
+    const callsBefore = fixture.stub.calls.length;
+    try {
+      const response = await fixture.app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(fixture.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "pool disabled fence" }] },
+      });
+      expect(response.statusCode).toBe(403);
+      expect(response.json().error.code).toBe("principal_grant_required");
+      expect(fixture.stub.calls).toHaveLength(callsBefore);
+      expect((await counterValue(fixture.grantId)).used).toBe(0n);
+
+      const activeLeases = await db.selectFrom("concurrency_lease")
+        .select((eb) => eb.fn.countAll().as("count"))
+        .where("provider_resource_id", "=", fixture.resourceId)
+        .where("released_at", "is", null)
+        .executeTakeFirstOrThrow();
+      expect(Number(activeLeases.count)).toBe(0);
+
+      const requestId = response.headers["x-ai-request-id"] as string;
+      expect(await ledgerRepo.listAttempts(requestId)).toEqual([
+        expect.objectContaining({
+          response_committed: false,
+          error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+          error_code: "principal_grant_required",
+        }),
+      ]);
+      expect(await ledgerRepo.listLedgerLines(requestId)).toHaveLength(0);
+      expect(await ledgerRepo.getLedgerTransaction(requestId)).toBeUndefined();
+      expect((await ledgerRepo.getRequest(requestId))?.status).toBe("FAILED");
+
+      const models = await fixture.app.inject({
+        method: "GET",
+        url: "/v1/models",
+        headers: authHeader(fixture.key),
+      });
+      expect(models.statusCode).toBe(200);
+      expect(models.json().data).toEqual([]);
+    } finally {
+      if (fixture) {
+        await db.deleteFrom("principal_provider_disabled_model")
+          .where("enterprise_id", "=", ENT_ID)
+          .where("principal_id", "=", fixture.principalId)
+          .where("provider", "=", "kimi")
+          .where("unified_model_id", "=", kimiUmId)
+          .execute();
+        await fixture.close();
+      }
     }
   });
 

@@ -63,9 +63,12 @@ import {
 } from "./billing.js";
 import { shouldAttemptUpstreamFailover } from "../upstream-failover-policy.js";
 import { buildEffectiveBody, type TruncationConfig } from "./history-truncation.js";
+import { hasCurrentInvocationAdmission } from "../admission/invocation-admission.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
 export interface RouteCandidateRow {
+  /** model_route.id；生产候选必须携带，旧测试装配可由候选复合键兼容。 */
+  routeId?: string;
   resourceId: string;
   providerCode: string;
   upstreamModel: string;
@@ -244,8 +247,10 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     const servableById = new Map(
       (await deps.poolRepo.listServableResources(principal.enterpriseId)).map((s) => [s.id, s]),
     );
-    const candidateByResourceId = new Map(
-      grantAuthorizedCandidates.map((candidate) => [candidate.resourceId, candidate]),
+    const candidateKey = (candidate: Pick<RouteCandidateRow, "resourceId" | "providerCode" | "upstreamModel">) =>
+      `${candidate.resourceId}\u0000${candidate.providerCode}\u0000${candidate.upstreamModel}`;
+    const candidateByInvocationKey = new Map(
+      grantAuthorizedCandidates.map((candidate) => [candidateKey(candidate), candidate]),
     );
     let blockingEvent: AvailabilityEvent | null = null;
     const runtimeAllowedCandidates: RouteCandidateRow[] = [];
@@ -281,6 +286,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       .map((c) => {
         const admission = servableById.get(c.resourceId)!;
         return ({
+          routeId: c.routeId,
           resourceId: c.resourceId,
           upstreamModel: c.upstreamModel,
           priority: c.priority,
@@ -291,6 +297,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           providerCode: c.providerCode,
         });
       });
+
+    let routeEligibleCandidates = eligible;
 
     if (eligible.length === 0) {
       if (blockingEvent) {
@@ -361,6 +369,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let dispatchTerminated = false;
     let grantRevokedDuringDispatch = false;
     let keyAuthorizationRevokedDuringDispatch = false;
+    let candidateAdmissionRevokedDuringDispatch = false;
     let capacityWaitTimedOut = false;
     let capacityRetryAfterMs = capacityPollMs;
     let halfOpenProbeBusy = false;
@@ -374,7 +383,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
 
     while (attemptNo < maxAttempts) {
       attemptNo += 1;
-      lastScored = scoreAndSelect(eligible, affinityResourceId, triedResourceIds);
+      lastScored = scoreAndSelect(routeEligibleCandidates, affinityResourceId, triedResourceIds);
       winner = pickWinner(lastScored);
       if (!winner) break; // 无剩余候选
 
@@ -559,27 +568,44 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       // 最终提交栅栏用一条 SQL 同时复核 Key、主体、模型和 grant，避免把两次独立
       // 查询之间的 await 变成另一条 TOCTOU 缝隙。此查询与 adapter.invoke 之间
       // 不得再增加 await。
-      const invocationStillAuthorized = await hasCurrentInvocationAuthorization(
+      const resourceConfig = candidateByInvocationKey.get(candidateKey(cand));
+      const invocationStillAuthorized = await hasCurrentInvocationAdmission(
         deps.db,
-        principal.enterpriseId,
-        principalId,
-        principal.keyId,
-        body.model,
-        cand.providerCode,
+        {
+          enterpriseId: principal.enterpriseId,
+          principalId,
+          keyId: principal.keyId,
+        },
+        {
+          routeId: resourceConfig?.routeId,
+          resourceId: cand.resourceId,
+          providerCode: cand.providerCode,
+          upstreamModel: cand.upstreamModel,
+          modelAlias: body.model,
+        },
       );
       if (!invocationStillAuthorized) {
         // 已决定不访问上游后才做原因细分；这里的额外查询不再构成放行竞态。
-        const grantIsCurrent = await deps.quotaRepo.hasActiveGrant({
+        const keyIsCurrent = await hasCurrentKeyModelAuthorization(
+          deps.db,
+          principal.enterpriseId,
+          principalId,
+          principal.keyId,
+          body.model,
+        );
+        const grantIsCurrent = keyIsCurrent && await deps.quotaRepo.hasActiveGrant({
           enterpriseId: principal.enterpriseId,
           principalId,
           provider: cand.providerCode,
           modelAlias: body.model,
         });
-        const errorCode = grantIsCurrent
+        const errorCode = !keyIsCurrent
           ? "key_or_model_authorization_revoked"
-          : "principal_grant_required";
+          : !grantIsCurrent
+            ? "principal_grant_required"
+            : "candidate_admission_revoked";
         await deps.ledgerRepo.updateAttemptResult(attempt.id, {
-          http_status: 403,
+          http_status: errorCode === "candidate_admission_revoked" ? 503 : 403,
           response_committed: false,
           finished_at: new Date(),
           error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
@@ -589,16 +615,19 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
         if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
         if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
-        if (grantIsCurrent) {
+        if (!keyIsCurrent) {
           keyAuthorizationRevokedDuringDispatch = true;
-        } else {
+        } else if (!grantIsCurrent) {
           grantRevokedDuringDispatch = true;
+        } else {
+          candidateAdmissionRevokedDuringDispatch = true;
+          routeEligibleCandidates = excludeRevokedCandidateRoute(routeEligibleCandidates, cand, triedResourceIds);
+          continue;
         }
         break;
       }
 
       const adapter = resolveAdapter(cand.providerCode, deps.caller);
-      const resourceConfig = candidateByResourceId.get(cand.resourceId);
       invokedResourceIds.add(cand.resourceId);
       const outcome = await adapter.invoke(
         {
@@ -913,6 +942,24 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           },
         });
       }
+      if (candidateAdmissionRevokedDuringDispatch) {
+        await deps.ledgerRepo.updateRequestStatus(
+          requestId,
+          "FAILED",
+          "NO_HEALTHY_CANDIDATE",
+          "candidate_admission_revoked",
+        );
+        return reply.code(503).header("x-request-id", traceId).send({
+          error: {
+            message: "已选路由、厂商资源或厂商在访问上游前已停止服务",
+            type: "server_error",
+            code: "candidate_admission_revoked",
+            param: "model",
+            retryable: true,
+            request_id: requestId,
+          },
+        });
+      }
       if (capacityWaitTimedOut) {
         await deps.ledgerRepo.updateRequestStatus(
           requestId,
@@ -1202,69 +1249,16 @@ async function hasCurrentKeyModelAuthorization(
   return model !== undefined;
 }
 
-/**
- * Adapter 前最终授权栅栏：一条查询同时验证 Key/主体/模型/grant。
- * 查询返回后紧接同步对象构造与 adapter.invoke，不再穿插异步 I/O。
- */
-async function hasCurrentInvocationAuthorization(
-  db: Kysely<Database>,
-  enterpriseId: string,
-  principalId: string,
-  keyId: string,
-  modelAlias: string,
-  providerCode: string,
-): Promise<boolean> {
-  const now = new Date();
-  const authorization = await db
-    .selectFrom("principal_key")
-    .innerJoin("principal", "principal.id", "principal_key.principal_id")
-    .innerJoin("unified_model", (join) =>
-      join
-        .onRef("unified_model.enterprise_id", "=", "principal_key.enterprise_id")
-        .on("unified_model.alias", "=", modelAlias)
-        .on("unified_model.status", "=", "ACTIVE"),
-    )
-    .innerJoin("principal_grant", (join) =>
-      join
-        .onRef("principal_grant.enterprise_id", "=", "principal_key.enterprise_id")
-        .onRef("principal_grant.principal_id", "=", "principal_key.principal_id")
-        // POOL-033：池化后 grant 的 model_alias='*'（厂商池），不再等于具体 unified_model.alias。
-        // 改为：池行（pool_model_alias='*'）或精确型号行（model_alias=alias）都匹配。
-        .on((eb) => eb.or([
-          eb("principal_grant.pool_model_alias", "=", "*"),
-          eb("principal_grant.model_alias", "=", "unified_model.alias"),
-        ]))
-        .on("principal_grant.provider", "=", providerCode)
-        .on("principal_grant.status", "=", "ACTIVE"),
-    )
-    .select([
-      "principal_key.allowed_model_ids as allowed_model_ids",
-      "principal_key.expires_at as expires_at",
-      "unified_model.id as model_id",
-    ])
-    .where("principal_key.id", "=", keyId)
-    .where("principal_key.enterprise_id", "=", enterpriseId)
-    .where("principal_key.principal_id", "=", principalId)
-    .where("principal_key.status", "=", "ACTIVE")
-    .where("principal.status", "=", "ACTIVE")
-    .where("principal_grant.valid_from", "<=", now)
-    .where((eb) =>
-      eb.or([
-        eb("principal_grant.valid_until", "is", null),
-        eb("principal_grant.valid_until", ">", now),
-      ]),
-    )
-    .executeTakeFirst();
-  if (
-    !authorization
-    || (
-      authorization.expires_at !== null
-      && authorization.expires_at.getTime() <= now.getTime()
-    )
-  ) {
-    return false;
+function excludeRevokedCandidateRoute(
+  candidates: RoutingCandidateInput[],
+  candidate: RoutingCandidateInput,
+  triedResourceIds: Set<string>,
+): RoutingCandidateInput[] {
+  if (candidate.routeId === undefined) {
+    triedResourceIds.add(candidate.resourceId);
+    return candidates;
   }
-  return (authorization.allowed_model_ids ?? []).includes(authorization.model_id);
+  return candidates.filter((item) => item.routeId !== candidate.routeId);
 }
 
 function normalizeAssistantOutput(output: unknown[] | undefined): {

@@ -79,6 +79,25 @@ beforeAll(async () => {
       status: "ACTIVE",
     })
     .execute();
+  const provider = await db.insertInto("provider").values({
+    enterprise_id: ENT_ID,
+    code: "deepseek",
+    name: "DeepSeek",
+    adapter_type: "deepseek",
+  }).returning("id").executeTakeFirstOrThrow();
+  const resource = await db.insertInto("provider_resource").values({
+    enterprise_id: ENT_ID,
+    provider_id: provider.id,
+    name: "DeepSeek 主账号",
+    mode: "API",
+    credential_type: "API_KEY",
+  }).returning("id").executeTakeFirstOrThrow();
+  await db.insertInto("model_route").values({
+    enterprise_id: ENT_ID,
+    unified_model_id: allowedModelId,
+    provider_resource_id: resource.id,
+    upstream_model: "deepseek-chat",
+  }).execute();
   await db
     .updateTable("principal_key")
     .set({ allowed_model_ids: JSON.stringify([allowedModelId]) as unknown as string[] })
