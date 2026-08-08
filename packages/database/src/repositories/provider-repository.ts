@@ -184,7 +184,7 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       }))).execute();
       const models: ProviderModelOnboardingResult["models"] = [];
       for (const discovered of input.selectedModels) {
-        const alias = stableModelAlias(input.providerCode, discovered.id);
+        const alias = stableModelAlias(input.providerCode, discovered.id, discovered.displayName);
         let unified = await trx.selectFrom("unified_model").selectAll()
           .where("enterprise_id", "=", input.enterpriseId).where("alias", "=", alias)
           .executeTakeFirst();
@@ -231,7 +231,7 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       if (!resource) throw new EnterpriseReferenceError("resource is not serviceable in enterprise");
       const result: ProviderModelOnboardingResult["models"] = [];
       for (const discovered of input.models) {
-        const alias = stableModelAlias(input.providerCode, discovered.id);
+        const alias = stableModelAlias(input.providerCode, discovered.id, discovered.displayName);
         let unified = await trx.selectFrom("unified_model").selectAll()
           .where("enterprise_id", "=", input.enterpriseId).where("alias", "=", alias)
           .executeTakeFirst();
@@ -370,7 +370,13 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
   }
 }
 
-function stableModelAlias(providerCode: string, upstreamModel: string): string {
-  const slug = upstreamModel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `qianliu-${providerCode}-${slug}`.slice(0, 64);
+/**
+ * POOL-038：alias 格式从 `qianliu-{provider}-{model}` 改为 `ql-{display_name}`。
+ * 优先用 display_name（客户端可见名），回退 upstreamModel；保留 providerCode 做 fallback
+ * 防止跨厂商同名 display_name 撞唯一约束（display_name 无唯一约束）。
+ */
+function stableModelAlias(providerCode: string, upstreamModel: string, displayName?: string): string {
+  const base = displayName ?? upstreamModel;
+  const slug = base.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-|-$/g, "");
+  return `ql-${slug}`.slice(0, 64);
 }
