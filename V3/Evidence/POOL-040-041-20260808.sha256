@@ -1,10 +1,10 @@
 # POOL-040/041 candidate freeze
 # base: main c78a1547fb118a6bec41829072257c7aa95a3d8f
 # frozen_at: 2026-08-08 Asia/Shanghai
-# object_hash: 84d09c4878219a46088d5582f199d06adb9a2f21311505bc92be34b1152ca9be
+# object_hash: 7798b0a0c25d6559debf6bf246b9ef910c3052063993cb3365d614164bc716b2
 # hash_algorithm: SHA-256; object hash is the ordered lock-entry lines below, each ending in newline
-ca99b6ab292bf006b6b69e6cf4125642a2adb0371532292bd695ebdd6460456e  V3/仟流智算-测试问题蓄水池.md
-a15264bdc24ec4672eb03e5013ab7c1ca88586c2fd065e76354314ee07ec2d0a  V3/Evidence/POOL-040-041-20260808.md
+ffcbed101485ab82c280f6083e4497f8662598959050d9b728bb6b89c223ec8f  V3/仟流智算-测试问题蓄水池.md
+a24e6ea0e18f83ccf81093b9c72e3ac4694a51fce5d01af971e25dd5f2484ba6  V3/Evidence/POOL-040-041-20260808.md
 0137722e856590258a4c2cf202872b8a5a2b80aef88aeadab9d1f8d107e0e085  apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts
 21ed7517ebdf377d08dff831394527ba075d032860544384d55bf9cc14618c92  apps/control-api/src/principals/access-configuration.ts
 ccc57499b035f2b38cacf34de62155aec898458e7eb0e18c14fa0a0d9d14ee8f  apps/control-api/src/principals/access-configuration-schema.test.ts
