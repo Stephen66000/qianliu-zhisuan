@@ -93,6 +93,9 @@ export class EmployeeModelRuleRepository {
         ])
         .where("principal.enterprise_id", "=", enterpriseId)
         .where("principal.type", "=", "EMPLOYEE")
+        // 排除已归档主体（POOL-008/009 验收遗留），与 validation 的 archived_at 语义一致；
+        // DISABLED 但未归档的主体仍列出标灰，那是"临时停用、可恢复"的正常业务状态。
+        .where("principal.archived_at", "is", null)
         .orderBy("principal.name")
         .execute(),
       this.db.selectFrom("model_route")

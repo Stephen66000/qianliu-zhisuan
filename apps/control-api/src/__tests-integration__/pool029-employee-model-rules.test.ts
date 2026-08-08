@@ -15,6 +15,7 @@ const adminId = randomUUID();
 const employeeId = randomUUID();
 const employeeWithoutKeyId = randomUUID();
 const disabledEmployeeId = randomUUID();
+const archivedEmployeeId = randomUUID();
 const providerId = randomUUID();
 const resourceId = randomUUID();
 const modelId = randomUUID();
@@ -34,6 +35,8 @@ beforeAll(async () => {
     { id: employeeId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "员工 A", status: "ACTIVE" },
     { id: employeeWithoutKeyId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "员工 B", status: "ACTIVE" },
     { id: disabledEmployeeId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "员工 C", status: "DISABLED" },
+    // 归档主体（模拟 POOL-008/009 验收遗留）：catalog 应过滤掉，不展示。
+    { id: archivedEmployeeId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "归档员工 D", status: "DISABLED", archived_at: new Date("2026-08-01T00:00:00Z") },
   ]).execute();
   await db.insertInto("provider").values({
     id: providerId, enterprise_id: enterpriseId, code: "kimi", name: "Kimi", adapter_type: "kimi", status: "ACTIVE",
@@ -102,6 +105,9 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       .toMatchObject({ ready: false, unavailable_reason: "员工尚无有效 Key" });
     expect(response.json().principals.find((item: { id: string }) => item.id === disabledEmployeeId))
       .toMatchObject({ ready: false, unavailable_reason: "员工主体未启用" });
+    // 已归档主体不应出现在批量授权目录中（POOL-008/009 验收遗留隐藏）。
+    expect(response.json().principals.find((item: { id: string }) => item.id === archivedEmployeeId))
+      .toBeUndefined();
   });
 
   it("校验后原子发布 Key＋Grant，重试幂等且保留手工权限", async () => {
