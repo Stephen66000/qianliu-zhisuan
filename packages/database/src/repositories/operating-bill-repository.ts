@@ -7,6 +7,17 @@
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { buildOperatingBillDraft } from "./operating-bill-draft.js";
+import { OperatingBillAccountRepository } from "./operating-bill-account-repository.js";
+import {
+  OperatingBillConcurrentModificationError,
+  withOperatingBillSerializationRetry,
+} from "./operating-bill-concurrency.js";
+import { operatingBillMonthRange } from "./operating-bill-month.js";
+import {
+  acquireOperatingBillMonthWriteBarrier,
+  hasPendingOperatingBillSettlement,
+  OperatingBillClosedError,
+} from "./operating-bill-write-barrier.js";
 import type {
   OperatingBillGap,
   OperatingBillPeriod,
@@ -16,22 +27,9 @@ import type {
 } from "./operating-bill-types.js";
 
 export type * from "./operating-bill-types.js";
-
-/** 账期参数只接受 YYYY-MM，边界固定为北京时间自然月。 */
-export function operatingBillMonthRange(month: string): { start: Date; end: Date; monthDate: string } {
-  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
-  if (!match) throw new InvalidOperatingBillMonthError();
-  const year = Number(match[1]);
-  const monthNumber = Number(match[2]);
-  if (year < 2000 || year > 2200) throw new InvalidOperatingBillMonthError();
-  const nextYear = monthNumber === 12 ? year + 1 : year;
-  const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1;
-  return {
-    start: new Date(`${month}-01T00:00:00+08:00`),
-    end: new Date(`${nextYear}-${String(nextMonth).padStart(2, "0")}-01T00:00:00+08:00`),
-    monthDate: `${month}-01`,
-  };
-}
+export { operatingBillMonthRange, InvalidOperatingBillMonthError } from "./operating-bill-month.js";
+export { OperatingBillConcurrentModificationError } from "./operating-bill-concurrency.js";
+export { OperatingBillClosedError } from "./operating-bill-write-barrier.js";
 
 export class OperatingBillRepository {
   constructor(private db: Kysely<Database>) {}
@@ -129,6 +127,8 @@ export class OperatingBillRepository {
         actor_admin_id: input.adminId,
         metadata: { value_item_id: item.id, value_type: item.value_type },
       }).execute();
+      await trx.updateTable("operating_bill_period").set({ updated_at: new Date() })
+        .where("id", "=", period.id).execute();
       return item;
     });
     return this.getValueItemView(input.enterpriseId, created.id);
@@ -157,6 +157,8 @@ export class OperatingBillRepository {
           action: "VALUE_CONFIRMED", version: item.current_version, reason: null,
           actor_admin_id: input.adminId, metadata: { value_item_id: item.id },
         }).execute();
+        await trx.updateTable("operating_bill_period").set({ updated_at: new Date() })
+          .where("id", "=", item.period_id).execute();
       }
     });
     return this.getValueItemView(input.enterpriseId, input.itemId);
@@ -171,19 +173,29 @@ export class OperatingBillRepository {
     reason?: string | null;
   }): Promise<void> {
     await this.db.transaction().execute(async (trx) => {
-      const request = await trx.selectFrom("ai_request").select(["id", "started_at"])
-        .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.requestId)
-        .executeTakeFirst();
+      const request = await trx.selectFrom("ai_request as ar")
+        .innerJoin("principal as source", "source.id", "ar.principal_id")
+        .select(["ar.id", "source.type as principal_type"])
+        .where("ar.enterprise_id", "=", input.enterpriseId)
+        .where("source.enterprise_id", "=", input.enterpriseId)
+        .where("ar.id", "=", input.requestId).executeTakeFirst();
       const project = await trx.selectFrom("principal").select("id")
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.projectPrincipalId)
         .where("type", "=", "PROJECT").where("status", "=", "ACTIVE").executeTakeFirst();
-      if (!request || !project) throw new OperatingBillReferenceError();
-      const month = new Intl.DateTimeFormat("en-CA", {
+      const lineRange = await trx.selectFrom("ledger_line").select((eb) => [
+        eb.fn.min("created_at").as("first_at"), eb.fn.max("created_at").as("last_at"),
+      ]).where("enterprise_id", "=", input.enterpriseId)
+        .where("ai_request_id", "=", input.requestId).executeTakeFirst();
+      if (!request || request.principal_type !== "EMPLOYEE" || !project
+        || !lineRange?.first_at || !lineRange.last_at) throw new OperatingBillReferenceError();
+      const monthOf = (value: Date) => new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit",
-      }).format(request.started_at).slice(0, 7);
-      if (month !== input.month) throw new OperatingBillReferenceError();
+      }).format(value).slice(0, 7);
+      if (monthOf(lineRange.first_at) !== input.month || monthOf(lineRange.last_at) !== input.month) {
+        throw new OperatingBillReferenceError();
+      }
       const repo = new OperatingBillRepository(trx);
-      const initial = await repo.ensurePeriod(input.enterpriseId, input.adminId, month);
+      const initial = await repo.ensurePeriod(input.enterpriseId, input.adminId, input.month);
       const period = await trx.selectFrom("operating_bill_period").select(["id", "status"])
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", initial.id)
         .forUpdate().executeTakeFirstOrThrow();
@@ -196,6 +208,8 @@ export class OperatingBillRepository {
         project_principal_id: input.projectPrincipalId, assigned_by: input.adminId,
         reason: input.reason ?? null, updated_at: new Date(),
       })).execute();
+      await trx.updateTable("operating_bill_period").set({ updated_at: new Date() })
+        .where("id", "=", period.id).execute();
     });
   }
 
@@ -206,45 +220,62 @@ export class OperatingBillRepository {
     allowIncomplete: boolean;
     note: string | null;
   }): Promise<OperatingBillView> {
-    const initial = await this.ensurePeriod(input.enterpriseId, input.adminId, input.month);
-    await this.db.transaction().execute(async (trx) => {
-      const period = await trx.selectFrom("operating_bill_period").selectAll()
-        .where("enterprise_id", "=", input.enterpriseId).where("id", "=", initial.id)
-        .forUpdate().executeTakeFirstOrThrow();
-      if (period.status === "CLOSED") throw new OperatingBillAlreadyClosedError();
-      const repo = new OperatingBillRepository(trx);
-      const draft = await repo.buildDraft(input.enterpriseId, input.month, period);
-      if (draft.gaps.length > 0 && !input.allowIncomplete) {
-        throw new OperatingBillIncompleteError(draft.gaps);
-      }
-      if (draft.gaps.length > 0 && !input.note?.trim()) {
-        throw new OperatingBillCloseNoteRequiredError();
-      }
-      const nextVersion = period.current_version + 1;
-      const closedAt = new Date();
-      const admin = await trx.selectFrom("admin_user").select("display_name")
-        .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.adminId)
-        .executeTakeFirstOrThrow();
-      const frozen: OperatingBillSnapshot = {
-        ...draft, status: "CLOSED", version: nextVersion,
-        generatedAt: closedAt.toISOString(), closedAt: closedAt.toISOString(),
-        closedBy: admin.display_name, closeNote: input.note,
-      };
-      await trx.insertInto("operating_bill_version").values({
-        enterprise_id: input.enterpriseId, period_id: period.id, version: nextVersion,
-        snapshot: frozen as unknown as Record<string, unknown>, close_note: input.note,
-        exceptions: sql`${JSON.stringify(draft.gaps)}::jsonb`, closed_by: input.adminId,
-        closed_at: closedAt,
-      }).execute();
-      await trx.updateTable("operating_bill_period").set({
-        status: "CLOSED", current_version: nextVersion, updated_at: closedAt,
-      }).where("id", "=", period.id).execute();
-      await trx.insertInto("operating_bill_event").values({
-        enterprise_id: input.enterpriseId, period_id: period.id, action: "CLOSED",
-        version: nextVersion, reason: input.note, actor_admin_id: input.adminId,
-        metadata: { allow_incomplete: input.allowIncomplete, gap_count: draft.gaps.length },
-      }).execute();
+    // 先在独立 READ COMMITTED 事务中创建账期。不把 advisory lock 放进
+    // 后续 RR 事务，避免等锁前取到旧快照而漏掉在途结算。
+    const initial = await this.db.transaction().execute(async (trx) => {
+      await acquireOperatingBillMonthWriteBarrier(trx, input.enterpriseId, input.month);
+      return new OperatingBillRepository(trx)
+        .ensurePeriod(input.enterpriseId, input.adminId, input.month);
     });
+    await withOperatingBillSerializationRetry(() =>
+      this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+        const period = await trx.selectFrom("operating_bill_period").selectAll()
+          .where("enterprise_id", "=", input.enterpriseId).where("id", "=", initial.id)
+          .forUpdate().executeTakeFirstOrThrow();
+        if (period.status === "CLOSED") throw new OperatingBillAlreadyClosedError();
+        if (await hasPendingOperatingBillSettlement(
+          trx, input.enterpriseId, input.month, new Date(),
+        )) throw new OperatingBillConcurrentModificationError();
+        const repo = new OperatingBillRepository(trx);
+        const draft = await repo.buildDraft(input.enterpriseId, input.month, period);
+        if (draft.gaps.length > 0 && !input.allowIncomplete) {
+          throw new OperatingBillIncompleteError(draft.gaps);
+        }
+        if (draft.gaps.length > 0 && !input.note?.trim()) {
+          throw new OperatingBillCloseNoteRequiredError();
+        }
+        const nextVersion = period.current_version + 1;
+        const closedAt = new Date();
+        const admin = await trx.selectFrom("admin_user").select("display_name")
+          .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.adminId)
+          .executeTakeFirstOrThrow();
+        const frozen: OperatingBillSnapshot = {
+          ...draft, status: "CLOSED", version: nextVersion,
+          generatedAt: closedAt.toISOString(), closedAt: closedAt.toISOString(),
+          closedBy: admin.display_name, closeNote: input.note,
+          sourceFacts: {
+            ...draft.sourceFacts,
+            accountFacts: (await new OperatingBillAccountRepository(trx)
+              .loadLiveFacts(input.enterpriseId, input.month))
+              .map((fact) => ({ ...fact, usedAt: fact.usedAt.toISOString() })),
+          },
+        };
+        await trx.insertInto("operating_bill_version").values({
+          enterprise_id: input.enterpriseId, period_id: period.id, version: nextVersion,
+          snapshot: frozen as unknown as Record<string, unknown>, close_note: input.note,
+          exceptions: sql`${JSON.stringify(draft.gaps)}::jsonb`, closed_by: input.adminId,
+          closed_at: closedAt,
+        }).execute();
+        await trx.updateTable("operating_bill_period").set({
+          status: "CLOSED", current_version: nextVersion, updated_at: closedAt,
+        }).where("id", "=", period.id).execute();
+        await trx.insertInto("operating_bill_event").values({
+          enterprise_id: input.enterpriseId, period_id: period.id, action: "CLOSED",
+          version: nextVersion, reason: input.note, actor_admin_id: input.adminId,
+          metadata: { allow_incomplete: input.allowIncomplete, gap_count: draft.gaps.length },
+        }).execute();
+      }),
+    );
     return this.getBill(input.enterpriseId, input.month);
   }
 
@@ -359,8 +390,6 @@ export class OperatingBillRepository {
   }
 }
 
-export class InvalidOperatingBillMonthError extends Error {}
-export class OperatingBillClosedError extends Error {}
 export class OperatingBillAlreadyClosedError extends Error {}
 export class OperatingBillNotClosedError extends Error {}
 export class OperatingBillReferenceError extends Error {}

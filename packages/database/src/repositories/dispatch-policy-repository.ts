@@ -318,6 +318,35 @@ export class DispatchPolicyRepository {
     return row.id;
   }
 
+  /**
+   * 首次决策已在执行经营动作前冻结；上游完成后只补充实际资源、Usage 与成本证据，
+   * 不改写策略版本、最终动作或理由。
+   */
+  async enrichDecisionSettlementEvidence(input: {
+    enterpriseId: string;
+    aiRequestId: string;
+    dispatchInput: Record<string, unknown>;
+    counterfactualCost: string | null;
+    actualCost: string | null;
+    dispatchSaving: string | null;
+    savingCalculable: boolean;
+    notCalculableReason: string | null;
+  }): Promise<void> {
+    const updated = await this.db.updateTable("dispatch_decision").set({
+      dispatch_input: input.dispatchInput,
+      counterfactual_cost: input.counterfactualCost,
+      actual_cost: input.actualCost,
+      dispatch_saving: input.dispatchSaving,
+      saving_calculable: input.savingCalculable,
+      not_calculable_reason: input.notCalculableReason,
+    }).where("enterprise_id", "=", input.enterpriseId)
+      .where("ai_request_id", "=", input.aiRequestId)
+      .executeTakeFirst();
+    if (Number(updated.numUpdatedRows) !== 1) {
+      throw new Error("dispatch_decision_missing_before_settlement");
+    }
+  }
+
   /** 查询某请求的决策（诊断/WT-16 可解释）。 */
   async getDecision(aiRequestId: string): Promise<{
     id: string;

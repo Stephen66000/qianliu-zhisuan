@@ -31,6 +31,7 @@ import {
   StubUpstream,
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
+import { seedMissingBillingRules } from "./billing-rule-fixture.js";
 import { createRealPipeline, type RouteCandidateRow } from "../pipeline/real-pipeline.js";
 
 let pg: PostgresTestInstance;
@@ -77,6 +78,7 @@ beforeAll(async () => {
     provider_resource_id: resource.id,
     upstream_model: "glm-5.2",
   }).execute();
+  await seedMissingBillingRules(db, ENT_ID);
   // 授权：quota 50000，CODING_PLAN 模式按主体+provider+model_alias 查
   const grant = await db.insertInto("principal_grant").values({
     enterprise_id: ENT_ID, principal_id: PRINCIPAL_ID, provider: "zhipu",

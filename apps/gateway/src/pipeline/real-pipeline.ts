@@ -16,7 +16,7 @@
  * 真实 HTTP 调用在 DEP-PROVIDER-CREDENTIALS 解锁后把 caller 替换为真实实现。
  */
 import type { Kysely } from "kysely";
-import type { FastifyReply } from "fastify";
+import type { FastifyBaseLogger, FastifyReply } from "fastify";
 import type { Outcome } from "@qianliu/contracts";
 import type {
   ClaimRequestResult,
@@ -29,6 +29,7 @@ import type {
   AvailabilityEvent,
   SignalResult,
 } from "@qianliu/database";
+import { OperatingBillClosedError, summarizeLedgerUsageQuality } from "@qianliu/database";
 import { SecretValue, type UpstreamCaller } from "@qianliu/provider-adapters";
 import {
   scoreAndSelect,
@@ -55,14 +56,19 @@ import { createMessagesStreamWriter } from "../routes/messages-protocol.js";
 import { fingerprintRequest } from "./request-idempotency.js";
 import {
   calculateDispatchSaving,
-  computeBilling,
   dispatchCounterfactualEvidence,
   dispatchSavingFields,
-  summarizePricingEvidence,
-  type BillingOutcome,
 } from "./billing.js";
+import {
+  finalizeRejectedAttemptBeforeUpstream,
+  persistAttemptUsageEvidence,
+} from "./attempt-usage-settlement.js";
+import { summarizePricingEvidence } from "./pricing-evidence.js";
 import { shouldAttemptUpstreamFailover } from "../upstream-failover-policy.js";
 import { buildEffectiveBody, type TruncationConfig } from "./history-truncation.js";
+import { sendModelNotAllowed } from "../auth/principal-auth.js";
+import { getCurrentInvocationAuthorization } from "../auth/current-model-authorization.js";
+import { resolveRequestModelIdentity } from "./request-model-identity.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
 export interface RouteCandidateRow {
@@ -152,6 +158,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     const requestId = request.aiRequestId;
     const traceId = request.requestId;
     const principal = request.principal!;
+    const modelIdentity = resolveRequestModelIdentity(principal, body.model);
+    if (!modelIdentity) return sendModelNotAllowed(reply, request, body.model);
     const downstreamAbort = new AbortController();
     request.raw.once("aborted", () => downstreamAbort.abort());
     reply.raw.once("close", () => {
@@ -178,7 +186,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       client_request_id: traceId,
       request_fingerprint: requestFingerprint,
       protocol: capability,
-      unified_model: body.model,
+      ...modelIdentity,
       stream: body.stream ?? false,
       client_id: client.rawClientId,
       agent_family: client.family,
@@ -360,12 +368,23 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     const invokedResourceIds = new Set<string>();
     let dispatchTerminated = false;
     let grantRevokedDuringDispatch = false;
-    let keyAuthorizationRevokedDuringDispatch = false;
     let capacityWaitTimedOut = false;
     let capacityRetryAfterMs = capacityPollMs;
     let halfOpenProbeBusy = false;
     // 请求级超额事实随结算冻结；后续 Grant/Counter 变化不得重算历史。
     let requestOverage = false;
+    const pendingQuotaSettlements: Array<{
+      grant_id: string;
+      reserved_estimate: bigint;
+      actual_deducted: bigint;
+    }> = [];
+    const pendingLeaseIds: string[] = [];
+    const deferredResourceEffects: Array<{
+      outcome: Outcome;
+      classification: ReturnType<typeof mapToClassification> | null;
+      resource: RouteCandidateRow;
+      probeAcquired: boolean;
+    }> = [];
 
     // 历史截断（安全网，默认 null=不启用）：仅 chat/messages，在 attempt 循环外
     // 做一次，避免对同一 body 重复裁剪或重复记日志。Responses 不截断。
@@ -412,6 +431,55 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         dispatchMatchedPolicy = decision.matchedPolicy;
         dispatchSwitchTargetId = decision.switchTargetResourceId;
         dispatchDispatchInput = dispatchInput;
+
+        // 经营动作执行前先冻结不可覆盖的核心决策。若审计写入失败，请求不得进入
+        // SWITCH／REJECT／RATE_LIMIT 或上游调用；结算后只补充成本与 Usage 证据。
+        try {
+          await deps.dispatchRepo.createDecisionIfAbsent({
+            enterpriseId: principal.enterpriseId,
+            aiRequestId: requestId,
+            dispatchInput: {
+            now: dispatchInput.now,
+            unifiedModel: dispatchInput.unifiedModel,
+            selectedResourceId: dispatchInput.selectedResourceId,
+            resourceMode: dispatchInput.resourceMode,
+            priceMultiplier: dispatchInput.priceMultiplier,
+            remainingQuotaRatio: dispatchInput.remainingQuotaRatio,
+            forecastExhaustRisk: dispatchInput.forecastExhaustRisk,
+            principalId: dispatchInput.principalId,
+            matchedTimezone: decision.matchedPolicy?.matchTimezone ?? null,
+            matchedDaysOfWeek: decision.matchedPolicy?.matchDaysOfWeek ?? null,
+            matchedStartTime: decision.matchedPolicy?.matchStartTime ?? null,
+            matchedEndTime: decision.matchedPolicy?.matchEndTime ?? null,
+            ...dispatchCounterfactualEvidence(dispatchBaselineCandidate, null),
+            executedResourceIds: [],
+            usageEvidence: null,
+            actualPricingEvidence: [],
+            savingCalculationVersion: "pool-021-v1",
+            },
+            matchedPolicyId: decision.matchedPolicy?.id ?? null,
+            matchedPolicyVersion: decision.matchedPolicy?.policyVersion ?? null,
+            matchedPolicyAction: decision.matchedPolicy?.action ?? null,
+            finalAction: decision.finalAction,
+            reasonCode: decision.reasonCode,
+            switchTargetResourceId: decision.switchTargetResourceId,
+            counterfactualCost: null,
+            actualCost: null,
+            dispatchSaving: null,
+            savingCalculable: false,
+            notCalculableReason: decision.finalAction === "REJECT" || decision.finalAction === "RATE_LIMIT"
+              ? "dispatch_terminated_before_attempt"
+              : "pending_settlement",
+          });
+        } catch (error) {
+          await deps.ledgerRepo.updateRequestStatus(
+            requestId,
+            "FAILED",
+            "INTERNAL",
+            "dispatch_decision_write_failure",
+          );
+          throw error;
+        }
 
         // SWITCH：把 winner 替换为等价组内的目标候选（纯函数已校验 ∈ 等价组 ∩ 可用）
         if (decision.finalAction === "SWITCH" && decision.switchTargetResourceId) {
@@ -523,13 +591,34 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       }
 
       // 3b. Attempt
-      const attempt = await deps.ledgerRepo.createAttempt({
-        ai_request_id: requestId,
-        enterprise_id: principal.enterpriseId,
-        attempt_no: attemptNo,
-        provider_resource_id: cand.resourceId,
-        upstream_model: cand.upstreamModel,
-      });
+      let attempt;
+      try {
+        attempt = await deps.ledgerRepo.createAttempt({
+          ai_request_id: requestId,
+          enterprise_id: principal.enterpriseId,
+          attempt_no: attemptNo,
+          provider_resource_id: cand.resourceId,
+          upstream_model: cand.upstreamModel,
+        });
+      } catch (error) {
+        if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
+        if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
+        if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
+        if (!(error instanceof OperatingBillClosedError)) throw error;
+        await deps.ledgerRepo.updateRequestStatus(
+          requestId, "FAILED", "OPERATING_BILL_CLOSED", "operating_bill_closed",
+        );
+        return reply.code(409).header("x-request-id", traceId).send({
+          error: {
+            message: "当前账期已结账，本次请求未访问上游",
+            type: "invalid_request_error",
+            code: "operating_bill_closed",
+            param: null,
+            retryable: false,
+            request_id: requestId,
+          },
+        });
+      }
 
       // preHandler 到实际访问上游之间可能发生 Key 重置、主体停用、模型撤权/停用。
       // Adapter 前直接查库复核，避免旧请求上下文穿透即时撤权。
@@ -549,25 +638,55 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           error_code: "key_or_model_authorization_revoked",
           switch_reason: null,
         });
-        if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
-        if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
-        if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
-        keyAuthorizationRevokedDuringDispatch = true;
-        break;
+        if (grantId) pendingQuotaSettlements.push({
+          grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n,
+        });
+        if (leaseId) pendingLeaseIds.push(leaseId);
+        await finalizeRejectedAttemptBeforeUpstream({
+          ledgerRepo: deps.ledgerRepo,
+          requestId,
+          enterpriseId: principal.enterpriseId,
+          principalId,
+          attemptId: attempt.id,
+          attemptNo,
+          resourceId: cand.resourceId,
+          resourceMode: cand.mode,
+          errorCode: "key_or_model_authorization_revoked",
+          quotaSettlements: pendingQuotaSettlements,
+          releaseLeaseIds: pendingLeaseIds,
+          overage: requestOverage,
+        });
+        if (probeAcquired) {
+          await runBestEffort(request.log, "release revoked half-open probe", () =>
+            deps.poolRepo.releaseHalfOpenProbe(cand.resourceId));
+        }
+        return reply.code(403).header("x-request-id", traceId).send({
+          error: {
+            message: "Key 或模型授权在访问上游前已失效",
+            type: "authentication_error",
+            code: "key_or_model_authorization_revoked",
+            param: "model",
+            retryable: false,
+            request_id: requestId,
+          },
+        });
       }
 
       // 最终提交栅栏用一条 SQL 同时复核 Key、主体、模型和 grant，避免把两次独立
       // 查询之间的 await 变成另一条 TOCTOU 缝隙。此查询与 adapter.invoke 之间
       // 不得再增加 await。
-      const invocationStillAuthorized = await hasCurrentInvocationAuthorization(
-        deps.db,
-        principal.enterpriseId,
+      const invocationAuthorization = await getCurrentInvocationAuthorization(deps.db, {
+        enterpriseId: principal.enterpriseId,
         principalId,
-        principal.keyId,
-        body.model,
-        cand.providerCode,
-      );
-      if (!invocationStillAuthorized) {
+        keyId: principal.keyId,
+        modelAlias: body.model,
+        providerCode: cand.providerCode,
+        resourceId: cand.resourceId,
+        upstreamModel: cand.upstreamModel,
+        allowHalfOpenProbe: probeAcquired,
+        now: new Date(),
+      });
+      if (!invocationAuthorization) {
         // 已决定不访问上游后才做原因细分；这里的额外查询不再构成放行竞态。
         const grantIsCurrent = await deps.quotaRepo.hasActiveGrant({
           enterpriseId: principal.enterpriseId,
@@ -586,15 +705,40 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           error_code: errorCode,
           switch_reason: null,
         });
-        if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
-        if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
-        if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
-        if (grantIsCurrent) {
-          keyAuthorizationRevokedDuringDispatch = true;
-        } else {
-          grantRevokedDuringDispatch = true;
+        if (grantId) pendingQuotaSettlements.push({
+          grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n,
+        });
+        if (leaseId) pendingLeaseIds.push(leaseId);
+        await finalizeRejectedAttemptBeforeUpstream({
+          ledgerRepo: deps.ledgerRepo,
+          requestId,
+          enterpriseId: principal.enterpriseId,
+          principalId,
+          attemptId: attempt.id,
+          attemptNo,
+          resourceId: cand.resourceId,
+          resourceMode: cand.mode,
+          errorCode,
+          quotaSettlements: pendingQuotaSettlements,
+          releaseLeaseIds: pendingLeaseIds,
+          overage: requestOverage,
+        });
+        if (probeAcquired) {
+          await runBestEffort(request.log, "release revoked half-open probe", () =>
+            deps.poolRepo.releaseHalfOpenProbe(cand.resourceId));
         }
-        break;
+        return reply.code(403).header("x-request-id", traceId).send({
+          error: {
+            message: grantIsCurrent
+              ? "Key 或模型授权在访问上游前已失效"
+              : "主体授权在访问上游前已失效",
+            type: "authentication_error",
+            code: errorCode,
+            param: "model",
+            retryable: false,
+            request_id: requestId,
+          },
+        });
       }
 
       const adapter = resolveAdapter(cand.providerCode, deps.caller);
@@ -627,6 +771,22 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       );
 
       const classification = (outcome.error ? mapToClassification(outcome) : null);
+      // 先冻结可能产生消费的 usage + ledger，再做健康、通知等副作用。
+      // 幂等重放以后端已冻结 line 为准，不能拿本次重算值二次结算额度。
+      const persistedDeductedQuota = await persistAttemptUsageEvidence({
+        ledgerRepo: deps.ledgerRepo,
+        outcome,
+        requestId,
+        enterpriseId: principal.enterpriseId,
+        principalId,
+        attemptId: attempt.id,
+        attemptNo,
+        attemptStartedAt: attempt.started_at.getTime(),
+        resourceId: cand.resourceId,
+        resourceMode: cand.mode,
+        upstreamModel: cand.upstreamModel,
+        billingRule: invocationAuthorization.billingRule,
+      });
       await deps.ledgerRepo.updateAttemptResult(attempt.id, {
         http_status: outcome.status,
         response_committed: outcome.committed,
@@ -638,104 +798,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         switch_reason: null,
       });
 
-      // RA-W04：Adapter 规范化信号进入唯一规则/事件链；Gateway 事务只写事件和 Outbox。
-      if (
-        outcome.error && outcome.unifiedAvailabilitySignal && deps.runtimeAssuranceRepo &&
-        resourceConfig?.providerId
-      ) {
-        finalSignalResult = await deps.runtimeAssuranceRepo.recordSignal({
-          enterpriseId: principal.enterpriseId,
-          providerId: resourceConfig.providerId,
-          providerResourceId: cand.resourceId,
-          unifiedModelId: resourceConfig.unifiedModelId ?? null,
-          upstreamModel: cand.upstreamModel,
-          signal: outcome.unifiedAvailabilitySignal,
-          upstreamCode: outcome.upstreamCode ?? outcome.error,
-          sanitizedSummary: availabilitySignalSummary(outcome.unifiedAvailabilitySignal),
-          upstreamRecoverAt: outcome.recoverAt ? new Date(outcome.recoverAt) : null,
-          aiRequestId: requestId,
-          principalId,
-          now: new Date(requestStartedAt),
-          mode: deps.runtimeAssuranceMode ?? "OBSERVE",
-          wecomNotify: deps.runtimeAssuranceWecomNotify ?? false,
-        });
-      }
-
-      // 3c. 结果驱动健康状态机。技术失败只降级；硬阻断只由上面的事件派生。
-      if (outcome.committed && !outcome.error) {
-        await deps.poolRepo.recordSuccess(cand.resourceId);
-      } else if (classification) {
-        const transition = await deps.poolRepo.recordFailure(
-          cand.resourceId,
-          classification as ErrorClassification,
-          new Date(),
-          { retryAfterMs: outcome.retryAfterMs },
-        );
-        if (probeAcquired && !transition) {
-          await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
-        }
-      } else if (probeAcquired) {
-        await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
-      }
-
-      // 3d. usage + ledger（每次有可证明用量的 Attempt 独立明细；WT-11 双 Attempt 双明细）
-      // 捕获本 attempt 的 billing（deducted_quota/api_cost）供额度结算使用。
-      let attemptBilling: BillingOutcome | null = null;
-      if (outcome.usage.input + outcome.usage.output > 0) {
-        const usage = await deps.ledgerRepo.createUsageEventIfAbsent({
-          ai_request_id: requestId,
-          enterprise_id: principal.enterpriseId,
-          upstream_attempt_id: attempt.id,
-          provider_resource_id: cand.resourceId,
-          input_tokens: BigInt(outcome.usage.input),
-          output_tokens: BigInt(outcome.usage.output),
-          cache_tokens: BigInt(outcome.usage.cache),
-          reasoning_tokens: BigInt(outcome.usage.reasoning ?? 0),
-          usage_quality: outcome.usage.quality,
-          dedup_key: `${requestId}:attempt${attemptNo}`,
-        });
-        if (usage) {
-          // W13：按 Attempt 开始时间 + 资源 + 模型匹配生效规则版本（历史不重算）
-          const billing = await computeBilling(
-            deps.ledgerRepo,
-            principal.enterpriseId,
-            cand.resourceId,
-            cand.upstreamModel,
-            cand.mode,
-            attempt.started_at.getTime(),
-            outcome.usage,
-          );
-          attemptBilling = billing;
-          await deps.ledgerRepo.createLedgerLine({
-            ai_request_id: requestId,
-            enterprise_id: principal.enterpriseId,
-            usage_event_id: usage.id,
-            upstream_attempt_id: attempt.id,
-            provider_resource_id: cand.resourceId,
-            principal_id: principalId,
-            resource_mode: cand.mode,
-            raw_input_tokens: BigInt(outcome.usage.input),
-            raw_output_tokens: BigInt(outcome.usage.output),
-            raw_cache_tokens: BigInt(outcome.usage.cache),
-            raw_reasoning_tokens: BigInt(outcome.usage.reasoning ?? 0),
-            deducted_quota: billing.deductedQuota !== null ? BigInt(billing.deductedQuota) : null,
-            api_cost: billing.apiCost,
-            usage_quality: outcome.usage.quality,
-            billing_rule_id: billing.ruleId,
-            rule_version: billing.ruleVersion,
-            multiplier: billing.multiplier,
-            billing_rule_snapshot: billing.ruleSnapshot,
-          });
-        }
-      }
-
-      // 3d-bis. W14 额度结算（committed → settleQuota 按实际 deducted_quota 校正回写 quota_counter；
-      // 失败/可切换 → releaseQuota 释放预占）。F-01 核心：deducted_quota 回写 quota_counter。
+      // 核心结算事实先收集，统一与 ledger_transaction / request terminal
+      // 同事务提交；资源健康与 RA 属于非阻断副作用，改在终态后执行。
       if (cand.mode === "CODING_PLAN" && grantId) {
         if (outcome.committed && !outcome.error) {
-          const actualDeducted = attemptBilling?.deductedQuota !== null && attemptBilling?.deductedQuota !== undefined
-            ? BigInt(attemptBilling.deductedQuota)
-            : 0n;
+          const actualDeducted = persistedDeductedQuota ?? 0n;
           const availableBeforeRequest =
             reservedEstimate + reservedProjectedRemaining > 0n
               ? reservedEstimate + reservedProjectedRemaining
@@ -743,13 +810,24 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           requestOverage =
             requestOverage ||
             (actualDeducted > 0n && actualDeducted > availableBeforeRequest);
-          await deps.quotaRepo.settleQuota(grantId, reservedEstimate, actualDeducted);
+          pendingQuotaSettlements.push({
+            grant_id: grantId,
+            reserved_estimate: reservedEstimate,
+            actual_deducted: actualDeducted,
+          });
         } else {
-          await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
+          pendingQuotaSettlements.push({
+            grant_id: grantId,
+            reserved_estimate: reservedEstimate,
+            actual_deducted: 0n,
+          });
         }
       }
-      if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
+      if (leaseId) pendingLeaseIds.push(leaseId);
       leaseId = null;
+      if (resourceConfig) {
+        deferredResourceEffects.push({ outcome, classification, resource: resourceConfig, probeAcquired });
+      }
 
       finalOutcome = outcome;
 
@@ -776,11 +854,13 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let actualPricingEvidence: Array<Record<string, unknown>> = [];
     if (finalOutcome) {
       const lines = await deps.ledgerRepo.listLedgerLines(requestId);
-      const sumIn = lines.reduce((acc, l) => acc + l.raw_input_tokens, 0n);
-      const sumOut = lines.reduce((acc, l) => acc + l.raw_output_tokens, 0n);
-      const sumCache = lines.reduce((acc, l) => acc + l.raw_cache_tokens, 0n);
-      const sumReasoning = lines.reduce((acc, l) => acc + l.raw_reasoning_tokens, 0n);
-      const sumDeducted = lines.reduce((acc, l) => acc + (l.deducted_quota ?? 0n), 0n);
+      const persistedAttempts = await deps.ledgerRepo.listAttempts(requestId);
+      // pg bigint 运行时为 string；先显式转 BigInt，避免 `0n + "10"` 变成字符串拼接。
+      const sumIn = lines.reduce((acc, l) => acc + BigInt(l.raw_input_tokens), 0n);
+      const sumOut = lines.reduce((acc, l) => acc + BigInt(l.raw_output_tokens), 0n);
+      const sumCache = lines.reduce((acc, l) => acc + BigInt(l.raw_cache_tokens), 0n);
+      const sumReasoning = lines.reduce((acc, l) => acc + BigInt(l.raw_reasoning_tokens), 0n);
+      const sumDeducted = lines.reduce((acc, l) => acc + BigInt(l.deducted_quota ?? 0), 0n);
       transactionUsage = {
         input: Number(sumIn),
         output: Number(sumOut),
@@ -790,9 +870,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       transactionApiCost = pricingEvidence.actualCost;
       actualPricingEvidenceComplete = pricingEvidence.complete;
       actualPricingEvidence = pricingEvidence.items;
-      // usage_quality：单请求同质，取首条明细；无明细时回退 finalOutcome。
-      const usageQuality = lines[0]?.usage_quality ?? finalOutcome.usage.quality;
-      await deps.ledgerRepo.createLedgerTransactionIfAbsent({
+      const usageQuality = summarizeLedgerUsageQuality(lines);
+      await deps.ledgerRepo.finalizeLedgerSettlementIfAbsent({
         ai_request_id: requestId,
         enterprise_id: principal.enterpriseId,
         principal_id: principalId,
@@ -803,67 +882,109 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         total_deducted_quota: sumDeducted,
         total_api_cost: transactionApiCost ?? "0.00000000",
         usage_quality: usageQuality,
-        attempt_count: attemptNo,
+        attempt_count: persistedAttempts.length,
         overage: requestOverage,
+        request_status: finalOutcome.committed && !finalOutcome.error ? "SUCCEEDED" : "FAILED",
+        error_classification: finalOutcome.error ? mapToClassification(finalOutcome) : null,
+        error_code: finalOutcome.error ?? null,
+        quota_settlements: pendingQuotaSettlements,
+        release_lease_ids: pendingLeaseIds,
       });
-      await deps.ledgerRepo.updateRequestStatus(
-        requestId,
-        finalOutcome.committed && !finalOutcome.error ? "SUCCEEDED" : "FAILED",
-        finalOutcome.error ? mapToClassification(finalOutcome) : null,
-        finalOutcome.error ?? null,
-      );
+      if (deps.dispatchRepo && dispatchFinalAction !== null && dispatchDispatchInput !== null) {
+        await runBestEffort(request.log, "enrich post-settlement dispatch evidence", async () => {
+          const actualCost = transactionApiCost;
+          const { counterfactualBilling, counterfactualCost, saving } =
+            await calculateDispatchSaving({
+              finalAction: dispatchFinalAction!,
+              switchTargetId: dispatchSwitchTargetId,
+              baselineCandidate: dispatchBaselineCandidate,
+              invokedResourceIds,
+              transactionUsage,
+              actualCost,
+              actualPricingEvidenceComplete,
+              ledgerRepo: deps.ledgerRepo,
+              enterpriseId: principal.enterpriseId,
+              requestStartedAt,
+            });
+          const evidence = {
+            enterpriseId: principal.enterpriseId,
+            aiRequestId: requestId,
+            dispatchInput: {
+              now: dispatchDispatchInput!.now,
+              unifiedModel: dispatchDispatchInput!.unifiedModel,
+              selectedResourceId: dispatchDispatchInput!.selectedResourceId,
+              resourceMode: dispatchDispatchInput!.resourceMode,
+              priceMultiplier: dispatchDispatchInput!.priceMultiplier,
+              remainingQuotaRatio: dispatchDispatchInput!.remainingQuotaRatio,
+              forecastExhaustRisk: dispatchDispatchInput!.forecastExhaustRisk,
+              principalId: dispatchDispatchInput!.principalId,
+              matchedTimezone: dispatchMatchedPolicy?.matchTimezone ?? null,
+              matchedDaysOfWeek: dispatchMatchedPolicy?.matchDaysOfWeek ?? null,
+              matchedStartTime: dispatchMatchedPolicy?.matchStartTime ?? null,
+              matchedEndTime: dispatchMatchedPolicy?.matchEndTime ?? null,
+              ...dispatchCounterfactualEvidence(dispatchBaselineCandidate, counterfactualBilling),
+              executedResourceIds: [...invokedResourceIds],
+              usageEvidence: transactionUsage,
+              actualPricingEvidence,
+              savingCalculationVersion: "pool-021-v1",
+            },
+            counterfactualCost,
+            actualCost,
+            ...dispatchSavingFields(saving),
+          };
+          try {
+            await deps.dispatchRepo!.enrichDecisionSettlementEvidence(evidence);
+          } catch {
+            await deps.dispatchRepo!.enrichDecisionSettlementEvidence(evidence);
+          }
+        });
+      }
     }
 
-    // 4b. W16 落 dispatch_decision（首次 Attempt 决策冻结，§5.7 行 342 不可覆盖；幂等 UNIQUE(ai_request_id)）
-    if (deps.dispatchRepo && dispatchFinalAction !== null && dispatchDispatchInput !== null) {
-      // actual 来自已冻结账本明细；counterfactual 用完全相同的 Usage 按动作前
-      // winner 在请求时刻命中的规则重放。两侧缺少真实价格规则时一律不可比较。
-      const actualCost = transactionApiCost;
-      const { counterfactualBilling, counterfactualCost, saving } =
-        await calculateDispatchSaving({
-          finalAction: dispatchFinalAction,
-          switchTargetId: dispatchSwitchTargetId,
-          baselineCandidate: dispatchBaselineCandidate,
-          invokedResourceIds,
-          transactionUsage,
-          actualCost,
-          actualPricingEvidenceComplete,
-          ledgerRepo: deps.ledgerRepo,
-          enterpriseId: principal.enterpriseId,
-          requestStartedAt,
-        });
-      await deps.dispatchRepo.createDecisionIfAbsent({
-        enterpriseId: principal.enterpriseId,
-        aiRequestId: requestId,
-        dispatchInput: {
-          now: dispatchDispatchInput.now,
-          unifiedModel: dispatchDispatchInput.unifiedModel,
-          selectedResourceId: dispatchDispatchInput.selectedResourceId,
-          resourceMode: dispatchDispatchInput.resourceMode,
-          priceMultiplier: dispatchDispatchInput.priceMultiplier,
-          remainingQuotaRatio: dispatchDispatchInput.remainingQuotaRatio,
-          forecastExhaustRisk: dispatchDispatchInput.forecastExhaustRisk,
-          principalId: dispatchDispatchInput.principalId,
-          matchedTimezone: dispatchMatchedPolicy?.matchTimezone ?? null,
-          matchedDaysOfWeek: dispatchMatchedPolicy?.matchDaysOfWeek ?? null,
-          matchedStartTime: dispatchMatchedPolicy?.matchStartTime ?? null,
-          matchedEndTime: dispatchMatchedPolicy?.matchEndTime ?? null,
-          ...dispatchCounterfactualEvidence(dispatchBaselineCandidate, counterfactualBilling),
-          executedResourceIds: [...invokedResourceIds],
-          usageEvidence: transactionUsage,
-          actualPricingEvidence,
-          savingCalculationVersion: "pool-021-v1",
-        },
-        matchedPolicyId: dispatchMatchedPolicy?.id ?? null,
-        matchedPolicyVersion: dispatchMatchedPolicy?.policyVersion ?? null,
-        matchedPolicyAction: dispatchMatchedPolicy?.action ?? null,
-        finalAction: dispatchFinalAction,
-        reasonCode: dispatchReasonCode,
-        switchTargetResourceId: dispatchSwitchTargetId,
-        counterfactualCost,
-        actualCost,
-        ...dispatchSavingFields(saving),
-      });
+    for (const effect of deferredResourceEffects) {
+      const { outcome, classification, resource, probeAcquired } = effect;
+      const availabilitySignal = outcome.unifiedAvailabilitySignal;
+      const providerId = resource.providerId;
+      if (
+        outcome.error && availabilitySignal && deps.runtimeAssuranceRepo && providerId
+      ) {
+        const signalResult = await runBestEffort(
+          request.log, "record post-settlement runtime assurance signal", () =>
+            deps.runtimeAssuranceRepo!.recordSignal({
+            enterpriseId: principal.enterpriseId,
+            providerId,
+            providerResourceId: resource.resourceId,
+            unifiedModelId: resource.unifiedModelId ?? null,
+            upstreamModel: resource.upstreamModel,
+            signal: availabilitySignal,
+            upstreamCode: outcome.upstreamCode ?? outcome.error,
+            sanitizedSummary: availabilitySignalSummary(availabilitySignal),
+            upstreamRecoverAt: outcome.recoverAt ? new Date(outcome.recoverAt) : null,
+            aiRequestId: requestId,
+            principalId,
+            now: new Date(requestStartedAt),
+            mode: deps.runtimeAssuranceMode ?? "OBSERVE",
+            wecomNotify: deps.runtimeAssuranceWecomNotify ?? false,
+          }),
+        );
+        if (signalResult) finalSignalResult = signalResult;
+      }
+      if (outcome.committed && !outcome.error) {
+        await runBestEffort(request.log, "record post-settlement resource success", () =>
+          deps.poolRepo.recordSuccess(resource.resourceId));
+      } else if (classification) {
+        await runBestEffort(request.log, "record post-settlement resource failure", () =>
+          deps.poolRepo.recordFailure(
+            resource.resourceId,
+            classification as ErrorClassification,
+            new Date(),
+            { retryAfterMs: outcome.retryAfterMs },
+          ));
+      }
+      if (probeAcquired) {
+        await runBestEffort(request.log, "release post-settlement half-open probe", () =>
+          deps.poolRepo.releaseHalfOpenProbe(resource.resourceId));
+      }
     }
 
     // 5. 返回北向响应（OpenAI/Anthropic 兼容）
@@ -877,24 +998,6 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       });
     }
     if (!finalOutcome) {
-      if (keyAuthorizationRevokedDuringDispatch) {
-        await deps.ledgerRepo.updateRequestStatus(
-          requestId,
-          "FAILED",
-          "DOWNSTREAM_AUTH_OR_QUOTA",
-          "key_or_model_authorization_revoked",
-        );
-        return reply.code(403).header("x-request-id", traceId).send({
-          error: {
-            message: "Key 或模型授权在访问上游前已失效",
-            type: "authentication_error",
-            code: "key_or_model_authorization_revoked",
-            param: "model",
-            retryable: false,
-            request_id: requestId,
-          },
-        });
-      }
       if (grantRevokedDuringDispatch) {
         await deps.ledgerRepo.updateRequestStatus(
           requestId,
@@ -1206,67 +1309,6 @@ async function hasCurrentKeyModelAuthorization(
  * Adapter 前最终授权栅栏：一条查询同时验证 Key/主体/模型/grant。
  * 查询返回后紧接同步对象构造与 adapter.invoke，不再穿插异步 I/O。
  */
-async function hasCurrentInvocationAuthorization(
-  db: Kysely<Database>,
-  enterpriseId: string,
-  principalId: string,
-  keyId: string,
-  modelAlias: string,
-  providerCode: string,
-): Promise<boolean> {
-  const now = new Date();
-  const authorization = await db
-    .selectFrom("principal_key")
-    .innerJoin("principal", "principal.id", "principal_key.principal_id")
-    .innerJoin("unified_model", (join) =>
-      join
-        .onRef("unified_model.enterprise_id", "=", "principal_key.enterprise_id")
-        .on("unified_model.alias", "=", modelAlias)
-        .on("unified_model.status", "=", "ACTIVE"),
-    )
-    .innerJoin("principal_grant", (join) =>
-      join
-        .onRef("principal_grant.enterprise_id", "=", "principal_key.enterprise_id")
-        .onRef("principal_grant.principal_id", "=", "principal_key.principal_id")
-        // POOL-033：池化后 grant 的 model_alias='*'（厂商池），不再等于具体 unified_model.alias。
-        // 改为：池行（pool_model_alias='*'）或精确型号行（model_alias=alias）都匹配。
-        .on((eb) => eb.or([
-          eb("principal_grant.pool_model_alias", "=", "*"),
-          eb("principal_grant.model_alias", "=", eb.ref("unified_model.alias")),
-        ]))
-        .on("principal_grant.provider", "=", providerCode)
-        .on("principal_grant.status", "=", "ACTIVE"),
-    )
-    .select([
-      "principal_key.allowed_model_ids as allowed_model_ids",
-      "principal_key.expires_at as expires_at",
-      "unified_model.id as model_id",
-    ])
-    .where("principal_key.id", "=", keyId)
-    .where("principal_key.enterprise_id", "=", enterpriseId)
-    .where("principal_key.principal_id", "=", principalId)
-    .where("principal_key.status", "=", "ACTIVE")
-    .where("principal.status", "=", "ACTIVE")
-    .where("principal_grant.valid_from", "<=", now)
-    .where((eb) =>
-      eb.or([
-        eb("principal_grant.valid_until", "is", null),
-        eb("principal_grant.valid_until", ">", now),
-      ]),
-    )
-    .executeTakeFirst();
-  if (
-    !authorization
-    || (
-      authorization.expires_at !== null
-      && authorization.expires_at.getTime() <= now.getTime()
-    )
-  ) {
-    return false;
-  }
-  return (authorization.allowed_model_ids ?? []).includes(authorization.model_id);
-}
-
 function normalizeAssistantOutput(output: unknown[] | undefined): {
   text: string;
   functionCalls: Array<{
@@ -1316,6 +1358,19 @@ function parseToolArguments(argumentsJson: string): unknown {
     return JSON.parse(argumentsJson) as unknown;
   } catch {
     return {};
+  }
+}
+
+async function runBestEffort<T>(
+  log: FastifyBaseLogger,
+  action: string,
+  work: () => Promise<T>,
+): Promise<T | undefined> {
+  try {
+    return await work();
+  } catch (error) {
+    log.error({ err: error, action }, "post-settlement side effect failed");
+    return undefined;
   }
 }
 

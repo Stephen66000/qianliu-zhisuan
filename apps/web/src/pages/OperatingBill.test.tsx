@@ -31,15 +31,15 @@ vi.mock("../api/operating-bills", async () => {
 vi.mock("../api/hooks", () => ({ usePrincipals: () => ({ data: { principals: [] } }) }));
 
 describe("POOL-025 经营账单", () => {
-  it("展示真实成本口径并可切换五个页签", async () => {
+  it("展示真实成本口径并可切换经营账单页签", async () => {
     const user = userEvent.setup();
     render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
     expect(screen.getByText("¥312.34")).toBeInTheDocument();
     expect(screen.getByText("仅 API 模式调用成本")).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: /套餐利用分析/ }));
+    await user.click(screen.getByRole("link", { name: /套餐利用分析/ }));
     expect(screen.getByText("¥150.00")).toBeInTheDocument();
     expect(screen.getByText(/不代表退款/)).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: /结账管理/ }));
+    await user.click(screen.getByRole("link", { name: /结账管理/ }));
     expect(screen.getByText("数据完整性检查通过")).toBeInTheDocument();
   });
 });

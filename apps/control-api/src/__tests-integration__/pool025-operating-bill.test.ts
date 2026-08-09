@@ -43,7 +43,7 @@ async function addUsage(input: {
     output_tokens: BigInt(input.output), cache_tokens: 0n, reasoning_tokens: 0n,
     usage_quality: "PROVIDER_REPORTED", dedup_key: `pool025-${requestId}`,
   }).returningAll().executeTakeFirstOrThrow();
-  return db.insertInto("ledger_line").values({
+  const line = await db.insertInto("ledger_line").values({
     ai_request_id: requestId, enterprise_id: enterpriseId, usage_event_id: usage.id,
     upstream_attempt_id: attempt.id, provider_resource_id: input.resourceId,
     principal_id: employeeId, resource_mode: input.mode, raw_input_tokens: BigInt(input.input),
@@ -51,6 +51,21 @@ async function addUsage(input: {
     deducted_quota: input.deducted === null ? null : BigInt(input.deducted),
     api_cost: input.cost, usage_quality: "PROVIDER_REPORTED",
   }).returningAll().executeTakeFirstOrThrow();
+  await db.insertInto("ledger_transaction").values({
+    ai_request_id: requestId,
+    enterprise_id: enterpriseId,
+    principal_id: employeeId,
+    total_input_tokens: BigInt(input.input),
+    total_output_tokens: BigInt(input.output),
+    total_cache_tokens: 0n,
+    total_reasoning_tokens: 0n,
+    total_deducted_quota: BigInt(input.deducted ?? 0),
+    total_api_cost: input.mode === "API" ? (input.cost ?? "0") : "0",
+    usage_quality: "PROVIDER_REPORTED",
+    attempt_count: 1,
+    status: "SETTLED",
+  }).execute();
+  return line;
 }
 
 beforeAll(async () => {
@@ -177,6 +192,8 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
 
     const apiLine = await db.selectFrom("ledger_line").select("id").where("resource_mode", "=", "API").executeTakeFirstOrThrow();
     await db.updateTable("ledger_line").set({ api_cost: "99.99" }).where("id", "=", apiLine.id).execute();
+    await db.updateTable("ledger_transaction").set({ total_api_cost: "99.99" })
+      .where("ai_request_id", "=", apiRequest.ai_request_id).execute();
     const frozen = await app.inject({ method: "GET", url: "/operating-bills/2026-08", headers: { cookie } });
     expect(frozen.json().summary.totalCost).toBe("312.34000000");
 

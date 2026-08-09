@@ -16,6 +16,9 @@ import { RuntimeAssurancePage } from "./pages/RuntimeAssurance";
 import { AdminsPage } from "./pages/Admins";
 import { ChangePasswordPage } from "./pages/ChangePassword";
 import { OperatingBillPage } from "./pages/OperatingBill";
+import { OperatingBillEmployeeDetailPage } from "./pages/OperatingBillEmployeeDetail";
+import { OperatingBillEmployeesPage } from "./pages/OperatingBillEmployees";
+import { OperatingBillProjectsPage } from "./pages/OperatingBillProjects";
 import { EmployeeModelRulesPage } from "./pages/EmployeeModelRules";
 
 export function App() {
@@ -32,6 +35,12 @@ export function App() {
           <Route element={<QuotaRulesPage />} path="/quota-rules" />
           <Route element={<UsagePage />} path="/usage" />
           <Route element={<OperatingBillPage />} path="/operating-bill" />
+          <Route element={<OperatingBillEmployeesPage />} path="/operating-bill/employees" />
+          <Route
+            element={<OperatingBillEmployeeDetailPage />}
+            path="/operating-bill/employees/:principalId"
+          />
+          <Route element={<OperatingBillProjectsPage />} path="/operating-bill/projects" />
           <Route element={<RuntimeAssurancePage />} path="/runtime-assurance" />
           <Route
             element={<Navigate replace to="/runtime-assurance?tab=alerts" />}

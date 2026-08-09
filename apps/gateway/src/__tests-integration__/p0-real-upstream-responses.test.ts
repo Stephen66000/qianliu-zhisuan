@@ -24,6 +24,7 @@ import {
 } from "@qianliu/testing";
 import { createRealPipeline } from "../pipeline/real-pipeline.js";
 import { buildGateway } from "../server.js";
+import { seedMissingBillingRules } from "./billing-rule-fixture.js";
 
 const ENTERPRISE_ID = randomUUID();
 const PRINCIPAL_ID = randomUUID();
@@ -194,6 +195,7 @@ beforeAll(async () => {
     provider_resource_id: fallbackResource.id,
     upstream_model: "deepseek-chat",
   }).execute();
+  await seedMissingBillingRules(db, ENTERPRISE_ID);
   await db.insertInto("principal_grant").values({
     enterprise_id: ENTERPRISE_ID,
     principal_id: PRINCIPAL_ID,

@@ -158,6 +158,7 @@ async function appendLine(input: {
     principal_key_id: input.keyId,
     protocol: "test",
     unified_model: "forecast-model",
+    unified_model_id: null,
   });
   const attempt = await input.ledger.createAttempt({
     ai_request_id: requestId,

@@ -9,9 +9,9 @@ export interface OperatingBillProvider {
   resourceName: string;
   mode: "API" | "CODING_PLAN";
   currency: string | null;
-  apiCost: string;
+  apiCost: string | null;
   packageCost: string;
-  totalCost: string;
+  totalCost: string | null;
   endingBalance: string | null;
   totalQuota: string | null;
   usedQuota: string | null;
@@ -36,9 +36,9 @@ export interface OperatingBillSubject {
   reasoningTokens: string;
   totalTokens: string;
   deductedQuota: string;
-  apiCost: string;
+  apiCost: string | null;
   packageAllocatedCost: string;
-  totalAllocatedCost: string;
+  totalAllocatedCost: string | null;
   activeDays: number;
   requestCount: number;
 }
@@ -68,8 +68,8 @@ export interface OperatingBill {
   closedBy: string | null;
   closeNote: string | null;
   summary: {
-    totalCost: string;
-    apiCost: string;
+    totalCost: string | null;
+    apiCost: string | null;
     packageCost: string;
     endingBalance: string | null;
     endingBalanceCurrency: string | null;
@@ -88,6 +88,25 @@ export interface OperatingBill {
 }
 
 const billKey = (month: string) => ["operating-bill", month] as const;
+
+function invalidateOperatingBillViews(
+  client: ReturnType<typeof useQueryClient>,
+  month: string,
+): void {
+  void client.invalidateQueries({ queryKey: billKey(month) });
+  void client.invalidateQueries({
+    predicate: (query) => {
+      const [root, scope] = query.queryKey;
+      if (root === "operating-bill-employee-requests") {
+        return typeof scope === "object" && scope !== null
+          && "month" in scope && scope.month === month;
+      }
+      return (root === "operating-bill-employees"
+        || root === "operating-bill-projects"
+        || root === "operating-bill-employee") && scope === month;
+    },
+  });
+}
 
 export function useOperatingBill(month: string) {
   return useQuery({
@@ -118,7 +137,7 @@ export function useCloseOperatingBill(month: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (body: { allow_incomplete: boolean; note: string | null }) => post(`/operating-bills/${month}/close`, body),
-    onSuccess: () => void client.invalidateQueries({ queryKey: billKey(month) }),
+    onSuccess: () => invalidateOperatingBillViews(client, month),
   });
 }
 
@@ -126,7 +145,7 @@ export function useReopenOperatingBill(month: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (reason: string) => post(`/operating-bills/${month}/reopen`, { reason }),
-    onSuccess: () => void client.invalidateQueries({ queryKey: billKey(month) }),
+    onSuccess: () => invalidateOperatingBillViews(client, month),
   });
 }
 
@@ -135,7 +154,10 @@ export function useAssignOperatingBillProject(month: string) {
   return useMutation({
     mutationFn: (body: { ai_request_id: string; project_principal_id: string; reason: string | null }) =>
       post(`/operating-bills/${month}/project-assignments`, body),
-    onSuccess: () => void client.invalidateQueries({ queryKey: billKey(month) }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: billKey(month) });
+      void client.invalidateQueries({ queryKey: ["operating-bill-projects", month] });
+    },
   });
 }
 
@@ -144,6 +166,6 @@ export function useImportOperatingBillSnapshots(month: string) {
   return useMutation({
     mutationFn: (rows: Array<{ provider_resource_id: string; snapshot: Record<string, unknown> }>) =>
       post("/operating-bill-snapshot-imports", { rows }),
-    onSuccess: () => void client.invalidateQueries({ queryKey: billKey(month) }),
+    onSuccess: () => invalidateOperatingBillViews(client, month),
   });
 }

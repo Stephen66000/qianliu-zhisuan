@@ -9,8 +9,8 @@
     "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings=0",
-    "test": "vitest run --config ../../vitest.config.ts",
-    "test:integration": "vitest run --config ../../vitest.config.ts src/__tests-integration__",
+    "test": "vitest run --config ../../vitest.config.ts --maxWorkers=4",
+    "test:integration": "vitest run --config ../../vitest.config.ts src/__tests-integration__ --maxWorkers=4",
     "test:e2e": "echo 'no e2e tests in database' && exit 0",
     "db:migrate": "tsx src/cli/migrate.ts up",
     "db:rollback": "tsx src/cli/migrate.ts down"

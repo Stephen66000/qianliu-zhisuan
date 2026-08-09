@@ -25,6 +25,8 @@ export interface CreateRequestInput {
   request_fingerprint?: string | null;
   protocol: string;
   unified_model: string;
+  /** 调用方必须有意识地传稳定模型 ID；仅无法证明身份的历史/测试数据允许 null。 */
+  unified_model_id: string | null;
   stream?: boolean;
   client_id?: string | null;
   agent_family?: string;
@@ -80,4 +82,45 @@ export interface LedgerLineInput {
   rule_version?: string | null;
   multiplier?: string | null;
   billing_rule_snapshot?: Record<string, unknown> | null;
+}
+
+export interface CreateUsageLedgerLineInput {
+  usage: UsageInput;
+  ledger_line: Omit<LedgerLineInput, "usage_event_id">;
+}
+
+export interface UsageLedgerLineResult {
+  usage: UsageEvent;
+  line: LedgerLine;
+  created: boolean;
+}
+
+export interface CreateLedgerTransactionInput {
+  ai_request_id: string;
+  enterprise_id: string;
+  principal_id: string;
+  total_input_tokens: bigint;
+  total_output_tokens: bigint;
+  total_cache_tokens: bigint;
+  total_reasoning_tokens?: bigint;
+  total_deducted_quota: bigint;
+  total_api_cost: string;
+  /** 请求结算时冻结的超额事实。 */
+  overage?: boolean;
+  usage_quality: string;
+  attempt_count: number;
+}
+
+export interface FinalizeLedgerSettlementInput extends CreateLedgerTransactionInput {
+  request_status: "SUCCEEDED" | "FAILED";
+  error_classification?: string | null;
+  error_code?: string | null;
+  /** 与请求终态同事务提交，避免额度已预占但账本未终结。 */
+  quota_settlements?: Array<{
+    grant_id: string;
+    reserved_estimate: bigint;
+    actual_deducted: bigint;
+  }>;
+  /** 与请求终态同事务释放的并发租约。 */
+  release_lease_ids?: string[];
 }

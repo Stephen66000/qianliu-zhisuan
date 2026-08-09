@@ -18,6 +18,8 @@ export interface PrincipalAuthResult {
   keyId: string;
   /** 仅允许对应 unified_model.id；空数组表示不允许任何模型。 */
   allowedModelIds: string[];
+  /** POOL-043：模型鉴权已确认的稳定 ID，仅对当前请求有效。 */
+  authorizedModelId: string | null;
 }
 
 declare module "fastify" {
@@ -95,6 +97,7 @@ export function createPrincipalAuth(db: Kysely<Database>, pepper: string) {
       keyId: row.key_id,
       // 防御滚动升级或异常历史数据：NULL 也必须 fail-closed，绝不解释为“全部模型”。
       allowedModelIds: row.allowed_model_ids ?? [],
+      authorizedModelId: null,
     };
   };
 }
@@ -121,13 +124,16 @@ export function createModelAuthorization(db: Kysely<Database>) {
       .where("status", "=", "ACTIVE")
       .where("id", "in", allowed);
     const authorized = await query.executeTakeFirst();
-    if (authorized) return;
+    if (authorized) {
+      req.principal.authorizedModelId = authorized.id;
+      return;
+    }
 
     return sendModelNotAllowed(reply, req, model);
   };
 }
 
-function sendModelNotAllowed(reply: FastifyReply, req: FastifyRequest, model: string): void {
+export function sendModelNotAllowed(reply: FastifyReply, req: FastifyRequest, model: string): void {
   reply
     .code(403)
     .header("x-request-id", req.requestId)

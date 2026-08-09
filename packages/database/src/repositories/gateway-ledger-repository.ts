@@ -17,7 +17,10 @@ import type {
   AiRequest,
   ClaimRequestResult,
   CreateAttemptInput,
+  CreateLedgerTransactionInput,
   CreateRequestInput,
+  CreateUsageLedgerLineInput,
+  FinalizeLedgerSettlementInput,
   LedgerLine,
   LedgerLineInput,
   LedgerTransaction,
@@ -25,7 +28,21 @@ import type {
   UpstreamAttempt,
   UsageEvent,
   UsageInput,
+  UsageLedgerLineResult,
 } from "./gateway-ledger-types.js";
+import {
+  createGuardedUpstreamAttempt,
+  createUsageLedgerLineAtomically,
+  finalizeLedgerSettlementAtomically,
+} from "./gateway-ledger-settlement.js";
+import {
+  createGuardedLedgerLine,
+  createGuardedLedgerTransactionIfAbsent,
+  createGuardedUsageEventIfAbsent,
+  updateGuardedAttemptResult,
+  updateUnsettledRequestStatus,
+  type AttemptResultUpdate,
+} from "./gateway-ledger-guarded-writes.js";
 
 export type * from "./gateway-ledger-types.js";
 
@@ -62,6 +79,7 @@ export class GatewayLedgerRepository {
         request_fingerprint: input.request_fingerprint ?? null,
         protocol: input.protocol,
         unified_model: input.unified_model,
+        unified_model_id: input.unified_model_id,
         stream: input.stream ?? false,
         status: "IN_PROGRESS",
         client_id: input.client_id ?? null,
@@ -99,16 +117,7 @@ export class GatewayLedgerRepository {
     errorClassification?: string | null,
     errorCode?: string | null,
   ): Promise<void> {
-    await this.db
-      .updateTable("ai_request")
-      .set({
-        status,
-        finished_at: new Date(),
-        error_classification: errorClassification ?? null,
-        error_code: errorCode ?? null,
-      })
-      .where("id", "=", id)
-      .execute();
+    await updateUnsettledRequestStatus(this.db, id, status, errorClassification, errorCode);
   }
 
   async getRequest(id: string): Promise<AiRequest | undefined> {
@@ -165,34 +174,14 @@ export class GatewayLedgerRepository {
   // ===== upstream_attempt =====
 
   async createAttempt(input: CreateAttemptInput): Promise<UpstreamAttempt> {
-    return this.db
-      .insertInto("upstream_attempt")
-      .values({
-        ai_request_id: input.ai_request_id,
-        enterprise_id: input.enterprise_id,
-        attempt_no: input.attempt_no,
-        provider_resource_id: input.provider_resource_id,
-        upstream_model: input.upstream_model,
-        started_at: new Date(),
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    return createGuardedUpstreamAttempt(this.db, input);
   }
 
   async updateAttemptResult(
     id: string,
-    update: {
-      http_status?: number | null;
-      response_committed?: boolean;
-      first_byte_at?: Date | null;
-      finished_at?: Date | null;
-      error_classification?: string | null;
-      error_code?: string | null;
-      failure_layer?: string | null;
-      switch_reason?: string | null;
-    },
+    update: AttemptResultUpdate,
   ): Promise<void> {
-    await this.db.updateTable("upstream_attempt").set(update).where("id", "=", id).execute();
+    await updateGuardedAttemptResult(this.db, id, update);
   }
 
   async listAttempts(requestId: string): Promise<UpstreamAttempt[]> {
@@ -211,26 +200,7 @@ export class GatewayLedgerRepository {
    * @returns 创建的 usage_event（若已存在则返回 undefined）
    */
   async createUsageEventIfAbsent(input: UsageInput): Promise<UsageEvent | undefined> {
-    const result = await this.db
-      .insertInto("usage_event")
-      .values({
-        ai_request_id: input.ai_request_id,
-        enterprise_id: input.enterprise_id,
-        upstream_attempt_id: input.upstream_attempt_id,
-        provider_resource_id: input.provider_resource_id,
-        input_tokens: input.input_tokens,
-        output_tokens: input.output_tokens,
-        cache_tokens: input.cache_tokens,
-        reasoning_tokens: input.reasoning_tokens ?? 0n,
-        usage_quality: input.usage_quality,
-        dedup_key: input.dedup_key,
-        upstream_usage_id: input.upstream_usage_id ?? null,
-        created_at: new Date(),
-      })
-      .onConflict((oc) => oc.column("dedup_key").doNothing())
-      .returningAll()
-      .execute();
-    return result[0];
+    return createGuardedUsageEventIfAbsent(this.db, input);
   }
 
   async listUsageEvents(requestId: string): Promise<UsageEvent[]> {
@@ -245,31 +215,14 @@ export class GatewayLedgerRepository {
   // ===== ledger_line（不可覆盖明细）=====
 
   async createLedgerLine(input: LedgerLineInput): Promise<LedgerLine> {
-    return this.db
-      .insertInto("ledger_line")
-      .values({
-        ai_request_id: input.ai_request_id,
-        enterprise_id: input.enterprise_id,
-        usage_event_id: input.usage_event_id,
-        upstream_attempt_id: input.upstream_attempt_id,
-        provider_resource_id: input.provider_resource_id,
-        principal_id: input.principal_id,
-        resource_mode: input.resource_mode,
-        raw_input_tokens: input.raw_input_tokens,
-        raw_output_tokens: input.raw_output_tokens,
-        raw_cache_tokens: input.raw_cache_tokens,
-        raw_reasoning_tokens: input.raw_reasoning_tokens ?? 0n,
-        deducted_quota: input.deducted_quota ?? null,
-        api_cost: input.api_cost ?? null,
-        usage_quality: input.usage_quality,
-        billing_rule_id: input.billing_rule_id ?? null,
-        rule_version: input.rule_version ?? null,
-        multiplier: input.multiplier ?? null,
-        billing_rule_snapshot: input.billing_rule_snapshot ?? null,
-        created_at: new Date(),
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    return createGuardedLedgerLine(this.db, input);
+  }
+
+  /** 真实 pipeline 使用：usage 与账本明细原子落库，并可幂等自愈 usage-only。 */
+  async createUsageAndLedgerLineIfAbsent(
+    input: CreateUsageLedgerLineInput,
+  ): Promise<UsageLedgerLineResult> {
+    return createUsageLedgerLineAtomically(this.db, input);
   }
 
   async listLedgerLines(requestId: string): Promise<LedgerLine[]> {
@@ -287,43 +240,17 @@ export class GatewayLedgerRepository {
    * 创建结算汇总。若该 ai_request 已有结算（重复请求），ON CONFLICT DO NOTHING 不新增。
    * @returns 创建的汇总（若已存在则返回 undefined）—— 重复结算为 0 的硬保证
    */
-  async createLedgerTransactionIfAbsent(input: {
-    ai_request_id: string;
-    enterprise_id: string;
-    principal_id: string;
-    total_input_tokens: bigint;
-    total_output_tokens: bigint;
-    total_cache_tokens: bigint;
-    total_reasoning_tokens?: bigint;
-    total_deducted_quota: bigint;
-    total_api_cost: string;
-    /** 请求结算时冻结的超额事实。 */
-    overage?: boolean;
-    usage_quality: string;
-    attempt_count: number;
-  }): Promise<LedgerTransaction | undefined> {
-    const result = await this.db
-      .insertInto("ledger_transaction")
-      .values({
-        ai_request_id: input.ai_request_id,
-        enterprise_id: input.enterprise_id,
-        principal_id: input.principal_id,
-        total_input_tokens: input.total_input_tokens,
-        total_output_tokens: input.total_output_tokens,
-        total_cache_tokens: input.total_cache_tokens,
-        total_reasoning_tokens: input.total_reasoning_tokens ?? 0n,
-        total_deducted_quota: input.total_deducted_quota,
-        total_api_cost: input.total_api_cost,
-        overage: input.overage ?? false,
-        usage_quality: input.usage_quality,
-        attempt_count: input.attempt_count,
-        status: "SETTLED",
-        created_at: new Date(),
-      })
-      .onConflict((oc) => oc.column("ai_request_id").doNothing())
-      .returningAll()
-      .execute();
-    return result[0];
+  async createLedgerTransactionIfAbsent(
+    input: CreateLedgerTransactionInput,
+  ): Promise<LedgerTransaction | undefined> {
+    return createGuardedLedgerTransactionIfAbsent(this.db, input);
+  }
+
+  /** 请求汇总与 terminal status 同事务提交，作为关账 completion barrier。 */
+  async finalizeLedgerSettlementIfAbsent(
+    input: FinalizeLedgerSettlementInput,
+  ): Promise<LedgerTransaction> {
+    return finalizeLedgerSettlementAtomically(this.db, input);
   }
 
   async getLedgerTransaction(requestId: string): Promise<LedgerTransaction | undefined> {

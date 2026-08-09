@@ -1,0 +1,46 @@
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    environment: "node",
+    globals: false,
+    include: [
+      "packages/database/src/repositories/operating-bill-account-aggregate.test.ts",
+      "packages/database/src/repositories/operating-bill-cost-quality.test.ts",
+      "packages/database/src/repositories/gateway-ledger-settlement-quality.test.ts",
+      "packages/database/src/repositories/operating-bill-concurrency.test.ts",
+      "packages/database/src/repositories/operating-bill-write-barrier.test.ts",
+      "packages/database/src/__tests-integration__/pool043-model-identity-migration.test.ts",
+      "packages/database/src/__tests-integration__/pool043-operating-bill-concurrency.integration.test.ts",
+      "packages/database/src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts",
+      "apps/control-api/src/__tests-integration__/pool043-operating-bill-accounts.test.ts",
+    ],
+    exclude: ["**/node_modules/**", "**/dist/**"],
+    testTimeout: 120_000,
+    hookTimeout: 120_000,
+    fileParallelism: false,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "json-summary"],
+      reportsDirectory: "coverage/pool043-node",
+      include: [
+        "packages/database/src/repositories/operating-bill-account-aggregate.ts",
+        "packages/database/src/repositories/operating-bill-cost-quality.ts",
+        "packages/database/src/repositories/operating-bill-account-detail.ts",
+        "packages/database/src/repositories/operating-bill-account-frozen-detail.ts",
+        "packages/database/src/repositories/operating-bill-account-frozen.ts",
+        "packages/database/src/repositories/operating-bill-account-live-detail.ts",
+        "packages/database/src/repositories/operating-bill-account-live.ts",
+        "packages/database/src/repositories/operating-bill-account-repository.ts",
+        "packages/database/src/repositories/operating-bill-concurrency.ts",
+        "packages/database/src/repositories/operating-bill-month.ts",
+        "packages/database/src/repositories/operating-bill-write-barrier.ts",
+        "packages/database/src/repositories/gateway-ledger-settlement.ts",
+        "packages/database/src/repositories/gateway-ledger-settlement-assertions.ts",
+        "packages/database/src/repositories/gateway-ledger-guarded-writes.ts",
+        "apps/control-api/src/operating-bills/account-routes.ts",
+      ],
+      thresholds: { statements: 95, branches: 85, functions: 90, lines: 95 },
+    },
+  },
+});

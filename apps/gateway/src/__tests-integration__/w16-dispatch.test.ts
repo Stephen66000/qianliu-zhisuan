@@ -29,6 +29,7 @@ import {
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
 import { createRealPipeline, type RouteCandidateRow } from "../pipeline/real-pipeline.js";
+import { seedMissingBillingRules } from "./billing-rule-fixture.js";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -46,6 +47,21 @@ const ENT_ID = randomUUID();
 const PRINCIPAL_ID = randomUUID();
 const PEPPER = "w16-dispatch-pepper-32bytes-min!";
 
+class FailingDecisionRepository extends DispatchPolicyRepository {
+  override async createDecisionIfAbsent(): Promise<string | null> {
+    throw new Error("dispatch_decision_write_failure");
+  }
+}
+
+class FailingSettlementEvidenceRepository extends DispatchPolicyRepository {
+  attempts = 0;
+
+  override async enrichDecisionSettlementEvidence(): Promise<void> {
+    this.attempts += 1;
+    throw new Error("dispatch_settlement_evidence_write_failure");
+  }
+}
+
 function authHeader(): Record<string, string> {
   return { authorization: `Bearer ${validKey}`, "content-type": "application/json" };
 }
@@ -58,6 +74,7 @@ async function buildApp(
     forecastExhaustRisk: boolean;
   }>,
   now?: () => number,
+  activeDispatchRepo: DispatchPolicyRepository = dispatchRepo,
 ): Promise<FastifyInstance> {
   const caller = async (res: unknown, req: unknown, n: number) =>
     stub.invoke(res as never, req as never, n);
@@ -98,7 +115,7 @@ async function buildApp(
     caller,
     poolRepo,
     quotaRepo,
-    dispatchRepo,
+    dispatchRepo: activeDispatchRepo,
     listCandidates,
     resolveDispatchInput: resolveDispatchInput
       ? async (_entId, _pid, _model, winnerResourceId) =>
@@ -260,6 +277,7 @@ beforeAll(async () => {
     output_price: "0.000003",
     priority: 100,
   });
+  await seedMissingBillingRules(db, ENT_ID);
 }, 120_000);
 
 afterAll(async () => {
@@ -655,5 +673,81 @@ describe("W16 经营调度", () => {
       total += Number((result.rows[0] as { hits: number }).hits);
     }
     expect(total, "经营调度请求正文 canary 必须在所有表 0 命中").toBe(0);
+  });
+
+  it("决策审计写入失败时禁止执行上游动作", async () => {
+    stub = new StubUpstream({
+      default: { kind: "SUCCESS", usage: { input: 100, output: 50, cache: 0 } },
+      providerCode: "zhipu",
+    });
+    const app = await buildApp(
+      async () => ({
+        priceMultiplier: "1",
+        remainingQuotaRatio: 0.9,
+        forecastExhaustRisk: false,
+      }),
+      undefined,
+      new FailingDecisionRepository(db),
+    );
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(),
+        payload: { model: "qianliu-glm-coding", messages: [{ role: "user", content: "hi" }] },
+      });
+      expect(response.statusCode).toBe(500);
+      expect(stub.calls).toHaveLength(0);
+      const request = await db.selectFrom("ai_request").selectAll()
+        .where("enterprise_id", "=", ENT_ID).orderBy("started_at", "desc")
+        .executeTakeFirstOrThrow();
+      expect(request.status).toBe("FAILED");
+      expect(request.error_classification).toBe("INTERNAL");
+      expect(request.error_code).toBe("dispatch_decision_write_failure");
+      expect(await db.selectFrom("upstream_attempt").select("id")
+        .where("ai_request_id", "=", request.id).execute()).toEqual([]);
+      expect(await db.selectFrom("dispatch_decision").select("id")
+        .where("ai_request_id", "=", request.id).execute()).toEqual([]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("调度补充证据失败不阻断核心终态、账本与租约释放", async () => {
+    stub = new StubUpstream({
+      default: { kind: "SUCCESS", usage: { input: 100, output: 50, cache: 0 } },
+      providerCode: "deepseek",
+    });
+    const failingRepo = new FailingSettlementEvidenceRepository(db);
+    const app = await buildApp(
+      async () => ({
+        priceMultiplier: "1",
+        remainingQuotaRatio: 0.9,
+        forecastExhaustRisk: false,
+      }),
+      undefined,
+      failingRepo,
+    );
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: authHeader(),
+        payload: { model: "qianliu-deepseek", messages: [{ role: "user", content: "hi" }] },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(stub.calls).toHaveLength(1);
+      const requestId = String(response.headers["x-request-id"]);
+      expect((await ledgerRepo.getRequest(requestId))?.status).toBe("SUCCEEDED");
+      expect(await db.selectFrom("ledger_transaction").select("id")
+        .where("ai_request_id", "=", requestId).executeTakeFirst()).toBeDefined();
+      expect(await db.selectFrom("concurrency_lease").select("id")
+        .where("ai_request_id", "=", requestId).where("released_at", "is", null).execute()).toEqual([]);
+      expect((await dispatchRepo.getDecision(requestId))?.not_calculable_reason)
+        .toBe("pending_settlement");
+      expect(failingRepo.attempts).toBe(2);
+    } finally {
+      await app.close();
+    }
   });
 });

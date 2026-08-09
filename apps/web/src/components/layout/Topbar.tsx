@@ -35,7 +35,7 @@ export function Topbar({ admin, theme }: TopbarProps) {
   };
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-end gap-4 border-b border-ql-border bg-ql-surface px-8">
+    <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-end gap-2 border-b border-ql-border bg-ql-surface px-4 py-2 md:h-16 md:gap-4 md:px-8 md:py-0">
       {/* 仟流智算 Agent 入口槽位（PRD §10.1：一期功能开关隐藏，预留位置） */}
       <div aria-label="主题" className="flex items-center gap-1 rounded-lg border border-ql-border p-1">
         {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
@@ -56,13 +56,13 @@ export function Topbar({ admin, theme }: TopbarProps) {
               type="button"
             >
               <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              {label}
+              <span className="hidden sm:inline">{label}</span>
             </button>
           );
         })}
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-[13px] leading-5 text-ql-fg-secondary">{admin.displayName || admin.username}</span>
+        <span className="hidden text-[13px] leading-5 text-ql-fg-secondary sm:inline">{admin.displayName || admin.username}</span>
         <button
           className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-ql-fg-tertiary hover:bg-ql-surface-subtle hover:text-ql-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
           disabled={logout.isPending}

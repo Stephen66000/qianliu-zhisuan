@@ -41,7 +41,9 @@ const CONTENT_TABLES = [
 ];
 
 beforeAll(async () => {
-  pg = await startPostgresContainer();
+  pg = process.env.POOL043_W07_DATABASE_URL
+    ? { connectionString: process.env.POOL043_W07_DATABASE_URL, stop: async () => undefined }
+    : await startPostgresContainer();
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
   repo = new GatewayLedgerRepository(db);
@@ -101,6 +103,7 @@ describe("W07 账本闭环与幂等", () => {
       request_fingerprint: requestFingerprint,
       protocol: "responses",
       unified_model: "qianliu-deepseek",
+      unified_model_id: null,
       stream: true,
     };
 
@@ -141,6 +144,7 @@ describe("W07 账本闭环与幂等", () => {
       principal_key_id: KEY_ID,
       protocol: "responses",
       unified_model: "qianliu-deepseek",
+      unified_model_id: null,
       stream: true,
     });
     const attempt = await repo.createAttempt({
@@ -169,6 +173,7 @@ describe("W07 账本闭环与幂等", () => {
       principal_key_id: KEY_ID,
       protocol: "chat",
       unified_model: "qianliu-deepseek",
+      unified_model_id: null,
     });
 
     // 2. 候选快照
@@ -303,6 +308,7 @@ describe("W07 账本闭环与幂等", () => {
       principal_key_id: KEY_ID,
       protocol: "chat",
       unified_model: "qianliu-deepseek",
+      unified_model_id: null,
     });
 
     const first = await repo.createLedgerTransactionIfAbsent({
@@ -351,6 +357,7 @@ describe("W07 账本闭环与幂等", () => {
       principal_key_id: KEY_ID,
       protocol: "chat",
       unified_model: "qianliu-deepseek",
+      unified_model_id: null,
     });
     const attempt = await repo.createAttempt({
       ai_request_id: requestId,
@@ -406,6 +413,7 @@ describe("W07 账本闭环与幂等", () => {
       principal_key_id: KEY_ID,
       protocol: "chat",
       unified_model: "qianliu-deepseek",
+      unified_model_id: null,
     });
     // 注意：BODY_CANARY 绝不写入 ai_request 或任何表（content_retention_mode=METADATA_ONLY）
 

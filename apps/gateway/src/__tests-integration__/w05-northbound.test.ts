@@ -11,11 +11,19 @@
  *
  * 用 Testcontainer PG + 真实 Key（M1 schema）+ stub pipeline。
  */
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
-import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
+import {
+  createKysely,
+  EmployeeModelRuleRepository,
+  GatewayLedgerRepository,
+  migrateToLatest,
+  QuotaGateRepository,
+  ResourcePoolRepository,
+  type Database,
+} from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import {
   generateApiKey,
@@ -23,6 +31,8 @@ import {
   apiKeyPrefix,
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
+import { hasCurrentInvocationAuthorization } from "../auth/current-model-authorization.js";
+import { createRealPipeline } from "../pipeline/real-pipeline.js";
 import { stubPipeline } from "../pipeline/stub-pipeline.js";
 
 let pg: PostgresTestInstance;
@@ -31,13 +41,21 @@ let app: FastifyInstance;
 let validKey: string;
 let keyId: string;
 let allowedModelId: string;
+let grantId: string;
+let providerId: string;
+let resourceId: string;
+let routeId: string;
+let billingRuleId: string;
 let pipelineCalls = 0;
+let lastAuthorizedModelId: string | undefined;
 const ENT_ID = randomUUID();
 const PRINCIPAL_ID = randomUUID();
 const PEPPER = "w05-test-pepper-32bytes-min!!!!";
 
 beforeAll(async () => {
-  pg = await startPostgresContainer();
+  pg = process.env.POOL043_W05_DATABASE_URL
+    ? { connectionString: process.env.POOL043_W05_DATABASE_URL, stop: async () => undefined }
+    : await startPostgresContainer();
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
 
@@ -84,6 +102,28 @@ beforeAll(async () => {
     .set({ allowed_model_ids: JSON.stringify([allowedModelId]) as unknown as string[] })
     .where("id", "=", keyId)
     .execute();
+  providerId = (await db.insertInto("provider").values({
+    enterprise_id: ENT_ID, code: "deepseek", name: "DeepSeek", adapter_type: "deepseek",
+  }).returning("id").executeTakeFirstOrThrow()).id;
+  resourceId = (await db.insertInto("provider_resource").values({
+    enterprise_id: ENT_ID, provider_id: providerId, name: "DeepSeek 主账号",
+    mode: "API", credential_type: "API_KEY",
+  }).returning("id").executeTakeFirstOrThrow()).id;
+  routeId = (await db.insertInto("model_route").values({
+    enterprise_id: ENT_ID,
+    unified_model_id: allowedModelId,
+    provider_resource_id: resourceId,
+    upstream_model: "deepseek-chat",
+  }).returning("id").executeTakeFirstOrThrow()).id;
+  billingRuleId = (await db.insertInto("billing_rule").values({
+    enterprise_id: ENT_ID,
+    provider_resource_id: resourceId,
+    upstream_model: "deepseek-chat",
+    rule_type: "API_PRICE",
+    rule_version: "w05-default-price",
+    effective_from: new Date(0),
+    cache_miss_price: "0.000001",
+  }).returning("id").executeTakeFirstOrThrow()).id;
   const grant = await db.insertInto("principal_grant").values({
     enterprise_id: ENT_ID,
     principal_id: PRINCIPAL_ID,
@@ -92,10 +132,12 @@ beforeAll(async () => {
     quota_value: 1_000_000n,
     status: "ACTIVE",
   }).returning("id").executeTakeFirstOrThrow();
+  grantId = grant.id;
   await db.insertInto("quota_counter").values({ grant_id: grant.id }).execute();
 
   app = buildGateway(db, PEPPER, async (input) => {
     pipelineCalls += 1;
+    lastAuthorizedModelId = input.request.principal?.authorizedModelId;
     await stubPipeline(input);
   });
   await app.ready();
@@ -154,6 +196,240 @@ describe("W05 北向合同", () => {
     expect(expired.json()).toEqual({ object: "list", data: [] });
     await db.updateTable("principal_grant").set({ valid_until: null })
       .where("principal_id", "=", PRINCIPAL_ID).where("model_alias", "=", "qianliu-deepseek").execute();
+  });
+
+  it("池 Grant、显式禁用、route/resource/provider 与调用授权保持同一口径", async () => {
+    await db.updateTable("principal_grant").set({
+      model_alias: "*", pool_model_alias: "*",
+    }).where("id", "=", grantId).execute();
+    expect((await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() }))
+      .json().data.map((model: { id: string }) => model.id)).toEqual(["qianliu-deepseek"]);
+    expect(await hasCurrentInvocationAuthorization(db, {
+      enterpriseId: ENT_ID, principalId: PRINCIPAL_ID, keyId,
+      modelAlias: "qianliu-deepseek", providerCode: "deepseek",
+      resourceId, upstreamModel: "deepseek-chat", now: new Date(),
+    })).toBe(true);
+
+    await db.insertInto("principal_provider_disabled_model").values({
+      enterprise_id: ENT_ID,
+      principal_id: PRINCIPAL_ID,
+      provider: "deepseek",
+      unified_model_id: allowedModelId,
+    }).execute();
+    expect((await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() }))
+      .json()).toEqual({ object: "list", data: [] });
+    expect(await hasCurrentInvocationAuthorization(db, {
+      enterpriseId: ENT_ID, principalId: PRINCIPAL_ID, keyId,
+      modelAlias: "qianliu-deepseek", providerCode: "deepseek",
+      resourceId, upstreamModel: "deepseek-chat", now: new Date(),
+    })).toBe(false);
+    await db.deleteFrom("principal_provider_disabled_model")
+      .where("enterprise_id", "=", ENT_ID).where("principal_id", "=", PRINCIPAL_ID)
+      .where("provider", "=", "deepseek").where("unified_model_id", "=", allowedModelId).execute();
+
+    for (const change of [
+      async () => db.updateTable("model_route").set({ enabled: false }).where("id", "=", routeId).execute(),
+      async () => db.updateTable("provider_resource").set({ status: "UNAVAILABLE" }).where("id", "=", resourceId).execute(),
+      async () => db.updateTable("provider").set({ status: "DISABLED" }).where("id", "=", providerId).execute(),
+    ]) {
+      await change();
+      expect((await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() }))
+        .json()).toEqual({ object: "list", data: [] });
+      await db.updateTable("model_route").set({ enabled: true }).where("id", "=", routeId).execute();
+      await db.updateTable("provider_resource").set({ status: "ACTIVE" }).where("id", "=", resourceId).execute();
+      await db.updateTable("provider").set({ status: "ACTIVE" }).where("id", "=", providerId).execute();
+    }
+
+    await db.updateTable("principal_grant").set({
+      model_alias: "qianliu-deepseek", pool_model_alias: null,
+    }).where("id", "=", grantId).execute();
+  });
+
+  it("计费规则在 effective_to 边界即时失效，目录与调用栅栏同时关闭", async () => {
+    const boundary = new Date();
+    await db.updateTable("billing_rule").set({ effective_to: boundary })
+      .where("id", "=", billingRuleId).execute();
+    try {
+      expect((await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() }))
+        .json()).toEqual({ object: "list", data: [] });
+      await expect(hasCurrentInvocationAuthorization(db, {
+        enterpriseId: ENT_ID,
+        principalId: PRINCIPAL_ID,
+        keyId,
+        modelAlias: "qianliu-deepseek",
+        providerCode: "deepseek",
+        resourceId,
+        upstreamModel: "deepseek-chat",
+        now: boundary,
+      })).resolves.toBe(false);
+    } finally {
+      await db.updateTable("billing_rule").set({ effective_to: null })
+        .where("id", "=", billingRuleId).execute();
+    }
+  });
+
+  it("计费规则未命中当前星期窗口时，目录与调用栅栏同时关闭", async () => {
+    const now = new Date();
+    const weekday = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Shanghai",
+      weekday: "short",
+    }).format(now);
+    const currentIsoDay = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(weekday) + 1;
+    const otherDay = currentIsoDay === 7 ? 1 : currentIsoDay + 1;
+    await db.updateTable("billing_rule").set({
+      timezone: "Asia/Shanghai",
+      days_of_week: JSON.stringify([otherDay]) as unknown as number[],
+      start_time: "00:00",
+      end_time: "23:59",
+    }).where("id", "=", billingRuleId).execute();
+    try {
+      expect((await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() }))
+        .json()).toEqual({ object: "list", data: [] });
+      await expect(hasCurrentInvocationAuthorization(db, {
+        enterpriseId: ENT_ID,
+        principalId: PRINCIPAL_ID,
+        keyId,
+        modelAlias: "qianliu-deepseek",
+        providerCode: "deepseek",
+        resourceId,
+        upstreamModel: "deepseek-chat",
+        now,
+      })).resolves.toBe(false);
+    } finally {
+      await db.updateTable("billing_rule").set({
+        timezone: "Asia/Shanghai",
+        days_of_week: null,
+        start_time: null,
+        end_time: null,
+      }).where("id", "=", billingRuleId).execute();
+    }
+  });
+
+  it("最终授权绑定选中资源，同厂商兄弟 route 不能代替已撤权资源", async () => {
+    const sibling = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID,
+      provider_id: providerId,
+      name: "DeepSeek 兄弟账号",
+      mode: "API",
+      credential_type: "API_KEY",
+    }).returning("id").executeTakeFirstOrThrow();
+    const siblingRoute = await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID,
+      unified_model_id: allowedModelId,
+      provider_resource_id: sibling.id,
+      upstream_model: "deepseek-reasoner",
+    }).returning("id").executeTakeFirstOrThrow();
+    const siblingRule = await db.insertInto("billing_rule").values({
+      enterprise_id: ENT_ID,
+      provider_resource_id: sibling.id,
+      upstream_model: "deepseek-reasoner",
+      rule_type: "API_PRICE",
+      rule_version: "w05-sibling-price",
+      effective_from: new Date(0),
+      cache_miss_price: "0.000001",
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.updateTable("provider_resource").set({ status: "UNAVAILABLE" })
+      .where("id", "=", resourceId).execute();
+    try {
+      await expect(hasCurrentInvocationAuthorization(db, {
+        enterpriseId: ENT_ID,
+        principalId: PRINCIPAL_ID,
+        keyId,
+        modelAlias: "qianliu-deepseek",
+        providerCode: "deepseek",
+        resourceId,
+        upstreamModel: "deepseek-chat",
+        now: new Date(),
+      })).resolves.toBe(false);
+    } finally {
+      await db.updateTable("provider_resource").set({ status: "ACTIVE" })
+        .where("id", "=", resourceId).execute();
+      await db.deleteFrom("billing_rule").where("id", "=", siblingRule.id).execute();
+      await db.deleteFrom("model_route").where("id", "=", siblingRoute.id).execute();
+      await db.deleteFrom("provider_resource").where("id", "=", sibling.id).execute();
+    }
+  });
+
+  it("仅已取得半开探针的请求可复核 RATE_LIMITED 资源", async () => {
+    await db.updateTable("provider_resource").set({ status: "RATE_LIMITED" })
+      .where("id", "=", resourceId).execute();
+    try {
+      const input = {
+        enterpriseId: ENT_ID,
+        principalId: PRINCIPAL_ID,
+        keyId,
+        modelAlias: "qianliu-deepseek",
+        providerCode: "deepseek",
+        resourceId,
+        upstreamModel: "deepseek-chat",
+        now: new Date(),
+      };
+      await expect(hasCurrentInvocationAuthorization(db, input)).resolves.toBe(false);
+      await expect(hasCurrentInvocationAuthorization(db, {
+        ...input,
+        allowHalfOpenProbe: true,
+      })).resolves.toBe(true);
+    } finally {
+      await db.updateTable("provider_resource").set({ status: "ACTIVE" })
+        .where("id", "=", resourceId).execute();
+    }
+  });
+
+  it("API 资源不会被额度规则或空价格规则误判为可计费", async () => {
+    const ruleRepo = new EmployeeModelRuleRepository(db);
+    await db.updateTable("principal_grant").set({
+      model_alias: "*", pool_model_alias: "*",
+    }).where("id", "=", grantId).execute();
+    await db.updateTable("principal_key").set({
+      allowed_model_ids: JSON.stringify([]) as unknown as string[],
+    }).where("id", "=", keyId).execute();
+    await db.updateTable("billing_rule").set({ enabled: false })
+      .where("id", "=", billingRuleId).execute();
+    const wrongRuleIds: string[] = [];
+    for (const values of [
+      { rule_type: "MODEL_TIER", multiplier: "1", cache_miss_price: null },
+      { rule_type: "API_PRICE", multiplier: null, cache_miss_price: null },
+    ]) {
+      const inserted = await db.insertInto("billing_rule").values({
+        enterprise_id: ENT_ID,
+        provider_resource_id: resourceId,
+        upstream_model: "deepseek-chat",
+        rule_type: values.rule_type,
+        rule_version: `w05-wrong-${wrongRuleIds.length}`,
+        effective_from: new Date(0),
+        multiplier: values.multiplier,
+        cache_miss_price: values.cache_miss_price,
+      }).returning("id").executeTakeFirstOrThrow();
+      wrongRuleIds.push(inserted.id);
+    }
+    await db.transaction().execute((trx) => ruleRepo.refreshKeyModels(
+      trx, ENT_ID, PRINCIPAL_ID,
+    ));
+    expect((await db.selectFrom("principal_key").select("allowed_model_ids")
+      .where("id", "=", keyId).executeTakeFirstOrThrow()).allowed_model_ids).toEqual([]);
+
+    const priced = await db.insertInto("billing_rule").values({
+      enterprise_id: ENT_ID,
+      provider_resource_id: resourceId,
+      upstream_model: "deepseek-chat",
+      rule_type: "API_PRICE",
+      rule_version: "w05-priced",
+      effective_from: new Date(0),
+      cache_miss_price: "0.000001",
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.transaction().execute((trx) => ruleRepo.refreshKeyModels(
+      trx, ENT_ID, PRINCIPAL_ID,
+    ));
+    expect((await db.selectFrom("principal_key").select("allowed_model_ids")
+      .where("id", "=", keyId).executeTakeFirstOrThrow()).allowed_model_ids)
+      .toEqual([allowedModelId]);
+
+    await db.deleteFrom("billing_rule").where("id", "in", [...wrongRuleIds, priced.id]).execute();
+    await db.updateTable("billing_rule").set({ enabled: true })
+      .where("id", "=", billingRuleId).execute();
+    await db.updateTable("principal_grant").set({
+      model_alias: "qianliu-deepseek", pool_model_alias: null,
+    }).where("id", "=", grantId).execute();
   });
 
   it("allowed_model_ids 过滤模型列表，未授权调用在 pipeline/上游前拒绝", async () => {
@@ -305,6 +581,30 @@ describe("W05 北向合同", () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it("停用主体和过期 Key 均在模型授权前 fail-closed", async () => {
+    await db.updateTable("principal").set({ status: "DISABLED" })
+      .where("id", "=", PRINCIPAL_ID).execute();
+    try {
+      const disabled = await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() });
+      expect(disabled.statusCode).toBe(401);
+      expect(disabled.json().error.code).toBe("principal_disabled");
+    } finally {
+      await db.updateTable("principal").set({ status: "ACTIVE" })
+        .where("id", "=", PRINCIPAL_ID).execute();
+    }
+
+    await db.updateTable("principal_key").set({ expires_at: new Date(Date.now() - 1_000) })
+      .where("id", "=", keyId).execute();
+    try {
+      const expired = await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() });
+      expect(expired.statusCode).toBe(401);
+      expect(expired.json().error.code).toBe("key_expired");
+    } finally {
+      await db.updateTable("principal_key").set({ expires_at: null })
+        .where("id", "=", keyId).execute();
+    }
+  });
+
   it("POST /v1/chat/completions 非流式返回 chat.completion + usage + request_id 头", async () => {
     const res = await app.inject({
       method: "POST",
@@ -321,8 +621,93 @@ describe("W05 北向合同", () => {
     expect(body.id).toMatch(/^chatcmpl-/);
     expect(body.choices[0].message.role).toBe("assistant");
     expect(body.usage.total_tokens).toBe(body.usage.prompt_tokens + body.usage.completion_tokens);
+    expect(lastAuthorizedModelId).toBe(allowedModelId);
     // request_id 贯穿
     expect(res.headers["x-request-id"]).toBeDefined();
+  });
+
+  it("POOL-043：真实 pipeline 在调度前冻结稳定模型 ID，同时保留请求 alias", async () => {
+    const ledgerRepo = new GatewayLedgerRepository(db);
+    const identityApp = buildGateway(db, PEPPER, createRealPipeline({
+      db,
+      ledgerRepo,
+      poolRepo: new ResourcePoolRepository(db),
+      quotaRepo: new QuotaGateRepository(db),
+      listCandidates: async () => [],
+      caller: async () => { throw new Error("POOL-043 不应访问上游"); },
+    }));
+    await identityApp.ready();
+    try {
+      const response = await identityApp.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: { ...authHeader(), "content-type": "application/json" },
+        payload: {
+          model: "qianliu-deepseek",
+          messages: [{ role: "user", content: "identity" }],
+        },
+      });
+      expect(response.statusCode).toBe(404);
+      expect(response.json().error.code).toBe("model_not_configured");
+      const stored = await ledgerRepo.getRequest(response.headers["x-ai-request-id"] as string);
+      expect(stored).toMatchObject({
+        unified_model: "qianliu-deepseek",
+        unified_model_id: allowedModelId,
+      });
+    } finally {
+      await identityApp.close();
+    }
+  });
+
+  it("POOL-043：真实 pipeline 缺少稳定模型 ID 时在 claim/调度/上游前拒绝", async () => {
+    const claimRequest = vi.fn();
+    const listCandidates = vi.fn();
+    const caller = vi.fn();
+    const handler = createRealPipeline({
+      db,
+      ledgerRepo: { claimRequest } as never,
+      poolRepo: {} as never,
+      quotaRepo: {} as never,
+      listCandidates,
+      caller,
+    });
+    const send = vi.fn();
+    const reply = {
+      code: vi.fn(),
+      header: vi.fn(),
+      send,
+    };
+    reply.code.mockReturnValue(reply);
+    reply.header.mockReturnValue(reply);
+    const defensiveRequestId = randomUUID();
+    const countBefore = await db.selectFrom("ai_request")
+      .select((eb) => eb.fn.countAll<string>().as("count")).executeTakeFirstOrThrow();
+    await handler({
+      request: {
+        aiRequestId: defensiveRequestId,
+        requestId: "pool043-missing-stable-id",
+        principal: {
+          principalId: PRINCIPAL_ID,
+          enterpriseId: ENT_ID,
+          keyId,
+          allowedModelIds: [allowedModelId],
+          authorizedModelId: null,
+        },
+      } as never,
+      reply: reply as never,
+      body: { model: "qianliu-deepseek", messages: [{ role: "user", content: "identity" }] },
+      capability: "chat",
+    });
+    expect(reply.code).toHaveBeenCalledWith(403);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      error: expect.objectContaining({ code: "model_not_allowed" }),
+    }));
+    expect(claimRequest).not.toHaveBeenCalled();
+    expect(listCandidates).not.toHaveBeenCalled();
+    expect(caller).not.toHaveBeenCalled();
+    const countAfter = await db.selectFrom("ai_request")
+      .select((eb) => eb.fn.countAll<string>().as("count")).executeTakeFirstOrThrow();
+    expect(countAfter.count).toBe(countBefore.count);
   });
 
   it("POST /v1/chat/completions 流式返回 SSE chat.completion.chunk + [DONE]", async () => {

@@ -8,6 +8,7 @@
 import { createKysely, migrateToLatest } from "@qianliu/database";
 import { sql } from "kysely";
 import { hashPassword } from "../auth/password.js";
+import { seedPool043OperatingBill } from "./seed-e2e-pool043.js";
 
 const IDS = {
   enterprise: "00000000-0000-4000-8000-000000000001",
@@ -496,20 +497,6 @@ async function main(): Promise<void> {
       ])
       .execute();
     await db
-      .insertInto("provider_resource_operating_snapshot")
-      .values({
-        enterprise_id: IDS.enterprise,
-        provider_resource_id: IDS.resource,
-        version: 1,
-        source: "PROVIDER_SYNC",
-        collected_at: new Date(now.getTime() - 1_000),
-        currency: "CNY",
-        recharge_amount: "10000",
-        current_balance: "4800",
-        current_period_cost: "5200",
-      })
-      .execute();
-    await db
       .insertInto("supply_forecast")
       .values({
         id: IDS.forecast,
@@ -582,6 +569,8 @@ async function main(): Promise<void> {
         status: "OPEN",
       })
       .execute();
+
+    await seedPool043OperatingBill(db, IDS.enterprise, IDS.admin, IDS.resource, now);
 
     console.log(
       JSON.stringify({

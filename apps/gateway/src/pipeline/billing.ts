@@ -1,4 +1,4 @@
-import type { GatewayLedgerRepository, LedgerLine } from "@qianliu/database";
+import type { GatewayLedgerRepository } from "@qianliu/database";
 import {
   computeApiCostFromRule,
   computeDeductedQuota,
@@ -60,30 +60,53 @@ export async function computeBilling(
 
   if (mode === "CODING_PLAN") {
     const match = matchMultiplierRule(rules, resourceId, upstreamModel, attemptStartedAt);
-    const multiplier = match?.multiplier ?? "1";
+    return computeBillingFromRule(match?.rule ?? null, mode, attemptStartedAt, usage);
+  }
+
+  const priceRule = matchPriceRule(
+    rules.filter((rule) => rule.cacheHitPrice !== null
+      || rule.cacheMissPrice !== null
+      || rule.outputPrice !== null),
+    resourceId,
+    upstreamModel,
+    attemptStartedAt,
+  );
+  return computeBillingFromRule(priceRule, mode, attemptStartedAt, usage);
+}
+
+/** 使用 Adapter 前已冻结的精确规则结算，禁止上游返回后重新读取可变规则。 */
+export function computeBillingFromRule(
+  rule: BillingRule | null,
+  mode: "API" | "CODING_PLAN",
+  attemptStartedAt: number,
+  usage: { input: number; output: number; cache: number },
+): BillingOutcome {
+  if (mode === "CODING_PLAN") {
+    const multiplier = rule?.multiplier ?? null;
     const rawTotal = usage.input + usage.output;
     return {
       apiCost: null,
-      deductedQuota: computeDeductedQuota(rawTotal, multiplier),
-      ruleId: match?.ruleId ?? null,
-      ruleVersion: match?.ruleVersion ?? null,
+      deductedQuota: multiplier === null ? null : computeDeductedQuota(rawTotal, multiplier),
+      ruleId: rule?.id ?? null,
+      ruleVersion: rule?.ruleVersion ?? null,
       multiplier,
-      ruleSnapshot: match ? billingRuleSnapshot(match.rule, match.matchedWindow) : null,
+      ruleSnapshot: rule
+        ? billingRuleSnapshot(rule, findMatchedTimeWindow(rule, attemptStartedAt))
+        : null,
     };
   }
 
-  const priceRule = matchPriceRule(rules, resourceId, upstreamModel, attemptStartedAt);
-  const apiCost = priceRule
-    ? computeApiCostFromRule(priceRule, usage.input, usage.output, usage.cache)
-    : legacyApiCost(usage.input, usage.output);
+  const apiCost = rule
+    ? computeApiCostFromRule(rule, usage.input, usage.output, usage.cache)
+    : null;
   return {
     apiCost,
     deductedQuota: null,
-    ruleId: priceRule?.id ?? null,
-    ruleVersion: priceRule?.ruleVersion ?? null,
+    ruleId: rule?.id ?? null,
+    ruleVersion: rule?.ruleVersion ?? null,
     multiplier: null,
-    ruleSnapshot: priceRule
-      ? billingRuleSnapshot(priceRule, findMatchedTimeWindow(priceRule, attemptStartedAt))
+    ruleSnapshot: rule
+      ? billingRuleSnapshot(rule, findMatchedTimeWindow(rule, attemptStartedAt))
       : null,
   };
 }
@@ -109,35 +132,6 @@ function billingRuleSnapshot(
     outputPrice: rule.outputPrice,
     currency: rule.currency,
     priority: rule.priority,
-  };
-}
-
-function legacyApiCost(input: number, output: number): string {
-  const cost = (input / 1000) * 0.001 + (output / 1000) * 0.002;
-  return cost.toFixed(8);
-}
-
-export function summarizePricingEvidence(lines: LedgerLine[]): {
-  actualCost: string | null;
-  complete: boolean;
-  items: Array<Record<string, unknown>>;
-} {
-  const apiCosts = lines.flatMap((line) => line.api_cost === null ? [] : [line.api_cost]);
-  return {
-    actualCost: apiCosts.length > 0 ? sumDecimal8(apiCosts) : null,
-    complete: lines.length > 0 && lines.every((line) =>
-      line.resource_mode === "API"
-      && line.api_cost !== null
-      && line.billing_rule_id !== null
-      && line.rule_version !== null
-    ),
-    items: lines.map((line) => ({
-      resourceId: line.provider_resource_id,
-      billingRuleId: line.billing_rule_id,
-      ruleVersion: line.rule_version,
-      apiCost: line.api_cost,
-      billingRuleSnapshot: line.billing_rule_snapshot,
-    })),
   };
 }
 
@@ -206,14 +200,4 @@ export async function calculateDispatchSaving(input: {
     saving = { saving: "NOT_CALCULABLE", reason: "actual_price_rule_missing" };
   }
   return { counterfactualBilling, counterfactualCost, saving };
-}
-
-function sumDecimal8(values: string[]): string {
-  const total = values.reduce((sum, value) => {
-    const match = /^(\d+)(?:\.(\d{1,8}))?$/.exec(value);
-    if (!match) throw new Error(`invalid_decimal8:${value}`);
-    return sum + BigInt(match[1]!) * 100_000_000n
-      + BigInt((match[2] ?? "").padEnd(8, "0") || "0");
-  }, 0n);
-  return `${total / 100_000_000n}.${(total % 100_000_000n).toString().padStart(8, "0")}`;
 }

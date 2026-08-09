@@ -26,6 +26,7 @@ import {
   AlertEventRepository,
   RuntimeAssuranceRepository,
   OperatingBillRepository,
+  OperatingBillAccountRepository,
   DeploymentLogRepository,
   EmployeeModelRuleRepository,
   PrincipalAccessConfigRepository,
@@ -56,6 +57,7 @@ import { registerAlertRoutes } from "./alerts/routes.js";
 import { registerRuntimeAssuranceRoutes } from "./runtime-assurance/routes.js";
 import { registerAdminRoutes } from "./admins/routes.js";
 import { registerOperatingBillRoutes } from "./operating-bills/routes.js";
+import { registerOperatingBillAccountRoutes } from "./operating-bills/account-routes.js";
 import { registerDeploymentLogRoutes } from "./deployment-logs/routes.js";
 import { registerEmployeeModelRuleRoutes } from "./employee-model-rules/routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
@@ -91,6 +93,7 @@ declare module "fastify" {
     alertEventRepo: AlertEventRepository;
     runtimeAssuranceRepo: RuntimeAssuranceRepository;
     operatingBillRepo: OperatingBillRepository;
+    operatingBillAccountRepo: OperatingBillAccountRepository;
     deploymentLogRepo: DeploymentLogRepository;
     employeeModelRuleRepo: EmployeeModelRuleRepository;
     principalAccessConfigRepo: PrincipalAccessConfigRepository;
@@ -190,6 +193,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("alertEventRepo", new AlertEventRepository(db, alertThresholdsFromEnv(process.env)));
   app.decorate("runtimeAssuranceRepo", new RuntimeAssuranceRepository(db));
   app.decorate("operatingBillRepo", new OperatingBillRepository(db));
+  app.decorate("operatingBillAccountRepo", new OperatingBillAccountRepository(db));
   app.decorate("deploymentLogRepo", new DeploymentLogRepository(db));
   app.decorate("employeeModelRuleRepo", new EmployeeModelRuleRepository(db));
   app.decorate("principalAccessConfigRepo", new PrincipalAccessConfigRepository(db));
@@ -245,6 +249,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerAlertRoutes(child);
     registerRuntimeAssuranceRoutes(child);
     registerOperatingBillRoutes(child);
+    registerOperatingBillAccountRoutes(child);
     registerDeploymentLogRoutes(child);
     registerEmployeeModelRuleRoutes(child);
     registerPrincipalAccessConfigRoutes(child);

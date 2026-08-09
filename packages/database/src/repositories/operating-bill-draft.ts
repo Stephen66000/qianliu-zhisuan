@@ -10,6 +10,16 @@ import type {
   OperatingBillSubjectRow,
   OperatingBillValueItemView,
 } from "./operating-bill-types.js";
+import {
+  addKnownCost,
+  addSubjectApiCost,
+  knownAmount,
+  nullableAmount,
+  nullableTotal,
+  resourceCost,
+  sumKnownCosts,
+  unknownApiCostGaps,
+} from "./operating-bill-cost-quality.js";
 
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
 
@@ -54,7 +64,7 @@ interface UsageFactRow {
   cache_tokens: string;
   reasoning_tokens: string;
   deducted_quota: string;
-  api_cost: string;
+  api_cost: string | null;
   active_days: string;
   request_count: string;
   ledger_line_count: string;
@@ -173,7 +183,10 @@ export async function buildOperatingBillDraft(
                SUM(ll.raw_cache_tokens)::text AS cache_tokens,
                SUM(ll.raw_reasoning_tokens)::text AS reasoning_tokens,
                COALESCE(SUM(ll.deducted_quota), 0)::text AS deducted_quota,
-               COALESCE(SUM(CASE WHEN ll.resource_mode = 'API' THEN ll.api_cost ELSE 0 END), 0)::text AS api_cost,
+               (CASE WHEN COUNT(*) FILTER (WHERE ll.resource_mode = 'API')
+                           = COUNT(ll.api_cost) FILTER (WHERE ll.resource_mode = 'API')
+                     THEN COALESCE(SUM(ll.api_cost) FILTER (WHERE ll.resource_mode = 'API'), 0)
+                     ELSE NULL END)::text AS api_cost,
                COUNT(DISTINCT (ll.created_at AT TIME ZONE 'Asia/Shanghai')::date)::text AS active_days,
                COUNT(DISTINCT ll.ai_request_id)::text AS request_count,
                COUNT(*)::text AS ledger_line_count
@@ -195,7 +208,10 @@ export async function buildOperatingBillDraft(
                SUM(ll.raw_cache_tokens)::text AS cache_tokens,
                SUM(ll.raw_reasoning_tokens)::text AS reasoning_tokens,
                COALESCE(SUM(ll.deducted_quota), 0)::text AS deducted_quota,
-               COALESCE(SUM(CASE WHEN ll.resource_mode = 'API' THEN ll.api_cost ELSE 0 END), 0)::text AS api_cost,
+               (CASE WHEN COUNT(*) FILTER (WHERE ll.resource_mode = 'API')
+                           = COUNT(ll.api_cost) FILTER (WHERE ll.resource_mode = 'API')
+                     THEN COALESCE(SUM(ll.api_cost) FILTER (WHERE ll.resource_mode = 'API'), 0)
+                     ELSE NULL END)::text AS api_cost,
                COUNT(DISTINCT (ll.created_at AT TIME ZONE 'Asia/Shanghai')::date)::text AS active_days,
                COUNT(DISTINCT ll.ai_request_id)::text AS request_count,
                COUNT(*)::text AS ledger_line_count
@@ -259,22 +275,22 @@ export async function buildOperatingBillDraft(
       if (gap) gaps.push(gap);
     }
 
-    const apiCostByResource = new Map<string, Decimal>();
+    const apiCostByResource = new Map<string, Decimal | null>();
     const deductedByResource = new Map<string, Decimal>();
     for (const row of sourceUsage) {
-      apiCostByResource.set(row.provider_resource_id,
-        (apiCostByResource.get(row.provider_resource_id) ?? new MoneyDecimal(0)).plus(row.api_cost));
+      addKnownCost(apiCostByResource, row.provider_resource_id, row.api_cost);
       deductedByResource.set(row.provider_resource_id,
         (deductedByResource.get(row.provider_resource_id) ?? new MoneyDecimal(0)).plus(row.deducted_quota));
     }
-    const apiCost = [...apiCostByResource.values()].reduce((sum, value) => sum.plus(value), new MoneyDecimal(0));
+    const apiCost = sumKnownCosts(apiCostByResource);
+    gaps.push(...unknownApiCostGaps(apiCostByResource, resourceById));
     const packageResources = resources.filter((row) => isEffectivePackage(row, start, end));
     const packageCost = packageResources.reduce((sum, row) => sum.plus(row.package_cost!), new MoneyDecimal(0));
 
     const subjectMap = new Map<string, {
       base: OperatingBillSubjectRow;
       input: Decimal; output: Decimal; cache: Decimal; reasoning: Decimal;
-      deducted: Decimal; api: Decimal; packageAllocated: Decimal;
+      deducted: Decimal; api: Decimal; apiKnown: boolean; packageAllocated: Decimal;
     }>();
     for (const row of usage) {
       const current = subjectMap.get(row.principal_id) ?? {
@@ -287,6 +303,7 @@ export async function buildOperatingBillDraft(
         },
         input: new MoneyDecimal(0), output: new MoneyDecimal(0), cache: new MoneyDecimal(0),
         reasoning: new MoneyDecimal(0), deducted: new MoneyDecimal(0), api: new MoneyDecimal(0),
+        apiKnown: true,
         packageAllocated: new MoneyDecimal(0),
       };
       if (!current.base.providers.includes(row.provider_name)) current.base.providers.push(row.provider_name);
@@ -295,7 +312,7 @@ export async function buildOperatingBillDraft(
       current.cache = current.cache.plus(row.cache_tokens);
       current.reasoning = current.reasoning.plus(row.reasoning_tokens);
       current.deducted = current.deducted.plus(row.deducted_quota);
-      current.api = current.api.plus(row.api_cost);
+      addSubjectApiCost(current, row.api_cost);
       const resource = resourceById.get(row.provider_resource_id);
       if (resource?.mode === "CODING_PLAN" && resource.package_cost !== null) {
         const totalDeducted = deductedByResource.get(row.provider_resource_id) ?? new MoneyDecimal(0);
@@ -311,17 +328,20 @@ export async function buildOperatingBillDraft(
       const used = deductedByResource.get(row.resource_id) ?? new MoneyDecimal(0);
       return used.gt(0) ? sum : sum.plus(row.package_cost!);
     }, new MoneyDecimal(0));
-    const subjects = [...subjectMap.values()].map((row) => ({
-      ...row.base,
-      activeDays: Number(statsByPrincipal.get(row.base.principalId)?.active_days ?? 0),
-      requestCount: Number(statsByPrincipal.get(row.base.principalId)?.request_count ?? 0),
-      providers: [...row.base.providers].sort(),
-      inputTokens: integerText(row.input), outputTokens: integerText(row.output),
-      cacheTokens: integerText(row.cache), reasoningTokens: integerText(row.reasoning),
-      totalTokens: integerText(row.input.plus(row.output)), deductedQuota: integerText(row.deducted),
-      apiCost: amount(row.api), packageAllocatedCost: amount(row.packageAllocated),
-      totalAllocatedCost: amount(row.api.plus(row.packageAllocated)),
-    })).sort((left, right) => decimal(right.totalAllocatedCost).cmp(left.totalAllocatedCost));
+    const subjects = [...subjectMap.values()].map((row) => {
+      const subjectApiCost = knownAmount(row.api, row.apiKnown);
+      return {
+        ...row.base,
+        activeDays: Number(statsByPrincipal.get(row.base.principalId)?.active_days ?? 0),
+        requestCount: Number(statsByPrincipal.get(row.base.principalId)?.request_count ?? 0),
+        providers: [...row.base.providers].sort(),
+        inputTokens: integerText(row.input), outputTokens: integerText(row.output),
+        cacheTokens: integerText(row.cache), reasoningTokens: integerText(row.reasoning),
+        totalTokens: integerText(row.input.plus(row.output)), deductedQuota: integerText(row.deducted),
+        apiCost: subjectApiCost, packageAllocatedCost: amount(row.packageAllocated),
+        totalAllocatedCost: nullableTotal(row.apiKnown ? row.api : null, row.packageAllocated),
+      };
+    }).sort((left, right) => decimal(right.totalAllocatedCost).cmp(decimal(left.totalAllocatedCost)));
 
     if (unallocatedCost.gt(0)) {
       gaps.push({ code: "UNALLOCATED_PACKAGE_COST", message: `仍有 ${amount(unallocatedCost)} 元套餐费用没有实际使用归属` });
@@ -338,7 +358,7 @@ export async function buildOperatingBillDraft(
     const planUtilization = packageCost.gt(0) ? utilizationWeightedCost.div(packageCost).mul(100) : null;
 
     const providers: OperatingBillProviderRow[] = resources.map((row) => {
-      const resourceApiCost = apiCostByResource.get(row.resource_id) ?? new MoneyDecimal(0);
+      const resourceApiCost = resourceCost(apiCostByResource, row.resource_id);
       const resourcePackageCost = isEffectivePackage(row, start, end)
         ? decimal(row.package_cost) : new MoneyDecimal(0);
       const totalQuota = decimal(row.total_quota);
@@ -349,8 +369,11 @@ export async function buildOperatingBillDraft(
       return {
         providerResourceId: row.resource_id, providerCode: row.provider_code,
         providerName: row.provider_name, resourceName: row.resource_name, mode: row.mode,
-        currency: row.currency, apiCost: amount(resourceApiCost), packageCost: amount(resourcePackageCost),
-        totalCost: amount(resourceApiCost.plus(resourcePackageCost)), endingBalance: row.current_balance,
+        currency: row.currency,
+        apiCost: nullableAmount(resourceApiCost),
+        packageCost: amount(resourcePackageCost),
+        totalCost: nullableTotal(resourceApiCost, resourcePackageCost),
+        endingBalance: row.current_balance,
         totalQuota: row.total_quota, usedQuota: row.used_quota, remainingQuota: row.remaining_quota,
         quotaUnit: row.quota_unit, utilization,
         activePrincipalCount,
@@ -367,7 +390,8 @@ export async function buildOperatingBillDraft(
       status: "DRAFT", version: period?.current_version ?? 0, generatedAt: new Date().toISOString(),
       closedAt: null, closedBy: null, closeNote: null,
       summary: {
-        totalCost: amount(apiCost.plus(packageCost)), apiCost: amount(apiCost), packageCost: amount(packageCost),
+        totalCost: nullableTotal(apiCost, packageCost),
+        apiCost: nullableAmount(apiCost), packageCost: amount(packageCost),
         endingBalance: endingBalance ? amount(endingBalance) : null,
         endingBalanceCurrency: balanceComplete ? [...currencies][0] ?? null : null,
         planUtilization: planUtilization ? planUtilization.toDecimalPlaces(2).toFixed(2) : null,

@@ -5,6 +5,7 @@ import {
 } from "./employee-model-rule-lifecycle.js";
 
 type Filter = { column: unknown; operator?: unknown; value?: unknown };
+type Expression = { kind: string; values?: unknown[]; value?: unknown };
 
 function requireToken(value: unknown): void {
   if (typeof value === "string" && value.length === 0) throw new Error("empty query token");
@@ -30,6 +31,12 @@ class LifecycleQuery {
     return this;
   }
   where(column: unknown, operator?: unknown, value?: unknown) {
+    if (typeof column === "function") {
+      const expression = column(this.trx.expressionBuilder());
+      this.filters.push({ column: "$expression", value: expression });
+      this.trx.filters.push({ table: this.table, column: "$expression", value: expression });
+      return this;
+    }
     requireToken(column); requireToken(operator); requireToken(value);
     this.filters.push({ column, operator, value });
     this.trx.filters.push({ table: this.table, column, operator, value });
@@ -91,6 +98,30 @@ class LifecycleTransaction {
   readonly conflicts: string[] = [];
   readonly updates: Array<{ table: string; row: unknown; filters: Filter[] }> = [];
   readonly inserts: Array<{ table: string; row: unknown }> = [];
+  readonly expressions: Expression[] = [];
+  expressionBuilder() {
+    const record = (expression: Expression): Expression => {
+      this.expressions.push(expression);
+      return expression;
+    };
+    const builder = Object.assign(
+      (column: unknown, operator: unknown, value: unknown) => {
+        requireToken(column); requireToken(operator); requireToken(value);
+        return record({ kind: "comparison", values: [column, operator, value] });
+      },
+      {
+        and: (values: unknown[]) => record({ kind: "and", values }),
+        or: (values: unknown[]) => record({ kind: "or", values }),
+        exists: (value: unknown) => record({ kind: "exists", value }),
+        ref: (value: unknown) => {
+          requireToken(value);
+          return record({ kind: "ref", value });
+        },
+        selectFrom: (table: string) => this.selectFrom(table),
+      },
+    );
+    return builder;
+  }
   selectFrom(table: string) { requireToken(table); return new LifecycleQuery(this, table); }
   updateTable(table: string) { requireToken(table); return new LifecycleUpdate(this, table); }
   insertInto(table: string) { requireToken(table); return new LifecycleInsert(this, table); }
@@ -139,6 +170,51 @@ describe("POOL-039 employee rule lifecycle mutation contract", () => {
     expect(trx.refs).toContainEqual({
       table: "principal_grant", left: "provider.code", operator: "=", right: "principal_grant.provider",
     });
+    expect(trx.filters).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: "principal_grant", column: "unified_model.status", operator: "=", value: "ACTIVE",
+      }),
+      expect.objectContaining({
+        table: "principal_grant", column: "model_route.enabled", operator: "=", value: true,
+      }),
+      expect.objectContaining({
+        table: "principal_grant", column: "provider_resource.status", operator: "in",
+        value: ["ACTIVE", "DEGRADED"],
+      }),
+      expect.objectContaining({
+        table: "principal_grant", column: "provider.status", operator: "=", value: "ACTIVE",
+      }),
+      expect.objectContaining({
+        table: "billing_rule", column: "billing_rule.enabled", operator: "=", value: true,
+      }),
+      expect.objectContaining({
+        table: "billing_rule", column: "billing_rule.effective_from", operator: "<=", value: expect.any(Date),
+      }),
+    ]));
+    expect(trx.expressions.filter((expression) => expression.kind === "comparison"))
+      .toEqual(expect.arrayContaining([
+        { kind: "comparison", values: ["billing_rule.effective_to", "is", null] },
+        { kind: "comparison", values: ["billing_rule.effective_to", ">", expect.any(Date)] },
+        { kind: "comparison", values: ["billing_rule.provider_resource_id", "is", null] },
+        { kind: "comparison", values: ["billing_rule.provider_resource_id", "=", expect.objectContaining({
+          kind: "ref", value: "model_route.provider_resource_id",
+        })] },
+        { kind: "comparison", values: ["billing_rule.upstream_model", "is", null] },
+        { kind: "comparison", values: ["billing_rule.upstream_model", "=", expect.objectContaining({
+          kind: "ref", value: "model_route.upstream_model",
+        })] },
+        { kind: "comparison", values: ["provider_resource.mode", "=", "API"] },
+        { kind: "comparison", values: ["billing_rule.rule_type", "=", "API_PRICE"] },
+        { kind: "comparison", values: ["billing_rule.cache_hit_price", "is not", null] },
+        { kind: "comparison", values: ["billing_rule.cache_miss_price", "is not", null] },
+        { kind: "comparison", values: ["billing_rule.output_price", "is not", null] },
+        { kind: "comparison", values: ["provider_resource.mode", "=", "CODING_PLAN"] },
+        { kind: "comparison", values: ["billing_rule.rule_type", "in", ["TIME_WINDOW", "MODEL_TIER"]] },
+        { kind: "comparison", values: ["billing_rule.multiplier", "is not", null] },
+      ]));
+    expect(trx.expressions.filter((expression) => expression.kind === "or")).toHaveLength(5);
+    expect(trx.expressions.filter((expression) => expression.kind === "and")).toHaveLength(2);
+    expect(trx.expressions.filter((expression) => expression.kind === "exists")).toHaveLength(1);
   });
 
   it("does not update a missing ACTIVE Key", async () => {

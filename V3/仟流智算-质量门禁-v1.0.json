@@ -6,7 +6,7 @@
     "pnpm": "11.11.0"
   },
   "coverage": {
-    "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度、员工模型规则授权、厂商分层超时与上游切换）",
+    "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度、员工模型规则授权、厂商分层超时与上游切换、经营账户聚合、模型下钻与结算屏障）",
     "statements": 95,
     "branches": 85,
     "functions": 90,
@@ -56,11 +56,26 @@
         "scope": "pool030-provider-timeout",
         "report": "packages/provider-adapters/coverage/pool030-provider/coverage-summary.json",
         "minimum": { "statements": 100, "branches": 100, "functions": 100, "lines": 100 }
+      },
+      {
+        "scope": "pool043-node-operating-bill-accounts",
+        "report": "coverage/pool043-node/coverage-summary.json",
+        "minimum": { "statements": 95, "branches": 85, "functions": 90, "lines": 95 }
+      },
+      {
+        "scope": "pool043-gateway-model-identity",
+        "report": "apps/gateway/coverage/pool043-gateway/coverage-summary.json",
+        "minimum": { "statements": 95, "branches": 85, "functions": 90, "lines": 95 }
+      },
+      {
+        "scope": "pool043-web-operating-bill-accounts",
+        "report": "apps/web/coverage/pool043-web/coverage-summary.json",
+        "minimum": { "statements": 95, "branches": 85, "functions": 90, "lines": 95 }
       }
     ]
   },
   "mutation": {
-    "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理 + packages/database 员工模型授权集合规则 + Gateway/Provider Adapter 分层超时与切换策略",
+    "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理 + packages/database 员工模型授权集合规则、经营账户聚合与结算屏障 + Gateway/Provider Adapter 分层超时与切换策略",
     "break": 70,
     "target": 80,
     "survivor_dispositions": [
@@ -88,6 +103,70 @@
         "file": "src/routing-policy.ts", "max_survived": 13, "max_no_coverage": 0,
         "owner": "仟流智算路由模块负责人", "decision": "TEST_DEBT", "reason": "零候选、零权重和评分因子细节断言仍不足",
         "action": "补齐排除集、空候选、零权重和因子名称/数值断言，禁止数量增长", "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/operating-bill-account-aggregate.ts",
+        "max_survived": 3, "max_no_coverage": 0,
+        "owner": "仟流智算经营账单模块负责人", "decision": "EQUIVALENT",
+        "reason": "同时间最大值重复赋值不改变结果；非空事实集合保证最近时间非空；整月 Token 为 null 时 decimal 归零后仍由零分母分支返回 null，三个变异均无可观察语义差异",
+        "action": "锁定三个等价变异数量；累计器不变量或 null 数值归一语义变化时立即重审并补测", "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/gateway-ledger-guarded-writes.ts",
+        "max_survived": 0, "max_no_coverage": 0,
+        "owner": "仟流智算网关账本模块负责人", "decision": "EQUIVALENT",
+        "reason": "兼容写入保护层的身份、终态、缺失 request/attempt、幂等与数据库冲突分支已由实库测试全部杀死变异，无剩余变异债务",
+        "action": "锁定零 survivor/零 no-coverage；兼容入口或锁序变化时必须重新执行 POOL-043 变异与实库并发测试", "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/gateway-ledger-settlement.ts",
+        "max_survived": 14, "max_no_coverage": 67,
+        "owner": "仟流智算网关账本模块负责人", "decision": "CROSS_PACKAGE_INTEGRATION",
+        "reason": "拆分纯断言后，package-local Stryker 无法把 Gateway 真实 PostgreSQL pipeline 测试归因到事务编排中的 quota／lease 分支；这些分支已由 POOL-043 Gateway 实库测试和 Codex CLI E2E 覆盖。其余 survivor 来自唯一约束、request 行锁、SELECT EXISTS 固定返回形态及集合等价变换",
+        "action": "锁定本次 14 survived／67 no-coverage，不允许增长；结算锁、quota、lease 或跨 package 变异归因能力变化时重新执行并收紧基线", "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/gateway-ledger-settlement-assertions.ts",
+        "max_survived": 4, "max_no_coverage": 0,
+        "owner": "仟流智算网关账本模块负责人", "decision": "EQUIVALENT",
+        "reason": "actual 已确定为非 null bigint 后，expected 的 null／undefined 前置判断与最终 bigint 严格相等结果等价；其余 293 个变异均被杀死或超时",
+        "action": "锁定 4 个等价 survivor 与零 no-coverage；可选 bigint 归一语义变化时立即重审", "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/operating-bill-write-barrier.ts",
+        "max_survived": 1, "max_no_coverage": 1,
+        "owner": "仟流智算经营账单模块负责人", "decision": "EQUIVALENT",
+        "reason": "SELECT EXISTS 必定返回一行，故 rows[0] 的 optional chaining 与空结果默认值不可观察；真实行锁竞争与屏障结果均已覆盖",
+        "action": "锁定 1 个等价 survivor 与 1 个同源 no-coverage；SQL 查询形态变化时立即重审", "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/operating-bill-cost-quality.ts",
+        "max_survived": 0, "max_no_coverage": 0,
+        "owner": "仟流智算经营账单模块负责人", "decision": "EQUIVALENT",
+        "reason": "未知 API 成本、套餐成本、null/零值与金额精度分支已全部杀死变异，无剩余变异债务",
+        "action": "锁定零 survivor/零 no-coverage；成本口径变化时重新执行 POOL-043 变异测试", "due_on": "2026-09-01"
+      },
+      {
+        "report": "apps/gateway/reports/mutation/pool043.json",
+        "file": "src/auth/current-model-authorization.ts",
+        "max_survived": 1, "max_no_coverage": 2,
+        "owner": "仟流智算 Gateway 负责人", "decision": "CROSS_PACKAGE_INTEGRATION",
+        "reason": "package-local 精准变异未构造多时窗行，一个 null 归一表达式及两个多时窗映射变异未由 fake query 归因；真实 PostgreSQL W05 与 POOL-043 settlement 已覆盖生效边界、星期时窗及 Adapter 前规则冻结",
+        "action": "锁定 1 survived／2 no-coverage，不允许增长；计费规则行映射或时窗合同变化时补充 fake row 并收紧基线", "due_on": "2026-09-01"
+      },
+      {
+        "report": "apps/gateway/reports/mutation/pool043.json",
+        "file": "src/pipeline/real-pipeline.ts",
+        "max_survived": 0, "max_no_coverage": 0,
+        "owner": "仟流智算 Gateway 负责人", "decision": "EQUIVALENT",
+        "reason": "决策审计写入失败终态化与结算后补充证据重试隔离的 6 个精准变异全部被真实 PostgreSQL W16 故障注入用例杀死",
+        "action": "锁定零 survivor／零 no-coverage；决策写入、核心结算顺序或补充证据隔离变化时重新执行精准变异", "due_on": "2026-09-01"
       }
     ]
   },

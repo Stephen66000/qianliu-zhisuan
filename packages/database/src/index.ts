@@ -104,7 +104,15 @@ export {
   type CreateAttemptInput,
   type UsageInput,
   type LedgerLineInput,
+  type CreateUsageLedgerLineInput,
+  type UsageLedgerLineResult,
+  type CreateLedgerTransactionInput,
+  type FinalizeLedgerSettlementInput,
 } from "./repositories/gateway-ledger-repository.js";
+export {
+  GatewayLedgerSettlementConflictError,
+  summarizeLedgerUsageQuality,
+} from "./repositories/gateway-ledger-settlement.js";
 export {
   ResourcePoolRepository,
   type ResourceStatusEvent,
@@ -150,6 +158,7 @@ export {
   OperatingBillNotClosedError,
   OperatingBillReferenceError,
   OperatingBillCloseNoteRequiredError,
+  OperatingBillConcurrentModificationError,
   OperatingBillIncompleteError,
   operatingBillMonthRange,
   type OperatingBillView,
@@ -159,6 +168,18 @@ export {
   type OperatingBillGap,
   type OperatingBillValueItemView,
 } from "./repositories/operating-bill-repository.js";
+export {
+  OperatingBillAccountRepository,
+  OperatingBillAccountReferenceError,
+  OperatingBillAccountEvidenceUnavailableError,
+  type OperatingBillAccountQuery,
+  type OperatingBillRequestQuery,
+  type OperatingBillUsageQuality,
+  type OperatingBillAccountTotals,
+  type OperatingBillAccountListView,
+  type OperatingBillEmployeeDetailView,
+  type OperatingBillRequestListView,
+} from "./repositories/operating-bill-account-repository.js";
 export {
   AdminWriteRepository,
   AdminRecoverNotFoundError,

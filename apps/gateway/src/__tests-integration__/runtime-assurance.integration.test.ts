@@ -8,6 +8,7 @@ import {
 import { generateApiKey, digestApiKey, apiKeyPrefix, type UpstreamCaller } from "@qianliu/provider-adapters";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { buildGateway } from "../server.js";
+import { seedMissingBillingRules } from "./billing-rule-fixture.js";
 import { createRealPipeline } from "../pipeline/real-pipeline.js";
 
 let pg: PostgresTestInstance;
@@ -46,6 +47,7 @@ beforeAll(async () => {
     enterprise_id: enterpriseId, unified_model_id: model.id,
     provider_resource_id: resource.id, upstream_model: "glm-5.2",
   }).execute();
+  await seedMissingBillingRules(db, enterpriseId);
   const grant = await db.insertInto("principal_grant").values({
     enterprise_id: enterpriseId, principal_id: principalId, provider: "zhipu",
     model_alias: "qianliu-glm", quota_value: 1_000_000n,

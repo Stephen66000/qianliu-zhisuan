@@ -421,7 +421,8 @@ export interface AiRequestTable {
   /** 业务幂等请求的规范化请求体 SHA-256；绝不保存请求正文。 */
   request_fingerprint: string | null;
   protocol: string;
-  unified_model: string;
+  /** POOL-043：统计稳定身份；unified_model 仍保留请求发生时 alias。 */
+  unified_model: string; unified_model_id: Generated<string | null>;
   stream: Generated<boolean>;
   status: Generated<string>;
   client_id: string | null;

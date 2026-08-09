@@ -7,7 +7,7 @@
   "testRunner": "vitest",
   "vitest": { "configFile": "vitest.pool039.mutation.config.ts" },
   "coverageAnalysis": "perTest",
-  "mutate": ["src/pipeline/real-pipeline.ts:1235:9-1235:85"],
+  "mutate": ["src/auth/current-model-authorization.ts:338:9-338:85"],
   "thresholds": { "high": 100, "low": 100, "break": 100 },
   "timeoutMS": 120000,
   "concurrency": 1,

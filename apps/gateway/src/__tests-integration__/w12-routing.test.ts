@@ -31,6 +31,7 @@ import {
   type UpstreamCaller,
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
+import { seedMissingBillingRules } from "./billing-rule-fixture.js";
 import { createRealPipeline, type RouteCandidateRow } from "../pipeline/real-pipeline.js";
 
 let pg: PostgresTestInstance;
@@ -150,6 +151,7 @@ beforeAll(async () => {
   };
   resA = await mkRes("kimi-A");
   resB = await mkRes("kimi-B");
+  await seedMissingBillingRules(db, ENT_ID);
 
   // W14：CODING_PLAN 模式额度门禁需要 principal_grant + quota_counter（F-01 接入后必填）。
   // 两资源同 provider(kimi)/alias(qianliu-kimi-k3)，共享一个 grant；quota_value 充足覆盖多用例。
@@ -292,7 +294,7 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
     }
   });
 
-  it("Kimi 首字节超时不盲目调用第二资源，且不产生 Usage 或账本明细", async () => {
+  it("Kimi 首字节超时不盲目调用第二资源，并冻结 UNKNOWN 结算证据", async () => {
     let upstreamCalls = 0;
     const caller: UpstreamCaller = async () => {
       upstreamCalls += 1;
@@ -320,8 +322,21 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
         failure_layer: "FIRST_BYTE_TIMEOUT",
         switch_reason: null,
       });
-      expect(await ledgerRepo.listUsageEvents(requestId)).toHaveLength(0);
-      expect(await ledgerRepo.listLedgerLines(requestId)).toHaveLength(0);
+      expect(await ledgerRepo.listUsageEvents(requestId)).toEqual([
+        expect.objectContaining({
+          input_tokens: "0",
+          output_tokens: "0",
+          usage_quality: "UNKNOWN",
+        }),
+      ]);
+      expect(await ledgerRepo.listLedgerLines(requestId)).toEqual([
+        expect.objectContaining({
+          raw_input_tokens: "0",
+          raw_output_tokens: "0",
+          api_cost: null,
+          usage_quality: "UNKNOWN",
+        }),
+      ]);
     } finally {
       await poolRepo.recordSuccess(resA);
       await app.close();

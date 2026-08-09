@@ -36,6 +36,7 @@ import {
   type UpstreamCaller,
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
+import { seedMissingBillingRules } from "./billing-rule-fixture.js";
 import { createRealPipeline, type RouteCandidateRow } from "../pipeline/real-pipeline.js";
 
 let pg: PostgresTestInstance;
@@ -106,6 +107,7 @@ async function buildFixture(opts: {
     enterprise_id: ENT_ID, unified_model_id: umId,
     provider_resource_id: resource.id, upstream_model: upstreamModel, priority: 100, weight: 1,
   }).execute();
+  await seedMissingBillingRules(db, ENT_ID);
 
   const key = generateApiKey();
   await db.insertInto("principal_key").values({
@@ -664,6 +666,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       enterprise_id: ENT_ID, unified_model_id: kimiUmId,
       provider_resource_id: resB.id, upstream_model: "kimi-k3", priority: 200, weight: 1,
     }).execute();
+    await seedMissingBillingRules(db, ENT_ID);
     fx.ownResourceIds.add(resB.id); // 让 listCandidates 可见 B（failover 目标）
 
     try {
@@ -686,12 +689,19 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect(resources.find((resource) => resource.id === fx.resourceId)?.status).toBe("RATE_LIMITED");
       expect(resources.find((resource) => resource.id === resB.id)?.status).toBe("ACTIVE");
 
-      // F-01 核心：首 Attempt 429（zeroUsage 无明细）→ releaseQuota 释放；
-      // 第二 Attempt 成功 → settleQuota 结算。used = 仅成功 Attempt 的 deducted_quota
+      // F-01 核心：首 Attempt 429 保留 UNKNOWN/零用量审计行并 releaseQuota；
+      // 第二 Attempt 成功 → settleQuota 结算。used = 仅成功 Attempt 的 deducted_quota。
       const lines = await ledgerRepo.listLedgerLines(requestId);
-      expect(lines).toHaveLength(1); // 429 无 usage
+      expect(lines).toHaveLength(2);
+      expect(lines[0]).toMatchObject({
+        usage_quality: "UNKNOWN",
+        deducted_quota: null,
+        api_cost: null,
+      });
       const c = await counterValue(fx.grantId);
-      expect(c.used).toBe(BigInt(lines[0]!.deducted_quota ?? 0n)); // 仅成功 Attempt 回写
+      expect(c.used).toBe(
+        lines.reduce((sum, line) => sum + BigInt(line.deducted_quota ?? 0n), 0n),
+      );
     } finally {
       await fx.close();
     }
@@ -735,8 +745,29 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect(Number(activeLeases.count)).toBe(0);
 
       const requestId = res.headers["x-request-id"] as string;
-      expect(await ledgerRepo.listLedgerLines(requestId)).toHaveLength(0);
-      expect(await ledgerRepo.getLedgerTransaction(requestId)).toBeUndefined();
+      const lines = await ledgerRepo.listLedgerLines(requestId);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toMatchObject({
+        raw_input_tokens: "0",
+        raw_output_tokens: "0",
+        raw_cache_tokens: "0",
+        raw_reasoning_tokens: "0",
+        deducted_quota: null,
+        api_cost: null,
+        usage_quality: "UNKNOWN",
+        billing_rule_id: null,
+        rule_version: null,
+      });
+      expect(await ledgerRepo.getLedgerTransaction(requestId)).toMatchObject({
+        attempt_count: 1,
+        total_input_tokens: "0",
+        total_output_tokens: "0",
+        total_cache_tokens: "0",
+        total_reasoning_tokens: "0",
+        total_deducted_quota: "0",
+        total_api_cost: "0.00000000",
+        usage_quality: "UNKNOWN",
+      });
       expect((await ledgerRepo.getRequest(requestId))?.status).toBe("FAILED");
     } finally {
       await fx.close();

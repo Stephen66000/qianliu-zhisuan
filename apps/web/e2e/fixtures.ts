@@ -26,6 +26,8 @@ export const E2E_IDS = {
   principal: "00000000-0000-4000-8000-000000000020",
   request: "00000000-0000-4000-8000-000000000030",
   streamRequest: "00000000-0000-4000-8000-000000000050",
+  pool043Project: "00000000-0000-4000-8000-000000000140",
+  pool043FlashRequest: "00000000-0000-4000-8000-000000000150",
 } as const;
 
 export async function apiGet<T>(page: Page, path: string): Promise<T> {

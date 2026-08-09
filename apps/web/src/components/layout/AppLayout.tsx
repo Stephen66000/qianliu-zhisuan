@@ -18,11 +18,11 @@ export function AppLayout({ admin }: AppLayoutProps) {
   const theme = useTheme();
 
   return (
-    <div className="flex min-h-screen bg-ql-canvas text-ql-fg">
+    <div className="flex min-h-screen flex-col bg-ql-canvas text-ql-fg md:flex-row">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar admin={admin} theme={theme} />
-        <main className="flex-1 px-8 py-6">
+        <main className="flex-1 px-4 py-4 sm:px-6 md:px-8 md:py-6">
           <Outlet />
         </main>
       </div>

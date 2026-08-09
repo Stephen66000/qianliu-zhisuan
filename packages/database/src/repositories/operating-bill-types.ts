@@ -5,6 +5,7 @@ import type {
   OperatingBillValueItemTable,
   OperatingBillVersionTable,
 } from "../kysely.js";
+import type { OperatingBillAccountFact } from "./operating-bill-account-aggregate.js";
 
 export type OperatingBillPeriod = Selectable<OperatingBillPeriodTable>;
 export type OperatingBillValueItem = Selectable<OperatingBillValueItemTable>;
@@ -24,9 +25,9 @@ export interface OperatingBillProviderRow {
   resourceName: string;
   mode: "API" | "CODING_PLAN";
   currency: string | null;
-  apiCost: string;
+  apiCost: string | null;
   packageCost: string;
-  totalCost: string;
+  totalCost: string | null;
   endingBalance: string | null;
   totalQuota: string | null;
   usedQuota: string | null;
@@ -54,9 +55,9 @@ export interface OperatingBillSubjectRow {
   reasoningTokens: string;
   totalTokens: string;
   deductedQuota: string;
-  apiCost: string;
+  apiCost: string | null;
   packageAllocatedCost: string;
-  totalAllocatedCost: string;
+  totalAllocatedCost: string | null;
   activeDays: number;
   requestCount: number;
 }
@@ -79,8 +80,8 @@ export interface OperatingBillSnapshot {
   closedBy: string | null;
   closeNote: string | null;
   summary: {
-    totalCost: string;
-    apiCost: string;
+    totalCost: string | null;
+    apiCost: string | null;
     packageCost: string;
     endingBalance: string | null;
     endingBalanceCurrency: string | null;
@@ -103,6 +104,8 @@ export interface OperatingBillSnapshot {
       ruleVersion: string | null;
       billingRuleSnapshot: Record<string, unknown> | null;
     }>;
+    /** POOL-043：结账时冻结到请求/provider/model 粒度，供独立账户页稳定下钻。 */
+    accountFacts?: Array<Omit<OperatingBillAccountFact, "usedAt"> & { usedAt: string }>;
   };
 }
 

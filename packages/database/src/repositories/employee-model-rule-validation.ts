@@ -164,7 +164,7 @@ export async function validateEmployeeModelRule(
     .select(["model_route.unified_model_id", "model_route.provider_resource_id", "model_route.upstream_model",
       "model_route.enabled", "unified_model.status as model_status", "unified_model.display_name",
       "provider_resource.name as resource_name", "provider_resource.status as resource_status",
-      "provider.status as provider_status"])
+      "provider_resource.mode as resource_mode", "provider.status as provider_status"])
     .where("model_route.enterprise_id", "=", version.enterprise_id)
     .$if(version.model_scope === "SELECTED", (qb) => qb.where((eb) => eb.or(version.model_targets.map((target) => eb.and([
       eb("model_route.unified_model_id", "=", target.unified_model_id),
@@ -200,6 +200,22 @@ export async function validateEmployeeModelRule(
       .where((eb) => eb.or([
         eb("upstream_model", "=", row.upstream_model),
         eb("upstream_model", "is", null),
+      ]))
+      .where((eb) => eb.or([
+        eb.and([
+          eb(eb.val(row.resource_mode), "=", "API"),
+          eb("rule_type", "=", "API_PRICE"),
+          eb.or([
+            eb("cache_hit_price", "is not", null),
+            eb("cache_miss_price", "is not", null),
+            eb("output_price", "is not", null),
+          ]),
+        ]),
+        eb.and([
+          eb(eb.val(row.resource_mode), "=", "CODING_PLAN"),
+          eb("rule_type", "in", ["TIME_WINDOW", "MODEL_TIER"]),
+          eb("multiplier", "is not", null),
+        ]),
       ])).executeTakeFirst();
     if (selected && !billing) issues.push({ code: "BILLING_RULE_UNAVAILABLE", ...target, message: `${row.display_name} 缺少授权生效时点可用的计价或扣减规则` });
     if (row.model_status === "ACTIVE" && row.enabled && ["ACTIVE", "DEGRADED"].includes(row.resource_status)

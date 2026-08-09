@@ -87,6 +87,17 @@ try {
     provider_resource_id: resource.id,
     upstream_model: "deepseek-chat",
   }).execute();
+  await db.insertInto("billing_rule").values({
+    enterprise_id: enterpriseId,
+    provider_resource_id: resource.id,
+    upstream_model: "deepseek-chat",
+    rule_type: "API_PRICE",
+    rule_version: "codex-e2e-api-price-v1",
+    effective_from: new Date(0),
+    cache_hit_price: "0.000001",
+    cache_miss_price: "0.000001",
+    output_price: "0.000001",
+  }).execute();
   await db.insertInto("principal_grant").values({
     enterprise_id: enterpriseId,
     principal_id: principalId,

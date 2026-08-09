@@ -6,6 +6,7 @@ import {
   OperatingBillAlreadyClosedError,
   OperatingBillClosedError,
   OperatingBillCloseNoteRequiredError,
+  OperatingBillConcurrentModificationError,
   OperatingBillIncompleteError,
   OperatingBillNotClosedError,
   OperatingBillReferenceError,
@@ -73,6 +74,9 @@ function handleOperatingBillError(error: unknown, reply: FastifyReply) {
   if (error instanceof OperatingBillCloseNoteRequiredError) {
     return reply.code(400).send({ error: "close_note_required", message: "带缺口结账必须填写说明" });
   }
+  if (error instanceof OperatingBillConcurrentModificationError) return reply.code(409).send({
+    error: "bill_concurrent_modification", message: "账单正在被并发修改，请稍后重试结账", retryable: true,
+  });
   if (error instanceof OperatingBillClosedError || error instanceof OperatingBillAlreadyClosedError) {
     return reply.code(409).send({ error: "bill_closed", message: "账期已结账，重开后才能修改" });
   }

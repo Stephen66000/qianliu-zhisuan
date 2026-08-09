@@ -1,10 +1,8 @@
-import { BadgeCheck, CalendarDays, FileLock2, Gauge, LayoutDashboard, Search, UsersRound } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { Navigate, useSearchParams } from "react-router-dom";
 
 import {
   type OperatingBill,
-  useAssignOperatingBillProject,
   useCloseOperatingBill,
   useConfirmOperatingBillValue,
   useCreateOperatingBillValue,
@@ -12,63 +10,42 @@ import {
   useOperatingBill,
   useReopenOperatingBill,
 } from "../api/operating-bills";
-import { usePrincipals } from "../api/hooks";
 import { BillCard, buttonPrimary, buttonSecondary, inputClass, Meter, SectionHeading } from "../components/operating-bill/BillShared";
+import {
+  operatingBillMonth,
+  OperatingBillShell,
+  type OperatingBillSection,
+} from "../components/operating-bill/OperatingBillShell";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { MoneyAmountInput, validateMoneyAmount } from "../components/writes/MoneyAmountInput";
-import { formatCount, formatMoney } from "../lib/format";
+import { formatMoney } from "../lib/format";
 
-const tabs = [
-  { id: "overview", label: "月度总览", icon: LayoutDashboard },
-  { id: "subjects", label: "员工／项目账", icon: UsersRound },
-  { id: "plans", label: "套餐利用分析", icon: Gauge },
-  { id: "value", label: "价值确认", icon: BadgeCheck },
-  { id: "closing", label: "结账管理", icon: FileLock2 },
-] as const;
-type TabId = (typeof tabs)[number]["id"];
-
-function currentMonth(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
+type TabId = Exclude<OperatingBillSection, "employees" | "projects">;
+function isTabId(value: string | null): value is TabId {
+  return value === "overview" || value === "plans" || value === "value" || value === "closing";
 }
-function isTabId(value: string | null): value is TabId { return tabs.some((tab) => tab.id === value); }
-function integer(value: string): string { return formatCount(value); }
 function money(value: string | null): string { return value === null ? "—" : `¥${formatMoney(value)}`; }
-function sumDecimal(values: string[]): string {
-  const scale = 8;
-  const sum = values.reduce((total, value) => {
-    const match = /^(\d+)(?:\.(\d*))?$/.exec(value);
-    if (!match) return total;
-    return total + BigInt(match[1]!) * 10n ** BigInt(scale) + BigInt((match[2] ?? "").padEnd(scale, "0").slice(0, scale));
-  }, 0n);
-  const divisor = 10n ** BigInt(scale);
-  return `${sum / divisor}.${String(sum % divisor).padStart(scale, "0")}`;
-}
 
 export function OperatingBillPage() {
-  const [params, setParams] = useSearchParams();
-  const month = /^\d{4}-\d{2}$/.test(params.get("month") ?? "") ? params.get("month")! : currentMonth();
+  const [params] = useSearchParams();
+  const month = operatingBillMonth(params.get("month"));
   const requestedTab = params.get("tab");
   const activeTab: TabId = isTabId(requestedTab) ? requestedTab : "overview";
   const query = useOperatingBill(month);
   useRedirectOnUnauthorized(query.error);
-  const setParam = (key: string, value: string) => { const next = new URLSearchParams(params); if (key === "tab" && value === "overview") next.delete(key); else next.set(key, value); setParams(next, { replace: true }); };
-
-  return <div className="flex flex-col gap-5">
-    <header className="flex flex-wrap items-start justify-between gap-4">
-      <div><div className="flex items-center gap-2"><h1 className="text-[28px] font-bold leading-9 text-ql-fg">经营账单</h1>{query.data ? <StatusTag tone={query.data.status === "CLOSED" ? "success" : "warning"}>{query.data.status === "CLOSED" ? `已结账 v${query.data.version}` : "待结账"}</StatusTag> : null}</div><p className="mt-1 text-[13px] text-ql-fg-tertiary">回答三个问题：买了什么、谁在用、产生了什么价值</p></div>
-      <label className="flex h-9 items-center gap-2 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px]"><CalendarDays className="h-4 w-4 text-ql-action" /><input aria-label="账单月份" className="bg-transparent outline-none" max={currentMonth()} onChange={(e) => setParam("month", e.target.value)} type="month" value={month} /><span className="text-[11px] text-ql-fg-tertiary">北京时间自然月</span></label>
-    </header>
-    <nav aria-label="经营账单页签" className="overflow-x-auto rounded-xl border border-ql-border-zone bg-ql-surface p-1.5"><div className="flex min-w-max gap-1">{tabs.map(({ id, label, icon: Icon }) => <button aria-selected={activeTab === id} className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-[13px] font-medium ${activeTab === id ? "bg-ql-surface-brand-soft text-ql-action" : "text-ql-fg-secondary hover:bg-ql-surface-subtle"}`} key={id} onClick={() => setParam("tab", id)} role="tab" type="button"><Icon className="h-4 w-4" />{label}</button>)}</div></nav>
+  if (requestedTab === "subjects") {
+    return <Navigate replace to={`/operating-bill/employees?month=${month}`} />;
+  }
+  return <OperatingBillShell active={activeTab} month={month} status={query.data?.status} version={query.data?.version}>
     {query.isLoading ? <LoadingState label="正在汇总月度经营账单…" rows={5} /> : query.error || !query.data ? <ErrorState message={query.error?.message ?? "经营账单加载失败"} onRetry={() => void query.refetch()} /> : <BillTab bill={query.data} tab={activeTab} />}
-  </div>;
+  </OperatingBillShell>;
 }
 
 function BillTab({ bill, tab }: { bill: OperatingBill; tab: TabId }) {
   if (tab === "overview") return <Overview bill={bill} />;
-  if (tab === "subjects") return <Subjects bill={bill} />;
   if (tab === "plans") return <Plans bill={bill} />;
   if (tab === "value") return <Values bill={bill} />;
   return <Closing bill={bill} />;
@@ -115,17 +92,6 @@ function parseSnapshotCsv(text: string): Array<{ provider_resource_id: string; s
     if (!providerResourceId) throw new Error(`CSV 第 ${index + 2} 行缺少资源 ID`);
     return { provider_resource_id: providerResourceId, snapshot: record };
   });
-}
-
-function Subjects({ bill }: { bill: OperatingBill }) {
-  const [type, setType] = useState<"EMPLOYEE" | "PROJECT">("EMPLOYEE"); const [keyword, setKeyword] = useState("");
-  const [requestId, setRequestId] = useState(""); const [projectId, setProjectId] = useState("");
-  const principals = usePrincipals(); const assign = useAssignOperatingBillProject(bill.month);
-  const rows = useMemo(() => bill.subjects.filter((row) => row.principalType === type && `${row.principalName}${row.providers.join("")}`.toLowerCase().includes(keyword.trim().toLowerCase())), [bill.subjects, keyword, type]);
-  const totalTokens = rows.reduce((sum, row) => sum + BigInt(row.totalTokens), 0n);
-  const totalQuota = rows.reduce((sum, row) => sum + BigInt(row.deductedQuota), 0n);
-  const totalCost = sumDecimal(rows.map((row) => row.totalAllocatedCost));
-  return <div className="space-y-4">{type === "PROJECT" && bill.status === "DRAFT" ? <BillCard><SectionHeading title="请求归属项目" description="把员工请求归入项目；未设置的成本继续独立列为“未归属项目”"/><div className="grid gap-3 px-4 pb-4 md:grid-cols-[1fr_1fr_auto]"><input aria-label="待归属请求 ID" className={inputClass} onChange={e => setRequestId(e.target.value)} placeholder="请求 UUID（可从用量账本复制）" value={requestId}/><select aria-label="归属项目" className={inputClass} onChange={e => setProjectId(e.target.value)} value={projectId}><option value="">选择项目</option>{(principals.data?.principals ?? []).filter(p => p.type === "PROJECT" && p.status === "ACTIVE").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select><button className={buttonPrimary} disabled={!requestId || !projectId || assign.isPending} onClick={() => assign.mutate({ ai_request_id: requestId, project_principal_id: projectId, reason: "经营账单项目归属" }, { onSuccess: () => setRequestId("") })}>保存归属</button>{assign.error ? <p className="text-[12px] text-ql-danger md:col-span-3">{assign.error.message}</p> : null}</div></BillCard> : null}<BillCard className="overflow-hidden"><SectionHeading title={type === "EMPLOYEE" ? "员工汇总账" : "项目汇总账"} description="API 按实际成本归集；套餐按使用占比分摊，不改变厂商账单" action={<div className="flex gap-2"><div className="flex rounded-lg border border-ql-border p-1">{(["EMPLOYEE", "PROJECT"] as const).map(v => <button className={`h-7 rounded-md px-3 text-[12px] ${type === v ? "bg-ql-surface-brand-soft text-ql-action" : "text-ql-fg-secondary"}`} key={v} onClick={() => setType(v)}>{v === "EMPLOYEE" ? "按员工" : "按项目"}</button>)}</div><label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-ql-fg-tertiary"/><input aria-label="搜索主体或厂商" className={`${inputClass} w-56 pl-9`} onChange={e => setKeyword(e.target.value)} placeholder="搜索名称或厂商" value={keyword}/></label></div>}/><Table headers={[type === "EMPLOYEE" ? "员工" : "项目", "使用厂商", "Token", "额度扣减", "API 成本", "套餐分摊", "归集成本", "活跃 / 请求", "明细"]}>{rows.map(row => <tr className="border-b border-ql-border-zone" key={row.principalId}><Cell>{row.principalName}</Cell><Cell>{row.providers.join("、") || "—"}</Cell><Num>{integer(row.totalTokens)}</Num><Num>{integer(row.deductedQuota)}</Num><Num>{money(row.apiCost)}</Num><Num>{money(row.packageAllocatedCost)}</Num><Num>{money(row.totalAllocatedCost)}</Num><Cell>{row.activeDays} 天 / {row.requestCount} 次</Cell><Cell>{row.principalId.startsWith("__") ? "—" : <Link className="text-ql-action" to={`/usage?${type === "PROJECT" ? "project_id" : "principal_id"}=${row.principalId}`}>查看请求</Link>}</Cell></tr>)}<tr className="bg-ql-surface-subtle font-medium"><Cell>合计</Cell><Cell>{rows.length} 个主体</Cell><Num>{integer(String(totalTokens))}</Num><Num>{integer(String(totalQuota))}</Num><Cell>—</Cell><Cell>—</Cell><Num>{money(totalCost)}</Num><Cell>—</Cell><Cell>—</Cell></tr></Table></BillCard></div>;
 }
 
 function Plans({ bill }: { bill: OperatingBill }) {

@@ -8,7 +8,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import type { ListModelsResponse } from "@qianliu/contracts";
-import { sql } from "kysely";
+import { listCurrentAuthorizedModels } from "../auth/current-model-authorization.js";
 
 /** preHandler 类型：从 principal-auth 注入。 */
 export type AuthHandler = (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
@@ -18,31 +18,17 @@ export function registerModelsRoute(app: FastifyInstance, db: Kysely<Database>, 
     "/v1/models",
     { preHandler: [auth] },
     async (req): Promise<ListModelsResponse | { models: Array<Record<string, unknown>> }> => {
-    let query = db
-      .selectFrom("unified_model")
-      .select(["alias", "display_name"])
-      .where("enterprise_id", "=", req.principal!.enterpriseId)
-      .where("status", "=", "ACTIVE");
     const allowed = req.principal!.allowedModelIds;
     if (allowed.length === 0) {
       return req.query.client_version ? { models: [] } : { object: "list", data: [] };
     }
-    query = query.where("id", "in", allowed);
     const now = new Date();
-    query = query.where(({ exists, selectFrom }) => exists(
-      selectFrom("principal_grant")
-        .select(sql`1`.as("one"))
-        .whereRef("principal_grant.enterprise_id", "=", "unified_model.enterprise_id")
-        .where("principal_grant.principal_id", "=", req.principal!.principalId)
-        .whereRef("principal_grant.model_alias", "=", "unified_model.alias")
-        .where("principal_grant.status", "=", "ACTIVE")
-        .where("principal_grant.valid_from", "<=", now)
-        .where((grantEb) => grantEb.or([
-          grantEb("principal_grant.valid_until", "is", null),
-          grantEb("principal_grant.valid_until", ">", now),
-        ])),
-    ));
-    const models = await query.execute();
+    const models = await listCurrentAuthorizedModels(db, {
+      enterpriseId: req.principal!.enterpriseId,
+      principalId: req.principal!.principalId,
+      allowedModelIds: allowed,
+      now,
+    });
 
     // 官方 Codex CLI 会带 client_version，并使用 Codex model manifest（{models:[...]}）。
     // 其他 OpenAI-compatible 客户端继续得到标准 {object:"list",data:[...]}。

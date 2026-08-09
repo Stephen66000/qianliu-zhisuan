@@ -24,6 +24,7 @@ import {
   StubUpstream,
 } from "@qianliu/provider-adapters";
 import { buildGateway } from "../server.js";
+import { seedMissingBillingRules } from "./billing-rule-fixture.js";
 import { createRealPipeline } from "../pipeline/real-pipeline.js";
 
 let pg: PostgresTestInstance;
@@ -81,6 +82,7 @@ beforeAll(async () => {
     provider_resource_id: resource.id,
     upstream_model: "glm-5.2",
   }).execute();
+  await seedMissingBillingRules(db, ENT_ID);
 
   // W14：CODING_PLAN 模式额度门禁需要 principal_grant + quota_counter（F-01 接入后必填）。
   // quota_value 充足，覆盖本测试的预占/结算校正。

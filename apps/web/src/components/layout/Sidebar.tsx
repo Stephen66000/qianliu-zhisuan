@@ -36,8 +36,8 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-ql-border bg-ql-surface">
-      <div className="flex h-16 items-center gap-2 border-b border-ql-border px-5">
+    <aside className="flex w-full shrink-0 flex-col border-b border-ql-border bg-ql-surface md:h-screen md:w-64 md:border-b-0 md:border-r">
+      <div className="flex h-12 items-center gap-2 border-b border-ql-border px-4 md:h-16 md:px-5">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden">
           <img
             alt="仟流科技 Logo"
@@ -49,15 +49,15 @@ export function Sidebar() {
           仟流智算
         </span>
       </div>
-      <nav aria-label="主导航" className="flex flex-col gap-1 px-3 py-4">
+      <nav aria-label="主导航" className="flex gap-1 overflow-x-auto px-2 py-2 md:flex-col md:overflow-y-auto md:px-3 md:py-4">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink
             className={({ isActive }) =>
               [
-                "relative flex h-9 items-center gap-2 rounded-lg px-3 text-[14px] leading-5",
+                "relative flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-[14px] leading-5",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action",
                 isActive
-                  ? "bg-ql-surface-brand-soft font-medium text-ql-action before:absolute before:left-[-12px] before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-ql-action"
+                  ? "bg-ql-surface-brand-soft font-medium text-ql-action before:hidden before:absolute before:left-[-12px] before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-ql-action md:before:block"
                   : "text-ql-fg-secondary hover:bg-ql-surface-subtle hover:text-ql-fg",
               ].join(" ")
             }
