@@ -7,7 +7,7 @@ import { Sidebar } from "./Sidebar";
 describe("Sidebar", () => {
   it("展示仟流科技 Logo 和产品名称", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/employee-model-rules"]}>
         <Sidebar />
       </MemoryRouter>,
     );

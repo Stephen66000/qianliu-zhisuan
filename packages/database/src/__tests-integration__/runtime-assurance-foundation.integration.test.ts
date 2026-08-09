@@ -91,6 +91,8 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
       ]);
 
       const before = await schemaFingerprint(db);
+      expect(await migrateDown(db)).toBe("0043_single_owner_rule_history");
+      expect(await migrateDown(db)).toBe("0042_alias_ql_format");
       expect(await migrateDown(db)).toBe("0041_provider_quota_window");
       expect(await migrateDown(db)).toBe("0040_employee_model_rule_pool_quotas");
       expect(await migrateDown(db)).toBe("0039_principal_provider_pool");

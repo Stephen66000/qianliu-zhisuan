@@ -1232,7 +1232,7 @@ async function hasCurrentInvocationAuthorization(
         // 改为：池行（pool_model_alias='*'）或精确型号行（model_alias=alias）都匹配。
         .on((eb) => eb.or([
           eb("principal_grant.pool_model_alias", "=", "*"),
-          eb("principal_grant.model_alias", "=", "unified_model.alias"),
+          eb("principal_grant.model_alias", "=", eb.ref("unified_model.alias")),
         ]))
         .on("principal_grant.provider", "=", providerCode)
         .on("principal_grant.status", "=", "ACTIVE"),

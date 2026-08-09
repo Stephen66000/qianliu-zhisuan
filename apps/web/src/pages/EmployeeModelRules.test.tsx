@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EmployeeModelRulesPage } from "./EmployeeModelRules";
 
 const mutate = vi.fn();
+const hookState = vi.hoisted(() => ({ empty: false, createError: null as Error | null }));
 vi.mock("../api/employee-model-rules", () => ({
   useEmployeeRuleCatalog: () => ({
-    data: {
+    data: hookState.empty ? undefined : {
       principals: [
         { id: "p1", name: "员工 A", department_label: "研发", ready: true, unavailable_reason: null },
         { id: "p2", name: "员工 B", department_label: null, ready: false, unavailable_reason: "员工尚无有效 Key" },
@@ -19,11 +20,15 @@ vi.mock("../api/employee-model-rules", () => ({
     }, isLoading: false, error: null, refetch: vi.fn(),
   }),
   useEmployeeModelRules: () => ({
-    data: { rules: [{
+    data: hookState.empty ? undefined : { rules: [{
       id: "v1", rule_id: "rule1", version: 1, name: "研发规则", status: "VALIDATED",
       employee_scope: "SELECTED", principal_ids: ["p1"], model_scope: "SELECTED",
       model_targets: [{ unified_model_id: "m1", provider_resource_id: "r1" }], quota_value: "1000000",
-      allow_overage: false, valid_from: "2026-08-01T00:00:00.000Z", valid_until: null,
+      allow_overage: false, valid_from: "2026-08-01T00:00:00.000Z", valid_until: "2026-10-01T00:00:00.000Z",
+      pool_quotas: [
+        { provider_code: "kimi", quota_value: "4000000", allow_overage: true, valid_until: "2026-10-01T00:00:00.000Z" },
+        { provider_code: "zhipu", quota_value: "1000000", allow_overage: false, valid_until: null },
+      ],
       lock_version: 2, validation_snapshot: {
         ready: true, principal_ids: ["p1"],
         model_targets: [{ unified_model_id: "m1", provider_resource_id: "r1" }],
@@ -47,12 +52,12 @@ vi.mock("../api/employee-model-rules", () => ({
       id: "v3", rule_id: "rule3", version: 1, name: "草稿规则", status: "DRAFT",
       employee_scope: "SELECTED", principal_ids: ["p1"], model_scope: "SELECTED",
       model_targets: [{ unified_model_id: "m1", provider_resource_id: "r1" }], quota_value: "300",
-      allow_overage: false, valid_from: "2026-08-01T00:00:00.000Z", valid_until: null,
+      allow_overage: true, valid_from: "2026-08-01T00:00:00.000Z", valid_until: null,
       lock_version: 1, validation_snapshot: null, published_at: null, disabled_at: null,
       created_at: "2026-08-03T00:00:00Z", updated_at: "2026-08-03T00:00:00Z",
     }] }, isLoading: false, error: null, refetch: vi.fn(),
   }),
-  useCreateEmployeeModelRule: () => ({ mutate, isPending: false, error: null }),
+  useCreateEmployeeModelRule: () => ({ mutate, isPending: false, error: hookState.createError }),
   useUpdateEmployeeModelRule: () => ({ mutate, isPending: false, error: null }),
   useValidateEmployeeModelRule: () => ({ mutate, error: null }),
   usePublishEmployeeModelRule: () => ({ mutate, error: null }),
@@ -61,7 +66,19 @@ vi.mock("../api/employee-model-rules", () => ({
 }));
 
 describe("POOL-029 批量模型授权页面", () => {
-  beforeEach(() => mutate.mockReset());
+  beforeEach(() => {
+    mutate.mockReset();
+    hookState.empty = false;
+    hookState.createError = null;
+  });
+
+  it("空目录和普通错误保持可理解的空态与错误提示", () => {
+    hookState.empty = true;
+    hookState.createError = new Error("保存失败");
+    render(<MemoryRouter><EmployeeModelRulesPage /></MemoryRouter>);
+    expect(screen.getByRole("alert")).toHaveTextContent("保存失败");
+    expect(screen.getByText("暂无批量授权规则")).toBeInTheDocument();
+  });
 
   it("按员工和厂商模型展示就绪原因、权限变更预览、版本历史和显式发布入口", async () => {
     render(<MemoryRouter><EmployeeModelRulesPage /></MemoryRouter>);
@@ -96,6 +113,8 @@ describe("POOL-029 批量模型授权页面", () => {
     await user.clear(screen.getByLabelText("Token 额度"));
     await user.type(screen.getByLabelText("Token 额度"), "2000000");
     await user.type(screen.getByLabelText("失效时间（可选）"), "2026-09-01T00:00");
+    await user.clear(screen.getByLabelText("生效时间"));
+    await user.type(screen.getByLabelText("生效时间"), "2026-08-02T00:00");
     await user.click(screen.getByLabelText("当前全部员工"));
     await user.click(screen.getByLabelText("指定员工"));
     await user.click(screen.getByLabelText("当前全部就绪模型"));
@@ -108,7 +127,10 @@ describe("POOL-029 批量模型授权页面", () => {
     expect(screen.getByRole("heading", { name: /编辑/ })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "保存草稿" }));
     await user.click(screen.getByRole("button", { name: "取消编辑" }));
+    await user.click(screen.getAllByRole("button", { name: "编辑" })[1]!);
+    await user.click(screen.getByRole("button", { name: "取消编辑" }));
     await user.click(screen.getAllByRole("button", { name: "校验" })[0]!);
+    await user.selectOptions(screen.getByLabelText("池额度方式"), "ADD");
     await user.click(screen.getByRole("button", { name: "发布" }));
     await user.click(screen.getByRole("button", { name: "新建版本" }));
     await user.click(screen.getByRole("button", { name: "停用" }));
@@ -132,14 +154,21 @@ describe("POOL-029 批量模型授权页面", () => {
     await user.click(screen.getByText("Kimi High · Plan A").closest("label")!.querySelector("input")!);
     await screen.findByText("厂商级池额度（可选）");
     const kimiQuota = screen.getByLabelText("池额度");
+    await user.type(screen.getByLabelText("Kimi 池失效时间"), "2026-10-01T00:00");
+    await user.click(screen.getByLabelText("允许超额"));
     await user.clear(kimiQuota);
     await user.type(kimiQuota, "300000000");
     await user.type(screen.getByLabelText("规则名称"), "厂商规则");
     await user.click(screen.getByRole("button", { name: "创建草稿" }));
 
-    const payload = mutate.mock.calls[0]?.[0] as { pool_quotas?: Array<{ provider_code: string; quota_value: string }> };
+    const payload = mutate.mock.calls[0]?.[0] as { pool_quotas?: Array<{
+      provider_code: string; quota_value: string; allow_overage: boolean; valid_until: string | null;
+    }> };
     expect(payload?.pool_quotas).toEqual([
-      expect.objectContaining({ provider_code: "kimi", quota_value: "300000000" }),
+      expect.objectContaining({
+        provider_code: "kimi", quota_value: "300000000", allow_overage: true,
+        valid_until: new Date("2026-10-01T00:00").toISOString(),
+      }),
     ]);
   });
 });

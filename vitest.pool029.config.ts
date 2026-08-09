@@ -6,6 +6,9 @@ export default defineConfig({
     globals: false,
     include: [
       "packages/database/src/repositories/employee-model-authorization-policy.test.ts",
+      "packages/database/src/repositories/employee-model-rule-repository.mutation.test.ts",
+      "packages/database/src/repositories/employee-model-rule-lifecycle.mutation.test.ts",
+      "packages/database/src/repositories/principal-access-read-model.mutation.test.ts",
       "packages/database/src/__tests-integration__/pool029-authorization-rule-migration.test.ts",
       "apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts",
       "apps/control-api/src/__tests-integration__/w03-key-grant.test.ts",
@@ -22,6 +25,8 @@ export default defineConfig({
       include: [
         "packages/database/src/repositories/employee-model-authorization-policy.ts",
         "packages/database/src/repositories/employee-model-rule-repository.ts",
+        "packages/database/src/repositories/employee-model-rule-lifecycle.ts",
+        "packages/database/src/repositories/principal-access-read-model.ts",
         "packages/database/src/repositories/employee-model-rule-validation.ts",
         "packages/database/src/repositories/key-repository.ts",
         "apps/control-api/src/employee-model-rules/routes.ts",

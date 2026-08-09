@@ -57,6 +57,7 @@ describe("员工使用规则 API hooks", () => {
       await hooks.result.current.update.mutateAsync({ versionId: "v1", expectedLockVersion: 2, rule: payload });
       await hooks.result.current.validate.mutateAsync("v1");
       await hooks.result.current.publish.mutateAsync({ versionId: "v1", expectedLockVersion: 3, idempotencyKey: "idem-0001", quotaMode: "ADD" });
+      await hooks.result.current.publish.mutateAsync({ versionId: "v1", expectedLockVersion: 4, idempotencyKey: "idem-0002" });
       await hooks.result.current.disable.mutateAsync("v1");
       await hooks.result.current.next.mutateAsync("rule1");
     });
@@ -67,6 +68,9 @@ describe("员工使用规则 API hooks", () => {
     expect(client.post).toHaveBeenCalledWith("/employee-model-rules/versions/v1/validate");
     expect(client.post).toHaveBeenCalledWith("/employee-model-rules/versions/v1/publish", {
       expected_lock_version: 3, idempotency_key: "idem-0001", quota_mode: "ADD",
+    });
+    expect(client.post).toHaveBeenCalledWith("/employee-model-rules/versions/v1/publish", {
+      expected_lock_version: 4, idempotency_key: "idem-0002", quota_mode: "SET",
     });
     expect(client.post).toHaveBeenCalledWith("/employee-model-rules/versions/v1/disable");
     expect(client.post).toHaveBeenCalledWith("/employee-model-rules/rule1/versions");

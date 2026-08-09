@@ -17,6 +17,7 @@ import {
   operatingSnapshotModeError,
   toOperatingSnapshotInput,
 } from "../providers/contracts.js";
+import type { ResourceViewInput } from "./types.js";
 
 /** 单调版本号乐观锁（P2-01）：前端携带读取时的 version，期间被改则 409 conflict。 */
 const ExpectedVersion = z.number().int().positive();
@@ -73,21 +74,7 @@ const RecoverResourceSchema = z.object({
 });
 
 /** 资源公开视图（绝不返回密文/明文）。 */
-function resourceView(r: {
-  id: string;
-  provider_id: string;
-  name: string;
-  mode: string;
-  credential_type: string;
-  credential_fingerprint: string | null;
-  credential_version: number | null;
-  status: string;
-  upstream_models: string[] | null;
-  concurrency_limit: number | null;
-  version: number;
-  created_at: Date;
-  updated_at: Date;
-}, operatingSnapshot: unknown = null) {
+function resourceView(r: ResourceViewInput, operatingSnapshot: unknown = null) {
   return {
     id: r.id,
     provider_id: r.provider_id,

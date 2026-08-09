@@ -11,12 +11,23 @@
  * 额度模型（决策点：池挂主体×厂商）：每主体每厂商至多一个 ACTIVE 池 Grant
  * （0039 唯一索引保证）。规则不再承载额度（quota_value 可空）。
  */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { Kysely, Transaction } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 import { EmployeeModelRuleRepository } from "./employee-model-rule-repository.js";
 import { mergeDeclaredModelIds } from "./employee-model-authorization-policy.js";
+import {
+  lockActivePrincipalKeys,
+  lockActiveProviderPools,
+} from "./principal-access-locks.js";
+import { ensureSingleRule } from "./principal-single-rule.js";
+import { captureManualBaseline } from "./employee-model-rule-lock-context.js";
+import {
+  assemblePrincipalAccessReadModel,
+  type PrincipalAccessModelRow,
+  type PrincipalAccessPoolRow,
+} from "./principal-access-read-model.js";
 
 export class PrincipalAccessConfigError extends Error {
   constructor(
@@ -34,19 +45,23 @@ function jsonValue<T>(value: T): T {
 }
 
 /** 规范化请求体（键序无关）用于幂等 hash。 */
-function stableHash(value: unknown): string {
+export function stableHash(value: unknown): string {
   const normalize = (v: unknown): unknown => {
+    if (v instanceof Date) return v.toISOString();
+    if (v === null || typeof v !== "object") return v;
     if (Array.isArray(v)) return v.map(normalize);
-    if (v !== null && typeof v === "object") {
-      return Object.fromEntries(
-        Object.entries(v as Record<string, unknown>)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([k, val]) => [k, normalize(val)]),
-      );
-    }
-    return v;
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, val]) => [k, normalize(val)]),
+    );
   };
   return createHash("sha256").update(JSON.stringify(normalize(value))).digest("hex");
+}
+
+export function stableProviderCodes(currentProviders: string[], requestedProviders: string[]): string[] {
+  return [...new Set([...currentProviders, ...requestedProviders])]
+    .sort((left, right) => left.localeCompare(right, "en"));
 }
 
 export interface PoolSpec {
@@ -65,32 +80,6 @@ export interface AccessConfigPutInput {
   expectedVersion: number;
   idempotencyKey: string;
   pools: PoolSpec[];
-}
-
-interface ModelRow {
-  unified_model_id: string;
-  display_name: string;
-  alias: string;
-  provider_code: string;
-  provider_name: string;
-  provider_resource_id: string;
-  resource_name: string;
-  mode: "API" | "CODING_PLAN";
-  resource_status: string;
-  model_status: string;
-  route_enabled: boolean;
-  ready: boolean;
-  unavailable_reasons: string[];
-}
-
-interface PoolRow {
-  id: string;
-  provider: string;
-  quota_value: bigint;
-  allow_overage: boolean;
-  valid_until: Date | null;
-  used_value: bigint;
-  source: string;
 }
 
 export class PrincipalAccessConfigRepository {
@@ -115,7 +104,7 @@ export class PrincipalAccessConfigRepository {
 
     // 厂商目录（复用 029 catalog 的 models 部分语义，但按厂商分块）。
     const catalog = await this.ruleRepo.catalog(enterpriseId);
-    const models: ModelRow[] = catalog.models as ModelRow[];
+    const models = catalog.models as PrincipalAccessModelRow[];
 
     // 该主体的全部 ACTIVE 池。
     const poolRows = await this.db.selectFrom("principal_grant")
@@ -135,7 +124,7 @@ export class PrincipalAccessConfigRepository {
     // 池来源判定：有 owner_principal_id 的单人规则版本 → MANAGED_SINGLE；否则批量。
     const singleRuleVersionIds = await this.singleRuleVersionIds(enterpriseId, principalId);
     const singleVersionSet = new Set(singleRuleVersionIds);
-    const pools: PoolRow[] = poolRows.map((row) => ({
+    const pools: PrincipalAccessPoolRow[] = poolRows.map((row) => ({
       id: row.id, provider: row.provider, quota_value: row.quota_value,
       allow_overage: row.allow_overage, valid_until: row.valid_until,
       used_value: row.used_value,
@@ -163,64 +152,20 @@ export class PrincipalAccessConfigRepository {
       .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
       .executeTakeFirst();
 
-    // 装配厂商分块。
-    const byProvider = new Map<string, { name: string; models: ModelRow[] }>();
-    for (const m of models) {
-      const bucket = byProvider.get(m.provider_code) ?? { name: m.provider_name, models: [] };
-      bucket.models.push(m);
-      byProvider.set(m.provider_code, bucket);
-    }
-    const providers = [...byProvider.entries()].map(([code, bucket]) => {
-      const pool = pools.find((p) => p.provider === code) ?? null;
-      return {
-        provider_code: code,
-        provider_name: bucket.name,
-        pool: pool ? {
-          grant_id: pool.id,
-          quota_value: pool.quota_value.toString(),
-          quota_used: pool.used_value.toString(),
-          allow_overage: pool.allow_overage,
-          valid_until: pool.valid_until,
-          source: pool.source,
-          over_limit: pool.used_value > pool.quota_value,
-        } : null,
-        models: bucket.models.map((m) => ({
-          unified_model_id: m.unified_model_id,
-          display_name: m.display_name,
-          alias: m.alias,
-          provider_resource_id: m.provider_resource_id,
-          resource_name: m.resource_name,
-          resource_mode: m.mode,
-          ready: m.ready,
-          unavailable_reasons: m.unavailable_reasons,
-          enabled: pool !== null && !disabledSet.has(`${code}:${m.unified_model_id}`),
-        })),
-      };
-    });
-
-    const totalQuota = pools.reduce((acc, p) => acc + p.quota_value, 0n);
-    const enabledModelCount = providers.reduce(
-      (acc, p) => acc + p.models.filter((m) => m.enabled).length, 0,
-    );
-
-    return {
+    return assemblePrincipalAccessReadModel({
       principal: {
-        id: principal.id, name: principal.name, status: principal.status,
+        id: principal.id,
+        name: principal.name,
+        status: principal.status,
         department_label: principal.department_label,
       },
-      key: key ? {
-        key_prefix: key.key_prefix, status: key.status, created_at: key.created_at,
-        authorization_status: enabledModelCount > 0 ? "AUTHORIZED" : "PENDING",
-      } : null,
-      providers,
-      summary: {
-        total_quota: totalQuota.toString(),
-        provider_count: pools.length,
-        model_count: enabledModelCount,
-      },
-      manual_pending_takeover: manualPending.map((r) => r.unified_model_id),
-      config_version: state?.config_version ?? 1,
-    };
+      key,
+      models,
+      pools,
+      disabledKeys: disabledSet,
+      manualPendingIds: manualPending.map((row) => row.unified_model_id),
+      configVersion: state?.config_version ?? 1,
+    });
   }
 
   private async singleRuleVersionIds(enterpriseId: string, principalId: string): Promise<string[]> {
@@ -244,10 +189,10 @@ export class PrincipalAccessConfigRepository {
       if (principal.status !== "ACTIVE" || principal.archived_at !== null) {
         throw new PrincipalAccessConfigError("INVALID_STATE", "主体已停用或归档，不能配置接入");
       }
-      const activeKey = await trx.selectFrom("principal_key").select("id")
-        .where("enterprise_id", "=", input.enterpriseId).where("principal_id", "=", input.principalId)
-        .where("status", "=", "ACTIVE").forUpdate().executeTakeFirst();
-      if (!activeKey) throw new PrincipalAccessConfigError("INVALID_STATE", "主体尚无有效 Key");
+      const lockedKeys = await lockActivePrincipalKeys(trx, input.enterpriseId, [input.principalId]);
+      if (!lockedKeys.has(input.principalId)) {
+        throw new PrincipalAccessConfigError("INVALID_STATE", "主体尚无有效 Key");
+      }
 
       // 2. 幂等短路。
       const requestHash = stableHash({ pools: input.pools.map((p) => ({
@@ -270,7 +215,7 @@ export class PrincipalAccessConfigRepository {
 
       // 4. 就绪校验：pools 中每个 enabled_model_id 属该厂商且就绪。
       const catalog = await this.ruleRepo.catalog(input.enterpriseId);
-      const models = catalog.models as ModelRow[];
+      const models = catalog.models as PrincipalAccessModelRow[];
       const modelById = new Map(models.map((m) => [m.unified_model_id, m]));
       const issues: Array<{ code: string; message: string; unified_model_id?: string; provider_code?: string }> = [];
       for (const pool of input.pools) {
@@ -294,13 +239,26 @@ export class PrincipalAccessConfigRepository {
         throw new PrincipalAccessConfigError("NOT_READY", "接入配置就绪校验未通过", { issues });
       }
 
-      // 5. 池 upsert。
+      // 5. 手工接管先于池锁：Key 已在事务最前面锁定，旧白名单不会被并发发布覆盖。
+      await captureManualBaseline(trx, input.enterpriseId, input.principalId);
+
+      // 6. 规则行先锁定，随后按稳定 provider 顺序锁池。
+      const singleRuleVersionId = await ensureSingleRule(trx, input);
       const currentPools = await trx.selectFrom("principal_grant")
         .select(["id", "provider", "quota_value", "authorization_rule_version_id"])
         .where("enterprise_id", "=", input.enterpriseId).where("principal_id", "=", input.principalId)
-        .where("pool_model_alias", "=", "*").where("status", "=", "ACTIVE")
-        .forUpdate().execute();
-      const currentByProvider = new Map(currentPools.map((p) => [p.provider, p]));
+        .where("pool_model_alias", "=", "*").where("status", "=", "ACTIVE").execute();
+      const providerCodes = stableProviderCodes(
+        currentPools.map((pool) => pool.provider), input.pools.map((pool) => pool.provider_code),
+      );
+      const lockedPools = await lockActiveProviderPools(
+        trx, input.enterpriseId, [input.principalId], providerCodes,
+      );
+      const currentByProvider = new Map(
+        providerCodes
+          .map((provider) => [provider, lockedPools.get(`${input.principalId}:${provider}`)] as const)
+          .filter((entry): entry is readonly [string, NonNullable<typeof entry[1]>] => entry[1] !== undefined),
+      );
       const requestedProviders = new Set(input.pools.filter((p) => p.enabled_model_ids.length > 0).map((p) => p.provider_code));
       const changes: { pools_added: string[]; pools_updated: string[]; pools_closed: string[] } = {
         pools_added: [], pools_updated: [], pools_closed: [],
@@ -317,7 +275,6 @@ export class PrincipalAccessConfigRepository {
       }
 
       // 5b. upsert 请求的池。
-      const singleRuleVersionId = await this.ensureSingleRule(trx, input);
       const poolGrantByProvider = new Map<string, string>();
       for (const pool of input.pools) {
         if (pool.enabled_model_ids.length === 0) continue;
@@ -345,7 +302,7 @@ export class PrincipalAccessConfigRepository {
         }
       }
 
-      // 6. 型号开关版本化（单人规则）+ 显式禁用清单重算。
+      // 7. 型号开关版本化（单人规则）+ 显式禁用清单重算。
       const allEnabledModelIds = new Set(input.pools.flatMap((p) => p.enabled_model_ids));
       const targets = [...allEnabledModelIds].map((modelId) => {
         const m = modelById.get(modelId)!;
@@ -353,15 +310,15 @@ export class PrincipalAccessConfigRepository {
       });
       await this.publishSingleRuleVersion(trx, input, singleRuleVersionId, targets, poolGrantByProvider, modelById);
 
-      // 7. 手工接管：清空基线（权限已由池+开关承载）。
+      // 8. 手工接管：清空基线（权限已由池+开关承载）。
       const manualCleared = await trx.deleteFrom("principal_model_manual_authorization")
         .where("enterprise_id", "=", input.enterpriseId).where("principal_id", "=", input.principalId)
         .executeTakeFirst();
 
-      // 8. 重算白名单。
+      // 9. 重算白名单。
       await this.ruleRepo.refreshKeyModels(trx, input.enterpriseId, input.principalId);
 
-      // 9. 审计 + 幂等存档。
+      // 10. 审计 + 幂等存档。
       const response = {
         config_version: locked.nextVersion,
         changes,
@@ -406,28 +363,6 @@ export class PrincipalAccessConfigRepository {
     return { nextVersion };
   }
 
-  /** 确保该主体存在单人规则（无则建 version 1 草稿），返回规则版本 id。 */
-  private async ensureSingleRule(trx: Transaction<Database>, input: AccessConfigPutInput): Promise<string> {
-    const existing = await trx.selectFrom("employee_model_rule_version")
-      .select(["id", "rule_id", "version", "status"])
-      .where("enterprise_id", "=", input.enterpriseId).where("owner_principal_id", "=", input.principalId)
-      .orderBy("version", "desc").forUpdate().executeTakeFirst();
-    if (existing) {
-      // 有未发布草稿则直接复用（下次保存覆盖）；否则由 publishSingleRuleVersion 开新版本。
-      return existing.id;
-    }
-    const created = await trx.insertInto("employee_model_rule_version").values({
-      enterprise_id: input.enterpriseId, rule_id: randomUUID(), version: 1,
-      name: `接入配置-${input.principalId}`, employee_scope: "SELECTED",
-      principal_ids: jsonValue([input.principalId]), model_scope: "SELECTED",
-      model_targets: jsonValue([]), quota_value: null, allow_overage: false,
-      valid_from: new Date(), valid_until: null,
-      owner_principal_id: input.principalId, created_by_admin_user_id: input.adminUserId,
-      status: "DRAFT",
-    }).returning("id").executeTakeFirstOrThrow();
-    return created.id;
-  }
-
   /** 发布单人规则新版本：禁用不再开通的型号、保留仍开通的、写显式禁用清单。 */
   private async publishSingleRuleVersion(
     trx: Transaction<Database>,
@@ -435,7 +370,7 @@ export class PrincipalAccessConfigRepository {
     ruleVersionId: string,
     targets: { unified_model_id: string; provider_resource_id: string }[],
     poolGrantByProvider: Map<string, string>,
-    modelById: Map<string, ModelRow>,
+    modelById: Map<string, PrincipalAccessModelRow>,
   ) {
     const version = await trx.selectFrom("employee_model_rule_version").selectAll()
       .where("id", "=", ruleVersionId).forUpdate().executeTakeFirstOrThrow();

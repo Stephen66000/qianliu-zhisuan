@@ -151,6 +151,10 @@ describe("POOL-029 员工模型授权发布闭环", () => {
     expect([published.statusCode, retry.statusCode]).toEqual([200, 200]);
     expect(published.json().assignment_count).toBe(1);
     expect(await db.selectFrom("employee_model_rule_assignment").selectAll().execute()).toHaveLength(1);
+    expect((await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${versionId}/publish`, headers: { cookie },
+      payload: { ...publishBody, quota_mode: "ADD" },
+    })).statusCode).toBe(409);
 
     const key = await db.selectFrom("principal_key").select("allowed_model_ids")
       .where("principal_id", "=", employeeId).executeTakeFirstOrThrow();
@@ -362,6 +366,36 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       },
     });
     expect(invalidCreate.statusCode).toBe(400);
+    const invalidPoolQuotas = await app.inject({
+      method: "POST", url: "/employee-model-rules", headers: { cookie },
+      payload: {
+        name: "非法厂商额度", employee_scope: "SELECTED", principal_ids: [employeeId],
+        model_scope: "SELECTED", model_targets: [{ unified_model_id: modelId, provider_resource_id: resourceId }],
+        quota_value: "100", allow_overage: false, valid_from: "2026-08-02T00:00:00Z", valid_until: null,
+        pool_quotas: [
+          { provider_code: "kimi", quota_value: "30", allow_overage: false, valid_until: "2026-08-01T00:00:00Z" },
+          { provider_code: "kimi", quota_value: "70", allow_overage: true, valid_until: null },
+        ],
+      },
+    });
+    expect(invalidPoolQuotas.statusCode).toBe(400);
+    const validPoolQuota = await app.inject({
+      method: "POST", url: "/employee-model-rules", headers: { cookie },
+      payload: {
+        name: "合法厂商额度", employee_scope: "SELECTED", principal_ids: [employeeId],
+        model_scope: "SELECTED", model_targets: [{ unified_model_id: modelId, provider_resource_id: resourceId }],
+        quota_value: "100", allow_overage: false, valid_from: "2026-08-01T00:00:00Z", valid_until: null,
+        pool_quotas: [{
+          provider_code: "kimi", quota_value: "75", allow_overage: true,
+          valid_until: "2026-09-01T00:00:00Z",
+        }],
+      },
+    });
+    expect(validPoolQuota.statusCode).toBe(201);
+    expect(validPoolQuota.json().version.pool_quotas).toEqual([{
+      provider_code: "kimi", quota_value: "75", allow_overage: true,
+      valid_until: "2026-09-01T00:00:00.000Z",
+    }]);
     const created = await createRule([employeeId], secondModelId, "编辑规则");
     const version = created.json().version;
     expect((await app.inject({
@@ -540,7 +574,8 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       method: "POST", url: `/employee-model-rules/versions/${firstId}/publish`, headers: { cookie },
       payload: { expected_lock_version: firstRow.lock_version, idempotency_key: "pool029-add-set" },
     })).statusCode).toBe(200);
-    expect((await poolOf()).quota_value).toBe("500000");
+    const firstPool = await poolOf();
+    expect(firstPool.quota_value).toBe("500000");
 
     // 第二次发布（ADD）：同一厂商池已存在 → 锁内追加 500000 → 1000000。
     const second = await createRule([principalId], modelId, "追加规则 v2");
@@ -553,7 +588,21 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       payload: { expected_lock_version: secondRow.lock_version, idempotency_key: "pool029-add-add", quota_mode: "ADD" },
     });
     expect(added.statusCode).toBe(200);
-    expect((await poolOf()).quota_value).toBe("1000000");
+    expect(await poolOf()).toMatchObject({
+      quota_value: "1000000", version: firstPool.version + 1, authorization_rule_version_id: secondId,
+    });
+
+    // 再次默认 SET：已有池也必须覆盖额度、超额开关与规则归属，而不是静默沿用旧值。
+    const reset = await createRule([principalId], modelId, "追加规则 SET");
+    const resetId = reset.json().version.id as string;
+    await app.inject({ method: "POST", url: `/employee-model-rules/versions/${resetId}/validate`, headers: { cookie } });
+    const resetRow = await db.selectFrom("employee_model_rule_version").selectAll().where("id", "=", resetId)
+      .executeTakeFirstOrThrow();
+    expect((await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${resetId}/publish`, headers: { cookie },
+      payload: { expected_lock_version: resetRow.lock_version, idempotency_key: "pool029-add-reset" },
+    })).statusCode).toBe(200);
+    expect(await poolOf()).toMatchObject({ quota_value: "500000", allow_overage: false, authorization_rule_version_id: resetId });
 
     // 非法 quota_mode 被 schema 拒绝。
     expect((await app.inject({

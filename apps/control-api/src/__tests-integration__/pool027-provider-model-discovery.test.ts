@@ -80,7 +80,7 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     const response = await onboard("pool027-onboard-001", "智谱 Plan A");
     expect(response.statusCode).toBe(201);
     expect(response.json().result.models[0]).toMatchObject({
-      upstreamModel: "glm-5.2", alias: "qianliu-zhipu-glm-5-2",
+      upstreamModel: "glm-5.2", alias: "ql-glm-5.2",
       reused: false, status: "PENDING_CONFIG",
     });
     const route = await db.selectFrom("model_route").selectAll().executeTakeFirstOrThrow();

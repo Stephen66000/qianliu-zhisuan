@@ -100,6 +100,8 @@ describe("0023 Principal Key 单 ACTIVE 迁移", () => {
         constraint: "principal_key_one_active_per_principal_uq",
       });
 
+      expect(await migrateDown(db)).toBe("0043_single_owner_rule_history");
+      expect(await migrateDown(db)).toBe("0042_alias_ql_format");
       expect(await migrateDown(db)).toBe("0041_provider_quota_window");
       expect(await migrateDown(db)).toBe("0040_employee_model_rule_pool_quotas");
       expect(await migrateDown(db)).toBe("0039_principal_provider_pool");

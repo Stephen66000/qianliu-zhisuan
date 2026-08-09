@@ -35,6 +35,7 @@ export interface EmployeeModelRuleVersionTable {
   lock_version: Generated<number>;
   validation_snapshot: Record<string, unknown> | null;
   publish_idempotency_key: string | null;
+  publish_request_hash: string | null;
   published_at: Date | null;
   disabled_at: Date | null;
   created_by_admin_user_id: string;

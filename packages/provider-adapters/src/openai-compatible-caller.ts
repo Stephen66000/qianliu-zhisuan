@@ -15,7 +15,18 @@ import {
   type AdapterResource,
   type UpstreamCaller,
 } from "./index.js";
+import type {
+  ChatCompletionBody,
+  ChatMessage,
+  ChatToolCall,
+  HttpFetch,
+  HttpResponseLike,
+  OpenAiCompatibleCallerOptions,
+  UpstreamMessage,
+} from "./openai-compatible-types.js";
 import { resolveFirstByteTimeoutMs, resolveStreamIdleTimeoutMs } from "./resource-timeout-policy.js";
+
+export type { HttpFetch, HttpResponseLike, OpenAiCompatibleCallerOptions } from "./openai-compatible-types.js";
 
 type ProviderCode = AdapterResource["providerCode"];
 
@@ -36,72 +47,6 @@ const DEFAULT_BASE_URL: Record<ProviderCode, string> = {
   zhipu: "https://open.bigmodel.cn/api/coding/paas/v4",
   kimi: "https://api.kimi.com/coding/v1",
 };
-
-export interface HttpResponseLike {
-  ok: boolean;
-  status: number;
-  headers?: { get(name: string): string | null };
-  json(): Promise<unknown>;
-  text(): Promise<string>;
-  body: AsyncIterable<Uint8Array> | null;
-}
-
-export type HttpFetch = (
-  url: string,
-  init: {
-    method: "POST";
-    headers: Record<string, string>;
-    body: string;
-    signal: AbortSignal;
-  },
-) => Promise<HttpResponseLike>;
-
-export interface OpenAiCompatibleCallerOptions {
-  env?: NodeJS.ProcessEnv;
-  fetch?: HttpFetch;
-  /** 请求总时长上限，默认 10 分钟，允许 K3 长输出跨过 60 秒。 */
-  requestTimeoutMs?: number;
-  /** 从发起请求到首个上游响应字节的上限。 */
-  firstByteTimeoutMs?: number;
-  firstByteTimeoutMsForResource?: (resource: AdapterResource) => number;
-  /** 流式已开始后，两个上游数据块之间的最大空闲时间。 */
-  streamIdleTimeoutMs?: number;
-  /** 按资源（厂商/模式）解析的流式空闲门限，覆盖 streamIdleTimeoutMs（POOL-034）。 */
-  streamIdleTimeoutMsForResource?: (resource: AdapterResource) => number;
-}
-
-interface ChatToolCall {
-  id: string;
-  type: "function";
-  function: {
-    name: string;
-    arguments: string;
-  };
-}
-
-interface ChatMessage {
-  role: "system" | "user" | "assistant" | "tool";
-  content: unknown;
-  tool_call_id?: string;
-  tool_calls?: ChatToolCall[];
-}
-
-interface ChatCompletionBody {
-  model: string;
-  messages: ChatMessage[];
-  stream: boolean;
-  stream_options?: { include_usage: true };
-  tools?: unknown[];
-  tool_choice?: unknown;
-  parallel_tool_calls?: boolean;
-  max_tokens?: number;
-  reasoning_effort?: string;
-}
-
-interface UpstreamMessage {
-  content?: unknown;
-  tool_calls?: unknown;
-}
 
 /**
  * 创建真实 HTTP caller。未配置凭证或厂商 Base URL 时明确失败，不返回模拟内容。

@@ -33,7 +33,8 @@ import {
   shanghaiNaturalMonth,
   sumDecimalTexts,
 } from "./dashboard-helpers.js";
-import type { DashboardSummary, OverageItem, ResourceBreakdownItem } from "./dashboard-types.js";
+import { listDashboardOverages } from "./dashboard-overages.js";
+import type { DashboardSummary, ResourceBreakdownItem } from "./dashboard-types.js";
 
 export type * from "./dashboard-types.js";
 
@@ -77,7 +78,7 @@ export class DashboardRepository {
         monthEnd,
         currentOperatingSnapshots,
       ),
-      this.listOverages(enterpriseId),
+      listDashboardOverages(this.db, enterpriseId),
       getMonthlyTokenUsage(this.db, enterpriseId, monthStart, monthEnd),
     ]);
 
@@ -599,45 +600,4 @@ export class DashboardRepository {
     };
   }
 
-  /** 超额列表（quota_counter.overage_value > 0）。 */
-  private async listOverages(enterpriseId: string): Promise<OverageItem[]> {
-    const rows = await this.db
-      .selectFrom("quota_counter")
-      .innerJoin("principal_grant", "principal_grant.id", "quota_counter.grant_id")
-      .innerJoin("principal", "principal.id", "principal_grant.principal_id")
-      .where("principal_grant.enterprise_id", "=", enterpriseId)
-      .where("principal_grant.status", "=", "ACTIVE")
-      .where("principal.status", "=", "ACTIVE")
-      .where("principal.archived_at", "is", null)
-      .where("quota_counter.overage_value", ">", 0n)
-      .orderBy("quota_counter.overage_value", "desc")
-      .select([
-        "principal.id as principal_id",
-        "principal.name as principal_name",
-        "principal.type as principal_type",
-        "principal_grant.provider",
-        "principal_grant.model_alias",
-        "principal_grant.quota_value",
-        "quota_counter.used_value",
-        "quota_counter.overage_value",
-      ])
-      .execute();
-    return rows.map((r) => {
-      const quota = BigInt(r.quota_value);
-      const used = BigInt(r.used_value);
-      const overage = BigInt(r.overage_value);
-      return {
-        principalId: r.principal_id,
-        principalName: r.principal_name,
-        principalType: r.principal_type,
-        provider: r.provider,
-        modelAlias: r.model_alias,
-        quotaValue: quota.toString(),
-        usedValue: used.toString(),
-        overageValue: overage.toString(),
-        // 超额比例 = overage / quota，保留 4 位小数（decimal.js 在前端展示层格式化）
-        overageRatio: quota > 0n ? (Number(overage * 10000n / quota) / 10000).toString() : "0",
-      };
-    });
-  }
 }

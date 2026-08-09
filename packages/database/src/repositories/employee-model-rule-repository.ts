@@ -1,5 +1,5 @@
 /** POOL-029：员工使用规则版本、就绪校验与 Key/Grant 原子发布。 */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { sql, type Kysely, type Transaction } from "kysely";
 import type {
   Database,
@@ -11,7 +11,14 @@ import {
   type EmployeeModelRuleVersion,
   type RuleValidationResult,
 } from "./employee-model-rule-validation.js";
-import { mergeDeclaredModelIds } from "./employee-model-authorization-policy.js";
+import { lockActiveProviderPools } from "./principal-access-locks.js";
+import { captureManualBaseline, lockRuleFamily, lockVersion, providerCodesForRuleFamily } from "./employee-model-rule-lock-context.js";
+import { resolvePoolQuota } from "./employee-model-rule-quota.js";
+import { disableEmployeeRuleVersion, refreshEmployeeKeyModels } from "./employee-model-rule-lifecycle.js";
+
+export function publishRequestHash(quotaMode: "SET" | "ADD" | undefined) {
+  return createHash("sha256").update(JSON.stringify({ quota_mode: quotaMode ?? "SET" })).digest("hex");
+}
 
 export type {
   EmployeeModelRuleVersion,
@@ -47,34 +54,6 @@ export class EmployeeModelRuleError extends Error {
 
 function jsonValue<T>(value: T): T {
   return JSON.stringify(value) as unknown as T;
-}
-
-function unique<T>(values: T[]): T[] {
-  return [...new Set(values)];
-}
-
-/**
- * POOL-035：解析某厂商的池额度。优先取 pool_quotas 里该厂商的厂商级值；
- * pool_quotas 为空/NULL 或不含该厂商时回退版本级 quota_value/allow_overage/valid_until。
- * 厂商级 quota_value 用字符串承载 bigint，这里转回 bigint。
- */
-function resolvePoolQuota(
-  version: { pool_quotas: EmployeeModelPoolQuota[] | null; quota_value: bigint | null; allow_overage: boolean; valid_until: Date | null },
-  providerCode: string,
-): { quota_value: bigint; allow_overage: boolean; valid_until: Date | null } {
-  const providerQuota = (version.pool_quotas ?? []).find((item) => item.provider_code === providerCode);
-  if (providerQuota) {
-    return {
-      quota_value: BigInt(providerQuota.quota_value),
-      allow_overage: providerQuota.allow_overage,
-      valid_until: providerQuota.valid_until ? new Date(providerQuota.valid_until) : null,
-    };
-  }
-  return {
-    quota_value: version.quota_value ?? 0n,
-    allow_overage: version.allow_overage,
-    valid_until: version.valid_until,
-  };
 }
 
 export class EmployeeModelRuleRepository {
@@ -223,7 +202,8 @@ export class EmployeeModelRuleRepository {
 
   async validate(enterpriseId: string, versionId: string): Promise<RuleValidationResult> {
     return this.db.transaction().execute(async (trx) => {
-      const version = await this.lockVersion(trx, enterpriseId, versionId);
+      const version = await lockVersion(trx, enterpriseId, versionId);
+      if (!version) throw new EmployeeModelRuleError("NOT_FOUND", "员工使用规则版本不存在");
       if (!["DRAFT", "VALIDATED"].includes(version.status)) {
         throw new EmployeeModelRuleError("INVALID_STATE", "只有草稿或已校验版本可以重新校验");
       }
@@ -243,6 +223,12 @@ export class EmployeeModelRuleRepository {
     quotaMode?: "SET" | "ADD";
   }): Promise<{ version: EmployeeModelRuleVersion; validation: RuleValidationResult; assignment_count: number }> {
     return this.db.transaction().execute(async (trx) => {
+      const requestHash = publishRequestHash(input.quotaMode);
+      const { reference, principals } = await lockRuleFamily(
+        trx, input.enterpriseId, input.versionId,
+        captureManualBaseline,
+      );
+      if (!reference) throw new EmployeeModelRuleError("NOT_FOUND", "员工使用规则版本不存在");
       const version = await this.lockRuleVersion(trx, input.enterpriseId, input.versionId);
       const reusedKey = await trx.selectFrom("employee_model_rule_version").select(["id", "rule_id"])
         .where("enterprise_id", "=", input.enterpriseId)
@@ -254,6 +240,12 @@ export class EmployeeModelRuleRepository {
       if (version.status === "PUBLISHED") {
         if (version.publish_idempotency_key !== input.idempotencyKey) {
           throw new EmployeeModelRuleError("IDEMPOTENCY_CONFLICT", "该版本已使用其他幂等键发布");
+        }
+        // 0043 前的历史行没有 request hash，只兼容默认 SET 重放；显式 ADD
+        // 必须拿到新的幂等键，避免相同 key 携带不同额度语义时静默 no-op。
+        if (version.publish_request_hash !== requestHash
+          && (version.publish_request_hash !== null || input.quotaMode === "ADD")) {
+          throw new EmployeeModelRuleError("IDEMPOTENCY_CONFLICT", "该发布幂等键对应的额度模式不同");
         }
         const count = await trx.selectFrom("employee_model_rule_assignment")
           .select((eb) => eb.fn.countAll<number>().as("count"))
@@ -269,14 +261,17 @@ export class EmployeeModelRuleRepository {
       const validation = await validateEmployeeModelRule(trx, version);
       if (!validation.ready) throw new EmployeeModelRuleError("NOT_READY", "规则就绪校验未通过", validation);
 
+      const providerCodes = await providerCodesForRuleFamily(
+        trx, input.enterpriseId, version.rule_id, version.model_scope, version.model_targets,
+      );
+      await lockActiveProviderPools(trx, input.enterpriseId, principals, providerCodes);
+
       const previous = await trx.selectFrom("employee_model_rule_version").select("id")
         .where("enterprise_id", "=", input.enterpriseId).where("rule_id", "=", version.rule_id)
         .where("status", "=", "PUBLISHED").where("id", "!=", version.id).forUpdate().execute();
-      for (const item of previous) await this.disableVersionLocked(trx, input.enterpriseId, item.id);
+      for (const item of previous) await disableEmployeeRuleVersion(trx, input.enterpriseId, item.id);
 
-      // 所有规则统一按主体 ID 获取 Key 行锁，避免两个多主体规则反向等待形成死锁。
       for (const principalId of [...validation.principal_ids].sort()) {
-        await this.captureManualBaseline(trx, input.enterpriseId, principalId);
         // POOL-033：规则只管型号准入开关，额度归主体×厂商池。每主体每厂商至多一个 ACTIVE 池
         // （由迁移 0039 唯一索引保证）；本规则发布只确保池存在（不存在则建空池待管理员填额度），
         // 随后所有该厂商下的 target 共享同一池 grant_id。
@@ -339,8 +334,15 @@ export class EmployeeModelRuleRepository {
               throw new EmployeeModelRuleError("INVALID_STATE", `厂商 ${providerCode} 缺少可追加的额度`);
             }
             await trx.updateTable("principal_grant")
-              .set({ quota_value: sql`quota_value + ${poolQuota.quota_value}`, updated_at: new Date() })
+              .set({ quota_value: sql`quota_value + ${poolQuota.quota_value}`, authorization_rule_version_id: version.id,
+                version: sql`version + 1`, updated_at: new Date() })
               .where("id", "=", poolGrant.id).execute();
+          } else {
+            await trx.updateTable("principal_grant").set({
+              quota_value: poolQuota.quota_value, allow_overage: poolQuota.allow_overage,
+              valid_until: poolQuota.valid_until, authorization_rule_version_id: version.id,
+              version: sql`version + 1`, updated_at: new Date(),
+            }).where("id", "=", poolGrant.id).execute();
           }
           // 每个 target 建一条型号级行（pool_model_alias=NULL）用于"准入开关 + 池回退查询"，
           // 不再独立计数；assignment 指向池 grant_id。
@@ -357,7 +359,7 @@ export class EmployeeModelRuleRepository {
 
       const published = await trx.updateTable("employee_model_rule_version").set({
         status: "PUBLISHED", validation_snapshot: jsonValue(validation) as unknown as Record<string, unknown>,
-        publish_idempotency_key: input.idempotencyKey, published_at: new Date(),
+        publish_idempotency_key: input.idempotencyKey, publish_request_hash: requestHash, published_at: new Date(),
         lock_version: sql`lock_version + 1`, updated_at: new Date(),
       }).where("id", "=", version.id).returningAll().executeTakeFirstOrThrow();
       await trx.insertInto("operation_log").values({
@@ -374,12 +376,21 @@ export class EmployeeModelRuleRepository {
 
   async disable(enterpriseId: string, versionId: string, adminUserId: string) {
     return this.db.transaction().execute(async (trx) => {
+      const { reference, principals } = await lockRuleFamily(
+        trx, enterpriseId, versionId,
+        captureManualBaseline,
+      );
+      if (!reference) throw new EmployeeModelRuleError("NOT_FOUND", "员工使用规则版本不存在");
       const version = await this.lockRuleVersion(trx, enterpriseId, versionId);
       if (version.status === "DISABLED") return version;
       if (version.status !== "PUBLISHED") {
         throw new EmployeeModelRuleError("INVALID_STATE", "只有已发布规则可以停用");
       }
-      const affected = await this.disableVersionLocked(trx, enterpriseId, version.id);
+      const providerCodes = await providerCodesForRuleFamily(
+        trx, enterpriseId, version.rule_id, version.model_scope, version.model_targets,
+      );
+      await lockActiveProviderPools(trx, enterpriseId, principals, providerCodes);
+      const affected = await disableEmployeeRuleVersion(trx, enterpriseId, version.id);
       await trx.insertInto("operation_log").values({
         enterprise_id: enterpriseId, admin_user_id: adminUserId,
         action: "employee_model_rule.disable", target_type: "employee_model_rule",
@@ -391,146 +402,19 @@ export class EmployeeModelRuleRepository {
     });
   }
 
-  private async lockVersion(trx: Transaction<Database>, enterpriseId: string, versionId: string) {
-    const version = await trx.selectFrom("employee_model_rule_version").selectAll()
-      .where("enterprise_id", "=", enterpriseId).where("id", "=", versionId)
-      .forUpdate().executeTakeFirst();
-    if (!version) throw new EmployeeModelRuleError("NOT_FOUND", "员工使用规则版本不存在");
-    return version;
-  }
-
-  /** 同一业务规则的发布/停用串行化，避免不同版本同时发布形成半状态。 */
+  /** 同一业务规则的发布/停用串行化，必须在主体 Key 锁之后调用。 */
   private async lockRuleVersion(trx: Transaction<Database>, enterpriseId: string, versionId: string) {
     const reference = await trx.selectFrom("employee_model_rule_version").select("rule_id")
       .where("enterprise_id", "=", enterpriseId).where("id", "=", versionId).executeTakeFirst();
     if (!reference) throw new EmployeeModelRuleError("NOT_FOUND", "员工使用规则版本不存在");
     await sql`SELECT pg_advisory_xact_lock(hashtext(${`${enterpriseId}:${reference.rule_id}`}))`.execute(trx);
-    return this.lockVersion(trx, enterpriseId, versionId);
-  }
-
-  /** POOL-033：升级为 public，供 PrincipalAccessConfigRepository 同事务复用。 */
-  async captureManualBaseline(trx: Transaction<Database>, enterpriseId: string, principalId: string) {
-    const existing = await trx.selectFrom("principal_model_manual_authorization").select("unified_model_id")
-      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId).execute();
-    if (existing.length > 0) return;
-    const key = await trx.selectFrom("principal_key").select("allowed_model_ids")
-      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
-      .where("status", "=", "ACTIVE").forUpdate().executeTakeFirstOrThrow();
-    const managed = await trx.selectFrom("employee_model_rule_assignment").select("unified_model_id")
-      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
-      .where("status", "=", "ACTIVE").execute();
-    const managedIds = new Set(managed.map((row) => row.unified_model_id));
-    const manualIds = (key.allowed_model_ids ?? []).filter((id) => !managedIds.has(id));
-    if (manualIds.length > 0) await trx.insertInto("principal_model_manual_authorization")
-      .values(manualIds.map((id) => ({ enterprise_id: enterpriseId, principal_id: principalId, unified_model_id: id })))
-      .onConflict((oc) => oc.doNothing()).execute();
+    const version = await lockVersion(trx, enterpriseId, versionId);
+    if (!version) throw new EmployeeModelRuleError("NOT_FOUND", "员工使用规则版本不存在");
+    return version;
   }
 
   /** POOL-033：升级为 public，供 PrincipalAccessConfigRepository 同事务复用。 */
   async refreshKeyModels(trx: Transaction<Database>, enterpriseId: string, principalId: string) {
-    // 同一员工的所有规则发布、停用与 Key 维护都在这把行锁后重算全集，避免不同 rule_id 并发丢更新。
-    const key = await trx.selectFrom("principal_key").select("id")
-      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
-      .where("status", "=", "ACTIVE").forUpdate().executeTakeFirst();
-    if (!key) return;
-    const [manual, managed, disabled] = await Promise.all([
-      trx.selectFrom("principal_model_manual_authorization").select("unified_model_id")
-        .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId).execute(),
-      trx.selectFrom("employee_model_rule_assignment")
-        .innerJoin("principal_grant", "principal_grant.id", "employee_model_rule_assignment.grant_id")
-        .select("employee_model_rule_assignment.unified_model_id")
-        .where("employee_model_rule_assignment.enterprise_id", "=", enterpriseId)
-        .where("employee_model_rule_assignment.principal_id", "=", principalId)
-        .where("employee_model_rule_assignment.status", "=", "ACTIVE")
-        .where("principal_grant.status", "=", "ACTIVE").execute(),
-      trx.selectFrom("principal_provider_disabled_model").select("unified_model_id")
-        .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId).execute(),
-    ]);
-    // POOL-033：池化语义下，已开通厂商的型号默认放行（新接入型号自动并入），仅显式禁用清单
-    // 中的型号被剔除。池厂商的型号集合 = 该厂商所有 ACTIVE 池对应的 unified_model。
-    //
-    // 修复（POOL-033 回滚后复测）：不再依赖 model_route.enabled 决定白名单。
-    // 原实现要求 route.enabled=true，但 onboardResourceModels 新建路由默认 enabled=false，
-    // 管理员若未逐个启用路由，refreshKeyModels 会算出空 poolModels → 白名单为空 →
-    // model_not_allowed。白名单语义是"该员工已开通厂商下所有型号"，路由启停属于调度层
-    // 关注点（Gateway 选哪个上游资源），不该让 Key 静态授权集变空。
-    // 同时修 join 笛卡尔积：原 join 只按 enterprise 关联，一个 unified_model 多路由时会
-    // 重复；改为按 provider 严格关联 + DISTINCT 去重。
-    const poolModels = await trx.selectFrom("principal_grant")
-      .innerJoin("model_route", (join) => join
-        .onRef("model_route.enterprise_id", "=", "principal_grant.enterprise_id"))
-      .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
-      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
-      .select("model_route.unified_model_id")
-      .distinct()
-      .where("principal_grant.enterprise_id", "=", enterpriseId)
-      .where("principal_grant.principal_id", "=", principalId)
-      .where("principal_grant.pool_model_alias", "=", "*")
-      .where("principal_grant.status", "=", "ACTIVE")
-      .whereRef("provider.code", "=", "principal_grant.provider")
-      .execute();
-    const disabledSet = new Set(disabled.map((row) => row.unified_model_id));
-    const poolAllowed = poolModels.map((row) => row.unified_model_id).filter((id) => !disabledSet.has(id));
-    // allowed_model_ids 是静态最大授权集合；生效期由 Gateway 的 Grant 门禁实时执行。
-    const ids = mergeDeclaredModelIds(
-      mergeDeclaredModelIds(manual.map((row) => row.unified_model_id), managed.map((row) => row.unified_model_id)),
-      poolAllowed,
-    );
-    await trx.updateTable("principal_key").set({ allowed_model_ids: jsonValue(ids) })
-      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
-      .where("status", "=", "ACTIVE").execute();
-  }
-
-  private async disableVersionLocked(trx: Transaction<Database>, enterpriseId: string, versionId: string) {
-    const assignments = await trx.selectFrom("employee_model_rule_assignment")
-      .select(["principal_id", "grant_id", "unified_model_id", "provider_resource_id"])
-      .where("enterprise_id", "=", enterpriseId)
-      .where("rule_version_id", "=", versionId).where("status", "=", "ACTIVE").forUpdate().execute();
-    if (assignments.length > 0) {
-      const now = new Date();
-      // POOL-033：池化后多规则共享同一池 grant_id，停用一条规则不能 DISABLE 池——否则会
-      // 误伤其他规则维护的型号。改为：停 assignment → 对每个 (principal, provider, model)
-      // 检查是否还有其他 ACTIVE assignment 维护，没有则加入显式禁用清单，保证撤权即时生效。
-      await trx.updateTable("employee_model_rule_assignment").set({ status: "DISABLED", disabled_at: now })
-        .where("rule_version_id", "=", versionId).where("status", "=", "ACTIVE").execute();
-      // 收集本次停用涉及的 (principal, model) 对，查是否还有其他 ACTIVE assignment 维护。
-      const affectedPairs = new Map<string, { principal_id: string; unified_model_id: string; provider_resource_id: string }>();
-      for (const a of assignments) {
-        const key = `${a.principal_id}:${a.unified_model_id}`;
-        affectedPairs.set(key, a);
-      }
-      for (const a of affectedPairs.values()) {
-        const stillMaintained = await trx.selectFrom("employee_model_rule_assignment")
-          .select("id").where("enterprise_id", "=", enterpriseId)
-          .where("principal_id", "=", a.principal_id).where("unified_model_id", "=", a.unified_model_id)
-          .where("status", "=", "ACTIVE").executeTakeFirst();
-        if (!stillMaintained) {
-          // 无其他规则维护 → 加入显式禁用清单。provider.code 与 principal_grant.provider 一致。
-          const route = await trx.selectFrom("model_route")
-            .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
-            .innerJoin("provider", "provider.id", "provider_resource.provider_id")
-            .select("provider.code")
-            .where("model_route.enterprise_id", "=", enterpriseId)
-            .where("model_route.unified_model_id", "=", a.unified_model_id)
-            .where("model_route.provider_resource_id", "=", a.provider_resource_id)
-            .executeTakeFirst();
-          if (route) {
-            await trx.insertInto("principal_provider_disabled_model")
-              .values({
-                enterprise_id: enterpriseId, principal_id: a.principal_id,
-                provider: route.code, unified_model_id: a.unified_model_id,
-                disabled_at: now, disable_rule_version_id: versionId,
-              })
-              .onConflict((oc) => oc.doNothing()).execute();
-          }
-        }
-      }
-      for (const principalId of unique(assignments.map((row) => row.principal_id)).sort()) {
-        await this.refreshKeyModels(trx, enterpriseId, principalId);
-      }
-    }
-    await trx.updateTable("employee_model_rule_version").set({ status: "DISABLED", disabled_at: new Date(), updated_at: new Date() })
-      .where("id", "=", versionId).execute();
-    return unique(assignments.map((row) => row.principal_id));
+    return refreshEmployeeKeyModels(trx, enterpriseId, principalId);
   }
 }
