@@ -63,7 +63,9 @@ export function assemblePrincipalAccessReadModel(input: {
         resource_mode: model.mode,
         ready: model.ready,
         unavailable_reasons: model.unavailable_reasons,
-        enabled: pool !== null && !input.disabledKeys.has(`${code}:${model.unified_model_id}`),
+        enabled: model.ready
+          && pool !== null
+          && !input.disabledKeys.has(`${code}:${model.unified_model_id}`),
       })),
     };
   });

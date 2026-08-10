@@ -70,6 +70,28 @@ describe("POOL-039 principal access read-model mutation contract", () => {
     }).key).toMatchObject({ authorization_status: "PENDING" });
   });
 
+  it("does not count a billing-unready model as enabled by an active pool", () => {
+    const unavailable = {
+      ...model("alpha", "a"),
+      ready: false,
+      unavailable_reasons: ["缺少当前生效的计价或扣减规则"],
+    };
+    const result = assemblePrincipalAccessReadModel({
+      principal: { id: "principal", name: "A", status: "ACTIVE", department_label: null },
+      key: { key_prefix: "sk-ql", status: "ACTIVE", created_at: createdAt },
+      models: [unavailable],
+      pools: [{
+        id: "grant-alpha", provider: "alpha", quota_value: 10n, used_value: 0n,
+        allow_overage: false, valid_until: null, source: "MANAGED_SINGLE",
+      }],
+      disabledKeys: new Set(), manualPendingIds: [], configVersion: 1,
+    });
+
+    expect(result.providers[0]?.models[0]).toMatchObject({ ready: false, enabled: false });
+    expect(result.summary.model_count).toBe(0);
+    expect(result.key?.authorization_status).toBe("PENDING");
+  });
+
   it("does not mark a pool over-limit when usage exactly equals quota", () => {
     const result = assemblePrincipalAccessReadModel({
       principal: { id: "principal", name: "A", status: "ACTIVE", department_label: null },

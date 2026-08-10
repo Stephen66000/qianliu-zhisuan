@@ -8,11 +8,10 @@
   "vitest": { "configFile": "vitest.pool043.mutation.config.ts" },
   "coverageAnalysis": "perTest",
   "mutate": [
-    "src/auth/current-model-authorization.ts:70:3-80:2",
-    "src/auth/current-model-authorization.ts:358:3-390:56",
-    "src/auth/current-model-authorization.ts:398:3-399:57",
-    "src/pipeline/real-pipeline.ts:474:9-482:10",
-    "src/pipeline/real-pipeline.ts:935:11-939:12"
+    "src/auth/current-model-authorization.ts:284:3-339:2",
+    "src/pipeline/attempt-usage-settlement.ts:196:1-227:2",
+    "src/pipeline/real-pipeline.ts:476:9-523:10",
+    "src/pipeline/real-pipeline.ts:937:9-983:10"
   ],
   "thresholds": { "high": 100, "low": 80, "break": 80 },
   "timeoutMS": 120000,

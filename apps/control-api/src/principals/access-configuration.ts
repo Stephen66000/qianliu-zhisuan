@@ -5,26 +5,12 @@
  * 直建 Grant——权限与额度统一经本端点进入规则引擎。
  */
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { z } from "zod";
 import {
   PrincipalAccessConfigError,
   type PoolSpec,
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
-
-const PoolSchema = z.object({
-  provider_code: z.string().trim().min(1).max(32),
-  quota_value: z.string().regex(/^\d+$/, "额度必须是非负整数字符串").transform((v) => BigInt(v)),
-  allow_overage: z.boolean().default(false),
-  valid_until: z.coerce.date().nullable().default(null),
-  enabled_model_ids: z.array(z.string().uuid()).default([]),
-});
-
-const PutSchema = z.object({
-  expected_version: z.number().int().positive(),
-  idempotency_key: z.string().trim().min(8).max(128),
-  providers: z.array(PoolSchema).default([]),
-});
+import { PrincipalAccessConfigurationPutSchema } from "./access-configuration-schema.js";
 
 function serialize<T>(value: T): T {
   return JSON.parse(JSON.stringify(value, (_key, item) => typeof item === "bigint" ? item.toString() : item)) as T;
@@ -62,9 +48,13 @@ export function registerPrincipalAccessConfigRoutes(app: FastifyInstance): void 
     "/principals/:id/access-configuration",
     { preHandler: [requireAuth] },
     async (req, reply) => {
-      const parsed = PutSchema.safeParse(req.body);
+      const parsed = PrincipalAccessConfigurationPutSchema.safeParse(req.body);
       if (!parsed.success) {
-        return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+        return reply.code(400).send({
+          error: "invalid_request",
+          message: parsed.error.issues[0]?.message ?? "接入配置请求无效",
+          detail: parsed.error.issues.map((issue) => ({ path: issue.path, message: issue.message })),
+        });
       }
       const pools: PoolSpec[] = parsed.data.providers.map((p) => ({
         provider_code: p.provider_code,

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AdapterResource, OpenAiCompatibleCallerOptions, UpstreamCaller } from "@qianliu/provider-adapters";
-import { createProductionCallerOptions, createProductionUpstreamCaller } from "./upstream-caller-factory.js";
+import {
+  createProductionCallerOptions,
+  createProductionUpstreamCaller,
+  createProductionUpstreamRuntime,
+} from "./upstream-caller-factory.js";
 
 const resource = (
   providerCode: AdapterResource["providerCode"],
@@ -51,6 +55,15 @@ describe("Gateway 生产上游 Caller 装配", () => {
     expect(typeof factory.mock.calls[0]![0].streamIdleTimeoutMsForResource).toBe("function");
   });
 
+  it("700000ms 总超时从同一生产配置派生 60000ms 余量的探针租期", () => {
+    const runtime = createProductionUpstreamRuntime({
+      GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS: "700000",
+    });
+
+    expect(runtime.requestTimeoutMs).toBe(700_000);
+    expect(runtime.halfOpenProbeLeaseMs).toBe(760_000);
+  });
+
   it("空的总超时配置回退生产默认值", () => {
     expect(createProductionCallerOptions({
       GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS: "",
@@ -62,5 +75,11 @@ describe("Gateway 生产上游 Caller 装配", () => {
   ])("启动时拒绝非法生产超时配置 %s", (name, value) => {
     expect(() => createProductionCallerOptions({ [name]: value }))
       .toThrow(`${name} 必须是正整数毫秒`);
+  });
+
+  it("启动时拒绝无法安全增加探针余量的超大总超时", () => {
+    expect(() => createProductionUpstreamRuntime({
+      GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS: String(Number.MAX_SAFE_INTEGER),
+    })).toThrow("无法增加 60000ms 探针安全余量");
   });
 });

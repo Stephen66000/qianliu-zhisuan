@@ -81,12 +81,12 @@ try {
     mode: "API",
     credential_type: "API_KEY",
   }).returningAll().executeTakeFirstOrThrow();
-  await db.insertInto("model_route").values({
+  const route = await db.insertInto("model_route").values({
     enterprise_id: enterpriseId,
     unified_model_id: model.id,
     provider_resource_id: resource.id,
     upstream_model: "deepseek-chat",
-  }).execute();
+  }).returning("id").executeTakeFirstOrThrow();
   await db.insertInto("billing_rule").values({
     enterprise_id: enterpriseId,
     provider_resource_id: resource.id,
@@ -121,6 +121,7 @@ try {
   const listCandidates = async (entId: string, alias: string): Promise<RouteCandidateRow[]> => {
     if (entId !== enterpriseId || alias !== model.alias) return [];
     return [{
+      routeId: route.id,
       resourceId: resource.id,
       providerCode: "deepseek",
       upstreamModel: "deepseek-chat",

@@ -6,6 +6,7 @@ export default defineConfig({
     globals: false,
     include: [
       "src/__tests-integration__/w05-northbound.test.ts",
+      "src/__tests-integration__/w18-quota-pipeline.test.ts",
       "src/__tests-integration__/pool043-operating-bill-settlement.test.ts",
       "src/pipeline/attempt-usage-settlement.test.ts",
       "src/pipeline/billing.pool043.test.ts",
@@ -23,6 +24,7 @@ export default defineConfig({
         "src/pipeline/attempt-usage-settlement.ts",
         "src/pipeline/pricing-evidence.ts",
         "src/pipeline/request-model-identity.ts",
+        "src/pipeline/revoked-attempt-settlement.ts",
         "src/routes/models.ts",
       ],
       thresholds: { statements: 95, branches: 85, functions: 90, lines: 95 },

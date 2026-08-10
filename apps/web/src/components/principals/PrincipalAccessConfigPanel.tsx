@@ -82,16 +82,19 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
   const saveMutation = useMutation({
     mutationFn: async (body: AccessConfigPutBody) =>
       put<AccessConfigPutResult>(`/principals/${principalId}/access-configuration`, body),
-    onSuccess: () => {
-      setSaveSuccess(true);
-      setSaveError(null);
+    onSuccess: async () => {
       // POOL-033：保存会原子改写该主体的授权规则、Grant、额度计数器与 Key 白名单，
       // 因此除本面板外，还需连带刷新下方 Grant 只读表、首页超额名单与主体列表额度状态，
       // 避免管理员切页后看到陈旧的额度/超额/Grant 数据。
       // invalidateQueries 按前缀匹配：["principals"] 会连带刷新所有 principal 子查询。
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.grants(principalId) });
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+      // “已保存”只有在接入配置读模型完成刷新后才出现，保证紧接着复制的信息不是旧授权。
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.grants(principalId) }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard }),
+      ]);
+      setSaveSuccess(true);
+      setSaveError(null);
       setTimeout(() => setSaveSuccess(false), 3000);
     },
     onError: (error) => {

@@ -1,16 +1,11 @@
 import { Decimal } from "decimal.js";
-import { sql, type Kysely, type Transaction } from "kysely";
+import { type Kysely, type Transaction } from "kysely";
 
 import type { Database } from "../kysely.js";
 import type {
-  CreateAttemptInput,
-  CreateLedgerTransactionInput,
-  CreateUsageLedgerLineInput,
-  FinalizeLedgerSettlementInput,
-  LedgerLine,
-  LedgerTransaction,
-  UpstreamAttempt,
-  UsageLedgerLineResult,
+  CreateAttemptInput, CreateLedgerTransactionInput, CreateUsageLedgerLineInput,
+  FinalizeLedgerSettlementInput, LedgerLine, LedgerTransaction,
+  PersistAttemptUsageAccountingInput, UpstreamAttempt, UsageLedgerLineResult,
 } from "./gateway-ledger-types.js";
 import {
   assertAttemptMatches,
@@ -21,6 +16,7 @@ import {
   GatewayLedgerSettlementConflictError,
 } from "./gateway-ledger-settlement-assertions.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
+import { loadRequestSettlementFacts } from "./gateway-ledger-request-facts.js";
 import { settleQuota as calculateSettledQuota } from "@qianliu/domain";
 
 export {
@@ -82,76 +78,131 @@ export async function createGuardedUpstreamAttempt(
  * finalize 发布 terminal 后，任何迟到的 attempt/usage 都会 fail-closed。
  */
 export async function createUsageLedgerLineAtomically(
+  db: Kysely<Database>, input: CreateUsageLedgerLineInput,
+): Promise<UsageLedgerLineResult> {
+  return db.transaction().execute((trx) => persistUsageLedgerLine(trx, input));
+}
+
+/**
+ * 非终态 Attempt 的事实、额度退回和租约释放同事务提交。
+ *
+ * 锁序与 terminal finalize 一致：request → attempt → 账本事实/月屏障 →
+ * quota_counter（按 grant 排序）→ concurrency_lease（按 id 排序）。只有首次创建
+ * ledger_line 时执行资源结算；
+ * 因此 PostgreSQL 回滚后可安全重试，成功提交后重放不会重复退额度。
+ */
+export async function persistAttemptUsageAccountingAtomically(
   db: Kysely<Database>,
-  input: CreateUsageLedgerLineInput,
+  input: PersistAttemptUsageAccountingInput,
 ): Promise<UsageLedgerLineResult> {
   return db.transaction().execute(async (trx) => {
-    assertUsageLineInputCoherent(input);
-    const request = await lockInProgressRequest(
-      trx, input.usage.enterprise_id, input.usage.ai_request_id,
-    );
-    if (request.principal_id !== input.ledger_line.principal_id) {
-      throw new GatewayLedgerSettlementConflictError("settlement_principal_conflict");
-    }
-    const attempt = await trx.selectFrom("upstream_attempt")
-      .innerJoin("provider_resource", "provider_resource.id", "upstream_attempt.provider_resource_id")
-      .select(["upstream_attempt.id", "provider_resource.mode"])
-      .where("upstream_attempt.id", "=", input.usage.upstream_attempt_id)
-      .where("upstream_attempt.enterprise_id", "=", input.usage.enterprise_id)
-      .where("upstream_attempt.ai_request_id", "=", input.usage.ai_request_id)
-      .where("upstream_attempt.provider_resource_id", "=", input.usage.provider_resource_id)
-      .where("provider_resource.enterprise_id", "=", input.usage.enterprise_id)
-      .executeTakeFirst();
-    if (!attempt) throw new GatewayLedgerSettlementConflictError("usage_attempt_conflict");
-    if (attempt.mode !== input.ledger_line.resource_mode) {
-      throw new GatewayLedgerSettlementConflictError("settlement_resource_mode_conflict");
-    }
-    let usage = await trx.selectFrom("usage_event").selectAll()
-      .where("dedup_key", "=", input.usage.dedup_key).forUpdate().executeTakeFirst();
-    if (!usage) {
-      const createdAt = new Date();
-      await guardOperatingBillLedgerWrite(trx, input.usage.enterprise_id, createdAt);
-      usage = await trx.insertInto("usage_event").values({
+    const result = await persistUsageLedgerLine(trx, input, input.attempt_result);
+    if (result.created) {
+      await settleRequestAccounting(trx, {
         ai_request_id: input.usage.ai_request_id,
         enterprise_id: input.usage.enterprise_id,
-        upstream_attempt_id: input.usage.upstream_attempt_id,
-        provider_resource_id: input.usage.provider_resource_id,
-        input_tokens: input.usage.input_tokens,
-        output_tokens: input.usage.output_tokens,
-        cache_tokens: input.usage.cache_tokens,
-        reasoning_tokens: input.usage.reasoning_tokens ?? 0n,
-        usage_quality: input.usage.usage_quality,
-        dedup_key: input.usage.dedup_key,
-        upstream_usage_id: input.usage.upstream_usage_id ?? null,
-        created_at: createdAt,
-      }).returningAll().executeTakeFirstOrThrow();
+        principal_id: input.ledger_line.principal_id,
+        quota_settlements: input.quota_settlements,
+        release_lease_ids: input.release_lease_ids,
+      }, new Date());
     }
-    assertUsageMatches(usage, input);
-    const lines = await trx.selectFrom("ledger_line").selectAll()
-      .where("usage_event_id", "=", usage.id).orderBy("created_at", "asc")
-      .orderBy("id", "asc").execute();
-    if (lines.length > 1) throw new GatewayLedgerSettlementConflictError("duplicate_ledger_line");
-    if (lines[0]) {
-      assertLineMatches(lines[0], input);
-      return { usage, line: lines[0], created: false };
-    }
-
-    // 历史 usage-only 自愈必须保留 usage 的事实月份，不能按修复执行时间跨月改账。
-    await guardOperatingBillLedgerWrite(trx, input.usage.enterprise_id, usage.created_at);
-    const line = await trx.insertInto("ledger_line").values({
-      ...input.ledger_line,
-      usage_event_id: usage.id,
-      raw_reasoning_tokens: input.ledger_line.raw_reasoning_tokens ?? 0n,
-      deducted_quota: input.ledger_line.deducted_quota ?? null,
-      api_cost: input.ledger_line.api_cost ?? null,
-      billing_rule_id: input.ledger_line.billing_rule_id ?? null,
-      rule_version: input.ledger_line.rule_version ?? null,
-      multiplier: input.ledger_line.multiplier ?? null,
-      billing_rule_snapshot: input.ledger_line.billing_rule_snapshot ?? null,
-      created_at: usage.created_at,
-    }).returningAll().executeTakeFirstOrThrow();
-    return { usage, line, created: true };
+    return result;
   });
+}
+
+export async function persistUsageLedgerLine(
+  trx: Transaction<Database>,
+  input: CreateUsageLedgerLineInput,
+  attemptResult?: PersistAttemptUsageAccountingInput["attempt_result"],
+): Promise<UsageLedgerLineResult> {
+  assertUsageLineInputCoherent(input);
+  const request = await lockInProgressRequest(
+    trx, input.usage.enterprise_id, input.usage.ai_request_id,
+  );
+  if (request.principal_id !== input.ledger_line.principal_id) {
+    throw new GatewayLedgerSettlementConflictError("settlement_principal_conflict");
+  }
+  let attemptQuery = trx.selectFrom("upstream_attempt")
+    .innerJoin("provider_resource", "provider_resource.id", "upstream_attempt.provider_resource_id")
+    .select([
+      "upstream_attempt.id", "upstream_attempt.finished_at", "upstream_attempt.http_status",
+      "upstream_attempt.response_committed", "upstream_attempt.error_classification",
+      "upstream_attempt.error_code", "upstream_attempt.switch_reason", "provider_resource.mode",
+    ])
+    .where("upstream_attempt.id", "=", input.usage.upstream_attempt_id)
+    .where("upstream_attempt.enterprise_id", "=", input.usage.enterprise_id)
+    .where("upstream_attempt.ai_request_id", "=", input.usage.ai_request_id)
+    .where("upstream_attempt.provider_resource_id", "=", input.usage.provider_resource_id)
+    .where("provider_resource.enterprise_id", "=", input.usage.enterprise_id);
+  if (attemptResult) attemptQuery = attemptQuery.forUpdate();
+  const attempt = await attemptQuery.executeTakeFirst();
+  if (!attempt) throw new GatewayLedgerSettlementConflictError("usage_attempt_conflict");
+  if (attempt.mode !== input.ledger_line.resource_mode) {
+    throw new GatewayLedgerSettlementConflictError("settlement_resource_mode_conflict");
+  }
+  if (attemptResult) {
+    if (attempt.finished_at === null) {
+      const updated = await trx.updateTable("upstream_attempt").set(attemptResult)
+        .where("id", "=", input.usage.upstream_attempt_id)
+        .where("enterprise_id", "=", input.usage.enterprise_id)
+        .where("ai_request_id", "=", input.usage.ai_request_id)
+        .where("finished_at", "is", null).executeTakeFirst();
+      if (Number(updated.numUpdatedRows) !== 1) {
+        throw new GatewayLedgerSettlementConflictError("settlement_attempt_result_conflict");
+      }
+    } else if (attempt.http_status !== attemptResult.http_status
+      || attempt.response_committed !== attemptResult.response_committed
+      || attempt.error_classification !== attemptResult.error_classification
+      || attempt.error_code !== attemptResult.error_code
+      || attempt.switch_reason !== attemptResult.switch_reason) {
+      throw new GatewayLedgerSettlementConflictError("settlement_attempt_result_conflict");
+    }
+  }
+  let usage = await trx.selectFrom("usage_event").selectAll()
+    .where("dedup_key", "=", input.usage.dedup_key).forUpdate().executeTakeFirst();
+  if (!usage) {
+    const createdAt = new Date();
+    await guardOperatingBillLedgerWrite(trx, input.usage.enterprise_id, createdAt);
+    usage = await trx.insertInto("usage_event").values({
+      ai_request_id: input.usage.ai_request_id,
+      enterprise_id: input.usage.enterprise_id,
+      upstream_attempt_id: input.usage.upstream_attempt_id,
+      provider_resource_id: input.usage.provider_resource_id,
+      input_tokens: input.usage.input_tokens,
+      output_tokens: input.usage.output_tokens,
+      cache_tokens: input.usage.cache_tokens,
+      reasoning_tokens: input.usage.reasoning_tokens ?? 0n,
+      usage_quality: input.usage.usage_quality,
+      dedup_key: input.usage.dedup_key,
+      upstream_usage_id: input.usage.upstream_usage_id ?? null,
+      created_at: createdAt,
+    }).returningAll().executeTakeFirstOrThrow();
+  }
+  assertUsageMatches(usage, input);
+  const lines = await trx.selectFrom("ledger_line").selectAll()
+    .where("usage_event_id", "=", usage.id).orderBy("created_at", "asc")
+    .orderBy("id", "asc").execute();
+  if (lines.length > 1) throw new GatewayLedgerSettlementConflictError("duplicate_ledger_line");
+  if (lines[0]) {
+    assertLineMatches(lines[0], input);
+    return { usage, line: lines[0], created: false };
+  }
+
+  // 历史 usage-only 自愈必须保留 usage 的事实月份，不能按修复执行时间跨月改账。
+  await guardOperatingBillLedgerWrite(trx, input.usage.enterprise_id, usage.created_at);
+  const line = await trx.insertInto("ledger_line").values({
+    ...input.ledger_line,
+    usage_event_id: usage.id,
+    raw_reasoning_tokens: input.ledger_line.raw_reasoning_tokens ?? 0n,
+    deducted_quota: input.ledger_line.deducted_quota ?? null,
+    api_cost: input.ledger_line.api_cost ?? null,
+    billing_rule_id: input.ledger_line.billing_rule_id ?? null,
+    rule_version: input.ledger_line.rule_version ?? null,
+    multiplier: input.ledger_line.multiplier ?? null,
+    billing_rule_snapshot: input.ledger_line.billing_rule_snapshot ?? null,
+    created_at: usage.created_at,
+  }).returningAll().executeTakeFirstOrThrow();
+  return { usage, line, created: true };
 }
 
 /**
@@ -226,90 +277,28 @@ async function assertRequestReadyToFinalize(
   db: Transaction<Database>,
   input: CreateLedgerTransactionInput,
 ): Promise<void> {
-  const attempt = await db.selectFrom("upstream_attempt").select((eb) => [
-    eb.fn.countAll<string>().as("total"),
-    eb.fn.count<string>("finished_at").as("finished"),
-  ]).where("enterprise_id", "=", input.enterprise_id)
-    .where("ai_request_id", "=", input.ai_request_id).executeTakeFirstOrThrow();
-  if (Number(attempt.total) !== input.attempt_count || attempt.finished !== attempt.total) {
+  const facts = await loadRequestSettlementFacts(db, input.enterprise_id, input.ai_request_id);
+  if (facts.attemptCount !== input.attempt_count) {
     throw new GatewayLedgerSettlementConflictError("settlement_attempt_incomplete");
   }
-  const missingLine = await sql<{ missing: boolean }>`
-    SELECT EXISTS (
-      SELECT 1 FROM usage_event usage
-       WHERE usage.enterprise_id = ${input.enterprise_id}
-         AND usage.ai_request_id = ${input.ai_request_id}
-         AND NOT EXISTS (
-           SELECT 1 FROM ledger_line line
-            WHERE line.enterprise_id = usage.enterprise_id
-              AND line.usage_event_id = usage.id
-         )
-    ) AS missing
-  `.execute(db);
-  if (missingLine.rows[0]?.missing) {
-    throw new GatewayLedgerSettlementConflictError("settlement_usage_without_line");
-  }
-  const missingAttemptFact = await sql<{ missing: boolean }>`
-    SELECT EXISTS (
-      SELECT 1 FROM upstream_attempt attempt
-       WHERE attempt.enterprise_id = ${input.enterprise_id}
-         AND attempt.ai_request_id = ${input.ai_request_id}
-         AND NOT EXISTS (
-           SELECT 1 FROM usage_event usage
-           JOIN ledger_line line
-             ON line.enterprise_id = usage.enterprise_id
-            AND line.usage_event_id = usage.id
-            AND line.upstream_attempt_id = attempt.id
-            WHERE usage.enterprise_id = attempt.enterprise_id
-              AND usage.ai_request_id = attempt.ai_request_id
-              AND usage.upstream_attempt_id = attempt.id
-         )
-    ) AS missing
-  `.execute(db);
-  if (missingAttemptFact.rows[0]?.missing) {
-    throw new GatewayLedgerSettlementConflictError("settlement_attempt_fact_missing");
-  }
-  const totals = await sql<{
-    input_tokens: string;
-    output_tokens: string;
-    cache_tokens: string;
-    reasoning_tokens: string;
-    deducted_quota: string;
-    api_cost: string;
-    api_cost_known: boolean;
-    usage_qualities: string[] | null;
-  }>`
-    SELECT COALESCE(SUM(raw_input_tokens), 0)::text AS input_tokens,
-           COALESCE(SUM(raw_output_tokens), 0)::text AS output_tokens,
-           COALESCE(SUM(raw_cache_tokens), 0)::text AS cache_tokens,
-           COALESCE(SUM(raw_reasoning_tokens), 0)::text AS reasoning_tokens,
-           COALESCE(SUM(deducted_quota), 0)::text AS deducted_quota,
-           COALESCE(SUM(api_cost) FILTER (WHERE resource_mode = 'API'), 0)::text AS api_cost,
-           COUNT(*) FILTER (WHERE resource_mode = 'API')
-             = COUNT(api_cost) FILTER (WHERE resource_mode = 'API') AS api_cost_known,
-           ARRAY_AGG(DISTINCT usage_quality) AS usage_qualities
-      FROM ledger_line
-     WHERE enterprise_id = ${input.enterprise_id}
-       AND ai_request_id = ${input.ai_request_id}
-  `.execute(db);
-  const total = totals.rows[0]!;
-  const expectedApiCost = total.api_cost_known ? total.api_cost : "0";
-  if (BigInt(total.input_tokens) !== input.total_input_tokens
-    || BigInt(total.output_tokens) !== input.total_output_tokens
-    || BigInt(total.cache_tokens) !== input.total_cache_tokens
-    || BigInt(total.reasoning_tokens) !== (input.total_reasoning_tokens ?? 0n)
-    || BigInt(total.deducted_quota) !== input.total_deducted_quota
-    || !new Decimal(expectedApiCost).eq(input.total_api_cost)
+  if (facts.totalInputTokens !== input.total_input_tokens
+    || facts.totalOutputTokens !== input.total_output_tokens
+    || facts.totalCacheTokens !== input.total_cache_tokens
+    || facts.totalReasoningTokens !== (input.total_reasoning_tokens ?? 0n)
+    || facts.totalDeductedQuota !== input.total_deducted_quota
+    || !new Decimal(facts.totalApiCost).eq(input.total_api_cost)
     || summarizeLedgerUsageQuality(
-      (total.usage_qualities ?? []).map((usage_quality) => ({ usage_quality })),
+      facts.usageQualities.map((usage_quality) => ({ usage_quality })),
     ) !== input.usage_quality) {
     throw new GatewayLedgerSettlementConflictError("settlement_totals_stale");
   }
 }
 
-async function settleRequestAccounting(
+export async function settleRequestAccounting(
   db: Transaction<Database>,
-  input: FinalizeLedgerSettlementInput,
+  input: Pick<FinalizeLedgerSettlementInput,
+    "ai_request_id" | "enterprise_id" | "principal_id"
+    | "quota_settlements" | "release_lease_ids">,
   now: Date,
 ): Promise<void> {
   const byGrant = new Map<string, { estimated: bigint; actual: bigint }>();
@@ -347,6 +336,7 @@ async function settleRequestAccounting(
       .where("id", "in", leaseIds)
       .where("enterprise_id", "=", input.enterprise_id)
       .where("ai_request_id", "=", input.ai_request_id)
+      .orderBy("id", "asc")
       .forUpdate().execute();
     if (leases.length !== leaseIds.length) {
       throw new GatewayLedgerSettlementConflictError("settlement_lease_conflict");
@@ -357,7 +347,7 @@ async function settleRequestAccounting(
   }
 }
 
-async function insertLedgerTransaction(
+export async function insertLedgerTransaction(
   db: Kysely<Database>,
   input: CreateLedgerTransactionInput,
 ): Promise<LedgerTransaction> {

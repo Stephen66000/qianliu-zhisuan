@@ -128,7 +128,7 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       .toBeUndefined();
   });
 
-  it("校验后原子发布 Key＋Grant，重试幂等且保留手工权限", async () => {
+  it("校验后原子发布 Key＋Grant，重试幂等且保留手工权限事实", async () => {
     const created = await createRule();
     expect(created.statusCode).toBe(201);
     const versionId = created.json().version.id as string;
@@ -159,8 +159,11 @@ describe("POOL-029 员工模型授权发布闭环", () => {
     const key = await db.selectFrom("principal_key").select("allowed_model_ids")
       .where("principal_id", "=", employeeId).executeTakeFirstOrThrow();
     // POOL-033：池语义下，已开通厂商的所有就绪型号默认放行（新接入型号自动并入）。
-    // 本测试厂商有 modelId 和 secondModelId 两个就绪型号，发布后白名单包含手工模型 + 两个就绪型号。
-    expect(new Set(key.allowed_model_ids)).toEqual(new Set([manualModelId, modelId, secondModelId]));
+    // 手工基线事实继续保留，但没有可用 Route／计费规则的 manualModelId 不得进入 ACTIVE Key 白名单。
+    expect(new Set(key.allowed_model_ids)).toEqual(new Set([modelId, secondModelId]));
+    expect(await db.selectFrom("principal_model_manual_authorization").select("unified_model_id")
+      .where("principal_id", "=", employeeId).where("unified_model_id", "=", manualModelId)
+      .executeTakeFirst()).toBeDefined();
     // POOL-033：池模型下发布产生的是"主体×厂商"池 Grant，不是型号级 Grant。
     const grant = await db.selectFrom("principal_grant").selectAll().where("principal_id", "=", employeeId).executeTakeFirstOrThrow();
     expect(grant).toMatchObject({ provider: "kimi", model_alias: "*", pool_model_alias: "*", quota_value: "500000", status: "ACTIVE", authorization_rule_version_id: versionId });
@@ -189,8 +192,11 @@ describe("POOL-029 员工模型授权发布闭环", () => {
     // (a) 不在白名单中，(b) 在显式禁用清单中——热路径凭禁用清单即时拒绝。
     const keyAfterDisable = (await db.selectFrom("principal_key").select("allowed_model_ids")
       .where("principal_id", "=", employeeId).executeTakeFirstOrThrow()).allowed_model_ids;
-    expect(keyAfterDisable).toContain(manualModelId);
+    expect(keyAfterDisable).not.toContain(manualModelId);
     expect(keyAfterDisable).not.toContain(modelId);
+    expect(await db.selectFrom("principal_model_manual_authorization").select("unified_model_id")
+      .where("principal_id", "=", employeeId).where("unified_model_id", "=", manualModelId)
+      .executeTakeFirst()).toBeDefined();
     const disabledModels = await db.selectFrom("principal_provider_disabled_model").selectAll()
       .where("principal_id", "=", employeeId).execute();
     expect(disabledModels.length).toBeGreaterThan(0);
@@ -277,7 +283,10 @@ describe("POOL-029 员工模型授权发布闭环", () => {
     }
     const key = await db.selectFrom("principal_key").select("allowed_model_ids")
       .where("principal_id", "=", principalId).executeTakeFirstOrThrow();
-    expect(new Set(key.allowed_model_ids)).toEqual(new Set([manualModelId, modelId, secondModelId]));
+    expect(new Set(key.allowed_model_ids)).toEqual(new Set([modelId, secondModelId]));
+    expect(await db.selectFrom("principal_model_manual_authorization").select("unified_model_id")
+      .where("principal_id", "=", principalId).where("unified_model_id", "=", manualModelId)
+      .executeTakeFirst()).toBeDefined();
   });
 
   it("手工授权与规则发布并发时按 Key 行锁串行化，不覆盖刚发布的模型", async () => {

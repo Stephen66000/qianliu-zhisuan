@@ -17,6 +17,7 @@ import {
   assertUsageMatches,
   optionalBigintEquals,
   optionalDecimalEquals,
+  settleRequestAccounting,
   stableJson,
   summarizeLedgerUsageQuality,
 } from "./gateway-ledger-settlement.js";
@@ -145,6 +146,82 @@ function expectConflict(run: () => void, message: string): void {
   expect(run).toThrow(message);
 }
 
+function tracedAccountingDb(trace: {
+  grantLocks: string[];
+  quotaUpdates: Array<{ grantId: string; used: bigint }>;
+  selectedLeases: string[];
+  releasedLeases: string[];
+  leaseOrderBy: Array<[string, string]>;
+}): Parameters<typeof settleRequestAccounting>[0] {
+  return {
+    selectFrom(table: string) {
+      let grantId = "";
+      let leaseIds: string[] = [];
+      const builder = {
+        selectAll: () => builder,
+        select: () => builder,
+        where: (column: string, operator: string, value: unknown) => {
+          if ((table === "quota_counter" && column === "grant_id")
+            || (table === "principal_grant" && column === "id")) grantId = String(value);
+          if (table === "concurrency_lease" && column === "id" && operator === "in") {
+            leaseIds = value as string[];
+          }
+          return builder;
+        },
+        orderBy: (column: string, direction: string) => {
+          trace.leaseOrderBy.push([column, direction]);
+          return builder;
+        },
+        forUpdate: () => builder,
+        executeTakeFirst: async () => {
+          if (table === "quota_counter") {
+            trace.grantLocks.push(grantId);
+            return { used_value: 20n };
+          }
+          return {
+            id: grantId,
+            enterprise_id: "enterprise-1",
+            principal_id: "principal-1",
+            quota_value: 100n,
+          };
+        },
+        execute: async () => {
+          trace.selectedLeases = [...leaseIds];
+          return leaseIds.map((id) => ({ id }));
+        },
+      };
+      return builder;
+    },
+    updateTable(table: string) {
+      let values: Record<string, unknown> = {};
+      let grantId = "";
+      let leaseIds: string[] = [];
+      const builder = {
+        set: (input: Record<string, unknown>) => {
+          values = input;
+          return builder;
+        },
+        where: (column: string, operator: string, value: unknown) => {
+          if (table === "quota_counter" && column === "grant_id") grantId = String(value);
+          if (table === "concurrency_lease" && column === "id" && operator === "in") {
+            leaseIds = value as string[];
+          }
+          return builder;
+        },
+        execute: async () => {
+          if (table === "quota_counter") {
+            trace.quotaUpdates.push({ grantId, used: values.used_value as bigint });
+          } else {
+            trace.releasedLeases = [...leaseIds];
+          }
+          return [];
+        },
+      };
+      return builder;
+    },
+  } as unknown as Parameters<typeof settleRequestAccounting>[0];
+}
+
 describe("POOL-043 transaction 用量质量", () => {
   it("无明细 fail-closed 为 UNKNOWN", () => {
     expect(summarizeLedgerUsageQuality([])).toBe("UNKNOWN");
@@ -167,6 +244,38 @@ describe("POOL-043 transaction 用量质量", () => {
     ]);
     expect(forward).toBe("MIXED:PROVIDER_REPORTED+UNKNOWN");
     expect(reverse).toBe(forward);
+  });
+});
+
+describe("POOL-043 资源结算锁序", () => {
+  it("Grant 与 Lease 去重排序后锁定，并合并同 Grant 调整", async () => {
+    const trace = {
+      grantLocks: [] as string[],
+      quotaUpdates: [] as Array<{ grantId: string; used: bigint }>,
+      selectedLeases: [] as string[],
+      releasedLeases: [] as string[],
+      leaseOrderBy: [] as Array<[string, string]>,
+    };
+    await settleRequestAccounting(tracedAccountingDb(trace), {
+      ai_request_id: "request-1",
+      enterprise_id: "enterprise-1",
+      principal_id: "principal-1",
+      quota_settlements: [
+        { grant_id: "grant-z", reserved_estimate: 10n, actual_deducted: 2n },
+        { grant_id: "grant-a", reserved_estimate: 4n, actual_deducted: 1n },
+        { grant_id: "grant-z", reserved_estimate: 5n, actual_deducted: 3n },
+      ],
+      release_lease_ids: ["lease-z", "lease-a", "lease-z"],
+    }, new Date("2026-08-10T00:00:00Z"));
+
+    expect(trace.grantLocks).toEqual(["grant-a", "grant-z"]);
+    expect(trace.quotaUpdates).toEqual([
+      { grantId: "grant-a", used: 17n },
+      { grantId: "grant-z", used: 10n },
+    ]);
+    expect(trace.selectedLeases).toEqual(["lease-a", "lease-z"]);
+    expect(trace.releasedLeases).toEqual(["lease-a", "lease-z"]);
+    expect(trace.leaseOrderBy).toEqual([["id", "asc"]]);
   });
 });
 

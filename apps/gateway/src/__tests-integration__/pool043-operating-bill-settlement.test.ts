@@ -566,8 +566,8 @@ describe("POOL-043 真实 pipeline 结算与关账 completion barrier", () => {
           messages: [{ role: "user", content: "POOL-043 multi attempt revoked" }],
         },
       });
-      expect(response.statusCode).toBe(403);
-      expect(response.json().error.code).toBe("key_or_model_authorization_revoked");
+      expect(response.statusCode).toBe(503);
+      expect(response.json().error.code).toBe("candidate_admission_revoked");
       expect(upstreamCalls).toBe(1);
       const request = await db.selectFrom("ai_request").selectAll()
         .where("enterprise_id", "=", fixture.enterpriseId).executeTakeFirstOrThrow();
@@ -678,7 +678,8 @@ describe("POOL-043 真实 pipeline 结算与关账 completion barrier", () => {
           messages: [{ role: "user", content: "expired coding billing" }],
         },
       });
-      expect(response.statusCode).toBe(403);
+      expect(response.statusCode).toBe(503);
+      expect(response.json().error.code).toBe("candidate_admission_revoked");
       expect(upstreamCalls).toBe(0);
       expect((await db.selectFrom("quota_counter").select("used_value")
         .where("grant_id", "=", fixture.grantId).executeTakeFirstOrThrow()).used_value)

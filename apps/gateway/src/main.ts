@@ -14,7 +14,7 @@ import { installGracefulShutdown } from "@qianliu/observability";
 import { buildGateway } from "./server.js";
 import { createRealPipeline, type RouteCandidateRow } from "./pipeline/real-pipeline.js";
 import { readTruncationConfig } from "./pipeline/history-truncation.js";
-import { createProductionUpstreamCaller } from "./upstream-caller-factory.js";
+import { createProductionUpstreamRuntime } from "./upstream-caller-factory.js";
 
 async function start(): Promise<void> {
   const port = Number(process.env.GATEWAY_PORT ?? 8787);
@@ -31,7 +31,8 @@ async function start(): Promise<void> {
   const runtimeAssuranceRepo = new RuntimeAssuranceRepository(db);
 
   // 真实 OpenAI-compatible HTTP caller。缺配置时返回可解释错误，不模拟成功。
-  const caller = createProductionUpstreamCaller(process.env);
+  const upstreamRuntime = createProductionUpstreamRuntime(process.env);
+  const caller = upstreamRuntime.caller;
 
   // listCandidates：model_route join 查询（与 w08~w16 集成测试一致的生产实现）
   const listCandidates = async (enterpriseId: string, model: string): Promise<RouteCandidateRow[]> => {
@@ -41,6 +42,7 @@ async function start(): Promise<void> {
       .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
       .innerJoin("provider", "provider.id", "provider_resource.provider_id")
       .select([
+        "model_route.id as route_id",
         "provider_resource.id as resource_id",
         "provider_resource.provider_id",
         "unified_model.id as unified_model_id",
@@ -59,8 +61,10 @@ async function start(): Promise<void> {
       .where("provider.enterprise_id", "=", enterpriseId)
       .where("unified_model.alias", "=", model)
       .where("model_route.enabled", "=", true)
+      .where("provider.status", "=", "ACTIVE")
       .execute();
     return routes.map((r) => ({
+      routeId: r.route_id,
       resourceId: r.resource_id,
       providerCode: r.provider_code,
       upstreamModel: r.upstream_model,
@@ -102,6 +106,7 @@ async function start(): Promise<void> {
       now,
     ) => dispatchRepo.resolveResourceOperatingInput(enterpriseId, winnerResourceId, now),
     maxAttempts: 2,
+    halfOpenProbeLeaseMs: upstreamRuntime.halfOpenProbeLeaseMs,
     truncationConfig: readTruncationConfig(process.env),
   });
   const app = buildGateway(db, pepper, pipeline, { port, host });

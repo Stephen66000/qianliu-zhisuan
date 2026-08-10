@@ -475,8 +475,13 @@ describe("W16 经营调度", () => {
     await app.close();
 
     const decision = await dispatchRepo.getDecision(requestId);
-    expect(decision!.final_action).toBe("REJECT");
-    expect(decision!.reason_code).toBe("REJECTED");
+    expect(decision).toEqual(expect.objectContaining({
+      matched_policy_action: "REJECT",
+      final_action: "REJECT",
+      reason_code: "REJECTED",
+      saving_calculable: false,
+      not_calculable_reason: "dispatch_terminated_before_attempt",
+    }));
   });
 
   it("WT-16：命中 RATE_LIMIT 策略 → 429", async () => {
@@ -519,7 +524,16 @@ describe("W16 经营调度", () => {
     });
     expect(chatRes.statusCode).toBe(429);
     expect(chatRes.json().error.code).toBe("dispatch_rate_limited");
+    const requestId = chatRes.headers["x-request-id"];
     await app.close();
+
+    expect(await dispatchRepo.getDecision(requestId)).toEqual(expect.objectContaining({
+      matched_policy_action: "RATE_LIMIT",
+      final_action: "RATE_LIMIT",
+      reason_code: "RATE_LIMITED",
+      saving_calculable: false,
+      not_calculable_reason: "dispatch_terminated_before_attempt",
+    }));
   });
 
   it("WT-17：无策略/ALLOW 仅提示 → saving_calculable=false（NOT_CALCULABLE）", async () => {

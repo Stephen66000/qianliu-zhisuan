@@ -21,9 +21,11 @@ import type {
   CreateRequestInput,
   CreateUsageLedgerLineInput,
   FinalizeLedgerSettlementInput,
+  FinalizeRejectedAttemptSettlementInput,
   LedgerLine,
   LedgerLineInput,
   LedgerTransaction,
+  PersistAttemptUsageAccountingInput,
   RouteCandidate,
   UpstreamAttempt,
   UsageEvent,
@@ -34,7 +36,9 @@ import {
   createGuardedUpstreamAttempt,
   createUsageLedgerLineAtomically,
   finalizeLedgerSettlementAtomically,
+  persistAttemptUsageAccountingAtomically,
 } from "./gateway-ledger-settlement.js";
+import { finalizeRejectedAttemptSettlementAtomically } from "./gateway-ledger-terminal-rejection.js";
 import {
   createGuardedLedgerLine,
   createGuardedLedgerTransactionIfAbsent,
@@ -225,6 +229,16 @@ export class GatewayLedgerRepository {
     return createUsageLedgerLineAtomically(this.db, input);
   }
 
+  /**
+   * 非终态 Attempt 的 usage/ledger 与额度、租约同事务结算。
+   * 首次成功以 ledger_line 创建为幂等提交点；重放只核验事实，不重复退额度。
+   */
+  async persistAttemptUsageAccountingIfAbsent(
+    input: PersistAttemptUsageAccountingInput,
+  ): Promise<UsageLedgerLineResult> {
+    return persistAttemptUsageAccountingAtomically(this.db, input);
+  }
+
   async listLedgerLines(requestId: string): Promise<LedgerLine[]> {
     return this.db
       .selectFrom("ledger_line")
@@ -251,6 +265,13 @@ export class GatewayLedgerRepository {
     input: FinalizeLedgerSettlementInput,
   ): Promise<LedgerTransaction> {
     return finalizeLedgerSettlementAtomically(this.db, input);
+  }
+
+  /** 上游前终态拒绝：Attempt、零事实、资源退还及 FAILED 终态一次提交。 */
+  async finalizeRejectedAttemptSettlementIfAbsent(
+    input: FinalizeRejectedAttemptSettlementInput,
+  ): Promise<LedgerTransaction> {
+    return finalizeRejectedAttemptSettlementAtomically(this.db, input);
   }
 
   async getLedgerTransaction(requestId: string): Promise<LedgerTransaction | undefined> {

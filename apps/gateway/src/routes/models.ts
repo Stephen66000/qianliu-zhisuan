@@ -18,15 +18,11 @@ export function registerModelsRoute(app: FastifyInstance, db: Kysely<Database>, 
     "/v1/models",
     { preHandler: [auth] },
     async (req): Promise<ListModelsResponse | { models: Array<Record<string, unknown>> }> => {
-    const allowed = req.principal!.allowedModelIds;
-    if (allowed.length === 0) {
-      return req.query.client_version ? { models: [] } : { object: "list", data: [] };
-    }
     const now = new Date();
     const models = await listCurrentAuthorizedModels(db, {
       enterpriseId: req.principal!.enterpriseId,
       principalId: req.principal!.principalId,
-      allowedModelIds: allowed,
+      keyId: req.principal!.keyId,
       now,
     });
 

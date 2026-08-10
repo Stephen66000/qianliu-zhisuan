@@ -190,10 +190,12 @@ export {
   matchesTimeWindow,
   matchMultiplierRule,
   matchPriceRule,
+  matchApplicableBillingRule,
   computeDeductedQuota,
   computeApiCostFromRule,
   type BillingRule,
   type BillingRuleWindow,
+  type BillingResourceMode,
   type RuleMatch,
 } from "./billing-rule.js";
 

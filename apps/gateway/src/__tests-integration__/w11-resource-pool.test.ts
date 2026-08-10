@@ -16,9 +16,10 @@ import { randomUUID } from "node:crypto";
 import {
   createKysely,
   migrateToLatest,
-  ResourcePoolRepository,
   type Database,
 } from "@qianliu/database";
+import { ResourcePoolRepository } from
+  "../../../../packages/database/src/repositories/resource-pool-repository.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createPgCanarySink, scanCanary } from "@qianliu/observability";
 import { RESOURCE_STATUS, STATE_REASON } from "@qianliu/domain";
@@ -164,10 +165,58 @@ describe("W11 凭证生命周期与账号池", () => {
     expect(probeC).toBeDefined();
     expect(probeC!.probe).toBe(true);
 
-    // 多实例同时看到半开候选时，只能有一个真实请求获得探针租约。
-    const leases = await Promise.all([1, 2, 3].map(() =>
-      poolRepo.tryAcquireHalfOpenProbe(resC, new Date(now + 5_000))));
-    expect(leases.filter(Boolean)).toHaveLength(1);
+    // 独立连接模拟另一 Gateway 实例：同时看到半开候选时，只能有一个实例获得租约。
+    const competingDb = createKysely(pg.connectionString);
+    const competingPoolRepo = new ResourcePoolRepository(competingDb);
+    try {
+      const leases = await Promise.all([
+        poolRepo.acquireHalfOpenProbeLease(resC, new Date(now + 5_000), 1_000),
+        competingPoolRepo.acquireHalfOpenProbeLease(resC, new Date(now + 5_000), 1_000),
+        poolRepo.acquireHalfOpenProbeLease(resC, new Date(now + 5_000), 1_000),
+      ]);
+      expect(leases.filter(Boolean)).toHaveLength(1);
+      const firstLease = leases.find((lease) => lease !== null)!;
+
+      // 进程崩溃未释放时，TTL 到期后新实例可以接管；旧请求迟到释放因 fencing
+      // token 不会清掉新租约，只有新 owner 才能释放。
+      const replacement = await competingPoolRepo.acquireHalfOpenProbeLease(
+        resC, new Date(now + 6_001), 1_000,
+      );
+      expect(replacement).not.toBeNull();
+      await poolRepo.releaseHalfOpenProbe(resC, firstLease.acquiredAt);
+      expect(await poolRepo.acquireHalfOpenProbeLease(
+        resC, new Date(now + 6_002), 1_000,
+      )).toBeNull();
+      await competingPoolRepo.releaseHalfOpenProbe(resC, replacement!.acquiredAt);
+
+      // 生产边界：700000ms 总上游超时 + 60000ms 清算余量。总超时到达时原请求
+      // 的租约仍不可抢占；760000ms 租期到达后可接管，旧 token 仍不能释放新租约。
+      const requestTimeoutMs = 700_000;
+      const leaseMs = requestTimeoutMs + 60_000;
+      const longLeaseAt = now + 7_000;
+      const longLease = await poolRepo.acquireHalfOpenProbeLease(
+        resC, new Date(longLeaseAt), leaseMs,
+      );
+      expect(longLease).not.toBeNull();
+      expect(await competingPoolRepo.acquireHalfOpenProbeLease(
+        resC, new Date(longLeaseAt + requestTimeoutMs), leaseMs,
+      )).toBeNull();
+      expect(await competingPoolRepo.acquireHalfOpenProbeLease(
+        resC, new Date(longLeaseAt + leaseMs - 1), leaseMs,
+      )).toBeNull();
+
+      const longReplacement = await competingPoolRepo.acquireHalfOpenProbeLease(
+        resC, new Date(longLeaseAt + leaseMs), leaseMs,
+      );
+      expect(longReplacement).not.toBeNull();
+      await poolRepo.releaseHalfOpenProbe(resC, longLease!.acquiredAt);
+      expect(await poolRepo.acquireHalfOpenProbeLease(
+        resC, new Date(longLeaseAt + leaseMs + 1), leaseMs,
+      )).toBeNull();
+      await competingPoolRepo.releaseHalfOpenProbe(resC, longReplacement!.acquiredAt);
+    } finally {
+      await competingDb.destroy();
+    }
 
     // 半开探测成功 → DEGRADED（一次成功不抹掉趋势）
     const ok = await poolRepo.recordSuccess(resC);

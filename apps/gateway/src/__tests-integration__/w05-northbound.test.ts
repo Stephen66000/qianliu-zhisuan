@@ -351,7 +351,10 @@ describe("W05 北向合同", () => {
   });
 
   it("仅已取得半开探针的请求可复核 RATE_LIMITED 资源", async () => {
-    await db.updateTable("provider_resource").set({ status: "RATE_LIMITED" })
+    await db.updateTable("provider_resource").set({
+      status: "RATE_LIMITED",
+      cooldown_until: new Date(0),
+    })
       .where("id", "=", resourceId).execute();
     try {
       const input = {
@@ -370,13 +373,15 @@ describe("W05 北向合同", () => {
         allowHalfOpenProbe: true,
       })).resolves.toBe(true);
     } finally {
-      await db.updateTable("provider_resource").set({ status: "ACTIVE" })
+      await db.updateTable("provider_resource").set({ status: "ACTIVE", cooldown_until: null })
         .where("id", "=", resourceId).execute();
     }
   });
 
   it("API 资源不会被额度规则或空价格规则误判为可计费", async () => {
     const ruleRepo = new EmployeeModelRuleRepository(db);
+    const wrongRuleIds: string[] = [];
+    let pricedId: string | null = null;
     await db.updateTable("principal_grant").set({
       model_alias: "*", pool_model_alias: "*",
     }).where("id", "=", grantId).execute();
@@ -385,51 +390,100 @@ describe("W05 北向合同", () => {
     }).where("id", "=", keyId).execute();
     await db.updateTable("billing_rule").set({ enabled: false })
       .where("id", "=", billingRuleId).execute();
-    const wrongRuleIds: string[] = [];
-    for (const values of [
-      { rule_type: "MODEL_TIER", multiplier: "1", cache_miss_price: null },
-      { rule_type: "API_PRICE", multiplier: null, cache_miss_price: null },
-    ]) {
-      const inserted = await db.insertInto("billing_rule").values({
+    try {
+      for (const values of [
+        { rule_type: "MODEL_TIER", multiplier: "1", cache_miss_price: null },
+        { rule_type: "API_PRICE", multiplier: null, cache_miss_price: null },
+      ]) {
+        const inserted = await db.insertInto("billing_rule").values({
+          enterprise_id: ENT_ID,
+          provider_resource_id: resourceId,
+          upstream_model: "deepseek-chat",
+          rule_type: values.rule_type,
+          rule_version: `w05-wrong-${wrongRuleIds.length}`,
+          effective_from: new Date(0),
+          multiplier: values.multiplier,
+          cache_miss_price: values.cache_miss_price,
+        }).returning("id").executeTakeFirstOrThrow();
+        wrongRuleIds.push(inserted.id);
+      }
+      await db.transaction().execute((trx) => ruleRepo.refreshKeyModels(
+        trx, ENT_ID, PRINCIPAL_ID,
+      ));
+      expect((await db.selectFrom("principal_key").select("allowed_model_ids")
+        .where("id", "=", keyId).executeTakeFirstOrThrow()).allowed_model_ids).toEqual([]);
+      expect((await ruleRepo.catalog(ENT_ID)).models
+        .find((model) => model.route_id === routeId)).toMatchObject({ ready: false });
+      const unavailableModels = await app.inject({
+        method: "GET", url: "/v1/models", headers: authHeader(),
+      });
+      expect(unavailableModels.json().data).toEqual([]);
+      await expect(hasCurrentInvocationAuthorization(db, {
+        enterpriseId: ENT_ID, principalId: PRINCIPAL_ID, keyId,
+        modelAlias: "qianliu-deepseek", providerCode: "deepseek",
+        resourceId, upstreamModel: "deepseek-chat", now: new Date(),
+      })).resolves.toBe(false);
+      const deniedCalls = pipelineCalls;
+      const denied = await app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: { ...authHeader(), "content-type": "application/json" },
+        payload: { model: "qianliu-deepseek", messages: [{ role: "user", content: "hi" }] },
+      });
+      expect(denied.statusCode).toBe(403);
+      expect(denied.json().error.code).toBe("model_not_allowed");
+      expect(pipelineCalls).toBe(deniedCalls);
+
+      pricedId = (await db.insertInto("billing_rule").values({
         enterprise_id: ENT_ID,
         provider_resource_id: resourceId,
         upstream_model: "deepseek-chat",
-        rule_type: values.rule_type,
-        rule_version: `w05-wrong-${wrongRuleIds.length}`,
+        rule_type: "API_PRICE",
+        rule_version: "w05-priced",
         effective_from: new Date(0),
-        multiplier: values.multiplier,
-        cache_miss_price: values.cache_miss_price,
-      }).returning("id").executeTakeFirstOrThrow();
-      wrongRuleIds.push(inserted.id);
+        cache_miss_price: "0.000001",
+      }).returning("id").executeTakeFirstOrThrow()).id;
+      await db.transaction().execute((trx) => ruleRepo.refreshKeyModels(
+        trx, ENT_ID, PRINCIPAL_ID,
+      ));
+      expect((await db.selectFrom("principal_key").select("allowed_model_ids")
+        .where("id", "=", keyId).executeTakeFirstOrThrow()).allowed_model_ids)
+        .toEqual([allowedModelId]);
+      expect((await ruleRepo.catalog(ENT_ID)).models
+        .find((model) => model.route_id === routeId)).toMatchObject({ ready: true });
+      const availableModels = await app.inject({
+        method: "GET", url: "/v1/models", headers: authHeader(),
+      });
+      expect(availableModels.json().data.map((model: { id: string }) => model.id))
+        .toEqual(["qianliu-deepseek"]);
+      await expect(hasCurrentInvocationAuthorization(db, {
+        enterpriseId: ENT_ID, principalId: PRINCIPAL_ID, keyId,
+        modelAlias: "qianliu-deepseek", providerCode: "deepseek",
+        resourceId, upstreamModel: "deepseek-chat", now: new Date(),
+      })).resolves.toBe(true);
+      const allowedCalls = pipelineCalls;
+      const allowed = await app.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: { ...authHeader(), "content-type": "application/json" },
+        payload: { model: "qianliu-deepseek", messages: [{ role: "user", content: "hi" }] },
+      });
+      expect(allowed.statusCode).toBe(200);
+      expect(pipelineCalls).toBe(allowedCalls + 1);
+    } finally {
+      const removableIds = pricedId === null ? wrongRuleIds : [...wrongRuleIds, pricedId];
+      if (removableIds.length > 0) {
+        await db.deleteFrom("billing_rule").where("id", "in", removableIds).execute();
+      }
+      await db.updateTable("billing_rule").set({ enabled: true })
+        .where("id", "=", billingRuleId).execute();
+      await db.updateTable("principal_key").set({
+        allowed_model_ids: JSON.stringify([allowedModelId]) as unknown as string[],
+      }).where("id", "=", keyId).execute();
+      await db.updateTable("principal_grant").set({
+        model_alias: "qianliu-deepseek", pool_model_alias: null,
+      }).where("id", "=", grantId).execute();
     }
-    await db.transaction().execute((trx) => ruleRepo.refreshKeyModels(
-      trx, ENT_ID, PRINCIPAL_ID,
-    ));
-    expect((await db.selectFrom("principal_key").select("allowed_model_ids")
-      .where("id", "=", keyId).executeTakeFirstOrThrow()).allowed_model_ids).toEqual([]);
-
-    const priced = await db.insertInto("billing_rule").values({
-      enterprise_id: ENT_ID,
-      provider_resource_id: resourceId,
-      upstream_model: "deepseek-chat",
-      rule_type: "API_PRICE",
-      rule_version: "w05-priced",
-      effective_from: new Date(0),
-      cache_miss_price: "0.000001",
-    }).returning("id").executeTakeFirstOrThrow();
-    await db.transaction().execute((trx) => ruleRepo.refreshKeyModels(
-      trx, ENT_ID, PRINCIPAL_ID,
-    ));
-    expect((await db.selectFrom("principal_key").select("allowed_model_ids")
-      .where("id", "=", keyId).executeTakeFirstOrThrow()).allowed_model_ids)
-      .toEqual([allowedModelId]);
-
-    await db.deleteFrom("billing_rule").where("id", "in", [...wrongRuleIds, priced.id]).execute();
-    await db.updateTable("billing_rule").set({ enabled: true })
-      .where("id", "=", billingRuleId).execute();
-    await db.updateTable("principal_grant").set({
-      model_alias: "qianliu-deepseek", pool_model_alias: null,
-    }).where("id", "=", grantId).execute();
   });
 
   it("allowed_model_ids 过滤模型列表，未授权调用在 pipeline/上游前拒绝", async () => {

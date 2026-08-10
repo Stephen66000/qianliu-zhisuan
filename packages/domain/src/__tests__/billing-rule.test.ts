@@ -17,6 +17,7 @@ import {
   matchesTimeWindow,
   matchMultiplierRule,
   matchPriceRule,
+  matchApplicableBillingRule,
   computeDeductedQuota,
   computeApiCostFromRule,
   type BillingRule,
@@ -50,6 +51,105 @@ function rule(overrides: Partial<BillingRule> = {}): BillingRule {
     ...overrides,
   };
 }
+
+describe("统一计费适用性合同", () => {
+  it("API 只接受至少一个价格字段的当前 API_PRICE，并校验资源、型号与时间窗", () => {
+    const wrongType = rule({ ruleType: "MODEL_TIER", multiplier: "1" });
+    const emptyPrice = rule({ ruleType: "API_PRICE", multiplier: null });
+    const expiredWindow = rule({
+      ruleType: "API_PRICE",
+      multiplier: null,
+      cacheMissPrice: "0.1",
+      timeWindows: [{
+        timezone: "Asia/Shanghai", daysOfWeek: [1], startTime: "14:00", endTime: "18:00",
+      }],
+    });
+    const valid = rule({
+      id: "api-valid",
+      ruleType: "API_PRICE",
+      providerResourceId: "resource-a",
+      upstreamModel: "deepseek-chat",
+      timezone: null,
+      startTime: null,
+      endTime: null,
+      multiplier: null,
+      outputPrice: "0.2",
+    });
+    expect(matchApplicableBillingRule(
+      [wrongType, emptyPrice, expiredWindow], "resource-a", "deepseek-chat", "API", MON_2000_CST,
+    )).toBeNull();
+    expect(matchApplicableBillingRule(
+      [valid], "resource-b", "deepseek-chat", "API", MON_2000_CST,
+    )).toBeNull();
+    expect(matchApplicableBillingRule(
+      [valid], "resource-a", "deepseek-chat", "API", MON_2000_CST,
+    )?.id).toBe("api-valid");
+  });
+
+  it("API 拒绝无价格规则，并分别接受任一 Token 单价字段", () => {
+    const base = {
+      ruleType: "API_PRICE" as const,
+      multiplier: null,
+      timezone: null,
+      startTime: null,
+      endTime: null,
+    };
+    const noPrice = rule({ id: "no-price", ...base });
+    expect(matchApplicableBillingRule(
+      [noPrice], "resource-a", "deepseek-chat", "API", MON_2000_CST,
+    )).toBeNull();
+
+    for (const [id, price] of [
+      ["cache-hit", { cacheHitPrice: "0.1" }],
+      ["cache-miss", { cacheMissPrice: "0.2" }],
+      ["output", { outputPrice: "0.3" }],
+    ] as const) {
+      expect(matchApplicableBillingRule(
+        [rule({ id, ...base, ...price })],
+        "resource-a",
+        "deepseek-chat",
+        "API",
+        MON_2000_CST,
+      )?.id).toBe(id);
+    }
+  });
+
+  it("CODING_PLAN 只接受带倍率的当前 TIME_WINDOW／MODEL_TIER", () => {
+    const apiPrice = rule({ ruleType: "API_PRICE", multiplier: null, outputPrice: "0.2" });
+    const emptyTier = rule({ ruleType: "MODEL_TIER", multiplier: null });
+    const validTier = rule({
+      id: "tier-valid",
+      ruleType: "MODEL_TIER",
+      providerResourceId: "resource-a",
+      upstreamModel: "kimi-k3",
+      timezone: null,
+      startTime: null,
+      endTime: null,
+      multiplier: "2",
+    });
+    expect(matchApplicableBillingRule(
+      [apiPrice, emptyTier], "resource-a", "kimi-k3", "CODING_PLAN", MON_2000_CST,
+    )).toBeNull();
+    expect(matchApplicableBillingRule(
+      [validTier], "resource-a", "kimi-k3", "CODING_PLAN", MON_2000_CST,
+    )?.id).toBe("tier-valid");
+
+    // 空倍率的高优先级草稿不得遮挡后面的可结算规则。
+    expect(matchApplicableBillingRule(
+      [
+        rule({
+          id: "empty-high-priority", ruleType: "MODEL_TIER", multiplier: null, priority: 1,
+          timezone: null, startTime: null, endTime: null,
+        }),
+        validTier,
+      ],
+      "resource-a",
+      "kimi-k3",
+      "CODING_PLAN",
+      MON_2000_CST,
+    )?.id).toBe("tier-valid");
+  });
+});
 
 describe("toZonedTime 时区转换", () => {
   it("UTC → Asia/Shanghai 星期与分钟", () => {

@@ -1,6 +1,7 @@
 /** POOL-029：员工使用规则版本、就绪校验与 Key/Grant 原子发布。 */
 import { createHash, randomUUID } from "node:crypto";
 import { sql, type Kysely, type Transaction } from "kysely";
+import { matchApplicableBillingRule, type BillingResourceMode } from "@qianliu/domain";
 import type {
   Database,
   EmployeeModelTarget,
@@ -15,6 +16,7 @@ import { lockActiveProviderPools } from "./principal-access-locks.js";
 import { captureManualBaseline, lockRuleFamily, lockVersion, providerCodesForRuleFamily } from "./employee-model-rule-lock-context.js";
 import { resolvePoolQuota } from "./employee-model-rule-quota.js";
 import { disableEmployeeRuleVersion, refreshEmployeeKeyModels } from "./employee-model-rule-lifecycle.js";
+import { listEnabledBillingRulesAt } from "./billing-rule-applicability.js";
 
 export function publishRequestHash(quotaMode: "SET" | "ADD" | undefined) {
   return createHash("sha256").update(JSON.stringify({ quota_mode: quotaMode ?? "SET" })).digest("hex");
@@ -99,14 +101,7 @@ export class EmployeeModelRuleRepository {
         .execute(),
     ]);
     const now = new Date();
-    const billing = await this.db.selectFrom("billing_rule")
-      .select(["provider_resource_id", "upstream_model"])
-      .where("enterprise_id", "=", enterpriseId)
-      .where("enabled", "=", true)
-      .where("effective_from", "<=", now)
-      .where((eb) => eb.or([eb("effective_to", "is", null), eb("effective_to", ">", now)]))
-      .execute();
-    const priced = new Set(billing.map((item) => `${item.provider_resource_id ?? "*"}:${item.upstream_model ?? "*"}`));
+    const billing = await listEnabledBillingRulesAt(this.db, enterpriseId, now);
     return {
       principals: principals.map((principal) => ({
         ...principal,
@@ -116,10 +111,13 @@ export class EmployeeModelRuleRepository {
           : principal.active_key_id === null ? "员工尚无有效 Key" : null,
       })),
       models: routes.map((route) => {
-        const hasBilling = priced.has(`${route.provider_resource_id}:${route.upstream_model}`)
-          || priced.has(`${route.provider_resource_id}:*`)
-          || priced.has(`*:${route.upstream_model}`)
-          || priced.has("*:*");
+        const hasBilling = matchApplicableBillingRule(
+          billing,
+          route.provider_resource_id,
+          route.upstream_model,
+          route.mode as BillingResourceMode,
+          now.getTime(),
+        ) !== null;
         const reasons = [
           route.model_status !== "ACTIVE" ? "统一模型未启用" : null,
           !route.route_enabled ? "Model Route 未启用" : null,

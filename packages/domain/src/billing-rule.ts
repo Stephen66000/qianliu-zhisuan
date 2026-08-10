@@ -248,5 +248,39 @@ export function matchPriceRule(
   return candidates[0] ?? null;
 }
 
+export type BillingResourceMode = "API" | "CODING_PLAN";
+
+/**
+ * 资源进入目录、授权或调用前必须命中的统一计费适用性合同。
+ *
+ * API 只接受至少配置一个 Token 单价的 API_PRICE；套餐只接受配置了倍率的
+ * TIME_WINDOW／MODEL_TIER。随后统一复用正式匹配器校验资源、上游型号、版本
+ * 生效区间与时间窗，避免管理面把真实结算不能使用的规则误判为就绪。
+ */
+export function matchApplicableBillingRule(
+  rules: BillingRule[],
+  resourceId: string,
+  upstreamModel: string,
+  resourceMode: BillingResourceMode,
+  at: number,
+): BillingRule | null {
+  if (resourceMode === "API") {
+    return matchPriceRule(
+      rules.filter((rule) => rule.cacheHitPrice !== null
+        || rule.cacheMissPrice !== null
+        || rule.outputPrice !== null),
+      resourceId,
+      upstreamModel,
+      at,
+    );
+  }
+  return matchMultiplierRule(
+    rules.filter((rule) => rule.multiplier !== null),
+    resourceId,
+    upstreamModel,
+    at,
+  )?.rule ?? null;
+}
+
 /** 套餐模式费用字段语义（TRD §10.2：PACKAGE_INCLUDED，不写数值 0）。 */
 export const PACKAGE_INCLUDED = "PACKAGE_INCLUDED" as const;

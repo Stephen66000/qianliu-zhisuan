@@ -182,6 +182,9 @@ async function seedSettlementFixture(
 
 type SettlementFixture = Awaited<ReturnType<typeof seedSettlementFixture>>;
 type FinalizeInput = Parameters<GatewayLedgerRepository["finalizeLedgerSettlementIfAbsent"]>[0];
+type TerminalRejectedInput = Parameters<
+  GatewayLedgerRepository["finalizeRejectedAttemptSettlementIfAbsent"]
+>[0];
 
 function finalizationFor(
   fixture: SettlementFixture,
@@ -221,6 +224,195 @@ function atomicForAttempt(
 
 async function removeSeededAttempt(fixture: SettlementFixture): Promise<void> {
   await db.deleteFrom("upstream_attempt").where("id", "=", fixture.attemptId).execute();
+}
+
+async function seedNonterminalAccounting(
+  label: string,
+  options: { quota?: bigint; reserved?: bigint } = {},
+) {
+  const fixture = await seedSettlementFixture(
+    label, { status: "IN_PROGRESS", createUsage: false },
+  );
+  await db.updateTable("upstream_attempt").set({
+    finished_at: null,
+    http_status: null,
+    response_committed: false,
+    error_classification: null,
+    error_code: null,
+    switch_reason: null,
+  }).where("id", "=", fixture.attemptId).execute();
+  const reserved = options.reserved ?? 37n;
+  const grant = await db.insertInto("principal_grant").values({
+    enterprise_id: fixture.enterpriseId,
+    principal_id: fixture.employeeId,
+    provider: `acct-${label}`,
+    model_alias: `ql-pool043-${label}`,
+    quota_value: options.quota ?? 1_000n,
+    allow_overage: true,
+  }).returning("id").executeTakeFirstOrThrow();
+  await db.insertInto("quota_counter").values({
+    grant_id: grant.id,
+    used_value: reserved,
+  }).execute();
+  const lease = await db.insertInto("concurrency_lease").values({
+    enterprise_id: fixture.enterpriseId,
+    provider_resource_id: fixture.resourceId,
+    ai_request_id: fixture.requestId,
+    expires_at: new Date(Date.now() + 60_000),
+  }).returning("id").executeTakeFirstOrThrow();
+  const input: Parameters<GatewayLedgerRepository["persistAttemptUsageAccountingIfAbsent"]>[0] = {
+    usage: {
+      ...fixture.atomic.usage,
+      input_tokens: 0n,
+      output_tokens: 0n,
+      cache_tokens: 0n,
+      reasoning_tokens: 0n,
+      usage_quality: "UNKNOWN",
+    },
+    ledger_line: {
+      ...fixture.atomic.ledger_line,
+      raw_input_tokens: 0n,
+      raw_output_tokens: 0n,
+      raw_cache_tokens: 0n,
+      raw_reasoning_tokens: 0n,
+      deducted_quota: null,
+      api_cost: "0.00000000",
+      usage_quality: "UNKNOWN",
+      billing_rule_id: null,
+      rule_version: null,
+      multiplier: null,
+      billing_rule_snapshot: null,
+    },
+    attempt_result: {
+      http_status: 503,
+      response_committed: false,
+      finished_at: new Date(),
+      error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+      error_code: "candidate_admission_revoked",
+      switch_reason: null,
+    },
+    quota_settlements: [{
+      grant_id: grant.id,
+      reserved_estimate: reserved,
+      actual_deducted: 0n,
+    }],
+    release_lease_ids: [lease.id],
+  };
+  return { fixture, grantId: grant.id, leaseId: lease.id, reserved, input };
+}
+
+async function seedTerminalRejectedAccounting(label: string) {
+  const fixture = await seedSettlementFixture(
+    label, { status: "IN_PROGRESS", createUsage: true },
+  );
+  await insertLegacyLineDirectly(fixture);
+  const attempt = await db.insertInto("upstream_attempt").values({
+    ai_request_id: fixture.requestId,
+    enterprise_id: fixture.enterpriseId,
+    attempt_no: 2,
+    provider_resource_id: fixture.resourceId,
+    upstream_model: `rejected-${label}`,
+    response_committed: false,
+  }).returning("id").executeTakeFirstOrThrow();
+  const reserved = 37n;
+  const grant = await db.insertInto("principal_grant").values({
+    enterprise_id: fixture.enterpriseId,
+    principal_id: fixture.employeeId,
+    provider: `terminal-${label}`,
+    model_alias: `ql-pool043-${label}`,
+    quota_value: 1_000n,
+    allow_overage: true,
+  }).returning("id").executeTakeFirstOrThrow();
+  await db.insertInto("quota_counter").values({
+    grant_id: grant.id,
+    used_value: reserved,
+  }).execute();
+  const lease = await db.insertInto("concurrency_lease").values({
+    enterprise_id: fixture.enterpriseId,
+    provider_resource_id: fixture.resourceId,
+    ai_request_id: fixture.requestId,
+    expires_at: new Date(Date.now() + 60_000),
+  }).returning("id").executeTakeFirstOrThrow();
+  const input: TerminalRejectedInput = {
+    usage: {
+      ai_request_id: fixture.requestId,
+      enterprise_id: fixture.enterpriseId,
+      upstream_attempt_id: attempt.id,
+      provider_resource_id: fixture.resourceId,
+      input_tokens: 0n,
+      output_tokens: 0n,
+      cache_tokens: 0n,
+      reasoning_tokens: 0n,
+      usage_quality: "UNKNOWN",
+      dedup_key: `${fixture.requestId}:attempt2`,
+    },
+    ledger_line: {
+      ai_request_id: fixture.requestId,
+      enterprise_id: fixture.enterpriseId,
+      upstream_attempt_id: attempt.id,
+      provider_resource_id: fixture.resourceId,
+      principal_id: fixture.employeeId,
+      resource_mode: "API",
+      raw_input_tokens: 0n,
+      raw_output_tokens: 0n,
+      raw_cache_tokens: 0n,
+      raw_reasoning_tokens: 0n,
+      deducted_quota: null,
+      api_cost: "0.00000000",
+      usage_quality: "UNKNOWN",
+      billing_rule_id: null,
+      rule_version: null,
+      multiplier: null,
+      billing_rule_snapshot: null,
+    },
+    attempt_result: {
+      http_status: 503,
+      response_committed: false,
+      finished_at: new Date(),
+      error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+      error_code: "candidate_admission_revoked",
+      switch_reason: null,
+    },
+    error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+    error_code: "candidate_admission_revoked",
+    quota_settlements: [{
+      grant_id: grant.id,
+      reserved_estimate: reserved,
+      actual_deducted: 0n,
+    }],
+    release_lease_ids: [lease.id],
+    overage: false,
+  };
+  return {
+    fixture,
+    currentAttemptId: attempt.id,
+    grantId: grant.id,
+    leaseId: lease.id,
+    reserved,
+    input,
+  };
+}
+
+type TerminalRejectedScenario = Awaited<ReturnType<typeof seedTerminalRejectedAccounting>>;
+
+async function expectTerminalSettlementRolledBack(
+  scenario: TerminalRejectedScenario,
+): Promise<void> {
+  const repository = new GatewayLedgerRepository(db);
+  expect(await repository.getRequest(scenario.fixture.requestId)).toMatchObject({
+    status: "IN_PROGRESS", error_classification: null, error_code: null,
+  });
+  expect(await repository.getLedgerTransaction(scenario.fixture.requestId)).toBeUndefined();
+  expect(await repository.listUsageEvents(scenario.fixture.requestId)).toHaveLength(1);
+  expect(await repository.listLedgerLines(scenario.fixture.requestId)).toHaveLength(1);
+  expect(await db.selectFrom("upstream_attempt").select(["finished_at", "error_code"])
+    .where("id", "=", scenario.currentAttemptId).executeTakeFirstOrThrow())
+    .toMatchObject({ finished_at: null, error_code: null });
+  expect(BigInt((await db.selectFrom("quota_counter").select("used_value")
+    .where("grant_id", "=", scenario.grantId).executeTakeFirstOrThrow()).used_value))
+    .toBe(scenario.reserved);
+  expect((await db.selectFrom("concurrency_lease").select("released_at")
+    .where("id", "=", scenario.leaseId).executeTakeFirstOrThrow()).released_at).toBeNull();
 }
 
 async function insertLegacyLineDirectly(fixture: SettlementFixture): Promise<void> {
@@ -1203,6 +1395,476 @@ describe("POOL-043 结账与项目归属并发边界", () => {
     expect(await hasPendingOperatingBillSettlement(
       db, fixture.enterpriseId, "2020-02", now,
     )).toBe(false);
+  });
+
+  it("终态撤权一次提交全部事实，汇总既有 Attempt 且重放不重复结算", async () => {
+    const scenario = await seedTerminalRejectedAccounting("terminal-success");
+    const repository = new GatewayLedgerRepository(db);
+    const transaction = await repository.finalizeRejectedAttemptSettlementIfAbsent(scenario.input);
+
+    expect(transaction).toMatchObject({
+      total_input_tokens: "40",
+      total_output_tokens: "5",
+      total_cache_tokens: "3",
+      total_reasoning_tokens: "0",
+      total_deducted_quota: "0",
+      total_api_cost: "0.40000000",
+      usage_quality: "MIXED:PROVIDER_REPORTED+UNKNOWN",
+      attempt_count: 2,
+      overage: false,
+      status: "SETTLED",
+    });
+    expect(await repository.getRequest(scenario.fixture.requestId)).toMatchObject({
+      status: "FAILED",
+      error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+      error_code: "candidate_admission_revoked",
+    });
+    expect(await repository.listUsageEvents(scenario.fixture.requestId)).toHaveLength(2);
+    expect(await repository.listLedgerLines(scenario.fixture.requestId)).toHaveLength(2);
+    expect(await db.selectFrom("upstream_attempt").select(["finished_at", "error_code"])
+      .where("id", "=", scenario.currentAttemptId).executeTakeFirstOrThrow())
+      .toMatchObject({
+        finished_at: scenario.input.attempt_result.finished_at,
+        error_code: "candidate_admission_revoked",
+      });
+    expect(BigInt((await db.selectFrom("quota_counter").select("used_value")
+      .where("grant_id", "=", scenario.grantId).executeTakeFirstOrThrow()).used_value)).toBe(0n);
+    const releasedAt = (await db.selectFrom("concurrency_lease").select("released_at")
+      .where("id", "=", scenario.leaseId).executeTakeFirstOrThrow()).released_at;
+    expect(releasedAt).not.toBeNull();
+
+    const replay = await repository.finalizeRejectedAttemptSettlementIfAbsent({
+      ...scenario.input,
+      attempt_result: { ...scenario.input.attempt_result, finished_at: new Date() },
+    });
+    expect(replay.id).toBe(transaction.id);
+    expect(await repository.listUsageEvents(scenario.fixture.requestId)).toHaveLength(2);
+    expect(await repository.listLedgerLines(scenario.fixture.requestId)).toHaveLength(2);
+    expect(await db.selectFrom("ledger_transaction").select("id")
+      .where("ai_request_id", "=", scenario.fixture.requestId).execute()).toHaveLength(1);
+    expect(BigInt((await db.selectFrom("quota_counter").select("used_value")
+      .where("grant_id", "=", scenario.grantId).executeTakeFirstOrThrow()).used_value)).toBe(0n);
+    expect((await db.selectFrom("concurrency_lease").select("released_at")
+      .where("id", "=", scenario.leaseId).executeTakeFirstOrThrow()).released_at)
+      .toEqual(releasedAt);
+  });
+
+  it.each(["nonzero", "api-cost-unknown", "error-identity"] as const)(
+    "终态撤权拒绝伪造的零事实或错误身份：%s",
+    async (kind) => {
+      const scenario = await seedTerminalRejectedAccounting(`invalid-${kind.slice(0, 10)}`);
+      const input: TerminalRejectedInput = {
+        ...scenario.input,
+        usage: { ...scenario.input.usage },
+        ledger_line: { ...scenario.input.ledger_line },
+        attempt_result: { ...scenario.input.attempt_result },
+      };
+      if (kind === "nonzero") {
+        input.usage.input_tokens = 1n;
+        input.ledger_line.raw_input_tokens = 1n;
+      } else if (kind === "api-cost-unknown") {
+        input.ledger_line.api_cost = null;
+      } else {
+        input.error_code = "different_terminal_error";
+      }
+      await expect(new GatewayLedgerRepository(db)
+        .finalizeRejectedAttemptSettlementIfAbsent(input))
+        .rejects.toThrow("terminal_rejection_fact_conflict");
+      await expectTerminalSettlementRolledBack(scenario);
+    },
+  );
+
+  it("终态撤权入口按企业定位 request，不接受跨企业身份", async () => {
+    const scenario = await seedTerminalRejectedAccounting("terminal-enterprise");
+    const otherEnterpriseId = randomUUID();
+    await expect(new GatewayLedgerRepository(db).finalizeRejectedAttemptSettlementIfAbsent({
+      ...scenario.input,
+      usage: { ...scenario.input.usage, enterprise_id: otherEnterpriseId },
+      ledger_line: { ...scenario.input.ledger_line, enterprise_id: otherEnterpriseId },
+    })).rejects.toThrow("settlement_request_not_found");
+    await expectTerminalSettlementRolledBack(scenario);
+  });
+
+  it("终态重放逐项核验主体、请求终态、错误身份和 Attempt 结果", async () => {
+    const scenario = await seedTerminalRejectedAccounting("term-replay");
+    const repository = new GatewayLedgerRepository(db);
+    await repository.finalizeRejectedAttemptSettlementIfAbsent(scenario.input);
+
+    await expect(repository.finalizeRejectedAttemptSettlementIfAbsent({
+      ...scenario.input,
+      ledger_line: { ...scenario.input.ledger_line, principal_id: randomUUID() },
+    })).rejects.toThrow("settlement_principal_conflict");
+    await expect(repository.finalizeRejectedAttemptSettlementIfAbsent({
+      ...scenario.input,
+      attempt_result: { ...scenario.input.attempt_result, http_status: 409 },
+    })).rejects.toThrow("settlement_attempt_result_conflict");
+
+    for (const update of [
+      { status: "SUCCEEDED" },
+      { error_classification: "INTERNAL" },
+      { error_code: "different_terminal_error" },
+    ]) {
+      await db.updateTable("ai_request").set(update)
+        .where("id", "=", scenario.fixture.requestId).execute();
+      await expect(repository.finalizeRejectedAttemptSettlementIfAbsent(scenario.input))
+        .rejects.toThrow("settlement_terminal_conflict");
+      await db.updateTable("ai_request").set({
+        status: "FAILED",
+        error_classification: scenario.input.error_classification,
+        error_code: scenario.input.error_code,
+      }).where("id", "=", scenario.fixture.requestId).execute();
+    }
+
+    await db.deleteFrom("ledger_transaction")
+      .where("ai_request_id", "=", scenario.fixture.requestId).execute();
+    await expect(repository.finalizeRejectedAttemptSettlementIfAbsent(scenario.input))
+      .rejects.toThrow("settlement_terminal_conflict");
+  });
+
+  it("终态 request UPDATE 未命中时全部写入回滚", async () => {
+    const scenario = await seedTerminalRejectedAccounting("terminal-status-zero");
+    const repository = new GatewayLedgerRepository(db);
+    const suffix = randomUUID().replaceAll("-", "");
+    const functionName = `pool043_skip_request_${suffix}`;
+    const triggerName = `pool043_skip_request_trg_${suffix}`;
+    await sql`CREATE FUNCTION ${sql.raw(functionName)}() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`.execute(db);
+    await sql`CREATE TRIGGER ${sql.raw(triggerName)} BEFORE UPDATE ON ai_request
+      FOR EACH ROW EXECUTE FUNCTION ${sql.raw(functionName)}()`.execute(db);
+    try {
+      await expect(repository.finalizeRejectedAttemptSettlementIfAbsent(scenario.input))
+        .rejects.toThrow("settlement_status_conflict");
+    } finally {
+      await sql`DROP TRIGGER ${sql.raw(triggerName)} ON ai_request`.execute(db);
+      await sql`DROP FUNCTION ${sql.raw(functionName)}()`.execute(db);
+    }
+    await expectTerminalSettlementRolledBack(scenario);
+  });
+
+  it.each([
+    { label: "attempt-update", table: "upstream_attempt", operation: "UPDATE" },
+    { label: "usage-insert", table: "usage_event", operation: "INSERT" },
+    { label: "line-insert", table: "ledger_line", operation: "INSERT" },
+    { label: "quota-update", table: "quota_counter", operation: "UPDATE" },
+    { label: "lease-update", table: "concurrency_lease", operation: "UPDATE" },
+    { label: "transaction-insert", table: "ledger_transaction", operation: "INSERT" },
+    { label: "request-update", table: "ai_request", operation: "UPDATE" },
+  ] as const)("终态撤权在 $label 故障时整体回滚", async ({ label, table, operation }) => {
+    const scenario = await seedTerminalRejectedAccounting(`fault-${label.slice(0, 12)}`);
+    const repository = new GatewayLedgerRepository(db);
+    const suffix = randomUUID().replaceAll("-", "");
+    const functionName = `pool043_terminal_fault_${suffix}`;
+    const triggerName = `pool043_terminal_fault_trg_${suffix}`;
+    await sql`CREATE FUNCTION ${sql.raw(functionName)}() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN
+        RAISE EXCEPTION 'pool043_terminal_fault';
+      END $$`.execute(db);
+    await sql`CREATE TRIGGER ${sql.raw(triggerName)} BEFORE ${sql.raw(operation)}
+      ON ${sql.raw(table)} FOR EACH ROW EXECUTE FUNCTION ${sql.raw(functionName)}()`.execute(db);
+    try {
+      await expect(repository.finalizeRejectedAttemptSettlementIfAbsent(scenario.input))
+        .rejects.toThrow("pool043_terminal_fault");
+    } finally {
+      await sql`DROP TRIGGER ${sql.raw(triggerName)} ON ${sql.raw(table)}`.execute(db);
+      await sql`DROP FUNCTION ${sql.raw(functionName)}()`.execute(db);
+    }
+    await expectTerminalSettlementRolledBack(scenario);
+  });
+
+  it("非终态撤权清算故障整体回滚，重试成功且重放不重复退额度", async () => {
+    const fixture = await seedSettlementFixture(
+      "nonterminal-revoke", { status: "IN_PROGRESS", createUsage: false },
+    );
+    const repository = new GatewayLedgerRepository(db);
+    await db.updateTable("upstream_attempt").set({
+      finished_at: null,
+      http_status: null,
+      response_committed: false,
+      error_classification: null,
+      error_code: null,
+      switch_reason: null,
+    }).where("id", "=", fixture.attemptId).execute();
+    const grant = await db.insertInto("principal_grant").values({
+      enterprise_id: fixture.enterpriseId,
+      principal_id: fixture.employeeId,
+      provider: "pool043-nonterminal-revoke",
+      model_alias: "ql-pool043-nonterminal-revoke",
+      quota_value: 1_000n,
+      allow_overage: false,
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("quota_counter").values({
+      grant_id: grant.id,
+      used_value: 37n,
+    }).execute();
+    const lease = await db.insertInto("concurrency_lease").values({
+      enterprise_id: fixture.enterpriseId,
+      provider_resource_id: fixture.resourceId,
+      ai_request_id: fixture.requestId,
+      expires_at: new Date(Date.now() + 60_000),
+    }).returning("id").executeTakeFirstOrThrow();
+    const zeroFact = {
+      usage: {
+        ...fixture.atomic.usage,
+        input_tokens: 0n,
+        output_tokens: 0n,
+        cache_tokens: 0n,
+        reasoning_tokens: 0n,
+        usage_quality: "UNKNOWN",
+      },
+      ledger_line: {
+        ...fixture.atomic.ledger_line,
+        raw_input_tokens: 0n,
+        raw_output_tokens: 0n,
+        raw_cache_tokens: 0n,
+        raw_reasoning_tokens: 0n,
+        deducted_quota: null,
+        api_cost: "0.00000000",
+        usage_quality: "UNKNOWN",
+        billing_rule_id: null,
+        rule_version: null,
+        multiplier: null,
+        billing_rule_snapshot: null,
+      },
+      attempt_result: {
+        http_status: 503,
+        response_committed: false,
+        finished_at: new Date(),
+        error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+        error_code: "candidate_admission_revoked",
+        switch_reason: null,
+      },
+      quota_settlements: [{
+        grant_id: grant.id,
+        reserved_estimate: 37n,
+        actual_deducted: 0n,
+      }],
+    };
+
+    // lease 身份故障发生在 quota UPDATE 之后；事务必须把 line 与 quota 一并回滚。
+    await expect(repository.persistAttemptUsageAccountingIfAbsent({
+      ...zeroFact,
+      release_lease_ids: [randomUUID()],
+    })).rejects.toThrow("settlement_lease_conflict");
+    expect(await repository.listUsageEvents(fixture.requestId)).toEqual([]);
+    expect(await repository.listLedgerLines(fixture.requestId)).toEqual([]);
+    expect(BigInt((await db.selectFrom("quota_counter").select("used_value")
+      .where("grant_id", "=", grant.id).executeTakeFirstOrThrow()).used_value)).toBe(37n);
+    expect((await db.selectFrom("concurrency_lease").select("released_at")
+      .where("id", "=", lease.id).executeTakeFirstOrThrow()).released_at).toBeNull();
+    expect(await db.selectFrom("upstream_attempt")
+      .select(["finished_at", "error_code"])
+      .where("id", "=", fixture.attemptId).executeTakeFirstOrThrow())
+      .toMatchObject({ finished_at: null, error_code: null });
+    expect(await repository.getRequest(fixture.requestId)).toMatchObject({ status: "IN_PROGRESS" });
+
+    const first = await repository.persistAttemptUsageAccountingIfAbsent({
+      ...zeroFact,
+      release_lease_ids: [lease.id],
+    });
+    expect(first.created).toBe(true);
+    expect(first.line).toMatchObject({ api_cost: "0.00000000", usage_quality: "UNKNOWN" });
+    expect(BigInt((await db.selectFrom("quota_counter").select("used_value")
+      .where("grant_id", "=", grant.id).executeTakeFirstOrThrow()).used_value)).toBe(0n);
+    const releasedAt = (await db.selectFrom("concurrency_lease").select("released_at")
+      .where("id", "=", lease.id).executeTakeFirstOrThrow()).released_at;
+    expect(releasedAt).not.toBeNull();
+    expect(await db.selectFrom("upstream_attempt")
+      .select(["http_status", "finished_at", "error_code"])
+      .where("id", "=", fixture.attemptId).executeTakeFirstOrThrow())
+      .toMatchObject({
+        http_status: 503,
+        finished_at: zeroFact.attempt_result.finished_at,
+        error_code: "candidate_admission_revoked",
+      });
+    expect(await repository.getRequest(fixture.requestId)).toMatchObject({ status: "IN_PROGRESS" });
+    expect(await repository.getLedgerTransaction(fixture.requestId)).toBeUndefined();
+
+    const replay = await repository.persistAttemptUsageAccountingIfAbsent({
+      ...zeroFact,
+      release_lease_ids: [lease.id],
+    });
+    expect(replay.created).toBe(false);
+    expect(BigInt((await db.selectFrom("quota_counter").select("used_value")
+      .where("grant_id", "=", grant.id).executeTakeFirstOrThrow()).used_value)).toBe(0n);
+    expect((await db.selectFrom("concurrency_lease").select("released_at")
+      .where("id", "=", lease.id).executeTakeFirstOrThrow()).released_at)
+      .toEqual(releasedAt);
+  });
+
+  it("非终态清算提交后发生同 Grant 新预占，旧 Attempt 重放不得再次扣减", async () => {
+    const scenario = await seedNonterminalAccounting("replay-new-reserve");
+    const repository = new GatewayLedgerRepository(db);
+    await repository.persistAttemptUsageAccountingIfAbsent(scenario.input);
+    await db.updateTable("quota_counter").set({ used_value: 19n })
+      .where("grant_id", "=", scenario.grantId).execute();
+
+    await expect(repository.persistAttemptUsageAccountingIfAbsent(scenario.input))
+      .resolves.toMatchObject({ created: false });
+    expect(BigInt((await db.selectFrom("quota_counter").select("used_value")
+      .where("grant_id", "=", scenario.grantId).executeTakeFirstOrThrow()).used_value))
+      .toBe(19n);
+    expect(await repository.getRequest(scenario.fixture.requestId))
+      .toMatchObject({ status: "IN_PROGRESS" });
+  });
+
+  it.each([
+    ["http_status", 409],
+    ["response_committed", true],
+    ["error_classification", "INTERNAL"],
+    ["error_code", "different_revocation"],
+    ["switch_reason", "ROUTE_REVOKED"],
+  ] as const)("非终态清算重放拒绝 Attempt 结果漂移：%s", async (field, value) => {
+    const scenario = await seedNonterminalAccounting(`drift-${field.slice(0, 8)}`);
+    const repository = new GatewayLedgerRepository(db);
+    await repository.persistAttemptUsageAccountingIfAbsent(scenario.input);
+    const drifted = {
+      ...scenario.input,
+      attempt_result: { ...scenario.input.attempt_result, [field]: value },
+    };
+    await expect(repository.persistAttemptUsageAccountingIfAbsent(drifted))
+      .rejects.toThrow("settlement_attempt_result_conflict");
+    expect(await repository.listLedgerLines(scenario.fixture.requestId)).toHaveLength(1);
+  });
+
+  it("Attempt UPDATE 被 PostgreSQL trigger 丢弃时，零事实与资源结算全部回滚", async () => {
+    const scenario = await seedNonterminalAccounting("attempt-update-zero");
+    const repository = new GatewayLedgerRepository(db);
+    const suffix = randomUUID().replaceAll("-", "");
+    const functionName = `pool043_skip_attempt_${suffix}`;
+    const triggerName = `pool043_skip_attempt_trg_${suffix}`;
+    await sql`CREATE FUNCTION ${sql.raw(functionName)}() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`.execute(db);
+    await sql`CREATE TRIGGER ${sql.raw(triggerName)} BEFORE UPDATE ON upstream_attempt
+      FOR EACH ROW EXECUTE FUNCTION ${sql.raw(functionName)}()`.execute(db);
+    try {
+      await expect(repository.persistAttemptUsageAccountingIfAbsent(scenario.input))
+        .rejects.toThrow("settlement_attempt_result_conflict");
+    } finally {
+      await sql`DROP TRIGGER ${sql.raw(triggerName)} ON upstream_attempt`.execute(db);
+      await sql`DROP FUNCTION ${sql.raw(functionName)}()`.execute(db);
+    }
+    expect(await repository.listUsageEvents(scenario.fixture.requestId)).toEqual([]);
+    expect(await repository.listLedgerLines(scenario.fixture.requestId)).toEqual([]);
+    expect(BigInt((await db.selectFrom("quota_counter").select("used_value")
+      .where("grant_id", "=", scenario.grantId).executeTakeFirstOrThrow()).used_value))
+      .toBe(scenario.reserved);
+    expect((await db.selectFrom("concurrency_lease").select("released_at")
+      .where("id", "=", scenario.leaseId).executeTakeFirstOrThrow()).released_at).toBeNull();
+    expect(await db.selectFrom("upstream_attempt").select(["finished_at", "error_code"])
+      .where("id", "=", scenario.fixture.attemptId).executeTakeFirstOrThrow())
+      .toMatchObject({ finished_at: null, error_code: null });
+  });
+
+  it.each([
+    { label: "quota-over", quota: 10n, actual: 15n, overage: 5n },
+    { label: "quota-under", quota: 10n, actual: 9n, overage: 0n },
+  ])("非终态清算按实际扣减重算额度与超额：$label", async ({ label, quota, actual, overage }) => {
+    const scenario = await seedNonterminalAccounting(label, { quota, reserved: 37n });
+    const repository = new GatewayLedgerRepository(db);
+    scenario.input.quota_settlements![0]!.actual_deducted = actual;
+
+    await repository.persistAttemptUsageAccountingIfAbsent(scenario.input);
+    const counter = await db.selectFrom("quota_counter")
+      .select(["used_value", "overage_value"])
+      .where("grant_id", "=", scenario.grantId).executeTakeFirstOrThrow();
+    expect(BigInt(counter.used_value)).toBe(actual);
+    expect(BigInt(counter.overage_value)).toBe(overage);
+  });
+
+  it.each(["missing-counter", "enterprise-mismatch", "principal-mismatch"] as const)(
+    "非终态清算拒绝不属于请求主体的额度事实：%s",
+    async (kind) => {
+      const scenario = await seedNonterminalAccounting(`identity-${kind.slice(0, 4)}`);
+      let conflictingGrantId = scenario.grantId;
+      if (kind === "missing-counter") {
+        await db.deleteFrom("quota_counter").where("grant_id", "=", scenario.grantId).execute();
+      } else if (kind === "enterprise-mismatch") {
+        const otherEnterprise = await db.insertInto("enterprise").values({
+          name: "额度企业身份冲突",
+        }).returning("id").executeTakeFirstOrThrow();
+        conflictingGrantId = (await db.insertInto("principal_grant").values({
+          enterprise_id: otherEnterprise.id,
+          principal_id: scenario.fixture.employeeId,
+          provider: "acct-ent-conflict",
+          model_alias: "ql-ent-conflict",
+          quota_value: 1_000n,
+          allow_overage: false,
+        }).returning("id").executeTakeFirstOrThrow()).id;
+        await db.insertInto("quota_counter").values({
+          grant_id: conflictingGrantId,
+          used_value: scenario.reserved,
+        }).execute();
+      } else {
+        const otherPrincipal = await db.insertInto("principal").values({
+          enterprise_id: scenario.fixture.enterpriseId,
+          type: "EMPLOYEE",
+          name: "额度身份冲突主体",
+        }).returning("id").executeTakeFirstOrThrow();
+        conflictingGrantId = (await db.insertInto("principal_grant").values({
+          enterprise_id: scenario.fixture.enterpriseId,
+          principal_id: otherPrincipal.id,
+          provider: "acct-identity-other-principal",
+          model_alias: "ql-identity-other-principal",
+          quota_value: 1_000n,
+          allow_overage: false,
+        }).returning("id").executeTakeFirstOrThrow()).id;
+        await db.insertInto("quota_counter").values({
+          grant_id: conflictingGrantId,
+          used_value: scenario.reserved,
+        }).execute();
+      }
+      scenario.input.quota_settlements![0]!.grant_id = conflictingGrantId;
+      const repository = new GatewayLedgerRepository(db);
+      await expect(repository.persistAttemptUsageAccountingIfAbsent(scenario.input))
+        .rejects.toThrow("settlement_quota_grant_conflict");
+      expect(await repository.listUsageEvents(scenario.fixture.requestId)).toEqual([]);
+      expect(await repository.listLedgerLines(scenario.fixture.requestId)).toEqual([]);
+      expect(await repository.getRequest(scenario.fixture.requestId))
+        .toMatchObject({ status: "IN_PROGRESS" });
+    },
+  );
+
+  it.each(["enterprise-mismatch", "request-mismatch"] as const)(
+    "非终态清算拒绝不属于本企业请求的租约：%s",
+    async (kind) => {
+      const scenario = await seedNonterminalAccounting(`lease-${kind.slice(0, 4)}`);
+      let leaseEnterpriseId = scenario.fixture.enterpriseId;
+      let leaseRequestId: string | null = scenario.fixture.requestId;
+      if (kind === "enterprise-mismatch") {
+        leaseEnterpriseId = (await db.insertInto("enterprise").values({
+          name: "租约身份冲突企业",
+        }).returning("id").executeTakeFirstOrThrow()).id;
+      } else {
+        leaseRequestId = null;
+      }
+      const conflictingLease = await db.insertInto("concurrency_lease").values({
+        enterprise_id: leaseEnterpriseId,
+        provider_resource_id: scenario.fixture.resourceId,
+        ai_request_id: leaseRequestId,
+        expires_at: new Date(Date.now() + 60_000),
+      }).returning("id").executeTakeFirstOrThrow();
+      scenario.input.release_lease_ids = [conflictingLease.id];
+      const repository = new GatewayLedgerRepository(db);
+
+      await expect(repository.persistAttemptUsageAccountingIfAbsent(scenario.input))
+        .rejects.toThrow("settlement_lease_conflict");
+      expect((await db.selectFrom("concurrency_lease").select("released_at")
+        .where("id", "=", conflictingLease.id).executeTakeFirstOrThrow()).released_at).toBeNull();
+      expect(await repository.listUsageEvents(scenario.fixture.requestId)).toEqual([]);
+      expect(await repository.getRequest(scenario.fixture.requestId))
+        .toMatchObject({ status: "IN_PROGRESS" });
+    },
+  );
+
+  it("同一并发租约重复出现在输入时去重并只释放一次", async () => {
+    const scenario = await seedNonterminalAccounting("duplicate-lease");
+    scenario.input.release_lease_ids = [scenario.leaseId, scenario.leaseId];
+    const repository = new GatewayLedgerRepository(db);
+    await expect(repository.persistAttemptUsageAccountingIfAbsent(scenario.input))
+      .resolves.toMatchObject({ created: true });
+    expect((await db.selectFrom("concurrency_lease").select("released_at")
+      .where("id", "=", scenario.leaseId).executeTakeFirstOrThrow()).released_at)
+      .not.toBeNull();
   });
 
   it("无事实早退可幂等发布 terminal，随后所有结算写入口均 fail-closed", async () => {

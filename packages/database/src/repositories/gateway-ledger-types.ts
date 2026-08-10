@@ -95,6 +95,38 @@ export interface UsageLedgerLineResult {
   created: boolean;
 }
 
+/**
+ * 非终态 Attempt 的事实与资源占用结算。
+ *
+ * 用于“已建 Attempt、但在访问上游前被最终栅栏拒绝后继续 failover”的场景：
+ * usage/ledger、额度退回和并发租约释放必须同事务提交，同时 request 保持
+ * IN_PROGRESS，供下一个 Attempt 继续执行。
+ */
+export interface PersistAttemptUsageAccountingInput extends CreateUsageLedgerLineInput {
+  attempt_result: {
+    http_status: number;
+    response_committed: boolean;
+    finished_at: Date;
+    error_classification: string;
+    error_code: string;
+    switch_reason: string | null;
+  };
+  quota_settlements?: Array<{
+    grant_id: string;
+    reserved_estimate: bigint;
+    actual_deducted: bigint;
+  }>;
+  release_lease_ids?: string[];
+}
+
+/** 上游访问前终态拒绝：Attempt、零账本事实与请求终态必须一次提交。 */
+export interface FinalizeRejectedAttemptSettlementInput
+  extends PersistAttemptUsageAccountingInput {
+  error_classification: string;
+  error_code: string;
+  overage?: boolean;
+}
+
 export interface CreateLedgerTransactionInput {
   ai_request_id: string;
   enterprise_id: string;

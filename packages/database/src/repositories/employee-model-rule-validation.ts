@@ -1,11 +1,13 @@
 /** POOL-029：员工使用规则的就绪校验与权限变更预览。 */
 import type { Selectable, Transaction } from "kysely";
+import { matchApplicableBillingRule, type BillingResourceMode } from "@qianliu/domain";
 import type {
   Database,
   EmployeeModelRuleVersionTable,
   EmployeeModelTarget,
 } from "../kysely.js";
 import { classifyPermissionKeys } from "./employee-model-authorization-policy.js";
+import { listEnabledBillingRulesAt } from "./billing-rule-applicability.js";
 
 export type EmployeeModelRuleVersion = Selectable<EmployeeModelRuleVersionTable>;
 
@@ -176,6 +178,7 @@ export async function validateEmployeeModelRule(
     : version.model_targets;
   if (requestedTargets.length === 0) issues.push({ code: "NO_MODEL", message: "没有可发布的模型" });
   const rowByTarget = new Map(routeRows.map((row) => [`${row.unified_model_id}:${row.provider_resource_id}`, row]));
+  const billingRules = await listEnabledBillingRulesAt(trx, version.enterprise_id, version.valid_from);
   const readyTargets: EmployeeModelTarget[] = [];
   for (const target of requestedTargets) {
     const row = rowByTarget.get(`${target.unified_model_id}:${target.provider_resource_id}`);
@@ -189,34 +192,13 @@ export async function validateEmployeeModelRule(
     if (selected && (!["ACTIVE", "DEGRADED"].includes(row.resource_status) || row.provider_status !== "ACTIVE")) {
       issues.push({ code: "RESOURCE_UNAVAILABLE", ...target, message: `${row.display_name} 的厂商资源不可服务` });
     }
-    const billing = await trx.selectFrom("billing_rule").select("id")
-      .where("enterprise_id", "=", version.enterprise_id).where("enabled", "=", true)
-      .where("effective_from", "<=", version.valid_from)
-      .where((eb) => eb.or([eb("effective_to", "is", null), eb("effective_to", ">", version.valid_from)]))
-      .where((eb) => eb.or([
-        eb("provider_resource_id", "=", target.provider_resource_id),
-        eb("provider_resource_id", "is", null),
-      ]))
-      .where((eb) => eb.or([
-        eb("upstream_model", "=", row.upstream_model),
-        eb("upstream_model", "is", null),
-      ]))
-      .where((eb) => eb.or([
-        eb.and([
-          eb(eb.val(row.resource_mode), "=", "API"),
-          eb("rule_type", "=", "API_PRICE"),
-          eb.or([
-            eb("cache_hit_price", "is not", null),
-            eb("cache_miss_price", "is not", null),
-            eb("output_price", "is not", null),
-          ]),
-        ]),
-        eb.and([
-          eb(eb.val(row.resource_mode), "=", "CODING_PLAN"),
-          eb("rule_type", "in", ["TIME_WINDOW", "MODEL_TIER"]),
-          eb("multiplier", "is not", null),
-        ]),
-      ])).executeTakeFirst();
+    const billing = matchApplicableBillingRule(
+      billingRules,
+      target.provider_resource_id,
+      row.upstream_model,
+      row.resource_mode as BillingResourceMode,
+      version.valid_from.getTime(),
+    );
     if (selected && !billing) issues.push({ code: "BILLING_RULE_UNAVAILABLE", ...target, message: `${row.display_name} 缺少授权生效时点可用的计价或扣减规则` });
     if (row.model_status === "ACTIVE" && row.enabled && ["ACTIVE", "DEGRADED"].includes(row.resource_status)
       && row.provider_status === "ACTIVE" && billing) readyTargets.push(target);

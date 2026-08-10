@@ -1,0 +1,25 @@
+# POOL-040/041 candidate freeze
+# base: main c78a1547fb118a6bec41829072257c7aa95a3d8f
+# frozen_at: 2026-08-08 Asia/Shanghai
+# object_hash: 7798b0a0c25d6559debf6bf246b9ef910c3052063993cb3365d614164bc716b2
+# hash_algorithm: SHA-256; object hash is the ordered lock-entry lines below, each ending in newline
+ffcbed101485ab82c280f6083e4497f8662598959050d9b728bb6b89c223ec8f  V3/仟流智算-测试问题蓄水池.md
+a24e6ea0e18f83ccf81093b9c72e3ac4694a51fce5d01af971e25dd5f2484ba6  V3/Evidence/POOL-040-041-20260808.md
+0137722e856590258a4c2cf202872b8a5a2b80aef88aeadab9d1f8d107e0e085  apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts
+21ed7517ebdf377d08dff831394527ba075d032860544384d55bf9cc14618c92  apps/control-api/src/principals/access-configuration.ts
+ccc57499b035f2b38cacf34de62155aec898458e7eb0e18c14fa0a0d9d14ee8f  apps/control-api/src/principals/access-configuration-schema.test.ts
+49e2a5fc71c857ca354a3bebb6c071a427f49ddaeea4937c3cee04cb7881cbb5  apps/control-api/src/principals/access-configuration-schema.ts
+3fea0182f7f7733d06dd2b3606b6c190b78d2472258da2c0cbb5f0a6688fc340  apps/control-api/stryker.pool041.config.json
+964a70ac81313d58a8c92cccc49d7c49b47c3826ea812efb2b1a5939655ac822  apps/control-api/vitest.pool041.mutation.config.ts
+71de8006830621aae8a5f32b9c6616fc353d226cf20edee0a30875f075bf9fb1  apps/gateway/src/__tests-integration__/w05-northbound.test.ts
+3aef0db2919d7ca0364b68dcad6d7185b678d108e6b2fe2c4529c3e1201439fc  apps/gateway/src/__tests-integration__/w18-quota-pipeline.test.ts
+b53e57e730c0bd5f661f8cd7d2dff7a2b6f2fa42906a29d2ae014ffc8ebeb570  apps/gateway/src/admission/invocation-admission.ts
+ed82f500d7185abdb143c3790ecd185a5b1225d8af815f4677372f2f6a336bab  apps/gateway/src/main.ts
+e87230a987b98a9e567c4d9c422fcda6fe17ffadef038ca9a240bb10d1797b12  apps/gateway/src/pipeline/real-pipeline.ts
+e913836210aaf8012d3b894fcda57688f4ecdb6ee6ed0c5d56a921c485e237aa  apps/gateway/src/routes/models.ts
+e4ab09f99f9cad9532ed0ebcf257f4768fbbadee8410ab2931bcb318a6215ccc  apps/gateway/stryker.pool040.config.json
+e8b155b9ebbe4ff974fa69130094f4d382852dbed06e410234ea48944d7d560f  apps/gateway/vitest.pool040.mutation.config.ts
+77ad227107e63abab1ce425ab7d2a5598ddddbadb29b344971cd402b0ed67b3b  packages/domain/reports/mutation/mutation.html
+b815d66a60ee94363ae593927988dac9bad83d015fa31095c9eb1cd61209225a  packages/domain/reports/mutation/mutation.json
+60cd105672095aca03ab2655f95683e69cead4ede0ff5e19fb93b3f5dc23e209  packages/domain/src/routing-policy.ts
+c95f252ac04ee06dfd502844aab3dda0ccc3380ad6d97ad2d81ffb579e482f54  V3/Evidence/Production-Release/20260808-pool040041/run-release.sh

@@ -106,6 +106,8 @@ export {
   type LedgerLineInput,
   type CreateUsageLedgerLineInput,
   type UsageLedgerLineResult,
+  type PersistAttemptUsageAccountingInput,
+  type FinalizeRejectedAttemptSettlementInput,
   type CreateLedgerTransactionInput,
   type FinalizeLedgerSettlementInput,
 } from "./repositories/gateway-ledger-repository.js";
@@ -113,11 +115,13 @@ export {
   GatewayLedgerSettlementConflictError,
   summarizeLedgerUsageQuality,
 } from "./repositories/gateway-ledger-settlement.js";
+export { listEnabledBillingRulesAt } from "./repositories/billing-rule-applicability.js";
 export {
   ResourcePoolRepository,
   type ResourceStatusEvent,
   type ProviderResourceRow,
   type ServableResource,
+  type HalfOpenProbeLease,
 } from "./repositories/resource-pool-repository.js";
 export {
   QuotaGateRepository,

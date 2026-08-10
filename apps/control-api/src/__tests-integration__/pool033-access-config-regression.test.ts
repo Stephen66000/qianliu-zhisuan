@@ -19,6 +19,7 @@ import { createKysely, migrateToLatest, type Database } from "@qianliu/database"
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 import { EmployeeModelRuleRepository } from "@qianliu/database";
+import { sql } from "kysely";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -68,11 +69,11 @@ beforeAll(async () => {
   // 计价规则（Flash/Pro 各一条，单价不同）。
   await db.insertInto("billing_rule").values([
     { enterprise_id: enterpriseId, provider_resource_id: resourceId, upstream_model: "deepseek-flash",
-      rule_type: "MODEL_TIER", rule_version: "flash-v1", effective_from: new Date("2026-01-01T00:00:00Z"),
-      multiplier: "1", enabled: true },
+      rule_type: "API_PRICE", rule_version: "flash-v1", effective_from: new Date("2026-01-01T00:00:00Z"),
+      cache_miss_price: "0.000001", output_price: "0.000002", enabled: true },
     { enterprise_id: enterpriseId, provider_resource_id: resourceId, upstream_model: "deepseek-pro",
-      rule_type: "MODEL_TIER", rule_version: "pro-v1", effective_from: new Date("2026-01-01T00:00:00Z"),
-      multiplier: "2", enabled: true },
+      rule_type: "API_PRICE", rule_version: "pro-v1", effective_from: new Date("2026-01-01T00:00:00Z"),
+      cache_miss_price: "0.000002", output_price: "0.000004", enabled: true },
   ]).execute();
 
   const { buildControlApi } = await import("../server.js");
@@ -128,6 +129,33 @@ async function readAllowedModelIds(principalId: string): Promise<string[]> {
     .where("principal_id", "=", principalId).where("status", "=", "ACTIVE")
     .executeTakeFirstOrThrow();
   return row.allowed_model_ids ?? [];
+}
+
+async function accessConfigurationSideEffects(principalId: string) {
+  const counts = await sql<{
+    versions: string;
+    assignments: string;
+    grants: string;
+    counters: string;
+    disabled_models: string;
+    idempotency_rows: string;
+    config_states: string;
+    operation_logs: string;
+  }>`
+    SELECT
+      (SELECT count(*)::text FROM employee_model_rule_version WHERE enterprise_id = ${enterpriseId}::uuid) AS versions,
+      (SELECT count(*)::text FROM employee_model_rule_assignment WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS assignments,
+      (SELECT count(*)::text FROM principal_grant WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS grants,
+      (SELECT count(*)::text FROM quota_counter qc JOIN principal_grant pg ON pg.id = qc.grant_id WHERE pg.enterprise_id = ${enterpriseId}::uuid AND pg.principal_id = ${principalId}::uuid) AS counters,
+      (SELECT count(*)::text FROM principal_provider_disabled_model WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS disabled_models,
+      (SELECT count(*)::text FROM principal_access_idempotency WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS idempotency_rows,
+      (SELECT count(*)::text FROM principal_access_config_state WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${principalId}::uuid) AS config_states,
+      (SELECT count(*)::text FROM operation_log WHERE enterprise_id = ${enterpriseId}::uuid) AS operation_logs
+  `.execute(db);
+  return {
+    counts: counts.rows[0],
+    allowedModelIds: await readAllowedModelIds(principalId),
+  };
 }
 
 describe("POOL-033 接入配置回归：DeepSeek Flash/Pro 双模型完整流程", () => {
@@ -199,6 +227,41 @@ describe("POOL-033 接入配置回归：DeepSeek Flash/Pro 双模型完整流程
   });
 });
 
+describe("POOL-041 接入配置重复输入 fail-fast", () => {
+  it("重复 provider_code 返回稳定 400，数据库零副作用", async () => {
+    const principalId = await createEmployeeWithKey("POOL041-重复厂商");
+    const before = await accessConfigurationSideEffects(principalId);
+    const response = await putAccessConfig(principalId, 1, "pool041-provider-duplicate", [
+      { provider_code: "deepseek", quota_value: "1000000", enabled_model_ids: [flashModelId] },
+      { provider_code: "deepseek", quota_value: "2000000", enabled_model_ids: [proModelId] },
+    ]);
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "invalid_request",
+      message: "provider_code 不能重复",
+    });
+    expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
+  });
+
+  it("同一 provider 内重复 enabled_model_ids 返回稳定 400，数据库零副作用", async () => {
+    const principalId = await createEmployeeWithKey("POOL041-重复型号");
+    const before = await accessConfigurationSideEffects(principalId);
+    const response = await putAccessConfig(principalId, 1, "pool041-model-duplicate", [
+      {
+        provider_code: "deepseek",
+        quota_value: "1000000",
+        enabled_model_ids: [flashModelId, flashModelId],
+      },
+    ]);
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "invalid_request",
+      message: "enabled_model_ids 不能重复",
+    });
+    expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
+  });
+});
+
 describe("POOL-033 回归：route 状态变化不清空白名单（bug 修复核心）", () => {
   it("配置成功后停用 route，refreshKeyModels 不清空已授权白名单", async () => {
     const principalId = await createEmployeeWithKey("Route变化-保护");
@@ -244,8 +307,9 @@ describe("POOL-033 回归：多路由型号不重复计入白名单（join 笛�
     }).execute();
     await db.insertInto("billing_rule").values({
       enterprise_id: enterpriseId, provider_resource_id: secondResourceId, upstream_model: "deepseek-flash",
-      rule_type: "MODEL_TIER", rule_version: "flash-backup-v1",
-      effective_from: new Date("2026-01-01T00:00:00Z"), multiplier: "1", enabled: true,
+      rule_type: "API_PRICE", rule_version: "flash-backup-v1",
+      effective_from: new Date("2026-01-01T00:00:00Z"),
+      cache_miss_price: "0.000001", output_price: "0.000002", enabled: true,
     }).execute();
     await db.insertInto("model_route").values({
       enterprise_id: enterpriseId, unified_model_id: flashModelId, provider_resource_id: secondResourceId,
@@ -263,5 +327,233 @@ describe("POOL-033 回归：多路由型号不重复计入白名单（join 笛�
     expect(flashCount).toBe(1);
     expect(allowed).toContain(proModelId);
     expect(allowed).toHaveLength(2);
+  });
+});
+
+async function setFlashBilling(kind: "VALID" | "WRONG_TYPE" | "EMPTY_PRICE" | "OUTSIDE_WINDOW") {
+  const today = new Date().getUTCDay() || 7;
+  const otherDay = today === 1 ? 2 : 1;
+  await db.updateTable("billing_rule").set({
+    rule_type: kind === "WRONG_TYPE" ? "MODEL_TIER" : "API_PRICE",
+    multiplier: kind === "WRONG_TYPE" ? "1" : null,
+    cache_hit_price: null,
+    cache_miss_price: kind === "EMPTY_PRICE" || kind === "WRONG_TYPE" ? null : "0.000001",
+    output_price: kind === "EMPTY_PRICE" || kind === "WRONG_TYPE" ? null : "0.000002",
+    timezone: null,
+    days_of_week: null,
+    start_time: null,
+    end_time: null,
+    time_windows: kind === "OUTSIDE_WINDOW"
+      ? JSON.stringify([{
+          timezone: "UTC",
+          days_of_week: [otherDay],
+          start_time: "00:00:00",
+          end_time: "23:59:59",
+        }]) as unknown as Array<{
+          timezone: string; days_of_week: number[]; start_time: string; end_time: string;
+        }>
+      : null,
+  }).where("enterprise_id", "=", enterpriseId)
+    .where("upstream_model", "=", "deepseek-flash")
+    .execute();
+}
+
+describe("P1-02：单人接入与 Gateway 计费准入使用同一合同", () => {
+  it.each([
+    ["错误规则类型", "WRONG_TYPE"],
+    ["API_PRICE 空价格", "EMPTY_PRICE"],
+    ["API_PRICE 当前时窗未命中", "OUTSIDE_WINDOW"],
+  ] as const)("API 资源遇到%s时 PUT 返回 422 且数据库零副作用", async (_name, kind) => {
+    const principalId = await createEmployeeWithKey(`P102-${kind}`);
+    await setFlashBilling(kind);
+    try {
+      const catalog = await app.inject({
+        method: "GET", url: "/employee-model-rules/catalog", headers: { cookie },
+      });
+      const flash = catalog.json().models.find((model: { unified_model_id: string }) =>
+        model.unified_model_id === flashModelId && model.provider_resource_id === resourceId);
+      expect(flash).toMatchObject({ ready: false });
+      expect(flash.unavailable_reasons).toContain("缺少当前生效的计价或扣减规则");
+
+      const read = await app.inject({
+        method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+      });
+      const readFlash = read.json().providers
+        .find((provider: { provider_code: string }) => provider.provider_code === "deepseek")
+        .models.find((model: { unified_model_id: string; provider_resource_id: string }) =>
+          model.unified_model_id === flashModelId && model.provider_resource_id === resourceId);
+      expect(readFlash).toMatchObject({ ready: false, enabled: false });
+
+      const before = await accessConfigurationSideEffects(principalId);
+      const response = await putAccessConfig(principalId, 1, `p102-${kind.toLowerCase()}-put`, [{
+        provider_code: "deepseek", quota_value: "1000000", enabled_model_ids: [flashModelId],
+      }]);
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toMatchObject({ error: "not_ready" });
+      expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
+    } finally {
+      await setFlashBilling("VALID");
+    }
+  });
+
+  it("既有厂商池的计费规则失效后 GET、Key 与就绪状态同步撤权", async () => {
+    const principalId = await createEmployeeWithKey("P102-既有池撤权");
+    const put = await putAccessConfig(principalId, 1, "p102-existing-pool-put", [{
+      provider_code: "deepseek", quota_value: "1000000", enabled_model_ids: [proModelId],
+    }]);
+    expect(put.statusCode).toBe(200);
+
+    const before = await app.inject({
+      method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+    });
+    const beforeBody = before.json();
+    const beforePro = beforeBody.providers
+      .find((provider: { provider_code: string }) => provider.provider_code === "deepseek")
+      .models.find((model: { unified_model_id: string }) => model.unified_model_id === proModelId);
+    expect(beforePro).toMatchObject({ ready: true, enabled: true });
+    expect(beforeBody.summary.model_count).toBe(1);
+    expect(beforeBody.key.authorization_status).toBe("AUTHORIZED");
+    expect(await readAllowedModelIds(principalId)).toEqual([proModelId]);
+
+    await db.updateTable("billing_rule").set({
+      rule_type: "MODEL_TIER", multiplier: "1",
+      cache_hit_price: null, cache_miss_price: null, output_price: null,
+    }).where("enterprise_id", "=", enterpriseId)
+      .where("provider_resource_id", "=", resourceId)
+      .where("upstream_model", "=", "deepseek-pro")
+      .execute();
+    try {
+      const after = await app.inject({
+        method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+      });
+      const afterBody = after.json();
+      const afterPro = afterBody.providers
+        .find((provider: { provider_code: string }) => provider.provider_code === "deepseek")
+        .models.find((model: { unified_model_id: string }) => model.unified_model_id === proModelId);
+      expect(afterPro).toMatchObject({ ready: false, enabled: false });
+      expect(afterBody.summary.model_count).toBe(0);
+      expect(afterBody.key.authorization_status).toBe("PENDING");
+
+      await db.transaction().execute(async (trx) => {
+        await ruleRepo.refreshKeyModels(trx, enterpriseId, principalId);
+      });
+      expect(await readAllowedModelIds(principalId)).toEqual([]);
+    } finally {
+      await db.updateTable("billing_rule").set({
+        rule_type: "API_PRICE", multiplier: null,
+        cache_hit_price: null, cache_miss_price: "0.000002", output_price: "0.000004",
+      }).where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .where("upstream_model", "=", "deepseek-pro")
+        .execute();
+    }
+  });
+
+  it("手工权限事实保留，但失效计费模型不进入 ACTIVE Key 派生白名单", async () => {
+    const principalId = await createEmployeeWithKey("P102-手工基线过滤");
+    await db.insertInto("principal_model_manual_authorization").values({
+      enterprise_id: enterpriseId, principal_id: principalId, unified_model_id: proModelId,
+    }).execute();
+    await db.updateTable("principal_key").set({
+      allowed_model_ids: JSON.stringify([proModelId]) as unknown as string[],
+    }).where("principal_id", "=", principalId).execute();
+    await db.updateTable("billing_rule").set({
+      rule_type: "MODEL_TIER", multiplier: "1",
+      cache_hit_price: null, cache_miss_price: null, output_price: null,
+    }).where("enterprise_id", "=", enterpriseId)
+      .where("provider_resource_id", "=", resourceId)
+      .where("upstream_model", "=", "deepseek-pro")
+      .execute();
+    try {
+      await db.transaction().execute(async (trx) => {
+        await ruleRepo.refreshKeyModels(trx, enterpriseId, principalId);
+      });
+      expect(await readAllowedModelIds(principalId)).toEqual([]);
+      const manual = await db.selectFrom("principal_model_manual_authorization")
+        .select("unified_model_id")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("principal_id", "=", principalId)
+        .execute();
+      expect(manual.map((row) => row.unified_model_id)).toEqual([proModelId]);
+    } finally {
+      await db.updateTable("billing_rule").set({
+        rule_type: "API_PRICE", multiplier: null,
+        cache_hit_price: null, cache_miss_price: "0.000002", output_price: "0.000004",
+      }).where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .where("upstream_model", "=", "deepseek-pro")
+        .execute();
+    }
+  });
+
+  it.each([
+    ["未生效", { valid_from: new Date(Date.now() + 60_000), valid_until: null }],
+    ["已过期", { valid_from: new Date(0), valid_until: new Date(Date.now() - 1_000) }],
+  ] as const)("%s的 ACTIVE 厂商池不进入 GET 授权摘要和 Key", async (name, validity) => {
+    const principalId = await createEmployeeWithKey(`P102-池${name}`);
+    const put = await putAccessConfig(principalId, 1, `p102-${name}-pool-put`, [{
+      provider_code: "deepseek", quota_value: "1000000", enabled_model_ids: [proModelId],
+    }]);
+    expect(put.statusCode).toBe(200);
+    await db.updateTable("principal_grant").set(validity)
+      .where("enterprise_id", "=", enterpriseId)
+      .where("principal_id", "=", principalId)
+      .where("pool_model_alias", "=", "*")
+      .execute();
+
+    const read = await app.inject({
+      method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+    });
+    const body = read.json();
+    const deepseek = body.providers
+      .find((provider: { provider_code: string }) => provider.provider_code === "deepseek");
+    const pro = deepseek.models
+      .find((model: { unified_model_id: string }) => model.unified_model_id === proModelId);
+    expect(deepseek.pool).toBeNull();
+    expect(pro).toMatchObject({ ready: true, enabled: false });
+    expect(body.summary).toMatchObject({ total_quota: "0", provider_count: 0, model_count: 0 });
+    expect(body.key.authorization_status).toBe("PENDING");
+
+    await db.transaction().execute(async (trx) => {
+      await ruleRepo.refreshKeyModels(trx, enterpriseId, principalId);
+    });
+    expect(await readAllowedModelIds(principalId)).toEqual([]);
+  });
+
+  it("CODING_PLAN 的 MODEL_TIER 缓存倍率为空时 PUT 返回 422 且数据库零副作用", async () => {
+    const planProviderId = randomUUID();
+    const planResourceId = randomUUID();
+    const planModelId = randomUUID();
+    await db.insertInto("provider").values({
+      id: planProviderId, enterprise_id: enterpriseId, code: `kimi-${planProviderId.slice(0, 6)}`,
+      name: "Kimi P1-02", adapter_type: "kimi", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("provider_resource").values({
+      id: planResourceId, enterprise_id: enterpriseId, provider_id: planProviderId,
+      name: "Kimi 套餐", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("unified_model").values({
+      id: planModelId, enterprise_id: enterpriseId, alias: `qianliu-kimi-${planModelId.slice(0, 6)}`,
+      display_name: "Kimi 空倍率", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: planModelId,
+      provider_resource_id: planResourceId, upstream_model: "kimi-k3", enabled: true,
+    }).execute();
+    await db.insertInto("billing_rule").values({
+      enterprise_id: enterpriseId, provider_resource_id: planResourceId, upstream_model: "kimi-k3",
+      rule_type: "MODEL_TIER", rule_version: "empty-multiplier-v1",
+      effective_from: new Date("2026-01-01T00:00:00Z"), multiplier: null, enabled: true,
+    }).execute();
+    const principalId = await createEmployeeWithKey("P102-空倍率");
+    const providerCode = `kimi-${planProviderId.slice(0, 6)}`;
+    const before = await accessConfigurationSideEffects(principalId);
+
+    const response = await putAccessConfig(principalId, 1, "p102-empty-multiplier-put", [{
+      provider_code: providerCode, quota_value: "1000000", enabled_model_ids: [planModelId],
+    }]);
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({ error: "not_ready" });
+    expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
   });
 });

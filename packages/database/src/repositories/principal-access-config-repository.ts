@@ -91,6 +91,7 @@ export class PrincipalAccessConfigRepository {
 
   /** GET 读模型：厂商分块 + 池 + 型号开关 + 待接管标记 + config_version。 */
   async read(enterpriseId: string, principalId: string) {
+    const now = new Date();
     const principal = await this.db.selectFrom("principal")
       .select(["id", "name", "status", "department_label", "archived_at"])
       .where("enterprise_id", "=", enterpriseId).where("id", "=", principalId)
@@ -119,6 +120,11 @@ export class PrincipalAccessConfigRepository {
       .where("principal_grant.principal_id", "=", principalId)
       .where("principal_grant.pool_model_alias", "=", "*")
       .where("principal_grant.status", "=", "ACTIVE")
+      .where("principal_grant.valid_from", "<=", now)
+      .where((eb) => eb.or([
+        eb("principal_grant.valid_until", "is", null),
+        eb("principal_grant.valid_until", ">", now),
+      ]))
       .execute();
 
     // 池来源判定：有 owner_principal_id 的单人规则版本 → MANAGED_SINGLE；否则批量。
@@ -214,7 +220,7 @@ export class PrincipalAccessConfigRepository {
       const locked = await this.lockAndCheckConfigVersion(trx, input);
 
       // 4. 就绪校验：pools 中每个 enabled_model_id 属该厂商且就绪。
-      const catalog = await this.ruleRepo.catalog(input.enterpriseId);
+      const catalog = await new EmployeeModelRuleRepository(trx).catalog(input.enterpriseId);
       const models = catalog.models as PrincipalAccessModelRow[];
       const modelById = new Map(models.map((m) => [m.unified_model_id, m]));
       const issues: Array<{ code: string; message: string; unified_model_id?: string; provider_code?: string }> = [];

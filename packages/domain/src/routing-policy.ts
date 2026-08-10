@@ -39,6 +39,8 @@ export const ROUTING_POLICY = {
 
 /** 路由候选输入（硬过滤后的可服务资源 + model_route 配置 + 运行状态）。 */
 export interface RoutingCandidateInput {
+  /** model_route.id；同一资源可存在多个不同 upstream route，撤权时按 route 排除。 */
+  routeId?: string;
   resourceId: string;
   /** model_route.upstream_model。 */
   upstreamModel: string;

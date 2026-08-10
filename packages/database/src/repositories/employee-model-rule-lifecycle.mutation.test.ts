@@ -23,9 +23,13 @@ class LifecycleQuery {
     if (typeof join === "string") requireToken(join);
     if (typeof join === "function") {
       let joined = false;
-      join({ onRef: (left: unknown, operator: unknown, reference: unknown) => {
-        requireToken(left); requireToken(operator); requireToken(reference); joined = true;
-      } });
+      const joinBuilder = {
+        onRef: (left: unknown, operator: unknown, reference: unknown) => {
+          requireToken(left); requireToken(operator); requireToken(reference); joined = true;
+          return joinBuilder;
+        },
+      };
+      join(joinBuilder);
       if (!joined) throw new Error("join predicate missing");
     }
     return this;
@@ -128,13 +132,28 @@ class LifecycleTransaction {
   result(table: string, selected: unknown, filters: Filter[], mode: "all" | "first") {
     if (table === "principal_key") return this.keyExists ? { id: "key" } : undefined;
     if (table === "principal_model_manual_authorization") {
-      return [{ unified_model_id: "manual" }, { unified_model_id: "shared" }];
+      return [
+        { unified_model_id: "manual", provider_resource_id: "resource-api", upstream_model: "manual", mode: "API" },
+        { unified_model_id: "shared", provider_resource_id: "resource-api", upstream_model: "shared", mode: "API" },
+      ];
     }
     if (table === "principal_provider_disabled_model") return [{ unified_model_id: "blocked" }];
     if (table === "principal_grant") {
-      return [{ unified_model_id: "pool" }, { unified_model_id: "blocked" }, { unified_model_id: "shared" }];
+      return [
+        { unified_model_id: "pool", provider_resource_id: "resource-api", upstream_model: "pool", mode: "API" },
+        { unified_model_id: "blocked", provider_resource_id: "resource-api", upstream_model: "blocked", mode: "API" },
+        { unified_model_id: "shared", provider_resource_id: "resource-api", upstream_model: "shared", mode: "API" },
+      ];
     }
-    if (table === "employee_model_rule_assignment" && Array.isArray(selected)) return this.assignments;
+    if (table === "employee_model_rule_assignment" && Array.isArray(selected)) {
+      if (selected.includes("employee_model_rule_assignment.unified_model_id")) {
+        return [
+          { unified_model_id: "managed", provider_resource_id: "resource-api", upstream_model: "managed", mode: "API" },
+          { unified_model_id: "shared", provider_resource_id: "resource-api", upstream_model: "shared", mode: "API" },
+        ];
+      }
+      return this.assignments;
+    }
     if (table === "employee_model_rule_assignment" && selected === "employee_model_rule_assignment.unified_model_id") {
       return [{ unified_model_id: "managed" }, { unified_model_id: "shared" }];
     }
@@ -147,6 +166,17 @@ class LifecycleTransaction {
       if (resource === "resource-alpha") return { code: "alpha" };
       if (resource === "resource-beta") return { code: "beta" };
       return undefined;
+    }
+    if (table === "billing_rule") {
+      return [{
+        id: "api-price", rule_type: "API_PRICE", rule_version: "v1",
+        provider_resource_id: null, upstream_model: null,
+        effective_from: new Date(0), effective_to: null,
+        timezone: null, days_of_week: null, start_time: null, end_time: null,
+        time_windows: null, multiplier: null,
+        cache_hit_price: null, cache_miss_price: "0.000001", output_price: null,
+        currency: "CNY", priority: 100,
+      }];
     }
     return mode === "all" ? [] : undefined;
   }
@@ -185,36 +215,20 @@ describe("POOL-039 employee rule lifecycle mutation contract", () => {
         table: "principal_grant", column: "provider.status", operator: "=", value: "ACTIVE",
       }),
       expect.objectContaining({
-        table: "billing_rule", column: "billing_rule.enabled", operator: "=", value: true,
+        table: "billing_rule", column: "enabled", operator: "=", value: true,
       }),
       expect.objectContaining({
-        table: "billing_rule", column: "billing_rule.effective_from", operator: "<=", value: expect.any(Date),
+        table: "billing_rule", column: "effective_from", operator: "<=", value: expect.any(Date),
       }),
     ]));
     expect(trx.expressions.filter((expression) => expression.kind === "comparison"))
       .toEqual(expect.arrayContaining([
-        { kind: "comparison", values: ["billing_rule.effective_to", "is", null] },
-        { kind: "comparison", values: ["billing_rule.effective_to", ">", expect.any(Date)] },
-        { kind: "comparison", values: ["billing_rule.provider_resource_id", "is", null] },
-        { kind: "comparison", values: ["billing_rule.provider_resource_id", "=", expect.objectContaining({
-          kind: "ref", value: "model_route.provider_resource_id",
-        })] },
-        { kind: "comparison", values: ["billing_rule.upstream_model", "is", null] },
-        { kind: "comparison", values: ["billing_rule.upstream_model", "=", expect.objectContaining({
-          kind: "ref", value: "model_route.upstream_model",
-        })] },
-        { kind: "comparison", values: ["provider_resource.mode", "=", "API"] },
-        { kind: "comparison", values: ["billing_rule.rule_type", "=", "API_PRICE"] },
-        { kind: "comparison", values: ["billing_rule.cache_hit_price", "is not", null] },
-        { kind: "comparison", values: ["billing_rule.cache_miss_price", "is not", null] },
-        { kind: "comparison", values: ["billing_rule.output_price", "is not", null] },
-        { kind: "comparison", values: ["provider_resource.mode", "=", "CODING_PLAN"] },
-        { kind: "comparison", values: ["billing_rule.rule_type", "in", ["TIME_WINDOW", "MODEL_TIER"]] },
-        { kind: "comparison", values: ["billing_rule.multiplier", "is not", null] },
+        { kind: "comparison", values: ["effective_to", "is", null] },
+        { kind: "comparison", values: ["effective_to", ">", expect.any(Date)] },
+        { kind: "comparison", values: ["principal_grant.valid_until", "is", null] },
+        { kind: "comparison", values: ["principal_grant.valid_until", ">", expect.any(Date)] },
       ]));
-    expect(trx.expressions.filter((expression) => expression.kind === "or")).toHaveLength(5);
-    expect(trx.expressions.filter((expression) => expression.kind === "and")).toHaveLength(2);
-    expect(trx.expressions.filter((expression) => expression.kind === "exists")).toHaveLength(1);
+    expect(trx.expressions.filter((expression) => expression.kind === "or")).toHaveLength(3);
   });
 
   it("does not update a missing ACTIVE Key", async () => {

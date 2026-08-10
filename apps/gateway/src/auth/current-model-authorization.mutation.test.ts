@@ -9,6 +9,8 @@ type Comparison = [unknown, unknown, unknown];
 
 interface AuthorizationTrace {
   comparisons: Comparison[];
+  innerJoins: string[];
+  innerJoinRefs: Comparison[];
   isolationLevels: string[];
   selectFrom: unknown[];
   selections: unknown[];
@@ -27,18 +29,21 @@ const DEFAULT_BILLING_RULE = {
 class AuthorizationQuery {
   constructor(
     private readonly trace: AuthorizationTrace,
-    private readonly result: unknown,
+    private readonly result: Record<string, unknown> | null,
     private readonly table: string,
     private readonly billingRules: unknown[] = [DEFAULT_BILLING_RULE],
   ) {}
 
-  innerJoin(_table: string, left: unknown, _right?: unknown) {
+  innerJoin(table: string, left: unknown, _right?: unknown) {
+    this.trace.innerJoins.push(table);
     if (typeof left === "function") {
       const join = {
         onRef: (_left: unknown, _operator: unknown, _right: unknown) => join,
         on: (_left: unknown, _operator: unknown, _right: unknown) => join,
       };
       left(join);
+    } else {
+      this.trace.innerJoinRefs.push([left, "=", _right]);
     }
     return this;
   }
@@ -88,6 +93,7 @@ class AuthorizationQuery {
   execute() {
     if (this.table === "billing_rule") return Promise.resolve(this.billingRules);
     if (this.table !== "principal_key") return Promise.resolve([]);
+    if (this.result === null) return Promise.resolve([]);
     return Promise.resolve(this.billingRules.map((rule) => {
       const billing = rule as typeof DEFAULT_BILLING_RULE;
       return {
@@ -116,11 +122,11 @@ class AuthorizationQuery {
 }
 
 function fakeDb(
-  result: Record<string, unknown>,
+  result: Record<string, unknown> | null,
   billingRules: unknown[] = [DEFAULT_BILLING_RULE],
 ) {
   const trace: AuthorizationTrace = {
-    comparisons: [], isolationLevels: [], selectFrom: [], selections: [], whereRefs: [],
+    comparisons: [], innerJoins: [], innerJoinRefs: [], isolationLevels: [], selectFrom: [], selections: [], whereRefs: [],
   };
   const db = {
     selectFrom: (table: string) => {
@@ -162,15 +168,12 @@ describe("POOL-039 current authorization mutation contract", () => {
       .resolves.toMatchObject({ billingRule: { id: "billing-rule", ruleVersion: "v1" } });
     expect(trace.isolationLevels).toEqual(["repeatable read"]);
 
-    expect(trace.selectFrom).toEqual([
-      "principal_key",
-      "billing_rule",
-      "principal_provider_disabled_model",
-    ]);
-    expect(trace.selections).toContain("billing_rule.id");
-    expect(trace.whereRefs).toContainEqual([
+    expect(trace.selectFrom).toEqual(["principal_key", "principal_provider_disabled_model"]);
+    expect(trace.innerJoins).toContain("billing_rule");
+    expect(trace.innerJoinRefs).toContainEqual([
       "billing_rule.enterprise_id", "=", "unified_model.enterprise_id",
     ]);
+    expect(trace.selections.flat()).toContain("billing_rule.id as billing_rule_id");
     expect(trace.comparisons).toEqual(expect.arrayContaining([
       ["principal_key.id", "=", "key"],
       ["principal_key.enterprise_id", "=", "enterprise"],
@@ -251,5 +254,41 @@ describe("POOL-039 current authorization mutation contract", () => {
       end_time: "23:59",
     }]);
     await expect(hasCurrentInvocationAuthorization(excluded.db as never, AUTH_INPUT)).resolves.toBe(false);
+  });
+
+  it("fails closed for missing, expired and empty-model authorization and preserves rule windows", async () => {
+    await expect(hasCurrentInvocationAuthorization(fakeDb(null).db as never, AUTH_INPUT))
+      .resolves.toBe(false);
+    await expect(hasCurrentInvocationAuthorization(fakeDb({
+      allowed_model_ids: ["model-id"], expires_at: AUTH_INPUT.now,
+      model_id: "model-id", resource_mode: "API",
+    }).db as never, AUTH_INPUT)).resolves.toBe(false);
+    await expect(hasCurrentInvocationAuthorization(fakeDb({
+      allowed_model_ids: [], expires_at: null,
+      model_id: "model-id", resource_mode: "API",
+    }).db as never, AUTH_INPUT)).resolves.toBe(false);
+
+    const futureExpiry = new Date(AUTH_INPUT.now.getTime() + 1);
+    const window = {
+      timezone: "Asia/Shanghai", days_of_week: [7],
+      start_time: "19:00", end_time: "21:00",
+    };
+    const current = fakeDb({
+      allowed_model_ids: ["model-id"], expires_at: futureExpiry,
+      model_id: "model-id", resource_mode: "API",
+    }, [{
+      ...DEFAULT_BILLING_RULE,
+      timezone: null, days_of_week: null, start_time: null, end_time: null,
+      time_windows: [window],
+    }]);
+    await expect(getCurrentInvocationAuthorization(current.db as never, AUTH_INPUT))
+      .resolves.toMatchObject({
+        billingRule: {
+          timeWindows: [{
+            timezone: "Asia/Shanghai", daysOfWeek: [7],
+            startTime: "19:00", endTime: "21:00",
+          }],
+        },
+      });
   });
 });

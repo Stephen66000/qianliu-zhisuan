@@ -1,6 +1,8 @@
 import type { Transaction } from "kysely";
+import { matchApplicableBillingRule, type BillingResourceMode } from "@qianliu/domain";
 import type { Database } from "../kysely.js";
 import { mergeDeclaredModelIds } from "./employee-model-authorization-policy.js";
+import { listEnabledBillingRulesAt } from "./billing-rule-applicability.js";
 
 function jsonValue<T>(value: T): T {
   return JSON.stringify(value) as unknown as T;
@@ -20,79 +22,108 @@ export async function refreshEmployeeKeyModels(
     .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
     .where("status", "=", "ACTIVE").forUpdate().executeTakeFirst();
   if (!key) return;
-  const [manual, managed, disabled] = await Promise.all([
-    trx.selectFrom("principal_model_manual_authorization").select("unified_model_id")
-      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId).execute(),
+  const readyAt = new Date();
+  const [manual, managed, disabled, billingRules] = await Promise.all([
+    trx.selectFrom("principal_model_manual_authorization")
+      .innerJoin("model_route", (join) => join
+        .onRef("model_route.enterprise_id", "=", "principal_model_manual_authorization.enterprise_id")
+        .onRef("model_route.unified_model_id", "=", "principal_model_manual_authorization.unified_model_id"))
+      .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
+      .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
+      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
+      .select([
+        "principal_model_manual_authorization.unified_model_id",
+        "model_route.provider_resource_id",
+        "model_route.upstream_model",
+        "provider_resource.mode",
+      ])
+      .where("principal_model_manual_authorization.enterprise_id", "=", enterpriseId)
+      .where("principal_model_manual_authorization.principal_id", "=", principalId)
+      .where("unified_model.status", "=", "ACTIVE")
+      .where("model_route.enabled", "=", true)
+      .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED"])
+      .where("provider.status", "=", "ACTIVE")
+      .execute(),
     trx.selectFrom("employee_model_rule_assignment")
       .innerJoin("principal_grant", "principal_grant.id", "employee_model_rule_assignment.grant_id")
-      .select("employee_model_rule_assignment.unified_model_id")
+      .innerJoin("model_route", (join) => join
+        .onRef("model_route.enterprise_id", "=", "employee_model_rule_assignment.enterprise_id")
+        .onRef("model_route.unified_model_id", "=", "employee_model_rule_assignment.unified_model_id")
+        .onRef("model_route.provider_resource_id", "=", "employee_model_rule_assignment.provider_resource_id"))
+      .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
+      .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
+      .innerJoin("provider", "provider.id", "provider_resource.provider_id")
+      .select([
+        "employee_model_rule_assignment.unified_model_id",
+        "model_route.provider_resource_id",
+        "model_route.upstream_model",
+        "provider_resource.mode",
+      ])
       .where("employee_model_rule_assignment.enterprise_id", "=", enterpriseId)
       .where("employee_model_rule_assignment.principal_id", "=", principalId)
       .where("employee_model_rule_assignment.status", "=", "ACTIVE")
-      .where("principal_grant.status", "=", "ACTIVE").execute(),
+      .where("principal_grant.status", "=", "ACTIVE")
+      .where("principal_grant.valid_from", "<=", readyAt)
+      .where((eb) => eb.or([
+        eb("principal_grant.valid_until", "is", null),
+        eb("principal_grant.valid_until", ">", readyAt),
+      ]))
+      .where("unified_model.status", "=", "ACTIVE")
+      .where("model_route.enabled", "=", true)
+      .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED"])
+      .where("provider.status", "=", "ACTIVE")
+      .execute(),
     trx.selectFrom("principal_provider_disabled_model").select("unified_model_id")
       .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId).execute(),
+    listEnabledBillingRulesAt(trx, enterpriseId, readyAt),
   ]);
-  const readyAt = new Date();
   const poolModels = await trx.selectFrom("principal_grant")
     .innerJoin("model_route", (join) => join
       .onRef("model_route.enterprise_id", "=", "principal_grant.enterprise_id"))
     .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
     .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
     .innerJoin("provider", "provider.id", "provider_resource.provider_id")
-    .select("model_route.unified_model_id")
+    .select([
+      "model_route.unified_model_id",
+      "model_route.provider_resource_id",
+      "model_route.upstream_model",
+      "provider_resource.mode",
+    ])
     .distinct()
     .where("principal_grant.enterprise_id", "=", enterpriseId)
     .where("principal_grant.principal_id", "=", principalId)
     .where("principal_grant.pool_model_alias", "=", "*")
     .where("principal_grant.status", "=", "ACTIVE")
+    .where("principal_grant.valid_from", "<=", readyAt)
+    .where((eb) => eb.or([
+      eb("principal_grant.valid_until", "is", null),
+      eb("principal_grant.valid_until", ">", readyAt),
+    ]))
     .whereRef("provider.code", "=", "principal_grant.provider")
     // 厂商池只自动接纳当前就绪型号；发现但尚未配置的模型不得提前进入 Key 白名单。
     .where("unified_model.status", "=", "ACTIVE")
     .where("model_route.enabled", "=", true)
     .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED"])
     .where("provider.status", "=", "ACTIVE")
-    .where((eb) => eb.exists(
-      eb.selectFrom("billing_rule").select("billing_rule.id")
-        .whereRef("billing_rule.enterprise_id", "=", "model_route.enterprise_id")
-        .where("billing_rule.enabled", "=", true)
-        .where("billing_rule.effective_from", "<=", readyAt)
-        .where((inner) => inner.or([
-          inner("billing_rule.effective_to", "is", null),
-          inner("billing_rule.effective_to", ">", readyAt),
-        ]))
-        .where((inner) => inner.or([
-          inner("billing_rule.provider_resource_id", "is", null),
-          inner("billing_rule.provider_resource_id", "=", inner.ref("model_route.provider_resource_id")),
-        ]))
-        .where((inner) => inner.or([
-          inner("billing_rule.upstream_model", "is", null),
-          inner("billing_rule.upstream_model", "=", inner.ref("model_route.upstream_model")),
-        ]))
-        // 就绪口径必须与真实结算匹配：API 只认 API_PRICE；套餐只认带倍率的
-        // TIME_WINDOW／MODEL_TIER。其它规则不能把尚未可计费的型号扩进 Key。
-        .where((inner) => inner.or([
-          inner.and([
-            inner("provider_resource.mode", "=", "API"),
-            inner("billing_rule.rule_type", "=", "API_PRICE"),
-            inner.or([
-              inner("billing_rule.cache_hit_price", "is not", null),
-              inner("billing_rule.cache_miss_price", "is not", null),
-              inner("billing_rule.output_price", "is not", null),
-            ]),
-          ]),
-          inner.and([
-            inner("provider_resource.mode", "=", "CODING_PLAN"),
-            inner("billing_rule.rule_type", "in", ["TIME_WINDOW", "MODEL_TIER"]),
-            inner("billing_rule.multiplier", "is not", null),
-          ]),
-        ])),
-    ))
     .execute();
+  const isBillable = (row: {
+    provider_resource_id: string;
+    upstream_model: string;
+    mode: string;
+  }) => matchApplicableBillingRule(
+    billingRules,
+    row.provider_resource_id,
+    row.upstream_model,
+    row.mode as BillingResourceMode,
+    readyAt.getTime(),
+  ) !== null;
   const disabledSet = new Set(disabled.map((row) => row.unified_model_id));
-  const poolAllowed = poolModels.map((row) => row.unified_model_id).filter((id) => !disabledSet.has(id));
+  const manualAllowed = manual.filter(isBillable).map((row) => row.unified_model_id);
+  const managedAllowed = managed.filter(isBillable).map((row) => row.unified_model_id);
+  const poolAllowed = poolModels.filter(isBillable).map((row) => row.unified_model_id)
+    .filter((id) => !disabledSet.has(id));
   const ids = mergeDeclaredModelIds(
-    mergeDeclaredModelIds(manual.map((row) => row.unified_model_id), managed.map((row) => row.unified_model_id)),
+    mergeDeclaredModelIds(manualAllowed, managedAllowed),
     poolAllowed,
   );
   await trx.updateTable("principal_key").set({ allowed_model_ids: jsonValue(ids) })

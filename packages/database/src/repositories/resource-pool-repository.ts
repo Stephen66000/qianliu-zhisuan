@@ -41,6 +41,12 @@ export interface ServableResource {
   probe: boolean;
 }
 
+/** `last_probe_at` 同时作为可过期租约时间与释放 fencing token。 */
+export interface HalfOpenProbeLease {
+  resourceId: string;
+  acquiredAt: Date;
+}
+
 function toRuntimeState(row: ProviderResourceRow): ResourceRuntimeState {
   return {
     status: row.status as ResourceStatus,
@@ -96,9 +102,21 @@ export class ResourcePoolRepository {
   async tryAcquireHalfOpenProbe(
     resourceId: string,
     now: Date = new Date(),
-    // 必须覆盖 Gateway 默认 10 分钟总超时，避免 K3 长流仍在探测时租约提前失效。
+    // 非 Gateway 调用的兼容默认值；Gateway 生产路径必须显式传入总超时派生租期。
     leaseMs = 11 * 60_000,
   ): Promise<boolean> {
+    return (await this.acquireHalfOpenProbeLease(resourceId, now, leaseMs)) !== null;
+  }
+
+  /**
+   * 获取带 fencing token 的半开探针租约。进程崩溃时 `leaseMs` 后可自动抢占；
+   * 迟到的旧请求只能释放自己的 token，不能清掉已被新请求接管的探针。
+   */
+  async acquireHalfOpenProbeLease(
+    resourceId: string,
+    now: Date = new Date(),
+    leaseMs = 11 * 60_000,
+  ): Promise<HalfOpenProbeLease | null> {
     const staleBefore = new Date(now.getTime() - leaseMs);
     const acquired = await this.db
       .updateTable("provider_resource")
@@ -110,16 +128,19 @@ export class ResourcePoolRepository {
         eb("last_probe_at", "is", null),
         eb("last_probe_at", "<=", staleBefore),
       ]))
-      .returning("id")
+      .returning(["id", "last_probe_at"])
       .executeTakeFirst();
-    return acquired !== undefined;
+    return acquired?.last_probe_at
+      ? { resourceId: acquired.id, acquiredAt: acquired.last_probe_at }
+      : null;
   }
 
-  async releaseHalfOpenProbe(resourceId: string): Promise<void> {
+  async releaseHalfOpenProbe(resourceId: string, acquiredAt: Date): Promise<void> {
     await this.db
       .updateTable("provider_resource")
       .set({ last_probe_at: null, updated_at: new Date() })
       .where("id", "=", resourceId)
+      .where("last_probe_at", "=", acquiredAt)
       .execute();
   }
 

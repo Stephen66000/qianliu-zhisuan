@@ -27,6 +27,7 @@ import type {
   QuotaGateRepository,
   RuntimeAssuranceRepository,
   AvailabilityEvent,
+  HalfOpenProbeLease,
   SignalResult,
 } from "@qianliu/database";
 import { OperatingBillClosedError, summarizeLedgerUsageQuality } from "@qianliu/database";
@@ -60,9 +61,14 @@ import {
   dispatchSavingFields,
 } from "./billing.js";
 import {
+  finalizeFailedRequestFromPersistedFactsIfAny,
   finalizeRejectedAttemptBeforeUpstream,
   persistAttemptUsageEvidence,
 } from "./attempt-usage-settlement.js";
+import {
+  hasCurrentKeyModelAuthorization,
+  settleRevokedAttempt,
+} from "./revoked-attempt-settlement.js";
 import { summarizePricingEvidence } from "./pricing-evidence.js";
 import { shouldAttemptUpstreamFailover } from "../upstream-failover-policy.js";
 import { buildEffectiveBody, type TruncationConfig } from "./history-truncation.js";
@@ -72,6 +78,8 @@ import { resolveRequestModelIdentity } from "./request-model-identity.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
 export interface RouteCandidateRow {
+  /** model_route.id；生产候选必须携带，旧测试装配可由候选复合键兼容。 */
+  routeId?: string;
   resourceId: string;
   providerCode: string;
   upstreamModel: string;
@@ -142,6 +150,11 @@ export interface RealPipelineDeps {
   /** 并发槽位轮询间隔；仅供测试缩短，生产默认 25ms。 */
   capacityPollMs?: number;
   /**
+   * 半开探针租期。生产由总上游请求超时加安全余量派生，确保请求尚在执行或结算时
+   * 不会被另一 Gateway 实例提前接管。
+   */
+  halfOpenProbeLeaseMs?: number;
+  /**
    * 历史截断配置（安全网，默认 null=不启用）。仅作用于 chat/messages 协议：
    * messages 估算 token 超阈值时，保留 system + 末尾一段、中间丢弃。
    * Responses 协议不截断。由运维通过 env 成对配置，未配置时零行为变化。
@@ -153,6 +166,10 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
   const maxAttempts = deps.maxAttempts ?? 2;
   const capacityWaitMs = deps.capacityWaitMs ?? 2_000;
   const capacityPollMs = deps.capacityPollMs ?? 25;
+  const halfOpenProbeLeaseMs = deps.halfOpenProbeLeaseMs ?? 11 * 60_000;
+  if (!Number.isSafeInteger(halfOpenProbeLeaseMs) || halfOpenProbeLeaseMs <= 0) {
+    throw new Error("halfOpenProbeLeaseMs 必须是正整数毫秒");
+  }
   const truncationConfig = deps.truncationConfig ?? null;
   return async ({ request, reply, body, capability }) => {
     const requestId = request.aiRequestId;
@@ -252,8 +269,10 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     const servableById = new Map(
       (await deps.poolRepo.listServableResources(principal.enterpriseId)).map((s) => [s.id, s]),
     );
-    const candidateByResourceId = new Map(
-      grantAuthorizedCandidates.map((candidate) => [candidate.resourceId, candidate]),
+    const candidateKey = (candidate: Pick<RouteCandidateRow, "resourceId" | "providerCode" | "upstreamModel">) =>
+      `${candidate.resourceId}\u0000${candidate.providerCode}\u0000${candidate.upstreamModel}`;
+    const candidateByInvocationKey = new Map(
+      grantAuthorizedCandidates.map((candidate) => [candidateKey(candidate), candidate]),
     );
     let blockingEvent: AvailabilityEvent | null = null;
     const runtimeAllowedCandidates: RouteCandidateRow[] = [];
@@ -289,6 +308,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       .map((c) => {
         const admission = servableById.get(c.resourceId)!;
         return ({
+          routeId: c.routeId,
           resourceId: c.resourceId,
           upstreamModel: c.upstreamModel,
           priority: c.priority,
@@ -299,6 +319,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           providerCode: c.providerCode,
         });
       });
+
+    let routeEligibleCandidates = eligible;
 
     if (eligible.length === 0) {
       if (blockingEvent) {
@@ -383,8 +405,27 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       outcome: Outcome;
       classification: ReturnType<typeof mapToClassification> | null;
       resource: RouteCandidateRow;
-      probeAcquired: boolean;
+      probeLease: HalfOpenProbeLease | null;
     }> = [];
+
+    const publishFailedRequest = async (errorClassification: string, errorCode: string) => {
+      const finalized = await finalizeFailedRequestFromPersistedFactsIfAny({
+        ledgerRepo: deps.ledgerRepo,
+        requestId,
+        enterpriseId: principal.enterpriseId,
+        principalId,
+        errorClassification,
+        errorCode,
+        quotaSettlements: pendingQuotaSettlements,
+        releaseLeaseIds: pendingLeaseIds,
+        overage: requestOverage,
+      });
+      if (!finalized) {
+        await deps.ledgerRepo.updateRequestStatus(
+          requestId, "FAILED", errorClassification, errorCode,
+        );
+      }
+    };
 
     // 历史截断（安全网，默认 null=不启用）：仅 chat/messages，在 attempt 循环外
     // 做一次，避免对同一 body 重复裁剪或重复记日志。Responses 不截断。
@@ -393,7 +434,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
 
     while (attemptNo < maxAttempts) {
       attemptNo += 1;
-      lastScored = scoreAndSelect(eligible, affinityResourceId, triedResourceIds);
+      lastScored = scoreAndSelect(routeEligibleCandidates, affinityResourceId, triedResourceIds);
       winner = pickWinner(lastScored);
       if (!winner) break; // 无剩余候选
 
@@ -511,10 +552,15 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         triedResourceIds.add(cand.resourceId);
         continue;
       }
-      const probeAcquired = cand.probe
-        ? await deps.poolRepo.tryAcquireHalfOpenProbe(cand.resourceId)
-        : false;
-      if (cand.probe && !probeAcquired) {
+      const probeLease = cand.probe
+        ? await deps.poolRepo.acquireHalfOpenProbeLease(
+          cand.resourceId,
+          new Date(),
+          halfOpenProbeLeaseMs,
+        )
+        : null;
+      const probeAcquired = probeLease !== null;
+      if (cand.probe && probeLease === null) {
         // 另一个进程/请求已在用真实业务流量探测，本请求不重复打上游。
         halfOpenProbeBusy = true;
         triedResourceIds.add(cand.resourceId);
@@ -565,7 +611,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           capacityWaitTimedOut = true;
           capacityRetryAfterMs = capacityPollMs;
           triedResourceIds.add(cand.resourceId);
-          if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
+          if (probeLease) {
+            await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId, probeLease.acquiredAt);
+          }
           continue;
         }
         leaseId = lease;
@@ -581,7 +629,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         if (reserve.decision !== QUOTA_DECISION.ALLOW && reserve.decision !== QUOTA_DECISION.ALLOW_OVERAGE) {
           // REJECT_EXHAUSTED / REJECT_NO_GRANT / REJECT_GRANT_EXPIRED：释放租约，排除资源重评
           await deps.quotaRepo.releaseLease(leaseId);
-          if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
+          if (probeLease) {
+            await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId, probeLease.acquiredAt);
+          }
           triedResourceIds.add(cand.resourceId);
           continue;
         }
@@ -603,11 +653,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       } catch (error) {
         if (grantId) await deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
         if (leaseId) await deps.quotaRepo.releaseLease(leaseId);
-        if (probeAcquired) await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId);
+        if (probeLease) {
+          await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId, probeLease.acquiredAt);
+        }
         if (!(error instanceof OperatingBillClosedError)) throw error;
-        await deps.ledgerRepo.updateRequestStatus(
-          requestId, "FAILED", "OPERATING_BILL_CLOSED", "operating_bill_closed",
-        );
+        await publishFailedRequest("OPERATING_BILL_CLOSED", "operating_bill_closed");
         return reply.code(409).header("x-request-id", traceId).send({
           error: {
             message: "当前账期已结账，本次请求未访问上游",
@@ -630,18 +680,14 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         body.model,
       );
       if (!keyStillAuthorized) {
-        await deps.ledgerRepo.updateAttemptResult(attempt.id, {
+        const attemptResult = {
           http_status: 403,
           response_committed: false,
           finished_at: new Date(),
           error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
           error_code: "key_or_model_authorization_revoked",
           switch_reason: null,
-        });
-        if (grantId) pendingQuotaSettlements.push({
-          grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n,
-        });
-        if (leaseId) pendingLeaseIds.push(leaseId);
+        };
         await finalizeRejectedAttemptBeforeUpstream({
           ledgerRepo: deps.ledgerRepo,
           requestId,
@@ -652,13 +698,19 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           resourceId: cand.resourceId,
           resourceMode: cand.mode,
           errorCode: "key_or_model_authorization_revoked",
-          quotaSettlements: pendingQuotaSettlements,
-          releaseLeaseIds: pendingLeaseIds,
+          attemptResult,
+          quotaSettlements: [
+            ...pendingQuotaSettlements,
+            ...(grantId ? [{
+              grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n,
+            }] : []),
+          ],
+          releaseLeaseIds: [...pendingLeaseIds, ...(leaseId ? [leaseId] : [])],
           overage: requestOverage,
         });
-        if (probeAcquired) {
+        if (probeLease) {
           await runBestEffort(request.log, "release revoked half-open probe", () =>
-            deps.poolRepo.releaseHalfOpenProbe(cand.resourceId));
+            deps.poolRepo.releaseHalfOpenProbe(cand.resourceId, probeLease.acquiredAt));
         }
         return reply.code(403).header("x-request-id", traceId).send({
           error: {
@@ -675,11 +727,13 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       // 最终提交栅栏用一条 SQL 同时复核 Key、主体、模型和 grant，避免把两次独立
       // 查询之间的 await 变成另一条 TOCTOU 缝隙。此查询与 adapter.invoke 之间
       // 不得再增加 await。
+      const resourceConfig = candidateByInvocationKey.get(candidateKey(cand));
       const invocationAuthorization = await getCurrentInvocationAuthorization(deps.db, {
         enterpriseId: principal.enterpriseId,
         principalId,
         keyId: principal.keyId,
         modelAlias: body.model,
+        routeId: cand.routeId ?? resourceConfig?.routeId,
         providerCode: cand.providerCode,
         resourceId: cand.resourceId,
         upstreamModel: cand.upstreamModel,
@@ -687,62 +741,51 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         now: new Date(),
       });
       if (!invocationAuthorization) {
-        // 已决定不访问上游后才做原因细分；这里的额外查询不再构成放行竞态。
-        const grantIsCurrent = await deps.quotaRepo.hasActiveGrant({
-          enterpriseId: principal.enterpriseId,
-          principalId,
-          provider: cand.providerCode,
-          modelAlias: body.model,
-        });
-        const errorCode = grantIsCurrent
-          ? "key_or_model_authorization_revoked"
-          : "principal_grant_required";
-        await deps.ledgerRepo.updateAttemptResult(attempt.id, {
-          http_status: 403,
-          response_committed: false,
-          finished_at: new Date(),
-          error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
-          error_code: errorCode,
-          switch_reason: null,
-        });
-        if (grantId) pendingQuotaSettlements.push({
-          grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n,
-        });
-        if (leaseId) pendingLeaseIds.push(leaseId);
-        await finalizeRejectedAttemptBeforeUpstream({
+        // 已决定不访问上游后才做原因细分；非终态清算由专用模块保证
+        // usage/ledger + quota + lease 同事务，request 保持 IN_PROGRESS。
+        const rejection = await settleRevokedAttempt({
+          db: deps.db,
           ledgerRepo: deps.ledgerRepo,
-          requestId,
+          quotaRepo: deps.quotaRepo,
+          poolRepo: deps.poolRepo,
+          log: request.log,
           enterpriseId: principal.enterpriseId,
           principalId,
+          keyId: principal.keyId,
+          modelAlias: body.model,
+          requestId,
           attemptId: attempt.id,
           attemptNo,
-          resourceId: cand.resourceId,
-          resourceMode: cand.mode,
-          errorCode,
-          quotaSettlements: pendingQuotaSettlements,
-          releaseLeaseIds: pendingLeaseIds,
-          overage: requestOverage,
+          candidate: cand,
+          candidates: routeEligibleCandidates,
+          triedResourceIds,
+          affinityResourceId,
+          maxAttempts,
+          grantId,
+          reservedEstimate,
+          leaseId,
+          pendingQuotaSettlements,
+          pendingLeaseIds,
+          requestOverage,
+          probeLease,
         });
-        if (probeAcquired) {
-          await runBestEffort(request.log, "release revoked half-open probe", () =>
-            deps.poolRepo.releaseHalfOpenProbe(cand.resourceId));
+        if (rejection.kind === "FAILOVER") {
+          routeEligibleCandidates = rejection.remainingCandidates;
+          continue;
         }
-        return reply.code(403).header("x-request-id", traceId).send({
+        return reply.code(rejection.statusCode).header("x-request-id", traceId).send({
           error: {
-            message: grantIsCurrent
-              ? "Key 或模型授权在访问上游前已失效"
-              : "主体授权在访问上游前已失效",
-            type: "authentication_error",
-            code: errorCode,
+            message: rejection.message,
+            type: rejection.type,
+            code: rejection.errorCode,
             param: "model",
-            retryable: false,
+            retryable: rejection.retryable,
             request_id: requestId,
           },
         });
       }
 
       const adapter = resolveAdapter(cand.providerCode, deps.caller);
-      const resourceConfig = candidateByResourceId.get(cand.resourceId);
       invokedResourceIds.add(cand.resourceId);
       const outcome = await adapter.invoke(
         {
@@ -826,7 +869,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       if (leaseId) pendingLeaseIds.push(leaseId);
       leaseId = null;
       if (resourceConfig) {
-        deferredResourceEffects.push({ outcome, classification, resource: resourceConfig, probeAcquired });
+        deferredResourceEffects.push({ outcome, classification, resource: resourceConfig, probeLease });
       }
 
       finalOutcome = outcome;
@@ -942,7 +985,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     }
 
     for (const effect of deferredResourceEffects) {
-      const { outcome, classification, resource, probeAcquired } = effect;
+      const { outcome, classification, resource, probeLease } = effect;
       const availabilitySignal = outcome.unifiedAvailabilitySignal;
       const providerId = resource.providerId;
       if (
@@ -981,9 +1024,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
             { retryAfterMs: outcome.retryAfterMs },
           ));
       }
-      if (probeAcquired) {
+      if (probeLease) {
         await runBestEffort(request.log, "release post-settlement half-open probe", () =>
-          deps.poolRepo.releaseHalfOpenProbe(resource.resourceId));
+          deps.poolRepo.releaseHalfOpenProbe(resource.resourceId, probeLease.acquiredAt));
       }
     }
 
@@ -999,12 +1042,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     }
     if (!finalOutcome) {
       if (grantRevokedDuringDispatch) {
-        await deps.ledgerRepo.updateRequestStatus(
-          requestId,
-          "FAILED",
-          "DOWNSTREAM_AUTH_OR_QUOTA",
-          "principal_grant_required",
-        );
+        await publishFailedRequest("DOWNSTREAM_AUTH_OR_QUOTA", "principal_grant_required");
         return reply.code(403).header("x-request-id", traceId).send({
           error: {
             message: "主体授权在访问上游前已失效",
@@ -1017,12 +1055,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         });
       }
       if (capacityWaitTimedOut) {
-        await deps.ledgerRepo.updateRequestStatus(
-          requestId,
-          "FAILED",
-          "UPSTREAM_RATE_LIMITED",
-          "resource_capacity_busy",
-        );
+        await publishFailedRequest("UPSTREAM_RATE_LIMITED", "resource_capacity_busy");
         return reply.code(429)
           .header("retry-after", Math.max(1, Math.ceil(capacityRetryAfterMs / 1_000)))
           .send({
@@ -1038,12 +1071,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           });
       }
       if (halfOpenProbeBusy) {
-        await deps.ledgerRepo.updateRequestStatus(
-          requestId,
-          "FAILED",
-          "UPSTREAM_RATE_LIMITED",
-          "half_open_probe_in_progress",
-        );
+        await publishFailedRequest("UPSTREAM_RATE_LIMITED", "half_open_probe_in_progress");
         return reply.code(429)
           .header("retry-after", "1")
           .send({
@@ -1058,12 +1086,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
             },
           });
       }
-      await deps.ledgerRepo.updateRequestStatus(
-        requestId,
-        "FAILED",
-        "NO_HEALTHY_CANDIDATE",
-        "no_healthy_candidate",
-      );
+      await publishFailedRequest("NO_HEALTHY_CANDIDATE", "no_healthy_candidate");
       return reply.code(503).header("x-request-id", traceId).send({
         error: { message: "无可用上游资源", type: "server_error", code: "no_healthy_candidate", param: null, retryable: true, request_id: requestId },
       });
@@ -1269,46 +1292,6 @@ function idempotencyReplayState(status: string): {
   };
 }
 
-async function hasCurrentKeyModelAuthorization(
-  db: Kysely<Database>,
-  enterpriseId: string,
-  principalId: string,
-  keyId: string,
-  modelAlias: string,
-): Promise<boolean> {
-  const key = await db
-    .selectFrom("principal_key")
-    .innerJoin("principal", "principal.id", "principal_key.principal_id")
-    .select([
-      "principal_key.allowed_model_ids as allowed_model_ids",
-      "principal_key.expires_at as expires_at",
-    ])
-    .where("principal_key.id", "=", keyId)
-    .where("principal_key.enterprise_id", "=", enterpriseId)
-    .where("principal_key.principal_id", "=", principalId)
-    .where("principal_key.status", "=", "ACTIVE")
-    .where("principal.status", "=", "ACTIVE")
-    .executeTakeFirst();
-  if (!key || (key.expires_at !== null && key.expires_at.getTime() <= Date.now())) {
-    return false;
-  }
-  const allowedModelIds = key.allowed_model_ids ?? [];
-  if (allowedModelIds.length === 0) return false;
-  const model = await db
-    .selectFrom("unified_model")
-    .select("id")
-    .where("enterprise_id", "=", enterpriseId)
-    .where("alias", "=", modelAlias)
-    .where("status", "=", "ACTIVE")
-    .where("id", "in", allowedModelIds)
-    .executeTakeFirst();
-  return model !== undefined;
-}
-
-/**
- * Adapter 前最终授权栅栏：一条查询同时验证 Key/主体/模型/grant。
- * 查询返回后紧接同步对象构造与 adapter.invoke，不再穿插异步 I/O。
- */
 function normalizeAssistantOutput(output: unknown[] | undefined): {
   text: string;
   functionCalls: Array<{
