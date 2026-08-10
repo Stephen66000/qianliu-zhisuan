@@ -17,8 +17,11 @@ const IDS = {
 export async function seedPool042Dashboard(
   db: Kysely<Database>, enterpriseId: string, principalId: string, keyId: string, now: Date,
 ): Promise<void> {
-  const flashAt = new Date(now.getTime() - 60 * 60 * 1000);
-  const proAt = new Date(now.getTime() - 30 * 60 * 1000);
+  const shanghaiNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const monthStart = Date.UTC(shanghaiNow.getUTCFullYear(), shanghaiNow.getUTCMonth(), 1) -
+    8 * 60 * 60 * 1000;
+  const flashAt = new Date(Math.max(monthStart, now.getTime() - 60 * 60 * 1000));
+  const proAt = new Date(Math.max(monthStart, now.getTime() - 30 * 60 * 1000));
   await db.insertInto("provider").values({
     id: IDS.provider, enterprise_id: enterpriseId, code: "pool042-deepseek",
     name: "DeepSeek Token E2E", adapter_type: "deepseek",

@@ -144,6 +144,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     async function createMultiAccountProvider(input: {
       code: string; currencies: [string, string]; omitSecondRule?: boolean;
       omitSecondUsage?: boolean;
+      omitSecondSnapshot?: boolean;
+      lineCounts?: [number, number];
     }) {
       const provider = await db.insertInto("provider").values({
         enterprise_id: enterpriseId, code: input.code, name: input.code, adapter_type: "openai",
@@ -152,7 +154,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
         enterprise_id: enterpriseId, provider_id: provider.id, name: `${input.code}-${index}`,
         mode: "API" as const, credential_type: "API_KEY", status: "ACTIVE" as const,
       }))).returning("id").execute();
-      await db.insertInto("provider_resource_operating_snapshot").values(resources.map((resource, index) => ({
+      const snapshotResources = input.omitSecondSnapshot ? resources.slice(0, 1) : resources;
+      await db.insertInto("provider_resource_operating_snapshot").values(snapshotResources.map((resource, index) => ({
         enterprise_id: enterpriseId, provider_resource_id: resource.id, version: 1,
         source: "PROVIDER_SYNC" as const, collected_at: new Date(now.getTime() - 60_000),
         currency: input.currencies[index]!, current_balance: index === 0 ? "10" : "20",
@@ -175,12 +178,14 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
           }).execute();
         }
         if (input.omitSecondUsage && index === 1) continue;
-        await addLine({
-          resourceId: resource.id, modelId, historicalAlias: `old-${input.code}`,
-          upstreamModel, input: 10n, output: 0n, cache: 0n, reasoning: 0n,
-          cost: index === 0 ? "0.1" : "0.4", quality: "PROVIDER_REPORTED",
-          at: new Date(now.getTime() - 30 * 60 * 1000),
-        });
+        for (let lineIndex = 0; lineIndex < (input.lineCounts?.[index] ?? 1); lineIndex += 1) {
+          await addLine({
+            resourceId: resource.id, modelId, historicalAlias: `old-${input.code}`,
+            upstreamModel, input: 10n, output: 0n, cache: 0n, reasoning: 0n,
+            cost: index === 0 ? "0.1" : "0.4", quality: "PROVIDER_REPORTED",
+            at: new Date(now.getTime() - 30 * 60 * 1000),
+          });
+        }
       }
     }
 
@@ -190,6 +195,12 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     });
     await createMultiAccountProvider({
       code: "multi-no-usage", currencies: ["CNY", "CNY"], omitSecondUsage: true,
+    });
+    await createMultiAccountProvider({
+      code: "multi-missing-balance", currencies: ["CNY", "CNY"], omitSecondSnapshot: true,
+    });
+    await createMultiAccountProvider({
+      code: "multi-confidence", currencies: ["CNY", "CNY"], lineCounts: [20, 1],
     });
     await createMultiAccountProvider({ code: "multi-currency", currencies: ["CNY", "USD"] });
 
@@ -204,6 +215,12 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     });
     expect(items.find((row) => row.providerCode === "multi-no-usage")).toMatchObject({
       estimatedBalanceTokens: null, balanceTokenEstimateReason: "RECENT_USAGE_MISSING",
+    });
+    expect(items.find((row) => row.providerCode === "multi-missing-balance")).toMatchObject({
+      estimatedBalanceTokens: null, balanceTokenEstimateReason: "BALANCE_MISSING",
+    });
+    expect(items.find((row) => row.providerCode === "multi-confidence")).toMatchObject({
+      estimatedBalanceTokens: "1500", balanceTokenEstimateConfidence: "LOW",
     });
     expect(items.find((row) => row.providerCode === "multi-currency")).toMatchObject({
       currentBalance: null, estimatedBalanceTokens: null,

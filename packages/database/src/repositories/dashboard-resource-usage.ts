@@ -244,10 +244,12 @@ export async function loadDashboardResourceUsage(
     }
 
     let estimatedBalanceTokens = new PreciseDecimal(0);
+    let minimumResourceLineCount = Number.POSITIVE_INFINITY;
     for (const resource of resourceBalances) {
       const resourceRows = rows.filter((row) => row.resource_id === resource.resourceId);
       const resourceRecent = emptyAccumulator();
       resourceRows.forEach((row) => addRow(resourceRecent, row));
+      minimumResourceLineCount = Math.min(minimumResourceLineCount, resourceRecent.lineCount);
       const resourceTokens = resourceRecent.input.plus(resourceRecent.output);
       if (resourceRows.length === 0 || resourceTokens.isZero()) {
         return notCalculable(base, tokenRate24h, costRate24h, "RECENT_USAGE_MISSING");
@@ -279,8 +281,8 @@ export async function loadDashboardResourceUsage(
     }
     const roundedBalanceTokens = estimatedBalanceTokens
       .toDecimalPlaces(0, Decimal.ROUND_DOWN).toFixed(0);
-    const confidence = recentQuality === "EXACT" && recent.lineCount >= 20
-      ? "HIGH" : recent.lineCount >= 5 ? "MEDIUM" : "LOW";
+    const confidence = recentQuality === "EXACT" && minimumResourceLineCount >= 20
+      ? "HIGH" : minimumResourceLineCount >= 5 ? "MEDIUM" : "LOW";
     return {
       ...base, tokenRate24h, costRate24h, estimatedBalanceTokens: roundedBalanceTokens,
       balanceTokenEstimateConfidence: confidence,
