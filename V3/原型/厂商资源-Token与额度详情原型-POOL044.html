@@ -124,6 +124,25 @@
     .progress.cyan i { background: var(--cyan); }
     .progress.orange i { background: var(--orange); }
     .window-foot { margin-top: 7px; color: var(--fg-3); font-size: 11px; }
+    .quota-compact { min-width: 250px; }
+    .quota-compact-row { display: grid; grid-template-columns: 46px minmax(76px, 1fr) 64px; align-items: center; gap: 7px; margin-bottom: 2px; }
+    .quota-compact-row b { color: var(--fg-2); font-size: 11px; }
+    .mini-progress { height: 6px; overflow: hidden; border-radius: 5px; background: #e5ebf2; }
+    .mini-progress i { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+    .mini-progress.cyan i { background: var(--cyan); }
+    .quota-compact-value { color: var(--fg-2); font-size: 11px; text-align: right; }
+    .quota-compact-meta { margin: 0 0 7px 53px; color: var(--fg-3); font-size: 10px; }
+    .quota-fresh { margin-top: 3px; color: var(--green); font-size: 10px; }
+    .quota-resource-card { margin-bottom: 16px; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: #f7f9fc; box-shadow: var(--shadow); }
+    .quota-resource-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .quota-resource-head h2 { margin: 0; font-size: 17px; }
+    .quota-resource-head p { margin: 3px 0 0; color: var(--fg-3); }
+    .quota-resource-actions { display: flex; align-items: center; gap: 9px; }
+    .quota-windows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .quota-window-large { padding: 16px 18px; border-radius: 12px; background: var(--surface); }
+    .quota-window-large .window-number { margin: 15px 0 13px; font-size: 25px; color: var(--blue); }
+    .quota-window-large .progress { height: 9px; }
+    .quota-sync-state { margin-top: 14px; color: var(--green); font-size: 12px; }
     .notice { margin-top: 10px; padding: 9px 11px; border-radius: 9px; color: var(--fg-2); background: var(--surface-muted); font-size: 11px; }
     .notice.warn { color: #7b4c27; background: var(--orange-soft); }
     .quality-line { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
@@ -141,6 +160,7 @@
       .brand, .nav-item { justify-content: center; }
       .metric-grid { grid-template-columns: repeat(2, 1fr); }
       .split { grid-template-columns: 1fr; }
+      .quota-windows { grid-template-columns: 1fr; }
     }
     @media (max-width: 720px) {
       .app { display: block; }
@@ -150,6 +170,7 @@
       .screen-nav { justify-content: flex-start; }
       .principle, .metric-grid, .fact-grid { grid-template-columns: 1fr; }
       .head-actions { width: 100%; }
+      .quota-resource-head { flex-direction: column; }
     }
   </style>
 </head>
@@ -184,7 +205,7 @@
 
       <section class="screen active" id="home">
         <header class="page-head">
-          <div><h1>首页看板</h1><p>首页只保留决策摘要，完整账号、模型和计量质量进入厂商详情。</p></div>
+          <div><h1>首页看板</h1><p>Coding Plan 的五小时与周额度都在首页可见；完整账号、模型和计量质量进入厂商详情。</p></div>
           <select class="month" aria-label="账期"><option>2026年08月</option></select>
         </header>
         <div class="principle">
@@ -194,10 +215,10 @@
         </div>
 
         <section class="panel">
-          <div class="panel-head"><div><h2>资源摘要</h2><p>由原 14 列收敛为 8 列；点击厂商进入完整详情。</p></div></div>
+          <div class="panel-head"><div><h2>资源摘要</h2><p>五小时／周额度用双进度条保留在首页，同时展示本地实际 Token；点击厂商进入完整详情。</p></div></div>
           <div class="panel-body table-wrap">
             <table>
-              <thead><tr><th>厂商 / 模式</th><th>账号</th><th>厂商额度 / 余额</th><th class="right">本月实际 Token</th><th class="right">近24小时速度</th><th>预计耗尽 / 重置</th><th>状态</th><th></th></tr></thead>
+              <thead><tr><th>厂商 / 模式</th><th>账号</th><th>厂商额度窗口 / 余额</th><th class="right">本月实际 Token</th><th class="right">近24小时速度</th><th>风险提示</th><th>状态</th><th></th></tr></thead>
               <tbody>
                 <tr>
                   <td><b>deepseek</b><span class="sub"><span class="tag api">API 按量</span></span></td>
@@ -212,28 +233,28 @@
                 <tr>
                   <td><b>Kimi</b><span class="sub"><span class="tag plan">Coding Plan</span></span></td>
                   <td class="num">1</td>
-                  <td><b>5小时 已用 3%</b><span class="sub">周额度已用 60% · 厂商未提供 Token 总额</span></td>
+                  <td><div class="quota-compact"><div class="quota-compact-row"><b>5小时</b><span class="mini-progress cyan"><i style="width:14%"></i></span><span class="quota-compact-value">剩余 86</span></div><div class="quota-compact-meta">已用 14 / 100 额度点 · 22:16 重置</div><div class="quota-compact-row"><b>周额度</b><span class="mini-progress"><i style="width:6%"></i></span><span class="quota-compact-value">剩余 94</span></div><div class="quota-compact-meta">已用 6 / 100 额度点 · 08-17 重置</div><div class="quota-fresh">✓ 21:28 同步成功</div></div></td>
                   <td class="right"><b class="num">121,317,652</b><span class="sub">本地账本 · 精确</span></td>
                   <td class="right"><b class="num">1,030,937/h</b><span class="sub">本地 Token 速度</span></td>
-                  <td>43 分钟后窗口刷新<span class="sub">周额度 2 天 21 时后重置</span></td>
+                  <td>双窗口充足<span class="sub">最近风险：5小时剩余 86</span></td>
                   <td><span class="tag ok">正常</span></td>
                   <td><button class="link-button" data-screen="kimi">查看详情 →</button></td>
                 </tr>
                 <tr>
                   <td><b>智谱</b><span class="sub"><span class="tag plan">Coding Plan</span></span></td>
                   <td class="num">1</td>
-                  <td><b>5小时 已用 72%</b><span class="sub">周额度厂商未提供</span></td>
+                  <td><div class="quota-compact"><div class="quota-compact-row"><b>5小时</b><span class="mini-progress cyan"><i style="width:1%"></i></span><span class="quota-compact-value">剩余 99%</span></div><div class="quota-compact-meta">已用 1 / 100% · 08-11 01:22 重置</div><div class="quota-compact-row"><b>周额度</b><span class="mini-progress"><i style="width:9%"></i></span><span class="quota-compact-value">剩余 91%</span></div><div class="quota-compact-meta">已用 9 / 100% · 08-14 17:23 重置</div><div class="quota-fresh">✓ 21:28 同步成功</div></div></td>
                   <td class="right"><b class="num">≥ 29,187,036</b><span class="sub"><span class="tag warn">已知下限</span> · 7 次计量未知</span></td>
                   <td class="right"><b class="num">552,852/h</b><span class="sub">仅按已知账本</span></td>
-                  <td>09-06 14:32<span class="sub">预测可信度低</span></td>
-                  <td><span class="tag warn">需关注</span></td>
+                  <td>额度窗口充足<span class="sub">Token 有 7 次计量未知</span></td>
+                  <td><span class="tag warn">数据需关注</span></td>
                   <td><button class="link-button" data-screen="zhipu">查看详情 →</button></td>
                 </tr>
               </tbody>
             </table>
           </div>
         </section>
-        <div class="footer-note"><b>首页原则：</b>API 与 Coding Plan 都展示本地实际 Token；厂商接口只返回百分比时，该百分比只进入“厂商额度”，不能把“百分比”写成 Token。</div>
+        <div class="footer-note"><b>首页原则：</b>五小时／周额度是当下能否持续调用的核心信号，不能藏进详情；API 与 Coding Plan 同时展示本地实际 Token，厂商百分比不得换算成 Token。</div>
       </section>
 
       <section class="screen" id="deepseek">
@@ -269,16 +290,32 @@
       <section class="screen" id="kimi">
         <header class="page-head">
           <div><div class="breadcrumb"><button data-screen="home">首页看板</button> / 厂商资源 / Kimi</div><h1>Kimi · Coding Plan 资源详情</h1><p>厂商只提供窗口百分比；具体 Token 来自仟流本地调用账本，两者不换算。</p></div>
-          <div class="head-actions"><select class="month"><option>2026年08月</option></select><button class="primary-button">立即同步厂商额度</button></div>
+          <div class="head-actions"><select class="month"><option>2026年08月</option></select></div>
         </header>
-        <div class="split">
-          <div class="fact-card source-provider"><div class="fact-head"><h3>厂商额度事实</h3><span>PROVIDER_SYNC · 10:33 更新</span></div><div class="fact-grid"><div class="window-card"><div class="window-title"><b>滚动 5 小时</b><span>43 分钟后刷新</span></div><div class="window-number">已用 3%</div><div class="progress cyan"><i style="width:3%"></i></div><div class="window-foot">剩余 97% · 厂商未提供 Token 总额度</div></div><div class="window-card"><div class="window-title"><b>周额度</b><span>2 天 21 时后重置</span></div><div class="window-number">已用 60%</div><div class="progress"><i style="width:60%"></i></div><div class="window-foot">剩余 40% · 厂商未提供 Token 总额度</div></div></div><div class="notice">这里只忠实展示厂商百分比，不把 3% 或 60% 反推成 Token。</div></div>
-          <div class="fact-card source-ledger"><div class="fact-head"><h3>本地实际使用</h3><span>ledger_line · 上海自然月</span></div><div class="metric-value">121,317,652 Token</div><div class="quality-line"><span class="tag ok">精确计量</span><span class="sub">1,206 次请求 · 近24小时 1,030,937 Token/小时</span></div><div class="fact-grid" style="margin-top:13px"><div class="fact"><small>输入</small><b>120,463,700</b></div><div class="fact"><small>输出</small><b>853,952</b></div><div class="fact"><small>缓存</small><b>116,240,896</b></div><div class="fact"><small>推理</small><b>102,420</b></div></div></div>
-        </div>
+        <section class="quota-resource-card">
+          <div class="quota-resource-head">
+            <div><h2>Kimi</h2><p>Kimi · CODING_PLAN · 资源 ID e75fe982…</p></div>
+            <div class="quota-resource-actions"><span class="tag plan">Coding Plan</span><button class="primary-button">立即同步</button></div>
+          </div>
+          <div class="quota-windows">
+            <div class="quota-window-large"><div class="window-title"><b>滚动 5 小时额度</b><span>重置 2026-08-10 22:16:04</span></div><div class="window-number">14 <small>/ 100 额度点</small></div><div class="progress cyan"><i style="width:14%"></i></div><div class="window-foot">已用 14 · 剩余 86 · 重置 2026-08-10 22:16:04</div></div>
+            <div class="quota-window-large"><div class="window-title"><b>周额度</b><span>重置 2026-08-17 11:16:04</span></div><div class="window-number">6 <small>/ 100 额度点</small></div><div class="progress"><i style="width:6%"></i></div><div class="window-foot">已用 6 · 剩余 94 · 重置 2026-08-17 11:16:04</div></div>
+          </div>
+          <div class="quota-sync-state">✓ 同步成功 · 数据截至 2026-08-10 21:28:54 · 来源 pool032-v1</div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h2>本地 Token 使用</h2><p>厂商没有提供具体 Token；以下数据全部来自仟流 Gateway 已结算账本，不与额度点互相换算。</p></div><span class="tag ok">精确计量</span></div>
+          <div class="panel-body metric-grid">
+            <div class="metric highlight"><div class="metric-label">本月实际 Token</div><div class="metric-value">121,317,652</div><div class="metric-foot">1,206 次请求</div></div>
+            <div class="metric"><div class="metric-label">输入 / 输出</div><div class="metric-value">120,463,700</div><div class="metric-foot">输出 853,952</div></div>
+            <div class="metric"><div class="metric-label">缓存 / 推理</div><div class="metric-value">116,240,896</div><div class="metric-foot">推理 102,420；均为子集</div></div>
+            <div class="metric"><div class="metric-label">近24小时速度</div><div class="metric-value">1,030,937/h</div><div class="metric-foot">本地 Token 速度</div></div>
+          </div>
+        </section>
         <section class="panel" style="margin-top:16px">
           <div class="panel-head"><div><h2>账号与模型</h2><p>Coding Plan 同样按“账号 → 正式模型 alias”下钻，Token 与额度百分比独立。</p></div></div>
           <div class="panel-body table-wrap"><table><thead><tr><th>账号 / 模型</th><th class="right">输入</th><th class="right">输出</th><th class="right">缓存</th><th class="right">总 Token</th><th class="right">请求</th><th>计量质量</th></tr></thead><tbody>
-            <tr><td><b>Kimi Coding Plan · 主账号</b><span class="sub">五小时 3% · 周额度 60%</span></td><td class="right num">120,463,700</td><td class="right num">853,952</td><td class="right num">116,240,896</td><td class="right num strong">121,317,652</td><td class="right num">1,206</td><td><span class="tag ok">完整</span></td></tr>
+            <tr><td><b>Kimi Coding Plan · 主账号</b><span class="sub">五小时已用 14 / 100 · 周额度已用 6 / 100</span></td><td class="right num">120,463,700</td><td class="right num">853,952</td><td class="right num">116,240,896</td><td class="right num strong">121,317,652</td><td class="right num">1,206</td><td><span class="tag ok">完整</span></td></tr>
             <tr><td>↳ ql-k3</td><td class="right num">114,000,400</td><td class="right num">740,200</td><td class="right num">110,230,016</td><td class="right num strong">114,740,600</td><td class="right num">1,102</td><td><button class="link-button" data-expand="kimi-k3">精确 · 看请求</button></td></tr>
             <tr><td colspan="7"><div class="request-detail" id="kimi-k3">请求示例：08-10 17:31 · 输入 108,420 · 输出 1,138 · 缓存 102,400 · SUCCESS。厂商窗口百分比不写入本条 Token 账本。</div></td></tr>
             <tr><td>↳ ql-k3-256k</td><td class="right num">6,463,300</td><td class="right num">113,752</td><td class="right num">6,010,880</td><td class="right num strong">6,577,052</td><td class="right num">104</td><td><span class="tag ok">精确</span></td></tr>
@@ -289,13 +326,32 @@
 
       <section class="screen" id="zhipu">
         <header class="page-head">
-          <div><div class="breadcrumb"><button data-screen="home">首页看板</button> / 厂商资源 / 智谱</div><h1>智谱 · Coding Plan 资源详情</h1><p>示范“厂商额度不完整 + 部分请求 Token 未知”时的诚实展示。</p></div>
-          <div class="head-actions"><select class="month"><option>2026年08月</option></select><button class="primary-button">立即同步厂商额度</button></div>
+          <div><div class="breadcrumb"><button data-screen="home">首页看板</button> / 厂商资源 / 智谱</div><h1>智谱 · Coding Plan 资源详情</h1><p>完整保留五小时／周额度窗口，同时诚实展示部分请求 Token 未知。</p></div>
+          <div class="head-actions"><select class="month"><option>2026年08月</option></select></div>
         </header>
-        <div class="split">
-          <div class="fact-card source-provider"><div class="fact-head"><h3>厂商额度事实</h3><span>PROVIDER_SYNC · 10:33 更新</span></div><div class="fact-grid"><div class="window-card"><div class="window-title"><b>滚动 5 小时</b><span>14:00 重置</span></div><div class="window-number">已用 72%</div><div class="progress orange"><i style="width:72%"></i></div><div class="window-foot">剩余 28% · 厂商未提供 Token 总额度</div></div><div class="window-card"><div class="window-title"><b>周额度</b><span>UNSUPPORTED</span></div><div class="window-number empty-dash">厂商未提供</div><div class="window-foot">不显示 0，不用五小时比例代替周比例</div></div></div></div>
-          <div class="fact-card source-ledger"><div class="fact-head"><h3>本地实际使用</h3><span>ledger_line · 上海自然月</span></div><div class="metric-value">≥ 29,187,036 Token</div><div class="quality-line"><span class="tag warn">已知下限</span><span class="tag unknown">7 次请求计量未知</span></div><div class="notice warn">不能因为存在未知请求就把整月写成“不可计算”；展示已知 Token 下限，同时明确未知请求数量。</div><div class="fact-grid" style="margin-top:13px"><div class="fact"><small>已知输入</small><b>28,960,411</b></div><div class="fact"><small>已知输出</small><b>226,625</b></div><div class="fact"><small>已知缓存</small><b>27,253,488</b></div><div class="fact"><small>未知请求</small><b>7 次</b></div></div></div>
-        </div>
+        <section class="quota-resource-card">
+          <div class="quota-resource-head">
+            <div><h2>智谱</h2><p>智谱 · CODING_PLAN · 资源 ID 74f8cb60…</p></div>
+            <div class="quota-resource-actions"><span class="tag plan">Coding Plan</span><button class="primary-button">立即同步</button></div>
+          </div>
+          <div class="quota-windows">
+            <div class="quota-window-large"><div class="window-title"><b>滚动 5 小时额度</b><span>重置 2026-08-11 01:22:22</span></div><div class="window-number">1 <small>/ 100 %</small></div><div class="progress cyan"><i style="width:1%"></i></div><div class="window-foot">已用 1 · 剩余 99 · 重置 2026-08-11 01:22:22</div></div>
+            <div class="quota-window-large"><div class="window-title"><b>周额度</b><span>重置 2026-08-14 17:23:09</span></div><div class="window-number">9 <small>/ 100 %</small></div><div class="progress"><i style="width:9%"></i></div><div class="window-foot">已用 9 · 剩余 91 · 重置 2026-08-14 17:23:09</div></div>
+          </div>
+          <div class="quota-sync-state">✓ 同步成功 · 数据截至 2026-08-10 21:28:54 · 来源 pool032-v1</div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h2>本地 Token 使用</h2><p>厂商窗口仅提供百分比；本地账本保留已知 Token，并单列无法计量的请求。</p></div><div class="quality-line"><span class="tag warn">已知下限</span><span class="tag unknown">7 次未知</span></div></div>
+          <div class="panel-body">
+            <div class="metric-grid">
+              <div class="metric highlight"><div class="metric-label">本月已知 Token</div><div class="metric-value">≥29,187,036</div><div class="metric-foot">不是完整总量</div></div>
+              <div class="metric"><div class="metric-label">已知输入 / 输出</div><div class="metric-value">28,960,411</div><div class="metric-foot">输出 226,625</div></div>
+              <div class="metric"><div class="metric-label">已知缓存</div><div class="metric-value">27,253,488</div><div class="metric-foot">输入 Token 子集</div></div>
+              <div class="metric"><div class="metric-label">计量未知请求</div><div class="metric-value">7 次</div><div class="metric-foot">不抹掉其他已知 Token</div></div>
+            </div>
+            <div class="notice warn">不能因为存在未知请求就把整月写成“不可计算”；展示已知 Token 下限，同时明确未知请求数量。</div>
+          </div>
+        </section>
         <section class="panel" style="margin-top:16px">
           <div class="panel-head"><div><h2>模型计量质量</h2><p>每个模型独立标识 EXACT／ESTIMATED／UNKNOWN，不让少量未知污染全部已知事实。</p></div></div>
           <div class="panel-body table-wrap"><table><thead><tr><th>模型 alias</th><th class="right">已知 Token</th><th class="right">已知请求</th><th class="right">未知请求</th><th>展示口径</th><th></th></tr></thead><tbody>
