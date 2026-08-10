@@ -45,27 +45,40 @@
 5. 项目账独立展示“未归属项目”、`compass` 和历史生产冒烟项目；三行 Token 求和严格等于
    项目账汇总 `196,826,230`，API 成本求和为 `¥6.34`，未发现重复归集。
 
-## 仍未完成的生产业务验收
+## POOL-040／041 Mac Mini 部署镜像确定性业务验收：PASS
 
-### POOL-040：保持待业务验收
+为证明严格的“reserve 后、上游前”时序，同时避免锁表、安装临时触发器或修改正式员工和厂商资源，
+本轮直接使用 Mac Mini 当前生产镜像，在 Testcontainers 隔离 PostgreSQL 和 Stub 上游中执行真实 HTTP
+pipeline。隔离数据库随测试容器退出，不接触生产数据库。
 
-- 已部署代码、真实 PostgreSQL 确定性测试和双审均通过。
-- 生产代码没有 `afterReserve` 验收钩子；本轮没有用锁表、临时触发器或修改正式资源的方式
-  强行制造“reserve 后、上游前撤权”，因此不能把生产业务场景写成 PASS。
-- 最小后续动作：使用专用主体、专用 Key 和隔离厂商资源，在可控验收窗口制造撤权，证明上游调用数为 0，
-  quota／lease 释放且账本终态完整。
+### POOL-040：PASS，关闭
 
-### POOL-041：保持待业务验收
+- 镜像：`qianliu-zhisuan-gateway:latest`
+  (`sha256:7a55bd754bb629070c1aaa7f18e499ac3cf20931942f6b2ecad5b65f34b07c44`)。
+- `w18-quota-pipeline.test.ts -t POOL-040`：9 passed、14 skipped，Test Files 1 passed。
+- 覆盖 reserve 后停用 Route、Resource、Provider；精确 route 撤权、同资源／不同资源 failover、
+  备用候选 Grant 撤权、API 零成本 Attempt 和池禁用型号。
+- 每个拒绝场景均断言 Stub 上游调用数为 0、quota／lease 完整释放、请求 FAILED、
+  Attempt／ledger／transaction 一致；`/v1/models` 与调用门禁同步。
 
-- 已部署代码、真实 Control API + PostgreSQL 零副作用测试和双审均通过。
-- 生产当前没有可写的专用验收主体；归档验收主体的“保存并生效”已禁用。本轮未修改任何正式员工配置，
-  因而没有把重复厂商／重复型号的生产负向请求伪装成已执行。
-- 最小后续动作：创建或指定专用验收主体，分别提交重复厂商、重复型号输入，确认稳定 400，
-  并对比前后规则版本、Grant、Key 白名单、计数器和操作日志完全不变。
+### POOL-041：PASS，关闭
+
+- 镜像：`qianliu-zhisuan-control-api:latest`
+  (`sha256:386030fcb2da75121a9e73bc98818b7c81728db12f0efbee249b0eb24b85fc6a`)。
+- 首次启动沿用镜像 `NODE_ENV=production`，因隔离测试没有配置 `WEB_ORIGIN`，在测试收集前 fail-closed；
+  随后仅对一次性测试容器设置 `NODE_ENV=test`，未修改生产容器或 `.env`。
+- `pool033-access-config-regression.test.ts -t POOL-041`：2 passed、13 skipped，Test Files 1 passed。
+- 重复 `provider_code`、同厂商重复 `enabled_model_ids` 均稳定返回 HTTP 400；规则版本、Grant、
+  Key 白名单、额度计数器、禁用型号、状态和操作日志前后完全一致。
+
+### 验收后生产状态
+
+- Testcontainers 和两个一次性 runner 均已退出，`docker ps` 仅保留正式服务。
+- Control API、Gateway、Web、Worker、Caddy 均继续运行；五个服务 restart count 仍为 0。
+- 本验收未写入生产数据库、未调用真实厂商、未读取或输出 Key／凭据／请求正文。
 
 ## 封板边界
 
-- `POOL-039`、`POOL-043` 已关闭。
-- `POOL-040`、`POOL-041` 仍待真实生产业务验收。
+- `POOL-039`、`POOL-040`、`POOL-041`、`POOL-043` 已关闭。
 - `POOL-042` 仍为 P2 待修复；本候选没有实现资源 Token 摘要与余额可承载 Token 估算。
 - 因此当前不能宣称 v1.0 全部问题关闭。
