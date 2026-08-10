@@ -159,14 +159,15 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
   test("POOL-042 DeepSeek API 行展示余额、账本 Token、模型和估算说明", async ({ page }) => {
     await page.goto("/dashboard");
-    const row = page.getByRole("row", { name: /DeepSeek.*API/ }).first();
+    const row = page.getByRole("row", { name: /DeepSeek Token E2E.*API/ });
     await expect(row).toBeVisible();
     await expect(row).toContainText("CNY 1,000.00");
     await expect(row).toContainText("8.00");
     await expect(row).toContainText("430");
     await expect(row).toContainText("入 350 · 出 80");
     await expect(row).toContainText("缓存 60 · 推理 0");
-    await expect(row).toContainText("不可计算：最近24小时无用量");
+    await expect(row).toContainText("约 352,459");
+    await expect(row).toContainText("估算 · LOW");
     await row.getByText("按模型查看").click();
     await expect(row.getByText("ql-deepseek-v4-flash")).toBeVisible();
     await expect(row.getByText("ql-deepseek-v4-pro")).toBeVisible();
@@ -177,10 +178,10 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
         estimatedBalanceTokens: string | null; balanceTokenEstimateReason: string | null;
       }>;
     }>(page, "/dashboard");
-    expect(dashboard.resourceBreakdown.find((item) => item.providerCode === "pool043-deepseek"))
+    expect(dashboard.resourceBreakdown.find((item) => item.providerCode === "pool042-deepseek"))
       .toMatchObject({
-        monthlyTotalTokens: "430", estimatedBalanceTokens: null,
-        balanceTokenEstimateReason: "RECENT_USAGE_MISSING",
+        monthlyTotalTokens: "430", estimatedBalanceTokens: "352459",
+        balanceTokenEstimateReason: null,
       });
   });
 

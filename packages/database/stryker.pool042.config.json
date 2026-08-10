@@ -8,7 +8,8 @@
   "vitest": { "configFile": "vitest.pool042.mutation.config.ts" },
   "coverageAnalysis": "perTest",
   "mutate": [
-    "src/repositories/dashboard-resource-usage.ts:206:3-256:4"
+    "src/repositories/dashboard-resource-usage.ts:64:1-195:2",
+    "src/repositories/dashboard-resource-usage.ts:212:3-291:4"
   ],
   "thresholds": { "high": 100, "low": 80, "break": 70 },
   "timeoutMS": 120000,

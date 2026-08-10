@@ -41,6 +41,21 @@ export interface DashboardResourceUsage {
   balanceTokenEstimateBasis: string | null;
 }
 
+export interface DashboardResourceBalance {
+  resourceId: string;
+  currentBalance: string | null;
+  currency: string | null;
+}
+
+type KnownDashboardResourceBalance = DashboardResourceBalance & {
+  currentBalance: string;
+  currency: string;
+};
+
+function hasKnownBalance(item: DashboardResourceBalance): item is KnownDashboardResourceBalance {
+  return item.currentBalance !== null && item.currency !== null;
+}
+
 interface UsageAccumulator {
   input: Decimal;
   output: Decimal;
@@ -192,7 +207,7 @@ export async function loadDashboardResourceUsage(
   db: Kysely<Database>, enterpriseId: string, monthStart: Date, monthEnd: Date,
   now: Date,
 ): Promise<(
-  providerCode: string, mode: Mode, currentBalance: string | null, currency: string | null,
+  providerCode: string, mode: Mode, resourceBalances: DashboardResourceBalance[],
 ) => DashboardResourceUsage> {
   const recentStart = new Date(now.getTime() - RECENT_HOURS * 60 * 60 * 1000);
   const [monthlyRows, recentRows, rules] = await Promise.all([
@@ -203,7 +218,7 @@ export async function loadDashboardResourceUsage(
   const byMonthly = groupRows(monthlyRows);
   const byRecent = groupRows(recentRows);
 
-  return (providerCode, mode, currentBalance, currency) => {
+  return (providerCode, mode, resourceBalances) => {
     const base = monthlySummary(byMonthly.get(groupKey(providerCode, mode)) ?? []);
     const rows = byRecent.get(groupKey(providerCode, mode)) ?? [];
     const recent = emptyAccumulator();
@@ -215,7 +230,12 @@ export async function loadDashboardResourceUsage(
       ? null : recent.cost.div(RECENT_HOURS).toDecimalPlaces(8).toFixed(8);
 
     if (mode !== "API") return notCalculable(base, tokenRate24h, costRate24h, "NOT_API_RESOURCE");
-    if (currentBalance === null) return notCalculable(base, tokenRate24h, costRate24h, "BALANCE_MISSING");
+    if (resourceBalances.length === 0 || !resourceBalances.every(hasKnownBalance)) {
+      return notCalculable(base, tokenRate24h, costRate24h, "BALANCE_MISSING");
+    }
+    if (new Set(resourceBalances.map((item) => item.currency)).size !== 1) {
+      return notCalculable(base, tokenRate24h, costRate24h, "PRICE_CURRENCY_MISMATCH");
+    }
     if (recentQuality === "UNKNOWN") {
       return notCalculable(base, null, costRate24h, "USAGE_UNKNOWN");
     }
@@ -223,36 +243,50 @@ export async function loadDashboardResourceUsage(
       return notCalculable(base, tokenRate24h, costRate24h, "RECENT_USAGE_MISSING");
     }
 
-    let currentCost = new PreciseDecimal(0);
-    for (const row of rows) {
-      const rule = matchApplicableBillingRule(
-        rules, row.resource_id, row.upstream_model, "API", now.getTime(),
+    let estimatedBalanceTokens = new PreciseDecimal(0);
+    for (const resource of resourceBalances) {
+      const resourceRows = rows.filter((row) => row.resource_id === resource.resourceId);
+      const resourceRecent = emptyAccumulator();
+      resourceRows.forEach((row) => addRow(resourceRecent, row));
+      const resourceTokens = resourceRecent.input.plus(resourceRecent.output);
+      if (resourceRows.length === 0 || resourceTokens.isZero()) {
+        return notCalculable(base, tokenRate24h, costRate24h, "RECENT_USAGE_MISSING");
+      }
+      let resourceCurrentCost = new PreciseDecimal(0);
+      for (const row of resourceRows) {
+        const rule = matchApplicableBillingRule(
+          rules, row.resource_id, row.upstream_model, "API", now.getTime(),
+        );
+        if (!rule) {
+          return notCalculable(base, tokenRate24h, costRate24h, "CURRENT_PRICE_RULE_MISSING");
+        }
+        if (rule.currency !== resource.currency) {
+          return notCalculable(base, tokenRate24h, costRate24h, "PRICE_CURRENCY_MISMATCH");
+        }
+        const cache = new PreciseDecimal(row.cache_tokens);
+        const input = new PreciseDecimal(row.input_tokens);
+        resourceCurrentCost = resourceCurrentCost
+          .plus(cache.times(rule.cacheHitPrice ?? "0"))
+          .plus(input.minus(cache).times(rule.cacheMissPrice ?? "0"))
+          .plus(new PreciseDecimal(row.output_tokens).times(rule.outputPrice ?? "0"));
+      }
+      if (resourceCurrentCost.isZero()) {
+        return notCalculable(base, tokenRate24h, costRate24h, "CURRENT_PRICE_ZERO");
+      }
+      estimatedBalanceTokens = estimatedBalanceTokens.plus(
+        new PreciseDecimal(resource.currentBalance).div(resourceCurrentCost.div(resourceTokens)),
       );
-      if (!rule) {
-        return notCalculable(base, tokenRate24h, costRate24h, "CURRENT_PRICE_RULE_MISSING");
-      }
-      if (rule.currency !== currency) {
-        return notCalculable(base, tokenRate24h, costRate24h, "PRICE_CURRENCY_MISMATCH");
-      }
-      const cache = new PreciseDecimal(row.cache_tokens);
-      const input = new PreciseDecimal(row.input_tokens);
-      currentCost = currentCost
-        .plus(cache.times(rule.cacheHitPrice ?? "0"))
-        .plus(input.minus(cache).times(rule.cacheMissPrice ?? "0"))
-        .plus(new PreciseDecimal(row.output_tokens).times(rule.outputPrice ?? "0"));
     }
-    if (currentCost.isZero()) return notCalculable(base, tokenRate24h, costRate24h, "CURRENT_PRICE_ZERO");
-    const pricePerToken = currentCost.div(recentTokens);
-    const estimatedBalanceTokens = new PreciseDecimal(currentBalance)
-      .div(pricePerToken).toDecimalPlaces(0, Decimal.ROUND_DOWN).toFixed(0);
+    const roundedBalanceTokens = estimatedBalanceTokens
+      .toDecimalPlaces(0, Decimal.ROUND_DOWN).toFixed(0);
     const confidence = recentQuality === "EXACT" && recent.lineCount >= 20
       ? "HIGH" : recent.lineCount >= 5 ? "MEDIUM" : "LOW";
     return {
-      ...base, tokenRate24h, costRate24h, estimatedBalanceTokens,
+      ...base, tokenRate24h, costRate24h, estimatedBalanceTokens: roundedBalanceTokens,
       balanceTokenEstimateConfidence: confidence,
       balanceTokenEstimateReason: null,
       balanceTokenEstimateBasis:
-        `最近24小时 ${recent.lineCount} 条账本、${rows.length} 个模型计价组合；按当前有效价格和输入/输出/缓存比例估算`,
+        `最近24小时 ${recent.lineCount} 条账本、${resourceBalances.length} 个账号、${rows.length} 个模型计价组合；按账号当前有效价格和输入/输出/缓存比例分别估算后汇总`,
     };
   };
 }

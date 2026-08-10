@@ -8,6 +8,7 @@
 import { createKysely, migrateToLatest } from "@qianliu/database";
 import { sql } from "kysely";
 import { hashPassword } from "../auth/password.js";
+import { seedPool042Dashboard } from "./seed-e2e-pool042.js";
 import { seedPool043OperatingBill } from "./seed-e2e-pool043.js";
 
 const IDS = {
@@ -571,6 +572,7 @@ async function main(): Promise<void> {
       .execute();
 
     await seedPool043OperatingBill(db, IDS.enterprise, IDS.admin, IDS.resource, now);
+    await seedPool042Dashboard(db, IDS.enterprise, IDS.principal, IDS.key, now);
 
     console.log(
       JSON.stringify({

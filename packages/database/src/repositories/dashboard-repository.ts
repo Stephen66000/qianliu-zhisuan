@@ -310,6 +310,9 @@ export class DashboardRepository {
 
     // 批量取每个厂商+模式的额度聚合 + 本月费用 + 最新预测（避免 N+1）
     const breakdown: ResourceBreakdownItem[] = [];
+    const operatingSnapshotByResource = new Map(
+      currentOperatingSnapshots.map((snapshot) => [snapshot.provider_resource_id, snapshot]),
+    );
     for (const r of rows) {
       const providerCode = r.provider_code;
       const mode = r.mode as "API" | "CODING_PLAN";
@@ -339,7 +342,14 @@ export class DashboardRepository {
           currentOperatingSnapshots,
         ),
       ]);
-      const usage = usageFor(providerCode, mode, operating.balance, operating.currency);
+      const usage = usageFor(providerCode, mode, groupStatuses.map((resource) => {
+        const snapshot = operatingSnapshotByResource.get(resource.resource_id);
+        return {
+          resourceId: resource.resource_id,
+          currentBalance: snapshot?.current_balance ?? null,
+          currency: snapshot?.currency ?? null,
+        };
+      }));
       breakdown.push({
         providerCode,
         providerName: r.provider_name,

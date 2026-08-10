@@ -140,6 +140,77 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     expect(item?.balanceTokenEstimateBasis).toContain("最近24小时 2 条账本");
   });
 
+  it("同厂商多账号按各账号余额与价格分别估算，缺价或混合币种明确拒绝", async () => {
+    async function createMultiAccountProvider(input: {
+      code: string; currencies: [string, string]; omitSecondRule?: boolean;
+      omitSecondUsage?: boolean;
+    }) {
+      const provider = await db.insertInto("provider").values({
+        enterprise_id: enterpriseId, code: input.code, name: input.code, adapter_type: "openai",
+      }).returning("id").executeTakeFirstOrThrow();
+      const resources = await db.insertInto("provider_resource").values([0, 1].map((index) => ({
+        enterprise_id: enterpriseId, provider_id: provider.id, name: `${input.code}-${index}`,
+        mode: "API" as const, credential_type: "API_KEY", status: "ACTIVE" as const,
+      }))).returning("id").execute();
+      await db.insertInto("provider_resource_operating_snapshot").values(resources.map((resource, index) => ({
+        enterprise_id: enterpriseId, provider_resource_id: resource.id, version: 1,
+        source: "PROVIDER_SYNC" as const, collected_at: new Date(now.getTime() - 60_000),
+        currency: input.currencies[index]!, current_balance: index === 0 ? "10" : "20",
+        current_period_cost: "1",
+      }))).execute();
+      const modelId = randomUUID();
+      await db.insertInto("unified_model").values({
+        id: modelId, enterprise_id: enterpriseId, alias: `ql-${input.code}`,
+        display_name: input.code,
+      }).execute();
+      for (const [index, resource] of resources.entries()) {
+        const upstreamModel = `${input.code}-${index}`;
+        if (!(input.omitSecondRule && index === 1)) {
+          await db.insertInto("billing_rule").values({
+            enterprise_id: enterpriseId, provider_resource_id: resource.id,
+            upstream_model: upstreamModel, rule_type: "API_PRICE",
+            rule_version: `${upstreamModel}-current`, effective_from: new Date("2026-08-01T00:00:00Z"),
+            cache_miss_price: index === 0 ? "0.01" : "0.04",
+            output_price: "0", currency: input.currencies[index]!, enabled: true,
+          }).execute();
+        }
+        if (input.omitSecondUsage && index === 1) continue;
+        await addLine({
+          resourceId: resource.id, modelId, historicalAlias: `old-${input.code}`,
+          upstreamModel, input: 10n, output: 0n, cache: 0n, reasoning: 0n,
+          cost: index === 0 ? "0.1" : "0.4", quality: "PROVIDER_REPORTED",
+          at: new Date(now.getTime() - 30 * 60 * 1000),
+        });
+      }
+    }
+
+    await createMultiAccountProvider({ code: "multi-price", currencies: ["CNY", "CNY"] });
+    await createMultiAccountProvider({
+      code: "multi-missing-price", currencies: ["CNY", "CNY"], omitSecondRule: true,
+    });
+    await createMultiAccountProvider({
+      code: "multi-no-usage", currencies: ["CNY", "CNY"], omitSecondUsage: true,
+    });
+    await createMultiAccountProvider({ code: "multi-currency", currencies: ["CNY", "USD"] });
+
+    const items = (await new DashboardRepository(db).getSummary(enterpriseId, now.getTime()))
+      .resourceBreakdown;
+    expect(items.find((row) => row.providerCode === "multi-price")).toMatchObject({
+      accountCount: 2, currentBalance: "30.00000000", estimatedBalanceTokens: "1500",
+      balanceTokenEstimateConfidence: "LOW", balanceTokenEstimateReason: null,
+    });
+    expect(items.find((row) => row.providerCode === "multi-missing-price")).toMatchObject({
+      estimatedBalanceTokens: null, balanceTokenEstimateReason: "CURRENT_PRICE_RULE_MISSING",
+    });
+    expect(items.find((row) => row.providerCode === "multi-no-usage")).toMatchObject({
+      estimatedBalanceTokens: null, balanceTokenEstimateReason: "RECENT_USAGE_MISSING",
+    });
+    expect(items.find((row) => row.providerCode === "multi-currency")).toMatchObject({
+      currentBalance: null, estimatedBalanceTokens: null,
+      balanceTokenEstimateReason: "PRICE_CURRENCY_MISMATCH",
+    });
+  });
+
   it("未知 usage 与零用量不伪造精确 Token 或余额估算", async () => {
     const unknownResource = await createApiResource("unknown-api", "10");
     const unknownModel = randomUUID();
