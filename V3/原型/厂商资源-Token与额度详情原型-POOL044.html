@@ -100,6 +100,9 @@
     .tag.warn { color: var(--orange); background: var(--orange-soft); }
     .tag.unknown { color: var(--red); background: var(--red-soft); }
     .link-button { border: 0; padding: 2px 0; color: var(--blue); background: transparent; font-weight: 600; }
+    .resource-table td { vertical-align: middle; }
+    .resource-table .action-column { min-width: 190px; }
+    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; white-space: nowrap; }
     .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
     .metric { min-height: 116px; padding: 15px; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--surface-soft); }
     .metric-label { color: var(--fg-3); font-size: 12px; }
@@ -197,7 +200,7 @@
           <button class="active" data-screen="home">厂商资源首页</button>
           <button data-screen="deepseek">DeepSeek API</button>
           <button data-screen="kimi">Kimi Coding Plan</button>
-          <button data-screen="zhipu">智谱 · 部分未知</button>
+          <button data-screen="zhipu">智谱 Coding Plan</button>
         </nav>
       </div>
 
@@ -209,12 +212,12 @@
         <section class="panel">
           <div class="panel-head"><div><h2>已登记资源</h2><p>保持现有资源列表、状态和操作入口不变。</p></div></div>
           <div class="panel-body table-wrap">
-            <table>
-              <thead><tr><th>资源</th><th>厂商</th><th>模式</th><th>已接入模型</th><th>并发</th><th>状态</th><th class="right">操作</th></tr></thead>
+            <table class="resource-table">
+              <thead><tr><th>资源</th><th>厂商</th><th>模式</th><th>已接入模型</th><th>并发</th><th>状态</th><th class="right action-column">操作</th></tr></thead>
               <tbody>
-                <tr><td><b>Kimi</b><span class="sub">资源 ID e75fe982…</span></td><td>Kimi</td><td><span class="tag plan">Coding Plan</span></td><td>ql-k3、ql-k3-256k</td><td class="num">3</td><td><span class="tag ok">正常</span></td><td class="right"><button class="link-button">编辑</button>　<button class="link-button">同步模型</button></td></tr>
-                <tr><td><b>deepseek-仟流智算</b><span class="sub">资源 ID a76d8f21…</span></td><td>deepseek</td><td><span class="tag api">API 计费</span></td><td>ql-deepseek-v4-flash、ql-deepseek-v4-pro</td><td class="num">5</td><td><span class="tag ok">正常</span></td><td class="right"><button class="link-button">编辑</button>　<button class="link-button">更新经营数据</button></td></tr>
-                <tr><td><b>智谱</b><span class="sub">资源 ID 74f8cb60…</span></td><td>智谱</td><td><span class="tag plan">Coding Plan</span></td><td>ql-glm-5.2、ql-glm-4.7</td><td class="num">3</td><td><span class="tag ok">正常</span></td><td class="right"><button class="link-button">编辑</button>　<button class="link-button">立即同步</button></td></tr>
+                <tr><td><b>Kimi</b><span class="sub">资源 ID e75fe982…</span></td><td>Kimi</td><td><span class="tag plan">Coding Plan</span></td><td>ql-k3、ql-k3-256k</td><td class="num">3</td><td><span class="tag ok">正常</span></td><td><div class="row-actions"><button class="link-button">编辑</button><button class="link-button">同步模型</button></div></td></tr>
+                <tr><td><b>deepseek-仟流智算</b><span class="sub">资源 ID a76d8f21…</span></td><td>deepseek</td><td><span class="tag api">API 计费</span></td><td>ql-deepseek-v4-flash、ql-deepseek-v4-pro</td><td class="num">5</td><td><span class="tag ok">正常</span></td><td><div class="row-actions"><button class="link-button">编辑</button><button class="link-button">更新经营数据</button></div></td></tr>
+                <tr><td><b>智谱</b><span class="sub">资源 ID 74f8cb60…</span></td><td>智谱</td><td><span class="tag plan">Coding Plan</span></td><td>ql-glm-5.2、ql-glm-4.7</td><td class="num">3</td><td><span class="tag ok">正常</span></td><td><div class="row-actions"><button class="link-button">编辑</button><button class="link-button">立即同步</button></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -338,7 +341,7 @@
 
       <section class="screen" id="zhipu">
         <header class="page-head">
-          <div><div class="breadcrumb"><button data-screen="home">厂商资源</button> / 智谱</div><h1>智谱 · Coding Plan 资源详情</h1><p>完整保留五小时／周额度窗口，同时诚实展示部分请求 Token 未知。</p></div>
+          <div><div class="breadcrumb"><button data-screen="home">厂商资源</button> / 智谱</div><h1>智谱 · Coding Plan 资源详情</h1><p>完整保留五小时／周额度窗口，同时展示本地账本中的实际 Token。</p></div>
           <div class="head-actions"><select class="month"><option>2026年08月</option></select></div>
         </header>
         <section class="quota-resource-card">
@@ -353,26 +356,25 @@
           <div class="quota-sync-state">✓ 同步成功 · 数据截至 2026-08-10 21:28:54 · 来源 pool032-v1</div>
         </section>
         <section class="panel">
-          <div class="panel-head"><div><h2>本地 Token 使用</h2><p>厂商窗口仅提供百分比；本地账本保留已知 Token，并单列无法计量的请求。</p></div><div class="quality-line"><span class="tag warn">已知下限</span><span class="tag unknown">7 次未知</span></div></div>
+          <div class="panel-head"><div><h2>本地 Token 使用</h2><p>厂商窗口仅提供百分比；以下实际 Token 来自仟流 Gateway 已结算账本。</p></div><div class="quality-line"><span class="tag ok">精确计量</span></div></div>
           <div class="panel-body">
             <div class="metric-grid">
-              <div class="metric highlight"><div class="metric-label">本月已知 Token</div><div class="metric-value">≥29,187,036</div><div class="metric-foot">不是完整总量</div></div>
-              <div class="metric"><div class="metric-label">已知输入 / 输出</div><div class="metric-value">28,960,411</div><div class="metric-foot">输出 226,625</div></div>
-              <div class="metric"><div class="metric-label">已知缓存</div><div class="metric-value">27,253,488</div><div class="metric-foot">输入 Token 子集</div></div>
-              <div class="metric"><div class="metric-label">计量未知请求</div><div class="metric-value">7 次</div><div class="metric-foot">不抹掉其他已知 Token</div></div>
+              <div class="metric highlight"><div class="metric-label">本月实际 Token</div><div class="metric-value">29,187,036</div><div class="metric-foot">精确计量 · 531 次请求</div></div>
+              <div class="metric"><div class="metric-label">输入 / 输出</div><div class="metric-value">28,960,411</div><div class="metric-foot">输出 226,625</div></div>
+              <div class="metric"><div class="metric-label">缓存 / 推理</div><div class="metric-value">27,253,488</div><div class="metric-foot">推理 41,728；均为子集</div></div>
+              <div class="metric"><div class="metric-label">近24小时速度</div><div class="metric-value">552,852/h</div><div class="metric-foot">本地 Token 速度</div></div>
             </div>
-            <div class="notice warn">不能因为存在未知请求就把整月写成“不可计算”；展示已知 Token 下限，同时明确未知请求数量。</div>
           </div>
         </section>
         <section class="panel" style="margin-top:16px">
-          <div class="panel-head"><div><h2>模型计量质量</h2><p>每个模型独立标识 EXACT／ESTIMATED／UNKNOWN，不让少量未知污染全部已知事实。</p></div></div>
-          <div class="panel-body table-wrap"><table><thead><tr><th>模型 alias</th><th class="right">已知 Token</th><th class="right">已知请求</th><th class="right">未知请求</th><th>展示口径</th><th></th></tr></thead><tbody>
-            <tr><td><b>ql-glm-5.2</b></td><td class="right num strong">28,940,112</td><td class="right num">506</td><td class="right num">0</td><td><span class="tag ok">精确</span></td><td><button class="link-button" data-expand="glm52">查看请求</button></td></tr>
-            <tr><td colspan="6"><div class="request-detail" id="glm52">请求示例：08-10 16:21 · 输入 76,900 · 输出 1,442 · 缓存 72,704 · SUCCESS · PROVIDER_REPORTED。</div></td></tr>
-            <tr><td><b>ql-glm-4.7</b></td><td class="right num strong">246,924</td><td class="right num">18</td><td class="right num">7</td><td><span class="tag warn">≥ 246,924</span><span class="sub">另有 7 次 Token 未知</span></td><td><button class="link-button">筛选账本 →</button></td></tr>
+          <div class="panel-head"><div><h2>模型计量</h2><p>按当前正式模型 alias 展示实际 Token，并可继续下钻请求账本。</p></div></div>
+          <div class="panel-body table-wrap"><table><thead><tr><th>模型 alias</th><th class="right">实际 Token</th><th class="right">请求数</th><th>计量质量</th><th></th></tr></thead><tbody>
+            <tr><td><b>ql-glm-5.2</b></td><td class="right num strong">28,940,112</td><td class="right num">506</td><td><span class="tag ok">精确</span></td><td><button class="link-button" data-expand="glm52">查看请求</button></td></tr>
+            <tr><td colspan="5"><div class="request-detail" id="glm52">请求示例：08-10 16:21 · 输入 76,900 · 输出 1,442 · 缓存 72,704 · SUCCESS · PROVIDER_REPORTED。</div></td></tr>
+            <tr><td><b>ql-glm-4.7</b></td><td class="right num strong">246,924</td><td class="right num">25</td><td><span class="tag ok">精确</span></td><td><button class="link-button">筛选账本 →</button></td></tr>
           </tbody></table></div>
         </section>
-        <div class="footer-note"><b>未知数据规则：</b>已知数据照常汇总，未知数据单独计数；只有所有请求均未知时，才显示“Token 暂无可用计量”。</div>
+        <div class="footer-note"><b>异常数据规则：</b>当前示例数据完整，不显示“部分未知”。只有账本真实存在未计量请求时，页面才切换为“已知 Token 下限 + 未知请求数”。</div>
       </section>
     </main>
   </div>
