@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>POOL-044 厂商资源 Token 与额度详情原型</title>
+  <style>
+    :root {
+      --canvas: #f4f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --surface-muted: #eef3f8;
+      --border: #dce4ee;
+      --border-soft: #e8edf3;
+      --fg: #172033;
+      --fg-2: #526175;
+      --fg-3: #778397;
+      --blue: #2f6fce;
+      --blue-soft: #eaf2ff;
+      --cyan: #00aaa9;
+      --cyan-soft: #e8fbfa;
+      --green: #287a45;
+      --green-soft: #eaf7ef;
+      --orange: #a35a24;
+      --orange-soft: #fff4e9;
+      --red: #c63c35;
+      --red-soft: #fff0ef;
+      --shadow: 0 8px 28px rgba(28, 49, 79, .07);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--fg);
+      background: var(--canvas);
+      font: 13px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button, select { font: inherit; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+    .side {
+      position: sticky; top: 0; height: 100vh; padding: 24px 16px;
+      color: #dce8f8; background: #17243a;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 22px; font-size: 17px; font-weight: 700; color: #fff; }
+    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: #09212a; background: #21d2cf; }
+    .nav-label { margin: 16px 10px 6px; color: #8192aa; font-size: 11px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; color: #aebbd0; }
+    .nav-item.active { color: #fff; background: rgba(58, 123, 214, .28); }
+    .nav-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .75; }
+    .main { min-width: 0; padding: 24px 28px 48px; }
+    .prototype-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      margin-bottom: 18px; padding: 12px 14px; border: 1px solid #bdd2f1; border-radius: 12px; background: #edf5ff;
+    }
+    .prototype-copy strong { display: block; color: #285b9f; }
+    .prototype-copy span { color: #60738e; font-size: 12px; }
+    .screen-nav { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
+    .screen-nav button, .ghost-button {
+      border: 1px solid var(--border); border-radius: 8px; padding: 7px 11px; color: var(--fg-2); background: var(--surface);
+    }
+    .screen-nav button.active { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+    .page-head h1 { margin: 0; font-size: 28px; line-height: 1.25; letter-spacing: -.3px; }
+    .page-head p { margin: 6px 0 0; color: var(--fg-3); }
+    .breadcrumb { margin-bottom: 7px; color: var(--fg-3); font-size: 12px; }
+    .breadcrumb button { border: 0; padding: 0; color: var(--blue); background: transparent; }
+    .head-actions { display: flex; gap: 8px; align-items: center; }
+    .month { border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; color: var(--fg-2); background: var(--surface); }
+    .primary-button { border: 0; border-radius: 8px; padding: 8px 13px; color: #fff; background: var(--blue); }
+    .principle {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;
+    }
+    .principle > div { padding: 11px 13px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--surface); }
+    .principle strong { display: block; margin-bottom: 2px; font-size: 12px; }
+    .principle span { color: var(--fg-3); font-size: 11px; }
+    .source-provider { border-left: 3px solid var(--blue) !important; }
+    .source-ledger { border-left: 3px solid var(--cyan) !important; }
+    .source-estimate { border-left: 3px solid var(--orange) !important; }
+    .panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px 18px 12px; }
+    .panel-head h2 { margin: 0; font-size: 16px; }
+    .panel-head p { margin: 3px 0 0; color: var(--fg-3); font-size: 12px; }
+    .panel-body { padding: 0 18px 18px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+    th { padding: 10px 12px; color: var(--fg-3); background: var(--surface-soft); border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; text-align: left; }
+    td { padding: 13px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #fbfdff; }
+    .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .right { text-align: right; }
+    .strong { font-weight: 700; }
+    .sub { display: block; margin-top: 2px; color: var(--fg-3); font-size: 11px; white-space: normal; }
+    .tag { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .tag.api { color: #315f9e; background: var(--blue-soft); }
+    .tag.plan { color: #087976; background: var(--cyan-soft); }
+    .tag.ok { color: var(--green); background: var(--green-soft); }
+    .tag.warn { color: var(--orange); background: var(--orange-soft); }
+    .tag.unknown { color: var(--red); background: var(--red-soft); }
+    .link-button { border: 0; padding: 2px 0; color: var(--blue); background: transparent; font-weight: 600; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .metric { min-height: 116px; padding: 15px; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--surface-soft); }
+    .metric-label { color: var(--fg-3); font-size: 12px; }
+    .metric-value { margin-top: 8px; font: 700 22px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .metric-foot { margin-top: 7px; color: var(--fg-3); font-size: 11px; }
+    .metric.highlight { border-color: #b9e5e2; background: #f4fffe; }
+    .metric.provider { border-color: #c9dbf4; background: #f5f9ff; }
+    .split { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(340px, .9fr); gap: 16px; }
+    .fact-card { padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+    .fact-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .fact-head h3 { margin: 0; font-size: 14px; }
+    .fact-head span { color: var(--fg-3); font-size: 11px; }
+    .fact-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .fact { padding: 10px 11px; border-radius: 9px; background: var(--surface-soft); }
+    .fact b { display: block; margin-top: 4px; font: 650 17px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .fact small { color: var(--fg-3); }
+    .window-card { padding: 13px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--surface-soft); }
+    .window-title { display: flex; justify-content: space-between; gap: 12px; color: var(--fg-2); font-size: 12px; }
+    .window-number { margin: 7px 0 8px; font: 700 20px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .progress { height: 8px; overflow: hidden; border-radius: 5px; background: #e5ebf2; }
+    .progress i { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+    .progress.cyan i { background: var(--cyan); }
+    .progress.orange i { background: var(--orange); }
+    .window-foot { margin-top: 7px; color: var(--fg-3); font-size: 11px; }
+    .notice { margin-top: 10px; padding: 9px 11px; border-radius: 9px; color: var(--fg-2); background: var(--surface-muted); font-size: 11px; }
+    .notice.warn { color: #7b4c27; background: var(--orange-soft); }
+    .quality-line { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 9px; height: 132px; padding: 16px 8px 0; border-bottom: 1px solid var(--border); }
+    .bar { position: relative; flex: 1; min-width: 22px; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #3a80de, #8eb9ef); }
+    .bar::after { content: attr(data-label); position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%); color: var(--fg-3); font-size: 10px; }
+    .chart-foot { margin-top: 28px; color: var(--fg-3); font-size: 11px; }
+    .request-detail { display: none; margin: 0 12px 12px; padding: 12px; border: 1px dashed #b8c8dc; border-radius: 9px; color: var(--fg-2); background: #f7fbff; white-space: normal; }
+    .request-detail.open { display: block; }
+    .empty-dash { color: var(--fg-3); }
+    .footer-note { padding: 13px 16px; border: 1px dashed #c8d3e1; border-radius: 10px; color: var(--fg-2); background: rgba(255,255,255,.58); font-size: 12px; }
+    @media (max-width: 1120px) {
+      .app { grid-template-columns: 74px minmax(0, 1fr); }
+      .brand span, .nav-item span, .nav-label { display: none; }
+      .brand, .nav-item { justify-content: center; }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .split { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .app { display: block; }
+      .side { display: none; }
+      .main { padding: 16px; }
+      .prototype-bar, .page-head { flex-direction: column; }
+      .screen-nav { justify-content: flex-start; }
+      .principle, .metric-grid, .fact-grid { grid-template-columns: 1fr; }
+      .head-actions { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="brand"><div class="brand-mark">Q</div><span>仟流智算</span></div>
+      <div class="nav-label">经营与资源</div>
+      <div class="nav-item"><i class="nav-dot"></i><span>首页看板</span></div>
+      <div class="nav-item active"><i class="nav-dot"></i><span>厂商资源</span></div>
+      <div class="nav-item"><i class="nav-dot"></i><span>用量账本</span></div>
+      <div class="nav-item"><i class="nav-dot"></i><span>经营账单</span></div>
+      <div class="nav-label">配置</div>
+      <div class="nav-item"><i class="nav-dot"></i><span>使用主体</span></div>
+      <div class="nav-item"><i class="nav-dot"></i><span>批量模型授权</span></div>
+      <div class="nav-item"><i class="nav-dot"></i><span>额度规则</span></div>
+    </aside>
+
+    <main class="main">
+      <div class="prototype-bar">
+        <div class="prototype-copy">
+          <strong>POOL-044 交互原型 · 示例数据</strong>
+          <span>厂商额度事实与本地 Token 账本分开展示；Coding Plan 只有百分比时不反推总 Token。</span>
+        </div>
+        <nav class="screen-nav" aria-label="原型页面切换">
+          <button class="active" data-screen="home">首页摘要</button>
+          <button data-screen="deepseek">DeepSeek API</button>
+          <button data-screen="kimi">Kimi Coding Plan</button>
+          <button data-screen="zhipu">智谱 · 部分未知</button>
+        </nav>
+      </div>
+
+      <section class="screen active" id="home">
+        <header class="page-head">
+          <div><h1>首页看板</h1><p>首页只保留决策摘要，完整账号、模型和计量质量进入厂商详情。</p></div>
+          <select class="month" aria-label="账期"><option>2026年08月</option></select>
+        </header>
+        <div class="principle">
+          <div class="source-provider"><strong>厂商事实</strong><span>API 余额/费用，或 Coding Plan 五小时、周额度百分比。</span></div>
+          <div class="source-ledger"><strong>本地账本</strong><span>所有经 Gateway 调用的输入、输出、缓存、推理 Token。</span></div>
+          <div class="source-estimate"><strong>算法估算</strong><span>余额可承载 Token、预计耗尽；必须标注依据和可信度。</span></div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head"><div><h2>资源摘要</h2><p>由原 14 列收敛为 8 列；点击厂商进入完整详情。</p></div></div>
+          <div class="panel-body table-wrap">
+            <table>
+              <thead><tr><th>厂商 / 模式</th><th>账号</th><th>厂商额度 / 余额</th><th class="right">本月实际 Token</th><th class="right">近24小时速度</th><th>预计耗尽 / 重置</th><th>状态</th><th></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>deepseek</b><span class="sub"><span class="tag api">API 按量</span></span></td>
+                  <td class="num">1</td>
+                  <td><b class="num">CNY 68.00</b><span class="sub">本期费用 47.41</span></td>
+                  <td class="right"><b class="num">52,770,880</b><span class="sub">精确 · 3 个模型</span></td>
+                  <td class="right"><b class="num">1,367.5/h</b><span class="sub">CNY 0.00/h</span></td>
+                  <td>01-30 13:54<span class="sub">余额约承载 129,373,191 Token</span></td>
+                  <td><span class="tag ok">正常</span></td>
+                  <td><button class="link-button" data-screen="deepseek">查看详情 →</button></td>
+                </tr>
+                <tr>
+                  <td><b>Kimi</b><span class="sub"><span class="tag plan">Coding Plan</span></span></td>
+                  <td class="num">1</td>
+                  <td><b>5小时 已用 3%</b><span class="sub">周额度已用 60% · 厂商未提供 Token 总额</span></td>
+                  <td class="right"><b class="num">121,317,652</b><span class="sub">本地账本 · 精确</span></td>
+                  <td class="right"><b class="num">1,030,937/h</b><span class="sub">本地 Token 速度</span></td>
+                  <td>43 分钟后窗口刷新<span class="sub">周额度 2 天 21 时后重置</span></td>
+                  <td><span class="tag ok">正常</span></td>
+                  <td><button class="link-button" data-screen="kimi">查看详情 →</button></td>
+                </tr>
+                <tr>
+                  <td><b>智谱</b><span class="sub"><span class="tag plan">Coding Plan</span></span></td>
+                  <td class="num">1</td>
+                  <td><b>5小时 已用 72%</b><span class="sub">周额度厂商未提供</span></td>
+                  <td class="right"><b class="num">≥ 29,187,036</b><span class="sub"><span class="tag warn">已知下限</span> · 7 次计量未知</span></td>
+                  <td class="right"><b class="num">552,852/h</b><span class="sub">仅按已知账本</span></td>
+                  <td>09-06 14:32<span class="sub">预测可信度低</span></td>
+                  <td><span class="tag warn">需关注</span></td>
+                  <td><button class="link-button" data-screen="zhipu">查看详情 →</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div class="footer-note"><b>首页原则：</b>API 与 Coding Plan 都展示本地实际 Token；厂商接口只返回百分比时，该百分比只进入“厂商额度”，不能把“百分比”写成 Token。</div>
+      </section>
+
+      <section class="screen" id="deepseek">
+        <header class="page-head">
+          <div><div class="breadcrumb"><button data-screen="home">首页看板</button> / 厂商资源 / DeepSeek</div><h1>DeepSeek · API 资源详情</h1><p>按量 API：厂商余额与本地 Token/成本账本并列，估算值单独标识。</p></div>
+          <div class="head-actions"><select class="month"><option>2026年08月</option></select><button class="primary-button">查看用量账本</button></div>
+        </header>
+        <div class="metric-grid">
+          <div class="metric provider"><div class="metric-label">厂商当前余额</div><div class="metric-value">CNY 68.00</div><div class="metric-foot">厂商同步 · 本期费用 47.41</div></div>
+          <div class="metric highlight"><div class="metric-label">本月实际 Token</div><div class="metric-value">52,770,880</div><div class="metric-foot">本地账本 · 精确计量</div></div>
+          <div class="metric"><div class="metric-label">本月 API 成本</div><div class="metric-value">CNY 6.34</div><div class="metric-foot">已结算账本，不由前端重算</div></div>
+          <div class="metric"><div class="metric-label">余额可承载 Token</div><div class="metric-value">≈129,373,191</div><div class="metric-foot"><span class="tag warn">估算 · LOW</span> 当前价格 + 最近24小时分布</div></div>
+        </div>
+        <section class="panel" style="margin-top:16px">
+          <div class="panel-head"><div><h2>Token 构成与趋势</h2><p>总 Token = 输入 + 输出；缓存、推理分别是输入/输出子集，不重复相加。</p></div><span class="tag ok">精确计量</span></div>
+          <div class="panel-body split">
+            <div class="fact-card"><div class="fact-head"><h3>本月构成</h3><span>本地 ledger_line</span></div><div class="fact-grid"><div class="fact"><small>输入</small><b>52,481,728</b></div><div class="fact"><small>输出</small><b>289,152</b></div><div class="fact"><small>缓存（输入子集）</small><b>50,660,864</b></div><div class="fact"><small>推理（输出子集）</small><b>59,960</b></div></div></div>
+            <div class="fact-card"><div class="fact-head"><h3>最近 7 天</h3><span>Token/日</span></div><div class="bar-chart"><i class="bar" style="height:42%" data-label="08-04"></i><i class="bar" style="height:58%" data-label="08-05"></i><i class="bar" style="height:49%" data-label="08-06"></i><i class="bar" style="height:76%" data-label="08-07"></i><i class="bar" style="height:92%" data-label="08-08"></i><i class="bar" style="height:63%" data-label="08-09"></i><i class="bar" style="height:70%" data-label="08-10"></i></div><div class="chart-foot">近24小时 1,367.5 Token/小时</div></div>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h2>账号与模型</h2><p>先按 API 账号核对余额和价格，再按当前正式 alias 查看实际用量。</p></div></div>
+          <div class="panel-body table-wrap"><table><thead><tr><th>账号 / 模型</th><th class="right">输入</th><th class="right">输出</th><th class="right">缓存</th><th class="right">总 Token</th><th class="right">请求</th><th class="right">API 成本</th><th>计量质量</th></tr></thead><tbody>
+            <tr><td><b>DeepSeek 主账号</b><span class="sub">余额 CNY 68.00 · 当前计价规则有效</span></td><td class="right num">52,481,728</td><td class="right num">289,152</td><td class="right num">50,660,864</td><td class="right num strong">52,770,880</td><td class="right num">812</td><td class="right num">6.34</td><td><span class="tag ok">完整</span></td></tr>
+            <tr><td>↳ ql-deepseek-v4-flash</td><td class="right num">1,701,324</td><td class="right num">25,447</td><td class="right num">1,580,032</td><td class="right num strong">1,726,771</td><td class="right num">31</td><td class="right num">0.19</td><td><button class="link-button" data-expand="ds-flash">精确 · 看请求</button></td></tr>
+            <tr><td colspan="8"><div class="request-detail" id="ds-flash">请求示例：08-10 18:42 · 输入 63,220 · 输出 892 · 缓存 61,440 · SUCCESS。实际开发应跳转到用量账本并携带账号、模型、月份筛选。</div></td></tr>
+            <tr><td>↳ ql-deepseek-v4-pro</td><td class="right num">98</td><td class="right num">37</td><td class="right num">0</td><td class="right num strong">135</td><td class="right num">2</td><td class="right num">0.01</td><td><span class="tag ok">精确</span></td></tr>
+            <tr><td>↳ 历史笼统 alias</td><td class="right num">50,780,306</td><td class="right num">263,668</td><td class="right num">49,080,832</td><td class="right num strong">51,043,974</td><td class="right num">779</td><td class="right num">6.14</td><td><span class="tag warn">历史事实</span></td></tr>
+          </tbody></table></div>
+        </section>
+      </section>
+
+      <section class="screen" id="kimi">
+        <header class="page-head">
+          <div><div class="breadcrumb"><button data-screen="home">首页看板</button> / 厂商资源 / Kimi</div><h1>Kimi · Coding Plan 资源详情</h1><p>厂商只提供窗口百分比；具体 Token 来自仟流本地调用账本，两者不换算。</p></div>
+          <div class="head-actions"><select class="month"><option>2026年08月</option></select><button class="primary-button">立即同步厂商额度</button></div>
+        </header>
+        <div class="split">
+          <div class="fact-card source-provider"><div class="fact-head"><h3>厂商额度事实</h3><span>PROVIDER_SYNC · 10:33 更新</span></div><div class="fact-grid"><div class="window-card"><div class="window-title"><b>滚动 5 小时</b><span>43 分钟后刷新</span></div><div class="window-number">已用 3%</div><div class="progress cyan"><i style="width:3%"></i></div><div class="window-foot">剩余 97% · 厂商未提供 Token 总额度</div></div><div class="window-card"><div class="window-title"><b>周额度</b><span>2 天 21 时后重置</span></div><div class="window-number">已用 60%</div><div class="progress"><i style="width:60%"></i></div><div class="window-foot">剩余 40% · 厂商未提供 Token 总额度</div></div></div><div class="notice">这里只忠实展示厂商百分比，不把 3% 或 60% 反推成 Token。</div></div>
+          <div class="fact-card source-ledger"><div class="fact-head"><h3>本地实际使用</h3><span>ledger_line · 上海自然月</span></div><div class="metric-value">121,317,652 Token</div><div class="quality-line"><span class="tag ok">精确计量</span><span class="sub">1,206 次请求 · 近24小时 1,030,937 Token/小时</span></div><div class="fact-grid" style="margin-top:13px"><div class="fact"><small>输入</small><b>120,463,700</b></div><div class="fact"><small>输出</small><b>853,952</b></div><div class="fact"><small>缓存</small><b>116,240,896</b></div><div class="fact"><small>推理</small><b>102,420</b></div></div></div>
+        </div>
+        <section class="panel" style="margin-top:16px">
+          <div class="panel-head"><div><h2>账号与模型</h2><p>Coding Plan 同样按“账号 → 正式模型 alias”下钻，Token 与额度百分比独立。</p></div></div>
+          <div class="panel-body table-wrap"><table><thead><tr><th>账号 / 模型</th><th class="right">输入</th><th class="right">输出</th><th class="right">缓存</th><th class="right">总 Token</th><th class="right">请求</th><th>计量质量</th></tr></thead><tbody>
+            <tr><td><b>Kimi Coding Plan · 主账号</b><span class="sub">五小时 3% · 周额度 60%</span></td><td class="right num">120,463,700</td><td class="right num">853,952</td><td class="right num">116,240,896</td><td class="right num strong">121,317,652</td><td class="right num">1,206</td><td><span class="tag ok">完整</span></td></tr>
+            <tr><td>↳ ql-k3</td><td class="right num">114,000,400</td><td class="right num">740,200</td><td class="right num">110,230,016</td><td class="right num strong">114,740,600</td><td class="right num">1,102</td><td><button class="link-button" data-expand="kimi-k3">精确 · 看请求</button></td></tr>
+            <tr><td colspan="7"><div class="request-detail" id="kimi-k3">请求示例：08-10 17:31 · 输入 108,420 · 输出 1,138 · 缓存 102,400 · SUCCESS。厂商窗口百分比不写入本条 Token 账本。</div></td></tr>
+            <tr><td>↳ ql-k3-256k</td><td class="right num">6,463,300</td><td class="right num">113,752</td><td class="right num">6,010,880</td><td class="right num strong">6,577,052</td><td class="right num">104</td><td><span class="tag ok">精确</span></td></tr>
+          </tbody></table></div>
+        </section>
+        <div class="footer-note"><b>Coding Plan 核心：</b>“厂商窗口剩余多少”回答供给风险；“本月实际用了多少 Token”回答真实消耗。两张表来源不同，但必须在同一详情页同时看到。</div>
+      </section>
+
+      <section class="screen" id="zhipu">
+        <header class="page-head">
+          <div><div class="breadcrumb"><button data-screen="home">首页看板</button> / 厂商资源 / 智谱</div><h1>智谱 · Coding Plan 资源详情</h1><p>示范“厂商额度不完整 + 部分请求 Token 未知”时的诚实展示。</p></div>
+          <div class="head-actions"><select class="month"><option>2026年08月</option></select><button class="primary-button">立即同步厂商额度</button></div>
+        </header>
+        <div class="split">
+          <div class="fact-card source-provider"><div class="fact-head"><h3>厂商额度事实</h3><span>PROVIDER_SYNC · 10:33 更新</span></div><div class="fact-grid"><div class="window-card"><div class="window-title"><b>滚动 5 小时</b><span>14:00 重置</span></div><div class="window-number">已用 72%</div><div class="progress orange"><i style="width:72%"></i></div><div class="window-foot">剩余 28% · 厂商未提供 Token 总额度</div></div><div class="window-card"><div class="window-title"><b>周额度</b><span>UNSUPPORTED</span></div><div class="window-number empty-dash">厂商未提供</div><div class="window-foot">不显示 0，不用五小时比例代替周比例</div></div></div></div>
+          <div class="fact-card source-ledger"><div class="fact-head"><h3>本地实际使用</h3><span>ledger_line · 上海自然月</span></div><div class="metric-value">≥ 29,187,036 Token</div><div class="quality-line"><span class="tag warn">已知下限</span><span class="tag unknown">7 次请求计量未知</span></div><div class="notice warn">不能因为存在未知请求就把整月写成“不可计算”；展示已知 Token 下限，同时明确未知请求数量。</div><div class="fact-grid" style="margin-top:13px"><div class="fact"><small>已知输入</small><b>28,960,411</b></div><div class="fact"><small>已知输出</small><b>226,625</b></div><div class="fact"><small>已知缓存</small><b>27,253,488</b></div><div class="fact"><small>未知请求</small><b>7 次</b></div></div></div>
+        </div>
+        <section class="panel" style="margin-top:16px">
+          <div class="panel-head"><div><h2>模型计量质量</h2><p>每个模型独立标识 EXACT／ESTIMATED／UNKNOWN，不让少量未知污染全部已知事实。</p></div></div>
+          <div class="panel-body table-wrap"><table><thead><tr><th>模型 alias</th><th class="right">已知 Token</th><th class="right">已知请求</th><th class="right">未知请求</th><th>展示口径</th><th></th></tr></thead><tbody>
+            <tr><td><b>ql-glm-5.2</b></td><td class="right num strong">28,940,112</td><td class="right num">506</td><td class="right num">0</td><td><span class="tag ok">精确</span></td><td><button class="link-button" data-expand="glm52">查看请求</button></td></tr>
+            <tr><td colspan="6"><div class="request-detail" id="glm52">请求示例：08-10 16:21 · 输入 76,900 · 输出 1,442 · 缓存 72,704 · SUCCESS · PROVIDER_REPORTED。</div></td></tr>
+            <tr><td><b>ql-glm-4.7</b></td><td class="right num strong">246,924</td><td class="right num">18</td><td class="right num">7</td><td><span class="tag warn">≥ 246,924</span><span class="sub">另有 7 次 Token 未知</span></td><td><button class="link-button">筛选账本 →</button></td></tr>
+          </tbody></table></div>
+        </section>
+        <div class="footer-note"><b>未知数据规则：</b>已知数据照常汇总，未知数据单独计数；只有所有请求均未知时，才显示“Token 暂无可用计量”。</div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const screens = [...document.querySelectorAll('.screen')];
+    const screenButtons = [...document.querySelectorAll('[data-screen]')];
+    function showScreen(id) {
+      screens.forEach((screen) => screen.classList.toggle('active', screen.id === id));
+      document.querySelectorAll('.screen-nav [data-screen]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.screen === id);
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    screenButtons.forEach((button) => button.addEventListener('click', () => showScreen(button.dataset.screen)));
+    document.querySelectorAll('[data-expand]').forEach((button) => {
+      button.addEventListener('click', () => document.getElementById(button.dataset.expand)?.classList.toggle('open'));
+    });
+  </script>
+</body>
+</html>
