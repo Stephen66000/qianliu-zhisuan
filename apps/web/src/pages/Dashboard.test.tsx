@@ -69,6 +69,19 @@ function seededSummary(): DashboardSummary {
         currentPeriodCost: null,
         snapshotAt: "2026-07-29T12:00:00.000Z",
         monthlyCost: "12.50000000",
+        monthlyInputTokens: "80000",
+        monthlyOutputTokens: "20000",
+        monthlyCacheTokens: "10000",
+        monthlyReasoningTokens: "5000",
+        monthlyTotalTokens: "100000",
+        monthlyUsageQuality: "EXACT",
+        modelTokenBreakdown: [],
+        tokenRate24h: "1000",
+        costRate24h: null,
+        estimatedBalanceTokens: null,
+        balanceTokenEstimateConfidence: null,
+        balanceTokenEstimateReason: "NOT_API_RESOURCE",
+        balanceTokenEstimateBasis: null,
         currentRate24h: "2400.5",
         currentRateUnit: "QUOTA_PER_HOUR",
         forecastConfidence: "MEDIUM",
@@ -221,5 +234,39 @@ describe("W18 首页看板", () => {
     expect(screen.getByText("降级")).toBeInTheDocument();
     expect(screen.getByText("智谱备用账号")).toBeInTheDocument();
     expect(screen.queryByText("全部正常")).not.toBeInTheDocument();
+  });
+
+  it("POOL-042：API 资源显示 Token 分项、模型下钻、速度和余额估算说明", () => {
+    const data = seededSummary();
+    data.resourceBreakdown.push({
+      ...data.resourceBreakdown[0]!,
+      providerCode: "deepseek", providerName: "DeepSeek", mode: "API",
+      accountCount: 1, totalQuota: null, usedQuota: null, remainingQuota: null,
+      quotaUnit: null, allocatedQuota: null, currency: "CNY",
+      currentBalance: "68", currentPeriodCost: "47.41", monthlyCost: "6.32",
+      monthlyInputTokens: "800000", monthlyOutputTokens: "200000",
+      monthlyCacheTokens: "100000", monthlyReasoningTokens: "50000",
+      monthlyTotalTokens: "1000000", monthlyUsageQuality: "EXACT",
+      modelTokenBreakdown: [{
+        unifiedModelId: "model-flash", modelAlias: "ql-deepseek-v4-flash",
+        inputTokens: "800000", outputTokens: "200000", cacheTokens: "100000",
+        reasoningTokens: "50000", totalTokens: "1000000",
+        usageQuality: "EXACT",
+      }],
+      tokenRate24h: "41666.67", costRate24h: "0.25",
+      estimatedBalanceTokens: "12500000", balanceTokenEstimateConfidence: "HIGH",
+      balanceTokenEstimateReason: null,
+      balanceTokenEstimateBasis: "最近24小时 24 条账本；按当前有效价格估算",
+    });
+    useDashboardMock.mockReturnValue({
+      isLoading: false, error: null, data, refetch: vi.fn(),
+    });
+    renderDashboard();
+    expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+    expect(screen.getAllByText("1,000,000")).toHaveLength(2);
+    expect(screen.getByText("ql-deepseek-v4-flash")).toBeInTheDocument();
+    expect(screen.getByText("41,666.67 Token/小时")).toBeInTheDocument();
+    expect(screen.getByText("约 12,500,000")).toBeInTheDocument();
+    expect(screen.getByText("估算 · HIGH")).toBeInTheDocument();
   });
 });

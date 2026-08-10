@@ -35,6 +35,7 @@ import {
 } from "./dashboard-helpers.js";
 import { listDashboardOverages } from "./dashboard-overages.js";
 import type { DashboardSummary, ResourceBreakdownItem } from "./dashboard-types.js";
+import { loadDashboardResourceUsage } from "./dashboard-resource-usage.js";
 
 export type * from "./dashboard-types.js";
 
@@ -76,6 +77,7 @@ export class DashboardRepository {
         enterpriseId,
         monthStart,
         monthEnd,
+        date,
         currentOperatingSnapshots,
       ),
       listDashboardOverages(this.db, enterpriseId),
@@ -267,8 +269,12 @@ export class DashboardRepository {
     enterpriseId: string,
     monthStart: Date,
     monthEnd: Date,
+    now: Date,
     currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
   ): Promise<ResourceBreakdownItem[]> {
+    const usageFor = await loadDashboardResourceUsage(
+      this.db, enterpriseId, monthStart, monthEnd, now,
+    );
     // 厂商+模式维度的账号数 + 本月费用 + 最新预测
     const rows = await this.db
       .selectFrom("provider_resource")
@@ -333,6 +339,7 @@ export class DashboardRepository {
           currentOperatingSnapshots,
         ),
       ]);
+      const usage = usageFor(providerCode, mode, operating.balance, operating.currency);
       breakdown.push({
         providerCode,
         providerName: r.provider_name,
@@ -349,6 +356,7 @@ export class DashboardRepository {
         currentPeriodCost: operating.periodCost,
         snapshotAt: operating.snapshotAt,
         monthlyCost,
+        ...usage,
         currentRate24h: forecast?.rate24h ?? null,
         currentRateUnit: forecast?.unit ?? null,
         forecastConfidence: forecast?.confidence ?? null,

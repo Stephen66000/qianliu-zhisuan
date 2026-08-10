@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "reporters": ["clear-text", "json"],
+  "jsonReporter": { "fileName": "reports/mutation/pool042-boundary.json" },
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.pool042.mutation.config.ts" },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/repositories/dashboard-resource-usage.ts:249:1-249:60"
+  ],
+  "thresholds": { "high": 100, "low": 100, "break": 100 },
+  "timeoutMS": 120000,
+  "concurrency": 1,
+  "disableTypeChecks": true,
+  "cleanTempDir": true
+}

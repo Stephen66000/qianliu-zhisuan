@@ -486,10 +486,11 @@ describe("P1-02：单人接入与 Gateway 计费准入使用同一合同", () =>
     }
   });
 
-  it.each([
-    ["未生效", { valid_from: new Date(Date.now() + 60_000), valid_until: null }],
-    ["已过期", { valid_from: new Date(0), valid_until: new Date(Date.now() - 1_000) }],
-  ] as const)("%s的 ACTIVE 厂商池不进入 GET 授权摘要和 Key", async (name, validity) => {
+  it.each(["未生效", "已过期"] as const)("%s的 ACTIVE 厂商池不进入 GET 授权摘要和 Key", async (name) => {
+    const now = Date.now();
+    const validity = name === "未生效"
+      ? { valid_from: new Date(now + 86_400_000), valid_until: null }
+      : { valid_from: new Date(0), valid_until: new Date(now - 86_400_000) };
     const principalId = await createEmployeeWithKey(`P102-池${name}`);
     const put = await putAccessConfig(principalId, 1, `p102-${name}-pool-put`, [{
       provider_code: "deepseek", quota_value: "1000000", enabled_model_ids: [proModelId],

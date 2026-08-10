@@ -25,6 +25,28 @@ export interface ResourceBreakdownItem {
   currentPeriodCost: string | null;
   snapshotAt: string | null;
   monthlyCost: string;
+  monthlyInputTokens: string | null;
+  monthlyOutputTokens: string | null;
+  monthlyCacheTokens: string | null;
+  monthlyReasoningTokens: string | null;
+  monthlyTotalTokens: string | null;
+  monthlyUsageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+  modelTokenBreakdown: Array<{
+    unifiedModelId: string | null;
+    modelAlias: string;
+    inputTokens: string | null;
+    outputTokens: string | null;
+    cacheTokens: string | null;
+    reasoningTokens: string | null;
+    totalTokens: string | null;
+    usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+  }>;
+  tokenRate24h: string | null;
+  costRate24h: string | null;
+  estimatedBalanceTokens: string | null;
+  balanceTokenEstimateConfidence: "HIGH" | "MEDIUM" | "LOW" | null;
+  balanceTokenEstimateReason: string | null;
+  balanceTokenEstimateBasis: string | null;
   currentRate24h: string | null;
   currentRateUnit: "CURRENCY_PER_HOUR" | "QUOTA_PER_HOUR" | null;
   forecastConfidence: string | null;

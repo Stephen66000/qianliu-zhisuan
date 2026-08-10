@@ -542,6 +542,82 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     ]));
   });
 
+  it("POOL-042：/dashboard 返回 API Token 分项、模型、速度与余额估算", async () => {
+    const provider = await db.insertInto("provider").values({
+      enterprise_id: ENT_ID, code: "pool042-api", name: "DeepSeek POOL-042",
+      adapter_type: "openai",
+    }).returning("id").executeTakeFirstOrThrow();
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID, provider_id: provider.id, name: "DeepSeek API",
+      mode: "API", credential_type: "API_KEY", status: "ACTIVE",
+    }).returning("id").executeTakeFirstOrThrow();
+    const now = new Date();
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: ENT_ID, provider_resource_id: resource.id, version: 1,
+      source: "PROVIDER_SYNC", collected_at: new Date(now.getTime() - 60_000),
+      currency: "CNY", current_balance: "10", current_period_cost: "1.25",
+      balance_updated_at: new Date(now.getTime() - 60_000),
+    }).execute();
+    const modelId = randomUUID();
+    await db.insertInto("unified_model").values({
+      id: modelId, enterprise_id: ENT_ID, alias: "ql-deepseek-v4-flash",
+      display_name: "DeepSeek Flash",
+    }).execute();
+    await db.insertInto("billing_rule").values({
+      enterprise_id: ENT_ID, provider_resource_id: resource.id,
+      upstream_model: "deepseek-flash", rule_type: "API_PRICE", rule_version: "pool042-v1",
+      effective_from: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+      cache_hit_price: "0.001", cache_miss_price: "0.002",
+      output_price: "0.004", enabled: true,
+    }).execute();
+    const principalKey = await db.selectFrom("principal_key").select("id")
+      .where("principal_id", "=", seededPrincipalId).executeTakeFirstOrThrow();
+    const requestId = randomUUID();
+    const usedAt = new Date(now.getTime() - 60 * 60 * 1000);
+    await db.insertInto("ai_request").values({
+      id: requestId, enterprise_id: ENT_ID, principal_id: seededPrincipalId,
+      principal_key_id: principalKey.id, protocol: "openai", unified_model: "legacy-flash",
+      unified_model_id: modelId, status: "SUCCEEDED", started_at: usedAt, finished_at: usedAt,
+    }).execute();
+    const attempt = await db.insertInto("upstream_attempt").values({
+      ai_request_id: requestId, enterprise_id: ENT_ID, attempt_no: 1,
+      provider_resource_id: resource.id, upstream_model: "deepseek-flash",
+      finished_at: usedAt, http_status: 200, response_committed: true,
+    }).returning("id").executeTakeFirstOrThrow();
+    const usage = await db.insertInto("usage_event").values({
+      ai_request_id: requestId, enterprise_id: ENT_ID, upstream_attempt_id: attempt.id,
+      provider_resource_id: resource.id, input_tokens: 100n, output_tokens: 20n,
+      cache_tokens: 40n, reasoning_tokens: 5n, usage_quality: "PROVIDER_REPORTED",
+      dedup_key: `pool042-${requestId}`, created_at: usedAt,
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("ledger_line").values({
+      ai_request_id: requestId, enterprise_id: ENT_ID, usage_event_id: usage.id,
+      upstream_attempt_id: attempt.id, provider_resource_id: resource.id,
+      principal_id: seededPrincipalId, resource_mode: "API", raw_input_tokens: 100n,
+      raw_output_tokens: 20n, raw_cache_tokens: 40n, raw_reasoning_tokens: 5n,
+      api_cost: "0.24", usage_quality: "PROVIDER_REPORTED", created_at: usedAt,
+    }).execute();
+
+    const response = await app.inject({
+      method: "GET", url: "/dashboard", headers: { cookie: adminCookie },
+    });
+    expect(response.statusCode).toBe(200);
+    const item = response.json().resourceBreakdown.find(
+      (row: { providerCode: string }) => row.providerCode === "pool042-api",
+    );
+    expect(item).toMatchObject({
+      currentBalance: "10.00000000", monthlyInputTokens: "100",
+      monthlyOutputTokens: "20", monthlyCacheTokens: "40", monthlyReasoningTokens: "5",
+      monthlyTotalTokens: "120", monthlyUsageQuality: "EXACT",
+      tokenRate24h: "5.00", costRate24h: "0.01000000",
+      estimatedBalanceTokens: "5000", balanceTokenEstimateReason: null,
+    });
+    expect(item.modelTokenBreakdown).toEqual([
+      expect.objectContaining({ modelAlias: "ql-deepseek-v4-flash", totalTokens: "120" }),
+    ]);
+    await db.deleteFrom("billing_rule").where("rule_version", "=", "pool042-v1").execute();
+  });
+
   it("/dashboard 超额关注排除归档主体和停用 Grant", async () => {
     const archived = await db.insertInto("principal").values({
       enterprise_id: ENT_ID,
