@@ -7,10 +7,12 @@
 | 档案状态 | `BUILDING / NOT_SEALED` |
 | Review 起始日 | 2026-08-11（Asia/Shanghai） |
 | 初始 Review Commit | `7ec225ba11068d4b40b92d3a9cc9c01a1e23d13b` |
+| 已审核代码候选 Commit | `684b2d5f083282c3d90e703c427d044855036282` |
+| Review Evidence | `codex/v1-final-review-20260811@HEAD` |
 | 最终 Commit／Tag | 尚未形成 |
 | Owner | 佳哥 |
 
-> 这是 1.0 的唯一交付档案目录。当前正在按 R01～R16 构建；文件存在不等于审核通过。最终候选、V1.4 双审、质量门禁、Owner 决定和档案 Hash 全部完成后，状态才可改为 `SEALED`。
+> 这是 1.0 的唯一交付档案目录。R01～R15 已完成，当前等待 R16 Owner 决定；文件存在不等于已经封板。Owner 决定、最终身份、Tag 和档案 Hash 全部完成后，状态才可改为 `SEALED_ENGINEERING / BUSINESS_PENDING`。
 
 ## 交付结构与状态
 

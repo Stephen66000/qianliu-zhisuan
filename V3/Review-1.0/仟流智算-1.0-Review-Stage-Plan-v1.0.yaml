@@ -14,7 +14,7 @@ candidate:
   base_ref: "origin/main"
   base_commit: "7ec225ba11068d4b40b92d3a9cc9c01a1e23d13b"
   reviewed_code_commit: "684b2d5f083282c3d90e703c427d044855036282"
-  evidence_carrier_commit: "c8b3fa4e3198323dd89f78bd08105bf437baba02"
+  evidence_carrier_ref: "codex/v1-final-review-20260811@HEAD"
   final_candidate: null
   package_version_observed: "1.0.0"
   database_migration_observed: "0044_operating_bill_model_identity.js"
@@ -155,7 +155,7 @@ work_packages:
   - id: "R16"
     status: "AWAITING_OWNER_FINAL_REVIEW"
     deliverable: "交付档案/仟流智算-1.0-Final/15-Final Review与封板决定/仟流智算1.0-Final-Review与Owner决定-v1.0.md"
-    evidence: "reviewed_code_commit:684b2d5f083282c3d90e703c427d044855036282; evidence_carrier_commit:c8b3fa4e3198323dd89f78bd08105bf437baba02"
+    evidence: "reviewed_code_commit:684b2d5f083282c3d90e703c427d044855036282; evidence_carrier_ref:codex/v1-final-review-20260811@HEAD"
     risk: "Owner 未决定前禁止 Tag、SEALED 状态和阶段 Ending"
     conclusion: "建议工程封板通过；等待 Owner 决定"
 
