@@ -26,17 +26,17 @@
 | `08-需求交付证据矩阵/` | FR／WT—实现—测试—生产 Evidence | `COMPLETE` |
 | `09-V1.4全量代码审核/` | 历史双审继承、全量机械门禁与高风险链复审 | `COMPLETE` |
 | `10-代码语义标注补齐/` | 语义标注检查、补齐和复审 | `COMPLETE` |
-| `11-质量安全与合规/` | 测试、覆盖率、安全、依赖与许可证 | `COMPLETE` |
+| `11-质量安全与合规/` | 测试、覆盖率、安全、SBOM、依赖与许可证 | `COMPLETE` |
 | `12-发布运维与灾备/` | 发布、升级、回滚、备份、恢复、监控和交接 | `COMPLETE_WITH_ACTION` |
 | `13-真实业务验证/` | 客户端、Provider、生产账本、完整自然月复盘 | `ENGINEERING_PASS / BUSINESS_PENDING` |
 | `14-遗留问题与2.0输入/` | 缺陷、债务、风险、机会和版本去向 | `COMPLETE` |
 | `15-Final Review与封板决定/` | Owner 决定、Release Manifest、Hash、Ending | `AWAITING_OWNER_DECISION` |
 
-## 当前硬阻断
+## 当前 R16 门槛与业务边界
 
-1. 旧 `v1.0.0` 标签落后初始候选 67 个提交，不能作为最终代码身份；需在 R16 形成新标签策略。
-2. `stage-state` 状态台账未同步数据库 `0044` 和 8 月 10 日生产事实；本次 Review 独立状态账本已建立，R16 固化最终身份。
-3. M8 完整自然月业务验证尚无完整 Evidence；只允许工程封板，不得宣称业务收口。
+1. 工程封板只剩 Owner Final Review 决定；决定前不生成最终 Tag、不写 `SEALED`。
+2. 旧 `v1.0.0` 标签保持历史不变；Owner 批准后新建 `v1.0.0-final`。
+3. M8 完整自然月业务验证尚无完整 Evidence；可以批准工程封板，但不得宣称业务收口。
 
 ## 规则
 
