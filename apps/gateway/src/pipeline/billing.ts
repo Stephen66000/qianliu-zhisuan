@@ -21,6 +21,10 @@ export interface BillingOutcome {
   ruleSnapshot: Record<string, unknown> | null;
 }
 
+/**
+ * 按 Attempt 开始时间选择生效规则并计算费用或套餐扣减。
+ * 规则一旦选中即交给调用链冻结；上游返回后不得重新读取可变规则重算历史。
+ */
 export async function computeBilling(
   ledgerRepo: GatewayLedgerRepository,
   enterpriseId: string,

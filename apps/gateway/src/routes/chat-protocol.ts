@@ -1,3 +1,9 @@
+/**
+ * OpenAI Chat Completions 北向流协议适配。
+ *
+ * 本模块只负责把上游增量事件写成标准 SSE，不持久化消息正文。`committed`
+ * 是故障切换边界：一旦首个事件发给客户端，调用链不得再切换上游拼接第二份响应。
+ */
 import type { FastifyReply } from "fastify";
 import type { Outcome } from "@qianliu/contracts";
 

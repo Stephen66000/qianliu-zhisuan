@@ -1,0 +1,1087 @@
+{
+  "digests": {
+    "full_candidate_hash": "d0da9158037117a21ffb24c8810ca7072e75d8fd3859db31ac2b61be5a9e449f",
+    "implementation_hash": "72f9d321e787eff73b272854817e603294609df7b8d85bee0d3cf70154bb4517",
+    "manifest_hash": "8c7d7c20f0c974ffc25b4152812fcc7688fcd4c1fec2a390f47ca032d7e20bd9"
+  },
+  "entries": [
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-quality-final/README.md",
+      "sha256": "21e5ba1080bf90d2690a5ca80a53134398efaac2e78c6e8a2348f62624af2be4",
+      "size": 979,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-quality-final/dependency-license-inventory.json",
+      "sha256": "7b8e03c48751c558d6d49f67da51208f156b5eb1aaf6d183e3a3b95cbe488b1e",
+      "size": 101889,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-quality-initial/README.md",
+      "sha256": "8d05130aa7d0a1c42e62175772eea5f770712086d1aef7c5003f7a79d76dea42",
+      "size": 1534,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-r01-r02/00-index.md",
+      "sha256": "f1bfe2eb420fae9d7e0be6e27bf1fafad970645d268ef6578d6cd6b49ae62dfb",
+      "size": 696,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-r01-r02/01-R01-候选与版本身份核对.md",
+      "sha256": "896fa093f36d400739b9c8344c92a9878aa0d1117f4ee7c9b6fc61dddf9594b2",
+      "size": 1744,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-r01-r02/02-R02-资产盘点与缺口.md",
+      "sha256": "ea1b4b4701919a7f0cd2274a80718d0d8f2670997c0d34a9c29f4536d5d30637",
+      "size": 2461,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-r01-r02/03-原工作区未提交资产快照.md",
+      "sha256": "5b0d3a5c803bf8ce718334f66855a319cf30935e1c3cc5f3cb929a1b4feed4a4",
+      "size": 2947,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-r01-r02/candidate-lock.initial.json",
+      "sha256": "f54542bce18df9de22a80579d6dd42e7b4ad60a6d39ef219a657c54bf5bf254e",
+      "size": 234677,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "evidence",
+      "mode": "0644",
+      "path": "V3/Evidence/Review-1.0/20260811-r01-r02/candidate-lock.initial.verify.json",
+      "sha256": "17c1affe024f19875786b39cfdb847a26f12ae2b494458b09bb14334cf099dc5",
+      "size": 867,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "V3/Review-1.0/仟流智算-1.0-Review-Stage-Plan-v1.0.yaml",
+      "sha256": "45f3fada5829972df29fe24afe3afd53a90f8bf8e8ddc0f993923295d4451b0d",
+      "size": 2632,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "V3/仟流智算-1.0-Review与阶段性收口方案-v1.0.md",
+      "sha256": "c625fa3b9f597e83703da807d52959791acd5b4a5d1c96423dd15cc221e458ec",
+      "size": 14613,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "VERSION",
+      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+      "size": 6,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "WorkBuddy接入仟流智算使用教程.md",
+      "sha256": "fabdda39fb636d2d549bcabe2fa2b4a7cb39f60e879b5e813f801b6d8851aa9a",
+      "size": 6175,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/package.json",
+      "sha256": "4d3a510429b0061fa0b9b059f9132498b3d5acd4623d178dd44882e3e6ed9d86",
+      "size": 1381,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/package.json",
+      "sha256": "34a15ae3b9cb06ce17c278ece8b2a77917c7b30ef9a3025a0b56dc687c2897de",
+      "size": 1048,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/auth/current-model-authorization.ts",
+      "sha256": "b692de28312914f654eb02b71d4a7cabd73a195ccc75f4417c9c7776fce0fb8a",
+      "size": 15830,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/pipeline/billing.ts",
+      "sha256": "faa212e1297c365ba80a7a5fd6ecc580a84d042c186d3d5975e56f6277db71bd",
+      "size": 7432,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/pipeline/pricing-evidence.ts",
+      "sha256": "09912aac1ba0724a2315c508fc62cb986c16bade0911f912055f8718561c95c7",
+      "size": 1697,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/routes/chat-protocol.ts",
+      "sha256": "a298309fee1b08c41e4a83dc6c250e995859eb35a38bd2a7e2ca6383a63a12ad",
+      "size": 8551,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/routes/messages-protocol.ts",
+      "sha256": "c1288a6392342896222a35df56e22e255dfe080b911795716ecb33be50776aff",
+      "size": 6609,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/gateway/src/routes/responses-protocol.ts",
+      "sha256": "32eaac61dd8d61f75b154d9ece7e04d82d2ed9930148509c51652cd414b34ba2",
+      "size": 4966,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/package.json",
+      "sha256": "c8f7ab6b9c7e11e3af04d5937eedac1e2ea45c110557574eec9067b301c68f87",
+      "size": 1184,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/worker/package.json",
+      "sha256": "b1ddb03d37ef1f1ebb51c2b47eaa6774b34f589651e681f0e12e1a74e42d7cf6",
+      "size": 1101,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/worker/src/runtime-assurance/runner.ts",
+      "sha256": "c266396c2a11f22788c95f873780a4140ae5b67830fb11a21541da2e0cad4e88",
+      "size": 3000,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/worker/src/supply-forecast/runner.ts",
+      "sha256": "5f32d7a49481a689c6a635d7cb06debde0d53315fb1cc44d4ab07a6ac2424302",
+      "size": 440,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "package.json",
+      "sha256": "3b89d9e76bbe32c1f53f0af49a20ad219417a8feb375b34707d6417e287f42c0",
+      "size": 6000,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/config/package.json",
+      "sha256": "383997b6a58123d74ac8d8cd5a09459789c15b9b432b50b12cde2de2830aa3e1",
+      "size": 545,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/contracts/package.json",
+      "sha256": "81c47d8e5beb00648388afe62d8f91e7e90d816b11fd88a17b3f77a595cd1c1a",
+      "size": 509,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/package.json",
+      "sha256": "eedaa13aa49155c2793f532bc011de92c7b32e153aa56aa88a93a47b4f4a590c",
+      "size": 1027,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/gateway-ledger-guarded-writes.ts",
+      "sha256": "3870eb23fc4044fe9dea5dabb36c3e84af15f31c2349af131e7f66742ee9fe28",
+      "size": 11435,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/gateway-ledger-settlement.ts",
+      "sha256": "6e99a6c3e237dbbdd2febc5d67a15d91430d93d098bb7ad5e90aea583d221061",
+      "size": 17202,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/package.json",
+      "sha256": "c3b50584542dbe7ab7eef76e1ba435bf45b7dd6002e0f0924864885a94c40abe",
+      "size": 742,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/__tests__/domain.test.ts",
+      "sha256": "3bc3383e5ff5e73ff8ccd3e9a3b95443e084c51e5d1e4510f86e4d8ade417c27",
+      "size": 1738,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/domain/src/index.ts",
+      "sha256": "dbe0a7816a34f6120bce138bf52f6461cce49d9dd3d992271e6c1d0d966dbb63",
+      "size": 8720,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/observability/package.json",
+      "sha256": "d2d40ed1bdca1c8e750fd8618c2721a6f2caf1a7b85f409de85069a53c3a2887",
+      "size": 926,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/package.json",
+      "sha256": "8e445c949e507385e07b2f0bde98b3f9dccf5556a3fb019125246fb448449fd3",
+      "size": 670,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/provider-adapters/src/resource-timeout-policy.ts",
+      "sha256": "0d44a50d696e3299c4ac7f5cb2c64fa07c5cc127d49e3efa9c3de9fb18831053",
+      "size": 619,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/testing/package.json",
+      "sha256": "f71de619e641778168b419b7f95435608b02c9b627d56f14e0530325e9544f99",
+      "size": 716,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/README-开发前全套文件索引.md",
+      "sha256": "88987a8ec9802cd884428846d5139870bfcb42a908267acf37ad3f91bfcb57b6",
+      "size": 3888,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/ADR与来源/ADR-GATEWAY-BASELINE.md",
+      "sha256": "46a5da18dc76014e4fe35700474f9ec278a8c01c342e087df80d29a885912dc2",
+      "size": 3794,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/ADR与来源/ADR-RUNTIME-ASSURANCE-FOUNDATION.md",
+      "sha256": "c094c542c3146289107469eaffe6a01ee1043c2afcef20c511266c9bd71dbe6f",
+      "size": 6044,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/ADR与来源/第三方源码来源与许可证清单-v0.3.md",
+      "sha256": "23720cf9d2e87686d9c5ff1efed4c641a272868103c16ac7357146d3c7a30251",
+      "size": 4046,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-01-北向客户端兼容-Evidence.md",
+      "sha256": "dbfdd03f0fdd7dba35e1e396f0dfbec61a79fd6254a4ba7febc8903542f13edd",
+      "size": 1818,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-02-三类上游-Evidence.md",
+      "sha256": "3c3781c949c0ece51b816617feb29ce911a85b9a4ca957e39683f4f9b2af74aa",
+      "size": 2059,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-02-既有结论继承记录-v0.3.md",
+      "sha256": "4408d4d0406503db7b2741855a3ff3df25d9dfdc6b03b839a248dddaa608e987",
+      "size": 2105,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-03-计量闭环-Evidence.md",
+      "sha256": "3247b91dccf935ed63968462b5f7846cb951653f0e40512cde0e18ff189b1ed7",
+      "size": 2737,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-04-Gateway基线对照-Evidence.md",
+      "sha256": "bef80ea4a22c7490ce036760e5ef3072e31953ce4a9a79e1d1ed2cf6dd0cc9b5",
+      "size": 4447,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/bench-100.mjs",
+      "sha256": "8c8f0c3fee31ad1655f06639cfa3aea24298776368a37f5fe1f49b7e77803c89",
+      "size": 1618,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/gateway-spike.mjs",
+      "sha256": "dc63224eb27f102da11d3aa1848a0cfa31a13e5d37dce9af550b426ef7a86ece",
+      "size": 11862,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/gateway-spike.test.mjs",
+      "sha256": "13d2d5b2a5d78467a0cb1a9c16888ff466b90eb2b50a88b318b152c3ea188876",
+      "size": 10787,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/.env.example",
+      "sha256": "f826b7303b610a34021e572ead3d6f5175d0f9f683763b1820c4b438638070aa",
+      "size": 509,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/.gitignore",
+      "sha256": "35e56cfde926cea4df3718b4e888c813efae81f65236ca051eea13567f8ad6f6",
+      "size": 29,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/docker-compose.yml",
+      "sha256": "f2bc23a992b9a990ffa50d860296729362ebaec5048fa05326bb7e66685ef0e5",
+      "size": 596,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/package.json",
+      "sha256": "c78c5b32063ab065ceda8754f40731c0f87925a9a3abe5b0811e58deb7ac2e68",
+      "size": 439,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/pnpm-lock.yaml",
+      "sha256": "8081735b2edfa199132185f37bef09909541fa6d94a585315f85980ebb58c1b2",
+      "size": 7958,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/schema.sql",
+      "sha256": "c0652eb25cda3ba37c634df9cb58496d296f36a7cd8590f987881c9515b0b45f",
+      "size": 1704,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/app.mjs",
+      "sha256": "a7e62da5106017cdc6cc890348bdcd0ef9bccec458b969419d1719af3afd8e15",
+      "size": 7002,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/observability.mjs",
+      "sha256": "98554693991d7dd2369e4e95644cc7521abdb893d33cb6ce39b33d624a7eb072",
+      "size": 2340,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/persistence.mjs",
+      "sha256": "b085998560eef4bc6226cb02b529ada0c63447248775af5442d751548d56557e",
+      "size": 7132,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/provider-secrets.mjs",
+      "sha256": "78285400227726d75ec88d04c2f7507a53ea6cd404187c677311bbe6de1cb18e",
+      "size": 1474,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/server.mjs",
+      "sha256": "6ae79fe90c8e71ce59f43e3733eac4206ba5094478bf2092d93f03e0316141da",
+      "size": 1894,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/test/integration.test.mjs",
+      "sha256": "26608169eed097ddad4abed07fafc3acc376e8f054d859918612e1d1ac32c24e",
+      "size": 7282,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/run-poc03.mjs",
+      "sha256": "7e4f56003ff27099c88202d4037746aaac2a1992007164048ededbe73ba76164",
+      "size": 654,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0755",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/qinaliu-logo-primary.png",
+      "sha256": "69837659855400ae138cbdbc92223541874ae560b16772813f14e9fcdda4875b",
+      "size": 1580,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/仟流智算-0.3原型审核总结.md",
+      "sha256": "9e4bd34a4a7f7780aa2a8ea6dffe47e2f02be9068ec816c75fda0bb8b88a040c",
+      "size": 4541,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/仟流智算-WT01-WT20逐项签字走查-v0.3.md",
+      "sha256": "818fb0ba451b0a0a4c8f004d10a495b4c60a59c80f691add6a02865d02145f10",
+      "size": 7623,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/仟流智算-原型-v4.html",
+      "sha256": "d4729aa78e3058885c586b61abcfbe90efae292fe0ec38e60b9d2f1a53a86525",
+      "size": 138663,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/仟流智算-原型走查记录.md",
+      "sha256": "b5b1e7aed2a031eeb181b7870832633acc8488b04170db866d5bb7e0520f8045",
+      "size": 6231,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/Planning-Change-Log.md",
+      "sha256": "a26a18f5221d788f1c22b61dbd6a6fe3d939c9c376641710c93ce33c30c7c938",
+      "size": 17255,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage01-Owner最终放行决定-v0.3.3.md",
+      "sha256": "afeef67e2e78b6292db00688ad689ac26cf9414854ae6e85a8b4ef0231f2bb91",
+      "size": 1861,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage01审核依据与来源-v0.3.1.md",
+      "sha256": "d0bc2177da9dbff523ba41c058d438c506b4d3d23f1268c9b23a3449740a219c",
+      "size": 1604,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage01方案准备评审-v0.3.md",
+      "sha256": "a0fc1a07d70e44141ccc800466cba2e8dcf39b21bf9bfbc9945e2d6119211c85",
+      "size": 18467,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage02-Owner最终放行决定-v0.3.3.md",
+      "sha256": "4180615d3b4b15762cc1e730b37ff0947c481a5d43696815425eca2b9fe1e373",
+      "size": 4977,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage02开发执行就绪评审-v0.3.md",
+      "sha256": "01badf17ee47ff0f0a9aba992ae5f143450aa5a2337310dfecf7faa0b47c1953",
+      "size": 8098,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-stage-state-v0.3.yaml",
+      "sha256": "394af666695b40ea47783ba346f35aafdf8cf8a60f5ce8ce4aba37526c8e6520",
+      "size": 7263,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-产品架构图-v0.3.html",
+      "sha256": "b147c9f6308d2579cb46b1b8de65ba0b8bfc19449b184bf5faa3f880a38325c2",
+      "size": 11876,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-产品需求文档-v0.3.md",
+      "sha256": "030fec7434f44fea46188e698027f3b5e7e8fd9b9383c492fbb5b3e574097ae4",
+      "size": 41696,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-开发规划-v0.3.md",
+      "sha256": "2f420f40758032c88cb5fea2ce76609caf747eabeb1c5c588d0806859ca7071d",
+      "size": 30117,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-技术需求文档-v0.3.md",
+      "sha256": "32758992bf308562d502c29fb7dfe309503bb4e0ad8f95d54ce8fabc94437e6b",
+      "size": 61104,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-详细开发计划与排期-v0.3.md",
+      "sha256": "fca33cd5970b24acc0dcaf3257d3fd6fbb06d4c115ae3f93a3af22997bf0d8dd",
+      "size": 29872,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-项目工程规则-v0.3.md",
+      "sha256": "05487d90c3aef6f20df029f3951ebfcabe7936d2e01e7d819fc843fc725b4b0d",
+      "size": 8835,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/02-开发时间轴与关键决策/仟流智算1.0-开发大事件时间轴-v1.0.md",
+      "sha256": "66971773a894b938f0a6260768da93c7a37e976d54069549ab4a0d56594782db",
+      "size": 4012,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/03-产品说明书/仟流智算1.0-产品说明书-v1.0.md",
+      "sha256": "30e9d49852748d5a4719cd1bb2bc49f2ef1818d9304a1a5ba8328ceae1048e4f",
+      "size": 8865,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/03-产品说明书/管理员与员工交付说明-v1.0.md",
+      "sha256": "cab25a68854833c3544e1e86776c4d9d1497c7eacbaa9669a2d42e6d0c5f3668",
+      "size": 1096,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/04-产品与技术架构/仟流智算1.0-产品与技术架构-Final.md",
+      "sha256": "4242fd0a4951c0b12405666b02db0f1562d9cbe1ba1a2ffb852e2823b014341b",
+      "size": 7675,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/05-最终开发进度/仟流智算1.0-最终开发进度表-v1.0.md",
+      "sha256": "cfe07b39902f16d599694be0a57a66c1ffe984efeb8199756f630e5c3c69fa04",
+      "size": 2446,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/06-主要功能展示/01-首页看板.png",
+      "sha256": "de497181b6cfc2b639252fad573d60ef1b3173d6cc193af65e3c36d803ee0d61",
+      "size": 174807,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/06-主要功能展示/02-使用主体与接入配置.png",
+      "sha256": "122686e6da71768b902898b7eedf1e7db06a62fcf5acf9e316caf95d1682fcb6",
+      "size": 50446,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/06-主要功能展示/03-厂商资源.png",
+      "sha256": "0aa2cd8c1feeaf9ec7f2c921381fa1bbdae64bd9e0298ef05adf6be87e824585",
+      "size": 67970,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/06-主要功能展示/04-模型路由与额度规则.png",
+      "sha256": "834e711f6d9fdbf3b68c9e45e0fd2c0a97a48fad74374c101dc334b50b61b180",
+      "size": 65232,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/06-主要功能展示/05-用量账本.png",
+      "sha256": "da1f8847c2ad518c44b9f72cf1cdf683dd5c536ea5e8ce3f1b54e232e506d938",
+      "size": 75287,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/06-主要功能展示/06-经营账单员工账.png",
+      "sha256": "f5bdc515d9be58dd0be88f28825b4bfb78203bb1afd5325949004d73a382a8e6",
+      "size": 67139,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/06-主要功能展示/07-运行保障.png",
+      "sha256": "856d02cadcd5c217f6890308235bb0b578169f8683ae924e597fc84f9f65014c",
+      "size": 40478,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/06-主要功能展示/README-功能展示索引.md",
+      "sha256": "9790f196aa00a752065d713420670aab1e0687c45fa5a0139f61c4746605abef",
+      "size": 2077,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/07-代码与版本/README-代码与版本交付清单.md",
+      "sha256": "da381cbd3cf909e9dbb0fb55359f0bb3655894f5cd21f8a6eaedf3a504b992a6",
+      "size": 1229,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/08-需求交付证据矩阵/FR-WT-需求交付证据矩阵-v1.0.md",
+      "sha256": "19da4c3cab612cd91ac6bc69ccf91bb4040afbcc245beea2fb30e48d9d347db7",
+      "size": 7264,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/08-需求交付证据矩阵/产品Review报告-v1.0.md",
+      "sha256": "da027a9922dd74b3aa2ed4379b13b058571ca8392dadff2e841d4b058d536969",
+      "size": 1296,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/09-V1.4全量代码审核/V1.4双审与风险点复审报告-v1.0.md",
+      "sha256": "b402962770c109b5dbe84bb011929e78c3eb1f2d5ca675c653ef18ee1cad83f5",
+      "size": 3612,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/10-代码语义标注补齐/代码语义标注检查与补齐记录-v1.0.md",
+      "sha256": "4728d4326a355cc2fc16880e3c92a6f5ef07b1d45296fb32ac82b4b11ec898f3",
+      "size": 2346,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/11-质量安全与合规/仟流智算1.0-质量安全报告-v1.0.md",
+      "sha256": "a89ee9809b9212e998793fb021d4f7842c984ec065bc02dcb11f4c88df8a4f80",
+      "size": 1947,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/12-发布运维与灾备/仟流智算1.0-发布运维与恢复交接-v1.0.md",
+      "sha256": "752a2f5f15f81b402bdeac7b9c6576a87e01e428e15ccf75976604f1367a84d6",
+      "size": 3248,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/13-真实业务验证/仟流智算1.0-真实业务验证报告-v1.0.md",
+      "sha256": "e9d671a0d98be06307a82868e8a63645ea2a8dcc0783e7207b4e929aeb0c4685",
+      "size": 1826,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/14-遗留问题与2.0输入/仟流智算1.0-遗留问题与2.0输入清单-v1.0.md",
+      "sha256": "892b480dc3f2afd821bf60b61aeba8d2d87059890af88eede5196b3ea8c79d62",
+      "size": 2952,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/15-Final Review与封板决定/仟流智算1.0-Final-Review与Owner决定-v1.0.md",
+      "sha256": "102681a8fc2680b8bd5765188b1febff5264a0eea7e2db8b045633c37b4e89c5",
+      "size": 1728,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "交付档案/仟流智算-1.0-Final/README-总索引.md",
+      "sha256": "6e246c4ffc1567c7baf073faff1f2ca82b3adcb7415acee97cc9208035fe2890",
+      "size": 2927,
+      "status": "untracked",
+      "type": "file"
+    }
+  ],
+  "evidence_prefixes": [
+    "V3/Evidence"
+  ],
+  "excludes": [
+    ".git",
+    ".git/**",
+    "V3/Evidence/Review-1.0/20260811-r16/candidate-lock.final.verify.json",
+    "V3/Evidence/Review-1.0/20260811-r16/candidate-lock.final.json"
+  ],
+  "generated_at": "2026-08-11T04:41:05.178482+00:00",
+  "git": {
+    "branch": "codex/v1-final-review-20260811",
+    "deleted": [],
+    "head": "7ec225ba11068d4b40b92d3a9cc9c01a1e23d13b",
+    "staged": [],
+    "untracked": [
+      "V3/Evidence/Review-1.0/20260811-quality-final/README.md",
+      "V3/Evidence/Review-1.0/20260811-quality-final/dependency-license-inventory.json",
+      "V3/Evidence/Review-1.0/20260811-quality-initial/README.md",
+      "V3/Evidence/Review-1.0/20260811-r01-r02/00-index.md",
+      "V3/Evidence/Review-1.0/20260811-r01-r02/01-R01-候选与版本身份核对.md",
+      "V3/Evidence/Review-1.0/20260811-r01-r02/02-R02-资产盘点与缺口.md",
+      "V3/Evidence/Review-1.0/20260811-r01-r02/03-原工作区未提交资产快照.md",
+      "V3/Evidence/Review-1.0/20260811-r01-r02/candidate-lock.initial.json",
+      "V3/Evidence/Review-1.0/20260811-r01-r02/candidate-lock.initial.verify.json",
+      "V3/Review-1.0/仟流智算-1.0-Review-Stage-Plan-v1.0.yaml",
+      "V3/仟流智算-1.0-Review与阶段性收口方案-v1.0.md",
+      "VERSION",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/README-开发前全套文件索引.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/ADR与来源/ADR-GATEWAY-BASELINE.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/ADR与来源/ADR-RUNTIME-ASSURANCE-FOUNDATION.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/ADR与来源/第三方源码来源与许可证清单-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-01-北向客户端兼容-Evidence.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-02-三类上游-Evidence.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-02-既有结论继承记录-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-03-计量闭环-Evidence.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/POC-04-Gateway基线对照-Evidence.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/bench-100.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/gateway-spike.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/gateway-spike.test.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/.env.example",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/.gitignore",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/docker-compose.yml",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/package.json",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/pnpm-lock.yaml",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/schema.sql",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/app.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/observability.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/persistence.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/provider-secrets.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/src/server.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/persistent-gateway/test/integration.test.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/PoC/run-poc03.mjs",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/qinaliu-logo-primary.png",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/仟流智算-0.3原型审核总结.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/仟流智算-WT01-WT20逐项签字走查-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/仟流智算-原型-v4.html",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/原型/仟流智算-原型走查记录.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/Planning-Change-Log.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage01-Owner最终放行决定-v0.3.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage01审核依据与来源-v0.3.1.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage01方案准备评审-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage02-Owner最终放行决定-v0.3.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/方案审核/仟流智算-Stage02开发执行就绪评审-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-stage-state-v0.3.yaml",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-产品架构图-v0.3.html",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-产品需求文档-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-开发规划-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-技术需求文档-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-详细开发计划与排期-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/01-开发前基线/资料快照/核心基线/仟流智算-项目工程规则-v0.3.md",
+      "交付档案/仟流智算-1.0-Final/02-开发时间轴与关键决策/仟流智算1.0-开发大事件时间轴-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/03-产品说明书/仟流智算1.0-产品说明书-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/03-产品说明书/管理员与员工交付说明-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/04-产品与技术架构/仟流智算1.0-产品与技术架构-Final.md",
+      "交付档案/仟流智算-1.0-Final/05-最终开发进度/仟流智算1.0-最终开发进度表-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/06-主要功能展示/01-首页看板.png",
+      "交付档案/仟流智算-1.0-Final/06-主要功能展示/02-使用主体与接入配置.png",
+      "交付档案/仟流智算-1.0-Final/06-主要功能展示/03-厂商资源.png",
+      "交付档案/仟流智算-1.0-Final/06-主要功能展示/04-模型路由与额度规则.png",
+      "交付档案/仟流智算-1.0-Final/06-主要功能展示/05-用量账本.png",
+      "交付档案/仟流智算-1.0-Final/06-主要功能展示/06-经营账单员工账.png",
+      "交付档案/仟流智算-1.0-Final/06-主要功能展示/07-运行保障.png",
+      "交付档案/仟流智算-1.0-Final/06-主要功能展示/README-功能展示索引.md",
+      "交付档案/仟流智算-1.0-Final/07-代码与版本/README-代码与版本交付清单.md",
+      "交付档案/仟流智算-1.0-Final/08-需求交付证据矩阵/FR-WT-需求交付证据矩阵-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/08-需求交付证据矩阵/产品Review报告-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/09-V1.4全量代码审核/V1.4双审与风险点复审报告-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/10-代码语义标注补齐/代码语义标注检查与补齐记录-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/11-质量安全与合规/仟流智算1.0-质量安全报告-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/12-发布运维与灾备/仟流智算1.0-发布运维与恢复交接-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/13-真实业务验证/仟流智算1.0-真实业务验证报告-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/14-遗留问题与2.0输入/仟流智算1.0-遗留问题与2.0输入清单-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/15-Final Review与封板决定/仟流智算1.0-Final-Review与Owner决定-v1.0.md",
+      "交付档案/仟流智算-1.0-Final/README-总索引.md"
+    ],
+    "worktree_modified": [
+      "WorkBuddy接入仟流智算使用教程.md",
+      "apps/control-api/package.json",
+      "apps/gateway/package.json",
+      "apps/gateway/src/auth/current-model-authorization.ts",
+      "apps/gateway/src/pipeline/billing.ts",
+      "apps/gateway/src/pipeline/pricing-evidence.ts",
+      "apps/gateway/src/routes/chat-protocol.ts",
+      "apps/gateway/src/routes/messages-protocol.ts",
+      "apps/gateway/src/routes/responses-protocol.ts",
+      "apps/web/package.json",
+      "apps/worker/package.json",
+      "apps/worker/src/runtime-assurance/runner.ts",
+      "apps/worker/src/supply-forecast/runner.ts",
+      "package.json",
+      "packages/config/package.json",
+      "packages/contracts/package.json",
+      "packages/database/package.json",
+      "packages/database/src/repositories/gateway-ledger-guarded-writes.ts",
+      "packages/database/src/repositories/gateway-ledger-settlement.ts",
+      "packages/domain/package.json",
+      "packages/domain/src/__tests__/domain.test.ts",
+      "packages/domain/src/index.ts",
+      "packages/observability/package.json",
+      "packages/provider-adapters/package.json",
+      "packages/provider-adapters/src/resource-timeout-policy.ts",
+      "packages/testing/package.json"
+    ]
+  },
+  "root_hint": "/Users/mac/Projects/仟流智算-1.0-review",
+  "schema_version": "1.0",
+  "selection": {
+    "base_commit": "7ec225ba11068d4b40b92d3a9cc9c01a1e23d13b",
+    "base_ref": "origin/main",
+    "kind": "changed_from"
+  },
+  "tool_version": "1.0"
+}

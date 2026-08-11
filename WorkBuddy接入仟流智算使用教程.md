@@ -1,7 +1,7 @@
 # 仟流智算 × WorkBuddy 使用教程（员工版）
 
 > 适用模型：DeepSeek V4（Flash / Pro）、Kimi K3、智谱 GLM-4.6 / 4.7 / 5.2
-> 更新时间：2026-08-06
+> 更新时间：2026-08-11
 > 适用对象：使用公司分配的仟流智算 Key，通过 Tencent WorkBuddy 完成办公或开发任务的员工
 
 ---
@@ -12,9 +12,9 @@
 
 | 厂商 | ❌ 旧名称（已停用） | ✅ 新名称（请改用） |
 | --- | --- | --- |
-| DeepSeek | `qianliu-deepseek` | `qianliu-deepseek-deepseek-v4-flash` 或 `qianliu-deepseek-deepseek-v4-pro` |
-| Kimi | `Kimi` | `qianliu-kimi-k3` 或 `qianliu-kimi-k3-256k` |
-| 智谱 | `zhipu` | `qianliu-zhipu-glm-5-2`（或 4.6 / 4.7）|
+| DeepSeek | `qianliu-deepseek`、`qianliu-deepseek-deepseek-v4-*` | `ql-deepseek-v4-flash` 或 `ql-deepseek-v4-pro` |
+| Kimi | `Kimi`、`qianliu-kimi-k3*` | `ql-k3` 或 `ql-k3-256k` |
+| 智谱 | `zhipu`、`qianliu-zhipu-glm-*` | `ql-glm-5.2`（或 `ql-glm-4.7` / `ql-glm-4.6`）|
 
 **接入地址和 API Key 都不用改**，只有模型名称需要更新。
 
@@ -63,28 +63,28 @@
 
 | 模型 | 模型名称 / Model ID | 说明 |
 | --- | --- | --- |
-| DeepSeek V4 Flash | `qianliu-deepseek-deepseek-v4-flash` | 快速版，适合日常任务 |
-| DeepSeek V4 Pro | `qianliu-deepseek-deepseek-v4-pro` | 增强版，能力更强、费用更高 |
+| DeepSeek V4 Flash | `ql-deepseek-v4-flash` | 快速版，适合日常任务 |
+| DeepSeek V4 Pro | `ql-deepseek-v4-pro` | 增强版，能力更强、费用更高 |
 
 #### Kimi（套餐制，Token 用完即止）
 
 | 模型 | 模型名称 / Model ID | 说明 |
 | --- | --- | --- |
-| Kimi K3 | `qianliu-kimi-k3` | 标准上下文 |
-| Kimi K3 256K | `qianliu-kimi-k3-256k` | 长上下文，适合处理长文档 |
+| Kimi K3 | `ql-k3` | 标准上下文 |
+| Kimi K3 256K | `ql-k3-256k` | 长上下文，适合处理长文档 |
 
 #### 智谱（套餐制，Token 用完即止）
 
 | 模型 | 模型名称 / Model ID | 说明 |
 | --- | --- | --- |
-| 智谱 GLM-5.2 | `qianliu-zhipu-glm-5-2` | 最新版，推荐使用 |
-| 智谱 GLM-4.7 | `qianliu-zhipu-glm-4-7` | 上一代 |
-| 智谱 GLM-4.6 | `qianliu-zhipu-glm-4-6` | 稳定版 |
+| 智谱 GLM-5.2 | `ql-glm-5.2` | 最新版，推荐使用 |
+| 智谱 GLM-4.7 | `ql-glm-4.7` | 上一代 |
+| 智谱 GLM-4.6 | `ql-glm-4.6` | 稳定版 |
 
 ### 3. 重要提醒
 
 - **模型名称必须一字不差**，包括大小写、连字符。建议直接从上面的表格复制粘贴。
-- **不要把模型名填成 `deepseek-v4-flash`、`k3` 或 `glm-5.2`**。WorkBuddy 连接的是仟流智算网关，必须使用网关对外提供的完整模型名称（以 `qianliu-` 开头）。
+- **不要把模型名填成 `deepseek-v4-flash`、`k3` 或 `glm-5.2`**。WorkBuddy 连接的是仟流智算网关，必须使用网关对外提供的完整模型名称（以 `ql-` 开头）。
 - 如果页面还显示"能力"选项，请开启"工具调用（Tool Call）"；图片输入、推理模式等其他开关先保持默认。
 
 ## 四、如果是老用户：更新已有配置
@@ -92,7 +92,7 @@
 如果你之前已经配置过仟流智算模型，不用删除重新建，直接改模型名即可：
 
 1. 打开 `设置 → 模型`。
-2. 找到之前添加的模型（如 `qianliu-deepseek`、`Kimi`、`zhipu`）。
+2. 找到之前添加的仟流智算模型（包括以 `qianliu-` 开头的旧名称）。
 3. 把"模型名称 / Model ID"改成上面的新名称。
 4. 保存。
 

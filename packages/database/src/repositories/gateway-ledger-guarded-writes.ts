@@ -1,3 +1,9 @@
+/**
+ * Gateway 历史兼容写入口的结算护栏。
+ *
+ * 新链路优先使用原子结算；保留这些入口只为旧测试/工具兼容，并通过 request 行锁、
+ * 租户身份闭合和经营账期屏障，阻止 terminal 后改写或 usage/ledger 串账。
+ */
 import type { Kysely } from "kysely";
 
 import type { Database } from "../kysely.js";

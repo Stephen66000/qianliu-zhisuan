@@ -1,3 +1,9 @@
+/**
+ * Anthropic Messages 北向流协议适配。
+ *
+ * 上游仍是 OpenAI-compatible Chat delta；本模块仅在内存中维护内容块索引并实时
+ * 转成 Messages SSE。发送首块后即视为 committed，不允许再切换上游。
+ */
 import type { FastifyReply } from "fastify";
 import type { GatewayStreamWriter } from "./chat-protocol.js";
 

@@ -1,3 +1,7 @@
+/**
+ * 运行保障单次调度：恢复到期事件、回收失联通知、发送企业微信并按上限退避重试。
+ * Repository 保证 claim 的跨实例互斥；本函数不持有长期状态，重复 tick 可安全执行。
+ */
 import type { RuntimeAssuranceRepository } from "@qianliu/database";
 import type { WecomAppClient } from "./wecom-client.js";
 
@@ -10,6 +14,7 @@ export interface RuntimeTickResult {
   legacyShadowReview: number;
 }
 
+/** 执行一个有界批次并返回可观测统计；永久失败不会无限重试。 */
 export async function runRuntimeAssuranceTick(input: {
   repository: RuntimeAssuranceRepository;
   wecom: WecomAppClient;

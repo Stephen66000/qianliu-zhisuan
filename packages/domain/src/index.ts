@@ -283,4 +283,4 @@ export {
 
 export * from "./client-identity.js";
 
-export const DOMAIN_VERSION = "0.3.0" as const;
+export const DOMAIN_VERSION = "1.0.0" as const;

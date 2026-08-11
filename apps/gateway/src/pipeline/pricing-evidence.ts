@@ -1,5 +1,10 @@
+/**
+ * 将逐 Attempt 账本行汇总成请求级价格证据。
+ * 只要任一 API 行缺少成本或规则身份，`actualCost` 就保持未知，禁止把未知误算为零。
+ */
 import type { LedgerLine } from "@qianliu/database";
 
+/** 返回请求实际成本、证据完整性和可审计的逐行规则快照。 */
 export function summarizePricingEvidence(lines: LedgerLine[]): {
   actualCost: string | null;
   complete: boolean;

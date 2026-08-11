@@ -1,3 +1,9 @@
+/**
+ * 模型目录与调用热路径共用的最终授权事实源。
+ *
+ * 授权必须同时满足 Key、主体、模型、Route、Provider、资源、Grant 和计费规则；
+ * Adapter 调用前再次在数据库快照内复核，避免列表展示与真实调用形成两套口径。
+ */
 import { sql, type Kysely, type Transaction } from "kysely";
 
 import { listEnabledBillingRulesAt, type Database } from "@qianliu/database";

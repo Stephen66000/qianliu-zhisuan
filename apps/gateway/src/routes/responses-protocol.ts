@@ -1,3 +1,9 @@
+/**
+ * OpenAI Responses 北向协议输出适配。
+ *
+ * 1.0 仅支持由 Chat Completions 转换得到的 Responses 子集；这里负责构造最终
+ * response 对象和规定顺序的 SSE 事件，不保存请求或响应正文。
+ */
 import type { FastifyReply } from "fastify";
 import type {
   ResponseOutputItem,
@@ -5,6 +11,7 @@ import type {
   ResponsesResponse,
 } from "@qianliu/contracts";
 
+/** 将内部 Outcome 的 Token 与输出项冻结为客户端可见的 Responses 最终对象。 */
 export function buildResponsesResponse(input: {
   requestId: string;
   createdAt: number;
@@ -45,6 +52,10 @@ export function buildResponsesResponse(input: {
   };
 }
 
+/**
+ * 按 Responses 事件顺序一次性写出缓冲结果。
+ * 该函数不是上游实时透传；1.0 的 Responses streaming 能力边界为转换兼容。
+ */
 export function writeResponsesSse(
   reply: FastifyReply,
   response: ResponsesResponse,

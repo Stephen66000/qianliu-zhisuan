@@ -11,7 +11,7 @@ import type { ErrorClassification } from "../index.js";
 
 describe("@qianliu/domain", () => {
   it("exposes version", () => {
-    expect(DOMAIN_VERSION).toBe("0.3.0");
+    expect(DOMAIN_VERSION).toBe("1.0.0");
   });
 
   it("可重试状态码集合（PoC 迁移）", () => {

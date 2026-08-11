@@ -1,0 +1,160 @@
+schema_version: "1.0"
+project: "仟流智算"
+product_version: "v0.3"
+plan_version: "v0.3.1"
+updated_at: "2026-08-01T18:45:24+08:00"
+product_owner: "佳哥"
+tech_owner: "佳哥"
+
+sop_binding:
+  reference: "/Users/mac/Documents/AI专区/仟流 规范与体系/编程规范/仟流AI开发SOP/仟流AI开发SOP-v1.0.md"
+  status: "doing"
+  note: "v1.0 当前作为本轮整改的对照基线；正式替换历史绑定版本仍需 Owner 冻结。"
+
+stage:
+  id: "STAGE-03"
+  name: "开发执行"
+  status: "done"
+  current_step: "POST-RELEASE-VALIDATION"
+  evidence_target: "V3/Evidence/Final-Audit/20260801-remediation/"
+
+delivery:
+  delivery_status: "done"
+  current_candidate: "c5344ad925ba0fdc4c58f1769bff4765ab759d2213fa85a00e7bb84148e18ee3"
+  completion_condition: "同一候选上的功能、代码质量、安全、恢复和发布准备检查全部完成，P0/P1 与阻断性 Evidence Gap 为零。"
+  evidence: "V3/Evidence/Final-Audit/20260801-remediation/04-evidence-index.md"
+  note: "本轮交付候选已通过 HIGH 风险本地门禁；当前授权不含 commit、push 或生产发布。"
+
+validation:
+  validation_status: "doing"
+  validation_result: "证据不足"
+  completed_observations:
+    - "Kimi 真实流式请求、usage、账本与结算落库"
+    - "Mac Mini Gateway、Control API、Web、Worker、Caddy 健康检查"
+  remaining_observations:
+    - "真实企微成员定向送达"
+    - "智谱及更多厂商真实故障信号"
+    - "Windows 11 与更多客户端中文错误展示"
+    - "生产规模业务验证"
+  note: "业务验证与开发交付分轨，不把发布后观察事项伪装成已完成。"
+
+risk:
+  level: "HIGH"
+  matched_conditions:
+    - "认证、密钥与隐私边界"
+    - "协议兼容、账本与计费"
+    - "数据库迁移、恢复与生产发布"
+    - "常驻 Worker、并发与共享生产基线"
+    - "最终候选与发布证据"
+
+current_authority:
+  status: "done"
+  source: "2026-08-01 当前 Codex 任务中的 Owner 指令：请依次修复"
+  scope: "仅限本轮审核 Findings 的代码、依赖、门禁、状态和证据整改；不包含 push、PR、merge 或再次生产发布。"
+  historical_ra_w01_note: "未找到 PC-20260731-11 所要求的独立 RA-W01 授权载体；本记录只证明当前整改授权，不倒签或改写历史事实。"
+
+current_findings:
+  - id: "AUDIT-P1-01"
+    status: "done"
+    subject: "Worker 监听器生命周期与异常可观测性"
+    evidence: "apps/worker/src/runtime-assurance/scheduler.test.ts；V3/Evidence/Final-Audit/20260801-remediation/02-functional-security-recovery-review.md"
+  - id: "AUDIT-P1-02"
+    status: "done"
+    subject: "同候选最终审核证据"
+    evidence: "V3/Evidence/Final-Audit/20260801-remediation/"
+  - id: "AUDIT-P1-03"
+    status: "done"
+    subject: "质量与依赖安全门禁"
+    evidence: "V3/Evidence/Final-Audit/20260801-remediation/03-code-quality-review.md"
+  - id: "AUDIT-P1-04"
+    status: "done"
+    subject: "状态事实源迁移"
+    evidence: "本文件；仅使用 todo/doing/done 与证据不足/通过/不通过。"
+  - id: "AUDIT-P1-05"
+    status: "done"
+    subject: "当前整改授权与历史授权缺口分离"
+    evidence: "current_authority"
+  - id: "AUDIT-P2-01"
+    status: "done"
+    subject: "历史大文件与复杂度不再增长门禁"
+    evidence: "V3/仟流智算-质量门禁-v1.0.json；scripts/check-source-size.mjs；eslint.config.mjs"
+  - id: "AUDIT-P2-02"
+    status: "done"
+    subject: "不安全上游错误正文日志"
+    evidence: "未被引用的 apps/gateway/src/pipeline/http-caller.ts 已删除；生产 Caller 继续使用现有脱敏错误合同。"
+
+quality_gate:
+  status: "done"
+  config: "V3/仟流智算-质量门禁-v1.0.json"
+  required_commands:
+    - "corepack pnpm@11.11.0 run quality"
+    - "corepack pnpm@11.11.0 run quality:mutation"
+    - "corepack pnpm@11.11.0 run test:e2e"
+  result: "quality 通过；mutation 87.55%；Web E2E 22/22；Gateway Codex E2E 通过。"
+  evidence: "V3/Evidence/Final-Audit/20260801-remediation/04-evidence-index.md"
+
+next_action:
+  id: "POST-RELEASE-VALIDATION"
+  status: "todo"
+  text: "获得独立发布授权并发布新候选后，继续真实企微、更多 Provider、Windows 11 与生产规模业务验证。"
+  owner: "佳哥"
+
+allowed_actions:
+  - "修复本轮审核 Findings"
+  - "升级已识别的风险依赖并更新锁文件"
+  - "运行本地类型检查、Lint、测试、构建、覆盖率、重复率、变异测试、依赖审计和 E2E"
+  - "更新唯一状态事实源、Planning Change 和本轮 Evidence"
+  - "生成当前候选对象锁"
+
+forbidden_actions:
+  - "伪造或倒签历史 Owner 授权"
+  - "把测试结果、Owner 确认或审核意见写成额外流程成功状态"
+  - "未经明确授权执行 commit、push、PR、merge 或生产发布"
+  - "把真实 Secret、请求正文或生产数据写入仓库、日志、数据库、Redis 或 Trace"
+  - "对生产环境执行破坏性或扩大流量验证"
+
+blockers: []
+
+conditional_dependencies:
+  - id: "DEP-PROVIDER-CREDENTIALS"
+    status: "doing"
+    note: "Kimi 已验证；智谱及更多 Provider 保持发布后业务验证。"
+  - id: "DEP-WINDOWS"
+    status: "todo"
+    trigger: "进入 Windows 11 与客户端展示验证批次。"
+  - id: "DEP-DEPLOYMENT"
+    status: "done"
+    evidence: "V3/Evidence/Production-Release/20260801-final-release/03-production-release.md"
+
+production_release:
+  status: "done"
+  version: "v0.3.0"
+  git_commit: "dd80e975ff6cc88e5dab3967479c299bc778b0ac"
+  released_at: "2026-08-01T16:59:55+08:00"
+  database_version: "0031_gateway_stream_resilience"
+  evidence: "V3/Evidence/Production-Release/20260801-final-release/03-production-release.md"
+  note: "这是历史首次发布事实；不自动覆盖本轮修改后的新候选。"
+
+historical_evidence:
+  stage01_owner_decision: "V3/仟流智算-Stage01-Owner最终放行决定-v0.3.3.md"
+  stage01_seal: "V3/仟流智算-Stage01封板锁-v0.3.3.owner-approved.sha256"
+  stage02_owner_decision: "V3/仟流智算-Stage02-Owner最终放行决定-v0.3.3.md"
+  stage02_seal: "V3/仟流智算-Stage02封板锁-v0.3.3.owner-approved.sha256"
+  previous_m7_lock: "V3/仟流智算-M7评审候选锁-v0.3.sha256"
+  previous_process_values: "旧版 OWNER_APPROVED / PASS / COMPLETE 等原值只作为历史 Evidence 保留，不再作为当前流程状态。"
+
+authoritative_files:
+  product: "V3/仟流智算-产品需求文档-v0.3.md"
+  technical: "V3/仟流智算-技术需求文档-v0.3.md"
+  initiation_baseline: "V3/仟流智算-开发规划-v0.3.md"
+  development_plan: "V3/仟流智算-详细开发计划与排期-v0.3.md"
+  engineering_rules: "V3/仟流智算-项目工程规则-v0.3.md"
+  planning_change: "V3/Planning-Change-Log.md"
+  quality_gate: "V3/仟流智算-质量门禁-v1.0.json"
+
+progress_update_rule: "当前阶段事实只修改本 YAML；旧 Stage01/Stage02 HTML 仅作为历史快照，不再承载当前状态。"
+recheck_triggers:
+  - "当前候选对象锁校验失败"
+  - "候选代码、依赖、配置、迁移或发布脚本发生变化"
+  - "发现当前范围 P0/P1 或阻断性 Evidence Gap"
+  - "目标、范围、安全、关键依赖、验收或真实业务周期发生实质变化"

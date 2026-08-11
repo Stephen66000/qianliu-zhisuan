@@ -1,3 +1,9 @@
+/**
+ * Gateway 逐 Attempt 计量、账本与请求终态的原子结算实现。
+ *
+ * 核心不变量：先锁 request，再写 Attempt/usage/ledger/quota/lease；请求终态是发布
+ * 屏障。任何迟到写入、跨租户身份不一致或重复结算冲突都 fail-closed，不能形成无账调用。
+ */
 import { Decimal } from "decimal.js";
 import { type Kysely, type Transaction } from "kysely";
 

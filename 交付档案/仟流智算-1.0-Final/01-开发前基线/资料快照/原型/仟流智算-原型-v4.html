@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>仟流智算 · K3 原型 v4 · PRD v0.3</title>
+<style>
+/* ============ 设计令牌 · 仟流 Web 产品视觉规范 1.0 + 仪表盘补充草案0.1 ============ */
+:root{
+  --canvas:#F4F7FB; --surface:#FFFFFF; --surface-subtle:#F8FAFC; --surface-muted:#EEF2F6;
+  --surface-brand-soft:#EEF4FE;
+  --border:#D8E1EB; --border-strong:#7D8FA4; --border-subtle:#E3EAF2; /* 草案0.1 §1.3 Zone 外框 */
+  --text-primary:#172033; --text-secondary:#526175; --text-tertiary:#6B7280; --text-disabled:#9AA6B2;
+  --action-primary:#2F6FCE; --action-primary-hover:#255DB2; --action-primary-soft:#E8F0FD;
+  --brand-blue:#417EE0; --accent-visual:#00D2D4;
+  --success:#267A3D; --success-soft:#EAF6ED;
+  --warning:#9A4A2E; --warning-soft:#FBEFE9;
+  --danger:#C7352E; --danger-soft:#FDEDEC;
+  --overlay:rgba(15,27,46,.48);
+  --shadow-raised:0 12px 32px rgba(15,27,46,.12);
+  --shadow-zone:0 4px 16px rgba(15,27,46,.06); /* 草案0.1 §2.2 核心区轻阴影 */
+  --radius-sm:6px; --radius-md:8px; --radius-lg:12px; --radius-xl:16px;
+  --font:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Segoe UI",-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:"SFMono-Regular","SF Mono","Cascadia Code","JetBrains Mono","Menlo",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:14px}
+body{font-family:var(--font);color:var(--text-primary);background:var(--canvas);font-size:14px;line-height:22px;-webkit-font-smoothing:antialiased}
+button{font-family:var(--font);cursor:pointer;border:none;background:none;font-size:14px}
+input,select,textarea{font-family:var(--font);font-size:14px;color:var(--text-primary)}
+a{color:var(--action-primary);text-decoration:none}
+.mono{font-family:var(--mono);font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+::selection{background:var(--action-primary-soft)}
+
+/* ============ 壳层 ============ */
+#app{display:flex;min-height:100vh}
+.sidebar{width:256px;flex:0 0 256px;background:var(--surface);border-right:1px solid var(--border-subtle);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side-brand{display:flex;align-items:center;gap:10px;padding:18px 20px 16px;border-bottom:1px solid var(--border-subtle)}
+.brand-mark{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 32px;overflow:hidden}
+.brand-mark img{width:100%;height:100%;object-fit:contain;display:block}
+.brand-name{font-size:17px;line-height:24px;font-weight:600}
+.brand-sub{font-size:12px;line-height:18px;color:var(--text-tertiary)}
+.side-nav{flex:1;padding:12px 12px;overflow-y:auto}
+.nav-group{font-size:12px;line-height:18px;color:var(--text-tertiary);padding:12px 10px 4px;font-weight:500}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;border-radius:8px;color:var(--text-secondary);font-size:14px;font-weight:500;text-align:left;transition:background .14s}
+.nav-item:hover{background:var(--surface-muted)}
+.nav-item.active{background:var(--surface-brand-soft);color:var(--action-primary)}
+.nav-item svg{width:18px;height:18px;flex:0 0 18px}
+.nav-item .badge{margin-left:auto;font-size:12px;font-weight:500;padding:0 7px;border-radius:999px;background:var(--danger-soft);color:var(--danger)}
+.side-user{border-top:1px solid var(--border-subtle);padding:12px 16px;display:flex;align-items:center;gap:10px}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--surface-muted);color:var(--text-secondary);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:0 0 30px}
+.side-user .u-name{font-size:13px;font-weight:500}
+.side-user .u-role{font-size:12px;color:var(--text-tertiary);line-height:16px}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:64px;background:var(--surface);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;padding:0 32px;gap:16px;position:sticky;top:0;z-index:50}
+.topbar h1{font-size:16px;line-height:24px;font-weight:600}
+.topbar .page-desc{font-size:12px;color:var(--text-tertiary)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+/* 二期 Agent 入口预留（FR-017：原型预留位置，功能关闭） */
+.agent-slot{display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px dashed var(--border);border-radius:8px;color:var(--text-disabled);font-size:13px;background:var(--surface-subtle)}
+.agent-slot svg{width:15px;height:15px}
+.scenario{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-tertiary)}
+.scenario select{height:32px;padding:0 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-primary);font-size:13px}
+.content{padding:24px 32px 48px;max-width:1440px;width:100%;margin:0 auto}
+.view{display:none}
+.view.active{display:block}
+
+/* ============ 原型横幅 ============ */
+.proto-banner{display:flex;align-items:center;gap:10px;background:var(--surface-brand-soft);border:1px solid #C9DDFB;border-radius:10px;padding:8px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:16px}
+.proto-banner b{color:var(--action-primary);font-weight:600}
+.proto-banner .wt{margin-left:auto;color:var(--text-tertiary)}
+
+/* ============ 通用组件 ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 16px;border-radius:8px;font-size:14px;font-weight:500;transition:background .14s,border-color .14s;white-space:nowrap}
+.btn.primary{background:var(--action-primary);color:#fff}
+.btn.primary:hover{background:var(--action-primary-hover)}
+.btn.secondary{border:1px solid var(--border);background:var(--surface);color:var(--text-primary)}
+.btn.secondary:hover{background:var(--surface-subtle)}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.danger:hover{background:#B02E28}
+.btn.ghost{color:var(--text-secondary);height:32px;padding:0 10px}
+.btn.ghost:hover{background:var(--surface-muted)}
+.btn.sm{height:30px;padding:0 12px;font-size:13px}
+.btn:disabled{background:var(--surface-muted);color:var(--text-disabled);cursor:not-allowed;border:none}
+.link-btn{color:var(--action-primary);font-size:13px;font-weight:500}
+.link-btn:hover{text-decoration:underline}
+.link-btn.danger-c{color:var(--danger)}
+
+.tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;line-height:1;white-space:nowrap}
+.tag.gray{background:var(--surface-muted);color:var(--text-secondary)}
+.tag.blue{background:var(--action-primary-soft);color:var(--action-primary)}
+.tag.green{background:var(--success-soft);color:var(--success)}
+.tag.orange{background:var(--warning-soft);color:var(--warning)}
+.tag.red{background:var(--danger-soft);color:var(--danger)}
+.tag .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.card-pad{padding:16px}
+
+/* ============ Zone 区域容器（仪表盘草案0.1 §1） ============ */
+.zone{background:var(--surface);border:1px solid var(--border-subtle);border-radius:16px;padding:16px;margin-bottom:20px}
+.zone.core{border-color:var(--border);box-shadow:var(--shadow-zone);padding:20px}
+.zone-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.zone-title{font-size:16px;line-height:24px;font-weight:600}
+.zone-desc{font-size:12px;color:var(--text-tertiary)}
+.zone-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* ============ 表格 ============ */
+.tbl-wrap{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:auto}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{background:var(--surface-subtle);color:var(--text-secondary);font-weight:500;font-size:12px;text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:11px 14px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover{background:var(--surface-subtle)}
+.tbl .r{text-align:right}
+.tbl .cell-main{font-weight:600;font-size:15px;line-height:22px;color:var(--text-primary)}
+.tbl .cell-sub{font-size:12px;color:var(--text-tertiary);line-height:17px}
+.tbl .num{text-align:right}
+
+/* ============ 表单 ============ */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
+.field label .req{color:var(--danger)}
+.field .hint{font-size:12px;color:var(--text-tertiary);margin-top:5px;line-height:18px}
+.input,.select{width:100%;height:36px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);transition:border-color .14s,box-shadow .14s}
+.input:focus,.select:focus{outline:none;border-color:var(--action-primary);box-shadow:0 0 0 2px rgba(47,111,206,.18)}
+.input:disabled{background:var(--surface-muted);color:var(--text-disabled);border-color:var(--border)}
+.input.mono{font-family:var(--mono);font-size:13px}
+textarea.input{height:auto;padding:10px 12px;resize:vertical}
+.seg{display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden;width:fit-content}
+.seg button{height:34px;padding:0 16px;font-size:13px;color:var(--text-secondary);background:var(--surface)}
+.seg button.on{background:var(--surface-brand-soft);color:var(--action-primary);font-weight:600}
+.seg button + button{border-left:1px solid var(--border)}
+.switch{position:relative;width:36px;height:20px;border-radius:999px;background:var(--surface-muted);transition:background .14s;flex:0 0 36px;border:1px solid var(--border)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18);transition:left .14s}
+.switch.on{background:var(--action-primary);border-color:var(--action-primary)}
+.switch.on::after{left:18px}
+.switch-row{display:flex;align-items:center;gap:10px;font-size:13px}
+.search-box{position:relative}
+.search-box svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text-tertiary)}
+.search-box .input{padding-left:32px;width:220px;border-color:var(--border)}
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.filter-bar .select{width:auto;border-color:var(--border)}
+.filter-bar .fb-label{font-size:12px;color:var(--text-tertiary)}
+
+/* ============ 弹窗 ============ */
+.modal-mask{position:fixed;inset:0;background:var(--overlay);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:48px 16px;overflow-y:auto}
+.modal-mask.open{display:flex}
+.modal{background:var(--surface);border-radius:16px;box-shadow:var(--shadow-raised);width:640px;max-width:100%;animation:mup .2s ease-out}
+.modal.lg{width:760px}
+.modal.sm{width:440px}
+@keyframes mup{from{transform:translateY(12px);opacity:.4}to{transform:none;opacity:1}}
+.modal-head{display:flex;align-items:center;padding:18px 24px 0}
+.modal-title{font-size:18px;line-height:26px;font-weight:600}
+.modal-x{margin-left:auto;width:30px;height:30px;border-radius:8px;color:var(--text-tertiary);display:flex;align-items:center;justify-content:center}
+.modal-x:hover{background:var(--surface-muted)}
+.modal-body{padding:16px 24px 8px}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px 20px;border-top:1px solid var(--border-subtle);margin-top:12px}
+.steps{display:flex;gap:0;margin-bottom:20px}
+.step{flex:1;text-align:center;font-size:12px;color:var(--text-tertiary);position:relative;padding-top:26px}
+.step::before{content:attr(data-n);position:absolute;top:0;left:50%;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;background:var(--surface-muted);color:var(--text-tertiary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.step.on{color:var(--action-primary);font-weight:600}
+.step.on::before{background:var(--action-primary);color:#fff}
+.step.done::before{background:var(--success-soft);color:var(--success)}
+
+/* ============ 首页看板专用 ============ */
+.kpi-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+.kpi.kpi-top{grid-column:span 3}
+.kpi.kpi-bottom{grid-column:span 4}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.kpi .k-label{font-size:12px;color:var(--text-tertiary);line-height:18px;display:flex;align-items:center;gap:5px}
+.kpi .k-value{font-size:24px;line-height:32px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .k-sub{font-size:12px;color:var(--text-secondary);margin-top:2px}
+.kpi .k-sub b{color:var(--action-primary);font-weight:600}
+.kpi .k-sub .warn-c{color:var(--warning);font-weight:500}
+.spark{display:flex;align-items:flex-end;gap:8px;margin-top:6px}
+.stack-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--surface-muted);margin:10px 0 6px}
+.stack-bar i{display:block;height:100%}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--text-secondary);flex-wrap:wrap}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.progress{height:6px;border-radius:3px;background:var(--surface-muted);overflow:hidden;min-width:80px}
+.progress i{display:block;height:100%;background:var(--action-primary);border-radius:3px}
+.progress.gray i{background:#B6C2CF}
+.progress.orange i{background:var(--warning)}
+.progress.red i{background:var(--danger)}
+.ptxt{font-size:12px;color:var(--text-tertiary);margin-top:3px}
+
+/* ============ 空状态 / 提示 ============ */
+.empty{padding:44px 20px;text-align:center;color:var(--text-tertiary)}
+.empty .e-icon{width:44px;height:44px;border-radius:12px;background:var(--surface-brand-soft);color:var(--brand-blue);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.empty .e-icon svg{width:22px;height:22px}
+.empty .e-title{font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px}
+.empty .e-sub{font-size:13px;line-height:20px}
+.notice{display:flex;gap:10px;border-radius:10px;padding:10px 14px;font-size:13px;line-height:20px;margin-bottom:14px;align-items:flex-start}
+.notice svg{width:16px;height:16px;flex:0 0 16px;margin-top:2px}
+.notice.warn{background:var(--warning-soft);color:var(--warning)}
+.notice.err{background:var(--danger-soft);color:var(--danger)}
+.notice.info{background:var(--action-primary-soft);color:var(--action-primary)}
+.notice.ok{background:var(--success-soft);color:var(--success)}
+.notice b{font-weight:600}
+
+/* Key 展示框 */
+.key-box{background:var(--surface-subtle);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:13px;word-break:break-all;display:flex;align-items:center;gap:10px}
+.code-block{background:#172033;color:#D6E2F0;border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:12.5px;line-height:20px;overflow-x:auto;white-space:pre;position:relative}
+.code-block .cp{position:absolute;top:8px;right:8px}
+.cp{height:26px;padding:0 10px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary)}
+.cp:hover{background:var(--surface-subtle)}
+
+/* 描述列表 */
+.dl{display:grid;grid-template-columns:110px 1fr;row-gap:8px;column-gap:16px;font-size:13px}
+.dl dt{color:var(--text-tertiary)}
+.dl dd{color:var(--text-primary)}
+
+/* 标签页 */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.tabs button{height:36px;padding:0 14px;font-size:14px;color:var(--text-secondary);border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500}
+.tabs button.on{color:var(--action-primary);border-bottom-color:var(--action-primary);font-weight:600}
+.signal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.signal-card{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface)}
+.signal-card .s-label{font-size:12px;color:var(--text-tertiary)}
+.signal-card .s-value{font-size:18px;line-height:26px;font-weight:700;margin-top:3px}
+.signal-card .s-sub{font-size:12px;color:var(--text-secondary);margin-top:3px}
+.score{display:flex;align-items:center;gap:8px;min-width:150px}
+.score .progress{flex:1}
+.score b{font-size:12px;min-width:26px;text-align:right}
+.cap-list{display:flex;gap:5px;flex-wrap:wrap}
+.reason-code{font-family:var(--mono);font-size:11px;color:var(--text-secondary);background:var(--surface-muted);border-radius:5px;padding:2px 6px;white-space:nowrap}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:1100px){.grid-2{grid-template-columns:1fr}}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}.mb12{margin-bottom:12px}.mb16{margin-bottom:16px}
+.flex{display:flex;align-items:center;gap:8px}
+.grow{flex:1}
+.tc-ter{color:var(--text-tertiary)}.fs12{font-size:12px}.fs13{font-size:13px}
+.fw600{font-weight:600}
+
+/* ============ 登录页 ============ */
+#login{display:none;min-height:100vh;background:var(--canvas);align-items:center;justify-content:center;padding:24px}
+#login.show{display:flex}
+.login-card{width:400px;max-width:100%;background:var(--surface);border:1px solid var(--border-subtle);border-radius:16px;box-shadow:var(--shadow-zone);padding:36px 36px 28px}
+.login-brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}
+.login-title{font-size:20px;line-height:28px;font-weight:700}
+.login-sub{font-size:13px;color:var(--text-tertiary);margin-bottom:22px}
+.login-foot{font-size:12px;color:var(--text-tertiary);text-align:center;margin-top:18px;line-height:18px}
+
+/* 响应式（草案 §5：断点只降列折叠） */
+@media (max-width:1280px){.kpi-grid{grid-template-columns:repeat(6,1fr)}.kpi.kpi-top{grid-column:span 3}.kpi.kpi-bottom{grid-column:span 2}}
+@media (max-width:1024px){.sidebar{width:64px;flex-basis:64px}.sidebar .brand-name,.sidebar .brand-sub,.sidebar .nav-item span,.sidebar .nav-group,.sidebar .u-meta,.sidebar .nav-item .badge{display:none}.nav-item{justify-content:center}.content{padding:20px 24px 40px}}
+@media (max-width:860px){.kpi-grid{grid-template-columns:1fr}.kpi.kpi-top,.kpi.kpi-bottom{grid-column:span 1}}
+</style>
+</head>
+<body>
+
+<!-- ================= 登录页 ================= -->
+<div id="login" class="show">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-mark"><img src="../qinaliu-logo-primary.png" alt="仟流智算"></div>
+      <div>
+        <div class="login-title">仟流智算</div>
+        <div class="fs12 tc-ter">QIANLIU INTELLICOMPUTE</div>
+      </div>
+    </div>
+    <div class="login-sub">企业 AI 资源管理系统 · 管理员登录</div>
+    <div class="field"><label>账号</label><input class="input" value="admin" id="login-user"></div>
+    <div class="field"><label>密码</label><input class="input" type="password" value="••••••••"></div>
+    <button class="btn primary" style="width:100%" onclick="doLogin()">登 录</button>
+    <div class="login-foot">桌面 Web · Windows 11 / macOS Chrome<br>K3 原型 v4 · 对应 PRD v0.3（含审核修订） · 数据为模拟</div>
+  </div>
+</div>
+
+<!-- ================= 应用壳 ================= -->
+<div id="app" style="display:none">
+  <!-- 侧栏 -->
+  <aside class="sidebar">
+    <div class="side-brand">
+      <div class="brand-mark"><img src="../qinaliu-logo-primary.png" alt="仟流智算"></div>
+      <div>
+        <div class="brand-name">仟流智算</div>
+        <div class="brand-sub">企业 AI 资源管理</div>
+      </div>
+    </div>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="side-user">
+      <div class="avatar">佳</div>
+      <div class="u-meta">
+        <div class="u-name">佳哥</div>
+        <div class="u-role">管理员</div>
+      </div>
+      <button class="btn ghost sm" style="margin-left:auto" title="退出登录" onclick="doLogout()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- 主区 -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">看板</h1>
+        <div class="page-desc" id="pageDesc"></div>
+      </div>
+      <div class="topbar-right">
+        <div class="scenario">
+          <span>原型场景</span>
+          <select id="scenarioSel" onchange="setScenario(this.value)">
+            <option value="normal">常态 · 月中</option>
+            <option value="empty">空态 · 初始化</option>
+            <option value="exhaust">额度耗尽</option>
+            <option value="down">资源不可用</option>
+          </select>
+        </div>
+        <!-- FR-017：二期仟流智算 Agent 入口预留，一期功能开关关闭 -->
+        <div class="agent-slot" title="二期功能，一期仅预留入口位置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.7 4.6L18 9.2l-4.3 1.6L12 15.4l-1.7-4.6L6 9.2l4.3-1.6z"/><circle cx="19" cy="17" r="2"/></svg>
+          智算 Agent · 二期
+        </div>
+      </div>
+    </header>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<!-- 弹窗挂载点 -->
+<div class="modal-mask" id="modalMask" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<script>
+/* ==================================================================
+   仟流智算 K3 原型 v4 · PRD v0.3 模拟数据与壳层逻辑
+   ================================================================== */
+const NAV = [
+  {id:'dashboard', name:'看板', icon:'M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z', desc:'本账期 = 当前自然月（2026-07）· 仅本月核心数字'},
+  {id:'principals', name:'使用主体', icon:'M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75', desc:'员工与项目统一主体 · Key / 模型 / 额度'},
+  {id:'resources', name:'厂商资源', icon:'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12', desc:'Provider · Resource · Unified Model · Model Route'},
+  {id:'rules', name:'额度规则', icon:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6', desc:'额度模板 · 分时价格 / 扣减倍数版本'},
+  {id:'usage', name:'用量账本', icon:'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8', desc:'原始用量 · 实际扣减 · 实际费用 三段式追溯'},
+  {id:'alerts', name:'异常告警', icon:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01', desc:'四类异常 · 资源可用性与主体异常'},
+  {id:'settings', name:'系统设置', icon:'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h.01a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z', desc:'管理员 · 权限 · 操作审计 · 安全与隐私'}
+];
+let scenario = 'normal';
+let currentView = 'dashboard';
+
+/* ---------- 模拟数据（按场景切换） ---------- */
+const D = {
+  normal: {
+    kpis: [
+      {label:'厂商资源账号', value:'5', sub:'API 2 · 套餐 3'},
+      {label:'本账期活跃人数', value:'8', sub:'当前正在使用 <b>3 人</b>'},
+      {label:'本月套餐支付', value:'¥ 1,298.00', sub:'智谱 ¥599 · Kimi ¥699'},
+      {label:'本月 API 费用', value:'¥ 412.36', sub:'DeepSeek 按命中价格版本'},
+      {label:'本月充值金额', value:'¥ 1,000.00', sub:'DeepSeek 2 个账号'},
+      {label:'预计最早耗尽', value:'8 天', sub:'Kimi K3 · 08-03 · 可信度高'},
+      {label:'有证据的调度节省', value:'¥ 86.42', sub:'仅统计实际 SWITCH 且基线完整'}
+    ],
+    vendors: [
+      {name:'DeepSeek', mode:'API', accounts:2, pay:'充值 ¥2,000', total:'¥ 2,000 余额', used:'¥ 412.36', left:'¥ 1,587.64', pct:21, cost:'¥ 412.36', status:'green', statusTxt:'正常'},
+      {name:'智谱', mode:'套餐', accounts:2, pay:'套餐 ¥599/月', total:'5,000 万额度', used:'2,180 万', left:'2,820 万', pct:44, cost:'套餐内', status:'green', statusTxt:'正常'},
+      {name:'Kimi (K3)', mode:'套餐', accounts:1, pay:'套餐 ¥699/月', total:'3,000 万额度', used:'1,960 万', left:'1,040 万', pct:65, cost:'套餐内', status:'orange', statusTxt:'额度偏紧'}
+    ],
+    over: [
+      {who:'李晓峰', type:'员工', grant:'智谱 500 万', used:'542.6 万', over:'+42.6 万', ratio:'+8.5%'},
+      {who:'营销内容自动化', type:'项目', grant:'Kimi K3 300 万', used:'318.2 万', over:'+18.2 万', ratio:'+6.1%'}
+    ],
+    stack:[{c:'#267A3D',w:52,t:'完成 52%'},{c:'#2F6FCE',w:31,t:'进行 31%'},{c:'#C7352E',w:5,t:'失败 5%'},{c:'#9AA6B2',w:12,t:'取消 12%'}]
+  },
+  empty: {
+    kpis: [
+      {label:'厂商资源账号', value:'0', sub:'尚未登记资源'},
+      {label:'本账期活跃人数', value:'0', sub:'当前正在使用 <b>0 人</b>'},
+      {label:'本月套餐支付', value:'¥ 0.00', sub:'—'},
+      {label:'本月 API 费用', value:'¥ 0.00', sub:'—'},
+      {label:'本月充值金额', value:'¥ 0.00', sub:'—'},
+      {label:'预计最早耗尽', value:'—', sub:'数据不足'},
+      {label:'有证据的调度节省', value:'¥ 0.00', sub:'尚无调度行为'}
+    ],
+    vendors: [], over: [], stack:[]
+  },
+  exhaust: {
+    kpis: [
+      {label:'厂商资源账号', value:'5', sub:'API 2 · 套餐 3'},
+      {label:'本账期活跃人数', value:'8', sub:'当前正在使用 <b>1 人</b>'},
+      {label:'本月套餐支付', value:'¥ 1,298.00', sub:'智谱 ¥599 · Kimi ¥699'},
+      {label:'本月 API 费用', value:'¥ 698.12', sub:'DeepSeek 按命中价格版本'},
+      {label:'本月充值金额', value:'¥ 1,000.00', sub:'DeepSeek 2 个账号'},
+      {label:'预计最早耗尽', value:'已耗尽', sub:'智谱 · 下次恢复 08-01'},
+      {label:'有证据的调度节省', value:'¥ 121.08', sub:'7 次等价资源切换'}
+    ],
+    vendors: [
+      {name:'DeepSeek', mode:'API', accounts:2, pay:'充值 ¥2,000', total:'¥ 2,000 余额', used:'¥ 698.12', left:'¥ 1,301.88', pct:35, cost:'¥ 698.12', status:'green', statusTxt:'正常'},
+      {name:'智谱', mode:'套餐', accounts:2, pay:'套餐 ¥599/月', total:'5,000 万额度', used:'5,000 万', left:'0', pct:100, cost:'套餐内', status:'red', statusTxt:'额度耗尽'},
+      {name:'Kimi (K3)', mode:'套餐', accounts:1, pay:'套餐 ¥699/月', total:'3,000 万额度', used:'2,890 万', left:'110 万', pct:96, cost:'套餐内', status:'orange', statusTxt:'额度偏紧'}
+    ],
+    over: [
+      {who:'李晓峰', type:'员工', grant:'智谱 500 万', used:'542.6 万', over:'+42.6 万', ratio:'+8.5%'},
+      {who:'王一帆', type:'员工', grant:'智谱 500 万', used:'500 万', over:'已停止', ratio:'100%'},
+      {who:'营销内容自动化', type:'项目', grant:'Kimi K3 300 万', used:'318.2 万', over:'+18.2 万', ratio:'+6.1%'}
+    ],
+    stack:[{c:'#267A3D',w:47,t:'完成 47%'},{c:'#2F6FCE',w:18,t:'进行 18%'},{c:'#C7352E',w:22,t:'失败/拒绝 22%'},{c:'#9AA6B2',w:13,t:'取消 13%'}]
+  },
+  down: {
+    kpis: [
+      {label:'厂商资源账号', value:'5', sub:'API 2 · 套餐 3 · <span class="warn-c">1 不可用</span>'},
+      {label:'本账期活跃人数', value:'8', sub:'当前正在使用 <b>2 人</b>'},
+      {label:'本月套餐支付', value:'¥ 1,298.00', sub:'智谱 ¥599 · Kimi ¥699'},
+      {label:'本月 API 费用', value:'¥ 412.36', sub:'DeepSeek 按命中价格版本'},
+      {label:'本月充值金额', value:'¥ 1,000.00', sub:'DeepSeek 2 个账号'},
+      {label:'预计最早耗尽', value:'8 天', sub:'Kimi K3 · 08-03'},
+      {label:'有证据的调度节省', value:'¥ 86.42', sub:'凭证隔离未拖累健康账号'}
+    ],
+    vendors: [
+      {name:'DeepSeek', mode:'API', accounts:2, pay:'充值 ¥2,000', total:'¥ 2,000 余额', used:'¥ 412.36', left:'¥ 1,587.64', pct:21, cost:'¥ 412.36', status:'green', statusTxt:'正常'},
+      {name:'智谱', mode:'套餐', accounts:2, pay:'套餐 ¥599/月', total:'5,000 万额度', used:'2,180 万', left:'2,820 万', pct:44, cost:'套餐内', status:'red', statusTxt:'账号不可用'},
+      {name:'Kimi (K3)', mode:'套餐', accounts:1, pay:'套餐 ¥699/月', total:'3,000 万额度', used:'1,960 万', left:'1,040 万', pct:65, cost:'套餐内', status:'green', statusTxt:'正常'}
+    ],
+    over: [
+      {who:'李晓峰', type:'员工', grant:'智谱 500 万', used:'542.6 万', over:'+42.6 万', ratio:'+8.5%'}
+    ],
+    stack:[{c:'#267A3D',w:41,t:'完成 41%'},{c:'#2F6FCE',w:24,t:'进行 24%'},{c:'#C7352E',w:26,t:'失败 26%'},{c:'#9AA6B2',w:9,t:'取消 9%'}]
+  }
+};
+
+const STATUS_TAG = {green:'tag green', orange:'tag orange', red:'tag red'};
+
+/* ---------- 壳层逻辑 ---------- */
+function icon(p){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${p}"/></svg>`}
+function doLogin(){document.getElementById('login').classList.remove('show');document.getElementById('app').style.display='flex';go('dashboard')}
+function doLogout(){document.getElementById('app').style.display='none';document.getElementById('login').classList.add('show')}
+function go(v){
+  currentView = v;
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
+  const nav = NAV.find(n=>n.id===v);
+  document.getElementById('pageTitle').textContent = nav.name;
+  document.getElementById('pageDesc').textContent = nav.desc;
+  render();
+  location.hash = v;
+}
+function setScenario(s){
+  scenario = s;
+  render();
+}
+function render(){
+  const c = document.getElementById('content');
+  c.innerHTML = VIEWS[currentView]();
+  if(currentView==='dashboard') afterDashboard();
+  if(currentView==='usage') afterUsage();
+}
+function banner(wt){
+  return `<div class="proto-banner"><b>K3 原型 v4</b><span>PRD v0.3 + 审核修订 · 模拟数据 · 操作即时生效</span><span class="wt">覆盖走查：${wt}</span></div>`;
+}
+
+/* 侧栏渲染 */
+document.getElementById('sideNav').innerHTML =
+  NAV.map(n=>`<button class="nav-item" data-v="${n.id}" onclick="go('${n.id}')">${icon(n.icon)}<span>${n.name}</span>${n.id==='alerts'?'<span class="badge" id="alertBadge">2</span>':''}</button>`).join('');
+
+/* 弹窗 */
+function openModal(html, size){
+  const box = document.getElementById('modalBox');
+  box.className = 'modal' + (size ? ' '+size : '');
+  box.innerHTML = html;
+  document.getElementById('modalMask').classList.add('open');
+}
+function closeModal(){document.getElementById('modalMask').classList.remove('open')}
+function toast(msg){
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#172033;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.24)';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),320)},2200);
+}
+document.addEventListener('keydown', e=>{if(e.key==='Escape') closeModal()});
+
+/* VIEWS 占位：各页面在下方分段定义 */
+const VIEWS = {};
+
+/* ==================================================================
+   首页看板 /dashboard（PRD §10.2、TRD §12；仪表盘草案 §1-4）
+   ================================================================== */
+VIEWS.dashboard = function(){
+  const d = D[scenario];
+  const isEmpty = scenario==='empty';
+
+  /* 上 4（谁在用、花了多少）+ 下 3（钱够不够、风险在哪、价值）12 栅格 */
+  const kpiCard = (k,row)=>`<div class="kpi kpi-${row}"><div class="k-label">${k.label}</div><div class="k-value num">${k.value}</div><div class="k-sub">${k.sub}</div></div>`;
+  const kpiHtml = d.kpis.slice(0,4).map(k=>kpiCard(k,'top')).join('')
+    + d.kpis.slice(4,7).map(k=>kpiCard(k,'bottom')).join('');
+
+  const vendorRows = d.vendors.map(v=>`
+    <tr>
+      <td><div class="cell-main">${v.name}</div><div class="cell-sub">${v.pay}</div></td>
+      <td><span class="tag ${v.mode==='API'?'blue':'gray'}">${v.mode}</span></td>
+      <td class="num">${v.accounts}</td>
+      <td>
+        <div class="fs13 num">${v.used} / ${v.total}</div>
+        <div class="progress ${v.pct>=100?'red':(v.pct>=85?'orange':'gray')} mt8"><i style="width:${Math.min(v.pct,100)}%"></i></div>
+        <div class="ptxt num">剩余 ${v.left} · ${v.pct}%</div>
+      </td>
+      <td class="fs12">
+        <div>${v.name.includes('Kimi')?'预计 8 天耗尽':(v.pct>=100?'已耗尽':'覆盖至周期结束')}</div>
+        <div class="tc-ter">${v.name==='DeepSeek'?'¥ 23.4 / 日 · 可信度中':(v.name==='智谱'?'168 万 / 日 · 08-01 恢复':'130 万 / 日 · 08-10 恢复')}</div>
+      </td>
+      <td class="num">${v.cost}</td>
+      <td><span class="${STATUS_TAG[v.status]}"><span class="dot"></span>${v.statusTxt}</span></td>
+      <td><button class="link-btn" onclick="go('resources')">明细</button></td>
+    </tr>`).join('');
+
+  const overRows = d.over.map((o,i)=>`
+    <tr>
+      <td><div class="cell-main">${o.who}</div></td>
+      <td><span class="tag gray">${o.type}</span></td>
+      <td class="num">${o.grant}</td>
+      <td class="num">${o.used}</td>
+      <td class="num" style="color:${o.ratio==='100%'?'var(--text-primary)':'var(--warning)'};font-weight:500">${o.over}</td>
+      <td class="num">${o.ratio}</td>
+      <td><button class="link-btn" onclick="go('principals')">处理</button></td>
+    </tr>`).join('');
+
+  const alertsByScenario = {
+    normal: [
+      {lv:'orange', type:'主体异常', txt:'李晓峰 · 智谱额度已超额 8.5%（允许超额中）', time:'10:24'},
+      {lv:'orange', type:'额度预警', txt:'Kimi K3 套餐额度已用 65%，按当前速度预计 8 天后耗尽', time:'09:02'}
+    ],
+    empty: [],
+    exhaust: [
+      {lv:'red', type:'额度耗尽', txt:'智谱套餐总额度已耗尽，未开启超额的主体已停止调用', time:'11:40'},
+      {lv:'orange', type:'主体异常', txt:'王一帆 · 智谱额度 100% 已停止，可申请允许超额', time:'11:41'}
+    ],
+    down: [
+      {lv:'red', type:'资源不可用', txt:'智谱账号「智谱-主账号」连续 401，已标记凭证失效并切换同池账号', time:'10:58'},
+      {lv:'orange', type:'调用异常', txt:'智谱最近 15 分钟错误率 26%，高于阈值 5%', time:'10:51'}
+    ]
+  };
+  const alertRows = alertsByScenario[scenario].map(a=>`
+    <tr>
+      <td><span class="tag ${a.lv==='red'?'red':'orange'}"><span class="dot"></span>${a.type}</span></td>
+      <td class="fs13">${a.txt}</td>
+      <td class="tc-ter fs12 num" style="white-space:nowrap">${a.time}</td>
+      <td><button class="link-btn" onclick="go('alerts')">处理</button></td>
+    </tr>`).join('');
+
+  const stackHtml = d.stack.length ? `
+    <div class="stack-bar">${d.stack.map(s=>`<i style="width:${s.w}%;background:${s.c}"></i>`).join('')}</div>
+    <div class="legend">${d.stack.map(s=>`<span><i style="background:${s.c}"></i>${s.t}</span>`).join('')}</div>`
+    : `<div class="empty" style="padding:24px"><div class="e-sub">暂无本月调用</div></div>`;
+
+  return banner('WT-08 首页下钻 · WT-15 供给预测 · WT-17 有证据的调度节省') + `
+  <!-- 核心区：当下工作区（草案 §2 三件套：深一档边框+轻阴影+20px 内边距） -->
+  <div class="zone core">
+    <div class="zone-head">
+      <span class="zone-title">本月核心指标</span>
+      <span class="zone-desc">本账期 2026-07-01 ~ 07-31 · 与厂商额度重置周期相互独立</span>
+      <div class="zone-actions"><span class="tag gray">只显示当前自然月</span></div>
+    </div>
+    <div class="kpi-grid">${kpiHtml}</div>
+    <div class="mt16">
+      <div class="fs13 fw600 mb12">本月调用构成 <span class="fs12 tc-ter" style="font-weight:400">（按请求状态）</span></div>
+      ${stackHtml}
+    </div>
+  </div>
+
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-title">AI 厂商</span>
+      <span class="zone-desc">按厂商聚合 · 消耗速度、预计耗尽与下一恢复（预测已纳入高峰/非高峰分布与扣减倍率）</span>
+      <div class="zone-actions"><button class="link-btn" onclick="resourceTab='supply';go('resources')">查看预测依据 →</button></div>
+    </div>
+    ${isEmpty ? `
+      <div class="empty">
+        <div class="e-icon">${icon('M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z')}</div>
+        <div class="e-title">还没有厂商资源</div>
+        <div class="e-sub">先登记 DeepSeek API、智谱套餐或 Kimi 套餐，员工才能开始调用</div>
+        <button class="btn primary mt12" onclick="go('resources')">去登记资源</button>
+      </div>` : `
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>厂商</th><th>模式</th><th class="num">账号数</th><th style="min-width:220px">额度（已用 / 总额）</th><th>供给预测</th><th class="num">本月费用</th><th>状态</th><th></th></tr></thead>
+        <tbody>${vendorRows}</tbody>
+      </table></div>`}
+  </div>
+
+  <div class="grid-2">
+    <div class="zone" style="margin-bottom:0">
+      <div class="zone-head">
+        <span class="zone-title">超额名单</span>
+        <span class="zone-desc">按超出比例排序 · 默认停止，允许超额后单列</span>
+      </div>
+      ${d.over.length ? `
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>使用主体</th><th>类型</th><th class="num">分配</th><th class="num">已用</th><th class="num">超出</th><th class="num">比例</th><th></th></tr></thead>
+        <tbody>${overRows}</tbody>
+      </table></div>` : `<div class="empty" style="padding:28px"><div class="e-sub">本月暂无超额主体</div></div>`}
+    </div>
+    <div class="zone" style="margin-bottom:0">
+      <div class="zone-head">
+        <span class="zone-title">未处理异常</span>
+        <span class="zone-desc">资源可用性 · 主体额度/费用异常</span>
+        <div class="zone-actions"><button class="link-btn" onclick="go('alerts')">全部异常</button></div>
+      </div>
+      ${alertRows.length ? `
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>类型</th><th>说明</th><th>时间</th><th></th></tr></thead>
+        <tbody>${alertRows}</tbody>
+      </table></div>` : `<div class="empty" style="padding:28px"><div class="e-sub">暂无未处理异常</div></div>`}
+    </div>
+  </div>
+
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-title">Gateway 运行态</span>
+      <span class="zone-desc">请求执行、账号池与路由证据</span>
+      <div class="zone-actions"><button class="link-btn" onclick="go('usage')">查看请求证据 →</button></div>
+    </div>
+    <div class="signal-grid">
+      <div class="signal-card"><div class="s-label">请求成功率 · 15 分钟</div><div class="s-value num">${scenario==='down'?'91.8%':'99.2%'}</div><div class="s-sub">失败请求均可关联 Attempt</div></div>
+      <div class="signal-card"><div class="s-label">当前并发 / 容量</div><div class="s-value num">${scenario==='empty'?'0 / 0':'18 / 64'}</div><div class="s-sub">不做服务端排队，超限按策略限流</div></div>
+      <div class="signal-card"><div class="s-label">冻结账号</div><div class="s-value num">${scenario==='down'?'2':'1'}</div><div class="s-sub">上游限流 1 · 12:06 恢复</div></div>
+      <div class="signal-card"><div class="s-label">路由证据完整率</div><div class="s-value num">${scenario==='empty'?'—':'100%'}</div><div class="s-sub">候选、评分、Attempt、结算可关联</div></div>
+    </div>
+  </div>`;
+};
+function afterDashboard(){
+  const badge = document.getElementById('alertBadge');
+  if(badge){ badge.textContent = scenario==='empty' ? '0' : '2'; badge.style.display = scenario==='empty' ? 'none':''; }
+}
+
+/* ==================================================================
+   使用主体 /principals（PRD §5.2、§6、§8.3；WT-02/04/06/09）
+   ================================================================== */
+let principalTab = 'all';
+const PRINCIPALS = [
+  {name:'佳哥', type:'员工', dept:'管理层', key:'qlk-7f3a…9c2e', models:['qianliu-deepseek','qianliu-glm-coding','qianliu-kimi-k3'], quota:[['DeepSeek','¥ 200','¥ 61.2',31],['智谱','500 万','182 万',36],['Kimi K3','300 万','96 万',32]], overage:false, status:'ACTIVE', last:'3 分钟前'},
+  {name:'李晓峰', type:'员工', dept:'内容部', key:'qlk-2b8d…41fa', models:['qianliu-glm-coding'], quota:[['智谱','500 万','542.6 万',109]], overage:true, status:'ACTIVE', last:'12 分钟前'},
+  {name:'王一帆', type:'员工', dept:'研发部', key:'qlk-9e1c…77d3', models:['qianliu-deepseek','qianliu-kimi-k3'], quota:[['DeepSeek','¥ 200','¥ 148.6',74],['Kimi K3','300 万','300 万（已停）',100]], overage:false, status:'ACTIVE', last:'1 小时前'},
+  {name:'陈默', type:'员工', dept:'研发部', key:'qlk-4a6f…e8b1', models:['qianliu-deepseek'], quota:[['DeepSeek','¥ 150','¥ 89.3',60]], overage:false, status:'ACTIVE', last:'今天 09:12'},
+  {name:'赵思雨', type:'员工', dept:'设计部', key:'qlk-1d5g…3a9c', models:['qianliu-kimi-k3'], quota:[['Kimi K3','200 万','42 万',21]], overage:false, status:'ACTIVE', last:'昨天 18:40'},
+  {name:'营销内容自动化', type:'项目', dept:'—', key:'qlk-8c2b…f5e7', models:['qianliu-kimi-k3','qianliu-glm-coding'], quota:[['Kimi K3','300 万','318.2 万',106],['智谱','400 万','128 万',32]], overage:true, status:'ACTIVE', last:'6 分钟前'},
+  {name:'客服知识库问答', type:'项目', dept:'—', key:'qlk-5f9e…b2d4', models:['qianliu-deepseek'], quota:[['DeepSeek','¥ 300','¥ 112.9',38]], overage:false, status:'ACTIVE', last:'30 分钟前'},
+  {name:'周子昂', type:'员工', dept:'内容部', key:'qlk-3e7a…c6f2', models:['qianliu-glm-coding'], quota:[['智谱','300 万','0',0]], overage:false, status:'DISABLED', last:'已停用'}
+];
+
+VIEWS.principals = function(){
+  const rows = PRINCIPALS
+    .filter(p=>principalTab==='all' || (principalTab==='emp'?p.type==='员工':p.type==='项目'))
+    .map(p=>{
+      const quotaHtml = p.quota.map(q=>{
+        const cls = q[3]>=100 ? 'red' : (q[3]>=85 ? 'orange' : 'gray');
+        return `<div class="mb12">
+          <div class="flex fs13"><span>${q[0]}</span><span class="tc-ter fs12 num" style="margin-left:auto">${q[2]} / ${q[1]}</span></div>
+          <div class="progress ${cls}" style="margin-top:4px"><i style="width:${Math.min(q[3],100)}%"></i></div>
+        </div>`;
+      }).join('');
+      const statusTag = p.status==='DISABLED'
+        ? '<span class="tag gray">已停用</span>'
+        : (p.overage ? '<span class="tag orange"><span class="dot"></span>允许超额</span>' : '<span class="tag gray"><span class="dot"></span>正常</span>');
+      return `<tr style="${p.status==='DISABLED'?'opacity:.55':''}">
+        <td><div class="cell-main">${p.name}</div><div class="cell-sub">${p.dept}</div></td>
+        <td><span class="tag ${p.type==='员工'?'blue':'gray'}">${p.type}</span></td>
+        <td><span class="mono fs12">${p.key}</span></td>
+        <td class="fs12" style="max-width:180px">${p.models.map(m=>`<div class="mono" style="line-height:19px">${m}</div>`).join('')}</td>
+        <td style="min-width:180px">${quotaHtml}</td>
+        <td>${statusTag}<div class="cell-sub mt8">${p.last}</div></td>
+        <td style="white-space:nowrap">
+          <button class="link-btn" onclick="openPrincipalDetail('${p.name}')">详情</button>
+          ${p.status!=='DISABLED' ? `<button class="link-btn danger-c" onclick="openDisable('${p.name}','${p.type}')">停用</button>` : `<button class="link-btn" onclick="toast('重新启用将生成新 Key（旧 Key 不恢复）')">重新启用</button>`}
+        </td>
+      </tr>`;
+    }).join('');
+
+  return banner('WT-02 员工开通 · WT-04 项目开通 · WT-06 额度耗尽/超额 · WT-09 停用与重置 Key') + `
+  <div class="filter-bar">
+    <div class="seg">
+      <button class="${principalTab==='all'?'on':''}" onclick="principalTab='all';render()">全部</button>
+      <button class="${principalTab==='emp'?'on':''}" onclick="principalTab='emp';render()">员工</button>
+      <button class="${principalTab==='proj'?'on':''}" onclick="principalTab='proj';render()">项目</button>
+    </div>
+    <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input class="input" placeholder="搜索名称 / Key 前缀"></div>
+    <div style="margin-left:auto;display:flex;gap:10px">
+      <button class="btn secondary" onclick="openCreate('项目')">+ 新建项目</button>
+      <button class="btn primary" onclick="openCreate('员工')">+ 新建员工</button>
+    </div>
+  </div>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>名称</th><th>类型</th><th>Key</th><th>已开通模型</th><th>额度（已用 / 分配）</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+};
+
+/* ---------- WT-02/WT-04：创建主体四步（固定顺序：账号→Key→分配→接入信息） ---------- */
+let createType='员工', createStep=1;
+function openCreate(type){
+  createType = type; createStep = 1;
+  renderCreate();
+}
+function renderCreate(){
+  const steps = ['创建账号','生成 Key','分配模型与额度','接入信息'];
+  const stepsHtml = `<div class="steps">${steps.map((s,i)=>{
+    const n=i+1, cls = n<createStep?'done':(n===createStep?'on':'');
+    return `<div class="step ${cls}" data-n="${n<createStep?'✓':n}">${s}</div>`;
+  }).join('')}</div>`;
+
+  let body='', foot='';
+  if(createStep===1){
+    body = `
+      <div class="field"><label>${createType}名称 <span class="req">*</span></label><input class="input" placeholder="${createType==='员工'?'如：王小明':'如：营销内容自动化'}" value="${createType==='员工'?'王小明':'数据分析报表服务'}"></div>
+      ${createType==='员工'?'<div class="field"><label>部门（可选）</label><input class="input" placeholder="如：研发部"></div>':''}
+      <div class="notice info">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>${createType==='员工'?'创建后系统将为员工生成登录账号（首次登录须修改初始密码）':'项目是非人调用主体，无登录账号，仅通过 Key 调用 Gateway'}</div></div>`;
+    foot = `<button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" onclick="createStep=2;renderCreate()">创建并继续</button>`;
+  } else if(createStep===2){
+    body = `
+      <div class="notice warn">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}<div><b>Key 明文只显示这一次。</b>请立即复制并妥善保存；之后系统只显示掩码，只保存不可逆摘要。</div></div>
+      <div class="key-box"><span class="grow">qlk-live-9f2e7a4c1b8d6e5f3a0c9d2b4e6f8a1c</span><button class="cp" onclick="toast('已复制 Key')">复制</button></div>`;
+    foot = `<button class="btn primary" onclick="createStep=3;renderCreate()">我已保存，继续分配</button>`;
+  } else if(createStep===3){
+    body = `
+      <div class="field"><label>套用额度规则模板（可选）</label>
+        <select class="select"><option>标准员工包（DeepSeek ¥200 · 智谱 500 万 · Kimi 300 万）</option><option>轻量包（DeepSeek ¥100 · 智谱 200 万）</option><option>不套用，手动填写</option></select>
+        <div class="hint">套用后仍可单独修改；优先级：主体单独设置 &gt; 额度规则 &gt; 系统默认值</div>
+      </div>
+      <div class="tbl-wrap mb16"><table class="tbl">
+        <thead><tr><th>资源</th><th>模型别名</th><th>授权</th><th>额度</th><th>允许超额</th></tr></thead>
+        <tbody>
+          <tr><td>DeepSeek API</td><td class="mono fs12">qianliu-deepseek</td><td><div class="switch on" onclick="this.classList.toggle('on')"></div></td><td><input class="input" style="width:120px" value="¥ 200"></td><td><div class="switch" onclick="this.classList.toggle('on')"></div></td></tr>
+          <tr><td>智谱 Coding Plan</td><td class="mono fs12">qianliu-glm-coding</td><td><div class="switch on" onclick="this.classList.toggle('on')"></div></td><td><input class="input" style="width:120px" value="500 万"></td><td><div class="switch" onclick="this.classList.toggle('on')"></div></td></tr>
+          <tr><td>Kimi Coding Plan</td><td class="mono fs12">qianliu-kimi-k3</td><td><div class="switch on" onclick="this.classList.toggle('on')"></div></td><td><input class="input" style="width:120px" value="300 万"></td><td><div class="switch" onclick="this.classList.toggle('on')"></div></td></tr>
+        </tbody>
+      </table></div>
+      <div class="fw600 fs13 mb12">Key 使用限制</div>
+      <div class="grid-2" style="gap:12px">
+        <div class="field"><label>来源 IP 白名单</label><input class="input mono" placeholder="留空表示不限制，如 10.0.0.0/8"></div>
+        <div class="field"><label>Key 有效期</label><input class="input" type="date" value="2026-12-31"></div>
+      </div>
+      <div class="grid-2" style="gap:12px">
+        <div class="field"><label>并发上限</label><input class="input" value="4"></div>
+        <div class="field"><label>每分钟请求上限</label><input class="input" value="60"></div>
+      </div>
+      <div class="notice info">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>额度有效期跟随对应厂商资源的周期；厂商进入新周期后已用额度自动清零，分配规则沿用。</div></div>`;
+    foot = `<button class="btn secondary" onclick="createStep=2;renderCreate()">上一步</button><button class="btn primary" onclick="createStep=4;renderCreate()">保存分配并生成接入信息</button>`;
+  } else {
+    body = `
+      <div class="notice ok">${icon('M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3')}<div><b>${createType==='员工'?'员工「王小明」':'项目「数据分析报表服务」'}已开通。</b>把以下接入信息发给使用方即可开始调用。</div></div>
+      <div class="field"><label>Gateway 地址</label><div class="key-box"><span class="grow">https://gateway.qianliu.example.com/v1</span><button class="cp" onclick="toast('已复制')">复制</button></div></div>
+      <div class="field"><label>已开通模型</label><div class="fs13 mono" style="line-height:22px">qianliu-deepseek<br>qianliu-glm-coding<br>qianliu-kimi-k3</div></div>
+      <div class="field"><label>WorkBuddy / ZCode 配置</label><div class="code-block">Base URL: https://gateway.qianliu.example.com/v1
+API Key:  qlk-live-9f2e••••••••（创建时已展示一次）
+Model:    qianliu-deepseek<button class="cp" onclick="toast('已复制配置')">复制</button></div></div>
+      <div class="field"><label>Claude Code 配置（Anthropic 兼容）</label><div class="code-block">export ANTHROPIC_BASE_URL=https://gateway.qianliu.example.com
+export ANTHROPIC_API_KEY=qlk-live-9f2e••••••••<button class="cp" onclick="toast('已复制配置')">复制</button></div></div>
+      <div class="hint fs12 tc-ter">仟流 IDE 无需手动配置：员工登录后自动取得 Gateway 地址、可用模型和受控凭证。</div>`;
+    foot = `<button class="btn primary" onclick="closeModal();toast('${createType}已创建')">完成</button>`;
+  }
+
+  openModal(`
+    <div class="modal-head"><span class="modal-title">新建${createType}（固定顺序）</span><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">${stepsHtml}${body}</div>
+    <div class="modal-foot">${foot}</div>`, 'lg');
+}
+
+/* ---------- 主体详情 / WT-06 超额 / WT-09 重置 Key ---------- */
+function openPrincipalDetail(name){
+  const p = PRINCIPALS.find(x=>x.name===name) || PRINCIPALS[0];
+  const quotaRows = p.quota.map(q=>`<tr>
+    <td>${q[0]}</td><td class="num">${q[1]}</td><td class="num">${q[2]}</td>
+    <td style="width:140px"><div class="progress ${q[3]>=100?'red':(q[3]>=85?'orange':'gray')}"><i style="width:${Math.min(q[3],100)}%"></i></div></td>
+    <td class="num">${q[3]}%</td></tr>`).join('');
+  openModal(`
+    <div class="modal-head"><span class="modal-title">${p.name} <span class="tag ${p.type==='员工'?'blue':'gray'}" style="vertical-align:2px">${p.type}</span></span><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <dl class="dl mb16">
+        <dt>Key</dt><dd class="mono fs12">${p.key} <button class="cp" onclick="openResetKey('${p.name}')">重置</button></dd>
+        <dt>最近调用</dt><dd>${p.last}</dd>
+        <dt>状态</dt><dd>${p.status==='DISABLED'?'已停用（历史用量与费用保留）':(p.overage?'正常 · 已开启允许超额':'正常')}</dd>
+        <dt>Key 限制</dt><dd>模型白名单 · 并发 4 · 60 RPM · 有效至 2026-12-31</dd>
+      </dl>
+      <div class="fw600 fs13 mb12">额度使用</div>
+      <div class="tbl-wrap mb16"><table class="tbl"><thead><tr><th>资源</th><th class="num">分配</th><th class="num">已用</th><th></th><th class="num">比例</th></tr></thead><tbody>${quotaRows}</tbody></table></div>
+      <div class="switch-row mb16"><div class="switch ${p.overage?'on':''}" onclick="toggleOverage(this,'${p.name}')"></div><span>允许超额使用 <span class="tc-ter fs12">（超额部分单独统计和预警，默认关闭即额度耗尽停止）</span></span></div>
+      <button class="link-btn" onclick="closeModal();go('usage')">查看该主体用量账本 →</button>
+    </div>`, '');
+}
+function toggleOverage(el, name){
+  el.classList.toggle('on');
+  toast(el.classList.contains('on') ? `已允许「${name}」超额使用，恢复调用并单列统计` : `已关闭「${name}」超额，额度耗尽将停止`);
+}
+function openResetKey(name){
+  openModal(`
+    <div class="modal-head"><span class="modal-title">重置 Key</span><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="notice err">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}<div><b>重置后旧 Key 立即失效</b>（5 秒内全局生效），使用旧 Key 的工具将立即无法调用。此操作不可撤销。</div></div>
+      <p class="fs13">将为「${name}」生成一把新 Key，明文同样只展示一次。</p>
+    </div>
+    <div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn danger" onclick="closeModal();toast('旧 Key 已失效，新 Key 已生成（明文展示一次）')">确认重置</button></div>`, 'sm');
+}
+function openDisable(name, type){
+  openModal(`
+    <div class="modal-head"><span class="modal-title">停用${type}</span><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="notice warn">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}<div>停用「${name}」后：<br>· 其 Key <b>立即失效</b>，全部模型权限停止<br>· 历史用量、费用和异常记录保留<br>· 重新启用时必须生成新 Key</div></div>
+    </div>
+    <div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn danger" onclick="closeModal();toast('「${name}」已停用，Key 已失效')">确认停用</button></div>`, 'sm');
+}
+
+/* ==================================================================
+   厂商资源 /resources（PRD §7；WT-01 登记、WT-07 失效切换/兜底）
+   ================================================================== */
+function resourceData(){
+  const base = [
+    {name:'DeepSeek-主账号', vendor:'DeepSeek', mode:'API', models:'deepseek-chat / deepseek-reasoner', quota:'充值 ¥1,500 · 余额 ¥1,102.40', period:'—', status:'ACTIVE', pool:'deepseek-pool', pri:1, fallback:false},
+    {name:'DeepSeek-备用', vendor:'DeepSeek', mode:'API', models:'deepseek-chat', quota:'充值 ¥500 · 余额 ¥485.24', period:'—', status:'ACTIVE', pool:'deepseek-pool', pri:2, fallback:false},
+    {name:'智谱-主账号', vendor:'智谱', mode:'套餐', models:'glm-coding', quota:'总额 3,000 万 · 已用 2,180 万', period:'07-01 ~ 07-31 · 每月 1 日重置', status: scenario==='down'?'CREDENTIAL_INVALID':'ACTIVE', pool:'zhipu-pool', pri:1, fallback:false},
+    {name:'智谱-备用账号', vendor:'智谱', mode:'套餐', models:'glm-coding', quota:'总额 2,000 万 · 已用 0', period:'07-15 ~ 08-14 · 每月 15 日重置', status:'ACTIVE', pool:'zhipu-pool', pri:2, fallback:false},
+    {name:'Kimi-K3 套餐', vendor:'Kimi', mode:'套餐', models:'kimi-k3', quota:'总额 3,000 万 · 已用 1,960 万', period:'07-10 ~ 08-09 · 每月 10 日重置', status: scenario==='exhaust'?'EXHAUSTED':'ACTIVE', pool:'kimi-pool', pri:1, fallback:false}
+  ];
+  if(scenario==='exhaust'){ base[2].quota='总额 3,000 万 · 已用 3,000 万'; base[2].status='EXHAUSTED'; }
+  if(scenario==='empty'){ return []; }
+  return base;
+}
+const RES_STATUS = {
+  ACTIVE:['green','正常'], DEGRADED:['orange','降级'], EXHAUSTED:['red','额度耗尽'],
+  EXPIRED:['gray','已过期'], CREDENTIAL_INVALID:['red','凭证失效'], UNAVAILABLE:['red','不可用']
+};
+
+VIEWS.resources = function(){
+  const list = resourceData();
+  const rows = list.map((r,i)=>{
+    const st = RES_STATUS[r.status];
+    return `<tr>
+      <td><div class="cell-main">${r.name}</div><div class="cell-sub mono fs12">${r.pool} · 优先级 ${r.pri}</div></td>
+      <td>${r.vendor}</td>
+      <td><span class="tag ${r.mode==='API'?'blue':'gray'}">${r.mode}</span></td>
+      <td class="mono fs12">${r.models}</td>
+      <td class="fs13">${r.quota}</td>
+      <td class="fs12 tc-ter">${r.period}</td>
+      <td><span class="tag ${st[0]}"><span class="dot"></span>${st[1]}</span></td>
+      <td><div class="switch-row"><div class="switch ${r.fallback?'on':''}" onclick="toggleFallback(this,'${r.name}')"></div></div></td>
+      <td style="white-space:nowrap"><button class="link-btn" onclick="openResourceDetail('${r.name}')">详情</button></td>
+    </tr>`;
+  }).join('');
+
+  const downNotice = scenario==='down' ? `
+    <div class="notice err">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}
+    <div><b>智谱-主账号凭证失效（连续 401）。</b>Gateway 已自动切换到同资源池「智谱-备用账号」，员工调用未中断。API 兜底开关关闭，未产生 API 费用。</div></div>` : '';
+  const exhaustNotice = scenario==='exhaust' ? `
+    <div class="notice warn">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}
+    <div><b>智谱 / Kimi 套餐额度耗尽。</b>默认不自动转 API；开启「API 兜底」后同模型可回落到 API 资源，兜底费用单独统计。</div></div>` : '';
+
+  return banner('WT-01 登记三类资源 · WT-07 失效切换与 API 兜底') + `
+  ${downNotice}${exhaustNotice}
+  <div class="filter-bar">
+    <span class="fb-label">资源池：员工只分配厂商+模型+额度，不绑定具体账号；Gateway 自动选可用账号</span>
+    <div style="margin-left:auto"><button class="btn primary" onclick="openAddResource()">+ 登记资源账号</button></div>
+  </div>
+  ${list.length ? `
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>账号</th><th>厂商</th><th>模式</th><th>可用模型</th><th>费用 / 额度</th><th>有效与重置</th><th>状态</th><th>API 兜底</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div class="notice info mt16">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>路由规则：同模型默认<b>套餐优先</b>；单账号限流/失效自动切换同池账号；套餐→API 仅在「API 兜底」开启时发生，兜底费用单列。上游凭证只保存于服务器，页面仅显示指纹。</div></div>`
+  : `<div class="zone"><div class="empty">
+      <div class="e-icon">${icon('M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z')}</div>
+      <div class="e-title">登记第一个厂商资源</div>
+      <div class="e-sub">支持 DeepSeek API、智谱 Coding Plan、Kimi Coding Plan；同一厂商可登记多个账号组成资源池</div>
+      <button class="btn primary mt12" onclick="openAddResource()">+ 登记资源账号</button>
+    </div></div>`}`;
+};
+
+/* ---------- WT-01：登记资源 ---------- */
+function openAddResource(){
+  openModal(`
+    <div class="modal-head"><span class="modal-title">登记厂商资源账号</span><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="grid-2" style="gap:12px">
+        <div class="field"><label>厂商 <span class="req">*</span></label><select class="select"><option>DeepSeek</option><option>智谱</option><option>Kimi</option></select></div>
+        <div class="field"><label>资源模式 <span class="req">*</span></label><select class="select"><option>API（按价格计费）</option><option>Coding Plan / 套餐（按规则扣额度）</option></select></div>
+      </div>
+      <div class="field"><label>账号名称 <span class="req">*</span></label><input class="input" placeholder="如：DeepSeek-主账号"></div>
+      <div class="grid-2" style="gap:12px">
+        <div class="field"><label>可用模型 <span class="req">*</span></label><input class="input" placeholder="deepseek-chat"></div>
+        <div class="field"><label>资源池</label><input class="input" placeholder="默认按厂商+模式自动归池"></div>
+      </div>
+      <div class="grid-2" style="gap:12px">
+        <div class="field"><label>充值金额 / 套餐费用 <span class="req">*</span></label><input class="input" placeholder="¥ 1,500"></div>
+        <div class="field"><label>总额度（套餐）</label><input class="input" placeholder="3,000 万"></div>
+      </div>
+      <div class="grid-2" style="gap:12px">
+        <div class="field"><label>生效时间</label><input class="input" type="date" value="2026-07-01"></div>
+        <div class="field"><label>失效 / 重置时间</label><input class="input" type="date" value="2026-07-31"></div>
+      </div>
+      <div class="field"><label>上游凭证 <span class="req">*</span></label><input class="input mono" type="password" placeholder="sk-••••••••••••••••">
+        <div class="hint">凭证经信封加密只保存于服务器；页面与日志只显示指纹，永不回显明文</div></div>
+      <div class="field"><label>价格 / 扣减规则</label><select class="select"><option>选择系统模板后手工维护（在「额度规则」页配置版本）</option></select></div>
+    </div>
+    <div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('资源账号已登记，状态检查中')">登记</button></div>`, 'lg');
+}
+function toggleFallback(el, name){
+  if(!el.classList.contains('on')){
+    openModal(`
+      <div class="modal-head"><span class="modal-title">开启 API 兜底</span><button class="modal-x" onclick="closeModal()">✕</button></div>
+      <div class="modal-body">
+        <div class="notice warn">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}<div>开启后，「${name}」所属模型的套餐不可用时将回落到 API 资源。<b>兜底调用按 API 价格计费，费用单独统计。</b>默认关闭以避免非预期费用。</div></div>
+      </div>
+      <div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" onclick="el_on_fallback();closeModal()">确认开启</button></div>`, 'sm');
+    window._fb = el;
+  } else { el.classList.remove('on'); toast('已关闭 API 兜底'); }
+}
+function el_on_fallback(){ window._fb.classList.add('on'); toast('API 兜底已开启，兜底费用将单列'); }
+function openResourceDetail(name){
+  openModal(`
+    <div class="modal-head"><span class="modal-title">${name}</span><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <dl class="dl mb16">
+        <dt>凭证指纹</dt><dd class="mono fs12">sha256:8f3a…c41e（不显示明文）</dd>
+        <dt>价格规则</dt><dd>API_PRICE v3 · 2026-07-01 起生效 <button class="link-btn" onclick="closeModal();go('rules')">查看</button></dd>
+        <dt>路由优先级</dt><dd>1（同池最高）</dd>
+        <dt>最近健康检查</dt><dd>2 分钟前 · 正常</dd>
+        <dt>本月调用</dt><dd class="num">18,204 次 · 成功率 99.2%</dd>
+      </dl>
+      <div class="fw600 fs13 mb12">同资源池账号</div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>账号</th><th>优先级</th><th>状态</th></tr></thead><tbody>
+        <tr><td>DeepSeek-主账号</td><td class="num">1</td><td><span class="tag green">正常</span></td></tr>
+        <tr><td>DeepSeek-备用</td><td class="num">2</td><td><span class="tag green">正常</span></td></tr>
+      </tbody></table></div>
+    </div>`, '');
+}
+
+/* ==================================================================
+   v0.3 增量：Provider / Resource / Unified Model / Model Route
+   ================================================================== */
+let resourceTab = 'routes';
+const ROUTES_V3 = [
+  {alias:'qianliu-deepseek', route:'route.deepseek.v4', provider:'DeepSeek', targets:2, proto:'Chat / Messages', policy:'同优先级多因子评分', health:'可用', forecast:'覆盖至周期结束'},
+  {alias:'qianliu-glm-coding', route:'route.glm-coding.v6', provider:'智谱', targets:2, proto:'Chat / Messages', policy:'套餐优先 · Affinity', health:'可用（1 个隔离演练）', forecast:'08-01 恢复'},
+  {alias:'qianliu-kimi-k3', route:'route.kimi-k3.v3', provider:'Kimi', targets:1, proto:'Chat / Messages', policy:'套餐优先 · API 兜底关闭', health:'额度偏紧', forecast:'预计 08-03 耗尽'}
+];
+function resourceDataV3(){
+  const rows = [
+    {name:'DeepSeek-主账号', vendor:'DeepSeek', provider:'provider.deepseek', mode:'API', credential:'API Key', cred:'正常', models:'deepseek-chat / deepseek-reasoner', quota:'余额 ¥1,102.40', period:'长期', status:'ACTIVE', pool:'deepseek-pool', pri:1, weight:70, load:'12 / 24', err:'0.8%', ttft:'198 ms', cooldown:'—'},
+    {name:'DeepSeek-备用', vendor:'DeepSeek', provider:'provider.deepseek', mode:'API', credential:'API Key', cred:'正常', models:'deepseek-chat', quota:'余额 ¥485.24', period:'长期', status:'COOLDOWN', pool:'deepseek-pool', pri:1, weight:30, load:'2 / 12', err:'4.1%', ttft:'246 ms', cooldown:'12:06（429）'},
+    {name:'智谱-主账号', vendor:'智谱', provider:'provider.zhipu', mode:'套餐', credential:'OAuth', cred:scenario==='down'?'刷新失败':'正常', models:'glm-coding', quota:scenario==='exhaust'?'已用 3,000 / 3,000 万':'已用 2,180 / 3,000 万', period:'08-01 重置', status:scenario==='down'?'CREDENTIAL_INVALID':(scenario==='exhaust'?'EXHAUSTED':'ACTIVE'), pool:'zhipu-pool', pri:1, weight:60, load:'3 / 16', err:scenario==='down'?'26%':'1.2%', ttft:'286 ms', cooldown:scenario==='down'?'隔离至重新授权':'—'},
+    {name:'智谱-备用账号', vendor:'智谱', provider:'provider.zhipu', mode:'套餐', credential:'套餐会话', cred:'正常', models:'glm-coding', quota:'已用 0 / 2,000 万', period:'08-15 重置', status:'ACTIVE', pool:'zhipu-pool', pri:1, weight:40, load:'5 / 16', err:'0.9%', ttft:'301 ms', cooldown:'—'},
+    {name:'Kimi-K3 套餐', vendor:'Kimi', provider:'provider.kimi', mode:'套餐', credential:'套餐会话', cred:'正常', models:'kimi-k3', quota:scenario==='exhaust'?'已用 3,000 / 3,000 万':'已用 1,960 / 3,000 万', period:'08-10 重置', status:scenario==='exhaust'?'EXHAUSTED':'ACTIVE', pool:'kimi-pool', pri:1, weight:100, load:'6 / 12', err:'1.1%', ttft:'312 ms', cooldown:'—'}
+  ];
+  return scenario==='empty' ? [] : rows;
+}
+const RES_STATUS_V3 = {
+  ACTIVE:['green','健康'], COOLDOWN:['orange','冷却中'], DEGRADED:['orange','降级'], EXHAUSTED:['red','额度耗尽'],
+  EXPIRED:['gray','已过期'], CREDENTIAL_INVALID:['red','凭证隔离'], UNAVAILABLE:['red','不可用']
+};
+function resourceTabsV3(){
+  return `<div class="tabs">
+    <button class="${resourceTab==='routes'?'on':''}" onclick="resourceTab='routes';render()">统一模型与路由</button>
+    <button class="${resourceTab==='accounts'?'on':''}" onclick="resourceTab='accounts';render()">资源账号</button>
+    <button class="${resourceTab==='capabilities'?'on':''}" onclick="resourceTab='capabilities';render()">接口能力</button>
+    <button class="${resourceTab==='supply'?'on':''}" onclick="resourceTab='supply';render()">持续供给</button>
+  </div>`;
+}
+function renderRoutesV3(){
+  if(scenario==='empty') return `<div class="zone"><div class="empty"><div class="e-title">先登记厂商资源账号</div><div class="e-sub">资源通过凭证验证、接口能力检查与健康探测后，才能加入统一模型路由。</div><button class="btn primary mt12" onclick="resourceTab='accounts';render()">去登记资源</button></div></div>`;
+  const rows = ROUTES_V3.map((r,i)=>`<tr>
+    <td><div class="cell-main mono">${r.alias}</div><div class="cell-sub mono">${r.route}</div></td>
+    <td>${r.provider}</td><td class="num">${r.targets}</td><td class="fs12">${r.proto}</td><td class="fs12">${r.policy}</td>
+    <td><span class="tag ${r.health.includes('偏紧')?'orange':'green'}">${r.health}</span></td><td class="fs12">${r.forecast}</td>
+    <td><button class="link-btn" onclick="openRouteDetail(${i})">路由详情</button></td>
+  </tr>`).join('');
+  return `<div class="zone core">
+    <div class="zone-head"><span class="zone-title">Unified Model → Model Route</span><span class="zone-desc">员工只看到稳定模型名，具体账号由 Gateway 在请求前选择</span><div class="zone-actions"><button class="btn primary sm" onclick="openNewRoute()">+ 新建模型路由</button></div></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>统一模型 / 路由版本</th><th>Provider</th><th>候选数</th><th>协议</th><th>路由策略</th><th>状态</th><th>供给</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="notice info mt16">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div><b>硬过滤在前，软评分在后：</b>先过滤模型授权、协议能力、凭证、健康、并发和额度，再按优先级、权重、负载、错误率、时延、额度、重置、成本和 Affinity 评分。</div></div>
+  </div>`;
+}
+function renderAccountsV3(){
+  const list=resourceDataV3();
+  if(!list.length) return `<div class="zone"><div class="empty"><div class="e-title">登记第一个厂商资源账号</div><div class="e-sub">支持 API Key、OAuth 和套餐会话；凭证异常只隔离对应资源。</div><button class="btn primary mt12" onclick="openAddResourceV3()">+ 登记资源账号</button></div></div>`;
+  const rows=list.map(r=>{const st=RES_STATUS_V3[r.status];return `<tr>
+    <td><div class="cell-main">${r.name}</div><div class="cell-sub mono">${r.pool}</div></td>
+    <td><div>${r.vendor}</div><div class="cell-sub mono">${r.provider}</div></td>
+    <td><span class="tag ${r.mode==='API'?'blue':'gray'}">${r.mode}</span><div class="cell-sub">${r.credential} · ${r.cred}</div></td>
+    <td class="mono fs12">${r.models}</td><td><div class="fs12">${r.quota}</div><div class="cell-sub">${r.period}</div></td>
+    <td class="fs12 num">${r.load}<div class="cell-sub">错误 ${r.err} · TTFT ${r.ttft}</div></td>
+    <td><span class="tag ${st[0]}"><span class="dot"></span>${st[1]}</span><div class="cell-sub">${r.cooldown}</div></td>
+    <td class="fs12 num">P${r.pri} · W${r.weight}</td><td><button class="link-btn" onclick="openResourceDetailV3('${r.name}')">详情</button></td>
+  </tr>`}).join('');
+  return `<div class="filter-bar"><span class="fb-label">厂商资源账号可独立健康检查、冻结、隔离和恢复</span><div style="margin-left:auto"><button class="btn primary" onclick="openAddResourceV3()">+ 登记资源账号</button></div></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>资源账号</th><th>厂商</th><th>模式 / 凭证</th><th>上游模型</th><th>额度 / 周期</th><th>并发 / 质量</th><th>健康 / 冻结</th><th>路由</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderCapabilitiesV3(){
+  return `<div class="zone">
+    <div class="zone-head"><span class="zone-title">接口能力注册</span><span class="zone-desc">未启用能力显式拒绝，不静默丢字段、不假装兼容</span><div class="zone-actions"><button class="btn secondary sm" onclick="toast('能力矩阵检查已执行：18 通过，4 明确拒绝')">执行能力检查</button></div></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>接口适配器</th><th>Models</th><th>Chat</th><th>Messages</th><th>Responses</th><th>Embeddings</th><th>count_tokens</th><th>SSE</th><th>WebSocket</th><th></th></tr></thead><tbody>
+      <tr><td><div class="cell-main">DeepSeek</div><div class="cell-sub mono">adapter.deepseek.v2</div></td><td><span class="tag green">启用</span></td><td><span class="tag green">启用</span></td><td><span class="tag green">转换</span></td><td><span class="tag orange">PoC</span></td><td><span class="tag red">拒绝</span></td><td><span class="tag red">拒绝</span></td><td><span class="tag green">启用</span></td><td><span class="tag red">拒绝</span></td><td><button class="link-btn" onclick="openCapabilityError('DeepSeek','Embeddings')">错误契约</button></td></tr>
+      <tr><td><div class="cell-main">智谱</div><div class="cell-sub mono">adapter.zhipu.v3</div></td><td><span class="tag green">启用</span></td><td><span class="tag green">转换</span></td><td><span class="tag green">启用</span></td><td><span class="tag orange">PoC</span></td><td><span class="tag red">拒绝</span></td><td><span class="tag green">启用</span></td><td><span class="tag green">启用</span></td><td><span class="tag orange">PoC</span></td><td><span class="tag green">可用</span></td></tr>
+      <tr><td><div class="cell-main">Kimi</div><div class="cell-sub mono">adapter.kimi.v2</div></td><td><span class="tag green">启用</span></td><td><span class="tag green">转换</span></td><td><span class="tag green">启用</span></td><td><span class="tag red">拒绝</span></td><td><span class="tag red">拒绝</span></td><td><span class="tag green">启用</span></td><td><span class="tag green">启用</span></td><td><span class="tag red">拒绝</span></td><td><span class="tag green">可用</span></td></tr>
+    </tbody></table></div>
+    <div class="notice warn mt16">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}<div><b>一期最低交付：</b>Models、Chat Completions、Anthropic Messages。Responses、Embeddings、count_tokens、WebSocket 由真实客户端 PoC 冻结启用顺序。</div></div>
+  </div>`;
+}
+function renderSupplyV3(){
+  return `<div class="zone core">
+    <div class="zone-head"><span class="zone-title">持续供给预测</span><span class="zone-desc">消耗速度、预计耗尽、下一恢复、覆盖时长和可信度</span></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>资源 / 统一模型</th><th>1h / 24h / 7d 消耗速度</th><th>剩余</th><th>预计耗尽</th><th>下一恢复</th><th>覆盖</th><th>可信度 / 依据</th></tr></thead><tbody>
+      <tr><td><div class="cell-main">Kimi-K3 套餐</div><div class="cell-sub mono">qianliu-kimi-k3</div></td><td class="fs12 num">142 / 130 / 118 万 Token/日</td><td class="num">1,040 万</td><td><span class="tag orange">08-03 14:00</span></td><td class="num">08-10 00:00</td><td class="num">8.0 天</td><td><span class="tag green">高</span><div class="cell-sub">7 日窗口 · 周末修正</div></td></tr>
+      <tr><td><div class="cell-main">智谱资源池</div><div class="cell-sub mono">qianliu-glm-coding</div></td><td class="fs12 num">186 / 168 / 152 万 Token/日</td><td class="num">2,820 万</td><td><span class="tag gray">覆盖至重置</span></td><td class="num">08-01 00:00</td><td class="num">16.8 天</td><td><span class="tag green">高</span><div class="cell-sub">两账号合并 · 高峰倍率已折算</div></td></tr>
+      <tr><td><div class="cell-main">DeepSeek API 池</div><div class="cell-sub mono">qianliu-deepseek</div></td><td class="fs12 num">¥25.1 / ¥23.4 / ¥20.8 /日</td><td class="num">¥1,587.64</td><td><span class="tag gray">周期内不耗尽</span></td><td class="num">人工充值</td><td class="num">67.8 天</td><td><span class="tag orange">中</span><div class="cell-sub">余额人工登记 · 2 小时前</div></td></tr>
+    </tbody></table></div>
+    <div class="notice info mt16">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div><b>预测口径：</b>以贴近正常消耗为目标，不过度保守。基于真实余额/剩余额度、真实账本和当前消耗趋势计算，并已纳入高峰/非高峰时段的真实请求分布与扣减倍率、价格或套餐规则。数据不足、余额未知或趋势突变时降低可信度或提示异常，不伪装成精确预测。</div></div>
+  </div>`;
+}
+VIEWS.resources = function(){
+  const downNotice=scenario==='down'?`<div class="notice err">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}<div><b>智谱-主账号 OAuth 刷新失败，已隔离该资源。</b>备用账号继续服务；重新授权后先受控探测，再恢复入池。</div></div>`:'';
+  return banner('WT-01/07 · WT-10 路由 · WT-14/20 能力 · WT-15 供给 · WT-18 评分 · WT-19 凭证') + downNotice + resourceTabsV3() +
+    (resourceTab==='routes'?renderRoutesV3():resourceTab==='accounts'?renderAccountsV3():resourceTab==='capabilities'?renderCapabilitiesV3():renderSupplyV3());
+};
+function openRouteDetail(i){
+  const r=ROUTES_V3[i]||ROUTES_V3[0], isGlm=r.alias.includes('glm');
+  openModal(`<div class="modal-head"><span class="modal-title">${r.alias} · 路由详情</span><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">
+    <dl class="dl mb16"><dt>路由版本</dt><dd class="mono">${r.route}</dd><dt>硬过滤</dt><dd>授权、协议、凭证、健康、并发、额度</dd><dt>软评分策略</dt><dd class="mono">account_pool_score.v5</dd><dt>切换边界</dt><dd>仅可重试错误且首个有效输出提交前</dd></dl>
+    <div class="fw600 fs13 mb12">候选与评分因子</div>
+    <div class="tbl-wrap mb16"><table class="tbl"><thead><tr><th>候选</th><th>静态</th><th>负载</th><th>错误/TTFT</th><th>额度/重置</th><th>成本</th><th>Affinity</th><th>总分</th><th>结果</th></tr></thead><tbody>
+      <tr><td>${isGlm?'智谱-主账号':'DeepSeek-主账号'}</td><td class="fs12">P1 · W${isGlm?'60':'70'}</td><td class="fs12">${isGlm?'3/16':'12/24'}</td><td class="fs12">${isGlm?'1.2% · 286ms':'0.8% · 198ms'}</td><td class="fs12">${isGlm?'27% · 08-01':'74% · 人工充值'}</td><td class="fs12">${isGlm?'套餐内':'¥0.024/次'}</td><td><span class="tag green">+18</span></td><td><div class="score"><div class="progress gray"><i style="width:92%"></i></div><b>92</b></div></td><td><span class="tag green">已选中</span><div class="reason-code">AFFINITY_HEALTHY</div></td></tr>
+      <tr><td>${isGlm?'智谱-备用账号':'DeepSeek-备用'}</td><td class="fs12">P1 · W${isGlm?'40':'30'}</td><td class="fs12">${isGlm?'5/16':'2/12'}</td><td class="fs12">${isGlm?'0.9% · 301ms':'4.1% · 246ms'}</td><td class="fs12">${isGlm?'100% · 08-15':'97% · 人工充值'}</td><td class="fs12">${isGlm?'套餐内':'¥0.025/次'}</td><td><span class="tag gray">0</span></td><td><div class="score"><div class="progress gray"><i style="width:74%"></i></div><b>74</b></div></td><td><span class="tag ${isGlm?'gray':'orange'}">${isGlm?'未选中':'冷却过滤'}</span><div class="reason-code">${isGlm?'LOWER_SCORE':'COOLDOWN_429'}</div></td></tr>
+    </tbody></table></div>
+    <div class="notice ok">${icon('M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3')}<div>本次选择可复现：已保存策略版本、全部输入因子、总分、reason code 和最终资源。</div></div>
+  </div>`, 'lg');
+}
+function openCapabilityError(provider,cap){
+  openModal(`<div class="modal-head"><span class="modal-title">能力拒绝契约</span><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">
+    <div class="notice err">${icon('M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01')}<div><b>${provider} / ${cap} 未启用。</b>Gateway 在访问上游前显式拒绝，不会静默删除字段或降级为 Chat。</div></div>
+    <div class="code-block">HTTP 422
+code: capability_not_supported
+provider: ${provider}
+capability: ${cap}
+request_id: req_cap_82f1
+retryable: false</div></div>`, 'sm');
+}
+function openAddResourceV3(){
+  openModal(`<div class="modal-head"><span class="modal-title">登记资源账号</span><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">
+    <div class="grid-2" style="gap:12px">
+      <div class="field"><label>厂商 <span class="req">*</span></label><select class="select" id="reg-vendor" onchange="regVendorChange()"><option>DeepSeek</option><option>智谱</option><option>Kimi</option></select></div>
+      <div class="field"><label>资源模式 <span class="req">*</span></label><select class="select" id="reg-mode" onchange="regVendorChange()"><option>API（按价格计费）</option><option>Coding Plan / 套餐</option></select></div>
+    </div>
+    <div class="field"><label>资源账号名称 <span class="req">*</span></label><input class="input" placeholder="如：DeepSeek-华东主账号"></div>
+    <div class="field"><label id="reg-cred-label">API Key <span class="req">*</span></label><input class="input mono" type="password" id="reg-cred-input" placeholder="粘贴 DeepSeek API Key">
+      <div class="hint">仅掩码显示并加密存储，不在页面、日志或账本中明文回显；凭证异常只隔离本资源</div></div>
+    <div class="field"><label>接口能力</label>
+      <div class="key-box" style="font-family:var(--font);font-size:13px;color:var(--text-secondary)"><span class="grow" id="reg-cap">完成测试连接后由系统探测，只读展示</span></div>
+    </div>
+    <div style="margin:4px 0 14px"><button class="btn secondary" onclick="regTestConn()">测试连接</button><span class="fs12 tc-ter" style="margin-left:10px" id="reg-test-result"></span></div>
+    <div style="border-top:1px solid var(--border-subtle);padding-top:12px">
+      <button class="btn ghost sm" type="button" onclick="var a=document.getElementById('reg-adv');a.style.display=a.style.display==='none'?'block':'none';this.textContent=a.style.display==='none'?'高级设置（默认值，可不填）▸':'高级设置（默认值，可不填）▾'">高级设置（默认值，可不填）▸</button>
+      <div id="reg-adv" style="display:none;margin-top:10px">
+        <div class="grid-2" style="gap:12px">
+          <div class="field"><label>优先级 / 权重</label><input class="input" value="1 / 50"></div>
+          <div class="field"><label>并发上限</label><input class="input" value="16"></div>
+        </div>
+        <div class="hint fs12 tc-ter">系统已给出推荐默认值，首次接入无需修改</div>
+      </div>
+    </div>
+    <div class="notice info mt16">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>测试连接成功后系统自动识别可用模型与接口能力；登记后执行健康探测，通过才加入 Model Route。</div></div>
+  </div><div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" id="reg-submit" disabled onclick="closeModal();toast('资源已登记，正在执行健康探测')">登记</button></div>`, 'lg');
+}
+function regVendorChange(){
+  const v=document.getElementById('reg-vendor').value, m=document.getElementById('reg-mode').value;
+  const label=document.getElementById('reg-cred-label'), input=document.getElementById('reg-cred-input');
+  if(m.startsWith('API')){ label.innerHTML='API Key <span class="req">*</span>'; input.placeholder='粘贴 '+v+' API Key'; }
+  else { label.innerHTML='账号授权 <span class="req">*</span>'; input.placeholder='粘贴'+v+'套餐凭证 / 完成账号授权'; }
+  document.getElementById('reg-test-result').textContent='';
+  document.getElementById('reg-cap').textContent='完成测试连接后由系统探测，只读展示';
+  document.getElementById('reg-submit').disabled=true;
+}
+function regTestConn(){
+  const r=document.getElementById('reg-test-result');
+  r.textContent='连接成功 · 已识别 2 个模型与接口能力';
+  r.style.color='var(--success)';
+  document.getElementById('reg-cap').textContent='Models · Chat · Messages · SSE（系统探测，只读）';
+  document.getElementById('reg-submit').disabled=false;
+}
+function openNewRoute(){
+  openModal(`<div class="modal-head"><span class="modal-title">新建模型路由</span><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">
+    <div class="notice info">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div><b>仅在接入新模型 / 新厂商时配置一次。</b>把统一模型名映射到真实厂商、候选账号、协议和路由策略；日常调用由 Gateway 自动选账号，无需逐次配置。</div></div>
+    <div class="field"><label>统一模型名 <span class="req">*</span></label><input class="input mono" placeholder="qianliu-xxx（员工看到的稳定模型名）"><div class="hint">创建后不可修改，避免员工侧配置失效</div></div>
+    <div class="grid-2" style="gap:12px">
+      <div class="field"><label>厂商 <span class="req">*</span></label><select class="select"><option>DeepSeek</option><option>智谱</option><option>Kimi</option></select></div>
+      <div class="field"><label>协议 <span class="req">*</span></label><select class="select"><option>OpenAI Chat + SSE</option><option>Anthropic Messages + SSE</option></select></div>
+    </div>
+    <div class="field"><label>候选账号 <span class="req">*</span></label>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>账号</th><th>模式</th><th>健康</th><th>优先级 / 权重</th></tr></thead><tbody>
+        <tr><td><input type="checkbox" checked></td><td>DeepSeek-主账号</td><td><span class="tag blue">API</span></td><td><span class="tag green">健康</span></td><td class="fs12 num">P1 · W70</td></tr>
+        <tr><td><input type="checkbox" checked></td><td>DeepSeek-备用</td><td><span class="tag blue">API</span></td><td><span class="tag orange">冷却中</span></td><td class="fs12 num">P1 · W30</td></tr>
+      </tbody></table></div>
+      <div class="hint">勾选加入候选；同优先级按多因子评分选路，可在账号详情调权重</div>
+    </div>
+    <div class="grid-2" style="gap:12px">
+      <div class="field"><label>路由策略</label><select class="select"><option>套餐优先 + 多因子评分</option><option>多因子评分</option><option>仅优先级</option></select></div>
+      <div class="field"><label>API 兜底</label><select class="select"><option>关闭（默认，避免非预期费用）</option><option>开启（费用单列）</option></select></div>
+    </div>
+  </div><div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('模型路由已创建并发布新版本')">创建路由</button></div>`, 'lg');
+}
+
+function openResourceDetailV3(name){
+  const r=resourceDataV3().find(x=>x.name===name)||resourceDataV3()[0], st=RES_STATUS_V3[r.status];
+  openModal(`<div class="modal-head"><span class="modal-title">${r.name}</span><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">
+    <dl class="dl mb16"><dt>Provider</dt><dd class="mono">${r.provider}</dd><dt>凭证</dt><dd>${r.credential} · ${r.cred} · 指纹 sha256:8f3a…c41e</dd><dt>健康状态</dt><dd><span class="tag ${st[0]}">${st[1]}</span> · 最近探测 2 分钟前</dd><dt>冷却 / 恢复</dt><dd>${r.cooldown}</dd><dt>并发 / 质量</dt><dd>${r.load} · 错误 ${r.err} · TTFT ${r.ttft}</dd><dt>路由因子</dt><dd>P${r.pri} · W${r.weight} · ${r.quota}</dd></dl>
+    ${r.status==='CREDENTIAL_INVALID'?`<div class="notice err"><div><b>该资源已独立隔离。</b>同池健康账号继续服务，不连带停池。</div></div><button class="btn primary" onclick="closeModal();toast('已发起重新授权；成功后将先探测再入池')">重新授权并受控恢复</button>`:`<div class="notice ok"><div>资源可参与路由；状态变化会生成操作日志和 reason code。</div></div>`}
+  </div>`, 'lg');
+}
+
+/* ==================================================================
+   额度规则 /quota-rules（PRD §8.1、§9.3；billing_rule_version 两类）
+   ================================================================== */
+VIEWS.rules = function(){
+  return banner('额度模板套用（WT-02/04 内） · 规则版本命中见 WT-05 账本') + `
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-title">额度规则模板</span>
+      <span class="zone-desc">批量套用 · 套用后可单独覆盖 · 优先级：主体单独设置 &gt; 额度规则 &gt; 系统默认值</span>
+      <div class="zone-actions"><button class="btn secondary sm" onclick="openNewQuotaTemplate()">+ 新建模板</button></div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>模板</th><th>DeepSeek</th><th>智谱</th><th>Kimi K3</th><th>允许超额</th><th class="num">已套用</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="cell-main">标准员工包</td><td class="num">¥ 200</td><td class="num">500 万</td><td class="num">300 万</td><td>关闭</td><td class="num">6 人</td><td><button class="link-btn" onclick="toast('批量套用（原型）')">批量套用</button></td></tr>
+        <tr><td class="cell-main">轻量包</td><td class="num">¥ 100</td><td class="num">200 万</td><td class="num">—</td><td>关闭</td><td class="num">2 人</td><td><button class="link-btn" onclick="toast('批量套用（原型）')">批量套用</button></td></tr>
+        <tr><td class="cell-main">项目服务包</td><td class="num">¥ 300</td><td class="num">400 万</td><td class="num">300 万</td><td>开启</td><td class="num">2 个项目</td><td><button class="link-btn" onclick="toast('批量套用（原型）')">批量套用</button></td></tr>
+      </tbody>
+    </table></div>
+    <div class="notice info mt16">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>主体额度是独立使用边界：公司总余额仍有剩余，不代表额度耗尽的员工或项目可以继续调用。额度单位可选 Token、金额或厂商原生单位；有效期跟随对应厂商资源周期，未使用额度不结转。</div></div>
+  </div>
+
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-title">计费规则版本（billing_rule_version）</span>
+      <span class="zone-desc">API 分时价格 · 套餐扣减倍数 · 修改只影响新调用，历史引用原版本</span>
+      <div class="zone-actions"><button class="btn secondary sm" onclick="openRuleEditor()">+ 新建规则版本</button></div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>类型</th><th>厂商 / 模型</th><th>规则摘要</th><th>时间窗</th><th>版本</th><th>有效期</th><th>优先级</th><th>状态</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="tag blue">API_PRICE</span></td>
+          <td><div class="cell-main">DeepSeek</div><div class="cell-sub mono fs12">deepseek-chat</div></td>
+          <td class="fs12">缓存命中 ¥0.5/百万 · 未命中 ¥2/百万 · 输出 ¥8/百万<div class="tc-ter">按实际采购合同配置，系统不预置时段与单价</div></td>
+          <td class="fs12">全天</td>
+          <td class="mono fs12">v3</td>
+          <td class="fs12 num">07-01 ~ 07-31</td><td class="num">10</td>
+          <td><span class="tag gray">启用</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag blue">API_PRICE</span></td>
+          <td><div class="cell-main">DeepSeek</div><div class="cell-sub mono fs12">deepseek-reasoner</div></td>
+          <td class="fs12">输入 ¥4/百万 · 输出 ¥16/百万</td>
+          <td class="fs12">全天</td>
+          <td class="mono fs12">v2</td>
+          <td class="fs12 num">07-01 ~ 07-31</td><td class="num">10</td>
+          <td><span class="tag gray">启用</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag gray">PLAN_QUOTA</span></td>
+          <td><div class="cell-main">智谱</div><div class="cell-sub mono fs12">glm-coding</div></td>
+          <td class="fs12">高峰扣减 ×2，其余时段 ×1<div class="tc-ter">厂商套餐规则，管理员手工维护</div></td>
+          <td class="fs12">北京时间 14:00–18:00</td>
+          <td class="mono fs12">v2</td>
+          <td class="fs12 num">07-01 ~ 07-31</td><td class="num">10</td>
+          <td><span class="tag gray">启用</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag gray">PLAN_QUOTA</span></td>
+          <td><div class="cell-main">Kimi</div><div class="cell-sub mono fs12">kimi-k3</div></td>
+          <td class="fs12">按模型档位扣减：K3 标准档 ×1，K3 思考档 ×3</td>
+          <td class="fs12">全天</td>
+          <td class="mono fs12">v1</td>
+          <td class="fs12 num">07-10 ~ 08-09</td><td class="num">10</td>
+          <td><span class="tag gray">启用</span></td>
+        </tr>
+        <tr style="opacity:.55">
+          <td><span class="tag blue">API_PRICE</span></td>
+          <td><div class="cell-main">DeepSeek</div><div class="cell-sub mono fs12">deepseek-chat</div></td>
+          <td class="fs12">缓存命中 ¥1/百万 · 未命中 ¥4/百万 · 输出 ¥16/百万</td>
+          <td class="fs12">全天</td>
+          <td class="mono fs12">v2</td>
+          <td class="fs12 num">06-01 ~ 06-30</td><td class="num">10</td>
+          <td><span class="tag gray">已失效（历史记录继续引用）</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="zone">
+    <div class="zone-head">
+      <span class="zone-title">经营调度策略（routing_policy）</span>
+      <span class="zone-desc">请求前命中 · 只在管理员确认的等价资源内自动执行</span>
+      <div class="zone-actions"><button class="btn secondary sm" onclick="openNewDispatch()">+ 新建调度策略</button></div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>策略 / 版本</th><th>适用统一模型</th><th>触发条件</th><th>允许动作</th><th>等价资源组</th><th>节省口径</th><th>状态</th></tr></thead>
+      <tbody>
+        <tr><td><div class="cell-main">智谱高峰保护</div><div class="cell-sub mono">routing_policy v4</div></td><td class="mono fs12">qianliu-glm-coding</td><td class="fs12">14:00–18:00 · 扣减 ×2 · 预计提前耗尽</td><td><div class="cap-list"><span class="tag blue">SWITCH</span><span class="tag orange">RATE_LIMIT</span><span class="tag red">REJECT</span></div></td><td class="fs12">glm-coding-equivalent-v2</td><td class="fs12">实际切换前后倍率差 × 已结算 Token</td><td><span class="tag green">已发布</span></td></tr>
+        <tr><td><div class="cell-main">主体额度边界</div><div class="cell-sub mono">routing_policy v4</div></td><td>全部</td><td class="fs12">主体额度耗尽 / 管理员预授权超额</td><td><div class="cap-list"><span class="tag red">REJECT</span><span class="tag orange">ALLOW_OVERAGE</span></div></td><td class="fs12">不允许换非等价模型</td><td class="fs12">不可计算</td><td><span class="tag green">已发布</span></td></tr>
+        <tr><td><div class="cell-main">套餐转 API 兜底</div><div class="cell-sub mono">fallback_policy v2</div></td><td>按模型单独开启</td><td class="fs12">套餐池无健康候选且 API 兜底已授权</td><td><span class="tag blue">SWITCH</span></td><td class="fs12">同统一模型 API 资源</td><td class="fs12">API 费用单列；不宣传为节省</td><td><span class="tag gray">默认关闭</span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="notice info mt16">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div><b>节省不靠想象：</b>只有实际发生行为变化，并存在价格或倍率基线与结算证据时才计算；仅提示、常规 ALLOW 或缺少反事实证据时显示“不可计算”。</div></div>
+  </div>`;
+};
+function openNewQuotaTemplate(){
+  openModal(`<div class="modal-head"><span class="modal-title">新建额度模板</span><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">
+    <div class="notice info">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>模板用于批量设置员工或项目的使用边界；套用后仍可对单个主体单独覆盖。</div></div>
+    <div class="grid-2" style="gap:12px">
+      <div class="field"><label>模板名称 <span class="req">*</span></label><input class="input" placeholder="如：标准员工包"></div>
+      <div class="field"><label>适用主体 <span class="req">*</span></label><select class="select"><option>员工</option><option>项目</option></select></div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>厂商资源</th><th>额度单位</th><th>额度</th><th>允许超额</th></tr></thead>
+      <tbody>
+        <tr><td>DeepSeek API</td><td><select class="select"><option>金额（元）</option><option>Token</option></select></td><td><input class="input num" value="200"></td><td><div class="switch" onclick="this.classList.toggle('on')"></div></td></tr>
+        <tr><td>智谱套餐</td><td><select class="select"><option>万 Token</option><option>厂商原生单位</option></select></td><td><input class="input num" value="500"></td><td><div class="switch" onclick="this.classList.toggle('on')"></div></td></tr>
+        <tr><td>Kimi K3 套餐</td><td><select class="select"><option>万 Token</option><option>厂商原生单位</option></select></td><td><input class="input num" value="300"></td><td><div class="switch" onclick="this.classList.toggle('on')"></div></td></tr>
+      </tbody>
+    </table></div>
+    <div class="field mt16"><label>生效方式</label><select class="select"><option>仅保存模板，稍后批量套用</option><option>保存后选择主体并套用</option></select></div>
+  </div><div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('额度模板已创建')">创建模板</button></div>`, 'lg');
+}
+function openNewDispatch(){
+  openModal(`<div class="modal-head"><span class="modal-title">新建调度策略</span><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">
+    <div class="notice info">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>调度策略在<b>请求发生前</b>命中执行，只在管理员确认的等价资源内自动动作；发布后新调用生效，历史不重算。</div></div>
+    <div class="field"><label>策略名称 <span class="req">*</span></label><input class="input" placeholder="如：智谱高峰保护"></div>
+    <div class="grid-2" style="gap:12px">
+      <div class="field"><label>适用对象 / 模型 <span class="req">*</span></label><select class="select"><option>全部统一模型</option><option>qianliu-deepseek</option><option>qianliu-glm-coding</option><option>qianliu-kimi-k3</option><option>指定使用主体…</option></select></div>
+      <div class="field"><label>生效时间</label><input class="input" type="date" value="2026-08-01"></div>
+    </div>
+    <div class="field"><label>触发条件 <span class="req">*</span></label><input class="input" placeholder="如：14:00–18:00 且扣减 ×2 且预计提前耗尽"></div>
+    <div class="field"><label>允许动作 <span class="req">*</span></label>
+      <div class="flex" style="gap:16px;flex-wrap:wrap">
+        <label class="fs13 flex"><input type="checkbox" checked> 切换等价资源（SWITCH）</label>
+        <label class="fs13 flex"><input type="checkbox"> 限流（RATE_LIMIT）</label>
+        <label class="fs13 flex"><input type="checkbox"> 拒绝（REJECT）</label>
+        <label class="fs13 flex"><input type="checkbox"> 允许超额（ALLOW_OVERAGE）</label>
+      </div>
+    </div>
+    <div class="grid-2" style="gap:12px">
+      <div class="field"><label>候选资源 / 等价资源组</label><select class="select"><option>glm-coding-equivalent-v2（主 + 备用）</option><option>deepseek-equivalent-v1</option><option>不允许切换</option></select></div>
+      <div class="field"><label>优先级</label><input class="input" value="10"></div>
+    </div>
+    <div class="field"><label>发布前影响预览</label>
+      <div class="key-box" style="font-family:var(--font);font-size:13px;color:var(--text-secondary);display:block;line-height:22px">
+        按近 7 日真实账本测算：每日 14:00–18:00 约有 <b>126</b> 次请求命中该策略；<br>
+        预计切换至备用账号 <b>41</b> 次/日，可减少高峰扣减约 <b>18%</b>；<br>
+        不影响非高峰时段与未命中模型。
+      </div>
+    </div>
+  </div><div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('调度策略已发布，新调用开始命中')">发布策略</button></div>`, 'lg');
+}
+function openRuleEditor(){
+  openModal(`
+    <div class="modal-head"><span class="modal-title">新建计费规则版本</span><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="grid-2" style="gap:12px">
+        <div class="field"><label>类型 <span class="req">*</span></label><select class="select"><option>API_PRICE · 分时价格</option><option>PLAN_QUOTA_MULTIPLIER · 套餐扣减倍数</option></select></div>
+        <div class="field"><label>厂商 / 模型 <span class="req">*</span></label><select class="select"><option>DeepSeek / deepseek-chat</option><option>智谱 / glm-coding</option><option>Kimi / kimi-k3</option></select></div>
+      </div>
+      <div class="grid-2" style="gap:12px">
+        <div class="field"><label>生效日期 <span class="req">*</span></label><input class="input" type="date" value="2026-08-01"></div>
+        <div class="field"><label>失效日期</label><input class="input" type="date" value="2026-08-31"></div>
+      </div>
+      <div class="field"><label>时间窗（星期 / 时段 / 时区）</label><input class="input" placeholder="如：周一~周日 14:00–18:00 Asia/Shanghai"></div>
+      <div class="field"><label>价格项 / 扣减倍数 <span class="req">*</span></label><textarea class="input" rows="3">缓存命中输入：¥0.5 / 百万 tokens
+缓存未命中输入：¥2 / 百万 tokens
+输出：¥8 / 百万 tokens</textarea></div>
+      <div class="field"><label>优先级</label><input class="input" style="width:120px" value="10"></div>
+      <div class="notice info">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>新版本发布即产生新 version id；每次请求保存命中的规则版本，历史账本不被重算。</div></div>
+    </div>
+    <div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('规则版本已创建，将对新调用生效')">发布版本</button></div>`, 'lg');
+}
+
+/* ==================================================================
+   用量账本 /usage（PRD v0.3 §9、§10.3；WT-05/11/12/13/16/17/18）
+   ================================================================== */
+/* diag 字段说明：attempts=逐上游尝试；candidates=候选资源及未选中原因；
+   affinity=Session Affinity；streamed=流式是否已提交；dispatch=调度决策 */
+const LEDGER = [
+  {id:'req_7f2e9a41', who:'佳哥', client:'仟流 IDE', model:'qianliu-kimi-k3', up:'Kimi-K3 套餐', tokIn:'9,870', tokOut:'2,610', tokCache:'缓存命中 6,200', raw:'12,480 tok', deduct:'12,480（×1 标准档）', cost:'套餐内', rule:'PLAN_QUOTA v1', st:'成功', t:'11:42:08', ms:'2,140', quality:'PROVIDER_REPORTED',
+   diag:{attempts:[{n:1,res:'Kimi-K3 套餐',ttft:'312 ms',total:'2,140 ms',code:'200',err:'—',tok:'入 9,870 / 出 2,610 / 缓存 6,200',cost:'套餐内',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'Kimi-K3 套餐',why:'已选中 · Affinity 命中 + 额度余量 35%'},{res:'Kimi API（未登记）',why:'无候选'}],
+     affinity:'命中 · 会话 sess_hmac:8f2a（HMAC 伪名，不含正文）', streamed:'是（首个有效输出后未切换）',
+     dispatch:{action:'ALLOW', reason:'标准档时段，额度余量充足', saving:'—（无行为变化，不计节省）', ruleVer:'routing_policy v4'}}},
+  {id:'req_3b8d41fa', who:'李晓峰', client:'Claude Code', model:'qianliu-glm-coding', up:'智谱-主账号', tokIn:'5,404', tokOut:'2,808', tokCache:'—', raw:'8,212 tok', deduct:'16,424（×2 高峰）', cost:'套餐内', rule:'PLAN_QUOTA v2', st:'成功', t:'15:38:51', ms:'1,876', quality:'PROVIDER_REPORTED',
+   diag:{attempts:[{n:1,res:'智谱-主账号',ttft:'286 ms',total:'1,876 ms',code:'200',err:'—',tok:'入 5,404 / 出 2,808',cost:'套餐内',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'智谱-主账号',why:'已选中 · 优先级 1 + Affinity 命中'},{res:'智谱-备用账号',why:'未选中 · 优先级 2'}],
+     affinity:'命中 ·  sess_hmac:c41e', streamed:'是',
+     dispatch:{action:'ALLOW', reason:'高峰时段 ×2 已命中 PLAN_QUOTA v2，预授权等价资源无需切换', saving:'—', ruleVer:'routing_policy v4'}}},
+  {id:'req_9e1c77d3', who:'王一帆', client:'WorkBuddy', model:'qianliu-deepseek', up:'DeepSeek-主账号', tokIn:'3,150', tokOut:'942', tokCache:'缓存命中 2,800', raw:'入 3,150（命中 2,800）/ 出 942 tok', deduct:'—（API 按金额扣）', cost:'¥ 0.0241', rule:'API_PRICE v3', st:'成功', t:'11:31:22', ms:'1,204', quality:'PROVIDER_REPORTED',
+   diag:{attempts:[{n:1,res:'DeepSeek-主账号',ttft:'198 ms',total:'1,204 ms',code:'200',err:'—',tok:'入 3,150（缓存命中 2,800）/ 出 942',cost:'¥ 0.0241',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'DeepSeek-主账号',why:'已选中 · 优先级 1 + 健康'},{res:'DeepSeek-备用',why:'未选中 · 优先级 2'}],
+     affinity:'未绑定（新会话）', streamed:'否（非流式）',
+     dispatch:{action:'ALLOW', reason:'API 按 API_PRICE v3 计费，缓存命中价 ¥0.5/百万', saving:'—', ruleVer:'routing_policy v4'}}},
+  {id:'req_8c2bf5e7', who:'营销内容自动化', client:'ZCode', model:'qianliu-kimi-k3', up:'Kimi-K3 套餐', tokIn:'14,020', tokOut:'7,016', tokCache:'—', raw:'21,036 tok', deduct:'63,108（×3 思考档）', cost:'套餐内', rule:'PLAN_QUOTA v1', st:'成功', t:'11:24:09', ms:'4,512', quality:'PROVIDER_REPORTED',
+   diag:{attempts:[{n:1,res:'Kimi-K3 套餐',ttft:'402 ms',total:'4,512 ms',code:'200',err:'—',tok:'入 14,020 / 出 7,016',cost:'套餐内',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'Kimi-K3 套餐',why:'已选中 · 唯一候选'}], affinity:'未绑定', streamed:'是',
+     dispatch:{action:'ALLOW', reason:'思考档 ×3 已命中 PLAN_QUOTA v1', saving:'—', ruleVer:'routing_policy v4'}}},
+  {id:'req_4a6fe8b1', who:'陈默', client:'Claude Code', model:'qianliu-deepseek', up:'DeepSeek-主账号', tokIn:'5,604', tokOut:'1,238', tokCache:'—', raw:'入 5,604 / 出 1,238 tok', deduct:'—（API 按金额扣）', cost:'¥ 0.0312', rule:'API_PRICE v3', st:'成功', t:'11:15:47', ms:'1,689', quality:'PROVIDER_REPORTED',
+   diag:{attempts:[{n:1,res:'DeepSeek-主账号',ttft:'214 ms',total:'1,689 ms',code:'200',err:'—',tok:'入 5,604 / 出 1,238',cost:'¥ 0.0312',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'DeepSeek-主账号',why:'已选中'},{res:'DeepSeek-备用',why:'未选中 · 优先级 2'}], affinity:'未绑定', streamed:'是',
+     dispatch:{action:'ALLOW', reason:'常规放行', saving:'—', ruleVer:'routing_policy v4'}}},
+  {id:'req_5f9eb2d4', who:'客服知识库问答', client:'项目服务', model:'qianliu-deepseek', up:'DeepSeek-备用', tokIn:'1,960', tokOut:'412', tokCache:'—', raw:'入 1,960 / 出 412 tok（全部 Attempt 汇总）', deduct:'—（API 按金额扣）', cost:'¥ 0.0053', rule:'API_PRICE v3', st:'成功', t:'11:02:33', ms:'842', quality:'MIXED：ESTIMATED + PROVIDER_REPORTED', note:'主账号 429，同池切换 · 两个 Attempt 均产生用量',
+   diag:{attempts:[
+       {n:1,res:'DeepSeek-主账号',ttft:'—',total:'506 ms',code:'429',err:'限流',tok:'入 980 / 出 0（未完成）',cost:'¥ 0.0020',q:'ESTIMATED'},
+       {n:2,res:'DeepSeek-备用',ttft:'164 ms',total:'336 ms',code:'200',err:'—',tok:'入 980 / 出 412',cost:'¥ 0.0033',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'DeepSeek-主账号',why:'Attempt 1 · 429 限流，可重试错误'},{res:'DeepSeek-备用',why:'Attempt 2 · 同池切换成功'}],
+     affinity:'未绑定', streamed:'否（提交前切换，未拼接）',
+     dispatch:{action:'SWITCH', reason:'主账号 429 限流，切换同池备用；提交前发生，未向客户端输出', saving:'—', ruleVer:'routing_policy v4'}}},
+  {id:'req_1d5g3a9c', who:'王一帆', client:'WorkBuddy', model:'qianliu-kimi-k3', up:'—', tokIn:'—', tokOut:'—', tokCache:'—', raw:'—', deduct:'—', cost:'—', rule:'—', st:'拒绝', t:'10:58:12', ms:'3', quality:'—', note:'主体额度耗尽（allow_overage=false）',
+   diag:{attempts:[], candidates:[{res:'Kimi-K3 套餐',why:'未进入路由 · 请求前 REJECT'}], affinity:'—', streamed:'—',
+     dispatch:{action:'REJECT', reason:'主体 Kimi 额度 300 万已用尽且未开启超额，请求前拒绝，未访问上游', saving:'—', ruleVer:'routing_policy v4'}}},
+  {id:'req_2b8d41fb', who:'李晓峰', client:'Claude Code', model:'qianliu-glm-coding', up:'智谱-主账号', tokIn:'4,102', tokOut:'2,782', tokCache:'—', raw:'6,884 tok', deduct:'13,768（×2 高峰）', cost:'套餐内', rule:'PLAN_QUOTA v2', st:'成功', t:'15:44:29', ms:'1,732', quality:'PROVIDER_REPORTED', note:'超额调用（已开启允许超额）',
+   diag:{attempts:[{n:1,res:'智谱-主账号',ttft:'274 ms',total:'1,732 ms',code:'200',err:'—',tok:'入 4,102 / 出 2,782',cost:'套餐内',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'智谱-主账号',why:'已选中 · Affinity 命中'},{res:'智谱-备用账号',why:'未选中 · 优先级 2'}], affinity:'命中 · sess_hmac:c41e', streamed:'是',
+     dispatch:{action:'ALLOW_OVERAGE', reason:'主体已超额 8.5%，管理员预先允许超额，单列统计', saving:'—', ruleVer:'routing_policy v4'}}},
+  {id:'req_41c8d2aa', who:'佳哥', client:'仟流 IDE', model:'qianliu-glm-coding', up:'智谱-备用账号', tokIn:'5,600', tokOut:'2,400', tokCache:'—', raw:'8,000 tok', deduct:'8,000（×1 等价资源）', cost:'套餐内', rule:'PLAN_QUOTA_BACKUP v1', st:'成功', t:'15:12:18', ms:'1,944', quality:'PROVIDER_REPORTED', note:'高峰经营调度 · 预授权等价资源切换',
+   diag:{attempts:[{n:1,res:'智谱-备用账号',ttft:'294 ms',total:'1,944 ms',code:'200',err:'—',tok:'入 5,600 / 出 2,400',cost:'8,000 配额单位',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'智谱-主账号',why:'未选中 · 高峰 ×2，预计在周期结束前耗尽'},{res:'智谱-备用账号',why:'已选中 · 管理员预授权等价资源 + 当前 ×1'}],
+     affinity:'未命中 · 新会话', streamed:'是（提交前完成选择）',
+     dispatch:{action:'SWITCH', code:'SWITCH_SCHEDULED', reason:'15:12 命中智谱高峰保护；在等价资源组内从预计提前耗尽资源切换到 ×1 资源', saving:'8,000 配额单位（反事实：主账号 ×2；实际：备用 ×1）', ruleVer:'routing_policy v4'}}},
+  {id:'req_7a3c91e2', who:'赵思雨', client:'仟流 IDE', model:'qianliu-kimi-k3', up:'Kimi-K3 套餐', tokIn:'2,860', tokOut:'1,260', tokCache:'—', raw:'4,120 tok', deduct:'4,120（×1 标准档）', cost:'套餐内', rule:'PLAN_QUOTA v1', st:'成功', t:'10:21:55', ms:'1,108', quality:'PROVIDER_REPORTED',
+   diag:{attempts:[{n:1,res:'Kimi-K3 套餐',ttft:'186 ms',total:'1,108 ms',code:'200',err:'—',tok:'入 2,860 / 出 1,260',cost:'套餐内',q:'PROVIDER_REPORTED'}],
+     candidates:[{res:'Kimi-K3 套餐',why:'已选中'}], affinity:'未绑定', streamed:'是',
+     dispatch:{action:'ALLOW', reason:'常规放行', saving:'—', ruleVer:'routing_policy v4'}}},
+  {id:'req_6e4f28d9', who:'佳哥', client:'仟流 IDE', model:'qianliu-glm-coding', up:'智谱-主账号', tokIn:'9,340', tokOut:'0', tokCache:'—', raw:'9,340 tok', deduct:'9,340（×1）', cost:'套餐内', rule:'PLAN_QUOTA v2', st:'失败', t:'09:58:03', ms:'12,400', quality:'ESTIMATED', note:'流式提交后上游中断 · 未拼接第二上游 · 已结算发生用量',
+   diag:{attempts:[{n:1,res:'智谱-主账号',ttft:'240 ms',total:'12,400 ms（中断）',code:'—',err:'流式中断（提交后）',tok:'入 9,340 / 出 0（提交后中断，ESTIMATED）',cost:'套餐内',q:'ESTIMATED'}],
+     candidates:[{res:'智谱-主账号',why:'Attempt 1 · 流式已提交后中断'},{res:'智谱-备用账号',why:'禁止切换 · 首个有效输出已发给客户端'}],
+     affinity:'命中 · sess_hmac:8f2a', streamed:'是（已提交后中断，按协议结束连接，未拼接）',
+     dispatch:{action:'ALLOW', reason:'中断发生于提交后，按边界不再切换；产生用量已入结算', saving:'—', ruleVer:'routing_policy v4'}}}
+];
+const ST_TAG = {成功:'gray', 失败:'red', 拒绝:'orange'};
+const DISPATCH_TAG = {ALLOW:'gray', SWITCH:'blue', RATE_LIMIT:'orange', REJECT:'red', ALLOW_OVERAGE:'orange'};
+
+VIEWS.usage = function(){
+  const rows = LEDGER.map((r,i)=>`
+    <tr>
+      <td class="mono fs12" style="white-space:nowrap">${r.id}</td>
+      <td><div class="cell-main fs13">${r.who}</div></td>
+      <td class="fs12">${r.client}</td>
+      <td class="mono fs12">${r.model}</td>
+      <td class="fs12">${r.up}</td>
+      <td class="fs12 num">入 ${r.tokIn}<br>出 ${r.tokOut}${r.tokCache!=='—'?`<br><span class="tc-ter">${r.tokCache}</span>`:''}</td>
+      <td class="fs12 num">${r.deduct}</td>
+      <td class="fs12 num">${r.cost==='套餐内'?'<span class="tag gray">套餐内</span>':r.cost}</td>
+      <td class="mono fs12">${r.rule}</td>
+      <td><span class="tag ${ST_TAG[r.st]}">${r.st}</span>${r.note?`<div class="cell-sub">${r.note}</div>`:''}</td>
+      <td class="fs12 tc-ter num" style="white-space:nowrap">${r.t}<br>${r.ms} ms</td>
+      <td><button class="link-btn" onclick="openLedgerDetail(${i})">路由诊断</button></td>
+    </tr>`).join('');
+
+  return banner('WT-05 Token 分项 · WT-11/12/13 路由边界 · WT-16/17/18 调度解释') + `
+  <div class="filter-bar">
+    <select class="select"><option>全部主体</option><option>佳哥</option><option>李晓峰</option><option>王一帆</option><option>营销内容自动化（项目）</option></select>
+    <select class="select"><option>全部工具</option><option>仟流 IDE</option><option>WorkBuddy</option><option>Claude Code</option><option>ZCode</option><option>未知客户端</option></select>
+    <select class="select"><option>全部厂商 / 模型</option><option>DeepSeek / qianliu-deepseek</option><option>智谱 / qianliu-glm-coding</option><option>Kimi / qianliu-kimi-k3</option></select>
+    <select class="select"><option>全部状态</option><option>成功</option><option>失败</option><option>拒绝</option></select>
+    <select class="select"><option>是否超额：全部</option><option>仅超额</option></select>
+    <input class="input" type="date" value="2026-07-26" style="width:auto">
+    <span class="fb-label">本日 · 共 1,842 条</span>
+  </div>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>请求 ID</th><th>发起主体</th><th>客户端</th><th>模型</th><th>最终上游</th><th class="num">Token 用量事实</th><th class="num">实际扣减</th><th class="num">费用</th><th>规则版本</th><th>状态</th><th>时间 / 耗时</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div class="notice info mt16">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div><b>计量口径（v0.3）：</b>Token 用量事实（输入/输出/缓存）→ 实际扣减（套餐规则折算）→ 实际费用（API 命中价格版本），三者不混算。一个请求只有一个结算汇总；每个真实消耗 Attempt 保留不可覆盖明细；失败/被切换的 Attempt 只要产生可证明用量也入账。套餐费用显示「套餐内」，正文零留存。</div></div>`;
+};
+function afterUsage(){}
+
+function openLedgerDetail(i){
+  const r = LEDGER[i], d = r.diag;
+  const attemptRows = d.attempts.length ? d.attempts.map(a=>`
+    <tr>
+      <td class="num">${a.n}</td><td class="fs13">${a.res}</td>
+      <td class="fs12 num">${a.ttft}</td><td class="fs12 num">${a.total}</td>
+      <td class="fs12 num">${a.code}</td><td class="fs12">${a.err}</td>
+      <td class="fs12 num">${a.tok}</td>
+      <td class="fs12 num">${a.cost}</td>
+      <td><span class="tag ${a.q==='PROVIDER_REPORTED'?'gray':'orange'}">${a.q}</span></td>
+    </tr>`).join('') : `<tr><td colspan="9" class="tc-ter fs13" style="text-align:center;padding:18px">未访问上游（请求前 ${d.dispatch.action}）</td></tr>`;
+  const candRows = d.candidates.map(c=>`<tr><td class="fs13">${c.res}</td><td class="fs12">${c.why}</td></tr>`).join('');
+  const scoreRows = d.candidates.map((c,idx)=>{
+    const isDeepSeek = c.res.includes('DeepSeek');
+    const isKimi = c.res.includes('Kimi');
+    const selected = c.why.includes('已选中') || c.why.includes('Attempt 2');
+    const score = isDeepSeek
+      ? {
+          weight: idx===0?'70':'30',
+          load: idx===0?'12 / 24':'2 / 12',
+          quality: idx===0?'0.8% / 198 ms':'4.1% / 246 ms',
+          quota: idx===0?'余额 ¥1,102 · 长期':'余额 ¥485 · 长期',
+          cost: idx===0?'API_PRICE v3 · ¥0.024/次':'API_PRICE v3 · ¥0.025/次',
+          affinity: selected?'+18':'0',
+          total: selected?'92':'74'
+        }
+      : isKimi
+        ? {
+            weight:'100',
+            load:'6 / 12',
+            quality:'1.1% / 312 ms',
+            quota:'35% · 08-10',
+            cost:'套餐内 · 标准档 ×1',
+            affinity:selected?'+18':'0',
+            total:selected?'90':'72'
+          }
+        : {
+            weight:idx===0?'60':'40',
+            load:idx===0?'3 / 16':'5 / 16',
+            quality:idx===0?'1.2% / 286 ms':'0.9% / 301 ms',
+            quota:idx===0?'27% · 08-01':'100% · 08-15',
+            cost:idx===0?'套餐内 · 高峰 ×2':'套餐内 · 当前 ×1',
+            affinity:selected?'+18':'0',
+            total:selected?'92':'78'
+          };
+    return `<tr>
+      <td class="fs13">${c.res}</td><td class="fs12">P1 · W${score.weight}</td>
+      <td class="fs12 num">${score.load}</td><td class="fs12 num">${score.quality}</td>
+      <td class="fs12">${score.quota}</td><td class="fs12">${score.cost}</td>
+      <td><span class="tag ${selected?'green':'gray'}">${score.affinity}</span></td>
+      <td><div class="score"><div class="progress gray"><i style="width:${score.total}%"></i></div><b>${score.total}</b></div></td>
+    </tr>`;
+  }).join('');
+
+  openModal(`
+    <div class="modal-head"><span class="modal-title">路由诊断 <span class="mono fs12 tc-ter">${r.id}</span></span><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <dl class="dl mb16">
+        <dt>发起主体</dt><dd>${r.who} · ${r.client}</dd>
+        <dt>模型</dt><dd class="mono fs12">${r.model}</dd>
+        <dt>最终资源</dt><dd>${r.up}</dd>
+        <dt>状态 / 耗时</dt><dd>${r.st} · ${r.ms} ms</dd>
+        <dt>时间</dt><dd class="num">2026-07-26 ${r.t}</dd>
+        <dt>Session Affinity</dt><dd class="fs12">${d.affinity}</dd>
+        <dt>流式提交</dt><dd class="fs12">${d.streamed}</dd>
+      </dl>
+
+      <div class="fw600 fs13 mb12">候选资源及未选中原因</div>
+      <div class="tbl-wrap mb16"><table class="tbl"><thead><tr><th>资源</th><th>选择 / 未选中原因</th></tr></thead><tbody>${candRows}</tbody></table></div>
+
+      <div class="fw600 fs13 mb12">账号池评分输入（策略版本可回放）</div>
+      <div class="tbl-wrap mb16"><table class="tbl"><thead><tr><th>资源</th><th>优先级 / 权重</th><th>负载</th><th>错误率 / TTFT</th><th>额度 / 重置</th><th>成本 / 倍率</th><th>Affinity</th><th>总分</th></tr></thead><tbody>${scoreRows}</tbody></table></div>
+
+      <div class="fw600 fs13 mb12">逐 Attempt 消耗明细（不可覆盖）</div>
+      <div class="tbl-wrap mb16"><table class="tbl">
+        <thead><tr><th>#</th><th>资源</th><th class="num">首字节</th><th class="num">总耗时</th><th class="num">状态码</th><th>错误</th><th class="num">Token</th><th class="num">费用/扣减</th><th>计量质量</th></tr></thead>
+        <tbody>${attemptRows}</tbody>
+      </table></div>
+
+      <div class="fw600 fs13 mb12">调度决策（请求前）</div>
+      <div class="tbl-wrap mb16"><table class="tbl"><tbody>
+        <tr><td style="width:110px;color:var(--text-tertiary)">最终动作</td><td><span class="tag ${DISPATCH_TAG[d.dispatch.action]}">${d.dispatch.action}</span></td></tr>
+        <tr><td style="color:var(--text-tertiary)">理由</td><td class="fs13">${d.dispatch.reason}</td></tr>
+        <tr><td style="color:var(--text-tertiary)">命中规则</td><td class="fs12 mono">${r.rule} · ${d.dispatch.ruleVer}</td></tr>
+        <tr><td style="color:var(--text-tertiary)">决策代码</td><td><span class="reason-code">${d.dispatch.code || `${d.dispatch.action}_${d.affinity.includes('命中')?'AFFINITY':'POLICY'}`}</span></td></tr>
+        <tr><td style="color:var(--text-tertiary)">调度节省</td><td class="fs13">${d.dispatch.saving}<div class="cell-sub">${d.dispatch.saving.startsWith('—')?'无明确价格／倍率基线或未发生行为变化时不可计算':'已保存反事实基线、实际结果与规则版本，可回放'}</div></td></tr>
+      </tbody></table></div>
+
+      <div class="fw600 fs13 mb12">请求级结算汇总</div>
+      <div class="tbl-wrap mb16"><table class="tbl">
+        <thead><tr><th>阶段</th><th>值</th><th>依据</th></tr></thead>
+        <tbody>
+          <tr><td>Token 用量事实</td><td class="num fs13">入 ${r.tokIn} / 出 ${r.tokOut}${r.tokCache!=='—'?` / ${r.tokCache}`:''}</td><td class="fs12">全部 Attempt 汇总 · 质量 ${r.quality}</td></tr>
+          <tr><td>实际扣减</td><td class="num fs13">${r.deduct}</td><td class="fs12 mono">${r.rule}</td></tr>
+          <tr><td>实际费用</td><td class="num fs13">${r.cost}</td><td class="fs12">${r.cost==='套餐内'?'套餐固定费用记录在资源账号':'按调用当时价格版本'}</td></tr>
+        </tbody>
+      </table></div>
+      <div class="notice ok">${icon('M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3')}<div>内容零留存：本记录与 Session Affinity 均不含提示词、代码、文件内容与模型回答正文；会话标识为 HMAC 伪名（canary 扫描命中 0）。</div></div>
+    </div>`, 'lg');
+}
+
+
+/* ==================================================================
+   异常告警 /alerts（PRD §11；WT-08）
+   ================================================================== */
+let alertFilter='open';
+const ALERTS = [
+  {type:'资源不可用', lv:'red', obj:'智谱-主账号', txt:'健康检查连续 401，凭证失效；已自动切换同池「智谱-备用账号」，员工调用未中断', time:'今天 10:58', st:'open'},
+  {type:'提前耗尽', lv:'orange', obj:'Kimi-K3 套餐', txt:'按 7 日窗口预计 08-03 14:00 耗尽，早于 08-10 重置；可信度高，覆盖缺口 6.4 天', time:'今天 09:02', st:'open'},
+  {type:'资源冷却', lv:'orange', obj:'DeepSeek-备用', txt:'连续 429 进入冷却，截止 12:06；主账号健康，资源池继续服务', time:'今天 11:56', st:'open'},
+  {type:'流式中断', lv:'red', obj:'req_6e4f28d9', txt:'首个有效输出提交后上游中断；未连接第二上游、未拼接输出，已结算可证明用量', time:'今天 09:58', st:'open'},
+  {type:'主体异常', lv:'orange', obj:'李晓峰（员工）', txt:'智谱额度已超额 8.5%（已开启允许超额）；本账期费用增速高于其规则阈值', time:'今天 10:24', st:'open'},
+  {type:'调用异常', lv:'orange', obj:'智谱 / glm-coding', txt:'最近 15 分钟错误率 26%，高于阈值 5%；已按规则尝试同池账号', time:'今天 10:51', st:'open'},
+  {type:'额度耗尽', lv:'red', obj:'智谱套餐（资源池）', txt:'套餐总额度耗尽，未开启超额的主体已停止；API 兜底关闭，未产生兜底费用', time:'场景：额度耗尽', st:'open', only:'exhaust'},
+  {type:'凭证异常', lv:'orange', obj:'qlk-2b8d…41fa', txt:'该 Key 出现非预期来源频繁调用（IP 段变更），请确认是否泄露', time:'昨天 17:32', st:'done'}
+];
+
+VIEWS.alerts = function(){
+  const list = ALERTS.filter(a=>(!a.only || a.only===scenario) && (alertFilter==='all' || (alertFilter==='open'?a.st==='open':a.st==='done')));
+  const rows = list.map((a,i)=>`
+    <tr>
+      <td><span class="tag ${a.lv}"><span class="dot"></span>${a.type}</span></td>
+      <td class="cell-main fs13">${a.obj}</td>
+      <td class="fs13" style="max-width:420px">${a.txt}</td>
+      <td class="fs12 tc-ter" style="white-space:nowrap">${a.time}</td>
+      <td>${a.st==='open'?'<span class="tag orange">未处理</span>':'<span class="tag gray">已处理</span>'}</td>
+      <td style="white-space:nowrap">
+        ${a.st==='open'?`<button class="link-btn" onclick="ALERTS[${ALERTS.indexOf(a)}].st='done';render();toast('已标记处理')">标记已处理</button>`:''}
+        <button class="link-btn" onclick="go('usage')">查账本</button>
+      </td>
+    </tr>`).join('');
+
+  return banner('WT-08 下钻 · WT-12 流式中断 · WT-15 提前耗尽 · WT-19 凭证隔离') + `
+  <div class="filter-bar">
+    <div class="seg">
+      <button class="${alertFilter==='open'?'on':''}" onclick="alertFilter='open';render()">未处理</button>
+      <button class="${alertFilter==='done'?'on':''}" onclick="alertFilter='done';render()">已处理</button>
+      <button class="${alertFilter==='all'?'on':''}" onclick="alertFilter='all';render()">全部</button>
+    </div>
+    <select class="select"><option>全部类型</option><option>资源不可用</option><option>主体异常</option><option>调用异常</option><option>凭证异常</option></select>
+    <span class="fb-label" style="margin-left:auto">一期只在管理后台展示，不发送外部渠道</span>
+  </div>
+  ${rows ? `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>类型</th><th>对象</th><th>说明</th><th>时间</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>` : `<div class="zone"><div class="empty"><div class="e-icon">${icon('M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3')}</div><div class="e-title">没有${alertFilter==='open'?'未处理':''}异常</div><div class="e-sub">资源可用、主体额度与费用正常</div></div></div>`}
+  <div class="mt16">
+    <div class="fw600 fs13 mb12">一期四类异常（确定性规则检测，不使用大模型判断）</div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>类别</th><th>检测规则</th><th>重点</th></tr></thead>
+      <tbody>
+        <tr><td>资源不可用</td><td class="fs12">健康检查失败、401/402/403、连续 429 或 5xx</td><td class="fs12">资源是否还能使用</td></tr>
+        <tr><td>主体异常</td><td class="fs12">额度达阈值、超额、短窗口用量显著高于规则阈值</td><td class="fs12">谁的额度或费用异常</td></tr>
+        <tr><td>调用异常</td><td class="fs12">限流、拒绝、实际扣减与预期不一致</td><td class="fs12">计量准确性</td></tr>
+        <tr><td>凭证异常</td><td class="fs12">上游或下游 Key 失效、非预期来源频繁调用</td><td class="fs12">凭证安全</td></tr>
+      </tbody>
+    </table></div>
+  </div>`;
+};
+
+/* ==================================================================
+   系统设置 /settings
+   ================================================================== */
+VIEWS.settings = function(){
+  return banner('管理员与权限 · 操作审计 · 系统保护规则 · 安全与隐私') + `
+  <div class="zone">
+    <div class="zone-head"><span class="zone-title">管理员账号与权限</span><span class="zone-desc">单企业 · 管理员可管理资源、主体、规则与审计记录</span>
+      <div class="zone-actions"><button class="btn secondary sm" onclick="openNewAdmin()">+ 新建管理员</button></div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>账号</th><th>显示名</th><th>权限</th><th>状态</th><th>最近登录</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="mono fs12">admin</td><td>佳哥</td><td><span class="tag blue">全部管理权限</span></td><td><span class="tag gray">正常</span></td><td class="fs12">当前会话</td><td><button class="link-btn" onclick="toast('重置密码（只能重置，不能读取）')">重置密码</button></td></tr>
+        <tr><td class="mono fs12">ops01</td><td>运营管理员</td><td><span class="tag blue">全部管理权限</span></td><td><span class="tag gray">正常</span></td><td class="fs12">昨天 16:20</td><td><button class="link-btn" onclick="toast('重置密码')">重置密码</button></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="zone">
+    <div class="zone-head"><span class="zone-title">系统保护规则</span><span class="zone-desc">正式环境安全默认值，仅供超级管理员查看</span><div class="zone-actions"><span class="tag gray">超级管理员只读</span></div></div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>保护项</th><th>当前规则</th><th>业务作用</th><th>状态</th></tr></thead>
+      <tbody>
+        <tr><td class="cell-main">流式响应保护</td><td>首个有效内容返回前可切换，返回后不拼接第二个上游</td><td class="fs12">避免用户收到两段来源不同的回答</td><td><span class="tag green">已启用</span></td></tr>
+        <tr><td class="cell-main">会话连续性</td><td>健康资源优先复用，资源异常时允许切换</td><td class="fs12">尽量保持上下文稳定，同时保证可用性</td><td><span class="tag green">正文零留存</span></td></tr>
+        <tr><td class="cell-main">账号选择规则</td><td>先排除无权限、无额度或异常账号，再按负载与成本选择</td><td class="fs12">每次选择都保留依据，可供审计回放</td><td><span class="tag green">可追溯</span></td></tr>
+        <tr><td class="cell-main">账单防重复</td><td>同一请求只生成一次汇总账单</td><td class="fs12">每次真实消耗仍保留独立明细，避免重复扣费</td><td><span class="tag green">已启用</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="zone">
+    <div class="zone-head"><span class="zone-title">操作日志</span><span class="zone-desc">操作人 · 时间 · 对象 · 前后变化摘要 · 结果</span></div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>时间</th><th>操作人</th><th>操作</th><th>对象</th><th>变化摘要</th><th>结果</th></tr></thead>
+      <tbody>
+        <tr><td class="fs12 num">今天 12:04</td><td>佳哥</td><td>管理员登录</td><td class="mono fs12">admin</td><td class="fs12">Chrome · macOS · 登录成功</td><td><span class="tag gray">成功</span></td></tr>
+        <tr><td class="fs12 num">今天 11:56</td><td>系统</td><td>冻结资源账号</td><td>DeepSeek-备用</td><td class="fs12">上游限流，预计 12:06 自动恢复</td><td><span class="tag gray">成功</span></td></tr>
+        <tr><td class="fs12 num">今天 10:59</td><td>系统</td><td>隔离异常凭证</td><td>智谱-主账号</td><td class="fs12">账号授权刷新失败；备用资源继续服务</td><td><span class="tag gray">成功</span></td></tr>
+        <tr><td class="fs12 num">今天 10:32</td><td>佳哥</td><td>登记资源账号</td><td>DeepSeek-华东主账号</td><td class="fs12">连接测试通过；接口能力已识别</td><td><span class="tag gray">成功</span></td></tr>
+        <tr><td class="fs12 num">今天 09:40</td><td>佳哥</td><td>调整主体额度</td><td>李晓峰</td><td class="fs12">允许超额：关闭 → 开启</td><td><span class="tag gray">成功</span></td></tr>
+        <tr><td class="fs12 num">昨天 18:02</td><td>ops01</td><td>停用员工</td><td>周子昂</td><td class="fs12">状态：正常 → 停用；员工 Key 已撤销</td><td><span class="tag gray">成功</span></td></tr>
+        <tr><td class="fs12 num">昨天 16:42</td><td>佳哥</td><td>新增管理员</td><td class="mono fs12">ops01</td><td class="fs12">授予全部管理权限</td><td><span class="tag gray">成功</span></td></tr>
+        <tr><td class="fs12 num">昨天 15:26</td><td>佳哥</td><td>发布计费规则</td><td>DeepSeek Chat</td><td class="fs12">价格规则 v2 → v3（07-01 生效）</td><td><span class="tag gray">成功</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="zone">
+    <div class="zone-head"><span class="zone-title">安全与隐私</span><span class="zone-desc">一期安全口径</span></div>
+    <dl class="dl">
+      <dt>服务接入</dt><dd class="fs13">Web 与 Gateway 公网 HTTPS，不同子域名；数据库 / Redis / 凭证服务仅内网</dd>
+      <dt>凭证</dt><dd class="fs13">上游真实凭证信封加密只存服务器；员工 Key 只存不可逆摘要，明文仅展示一次</dd>
+      <dt>密码</dt><dd class="fs13">Argon2id 哈希；管理员只能重置密码，不能读取；员工首次登录必须改密</dd>
+      <dt>内容零留存</dt><dd class="fs13">默认不保存提示词、代码、文件内容与模型回答正文；canary 扫描命中数为 0</dd>
+      <dt>验收环境</dt><dd class="fs13">Windows 11 + Chrome / macOS + Chrome 桌面 Web；一期无手机端</dd>
+    </dl>
+  </div>`;
+};
+function openNewAdmin(){
+  openModal(`<div class="modal-head"><span class="modal-title">新建管理员</span><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">
+    <div class="notice info">${icon('M12 8v4M12 16h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>一期管理员拥有相同的全部管理权限；创建、停用与密码重置都会进入操作日志。</div></div>
+    <div class="grid-2" style="gap:12px">
+      <div class="field"><label>登录账号 <span class="req">*</span></label><input class="input mono" placeholder="如：ops02"></div>
+      <div class="field"><label>显示名 <span class="req">*</span></label><input class="input" placeholder="如：财务管理员"></div>
+    </div>
+    <div class="field"><label>权限</label><div class="key-box" style="font-family:var(--font)"><span class="grow">全部管理权限（一期固定）</span><span class="tag blue">只读说明</span></div></div>
+    <div class="field"><label>初始密码 <span class="req">*</span></label><input class="input mono" type="password" placeholder="输入一次性初始密码"><div class="hint">管理员首次登录后必须修改；系统仅保存密码摘要，无法读取原密码</div></div>
+  </div><div class="modal-foot"><button class="btn secondary" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('管理员已创建，操作已记入日志')">创建管理员</button></div>`, 'sm');
+}
+
+
+
+
+
+
+</script>
+<script>
+/* 支持 #页面 直达；登录后进入对应页 */
+(function(){
+  const h = (location.hash||'').replace('#','');
+  if(h && NAV.find(n=>n.id===h)){
+    document.getElementById('login').classList.remove('show');
+    document.getElementById('app').style.display='flex';
+    go(h);
+  }
+})();
+</script>
+</body>
+</html>
