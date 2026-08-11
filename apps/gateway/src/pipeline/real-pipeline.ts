@@ -393,6 +393,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let capacityWaitTimedOut = false;
     let capacityRetryAfterMs = capacityPollMs;
     let halfOpenProbeBusy = false;
+    let quotaExhaustedDuringDispatch = false;
     // 请求级超额事实随结算冻结；后续 Grant/Counter 变化不得重算历史。
     let requestOverage = false;
     const pendingQuotaSettlements: Array<{
@@ -628,6 +629,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         });
         if (reserve.decision !== QUOTA_DECISION.ALLOW && reserve.decision !== QUOTA_DECISION.ALLOW_OVERAGE) {
           // REJECT_EXHAUSTED / REJECT_NO_GRANT / REJECT_GRANT_EXPIRED：释放租约，排除资源重评
+          if (reserve.decision === QUOTA_DECISION.REJECT_EXHAUSTED) {
+            quotaExhaustedDuringDispatch = true;
+          }
           await deps.quotaRepo.releaseLease(leaseId);
           if (probeLease) {
             await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId, probeLease.acquiredAt);
@@ -1085,6 +1089,19 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
               request_id: requestId,
             },
           });
+      }
+      if (quotaExhaustedDuringDispatch) {
+        await publishFailedRequest("DOWNSTREAM_AUTH_OR_QUOTA", "insufficient_quota");
+        return reply.code(429).header("x-request-id", traceId).send({
+          error: {
+            message: "额度不足，请联系管理员",
+            type: "rate_limit_error",
+            code: "insufficient_quota",
+            param: null,
+            retryable: false,
+            request_id: requestId,
+          },
+        });
       }
       await publishFailedRequest("NO_HEALTHY_CANDIDATE", "no_healthy_candidate");
       return reply.code(503).header("x-request-id", traceId).send({

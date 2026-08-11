@@ -3,7 +3,7 @@
  *
  * 验证 F-01（quota gate 接入 real-pipeline）+ F-03（ledger_transaction = SUM(ledger_line)）：
  *   - F-01-1：CODING_PLAN 成功请求 → deducted_quota 回写 quota_counter（settleQuota 多退少补）
- *   - F-01-2：额度耗尽 → reserve REJECT_EXHAUSTED → 排除资源 → 无健康候选 503
+ *   - F-01-2：额度耗尽 → reserve REJECT_EXHAUSTED → 非重试 429，且不访问上游
  *   - F-01-3：并发达 concurrency_limit → 有界等待，超时返回可解释 429
  *   - F-01-4：allow_overage=true → ALLOW_OVERAGE → 成功 + overage_value 记录
  *   - F-01-5：API 模式请求 → 门禁跳过，正常放行（不被误拒）
@@ -275,15 +275,36 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
     }
   });
 
-  it("F-01-2：额度耗尽 → REJECT_EXHAUSTED → 排除资源 → 503", async () => {
+  it("F-01-2：额度耗尽 → REJECT_EXHAUSTED → 明确返回非重试额度错误", async () => {
     const fx = await buildFixture({ mode: "CODING_PLAN", quotaValue: 1n });
     try {
+      const callsBefore = fx.stub.calls.length;
       const res = await fx.app.inject({
         method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
         payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "hi" }] },
       });
-      expect(res.statusCode).toBe(503);
-      expect(JSON.parse(res.body).error.code).toBe("no_healthy_candidate");
+      expect(res.statusCode).toBe(429);
+      expect(res.headers["retry-after"]).toBeUndefined();
+      expect(JSON.parse(res.body).error).toMatchObject({
+        message: "额度不足，请联系管理员",
+        type: "rate_limit_error",
+        code: "insufficient_quota",
+        retryable: false,
+      });
+      expect(fx.stub.calls).toHaveLength(callsBefore);
+
+      const requestId = res.headers["x-request-id"] as string;
+      expect(await ledgerRepo.listAttempts(requestId)).toHaveLength(0);
+      expect(await ledgerRepo.listLedgerLines(requestId)).toHaveLength(0);
+      expect(await db.selectFrom("usage_event").select("id")
+        .where("ai_request_id", "=", requestId).execute()).toHaveLength(0);
+      expect(await db.selectFrom("ai_request")
+        .select(["status", "error_classification", "error_code"])
+        .where("id", "=", requestId).executeTakeFirstOrThrow()).toMatchObject({
+          status: "FAILED",
+          error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+          error_code: "insufficient_quota",
+        });
       const c = await counterValue(fx.grantId);
       expect(c.used).toBe(0n); // REJECT 不改 counter
     } finally {
