@@ -154,7 +154,7 @@ work_packages:
     conclusion: "遗留项、Owner、优先级、去向和 2.0 输入已明确"
   - id: "R16"
     status: "AWAITING_OWNER_FINAL_REVIEW"
-    deliverable: "交付档案/仟流智算-1.0-Final/15-Final Review与封板决定/仟流智算1.0-Final-Review与Owner决定-v1.0.md"
+    deliverable: "交付档案/仟流智算-1.0-Final/15-Final Review与封板决定/仟流智算1.0-Final-Review与Owner决定-v1.0.md; 交付档案/仟流智算-1.0-Final/15-Final Review与封板决定/R16-Owner-Preflight-v1.0.md"
     evidence: "reviewed_code_commit:684b2d5f083282c3d90e703c427d044855036282; evidence_carrier_ref:codex/v1-final-review-20260811@HEAD"
     risk: "Owner 未决定前禁止 Tag、SEALED 状态和阶段 Ending"
     conclusion: "建议工程封板通过；等待 Owner 决定"
