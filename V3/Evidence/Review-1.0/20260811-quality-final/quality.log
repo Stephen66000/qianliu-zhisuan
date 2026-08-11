@@ -1,0 +1,123 @@
+2026-08-11T12:24:33+08:00
+v22.17.1
+11.11.0
+[WARN] Unsupported engine: wanted: {"node":">=22.17 <23"} (current: {"node":"v24.14.0","pnpm":"11.16.0"})
+Scope: all 12 workspace projects
+✓ Lockfile passes supply-chain policies (verified 12m ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 697ms using pnpm v11.16.0
+$ corepack pnpm@11.11.0 run typecheck && corepack pnpm@11.11.0 run lint && corepack pnpm@11.11.0 run test && corepack pnpm@11.11.0 run build && corepack pnpm@11.11.0 run quality:coverage && corepack pnpm@11.11.0 run quality:architecture && corepack pnpm@11.11.0 run quality:size && corepack pnpm@11.11.0 run quality:duplication && corepack pnpm@11.11.0 run audit:prod && corepack pnpm@11.11.0 run quality:licenses && corepack pnpm@11.11.0 run evidence:canary
+$ corepack pnpm@11.11.0 -r run typecheck
+Scope: 11 of 12 workspace projects
+apps/web typecheck$ tsc -p tsconfig.json --noEmit
+packages/contracts typecheck$ tsc -p tsconfig.json --noEmit
+packages/config typecheck$ tsc -p tsconfig.json --noEmit
+packages/domain typecheck$ tsc -p tsconfig.json --noEmit
+packages/contracts typecheck: Done
+packages/testing typecheck$ tsc -p tsconfig.json --noEmit
+packages/config typecheck: Done
+packages/domain typecheck: Done
+packages/testing typecheck: Done
+apps/web typecheck: Done
+packages/observability typecheck$ tsc -p tsconfig.json --noEmit
+packages/provider-adapters typecheck$ tsc -p tsconfig.json --noEmit
+packages/observability typecheck: Done
+packages/provider-adapters typecheck: Done
+packages/database typecheck$ tsc -p tsconfig.json --noEmit
+packages/database typecheck: Done
+apps/worker typecheck$ tsc -p tsconfig.json --noEmit
+apps/control-api typecheck$ tsc -p tsconfig.json --noEmit
+apps/gateway typecheck$ tsc -p tsconfig.json --noEmit
+apps/control-api typecheck: Done
+apps/worker typecheck: Done
+apps/gateway typecheck: Done
+$ corepack pnpm@11.11.0 -r run lint
+Scope: 11 of 12 workspace projects
+apps/web lint$ eslint src --max-warnings=0
+packages/contracts lint$ eslint src --max-warnings=0
+packages/config lint$ eslint src --max-warnings=0
+packages/domain lint$ eslint src --max-warnings=0
+packages/contracts lint: Done
+packages/testing lint$ eslint src --max-warnings=0
+packages/config lint: Done
+packages/domain lint: Done
+packages/testing lint: Done
+apps/web lint: Done
+packages/observability lint$ eslint src --max-warnings=0
+packages/provider-adapters lint$ eslint src --max-warnings=0
+packages/observability lint: Done
+packages/provider-adapters lint: Done
+packages/database lint$ eslint src --max-warnings=0
+packages/database lint: Done
+apps/worker lint$ eslint src --max-warnings=0
+apps/gateway lint$ eslint src --max-warnings=0
+apps/control-api lint$ eslint src --max-warnings=0
+apps/worker lint: Done
+apps/control-api lint: Done
+apps/gateway lint: Done
+$ corepack pnpm@11.11.0 -r run test
+Scope: 11 of 12 workspace projects
+packages/contracts test$ vitest run --config ../../vitest.config.ts
+packages/config test$ vitest run --config ../../vitest.config.ts
+apps/web test$ vitest run --config vitest.config.ts
+packages/domain test$ vitest run --config ../../vitest.config.ts
+packages/contracts test:  RUN  v3.2.4 /Users/mac/Projects/仟流智算-1.0-review/packages/contracts
+packages/domain test:  RUN  v3.2.4 /Users/mac/Projects/仟流智算-1.0-review/packages/domain
+packages/config test:  RUN  v3.2.4 /Users/mac/Projects/仟流智算-1.0-review/packages/config
+apps/web test:  RUN  v3.2.4 /Users/mac/Projects/仟流智算-1.0-review/apps/web
+packages/contracts test:  ✓ src/__tests__/contracts.test.ts (3 tests) 3ms
+packages/contracts test:  Test Files  1 passed (1)
+packages/contracts test:       Tests  3 passed (3)
+packages/contracts test:    Start at  12:24:58
+packages/contracts test:    Duration  1.42s (transform 149ms, setup 0ms, collect 63ms, tests 3ms, environment 0ms, prepare 735ms)
+packages/domain test:  ✓ src/__tests__/client-identity.test.ts (10 tests) 11ms
+packages/config test:  ✓ src/__tests__/config.test.ts (9 tests) 11ms
+packages/config test:  Test Files  1 passed (1)
+packages/config test:       Tests  9 passed (9)
+packages/config test:    Start at  12:24:58
+packages/config test:    Duration  1.49s (transform 174ms, setup 0ms, collect 323ms, tests 11ms, environment 0ms, prepare 470ms)
+packages/domain test:  ✓ src/__tests__/reconciliation.test.ts (10 tests) 3ms
+packages/domain test:  ✓ src/__tests__/dispatch-policy.test.ts (38 tests) 39ms
+packages/domain test:  ✓ src/__tests__/quota-gate.test.ts (11 tests) 6ms
+packages/domain test:  ✓ src/__tests__/routing-policy.test.ts (11 tests) 42ms
+packages/domain test:  ✓ src/__tests__/runtime-assurance.test.ts (9 tests) 54ms
+packages/domain test:  ✓ src/__tests__/billing-rule.test.ts (31 tests) 60ms
+packages/contracts test: Done
+packages/testing test$ echo 'testing package has no own tests' && exit 0
+packages/testing test: testing package has no own tests
+packages/testing test: Done
+packages/config test: Done
+packages/domain test:  ✓ src/__tests__/resource-lifecycle.test.ts (22 tests) 5ms
+packages/domain test:  ❯ src/__tests__/domain.test.ts (5 tests | 1 failed) 8ms
+packages/domain test:    × @qianliu/domain > exposes version 5ms
+packages/domain test:      → expected '1.0.0' to be '0.3.0' // Object.is equality
+packages/domain test:    ✓ @qianliu/domain > 可重试状态码集合（PoC 迁移） 1ms
+packages/domain test:    ✓ @qianliu/domain > 日志白名单 11 字段 1ms
+packages/domain test:    ✓ @qianliu/domain > 默认 METADATA_ONLY 0ms
+packages/domain test:    ✓ @qianliu/domain > 仅允许提交前可恢复的上游错误切换路由 0ms
+packages/domain test:  ✓ src/__tests__/supply-forecast.test.ts (14 tests) 5ms
+packages/domain test: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+packages/domain test:  FAIL  src/__tests__/domain.test.ts > @qianliu/domain > exposes version
+packages/domain test: AssertionError: expected '1.0.0' to be '0.3.0' // Object.is equality
+packages/domain test: Expected: "0.3.0"
+packages/domain test: Received: "1.0.0"
+packages/domain test:  ❯ src/__tests__/domain.test.ts:14:28
+packages/domain test:      12| describe("@qianliu/domain", () => {
+packages/domain test:      13|   it("exposes version", () => {
+packages/domain test:      14|     expect(DOMAIN_VERSION).toBe("0.3.0");
+packages/domain test:        |                            ^
+packages/domain test:      15|   });
+packages/domain test:      16| 
+packages/domain test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+packages/domain test:  Test Files  1 failed | 9 passed (10)
+packages/domain test:       Tests  1 failed | 160 passed (161)
+packages/domain test:    Start at  12:24:58
+packages/domain test:    Duration  2.25s (transform 611ms, setup 0ms, collect 2.00s, tests 233ms, environment 2ms, prepare 3.66s)
+packages/domain test: Failed
+/Users/mac/Projects/仟流智算-1.0-review/packages/domain:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @qianliu/domain@1.0.0 test: `vitest run --config ../../vitest.config.ts`
+Exit status 1
+[ELIFECYCLE] Test failed. See above for more details.
+[ELIFECYCLE] Command failed with exit code 1.

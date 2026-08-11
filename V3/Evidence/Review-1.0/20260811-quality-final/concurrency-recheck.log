@@ -1,0 +1,11 @@
+2026-08-11T12:26:13+08:00
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-1.0-review/packages/database
+
+ ✓ src/__tests-integration__/pool043-operating-bill-concurrency.integration.test.ts (57 tests) 3576ms
+
+ Test Files  1 passed (1)
+      Tests  57 passed (57)
+   Start at  12:26:13
+   Duration  4.70s (transform 342ms, setup 0ms, collect 834ms, tests 3.58s, environment 0ms, prepare 81ms)
+

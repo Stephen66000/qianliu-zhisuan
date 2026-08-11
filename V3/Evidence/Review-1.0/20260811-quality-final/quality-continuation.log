@@ -1,0 +1,112 @@
+2026-08-11T12:30:32+08:00
+$ corepack pnpm@11.11.0 --dir apps/gateway exec vitest run --config vitest.pool040.mutation.config.ts --coverage
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-1.0-review/apps/gateway
+      Coverage enabled with v8
+
+ ✓ src/pipeline/revoked-attempt-settlement.mutation.test.ts (11 tests) 15ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  12:30:33
+   Duration  770ms (transform 310ms, setup 0ms, collect 511ms, tests 15ms, environment 0ms, prepare 60ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |      100 |     100 |     100 |                   
+ ...-settlement.ts |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------
+$ node scripts/check-coverage-ratchet.mjs
+coverage ratchet passed: 13 scopes did not regress
+$ node scripts/check-architecture.mjs
+architecture gate passed: 250 production source files, no runtime cycles
+$ node scripts/check-source-size.mjs
+source-size gate passed: 250 files, default <= 400 logical lines
+$ jscpd apps packages --min-lines 20 --min-tokens 100 --threshold 5 --ignore '**/dist/**,**/coverage/**,**/reports/**,**/__tests__/**,**/__tests-integration__/**,**/*.test.ts,**/*.test.tsx' --reporters console
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/keys/routes.ts[39m[22m [54:90 - 76:71] (23 lines, 128 tokens)
+   control-api/src/keys/routes.ts [228:40 - 251:19]
+[1mClone found (typescript)[22m
+ - [1m[32mgateway/src/auth/current-model-authorization.ts[39m[22m [87:55 - 112:12] (26 lines, 198 tokens)
+   gateway/src/auth/current-model-authorization.ts [241:51 - 266:8]
+[1mClone found (typescript)[22m
+ - [1m[32mgateway/src/routes/chat.ts[39m[22m [44:61 - 71:65] (28 lines, 144 tokens)
+   gateway/src/routes/messages.ts [22:54 - 52:22]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [9:37 - 34:23] (26 lines, 128 tokens)
+   database/src/repositories/dashboard-types.ts [36:4 - 61:23]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [101:4 - 142:2] (42 lines, 174 tokens)
+   database/src/repositories/usage-repository.ts [27:18 - 69:2]
+[1mClone found (tsx)[22m
+ - [1m[32mweb/src/pages/OperatingBillEmployees.tsx[39m[22m [56:42 - 80:32] (25 lines, 177 tokens)
+   web/src/pages/OperatingBillProjects.tsx [63:41 - 87:32]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/dispatch-policy-repository.ts[39m[22m [157:9 - 181:38] (25 lines, 171 tokens)
+   database/src/repositories/dispatch-policy-repository.ts [197:9 - 220:38]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/gateway-ledger-repository.ts[39m[22m [288:62 - 312:24] (25 lines, 129 tokens)
+   database/src/repositories/gateway-ledger-repository.ts [325:49 - 349:24]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/operating-bill-account-frozen.ts[39m[22m [15:25 - 40:10] (26 lines, 111 tokens)
+   database/src/repositories/operating-bill-account-live.ts [13:26 - 38:10]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/operating-bill-account-frozen.ts[39m[22m [40:28 - 61:10] (22 lines, 107 tokens)
+   database/src/repositories/operating-bill-account-live.ts [38:22 - 59:10]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/operating-bill-account-frozen.ts[39m[22m [148:42 - 173:2] (26 lines, 141 tokens)
+   database/src/repositories/operating-bill-account-live.ts [206:37 - 231:2]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/operating-bill-account-frozen.ts[39m[22m [279:60 - 300:22] (22 lines, 169 tokens)
+   database/src/repositories/operating-bill-account-live.ts [341:21 - 362:22]
+[1mClone found (typescript)[22m
+ - [1m[32mprovider-adapters/src/adapters/deepseek-adapter.ts[39m[22m [34:19 - 73:31] (40 lines, 187 tokens)
+   provider-adapters/src/adapters/kimi-adapter.ts [33:18 - 74:31]
+[1mClone found (typescript)[22m
+ - [1m[32mprovider-adapters/src/adapters/kimi-adapter.ts[39m[22m [26:34 - 84:2] (59 lines, 244 tokens)
+   provider-adapters/src/adapters/zhipu-adapter.ts [24:35 - 82:2]
+[90m┌────────────┬────────────────┬─────────────┬──────────────┬──────────────┬──────────────────┬───────────────────┐[39m
+[90m│[39m[31m Format     [39m[90m│[39m[31m Files analyzed [39m[90m│[39m[31m Total lines [39m[90m│[39m[31m Total tokens [39m[90m│[39m[31m Clones found [39m[90m│[39m[31m Duplicated lines [39m[90m│[39m[31m Duplicated tokens [39m[90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m css        [90m│[39m 1              [90m│[39m 130         [90m│[39m 2272         [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m javascript [90m│[39m 38             [90m│[39m 2854        [90m│[39m 20287        [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m json       [90m│[39m 6              [90m│[39m 224         [90m│[39m 766          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m markdown   [90m│[39m 1              [90m│[39m 66          [90m│[39m 413          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m markup     [90m│[39m 1              [90m│[39m 37          [90m│[39m 432          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m tsx        [90m│[39m 55             [90m│[39m 9980        [90m│[39m 74878        [90m│[39m 1            [90m│[39m 24 (0.24%)       [90m│[39m 177 (0.24%)       [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m typescript [90m│[39m 185            [90m│[39m 36176       [90m│[39m 222606       [90m│[39m 13           [90m│[39m 377 (1.04%)      [90m│[39m 2031 (0.91%)      [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m [1mTotal:[22m     [90m│[39m 287            [90m│[39m 49467       [90m│[39m 321654       [90m│[39m 14           [90m│[39m 401 (0.81%)      [90m│[39m 2208 (0.69%)      [90m│[39m
+[90m└────────────┴────────────────┴─────────────┴──────────────┴──────────────┴──────────────────┴───────────────────┘[39m
+[90mFound 14 clones.[39m
+[90mtime: 46.037ms[39m
+
+[90m💡 Auto-refactor with AI: [1m[39mnpx skills add https://github.com/kucherenko/jscpd --skill dry-refactoring[90m[22m
+[90m🎩 New: Gangsta Agents — discipline your AI coding → gangsta.page[39m
+[90m💖 Support jscpd project → https://opencollective.com/jscpd[39m
+$ corepack pnpm@11.11.0 audit --prod --audit-level moderate
+No known vulnerabilities found
+$ corepack pnpm@11.11.0 licenses list --prod --json | node scripts/check-licenses.mjs
+license gate passed: Apache-2.0, BSD-3-Clause, BlueOak-1.0.0, ISC, MIT, Unlicense
+$ corepack pnpm@11.11.0 --filter @qianliu/observability run evidence:canary
+$ tsx src/cli/evidence-canary.ts
+=== evidence:canary W01 框架验证 ===
+canary: W01_CANARY_PROBE_SECRET_BODY_20260727
+hits: {"postgres":null,"redis":null,"logs":0,"traces":null}
+scanned: logs
+unscanned: postgres,redis,traces
+full scan complete: false
+total: 0
+passed (total===0): true
+
+日志缓冲实际内容（白名单字段）:
+{"time":"2026-08-11T04:30:41.134Z","level":"info","event":"probe","requestId":"req-canary"}
+OK: 日志 canary 框架验证通过；PG/Redis/Trace 未在本命令扫描
