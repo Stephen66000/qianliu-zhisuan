@@ -1,0 +1,74 @@
+schema_version: "1.0"
+manifest_type: "engineering_seal"
+product: "仟流智算"
+version: "1.0.0"
+status: "SEALED_ENGINEERING_BUSINESS_PENDING"
+sealed_at: "2026-08-11T13:05:20+08:00"
+owner: "佳哥"
+owner_decision: "OWNER_APPROVED_ENGINEERING_SEAL"
+
+git:
+  repository: "git@github.com:qianliu-ai/qianliu-zhisuan.git"
+  reviewed_code_commit: "684b2d5f083282c3d90e703c427d044855036282"
+  reviewed_code_tree_hash: "a74e522d3addd96d82f29eae13e671c4931c042f"
+  archive_carrier_tag: "v1.0.0-final"
+  archive_carrier_commit: "resolve with: git rev-parse v1.0.0-final^{}"
+  review_branch: "codex/v1-final-review-20260811"
+  review_base_commit: "7ec225ba11068d4b40b92d3a9cc9c01a1e23d13b"
+  historical_tag:
+    name: "v1.0.0"
+    commit: "7b0235fa6868c00bde1e2621299f1d338aec07a5"
+    policy: "保留历史，不移动、不覆盖"
+
+version_identity:
+  version_file_sha256: "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03"
+  pnpm_lock_sha256: "31d094607e9ca50d8a773a98c38f66d90962771b31727a2d7235a0489fb48f83"
+  node: "22.17.1"
+  pnpm: "11.11.0"
+  database_migration: "0044_operating_bill_model_identity.js"
+
+audit:
+  standard: "仟流产品开发SOP／AI开发SOP与工程规则／功能验收规范／编码规范／代码质量模板 v1.4"
+  result: "PASS_WITH_REGISTERED_P2"
+  p0_open: 0
+  p1_open: 0
+  v1_4_report_sha256: "b402962770c109b5dbe84bb011929e78c3eb1f2d5ca675c653ef18ee1cad83f5"
+  semantic_annotation_report_sha256: "4728d4326a355cc2fc16880e3c92a6f5ef07b1d45296fb32ac82b4b11ec898f3"
+  quality_report_sha256: "73a512d4b26461e0420dee2f7c740bbc55c8b6d1d64cb221013c2e7e601c2ce8"
+  quality_log_sha256: "fa0ed531f1081a7a7044fb0235b1aeb1ced5a587db80540bad11ba9ca800413a"
+  quality_result: "PASS; 1006/1006 tests; 11/11 workspace builds"
+  sbom:
+    format: "CycloneDX 1.7"
+    components: 255
+    dependencies: 256
+    sha256: "27c3d0b5d1b327a1251a1affc93650d23216ac3f142a5bf1ad90b05df7a3aa5a"
+
+production_mapping:
+  deployed_commit: "0dd283e7d9fef97ef4d2af85a60ba240295599aa"
+  deployed_database_migration: "0044_operating_bill_model_identity"
+  deployment_evidence_sha256: "4d2b0e8f1306b456d5b7d434cc33e3d6839d13fcd647e52a24a6d40c451603d7"
+  reviewed_runtime_diff_sha256: "3bf3519cf34dad07b03aba7fb5d2fadf7df8a7340aa0002d12f4307fabee7e63"
+  diff_classification: "版本号、质量门禁入口、测试断言和语义注释；无业务逻辑变化"
+  final_review_redeploy: false
+  immutable_image_digest: "NOT_CAPTURED_FOR_POOL042; 不把旧镜像 Digest 冒充最终候选 Digest"
+  conclusion: "工程封板通过；生产继续使用已验收的 0dd283e7 版本，后续业务逻辑变化必须重新发布"
+
+build_and_delivery:
+  local_build: "PASS; 11/11 workspaces"
+  source_artifact: "仟流智算-1.0-source.tar.gz"
+  git_bundle: "仟流智算-1.0-final.bundle"
+  final_candidate_lock: "FINAL-CANDIDATE-LOCK.json"
+  verification: "FINAL-CANDIDATE-LOCK.verify.json"
+  exact_hashes: "SHA256SUMS（Tag 创建后生成的外部交付 sidecar）"
+  delivery_root: "/Users/mac/Projects/仟流智算-1.0-Final交付包"
+
+business_closure:
+  status: "EVIDENCE_INSUFFICIENT"
+  reason: "10 人完整自然月、经营结果和月度复盘证据尚未闭环"
+  next_input_sha256: "892b480dc3f2afd821bf60b61aeba8d2d87059890af88eede5196b3ea8c79d62"
+
+post_seal_policy:
+  - "v1.0.0-final 不移动、不覆盖"
+  - "1.0 Final 档案不继续开发"
+  - "1.0 修复通过勘误或 1.0.x 补丁版本"
+  - "2.0 从遗留问题与2.0输入清单立项，不回写 1.0 Final"
