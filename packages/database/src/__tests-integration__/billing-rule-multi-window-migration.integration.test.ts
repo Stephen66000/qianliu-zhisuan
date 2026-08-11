@@ -87,6 +87,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
+      expect(await migrateDown(db)).toBe("0045_zhipu_weekday_window_alias");
       expect(await migrateDown(db)).toBe("0044_operating_bill_model_identity");
       expect(await migrateDown(db)).toBe("0043_single_owner_rule_history");
       expect(await migrateDown(db)).toBe("0042_alias_ql_format");

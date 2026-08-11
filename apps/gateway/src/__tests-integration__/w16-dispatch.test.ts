@@ -151,7 +151,7 @@ beforeAll(async () => {
   }).returning("id").executeTakeFirstOrThrow()).id;
   const authorizedModel = await db.insertInto("unified_model").values({
     enterprise_id: ENT_ID,
-    alias: "qianliu-glm-coding",
+    alias: "ql-glm-5.2",
     display_name: "仟流 智谱 Coding Plan",
     status: "ACTIVE",
   }).returningAll().executeTakeFirstOrThrow();
@@ -191,13 +191,13 @@ beforeAll(async () => {
   }).execute();
 
   // W14：CODING_PLAN 模式额度门禁需要 principal_grant + quota_counter（F-01 接入后必填）。
-  // 两智谱资源同 provider(zhipu)/alias(qianliu-glm-coding)，共享一个 grant；quota_value 充足覆盖多用例。
+  // 两智谱资源同 provider(zhipu)/alias(ql-glm-5.2)，共享一个 grant；quota_value 充足覆盖多用例。
   // API 与 CODING_PLAN 都要求模型 grant；只有 CODING_PLAN 会预占/扣减 quota_counter。
   const grant = await db.insertInto("principal_grant").values({
     enterprise_id: ENT_ID,
     principal_id: PRINCIPAL_ID,
     provider: "zhipu",
-    model_alias: "qianliu-glm-coding",
+    model_alias: "ql-glm-5.2",
     quota_value: 10_000_000n,
     allow_overage: false,
   }).returningAll().executeTakeFirstOrThrow();
@@ -290,11 +290,11 @@ describe("W16 经营调度", () => {
     const policyId = await dispatchRepo.createPolicy({
       enterpriseId: ENT_ID,
       status: "PUBLISHED",
-      matchUnifiedModel: "qianliu-glm-coding",
+      matchUnifiedModel: "ql-glm-5.2",
       matchResourceMode: "CODING_PLAN",
       matchProviderResourceId: null,
       matchTimezone: "Asia/Shanghai",
-      matchDaysOfWeek: [1, 2, 3, 4, 5, 6, 7],
+      matchDaysOfWeek: [1, 2, 3, 4, 5],
       matchStartTime: "14:00:00",
       matchEndTime: "18:00:00",
       matchPriceMultiplierMin: null,
@@ -325,7 +325,7 @@ describe("W16 经营调度", () => {
       url: "/v1/chat/completions",
       headers: authHeader(),
       payload: {
-        model: "qianliu-glm-coding",
+        model: "ql-glm-5.2",
         messages: [{ role: "user", content: "boundary" }],
       },
     });
@@ -340,7 +340,11 @@ describe("W16 经营调度", () => {
     now = Date.parse("2026-07-30T06:00:00.000Z");
     const atStart = await send();
     expect(atStart.statusCode).toBe(403);
-    expect(atStart.json().error.code).toBe("dispatch_rejected");
+    expect(atStart.json().error).toEqual(expect.objectContaining({
+      message: "14:00-18:00暂停使用",
+      code: "dispatch_rejected",
+      retryable: false,
+    }));
     expect(stub.calls).toHaveLength(1);
 
     now = Date.parse("2026-07-30T09:59:59.000Z");
@@ -351,8 +355,15 @@ describe("W16 经营调度", () => {
       .select("used_value")
       .executeTakeFirstOrThrow();
     expect(quotaAfterPeak.used_value).toBe(quotaBeforePeak.used_value);
+    const blockedRequestId = String(atStart.headers["x-request-id"]);
+    expect(await db.selectFrom("upstream_attempt")
+      .select("id").where("ai_request_id", "=", blockedRequestId).execute()).toHaveLength(0);
+    expect(await db.selectFrom("usage_event")
+      .select("id").where("ai_request_id", "=", blockedRequestId).execute()).toHaveLength(0);
+    expect(await db.selectFrom("ledger_line")
+      .select("id").where("ai_request_id", "=", blockedRequestId).execute()).toHaveLength(0);
 
-    const decision = await dispatchRepo.getDecision(atStart.headers["x-request-id"]);
+    const decision = await dispatchRepo.getDecision(blockedRequestId);
     expect(decision).toEqual(expect.objectContaining({
       matched_policy_id: policyId,
       matched_policy_version: "zhipu-peak-reject-v1",
@@ -368,6 +379,10 @@ describe("W16 经营调度", () => {
     now = Date.parse("2026-07-30T10:00:00.000Z");
     expect((await send()).statusCode).toBe(200);
     expect(stub.calls).toHaveLength(2);
+
+    now = Date.parse("2026-08-01T06:00:00.000Z"); // 周六 14:00（Asia/Shanghai）
+    expect((await send()).statusCode).toBe(200);
+    expect(stub.calls).toHaveLength(3);
     expect(
       await dispatchRepo.transitionStatus(ENT_ID, policyId, "PUBLISHED", "RETIRED"),
     ).toBe(true);
@@ -379,7 +394,7 @@ describe("W16 经营调度", () => {
     await dispatchRepo.createPolicy({
       enterpriseId: ENT_ID,
       status: "PUBLISHED",
-      matchUnifiedModel: "qianliu-glm-coding",
+      matchUnifiedModel: "ql-glm-5.2",
       matchPriceMultiplierMin: "3", // 高峰倍率 ≥3 命中
       matchResourceMode: "CODING_PLAN",
       matchProviderResourceId: null,
@@ -412,7 +427,7 @@ describe("W16 经营调度", () => {
       method: "POST",
       url: "/v1/chat/completions",
       headers: authHeader(),
-      payload: { model: "qianliu-glm-coding", messages: [{ role: "user", content: "hi" }] },
+      payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: "hi" }] },
     });
     expect(chatRes.statusCode).toBe(200);
     const requestId = chatRes.headers["x-request-id"];
@@ -435,7 +450,7 @@ describe("W16 经营调度", () => {
     await dispatchRepo.createPolicy({
       enterpriseId: ENT_ID,
       status: "PUBLISHED",
-      matchUnifiedModel: "qianliu-glm-coding",
+      matchUnifiedModel: "ql-glm-5.2",
       matchRemainingQuotaRatioMax: "0.1",
       matchResourceMode: null,
       matchProviderResourceId: null,
@@ -467,7 +482,7 @@ describe("W16 经营调度", () => {
       method: "POST",
       url: "/v1/chat/completions",
       headers: authHeader(),
-      payload: { model: "qianliu-glm-coding", messages: [{ role: "user", content: "hi" }] },
+      payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: "hi" }] },
     });
     expect(chatRes.statusCode).toBe(403);
     expect(chatRes.json().error.code).toBe("dispatch_rejected");
@@ -488,7 +503,7 @@ describe("W16 经营调度", () => {
     await dispatchRepo.createPolicy({
       enterpriseId: ENT_ID,
       status: "PUBLISHED",
-      matchUnifiedModel: "qianliu-glm-coding",
+      matchUnifiedModel: "ql-glm-5.2",
       matchForecastExhaustRisk: true, // 预计耗尽风险命中
       matchResourceMode: null,
       matchProviderResourceId: null,
@@ -520,7 +535,7 @@ describe("W16 经营调度", () => {
       method: "POST",
       url: "/v1/chat/completions",
       headers: authHeader(),
-      payload: { model: "qianliu-glm-coding", messages: [{ role: "user", content: "hi" }] },
+      payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: "hi" }] },
     });
     expect(chatRes.statusCode).toBe(429);
     expect(chatRes.json().error.code).toBe("dispatch_rate_limited");
@@ -552,7 +567,7 @@ describe("W16 经营调度", () => {
       method: "POST",
       url: "/v1/chat/completions",
       headers: authHeader(),
-      payload: { model: "qianliu-glm-coding", messages: [{ role: "user", content: "hi" }] },
+      payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: "hi" }] },
     });
     expect(chatRes.statusCode).toBe(200);
     const requestId = chatRes.headers["x-request-id"];
@@ -583,7 +598,7 @@ describe("W16 经营调度", () => {
       method: "POST",
       url: "/v1/chat/completions",
       headers: authHeader(),
-      payload: { model: "qianliu-glm-coding", messages: [{ role: "user", content: "hi" }] },
+      payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: "hi" }] },
     });
     expect(chatRes.statusCode).toBe(200);
     const requestId = chatRes.headers["x-request-id"];
@@ -673,7 +688,7 @@ describe("W16 经营调度", () => {
       method: "POST",
       url: "/v1/chat/completions",
       headers: authHeader(),
-      payload: { model: "qianliu-glm-coding", messages: [{ role: "user", content: BODY_CANARY }] },
+      payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: BODY_CANARY }] },
     });
     expect(chatRes.statusCode).toBe(200);
     await app.close();
@@ -708,7 +723,7 @@ describe("W16 经营调度", () => {
         method: "POST",
         url: "/v1/chat/completions",
         headers: authHeader(),
-        payload: { model: "qianliu-glm-coding", messages: [{ role: "user", content: "hi" }] },
+        payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: "hi" }] },
       });
       expect(response.statusCode).toBe(500);
       expect(stub.calls).toHaveLength(0);

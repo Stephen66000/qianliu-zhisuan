@@ -1039,9 +1039,14 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     if (dispatchTerminated) {
       const code = dispatchFinalAction === "REJECT" ? 403 : 429;
       const errCode = dispatchFinalAction === "REJECT" ? "dispatch_rejected" : "dispatch_rate_limited";
+      const dispatchMessage = dispatchFinalAction === "REJECT"
+        && dispatchMatchedPolicy?.matchStartTime
+        && dispatchMatchedPolicy.matchEndTime
+        ? `${dispatchMatchedPolicy.matchStartTime.slice(0, 5)}-${dispatchMatchedPolicy.matchEndTime.slice(0, 5)}暂停使用`
+        : `经营调度${dispatchFinalAction === "REJECT" ? "拒绝" : "限流"}`;
       await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", errCode, dispatchReasonCode);
       return reply.code(code).header("x-request-id", traceId).send({
-        error: { message: `经营调度${dispatchFinalAction === "REJECT" ? "拒绝" : "限流"}`, type: "server_error", code: errCode, param: null, retryable: false, request_id: requestId },
+        error: { message: dispatchMessage, type: "server_error", code: errCode, param: null, retryable: false, request_id: requestId },
       });
     }
     if (!finalOutcome) {

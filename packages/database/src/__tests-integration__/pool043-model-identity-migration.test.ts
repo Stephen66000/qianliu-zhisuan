@@ -56,6 +56,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
       expect(migrated.results?.map((result) => [result.migrationName, result.status])).toEqual([
         ["0043_single_owner_rule_history", "Success"],
         ["0044_operating_bill_model_identity", "Success"],
+        ["0045_zhipu_weekday_window_alias", "Success"],
       ]);
       const rows = await db.selectFrom("ai_request")
         .select(["id", "unified_model", "unified_model_id"]).orderBy("id").execute();
@@ -93,6 +94,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
         unified_model: "ql-deepseek-v4-flash", unified_model_id: modelA,
       });
 
+      expect(await migrateDown(db)).toBe("0045_zhipu_weekday_window_alias");
       expect(await migrateDown(db)).toBe("0044_operating_bill_model_identity");
       const columns = await sql<{ column_name: string }>`
         SELECT column_name FROM information_schema.columns
@@ -120,6 +122,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
       expect(reapplied.results?.map((result) => [result.migrationName, result.status])).toEqual([
         ["0043_single_owner_rule_history", "Success"],
         ["0044_operating_bill_model_identity", "Success"],
+        ["0045_zhipu_weekday_window_alias", "Success"],
       ]);
       const rebound = await db.selectFrom("ai_request")
         .select(["unified_model", "unified_model_id"])

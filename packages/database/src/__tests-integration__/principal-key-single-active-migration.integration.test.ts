@@ -100,6 +100,7 @@ describe("0023 Principal Key 单 ACTIVE 迁移", () => {
         constraint: "principal_key_one_active_per_principal_uq",
       });
 
+      expect(await migrateDown(db)).toBe("0045_zhipu_weekday_window_alias");
       expect(await migrateDown(db)).toBe("0044_operating_bill_model_identity");
       expect(await migrateDown(db)).toBe("0043_single_owner_rule_history");
       expect(await migrateDown(db)).toBe("0042_alias_ql_format");
