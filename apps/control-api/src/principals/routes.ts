@@ -6,6 +6,7 @@
  * enterprise_id 从 session 注入，客户端不能跨企业访问。
  */
 import type { FastifyInstance } from "fastify";
+import { sql } from "kysely";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 
@@ -24,17 +25,37 @@ const UpdatePrincipalSchema = z.object({
 const ListPrincipalQuerySchema = z.object({
   type: z.enum(["EMPLOYEE", "PROJECT"]).optional(),
   archived: z.enum(["exclude", "only", "all"]).default("exclude"),
+  search: z.string().trim().max(255).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).default(0),
 });
 
-export function registerPrincipalRoutes(app: FastifyInstance): void {
+const ProjectDepartmentBody = z.object({
+  organization_unit_id: z.string().uuid(),
+  expected_version: z.number().int().nonnegative(),
+  reason: z.string().trim().max(500).nullable().optional(),
+});
+
+export function registerPrincipalRoutes(
+  app: FastifyInstance,
+  options: { departmentCost?: boolean } = {},
+): void {
   // 列表
   app.get("/principals", { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = ListPrincipalQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
     }
-    const list = await app.principalRepo.list(req.admin!.enterpriseId, parsed.data);
-    return { principals: list };
+    const [list, total] = await Promise.all([
+      app.principalRepo.list(req.admin!.enterpriseId, parsed.data),
+      app.principalRepo.count(req.admin!.enterpriseId, parsed.data),
+    ]);
+    return {
+      principals: list,
+      total,
+      limit: parsed.data.limit ?? list.length,
+      offset: parsed.data.offset,
+    };
   });
 
   // 详情
@@ -45,6 +66,122 @@ export function registerPrincipalRoutes(app: FastifyInstance): void {
       const p = await app.principalRepo.findById(req.admin!.enterpriseId, req.params.id);
       if (!p) return reply.code(404).send({ error: "not_found", message: "主体不存在" });
       return { principal: p };
+    },
+  );
+
+  if (options.departmentCost !== false) app.get<{ Params: { id: string } }>(
+    "/principals/:id/department-assignment",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const id = z.string().uuid().safeParse(req.params.id);
+      if (!id.success) return reply.code(400).send({ error: "invalid_request" });
+      const project = await app.db.selectFrom("principal").select("id")
+        .where("enterprise_id", "=", req.admin!.enterpriseId)
+        .where("id", "=", id.data).where("type", "=", "PROJECT").executeTakeFirst();
+      if (!project) return reply.code(404).send({ error: "not_found", message: "项目主体不存在" });
+      const result = await sql<{
+        id: string; organization_unit_id: string; department_name: string;
+        version: number; source: string; valid_from: Date; reason: string | null;
+      }>`
+        SELECT a.id, a.organization_unit_id, u.name AS department_name, a.version,
+               a.source, a.valid_from, a.reason
+          FROM project_department_assignment a
+          JOIN organization_unit u ON u.id = a.organization_unit_id
+           AND u.enterprise_id = a.enterprise_id
+         WHERE a.enterprise_id = ${req.admin!.enterpriseId}::uuid
+           AND a.project_principal_id = ${id.data}::uuid AND a.valid_until IS NULL
+         LIMIT 1
+      `.execute(app.db);
+      const row = result.rows[0];
+      return { assignment: row ? { ...row, valid_from: row.valid_from.toISOString() } : null };
+    },
+  );
+
+  if (options.departmentCost !== false) app.put<{ Params: { id: string } }>(
+    "/principals/:id/department-assignment",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const id = z.string().uuid().safeParse(req.params.id);
+      const body = ProjectDepartmentBody.safeParse(req.body);
+      if (!id.success || !body.success) {
+        return reply.code(400).send({ error: "invalid_request", message: "项目部门参数不合法" });
+      }
+      const outcome = await app.db.transaction().execute(async (trx) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtext(
+          ${`${req.admin!.enterpriseId}:project-department:${id.data}`}
+        ))`.execute(trx);
+        const project = await trx.selectFrom("principal")
+          .select(["id", "owner_person_id", "status"])
+          .where("enterprise_id", "=", req.admin!.enterpriseId)
+          .where("id", "=", id.data).where("type", "=", "PROJECT")
+          .where("archived_at", "is", null).forUpdate().executeTakeFirst();
+        const department = await trx.selectFrom("organization_unit").select(["id", "name"])
+          .where("enterprise_id", "=", req.admin!.enterpriseId)
+          .where("id", "=", body.data.organization_unit_id)
+          .where("status", "=", "ACTIVE").executeTakeFirst();
+        if (!project || !department) return { kind: "not_found" as const };
+        const current = await trx.selectFrom("project_department_assignment").selectAll()
+          .where("enterprise_id", "=", req.admin!.enterpriseId)
+          .where("project_principal_id", "=", id.data)
+          .where("valid_until", "is", null).forUpdate().executeTakeFirst();
+        if ((current?.version ?? 0) !== body.data.expected_version) {
+          return { kind: "conflict" as const };
+        }
+        if (current?.organization_unit_id === department.id) {
+          return { kind: "ok" as const, assignment: current, departmentName: department.name, replayed: true };
+        }
+        const now = new Date();
+        if (current) {
+          await trx.updateTable("project_department_assignment").set({ valid_until: now })
+            .where("enterprise_id", "=", req.admin!.enterpriseId)
+            .where("id", "=", current.id).execute();
+        }
+        const assignment = await trx.insertInto("project_department_assignment").values({
+          enterprise_id: req.admin!.enterpriseId,
+          project_principal_id: project.id,
+          organization_unit_id: department.id,
+          valid_from: now,
+          source: "EXPLICIT",
+          owner_person_id_at_assignment: project.owner_person_id,
+          version: (current?.version ?? 0) + 1,
+          created_by: req.admin!.adminUserId,
+          reason: body.data.reason ?? null,
+        }).returningAll().executeTakeFirstOrThrow();
+        await trx.updateTable("principal").set({
+          department_label: department.name, version: sql`version + 1`, updated_at: now,
+        }).where("enterprise_id", "=", req.admin!.enterpriseId).where("id", "=", project.id).execute();
+        await trx.insertInto("operation_log").values({
+          enterprise_id: req.admin!.enterpriseId,
+          admin_user_id: req.admin!.adminUserId,
+          action: "project.department_assignment.update",
+          target_type: "principal",
+          target_id: project.id,
+          change_summary: {
+            previous_department_id: current?.organization_unit_id ?? null,
+            organization_unit_id: department.id,
+            assignment_version: assignment.version,
+          },
+          result: "SUCCESS",
+          failure_reason: null,
+        }).execute();
+        return { kind: "ok" as const, assignment, departmentName: department.name, replayed: false };
+      });
+      if (outcome.kind === "not_found") {
+        return reply.code(404).send({ error: "not_found", message: "项目主体或部门不存在" });
+      }
+      if (outcome.kind === "conflict") {
+        return reply.code(409).send({ error: "conflict", message: "项目部门归属已被修改" });
+      }
+      return {
+        assignment: {
+          ...outcome.assignment,
+          department_name: outcome.departmentName,
+          valid_from: outcome.assignment.valid_from.toISOString(),
+          valid_until: outcome.assignment.valid_until?.toISOString() ?? null,
+          created_at: outcome.assignment.created_at.toISOString(),
+        },
+        replayed: outcome.replayed,
+      };
     },
   );
 

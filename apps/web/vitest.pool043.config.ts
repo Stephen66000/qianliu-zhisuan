@@ -15,6 +15,7 @@ export default defineConfig({
       "src/components/operating-bill/OperatingBillShell.test.tsx",
       "src/pages/OperatingBill.test.tsx",
       "src/pages/OperatingBill.pool043-routing.test.tsx",
+      "src/pages/OperatingBillProcurement.test.tsx",
       "src/pages/OperatingBillAccounts.test.tsx",
     ],
     setupFiles: ["./src/test-setup.ts"],

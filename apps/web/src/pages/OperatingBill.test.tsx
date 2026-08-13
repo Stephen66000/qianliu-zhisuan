@@ -29,6 +29,11 @@ vi.mock("../api/operating-bills", async () => {
   };
 });
 vi.mock("../api/hooks", () => ({ usePrincipals: () => ({ data: { principals: [] } }) }));
+vi.mock("../api/v2-hooks", () => ({
+  useAllPurchases: () => ({ data: { items: [], cashTotals: [] }, isLoading: false, error: null }),
+  useProcurementReview: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+  useSaveProcurementNote: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+}));
 
 describe("POOL-025 经营账单", () => {
   it("展示真实成本口径并可切换经营账单页签", async () => {

@@ -23,6 +23,9 @@ const adminId = randomUUID();
 const otherAdminId = randomUUID();
 const employeeId = randomUUID();
 const otherEmployeeId = randomUUID();
+const projectId = randomUUID();
+const projectOwnerPersonId = randomUUID();
+const projectDepartmentId = randomUUID();
 const keyId = randomUUID();
 const flashId = randomUUID();
 const proId = randomUUID();
@@ -88,10 +91,25 @@ beforeAll(async () => {
     { id: adminId, enterprise_id: enterpriseId, username: "pool043-owner", display_name: "经营管理员", password_hash: passwordHash },
     { id: otherAdminId, enterprise_id: otherEnterpriseId, username: "pool043-other", display_name: "隔离管理员", password_hash: passwordHash },
   ]).execute();
+  await db.insertInto("person").values({
+    id: projectOwnerPersonId, enterprise_id: enterpriseId, name: "项目负责人",
+  }).execute();
+  await db.insertInto("organization_unit").values({
+    id: projectDepartmentId, enterprise_id: enterpriseId, parent_id: null,
+    name: "研发中心", external_source_id: null, external_unit_id: "研发中心",
+  }).execute();
   await db.insertInto("principal").values([
     { id: employeeId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "于滔" },
+    { id: projectId, enterprise_id: enterpriseId, type: "PROJECT", name: "智算项目",
+      owner_person_id: projectOwnerPersonId },
     { id: otherEmployeeId, enterprise_id: otherEnterpriseId, type: "EMPLOYEE", name: "隔离员工" },
   ]).execute();
+  await db.insertInto("project_department_assignment").values({
+    enterprise_id: enterpriseId, project_principal_id: projectId,
+    organization_unit_id: projectDepartmentId, valid_from: new Date("2026-07-01T00:00:00Z"),
+    valid_until: null, source: "EXPLICIT", owner_person_id_at_assignment: projectOwnerPersonId,
+    created_by: adminId, reason: "项目账 API 合同测试",
+  }).execute();
   await db.insertInto("unified_model").values([
     { id: flashId, enterprise_id: enterpriseId, alias: "ql-deepseek-v4-flash", display_name: "DeepSeek V4 Flash" },
     { id: proId, enterprise_id: enterpriseId, alias: "ql-deepseek-v4-pro", display_name: "DeepSeek V4 Pro" },
@@ -112,6 +130,18 @@ beforeAll(async () => {
     modelId: flashId, alias: "qianliu-deepseek-deepseek-v4-flash", resourceId: resource.id,
     tokens: [100, 20, 30], cost: "1.25", at: new Date("2026-08-08T01:00:00Z"),
   });
+  await db.insertInto("operating_bill_request_project_assignment").values({
+    enterprise_id: enterpriseId, ai_request_id: historicalRequestId,
+    project_principal_id: projectId, assigned_by: adminId, reason: "项目账 API 合同测试",
+  }).execute();
+  await db.insertInto("request_attribution_snapshot").values({
+    enterprise_id: enterpriseId, ai_request_id: historicalRequestId,
+    source_principal_id: employeeId, employee_person_id: null,
+    project_principal_id: projectId, organization_unit_id: projectDepartmentId,
+    cost_category: "PROJECT", attribution_source: "EMPLOYEE_PROJECT",
+    request_occurred_at: new Date("2026-08-08T01:00:00Z"), version: 1,
+    supersedes_id: null, snapshot_origin: "RUNTIME",
+  }).execute();
   await addUsage({
     modelId: proId, alias: "ql-deepseek-v4-pro", resourceId: resource.id,
     tokens: [200, 40, 50], cost: "2.75", at: new Date("2026-08-08T02:00:00Z"),
@@ -187,7 +217,17 @@ describe("POOL-043 Control API 员工账／项目账", () => {
     expect(projects.statusCode).toBe(200);
     expect(projects.json()).toMatchObject({
       dimension: "PROJECT",
-      rows: [expect.objectContaining({ subjectId: null, subjectName: "未归属项目", isUnassigned: true })],
+      rows: expect.arrayContaining([
+        expect.objectContaining({
+          subjectId: projectId,
+          subjectName: "智算项目",
+          projectOwner: { personId: projectOwnerPersonId, personName: "项目负责人" },
+          projectDepartments: [{
+            departmentId: projectDepartmentId, departmentName: "研发中心",
+          }],
+        }),
+        expect.objectContaining({ subjectId: null, subjectName: "未归属项目", isUnassigned: true }),
+      ]),
     });
     expect((await app.inject({ method: "GET", url: "/operating-bills/2026-08/employees" })).statusCode)
       .toBe(401);

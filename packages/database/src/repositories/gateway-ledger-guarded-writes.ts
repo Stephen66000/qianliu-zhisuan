@@ -11,6 +11,7 @@ import type {
 } from "./gateway-ledger-types.js";
 import { GatewayLedgerSettlementConflictError } from "./gateway-ledger-settlement.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
+import { ensureRequestAttributionSnapshot } from "./request-attribution-writer.js";
 
 export interface AttemptResultUpdate {
   http_status?: number | null;
@@ -91,7 +92,7 @@ export async function updateUnsettledRequestStatus(
 ): Promise<void> {
   await db.transaction().execute(async (trx) => {
     const request = await trx.selectFrom("ai_request")
-      .select(["status", "error_classification", "error_code"])
+      .select(["enterprise_id", "status", "error_classification", "error_code"])
       .where("id", "=", id).forUpdate().executeTakeFirst();
     if (!request) throw new GatewayLedgerSettlementConflictError("settlement_request_not_found");
     const nextErrorClassification = errorClassification ?? null;
@@ -99,7 +100,10 @@ export async function updateUnsettledRequestStatus(
     if (request.status !== "IN_PROGRESS") {
       if (isSameTerminalRequest(
         request, status, nextErrorClassification, nextErrorCode,
-      )) return;
+      )) {
+        await ensureRequestAttributionSnapshot(trx, request.enterprise_id, id);
+        return;
+      }
       throw new GatewayLedgerSettlementConflictError("settlement_terminal_conflict");
     }
     const attempts = await trx.selectFrom("upstream_attempt")
@@ -121,6 +125,8 @@ export async function updateUnsettledRequestStatus(
       error_classification: nextErrorClassification,
       error_code: nextErrorCode,
     }).where("id", "=", id).where("status", "=", "IN_PROGRESS").execute();
+    // 无 usage/ledger 也是一次完整请求；冻结其时点归属便于完整审计。
+    await ensureRequestAttributionSnapshot(trx, request.enterprise_id, id);
   });
 }
 
@@ -174,6 +180,7 @@ export async function createGuardedUsageEventIfAbsent(
       created_at: createdAt,
     }).onConflict((oc) => oc.column("dedup_key").doNothing())
       .returningAll().execute();
+    if (result[0]) await ensureRequestAttributionSnapshot(trx, input.enterprise_id, input.ai_request_id);
     return result[0];
   });
 }
@@ -250,6 +257,9 @@ export async function createGuardedLedgerTransactionIfAbsent(
       created_at: new Date(),
     }).onConflict((oc) => oc.column("ai_request_id").doNothing())
       .returningAll().execute();
+    if (result[0]) {
+      await ensureRequestAttributionSnapshot(trx, input.enterprise_id, input.ai_request_id);
+    }
     return result[0];
   });
 }

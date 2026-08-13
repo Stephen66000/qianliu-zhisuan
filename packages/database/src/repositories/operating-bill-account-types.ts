@@ -27,10 +27,24 @@ export interface OperatingBillAccountProviderRef {
   providerName: string;
 }
 
+export interface OperatingBillProjectDepartmentRef {
+  departmentId: string;
+  departmentName: string;
+}
+
+export interface OperatingBillProjectOwnerRef {
+  personId: string;
+  personName: string;
+}
+
 export interface OperatingBillAccountSubjectRow {
   subjectId: string | null;
   subjectName: string;
   isUnassigned: boolean;
+  /** 项目维度才有值；CLOSED 月份来自结账时冻结的账户事实。 */
+  projectOwner: OperatingBillProjectOwnerRef | null;
+  /** 请求发生时点的项目部门集合；不从当前负责人部门反推。 */
+  projectDepartments: OperatingBillProjectDepartmentRef[];
   providers: OperatingBillAccountProviderRef[];
   totals: OperatingBillAccountTotals;
 }

@@ -8,6 +8,7 @@ import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { buildOperatingBillDraft } from "./operating-bill-draft.js";
 import { OperatingBillAccountRepository } from "./operating-bill-account-repository.js";
+import { assertDepartmentCostConserved, loadDepartmentCloseEvidence } from "./department-cost-evidence.js";
 import {
   OperatingBillConcurrentModificationError,
   withOperatingBillSerializationRetry,
@@ -18,6 +19,7 @@ import {
   hasPendingOperatingBillSettlement,
   OperatingBillClosedError,
 } from "./operating-bill-write-barrier.js";
+import { appendProjectAttributionCorrection } from "./operating-bill-project-attribution.js";
 import type {
   OperatingBillGap,
   OperatingBillPeriod,
@@ -175,7 +177,7 @@ export class OperatingBillRepository {
     await this.db.transaction().execute(async (trx) => {
       const request = await trx.selectFrom("ai_request as ar")
         .innerJoin("principal as source", "source.id", "ar.principal_id")
-        .select(["ar.id", "source.type as principal_type"])
+        .select(["ar.id", "source.id as source_principal_id", "source.person_id", "source.type as principal_type"])
         .where("ar.enterprise_id", "=", input.enterpriseId)
         .where("source.enterprise_id", "=", input.enterpriseId)
         .where("ar.id", "=", input.requestId).executeTakeFirst();
@@ -186,10 +188,14 @@ export class OperatingBillRepository {
         eb.fn.min("created_at").as("first_at"), eb.fn.max("created_at").as("last_at"),
       ]).where("enterprise_id", "=", input.enterpriseId)
         .where("ai_request_id", "=", input.requestId).executeTakeFirst();
+      const enterprise = await trx.selectFrom("enterprise").select("timezone")
+        .where("id", "=", input.enterpriseId).executeTakeFirst();
       if (!request || request.principal_type !== "EMPLOYEE" || !project
-        || !lineRange?.first_at || !lineRange.last_at) throw new OperatingBillReferenceError();
+        || !lineRange?.first_at || !lineRange.last_at || !enterprise) {
+        throw new OperatingBillReferenceError();
+      }
       const monthOf = (value: Date) => new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit",
+        timeZone: enterprise.timezone, year: "numeric", month: "2-digit",
       }).format(value).slice(0, 7);
       if (monthOf(lineRange.first_at) !== input.month || monthOf(lineRange.last_at) !== input.month) {
         throw new OperatingBillReferenceError();
@@ -208,6 +214,7 @@ export class OperatingBillRepository {
         project_principal_id: input.projectPrincipalId, assigned_by: input.adminId,
         reason: input.reason ?? null, updated_at: new Date(),
       })).execute();
+      await appendProjectAttributionCorrection(trx, input, request, lineRange.first_at);
       await trx.updateTable("operating_bill_period").set({ updated_at: new Date() })
         .where("id", "=", period.id).execute();
     });
@@ -219,6 +226,7 @@ export class OperatingBillRepository {
     month: string;
     allowIncomplete: boolean;
     note: string | null;
+    includeDepartmentEvidence?: boolean;
   }): Promise<OperatingBillView> {
     // 先在独立 READ COMMITTED 事务中创建账期。不把 advisory lock 放进
     // 后续 RR 事务，避免等锁前取到旧快照而漏掉在途结算。
@@ -238,6 +246,11 @@ export class OperatingBillRepository {
         )) throw new OperatingBillConcurrentModificationError();
         const repo = new OperatingBillRepository(trx);
         const draft = await repo.buildDraft(input.enterpriseId, input.month, period);
+        const departmentEvidence = input.includeDepartmentEvidence === false
+          ? null
+          : await loadDepartmentCloseEvidence(trx, input.enterpriseId, input.month);
+        // 部门行与企业基础事实不守恒属于硬错误，allowIncomplete 不得绕过。
+        if (departmentEvidence) assertDepartmentCostConserved(departmentEvidence.departmentBill);
         if (draft.gaps.length > 0 && !input.allowIncomplete) {
           throw new OperatingBillIncompleteError(draft.gaps);
         }
@@ -258,6 +271,17 @@ export class OperatingBillRepository {
             accountFacts: (await new OperatingBillAccountRepository(trx)
               .loadLiveFacts(input.enterpriseId, input.month))
               .map((fact) => ({ ...fact, usedAt: fact.usedAt.toISOString() })),
+            ...(departmentEvidence ? {
+              departmentBill: {
+                ...departmentEvidence.departmentBill,
+                status: "CLOSED" as const,
+                version: nextVersion,
+                generatedAt: closedAt.toISOString(),
+              },
+              departmentAttributionFacts: departmentEvidence.departmentAttributionFacts,
+              departmentBudgetFacts: departmentEvidence.departmentBudgetFacts,
+              resourcePurchaseFacts: departmentEvidence.resourcePurchaseFacts,
+            } : {}),
           },
         };
         await trx.insertInto("operating_bill_version").values({

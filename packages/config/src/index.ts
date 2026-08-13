@@ -18,6 +18,40 @@ const StrictEnvBooleanSchema = z
   .enum(["true", "false"])
   .transform((value) => value === "true");
 
+/** 2.0 新增能力开关（TRD §13.4）。键名与部署环境变量保持一致。 */
+export const FEATURE_FLAG_NAMES = [
+  "FEATURE_DIRECTORY_IMPORT",
+  "FEATURE_USAGE_OVERVIEW_V2",
+  "FEATURE_DEPARTMENT_COST",
+  "FEATURE_RESOURCE_UTILIZATION_V2",
+  "FEATURE_PROCUREMENT_REVIEW",
+] as const;
+
+export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number];
+export type FeatureFlags = Record<FeatureFlagName, boolean>;
+
+const FeatureFlagsSchema = z.object({
+  FEATURE_DIRECTORY_IMPORT: z.boolean(),
+  FEATURE_USAGE_OVERVIEW_V2: z.boolean(),
+  FEATURE_DEPARTMENT_COST: z.boolean(),
+  FEATURE_RESOURCE_UTILIZATION_V2: z.boolean(),
+  FEATURE_PROCUREMENT_REVIEW: z.boolean(),
+});
+
+/**
+ * 读取 2.0 Feature Flag。测试环境默认逐项开启，其他环境需显式开启。
+ * 只接受小写 true/false，避免配置拼写导致意外放量。
+ */
+export function readFeatureFlags(env: NodeJS.ProcessEnv = process.env): FeatureFlags {
+  const defaultValue = env.NODE_ENV === "test" ? "true" : "false";
+  return FeatureFlagsSchema.parse(Object.fromEntries(
+    FEATURE_FLAG_NAMES.map((name) => [
+      name,
+      StrictEnvBooleanSchema.parse(env[name] ?? defaultValue),
+    ]),
+  ));
+}
+
 /** Provider 代码（与上游环境变量一一对应，TRD §17 行 943）。 */
 const ProviderCodeSchema = z.enum(["deepseek", "zhipu", "kimi"]);
 
@@ -64,6 +98,9 @@ export const AppConfigSchema = z.object({
     wecomNotify: z.boolean().default(false),
   }),
 
+  /** 2.0 新增页面、API 与 Worker 开关；不影响 Gateway 和 1.0 能力。 */
+  featureFlags: FeatureFlagsSchema,
+
   /** Provider 凭证来源描述（不持有明文，只描述是否已配置）。 */
   providers: z.array(ProviderCredentialSchema),
 });
@@ -102,6 +139,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         env.RUNTIME_ASSURANCE_WECOM_NOTIFY ?? "false",
       ),
     },
+    featureFlags: readFeatureFlags(env),
     providers,
   });
 }

@@ -11,12 +11,16 @@ import type { ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { StatusTag } from "../dashboard/StatusTag";
+import { useFeatureFlags } from "../../feature-flags";
 
 export type OperatingBillSection =
   | "overview"
   | "employees"
   | "projects"
+  | "departments"
   | "plans"
+  | "procurement"
+  | "reconciliation"
   | "value"
   | "closing";
 
@@ -24,7 +28,10 @@ const sections = [
   { id: "overview", label: "月度总览", icon: LayoutDashboard },
   { id: "employees", label: "员工账", icon: UsersRound },
   { id: "projects", label: "项目账", icon: BriefcaseBusiness },
+  { id: "departments", label: "部门账", icon: UsersRound },
   { id: "plans", label: "套餐利用分析", icon: Gauge },
+  { id: "procurement", label: "采购复盘", icon: Gauge },
+  { id: "reconciliation", label: "对账与导出", icon: FileLock2 },
   { id: "value", label: "价值确认", icon: BadgeCheck },
   { id: "closing", label: "结账管理", icon: FileLock2 },
 ] as const;
@@ -35,7 +42,7 @@ function sectionUrl(
   providerCode: string | null,
 ): string {
   const search = new URLSearchParams({ month });
-  if (section === "employees" || section === "projects") {
+  if (section === "employees" || section === "projects" || section === "departments") {
     if (providerCode) search.set("provider_code", providerCode);
     return `/operating-bill/${section}?${search}`;
   }
@@ -76,6 +83,7 @@ export function OperatingBillShell({
   version?: number;
   children: ReactNode;
 }) {
+  const featureFlags = useFeatureFlags();
   const [params, setParams] = useSearchParams();
   const changeMonth = (nextMonth: string) => {
     const next = new URLSearchParams(params);
@@ -121,7 +129,10 @@ export function OperatingBillShell({
         className="overflow-x-auto rounded-xl border border-ql-border-zone bg-ql-surface p-1.5"
       >
         <div className="flex min-w-max gap-1">
-          {sections.map(({ id, label, icon: Icon }) => (
+          {sections.filter(({ id }) =>
+            (id !== "departments" || featureFlags.FEATURE_DEPARTMENT_COST)
+            && (id !== "procurement" || featureFlags.FEATURE_PROCUREMENT_REVIEW)
+          ).map(({ id, label, icon: Icon }) => (
             <Link
               aria-current={active === id ? "page" : undefined}
               className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-[13px] font-medium ${

@@ -336,6 +336,7 @@ describe("W18 空状态（新企业无数据）", () => {
     });
     // 数据源 gap 字段诚实为 null（不伪造）
     expect(body.monthlyPackagePayment).toBeNull();
+    expect(body.monthlyTotalSpend).toBeNull();
     expect(body.monthlyRechargeAmount).toBeNull();
   });
 
@@ -374,6 +375,9 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(body.activeEmployeeCount).toBe(1);
     // 5. API 费用 = "0"（套餐内 total_api_cost 全 0）
     expect(Number(body.monthlyApiCost)).toBe(0);
+    // 2.0 首页总支出由后端精确汇总套餐支出 + API 支出，前端不重算。
+    expect(body.monthlyPackagePayment).toBe("299.00000000");
+    expect(body.monthlyTotalSpend).toBe("299.00000000");
     // 7. 最早耗尽：有可计算预测
     expect(body.earliestExhaustion).not.toBeNull();
     expect(body.earliestExhaustion.resourceId).toBe(seededResourceId);
@@ -536,6 +540,7 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     const response = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie: adminCookie } });
     expect(response.statusCode).toBe(200);
     expect(response.json().monthlyApiCost).toBe("12.34");
+    expect(response.json().monthlyTotalSpend).toBe("311.34000000");
     expect(response.json().resourceBreakdown).toEqual(expect.arrayContaining([
       expect.objectContaining({ mode: "API", monthlyCost: "12.34" }),
       expect.objectContaining({ mode: "CODING_PLAN", monthlyCost: "0" }),

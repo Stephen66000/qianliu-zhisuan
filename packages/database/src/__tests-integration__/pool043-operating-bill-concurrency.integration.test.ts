@@ -1432,6 +1432,15 @@ describe("POOL-043 结账与项目归属并发边界", () => {
     const releasedAt = (await db.selectFrom("concurrency_lease").select("released_at")
       .where("id", "=", scenario.leaseId).executeTakeFirstOrThrow()).released_at;
     expect(releasedAt).not.toBeNull();
+    expect(await db.selectFrom("request_attribution_snapshot")
+      .select(["version", "cost_category", "attribution_source", "reason_code"])
+      .where("enterprise_id", "=", scenario.fixture.enterpriseId)
+      .where("ai_request_id", "=", scenario.fixture.requestId).execute()).toEqual([{
+      version: 1,
+      cost_category: "UNASSIGNED",
+      attribution_source: "UNASSIGNED",
+      reason_code: "PERSON_MISSING",
+    }]);
 
     const replay = await repository.finalizeRejectedAttemptSettlementIfAbsent({
       ...scenario.input,
@@ -1447,6 +1456,9 @@ describe("POOL-043 结账与项目归属并发边界", () => {
     expect((await db.selectFrom("concurrency_lease").select("released_at")
       .where("id", "=", scenario.leaseId).executeTakeFirstOrThrow()).released_at)
       .toEqual(releasedAt);
+    expect(await db.selectFrom("request_attribution_snapshot").select("id")
+      .where("enterprise_id", "=", scenario.fixture.enterpriseId)
+      .where("ai_request_id", "=", scenario.fixture.requestId).execute()).toHaveLength(1);
   });
 
   it.each(["nonzero", "api-cost-unknown", "error-identity"] as const)(
@@ -1881,9 +1893,18 @@ describe("POOL-043 结账与项目归属并发边界", () => {
       error_classification: "CLIENT_INVALID",
       error_code: "request_rejected",
     });
+    expect(await db.selectFrom("request_attribution_snapshot")
+      .select(["version", "cost_category", "reason_code"])
+      .where("enterprise_id", "=", fixture.enterpriseId)
+      .where("ai_request_id", "=", fixture.requestId).execute()).toEqual([{
+      version: 1, cost_category: "UNASSIGNED", reason_code: "PERSON_MISSING",
+    }]);
     await expect(repository.updateRequestStatus(
       fixture.requestId, "FAILED", "CLIENT_INVALID", "request_rejected",
     )).resolves.toBeUndefined();
+    expect(await db.selectFrom("request_attribution_snapshot").select("id")
+      .where("enterprise_id", "=", fixture.enterpriseId)
+      .where("ai_request_id", "=", fixture.requestId).execute()).toHaveLength(1);
     await expect(repository.updateRequestStatus(
       fixture.requestId, "FAILED", "CLIENT_INVALID", "different_error",
     )).rejects.toThrow("settlement_terminal_conflict");

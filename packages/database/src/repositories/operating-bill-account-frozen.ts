@@ -19,6 +19,10 @@ interface RawFrozenFact {
   source_principal_type: "EMPLOYEE" | "PROJECT";
   project_id: string | null;
   project_name: string | null;
+  project_owner_person_id: string | null;
+  project_owner_name: string | null;
+  project_department_id: string | null;
+  project_department_name: string | null;
   provider_code: string;
   provider_name: string;
   unified_model_id: string | null;
@@ -42,6 +46,9 @@ interface RawFrozenSummary {
   subject_id: string | null;
   subject_name: string | null;
   is_unassigned: boolean | null;
+  project_owner_person_id: string | null;
+  project_owner_name: string | null;
+  project_departments: Array<{ departmentId: string; departmentName: string }>;
   provider_code: string | null;
   provider_name: string | null;
   input_tokens: string | null;
@@ -108,6 +115,10 @@ export function frozenFactsCte(enterpriseId: string, month: string): RawBuilder<
              fact->>'sourcePrincipalType' AS source_principal_type,
              NULLIF(fact->>'projectId', '')::uuid AS project_id,
              fact->>'projectName' AS project_name,
+             NULLIF(fact->>'projectOwnerPersonId', '')::uuid AS project_owner_person_id,
+             fact->>'projectOwnerName' AS project_owner_name,
+             NULLIF(fact->>'projectDepartmentId', '')::uuid AS project_department_id,
+             fact->>'projectDepartmentName' AS project_department_name,
              fact->>'providerCode' AS provider_code,
              fact->>'providerName' AS provider_name,
              NULLIF(fact->>'unifiedModelId', '')::uuid AS unified_model_id,
@@ -153,6 +164,10 @@ function mapFrozenFact(row: RawFrozenFact): OperatingBillAccountFact {
     sourcePrincipalType: row.source_principal_type,
     projectId: row.project_id,
     projectName: row.project_name,
+    projectOwnerPersonId: row.project_owner_person_id,
+    projectOwnerName: row.project_owner_name,
+    projectDepartmentId: row.project_department_id,
+    projectDepartmentName: row.project_department_name,
     providerCode: row.provider_code,
     providerName: row.provider_name,
     unifiedModelId: row.unified_model_id,
@@ -217,6 +232,15 @@ export async function loadFrozenOperatingBillAccountSummary(
       SELECT CASE WHEN GROUPING(subject_name) = 1 THEN 'TOTAL'
                   WHEN GROUPING(provider_code) = 1 THEN 'SUBJECT' ELSE 'PROVIDER' END AS level,
              subject_id, subject_name, is_unassigned, provider_code, provider_name,
+             MIN(project_owner_person_id::text)::uuid AS project_owner_person_id,
+             MIN(project_owner_name) AS project_owner_name,
+             COALESCE(
+               jsonb_agg(DISTINCT jsonb_build_object(
+                 'departmentId', project_department_id,
+                 'departmentName', project_department_name
+               )) FILTER (WHERE project_department_id IS NOT NULL),
+               '[]'::jsonb
+             ) AS project_departments,
              SUM(input_tokens::numeric)::text AS input_tokens,
              SUM(output_tokens::numeric)::text AS output_tokens,
              SUM(cache_tokens::numeric)::text AS cache_tokens,
@@ -280,6 +304,14 @@ export async function loadFrozenOperatingBillAccountSummary(
       subjectId: row.subject_id,
       subjectName: row.subject_name!,
       isUnassigned: row.is_unassigned ?? false,
+      projectOwner: dimension === "PROJECT" && row.project_owner_person_id && row.project_owner_name
+        ? { personId: row.project_owner_person_id, personName: row.project_owner_name }
+        : null,
+      projectDepartments: dimension === "PROJECT"
+        ? row.project_departments.sort((left, right) =>
+          left.departmentName.localeCompare(right.departmentName)
+            || left.departmentId.localeCompare(right.departmentId))
+        : [],
       providers: [],
       totals: summaryTotals(row),
     });
@@ -313,6 +345,8 @@ export async function loadFrozenOperatingBillRequestPage(
              MAX(source_principal_name) AS source_principal_name,
              'EMPLOYEE'::text AS source_principal_type,
              NULL::uuid AS project_id, NULL::text AS project_name,
+             NULL::uuid AS project_owner_person_id, NULL::text AS project_owner_name,
+             NULL::uuid AS project_department_id, NULL::text AS project_department_name,
              MAX(provider_code) AS provider_code, MAX(provider_name) AS provider_name,
              MAX(unified_model_id::text)::uuid AS unified_model_id,
              MAX(current_alias) AS current_alias, MAX(historical_alias) AS historical_alias,

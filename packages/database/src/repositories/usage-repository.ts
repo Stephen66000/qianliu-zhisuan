@@ -14,6 +14,8 @@ export interface UsageQuery {
   search?: string;
   principalId?: string;
   projectId?: string;
+  /** 2.0 概览下钻时限定主体口径；不传时保持 1.0 全部明细语义。 */
+  subjectType?: "EMPLOYEE" | "PROJECT";
   clientId?: string;
   agentFamily?: string;
   providerId?: string;
@@ -21,7 +23,11 @@ export interface UsageQuery {
   unifiedModel?: string;
   from?: Date;
   to?: Date;
+  /** 新增的半开区间上界；旧 to 保持包含语义以兼容 1.0 URL。 */
+  toExclusive?: Date;
   status?: string;
+  /** 仅查询已结算账本，用于与概览口径守恒。 */
+  settledOnly?: boolean;
   overageOnly?: boolean;
   limit?: number;
   offset?: number;
@@ -55,6 +61,7 @@ export interface UsageRecord {
   totalInputTokens: string;
   totalOutputTokens: string;
   totalCacheTokens: string;
+  totalReasoningTokens: string;
   totalDeductedQuota: string;
   totalApiCost: string;
   usageQuality: string;
@@ -94,6 +101,7 @@ interface UsageSqlRow {
   total_input_tokens: bigint;
   total_output_tokens: bigint;
   total_cache_tokens: bigint;
+  total_reasoning_tokens: bigint;
   total_deducted_quota: bigint;
   total_api_cost: string;
   usage_quality: string;
@@ -124,18 +132,39 @@ export class UsageRepository {
       )`);
     }
     if (query.principalId) conditions.push(sql`lt.principal_id = ${query.principalId}`);
-    if (query.projectId) conditions.push(sql`EXISTS (
-      SELECT 1 FROM operating_bill_request_project_assignment opa
-       WHERE opa.enterprise_id = ${query.enterpriseId}
-         AND opa.ai_request_id = lt.ai_request_id
-         AND opa.project_principal_id = ${query.projectId}
+    const attributedProject = sql`coalesce(
+      (
+        SELECT ras.project_principal_id
+          FROM request_attribution_snapshot ras
+         WHERE ras.enterprise_id = ${query.enterpriseId}
+           AND ras.ai_request_id = lt.ai_request_id
+         ORDER BY ras.version DESC, ras.created_at DESC, ras.id DESC
+         LIMIT 1
+      ),
+      (
+        SELECT opa.project_principal_id
+          FROM operating_bill_request_project_assignment opa
+         WHERE opa.enterprise_id = ${query.enterpriseId}
+           AND opa.ai_request_id = lt.ai_request_id
+         LIMIT 1
+      )
+    )`;
+    if (query.subjectType === "EMPLOYEE") conditions.push(sql`p.type = 'EMPLOYEE'`);
+    if (query.subjectType === "PROJECT") {
+      conditions.push(sql`(p.type = 'PROJECT' OR ${attributedProject} IS NOT NULL)`);
+    }
+    if (query.projectId) conditions.push(sql`(
+      (p.type = 'PROJECT' AND p.id = ${query.projectId})
+      OR ${attributedProject} = ${query.projectId}
     )`);
     if (query.clientId) conditions.push(sql`ar.client_id = ${query.clientId}`);
     if (query.agentFamily) conditions.push(sql`ar.agent_family = ${query.agentFamily}`);
     if (query.unifiedModel) conditions.push(sql`ar.unified_model = ${query.unifiedModel}`);
     if (query.status) conditions.push(sql`ar.status = ${query.status}`);
+    if (query.settledOnly) conditions.push(sql`lt.status = 'SETTLED'`);
     if (query.from) conditions.push(sql`ar.started_at >= ${query.from}`);
     if (query.to) conditions.push(sql`ar.started_at <= ${query.to}`);
+    if (query.toExclusive) conditions.push(sql`ar.started_at < ${query.toExclusive}`);
     if (query.overageOnly) conditions.push(sql`lt.overage = true`);
 
     if (query.providerId || query.providerResourceId) {
@@ -204,6 +233,7 @@ export class UsageRepository {
         lt.total_input_tokens,
         lt.total_output_tokens,
         lt.total_cache_tokens,
+        lt.total_reasoning_tokens,
         lt.total_deducted_quota,
         lt.total_api_cost,
         lt.usage_quality,
@@ -268,6 +298,7 @@ export class UsageRepository {
       totalInputTokens: row.total_input_tokens.toString(),
       totalOutputTokens: row.total_output_tokens.toString(),
       totalCacheTokens: row.total_cache_tokens.toString(),
+      totalReasoningTokens: row.total_reasoning_tokens.toString(),
       totalDeductedQuota: row.total_deducted_quota.toString(),
       totalApiCost: row.total_api_cost,
       usageQuality: row.usage_quality,

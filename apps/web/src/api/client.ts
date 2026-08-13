@@ -89,3 +89,29 @@ export function put<T>(path: string, body: unknown, signal?: AbortSignal): Promi
 export function del<T>(path: string, signal?: AbortSignal): Promise<T> {
   return request<T>(path, { method: "DELETE", signal });
 }
+
+/** multipart 上传：浏览器自动生成 boundary，禁止手工设置 Content-Type。 */
+export async function upload<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    method: "POST", credentials: "include", body: form, signal,
+  }).catch((cause: unknown) => {
+    if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
+    throw new ApiError(0, null, "无法连接到服务，请检查网络后重试");
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+    if (response.status === 401) throw new UnauthorizedError(body);
+    throw new ApiError(response.status, body, `上传失败（${response.status}）`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function download(path: string, signal?: AbortSignal): Promise<Blob> {
+  const response = await fetch(`/api${path}`, { credentials: "include", signal });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+    if (response.status === 401) throw new UnauthorizedError(body);
+    throw new ApiError(response.status, body, `下载失败（${response.status}）`);
+  }
+  return response.blob();
+}

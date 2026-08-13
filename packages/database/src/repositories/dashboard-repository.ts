@@ -61,6 +61,8 @@ export class DashboardRepository {
       activeEmployeeCount,
       currentInUseCount,
       monthlyApiCost,
+      monthlyPackagePayment,
+      monthlyRechargeAmount,
       earliestExhaustion,
       monthlyDispatchSaving,
       resourceBreakdown,
@@ -71,6 +73,8 @@ export class DashboardRepository {
       this.countActiveEmployees(enterpriseId, monthStart, monthEnd),
       this.countInUseEmployees(enterpriseId, now, fiveMinutesAgo),
       this.sumMonthlyApiCost(enterpriseId, monthStart, monthEnd),
+      this.sumLatestSnapshotAmount(enterpriseId, "CODING_PLAN", "package_cost"),
+      this.sumLatestSnapshotAmount(enterpriseId, "API", "recharge_amount"),
       this.findEarliestExhaustion(enterpriseId, currentOperatingSnapshots),
       this.sumMonthlyDispatchSaving(enterpriseId, monthStart, monthEnd),
       this.buildResourceBreakdown(
@@ -88,17 +92,12 @@ export class DashboardRepository {
       resourceAccountCount,
       activeEmployeeCount,
       currentInUseCount,
-      monthlyPackagePayment: await this.sumLatestSnapshotAmount(
-        enterpriseId,
-        "CODING_PLAN",
-        "package_cost",
-      ),
+      monthlyPackagePayment,
       monthlyApiCost,
-      monthlyRechargeAmount: await this.sumLatestSnapshotAmount(
-        enterpriseId,
-        "API",
-        "recharge_amount",
-      ),
+      monthlyTotalSpend: monthlyPackagePayment === null
+        ? null
+        : sumDecimalTexts([monthlyPackagePayment, monthlyApiCost]),
+      monthlyRechargeAmount,
       earliestExhaustion,
       monthlyDispatchSaving,
       resourceBreakdown,

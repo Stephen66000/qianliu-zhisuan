@@ -80,6 +80,7 @@ export function useUsage(params: UsageQueryParams) {
       if (params.search) search.set("search", params.search);
       if (params.principal_id) search.set("principal_id", params.principal_id);
       if (params.project_id) search.set("project_id", params.project_id);
+      if (params.subject_type) search.set("subject_type", params.subject_type);
       if (params.client_id) search.set("client_id", params.client_id);
       if (params.agent_family) search.set("agent_family", params.agent_family);
       if (params.provider_id) search.set("provider_id", params.provider_id);
@@ -90,7 +91,9 @@ export function useUsage(params: UsageQueryParams) {
       if (params.status) search.set("status", params.status);
       if (params.from) search.set("from", params.from);
       if (params.to) search.set("to", params.to);
+      if (params.to_exclusive) search.set("to_exclusive", params.to_exclusive);
       if (params.overage_only) search.set("overage_only", "true");
+      if (params.settled_only) search.set("settled_only", "true");
       const qs = search.toString();
       return get<UsageResult>(qs ? `/usage?${qs}` : "/usage", signal);
     },

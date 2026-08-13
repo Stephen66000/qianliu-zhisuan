@@ -4,6 +4,8 @@ export interface DashboardSummary {
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
   monthlyApiCost: string;
+  /** 套餐支出与 API 实际费用的后端精确合计；套餐数据不完整时不可计算。 */
+  monthlyTotalSpend: string | null;
   monthlyRechargeAmount: string | null;
   earliestExhaustion: {
     resourceId: string;

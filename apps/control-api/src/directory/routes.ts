@@ -1,0 +1,219 @@
+import { createHash } from "node:crypto";
+import multipart from "@fastify/multipart";
+import type { FastifyInstance } from "fastify";
+import { sql } from "kysely";
+import { DirectoryRepository, DirectoryRepositoryError } from "@qianliu/database";
+import { credentialFingerprint, encryptCredential } from "@qianliu/provider-adapters";
+import { z } from "zod";
+import { requireAuth } from "../plugins/auth-guard.js";
+import { MemberQuery, RunItemsQuery, SaveSourceBody, SourceType, TEMPLATE_VERSION } from "./contracts.js";
+import { buildDirectoryTemplate, DirectoryExcelError, MAX_EXCEL_BYTES, parseDirectoryExcel } from "./excel.js";
+
+interface DirectorySourceRow { id: string; type: "WECOM" | "FEISHU"; config_fingerprint: string; cursor: string | null; status: string; version: number; last_successful_sync_at: Date | null; last_error_code: string | null; updated_at: Date }
+
+function sourceView(row: DirectorySourceRow) {
+  return { ...row, last_successful_sync_at: row.last_successful_sync_at?.toISOString() ?? null, updated_at: row.updated_at.toISOString() };
+}
+
+export function registerDirectoryRoutes(app: FastifyInstance): void {
+  const repository = new DirectoryRepository(app.db);
+  void app.register(multipart, {
+    limits: { files: 1, fields: 2, fileSize: MAX_EXCEL_BYTES, parts: 3 },
+    throwFileSizeLimit: true,
+  });
+
+  app.get("/organization-units", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = z.object({ status: z.enum(["ACTIVE", "INACTIVE"]).optional() }).safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    const result = await sql<{ id: string; parent_id: string | null; name: string; status: string; version: number; external_unit_id: string | null }>`
+      WITH RECURSIVE tree AS (
+        SELECT id, parent_id, name, status, version, external_unit_id, name::text AS path, ARRAY[id] AS ancestors
+          FROM organization_unit WHERE enterprise_id = ${req.admin!.enterpriseId}::uuid AND parent_id IS NULL
+        UNION ALL
+        SELECT child.id, child.parent_id, child.name, child.status, child.version, child.external_unit_id,
+               tree.path || '/' || child.name, tree.ancestors || child.id
+          FROM organization_unit child JOIN tree ON child.parent_id = tree.id
+         WHERE child.enterprise_id = ${req.admin!.enterpriseId}::uuid AND NOT child.id = ANY(tree.ancestors)
+      ) SELECT id, parent_id, name, status, version, external_unit_id, path FROM tree
+        WHERE ${parsed.data.status ?? null}::text IS NULL OR status = ${parsed.data.status ?? null}
+        ORDER BY path, id
+    `.execute(app.db);
+    return { units: result.rows };
+  });
+
+  app.get("/directory-members", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = MemberQuery.safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    const q = parsed.data; const pattern = `%${q.search ?? ""}%`;
+    const result = await sql<{ person_id: string; principal_id: string | null; name: string; employee_number: string | null; department_id: string | null; department_name: string | null; source_type: "WECOM" | "FEISHU" | "EXCEL" | null; external_member_id: string | null; person_status: string; principal_status: string | null; access_config_status: "CONFIGURED" | "PENDING" | "MISSING"; total_count: string }>`
+      SELECT p.id AS person_id, pr.id AS principal_id, p.name, p.employee_number,
+             ou.id AS department_id, ou.name AS department_name,
+             coalesce(latest_identity.type, m.source) AS source_type,
+             latest_identity.provider_user_id AS external_member_id,
+             p.status AS person_status, pr.status AS principal_status,
+             CASE WHEN ac.principal_id IS NOT NULL THEN 'CONFIGURED'
+                  WHEN pr.id IS NOT NULL THEN 'PENDING' ELSE 'MISSING' END AS access_config_status,
+             count(*) OVER()::text AS total_count
+        FROM person p
+        LEFT JOIN principal pr ON pr.enterprise_id = p.enterprise_id AND pr.person_id = p.id AND pr.type = 'EMPLOYEE' AND pr.archived_at IS NULL
+        LEFT JOIN organization_membership m ON m.enterprise_id = p.enterprise_id AND m.person_id = p.id AND m.is_primary AND m.valid_until IS NULL
+        LEFT JOIN organization_unit ou ON ou.enterprise_id = p.enterprise_id AND ou.id = m.organization_unit_id
+        LEFT JOIN LATERAL (
+          SELECT identity.provider_user_id, ds.type
+            FROM person_external_identity identity
+            JOIN directory_source ds
+              ON ds.enterprise_id = identity.enterprise_id AND ds.id = identity.directory_source_id
+           WHERE identity.enterprise_id = p.enterprise_id AND identity.person_id = p.id
+             AND identity.status = 'ACTIVE' AND identity.directory_source_id IS NOT NULL
+           ORDER BY identity.updated_at DESC, identity.id DESC
+           LIMIT 1
+        ) latest_identity ON TRUE
+        LEFT JOIN principal_access_config_state ac ON ac.enterprise_id = p.enterprise_id AND ac.principal_id = pr.id
+       WHERE p.enterprise_id = ${req.admin!.enterpriseId}::uuid
+         AND (${q.search ?? ""} = '' OR p.name ILIKE ${pattern} OR coalesce(p.employee_number, '') ILIKE ${pattern})
+         AND (${q.department_id ?? null}::uuid IS NULL OR ou.id = ${q.department_id ?? null}::uuid)
+         AND (${q.status ?? null}::text IS NULL OR p.status = ${q.status ?? null})
+       ORDER BY p.name, p.id LIMIT ${q.limit} OFFSET ${q.offset}
+    `.execute(app.db);
+    return { items: result.rows.map(({ total_count: _, ...row }) => row), total: Number(result.rows[0]?.total_count ?? 0), limit: q.limit, offset: q.offset };
+  });
+
+  app.get<{ Params: { type: string } }>("/directory-sources/:type", { preHandler: [requireAuth] }, async (req, reply) => {
+    const type = SourceType.safeParse(req.params.type); if (!type.success) return reply.code(400).send({ error: "invalid_request" });
+    const source = await repository.getSource(req.admin!.enterpriseId, type.data);
+    return { source: source ? sourceView(source) : null };
+  });
+
+  app.put<{ Params: { type: string } }>("/directory-sources/:type", { preHandler: [requireAuth] }, async (req, reply) => {
+    const type = SourceType.safeParse(req.params.type); const body = SaveSourceBody.safeParse(req.body);
+    if (!type.success || !body.success) return reply.code(400).send({ error: "invalid_request", message: body.success ? "来源类型无效" : body.error.message });
+    const required = type.data === "WECOM" ? ["corp_id", "corp_secret"] : ["app_id", "app_secret"];
+    if (required.some((key) => !body.data.config[key])) {
+      return reply.code(400).send({ error: "invalid_request", message: `${type.data} 连接参数不完整` });
+    }
+    const plaintext = JSON.stringify(body.data.config);
+    try {
+      const saved = await repository.upsertSource({
+        enterpriseId: req.admin!.enterpriseId,
+        actorAdminUserId: req.admin!.adminUserId,
+        type: type.data,
+        configCiphertext: JSON.stringify(encryptCredential(plaintext, app.credentialKek)),
+        configFingerprint: credentialFingerprint(plaintext),
+        expectedVersion: body.data.expected_version,
+        status: body.data.status,
+      });
+      return { source: sourceView(saved) };
+    } catch (error) {
+      if (error instanceof DirectoryRepositoryError && error.code === "CONFLICT") {
+        return reply.code(409).send({ error: "conflict", message: error.message });
+      }
+      throw error;
+    }
+  });
+
+  app.post("/directory-sync-runs", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = z.object({ source_id: z.string().uuid(), idempotency_key: z.string().min(8).max(128) }).safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
+    const requestHash = hash({ sourceId: parsed.data.source_id });
+    try {
+      const created = await repository.createRun({
+        enterpriseId: req.admin!.enterpriseId,
+        mode: "SYNC",
+        directorySourceId: parsed.data.source_id,
+        idempotencyKey: parsed.data.idempotency_key,
+        requestHash,
+        createdByAdminUserId: req.admin!.adminUserId,
+      });
+      return reply.code(created.replayed ? 200 : 202).send({
+        runId: created.run.id, status: created.run.status, replayed: created.replayed,
+      });
+    } catch (error) {
+      if (error instanceof DirectoryRepositoryError) {
+        if (error.code === "NOT_FOUND" || error.code === "SOURCE_INACTIVE") {
+          return reply.code(404).send({ error: "not_found", message: error.message });
+        }
+        if (error.code === "IDEMPOTENCY_CONFLICT") {
+          return reply.code(409).send({ error: "idempotency_conflict", message: error.message });
+        }
+      }
+      throw error;
+    }
+  });
+
+  app.get("/directory-excel-template", { preHandler: [requireAuth] }, async (_req, reply) => {
+    const template = await buildDirectoryTemplate();
+    return reply.header("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").header("content-disposition", `attachment; filename*=UTF-8''qianliu-directory-${TEMPLATE_VERSION}.xlsx`).header("x-template-version", TEMPLATE_VERSION).header("x-content-sha256", template.sha256).send(template.bytes);
+  });
+
+  app.post("/directory-excel-imports", { preHandler: [requireAuth] }, async (req, reply) => {
+    try {
+      const data = await req.file({ limits: { fileSize: MAX_EXCEL_BYTES, files: 1 } });
+      if (!data || !data.filename.toLowerCase().endsWith(".xlsx")) return reply.code(400).send({ error: "invalid_file_type" });
+      const bytes = await data.toBuffer(); const rows = await parseDirectoryExcel(bytes); const contentSha256 = createHash("sha256").update(bytes).digest("hex");
+      const idempotencyKey = `excel:${TEMPLATE_VERSION}:${contentSha256}`;
+      const requestHash = hash({ contentSha256, templateVersion: TEMPLATE_VERSION });
+      const created = await repository.createRun({
+        enterpriseId: req.admin!.enterpriseId,
+        mode: "EXCEL",
+        idempotencyKey,
+        requestHash,
+        createdByAdminUserId: req.admin!.adminUserId,
+        templateVersion: TEMPLATE_VERSION,
+        contentSha256,
+      });
+      if (!created.replayed) {
+        await repository.stageRun({
+          enterpriseId: req.admin!.enterpriseId,
+          runId: created.run.id,
+          contentSha256,
+          items: rows.map((row) => ({
+            rowNumber: row.rowNumber,
+            employeeNumber: row.employeeNumber,
+            normalizedName: row.name,
+            normalizedDepartmentPath: row.departmentPath,
+            normalizedEmail: row.email,
+            normalizedMobile: row.mobile,
+            existingPrincipalId: row.existingPrincipalId,
+            reasonCode: row.reasonCode,
+          })),
+        });
+      }
+      return reply.code(created.replayed ? 200 : 202).send({
+        runId: created.run.id, status: created.run.status, replayed: created.replayed,
+      });
+    } catch (error) {
+      if (error instanceof DirectoryExcelError) return reply.code(400).send({ error: error.code, message: error.message });
+      if ((error as { code?: string }).code === "FST_REQ_FILE_TOO_LARGE") return reply.code(413).send({ error: "FILE_TOO_LARGE" });
+      if (error instanceof DirectoryRepositoryError) {
+        const status = error.code === "IDEMPOTENCY_CONFLICT" ? 409 : 400;
+        return reply.code(status).send({ error: error.code.toLowerCase(), message: error.message });
+      }
+      throw error;
+    }
+  });
+
+  app.get<{ Params: { id: string } }>("/directory-import-runs/:id", { preHandler: [requireAuth] }, async (req, reply) => {
+    const id = z.string().uuid().safeParse(req.params.id); if (!id.success) return reply.code(400).send({ error: "invalid_request" });
+    const result = await sql<Record<string, unknown>>`
+      SELECT run.id, coalesce(source.type, 'EXCEL') AS source_type, run.mode AS import_type,
+             run.status, run.total_count,
+             (run.matched_count + run.created_count + run.updated_count) AS success_count,
+             run.conflict_count, run.failed_count, run.failure_reason_code AS error_code,
+             run.created_at, run.started_at, run.completed_at AS finished_at
+        FROM directory_import_run run
+        LEFT JOIN directory_source source
+          ON source.enterprise_id = run.enterprise_id AND source.id = run.directory_source_id
+       WHERE run.enterprise_id=${req.admin!.enterpriseId}::uuid AND run.id=${id.data}::uuid
+    `.execute(app.db);
+    if (!result.rows[0]) return reply.code(404).send({ error: "not_found" }); return { run: result.rows[0] };
+  });
+
+  app.get<{ Params: { id: string } }>("/directory-import-runs/:id/items", { preHandler: [requireAuth] }, async (req, reply) => {
+    const id = z.string().uuid().safeParse(req.params.id); const query = RunItemsQuery.safeParse(req.query); if (!id.success || !query.success) return reply.code(400).send({ error: "invalid_request" });
+    const result = await sql<Record<string, unknown> & { total_count: string }>`SELECT i.id,i.row_number,i.normalized_name,i.normalized_department_path AS normalized_department,i.status,i.reason_code,i.person_id,i.principal_id,count(*) OVER()::text AS total_count FROM directory_import_item i JOIN directory_import_run r ON r.id=i.run_id AND r.enterprise_id=i.enterprise_id WHERE i.enterprise_id=${req.admin!.enterpriseId}::uuid AND i.run_id=${id.data}::uuid ORDER BY i.row_number LIMIT ${query.data.limit} OFFSET ${query.data.offset}`.execute(app.db);
+    if (!result.rows.length) { const exists = await sql`SELECT 1 FROM directory_import_run WHERE enterprise_id=${req.admin!.enterpriseId}::uuid AND id=${id.data}::uuid`.execute(app.db); if (!exists.rows.length) return reply.code(404).send({ error: "not_found" }); }
+    return { items: result.rows.map(({ total_count: _, ...item }) => item), total: Number(result.rows[0]?.total_count ?? 0), ...query.data };
+  });
+}
+
+function hash(value: unknown): string { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }

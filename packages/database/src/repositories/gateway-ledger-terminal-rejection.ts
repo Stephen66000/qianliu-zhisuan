@@ -20,6 +20,7 @@ import type {
   FinalizeRejectedAttemptSettlementInput,
   LedgerTransaction,
 } from "./gateway-ledger-types.js";
+import { ensureRequestAttributionSnapshot } from "./request-attribution-writer.js";
 
 /**
  * 上游访问前的 terminal 拒绝只允许走此入口：request → attempt → 账本屏障 →
@@ -53,6 +54,9 @@ export async function finalizeRejectedAttemptSettlementAtomically(
       await assertRejectedAttemptEvidence(trx, input);
       const finalization = await buildFinalization(trx, input);
       assertTransactionMatches(existing, finalization);
+      await ensureRequestAttributionSnapshot(
+        trx, input.usage.enterprise_id, input.usage.ai_request_id,
+      );
       return existing;
     }
 
@@ -62,6 +66,9 @@ export async function finalizeRejectedAttemptSettlementAtomically(
     await settleRequestAccounting(trx, finalization, finishedAt);
     const transaction = existing ?? await insertLedgerTransaction(trx, finalization);
     assertTransactionMatches(transaction, finalization);
+    await ensureRequestAttributionSnapshot(
+      trx, input.usage.enterprise_id, input.usage.ai_request_id,
+    );
     const updated = await trx.updateTable("ai_request").set({
       status: "FAILED",
       finished_at: finishedAt,

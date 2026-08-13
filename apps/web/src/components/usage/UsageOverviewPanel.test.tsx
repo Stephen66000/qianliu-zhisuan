@@ -1,0 +1,111 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, useLocation } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { UsageOverview } from "../../api/v2-types";
+import { UsageOverviewPanel } from "./UsageOverviewPanel";
+
+const useUsageOverviewMock = vi.fn();
+const usePrincipalOptionsMock = vi.fn();
+const usePrincipalOptionMock = vi.fn();
+
+vi.mock("../../api/v2-hooks", () => ({
+  useUsageOverview: (query: string) => useUsageOverviewMock(query),
+  usePrincipalOptions: (type: string, search: string, offset: number, limit: number) => usePrincipalOptionsMock(type, search, offset, limit),
+  usePrincipalOption: (id: string | null) => usePrincipalOptionMock(id),
+}));
+
+const projectId = "20000000-0000-4000-8000-000000000001";
+const anchor = "2026-08-12T04:00:00.000Z";
+
+function overview(overrides: Partial<UsageOverview> = {}): UsageOverview {
+  return {
+    subjectType: "PROJECT",
+    subjectId: projectId,
+    period: "WEEK",
+    anchor,
+    timezone: "Asia/Shanghai",
+    range: { from: "2026-08-09T16:00:00.000Z", to: "2026-08-16T16:00:00.000Z" },
+    metrics: { activeSubjects: 1, requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120" },
+    trend: [{ bucketStart: "2026-08-09T16:00:00.000Z", bucketEnd: "2026-08-10T16:00:00.000Z", label: "周一", requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120" }],
+    ranking: [{ subjectId: projectId, subjectName: "星河项目", departmentLabel: "研发", requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120", share: "1" }],
+    factWatermark: "2026-08-12T03:00:00.000Z",
+    generatedAt: "2026-08-12T04:01:00.000Z",
+    detailQuery: { principalId: null, projectId, subjectType: "PROJECT", settledOnly: true, from: "2026-08-09T16:00:00.000Z", toExclusive: "2026-08-16T16:00:00.000Z" },
+    stale: false,
+    source: "LIVE_LEDGER",
+    ...overrides,
+  };
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
+}
+
+function renderPanel(entry = `/usage?tab=overview&subject_type=PROJECT&period=WEEK&subject_id=${projectId}&anchor=${encodeURIComponent(anchor)}`) {
+  return render(<MemoryRouter initialEntries={[entry]}><UsageOverviewPanel /><LocationProbe /></MemoryRouter>);
+}
+
+describe("W20-04 用量概览 Web", () => {
+  beforeEach(() => {
+    useUsageOverviewMock.mockReset();
+    usePrincipalOptionsMock.mockReset();
+    usePrincipalOptionMock.mockReset();
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: overview(), refetch: vi.fn() });
+    usePrincipalOptionsMock.mockReturnValue({ isLoading: false, error: null, data: { principals: [{ id: projectId, type: "PROJECT", name: "星河项目" }], total: 45, limit: 20, offset: 0 } });
+    usePrincipalOptionMock.mockReturnValue({ data: { principal: { id: projectId, type: "PROJECT", name: "星河项目" } } });
+  });
+
+  it("从 URL 恢复主体/周期/单项目并传给后端聚合", () => {
+    renderPanel();
+    const call = new URLSearchParams(useUsageOverviewMock.mock.calls.at(-1)?.[0]);
+    expect(Object.fromEntries(call)).toMatchObject({ subject_type: "PROJECT", period: "WEEK", subject_id: projectId, anchor });
+    expect(screen.getByRole("combobox", { name: "用量主体类型" })).toHaveValue("PROJECT");
+    expect(screen.getByRole("combobox", { name: "用量周期" })).toHaveValue("WEEK");
+    expect(screen.getByRole("combobox", { name: "指定用量主体" })).toHaveValue(projectId);
+  });
+
+  it("排名点击回写 URL，明细下钻携带主体口径与半开时间", async () => {
+    const user = userEvent.setup();
+    renderPanel("/usage?tab=overview&subject_type=PROJECT&period=WEEK");
+    await user.click(screen.getByRole("button", { name: "星河项目" }));
+    expect(screen.getByTestId("location")).toHaveTextContent(`subject_id=${projectId}`);
+    const details = screen.getByRole("link", { name: "查看请求明细" });
+    const target = new URL(details.getAttribute("href")!, "http://localhost");
+    expect(Object.fromEntries(target.searchParams)).toMatchObject({
+      tab: "details",
+      subject_type: "PROJECT",
+      settled_only: "true",
+      project_id: projectId,
+      from: "2026-08-09T16:00:00.000Z",
+      to_exclusive: "2026-08-16T16:00:00.000Z",
+    });
+  });
+
+  it("主体选择器使用服务端搜索与分页", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await user.type(screen.getByRole("searchbox", { name: "搜索用量主体" }), "星河");
+    await waitFor(() => expect(usePrincipalOptionsMock).toHaveBeenLastCalledWith("PROJECT", "星河", 0, 20));
+    await user.click(screen.getByRole("button", { name: "主体下一页" }));
+    await waitFor(() => expect(usePrincipalOptionsMock).toHaveBeenLastCalledWith("PROJECT", "星河", 20, 20));
+  });
+
+  it("覆盖加载、错误与空数据三态", () => {
+    useUsageOverviewMock.mockReturnValueOnce({ isLoading: true, error: null, data: undefined, refetch: vi.fn() });
+    const loading = renderPanel();
+    expect(screen.getByLabelText("正在汇总周期用量…")).toBeInTheDocument();
+    loading.unmount();
+
+    useUsageOverviewMock.mockReturnValueOnce({ isLoading: false, error: new Error("概览加载失败"), data: undefined, refetch: vi.fn() });
+    const failed = renderPanel();
+    expect(screen.getByRole("alert")).toHaveTextContent("概览加载失败");
+    failed.unmount();
+
+    useUsageOverviewMock.mockReturnValueOnce({ isLoading: false, error: null, data: overview({ ranking: [], trend: [] }), refetch: vi.fn() });
+    renderPanel();
+    expect(screen.getByText("本周期暂无已结算用量")).toBeInTheDocument();
+  });
+});

@@ -9,8 +9,16 @@ import type {
   OperatingBillAccountTotals,
 } from "./operating-bill-account-types.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
+import {
+  liveProjectMetadataJoins,
+  mapRawProjectMetadata,
+  projectMetadataSummarySql,
+  projectSummaryMetadata,
+  type RawProjectMetadata,
+  type RawProjectSummaryMetadata,
+} from "./operating-bill-project-metadata.js";
 
-interface RawAccountFact {
+interface RawAccountFact extends RawProjectMetadata {
   request_id: string;
   source_principal_id: string;
   source_principal_name: string;
@@ -35,7 +43,7 @@ interface RawAccountFact {
   package_allocated_cost: string | null;
 }
 
-interface RawSummary {
+interface RawSummary extends RawProjectSummaryMetadata {
   level: "TOTAL" | "SUBJECT" | "PROVIDER";
   subject_id: string | null;
   subject_name: string | null;
@@ -90,6 +98,10 @@ export function liveLineFactCtes(enterpriseId: string, month: string): RawBuilde
              source.id AS source_principal_id, source.name AS source_principal_name,
              source.type AS source_principal_type,
              project.id AS project_id, project.name AS project_name,
+             project_owner.id AS project_owner_person_id,
+             project_owner.name AS project_owner_name,
+             project_department.id AS project_department_id,
+             project_department.name AS project_department_name,
              p.code AS provider_code, p.name AS provider_name,
              ar.unified_model_id, um.alias AS current_alias,
              ar.unified_model AS historical_alias, ar.status AS request_status,
@@ -118,9 +130,7 @@ export function liveLineFactCtes(enterpriseId: string, month: string): RawBuilde
           ON um.id = ar.unified_model_id AND um.enterprise_id = ${enterpriseId}
         LEFT JOIN operating_bill_request_project_assignment assignment
           ON assignment.ai_request_id = ll.ai_request_id AND assignment.enterprise_id = ${enterpriseId}
-        LEFT JOIN principal project
-          ON project.id = assignment.project_principal_id
-         AND project.enterprise_id = ${enterpriseId} AND project.type = 'PROJECT'
+        ${liveProjectMetadataJoins(enterpriseId)}
         LEFT JOIN latest_snapshot snap ON snap.provider_resource_id = ll.provider_resource_id
         LEFT JOIN resource_deducted denom ON denom.provider_resource_id = ll.provider_resource_id
        WHERE ll.enterprise_id = ${enterpriseId}
@@ -143,7 +153,8 @@ function factFilters(filter: LiveAccountFactFilter): RawBuilder<unknown> {
 function requestFactsSql(filter: LiveAccountFactFilter): RawBuilder<unknown> {
   return sql`
     SELECT request_id, source_principal_id, source_principal_name, source_principal_type,
-           project_id, project_name, provider_code, provider_name,
+           project_id, project_name, project_owner_person_id, project_owner_name,
+           project_department_id, project_department_name, provider_code, provider_name,
            unified_model_id, current_alias, historical_alias, request_status,
            MAX(created_at) AS used_at,
            ARRAY_AGG(DISTINCT to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')) AS active_dates,
@@ -170,7 +181,8 @@ function requestFactsSql(filter: LiveAccountFactFilter): RawBuilder<unknown> {
       FROM line_facts
      WHERE TRUE ${factFilters(filter)}
      GROUP BY request_id, source_principal_id, source_principal_name, source_principal_type,
-              project_id, project_name, provider_code, provider_name,
+              project_id, project_name, project_owner_person_id, project_owner_name,
+              project_department_id, project_department_name, provider_code, provider_name,
               unified_model_id, current_alias, historical_alias, request_status
   `;
 }
@@ -182,6 +194,10 @@ function collapsedRequestFactsSql(): RawBuilder<unknown> {
            MIN(source_principal_name) AS source_principal_name,
            'EMPLOYEE'::text AS source_principal_type,
            MIN(project_id::text)::uuid AS project_id, MIN(project_name) AS project_name,
+           MIN(project_owner_person_id::text)::uuid AS project_owner_person_id,
+           MIN(project_owner_name) AS project_owner_name,
+           MIN(project_department_id::text)::uuid AS project_department_id,
+           MIN(project_department_name) AS project_department_name,
            MIN(provider_code) AS provider_code, MIN(provider_name) AS provider_name,
            MIN(unified_model_id::text)::uuid AS unified_model_id,
            MIN(current_alias) AS current_alias, MIN(historical_alias) AS historical_alias,
@@ -211,6 +227,7 @@ function mapFact(row: RawAccountFact): OperatingBillAccountFact {
     sourcePrincipalType: row.source_principal_type,
     projectId: row.project_id,
     projectName: row.project_name,
+    ...mapRawProjectMetadata(row),
     providerCode: row.provider_code,
     providerName: row.provider_name,
     unifiedModelId: row.unified_model_id,
@@ -288,6 +305,7 @@ export async function loadLiveOperatingBillAccountSummary(
       SELECT CASE WHEN GROUPING(subject_name) = 1 THEN 'TOTAL'
                   WHEN GROUPING(provider_code) = 1 THEN 'SUBJECT' ELSE 'PROVIDER' END AS level,
              subject_id, subject_name, is_unassigned, provider_code, provider_name,
+             ${projectMetadataSummarySql()},
              SUM(raw_input_tokens)::text AS input_tokens,
              SUM(raw_output_tokens)::text AS output_tokens,
              SUM(raw_cache_tokens)::text AS cache_tokens,
@@ -342,6 +360,7 @@ export async function loadLiveOperatingBillAccountSummary(
       subjectId: row.subject_id,
       subjectName: row.subject_name!,
       isUnassigned: row.is_unassigned ?? false,
+      ...projectSummaryMetadata(row, dimension),
       providers: [],
       totals: summaryTotals(row),
     });

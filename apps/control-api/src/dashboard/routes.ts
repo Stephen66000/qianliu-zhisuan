@@ -6,12 +6,27 @@
  * 所有查询带 enterprise_id 边界（多租户隔离）。
  */
 import type { FastifyInstance } from "fastify";
+import { UsageOverviewRepository } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 
-export function registerDashboardRoutes(app: FastifyInstance): void {
+export function registerDashboardRoutes(
+  app: FastifyInstance,
+  options: { usageOverviewV2?: boolean } = {},
+): void {
   // GET /dashboard —— 首页八项口径聚合（TRD §12）
   app.get("/dashboard", { preHandler: [requireAuth] }, async (req) => {
-    const summary = await app.dashboardRepo.getSummary(req.admin!.enterpriseId);
-    return summary;
+    const anchor = new Date();
+    const summary = await app.dashboardRepo.getSummary(
+      req.admin!.enterpriseId,
+      anchor.getTime(),
+    );
+    if (options.usageOverviewV2 === false) return summary;
+    const employeeUsageOverview = await new UsageOverviewRepository(app.db).getOverview({
+      enterpriseId: req.admin!.enterpriseId,
+      subjectType: "EMPLOYEE",
+      period: "MONTH",
+      anchor,
+    });
+    return { ...summary, employeeUsageOverview };
   });
 }

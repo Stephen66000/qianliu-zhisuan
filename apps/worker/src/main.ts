@@ -8,13 +8,15 @@
  *
  * 预测快照、周期重置、恢复任务、备份在后续工作包（W25）。
  */
-import { createKysely, OperatingBillRepository, ReconciliationRepository, RuntimeAssuranceRepository, SupplyForecastRepository } from "@qianliu/database";
+import { createKysely, OperatingBillRepository, ReconciliationRepository, RuntimeAssuranceRepository, SupplyForecastRepository, UsageAggregateRepository } from "@qianliu/database";
+import { readFeatureFlags } from "@qianliu/config";
 import { generateOperatingBill } from "./operating-bill/runner.js";
 import { WecomAppClient } from "./runtime-assurance/wecom-client.js";
 import { runRuntimeAssuranceTick } from "./runtime-assurance/runner.js";
 import { runSchedulerLoop, startHealthServer, type SchedulerHealth } from "./runtime-assurance/scheduler.js";
 import { runSupplyForecastTick } from "./supply-forecast/runner.js";
 import { runCodingPlanQuotaTick } from "./coding-plan-quota/runner.js";
+import { runDirectorySyncTick } from "./directory/runner.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -50,12 +52,24 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "directory-sync-once") {
+    await runDirectorySyncOnce(args.slice(1));
+    return;
+  }
+
+  if (command === "usage-aggregate-rebuild") {
+    await runUsageAggregateRebuild(args.slice(1));
+    return;
+  }
+
   console.log("[worker] 用法：worker reconciliation --enterprise <id> [--from <iso>] [--to <iso>]");
   console.log("[worker]       worker runtime-assurance-once");
   console.log("[worker]       worker runtime-assurance-scheduler");
   console.log("[worker]       worker runtime-assurance-migrate-legacy");
   console.log("[worker]       worker operating-bill --enterprise <id> --month <YYYY-MM>");
   console.log("[worker]       worker supply-forecast-once");
+  console.log("[worker]       worker directory-sync-once [--run <run-id>] [--max-runs <1-100>]");
+  console.log("[worker]       worker usage-aggregate-rebuild --enterprise <id> --from <iso> --to <iso>");
 }
 
 function arg(args: string[], name: string): string | undefined {
@@ -198,6 +212,69 @@ async function runSupplyForecastOnce(): Promise<void> {
       resources_scanned: result.resourcesScanned,
       snapshots_created: result.snapshotsCreated,
       snapshots_skipped: result.snapshotsSkipped,
+    }));
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runDirectorySyncOnce(args: string[]): Promise<void> {
+  if (!readFeatureFlags(process.env).FEATURE_DIRECTORY_IMPORT) {
+    throw new Error("FEATURE_DIRECTORY_IMPORT=false，directory sync worker 未启用");
+  }
+  const maxRunsRaw = arg(args, "--max-runs");
+  const maxRuns = maxRunsRaw === undefined ? undefined : Number(maxRunsRaw);
+  if (maxRuns !== undefined && (!Number.isInteger(maxRuns) || maxRuns < 1 || maxRuns > 100)) {
+    throw new Error("directory-sync-once --max-runs 必须为 1-100 的整数");
+  }
+  const db = createKysely();
+  try {
+    const result = await runDirectorySyncTick({
+      db,
+      kekBase64: requiredEnv("CREDENTIAL_KEK"),
+      runId: arg(args, "--run"),
+      maxRuns,
+    });
+    console.log(JSON.stringify({
+      event: "directory_sync_once_completed",
+      runs_scanned: result.runsScanned,
+      snapshots_pulled: result.snapshotsPulled,
+      apply_runs_completed: result.applyRunsCompleted,
+      succeeded: result.succeeded,
+      partial: result.partial,
+      failed: result.failed,
+      deferred: result.deferred,
+    }));
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runUsageAggregateRebuild(args: string[]): Promise<void> {
+  const enterpriseId = arg(args, "--enterprise");
+  const fromRaw = arg(args, "--from");
+  const toRaw = arg(args, "--to");
+  const from = fromRaw ? new Date(fromRaw) : null;
+  const to = toRaw ? new Date(toRaw) : null;
+  if (!enterpriseId || !from || !to
+    || !Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from >= to) {
+    throw new Error("usage-aggregate-rebuild 需要 --enterprise 与有效的 --from/--to 半开时间范围");
+  }
+  const db = createKysely();
+  try {
+    const result = await new UsageAggregateRepository(db).rebuildRange({
+      enterpriseId, from, to,
+    });
+    console.log(JSON.stringify({
+      event: "usage_aggregate_rebuild_completed",
+      enterprise_id: result.enterpriseId,
+      timezone: result.timezone,
+      range_from: result.from.toISOString(),
+      range_to: result.to.toISOString(),
+      hour_buckets: result.hourBuckets,
+      day_buckets: result.dayBuckets,
+      rows_written: result.rowsWritten,
+      rows_removed: result.rowsRemoved,
     }));
   } finally {
     await db.destroy();

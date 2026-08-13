@@ -1,20 +1,44 @@
 /**
- * W18 首页看板单测 —— 八项指标 / 三态 / 数据源 gap（null 不伪造）/ 空企业。
+ * 首页看板单测 —— 2.0 六项主概览 / 1.0 稳定迁位 / 三态 / 空企业。
  *
  * 只 mock useDashboard hook；组件渲染断言。
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DashboardSummary } from "../api/types";
+import type { UsageOverview } from "../api/v2-types";
 import { DashboardPage } from "./Dashboard";
 
 const useDashboardMock = vi.fn();
+const useUsageOverviewMock = vi.fn();
+const usePrincipalOptionsMock = vi.fn();
+const usePrincipalOptionMock = vi.fn();
 
 vi.mock("../api/hooks", () => ({
   useDashboard: () => useDashboardMock(),
 }));
+vi.mock("../api/v2-hooks", () => ({
+  useUsageOverview: (query: string) => useUsageOverviewMock(query),
+  usePrincipalOptions: (type: string, search: string, offset: number, limit: number) => usePrincipalOptionsMock(type, search, offset, limit),
+  usePrincipalOption: (id: string | null) => usePrincipalOptionMock(id),
+}));
+
+const overviewEmployeeId = "10000000-0000-4000-8000-000000000001";
+function employeeOverview(): UsageOverview {
+  return {
+    subjectType: "EMPLOYEE", subjectId: null, period: "MONTH", anchor: "2026-08-12T04:00:00.000Z", timezone: "Asia/Shanghai",
+    range: { from: "2026-07-31T16:00:00.000Z", to: "2026-08-31T16:00:00.000Z" },
+    metrics: { activeSubjects: 1, requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000" },
+    trend: [{ bucketStart: "2026-07-31T16:00:00.000Z", bucketEnd: "2026-08-01T16:00:00.000Z", label: "08-01", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000" }],
+    ranking: [{ subjectId: overviewEmployeeId, subjectName: "李雷", departmentLabel: "研发", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000", share: "1" }],
+    factWatermark: "2026-08-10T00:00:00.000Z", generatedAt: "2026-08-12T04:00:00.000Z",
+    detailQuery: { principalId: null, projectId: null, subjectType: "EMPLOYEE", settledOnly: true, from: "2026-07-31T16:00:00.000Z", toExclusive: "2026-08-31T16:00:00.000Z" },
+    stale: false, source: "LIVE_LEDGER",
+  };
+}
 
 function emptySummary(): DashboardSummary {
   return {
@@ -23,6 +47,7 @@ function emptySummary(): DashboardSummary {
     currentInUseCount: 0,
     monthlyPackagePayment: null,
     monthlyApiCost: "0",
+    monthlyTotalSpend: null,
     monthlyRechargeAmount: null,
     earliestExhaustion: null,
     monthlyDispatchSaving: "0",
@@ -41,7 +66,10 @@ function seededSummary(): DashboardSummary {
     resourceAccountCount: 2,
     activeEmployeeCount: 5,
     currentInUseCount: 3,
+    monthlyPackagePayment: "299",
     monthlyApiCost: "12.50000000",
+    monthlyTotalSpend: "311.50000000",
+    monthlyRechargeAmount: "100",
     monthlyDispatchSaving: "1.50000000",
     earliestExhaustion: {
       resourceId: "r1",
@@ -132,6 +160,12 @@ function renderDashboard() {
 describe("W18 首页看板", () => {
   beforeEach(() => {
     useDashboardMock.mockReset();
+    useUsageOverviewMock.mockReset();
+    usePrincipalOptionsMock.mockReset();
+    usePrincipalOptionMock.mockReset();
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: employeeOverview(), refetch: vi.fn() });
+    usePrincipalOptionsMock.mockReturnValue({ isLoading: false, error: null, data: { principals: [{ id: overviewEmployeeId, type: "EMPLOYEE", name: "李雷" }], total: 1, limit: 20, offset: 0 } });
+    usePrincipalOptionMock.mockReturnValue({ data: undefined });
   });
 
   it("加载中渲染骨架屏", () => {
@@ -167,12 +201,15 @@ describe("W18 首页看板", () => {
       refetch: vi.fn(),
     });
     renderDashboard();
-    expect(screen.getByText("厂商资源账号")).toBeInTheDocument();
+    expect(screen.getByText("厂商接入账号")).toBeInTheDocument();
     expect(screen.getByText("尚未登记厂商资源")).toBeInTheDocument();
     expect(screen.getByText("暂无员工消耗")).toBeInTheDocument();
     expect(screen.getByText(/无法产生模型和路由候选/)).toBeInTheDocument();
+    expect(screen.getByTestId("dashboard-earliest-exhaustion")).toHaveTextContent("暂无预测快照");
+    expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("资源状态：无资源");
+    expect(screen.queryByText("需要处理")).not.toBeInTheDocument();
     // 调度节省为 "0" → 展示 0.00，不伪造（API 费用同为 0.00，允许出现多处）
-    expect(screen.getByText("本月调度节省（元）")).toBeInTheDocument();
+    expect(screen.getByText("本月调度节省")).toBeInTheDocument();
     expect(screen.getAllByText("0.00").length).toBeGreaterThan(0);
   });
 
@@ -185,10 +222,10 @@ describe("W18 首页看板", () => {
     });
     renderDashboard();
     const gaps = screen.getAllByText("数据源待接入");
-    expect(gaps).toHaveLength(2);
+    expect(gaps).toHaveLength(3);
   });
 
-  it("有数据：八项指标 + 资源摘要 + 超额 + 最早耗尽核心区", () => {
+  it("有数据：六项主概览按冻结顺序展示，旧字段迁入稳定落点", () => {
     useDashboardMock.mockReturnValue({
       isLoading: false,
       error: null,
@@ -196,27 +233,66 @@ describe("W18 首页看板", () => {
       refetch: vi.fn(),
     });
     renderDashboard();
-    // 指标（费用在指标卡与资源摘要中都会出现，用 getAllByText）
-    expect(screen.getByText("本账期活跃人数")).toBeInTheDocument();
+    const monthSummary = screen.getByRole("heading", { name: "本月概览" }).closest("section")!;
+    const supplement = screen.getByRole("heading", { name: "1.0 经营补充" }).closest("section")!;
+    const resourceSummary = screen.getByRole("heading", { name: "资源摘要" }).closest("section")!;
+    const employeeUsage = screen.getByRole("heading", { name: "员工消耗 Token" }).closest("section")!;
+    for (const label of ["真实 Token 消耗", "本月总支出", "套餐支出", "API 支出", "活跃人数", "厂商接入账号"]) {
+      expect(within(monthSummary).getByText(label)).toBeInTheDocument();
+    }
+    expect(within(monthSummary).queryByText("本月充值")).not.toBeInTheDocument();
+    expect(within(monthSummary).queryByText("本月调度节省")).not.toBeInTheDocument();
+    expect(within(supplement).getByText("本月充值")).toBeInTheDocument();
+    expect(within(supplement).getByText("本月调度节省")).toBeInTheDocument();
+    expect(monthSummary.compareDocumentPosition(supplement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(supplement.compareDocumentPosition(resourceSummary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(resourceSummary.compareDocumentPosition(employeeUsage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    expect(screen.getByText("311.50")).toBeInTheDocument();
     expect(screen.getByText("当前正在使用 3 人")).toBeInTheDocument();
     expect(screen.getAllByText("12.50").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.50").length).toBeGreaterThan(0);
-    // 核心区：最早耗尽（字体三级：资源名 15px 600）；资源名同时出现在指标卡与核心区，允许多处
+    expect(screen.getByTestId("dashboard-earliest-exhaustion")).toHaveTextContent("最早耗尽资源：智谱 GLM 套餐");
+    expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("资源状态：全部正常");
+    // “需要处理”保留在资源摘要内，不再抢在本月概览之前。
     expect(screen.getByText("需要处理")).toBeInTheDocument();
-    expect(screen.getByText(/正常使用中的主体不会出现在这里/)).toBeInTheDocument();
+    expect(resourceSummary).toContainElement(screen.getByRole("heading", { name: "需要处理" }));
+    expect(screen.getByText(/正常主体不会出现在这里/)).toBeInTheDocument();
     expect(screen.getAllByText("智谱 GLM 套餐").length).toBeGreaterThan(0);
     expect(screen.getByText(/预计 .* 耗尽/)).toBeInTheDocument();
-    expect(screen.getByText(/可信度中/)).toBeInTheDocument();
+    expect(screen.getAllByText(/可信度中/).length).toBeGreaterThan(0);
     // 超额列表：比例 "0.0500" → "5.00%"
     expect(screen.getAllByText("张三").length).toBe(2);
     expect(screen.getByText("5.00%")).toBeInTheDocument();
     // 资源摘要
     expect(screen.getByText("智谱")).toBeInTheDocument();
     expect(screen.getAllByText("100,000").length).toBeGreaterThan(0);
-    expect(screen.getByText("员工 Token 消耗")).toBeInTheDocument();
-    expect(screen.getByText("9,007,199,254,740,995,000")).toBeInTheDocument();
+    expect(screen.getByText("员工消耗 Token")).toBeInTheDocument();
+    expect(screen.getAllByText("9,007,199,254,740,995,000")).toHaveLength(2);
     expect(screen.getByText("25.00%")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "查看完整用量账本" })).toHaveAttribute("href", "/usage");
+  });
+
+  it("员工区保留 1.0 月度总量，周期与单员工趋势由后端聚合切换", async () => {
+    const user = userEvent.setup();
+    const data = seededSummary();
+    data.employeeUsageOverview = employeeOverview();
+    useDashboardMock.mockReturnValue({ isLoading: false, error: null, data, refetch: vi.fn() });
+    renderDashboard();
+
+    expect(screen.getByText("本月消耗 Token 总数")).toBeInTheDocument();
+    expect(screen.getByLabelText("首页员工用量趋势图")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "首页员工用量周期" }), "WEEK");
+    await waitFor(() => {
+      const query = new URLSearchParams(useUsageOverviewMock.mock.calls.at(-1)?.[0]);
+      expect(query.get("period")).toBe("WEEK");
+    });
+    await user.selectOptions(screen.getByRole("combobox", { name: "首页指定员工" }), overviewEmployeeId);
+    await waitFor(() => {
+      const query = new URLSearchParams(useUsageOverviewMock.mock.calls.at(-1)?.[0]);
+      expect(query.get("subject_id")).toBe(overviewEmployeeId);
+      expect(query.get("subject_type")).toBe("EMPLOYEE");
+    });
   });
 
   it("POOL-023：降级资源不再显示全部正常", () => {
@@ -230,10 +306,10 @@ describe("W18 首页看板", () => {
       isLoading: false, error: null, data, refetch: vi.fn(),
     });
     renderDashboard();
-    expect(screen.getByText("1 项需关注 · 降级")).toBeInTheDocument();
+    expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("1 项需关注 · 降级");
     expect(screen.getByText("降级")).toBeInTheDocument();
     expect(screen.getByText("智谱备用账号")).toBeInTheDocument();
-    expect(screen.queryByText("全部正常")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dashboard-resource-status")).not.toHaveTextContent("全部正常");
   });
 
   it("POOL-042：API 资源显示 Token 分项、模型下钻、速度和余额估算说明", () => {

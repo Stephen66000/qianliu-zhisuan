@@ -93,6 +93,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
           enterprise_id: admin.enterprise_id,
           must_change_password: admin.must_change_password,
         },
+        featureFlags: app.featureFlags,
       });
   });
 
@@ -114,6 +115,6 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   });
 
   app.get("/auth/me", { preHandler: [requireAuth] }, async (req) => {
-    return { admin: req.admin };
+    return { admin: req.admin, featureFlags: app.featureFlags };
   });
 }

@@ -22,14 +22,18 @@ import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { MoneyAmountInput, validateMoneyAmount } from "../components/writes/MoneyAmountInput";
 import { formatMoney } from "../lib/format";
+import { useAllPurchases, useProcurementReview, useSaveProcurementNote } from "../api/v2-hooks";
+import type { ProcurementReview } from "../api/v2-types";
+import { useFeatureFlags } from "../feature-flags";
 
 type TabId = Exclude<OperatingBillSection, "employees" | "projects">;
 function isTabId(value: string | null): value is TabId {
-  return value === "overview" || value === "plans" || value === "value" || value === "closing";
+  return value === "overview" || value === "plans" || value === "procurement" || value === "reconciliation" || value === "value" || value === "closing";
 }
 function money(value: string | null): string { return value === null ? "—" : `¥${formatMoney(value)}`; }
 
 export function OperatingBillPage() {
+  const featureFlags = useFeatureFlags();
   const [params] = useSearchParams();
   const month = operatingBillMonth(params.get("month"));
   const requestedTab = params.get("tab");
@@ -39,6 +43,9 @@ export function OperatingBillPage() {
   if (requestedTab === "subjects") {
     return <Navigate replace to={`/operating-bill/employees?month=${month}`} />;
   }
+  if (requestedTab === "procurement" && !featureFlags.FEATURE_PROCUREMENT_REVIEW) {
+    return <Navigate replace to={`/operating-bill?month=${month}`} />;
+  }
   return <OperatingBillShell active={activeTab} month={month} status={query.data?.status} version={query.data?.version}>
     {query.isLoading ? <LoadingState label="正在汇总月度经营账单…" rows={5} /> : query.error || !query.data ? <ErrorState message={query.error?.message ?? "经营账单加载失败"} onRetry={() => void query.refetch()} /> : <BillTab bill={query.data} tab={activeTab} />}
   </OperatingBillShell>;
@@ -47,13 +54,22 @@ export function OperatingBillPage() {
 function BillTab({ bill, tab }: { bill: OperatingBill; tab: TabId }) {
   if (tab === "overview") return <Overview bill={bill} />;
   if (tab === "plans") return <Plans bill={bill} />;
+  if (tab === "procurement") return <Procurement bill={bill} />;
+  if (tab === "reconciliation") return <ComingSoon />;
   if (tab === "value") return <Values bill={bill} />;
   return <Closing bill={bill} />;
 }
 
 function Overview({ bill }: { bill: OperatingBill }) {
+  const featureFlags = useFeatureFlags();
   const importer = useImportOperatingBillSnapshots(bill.month);
   const [importMessage, setImportMessage] = useState("");
+  const showPurchases = featureFlags.FEATURE_DEPARTMENT_COST;
+  const purchases = useAllPurchases(
+    bill.month,
+    bill.providers.map((row) => row.providerResourceId),
+    showPurchases,
+  );
   const metrics = [
     ["总投入", money(bill.summary.totalCost), "API 实际消耗 + 固定套餐费用"],
     ["API 消耗", money(bill.summary.apiCost), "仅 API 模式调用成本"],
@@ -72,7 +88,7 @@ function Overview({ bill }: { bill: OperatingBill }) {
       setImportMessage(error instanceof Error ? error.message : "导入失败");
     }
   };
-  return <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metrics.map(([label, value, note]) => <article className="rounded-xl border border-ql-border-zone bg-ql-surface p-4" key={label}><p className="text-[12px] text-ql-fg-secondary">{label}</p><strong className="mt-2 block text-[24px] text-ql-fg">{value}</strong><p className="mt-1 text-[11px] text-ql-fg-tertiary">{note}</p></article>)}</div><BillCard className="overflow-hidden"><SectionHeading description="充值不是费用；API 与套餐按不同口径归集" title="厂商投入构成" action={bill.status === "DRAFT" ? <label className={buttonSecondary}>导入账单 CSV<input accept=".csv,text/csv" className="sr-only" onChange={e => { const file = e.target.files?.[0]; if (file) void importCsv(file); e.target.value = ""; }} type="file"/></label> : undefined}/>{importMessage ? <p className={`mx-4 mb-3 text-[12px] ${importer.error ? "text-ql-danger" : "text-ql-success"}`}>{importMessage}</p> : null}<p className="mx-4 mb-3 text-[11px] text-ql-fg-tertiary">CSV 表头：provider_resource_id、collected_at，以及对应的余额／费用或套餐额度字段；导入来源固定留痕为 BILL_RECONCILIATION。</p><Table headers={["厂商 / 资源", "采购形态", "API 成本", "套餐成本", "月度成本", "使用情况", "状态"]}>{bill.providers.map((row) => <tr className="border-b border-ql-border-zone" key={row.providerResourceId}><Cell>{row.providerName}<span className="block text-[11px] text-ql-fg-tertiary">{row.resourceName}</span></Cell><Cell>{row.mode === "API" ? "API" : "Coding Plan"}</Cell><Num>{money(row.apiCost)}</Num><Num>{money(row.packageCost)}</Num><Num>{money(row.totalCost)}</Num><Cell>{row.mode === "API" ? `${row.activePrincipalCount} 个活跃主体` : `${row.usedQuota ?? "—"} / ${row.totalQuota ?? "—"} ${row.quotaUnit ?? ""}`}</Cell><Cell><StatusTag tone={row.status === "ACTIVE" ? "success" : "warning"}>{row.status}</StatusTag></Cell></tr>)}</Table></BillCard></div>;
+  return <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metrics.map(([label, value, note]) => <article className="rounded-xl border border-ql-border-zone bg-ql-surface p-4" key={label}><p className="text-[12px] text-ql-fg-secondary">{label}</p><strong className="mt-2 block text-[24px] text-ql-fg">{value}</strong><p className="mt-1 text-[11px] text-ql-fg-tertiary">{note}</p></article>)}</div><BillCard className="overflow-hidden"><SectionHeading description="充值不是费用；API 与套餐按不同口径归集" title="厂商投入构成" action={bill.status === "DRAFT" ? <label className={buttonSecondary}>导入账单 CSV<input accept=".csv,text/csv" className="sr-only" onChange={e => { const file = e.target.files?.[0]; if (file) void importCsv(file); e.target.value = ""; }} type="file"/></label> : undefined}/>{importMessage ? <p className={`mx-4 mb-3 text-[12px] ${importer.error ? "text-ql-danger" : "text-ql-success"}`}>{importMessage}</p> : null}<p className="mx-4 mb-3 text-[11px] text-ql-fg-tertiary">CSV 表头：provider_resource_id、collected_at，以及对应的余额／费用或套餐额度字段；导入来源固定留痕为 BILL_RECONCILIATION。</p><Table headers={["厂商 / 资源", "采购形态", "API 成本", "套餐成本", "月度成本", "使用情况", "状态"]}>{bill.providers.map((row) => <tr className="border-b border-ql-border-zone" key={row.providerResourceId}><Cell>{row.providerName}<span className="block text-[11px] text-ql-fg-tertiary">{row.resourceName}</span></Cell><Cell>{row.mode === "API" ? "API" : "Coding Plan"}</Cell><Num>{money(row.apiCost)}</Num><Num>{money(row.packageCost)}</Num><Num>{money(row.totalCost)}</Num><Cell>{row.mode === "API" ? `${row.activePrincipalCount} 个活跃主体` : `${row.usedQuota ?? "—"} / ${row.totalQuota ?? "—"} ${row.quotaUnit ?? ""}`}</Cell><Cell><StatusTag tone={row.status === "ACTIVE" ? "success" : "warning"}>{row.status}</StatusTag></Cell></tr>)}</Table></BillCard>{showPurchases ? <BillCard className="overflow-hidden"><SectionHeading title="本月买了什么" description="采购／充值现金口径，与本月 API 成本和套餐成本分别展示"/><Table headers={["时间", "资源", "类型", "说明", "现金支出", "币种", "登记人"]}>{(purchases.data?.items ?? []).map((item) => { const resource = bill.providers.find((row) => row.providerResourceId === item.providerResourceId); return <tr className="border-b border-ql-border-zone" key={item.id}><Cell>{new Date(item.purchasedAt).toLocaleString("zh-CN")}</Cell><Cell>{resource?.resourceName ?? item.providerResourceId}</Cell><Cell>{item.purchaseType === "API_RECHARGE" ? "API 充值" : "套餐采购"}</Cell><Cell>{item.description ?? item.evidenceRef ?? "—"}</Cell><Num>{money(item.amount)}</Num><Cell>{item.currency}</Cell><Cell>{item.createdBy}</Cell></tr>; })}</Table>{purchases.isLoading ? <p className="p-4 text-[12px] text-ql-fg-tertiary">正在读取采购记录…</p> : purchases.error ? <p className="p-4 text-[12px] text-ql-danger">{purchases.error.message}</p> : (purchases.data?.items.length ?? 0) === 0 ? <p className="p-6 text-center text-[13px] text-ql-fg-tertiary">本月暂无采购或充值记录</p> : null}</BillCard> : null}</div>;
 }
 
 function parseSnapshotCsv(text: string): Array<{ provider_resource_id: string; snapshot: Record<string, unknown> }> {
@@ -98,6 +114,50 @@ function Plans({ bill }: { bill: OperatingBill }) {
   const plans = bill.providers.filter(row => row.mode === "CODING_PLAN");
   const labels = { FULL: "已用满", UNDERUSED: "未用满", EXHAUSTED_EARLY: "提前耗尽", UNUSED: "无人使用" } as const;
   return <BillCard className="overflow-hidden"><SectionHeading title="套餐利用分析" description="按经营快照中的套餐费用与原生额度计算；数据缺口不伪造"/><Table headers={["套餐资源", "厂商", "已用 / 总额度", "利用率", "固定费用", "闲置权益折算", "判断 / 依据"]}>{plans.map(row => { const u = Number(row.utilization ?? 0); const label = row.planAssessment ? labels[row.planAssessment] : "数据不足"; return <tr className="border-b border-ql-border-zone" key={row.providerResourceId}><Cell>{row.resourceName}</Cell><Cell>{row.providerName}</Cell><Cell>{row.usedQuota ?? "—"} / {row.totalQuota ?? "—"} {row.quotaUnit ?? ""}</Cell><Cell><span>{row.utilization ? `${row.utilization}%` : "—"}</span>{row.utilization ? <div className="mt-1 w-40"><Meter danger={row.planAssessment === "EXHAUSTED_EARLY"} value={Math.min(100, u)}/></div> : null}</Cell><Num>{money(row.packageCost)}</Num><Num>{money(row.idleEntitlementCost)}</Num><Cell><StatusTag tone={label === "已用满" ? "success" : label === "无人使用" || label === "提前耗尽" ? "danger" : "warning"}>{label}</StatusTag><span className="mt-1 block max-w-80 text-[11px] text-ql-fg-tertiary">{row.assessmentBasis ?? "缺少原生额度快照"}</span></Cell></tr>; })}</Table>{plans.length === 0 ? <p className="p-6 text-center text-[13px] text-ql-fg-tertiary">本期没有 Coding Plan 套餐资源</p> : null}</BillCard>;
+}
+
+function Procurement({ bill }: { bill: OperatingBill }) {
+  const query = useProcurementReview(bill.month); const save = useSaveProcurementNote(bill.month); const [note, setNote] = useState("");
+  if (query.isLoading) return <LoadingState label="正在生成采购复盘…" rows={5}/>;
+  if (query.error || !query.data) return <ErrorState message={query.error?.message ?? "采购复盘加载失败"} onRetry={() => void query.refetch()}/>;
+  const review = query.data; const value = note || review.note.text;
+  return <div className="space-y-4">
+    <BillCard className="overflow-hidden">
+      <SectionHeading title="采购利用复盘" description="只展示事实与依据，不自动采购、不把现金支出混入本月成本"/>
+      <div className="grid gap-3 border-b border-ql-border-zone p-4 sm:grid-cols-2 xl:grid-cols-4">
+        <ReviewMetric label="本月采购金额" value={money(review.resources.reduce((sum, row) => sum + Number(row.purchaseCashAmount), 0).toFixed(8))}/>
+        <ReviewMetric label="API 实际费用" value={money(review.resources.reduce((sum, row) => sum + Number(row.apiCost), 0).toFixed(8))}/>
+        <ReviewMetric label="套餐平均利用" value={averagePlanUtilization(review.resources)}/>
+        <ReviewMetric label="需关注资源" value={String(review.resources.filter((row) => row.reviewLabel !== "维持").length)}/>
+      </div>
+      <Table headers={["资源", "形态", "采购/充值现金", "真实使用", "本月成本", "利用率 / 口径", "耗尽 / 连续无调用", "建议标签", "确定性依据"]}>{review.resources.map((row) => <tr className="border-b border-ql-border-zone align-top" key={row.resourceId}>
+        <Cell>{row.providerName} · {row.resourceName}</Cell>
+        <Cell>{row.mode === "API" ? "API" : "Coding Plan"}</Cell>
+        <Num>{money(row.purchaseCashAmount)}</Num>
+        <Cell>{Number(row.realTokens).toLocaleString()} Token<span className="block text-[10px] text-ql-fg-tertiary">{row.requestCount} 个已结算请求</span></Cell>
+        <Num>{money(row.mode === "API" ? row.apiCost : row.packageCost)}</Num>
+        <Cell>{row.utilizationRate === null ? "— / 未设置" : `${(Number(row.utilizationRate) * 100).toFixed(1)}%`}<span className="block text-[10px] text-ql-fg-tertiary">{row.utilizationBasis ?? (row.mode === "API" ? "API_MONTHLY_BUDGET" : "厂商原生窗口")}</span></Cell>
+        <Cell>{row.forecastExhaustAt ? `预计耗尽 ${new Date(row.forecastExhaustAt).toLocaleString("zh-CN")}` : row.forecastNotCalculableReason ?? "耗尽时间未知"}<span className="block text-[10px] text-ql-fg-tertiary">{row.continuousNoCallDays === null ? "无调用天数未知" : `连续 ${row.continuousNoCallDays} 天无调用`} · 闲置未判定</span></Cell>
+        <Cell><StatusTag tone={row.reviewLabel === "维持" ? "success" : "warning"}>{row.reviewLabel}</StatusTag></Cell>
+        <Cell>{row.reviewReason}</Cell>
+      </tr>)}</Table>
+      {review.resources.length === 0 ? <p className="p-6 text-center text-[13px] text-ql-fg-tertiary">本月暂无资源事实</p> : null}
+    </BillCard>
+    <BillCard><SectionHeading title="采购复盘备注（人工填写）" description={`当前版本 v${review.note.version}${review.note.updatedBy ? ` · ${review.note.updatedBy}` : ""}`}/><div className="px-4 pb-4"><textarea aria-label="采购复盘备注" className="min-h-28 w-full rounded-lg border border-ql-border bg-ql-surface p-3 text-[13px]" maxLength={4000} onChange={(event) => setNote(event.target.value)} placeholder="记录续购、降配或观察依据；系统不会自动执行采购" value={value}/>{save.error ? <p className="mt-2 text-[12px] text-ql-danger">{save.error.message}</p> : null}<div className="mt-2 flex justify-end"><button aria-label="保存备注" className={buttonPrimary} disabled={save.isPending} onClick={() => save.mutate({ note: value, expected_version: review.note.version }, { onSuccess: () => setNote("") })} type="button">保存备注</button></div></div></BillCard>
+  </div>;
+}
+
+function ReviewMetric({ label, value }: { label: string; value: string }) {
+  return <div><p className="text-[11px] text-ql-fg-tertiary">{label}</p><strong className="mt-1 block text-[18px]">{value}</strong></div>;
+}
+
+function averagePlanUtilization(resources: ProcurementReview["resources"]): string {
+  const values = resources.filter((row) => row.mode === "CODING_PLAN" && row.utilizationRate !== null).map((row) => Number(row.utilizationRate));
+  return values.length === 0 ? "—" : `${(values.reduce((sum, value) => sum + value, 0) / values.length * 100).toFixed(1)}%`;
+}
+
+function ComingSoon() {
+  return <BillCard><SectionHeading title="对账与导出" description="本轮开发计划不提供导出与对账执行后端"/><div className="p-8 text-center"><strong className="text-[18px] text-ql-fg">Coming Soon</strong><p className="mt-2 text-[13px] text-ql-fg-tertiary">现有月度总览中的厂商账单 CSV 快照导入继续可用；本页不模拟成功、不调用未注册 API。</p></div></BillCard>;
 }
 
 function Values({ bill }: { bill: OperatingBill }) {

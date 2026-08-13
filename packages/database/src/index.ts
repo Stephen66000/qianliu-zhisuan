@@ -5,6 +5,17 @@
  * TRD §4：Kysely 0.28.7 + pg 8.16.3；金额字段使用 PostgreSQL numeric + decimal.js。
  */
 export { createKysely, type Database } from "./kysely.js";
+export type {
+  DirectoryImportItemStatus,
+  DirectoryImportItemTable,
+  DirectoryImportRunStatus,
+  DirectoryImportRunTable,
+  DirectoryPersonExternalIdentityTable,
+  DirectoryPersonTable,
+  DirectorySourceTable,
+  OrganizationMembershipTable,
+  OrganizationUnitTable,
+} from "./kysely-directory-tables.js";
 export {
   MIGRATIONS_PATH,
   listMigrations,
@@ -22,6 +33,22 @@ export {
   type PrincipalDeleteResult,
   type PrincipalLifecycleAudit,
 } from "./repositories/principal-repository.js";
+export {
+  DirectoryRepository,
+  DirectoryRepositoryError,
+  type CreateDirectoryRunInput,
+  type DirectoryImportItem,
+  type DirectoryImportRun,
+  type DirectoryMemberPage,
+  type DirectoryMemberQuery,
+  type DirectoryMemberView,
+  type DirectorySource,
+  type DirectorySourceView,
+  type OrganizationUnit,
+  type StageDirectoryItemInput,
+  type StageDirectoryRunInput,
+  type UpsertDirectorySourceInput,
+} from "./repositories/directory-repository.js";
 export {
   AuditRepository,
   type OperationLog,
@@ -155,6 +182,26 @@ export {
   type AgentUsageSummary,
 } from "./repositories/usage-repository.js";
 export {
+  UsageOverviewRepository,
+  UsageOverviewEnterpriseNotFoundError,
+  UsageOverviewSubjectNotFoundError,
+  type UsageOverviewQuery,
+  type UsageOverviewSubjectType,
+  type UsageOverviewPeriod,
+  type UsageOverviewMetrics,
+  type UsageOverviewPoint,
+  type UsageOverviewRankingItem,
+  type UsageOverviewResult,
+} from "./repositories/usage-overview-repository.js";
+export {
+  UsageAggregateRepository,
+  markUsageAggregateDirtyForRequest,
+  type UsageAggregateGranularity,
+  type UsageAggregateBucketKey,
+  type UsageAggregateRebuildResult,
+  type UsageAggregateRangeResult,
+} from "./repositories/usage-aggregate-repository.js";
+export {
   OperatingBillRepository,
   InvalidOperatingBillMonthError,
   OperatingBillClosedError,
@@ -172,6 +219,28 @@ export {
   type OperatingBillGap,
   type OperatingBillValueItemView,
 } from "./repositories/operating-bill-repository.js";
+export {
+  acquireOperatingBillMonthWriteBarrier,
+  guardOperatingBillLedgerWrite,
+  operatingBillMonthAt,
+} from "./repositories/operating-bill-write-barrier.js";
+export {
+  loadDepartmentBill,
+  loadDepartmentCloseEvidence,
+  assertDepartmentCostConserved,
+  DepartmentBillEvidenceUnavailableError,
+  DepartmentCostNotConservedError,
+  type DepartmentCloseEvidence,
+  type FrozenDepartmentAttributionFact,
+  type FrozenDepartmentBudgetFact,
+  type FrozenResourcePurchaseFact,
+} from "./repositories/department-cost-evidence.js";
+export type {
+  DepartmentBillView,
+  DepartmentBudgetView,
+  DepartmentBudgetStatus,
+  DepartmentCostRow,
+} from "./repositories/department-cost-types.js";
 export {
   OperatingBillAccountRepository,
   OperatingBillAccountReferenceError,

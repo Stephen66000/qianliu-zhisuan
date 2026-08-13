@@ -1,4 +1,5 @@
 /** 首页看板与用量查询的只读 API 契约。 */
+import type { UsageOverview } from "./v2-types";
 export interface EarliestExhaustion {
   resourceId: string;
   resourceName: string;
@@ -77,6 +78,7 @@ export interface DashboardSummary {
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
   monthlyApiCost: string;
+  monthlyTotalSpend: string | null;
   monthlyRechargeAmount: string | null;
   earliestExhaustion: EarliestExhaustion | null;
   monthlyDispatchSaving: string;
@@ -99,6 +101,7 @@ export interface DashboardSummary {
       share: string;
     }>;
   };
+  employeeUsageOverview?: UsageOverview;
 }
 
 export interface UsageRecord {
@@ -128,6 +131,7 @@ export interface UsageRecord {
   totalInputTokens: string;
   totalOutputTokens: string;
   totalCacheTokens: string;
+  totalReasoningTokens: string;
   totalDeductedQuota: string;
   totalApiCost: string;
   usageQuality: string;
@@ -147,6 +151,7 @@ export interface UsageQueryParams {
   search?: string;
   principal_id?: string;
   project_id?: string;
+  subject_type?: "EMPLOYEE" | "PROJECT";
   client_id?: string;
   agent_family?: string;
   provider_id?: string;
@@ -155,7 +160,9 @@ export interface UsageQueryParams {
   status?: string;
   from?: string;
   to?: string;
+  to_exclusive?: string;
   overage_only?: boolean;
+  settled_only?: boolean;
 }
 
 export interface AgentUsageSummary {

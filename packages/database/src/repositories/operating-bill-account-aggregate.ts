@@ -13,6 +13,10 @@ export interface OperatingBillAccountFact {
   sourcePrincipalType: "EMPLOYEE" | "PROJECT";
   projectId: string | null;
   projectName: string | null;
+  projectOwnerPersonId: string | null;
+  projectOwnerName: string | null;
+  projectDepartmentId: string | null;
+  projectDepartmentName: string | null;
   providerCode: string;
   providerName: string;
   unifiedModelId: string | null;

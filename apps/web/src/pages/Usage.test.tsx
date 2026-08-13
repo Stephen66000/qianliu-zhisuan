@@ -71,6 +71,7 @@ function sampleRecord(): UsageResult["records"][number] {
     totalInputTokens: "200",
     totalOutputTokens: "100",
     totalCacheTokens: "0",
+    totalReasoningTokens: "0",
     totalDeductedQuota: "300",
     totalApiCost: "0",
     usageQuality: "UPSTREAM_REPORTED",

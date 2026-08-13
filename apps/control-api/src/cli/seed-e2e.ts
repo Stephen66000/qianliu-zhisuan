@@ -14,6 +14,7 @@ import { seedPool043OperatingBill } from "./seed-e2e-pool043.js";
 const IDS = {
   enterprise: "00000000-0000-4000-8000-000000000001",
   admin: "00000000-0000-4000-8000-000000000002",
+  department: "00000000-0000-4000-8000-000000000003",
   provider: "00000000-0000-4000-8000-000000000010",
   resource: "00000000-0000-4000-8000-000000000011",
   isolatedResource: "00000000-0000-4000-8000-000000000012",
@@ -95,6 +96,10 @@ async function main(): Promise<void> {
         status: "ACTIVE",
       })
       .execute();
+    await sql`
+      INSERT INTO organization_unit (id, enterprise_id, name, external_unit_id)
+      VALUES (${IDS.department}::uuid, ${IDS.enterprise}::uuid, 'E2E 研发部', 'E2E/研发部')
+    `.execute(db);
     await db
       .insertInto("provider")
       .values({

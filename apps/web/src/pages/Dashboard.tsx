@@ -1,16 +1,16 @@
 /**
- * W18 首页看板 —— 八项指标 + 资源摘要 + 超额列表 + 三态。
+ * 首页看板 —— 2.0 六项主概览 + 1.0 能力稳定迁位 + 员工周期用量。
  *
  * 口径全部来自后端 GET /dashboard（TRD §12），前端只展示不重算。
  * 结构（仪表盘补充 §1-2）：Canvas → Zone（1-4 个，间距 20px）→ Card；
- * 核心区一页最多一个 = "需要处理"（有效主体超额与最早耗尽）。
- * 只显示当前自然月，不放同比/环比/趋势（TRD §12 行 746）。
+ * 固定顺序：本月概览 → 资源摘要 → 员工消耗 Token；“需要处理”留在资源摘要内。
  */
 import { Inbox } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { useDashboard } from "../api/hooks";
 import type { DashboardSummary } from "../api/types";
+import { DashboardEmployeeUsagePanel } from "../components/dashboard/DashboardEmployeeUsagePanel";
 import { EarliestExhaustionCard } from "../components/dashboard/EarliestExhaustionCard";
 import { MetricCard } from "../components/dashboard/MetricCard";
 import { OverageList } from "../components/dashboard/OverageList";
@@ -20,9 +20,11 @@ import { EmptyState } from "../components/states/EmptyState";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
-import { formatCount, formatMoney, formatRatioAsPercent } from "../lib/format";
+import { useFeatureFlags } from "../feature-flags";
+import { formatCount, formatDateTimeShort, formatMoney, formatRatioAsPercent } from "../lib/format";
 
 export function DashboardPage() {
+  const featureFlags = useFeatureFlags();
   const query = useDashboard();
   useRedirectOnUnauthorized(query.error);
 
@@ -55,90 +57,111 @@ export function DashboardPage() {
     <div className="flex flex-col gap-5">
       <DashboardHeader />
 
-      {/* 核心区（一页最多一个）：当下需要关注的信号 —— 超额 + 最早耗尽 */}
-      {hasAttention ? (
-        <Zone
-          description="仅显示当前有效主体的额度超额，以及厂商资源耗尽风险；正常使用中的主体不会出现在这里。"
-          focus
-          title="需要处理"
-        >
-          <div className="flex flex-col gap-4">
-            {data.earliestExhaustion ? (
-              <EarliestExhaustionCard value={data.earliestExhaustion} />
-            ) : null}
-            {data.overageList.length > 0 ? <OverageList items={data.overageList} /> : null}
-          </div>
-        </Zone>
-      ) : null}
-
-      {/* 本月概览：八项指标（④⑥ 数据源 gap → null 空状态，不伪造） */}
-      <Zone description="当前自然月，不含同比/环比" title="本月概览">
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          <MetricCard label="厂商资源账号" unit="个" value={String(data.resourceAccountCount)} />
+      <Zone
+        description="六个指标独立展示；本月总支出 = 套餐支出 + API 支出。"
+        title="本月概览"
+      >
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
           <MetricCard
-            hint={`当前正在使用 ${data.currentInUseCount} 人`}
-            label="本账期活跃人数"
-            unit="人"
-            value={String(data.activeEmployeeCount)}
+            hint="输入 + 输出，缓存和推理不重复累计"
+            label="真实 Token 消耗"
+            value={formatCount(data.monthlyTokenUsage.totalTokens)}
           />
           <MetricCard
             emptyText="数据源待接入"
-            label="本月套餐支付（元）"
+            label="本月总支出"
+            unit="元"
+            value={data.monthlyTotalSpend === null ? null : formatMoney(data.monthlyTotalSpend)}
+          />
+          <MetricCard
+            emptyText="数据源待接入"
+            label="套餐支出"
+            unit="元"
             value={data.monthlyPackagePayment === null ? null : formatMoney(data.monthlyPackagePayment)}
           />
           <MetricCard
-            hint="仅 API 模式调用的系统账本；厂商当前账期费用在下方资源摘要单列"
-            label="本月 API 调用费用（元）"
+            hint="按实际调用计价，不含余额"
+            label="API 支出"
+            unit="元"
             value={formatMoney(data.monthlyApiCost)}
           />
           <MetricCard
+            hint={`当前正在使用 ${data.currentInUseCount} 人`}
+            label="活跃人数"
+            unit="人"
+            value={String(data.activeEmployeeCount)}
+          />
+          <MetricCard label="厂商接入账号" unit="个" value={String(data.resourceAccountCount)} />
+        </div>
+      </Zone>
+
+      <Zone description="1.0 旧字段迁位保留，不计入六项主概览。" title="1.0 经营补充">
+        <div className="grid grid-cols-2 gap-4">
+          <MetricCard
             emptyText="数据源待接入"
-            label="本月充值（元）"
+            label="本月充值"
+            unit="元"
             value={data.monthlyRechargeAmount === null ? null : formatMoney(data.monthlyRechargeAmount)}
           />
           <MetricCard
-            accent
-            label="本月调度节省（元）"
+            label="本月调度节省"
+            unit="元"
             value={formatMoney(data.monthlyDispatchSaving)}
-          />
-          <MetricCard
-            hint={
-              data.earliestExhaustion
-                ? `可信度 ${CONFIDENCE_LABEL[data.earliestExhaustion.confidence] ?? data.earliestExhaustion.confidence}`
-                : undefined
-            }
-            label="最早耗尽资源"
-            value={data.earliestExhaustion
-              ? data.earliestExhaustion.resourceName
-              : data.resourceBreakdown.some((item) => item.forecastConfidence !== null)
-                ? "暂无可计算结果"
-                : "暂无预测快照"}
-          />
-          <MetricCard
-            hint="各厂商+模式资源状态聚合见下方资源摘要"
-            label="资源状态"
-            value={resourceHealthSummary(data.resourceBreakdown)}
           />
         </div>
       </Zone>
 
-      {/* 资源摘要（按厂商+模式） */}
-      <Zone title="资源摘要">
-        {noResources ? (
-          /* PRD §10.4：新企业没有厂商资源 → 说明为什么为空 + 下一步 */
-          <EmptyState
-            description="尚未登记可用 AI 资源，无法产生模型和路由候选。请前往「厂商资源」登记 DeepSeek API、智谱或 Kimi 资源。"
-            icon={Inbox}
-            title="尚未登记厂商资源"
-          />
-        ) : (
-          <ResourceBreakdown items={data.resourceBreakdown} />
-        )}
+      <Zone
+        description="完整保留 1.0 经营字段；“按模型查看”仍在本月 Token 单元格内下钻。"
+        title="资源摘要"
+      >
+        <div className="space-y-4">
+          <div className="grid gap-3 text-[13px] text-ql-fg-secondary md:grid-cols-2">
+            <p className="rounded-lg bg-ql-surface-subtle px-3 py-2" data-testid="dashboard-earliest-exhaustion">
+              {earliestExhaustionSummary(data)}
+            </p>
+            <p className="rounded-lg bg-ql-surface-subtle px-3 py-2" data-testid="dashboard-resource-status">
+              资源状态：{resourceHealthSummary(data.resourceBreakdown)}
+            </p>
+          </div>
+
+          {hasAttention ? (
+            <section
+              aria-labelledby="dashboard-attention-title"
+              className="rounded-xl border border-ql-border p-5 shadow-ql-zone-focus"
+            >
+              <header className="mb-3">
+                <h3 className="text-[15px] font-semibold text-ql-fg" id="dashboard-attention-title">
+                  需要处理
+                </h3>
+                <p className="mt-0.5 text-[12px] text-ql-fg-tertiary">
+                  仅显示当前有效主体的额度超额与资源耗尽风险；正常主体不会出现在这里。
+                </p>
+              </header>
+              <div className="flex flex-col gap-4">
+                {data.earliestExhaustion ? (
+                  <EarliestExhaustionCard value={data.earliestExhaustion} />
+                ) : null}
+                {data.overageList.length > 0 ? <OverageList items={data.overageList} /> : null}
+              </div>
+            </section>
+          ) : null}
+
+          {noResources ? (
+            <EmptyState
+              description="尚未登记可用 AI 资源，无法产生模型和路由候选。请前往「厂商资源」登记 DeepSeek API、智谱或 Kimi 资源。"
+              icon={Inbox}
+              title="尚未登记厂商资源"
+            />
+          ) : (
+            <ResourceBreakdown items={data.resourceBreakdown} />
+          )}
+        </div>
       </Zone>
 
       <Zone
         description="当前上海自然月；总量包含全部主体，员工排行只统计员工。总 Token = 输入 + 输出，缓存和推理为子集，不重复相加。"
-        title="员工 Token 消耗"
+        title="员工消耗 Token"
       >
         <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
           <div className="rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
@@ -153,7 +176,9 @@ export function DashboardPage() {
               <div className="flex justify-between"><dt>推理（输出子集）</dt><dd>{formatCount(data.monthlyTokenUsage.totalReasoningTokens)}</dd></div>
             </dl>
           </div>
-          {data.monthlyTokenUsage.employeeRanking.length === 0 ? (
+          {featureFlags.FEATURE_USAGE_OVERVIEW_V2 && data.employeeUsageOverview ? (
+            <DashboardEmployeeUsagePanel initial={data.employeeUsageOverview} />
+          ) : data.monthlyTokenUsage.employeeRanking.length === 0 ? (
             <EmptyState
               description="本月尚无员工已结算 Token；项目和测试主体不会进入员工排行。"
               icon={Inbox}
@@ -207,6 +232,19 @@ const CONFIDENCE_LABEL: Record<string, string> = {
   MEDIUM: "中",
   LOW: "低",
 };
+
+function earliestExhaustionSummary(data: DashboardSummary): string {
+  const value = data.earliestExhaustion;
+  if (value) {
+    const result = value.forecastExhaustAt
+      ? formatDateTimeShort(value.forecastExhaustAt)
+      : value.notCalculableReason ?? "不可计算";
+    const confidence = CONFIDENCE_LABEL[value.confidence] ?? value.confidence;
+    return `最早耗尽资源：${value.resourceName} · ${result} · 可信度${confidence}`;
+  }
+  const hasForecast = data.resourceBreakdown.some((item) => item.forecastConfidence !== null);
+  return `最早耗尽资源：${hasForecast ? "暂无可计算结果" : "暂无预测快照"}`;
+}
 
 /** 资源状态聚合（PRD §10.2「资源可用状态和额度状态」）：任一非 HEALTHY 提示数量。 */
 function resourceHealthSummary(items: DashboardSummary["resourceBreakdown"]): string {

@@ -1,0 +1,121 @@
+{
+  "schema_version": "w20-01-candidate-lock.v1",
+  "lock_status": "final_work_package_lock",
+  "code_start_status": "frozen",
+  "project": "仟流智算",
+  "product_version": "2.0",
+  "stage": "Stage 03",
+  "milestone": "M20-0",
+  "work_package": "W20-01",
+  "work_package_status": "done",
+  "risk": "HIGH",
+  "observed_at": "2026-08-12T23:34:00+08:00",
+  "repository": {
+    "logical_worktree": "/Users/mac/.codex/worktrees/708d/仟流智算",
+    "canonical_worktree": "/Users/mac/.codex-switcher/shared/.codex/worktrees/708d/仟流智算",
+    "git_common_dir": "/Users/mac/Projects/仟流智算/.git",
+    "head": "6fc1bec2a211c0d9c399400076cc56720f5c1815",
+    "tree": "198b071b41c052080836fdaac4f399c6c69e7aac",
+    "branch": null,
+    "detached_head": true,
+    "upstream": null,
+    "dirty_at_code_start_observation": false,
+    "dirty_now": true,
+    "candidate_file_manifest_sha256": "d987a0417baa29940da4d24fb5d190f728df10505abbaa76071ca850d260d63a",
+    "remote_main_verified": "6fc1bec2a211c0d9c399400076cc56720f5c1815",
+    "remote_verification_mode": "git ls-remote read-only; no fetch",
+    "historical_final_tag": {
+      "name": "v1.0.0-final",
+      "tag_object": "099666e2920709b135f8adf88272703134fcd4c7",
+      "commit": "b3fb74b387ef61734d949be2e97fab7904bca959",
+      "tree": "68719129f9e9ee6a0ebfa56ab371cc42912fb34c",
+      "relationship_to_head": "diverged_7_left_8_right",
+      "merge_base": "7ec225ba11068d4b40b92d3a9cc9c01a1e23d13b"
+    }
+  },
+  "migration": {
+    "code_head": "0045_zhipu_weekday_window_alias",
+    "file_count": 46,
+    "sequence": "0000..0045_contiguous",
+    "manifest_sha256": "ce6743db992c31c0ff09dbbd2931741cbcf4f891f41652c551718b3b6d1bbd1c",
+    "head_file_sha256": "74ae28b311dfe486ea2e9bddbb7371c1f52b90099d2e07c2e29a6147eb15f1ff",
+    "next_number": "0046",
+    "live_target_query": "not_run_not_authorized",
+    "latest_repository_production_evidence": "0045 applied at ffd2b31c1809569b38e60fa65f0cc2baf818f4ea"
+  },
+  "artifacts": {
+    "package_json_sha256": "6527ed16d7c1994507103ea38ace1f44bb4a66610e8afa57c9e384e39a3ae8f7",
+    "pnpm_lock_sha256": "31d094607e9ca50d8a773a98c38f66d90962771b31727a2d7235a0489fb48f83",
+    "pnpm_workspace_sha256": "d1d4ef27ed20e3f21db0ce737214f8d97c12d696d558e5d65f0bfa455fd6c87d",
+    "compose_sha256": "d879661443997680f0236e0e0f231cf367e484b870f21545ff1023b7f7c75fee",
+    "env_example_sha256": "570cede7a1d6c33c6705f37e8f4cae48784347203091b5904e503499f37413c6"
+  },
+  "frozen_inputs": {
+    "execution_baseline_sha256": "bdeefe489d9fac7d9bdac607d513e2629f3615fff2fb24a0919945f6f61ad2e5",
+    "development_plan_sha256": "a85761d708e4d661334f054d8b7034e24c9e6af315a902bc2f2e7b08e75ce53a",
+    "engineering_rules_sha256": "56fd70b1f524ef019d2d8edaf925daa5c835707868f8b7f16ea1e194d9836bc6",
+    "prd_sha256": "94605b1f449cdf5b4fa8437840679830526ddaf4efd47f8ae5a21685fdd19e3c",
+    "trd_sha256": "e69566e321e6b43477d997436db59cc2cfb0fc88d00a6e1ea206da560441c42d",
+    "acceptance_sha256": "031d020fc0c2125ff5d6139d785e9eb06590e513fe9086395e14870cb2c69ed5",
+    "prototype_sha256": "8db389204c110af1a66471cf7c72e4dd0611fdcdc2f0e1d444518da6a8165d95"
+  },
+  "configuration_scope": [
+    ".env.example",
+    "deploy/compose.yaml",
+    "apps/*/Dockerfile",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
+  ],
+  "ai_eval": "N/A_no_model_prompt_agent_or_tool_behavior_change",
+  "validation": {
+    "quality": {
+      "result": "pass",
+      "root_test_files": 136,
+      "root_tests": 1009,
+      "log_sha256": "0a3d95d715de4946124c4b13f558d5fa74c9bb77c59b01bb0373c6b34c9e5994"
+    },
+    "web_playwright": {
+      "result": "pass",
+      "tests": 28,
+      "log_sha256": "a5835dcb433e49ac4cb2712fef93ab3d8b704505594c1f850604f76f2d5ccb23"
+    },
+    "gateway_codex_cli": {
+      "result": "pass",
+      "codex_version": "0.146.0",
+      "log_sha256": "1a181766aaf20564e76a6fd6cf33507ecf82c96c0c6daba518db243ee3d5a438"
+    },
+    "mutation": "N/A_test_only_diff; existing mutation-oriented coverage in quality passed",
+    "full_storage_canary": "N/A_test_only_diff; logs scanned with zero hits; PostgreSQL/Redis/traces explicitly unscanned"
+  },
+  "known_risks": [
+    "migration CLI and eight database override variables lack unified target guard",
+    "candidate remains uncommitted because commit authorization was not granted"
+  ],
+  "fingerprint": {
+    "algorithm": "sha256(JSON.stringify(fingerprint_payload))",
+    "value": "e86c49a43d54509d98e10a5c64f395b05edbfd50686e862e11e8348506a8f6d5",
+    "payload": {
+      "project": "仟流智算",
+      "product_version": "2.0",
+      "work_package": "W20-01",
+      "head": "6fc1bec2a211c0d9c399400076cc56720f5c1815",
+      "tree": "198b071b41c052080836fdaac4f399c6c69e7aac",
+      "dirty": "test_baseline_diff",
+      "candidate_file_manifest_sha256": "d987a0417baa29940da4d24fb5d190f728df10505abbaa76071ca850d260d63a",
+      "migration_head": "0045_zhipu_weekday_window_alias",
+      "migration_manifest_sha256": "ce6743db992c31c0ff09dbbd2931741cbcf4f891f41652c551718b3b6d1bbd1c",
+      "next_migration": "0046",
+      "package_json_sha256": "6527ed16d7c1994507103ea38ace1f44bb4a66610e8afa57c9e384e39a3ae8f7",
+      "pnpm_lock_sha256": "31d094607e9ca50d8a773a98c38f66d90962771b31727a2d7235a0489fb48f83",
+      "compose_sha256": "d879661443997680f0236e0e0f231cf367e484b870f21545ff1023b7f7c75fee",
+      "frozen_baseline_sha256": "bdeefe489d9fac7d9bdac607d513e2629f3615fff2fb24a0919945f6f61ad2e5",
+      "frozen_plan_sha256": "a85761d708e4d661334f054d8b7034e24c9e6af315a902bc2f2e7b08e75ce53a",
+      "frozen_rules_sha256": "56fd70b1f524ef019d2d8edaf925daa5c835707868f8b7f16ea1e194d9836bc6",
+      "frozen_prd_sha256": "94605b1f449cdf5b4fa8437840679830526ddaf4efd47f8ae5a21685fdd19e3c",
+      "frozen_trd_sha256": "e69566e321e6b43477d997436db59cc2cfb0fc88d00a6e1ea206da560441c42d",
+      "frozen_acceptance_sha256": "031d020fc0c2125ff5d6139d785e9eb06590e513fe9086395e14870cb2c69ed5",
+      "frozen_prototype_sha256": "8db389204c110af1a66471cf7c72e4dd0611fdcdc2f0e1d444518da6a8165d95"
+    }
+  }
+}

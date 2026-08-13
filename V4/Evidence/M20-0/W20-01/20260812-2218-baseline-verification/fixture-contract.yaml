@@ -1,0 +1,146 @@
+schema_version: "fr2-001-v1-fixture-contract.2"
+contract_status: "existing_executable_seed_bound_with_minimal_oracle_overlay"
+synthetic_only: true
+execution_binding:
+  guard: "seed-e2e.ts 仅允许 localhost/127.0.0.1 且库名以 _e2e 结尾"
+  files:
+    - { path: "apps/control-api/src/cli/seed-e2e.ts", sha256: "c77c45ea31e5d0bb381231fa2f4ef437e91b32f21e201fc558e86713087b25d5" }
+    - { path: "apps/control-api/src/cli/seed-e2e-pool042.ts", sha256: "434e29b79ac6ee1366e9a4ae2d891fe18770a45593672502ef461746ea44293b" }
+    - { path: "apps/control-api/src/cli/seed-e2e-pool043.ts", sha256: "28ed5ecaa1cbc5e20b005d31722d2710a34f307f8a8e0f2b30986850ca59cb10" }
+    - { path: "apps/web/e2e/fixtures.ts", sha256: "2d3d0b2286f79122855ed4ce43074a7615443eaee094fc294f7c168eb0c10903" }
+    - { path: "apps/web/e2e/global-setup.ts", sha256: "b64be4e6de823ac1db272fd4684a978e548934182dd79cc50a1fd1774d5234c8" }
+  overlay_rule: "rows 与 derived_expectations 只补充 W20-01 回归 oracle；不要求重写已有 seed。"
+schema_basis:
+  migration_head: "0045_zhipu_weekday_window_alias"
+  source: "packages/database/src/kysely.ts"
+  rule: "rows 下只使用真实表名、列名和当前 Schema 可接受的枚举；Generated 列除影响时间口径外均交给数据库。"
+clock:
+  timezone: "Asia/Shanghai"
+  now: "2026-08-12T13:00:00+08:00"
+  month: "2026-08"
+
+rows:
+  enterprise:
+    - { id: "10000000-0000-4000-8000-000000000001", name: "FR2-001 合成企业", status: "ACTIVE" }
+
+  admin_user:
+    - { id: "11000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", username: "owner", display_name: "企业负责人", password_hash: "${W20_01_OWNER_PASSWORD_HASH}", must_change_password: false, status: "ACTIVE", version: 1 }
+    - { id: "11000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", username: "reset-admin", display_name: "待改密管理员", password_hash: "${W20_01_RESET_ADMIN_PASSWORD_HASH}", must_change_password: true, status: "ACTIVE", version: 1 }
+    - { id: "11000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", username: "disabled-admin", display_name: "已停用管理员", password_hash: "${W20_01_DISABLED_ADMIN_PASSWORD_HASH}", must_change_password: false, status: "DISABLED", version: 2 }
+
+  principal:
+    - { id: "12000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", type: "EMPLOYEE", name: "员工甲", department_label: "研发部", status: "ACTIVE", archived_at: null, person_id: null, owner_person_id: null, version: 1 }
+    - { id: "12000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", type: "EMPLOYEE", name: "员工乙", department_label: "市场部", status: "DISABLED", archived_at: null, person_id: null, owner_person_id: null, version: 2 }
+    - { id: "12000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", type: "EMPLOYEE", name: "员工丙", department_label: "研发部", status: "DISABLED", archived_at: "2026-07-15T00:00:00.000Z", person_id: null, owner_person_id: null, version: 2 }
+    - { id: "12000000-0000-4000-8000-000000000004", enterprise_id: "10000000-0000-4000-8000-000000000001", type: "PROJECT", name: "项目甲", department_label: null, status: "ACTIVE", archived_at: null, person_id: null, owner_person_id: null, version: 1 }
+
+  provider:
+    - { id: "13000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", code: "deepseek", name: "DeepSeek", adapter_type: "deepseek", status: "ACTIVE" }
+    - { id: "13000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", code: "kimi", name: "Kimi", adapter_type: "kimi", status: "ACTIVE" }
+    - { id: "13000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", code: "zhipu", name: "智谱", adapter_type: "zhipu", status: "ACTIVE" }
+
+  provider_resource:
+    - { id: "13100000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_id: "13000000-0000-4000-8000-000000000001", name: "DeepSeek API", mode: "API", credential_type: "API_KEY", credential_fingerprint: "sha256:w20-deepseek-synthetic", status: "ACTIVE" }
+    - { id: "13100000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_id: "13000000-0000-4000-8000-000000000002", name: "Kimi Plan 主账号", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_fingerprint: "sha256:w20-kimi-primary-synthetic", status: "DEGRADED" }
+    - { id: "13100000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_id: "13000000-0000-4000-8000-000000000002", name: "Kimi Plan 备账号", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_fingerprint: "sha256:w20-kimi-fallback-synthetic", status: "ACTIVE" }
+    - { id: "13100000-0000-4000-8000-000000000004", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_id: "13000000-0000-4000-8000-000000000003", name: "智谱 Plan", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_fingerprint: "sha256:w20-zhipu-synthetic", status: "DEGRADED" }
+    - { id: "13100000-0000-4000-8000-000000000005", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_id: "13000000-0000-4000-8000-000000000003", name: "智谱待恢复账号", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_fingerprint: "sha256:w20-zhipu-invalid-synthetic", status: "CREDENTIAL_INVALID" }
+
+  provider_quota_window:
+    - { id: "13200000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000002", window_type: "FIVE_HOUR", is_current: true, limit_value: "100", used_value: "30", remaining_value: "70", unit: "POINT", ratio: "0.300000", collected_at: "2026-08-12T04:30:00.000Z", source: "PROVIDER_SYNC", adapter_version: "w20-fixture-v1", sync_status: "STALE", sync_error_code: "RATE_LIMITED", last_success_at: "2026-08-12T02:30:00.000Z" }
+    - { id: "13200000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000002", window_type: "WEEKLY", is_current: true, limit_value: "100", used_value: "60", remaining_value: "40", unit: "POINT", ratio: "0.600000", collected_at: "2026-08-12T04:30:00.000Z", source: "PROVIDER_SYNC", adapter_version: "w20-fixture-v1", sync_status: "SUCCESS", sync_error_code: null, last_success_at: "2026-08-12T04:30:00.000Z" }
+    - { id: "13200000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000004", window_type: "FIVE_HOUR", is_current: true, limit_value: "100", used_value: "8", remaining_value: "92", unit: "PERCENT", ratio: "0.080000", collected_at: "2026-08-12T04:30:00.000Z", source: "PROVIDER_SYNC", adapter_version: "w20-fixture-v1", sync_status: "SUCCESS", sync_error_code: null, last_success_at: "2026-08-12T04:30:00.000Z" }
+    - { id: "13200000-0000-4000-8000-000000000004", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000004", window_type: "WEEKLY", is_current: true, limit_value: null, used_value: null, remaining_value: null, unit: "PERCENT", ratio: null, collected_at: "2026-08-12T04:30:00.000Z", source: "PROVIDER_SYNC", adapter_version: "w20-fixture-v1", sync_status: "UNSUPPORTED", sync_error_code: null, last_success_at: "2026-08-12T04:30:00.000Z" }
+
+  unified_model:
+    - { id: "14000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", alias: "ql-deepseek-v4-flash", display_name: "DeepSeek V4 Flash", status: "ACTIVE" }
+    - { id: "14000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", alias: "ql-k3", display_name: "Kimi K3", status: "ACTIVE" }
+    - { id: "14000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", alias: "ql-glm-5.2", display_name: "GLM 5.2", status: "ACTIVE" }
+
+  model_route:
+    - { id: "14100000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", unified_model_id: "14000000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000001", upstream_model: "deepseek-v4-flash", priority: 10, weight: 1, enabled: true }
+    - { id: "14100000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", unified_model_id: "14000000-0000-4000-8000-000000000002", provider_resource_id: "13100000-0000-4000-8000-000000000002", upstream_model: "kimi-k3", priority: 10, weight: 2, enabled: true }
+    - { id: "14100000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", unified_model_id: "14000000-0000-4000-8000-000000000002", provider_resource_id: "13100000-0000-4000-8000-000000000003", upstream_model: "kimi-k3", priority: 10, weight: 1, enabled: true }
+    - { id: "14100000-0000-4000-8000-000000000004", enterprise_id: "10000000-0000-4000-8000-000000000001", unified_model_id: "14000000-0000-4000-8000-000000000003", provider_resource_id: "13100000-0000-4000-8000-000000000004", upstream_model: "glm-5.2", priority: 10, weight: 1, enabled: true }
+
+  billing_rule:
+    - { id: "14200000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000001", upstream_model: "deepseek-v4-flash", rule_type: "API_PRICE", rule_version: "w20-deepseek-v1", effective_from: "2026-07-01T00:00:00.000Z", cache_hit_price: "0.0025", cache_miss_price: "0.005625", output_price: "0.015", currency: "CNY", priority: 10, enabled: true, source: "W20-01_SYNTHETIC" }
+    - { id: "14200000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000003", upstream_model: "kimi-k3", rule_type: "MODEL_TIER", rule_version: "w20-kimi-v1", effective_from: "2026-07-01T00:00:00.000Z", multiplier: "2", currency: "CNY", priority: 10, enabled: true, source: "W20-01_SYNTHETIC" }
+
+  principal_key:
+    - { id: "12100000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000001", key_prefix: "sk-w20-a", key_digest: "w20-synthetic-digest-a", allowed_model_ids: ["14000000-0000-4000-8000-000000000001", "14000000-0000-4000-8000-000000000002", "14000000-0000-4000-8000-000000000003"], status: "ACTIVE" }
+    - { id: "12100000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000002", key_prefix: "sk-w20-b", key_digest: "w20-synthetic-digest-b", allowed_model_ids: ["14000000-0000-4000-8000-000000000001"], status: "REVOKED", revoked_at: "2026-08-01T00:00:00.000Z" }
+    - { id: "12100000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000003", key_prefix: "sk-w20-c", key_digest: "w20-synthetic-digest-c", allowed_model_ids: ["14000000-0000-4000-8000-000000000001"], status: "REVOKED", revoked_at: "2026-07-15T00:00:00.000Z" }
+    - { id: "12100000-0000-4000-8000-000000000004", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000004", key_prefix: "sk-w20-project-a", key_digest: "w20-synthetic-digest-project-a", allowed_model_ids: ["14000000-0000-4000-8000-000000000001"], status: "ACTIVE" }
+
+  ai_request:
+    - { id: "15000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000001", principal_key_id: "12100000-0000-4000-8000-000000000001", protocol: "chat", unified_model: "ql-deepseek-v4-flash", unified_model_id: "14000000-0000-4000-8000-000000000001", status: "SUCCEEDED", started_at: "2026-08-12T04:50:00.000Z", finished_at: "2026-08-12T04:50:01.000Z" }
+    - { id: "15000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000001", principal_key_id: "12100000-0000-4000-8000-000000000001", protocol: "responses", unified_model: "ql-k3", unified_model_id: "14000000-0000-4000-8000-000000000002", status: "SUCCEEDED", started_at: "2026-08-12T04:57:00.000Z", finished_at: "2026-08-12T04:58:00.000Z" }
+    - { id: "15000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000004", principal_key_id: "12100000-0000-4000-8000-000000000004", protocol: "messages", unified_model: "ql-deepseek-v4-flash", unified_model_id: "14000000-0000-4000-8000-000000000001", status: "SUCCEEDED", started_at: "2026-08-10T02:00:00.000Z", finished_at: "2026-08-10T02:00:01.000Z" }
+    - { id: "15000000-0000-4000-8000-000000000004", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000001", principal_key_id: "12100000-0000-4000-8000-000000000001", protocol: "chat", unified_model: "ql-glm-5.2", unified_model_id: "14000000-0000-4000-8000-000000000003", status: "FAILED", started_at: "2026-08-12T04:59:00.000Z", finished_at: "2026-08-12T04:59:00.100Z", error_classification: "dispatch_rejected", error_code: "REJECTED" }
+
+  upstream_attempt:
+    - { id: "15100000-0000-4000-8000-000000000001", ai_request_id: "15000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", attempt_no: 1, provider_resource_id: "13100000-0000-4000-8000-000000000001", upstream_model: "deepseek-v4-flash", started_at: "2026-08-12T04:50:00.000Z", finished_at: "2026-08-12T04:50:01.000Z", http_status: 200, response_committed: true }
+    - { id: "15100000-0000-4000-8000-000000000002", ai_request_id: "15000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", attempt_no: 1, provider_resource_id: "13100000-0000-4000-8000-000000000002", upstream_model: "kimi-k3", started_at: "2026-08-12T04:57:00.000Z", finished_at: "2026-08-12T04:57:05.000Z", http_status: 503, error_classification: "UPSTREAM_TEMPORARY", error_code: "upstream_unavailable", response_committed: false, failure_layer: "UPSTREAM_HTTP", switch_reason: "retryable_upstream_failure" }
+    - { id: "15100000-0000-4000-8000-000000000003", ai_request_id: "15000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", attempt_no: 2, provider_resource_id: "13100000-0000-4000-8000-000000000003", upstream_model: "kimi-k3", started_at: "2026-08-12T04:57:06.000Z", finished_at: "2026-08-12T04:58:00.000Z", http_status: 200, response_committed: true }
+    - { id: "15100000-0000-4000-8000-000000000004", ai_request_id: "15000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", attempt_no: 1, provider_resource_id: "13100000-0000-4000-8000-000000000001", upstream_model: "deepseek-v4-flash", started_at: "2026-08-10T02:00:00.000Z", finished_at: "2026-08-10T02:00:01.000Z", http_status: 200, response_committed: true }
+
+  usage_event:
+    - { id: "15200000-0000-4000-8000-000000000001", ai_request_id: "15000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", upstream_attempt_id: "15100000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000001", input_tokens: "100", output_tokens: "50", cache_tokens: "20", reasoning_tokens: "10", usage_quality: "PROVIDER_REPORTED", dedup_key: "w20-request-001-attempt-1", created_at: "2026-08-12T04:50:01.000Z" }
+    - { id: "15200000-0000-4000-8000-000000000002", ai_request_id: "15000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", upstream_attempt_id: "15100000-0000-4000-8000-000000000003", provider_resource_id: "13100000-0000-4000-8000-000000000003", input_tokens: "200", output_tokens: "100", cache_tokens: "40", reasoning_tokens: "20", usage_quality: "PROVIDER_REPORTED", dedup_key: "w20-request-002-attempt-2", created_at: "2026-08-12T04:58:00.000Z" }
+    - { id: "15200000-0000-4000-8000-000000000003", ai_request_id: "15000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", upstream_attempt_id: "15100000-0000-4000-8000-000000000004", provider_resource_id: "13100000-0000-4000-8000-000000000001", input_tokens: "80", output_tokens: "20", cache_tokens: "0", reasoning_tokens: "0", usage_quality: "PROVIDER_REPORTED", dedup_key: "w20-request-003-attempt-1", created_at: "2026-08-10T02:00:01.000Z" }
+
+  ledger_line:
+    - { id: "15300000-0000-4000-8000-000000000001", ai_request_id: "15000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", usage_event_id: "15200000-0000-4000-8000-000000000001", upstream_attempt_id: "15100000-0000-4000-8000-000000000001", provider_resource_id: "13100000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000001", resource_mode: "API", raw_input_tokens: "100", raw_output_tokens: "50", raw_cache_tokens: "20", raw_reasoning_tokens: "10", deducted_quota: null, api_cost: "1.25", usage_quality: "PROVIDER_REPORTED", billing_rule_id: "14200000-0000-4000-8000-000000000001", rule_version: "w20-deepseek-v1", multiplier: null, created_at: "2026-08-12T04:50:01.000Z" }
+    - { id: "15300000-0000-4000-8000-000000000002", ai_request_id: "15000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", usage_event_id: "15200000-0000-4000-8000-000000000002", upstream_attempt_id: "15100000-0000-4000-8000-000000000003", provider_resource_id: "13100000-0000-4000-8000-000000000003", principal_id: "12000000-0000-4000-8000-000000000001", resource_mode: "CODING_PLAN", raw_input_tokens: "200", raw_output_tokens: "100", raw_cache_tokens: "40", raw_reasoning_tokens: "20", deducted_quota: "600", api_cost: null, usage_quality: "PROVIDER_REPORTED", billing_rule_id: "14200000-0000-4000-8000-000000000002", rule_version: "w20-kimi-v1", multiplier: "2", created_at: "2026-08-12T04:58:00.000Z" }
+    - { id: "15300000-0000-4000-8000-000000000003", ai_request_id: "15000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", usage_event_id: "15200000-0000-4000-8000-000000000003", upstream_attempt_id: "15100000-0000-4000-8000-000000000004", provider_resource_id: "13100000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000004", resource_mode: "API", raw_input_tokens: "80", raw_output_tokens: "20", raw_cache_tokens: "0", raw_reasoning_tokens: "0", deducted_quota: null, api_cost: "0.75", usage_quality: "PROVIDER_REPORTED", billing_rule_id: "14200000-0000-4000-8000-000000000001", rule_version: "w20-deepseek-v1", multiplier: null, created_at: "2026-08-10T02:00:01.000Z" }
+
+  ledger_transaction:
+    - { id: "15400000-0000-4000-8000-000000000001", ai_request_id: "15000000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000001", total_input_tokens: "100", total_output_tokens: "50", total_cache_tokens: "20", total_reasoning_tokens: "10", total_deducted_quota: "0", total_api_cost: "1.25", overage: false, usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED", created_at: "2026-08-12T04:50:01.000Z" }
+    - { id: "15400000-0000-4000-8000-000000000002", ai_request_id: "15000000-0000-4000-8000-000000000002", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000001", total_input_tokens: "200", total_output_tokens: "100", total_cache_tokens: "40", total_reasoning_tokens: "20", total_deducted_quota: "600", total_api_cost: "0", overage: false, usage_quality: "PROVIDER_REPORTED", attempt_count: 2, status: "SETTLED", created_at: "2026-08-12T04:58:00.000Z" }
+    - { id: "15400000-0000-4000-8000-000000000003", ai_request_id: "15000000-0000-4000-8000-000000000003", enterprise_id: "10000000-0000-4000-8000-000000000001", principal_id: "12000000-0000-4000-8000-000000000004", total_input_tokens: "80", total_output_tokens: "20", total_cache_tokens: "0", total_reasoning_tokens: "0", total_deducted_quota: "0", total_api_cost: "0.75", overage: false, usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED", created_at: "2026-08-10T02:00:01.000Z" }
+
+  operating_bill_request_project_assignment:
+    - { id: "15500000-0000-4000-8000-000000000001", enterprise_id: "10000000-0000-4000-8000-000000000001", ai_request_id: "15000000-0000-4000-8000-000000000001", project_principal_id: "12000000-0000-4000-8000-000000000004", assigned_by: "11000000-0000-4000-8000-000000000001", reason: "合成客户交付" }
+
+unassigned_project_bucket:
+  materialization: "不创建‘待归属项目’ principal。员工请求 15000000-0000-4000-8000-000000000002 在 operating_bill_request_project_assignment 无行，读模型因此投影为未归属。"
+  expected_read_model:
+    subjectId: null
+    subjectName: "未归属项目"
+    isUnassigned: true
+  source_ai_request_ids: ["15000000-0000-4000-8000-000000000002"]
+
+derived_expectations:
+  month: "2026-08"
+  total_input_tokens: "380"
+  total_output_tokens: "170"
+  total_cache_tokens: "60"
+  total_reasoning_tokens: "30"
+  total_tokens: "550"
+  employee_ranking_total_tokens: "450"
+  api_cost_cny: "2.00"
+  deducted_quota: "600"
+  settled_transaction_count: 3
+  cache_and_reasoning_are_subsets: true
+  request_15000000_0000_4000_8000_000000000002_attempt_count: 2
+  dispatch_rejected_request_has_no_attempt_usage_or_ledger: true
+  disabled_principal_old_key_status: "REVOKED"
+  archived_principal_status: "DISABLED"
+  archived_principal_archived_at_is_not_null: true
+  stale_and_unsupported_render_as_unknown_not_zero: true
+  project_buckets:
+    - { subjectId: "12000000-0000-4000-8000-000000000004", subjectName: "项目甲", isUnassigned: false, totalTokens: "250" }
+    - { subjectId: null, subjectName: "未归属项目", isUnassigned: true, totalTokens: "300" }
+
+required_scenarios_not_materialized_as_rows:
+  operating_bill: "DRAFT -> CLOSED v1 -> REOPENED/DRAFT -> CLOSED v2；旧 operating_bill_version 不可改。"
+  runtime_assurance: "规则版本、可恢复事件、告警处置、企微 Secret 掩码与发送记录沿用现有专项 Fixture。"
+  archived_history: "本 oracle overlay 不额外实体化；已由现有 POOL-009 Web E2E 覆盖归档主体历史可追溯。"
+  authorization_rule: "批量规则发布前后的 Key/Grant 集合仍沿用 pool029/pool033 专项 Fixture。"
+
+implementation:
+  target: "复用 execution_binding；只有实际特征测试缺数据时才最小扩展现有 seed"
+  database_guard: "仅 localhost/127.0.0.1 且库名以 _e2e 结尾"
+  credential_rule: "${...} 密码哈希由 hashPassword 生成；凭证只存密文/指纹，不存明文。"
+  pc_boundary: "PC-20260812-04 已批准：W20-01 锁定当前 1.0 八项事实；首页 2.0 六项主卡与旧字段稳定落点已回写合同；员工／项目日周月仍属 FR2-003／W20-04～05。"

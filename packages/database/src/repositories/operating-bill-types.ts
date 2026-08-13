@@ -6,6 +6,14 @@ import type {
   OperatingBillVersionTable,
 } from "../kysely.js";
 import type { OperatingBillAccountFact } from "./operating-bill-account-aggregate.js";
+import type {
+  DepartmentBillView,
+} from "./department-cost-types.js";
+import type {
+  FrozenDepartmentAttributionFact,
+  FrozenDepartmentBudgetFact,
+  FrozenResourcePurchaseFact,
+} from "./department-cost-evidence.js";
 
 export type OperatingBillPeriod = Selectable<OperatingBillPeriodTable>;
 export type OperatingBillValueItem = Selectable<OperatingBillValueItemTable>;
@@ -106,6 +114,11 @@ export interface OperatingBillSnapshot {
     }>;
     /** POOL-043：结账时冻结到请求/provider/model 粒度，供独立账户页稳定下钻。 */
     accountFacts?: Array<Omit<OperatingBillAccountFact, "usedAt"> & { usedAt: string }>;
+    /** W20-06/07：部门分摊及其输入事实随结账版本一起冻结。 */
+    departmentBill?: DepartmentBillView;
+    departmentAttributionFacts?: FrozenDepartmentAttributionFact[];
+    departmentBudgetFacts?: FrozenDepartmentBudgetFact[];
+    resourcePurchaseFacts?: FrozenResourcePurchaseFact[];
   };
 }
 

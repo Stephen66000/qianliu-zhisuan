@@ -67,14 +67,18 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
       `.execute(db);
       expect(tables.rows.map((row) => row.table_name)).toEqual(expectedTables);
 
-      const forbiddenBoundaryColumns = await sql<{ table_name: string; column_name: string }>`
+      const enterpriseBoundaryColumns = await sql<{ table_name: string; column_name: string }>`
         SELECT table_name, column_name
           FROM information_schema.columns
          WHERE table_schema = 'public'
            AND table_name = ANY(${expectedTables})
            AND column_name IN ('tenant_id', 'enterprise_id')
+         ORDER BY table_name, column_name
       `.execute(db);
-      expect(forbiddenBoundaryColumns.rows).toEqual([]);
+      expect(enterpriseBoundaryColumns.rows).toEqual([
+        { table_name: "person", column_name: "enterprise_id" },
+        { table_name: "person_external_identity", column_name: "enterprise_id" },
+      ]);
 
       const principalColumns = await sql<{ column_name: string }>`
         SELECT column_name
@@ -91,6 +95,10 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
       ]);
 
       const before = await schemaFingerprint(db);
+      expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");
+      expect(await migrateDown(db)).toBe("0048_department_cost_budget_and_purchase");
+      expect(await migrateDown(db)).toBe("0047_usage_bucket_aggregate");
+      expect(await migrateDown(db)).toBe("0046_directory_import_foundation");
       expect(await migrateDown(db)).toBe("0045_zhipu_weekday_window_alias");
       expect(await migrateDown(db)).toBe("0044_operating_bill_model_identity");
       expect(await migrateDown(db)).toBe("0043_single_owner_rule_history");

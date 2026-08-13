@@ -8,6 +8,7 @@ import { UnauthorizedError } from "../api/client";
 import { AppLayout } from "./layout/AppLayout";
 import { ErrorState } from "./states/ErrorState";
 import { LoadingState } from "./states/LoadingState";
+import { DISABLED_FEATURE_FLAGS, FeatureFlagsProvider } from "../feature-flags";
 
 export function RequireAuth() {
   const location = useLocation();
@@ -40,5 +41,9 @@ export function RequireAuth() {
     return <Navigate replace to="/change-password" />;
   }
 
-  return <AppLayout admin={session.data.admin} />;
+  return (
+    <FeatureFlagsProvider value={session.data.featureFlags ?? DISABLED_FEATURE_FLAGS}>
+      <AppLayout admin={session.data.admin} />
+    </FeatureFlagsProvider>
+  );
 }

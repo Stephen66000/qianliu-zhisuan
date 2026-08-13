@@ -1,0 +1,29 @@
+schema_version: "stage03-state-delta.v1"
+generated_at: "2026-08-12T23:34:00+08:00"
+source_execution_baseline_sha256: "bdeefe489d9fac7d9bdac607d513e2629f3615fff2fb24a0919945f6f61ad2e5"
+reason: "W20-01 完成后的最终状态快照；原工作区仅回写已授权的 V4 权威文件，其他用户资产不覆盖"
+stage03: "doing"
+milestone:
+  id: "M20-0"
+  status: "done"
+work_package:
+  id: "W20-01"
+  status: "done"
+  risk: "HIGH"
+repository_baseline:
+  exact_code_start: "6fc1bec2a211c0d9c399400076cc56720f5c1815"
+  exact_tree: "198b071b41c052080836fdaac4f399c6c69e7aac"
+  migration_head: "0045_zhipu_weekday_window_alias"
+  next_migration_number: "0046"
+  fingerprint: "e86c49a43d54509d98e10a5c64f395b05edbfd50686e862e11e8348506a8f6d5"
+planning_change:
+  id: "PC-20260812-04"
+  status: "done"
+  authority_registration: "registered"
+  effective: true
+  decision_owner: "佳哥"
+next_action: "等待 Owner 另行授权 W20-02；未授权前只读使用 W20-01 冻结基线"
+forbidden_next_work_package:
+  id: "W20-02"
+  status: "todo"
+  reason: "W20-01 已 done，但原授权明确禁止提前进入 W20-02"

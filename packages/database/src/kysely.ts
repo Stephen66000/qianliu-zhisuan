@@ -26,14 +26,24 @@ import type {
   AvailabilityRuleVersionTable,
   NotificationDeliveryTable,
   NotificationEndpointTable,
-  PersonExternalIdentityTable,
-  PersonTable,
 } from "./kysely-availability-tables.js";
+import type {
+  DirectoryImportItemTable,
+  DirectoryImportRunTable,
+  DirectoryPersonExternalIdentityTable,
+  DirectoryPersonTable,
+  DirectorySourceTable,
+  OrganizationMembershipTable,
+  OrganizationUnitTable,
+} from "./kysely-directory-tables.js";
 import type { ProviderQuotaWindowTable } from "./provider-quota-window-types.js";
+import type { ProjectDepartmentAssignmentTable, RequestAttributionSnapshotTable, UsageAggregateBucketStateTable, UsageAggregateDirtyBucketTable, UsageBucketAggregateTable } from "./kysely-w20-tables.js";
 
 export type * from "./kysely-operations-tables.js"; export type * from "./employee-model-rule-types.js";
 export type * from "./kysely-availability-tables.js";
+export type * from "./kysely-directory-tables.js";
 export type * from "./provider-quota-window-types.js";
+export type * from "./kysely-w20-tables.js";
 
 export interface KyselyMigrationTable { name: string }
 export interface KyselyMigrationLockTable { id: number }
@@ -42,6 +52,9 @@ export interface EnterpriseTable {
   id: Generated<string>;
   name: string;
   status: Generated<string>;
+  timezone: Generated<string>;
+  default_currency: Generated<string>;
+  version: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -213,6 +226,9 @@ export interface ProviderResourceTable {
   last_probe_at: Date | null;
   /** W19/P2-01：单调版本号（乐观锁）。 */
   version: Generated<number>;
+  /** 2.0：API 资源月预算分母；只用于经营利用率，不进入 Gateway。 */
+  monthly_budget_amount: Generated<string | null>;
+  monthly_budget_currency: Generated<string | null>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -589,8 +605,13 @@ export interface Database {
   employee_login: EmployeeLoginTable;
   principal: PrincipalTable;
   principal_agent_expectation: PrincipalAgentExpectationTable;
-  person: PersonTable;
-  person_external_identity: PersonExternalIdentityTable;
+  person: DirectoryPersonTable;
+  person_external_identity: DirectoryPersonExternalIdentityTable;
+  directory_source: DirectorySourceTable;
+  organization_unit: OrganizationUnitTable;
+  organization_membership: OrganizationMembershipTable;
+  directory_import_run: DirectoryImportRunTable;
+  directory_import_item: DirectoryImportItemTable;
   principal_key: PrincipalKeyTable;
   principal_grant: PrincipalGrantTable;
   principal_access_idempotency: PrincipalAccessIdempotencyTable;
@@ -627,6 +648,11 @@ export interface Database {
   ledger_line: LedgerLineTable;
   billing_rule: BillingRuleTable;
   ledger_transaction: LedgerTransactionTable;
+  usage_bucket_aggregate: UsageBucketAggregateTable;
+  usage_aggregate_dirty_bucket: UsageAggregateDirtyBucketTable;
+  usage_aggregate_bucket_state: UsageAggregateBucketStateTable;
+  project_department_assignment: ProjectDepartmentAssignmentTable;
+  request_attribution_snapshot: RequestAttributionSnapshotTable;
   operation_log: OperationLogTable;
   deployment_log: DeploymentLogTable;
   deployment_log_event: DeploymentLogEventTable;

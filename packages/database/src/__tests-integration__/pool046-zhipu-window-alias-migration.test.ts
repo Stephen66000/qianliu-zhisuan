@@ -260,6 +260,10 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
       expect(migrated.error).toBeUndefined();
       expect(migrated.results?.map((result) => [result.migrationName, result.status])).toEqual([
         ["0045_zhipu_weekday_window_alias", "Success"],
+        ["0046_directory_import_foundation", "Success"],
+        ["0047_usage_bucket_aggregate", "Success"],
+        ["0048_department_cost_budget_and_purchase", "Success"],
+        ["0049_resource_utilization_and_procurement_review", "Success"],
       ]);
 
       expect(await db.selectFrom("dispatch_policy")
@@ -302,6 +306,10 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow();
       expect(afterSecondUp).toEqual(migratedTarget);
 
+      expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");
+      expect(await migrateDown(db)).toBe("0048_department_cost_budget_and_purchase");
+      expect(await migrateDown(db)).toBe("0047_usage_bucket_aggregate");
+      expect(await migrateDown(db)).toBe("0046_directory_import_foundation");
       expect(await migrateDown(db)).toBe("0045_zhipu_weekday_window_alias");
       expect(await db.selectFrom("dispatch_policy")
         .select("match_unified_model").where("id", "=", policyId).executeTakeFirstOrThrow())
@@ -340,6 +348,10 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
       expect(replayed.error).toBeUndefined();
       expect(replayed.results?.map((result) => [result.migrationName, result.status])).toEqual([
         ["0045_zhipu_weekday_window_alias", "Success"],
+        ["0046_directory_import_foundation", "Success"],
+        ["0047_usage_bucket_aggregate", "Success"],
+        ["0048_department_cost_budget_and_purchase", "Success"],
+        ["0049_resource_utilization_and_procurement_review", "Success"],
       ]);
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows"])

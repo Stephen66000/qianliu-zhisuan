@@ -34,6 +34,8 @@ import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthoriz
 
 const headers = [
   "项目",
+  "负责人",
+  "请求时点归属部门",
   "使用厂商",
   "本月总 Token",
   "输入 Token",
@@ -126,7 +128,7 @@ export function OperatingBillProjectsPage() {
                 title="没有项目账单记录"
               />
             ) : (
-              <AccountTable headers={headers}>
+              <AccountTable headers={headers} leadingTextColumns={4}>
                 {query.data.rows.map((row) => {
                   const totals = row.totals;
                   return <tr className="border-b border-ql-border-zone" key={row.subjectId ?? "__unassigned_project__"}>
@@ -135,6 +137,11 @@ export function OperatingBillProjectsPage() {
                       {row.isUnassigned ? (
                         <span className="ml-2 text-[11px] text-ql-warning">未归属</span>
                       ) : null}
+                    </AccountCell>
+                    <AccountCell>{row.projectOwner?.personName ?? "—"}</AccountCell>
+                    <AccountCell>
+                      {row.projectDepartments.map((department) => department.departmentName).join("、")
+                        || (row.subjectId ? "待归属" : "—")}
                     </AccountCell>
                     <AccountCell>
                       {row.providers.map((provider) => provider.providerName).join("、") || "—"}

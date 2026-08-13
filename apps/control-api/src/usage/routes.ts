@@ -8,6 +8,12 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 import type { UsageQuery } from "@qianliu/database";
+import {
+  UsageOverviewRepository,
+  UsageOverviewSubjectNotFoundError,
+  type UsageOverviewPeriod,
+  type UsageOverviewSubjectType,
+} from "@qianliu/database";
 
 const UsageListQuerySchema = z
   .object({
@@ -16,6 +22,7 @@ const UsageListQuerySchema = z
     search: z.string().trim().max(255).optional(),
     principal_id: z.string().uuid().optional(),
     project_id: z.string().uuid().optional(),
+    subject_type: z.enum(["EMPLOYEE", "PROJECT", "employee", "project"]).optional(),
     client_id: z.string().trim().min(1).max(64).optional(),
     agent_family: z.enum(["WORKBUDDY", "CODEX", "ZCODE", "CLAUDE_CODE", "QIANLIU_IDE", "OTHER", "UNKNOWN"]).optional(),
     provider_id: z.string().uuid().optional(),
@@ -24,16 +31,53 @@ const UsageListQuerySchema = z
     status: z.enum(["PENDING", "IN_PROGRESS", "SUCCEEDED", "FAILED", "CANCELLED"]).optional(),
     from: z.string().datetime({ offset: true }).optional(),
     to: z.string().datetime({ offset: true }).optional(),
+    to_exclusive: z.string().datetime({ offset: true }).optional(),
     overage_only: z.enum(["true", "false"]).optional(),
+    settled_only: z.enum(["true", "false"]).optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.from && value.to && new Date(value.from) > new Date(value.to)) {
-      ctx.addIssue({ code: "custom", path: ["to"], message: "to 不能早于 from" });
+    if (value.to && value.to_exclusive) {
+      ctx.addIssue({ code: "custom", path: ["to_exclusive"], message: "to 与 to_exclusive 不能同时使用" });
+    }
+    const upper = value.to_exclusive ?? value.to;
+    if (value.from && upper && new Date(value.from) > new Date(upper)) {
+      ctx.addIssue({ code: "custom", path: [value.to_exclusive ? "to_exclusive" : "to"], message: "结束时间不能早于 from" });
     }
   });
 
-export function registerUsageRoutes(app: FastifyInstance): void {
+export function registerUsageRoutes(
+  app: FastifyInstance,
+  options: { overviewV2?: boolean } = {},
+): void {
   const AgentFamilySchema = z.enum(["WORKBUDDY", "CODEX", "ZCODE", "CLAUDE_CODE", "QIANLIU_IDE", "OTHER", "UNKNOWN"]);
+  const UsageOverviewQuerySchema = z.object({
+    subject_type: z.enum(["EMPLOYEE", "PROJECT", "employee", "project"]).default("EMPLOYEE"),
+    subject_id: z.string().uuid().optional(),
+    period: z.enum(["TODAY", "WEEK", "MONTH", "today", "week", "month"]).default("MONTH"),
+    anchor: z.string().datetime({ offset: true }).optional(),
+  });
+
+  if (options.overviewV2 !== false) app.get("/usage/overview", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = UsageOverviewQuerySchema.safeParse(req.query ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+    }
+    try {
+      return await new UsageOverviewRepository(app.db).getOverview({
+        enterpriseId: req.admin!.enterpriseId,
+        subjectType: parsed.data.subject_type.toUpperCase() as UsageOverviewSubjectType,
+        subjectId: parsed.data.subject_id,
+        period: parsed.data.period.toUpperCase() as UsageOverviewPeriod,
+        anchor: parsed.data.anchor ? new Date(parsed.data.anchor) : new Date(),
+      });
+    } catch (error) {
+      if (error instanceof UsageOverviewSubjectNotFoundError) {
+        return reply.code(404).send({ error: "not_found", message: "用量主体不存在" });
+      }
+      throw error;
+    }
+  });
+
   // GET /usage —— 用量账本列表（分页 + 筛选）
   app.get("/usage", { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = UsageListQuerySchema.safeParse(req.query ?? {});
@@ -47,6 +91,7 @@ export function registerUsageRoutes(app: FastifyInstance): void {
       search: q.search,
       principalId: q.principal_id,
       projectId: q.project_id,
+      subjectType: q.subject_type?.toUpperCase() as UsageQuery["subjectType"],
       clientId: q.client_id,
       agentFamily: q.agent_family,
       providerId: q.provider_id,
@@ -55,7 +100,9 @@ export function registerUsageRoutes(app: FastifyInstance): void {
       status: q.status,
       from: q.from ? new Date(q.from) : undefined,
       to: q.to ? new Date(q.to) : undefined,
+      toExclusive: q.to_exclusive ? new Date(q.to_exclusive) : undefined,
       overageOnly: q.overage_only === "true",
+      settledOnly: q.settled_only === "true",
       limit: q.limit,
       offset: q.offset,
     };

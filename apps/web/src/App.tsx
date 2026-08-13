@@ -20,6 +20,15 @@ import { OperatingBillEmployeeDetailPage } from "./pages/OperatingBillEmployeeDe
 import { OperatingBillEmployeesPage } from "./pages/OperatingBillEmployees";
 import { OperatingBillProjectsPage } from "./pages/OperatingBillProjects";
 import { EmployeeModelRulesPage } from "./pages/EmployeeModelRules";
+import { OperatingBillDepartmentsPage } from "./pages/OperatingBillDepartments";
+import { useFeatureFlags } from "./feature-flags";
+
+function DepartmentCostRoute() {
+  const flags = useFeatureFlags();
+  return flags.FEATURE_DEPARTMENT_COST
+    ? <OperatingBillDepartmentsPage />
+    : <Navigate replace to="/operating-bill" />;
+}
 
 export function App() {
   return (
@@ -41,6 +50,7 @@ export function App() {
             path="/operating-bill/employees/:principalId"
           />
           <Route element={<OperatingBillProjectsPage />} path="/operating-bill/projects" />
+          <Route element={<DepartmentCostRoute />} path="/operating-bill/departments" />
           <Route element={<RuntimeAssurancePage />} path="/runtime-assurance" />
           <Route
             element={<Navigate replace to="/runtime-assurance?tab=alerts" />}

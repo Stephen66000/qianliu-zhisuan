@@ -18,6 +18,8 @@ import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { UsageRow } from "../components/usage/UsageRow";
 import { formatCount } from "../lib/format";
+import { UsageOverviewPanel } from "../components/usage/UsageOverviewPanel";
+import { useFeatureFlags } from "../feature-flags";
 
 const PAGE_SIZE = 20;
 
@@ -63,6 +65,7 @@ function ProjectFilter({ principals, value, onChange }: {
 // Declarative filter/table states are mutually exclusive UI flows.
 // eslint-disable-next-line complexity
 export function UsagePage() {
+  const featureFlags = useFeatureFlags();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const parsedPage = Number(searchParams.get("page") ?? "1");
@@ -89,6 +92,7 @@ export function UsagePage() {
     search: searchParams.get("search") || undefined,
     principal_id: searchParams.get("principal_id") || undefined,
     project_id: optionalSearchParam(searchParams, "project_id"),
+    subject_type: (searchParams.get("subject_type")?.toUpperCase() as UsageQueryParams["subject_type"]) || undefined,
     client_id: searchParams.get("client_id") || undefined,
     agent_family: searchParams.get("agent_family") || undefined,
     provider_id: searchParams.get("provider_id") || undefined,
@@ -97,7 +101,9 @@ export function UsagePage() {
     status: searchParams.get("status") || undefined,
     from: toApiDate(searchParams.get("from")),
     to: toApiDate(searchParams.get("to")),
+    to_exclusive: toApiDate(searchParams.get("to_exclusive")),
     overage_only: searchParams.get("overage_only") === "true" || undefined,
+    settled_only: searchParams.get("settled_only") === "true" || undefined,
   };
   const query = useUsage(usageParams);
   const principalsQuery = usePrincipals();
@@ -115,8 +121,13 @@ export function UsagePage() {
   );
   const hasFilters = [...searchParams.keys()].some((key) => key !== "page");
 
+  if (featureFlags.FEATURE_USAGE_OVERVIEW_V2 && searchParams.get("tab") === "overview") {
+    return <PageShell description="员工与项目按今日、本周、本月查看；与请求明细共用同一账本事实" title="用量账本"><div className="mb-4 flex gap-2 border-b border-ql-border"><button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">用量概览</button><button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "details")} type="button">请求明细</button></div><UsageOverviewPanel /></PageShell>;
+  }
+
   return (
     <PageShell description="按数据库事实定位请求；筛选条件保存在当前 URL，可刷新或复制复现" title="用量账本">
+      <div className="mb-4 flex gap-2 border-b border-ql-border">{featureFlags.FEATURE_USAGE_OVERVIEW_V2 ? <button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "overview")} type="button">用量概览</button> : null}<button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">请求明细</button></div>
       <div className="mb-4 rounded-xl border border-ql-border-zone bg-ql-surface-subtle p-3">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className="relative xl:col-span-2">

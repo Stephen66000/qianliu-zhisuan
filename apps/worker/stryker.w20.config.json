@@ -1,0 +1,20 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.w20.mutation.config.ts" },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/directory/connector.ts:147:1-150:2",
+    "src/directory/wecom-connector.ts:136:1-168:2",
+    "src/directory/feishu-connector.ts:193:1-225:2"
+  ],
+  "reporters": ["clear-text", "json"],
+  "jsonReporter": { "fileName": "reports/mutation/w20-directory.json" },
+  "thresholds": { "high": 80, "low": 70, "break": 70 },
+  "timeoutMS": 60000,
+  "concurrency": 2,
+  "disableTypeChecks": true,
+  "cleanTempDir": true
+}

@@ -11,6 +11,8 @@ export interface ResourceViewInput {
   upstream_models: string[] | null;
   concurrency_limit: number | null;
   version: number;
+  monthly_budget_amount?: string | null;
+  monthly_budget_currency?: string | null;
   created_at: Date;
   updated_at: Date;
 }

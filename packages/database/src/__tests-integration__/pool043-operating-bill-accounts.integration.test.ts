@@ -22,6 +22,10 @@ const unknownEmployeeId = randomUUID();
 const otherEmployeeId = randomUUID();
 const projectId = randomUUID();
 const directProjectId = randomUUID();
+const projectOwnerPersonId = randomUUID();
+const nextProjectOwnerPersonId = randomUUID();
+const projectDepartmentId = randomUUID();
+const directProjectDepartmentId = randomUUID();
 const keyId = randomUUID();
 const unknownKeyId = randomUUID();
 const otherKeyId = randomUUID();
@@ -35,6 +39,7 @@ let planResourceId: string;
 let incompletePlanResourceId: string;
 let assignedRequestId: string;
 let unassignedRequestId: string;
+let directProjectRequestId: string;
 
 interface UsageSeed {
   enterprise?: string;
@@ -107,12 +112,34 @@ beforeAll(async () => {
     id: adminId, enterprise_id: enterpriseId, username: "pool043", display_name: "经营管理员",
     password_hash: "not-used", status: "ACTIVE",
   }).execute();
+  await db.insertInto("person").values([
+    { id: projectOwnerPersonId, enterprise_id: enterpriseId, name: "项目负责人" },
+    { id: nextProjectOwnerPersonId, enterprise_id: enterpriseId, name: "变更后负责人" },
+  ]).execute();
+  await db.insertInto("organization_unit").values([
+    { id: projectDepartmentId, enterprise_id: enterpriseId, parent_id: null,
+      name: "研发中心", external_source_id: null, external_unit_id: "研发中心" },
+    { id: directProjectDepartmentId, enterprise_id: enterpriseId, parent_id: null,
+      name: "产品中心", external_source_id: null, external_unit_id: "产品中心" },
+  ]).execute();
   await db.insertInto("principal").values([
     { id: employeeId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "于滔" },
     { id: unknownEmployeeId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "未知员工" },
-    { id: projectId, enterprise_id: enterpriseId, type: "PROJECT", name: "星河项目" },
-    { id: directProjectId, enterprise_id: enterpriseId, type: "PROJECT", name: "直接项目" },
+    { id: projectId, enterprise_id: enterpriseId, type: "PROJECT", name: "星河项目",
+      owner_person_id: projectOwnerPersonId },
+    { id: directProjectId, enterprise_id: enterpriseId, type: "PROJECT", name: "直接项目",
+      owner_person_id: projectOwnerPersonId },
     { id: otherEmployeeId, enterprise_id: otherEnterpriseId, type: "EMPLOYEE", name: "隔离员工" },
+  ]).execute();
+  await db.insertInto("project_department_assignment").values([
+    { enterprise_id: enterpriseId, project_principal_id: projectId,
+      organization_unit_id: projectDepartmentId, valid_from: new Date("2026-07-01T00:00:00Z"),
+      valid_until: null, source: "EXPLICIT", owner_person_id_at_assignment: projectOwnerPersonId,
+      created_by: adminId, reason: "项目账时点部门测试" },
+    { enterprise_id: enterpriseId, project_principal_id: directProjectId,
+      organization_unit_id: directProjectDepartmentId, valid_from: new Date("2026-07-01T00:00:00Z"),
+      valid_until: null, source: "EXPLICIT", owner_person_id_at_assignment: projectOwnerPersonId,
+      created_by: adminId, reason: "项目账时点部门测试" },
   ]).execute();
   await db.insertInto("unified_model").values([
     { id: flashId, enterprise_id: enterpriseId, alias: "ql-deepseek-v4-flash", display_name: "DeepSeek V4 Flash" },
@@ -181,7 +208,7 @@ beforeAll(async () => {
   await addUsage({ principal: unknownEmployeeId, key: unknownKeyId, modelId: unknownModelId,
     alias: "ql-unknown", resource: apiResourceId, mode: "API", input: 0n, output: 0n,
     cache: 0n, deducted: null, cost: null, quality: "UNKNOWN", at: new Date("2026-08-06T04:00:00Z") });
-  await addUsage({ principal: directProjectId, key: projectKeyId, modelId: flashId,
+  directProjectRequestId = await addUsage({ principal: directProjectId, key: projectKeyId, modelId: flashId,
     alias: "ql-deepseek-v4-flash", resource: apiResourceId, mode: "API", input: 10n,
     output: 1n, cache: 0n, deducted: null, cost: "1", quality: "PROVIDER_REPORTED",
     at: new Date("2026-08-07T04:00:00Z") });
@@ -201,6 +228,26 @@ beforeAll(async () => {
     enterprise_id: enterpriseId, ai_request_id: assignedRequestId,
     project_principal_id: projectId, assigned_by: adminId, reason: "客户交付",
   }).execute();
+  await db.insertInto("request_attribution_snapshot").values([
+    { enterprise_id: enterpriseId, ai_request_id: assignedRequestId,
+      source_principal_id: employeeId, employee_person_id: null,
+      project_principal_id: projectId, organization_unit_id: projectDepartmentId,
+      cost_category: "PROJECT", attribution_source: "EMPLOYEE_PROJECT",
+      request_occurred_at: new Date("2026-08-02T04:00:00Z"), version: 1,
+      supersedes_id: null, snapshot_origin: "RUNTIME" },
+    { enterprise_id: enterpriseId, ai_request_id: directProjectRequestId,
+      source_principal_id: directProjectId, employee_person_id: null,
+      project_principal_id: directProjectId, organization_unit_id: directProjectDepartmentId,
+      cost_category: "PROJECT", attribution_source: "PROJECT_DIRECT",
+      request_occurred_at: new Date("2026-08-07T04:00:00Z"), version: 1,
+      supersedes_id: null, snapshot_origin: "RUNTIME" },
+    { enterprise_id: enterpriseId, ai_request_id: unassignedRequestId,
+      source_principal_id: employeeId, employee_person_id: null,
+      project_principal_id: null, organization_unit_id: projectDepartmentId,
+      cost_category: "EMPLOYEE_DIRECT", attribution_source: "EMPLOYEE_MEMBERSHIP",
+      request_occurred_at: new Date("2026-08-03T04:00:00Z"), version: 1,
+      supersedes_id: null, snapshot_origin: "RUNTIME" },
+  ]).execute();
   accountRepo = new OperatingBillAccountRepository(db);
 }, 120_000);
 
@@ -271,9 +318,22 @@ describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
   it("项目账只投影一次请求，明确未归属，归属变更沿用 ledger 月份与结账门禁", async () => {
     const before = await accountRepo.listAccounts(enterpriseId, "2026-08", "PROJECT");
     expect(before.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ subjectId: projectId, subjectName: "星河项目", isUnassigned: false }),
-      expect.objectContaining({ subjectId: null, subjectName: "未归属项目", isUnassigned: true }),
-      expect.objectContaining({ subjectId: directProjectId, subjectName: "直接项目", isUnassigned: false }),
+      expect.objectContaining({
+        subjectId: projectId, subjectName: "星河项目", isUnassigned: false,
+        projectOwner: { personId: projectOwnerPersonId, personName: "项目负责人" },
+        projectDepartments: [{ departmentId: projectDepartmentId, departmentName: "研发中心" }],
+      }),
+      expect.objectContaining({
+        subjectId: null, subjectName: "未归属项目", isUnassigned: true,
+        projectOwner: null, projectDepartments: [],
+      }),
+      expect.objectContaining({
+        subjectId: directProjectId, subjectName: "直接项目", isUnassigned: false,
+        projectOwner: { personId: projectOwnerPersonId, personName: "项目负责人" },
+        projectDepartments: [{
+          departmentId: directProjectDepartmentId, departmentName: "产品中心",
+        }],
+      }),
     ]));
     expect(before.totals.totalTokens).toBe("9007199254741444");
     expect(before.totals.requestCount).toBe(6);
@@ -296,6 +356,7 @@ describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
   it("结账冻结账户事实，底层账本变化不改写历史，但展示最新正式 alias", async () => {
     const billRepo = new OperatingBillRepository(db);
     const before = await accountRepo.getEmployeeDetail(enterpriseId, "2026-08", employeeId);
+    const beforeProjects = await accountRepo.listAccounts(enterpriseId, "2026-08", "PROJECT");
     await billRepo.closeMonth({
       enterpriseId, adminId, month: "2026-08", allowIncomplete: true,
       note: "POOL-043 冻结证据测试允许既有快照缺口",
@@ -308,11 +369,19 @@ describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
       .where("enterprise_id", "=", enterpriseId).where("id", "=", flashId).execute();
     await db.updateTable("principal").set({ name: "于滔-当前名称" })
       .where("enterprise_id", "=", enterpriseId).where("id", "=", employeeId).execute();
+    await db.updateTable("principal").set({ owner_person_id: nextProjectOwnerPersonId })
+      .where("enterprise_id", "=", enterpriseId).where("id", "=", projectId).execute();
+    await db.updateTable("person").set({ name: "当前负责人改名" })
+      .where("enterprise_id", "=", enterpriseId).where("id", "=", projectOwnerPersonId).execute();
+    await db.updateTable("organization_unit").set({ name: "当前部门改名" })
+      .where("enterprise_id", "=", enterpriseId).where("id", "=", projectDepartmentId).execute();
 
     const frozen = await accountRepo.getEmployeeDetail(enterpriseId, "2026-08", employeeId);
     expect(frozen.status).toBe("CLOSED");
     expect(frozen.employee.principalName).toBe("于滔");
     expect(frozen.totals).toEqual(before.totals);
+    expect((await accountRepo.listAccounts(enterpriseId, "2026-08", "PROJECT")).rows)
+      .toEqual(beforeProjects.rows);
     expect(frozen.providers[0]!.models.find((model) => model.unifiedModelId === flashId))
       .toMatchObject({
         currentAlias: "ql-deepseek-v4-flash-current",

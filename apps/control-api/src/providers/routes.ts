@@ -89,6 +89,8 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         upstream_models: r.upstream_models,
         concurrency_limit: r.concurrency_limit,
         version: r.version,
+        monthly_budget_amount: r.monthly_budget_amount,
+        monthly_budget_currency: r.monthly_budget_currency,
         created_at: r.created_at,
         updated_at: r.updated_at,
         operating_snapshot: byResource.get(r.id) ?? null,
@@ -181,6 +183,8 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         upstream_models: resource.upstream_models,
         concurrency_limit: resource.concurrency_limit,
         version: resource.version,
+        monthly_budget_amount: resource.monthly_budget_amount,
+        monthly_budget_currency: resource.monthly_budget_currency,
         created_at: resource.created_at,
         updated_at: resource.updated_at,
         operating_snapshot: operating_snapshot

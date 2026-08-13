@@ -1,0 +1,1487 @@
+{
+  "schema_version": "qianliu-candidate-lock/v2",
+  "lock_status": "draft_dirty",
+  "generated_at": "2026-08-12T19:47:56.443Z",
+  "repository": {
+    "worktree": "/Users/mac/.codex-switcher/shared/.codex/worktrees/708d/仟流智算",
+    "authority_worktree": "/Users/mac/Projects/仟流智算",
+    "head": "6fc1bec2a211c0d9c399400076cc56720f5c1815",
+    "tree": "198b071b41c052080836fdaac4f399c6c69e7aac",
+    "branch": null,
+    "detached_head": true,
+    "dirty": true,
+    "dirty_path_count": 193,
+    "dirty_manifest_sha256": "458bd780334b4bc86a45ff7fdd50ada993443da017c86846ed8040551a51f823",
+    "dirty_entries": [
+      {
+        "path": "_knowledge_base/Excel导入依赖-2026年8月.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "58945e7f25da4a3604a4befff1c82027820a424b32027adde90efe6b3c7b441f"
+      },
+      {
+        "path": "_knowledge_base/通讯录连接器-2026年8月.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "728b81fdd3d273c4f87a6f41b7af24e0b291110405541f85580f0096f158792c"
+      },
+      {
+        "path": ".env.example",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "39600b3cfeddb25f89fead781d37a86c9a464495b533893e40c237d9401dd12d"
+      },
+      {
+        "path": "apps/control-api/package.json",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "9663d99407485c8dd2c293db33673b96106c51653f7bedf5d6c4c70ccc567b12"
+      },
+      {
+        "path": "apps/control-api/src/__tests-integration__/pool043-operating-bill-accounts.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "f8c9e4d4f78e61ef6605720a56222eb35157f3ffc9048980eed8ccb43ca716ca"
+      },
+      {
+        "path": "apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "55e616051a4e87682180076d90652de12e66f8994cf90448cc88a855b5a36a43"
+      },
+      {
+        "path": "apps/control-api/src/__tests-integration__/w20-department-costs.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "91a94e48c7b5843e3338ab6109ca60d982be4c30b5b6980ad074c30eec2aef38"
+      },
+      {
+        "path": "apps/control-api/src/__tests-integration__/w20-directory.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "7f91f3509e4b41358948256cc701a0d713efe21a73e36d8c2cc1cfe4ab7b7325"
+      },
+      {
+        "path": "apps/control-api/src/__tests-integration__/w20-resource-insights.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "5ee82edb62b97dbc043d8bff24e120cc40e223fa7ce3631bfe48c98931b4686e"
+      },
+      {
+        "path": "apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "c6d2a13fefc051aacce907a427def8371c4728d66c48b8f43604a0f87cdc5e67"
+      },
+      {
+        "path": "apps/control-api/src/admin-writes/routes.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "0590a4ed0b597b36235598ec886861b62023378721ac69793644d465176b66ca"
+      },
+      {
+        "path": "apps/control-api/src/admin-writes/types.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "214b57d000d6c017b2d9c0e8919dafe51d11fa6485c939024d5f657fceb4f9c1"
+      },
+      {
+        "path": "apps/control-api/src/auth/routes.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "ec6a190410ce4e16b3ed2f57fe93925d1830d45a48caca7a7edd9397988fe90d"
+      },
+      {
+        "path": "apps/control-api/src/cli/seed-e2e.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "2b757e9c909493bc3284b03bfc9e3b638a91db3d02a9a47cce0c1fd64a380755"
+      },
+      {
+        "path": "apps/control-api/src/dashboard/routes.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "2defaba1c0b535a60829d83ccfffcdf4fa16b9aa7d22841152fc63d14f2992db"
+      },
+      {
+        "path": "apps/control-api/src/department-costs/contracts.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "d98409fc12960a0e572c66d761b9ce228d2ccd8ba44cf0b72da802938cedfaff"
+      },
+      {
+        "path": "apps/control-api/src/department-costs/contracts.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "f575e18d8aba35dc2dbfc255d6373da57d2e3cb90d8bbd6be8ce66d6c95a7bf6"
+      },
+      {
+        "path": "apps/control-api/src/department-costs/query.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "1dcfc2706afeb844b573c0ab40f25b1fd91ccc19471f77d9d603e073f0db684a"
+      },
+      {
+        "path": "apps/control-api/src/department-costs/routes.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "00391f84ae5dfef71f282a25e75579014b87c9b4f14b5550964702bf53d9a702"
+      },
+      {
+        "path": "apps/control-api/src/department-costs/types.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "cc9ab804f80f24dd921584be6109bd5a7cb32a13a3bc9063d874a10fa8c4b2a8"
+      },
+      {
+        "path": "apps/control-api/src/department-costs/writes.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "7462bf7bab8529614af9d3ba4da8adbc886f026426f2f231dd00bd1638cc0e69"
+      },
+      {
+        "path": "apps/control-api/src/directory/contracts.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "2d79786635b8360a0d588760d9009b290f9a699cd33f35cbca4d3b3735996c45"
+      },
+      {
+        "path": "apps/control-api/src/directory/excel.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "7fbd4c17d3147935648eab76b6830400e5d62473ff0da972b1b75716c670f84c"
+      },
+      {
+        "path": "apps/control-api/src/directory/excel.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "212a90dc5880680e312ccc5a14785b2d6a926c734875d8768220d0db47d21642"
+      },
+      {
+        "path": "apps/control-api/src/directory/routes.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "c30b562ee6dee3cc1f30a70510d6edf8d3791e568ec8f649276151bc1b34a410"
+      },
+      {
+        "path": "apps/control-api/src/enterprise-settings/routes.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "3158ced47d4828abe2d58f575f8d11c5819d56932922108f8840f8f8761a63ec"
+      },
+      {
+        "path": "apps/control-api/src/feature-flags.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "8325ec81bc2b194a96e8e88c699362798e8cc5be69645ee2c1edd9ee994470fb"
+      },
+      {
+        "path": "apps/control-api/src/operating-bills/routes.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "e56260f69dee26ca201140e3c051aa7dc47539251aacc211a3f785df6cf96ef8"
+      },
+      {
+        "path": "apps/control-api/src/principals/routes.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "8d52d82745027e89826f8d2bf2d3df5c82b18cc30099477d20bdbce715671667"
+      },
+      {
+        "path": "apps/control-api/src/providers/routes.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "3431cfb762cb2b9432c7a7f37fd8fd9fbb8267104865c0ddf6c7bcd4ca82803e"
+      },
+      {
+        "path": "apps/control-api/src/resource-insights/query.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "c2075c205fa911ae071a6cc18d8d3cf760655043e27aeaa38168286f352ac48d"
+      },
+      {
+        "path": "apps/control-api/src/resource-insights/routes.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "35459efa5366c28b56f295a034ac70a1b1470b0b2c9ef6466e13cf4aadc4590a"
+      },
+      {
+        "path": "apps/control-api/src/resource-insights/routes.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "b4d69581353e322cb545523619cea2c23301d1ca90a917467e63d3bdfa3d620a"
+      },
+      {
+        "path": "apps/control-api/src/server.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "9c4031b41ed0512de9e5a6f7eb140e1dd63936cb1413b2aacd263c546111d3e9"
+      },
+      {
+        "path": "apps/control-api/src/usage/routes.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "78768e3aabd8222b3643c1124d75b702bd16d8d696498b7e2a80b6f65452bca8"
+      },
+      {
+        "path": "apps/control-api/stryker.w20.config.json",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "05a01925f75339d68ca86f08bd5088e1d843f85662a72a120286ffbce7032565"
+      },
+      {
+        "path": "apps/control-api/vitest.w20.mutation.config.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "a4ab96711e6dec22f0d1e5eee471ef807759b9cf71592c8ac998542e6018af80"
+      },
+      {
+        "path": "apps/web/e2e/wt-web.spec.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "bf417fd392a050d15969e5b8442c3ba46197b1423b76513b7f89ff614037c00c"
+      },
+      {
+        "path": "apps/web/playwright.config.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "120777b8c35352c48fd0a813b72c7ebd05ad685f24ecf4703ee4e840a46506c8"
+      },
+      {
+        "path": "apps/web/src/api/auth.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "43af3ffaef5bbfcbbe9a17afd4fcd0d8ca707a4b9050bc511dbe093feab155a7"
+      },
+      {
+        "path": "apps/web/src/api/client.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "bb49b164f14a10df550c7e27db33cab22dd9a6cd5fcd901af8b0df082ad35f82"
+      },
+      {
+        "path": "apps/web/src/api/hooks.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "e1c9c6fcbd297acbf6a4ae3b4962c6739cf6e1ce90e1cc6683eda5cfa6bf58ff"
+      },
+      {
+        "path": "apps/web/src/api/operating-bill-accounts.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "af7161ba27c958152d0fe98118cc08ea8f4d2a1ad596a43c5390cb2f4d2c548e"
+      },
+      {
+        "path": "apps/web/src/api/reporting-types.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "5a9bb14ff0e7f7bc5fd3f540c4a64059ac9676e5aac109469c5e065029211ae9"
+      },
+      {
+        "path": "apps/web/src/api/types.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "07249ccde73e2a7a0e1466df915b8ed302529863927f617cbbea355acdf56ce1"
+      },
+      {
+        "path": "apps/web/src/api/v2-hooks.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "01ed66ca1684e2fddf3bc16152ef00deea0bd88818d5d27b4821249803f6723a"
+      },
+      {
+        "path": "apps/web/src/api/v2-types.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "bcdc8249837c8db8fca76ca14f6dba29b448c54acda486c5c69874ed79983911"
+      },
+      {
+        "path": "apps/web/src/App.pool043.test.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "c3cca6a96dc52da11ac609c41b59a99304b28a8fc6aff4cb22e67c894432f87d"
+      },
+      {
+        "path": "apps/web/src/App.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "ea8bfc2fc30125ed9647332226a6a0ad3a630ea042e71eb36babf03070be9f7c"
+      },
+      {
+        "path": "apps/web/src/components/dashboard/DashboardEmployeeUsagePanel.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "a5688bb6ecfd494e900eaa643b6344026b3d462c6a9d2bedaf52dbeb573beff1"
+      },
+      {
+        "path": "apps/web/src/components/layout/Sidebar.test.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "f3ee7104db40cb7bbbb8326991af39bec390a4df50820614fbb53eb85f6f77c1"
+      },
+      {
+        "path": "apps/web/src/components/operating-bill/AccountShared.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "052b6d077a7b2cb41db9ac6504b2f110d93fb522e0c7bb1da1feeacad39e41cc"
+      },
+      {
+        "path": "apps/web/src/components/operating-bill/OperatingBillShell.test.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "723fa23e82f5f31b09511e401a475a0434b0ef20685598c7d41573aec790fa42"
+      },
+      {
+        "path": "apps/web/src/components/operating-bill/OperatingBillShell.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "4a4730925e9fdc18c4145c821c37d4634d17fc5d29449e3f1625902332bfea52"
+      },
+      {
+        "path": "apps/web/src/components/principals/DirectoryPanel.test.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "4c556e8e1241f90fb46e8de1bf593a99df3ab3e133f4b6a13e1078b11db3e327"
+      },
+      {
+        "path": "apps/web/src/components/principals/DirectoryPanel.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "47df1abb9e7daf968753123d23415fedfecb1779b6e70826fea3a1ef97e0279b"
+      },
+      {
+        "path": "apps/web/src/components/quota/DepartmentBudgetEntry.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "bb05aa635cdb791cc1258b8574c4a87a0016cbc4be4ec5240aca06612e4955e2"
+      },
+      {
+        "path": "apps/web/src/components/quota/DepartmentBudgetPanel.test.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "538b84ab24b657300825a739abb5321405c4fec06b43c9ba85e89ff2453613ab"
+      },
+      {
+        "path": "apps/web/src/components/quota/DepartmentBudgetPanel.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "354a5da76c3d65ae2148f4af8a1c6f0ab6a4483bb2ee9dc0802e3aee20395bf8"
+      },
+      {
+        "path": "apps/web/src/components/RequireAuth.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "369b1b950bbecd25877bf67221be10f727a49c476b8a67739c6ebc572aedb16e"
+      },
+      {
+        "path": "apps/web/src/components/resources/ResourceUtilizationPanel.test.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "422c213595761867bb1ec62402315b7c982773321850cd8acb7e8906337a2c0a"
+      },
+      {
+        "path": "apps/web/src/components/resources/ResourceUtilizationPanel.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "80a7fc2d223f87f0063ade3f7114d557dd6eac96f9c64f9355150c6bf8e14c92"
+      },
+      {
+        "path": "apps/web/src/components/settings/EnterpriseSettingsPanel.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "9803502358c8bf1452d73737146850633a7407577179cc0fba8e768c3be01b10"
+      },
+      {
+        "path": "apps/web/src/components/usage/UsageOverviewPanel.test.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "b34c54d25c7dfa0e5a5ad544403a69e9aac9a34b5be1b86f58d6b55bb39dd3bd"
+      },
+      {
+        "path": "apps/web/src/components/usage/UsageOverviewPanel.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "03874ce8a0ab09a40270c1f12325273b34e8d6eb62bc7371ef9bca46be70a329"
+      },
+      {
+        "path": "apps/web/src/components/usage/UsageSubjectPicker.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "f789698f1ae8bebf9642179b0b28b246ca4429e5fd6e7c50a4e17b90c7d2eb6f"
+      },
+      {
+        "path": "apps/web/src/feature-flags.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "d8bc6d06a17c573af9f4b060a1eafd7a8b46e295460ae8eb109539fa6272cfc6"
+      },
+      {
+        "path": "apps/web/src/feature-flags.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "4959819f6123e461cb9c81cd808a6f48a977365dced45c61f5a795365ce451ec"
+      },
+      {
+        "path": "apps/web/src/pages/Dashboard.test.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "c2ef37045a3a274723f1de81a56d9d98eece0b937c1075e8a255588088444db3"
+      },
+      {
+        "path": "apps/web/src/pages/Dashboard.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "22b3e2e6ee01faef50009b597c8e2e422791806f749af96e0c274162d845418e"
+      },
+      {
+        "path": "apps/web/src/pages/OperatingBill.pool043-routing.test.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "701cb710a1fe3b2f5308bedc4076b327a860c273934b30ff2c2b59447240eaac"
+      },
+      {
+        "path": "apps/web/src/pages/OperatingBill.test.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "532293302becd4b88cf806642ef5fe5ab2ebb47314d42a185499637d5853be58"
+      },
+      {
+        "path": "apps/web/src/pages/OperatingBill.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "f2c80a656c35c7a0f9a9197975e9a8f4d678b5d44e7184eae870a20fba29d1b6"
+      },
+      {
+        "path": "apps/web/src/pages/OperatingBillAccounts.test.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "2d50d325c85b4bd7edc1517356abe23f3c6f590288501e9a2ee52d66144a4140"
+      },
+      {
+        "path": "apps/web/src/pages/OperatingBillDepartments.test.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "32b71e757a3e5e9f09f079fcf0b9a06800334bda1d265a68c82e9da6b1e3979a"
+      },
+      {
+        "path": "apps/web/src/pages/OperatingBillDepartments.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "aa537e63f8ccc3c481ff66765c6cfbcefed01c3537371085169b7f7c63a4dc2c"
+      },
+      {
+        "path": "apps/web/src/pages/OperatingBillProcurement.test.tsx",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "11cc57482836ddfda8518e37ab91c0340fbb3db6f5fbd6d8ce0681ee39fe4313"
+      },
+      {
+        "path": "apps/web/src/pages/OperatingBillProjects.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "a502030566e66ac0691926c17d71c317fb910a9ad12bcfdaa0f16a101b2b9ef2"
+      },
+      {
+        "path": "apps/web/src/pages/Principals.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "0b4c849c17b612e637371ece590f25de5f6deb4351e9524de9cc68761e3404ba"
+      },
+      {
+        "path": "apps/web/src/pages/QuotaRules.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "6dfe37fd9fbd79a89b6483996faab5f42be81ec802e93481a148298aec7c108b"
+      },
+      {
+        "path": "apps/web/src/pages/Resources.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "5c2ee6d6388ed247243bb19c5191d4f9d1e4b1feb1182f0e7e6de57e4f219a93"
+      },
+      {
+        "path": "apps/web/src/pages/Settings.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "9256b831a15f605cd168b04aaa1db62c3826e3e44eba6cad1c93e08fe59e8e0b"
+      },
+      {
+        "path": "apps/web/src/pages/Usage.test.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "15664fe78013072faa11aa908a84ca685bef5decb3303b01faa7847a78cc79c7"
+      },
+      {
+        "path": "apps/web/src/pages/Usage.tsx",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "c11f3f936e91de87a42108c624d8765fe20fc78554b1cdc94c7ad0902cd270e4"
+      },
+      {
+        "path": "apps/web/vitest.config.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "1285645051b639d3508784098841e6825e66c9c1a81acfbc053050a51d5850f6"
+      },
+      {
+        "path": "apps/web/vitest.pool043.config.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "9d8e75af45262e8812eb350edfe6e8f6ba69e9449310cbcfb40263e33f7529f1"
+      },
+      {
+        "path": "apps/worker/src/__tests-integration__/directory-sync-worker.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "2695deacbca18318799809af0a8fde25e10a98c85ab7392687c5929ac91af47f"
+      },
+      {
+        "path": "apps/worker/src/directory/connector.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "3565e51b20c91924a00c8f59dc58d7ee8255520d650190f5d8e5a836e4a51bef"
+      },
+      {
+        "path": "apps/worker/src/directory/connector.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "309ba7d10f8092383cc4af361dda7424ed2e1228e5faa1ab8ccc221ab52deccc"
+      },
+      {
+        "path": "apps/worker/src/directory/feishu-connector.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "f10a9539a9c9f7baea66d1277493d21628b527a32db58306e9ea72d381567b9c"
+      },
+      {
+        "path": "apps/worker/src/directory/runner.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "716febc438f2563df7ebc085bd503ac1235b568701382d380e809b916876fb20"
+      },
+      {
+        "path": "apps/worker/src/directory/wecom-connector.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "a3f33a0d212a6adcacd6332196d3bb283579fb0e7539d449a92c20b9264535a2"
+      },
+      {
+        "path": "apps/worker/src/main.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "908871568551cbe55a2deb1a8a4b3b5a3f73ce3549dd0b4b4b6544df9eeb9790"
+      },
+      {
+        "path": "apps/worker/src/usage-aggregate/runner.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "7e15a42dff649aa8530dba2b23154b1c3b6a79ad3335b8953d47cc84929cedd3"
+      },
+      {
+        "path": "apps/worker/src/usage-aggregate/runner.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "39ff8e6e32f052597843208ae122da7a30a623208ebbff3a9b60f65d5b49eef6"
+      },
+      {
+        "path": "apps/worker/stryker.w20.config.json",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "a318d9b251bc7d29d548756f35648f99a72dda67a9541464ff0c46cc89289d87"
+      },
+      {
+        "path": "apps/worker/vitest.w20.mutation.config.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "d6b70a862a5e5bb4e428d0036d8e20c723d770021ea4e7ef9596a94e1edf9d62"
+      },
+      {
+        "path": "package.json",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "6527ed16d7c1994507103ea38ace1f44bb4a66610e8afa57c9e384e39a3ae8f7"
+      },
+      {
+        "path": "packages/config/src/__tests__/config.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "0ecf8d69df4298c4f3a2d96470581e5697a55c74317b6e36a0a98c850318f5d2"
+      },
+      {
+        "path": "packages/config/src/index.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "622dd37e50686b62ce73c8dddf2aadce5020ee4a3255d3570c3a2a1314e2224e"
+      },
+      {
+        "path": "packages/database/migrations/0046_directory_import_foundation.js",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "af9e36e000f434452e3cc237fc6c36b491e9be6944d2ac39ab18cecff90e1a75"
+      },
+      {
+        "path": "packages/database/migrations/0047_usage_bucket_aggregate.js",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "8051824c9378a68129be29f1af8540d483d025ad9001c90cf36989d44fdb42b7"
+      },
+      {
+        "path": "packages/database/migrations/0048_department_cost_budget_and_purchase.js",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "53bb7ed0d905ccd964f6577b40806cd0a0233cff449504755ef5c17ab8e71d75"
+      },
+      {
+        "path": "packages/database/migrations/0049_resource_utilization_and_procurement_review.js",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "d251c5a2e50b19664347d092b4a55fc18df0f8a99e149b8335b0c615c848b18f"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "f58d97646307fb89b5ea6de07a73f77e3ea37029a8a1652a4c9c11c7a37c68bd"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/directory-repository.integration.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "9f74cd1dc7f922c16912aac732b5f97e17e2043c7d9ddb6becacc1997a9f901c"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/pool043-model-identity-migration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "a73a33c2e80dfa3e891d91e15bbec69d8e0030bcde73750a30042461b9dec332"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "0892ccee326e77ebe9dc5f6109cbb80781f9a625a026703586b33f28d2d92797"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/pool043-operating-bill-concurrency.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "b066ccb6e3b1c71d25263f66d1183ee8ccd4eb79d87f444183325d8e5734f3b8"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/pool046-zhipu-window-alias-migration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "ea5fbe35a4a3567fa079f136d435cea647187b68a80c63aff5cbcbd59fee898a"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/principal-key-single-active-migration.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "84ad20da92fffa831fa687fbba37134a1c448c394d76e97e81797030297bed54"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/runtime-assurance-foundation.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "bc3b723b70934e55ae44e54832f9ee7bf542640bcabf182ca22f1d0757dddc44"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/usage-aggregate.integration.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "0675b754785d504430d0096c95fe66d161d092fcf2a50ddf79e75f03193cc5a8"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/usage-overview.integration.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "2708f7fb0e5bf5929d36eebe70fad99f183a03061fad6e06cf78493892328b38"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/w20-final-migration.integration.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "afde0ce362c216162e67f49f2512ed66c4645716907ec649de72846cad126ccb"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/w20-resource-procurement-migration.integration.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "8e642773eec3f01d8c6276e12b361ab66a32b5c9f5ed7aa77e4e8ff93faa5daf"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/w20-standard-capacity.integration.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "9af73969a36d4df507c4aee39b5fd06fd707e3468ab435107070b2709a75eca6"
+      },
+      {
+        "path": "packages/database/src/index.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "54b9bd9adf92f9de6ef1de84e867215700f32f21f2d4f2f1b1a9d53bccd5a799"
+      },
+      {
+        "path": "packages/database/src/kysely-directory-tables.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "faaa48e8b3e541e6b974b208f01704ce7775b84f9523530287f8af743bf70748"
+      },
+      {
+        "path": "packages/database/src/kysely-w20-tables.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "6735e1231cd2ca5165c1fa7e4addb06e80b1edc7fa8f852b6625d55629f510ca"
+      },
+      {
+        "path": "packages/database/src/kysely.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "224841645f3fd25c0204438bda7ff46c19369636dc9b9392180e348fda284ddc"
+      },
+      {
+        "path": "packages/database/src/repositories/admin-write-repository.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "4bc2cfd3430368b78f524c37642998241ee9a89100dbe4c693297cdf1dc7a29f"
+      },
+      {
+        "path": "packages/database/src/repositories/alert-event-department-budget.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "ed7755d079825daac49b0eca7198b458f0f9c6091004f34f1808d38e9c9b4ef4"
+      },
+      {
+        "path": "packages/database/src/repositories/alert-event-repository.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "785a6c6e0604c20815768beaa4526f02367d1bb0fc7887606345cafc617775e1"
+      },
+      {
+        "path": "packages/database/src/repositories/dashboard-repository.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "4df3273cc63d9cf59dc441701a78f7121089baaaf6376a6c05a66994ca1185e4"
+      },
+      {
+        "path": "packages/database/src/repositories/dashboard-types.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "23918eb46089b97c2ca649886161de6cd99b530af3d34a5ac9f8f3a088a8ffa0"
+      },
+      {
+        "path": "packages/database/src/repositories/department-cost-evidence.test.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "4a724626fd7879fe5210c37b50ea9f8708903e5d5ee74ce07372d8af0086019f"
+      },
+      {
+        "path": "packages/database/src/repositories/department-cost-evidence.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "18c9fdf605dae913b1fcbf65a9799becac330908471bc1113498ea2d43abe0b6"
+      },
+      {
+        "path": "packages/database/src/repositories/department-cost-read-model-query.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "f2c3180b4027d27cb31cd4df683b76d1543ad4a260d308ccbd2dd86985f91652"
+      },
+      {
+        "path": "packages/database/src/repositories/department-cost-read-model-rows.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "b92a31e145908314fa31df6554135990e3c881ab138c12661b0da402bcbfe7ac"
+      },
+      {
+        "path": "packages/database/src/repositories/department-cost-read-model.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "f1ef7c9aba1a92954788747787f029fad42f3f7cf4fb415b4e61e54e760bea20"
+      },
+      {
+        "path": "packages/database/src/repositories/department-cost-types.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "4dfb731c52800f05838df5755fed51697a833e5240159bc66708a6835f4096b9"
+      },
+      {
+        "path": "packages/database/src/repositories/directory-import-apply.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "8ae683f4a36c8ae7754ca15fc493ed45a9979be1ab06c210da1d29363531e1e8"
+      },
+      {
+        "path": "packages/database/src/repositories/directory-repository-source-run.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "8fdc8d242afa71a3ca93c00570218ba5ba2fb6d7a2ea8d02aa86eb2567eef5c8"
+      },
+      {
+        "path": "packages/database/src/repositories/directory-repository-staging-validation.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "1767298be2574ea9cbb2d32e2bfa219fd71874de985e6637d2a1e75a78398dbf"
+      },
+      {
+        "path": "packages/database/src/repositories/directory-repository-types.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "226c0c7e92d716e05481ae78dab1cd1b3af525a8d11ba4666b181209aacfeefc"
+      },
+      {
+        "path": "packages/database/src/repositories/directory-repository.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "5b49c8ed531ecf9e18872c2e8ed1e0011a27cf99062b25d20a9d565e212e0512"
+      },
+      {
+        "path": "packages/database/src/repositories/gateway-ledger-guarded-writes.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "0b887b23ada4bfe7893bcbb12903b47ab6e79c09e6f579585a4153a94f5c3824"
+      },
+      {
+        "path": "packages/database/src/repositories/gateway-ledger-settlement.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "10a3b9acddba8f4f238bb0ab5469f9b280ee6b17f0239b5ff0179a2e33e15c3b"
+      },
+      {
+        "path": "packages/database/src/repositories/gateway-ledger-terminal-rejection.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "b3561dcae5fe141d6ffd0bd9aa0c29e74da6adfd6df377b345042cc549c99360"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-account-aggregate.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "ea74b56a6ebe214d7c3773366a8beb98680ab6a8a2c1b9b3825359d634595dab"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-account-aggregate.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "049faf54043911db73fce9f0d2a2748ada8fd1fdcb18b22ea8b211a7fc8ceccb"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-account-frozen.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "39c310d83591fd0c4e6e75f19790bff0f5528fe50e08cfdbf406f7930a44d6b1"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-account-live.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "7a303154a03a017ce9a811893e0ec681db9891eb91b7c738edcbf8960be0011f"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-account-types.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "71185939780ece6dc80aef4e21777b54135503d9c29eba0558c865fd6d1b3191"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-project-attribution.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "5216571c9efb3cca7ca713d59e1cbbe6a486abef56a7a0c186ff1147a96ca0f2"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-project-metadata.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "0ad2450bc3309df5287a6cf91d28e248280d954a67e92c4b7816aa37e45dfe1e"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-repository.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "61644f18988738c931b05456afd8f432b7cf072f1bdcc6c19dcf124fdf1e51ef"
+      },
+      {
+        "path": "packages/database/src/repositories/operating-bill-types.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "6231cf0a072320b7a36ea7d3de9af1bb1a1972dbe83d2656d3aacf9700df0fea"
+      },
+      {
+        "path": "packages/database/src/repositories/principal-repository.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "9f48f272d1f0958be734af4232ca6edc391a69e011fab70038f817b4d4eeb66a"
+      },
+      {
+        "path": "packages/database/src/repositories/request-attribution-writer.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "2c0d9c75faac8c44eb6a332cfd7717e67cff4eed8731d0faaa77364ef1016161"
+      },
+      {
+        "path": "packages/database/src/repositories/runtime-assurance-repository.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "766c6d225d7d8267031a02153e7484acd42cac862b62016d027ffdd6a56dd775"
+      },
+      {
+        "path": "packages/database/src/repositories/usage-aggregate-rebuild.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "21d2dd4f4074987593fe2f669272826d7f19a8513f2a4ed303a074e71a329809"
+      },
+      {
+        "path": "packages/database/src/repositories/usage-aggregate-repository.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "de1bce67f3ef908e50dba6330e6628ed56ff1060e1081d76debac624c568fab3"
+      },
+      {
+        "path": "packages/database/src/repositories/usage-overview-facts.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "b68518e390bc33b8e90e7ed1e6c2af4ff91dff8d7ea7c813017a854efc8cdf4e"
+      },
+      {
+        "path": "packages/database/src/repositories/usage-overview-repository.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "0915332686eab9c8f08f2e668408ed6781cc2fd72dddc104b29a1e22fe669b29"
+      },
+      {
+        "path": "packages/database/src/repositories/usage-repository.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "84f9891d731d1b082c6b142b9b7ca1d3b867b5a7d25fe06941ddf7f697355b60"
+      },
+      {
+        "path": "packages/database/stryker.w20.config.json",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "28455c8ade4f32d5075a16f27561c458aa1b825e040b570a43b0deb8948cf0a1"
+      },
+      {
+        "path": "packages/database/vitest.w20.mutation.config.ts",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "2d07bca70c181fb3e336a55cea9664eb9b631c4966397a702c4b36b3be42eb6f"
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "ade8a028cfbcb22e2fb4f7c5e82c223ec9cf75f8373c8790157405512515e3c6"
+      },
+      {
+        "path": "pnpm-workspace.yaml",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "0297435b85be497ff28bccc11442ffebb46ebc163bf1a92081d5e8c9f28522a7"
+      },
+      {
+        "path": "scripts/check-licenses.mjs",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "12ddab4142381655bb70ee14d63b46b8d007522a969e720acb9fc675e68131ab"
+      },
+      {
+        "path": "scripts/create-candidate-lock.mjs",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "777c0081f1986cfcfb812d0ad7b305aebbc11a27308dd732b9751ae6fa6afed9"
+      },
+      {
+        "path": "scripts/run-bounded-vitest.mjs",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "9586eec8b952b46ba2e5e0aa24a710dd1a7fff64a4baa398d48934415dc5ced2"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/01-git-runtime-baseline.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "5f5619eee4b5ba047b4271fd7a26665e85ce701f2f6f64eb20cd88ba67276a06"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/02-migration-test-inventory.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "c07f5cf0c3975952e8d24093747d2c7037d5b085a9fbd3baeb9883c352df54ed"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/03-v1-regression-checklist.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "a7d68d3082f2bc67b3318b797179311efaae7b03462467ee6de80701c70b3ce3"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/05-test-execution.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "8f75362dc178308aba9809905d30dd39993c56f26fae1cddfb5b693306a9310b"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/candidate-files.sha256",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "d987a0417baa29940da4d24fb5d190f728df10505abbaa76071ca850d260d63a"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/candidate-lock.json",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "85363d72505041889f662f8537d1fd039d2ecc68a093560b475149b43e62c23c"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/E-W20-01.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "2ed81d92c07d1ba5370b3c67cd591c06f72f68d6a8cf60b2071bee0bbdccf693"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/fixture-contract.yaml",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "00c15ace11f253be7ca52a2ffd9d1bff2c2d2131c35c72be6df0282703df02d7"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/PC-20260812-04-proposal.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "069b8e16cbd7b5e7bb5a887e1a8f45cfc74880cfed90aa5c24a80214d5de15d7"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2218-baseline-verification/state-delta.yaml",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "4a892b33e6444664c2df7504e535785916d81f650ce50f53886c913e67a8c060"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2255-final-bounded-vitest/bounded-test-result.json",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "a5986e1bb7feac504a66f13ffae481a20dbe6a59d925a54082141e1ed7596243"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2255-final-bounded-vitest/end-time.txt",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "453f7c728d5632a6912b6f66c54d4ac9d6a3c7bcccdb3d4c168b987104381f5e"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2255-final-bounded-vitest/exit-code.txt",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2255-final-bounded-vitest/git-status-after.txt",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "6ae3bf1200fa2346a6b1323a5ac030868de25984a96f2a9a5e97b76b84bc41b3"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2255-final-bounded-vitest/git-status-before.txt",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "6ae3bf1200fa2346a6b1323a5ac030868de25984a96f2a9a5e97b76b84bc41b3"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2255-final-bounded-vitest/start-time.txt",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "e6db46087d58337822fd688835861d9bf7059a65e4c27f8c8a19726f72697b35"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2255-final-bounded-vitest/testcontainers-after.txt",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2255-final-bounded-vitest/testcontainers-before.txt",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2318-final-e2e/playwright-report-rerun/index.html",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "08ddebd4d5dfcaad4daf842540d70d58175b431a102673763680b24c71c52455"
+      },
+      {
+        "path": "V4/Evidence/M20-0/W20-01/20260812-2318-final-e2e/test-results-rerun/.last-run.json",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+      },
+      {
+        "path": "V4/Evidence/M20-1/W20-02/20260813-0336-directory-import/E-W20-02.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "e7467ec699ed0087b2ac951e78ea47656458ab53d43ad39401af9933e2d2fdf7"
+      },
+      {
+        "path": "V4/Evidence/M20-1/W20-03/20260813-0336-principal-linkage/E-W20-03.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "67972b6e94aee565acdf899c8a944ad87a105406e1d5dfd6a1cce8bcf0f6e79e"
+      },
+      {
+        "path": "V4/Evidence/M20-2/W20-04/20260813-0336-usage-aggregate/E-W20-04.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "98ffb787bd284e2cc65a6a56d705bfb33c27d3c7ae1a29d17d676729395479d8"
+      },
+      {
+        "path": "V4/Evidence/M20-2/W20-05/20260813-0336-usage-integration/E-W20-05.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "02b36c681fb387bd83ffe508219b0b763ef92077a96e15bc17ef87ba1cf8a8a5"
+      },
+      {
+        "path": "V4/Evidence/M20-3/W20-06/20260813-0341-department-budget/E-W20-06.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "44984230d1e60ba1dbb4f1c569c3064e00f001af54a6324afc14da53fd319217"
+      },
+      {
+        "path": "V4/Evidence/M20-3/W20-07/20260813-0341-cost-attribution/E-W20-07.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "179d979ce54878ef9dd0ad2f9b71548c0eca4b7d2e315fd92f8ab422d94a2d33"
+      },
+      {
+        "path": "V4/Evidence/M20-4/W20-08/20260813-0341-resource-utilization/E-W20-08.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "b6f164bbb2926a90694ab07265d1e68a88b4179d74aa5f11d84a61f17f2b6124"
+      },
+      {
+        "path": "V4/Evidence/M20-4/W20-09/20260813-0341-procurement-review/E-W20-09.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "7ce0d8f7558b7249496562c4c8365035670520f2313f2123aa40bce0d9540cd4"
+      },
+      {
+        "path": "V4/Evidence/M20-5/W20-10/20260813-0337-final-candidate-verification/E-W20-10.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "425ad787263614124ff1b96f082f115899cf6a5aac55dc3ff4fb25847b8f0a67"
+      }
+    ],
+    "tree_manifest_sha256": "8767afee9bd19af9fc141d26c39301528918a1307d46941c2251e7883d088865"
+  },
+  "migration": {
+    "head": "0049_resource_utilization_and_procurement_review",
+    "count": 50,
+    "manifest_sha256": "1b1222720614cd5322507b10af676ec45e42f83a41a7d64bb967e144c23ff6ca",
+    "files": [
+      {
+        "path": "packages/database/migrations/0000_baseline_probe.js",
+        "sha256": "130bfefb16681bcc418558e29e66f19354920004d40374bd20e7b7fe5f8ffaa6"
+      },
+      {
+        "path": "packages/database/migrations/0001_enterprise_admin_session.js",
+        "sha256": "b6d8e512221c935dd1620dbb3b78fc10c299257cc4720976c3e5add4c41540a6"
+      },
+      {
+        "path": "packages/database/migrations/0002_principal.js",
+        "sha256": "22e8954c9f6004859fe75fc2145531afbc680efc656f470e578a7469ba46d088"
+      },
+      {
+        "path": "packages/database/migrations/0003_principal_key.js",
+        "sha256": "6d531f5d2a94ec07a00ae3b0d74786042c69d03f27fbfb03d07c505b856d01bd"
+      },
+      {
+        "path": "packages/database/migrations/0004_principal_grant.js",
+        "sha256": "7b6191648cf07eac451cb074c645a16bd0897b07b5a1e528fb7a25b4a4dee9c3"
+      },
+      {
+        "path": "packages/database/migrations/0005_provider_resource_route.js",
+        "sha256": "abbbd9d12bee1acf8febb16ef843d822186b4266f5056d4f67ed3e40502eebd8"
+      },
+      {
+        "path": "packages/database/migrations/0006_operation_log.js",
+        "sha256": "f8a3f09b15dbef4573bbe91618f0141ed3c0eb88b41f1aca578faad9a6be7dca"
+      },
+      {
+        "path": "packages/database/migrations/0007_gateway_request.js",
+        "sha256": "58daf8027d9a6e9eec47edf8228fa1e3a3cb1c998cc0330c9c5c6016cf1212ca"
+      },
+      {
+        "path": "packages/database/migrations/0008_attempt_usage.js",
+        "sha256": "b2423d234e7ffda5f7c395bccf438fbb05ee34f800d7bdc39263a9220647472b"
+      },
+      {
+        "path": "packages/database/migrations/0009_ledger.js",
+        "sha256": "f9d53a9d84bfc7f442f5d44075b4d2827fbeaab60e89ff6c6a98e216bc17e1ae"
+      },
+      {
+        "path": "packages/database/migrations/0010_resource_credential_lifecycle.js",
+        "sha256": "97fbce7505e132e19ae9741da625591ba3131e2349d1a4b855ebd7c33822490a"
+      },
+      {
+        "path": "packages/database/migrations/0011_billing_rule.js",
+        "sha256": "1f085ec37535cc5bc7d614af9f7cfc0fc12ba9e7890541e6a7bb281bff493c55"
+      },
+      {
+        "path": "packages/database/migrations/0012_concurrency_lease.js",
+        "sha256": "55297c198f873eb2ec3e6f94a775887d965d44823e21a6491fff996ca77a6b0e"
+      },
+      {
+        "path": "packages/database/migrations/0013_supply_forecast.js",
+        "sha256": "2e19ba38e77e3d8885bd821474023affc6381100e146b8093df22ca6902c92d7"
+      },
+      {
+        "path": "packages/database/migrations/0014_dispatch_policy.js",
+        "sha256": "bbc65f225f73215401fe6b0fd63884a29bc7111ef7081dc940a58f2651bfca8f"
+      },
+      {
+        "path": "packages/database/migrations/0015_reconciliation.js",
+        "sha256": "d719ec5dc62b3c8790641c854b10a06d0020340bfbadec1cf97a4c254e80c54e"
+      },
+      {
+        "path": "packages/database/migrations/0016_alert_disposition_type.js",
+        "sha256": "1607b4eaf252b2ec831d25fa26fa752a9442566c7c53658182313c19cfb64be0"
+      },
+      {
+        "path": "packages/database/migrations/0017_alert_event_and_version.js",
+        "sha256": "e21b5d03bd8223de9c413cbfa74ee6e261a018b8a6cda73ba14c79b618c99e61"
+      },
+      {
+        "path": "packages/database/migrations/0018_billing_rule_version.js",
+        "sha256": "326c5b8e5b5fe5caab94155a024dfea89f7966f537b1ae760c08e8aa64696a7a"
+      },
+      {
+        "path": "packages/database/migrations/0019_alert_source_clear.js",
+        "sha256": "c213086a12771f629ce5c96194e40c6ea92ddff5a0b58aa853313b9e2d32d29f"
+      },
+      {
+        "path": "packages/database/migrations/0020_p0_billing_snapshot_and_reasoning_usage.js",
+        "sha256": "9db350ed63198bcf575946d5d276f65b914ee825644dc2ff9539d19cdd7e900d"
+      },
+      {
+        "path": "packages/database/migrations/0021_billing_rule_multi_windows.js",
+        "sha256": "e229963f30afabbb732d2be738d1c561d975dcdd0ff17744d688c378e91f5a96"
+      },
+      {
+        "path": "packages/database/migrations/0022_principal_key_minimum_model_permissions.js",
+        "sha256": "588ce80a37573e4db97d8cd877cac7c0a6bc3c02639ed3d0afa13af180df2b18"
+      },
+      {
+        "path": "packages/database/migrations/0023_principal_key_single_active.js",
+        "sha256": "c6db7a81d618fce16534c95d26e2c4054af20c98f44f2cddbb0dcbb0b973b88a"
+      },
+      {
+        "path": "packages/database/migrations/0024_gateway_request_idempotency.js",
+        "sha256": "f8f30b2dea1bf5eaf359981367ce721985861c93d33a94681705c537bb1e9a89"
+      },
+      {
+        "path": "packages/database/migrations/0025_principal_archive.js",
+        "sha256": "0d7df71b1b153a934d4f4210b8a18ae57a6da904b9a99188adfd840505fc86c3"
+      },
+      {
+        "path": "packages/database/migrations/0026_provider_resource_operating_snapshot.js",
+        "sha256": "cbd3e75444a004976311f6c62a39c04141b8c6768ab238e384ce9123ea30428b"
+      },
+      {
+        "path": "packages/database/migrations/0027_usage_ledger_filters.js",
+        "sha256": "778a67e516b389c6258010274b9f923dbf79bfa2e45380381309d01ed6eb260a"
+      },
+      {
+        "path": "packages/database/migrations/0028_enterprise_reference_guards.js",
+        "sha256": "8d41e86545a3a0a0ac4d1194cc55da4f1602e5b05d2ba3e3aebcb9b2d085430a"
+      },
+      {
+        "path": "packages/database/migrations/0029_provider_quota_auto_calculation.js",
+        "sha256": "2e5127f59154ce5cb42c5ad6921b56c6b250a87cf9226fc690152a22f03677bc"
+      },
+      {
+        "path": "packages/database/migrations/0030_runtime_assurance_foundation.js",
+        "sha256": "480612e93b15f1b54ffec11de2d149c2826999488bfc15a4e02954b1bf2feab6"
+      },
+      {
+        "path": "packages/database/migrations/0031_gateway_stream_resilience.js",
+        "sha256": "9fcb5fade54f6ef0d88a6ffb31c8ca6747e756ba6b9e1dc870820d8996e75cd4"
+      },
+      {
+        "path": "packages/database/migrations/0032_admin_lifecycle.js",
+        "sha256": "7d5f811d95429505bde41fd3811ae1c2de0c1f6ef63ebff2fdcb1c120afba21b"
+      },
+      {
+        "path": "packages/database/migrations/0033_operating_bill.js",
+        "sha256": "7767bcf9c3af7d13f235612791cd009194dbf4fb71c421988c9513853a766255"
+      },
+      {
+        "path": "packages/database/migrations/0034_supply_forecast_production.js",
+        "sha256": "997ba47e6993f2e8d5ccbc317a421d33f4dcdb5b39fac21fac020ea1e252a64f"
+      },
+      {
+        "path": "packages/database/migrations/0035_deployment_log.js",
+        "sha256": "2d24226dff74893940baa3faf70170069280726d548c3a16e4b6ce7b8e1c4911"
+      },
+      {
+        "path": "packages/database/migrations/0036_provider_model_discovery.js",
+        "sha256": "8a6ccccf7df44b6838a51b2e14c687b36ca11da46b3882273aafe3b5398a3050"
+      },
+      {
+        "path": "packages/database/migrations/0037_client_identity.js",
+        "sha256": "216ea1f39dce53f4b85c90974925c160ced2b56d952174d69e82d1e8016344ea"
+      },
+      {
+        "path": "packages/database/migrations/0038_employee_model_authorization_rule.js",
+        "sha256": "1e2fca1c50a9edb748d909ae631d7da1ef2cbde83f438e0fd9cff25fa8ec4f33"
+      },
+      {
+        "path": "packages/database/migrations/0039_principal_provider_pool.js",
+        "sha256": "6512672ac059fb5daabcb8c0b64e40990bb0773d60a6329afe09f8448caea74b"
+      },
+      {
+        "path": "packages/database/migrations/0040_employee_model_rule_pool_quotas.js",
+        "sha256": "4df4ce112c67aa030c3f1c21db5ad3efb3bfd7b0dafde841d6956ce17d1c9993"
+      },
+      {
+        "path": "packages/database/migrations/0041_provider_quota_window.js",
+        "sha256": "9ed075abbd71fb362d942cb4e45d393d9a87a54f56c4fa3580d8a7335bf68aad"
+      },
+      {
+        "path": "packages/database/migrations/0042_alias_ql_format.js",
+        "sha256": "27270cc00f5598b7c3c52484777596c7e5326efef0cffcad6c06b2e98f1f735c"
+      },
+      {
+        "path": "packages/database/migrations/0043_single_owner_rule_history.js",
+        "sha256": "f116a7309ad580b8593332ebadb5cb9d742891d4c738dde4a83354ce6fc207af"
+      },
+      {
+        "path": "packages/database/migrations/0044_operating_bill_model_identity.js",
+        "sha256": "6e56824f8aac8cd29f8bd7c33260a51d69dacc1f20ed181489a8d84459218ea5"
+      },
+      {
+        "path": "packages/database/migrations/0045_zhipu_weekday_window_alias.js",
+        "sha256": "74ae28b311dfe486ea2e9bddbb7371c1f52b90099d2e07c2e29a6147eb15f1ff"
+      },
+      {
+        "path": "packages/database/migrations/0046_directory_import_foundation.js",
+        "sha256": "af9e36e000f434452e3cc237fc6c36b491e9be6944d2ac39ab18cecff90e1a75"
+      },
+      {
+        "path": "packages/database/migrations/0047_usage_bucket_aggregate.js",
+        "sha256": "8051824c9378a68129be29f1af8540d483d025ad9001c90cf36989d44fdb42b7"
+      },
+      {
+        "path": "packages/database/migrations/0048_department_cost_budget_and_purchase.js",
+        "sha256": "53bb7ed0d905ccd964f6577b40806cd0a0233cff449504755ef5c17ab8e71d75"
+      },
+      {
+        "path": "packages/database/migrations/0049_resource_utilization_and_procurement_review.js",
+        "sha256": "d251c5a2e50b19664347d092b4a55fc18df0f8a99e149b8335b0c615c848b18f"
+      }
+    ]
+  },
+  "configuration": {
+    "manifest_sha256": "52eb983ed1fd02f7182b02a4e4c235d5744108d2df3e33babfb3b03fa0fa3a20",
+    "files": [
+      {
+        "path": ".env.example",
+        "sha256": "39600b3cfeddb25f89fead781d37a86c9a464495b533893e40c237d9401dd12d"
+      },
+      {
+        "path": "apps/control-api/Dockerfile",
+        "sha256": "9955e37eabe8b38330a47741a2af8a8794f0b1577ea939373c38c28fd77474d8"
+      },
+      {
+        "path": "apps/gateway/Dockerfile",
+        "sha256": "9ca2c998ec3e86a5b3a4c0fe18c42bf16e6be1ae55bb487891ae84b5bcf77247"
+      },
+      {
+        "path": "apps/web/Dockerfile",
+        "sha256": "d648856513e3f606bdf5f398d9410513763d2ef2ab38223eeb74fef4b0eb16de"
+      },
+      {
+        "path": "apps/worker/Dockerfile",
+        "sha256": "cc40df8690f9aee533081ff0b165cc8eb76e01b93d7641fa88926a69c1aebd97"
+      },
+      {
+        "path": "deploy/compose.yaml",
+        "sha256": "d879661443997680f0236e0e0f231cf367e484b870f21545ff1023b7f7c75fee"
+      },
+      {
+        "path": "package.json",
+        "sha256": "6527ed16d7c1994507103ea38ace1f44bb4a66610e8afa57c9e384e39a3ae8f7"
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "sha256": "ade8a028cfbcb22e2fb4f7c5e82c223ec9cf75f8373c8790157405512515e3c6"
+      },
+      {
+        "path": "pnpm-workspace.yaml",
+        "sha256": "0297435b85be497ff28bccc11442ffebb46ebc163bf1a92081d5e8c9f28522a7"
+      }
+    ]
+  },
+  "frozen_inputs": {
+    "manifest_sha256": "86e65e15bfc951de9c49d9f3880ace791116a3aa109259a85744d81be25558df",
+    "files": [
+      {
+        "path": "V4/仟流智算-开发执行基线-v2.0.yaml",
+        "source": "authority_worktree",
+        "sha256": "7da4a07d77fd6b670131babeef73fb010b7847d48b6702905d497e835e521cb1"
+      },
+      {
+        "path": "V4/仟流智算-开发规划-v2.0.md",
+        "source": "authority_worktree",
+        "sha256": "a85761d708e4d661334f054d8b7034e24c9e6af315a902bc2f2e7b08e75ce53a"
+      },
+      {
+        "path": "V4/仟流智算-项目工程规则-v2.0.md",
+        "source": "authority_worktree",
+        "sha256": "56fd70b1f524ef019d2d8edaf925daa5c835707868f8b7f16ea1e194d9836bc6"
+      },
+      {
+        "path": "V4/仟流智算-产品需求文档-v2.0.md",
+        "source": "authority_worktree",
+        "sha256": "94605b1f449cdf5b4fa8437840679830526ddaf4efd47f8ae5a21685fdd19e3c"
+      },
+      {
+        "path": "V4/仟流智算-技术需求文档-v2.0.md",
+        "source": "authority_worktree",
+        "sha256": "e69566e321e6b43477d997436db59cc2cfb0fc88d00a6e1ea206da560441c42d"
+      },
+      {
+        "path": "V4/仟流智算-初始验收矩阵-v2.0.md",
+        "source": "authority_worktree",
+        "sha256": "031d020fc0c2125ff5d6139d785e9eb06590e513fe9086395e14870cb2c69ed5"
+      },
+      {
+        "path": "V4/原型/仟流智算-2.0-标准版原型.html",
+        "source": "authority_worktree",
+        "sha256": "8db389204c110af1a66471cf7c72e4dd0611fdcdc2f0e1d444518da6a8165d95"
+      }
+    ]
+  },
+  "evidence": {
+    "root": "V4/Evidence",
+    "generated_lock_excluded": "V4/Evidence/M20-5/W20-10/20260813-0337-final-candidate-verification/candidate-lock.draft.json",
+    "file_count": 64,
+    "manifest_sha256": "8b027b97a6a03ebe743aeda2d10974bebc48c0ab514d8948956e09dad4e67cca"
+  },
+  "fingerprint": {
+    "algorithm": "sha256(JSON.stringify(payload))",
+    "value": "ae8647f345f939a1ba37739a739e11e2d7434a31aae1675d53a6037256c5bc09",
+    "payload": {
+      "head": "6fc1bec2a211c0d9c399400076cc56720f5c1815",
+      "tree": "198b071b41c052080836fdaac4f399c6c69e7aac",
+      "dirty": true,
+      "dirtyManifestSha256": "458bd780334b4bc86a45ff7fdd50ada993443da017c86846ed8040551a51f823",
+      "treeManifestSha256": "8767afee9bd19af9fc141d26c39301528918a1307d46941c2251e7883d088865",
+      "migrationHead": "0049_resource_utilization_and_procurement_review",
+      "migrationManifestSha256": "1b1222720614cd5322507b10af676ec45e42f83a41a7d64bb967e144c23ff6ca",
+      "configurationManifestSha256": "52eb983ed1fd02f7182b02a4e4c235d5744108d2df3e33babfb3b03fa0fa3a20",
+      "frozenInputsSha256": "86e65e15bfc951de9c49d9f3880ace791116a3aa109259a85744d81be25558df",
+      "evidenceManifestSha256": "8b027b97a6a03ebe743aeda2d10974bebc48c0ab514d8948956e09dad4e67cca"
+    }
+  }
+}

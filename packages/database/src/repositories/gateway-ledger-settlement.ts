@@ -18,6 +18,7 @@ import {
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
 import { loadRequestSettlementFacts } from "./gateway-ledger-request-facts.js";
 import { settleQuota as calculateSettledQuota } from "@qianliu/domain";
+import { ensureRequestAttributionSnapshot } from "./request-attribution-writer.js";
 
 export {
   assertAttemptMatches,
@@ -236,6 +237,8 @@ export async function finalizeLedgerSettlementAtomically(
         throw new GatewayLedgerSettlementConflictError("settlement_terminal_conflict");
       }
       assertTransactionMatches(existing, input);
+      // 兼容 0048 前已终态请求：结算重放可幂等补齐 v1 归属。
+      await ensureRequestAttributionSnapshot(trx, input.enterprise_id, input.ai_request_id);
       return existing;
     }
 
@@ -243,6 +246,7 @@ export async function finalizeLedgerSettlementAtomically(
     await settleRequestAccounting(trx, input, finishedAt);
     const transaction = existing ?? await insertLedgerTransaction(trx, input);
     assertTransactionMatches(transaction, input);
+    await ensureRequestAttributionSnapshot(trx, input.enterprise_id, input.ai_request_id);
     const updated = await trx.updateTable("ai_request").set({
       status: input.request_status,
       finished_at: finishedAt,

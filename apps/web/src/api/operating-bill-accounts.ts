@@ -30,10 +30,22 @@ export interface OperatingBillProviderRef {
   providerName: string;
 }
 
+export interface OperatingBillProjectDepartmentRef {
+  departmentId: string;
+  departmentName: string;
+}
+
+export interface OperatingBillProjectOwnerRef {
+  personId: string;
+  personName: string;
+}
+
 export interface OperatingBillEmployeeRow {
   subjectId: string | null;
   subjectName: string;
   isUnassigned: boolean;
+  projectOwner: OperatingBillProjectOwnerRef | null;
+  projectDepartments: OperatingBillProjectDepartmentRef[];
   providers: OperatingBillProviderRef[];
   totals: OperatingBillMetricTotals;
 }

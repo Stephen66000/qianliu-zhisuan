@@ -38,6 +38,7 @@ import {
   type DispatchPolicyValues,
 } from "../components/quota/dispatch-policy-form";
 import { WeekdayPicker, formatDaysOfWeek, parseDaysOfWeek } from "../components/quota/WeekdayPicker";
+import { DepartmentBudgetEntry } from "../components/quota/DepartmentBudgetEntry";
 import { PageShell } from "../components/layout/PageShell";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
@@ -471,6 +472,8 @@ export function QuotaRulesPage() {
           {error.message}
         </p>
       ) : null}
+
+      <DepartmentBudgetEntry />
 
       <ManagementSection
         actionLabel="新建统一模型"

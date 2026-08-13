@@ -19,12 +19,12 @@ import type {
   Database,
   NotificationDeliveryTable,
   NotificationEndpointTable,
-  PersonExternalIdentityTable,
-  PersonTable,
+  DirectoryPersonExternalIdentityTable,
+  DirectoryPersonTable,
 } from "../kysely.js";
 
-export type Person = Selectable<PersonTable>;
-export type PersonExternalIdentity = Selectable<PersonExternalIdentityTable>;
+export type Person = Selectable<DirectoryPersonTable>;
+export type PersonExternalIdentity = Selectable<DirectoryPersonExternalIdentityTable> & { provider: "WECOM" };
 export type AvailabilityRule = Selectable<AvailabilityRuleTable>;
 export type AvailabilityRuleVersion = Selectable<AvailabilityRuleVersionTable>;
 export type AvailabilityEvent = Selectable<AvailabilityEventTable>;
@@ -145,13 +145,13 @@ export class RuntimeAssuranceRepository {
   async listPeople(): Promise<PersonView[]> {
     const people = await this.db.selectFrom("person").selectAll().orderBy("created_at", "desc").execute();
     const identities = await this.db.selectFrom("person_external_identity").selectAll()
-      .where("status", "=", "ACTIVE").execute();
+      .where("provider", "=", "WECOM").where("status", "=", "ACTIVE").execute();
     const projectCounts = await this.db.selectFrom("principal")
       .select(["owner_person_id", sql<number>`count(*)::int`.as("count")])
       .where("type", "=", "PROJECT").where("status", "=", "ACTIVE")
       .where("archived_at", "is", null).where("owner_person_id", "is not", null)
       .groupBy("owner_person_id").execute();
-    const identityByPerson = new Map(identities.map((item) => [item.person_id, item]));
+    const identityByPerson = new Map(identities.map((item) => [item.person_id, item as PersonExternalIdentity]));
     const countByPerson = new Map(projectCounts.map((item) => [item.owner_person_id!, item.count]));
     return people.map((person) => ({
       ...person,
@@ -241,7 +241,7 @@ export class RuntimeAssuranceRepository {
       }).returningAll().executeTakeFirstOrThrow();
       await trx.updateTable("person").set({ version: sql`version + 1`, updated_at: new Date() })
         .where("id", "=", input.personId).execute();
-      return identity;
+      return identity as PersonExternalIdentity;
     });
   }
 
@@ -795,7 +795,7 @@ export class RuntimeAssuranceRepository {
         .where("id", "=", delivery.notification_endpoint_id).executeTakeFirst(),
       delivery.recipient_identity_id
         ? this.db.selectFrom("person_external_identity").selectAll()
-          .where("id", "=", delivery.recipient_identity_id).executeTakeFirst()
+          .where("id", "=", delivery.recipient_identity_id).where("provider", "=", "WECOM").executeTakeFirst()
         : Promise.resolve(undefined),
       this.db.selectFrom("person").selectAll().where("id", "=", delivery.recipient_person_id).executeTakeFirst(),
       delivery.availability_event_id
@@ -807,7 +807,7 @@ export class RuntimeAssuranceRepository {
     const principal = event?.trigger_principal_id
       ? await this.db.selectFrom("principal").selectAll().where("id", "=", event.trigger_principal_id).executeTakeFirst()
       : undefined;
-    return { delivery, endpoint, identity: identity ?? null, person, principal: principal ?? null, event: event ?? null };
+    return { delivery, endpoint, identity: identity as PersonExternalIdentity | undefined ?? null, person, principal: principal ?? null, event: event ?? null };
   }
 
   async releaseStaleDeliveries(staleBefore: Date, now = new Date()): Promise<number> {

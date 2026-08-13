@@ -1,0 +1,25 @@
+{
+  "schema_version": "w20-01-bounded-vitest.v1",
+  "started_at": "2026-08-12T22:54:14+0800",
+  "ended_at": "2026-08-12T22:59:51+0800",
+  "exit_code": 0,
+  "candidate_fingerprint": "sha256:edf46c03933528b5f09d9a716253b2aa0c0344540ececb5d61fd03f7050266e9",
+  "environment": {
+    "base_head": "6fc1bec2a211c0d9c399400076cc56720f5c1815",
+    "base_tree": "198b071b41c052080836fdaac4f399c6c69e7aac",
+    "candidate_file_manifest_sha256": "74f6dbacdc1167a68d89e3baf254b2a102b5bea877a2f7845b6d1d724dd62210",
+    "node": "v22.17.1",
+    "pnpm": "11.11.0",
+    "vitest": "3.2.4",
+    "docker": "28.0.1",
+    "database_overrides": "unset",
+    "testcontainers_before": 0,
+    "testcontainers_after": 0
+  },
+  "coverage": {
+    "non_web": { "files": 109, "tests": 886, "passed": 886, "failed": 0 },
+    "web": { "files": 27, "tests": 123, "passed": 123, "failed": 0 },
+    "total": { "files": 136, "tests": 1009, "passed": 1009, "failed": 0 }
+  },
+  "root_test_log_sha256": "ae01003ff18aa75cb21fb4a0f0a2efce42870127d528159cba714f4d5cb137bf"
+}

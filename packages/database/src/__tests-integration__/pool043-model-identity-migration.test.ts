@@ -57,6 +57,10 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0043_single_owner_rule_history", "Success"],
         ["0044_operating_bill_model_identity", "Success"],
         ["0045_zhipu_weekday_window_alias", "Success"],
+        ["0046_directory_import_foundation", "Success"],
+        ["0047_usage_bucket_aggregate", "Success"],
+        ["0048_department_cost_budget_and_purchase", "Success"],
+        ["0049_resource_utilization_and_procurement_review", "Success"],
       ]);
       const rows = await db.selectFrom("ai_request")
         .select(["id", "unified_model", "unified_model_id"]).orderBy("id").execute();
@@ -94,6 +98,10 @@ describe("POOL-043 稳定模型身份迁移", () => {
         unified_model: "ql-deepseek-v4-flash", unified_model_id: modelA,
       });
 
+      expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");
+      expect(await migrateDown(db)).toBe("0048_department_cost_budget_and_purchase");
+      expect(await migrateDown(db)).toBe("0047_usage_bucket_aggregate");
+      expect(await migrateDown(db)).toBe("0046_directory_import_foundation");
       expect(await migrateDown(db)).toBe("0045_zhipu_weekday_window_alias");
       expect(await migrateDown(db)).toBe("0044_operating_bill_model_identity");
       const columns = await sql<{ column_name: string }>`
@@ -123,6 +131,10 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0043_single_owner_rule_history", "Success"],
         ["0044_operating_bill_model_identity", "Success"],
         ["0045_zhipu_weekday_window_alias", "Success"],
+        ["0046_directory_import_foundation", "Success"],
+        ["0047_usage_bucket_aggregate", "Success"],
+        ["0048_department_cost_budget_and_purchase", "Success"],
+        ["0049_resource_utilization_and_procurement_review", "Success"],
       ]);
       const rebound = await db.selectFrom("ai_request")
         .select(["unified_model", "unified_model_id"])

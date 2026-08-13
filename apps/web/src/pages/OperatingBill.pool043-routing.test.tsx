@@ -62,6 +62,12 @@ vi.mock("../api/operating-bills", () => ({
   useReopenOperatingBill: () => ({ mutate: vi.fn(), isPending: false, error: null }),
 }));
 
+vi.mock("../api/v2-hooks", () => ({
+  useAllPurchases: () => ({ data: { items: [], cashTotals: [] }, isLoading: false, error: null }),
+  useProcurementReview: vi.fn(),
+  useSaveProcurementNote: vi.fn(),
+}));
+
 function LocationProbe() {
   const location = useLocation();
   return <output>{`${location.pathname}${location.search}`}</output>;

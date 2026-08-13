@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { loadConfig, PROVIDER_SECRET_ENV, CONFIG_VERSION, readPositiveIntEnv } from "../index.js";
+import {
+  loadConfig,
+  PROVIDER_SECRET_ENV,
+  CONFIG_VERSION,
+  readFeatureFlags,
+  readPositiveIntEnv,
+} from "../index.js";
 
 describe("@qianliu/config", () => {
   it("exposes version", () => {
@@ -27,6 +33,7 @@ describe("@qianliu/config", () => {
     expect(cfg.database.url).toBe("postgres://u:p@h:5432/db");
     expect(cfg.credentialKek).toBe("c".repeat(32));
     expect(cfg.runtimeAssurance).toEqual({ mode: "OBSERVE", wecomNotify: false });
+    expect(Object.values(cfg.featureFlags)).toEqual([false, false, false, false, false]);
     expect(cfg.providers.find((p) => p.code === "deepseek")?.configured).toBe(true);
     expect(cfg.providers.find((p) => p.code === "zhipu")?.configured).toBe(false);
   });
@@ -62,6 +69,23 @@ describe("@qianliu/config", () => {
     expect(() =>
       loadConfig({ ...base, RUNTIME_ASSURANCE_WECOM_NOTIFY: "TRUE" }),
     ).toThrow();
+  });
+
+  it("2.0 Feature Flag 测试环境默认开启，其他环境默认关闭", () => {
+    expect(Object.values(readFeatureFlags({ NODE_ENV: "test" }))).toEqual([
+      true, true, true, true, true,
+    ]);
+    expect(Object.values(readFeatureFlags({ NODE_ENV: "production" }))).toEqual([
+      false, false, false, false, false,
+    ]);
+  });
+
+  it("2.0 Feature Flag 只接受小写 true/false", () => {
+    expect(readFeatureFlags({
+      NODE_ENV: "production",
+      FEATURE_USAGE_OVERVIEW_V2: "true",
+    }).FEATURE_USAGE_OVERVIEW_V2).toBe(true);
+    expect(() => readFeatureFlags({ FEATURE_USAGE_OVERVIEW_V2: "TRUE" })).toThrow();
   });
 });
 

@@ -37,6 +37,8 @@ export class AdminWriteRepository {
       concurrency_limit?: number | null;
       upstream_models?: string[] | null;
       operating_snapshot?: OperatingSnapshotInput;
+      monthly_budget_amount?: string | null;
+      monthly_budget_currency?: string | null;
     },
   ): Promise<ProviderResource | null> {
     return this.db.transaction().execute(async (trx) => {

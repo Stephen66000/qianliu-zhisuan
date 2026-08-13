@@ -35,6 +35,10 @@ const UpdateResourceSchema = z.object({
   concurrency_limit: z.number().int().positive().nullable().optional(),
   upstream_models: z.array(z.string().min(1).max(128)).max(100).nullable().optional(),
   operating_snapshot: OperatingSnapshotSchema.optional(),
+  monthly_budget_amount: z.string().regex(/^\d+(?:\.\d{1,8})?$/).nullable().optional(), monthly_budget_currency: z.string().regex(/^[A-Z]{3,8}$/).nullable().optional(),
+}).superRefine((value, ctx) => {
+  const amountSet = value.monthly_budget_amount !== undefined, currencySet = value.monthly_budget_currency !== undefined;
+  if (amountSet !== currencySet) ctx.addIssue({ code: "custom", path: ["monthly_budget_amount"], message: "预算金额与币种必须同时提交" });
 });
 
 const UpdateUnifiedModelSchema = z.object({
@@ -87,6 +91,7 @@ function resourceView(r: ResourceViewInput, operatingSnapshot: unknown = null) {
     upstream_models: r.upstream_models,
     concurrency_limit: r.concurrency_limit,
     version: r.version,
+    monthly_budget_amount: r.monthly_budget_amount ?? null, monthly_budget_currency: r.monthly_budget_currency ?? null,
     created_at: r.created_at,
     updated_at: r.updated_at,
     operating_snapshot: operatingSnapshot,
@@ -132,6 +137,7 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
           operating_snapshot: parsed.data.operating_snapshot
             ? toOperatingSnapshotInput(parsed.data.operating_snapshot, before.mode)
             : undefined,
+          monthly_budget_amount: parsed.data.monthly_budget_amount, monthly_budget_currency: parsed.data.monthly_budget_currency,
         },
       );
       if (!updated) {
@@ -150,11 +156,13 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
             name: before.name,
             concurrency_limit: before.concurrency_limit,
             upstream_models: before.upstream_models,
+            monthly_budget_amount: before.monthly_budget_amount, monthly_budget_currency: before.monthly_budget_currency,
           },
           after: {
             name: updated.name,
             concurrency_limit: updated.concurrency_limit,
             upstream_models: updated.upstream_models,
+            monthly_budget_amount: updated.monthly_budget_amount, monthly_budget_currency: updated.monthly_budget_currency,
           },
         },
         result: "SUCCESS",

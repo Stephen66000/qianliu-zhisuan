@@ -12,17 +12,9 @@
  */
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
+import { deriveDepartmentBudgetAlerts } from "./alert-event-department-budget.js";
+import { decimalTextsEqual } from "./dashboard-helpers.js";
 import { ProviderRepository } from "./provider-repository.js";
-
-function equalQuotaText(left: string | null, right: string | null): boolean {
-  if (left === null || right === null) return left === right;
-  const scale = Math.max(left.split(".")[1]?.length ?? 0, right.split(".")[1]?.length ?? 0);
-  const units = (value: string) => {
-    const [whole, fraction = ""] = value.split(".");
-    return BigInt(`${whole}${fraction.padEnd(scale, "0")}`);
-  };
-  return units(left) === units(right);
-}
 
 /** 四告警域（PRD §11）。 */
 export type AlertDomain =
@@ -87,6 +79,7 @@ export class AlertEventRepository {
   constructor(
     private db: Kysely<Database>,
     private thresholds: AlertThresholds = DEFAULT_THRESHOLDS,
+    private includeDepartmentBudget = false,
   ) {}
 
   /**
@@ -259,6 +252,9 @@ export class AlertEventRepository {
     out.push(...(await this.deriveRouting(enterpriseId)));
     out.push(...(await this.deriveStreaming(enterpriseId)));
     out.push(...(await this.deriveDispatch(enterpriseId)));
+    if (this.includeDepartmentBudget) {
+      out.push(...(await deriveDepartmentBudgetAlerts(this.db, enterpriseId)));
+    }
     return out;
   }
 
@@ -323,7 +319,7 @@ export class AlertEventRepository {
         ? snapshot?.current_balance ?? null
         : snapshot?.remaining_quota ?? null;
       if (snapshot && f.snapshot_at >= snapshot.calculated_at &&
-        equalQuotaText(f.remaining_quota, remaining)) {
+        decimalTextsEqual(f.remaining_quota, remaining)) {
         latestByResource.set(f.provider_resource_id, f);
       }
     }

@@ -8,9 +8,11 @@ import { StatusTag } from "../components/dashboard/StatusTag";
 import { QueryGate } from "../components/states/QueryGate";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { formatDateTimeFull } from "../lib/format";
+import { EnterpriseSettingsPanel } from "../components/settings/EnterpriseSettingsPanel";
 
 export function SettingsPage() {
-  const [tab, setTab] = useState<"operations" | "deployments">("operations");
+  // 兼容 1.0：无显式选择时仍落在原操作日志；企业设置作为 2.0 增量页签。
+  const [tab, setTab] = useState<"enterprise" | "operations" | "deployments">("operations");
   const [status, setStatus] = useState<DeploymentStatus | "">("");
   const [version, setVersion] = useState("");
   const [poolRef, setPoolRef] = useState("");
@@ -25,12 +27,13 @@ export function SettingsPage() {
   useRedirectOnUnauthorized(operationQuery.error ?? deploymentQuery.error ?? detailQuery.error);
 
   return (
-    <PageShell description="管理动作与生产版本升级的独立审计时间线" title="系统日志">
+    <PageShell description="企业基础口径、管理动作与版本升级记录" title="系统设置">
       <div className="mb-4 flex gap-2 border-b border-ql-border">
+        <Tab active={tab === "enterprise"} onClick={() => setTab("enterprise")}>企业设置</Tab>
         <Tab active={tab === "operations"} onClick={() => setTab("operations")}>操作日志</Tab>
         <Tab active={tab === "deployments"} onClick={() => setTab("deployments")}>升级日志</Tab>
       </div>
-      {tab === "operations" ? (
+      {tab === "enterprise" ? <EnterpriseSettingsPanel /> : tab === "operations" ? (
         <OperationLogs query={operationQuery} />
       ) : (
         <div className="space-y-4">

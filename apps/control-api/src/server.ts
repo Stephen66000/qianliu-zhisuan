@@ -60,8 +60,16 @@ import { registerOperatingBillRoutes } from "./operating-bills/routes.js";
 import { registerOperatingBillAccountRoutes } from "./operating-bills/account-routes.js";
 import { registerDeploymentLogRoutes } from "./deployment-logs/routes.js";
 import { registerEmployeeModelRuleRoutes } from "./employee-model-rules/routes.js";
+import { registerResourceInsightRoutes } from "./resource-insights/routes.js";
+import { registerEnterpriseSettingsRoutes } from "./enterprise-settings/routes.js";
+import { registerDepartmentCostRoutes } from "./department-costs/routes.js";
+import { registerDirectoryRoutes } from "./directory/routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
-import { readPositiveIntEnv } from "@qianliu/config";
+import {
+  readFeatureFlags,
+  readPositiveIntEnv,
+  type FeatureFlags,
+} from "@qianliu/config";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
 export interface AdminContext {
@@ -99,6 +107,7 @@ declare module "fastify" {
     principalAccessConfigRepo: PrincipalAccessConfigRepository;
     quotaWindowRepo: ProviderQuotaWindowRepository;
     poolRepo: ResourcePoolRepository;
+    featureFlags: FeatureFlags;
   }
 }
 
@@ -160,6 +169,7 @@ function alertThresholdsFromEnv(env: NodeJS.ProcessEnv): AlertThresholds {
 }
 
 export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions = {}): FastifyInstance {
+  const featureFlags = readFeatureFlags(process.env);
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info" },
     // W24：反代（Caddy/nginx）终止 TLS 时，信任 X-Forwarded-* 以正确判定协议/主机（影响 Cookie secure）。
@@ -190,7 +200,14 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("ledgerRepo", new GatewayLedgerRepository(db));
   app.decorate("dispatchRepo", new DispatchPolicyRepository(db));
   app.decorate("adminWriteRepo", new AdminWriteRepository(db));
-  app.decorate("alertEventRepo", new AlertEventRepository(db, alertThresholdsFromEnv(process.env)));
+  app.decorate(
+    "alertEventRepo",
+    new AlertEventRepository(
+      db,
+      alertThresholdsFromEnv(process.env),
+      featureFlags.FEATURE_DEPARTMENT_COST,
+    ),
+  );
   app.decorate("runtimeAssuranceRepo", new RuntimeAssuranceRepository(db));
   app.decorate("operatingBillRepo", new OperatingBillRepository(db));
   app.decorate("operatingBillAccountRepo", new OperatingBillAccountRepository(db));
@@ -199,6 +216,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("principalAccessConfigRepo", new PrincipalAccessConfigRepository(db));
   app.decorate("quotaWindowRepo", new ProviderQuotaWindowRepository(db));
   app.decorate("poolRepo", new ResourcePoolRepository(db));
+  app.decorate("featureFlags", featureFlags);
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
@@ -236,13 +254,19 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     });
     registerAuthRoutes(child);
     registerAdminRoutes(child);
-    registerPrincipalRoutes(child);
+    registerPrincipalRoutes(child, {
+      departmentCost: featureFlags.FEATURE_DEPARTMENT_COST,
+    });
     registerAuditRoutes(child);
     registerKeyRoutes(child);
     registerGrantRoutes(child);
     registerProviderRoutes(child);
-    registerDashboardRoutes(child);
-    registerUsageRoutes(child);
+    registerDashboardRoutes(child, {
+      usageOverviewV2: featureFlags.FEATURE_USAGE_OVERVIEW_V2,
+    });
+    registerUsageRoutes(child, {
+      overviewV2: featureFlags.FEATURE_USAGE_OVERVIEW_V2,
+    });
     registerReadModelRoutes(child);
     registerAdminWriteRoutes(child);
     registerGatewayRequestRoutes(child);
@@ -253,6 +277,13 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerDeploymentLogRoutes(child);
     registerEmployeeModelRuleRoutes(child);
     registerPrincipalAccessConfigRoutes(child);
+    registerResourceInsightRoutes(child, {
+      utilizationV2: featureFlags.FEATURE_RESOURCE_UTILIZATION_V2,
+      procurementReview: featureFlags.FEATURE_PROCUREMENT_REVIEW,
+    });
+    registerEnterpriseSettingsRoutes(child);
+    if (featureFlags.FEATURE_DEPARTMENT_COST) registerDepartmentCostRoutes(child);
+    if (featureFlags.FEATURE_DIRECTORY_IMPORT) registerDirectoryRoutes(child);
   });
 
   return app;

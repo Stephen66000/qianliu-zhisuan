@@ -1,0 +1,5 @@
+6527ed16d7c1994507103ea38ace1f44bb4a66610e8afa57c9e384e39a3ae8f7  package.json
+1285645051b639d3508784098841e6825e66c9c1a81acfbc053050a51d5850f6  apps/web/vitest.config.ts
+f3ee7104db40cb7bbbb8326991af39bec390a4df50820614fbb53eb85f6f77c1  apps/web/src/components/layout/Sidebar.test.tsx
+27b8ccf6556149da0ef189b37999cbafc347e1efce4a3c4d37f81df070ae435e  apps/web/e2e/wt-web.spec.ts
+f061e344c5d3b51ba2cc78b375e60a3998c328f9e53f34891d519b9a5620476a  scripts/run-bounded-vitest.mjs

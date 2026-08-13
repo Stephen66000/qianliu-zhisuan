@@ -63,21 +63,59 @@ export type PrincipalDeleteResult =
       preview: PrincipalCleanupPreview;
     };
 
+interface PrincipalQueryOptions {
+  type?: "EMPLOYEE" | "PROJECT";
+  archived?: "exclude" | "only" | "all";
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export class PrincipalRepository {
   constructor(private db: Kysely<Database>) {}
 
   async list(
     enterpriseId: string,
-    opts?: {
-      type?: "EMPLOYEE" | "PROJECT";
-      archived?: "exclude" | "only" | "all";
-    },
+    opts?: PrincipalQueryOptions,
   ): Promise<Principal[]> {
     let q = this.db.selectFrom("principal").selectAll().where("enterprise_id", "=", enterpriseId);
     if (opts?.type) q = q.where("type", "=", opts.type);
     if (opts?.archived === "only") q = q.where("archived_at", "is not", null);
     else if (opts?.archived !== "all") q = q.where("archived_at", "is", null);
-    return q.orderBy("created_at", "desc").execute();
+    const search = opts?.search?.trim();
+    if (search) {
+      const pattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
+      q = q.where(sql<boolean>`(
+        name ILIKE ${pattern} ESCAPE '\\'
+        OR coalesce(department_label, '') ILIKE ${pattern} ESCAPE '\\'
+      )`);
+    }
+    q = q.orderBy("created_at", "desc").orderBy("id", "desc");
+    if (opts?.limit !== undefined) q = q.limit(opts.limit);
+    if (opts?.offset !== undefined) q = q.offset(opts.offset);
+    return q.execute();
+  }
+
+  async count(
+    enterpriseId: string,
+    opts?: Omit<PrincipalQueryOptions, "limit" | "offset">,
+  ): Promise<number> {
+    let q = this.db.selectFrom("principal")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("enterprise_id", "=", enterpriseId);
+    if (opts?.type) q = q.where("type", "=", opts.type);
+    if (opts?.archived === "only") q = q.where("archived_at", "is not", null);
+    else if (opts?.archived !== "all") q = q.where("archived_at", "is", null);
+    const search = opts?.search?.trim();
+    if (search) {
+      const pattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
+      q = q.where(sql<boolean>`(
+        name ILIKE ${pattern} ESCAPE '\\'
+        OR coalesce(department_label, '') ILIKE ${pattern} ESCAPE '\\'
+      )`);
+    }
+    const result = await q.executeTakeFirstOrThrow();
+    return Number(result.count);
   }
 
   async findById(enterpriseId: string, id: string): Promise<Principal | undefined> {

@@ -140,9 +140,11 @@ export function AccountFilters({
 export function AccountTable({
   headers,
   children,
+  leadingTextColumns = 2,
 }: {
   headers: string[];
   children: ReactNode;
+  leadingTextColumns?: number;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -150,7 +152,7 @@ export function AccountTable({
         <thead className="border-y border-ql-border-zone bg-ql-surface-subtle text-[12px] text-ql-fg-tertiary">
           <tr>
             {headers.map((header, index) => (
-              <th className={`px-3 py-2 font-medium ${index > 1 ? "text-right" : ""}`} key={header}>
+              <th className={`px-3 py-2 font-medium ${index >= leadingTextColumns ? "text-right" : ""}`} key={header}>
                 {header}
               </th>
             ))}

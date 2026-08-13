@@ -4,6 +4,8 @@
  * globalSetup 每次在独立 `_e2e` 数据库重建固定夹具。这里不允许条件跳过；
  * 写操作同时断言 HTTP/持久化副作用，读操作同时断言 API 事实与页面结果。
  */
+import { readFile } from "node:fs/promises";
+
 import { test, expect, login, apiGet, E2E_IDS } from "./fixtures";
 
 interface PrincipalApi {
@@ -76,7 +78,9 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
   test("POOL-010 Web 只录套餐规则，系统计算额度并保留历史配置", async ({ page }) => {
     await page.goto("/resources");
-    const resourceRow = page.getByRole("row", { name: /E2E 待恢复资源/ });
+    const resourceRow = page.getByRole("row", {
+      name: /E2E 待恢复资源.*更新套餐配置/,
+    });
     await resourceRow.getByRole("button", { name: "更新套餐配置" }).click();
     await page.getByLabel("厂商总额度").fill("100000");
     await expect(page.getByLabel("厂商总额度")).toHaveValue("100,000");
@@ -412,7 +416,9 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
   test("WT-07/14 管理员可定位隔离资源、健康资源及 Provider 能力", async ({ page }) => {
     await page.goto("/resources");
-    await expect(page.getByRole("row", { name: /E2E 待恢复资源/ })).toContainText("凭证失效");
+    await expect(page.getByRole("row", {
+      name: /E2E 待恢复资源.*更新套餐配置/,
+    })).toContainText("凭证失效");
     const healthyRow = page.getByRole("row", { name: /E2E 智谱主资源.*正常/ });
     await expect(healthyRow).toContainText("正常");
     await expect(healthyRow).toContainText("glm-4.6");
@@ -430,7 +436,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   });
 
   test("WT-08 首页异常可进入告警处置，写入 operation_log", async ({ page }) => {
-    await expect(page.getByText("厂商资源账号")).toBeVisible();
+    await expect(page.getByText("厂商接入账号")).toBeVisible();
     await expect(page.getByText("最早耗尽资源")).toBeVisible();
     await page.goto("/alerts");
     await expect(page.getByText("凭证失效：E2E 待恢复资源")).toBeVisible();
@@ -601,7 +607,8 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
   test("WT-15 页面展示速度、耗尽、恢复、覆盖时长与可信度", async ({ page }) => {
     await page.goto("/resources");
-    const forecastRow = page.getByRole("row", { name: /E2E 智谱主资源.*100.*2400.*16800/ });
+    const forecastRow = page.locator("#supply-forecasts")
+      .getByRole("row", { name: /E2E 智谱主资源.*100.*2400.*16800/ });
     await expect(forecastRow).toContainText("12h");
     await expect(forecastRow).toContainText("HIGH");
     const forecasts = await apiGet<{
@@ -648,7 +655,9 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
   test("WT-19 隔离资源经二次确认受控恢复，其他健康资源不受影响", async ({ page }) => {
     await page.goto("/resources");
-    const isolatedRow = page.getByRole("row", { name: /E2E 待恢复资源/ });
+    const isolatedRow = page.getByRole("row", {
+      name: /E2E 待恢复资源.*更新套餐配置/,
+    });
     await isolatedRow.getByRole("button", { name: "恢复" }).click();
     await expect(page.getByRole("dialog")).toContainText("不轮换凭证");
     const recoverResponse = page.waitForResponse(
@@ -740,19 +749,22 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(page.locator("tbody tr", { hasText: E2E_IDS.request })).toHaveCount(1);
   });
 
-  test("WT-20 七入口与协议相关配置可达，未用条件分支跳过", async ({ page }) => {
+  test("WT-20 十个 1.0 主入口可达，未用条件分支跳过", async ({ page }) => {
     const entries = [
       ["/dashboard", "首页看板"],
       ["/principals", "使用主体"],
+      ["/employee-model-rules", "批量模型授权"],
       ["/resources", "厂商资源"],
       ["/quota-rules", "额度规则"],
       ["/usage", "用量账本"],
+      ["/operating-bill", "经营账单"],
       ["/runtime-assurance", "运行保障"],
-      ["/settings", "系统日志"],
+      ["/admins", "管理员管理"],
+      ["/settings", "系统设置"],
     ] as const;
     for (const [path, heading] of entries) {
       await page.goto(path);
-      await expect(page.getByRole("heading", { name: new RegExp(heading) })).toBeVisible();
+      await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     }
   });
 
@@ -1117,5 +1129,119 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     expect([
       ...(revokedKeys.keys.find((key) => key.status === "ACTIVE")?.allowed_model_ids ?? []),
     ].sort()).toEqual(expectedPoolModels);
+  });
+
+  test("W20-02~09 七项 2.0 增量从真实页面与 API 可达", async ({ page }) => {
+    await page.goto("/principals");
+    await page.getByRole("button", { name: "组织通讯录" }).click();
+    await expect(page.getByRole("heading", { name: "接口单向同步" })).toBeVisible();
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "下载模板" }).click();
+    const template = await downloadPromise;
+    expect(template.suggestedFilename()).toBe("仟流智算-通讯录导入模板-v1.xlsx");
+    const templatePath = await template.path();
+    expect(templatePath).not.toBeNull();
+    const uploadResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/directory-excel-imports")
+      && response.request().method() === "POST");
+    await page.locator('input[type="file"]').setInputFiles({
+      buffer: await readFile(templatePath!),
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      name: template.suggestedFilename(),
+    });
+    expect((await uploadResponse).status()).toBe(202);
+    await expect(page.getByRole("heading", { name: "最近处理结果" })).toBeVisible();
+    await expect(page.getByText("示例员工", { exact: true })).toBeVisible();
+
+    await page.goto("/usage?tab=overview&period=MONTH&subject_type=EMPLOYEE");
+    await expect(page.getByLabel("用量主体类型")).toHaveValue("EMPLOYEE");
+    await expect(page.getByLabel("用量周期")).toHaveValue("MONTH");
+    await expect(page.getByRole("heading", { name: "消耗排名" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "查看请求明细" })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(page.getByLabel("用量主体类型")).toHaveValue("EMPLOYEE");
+    await expect(page.getByLabel("用量周期")).toHaveValue("MONTH");
+    expect(await page.evaluate(() =>
+      document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    await page.goto("/quota-rules");
+    await page.getByRole("button", { name: "部门预算 · 2.0" }).click();
+    await expect(page.getByRole("heading", { name: /部门预算/ })).toBeVisible();
+    await page.getByLabel("部门预算月份").fill("2026-08");
+    const departmentRow = page.getByRole("row", { name: /E2E 研发部/ });
+    await departmentRow.getByLabel("E2E 研发部月度预算").fill("500");
+    await departmentRow.getByLabel("E2E 研发部警戒线").fill("0.75");
+    const budgetResponse = page.waitForResponse((response) =>
+      response.url().includes("/department-budgets/")
+      && response.url().endsWith("/2026-08")
+      && response.request().method() === "PUT");
+    await departmentRow.getByRole("button", { name: "保存" }).click();
+    const savedBudgetResponse = await budgetResponse;
+    expect(savedBudgetResponse.status()).toBe(201);
+    expect(await savedBudgetResponse.json()).toMatchObject({
+      budget: {
+        departmentName: "E2E 研发部",
+        amount: "500.00000000",
+        warningThreshold: "0.75000000",
+        version: 1,
+      },
+      replayed: false,
+    });
+    await expect(departmentRow.getByLabel("E2E 研发部月度预算")).toHaveValue("500.00000000");
+    await expect(departmentRow.getByLabel("E2E 研发部警戒线")).toHaveValue("0.75000000");
+    const savedBudget = await apiGet<{
+      budget: { amount: string; warningThreshold: string; version: number };
+    }>(page, `${new URL(savedBudgetResponse.url()).pathname.replace(/^\/api/, "")}`);
+    expect(savedBudget.budget).toMatchObject({
+      amount: "500.00000000", warningThreshold: "0.75000000", version: 1,
+    });
+
+    await page.goto("/resources");
+    await expect(page.getByRole("heading", { name: "资源利用事实" })).toBeVisible();
+    await expect(page.getByText("API 按实际费用 / 月预算", { exact: false })).toBeVisible();
+    await page.getByLabel("资源利用月份").fill("2026-08");
+    const utilizationRow = page.locator("#resource-utilization")
+      .getByRole("row", { name: /E2E 智谱主资源/ });
+    await expect(utilizationRow).toContainText("账本明细");
+    await utilizationRow.getByRole("link", { name: "账本明细" }).click();
+    await expect(page).toHaveURL(new RegExp(
+      `/usage\\?provider_resource_id=${E2E_IDS.resource}&settled_only=true$`,
+    ));
+    await expect(page.getByLabel("厂商资源")).toHaveValue(E2E_IDS.resource);
+    await expect(page.locator("tbody tr", { hasText: E2E_IDS.request })).toBeVisible();
+
+    await page.goto("/operating-bill/departments?month=2026-08");
+    await expect(page.getByRole("heading", { name: "部门成本与预算" })).toBeVisible();
+    await expect(page.getByText("归集守恒", { exact: true })).toBeVisible();
+
+    await page.goto("/operating-bill?month=2026-08&tab=procurement");
+    await expect(page.getByRole("heading", { name: "采购利用复盘" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "采购复盘备注（人工填写）" })).toBeVisible();
+    const reviewNote = `E2E 采购复盘 ${Date.now()}`;
+    await page.getByLabel("采购复盘备注").fill(reviewNote);
+    const noteResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/procurement-reviews/2026-08/note")
+      && response.request().method() === "PUT");
+    await page.getByRole("button", { name: "保存备注" }).click();
+    const savedNoteResponse = await noteResponse;
+    expect(savedNoteResponse.status()).toBe(200);
+    expect(await savedNoteResponse.json()).toMatchObject({ note: reviewNote, version: 1 });
+    await expect(page.getByLabel("采购复盘备注")).toHaveValue(reviewNote);
+    await expect(page.getByText("当前版本 v1", { exact: false })).toBeVisible();
+    const savedReview = await apiGet<{
+      note: { text: string; version: number; updatedAt: string; updatedBy: string | null };
+    }>(page, "/procurement-reviews/2026-08");
+    expect(savedReview.note).toEqual({
+      text: reviewNote,
+      version: 1,
+      updatedAt: expect.any(String),
+      updatedBy: "管理员",
+    });
+
+    await page.goto("/operating-bill?month=2026-08&tab=reconciliation");
+    await expect(page.getByText("Coming Soon", { exact: true })).toBeVisible();
+    await expect(page.getByText("不调用未注册 API", { exact: false })).toBeVisible();
   });
 });

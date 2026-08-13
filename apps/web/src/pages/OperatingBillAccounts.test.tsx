@@ -76,6 +76,8 @@ const employees: OperatingBillEmployees = {
     subjectId: "employee-yutao",
     subjectName: "于滔",
     isUnassigned: false,
+    projectOwner: null,
+    projectDepartments: [],
     providers: [{ providerCode: "deepseek", providerName: "DeepSeek" }],
     totals: exactTotals,
   }],
@@ -93,6 +95,8 @@ const projects: OperatingBillProjects = {
       subjectId: "project-1",
       subjectName: "智算项目",
       isUnassigned: false,
+      projectOwner: { personId: "person-yutao", personName: "于滔" },
+      projectDepartments: [{ departmentId: "department-rd", departmentName: "研发中心" }],
       providers: [{ providerCode: "deepseek", providerName: "DeepSeek" }],
       totals: exactTotals,
     },
@@ -100,6 +104,8 @@ const projects: OperatingBillProjects = {
       subjectId: null,
       subjectName: "未归属项目",
       isUnassigned: true,
+      projectOwner: null,
+      projectDepartments: [],
       providers: [{ providerCode: "deepseek", providerName: "DeepSeek" }],
       totals: exactTotals,
     },
@@ -281,6 +287,9 @@ describe("POOL-043 经营账单员工账／项目账", () => {
     expect(screen.getByRole("link", { name: "项目账" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("哪个项目产生了多少成本", { exact: false })).toBeInTheDocument();
     expect(screen.getAllByText("智算项目").length).toBeGreaterThan(0);
+    const project = screen.getByRole("row", { name: /智算项目/ });
+    expect(within(project).getByText("于滔")).toBeInTheDocument();
+    expect(within(project).getByText("研发中心")).toBeInTheDocument();
     const unassigned = screen.getByRole("row", { name: /未归属项目/ });
     expect(within(unassigned).getByText("未归属")).toBeInTheDocument();
     expect(within(unassigned).queryByRole("link", { name: "查看请求" })).toBeNull();
@@ -336,6 +345,8 @@ describe("POOL-043 经营账单员工账／项目账", () => {
         subjectId: null,
         subjectName: "历史未知员工",
         isUnassigned: false,
+        projectOwner: null,
+        projectDepartments: [],
         providers: [],
         totals: {
           ...exactTotals,

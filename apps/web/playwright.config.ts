@@ -37,6 +37,11 @@ export default defineConfig({
       env: {
         CONTROL_API_PORT: String(controlApiPort),
         WEB_ORIGIN: process.env.WEB_ORIGIN ?? `http://127.0.0.1:${webPort}`,
+        FEATURE_DIRECTORY_IMPORT: "true",
+        FEATURE_USAGE_OVERVIEW_V2: "true",
+        FEATURE_DEPARTMENT_COST: "true",
+        FEATURE_RESOURCE_UTILIZATION_V2: "true",
+        FEATURE_PROCUREMENT_REVIEW: "true",
       },
       reuseExistingServer: false,
       timeout: 120_000,

@@ -114,6 +114,15 @@ export interface SupplyForecastsResult {
 
 // ---------- /auth ----------
 
+export type FeatureFlagName =
+  | "FEATURE_DIRECTORY_IMPORT"
+  | "FEATURE_USAGE_OVERVIEW_V2"
+  | "FEATURE_DEPARTMENT_COST"
+  | "FEATURE_RESOURCE_UTILIZATION_V2"
+  | "FEATURE_PROCUREMENT_REVIEW";
+
+export type FeatureFlags = Record<FeatureFlagName, boolean>;
+
 export interface AdminSession {
   adminUserId: string;
   enterpriseId: string;
@@ -130,6 +139,7 @@ export interface LoginResponse {
     enterprise_id: string;
     must_change_password: boolean;
   };
+  featureFlags: FeatureFlags;
 }
 
 export interface AdminAccount {
@@ -201,6 +211,8 @@ export interface ProviderResourceItem {
   upstream_models: string[] | null;
   concurrency_limit: number | null;
   version: number;
+  monthly_budget_amount?: string | null;
+  monthly_budget_currency?: string | null;
   created_at: string;
   updated_at: string;
   operating_snapshot: ProviderResourceOperatingSnapshot | null;

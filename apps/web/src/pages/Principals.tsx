@@ -28,12 +28,19 @@ import { PageShell } from "../components/layout/PageShell";
 import { AgentUsagePanel } from "../components/principals/AgentUsagePanel";
 import { PrincipalAccessConfigPanel } from "../components/principals/PrincipalAccessConfigPanel";
 import { PrincipalKeyDialog } from "../components/principals/PrincipalKeyDialog";
+import { DirectoryPanel } from "../components/principals/DirectoryPanel";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../components/writes/FormField";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { formatCount, formatDateTimeFull } from "../lib/format";
+import {
+  useOrganizationUnits,
+  useProjectDepartmentAssignment,
+  useSaveProjectDepartmentAssignment,
+} from "../api/v2-hooks";
+import { useFeatureFlags } from "../feature-flags";
 
 const CreatePrincipalSchema = z.object({
   type: z.enum(["EMPLOYEE", "PROJECT"]),
@@ -46,6 +53,8 @@ type CreatePrincipalValues = z.infer<typeof CreatePrincipalSchema>;
 const TYPE_LABEL: Record<Principal["type"], string> = { EMPLOYEE: "员工", PROJECT: "项目" };
 
 export function PrincipalsPage() {
+  const featureFlags = useFeatureFlags();
+  const [activeTab, setActiveTab] = useState<"principals" | "directory">("principals");
   const [archivedFilter, setArchivedFilter] = useState<"exclude" | "only">("exclude");
   const query = usePrincipals(archivedFilter);
   useRedirectOnUnauthorized(query.error);
@@ -149,6 +158,11 @@ export function PrincipalsPage() {
       description="员工与项目的统一主体管理；停用主体将同步撤销其全部 Key"
       title="使用主体"
     >
+      <div className="mb-4 flex gap-2 border-b border-ql-border">
+        <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "principals" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => setActiveTab("principals")} type="button">使用主体</button>
+        {featureFlags.FEATURE_DIRECTORY_IMPORT ? <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "directory" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => setActiveTab("directory")} type="button">组织通讯录</button> : null}
+      </div>
+      {featureFlags.FEATURE_DIRECTORY_IMPORT && activeTab === "directory" ? <DirectoryPanel /> : <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-[13px] text-ql-fg-secondary">
           显示范围
@@ -396,11 +410,13 @@ export function PrincipalsPage() {
         open={cleanupTarget !== null}
         title={cleanupTarget?.preview.canDelete ? "删除主体" : "归档主体"}
       />
+      </>}
     </PageShell>
   );
 }
 
 function PrincipalAccessPanel({ principal }: { principal: Principal }) {
+  const featureFlags = useFeatureFlags();
   const queryClient = useQueryClient();
   const keysQuery = usePrincipalKeys(principal.id);
   const grantsQuery = useGrants(principal.id);
@@ -530,6 +546,10 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
           </p>
         </div>
       </div>
+
+      {featureFlags.FEATURE_DEPARTMENT_COST && principal.type === "PROJECT" ? (
+        <ProjectDepartmentEditor projectId={principal.id} />
+      ) : null}
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="rounded-lg border border-ql-border-zone bg-ql-surface p-4">
@@ -687,4 +707,31 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
       />
     </section>
   );
+}
+
+function ProjectDepartmentEditor({ projectId }: { projectId: string }) {
+  const projectDepartment = useProjectDepartmentAssignment(projectId);
+  const organizationUnits = useOrganizationUnits();
+  const save = useSaveProjectDepartmentAssignment(projectId);
+  const [departmentId, setDepartmentId] = useState("");
+  useEffect(() => {
+    setDepartmentId(projectDepartment.data?.assignment?.organization_unit_id ?? "");
+  }, [projectDepartment.data?.assignment?.organization_unit_id]);
+  return <div className="mt-4 rounded-lg border border-ql-border-zone bg-ql-surface p-4">
+    <h3 className="text-[13px] font-semibold text-ql-fg">项目归属部门</h3>
+    <p className="mt-1 text-[11px] text-ql-fg-tertiary">仅影响设置后的新请求；历史请求按发生时点快照保留。</p>
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <select aria-label="项目归属部门" className={`${INPUT_CLASS} min-w-56`} disabled={organizationUnits.isLoading} onChange={(event) => setDepartmentId(event.target.value)} value={departmentId}>
+        <option value="">请选择部门</option>
+        {(organizationUnits.data?.units ?? []).map((unit) => <option key={unit.id} value={unit.id}>{unit.path}</option>)}
+      </select>
+      <button className="h-9 rounded-lg bg-ql-action px-3 text-[12px] font-medium text-white disabled:opacity-50" disabled={!departmentId || save.isPending} onClick={() => void save.mutateAsync({
+        organization_unit_id: departmentId,
+        expected_version: projectDepartment.data?.assignment?.version ?? 0,
+        reason: "WEB_ADMIN",
+      })} type="button">{save.isPending ? "保存中…" : "保存归属"}</button>
+      {projectDepartment.data?.assignment ? <span className="text-[11px] text-ql-fg-tertiary">版本 {projectDepartment.data.assignment.version} · {projectDepartment.data.assignment.department_name}</span> : null}
+    </div>
+    {projectDepartment.error || save.error ? <p className="mt-2 text-[12px] text-ql-danger">{(projectDepartment.error ?? save.error)?.message}</p> : null}
+  </div>;
 }

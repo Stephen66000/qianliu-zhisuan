@@ -30,6 +30,8 @@ import {
 } from "../components/resources/ResourceModelDiscovery";
 import { QuotaWindowPanel } from "../components/resources/QuotaWindowPanel";
 import { ResourceHealthPanel } from "../components/resources/ResourceHealthPanel";
+import { ResourceUtilizationPanel } from "../components/resources/ResourceUtilizationPanel";
+import { useFeatureFlags } from "../feature-flags";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../components/writes/FormField";
@@ -85,6 +87,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 // eslint-disable-next-line complexity -- 资源页聚合登记、发现、同步、经营快照与恢复流程，条件均为互斥 UI 状态。
 export function ResourcesPage() {
+  const featureFlags = useFeatureFlags();
   const query = useProviderResources();
   const providersQuery = useProviders();
   const forecastsQuery = useSupplyForecasts();
@@ -287,6 +290,10 @@ export function ResourcesPage() {
           登记资源
         </button>
       </div>
+
+      {featureFlags.FEATURE_RESOURCE_UTILIZATION_V2
+        ? <ResourceUtilizationPanel resources={resources} />
+        : null}
 
       {showCreate ? (
         <form
@@ -939,9 +946,9 @@ export function ResourcesPage() {
         </div>
       </QueryGate>
 
-      <QuotaWindowPanel providers={providerOptions} resources={resources} />
+      <div id="quota-windows"><QuotaWindowPanel providers={providerOptions} resources={resources} /></div>
 
-      <section className="mt-5 rounded-xl border border-ql-border bg-ql-surface p-4">
+      <section className="mt-5 rounded-xl border border-ql-border bg-ql-surface p-4" id="supply-forecasts">
         <h2 className="text-[14px] font-semibold text-ql-fg">供给预测</h2>
         <p className="mt-1 text-[12px] text-ql-fg-tertiary">
           展示每个资源最新快照；数据不足时不伪造精确预测。
@@ -991,7 +998,7 @@ export function ResourcesPage() {
         )}
       </section>
 
-      <ResourceHealthPanel providers={providerOptions} resources={resources} />
+      <div id="resource-health"><ResourceHealthPanel providers={providerOptions} resources={resources} /></div>
 
       {/* 凭证恢复：二次确认 + 可选轮换（WT-19） */}
       <ConfirmDialog

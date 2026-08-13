@@ -2,6 +2,7 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
+  DepartmentCostNotConservedError,
   InvalidOperatingBillMonthError,
   OperatingBillAlreadyClosedError,
   OperatingBillClosedError,
@@ -69,6 +70,13 @@ function handleOperatingBillError(error: unknown, reply: FastifyReply) {
   if (error instanceof OperatingBillIncompleteError) {
     return reply.code(409).send({
       error: "bill_incomplete", message: "账单存在数据缺口，不能直接结账", gaps: error.gaps,
+    });
+  }
+  if (error instanceof DepartmentCostNotConservedError) {
+    return reply.code(409).send({
+      error: "department_cost_not_conserved",
+      message: "部门成本与企业基础事实不守恒，不能结账",
+      conservation: error.conservation,
     });
   }
   if (error instanceof OperatingBillCloseNoteRequiredError) {
@@ -263,6 +271,7 @@ export function registerOperatingBillRoutes(app: FastifyInstance): void {
           month: month.data,
           allowIncomplete: body.data.allow_incomplete,
           note: body.data.note ?? null,
+          includeDepartmentEvidence: app.featureFlags.FEATURE_DEPARTMENT_COST,
         });
         await app.auditRepo.write({
           enterprise_id: req.admin!.enterpriseId,
