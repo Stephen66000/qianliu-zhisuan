@@ -1,0 +1,27 @@
+# 标准目标环境叠加层：仅 Caddy 暴露公网端口，业务服务和数据服务留在 Compose 私网。
+# 使用：docker compose -f compose.yaml -f compose.target.yaml ...
+
+services:
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  control-api:
+    ports: !reset []
+
+  gateway:
+    ports: !reset []
+
+  web:
+    ports: !reset []
+
+  caddy:
+    env_file: ${QIANLIU_ENV_FILE:-.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile.target:/etc/caddy/Caddyfile:ro
