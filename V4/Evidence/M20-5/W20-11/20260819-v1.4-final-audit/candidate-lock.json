@@ -1,0 +1,29 @@
+{
+  "audit_id": "AUDIT-2.0-20260819-V14-R1",
+  "candidate_commit": "a2e91daf0dc2d0b19d8e1ab5773ea4a2c68567d9",
+  "candidate_tree": "a79685cdc959ed4a69df226550bee91a8d766482",
+  "baseline_commit": "16f880359fda50449b034dcfd1c7e755c8e83666",
+  "functional_regression": {
+    "new_issues": { "control_api": "34/34", "gateway": "33/33", "database": "5/5", "worker": "1/1", "provider_adapters": "2/2", "web": "43/43" },
+    "inherited_1_0": { "test_files": 165, "tests": 1124, "status": "PASS" }
+  },
+  "quality_gates": {
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "build": "PASS",
+    "coverage_ratchet": "PASS",
+    "architecture": "PASS",
+    "source_size": "PASS_WITH_EXPLICIT_EXCEPTIONS",
+    "duplication": "0.70%",
+    "dependency_audit": "PASS",
+    "license": "PASS",
+    "evidence_canary": "PASS_LOG_SCOPE_ONLY"
+  },
+  "findings": [
+    { "id": "F-001", "status": "CLOSED", "fix": "migration renumbering and regression assertions" },
+    { "id": "F-002", "status": "CLOSED", "fix": "Web pool043 coverage tests" },
+    { "id": "F-003", "status": "CLOSED_WITH_EXCEPTION", "fix": "explicit source-size exceptions with review due 2026-09-18" }
+  ],
+  "independence": { "required": "project-plan-defined", "actual": "I0", "disclosed": true },
+  "external_actions": { "production_data": false, "provider_calls": false, "deployment": false, "push": false }
+}

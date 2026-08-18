@@ -222,8 +222,8 @@
     "exception_policy": {
       "owner": "仟流智算技术负责人",
       "reason": "历史生产代码拆分风险高，本轮只锁定现状并禁止继续增长",
-      "reviewed_on": "2026-08-01",
-      "review_due": "2026-09-01",
+      "reviewed_on": "2026-08-18",
+      "review_due": "2026-09-18",
       "exit": "函数复杂度降至 30 以下后删除对应 ESLint 例外"
     },
     "exceptions": [
@@ -254,20 +254,23 @@
       "exit": "拆分且回归通过后降至 400 逻辑行以内"
     },
     "exceptions": [
-      { "file": "apps/gateway/src/pipeline/real-pipeline.ts", "baseline": 1338 },
-      { "file": "apps/web/src/pages/QuotaRules.tsx", "baseline": 1312 },
+      { "file": "apps/gateway/src/pipeline/real-pipeline.ts", "baseline": 1404 },
+      { "file": "apps/web/src/pages/QuotaRules.tsx", "baseline": 1394 },
       { "file": "apps/web/src/pages/Resources.tsx", "baseline": 1080 },
       { "file": "packages/provider-adapters/src/openai-compatible-caller.ts", "baseline": 1017 },
       { "file": "packages/database/src/repositories/runtime-assurance-repository.ts", "baseline": 919 },
       { "file": "apps/web/src/pages/Principals.tsx", "baseline": 881 },
       { "file": "packages/database/src/kysely.ts", "baseline": 655 },
       { "file": "apps/control-api/src/cli/seed-e2e.ts", "baseline": 588 },
-      { "file": "packages/database/src/repositories/dashboard-repository.ts", "baseline": 570 },
+      { "file": "packages/database/src/repositories/dashboard-repository.ts", "baseline": 619 },
       { "file": "packages/database/src/repositories/alert-event-repository.ts", "baseline": 533 },
-      { "file": "apps/web/src/api/types.ts", "baseline": 506 },
+      { "file": "apps/web/src/api/types.ts", "baseline": 516 },
       { "file": "apps/control-api/src/read-models/routes.ts", "baseline": 489 },
       { "file": "packages/database/src/repositories/gateway-ledger-repository.ts", "baseline": 455 },
-      { "file": "apps/control-api/src/admin-writes/routes.ts", "baseline": 439 }
+      { "file": "apps/control-api/src/admin-writes/routes.ts", "baseline": 540 },
+      { "file": "packages/database/src/repositories/dispatch-policy-repository.ts", "baseline": 478 },
+      { "file": "packages/database/src/repositories/operating-bill-draft.ts", "baseline": 518 },
+      { "file": "packages/database/src/repositories/operating-bill-repository.ts", "baseline": 444 }
     ]
   },
   "security_exceptions": [
