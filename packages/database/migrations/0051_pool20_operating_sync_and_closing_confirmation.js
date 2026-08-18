@@ -128,7 +128,7 @@ export async function down(db) {
     BEGIN
       IF EXISTS (SELECT 1 FROM provider_resource_operating_sync_attempt)
          OR EXISTS (SELECT 1 FROM operating_bill_resource_confirmation) THEN
-        RAISE EXCEPTION '0050 contains operating sync/closing confirmation writes; destructive down is disabled';
+        RAISE EXCEPTION '0051 contains operating sync/closing confirmation writes; destructive down is disabled';
       END IF;
     END;
     $$

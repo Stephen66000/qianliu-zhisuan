@@ -17,7 +17,7 @@ afterAll(async () => {
   await pg?.stop();
 }, 60_000);
 
-describe("W20-10 0045 到 0049 升级、回退与读模型重建", () => {
+describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
   it("同一 1.0 数据可升级、重建派生聚合、允许条件下 down 并再次升级", async () => {
     const db = createKysely(pg.connectionString);
     try {
@@ -162,6 +162,8 @@ describe("W20-10 0045 到 0049 升级、回退与读模型重建", () => {
         ["0047_usage_bucket_aggregate", "Success"],
         ["0048_department_cost_budget_and_purchase", "Success"],
         ["0049_resource_utilization_and_procurement_review", "Success"],
+        ["0050_group2_policy_lifecycle", "Success"],
+        ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -206,6 +208,8 @@ describe("W20-10 0045 到 0049 升级、回退与读模型重建", () => {
         .executeTakeFirstOrThrow();
       expect(rebuiltAggregate).toEqual(firstAggregate);
 
+      expect(await migrateDown(db)).toBe("0051_pool20_operating_sync_and_closing_confirmation");
+      expect(await migrateDown(db)).toBe("0050_group2_policy_lifecycle");
       expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");
       expect(await migrateDown(db)).toBe("0048_department_cost_budget_and_purchase");
       expect(await migrateDown(db)).toBe("0047_usage_bucket_aggregate");
@@ -242,6 +246,8 @@ describe("W20-10 0045 到 0049 升级、回退与读模型重建", () => {
         ["0047_usage_bucket_aggregate", "Success"],
         ["0048_department_cost_budget_and_purchase", "Success"],
         ["0049_resource_utilization_and_procurement_review", "Success"],
+        ["0050_group2_policy_lifecycle", "Success"],
+        ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
