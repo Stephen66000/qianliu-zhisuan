@@ -1,4 +1,5 @@
 import { Decimal } from "decimal.js";
+import { createHash } from "node:crypto";
 import { sql, type Kysely } from "kysely";
 
 import type { Database } from "../kysely.js";
@@ -33,6 +34,7 @@ interface ResourceFactRow {
   snapshot_id: string | null;
   snapshot_version: number | null;
   snapshot_at: Date | null;
+  snapshot_source: string | null;
   currency: string | null;
   current_balance: string | null;
   package_cost: string | null;
@@ -43,6 +45,22 @@ interface ResourceFactRow {
   effective_from: Date | null;
   effective_until: Date | null;
   next_reset_at: Date | null;
+}
+
+interface PurchaseFactRow {
+  id: string; provider_resource_id: string; purchase_type: "API_RECHARGE" | "PACKAGE_PURCHASE";
+  amount: string; currency: string; purchased_at: Date; service_period_start: string | null;
+  service_period_end: string | null; source: string;
+}
+
+interface ResourceRangeRow {
+  provider_resource_id: string; first_at: Date | null; last_at: Date | null; request_count: string;
+}
+
+interface ResourceConfirmationRow {
+  provider_resource_id: string; status: "CONFIRMED" | "PENDING" | "NOT_APPLICABLE" | "ANOMALY";
+  fact_fingerprint: string; note: string | null; confirmed_at: Date;
+  confirmed_by_name: string; version: number;
 }
 
 interface LedgerSourceRow {
@@ -114,15 +132,23 @@ function assessPlanResource(
   };
 }
 
-function gapForResource(row: ResourceFactRow): OperatingBillGap | null {
+function gapForResource(row: ResourceFactRow, range?: ResourceRangeRow): OperatingBillGap | null {
+  const detail = {
+    providerResourceId: row.resource_id,
+    snapshotId: row.snapshot_id,
+    snapshotVersion: row.snapshot_version,
+    requestRangeFrom: range?.first_at?.toISOString() ?? null,
+    requestRangeTo: range?.last_at?.toISOString() ?? null,
+  };
   if (!row.snapshot_id) {
-    return { code: "OPERATING_SNAPSHOT_MISSING", message: `${row.resource_name} 缺少账期经营快照`, providerResourceId: row.resource_id };
+    return { code: "OPERATING_SNAPSHOT_MISSING", message: `${row.resource_name} 缺少字段：经营快照；请求范围 ${detail.requestRangeFrom ?? "无请求"} ~ ${detail.requestRangeTo ?? "无请求"}`, field: "operating_snapshot", ...detail };
   }
   if (row.mode === "API" && (!row.currency || row.current_balance === null)) {
-    return { code: "API_BALANCE_MISSING", message: `${row.resource_name} 缺少币种或期末余额`, providerResourceId: row.resource_id };
+    return { code: "API_BALANCE_MISSING", message: `${row.resource_name} 缺少字段：${!row.currency ? "currency" : "current_balance"}；快照 v${row.snapshot_version}`, field: !row.currency ? "currency" : "current_balance", ...detail };
   }
   if (row.mode === "CODING_PLAN" && (row.package_cost === null || row.total_quota === null || row.used_quota === null || row.quota_unit === null)) {
-    return { code: "PLAN_FACT_MISSING", message: `${row.resource_name} 缺少套餐费用或额度事实`, providerResourceId: row.resource_id };
+    const field = row.package_cost === null ? "package_cost" : row.total_quota === null ? "total_quota" : row.used_quota === null ? "used_quota" : "quota_unit";
+    return { code: "PLAN_FACT_MISSING", message: `${row.resource_name} 缺少字段：${field}；快照 v${row.snapshot_version}`, field, ...detail };
   }
   return null;
 }
@@ -131,6 +157,55 @@ function isEffectivePackage(row: ResourceFactRow, start: Date, end: Date): boole
   return row.mode === "CODING_PLAN" && row.package_cost !== null
     && (row.effective_from === null || row.effective_from < end)
     && (row.effective_until === null || row.effective_until > start);
+}
+
+function providerFactEvidence(input: {
+  row: ResourceFactRow;
+  resourceApiCost: Decimal | null;
+  resourcePackageCost: Decimal;
+  purchases: PurchaseFactRow[];
+  range?: ResourceRangeRow;
+  confirmed?: ResourceConfirmationRow;
+}): Pick<OperatingBillProviderRow,
+  "purchases" | "servicePeriodStart" | "servicePeriodEnd" | "operatingSnapshotSource" |
+  "requestRange" | "factFingerprint" | "confirmation"> {
+  const purchases = input.purchases.map((item) => ({
+    id: item.id, type: item.purchase_type, amount: item.amount, currency: item.currency,
+    purchasedAt: item.purchased_at.toISOString(), servicePeriodStart: item.service_period_start,
+    servicePeriodEnd: item.service_period_end, source: item.source,
+  }));
+  const requestRange = {
+    from: input.range?.first_at?.toISOString() ?? null,
+    to: input.range?.last_at?.toISOString() ?? null,
+    count: Number(input.range?.request_count ?? 0),
+  };
+  const factFingerprint = createHash("sha256").update(JSON.stringify({
+    resourceId: input.row.resource_id,
+    snapshotId: input.row.snapshot_id,
+    snapshotVersion: input.row.snapshot_version,
+    apiCost: nullableAmount(input.resourceApiCost),
+    packageCost: amount(input.resourcePackageCost),
+    endingBalance: input.row.current_balance,
+    purchases,
+    requestRange: [requestRange.from, requestRange.to, requestRange.count],
+  })).digest("hex");
+  const matchesCurrentFacts = input.confirmed?.fact_fingerprint === factFingerprint;
+  return {
+    operatingSnapshotSource: input.row.snapshot_source,
+    servicePeriodStart: input.row.effective_from?.toISOString() ?? null,
+    servicePeriodEnd: input.row.effective_until?.toISOString() ?? null,
+    purchases,
+    requestRange,
+    factFingerprint,
+    confirmation: {
+      status: input.confirmed && matchesCurrentFacts ? input.confirmed.status : "PENDING",
+      note: input.confirmed?.note ?? null,
+      confirmedBy: input.confirmed?.confirmed_by_name ?? null,
+      confirmedAt: input.confirmed?.confirmed_at.toISOString() ?? null,
+      version: input.confirmed?.version ?? 0,
+      matchesCurrentFacts,
+    },
+  };
 }
 
 export async function buildOperatingBillDraft(
@@ -149,6 +224,9 @@ export async function buildOperatingBillDraft(
       subjectStatsResult,
       projectStatsResult,
       ledgerSourcesResult,
+      purchasesResult,
+      resourceRangesResult,
+      confirmationsResult,
       values,
     ] = await Promise.all([
       sql<ResourceFactRow>`
@@ -166,7 +244,7 @@ export async function buildOperatingBillDraft(
         SELECT r.id AS resource_id, p.code AS provider_code, p.name AS provider_name,
                r.name AS resource_name, r.mode, r.status AS resource_status,
                s.id AS snapshot_id, s.version AS snapshot_version,
-               s.collected_at AS snapshot_at, s.currency, s.current_balance,
+               s.collected_at AS snapshot_at, s.source AS snapshot_source, s.currency, s.current_balance,
                s.package_cost, s.total_quota, s.used_quota, s.remaining_quota,
                s.quota_unit, s.effective_from, s.effective_until, s.next_reset_at
           FROM resources r
@@ -259,9 +337,38 @@ export async function buildOperatingBillDraft(
            AND created_at >= ${start} AND created_at < ${end}
          ORDER BY created_at, id
       `.execute(db),
+      sql<PurchaseFactRow>`
+        SELECT id, provider_resource_id, purchase_type, amount::text, currency, purchased_at,
+               service_period_start::text, service_period_end::text, source
+          FROM resource_purchase_record
+         WHERE enterprise_id = ${enterpriseId}
+           AND purchased_at >= ${start} AND purchased_at < ${end}
+         ORDER BY purchased_at, id
+      `.execute(db),
+      sql<ResourceRangeRow>`
+        SELECT provider_resource_id, MIN(created_at) AS first_at, MAX(created_at) AS last_at,
+               COUNT(DISTINCT ai_request_id)::text AS request_count
+          FROM ledger_line
+         WHERE enterprise_id = ${enterpriseId} AND created_at >= ${start} AND created_at < ${end}
+         GROUP BY provider_resource_id
+      `.execute(db),
+      period ? sql<ResourceConfirmationRow>`
+        SELECT c.provider_resource_id, c.status, c.fact_fingerprint, c.note, c.confirmed_at,
+               a.display_name AS confirmed_by_name, c.version
+          FROM operating_bill_resource_confirmation c
+          JOIN admin_user a ON a.id = c.confirmed_by AND a.enterprise_id = c.enterprise_id
+         WHERE c.enterprise_id = ${enterpriseId} AND c.period_id = ${period.id}
+      `.execute(db) : Promise.resolve({ rows: [] as ResourceConfirmationRow[] }),
       Promise.resolve(valueItems),
     ]);
     const resources = resourceResult.rows;
+    const purchasesByResource = new Map<string, PurchaseFactRow[]>();
+    for (const purchase of purchasesResult.rows) {
+      const list = purchasesByResource.get(purchase.provider_resource_id) ?? [];
+      list.push(purchase); purchasesByResource.set(purchase.provider_resource_id, list);
+    }
+    const rangeByResource = new Map(resourceRangesResult.rows.map((row) => [row.provider_resource_id, row]));
+    const confirmationByResource = new Map(confirmationsResult.rows.map((row) => [row.provider_resource_id, row]));
     const sourceUsage = usageResult.rows;
     const usage = [...sourceUsage, ...projectUsageResult.rows];
     const statsByPrincipal = new Map(
@@ -271,7 +378,7 @@ export async function buildOperatingBillDraft(
     const gaps: OperatingBillGap[] = [];
     const resourceById = new Map(resources.map((row) => [row.resource_id, row]));
     for (const row of resources) {
-      const gap = gapForResource(row);
+      const gap = gapForResource(row, rangeByResource.get(row.resource_id));
       if (gap) gaps.push(gap);
     }
 
@@ -283,7 +390,19 @@ export async function buildOperatingBillDraft(
         (deductedByResource.get(row.provider_resource_id) ?? new MoneyDecimal(0)).plus(row.deducted_quota));
     }
     const apiCost = sumKnownCosts(apiCostByResource);
-    gaps.push(...unknownApiCostGaps(apiCostByResource, resourceById));
+    gaps.push(...unknownApiCostGaps(apiCostByResource, resourceById).map((gap) => {
+      const resource = gap.providerResourceId ? resourceById.get(gap.providerResourceId) : undefined;
+      const range = gap.providerResourceId ? rangeByResource.get(gap.providerResourceId) : undefined;
+      return {
+        ...gap,
+        field: "ledger_line.api_cost",
+        snapshotId: resource?.snapshot_id ?? null,
+        snapshotVersion: resource?.snapshot_version ?? null,
+        requestRangeFrom: range?.first_at?.toISOString() ?? null,
+        requestRangeTo: range?.last_at?.toISOString() ?? null,
+        message: `${gap.message}；缺失字段 ledger_line.api_cost；请求范围 ${range?.first_at?.toISOString() ?? "未知"} ~ ${range?.last_at?.toISOString() ?? "未知"}`,
+      };
+    }));
     const packageResources = resources.filter((row) => isEffectivePackage(row, start, end));
     const packageCost = packageResources.reduce((sum, row) => sum.plus(row.package_cost!), new MoneyDecimal(0));
 
@@ -366,6 +485,12 @@ export async function buildOperatingBillDraft(
         ? decimal(row.used_quota).div(totalQuota).mul(100).toDecimalPlaces(2).toFixed(2) : null;
       const activePrincipalCount = new Set(sourceUsage.filter((item) => item.provider_resource_id === row.resource_id).map((item) => item.principal_id)).size;
       const assessment = assessPlanResource(row, activePrincipalCount, resourcePackageCost, end);
+      const range = rangeByResource.get(row.resource_id);
+      const confirmed = confirmationByResource.get(row.resource_id);
+      const factEvidence = providerFactEvidence({
+        row, resourceApiCost, resourcePackageCost,
+        purchases: purchasesByResource.get(row.resource_id) ?? [], range, confirmed,
+      });
       return {
         providerResourceId: row.resource_id, providerCode: row.provider_code,
         providerName: row.provider_name, resourceName: row.resource_name, mode: row.mode,
@@ -379,6 +504,7 @@ export async function buildOperatingBillDraft(
         activePrincipalCount,
         operatingSnapshotId: row.snapshot_id, operatingSnapshotVersion: row.snapshot_version,
         operatingSnapshotAt: row.snapshot_at?.toISOString() ?? null, status: row.resource_status,
+        ...factEvidence,
         ...assessment,
       };
     });

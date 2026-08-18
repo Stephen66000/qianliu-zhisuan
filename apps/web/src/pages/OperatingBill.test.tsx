@@ -22,6 +22,7 @@ vi.mock("../api/operating-bills", async () => {
     useOperatingBill: () => ({ isLoading: false, error: null, data: bill, refetch: vi.fn() }),
     useCreateOperatingBillValue: () => ({ mutate, isPending: false, error: null }),
     useConfirmOperatingBillValue: () => ({ mutate, isPending: false, error: null }),
+    useConfirmOperatingBillResource: () => ({ mutate, isPending: false, error: null }),
     useCloseOperatingBill: () => ({ mutate, isPending: false, error: null }),
     useReopenOperatingBill: () => ({ mutate, isPending: false, error: null }),
     useAssignOperatingBillProject: () => ({ mutate, isPending: false, error: null }),

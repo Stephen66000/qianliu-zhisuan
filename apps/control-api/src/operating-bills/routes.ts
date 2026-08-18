@@ -47,6 +47,14 @@ const CloseSchema = z.object({
   note: z.string().trim().max(4000).nullable().optional(),
 });
 const ReopenSchema = z.object({ reason: z.string().trim().min(1).max(4000) });
+const ResourceConfirmationSchema = z.object({
+  status: z.enum(["CONFIRMED", "PENDING", "NOT_APPLICABLE", "ANOMALY"]),
+  note: z.string().trim().max(1000).nullable().optional(),
+}).superRefine((value, ctx) => {
+  if ((value.status === "ANOMALY" || value.status === "NOT_APPLICABLE") && !value.note) {
+    ctx.addIssue({ code: "custom", path: ["note"], message: "异常或不适用必须填写备注" });
+  }
+});
 const ProjectAssignmentSchema = z.object({
   ai_request_id: z.string().uuid(),
   project_principal_id: z.string().uuid(),
@@ -191,6 +199,39 @@ export function registerOperatingBillRoutes(app: FastifyInstance): void {
           result: "SUCCESS",
         });
         return reply.code(201).send({ item });
+      } catch (error) {
+        return handleOperatingBillError(error, reply);
+      }
+    },
+  );
+
+  app.put<{ Params: { month: string; resourceId: string } }>(
+    "/operating-bills/:month/resource-confirmations/:resourceId",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const month = MonthSchema.safeParse(req.params.month);
+      const resourceId = IdSchema.safeParse(req.params.resourceId);
+      const body = ResourceConfirmationSchema.safeParse(req.body);
+      if (!month.success || !resourceId.success || !body.success) return invalid(reply);
+      try {
+        const bill = await app.operatingBillRepo.confirmResourceFacts({
+          enterpriseId: req.admin!.enterpriseId,
+          adminId: req.admin!.adminUserId,
+          month: month.data,
+          providerResourceId: resourceId.data,
+          status: body.data.status,
+          note: body.data.note ?? null,
+        });
+        await app.auditRepo.write({
+          enterprise_id: req.admin!.enterpriseId,
+          admin_user_id: req.admin!.adminUserId,
+          action: "operating_bill.resource_fact.confirm",
+          target_type: "provider_resource",
+          target_id: resourceId.data,
+          change_summary: { month: month.data, status: body.data.status, note: body.data.note ?? null },
+          result: "SUCCESS",
+        });
+        return bill;
       } catch (error) {
         return handleOperatingBillError(error, reply);
       }

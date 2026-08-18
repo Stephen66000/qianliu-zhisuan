@@ -286,10 +286,12 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect(res.statusCode).toBe(429);
       expect(res.headers["retry-after"]).toBeUndefined();
       expect(JSON.parse(res.body).error).toMatchObject({
-        message: "额度不足，请联系管理员",
+        message: "Kimi 厂商额度已用完，请等待额度重置（下一重置时间未知）",
         type: "rate_limit_error",
-        code: "insufficient_quota",
+        code: "provider_quota_exhausted",
         retryable: false,
+        next_reset_at: null,
+        not_calculable_reason: "PROVIDER_RESET_TIME_UNKNOWN",
       });
       expect(fx.stub.calls).toHaveLength(callsBefore);
 
@@ -303,7 +305,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
         .where("id", "=", requestId).executeTakeFirstOrThrow()).toMatchObject({
           status: "FAILED",
           error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
-          error_code: "insufficient_quota",
+          error_code: "provider_quota_exhausted",
         });
       const c = await counterValue(fx.grantId);
       expect(c.used).toBe(0n); // REJECT 不改 counter

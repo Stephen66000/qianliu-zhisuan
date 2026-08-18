@@ -37,7 +37,7 @@ import type {
   OrganizationUnitTable,
 } from "./kysely-directory-tables.js";
 import type { ProviderQuotaWindowTable } from "./provider-quota-window-types.js";
-import type { ProjectDepartmentAssignmentTable, RequestAttributionSnapshotTable, UsageAggregateBucketStateTable, UsageAggregateDirtyBucketTable, UsageBucketAggregateTable } from "./kysely-w20-tables.js";
+import type { OperatingBillResourceConfirmationTable, ProjectDepartmentAssignmentTable, ProviderResourceOperatingSyncAttemptTable, RequestAttributionSnapshotTable, UsageAggregateBucketStateTable, UsageAggregateDirtyBucketTable, UsageBucketAggregateTable } from "./kysely-w20-tables.js";
 
 export type * from "./kysely-operations-tables.js"; export type * from "./employee-model-rule-types.js";
 export type * from "./kysely-availability-tables.js";
@@ -634,6 +634,7 @@ export interface Database {
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
   provider_resource_operating_snapshot: ProviderResourceOperatingSnapshotTable;
+  provider_resource_operating_sync_attempt: ProviderResourceOperatingSyncAttemptTable;
   provider_quota_window: ProviderQuotaWindowTable;
   provider_model_discovery: ProviderModelDiscoveryTable;
   provider_model_discovery_item: ProviderModelDiscoveryItemTable;
@@ -661,6 +662,7 @@ export interface Database {
   operating_bill_version: OperatingBillVersionTable;
   operating_bill_event: OperatingBillEventTable;
   operating_bill_request_project_assignment: OperatingBillRequestProjectAssignmentTable;
+  operating_bill_resource_confirmation: OperatingBillResourceConfirmationTable;
 }
 
 /**

@@ -17,6 +17,7 @@ import { runSchedulerLoop, startHealthServer, type SchedulerHealth } from "./run
 import { runSupplyForecastTick } from "./supply-forecast/runner.js";
 import { runCodingPlanQuotaTick } from "./coding-plan-quota/runner.js";
 import { runDirectorySyncTick } from "./directory/runner.js";
+import { runProviderOperatingSyncTick } from "./provider-operating-sync/runner.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -52,6 +53,11 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "provider-operating-sync-once") {
+    await runProviderOperatingSyncOnce();
+    return;
+  }
+
   if (command === "directory-sync-once") {
     await runDirectorySyncOnce(args.slice(1));
     return;
@@ -68,6 +74,7 @@ async function main(): Promise<void> {
   console.log("[worker]       worker runtime-assurance-migrate-legacy");
   console.log("[worker]       worker operating-bill --enterprise <id> --month <YYYY-MM>");
   console.log("[worker]       worker supply-forecast-once");
+  console.log("[worker]       worker provider-operating-sync-once");
   console.log("[worker]       worker directory-sync-once [--run <run-id>] [--max-runs <1-100>]");
   console.log("[worker]       worker usage-aggregate-rebuild --enterprise <id> --from <iso> --to <iso>");
 }
@@ -182,6 +189,9 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
         const forecast = await runSupplyForecastTick(supplyForecastRepository);
         // POOL-032：厂商 Coding Plan 额度窗口同步（失败保鲜，不影响 runtime/forecast）。
         const quota = await runCodingPlanQuotaTick({ db, kekBase64: requiredEnv("CREDENTIAL_KEK") });
+        const operating = await runProviderOperatingSyncTick({
+          db, kekBase64: requiredEnv("CREDENTIAL_KEK"),
+        });
         console.log(JSON.stringify({
           event: "supply_forecast_tick_completed",
           resources_scanned: forecast.resourcesScanned,
@@ -194,11 +204,24 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
           windows_upserted: quota.windowsUpserted,
           failed: quota.failed,
         }));
-        return { runtime, forecast, quota };
+        console.log(JSON.stringify({ event: "provider_operating_sync_tick_completed", ...operating }));
+        return { runtime, forecast, quota, operating };
       },
     });
   } finally {
     await new Promise<void>((resolve) => healthServer.close(() => resolve()));
+    await db.destroy();
+  }
+}
+
+async function runProviderOperatingSyncOnce(): Promise<void> {
+  const db = createKysely();
+  try {
+    const result = await runProviderOperatingSyncTick({
+      db, kekBase64: requiredEnv("CREDENTIAL_KEK"),
+    });
+    console.log(JSON.stringify({ event: "provider_operating_sync_once_completed", ...result }));
+  } finally {
     await db.destroy();
   }
 }

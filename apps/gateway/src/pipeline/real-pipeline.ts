@@ -373,6 +373,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let lastScored: ScoredCandidate[] = [];
     let winner: ScoredCandidate | undefined;
     let finalOutcome: Outcome | null = null;
+    let finalOutcomeProviderCode: string | null = null;
     let finalSignalResult: SignalResult | null = null;
     let attemptNo = 0;
     // R2-N1 修复：额度/账本归因用已认证的调用者主体（principal.principalId），
@@ -394,6 +395,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     let capacityRetryAfterMs = capacityPollMs;
     let halfOpenProbeBusy = false;
     let quotaExhaustedDuringDispatch = false;
+    let quotaExhaustedProviderCode: string | null = null;
+    let quotaExhaustedResetAt: string | null = null;
     // 请求级超额事实随结算冻结；后续 Grant/Counter 变化不得重算历史。
     let requestOverage = false;
     const pendingQuotaSettlements: Array<{
@@ -493,6 +496,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
             matchedDaysOfWeek: decision.matchedPolicy?.matchDaysOfWeek ?? null,
             matchedStartTime: decision.matchedPolicy?.matchStartTime ?? null,
             matchedEndTime: decision.matchedPolicy?.matchEndTime ?? null,
+            policyWindow: dispatchPolicyWindow(decision.matchedPolicy),
+            policyResetAt: dispatchResetAt(decision.matchedPolicy, requestStartedAt),
             ...dispatchCounterfactualEvidence(dispatchBaselineCandidate, null),
             executedResourceIds: [],
             usageEvidence: null,
@@ -631,12 +636,18 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           // REJECT_EXHAUSTED / REJECT_NO_GRANT / REJECT_GRANT_EXPIRED：释放租约，排除资源重评
           if (reserve.decision === QUOTA_DECISION.REJECT_EXHAUSTED) {
             quotaExhaustedDuringDispatch = true;
+            quotaExhaustedProviderCode = cand.providerCode;
+            quotaExhaustedResetAt = await latestProviderQuotaResetAt(
+              deps.db, principal.enterpriseId, cand.resourceId, new Date(requestStartedAt),
+            );
           }
           await deps.quotaRepo.releaseLease(leaseId);
           if (probeLease) {
             await deps.poolRepo.releaseHalfOpenProbe(cand.resourceId, probeLease.acquiredAt);
           }
           triedResourceIds.add(cand.resourceId);
+          // POOL20-033：Coding Plan 耗尽是用户决策边界，不自动换厂商/API。
+          if (reserve.decision === QUOTA_DECISION.REJECT_EXHAUSTED) break;
           continue;
         }
         grantId = reserve.grantId;
@@ -877,8 +888,10 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       }
 
       finalOutcome = outcome;
+      finalOutcomeProviderCode = cand.providerCode;
 
       // 3e. 切换判定：已提交、首字节超时或不可切换分类都停止重打。
+      if (cand.mode === "CODING_PLAN" && classification === "UPSTREAM_BILLING_BLOCKED") break;
       if (!shouldAttemptUpstreamFailover(
         outcome,
         classification as ErrorClassification | null,
@@ -1039,14 +1052,18 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     if (dispatchTerminated) {
       const code = dispatchFinalAction === "REJECT" ? 403 : 429;
       const errCode = dispatchFinalAction === "REJECT" ? "dispatch_rejected" : "dispatch_rate_limited";
+      const policyWindow = dispatchPolicyWindow(dispatchMatchedPolicy);
+      const resetAt = dispatchResetAt(dispatchMatchedPolicy, requestStartedAt);
       const dispatchMessage = dispatchFinalAction === "REJECT"
-        && dispatchMatchedPolicy?.matchStartTime
-        && dispatchMatchedPolicy.matchEndTime
-        ? `${dispatchMatchedPolicy.matchStartTime.slice(0, 5)}-${dispatchMatchedPolicy.matchEndTime.slice(0, 5)}暂停使用`
-        : `经营调度${dispatchFinalAction === "REJECT" ? "拒绝" : "限流"}`;
+        ? `高峰时段暂停使用${policyWindow ? `；策略时段 ${policyWindow}` : ""}${resetAt ? `；${resetAt} 后恢复` : ""}`
+        : "经营调度限流";
       await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", errCode, dispatchReasonCode);
       return reply.code(code).header("x-request-id", traceId).send({
-        error: { message: dispatchMessage, type: "server_error", code: errCode, param: null, retryable: false, request_id: requestId },
+        error: {
+          message: dispatchMessage, type: "server_error", code: errCode, param: null,
+          retryable: false, request_id: requestId, policy_window: policyWindow, reset_at: resetAt,
+          attempt_count: 0, usage_created: false, charged: false,
+        },
       });
     }
     if (!finalOutcome) {
@@ -1096,15 +1113,19 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           });
       }
       if (quotaExhaustedDuringDispatch) {
-        await publishFailedRequest("DOWNSTREAM_AUTH_OR_QUOTA", "insufficient_quota");
+        await publishFailedRequest("DOWNSTREAM_AUTH_OR_QUOTA", "provider_quota_exhausted");
+        const providerName = providerDisplayName(quotaExhaustedProviderCode);
         return reply.code(429).header("x-request-id", traceId).send({
           error: {
-            message: "额度不足，请联系管理员",
+            message: `${providerName}厂商额度已用完，请等待额度重置${quotaExhaustedResetAt ? `（${quotaExhaustedResetAt}）` : "（下一重置时间未知）"}`,
             type: "rate_limit_error",
-            code: "insufficient_quota",
+            code: "provider_quota_exhausted",
             param: null,
             retryable: false,
             request_id: requestId,
+            provider: quotaExhaustedProviderCode,
+            next_reset_at: quotaExhaustedResetAt,
+            not_calculable_reason: quotaExhaustedResetAt ? null : "PROVIDER_RESET_TIME_UNKNOWN",
           },
         });
       }
@@ -1147,7 +1168,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         ? "upstream_quota_exhausted"
         : finalOutcome.error;
       const errorMessage = quotaExhausted
-        ? "上游套餐额度已耗尽，请更换资源或续费"
+        ? `${providerDisplayName(finalOutcomeProviderCode)}厂商额度已用完，请等待额度重置${finalOutcome.recoverAt ? `（${finalOutcome.recoverAt}）` : "（下一重置时间未知）"}`
         : finalOutcome.status === 429
           ? "上游套餐暂时限流，请稍后重试"
           : finalOutcome.error;
@@ -1165,6 +1186,11 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
             ? {}
             : { retry_after_ms: finalOutcome.retryAfterMs }),
           request_id: requestId,
+          ...(quotaExhausted ? {
+            provider: finalOutcomeProviderCode,
+            next_reset_at: finalOutcome.recoverAt ?? null,
+            not_calculable_reason: finalOutcome.recoverAt ? null : "PROVIDER_RESET_TIME_UNKNOWN",
+          } : {}),
         },
       });
     }
@@ -1377,6 +1403,63 @@ async function runBestEffort<T>(
     log.error({ err: error, action }, "post-settlement side effect failed");
     return undefined;
   }
+}
+
+function providerDisplayName(code: string | null): string {
+  if (code === "kimi") return "Kimi ";
+  if (code === "zhipu") return "智谱 ";
+  if (code === "deepseek") return "DeepSeek ";
+  return "该";
+}
+
+function dispatchPolicyWindow(policy: DispatchPolicy | null): string | null {
+  if (!policy?.matchStartTime || !policy.matchEndTime) return null;
+  const days = policy.matchDaysOfWeek;
+  const dayLabel = days?.length === 5 && [1, 2, 3, 4, 5].every((day) => days.includes(day))
+    ? "工作日"
+    : !days || days.length === 0 || days.length === 7
+      ? "每日"
+      : days.map((day) => `周${"一二三四五六日"[day - 1] ?? day}`).join("、");
+  return `${dayLabel} ${policy.matchStartTime.slice(0, 5)}-${policy.matchEndTime.slice(0, 5)} ${policy.matchTimezone ?? "企业时区"}`;
+}
+
+/** 当前冻结策略使用 Asia/Shanghai；其他时区保持未知，避免伪造精确恢复时间。 */
+function dispatchResetAt(policy: DispatchPolicy | null, requestStartedAt: number): string | null {
+  if (!policy?.matchStartTime || !policy.matchEndTime || policy.matchTimezone !== "Asia/Shanghai") {
+    return null;
+  }
+  const shifted = new Date(requestStartedAt + 8 * 60 * 60 * 1_000);
+  const [hour = "0", minute = "0", second = "0"] = policy.matchEndTime.split(":");
+  const endSeconds = Number(hour) * 3600 + Number(minute) * 60 + Number(second);
+  const nowSeconds = shifted.getUTCHours() * 3600 + shifted.getUTCMinutes() * 60 + shifted.getUTCSeconds();
+  const startSeconds = Number(policy.matchStartTime.slice(0, 2)) * 3600
+    + Number(policy.matchStartTime.slice(3, 5)) * 60
+    + Number(policy.matchStartTime.slice(6, 8) || 0);
+  const resetLocal = new Date(Date.UTC(
+    shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate(),
+    Number(hour), Number(minute), Number(second),
+  ));
+  if (startSeconds >= endSeconds && nowSeconds >= startSeconds) {
+    resetLocal.setUTCDate(resetLocal.getUTCDate() + 1);
+  }
+  return new Date(resetLocal.getTime() - 8 * 60 * 60 * 1_000).toISOString();
+}
+
+async function latestProviderQuotaResetAt(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  providerResourceId: string,
+  now: Date,
+): Promise<string | null> {
+  const row = await db.selectFrom("provider_quota_window")
+    .select("reset_at")
+    .where("enterprise_id", "=", enterpriseId)
+    .where("provider_resource_id", "=", providerResourceId)
+    .where("sync_status", "=", "SUCCESS")
+    .where("reset_at", ">", now)
+    .orderBy("reset_at", "asc")
+    .executeTakeFirst();
+  return row?.reset_at?.toISOString() ?? null;
 }
 
 async function acquireConcurrencyLeaseWithWait(input: {

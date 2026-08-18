@@ -12,6 +12,18 @@ import {
 import type { OperatingSnapshotInput } from "./provider-types.js";
 
 export type ProviderResourceOperatingSnapshot = Selectable<ProviderResourceOperatingSnapshotTable>;
+export interface ProviderOperatingSyncState {
+  provider_resource_id: string;
+  balance_status: "SUCCESS" | "FAILED" | "NOT_SUPPORTED";
+  cost_status: "SUCCESS" | "FAILED" | "NOT_SUPPORTED";
+  provider_data_at: Date | null;
+  last_success_data_at: Date | null;
+  completed_at: Date;
+  next_sync_at: Date;
+  error_code: string | null;
+  failure_reason: string | null;
+  adapter_version: string;
+}
 type ProviderResource = Selectable<ProviderResourceTable>;
 
 /** 厂商经营快照的不可变历史与当前投影。 */
@@ -47,6 +59,28 @@ export abstract class ProviderOperatingRepository {
       new Map(resources.map((resource) => [resource.id, resource.mode])),
       now,
     );
+  }
+
+  async listLatestOperatingSyncStates(enterpriseId: string): Promise<ProviderOperatingSyncState[]> {
+    const result = await sql<ProviderOperatingSyncState>`
+      WITH ranked AS (
+        SELECT a.*,
+               MAX(provider_data_at) FILTER (WHERE balance_status = 'SUCCESS') OVER (
+                 PARTITION BY provider_resource_id
+               ) AS last_success_data_at,
+               ROW_NUMBER() OVER (
+                 PARTITION BY provider_resource_id ORDER BY completed_at DESC, created_at DESC
+               ) AS row_no
+          FROM provider_resource_operating_sync_attempt a
+         WHERE enterprise_id = ${enterpriseId}
+      )
+      SELECT provider_resource_id, balance_status, cost_status, provider_data_at,
+             last_success_data_at, completed_at, next_sync_at, error_code,
+             failure_reason, adapter_version
+        FROM ranked
+       WHERE row_no = 1
+    `.execute(this.db);
+    return result.rows;
   }
 
   async listOperatingSnapshotHistory(
@@ -112,6 +146,11 @@ export abstract class ProviderOperatingRepository {
         currency: input.currency ?? null,
         recharge_amount: input.recharge_amount ?? null,
         current_balance: input.current_balance ?? null,
+        granted_balance: input.granted_balance ?? null,
+        topped_up_balance: input.topped_up_balance ?? null,
+        provider_balance_available: input.provider_balance_available ?? null,
+        balance_source: input.balance_source ?? null,
+        cost_source: input.cost_source ?? null,
         cumulative_cost: input.cumulative_cost ?? null,
         current_period_cost: input.current_period_cost ?? null,
         cost_period_start: input.cost_period_start ?? null,

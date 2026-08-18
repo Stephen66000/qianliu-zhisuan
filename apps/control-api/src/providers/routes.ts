@@ -59,17 +59,23 @@ export function registerProviderRoutes(app: FastifyInstance): void {
   // ===== Provider Resource（凭证加密存储）=====
   app.get("/provider-resources", { preHandler: [requireAuth] }, async (req) => {
     const enterpriseId = req.admin!.enterpriseId;
-    const [resources, snapshots] = await Promise.all([
+    const [resources, snapshots, syncStates] = await Promise.all([
       app.providerRepo.listResources(enterpriseId),
       app.providerRepo.listCurrentOperatingSnapshots(enterpriseId),
+      app.providerRepo.listLatestOperatingSyncStates(enterpriseId),
     ]);
     const byResource = new Map(snapshots.map((snapshot) => [
       snapshot.provider_resource_id,
       snapshot,
     ]));
+    const syncByResource = new Map(syncStates.map((state) => [state.provider_resource_id, state]));
+    const staleBefore = Date.now() - 36 * 60 * 60 * 1_000;
     // 列表只返回指纹，绝不返回密文/明文
     return {
-      resources: resources.map((r) => ({
+      resources: resources.map((r) => {
+        const sync = syncByResource.get(r.id);
+        const lastSuccessAt = sync?.last_success_data_at ?? null;
+        return ({
         id: r.id,
         provider_id: r.provider_id,
         name: r.name,
@@ -94,7 +100,30 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         created_at: r.created_at,
         updated_at: r.updated_at,
         operating_snapshot: byResource.get(r.id) ?? null,
-      })),
+        operating_sync: sync ? {
+          balance_status: sync.balance_status,
+          cost_status: sync.cost_status,
+          data_status: !lastSuccessAt || lastSuccessAt.getTime() < staleBefore ? "STALE" : "FRESH",
+          provider_data_at: sync.provider_data_at?.toISOString() ?? null,
+          last_success_data_at: lastSuccessAt?.toISOString() ?? null,
+          completed_at: sync.completed_at.toISOString(),
+          next_sync_at: sync.next_sync_at.toISOString(),
+          error_code: sync.error_code,
+          failure_reason: sync.failure_reason,
+          adapter_version: sync.adapter_version,
+        } : {
+          balance_status: "NOT_SUPPORTED",
+          cost_status: "NOT_SUPPORTED",
+          data_status: "STALE",
+          provider_data_at: null,
+          last_success_data_at: null,
+          completed_at: null,
+          next_sync_at: null,
+          error_code: "SYNC_NOT_RUN",
+          failure_reason: "尚未执行每日经营数据同步",
+          adapter_version: null,
+        },
+      }); }),
     };
   });
 

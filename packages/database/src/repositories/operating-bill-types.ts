@@ -50,6 +50,21 @@ export interface OperatingBillProviderRow {
   planAssessment: "FULL" | "UNDERUSED" | "EXHAUSTED_EARLY" | "UNUSED" | null;
   idleEntitlementCost: string | null;
   assessmentBasis: string | null;
+  purchases: Array<{
+    id: string; type: "API_RECHARGE" | "PACKAGE_PURCHASE"; amount: string;
+    currency: string; purchasedAt: string; servicePeriodStart: string | null;
+    servicePeriodEnd: string | null; source: string;
+  }>;
+  servicePeriodStart: string | null;
+  servicePeriodEnd: string | null;
+  operatingSnapshotSource: string | null;
+  requestRange: { from: string | null; to: string | null; count: number };
+  factFingerprint: string;
+  confirmation: {
+    status: "CONFIRMED" | "PENDING" | "NOT_APPLICABLE" | "ANOMALY";
+    note: string | null; confirmedBy: string | null; confirmedAt: string | null;
+    version: number; matchesCurrentFacts: boolean;
+  };
 }
 
 export interface OperatingBillSubjectRow {
@@ -74,6 +89,11 @@ export interface OperatingBillGap {
   code: string;
   message: string;
   providerResourceId?: string;
+  field?: string;
+  snapshotId?: string | null;
+  snapshotVersion?: number | null;
+  requestRangeFrom?: string | null;
+  requestRangeTo?: string | null;
 }
 
 export interface OperatingBillSnapshot {

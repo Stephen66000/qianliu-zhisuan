@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { get, post } from "./client";
+import { get, post, put } from "./client";
 
 export interface OperatingBillProvider {
   providerResourceId: string;
@@ -23,6 +23,23 @@ export interface OperatingBillProvider {
   planAssessment: "FULL" | "UNDERUSED" | "EXHAUSTED_EARLY" | "UNUSED" | null;
   idleEntitlementCost: string | null;
   assessmentBasis: string | null;
+  operatingSnapshotId?: string | null;
+  operatingSnapshotVersion?: number | null;
+  operatingSnapshotAt?: string | null;
+  purchases?: Array<{
+    id: string; type: "API_RECHARGE" | "PACKAGE_PURCHASE"; amount: string; currency: string;
+    purchasedAt: string; servicePeriodStart: string | null; servicePeriodEnd: string | null; source: string;
+  }>;
+  servicePeriodStart?: string | null;
+  servicePeriodEnd?: string | null;
+  operatingSnapshotSource?: string | null;
+  requestRange?: { from: string | null; to: string | null; count: number };
+  factFingerprint?: string;
+  confirmation?: {
+    status: "CONFIRMED" | "PENDING" | "NOT_APPLICABLE" | "ANOMALY";
+    note: string | null; confirmedBy: string | null; confirmedAt: string | null;
+    version: number; matchesCurrentFacts: boolean;
+  };
 }
 
 export interface OperatingBillSubject {
@@ -82,7 +99,7 @@ export interface OperatingBill {
   providers: OperatingBillProvider[];
   subjects: OperatingBillSubject[];
   values: OperatingBillValue[];
-  gaps: Array<{ code: string; message: string; providerResourceId?: string }>;
+  gaps: Array<{ code: string; message: string; providerResourceId?: string; field?: string; snapshotId?: string | null; snapshotVersion?: number | null; requestRangeFrom?: string | null; requestRangeTo?: string | null }>;
   versions: Array<{ id: string; version: number; closedAt: string; closedBy: string; closeNote: string | null; exceptions: Array<Record<string, unknown>> }>;
   events: Array<{ id: string; action: string; version: number | null; reason: string | null; actor: string; createdAt: string }>;
 }
@@ -145,6 +162,15 @@ export function useReopenOperatingBill(month: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (reason: string) => post(`/operating-bills/${month}/reopen`, { reason }),
+    onSuccess: () => invalidateOperatingBillViews(client, month),
+  });
+}
+
+export function useConfirmOperatingBillResource(month: string, resourceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { status: "CONFIRMED" | "PENDING" | "NOT_APPLICABLE" | "ANOMALY"; note: string | null }) =>
+      put(`/operating-bills/${month}/resource-confirmations/${resourceId}`, body),
     onSuccess: () => invalidateOperatingBillViews(client, month),
   });
 }

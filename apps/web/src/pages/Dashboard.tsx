@@ -1,5 +1,5 @@
 /**
- * 首页看板 —— 2.0 六项主概览 + 1.0 能力稳定迁位 + 员工周期用量。
+ * 首页看板 —— 2.0 八项本月概览 + 员工周期用量。
  *
  * 口径全部来自后端 GET /dashboard（TRD §12），前端只展示不重算。
  * 结构（仪表盘补充 §1-2）：Canvas → Zone（1-4 个，间距 20px）→ Card；
@@ -58,10 +58,10 @@ export function DashboardPage() {
       <DashboardHeader />
 
       <Zone
-        description="六个指标独立展示；本月总支出 = 套餐支出 + API 支出。"
+        description="八个指标统一展示；本月总支出 = 套餐支出 + API 支出。"
         title="本月概览"
       >
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           <MetricCard
             hint="输入 + 输出，缓存和推理不重复累计"
             label="真实 Token 消耗"
@@ -92,11 +92,6 @@ export function DashboardPage() {
             value={String(data.activeEmployeeCount)}
           />
           <MetricCard label="厂商接入账号" unit="个" value={String(data.resourceAccountCount)} />
-        </div>
-      </Zone>
-
-      <Zone description="1.0 旧字段迁位保留，不计入六项主概览。" title="1.0 经营补充">
-        <div className="grid grid-cols-2 gap-4">
           <MetricCard
             emptyText="数据源待接入"
             label="本月充值"
@@ -104,6 +99,14 @@ export function DashboardPage() {
             value={data.monthlyRechargeAmount === null ? null : formatMoney(data.monthlyRechargeAmount)}
           />
           <MetricCard
+            hint={
+              <>
+                <span className="block">{data.dispatchSavingBreakdown.realizedReason ?? `已实现 ${data.dispatchSavingBreakdown.realizedSwitchCount} 次切换`}</span>
+                <span className="block">潜在峰值：{data.dispatchSavingBreakdown.potentialPeakSavingAmount === null ? data.dispatchSavingBreakdown.potentialReason : `¥${formatMoney(data.dispatchSavingBreakdown.potentialPeakSavingAmount)}`}</span>
+                <span className="block">避免高峰扣减：{formatCount(data.dispatchSavingBreakdown.avoidedPeakDeduction)} 额度点</span>
+                {data.dispatchSavingBreakdown.rejectedRequestCount > 0 ? <span className="block">拒绝 {data.dispatchSavingBreakdown.rejectedRequestCount} 次，不计入已实现节省</span> : null}
+              </>
+            }
             label="本月调度节省"
             unit="元"
             value={formatMoney(data.monthlyDispatchSaving)}

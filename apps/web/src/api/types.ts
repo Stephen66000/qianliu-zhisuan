@@ -216,6 +216,18 @@ export interface ProviderResourceItem {
   created_at: string;
   updated_at: string;
   operating_snapshot: ProviderResourceOperatingSnapshot | null;
+  operating_sync?: {
+    balance_status: "SUCCESS" | "FAILED" | "NOT_SUPPORTED";
+    cost_status: "SUCCESS" | "FAILED" | "NOT_SUPPORTED";
+    data_status: "FRESH" | "STALE";
+    provider_data_at: string | null;
+    last_success_data_at: string | null;
+    completed_at: string | null;
+    next_sync_at: string | null;
+    error_code: string | null;
+    failure_reason: string | null;
+    adapter_version: string | null;
+  };
 }
 
 export interface ProviderResourcesResult {
@@ -243,6 +255,11 @@ export interface ProviderResourceOperatingSnapshot {
   currency: string | null;
   recharge_amount: string | null;
   current_balance: string | null;
+  granted_balance?: string | null;
+  topped_up_balance?: string | null;
+  provider_balance_available?: boolean | null;
+  balance_source?: "ADMIN" | "PROVIDER_API" | "BILL_RECONCILIATION" | null;
+  cost_source?: "ADMIN" | "LOCAL_LEDGER" | "BILL_RECONCILIATION" | "NOT_SUPPORTED" | null;
   cumulative_cost: string | null;
   current_period_cost: string | null;
   cost_period_start: string | null;

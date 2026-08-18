@@ -51,6 +51,12 @@ function emptySummary(): DashboardSummary {
     monthlyRechargeAmount: null,
     earliestExhaustion: null,
     monthlyDispatchSaving: "0",
+    dispatchSavingBreakdown: {
+      realizedAmount: "0", realizedSwitchCount: 0, realizedReason: "本月无可计算的实际切换",
+      potentialPeakSavingAmount: null, potentialReason: "缺少同一任务的峰值/低谷等价执行关联，暂不估算金额",
+      avoidedPeakDeduction: "0", avoidedDeductionCount: 0,
+      avoidedReason: "本月无具备双端倍率快照的已执行切换", rejectedRequestCount: 0,
+    },
     resourceBreakdown: [],
     overageList: [],
     monthlyTokenUsage: {
@@ -71,6 +77,12 @@ function seededSummary(): DashboardSummary {
     monthlyTotalSpend: "311.50000000",
     monthlyRechargeAmount: "100",
     monthlyDispatchSaving: "1.50000000",
+    dispatchSavingBreakdown: {
+      realizedAmount: "1.50000000", realizedSwitchCount: 1, realizedReason: null,
+      potentialPeakSavingAmount: null, potentialReason: "缺少同一任务的峰值/低谷等价执行关联，暂不估算金额",
+      avoidedPeakDeduction: "1200", avoidedDeductionCount: 1,
+      avoidedReason: null, rejectedRequestCount: 2,
+    },
     earliestExhaustion: {
       resourceId: "r1",
       resourceName: "智谱 GLM 套餐",
@@ -225,7 +237,7 @@ describe("W18 首页看板", () => {
     expect(gaps).toHaveLength(3);
   });
 
-  it("有数据：六项主概览按冻结顺序展示，旧字段迁入稳定落点", () => {
+  it("有数据：八项本月概览合并展示，调度节省三层口径可见", () => {
     useDashboardMock.mockReturnValue({
       isLoading: false,
       error: null,
@@ -234,24 +246,22 @@ describe("W18 首页看板", () => {
     });
     renderDashboard();
     const monthSummary = screen.getByRole("heading", { name: "本月概览" }).closest("section")!;
-    const supplement = screen.getByRole("heading", { name: "1.0 经营补充" }).closest("section")!;
     const resourceSummary = screen.getByRole("heading", { name: "资源摘要" }).closest("section")!;
     const employeeUsage = screen.getByRole("heading", { name: "员工消耗 Token" }).closest("section")!;
-    for (const label of ["真实 Token 消耗", "本月总支出", "套餐支出", "API 支出", "活跃人数", "厂商接入账号"]) {
+    for (const label of ["真实 Token 消耗", "本月总支出", "套餐支出", "API 支出", "活跃人数", "厂商接入账号", "本月充值", "本月调度节省"]) {
       expect(within(monthSummary).getByText(label)).toBeInTheDocument();
     }
-    expect(within(monthSummary).queryByText("本月充值")).not.toBeInTheDocument();
-    expect(within(monthSummary).queryByText("本月调度节省")).not.toBeInTheDocument();
-    expect(within(supplement).getByText("本月充值")).toBeInTheDocument();
-    expect(within(supplement).getByText("本月调度节省")).toBeInTheDocument();
-    expect(monthSummary.compareDocumentPosition(supplement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(supplement.compareDocumentPosition(resourceSummary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "1.0 经营补充" })).not.toBeInTheDocument();
+    expect(monthSummary.compareDocumentPosition(resourceSummary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(resourceSummary.compareDocumentPosition(employeeUsage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     expect(screen.getByText("311.50")).toBeInTheDocument();
     expect(screen.getByText("当前正在使用 3 人")).toBeInTheDocument();
     expect(screen.getAllByText("12.50").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.50").length).toBeGreaterThan(0);
+    expect(screen.getByText("潜在峰值：缺少同一任务的峰值/低谷等价执行关联，暂不估算金额")).toBeInTheDocument();
+    expect(screen.getByText("避免高峰扣减：1,200 额度点")).toBeInTheDocument();
+    expect(screen.getByText("拒绝 2 次，不计入已实现节省")).toBeInTheDocument();
     expect(screen.getByTestId("dashboard-earliest-exhaustion")).toHaveTextContent("最早耗尽资源：智谱 GLM 套餐");
     expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("资源状态：全部正常");
     // “需要处理”保留在资源摘要内，不再抢在本月概览之前。

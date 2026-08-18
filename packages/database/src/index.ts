@@ -104,6 +104,7 @@ export {
   type Provider,
   type ProviderResource,
   type ProviderResourceOperatingSnapshot,
+  type ProviderOperatingSyncState,
   type OperatingSnapshotInput,
   type UnifiedModel,
   type ModelRoute,

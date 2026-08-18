@@ -170,6 +170,11 @@ export interface ProviderResourceOperatingSnapshotTable {
   currency: string | null;
   recharge_amount: string | null;
   current_balance: string | null;
+  granted_balance: Generated<string | null>;
+  topped_up_balance: Generated<string | null>;
+  provider_balance_available: Generated<boolean | null>;
+  balance_source: Generated<"ADMIN" | "PROVIDER_API" | "BILL_RECONCILIATION" | null>;
+  cost_source: Generated<"ADMIN" | "LOCAL_LEDGER" | "BILL_RECONCILIATION" | "NOT_SUPPORTED" | null>;
   cumulative_cost: string | null;
   current_period_cost: string | null;
   cost_period_start: Date | null;

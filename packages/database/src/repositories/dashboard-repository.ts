@@ -23,6 +23,7 @@
  */
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
+import { Decimal } from "decimal.js";
 import type { Database } from "../kysely.js";
 import { ProviderRepository } from "./provider-repository.js";
 import type { CurrentProviderOperatingSnapshot } from "./provider-operating.js";
@@ -64,7 +65,7 @@ export class DashboardRepository {
       monthlyPackagePayment,
       monthlyRechargeAmount,
       earliestExhaustion,
-      monthlyDispatchSaving,
+      dispatchSavingBreakdown,
       resourceBreakdown,
       overageList,
       monthlyTokenUsage,
@@ -74,9 +75,9 @@ export class DashboardRepository {
       this.countInUseEmployees(enterpriseId, now, fiveMinutesAgo),
       this.sumMonthlyApiCost(enterpriseId, monthStart, monthEnd),
       this.sumLatestSnapshotAmount(enterpriseId, "CODING_PLAN", "package_cost"),
-      this.sumLatestSnapshotAmount(enterpriseId, "API", "recharge_amount"),
+      this.sumMonthlyRecharge(enterpriseId, monthStart, monthEnd),
       this.findEarliestExhaustion(enterpriseId, currentOperatingSnapshots),
-      this.sumMonthlyDispatchSaving(enterpriseId, monthStart, monthEnd),
+      this.monthlyDispatchSavingBreakdown(enterpriseId, monthStart, monthEnd),
       this.buildResourceBreakdown(
         enterpriseId,
         monthStart,
@@ -99,7 +100,9 @@ export class DashboardRepository {
         : sumDecimalTexts([monthlyPackagePayment, monthlyApiCost]),
       monthlyRechargeAmount,
       earliestExhaustion,
-      monthlyDispatchSaving,
+      monthlyDispatchSaving: dispatchSavingBreakdown.realizedSwitchCount === 0
+        ? "0" : dispatchSavingBreakdown.realizedAmount,
+      dispatchSavingBreakdown,
       resourceBreakdown,
       overageList,
       monthlyTokenUsage,
@@ -244,23 +247,88 @@ export class DashboardRepository {
     };
   }
 
-  /** 8. 本月调度节省（saving_calculable=true 且动作已执行的 dispatch_saving 之和）。 */
-  private async sumMonthlyDispatchSaving(
+  /** POOL20-035：已实现、潜在估算、避免高峰扣减严格分层。 */
+  private async monthlyDispatchSavingBreakdown(
     enterpriseId: string,
     monthStart: Date,
     monthEnd: Date,
-  ): Promise<string> {
-    const row = await sql<{ total: string | null }>`
-      SELECT COALESCE(SUM(dispatch_saving::numeric), 0)::text AS total
-      FROM dispatch_decision
-      WHERE enterprise_id = ${enterpriseId}
-        AND final_action = 'SWITCH'
-        AND saving_calculable = true
-        AND dispatch_saving IS NOT NULL
-        AND decided_at >= ${monthStart}
-        AND decided_at < ${monthEnd}
+  ): Promise<DashboardSummary["dispatchSavingBreakdown"]> {
+    const result = await sql<{
+      final_action: string; saving_calculable: boolean; dispatch_saving: string | null;
+      dispatch_input: Record<string, unknown> | null;
+    }>`
+      SELECT final_action, saving_calculable, dispatch_saving, dispatch_input
+        FROM dispatch_decision
+       WHERE enterprise_id = ${enterpriseId}
+         AND decided_at >= ${monthStart} AND decided_at < ${monthEnd}
     `.execute(this.db);
-    return row.rows[0]?.total ?? "0";
+    let realized = new Decimal(0);
+    let realizedSwitchCount = 0;
+    let switchCount = 0;
+    let rejectedRequestCount = 0;
+    let avoided = new Decimal(0);
+    let avoidedDeductionCount = 0;
+    for (const row of result.rows) {
+      if (row.final_action === "REJECT") rejectedRequestCount += 1;
+      if (row.final_action !== "SWITCH") continue;
+      switchCount += 1;
+      if (row.saving_calculable && row.dispatch_saving !== null) {
+        realized = realized.plus(row.dispatch_saving);
+        realizedSwitchCount += 1;
+      }
+      const input = row.dispatch_input;
+      const usage = input?.usageEvidence;
+      const actualEvidence = input?.actualPricingEvidence;
+      if (input?.resourceMode !== "CODING_PLAN" || !usage || typeof usage !== "object"
+        || !Array.isArray(actualEvidence)) continue;
+      const baselineMultiplier = new Decimal(String(input.priceMultiplier ?? "NaN"));
+      const first = actualEvidence[0];
+      const snapshot = first && typeof first === "object"
+        ? (first as Record<string, unknown>).billingRuleSnapshot : null;
+      const actualMultiplierRaw = snapshot && typeof snapshot === "object"
+        ? (snapshot as Record<string, unknown>).multiplier : null;
+      const usageRow = usage as Record<string, unknown>;
+      if (actualMultiplierRaw === null || actualMultiplierRaw === undefined
+        || !baselineMultiplier.isFinite()) continue;
+      const actualMultiplier = new Decimal(String(actualMultiplierRaw));
+      const rawTokens = new Decimal(String(usageRow.input ?? "0")).plus(String(usageRow.output ?? "0"));
+      const delta = baselineMultiplier.minus(actualMultiplier);
+      if (delta.gt(0) && rawTokens.gte(0)) {
+        avoided = avoided.plus(rawTokens.mul(delta));
+        avoidedDeductionCount += 1;
+      }
+    }
+    return {
+      realizedAmount: realized.toDecimalPlaces(8).toFixed(8),
+      realizedSwitchCount,
+      realizedReason: realizedSwitchCount > 0 ? null
+        : switchCount === 0 ? "本月无可计算的实际切换" : "实际切换缺少双端不可变价格快照",
+      // 现有事实没有“同一任务的峰/谷等价执行关联”，因此保持未知，不把拒绝冒充潜在金额。
+      potentialPeakSavingAmount: null,
+      potentialReason: "缺少同一任务的峰值/低谷等价执行关联，暂不估算金额",
+      avoidedPeakDeduction: avoided.toDecimalPlaces(0, Decimal.ROUND_DOWN).toFixed(0),
+      avoidedDeductionCount,
+      avoidedReason: avoidedDeductionCount > 0 ? null : "本月无具备双端倍率快照的已执行切换",
+      rejectedRequestCount,
+    };
+  }
+
+  private async sumMonthlyRecharge(
+    enterpriseId: string,
+    monthStart: Date,
+    monthEnd: Date,
+  ): Promise<string | null> {
+    const row = await sql<{ resource_count: string; purchase_count: string; total: string }>`
+      SELECT (SELECT COUNT(*) FROM provider_resource
+               WHERE enterprise_id = ${enterpriseId} AND mode = 'API' AND status <> 'DELETED')::text AS resource_count,
+             COUNT(*) FILTER (WHERE purchase_type = 'API_RECHARGE')::text AS purchase_count,
+             COALESCE(SUM(amount) FILTER (WHERE purchase_type = 'API_RECHARGE'), 0)::text AS total
+        FROM resource_purchase_record
+       WHERE enterprise_id = ${enterpriseId}
+         AND purchased_at >= ${monthStart} AND purchased_at < ${monthEnd}
+    `.execute(this.db);
+    return row.rows[0]?.resource_count === "0" || row.rows[0]?.purchase_count === "0"
+      ? null : row.rows[0]?.total ?? null;
   }
 
   /** 资源摘要按厂商+模式分组（PRD §10.2 行 406-415）。 */

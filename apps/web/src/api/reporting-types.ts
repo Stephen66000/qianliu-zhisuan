@@ -82,6 +82,12 @@ export interface DashboardSummary {
   monthlyRechargeAmount: string | null;
   earliestExhaustion: EarliestExhaustion | null;
   monthlyDispatchSaving: string;
+  dispatchSavingBreakdown: {
+    realizedAmount: string; realizedSwitchCount: number; realizedReason: string | null;
+    potentialPeakSavingAmount: string | null; potentialReason: string | null;
+    avoidedPeakDeduction: string; avoidedDeductionCount: number; avoidedReason: string | null;
+    rejectedRequestCount: number;
+  };
   resourceBreakdown: ResourceBreakdownItem[];
   overageList: OverageItem[];
   monthlyTokenUsage: {

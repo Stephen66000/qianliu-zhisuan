@@ -130,6 +130,39 @@ afterAll(async () => {
 }, 60_000);
 
 describe("POOL-025 企业 AI 算力月度经营账单", () => {
+  it("POOL20-026 先列资源事实并逐项确认，确认不改写原始快照和账本", async () => {
+    const resources = await db.selectFrom("provider_resource").select(["id", "mode"]).where("enterprise_id", "=", enterpriseId).execute();
+    const apiResource = resources.find((row) => row.mode === "API")!;
+    await db.insertInto("resource_purchase_record").values({
+      enterprise_id: enterpriseId, provider_resource_id: apiResource.id,
+      purchase_type: "API_RECHARGE", description: "9 月充值", amount: "50", currency: "CNY",
+      purchased_at: new Date("2026-09-03T02:00:00Z"), source: "ADMIN", created_by: adminId,
+    }).execute();
+    const beforeSnapshots = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll().as("count")).executeTakeFirstOrThrow();
+    const draft = await app.inject({ method: "GET", url: "/operating-bills/2026-09", headers: { cookie } });
+    expect(draft.statusCode).toBe(200);
+    expect(draft.json().providers.find((row: { providerResourceId: string }) => row.providerResourceId === apiResource.id))
+      .toMatchObject({
+        purchases: [{ type: "API_RECHARGE", amount: "50.00000000", currency: "CNY", source: "ADMIN" }],
+        apiCost: "0.00000000", confirmation: { status: "PENDING", matchesCurrentFacts: false },
+      });
+    for (const resource of resources) {
+      const confirmed = await app.inject({
+        method: "PUT", url: `/operating-bills/2026-09/resource-confirmations/${resource.id}`,
+        headers: { cookie }, payload: { status: "CONFIRMED", note: "负责人已核对" },
+      });
+      expect(confirmed.statusCode).toBe(200);
+    }
+    const after = await app.inject({ method: "GET", url: "/operating-bills/2026-09", headers: { cookie } });
+    expect(after.json().providers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ confirmation: expect.objectContaining({ status: "CONFIRMED", confirmedBy: "经营管理员", matchesCurrentFacts: true }) }),
+    ]));
+    const afterSnapshots = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll().as("count")).executeTakeFirstOrThrow();
+    expect(afterSnapshots.count).toBe(beforeSnapshots.count);
+  });
+
   it("按自然月汇总真实成本、确认价值并冻结不可变版本", async () => {
     const draft = await app.inject({ method: "GET", url: "/operating-bills/2026-08", headers: { cookie } });
     expect(draft.statusCode).toBe(200);

@@ -63,7 +63,11 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
             <Field label="结算状态" value={settlement.status} />
           </div>
         ) : (
-          <p className="mt-2 text-[13px] text-ql-fg-tertiary">无结算记录</p>
+          <p className="mt-2 text-[13px] text-ql-fg-tertiary">
+            {request.errorCode === "dispatch_rejected"
+              ? "高峰时段暂停使用；Attempt 0 · 无 Usage · 无额度扣减 · 无 API 费用"
+              : "无结算记录"}
+          </p>
         )}
       </section>
 
@@ -216,6 +220,10 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
               label="策略动作"
               value={decision.data.decision.matchedPolicyAction ?? "—"}
             />
+            {decision.data.decision.finalAction === "REJECT" ? <>
+              <Field label="策略时段" value={String(decision.data.decision.dispatchInput?.policyWindow ?? "未知")} />
+              <Field label="重置时间" value={String(decision.data.decision.dispatchInput?.policyResetAt ?? "未知")} />
+            </> : null}
             <Field
               label="调度输入"
               value={

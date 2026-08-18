@@ -1,5 +1,24 @@
 import type { Generated } from "kysely";
 
+export interface ProviderResourceOperatingSyncAttemptTable {
+  id: Generated<string>; enterprise_id: string; provider_resource_id: string;
+  sync_day: Date; balance_status: "SUCCESS" | "FAILED" | "NOT_SUPPORTED";
+  cost_status: "SUCCESS" | "FAILED" | "NOT_SUPPORTED"; snapshot_id: string | null;
+  provider_data_at: Date | null; started_at: Date; completed_at: Date;
+  next_sync_at: Date; error_code: string | null; failure_reason: string | null;
+  adapter_version: string; created_at: Generated<Date>;
+}
+
+export interface OperatingBillResourceConfirmationTable {
+  id: Generated<string>; enterprise_id: string; period_id: string;
+  provider_resource_id: string;
+  status: Generated<"CONFIRMED" | "PENDING" | "NOT_APPLICABLE" | "ANOMALY">;
+  fact_fingerprint: string; operating_snapshot_id: string | null;
+  request_range_from: Date | null; request_range_to: Date | null;
+  request_count: Generated<number>; note: string | null; confirmed_by: string;
+  confirmed_at: Generated<Date>; version: Generated<number>; created_at: Generated<Date>;
+}
+
 /** W20-04：可重建的小时／日用量读模型，不是结算事实。 */
 export interface UsageBucketAggregateTable {
   id: Generated<string>; enterprise_id: string; bucket_granularity: "HOUR" | "DAY";

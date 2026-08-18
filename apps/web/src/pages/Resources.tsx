@@ -862,11 +862,22 @@ export function ResourcesPage() {
                     ) : "未录入/未同步"}
                   </td>
                   <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
-                    {r.operating_snapshot
-                      ? `v${r.operating_snapshot.version} · ${formatDateTimeFull(
-                          r.operating_snapshot.calculated_at ?? r.operating_snapshot.collected_at,
-                        )}`
-                      : "—"}
+                    <span className="block">
+                      {r.operating_snapshot
+                        ? `v${r.operating_snapshot.version} · ${formatDateTimeFull(
+                            r.operating_snapshot.balance_updated_at
+                              ?? r.operating_snapshot.calculated_at
+                              ?? r.operating_snapshot.collected_at,
+                          )}`
+                        : "—"}
+                    </span>
+                    {r.operating_sync ? (
+                      <span className={r.operating_sync.data_status === "STALE" ? "block text-[11px] text-ql-warning" : "block text-[11px] text-ql-fg-tertiary"}>
+                        {r.operating_sync.data_status}
+                        {` · 余额 ${r.operating_sync.balance_status} · 费用 ${r.operating_sync.cost_status}`}
+                        {r.operating_sync.failure_reason ? ` · ${r.operating_sync.failure_reason}` : ""}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="py-2.5 pr-4 font-mono text-[12px] text-ql-fg-tertiary">
                     {r.credential_fingerprint ?? "—"}

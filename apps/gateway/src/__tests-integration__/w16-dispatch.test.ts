@@ -341,9 +341,14 @@ describe("W16 经营调度", () => {
     const atStart = await send();
     expect(atStart.statusCode).toBe(403);
     expect(atStart.json().error).toEqual(expect.objectContaining({
-      message: "14:00-18:00暂停使用",
+      message: "高峰时段暂停使用；策略时段 工作日 14:00-18:00 Asia/Shanghai；2026-07-30T10:00:00.000Z 后恢复",
       code: "dispatch_rejected",
       retryable: false,
+      policy_window: "工作日 14:00-18:00 Asia/Shanghai",
+      reset_at: "2026-07-30T10:00:00.000Z",
+      attempt_count: 0,
+      usage_created: false,
+      charged: false,
     }));
     expect(stub.calls).toHaveLength(1);
 

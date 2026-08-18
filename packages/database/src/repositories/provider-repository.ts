@@ -32,7 +32,7 @@ export {
   type OperatingSnapshotInput,
   type ProviderModelOnboardingResult,
 } from "./provider-types.js";
-export type { ProviderResourceOperatingSnapshot } from "./provider-operating-repository.js";
+export type { ProviderOperatingSyncState, ProviderResourceOperatingSnapshot } from "./provider-operating-repository.js";
 
 export type Provider = Selectable<ProviderTable>;
 export type ProviderResource = Selectable<ProviderResourceTable>;

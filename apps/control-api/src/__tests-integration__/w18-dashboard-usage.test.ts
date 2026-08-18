@@ -251,6 +251,11 @@ async function seedFullData(): Promise<{
     .values({
       enterprise_id: ENT_ID,
       ai_request_id: requestId,
+      dispatch_input: {
+        resourceMode: "CODING_PLAN", priceMultiplier: "3",
+        usageEvidence: { input: 100, output: 50, cache: 0 },
+        actualPricingEvidence: [{ billingRuleSnapshot: { multiplier: "1" } }],
+      },
       final_action: "SWITCH",
       reason_code: "POLICY_MATCHED",
       dispatch_saving: "1.50000000",
@@ -327,6 +332,10 @@ describe("W18 空状态（新企业无数据）", () => {
     expect(body.currentInUseCount).toBe(0);
     expect(body.monthlyApiCost).toBe("0");
     expect(body.monthlyDispatchSaving).toBe("0");
+    expect(body.dispatchSavingBreakdown).toMatchObject({
+      realizedAmount: "0.00000000", realizedSwitchCount: 0,
+      potentialPeakSavingAmount: null, avoidedPeakDeduction: "0", rejectedRequestCount: 0,
+    });
     expect(body.earliestExhaustion).toBeNull();
     expect(body.resourceBreakdown).toEqual([]);
     expect(body.overageList).toEqual([]);
@@ -384,6 +393,10 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(body.earliestExhaustion.confidence).toBe("MEDIUM");
     // 8. 调度节省 = 1.5（只汇总 saving_calculable=true 的，不可计算的不计）
     expect(Number(body.monthlyDispatchSaving)).toBe(1.5);
+    expect(body.dispatchSavingBreakdown).toMatchObject({
+      realizedAmount: "1.50000000", realizedSwitchCount: 1,
+      potentialPeakSavingAmount: null, avoidedPeakDeduction: "300", avoidedDeductionCount: 1,
+    });
     // 资源摘要：1 个厂商（zhipu CODING_PLAN）
     expect(body.resourceBreakdown).toHaveLength(1);
     expect(body.resourceBreakdown[0].providerCode).toBe("zhipu");

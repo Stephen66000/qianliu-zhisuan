@@ -91,6 +91,13 @@ export {
   type CodingPlanQuotaResult,
   type QuotaFetch,
 } from "./coding-plan-quota.js";
+export {
+  PROVIDER_OPERATING_ADAPTER_VERSION,
+  ProviderOperatingFactsError,
+  queryProviderOperatingBalance,
+  type ProviderOperatingBalance,
+  type ProviderOperatingFetch,
+} from "./provider-operating-facts.js";
 
 // 密码学原语（W02 起启用）
 export {

@@ -166,6 +166,51 @@ export class OperatingBillRepository {
     return this.getValueItemView(input.enterpriseId, input.itemId);
   }
 
+  async confirmResourceFacts(input: {
+    enterpriseId: string;
+    adminId: string;
+    month: string;
+    providerResourceId: string;
+    status: "CONFIRMED" | "PENDING" | "NOT_APPLICABLE" | "ANOMALY";
+    note: string | null;
+  }): Promise<OperatingBillView> {
+    const period = await this.ensurePeriod(input.enterpriseId, input.adminId, input.month);
+    if (period.status === "CLOSED") throw new OperatingBillClosedError();
+    const draft = await this.buildDraft(input.enterpriseId, input.month, period);
+    const provider = draft.providers.find((row) => row.providerResourceId === input.providerResourceId);
+    if (!provider) throw new OperatingBillReferenceError();
+    if ((input.status === "ANOMALY" || input.status === "NOT_APPLICABLE") && !input.note?.trim()) {
+      throw new OperatingBillReferenceError();
+    }
+    await this.db.insertInto("operating_bill_resource_confirmation").values({
+      enterprise_id: input.enterpriseId,
+      period_id: period.id,
+      provider_resource_id: provider.providerResourceId,
+      status: input.status,
+      fact_fingerprint: provider.factFingerprint,
+      operating_snapshot_id: provider.operatingSnapshotId,
+      request_range_from: provider.requestRange.from ? new Date(provider.requestRange.from) : null,
+      request_range_to: provider.requestRange.to ? new Date(provider.requestRange.to) : null,
+      request_count: provider.requestRange.count,
+      note: input.note,
+      confirmed_by: input.adminId,
+      confirmed_at: new Date(),
+    }).onConflict((oc) => oc.columns(["enterprise_id", "period_id", "provider_resource_id"])
+      .doUpdateSet({
+        status: input.status,
+        fact_fingerprint: provider.factFingerprint,
+        operating_snapshot_id: provider.operatingSnapshotId,
+        request_range_from: provider.requestRange.from ? new Date(provider.requestRange.from) : null,
+        request_range_to: provider.requestRange.to ? new Date(provider.requestRange.to) : null,
+        request_count: provider.requestRange.count,
+        note: input.note,
+        confirmed_by: input.adminId,
+        confirmed_at: new Date(),
+        version: sql`operating_bill_resource_confirmation.version + 1`,
+      })).execute();
+    return this.getBill(input.enterpriseId, input.month);
+  }
+
   async assignRequestToProject(input: {
     enterpriseId: string;
     adminId: string;
