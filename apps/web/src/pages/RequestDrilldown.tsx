@@ -1,7 +1,7 @@
 /**
  * W20 路由过程下钻 —— 候选 / Attempt / 调度决策（PRD §10.3 可展开"路由过程"）。
  *
- * 字体三级收敛 + 颜色纪律；score_factors / dispatch_input 原样展示（网关侧已脱敏）。
+ * 字体三级收敛 + 颜色纪律；内部快照默认摘要展示，原始调度输入按需展开。
  */
 import {
   useAttempts,
@@ -38,6 +38,11 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
   }
 
   const { request, settlement } = detail.data;
+  const routeCandidates = candidates.data?.candidates ?? [];
+  const dispatch = decision.data?.decision ?? null;
+  const technicalJson = dispatch?.dispatchInput
+    ? JSON.stringify(dispatch.dispatchInput, null, 2)
+    : null;
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
@@ -197,15 +202,60 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
         )}
       </section>
 
+      {/* 计价决策与调度决策分区；这里只展示请求时点冻结的账本快照。 */}
+      <section className="min-w-0">
+        <h3 className="text-[13px] font-semibold leading-5 text-ql-fg">计价决策</h3>
+        {attempts.isLoading ? (
+          <LoadingState label="加载计价证据…" />
+        ) : dispatch?.finalAction === "REJECT" && (attempts.data?.ledgerLines ?? []).length === 0 ? (
+          <p className="mt-2 rounded-lg bg-ql-surface-muted p-3 text-[13px] text-ql-fg-secondary">
+            调度已拒绝，请求未进入上游和计价：Attempt=0，无 Usage、无扣减、无费用。
+          </p>
+        ) : (attempts.data?.ledgerLines ?? []).length === 0 ? (
+          <p className="mt-2 text-[13px] text-ql-fg-tertiary">无计价决策记录</p>
+        ) : (
+          <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 lg:grid-cols-2">
+            {(attempts.data?.attempts ?? []).flatMap((attempt) =>
+              attempt.metering.map((metering, index) => {
+                const snapshot = metering.billingRuleSnapshot;
+                const prices = snapshot?.cacheHitPrice || snapshot?.cacheMissPrice || snapshot?.outputPrice
+                  ? `${snapshot.cacheHitPrice ?? "—"} / ${snapshot.cacheMissPrice ?? "—"} / ${snapshot.outputPrice ?? "—"}`
+                  : "—";
+                return (
+                  <div className="min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface p-3" key={`${attempt.attemptNo}-${index}`}>
+                    <div className="grid min-w-0 grid-cols-1 gap-x-5 gap-y-1 text-[13px] sm:grid-cols-2">
+                      <Field label="规则版本" value={metering.ruleVersion ?? "未命中"} />
+                      <Field label="规则类型" value={snapshot?.ruleType ?? "—"} />
+                      <Field label="模型 / 资源" value={`${attempt.upstreamModel} / ${attempt.providerResourceId}`} />
+                      <Field label="生效时间" value={snapshot?.effectiveFrom ? formatDateTimeFull(snapshot.effectiveFrom) : "—"} />
+                      <Field label="单价（缓存/输入/输出）" value={prices} />
+                      <Field label="倍率" value={metering.multiplier ? `×${metering.multiplier}` : "—"} />
+                      <Field label="计量质量" value={metering.usageQuality} />
+                      <Field label="最终费用" value={metering.apiCost === null ? "套餐内" : `${formatMoney(metering.apiCost)} 元`} />
+                    </div>
+                  </div>
+                );
+              }),
+            )}
+          </div>
+        )}
+      </section>
+
       {/* 调度决策（WT-16/17） */}
-      <section>
+      <section className="min-w-0">
         <h3 className="text-[13px] font-semibold leading-5 text-ql-fg">调度决策</h3>
         {decision.isLoading ? (
           <LoadingState label="加载决策…" />
         ) : !decision.data?.decision ? (
           <p className="mt-2 text-[13px] text-ql-fg-tertiary">无调度决策记录</p>
         ) : (
-          <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] leading-5 sm:grid-cols-3">
+          <div className="mt-2 min-w-0">
+            <p className="mb-2 rounded-lg bg-ql-surface-muted p-3 text-[13px] text-ql-fg-secondary">
+              {dispatch?.reasonCode === "ALLOW_NO_POLICY" || !dispatch?.matchedPolicyId
+                ? "未命中调度策略，默认允许"
+                : dispatch?.reasonDetail ?? `命中调度策略 ${dispatch?.matchedPolicyVersion ?? dispatch?.matchedPolicyId}`}
+            </p>
+            <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-1 text-[13px] leading-5 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="最终动作" value={decision.data.decision.finalAction} />
             <Field label="理由码" value={decision.data.decision.reasonCode} />
             <Field
@@ -225,12 +275,13 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
               <Field label="重置时间" value={String(decision.data.decision.dispatchInput?.policyResetAt ?? "未知")} />
             </> : null}
             <Field
-              label="调度输入"
-              value={
-                decision.data.decision.dispatchInput
-                  ? JSON.stringify(decision.data.decision.dispatchInput)
-                  : "—"
-              }
+              label="选中资源"
+              value={String(decision.data.decision.dispatchInput?.selectedResourceId ?? "—")}
+            />
+            <Field label="候选数量" value={String(routeCandidates.length)} />
+            <Field
+              label="是否切换"
+              value={decision.data.decision.switchTargetResourceId ? `是 → ${decision.data.decision.switchTargetResourceId}` : "否"}
             />
             <Field
               label="节省"
@@ -254,6 +305,28 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                 ? `${formatMoney(decision.data.decision.actualCost)} 元`
                 : "—"}
             />
+            </div>
+            {technicalJson ? (
+              <details className="mt-3 min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface">
+                <summary className="cursor-pointer px-3 py-2 text-[12px] font-medium text-ql-fg-secondary">
+                  技术详情（调度输入快照）
+                </summary>
+                <div className="min-w-0 border-t border-ql-border-zone p-3">
+                  <div className="mb-2 flex justify-end">
+                    <button
+                      className="rounded px-2 py-1 text-[12px] text-ql-action hover:bg-ql-action-soft"
+                      onClick={() => void navigator.clipboard?.writeText(technicalJson)}
+                      type="button"
+                    >
+                      复制技术详情
+                    </button>
+                  </div>
+                  <pre className="max-w-full whitespace-pre-wrap break-all font-mono text-[12px] leading-5 text-ql-fg-secondary">
+                    {technicalJson}
+                  </pre>
+                </div>
+              </details>
+            ) : null}
           </div>
         )}
       </section>
@@ -267,9 +340,9 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[12px] text-ql-fg-tertiary">{label}</span>
-      <span className="[font-variant-numeric:tabular-nums] text-ql-fg">{value}</span>
+    <div className="flex min-w-0 items-start justify-between gap-2">
+      <span className="shrink-0 text-[12px] text-ql-fg-tertiary">{label}</span>
+      <span className="min-w-0 break-words text-right [font-variant-numeric:tabular-nums] text-ql-fg">{value}</span>
     </div>
   );
 }

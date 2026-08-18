@@ -50,6 +50,8 @@ export interface BillingRule {
   enabled: boolean;
   source: string | null;
   version: number;
+  archived_at: string | null;
+  archived_by_admin_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +83,15 @@ export interface DispatchPolicy {
   priority: number;
   description: string | null;
   source: string | null;
+  copiedFromPolicyId: string | null;
+  createdByAdminId: string | null;
+  validatedAt: string | null;
+  validatedByAdminId: string | null;
+  publishedAt: string | null;
+  publishedByAdminId: string | null;
+  effectiveAt: string | null;
+  retiredAt: string | null;
+  retiredByAdminId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -242,6 +253,8 @@ export interface UnifiedModel {
   required_capabilities: string[] | null;
   status: string;
   version: number;
+  archived_at: string | null;
+  archived_by_admin_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -402,6 +415,8 @@ export interface ModelRouteItem {
   weight: number;
   enabled: boolean;
   version: number;
+  archived_at: string | null;
+  archived_by_admin_id: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -118,6 +118,7 @@ export class AdminWriteRepository {
       .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
+      .where("archived_at", "is", null)
       .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst() as Promise<UnifiedModel | null>;
@@ -135,6 +136,7 @@ export class AdminWriteRepository {
       .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
+      .where("archived_at", "is", null)
       .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst() as Promise<ModelRoute | null>;
@@ -187,9 +189,67 @@ export class AdminWriteRepository {
       .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
       .where("enterprise_id", "=", enterpriseId)
+      .where("archived_at", "is", null)
       .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst();
+  }
+
+  async setUnifiedModelArchived(
+    enterpriseId: string,
+    id: string,
+    expectedVersion: number,
+    archived: boolean,
+    actorAdminId: string,
+  ): Promise<UnifiedModel | null> {
+    let query = this.db.updateTable("unified_model").set({
+      archived_at: archived ? new Date() : null,
+      archived_by_admin_id: archived ? actorAdminId : null,
+      version: sql`version + 1`,
+      updated_at: new Date(),
+    }).where("id", "=", id).where("enterprise_id", "=", enterpriseId)
+      .where(versionLock(expectedVersion));
+    if (archived) query = query.where("status", "!=", "ACTIVE").where("archived_at", "is", null);
+    else query = query.where("archived_at", "is not", null);
+    return query.returningAll().executeTakeFirst() as Promise<UnifiedModel | null>;
+  }
+
+  async setModelRouteArchived(
+    enterpriseId: string,
+    id: string,
+    expectedVersion: number,
+    archived: boolean,
+    actorAdminId: string,
+  ): Promise<ModelRoute | null> {
+    let query = this.db.updateTable("model_route").set({
+      archived_at: archived ? new Date() : null,
+      archived_by_admin_id: archived ? actorAdminId : null,
+      version: sql`version + 1`,
+      updated_at: new Date(),
+    }).where("id", "=", id).where("enterprise_id", "=", enterpriseId)
+      .where(versionLock(expectedVersion));
+    if (archived) query = query.where("enabled", "=", false).where("archived_at", "is", null);
+    else query = query.where("archived_at", "is not", null);
+    return query.returningAll().executeTakeFirst() as Promise<ModelRoute | null>;
+  }
+
+  async setBillingRuleArchived(
+    enterpriseId: string,
+    id: string,
+    expectedVersion: number,
+    archived: boolean,
+    actorAdminId: string,
+  ) {
+    let query = this.db.updateTable("billing_rule").set({
+      archived_at: archived ? new Date() : null,
+      archived_by_admin_id: archived ? actorAdminId : null,
+      version: sql`version + 1`,
+      updated_at: new Date(),
+    }).where("id", "=", id).where("enterprise_id", "=", enterpriseId)
+      .where(versionLock(expectedVersion));
+    if (archived) query = query.where("enabled", "=", false).where("archived_at", "is", null);
+    else query = query.where("archived_at", "is not", null);
+    return query.returningAll().executeTakeFirst();
   }
 
   /**

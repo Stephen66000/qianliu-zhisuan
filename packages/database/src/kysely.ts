@@ -303,6 +303,15 @@ export interface DispatchPolicyTable {
   priority: Generated<number>;
   description: string | null;
   source: string | null;
+  copied_from_policy_id: string | null;
+  created_by_admin_id: string | null;
+  validated_at: Date | null;
+  validated_by_admin_id: string | null;
+  published_at: Date | null;
+  published_by_admin_id: string | null;
+  effective_at: Date | null;
+  retired_at: Date | null;
+  retired_by_admin_id: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -404,6 +413,8 @@ export interface UnifiedModelTable {
   status: Generated<string>;
   /** W19/P2-01：单调版本号（乐观锁）。 */
   version: Generated<number>;
+  archived_at: Generated<Date | null>;
+  archived_by_admin_id: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -420,6 +431,8 @@ export interface ModelRouteTable {
   fallback_policy: string | null;
   /** W19/P2-01：单调版本号（乐观锁）。 */
   version: Generated<number>;
+  archived_at: Generated<Date | null>;
+  archived_by_admin_id: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -553,6 +566,8 @@ export interface BillingRuleTable {
   source: string | null;
   /** P1-02：管理端编辑使用单调版本号，避免并发覆盖。 */
   version: Generated<number>;
+  archived_at: Generated<Date | null>;
+  archived_by_admin_id: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

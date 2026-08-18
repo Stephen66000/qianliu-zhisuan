@@ -8,6 +8,7 @@
  * 安全：上游凭证明文绝不入 DB、绝不返回 API。createResource 接收明文 → 加密 → 存密文+指纹。
  */
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import {
   credentialFingerprint,
   encryptCredential,
@@ -225,8 +226,12 @@ export function registerProviderRoutes(app: FastifyInstance): void {
   });
 
   // ===== Unified Model =====
-  app.get("/unified-models", { preHandler: [requireAuth] }, async (req) => {
-    return { models: await app.providerRepo.listUnifiedModels(req.admin!.enterpriseId) };
+  app.get<{ Querystring: { archived?: string } }>("/unified-models", { preHandler: [requireAuth] }, async (req, reply) => {
+    const archived = z.enum(["exclude", "only", "all"]).default("exclude").safeParse(req.query.archived);
+    if (!archived.success) {
+      return reply.code(400).send({ error: "invalid_request", message: "归档筛选无效" });
+    }
+    return { models: await app.providerRepo.listUnifiedModels(req.admin!.enterpriseId, archived.data) };
   });
 
   app.post("/unified-models", { preHandler: [requireAuth] }, async (req, reply) => {
@@ -297,13 +302,18 @@ export function registerProviderRoutes(app: FastifyInstance): void {
   });
 
   // 路由详情：候选、优先级、权重（WT-10）
-  app.get<{ Params: { modelId: string } }>(
+  app.get<{ Params: { modelId: string }; Querystring: { archived?: string } }>(
     "/unified-models/:modelId/routes",
     { preHandler: [requireAuth] },
-    async (req) => {
+    async (req, reply) => {
+      const archived = z.enum(["exclude", "only", "all"]).default("exclude").safeParse(req.query.archived);
+      if (!archived.success) {
+        return reply.code(400).send({ error: "invalid_request", message: "归档筛选无效" });
+      }
       const routes = await app.providerRepo.listRoutesByModel(
         req.admin!.enterpriseId,
         req.params.modelId,
+        archived.data,
       );
       return { routes };
     },

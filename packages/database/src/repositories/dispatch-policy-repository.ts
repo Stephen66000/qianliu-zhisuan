@@ -27,6 +27,15 @@ function sameDecimal(left: string | null, right: string | null): boolean {
 export interface DispatchPolicyRecord extends DispatchPolicy {
   description: string | null;
   source: string | null;
+  copiedFromPolicyId: string | null;
+  createdByAdminId: string | null;
+  validatedAt: Date | null;
+  validatedByAdminId: string | null;
+  publishedAt: Date | null;
+  publishedByAdminId: string | null;
+  effectiveAt: Date | null;
+  retiredAt: Date | null;
+  retiredByAdminId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +62,8 @@ export interface CreateDispatchPolicyInput {
   priority?: number;
   description?: string | null;
   source?: string | null;
+  copiedFromPolicyId?: string | null;
+  createdByAdminId?: string | null;
 }
 
 /** 决策落库输入（每次请求前冻结，不可覆盖）。 */
@@ -179,6 +190,8 @@ export class DispatchPolicyRepository {
         priority: input.priority ?? 100,
         description: input.description ?? null,
         source: input.source ?? null,
+        copied_from_policy_id: input.copiedFromPolicyId ?? null,
+        created_by_admin_id: input.createdByAdminId ?? null,
       })
       .returning("id")
       .executeTakeFirstOrThrow();
@@ -234,16 +247,82 @@ export class DispatchPolicyRepository {
     policyId: string,
     from: DispatchPolicy["status"],
     to: DispatchPolicy["status"],
+    actorAdminId: string | null = null,
   ): Promise<boolean> {
+    const now = new Date();
+    const timelinePatch = to === "VALIDATED"
+      ? { validated_at: now, validated_by_admin_id: actorAdminId }
+      : to === "PUBLISHED"
+        ? {
+            published_at: now,
+            published_by_admin_id: actorAdminId,
+            effective_at: now,
+          }
+        : to === "RETIRED"
+          ? { retired_at: now, retired_by_admin_id: actorAdminId }
+          : {};
     const row = await this.db
       .updateTable("dispatch_policy")
-      .set({ status: to, updated_at: new Date() })
+      .set({ status: to, ...timelinePatch, updated_at: now })
       .where("id", "=", policyId)
       .where("enterprise_id", "=", enterpriseId)
       .where("status", "=", from)
       .returning("id")
       .executeTakeFirst();
     return row !== undefined;
+  }
+
+  /** 历史版本只读；复制全部条件为新草稿并生成递增版本号。 */
+  async copyPolicyAsDraft(
+    enterpriseId: string,
+    policyId: string,
+    actorAdminId: string,
+  ): Promise<DispatchPolicyRecord | undefined> {
+    return this.db.transaction().execute(async (trx) => {
+      const source = await trx.selectFrom("dispatch_policy").selectAll()
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", policyId)
+        .where("status", "=", "RETIRED")
+        .forUpdate()
+        .executeTakeFirst();
+      if (!source) return undefined;
+      const versions = new Set((await trx.selectFrom("dispatch_policy")
+        .select("policy_version")
+        .where("enterprise_id", "=", enterpriseId)
+        .execute()).map((row) => row.policy_version));
+      const version = nextPolicyVersion(source.policy_version, versions);
+      const created = await trx.insertInto("dispatch_policy").values({
+        enterprise_id: enterpriseId,
+        status: "DRAFT",
+        match_unified_model: source.match_unified_model,
+        match_resource_mode: source.match_resource_mode,
+        match_provider_resource_id: source.match_provider_resource_id,
+        match_timezone: source.match_timezone,
+        match_days_of_week: source.match_days_of_week
+          ? (JSON.stringify(source.match_days_of_week) as unknown as number[])
+          : null,
+        match_start_time: source.match_start_time,
+        match_end_time: source.match_end_time,
+        match_price_multiplier_min: source.match_price_multiplier_min,
+        match_remaining_quota_ratio_max: source.match_remaining_quota_ratio_max,
+        match_forecast_exhaust_risk: source.match_forecast_exhaust_risk,
+        match_principal_scope: source.match_principal_scope
+          ? (JSON.stringify(source.match_principal_scope) as unknown as string[])
+          : null,
+        action: source.action,
+        switch_equivalent_group: source.switch_equivalent_group
+          ? (JSON.stringify(source.switch_equivalent_group) as unknown as string[])
+          : null,
+        rate_limit_per_minute: source.rate_limit_per_minute,
+        policy_version: version,
+        priority: source.priority,
+        description: source.description,
+        source: source.source,
+        copied_from_policy_id: source.id,
+        created_by_admin_id: actorAdminId,
+      }).returningAll().executeTakeFirstOrThrow();
+      return mapPolicy(created);
+    });
   }
 
   async getPolicy(
@@ -393,6 +472,15 @@ function mapPolicy(row: {
   priority: number;
   description: string | null;
   source: string | null;
+  copied_from_policy_id: string | null;
+  created_by_admin_id: string | null;
+  validated_at: Date | null;
+  validated_by_admin_id: string | null;
+  published_at: Date | null;
+  published_by_admin_id: string | null;
+  effective_at: Date | null;
+  retired_at: Date | null;
+  retired_by_admin_id: string | null;
   created_at: Date;
   updated_at: Date;
 }): DispatchPolicyRecord {
@@ -417,7 +505,25 @@ function mapPolicy(row: {
     priority: row.priority,
     description: row.description,
     source: row.source,
+    copiedFromPolicyId: row.copied_from_policy_id,
+    createdByAdminId: row.created_by_admin_id,
+    validatedAt: row.validated_at,
+    validatedByAdminId: row.validated_by_admin_id,
+    publishedAt: row.published_at,
+    publishedByAdminId: row.published_by_admin_id,
+    effectiveAt: row.effective_at,
+    retiredAt: row.retired_at,
+    retiredByAdminId: row.retired_by_admin_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function nextPolicyVersion(current: string, existing: ReadonlySet<string>): string {
+  const numbered = /^(.*?)(\d+)$/.exec(current);
+  const prefix = numbered?.[1] ?? `${current}-v`;
+  let number = numbered ? Number(numbered[2]) + 1 : 2;
+  let candidate = `${prefix}${number}`;
+  while (existing.has(candidate)) candidate = `${prefix}${++number}`;
+  return candidate;
 }

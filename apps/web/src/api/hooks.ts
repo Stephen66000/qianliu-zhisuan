@@ -113,10 +113,10 @@ export function usePrincipalAgentUsage(principalId: string) {
   });
 }
 
-export function useBillingRules() {
+export function useBillingRules(archived: "exclude" | "only" | "all" = "exclude") {
   return useQuery({
-    queryKey: QUERY_KEYS.billingRules,
-    queryFn: ({ signal }) => get<BillingRulesResult>("/billing-rules", signal),
+    queryKey: [...QUERY_KEYS.billingRules, archived],
+    queryFn: ({ signal }) => get<BillingRulesResult>(`/billing-rules?archived=${archived}`, signal),
     retry: 1,
     staleTime: 60_000,
   });
@@ -205,10 +205,10 @@ export function useResourceHealth(resourceId: string | null) {
   });
 }
 
-export function useUnifiedModels() {
+export function useUnifiedModels(archived: "exclude" | "only" | "all" = "exclude") {
   return useQuery({
-    queryKey: QUERY_KEYS.unifiedModels,
-    queryFn: ({ signal }) => get<UnifiedModelsResult>("/unified-models", signal),
+    queryKey: [...QUERY_KEYS.unifiedModels, archived],
+    queryFn: ({ signal }) => get<UnifiedModelsResult>(`/unified-models?archived=${archived}`, signal),
     retry: 1,
     staleTime: 30_000,
   });
@@ -247,11 +247,14 @@ export function useAccessConfiguration(principalId: string | null) {
   });
 }
 
-export function useModelRoutes(modelId: string | null) {
+export function useModelRoutes(
+  modelId: string | null,
+  archived: "exclude" | "only" | "all" = "exclude",
+) {
   return useQuery({
-    queryKey: QUERY_KEYS.modelRoutes(modelId ?? ""),
+    queryKey: [...QUERY_KEYS.modelRoutes(modelId ?? ""), archived],
     queryFn: ({ signal }) =>
-      get<ModelRoutesResult>(`/unified-models/${modelId}/routes`, signal),
+      get<ModelRoutesResult>(`/unified-models/${modelId}/routes?archived=${archived}`, signal),
     enabled: modelId !== null,
     retry: 1,
     staleTime: 30_000,

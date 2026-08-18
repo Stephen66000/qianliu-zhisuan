@@ -16,6 +16,7 @@ export async function listEnabledBillingRulesAt(
     "currency", "priority",
   ]).where("enterprise_id", "=", enterpriseId)
     .where("enabled", "=", true)
+    .where("archived_at", "is", null)
     .where("effective_from", "<=", at)
     .where((eb) => eb.or([
       eb("effective_to", "is", null),

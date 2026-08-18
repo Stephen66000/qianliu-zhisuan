@@ -147,6 +147,14 @@ function localDateTimeValue(date = new Date()): string {
   return local.toISOString().slice(0, 16);
 }
 
+function formatLifecycle(at: string, adminId: string | null): string {
+  const time = new Date(at).toLocaleString("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    hour12: false,
+  });
+  return `${time} · ${adminId ? `操作人 ${adminId.slice(0, 8)}` : "操作人未知（历史数据）"}`;
+}
+
 function editableWindows(rule: BillingRule): BillingWindowForm[] {
   const windows = rule.time_windows
     ?? (
@@ -209,9 +217,9 @@ export { buildDispatchPolicyPayload } from "../components/quota/dispatch-policy-
 
 export function QuotaRulesPage() {
   const queryClient = useQueryClient();
-  const rulesQuery = useBillingRules();
+  const rulesQuery = useBillingRules("all");
   const policiesQuery = useDispatchPolicies();
-  const modelsQuery = useUnifiedModels();
+  const modelsQuery = useUnifiedModels("all");
   const resourcesQuery = useProviderResources();
   const principalsQuery = usePrincipals("all");
   useRedirectOnUnauthorized(firstQueryError([
@@ -229,6 +237,7 @@ export function QuotaRulesPage() {
   const [showPolicyForm, setShowPolicyForm] = useState(false);
   const [showModelForm, setShowModelForm] = useState(false);
   const [showRouteForm, setShowRouteForm] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [selectedRuleRouteId, setSelectedRuleRouteId] = useState("");
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [disableModelTarget, setDisableModelTarget] = useState<UnifiedModel | null>(null);
@@ -239,11 +248,11 @@ export function QuotaRulesPage() {
   } | null>(null);
   const [editingPolicy, setEditingPolicy] = useState<DispatchPolicy | null>(null);
   const [principalSearch, setPrincipalSearch] = useState("");
-  const routesQuery = useModelRoutes(selectedModelId);
+  const routesQuery = useModelRoutes(selectedModelId, "all");
 
   useEffect(() => {
-    if (selectedModelId === null && models.length > 0) {
-      setSelectedModelId(models[0]!.id);
+    if (models.length > 0 && !models.some((model) => model.id === selectedModelId)) {
+      setSelectedModelId(models.find((model) => !model.archived_at)?.id ?? models[0]!.id);
     }
   }, [models, selectedModelId]);
 
@@ -370,7 +379,7 @@ export function QuotaRulesPage() {
   const transitionPolicy = useMutation({
     mutationFn: (input: {
       policy: DispatchPolicy;
-      action: "validate" | "publish" | "retire";
+      action: "validate" | "publish" | "retire" | "copy";
     }) => post(`/dispatch-policies/${input.policy.id}/${input.action}`),
     onSuccess: () => {
       setPolicyActionTarget(null);
@@ -417,13 +426,36 @@ export function QuotaRulesPage() {
       void refreshRoutes(input.route.unified_model_id);
     },
   });
+  const archiveConfig = useMutation({
+    mutationFn: (input:
+      | { kind: "model"; item: UnifiedModel; archive: boolean }
+      | { kind: "route"; item: ModelRouteItem; archive: boolean }
+      | { kind: "rule"; item: BillingRule; archive: boolean }) => {
+      const base = input.kind === "model"
+        ? "unified-models"
+        : input.kind === "route"
+          ? "model-routes"
+          : "billing-rules";
+      return post(`/${base}/${input.item.id}/${input.archive ? "archive" : "unarchive"}`, {
+        expected_version: input.item.version,
+      });
+    },
+    onSuccess: () => {
+      void refreshModels();
+      void refreshRules();
+      if (selectedModelId) void refreshRoutes(selectedModelId);
+    },
+  });
 
-  const rules = rulesQuery.data?.rules ?? [];
+  const allRules = rulesQuery.data?.rules ?? [];
   const policies = policiesQuery.data?.policies ?? [];
-  const routes = routesQuery.data?.routes ?? [];
-  const hasActiveModels = models.some((model) => model.status === "ACTIVE");
+  const allRoutes = routesQuery.data?.routes ?? [];
+  const visibleModels = models.filter((model) => showArchived === Boolean(model.archived_at));
+  const rules = allRules.filter((rule) => showArchived === Boolean(rule.archived_at));
+  const routes = allRoutes.filter((route) => showArchived === Boolean(route.archived_at));
+  const hasActiveModels = models.some((model) => model.status === "ACTIVE" && !model.archived_at);
   const canCreateRoute = hasActiveModels && resources.length > 0;
-  const enabledRoutes = routes.filter((route) => route.enabled);
+  const enabledRoutes = allRoutes.filter((route) => route.enabled && !route.archived_at);
   const canCreateRule = canCreateRoute && enabledRoutes.length > 0;
   const principalById = new Map(principals.map((principal) => [principal.id, principal]));
 
@@ -460,7 +492,8 @@ export function QuotaRulesPage() {
     createModel.error ??
     updateModel.error ??
     createRoute.error ??
-    updateRoute.error;
+    updateRoute.error ??
+    archiveConfig.error;
 
   return (
     <PageShell
@@ -474,6 +507,10 @@ export function QuotaRulesPage() {
       ) : null}
 
       <DepartmentBudgetEntry />
+      <label className="mb-4 inline-flex items-center gap-2 text-[12px] text-ql-fg-secondary">
+        <input checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} type="checkbox" />
+        查看已归档配置（历史、快照和审计仍保留）
+      </label>
 
       <ManagementSection
         actionLabel="新建统一模型"
@@ -514,11 +551,11 @@ export function QuotaRulesPage() {
               </tr>
             </thead>
             <tbody>
-              {models.map((model) => (
+              {visibleModels.map((model) => (
                 <tr className="border-b border-ql-border-zone last:border-b-0" key={model.id}>
                   <td className="p-2 font-mono">{model.alias}</td>
                   <td className="p-2">{model.display_name}</td>
-                  <td className="p-2">{model.status === "ACTIVE" ? "启用" : "停用"}</td>
+                  <td className="p-2">{model.archived_at ? "已归档" : model.status === "ACTIVE" ? "启用" : "停用"}</td>
                   <td className="p-2 text-right">
                     <button
                       className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
@@ -527,7 +564,15 @@ export function QuotaRulesPage() {
                     >
                       管理路由
                     </button>
-                    {model.status === "ACTIVE" ? (
+                    {model.archived_at ? (
+                      <button
+                        className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        onClick={() => archiveConfig.mutate({ kind: "model", item: model, archive: false })}
+                        type="button"
+                      >
+                        取消归档
+                      </button>
+                    ) : model.status === "ACTIVE" ? (
                       <button
                         className="rounded px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
                         onClick={() => setDisableModelTarget(model)}
@@ -535,7 +580,15 @@ export function QuotaRulesPage() {
                       >
                         停用
                       </button>
-                    ) : null}
+                    ) : (
+                      <button
+                        className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        onClick={() => archiveConfig.mutate({ kind: "model", item: model, archive: true })}
+                        type="button"
+                      >
+                        归档
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -575,7 +628,9 @@ export function QuotaRulesPage() {
             >
               <option value="">请选择</option>
               {models.map((model) => (
-                <option key={model.id} value={model.id}>{model.display_name}</option>
+                <option key={model.id} value={model.id}>
+                  {model.display_name}{model.archived_at ? "（已归档）" : ""}
+                </option>
               ))}
             </select>
           </FormField>
@@ -592,7 +647,7 @@ export function QuotaRulesPage() {
             >
               <select className={INPUT_CLASS} id="route-model" {...routeForm.register("unified_model_id")}>
                 <option value="">请选择</option>
-                {models.filter((model) => model.status === "ACTIVE").map((model) => (
+                {models.filter((model) => model.status === "ACTIVE" && !model.archived_at).map((model) => (
                   <option key={model.id} value={model.id}>{model.display_name}</option>
                 ))}
               </select>
@@ -655,9 +710,17 @@ export function QuotaRulesPage() {
                   </td>
                   <td className="p-2 text-right">{route.priority}</td>
                   <td className="p-2 text-right">{route.weight}</td>
-                  <td className="p-2">{route.enabled ? "启用" : "停用"}</td>
+                  <td className="p-2">{route.archived_at ? "已归档" : route.enabled ? "启用" : "停用"}</td>
                   <td className="p-2 text-right">
-                    {route.enabled ? (
+                    {route.archived_at ? (
+                      <button
+                        className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        onClick={() => archiveConfig.mutate({ kind: "route", item: route, archive: false })}
+                        type="button"
+                      >
+                        取消归档
+                      </button>
+                    ) : route.enabled ? (
                       <button
                         className="rounded px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
                         onClick={() => setDisableRouteTarget(route)}
@@ -665,15 +728,12 @@ export function QuotaRulesPage() {
                       >
                         停用
                       </button>
-                    ) : (
-                      <button
-                        className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
-                        onClick={() => updateRoute.mutate({ route, enabled: true })}
-                        type="button"
-                      >
-                        启用
-                      </button>
-                    )}
+                    ) : <>
+                      <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        onClick={() => updateRoute.mutate({ route, enabled: true })} type="button">启用</button>
+                      <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        onClick={() => archiveConfig.mutate({ kind: "route", item: route, archive: true })} type="button">归档</button>
+                    </>}
                   </td>
                 </tr>
               ))}
@@ -963,17 +1023,22 @@ export function QuotaRulesPage() {
                   </td>
                   <td className="p-2">
                     <StatusTag tone={rule.enabled ? "neutral" : "warning"}>
-                      {rule.enabled ? "启用" : "停用"}
+                      {rule.archived_at ? "已归档" : rule.enabled ? "启用" : "停用"}
                     </StatusTag>
                   </td>
                   <td className="p-2 text-right">
-                    <button
-                      className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                      onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
-                      type="button"
-                    >
-                      {rule.enabled ? "停用" : "启用"}
-                    </button>
+                    {rule.archived_at ? (
+                      <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: false })}
+                        type="button">取消归档</button>
+                    ) : <>
+                      <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
+                        type="button">{rule.enabled ? "停用" : "启用"}</button>
+                      {!rule.enabled ? <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: true })}
+                        type="button">归档</button> : null}
+                    </>}
                   </td>
                 </tr>
               ))}
@@ -1169,8 +1234,9 @@ export function QuotaRulesPage() {
             </div>
           </form>
         ) : null}
-        <p className="mb-3 text-[11px] text-ql-fg-tertiary">
-          生命周期：草稿 → 校验通过 → 发布 → 停用。只有已发布策略进入 Gateway 热路径。
+        <p className="mb-3 text-[11px] leading-5 text-ql-fg-tertiary">
+          生命周期：草稿 → 校验通过 → 发布 → 停用。只有已发布策略进入 Gateway 热路径；
+          调度先于计价执行，REJECT 不进入上游、Attempt、Usage 或计量。调度优先级与计价优先级分别只在各自体系内比较。
         </p>
         <QueryGate
           emptyDescription="创建策略草稿，校验引用后再发布；未发布策略不会影响请求。"
@@ -1192,6 +1258,7 @@ export function QuotaRulesPage() {
                   <th className="p-2 font-medium">主体范围</th>
                   <th className="p-2 text-right font-medium">优先级</th>
                   <th className="p-2 font-medium">状态</th>
+                  <th className="p-2 font-medium">时间线 / 操作人</th>
                   <th className="p-2 text-right font-medium">操作</th>
                 </tr>
               </thead>
@@ -1220,6 +1287,13 @@ export function QuotaRulesPage() {
                       <StatusTag tone={policy.status === "PUBLISHED" ? "neutral" : "warning"}>
                         {policy.status}
                       </StatusTag>
+                    </td>
+                    <td className="min-w-64 p-2 text-[11px] leading-5 text-ql-fg-tertiary">
+                      <span className="block">创建 {formatLifecycle(policy.createdAt, policy.createdByAdminId)}</span>
+                      {policy.validatedAt ? <span className="block">校验 {formatLifecycle(policy.validatedAt, policy.validatedByAdminId)}</span> : null}
+                      {policy.publishedAt ? <span className="block">发布 {formatLifecycle(policy.publishedAt, policy.publishedByAdminId)}</span> : null}
+                      {policy.effectiveAt ? <span className="block">生效 {formatLifecycle(policy.effectiveAt, policy.publishedByAdminId)}</span> : null}
+                      {policy.retiredAt ? <span className="block">停用 {formatLifecycle(policy.retiredAt, policy.retiredByAdminId)}</span> : null}
                     </td>
                     <td className="p-2 text-right">
                       {policy.status === "DRAFT" ? (
@@ -1256,6 +1330,15 @@ export function QuotaRulesPage() {
                           type="button"
                         >
                           停用
+                        </button>
+                      ) : null}
+                      {policy.status === "RETIRED" ? (
+                        <button
+                          className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                          onClick={() => transitionPolicy.mutate({ policy, action: "copy" })}
+                          type="button"
+                        >
+                          重新启用 / 复制为新版本
                         </button>
                       ) : null}
                     </td>

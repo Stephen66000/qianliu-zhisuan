@@ -125,6 +125,8 @@ describe("计价规则 Web 表单", () => {
       enabled: true,
       source: "test",
       version: 3,
+      archived_at: null,
+      archived_by_admin_id: null,
       created_at: "2026-07-30T00:00:00.000Z",
       updated_at: "2026-07-30T00:00:00.000Z",
     };

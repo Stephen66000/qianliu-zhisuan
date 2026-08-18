@@ -38,6 +38,7 @@ export type Provider = Selectable<ProviderTable>;
 export type ProviderResource = Selectable<ProviderResourceTable>;
 export type UnifiedModel = Selectable<UnifiedModelTable>;
 export type ModelRoute = Selectable<ModelRouteTable>;
+export type ArchiveFilter = "exclude" | "only" | "all";
 
 export class ProviderRepository extends ProviderModelDiscoveryRepository {
 
@@ -188,6 +189,9 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
         let unified = await trx.selectFrom("unified_model").selectAll()
           .where("enterprise_id", "=", input.enterpriseId).where("alias", "=", alias)
           .executeTakeFirst();
+        if (unified?.archived_at) {
+          throw new EnterpriseReferenceError("archived model cannot be referenced by onboarding");
+        }
         const reused = Boolean(unified);
         if (!unified) {
           unified = await trx.insertInto("unified_model").values({
@@ -235,6 +239,9 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
         let unified = await trx.selectFrom("unified_model").selectAll()
           .where("enterprise_id", "=", input.enterpriseId).where("alias", "=", alias)
           .executeTakeFirst();
+        if (unified?.archived_at) {
+          throw new EnterpriseReferenceError("archived model cannot be referenced by discovery");
+        }
         const reused = Boolean(unified);
         if (!unified) {
           unified = await trx.insertInto("unified_model").values({
@@ -291,13 +298,18 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       .executeTakeFirstOrThrow();
   }
 
-  async listUnifiedModels(enterpriseId: string): Promise<UnifiedModel[]> {
-    return this.db
+  async listUnifiedModels(
+    enterpriseId: string,
+    archived: ArchiveFilter = "exclude",
+  ): Promise<UnifiedModel[]> {
+    let query = this.db
       .selectFrom("unified_model")
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
-      .orderBy("alias")
-      .execute();
+      .orderBy("alias");
+    if (archived === "only") query = query.where("archived_at", "is not", null);
+    if (archived === "exclude") query = query.where("archived_at", "is", null);
+    return query.execute();
   }
 
   // ===== Model Route =====
@@ -316,6 +328,7 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
           .where("id", "=", unifiedModelId)
           .where("enterprise_id", "=", enterpriseId)
           .where("status", "=", "ACTIVE")
+          .where("archived_at", "is", null)
           .forKeyShare()
           .executeTakeFirst(),
         trx
@@ -346,10 +359,14 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
     });
   }
 
-  async listRoutesByModel(enterpriseId: string, unifiedModelId: string): Promise<
+  async listRoutesByModel(
+    enterpriseId: string,
+    unifiedModelId: string,
+    archived: ArchiveFilter = "exclude",
+  ): Promise<
     Array<ModelRoute & { resource_name: string; resource_status: string }>
   > {
-    return this.db
+    let query = this.db
       .selectFrom("model_route")
       .innerJoin(
         "provider_resource",
@@ -365,8 +382,12 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       .where("provider_resource.enterprise_id", "=", enterpriseId)
       .where("model_route.unified_model_id", "=", unifiedModelId)
       .orderBy("model_route.priority", "asc")
-      .orderBy("model_route.weight", "desc")
-      .execute() as Promise<Array<ModelRoute & { resource_name: string; resource_status: string }>>;
+      .orderBy("model_route.weight", "desc");
+    if (archived === "only") query = query.where("model_route.archived_at", "is not", null);
+    if (archived === "exclude") query = query.where("model_route.archived_at", "is", null);
+    return query.execute() as Promise<
+      Array<ModelRoute & { resource_name: string; resource_status: string }>
+    >;
   }
 }
 

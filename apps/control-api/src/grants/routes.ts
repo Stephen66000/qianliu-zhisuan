@@ -64,6 +64,17 @@ export function registerGrantRoutes(app: FastifyInstance): void {
           message: "主体已停用或归档，不能创建额度授权",
         });
       }
+      const archivedModel = await app.db.selectFrom("unified_model").select("id")
+        .where("enterprise_id", "=", ent)
+        .where("alias", "=", parsed.data.model_alias)
+        .where("archived_at", "is not", null)
+        .executeTakeFirst();
+      if (archivedModel) {
+        return reply.code(409).send({
+          error: "archived_reference",
+          message: "已归档统一模型不能被新授权引用",
+        });
+      }
 
       let grant;
       try {

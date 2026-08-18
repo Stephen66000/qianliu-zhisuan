@@ -152,8 +152,12 @@ const CreateBillingRuleSchema = z
 
 export function registerReadModelRoutes(app: FastifyInstance): void {
   // GET /billing-rules —— 计价规则列表（含 disabled/历史，管理后台用）
-  app.get("/billing-rules", { preHandler: [requireAuth] }, async (req) => {
-    const rules = await app.ledgerRepo.listAllBillingRules(req.admin!.enterpriseId);
+  app.get<{ Querystring: { archived?: string } }>("/billing-rules", { preHandler: [requireAuth] }, async (req, reply) => {
+    const archived = z.enum(["exclude", "only", "all"]).default("exclude").safeParse(req.query.archived);
+    if (!archived.success) {
+      return reply.code(400).send({ error: "invalid_request", message: "归档筛选无效" });
+    }
+    const rules = await app.ledgerRepo.listAllBillingRules(req.admin!.enterpriseId, archived.data);
     return { rules };
   });
 
@@ -183,8 +187,10 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
         .where("unified_model.enterprise_id", "=", req.admin!.enterpriseId)
         .where("provider_resource.enterprise_id", "=", req.admin!.enterpriseId)
         .where("unified_model.status", "=", "ACTIVE")
+        .where("unified_model.archived_at", "is", null)
         .where("provider_resource.status", "=", "ACTIVE")
         .where("model_route.enabled", "=", true)
+        .where("model_route.archived_at", "is", null)
         .where("model_route.provider_resource_id", "=", input.provider_resource_id)
         .where("model_route.upstream_model", "=", input.upstream_model)
         .executeTakeFirst();
@@ -256,6 +262,7 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
     const id = await app.dispatchRepo.createPolicy({
       enterpriseId: req.admin!.enterpriseId,
       status: "DRAFT",
+      createdByAdminId: req.admin!.adminUserId,
       ...dispatchPolicyFields(input),
     });
     await app.auditRepo.write({
@@ -318,7 +325,7 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
     "/dispatch-policies/:id/:action",
     { preHandler: [requireAuth] },
     async (req, reply) => {
-      const action = z.enum(["validate", "publish", "retire"]).safeParse(req.params.action);
+      const action = z.enum(["validate", "publish", "retire", "copy"]).safeParse(req.params.action);
       if (!action.success) {
         return reply.code(404).send({ error: "not_found", message: "未知策略操作" });
       }
@@ -326,6 +333,38 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
       const policy = await app.dispatchRepo.getPolicy(enterpriseId, req.params.id);
       if (!policy) {
         return reply.code(404).send({ error: "not_found", message: "调度策略不存在" });
+      }
+
+      if (action.data === "copy") {
+        if (policy.status !== "RETIRED") {
+          return reply.code(409).send({
+            error: "invalid_state",
+            message: `策略当前为 ${policy.status}，只有已停用历史版本可以复制`,
+          });
+        }
+        const copied = await app.dispatchRepo.copyPolicyAsDraft(
+          enterpriseId,
+          policy.id,
+          req.admin!.adminUserId,
+        );
+        if (!copied) {
+          return reply.code(409).send({ error: "conflict", message: "策略状态已变化，请刷新后重试" });
+        }
+        await app.auditRepo.write({
+          enterprise_id: enterpriseId,
+          admin_user_id: req.admin!.adminUserId,
+          action: "dispatch_policy.copy",
+          target_type: "dispatch_policy",
+          target_id: copied.id,
+          change_summary: {
+            copied_from_policy_id: policy.id,
+            before_version: policy.policyVersion,
+            new_version: copied.policyVersion,
+            status: "DRAFT",
+          },
+          result: "SUCCESS",
+        });
+        return reply.code(201).send({ policy: copied });
       }
 
       const transition = {
@@ -374,6 +413,7 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
         policy.id,
         expected.from,
         expected.to,
+        req.admin!.adminUserId,
       );
       if (!changed) {
         return reply.code(409).send({

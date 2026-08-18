@@ -168,6 +168,8 @@ export async function validateEmployeeModelRule(
       "provider_resource.name as resource_name", "provider_resource.status as resource_status",
       "provider_resource.mode as resource_mode", "provider.status as provider_status"])
     .where("model_route.enterprise_id", "=", version.enterprise_id)
+    .where("model_route.archived_at", "is", null)
+    .where("unified_model.archived_at", "is", null)
     .$if(version.model_scope === "SELECTED", (qb) => qb.where((eb) => eb.or(version.model_targets.map((target) => eb.and([
       eb("model_route.unified_model_id", "=", target.unified_model_id),
       eb("model_route.provider_resource_id", "=", target.provider_resource_id),

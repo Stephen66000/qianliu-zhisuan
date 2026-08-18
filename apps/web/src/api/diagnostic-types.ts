@@ -49,6 +49,9 @@ export interface AttemptMetering {
   multiplier: string | null;
   billingRuleSnapshot: {
     ruleType?: string;
+    ruleVersion?: string;
+    effectiveFrom?: string;
+    effectiveTo?: string | null;
     timezone?: string | null;
     daysOfWeek?: number[] | null;
     startTime?: string | null;
@@ -69,6 +72,8 @@ export interface AttemptMetering {
     cacheMissPrice?: string | null;
     outputPrice?: string | null;
     multiplier?: string | null;
+    currency?: string;
+    priority?: number;
   } | null;
 }
 

@@ -317,12 +317,16 @@ export class GatewayLedgerRepository {
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
       .where("enabled", "=", true)
+      .where("archived_at", "is", null)
       .where("effective_from", "<=", at)
       .execute() as never;
   }
 
   /** 列出企业全部计价规则（含 disabled/历史，管理后台用）。 */
-  async listAllBillingRules(enterpriseId: string): Promise<
+  async listAllBillingRules(
+    enterpriseId: string,
+    archived: "exclude" | "only" | "all" = "exclude",
+  ): Promise<
     Array<{
       id: string;
       rule_type: string;
@@ -349,17 +353,22 @@ export class GatewayLedgerRepository {
       priority: number;
       enabled: boolean;
       source: string | null;
+      version: number;
+      archived_at: Date | null;
+      archived_by_admin_id: string | null;
       created_at: Date;
       updated_at: Date;
     }>
   > {
-    return this.db
+    let query = this.db
       .selectFrom("billing_rule")
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
       .orderBy("priority", "asc")
-      .orderBy("effective_from", "desc")
-      .execute() as never;
+      .orderBy("effective_from", "desc");
+    if (archived === "only") query = query.where("archived_at", "is not", null);
+    if (archived === "exclude") query = query.where("archived_at", "is", null);
+    return query.execute() as never;
   }
 
   async createBillingRule(input: {
