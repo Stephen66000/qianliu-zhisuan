@@ -304,6 +304,7 @@ export interface DispatchPolicyTable {
   description: string | null;
   source: string | null;
   copied_from_policy_id: string | null;
+  restore_source_policy_id: Generated<string | null>;
   created_by_admin_id: string | null;
   validated_at: Date | null;
   validated_by_admin_id: string | null;

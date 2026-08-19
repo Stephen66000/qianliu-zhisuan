@@ -9,11 +9,13 @@ import { UsageOverviewPanel } from "./UsageOverviewPanel";
 const useUsageOverviewMock = vi.fn();
 const usePrincipalOptionsMock = vi.fn();
 const usePrincipalOptionMock = vi.fn();
+const resolvePrincipalExactMatchMock = vi.fn();
 
 vi.mock("../../api/v2-hooks", () => ({
   useUsageOverview: (query: string) => useUsageOverviewMock(query),
   usePrincipalOptions: (type: string, search: string, offset: number, limit: number) => usePrincipalOptionsMock(type, search, offset, limit),
   usePrincipalOption: (id: string | null) => usePrincipalOptionMock(id),
+  resolvePrincipalExactMatch: (type: string, name: string) => resolvePrincipalExactMatchMock(type, name),
 }));
 
 const projectId = "20000000-0000-4000-8000-000000000001";
@@ -53,9 +55,13 @@ describe("W20-04 用量概览 Web", () => {
     useUsageOverviewMock.mockReset();
     usePrincipalOptionsMock.mockReset();
     usePrincipalOptionMock.mockReset();
+    resolvePrincipalExactMatchMock.mockReset();
     useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: overview(), refetch: vi.fn() });
     usePrincipalOptionsMock.mockReturnValue({ isLoading: false, error: null, data: { principals: [{ id: projectId, type: "PROJECT", name: "星河项目" }], total: 45, limit: 20, offset: 0 } });
     usePrincipalOptionMock.mockReturnValue({ data: { principal: { id: projectId, type: "PROJECT", name: "星河项目" } } });
+    resolvePrincipalExactMatchMock.mockResolvedValue({
+      principal: { id: projectId, type: "PROJECT", name: "星河项目" }, match_count: 1,
+    });
   });
 
   it("从 URL 恢复主体/周期/单项目并传给后端聚合", () => {
@@ -102,7 +108,18 @@ describe("W20-04 用量概览 Web", () => {
       "PROJECT", "星河项目", 0, 20,
     ));
     await user.keyboard("{Enter}");
-    expect(screen.getByTestId("location")).toHaveTextContent(`subject_id=${projectId}`);
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(`subject_id=${projectId}`));
+    expect(resolvePrincipalExactMatchMock).toHaveBeenCalledWith("PROJECT", "星河项目");
+  });
+
+  it("企业内存在分页同名主体时 Enter 不自动应用", async () => {
+    resolvePrincipalExactMatchMock.mockResolvedValueOnce({ principal: null, match_count: 2 });
+    const user = userEvent.setup();
+    renderPanel("/usage?tab=overview&subject_type=PROJECT&period=MONTH");
+    await user.type(screen.getByRole("searchbox", { name: "搜索用量主体" }), "重名项目");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(resolvePrincipalExactMatchMock).toHaveBeenCalledWith("PROJECT", "重名项目"));
+    expect(screen.getByTestId("location")).not.toHaveTextContent("subject_id=");
   });
 
   it("覆盖加载、错误与空数据三态", () => {

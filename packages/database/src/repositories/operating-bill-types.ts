@@ -37,7 +37,7 @@ export interface OperatingBillProviderRow {
   /** 请求账本计价，仅作为月度余额桥接的核对证据。 */
   ledgerApiCost: string | null;
   openingBalance: string | null;
-  rechargeAmount: string;
+  rechargeAmount: string | null;
   apiSpendStatus: string;
   apiSpendReason: string | null;
   packageCost: string | null;
@@ -138,6 +138,21 @@ export interface OperatingBillSnapshot {
   sourceFacts: {
     ledgerLineCount: number;
     operatingSnapshotIds: string[];
+    balanceBridgeFacts?: Array<{
+      providerResourceId: string;
+      currency: string | null;
+      openingSnapshotId: string | null;
+      openingSnapshotVersion: number | null;
+      openingSnapshotAt: string | null;
+      endingSnapshotId: string | null;
+      endingSnapshotVersion: number | null;
+      endingSnapshotAt: string | null;
+      openingBalance: string | null;
+      rechargeAmount: string | null;
+      endingBalance: string | null;
+      apiSpend: string | null;
+      apiSpendStatus: string;
+    }>;
     ledgerLines: Array<{
       id: string;
       billingRuleId: string | null;

@@ -20,8 +20,14 @@ export interface MonthlyOperatingCostResource {
   resourceName: string;
   mode: "API" | "CODING_PLAN";
   currency: string | null;
+  openingSnapshotId: string | null;
+  openingSnapshotVersion: number | null;
+  openingSnapshotAt: string | null;
+  endingSnapshotId: string | null;
+  endingSnapshotVersion: number | null;
+  endingSnapshotAt: string | null;
   openingBalance: string | null;
-  rechargeAmount: string;
+  rechargeAmount: string | null;
   endingBalance: string | null;
   apiSpend: string | null;
   ledgerApiCost: string | null;
@@ -50,15 +56,19 @@ export interface MonthlyOperatingCosts {
   summary: MonthlyOperatingCostSummary;
 }
 
-interface ResourceRow {
+export interface MonthlyOperatingCostResourceRow {
   resource_id: string;
   provider_code: string;
   provider_name: string;
   resource_name: string;
   mode: "API" | "CODING_PLAN";
+  opening_snapshot_id: string | null;
+  opening_snapshot_version: number | null;
   opening_balance: string | null;
   opening_currency: string | null;
   opening_at: Date | null;
+  ending_snapshot_id: string | null;
+  ending_snapshot_version: number | null;
   ending_balance: string | null;
   ending_currency: string | null;
   ending_at: Date | null;
@@ -85,13 +95,13 @@ function money(value: Decimal.Value): string {
 function reasonFor(status: ApiSpendStatus): string | null {
   if (status === "OPENING_BALANCE_MISSING") return "待补期初余额";
   if (status === "ENDING_BALANCE_MISSING") return "待补期末余额";
-  if (status === "CURRENCY_MISMATCH") return "余额与本月充值币种不一致";
+  if (status === "CURRENCY_MISMATCH") return "余额、充值与套餐币种不一致";
   if (status === "NEGATIVE_BALANCE_BRIDGE") return "余额桥接结果为负，请核对快照与充值记录";
   return null;
 }
 
-function calculateApiResource(input: {
-  row: ResourceRow;
+export function calculateMonthlyOperatingCostResource(input: {
+  row: MonthlyOperatingCostResourceRow;
   recharges: RechargeRow[];
   ledgerApiCost: string | null;
   periodStart: Date;
@@ -107,6 +117,12 @@ function calculateApiResource(input: {
     packageCost: row.mode === "CODING_PLAN" ? row.package_cost : "0.00000000",
     servicePeriodStart: row.service_period_start,
     servicePeriodEnd: row.service_period_end,
+    openingSnapshotId: row.opening_snapshot_id,
+    openingSnapshotVersion: row.opening_snapshot_version,
+    openingSnapshotAt: row.opening_at?.toISOString() ?? null,
+    endingSnapshotId: row.ending_snapshot_id,
+    endingSnapshotVersion: row.ending_snapshot_version,
+    endingSnapshotAt: row.ending_at?.toISOString() ?? null,
   } as const;
   if (row.mode !== "API") {
     return {
@@ -121,7 +137,7 @@ function calculateApiResource(input: {
     };
   }
 
-  const rechargeAmount = money(recharges.reduce(
+  const summedRechargeAmount = money(recharges.reduce(
     (sum, item) => sum.plus(item.amount),
     new MoneyDecimal(0),
   ));
@@ -145,7 +161,7 @@ function calculateApiResource(input: {
   }
   let apiSpend: string | null = null;
   if (status === "CALCULABLE") {
-    const bridged = new MoneyDecimal(row.opening_balance!).plus(rechargeAmount).minus(row.ending_balance!);
+    const bridged = new MoneyDecimal(row.opening_balance!).plus(summedRechargeAmount).minus(row.ending_balance!);
     if (bridged.isNegative()) status = "NEGATIVE_BALANCE_BRIDGE";
     else apiSpend = money(bridged);
   }
@@ -153,7 +169,7 @@ function calculateApiResource(input: {
     ...base,
     currency: row.ending_currency ?? row.opening_currency,
     openingBalance: row.opening_balance,
-    rechargeAmount,
+    rechargeAmount: status === "CURRENCY_MISMATCH" ? null : summedRechargeAmount,
     endingBalance: row.ending_balance,
     apiSpend,
     apiSpendStatus: status,
@@ -161,12 +177,22 @@ function calculateApiResource(input: {
   };
 }
 
-function summarize(resources: MonthlyOperatingCostResource[]): MonthlyOperatingCostSummary {
+export function summarizeMonthlyOperatingCosts(resources: MonthlyOperatingCostResource[]): MonthlyOperatingCostSummary {
   const apiResources = resources.filter((row) => row.mode === "API");
   const planResources = resources.filter((row) => row.mode === "CODING_PLAN");
   const firstIncomplete = apiResources.find((row) => row.apiSpendStatus !== "CALCULABLE");
-  const currencies = new Set(apiResources.map((row) => row.currency).filter((value): value is string => value !== null));
-  const currencyMismatch = currencies.size > 1;
+  const apiCurrencies = new Set(apiResources.map((row) => row.currency).filter((value): value is string => value !== null));
+  const packageResourcesWithCost = planResources.filter((row) => row.packageCost !== null);
+  const costCurrencies = new Set([
+    ...apiResources.filter((row) => row.apiSpend !== null).map((row) => row.currency),
+    ...packageResourcesWithCost.map((row) => row.currency),
+  ].filter((value): value is string => value !== null));
+  const missingCostCurrency = [
+    ...apiResources.filter((row) => row.apiSpend !== null),
+    ...packageResourcesWithCost,
+  ].some((row) => row.currency === null);
+  const currencyMismatch = apiResources.some((row) => row.apiSpendStatus === "CURRENCY_MISMATCH")
+    || apiCurrencies.size > 1 || costCurrencies.size > 1 || missingCostCurrency;
   const apiSpendStatus: ApiSpendStatus = apiResources.length === 0
     ? "NOT_APPLICABLE"
     : currencyMismatch
@@ -181,9 +207,13 @@ function summarize(resources: MonthlyOperatingCostResource[]): MonthlyOperatingC
     : apiResources.length === 0 ? "0.00000000" : null;
   const packageComplete = planResources.every((row) => row.packageCost !== null);
   const ledgerComplete = apiResources.every((row) => row.ledgerApiCost !== null);
-  const packageCost = planResources.length > 0 && packageComplete
-    ? sum(planResources.map((row) => row.packageCost!))
-    : null;
+  const packageCost = currencyMismatch
+    ? null
+    : planResources.length === 0
+      ? resources.length === 0 ? null : "0.00000000"
+      : packageComplete
+        ? sum(planResources.map((row) => row.packageCost!))
+        : null;
   return {
     apiSpend,
     ledgerApiCost: ledgerComplete
@@ -200,11 +230,11 @@ function summarize(resources: MonthlyOperatingCostResource[]): MonthlyOperatingC
       ? null
       : currencyMismatch
       ? null
-      : sum(apiResources.map((row) => row.rechargeAmount)),
+      : sum(apiResources.map((row) => row.rechargeAmount!)),
     endingBalance: apiSpendStatus === "CALCULABLE"
       ? sum(apiResources.map((row) => row.endingBalance!))
       : apiResources.length === 0 ? "0.00000000" : null,
-    currency: currencies.size === 1 ? [...currencies][0]! : null,
+    currency: costCurrencies.size === 1 ? [...costCurrencies][0]! : null,
     apiSpendStatus,
     apiSpendReason: currencyMismatch ? reasonFor("CURRENCY_MISMATCH") : firstIncomplete?.apiSpendReason ?? null,
   };
@@ -221,11 +251,13 @@ export async function loadMonthlyOperatingCosts(
   periodEnd: Date,
 ): Promise<MonthlyOperatingCosts> {
   const [resourceResult, rechargeResult, ledgerResult] = await Promise.all([
-    sql<ResourceRow>`
+    sql<MonthlyOperatingCostResourceRow>`
       SELECT pr.id AS resource_id, p.code AS provider_code, p.name AS provider_name,
              pr.name AS resource_name, pr.mode,
+             opening.id AS opening_snapshot_id, opening.version AS opening_snapshot_version,
              opening.current_balance::text AS opening_balance,
              opening.currency AS opening_currency, opening.collected_at AS opening_at,
+             ending.id AS ending_snapshot_id, ending.version AS ending_snapshot_version,
              ending.current_balance::text AS ending_balance,
              ending.currency AS ending_currency, ending.collected_at AS ending_at,
              CASE WHEN pr.mode = 'CODING_PLAN'
@@ -239,20 +271,22 @@ export async function loadMonthlyOperatingCosts(
         JOIN provider p ON p.id = pr.provider_id AND p.enterprise_id = pr.enterprise_id
         JOIN enterprise e ON e.id = pr.enterprise_id
         LEFT JOIN LATERAL (
-          SELECT s.current_balance, s.currency, s.collected_at
+          SELECT s.id, s.version, s.current_balance, s.currency, s.collected_at
             FROM provider_resource_operating_snapshot s
            WHERE s.enterprise_id = pr.enterprise_id
              AND s.provider_resource_id = pr.id
              AND s.collected_at <= ${periodStart}
+             AND (pr.mode <> 'API' OR (s.current_balance IS NOT NULL AND s.currency IS NOT NULL))
            ORDER BY s.collected_at DESC, s.version DESC LIMIT 1
         ) opening ON true
         LEFT JOIN LATERAL (
-          SELECT s.current_balance, s.currency, s.collected_at, s.package_cost,
+          SELECT s.id, s.version, s.current_balance, s.currency, s.collected_at, s.package_cost,
                  s.effective_from, s.effective_until
             FROM provider_resource_operating_snapshot s
            WHERE s.enterprise_id = pr.enterprise_id
              AND s.provider_resource_id = pr.id
              AND s.collected_at < ${periodEnd}
+             AND (pr.mode <> 'API' OR (s.current_balance IS NOT NULL AND s.currency IS NOT NULL))
            ORDER BY s.collected_at DESC, s.version DESC LIMIT 1
         ) ending ON true
        WHERE pr.enterprise_id = ${enterpriseId}::uuid AND pr.status <> 'DELETED'
@@ -283,11 +317,11 @@ export async function loadMonthlyOperatingCosts(
     recharges.set(row.provider_resource_id, list);
   }
   const ledger = new Map(ledgerResult.rows.map((row) => [row.provider_resource_id, row.amount]));
-  const resources = resourceResult.rows.map((row) => calculateApiResource({
+  const resources = resourceResult.rows.map((row) => calculateMonthlyOperatingCostResource({
     row,
     recharges: recharges.get(row.resource_id) ?? [],
     ledgerApiCost: ledger.has(row.resource_id) ? ledger.get(row.resource_id)! : "0",
     periodStart,
   }));
-  return { resources, summary: summarize(resources) };
+  return { resources, summary: summarizeMonthlyOperatingCosts(resources) };
 }

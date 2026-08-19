@@ -18,19 +18,17 @@ import {
   useProviderResources,
   useUnifiedModels,
 } from "../api/hooks";
-import type {
-  BillingRule,
-  DispatchPolicy,
-  ModelRouteItem,
-  Principal,
-  UnifiedModel,
-} from "../api/types";
+import type { BillingRule, DispatchPolicy, ModelRouteItem, Principal, UnifiedModel } from "../api/types";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import {
   PrincipalScopeField,
-  policyTransitionImpact,
   principalScopeText,
 } from "../components/quota/PrincipalScopeField";
+import {
+  ConfigurationActionDialogs,
+  type ArchiveTarget,
+  type PolicyActionTarget,
+} from "../components/quota/ConfigurationActionDialogs";
 import {
   DispatchPolicyFormSchema,
   buildDispatchPolicyPayload,
@@ -53,44 +51,6 @@ const OptionalTime = z.string().refine(
   (value) => value === "" || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value),
   "时间格式应为 HH:MM",
 );
-
-type ArchiveTarget =
-  | { kind: "model"; item: UnifiedModel }
-  | { kind: "route"; item: ModelRouteItem }
-  | { kind: "rule"; item: BillingRule };
-
-type PolicyActionTarget = {
-  policy: DispatchPolicy;
-  action: "publish" | "retire" | "restore";
-};
-
-function archiveDialogTitle(target: ArchiveTarget | null): string {
-  if (target?.kind === "model") return "确认归档统一模型？";
-  if (target?.kind === "route") return "确认归档 Model Route？";
-  return "确认归档计价规则？";
-}
-
-function policyActionConfirmLabel(target: PolicyActionTarget | null): string {
-  if (target?.action === "publish") return "确认发布";
-  if (target?.action === "restore") return "确认恢复并发布";
-  return "确认停用";
-}
-
-function policyActionTitle(target: PolicyActionTarget | null): string {
-  if (target?.action === "publish") return "发布调度策略";
-  if (target?.action === "restore") return "恢复调度策略原配置";
-  return "停用调度策略";
-}
-
-function policyActionImpact(
-  target: PolicyActionTarget | null,
-  principalById: Map<string, Principal>,
-): string {
-  if (target?.action === "restore") {
-    return `将基于历史版本 ${target.policy.policyVersion} 自动校验并生成递增的新发布版本；历史版本继续保持 RETIRED。`;
-  }
-  return policyTransitionImpact(target, principalById);
-}
 
 const BillingWindowFormSchema = z
   .object({
@@ -1396,31 +1356,9 @@ export function QuotaRulesPage() {
         </QueryGate>
       </ManagementSection>
 
-      <ConfirmDialog
-        cancelLabel="取消"
-        confirmLabel="确认归档"
-        danger
-        impact="归档后，该模型将从默认列表和新配置入口中隐藏。可通过‘查看已归档配置’恢复。是否继续？"
-        loading={archiveConfig.isPending}
-        onCancel={() => setArchiveTarget(null)}
-        onConfirm={() => {
-          if (archiveTarget) archiveConfig.mutate({ ...archiveTarget, archive: true } as Parameters<typeof archiveConfig.mutate>[0]);
-        }}
-        open={archiveTarget !== null}
-        title={archiveDialogTitle(archiveTarget)}
-      />
-      <ConfirmDialog
-        danger={policyActionTarget?.action === "retire"}
-        confirmLabel={policyActionConfirmLabel(policyActionTarget)}
-        impact={policyActionImpact(policyActionTarget, principalById)}
-        loading={transitionPolicy.isPending}
-        onCancel={() => setPolicyActionTarget(null)}
-        onConfirm={() => {
-          if (policyActionTarget) transitionPolicy.mutate(policyActionTarget);
-        }}
-        open={policyActionTarget !== null}
-        title={policyActionTitle(policyActionTarget)}
-      />
+      <ConfigurationActionDialogs archiveLoading={archiveConfig.isPending} archiveTarget={archiveTarget}
+        onArchiveCancel={() => setArchiveTarget(null)} onArchiveConfirm={target => archiveConfig.mutate({ ...target, archive: true } as Parameters<typeof archiveConfig.mutate>[0])}
+        onPolicyCancel={() => setPolicyActionTarget(null)} onPolicyConfirm={target => transitionPolicy.mutate(target)} policyLoading={transitionPolicy.isPending} policyTarget={policyActionTarget} principalById={principalById} />
       <ConfirmDialog
         danger
         confirmLabel="确认停用"

@@ -140,6 +140,30 @@ describe("W20-04 /usage/overview", () => {
     expect(second.json().principals[0].id).not.toBe(first.json().principals[0].id);
   });
 
+  it("精确匹配在企业全量范围判定唯一，不受 20 条分页限制", async () => {
+    const unique = await app.inject({
+      method: "GET",
+      url: "/principals/resolve-exact?type=EMPLOYEE&name=API%20%E5%91%98%E5%B7%A5%E4%BA%8C",
+      headers: { cookie: adminCookie },
+    });
+    expect(unique.statusCode).toBe(200);
+    expect(unique.json()).toMatchObject({ principal: { id: employeeTwoId }, match_count: 1 });
+
+    await db.insertInto("principal").values(Array.from({ length: 21 }, (_, index) => ({
+      enterprise_id: enterpriseId,
+      type: "PROJECT" as const,
+      name: "分页重名项目",
+      department_label: `部门-${index}`,
+    }))).execute();
+    const duplicate = await app.inject({
+      method: "GET",
+      url: "/principals/resolve-exact?type=PROJECT&name=%E5%88%86%E9%A1%B5%E9%87%8D%E5%90%8D%E9%A1%B9%E7%9B%AE",
+      headers: { cookie: adminCookie },
+    });
+    expect(duplicate.statusCode).toBe(200);
+    expect(duplicate.json()).toEqual({ principal: null, match_count: 2 });
+  });
+
   it("主体类型不匹配返回 404，非法 anchor 返回 400", async () => {
     const missing = await app.inject({
       method: "GET",

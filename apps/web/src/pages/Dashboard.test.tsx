@@ -16,6 +16,7 @@ const useDashboardMock = vi.fn();
 const useUsageOverviewMock = vi.fn();
 const usePrincipalOptionsMock = vi.fn();
 const usePrincipalOptionMock = vi.fn();
+const resolvePrincipalExactMatchMock = vi.fn();
 
 vi.mock("../api/hooks", () => ({
   useDashboard: () => useDashboardMock(),
@@ -24,6 +25,7 @@ vi.mock("../api/v2-hooks", () => ({
   useUsageOverview: (query: string) => useUsageOverviewMock(query),
   usePrincipalOptions: (type: string, search: string, offset: number, limit: number) => usePrincipalOptionsMock(type, search, offset, limit),
   usePrincipalOption: (id: string | null) => usePrincipalOptionMock(id),
+  resolvePrincipalExactMatch: (type: string, name: string) => resolvePrincipalExactMatchMock(type, name),
 }));
 
 const overviewEmployeeId = "10000000-0000-4000-8000-000000000001";

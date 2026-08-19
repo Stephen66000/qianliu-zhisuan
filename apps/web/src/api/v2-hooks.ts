@@ -87,6 +87,10 @@ export function usePrincipalOptions(type: "EMPLOYEE" | "PROJECT", search: string
     placeholderData: (previous) => previous,
   });
 }
+export function resolvePrincipalExactMatch(type: "EMPLOYEE" | "PROJECT", name: string) {
+  const query = new URLSearchParams({ type, name });
+  return get<{ principal: Principal | null; match_count: number }>(`/principals/resolve-exact?${query}`);
+}
 export function usePrincipalOption(id: string | null) {
   return useQuery({
     queryKey: V2_KEYS.principalOption(id ?? ""),

@@ -342,50 +342,18 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
             message: `策略当前为 ${policy.status}，只有已停用历史版本可以恢复`,
           });
         }
-        const [models, resources, principals] = await Promise.all([
-          app.providerRepo.listUnifiedModels(enterpriseId),
-          app.providerRepo.listResources(enterpriseId),
-          app.principalRepo.list(enterpriseId),
-        ]);
-        if (policy.matchUnifiedModel
-          && !models.some((model) => model.alias === policy.matchUnifiedModel
-            && model.status === "ACTIVE" && model.archived_at === null)) {
-          return reply.code(400).send({ error: "invalid_reference", message: "统一模型不存在、未启用或已归档" });
-        }
-        const resourceIds = new Set(resources.filter((resource) => resource.status !== "DELETED").map((resource) => resource.id));
-        if (policy.matchProviderResourceId && !resourceIds.has(policy.matchProviderResourceId)) {
-          return reply.code(400).send({ error: "invalid_reference", message: "匹配资源不存在" });
-        }
-        if (policy.switchEquivalentGroup.some((id) => !resourceIds.has(id))) {
-          return reply.code(400).send({ error: "invalid_reference", message: "等价资源组包含不存在的资源" });
-        }
-        const principalIds = new Set(principals.filter((principal) =>
-          principal.status === "ACTIVE" && principal.archived_at === null
-        ).map((principal) => principal.id));
-        if (policy.matchPrincipalScope?.some((id) => !principalIds.has(id))) {
-          return reply.code(400).send({ error: "invalid_reference", message: "主体范围包含停用、归档或不存在的主体" });
-        }
-        const restored = await app.dispatchRepo.restorePolicyAsPublished(
+        const outcome = await app.dispatchRepo.restorePolicyAsPublished(
           enterpriseId, policy.id, req.admin!.adminUserId,
         );
-        if (!restored) {
+        if (outcome.kind === "invalid_reference") {
+          return reply.code(400).send({ error: "invalid_reference", message: outcome.message });
+        }
+        if (outcome.kind === "conflict") {
           return reply.code(409).send({ error: "conflict", message: "策略状态已变化，请刷新后重试" });
         }
-        await app.auditRepo.write({
-          enterprise_id: enterpriseId,
-          admin_user_id: req.admin!.adminUserId,
-          action: "dispatch_policy.restore",
-          target_type: "dispatch_policy",
-          target_id: restored.id,
-          change_summary: {
-            restored_from_policy_id: policy.id,
-            before_version: policy.policyVersion,
-            new_version: restored.policyVersion,
-            status: "PUBLISHED",
-          },
-          result: "SUCCESS",
+        return reply.code(outcome.kind === "replayed" ? 200 : 201).send({
+          policy: outcome.policy, replayed: outcome.kind === "replayed",
         });
-        return reply.code(201).send({ policy: restored });
       }
 
       if (action.data === "copy") {
@@ -403,20 +371,6 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
         if (!copied) {
           return reply.code(409).send({ error: "conflict", message: "策略状态已变化，请刷新后重试" });
         }
-        await app.auditRepo.write({
-          enterprise_id: enterpriseId,
-          admin_user_id: req.admin!.adminUserId,
-          action: "dispatch_policy.copy",
-          target_type: "dispatch_policy",
-          target_id: copied.id,
-          change_summary: {
-            copied_from_policy_id: policy.id,
-            before_version: policy.policyVersion,
-            new_version: copied.policyVersion,
-            status: "DRAFT",
-          },
-          result: "SUCCESS",
-        });
         return reply.code(201).send({ policy: copied });
       }
 

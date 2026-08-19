@@ -74,7 +74,7 @@ async function buildApp(
     forecastExhaustRisk: boolean;
   }>,
   now?: () => number,
-  activeDispatchRepo: DispatchPolicyRepository = dispatchRepo,
+  activeDispatchRepo: DispatchPolicyRepository | null = dispatchRepo,
 ): Promise<FastifyInstance> {
   const caller = async (res: unknown, req: unknown, n: number) =>
     stub.invoke(res as never, req as never, n);
@@ -115,7 +115,7 @@ async function buildApp(
     caller,
     poolRepo,
     quotaRepo,
-    dispatchRepo: activeDispatchRepo,
+    dispatchRepo: activeDispatchRepo ?? undefined,
     listCandidates,
     resolveDispatchInput: resolveDispatchInput
       ? async (_entId, _pid, _model, winnerResourceId) =>
@@ -377,8 +377,13 @@ describe("W16 经营调度", () => {
     }));
     expect(decision!.dispatch_input).toEqual(expect.objectContaining({
       matchedTimezone: "Asia/Shanghai",
+      matchedDaysOfWeek: [1, 2, 3, 4, 5],
       matchedStartTime: "14:00:00",
       matchedEndTime: "18:00:00",
+      executedResourceIds: [],
+      usageEvidence: null,
+      actualPricingEvidence: [],
+      savingCalculationVersion: "pool-021-v1",
     }));
 
     now = Date.parse("2026-07-30T10:00:00.000Z");
@@ -744,6 +749,29 @@ describe("W16 经营调度", () => {
         .where("ai_request_id", "=", request.id).execute()).toEqual([]);
     } finally {
       await app.close();
+    }
+  });
+
+  it("上游未提交失败与提交后中断都冻结 FAILED，且无调度仓储时不伪造决策", async () => {
+    for (const mode of [
+      { kind: "ERROR" as const, status: 500, errorCode: "provider_failed", classification: "UPSTREAM" },
+      { kind: "STREAM" as const, chunks: ["partial"], usage: { input: 10, output: 4, cache: 0 }, failAfterChunk: 1 },
+    ]) {
+      stub = new StubUpstream({ default: mode, providerCode: "deepseek" });
+      const app = await buildApp(undefined, undefined, null);
+      try {
+        const response = await app.inject({
+          method: "POST", url: "/v1/chat/completions", headers: authHeader(),
+          payload: { model: "qianliu-deepseek", messages: [{ role: "user", content: "failure" }] },
+        });
+        const requestId = String(response.headers["x-request-id"]);
+        const request = await ledgerRepo.getRequest(requestId);
+        expect(request).toMatchObject({ status: "FAILED" });
+        expect(request?.error_code).toBeTruthy();
+        expect(await dispatchRepo.getDecision(requestId)).toBeUndefined();
+      } finally {
+        await app.close();
+      }
     }
   });
 

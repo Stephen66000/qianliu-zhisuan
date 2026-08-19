@@ -100,6 +100,7 @@ describe("0023 Principal Key 单 ACTIVE 迁移", () => {
         constraint: "principal_key_one_active_per_principal_uq",
       });
 
+      expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");
       expect(await migrateDown(db)).toBe("0051_pool20_operating_sync_and_closing_confirmation");
       expect(await migrateDown(db)).toBe("0050_group2_policy_lifecycle");
       expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");

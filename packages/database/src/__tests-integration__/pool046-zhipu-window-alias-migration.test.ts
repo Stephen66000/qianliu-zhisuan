@@ -266,6 +266,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0049_resource_utilization_and_procurement_review", "Success"],
         ["0050_group2_policy_lifecycle", "Success"],
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
+        ["0052_dispatch_restore_and_resource_utilization", "Success"],
       ]);
 
       expect(await db.selectFrom("dispatch_policy")
@@ -308,6 +309,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow();
       expect(afterSecondUp).toEqual(migratedTarget);
 
+      expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");
       expect(await migrateDown(db)).toBe("0051_pool20_operating_sync_and_closing_confirmation");
       expect(await migrateDown(db)).toBe("0050_group2_policy_lifecycle");
       expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");
@@ -358,6 +360,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0049_resource_utilization_and_procurement_review", "Success"],
         ["0050_group2_policy_lifecycle", "Success"],
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
+        ["0052_dispatch_restore_and_resource_utilization", "Success"],
       ]);
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows"])

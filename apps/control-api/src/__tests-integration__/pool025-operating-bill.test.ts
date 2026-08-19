@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
+import { createKysely, loadMonthlyOperatingCosts, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 
@@ -134,6 +134,54 @@ afterAll(async () => {
 }, 60_000);
 
 describe("POOL-025 企业 AI 算力月度经营账单", () => {
+  it("POOL20-043 拒绝跨币种相加、使用最近有效快照且 API-only 套餐费用为零", async () => {
+    const isolatedEnterpriseId = randomUUID();
+    const isolatedAdminId = randomUUID();
+    await db.insertInto("enterprise").values({ id: isolatedEnterpriseId, name: "月度经营边界企业" }).execute();
+    await db.insertInto("admin_user").values({
+      id: isolatedAdminId, enterprise_id: isolatedEnterpriseId, username: `cost-${randomUUID()}`,
+      password_hash: "unused", status: "ACTIVE",
+    }).execute();
+    const provider = await db.insertInto("provider").values({
+      enterprise_id: isolatedEnterpriseId, code: "cost-edge", name: "经营边界厂商", adapter_type: "openai",
+    }).returningAll().executeTakeFirstOrThrow();
+    const [api, plan] = await Promise.all([
+      db.insertInto("provider_resource").values({ enterprise_id: isolatedEnterpriseId, provider_id: provider.id, name: "API", mode: "API", credential_type: "API_KEY" }).returningAll().executeTakeFirstOrThrow(),
+      db.insertInto("provider_resource").values({ enterprise_id: isolatedEnterpriseId, provider_id: provider.id, name: "Plan", mode: "CODING_PLAN", credential_type: "API_KEY" }).returningAll().executeTakeFirstOrThrow(),
+    ]);
+    await db.insertInto("provider_resource_operating_snapshot").values([
+      { enterprise_id: isolatedEnterpriseId, provider_resource_id: api.id, version: 1, source: "ADMIN", collected_at: new Date("2026-07-31T16:00:00Z"), currency: "CNY", current_balance: "100" },
+      { enterprise_id: isolatedEnterpriseId, provider_resource_id: api.id, version: 2, source: "ADMIN", collected_at: new Date("2026-08-15T00:00:00Z"), currency: "CNY", current_balance: "90" },
+      { enterprise_id: isolatedEnterpriseId, provider_resource_id: api.id, version: 3, source: "ADMIN", collected_at: new Date("2026-08-20T00:00:00Z"), currency: "CNY", current_balance: null },
+      { enterprise_id: isolatedEnterpriseId, provider_resource_id: plan.id, version: 1, source: "ADMIN", collected_at: new Date("2026-08-15T00:00:00Z"), currency: "USD", package_cost: "30", effective_from: new Date("2026-08-01T00:00:00+08:00"), effective_until: new Date("2026-09-01T00:00:00+08:00") },
+    ]).execute();
+    const start = new Date("2026-07-31T16:00:00Z");
+    const end = new Date("2026-08-31T16:00:00Z");
+    const mixed = await loadMonthlyOperatingCosts(db, isolatedEnterpriseId, start, end);
+    expect(mixed.resources.find((row) => row.resourceId === api.id)).toMatchObject({
+      apiSpend: "10.00000000", endingSnapshotVersion: 2,
+    });
+    expect(mixed.summary).toMatchObject({
+      apiSpendStatus: "CURRENCY_MISMATCH", packageCost: null, totalSpend: null,
+    });
+
+    await db.deleteFrom("provider_resource_operating_snapshot").where("provider_resource_id", "=", plan.id).execute();
+    await db.deleteFrom("provider_resource").where("id", "=", plan.id).execute();
+    const apiOnly = await loadMonthlyOperatingCosts(db, isolatedEnterpriseId, start, end);
+    expect(apiOnly.summary).toMatchObject({
+      apiSpend: "10.00000000", packageCost: "0.00000000", totalSpend: "10.00000000", currency: "CNY",
+    });
+
+    await db.insertInto("resource_purchase_record").values([
+      { enterprise_id: isolatedEnterpriseId, provider_resource_id: api.id, purchase_type: "API_RECHARGE", amount: "10", currency: "CNY", purchased_at: new Date("2026-08-05T00:00:00Z"), source: "ADMIN", created_by: isolatedAdminId },
+      { enterprise_id: isolatedEnterpriseId, provider_resource_id: api.id, purchase_type: "API_RECHARGE", amount: "1", currency: "USD", purchased_at: new Date("2026-08-06T00:00:00Z"), source: "ADMIN", created_by: isolatedAdminId },
+    ]).execute();
+    const mixedRecharge = await loadMonthlyOperatingCosts(db, isolatedEnterpriseId, start, end);
+    expect(mixedRecharge.resources.find((row) => row.resourceId === api.id)).toMatchObject({
+      apiSpendStatus: "CURRENCY_MISMATCH", rechargeAmount: null, apiSpend: null,
+    });
+  });
+
   it("POOL20-026 先列资源事实并逐项确认，确认不改写原始快照和账本", async () => {
     const resources = await db.selectFrom("provider_resource").select(["id", "mode"]).where("enterprise_id", "=", enterpriseId).execute();
     const apiResource = resources.find((row) => row.mode === "API")!;
@@ -182,6 +230,13 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
       gaps: [],
     });
     expect(draft.json().sourceFacts.ledgerLines).toHaveLength(2);
+    expect(draft.json().sourceFacts.balanceBridgeFacts).toEqual([
+      expect.objectContaining({
+        openingSnapshotVersion: 1, endingSnapshotVersion: 2,
+        openingBalance: "100.00000000", endingBalance: "87.66000000",
+        apiSpend: "12.34000000", apiSpendStatus: "CALCULABLE",
+      }),
+    ]);
     const apiResource = await db.selectFrom("provider_resource").select("id")
       .where("enterprise_id", "=", enterpriseId).where("mode", "=", "API").executeTakeFirstOrThrow();
     const imported = await app.inject({

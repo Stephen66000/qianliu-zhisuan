@@ -13,6 +13,10 @@ import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 import type { DispatchPolicy } from "@qianliu/domain";
 import { ProviderRepository } from "./provider-repository.js";
+import {
+  copyRetiredPolicyAsDraft,
+  restoreRetiredPolicyAsPublished,
+} from "./dispatch-policy-clone.js";
 
 function sameDecimal(left: string | null, right: string | null): boolean {
   if (left === null || right === null) return left === right;
@@ -39,6 +43,11 @@ export interface DispatchPolicyRecord extends DispatchPolicy {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type RestoreDispatchPolicyResult =
+  | { kind: "created" | "replayed"; policy: DispatchPolicyRecord }
+  | { kind: "conflict" }
+  | { kind: "invalid_reference"; message: string };
 
 /** 策略创建输入（管理员发布；状态默认 DRAFT）。 */
 export interface CreateDispatchPolicyInput {
@@ -278,51 +287,8 @@ export class DispatchPolicyRepository {
     policyId: string,
     actorAdminId: string,
   ): Promise<DispatchPolicyRecord | undefined> {
-    return this.db.transaction().execute(async (trx) => {
-      const source = await trx.selectFrom("dispatch_policy").selectAll()
-        .where("enterprise_id", "=", enterpriseId)
-        .where("id", "=", policyId)
-        .where("status", "=", "RETIRED")
-        .forUpdate()
-        .executeTakeFirst();
-      if (!source) return undefined;
-      const versions = new Set((await trx.selectFrom("dispatch_policy")
-        .select("policy_version")
-        .where("enterprise_id", "=", enterpriseId)
-        .execute()).map((row) => row.policy_version));
-      const version = nextPolicyVersion(source.policy_version, versions);
-      const created = await trx.insertInto("dispatch_policy").values({
-        enterprise_id: enterpriseId,
-        status: "DRAFT",
-        match_unified_model: source.match_unified_model,
-        match_resource_mode: source.match_resource_mode,
-        match_provider_resource_id: source.match_provider_resource_id,
-        match_timezone: source.match_timezone,
-        match_days_of_week: source.match_days_of_week
-          ? (JSON.stringify(source.match_days_of_week) as unknown as number[])
-          : null,
-        match_start_time: source.match_start_time,
-        match_end_time: source.match_end_time,
-        match_price_multiplier_min: source.match_price_multiplier_min,
-        match_remaining_quota_ratio_max: source.match_remaining_quota_ratio_max,
-        match_forecast_exhaust_risk: source.match_forecast_exhaust_risk,
-        match_principal_scope: source.match_principal_scope
-          ? (JSON.stringify(source.match_principal_scope) as unknown as string[])
-          : null,
-        action: source.action,
-        switch_equivalent_group: source.switch_equivalent_group
-          ? (JSON.stringify(source.switch_equivalent_group) as unknown as string[])
-          : null,
-        rate_limit_per_minute: source.rate_limit_per_minute,
-        policy_version: version,
-        priority: source.priority,
-        description: source.description,
-        source: source.source,
-        copied_from_policy_id: source.id,
-        created_by_admin_id: actorAdminId,
-      }).returningAll().executeTakeFirstOrThrow();
-      return mapPolicy(created);
-    });
+    const created = await copyRetiredPolicyAsDraft(this.db, enterpriseId, policyId, actorAdminId);
+    return created ? mapPolicy(created) : undefined;
   }
 
   /**
@@ -333,58 +299,9 @@ export class DispatchPolicyRepository {
     enterpriseId: string,
     policyId: string,
     actorAdminId: string,
-  ): Promise<DispatchPolicyRecord | undefined> {
-    return this.db.transaction().execute(async (trx) => {
-      const source = await trx.selectFrom("dispatch_policy").selectAll()
-        .where("enterprise_id", "=", enterpriseId)
-        .where("id", "=", policyId)
-        .where("status", "=", "RETIRED")
-        .forUpdate()
-        .executeTakeFirst();
-      if (!source) return undefined;
-      const versions = new Set((await trx.selectFrom("dispatch_policy")
-        .select("policy_version")
-        .where("enterprise_id", "=", enterpriseId)
-        .execute()).map((row) => row.policy_version));
-      const version = nextPolicyVersion(source.policy_version, versions);
-      const now = new Date();
-      const created = await trx.insertInto("dispatch_policy").values({
-        enterprise_id: enterpriseId,
-        status: "PUBLISHED",
-        match_unified_model: source.match_unified_model,
-        match_resource_mode: source.match_resource_mode,
-        match_provider_resource_id: source.match_provider_resource_id,
-        match_timezone: source.match_timezone,
-        match_days_of_week: source.match_days_of_week
-          ? (JSON.stringify(source.match_days_of_week) as unknown as number[])
-          : null,
-        match_start_time: source.match_start_time,
-        match_end_time: source.match_end_time,
-        match_price_multiplier_min: source.match_price_multiplier_min,
-        match_remaining_quota_ratio_max: source.match_remaining_quota_ratio_max,
-        match_forecast_exhaust_risk: source.match_forecast_exhaust_risk,
-        match_principal_scope: source.match_principal_scope
-          ? (JSON.stringify(source.match_principal_scope) as unknown as string[])
-          : null,
-        action: source.action,
-        switch_equivalent_group: source.switch_equivalent_group
-          ? (JSON.stringify(source.switch_equivalent_group) as unknown as string[])
-          : null,
-        rate_limit_per_minute: source.rate_limit_per_minute,
-        policy_version: version,
-        priority: source.priority,
-        description: source.description,
-        source: source.source,
-        copied_from_policy_id: source.id,
-        created_by_admin_id: actorAdminId,
-        validated_at: now,
-        validated_by_admin_id: actorAdminId,
-        published_at: now,
-        published_by_admin_id: actorAdminId,
-        effective_at: now,
-      }).returningAll().executeTakeFirstOrThrow();
-      return mapPolicy(created);
-    });
+  ): Promise<RestoreDispatchPolicyResult> {
+    const result = await restoreRetiredPolicyAsPublished(this.db, enterpriseId, policyId, actorAdminId);
+    return "policy" in result ? { ...result, policy: mapPolicy(result.policy) } : result;
   }
 
   async getPolicy(
@@ -579,13 +496,4 @@ function mapPolicy(row: {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
-}
-
-function nextPolicyVersion(current: string, existing: ReadonlySet<string>): string {
-  const numbered = /^(.*?)(\d+)$/.exec(current);
-  const prefix = numbered?.[1] ?? `${current}-v`;
-  let number = numbered ? Number(numbered[2]) + 1 : 2;
-  let candidate = `${prefix}${number}`;
-  while (existing.has(candidate)) candidate = `${prefix}${++number}`;
-  return candidate;
 }

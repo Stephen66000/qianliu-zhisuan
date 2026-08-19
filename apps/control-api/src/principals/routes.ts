@@ -31,6 +31,11 @@ const ListPrincipalQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+const ResolveExactPrincipalQuerySchema = z.object({
+  type: z.enum(["EMPLOYEE", "PROJECT"]),
+  name: z.string().trim().min(1).max(255),
+});
+
 const ProjectDepartmentBody = z.object({
   organization_unit_id: z.string().uuid(),
   expected_version: z.number().int().nonnegative(),
@@ -57,6 +62,20 @@ export function registerPrincipalRoutes(
       limit: parsed.data.limit ?? list.length,
       offset: parsed.data.offset,
     };
+  });
+
+  app.get("/principals/resolve-exact", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = ResolveExactPrincipalQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+    }
+    const rows = await app.db.selectFrom("principal").selectAll()
+      .where("enterprise_id", "=", req.admin!.enterpriseId)
+      .where("type", "=", parsed.data.type).where("status", "=", "ACTIVE")
+      .where("archived_at", "is", null)
+      .where(sql<boolean>`lower(btrim(name)) = lower(btrim(${parsed.data.name}))`)
+      .orderBy("id", "asc").limit(2).execute();
+    return { principal: rows.length === 1 ? rows[0] : null, match_count: rows.length };
   });
 
   // 详情

@@ -588,12 +588,12 @@ describe("W19 管理写操作闭环", () => {
     expect((await db.selectFrom("dispatch_policy").select("status").where("id", "=", policy.id)
       .executeTakeFirstOrThrow()).status).toBe("RETIRED");
 
-    const restored = await app.inject({
-      method: "POST",
-      url: `/dispatch-policies/${policy.id}/restore`,
+    const restoreResponses = await Promise.all([1, 2].map(() => app.inject({
+      method: "POST", url: `/dispatch-policies/${policy.id}/restore`,
       headers: { cookie: adminCookie },
-    });
-    expect(restored.statusCode).toBe(201);
+    })));
+    expect(restoreResponses.map((response) => response.statusCode).sort()).toEqual([200, 201]);
+    const restored = restoreResponses.find((response) => response.statusCode === 201)!;
     expect(restored.json().policy).toMatchObject({
       status: "PUBLISHED",
       policyVersion: "zhipu-peak-reject-v4",
@@ -605,6 +605,7 @@ describe("W19 管理写操作闭环", () => {
     });
     expect(restored.json().policy.validatedAt).toBeTruthy();
     expect(restored.json().policy.publishedAt).toBeTruthy();
+    expect(restoreResponses[0]!.json().policy.id).toBe(restoreResponses[1]!.json().policy.id);
     expect((await db.selectFrom("dispatch_policy").select("status").where("id", "=", policy.id)
       .executeTakeFirstOrThrow()).status).toBe("RETIRED");
 

@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useState } from "react";
 
-import { usePrincipalOption, usePrincipalOptions } from "../../api/v2-hooks";
+import { resolvePrincipalExactMatch, usePrincipalOption, usePrincipalOptions } from "../../api/v2-hooks";
 
 const PAGE_SIZE = 20;
 
@@ -41,12 +41,14 @@ export function UsageSubjectPicker({
         onChange={(event) => setSearch(event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;
-          const normalized = search.trim().toLocaleLowerCase("zh-CN");
-          const exact = items.filter((item) => item.name.trim().toLocaleLowerCase("zh-CN") === normalized);
-          if (exact.length === 1) {
-            event.preventDefault();
-            onChange(exact[0]!.id);
-          }
+          const name = search.trim();
+          if (!name) return;
+          event.preventDefault();
+          void resolvePrincipalExactMatch(subjectType, name)
+            .then((result) => {
+              if (result.match_count === 1 && result.principal) onChange(result.principal.id);
+            })
+            .catch(() => undefined);
         }}
         placeholder={`搜索${label}或部门`}
         type="search"

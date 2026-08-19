@@ -21,10 +21,8 @@ import {
   sumKnownCosts,
   unknownApiCostGaps,
 } from "./operating-bill-cost-quality.js";
-import {
-  loadMonthlyOperatingCosts,
-  type MonthlyOperatingCostResource,
-} from "./monthly-operating-cost.js";
+import { loadMonthlyOperatingCosts } from "./monthly-operating-cost.js";
+import { apiBalanceGaps, balanceBridgeFacts, monthlyProviderCostFields, monthlySummaryFields } from "./operating-bill-monthly-cost.js";
 
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
 
@@ -157,23 +155,6 @@ function gapForResource(row: ResourceFactRow, range?: ResourceRangeRow): Operati
   return null;
 }
 
-function apiBalanceGaps(
-  row: ResourceFactRow,
-  monthlyCost: MonthlyOperatingCostResource | undefined,
-): OperatingBillGap[] {
-  if (row.mode !== "API" || monthlyCost?.apiSpendStatus === "CALCULABLE") return [];
-  return [{
-    code: `API_${monthlyCost?.apiSpendStatus ?? "BALANCE_BRIDGE_MISSING"}`,
-    message: `${row.resource_name} ${monthlyCost?.apiSpendReason ?? "余额桥接不可计算"}；API 花费必须使用期初余额 + 本月充值 - 期末余额`,
-    providerResourceId: row.resource_id,
-    field: monthlyCost?.apiSpendStatus === "OPENING_BALANCE_MISSING"
-      ? "opening_balance"
-      : "ending_balance",
-    snapshotId: row.snapshot_id,
-    snapshotVersion: row.snapshot_version,
-  }];
-}
-
 function isEffectivePackage(row: ResourceFactRow, start: Date, end: Date): boolean {
   return row.mode === "CODING_PLAN" && row.package_cost !== null
     && (row.effective_from === null || row.effective_from < end)
@@ -240,12 +221,8 @@ export async function buildOperatingBillDraft(
   start: Date,
   end: Date,
 ): Promise<OperatingBillSnapshot> {
-    const monthlyOperatingCosts = await loadMonthlyOperatingCosts(
-      db, enterpriseId, start, end,
-    );
-    const monthlyCostByResource = new Map(
-      monthlyOperatingCosts.resources.map((row) => [row.resourceId, row]),
-    );
+    const monthlyOperatingCosts = await loadMonthlyOperatingCosts(db, enterpriseId, start, end);
+    const monthlyCostByResource = new Map(monthlyOperatingCosts.resources.map((row) => [row.resourceId, row]));
     const [
       resourceResult,
       usageResult,
@@ -409,8 +386,7 @@ export async function buildOperatingBillDraft(
     for (const row of resources) {
       const gap = gapForResource(row, rangeByResource.get(row.resource_id));
       if (gap) gaps.push(gap);
-      const monthlyCost = monthlyCostByResource.get(row.resource_id);
-      gaps.push(...apiBalanceGaps(row, monthlyCost));
+      gaps.push(...apiBalanceGaps(row, monthlyCostByResource.get(row.resource_id)));
     }
 
     const apiCostByResource = new Map<string, Decimal | null>();
@@ -505,8 +481,7 @@ export async function buildOperatingBillDraft(
     const providers: OperatingBillProviderRow[] = resources.map((row) => {
       const resourceLedgerApiCost = resourceCost(apiCostByResource, row.resource_id);
       const monthlyCost = monthlyCostByResource.get(row.resource_id)!;
-      const resourceApiCost = monthlyCost.apiSpend === null
-        ? null : decimal(monthlyCost.apiSpend);
+      const resourceApiCost = monthlyCost.apiSpend === null ? null : decimal(monthlyCost.apiSpend);
       const resourcePackageCost = decimal(monthlyCost.packageCost);
       const totalQuota = decimal(row.total_quota);
       const utilization = row.mode === "CODING_PLAN" && row.total_quota !== null && row.used_quota !== null && totalQuota.gt(0)
@@ -523,16 +498,7 @@ export async function buildOperatingBillDraft(
         providerResourceId: row.resource_id, providerCode: row.provider_code,
         providerName: row.provider_name, resourceName: row.resource_name, mode: row.mode,
         currency: row.currency,
-        apiCost: nullableAmount(resourceApiCost),
-        ledgerApiCost: nullableAmount(resourceLedgerApiCost),
-        openingBalance: monthlyCost.openingBalance,
-        rechargeAmount: monthlyCost.rechargeAmount,
-        apiSpendStatus: monthlyCost.apiSpendStatus,
-        apiSpendReason: monthlyCost.apiSpendReason,
-        packageCost: monthlyCost.packageCost,
-        totalCost: monthlyCost.packageCost === null
-          ? null : nullableTotal(resourceApiCost, resourcePackageCost),
-        endingBalance: monthlyCost.endingBalance,
+        ...monthlyProviderCostFields(monthlyCost, nullableAmount(resourceLedgerApiCost)),
         totalQuota: row.total_quota, usedQuota: row.used_quota, remainingQuota: row.remaining_quota,
         quotaUnit: row.quota_unit, utilization,
         activePrincipalCount,
@@ -550,16 +516,8 @@ export async function buildOperatingBillDraft(
       status: "DRAFT", version: period?.current_version ?? 0, generatedAt: new Date().toISOString(),
       closedAt: null, closedBy: null, closeNote: null,
       summary: {
-        totalCost: monthlyOperatingCosts.summary.totalSpend,
-        apiCost: monthlyOperatingCosts.summary.apiSpend,
+        ...monthlySummaryFields(monthlyOperatingCosts),
         ledgerApiCost: nullableAmount(ledgerApiCost),
-        openingBalance: monthlyOperatingCosts.summary.openingBalance,
-        monthlyRecharge: monthlyOperatingCosts.summary.rechargeAmount,
-        apiSpendStatus: monthlyOperatingCosts.summary.apiSpendStatus,
-        apiSpendReason: monthlyOperatingCosts.summary.apiSpendReason,
-        packageCost: monthlyOperatingCosts.summary.packageCost,
-        endingBalance: monthlyOperatingCosts.summary.endingBalance,
-        endingBalanceCurrency: monthlyOperatingCosts.summary.currency,
         planUtilization: planUtilization ? planUtilization.toDecimalPlaces(2).toFixed(2) : null,
         activePrincipalCount: new Set(sourceUsage.map((item) => item.principal_id)).size,
         confirmedValueAmount: amount(confirmedValueAmount),
@@ -570,6 +528,7 @@ export async function buildOperatingBillDraft(
       sourceFacts: {
         ledgerLineCount,
         operatingSnapshotIds: resources.map((row) => row.snapshot_id).filter((id): id is string => id !== null),
+        balanceBridgeFacts: balanceBridgeFacts(monthlyOperatingCosts),
         ledgerLines: ledgerSourcesResult.rows.map((row) => ({
           id: row.id, billingRuleId: row.billing_rule_id, ruleVersion: row.rule_version,
           billingRuleSnapshot: row.billing_rule_snapshot,

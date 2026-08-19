@@ -180,7 +180,7 @@ export async function createGuardedUsageEventIfAbsent(
       created_at: createdAt,
     }).onConflict((oc) => oc.column("dedup_key").doNothing())
       .returningAll().execute();
-    if (result[0]) await ensureRequestAttributionSnapshot(trx, input.enterprise_id, input.ai_request_id);
+    await ensureRequestAttributionSnapshot(trx, input.enterprise_id, input.ai_request_id);
     return result[0];
   });
 }
@@ -257,9 +257,7 @@ export async function createGuardedLedgerTransactionIfAbsent(
       created_at: new Date(),
     }).onConflict((oc) => oc.column("ai_request_id").doNothing())
       .returningAll().execute();
-    if (result[0]) {
-      await ensureRequestAttributionSnapshot(trx, input.enterprise_id, input.ai_request_id);
-    }
+    await ensureRequestAttributionSnapshot(trx, input.enterprise_id, input.ai_request_id);
     return result[0];
   });
 }

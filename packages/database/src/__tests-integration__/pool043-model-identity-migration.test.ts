@@ -63,6 +63,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0049_resource_utilization_and_procurement_review", "Success"],
         ["0050_group2_policy_lifecycle", "Success"],
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
+        ["0052_dispatch_restore_and_resource_utilization", "Success"],
       ]);
       const rows = await db.selectFrom("ai_request")
         .select(["id", "unified_model", "unified_model_id"]).orderBy("id").execute();
@@ -100,6 +101,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
         unified_model: "ql-deepseek-v4-flash", unified_model_id: modelA,
       });
 
+      expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");
       expect(await migrateDown(db)).toBe("0051_pool20_operating_sync_and_closing_confirmation");
       expect(await migrateDown(db)).toBe("0050_group2_policy_lifecycle");
       expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");
@@ -141,6 +143,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0049_resource_utilization_and_procurement_review", "Success"],
         ["0050_group2_policy_lifecycle", "Success"],
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
+        ["0052_dispatch_restore_and_resource_utilization", "Success"],
       ]);
       const rebound = await db.selectFrom("ai_request")
         .select(["unified_model", "unified_model_id"])

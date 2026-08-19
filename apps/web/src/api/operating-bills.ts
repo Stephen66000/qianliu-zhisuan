@@ -12,7 +12,7 @@ export interface OperatingBillProvider {
   apiCost: string | null;
   ledgerApiCost?: string | null;
   openingBalance?: string | null;
-  rechargeAmount?: string;
+  rechargeAmount?: string | null;
   apiSpendStatus?: string;
   apiSpendReason?: string | null;
   packageCost: string | null;

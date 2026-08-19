@@ -10,6 +10,8 @@ export default defineConfig({
       "src/repositories/gateway-ledger-settlement-quality.test.ts",
       "src/repositories/operating-bill-concurrency.test.ts",
       "src/repositories/operating-bill-write-barrier.test.ts",
+      "src/repositories/monthly-operating-cost.test.ts",
+      "src/repositories/dispatch-policy-clone.test.ts",
       "src/__tests-integration__/pool043-operating-bill-concurrency.integration.test.ts",
     ],
     testTimeout: 120_000,

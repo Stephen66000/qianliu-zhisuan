@@ -164,6 +164,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0049_resource_utilization_and_procurement_review", "Success"],
         ["0050_group2_policy_lifecycle", "Success"],
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
+        ["0052_dispatch_restore_and_resource_utilization", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -208,6 +209,21 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         .executeTakeFirstOrThrow();
       expect(rebuiltAggregate).toEqual(firstAggregate);
 
+      const v52Indexes = await sql<{ restore_idx: string | null; ledger_idx: string | null }>`
+        SELECT to_regclass('public.dispatch_policy_active_restore_unique_idx')::text AS restore_idx,
+               to_regclass('public.ledger_line_resource_month_cover_idx')::text AS ledger_idx
+      `.execute(db);
+      expect(v52Indexes.rows[0]).toEqual({
+        restore_idx: "dispatch_policy_active_restore_unique_idx",
+        ledger_idx: "ledger_line_resource_month_cover_idx",
+      });
+
+      expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");
+      const v52Removed = await sql<{ restore_idx: string | null; ledger_idx: string | null }>`
+        SELECT to_regclass('public.dispatch_policy_active_restore_unique_idx')::text AS restore_idx,
+               to_regclass('public.ledger_line_resource_month_cover_idx')::text AS ledger_idx
+      `.execute(db);
+      expect(v52Removed.rows[0]).toEqual({ restore_idx: null, ledger_idx: null });
       expect(await migrateDown(db)).toBe("0051_pool20_operating_sync_and_closing_confirmation");
       expect(await migrateDown(db)).toBe("0050_group2_policy_lifecycle");
       expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");
@@ -248,6 +264,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0049_resource_utilization_and_procurement_review", "Success"],
         ["0050_group2_policy_lifecycle", "Success"],
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
+        ["0052_dispatch_restore_and_resource_utilization", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
