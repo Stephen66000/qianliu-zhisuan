@@ -6,6 +6,54 @@ set -Eeuo pipefail
 umask 077
 export PATH="/usr/local/bin:/opt/homebrew/bin:/Applications/Docker.app/Contents/Resources/bin:${PATH}"
 
+validate_env_file() {
+  local file="$1" key value count assignment
+  test -f "$file" || { echo "环境文件不存在: $file" >&2; return 2; }
+  if LC_ALL=C grep -q $'\r' "$file"; then echo "环境文件包含 CR 换行" >&2; return 2; fi
+  if ! awk '
+    /^[[:space:]]*$/ {next}
+    /^#/ {next}
+    /^[A-Za-z_][A-Za-z0-9_]*=/ {next}
+    {exit 1}
+  ' "$file"; then
+    echo "环境文件必须使用 KEY=value 规范语法；禁止前导空白、export 或键名周边空白" >&2
+    return 2
+  fi
+  if grep -q 'PLACEHOLDER' "$file"; then echo "环境文件仍含 PLACEHOLDER" >&2; return 2; fi
+  for key in DEEPSEEK_API_KEY ZHIPU_CODING_TOKEN KIMI_CODING_TOKEN GATEWAY_KEY_PEPPER \
+    SESSION_AFFINITY_HMAC_KEY CREDENTIAL_KEK COOKIE_SECRET POSTGRES_DB POSTGRES_USER \
+    POSTGRES_PASSWORD WEB_ORIGIN; do
+    count="$(awk -F= -v wanted="$key" '$1 == wanted {count++} END {print count + 0}' "$file")"
+    test "$count" = 1 || { echo "环境文件要求 ${key} 恰好出现一次" >&2; return 2; }
+    value="$(awk -v wanted="$key" 'index($0, wanted "=") == 1 {sub(/^[^=]*=/, ""); print; exit}' "$file")"
+    case "$value" in ""|[[:space:]]*|*[[:space:]]) echo "环境变量 ${key} 为空或含首尾空白" >&2; return 2;; esac
+  done
+  for assignment in \
+    NODE_ENV=production \
+    CONTENT_RETENTION_MODE=METADATA_ONLY \
+    FEATURE_DIRECTORY_IMPORT=true \
+    FEATURE_USAGE_OVERVIEW_V2=true \
+    FEATURE_DEPARTMENT_COST=true \
+    FEATURE_RESOURCE_UTILIZATION_V2=true \
+    FEATURE_PROCUREMENT_REVIEW=true; do
+    key="${assignment%%=*}"
+    count="$(awk -F= -v wanted="$key" '$1 == wanted {count++} END {print count + 0}' "$file")"
+    test "$count" = 1 || { echo "环境文件要求 ${key} 恰好出现一次" >&2; return 2; }
+    value="$(awk -v wanted="$key" 'index($0, wanted "=") == 1 {sub(/^[^=]*=/, ""); print; exit}' "$file")"
+    test "$value" = "${assignment#*=}" || { echo "环境文件必须设置 ${assignment}" >&2; return 2; }
+  done
+}
+
+if test "${1:-}" = "--check-env"; then
+  test "$#" = 2 || { echo "用法: $0 --check-env <env-file>" >&2; exit 2; }
+  validate_env_file "$2"
+  echo "env_check=PASS"
+  exit 0
+elif test "$#" -ne 0; then
+  echo "用法: $0 [--check-env <env-file>]" >&2
+  exit 2
+fi
+
 repo_url="git@github.com:Stephen66000/qianliu-zhisuan.git"
 candidate_ref="refs/heads/codex/v2.2-test-fixes"
 candidate_commit="${CANDIDATE_COMMIT:?请传入 GitHub 上已审核候选的完整 Commit SHA}"
@@ -165,38 +213,7 @@ test "$(shasum -a 256 "$release/deploy/caddy/Caddyfile" | awk '{print $1}')" = "
 test "$(shasum -a 256 "$release/packages/database/migrations/0052_dispatch_restore_and_resource_utilization.js" | awk '{print $1}')" = "$migration_sha"
 cp -p "$previous/deploy/.env" "$release/deploy/.env"
 chmod 600 "$release/deploy/.env"
-if LC_ALL=C grep -q $'\r' "$release/deploy/.env"; then
-  log "production .env contains carriage return"
-  exit 2
-fi
-if grep -q 'PLACEHOLDER' "$release/deploy/.env"; then
-  log "production .env contains PLACEHOLDER"
-  exit 2
-fi
-env_count() { awk -F= -v key="$1" '$1 == key {count++} END {print count + 0}' "$release/deploy/.env"; }
-env_value() { awk -v key="$1" 'index($0, key "=") == 1 {sub(/^[^=]*=/, ""); print; exit}' "$release/deploy/.env"; }
-for key in DEEPSEEK_API_KEY ZHIPU_CODING_TOKEN KIMI_CODING_TOKEN GATEWAY_KEY_PEPPER \
-  SESSION_AFFINITY_HMAC_KEY CREDENTIAL_KEK COOKIE_SECRET POSTGRES_DB POSTGRES_USER \
-  POSTGRES_PASSWORD WEB_ORIGIN; do
-  test "$(env_count "$key")" = 1 || { log "production .env requires exactly one ${key}"; exit 2; }
-  value="$(env_value "$key")"
-  case "$value" in ""|[[:space:]]*|*[[:space:]]) log "production .env has empty/whitespace ${key}"; exit 2;; esac
-done
-for assignment in \
-  NODE_ENV=production \
-  CONTENT_RETENTION_MODE=METADATA_ONLY \
-  FEATURE_DIRECTORY_IMPORT=true \
-  FEATURE_USAGE_OVERVIEW_V2=true \
-  FEATURE_DEPARTMENT_COST=true \
-  FEATURE_RESOURCE_UTILIZATION_V2=true \
-  FEATURE_PROCUREMENT_REVIEW=true; do
-  key="${assignment%%=*}"
-  count="$(env_count "$key")"
-  test "$count" -le 1 || { log "production .env has duplicate ${key}"; exit 2; }
-  if test "$count" = 0; then printf '%s\n' "$assignment" >> "$release/deploy/.env"; fi
-  test "$(env_count "$key")" = 1
-  test "$(env_value "$key")" = "${assignment#*=}" || { log "production .env must set ${assignment}"; exit 2; }
-done
+validate_env_file "$release/deploy/.env"
 (cd "$release/deploy" && docker compose config --quiet)
 
 log "step 2: verify supported production database baseline"
