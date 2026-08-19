@@ -6,12 +6,17 @@ set -Eeuo pipefail
 umask 077
 export PATH="/usr/local/bin:/opt/homebrew/bin:/Applications/Docker.app/Contents/Resources/bin:${PATH}"
 
-repo_url="${QIANLIU_REPO_URL:-git@github.com:Stephen66000/qianliu-zhisuan.git}"
-candidate_ref="${QIANLIU_CANDIDATE_REF:-refs/heads/codex/v2.2-test-fixes}"
+repo_url="git@github.com:Stephen66000/qianliu-zhisuan.git"
+candidate_ref="refs/heads/codex/v2.2-test-fixes"
 candidate_commit="${CANDIDATE_COMMIT:?请传入 GitHub 上已审核候选的完整 Commit SHA}"
 candidate_tree="${CANDIDATE_TREE:?请传入已审核候选的完整 Tree SHA}"
 target_head="0052_dispatch_restore_and_resource_utilization"
 server_home="${QIANLIU_SERVER_HOME:-/Users/stephen}"
+product_commit="b2db531dee41e423a72d0a06b82e662558a6682a"
+product_tree="438fc157520e0250f6e091a93b270b5bbfdd7b21"
+compose_sha="d879661443997680f0236e0e0f231cf367e484b870f21545ff1023b7f7c75fee"
+caddy_sha="4ac0c0f85548f695720a1761bfccf77064ab03cc04f876c77379021944fa659e"
+migration_sha="a1d699fea202b3ab3019efcac22021d29f8d4b2c122fba3d62dc1da464bde611"
 
 for value in "$candidate_commit" "$candidate_tree"; do
   test "${#value}" = 40
@@ -26,12 +31,35 @@ backup_dir="${server_home}/backups/qianliu-zhisuan"
 backup="${backup_dir}/pre-v2.2-${stamp}.dump"
 log_dir="${server_home}/logs/qianliu-zhisuan"
 log_file="${log_dir}/deploy-v2.2-${candidate_short}-${stamp}.log"
+lock_dir="${server_home}/.qianliu-v2.2-release.lock"
+
+if ! mkdir "$lock_dir" 2>/dev/null; then
+  echo "已有发布任务持有锁: $lock_dir" >&2
+  test -f "$lock_dir/owner" && sed -n '1,5p' "$lock_dir/owner" >&2
+  exit 2
+fi
+printf 'pid=%s\ncommit=%s\nstarted_at=%s\n' "$$" "$candidate_commit" "$(date -Iseconds)" > "$lock_dir/owner"
+unlock() { rm -f "$lock_dir/owner" 2>/dev/null || true; rmdir "$lock_dir" 2>/dev/null || true; }
+trap unlock EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+for command_name in awk curl docker git shasum; do
+  command -v "$command_name" >/dev/null 2>&1 || { echo "缺少命令: $command_name" >&2; exit 2; }
+done
 
 test -r "$current_pointer"
 previous="$(<"$current_pointer")"
 case "$previous" in "$server_home"/releases/*) ;; *) echo "非法 current release: $previous" >&2; exit 2;; esac
 test -f "$previous/deploy/compose.yaml"
 test -f "$previous/deploy/.env"
+for service in control-api gateway worker web caddy; do
+  container="qianliu-zhisuan-${service}-1"
+  test "$(docker inspect --format '{{.State.Running}}' "$container")" = true
+  test "$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' \
+    "$container")" = "$previous/deploy"
+done
 
 mkdir -p "$release" "$backup_dir" "$log_dir"
 exec > >(tee -a "$log_file") 2>&1
@@ -49,36 +77,66 @@ images_frozen=0
 paused=0
 migration_started=0
 source_head=""
-rollback() {
-  local status=$? failed_line="${BASH_LINENO[0]:-unknown}" service current_head
-  trap - ERR
+success=0
+cleanup_running=0
+pointer_switch_started=0
+handle_failure() {
+  local status="$1" failed_line="${2:-unknown}" service current_head rollback_images_ok=1
+  test "$cleanup_running" = 0 || return
+  cleanup_running=1
   set +e
   log "FAILED status=${status} line=${failed_line}"
+  if test "$pointer_switch_started" = 1; then
+    printf '%s\n' "$previous" > "${current_pointer}.rollback"
+    mv "${current_pointer}.rollback" "$current_pointer"
+    log "current release pointer restored=${previous}"
+  fi
   if test "$images_frozen" = 1; then
     for service in control-api gateway worker web; do
       docker image tag "qianliu-v22-rollback-${candidate_short}-${service}" \
-        "qianliu-zhisuan-${service}" || log "rollback image restore failed service=${service}"
+        "qianliu-zhisuan-${service}" || { rollback_images_ok=0; log "rollback image restore failed service=${service}"; }
     done
   fi
   if test "$paused" = 1; then
     current_head="$(db_query 'SELECT name FROM kysely_migration ORDER BY timestamp DESC LIMIT 1;' 2>/dev/null || true)"
     if test "$migration_started" = 0 || test "$current_head" = "$source_head"; then
-      log "database=${current_head:-unknown}; restarting previous release=${previous}"
-      (cd "$previous/deploy" && docker compose up -d --no-build --force-recreate --no-deps \
-        control-api gateway worker web caddy) \
-        || log "previous release restart failed; keep write pause and repair manually"
+      if test "$rollback_images_ok" = 1; then
+        log "database=${current_head:-unknown}; restarting previous release=${previous}"
+        (cd "$previous/deploy" && docker compose up -d --no-build --force-recreate --no-deps \
+          control-api gateway worker web caddy) \
+          || log "previous release restart failed; keep write pause and repair manually"
+      else
+        docker stop qianliu-zhisuan-caddy-1 qianliu-zhisuan-gateway-1 \
+          qianliu-zhisuan-control-api-1 qianliu-zhisuan-web-1 qianliu-zhisuan-worker-1 \
+          >/dev/null 2>&1 || true
+        log "old image restore incomplete; business services remain stopped"
+      fi
     else
       docker stop qianliu-zhisuan-caddy-1 qianliu-zhisuan-gateway-1 \
         qianliu-zhisuan-control-api-1 qianliu-zhisuan-web-1 qianliu-zhisuan-worker-1 \
         >/dev/null 2>&1 || true
       log "database=${current_head:-unknown}; migration changed database, business services remain stopped"
       log "restore backup first: ${backup} (expected migration after restore: ${source_head})"
-      log "pg_restore command: docker compose --project-directory '${previous}/deploy' exec -T postgres sh -lc 'pg_restore --exit-on-error --clean --if-exists --no-owner -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"' < '${backup}'"
+      log "restore step 1: docker compose --project-directory '${previous}/deploy' exec -T postgres sh -ceu 'case \"\$POSTGRES_DB\" in postgres|template0|template1) exit 1;; esac; dropdb --if-exists --force -U \"\$POSTGRES_USER\" \"\$POSTGRES_DB\"; createdb -U \"\$POSTGRES_USER\" -O \"\$POSTGRES_USER\" \"\$POSTGRES_DB\"'"
+      log "restore step 2: docker compose --project-directory '${previous}/deploy' exec -T postgres sh -ceu 'pg_restore --exit-on-error --no-owner -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"' < '${backup}'"
+      log "restore step 3: verify: docker compose --project-directory '${previous}/deploy' exec -T postgres sh -lc '${pg_sh} -Atqc \"SELECT name FROM kysely_migration ORDER BY timestamp DESC LIMIT 1\"'  # must equal ${source_head}"
+      log "restore step 4: for service in control-api gateway worker web; do docker image tag \"qianliu-v22-rollback-${candidate_short}-\$service\" \"qianliu-zhisuan-\$service\"; done"
+      log "restore step 5: (cd '${previous}/deploy' && docker compose up -d --no-build --force-recreate --no-deps control-api gateway worker web caddy)"
     fi
   fi
+}
+on_exit() {
+  local status=$? failed_line="${BASH_LINENO[0]:-unknown}"
+  trap - EXIT HUP INT TERM
+  if test "$success" != 1; then handle_failure "$status" "$failed_line"; fi
+  unlock
   exit "$status"
 }
-trap rollback ERR
+trap - EXIT HUP INT TERM
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap on_exit EXIT
 
 log "step 1: fetch exact GitHub candidate ref=${candidate_ref} commit=${candidate_commit}"
 git -C "$release" init -q
@@ -90,16 +148,40 @@ test "$(git -C "$release" rev-parse FETCH_HEAD)" = "$candidate_commit"
 git -C "$release" checkout -q --detach "$candidate_commit"
 test "$(git -C "$release" rev-parse 'HEAD^{tree}')" = "$candidate_tree"
 test -z "$(git -C "$release" status --porcelain --untracked-files=all)"
+test "$(git -C "$release" rev-parse "${product_commit}^{tree}")" = "$product_tree"
+git -C "$release" merge-base --is-ancestor "$product_commit" "$candidate_commit"
+while IFS= read -r changed_path; do
+  case "$changed_path" in
+    V4/Evidence/M20-5/W20-12/20260819-v2.2-test-fixes/README.md|deploy/scripts/release-v2.2-mac-mini.sh) ;;
+    *) log "release overlay contains unauthorized path=${changed_path}"; exit 2;;
+  esac
+done < <(git -C "$release" diff --name-only "$product_commit..$candidate_commit")
 test -f "$release/packages/database/migrations/0052_dispatch_restore_and_resource_utilization.js"
 unexpected_migrations="$(find "$release/packages/database/migrations" -maxdepth 1 -type f -name '*.js' \
   -exec basename {} \; | awk -F_ '$1 ~ /^[0-9]+$/ && ($1 + 0) > 52 {print}')"
 test -z "$unexpected_migrations"
+test "$(shasum -a 256 "$release/deploy/compose.yaml" | awk '{print $1}')" = "$compose_sha"
+test "$(shasum -a 256 "$release/deploy/caddy/Caddyfile" | awk '{print $1}')" = "$caddy_sha"
+test "$(shasum -a 256 "$release/packages/database/migrations/0052_dispatch_restore_and_resource_utilization.js" | awk '{print $1}')" = "$migration_sha"
 cp -p "$previous/deploy/.env" "$release/deploy/.env"
 chmod 600 "$release/deploy/.env"
+if LC_ALL=C grep -q $'\r' "$release/deploy/.env"; then
+  log "production .env contains carriage return"
+  exit 2
+fi
 if grep -q 'PLACEHOLDER' "$release/deploy/.env"; then
   log "production .env contains PLACEHOLDER"
   exit 2
 fi
+env_count() { awk -F= -v key="$1" '$1 == key {count++} END {print count + 0}' "$release/deploy/.env"; }
+env_value() { awk -v key="$1" 'index($0, key "=") == 1 {sub(/^[^=]*=/, ""); print; exit}' "$release/deploy/.env"; }
+for key in DEEPSEEK_API_KEY ZHIPU_CODING_TOKEN KIMI_CODING_TOKEN GATEWAY_KEY_PEPPER \
+  SESSION_AFFINITY_HMAC_KEY CREDENTIAL_KEK COOKIE_SECRET POSTGRES_DB POSTGRES_USER \
+  POSTGRES_PASSWORD WEB_ORIGIN; do
+  test "$(env_count "$key")" = 1 || { log "production .env requires exactly one ${key}"; exit 2; }
+  value="$(env_value "$key")"
+  case "$value" in ""|[[:space:]]*|*[[:space:]]) log "production .env has empty/whitespace ${key}"; exit 2;; esac
+done
 for assignment in \
   NODE_ENV=production \
   CONTENT_RETENTION_MODE=METADATA_ONLY \
@@ -109,12 +191,11 @@ for assignment in \
   FEATURE_RESOURCE_UTILIZATION_V2=true \
   FEATURE_PROCUREMENT_REVIEW=true; do
   key="${assignment%%=*}"
-  if grep -q "^${key}=" "$release/deploy/.env" \
-    && ! grep -qx "$assignment" "$release/deploy/.env"; then
-    log "production .env must set ${assignment}"
-    exit 2
-  fi
-  if ! grep -q "^${key}=" "$release/deploy/.env"; then printf '%s\n' "$assignment" >> "$release/deploy/.env"; fi
+  count="$(env_count "$key")"
+  test "$count" -le 1 || { log "production .env has duplicate ${key}"; exit 2; }
+  if test "$count" = 0; then printf '%s\n' "$assignment" >> "$release/deploy/.env"; fi
+  test "$(env_count "$key")" = 1
+  test "$(env_value "$key")" = "${assignment#*=}" || { log "production .env must set ${assignment}"; exit 2; }
 done
 (cd "$release/deploy" && docker compose config --quiet)
 
@@ -201,9 +282,11 @@ test "$(docker inspect --format '{{.RestartCount}}' qianliu-zhisuan-caddy-1)" = 
 test "$(git -C "$release" rev-parse HEAD)" = "$candidate_commit"
 test "$(git -C "$release" rev-parse 'HEAD^{tree}')" = "$candidate_tree"
 test -z "$(git -C "$release" status --porcelain --untracked-files=all)"
+pointer_switch_started=1
 printf '%s\n' "$release" > "${current_pointer}.next"
 mv "${current_pointer}.next" "$current_pointer"
 test "$(<"$current_pointer")" = "$release"
+success=1
 paused=0
 
 log "COMPLETE release=${release} commit=${candidate_commit} tree=${candidate_tree} source=${source_head} target=${target_head} control=${control_code} gateway=${gateway_code} web=${web_code} worker=${worker_health} backup=${backup} backup_sha256=${backup_sha} current_pointer=${release}"
