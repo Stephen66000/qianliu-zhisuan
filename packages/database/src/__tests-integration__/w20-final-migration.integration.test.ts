@@ -166,6 +166,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
         ["0052_dispatch_restore_and_resource_utilization", "Success"],
         ["0053_operating_bill_opening_balance", "Success"],
+        ["0054_usage_aggregate_settlement_time", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -218,7 +219,25 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         restore_idx: "dispatch_policy_active_restore_unique_idx",
         ledger_idx: "ledger_line_resource_month_cover_idx",
       });
+      const qualityConstraint = await sql<{ definition: string }>`
+        SELECT pg_get_constraintdef(oid) AS definition
+          FROM pg_constraint
+         WHERE conname = 'usage_event_quality_check'
+      `.execute(db);
+      expect(qualityConstraint.rows[0]?.definition).toContain("MIXED");
+      await db.updateTable("usage_event").set({ usage_quality: "MIXED" })
+        .where("enterprise_id", "=", enterpriseId).execute();
+      await expect(migrateDown(db)).rejects.toThrow(/0054 contains MIXED usage facts/);
+      await db.updateTable("usage_event").set({ usage_quality: "PROVIDER_REPORTED" })
+        .where("enterprise_id", "=", enterpriseId).execute();
 
+      expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
+      const rolledBackQualityConstraint = await sql<{ definition: string }>`
+        SELECT pg_get_constraintdef(oid) AS definition
+          FROM pg_constraint
+         WHERE conname = 'usage_event_quality_check'
+      `.execute(db);
+      expect(rolledBackQualityConstraint.rows[0]?.definition).not.toContain("MIXED");
       expect(await migrateDown(db)).toBe("0053_operating_bill_opening_balance");
       expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");
       const v52Removed = await sql<{ restore_idx: string | null; ledger_idx: string | null }>`
@@ -268,6 +287,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
         ["0052_dispatch_restore_and_resource_utilization", "Success"],
         ["0053_operating_bill_opening_balance", "Success"],
+        ["0054_usage_aggregate_settlement_time", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
@@ -303,9 +323,14 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         id: periodId, enterprise_id: enterpriseId, period_month: "2026-06-01", created_by: adminId,
       }).execute();
       const otherEnterpriseId = randomUUID();
+      const otherAdminId = randomUUID();
       const otherPeriodId = randomUUID();
       await db.insertInto("enterprise").values({
         id: otherEnterpriseId, name: "0053 隔离账期企业",
+      }).execute();
+      await db.insertInto("admin_user").values({
+        id: otherAdminId, enterprise_id: otherEnterpriseId,
+        username: `rollback-other-${randomUUID()}`, password_hash: "unused",
       }).execute();
       await db.insertInto("operating_bill_period").values({
         id: otherPeriodId, enterprise_id: otherEnterpriseId,
@@ -318,11 +343,24 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       }).execute()).rejects.toMatchObject({
         constraint: "operating_bill_opening_balance_period_tenant_fk",
       });
+      await expect(db.insertInto("operating_bill_opening_balance").values({
+        enterprise_id: enterpriseId, period_id: periodId, provider_resource_id: resourceId,
+        version: 1, amount: "1", currency: "CNY", source: "MANUAL",
+        reason: "跨企业操作人应失败", created_by: otherAdminId,
+      }).execute()).rejects.toMatchObject({
+        constraint: "operating_bill_opening_balance_actor_tenant_fk",
+      });
       await db.insertInto("operating_bill_opening_balance").values({
         enterprise_id: enterpriseId, period_id: periodId, provider_resource_id: resourceId,
         version: 1, amount: "100", currency: "CNY", source: "MANUAL",
         reason: "回退保护", created_by: adminId,
       }).execute();
+      await expect(db.updateTable("operating_bill_opening_balance")
+        .set({ reason: "禁止改写" }).where("provider_resource_id", "=", resourceId)
+        .execute()).rejects.toThrow(/append-only/i);
+      await expect(db.deleteFrom("operating_bill_opening_balance")
+        .where("provider_resource_id", "=", resourceId).execute()).rejects.toThrow(/append-only/i);
+      expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
       await expect(migrateDown(db)).rejects.toThrow(/0053 contains opening balance facts/);
       expect(await db.selectFrom("operating_bill_opening_balance").select("id")
         .where("provider_resource_id", "=", resourceId).executeTakeFirst()).toBeDefined();

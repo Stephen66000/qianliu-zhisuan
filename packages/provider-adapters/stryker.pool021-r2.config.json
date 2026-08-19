@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "reporters": ["clear-text", "json"],
+  "jsonReporter": { "fileName": "reports/mutation/pool021-r2.json" },
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.pool021-r2.mutation.config.ts" },
+  "coverageAnalysis": "perTest",
+  "mutate": ["src/adapters/kimi-adapter.ts:73:1-109:2"],
+  "thresholds": { "high": 100, "low": 90, "break": 80 },
+  "timeoutMS": 60000,
+  "concurrency": 2,
+  "disableTypeChecks": true,
+  "cleanTempDir": true
+}

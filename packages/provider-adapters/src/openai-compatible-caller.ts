@@ -770,17 +770,33 @@ function normalizeUsage(raw: unknown): Usage | null {
   const outputDetails = isRecord(raw.completion_tokens_details)
     ? raw.completion_tokens_details
     : {};
+  const total = optionalToken(raw.total_tokens);
+  const cache = firstOptionalToken(
+    raw.prompt_cache_hit_tokens, details.cached_tokens, raw.cached_tokens,
+  );
+  const reasoning = firstOptionalToken(
+    outputDetails.reasoning_tokens, raw.reasoning_tokens,
+  );
+  if (!total.valid || !cache.valid || !reasoning.valid) return null;
   return {
-    input: nonNegativeNumber(raw.prompt_tokens),
-    output: nonNegativeNumber(raw.completion_tokens),
-    cache: nonNegativeNumber(
-      raw.prompt_cache_hit_tokens ?? details.cached_tokens ?? raw.cached_tokens,
-    ),
-    reasoning: nonNegativeNumber(
-      outputDetails.reasoning_tokens ?? raw.reasoning_tokens,
-    ),
-    quality: "PROVIDER_REPORTED",
+    input: raw.prompt_tokens,
+    output: raw.completion_tokens,
+    cache: cache.value,
+    reasoning: reasoning.value,
+    quality: cache.present && reasoning.present ? "PROVIDER_REPORTED" : "MIXED",
   };
+}
+
+function optionalToken(value: unknown): { present: boolean; valid: boolean; value: number } {
+  if (value === undefined) return { present: false, valid: true, value: 0 };
+  return isNonNegativeTokenCount(value)
+    ? { present: true, valid: true, value }
+    : { present: true, valid: false, value: 0 };
+}
+
+function firstOptionalToken(...values: unknown[]): { present: boolean; valid: boolean; value: number } {
+  const selected = values.find((value) => value !== undefined);
+  return optionalToken(selected);
 }
 
 function isNonNegativeTokenCount(value: unknown): value is number {
@@ -1057,12 +1073,6 @@ function argumentString(value: unknown): string {
   } catch {
     return "{}";
   }
-}
-
-function nonNegativeNumber(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0
-    ? value
-    : 0;
 }
 
 function integerValue(value: unknown): number {

@@ -216,6 +216,8 @@ export async function listResourceUtilization(
              WHEN pr.mode = 'API' AND coalesce(l.api_cost, 0) >= pr.monthly_budget_amount THEN 'OVER_BUDGET'
              WHEN pr.mode = 'API' AND coalesce(l.api_cost, 0) >= pr.monthly_budget_amount * 0.8 THEN 'WARNING'
              WHEN pr.mode = 'API' THEN 'NORMAL'
+             WHEN pr.mode = 'CODING_PLAN'
+              AND (s.effective_from IS NULL OR s.effective_until IS NULL) THEN 'UNKNOWN'
              WHEN pr.status = 'EXHAUSTED' THEN 'EXHAUSTED'
              WHEN s.total_quota > 0 AND s.used_quota >= s.total_quota THEN 'EXHAUSTED'
              WHEN s.total_quota > 0 AND s.used_quota < s.total_quota THEN 'UNDERUSED'
@@ -233,7 +235,7 @@ export async function listResourceUtilization(
                THEN 'SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE'
              ELSE NULL
            END AS not_calculable_reason,
-           greatest(l.data_at, pu.data_at, lu.used_at, s.collected_at, f.snapshot_at, qw.collected_at, q5.collected_at) AS data_at
+             greatest(l.data_at, pu.data_at, lu.used_at, s.collected_at, f.snapshot_at, qw.collected_at, q5.collected_at) AS data_at
       FROM provider_resource pr
       JOIN provider p ON p.id = pr.provider_id AND p.enterprise_id = pr.enterprise_id
       CROSS JOIN tenant

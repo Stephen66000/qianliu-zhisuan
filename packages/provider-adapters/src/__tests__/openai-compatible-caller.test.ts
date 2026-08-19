@@ -403,7 +403,7 @@ describe("OpenAI-compatible HTTP caller", () => {
       1,
     );
     expect(outcome.usage).toMatchObject({
-      input: 120, output: 24, cache: 40, quality: "PROVIDER_REPORTED",
+      input: 120, output: 24, cache: 40, reasoning: 0, quality: "MIXED",
     });
     expect(outcome.usage.input + outcome.usage.output).toBe(144);
   });
@@ -416,6 +416,14 @@ describe("OpenAI-compatible HTTP caller", () => {
       {
         choices: [{ message: { content: "无效计量字段" } }],
         usage: { prompt_tokens: "1", completion_tokens: null },
+      },
+      {
+        choices: [{ message: { content: "非法缓存计量" } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, cached_tokens: -1 },
+      },
+      {
+        choices: [{ message: { content: "非法推理计量" } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, reasoning_tokens: 1.5 },
       },
     ]) {
       const caller = createOpenAiCompatibleCaller({

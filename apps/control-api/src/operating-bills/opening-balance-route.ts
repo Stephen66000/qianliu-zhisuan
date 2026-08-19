@@ -10,9 +10,13 @@ import {
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 
-const MonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+const MonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).refine((value) => {
+  const year = Number(value.slice(0, 4));
+  return year >= 2000 && year <= 2200;
+}, "账期年份必须在 2000 至 2200 之间");
 const MoneyText = z.union([z.string(), z.number()]).transform(String)
-  .refine((value) => /^\d+(?:\.\d{1,2})?$/.test(value), "人工录入金额最多保留两位小数");
+  .refine((value) => /^\d{1,16}(?:\.\d{1,2})?$/.test(value),
+    "人工录入金额最多 16 位整数、两位小数");
 const OpeningBalanceSchema = z.object({
   provider_resource_id: z.string().uuid(),
   amount: MoneyText,
@@ -63,16 +67,6 @@ export function registerOpeningBalanceRoute(app: FastifyInstance): void {
           enterpriseId: req.admin!.enterpriseId, adminId: req.admin!.adminUserId,
           month: month.data, providerResourceId: body.data.provider_resource_id,
           amount: body.data.amount, currency: body.data.currency, reason: body.data.reason ?? null,
-        });
-        if (result.created) await app.auditRepo.write({
-          enterprise_id: req.admin!.enterpriseId, admin_user_id: req.admin!.adminUserId,
-          action: "operating_bill.opening_balance.create", target_type: "provider_resource",
-          target_id: body.data.provider_resource_id,
-          change_summary: {
-            month: month.data, amount: body.data.amount, currency: body.data.currency,
-            reason: body.data.reason ?? null,
-          },
-          result: "SUCCESS",
         });
         return reply.code(result.created ? 201 : 200).send(result.bill);
       } catch (error) {

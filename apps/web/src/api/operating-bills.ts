@@ -9,6 +9,11 @@ export interface OperatingBillProvider {
   resourceName: string;
   mode: "API" | "CODING_PLAN";
   currency: string | null;
+  openingBalanceCurrency?: string | null;
+  rechargeAmounts?: Array<{ currency: string; amount: string }>;
+  endingBalanceCurrency?: string | null;
+  apiSpendCurrency?: string | null;
+  packageCostCurrency?: string | null;
   apiCost: string | null;
   ledgerApiCost?: string | null;
   openingBalance?: string | null;
@@ -100,6 +105,12 @@ export interface OperatingBill {
     packageCost: string | null;
     endingBalance: string | null;
     endingBalanceCurrency: string | null;
+    openingBalances?: Array<{ currency: string; amount: string }>;
+    rechargeAmounts?: Array<{ currency: string; amount: string }>;
+    endingBalances?: Array<{ currency: string; amount: string }>;
+    apiSpends?: Array<{ currency: string; amount: string }>;
+    packageCosts?: Array<{ currency: string; amount: string }>;
+    totalSpends?: Array<{ currency: string; amount: string }>;
     planUtilization: string | null;
     activePrincipalCount: number;
     confirmedValueAmount: string;

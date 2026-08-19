@@ -169,7 +169,7 @@ describe("KimiAdapter", () => {
     expect(outcome.usage.cache).toBe(0);
   });
 
-  it("usage 原始口径解析（无缓存分项，cache=0；档位倍数不在此折算）", () => {
+  it("POOL20-045：缺缓存或推理维度时保留 0 占位但质量为 MIXED", () => {
     const adapter = new KimiAdapter(async () => ({
       status: 200,
       committed: true,
@@ -183,7 +183,8 @@ describe("KimiAdapter", () => {
     expect(usage.input).toBe(800);
     expect(usage.output).toBe(200);
     expect(usage.cache).toBe(0); // Kimi Coding Plan 当前无缓存命中分项
-    expect(usage.quality).toBe("PROVIDER_REPORTED");
+    expect(usage.reasoning).toBe(0);
+    expect(usage.quality).toBe("MIXED");
   });
 
   it("POOL20-045：兼容 cached_tokens 并按稳定优先级只计一次", () => {
@@ -203,7 +204,28 @@ describe("KimiAdapter", () => {
       prompt_cache_hit_tokens: 30,
       prompt_tokens_details: { cached_tokens: 60 },
       cached_tokens: 120,
-    })).toMatchObject({ input: 800, output: 200, cache: 30 });
+    })).toMatchObject({ input: 800, output: 200, cache: 30, quality: "MIXED" });
+    expect(adapter.parseUsage({
+      prompt_tokens: 800, completion_tokens: 200,
+      cached_tokens: 0, reasoning_tokens: 0,
+    })).toMatchObject({ cache: 0, reasoning: 0, quality: "PROVIDER_REPORTED" });
+    expect(adapter.parseUsage({
+      prompt_tokens: 800, completion_tokens: 200, reasoning_tokens: 0,
+    })).toMatchObject({ cache: 0, reasoning: 0, quality: "MIXED" });
+    for (const invalid of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => adapter.parseUsage({
+        prompt_tokens: 800, completion_tokens: 200, cached_tokens: invalid,
+      })).toThrow("非负安全整数");
+      expect(() => adapter.parseUsage({
+        prompt_tokens: invalid, completion_tokens: 200,
+      })).toThrow("非负安全整数");
+      expect(() => adapter.parseUsage({
+        prompt_tokens: 800, completion_tokens: invalid,
+      })).toThrow("非负安全整数");
+      expect(() => adapter.parseUsage({
+        prompt_tokens: 800, completion_tokens: 200, total_tokens: invalid,
+      })).toThrow("非负安全整数");
+    }
   });
 
   it("错误归一化映射（TRD §9 分类）", () => {

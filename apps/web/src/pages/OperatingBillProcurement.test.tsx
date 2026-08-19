@@ -25,6 +25,9 @@ const bill: OperatingBill = {
     totalCost: "812.50000000",
     apiCost: "12.50000000",
     packageCost: "800.00000000",
+    packageCosts: [{ currency: "CNY", amount: "800.00000000" }],
+    apiSpends: [{ currency: "CNY", amount: "12.50000000" }],
+    totalSpends: [{ currency: "CNY", amount: "812.50000000" }],
     endingBalance: "87.50000000",
     endingBalanceCurrency: "CNY",
     planUtilization: "63.75",
@@ -88,6 +91,12 @@ function resource(overrides: Partial<ResourceUtilization>): ResourceUtilization 
 
 const review: ProcurementReview = {
   month: "2026-08",
+  summary: {
+    purchaseCashAmounts: [{ currency: "CNY", amount: "920.00000000" }],
+    apiSpends: [{ currency: "CNY", amount: "12.50000000" }],
+    packageCosts: [{ currency: "CNY", amount: "800.00000000" }],
+    planUtilization: "63.75",
+  },
   resources: [
     {
       ...resource({
@@ -113,6 +122,8 @@ const review: ProcurementReview = {
         usedQuota: "20",
         remainingQuota: "80",
         quotaUnit: "POINT",
+        servicePeriodStart: "2026-08-01",
+        servicePeriodEnd: "2026-08-31",
         utilizationRate: "0.2",
         utilizationStatus: "LOW_UTILIZATION",
         forecastNotCalculableReason: "NO_CONSUMPTION_RATE",
@@ -138,6 +149,8 @@ const review: ProcurementReview = {
         usedQuota: "90",
         remainingQuota: "10",
         quotaUnit: "POINT",
+        servicePeriodStart: "2026-08-01",
+        servicePeriodEnd: "2026-08-31",
         utilizationRate: "0.9",
         utilizationStatus: "HEALTHY",
         forecastExhaustAt: "2026-08-15T00:00:00.000Z",
@@ -233,7 +246,7 @@ describe("W20-09 采购复盘 Web", () => {
 
   it("无资源时明确展示空态和不可计算的套餐平均利用", () => {
     useProcurementReviewMock.mockReturnValue({
-      data: { ...review, resources: [], note: { ...review.note, updatedBy: null } },
+      data: { ...review, summary: { ...review.summary, planUtilization: null }, resources: [], note: { ...review.note, updatedBy: null } },
       isLoading: false,
       error: null,
       refetch: vi.fn(),
@@ -244,7 +257,7 @@ describe("W20-09 采购复盘 Web", () => {
       </MemoryRouter>,
     );
     expect(screen.getByText("本月暂无资源事实")).toBeInTheDocument();
-    expect(screen.getByText("套餐平均利用").parentElement).toHaveTextContent("—");
+    expect(screen.getByText("套餐成本加权利用").parentElement).toHaveTextContent("—");
     expect(screen.getByText("当前版本 v3")).toBeInTheDocument();
   });
 
@@ -307,6 +320,25 @@ describe("W20-09 采购复盘 Web", () => {
 
     expect(screen.queryByText("人工判断")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /自动采购|创建采购|下单/ })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["缺开始", null, "2026-08-31", "SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE"],
+    ["缺结束", "2026-08-01", null, "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE"],
+  ])("POOL20-041：%s时采购复盘不下利用不足", (_label, start, end, reason) => {
+    const incomplete = {
+      ...review.resources[1]!, servicePeriodStart: start, servicePeriodEnd: end,
+      utilizationRate: null, idleEntitlementCost: null, utilizationStatus: "UNKNOWN",
+      notCalculableReason: reason, reviewLabel: "数据不足", reviewReason: reason,
+    };
+    useProcurementReviewMock.mockReturnValue({
+      data: { ...review, resources: [incomplete] }, isLoading: false, error: null, refetch: vi.fn(),
+    });
+    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08&tab=procurement"]}><OperatingBillPage /></MemoryRouter>);
+    const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
+    expect(within(row).getByText("数据不足")).toBeInTheDocument();
+    expect(within(row).queryByText("利用不足")).not.toBeInTheDocument();
+    expect(within(row).getAllByText(reason).length).toBeGreaterThan(0);
   });
 
   it("保留冻结的备注文案，保存时携带当前乐观锁版本", async () => {

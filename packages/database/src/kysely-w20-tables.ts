@@ -28,6 +28,9 @@ export interface UsageBucketAggregateTable {
   input_tokens: Generated<bigint>; output_tokens: Generated<bigint>;
   cache_tokens: Generated<bigint>; reasoning_tokens: Generated<bigint>;
   deducted_quota: Generated<bigint>; api_cost: Generated<string>;
+  provider_reported_count: Generated<bigint>; estimated_count: Generated<bigint>;
+  account_aggregated_count: Generated<bigint>; mixed_count: Generated<bigint>;
+  unknown_count: Generated<bigint>;
   fact_watermark: Date | null; max_fact_at: Date | null;
   dirty: Generated<boolean>; generated_at: Generated<Date>;
 }

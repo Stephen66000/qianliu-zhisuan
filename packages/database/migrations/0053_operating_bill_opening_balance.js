@@ -16,6 +16,12 @@ export async function up(db) {
     .columns(["enterprise_id", "id"])
     .execute();
   await db.schema
+    .createIndex("admin_user_enterprise_id_uq")
+    .unique()
+    .on("admin_user")
+    .columns(["enterprise_id", "id"])
+    .execute();
+  await db.schema
     .createTable("operating_bill_opening_balance")
     .addColumn("id", "uuid", (c) => c.primaryKey().defaultTo(sql`gen_random_uuid()`))
     .addColumn("enterprise_id", "uuid", (c) => c.notNull().references("enterprise.id"))
@@ -26,7 +32,7 @@ export async function up(db) {
     .addColumn("currency", "varchar(8)", (c) => c.notNull())
     .addColumn("source", "varchar(24)", (c) => c.notNull().defaultTo("MANUAL"))
     .addColumn("reason", "varchar(1000)")
-    .addColumn("created_by", "uuid", (c) => c.notNull().references("admin_user.id"))
+    .addColumn("created_by", "uuid", (c) => c.notNull())
     .addColumn("created_at", "timestamptz", (c) => c.notNull().defaultTo(sql`now()`))
     .addForeignKeyConstraint(
       "operating_bill_opening_balance_period_tenant_fk",
@@ -38,6 +44,12 @@ export async function up(db) {
       "operating_bill_opening_balance_resource_tenant_fk",
       ["enterprise_id", "provider_resource_id"],
       "provider_resource",
+      ["enterprise_id", "id"],
+    )
+    .addForeignKeyConstraint(
+      "operating_bill_opening_balance_actor_tenant_fk",
+      ["enterprise_id", "created_by"],
+      "admin_user",
       ["enterprise_id", "id"],
     )
     .execute();
@@ -73,4 +85,5 @@ export async function down(db) {
   `.execute(db);
   await db.schema.dropTable("operating_bill_opening_balance").ifExists().execute();
   await db.schema.dropIndex("operating_bill_period_enterprise_id_uq").ifExists().execute();
+  await db.schema.dropIndex("admin_user_enterprise_id_uq").ifExists().execute();
 }

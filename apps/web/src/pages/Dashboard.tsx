@@ -22,6 +22,7 @@ import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { useFeatureFlags } from "../feature-flags";
 import { formatCount, formatDateTimeShort, formatMoney, formatRatioAsPercent } from "../lib/format";
+import { usageQualityText } from "../lib/usage-quality";
 
 export function DashboardPage() {
   const featureFlags = useFeatureFlags();
@@ -230,10 +231,14 @@ function dispatchSavingHint(data: DashboardSummary) {
 
 function monthlyTokenUsageHint(data: DashboardSummary): string {
   const usage = data.monthlyTokenUsage;
-  const quality = usage.usageQuality === "EXACT" ? "全部为厂商上报计量"
-    : usage.usageQuality === "ESTIMATED"
-      ? `含 ${usage.estimatedTransactionCount} 笔估算计量`
-      : `含 ${usage.unknownTransactionCount} 笔计量未知，数值只代表已记录 Token`;
+  const quality = usageQualityText({
+    usageQuality: usage.usageQuality,
+    providerReportedCount: usage.providerReportedTransactionCount,
+    estimatedCount: usage.estimatedTransactionCount,
+    accountAggregatedCount: usage.accountAggregatedTransactionCount,
+    mixedCount: usage.mixedTransactionCount,
+    unknownCount: usage.unknownTransactionCount,
+  });
   return `已结算输入 + 输出，缓存和推理不重复累计；${quality}`;
 }
 

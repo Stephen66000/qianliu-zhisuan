@@ -101,9 +101,12 @@ export interface DashboardSummary {
     totalCacheTokens: string;
     totalReasoningTokens: string;
     totalTokens: string;
-    usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+    usageQuality: "NO_DATA" | "PROVIDER_REPORTED" | "ESTIMATED" | "ACCOUNT_AGGREGATED" | "MIXED" | "UNKNOWN";
     settledTransactionCount: number;
+    providerReportedTransactionCount: number;
     estimatedTransactionCount: number;
+    accountAggregatedTransactionCount: number;
+    mixedTransactionCount: number;
     unknownTransactionCount: number;
     attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT";
     rangeStart: string;

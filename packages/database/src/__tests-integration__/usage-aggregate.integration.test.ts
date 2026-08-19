@@ -27,6 +27,7 @@ interface SeedInput {
   principalId: string;
   keyId: string;
   at: Date;
+  startedAt?: Date;
   input?: bigint;
   output?: bigint;
   cache?: bigint;
@@ -34,6 +35,7 @@ interface SeedInput {
   deducted?: bigint;
   cost?: string;
   withLine?: boolean;
+  quality?: string;
 }
 
 async function seedSettledRequest(input: SeedInput): Promise<string> {
@@ -44,6 +46,8 @@ async function seedSettledRequest(input: SeedInput): Promise<string> {
   const reasoningTokens = input.reasoning ?? 0n;
   const deductedQuota = input.deducted ?? inputTokens + outputTokens;
   const apiCost = input.cost ?? "0.10000000";
+  const startedAt = input.startedAt ?? input.at;
+  const quality = input.quality ?? "PROVIDER_REPORTED";
   await db.insertInto("ai_request").values({
     id: requestId,
     enterprise_id: input.enterpriseId,
@@ -53,8 +57,8 @@ async function seedSettledRequest(input: SeedInput): Promise<string> {
     unified_model: input.enterpriseId === shanghaiEnterpriseId ? "ql-aggregate" : "legacy-model",
     unified_model_id: input.enterpriseId === shanghaiEnterpriseId ? modelId : null,
     status: "SUCCEEDED",
-    started_at: input.at,
-    finished_at: new Date(input.at.getTime() + 500),
+    started_at: startedAt,
+    finished_at: new Date(startedAt.getTime() + 500),
   }).execute();
   if (input.withLine !== false) {
     const attempt = await db.insertInto("upstream_attempt").values({
@@ -76,7 +80,7 @@ async function seedSettledRequest(input: SeedInput): Promise<string> {
       output_tokens: outputTokens,
       cache_tokens: cacheTokens,
       reasoning_tokens: reasoningTokens,
-      usage_quality: "PROVIDER_REPORTED",
+      usage_quality: quality,
       dedup_key: `aggregate-${requestId}`,
       created_at: input.at,
     }).returning("id").executeTakeFirstOrThrow();
@@ -94,7 +98,7 @@ async function seedSettledRequest(input: SeedInput): Promise<string> {
       raw_reasoning_tokens: reasoningTokens,
       deducted_quota: deductedQuota,
       api_cost: apiCost,
-      usage_quality: "PROVIDER_REPORTED",
+      usage_quality: quality,
       created_at: input.at,
     }).execute();
   }
@@ -108,7 +112,7 @@ async function seedSettledRequest(input: SeedInput): Promise<string> {
     total_reasoning_tokens: reasoningTokens,
     total_deducted_quota: deductedQuota,
     total_api_cost: apiCost,
-    usage_quality: "PROVIDER_REPORTED",
+    usage_quality: quality,
     attempt_count: input.withLine === false ? 0 : 1,
     status: "SETTLED",
     created_at: input.at,
@@ -342,6 +346,38 @@ describe("W20-04 UsageAggregateRepository", () => {
         ["DAY", "2026-08-12T16:00:00.000Z"],
         ["HOUR", "2026-08-13T03:00:00.000Z"],
       ]);
+  });
+
+  it("POOL20-045：月末开始、次月结算按结算时间入桶且重放不重复", async () => {
+    const requestId = await seedSettledRequest({
+      enterpriseId: shanghaiEnterpriseId,
+      principalId: employeeId,
+      keyId: employeeKeyId,
+      startedAt: new Date("2026-08-31T15:59:30.000Z"),
+      at: new Date("2026-09-01T00:10:00.000Z"),
+      input: 33n, output: 7n, quality: "ACCOUNT_AGGREGATED", withLine: false,
+    });
+    await repository.markRequestDirty(shanghaiEnterpriseId, requestId);
+    await repository.markRequestDirty(shanghaiEnterpriseId, requestId);
+    const dirty = (await repository.listDirtyBuckets("HOUR")).filter((item) =>
+      item.enterpriseId === shanghaiEnterpriseId
+        && item.bucketStart.getTime() === new Date("2026-09-01T00:00:00.000Z").getTime());
+    expect(dirty).toHaveLength(1);
+    await repository.rebuildBucket(dirty[0]!);
+    const aggregate = await db.selectFrom("usage_bucket_aggregate")
+      .select(["request_count", "input_tokens", "output_tokens", "account_aggregated_count"])
+      .where("enterprise_id", "=", shanghaiEnterpriseId)
+      .where("bucket_granularity", "=", "HOUR")
+      .where("bucket_start", "=", new Date("2026-09-01T00:00:00.000Z"))
+      .executeTakeFirstOrThrow();
+    expect(aggregate).toEqual({
+      request_count: "1", input_tokens: "33", output_tokens: "7",
+      account_aggregated_count: "1",
+    });
+    expect(await db.selectFrom("usage_bucket_aggregate").select("id")
+      .where("enterprise_id", "=", shanghaiEnterpriseId)
+      .where("bucket_start", "=", new Date("2026-08-31T15:00:00.000Z"))
+      .executeTakeFirst()).toBeUndefined();
   });
 
   it("纽约 DST 回拨保留两个 01 时桶，春季自然日只有 23 个小时桶", async () => {

@@ -40,7 +40,7 @@ interface DirtyBucketRow {
  * Settlement／归属修正事务内的轻量 dirty 写入。
  *
  * 独立队列可表达尚无聚合行的空桶；ON CONFLICT 只刷新 marked_at，不读取账本、
- * 不锁 Gateway 事实表。小时桶按请求时点实际 UTC offset 切分，DST 回拨的两个
+ * 不锁 Gateway 事实表。小时桶按结算时点实际 UTC offset 切分，DST 回拨的两个
  * 同名小时不会合并。
  */
 export async function markUsageAggregateDirtyForRequest(
@@ -50,25 +50,26 @@ export async function markUsageAggregateDirtyForRequest(
 ): Promise<void> {
   await sql`
     WITH request_fact AS (
-      SELECT ar.started_at, e.timezone,
-             (ar.started_at AT TIME ZONE e.timezone)
-               - (ar.started_at AT TIME ZONE 'UTC') AS utc_offset
-        FROM ai_request ar
-        JOIN enterprise e ON e.id = ar.enterprise_id
-       WHERE ar.enterprise_id = ${enterpriseId}::uuid
-         AND ar.id = ${requestId}::uuid
+      SELECT lt.created_at AS settled_at, e.timezone,
+             (lt.created_at AT TIME ZONE e.timezone)
+               - (lt.created_at AT TIME ZONE 'UTC') AS utc_offset
+        FROM ledger_transaction lt
+        JOIN enterprise e ON e.id = lt.enterprise_id
+       WHERE lt.enterprise_id = ${enterpriseId}::uuid
+         AND lt.ai_request_id = ${requestId}::uuid
+         AND lt.status = 'SETTLED'
     ), buckets AS (
       SELECT 'HOUR'::varchar(8) AS bucket_granularity,
              date_bin(
                interval '1 hour',
-               started_at + utc_offset,
+               settled_at + utc_offset,
                '1970-01-01 00:00:00+00'::timestamptz
              ) - utc_offset AS bucket_start,
              timezone
         FROM request_fact
       UNION ALL
       SELECT 'DAY'::varchar(8),
-             date_trunc('day', started_at AT TIME ZONE timezone) AT TIME ZONE timezone,
+             date_trunc('day', settled_at AT TIME ZONE timezone) AT TIME ZONE timezone,
              timezone
         FROM request_fact
     )

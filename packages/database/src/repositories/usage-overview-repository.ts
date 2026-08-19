@@ -8,6 +8,7 @@ import {
   resolveUsageOverviewRange,
   type UsageOverviewRange,
 } from "./usage-overview-facts.js";
+import { summarizeUsageQuality, type UsageQualitySummary } from "./usage-quality.js";
 
 export type UsageOverviewSubjectType = "EMPLOYEE" | "PROJECT";
 export type UsageOverviewPeriod = "TODAY" | "WEEK" | "MONTH";
@@ -30,6 +31,12 @@ export interface UsageOverviewMetrics {
   realTokens: string;
   apiCost: string;
   deductedQuota: string;
+  usageQuality: UsageQualitySummary;
+  providerReportedCount: number;
+  estimatedCount: number;
+  accountAggregatedCount: number;
+  mixedCount: number;
+  unknownCount: number;
 }
 
 export interface UsageOverviewPoint extends Omit<UsageOverviewMetrics, "activeSubjects"> {
@@ -93,6 +100,11 @@ interface AggregateRow {
   real_tokens: string;
   api_cost: string;
   deducted_quota: string;
+  provider_reported_count: bigint | string;
+  estimated_count: bigint | string;
+  account_aggregated_count: bigint | string;
+  mixed_count: bigint | string;
+  unknown_count: bigint | string;
   fact_watermark: Date | null;
 }
 
@@ -193,6 +205,11 @@ export class UsageOverviewRepository {
              COALESCE(SUM(total_input_tokens + total_output_tokens), 0)::text AS real_tokens,
              COALESCE(SUM(total_api_cost), 0)::text AS api_cost,
              COALESCE(SUM(total_deducted_quota), 0)::text AS deducted_quota,
+             COALESCE(SUM(provider_reported_count), 0) AS provider_reported_count,
+             COALESCE(SUM(estimated_count), 0) AS estimated_count,
+             COALESCE(SUM(account_aggregated_count), 0) AS account_aggregated_count,
+             COALESCE(SUM(mixed_count), 0) AS mixed_count,
+             COALESCE(SUM(unknown_count), 0) AS unknown_count,
              MAX(settled_at) AS fact_watermark
         FROM facts
     `.execute(this.db);
@@ -243,6 +260,11 @@ export class UsageOverviewRepository {
              COALESCE(SUM(f.total_input_tokens + f.total_output_tokens), 0)::text AS real_tokens,
              COALESCE(SUM(f.total_api_cost), 0)::text AS api_cost,
              COALESCE(SUM(f.total_deducted_quota), 0)::text AS deducted_quota
+             ,COALESCE(SUM(f.provider_reported_count), 0) AS provider_reported_count
+             ,COALESCE(SUM(f.estimated_count), 0) AS estimated_count
+             ,COALESCE(SUM(f.account_aggregated_count), 0) AS account_aggregated_count
+             ,COALESCE(SUM(f.mixed_count), 0) AS mixed_count
+             ,COALESCE(SUM(f.unknown_count), 0) AS unknown_count
         FROM buckets b
         LEFT JOIN facts f ON f.started_at >= b.bucket_start AND f.started_at < b.bucket_end
        GROUP BY b.bucket_start, b.bucket_end, b.label
@@ -271,6 +293,11 @@ export class UsageOverviewRepository {
              SUM(total_input_tokens + total_output_tokens)::text AS real_tokens,
              SUM(total_api_cost)::text AS api_cost,
              SUM(total_deducted_quota)::text AS deducted_quota,
+             SUM(provider_reported_count) AS provider_reported_count,
+             SUM(estimated_count) AS estimated_count,
+             SUM(account_aggregated_count) AS account_aggregated_count,
+             SUM(mixed_count) AS mixed_count,
+             SUM(unknown_count) AS unknown_count,
              CASE WHEN ${totalRealTokens}::numeric = 0 THEN '0'
                   ELSE (SUM(total_input_tokens + total_output_tokens)::numeric /
                         ${totalRealTokens}::numeric)::text END AS share
@@ -293,17 +320,29 @@ function zeroAggregateRow(): AggregateRow {
   return {
     active_subjects: 0n, request_count: 0n, input_tokens: "0", output_tokens: "0",
     cache_tokens: "0", reasoning_tokens: "0", real_tokens: "0", api_cost: "0",
-    deducted_quota: "0", fact_watermark: null,
+    deducted_quota: "0", provider_reported_count: 0n, estimated_count: 0n,
+    account_aggregated_count: 0n, mixed_count: 0n, unknown_count: 0n,
+    fact_watermark: null,
   };
 }
 
 function mapCountMetrics(row: Omit<AggregateRow, "active_subjects" | "fact_watermark">) {
+  const providerReportedCount = Number(row.provider_reported_count);
+  const estimatedCount = Number(row.estimated_count);
+  const accountAggregatedCount = Number(row.account_aggregated_count);
+  const mixedCount = Number(row.mixed_count);
+  const unknownCount = Number(row.unknown_count);
+  const requestCount = Number(row.request_count);
   return {
     requestCount: String(row.request_count), inputTokens: row.input_tokens,
     outputTokens: row.output_tokens, cacheTokens: row.cache_tokens,
     reasoningTokens: row.reasoning_tokens, realTokens: row.real_tokens,
     apiCost: normalizeApiCost(row.api_cost),
     deductedQuota: row.deducted_quota,
+    usageQuality: summarizeUsageQuality(requestCount, {
+      providerReportedCount, estimatedCount, accountAggregatedCount, mixedCount, unknownCount,
+    }),
+    providerReportedCount, estimatedCount, accountAggregatedCount, mixedCount, unknownCount,
   };
 }
 

@@ -14,6 +14,7 @@ export type UsageQuality =
   | "PROVIDER_REPORTED"
   | "ESTIMATED"
   | "ACCOUNT_AGGREGATED"
+  | "MIXED"
   | "UNKNOWN";
 
 /**

@@ -17,6 +17,8 @@ export default defineConfig({
       "src/pages/OperatingBill.pool043-routing.test.tsx",
       "src/pages/OperatingBillProcurement.test.tsx",
       "src/pages/OperatingBillAccounts.test.tsx",
+      "src/pages/Dashboard.test.tsx",
+      "src/components/usage/UsageOverviewPanel.test.tsx",
     ],
     setupFiles: ["./src/test-setup.ts"],
     coverage: {
@@ -33,6 +35,9 @@ export default defineConfig({
         "src/components/operating-bill/AccountShared.tsx",
         "src/components/operating-bill/OperatingBillShell.tsx",
         "src/pages/OperatingBill.tsx",
+        "src/pages/OperatingBillOverview.tsx",
+        "src/pages/OperatingBillShared.tsx",
+        "src/lib/usage-quality.ts",
         "src/pages/OperatingBillEmployees.tsx",
         "src/pages/OperatingBillEmployeeDetail.tsx",
         "src/pages/OperatingBillProjects.tsx",

@@ -141,6 +141,8 @@ async function seedFullData(): Promise<{
     used_quota: "40000",
     remaining_quota: "110000",
     quota_unit: "TOKEN",
+    effective_from: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+    effective_until: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
     next_reset_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
   }).execute();
   await db
@@ -341,8 +343,10 @@ describe("W18 空状态（新企业无数据）", () => {
     expect(body.overageList).toEqual([]);
     expect(body.monthlyTokenUsage).toEqual({
       totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
-      totalReasoningTokens: "0", totalTokens: "0", usageQuality: "EXACT",
-      settledTransactionCount: 0, estimatedTransactionCount: 0, unknownTransactionCount: 0,
+      totalReasoningTokens: "0", totalTokens: "0", usageQuality: "NO_DATA",
+      settledTransactionCount: 0, providerReportedTransactionCount: 0,
+      estimatedTransactionCount: 0, accountAggregatedTransactionCount: 0,
+      mixedTransactionCount: 0, unknownTransactionCount: 0,
       attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
       rangeStart: expect.any(String), rangeEndExclusive: expect.any(String), employeeRanking: [],
     });

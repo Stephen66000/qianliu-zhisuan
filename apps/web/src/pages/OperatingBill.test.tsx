@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -72,6 +72,26 @@ describe("POOL-025 经营账单", () => {
     expect(screen.getByText("数据完整性检查通过")).toBeInTheDocument();
   });
 
+  it.each([
+    ["缺开始", null, "2026-08-31"],
+    ["缺结束", "2026-08-01", null],
+  ])("POOL20-041：套餐%s时经营账单不计算利用不足和闲置金额", (_label, start, end) => {
+    currentBill = {
+      ...bill,
+      summary: { ...bill.summary, planUtilization: null },
+      providers: [{
+        ...bill.providers[0]!, servicePeriodStart: start, servicePeriodEnd: end,
+        utilization: null, planAssessment: null, idleEntitlementCost: null,
+        assessmentBasis: null,
+      }],
+    };
+    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08&tab=plans"]}><OperatingBillPage /></MemoryRouter>);
+    const row = screen.getByText("Z Plan").closest("tr")!;
+    expect(row).toHaveTextContent("数据不足");
+    expect(row).not.toHaveTextContent("未用满");
+    expect(row).not.toHaveTextContent("¥150.00");
+  });
+
   it("缺期初余额时明确待补，并保留账本 API 计价核对证据", () => {
     currentBill = {
       ...bill,
@@ -113,6 +133,36 @@ describe("POOL-025 经营账单", () => {
     expect(screen.getByRole("heading", { name: "补录期初余额" })).toBeInTheDocument();
   });
 
+  it("POOL20-039/047：CNY、USD 与跨币种时六项保留各自金额和币种", () => {
+    currentBill = {
+      ...bill,
+      summary: {
+        ...bill.summary,
+        openingBalance: null, monthlyRecharge: null, endingBalance: null,
+        apiCost: null, packageCost: null, totalCost: null,
+        endingBalanceCurrency: null,
+        openingBalances: [{ currency: "USD", amount: "100" }],
+        rechargeAmounts: [{ currency: "CNY", amount: "20" }, { currency: "USD", amount: "5" }],
+        endingBalances: [{ currency: "USD", amount: "80" }],
+        apiSpends: [{ currency: "USD", amount: "25" }],
+        packageCosts: [{ currency: "CNY", amount: "30" }],
+        totalSpends: [{ currency: "CNY", amount: "30" }, { currency: "USD", amount: "25" }],
+        apiSpendReason: "不可跨币种合计",
+      },
+      providers: [],
+    };
+    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    const card = (label: string) => screen.getAllByText(label)
+      .map((node) => node.closest("article")).find(Boolean)!;
+    expect(card("期初余额")).toHaveTextContent("USD 100.00");
+    expect(card("本月充值")).toHaveTextContent("¥20.00 / USD 5.00");
+    expect(card("期末余额")).toHaveTextContent("USD 80.00");
+    expect(card("API 花费")).toHaveTextContent("USD 25.00");
+    expect(card("套餐费用")).toHaveTextContent("¥30.00");
+    expect(card("本月总花费")).toHaveTextContent("¥30.00 / USD 25.00");
+    expect(card("期初余额")).not.toHaveTextContent("¥100.00");
+  });
+
   it("经营账单内补录期初余额并请求保存后重算", async () => {
     const user = userEvent.setup();
     currentBill = {
@@ -133,6 +183,38 @@ describe("POOL-025 经营账单", () => {
     expect(recordOpeningBalance).toHaveBeenCalledWith({
       provider_resource_id: "api-resource", amount: "100.00", currency: "CNY", reason: "财务对账",
     }, expect.objectContaining({ onSuccess: expect.any(Function) }));
+  });
+
+  it("POOL20-046：多 API 资源连续补录时同步剩余资源与币种", async () => {
+    const user = userEvent.setup();
+    const apiProvider = {
+      ...bill.providers[0]!, mode: "API" as const, apiCost: null, openingBalance: null,
+      rechargeAmount: "0", apiSpendReason: "待补期初余额", packageCost: "0",
+      totalCost: null, endingBalance: "50",
+    };
+    const first = { ...apiProvider, providerResourceId: "api-cny", resourceName: "人民币 API", currency: "CNY" };
+    const second = { ...apiProvider, providerResourceId: "api-usd", resourceName: "美元 API", currency: "USD" };
+    currentBill = {
+      ...bill,
+      summary: { ...bill.summary, openingBalance: null, apiCost: null, totalCost: null },
+      providers: [first, second],
+    };
+    const view = render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    await user.type(screen.getByPlaceholderText("期初余额"), "100");
+    await user.click(screen.getByRole("button", { name: "保存并重算" }));
+    expect(recordOpeningBalance.mock.calls[0]?.[0]).toMatchObject({
+      provider_resource_id: "api-cny", currency: "CNY",
+    });
+    recordOpeningBalance.mock.calls[0]?.[1].onSuccess();
+    currentBill = { ...currentBill, providers: [second] };
+    view.rerender(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "期初余额资源" })).toHaveValue("api-usd"));
+    expect(screen.getByRole("textbox", { name: "期初余额币种" })).toHaveValue("USD");
+    await user.type(screen.getByPlaceholderText("期初余额"), "80");
+    await user.click(screen.getByRole("button", { name: "保存并重算" }));
+    expect(recordOpeningBalance.mock.calls[1]?.[0]).toMatchObject({
+      provider_resource_id: "api-usd", amount: "80.00", currency: "USD",
+    });
   });
 
   it("保留对账 Coming Soon 和草稿账单 CSV 导入入口", async () => {

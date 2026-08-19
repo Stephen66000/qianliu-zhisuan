@@ -115,7 +115,7 @@ function assessPlanResource(
   periodEnd: Date,
 ): Pick<OperatingBillProviderRow, "planAssessment" | "idleEntitlementCost" | "assessmentBasis"> {
   const totalQuota = decimal(row.total_quota);
-  if (row.mode !== "CODING_PLAN" || row.total_quota === null || row.used_quota === null || !totalQuota.gt(0)) {
+  if (row.mode !== "CODING_PLAN" || row.effective_from === null || row.effective_until === null || row.total_quota === null || row.used_quota === null || !totalQuota.gt(0)) {
     return { planAssessment: null, idleEntitlementCost: null, assessmentBasis: null };
   }
   const used = decimal(row.used_quota);
@@ -152,13 +152,14 @@ function gapForResource(row: ResourceFactRow, range?: ResourceRangeRow): Operati
     const field = row.package_cost === null ? "package_cost" : row.total_quota === null ? "total_quota" : row.used_quota === null ? "used_quota" : "quota_unit";
     return { code: "PLAN_FACT_MISSING", message: `${row.resource_name} 缺少字段：${field}；快照 v${row.snapshot_version}`, field, ...detail };
   }
+  if (row.mode === "CODING_PLAN" && (row.effective_from === null || row.effective_until === null)) {
+    const field = row.effective_from === null ? "effective_from" : "effective_until"; return { code: "PLAN_PERIOD_MISSING", message: `${row.resource_name} 缺少字段：${field}；不能计算订阅周期利用率`, field, ...detail };
+  }
   return null;
 }
 
 function isEffectivePackage(row: ResourceFactRow, start: Date, end: Date): boolean {
-  return row.mode === "CODING_PLAN" && row.package_cost !== null
-    && (row.effective_from === null || row.effective_from < end)
-    && (row.effective_until === null || row.effective_until > start);
+  return row.mode === "CODING_PLAN" && row.package_cost !== null && row.effective_from !== null && row.effective_until !== null && row.effective_from < end && row.effective_until > start;
 }
 
 function providerFactEvidence(input: {
@@ -484,7 +485,7 @@ export async function buildOperatingBillDraft(
       const resourceApiCost = monthlyCost.apiSpend === null ? null : decimal(monthlyCost.apiSpend);
       const resourcePackageCost = decimal(monthlyCost.packageCost);
       const totalQuota = decimal(row.total_quota);
-      const utilization = row.mode === "CODING_PLAN" && row.total_quota !== null && row.used_quota !== null && totalQuota.gt(0)
+      const utilization = row.mode === "CODING_PLAN" && row.effective_from !== null && row.effective_until !== null && row.total_quota !== null && row.used_quota !== null && totalQuota.gt(0)
         ? decimal(row.used_quota).div(totalQuota).mul(100).toDecimalPlaces(2).toFixed(2) : null;
       const activePrincipalCount = new Set(sourceUsage.filter((item) => item.provider_resource_id === row.resource_id).map((item) => item.principal_id)).size;
       const assessment = assessPlanResource(row, activePrincipalCount, resourcePackageCost, end);

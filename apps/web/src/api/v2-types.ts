@@ -84,9 +84,12 @@ export interface UsageOverview {
     activeSubjects: number; requestCount: string; inputTokens: string; outputTokens: string;
     realTokens: string; cacheTokens: string; reasoningTokens: string;
     apiCost: string; deductedQuota: string;
+    usageQuality: "NO_DATA" | "PROVIDER_REPORTED" | "ESTIMATED" | "ACCOUNT_AGGREGATED" | "MIXED" | "UNKNOWN";
+    providerReportedCount: number; estimatedCount: number; accountAggregatedCount: number;
+    mixedCount: number; unknownCount: number;
   };
-  trend: Array<{ bucketStart: string; bucketEnd: string; label: string; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string }>;
-  ranking: Array<{ subjectId: string; subjectName: string; departmentLabel: string | null; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string; share: string }>;
+  trend: Array<{ bucketStart: string; bucketEnd: string; label: string; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number }>;
+  ranking: Array<{ subjectId: string; subjectName: string; departmentLabel: string | null; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number; share: string }>;
   factWatermark: string | null;
   generatedAt: string;
   detailQuery: {
@@ -104,7 +107,9 @@ export interface UsageOverview {
 export interface ResourceUtilization {
   resourceId: string; providerId: string; providerName: string; resourceName: string;
   mode: "API" | "CODING_PLAN"; resourceStatus: string; requestCount: number;
-  realTokens: string; apiCost: string; deductedQuota: string; purchaseCashAmount: string;
+  realTokens: string; apiCost: string | null; deductedQuota: string; purchaseCashAmount: string | null;
+  ledgerApiCost?: string | null; apiSpendReason?: string | null;
+  purchaseCashAmounts?: Array<{ currency: string; amount: string }>;
   currency: string | null; budgetAmount: string | null; currentBalance: string | null;
   packageCost: string | null; totalQuota: string | null; usedQuota: string | null;
   remainingQuota: string | null; quotaUnit: string | null;
@@ -130,6 +135,12 @@ export interface ResourceUtilization {
 
 export interface ProcurementReview {
   month: string;
+  summary: {
+    purchaseCashAmounts: Array<{ currency: string; amount: string }>;
+    apiSpends: Array<{ currency: string; amount: string }>;
+    packageCosts: Array<{ currency: string; amount: string }>;
+    planUtilization: string | null;
+  };
   resources: Array<ResourceUtilization & { reviewLabel: string; reviewReason: string }>;
   note: { text: string; version: number; updatedAt: string | null; updatedBy: string | null };
 }

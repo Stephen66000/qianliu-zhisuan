@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { sql } from "kysely";
 import { createKysely, loadMonthlyOperatingCosts, migrateDown, migrateToLatest, type Database } from "@qianliu/database";
 import { digestSessionToken, generateSessionToken } from "@qianliu/provider-adapters";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -164,7 +165,9 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
       apiSpend: "10.00000000", endingSnapshotVersion: 2,
     });
     expect(mixed.summary).toMatchObject({
-      apiSpendStatus: "CURRENCY_MISMATCH", packageCost: null, totalSpend: null,
+      apiSpendStatus: "CALCULABLE", packageCost: "30.00000000", totalSpend: null,
+      apiSpends: [{ currency: "CNY", amount: "10.00000000" }],
+      packageCosts: [{ currency: "USD", amount: "30.00000000" }],
     });
 
     await db.deleteFrom("provider_resource_operating_snapshot").where("provider_resource_id", "=", plan.id).execute();
@@ -223,7 +226,7 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     const openingAdminId = randomUUID();
     const openingUsername = `opening-${randomUUID().slice(0, 8)}`;
     await db.insertInto("enterprise").values({
-      id: openingEnterpriseId, name: "期初补录隔离企业",
+      id: openingEnterpriseId, name: "期初补录隔离企业", timezone: "America/New_York",
     }).execute();
     await db.insertInto("admin_user").values({
       id: openingAdminId, enterprise_id: openingEnterpriseId, username: openingUsername,
@@ -290,6 +293,10 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
         version: 1, amount: "100.00000000", currency: "CNY", source: "MANUAL",
         reason: "财务期初对账", created_by: openingAdminId,
       }]);
+    expect(await db.selectFrom("operation_log").select(["action", "target_id"])
+      .where("enterprise_id", "=", openingEnterpriseId)
+      .where("action", "=", "operating_bill.opening_balance.create").execute())
+      .toEqual([{ action: "operating_bill.opening_balance.create", target_id: resource.id }]);
 
     const replay = await app.inject({
       method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
@@ -301,6 +308,19 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(replay.statusCode).toBe(200);
     expect(await db.selectFrom("operating_bill_opening_balance").select("version")
       .where("provider_resource_id", "=", resource.id).execute()).toEqual([{ version: 1 }]);
+    expect(await db.selectFrom("operation_log").select("id")
+      .where("enterprise_id", "=", openingEnterpriseId)
+      .where("action", "=", "operating_bill.opening_balance.create").execute()).toHaveLength(1);
+
+    for (const [month, amount] of [["1999-12", "1"], ["2201-01", "1"], ["2026-06", "10000000000000000"]]) {
+      const invalid = await app.inject({
+        method: "POST", url: `/operating-bills/${month}/opening-balances`,
+        headers: { cookie: openingCookie },
+        payload: { provider_resource_id: resource.id, amount, currency: "CNY" },
+      });
+      expect(invalid.statusCode).toBe(400);
+      expect(invalid.json()).toMatchObject({ error: "invalid_request" });
+    }
 
     const crossCurrency = await app.inject({
       method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
@@ -308,6 +328,41 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     });
     expect(crossCurrency.statusCode).toBe(409);
     expect(crossCurrency.json()).toMatchObject({ error: "opening_balance_currency_mismatch" });
+
+    await sql`
+      CREATE FUNCTION pool046_reject_opening_audit() RETURNS trigger AS $$
+      BEGIN
+        IF NEW.action = 'operating_bill.opening_balance.create' THEN
+          RAISE EXCEPTION 'forced audit failure';
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+      CREATE TRIGGER pool046_reject_opening_audit
+        BEFORE INSERT ON operation_log FOR EACH ROW
+        EXECUTE FUNCTION pool046_reject_opening_audit()
+    `.execute(db);
+    try {
+      const auditFailure = await app.inject({
+        method: "POST", url: "/operating-bills/2026-05/opening-balances",
+        headers: { cookie: openingCookie },
+        payload: { provider_resource_id: resource.id, amount: "10", currency: "CNY" },
+      });
+      expect(auditFailure.statusCode).toBe(500);
+      expect(await db.selectFrom("operating_bill_opening_balance")
+        .select("operating_bill_opening_balance.id")
+        .innerJoin("operating_bill_period", "operating_bill_period.id", "operating_bill_opening_balance.period_id")
+        .where("operating_bill_period.period_month", "=", "2026-05-01").execute()).toHaveLength(0);
+    } finally {
+      await sql`DROP TRIGGER pool046_reject_opening_audit ON operation_log;
+                DROP FUNCTION pool046_reject_opening_audit()`.execute(db);
+    }
+    const recovered = await app.inject({
+      method: "POST", url: "/operating-bills/2026-05/opening-balances",
+      headers: { cookie: openingCookie },
+      payload: { provider_resource_id: resource.id, amount: "10", currency: "CNY" },
+    });
+    expect(recovered.statusCode).toBe(201);
 
     const corrected = await app.inject({
       method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
@@ -318,8 +373,19 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
       (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
     )).toMatchObject({ openingBalance: "90.00000000", endingBalance: "70.00000000", apiCost: "20.00000000" });
     expect(await db.selectFrom("operating_bill_opening_balance").select("version")
-      .where("provider_resource_id", "=", resource.id).orderBy("version").execute())
+      .where("provider_resource_id", "=", resource.id).where("reason", "is not", null)
+      .orderBy("version").execute())
       .toEqual([{ version: 1 }, { version: 2 }]);
+
+    const julyPeriod = await db.insertInto("operating_bill_period").values({
+      enterprise_id: openingEnterpriseId, period_month: "2026-07-01",
+      created_by: openingAdminId,
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("operating_bill_opening_balance").values({
+      enterprise_id: openingEnterpriseId, period_id: julyPeriod.id,
+      provider_resource_id: resource.id, version: 1, amount: "65", currency: "CNY",
+      source: "MANUAL", reason: "上月尚未结账时先人工补录", created_by: openingAdminId,
+    }).execute();
 
     const closedJune = await app.inject({
       method: "POST", url: "/operating-bills/2026-06/close", headers: { cookie: openingCookie },
@@ -354,6 +420,51 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     });
     expect(redundantOpening.statusCode).toBe(409);
     expect(redundantOpening.json()).toMatchObject({ error: "opening_balance_already_available" });
+
+    const fallbackResource = await db.insertInto("provider_resource").values({
+      enterprise_id: openingEnterpriseId, provider_id: provider.id,
+      name: "异币种承接回退 API", mode: "API", credential_type: "API_KEY", status: "ACTIVE",
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("provider_resource_operating_snapshot").values([
+      {
+        enterprise_id: openingEnterpriseId, provider_resource_id: fallbackResource.id,
+        version: 1, source: "ADMIN", collected_at: new Date("2026-07-31T16:00:00Z"),
+        currency: "CNY", current_balance: "100",
+      },
+      {
+        enterprise_id: openingEnterpriseId, provider_resource_id: fallbackResource.id,
+        version: 2, source: "ADMIN", collected_at: new Date("2026-08-15T00:00:00Z"),
+        currency: "CNY", current_balance: "90",
+      },
+    ]).execute();
+    await db.updateTable("operating_bill_period").set({ status: "CLOSED", current_version: 1 })
+      .where("id", "=", julyPeriod.id).execute();
+    await db.insertInto("operating_bill_version").values({
+      enterprise_id: openingEnterpriseId, period_id: julyPeriod.id, version: 1,
+      snapshot: { sourceFacts: { balanceBridgeFacts: [{
+        providerResourceId: fallbackResource.id, currency: "USD",
+        endingSnapshotId: null, endingSnapshotVersion: null,
+        endingSnapshotAt: "2026-07-31T15:59:00.000Z", endingBalance: "77",
+      }] } },
+      close_note: "异币种上月期末", closed_by: openingAdminId,
+    }).execute();
+    const augustFallback = await app.inject({
+      method: "GET", url: "/operating-bills/2026-08", headers: { cookie: openingCookie },
+    });
+    expect(augustFallback.statusCode).toBe(200);
+    expect(augustFallback.json().providers.find(
+      (row: { providerResourceId: string }) => row.providerResourceId === fallbackResource.id,
+    )).toMatchObject({
+      openingBalance: "100.00000000", openingBalanceCurrency: "CNY",
+      endingBalance: "90.00000000",
+      apiCost: "10.00000000",
+    });
+    expect(augustFallback.json().sourceFacts.balanceBridgeFacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providerResourceId: fallbackResource.id,
+        openingBalanceSource: "OPERATING_SNAPSHOT", currency: "CNY",
+      }),
+    ]));
     const latestSnapshot = await db.selectFrom("provider_resource_operating_snapshot")
       .select(["version", "current_balance"]).where("provider_resource_id", "=", resource.id)
       .orderBy("collected_at", "desc").executeTakeFirstOrThrow();
@@ -530,6 +641,7 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
   });
 
   it("0053 已有期初事实时拒绝破坏性回退", async () => {
+    expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
     await expect(migrateDown(db)).rejects.toThrow("0053 contains opening balance facts");
   });
 });

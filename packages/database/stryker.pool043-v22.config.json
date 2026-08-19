@@ -8,8 +8,11 @@
   "vitest": { "configFile": "vitest.pool043-v22.mutation.config.ts" },
   "coverageAnalysis": "perTest",
   "mutate": [
-    "src/repositories/monthly-operating-cost.ts:136:1-188:2",
-    "src/repositories/monthly-operating-cost.ts:190:1-254:2",
+    "src/repositories/monthly-operating-cost.ts:126:1-213:2",
+    "src/repositories/monthly-operating-summary.ts:8:1-125:2",
+    "src/repositories/operating-bill-monthly-cost.ts:9:1-23:200",
+    "src/repositories/operating-bill-monthly-cost.ts:25:1-32:2",
+    "src/repositories/usage-quality.ts",
     "src/repositories/dispatch-policy-clone.ts:14:1-18:2"
   ],
   "thresholds": { "high": 100, "low": 90, "break": 80 },

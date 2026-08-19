@@ -80,7 +80,7 @@ beforeAll(async () => {
   await seedRequest(dstEmployeeId, new Date("2026-03-08T07:30:00.000Z"), 30n, 3n, 0n, 0n, 33n, "0.3", dstEnterpriseId);
   await seedRequest(dstEmployeeId, new Date("2026-04-01T04:00:00.000Z"), 999n, 1n, 0n, 0n, 1_000n, "9", dstEnterpriseId);
   await seedRequest(monthBoundaryEmployeeId, new Date("2026-08-31T15:59:59.999Z"), 40n, 2n, 30n, 1n, 42n, "0", monthBoundaryEnterpriseId);
-  await seedRequest(monthBoundaryEmployeeId, new Date("2026-08-31T16:00:00.000Z"), 50n, 3n, 20n, 2n, 53n, "0", monthBoundaryEnterpriseId);
+  await seedRequest(monthBoundaryEmployeeId, new Date("2026-08-31T16:00:00.000Z"), 50n, 3n, 20n, 2n, 53n, "0", monthBoundaryEnterpriseId, "SETTLED", "PROVIDER_REPORTED", new Date("2026-08-31T15:59:00.000Z"));
   await db.insertInto("operating_bill_request_project_assignment").values({
     enterprise_id: enterpriseId,
     ai_request_id: assignedRequestId,
@@ -116,6 +116,8 @@ async function seedRequest(
   cost: string,
   entId = enterpriseId,
   ledgerStatus = "SETTLED",
+  usageQuality = "PROVIDER_REPORTED",
+  startedAt = at,
 ): Promise<string> {
   let key = await db.selectFrom("principal_key")
     .select("id")
@@ -140,8 +142,8 @@ async function seedRequest(
     protocol: "openai",
     unified_model: "ql-test",
     status: "SUCCEEDED",
-    started_at: at,
-    finished_at: new Date(at.getTime() + 1_000),
+    started_at: startedAt,
+    finished_at: new Date(startedAt.getTime() + 1_000),
   }).execute();
   await db.insertInto("ledger_transaction").values({
     ai_request_id: requestId,
@@ -153,7 +155,7 @@ async function seedRequest(
     total_reasoning_tokens: reasoning,
     total_deducted_quota: deducted,
     total_api_cost: cost,
-    usage_quality: "PROVIDER_REPORTED",
+    usage_quality: usageQuality,
     attempt_count: 1,
     status: ledgerStatus,
     created_at: at,
@@ -173,7 +175,7 @@ describe("W20-04 UsageOverviewRepository", () => {
       from: "2026-08-09T16:00:00.000Z",
       to: "2026-08-16T16:00:00.000Z",
     });
-    expect(result.metrics).toEqual({
+    expect(result.metrics).toMatchObject({
       activeSubjects: 2,
       requestCount: "2",
       inputTokens: "300",
@@ -183,6 +185,8 @@ describe("W20-04 UsageOverviewRepository", () => {
       realTokens: "350",
       apiCost: "1.25000000",
       deductedQuota: "350",
+      usageQuality: "PROVIDER_REPORTED",
+      providerReportedCount: 2,
     });
     expect(result.trend).toHaveLength(7);
     expect(result.trend.map((point) => point.label)).toEqual([
@@ -222,6 +226,7 @@ describe("W20-04 UsageOverviewRepository", () => {
     });
     expect(empty.metrics.activeSubjects).toBe(0);
     expect(empty.metrics.realTokens).toBe("0");
+    expect(empty.metrics.usageQuality).toBe("NO_DATA");
     expect(empty.trend).toHaveLength(24);
     expect(empty.trend.every((point) => point.requestCount === "0")).toBe(true);
 
@@ -296,7 +301,7 @@ describe("W20-04 UsageOverviewRepository", () => {
     expect(dstDay.trend.reduce((sum, point) => sum + BigInt(point.realTokens), 0n)).toBe(55n);
   });
 
-  it("POOL20-045：上海月末最后一毫秒与下月零点严格分月且真实 Token 不含缓存", async () => {
+  it("POOL20-045：上海月末开始、下月结算严格按结算时间分月且真实 Token 不含缓存", async () => {
     const repository = new UsageOverviewRepository(db);
     const august = await repository.getOverview({
       enterpriseId: monthBoundaryEnterpriseId,
@@ -322,6 +327,12 @@ describe("W20-04 UsageOverviewRepository", () => {
       requestCount: "1", inputTokens: "50", outputTokens: "3",
       cacheTokens: "20", reasoningTokens: "2", realTokens: "53",
     });
+    const septemberDetails = await new UsageRepository(db).list({
+      enterpriseId: monthBoundaryEnterpriseId, settledOnly: true,
+      from: new Date(september.range.from), toExclusive: new Date(september.range.to),
+    });
+    expect(septemberDetails.records).toHaveLength(1);
+    expect(septemberDetails.records[0]?.startedAt).toBe("2026-08-31T15:59:00.000Z");
   });
 
   it("0047 建立可重建聚合表且初始不伪装已有缓存", async () => {

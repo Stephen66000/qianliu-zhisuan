@@ -33,7 +33,7 @@ function employeeOverview(): UsageOverview {
   return {
     subjectType: "EMPLOYEE", subjectId: null, period: "MONTH", anchor: "2026-08-12T04:00:00.000Z", timezone: "Asia/Shanghai",
     range: { from: "2026-07-31T16:00:00.000Z", to: "2026-08-31T16:00:00.000Z" },
-    metrics: { activeSubjects: 1, requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000" },
+    metrics: { activeSubjects: 1, requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000", usageQuality: "PROVIDER_REPORTED", providerReportedCount: 3, estimatedCount: 0, accountAggregatedCount: 0, mixedCount: 0, unknownCount: 0 },
     trend: [{ bucketStart: "2026-07-31T16:00:00.000Z", bucketEnd: "2026-08-01T16:00:00.000Z", label: "08-01", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000" }],
     ranking: [{ subjectId: overviewEmployeeId, subjectName: "李雷", departmentLabel: "研发", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000", share: "1" }],
     factWatermark: "2026-08-10T00:00:00.000Z", generatedAt: "2026-08-12T04:00:00.000Z",
@@ -64,8 +64,10 @@ function emptySummary(): DashboardSummary {
     overageList: [],
     monthlyTokenUsage: {
       totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
-      totalReasoningTokens: "0", totalTokens: "0", usageQuality: "EXACT",
-      settledTransactionCount: 0, estimatedTransactionCount: 0, unknownTransactionCount: 0,
+      totalReasoningTokens: "0", totalTokens: "0", usageQuality: "NO_DATA",
+      settledTransactionCount: 0, providerReportedTransactionCount: 0,
+      estimatedTransactionCount: 0, accountAggregatedTransactionCount: 0,
+      mixedTransactionCount: 0, unknownTransactionCount: 0,
       attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
       rangeStart: "2026-07-31T16:00:00.000Z", rangeEndExclusive: "2026-08-31T16:00:00.000Z",
       employeeRanking: [],
@@ -163,8 +165,10 @@ function seededSummary(): DashboardSummary {
       totalCacheTokens: "3000",
       totalReasoningTokens: "400",
       totalTokens: "9007199254740995000",
-      usageQuality: "EXACT", settledTransactionCount: 1,
-      estimatedTransactionCount: 0, unknownTransactionCount: 0,
+      usageQuality: "PROVIDER_REPORTED", settledTransactionCount: 1,
+      providerReportedTransactionCount: 1, estimatedTransactionCount: 0,
+      accountAggregatedTransactionCount: 0, mixedTransactionCount: 0,
+      unknownTransactionCount: 0,
       attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
       rangeStart: "2026-07-31T16:00:00.000Z", rangeEndExclusive: "2026-08-31T16:00:00.000Z",
       employeeRanking: [{
@@ -340,6 +344,26 @@ describe("W18 首页看板", () => {
     renderDashboard();
     expect(screen.getAllByText("120").length).toBeGreaterThan(0);
     expect(screen.getByText(/含 1 笔计量未知，数值只代表已记录 Token/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["NO_DATA", { settledTransactionCount: 0 }, "本周期暂无已结算计量"],
+    ["ACCOUNT_AGGREGATED", { settledTransactionCount: 2, accountAggregatedTransactionCount: 2 }, "2 笔账户聚合计量"],
+    ["MIXED", { settledTransactionCount: 2, providerReportedTransactionCount: 1, mixedTransactionCount: 1 }, "混合计量"],
+  ] as const)("POOL20-045：首页解释 %s 质量而不冒充精确", (quality, counts, expected) => {
+    useDashboardMock.mockReturnValue({
+      isLoading: false, error: null, refetch: vi.fn(),
+      data: {
+        ...emptySummary(),
+        monthlyTokenUsage: {
+          ...emptySummary().monthlyTokenUsage,
+          usageQuality: quality,
+          ...counts,
+        },
+      },
+    });
+    renderDashboard();
+    expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
   });
 
   it("员工区保留 1.0 月度总量，周期与单员工趋势由后端聚合切换", async () => {

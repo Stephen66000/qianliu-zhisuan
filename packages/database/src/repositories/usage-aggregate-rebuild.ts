@@ -44,8 +44,9 @@ export async function rebuildUsageAggregateBucket(
                lt.total_input_tokens, lt.total_output_tokens,
                lt.total_cache_tokens, lt.total_reasoning_tokens,
                lt.total_deducted_quota, lt.total_api_cost,
+               lt.usage_quality,
                COALESCE(final_line.ledger_watermark, lt.created_at) AS ledger_watermark,
-               ar.started_at
+               lt.created_at AS settled_at
           FROM ledger_transaction lt
           JOIN ai_request ar
             ON ar.id = lt.ai_request_id AND ar.enterprise_id = lt.enterprise_id
@@ -78,8 +79,8 @@ export async function rebuildUsageAggregateBucket(
           ) final_line ON true
          WHERE lt.enterprise_id = ${input.enterpriseId}::uuid
            AND lt.status = 'SETTLED'
-           AND ar.started_at >= b.range_start
-           AND ar.started_at < b.range_end
+           AND lt.created_at >= b.range_start
+           AND lt.created_at < b.range_end
       ), aggregated AS MATERIALIZED (
         SELECT source_principal_id, project_principal_id, provider_resource_id,
                unified_model_id,
@@ -90,8 +91,13 @@ export async function rebuildUsageAggregateBucket(
                sum(total_reasoning_tokens)::bigint AS reasoning_tokens,
                sum(total_deducted_quota)::bigint AS deducted_quota,
                sum(total_api_cost)::numeric(30, 8) AS api_cost,
+               count(*) FILTER (WHERE usage_quality IN ('PROVIDER_REPORTED', 'UPSTREAM_REPORTED'))::bigint AS provider_reported_count,
+               count(*) FILTER (WHERE usage_quality = 'ESTIMATED')::bigint AS estimated_count,
+               count(*) FILTER (WHERE usage_quality = 'ACCOUNT_AGGREGATED')::bigint AS account_aggregated_count,
+               count(*) FILTER (WHERE usage_quality LIKE 'MIXED%')::bigint AS mixed_count,
+               count(*) FILTER (WHERE usage_quality = 'UNKNOWN')::bigint AS unknown_count,
                max(ledger_watermark) AS fact_watermark,
-               max(started_at) AS max_fact_at
+               max(settled_at) AS max_fact_at
           FROM request_facts
          GROUP BY source_principal_id, project_principal_id, provider_resource_id,
                   unified_model_id
@@ -115,6 +121,8 @@ export async function rebuildUsageAggregateBucket(
           source_principal_id, project_principal_id, provider_resource_id,
           unified_model_id, request_count, input_tokens, output_tokens,
           cache_tokens, reasoning_tokens, deducted_quota, api_cost,
+          provider_reported_count, estimated_count, account_aggregated_count,
+          mixed_count, unknown_count,
           fact_watermark, max_fact_at, dirty, generated_at
         )
         SELECT ${input.enterpriseId}::uuid, ${input.bucketGranularity},
@@ -122,6 +130,8 @@ export async function rebuildUsageAggregateBucket(
                source_principal_id, project_principal_id, provider_resource_id,
                unified_model_id, request_count, input_tokens, output_tokens,
                cache_tokens, reasoning_tokens, deducted_quota, api_cost,
+               provider_reported_count, estimated_count, account_aggregated_count,
+               mixed_count, unknown_count,
                fact_watermark, max_fact_at, false, ${generatedAt}
           FROM aggregated
         ON CONFLICT (
@@ -136,6 +146,11 @@ export async function rebuildUsageAggregateBucket(
           reasoning_tokens = EXCLUDED.reasoning_tokens,
           deducted_quota = EXCLUDED.deducted_quota,
           api_cost = EXCLUDED.api_cost,
+          provider_reported_count = EXCLUDED.provider_reported_count,
+          estimated_count = EXCLUDED.estimated_count,
+          account_aggregated_count = EXCLUDED.account_aggregated_count,
+          mixed_count = EXCLUDED.mixed_count,
+          unknown_count = EXCLUDED.unknown_count,
           fact_watermark = EXCLUDED.fact_watermark,
           max_fact_at = EXCLUDED.max_fact_at,
           dirty = false,

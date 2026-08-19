@@ -261,7 +261,6 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
     expect(response.statusCode).toBe(200);
     const body = response.json<{ resources: Array<Record<string, unknown>> }>();
     expect(body.resources).toHaveLength(3);
-
     const api = body.resources.find((resource) => resource.resourceId === apiResourceId)!;
     expect(api).toMatchObject({
       mode: "API",
@@ -322,14 +321,58 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
       servicePeriodEnd: null,
       utilizationRate: null,
       utilizationBasis: null,
+      utilizationStatus: "UNKNOWN",
+      idleEntitlementCost: null,
       notCalculableReason: "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE",
     });
+    const endMissingProcurement = await app.inject({
+      method: "GET", url: `/procurement-reviews/${currentMonth}`, headers: { cookie: adminCookie },
+    });
+    expect(endMissingProcurement.json().resources.find(
+      (resource: { resourceId: string }) => resource.resourceId === kimiResourceId,
+    )).toMatchObject({ reviewLabel: "数据不足", utilizationRate: null, idleEntitlementCost: null });
+    const endMissingBill = await app.inject({
+      method: "GET", url: `/operating-bills/${currentMonth}`, headers: { cookie: adminCookie },
+    });
+    expect(endMissingBill.json().providers.find(
+      (resource: { providerResourceId: string }) => resource.providerResourceId === kimiResourceId,
+    )).toMatchObject({ utilization: null, planAssessment: null, idleEntitlementCost: null });
     await db.insertInto("provider_resource_operating_snapshot").values({
       enterprise_id: enterpriseId,
       provider_resource_id: kimiResourceId,
       version: 3,
       source: "PROVIDER_SYNC",
       collected_at: new Date(Date.now() + 1),
+      currency: "CNY",
+      package_cost: "300",
+      total_quota: "100",
+      used_quota: "35",
+      remaining_quota: "65",
+      quota_unit: "POINT",
+      effective_from: null,
+      effective_until: new Date("2026-09-01T00:00:00+08:00"),
+    }).execute();
+    const startMissing = await app.inject({
+      method: "GET", url: `/procurement-reviews/${currentMonth}`, headers: { cookie: adminCookie },
+    });
+    expect(startMissing.json().resources.find(
+      (resource: { resourceId: string }) => resource.resourceId === kimiResourceId,
+    )).toMatchObject({
+      reviewLabel: "数据不足", utilizationRate: null, idleEntitlementCost: null,
+      notCalculableReason: "SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE",
+    });
+    const startMissingBill = await app.inject({
+      method: "GET", url: `/operating-bills/${currentMonth}`, headers: { cookie: adminCookie },
+    });
+    expect(startMissingBill.json().providers.find(
+      (resource: { providerResourceId: string }) => resource.providerResourceId === kimiResourceId,
+    )).toMatchObject({ utilization: null, planAssessment: null, idleEntitlementCost: null });
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: enterpriseId,
+      provider_resource_id: kimiResourceId,
+      version: 4,
+      source: "PROVIDER_SYNC",
+      collected_at: new Date(Date.now() + 2),
       currency: "CNY",
       package_cost: "300",
       total_quota: "100",
@@ -377,12 +420,22 @@ describe("W20-09 轻量采购复盘", () => {
     const body = first.json();
     const replay = second.json();
     expect(body.resources).toHaveLength(3);
+    expect(body.summary).toMatchObject({
+      purchaseCashAmounts: [{ currency: "CNY", amount: "920.00000000" }],
+      apiSpends: [],
+      packageCosts: [{ currency: "CNY", amount: "800.00000000" }],
+      planUtilization: "69.38",
+    });
     expect(body.note).toEqual({ text: "", version: 0, updatedAt: null, updatedBy: null });
     expect(JSON.stringify(body)).not.toContain("人工判断");
 
     const byId = new Map(body.resources.map((resource: { resourceId: string }) => [resource.resourceId, resource]));
     expect(byId.get(apiResourceId)).toMatchObject({
       purchaseCashAmount: "120.00000000",
+      purchaseCashAmounts: [{ currency: "CNY", amount: "120.00000000" }],
+      apiCost: null,
+      ledgerApiCost: "12.50000000",
+      apiSpendReason: "待补期初余额",
       utilizationRate: null,
       reviewLabel: "数据不足",
       reviewReason: expect.stringContaining("MONTHLY_BUDGET_NOT_CONFIGURED"),

@@ -3,6 +3,7 @@ import { sql } from "kysely";
 
 import type { Database } from "../kysely.js";
 import type { DashboardSummary } from "./dashboard-types.js";
+import { summarizeUsageQuality } from "./usage-quality.js";
 
 export function sumDecimalTexts(values: string[]): string {
   const scale = values.reduce(
@@ -42,7 +43,8 @@ export async function getMonthlyTokenUsage(
   const totals = await sql<{
     input_tokens: string; output_tokens: string; cache_tokens: string;
     reasoning_tokens: string; total_tokens: string; settled_count: string;
-    estimated_count: string; unknown_count: string;
+    provider_reported_count: string; estimated_count: string;
+    account_aggregated_count: string; mixed_count: string; unknown_count: string;
   }>`
     SELECT COALESCE(SUM(total_input_tokens), 0)::text AS input_tokens,
            COALESCE(SUM(total_output_tokens), 0)::text AS output_tokens,
@@ -50,18 +52,19 @@ export async function getMonthlyTokenUsage(
            COALESCE(SUM(total_reasoning_tokens), 0)::text AS reasoning_tokens,
            COALESCE(SUM(total_input_tokens + total_output_tokens), 0)::text AS total_tokens,
            COUNT(*)::text AS settled_count,
-           COUNT(*) FILTER (
-             WHERE upper(usage_quality) LIKE '%ESTIMATED%'
-               AND upper(usage_quality) NOT LIKE '%UNKNOWN%'
-           )::text AS estimated_count,
-           COUNT(*) FILTER (WHERE upper(usage_quality) LIKE '%UNKNOWN%')::text AS unknown_count
+           COUNT(*) FILTER (WHERE usage_quality IN ('PROVIDER_REPORTED', 'UPSTREAM_REPORTED'))::text AS provider_reported_count,
+           COUNT(*) FILTER (WHERE usage_quality = 'ESTIMATED')::text AS estimated_count,
+           COUNT(*) FILTER (WHERE usage_quality = 'ACCOUNT_AGGREGATED')::text AS account_aggregated_count,
+           COUNT(*) FILTER (WHERE usage_quality LIKE 'MIXED%')::text AS mixed_count,
+           COUNT(*) FILTER (WHERE usage_quality = 'UNKNOWN')::text AS unknown_count
       FROM ledger_transaction
      WHERE enterprise_id = ${enterpriseId} AND status = 'SETTLED'
        AND created_at >= ${monthStart} AND created_at < ${monthEnd}
   `.execute(db);
   const total = totals.rows[0] ?? {
     input_tokens: "0", output_tokens: "0", cache_tokens: "0", reasoning_tokens: "0",
-    total_tokens: "0", settled_count: "0", estimated_count: "0", unknown_count: "0",
+    total_tokens: "0", settled_count: "0", provider_reported_count: "0",
+    estimated_count: "0", account_aggregated_count: "0", mixed_count: "0", unknown_count: "0",
   };
   const ranking = await sql<{
     principal_id: string; principal_name: string; input_tokens: string;
@@ -86,16 +89,28 @@ export async function getMonthlyTokenUsage(
      ORDER BY SUM(lt.total_input_tokens + lt.total_output_tokens) DESC, p.name ASC, p.id ASC
      LIMIT 10
   `.execute(db);
+  const settledTransactionCount = Number(total.settled_count);
+  const providerReportedTransactionCount = Number(total.provider_reported_count);
   const estimatedTransactionCount = Number(total.estimated_count);
+  const accountAggregatedTransactionCount = Number(total.account_aggregated_count);
+  const mixedTransactionCount = Number(total.mixed_count);
   const unknownTransactionCount = Number(total.unknown_count);
   return {
     totalInputTokens: total.input_tokens, totalOutputTokens: total.output_tokens,
     totalCacheTokens: total.cache_tokens, totalReasoningTokens: total.reasoning_tokens,
     totalTokens: total.total_tokens,
-    usageQuality: unknownTransactionCount > 0 ? "UNKNOWN"
-      : estimatedTransactionCount > 0 ? "ESTIMATED" : "EXACT",
-    settledTransactionCount: Number(total.settled_count),
+    usageQuality: summarizeUsageQuality(settledTransactionCount, {
+      providerReportedCount: providerReportedTransactionCount,
+      estimatedCount: estimatedTransactionCount,
+      accountAggregatedCount: accountAggregatedTransactionCount,
+      mixedCount: mixedTransactionCount,
+      unknownCount: unknownTransactionCount,
+    }),
+    settledTransactionCount,
+    providerReportedTransactionCount,
     estimatedTransactionCount,
+    accountAggregatedTransactionCount,
+    mixedTransactionCount,
     unknownTransactionCount,
     attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
     rangeStart: monthStart.toISOString(),

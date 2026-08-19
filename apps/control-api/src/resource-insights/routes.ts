@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import { Decimal } from "decimal.js";
 import { sql } from "kysely";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
@@ -41,8 +42,9 @@ export function registerResourceInsightRoutes(
       const parsed = Month.safeParse(req.params.month);
       if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
       const enterpriseId = req.admin!.enterpriseId;
-      const [resources, noteResult] = await Promise.all([
+      const [resources, bill, noteResult] = await Promise.all([
         listResourceUtilization(app.db, enterpriseId, parsed.data),
+        app.operatingBillRepo.getBill(enterpriseId, parsed.data),
         sql<{ note: string; version: number; updated_at: Date; updated_by_name: string }>`
           SELECT n.note, n.version, n.updated_at, a.display_name AS updated_by_name
             FROM procurement_review_note n
@@ -52,13 +54,31 @@ export function registerResourceInsightRoutes(
         `.execute(app.db),
       ]);
       const note = noteResult.rows[0];
+      const billByResource = new Map(bill.providers.map((row) => [row.providerResourceId, row]));
       return {
         month: parsed.data,
-        resources: resources.map((resource) => ({
-          ...resource,
-          reviewLabel: reviewLabel(resource),
-          reviewReason: reviewReason(resource),
-        })),
+        summary: {
+          purchaseCashAmounts: currencyTotals(bill.providers.flatMap((row) => row.purchases)),
+          apiSpends: bill.summary.apiSpends,
+          packageCosts: bill.summary.packageCosts,
+          planUtilization: bill.summary.planUtilization,
+        },
+        resources: resources.map((resource) => {
+          const operating = billByResource.get(resource.resourceId);
+          const purchaseCashAmounts = currencyTotals(operating?.purchases ?? []);
+          const merged = {
+            ...resource,
+            apiCost: operating?.apiCost ?? null,
+            ledgerApiCost: operating?.ledgerApiCost ?? null,
+            apiSpendReason: operating?.apiSpendReason ?? null,
+            packageCost: operating?.packageCost ?? null,
+            currency: operating?.currency ?? resource.currency,
+            purchaseCashAmount: purchaseCashAmounts.length === 0 ? "0.00000000"
+              : purchaseCashAmounts.length === 1 ? purchaseCashAmounts[0]!.amount : null,
+            purchaseCashAmounts,
+          };
+          return { ...merged, reviewLabel: reviewLabel(merged), reviewReason: reviewReason(merged) };
+        }),
         note: note
           ? { text: note.note, version: note.version, updatedAt: note.updated_at.toISOString(), updatedBy: note.updated_by_name }
           : { text: "", version: 0, updatedAt: null, updatedBy: null },
@@ -142,7 +162,20 @@ export function registerResourceInsightRoutes(
   );
 }
 
-function reviewLabel(resource: Awaited<ReturnType<typeof listResourceUtilization>>[number]): string {
+function currencyTotals(facts: Array<{ currency: string; amount: string }>) {
+  const totals = new Map<string, Decimal>();
+  for (const fact of facts) {
+    totals.set(fact.currency, (totals.get(fact.currency) ?? new Decimal(0)).plus(fact.amount));
+  }
+  return [...totals.entries()].sort(([left], [right]) => left.localeCompare(right))
+    .map(([currency, amount]) => ({ currency, amount: amount.toDecimalPlaces(8).toFixed(8) }));
+}
+
+type ReviewResource = Pick<Awaited<ReturnType<typeof listResourceUtilization>>[number],
+  "forecastExhaustAt" | "forecastNotCalculableReason" | "utilizationStatus" |
+  "utilizationRate" | "notCalculableReason" | "mode" | "requestCount">;
+
+function reviewLabel(resource: ReviewResource): string {
   if (resource.forecastExhaustAt || resource.utilizationStatus === "EXHAUSTED") return "关注耗尽";
   if (resource.utilizationStatus === "UNDERUSED") return "利用不足";
   if (resource.utilizationStatus === "OVER_BUDGET" || resource.utilizationStatus === "WARNING") return "关注预算";
@@ -150,12 +183,12 @@ function reviewLabel(resource: Awaited<ReturnType<typeof listResourceUtilization
   return "数据不足";
 }
 
-function reviewReason(resource: Awaited<ReturnType<typeof listResourceUtilization>>[number]): string {
+function reviewReason(resource: ReviewResource): string {
   const parts: string[] = [];
   if (resource.forecastExhaustAt) parts.push(`预计 ${resource.forecastExhaustAt} 耗尽`);
   else if (resource.forecastNotCalculableReason) parts.push(resource.forecastNotCalculableReason);
   if (resource.utilizationRate === null) parts.push(resource.notCalculableReason ?? "缺少可计算分母");
-  else parts.push(resource.mode === "API" ? "API 费用占月预算比例" : "套餐厂商原生额度窗口比例");
+  else parts.push(resource.mode === "API" ? "API 费用占月预算比例" : "订阅周期原生额度使用比例");
   if (resource.requestCount === 0) parts.push("本月没有已结算请求");
   return [...new Set(parts)].join("；");
 }

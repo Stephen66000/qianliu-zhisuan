@@ -77,15 +77,28 @@ export class KimiAdapter implements ProviderAdapter {
     prompt_cache_hit_tokens?: number;
     cached_tokens?: number;
     prompt_tokens_details?: { cached_tokens?: number };
+    reasoning_tokens?: number;
+    completion_tokens_details?: { reasoning_tokens?: number };
   }): Usage {
+    const tokens = [raw.prompt_tokens, raw.completion_tokens, raw.total_tokens]
+      .filter((value): value is number => value !== undefined);
+    const cacheCandidate = raw.prompt_cache_hit_tokens
+      ?? raw.prompt_tokens_details?.cached_tokens
+      ?? raw.cached_tokens;
+    const reasoningCandidate = raw.completion_tokens_details?.reasoning_tokens
+      ?? raw.reasoning_tokens;
+    const optional = [cacheCandidate, reasoningCandidate]
+      .filter((value): value is number => value !== undefined);
+    if (![...tokens, ...optional].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+      throw new RangeError("Kimi usage token 必须是非负安全整数");
+    }
     return {
       input: raw.prompt_tokens,
       output: raw.completion_tokens,
-      cache: raw.prompt_cache_hit_tokens
-        ?? raw.prompt_tokens_details?.cached_tokens
-        ?? raw.cached_tokens
-        ?? 0,
-      quality: "PROVIDER_REPORTED",
+      cache: cacheCandidate ?? 0,
+      reasoning: reasoningCandidate ?? 0,
+      quality: cacheCandidate !== undefined && reasoningCandidate !== undefined
+        ? "PROVIDER_REPORTED" : "MIXED",
     };
   }
 }

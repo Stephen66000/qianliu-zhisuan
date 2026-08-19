@@ -61,13 +61,12 @@ export async function recordOperatingBillOpeningBalance(
       .where("enterprise_id", "=", input.enterpriseId).where("period_id", "=", period.id)
       .where("provider_resource_id", "=", resource.id)
       .orderBy("version", "desc").executeTakeFirst();
-    if (!latest) {
-      const existing = (await loadMonthlyOperatingCosts(
-        trx, input.enterpriseId, range.start, range.end,
-      )).resources.find((row) => row.resourceId === resource.id);
-      if (existing?.openingBalance !== null && existing?.openingBalance !== undefined) {
-        throw new OperatingBillOpeningBalanceAlreadyAvailableError();
-      }
+    const existing = (await loadMonthlyOperatingCosts(
+      trx, input.enterpriseId, range.start, range.end,
+    )).resources.find((row) => row.resourceId === resource.id);
+    if (existing?.openingBalance !== null && existing?.openingBalance !== undefined
+      && existing.openingBalanceSource !== "MANUAL") {
+      throw new OperatingBillOpeningBalanceAlreadyAvailableError();
     }
     if (latest && new Decimal(latest.amount).equals(input.amount)
       && latest.currency === input.currency && latest.reason === input.reason) return false;
@@ -76,6 +75,15 @@ export async function recordOperatingBillOpeningBalance(
       provider_resource_id: resource.id, version: (latest?.version ?? 0) + 1,
       amount: input.amount, currency: input.currency, source: "MANUAL",
       reason: input.reason, created_by: input.adminId,
+    }).execute();
+    await trx.insertInto("operation_log").values({
+      enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
+      action: "operating_bill.opening_balance.create", target_type: "provider_resource",
+      target_id: resource.id,
+      change_summary: {
+        month: input.month, amount: input.amount, currency: input.currency, reason: input.reason,
+      },
+      result: "SUCCESS", failure_reason: null,
     }).execute();
     await trx.updateTable("operating_bill_period").set({ updated_at: new Date() })
       .where("id", "=", period.id).execute();

@@ -132,13 +132,18 @@ export function buildLiveUsageFacts(
           END`;
   const subjectFilter = input.subjectId ? sql`AND target.id = ${input.subjectId}` : sql``;
   return sql`
-    SELECT ar.started_at, lt.created_at AS settled_at,
+    SELECT lt.created_at AS started_at, lt.created_at AS settled_at,
            target.id AS subject_id, target.name AS subject_name,
            target.department_label,
            1::bigint AS request_count,
            lt.total_input_tokens, lt.total_output_tokens,
            lt.total_cache_tokens, lt.total_reasoning_tokens,
-           lt.total_deducted_quota, lt.total_api_cost
+           lt.total_deducted_quota, lt.total_api_cost,
+           CASE WHEN lt.usage_quality IN ('PROVIDER_REPORTED', 'UPSTREAM_REPORTED') THEN 1 ELSE 0 END::bigint AS provider_reported_count,
+           CASE WHEN lt.usage_quality = 'ESTIMATED' THEN 1 ELSE 0 END::bigint AS estimated_count,
+           CASE WHEN lt.usage_quality = 'ACCOUNT_AGGREGATED' THEN 1 ELSE 0 END::bigint AS account_aggregated_count,
+           CASE WHEN lt.usage_quality LIKE 'MIXED%' THEN 1 ELSE 0 END::bigint AS mixed_count,
+           CASE WHEN lt.usage_quality = 'UNKNOWN' THEN 1 ELSE 0 END::bigint AS unknown_count
       FROM ledger_transaction lt
       JOIN ai_request ar
         ON ar.id = lt.ai_request_id AND ar.enterprise_id = ${input.enterpriseId}
@@ -161,8 +166,8 @@ export function buildLiveUsageFacts(
        AND target.type = ${input.subjectType}
      WHERE lt.enterprise_id = ${input.enterpriseId}
        AND lt.status = 'SETTLED'
-       AND ar.started_at >= ${range.range_start}
-       AND ar.started_at < ${range.range_end}
+       AND lt.created_at >= ${range.range_start}
+       AND lt.created_at < ${range.range_end}
        ${subjectFilter}
   `;
 }
@@ -187,7 +192,10 @@ export function buildAggregateUsageFacts(
            aggregate.cache_tokens AS total_cache_tokens,
            aggregate.reasoning_tokens AS total_reasoning_tokens,
            aggregate.deducted_quota AS total_deducted_quota,
-           aggregate.api_cost AS total_api_cost
+           aggregate.api_cost AS total_api_cost,
+           aggregate.provider_reported_count, aggregate.estimated_count,
+           aggregate.account_aggregated_count, aggregate.mixed_count,
+           aggregate.unknown_count
       FROM usage_bucket_aggregate aggregate
       JOIN principal target
         ON target.id = ${targetId}

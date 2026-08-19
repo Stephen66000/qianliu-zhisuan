@@ -162,9 +162,9 @@ export class UsageRepository {
     if (query.unifiedModel) conditions.push(sql`ar.unified_model = ${query.unifiedModel}`);
     if (query.status) conditions.push(sql`ar.status = ${query.status}`);
     if (query.settledOnly) conditions.push(sql`lt.status = 'SETTLED'`);
-    if (query.from) conditions.push(sql`ar.started_at >= ${query.from}`);
-    if (query.to) conditions.push(sql`ar.started_at <= ${query.to}`);
-    if (query.toExclusive) conditions.push(sql`ar.started_at < ${query.toExclusive}`);
+    if (query.from) conditions.push(sql`lt.created_at >= ${query.from}`);
+    if (query.to) conditions.push(sql`lt.created_at <= ${query.to}`);
+    if (query.toExclusive) conditions.push(sql`lt.created_at < ${query.toExclusive}`);
     if (query.overageOnly) conditions.push(sql`lt.overage = true`);
 
     if (query.providerId || query.providerResourceId) {

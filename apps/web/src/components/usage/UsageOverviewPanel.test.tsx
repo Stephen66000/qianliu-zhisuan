@@ -29,7 +29,7 @@ function overview(overrides: Partial<UsageOverview> = {}): UsageOverview {
     anchor,
     timezone: "Asia/Shanghai",
     range: { from: "2026-08-09T16:00:00.000Z", to: "2026-08-16T16:00:00.000Z" },
-    metrics: { activeSubjects: 1, requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120" },
+    metrics: { activeSubjects: 1, requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120", usageQuality: "PROVIDER_REPORTED", providerReportedCount: 2, estimatedCount: 0, accountAggregatedCount: 0, mixedCount: 0, unknownCount: 0 },
     trend: [{ bucketStart: "2026-08-09T16:00:00.000Z", bucketEnd: "2026-08-10T16:00:00.000Z", label: "周一", requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120" }],
     ranking: [{ subjectId: projectId, subjectName: "星河项目", departmentLabel: "研发", requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120", share: "1" }],
     factWatermark: "2026-08-12T03:00:00.000Z",
@@ -71,6 +71,18 @@ describe("W20-04 用量概览 Web", () => {
     expect(screen.getByRole("combobox", { name: "用量主体类型" })).toHaveValue("PROJECT");
     expect(screen.getByRole("combobox", { name: "用量周期" })).toHaveValue("WEEK");
     expect(screen.getByRole("combobox", { name: "指定用量主体" })).toHaveValue(projectId);
+  });
+
+  it("POOL20-045：下钻使用与首页同源的账户聚合质量解释", () => {
+    useUsageOverviewMock.mockReturnValue({
+      isLoading: false, error: null, refetch: vi.fn(),
+      data: overview({ metrics: {
+        ...overview().metrics, usageQuality: "ACCOUNT_AGGREGATED",
+        providerReportedCount: 0, accountAggregatedCount: 2,
+      } }),
+    });
+    renderPanel();
+    expect(screen.getByText(/2 笔账户聚合计量，非逐请求精确值/)).toBeInTheDocument();
   });
 
   it("排名点击回写 URL，明细下钻携带主体口径与半开时间", async () => {
