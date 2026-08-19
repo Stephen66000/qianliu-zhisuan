@@ -7,6 +7,7 @@ import { requireAuth } from "../plugins/auth-guard.js";
 import { listResourceUtilization } from "./query.js";
 
 const Month = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/);
+const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
 const NoteBody = z.object({
   note: z.string().max(4000),
   expected_version: z.number().int().nonnegative(),
@@ -199,7 +200,7 @@ function frozenProviderAmounts(
 function currencyTotals(facts: Array<{ currency: string; amount: string }>) {
   const totals = new Map<string, Decimal>();
   for (const fact of facts) {
-    totals.set(fact.currency, (totals.get(fact.currency) ?? new Decimal(0)).plus(fact.amount));
+    totals.set(fact.currency, (totals.get(fact.currency) ?? new MoneyDecimal(0)).plus(fact.amount));
   }
   return [...totals.entries()].sort(([left], [right]) => left.localeCompare(right))
     .map(([currency, amount]) => ({ currency, amount: amount.toDecimalPlaces(8).toFixed(8) }));
