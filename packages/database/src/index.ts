@@ -221,6 +221,13 @@ export {
   type OperatingBillValueItemView,
 } from "./repositories/operating-bill-repository.js";
 export {
+  loadMonthlyOperatingCosts,
+  type ApiSpendStatus,
+  type MonthlyOperatingCosts,
+  type MonthlyOperatingCostResource,
+  type MonthlyOperatingCostSummary,
+} from "./repositories/monthly-operating-cost.js";
+export {
   acquireOperatingBillMonthWriteBarrier,
   guardOperatingBillLedgerWrite,
   operatingBillMonthAt,

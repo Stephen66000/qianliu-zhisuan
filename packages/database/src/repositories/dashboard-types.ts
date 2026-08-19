@@ -3,8 +3,8 @@ export interface DashboardSummary {
   activeEmployeeCount: number;
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
-  monthlyApiCost: string;
-  /** 套餐支出与 API 实际费用的后端精确合计；套餐数据不完整时不可计算。 */
+  monthlyApiCost: string | null;
+  /** 套餐支出与余额桥接 API 花费的后端精确合计；任一经营事实不完整时不可计算。 */
   monthlyTotalSpend: string | null;
   monthlyRechargeAmount: string | null;
   earliestExhaustion: {
@@ -63,8 +63,11 @@ export interface ResourceBreakdownItem {
   rechargeAmount: string | null;
   currentBalance: string | null;
   currentPeriodCost: string | null;
+  packageCost: string | null;
+  subscriptionPeriodStart: string | null;
+  subscriptionPeriodEnd: string | null;
   snapshotAt: string | null;
-  monthlyCost: string;
+  monthlyCost: string | null;
   monthlyInputTokens: string | null;
   monthlyOutputTokens: string | null;
   monthlyCacheTokens: string | null;

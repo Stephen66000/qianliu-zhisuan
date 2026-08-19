@@ -14,6 +14,7 @@ describe("Sidebar", () => {
 
     expect(screen.getByRole("img", { name: "仟流科技 Logo" })).toBeInTheDocument();
     expect(screen.getByText("仟流智算")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回首页看板" })).toHaveAttribute("href", "/dashboard");
     const entries = [
       ["首页看板", "/dashboard"],
       ["使用主体", "/principals"],

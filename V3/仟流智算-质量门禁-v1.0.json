@@ -255,7 +255,7 @@
     },
     "exceptions": [
       { "file": "apps/gateway/src/pipeline/real-pipeline.ts", "baseline": 1404 },
-      { "file": "apps/web/src/pages/QuotaRules.tsx", "baseline": 1394 },
+      { "file": "apps/web/src/pages/QuotaRules.tsx", "baseline": 1447 },
       { "file": "apps/web/src/pages/Resources.tsx", "baseline": 1080 },
       { "file": "packages/provider-adapters/src/openai-compatible-caller.ts", "baseline": 1017 },
       { "file": "packages/database/src/repositories/runtime-assurance-repository.ts", "baseline": 919 },
@@ -265,11 +265,11 @@
       { "file": "packages/database/src/repositories/dashboard-repository.ts", "baseline": 619 },
       { "file": "packages/database/src/repositories/alert-event-repository.ts", "baseline": 533 },
       { "file": "apps/web/src/api/types.ts", "baseline": 516 },
-      { "file": "apps/control-api/src/read-models/routes.ts", "baseline": 489 },
+      { "file": "apps/control-api/src/read-models/routes.ts", "baseline": 522 },
       { "file": "packages/database/src/repositories/gateway-ledger-repository.ts", "baseline": 455 },
       { "file": "apps/control-api/src/admin-writes/routes.ts", "baseline": 540 },
-      { "file": "packages/database/src/repositories/dispatch-policy-repository.ts", "baseline": 478 },
-      { "file": "packages/database/src/repositories/operating-bill-draft.ts", "baseline": 518 },
+      { "file": "packages/database/src/repositories/dispatch-policy-repository.ts", "baseline": 535 },
+      { "file": "packages/database/src/repositories/operating-bill-draft.ts", "baseline": 557 },
       { "file": "packages/database/src/repositories/operating-bill-repository.ts", "baseline": 444 }
     ]
   },

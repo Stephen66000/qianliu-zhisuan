@@ -25,6 +25,7 @@ const UpdatePrincipalSchema = z.object({
 const ListPrincipalQuerySchema = z.object({
   type: z.enum(["EMPLOYEE", "PROJECT"]).optional(),
   archived: z.enum(["exclude", "only", "all"]).default("exclude"),
+  status: z.enum(["ACTIVE", "DISABLED"]).optional(),
   search: z.string().trim().max(255).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).default(0),

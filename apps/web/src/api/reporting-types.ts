@@ -24,8 +24,11 @@ export interface ResourceBreakdownItem {
   rechargeAmount: string | null;
   currentBalance: string | null;
   currentPeriodCost: string | null;
+  packageCost: string | null;
+  subscriptionPeriodStart: string | null;
+  subscriptionPeriodEnd: string | null;
   snapshotAt: string | null;
-  monthlyCost: string;
+  monthlyCost: string | null;
   monthlyInputTokens: string | null;
   monthlyOutputTokens: string | null;
   monthlyCacheTokens: string | null;
@@ -77,7 +80,7 @@ export interface DashboardSummary {
   activeEmployeeCount: number;
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
-  monthlyApiCost: string;
+  monthlyApiCost: string | null;
   monthlyTotalSpend: string | null;
   monthlyRechargeAmount: string | null;
   earliestExhaustion: EarliestExhaustion | null;

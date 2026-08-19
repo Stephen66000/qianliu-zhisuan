@@ -20,7 +20,7 @@ const delMock = vi.fn();
 const invalidateMock = vi.fn();
 
 vi.mock("../api/hooks", () => ({
-  usePrincipals: () => usePrincipalsMock(),
+  usePrincipals: (...args: unknown[]) => usePrincipalsMock(...args),
   usePrincipalKeys: () => usePrincipalKeysMock(),
   useGrants: () => useGrantsMock(),
   useAccessConfiguration: () => useAccessConfigurationMock(),
@@ -195,6 +195,17 @@ describe("W19 使用主体", () => {
     expect(screen.getByText("张三")).toBeInTheDocument();
     expect(screen.getByText("员工")).toBeInTheDocument();
     expect(screen.getByText("启用中")).toBeInTheDocument();
+  });
+
+  it("显示范围默认在用，并独立查询停用与归档主体", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    expect(screen.getByLabelText("显示范围")).toHaveValue("active");
+    expect(usePrincipalsMock).toHaveBeenLastCalledWith("exclude", "ACTIVE");
+    await user.selectOptions(screen.getByLabelText("显示范围"), "disabled");
+    expect(usePrincipalsMock).toHaveBeenLastCalledWith("exclude", "DISABLED");
+    await user.selectOptions(screen.getByLabelText("显示范围"), "archived");
+    expect(usePrincipalsMock).toHaveBeenLastCalledWith("only", undefined);
   });
 
   it("创建主体：提交调用 POST /principals 并刷新缓存", async () => {

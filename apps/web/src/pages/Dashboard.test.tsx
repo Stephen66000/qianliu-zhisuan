@@ -107,8 +107,11 @@ function seededSummary(): DashboardSummary {
         rechargeAmount: null,
         currentBalance: null,
         currentPeriodCost: null,
+        packageCost: "299",
+        subscriptionPeriodStart: "2026-06-26",
+        subscriptionPeriodEnd: "2026-09-26",
         snapshotAt: "2026-07-29T12:00:00.000Z",
-        monthlyCost: "12.50000000",
+        monthlyCost: "299.00000000",
         monthlyInputTokens: "80000",
         monthlyOutputTokens: "20000",
         monthlyCacheTokens: "10000",
@@ -223,6 +226,9 @@ describe("W18 首页看板", () => {
     // 调度节省为 "0" → 展示 0.00，不伪造（API 费用同为 0.00，允许出现多处）
     expect(screen.getByText("本月调度节省")).toBeInTheDocument();
     expect(screen.getAllByText("0.00").length).toBeGreaterThan(0);
+    expect(screen.getByText("本月无可计算的实际切换")).toBeInTheDocument();
+    expect(screen.queryByText(/潜在峰值：/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/避免高峰扣减：/)).not.toBeInTheDocument();
   });
 
   it("数据源 gap：套餐支付/充值为 null → 空状态文案，不伪造数字", () => {
@@ -248,7 +254,7 @@ describe("W18 首页看板", () => {
     const monthSummary = screen.getByRole("heading", { name: "本月概览" }).closest("section")!;
     const resourceSummary = screen.getByRole("heading", { name: "资源摘要" }).closest("section")!;
     const employeeUsage = screen.getByRole("heading", { name: "员工消耗 Token" }).closest("section")!;
-    for (const label of ["真实 Token 消耗", "本月总支出", "套餐支出", "API 支出", "活跃人数", "厂商接入账号", "本月充值", "本月调度节省"]) {
+    for (const label of ["真实 Token 消耗", "本月总支出", "套餐支出", "API 花费", "活跃人数", "厂商接入账号", "本月充值", "本月调度节省"]) {
       expect(within(monthSummary).getByText(label)).toBeInTheDocument();
     }
     expect(screen.queryByRole("heading", { name: "1.0 经营补充" })).not.toBeInTheDocument();
@@ -277,6 +283,10 @@ describe("W18 首页看板", () => {
     // 资源摘要
     expect(screen.getByText("智谱")).toBeInTheDocument();
     expect(screen.getAllByText("100,000").length).toBeGreaterThan(0);
+    const planRow = screen.getByText("智谱").closest("tr")!;
+    expect(within(planRow).getByText("CNY 299.00")).toBeInTheDocument();
+    expect(within(planRow).getByText("订阅周期 2026-06-26～2026-09-26")).toBeInTheDocument();
+    expect(within(planRow).getByText("299.00")).toBeInTheDocument();
     expect(screen.getByText("员工消耗 Token")).toBeInTheDocument();
     expect(screen.getAllByText("9,007,199,254,740,995,000")).toHaveLength(2);
     expect(screen.getByText("25.00%")).toBeInTheDocument();
@@ -349,6 +359,9 @@ describe("W18 首页看板", () => {
     });
     renderDashboard();
     expect(screen.getByText("DeepSeek")).toBeInTheDocument();
+    const apiRow = screen.getByText("DeepSeek").closest("tr")!;
+    expect(within(apiRow).getByText("CNY 68.00")).toBeInTheDocument();
+    expect(within(apiRow).getByText("API 花费 6.32")).toBeInTheDocument();
     expect(screen.getAllByText("1,000,000")).toHaveLength(2);
     expect(screen.getByText("ql-deepseek-v4-flash")).toBeInTheDocument();
     expect(screen.getByText("41,666.67 Token/小时")).toBeInTheDocument();

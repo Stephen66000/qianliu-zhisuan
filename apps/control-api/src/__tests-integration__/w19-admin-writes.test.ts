@@ -588,6 +588,26 @@ describe("W19 管理写操作闭环", () => {
     expect((await db.selectFrom("dispatch_policy").select("status").where("id", "=", policy.id)
       .executeTakeFirstOrThrow()).status).toBe("RETIRED");
 
+    const restored = await app.inject({
+      method: "POST",
+      url: `/dispatch-policies/${policy.id}/restore`,
+      headers: { cookie: adminCookie },
+    });
+    expect(restored.statusCode).toBe(201);
+    expect(restored.json().policy).toMatchObject({
+      status: "PUBLISHED",
+      policyVersion: "zhipu-peak-reject-v4",
+      copiedFromPolicyId: policy.id,
+      createdByAdminId: ADM_ID,
+      validatedByAdminId: ADM_ID,
+      publishedByAdminId: ADM_ID,
+      matchPrincipalScope: principals.map((principal) => principal.id),
+    });
+    expect(restored.json().policy.validatedAt).toBeTruthy();
+    expect(restored.json().policy.publishedAt).toBeTruthy();
+    expect((await db.selectFrom("dispatch_policy").select("status").where("id", "=", policy.id)
+      .executeTakeFirstOrThrow()).status).toBe("RETIRED");
+
     const otherEnterpriseId = randomUUID();
     await db.insertInto("enterprise").values({ id: otherEnterpriseId, name: "POOL-016 隔离企业" }).execute();
     const otherPrincipal = await db
@@ -627,6 +647,7 @@ describe("W19 管理写操作闭环", () => {
     expect(await countAudit("dispatch_policy.publish")).toBe(1);
     expect(await countAudit("dispatch_policy.retire")).toBe(1);
     expect(await countAudit("dispatch_policy.copy")).toBe(1);
+    expect(await countAudit("dispatch_policy.restore")).toBe(1);
   });
 
   it("POOL20-028：停用与归档分离，默认隐藏、可取消归档且不能被新配置引用", async () => {

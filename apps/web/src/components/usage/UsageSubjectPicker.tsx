@@ -39,6 +39,15 @@ export function UsageSubjectPicker({
         aria-label={searchLabel}
         className="ql-input min-w-40 flex-1"
         onChange={(event) => setSearch(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          const normalized = search.trim().toLocaleLowerCase("zh-CN");
+          const exact = items.filter((item) => item.name.trim().toLocaleLowerCase("zh-CN") === normalized);
+          if (exact.length === 1) {
+            event.preventDefault();
+            onChange(exact[0]!.id);
+          }
+        }}
         placeholder={`搜索${label}或部门`}
         type="search"
         value={search}

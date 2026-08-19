@@ -34,7 +34,13 @@ export interface OperatingBillProviderRow {
   mode: "API" | "CODING_PLAN";
   currency: string | null;
   apiCost: string | null;
-  packageCost: string;
+  /** 请求账本计价，仅作为月度余额桥接的核对证据。 */
+  ledgerApiCost: string | null;
+  openingBalance: string | null;
+  rechargeAmount: string;
+  apiSpendStatus: string;
+  apiSpendReason: string | null;
+  packageCost: string | null;
   totalCost: string | null;
   endingBalance: string | null;
   totalQuota: string | null;
@@ -110,7 +116,13 @@ export interface OperatingBillSnapshot {
   summary: {
     totalCost: string | null;
     apiCost: string | null;
-    packageCost: string;
+    /** 请求账本计价，仅作为经营 API 花费的核对证据。 */
+    ledgerApiCost: string | null;
+    openingBalance: string | null;
+    monthlyRecharge: string | null;
+    apiSpendStatus: string;
+    apiSpendReason: string | null;
+    packageCost: string | null;
     endingBalance: string | null;
     endingBalanceCurrency: string | null;
     planUtilization: string | null;

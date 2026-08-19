@@ -30,7 +30,7 @@ export function unknownApiCostGaps(
 ): OperatingBillGap[] {
   return [...totals].flatMap(([resourceId, cost]) => cost === null ? [{
     code: "API_COST_UNKNOWN",
-    message: `${resources.get(resourceId)?.resource_name ?? resourceId} 存在未知 API 成本`,
+    message: `${resources.get(resourceId)?.resource_name ?? resourceId} 存在未知账本 API 计价`,
     providerResourceId: resourceId,
   }] : []);
 }

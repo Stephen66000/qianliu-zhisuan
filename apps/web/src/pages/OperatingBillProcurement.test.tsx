@@ -247,7 +247,7 @@ describe("W20-09 采购复盘 Web", () => {
     expect(screen.getByText("当前版本 v3")).toBeInTheDocument();
   });
 
-  it("月度总投入、API 成本、套餐成本和采购现金保持分栏", () => {
+  it("月度总花费、API 花费、套餐费用和采购现金保持分栏", () => {
     useAllPurchasesMock.mockReturnValue({
       data: {
         items: [{
@@ -264,15 +264,17 @@ describe("W20-09 采购复盘 Web", () => {
         <OperatingBillPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText("总投入").closest("article")).toHaveTextContent("¥812.50");
-    expect(screen.getByText("API 消耗").closest("article")).toHaveTextContent("¥12.50");
-    expect(screen.getByText("套餐费用").closest("article")).toHaveTextContent("¥800.00");
+    expect(screen.getByText("本月总花费").closest("article")).toHaveTextContent("¥812.50");
+    const apiMetric = screen.getAllByText("API 花费").find((node) => node.closest("article"));
+    expect(apiMetric?.closest("article")).toHaveTextContent("¥12.50");
+    const packageMetric = screen.getAllByText("套餐费用").find((node) => node.closest("article"));
+    expect(packageMetric?.closest("article")).toHaveTextContent("¥800.00");
     const purchase = screen.getByText("8 月充值").closest("tr")!;
     expect(within(purchase).getByText("¥1,000.00")).toBeInTheDocument();
     expect(within(purchase).getByText("API 充值")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "现金支出" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "API 成本" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "套餐成本" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "API 花费" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "套餐费用" })).toBeInTheDocument();
   });
 
   it("按资源展示采购、利用率、标签依据与耗尽/无调用事实", () => {

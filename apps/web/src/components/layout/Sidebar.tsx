@@ -17,7 +17,7 @@ import {
   UserCog,
   UserRoundCheck,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 import qianliuLogo from "../../assets/qianliu-logo-primary.png";
 
@@ -37,7 +37,11 @@ const NAV_ITEMS = [
 export function Sidebar() {
   return (
     <aside className="flex w-full shrink-0 flex-col border-b border-ql-border bg-ql-surface md:h-screen md:w-64 md:border-b-0 md:border-r">
-      <div className="flex h-12 items-center gap-2 border-b border-ql-border px-4 md:h-16 md:px-5">
+      <Link
+        aria-label="返回首页看板"
+        className="flex h-12 items-center gap-2 border-b border-ql-border px-4 hover:bg-ql-surface-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ql-action md:h-16 md:px-5"
+        to="/dashboard"
+      >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden">
           <img
             alt="仟流科技 Logo"
@@ -48,7 +52,7 @@ export function Sidebar() {
         <span className="text-[15px] font-semibold leading-[22px] text-ql-fg">
           仟流智算
         </span>
-      </div>
+      </Link>
       <nav aria-label="主导航" className="flex gap-1 overflow-x-auto px-2 py-2 md:flex-col md:overflow-y-auto md:px-3 md:py-4">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink

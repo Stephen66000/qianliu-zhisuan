@@ -55,8 +55,11 @@ const TYPE_LABEL: Record<Principal["type"], string> = { EMPLOYEE: "员工", PROJ
 export function PrincipalsPage() {
   const featureFlags = useFeatureFlags();
   const [activeTab, setActiveTab] = useState<"principals" | "directory">("principals");
-  const [archivedFilter, setArchivedFilter] = useState<"exclude" | "only">("exclude");
-  const query = usePrincipals(archivedFilter);
+  const [principalScope, setPrincipalScope] = useState<"active" | "disabled" | "archived">("active");
+  const query = usePrincipals(
+    principalScope === "archived" ? "only" : "exclude",
+    principalScope === "active" ? "ACTIVE" : principalScope === "disabled" ? "DISABLED" : undefined,
+  );
   useRedirectOnUnauthorized(query.error);
   const queryClient = useQueryClient();
 
@@ -169,12 +172,13 @@ export function PrincipalsPage() {
           <select
             className={`${INPUT_CLASS} h-9 w-auto`}
             onChange={(event) =>
-              setArchivedFilter(event.target.value as "exclude" | "only")
+              setPrincipalScope(event.target.value as "active" | "disabled" | "archived")
             }
-            value={archivedFilter}
+            value={principalScope}
           >
-            <option value="exclude">在用与已停用</option>
-            <option value="only">已归档</option>
+            <option value="active">在用</option>
+            <option value="disabled">停用</option>
+            <option value="archived">归档</option>
           </select>
         </label>
         <button

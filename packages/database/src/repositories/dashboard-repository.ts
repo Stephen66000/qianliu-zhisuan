@@ -11,7 +11,7 @@
  *   1. 资源账号数：当前企业未删除的资源账号数量；
  *   2. 本账期活跃人数：当月至少一次成功调用的、启用中（status=ACTIVE 且未归档）的 EMPLOYEE 数量；
  *   3. 当前正在使用人数：存在进行中请求或最近 5 分钟有成功请求的、启用中（status=ACTIVE 且未归档）的员工去重数；
- *   4. 本月套餐支付金额 / 5. 本月 API 费用 / 6. 本月充值金额；
+ *   4. 本月套餐支付金额 / 5. 本月 API 花费（余额桥接）/ 6. 本月充值金额；
  *   7. 预计最早耗尽：可计算资源中最早的 forecast_exhaust_at + 可信度 + 下一恢复时间；
  *   8. 本月调度节省：只汇总 dispatch_decision 中 saving_calculable=true 且动作已执行的节省值。
  *
@@ -37,6 +37,10 @@ import {
 import { listDashboardOverages } from "./dashboard-overages.js";
 import type { DashboardSummary, ResourceBreakdownItem } from "./dashboard-types.js";
 import { loadDashboardResourceUsage } from "./dashboard-resource-usage.js";
+import {
+  loadMonthlyOperatingCosts,
+  type MonthlyOperatingCostResource,
+} from "./monthly-operating-cost.js";
 
 export type * from "./dashboard-types.js";
 
@@ -55,15 +59,15 @@ export class DashboardRepository {
     const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
     const currentOperatingSnapshots = await new ProviderRepository(this.db)
       .listCurrentOperatingSnapshots(enterpriseId, date);
+    const monthlyOperatingCosts = await loadMonthlyOperatingCosts(
+      this.db, enterpriseId, monthStart, monthEnd,
+    );
 
     // 并行执行独立聚合查询
     const [
       resourceAccountCount,
       activeEmployeeCount,
       currentInUseCount,
-      monthlyApiCost,
-      monthlyPackagePayment,
-      monthlyRechargeAmount,
       earliestExhaustion,
       dispatchSavingBreakdown,
       resourceBreakdown,
@@ -73,9 +77,6 @@ export class DashboardRepository {
       this.countResources(enterpriseId),
       this.countActiveEmployees(enterpriseId, monthStart, monthEnd),
       this.countInUseEmployees(enterpriseId, now, fiveMinutesAgo),
-      this.sumMonthlyApiCost(enterpriseId, monthStart, monthEnd),
-      this.sumLatestSnapshotAmount(enterpriseId, "CODING_PLAN", "package_cost"),
-      this.sumMonthlyRecharge(enterpriseId, monthStart, monthEnd),
       this.findEarliestExhaustion(enterpriseId, currentOperatingSnapshots),
       this.monthlyDispatchSavingBreakdown(enterpriseId, monthStart, monthEnd),
       this.buildResourceBreakdown(
@@ -84,6 +85,7 @@ export class DashboardRepository {
         monthEnd,
         date,
         currentOperatingSnapshots,
+        monthlyOperatingCosts.resources,
       ),
       listDashboardOverages(this.db, enterpriseId),
       getMonthlyTokenUsage(this.db, enterpriseId, monthStart, monthEnd),
@@ -93,12 +95,10 @@ export class DashboardRepository {
       resourceAccountCount,
       activeEmployeeCount,
       currentInUseCount,
-      monthlyPackagePayment,
-      monthlyApiCost,
-      monthlyTotalSpend: monthlyPackagePayment === null
-        ? null
-        : sumDecimalTexts([monthlyPackagePayment, monthlyApiCost]),
-      monthlyRechargeAmount,
+      monthlyPackagePayment: monthlyOperatingCosts.summary.packageCost,
+      monthlyApiCost: monthlyOperatingCosts.summary.apiSpend,
+      monthlyTotalSpend: monthlyOperatingCosts.summary.totalSpend,
+      monthlyRechargeAmount: monthlyOperatingCosts.summary.rechargeAmount,
       earliestExhaustion,
       monthlyDispatchSaving: dispatchSavingBreakdown.realizedSwitchCount === 0
         ? "0" : dispatchSavingBreakdown.realizedAmount,
@@ -163,27 +163,6 @@ export class DashboardRepository {
              OR (r.status = 'SUCCEEDED' AND r.finished_at >= ${fiveMinutesAgo}))
     `.execute(this.db);
     return Number(row.rows[0]?.cnt ?? 0n);
-  }
-
-  /** 5. 本月 API 调用费用：仅 API 资源的实际账本明细，套餐异常金额也不计入。 */
-  private async sumMonthlyApiCost(
-    enterpriseId: string,
-    monthStart: Date,
-    monthEnd: Date,
-  ): Promise<string> {
-    const row = await sql<{ total: string | null }>`
-      SELECT COALESCE(SUM(ll.api_cost::numeric), 0)::text AS total
-        FROM ledger_line ll
-        JOIN provider_resource pr
-          ON pr.id = ll.provider_resource_id AND pr.enterprise_id = ${enterpriseId}
-       WHERE ll.enterprise_id = ${enterpriseId}
-         AND ll.resource_mode = 'API'
-         AND pr.mode = 'API'
-         AND ll.api_cost IS NOT NULL
-         AND ll.created_at >= ${monthStart}
-         AND ll.created_at < ${monthEnd}
-    `.execute(this.db);
-    return row.rows[0]?.total ?? "0";
   }
 
   /** 7. 预计最早耗尽（可计算资源中最早的 forecast_exhaust_at）。 */
@@ -313,24 +292,6 @@ export class DashboardRepository {
     };
   }
 
-  private async sumMonthlyRecharge(
-    enterpriseId: string,
-    monthStart: Date,
-    monthEnd: Date,
-  ): Promise<string | null> {
-    const row = await sql<{ resource_count: string; purchase_count: string; total: string }>`
-      SELECT (SELECT COUNT(*) FROM provider_resource
-               WHERE enterprise_id = ${enterpriseId} AND mode = 'API' AND status <> 'DELETED')::text AS resource_count,
-             COUNT(*) FILTER (WHERE purchase_type = 'API_RECHARGE')::text AS purchase_count,
-             COALESCE(SUM(amount) FILTER (WHERE purchase_type = 'API_RECHARGE'), 0)::text AS total
-        FROM resource_purchase_record
-       WHERE enterprise_id = ${enterpriseId}
-         AND purchased_at >= ${monthStart} AND purchased_at < ${monthEnd}
-    `.execute(this.db);
-    return row.rows[0]?.resource_count === "0" || row.rows[0]?.purchase_count === "0"
-      ? null : row.rows[0]?.total ?? null;
-  }
-
   /** 资源摘要按厂商+模式分组（PRD §10.2 行 406-415）。 */
   private async buildResourceBreakdown(
     enterpriseId: string,
@@ -338,11 +299,12 @@ export class DashboardRepository {
     monthEnd: Date,
     now: Date,
     currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
+    monthlyOperatingCosts: MonthlyOperatingCostResource[],
   ): Promise<ResourceBreakdownItem[]> {
     const usageFor = await loadDashboardResourceUsage(
       this.db, enterpriseId, monthStart, monthEnd, now,
     );
-    // 厂商+模式维度的账号数 + 本月费用 + 最新预测
+    // 厂商+模式维度的账号数 + 共享月度经营花费 + 最新预测
     const rows = await this.db
       .selectFrom("provider_resource")
       .innerJoin("provider", "provider.id", "provider_resource.provider_id")
@@ -393,7 +355,7 @@ export class DashboardRepository {
         counts[row.status] = (counts[row.status] ?? 0) + 1;
         return counts;
       }, {});
-      const [operating, allocatedQuota, monthlyCost, forecast] = await Promise.all([
+      const [operating, allocatedQuota, forecast] = await Promise.all([
         this.sumProviderOperatingSnapshot(
           enterpriseId,
           providerCode,
@@ -401,7 +363,6 @@ export class DashboardRepository {
           currentOperatingSnapshots,
         ),
         this.sumAllocatedQuota(enterpriseId, providerCode, mode),
-        this.sumProviderMonthlyCost(enterpriseId, providerCode, mode, monthStart, monthEnd),
         this.latestProviderForecast(
           enterpriseId,
           providerCode,
@@ -417,6 +378,18 @@ export class DashboardRepository {
           currency: snapshot?.currency ?? null,
         };
       }));
+      const costRows = monthlyOperatingCosts.filter((row) =>
+        row.providerCode === providerCode && row.mode === mode
+      );
+      const costValues = costRows.map((row) => mode === "API" ? row.apiSpend : row.packageCost);
+      const monthlyCost = costValues.every((value) => value !== null)
+        ? sumDecimalTexts(costValues as string[])
+        : null;
+      const serviceStarts = new Set(costRows.map((row) => row.servicePeriodStart));
+      const serviceEnds = new Set(costRows.map((row) => row.servicePeriodEnd));
+      const costCurrencies = new Set(
+        costRows.map((row) => row.currency).filter((value): value is string => value !== null),
+      );
       breakdown.push({
         providerCode,
         providerName: r.provider_name,
@@ -427,10 +400,13 @@ export class DashboardRepository {
         remainingQuota: operating.remaining,
         quotaUnit: operating.quotaUnit,
         allocatedQuota,
-        currency: operating.currency,
+        currency: costCurrencies.size === 1 ? [...costCurrencies][0]! : operating.currency,
         rechargeAmount: operating.recharge,
         currentBalance: operating.balance,
         currentPeriodCost: operating.periodCost,
+        packageCost: mode === "CODING_PLAN" ? monthlyCost : null,
+        subscriptionPeriodStart: serviceStarts.size === 1 ? [...serviceStarts][0] ?? null : null,
+        subscriptionPeriodEnd: serviceEnds.size === 1 ? [...serviceEnds][0] ?? null : null,
         snapshotAt: operating.snapshotAt,
         monthlyCost,
         ...usage,
@@ -538,80 +514,6 @@ export class DashboardRepository {
           ? sumDecimalTexts(values("current_period_cost")) : null,
       snapshotAt: latestCalculatedAt?.toISOString() ?? null,
     };
-  }
-
-  private async sumLatestSnapshotAmount(
-    enterpriseId: string,
-    mode: "API" | "CODING_PLAN",
-    field: "recharge_amount" | "package_cost",
-  ): Promise<string | null> {
-    const column = field === "recharge_amount"
-      ? sql.ref("latest.recharge_amount")
-      : sql.ref("latest.package_cost");
-    const result = await sql<{
-      resource_count: string;
-      snapshot_count: string;
-      value_count: string;
-      total: string | null;
-      currencies: string;
-      currency_count: string;
-    }>`
-      WITH resources AS (
-        SELECT id
-          FROM provider_resource
-         WHERE enterprise_id = ${enterpriseId}
-           AND mode = ${mode}
-           AND status <> 'DELETED'
-      ), latest AS (
-        SELECT DISTINCT ON (s.provider_resource_id) s.*
-          FROM provider_resource_operating_snapshot s
-          JOIN resources r ON r.id = s.provider_resource_id
-         WHERE s.enterprise_id = ${enterpriseId}
-         ORDER BY s.provider_resource_id, s.version DESC
-      )
-      SELECT (SELECT COUNT(*) FROM resources)::text AS resource_count,
-             COUNT(*)::text AS snapshot_count,
-             COUNT(${column})::text AS value_count,
-             SUM(${column})::text AS total,
-             COUNT(DISTINCT currency)::text AS currencies,
-             COUNT(currency)::text AS currency_count
-        FROM latest
-    `.execute(this.db);
-    const row = result.rows[0];
-    const complete =
-      row &&
-      row.resource_count !== "0" &&
-      row.snapshot_count === row.resource_count &&
-      row.value_count === row.resource_count &&
-      row.currency_count === row.resource_count &&
-      row.currencies === "1";
-    return complete ? row.total : null;
-  }
-
-  /** 某厂商本月 API 调用费用；套餐行固定为 0，套餐费用由经营快照单列。 */
-  private async sumProviderMonthlyCost(
-    enterpriseId: string,
-    providerCode: string,
-    mode: "API" | "CODING_PLAN",
-    monthStart: Date,
-    monthEnd: Date,
-  ): Promise<string> {
-    if (mode !== "API") return "0";
-    const row = await sql<{ total: string | null }>`
-      SELECT COALESCE(SUM(ll.api_cost::numeric), 0)::text AS total
-      FROM ledger_line ll
-      INNER JOIN provider_resource pr ON pr.id = ll.provider_resource_id
-      INNER JOIN provider p ON p.id = pr.provider_id
-      WHERE ll.enterprise_id = ${enterpriseId}
-        AND pr.enterprise_id = ${enterpriseId}
-        AND p.enterprise_id = ${enterpriseId}
-        AND p.code = ${providerCode}
-        AND ll.resource_mode = 'API'
-        AND pr.mode = 'API'
-        AND ll.created_at >= ${monthStart}
-        AND ll.created_at < ${monthEnd}
-    `.execute(this.db);
-    return row.rows[0]?.total ?? "0";
   }
 
   /** 某厂商最新预测快照（rate_24h + forecast_exhaust_at）。 */

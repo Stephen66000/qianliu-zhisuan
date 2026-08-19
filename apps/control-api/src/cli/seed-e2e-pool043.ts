@@ -112,15 +112,27 @@ export async function seedPool043OperatingBill(
       total_cache_tokens: 40n, total_deducted_quota: 0n, total_api_cost: "4.8",
       usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED", created_at: proAt },
   ]).execute();
-  await db.insertInto("provider_resource_operating_snapshot").values({
-    enterprise_id: enterpriseId, provider_resource_id: IDS.resource, version: 1,
-    source: "PROVIDER_SYNC", collected_at: new Date("2026-08-08T03:00:00.000Z"),
-    currency: "CNY", current_balance: "1000", current_period_cost: "8",
-  }).execute();
-  await db.insertInto("provider_resource_operating_snapshot").values({
-    enterprise_id: enterpriseId, provider_resource_id: existingResourceId, version: 1,
-    source: "PROVIDER_SYNC", collected_at: new Date(now.getTime() - 1_000),
-    currency: "CNY", recharge_amount: "10000", current_balance: "4800",
-    current_period_cost: "5200",
-  }).execute();
+  await db.insertInto("provider_resource_operating_snapshot").values([
+    {
+      enterprise_id: enterpriseId, provider_resource_id: IDS.resource, version: 1,
+      source: "PROVIDER_SYNC", collected_at: new Date("2026-07-31T16:00:00.000Z"),
+      currency: "CNY", current_balance: "1008",
+    },
+    {
+      enterprise_id: enterpriseId, provider_resource_id: IDS.resource, version: 2,
+      source: "PROVIDER_SYNC", collected_at: new Date("2026-08-08T03:00:00.000Z"),
+      currency: "CNY", current_balance: "1000", current_period_cost: "8",
+    },
+    {
+      enterprise_id: enterpriseId, provider_resource_id: existingResourceId, version: 1,
+      source: "PROVIDER_SYNC", collected_at: new Date("2026-07-31T16:00:00.000Z"),
+      currency: "CNY", current_balance: "10000",
+    },
+    {
+      enterprise_id: enterpriseId, provider_resource_id: existingResourceId, version: 2,
+      source: "PROVIDER_SYNC", collected_at: new Date(now.getTime() - 1_000),
+      currency: "CNY", recharge_amount: "10000", current_balance: "4800",
+      current_period_cost: "5200",
+    },
+  ]).execute();
 }

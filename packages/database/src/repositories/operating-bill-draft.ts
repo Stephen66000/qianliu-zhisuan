@@ -21,6 +21,10 @@ import {
   sumKnownCosts,
   unknownApiCostGaps,
 } from "./operating-bill-cost-quality.js";
+import {
+  loadMonthlyOperatingCosts,
+  type MonthlyOperatingCostResource,
+} from "./monthly-operating-cost.js";
 
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
 
@@ -153,6 +157,23 @@ function gapForResource(row: ResourceFactRow, range?: ResourceRangeRow): Operati
   return null;
 }
 
+function apiBalanceGaps(
+  row: ResourceFactRow,
+  monthlyCost: MonthlyOperatingCostResource | undefined,
+): OperatingBillGap[] {
+  if (row.mode !== "API" || monthlyCost?.apiSpendStatus === "CALCULABLE") return [];
+  return [{
+    code: `API_${monthlyCost?.apiSpendStatus ?? "BALANCE_BRIDGE_MISSING"}`,
+    message: `${row.resource_name} ${monthlyCost?.apiSpendReason ?? "余额桥接不可计算"}；API 花费必须使用期初余额 + 本月充值 - 期末余额`,
+    providerResourceId: row.resource_id,
+    field: monthlyCost?.apiSpendStatus === "OPENING_BALANCE_MISSING"
+      ? "opening_balance"
+      : "ending_balance",
+    snapshotId: row.snapshot_id,
+    snapshotVersion: row.snapshot_version,
+  }];
+}
+
 function isEffectivePackage(row: ResourceFactRow, start: Date, end: Date): boolean {
   return row.mode === "CODING_PLAN" && row.package_cost !== null
     && (row.effective_from === null || row.effective_from < end)
@@ -162,6 +183,7 @@ function isEffectivePackage(row: ResourceFactRow, start: Date, end: Date): boole
 function providerFactEvidence(input: {
   row: ResourceFactRow;
   resourceApiCost: Decimal | null;
+  ledgerApiCost: Decimal | null;
   resourcePackageCost: Decimal;
   purchases: PurchaseFactRow[];
   range?: ResourceRangeRow;
@@ -184,6 +206,7 @@ function providerFactEvidence(input: {
     snapshotId: input.row.snapshot_id,
     snapshotVersion: input.row.snapshot_version,
     apiCost: nullableAmount(input.resourceApiCost),
+    ledgerApiCost: nullableAmount(input.ledgerApiCost),
     packageCost: amount(input.resourcePackageCost),
     endingBalance: input.row.current_balance,
     purchases,
@@ -217,6 +240,12 @@ export async function buildOperatingBillDraft(
   start: Date,
   end: Date,
 ): Promise<OperatingBillSnapshot> {
+    const monthlyOperatingCosts = await loadMonthlyOperatingCosts(
+      db, enterpriseId, start, end,
+    );
+    const monthlyCostByResource = new Map(
+      monthlyOperatingCosts.resources.map((row) => [row.resourceId, row]),
+    );
     const [
       resourceResult,
       usageResult,
@@ -380,6 +409,8 @@ export async function buildOperatingBillDraft(
     for (const row of resources) {
       const gap = gapForResource(row, rangeByResource.get(row.resource_id));
       if (gap) gaps.push(gap);
+      const monthlyCost = monthlyCostByResource.get(row.resource_id);
+      gaps.push(...apiBalanceGaps(row, monthlyCost));
     }
 
     const apiCostByResource = new Map<string, Decimal | null>();
@@ -389,7 +420,7 @@ export async function buildOperatingBillDraft(
       deductedByResource.set(row.provider_resource_id,
         (deductedByResource.get(row.provider_resource_id) ?? new MoneyDecimal(0)).plus(row.deducted_quota));
     }
-    const apiCost = sumKnownCosts(apiCostByResource);
+    const ledgerApiCost = sumKnownCosts(apiCostByResource);
     gaps.push(...unknownApiCostGaps(apiCostByResource, resourceById).map((gap) => {
       const resource = gap.providerResourceId ? resourceById.get(gap.providerResourceId) : undefined;
       const range = gap.providerResourceId ? rangeByResource.get(gap.providerResourceId) : undefined;
@@ -404,7 +435,7 @@ export async function buildOperatingBillDraft(
       };
     }));
     const packageResources = resources.filter((row) => isEffectivePackage(row, start, end));
-    const packageCost = packageResources.reduce((sum, row) => sum.plus(row.package_cost!), new MoneyDecimal(0));
+    const packageCost = decimal(monthlyOperatingCosts.summary.packageCost);
 
     const subjectMap = new Map<string, {
       base: OperatingBillSubjectRow;
@@ -465,11 +496,6 @@ export async function buildOperatingBillDraft(
     if (unallocatedCost.gt(0)) {
       gaps.push({ code: "UNALLOCATED_PACKAGE_COST", message: `仍有 ${amount(unallocatedCost)} 元套餐费用没有实际使用归属` });
     }
-    const currencies = new Set(resources.filter((row) => row.mode === "API" && row.currency).map((row) => row.currency!));
-    const apiResources = resources.filter((row) => row.mode === "API");
-    const balanceComplete = apiResources.length > 0 && apiResources.every((row) => row.current_balance !== null && row.currency !== null) && currencies.size === 1;
-    const endingBalance = balanceComplete
-      ? apiResources.reduce((sum, row) => sum.plus(row.current_balance!), new MoneyDecimal(0)) : null;
     const utilizationWeightedCost = packageResources.reduce((sum, row) => {
       if (row.total_quota === null || row.used_quota === null || decimal(row.total_quota).lte(0)) return sum;
       return sum.plus(decimal(row.package_cost).mul(decimal(row.used_quota).div(row.total_quota)));
@@ -477,9 +503,11 @@ export async function buildOperatingBillDraft(
     const planUtilization = packageCost.gt(0) ? utilizationWeightedCost.div(packageCost).mul(100) : null;
 
     const providers: OperatingBillProviderRow[] = resources.map((row) => {
-      const resourceApiCost = resourceCost(apiCostByResource, row.resource_id);
-      const resourcePackageCost = isEffectivePackage(row, start, end)
-        ? decimal(row.package_cost) : new MoneyDecimal(0);
+      const resourceLedgerApiCost = resourceCost(apiCostByResource, row.resource_id);
+      const monthlyCost = monthlyCostByResource.get(row.resource_id)!;
+      const resourceApiCost = monthlyCost.apiSpend === null
+        ? null : decimal(monthlyCost.apiSpend);
+      const resourcePackageCost = decimal(monthlyCost.packageCost);
       const totalQuota = decimal(row.total_quota);
       const utilization = row.mode === "CODING_PLAN" && row.total_quota !== null && row.used_quota !== null && totalQuota.gt(0)
         ? decimal(row.used_quota).div(totalQuota).mul(100).toDecimalPlaces(2).toFixed(2) : null;
@@ -488,7 +516,7 @@ export async function buildOperatingBillDraft(
       const range = rangeByResource.get(row.resource_id);
       const confirmed = confirmationByResource.get(row.resource_id);
       const factEvidence = providerFactEvidence({
-        row, resourceApiCost, resourcePackageCost,
+        row, resourceApiCost, ledgerApiCost: resourceLedgerApiCost, resourcePackageCost,
         purchases: purchasesByResource.get(row.resource_id) ?? [], range, confirmed,
       });
       return {
@@ -496,9 +524,15 @@ export async function buildOperatingBillDraft(
         providerName: row.provider_name, resourceName: row.resource_name, mode: row.mode,
         currency: row.currency,
         apiCost: nullableAmount(resourceApiCost),
-        packageCost: amount(resourcePackageCost),
-        totalCost: nullableTotal(resourceApiCost, resourcePackageCost),
-        endingBalance: row.current_balance,
+        ledgerApiCost: nullableAmount(resourceLedgerApiCost),
+        openingBalance: monthlyCost.openingBalance,
+        rechargeAmount: monthlyCost.rechargeAmount,
+        apiSpendStatus: monthlyCost.apiSpendStatus,
+        apiSpendReason: monthlyCost.apiSpendReason,
+        packageCost: monthlyCost.packageCost,
+        totalCost: monthlyCost.packageCost === null
+          ? null : nullableTotal(resourceApiCost, resourcePackageCost),
+        endingBalance: monthlyCost.endingBalance,
         totalQuota: row.total_quota, usedQuota: row.used_quota, remainingQuota: row.remaining_quota,
         quotaUnit: row.quota_unit, utilization,
         activePrincipalCount,
@@ -516,10 +550,16 @@ export async function buildOperatingBillDraft(
       status: "DRAFT", version: period?.current_version ?? 0, generatedAt: new Date().toISOString(),
       closedAt: null, closedBy: null, closeNote: null,
       summary: {
-        totalCost: nullableTotal(apiCost, packageCost),
-        apiCost: nullableAmount(apiCost), packageCost: amount(packageCost),
-        endingBalance: endingBalance ? amount(endingBalance) : null,
-        endingBalanceCurrency: balanceComplete ? [...currencies][0] ?? null : null,
+        totalCost: monthlyOperatingCosts.summary.totalSpend,
+        apiCost: monthlyOperatingCosts.summary.apiSpend,
+        ledgerApiCost: nullableAmount(ledgerApiCost),
+        openingBalance: monthlyOperatingCosts.summary.openingBalance,
+        monthlyRecharge: monthlyOperatingCosts.summary.rechargeAmount,
+        apiSpendStatus: monthlyOperatingCosts.summary.apiSpendStatus,
+        apiSpendReason: monthlyOperatingCosts.summary.apiSpendReason,
+        packageCost: monthlyOperatingCosts.summary.packageCost,
+        endingBalance: monthlyOperatingCosts.summary.endingBalance,
+        endingBalanceCurrency: monthlyOperatingCosts.summary.currency,
         planUtilization: planUtilization ? planUtilization.toDecimalPlaces(2).toFixed(2) : null,
         activePrincipalCount: new Set(sourceUsage.map((item) => item.principal_id)).size,
         confirmedValueAmount: amount(confirmedValueAmount),

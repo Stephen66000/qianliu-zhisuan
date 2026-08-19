@@ -27,7 +27,7 @@ describe("POOL-043 API 成本未知传播", () => {
       ["api-a", { resource_name: "DeepSeek API" }],
     ]))).toEqual([{
       code: "API_COST_UNKNOWN",
-      message: "DeepSeek API 存在未知 API 成本",
+      message: "DeepSeek API 存在未知账本 API 计价",
       providerResourceId: "api-a",
     }]);
   });
@@ -53,7 +53,7 @@ describe("POOL-043 API 成本未知传播", () => {
     ]);
     expect(unknownApiCostGaps(totals, new Map())).toEqual([{
       code: "API_COST_UNKNOWN",
-      message: "missing-resource 存在未知 API 成本",
+      message: "missing-resource 存在未知账本 API 计价",
       providerResourceId: "missing-resource",
     }]);
   });

@@ -38,7 +38,7 @@ const modelHeaders = [
   "输出",
   "缓存",
   "请求数",
-  "API 成本",
+  "账本 API 计价",
   "套餐分摊",
   "使用占比",
   "用量口径",
@@ -146,7 +146,7 @@ export function OperatingBillEmployeeDetailPage() {
                   <span className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-ql-fg-secondary">
                     <span>总 Token <b className="text-ql-fg">{accountCount(provider.totals.totalTokens, provider.totals.usageQuality)}</b></span>
                     <span>请求 <b className="text-ql-fg">{provider.totals.requestCount}</b></span>
-                    <span>API 成本 <b className="text-ql-fg">{accountMoney(provider.totals.apiCost)}</b></span>
+                    <span>账本 API 计价 <b className="text-ql-fg">{accountMoney(provider.totals.apiCost)}</b></span>
                     <span>套餐分摊 <b className="text-ql-fg">{accountMoney(provider.totals.packageAllocatedCost)}</b></span>
                   </span>
                 </button>
@@ -283,7 +283,7 @@ function ModelRequests({
       <div className="overflow-x-auto rounded-lg border border-ql-border-zone bg-ql-surface">
         <table className="w-full min-w-[82rem] text-left text-[12px]">
           <thead className="bg-ql-surface-muted text-ql-fg-tertiary">
-            <tr>{["request ID", "模型 alias", "总 Token", "输入 / 输出 / 缓存", "额度扣减", "API 成本", "套餐分摊", "状态", "用量口径", "时间"].map((header) => <th className="px-3 py-2 font-medium" key={header}>{header}</th>)}</tr>
+            <tr>{["request ID", "模型 alias", "总 Token", "输入 / 输出 / 缓存", "额度扣减", "账本 API 计价", "套餐分摊", "状态", "用量口径", "时间"].map((header) => <th className="px-3 py-2 font-medium" key={header}>{header}</th>)}</tr>
           </thead>
           <tbody>
             {query.data.items.map((item) => (

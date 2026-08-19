@@ -66,6 +66,7 @@ export type PrincipalDeleteResult =
 interface PrincipalQueryOptions {
   type?: "EMPLOYEE" | "PROJECT";
   archived?: "exclude" | "only" | "all";
+  status?: "ACTIVE" | "DISABLED";
   search?: string;
   limit?: number;
   offset?: number;
@@ -79,7 +80,7 @@ export class PrincipalRepository {
     opts?: PrincipalQueryOptions,
   ): Promise<Principal[]> {
     let q = this.db.selectFrom("principal").selectAll().where("enterprise_id", "=", enterpriseId);
-    if (opts?.type) q = q.where("type", "=", opts.type);
+    if (opts?.type) q = q.where("type", "=", opts.type); if (opts?.status) q = q.where("status", "=", opts.status);
     if (opts?.archived === "only") q = q.where("archived_at", "is not", null);
     else if (opts?.archived !== "all") q = q.where("archived_at", "is", null);
     const search = opts?.search?.trim();
@@ -103,7 +104,7 @@ export class PrincipalRepository {
     let q = this.db.selectFrom("principal")
       .select(({ fn }) => fn.countAll<string>().as("count"))
       .where("enterprise_id", "=", enterpriseId);
-    if (opts?.type) q = q.where("type", "=", opts.type);
+    if (opts?.type) q = q.where("type", "=", opts.type); if (opts?.status) q = q.where("status", "=", opts.status);
     if (opts?.archived === "only") q = q.where("archived_at", "is not", null);
     else if (opts?.archived !== "all") q = q.where("archived_at", "is", null);
     const search = opts?.search?.trim();

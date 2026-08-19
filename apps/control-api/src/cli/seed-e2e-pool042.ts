@@ -84,9 +84,16 @@ export async function seedPool042Dashboard(
       raw_output_tokens: 50n, raw_cache_tokens: 40n, raw_reasoning_tokens: 0n,
       api_cost: "4.8", usage_quality: "PROVIDER_REPORTED", created_at: proAt },
   ]).execute();
-  await db.insertInto("provider_resource_operating_snapshot").values({
-    enterprise_id: enterpriseId, provider_resource_id: IDS.resource, version: 1,
-    source: "PROVIDER_SYNC", collected_at: new Date(now.getTime() - 60_000),
-    currency: "CNY", current_balance: "1000", current_period_cost: "8",
-  }).execute();
+  await db.insertInto("provider_resource_operating_snapshot").values([
+    {
+      enterprise_id: enterpriseId, provider_resource_id: IDS.resource, version: 1,
+      source: "PROVIDER_SYNC", collected_at: new Date(monthStart),
+      currency: "CNY", current_balance: "1008",
+    },
+    {
+      enterprise_id: enterpriseId, provider_resource_id: IDS.resource, version: 2,
+      source: "PROVIDER_SYNC", collected_at: new Date(now.getTime() - 60_000),
+      currency: "CNY", current_balance: "1000", current_period_cost: "8",
+    },
+  ]).execute();
 }

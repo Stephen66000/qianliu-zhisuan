@@ -182,14 +182,14 @@ beforeAll(async () => {
     INSERT INTO provider_resource_operating_snapshot
       (enterprise_id, provider_resource_id, version, source, collected_at,
        currency, current_balance, package_cost, total_quota, used_quota,
-       remaining_quota, quota_unit)
+       remaining_quota, quota_unit, effective_from, effective_until)
     VALUES
       (${enterpriseId}::uuid, ${apiResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
-       'CNY', 87.5, NULL, NULL, NULL, NULL, NULL),
+       'CNY', 87.5, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
       (${enterpriseId}::uuid, ${kimiResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
-       'CNY', NULL, 300, 100, 20, 80, 'POINT'),
+       'CNY', NULL, 300, 100, 35, 65, 'POINT', '2026-08-01T00:00:00+08:00', '2026-09-01T00:00:00+08:00'),
       (${enterpriseId}::uuid, ${zhipuResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
-       'CNY', NULL, 500, 100, 90, 10, 'POINT')
+       'CNY', NULL, 500, 100, 90, 10, 'POINT', '2026-06-26T00:00:00+08:00', '2026-09-26T00:00:00+08:00')
   `.execute(db);
   await sql`
     INSERT INTO provider_quota_window
@@ -279,6 +279,12 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
     const kimi = body.resources.find((resource) => resource.resourceId === kimiResourceId)!;
     expect(kimi.idleStatus).toBe("UNASSESSED");
     expect(kimi.utilizationStatus).not.toBe("IDLE");
+    expect(kimi).toMatchObject({
+      utilizationRate: "0.35000000",
+      utilizationBasis: "CODING_PLAN_SUBSCRIPTION_PERIOD",
+      servicePeriodStart: expect.stringContaining("2026-08-01"),
+      servicePeriodEnd: expect.stringContaining("2026-09-01"),
+    });
     expect(kimi.quotaWindows).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: "FIVE_HOUR", usedValue: "40.00000000", ratio: "0.400000" }),
       expect.objectContaining({ type: "WEEKLY", usedValue: "20.00000000", ratio: "0.200000" }),
@@ -334,7 +340,7 @@ describe("W20-09 轻量采购复盘", () => {
     });
     expect(byId.get(kimiResourceId)).toMatchObject({
       purchaseCashAmount: "300.00000000",
-      utilizationRate: "0.20000000",
+      utilizationRate: "0.35000000",
       reviewLabel: "利用不足",
       reviewReason: expect.stringMatching(/套餐|无调用|没有已结算请求/),
       idleStatus: "UNASSESSED",
@@ -345,6 +351,8 @@ describe("W20-09 轻量采购复盘", () => {
       reviewLabel: "利用不足",
       reviewReason: expect.stringMatching(/套餐|无调用|没有已结算请求/),
       idleStatus: "UNASSESSED",
+      servicePeriodStart: expect.stringContaining("2026-06-26"),
+      servicePeriodEnd: expect.stringContaining("2026-09-26"),
     });
     expect(byId.get(kimiResourceId).reviewLabel).not.toBe("闲置");
     expect(byId.get(zhipuResourceId).reviewLabel).not.toBe("闲置");

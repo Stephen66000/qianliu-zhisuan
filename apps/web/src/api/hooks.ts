@@ -140,11 +140,16 @@ export function useSupplyForecasts() {
   });
 }
 
-export function usePrincipals(archived: "exclude" | "only" | "all" = "exclude") {
+export function usePrincipals(
+  archived: "exclude" | "only" | "all" = "exclude",
+  status?: "ACTIVE" | "DISABLED",
+) {
+  const query = new URLSearchParams({ archived });
+  if (status) query.set("status", status);
   return useQuery({
-    queryKey: [...QUERY_KEYS.principals, archived],
+    queryKey: [...QUERY_KEYS.principals, archived, status ?? "all-statuses"],
     queryFn: ({ signal }) =>
-      get<PrincipalsResult>(`/principals?archived=${archived}`, signal),
+      get<PrincipalsResult>(`/principals?${query}`, signal),
     retry: 1,
     staleTime: 30_000,
   });

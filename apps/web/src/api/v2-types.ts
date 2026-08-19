@@ -107,7 +107,9 @@ export interface ResourceUtilization {
   realTokens: string; apiCost: string; deductedQuota: string; purchaseCashAmount: string;
   currency: string | null; budgetAmount: string | null; currentBalance: string | null;
   packageCost: string | null; totalQuota: string | null; usedQuota: string | null;
-  remainingQuota: string | null; quotaUnit: string | null; utilizationRate: string | null;
+  remainingQuota: string | null; quotaUnit: string | null;
+  servicePeriodStart?: string | null; servicePeriodEnd?: string | null;
+  utilizationRate: string | null;
   idleEntitlementCost: string | null; rate1h: string | null; rate24h: string | null;
   rate7d: string | null; forecastExhaustAt: string | null;
   nextRecoverAt: string | null; coverageHours: string | null;
@@ -116,7 +118,7 @@ export interface ResourceUtilization {
   forecastConfidence: string | null; forecastNotCalculableReason: string | null;
   forecastDataAt: string | null; lastSettledRequestAt: string | null;
   continuousNoCallDays: number | null; idleStatus: "UNASSESSED";
-  utilizationBasis: "API_MONTHLY_BUDGET" | "CODING_PLAN_FIVE_HOUR" | "CODING_PLAN_WEEKLY" | null;
+  utilizationBasis: "API_MONTHLY_BUDGET" | "CODING_PLAN_SUBSCRIPTION_PERIOD" | null;
   notCalculableReason: string | null; dataAt: string | null;
   quotaWindows: Array<{
     type: "FIVE_HOUR" | "WEEKLY"; limitValue: string | null; usedValue: string | null;

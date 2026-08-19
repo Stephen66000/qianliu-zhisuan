@@ -54,6 +54,44 @@ const OptionalTime = z.string().refine(
   "时间格式应为 HH:MM",
 );
 
+type ArchiveTarget =
+  | { kind: "model"; item: UnifiedModel }
+  | { kind: "route"; item: ModelRouteItem }
+  | { kind: "rule"; item: BillingRule };
+
+type PolicyActionTarget = {
+  policy: DispatchPolicy;
+  action: "publish" | "retire" | "restore";
+};
+
+function archiveDialogTitle(target: ArchiveTarget | null): string {
+  if (target?.kind === "model") return "确认归档统一模型？";
+  if (target?.kind === "route") return "确认归档 Model Route？";
+  return "确认归档计价规则？";
+}
+
+function policyActionConfirmLabel(target: PolicyActionTarget | null): string {
+  if (target?.action === "publish") return "确认发布";
+  if (target?.action === "restore") return "确认恢复并发布";
+  return "确认停用";
+}
+
+function policyActionTitle(target: PolicyActionTarget | null): string {
+  if (target?.action === "publish") return "发布调度策略";
+  if (target?.action === "restore") return "恢复调度策略原配置";
+  return "停用调度策略";
+}
+
+function policyActionImpact(
+  target: PolicyActionTarget | null,
+  principalById: Map<string, Principal>,
+): string {
+  if (target?.action === "restore") {
+    return `将基于历史版本 ${target.policy.policyVersion} 自动校验并生成递增的新发布版本；历史版本继续保持 RETIRED。`;
+  }
+  return policyTransitionImpact(target, principalById);
+}
+
 const BillingWindowFormSchema = z
   .object({
     timezone: z.string().min(1, "时区不能为空").max(64),
@@ -242,10 +280,8 @@ export function QuotaRulesPage() {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [disableModelTarget, setDisableModelTarget] = useState<UnifiedModel | null>(null);
   const [disableRouteTarget, setDisableRouteTarget] = useState<ModelRouteItem | null>(null);
-  const [policyActionTarget, setPolicyActionTarget] = useState<{
-    policy: DispatchPolicy;
-    action: "publish" | "retire";
-  } | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<ArchiveTarget | null>(null);
+  const [policyActionTarget, setPolicyActionTarget] = useState<PolicyActionTarget | null>(null);
   const [editingPolicy, setEditingPolicy] = useState<DispatchPolicy | null>(null);
   const [principalSearch, setPrincipalSearch] = useState("");
   const routesQuery = useModelRoutes(selectedModelId, "all");
@@ -379,7 +415,7 @@ export function QuotaRulesPage() {
   const transitionPolicy = useMutation({
     mutationFn: (input: {
       policy: DispatchPolicy;
-      action: "validate" | "publish" | "retire" | "copy";
+      action: "validate" | "publish" | "retire" | "copy" | "restore";
     }) => post(`/dispatch-policies/${input.policy.id}/${input.action}`),
     onSuccess: () => {
       setPolicyActionTarget(null);
@@ -441,6 +477,7 @@ export function QuotaRulesPage() {
       });
     },
     onSuccess: () => {
+      setArchiveTarget(null);
       void refreshModels();
       void refreshRules();
       if (selectedModelId) void refreshRoutes(selectedModelId);
@@ -583,7 +620,7 @@ export function QuotaRulesPage() {
                     ) : (
                       <button
                         className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                        onClick={() => archiveConfig.mutate({ kind: "model", item: model, archive: true })}
+                        onClick={() => setArchiveTarget({ kind: "model", item: model })}
                         type="button"
                       >
                         归档
@@ -732,7 +769,7 @@ export function QuotaRulesPage() {
                       <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                         onClick={() => updateRoute.mutate({ route, enabled: true })} type="button">启用</button>
                       <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                        onClick={() => archiveConfig.mutate({ kind: "route", item: route, archive: true })} type="button">归档</button>
+                        onClick={() => setArchiveTarget({ kind: "route", item: route })} type="button">归档</button>
                     </>}
                   </td>
                 </tr>
@@ -1036,7 +1073,7 @@ export function QuotaRulesPage() {
                         onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
                         type="button">{rule.enabled ? "停用" : "启用"}</button>
                       {!rule.enabled ? <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                        onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: true })}
+                        onClick={() => setArchiveTarget({ kind: "rule", item: rule })}
                         type="button">归档</button> : null}
                     </>}
                   </td>
@@ -1333,13 +1370,22 @@ export function QuotaRulesPage() {
                         </button>
                       ) : null}
                       {policy.status === "RETIRED" ? (
-                        <button
-                          className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
-                          onClick={() => transitionPolicy.mutate({ policy, action: "copy" })}
-                          type="button"
-                        >
-                          重新启用 / 复制为新版本
-                        </button>
+                        <>
+                          <button
+                            className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                            onClick={() => setPolicyActionTarget({ policy, action: "restore" })}
+                            type="button"
+                          >
+                            恢复原配置
+                          </button>
+                          <button
+                            className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                            onClick={() => transitionPolicy.mutate({ policy, action: "copy" })}
+                            type="button"
+                          >
+                            复制为新版本
+                          </button>
+                        </>
                       ) : null}
                     </td>
                   </tr>
@@ -1351,16 +1397,29 @@ export function QuotaRulesPage() {
       </ManagementSection>
 
       <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="确认归档"
+        danger
+        impact="归档后，该模型将从默认列表和新配置入口中隐藏。可通过‘查看已归档配置’恢复。是否继续？"
+        loading={archiveConfig.isPending}
+        onCancel={() => setArchiveTarget(null)}
+        onConfirm={() => {
+          if (archiveTarget) archiveConfig.mutate({ ...archiveTarget, archive: true } as Parameters<typeof archiveConfig.mutate>[0]);
+        }}
+        open={archiveTarget !== null}
+        title={archiveDialogTitle(archiveTarget)}
+      />
+      <ConfirmDialog
         danger={policyActionTarget?.action === "retire"}
-        confirmLabel={policyActionTarget?.action === "publish" ? "确认发布" : "确认停用"}
-        impact={policyTransitionImpact(policyActionTarget, principalById)}
+        confirmLabel={policyActionConfirmLabel(policyActionTarget)}
+        impact={policyActionImpact(policyActionTarget, principalById)}
         loading={transitionPolicy.isPending}
         onCancel={() => setPolicyActionTarget(null)}
         onConfirm={() => {
           if (policyActionTarget) transitionPolicy.mutate(policyActionTarget);
         }}
         open={policyActionTarget !== null}
-        title={policyActionTarget?.action === "publish" ? "发布调度策略" : "停用调度策略"}
+        title={policyActionTitle(policyActionTarget)}
       />
       <ConfirmDialog
         danger

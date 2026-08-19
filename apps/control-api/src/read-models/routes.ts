@@ -325,7 +325,7 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
     "/dispatch-policies/:id/:action",
     { preHandler: [requireAuth] },
     async (req, reply) => {
-      const action = z.enum(["validate", "publish", "retire", "copy"]).safeParse(req.params.action);
+      const action = z.enum(["validate", "publish", "retire", "copy", "restore"]).safeParse(req.params.action);
       if (!action.success) {
         return reply.code(404).send({ error: "not_found", message: "未知策略操作" });
       }
@@ -333,6 +333,59 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
       const policy = await app.dispatchRepo.getPolicy(enterpriseId, req.params.id);
       if (!policy) {
         return reply.code(404).send({ error: "not_found", message: "调度策略不存在" });
+      }
+
+      if (action.data === "restore") {
+        if (policy.status !== "RETIRED") {
+          return reply.code(409).send({
+            error: "invalid_state",
+            message: `策略当前为 ${policy.status}，只有已停用历史版本可以恢复`,
+          });
+        }
+        const [models, resources, principals] = await Promise.all([
+          app.providerRepo.listUnifiedModels(enterpriseId),
+          app.providerRepo.listResources(enterpriseId),
+          app.principalRepo.list(enterpriseId),
+        ]);
+        if (policy.matchUnifiedModel
+          && !models.some((model) => model.alias === policy.matchUnifiedModel
+            && model.status === "ACTIVE" && model.archived_at === null)) {
+          return reply.code(400).send({ error: "invalid_reference", message: "统一模型不存在、未启用或已归档" });
+        }
+        const resourceIds = new Set(resources.filter((resource) => resource.status !== "DELETED").map((resource) => resource.id));
+        if (policy.matchProviderResourceId && !resourceIds.has(policy.matchProviderResourceId)) {
+          return reply.code(400).send({ error: "invalid_reference", message: "匹配资源不存在" });
+        }
+        if (policy.switchEquivalentGroup.some((id) => !resourceIds.has(id))) {
+          return reply.code(400).send({ error: "invalid_reference", message: "等价资源组包含不存在的资源" });
+        }
+        const principalIds = new Set(principals.filter((principal) =>
+          principal.status === "ACTIVE" && principal.archived_at === null
+        ).map((principal) => principal.id));
+        if (policy.matchPrincipalScope?.some((id) => !principalIds.has(id))) {
+          return reply.code(400).send({ error: "invalid_reference", message: "主体范围包含停用、归档或不存在的主体" });
+        }
+        const restored = await app.dispatchRepo.restorePolicyAsPublished(
+          enterpriseId, policy.id, req.admin!.adminUserId,
+        );
+        if (!restored) {
+          return reply.code(409).send({ error: "conflict", message: "策略状态已变化，请刷新后重试" });
+        }
+        await app.auditRepo.write({
+          enterprise_id: enterpriseId,
+          admin_user_id: req.admin!.adminUserId,
+          action: "dispatch_policy.restore",
+          target_type: "dispatch_policy",
+          target_id: restored.id,
+          change_summary: {
+            restored_from_policy_id: policy.id,
+            before_version: policy.policyVersion,
+            new_version: restored.policyVersion,
+            status: "PUBLISHED",
+          },
+          result: "SUCCESS",
+        });
+        return reply.code(201).send({ policy: restored });
       }
 
       if (action.data === "copy") {

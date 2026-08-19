@@ -69,9 +69,9 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
     ["输出 Token", accountCount(totals.outputTokens, totals.usageQuality), "模型生成"],
     ["缓存 Token", accountCount(totals.cacheTokens, totals.usageQuality), "输入 Token 子集"],
     ["额度扣减", accountQuota(totals.deductedQuota), "独立额度口径"],
-    ["API 成本", accountMoney(totals.apiCost), "仅 API 实际调用成本"],
+    ["账本 API 计价", accountMoney(totals.apiCost), "逐请求计价，仅作为经营 API 花费核对证据"],
     ["套餐分摊", accountMoney(totals.packageAllocatedCost), "Coding Plan 套餐内分摊"],
-    ["归集成本", accountMoney(totals.totalAllocatedCost), "API 成本 + 套餐分摊"],
+    ["归集成本", accountMoney(totals.totalAllocatedCost), "账本 API 计价 + 套餐分摊"],
     ["活跃天数", `${totals.activeDays} 天`, "北京时间自然日"],
     ["请求次数", `${totals.requestCount} 次`, `最近 ${accountTime(totals.lastUsedAt)}`],
   ];

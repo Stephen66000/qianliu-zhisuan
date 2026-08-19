@@ -42,8 +42,8 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
             <th className="py-2 pr-4 text-right font-medium">厂商已用额度</th>
             <th className="py-2 pr-4 text-right font-medium">厂商剩余额度</th>
             <th className="py-2 pr-4 text-right font-medium">已分配给主体</th>
-            <th className="py-2 pr-4 text-right font-medium">余额/本期费用</th>
-            <th className="py-2 pr-4 text-right font-medium">本月费用（元）</th>
+            <th className="py-2 pr-4 text-right font-medium">经营余额 / 套餐</th>
+            <th className="py-2 pr-4 text-right font-medium">本月花费（元）</th>
             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
             <th className="py-2 pr-4 text-right font-medium">消耗速度</th>
             <th className="py-2 pr-4 text-right font-medium">余额可承载 Token</th>
@@ -75,15 +75,26 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                 {item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.currentBalance === null
-                  ? "未录入/未同步"
-                  : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`}
-                {item.currentPeriodCost === null
-                  ? null
-                  : <span className="block text-[11px] text-ql-fg-tertiary">本期 {formatMoney(item.currentPeriodCost)}</span>}
+                {item.mode === "API" ? (
+                  <>{item.currentBalance === null
+                    ? "余额待补"
+                    : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`}
+                    <span className="block text-[11px] text-ql-fg-tertiary">
+                      API 花费 {item.monthlyCost === null ? "待补期初余额" : formatMoney(item.monthlyCost)}
+                    </span></>
+                ) : (
+                  <>{item.packageCost === null
+                    ? "套餐费用待补"
+                    : `${item.currency ?? ""} ${formatMoney(item.packageCost)}`}
+                    <span className="block text-[11px] text-ql-fg-tertiary">
+                      订阅周期 {subscriptionPeriod(item)}
+                    </span></>
+                )}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {formatMoney(item.monthlyCost)}
+                {item.monthlyCost === null
+                  ? (item.mode === "API" ? "待补期初余额" : "待补套餐费用")
+                  : formatMoney(item.monthlyCost)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {monthlyTokenText(item)}
@@ -131,6 +142,12 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
       </table>
     </div>
   );
+}
+
+function subscriptionPeriod(item: ResourceBreakdownItem): string {
+  if (!item.subscriptionPeriodStart && !item.subscriptionPeriodEnd) return "待补";
+  const day = (value: string | null) => value ? value.slice(0, 10) : "未知";
+  return `${day(item.subscriptionPeriodStart)}～${day(item.subscriptionPeriodEnd)}`;
 }
 
 function monthlyTokenText(item: ResourceBreakdownItem): ReactNode {

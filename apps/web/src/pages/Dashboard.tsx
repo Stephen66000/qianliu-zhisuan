@@ -58,7 +58,7 @@ export function DashboardPage() {
       <DashboardHeader />
 
       <Zone
-        description="八个指标统一展示；本月总支出 = 套餐支出 + API 支出。"
+        description="八个指标统一展示；本月总支出 = 套餐支出 + API 花费。"
         title="本月概览"
       >
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -80,10 +80,11 @@ export function DashboardPage() {
             value={data.monthlyPackagePayment === null ? null : formatMoney(data.monthlyPackagePayment)}
           />
           <MetricCard
-            hint="按实际调用计价，不含余额"
-            label="API 支出"
+            emptyText="待补期初余额"
+            hint="期初余额 + 本月充值 - 期末余额；账本计价仅用于核对"
+            label="API 花费"
             unit="元"
-            value={formatMoney(data.monthlyApiCost)}
+            value={data.monthlyApiCost === null ? null : formatMoney(data.monthlyApiCost)}
           />
           <MetricCard
             hint={`当前正在使用 ${data.currentInUseCount} 人`}
@@ -99,14 +100,7 @@ export function DashboardPage() {
             value={data.monthlyRechargeAmount === null ? null : formatMoney(data.monthlyRechargeAmount)}
           />
           <MetricCard
-            hint={
-              <>
-                <span className="block">{data.dispatchSavingBreakdown.realizedReason ?? `已实现 ${data.dispatchSavingBreakdown.realizedSwitchCount} 次切换`}</span>
-                <span className="block">潜在峰值：{data.dispatchSavingBreakdown.potentialPeakSavingAmount === null ? data.dispatchSavingBreakdown.potentialReason : `¥${formatMoney(data.dispatchSavingBreakdown.potentialPeakSavingAmount)}`}</span>
-                <span className="block">避免高峰扣减：{formatCount(data.dispatchSavingBreakdown.avoidedPeakDeduction)} 额度点</span>
-                {data.dispatchSavingBreakdown.rejectedRequestCount > 0 ? <span className="block">拒绝 {data.dispatchSavingBreakdown.rejectedRequestCount} 次，不计入已实现节省</span> : null}
-              </>
-            }
+            hint={dispatchSavingHint(data)}
             label="本月调度节省"
             unit="元"
             value={formatMoney(data.monthlyDispatchSaving)}
@@ -216,6 +210,19 @@ export function DashboardPage() {
       </Zone>
     </div>
   );
+}
+
+function dispatchSavingHint(data: DashboardSummary) {
+  const noEffectiveValue = Number(data.monthlyDispatchSaving) === 0
+    && data.dispatchSavingBreakdown.potentialPeakSavingAmount === null
+    && Number(data.dispatchSavingBreakdown.avoidedPeakDeduction) === 0;
+  if (noEffectiveValue) return "本月无可计算的实际切换";
+  return <>
+    <span className="block">{data.dispatchSavingBreakdown.realizedReason ?? `已实现 ${data.dispatchSavingBreakdown.realizedSwitchCount} 次切换`}</span>
+    <span className="block">潜在峰值：{data.dispatchSavingBreakdown.potentialPeakSavingAmount === null ? data.dispatchSavingBreakdown.potentialReason : `¥${formatMoney(data.dispatchSavingBreakdown.potentialPeakSavingAmount)}`}</span>
+    <span className="block">避免高峰扣减：{formatCount(data.dispatchSavingBreakdown.avoidedPeakDeduction)} 额度点</span>
+    {data.dispatchSavingBreakdown.rejectedRequestCount > 0 ? <span className="block">拒绝 {data.dispatchSavingBreakdown.rejectedRequestCount} 次，不计入已实现节省</span> : null}
+  </>;
 }
 
 function DashboardHeader() {

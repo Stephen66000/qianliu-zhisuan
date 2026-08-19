@@ -18,6 +18,9 @@ function item(overrides: Partial<ResourceBreakdownItem>): ResourceBreakdownItem 
     forecastNotCalculableReason: null, forecastDataPoints: null, forecastExhaustAt: null,
     status: "HEALTHY", statusCounts: { ACTIVE: 1 }, abnormalResources: [],
     ...overrides,
+    packageCost: overrides.packageCost ?? null,
+    subscriptionPeriodStart: overrides.subscriptionPeriodStart ?? null,
+    subscriptionPeriodEnd: overrides.subscriptionPeriodEnd ?? null,
   };
 }
 

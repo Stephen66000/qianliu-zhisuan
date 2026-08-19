@@ -85,10 +85,13 @@ describe("W20-08 资源利用事实 Web", () => {
             purchaseCashAmount: "300.00000000",
             packageCost: "300.00000000",
             totalQuota: "100.00000000",
-            usedQuota: "20.00000000",
-            remainingQuota: "80.00000000",
+            usedQuota: "35.00000000",
+            remainingQuota: "65.00000000",
             quotaUnit: "POINT",
-            utilizationRate: "0.20000000",
+            servicePeriodStart: "2026-08-01T00:00:00.000+08:00",
+            servicePeriodEnd: "2026-09-01T00:00:00.000+08:00",
+            utilizationRate: "0.35000000",
+            utilizationBasis: "CODING_PLAN_SUBSCRIPTION_PERIOD",
             utilizationStatus: "LOW_UTILIZATION",
             forecastExhaustAt: "2099-08-20T00:00:00.000Z",
             nextRecoverAt: "2099-08-21T00:00:00.000Z",
@@ -150,7 +153,9 @@ describe("W20-08 资源利用事实 Web", () => {
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
     expect(within(row).getByText("5 小时：40/100 PERCENT · SUCCESS")).toBeInTheDocument();
     expect(within(row).getByText("周：20/100 PERCENT · SUCCESS")).toBeInTheDocument();
-    expect(within(row).getByText("20.0%")).toBeInTheDocument();
+    expect(within(row).getByText("35.0%")).toBeInTheDocument();
+    expect(within(row).getByText("订阅周期累计")).toBeInTheDocument();
+    expect(within(row).getByText("2026-08-01～2026-09-01")).toBeInTheDocument();
     expect(within(row).getByText("STALE · 预测超过 15 分钟")).toBeInTheDocument();
     expect(within(row).queryByText(/2099/)).not.toBeInTheDocument();
     expect(within(row).getByText(/无调用天数未知/)).toBeInTheDocument();

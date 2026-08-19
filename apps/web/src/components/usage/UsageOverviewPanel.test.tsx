@@ -93,6 +93,18 @@ describe("W20-04 用量概览 Web", () => {
     await waitFor(() => expect(usePrincipalOptionsMock).toHaveBeenLastCalledWith("PROJECT", "星河", 20, 20));
   });
 
+  it("唯一精确匹配按 Enter 立即应用主体并刷新 URL 口径", async () => {
+    const user = userEvent.setup();
+    renderPanel("/usage?tab=overview&subject_type=PROJECT&period=MONTH");
+    const search = screen.getByRole("searchbox", { name: "搜索用量主体" });
+    await user.type(search, "星河项目");
+    await waitFor(() => expect(usePrincipalOptionsMock).toHaveBeenLastCalledWith(
+      "PROJECT", "星河项目", 0, 20,
+    ));
+    await user.keyboard("{Enter}");
+    expect(screen.getByTestId("location")).toHaveTextContent(`subject_id=${projectId}`);
+  });
+
   it("覆盖加载、错误与空数据三态", () => {
     useUsageOverviewMock.mockReturnValueOnce({ isLoading: true, error: null, data: undefined, refetch: vi.fn() });
     const loading = renderPanel();

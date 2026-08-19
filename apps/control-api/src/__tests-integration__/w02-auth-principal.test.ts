@@ -193,6 +193,17 @@ describe("W02 认证与 Principal", () => {
     expect(disableRes.statusCode).toBe(200);
     expect(disableRes.json().principal.status).toBe("DISABLED");
 
+    const disabledOnly = await app.inject({
+      method: "GET",
+      url: "/principals?archived=exclude&status=DISABLED",
+      headers: { cookie: adminCookie },
+    });
+    expect(disabledOnly.statusCode).toBe(200);
+    expect(disabledOnly.json().principals.map((item: { id: string }) => item.id)).toContain(pid);
+    expect(disabledOnly.json().principals.every(
+      (item: { status: string; archived_at: string | null }) => item.status === "DISABLED" && item.archived_at === null,
+    )).toBe(true);
+
     const reactivateRes = await app.inject({
       method: "PATCH",
       url: `/principals/${pid}`,

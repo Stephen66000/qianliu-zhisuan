@@ -22,6 +22,8 @@ export interface ResourceUtilizationRow {
   usedQuota: string | null;
   remainingQuota: string | null;
   quotaUnit: string | null;
+  servicePeriodStart: string | null;
+  servicePeriodEnd: string | null;
   utilizationRate: string | null;
   idleEntitlementCost: string | null;
   rate1h: string | null;
@@ -37,7 +39,7 @@ export interface ResourceUtilizationRow {
   lastSettledRequestAt: string | null;
   continuousNoCallDays: number | null;
   idleStatus: "UNASSESSED";
-  utilizationBasis: "API_MONTHLY_BUDGET" | "CODING_PLAN_FIVE_HOUR" | "CODING_PLAN_WEEKLY" | null;
+  utilizationBasis: "API_MONTHLY_BUDGET" | "CODING_PLAN_SUBSCRIPTION_PERIOD" | null;
   utilizationStatus: string;
   notCalculableReason: string | null;
   dataAt: string | null;
@@ -78,6 +80,8 @@ interface RawUtilizationRow {
   used_quota: string | null;
   remaining_quota: string | null;
   quota_unit: string | null;
+  service_period_start: string | null;
+  service_period_end: string | null;
   utilization_rate: string | null;
   idle_entitlement_cost: string | null;
   rate_1h: string | null;
@@ -92,7 +96,7 @@ interface RawUtilizationRow {
   forecast_data_at: Date | null;
   last_settled_request_at: Date | null;
   continuous_no_call_days: string | number | null;
-  utilization_basis: "API_MONTHLY_BUDGET" | "CODING_PLAN_FIVE_HOUR" | "CODING_PLAN_WEEKLY" | null;
+  utilization_basis: "API_MONTHLY_BUDGET" | "CODING_PLAN_SUBSCRIPTION_PERIOD" | null;
   utilization_status: string;
   not_calculable_reason: string | null;
   data_at: Date | null;
@@ -154,15 +158,13 @@ export async function listResourceUtilization(
            s.used_quota::text,
            s.remaining_quota::text,
            s.quota_unit,
+           to_char(s.effective_from AT TIME ZONE tenant.timezone, 'YYYY-MM-DD') AS service_period_start,
+           to_char(s.effective_until AT TIME ZONE tenant.timezone, 'YYYY-MM-DD') AS service_period_end,
            CASE
              WHEN pr.mode = 'API' AND pr.monthly_budget_amount > 0
                THEN round(coalesce(l.api_cost, 0) / pr.monthly_budget_amount, 8)::text
-             WHEN pr.mode = 'CODING_PLAN' AND qw.ratio IS NOT NULL THEN round(qw.ratio, 8)::text
-             WHEN pr.mode = 'CODING_PLAN' AND qw.limit_value > 0 AND qw.used_value IS NOT NULL
-               THEN round(qw.used_value / qw.limit_value, 8)::text
-             WHEN pr.mode = 'CODING_PLAN' AND q5.ratio IS NOT NULL THEN round(q5.ratio, 8)::text
-             WHEN pr.mode = 'CODING_PLAN' AND q5.limit_value > 0 AND q5.used_value IS NOT NULL
-               THEN round(q5.used_value / q5.limit_value, 8)::text
+             WHEN pr.mode = 'CODING_PLAN' AND s.total_quota > 0 AND s.used_quota IS NOT NULL
+               THEN round(s.used_quota / s.total_quota, 8)::text
              ELSE NULL
            END AS utilization_rate,
            CASE
@@ -199,8 +201,8 @@ export async function listResourceUtilization(
              AS continuous_no_call_days,
            CASE
              WHEN pr.mode = 'API' AND pr.monthly_budget_amount > 0 THEN 'API_MONTHLY_BUDGET'
-             WHEN pr.mode = 'CODING_PLAN' AND (qw.ratio IS NOT NULL OR (qw.limit_value > 0 AND qw.used_value IS NOT NULL)) THEN 'CODING_PLAN_WEEKLY'
-             WHEN pr.mode = 'CODING_PLAN' AND (q5.ratio IS NOT NULL OR (q5.limit_value > 0 AND q5.used_value IS NOT NULL)) THEN 'CODING_PLAN_FIVE_HOUR'
+             WHEN pr.mode = 'CODING_PLAN' AND s.total_quota > 0 AND s.used_quota IS NOT NULL
+               THEN 'CODING_PLAN_SUBSCRIPTION_PERIOD'
              ELSE NULL
            END AS utilization_basis,
            CASE
@@ -209,19 +211,16 @@ export async function listResourceUtilization(
              WHEN pr.mode = 'API' AND coalesce(l.api_cost, 0) >= pr.monthly_budget_amount * 0.8 THEN 'WARNING'
              WHEN pr.mode = 'API' THEN 'NORMAL'
              WHEN pr.status = 'EXHAUSTED' THEN 'EXHAUSTED'
-             WHEN coalesce(qw.ratio, CASE WHEN qw.limit_value > 0 THEN qw.used_value / qw.limit_value END,
-                           q5.ratio, CASE WHEN q5.limit_value > 0 THEN q5.used_value / q5.limit_value END) >= 1 THEN 'EXHAUSTED'
-             WHEN coalesce(qw.ratio, CASE WHEN qw.limit_value > 0 THEN qw.used_value / qw.limit_value END,
-                           q5.ratio, CASE WHEN q5.limit_value > 0 THEN q5.used_value / q5.limit_value END) < 1 THEN 'UNDERUSED'
+             WHEN s.total_quota > 0 AND s.used_quota >= s.total_quota THEN 'EXHAUSTED'
+             WHEN s.total_quota > 0 AND s.used_quota < s.total_quota THEN 'UNDERUSED'
              WHEN qw.id IS NOT NULL OR q5.id IS NOT NULL THEN 'WINDOW_FACT_ONLY'
              ELSE 'UNKNOWN'
            END AS utilization_status,
            CASE
              WHEN pr.mode = 'API' AND pr.monthly_budget_amount IS NULL THEN 'MONTHLY_BUDGET_NOT_CONFIGURED'
-             WHEN pr.mode = 'CODING_PLAN' AND NOT (
-               (qw.ratio IS NOT NULL OR (qw.limit_value > 0 AND qw.used_value IS NOT NULL))
-               OR (q5.ratio IS NOT NULL OR (q5.limit_value > 0 AND q5.used_value IS NOT NULL))
-             ) THEN 'QUOTA_FACT_NOT_AVAILABLE'
+             WHEN pr.mode = 'CODING_PLAN'
+              AND NOT (s.total_quota > 0 AND s.used_quota IS NOT NULL)
+               THEN 'SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE'
              ELSE NULL
            END AS not_calculable_reason,
            greatest(l.data_at, pu.data_at, lu.used_at, s.collected_at, f.snapshot_at, qw.collected_at, q5.collected_at) AS data_at
@@ -319,7 +318,10 @@ function mapRow(row: RawUtilizationRow): Omit<ResourceUtilizationRow, "quotaWind
     budgetAmount: row.budget_amount, currentBalance: row.current_balance,
     packageCost: row.package_cost, totalQuota: row.total_quota,
     usedQuota: row.used_quota, remainingQuota: row.remaining_quota,
-    quotaUnit: row.quota_unit, utilizationRate: row.utilization_rate,
+    quotaUnit: row.quota_unit,
+    servicePeriodStart: row.service_period_start,
+    servicePeriodEnd: row.service_period_end,
+    utilizationRate: row.utilization_rate,
     idleEntitlementCost: row.idle_entitlement_cost,
     rate1h: row.rate_1h,
     rate24h: row.rate_24h,

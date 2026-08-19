@@ -20,13 +20,13 @@ const metrics: Array<{
   accent?: boolean;
 }> = [
   {
-    label: "总投入",
+    label: "本月总花费",
     value: "¥1,800.00",
-    note: "API 消耗 + 固定套餐费用",
+    note: "API 花费 + 固定套餐费用",
     icon: CircleDollarSign,
   },
   {
-    label: "API 消耗",
+    label: "API 花费",
     value: "¥1,000.00",
     note: "按厂商账单口径",
     icon: Banknote,
@@ -136,7 +136,7 @@ export function OverviewTab() {
                 <tr>
                   <th className="px-4 py-2 font-medium">厂商</th>
                   <th className="px-4 py-2 font-medium">采购形态</th>
-                  <th className="px-4 py-2 text-right font-medium">月度成本</th>
+                  <th className="px-4 py-2 text-right font-medium">月度花费</th>
                   <th className="px-4 py-2 text-right font-medium">投入占比</th>
                   <th className="px-4 py-2 font-medium">使用情况</th>
                   <th className="px-4 py-2 font-medium">状态</th>

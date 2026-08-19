@@ -104,6 +104,10 @@ beforeAll(async () => {
   await db.insertInto("provider_resource_operating_snapshot").values([
     {
       enterprise_id: enterpriseId, provider_resource_id: api.id, version: 1, source: "ADMIN",
+      collected_at: new Date("2026-07-31T16:00:00.000Z"), currency: "CNY", current_balance: "100",
+    },
+    {
+      enterprise_id: enterpriseId, provider_resource_id: api.id, version: 2, source: "ADMIN",
       collected_at: occurredAt, currency: "CNY", current_balance: "87.66",
     },
     {
@@ -145,7 +149,8 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(draft.json().providers.find((row: { providerResourceId: string }) => row.providerResourceId === apiResource.id))
       .toMatchObject({
         purchases: [{ type: "API_RECHARGE", amount: "50.00000000", currency: "CNY", source: "ADMIN" }],
-        apiCost: "0.00000000", confirmation: { status: "PENDING", matchesCurrentFacts: false },
+        apiCost: null, apiSpendReason: "待补期末余额",
+        confirmation: { status: "PENDING", matchesCurrentFacts: false },
       });
     for (const resource of resources) {
       const confirmed = await app.inject({
@@ -170,6 +175,8 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
       month: "2026-08", timezone: "Asia/Shanghai", status: "DRAFT", version: 0,
       summary: {
         apiCost: "12.34000000", packageCost: "300.00000000", totalCost: "312.34000000",
+        openingBalance: "100.00000000", monthlyRecharge: "0.00000000",
+        ledgerApiCost: "12.34000000", apiSpendStatus: "CALCULABLE",
         endingBalance: "87.66000000", unallocatedCost: "0.00000000", activePrincipalCount: 1,
       },
       gaps: [],
@@ -232,10 +239,12 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
 
     const reopen = await app.inject({ method: "POST", url: "/operating-bills/2026-08/reopen", headers: { cookie }, payload: { reason: "对账修正" } });
     expect(reopen.statusCode).toBe(200);
-    expect(reopen.json()).toMatchObject({ status: "DRAFT", version: 1, summary: { totalCost: "399.99000000" } });
+    expect(reopen.json()).toMatchObject({ status: "DRAFT", version: 1, summary: {
+      totalCost: "312.34000000", apiCost: "12.34000000", ledgerApiCost: "99.99000000",
+    } });
     const reclose = await app.inject({ method: "POST", url: "/operating-bills/2026-08/close", headers: { cookie }, payload: { allow_incomplete: false, note: "修正后结账" } });
     expect(reclose.statusCode).toBe(200);
-    expect(reclose.json()).toMatchObject({ status: "CLOSED", version: 2, summary: { totalCost: "399.99000000" } });
+    expect(reclose.json()).toMatchObject({ status: "CLOSED", version: 2, summary: { totalCost: "312.34000000" } });
     expect(reclose.json().versions).toHaveLength(2);
 
     await app.inject({ method: "POST", url: "/operating-bills/2026-08/reopen", headers: { cookie }, payload: { reason: "并发验收" } });
@@ -247,6 +256,18 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
   }, 120_000);
 
   it("数据缺口禁止静默结账，授权例外必须填写说明", async () => {
+    const draft = await app.inject({
+      method: "GET", url: "/operating-bills/2026-07", headers: { cookie },
+    });
+    expect(draft.json().summary).toMatchObject({
+      apiCost: null, apiSpendStatus: "OPENING_BALANCE_MISSING",
+      apiSpendReason: "待补期初余额",
+    });
+    expect(draft.json().gaps).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: "API_OPENING_BALANCE_MISSING", field: "opening_balance",
+      }),
+    ]));
     const rejected = await app.inject({
       method: "POST", url: "/operating-bills/2026-07/close", headers: { cookie },
       payload: { allow_incomplete: false, note: null },

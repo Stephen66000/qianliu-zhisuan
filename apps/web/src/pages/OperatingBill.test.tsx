@@ -61,12 +61,48 @@ describe("POOL-025 经营账单", () => {
     const user = userEvent.setup();
     render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
     expect(screen.getByText("¥312.34")).toBeInTheDocument();
-    expect(screen.getByText("仅 API 模式调用成本")).toBeInTheDocument();
+    expect(screen.getByText("期初余额 + 本月充值 - 期末余额")).toBeInTheDocument();
     await user.click(screen.getByRole("link", { name: /套餐利用分析/ }));
     expect(screen.getByText("¥150.00")).toBeInTheDocument();
     expect(screen.getByText(/不代表退款/)).toBeInTheDocument();
     await user.click(screen.getByRole("link", { name: /结账管理/ }));
     expect(screen.getByText("数据完整性检查通过")).toBeInTheDocument();
+  });
+
+  it("缺期初余额时明确待补，并保留账本 API 计价核对证据", () => {
+    currentBill = {
+      ...bill,
+      summary: {
+        ...bill.summary,
+        totalCost: null,
+        apiCost: null,
+        ledgerApiCost: "12.34",
+        openingBalance: null,
+        monthlyRecharge: "100",
+        apiSpendStatus: "OPENING_BALANCE_MISSING",
+        apiSpendReason: "待补期初余额",
+      },
+      providers: [{
+        ...bill.providers[0]!,
+        providerResourceId: "api-resource",
+        providerCode: "deepseek",
+        providerName: "DeepSeek",
+        resourceName: "API 账户",
+        mode: "API",
+        apiCost: null,
+        ledgerApiCost: "12.34",
+        openingBalance: null,
+        rechargeAmount: "100",
+        apiSpendStatus: "OPENING_BALANCE_MISSING",
+        apiSpendReason: "待补期初余额",
+        packageCost: "0",
+        totalCost: null,
+        endingBalance: "87.66",
+      }],
+    };
+    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    expect(screen.getAllByText("待补期初余额").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("账本计价 ¥12.34")).toBeInTheDocument();
   });
 
   it("保留对账 Coming Soon 和草稿账单 CSV 导入入口", async () => {

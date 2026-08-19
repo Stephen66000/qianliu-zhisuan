@@ -14,12 +14,15 @@ export function principalScopeText(ids: string[] | null, principalById: Map<stri
 }
 
 export function policyTransitionImpact(
-  target: { policy: DispatchPolicy; action: "publish" | "retire" } | null,
+  target: { policy: DispatchPolicy; action: "publish" | "retire" | "restore" } | null,
   principalById: Map<string, Principal>,
 ): string {
   if (!target) return "";
   if (target.action === "publish") {
     return `发布策略 ${target.policy.policyVersion} 后，新请求将立即执行 ${target.policy.action}；主体范围为 ${principalScopeText(target.policy.matchPrincipalScope, principalById)}。`;
+  }
+  if (target.action === "restore") {
+    return `恢复策略 ${target.policy.policyVersion} 时将生成递增的新发布版本；历史版本保持 RETIRED。`;
   }
   return `停用策略 ${target.policy.policyVersion} 后，新请求将立即停止命中；历史决策不变。`;
 }

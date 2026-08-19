@@ -630,10 +630,11 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     const row = page.locator("tr", { hasText: E2E_IDS.request });
     await row.getByRole("button", { name: "展开路由过程" }).click();
     const detail = row.locator("xpath=following-sibling::tr[1]");
-    await expect(detail.getByText("e2e-v1", { exact: true })).toBeVisible();
+    await expect(detail.getByText("e2e-v1", { exact: true }).first()).toBeVisible();
     await expect(detail.getByText("POLICY_MATCHED")).toBeVisible();
     await expect(detail.getByText("ALLOW", { exact: true }).first()).toBeVisible();
     await expect(detail.getByText("15.00 元")).toBeVisible();
+    await detail.getByText("技术详情（调度输入快照）", { exact: true }).click();
     await expect(detail.getByText(/selectedResourceId/)).toBeVisible();
     const decision = await apiGet<{
       decision: {
@@ -743,7 +744,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await dialog.getByRole("button", { name: "确认归档" }).click();
     await expect(historicalRow).toHaveCount(0);
 
-    await page.getByLabel("显示范围").selectOption("only");
+    await page.getByLabel("显示范围").selectOption("archived");
     await expect(page.getByRole("row", { name: /E2E 固定员工已归档.*历史保留.*已归档/ })).toBeVisible();
     await page.goto("/usage?search=E2E%20固定员工已归档");
     await expect(page.locator("tbody tr", { hasText: E2E_IDS.request })).toHaveCount(1);
@@ -766,6 +767,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
       await page.goto(path);
       await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     }
+    await expect(page.getByRole("link", { name: "返回首页看板" })).toHaveAttribute("href", "/dashboard");
   });
 
   test("WT-21 厂商资源可原地从 Plan 修改为 Z Plan，凭证与资源 ID 不变", async ({ page }) => {
@@ -831,6 +833,13 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(policyRow).toContainText("PUBLISHED");
     await policyRow.getByRole("button", { name: "停用" }).click();
     await page.getByRole("button", { name: "确认停用" }).click();
+    await expect(policyRow).toContainText("RETIRED");
+    await policyRow.getByRole("button", { name: "复制为新版本" }).click();
+    await expect(page.getByRole("row", { name: /e2e-zhipu-peak-v2.*DRAFT/ })).toBeVisible();
+    await policyRow.getByRole("button", { name: "恢复原配置" }).click();
+    await expect(page.getByRole("dialog")).toContainText("历史版本继续保持 RETIRED");
+    await page.getByRole("button", { name: "确认恢复并发布" }).click();
+    await expect(page.getByRole("row", { name: /e2e-zhipu-peak-v3.*PUBLISHED/ })).toBeVisible();
     await expect(policyRow).toContainText("RETIRED");
 
     const policies = await apiGet<{
@@ -937,6 +946,17 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(valueRow).toContainText("已确认");
 
     await page.getByRole("link", { name: "结账管理" }).click();
+    const confirmationSelectors = page.getByRole("combobox", { name: /确认状态/ });
+    await expect(confirmationSelectors.first()).toBeVisible();
+    const confirmationCount = await confirmationSelectors.count();
+    for (let index = 0; index < confirmationCount; index += 1) {
+      const selector = confirmationSelectors.nth(index);
+      await selector.selectOption("CONFIRMED");
+      const confirmationResponse = page.waitForResponse((response) =>
+        response.url().includes("/resource-confirmations/") && response.request().method() === "PUT");
+      await selector.locator("xpath=ancestor::tr").getByRole("button", { name: "保存确认" }).click();
+      expect((await confirmationResponse).status()).toBe(200);
+    }
     const note = page.getByLabel("结账说明");
     await note.fill("E2E 授权结账；测试夹具中缺失的厂商历史事实已作为例外冻结");
     await page.getByRole("button", { name: "确认结账并冻结" }).click();
@@ -1200,7 +1220,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
     await page.goto("/resources");
     await expect(page.getByRole("heading", { name: "资源利用事实" })).toBeVisible();
-    await expect(page.getByText("API 按实际费用 / 月预算", { exact: false })).toBeVisible();
+    await expect(page.getByText("Coding Plan 业务利用率按订阅周期累计", { exact: false })).toBeVisible();
     await page.getByLabel("资源利用月份").fill("2026-08");
     const utilizationRow = page.locator("#resource-utilization")
       .getByRole("row", { name: /E2E 智谱主资源/ });

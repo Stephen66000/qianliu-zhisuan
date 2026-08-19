@@ -330,7 +330,7 @@ describe("W18 空状态（新企业无数据）", () => {
     expect(body.resourceAccountCount).toBe(0);
     expect(body.activeEmployeeCount).toBe(0);
     expect(body.currentInUseCount).toBe(0);
-    expect(body.monthlyApiCost).toBe("0");
+    expect(body.monthlyApiCost).toBe("0.00000000");
     expect(body.monthlyDispatchSaving).toBe("0");
     expect(body.dispatchSavingBreakdown).toMatchObject({
       realizedAmount: "0.00000000", realizedSwitchCount: 0,
@@ -549,14 +549,24 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     await addCost({ resourceId: apiResource.id, mode: "API", cost: "12.34", at: monthStart });
     await addCost({ resourceId: apiResource.id, mode: "API", cost: "99.99", at: monthEnd });
     await addCost({ resourceId: seededResourceId, mode: "CODING_PLAN", cost: "777.77", at: new Date() });
+    await db.insertInto("provider_resource_operating_snapshot").values([
+      {
+        enterprise_id: ENT_ID, provider_resource_id: apiResource.id, version: 1,
+        source: "ADMIN", collected_at: monthStart, currency: "CNY", current_balance: "100",
+      },
+      {
+        enterprise_id: ENT_ID, provider_resource_id: apiResource.id, version: 2,
+        source: "ADMIN", collected_at: new Date(), currency: "CNY", current_balance: "87.66",
+      },
+    ]).execute();
 
     const response = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie: adminCookie } });
     expect(response.statusCode).toBe(200);
-    expect(response.json().monthlyApiCost).toBe("12.34");
+    expect(response.json().monthlyApiCost).toBe("12.34000000");
     expect(response.json().monthlyTotalSpend).toBe("311.34000000");
     expect(response.json().resourceBreakdown).toEqual(expect.arrayContaining([
-      expect.objectContaining({ mode: "API", monthlyCost: "12.34" }),
-      expect.objectContaining({ mode: "CODING_PLAN", monthlyCost: "0" }),
+      expect.objectContaining({ mode: "API", monthlyCost: "12.34000000" }),
+      expect.objectContaining({ mode: "CODING_PLAN", monthlyCost: "299.00000000" }),
     ]));
   });
 
