@@ -43,7 +43,7 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
             <th className="py-2 pr-4 text-right font-medium">厂商剩余额度</th>
             <th className="py-2 pr-4 text-right font-medium">已分配给主体</th>
             <th className="py-2 pr-4 text-right font-medium">经营余额 / 套餐</th>
-            <th className="py-2 pr-4 text-right font-medium">本月花费（元）</th>
+            <th className="py-2 pr-4 text-right font-medium">本月花费</th>
             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
             <th className="py-2 pr-4 text-right font-medium">消耗速度</th>
             <th className="py-2 pr-4 text-right font-medium">余额可承载 Token</th>
@@ -80,7 +80,9 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                     ? "余额待补"
                     : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`}
                     <span className="block text-[11px] text-ql-fg-tertiary">
-                      API 花费 {item.monthlyCost === null ? "待补期初余额" : formatMoney(item.monthlyCost)}
+                      API 花费 {item.monthlyCost === null
+                        ? item.monthlyCostReason ?? "不可计算"
+                        : `${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
                     </span></>
                 ) : (
                   <>{item.packageCost === null
@@ -93,8 +95,8 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.monthlyCost === null
-                  ? (item.mode === "API" ? "待补期初余额" : "待补套餐费用")
-                  : formatMoney(item.monthlyCost)}
+                  ? item.monthlyCostReason ?? (item.mode === "API" ? "API 花费不可计算" : "套餐费用待补")
+                  : `${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {monthlyTokenText(item)}

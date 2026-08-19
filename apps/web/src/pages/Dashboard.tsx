@@ -63,24 +63,26 @@ export function DashboardPage() {
       >
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           <MetricCard
-            hint="输入 + 输出，缓存和推理不重复累计"
+            hint={monthlyTokenUsageHint(data)}
             label="真实 Token 消耗"
             value={formatCount(data.monthlyTokenUsage.totalTokens)}
           />
           <MetricCard
-            emptyText="数据源待接入"
+            emptyText={data.monthlyApiCost === null
+              ? data.monthlyApiSpendReason ?? "API 花费不可计算"
+              : "待补套餐费用"}
             label="本月总支出"
             unit="元"
             value={data.monthlyTotalSpend === null ? null : formatMoney(data.monthlyTotalSpend)}
           />
           <MetricCard
-            emptyText="数据源待接入"
+            emptyText="待补套餐费用"
             label="套餐支出"
             unit="元"
             value={data.monthlyPackagePayment === null ? null : formatMoney(data.monthlyPackagePayment)}
           />
           <MetricCard
-            emptyText="待补期初余额"
+            emptyText={data.monthlyApiSpendReason ?? "API 花费不可计算"}
             hint="期初余额 + 本月充值 - 期末余额；账本计价仅用于核对"
             label="API 花费"
             unit="元"
@@ -94,7 +96,7 @@ export function DashboardPage() {
           />
           <MetricCard label="厂商接入账号" unit="个" value={String(data.resourceAccountCount)} />
           <MetricCard
-            emptyText="数据源待接入"
+            emptyText={data.monthlyApiSpendReason ?? "本月充值待补"}
             label="本月充值"
             unit="元"
             value={data.monthlyRechargeAmount === null ? null : formatMoney(data.monthlyRechargeAmount)}
@@ -213,7 +215,8 @@ export function DashboardPage() {
 }
 
 function dispatchSavingHint(data: DashboardSummary) {
-  const noEffectiveValue = Number(data.monthlyDispatchSaving) === 0
+  const noEffectiveValue = data.dispatchSavingBreakdown.actualSwitchCount === 0
+    && Number(data.monthlyDispatchSaving) === 0
     && data.dispatchSavingBreakdown.potentialPeakSavingAmount === null
     && Number(data.dispatchSavingBreakdown.avoidedPeakDeduction) === 0;
   if (noEffectiveValue) return "本月无可计算的实际切换";
@@ -223,6 +226,15 @@ function dispatchSavingHint(data: DashboardSummary) {
     <span className="block">避免高峰扣减：{formatCount(data.dispatchSavingBreakdown.avoidedPeakDeduction)} 额度点</span>
     {data.dispatchSavingBreakdown.rejectedRequestCount > 0 ? <span className="block">拒绝 {data.dispatchSavingBreakdown.rejectedRequestCount} 次，不计入已实现节省</span> : null}
   </>;
+}
+
+function monthlyTokenUsageHint(data: DashboardSummary): string {
+  const usage = data.monthlyTokenUsage;
+  const quality = usage.usageQuality === "EXACT" ? "全部为厂商上报计量"
+    : usage.usageQuality === "ESTIMATED"
+      ? `含 ${usage.estimatedTransactionCount} 笔估算计量`
+      : `含 ${usage.unknownTransactionCount} 笔计量未知，数值只代表已记录 Token`;
+  return `已结算输入 + 输出，缓存和推理不重复累计；${quality}`;
 }
 
 function DashboardHeader() {

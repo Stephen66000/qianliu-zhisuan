@@ -24,6 +24,8 @@ const emptyProjectId = randomUUID();
 const adminId = randomUUID();
 const dstEnterpriseId = randomUUID();
 const dstEmployeeId = randomUUID();
+const monthBoundaryEnterpriseId = randomUUID();
+const monthBoundaryEmployeeId = randomUUID();
 
 const monday = new Date("2026-08-09T16:00:00.000Z"); // 上海周一 00:00
 const tuesday = new Date("2026-08-11T01:00:00.000Z");
@@ -38,6 +40,7 @@ beforeAll(async () => {
     { id: enterpriseId, name: "周期用量企业", timezone: "Asia/Shanghai" },
     { id: otherEnterpriseId, name: "隔离企业", timezone: "Asia/Shanghai" },
     { id: dstEnterpriseId, name: "DST 企业", timezone: "America/New_York" },
+    { id: monthBoundaryEnterpriseId, name: "上海月界企业", timezone: "Asia/Shanghai" },
   ]).execute();
   await db.insertInto("admin_user").values({
     id: adminId, enterprise_id: enterpriseId, username: "usage-admin", password_hash: "test",
@@ -56,6 +59,12 @@ beforeAll(async () => {
   await db.insertInto("principal").values({
     id: dstEmployeeId, enterprise_id: dstEnterpriseId, type: "EMPLOYEE", name: "DST 员工",
   }).execute();
+  await db.insertInto("principal").values({
+    id: monthBoundaryEmployeeId,
+    enterprise_id: monthBoundaryEnterpriseId,
+    type: "EMPLOYEE",
+    name: "月界员工",
+  }).execute();
 
   await seedRequest(employeeOneId, monday, 100n, 20n, 50n, 5n, 120n, "1.25000000");
   const assignedRequestId = await seedRequest(
@@ -70,6 +79,8 @@ beforeAll(async () => {
   await seedRequest(dstEmployeeId, new Date("2026-03-08T06:30:00.000Z"), 20n, 2n, 0n, 0n, 22n, "0.2", dstEnterpriseId);
   await seedRequest(dstEmployeeId, new Date("2026-03-08T07:30:00.000Z"), 30n, 3n, 0n, 0n, 33n, "0.3", dstEnterpriseId);
   await seedRequest(dstEmployeeId, new Date("2026-04-01T04:00:00.000Z"), 999n, 1n, 0n, 0n, 1_000n, "9", dstEnterpriseId);
+  await seedRequest(monthBoundaryEmployeeId, new Date("2026-08-31T15:59:59.999Z"), 40n, 2n, 30n, 1n, 42n, "0", monthBoundaryEnterpriseId);
+  await seedRequest(monthBoundaryEmployeeId, new Date("2026-08-31T16:00:00.000Z"), 50n, 3n, 20n, 2n, 53n, "0", monthBoundaryEnterpriseId);
   await db.insertInto("operating_bill_request_project_assignment").values({
     enterprise_id: enterpriseId,
     ai_request_id: assignedRequestId,
@@ -283,6 +294,34 @@ describe("W20-04 UsageOverviewRepository", () => {
     expect((new Date(dstDay.range.to).getTime() - new Date(dstDay.range.from).getTime()) / 3_600_000).toBe(23);
     expect(dstDay.metrics).toMatchObject({ requestCount: "2", realTokens: "55" });
     expect(dstDay.trend.reduce((sum, point) => sum + BigInt(point.realTokens), 0n)).toBe(55n);
+  });
+
+  it("POOL20-045：上海月末最后一毫秒与下月零点严格分月且真实 Token 不含缓存", async () => {
+    const repository = new UsageOverviewRepository(db);
+    const august = await repository.getOverview({
+      enterpriseId: monthBoundaryEnterpriseId,
+      subjectType: "EMPLOYEE",
+      period: "MONTH",
+      anchor: new Date("2026-08-15T00:00:00.000Z"),
+    });
+    const september = await repository.getOverview({
+      enterpriseId: monthBoundaryEnterpriseId,
+      subjectType: "EMPLOYEE",
+      period: "MONTH",
+      anchor: new Date("2026-09-15T00:00:00.000Z"),
+    });
+    expect(august.range).toEqual({
+      from: "2026-07-31T16:00:00.000Z",
+      to: "2026-08-31T16:00:00.000Z",
+    });
+    expect(august.metrics).toMatchObject({
+      requestCount: "1", inputTokens: "40", outputTokens: "2",
+      cacheTokens: "30", reasoningTokens: "1", realTokens: "42",
+    });
+    expect(september.metrics).toMatchObject({
+      requestCount: "1", inputTokens: "50", outputTokens: "3",
+      cacheTokens: "20", reasoningTokens: "2", realTokens: "53",
+    });
   });
 
   it("0047 建立可重建聚合表且初始不伪装已有缓存", async () => {

@@ -23,6 +23,9 @@ export interface MonthlyOperatingCostResource {
   openingSnapshotId: string | null;
   openingSnapshotVersion: number | null;
   openingSnapshotAt: string | null;
+  openingBalanceFactId: string | null;
+  openingBalanceFactVersion: number | null;
+  openingBalanceSource: "MANUAL" | "PREVIOUS_PERIOD_CLOSING" | "OPERATING_SNAPSHOT" | null;
   endingSnapshotId: string | null;
   endingSnapshotVersion: number | null;
   endingSnapshotAt: string | null;
@@ -67,6 +70,9 @@ export interface MonthlyOperatingCostResourceRow {
   opening_balance: string | null;
   opening_currency: string | null;
   opening_at: Date | null;
+  manual_opening_id: string | null;
+  manual_opening_version: number | null;
+  opening_source: "MANUAL" | "PREVIOUS_PERIOD_CLOSING" | "OPERATING_SNAPSHOT" | null;
   ending_snapshot_id: string | null;
   ending_snapshot_version: number | null;
   ending_balance: string | null;
@@ -120,6 +126,9 @@ export function calculateMonthlyOperatingCostResource(input: {
     openingSnapshotId: row.opening_snapshot_id,
     openingSnapshotVersion: row.opening_snapshot_version,
     openingSnapshotAt: row.opening_at?.toISOString() ?? null,
+    openingBalanceFactId: row.manual_opening_id ?? row.opening_snapshot_id,
+    openingBalanceFactVersion: row.manual_opening_version ?? row.opening_snapshot_version,
+    openingBalanceSource: row.opening_source,
     endingSnapshotId: row.ending_snapshot_id,
     endingSnapshotVersion: row.ending_snapshot_version,
     endingSnapshotAt: row.ending_at?.toISOString() ?? null,
@@ -215,6 +224,17 @@ export function summarizeMonthlyOperatingCosts(resources: MonthlyOperatingCostRe
       : packageComplete
         ? sum(planResources.map((row) => row.packageCost!))
         : null;
+  const sumKnownApiField = (field: "openingBalance" | "rechargeAmount" | "endingBalance") => {
+    if (apiResources.length === 0) return field === "rechargeAmount" ? null : "0.00000000";
+    const values = apiResources.map((row) => row[field]);
+    if (!values.every((value) => value !== null)) return null;
+    if (field === "rechargeAmount"
+      && values.every((value) => new MoneyDecimal(value!).isZero())) return sum(values as string[]);
+    const currencies = new Set(apiResources.map((row) => row.currency));
+    return currencies.size === 1 && !currencies.has(null)
+      ? sum(values as string[])
+      : null;
+  };
   return {
     apiSpend,
     ledgerApiCost: ledgerComplete
@@ -224,17 +244,9 @@ export function summarizeMonthlyOperatingCosts(resources: MonthlyOperatingCostRe
     totalSpend: apiSpend !== null && packageCost !== null
       ? money(new MoneyDecimal(apiSpend).plus(packageCost))
       : null,
-    openingBalance: apiSpendStatus === "CALCULABLE"
-      ? sum(apiResources.map((row) => row.openingBalance!))
-      : apiResources.length === 0 ? "0.00000000" : null,
-    rechargeAmount: apiResources.length === 0
-      ? null
-      : currencyMismatch
-      ? null
-      : sum(apiResources.map((row) => row.rechargeAmount!)),
-    endingBalance: apiSpendStatus === "CALCULABLE"
-      ? sum(apiResources.map((row) => row.endingBalance!))
-      : apiResources.length === 0 ? "0.00000000" : null,
+    openingBalance: sumKnownApiField("openingBalance"),
+    rechargeAmount: sumKnownApiField("rechargeAmount"),
+    endingBalance: sumKnownApiField("endingBalance"),
     currency: costCurrencies.size === 1 ? [...costCurrencies][0]! : null,
     apiSpendStatus,
     apiSpendReason: currencyMismatch ? reasonFor("CURRENCY_MISMATCH") : firstIncomplete?.apiSpendReason ?? null,
@@ -255,9 +267,20 @@ export async function loadMonthlyOperatingCosts(
     sql<MonthlyOperatingCostResourceRow>`
       SELECT pr.id AS resource_id, p.code AS provider_code, p.name AS provider_name,
              pr.name AS resource_name, pr.mode,
-             opening.id AS opening_snapshot_id, opening.version AS opening_snapshot_version,
-             opening.current_balance::text AS opening_balance,
-             opening.currency AS opening_currency, opening.collected_at AS opening_at,
+             CASE WHEN manual_opening.id IS NOT NULL THEN NULL
+                  ELSE COALESCE(previous_closing.snapshot_id, opening.id) END AS opening_snapshot_id,
+             CASE WHEN manual_opening.id IS NOT NULL THEN NULL
+                  ELSE COALESCE(previous_closing.snapshot_version, opening.version) END AS opening_snapshot_version,
+             COALESCE(manual_opening.amount, previous_closing.amount, opening.current_balance)::text AS opening_balance,
+             COALESCE(manual_opening.currency, previous_closing.currency, opening.currency) AS opening_currency,
+             CASE WHEN manual_opening.id IS NOT NULL THEN ${periodStart}
+                  ELSE COALESCE(previous_closing.snapshot_at, opening.collected_at) END AS opening_at,
+             manual_opening.id AS manual_opening_id,
+             manual_opening.version AS manual_opening_version,
+             CASE WHEN manual_opening.id IS NOT NULL THEN 'MANUAL'
+                  WHEN previous_closing.amount IS NOT NULL THEN 'PREVIOUS_PERIOD_CLOSING'
+                  WHEN opening.id IS NOT NULL THEN 'OPERATING_SNAPSHOT'
+                  ELSE NULL END AS opening_source,
              ending.id AS ending_snapshot_id, ending.version AS ending_snapshot_version,
              ending.current_balance::text AS ending_balance,
              ending.currency AS ending_currency, ending.collected_at AS ending_at,
@@ -280,6 +303,38 @@ export async function loadMonthlyOperatingCosts(
              AND (pr.mode <> 'API' OR (s.current_balance IS NOT NULL AND s.currency IS NOT NULL))
            ORDER BY s.collected_at DESC, s.version DESC LIMIT 1
         ) opening ON true
+        LEFT JOIN LATERAL (
+          SELECT b.id, b.version, b.amount, b.currency
+            FROM operating_bill_opening_balance b
+            JOIN operating_bill_period obp
+              ON obp.id = b.period_id AND obp.enterprise_id = b.enterprise_id
+           WHERE b.enterprise_id = pr.enterprise_id
+             AND b.provider_resource_id = pr.id
+             AND obp.period_month = (${periodStart} AT TIME ZONE e.timezone)::date
+           ORDER BY b.version DESC, b.created_at DESC LIMIT 1
+        ) manual_opening ON true
+        LEFT JOIN LATERAL (
+          SELECT NULLIF(item.fact->>'endingSnapshotId', '')::uuid AS snapshot_id,
+                 NULLIF(item.fact->>'endingSnapshotVersion', '')::integer AS snapshot_version,
+                 NULLIF(item.fact->>'endingSnapshotAt', '')::timestamptz AS snapshot_at,
+                 NULLIF(item.fact->>'endingBalance', '')::numeric AS amount,
+                 NULLIF(item.fact->>'currency', '') AS currency
+            FROM operating_bill_period previous_period
+            JOIN operating_bill_version previous_version
+              ON previous_version.enterprise_id = previous_period.enterprise_id
+             AND previous_version.period_id = previous_period.id
+             AND previous_version.version = previous_period.current_version
+            CROSS JOIN LATERAL jsonb_array_elements(
+              COALESCE(previous_version.snapshot->'sourceFacts'->'balanceBridgeFacts', '[]'::jsonb)
+            ) AS item(fact)
+           WHERE previous_period.enterprise_id = pr.enterprise_id
+             AND previous_period.status = 'CLOSED'
+             AND previous_period.period_month = (
+               (${periodStart} AT TIME ZONE e.timezone)::date - interval '1 month'
+             )::date
+             AND item.fact->>'providerResourceId' = pr.id::text
+           LIMIT 1
+        ) previous_closing ON true
         LEFT JOIN LATERAL (
           SELECT s.id, s.version, s.current_balance, s.currency, s.collected_at, s.package_cost,
                  s.effective_from, s.effective_until

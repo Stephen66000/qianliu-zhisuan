@@ -142,7 +142,7 @@ describe("W20-08 资源利用事实 Web", () => {
   it("API 无分母显示未设置，不伪造 0%", () => {
     renderPanel();
     const row = screen.getByText("DeepSeek · API 账户").closest("tr")!;
-    expect(within(row).getAllByText("MONTHLY_BUDGET_NOT_CONFIGURED")).toHaveLength(2);
+    expect(within(row).getAllByText("未设置月预算")).toHaveLength(2);
     expect(within(row).queryByText("0.0%")).not.toBeInTheDocument();
     expect(within(row).getByText(/2 天无调用/)).toBeInTheDocument();
     expect(within(row).getByText(/未判定/)).toBeInTheDocument();
@@ -160,5 +160,37 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).queryByText(/2099/)).not.toBeInTheDocument();
     expect(within(row).getByText(/无调用天数未知/)).toBeInTheDocument();
     expect(within(row).getByText(/未判定/)).toBeInTheDocument();
+  });
+
+  it("POOL20-041：缺订阅结束日期时不把额度比例包装为周期累计", () => {
+    useResourceUtilizationMock.mockReturnValue({
+      data: {
+        month: "2026-08",
+        generatedAt: "2026-08-13T00:00:00.000Z",
+        resources: [resource({
+          resourceId: "kimi-incomplete-period",
+          providerName: "Kimi",
+          resourceName: "周期待补套餐",
+          mode: "CODING_PLAN",
+          packageCost: "300",
+          totalQuota: "100",
+          usedQuota: "35",
+          remainingQuota: "65",
+          quotaUnit: "POINT",
+          servicePeriodStart: "2026-08-01",
+          servicePeriodEnd: null,
+          utilizationRate: null,
+          utilizationBasis: null,
+          utilizationStatus: "UNDERUSED",
+          notCalculableReason: "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE",
+        })],
+      },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
+    renderPanel();
+    const row = screen.getByText("Kimi · 周期待补套餐").closest("tr")!;
+    expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
+    expect(within(row).getAllByText("缺少订阅结束日期")).toHaveLength(2);
+    expect(within(row).getByText("2026-08-01～未知")).toBeInTheDocument();
   });
 });

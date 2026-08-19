@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -120,6 +120,26 @@ describe("W20-04 用量概览 Web", () => {
     await user.keyboard("{Enter}");
     await waitFor(() => expect(resolvePrincipalExactMatchMock).toHaveBeenCalledWith("PROJECT", "重名项目"));
     expect(screen.getByTestId("location")).not.toHaveTextContent("subject_id=");
+  });
+
+  it("POOL20-042：主体类型或搜索词变化后丢弃过期精确匹配响应", async () => {
+    let release!: (value: { principal: { id: string; type: "PROJECT"; name: string }; match_count: number }) => void;
+    resolvePrincipalExactMatchMock.mockReturnValueOnce(new Promise((resolve) => {
+      release = resolve;
+    }));
+    const user = userEvent.setup();
+    renderPanel("/usage?tab=overview&subject_type=PROJECT&period=MONTH");
+    const search = screen.getByRole("searchbox", { name: "搜索用量主体" });
+    await user.type(search, "旧项目");
+    await user.keyboard("{Enter}");
+    await user.selectOptions(screen.getByRole("combobox", { name: "用量主体类型" }), "EMPLOYEE");
+    await user.clear(search);
+    await user.type(search, "新员工");
+    await act(async () => {
+      release({ principal: { id: projectId, type: "PROJECT", name: "旧项目" }, match_count: 1 });
+    });
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("subject_type=EMPLOYEE"));
+    expect(screen.getByTestId("location")).not.toHaveTextContent(`subject_id=${projectId}`);
   });
 
   it("覆盖加载、错误与空数据三态", () => {

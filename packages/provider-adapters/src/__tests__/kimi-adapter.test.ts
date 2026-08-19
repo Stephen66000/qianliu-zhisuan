@@ -186,6 +186,26 @@ describe("KimiAdapter", () => {
     expect(usage.quality).toBe("PROVIDER_REPORTED");
   });
 
+  it("POOL20-045：兼容 cached_tokens 并按稳定优先级只计一次", () => {
+    const adapter = new KimiAdapter(async () => ({
+      status: 200,
+      committed: true,
+      usage: { input: 0, output: 0, cache: 0, quality: "PROVIDER_REPORTED" },
+    }));
+    expect(adapter.parseUsage({
+      prompt_tokens: 800,
+      completion_tokens: 200,
+      cached_tokens: 120,
+    })).toMatchObject({ input: 800, output: 200, cache: 120 });
+    expect(adapter.parseUsage({
+      prompt_tokens: 800,
+      completion_tokens: 200,
+      prompt_cache_hit_tokens: 30,
+      prompt_tokens_details: { cached_tokens: 60 },
+      cached_tokens: 120,
+    })).toMatchObject({ input: 800, output: 200, cache: 30 });
+  });
+
   it("错误归一化映射（TRD §9 分类）", () => {
     const adapter = new KimiAdapter(async () => ({
       status: 200,

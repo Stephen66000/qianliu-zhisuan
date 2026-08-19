@@ -41,19 +41,27 @@ export async function getMonthlyTokenUsage(
 ): Promise<DashboardSummary["monthlyTokenUsage"]> {
   const totals = await sql<{
     input_tokens: string; output_tokens: string; cache_tokens: string;
-    reasoning_tokens: string; total_tokens: string;
+    reasoning_tokens: string; total_tokens: string; settled_count: string;
+    estimated_count: string; unknown_count: string;
   }>`
     SELECT COALESCE(SUM(total_input_tokens), 0)::text AS input_tokens,
            COALESCE(SUM(total_output_tokens), 0)::text AS output_tokens,
            COALESCE(SUM(total_cache_tokens), 0)::text AS cache_tokens,
            COALESCE(SUM(total_reasoning_tokens), 0)::text AS reasoning_tokens,
-           COALESCE(SUM(total_input_tokens + total_output_tokens), 0)::text AS total_tokens
+           COALESCE(SUM(total_input_tokens + total_output_tokens), 0)::text AS total_tokens,
+           COUNT(*)::text AS settled_count,
+           COUNT(*) FILTER (
+             WHERE upper(usage_quality) LIKE '%ESTIMATED%'
+               AND upper(usage_quality) NOT LIKE '%UNKNOWN%'
+           )::text AS estimated_count,
+           COUNT(*) FILTER (WHERE upper(usage_quality) LIKE '%UNKNOWN%')::text AS unknown_count
       FROM ledger_transaction
      WHERE enterprise_id = ${enterpriseId} AND status = 'SETTLED'
        AND created_at >= ${monthStart} AND created_at < ${monthEnd}
   `.execute(db);
   const total = totals.rows[0] ?? {
-    input_tokens: "0", output_tokens: "0", cache_tokens: "0", reasoning_tokens: "0", total_tokens: "0",
+    input_tokens: "0", output_tokens: "0", cache_tokens: "0", reasoning_tokens: "0",
+    total_tokens: "0", settled_count: "0", estimated_count: "0", unknown_count: "0",
   };
   const ranking = await sql<{
     principal_id: string; principal_name: string; input_tokens: string;
@@ -78,10 +86,20 @@ export async function getMonthlyTokenUsage(
      ORDER BY SUM(lt.total_input_tokens + lt.total_output_tokens) DESC, p.name ASC, p.id ASC
      LIMIT 10
   `.execute(db);
+  const estimatedTransactionCount = Number(total.estimated_count);
+  const unknownTransactionCount = Number(total.unknown_count);
   return {
     totalInputTokens: total.input_tokens, totalOutputTokens: total.output_tokens,
     totalCacheTokens: total.cache_tokens, totalReasoningTokens: total.reasoning_tokens,
     totalTokens: total.total_tokens,
+    usageQuality: unknownTransactionCount > 0 ? "UNKNOWN"
+      : estimatedTransactionCount > 0 ? "ESTIMATED" : "EXACT",
+    settledTransactionCount: Number(total.settled_count),
+    estimatedTransactionCount,
+    unknownTransactionCount,
+    attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
+    rangeStart: monthStart.toISOString(),
+    rangeEndExclusive: monthEnd.toISOString(),
     employeeRanking: ranking.rows.map((row) => ({
       principalId: row.principal_id, principalName: row.principal_name,
       inputTokens: row.input_tokens, outputTokens: row.output_tokens,

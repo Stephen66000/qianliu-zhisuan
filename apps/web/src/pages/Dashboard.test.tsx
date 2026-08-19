@@ -49,12 +49,13 @@ function emptySummary(): DashboardSummary {
     currentInUseCount: 0,
     monthlyPackagePayment: null,
     monthlyApiCost: "0",
+    monthlyApiSpendReason: null,
     monthlyTotalSpend: null,
     monthlyRechargeAmount: null,
     earliestExhaustion: null,
     monthlyDispatchSaving: "0",
     dispatchSavingBreakdown: {
-      realizedAmount: "0", realizedSwitchCount: 0, realizedReason: "本月无可计算的实际切换",
+      realizedAmount: "0", realizedSwitchCount: 0, actualSwitchCount: 0, realizedReason: "本月无可计算的实际切换",
       potentialPeakSavingAmount: null, potentialReason: "缺少同一任务的峰值/低谷等价执行关联，暂不估算金额",
       avoidedPeakDeduction: "0", avoidedDeductionCount: 0,
       avoidedReason: "本月无具备双端倍率快照的已执行切换", rejectedRequestCount: 0,
@@ -63,7 +64,11 @@ function emptySummary(): DashboardSummary {
     overageList: [],
     monthlyTokenUsage: {
       totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
-      totalReasoningTokens: "0", totalTokens: "0", employeeRanking: [],
+      totalReasoningTokens: "0", totalTokens: "0", usageQuality: "EXACT",
+      settledTransactionCount: 0, estimatedTransactionCount: 0, unknownTransactionCount: 0,
+      attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
+      rangeStart: "2026-07-31T16:00:00.000Z", rangeEndExclusive: "2026-08-31T16:00:00.000Z",
+      employeeRanking: [],
     },
   };
 }
@@ -80,7 +85,7 @@ function seededSummary(): DashboardSummary {
     monthlyRechargeAmount: "100",
     monthlyDispatchSaving: "1.50000000",
     dispatchSavingBreakdown: {
-      realizedAmount: "1.50000000", realizedSwitchCount: 1, realizedReason: null,
+      realizedAmount: "1.50000000", realizedSwitchCount: 1, actualSwitchCount: 1, realizedReason: null,
       potentialPeakSavingAmount: null, potentialReason: "缺少同一任务的峰值/低谷等价执行关联，暂不估算金额",
       avoidedPeakDeduction: "1200", avoidedDeductionCount: 1,
       avoidedReason: null, rejectedRequestCount: 2,
@@ -114,6 +119,7 @@ function seededSummary(): DashboardSummary {
         subscriptionPeriodEnd: "2026-09-26",
         snapshotAt: "2026-07-29T12:00:00.000Z",
         monthlyCost: "299.00000000",
+        monthlyCostReason: null,
         monthlyInputTokens: "80000",
         monthlyOutputTokens: "20000",
         monthlyCacheTokens: "10000",
@@ -157,6 +163,10 @@ function seededSummary(): DashboardSummary {
       totalCacheTokens: "3000",
       totalReasoningTokens: "400",
       totalTokens: "9007199254740995000",
+      usageQuality: "EXACT", settledTransactionCount: 1,
+      estimatedTransactionCount: 0, unknownTransactionCount: 0,
+      attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
+      rangeStart: "2026-07-31T16:00:00.000Z", rangeEndExclusive: "2026-08-31T16:00:00.000Z",
       employeeRanking: [{
         principalId: "p1", principalName: "张三", inputTokens: "6000",
         outputTokens: "4000", cacheTokens: "3000", reasoningTokens: "400",
@@ -233,7 +243,7 @@ describe("W18 首页看板", () => {
     expect(screen.queryByText(/避免高峰扣减：/)).not.toBeInTheDocument();
   });
 
-  it("数据源 gap：套餐支付/充值为 null → 空状态文案，不伪造数字", () => {
+  it("数据源 gap：已知项保留，缺失项展示同源具体原因", () => {
     useDashboardMock.mockReturnValue({
       isLoading: false,
       error: null,
@@ -241,8 +251,9 @@ describe("W18 首页看板", () => {
       refetch: vi.fn(),
     });
     renderDashboard();
-    const gaps = screen.getAllByText("数据源待接入");
-    expect(gaps).toHaveLength(3);
+    expect(screen.getAllByText("待补套餐费用")).toHaveLength(2);
+    expect(screen.getByText("本月充值待补")).toBeInTheDocument();
+    expect(screen.queryByText("数据源待接入")).not.toBeInTheDocument();
   });
 
   it("有数据：八项本月概览合并展示，调度节省三层口径可见", () => {
@@ -286,13 +297,49 @@ describe("W18 首页看板", () => {
     expect(screen.getByText("智谱")).toBeInTheDocument();
     expect(screen.getAllByText("100,000").length).toBeGreaterThan(0);
     const planRow = screen.getByText("智谱").closest("tr")!;
-    expect(within(planRow).getByText("CNY 299.00")).toBeInTheDocument();
+    expect(within(planRow).getAllByText("CNY 299.00")).toHaveLength(2);
     expect(within(planRow).getByText("订阅周期 2026-06-26～2026-09-26")).toBeInTheDocument();
-    expect(within(planRow).getByText("299.00")).toBeInTheDocument();
     expect(screen.getByText("员工消耗 Token")).toBeInTheDocument();
     expect(screen.getAllByText("9,007,199,254,740,995,000")).toHaveLength(2);
     expect(screen.getByText("25.00%")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "查看完整用量账本" })).toHaveAttribute("href", "/usage");
+    expect(screen.queryByRole("button", { name: "保存并重算" })).not.toBeInTheDocument();
+  });
+
+  it("实际切换存在但节省为零时不误报为无实际切换", () => {
+    useDashboardMock.mockReturnValue({
+      isLoading: false, error: null, refetch: vi.fn(),
+      data: {
+        ...emptySummary(),
+        dispatchSavingBreakdown: {
+          ...emptySummary().dispatchSavingBreakdown,
+          actualSwitchCount: 1,
+          realizedSwitchCount: 0,
+          realizedReason: "实际切换缺少双端不可变价格快照",
+        },
+      },
+    });
+    renderDashboard();
+    expect(screen.getByText("实际切换缺少双端不可变价格快照")).toBeInTheDocument();
+    expect(screen.queryByText("本月无可计算的实际切换")).not.toBeInTheDocument();
+  });
+
+  it("真实 Token 明示未知计量笔数且缓存推理不重复累计", () => {
+    useDashboardMock.mockReturnValue({
+      isLoading: false, error: null, refetch: vi.fn(),
+      data: {
+        ...emptySummary(),
+        monthlyTokenUsage: {
+          ...emptySummary().monthlyTokenUsage,
+          totalInputTokens: "100", totalOutputTokens: "20", totalCacheTokens: "40",
+          totalReasoningTokens: "5", totalTokens: "120", usageQuality: "UNKNOWN",
+          settledTransactionCount: 2, unknownTransactionCount: 1,
+        },
+      },
+    });
+    renderDashboard();
+    expect(screen.getAllByText("120").length).toBeGreaterThan(0);
+    expect(screen.getByText(/含 1 笔计量未知，数值只代表已记录 Token/)).toBeInTheDocument();
   });
 
   it("员工区保留 1.0 月度总量，周期与单员工趋势由后端聚合切换", async () => {
@@ -363,7 +410,7 @@ describe("W18 首页看板", () => {
     expect(screen.getByText("DeepSeek")).toBeInTheDocument();
     const apiRow = screen.getByText("DeepSeek").closest("tr")!;
     expect(within(apiRow).getByText("CNY 68.00")).toBeInTheDocument();
-    expect(within(apiRow).getByText("API 花费 6.32")).toBeInTheDocument();
+    expect(within(apiRow).getByText("API 花费 CNY 6.32")).toBeInTheDocument();
     expect(screen.getAllByText("1,000,000")).toHaveLength(2);
     expect(screen.getByText("ql-deepseek-v4-flash")).toBeInTheDocument();
     expect(screen.getByText("41,666.67 Token/小时")).toBeInTheDocument();

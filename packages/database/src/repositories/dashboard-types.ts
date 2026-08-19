@@ -4,6 +4,7 @@ export interface DashboardSummary {
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
   monthlyApiCost: string | null;
+  monthlyApiSpendReason: string | null;
   /** 套餐支出与余额桥接 API 花费的后端精确合计；任一经营事实不完整时不可计算。 */
   monthlyTotalSpend: string | null;
   monthlyRechargeAmount: string | null;
@@ -20,6 +21,7 @@ export interface DashboardSummary {
   dispatchSavingBreakdown: {
     realizedAmount: string;
     realizedSwitchCount: number;
+    actualSwitchCount: number;
     realizedReason: string | null;
     potentialPeakSavingAmount: string | null;
     potentialReason: string | null;
@@ -36,6 +38,13 @@ export interface DashboardSummary {
     totalCacheTokens: string;
     totalReasoningTokens: string;
     totalTokens: string;
+    usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+    settledTransactionCount: number;
+    estimatedTransactionCount: number;
+    unknownTransactionCount: number;
+    attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT";
+    rangeStart: string;
+    rangeEndExclusive: string;
     employeeRanking: Array<{
       principalId: string;
       principalName: string;
@@ -68,6 +77,7 @@ export interface ResourceBreakdownItem {
   subscriptionPeriodEnd: string | null;
   snapshotAt: string | null;
   monthlyCost: string | null;
+  monthlyCostReason: string | null;
   monthlyInputTokens: string | null;
   monthlyOutputTokens: string | null;
   monthlyCacheTokens: string | null;

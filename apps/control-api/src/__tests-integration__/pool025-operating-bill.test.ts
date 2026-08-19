@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { createKysely, loadMonthlyOperatingCosts, migrateToLatest, type Database } from "@qianliu/database";
+import { createKysely, loadMonthlyOperatingCosts, migrateDown, migrateToLatest, type Database } from "@qianliu/database";
+import { digestSessionToken, generateSessionToken } from "@qianliu/provider-adapters";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
+import { SESSION_COOKIE_NAME } from "../plugins/auth-guard.js";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -216,6 +218,170 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(afterSnapshots.count).toBe(beforeSnapshots.count);
   });
 
+  it("POOL20-046/047 期初补录追加留痕、自动重算且不覆盖当前余额", async () => {
+    const openingEnterpriseId = randomUUID();
+    const openingAdminId = randomUUID();
+    const openingUsername = `opening-${randomUUID().slice(0, 8)}`;
+    await db.insertInto("enterprise").values({
+      id: openingEnterpriseId, name: "期初补录隔离企业",
+    }).execute();
+    await db.insertInto("admin_user").values({
+      id: openingAdminId, enterprise_id: openingEnterpriseId, username: openingUsername,
+      display_name: "期初补录管理员", password_hash: await hashPassword(password), status: "ACTIVE",
+    }).execute();
+    const openingToken = generateSessionToken();
+    await app.adminRepo.createSession(
+      openingAdminId, digestSessionToken(openingToken), new Date(Date.now() + 60_000),
+    );
+    const openingCookie = `${SESSION_COOKIE_NAME}=${openingToken}`;
+    const isolatedProvider = await db.insertInto("provider").values({
+      enterprise_id: openingEnterpriseId, code: "opening-balance", name: "期初补录厂商",
+      adapter_type: "openai",
+    }).returningAll().executeTakeFirstOrThrow();
+    const provider = await db.selectFrom("provider").select("id")
+      .where("enterprise_id", "=", openingEnterpriseId)
+      .where("id", "=", isolatedProvider.id).executeTakeFirstOrThrow();
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: openingEnterpriseId, provider_id: provider.id, name: "期初补录专用 API",
+      mode: "API", credential_type: "API_KEY", status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: openingEnterpriseId, provider_resource_id: resource.id, version: 1,
+      source: "ADMIN", collected_at: new Date("2026-06-15T00:00:00Z"),
+      currency: "CNY", current_balance: "70",
+    }).execute();
+    const snapshotsBefore = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll().as("count"))
+      .where("provider_resource_id", "=", resource.id).executeTakeFirstOrThrow();
+
+    const before = await app.inject({
+      method: "GET", url: "/operating-bills/2026-06", headers: { cookie: openingCookie },
+    });
+    const beforeProvider = before.json().providers.find(
+      (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
+    );
+    expect(beforeProvider).toMatchObject({
+      openingBalance: null, endingBalance: "70.00000000",
+      apiCost: null, apiSpendReason: "待补期初余额",
+    });
+
+    const recorded = await app.inject({
+      method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
+      payload: {
+        provider_resource_id: resource.id, amount: "100", currency: "CNY",
+        reason: "财务期初对账",
+      },
+    });
+    expect(recorded.statusCode).toBe(201);
+    expect(recorded.json().providers.find(
+      (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
+    )).toMatchObject({
+      openingBalance: "100.00000000", rechargeAmount: "0.00000000",
+      endingBalance: "70.00000000", apiCost: "30.00000000",
+    });
+    expect(await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll().as("count"))
+      .where("provider_resource_id", "=", resource.id).executeTakeFirstOrThrow())
+      .toEqual(snapshotsBefore);
+    expect(await db.selectFrom("operating_bill_opening_balance")
+      .select(["version", "amount", "currency", "source", "reason", "created_by"])
+      .where("provider_resource_id", "=", resource.id).execute())
+      .toEqual([{
+        version: 1, amount: "100.00000000", currency: "CNY", source: "MANUAL",
+        reason: "财务期初对账", created_by: openingAdminId,
+      }]);
+
+    const replay = await app.inject({
+      method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
+      payload: {
+        provider_resource_id: resource.id, amount: "100.00", currency: "CNY",
+        reason: "财务期初对账",
+      },
+    });
+    expect(replay.statusCode).toBe(200);
+    expect(await db.selectFrom("operating_bill_opening_balance").select("version")
+      .where("provider_resource_id", "=", resource.id).execute()).toEqual([{ version: 1 }]);
+
+    const crossCurrency = await app.inject({
+      method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
+      payload: { provider_resource_id: resource.id, amount: "100", currency: "USD" },
+    });
+    expect(crossCurrency.statusCode).toBe(409);
+    expect(crossCurrency.json()).toMatchObject({ error: "opening_balance_currency_mismatch" });
+
+    const corrected = await app.inject({
+      method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
+      payload: { provider_resource_id: resource.id, amount: "90", currency: "CNY", reason: "复核修正" },
+    });
+    expect(corrected.statusCode).toBe(201);
+    expect(corrected.json().providers.find(
+      (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
+    )).toMatchObject({ openingBalance: "90.00000000", endingBalance: "70.00000000", apiCost: "20.00000000" });
+    expect(await db.selectFrom("operating_bill_opening_balance").select("version")
+      .where("provider_resource_id", "=", resource.id).orderBy("version").execute())
+      .toEqual([{ version: 1 }, { version: 2 }]);
+
+    const closedJune = await app.inject({
+      method: "POST", url: "/operating-bills/2026-06/close", headers: { cookie: openingCookie },
+      payload: { allow_incomplete: false, note: "六月期末已确认" },
+    });
+    expect(closedJune.statusCode).toBe(200);
+
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: openingEnterpriseId, provider_resource_id: resource.id, version: 2,
+      source: "ADMIN", collected_at: new Date("2026-07-15T00:00:00Z"),
+      currency: "CNY", current_balance: "50",
+    }).execute();
+    const july = await app.inject({
+      method: "GET", url: "/operating-bills/2026-07", headers: { cookie: openingCookie },
+    });
+    expect(july.json().providers.find(
+      (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
+    )).toMatchObject({
+      openingBalance: "70.00000000", endingBalance: "50.00000000", apiCost: "20.00000000",
+    });
+    expect(july.json().sourceFacts.balanceBridgeFacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providerResourceId: resource.id,
+        openingBalance: "70.00000000",
+        openingBalanceSource: "PREVIOUS_PERIOD_CLOSING",
+      }),
+    ]));
+    const redundantOpening = await app.inject({
+      method: "POST", url: "/operating-bills/2026-07/opening-balances",
+      headers: { cookie: openingCookie },
+      payload: { provider_resource_id: resource.id, amount: "70", currency: "CNY" },
+    });
+    expect(redundantOpening.statusCode).toBe(409);
+    expect(redundantOpening.json()).toMatchObject({ error: "opening_balance_already_available" });
+    const latestSnapshot = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(["version", "current_balance"]).where("provider_resource_id", "=", resource.id)
+      .orderBy("collected_at", "desc").executeTakeFirstOrThrow();
+    expect(latestSnapshot).toEqual({ version: 2, current_balance: "50.00000000" });
+
+    const currentMonth = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit",
+    }).format(new Date()).slice(0, 7);
+    const [currentYear, currentMonthNumber] = currentMonth.split("-").map(Number) as [number, number];
+    const futureMonth = currentMonthNumber === 12
+      ? `${currentYear + 1}-01`
+      : `${currentYear}-${String(currentMonthNumber + 1).padStart(2, "0")}`;
+    const futureWrite = await app.inject({
+      method: "POST", url: `/operating-bills/${futureMonth}/opening-balances`, headers: { cookie: openingCookie },
+      payload: { provider_resource_id: resource.id, amount: "50", currency: "CNY" },
+    });
+    expect(futureWrite.statusCode).toBe(400);
+    expect(futureWrite.json()).toMatchObject({ error: "future_month" });
+
+    const closedWrite = await app.inject({
+      method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
+      payload: { provider_resource_id: resource.id, amount: "80", currency: "CNY" },
+    });
+    expect(closedWrite.statusCode).toBe(409);
+    await db.updateTable("operating_bill_period").set({ status: "DRAFT" })
+      .where("enterprise_id", "=", openingEnterpriseId).where("period_month", "=", "2026-06-01").execute();
+  }, 120_000);
+
   it("按自然月汇总真实成本、确认价值并冻结不可变版本", async () => {
     const draft = await app.inject({ method: "GET", url: "/operating-bills/2026-08", headers: { cookie } });
     expect(draft.statusCode).toBe(200);
@@ -361,5 +527,9 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
   it("未登录请求与跨企业数据均受门禁保护", async () => {
     expect((await app.inject({ method: "GET", url: "/operating-bills/2026-08" })).statusCode).toBe(401);
     expect((await app.inject({ method: "GET", url: "/operating-bills/not-a-month", headers: { cookie } })).statusCode).toBe(400);
+  });
+
+  it("0053 已有期初事实时拒绝破坏性回退", async () => {
+    await expect(migrateDown(db)).rejects.toThrow("0053 contains opening balance facts");
   });
 });

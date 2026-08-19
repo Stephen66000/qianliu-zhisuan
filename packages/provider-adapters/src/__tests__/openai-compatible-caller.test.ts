@@ -351,6 +351,7 @@ describe("OpenAI-compatible HTTP caller", () => {
         usage: {
           prompt_tokens: 120,
           completion_tokens: 24,
+          cached_tokens: 40,
           prompt_tokens_details: { cached_tokens: 20 },
           completion_tokens_details: { reasoning_tokens: 8 },
         },
@@ -386,6 +387,25 @@ describe("OpenAI-compatible HTTP caller", () => {
       name: "exec_command",
       arguments: "{\"cmd\":\"date\"}",
     }]);
+  });
+
+  it("POOL20-045：Kimi 顶层 cached_tokens 进入缓存分项且不重复加入真实 Token", async () => {
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse({
+        choices: [{ message: { role: "assistant", content: "ok" } }],
+        usage: { prompt_tokens: 120, completion_tokens: 24, cached_tokens: 40 },
+      }),
+      env: { KIMI_CODING_BASE_URL: "https://kimi.example" },
+    });
+    const outcome = await caller(
+      resource({ providerCode: "kimi", secret: new SecretValue("kimi-test") }),
+      responsesRequest(),
+      1,
+    );
+    expect(outcome.usage).toMatchObject({
+      input: 120, output: 24, cache: 40, quality: "PROVIDER_REPORTED",
+    });
+    expect(outcome.usage.input + outcome.usage.output).toBe(144);
   });
 
   it("非流式 HTTP 200 缺少 message 或有效 Usage 时拒绝伪成功", async () => {

@@ -144,6 +144,9 @@ export interface OperatingBillSnapshot {
       openingSnapshotId: string | null;
       openingSnapshotVersion: number | null;
       openingSnapshotAt: string | null;
+      openingBalanceFactId?: string | null;
+      openingBalanceFactVersion?: number | null;
+      openingBalanceSource?: "MANUAL" | "PREVIOUS_PERIOD_CLOSING" | "OPERATING_SNAPSHOT" | null;
       endingSnapshotId: string | null;
       endingSnapshotVersion: number | null;
       endingSnapshotAt: string | null;

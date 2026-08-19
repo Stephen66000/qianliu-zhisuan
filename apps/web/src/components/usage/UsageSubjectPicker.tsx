@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 
 import { resolvePrincipalExactMatch, usePrincipalOption, usePrincipalOptions } from "../../api/v2-hooks";
 
@@ -20,10 +20,19 @@ export function UsageSubjectPicker({
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const deferredSearch = useDeferredValue(search.trim());
+  const exactRequestGeneration = useRef(0);
+  const latestContext = useRef({ subjectType, search });
+  latestContext.current = { subjectType, search };
   const optionsQuery = usePrincipalOptions(subjectType, deferredSearch, offset, PAGE_SIZE);
   const selectedQuery = usePrincipalOption(value || null);
 
   useEffect(() => setOffset(0), [subjectType, deferredSearch]);
+  useEffect(() => {
+    exactRequestGeneration.current += 1;
+  }, [subjectType]);
+  useEffect(() => () => {
+    exactRequestGeneration.current += 1;
+  }, []);
 
   const items = optionsQuery.data?.principals ?? [];
   const selected = selectedQuery.data?.principal;
@@ -38,14 +47,25 @@ export function UsageSubjectPicker({
       <input
         aria-label={searchLabel}
         className="ql-input min-w-40 flex-1"
-        onChange={(event) => setSearch(event.target.value)}
+        onChange={(event) => {
+          exactRequestGeneration.current += 1;
+          setSearch(event.target.value);
+        }}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;
           const name = search.trim();
           if (!name) return;
           event.preventDefault();
+          const requestedType = subjectType;
+          const requestedSearch = search;
+          const generation = exactRequestGeneration.current + 1;
+          exactRequestGeneration.current = generation;
           void resolvePrincipalExactMatch(subjectType, name)
             .then((result) => {
+              const latest = latestContext.current;
+              if (generation !== exactRequestGeneration.current
+                || latest.subjectType !== requestedType
+                || latest.search !== requestedSearch) return;
               if (result.match_count === 1 && result.principal) onChange(result.principal.id);
             })
             .catch(() => undefined);
@@ -58,7 +78,10 @@ export function UsageSubjectPicker({
         aria-label={selectLabel}
         className="ql-input min-w-48 flex-1"
         disabled={optionsQuery.isLoading && choices.length === 0}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          exactRequestGeneration.current += 1;
+          onChange(event.target.value);
+        }}
         value={value}
       >
         <option value="">全部{label}</option>

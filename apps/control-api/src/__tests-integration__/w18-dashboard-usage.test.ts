@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
+import { createKysely, DashboardRepository, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 
@@ -341,7 +341,10 @@ describe("W18 空状态（新企业无数据）", () => {
     expect(body.overageList).toEqual([]);
     expect(body.monthlyTokenUsage).toEqual({
       totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
-      totalReasoningTokens: "0", totalTokens: "0", employeeRanking: [],
+      totalReasoningTokens: "0", totalTokens: "0", usageQuality: "EXACT",
+      settledTransactionCount: 0, estimatedTransactionCount: 0, unknownTransactionCount: 0,
+      attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
+      rangeStart: expect.any(String), rangeEndExclusive: expect.any(String), employeeRanking: [],
     });
     // 数据源 gap 字段诚实为 null（不伪造）
     expect(body.monthlyPackagePayment).toBeNull();
@@ -852,6 +855,55 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().rules).toEqual([]);
+  });
+
+  it("POOL20-045：结算时间半开月界与计量质量完整暴露", async () => {
+    const isolatedEnterpriseId = randomUUID();
+    const principalId = randomUUID();
+    const keyId = randomUUID();
+    await db.insertInto("enterprise").values({
+      id: isolatedEnterpriseId, name: "真实 Token 月界企业",
+    }).execute();
+    await db.insertInto("principal").values({
+      id: principalId, enterprise_id: isolatedEnterpriseId, type: "EMPLOYEE", name: "月界员工",
+    }).execute();
+    await db.insertInto("principal_key").values({
+      id: keyId, enterprise_id: isolatedEnterpriseId, principal_id: principalId,
+      key_prefix: "pool045", key_digest: randomUUID(), allowed_model_ids: [], status: "ACTIVE",
+    }).execute();
+    const rows = [
+      { at: "2026-07-31T15:59:59.999Z", input: 100n, output: 0n, cache: 0n, reasoning: 0n, quality: "PROVIDER_REPORTED" },
+      { at: "2026-07-31T16:00:00.000Z", input: 10n, output: 0n, cache: 3n, reasoning: 0n, quality: "PROVIDER_REPORTED" },
+      { at: "2026-08-10T00:00:00.000Z", input: 0n, output: 0n, cache: 0n, reasoning: 0n, quality: "UNKNOWN" },
+      { at: "2026-08-31T15:59:59.999Z", input: 15n, output: 5n, cache: 4n, reasoning: 2n, quality: "ESTIMATED" },
+      { at: "2026-08-31T16:00:00.000Z", input: 100n, output: 0n, cache: 0n, reasoning: 0n, quality: "PROVIDER_REPORTED" },
+    ] as const;
+    for (const row of rows) {
+      const requestId = randomUUID();
+      await db.insertInto("ai_request").values({
+        id: requestId, enterprise_id: isolatedEnterpriseId, principal_id: principalId,
+        principal_key_id: keyId, protocol: "openai", unified_model: "pool045",
+        status: "SUCCEEDED", started_at: new Date(row.at), finished_at: new Date(row.at),
+      }).execute();
+      await db.insertInto("ledger_transaction").values({
+        ai_request_id: requestId, enterprise_id: isolatedEnterpriseId, principal_id: principalId,
+        total_input_tokens: row.input, total_output_tokens: row.output,
+        total_cache_tokens: row.cache, total_reasoning_tokens: row.reasoning,
+        total_deducted_quota: 0n, total_api_cost: "0", usage_quality: row.quality,
+        attempt_count: 1, status: "SETTLED", created_at: new Date(row.at),
+      }).execute();
+    }
+    const summary = await new DashboardRepository(db).getSummary(
+      isolatedEnterpriseId, new Date("2026-08-19T00:00:00.000Z").getTime(),
+    );
+    expect(summary.monthlyTokenUsage).toMatchObject({
+      totalInputTokens: "25", totalOutputTokens: "5", totalCacheTokens: "7",
+      totalReasoningTokens: "2", totalTokens: "30", usageQuality: "UNKNOWN",
+      settledTransactionCount: 3, estimatedTransactionCount: 1, unknownTransactionCount: 1,
+      attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
+      rangeStart: "2026-07-31T16:00:00.000Z",
+      rangeEndExclusive: "2026-08-31T16:00:00.000Z",
+    });
   });
 
   it("/supply-forecasts 只读列表（有 seed 的预测）", async () => {

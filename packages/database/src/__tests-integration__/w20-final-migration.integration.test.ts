@@ -165,6 +165,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0050_group2_policy_lifecycle", "Success"],
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
         ["0052_dispatch_restore_and_resource_utilization", "Success"],
+        ["0053_operating_bill_opening_balance", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -218,6 +219,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ledger_idx: "ledger_line_resource_month_cover_idx",
       });
 
+      expect(await migrateDown(db)).toBe("0053_operating_bill_opening_balance");
       expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");
       const v52Removed = await sql<{ restore_idx: string | null; ledger_idx: string | null }>`
         SELECT to_regclass('public.dispatch_policy_active_restore_unique_idx')::text AS restore_idx,
@@ -265,6 +267,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0050_group2_policy_lifecycle", "Success"],
         ["0051_pool20_operating_sync_and_closing_confirmation", "Success"],
         ["0052_dispatch_restore_and_resource_utilization", "Success"],
+        ["0053_operating_bill_opening_balance", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
@@ -274,4 +277,57 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       await db.destroy();
     }
   }, 180_000);
+
+  it("0053 已有期初余额事实时拒绝破坏性回退", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const enterpriseId = randomUUID();
+      const adminId = randomUUID();
+      const providerId = randomUUID();
+      const resourceId = randomUUID();
+      const periodId = randomUUID();
+      await db.insertInto("enterprise").values({ id: enterpriseId, name: "0053 回退保护企业" }).execute();
+      await db.insertInto("admin_user").values({
+        id: adminId, enterprise_id: enterpriseId, username: `rollback-${randomUUID()}`,
+        password_hash: "unused",
+      }).execute();
+      await db.insertInto("provider").values({
+        id: providerId, enterprise_id: enterpriseId, code: `rollback-${randomUUID().slice(0, 8)}`,
+        name: "0053 回退保护厂商", adapter_type: "openai",
+      }).execute();
+      await db.insertInto("provider_resource").values({
+        id: resourceId, enterprise_id: enterpriseId, provider_id: providerId,
+        name: "0053 API", mode: "API", credential_type: "API_KEY",
+      }).execute();
+      await db.insertInto("operating_bill_period").values({
+        id: periodId, enterprise_id: enterpriseId, period_month: "2026-06-01", created_by: adminId,
+      }).execute();
+      const otherEnterpriseId = randomUUID();
+      const otherPeriodId = randomUUID();
+      await db.insertInto("enterprise").values({
+        id: otherEnterpriseId, name: "0053 隔离账期企业",
+      }).execute();
+      await db.insertInto("operating_bill_period").values({
+        id: otherPeriodId, enterprise_id: otherEnterpriseId,
+        period_month: "2026-06-01", created_by: adminId,
+      }).execute();
+      await expect(db.insertInto("operating_bill_opening_balance").values({
+        enterprise_id: enterpriseId, period_id: otherPeriodId, provider_resource_id: resourceId,
+        version: 1, amount: "1", currency: "CNY", source: "MANUAL",
+        reason: "跨企业账期应失败", created_by: adminId,
+      }).execute()).rejects.toMatchObject({
+        constraint: "operating_bill_opening_balance_period_tenant_fk",
+      });
+      await db.insertInto("operating_bill_opening_balance").values({
+        enterprise_id: enterpriseId, period_id: periodId, provider_resource_id: resourceId,
+        version: 1, amount: "100", currency: "CNY", source: "MANUAL",
+        reason: "回退保护", created_by: adminId,
+      }).execute();
+      await expect(migrateDown(db)).rejects.toThrow(/0053 contains opening balance facts/);
+      expect(await db.selectFrom("operating_bill_opening_balance").select("id")
+        .where("provider_resource_id", "=", resourceId).executeTakeFirst()).toBeDefined();
+    } finally {
+      await db.destroy();
+    }
+  }, 120_000);
 });

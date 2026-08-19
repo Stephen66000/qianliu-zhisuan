@@ -291,6 +291,56 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
     ]));
   });
 
+  it("POOL20-041：订阅周期边界缺失时保留额度事实但不声称周期利用率", async () => {
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: enterpriseId,
+      provider_resource_id: kimiResourceId,
+      version: 2,
+      source: "PROVIDER_SYNC",
+      collected_at: new Date(),
+      currency: "CNY",
+      package_cost: "300",
+      total_quota: "100",
+      used_quota: "35",
+      remaining_quota: "65",
+      quota_unit: "POINT",
+      effective_from: new Date("2026-08-01T00:00:00+08:00"),
+      effective_until: null,
+    }).execute();
+    const response = await app.inject({
+      method: "GET",
+      url: `/provider-resources/utilization?month=${currentMonth}`,
+      headers: { cookie: adminCookie },
+    });
+    const kimi = response.json().resources.find(
+      (resource: { resourceId: string }) => resource.resourceId === kimiResourceId,
+    );
+    expect(kimi).toMatchObject({
+      totalQuota: "100.00000000",
+      usedQuota: "35.00000000",
+      servicePeriodStart: expect.any(String),
+      servicePeriodEnd: null,
+      utilizationRate: null,
+      utilizationBasis: null,
+      notCalculableReason: "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE",
+    });
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: enterpriseId,
+      provider_resource_id: kimiResourceId,
+      version: 3,
+      source: "PROVIDER_SYNC",
+      collected_at: new Date(Date.now() + 1),
+      currency: "CNY",
+      package_cost: "300",
+      total_quota: "100",
+      used_quota: "35",
+      remaining_quota: "65",
+      quota_unit: "POINT",
+      effective_from: new Date("2026-08-01T00:00:00+08:00"),
+      effective_until: new Date("2026-09-01T00:00:00+08:00"),
+    }).execute();
+  });
+
   it("超过 15 分钟的预测不返回精确日期，最近使用和闲置只保留事实", async () => {
     const response = await app.inject({
       method: "GET",

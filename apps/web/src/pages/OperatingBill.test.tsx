@@ -12,6 +12,7 @@ const closeBill = vi.fn();
 const reopenBill = vi.fn();
 const createValue = vi.fn();
 const confirmValue = vi.fn();
+const recordOpeningBalance = vi.fn();
 const bill: OperatingBill = {
   month: "2026-08", timezone: "Asia/Shanghai", status: "DRAFT", version: 0,
   generatedAt: "2026-08-03T00:00:00Z", closedAt: null, closedBy: null, closeNote: null,
@@ -28,6 +29,7 @@ vi.mock("../api/operating-bills", async () => {
   return {
     ...actual,
     useOperatingBill: () => ({ isLoading: false, error: null, data: currentBill, refetch: vi.fn() }),
+    useRecordOpeningBalance: () => ({ mutate: recordOpeningBalance, isPending: false, error: null }),
     useCreateOperatingBillValue: () => ({ mutate: createValue, isPending: false, error: null }),
     useConfirmOperatingBillValue: () => ({ mutate: confirmValue, isPending: false, error: null }),
     useConfirmOperatingBillResource: () => ({ mutate: confirmResource, isPending: false, error: null }),
@@ -55,6 +57,7 @@ describe("POOL-025 经营账单", () => {
     reopenBill.mockReset();
     createValue.mockReset();
     confirmValue.mockReset();
+    recordOpeningBalance.mockReset();
   });
 
   it("展示真实成本口径并可切换经营账单页签", async () => {
@@ -102,7 +105,34 @@ describe("POOL-025 经营账单", () => {
     };
     render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
     expect(screen.getAllByText("待补期初余额").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("账本计价 ¥12.34")).toBeInTheDocument();
+    expect(screen.getByText("账本 API 计价（核对证据） ¥12.34")).toBeInTheDocument();
+    for (const label of ["期初余额", "本月充值", "期末余额", "API 花费", "套餐费用", "本月总花费"]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+    expect(screen.getAllByText("¥87.66").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "补录期初余额" })).toBeInTheDocument();
+  });
+
+  it("经营账单内补录期初余额并请求保存后重算", async () => {
+    const user = userEvent.setup();
+    currentBill = {
+      ...bill,
+      summary: { ...bill.summary, totalCost: null, apiCost: null, openingBalance: null,
+        monthlyRecharge: "0", apiSpendReason: "待补期初余额", endingBalance: "70" },
+      providers: [{
+        ...bill.providers[0]!, providerResourceId: "api-resource", providerName: "DeepSeek",
+        resourceName: "API 账户", mode: "API", currency: "CNY", openingBalance: null,
+        rechargeAmount: "0", apiCost: null, apiSpendReason: "待补期初余额",
+        packageCost: "0", totalCost: null, endingBalance: "70",
+      }],
+    };
+    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    await user.type(screen.getByPlaceholderText("期初余额"), "100");
+    await user.type(screen.getByRole("textbox", { name: "期初余额说明" }), "财务对账");
+    await user.click(screen.getByRole("button", { name: "保存并重算" }));
+    expect(recordOpeningBalance).toHaveBeenCalledWith({
+      provider_resource_id: "api-resource", amount: "100.00", currency: "CNY", reason: "财务对账",
+    }, expect.objectContaining({ onSuccess: expect.any(Function) }));
   });
 
   it("保留对账 Coming Soon 和草稿账单 CSV 导入入口", async () => {

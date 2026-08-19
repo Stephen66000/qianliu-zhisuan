@@ -155,12 +155,20 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
         mode: "API" as const, credential_type: "API_KEY", status: "ACTIVE" as const,
       }))).returning("id").execute();
       const snapshotResources = input.omitSecondSnapshot ? resources.slice(0, 1) : resources;
-      await db.insertInto("provider_resource_operating_snapshot").values(snapshotResources.map((resource, index) => ({
-        enterprise_id: enterpriseId, provider_resource_id: resource.id, version: 1,
-        source: "PROVIDER_SYNC" as const, collected_at: new Date(now.getTime() - 60_000),
-        currency: input.currencies[index]!, current_balance: index === 0 ? "10" : "20",
-        current_period_cost: "1",
-      }))).execute();
+      await db.insertInto("provider_resource_operating_snapshot").values(snapshotResources.flatMap((resource, index) => ([
+        {
+          enterprise_id: enterpriseId, provider_resource_id: resource.id, version: 1,
+          source: "PROVIDER_SYNC" as const, collected_at: new Date("2026-07-31T16:00:00.000Z"),
+          currency: input.currencies[index]!, current_balance: index === 0 ? "12" : "24",
+          current_period_cost: "0",
+        },
+        {
+          enterprise_id: enterpriseId, provider_resource_id: resource.id, version: 2,
+          source: "PROVIDER_SYNC" as const, collected_at: new Date(now.getTime() - 60_000),
+          currency: input.currencies[index]!, current_balance: index === 0 ? "10" : "20",
+          current_period_cost: "1",
+        },
+      ]))).execute();
       const modelId = randomUUID();
       await db.insertInto("unified_model").values({
         id: modelId, enterprise_id: enterpriseId, alias: `ql-${input.code}`,
@@ -223,7 +231,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       estimatedBalanceTokens: "1500", balanceTokenEstimateConfidence: "LOW",
     });
     expect(items.find((row) => row.providerCode === "multi-currency")).toMatchObject({
-      currentBalance: null, estimatedBalanceTokens: null,
+      currentBalance: null, monthlyCost: null, estimatedBalanceTokens: null,
+      monthlyCostReason: expect.stringMatching(/multi-currency-0 CNY.*multi-currency-1 USD/),
       balanceTokenEstimateReason: "PRICE_CURRENCY_MISMATCH",
     });
   });

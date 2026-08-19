@@ -29,6 +29,7 @@ export interface ResourceBreakdownItem {
   subscriptionPeriodEnd: string | null;
   snapshotAt: string | null;
   monthlyCost: string | null;
+  monthlyCostReason: string | null;
   monthlyInputTokens: string | null;
   monthlyOutputTokens: string | null;
   monthlyCacheTokens: string | null;
@@ -81,12 +82,13 @@ export interface DashboardSummary {
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
   monthlyApiCost: string | null;
+  monthlyApiSpendReason: string | null;
   monthlyTotalSpend: string | null;
   monthlyRechargeAmount: string | null;
   earliestExhaustion: EarliestExhaustion | null;
   monthlyDispatchSaving: string;
   dispatchSavingBreakdown: {
-    realizedAmount: string; realizedSwitchCount: number; realizedReason: string | null;
+    realizedAmount: string; realizedSwitchCount: number; actualSwitchCount: number; realizedReason: string | null;
     potentialPeakSavingAmount: string | null; potentialReason: string | null;
     avoidedPeakDeduction: string; avoidedDeductionCount: number; avoidedReason: string | null;
     rejectedRequestCount: number;
@@ -99,6 +101,13 @@ export interface DashboardSummary {
     totalCacheTokens: string;
     totalReasoningTokens: string;
     totalTokens: string;
+    usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+    settledTransactionCount: number;
+    estimatedTransactionCount: number;
+    unknownTransactionCount: number;
+    attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT";
+    rangeStart: string;
+    rangeEndExclusive: string;
     employeeRanking: Array<{
       principalId: string;
       principalName: string;

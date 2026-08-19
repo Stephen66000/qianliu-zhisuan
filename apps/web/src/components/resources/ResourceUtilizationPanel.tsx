@@ -17,7 +17,9 @@ function utilizationDisplay(row: ResourceUtilization) {
   const value = row.utilizationRate === null
     ? "— / 未设置"
     : `${(Number(row.utilizationRate) * 100).toFixed(1)}%`;
-  const basis = row.mode === "CODING_PLAN" && row.utilizationBasis
+  const basis = row.notCalculableReason
+    ? utilizationReason(row.notCalculableReason)
+    : row.mode === "CODING_PLAN" && row.utilizationBasis
     ? "订阅周期累计"
     : row.utilizationBasis ?? row.utilizationStatus;
   return <>{value}<span className="block text-[11px] text-ql-fg-tertiary">{basis}</span></>;
@@ -31,9 +33,17 @@ function subscriptionDisplay(row: ResourceUtilization, month: string) {
 }
 
 function utilizationBasisDisplay(row: ResourceUtilization): string {
-  if (row.notCalculableReason) return row.notCalculableReason;
+  if (row.notCalculableReason) return utilizationReason(row.notCalculableReason);
   if (row.mode === "API") return `预算 ¥${formatMoney(row.budgetAmount ?? "0")}`;
   return `${row.utilizationStatus} · 订阅周期累计`;
+}
+
+function utilizationReason(reason: string): string {
+  if (reason === "SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE") return "缺少订阅开始日期";
+  if (reason === "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE") return "缺少订阅结束日期";
+  if (reason === "SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE") return "缺少订阅额度事实";
+  if (reason === "MONTHLY_BUDGET_NOT_CONFIGURED") return "未设置月预算";
+  return reason;
 }
 
 function freshnessDisplay(row: ResourceUtilization) {

@@ -14,7 +14,19 @@ import {
   OperatingBillConcurrentModificationError,
   withOperatingBillSerializationRetry,
 } from "./operating-bill-concurrency.js";
+import {
+  OperatingBillAlreadyClosedError,
+  OperatingBillCloseNoteRequiredError,
+  OperatingBillIncompleteError,
+  OperatingBillNotClosedError,
+  OperatingBillReferenceError,
+} from "./operating-bill-errors.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
+import {
+  recordOperatingBillOpeningBalance,
+  type RecordOpeningBalanceInput,
+} from "./operating-bill-opening-balance.js";
+import { ensureOperatingBillPeriod } from "./operating-bill-period.js";
 import {
   acquireOperatingBillMonthWriteBarrier,
   hasPendingOperatingBillSettlement,
@@ -22,7 +34,6 @@ import {
 } from "./operating-bill-write-barrier.js";
 import { appendProjectAttributionCorrection } from "./operating-bill-project-attribution.js";
 import type {
-  OperatingBillGap,
   OperatingBillPeriod,
   OperatingBillSnapshot,
   OperatingBillValueItemView,
@@ -32,6 +43,7 @@ import type {
 export type * from "./operating-bill-types.js";
 export { operatingBillMonthRange, InvalidOperatingBillMonthError } from "./operating-bill-month.js";
 export { OperatingBillConcurrentModificationError } from "./operating-bill-concurrency.js";
+export * from "./operating-bill-errors.js";
 export { OperatingBillClosedError } from "./operating-bill-write-barrier.js";
 
 export class OperatingBillRepository {
@@ -96,8 +108,9 @@ export class OperatingBillRepository {
     relatedPrincipalId?: string | null;
   }): Promise<OperatingBillValueItemView> {
     const created = await this.db.transaction().execute(async (trx) => {
-      const repo = new OperatingBillRepository(trx);
-      const initial = await repo.ensurePeriod(input.enterpriseId, input.adminId, input.month);
+      const initial = await ensureOperatingBillPeriod(
+        trx, input.enterpriseId, input.adminId, input.month,
+      );
       const period = await trx.selectFrom("operating_bill_period").selectAll()
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", initial.id)
         .forUpdate().executeTakeFirstOrThrow();
@@ -175,7 +188,9 @@ export class OperatingBillRepository {
     status: "CONFIRMED" | "PENDING" | "NOT_APPLICABLE" | "ANOMALY";
     note: string | null;
   }): Promise<OperatingBillView> {
-    const period = await this.ensurePeriod(input.enterpriseId, input.adminId, input.month);
+    const period = await ensureOperatingBillPeriod(
+      this.db, input.enterpriseId, input.adminId, input.month,
+    );
     if (period.status === "CLOSED") throw new OperatingBillClosedError();
     const draft = await this.buildDraft(input.enterpriseId, input.month, period);
     const provider = draft.providers.find((row) => row.providerResourceId === input.providerResourceId);
@@ -212,6 +227,13 @@ export class OperatingBillRepository {
     return this.getBill(input.enterpriseId, input.month);
   }
 
+  recordOpeningBalance(input: RecordOpeningBalanceInput) {
+    return recordOperatingBillOpeningBalance(
+      this.db, input,
+      () => this.getBill(input.enterpriseId, input.month),
+    );
+  }
+
   async assignRequestToProject(input: {
     enterpriseId: string;
     adminId: string;
@@ -246,8 +268,9 @@ export class OperatingBillRepository {
       if (monthOf(lineRange.first_at) !== input.month || monthOf(lineRange.last_at) !== input.month) {
         throw new OperatingBillReferenceError();
       }
-      const repo = new OperatingBillRepository(trx);
-      const initial = await repo.ensurePeriod(input.enterpriseId, input.adminId, input.month);
+      const initial = await ensureOperatingBillPeriod(
+        trx, input.enterpriseId, input.adminId, input.month,
+      );
       const period = await trx.selectFrom("operating_bill_period").select(["id", "status"])
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", initial.id)
         .forUpdate().executeTakeFirstOrThrow();
@@ -278,8 +301,7 @@ export class OperatingBillRepository {
     // 后续 RR 事务，避免等锁前取到旧快照而漏掉在途结算。
     const initial = await this.db.transaction().execute(async (trx) => {
       await acquireOperatingBillMonthWriteBarrier(trx, input.enterpriseId, input.month);
-      return new OperatingBillRepository(trx)
-        .ensurePeriod(input.enterpriseId, input.adminId, input.month);
+      return ensureOperatingBillPeriod(trx, input.enterpriseId, input.adminId, input.month);
     });
     await withOperatingBillSerializationRetry(() =>
       this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
@@ -382,23 +404,6 @@ export class OperatingBillRepository {
     const values = period ? await this.listValueItems(enterpriseId, period.id) : [];
     return buildOperatingBillDraft(this.db, enterpriseId, month, period, values, start, end);
   }
-  private async ensurePeriod(enterpriseId: string, adminId: string, month: string): Promise<OperatingBillPeriod> {
-    const range = operatingBillMonthRange(month);
-    const inserted = await this.db.insertInto("operating_bill_period").values({
-      enterprise_id: enterpriseId, period_month: range.monthDate, created_by: adminId,
-    }).onConflict((oc) => oc.columns(["enterprise_id", "period_month"]).doNothing())
-      .returningAll().executeTakeFirst();
-    const period = inserted ?? await this.findPeriod(enterpriseId, range.monthDate);
-    if (!period) throw new Error("operating_bill_period_create_failed");
-    if (inserted) {
-      await this.db.insertInto("operating_bill_event").values({
-        enterprise_id: enterpriseId, period_id: period.id, action: "CREATED", version: 0,
-        reason: null, actor_admin_id: adminId, metadata: { month },
-      }).execute();
-    }
-    return period;
-  }
-
   private findPeriod(enterpriseId: string, monthDate: string): Promise<OperatingBillPeriod | undefined> {
     return this.db.selectFrom("operating_bill_period").selectAll()
       .where("enterprise_id", "=", enterpriseId).where("period_month", "=", monthDate)
@@ -457,15 +462,5 @@ export class OperatingBillRepository {
       id: row.id, action: row.action, version: row.version, reason: row.reason,
       actor: row.actor_name, createdAt: row.created_at.toISOString(),
     }));
-  }
-}
-
-export class OperatingBillAlreadyClosedError extends Error {}
-export class OperatingBillNotClosedError extends Error {}
-export class OperatingBillReferenceError extends Error {}
-export class OperatingBillCloseNoteRequiredError extends Error {}
-export class OperatingBillIncompleteError extends Error {
-  constructor(readonly gaps: OperatingBillGap[]) {
-    super("operating_bill_incomplete");
   }
 }

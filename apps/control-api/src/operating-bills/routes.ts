@@ -14,6 +14,7 @@ import {
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import { OperatingSnapshotSchema, operatingSnapshotModeError, toOperatingSnapshotInput } from "../providers/contracts.js";
+import { registerOpeningBalanceRoute } from "./opening-balance-route.js";
 
 const MonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 const IdSchema = z.string().uuid();
@@ -66,7 +67,6 @@ const SnapshotImportSchema = z.object({
     snapshot: z.record(z.string(), z.unknown()),
   })).min(1).max(500),
 });
-
 function invalid(reply: FastifyReply) {
   return reply.code(400).send({ error: "invalid_request", message: "请求参数不合法" });
 }
@@ -106,6 +106,7 @@ function handleOperatingBillError(error: unknown, reply: FastifyReply) {
 }
 
 export function registerOperatingBillRoutes(app: FastifyInstance): void {
+  registerOpeningBalanceRoute(app);
   app.post("/operating-bill-snapshot-imports", { preHandler: [requireAuth] }, async (req, reply) => {
     const body = SnapshotImportSchema.safeParse(req.body);
     if (!body.success) return invalid(reply);

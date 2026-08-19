@@ -119,6 +119,20 @@ export interface OperatingBillRequestProjectAssignmentTable {
   updated_at: Generated<Date>;
 }
 
+export interface OperatingBillOpeningBalanceTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  period_id: string;
+  provider_resource_id: string;
+  version: number;
+  amount: string;
+  currency: string;
+  source: "MANUAL";
+  reason: string | null;
+  created_by: string;
+  created_at: Generated<Date>;
+}
+
 export interface ProviderModelDiscoveryTable {
   id: Generated<string>;
   enterprise_id: string;

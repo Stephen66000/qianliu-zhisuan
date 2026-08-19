@@ -774,7 +774,7 @@ function normalizeUsage(raw: unknown): Usage | null {
     input: nonNegativeNumber(raw.prompt_tokens),
     output: nonNegativeNumber(raw.completion_tokens),
     cache: nonNegativeNumber(
-      raw.prompt_cache_hit_tokens ?? details.cached_tokens,
+      raw.prompt_cache_hit_tokens ?? details.cached_tokens ?? raw.cached_tokens,
     ),
     reasoning: nonNegativeNumber(
       outputDetails.reasoning_tokens ?? raw.reasoning_tokens,

@@ -59,6 +59,7 @@ vi.mock("../api/operating-bills", () => ({
   useCreateOperatingBillValue: () => ({ mutate: mocks.create, isPending: false, error: null }),
   useImportOperatingBillSnapshots: () => ({ mutateAsync: vi.fn(), isPending: false, error: null }),
   useOperatingBill: () => ({ isLoading: false, error: null, data: bill, refetch: vi.fn() }),
+  useRecordOpeningBalance: () => ({ mutate: vi.fn(), isPending: false, error: null }),
   useReopenOperatingBill: () => ({ mutate: vi.fn(), isPending: false, error: null }),
 }));
 

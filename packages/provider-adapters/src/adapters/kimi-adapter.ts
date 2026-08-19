@@ -14,7 +14,7 @@
  *   - 周期、限流窗口和套餐有效期按资源配置保存（归 W11 账号池状态机使用）。
  *
  * usage 维度（TRD §7.3）：Kimi OpenAI 兼容入口返回 prompt_tokens/completion_tokens，
- * 当前公开 Coding Plan 不区分缓存命中分项，cache 兜底为 0。
+ * 部分版本另以 cached_tokens 或兼容字段返回缓存命中分项。
  */
 import type { Outcome, Usage } from "@qianliu/contracts";
 import type { ErrorClassification } from "@qianliu/domain";
@@ -65,19 +65,26 @@ export class KimiAdapter implements ProviderAdapter {
 
   /**
    * 解析 Kimi usage 为原始口径（TRD §7.3）。
-   * Kimi OpenAI 兼容入口返回 prompt_tokens/completion_tokens/total_tokens；
-   * Coding Plan 不区分缓存命中分项，cache 兜底 0。
+   * Kimi OpenAI 兼容入口返回 prompt_tokens/completion_tokens/total_tokens；缓存分项
+   * 按 prompt_cache_hit_tokens → prompt_tokens_details.cached_tokens → cached_tokens
+   * 的稳定优先级读取，同一响应只计一次。
    * 模型档位倍数折算不在 Adapter 内进行（归 W13 版本化规则）。
    */
   parseUsage(raw: {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens?: number;
+    prompt_cache_hit_tokens?: number;
+    cached_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
   }): Usage {
     return {
       input: raw.prompt_tokens,
       output: raw.completion_tokens,
-      cache: 0, // Kimi Coding Plan 当前无缓存命中分项
+      cache: raw.prompt_cache_hit_tokens
+        ?? raw.prompt_tokens_details?.cached_tokens
+        ?? raw.cached_tokens
+        ?? 0,
       quality: "PROVIDER_REPORTED",
     };
   }

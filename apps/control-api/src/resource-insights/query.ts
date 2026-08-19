@@ -163,12 +163,16 @@ export async function listResourceUtilization(
            CASE
              WHEN pr.mode = 'API' AND pr.monthly_budget_amount > 0
                THEN round(coalesce(l.api_cost, 0) / pr.monthly_budget_amount, 8)::text
-             WHEN pr.mode = 'CODING_PLAN' AND s.total_quota > 0 AND s.used_quota IS NOT NULL
+             WHEN pr.mode = 'CODING_PLAN'
+              AND s.effective_from IS NOT NULL AND s.effective_until IS NOT NULL
+              AND s.total_quota > 0 AND s.used_quota IS NOT NULL
                THEN round(s.used_quota / s.total_quota, 8)::text
              ELSE NULL
            END AS utilization_rate,
            CASE
-             WHEN pr.mode = 'CODING_PLAN' AND s.package_cost IS NOT NULL
+             WHEN pr.mode = 'CODING_PLAN'
+              AND s.effective_from IS NOT NULL AND s.effective_until IS NOT NULL
+              AND s.package_cost IS NOT NULL
               AND s.total_quota > 0 AND s.used_quota IS NOT NULL
                THEN round(s.package_cost * greatest(0, 1 - s.used_quota / s.total_quota), 8)::text
              ELSE NULL
@@ -201,7 +205,9 @@ export async function listResourceUtilization(
              AS continuous_no_call_days,
            CASE
              WHEN pr.mode = 'API' AND pr.monthly_budget_amount > 0 THEN 'API_MONTHLY_BUDGET'
-             WHEN pr.mode = 'CODING_PLAN' AND s.total_quota > 0 AND s.used_quota IS NOT NULL
+             WHEN pr.mode = 'CODING_PLAN'
+              AND s.effective_from IS NOT NULL AND s.effective_until IS NOT NULL
+              AND s.total_quota > 0 AND s.used_quota IS NOT NULL
                THEN 'CODING_PLAN_SUBSCRIPTION_PERIOD'
              ELSE NULL
            END AS utilization_basis,
@@ -218,6 +224,10 @@ export async function listResourceUtilization(
            END AS utilization_status,
            CASE
              WHEN pr.mode = 'API' AND pr.monthly_budget_amount IS NULL THEN 'MONTHLY_BUDGET_NOT_CONFIGURED'
+             WHEN pr.mode = 'CODING_PLAN' AND s.effective_from IS NULL
+              THEN 'SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE'
+             WHEN pr.mode = 'CODING_PLAN' AND s.effective_until IS NULL
+              THEN 'SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE'
              WHEN pr.mode = 'CODING_PLAN'
               AND NOT (s.total_quota > 0 AND s.used_quota IS NOT NULL)
                THEN 'SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE'

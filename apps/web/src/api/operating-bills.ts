@@ -152,6 +152,19 @@ export function useCreateOperatingBillValue(month: string) {
   });
 }
 
+export function useRecordOpeningBalance(month: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      provider_resource_id: string; amount: string; currency: string; reason: string | null;
+    }) => post(`/operating-bills/${month}/opening-balances`, body),
+    onSuccess: () => {
+      invalidateOperatingBillViews(client, month);
+      void client.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 export function useConfirmOperatingBillValue(month: string) {
   const client = useQueryClient();
   return useMutation({

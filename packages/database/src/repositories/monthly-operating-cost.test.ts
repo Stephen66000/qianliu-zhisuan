@@ -15,6 +15,10 @@ function row(overrides: Partial<MonthlyOperatingCostResourceRow> = {}): MonthlyO
     ending_snapshot_id: "end-1", ending_snapshot_version: 2, ending_balance: "90",
     ending_currency: "CNY", ending_at: new Date("2026-08-20T00:00:00Z"), package_cost: null,
     service_period_start: null, service_period_end: null, ...overrides,
+    manual_opening_id: overrides.manual_opening_id ?? null,
+    manual_opening_version: overrides.manual_opening_version ?? null,
+    opening_source: overrides.opening_source
+      ?? (overrides.manual_opening_id ? "MANUAL" : "OPERATING_SNAPSHOT"),
   };
 }
 
@@ -41,6 +45,36 @@ describe("POOL20-043 月度经营金额", () => {
     })).toMatchObject({
       apiSpend: "30.00000000", rechargeAmount: "20.00000000", apiSpendStatus: "CALCULABLE",
       openingSnapshotId: "open-1", endingSnapshotId: "end-1", ledgerApiCost: "3.00000000",
+    });
+  });
+
+  it("手工期初事实优先并保留独立来源，不冒充经营快照", () => {
+    expect(calculateMonthlyOperatingCostResource({
+      row: row({
+        opening_snapshot_id: null, opening_snapshot_version: null,
+        manual_opening_id: "manual-open-1", manual_opening_version: 2,
+        opening_balance: "120", opening_currency: "CNY",
+      }),
+      recharges: [], ledgerApiCost: "30", periodStart: new Date("2026-07-31T16:00:00Z"),
+    })).toMatchObject({
+      apiSpend: "30.00000000", openingSnapshotId: null,
+      openingBalanceFactId: "manual-open-1", openingBalanceFactVersion: 2,
+      openingBalanceSource: "MANUAL",
+    });
+  });
+
+  it("Coding Plan 走不适用分支并保留套餐事实", () => {
+    expect(calculateMonthlyOperatingCostResource({
+      row: row({
+        resource_id: "plan-calculated", mode: "CODING_PLAN", opening_balance: null,
+        opening_currency: null, opening_at: null, ending_balance: null,
+        ending_currency: "CNY", ending_at: null, package_cost: "30",
+      }),
+      recharges: [], ledgerApiCost: null, periodStart: new Date("2026-07-31T16:00:00Z"),
+    })).toMatchObject({
+      mode: "CODING_PLAN", currency: "CNY", openingBalance: null,
+      rechargeAmount: "0.00000000", endingBalance: null, apiSpend: "0.00000000",
+      apiSpendStatus: "NOT_APPLICABLE", apiSpendReason: null, packageCost: "30",
     });
   });
 
@@ -99,7 +133,7 @@ describe("POOL20-043 月度经营金额", () => {
     expect(summarizeMonthlyOperatingCosts([])).toMatchObject({
       apiSpend: "0.00000000", packageCost: null, totalSpend: null,
       openingBalance: "0.00000000", endingBalance: "0.00000000", rechargeAmount: null,
-      apiSpendStatus: "NOT_APPLICABLE",
+      currency: null, apiSpendStatus: "NOT_APPLICABLE",
     });
     expect(summarizeMonthlyOperatingCosts([planResource()])).toMatchObject({
       apiSpend: "0.00000000", packageCost: "30.00000000", totalSpend: "30.00000000", currency: "CNY",
@@ -132,7 +166,7 @@ describe("POOL20-043 月度经营金额", () => {
     });
     expect(summarizeMonthlyOperatingCosts([missingApi, planResource()])).toMatchObject({
       apiSpend: null, packageCost: "30.00000000", totalSpend: null,
-      openingBalance: null, endingBalance: null, apiSpendStatus: "OPENING_BALANCE_MISSING",
+      openingBalance: null, endingBalance: "90.00000000", apiSpendStatus: "OPENING_BALANCE_MISSING",
     });
     expect(summarizeMonthlyOperatingCosts([apiResource(), missingApi])).toMatchObject({
       apiSpend: null, packageCost: "0.00000000", totalSpend: null,
@@ -140,10 +174,35 @@ describe("POOL20-043 月度经营金额", () => {
     });
   });
 
+  it("无当月充值是精确零，不被缺失的余额币种抹成未知", () => {
+    const missingBalance = calculateMonthlyOperatingCostResource({
+      row: row({
+        resource_id: "api-missing", opening_balance: null, opening_currency: null,
+        opening_at: null, ending_balance: null, ending_currency: null, ending_at: null,
+      }),
+      recharges: [], ledgerApiCost: "0", periodStart: new Date("2026-07-31T16:00:00Z"),
+    });
+    expect(summarizeMonthlyOperatingCosts([apiResource(), missingBalance]).rechargeAmount)
+      .toBe("0.00000000");
+    const nonzeroMissingCurrency = {
+      ...missingBalance, rechargeAmount: "5.00000000",
+    };
+    expect(summarizeMonthlyOperatingCosts([nonzeroMissingCurrency]).rechargeAmount).toBeNull();
+    expect(summarizeMonthlyOperatingCosts([
+      apiResource(), nonzeroMissingCurrency,
+    ]).rechargeAmount).toBeNull();
+    expect(summarizeMonthlyOperatingCosts([{
+      ...missingBalance, openingBalance: "0.00000000", endingBalance: "0.00000000",
+    }])).toMatchObject({
+      openingBalance: null, rechargeAmount: "0.00000000", endingBalance: null,
+    });
+  });
+
   it("API、套餐及缺币种三种企业汇总冲突分别 fail-closed", () => {
     const usdApi = { ...apiResource(), resourceId: "api-usd", currency: "USD" };
     expect(summarizeMonthlyOperatingCosts([apiResource(), usdApi])).toMatchObject({
       apiSpendStatus: "CURRENCY_MISMATCH", apiSpend: null, totalSpend: null,
+      openingBalance: null, rechargeAmount: "0.00000000", endingBalance: null, currency: null,
     });
     expect(summarizeMonthlyOperatingCosts([
       planResource(), planResource({ resourceId: "plan-usd", currency: "USD" }),

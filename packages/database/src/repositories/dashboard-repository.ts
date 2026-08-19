@@ -97,6 +97,7 @@ export class DashboardRepository {
       currentInUseCount,
       monthlyPackagePayment: monthlyOperatingCosts.summary.packageCost,
       monthlyApiCost: monthlyOperatingCosts.summary.apiSpend,
+      monthlyApiSpendReason: monthlyOperatingCosts.summary.apiSpendReason,
       monthlyTotalSpend: monthlyOperatingCosts.summary.totalSpend,
       monthlyRechargeAmount: monthlyOperatingCosts.summary.rechargeAmount,
       earliestExhaustion,
@@ -280,6 +281,7 @@ export class DashboardRepository {
     return {
       realizedAmount: realized.toDecimalPlaces(8).toFixed(8),
       realizedSwitchCount,
+      actualSwitchCount: switchCount,
       realizedReason: realizedSwitchCount > 0 ? null
         : switchCount === 0 ? "本月无可计算的实际切换" : "实际切换缺少双端不可变价格快照",
       // 现有事实没有“同一任务的峰/谷等价执行关联”，因此保持未知，不把拒绝冒充潜在金额。
@@ -382,14 +384,24 @@ export class DashboardRepository {
         row.providerCode === providerCode && row.mode === mode
       );
       const costValues = costRows.map((row) => mode === "API" ? row.apiSpend : row.packageCost);
-      const monthlyCost = costValues.every((value) => value !== null)
-        ? sumDecimalTexts(costValues as string[])
-        : null;
       const serviceStarts = new Set(costRows.map((row) => row.servicePeriodStart));
       const serviceEnds = new Set(costRows.map((row) => row.servicePeriodEnd));
       const costCurrencies = new Set(
         costRows.map((row) => row.currency).filter((value): value is string => value !== null),
       );
+      const costValuesComplete = costValues.every((value) => value !== null);
+      const costCurrenciesComplete = costRows.length > 0
+        && costCurrencies.size === 1
+        && costRows.every((row) => row.currency !== null);
+      const monthlyCost = costValuesComplete && costCurrenciesComplete
+        ? sumDecimalTexts(costValues as string[])
+        : null;
+      const incompleteCost = costRows.find((row, index) => costValues[index] === null);
+      const monthlyCostReason = incompleteCost
+        ? incompleteCost.apiSpendReason ?? `${incompleteCost.resourceName} 套餐费用待补`
+        : !costCurrenciesComplete
+          ? `币种不一致：${costRows.map((row) => `${row.resourceName} ${row.currency ?? "缺币种"}`).join("、")}`
+          : null;
       breakdown.push({
         providerCode,
         providerName: r.provider_name,
@@ -409,6 +421,7 @@ export class DashboardRepository {
         subscriptionPeriodEnd: serviceEnds.size === 1 ? [...serviceEnds][0] ?? null : null,
         snapshotAt: operating.snapshotAt,
         monthlyCost,
+        monthlyCostReason,
         ...usage,
         currentRate24h: forecast?.rate24h ?? null,
         currentRateUnit: forecast?.unit ?? null,

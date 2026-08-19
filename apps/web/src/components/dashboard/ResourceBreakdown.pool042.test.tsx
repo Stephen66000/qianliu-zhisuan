@@ -21,6 +21,7 @@ function item(overrides: Partial<ResourceBreakdownItem>): ResourceBreakdownItem 
     packageCost: overrides.packageCost ?? null,
     subscriptionPeriodStart: overrides.subscriptionPeriodStart ?? null,
     subscriptionPeriodEnd: overrides.subscriptionPeriodEnd ?? null,
+    monthlyCostReason: overrides.monthlyCostReason ?? null,
   };
 }
 

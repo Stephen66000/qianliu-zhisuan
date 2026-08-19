@@ -9,6 +9,7 @@ import type {
   DeploymentLogEventTable,
   DeploymentLogTable,
   OperatingBillEventTable,
+  OperatingBillOpeningBalanceTable,
   OperatingBillPeriodTable,
   OperatingBillRequestProjectAssignmentTable,
   OperatingBillValueItemTable,
@@ -678,6 +679,7 @@ export interface Database {
   operating_bill_version: OperatingBillVersionTable;
   operating_bill_event: OperatingBillEventTable;
   operating_bill_request_project_assignment: OperatingBillRequestProjectAssignmentTable;
+  operating_bill_opening_balance: OperatingBillOpeningBalanceTable;
   operating_bill_resource_confirmation: OperatingBillResourceConfirmationTable;
 }
 

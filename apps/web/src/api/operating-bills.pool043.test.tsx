@@ -10,6 +10,7 @@ import {
   useCreateOperatingBillValue,
   useImportOperatingBillSnapshots,
   useOperatingBill,
+  useRecordOpeningBalance,
   useReopenOperatingBill,
 } from "./operating-bills";
 
@@ -105,5 +106,22 @@ describe("POOL-043 经营账单 mutation 缓存一致性", () => {
     });
     expect(client.getQueryState(["operating-bill-projects", "2026-08", {}])?.isInvalidated).toBe(true);
     expect(client.getQueryState(["operating-bill-employees", "2026-08", {}])?.isInvalidated).toBe(false);
+  });
+
+  it("补录期初余额后失效同月经营视图与首页", async () => {
+    const client = queryClient();
+    seedViews(client, "2026-08");
+    client.setQueryData(["dashboard"], { monthlyApiCost: null });
+    const hook = renderHook(() => useRecordOpeningBalance("2026-08"), {
+      wrapper: wrapper(client),
+    });
+    const body = {
+      provider_resource_id: "resource-1", amount: "100.00", currency: "CNY", reason: null,
+    };
+    await act(async () => { await hook.result.current.mutateAsync(body); });
+    expect(http.post).toHaveBeenCalledWith("/operating-bills/2026-08/opening-balances", body);
+    expect(client.getQueryState(["operating-bill", "2026-08"])?.isInvalidated).toBe(true);
+    expectAccountInvalidation(client, "2026-08", true);
+    expect(client.getQueryState(["dashboard"])?.isInvalidated).toBe(true);
   });
 });
