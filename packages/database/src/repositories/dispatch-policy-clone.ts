@@ -79,6 +79,7 @@ async function validateReferences(
       .where("alias", "=", source.match_unified_model)
       .where("status", "=", "ACTIVE")
       .where("archived_at", "is", null)
+      .forShare()
       .executeTakeFirst();
     if (!model) return "统一模型不存在、未启用或已归档";
   }
@@ -91,6 +92,7 @@ async function validateReferences(
       .where("enterprise_id", "=", enterpriseId)
       .where("id", "in", resourceIds)
       .where("status", "!=", "DELETED")
+      .forShare()
       .execute()).map((row) => row.id));
     if (source.match_provider_resource_id && !existing.has(source.match_provider_resource_id)) {
       return "匹配资源不存在";
@@ -106,6 +108,7 @@ async function validateReferences(
       .where("id", "in", principalIds)
       .where("status", "=", "ACTIVE")
       .where("archived_at", "is", null)
+      .forShare()
       .execute()).map((row) => row.id));
     if (principalIds.some((id) => !active.has(id))) return "主体范围包含停用、归档或不存在的主体";
   }

@@ -9,7 +9,7 @@
   "coverageAnalysis": "perTest",
   "mutate": [
     "src/repositories/monthly-operating-cost.ts:140:1-177:2",
-    "src/repositories/monthly-operating-cost.ts:180:1-225:2",
+    "src/repositories/monthly-operating-cost.ts:194:1-225:2",
     "src/repositories/dispatch-policy-clone.ts:14:1-18:2"
   ],
   "thresholds": { "high": 100, "low": 90, "break": 80 },

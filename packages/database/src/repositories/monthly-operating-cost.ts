@@ -142,14 +142,15 @@ export function calculateMonthlyOperatingCostResource(input: {
     new MoneyDecimal(0),
   ));
   const rechargeCurrencies = new Set(recharges.map((item) => item.currency));
+  const endingAtMs = row.ending_at?.getTime();
   let status: ApiSpendStatus = "CALCULABLE";
   if (row.opening_balance === null || row.opening_currency === null || row.opening_at === null) {
     status = "OPENING_BALANCE_MISSING";
   } else if (
     row.ending_balance === null
     || row.ending_currency === null
-    || row.ending_at === null
-    || row.ending_at <= input.periodStart
+    || endingAtMs === undefined
+    || endingAtMs <= input.periodStart.getTime()
   ) {
     status = "ENDING_BALANCE_MISSING";
   } else if (

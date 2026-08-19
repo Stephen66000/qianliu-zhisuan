@@ -651,6 +651,42 @@ describe("W19 管理写操作闭环", () => {
     expect(await countAudit("dispatch_policy.restore")).toBe(1);
   });
 
+  it("恢复引用校验与主体停用并发时等待行锁并 fail-closed", async () => {
+    const principal = await db.insertInto("principal").values({
+      enterprise_id: ENT_ID, type: "EMPLOYEE", name: "恢复并发主体", status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    const source = await db.insertInto("dispatch_policy").values({
+      enterprise_id: ENT_ID, status: "RETIRED", action: "ALLOW",
+      match_principal_scope: JSON.stringify([principal.id]) as unknown as string[],
+      policy_version: `restore-lock-${randomUUID().slice(0, 8)}`,
+    }).returningAll().executeTakeFirstOrThrow();
+
+    let release!: () => void;
+    let locked!: () => void;
+    const lockedPromise = new Promise<void>((resolve) => { locked = resolve; });
+    const releasePromise = new Promise<void>((resolve) => { release = resolve; });
+    const disable = db.transaction().execute(async (trx) => {
+      await trx.updateTable("principal").set({ status: "DISABLED" })
+        .where("id", "=", principal.id).execute();
+      locked();
+      await releasePromise;
+    });
+    await lockedPromise;
+    let settled = false;
+    const restoring = app.inject({
+      method: "POST", url: `/dispatch-policies/${source.id}/restore`, headers: { cookie: adminCookie },
+    }).finally(() => { settled = true; });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(settled).toBe(false);
+    release();
+    await disable;
+    const response = await restoring;
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: "invalid_reference" });
+    expect(await db.selectFrom("dispatch_policy").select("id")
+      .where("restore_source_policy_id", "=", source.id).execute()).toEqual([]);
+  });
+
   it("POOL20-028：停用与归档分离，默认隐藏、可取消归档且不能被新配置引用", async () => {
     const { resource } = await seedProviderResource();
     const model = await db.insertInto("unified_model").values({

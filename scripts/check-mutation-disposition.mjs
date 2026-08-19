@@ -8,6 +8,7 @@ const dispositions = new Map(gate.mutation.survivor_dispositions.map((item) => [
 ]));
 const reportPaths = new Set([
   defaultReport,
+  "packages/database/reports/mutation/pool043-v22.json",
   ...gate.mutation.survivor_dispositions.flatMap((item) => item.report ? [item.report] : []),
 ]);
 const violations = [];
