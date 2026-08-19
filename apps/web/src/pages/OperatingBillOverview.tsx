@@ -6,6 +6,7 @@ import { StatusTag } from "../components/dashboard/StatusTag";
 import { MoneyAmountInput, validateMoneyAmount } from "../components/writes/MoneyAmountInput";
 import { useAllPurchases } from "../api/v2-hooks";
 import { useFeatureFlags } from "../feature-flags";
+import { groupCurrencyAmounts, type CurrencyAmount } from "../lib/currency";
 import { Cell, currencyFacts, currencyMoney, money, Num, Table } from "./OperatingBillShared";
 
 export function OperatingBillOverview({ bill }: { bill: OperatingBill }) {
@@ -18,13 +19,22 @@ export function OperatingBillOverview({ bill }: { bill: OperatingBill }) {
     bill.providers.map((row) => row.providerResourceId),
     showPurchases,
   );
+  const apiSpends = compatibleProviderAmounts(
+    bill.summary.apiSpends, bill.providers, "API", "apiCost", "apiSpendCurrency",
+    bill.summary.apiCost, bill.summary.endingBalanceCurrency,
+  );
+  const packageCosts = compatibleProviderAmounts(
+    bill.summary.packageCosts, bill.providers, "CODING_PLAN", "packageCost",
+    "packageCostCurrency", bill.summary.packageCost, null,
+  );
+  const totalSpends = compatibleTotalAmounts(bill);
   const metrics = [
     ["期初余额", currencyFacts(bill.summary.openingBalances, bill.summary.openingBalance ?? null, bill.summary.endingBalanceCurrency), bill.summary.openingBalance === null ? amountGapNote(bill.summary.openingBalances, "待补期初余额") : "月初有效快照或上月期末承接"],
     ["本月充值", currencyFacts(bill.summary.rechargeAmounts, bill.summary.monthlyRecharge ?? null), "本账期 API 充值现金；按币种独立展示"],
     ["期末余额", currencyFacts(bill.summary.endingBalances, bill.summary.endingBalance, bill.summary.endingBalanceCurrency), bill.summary.endingBalance === null ? amountGapNote(bill.summary.endingBalances, "待补期末余额") : "API 预付余额"],
-    ["API 花费", currencyFacts(bill.summary.apiSpends, bill.summary.apiCost, bill.summary.endingBalanceCurrency), bill.summary.apiSpendReason ?? "期初余额 + 本月充值 - 期末余额"],
-    ["套餐费用", currencyFacts(bill.summary.packageCosts, bill.summary.packageCost, bill.summary.endingBalanceCurrency), "当月固定套餐成本；按币种独立展示"],
-    ["本月总花费", currencyFacts(bill.summary.totalSpends, bill.summary.totalCost, bill.summary.endingBalanceCurrency), bill.summary.totalCost === null ? (bill.summary.apiSpendReason ?? (bill.summary.packageCost === null ? "待补套餐费用" : "不可跨币种合计；已知项保留")) : "API 花费 + 固定套餐费用"],
+    ["API 花费", currencyFacts(apiSpends, null), bill.summary.apiSpendReason ?? "期初余额 + 本月充值 - 期末余额"],
+    ["套餐费用", currencyFacts(packageCosts, null), "当月固定套餐成本；按币种独立展示"],
+    ["本月总花费", currencyFacts(totalSpends, null), bill.summary.totalCost === null ? (bill.summary.apiSpendReason ?? (bill.summary.packageCost === null ? "待补套餐费用" : "不可跨币种合计；已知项保留")) : "API 花费 + 固定套餐费用"],
     ["套餐综合利用率", bill.summary.planUtilization ? `${bill.summary.planUtilization}%` : "—", "按套餐成本加权"],
     ["活跃主体", String(bill.summary.activePrincipalCount), "有有效账本记录"],
     ["已确认金额价值", money(bill.summary.confirmedValueAmount), `另有 ${bill.summary.confirmedNonMonetaryCount} 项非金额价值`],
@@ -120,6 +130,52 @@ export function OperatingBillOverview({ bill }: { bill: OperatingBill }) {
       ) : null}
     </div>
   );
+}
+
+type CostProvider = OperatingBill["providers"][number];
+function compatibleProviderAmounts(
+  facts: CurrencyAmount[] | undefined,
+  providers: CostProvider[],
+  mode: "API" | "CODING_PLAN",
+  amountField: "apiCost" | "packageCost",
+  currencyField: "apiSpendCurrency" | "packageCostCurrency",
+  fallbackAmount: string | null,
+  fallbackCurrency: string | null,
+): CurrencyAmount[] {
+  if (Array.isArray(facts)) return facts;
+  const rows = providers.filter((provider) => provider.mode === mode);
+  if (rows.length > 0) {
+    const projected = rows.map((provider) => ({
+      amount: provider[amountField],
+      currency: provider[currencyField] ?? provider.currency,
+    }));
+    if (!projected.every((fact): fact is CurrencyAmount =>
+      fact.amount !== null && fact.currency !== null)) return [];
+    return groupCurrencyAmounts(projected);
+  }
+  return fallbackAmount !== null && fallbackCurrency !== null
+    ? [{ amount: fallbackAmount, currency: fallbackCurrency }] : [];
+}
+
+function compatibleTotalAmounts(bill: OperatingBill): CurrencyAmount[] {
+  if (Array.isArray(bill.summary.totalSpends)) return bill.summary.totalSpends;
+  if (bill.providers.length > 0) {
+    const hasApiRows = bill.providers.some((provider) => provider.mode === "API");
+    const hasPlanRows = bill.providers.some((provider) => provider.mode === "CODING_PLAN");
+    const isNonZero = (value: string | null) => value !== null && !/^0+(?:\.0+)?$/.test(value);
+    if ((isNonZero(bill.summary.apiCost) && !hasApiRows)
+      || (isNonZero(bill.summary.packageCost) && !hasPlanRows)) return [];
+    const projected = bill.providers.map((provider) => ({
+      amount: provider.mode === "API" ? provider.apiCost : provider.packageCost,
+      currency: provider.mode === "API"
+        ? provider.apiSpendCurrency ?? provider.currency
+        : provider.packageCostCurrency ?? provider.currency,
+    }));
+    if (!projected.every((fact): fact is CurrencyAmount =>
+      fact.amount !== null && fact.currency !== null)) return [];
+    return groupCurrencyAmounts(projected);
+  }
+  return [];
 }
 
 function amountGapNote(

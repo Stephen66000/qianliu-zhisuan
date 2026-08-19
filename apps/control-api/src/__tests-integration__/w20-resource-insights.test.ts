@@ -433,6 +433,18 @@ describe("W20-09 轻量采购复盘", () => {
     legacy.summary.apiCost = "12.50000000";
     legacy.summary.packageCost = "300.00000000";
     legacy.summary.endingBalanceCurrency = "USD";
+    const legacyProviders = legacy.providers as Array<Record<string, unknown>>;
+    const legacyApi = legacyProviders.find((row) => row.mode === "API");
+    const legacyPlan = legacyProviders.find((row) => row.mode === "CODING_PLAN");
+    expect(legacyApi).toBeDefined();
+    expect(legacyPlan).toBeDefined();
+    Object.assign(legacyApi!, {
+      currency: "USD", apiCost: "12.50000000", apiSpendCurrency: undefined,
+    });
+    Object.assign(legacyPlan!, {
+      currency: "CNY", packageCost: "300.00000000", packageCostCurrency: undefined,
+    });
+    legacy.providers = [legacyApi!, legacyPlan!];
     delete legacy.summary.apiSpends;
     delete legacy.summary.packageCosts;
     delete legacy.summary.totalSpends;
@@ -451,7 +463,7 @@ describe("W20-09 轻量采购复盘", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().summary).toMatchObject({
       apiSpends: [{ currency: "USD", amount: "12.50000000" }],
-      packageCosts: [{ currency: "USD", amount: "300.00000000" }],
+      packageCosts: [{ currency: "CNY", amount: "300.00000000" }],
     });
     const stored = await db.selectFrom("operating_bill_version").select("snapshot")
       .where("period_id", "=", period.id).executeTakeFirstOrThrow();

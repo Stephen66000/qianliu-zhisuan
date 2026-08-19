@@ -55,15 +55,20 @@ export function registerResourceInsightRoutes(
       ]);
       const note = noteResult.rows[0];
       const billByResource = new Map(bill.providers.map((row) => [row.providerResourceId, row]));
-      const frozenCurrency = bill.summary.endingBalanceCurrency;
+      const apiSpends = frozenProviderAmounts(
+        bill.summary.apiSpends, bill.providers, "API", "apiCost", "apiSpendCurrency",
+        bill.summary.apiCost, bill.summary.endingBalanceCurrency,
+      );
+      const packageCosts = frozenProviderAmounts(
+        bill.summary.packageCosts, bill.providers, "CODING_PLAN", "packageCost",
+        "packageCostCurrency", bill.summary.packageCost, null,
+      );
       return {
         month: parsed.data,
         summary: {
           purchaseCashAmounts: currencyTotals(bill.providers.flatMap((row) => row.purchases)),
-          apiSpends: frozenAmounts(bill.summary.apiSpends, bill.summary.apiCost, frozenCurrency),
-          packageCosts: frozenAmounts(
-            bill.summary.packageCosts, bill.summary.packageCost, frozenCurrency,
-          ),
+          apiSpends,
+          packageCosts,
           planUtilization: bill.summary.planUtilization,
         },
         resources: resources.map((resource) => {
@@ -165,12 +170,29 @@ export function registerResourceInsightRoutes(
   );
 }
 
-function frozenAmounts(
+function frozenProviderAmounts(
   facts: Array<{ currency: string; amount: string }> | undefined,
+  providers: Array<{
+    mode: string; currency: string | null; apiCost: string | null; packageCost: string | null;
+    apiSpendCurrency?: string | null; packageCostCurrency?: string | null;
+  }>,
+  mode: "API" | "CODING_PLAN",
+  amountField: "apiCost" | "packageCost",
+  currencyField: "apiSpendCurrency" | "packageCostCurrency",
   amount: string | null,
   currency: string | null,
 ) {
   if (Array.isArray(facts)) return facts;
+  const rows = providers.filter((provider) => provider.mode === mode);
+  if (rows.length > 0) {
+    const projected = rows.map((provider) => ({
+      amount: provider[amountField],
+      currency: provider[currencyField] ?? provider.currency,
+    }));
+    if (!projected.every((fact): fact is { amount: string; currency: string } =>
+      fact.amount !== null && fact.currency !== null)) return [];
+    return currencyTotals(projected);
+  }
   return amount !== null && currency !== null ? [{ currency, amount }] : [];
 }
 

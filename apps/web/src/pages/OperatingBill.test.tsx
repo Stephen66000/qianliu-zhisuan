@@ -63,7 +63,11 @@ describe("POOL-025 经营账单", () => {
   it("展示真实成本口径并可切换经营账单页签", async () => {
     const user = userEvent.setup();
     render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
-    expect(screen.getByText("¥312.34")).toBeInTheDocument();
+    const totalCard = screen.getAllByText("本月总花费")
+      .map((node) => node.closest("article")).find(Boolean)!;
+    expect(totalCard).toHaveTextContent("—");
+    expect(screen.getAllByText("¥12.34").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("¥300.00").length).toBeGreaterThan(0);
     expect(screen.getByText("期初余额 + 本月充值 - 期末余额")).toBeInTheDocument();
     await user.click(screen.getByRole("link", { name: /套餐利用分析/ }));
     expect(screen.getByText("¥150.00")).toBeInTheDocument();
@@ -170,6 +174,51 @@ describe("POOL-025 经营账单", () => {
     expect(card("本月总花费")).toHaveTextContent("—");
     expect(card("本月总花费")).not.toHaveTextContent("¥30.00");
     expect(card("期初余额")).not.toHaveTextContent("¥100.00");
+  });
+
+  it("旧 CLOSED 无币种数组时按 provider 行分别恢复 API 与套餐币种", () => {
+    const plan = { ...bill.providers[0]!, currency: "CNY", packageCostCurrency: undefined };
+    const api = {
+      ...bill.providers[0]!, providerResourceId: "legacy-api", providerCode: "legacy-api",
+      providerName: "Legacy API", resourceName: "Legacy API", mode: "API" as const,
+      currency: "USD", apiCost: "12.5", apiSpendCurrency: undefined,
+      packageCost: "0", packageCostCurrency: undefined, totalCost: "12.5",
+      endingBalance: "80", totalQuota: null, usedQuota: null, remainingQuota: null,
+      quotaUnit: null, utilization: null, planAssessment: null,
+      idleEntitlementCost: null, assessmentBasis: null,
+    };
+    currentBill = {
+      ...bill, status: "CLOSED",
+      summary: {
+        ...bill.summary, apiCost: "12.5", packageCost: "300", totalCost: null,
+        endingBalanceCurrency: "USD", apiSpends: undefined, packageCosts: undefined,
+        totalSpends: undefined, apiSpendReason: "不可跨币种合计",
+      },
+      providers: [api, plan],
+    };
+    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    const card = (label: string) => screen.getAllByText(label)
+      .map((node) => node.closest("article")).find(Boolean)!;
+    expect(card("API 花费")).toHaveTextContent("USD 12.50");
+    expect(card("套餐费用")).toHaveTextContent("¥300.00");
+    expect(card("本月总花费")).toHaveTextContent("¥300.00 / USD 12.50");
+    expect(card("套餐费用")).not.toHaveTextContent("USD 300.00");
+  });
+
+  it("旧 plan-only CLOSED 无数组时从套餐 provider 保留 CNY 费用", () => {
+    currentBill = {
+      ...bill, status: "CLOSED",
+      summary: {
+        ...bill.summary, apiCost: "0", packageCost: "300", totalCost: "300",
+        endingBalanceCurrency: null, apiSpends: undefined, packageCosts: undefined,
+        totalSpends: undefined,
+      },
+      providers: [{ ...bill.providers[0]!, currency: "CNY", packageCostCurrency: undefined }],
+    };
+    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    const packageCard = screen.getAllByText("套餐费用")
+      .map((node) => node.closest("article")).find(Boolean)!;
+    expect(packageCard).toHaveTextContent("¥300.00");
   });
 
   it("经营账单内补录期初余额并请求保存后重算", async () => {
