@@ -87,6 +87,8 @@ describe("POOL20-043 月度经营金额", () => {
       apiSpend: "10.00000000", ledgerApiCost: "10.00000000",
       packageCost: "0.00000000", totalSpend: "10.00000000", currency: "CNY",
     });
+    expect(summarizeMonthlyOperatingCosts([{ ...apiResource(), packageCost: "999.00000000" }]))
+      .toMatchObject({ packageCost: "0.00000000", totalSpend: "10.00000000" });
     const plan = planResource({ currency: "USD" });
     expect(summarizeMonthlyOperatingCosts([apiResource(), plan])).toMatchObject({
       apiSpendStatus: "CURRENCY_MISMATCH", packageCost: null, totalSpend: null,
@@ -104,7 +106,16 @@ describe("POOL20-043 月度经营金额", () => {
     });
     expect(summarizeMonthlyOperatingCosts([
       planResource(), planResource({ resourceId: "plan-2", packageCost: null }),
-    ])).toMatchObject({ packageCost: null, totalSpend: null });
+    ])).toMatchObject({
+      packageCost: null, totalSpend: null, currency: "CNY",
+      apiSpendStatus: "NOT_APPLICABLE", apiSpendReason: null,
+    });
+    expect(summarizeMonthlyOperatingCosts([
+      planResource(), planResource({ resourceId: "plan-missing", packageCost: null, currency: null }),
+    ])).toMatchObject({
+      packageCost: null, totalSpend: null, currency: "CNY",
+      apiSpendStatus: "NOT_APPLICABLE", apiSpendReason: null,
+    });
     expect(summarizeMonthlyOperatingCosts([
       apiResource(), { ...apiResource(), resourceId: "api-2", ledgerApiCost: null },
     ])).toMatchObject({ apiSpend: "20.00000000", ledgerApiCost: null, totalSpend: "20.00000000" });
@@ -140,6 +151,16 @@ describe("POOL20-043 月度经营金额", () => {
     expect(summarizeMonthlyOperatingCosts([planResource({ currency: null })])).toMatchObject({
       packageCost: null, totalSpend: null, apiSpendReason: "余额、充值与套餐币种不一致",
     });
+    expect(summarizeMonthlyOperatingCosts([{ ...apiResource(), currency: null }])).toMatchObject({
+      apiSpendStatus: "CURRENCY_MISMATCH", apiSpend: null, packageCost: null,
+      totalSpend: null, apiSpendReason: "余额、充值与套餐币种不一致",
+    });
+    expect(summarizeMonthlyOperatingCosts([
+      planResource(), planResource({ resourceId: "plan-null-currency", currency: null }),
+    ])).toMatchObject({
+      packageCost: null, totalSpend: null, currency: "CNY",
+      apiSpendReason: "余额、充值与套餐币种不一致",
+    });
     expect(summarizeMonthlyOperatingCosts([{
       ...apiResource(), apiSpend: null, rechargeAmount: null, apiSpendStatus: "CURRENCY_MISMATCH",
     }])).toMatchObject({ apiSpendStatus: "CURRENCY_MISMATCH", apiSpend: null, packageCost: null });
@@ -148,6 +169,17 @@ describe("POOL20-043 月度经营金额", () => {
         ...apiResource(), resourceId: "api-incomplete-usd", currency: "USD", apiSpend: null,
         apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpendReason: "待补期初余额",
       },
-    ])).toMatchObject({ apiSpendStatus: "CURRENCY_MISMATCH", apiSpend: null, totalSpend: null });
+    ])).toMatchObject({
+      apiSpendStatus: "CURRENCY_MISMATCH", apiSpend: null, totalSpend: null, currency: "CNY",
+    });
+    expect(summarizeMonthlyOperatingCosts([
+      apiResource(), {
+        ...apiResource(), resourceId: "api-incomplete-null", currency: null, apiSpend: null,
+        apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpendReason: "待补期初余额",
+      },
+    ])).toMatchObject({
+      apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpend: null, totalSpend: null,
+      currency: "CNY", apiSpendReason: "待补期初余额",
+    });
   });
 });
