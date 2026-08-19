@@ -1,15 +1,7 @@
 import { formatMoney } from "../lib/format";
+export { currencyFacts, currencyMoney } from "../lib/currency";
 
 export function money(value: string | null): string { return value === null ? "—" : `¥${formatMoney(value)}`; }
-export function currencyMoney(value: string | null, currency: string | null | undefined): string {
-  if (value === null) return "—";
-  if (currency === "CNY") return `¥${formatMoney(value)}`;
-  return currency ? `${currency} ${formatMoney(value)}` : formatMoney(value);
-}
-export function currencyFacts(facts: Array<{ currency: string; amount: string }> | undefined, fallback: string | null, fallbackCurrency?: string | null): string {
-  if (facts?.length) return facts.map((fact) => currencyMoney(fact.amount, fact.currency)).join(" / ");
-  return currencyMoney(fallback, fallbackCurrency);
-}
 export function Table({ headers, children }: { headers: string[]; children: React.ReactNode }) {
   return <div className="overflow-x-auto"><table className="w-full min-w-[52rem] text-left text-[13px]"><thead className="border-y border-ql-border-zone bg-ql-surface-subtle text-[12px] text-ql-fg-tertiary"><tr>{headers.map((header, index) => <th className={`px-4 py-2 font-medium ${index > 1 && ["成本", "费用", "Token", "扣减", "投入"].some((word) => header.includes(word)) ? "text-right" : ""}`} key={header}>{header}</th>)}</tr></thead><tbody>{children}</tbody></table></div>;
 }

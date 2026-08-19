@@ -53,10 +53,18 @@ export async function getMonthlyTokenUsage(
            COALESCE(SUM(total_input_tokens + total_output_tokens), 0)::text AS total_tokens,
            COUNT(*)::text AS settled_count,
            COUNT(*) FILTER (WHERE usage_quality IN ('PROVIDER_REPORTED', 'UPSTREAM_REPORTED'))::text AS provider_reported_count,
-           COUNT(*) FILTER (WHERE usage_quality = 'ESTIMATED')::text AS estimated_count,
+           COUNT(*) FILTER (
+             WHERE usage_quality = 'ESTIMATED' OR usage_quality LIKE 'MIXED:%ESTIMATED%'
+           )::text AS estimated_count,
            COUNT(*) FILTER (WHERE usage_quality = 'ACCOUNT_AGGREGATED')::text AS account_aggregated_count,
-           COUNT(*) FILTER (WHERE usage_quality LIKE 'MIXED%')::text AS mixed_count,
-           COUNT(*) FILTER (WHERE usage_quality = 'UNKNOWN')::text AS unknown_count
+           COUNT(*) FILTER (
+             WHERE usage_quality LIKE 'MIXED%'
+               AND usage_quality NOT LIKE '%ESTIMATED%'
+               AND usage_quality NOT LIKE '%UNKNOWN%'
+           )::text AS mixed_count,
+           COUNT(*) FILTER (
+             WHERE usage_quality = 'UNKNOWN' OR usage_quality LIKE 'MIXED:%UNKNOWN%'
+           )::text AS unknown_count
       FROM ledger_transaction
      WHERE enterprise_id = ${enterpriseId} AND status = 'SETTLED'
        AND created_at >= ${monthStart} AND created_at < ${monthEnd}

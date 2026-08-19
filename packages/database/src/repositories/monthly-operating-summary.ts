@@ -45,22 +45,24 @@ export function summarizeMonthlyOperatingCosts(resources: MonthlyOperatingCostRe
   const endingBalances = group(apiResources.map((row) => ({
     currency: row.endingBalanceCurrency, amount: row.endingBalance,
   })));
-  const apiSpends = group(apiResources.map((row) => ({
+  const knownApiSpends = group(apiResources.map((row) => ({
     currency: row.apiSpendCurrency, amount: row.apiSpend,
   })));
   const packageCosts = group(planResources.map((row) => ({
     currency: row.packageCostCurrency, amount: row.packageCost,
   })));
-  const totalSpends = group(resources.map((row) => ({
+  const knownTotalSpends = group(resources.map((row) => ({
     currency: row.mode === "API" ? row.apiSpendCurrency : row.packageCostCurrency,
     amount: row.mode === "API" ? row.apiSpend : row.packageCost,
   })));
   const currencyMismatch = apiResources.length > 0
-    && firstIncomplete === undefined && apiSpends.length !== 1;
+    && firstIncomplete === undefined && knownApiSpends.length !== 1;
   const apiSpendStatus: ApiSpendStatus = apiResources.length === 0 ? "NOT_APPLICABLE"
     : currencyMismatch ? "CURRENCY_MISMATCH" : firstIncomplete?.apiSpendStatus ?? "CALCULABLE";
+  const apiFactsComplete = firstIncomplete === undefined;
   const apiSpend = apiResources.length === 0 ? "0.00000000"
-    : apiSpendStatus === "CALCULABLE" ? apiSpends[0]!.amount : null;
+    : apiFactsComplete && knownApiSpends.length === 1 ? knownApiSpends[0]!.amount : null;
+  const apiSpends = apiFactsComplete ? knownApiSpends : [];
   const packageComplete = planResources.every((row) => row.packageCost !== null);
   const packageCurrencyComplete = planResources.every((row) => row.packageCostCurrency !== null);
   const ledgerComplete = apiResources.every((row) => row.ledgerApiCost !== null);
@@ -79,19 +81,20 @@ export function summarizeMonthlyOperatingCosts(resources: MonthlyOperatingCostRe
     apiResources.length, apiResources.every((row) => row.endingBalance !== null),
     endingBalances, "0.00000000",
   );
-  const costCurrencies = new Set(totalSpends.map((row) => row.currency));
+  const totalFactsComplete = apiFactsComplete && packageComplete && packageCurrencyComplete;
+  const totalSpends = totalFactsComplete ? knownTotalSpends : [];
+  const totalSpend = totalSpends.length === 1 ? totalSpends[0]!.amount : null;
   return {
     apiSpend,
     ledgerApiCost: ledgerComplete
       ? sum(apiResources.map((row) => row.ledgerApiCost!))
       : null,
     packageCost,
-    totalSpend: apiSpend !== null && packageCost !== null && totalSpends.length === 1
-      ? totalSpends[0]!.amount : null,
+    totalSpend,
     openingBalance,
     rechargeAmount,
     endingBalance,
-    currency: costCurrencies.size === 1 ? [...costCurrencies][0]! : null,
+    currency: totalSpends.length === 1 ? totalSpends[0]!.currency : null,
     openingBalances, rechargeAmounts, endingBalances, apiSpends, packageCosts, totalSpends,
     apiSpendStatus,
     apiSpendReason: currencyMismatch ? "期初余额、本月充值与期末余额币种不一致" : firstIncomplete?.apiSpendReason ?? null,

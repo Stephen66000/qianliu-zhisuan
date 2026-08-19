@@ -653,6 +653,40 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     await db.deleteFrom("billing_rule").where("rule_version", "=", "pool042-v1").execute();
   });
 
+  it("POOL20-039/043/047：部分 API 已知时首页不冒充 API 或本月总额，套餐事实独立保留", async () => {
+    const provider = await db.insertInto("provider").values({
+      enterprise_id: ENT_ID, code: `partial-${randomUUID().slice(0, 8)}`, name: "部分事实 API",
+      adapter_type: "openai",
+    }).returning("id").executeTakeFirstOrThrow();
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID, provider_id: provider.id, name: "缺期初 API",
+      mode: "API", credential_type: "API_KEY", status: "ACTIVE",
+    }).returning("id").executeTakeFirstOrThrow();
+    try {
+      await db.insertInto("provider_resource_operating_snapshot").values({
+        enterprise_id: ENT_ID, provider_resource_id: resource.id, version: 1,
+        source: "ADMIN", collected_at: new Date(), currency: "CNY", current_balance: "80",
+      }).execute();
+      const response = await app.inject({
+        method: "GET", url: "/dashboard", headers: { cookie: adminCookie },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        monthlyApiCost: null,
+        monthlyApiCosts: [],
+        monthlyPackagePayment: "299.00000000",
+        monthlyPackagePayments: [{ currency: "CNY", amount: "299.00000000" }],
+        monthlyTotalSpend: null,
+        monthlyTotalSpends: [],
+      });
+    } finally {
+      await db.deleteFrom("provider_resource_operating_snapshot")
+        .where("provider_resource_id", "=", resource.id).execute();
+      await db.deleteFrom("provider_resource").where("id", "=", resource.id).execute();
+      await db.deleteFrom("provider").where("id", "=", provider.id).execute();
+    }
+  });
+
   it("/dashboard 超额关注排除归档主体和停用 Grant", async () => {
     const archived = await db.insertInto("principal").values({
       enterprise_id: ENT_ID,
@@ -878,8 +912,8 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     const rows = [
       { at: "2026-07-31T15:59:59.999Z", input: 100n, output: 0n, cache: 0n, reasoning: 0n, quality: "PROVIDER_REPORTED" },
       { at: "2026-07-31T16:00:00.000Z", input: 10n, output: 0n, cache: 3n, reasoning: 0n, quality: "PROVIDER_REPORTED" },
-      { at: "2026-08-10T00:00:00.000Z", input: 0n, output: 0n, cache: 0n, reasoning: 0n, quality: "UNKNOWN" },
-      { at: "2026-08-31T15:59:59.999Z", input: 15n, output: 5n, cache: 4n, reasoning: 2n, quality: "ESTIMATED" },
+      { at: "2026-08-10T00:00:00.000Z", input: 0n, output: 0n, cache: 0n, reasoning: 0n, quality: "MIXED:PROVIDER_REPORTED+UNKNOWN" },
+      { at: "2026-08-31T15:59:59.999Z", input: 15n, output: 5n, cache: 4n, reasoning: 2n, quality: "MIXED:ESTIMATED+PROVIDER_REPORTED" },
       { at: "2026-08-31T16:00:00.000Z", input: 100n, output: 0n, cache: 0n, reasoning: 0n, quality: "PROVIDER_REPORTED" },
     ] as const;
     for (const row of rows) {
@@ -904,6 +938,7 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
       totalInputTokens: "25", totalOutputTokens: "5", totalCacheTokens: "7",
       totalReasoningTokens: "2", totalTokens: "30", usageQuality: "UNKNOWN",
       settledTransactionCount: 3, estimatedTransactionCount: 1, unknownTransactionCount: 1,
+      mixedTransactionCount: 0,
       attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
       rangeStart: "2026-07-31T16:00:00.000Z",
       rangeEndExclusive: "2026-08-31T16:00:00.000Z",

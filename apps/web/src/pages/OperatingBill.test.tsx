@@ -104,6 +104,9 @@ describe("POOL-025 经营账单", () => {
         monthlyRecharge: "100",
         apiSpendStatus: "OPENING_BALANCE_MISSING",
         apiSpendReason: "待补期初余额",
+        packageCost: "621.10",
+        apiSpends: [], packageCosts: [{ currency: "CNY", amount: "621.10" }],
+        totalSpends: [],
       },
       providers: [{
         ...bill.providers[0]!,
@@ -130,6 +133,11 @@ describe("POOL-025 经营账单", () => {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
     expect(screen.getAllByText("¥87.66").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("¥621.10").length).toBeGreaterThan(0);
+    const totalCard = screen.getAllByText("本月总花费")
+      .map((node) => node.closest("article")).find(Boolean)!;
+    expect(totalCard).toHaveTextContent("—");
+    expect(totalCard).not.toHaveTextContent("¥621.10");
     expect(screen.getByRole("heading", { name: "补录期初余额" })).toBeInTheDocument();
   });
 
@@ -139,14 +147,14 @@ describe("POOL-025 经营账单", () => {
       summary: {
         ...bill.summary,
         openingBalance: null, monthlyRecharge: null, endingBalance: null,
-        apiCost: null, packageCost: null, totalCost: null,
+        apiCost: "25", packageCost: null, totalCost: null,
         endingBalanceCurrency: null,
         openingBalances: [{ currency: "USD", amount: "100" }],
         rechargeAmounts: [{ currency: "CNY", amount: "20" }, { currency: "USD", amount: "5" }],
         endingBalances: [{ currency: "USD", amount: "80" }],
         apiSpends: [{ currency: "USD", amount: "25" }],
         packageCosts: [{ currency: "CNY", amount: "30" }],
-        totalSpends: [{ currency: "CNY", amount: "30" }, { currency: "USD", amount: "25" }],
+        totalSpends: [],
         apiSpendReason: "不可跨币种合计",
       },
       providers: [],
@@ -159,7 +167,8 @@ describe("POOL-025 经营账单", () => {
     expect(card("期末余额")).toHaveTextContent("USD 80.00");
     expect(card("API 花费")).toHaveTextContent("USD 25.00");
     expect(card("套餐费用")).toHaveTextContent("¥30.00");
-    expect(card("本月总花费")).toHaveTextContent("¥30.00 / USD 25.00");
+    expect(card("本月总花费")).toHaveTextContent("—");
+    expect(card("本月总花费")).not.toHaveTextContent("¥30.00");
     expect(card("期初余额")).not.toHaveTextContent("¥100.00");
   });
 

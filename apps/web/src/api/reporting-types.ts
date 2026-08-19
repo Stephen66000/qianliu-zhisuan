@@ -81,10 +81,14 @@ export interface DashboardSummary {
   activeEmployeeCount: number;
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
+  monthlyPackagePayments: Array<{ currency: string; amount: string }>;
   monthlyApiCost: string | null;
+  monthlyApiCosts: Array<{ currency: string; amount: string }>;
   monthlyApiSpendReason: string | null;
   monthlyTotalSpend: string | null;
+  monthlyTotalSpends: Array<{ currency: string; amount: string }>;
   monthlyRechargeAmount: string | null;
+  monthlyRechargeAmounts: Array<{ currency: string; amount: string }>;
   earliestExhaustion: EarliestExhaustion | null;
   monthlyDispatchSaving: string;
   dispatchSavingBreakdown: {

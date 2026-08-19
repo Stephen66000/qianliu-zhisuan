@@ -14,10 +14,12 @@ import { generateOperatingBill } from "./operating-bill/runner.js";
 import { WecomAppClient } from "./runtime-assurance/wecom-client.js";
 import { runRuntimeAssuranceTick } from "./runtime-assurance/runner.js";
 import { runSchedulerLoop, startHealthServer, type SchedulerHealth } from "./runtime-assurance/scheduler.js";
+import { runScheduledOperationalTasks } from "./runtime-assurance/scheduled-tasks.js";
 import { runSupplyForecastTick } from "./supply-forecast/runner.js";
 import { runCodingPlanQuotaTick } from "./coding-plan-quota/runner.js";
 import { runDirectorySyncTick } from "./directory/runner.js";
 import { runProviderOperatingSyncTick } from "./provider-operating-sync/runner.js";
+import { runUsageAggregateTick } from "./usage-aggregate/runner.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -169,8 +171,12 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   };
   const port = Number(process.env.WORKER_HEALTH_PORT ?? "9191");
   const intervalMs = Number(process.env.RUNTIME_ASSURANCE_INTERVAL_MS ?? "30000");
+  const aggregateDirtyLimit = Number(process.env.USAGE_AGGREGATE_DIRTY_LIMIT ?? "200");
   if (!Number.isInteger(port) || port <= 0 || !Number.isFinite(intervalMs) || intervalMs < 1_000) {
     throw new Error("Worker scheduler configuration is invalid");
+  }
+  if (!Number.isInteger(aggregateDirtyLimit) || aggregateDirtyLimit < 1 || aggregateDirtyLimit > 1_000) {
+    throw new Error("USAGE_AGGREGATE_DIRTY_LIMIT must be an integer between 1 and 1000");
   }
   const healthServer = startHealthServer(port, health);
   const stop = () => controller.abort();
@@ -178,35 +184,61 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   process.once("SIGINT", stop);
   const repository = new RuntimeAssuranceRepository(db);
   const supplyForecastRepository = new SupplyForecastRepository(db);
+  const usageAggregateRepository = new UsageAggregateRepository(db);
+  let lastDailyAggregateDate: string | null = null;
   const wecom = new WecomAppClient(
     requiredEnv("CREDENTIAL_KEK"), fetch, Date.now, process.env.RUNTIME_ASSURANCE_ADMIN_URL,
   );
   try {
     await runSchedulerLoop({
       db, intervalMs, signal: controller.signal, health,
-      tick: async () => {
-        const runtime = await runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() });
-        const forecast = await runSupplyForecastTick(supplyForecastRepository);
-        // POOL-032：厂商 Coding Plan 额度窗口同步（失败保鲜，不影响 runtime/forecast）。
-        const quota = await runCodingPlanQuotaTick({ db, kekBase64: requiredEnv("CREDENTIAL_KEK") });
-        const operating = await runProviderOperatingSyncTick({
-          db, kekBase64: requiredEnv("CREDENTIAL_KEK"),
-        });
-        console.log(JSON.stringify({
-          event: "supply_forecast_tick_completed",
-          resources_scanned: forecast.resourcesScanned,
-          snapshots_created: forecast.snapshotsCreated,
-          snapshots_skipped: forecast.snapshotsSkipped,
-        }));
-        console.log(JSON.stringify({
-          event: "quota_window_tick_completed",
-          resources_scanned: quota.resourcesScanned,
-          windows_upserted: quota.windowsUpserted,
-          failed: quota.failed,
-        }));
-        console.log(JSON.stringify({ event: "provider_operating_sync_tick_completed", ...operating }));
-        return { runtime, forecast, quota, operating };
-      },
+      tick: async () => runScheduledOperationalTasks({
+        core: async () => {
+          const runtime = await runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() });
+          const forecast = await runSupplyForecastTick(supplyForecastRepository);
+          // POOL-032：厂商 Coding Plan 额度窗口同步（失败保鲜，不影响 runtime/forecast）。
+          const quota = await runCodingPlanQuotaTick({ db, kekBase64: requiredEnv("CREDENTIAL_KEK") });
+          const operating = await runProviderOperatingSyncTick({
+            db, kekBase64: requiredEnv("CREDENTIAL_KEK"),
+          });
+          console.log(JSON.stringify({
+            event: "supply_forecast_tick_completed",
+            resources_scanned: forecast.resourcesScanned,
+            snapshots_created: forecast.snapshotsCreated,
+            snapshots_skipped: forecast.snapshotsSkipped,
+          }));
+          console.log(JSON.stringify({
+            event: "quota_window_tick_completed",
+            resources_scanned: quota.resourcesScanned,
+            windows_upserted: quota.windowsUpserted,
+            failed: quota.failed,
+          }));
+          console.log(JSON.stringify({ event: "provider_operating_sync_tick_completed", ...operating }));
+          return { runtime, forecast, quota, operating };
+        },
+        aggregate: async () => {
+          const now = new Date();
+          const shanghaiDate = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+          }).format(now);
+          const includeDaily = lastDailyAggregateDate !== shanghaiDate;
+          const aggregate = await runUsageAggregateTick({
+            repository: usageAggregateRepository, now, includeDaily,
+            dirtyLimit: aggregateDirtyLimit,
+          });
+          if (includeDaily) lastDailyAggregateDate = shanghaiDate;
+          console.log(JSON.stringify({
+            event: "usage_aggregate_tick_completed", dirty_limit: aggregateDirtyLimit,
+            include_daily: includeDaily, ...aggregate,
+          }));
+          return aggregate;
+        },
+        onAggregateError: (cause) => console.error(JSON.stringify({
+          event: "usage_aggregate_tick_failed",
+          error_type: cause instanceof Error ? cause.name : typeof cause,
+          dirty_limit: aggregateDirtyLimit,
+        })),
+      }),
     });
   } finally {
     await new Promise<void>((resolve) => healthServer.close(() => resolve()));

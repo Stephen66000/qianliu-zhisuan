@@ -48,10 +48,14 @@ function emptySummary(): DashboardSummary {
     activeEmployeeCount: 0,
     currentInUseCount: 0,
     monthlyPackagePayment: null,
+    monthlyPackagePayments: [],
     monthlyApiCost: "0",
+    monthlyApiCosts: [],
     monthlyApiSpendReason: null,
     monthlyTotalSpend: null,
+    monthlyTotalSpends: [],
     monthlyRechargeAmount: null,
+    monthlyRechargeAmounts: [],
     earliestExhaustion: null,
     monthlyDispatchSaving: "0",
     dispatchSavingBreakdown: {
@@ -82,9 +86,13 @@ function seededSummary(): DashboardSummary {
     activeEmployeeCount: 5,
     currentInUseCount: 3,
     monthlyPackagePayment: "299",
+    monthlyPackagePayments: [{ currency: "CNY", amount: "299" }],
     monthlyApiCost: "12.50000000",
+    monthlyApiCosts: [{ currency: "CNY", amount: "12.50000000" }],
     monthlyTotalSpend: "311.50000000",
+    monthlyTotalSpends: [{ currency: "CNY", amount: "311.50000000" }],
     monthlyRechargeAmount: "100",
+    monthlyRechargeAmounts: [{ currency: "CNY", amount: "100" }],
     monthlyDispatchSaving: "1.50000000",
     dispatchSavingBreakdown: {
       realizedAmount: "1.50000000", realizedSwitchCount: 1, actualSwitchCount: 1, realizedReason: null,
@@ -278,9 +286,9 @@ describe("W18 首页看板", () => {
     expect(monthSummary.compareDocumentPosition(resourceSummary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(resourceSummary.compareDocumentPosition(employeeUsage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    expect(screen.getByText("311.50")).toBeInTheDocument();
+    expect(screen.getByText("¥311.50")).toBeInTheDocument();
     expect(screen.getByText("当前正在使用 3 人")).toBeInTheDocument();
-    expect(screen.getAllByText("12.50").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("¥12.50").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1.50").length).toBeGreaterThan(0);
     expect(screen.getByText("潜在峰值：缺少同一任务的峰值/低谷等价执行关联，暂不估算金额")).toBeInTheDocument();
     expect(screen.getByText("避免高峰扣减：1,200 额度点")).toBeInTheDocument();
@@ -308,6 +316,36 @@ describe("W18 首页看板", () => {
     expect(screen.getByText("25.00%")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "查看完整用量账本" })).toHaveAttribute("href", "/usage");
     expect(screen.queryByRole("button", { name: "保存并重算" })).not.toBeInTheDocument();
+  });
+
+  it("POOL20-039/047：Dashboard 单 USD 与多币种按代码展示，不伪装元或待补", () => {
+    useDashboardMock.mockReturnValue({
+      isLoading: false, error: null, refetch: vi.fn(),
+      data: {
+        ...seededSummary(),
+        monthlyApiCost: null,
+        monthlyApiCosts: [
+          { currency: "CNY", amount: "12.5" },
+          { currency: "USD", amount: "3.25" },
+        ],
+        monthlyApiSpendReason: "币种不一致：按币种独立展示",
+        monthlyPackagePayment: "8",
+        monthlyPackagePayments: [{ currency: "USD", amount: "8" }],
+        monthlyTotalSpend: null,
+        monthlyTotalSpends: [
+          { currency: "CNY", amount: "12.5" },
+          { currency: "USD", amount: "11.25" },
+        ],
+        monthlyRechargeAmount: "5",
+        monthlyRechargeAmounts: [{ currency: "USD", amount: "5" }],
+      },
+    });
+    renderDashboard();
+    expect(screen.getByText("¥12.50 / USD 3.25")).toBeInTheDocument();
+    expect(screen.getByText("USD 8.00")).toBeInTheDocument();
+    expect(screen.getByText("¥12.50 / USD 11.25")).toBeInTheDocument();
+    expect(screen.getByText("USD 5.00")).toBeInTheDocument();
+    expect(screen.queryByText("待补套餐费用")).not.toBeInTheDocument();
   });
 
   it("实际切换存在但节省为零时不误报为无实际切换", () => {

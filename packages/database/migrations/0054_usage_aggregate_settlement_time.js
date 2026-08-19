@@ -14,7 +14,7 @@ export async function up(db) {
     ALTER TABLE usage_event ADD CONSTRAINT usage_event_quality_check
       CHECK (usage_quality IN (
         'PROVIDER_REPORTED', 'ESTIMATED', 'ACCOUNT_AGGREGATED', 'MIXED', 'UNKNOWN'
-      ))
+      )) NOT VALID
   `.execute(db);
   await db.schema.alterTable("usage_bucket_aggregate")
     .addColumn("provider_reported_count", "bigint", (c) => c.notNull().defaultTo(0))
@@ -40,7 +40,7 @@ export async function down(db) {
     ALTER TABLE usage_event ADD CONSTRAINT usage_event_quality_check
       CHECK (usage_quality IN (
         'PROVIDER_REPORTED', 'ESTIMATED', 'ACCOUNT_AGGREGATED', 'UNKNOWN'
-      ))
+      )) NOT VALID
   `.execute(db);
   await resetAggregateCache(db, "ar.started_at");
   await db.schema.alterTable("usage_bucket_aggregate")

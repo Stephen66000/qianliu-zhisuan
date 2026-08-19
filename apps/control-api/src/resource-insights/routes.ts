@@ -55,12 +55,15 @@ export function registerResourceInsightRoutes(
       ]);
       const note = noteResult.rows[0];
       const billByResource = new Map(bill.providers.map((row) => [row.providerResourceId, row]));
+      const frozenCurrency = bill.summary.endingBalanceCurrency;
       return {
         month: parsed.data,
         summary: {
           purchaseCashAmounts: currencyTotals(bill.providers.flatMap((row) => row.purchases)),
-          apiSpends: bill.summary.apiSpends,
-          packageCosts: bill.summary.packageCosts,
+          apiSpends: frozenAmounts(bill.summary.apiSpends, bill.summary.apiCost, frozenCurrency),
+          packageCosts: frozenAmounts(
+            bill.summary.packageCosts, bill.summary.packageCost, frozenCurrency,
+          ),
           planUtilization: bill.summary.planUtilization,
         },
         resources: resources.map((resource) => {
@@ -160,6 +163,15 @@ export function registerResourceInsightRoutes(
       return outcome.value;
     },
   );
+}
+
+function frozenAmounts(
+  facts: Array<{ currency: string; amount: string }> | undefined,
+  amount: string | null,
+  currency: string | null,
+) {
+  if (Array.isArray(facts)) return facts;
+  return amount !== null && currency !== null ? [{ currency, amount }] : [];
 }
 
 function currencyTotals(facts: Array<{ currency: string; amount: string }>) {

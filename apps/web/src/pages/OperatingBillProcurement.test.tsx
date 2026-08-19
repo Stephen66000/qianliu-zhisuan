@@ -302,7 +302,7 @@ describe("W20-09 采购复盘 Web", () => {
     expect(within(api).getByText("¥120.00")).toBeInTheDocument();
     expect(within(api).getByText("¥12.50")).toBeInTheDocument();
     expect(within(api).getByText("数据不足")).toBeInTheDocument();
-    expect(within(api).getAllByText("MONTHLY_BUDGET_NOT_CONFIGURED")).toHaveLength(2);
+    expect(within(api).getAllByText("MONTHLY_BUDGET_NOT_CONFIGURED")).toHaveLength(3);
     expect(within(api).getByText(/连续 2 天无调用/)).toBeInTheDocument();
 
     const kimi = screen.getByText("Kimi · Coding Plan").closest("tr")!;

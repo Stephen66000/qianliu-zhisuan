@@ -134,6 +134,17 @@ describe("W20-04 用量概览 Web", () => {
     expect(screen.getByTestId("location")).not.toHaveTextContent("subject_id=");
   });
 
+  it("精确匹配请求失败时给出可访问提示且不回写旧选择", async () => {
+    resolvePrincipalExactMatchMock.mockRejectedValueOnce(new Error("network unavailable"));
+    const user = userEvent.setup();
+    renderPanel("/usage?tab=overview&subject_type=PROJECT&period=MONTH");
+    await user.type(screen.getByRole("searchbox", { name: "搜索用量主体" }), "失败项目");
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("精确匹配失败，请稍后重试或从列表选择"))
+      .toHaveAttribute("role", "status");
+    expect(screen.getByTestId("location")).not.toHaveTextContent("subject_id=");
+  });
+
   it("POOL20-042：主体类型或搜索词变化后丢弃过期精确匹配响应", async () => {
     let release!: (value: { principal: { id: string; type: "PROJECT"; name: string }; match_count: number }) => void;
     resolvePrincipalExactMatchMock.mockReturnValueOnce(new Promise((resolve) => {

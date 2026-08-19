@@ -19,6 +19,7 @@ export function UsageSubjectPicker({
 }) {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
+  const [exactError, setExactError] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
   const exactRequestGeneration = useRef(0);
   const latestContext = useRef({ subjectType, search });
@@ -29,6 +30,7 @@ export function UsageSubjectPicker({
   useEffect(() => setOffset(0), [subjectType, deferredSearch]);
   useEffect(() => {
     exactRequestGeneration.current += 1;
+    setExactError(null);
   }, [subjectType]);
   useEffect(() => () => {
     exactRequestGeneration.current += 1;
@@ -49,6 +51,7 @@ export function UsageSubjectPicker({
         className="ql-input min-w-40 flex-1"
         onChange={(event) => {
           exactRequestGeneration.current += 1;
+          setExactError(null);
           setSearch(event.target.value);
         }}
         onKeyDown={(event) => {
@@ -60,6 +63,7 @@ export function UsageSubjectPicker({
           const requestedSearch = search;
           const generation = exactRequestGeneration.current + 1;
           exactRequestGeneration.current = generation;
+          setExactError(null);
           void resolvePrincipalExactMatch(subjectType, name)
             .then((result) => {
               const latest = latestContext.current;
@@ -68,7 +72,14 @@ export function UsageSubjectPicker({
                 || latest.search !== requestedSearch) return;
               if (result.match_count === 1 && result.principal) onChange(result.principal.id);
             })
-            .catch(() => undefined);
+            .catch(() => {
+              const latest = latestContext.current;
+              if (generation === exactRequestGeneration.current
+                && latest.subjectType === requestedType
+                && latest.search === requestedSearch) {
+                setExactError("精确匹配失败，请稍后重试或从列表选择");
+              }
+            });
         }}
         placeholder={`搜索${label}或部门`}
         type="search"
@@ -91,6 +102,7 @@ export function UsageSubjectPicker({
       <span className="whitespace-nowrap text-[11px] text-ql-fg-tertiary">
         {optionsQuery.error ? "主体列表加载失败" : `共 ${total} 个`}
       </span>
+      {exactError ? <span aria-live="polite" className="text-[11px] text-ql-warning" role="status">{exactError}</span> : null}
       <button
         aria-label="主体上一页"
         className="h-8 rounded-lg border border-ql-border bg-ql-surface px-2 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"

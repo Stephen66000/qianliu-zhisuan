@@ -20,8 +20,10 @@ function result(granularity: UsageAggregateGranularity, written: number): UsageA
 }
 
 describe("runUsageAggregateTick", () => {
-  it("普通 5 分钟 tick 只消费 dirty 小时桶", async () => {
-    const rebuildDirtyBuckets = vi.fn(async () => [result("HOUR", 2)]);
+  it("普通常驻 tick 消费 dirty 小时与日桶，但不重复补算最近 7 日", async () => {
+    const rebuildDirtyBuckets = vi.fn(async (granularity: UsageAggregateGranularity) => [
+      result(granularity, granularity === "HOUR" ? 2 : 3),
+    ]);
     const rebuildRecentSevenDays = vi.fn(async () => [result("DAY", 3)]);
     const markCurrentHoursDirty = vi.fn(async () => 1);
     const repository = {
@@ -30,16 +32,15 @@ describe("runUsageAggregateTick", () => {
 
     const output = await runUsageAggregateTick({ repository, includeDaily: false });
 
-    expect(rebuildDirtyBuckets).toHaveBeenCalledOnce();
-    expect(rebuildDirtyBuckets).toHaveBeenCalledWith("HOUR", 200);
+    expect(rebuildDirtyBuckets.mock.calls).toEqual([["HOUR", 200], ["DAY", 200]]);
     expect(markCurrentHoursDirty).toHaveBeenCalledOnce();
     expect(rebuildRecentSevenDays).not.toHaveBeenCalled();
     expect(output).toEqual({
       dirtyHourBuckets: 1,
-      dirtyDayBuckets: 0,
+      dirtyDayBuckets: 1,
       recentBuckets: 0,
-      rowsWritten: 2,
-      rowsRemoved: 1,
+      rowsWritten: 5,
+      rowsRemoved: 2,
     });
   });
 

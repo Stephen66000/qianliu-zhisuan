@@ -248,11 +248,6 @@ export async function loadMonthlyOperatingCosts(
              ending.current_balance::text AS ending_balance,
              ending.currency AS ending_currency, ending.collected_at AS ending_at,
              CASE WHEN pr.mode = 'CODING_PLAN'
-                        AND ending.package_cost IS NOT NULL
-                        AND ending.effective_from IS NOT NULL
-                        AND ending.effective_until IS NOT NULL
-                        AND ending.effective_from < ${periodEnd}
-                        AND ending.effective_until > ${periodStart}
                   THEN ending.package_cost::text ELSE NULL END AS package_cost,
              to_char(ending.effective_from AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') AS service_period_start,
              to_char(ending.effective_until AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') AS service_period_end
@@ -298,11 +293,13 @@ export async function loadMonthlyOperatingCosts(
              )::date
              AND item.fact->>'providerResourceId' = pr.id::text
              AND NULLIF(item.fact->>'currency', '') = COALESCE(
+               manual_opening.currency,
                (
                  SELECT current_month.currency
                    FROM provider_resource_operating_snapshot current_month
                   WHERE current_month.enterprise_id = pr.enterprise_id
                     AND current_month.provider_resource_id = pr.id
+                    AND current_month.collected_at >= ${periodStart}
                     AND current_month.collected_at < ${periodEnd}
                     AND current_month.current_balance IS NOT NULL
                     AND current_month.currency IS NOT NULL

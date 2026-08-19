@@ -159,13 +159,13 @@ describe("POOL20-043 月度经营金额", () => {
     expect(summarizeMonthlyOperatingCosts([
       planResource(), planResource({ resourceId: "plan-2", packageCost: null }),
     ])).toMatchObject({
-      packageCost: null, totalSpend: null, currency: "CNY",
+      packageCost: null, totalSpend: null, currency: null,
       apiSpendStatus: "NOT_APPLICABLE", apiSpendReason: null,
     });
     expect(summarizeMonthlyOperatingCosts([
       planResource(), planResource({ resourceId: "plan-missing", packageCost: null, currency: null }),
     ])).toMatchObject({
-      packageCost: null, totalSpend: null, currency: "CNY",
+      packageCost: null, totalSpend: null, currency: null,
       apiSpendStatus: "NOT_APPLICABLE", apiSpendReason: null,
     });
     expect(summarizeMonthlyOperatingCosts([
@@ -185,10 +185,12 @@ describe("POOL20-043 月度经营金额", () => {
     expect(summarizeMonthlyOperatingCosts([missingApi, planResource()])).toMatchObject({
       apiSpend: null, packageCost: "30.00000000", totalSpend: null,
       openingBalance: null, endingBalance: "90.00000000", apiSpendStatus: "OPENING_BALANCE_MISSING",
+      apiSpends: [], packageCosts: [{ currency: "CNY", amount: "30.00000000" }],
+      totalSpends: [],
     });
     expect(summarizeMonthlyOperatingCosts([apiResource(), missingApi])).toMatchObject({
       apiSpend: null, packageCost: "0.00000000", totalSpend: null,
-      apiSpendStatus: "OPENING_BALANCE_MISSING",
+      apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpends: [], totalSpends: [],
     });
   });
 
@@ -293,6 +295,10 @@ describe("POOL20-043 月度经营金额", () => {
         { currency: "CNY", amount: "10.00000000" },
         { currency: "USD", amount: "10.00000000" },
       ],
+      totalSpends: [
+        { currency: "CNY", amount: "10.00000000" },
+        { currency: "USD", amount: "10.00000000" },
+      ],
     });
     expect(summarizeMonthlyOperatingCosts([
       planResource(), planResource({ resourceId: "plan-usd", currency: "USD" }),
@@ -309,7 +315,7 @@ describe("POOL20-043 月度经营金额", () => {
     expect(summarizeMonthlyOperatingCosts([
       planResource(), planResource({ resourceId: "plan-null-currency", currency: null }),
     ])).toMatchObject({
-      packageCost: null, totalSpend: null, currency: "CNY",
+      packageCost: null, totalSpend: null, currency: null,
       apiSpendReason: null,
     });
     expect(summarizeMonthlyOperatingCosts([{
@@ -321,7 +327,7 @@ describe("POOL20-043 月度经营金额", () => {
         apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpendReason: "待补期初余额",
       },
     ])).toMatchObject({
-      apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpend: null, totalSpend: null, currency: "CNY",
+      apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpend: null, totalSpend: null, currency: null,
     });
     expect(summarizeMonthlyOperatingCosts([
       apiResource(), {
@@ -330,7 +336,7 @@ describe("POOL20-043 月度经营金额", () => {
       },
     ])).toMatchObject({
       apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpend: null, totalSpend: null,
-      currency: "CNY", apiSpendReason: "待补期初余额",
+      currency: null, apiSpendReason: "待补期初余额",
     });
   });
 });

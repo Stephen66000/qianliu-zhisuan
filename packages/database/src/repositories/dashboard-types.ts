@@ -3,11 +3,15 @@ export interface DashboardSummary {
   activeEmployeeCount: number;
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
+  monthlyPackagePayments: Array<{ currency: string; amount: string }>;
   monthlyApiCost: string | null;
+  monthlyApiCosts: Array<{ currency: string; amount: string }>;
   monthlyApiSpendReason: string | null;
   /** 套餐支出与余额桥接 API 花费的后端精确合计；任一经营事实不完整时不可计算。 */
   monthlyTotalSpend: string | null;
+  monthlyTotalSpends: Array<{ currency: string; amount: string }>;
   monthlyRechargeAmount: string | null;
+  monthlyRechargeAmounts: Array<{ currency: string; amount: string }>;
   earliestExhaustion: {
     resourceId: string;
     resourceName: string;

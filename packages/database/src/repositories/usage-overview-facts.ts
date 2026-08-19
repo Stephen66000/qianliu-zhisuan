@@ -140,10 +140,15 @@ export function buildLiveUsageFacts(
            lt.total_cache_tokens, lt.total_reasoning_tokens,
            lt.total_deducted_quota, lt.total_api_cost,
            CASE WHEN lt.usage_quality IN ('PROVIDER_REPORTED', 'UPSTREAM_REPORTED') THEN 1 ELSE 0 END::bigint AS provider_reported_count,
-           CASE WHEN lt.usage_quality = 'ESTIMATED' THEN 1 ELSE 0 END::bigint AS estimated_count,
+           CASE WHEN lt.usage_quality = 'ESTIMATED' OR lt.usage_quality LIKE 'MIXED:%ESTIMATED%'
+                THEN 1 ELSE 0 END::bigint AS estimated_count,
            CASE WHEN lt.usage_quality = 'ACCOUNT_AGGREGATED' THEN 1 ELSE 0 END::bigint AS account_aggregated_count,
-           CASE WHEN lt.usage_quality LIKE 'MIXED%' THEN 1 ELSE 0 END::bigint AS mixed_count,
-           CASE WHEN lt.usage_quality = 'UNKNOWN' THEN 1 ELSE 0 END::bigint AS unknown_count
+           CASE WHEN lt.usage_quality LIKE 'MIXED%'
+                  AND lt.usage_quality NOT LIKE '%ESTIMATED%'
+                  AND lt.usage_quality NOT LIKE '%UNKNOWN%'
+                THEN 1 ELSE 0 END::bigint AS mixed_count,
+           CASE WHEN lt.usage_quality = 'UNKNOWN' OR lt.usage_quality LIKE 'MIXED:%UNKNOWN%'
+                THEN 1 ELSE 0 END::bigint AS unknown_count
       FROM ledger_transaction lt
       JOIN ai_request ar
         ON ar.id = lt.ai_request_id AND ar.enterprise_id = ${input.enterpriseId}

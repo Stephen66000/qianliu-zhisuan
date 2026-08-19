@@ -330,13 +330,23 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
     });
     expect(endMissingProcurement.json().resources.find(
       (resource: { resourceId: string }) => resource.resourceId === kimiResourceId,
-    )).toMatchObject({ reviewLabel: "数据不足", utilizationRate: null, idleEntitlementCost: null });
+    )).toMatchObject({
+      reviewLabel: "数据不足", utilizationRate: null, idleEntitlementCost: null,
+      packageCost: "300.00000000", currency: "CNY",
+      notCalculableReason: "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE",
+    });
+    expect(endMissingProcurement.json().summary.packageCosts).toEqual([
+      { currency: "CNY", amount: "800.00000000" },
+    ]);
     const endMissingBill = await app.inject({
       method: "GET", url: `/operating-bills/${currentMonth}`, headers: { cookie: adminCookie },
     });
     expect(endMissingBill.json().providers.find(
       (resource: { providerResourceId: string }) => resource.providerResourceId === kimiResourceId,
-    )).toMatchObject({ utilization: null, planAssessment: null, idleEntitlementCost: null });
+    )).toMatchObject({
+      utilization: null, planAssessment: null, idleEntitlementCost: null,
+      packageCost: "300.00000000", currency: "CNY",
+    });
     await db.insertInto("provider_resource_operating_snapshot").values({
       enterprise_id: enterpriseId,
       provider_resource_id: kimiResourceId,
@@ -359,14 +369,21 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
       (resource: { resourceId: string }) => resource.resourceId === kimiResourceId,
     )).toMatchObject({
       reviewLabel: "数据不足", utilizationRate: null, idleEntitlementCost: null,
+      packageCost: "300.00000000", currency: "CNY",
       notCalculableReason: "SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE",
     });
+    expect(startMissing.json().summary.packageCosts).toEqual([
+      { currency: "CNY", amount: "800.00000000" },
+    ]);
     const startMissingBill = await app.inject({
       method: "GET", url: `/operating-bills/${currentMonth}`, headers: { cookie: adminCookie },
     });
     expect(startMissingBill.json().providers.find(
       (resource: { providerResourceId: string }) => resource.providerResourceId === kimiResourceId,
-    )).toMatchObject({ utilization: null, planAssessment: null, idleEntitlementCost: null });
+    )).toMatchObject({
+      utilization: null, planAssessment: null, idleEntitlementCost: null,
+      packageCost: "300.00000000", currency: "CNY",
+    });
     await db.insertInto("provider_resource_operating_snapshot").values({
       enterprise_id: enterpriseId,
       provider_resource_id: kimiResourceId,
@@ -405,6 +422,42 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
 });
 
 describe("W20-09 轻量采购复盘", () => {
+  it("旧 CLOSED JSON 缺少币种数组时安全投影冻结 scalar，不改写历史账单", async () => {
+    const legacyMonth = "2025-07";
+    const draft = await app.operatingBillRepo.getBill(enterpriseId, legacyMonth);
+    const legacy = JSON.parse(JSON.stringify(draft)) as Record<string, unknown> & {
+      summary: Record<string, unknown>;
+    };
+    legacy.status = "CLOSED";
+    legacy.version = 1;
+    legacy.summary.apiCost = "12.50000000";
+    legacy.summary.packageCost = "300.00000000";
+    legacy.summary.endingBalanceCurrency = "USD";
+    delete legacy.summary.apiSpends;
+    delete legacy.summary.packageCosts;
+    delete legacy.summary.totalSpends;
+    const period = await db.insertInto("operating_bill_period").values({
+      enterprise_id: enterpriseId, period_month: `${legacyMonth}-01`, status: "CLOSED",
+      current_version: 1, created_by: adminId,
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("operating_bill_version").values({
+      enterprise_id: enterpriseId, period_id: period.id, version: 1,
+      snapshot: legacy, close_note: "7305 时代冻结账单", closed_by: adminId,
+    }).execute();
+
+    const response = await app.inject({
+      method: "GET", url: `/procurement-reviews/${legacyMonth}`, headers: { cookie: adminCookie },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().summary).toMatchObject({
+      apiSpends: [{ currency: "USD", amount: "12.50000000" }],
+      packageCosts: [{ currency: "USD", amount: "300.00000000" }],
+    });
+    const stored = await db.selectFrom("operating_bill_version").select("snapshot")
+      .where("period_id", "=", period.id).executeTakeFirstOrThrow();
+    expect((stored.snapshot as { summary: Record<string, unknown> }).summary.apiSpends).toBeUndefined();
+  });
+
   it("逐资源返回独立采购事实、利用率、确定性标签和依据", async () => {
     const first = await app.inject({
       method: "GET",

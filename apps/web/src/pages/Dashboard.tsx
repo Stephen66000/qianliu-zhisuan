@@ -22,6 +22,7 @@ import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { useFeatureFlags } from "../feature-flags";
 import { formatCount, formatDateTimeShort, formatMoney, formatRatioAsPercent } from "../lib/format";
+import { currencyFacts, type CurrencyAmount } from "../lib/currency";
 import { usageQualityText } from "../lib/usage-quality";
 
 export function DashboardPage() {
@@ -73,21 +74,18 @@ export function DashboardPage() {
               ? data.monthlyApiSpendReason ?? "API 花费不可计算"
               : "待补套餐费用"}
             label="本月总支出"
-            unit="元"
-            value={data.monthlyTotalSpend === null ? null : formatMoney(data.monthlyTotalSpend)}
+            value={currencyMetric(data.monthlyTotalSpends, data.monthlyTotalSpend)}
           />
           <MetricCard
             emptyText="待补套餐费用"
             label="套餐支出"
-            unit="元"
-            value={data.monthlyPackagePayment === null ? null : formatMoney(data.monthlyPackagePayment)}
+            value={currencyMetric(data.monthlyPackagePayments, data.monthlyPackagePayment)}
           />
           <MetricCard
             emptyText={data.monthlyApiSpendReason ?? "API 花费不可计算"}
             hint="期初余额 + 本月充值 - 期末余额；账本计价仅用于核对"
             label="API 花费"
-            unit="元"
-            value={data.monthlyApiCost === null ? null : formatMoney(data.monthlyApiCost)}
+            value={currencyMetric(data.monthlyApiCosts, data.monthlyApiCost)}
           />
           <MetricCard
             hint={`当前正在使用 ${data.currentInUseCount} 人`}
@@ -99,8 +97,7 @@ export function DashboardPage() {
           <MetricCard
             emptyText={data.monthlyApiSpendReason ?? "本月充值待补"}
             label="本月充值"
-            unit="元"
-            value={data.monthlyRechargeAmount === null ? null : formatMoney(data.monthlyRechargeAmount)}
+            value={currencyMetric(data.monthlyRechargeAmounts, data.monthlyRechargeAmount)}
           />
           <MetricCard
             hint={dispatchSavingHint(data)}
@@ -240,6 +237,11 @@ function monthlyTokenUsageHint(data: DashboardSummary): string {
     unknownCount: usage.unknownTransactionCount,
   });
   return `已结算输入 + 输出，缓存和推理不重复累计；${quality}`;
+}
+
+function currencyMetric(facts: CurrencyAmount[], scalar: string | null): string | null {
+  if (facts.length > 0) return currencyFacts(facts, null);
+  return scalar !== null && /^[+-]?0+(?:\.0+)?$/.test(scalar) ? formatMoney(scalar) : null;
 }
 
 function DashboardHeader() {

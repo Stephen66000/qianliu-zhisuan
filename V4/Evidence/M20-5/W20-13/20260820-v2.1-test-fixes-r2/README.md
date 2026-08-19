@@ -1,4 +1,4 @@
-# 仟流智算 2.1｜第二轮主审整改候选待复审 Evidence
+# 仟流智算 2.1｜第二次整改待复审 Evidence
 
 | 项目 | 结果 |
 | --- | --- |
@@ -43,6 +43,11 @@
 - 扩展 `usage_event` 质量约束以接受缺可选维度的 `MIXED` 事实；存在该事实时旧版本回退 fail-closed。
 - 升级清除派生聚合／水位／dirty 队列，并按 `ledger_transaction.created_at` 结算时间重新标记小时和自然日桶。
 - 回退先按旧 `ai_request.started_at` 语义重建 dirty 边界，避免跨语义缓存残留。
+- 新旧质量约束使用 `NOT VALID`，避免迁移时扫描全部历史 `usage_event`；发布合同在停写窗口完成 DDL 与 dirty 标记。
+- 100 万既有 ledger＋100 万既有 usage_event 三次实测迁移 `4509ms／4764ms／4534ms`，产生并恢复 `776` 个 dirty 桶；批次上限 `1000`。注入 dirty 写失败时迁移事务整体回滚至 0053。
+- Worker 常驻安全调度每轮消费小时／自然日 dirty 桶（默认各 `200`，配置范围 `1..1000`）；聚合失败与运行保障任务隔离，后续 tick 重试。
+
+发布脚本 `deploy/scripts/release-v2.1-r2-mac-mini.sh` 只提供合同、未执行部署：固定候选分支，运行时要求完整 Commit／Tree；仅接受源迁移 0052，目标 0054；校验 0053／0054，先停写与校验备份，再升级；数据库已变化的失败路径保持业务停写，并输出从备份恢复的边界。脚本不创建或移动 Git Tag。
 
 ## 3. 验证结果
 
@@ -50,13 +55,13 @@
 | --- | --- |
 | 运行时 | Node `v22.17.1`；pnpm `11.11.0` |
 | 全 workspace | typecheck、lint（warnings=0）、build 全部通过；Web 保留既有 chunk warning |
-| 固定有界全量回归 | 169 files／1190 tests，分段全部通过 |
-| 受影响定向 | Web 39；Provider Adapter 54；月度经营／质量单测 25；Control API 实库 30；Database／迁移实库 25 |
+| 固定有界全量回归 | 172 files／1197 tests，分段全部通过 |
+| 受影响定向 | Web 41；月度经营单测 18；Control API 实库 32；Database／迁移实库 21；Worker／发布合同 4 |
 | Web E2E | 专用 `qianliu_e2e`、备用端口、Chromium 29/29 |
 | 标准容量 | 100 万 ledger P95 冻结阈值保持 `<=1000ms`，完整复跑通过 |
-| Coverage | 13 个 ratchet scope 无回退；扩展 Node `96.51/87.96/97.94/96.51`；Web `97.39/86.57/91.33/97.39` |
-| Mutation | Database `326/326`、Kimi `44/44` killed；均 0 survivor／0 no-coverage，100% |
-| 架构／体量／重复率 | 313 个生产源码文件无 runtime cycle；默认 400 逻辑行门禁通过；重复率 `0.67%` |
+| Coverage | 13 个 ratchet scope 无回退；扩展 Node `96.52/87.85/98.02/96.52`；Web `97.72/85.20/90.17/97.72` |
+| Mutation | Database 本轮 `327/327`、Kimi 既有 `44/44` killed；均 0 survivor／0 no-coverage，100% |
+| 架构／体量／重复率 | 315 个生产源码文件无 runtime cycle；默认 400 逻辑行门禁通过；重复率 `0.67%` |
 | 依赖／许可证 | production audit 无已知漏洞；许可证门禁通过 |
 | Sensitive canary | 日志 0 hits；PG／Redis／Trace 未扫描 |
 
@@ -66,6 +71,8 @@
 - Database：0053／0054、Kysely 类型、期初事实、按币种月度经营汇总、结算时间聚合、质量模型及迁移回归。
 - Provider Adapter：Kimi 与 OpenAI-compatible usage 缓存字段兼容及测试。
 - Web：首页空态／经营缺口、资源币种、订阅周期、主体异步防竞态、经营账单六项与补录入口及测试。
+- Worker：常驻 usage aggregate dirty 消费、小时／日批次边界及失败隔离测试。
+- 发布：2.1 第二轮 Mac Mini 0052→0054 静态发布合同与独立脚本测试；未部署。
 - 质量：扩展 Coverage；POOL043-v22 与 POOL021-r2 两份 100% mutation 报告；V4 蓄水池、测试记录和本 Evidence。
 
 完整机器清单以 `git diff --name-status 38d583f^..HEAD` 的最终本地候选为准。

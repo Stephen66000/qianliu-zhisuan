@@ -421,6 +421,20 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(redundantOpening.statusCode).toBe(409);
     expect(redundantOpening.json()).toMatchObject({ error: "opening_balance_already_available" });
 
+    const manualOnlyResource = await db.insertInto("provider_resource").values({
+      enterprise_id: openingEnterpriseId, provider_id: provider.id,
+      name: "无快照人工期初 API", mode: "API", credential_type: "API_KEY", status: "ACTIVE",
+    }).returning("id").executeTakeFirstOrThrow();
+    const augustPeriod = await db.insertInto("operating_bill_period").values({
+      enterprise_id: openingEnterpriseId, period_month: "2026-08-01",
+      created_by: openingAdminId,
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("operating_bill_opening_balance").values({
+      enterprise_id: openingEnterpriseId, period_id: augustPeriod.id,
+      provider_resource_id: manualOnlyResource.id, version: 1, amount: "88",
+      currency: "CNY", source: "MANUAL", reason: "无快照人工补录", created_by: openingAdminId,
+    }).execute();
+
     const fallbackResource = await db.insertInto("provider_resource").values({
       enterprise_id: openingEnterpriseId, provider_id: provider.id,
       name: "异币种承接回退 API", mode: "API", credential_type: "API_KEY", status: "ACTIVE",
@@ -441,11 +455,18 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
       .where("id", "=", julyPeriod.id).execute();
     await db.insertInto("operating_bill_version").values({
       enterprise_id: openingEnterpriseId, period_id: julyPeriod.id, version: 1,
-      snapshot: { sourceFacts: { balanceBridgeFacts: [{
-        providerResourceId: fallbackResource.id, currency: "USD",
-        endingSnapshotId: null, endingSnapshotVersion: null,
-        endingSnapshotAt: "2026-07-31T15:59:00.000Z", endingBalance: "77",
-      }] } },
+      snapshot: { sourceFacts: { balanceBridgeFacts: [
+        {
+          providerResourceId: fallbackResource.id, currency: "USD",
+          endingSnapshotId: null, endingSnapshotVersion: null,
+          endingSnapshotAt: "2026-07-31T15:59:00.000Z", endingBalance: "77",
+        },
+        {
+          providerResourceId: manualOnlyResource.id, currency: "USD",
+          endingSnapshotId: null, endingSnapshotVersion: null,
+          endingSnapshotAt: "2026-07-31T15:59:00.000Z", endingBalance: "66",
+        },
+      ] } },
       close_note: "异币种上月期末", closed_by: openingAdminId,
     }).execute();
     const augustFallback = await app.inject({
@@ -463,6 +484,12 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
       expect.objectContaining({
         providerResourceId: fallbackResource.id,
         openingBalanceSource: "OPERATING_SNAPSHOT", currency: "CNY",
+      }),
+    ]));
+    expect(augustFallback.json().sourceFacts.balanceBridgeFacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providerResourceId: manualOnlyResource.id, openingBalance: "88.00000000",
+        openingBalanceSource: "MANUAL", currency: "CNY",
       }),
     ]));
     const latestSnapshot = await db.selectFrom("provider_resource_operating_snapshot")
@@ -594,6 +621,9 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(draft.json().summary).toMatchObject({
       apiCost: null, apiSpendStatus: "OPENING_BALANCE_MISSING",
       apiSpendReason: "待补期初余额",
+      packageCost: null,
+      apiSpends: [], totalSpends: [],
+      packageCosts: [],
     });
     expect(draft.json().gaps).toEqual(expect.arrayContaining([
       expect.objectContaining({

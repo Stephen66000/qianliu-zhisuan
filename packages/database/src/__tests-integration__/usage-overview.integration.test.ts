@@ -69,6 +69,7 @@ beforeAll(async () => {
   await seedRequest(employeeOneId, monday, 100n, 20n, 50n, 5n, 120n, "1.25000000");
   const assignedRequestId = await seedRequest(
     employeeTwoId, tuesday, 200n, 30n, 80n, 7n, 230n, "0",
+    enterpriseId, "SETTLED", "MIXED:PROVIDER_REPORTED+UNKNOWN",
   );
   await seedRequest(projectId, wednesday, 300n, 40n, 90n, 9n, 340n, "2.00000000");
   await seedRequest(employeeOneId, new Date("2026-08-09T15:59:59.999Z"), 999n, 1n, 0n, 0n, 1_000n, "9");
@@ -80,7 +81,7 @@ beforeAll(async () => {
   await seedRequest(dstEmployeeId, new Date("2026-03-08T07:30:00.000Z"), 30n, 3n, 0n, 0n, 33n, "0.3", dstEnterpriseId);
   await seedRequest(dstEmployeeId, new Date("2026-04-01T04:00:00.000Z"), 999n, 1n, 0n, 0n, 1_000n, "9", dstEnterpriseId);
   await seedRequest(monthBoundaryEmployeeId, new Date("2026-08-31T15:59:59.999Z"), 40n, 2n, 30n, 1n, 42n, "0", monthBoundaryEnterpriseId);
-  await seedRequest(monthBoundaryEmployeeId, new Date("2026-08-31T16:00:00.000Z"), 50n, 3n, 20n, 2n, 53n, "0", monthBoundaryEnterpriseId, "SETTLED", "PROVIDER_REPORTED", new Date("2026-08-31T15:59:00.000Z"));
+  await seedRequest(monthBoundaryEmployeeId, new Date("2026-08-31T16:00:00.000Z"), 50n, 3n, 20n, 2n, 53n, "0", monthBoundaryEnterpriseId, "SETTLED", "MIXED:PROVIDER_REPORTED+ESTIMATED", new Date("2026-08-31T15:59:00.000Z"));
   await db.insertInto("operating_bill_request_project_assignment").values({
     enterprise_id: enterpriseId,
     ai_request_id: assignedRequestId,
@@ -185,8 +186,9 @@ describe("W20-04 UsageOverviewRepository", () => {
       realTokens: "350",
       apiCost: "1.25000000",
       deductedQuota: "350",
-      usageQuality: "PROVIDER_REPORTED",
-      providerReportedCount: 2,
+      usageQuality: "UNKNOWN",
+      providerReportedCount: 1,
+      unknownCount: 1,
     });
     expect(result.trend).toHaveLength(7);
     expect(result.trend.map((point) => point.label)).toEqual([
@@ -326,6 +328,7 @@ describe("W20-04 UsageOverviewRepository", () => {
     expect(september.metrics).toMatchObject({
       requestCount: "1", inputTokens: "50", outputTokens: "3",
       cacheTokens: "20", reasoningTokens: "2", realTokens: "53",
+      usageQuality: "ESTIMATED", estimatedCount: 1, mixedCount: 0,
     });
     const septemberDetails = await new UsageRepository(db).list({
       enterpriseId: monthBoundaryEnterpriseId, settledOnly: true,

@@ -180,7 +180,12 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
     // POOL20-043：本月充值只认当月采购记录；没有记录是精确 0，
     // 不得拿快照中的生命周期 recharge_amount=100/999 代替。
     expect(splitDashboard.monthlyRechargeAmount).toBe("0.00000000");
-    expect(splitDashboard.monthlyPackagePayment).toBeNull();
+    // POOL20-041：缺订阅起止只让利用率 fail-closed，独立已知套餐费用仍保留。
+    expect(splitDashboard.monthlyPackagePayment).toBe("299.00000000");
+    expect(splitDashboard.monthlyPackagePayments).toEqual([
+      { currency: "CNY", amount: "299.00000000" },
+    ]);
+    expect(splitDashboard.monthlyTotalSpend).toBeNull();
   });
 
   it("API 预测按最新余额匹配，不把额度字段混入首页或调度比例", async () => {

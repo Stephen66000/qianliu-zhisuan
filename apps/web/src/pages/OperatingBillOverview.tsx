@@ -19,11 +19,11 @@ export function OperatingBillOverview({ bill }: { bill: OperatingBill }) {
     showPurchases,
   );
   const metrics = [
-    ["期初余额", currencyFacts(bill.summary.openingBalances, bill.summary.openingBalance ?? null, bill.summary.endingBalanceCurrency), bill.summary.openingBalance === null ? "待补期初余额；已知币种事实仍保留" : "月初有效快照或上月期末承接"],
+    ["期初余额", currencyFacts(bill.summary.openingBalances, bill.summary.openingBalance ?? null, bill.summary.endingBalanceCurrency), bill.summary.openingBalance === null ? amountGapNote(bill.summary.openingBalances, "待补期初余额") : "月初有效快照或上月期末承接"],
     ["本月充值", currencyFacts(bill.summary.rechargeAmounts, bill.summary.monthlyRecharge ?? null), "本账期 API 充值现金；按币种独立展示"],
-    ["期末余额", currencyFacts(bill.summary.endingBalances, bill.summary.endingBalance, bill.summary.endingBalanceCurrency), bill.summary.endingBalance === null ? "待补期末余额；已知币种事实仍保留" : "API 预付余额"],
+    ["期末余额", currencyFacts(bill.summary.endingBalances, bill.summary.endingBalance, bill.summary.endingBalanceCurrency), bill.summary.endingBalance === null ? amountGapNote(bill.summary.endingBalances, "待补期末余额") : "API 预付余额"],
     ["API 花费", currencyFacts(bill.summary.apiSpends, bill.summary.apiCost, bill.summary.endingBalanceCurrency), bill.summary.apiSpendReason ?? "期初余额 + 本月充值 - 期末余额"],
-    ["套餐费用", currencyFacts(bill.summary.packageCosts, bill.summary.packageCost), "当月固定套餐成本；按币种独立展示"],
+    ["套餐费用", currencyFacts(bill.summary.packageCosts, bill.summary.packageCost, bill.summary.endingBalanceCurrency), "当月固定套餐成本；按币种独立展示"],
     ["本月总花费", currencyFacts(bill.summary.totalSpends, bill.summary.totalCost, bill.summary.endingBalanceCurrency), bill.summary.totalCost === null ? (bill.summary.apiSpendReason ?? (bill.summary.packageCost === null ? "待补套餐费用" : "不可跨币种合计；已知项保留")) : "API 花费 + 固定套餐费用"],
     ["套餐综合利用率", bill.summary.planUtilization ? `${bill.summary.planUtilization}%` : "—", "按套餐成本加权"],
     ["活跃主体", String(bill.summary.activePrincipalCount), "有有效账本记录"],
@@ -108,7 +108,7 @@ export function OperatingBillOverview({ bill }: { bill: OperatingBill }) {
                   <Cell>{resource?.resourceName ?? item.providerResourceId}</Cell>
                   <Cell>{item.purchaseType === "API_RECHARGE" ? "API 充值" : "套餐采购"}</Cell>
                   <Cell>{item.description ?? item.evidenceRef ?? "—"}</Cell>
-                  <Num>{money(item.amount)}</Num>
+                  <Num>{currencyMoney(item.amount, item.currency)}</Num>
                   <Cell>{item.currency}</Cell>
                   <Cell>{item.createdBy}</Cell>
                 </tr>
@@ -120,6 +120,13 @@ export function OperatingBillOverview({ bill }: { bill: OperatingBill }) {
       ) : null}
     </div>
   );
+}
+
+function amountGapNote(
+  facts: Array<{ currency: string; amount: string }> | undefined,
+  missing: string,
+): string {
+  return facts?.length ? "存在多币种或部分资源缺口；已知事实按币种保留" : missing;
 }
 function OpeningBalanceEntry({ bill }: { bill: OperatingBill }) {
   const resources = bill.providers.filter((row) => row.mode === "API" && row.openingBalance === null);

@@ -132,8 +132,8 @@ function Procurement({ bill }: { bill: OperatingBill }) {
                 {row.mode === "API" && row.ledgerApiCost !== undefined ? <span className="block text-[10px] font-normal text-ql-fg-tertiary">账本 API 计价（核对证据） {currencyMoney(row.ledgerApiCost, row.currency)}</span> : null}
               </Num>
               <Cell>
-                {row.utilizationRate === null ? "— / 未设置" : `${(Number(row.utilizationRate) * 100).toFixed(1)}%`}
-                <span className="block text-[10px] text-ql-fg-tertiary">{row.utilizationBasis ?? (row.mode === "API" ? "API_MONTHLY_BUDGET" : "厂商原生窗口")}</span>
+                {row.utilizationRate === null ? "— / 数据不足" : `${(Number(row.utilizationRate) * 100).toFixed(1)}%`}
+                <span className="block text-[10px] text-ql-fg-tertiary">{row.utilizationBasis ?? row.notCalculableReason ?? "数据不足"}</span>
               </Cell>
               <Cell>
                 {row.forecastExhaustAt ? `预计耗尽 ${new Date(row.forecastExhaustAt).toLocaleString("zh-CN")}` : (row.forecastNotCalculableReason ?? "耗尽时间未知")}

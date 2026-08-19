@@ -9,8 +9,8 @@ export interface UsageAggregateTickResult {
 }
 
 /**
- * W20-04 Worker 单次任务：常规 tick 只重建 dirty 小时桶；每日任务额外消费
- * dirty 日桶并完整补算最近 7 个企业本地自然日。
+ * W20-04 Worker 单次任务：每个 tick 都消费 dirty 小时／日桶，确保迁移重标和
+ * Settlement 可持续收敛；每日任务额外完整补算最近 7 个企业本地自然日。
  */
 export async function runUsageAggregateTick(input: {
   repository: UsageAggregateRepository;
@@ -22,9 +22,9 @@ export async function runUsageAggregateTick(input: {
   const dirtyHours = await input.repository.rebuildDirtyBuckets(
     "HOUR", input.dirtyLimit ?? 200,
   );
-  const dirtyDays = input.includeDaily
-    ? await input.repository.rebuildDirtyBuckets("DAY", input.dirtyLimit ?? 200)
-    : [];
+  const dirtyDays = await input.repository.rebuildDirtyBuckets(
+    "DAY", input.dirtyLimit ?? 200,
+  );
   const recent = input.includeDaily
     ? await input.repository.rebuildRecentSevenDays(input.now ?? new Date(), 7)
     : [];

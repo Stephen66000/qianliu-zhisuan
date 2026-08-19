@@ -92,10 +92,18 @@ export async function rebuildUsageAggregateBucket(
                sum(total_deducted_quota)::bigint AS deducted_quota,
                sum(total_api_cost)::numeric(30, 8) AS api_cost,
                count(*) FILTER (WHERE usage_quality IN ('PROVIDER_REPORTED', 'UPSTREAM_REPORTED'))::bigint AS provider_reported_count,
-               count(*) FILTER (WHERE usage_quality = 'ESTIMATED')::bigint AS estimated_count,
+               count(*) FILTER (
+                 WHERE usage_quality = 'ESTIMATED' OR usage_quality LIKE 'MIXED:%ESTIMATED%'
+               )::bigint AS estimated_count,
                count(*) FILTER (WHERE usage_quality = 'ACCOUNT_AGGREGATED')::bigint AS account_aggregated_count,
-               count(*) FILTER (WHERE usage_quality LIKE 'MIXED%')::bigint AS mixed_count,
-               count(*) FILTER (WHERE usage_quality = 'UNKNOWN')::bigint AS unknown_count,
+               count(*) FILTER (
+                 WHERE usage_quality LIKE 'MIXED%'
+                   AND usage_quality NOT LIKE '%ESTIMATED%'
+                   AND usage_quality NOT LIKE '%UNKNOWN%'
+               )::bigint AS mixed_count,
+               count(*) FILTER (
+                 WHERE usage_quality = 'UNKNOWN' OR usage_quality LIKE 'MIXED:%UNKNOWN%'
+               )::bigint AS unknown_count,
                max(ledger_watermark) AS fact_watermark,
                max(settled_at) AS max_fact_at
           FROM request_facts
