@@ -17,4 +17,7 @@
 - 临时空 PostgreSQL 16（非生产）：0055 迁移 1 test、Control API 13 tests、Gateway 23 tests 全部 PASS；待 Mac Mini PG17 最终复核。
 - 全 workspace typecheck／lint／build：PASS；架构 319 生产源文件无 cycle，source-size PASS，重复率 0.66%，production audit／许可证 PASS。
 - Sensitive canary：日志 0 hits；新实库测试另断言自定义 prompt／Secret 在诊断 jsonb 中 0 hits。
+- 受影响 Provider scope coverage：statements／lines `95.92%`、branches `88.15%`、functions `100%`，达到 `95/85/90`。
+- 受影响安全纯函数 mutation：`111/111 killed`，0 survivor、0 no-coverage，score `100%`。
+- 新函数 complexity 在禁用 inline config 时仍 `<=30`；未通过豁免规避门禁。
 - 双审／V1.4：待最终 Commit 锁定后回填。

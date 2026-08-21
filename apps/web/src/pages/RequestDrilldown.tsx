@@ -378,6 +378,8 @@ function requestShapeText(shape: RequestShapeSummary): string {
     `内容类型 ${shape.contentKinds.join("/") || "无"}`,
     `工具 ${shape.toolCount}（函数 ${shape.functionToolCount}／异常 ${shape.invalidToolCount}）`,
     `Schema 深度 ${shape.schemaMaxDepth}／节点 ${shape.schemaNodeCount}／属性 ${shape.schemaPropertyCount}`,
+    shape.schemaKeywords.length > 0 ? `Schema 关键字 ${shape.schemaKeywords.join("/")}` : "",
+    shape.contentBlockTypes.length > 0 ? `内容块 ${shape.contentBlockTypes.join("/")}` : "",
     `未配对工具事件 ${unmatched}`,
     issues ? `Schema 问题 ${issues}` : "",
     shape.countOverflowed ? "计数已达安全上限" : "",

@@ -143,17 +143,15 @@ export async function updateGuardedAttemptResult(
   update: AttemptResultUpdate,
 ): Promise<void> {
   const safeUpdate: AttemptResultUpdate = { ...update };
-  if (update.upstream_error_evidence !== undefined) {
-    const parsed = update.upstream_error_evidence === null
-      ? null
-      : parseUpstreamErrorEvidence(update.upstream_error_evidence);
-    safeUpdate.upstream_error_evidence = parsed ? { ...parsed } : null;
-  }
-  if (update.request_shape_summary !== undefined) {
-    const parsed = update.request_shape_summary === null
-      ? null
-      : parseRequestShapeSummary(update.request_shape_summary);
-    safeUpdate.request_shape_summary = parsed ? { ...parsed } : null;
+  if (update.upstream_error_evidence !== undefined || update.request_shape_summary !== undefined) {
+    const evidence = update.http_status === 400
+      ? parseUpstreamErrorEvidence(update.upstream_error_evidence)
+      : null;
+    const shape = update.http_status === 400
+      ? parseRequestShapeSummary(update.request_shape_summary)
+      : null;
+    safeUpdate.upstream_error_evidence = evidence && shape ? { ...evidence } : null;
+    safeUpdate.request_shape_summary = evidence && shape ? { ...shape } : null;
   }
   await db.transaction().execute(async (trx) => {
     const attempt = await trx.selectFrom("upstream_attempt")

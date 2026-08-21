@@ -278,9 +278,11 @@ schema_check="$(db_query "
         AND column_name IN ('upstream_error_evidence','request_shape_summary')),
     (SELECT count(*) FROM pg_constraint
       WHERE conname IN ('upstream_attempt_error_evidence_object_check',
-                        'upstream_attempt_request_shape_object_check'))
+                        'upstream_attempt_request_shape_object_check',
+                        'upstream_attempt_diagnostic_pair_check',
+                        'upstream_attempt_diagnostic_status_check'))
   );")"
-test "$schema_check" = "1,5,1,2,2"
+test "$schema_check" = "1,5,1,2,4"
 log "migration evidence 0053_sha=${migration_0053_sha} 0054_sha=${migration_0054_sha} 0055_sha=${migration_0055_sha}"
 log "rollback boundary: 0055 diagnostic evidence rejects destructive down; restore verified backup instead"
 

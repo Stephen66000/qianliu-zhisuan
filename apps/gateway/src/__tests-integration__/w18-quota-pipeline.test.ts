@@ -216,9 +216,7 @@ async function counterValue(grantId: string): Promise<{ used: bigint; overage: b
 }
 
 beforeAll(async () => {
-  pg = process.env.POOL048_GATEWAY_DATABASE_URL
-    ? { connectionString: process.env.POOL048_GATEWAY_DATABASE_URL, stop: async () => undefined }
-    : await startPostgresContainer();
+  pg = await startPostgresContainer();
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
   poolRepo = new ResourcePoolRepository(db);
@@ -615,6 +613,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
           upstream_code: "invalid_request_error",
           param: "tools[].function.parameters.properties.*",
           hash: "2".repeat(64),
+          request_issues: [{ code: "PARAMETERS_SCHEMA_INVALID", count: 1 }],
         },
       });
       expect(JSON.stringify(response.json())).not.toContain(canary);
@@ -640,6 +639,50 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
         .where("id", "=", fx.resourceId)
         .executeTakeFirstOrThrow();
       expect(resource).toMatchObject({ status: "ACTIVE", consecutive_failures: 0 });
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("POOL20-048：恶意 Stub 诊断在北向和 DB 边界 fail-closed", async () => {
+    const canary = "POOL048_MALICIOUS_OUTCOME_SECRET";
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      caller: async () => ({
+        status: 400,
+        committed: false,
+        usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+        error: "invalid_request_error",
+        failureLayer: "UPSTREAM_HTTP",
+        upstreamErrorEvidence: {
+          httpStatus: 400, type: canary, code: canary, param: null,
+          messageCategory: "UNCLASSIFIED", diagnosticHash: "5".repeat(64),
+        },
+        requestShapeSummary: {
+          topLevelFields: ["messages"], messageCount: 1, messageRoles: { user: 1 },
+          contentKinds: ["string"], contentBlockTypes: [], assistantToolCallCount: 0,
+          toolResultCount: 0, unmatchedAssistantToolCallCount: 0,
+          unmatchedToolResultCount: 0, toolCount: 1, functionToolCount: 0,
+          invalidToolCount: 1, toolSchemaIssueCounts: { [canary]: 1 },
+          toolTypes: ["other"], schemaKeywords: [], schemaMaxDepth: 0,
+          schemaNodeCount: 0, schemaPropertyCount: 0, toolChoiceKind: null,
+          stream: false, streamOptionsIncluded: false, countOverflowed: false,
+        },
+      }),
+    });
+    try {
+      const response = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "safe" }] },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error.diagnostic).toBeUndefined();
+      expect(JSON.stringify(response.json())).not.toContain(canary);
+      const attempt = (await ledgerRepo.listAttempts(response.json().error.request_id))[0]!;
+      expect(attempt.upstream_error_evidence).toBeNull();
+      expect(attempt.request_shape_summary).toBeNull();
+      expect(JSON.stringify(attempt)).not.toContain(canary);
     } finally {
       await fx.close();
     }

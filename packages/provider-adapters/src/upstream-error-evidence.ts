@@ -11,7 +11,7 @@ import {
   sanitizeUpstreamErrorType,
 } from "@qianliu/contracts";
 
-import type { ChatCompletionBody } from "./openai-compatible-types.js";
+import type { ChatCompletionBody, ChatMessage } from "./openai-compatible-types.js";
 
 const TOP_LEVEL_FIELDS = [
   "max_tokens", "messages", "model", "parallel_tool_calls", "reasoning_effort", "stream",
@@ -78,11 +78,7 @@ export function buildUpstreamErrorEvidence(
 ): UpstreamErrorEvidence {
   const root = isRecord(payload) ? payload : {};
   const error = isRecord(root.error) ? root.error : {};
-  const message = [stringValue(error.message), stringValue(root.message)]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const message = `${stringValue(error.message)} ${stringValue(root.message)}`;
   const safeTuple = {
     httpStatus,
     type: sanitizeUpstreamErrorType(error.type),
@@ -141,156 +137,194 @@ function collectSchemaShape(
   }
 }
 
-/** 构造不含正文、工具名和 Schema 属性名的请求形状摘要。 */
-// eslint-disable-next-line complexity -- 固定白名单分支集中在单一纯函数，避免安全规则跨文件漂移。
-export function buildRequestShapeSummary(body: ChatCompletionBody): RequestShapeSummary {
-  let countOverflowed = body.messages.length > MAX_DIAGNOSTIC_COUNT
-    || (body.tools?.length ?? 0) > MAX_DIAGNOSTIC_COUNT;
+interface MessageShape {
+  assistantToolCallCount: number;
+  contentBlockTypes: string[];
+  contentKinds: string[];
+  countOverflowed: boolean;
+  messageRoles: Record<string, number>;
+  toolResultCount: number;
+  unmatchedAssistantToolCallCount: number;
+  unmatchedToolResultCount: number;
+}
+
+interface ToolShape {
+  countOverflowed: boolean;
+  functionToolCount: number;
+  invalidToolCount: number;
+  schemaKeywords: string[];
+  schemaMaxDepth: number;
+  schemaNodeCount: number;
+  schemaPropertyCount: number;
+  toolSchemaIssueCounts: Record<string, number>;
+  toolTypes: string[];
+}
+
+function capped(value: number): number {
+  return Math.min(value, MAX_DIAGNOSTIC_COUNT);
+}
+
+function summarizeMessageContent(
+  message: ChatMessage,
+  contentKinds: Set<string>,
+  contentBlockTypes: Set<string>,
+): void {
+  contentKinds.add(contentKind(message.content));
+  if (!Array.isArray(message.content)) return;
+  for (const block of message.content) {
+    const type = isRecord(block) && typeof block.type === "string" && CONTENT_BLOCK_TYPES.has(block.type)
+      ? block.type
+      : "other";
+    contentBlockTypes.add(type);
+  }
+}
+
+function summarizeMessages(messages: ChatMessage[]): MessageShape {
   const messageRoles: Record<string, number> = {};
   const contentKinds = new Set<string>();
   const contentBlockTypes = new Set<string>();
-  const assistantToolCallIds = new Set<string>();
-  const toolResultIds = new Set<string>();
+  const assistantIds = new Set<string>();
+  const resultIds = new Set<string>();
   let assistantToolCallCount = 0;
   let toolResultCount = 0;
-
-  for (const message of body.messages) {
-    const role = new Set(["system", "user", "assistant", "tool"]).has(message.role)
-      ? message.role
-      : "other";
+  let countOverflowed = messages.length > MAX_DIAGNOSTIC_COUNT;
+  for (const message of messages) {
+    const role = new Set(["system", "user", "assistant", "tool"]).has(message.role) ? message.role : "other";
     const roleCount = (messageRoles[role] ?? 0) + 1;
-    if (roleCount > MAX_DIAGNOSTIC_COUNT) countOverflowed = true;
-    messageRoles[role] = Math.min(roleCount, MAX_DIAGNOSTIC_COUNT);
-    contentKinds.add(contentKind(message.content));
-    if (Array.isArray(message.content)) {
-      for (const block of message.content) {
-        const type = isRecord(block) && typeof block.type === "string" && CONTENT_BLOCK_TYPES.has(block.type)
-          ? block.type
-          : "other";
-        contentBlockTypes.add(type);
-      }
-    }
-    if (Array.isArray(message.tool_calls)) {
-      assistantToolCallCount += message.tool_calls.length;
-      if (assistantToolCallCount > MAX_DIAGNOSTIC_COUNT) countOverflowed = true;
-      assistantToolCallCount = Math.min(assistantToolCallCount, MAX_DIAGNOSTIC_COUNT);
-      for (const call of message.tool_calls) {
-        if (typeof call.id === "string") assistantToolCallIds.add(call.id);
-      }
-    }
-    if (message.role === "tool") {
-      if (toolResultCount >= MAX_DIAGNOSTIC_COUNT) countOverflowed = true;
-      toolResultCount = Math.min(toolResultCount + 1, MAX_DIAGNOSTIC_COUNT);
-      if (typeof message.tool_call_id === "string") toolResultIds.add(message.tool_call_id);
-    }
+    countOverflowed ||= roleCount > MAX_DIAGNOSTIC_COUNT;
+    messageRoles[role] = capped(roleCount);
+    summarizeMessageContent(message, contentKinds, contentBlockTypes);
+    const calls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+    assistantToolCallCount += calls.length;
+    countOverflowed ||= assistantToolCallCount > MAX_DIAGNOSTIC_COUNT;
+    for (const call of calls) if (typeof call.id === "string") assistantIds.add(call.id);
+    if (message.role !== "tool") continue;
+    toolResultCount += 1;
+    countOverflowed ||= toolResultCount > MAX_DIAGNOSTIC_COUNT;
+    if (typeof message.tool_call_id === "string") resultIds.add(message.tool_call_id);
   }
+  const unmatchedAssistant = [...assistantIds].filter((id) => !resultIds.has(id)).length;
+  const unmatchedResults = [...resultIds].filter((id) => !assistantIds.has(id)).length;
+  countOverflowed ||= unmatchedAssistant > MAX_DIAGNOSTIC_COUNT || unmatchedResults > MAX_DIAGNOSTIC_COUNT;
+  return {
+    assistantToolCallCount: capped(assistantToolCallCount),
+    contentBlockTypes: [...contentBlockTypes].sort(),
+    contentKinds: [...contentKinds].sort(),
+    countOverflowed,
+    messageRoles,
+    toolResultCount: capped(toolResultCount),
+    unmatchedAssistantToolCallCount: capped(unmatchedAssistant),
+    unmatchedToolResultCount: capped(unmatchedResults),
+  };
+}
 
+function parametersSchemaInvalid(parameters: Record<string, unknown>): boolean {
+  const properties = parameters.properties;
+  const required = parameters.required;
+  if (parameters.type !== undefined && parameters.type !== "object") return true;
+  if (properties !== undefined && !isRecord(properties)) return true;
+  if (required === undefined) return false;
+  if (!Array.isArray(required) || required.some((item) => typeof item !== "string")) return true;
+  return isRecord(properties) && (required as string[]).some((item) =>
+    !Object.prototype.hasOwnProperty.call(properties, item));
+}
+
+function inspectTool(tool: unknown): {
+  fn: Record<string, unknown> | null;
+  functionTool: boolean;
+  issues: string[];
+  type: string;
+} {
+  if (!isRecord(tool)) {
+    return { fn: null, functionTool: false, issues: ["NON_FUNCTION_TOOL"], type: "other" };
+  }
+  const functionTool = tool.type === "function";
+  const fn = isRecord(tool.function) ? tool.function : null;
+  const issues: string[] = [];
+  if (!functionTool) issues.push("NON_FUNCTION_TOOL");
+  else if (!fn) issues.push("FUNCTION_MISSING");
+  if (fn && (typeof fn.name !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(fn.name))) {
+    issues.push("FUNCTION_NAME_INVALID");
+  }
+  if (fn && !isRecord(fn.parameters)) issues.push("PARAMETERS_NOT_OBJECT");
+  else if (fn && isRecord(fn.parameters) && parametersSchemaInvalid(fn.parameters)) {
+    issues.push("PARAMETERS_SCHEMA_INVALID");
+  }
+  return { fn, functionTool, issues, type: functionTool ? "function" : "other" };
+}
+
+function summarizeTools(tools: unknown[]): ToolShape {
   const toolTypes = new Set<string>();
   const schemaKeywords = new Set<string>();
   const schemaState = { maxDepth: 0, visited: 0, overflowed: false };
   const schemaCounts = { properties: 0 };
-  const toolSchemaIssueCounts: Record<string, number> = {};
-  const addIssue = (issue: string) => {
-    const next = (toolSchemaIssueCounts[issue] ?? 0) + 1;
-    if (next > MAX_DIAGNOSTIC_COUNT) countOverflowed = true;
-    toolSchemaIssueCounts[issue] = Math.min(next, MAX_DIAGNOSTIC_COUNT);
-  };
+  const issueCounts: Record<string, number> = {};
   let functionToolCount = 0;
   let invalidToolCount = 0;
-  for (const tool of body.tools ?? []) {
-    if (!isRecord(tool)) {
-      toolTypes.add("other");
-      addIssue("NON_FUNCTION_TOOL");
-      if (invalidToolCount >= MAX_DIAGNOSTIC_COUNT) countOverflowed = true;
-      invalidToolCount = Math.min(invalidToolCount + 1, MAX_DIAGNOSTIC_COUNT);
-      continue;
+  let countOverflowed = tools.length > MAX_DIAGNOSTIC_COUNT;
+  for (const tool of tools) {
+    const inspected = inspectTool(tool);
+    toolTypes.add(inspected.type);
+    functionToolCount += Number(inspected.functionTool);
+    invalidToolCount += Number(inspected.issues.length > 0);
+    countOverflowed ||= functionToolCount > MAX_DIAGNOSTIC_COUNT
+      || invalidToolCount > MAX_DIAGNOSTIC_COUNT;
+    for (const issue of inspected.issues) {
+      const next = (issueCounts[issue] ?? 0) + 1;
+      countOverflowed ||= next > MAX_DIAGNOSTIC_COUNT;
+      issueCounts[issue] = capped(next);
     }
-    const type = tool.type === "function" ? "function" : "other";
-    toolTypes.add(type);
-    const fn = isRecord(tool.function) ? tool.function : null;
-    let validFunction = true;
-    if (type !== "function") {
-      addIssue("NON_FUNCTION_TOOL");
-      validFunction = false;
-    } else if (fn === null) {
-      addIssue("FUNCTION_MISSING");
-      validFunction = false;
+    if (inspected.fn) {
+      collectSchemaShape(inspected.fn.parameters, schemaKeywords, 0, schemaState, schemaCounts);
     }
-    if (fn && (
-      typeof fn.name !== "string"
-      || !/^[A-Za-z0-9_-]{1,64}$/.test(fn.name)
-    )) {
-      addIssue("FUNCTION_NAME_INVALID");
-      validFunction = false;
-    }
-    const parameters = fn?.parameters;
-    if (fn && !isRecord(parameters)) {
-      addIssue("PARAMETERS_NOT_OBJECT");
-      validFunction = false;
-    } else if (isRecord(parameters)) {
-      const properties = parameters.properties;
-      const required = parameters.required;
-      const schemaInvalid = (parameters.type !== undefined && parameters.type !== "object")
-        || (properties !== undefined && !isRecord(properties))
-        || (required !== undefined && (
-          !Array.isArray(required)
-          || required.some((item) => typeof item !== "string")
-          || (isRecord(properties) && required.some((item) =>
-            typeof item === "string" && !Object.prototype.hasOwnProperty.call(properties, item)))
-        ));
-      if (schemaInvalid) {
-        addIssue("PARAMETERS_SCHEMA_INVALID");
-        validFunction = false;
-      }
-    }
-    if (type === "function") {
-      if (functionToolCount >= MAX_DIAGNOSTIC_COUNT) countOverflowed = true;
-      functionToolCount = Math.min(functionToolCount + 1, MAX_DIAGNOSTIC_COUNT);
-    }
-    if (!validFunction) {
-      if (invalidToolCount >= MAX_DIAGNOSTIC_COUNT) countOverflowed = true;
-      invalidToolCount = Math.min(invalidToolCount + 1, MAX_DIAGNOSTIC_COUNT);
-    }
-    if (fn) collectSchemaShape(fn.parameters, schemaKeywords, 0, schemaState, schemaCounts);
   }
-
-  const unmatchedAssistantRaw = [...assistantToolCallIds].filter((id) => !toolResultIds.has(id)).length;
-  const unmatchedToolResultRaw = [...toolResultIds].filter((id) => !assistantToolCallIds.has(id)).length;
-  if (unmatchedAssistantRaw > MAX_DIAGNOSTIC_COUNT || unmatchedToolResultRaw > MAX_DIAGNOSTIC_COUNT) {
-    countOverflowed = true;
-  }
-  const unmatchedAssistantToolCallCount = Math.min(unmatchedAssistantRaw, MAX_DIAGNOSTIC_COUNT);
-  const unmatchedToolResultCount = Math.min(unmatchedToolResultRaw, MAX_DIAGNOSTIC_COUNT);
-  const toolChoiceKind = typeof body.tool_choice === "string"
-    ? new Set(["auto", "none", "required"]).has(body.tool_choice) ? body.tool_choice : "other"
-    : isRecord(body.tool_choice)
-      ? body.tool_choice.type === "function" ? "function" : "object"
-      : body.tool_choice === undefined
-        ? null
-        : "other";
-
   return {
-    topLevelFields: TOP_LEVEL_FIELDS.filter((key) => Object.prototype.hasOwnProperty.call(body, key)),
-    messageCount: Math.min(body.messages.length, MAX_DIAGNOSTIC_COUNT),
-    messageRoles,
-    contentKinds: [...contentKinds].sort(),
-    contentBlockTypes: [...contentBlockTypes].sort(),
-    assistantToolCallCount,
-    toolResultCount,
-    unmatchedAssistantToolCallCount,
-    unmatchedToolResultCount,
-    toolCount: Math.min(body.tools?.length ?? 0, MAX_DIAGNOSTIC_COUNT),
-    functionToolCount,
-    invalidToolCount,
-    toolSchemaIssueCounts,
-    toolTypes: [...toolTypes].sort(),
+    countOverflowed: countOverflowed || schemaState.overflowed,
+    functionToolCount: capped(functionToolCount),
+    invalidToolCount: capped(invalidToolCount),
     schemaKeywords: [...schemaKeywords].sort(),
     schemaMaxDepth: schemaState.maxDepth,
     schemaNodeCount: schemaState.visited,
     schemaPropertyCount: schemaCounts.properties,
-    toolChoiceKind,
+    toolSchemaIssueCounts: issueCounts,
+    toolTypes: [...toolTypes].sort(),
+  };
+}
+
+function summarizeToolChoice(value: unknown): string | null {
+  if (typeof value === "string") {
+    return new Set(["auto", "none", "required"]).has(value) ? value : "other";
+  }
+  if (isRecord(value)) return value.type === "function" ? "function" : "object";
+  return value === undefined ? null : "other";
+}
+
+/** 构造不含正文、工具名和 Schema 属性名的请求形状摘要。 */
+export function buildRequestShapeSummary(body: ChatCompletionBody): RequestShapeSummary {
+  const messages = summarizeMessages(body.messages);
+  const tools = summarizeTools(body.tools ?? []);
+  return {
+    topLevelFields: TOP_LEVEL_FIELDS.filter((key) => Object.prototype.hasOwnProperty.call(body, key)),
+    messageCount: capped(body.messages.length),
+    messageRoles: messages.messageRoles,
+    contentKinds: messages.contentKinds,
+    contentBlockTypes: messages.contentBlockTypes,
+    assistantToolCallCount: messages.assistantToolCallCount,
+    toolResultCount: messages.toolResultCount,
+    unmatchedAssistantToolCallCount: messages.unmatchedAssistantToolCallCount,
+    unmatchedToolResultCount: messages.unmatchedToolResultCount,
+    toolCount: capped(body.tools?.length ?? 0),
+    functionToolCount: tools.functionToolCount,
+    invalidToolCount: tools.invalidToolCount,
+    toolSchemaIssueCounts: tools.toolSchemaIssueCounts,
+    toolTypes: tools.toolTypes,
+    schemaKeywords: tools.schemaKeywords,
+    schemaMaxDepth: tools.schemaMaxDepth,
+    schemaNodeCount: tools.schemaNodeCount,
+    schemaPropertyCount: tools.schemaPropertyCount,
+    toolChoiceKind: summarizeToolChoice(body.tool_choice),
     stream: body.stream,
     streamOptionsIncluded: body.stream_options !== undefined,
-    countOverflowed: countOverflowed || schemaState.overflowed,
+    countOverflowed: messages.countOverflowed || tools.countOverflowed,
   };
 }

@@ -138,7 +138,7 @@ export function parseUpstreamErrorEvidence(value: unknown): UpstreamErrorEvidenc
   const type = sanitizeUpstreamErrorType(value.type);
   const code = sanitizeUpstreamErrorCode(value.code);
   const param = sanitizeUpstreamErrorParam(value.param);
-  if (!diagnosticInteger(value.httpStatus, 599)
+  if (value.httpStatus !== 400
     || !(value.type === null || type !== null)
     || !(value.code === null || code !== null)
     || !(value.param === null || param === value.param)
