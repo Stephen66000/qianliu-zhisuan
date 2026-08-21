@@ -47,7 +47,7 @@ validate_env_file() {
 if test "${1:-}" = "--check-contract"; then
   test "$#" = 1 || { echo "用法: $0 --check-contract" >&2; exit 2; }
   bash -n "$0"
-  grep -q 'candidate_ref="refs/heads/codex/v2.1-upstream-error-evidence"' "$0"
+  grep -q 'candidate_ref="refs/heads/codex/v2.1-test-fixes-r2"' "$0"
   grep -q 'target_head="0055_upstream_error_evidence"' "$0"
   grep -q '0054_usage_aggregate_settlement_time' "$0"
   grep -q '0055_upstream_error_evidence.js' "$0"
@@ -63,8 +63,8 @@ elif test "$#" -ne 0; then
   exit 2
 fi
 
-repo_url="git@github.com:Stephen66000/qianliu-zhisuan.git"
-candidate_ref="refs/heads/codex/v2.1-upstream-error-evidence"
+repo_url="https://github.com/Stephen66000/qianliu-zhisuan.git"
+candidate_ref="refs/heads/codex/v2.1-test-fixes-r2"
 candidate_commit="${CANDIDATE_COMMIT:?请传入 GitHub 上已审核候选的完整 Commit SHA}"
 candidate_tree="${CANDIDATE_TREE:?请传入已审核候选的完整 Tree SHA}"
 target_head="0055_upstream_error_evidence"

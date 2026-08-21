@@ -13,7 +13,8 @@ describe("POOL20-048 Mac Mini 发布合同", () => {
     expect(execFileSync("bash", [script, "--check-contract"], { encoding: "utf8" }))
       .toContain("release_contract_check=PASS");
     const source = readFileSync(script, "utf8");
-    expect(source).toContain('candidate_ref="refs/heads/codex/v2.1-upstream-error-evidence"');
+    expect(source).toContain('candidate_ref="refs/heads/codex/v2.1-test-fixes-r2"');
+    expect(source).toContain('repo_url="https://github.com/Stephen66000/qianliu-zhisuan.git"');
     expect(source).toContain('candidate_commit="${CANDIDATE_COMMIT:?');
     expect(source).toContain('candidate_tree="${CANDIDATE_TREE:?');
     expect(source).toContain('product_commit="e2d64e93d5bd47612c162035796610358b6def2d"');

@@ -3,12 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OperatingBill, OperatingBillProvider } from "../api/operating-bills";
+import type * as OperatingBillsApi from "../api/operating-bills";
 import { RechargeEntry } from "./OperatingBillRechargeEntry";
 
 const mutate = vi.fn();
 let mutationState = { mutate, isPending: false, error: null as Error | null };
 vi.mock("../api/operating-bills", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../api/operating-bills")>()),
+  ...(await importOriginal<typeof OperatingBillsApi>()),
   useRecordResourcePurchase: () => mutationState,
 }));
 
