@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mac Mini 原位发布：从 2.2 已部署迁移头 0052 升级到 2.1 第二轮整改 / 0054。
+# Mac Mini 原位发布：支持从 0052 升级到 0054，或在已是 0054 时只发布应用。
 # 保持既有 qianliu-zhisuan Compose 项目、双域名和端口拓扑不变。
 
 set -Eeuo pipefail
@@ -64,7 +64,7 @@ elif test "$#" -ne 0; then
   exit 2
 fi
 
-repo_url="git@github.com:Stephen66000/qianliu-zhisuan.git"
+repo_url="https://github.com/Stephen66000/qianliu-zhisuan.git"
 candidate_ref="refs/heads/codex/v2.1-test-fixes-r2"
 candidate_commit="${CANDIDATE_COMMIT:?请传入 GitHub 上已审核候选的完整 Commit SHA}"
 candidate_tree="${CANDIDATE_TREE:?请传入已审核候选的完整 Tree SHA}"
@@ -227,8 +227,10 @@ validate_env_file "$release/deploy/.env"
 
 log "step 2: verify supported production database baseline"
 source_head="$(db_query 'SELECT name FROM kysely_migration ORDER BY timestamp DESC LIMIT 1;')"
-test "$source_head" = "0052_dispatch_restore_and_resource_utilization" \
-  || { log "unsupported source migration=${source_head}; expected 0052"; exit 2; }
+case "$source_head" in
+  "0052_dispatch_restore_and_resource_utilization"|"$target_head") ;;
+  *) log "unsupported source migration=${source_head}; expected 0052 or ${target_head}"; exit 2 ;;
+esac
 log "database source=${source_head} target=${target_head}"
 
 log "step 3: freeze previous application images"
