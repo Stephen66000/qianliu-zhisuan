@@ -205,6 +205,15 @@ export interface ErrorEnvelope {
       upstream_code: string | null;
       param: string | null;
       hash: string;
+      request_issues: Array<{
+        code:
+          | "NON_FUNCTION_TOOL"
+          | "FUNCTION_MISSING"
+          | "FUNCTION_NAME_INVALID"
+          | "PARAMETERS_NOT_OBJECT"
+          | "PARAMETERS_SCHEMA_INVALID";
+        count: number;
+      }>;
     };
   };
 }

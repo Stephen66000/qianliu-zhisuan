@@ -1,0 +1,21 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "reporters": ["clear-text", "json"],
+  "jsonReporter": { "fileName": "reports/mutation/pool048.json" },
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.pool048.mutation.config.ts" },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/upstream-error-evidence.ts:73:1-103:2",
+    "src/upstream-error-evidence.ts:225:1-234:2",
+    "src/upstream-error-evidence.ts:236:1-263:2",
+    "src/upstream-error-evidence.ts:307:1-334:2"
+  ],
+  "thresholds": { "high": 100, "low": 90, "break": 80 },
+  "timeoutMS": 60000,
+  "concurrency": 2,
+  "disableTypeChecks": true,
+  "cleanTempDir": true
+}

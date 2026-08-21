@@ -4,6 +4,7 @@ import {
   NORTHBOUND_ENDPOINTS,
   CAPABILITY_MATRIX,
   UNSUPPORTED_POST_PATHS,
+  parseUpstreamErrorEvidence,
   type ErrorEnvelope,
 } from "../index.js";
 
@@ -59,9 +60,14 @@ describe("@qianliu/contracts baseline", () => {
           upstream_code: "invalid_request_error",
           param: null,
           hash: "0".repeat(64),
+          request_issues: [],
         },
       },
     };
     expect(envelope.error.diagnostic?.category).toBe("INVALID_TOOL_SCHEMA");
+    expect(parseUpstreamErrorEvidence({
+      httpStatus: 429, type: "rate_limit_error", code: "rate_limit_exceeded",
+      param: null, messageCategory: "UNCLASSIFIED", diagnosticHash: "0".repeat(64),
+    })).toBeNull();
   });
 });

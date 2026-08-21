@@ -10,9 +10,7 @@ import { GatewayLedgerRepository } from "../repositories/gateway-ledger-reposito
 let pg: PostgresTestInstance;
 
 beforeAll(async () => {
-  pg = process.env.POOL048_MIGRATION_DATABASE_URL
-    ? { connectionString: process.env.POOL048_MIGRATION_DATABASE_URL, stop: async () => undefined }
-    : await startPostgresContainer("pool048_upstream_error_evidence");
+  pg = await startPostgresContainer("pool048_upstream_error_evidence");
 }, 120_000);
 
 afterAll(async () => {
@@ -117,12 +115,31 @@ describe("POOL20-048 0055 上游错误证据", () => {
         .select(["upstream_error_evidence", "request_shape_summary"])
         .where("id", "=", unsafeAttempt.id).executeTakeFirstOrThrow();
       expect(unsafeStored).toEqual({ upstream_error_evidence: null, request_shape_summary: null });
+      await repository.updateAttemptResult(unsafeAttempt.id, {
+        http_status: 429,
+        upstream_error_evidence: safeEvidence,
+        request_shape_summary: safeShape,
+      });
+      expect(await db.selectFrom("upstream_attempt")
+        .select(["upstream_error_evidence", "request_shape_summary"])
+        .where("id", "=", unsafeAttempt.id).executeTakeFirstOrThrow()).toEqual({
+        upstream_error_evidence: null, request_shape_summary: null,
+      });
       const canaryHits = await sql<{ hits: string }>`
         SELECT count(*)::text AS hits FROM upstream_attempt
          WHERE coalesce(upstream_error_evidence::text, '') LIKE ${`%${canary}%`}
             OR coalesce(request_shape_summary::text, '') LIKE ${`%${canary}%`}
       `.execute(db);
       expect(canaryHits.rows[0]?.hits).toBe("0");
+
+      await expect(db.updateTable("upstream_attempt").set({
+        upstream_error_evidence: safeEvidence,
+        request_shape_summary: null,
+      }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow();
+      await expect(db.updateTable("upstream_attempt").set({
+        upstream_error_evidence: { ...safeEvidence, httpStatus: 429 },
+        request_shape_summary: safeShape,
+      }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow();
 
       await expect(db.updateTable("upstream_attempt").set({
         request_shape_summary: { oversized: "x".repeat(5_000) },

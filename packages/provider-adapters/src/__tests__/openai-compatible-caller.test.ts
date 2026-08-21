@@ -619,6 +619,31 @@ describe("OpenAI-compatible HTTP caller", () => {
     });
   });
 
+  it("Retry-After HTTP 日期和非法恢复时间都有稳定边界", async () => {
+    const future = new Date(Date.now() + 60_000).toUTCString();
+    const dated = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse(
+        { error: { code: "rate_limit_exceeded", message: "too many requests", resetTime: 1e20 } },
+        429,
+        { "retry-after": future },
+      ),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+    });
+    const outcome = await dated(resource(), responsesRequest(), 1);
+    expect(outcome.retryAfterMs).toBeGreaterThan(0);
+    expect(outcome.recoverAt).toBeDefined();
+
+    const invalid = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse(
+        { error: { code: "rate_limit_exceeded", message: "too many requests" } },
+        429,
+        { "retry-after": "not-a-date" },
+      ),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+    });
+    expect((await invalid(resource(), responsesRequest(), 1)).retryAfterMs).toBeUndefined();
+  });
+
   it("流式聚合文本、分片工具参数和最终 Usage，供 Gateway 输出 Responses SSE", async () => {
     const events = [
       "data: {\"choices\":[{\"delta\":{\"content\":\"真实\"}}]}\n\n",

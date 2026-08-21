@@ -27,9 +27,7 @@ const ENT_ID = randomUUID();
 const ADM_ID = randomUUID();
 
 beforeAll(async () => {
-  pg = process.env.POOL048_CONTROL_DATABASE_URL
-    ? { connectionString: process.env.POOL048_CONTROL_DATABASE_URL, stop: async () => undefined }
-    : await startPostgresContainer();
+  pg = await startPostgresContainer();
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
 

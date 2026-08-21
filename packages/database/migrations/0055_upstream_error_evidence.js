@@ -29,6 +29,15 @@ export async function up(db) {
             jsonb_typeof(request_shape_summary) = 'object'
             AND pg_column_size(request_shape_summary) <= 4096
           )
+        ) NOT VALID,
+      ADD CONSTRAINT upstream_attempt_diagnostic_pair_check
+        CHECK (
+          (upstream_error_evidence IS NULL) = (request_shape_summary IS NULL)
+        ) NOT VALID,
+      ADD CONSTRAINT upstream_attempt_diagnostic_status_check
+        CHECK (
+          upstream_error_evidence IS NULL
+          OR upstream_error_evidence ->> 'httpStatus' = '400'
         ) NOT VALID
   `.execute(db);
 }
