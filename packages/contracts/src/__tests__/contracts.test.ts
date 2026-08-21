@@ -4,6 +4,7 @@ import {
   NORTHBOUND_ENDPOINTS,
   CAPABILITY_MATRIX,
   UNSUPPORTED_POST_PATHS,
+  type ErrorEnvelope,
 } from "../index.js";
 
 describe("@qianliu/contracts baseline", () => {
@@ -42,5 +43,25 @@ describe("@qianliu/contracts baseline", () => {
       "/v1/embeddings",
       "/v1/messages/count_tokens",
     ]);
+  });
+
+  it("POOL20-048：400 envelope 只允许脱敏诊断扩展", () => {
+    const envelope: ErrorEnvelope = {
+      error: {
+        message: "上游拒绝请求：INVALID_TOOL_SCHEMA；诊断 0123456789ab",
+        type: "invalid_request_error",
+        code: "invalid_request_error",
+        param: null,
+        retryable: false,
+        diagnostic: {
+          category: "INVALID_TOOL_SCHEMA",
+          upstream_type: "invalid_request_error",
+          upstream_code: "invalid_request_error",
+          param: null,
+          hash: "0".repeat(64),
+        },
+      },
+    };
+    expect(envelope.error.diagnostic?.category).toBe("INVALID_TOOL_SCHEMA");
   });
 });

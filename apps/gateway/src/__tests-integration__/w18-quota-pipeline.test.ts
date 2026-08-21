@@ -216,7 +216,9 @@ async function counterValue(grantId: string): Promise<{ used: bigint; overage: b
 }
 
 beforeAll(async () => {
-  pg = await startPostgresContainer();
+  pg = process.env.POOL048_GATEWAY_DATABASE_URL
+    ? { connectionString: process.env.POOL048_GATEWAY_DATABASE_URL, stop: async () => undefined }
+    : await startPostgresContainer();
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
   poolRepo = new ResourcePoolRepository(db);
@@ -550,8 +552,29 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
     }
   }, 60_000);
 
-  it("上游 400 原样返回且不重试、不污染资源健康", async () => {
+  it("POOL20-048：上游 400 返回脱敏诊断、落 Attempt 且不重试或污染资源健康", async () => {
     let calls = 0;
+    const canary = "POOL048_PRIVATE_REQUEST_CONTENT";
+    const evidence = {
+      httpStatus: 400,
+      type: "invalid_request_error",
+      code: "invalid_request_error",
+      param: "tools[].function.parameters.properties.*",
+      messageCategory: "INVALID_TOOL_SCHEMA" as const,
+      diagnosticHash: "2".repeat(64),
+    };
+    const shape = {
+      topLevelFields: ["messages", "model", "stream", "stream_options", "tools"],
+      messageCount: 1, messageRoles: { user: 1 }, contentKinds: ["string"],
+      contentBlockTypes: [], assistantToolCallCount: 0, toolResultCount: 0,
+      unmatchedAssistantToolCallCount: 0, unmatchedToolResultCount: 0,
+      toolCount: 1, functionToolCount: 1, invalidToolCount: 1,
+      toolSchemaIssueCounts: { PARAMETERS_SCHEMA_INVALID: 1 },
+      toolTypes: ["function"], schemaKeywords: ["properties", "required", "type"],
+      schemaMaxDepth: 4, schemaNodeCount: 10, schemaPropertyCount: 1,
+      toolChoiceKind: "auto", stream: true, streamOptionsIncluded: true,
+      countOverflowed: false,
+    };
     const fx = await buildFixture({
       mode: "CODING_PLAN",
       quotaValue: 100_000n,
@@ -562,6 +585,8 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
           committed: false,
           usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
           error: "invalid_request_error",
+          upstreamErrorEvidence: evidence,
+          requestShapeSummary: shape,
           failureLayer: "UPSTREAM_HTTP",
         };
       },
@@ -574,7 +599,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
         payload: {
           model: KIMI_ALIAS,
           max_tokens: 256,
-          messages: [{ role: "user", content: "触发非法工具协议" }],
+          messages: [{ role: "user", content: canary }],
         },
       });
 
@@ -582,9 +607,34 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect(response.json().error).toMatchObject({
         type: "invalid_request_error",
         code: "invalid_request_error",
+        param: "tools[].function.parameters.properties.*",
         retryable: false,
+        diagnostic: {
+          category: "INVALID_TOOL_SCHEMA",
+          upstream_type: "invalid_request_error",
+          upstream_code: "invalid_request_error",
+          param: "tools[].function.parameters.properties.*",
+          hash: "2".repeat(64),
+        },
       });
+      expect(JSON.stringify(response.json())).not.toContain(canary);
       expect(calls).toBe(1);
+      const requestId = response.json().error.request_id as string;
+      const attempts = await ledgerRepo.listAttempts(requestId);
+      expect(attempts).toHaveLength(1);
+      expect(attempts[0]).toMatchObject({
+        http_status: 400,
+        error_classification: "CLIENT_INVALID",
+        error_code: "invalid_request_error",
+        upstream_error_evidence: evidence,
+        request_shape_summary: shape,
+      });
+      expect(JSON.stringify(attempts[0])).not.toContain(canary);
+      const transaction = await ledgerRepo.getLedgerTransaction(requestId);
+      expect(transaction).toMatchObject({
+        total_input_tokens: "0", total_output_tokens: "0", attempt_count: 1,
+        status: "SETTLED",
+      });
       const resource = await db.selectFrom("provider_resource")
         .select(["status", "consecutive_failures"])
         .where("id", "=", fx.resourceId)

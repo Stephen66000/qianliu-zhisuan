@@ -167,6 +167,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0052_dispatch_restore_and_resource_utilization", "Success"],
         ["0053_operating_bill_opening_balance", "Success"],
         ["0054_usage_aggregate_settlement_time", "Success"],
+        ["0055_upstream_error_evidence", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -231,6 +232,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       await db.updateTable("usage_event").set({ usage_quality: "PROVIDER_REPORTED" })
         .where("enterprise_id", "=", enterpriseId).execute();
 
+      expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
       expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
       const rolledBackQualityConstraint = await sql<{ definition: string }>`
         SELECT pg_get_constraintdef(oid) AS definition
@@ -288,6 +290,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0052_dispatch_restore_and_resource_utilization", "Success"],
         ["0053_operating_bill_opening_balance", "Success"],
         ["0054_usage_aggregate_settlement_time", "Success"],
+        ["0055_upstream_error_evidence", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
@@ -360,6 +363,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         .execute()).rejects.toThrow(/append-only/i);
       await expect(db.deleteFrom("operating_bill_opening_balance")
         .where("provider_resource_id", "=", resourceId).execute()).rejects.toThrow(/append-only/i);
+      expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
       expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
       await expect(migrateDown(db)).rejects.toThrow(/0053 contains opening balance facts/);
       expect(await db.selectFrom("operating_bill_opening_balance").select("id")

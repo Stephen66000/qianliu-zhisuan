@@ -12,6 +12,11 @@
 import type { Outcome } from "@qianliu/contracts";
 import type { SecretValue } from "./secret-value.js";
 
+export {
+  parseRequestShapeSummary,
+  parseUpstreamErrorEvidence,
+} from "@qianliu/contracts";
+
 export { SecretValue } from "./secret-value.js";
 
 /**

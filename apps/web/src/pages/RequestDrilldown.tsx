@@ -3,6 +3,7 @@
  *
  * 字体三级收敛 + 颜色纪律；内部快照默认摘要展示，原始调度输入按需展开。
  */
+import type { RequestShapeSummary } from "@qianliu/contracts";
 import {
   useAttempts,
   useDispatchDecision,
@@ -167,6 +168,20 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                       : "进行中"}
                   </span>
                 </div>
+                {a.upstreamErrorEvidence ? (
+                  <div className="mt-1.5 rounded-md bg-ql-danger-soft px-2.5 py-2 text-[12px] leading-[18px] text-ql-fg-secondary">
+                    <span className="font-medium text-ql-danger">上游拒绝：{diagnosticCategory(a.upstreamErrorEvidence.messageCategory)}</span>
+                    {a.upstreamErrorEvidence.type ? ` · type ${a.upstreamErrorEvidence.type}` : ""}
+                    {a.upstreamErrorEvidence.code ? ` · code ${a.upstreamErrorEvidence.code}` : ""}
+                    {a.upstreamErrorEvidence.param ? ` · 字段 ${a.upstreamErrorEvidence.param}` : ""}
+                    {` · 诊断 ${a.upstreamErrorEvidence.diagnosticHash.slice(0, 12)}`}
+                    {a.requestShapeSummary ? (
+                      <span className="mt-1 block text-ql-fg-tertiary">
+                        {requestShapeText(a.requestShapeSummary)}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
                 {/* P1-04：该 Attempt 的逐条计量明细（token/扣减/费用/计量质量） */}
                 {a.metering.length > 0 ? (
                   <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 border-t border-ql-border-zone pt-1.5">
@@ -336,6 +351,37 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
       </p>
     </div>
   );
+}
+
+function diagnosticCategory(category: string): string {
+  const labels: Record<string, string> = {
+    UNSUPPORTED_PARAMETER: "不支持的参数",
+    INVALID_PARAMETER: "参数无效",
+    INVALID_MESSAGE_CONTENT: "消息内容不兼容",
+    INVALID_TOOL_SCHEMA: "工具 Schema 不兼容",
+    CONTEXT_LENGTH_EXCEEDED: "超出上下文长度",
+    MODEL_UNAVAILABLE: "模型不可用",
+    UNCLASSIFIED: "未分类请求错误",
+  };
+  return labels[category] ?? "未分类请求错误";
+}
+
+function requestShapeText(shape: RequestShapeSummary): string {
+  const unmatched = shape.unmatchedAssistantToolCallCount + shape.unmatchedToolResultCount;
+  const issues = Object.entries(shape.toolSchemaIssueCounts)
+    .filter(([, count]) => count > 0)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([issue, count]) => `${issue}:${count}`)
+    .join("/");
+  return [
+    `结构：消息 ${shape.messageCount}`,
+    `内容类型 ${shape.contentKinds.join("/") || "无"}`,
+    `工具 ${shape.toolCount}（函数 ${shape.functionToolCount}／异常 ${shape.invalidToolCount}）`,
+    `Schema 深度 ${shape.schemaMaxDepth}／节点 ${shape.schemaNodeCount}／属性 ${shape.schemaPropertyCount}`,
+    `未配对工具事件 ${unmatched}`,
+    issues ? `Schema 问题 ${issues}` : "",
+    shape.countOverflowed ? "计数已达安全上限" : "",
+  ].filter(Boolean).join(" · ");
 }
 
 function Field({ label, value }: { label: string; value: string }) {

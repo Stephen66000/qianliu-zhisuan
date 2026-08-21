@@ -10,6 +10,10 @@
  * 由网关侧写入时已脱敏，本路由原样返回不二次加工。
  */
 import type { FastifyInstance } from "fastify";
+import {
+  parseRequestShapeSummary,
+  parseUpstreamErrorEvidence,
+} from "@qianliu/contracts";
 import { requireAuth } from "../plugins/auth-guard.js";
 
 /** 校验请求归属本企业，返回 404 或请求行。 */
@@ -124,6 +128,8 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
           errorClassification: a.error_classification,
           errorCode: a.error_code,
           failureLayer: a.failure_layer,
+          upstreamErrorEvidence: parseUpstreamErrorEvidence(a.upstream_error_evidence),
+          requestShapeSummary: parseRequestShapeSummary(a.request_shape_summary),
           responseCommitted: a.response_committed,
           switchReason: a.switch_reason,
           // P1-04：该 Attempt 的逐条计量明细

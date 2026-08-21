@@ -499,6 +499,10 @@ export interface UpstreamAttemptTable {
   response_committed: Generated<boolean>;
   failure_layer: string | null;
   switch_reason: string | null;
+  /** POOL20-048：上游原始错误正文的脱敏结构化证据。 */
+  upstream_error_evidence: Generated<Record<string, unknown> | null>;
+  /** POOL20-048：不含正文、工具名和参数值的请求形状摘要。 */
+  request_shape_summary: Generated<Record<string, unknown> | null>;
 }
 
 export interface UsageEventTable {

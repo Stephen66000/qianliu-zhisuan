@@ -1,3 +1,5 @@
+import type { RequestShapeSummary, UpstreamErrorEvidence } from "@qianliu/contracts";
+
 export interface GatewayRequestDetail {
   request: {
     id: string;
@@ -88,6 +90,8 @@ export interface AttemptItem {
   errorClassification: string | null;
   errorCode: string | null;
   failureLayer: string | null;
+  upstreamErrorEvidence: UpstreamErrorEvidence | null;
+  requestShapeSummary: RequestShapeSummary | null;
   responseCommitted: boolean;
   switchReason: string | null;
   metering: AttemptMetering[];

@@ -87,6 +87,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
+      expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
       expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
       expect(await migrateDown(db)).toBe("0053_operating_bill_opening_balance");
       expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");

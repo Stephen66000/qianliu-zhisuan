@@ -27,7 +27,9 @@ const ENT_ID = randomUUID();
 const ADM_ID = randomUUID();
 
 beforeAll(async () => {
-  pg = await startPostgresContainer();
+  pg = process.env.POOL048_CONTROL_DATABASE_URL
+    ? { connectionString: process.env.POOL048_CONTROL_DATABASE_URL, stop: async () => undefined }
+    : await startPostgresContainer();
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
 
@@ -255,6 +257,80 @@ describe("W20 诊断下钻", () => {
     expect(attempts[0].responseCommitted).toBe(false);
     expect(attempts[0].switchReason).toBe("upstream_5xx");
     expect(attempts[1].httpStatus).toBe(200);
+  });
+
+  it("POOL20-048：Attempt 诊断按白名单返回，污染 jsonb fail-closed 且跨企业 404", async () => {
+    const { requestId } = await seedRequestChain();
+    const attempt = await db.selectFrom("upstream_attempt")
+      .select("id").where("ai_request_id", "=", requestId).orderBy("attempt_no").executeTakeFirstOrThrow();
+    const evidence = {
+      httpStatus: 400, type: "invalid_request_error", code: "invalid_request_error",
+      param: "tools[].function.parameters.properties.*",
+      messageCategory: "INVALID_TOOL_SCHEMA", diagnosticHash: "4".repeat(64),
+    };
+    const shape = {
+      topLevelFields: ["messages", "model", "stream", "stream_options", "tools"],
+      messageCount: 2, messageRoles: { system: 1, user: 1 }, contentKinds: ["string"],
+      contentBlockTypes: [], assistantToolCallCount: 0, toolResultCount: 0,
+      unmatchedAssistantToolCallCount: 0, unmatchedToolResultCount: 0,
+      toolCount: 1, functionToolCount: 1, invalidToolCount: 1,
+      toolSchemaIssueCounts: { FUNCTION_NAME_INVALID: 1 }, toolTypes: ["function"],
+      schemaKeywords: ["properties", "required", "type"], schemaMaxDepth: 4,
+      schemaNodeCount: 10, schemaPropertyCount: 2, toolChoiceKind: "auto",
+      stream: true, streamOptionsIncluded: true, countOverflowed: false,
+    };
+    await db.updateTable("upstream_attempt").set({
+      upstream_error_evidence: evidence,
+      request_shape_summary: shape,
+    }).where("id", "=", attempt.id).execute();
+
+    const safe = await app.inject({
+      method: "GET", url: `/gateway-requests/${requestId}/attempts`,
+      headers: { cookie: adminCookie },
+    });
+    expect(safe.statusCode).toBe(200);
+    expect(safe.json().attempts[0]).toMatchObject({
+      upstreamErrorEvidence: evidence,
+      requestShapeSummary: shape,
+    });
+
+    const canary = "POOL048_PRIVATE_CONTROL_CANARY";
+    await db.updateTable("upstream_attempt").set({
+      upstream_error_evidence: { message: canary },
+      request_shape_summary: { toolName: canary },
+    }).where("id", "=", attempt.id).execute();
+    const polluted = await app.inject({
+      method: "GET", url: `/gateway-requests/${requestId}/attempts`,
+      headers: { cookie: adminCookie },
+    });
+    expect(polluted.statusCode).toBe(200);
+    expect(polluted.json().attempts[0]).toMatchObject({
+      upstreamErrorEvidence: null,
+      requestShapeSummary: null,
+    });
+    expect(JSON.stringify(polluted.json())).not.toContain(canary);
+
+    const otherEnterpriseId = randomUUID();
+    const otherPrincipalId = randomUUID();
+    const otherKeyId = randomUUID();
+    const otherRequestId = randomUUID();
+    await db.insertInto("enterprise").values({ id: otherEnterpriseId, name: "POOL048 其他企业" }).execute();
+    await db.insertInto("principal").values({
+      id: otherPrincipalId, enterprise_id: otherEnterpriseId, type: "EMPLOYEE", name: "其他员工",
+    }).execute();
+    await db.insertInto("principal_key").values({
+      id: otherKeyId, enterprise_id: otherEnterpriseId, principal_id: otherPrincipalId,
+      key_prefix: "pool048-other", key_digest: randomUUID(), allowed_model_ids: [],
+    }).execute();
+    await db.insertInto("ai_request").values({
+      id: otherRequestId, enterprise_id: otherEnterpriseId, principal_id: otherPrincipalId,
+      principal_key_id: otherKeyId, protocol: "chat", unified_model: "ql-other",
+    }).execute();
+    const denied = await app.inject({
+      method: "GET", url: `/gateway-requests/${otherRequestId}/attempts`,
+      headers: { cookie: adminCookie },
+    });
+    expect(denied.statusCode).toBe(404);
   });
 
   it("GET /gateway-requests/:id/dispatch-decision 返回决策（WT-16/17）", async () => {

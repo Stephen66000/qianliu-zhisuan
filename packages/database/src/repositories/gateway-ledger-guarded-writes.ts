@@ -1,4 +1,8 @@
 import type { Kysely } from "kysely";
+import {
+  parseRequestShapeSummary,
+  parseUpstreamErrorEvidence,
+} from "@qianliu/provider-adapters";
 
 import type { Database } from "../kysely.js";
 import type {
@@ -22,6 +26,8 @@ export interface AttemptResultUpdate {
   error_code?: string | null;
   failure_layer?: string | null;
   switch_reason?: string | null;
+  upstream_error_evidence?: Record<string, unknown> | null;
+  request_shape_summary?: Record<string, unknown> | null;
 }
 
 interface TerminalRequestIdentity {
@@ -136,13 +142,26 @@ export async function updateGuardedAttemptResult(
   id: string,
   update: AttemptResultUpdate,
 ): Promise<void> {
+  const safeUpdate: AttemptResultUpdate = { ...update };
+  if (update.upstream_error_evidence !== undefined) {
+    const parsed = update.upstream_error_evidence === null
+      ? null
+      : parseUpstreamErrorEvidence(update.upstream_error_evidence);
+    safeUpdate.upstream_error_evidence = parsed ? { ...parsed } : null;
+  }
+  if (update.request_shape_summary !== undefined) {
+    const parsed = update.request_shape_summary === null
+      ? null
+      : parseRequestShapeSummary(update.request_shape_summary);
+    safeUpdate.request_shape_summary = parsed ? { ...parsed } : null;
+  }
   await db.transaction().execute(async (trx) => {
     const attempt = await trx.selectFrom("upstream_attempt")
       .select(["ai_request_id", "enterprise_id"])
       .where("id", "=", id).executeTakeFirst();
     if (!attempt) throw new GatewayLedgerSettlementConflictError("settlement_attempt_not_found");
     await lockRequestForSettlementWrite(trx, attempt.enterprise_id, attempt.ai_request_id);
-    await trx.updateTable("upstream_attempt").set(update)
+    await trx.updateTable("upstream_attempt").set(safeUpdate)
       .where("id", "=", id)
       .where("ai_request_id", "=", attempt.ai_request_id)
       .where("enterprise_id", "=", attempt.enterprise_id).execute();

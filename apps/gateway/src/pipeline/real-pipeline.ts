@@ -75,6 +75,7 @@ import { buildEffectiveBody, type TruncationConfig } from "./history-truncation.
 import { sendModelNotAllowed } from "../auth/principal-auth.js";
 import { getCurrentInvocationAuthorization } from "../auth/current-model-authorization.js";
 import { resolveRequestModelIdentity } from "./request-model-identity.js";
+import { attemptDiagnosticUpdate, northboundFailurePresentation } from "./upstream-error-diagnostic.js";
 
 /** 路由候选（listCandidates 返回；硬过滤 + model_route 配置）。 */
 export interface RouteCandidateRow {
@@ -853,6 +854,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
         error_classification: classification,
         error_code: outcome.error ?? null,
         failure_layer: outcome.failureLayer ?? null,
+        ...attemptDiagnosticUpdate(outcome),
         switch_reason: null,
       });
 
@@ -1167,11 +1169,8 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       const errorCode = quotaExhausted
         ? "upstream_quota_exhausted"
         : finalOutcome.error;
-      const errorMessage = quotaExhausted
-        ? `${providerDisplayName(finalOutcomeProviderCode)}厂商额度已用完，请等待额度重置${finalOutcome.recoverAt ? `（${finalOutcome.recoverAt}）` : "（下一重置时间未知）"}`
-        : finalOutcome.status === 429
-          ? "上游套餐暂时限流，请稍后重试"
-          : finalOutcome.error;
+      const failurePresentation = northboundFailurePresentation(finalOutcome, providerDisplayName(finalOutcomeProviderCode), quotaExhausted);
+      const { message: errorMessage } = failurePresentation;
       if (finalOutcome.retryAfterMs !== undefined) {
         reply.header("retry-after", Math.max(1, Math.ceil(finalOutcome.retryAfterMs / 1_000)));
       }
@@ -1180,8 +1179,9 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
           message: errorMessage,
           type: errorType,
           code: errorCode,
-          param: null,
+          param: failurePresentation.param,
           retryable,
+          ...failurePresentation.diagnosticExtension,
           ...(finalOutcome.retryAfterMs === undefined
             ? {}
             : { retry_after_ms: finalOutcome.retryAfterMs }),

@@ -192,6 +192,20 @@ export interface ErrorEnvelope {
     recover_at?: string;
     event_id?: string;
     retry_after_ms?: number;
+    diagnostic?: {
+      category:
+        | "UNSUPPORTED_PARAMETER"
+        | "INVALID_PARAMETER"
+        | "INVALID_MESSAGE_CONTENT"
+        | "INVALID_TOOL_SCHEMA"
+        | "CONTEXT_LENGTH_EXCEEDED"
+        | "MODEL_UNAVAILABLE"
+        | "UNCLASSIFIED";
+      upstream_type: string | null;
+      upstream_code: string | null;
+      param: string | null;
+      hash: string;
+    };
   };
 }
 
