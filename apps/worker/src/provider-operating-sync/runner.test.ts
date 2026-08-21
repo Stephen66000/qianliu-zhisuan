@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sql } from "kysely";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createKysely, migrateToLatest, ProviderRepository } from "@qianliu/database";
 import { encryptCredential, type ProviderOperatingFetch } from "@qianliu/provider-adapters";
@@ -18,6 +19,11 @@ describe("POOL20-025 每日经营同步", () => {
       const enterpriseId = randomUUID(); const providerId = randomUUID(); const resourceId = randomUUID();
       const kek = Buffer.alloc(32, 7); const kekBase64 = kek.toString("base64");
       await db.insertInto("enterprise").values({ id: enterpriseId, name: "经营同步测试" }).execute();
+      const adminId = randomUUID();
+      await db.insertInto("admin_user").values({
+        id: adminId, enterprise_id: enterpriseId, username: "sync-admin",
+        password_hash: "not-used", status: "ACTIVE",
+      }).execute();
       await db.insertInto("provider").values({
         id: providerId, enterprise_id: enterpriseId, code: "deepseek", name: "DeepSeek", adapter_type: "OPENAI_COMPATIBLE",
       }).execute();
@@ -31,18 +37,41 @@ describe("POOL20-025 每日经营同步", () => {
         recharge_amount: "100", current_balance: "80", current_period_cost: "20",
         balance_source: "ADMIN", cost_source: "ADMIN",
       });
-      const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({
+      let balanceCalls = 0;
+      const fetch = vi.fn(async () => {
+        balanceCalls += 1;
+        return { ok: true, status: 200, json: async () => ({
         is_available: true,
-        balance_infos: [{ currency: "CNY", total_balance: "68", granted_balance: "8", topped_up_balance: "60" }],
-      }) })) as unknown as ProviderOperatingFetch;
+        balance_infos: [{
+          currency: "CNY", total_balance: balanceCalls > 1 ? "100" : "68",
+          granted_balance: "8", topped_up_balance: balanceCalls > 1 ? "92" : "60",
+        }],
+        }) };
+      }) as unknown as ProviderOperatingFetch;
       const now = new Date("2026-08-18T01:00:00Z");
       await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now })).resolves.toMatchObject({ snapshotsCreated: 1, failed: 0 });
       await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now })).resolves.toMatchObject({ snapshotsCreated: 0 });
       expect(fetch).toHaveBeenCalledTimes(1);
+      await db.updateTable("provider_resource").set({ status: "EXHAUSTED" })
+        .where("id", "=", resourceId).execute();
+      await sql`
+        INSERT INTO resource_purchase_record
+          (enterprise_id, provider_resource_id, purchase_type, amount, currency,
+           purchased_at, source, created_by, created_at)
+        VALUES (${enterpriseId}::uuid, ${resourceId}::uuid, 'API_RECHARGE', 100, 'CNY',
+                '2026-08-18T02:00:00Z'::timestamptz, 'ADMIN', ${adminId}::uuid,
+                '2026-08-18T02:00:00Z'::timestamptz)
+      `.execute(db);
+      const afterRecharge = new Date("2026-08-18T03:00:00Z");
+      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now: afterRecharge }))
+        .resolves.toMatchObject({ snapshotsCreated: 1, failed: 0 });
+      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now: afterRecharge }))
+        .resolves.toMatchObject({ snapshotsCreated: 0 });
+      expect(fetch).toHaveBeenCalledTimes(2);
       const success = await repo.listLatestOperatingSnapshots(enterpriseId);
       expect(success[0]).toMatchObject({
-        source: "PROVIDER_SYNC", current_balance: "68.00000000", granted_balance: "8.00000000",
-        topped_up_balance: "60.00000000", balance_source: "PROVIDER_API",
+        source: "PROVIDER_SYNC", current_balance: "100.00000000", granted_balance: "8.00000000",
+        topped_up_balance: "92.00000000", balance_source: "PROVIDER_API",
         current_period_cost: "20.00000000", cost_source: "ADMIN",
       });
 
@@ -50,7 +79,7 @@ describe("POOL20-025 每日经营同步", () => {
       await expect(runProviderOperatingSyncTick({
         db, kekBase64, fetch: failedFetch, now: new Date("2026-08-19T01:00:00Z"),
       })).resolves.toMatchObject({ snapshotsCreated: 0, failed: 1 });
-      expect(await repo.listOperatingSnapshotHistory(enterpriseId, resourceId)).toHaveLength(2);
+      expect(await repo.listOperatingSnapshotHistory(enterpriseId, resourceId)).toHaveLength(3);
       const states = await repo.listLatestOperatingSyncStates(enterpriseId);
       expect(states[0]).toMatchObject({ balance_status: "FAILED", cost_status: "NOT_SUPPORTED", error_code: "UPSTREAM_UNAVAILABLE" });
       expect(states[0]?.last_success_data_at?.toISOString()).toBe(now.toISOString());

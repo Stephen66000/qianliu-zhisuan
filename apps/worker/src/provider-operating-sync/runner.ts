@@ -1,4 +1,4 @@
-import type { Kysely } from "kysely";
+import { sql, type Kysely } from "kysely";
 import {
   type Database,
   ProviderRepository,
@@ -34,6 +34,43 @@ function isProviderCode(value: string): value is ProviderCode {
   return value === "deepseek" || value === "kimi" || value === "zhipu";
 }
 
+/** API 充值流水晚于最后一次厂商快照时，当天允许额外同步一次余额。 */
+async function needsPostRechargeSync(
+  db: Kysely<Database>, resource: SyncResource,
+): Promise<boolean> {
+  if (resource.mode !== "API") return false;
+  const result = await sql<{
+    purchase_created_at: Date | null; snapshot_collected_at: Date | null;
+  }>`
+    SELECT
+      (SELECT max(p.created_at) FROM resource_purchase_record p
+        WHERE p.enterprise_id = ${resource.enterprise_id}::uuid
+          AND p.provider_resource_id = ${resource.id}::uuid
+          AND p.purchase_type = 'API_RECHARGE') AS purchase_created_at,
+      (SELECT max(s.collected_at) FROM provider_resource_operating_snapshot s
+        WHERE s.enterprise_id = ${resource.enterprise_id}::uuid
+          AND s.provider_resource_id = ${resource.id}::uuid
+          AND s.source = 'PROVIDER_SYNC') AS snapshot_collected_at
+  `.execute(db);
+  const row = result.rows[0];
+  return row?.purchase_created_at !== null && row?.purchase_created_at !== undefined
+    && (row.snapshot_collected_at === null
+      || row.snapshot_collected_at === undefined
+      || row.purchase_created_at > row.snapshot_collected_at);
+}
+
+async function shouldSkipDailySync(
+  db: Kysely<Database>, resource: SyncResource, syncDay: Date,
+): Promise<boolean> {
+  const attempted = await db.selectFrom("provider_resource_operating_sync_attempt")
+    .select("id")
+    .where("enterprise_id", "=", resource.enterprise_id)
+    .where("provider_resource_id", "=", resource.id)
+    .where("sync_day", "=", syncDay)
+    .executeTakeFirst();
+  return attempted !== undefined && !(await needsPostRechargeSync(db, resource));
+}
+
 export async function runProviderOperatingSyncTick(input: {
   db: Kysely<Database>; kekBase64: string; fetch?: ProviderOperatingFetch; now?: Date;
 }): Promise<ProviderOperatingSyncResult> {
@@ -48,20 +85,14 @@ export async function runProviderOperatingSyncTick(input: {
       "provider_resource.id", "provider_resource.enterprise_id", "provider_resource.mode",
       "provider_resource.credential_ciphertext", "provider.code as provider_code",
     ])
-    .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED"])
+    .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED", "EXHAUSTED"])
     .where("provider.status", "=", "ACTIVE")
     .execute() as SyncResource[];
   let snapshotsCreated = 0;
   let failed = 0;
   let notSupported = 0;
   for (const resource of resources) {
-    const alreadyAttempted = await input.db.selectFrom("provider_resource_operating_sync_attempt")
-      .select("id")
-      .where("enterprise_id", "=", resource.enterprise_id)
-      .where("provider_resource_id", "=", resource.id)
-      .where("sync_day", "=", syncDay)
-      .executeTakeFirst();
-    if (alreadyAttempted) continue;
+    if (await shouldSkipDailySync(input.db, resource, syncDay)) continue;
     const startedAt = new Date(now);
     let snapshotId: string | null = null;
     let providerDataAt: Date | null = null;
