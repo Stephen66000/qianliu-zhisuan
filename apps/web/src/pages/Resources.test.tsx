@@ -274,7 +274,9 @@ describe("POOL-010 厂商经营快照", () => {
       refetch: vi.fn(),
     });
     renderPage();
-    expect(screen.getByText(/充值 CNY 109\.41 \/ 余额 68\.00 \/ 本期费用 47\.41/)).toBeInTheDocument();
+    expect(screen.getByText("充值 CNY 109.41")).toBeInTheDocument();
+    expect(screen.getByText("余额 68.00")).toBeInTheDocument();
+    expect(screen.getByText("本期费用 47.41")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "更新经营数据" }));
     const balance = screen.getByLabelText("当前余额");
     expect(balance).toHaveValue("68.00");

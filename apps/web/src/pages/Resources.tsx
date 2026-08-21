@@ -812,7 +812,12 @@ export function ResourcesPage() {
         onRetry={() => void query.refetch()}
       >
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
+          <table className="w-full min-w-[1180px] table-fixed border-collapse text-left">
+            <colgroup>
+              <col className="w-[9%]" /><col className="w-[13%]" /><col className="w-[5%]" />
+              <col className="w-[15%]" /><col className="w-[14%]" /><col className="w-[10%]" />
+              <col className="w-[8%]" /><col className="w-[12%]" /><col className="w-[14%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
                 <th className="py-2 pr-4 font-medium">名称</th>
@@ -842,42 +847,41 @@ export function ResourcesPage() {
                     </span>
                   </td>
                   <td className="py-2.5 pr-4 text-ql-fg-secondary">{MODE_LABEL[r.mode]}</td>
-                  <td className="py-2.5 pr-4 text-ql-fg-secondary">
+                  <td className="break-words py-2.5 pr-4 text-ql-fg-secondary">
                     {r.operating_snapshot ? (
                       r.mode === "CODING_PLAN" ? (
-                        <>
-                          总 {r.operating_snapshot.total_quota ? formatCount(r.operating_snapshot.total_quota) : "未知"} / 系统已用{" "}
-                          {r.operating_snapshot.used_quota ? formatCount(r.operating_snapshot.used_quota) : "未知"} / 剩余{" "}
-                          {r.operating_snapshot.remaining_quota ? formatCount(r.operating_snapshot.remaining_quota) : "未知"}{" "}
-                          {r.operating_snapshot.quota_unit ?? ""}
-                        </>
+                        <span className="block leading-5">
+                          <span className="block">总额度 {r.operating_snapshot.total_quota ? formatCount(r.operating_snapshot.total_quota) : "未知"}</span>
+                          <span className="block">系统已用 {r.operating_snapshot.used_quota ? formatCount(r.operating_snapshot.used_quota) : "未知"}</span>
+                          <span className="block">剩余 {r.operating_snapshot.remaining_quota ? formatCount(r.operating_snapshot.remaining_quota) : "未知"} {r.operating_snapshot.quota_unit ?? ""}</span>
+                        </span>
                       ) : (
-                        <>
-                          充值 {r.operating_snapshot.currency ?? ""}{" "}
-                          {r.operating_snapshot.recharge_amount === null ? "未知" : formatMoney(r.operating_snapshot.recharge_amount)} / 余额{" "}
-                          {r.operating_snapshot.current_balance === null ? "未知" : formatMoney(r.operating_snapshot.current_balance)} / 本期费用{" "}
-                          {r.operating_snapshot.current_period_cost === null ? "未知" : formatMoney(r.operating_snapshot.current_period_cost)}
-                        </>
+                        <span className="block leading-5">
+                          <span className="block">充值 {r.operating_snapshot.currency ?? ""} {r.operating_snapshot.recharge_amount === null ? "未知" : formatMoney(r.operating_snapshot.recharge_amount)}</span>
+                          <span className="block">余额 {r.operating_snapshot.current_balance === null ? "未知" : formatMoney(r.operating_snapshot.current_balance)}</span>
+                          <span className="block">本期费用 {r.operating_snapshot.current_period_cost === null ? "未知" : formatMoney(r.operating_snapshot.current_period_cost)}</span>
+                        </span>
                       )
                     ) : "未录入/未同步"}
                   </td>
-                  <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
-                    <span className="block">
+                  <td
+                    className="break-words py-2.5 pr-4 align-top text-ql-fg-secondary"
+                    title={r.operating_sync ? [
+                      r.operating_sync.data_status,
+                      `余额 ${r.operating_sync.balance_status}`,
+                      `费用 ${r.operating_sync.cost_status}`,
+                      r.operating_sync.failure_reason,
+                    ].filter(Boolean).join(" · ") : undefined}
+                  >
+                    <span className="block leading-5">
                       {r.operating_snapshot
-                        ? `v${r.operating_snapshot.version} · ${formatDateTimeFull(
-                            r.operating_snapshot.balance_updated_at
-                              ?? r.operating_snapshot.calculated_at
-                              ?? r.operating_snapshot.collected_at,
-                          )}`
+                        ? <><span className="block">v{r.operating_snapshot.version}</span><span className="block whitespace-nowrap">{formatDateTimeFull(
+                          r.operating_snapshot.balance_updated_at
+                            ?? r.operating_snapshot.calculated_at
+                            ?? r.operating_snapshot.collected_at,
+                        )}</span></>
                         : "—"}
                     </span>
-                    {r.operating_sync ? (
-                      <span className={r.operating_sync.data_status === "STALE" ? "block text-[11px] text-ql-warning" : "block text-[11px] text-ql-fg-tertiary"}>
-                        {r.operating_sync.data_status}
-                        {` · 余额 ${r.operating_sync.balance_status} · 费用 ${r.operating_sync.cost_status}`}
-                        {r.operating_sync.failure_reason ? ` · ${r.operating_sync.failure_reason}` : ""}
-                      </span>
-                    ) : null}
                   </td>
                   <td className="py-2.5 pr-4 font-mono text-[12px] text-ql-fg-tertiary">
                     {r.credential_fingerprint ?? "—"}
@@ -899,11 +903,11 @@ export function ResourcesPage() {
                       </a>
                     )}
                   </td>
-                  <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
+                  <td className="break-words py-2.5 pr-4 text-ql-fg-secondary">
                     {formatDateTimeFull(r.created_at)}
                   </td>
                   <td className="py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex flex-wrap justify-end gap-1">
                       <button
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={() => {

@@ -15,6 +15,7 @@ import { EarliestExhaustionCard } from "../components/dashboard/EarliestExhausti
 import { MetricCard } from "../components/dashboard/MetricCard";
 import { OverageList } from "../components/dashboard/OverageList";
 import { ResourceBreakdown } from "../components/dashboard/ResourceBreakdown";
+import { ResourceAttentionList } from "../components/dashboard/ResourceAttentionList";
 import { Zone } from "../components/dashboard/Zone";
 import { EmptyState } from "../components/states/EmptyState";
 import { ErrorState } from "../components/states/ErrorState";
@@ -53,7 +54,15 @@ export function DashboardPage() {
 
   const data = query.data;
   const noResources = data.resourceAccountCount === 0;
-  const hasAttention = data.overageList.length > 0 || data.earliestExhaustion !== null;
+  const abnormalResources = data.resourceBreakdown.flatMap((group) =>
+    group.abnormalResources.map((resource) => ({
+      ...resource, providerName: group.providerName, mode: group.mode,
+    })),
+  );
+  const earliestAlreadyAbnormal = data.earliestExhaustion !== null
+    && abnormalResources.some((resource) => resource.resourceId === data.earliestExhaustion?.resourceId);
+  const hasAttention = data.overageList.length > 0 || data.earliestExhaustion !== null
+    || abnormalResources.length > 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -136,7 +145,8 @@ export function DashboardPage() {
                 </p>
               </header>
               <div className="flex flex-col gap-4">
-                {data.earliestExhaustion ? (
+                <ResourceAttentionList items={abnormalResources} />
+                {data.earliestExhaustion && !earliestAlreadyAbnormal ? (
                   <EarliestExhaustionCard value={data.earliestExhaustion} />
                 ) : null}
                 {data.overageList.length > 0 ? <OverageList items={data.overageList} /> : null}
@@ -280,7 +290,7 @@ function resourceHealthSummary(items: DashboardSummary["resourceBreakdown"]): st
   if (items.length === 0) {
     return "无资源";
   }
-  const unhealthy = items.filter((i) => i.status !== "HEALTHY").length;
+  const unhealthy = items.reduce((count, item) => count + item.abnormalResources.length, 0);
   if (unhealthy === 0) return "全部正常";
   const worst = items.find((item) => item.status === "CREDENTIAL_INVALID")?.status ??
     items.find((item) => item.status === "EXPIRED")?.status ??
@@ -296,5 +306,5 @@ function resourceHealthSummary(items: DashboardSummary["resourceBreakdown"]): st
     RATE_LIMITED: "限流冷却",
     DEGRADED: "降级",
   }[worst ?? ""];
-  return `${unhealthy} 项需关注${label ? ` · ${label}` : ""}`;
+  return `${unhealthy} 个资源需关注${label ? ` · ${label}` : ""}`;
 }

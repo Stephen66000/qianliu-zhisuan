@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 
-import { type OperatingBill, useImportOperatingBillSnapshots, useRecordOpeningBalance } from "../api/operating-bills";
+import {
+  type OperatingBill,
+  useImportOperatingBillSnapshots,
+  useRecordOpeningBalance,
+} from "../api/operating-bills";
 import { BillCard, buttonPrimary, buttonSecondary, inputClass, SectionHeading } from "../components/operating-bill/BillShared";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { MoneyAmountInput, validateMoneyAmount } from "../components/writes/MoneyAmountInput";
@@ -8,6 +12,7 @@ import { useAllPurchases } from "../api/v2-hooks";
 import { useFeatureFlags } from "../feature-flags";
 import { groupCurrencyAmounts, type CurrencyAmount } from "../lib/currency";
 import { Cell, currencyFacts, currencyMoney, money, Num, Table } from "./OperatingBillShared";
+import { RechargeEntry } from "./OperatingBillRechargeEntry";
 
 export function OperatingBillOverview({ bill }: { bill: OperatingBill }) {
   const featureFlags = useFeatureFlags();
@@ -59,6 +64,7 @@ export function OperatingBillOverview({ bill }: { bill: OperatingBill }) {
           </article>
         ))}
       </div>
+      <RechargeEntry bill={bill} />
       <OpeningBalanceEntry bill={bill} />
       <BillCard className="overflow-hidden">
         <SectionHeading

@@ -36,6 +36,8 @@ export interface OperatingBillProvider {
   operatingSnapshotId?: string | null;
   operatingSnapshotVersion?: number | null;
   operatingSnapshotAt?: string | null;
+  /** 只用于显式登记充值时预填，不参与月度汇总。 */
+  snapshotRechargeAmount?: string | null;
   purchases?: Array<{
     id: string; type: "API_RECHARGE" | "PACKAGE_PURCHASE"; amount: string; currency: string;
     purchasedAt: string; servicePeriodStart: string | null; servicePeriodEnd: string | null; source: string;
@@ -172,6 +174,38 @@ export function useRecordOpeningBalance(month: string) {
     onSuccess: () => {
       invalidateOperatingBillViews(client, month);
       void client.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useRecordResourcePurchase(month: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      provider_resource_id: string;
+      purchase_type: "API_RECHARGE" | "PACKAGE_PURCHASE";
+      amount: string;
+      currency: string;
+      purchased_at: string;
+      description: string | null;
+      evidence_ref: string | null;
+    }) => post(`/provider-resources/${body.provider_resource_id}/purchases`, {
+      purchase_type: body.purchase_type,
+      amount: body.amount,
+      currency: body.currency,
+      purchased_at: body.purchased_at,
+      description: body.description,
+      evidence_ref: body.evidence_ref,
+      service_period_start: null,
+      service_period_end: null,
+      idempotency_key: crypto.randomUUID(),
+    }),
+    onSuccess: () => {
+      invalidateOperatingBillViews(client, month);
+      void client.invalidateQueries({ queryKey: ["dashboard"] });
+      void client.invalidateQueries({ queryKey: ["resource-purchases"] });
+      void client.invalidateQueries({ queryKey: ["resource-utilization", month] });
+      void client.invalidateQueries({ queryKey: ["procurement-review", month] });
     },
   });
 }

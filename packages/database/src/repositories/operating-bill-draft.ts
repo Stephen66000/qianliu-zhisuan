@@ -37,8 +37,7 @@ interface ResourceFactRow {
   snapshot_version: number | null;
   snapshot_at: Date | null;
   snapshot_source: string | null;
-  currency: string | null;
-  current_balance: string | null;
+  currency: string | null; current_balance: string | null; recharge_amount: string | null;
   package_cost: string | null;
   total_quota: string | null;
   used_quota: string | null;
@@ -251,7 +250,7 @@ export async function buildOperatingBillDraft(
         SELECT r.id AS resource_id, p.code AS provider_code, p.name AS provider_name,
                r.name AS resource_name, r.mode, r.status AS resource_status,
                s.id AS snapshot_id, s.version AS snapshot_version,
-               s.collected_at AS snapshot_at, s.source AS snapshot_source, s.currency, s.current_balance,
+               s.collected_at AS snapshot_at, s.source AS snapshot_source, s.currency, s.current_balance, s.recharge_amount,
                s.package_cost, s.total_quota, s.used_quota, s.remaining_quota,
                s.quota_unit, s.effective_from, s.effective_until, s.next_reset_at
           FROM resources r
@@ -504,7 +503,7 @@ export async function buildOperatingBillDraft(
         quotaUnit: row.quota_unit, utilization,
         activePrincipalCount,
         operatingSnapshotId: row.snapshot_id, operatingSnapshotVersion: row.snapshot_version,
-        operatingSnapshotAt: row.snapshot_at?.toISOString() ?? null, status: row.resource_status,
+        operatingSnapshotAt: row.snapshot_at?.toISOString() ?? null, snapshotRechargeAmount: row.recharge_amount, status: row.resource_status,
         ...factEvidence,
         ...assessment,
       };

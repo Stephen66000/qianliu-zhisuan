@@ -13,6 +13,7 @@ const reopenBill = vi.fn();
 const createValue = vi.fn();
 const confirmValue = vi.fn();
 const recordOpeningBalance = vi.fn();
+const recordRecharge = vi.fn();
 const bill: OperatingBill = {
   month: "2026-08", timezone: "Asia/Shanghai", status: "DRAFT", version: 0,
   generatedAt: "2026-08-03T00:00:00Z", closedAt: null, closedBy: null, closeNote: null,
@@ -30,6 +31,7 @@ vi.mock("../api/operating-bills", async () => {
     ...actual,
     useOperatingBill: () => ({ isLoading: false, error: null, data: currentBill, refetch: vi.fn() }),
     useRecordOpeningBalance: () => ({ mutate: recordOpeningBalance, isPending: false, error: null }),
+    useRecordResourcePurchase: () => ({ mutate: recordRecharge, isPending: false, error: null }),
     useCreateOperatingBillValue: () => ({ mutate: createValue, isPending: false, error: null }),
     useConfirmOperatingBillValue: () => ({ mutate: confirmValue, isPending: false, error: null }),
     useConfirmOperatingBillResource: () => ({ mutate: confirmResource, isPending: false, error: null }),
@@ -39,7 +41,13 @@ vi.mock("../api/operating-bills", async () => {
     useImportOperatingBillSnapshots: () => ({ mutateAsync: importSnapshots, isPending: false, error: null }),
   };
 });
-vi.mock("../api/hooks", () => ({ usePrincipals: () => ({ data: { principals: [] } }) }));
+vi.mock("../api/hooks", () => ({
+  usePrincipals: () => ({ data: { principals: [] } }),
+  useProviderResources: () => ({ data: { resources: [{
+    id: "api-resource",
+    operating_snapshot: { id: "snapshot-recharge-100", recharge_amount: "100", currency: "CNY" },
+  }] } }),
+}));
 vi.mock("../api/v2-hooks", () => ({
   useAllPurchases: () => ({ data: { items: [], cashTotals: [] }, isLoading: false, error: null }),
   useProcurementReview: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
@@ -58,6 +66,7 @@ describe("POOL-025 经营账单", () => {
     createValue.mockReset();
     confirmValue.mockReset();
     recordOpeningBalance.mockReset();
+    recordRecharge.mockReset();
   });
 
   it("展示真实成本口径并可切换经营账单页签", async () => {
@@ -241,6 +250,33 @@ describe("POOL-025 经营账单", () => {
     expect(recordOpeningBalance).toHaveBeenCalledWith({
       provider_resource_id: "api-resource", amount: "100.00", currency: "CNY", reason: "财务对账",
     }, expect.objectContaining({ onSuccess: expect.any(Function) }));
+  });
+
+  it("充值快照只预填，管理员确认后才写入独立充值流水", async () => {
+    const user = userEvent.setup();
+    currentBill = {
+      ...bill,
+      summary: { ...bill.summary, monthlyRecharge: "0", rechargeAmounts: [] },
+      providers: [{
+        ...bill.providers[0]!, providerResourceId: "api-resource", providerName: "DeepSeek",
+        resourceName: "DeepSeek API", mode: "API", currency: "CNY", rechargeAmount: "0",
+        apiCost: null, packageCost: "0", totalCost: null, endingBalance: "100",
+        operatingSnapshotId: "snapshot-recharge-100", snapshotRechargeAmount: "100",
+      }],
+    };
+    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    expect(screen.getByPlaceholderText("充值金额")).toHaveValue("100.00");
+    await user.type(screen.getByRole("textbox", { name: "充值说明" }), "8 月 DeepSeek 充值");
+    await user.click(screen.getByRole("button", { name: "确认充值并重算" }));
+    expect(recordRecharge).toHaveBeenCalledWith(expect.objectContaining({
+      provider_resource_id: "api-resource",
+      purchase_type: "API_RECHARGE",
+      amount: "100.00",
+      currency: "CNY",
+      description: "8 月 DeepSeek 充值",
+      evidence_ref: "operating_snapshot:snapshot-recharge-100",
+      purchased_at: expect.any(String),
+    }), expect.objectContaining({ onSuccess: expect.any(Function) }));
   });
 
   it("POOL20-046：多 API 资源连续补录时同步剩余资源与币种", async () => {

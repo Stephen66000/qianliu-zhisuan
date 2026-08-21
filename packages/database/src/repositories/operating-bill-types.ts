@@ -57,6 +57,8 @@ export interface OperatingBillProviderRow {
   operatingSnapshotId: string | null;
   operatingSnapshotVersion: number | null;
   operatingSnapshotAt: string | null;
+  /** 最新经营快照的充值提示；仅用于管理员预填，不是月度充值流水。 */
+  snapshotRechargeAmount: string | null;
   status: string;
   planAssessment: "FULL" | "UNDERUSED" | "EXHAUSTED_EARLY" | "UNUSED" | null;
   idleEntitlementCost: string | null;

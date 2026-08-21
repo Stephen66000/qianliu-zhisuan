@@ -11,6 +11,7 @@ import {
   useImportOperatingBillSnapshots,
   useOperatingBill,
   useRecordOpeningBalance,
+  useRecordResourcePurchase,
   useReopenOperatingBill,
 } from "./operating-bills";
 
@@ -123,5 +124,30 @@ describe("POOL-043 经营账单 mutation 缓存一致性", () => {
     expect(client.getQueryState(["operating-bill", "2026-08"])?.isInvalidated).toBe(true);
     expectAccountInvalidation(client, "2026-08", true);
     expect(client.getQueryState(["dashboard"])?.isInvalidated).toBe(true);
+  });
+
+  it("确认充值写独立采购端点，并失效账单、首页与采购视图", async () => {
+    const client = queryClient();
+    seedViews(client, "2026-08");
+    client.setQueryData(["dashboard"], { monthlyRechargeAmount: "0" });
+    client.setQueryData(["resource-purchases", "2026-08"], { items: [] });
+    const hook = renderHook(() => useRecordResourcePurchase("2026-08"), {
+      wrapper: wrapper(client),
+    });
+    await act(async () => {
+      await hook.result.current.mutateAsync({
+        provider_resource_id: "resource-1", purchase_type: "API_RECHARGE",
+        amount: "100.00", currency: "CNY", purchased_at: "2026-08-21T10:00:00+08:00",
+        description: "DeepSeek 充值", evidence_ref: "operating_snapshot:snapshot-1",
+      });
+    });
+    expect(http.post).toHaveBeenCalledWith("/provider-resources/resource-1/purchases", expect.objectContaining({
+      purchase_type: "API_RECHARGE", amount: "100.00", currency: "CNY",
+      purchased_at: "2026-08-21T10:00:00+08:00", description: "DeepSeek 充值",
+      evidence_ref: "operating_snapshot:snapshot-1", idempotency_key: expect.any(String),
+    }));
+    expect(client.getQueryState(["operating-bill", "2026-08"])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(["dashboard"])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(["resource-purchases", "2026-08"])?.isInvalidated).toBe(true);
   });
 });
