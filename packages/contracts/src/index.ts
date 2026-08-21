@@ -7,6 +7,10 @@
  *   - TRD §5.7（请求与账本对象）、§6（北向协议）、§8（计量与提交边界）、§9（错误分类）。
  */
 
+import type { RequestShapeSummary, UpstreamErrorEvidence } from "./diagnostic-evidence.js";
+
+export * from "./diagnostic-evidence.js";
+
 // ===== Usage（计量事实）=====
 
 /** 计量质量分级（TRD §5.7 行 355）。后两类不得在 UI 冒充逐请求精确值。 */
@@ -79,6 +83,10 @@ export interface Outcome {
     | "TECHNICAL_FAILURE";
   /** 允许落库的稳定业务码，不含上游原始正文。 */
   upstreamCode?: string;
+  /** 上游 4xx/5xx 的脱敏结构化证据。 */
+  upstreamErrorEvidence?: UpstreamErrorEvidence;
+  /** 实际上游请求的无正文结构摘要，仅在失败时持久化。 */
+  requestShapeSummary?: RequestShapeSummary;
   /** 上游明确恢复时间；没有可靠字段时保持缺失。 */
   recoverAt?: string;
   /** 收到上游首个响应字节的时间（epoch ms），仅记元数据。 */

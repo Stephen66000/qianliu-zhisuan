@@ -464,6 +464,99 @@ describe("OpenAI-compatible HTTP caller", () => {
       upstreamErrorKind: kind,
       retryAfterMs: 1_500,
     });
+    expect(outcome.upstreamErrorEvidence).toBeUndefined();
+    expect(outcome.requestShapeSummary).toBeUndefined();
+  });
+
+  it("POOL20-048：Messages 转换后的 400 生成脱敏证据与工具 Schema issue", async () => {
+    const canary = "POOL048_PRIVATE_MESSAGE_CANARY";
+    const toolName = "private.tool.name";
+    const propertyName = "private_customer_property";
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse({
+        error: {
+          type: "invalid_request_error",
+          code: "invalid_request_error",
+          param: `tools[0].function.parameters.properties.${propertyName}`,
+          message: `tool schema invalid ${canary}`,
+        },
+      }, 400),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+    });
+    const request: AdapterRequest = {
+      requestId: "pool048-messages",
+      unifiedModel: "ql-deepseek-v4-flash",
+      capability: "messages",
+      stream: true,
+      body: {
+        model: "ql-deepseek-v4-flash",
+        system: canary,
+        messages: [{ role: "user", content: [{ type: "text", text: canary }] }],
+        tools: [{
+          name: toolName,
+          description: canary,
+          input_schema: {
+            type: "array",
+            properties: { [propertyName]: { type: "string", default: canary } },
+          },
+        }],
+        tool_choice: { type: "auto", disable_parallel_tool_use: false },
+      },
+    };
+
+    const outcome = await caller(resource({ upstreamModel: "deepseek-v4-flash" }), request, 1);
+
+    expect(outcome).toMatchObject({
+      status: 400,
+      error: "invalid_request_error",
+      upstreamErrorEvidence: {
+        type: "invalid_request_error",
+        code: "invalid_request_error",
+        param: "tools[].function.parameters.properties.*",
+        messageCategory: "INVALID_TOOL_SCHEMA",
+      },
+      requestShapeSummary: {
+        toolCount: 1,
+        functionToolCount: 1,
+        invalidToolCount: 1,
+        toolSchemaIssueCounts: {
+          FUNCTION_NAME_INVALID: 1,
+          PARAMETERS_SCHEMA_INVALID: 1,
+        },
+        stream: true,
+        streamOptionsIncluded: true,
+      },
+    });
+    expect(outcome.upstreamErrorEvidence?.diagnosticHash).toMatch(/^[0-9a-f]{64}$/);
+    const serialized = JSON.stringify(outcome);
+    for (const value of [canary, toolName, propertyName]) expect(serialized).not.toContain(value);
+  });
+
+  it("POOL20-048：非 JSON 400 生成通用诊断，未知 code/type 不落 Outcome", async () => {
+    const canary = "POOL048_RAW_PROVIDER_BODY";
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => ({
+        ok: false,
+        status: 400,
+        headers: { get: () => null },
+        json: async () => { throw new Error("not json"); },
+        text: async () => canary,
+        body: null,
+      }),
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+    });
+    const outcome = await caller(resource(), responsesRequest(), 1);
+    expect(outcome).toMatchObject({
+      status: 400,
+      error: "upstream_http_400",
+      upstreamErrorEvidence: {
+        type: null,
+        code: null,
+        param: null,
+        messageCategory: "UNCLASSIFIED",
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain(canary);
   });
 
   it.each([

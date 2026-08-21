@@ -269,6 +269,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0052_dispatch_restore_and_resource_utilization", "Success"],
         ["0053_operating_bill_opening_balance", "Success"],
         ["0054_usage_aggregate_settlement_time", "Success"],
+        ["0055_upstream_error_evidence", "Success"],
       ]);
 
       expect(await db.selectFrom("dispatch_policy")
@@ -311,6 +312,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow();
       expect(afterSecondUp).toEqual(migratedTarget);
 
+      expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
       expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
       expect(await migrateDown(db)).toBe("0053_operating_bill_opening_balance");
       expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");
@@ -367,6 +369,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0052_dispatch_restore_and_resource_utilization", "Success"],
         ["0053_operating_bill_opening_balance", "Success"],
         ["0054_usage_aggregate_settlement_time", "Success"],
+        ["0055_upstream_error_evidence", "Success"],
       ]);
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows"])
