@@ -238,4 +238,29 @@ describe("W20-08 资源利用事实 Web", () => {
       expected_version: 0,
     }, expect.any(Object));
   });
+
+  it("POOL20-047：预算判断依据使用实际币种", () => {
+    useResourceUtilizationMock.mockReturnValue({
+      data: {
+        month: "2026-08",
+        generatedAt: "2026-08-13T00:00:00.000Z",
+        resources: [resource({
+          budgetAmount: "200",
+          budgetCurrency: "USD",
+          budgetVersion: 1,
+          budgetStatus: "ACTIVE",
+          budgetDifference: "187.5",
+          utilizationRate: "0.0625",
+          utilizationBasis: "API_MONTHLY_BUDGET",
+          utilizationStatus: "NORMAL",
+          notCalculableReason: null,
+        })],
+      },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
+    renderPanel();
+    expect(screen.getByText("USD 200.00")).toBeInTheDocument();
+    expect(screen.getByText("预算 USD 200.00")).toBeInTheDocument();
+    expect(screen.queryByText(/预算 ¥/)).not.toBeInTheDocument();
+  });
 });

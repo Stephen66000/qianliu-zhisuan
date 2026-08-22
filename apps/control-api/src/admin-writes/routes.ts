@@ -35,11 +35,7 @@ const UpdateResourceSchema = z.object({
   concurrency_limit: z.number().int().positive().nullable().optional(),
   upstream_models: z.array(z.string().min(1).max(128)).max(100).nullable().optional(),
   operating_snapshot: OperatingSnapshotSchema.optional(),
-  monthly_budget_amount: z.string().regex(/^\d+(?:\.\d{1,8})?$/).nullable().optional(), monthly_budget_currency: z.string().regex(/^[A-Z]{3,8}$/).nullable().optional(),
-}).superRefine((value, ctx) => {
-  const amountSet = value.monthly_budget_amount !== undefined, currencySet = value.monthly_budget_currency !== undefined;
-  if (amountSet !== currencySet) ctx.addIssue({ code: "custom", path: ["monthly_budget_amount"], message: "预算金额与币种必须同时提交" });
-});
+}).strict();
 
 const UpdateUnifiedModelSchema = z.object({
   expected_version: ExpectedVersion,
@@ -139,7 +135,6 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
           operating_snapshot: parsed.data.operating_snapshot
             ? toOperatingSnapshotInput(parsed.data.operating_snapshot, before.mode)
             : undefined,
-          monthly_budget_amount: parsed.data.monthly_budget_amount, monthly_budget_currency: parsed.data.monthly_budget_currency,
         },
       );
       if (!updated) {

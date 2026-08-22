@@ -155,6 +155,26 @@ describe("W19 管理写操作闭环", () => {
     expect(stale.json().error).toBe("conflict");
   });
 
+  it("POOL20-047：旧资源 PATCH 拒绝无账期预算字段", async () => {
+    const { resource } = await seedProviderResource();
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/provider-resources/${resource.id}`,
+      headers: { cookie: adminCookie },
+      payload: {
+        expected_version: resource.version,
+        monthly_budget_amount: "100",
+        monthly_budget_currency: "CNY",
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: "invalid_request" });
+    expect(await db.selectFrom("provider_resource").select("version")
+      .where("id", "=", resource.id).executeTakeFirstOrThrow()).toEqual({
+      version: resource.version,
+    });
+  });
+
   it("PATCH /unified-models/:id 停用并写 audit（W19 补齐 create audit）", async () => {
     const model = await db
       .insertInto("unified_model")

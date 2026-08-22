@@ -35,7 +35,9 @@ function subscriptionDisplay(row: ResourceUtilization, month: string) {
 
 function utilizationBasisDisplay(row: ResourceUtilization): string {
   if (row.notCalculableReason) return utilizationReason(row.notCalculableReason);
-  if (row.mode === "API") return `预算 ¥${formatMoney(row.budgetAmount ?? "0")}`;
+  if (row.mode === "API") {
+    return `预算 ${row.budgetCurrency ?? row.currency ?? "币种未知"} ${formatMoney(row.budgetAmount ?? "0")}`;
+  }
   return `${row.utilizationStatus} · 订阅周期累计`;
 }
 
