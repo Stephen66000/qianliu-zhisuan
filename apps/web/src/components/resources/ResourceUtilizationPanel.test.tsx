@@ -1,14 +1,24 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResourceUtilization } from "../../api/v2-types";
 import { ResourceUtilizationPanel } from "./ResourceUtilizationPanel";
 
 const useResourceUtilizationMock = vi.fn();
+const useResourceMonthlyBudgetMock = vi.fn();
+const saveBudgetMutate = vi.fn();
 
 vi.mock("../../api/v2-hooks", () => ({
   V2_KEYS: { utilization: (month: string) => ["v2", "resource-utilization", month] },
   useResourceUtilization: (month: string) => useResourceUtilizationMock(month),
+  useResourceMonthlyBudget: (resourceId: string | null, month: string) =>
+    useResourceMonthlyBudgetMock(resourceId, month),
+  useSaveResourceMonthlyBudget: () => ({
+    mutate: saveBudgetMutate,
+    isPending: false,
+    error: null,
+  }),
 }));
 
 function resource(overrides: Partial<ResourceUtilization>): ResourceUtilization {
@@ -26,6 +36,11 @@ function resource(overrides: Partial<ResourceUtilization>): ResourceUtilization 
     purchaseCashAmount: "100.00000000",
     currency: "CNY",
     budgetAmount: null,
+    budgetCurrency: null,
+    budgetVersion: 0,
+    budgetStatus: "NOT_CONFIGURED",
+    budgetUpdatedAt: null,
+    budgetDifference: null,
     currentBalance: "87.50000000",
     packageCost: null,
     totalQuota: null,
@@ -67,6 +82,18 @@ function renderPanel() {
 describe("W20-08 资源利用事实 Web", () => {
   beforeEach(() => {
     useResourceUtilizationMock.mockReset();
+    useResourceMonthlyBudgetMock.mockReset();
+    saveBudgetMutate.mockReset();
+    useResourceMonthlyBudgetMock.mockReturnValue({
+      data: {
+        resource: { id: "deepseek-api", name: "API 账户", mode: "API" },
+        month: "2026-08",
+        current: null,
+        history: [],
+      },
+      isLoading: false,
+      error: null,
+    });
     useResourceUtilizationMock.mockReturnValue({
       data: {
         month: "2026-08",
@@ -192,5 +219,23 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
     expect(within(row).getAllByText("缺少订阅结束日期")).toHaveLength(2);
     expect(within(row).getByText("2026-08-01～未知")).toBeInTheDocument();
+  });
+
+  it("POOL20-047：API 资源按当前选择月份设置预算，Coding Plan 不出现入口", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    expect(screen.getAllByRole("button", { name: "设置月预算" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "设置月预算" }));
+    const budgetRegion = screen.getByRole("region", { name: "API 资源月预算设置" });
+    expect(budgetRegion).toBeInTheDocument();
+    expect(within(budgetRegion).getByDisplayValue("2026-08")).toBeDisabled();
+    await user.type(screen.getByLabelText("月预算金额"), "200");
+    await user.selectOptions(screen.getByLabelText("月预算币种"), "USD");
+    await user.click(screen.getByRole("button", { name: "保存月预算" }));
+    expect(saveBudgetMutate).toHaveBeenCalledWith({
+      amount: "200",
+      currency: "USD",
+      expected_version: 0,
+    }, expect.any(Object));
   });
 });

@@ -123,7 +123,7 @@ function PermissionChangeSummary({
   </div>;
 }
 
-export function EmployeeModelRulesPage() {
+export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const catalog = useEmployeeRuleCatalog();
   const rules = useEmployeeModelRules();
   const createRule = useCreateEmployeeModelRule();
@@ -233,8 +233,8 @@ export function EmployeeModelRulesPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  return (
-    <PageShell title="批量模型授权" description="多名员工的模型授权辅助入口；集中选择员工、模型与额度，校验通过后显式发布，原子更新 Key 权限和 Grant。单名员工请在「使用主体」开通">
+  const content = (
+    <>
       {mutationError ? <p className="mb-4 rounded-lg bg-ql-danger-soft px-3 py-2 text-sm text-ql-danger" role="alert">{mutationError}</p> : null}
       <form className="mb-6 rounded-xl border border-ql-border p-5" onSubmit={submit}>
         <div className="mb-4 flex items-center justify-between">
@@ -336,6 +336,22 @@ export function EmployeeModelRulesPage() {
           <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-xs text-ql-fg-tertiary"><th className="p-2">版本</th><th className="p-2">状态</th><th className="p-2">员工/模型范围</th><th className="p-2">额度</th><th className="p-2">发布时间</th><th className="p-2">停用时间</th></tr></thead><tbody>{historyVersions.map((version) => <tr className="border-b border-ql-border-zone last:border-0" key={version.id}><td className="p-2">v{version.version}</td><td className="p-2"><StatusTag tone={statusTone(version.status)}>{version.status}</StatusTag></td><td className="p-2">{version.employee_scope === "ALL" ? "当前全部员工" : `${version.principal_ids.length} 名员工`} / {version.model_scope === "ALL" ? "当前全部就绪模型" : `${version.model_targets.length} 个模型`}</td><td className="p-2">{formatPoolQuotaSummary(version, providerNameOf)}</td><td className="p-2">{version.published_at ? new Date(version.published_at).toLocaleString() : "—"}</td><td className="p-2">{version.disabled_at ? new Date(version.disabled_at).toLocaleString() : "—"}</td></tr>)}</tbody></table></div>
         </section> : null}
       </QueryGate>
+    </>
+  );
+  if (embedded) {
+    return (
+      <section aria-labelledby="batch-authorization-title">
+        <header className="mb-5">
+          <h2 className="text-[18px] font-semibold text-ql-fg" id="batch-authorization-title">批量模型授权</h2>
+          <p className="mt-1 text-[12px] text-ql-fg-tertiary">集中选择员工、模型与额度，校验后显式发布；单名员工仍在「使用主体」中配置。</p>
+        </header>
+        {content}
+      </section>
+    );
+  }
+  return (
+    <PageShell title="批量模型授权" description="多名员工的模型授权辅助入口；集中选择员工、模型与额度，校验通过后显式发布，原子更新 Key 权限和 Grant。单名员工请在「使用主体」开通">
+      {content}
     </PageShell>
   );
 }

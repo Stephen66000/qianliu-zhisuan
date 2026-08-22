@@ -46,6 +46,12 @@ export interface OperatingBillProviderRow {
   apiSpendStatus: string;
   apiSpendReason: string | null;
   packageCost: string | null;
+  monthlyBudgetId?: string | null;
+  monthlyBudgetVersion?: number;
+  monthlyBudgetStatus?: "ACTIVE" | "CLEARED" | "NOT_CONFIGURED";
+  monthlyBudgetAmount?: string | null;
+  monthlyBudgetCurrency?: string | null;
+  monthlyBudgetAt?: string | null;
   totalCost: string | null;
   endingBalance: string | null;
   totalQuota: string | null;
@@ -168,6 +174,15 @@ export interface OperatingBillSnapshot {
       endingBalance: string | null;
       apiSpend: string | null;
       apiSpendStatus: string;
+    }>;
+    resourceMonthlyBudgetFacts?: Array<{
+      providerResourceId: string;
+      budgetId: string;
+      version: number;
+      status: "ACTIVE" | "CLEARED";
+      amount: string | null;
+      currency: string | null;
+      createdAt: string;
     }>;
     ledgerLines: Array<{
       id: string;

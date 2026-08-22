@@ -21,6 +21,12 @@ export interface OperatingBillProvider {
   apiSpendStatus?: string;
   apiSpendReason?: string | null;
   packageCost: string | null;
+  monthlyBudgetId?: string | null;
+  monthlyBudgetVersion?: number;
+  monthlyBudgetStatus?: "ACTIVE" | "CLEARED" | "NOT_CONFIGURED";
+  monthlyBudgetAmount?: string | null;
+  monthlyBudgetCurrency?: string | null;
+  monthlyBudgetAt?: string | null;
   totalCost: string | null;
   endingBalance: string | null;
   totalQuota: string | null;

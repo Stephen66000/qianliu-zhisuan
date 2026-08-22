@@ -19,7 +19,6 @@ import { OperatingBillPage } from "./pages/OperatingBill";
 import { OperatingBillEmployeeDetailPage } from "./pages/OperatingBillEmployeeDetail";
 import { OperatingBillEmployeesPage } from "./pages/OperatingBillEmployees";
 import { OperatingBillProjectsPage } from "./pages/OperatingBillProjects";
-import { EmployeeModelRulesPage } from "./pages/EmployeeModelRules";
 import { OperatingBillDepartmentsPage } from "./pages/OperatingBillDepartments";
 import { useFeatureFlags } from "./feature-flags";
 
@@ -39,7 +38,10 @@ export function App() {
           <Route element={<Navigate replace to="/dashboard" />} path="/" />
           <Route element={<DashboardPage />} path="/dashboard" />
           <Route element={<PrincipalsPage />} path="/principals" />
-          <Route element={<EmployeeModelRulesPage />} path="/employee-model-rules" />
+          <Route
+            element={<Navigate replace to="/principals?tab=batch-authorization" />}
+            path="/employee-model-rules"
+          />
           <Route element={<ResourcesPage />} path="/resources" />
           <Route element={<QuotaRulesPage />} path="/quota-rules" />
           <Route element={<UsagePage />} path="/usage" />

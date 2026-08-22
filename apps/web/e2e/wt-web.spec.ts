@@ -750,11 +750,10 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(page.locator("tbody tr", { hasText: E2E_IDS.request })).toHaveCount(1);
   });
 
-  test("WT-20 十个 1.0 主入口可达，未用条件分支跳过", async ({ page }) => {
+  test("WT-20 九个主入口可达，批量授权收入使用主体", async ({ page }) => {
     const entries = [
       ["/dashboard", "首页看板"],
       ["/principals", "使用主体"],
-      ["/employee-model-rules", "批量模型授权"],
       ["/resources", "厂商资源"],
       ["/quota-rules", "额度规则"],
       ["/usage", "用量账本"],
@@ -767,6 +766,10 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
       await page.goto(path);
       await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     }
+    await page.goto("/employee-model-rules");
+    await expect(page).toHaveURL(/\/principals\?tab=batch-authorization/);
+    await expect(page.getByRole("heading", { name: "使用主体", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "批量模型授权", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "返回首页看板" })).toHaveAttribute("href", "/dashboard");
   });
 
@@ -1089,6 +1092,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.getByRole("button", { name: "继续配置" }).click();
 
     await page.goto("/employee-model-rules");
+    await expect(page).toHaveURL(/\/principals\?tab=batch-authorization/);
     await expect(page.getByRole("heading", { name: "批量模型授权", exact: true })).toBeVisible();
     await page.getByLabel("规则名称").fill(ruleName);
     await page.getByLabel("Token 额度").fill("660000");

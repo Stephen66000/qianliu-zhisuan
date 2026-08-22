@@ -15,7 +15,6 @@ import {
   Server,
   Users,
   UserCog,
-  UserRoundCheck,
 } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 
@@ -24,7 +23,6 @@ import qianliuLogo from "../../assets/qianliu-logo-primary.png";
 const NAV_ITEMS = [
   { to: "/dashboard", label: "首页看板", icon: LayoutDashboard },
   { to: "/principals", label: "使用主体", icon: Users },
-  { to: "/employee-model-rules", label: "批量模型授权", icon: UserRoundCheck },
   { to: "/resources", label: "厂商资源", icon: Server },
   { to: "/quota-rules", label: "额度规则", icon: Gauge },
   { to: "/usage", label: "用量账本", icon: BookOpenText },

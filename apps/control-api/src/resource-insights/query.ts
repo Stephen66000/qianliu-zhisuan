@@ -1,6 +1,11 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
-import type { Database } from "@qianliu/database";
+import {
+  loadMonthlyOperatingCosts,
+  operatingBillMonthRange,
+  type Database,
+} from "@qianliu/database";
+import { applyApiBudgetFacts } from "./projection.js";
 
 export interface ResourceUtilizationRow {
   resourceId: string;
@@ -11,11 +16,16 @@ export interface ResourceUtilizationRow {
   resourceStatus: string;
   requestCount: number;
   realTokens: string;
-  apiCost: string;
+  apiCost: string | null;
   deductedQuota: string;
   purchaseCashAmount: string;
   currency: string | null;
   budgetAmount: string | null;
+  budgetCurrency: string | null;
+  budgetVersion: number;
+  budgetStatus: "ACTIVE" | "CLEARED" | "NOT_CONFIGURED";
+  budgetUpdatedAt: string | null;
+  budgetDifference: string | null;
   currentBalance: string | null;
   packageCost: string | null;
   totalQuota: string | null;
@@ -74,6 +84,10 @@ interface RawUtilizationRow {
   purchase_cash_amount: string;
   currency: string | null;
   budget_amount: string | null;
+  budget_currency: string | null;
+  budget_version: number | null;
+  budget_status: "ACTIVE" | "CLEARED" | null;
+  budget_updated_at: Date | null;
   current_balance: string | null;
   package_cost: string | null;
   total_quota: string | null;
@@ -150,8 +164,12 @@ export async function listResourceUtilization(
            coalesce(l.api_cost, 0)::text AS api_cost,
            coalesce(l.deducted_quota, 0)::text AS deducted_quota,
            coalesce(pu.cash_amount, 0)::text AS purchase_cash_amount,
-           coalesce(s.currency, pr.monthly_budget_currency, tenant.default_currency) AS currency,
-           pr.monthly_budget_amount::text AS budget_amount,
+           coalesce(s.currency, mb.currency, tenant.default_currency) AS currency,
+           mb.amount::text AS budget_amount,
+           mb.currency AS budget_currency,
+           mb.version AS budget_version,
+           mb.status AS budget_status,
+           mb.created_at AS budget_updated_at,
            s.current_balance::text,
            s.package_cost::text,
            s.total_quota::text,
@@ -161,8 +179,9 @@ export async function listResourceUtilization(
            to_char(s.effective_from AT TIME ZONE tenant.timezone, 'YYYY-MM-DD') AS service_period_start,
            to_char(s.effective_until AT TIME ZONE tenant.timezone, 'YYYY-MM-DD') AS service_period_end,
            CASE
-             WHEN pr.mode = 'API' AND pr.monthly_budget_amount > 0
-               THEN round(coalesce(l.api_cost, 0) / pr.monthly_budget_amount, 8)::text
+             WHEN pr.mode = 'API' AND mb.status = 'ACTIVE' AND mb.amount > 0
+              AND mb.currency = coalesce(s.currency, tenant.default_currency)
+               THEN round(coalesce(l.api_cost, 0) / mb.amount, 8)::text
              WHEN pr.mode = 'CODING_PLAN'
               AND s.effective_from IS NOT NULL AND s.effective_until IS NOT NULL
               AND s.total_quota > 0 AND s.used_quota IS NOT NULL
@@ -204,7 +223,9 @@ export async function listResourceUtilization(
                 ELSE greatest(0, floor(extract(epoch FROM (now() - lu.used_at)) / 86400)::integer) END
              AS continuous_no_call_days,
            CASE
-             WHEN pr.mode = 'API' AND pr.monthly_budget_amount > 0 THEN 'API_MONTHLY_BUDGET'
+             WHEN pr.mode = 'API' AND mb.status = 'ACTIVE' AND mb.amount > 0
+              AND mb.currency = coalesce(s.currency, tenant.default_currency)
+               THEN 'API_MONTHLY_BUDGET'
              WHEN pr.mode = 'CODING_PLAN'
               AND s.effective_from IS NOT NULL AND s.effective_until IS NOT NULL
               AND s.total_quota > 0 AND s.used_quota IS NOT NULL
@@ -212,9 +233,10 @@ export async function listResourceUtilization(
              ELSE NULL
            END AS utilization_basis,
            CASE
-             WHEN pr.mode = 'API' AND pr.monthly_budget_amount IS NULL THEN 'NOT_CONFIGURED'
-             WHEN pr.mode = 'API' AND coalesce(l.api_cost, 0) >= pr.monthly_budget_amount THEN 'OVER_BUDGET'
-             WHEN pr.mode = 'API' AND coalesce(l.api_cost, 0) >= pr.monthly_budget_amount * 0.8 THEN 'WARNING'
+             WHEN pr.mode = 'API' AND coalesce(mb.status, 'CLEARED') <> 'ACTIVE' THEN 'NOT_CONFIGURED'
+             WHEN pr.mode = 'API' AND mb.currency <> coalesce(s.currency, tenant.default_currency) THEN 'UNKNOWN'
+             WHEN pr.mode = 'API' AND coalesce(l.api_cost, 0) >= mb.amount THEN 'OVER_BUDGET'
+             WHEN pr.mode = 'API' AND coalesce(l.api_cost, 0) >= mb.amount * 0.8 THEN 'WARNING'
              WHEN pr.mode = 'API' THEN 'NORMAL'
              WHEN pr.mode = 'CODING_PLAN'
               AND (s.effective_from IS NULL OR s.effective_until IS NULL) THEN 'UNKNOWN'
@@ -225,7 +247,9 @@ export async function listResourceUtilization(
              ELSE 'UNKNOWN'
            END AS utilization_status,
            CASE
-             WHEN pr.mode = 'API' AND pr.monthly_budget_amount IS NULL THEN 'MONTHLY_BUDGET_NOT_CONFIGURED'
+             WHEN pr.mode = 'API' AND coalesce(mb.status, 'CLEARED') <> 'ACTIVE' THEN 'MONTHLY_BUDGET_NOT_CONFIGURED'
+             WHEN pr.mode = 'API' AND mb.currency <> coalesce(s.currency, tenant.default_currency)
+              THEN 'BUDGET_CURRENCY_MISMATCH'
              WHEN pr.mode = 'CODING_PLAN' AND s.effective_from IS NULL
               THEN 'SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE'
              WHEN pr.mode = 'CODING_PLAN' AND s.effective_until IS NULL
@@ -235,10 +259,20 @@ export async function listResourceUtilization(
                THEN 'SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE'
              ELSE NULL
            END AS not_calculable_reason,
-             greatest(l.data_at, pu.data_at, lu.used_at, s.collected_at, f.snapshot_at, qw.collected_at, q5.collected_at) AS data_at
+             greatest(l.data_at, pu.data_at, lu.used_at, s.collected_at, f.snapshot_at,
+                      qw.collected_at, q5.collected_at, mb.created_at) AS data_at
       FROM provider_resource pr
       JOIN provider p ON p.id = pr.provider_id AND p.enterprise_id = pr.enterprise_id
       CROSS JOIN tenant
+      LEFT JOIN LATERAL (
+        SELECT budget.*
+          FROM provider_resource_monthly_budget budget
+         WHERE budget.enterprise_id = pr.enterprise_id
+           AND budget.provider_resource_id = pr.id
+           AND budget.month = ${monthStart}::date
+           AND budget.is_current = true
+         LIMIT 1
+      ) mb ON true
       LEFT JOIN ledger l ON l.provider_resource_id = pr.id
       LEFT JOIN purchases pu ON pu.provider_resource_id = pr.id
       LEFT JOIN LATERAL (
@@ -288,7 +322,8 @@ export async function listResourceUtilization(
      WHERE pr.enterprise_id = ${enterpriseId}::uuid
      ORDER BY p.name, pr.name, pr.id
   `.execute(db);
-  const windows = await sql<{
+  const range = operatingBillMonthRange(month);
+  const [windows, monthlyOperating] = await Promise.all([sql<{
     provider_resource_id: string; window_type: "FIVE_HOUR" | "WEEKLY";
     limit_value: string | null; used_value: string | null; remaining_value: string | null;
     ratio: string | null; unit: "PERCENT" | "POINT" | null; reset_at: Date | null;
@@ -301,7 +336,7 @@ export async function listResourceUtilization(
       FROM provider_quota_window
      WHERE enterprise_id = ${enterpriseId}::uuid AND is_current
      ORDER BY provider_resource_id, window_type
-  `.execute(db);
+  `.execute(db), loadMonthlyOperatingCosts(db, enterpriseId, range.start, range.end)]);
   const byResource = new Map<string, QuotaWindowFact[]>();
   for (const window of windows.rows) {
     const list = byResource.get(window.provider_resource_id) ?? [];
@@ -316,7 +351,13 @@ export async function listResourceUtilization(
     });
     byResource.set(window.provider_resource_id, list);
   }
-  return result.rows.map((row) => ({ ...mapRow(row), quotaWindows: byResource.get(row.resource_id) ?? [] }));
+  const operatingByResource = new Map(
+    monthlyOperating.resources.map((resource) => [resource.resourceId, resource]),
+  );
+  return result.rows.map((row) => ({
+    ...applyApiBudgetFacts(mapRow(row), operatingByResource.get(row.resource_id)),
+    quotaWindows: byResource.get(row.resource_id) ?? [],
+  }));
 }
 
 function mapRow(row: RawUtilizationRow): Omit<ResourceUtilizationRow, "quotaWindows"> {
@@ -327,7 +368,13 @@ function mapRow(row: RawUtilizationRow): Omit<ResourceUtilizationRow, "quotaWind
     requestCount: Number(row.request_count), realTokens: row.real_tokens,
     apiCost: row.api_cost, deductedQuota: row.deducted_quota,
     purchaseCashAmount: row.purchase_cash_amount, currency: row.currency,
-    budgetAmount: row.budget_amount, currentBalance: row.current_balance,
+    budgetAmount: row.budget_amount,
+    budgetCurrency: row.budget_currency,
+    budgetVersion: row.budget_version ?? 0,
+    budgetStatus: row.budget_status ?? "NOT_CONFIGURED",
+    budgetUpdatedAt: row.budget_updated_at?.toISOString() ?? null,
+    budgetDifference: null,
+    currentBalance: row.current_balance,
     packageCost: row.package_cost, totalQuota: row.total_quota,
     usedQuota: row.used_quota, remainingQuota: row.remaining_quota,
     quotaUnit: row.quota_unit,

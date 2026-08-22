@@ -23,6 +23,7 @@ const principalKeyId = randomUUID();
 let apiResourceId: string;
 let kimiResourceId: string;
 let zhipuResourceId: string;
+let otherApiResourceId: string;
 
 const currentMonth = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Shanghai",
@@ -176,6 +177,7 @@ beforeAll(async () => {
   apiResourceId = resources.find((resource) => resource.name === "DeepSeek API")!.id;
   kimiResourceId = resources.find((resource) => resource.name === "Kimi Coding Plan")!.id;
   zhipuResourceId = resources.find((resource) => resource.name === "智谱 Coding Plan")!.id;
+  otherApiResourceId = resources.find((resource) => resource.name === "隔离 API")!.id;
 
   await insertLedgerFact(apiResourceId);
   await sql`
@@ -269,7 +271,7 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
       utilizationStatus: "NOT_CONFIGURED",
       notCalculableReason: "MONTHLY_BUDGET_NOT_CONFIGURED",
       realTokens: "1000",
-      apiCost: "12.50000000",
+      apiCost: null,
       idleStatus: "UNASSESSED",
     });
     expect(api.lastSettledRequestAt).toEqual(expect.any(String));
@@ -288,6 +290,136 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
       expect.objectContaining({ type: "FIVE_HOUR", usedValue: "40.00000000", ratio: "0.400000" }),
       expect.objectContaining({ type: "WEEKLY", usedValue: "20.00000000", ratio: "0.200000" }),
     ]));
+  });
+
+  it("POOL20-047：API 月预算按资源和月份追加版本，支持幂等、冲突、清除和租户隔离", async () => {
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: enterpriseId,
+      provider_resource_id: apiResourceId,
+      version: 2,
+      source: "ADMIN",
+      collected_at: new Date(`${currentMonth}-01T00:00:00+08:00`),
+      currency: "CNY",
+      current_balance: "100",
+    }).execute();
+    const idempotencyKey = randomUUID();
+    const createPayload = {
+      amount: "100.00000000",
+      currency: "CNY",
+      createdBy: "资源管理员",
+      expected_version: 0,
+      idempotency_key: idempotencyKey,
+    };
+    const created = await app.inject({
+      method: "PUT",
+      url: `/provider-resources/${apiResourceId}/monthly-budgets/${currentMonth}`,
+      headers: { cookie: adminCookie },
+      payload: createPayload,
+    });
+    expect(created.statusCode).toBe(200);
+    expect(created.json()).toMatchObject({
+      resourceId: apiResourceId,
+      month: currentMonth,
+      version: 1,
+      status: "ACTIVE",
+      amount: "100.00000000",
+      currency: "CNY",
+    });
+    const replay = await app.inject({
+      method: "PUT",
+      url: `/provider-resources/${apiResourceId}/monthly-budgets/${currentMonth}`,
+      headers: { cookie: adminCookie },
+      payload: createPayload,
+    });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(created.json());
+    expect(await count("provider_resource_monthly_budget", `provider_resource_id = '${apiResourceId}'`)).toBe(1);
+
+    const idempotencyConflict = await app.inject({
+      method: "PUT",
+      url: `/provider-resources/${apiResourceId}/monthly-budgets/${currentMonth}`,
+      headers: { cookie: adminCookie },
+      payload: { ...createPayload, amount: "200.00000000" },
+    });
+    expect(idempotencyConflict.statusCode).toBe(409);
+    expect(idempotencyConflict.json()).toMatchObject({ error: "idempotency_conflict" });
+    const versionConflict = await app.inject({
+      method: "PUT",
+      url: `/provider-resources/${apiResourceId}/monthly-budgets/${currentMonth}`,
+      headers: { cookie: adminCookie },
+      payload: { ...createPayload, idempotency_key: randomUUID() },
+    });
+    expect(versionConflict.statusCode).toBe(409);
+    expect(versionConflict.json()).toMatchObject({ error: "conflict" });
+
+    const utilization = await app.inject({
+      method: "GET",
+      url: `/provider-resources/utilization?month=${currentMonth}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(utilization.json().resources.find(
+      (resource: { resourceId: string }) => resource.resourceId === apiResourceId,
+    )).toMatchObject({
+      budgetAmount: "100.00000000",
+      budgetCurrency: "CNY",
+      budgetVersion: 1,
+      budgetStatus: "ACTIVE",
+      apiCost: "132.50000000",
+      utilizationRate: "1.32500000",
+      budgetDifference: "-32.50000000",
+      utilizationBasis: "API_MONTHLY_BUDGET",
+    });
+
+    const codingPlan = await app.inject({
+      method: "PUT",
+      url: `/provider-resources/${kimiResourceId}/monthly-budgets/${currentMonth}`,
+      headers: { cookie: adminCookie },
+      payload: createPayload,
+    });
+    expect(codingPlan.statusCode).toBe(409);
+    const isolated = await app.inject({
+      method: "GET",
+      url: `/provider-resources/${otherApiResourceId}/monthly-budgets?month=${currentMonth}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(isolated.statusCode).toBe(404);
+
+    const cleared = await app.inject({
+      method: "PUT",
+      url: `/provider-resources/${apiResourceId}/monthly-budgets/${currentMonth}`,
+      headers: { cookie: adminCookie },
+      payload: {
+        amount: null,
+        currency: null,
+        expected_version: 1,
+        idempotency_key: randomUUID(),
+      },
+    });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json()).toMatchObject({ version: 2, status: "CLEARED", amount: null });
+    const history = await app.inject({
+      method: "GET",
+      url: `/provider-resources/${apiResourceId}/monthly-budgets?month=${currentMonth}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(history.statusCode).toBe(200);
+    expect(history.json()).toMatchObject({
+      current: { version: 2, status: "CLEARED" },
+      history: [
+        { version: 2, status: "CLEARED", createdBy: "资源管理员" },
+        { version: 1, status: "ACTIVE", amount: "100.00000000", createdBy: "资源管理员" },
+      ],
+    });
+    expect((await sql<{ count: number }>`
+      SELECT count(*)::integer AS count
+        FROM operation_log
+       WHERE action IN ('provider_resource_monthly_budget.update', 'provider_resource_monthly_budget.clear')
+         AND target_id IN (${created.json().id}::uuid, ${cleared.json().id}::uuid)
+    `.execute(db)).rows[0]!.count).toBe(2);
+    await db.deleteFrom("provider_resource_operating_snapshot")
+      .where("provider_resource_id", "=", apiResourceId)
+      .where("version", "=", 2)
+      .execute();
   });
 
   it("POOL20-041：订阅周期边界缺失时保留额度事实但不声称周期利用率", async () => {
@@ -422,6 +554,54 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
 });
 
 describe("W20-09 轻量采购复盘", () => {
+  it("POOL20-047：已关账采购复盘继续读取关账时的预算版本", async () => {
+    const month = "2025-06";
+    const monthDate = `${month}-01`;
+    const firstBudgetId = randomUUID();
+    await db.insertInto("provider_resource_monthly_budget").values({
+      id: firstBudgetId, enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+      month: monthDate, version: 1, status: "ACTIVE", amount: "100", currency: "CNY",
+      created_by: adminId, idempotency_key: randomUUID(), request_hash: "a".repeat(64),
+      response_snapshot: {},
+    }).execute();
+    const draft = await app.operatingBillRepo.getBill(enterpriseId, month);
+    expect(draft.providers.find((row) => row.providerResourceId === apiResourceId)).toMatchObject({
+      monthlyBudgetId: firstBudgetId, monthlyBudgetVersion: 1, monthlyBudgetAmount: "100.00000000",
+    });
+    const period = await db.insertInto("operating_bill_period").values({
+      enterprise_id: enterpriseId, period_month: monthDate, status: "CLOSED",
+      current_version: 1, created_by: adminId,
+    }).returning("id").executeTakeFirstOrThrow();
+    const frozen = { ...draft, status: "CLOSED", version: 1,
+      closedAt: new Date().toISOString(), closedBy: "资源管理员" };
+    await db.insertInto("operating_bill_version").values({
+      enterprise_id: enterpriseId, period_id: period.id, version: 1,
+      snapshot: frozen as unknown as Record<string, unknown>, close_note: "POOL20-047 冻结",
+      closed_by: adminId,
+    }).execute();
+    await db.updateTable("provider_resource_monthly_budget").set({ is_current: false })
+      .where("id", "=", firstBudgetId).execute();
+    await db.insertInto("provider_resource_monthly_budget").values({
+      enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+      month: monthDate, version: 2, status: "ACTIVE", amount: "200", currency: "CNY",
+      created_by: adminId, idempotency_key: randomUUID(), request_hash: "b".repeat(64),
+      response_snapshot: {},
+    }).execute();
+
+    const response = await app.inject({
+      method: "GET", url: `/procurement-reviews/${month}`, headers: { cookie: adminCookie },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().resources.find(
+      (resource: { resourceId: string }) => resource.resourceId === apiResourceId,
+    )).toMatchObject({ budgetAmount: "100.00000000", budgetVersion: 1 });
+
+    await db.deleteFrom("operating_bill_version").where("period_id", "=", period.id).execute();
+    await db.deleteFrom("operating_bill_period").where("id", "=", period.id).execute();
+    await db.deleteFrom("provider_resource_monthly_budget")
+      .where("provider_resource_id", "=", apiResourceId).where("month", "=", monthDate).execute();
+  });
+
   it("旧 CLOSED JSON 缺少币种数组时安全投影冻结 scalar，不改写历史账单", async () => {
     const legacyMonth = "2025-07";
     const draft = await app.operatingBillRepo.getBill(enterpriseId, legacyMonth);
@@ -441,6 +621,8 @@ describe("W20-09 轻量采购复盘", () => {
     Object.assign(legacyApi!, {
       currency: "USD", apiCost: "12.50000000", apiSpendCurrency: undefined,
     });
+    for (const field of ["monthlyBudgetId", "monthlyBudgetVersion", "monthlyBudgetStatus",
+      "monthlyBudgetAmount", "monthlyBudgetCurrency", "monthlyBudgetAt"]) delete legacyApi![field];
     Object.assign(legacyPlan!, {
       currency: "CNY", packageCost: "9999999999999999.99999999",
       packageCostCurrency: undefined,
@@ -457,6 +639,12 @@ describe("W20-09 轻量采购复盘", () => {
       enterprise_id: enterpriseId, period_id: period.id, version: 1,
       snapshot: legacy, close_note: "7305 时代冻结账单", closed_by: adminId,
     }).execute();
+    await db.insertInto("provider_resource_monthly_budget").values({
+      enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+      month: `${legacyMonth}-01`, version: 1, status: "ACTIVE", amount: "999",
+      currency: "USD", created_by: adminId, idempotency_key: randomUUID(),
+      request_hash: "c".repeat(64), response_snapshot: {},
+    }).execute();
 
     const response = await app.inject({
       method: "GET", url: `/procurement-reviews/${legacyMonth}`, headers: { cookie: adminCookie },
@@ -466,9 +654,19 @@ describe("W20-09 轻量采购复盘", () => {
       apiSpends: [{ currency: "USD", amount: "12.50000000" }],
       packageCosts: [{ currency: "CNY", amount: "9999999999999999.99999999" }],
     });
+    expect(response.json().resources.find(
+      (resource: { resourceId: string }) => resource.resourceId === apiResourceId,
+    )).toMatchObject({
+      budgetAmount: null,
+      budgetVersion: 0,
+      notCalculableReason: "FROZEN_BUDGET_FACT_NOT_AVAILABLE",
+    });
     const stored = await db.selectFrom("operating_bill_version").select("snapshot")
       .where("period_id", "=", period.id).executeTakeFirstOrThrow();
     expect((stored.snapshot as { summary: Record<string, unknown> }).summary.apiSpends).toBeUndefined();
+    await db.deleteFrom("provider_resource_monthly_budget")
+      .where("provider_resource_id", "=", apiResourceId)
+      .where("month", "=", `${legacyMonth}-01`).execute();
   });
 
   it("逐资源返回独立采购事实、利用率、确定性标签和依据", async () => {

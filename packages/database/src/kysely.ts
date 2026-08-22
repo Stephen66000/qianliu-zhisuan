@@ -234,6 +234,23 @@ export interface ProviderResourceTable {
   updated_at: Generated<Date>;
 }
 
+export interface ProviderResourceMonthlyBudgetTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_resource_id: string;
+  month: string | Date;
+  version: number;
+  status: "ACTIVE" | "CLEARED";
+  amount: string | null;
+  currency: string | null;
+  is_current: Generated<boolean>;
+  created_by: string;
+  created_at: Generated<Date>;
+  idempotency_key: string;
+  request_hash: string;
+  response_snapshot: Record<string, unknown>;
+}
+
 /** W11：资源状态迁移审计（不可覆盖；每次迁移一行）。 */
 export interface ResourceStatusEventTable {
   id: Generated<string>;
@@ -654,6 +671,7 @@ export interface Database {
   notification_delivery: NotificationDeliveryTable;
   provider: ProviderTable;
   provider_resource: ProviderResourceTable;
+  provider_resource_monthly_budget: ProviderResourceMonthlyBudgetTable;
   provider_resource_operating_snapshot: ProviderResourceOperatingSnapshotTable;
   provider_resource_operating_sync_attempt: ProviderResourceOperatingSyncAttemptTable;
   provider_quota_window: ProviderQuotaWindowTable;

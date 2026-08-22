@@ -53,18 +53,24 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     input: bigint; output: bigint; cache: bigint; reasoning: bigint;
     cost: string | null; quality: string; at: Date;
     mode?: "API" | "CODING_PLAN";
+    requestStatus?: "SUCCEEDED" | "FAILED";
+    responseCommitted?: boolean;
+    httpStatus?: number;
+    errorCode?: string | null;
   }) {
     const requestId = randomUUID();
     await db.insertInto("ai_request").values({
       id: requestId, enterprise_id: enterpriseId, principal_id: principalId,
       principal_key_id: keyId, protocol: "chat", unified_model: input.historicalAlias,
-      unified_model_id: input.modelId, status: "SUCCEEDED", started_at: input.at,
+      unified_model_id: input.modelId, status: input.requestStatus ?? "SUCCEEDED", started_at: input.at,
       finished_at: input.at,
     }).execute();
     const attempt = await db.insertInto("upstream_attempt").values({
       ai_request_id: requestId, enterprise_id: enterpriseId, attempt_no: 1,
       provider_resource_id: input.resourceId, upstream_model: input.upstreamModel,
-      finished_at: input.at, http_status: 200, response_committed: true,
+      finished_at: input.at, http_status: input.httpStatus ?? 200,
+      response_committed: input.responseCommitted ?? true,
+      error_code: input.errorCode ?? null,
     }).returning("id").executeTakeFirstOrThrow();
     const usage = await db.insertInto("usage_event").values({
       ai_request_id: requestId, enterprise_id: enterpriseId, upstream_attempt_id: attempt.id,
@@ -296,6 +302,42 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     expect(items.find((row) => row.providerCode === "currency-api")).toMatchObject({
       monthlyTotalTokens: "12", estimatedBalanceTokens: null,
       balanceTokenEstimateReason: "PRICE_CURRENCY_MISMATCH",
+    });
+  });
+
+  it("POOL20-045：新模型精确用量不被上游前撤权的零 Token 诊断行污染", async () => {
+    const resourceId = await createApiResource("pool20-045", "10");
+    const modelId = randomUUID();
+    await db.insertInto("unified_model").values({
+      id: modelId,
+      enterprise_id: enterpriseId,
+      alias: "ql-k3-256k",
+      display_name: "K3 256K",
+    }).execute();
+    const usedAt = new Date(now.getTime() - 30 * 60 * 1000);
+    await addLine({
+      resourceId, modelId, historicalAlias: "ql-k3-256k", upstreamModel: "k3-256k",
+      input: 100n, output: 20n, cache: 10n, reasoning: 0n,
+      cost: "0.10000000", quality: "PROVIDER_REPORTED", at: usedAt,
+    });
+    await addLine({
+      resourceId, modelId, historicalAlias: "ql-k3-256k", upstreamModel: "k3-256k",
+      input: 0n, output: 0n, cache: 0n, reasoning: 0n,
+      cost: null, quality: "UNKNOWN", at: usedAt,
+      requestStatus: "FAILED", responseCommitted: false, httpStatus: 403,
+      errorCode: "candidate_admission_revoked",
+    });
+
+    const item = (await new DashboardRepository(db).getSummary(enterpriseId, now.getTime()))
+      .resourceBreakdown.find((row) => row.providerCode === "pool20-045");
+    expect(item).toMatchObject({
+      monthlyTotalTokens: "120",
+      monthlyUsageQuality: "EXACT",
+      modelTokenBreakdown: [expect.objectContaining({
+        modelAlias: "ql-k3-256k",
+        totalTokens: "120",
+        usageQuality: "EXACT",
+      })],
     });
   });
 

@@ -110,7 +110,9 @@ export interface ResourceUtilization {
   realTokens: string; apiCost: string | null; deductedQuota: string; purchaseCashAmount: string | null;
   ledgerApiCost?: string | null; apiSpendReason?: string | null;
   purchaseCashAmounts?: Array<{ currency: string; amount: string }>;
-  currency: string | null; budgetAmount: string | null; currentBalance: string | null;
+  currency: string | null; budgetAmount: string | null; budgetCurrency: string | null;
+  budgetVersion: number; budgetStatus: "ACTIVE" | "CLEARED" | "NOT_CONFIGURED";
+  budgetUpdatedAt: string | null; budgetDifference: string | null; currentBalance: string | null;
   packageCost: string | null; totalQuota: string | null; usedQuota: string | null;
   remainingQuota: string | null; quotaUnit: string | null;
   servicePeriodStart?: string | null; servicePeriodEnd?: string | null;
@@ -131,6 +133,25 @@ export interface ResourceUtilization {
     resetAt: string | null; providerDataAt: string | null; collectedAt: string;
     syncStatus: "SUCCESS" | "STALE" | "FAILED" | "UNSUPPORTED"; syncErrorCode: string | null;
   }>;
+}
+
+export interface ResourceMonthlyBudgetVersion {
+  id: string;
+  resourceId: string;
+  month: string;
+  version: number;
+  status: "ACTIVE" | "CLEARED";
+  amount: string | null;
+  currency: string | null;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface ResourceMonthlyBudgetHistory {
+  resource: { id: string; name: string; mode: "API" | "CODING_PLAN" };
+  month: string;
+  current: ResourceMonthlyBudgetVersion | null;
+  history: ResourceMonthlyBudgetVersion[];
 }
 
 export interface ProcurementReview {

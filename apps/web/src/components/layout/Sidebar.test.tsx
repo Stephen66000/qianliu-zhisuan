@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { Sidebar } from "./Sidebar";
 
 describe("Sidebar", () => {
-  it("保留 1.0 的十个主导航入口", () => {
+  it("批量授权收入使用主体，不再占用主导航", () => {
     render(
       <MemoryRouter initialEntries={["/employee-model-rules"]}>
         <Sidebar />
@@ -18,7 +18,6 @@ describe("Sidebar", () => {
     const entries = [
       ["首页看板", "/dashboard"],
       ["使用主体", "/principals"],
-      ["批量模型授权", "/employee-model-rules"],
       ["厂商资源", "/resources"],
       ["额度规则", "/quota-rules"],
       ["用量账本", "/usage"],
@@ -30,5 +29,6 @@ describe("Sidebar", () => {
     for (const [name, href] of entries) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
     }
+    expect(screen.queryByRole("link", { name: "批量模型授权" })).not.toBeInTheDocument();
   });
 });

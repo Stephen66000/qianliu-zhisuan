@@ -1,5 +1,4 @@
 import { Decimal } from "decimal.js";
-import { createHash } from "node:crypto";
 import { sql, type Kysely } from "kysely";
 
 import type { Database } from "../kysely.js";
@@ -23,6 +22,7 @@ import {
 } from "./operating-bill-cost-quality.js";
 import { loadMonthlyOperatingCosts } from "./monthly-operating-cost.js";
 import { apiBalanceGaps, balanceBridgeFacts, monthlyProviderCostFields, monthlySummaryFields } from "./operating-bill-monthly-cost.js";
+import { providerFactEvidence } from "./operating-bill-provider-evidence.js";
 
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
 
@@ -46,6 +46,12 @@ interface ResourceFactRow {
   effective_from: Date | null;
   effective_until: Date | null;
   next_reset_at: Date | null;
+  budget_id: string | null;
+  budget_version: number | null;
+  budget_status: "ACTIVE" | "CLEARED" | null;
+  budget_amount: string | null;
+  budget_currency: string | null;
+  budget_at: Date | null;
 }
 
 interface PurchaseFactRow {
@@ -161,57 +167,6 @@ function isEffectivePackage(row: ResourceFactRow, start: Date, end: Date): boole
   return row.mode === "CODING_PLAN" && row.package_cost !== null && row.effective_from !== null && row.effective_until !== null && row.effective_from < end && row.effective_until > start;
 }
 
-function providerFactEvidence(input: {
-  row: ResourceFactRow;
-  resourceApiCost: Decimal | null;
-  ledgerApiCost: Decimal | null;
-  resourcePackageCost: Decimal;
-  purchases: PurchaseFactRow[];
-  range?: ResourceRangeRow;
-  confirmed?: ResourceConfirmationRow;
-}): Pick<OperatingBillProviderRow,
-  "purchases" | "servicePeriodStart" | "servicePeriodEnd" | "operatingSnapshotSource" |
-  "requestRange" | "factFingerprint" | "confirmation"> {
-  const purchases = input.purchases.map((item) => ({
-    id: item.id, type: item.purchase_type, amount: item.amount, currency: item.currency,
-    purchasedAt: item.purchased_at.toISOString(), servicePeriodStart: item.service_period_start,
-    servicePeriodEnd: item.service_period_end, source: item.source,
-  }));
-  const requestRange = {
-    from: input.range?.first_at?.toISOString() ?? null,
-    to: input.range?.last_at?.toISOString() ?? null,
-    count: Number(input.range?.request_count ?? 0),
-  };
-  const factFingerprint = createHash("sha256").update(JSON.stringify({
-    resourceId: input.row.resource_id,
-    snapshotId: input.row.snapshot_id,
-    snapshotVersion: input.row.snapshot_version,
-    apiCost: nullableAmount(input.resourceApiCost),
-    ledgerApiCost: nullableAmount(input.ledgerApiCost),
-    packageCost: amount(input.resourcePackageCost),
-    endingBalance: input.row.current_balance,
-    purchases,
-    requestRange: [requestRange.from, requestRange.to, requestRange.count],
-  })).digest("hex");
-  const matchesCurrentFacts = input.confirmed?.fact_fingerprint === factFingerprint;
-  return {
-    operatingSnapshotSource: input.row.snapshot_source,
-    servicePeriodStart: input.row.effective_from?.toISOString() ?? null,
-    servicePeriodEnd: input.row.effective_until?.toISOString() ?? null,
-    purchases,
-    requestRange,
-    factFingerprint,
-    confirmation: {
-      status: input.confirmed && matchesCurrentFacts ? input.confirmed.status : "PENDING",
-      note: input.confirmed?.note ?? null,
-      confirmedBy: input.confirmed?.confirmed_by_name ?? null,
-      confirmedAt: input.confirmed?.confirmed_at.toISOString() ?? null,
-      version: input.confirmed?.version ?? 0,
-      matchesCurrentFacts,
-    },
-  };
-}
-
 export async function buildOperatingBillDraft(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -252,10 +207,18 @@ export async function buildOperatingBillDraft(
                s.id AS snapshot_id, s.version AS snapshot_version,
                s.collected_at AS snapshot_at, s.source AS snapshot_source, s.currency, s.current_balance, s.recharge_amount,
                s.package_cost, s.total_quota, s.used_quota, s.remaining_quota,
-               s.quota_unit, s.effective_from, s.effective_until, s.next_reset_at
+               s.quota_unit, s.effective_from, s.effective_until, s.next_reset_at,
+               mb.id AS budget_id, mb.version AS budget_version, mb.status AS budget_status,
+               mb.amount::text AS budget_amount, mb.currency AS budget_currency,
+               mb.created_at AS budget_at
           FROM resources r
           JOIN provider p ON p.id = r.provider_id AND p.enterprise_id = ${enterpriseId}
           LEFT JOIN latest s ON s.provider_resource_id = r.id
+          LEFT JOIN provider_resource_monthly_budget mb
+            ON mb.enterprise_id = ${enterpriseId}
+           AND mb.provider_resource_id = r.id
+           AND mb.month = ${`${month}-01`}::date
+           AND mb.is_current = true
          ORDER BY p.code, r.name
       `.execute(db),
       sql<UsageFactRow>`
@@ -498,6 +461,12 @@ export async function buildOperatingBillDraft(
         providerResourceId: row.resource_id, providerCode: row.provider_code,
         providerName: row.provider_name, resourceName: row.resource_name, mode: row.mode,
         currency: row.currency,
+        monthlyBudgetId: row.budget_id,
+        monthlyBudgetVersion: row.budget_version ?? 0,
+        monthlyBudgetStatus: row.budget_status ?? "NOT_CONFIGURED",
+        monthlyBudgetAmount: row.budget_amount,
+        monthlyBudgetCurrency: row.budget_currency,
+        monthlyBudgetAt: row.budget_at?.toISOString() ?? null,
         ...monthlyProviderCostFields(monthlyCost, nullableAmount(resourceLedgerApiCost)),
         totalQuota: row.total_quota, usedQuota: row.used_quota, remainingQuota: row.remaining_quota,
         quotaUnit: row.quota_unit, utilization,
@@ -529,6 +498,15 @@ export async function buildOperatingBillDraft(
         ledgerLineCount,
         operatingSnapshotIds: resources.map((row) => row.snapshot_id).filter((id): id is string => id !== null),
         balanceBridgeFacts: balanceBridgeFacts(monthlyOperatingCosts),
+        resourceMonthlyBudgetFacts: resources.flatMap((row) => row.budget_id && row.budget_status && row.budget_at ? [{
+          providerResourceId: row.resource_id,
+          budgetId: row.budget_id,
+          version: row.budget_version ?? 0,
+          status: row.budget_status,
+          amount: row.budget_amount,
+          currency: row.budget_currency,
+          createdAt: row.budget_at.toISOString(),
+        }] : []),
         ledgerLines: ledgerSourcesResult.rows.map((row) => ({
           id: row.id, billingRuleId: row.billing_rule_id, ruleVersion: row.rule_version,
           billingRuleSnapshot: row.billing_rule_snapshot,

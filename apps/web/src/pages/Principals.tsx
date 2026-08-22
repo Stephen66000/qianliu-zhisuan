@@ -5,6 +5,7 @@
  * 停用 = PATCH status=DISABLED（后端级联撤销全部 Key，TRD §5.3），破坏性 → 二次确认。
  */
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Plus, Settings2, Users } from "lucide-react";
@@ -41,6 +42,7 @@ import {
   useSaveProjectDepartmentAssignment,
 } from "../api/v2-hooks";
 import { useFeatureFlags } from "../feature-flags";
+import { EmployeeModelRulesPage } from "./EmployeeModelRules";
 
 const CreatePrincipalSchema = z.object({
   type: z.enum(["EMPLOYEE", "PROJECT"]),
@@ -54,7 +56,29 @@ const TYPE_LABEL: Record<Principal["type"], string> = { EMPLOYEE: "员工", PROJ
 
 export function PrincipalsPage() {
   const featureFlags = useFeatureFlags();
-  const [activeTab, setActiveTab] = useState<"principals" | "directory">("principals");
+  const [searchParams, setSearchParams] = useSearchParams();
+  type PrincipalTab = "principals" | "directory" | "batch-authorization";
+  const requestedTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<PrincipalTab>(
+    requestedTab === "directory" || requestedTab === "batch-authorization"
+      ? requestedTab
+      : "principals",
+  );
+  useEffect(() => {
+    const next: PrincipalTab = requestedTab === "batch-authorization"
+      ? "batch-authorization"
+      : requestedTab === "directory" && featureFlags.FEATURE_DIRECTORY_IMPORT
+        ? "directory"
+        : "principals";
+    setActiveTab(next);
+  }, [featureFlags.FEATURE_DIRECTORY_IMPORT, requestedTab]);
+  const selectTab = (tab: PrincipalTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === "principals") next.delete("tab");
+    else next.set("tab", tab);
+    setSearchParams(next);
+    setActiveTab(tab);
+  };
   const [principalScope, setPrincipalScope] = useState<"active" | "disabled" | "archived">("active");
   const query = usePrincipals(
     principalScope === "archived" ? "only" : "exclude",
@@ -162,10 +186,12 @@ export function PrincipalsPage() {
       title="使用主体"
     >
       <div className="mb-4 flex gap-2 border-b border-ql-border">
-        <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "principals" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => setActiveTab("principals")} type="button">使用主体</button>
-        {featureFlags.FEATURE_DIRECTORY_IMPORT ? <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "directory" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => setActiveTab("directory")} type="button">组织通讯录</button> : null}
+        <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "principals" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("principals")} type="button">使用主体</button>
+        {featureFlags.FEATURE_DIRECTORY_IMPORT ? <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "directory" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("directory")} type="button">组织通讯录</button> : null}
+        <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "batch-authorization" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("batch-authorization")} type="button">批量模型授权</button>
       </div>
-      {featureFlags.FEATURE_DIRECTORY_IMPORT && activeTab === "directory" ? <DirectoryPanel /> : <>
+      {activeTab === "batch-authorization" ? <EmployeeModelRulesPage embedded />
+        : featureFlags.FEATURE_DIRECTORY_IMPORT && activeTab === "directory" ? <DirectoryPanel /> : <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-[13px] text-ql-fg-secondary">
           显示范围

@@ -9,6 +9,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Principal } from "../api/types";
 import { PrincipalsPage } from "./Principals";
 
+vi.mock("./EmployeeModelRules", () => ({
+  EmployeeModelRulesPage: ({ embedded }: { embedded?: boolean }) => (
+    <section aria-label="批量模型授权面板">{embedded ? "内嵌批量模型授权" : "独立批量模型授权"}</section>
+  ),
+}));
+
 const usePrincipalsMock = vi.fn();
 const usePrincipalKeysMock = vi.fn();
 const useGrantsMock = vi.fn();
@@ -103,9 +109,9 @@ function principal(overrides: Partial<Principal> = {}): Principal {
   };
 }
 
-function renderPage() {
+function renderPage(initialEntry = "/principals") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <PrincipalsPage />
     </MemoryRouter>,
   );
@@ -195,6 +201,21 @@ describe("W19 使用主体", () => {
     expect(screen.getByText("张三")).toBeInTheDocument();
     expect(screen.getByText("员工")).toBeInTheDocument();
     expect(screen.getByText("启用中")).toBeInTheDocument();
+  });
+
+  it("POOL20-046：使用主体提供第三个批量授权 Tab，并支持直达 URL", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    expect(screen.getByRole("button", { name: "使用主体" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "组织通讯录" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "批量模型授权" }));
+    expect(screen.getByRole("region", { name: "批量模型授权面板" })).toHaveTextContent("内嵌批量模型授权");
+  });
+
+  it("POOL20-046：查询参数可直接打开批量授权 Tab", () => {
+    renderPage("/principals?tab=batch-authorization");
+    expect(screen.getByRole("region", { name: "批量模型授权面板" })).toBeInTheDocument();
+    expect(screen.queryByText("张三")).not.toBeInTheDocument();
   });
 
   it("显示范围默认在用，并独立查询停用与归档主体", async () => {

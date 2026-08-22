@@ -115,7 +115,7 @@ function Procurement({ bill }: { bill: OperatingBill }) {
           <ReviewMetric label="套餐成本加权利用" value={review.summary.planUtilization === null ? "—" : `${review.summary.planUtilization}%`} />
           <ReviewMetric label="需关注资源" value={String(review.resources.filter((row) => row.reviewLabel !== "维持").length)} />
         </div>
-        <Table headers={["资源", "形态", "采购/充值现金", "真实使用", "本月花费", "利用率 / 口径", "耗尽 / 连续无调用", "建议标签", "确定性依据"]}>
+        <Table headers={["资源", "形态", "采购/充值现金", "真实使用", "本月花费", "月预算 / 差额", "利用率 / 口径", "耗尽 / 连续无调用", "建议标签", "确定性依据"]}>
           {review.resources.map((row) => (
             <tr className="border-b border-ql-border-zone align-top" key={row.resourceId}>
               <Cell>
@@ -131,6 +131,7 @@ function Procurement({ bill }: { bill: OperatingBill }) {
                 {row.mode === "API" ? (row.apiCost === null ? (row.apiSpendReason ?? "—") : currencyMoney(row.apiCost, row.currency)) : currencyMoney(row.packageCost, row.currency)}
                 {row.mode === "API" && row.ledgerApiCost !== undefined ? <span className="block text-[10px] font-normal text-ql-fg-tertiary">账本 API 计价（核对证据） {currencyMoney(row.ledgerApiCost, row.currency)}</span> : null}
               </Num>
+              <Num>{row.mode === "API" ? <>{row.budgetAmount === null ? "未设置" : currencyMoney(row.budgetAmount, row.budgetCurrency)}<span className="block text-[10px] font-normal text-ql-fg-tertiary">差额 {row.budgetDifference === null ? "不可计算" : currencyMoney(row.budgetDifference, row.budgetCurrency)}</span></> : "—"}</Num>
               <Cell>
                 {row.utilizationRate === null ? "— / 数据不足" : `${(Number(row.utilizationRate) * 100).toFixed(1)}%`}
                 <span className="block text-[10px] text-ql-fg-tertiary">{row.utilizationBasis ?? row.notCalculableReason ?? "数据不足"}</span>

@@ -5,6 +5,7 @@ import { sql } from "kysely";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 import { listResourceUtilization } from "./query.js";
+import { registerResourceMonthlyBudgetRoutes } from "./budget-routes.js";
 
 const Month = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/);
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
@@ -13,7 +14,6 @@ const NoteBody = z.object({
   expected_version: z.number().int().nonnegative(),
   idempotency_key: z.string().min(1).max(128),
 });
-
 interface PriorNoteReceipt { request_hash: string; response_snapshot: unknown }
 
 function sha256(value: unknown): string {
@@ -35,6 +35,7 @@ export function registerResourceInsightRoutes(
       generatedAt: new Date().toISOString(),
     };
   });
+  if (options.utilizationV2 !== false) registerResourceMonthlyBudgetRoutes(app);
 
   if (options.procurementReview !== false) app.get<{ Params: { month: string } }>(
     "/procurement-reviews/:month",
@@ -75,8 +76,10 @@ export function registerResourceInsightRoutes(
         resources: resources.map((resource) => {
           const operating = billByResource.get(resource.resourceId);
           const purchaseCashAmounts = currencyTotals(operating?.purchases ?? []);
+          const budget = operatingBillBudgetProjection(resource, operating, bill.status === "CLOSED");
           const merged = {
             ...resource,
+            ...budget,
             apiCost: operating?.apiCost ?? null,
             ledgerApiCost: operating?.ledgerApiCost ?? null,
             apiSpendReason: operating?.apiSpendReason ?? null,
@@ -169,6 +172,63 @@ export function registerResourceInsightRoutes(
       return outcome.value;
     },
   );
+}
+
+function operatingBillBudgetProjection(
+  resource: Awaited<ReturnType<typeof listResourceUtilization>>[number],
+  operating: {
+    apiCost: string | null;
+    apiSpendCurrency: string | null;
+    monthlyBudgetId?: string | null;
+    monthlyBudgetVersion?: number;
+    monthlyBudgetStatus?: "ACTIVE" | "CLEARED" | "NOT_CONFIGURED";
+    monthlyBudgetAmount?: string | null;
+    monthlyBudgetCurrency?: string | null;
+    monthlyBudgetAt?: string | null;
+  } | undefined,
+  frozen: boolean,
+) {
+  if (resource.mode !== "API") return {};
+  if (!operating?.monthlyBudgetStatus) {
+    return frozen ? {
+      budgetAmount: null, budgetCurrency: null, budgetVersion: 0,
+      budgetStatus: "NOT_CONFIGURED", budgetUpdatedAt: null, budgetDifference: null,
+      utilizationRate: null, utilizationBasis: null, utilizationStatus: "UNKNOWN",
+      notCalculableReason: "FROZEN_BUDGET_FACT_NOT_AVAILABLE",
+    } : {};
+  }
+  const base = {
+    budgetAmount: operating.monthlyBudgetAmount ?? null,
+    budgetCurrency: operating.monthlyBudgetCurrency ?? null,
+    budgetVersion: operating.monthlyBudgetVersion ?? 0,
+    budgetStatus: operating.monthlyBudgetStatus,
+    budgetUpdatedAt: operating.monthlyBudgetAt ?? null,
+    budgetDifference: null as string | null,
+  };
+  if (base.budgetStatus !== "ACTIVE" || base.budgetAmount === null || base.budgetCurrency === null) {
+    return { ...base, utilizationRate: null, utilizationBasis: null,
+      utilizationStatus: "NOT_CONFIGURED", notCalculableReason: "MONTHLY_BUDGET_NOT_CONFIGURED" };
+  }
+  if (operating.apiCost === null) {
+    return { ...base, utilizationRate: null, utilizationBasis: null,
+      utilizationStatus: "UNKNOWN", notCalculableReason: "API_SPEND_NOT_CALCULABLE" };
+  }
+  if (operating.apiSpendCurrency !== base.budgetCurrency) {
+    return { ...base, utilizationRate: null, utilizationBasis: null,
+      utilizationStatus: "UNKNOWN", notCalculableReason: "BUDGET_CURRENCY_MISMATCH" };
+  }
+  const spend = new MoneyDecimal(operating.apiCost);
+  const amount = new MoneyDecimal(base.budgetAmount);
+  const utilizationRate = spend.div(amount).toDecimalPlaces(8).toFixed(8);
+  return {
+    ...base,
+    budgetDifference: amount.minus(spend).toDecimalPlaces(8).toFixed(8),
+    utilizationRate,
+    utilizationBasis: "API_MONTHLY_BUDGET",
+    utilizationStatus: spend.gte(amount) ? "OVER_BUDGET"
+      : spend.gte(amount.times("0.8")) ? "WARNING" : "NORMAL",
+    notCalculableReason: null,
+  };
 }
 
 function frozenProviderAmounts(

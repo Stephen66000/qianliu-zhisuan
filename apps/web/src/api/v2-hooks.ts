@@ -4,7 +4,7 @@ import type { Principal } from "./types";
 import type {
   DepartmentBill, DirectoryImportItem, DirectoryImportRun, DirectoryMember,
   DirectorySource, DirectorySourceType, EnterpriseSettings, OrganizationUnit,
-  ProcurementReview, ResourceUtilization, UsageOverview,
+  ProcurementReview, ResourceMonthlyBudgetHistory, ResourceUtilization, UsageOverview,
   ProjectDepartmentAssignment,
 } from "./v2-types";
 
@@ -102,6 +102,34 @@ export function usePrincipalOption(id: string | null) {
 }
 export function useResourceUtilization(month: string) {
   return useQuery({ queryKey: V2_KEYS.utilization(month), queryFn: ({ signal }) => get<{ month: string; resources: ResourceUtilization[]; generatedAt: string }>(`/provider-resources/utilization?month=${month}`, signal), retry: 1 });
+}
+export function useResourceMonthlyBudget(resourceId: string | null, month: string) {
+  return useQuery({
+    queryKey: ["resource-monthly-budget", resourceId, month],
+    queryFn: ({ signal }) => get<ResourceMonthlyBudgetHistory>(
+      `/provider-resources/${resourceId}/monthly-budgets?month=${month}`,
+      signal,
+    ),
+    enabled: Boolean(resourceId),
+    retry: 1,
+  });
+}
+export function useSaveResourceMonthlyBudget(resourceId: string | null, month: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      amount: string | null;
+      currency: string | null;
+      expected_version: number;
+    }) => put(`/provider-resources/${resourceId}/monthly-budgets/${month}`, {
+      ...body,
+      idempotency_key: crypto.randomUUID(),
+    }),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: V2_KEYS.utilization(month) });
+      await client.invalidateQueries({ queryKey: ["resource-monthly-budget", resourceId, month] });
+    },
+  });
 }
 export function useProcurementReview(month: string) {
   return useQuery({ queryKey: V2_KEYS.procurement(month), queryFn: ({ signal }) => get<ProcurementReview>(`/procurement-reviews/${month}`, signal), retry: 1 });
