@@ -22,8 +22,9 @@ interface RegisteredModelRow {
   provider_name: string;
   mode: Mode;
   resource_status: string;
-  unified_model_id: string;
+  unified_model_id: string | null;
   model_alias: string;
+  historical_unattributed?: boolean;
 }
 
 interface ResourceForecastRow {
@@ -36,6 +37,11 @@ interface ResourceForecastRow {
 }
 
 function matchesModel(row: UsageRow, model: RegisteredModelRow): boolean {
+  if (model.historical_unattributed) {
+    return row.resource_id === model.resource_id
+      && row.unified_model_id === null
+      && row.model_alias === model.model_alias;
+  }
   return row.resource_id === model.resource_id && (
     row.unified_model_id === model.unified_model_id ||
     (row.unified_model_id === null && row.model_alias === model.model_alias)
@@ -91,9 +97,31 @@ export async function loadResourceModelUsageDetails(
   const forecastByResource = new Map(
     forecastResult.rows.map((forecast) => [forecast.resource_id, forecast]),
   );
+  const currentModels: RegisteredModelRow[] = registered.rows;
+  const legacyModels = new Map<string, RegisteredModelRow>();
+  for (const row of [...monthlyRows, ...recentRows]) {
+    if (currentModels.some((model) => matchesModel(row, model))) continue;
+    const key = `${row.resource_id}:${row.model_alias}`;
+    legacyModels.set(key, {
+      resource_id: row.resource_id,
+      resource_name: row.resource_name,
+      provider_code: row.provider_code,
+      provider_name: row.provider_name,
+      mode: row.mode,
+      resource_status: row.resource_status,
+      unified_model_id: null,
+      model_alias: row.model_alias,
+      historical_unattributed: true,
+    });
+  }
+  const models = [...currentModels, ...legacyModels.values()].sort((left, right) =>
+    left.provider_name.localeCompare(right.provider_name, "zh-CN")
+      || left.resource_name.localeCompare(right.resource_name, "zh-CN")
+      || left.model_alias.localeCompare(right.model_alias)
+  );
 
   // eslint-disable-next-line complexity -- API/Plan、未知事实、预测新鲜度均为互斥 fail-closed 分支。
-  return registered.rows.map((model) => {
+  return models.map((model) => {
     const monthlyModelRows = monthlyRows.filter((row) => matchesModel(row, model));
     const recentModelRows = recentRows.filter((row) => matchesModel(row, model));
     const monthly = emptyAccumulator();
@@ -138,19 +166,25 @@ export async function loadResourceModelUsageDetails(
       usedQuota: model.mode === "CODING_PLAN"
         ? monthly.quotaKnown ? integer(monthly.quota) : null
         : null,
-      remainingQuota: model.mode === "CODING_PLAN" ? snapshot?.remaining_quota ?? null : null,
+      remainingQuota: model.mode === "API"
+        ? snapshot?.current_balance ?? null
+        : snapshot?.remaining_quota ?? null,
       quotaUnit: model.mode === "CODING_PLAN" ? snapshot?.quota_unit ?? null : null,
       currency: snapshot?.currency ?? null,
       monthlyCost: model.mode === "API"
-        ? monthly.costKnown ? monthly.cost.toDecimalPlaces(8).toFixed(8) : null
+        ? monthly.cost.toDecimalPlaces(8).toFixed(8)
         : null,
       monthlyCostReason: model.mode === "CODING_PLAN"
         ? "套餐固定费，不按模型拆分"
-        : monthly.costKnown ? null : "模型费用不可计算",
-      monthlyTotalTokens: monthlyQuality === "UNKNOWN"
-        ? null
-        : integer(monthly.input.plus(monthly.output)),
+        : monthly.costKnown
+          ? null
+          : monthly.unknownCount > 0
+            ? `已记录费用；另有 ${monthly.unknownCount} 笔费用未知`
+            : "已记录费用；存在费用未回传",
+      monthlyTotalTokens: integer(monthly.input.plus(monthly.output)),
       usageQuality: monthlyQuality,
+      unknownCount: monthly.unknownCount,
+      historicalUnattributed: model.historical_unattributed ?? false,
       consumptionRate24h: rate,
       consumptionRateUnit: rate === null
         ? null

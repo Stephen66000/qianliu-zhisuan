@@ -56,13 +56,12 @@ export function ResourceUsageOverviewPanel() {
               <p className="py-5 text-center text-[13px] text-ql-fg-tertiary">暂无已登记模型</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[76rem] border-collapse text-left text-[12px]">
+                <table className="w-full min-w-[70rem] border-collapse text-left text-[12px]">
                   <thead>
                     <tr className="border-b border-ql-border text-ql-fg-tertiary">
                       <th className="py-2 pr-4 font-medium">模型</th>
                       <th className="py-2 pr-4 font-medium">所属厂商 / 资源</th>
-                      <th className="py-2 pr-4 text-right font-medium">已用额度</th>
-                      <th className="py-2 pr-4 text-right font-medium">所属资源剩余额度</th>
+                      <th className="py-2 pr-4 text-right font-medium">所属资源余额 / 剩余额度</th>
                       <th className="py-2 pr-4 text-right font-medium">本月花费</th>
                       <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
                       <th className="py-2 pr-4 text-right font-medium">最近 24 小时速度</th>
@@ -71,7 +70,7 @@ export function ResourceUsageOverviewPanel() {
                     </tr>
                   </thead>
                   <tbody>{data.modelDetails.map((item) => (
-                    <ModelUsageRow item={item} key={`${item.resourceId}:${item.unifiedModelId}`} />
+                    <ModelUsageRow item={item} key={`${item.resourceId}:${item.unifiedModelId ?? item.modelAlias}`} />
                   ))}</tbody>
                 </table>
               </div>
@@ -86,7 +85,12 @@ export function ResourceUsageOverviewPanel() {
 function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
   return (
     <tr className="border-b border-ql-border-zone align-top text-ql-fg last:border-b-0 hover:bg-ql-surface-subtle">
-      <td className="py-2.5 pr-4 font-medium">{item.modelAlias}</td>
+      <td className="py-2.5 pr-4 font-medium">
+        {item.modelAlias}
+        {item.historicalUnattributed ? (
+          <span className="block text-[10px] font-normal text-ql-fg-tertiary">历史旧标识 / 未归属具体模型</span>
+        ) : null}
+      </td>
       <td className="py-2.5 pr-4">
         {item.providerName} · {item.resourceName}
         <span className="block text-[10px] text-ql-fg-tertiary">
@@ -94,21 +98,25 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
         </span>
       </td>
       <td className="py-2.5 pr-4 text-right font-mono">
-        {item.usedQuota === null ? "—" : `${formatCount(item.usedQuota)} ${item.quotaUnit ?? ""}`}
-      </td>
-      <td className="py-2.5 pr-4 text-right font-mono">
         {item.remainingQuota === null
           ? "—"
-          : `${formatCount(item.remainingQuota)} ${item.quotaUnit ?? ""}`}
+          : item.mode === "API"
+            ? `${item.currency ?? "CNY"} ${formatMoney(item.remainingQuota)}`
+            : `${formatCount(item.remainingQuota)} ${item.quotaUnit ?? ""}`}
+        {item.remainingQuota !== null ? (
+          <span className="block font-sans text-[10px] text-ql-fg-tertiary">共享资源</span>
+        ) : null}
       </td>
       <td className="py-2.5 pr-4 text-right">
         {item.monthlyCost === null
           ? <span className="text-ql-fg-tertiary">{item.monthlyCostReason ?? "不可计算"}</span>
-          : `${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
+          : <>{`${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
+            {item.monthlyCostReason ? (
+              <span className="block text-[10px] text-ql-fg-tertiary">{item.monthlyCostReason}</span>
+            ) : null}</>}
       </td>
       <td className="py-2.5 pr-4 text-right font-mono">
-        {item.monthlyTotalTokens === null ? "Token 未知" : formatCount(item.monthlyTotalTokens)}
-        <span className="block text-[10px] text-ql-fg-tertiary">{qualityLabel(item.usageQuality)}</span>
+        {modelTokenText(item)}
       </td>
       <td className="py-2.5 pr-4 text-right font-mono">
         {item.consumptionRate24h === null
@@ -135,6 +143,23 @@ function formatRate(value: string): string {
   return Number.isFinite(parsed)
     ? parsed.toLocaleString("zh-CN", { maximumFractionDigits: 2 })
     : value;
+}
+
+function modelTokenText(item: ResourceModelUsageDetail) {
+  const unknown = item.unknownCount ?? 0;
+  if (item.monthlyTotalTokens === null) return "Token 未知";
+  if (item.monthlyTotalTokens === "0" && unknown > 0) {
+    return <>
+      <span className="font-sans">暂无成功计量</span>
+      <span className="block font-sans text-[10px] text-ql-fg-tertiary">{unknown} 笔计量未知</span>
+    </>;
+  }
+  return <>
+    {formatCount(item.monthlyTotalTokens)}
+    <span className="block font-sans text-[10px] text-ql-fg-tertiary">
+      {unknown > 0 ? `已记录；另有 ${unknown} 笔计量未知` : qualityLabel(item.usageQuality)}
+    </span>
+  </>;
 }
 
 function qualityLabel(quality: ResourceModelUsageDetail["usageQuality"]): string {

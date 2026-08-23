@@ -485,17 +485,55 @@ export class DashboardRepository {
     enterpriseId: string,
     providerCode: string,
     mode: "API" | "CODING_PLAN",
-  ): Promise<string | null> {
-    // Grant 当前只绑定厂商/统一模型，无法可靠拆到具体资源；额度门禁仅用于套餐模式。
-    if (mode !== "CODING_PLAN") return null;
-    const row = await sql<{ total: string | null }>`
-      SELECT SUM(g.quota_value::numeric)::text AS total
+  ): Promise<string> {
+    // 当前 alias 可经 Model Route 判定 API/Coding Plan；未映射的历史 Grant 沿用
+    // 旧合同归入 Coding Plan，避免同一额度在两个模式重复展示。
+    const row = await sql<{ total: string }>`
+      SELECT COALESCE(SUM(g.quota_value::numeric), 0)::text AS total
       FROM principal_grant g
       WHERE g.enterprise_id = ${enterpriseId}
         AND g.provider = ${providerCode}
         AND g.status = 'ACTIVE'
+        AND (
+          EXISTS (
+            SELECT 1
+              FROM unified_model um
+              JOIN model_route mr
+                ON mr.unified_model_id = um.id
+               AND mr.enterprise_id = ${enterpriseId}
+               AND mr.archived_at IS NULL
+              JOIN provider_resource pr
+                ON pr.id = mr.provider_resource_id
+               AND pr.enterprise_id = ${enterpriseId}
+               AND pr.status <> 'DELETED'
+              JOIN provider p
+                ON p.id = pr.provider_id
+               AND p.enterprise_id = ${enterpriseId}
+             WHERE um.enterprise_id = ${enterpriseId}
+               AND um.alias = g.model_alias
+               AND p.code = ${providerCode}
+               AND pr.mode = ${mode}
+          )
+          OR (
+            ${mode} = 'CODING_PLAN'
+            AND NOT EXISTS (
+              SELECT 1
+                FROM unified_model um
+                JOIN model_route mr
+                  ON mr.unified_model_id = um.id
+                 AND mr.enterprise_id = ${enterpriseId}
+                 AND mr.archived_at IS NULL
+                JOIN provider_resource pr
+                  ON pr.id = mr.provider_resource_id
+                 AND pr.enterprise_id = ${enterpriseId}
+                 AND pr.status <> 'DELETED'
+               WHERE um.enterprise_id = ${enterpriseId}
+                 AND um.alias = g.model_alias
+            )
+          )
+        )
     `.execute(this.db);
-    return row.rows[0]?.total ?? null;
+    return row.rows[0]?.total ?? "0";
   }
 
   /** 最新厂商资源快照聚合；缺值或单位不一致时相应指标返回 null。 */

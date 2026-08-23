@@ -13,8 +13,11 @@ export type Mode = ResourceBreakdownItem["mode"];
 
 export interface UsageRow {
   provider_code: string;
+  provider_name: string;
   mode: Mode;
   resource_id: string;
+  resource_name: string;
+  resource_status: string;
   upstream_model: string;
   unified_model_id: string | null;
   model_alias: string;
@@ -27,6 +30,7 @@ export interface UsageRow {
   line_count: string;
   known_cost_count: string;
   known_quota_count: string;
+  unknown_count: string;
   qualities: string[];
 }
 
@@ -37,6 +41,7 @@ export interface DashboardResourceUsage {
   monthlyReasoningTokens: string | null;
   monthlyTotalTokens: string | null;
   monthlyUsageQuality: UsageQuality;
+  monthlyUnknownCount: number;
   modelTokenBreakdown: ResourceModelTokenBreakdown[];
   tokenRate24h: string | null;
   costRate24h: string | null;
@@ -71,6 +76,7 @@ interface UsageAccumulator {
   lineCount: number;
   costKnown: boolean;
   quotaKnown: boolean;
+  unknownCount: number;
   qualities: Set<string>;
 }
 
@@ -82,7 +88,7 @@ export function emptyAccumulator(): UsageAccumulator {
     input: new PreciseDecimal(0), output: new PreciseDecimal(0),
     cache: new PreciseDecimal(0), reasoning: new PreciseDecimal(0),
     cost: new PreciseDecimal(0), quota: new PreciseDecimal(0),
-    lineCount: 0, costKnown: true, quotaKnown: true, qualities: new Set(),
+    lineCount: 0, costKnown: true, quotaKnown: true, unknownCount: 0, qualities: new Set(),
   };
 }
 
@@ -96,6 +102,7 @@ export function addRow(target: UsageAccumulator, row: UsageRow): void {
   target.lineCount += Number(row.line_count);
   target.costKnown = target.costKnown && row.known_cost_count === row.line_count;
   target.quotaKnown = target.quotaKnown && row.known_quota_count === row.line_count;
+  target.unknownCount += Number(row.unknown_count);
   row.qualities.forEach((quality) => target.qualities.add(quality));
 }
 
@@ -122,7 +129,9 @@ export async function queryUsageRows(
   db: Kysely<Database>, enterpriseId: string, start: Date, end: Date,
 ): Promise<UsageRow[]> {
   const result = await sql<UsageRow>`
-    SELECT p.code AS provider_code, pr.mode, pr.id AS resource_id,
+    SELECT p.code AS provider_code, p.name AS provider_name,
+           pr.mode, pr.id AS resource_id, pr.name AS resource_name,
+           pr.status AS resource_status,
            ua.upstream_model, ar.unified_model_id,
            COALESCE(um.alias, ar.unified_model) AS model_alias,
            SUM(ll.raw_input_tokens)::text AS input_tokens,
@@ -134,6 +143,9 @@ export async function queryUsageRows(
            COUNT(*)::text AS line_count,
            COUNT(ll.api_cost)::text AS known_cost_count,
            COUNT(ll.deducted_quota)::text AS known_quota_count,
+           COUNT(*) FILTER (
+             WHERE upper(ll.usage_quality) LIKE '%UNKNOWN%'
+           )::text AS unknown_count,
            ARRAY_AGG(DISTINCT ll.usage_quality) AS qualities
       FROM ledger_line ll
       JOIN provider_resource pr
@@ -159,7 +171,7 @@ export async function queryUsageRows(
          AND ll.raw_reasoning_tokens = 0
          AND upper(ll.usage_quality) LIKE '%UNKNOWN%'
        )
-     GROUP BY p.code, pr.mode, pr.id, ua.upstream_model,
+     GROUP BY p.code, p.name, pr.mode, pr.id, pr.name, pr.status, ua.upstream_model,
               ar.unified_model_id, COALESCE(um.alias, ar.unified_model)
      ORDER BY p.code, pr.mode, COALESCE(um.alias, ar.unified_model)
   `.execute(db);
@@ -182,28 +194,28 @@ function monthlySummary(rows: UsageRow[]): Omit<DashboardResourceUsage,
     models.set(key, model);
   });
   const quality = usageQuality(total.qualities);
-  const known = quality !== "UNKNOWN";
   const modelTokenBreakdown = [...models.values()].map((model) => {
     const modelQuality = usageQuality(model.qualities);
-    const modelKnown = modelQuality !== "UNKNOWN";
     return {
       unifiedModelId: model.id,
       modelAlias: model.alias,
-      inputTokens: modelKnown ? integer(model.input) : null,
-      outputTokens: modelKnown ? integer(model.output) : null,
-      cacheTokens: modelKnown ? integer(model.cache) : null,
-      reasoningTokens: modelKnown ? integer(model.reasoning) : null,
-      totalTokens: modelKnown ? integer(model.input.plus(model.output)) : null,
+      inputTokens: integer(model.input),
+      outputTokens: integer(model.output),
+      cacheTokens: integer(model.cache),
+      reasoningTokens: integer(model.reasoning),
+      totalTokens: integer(model.input.plus(model.output)),
       usageQuality: modelQuality,
+      unknownCount: model.unknownCount,
     };
   });
   return {
-    monthlyInputTokens: known ? integer(total.input) : null,
-    monthlyOutputTokens: known ? integer(total.output) : null,
-    monthlyCacheTokens: known ? integer(total.cache) : null,
-    monthlyReasoningTokens: known ? integer(total.reasoning) : null,
-    monthlyTotalTokens: known ? integer(total.input.plus(total.output)) : null,
+    monthlyInputTokens: integer(total.input),
+    monthlyOutputTokens: integer(total.output),
+    monthlyCacheTokens: integer(total.cache),
+    monthlyReasoningTokens: integer(total.reasoning),
+    monthlyTotalTokens: integer(total.input.plus(total.output)),
     monthlyUsageQuality: rows.length === 0 ? "EXACT" : quality,
+    monthlyUnknownCount: total.unknownCount,
     modelTokenBreakdown,
   };
 }

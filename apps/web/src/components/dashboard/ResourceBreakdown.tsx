@@ -62,13 +62,15 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                 {item.accountCount}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.totalQuota === null ? "未录入/未同步" : `${formatCount(item.totalQuota)} ${item.quotaUnit ?? ""}`}
+                {item.mode === "API"
+                  ? "按量计费"
+                  : item.totalQuota === null ? "未录入/未同步" : `${formatCount(item.totalQuota)} ${item.quotaUnit ?? ""}`}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.usedQuota === null ? "—" : formatCount(item.usedQuota)}
+                {item.mode === "API" ? "见本月 Token" : item.usedQuota === null ? "—" : formatCount(item.usedQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
+                {item.mode === "API" ? "见经营余额" : item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}
@@ -131,10 +133,13 @@ function subscriptionPeriod(item: ResourceBreakdownItem): string {
 
 function monthlyTokenText(item: ResourceBreakdownItem): ReactNode {
   if (item.monthlyTotalTokens === null) return <span title="账本计量质量未知">不可计算（计量未知）</span>;
+  const unknown = item.monthlyUnknownCount ?? 0;
   return (
     <span title={`输入 ${item.monthlyInputTokens ?? "—"}；输出 ${item.monthlyOutputTokens ?? "—"}；缓存 ${item.monthlyCacheTokens ?? "—"}；推理 ${item.monthlyReasoningTokens ?? "—"}`}>
       {formatCount(item.monthlyTotalTokens)}
-      <span className="block text-[11px] text-ql-fg-tertiary">{qualityLabel(item.monthlyUsageQuality)}</span>
+      <span className="block text-[11px] text-ql-fg-tertiary">
+        {unknown > 0 ? `已记录；另有 ${unknown} 笔计量未知` : qualityLabel(item.monthlyUsageQuality)}
+      </span>
     </span>
   );
 }

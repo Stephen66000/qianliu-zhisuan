@@ -49,7 +49,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
   }
 
   async function addLine(input: {
-    resourceId: string; modelId: string; historicalAlias: string; upstreamModel: string;
+    resourceId: string; modelId: string | null; historicalAlias: string; upstreamModel: string;
     input: bigint; output: bigint; cache: bigint; reasoning: bigint;
     cost: string | null; quality: string; at: Date;
     deductedQuota?: bigint | null;
@@ -310,7 +310,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     const items = (await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime()))
       .providerSummaries;
     expect(items.find((row) => row.providerCode === "unknown-api")).toMatchObject({
-      monthlyTotalTokens: null, monthlyUsageQuality: "UNKNOWN", tokenRate24h: null, costRate24h: null,
+      monthlyTotalTokens: "0", monthlyUsageQuality: "UNKNOWN", monthlyUnknownCount: 1,
+      tokenRate24h: null, costRate24h: null,
       estimatedBalanceTokens: null, balanceTokenEstimateReason: "USAGE_UNKNOWN",
     });
     expect(items.find((row) => row.providerCode === "zero-api")).toMatchObject({
@@ -362,6 +363,67 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
         usageQuality: "EXACT",
       })],
     });
+  });
+
+  it("POOL20-051：独立展示 API Grant、已记录 Token、余额和历史未归属守恒", async () => {
+    const resourceId = await createApiResource("pool20-051", "87.9");
+    const modelId = randomUUID();
+    await db.insertInto("unified_model").values({
+      id: modelId, enterprise_id: enterpriseId,
+      alias: "ql-pool20-051", display_name: "POOL20-051",
+    }).execute();
+    await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: modelId,
+      provider_resource_id: resourceId, upstream_model: "pool20-051-current", enabled: true,
+    }).execute();
+    await db.insertInto("principal_grant").values({
+      enterprise_id: enterpriseId, principal_id: principalId,
+      provider: "pool20-051", model_alias: "ql-pool20-051", quota_value: 1_000n,
+    }).execute();
+    const usedAt = new Date(now.getTime() - 30 * 60 * 1000);
+    await addLine({
+      resourceId, modelId, historicalAlias: "ql-pool20-051",
+      upstreamModel: "pool20-051-current", input: 100n, output: 20n,
+      cache: 10n, reasoning: 0n, cost: "1", quality: "PROVIDER_REPORTED", at: usedAt,
+    });
+    await addLine({
+      resourceId, modelId, historicalAlias: "ql-pool20-051",
+      upstreamModel: "pool20-051-current", input: 0n, output: 0n,
+      cache: 0n, reasoning: 0n, cost: null, quality: "UNKNOWN", at: usedAt,
+      requestStatus: "FAILED", responseCommitted: false, httpStatus: 400,
+      errorCode: "invalid_request_error",
+    });
+    await addLine({
+      resourceId, modelId: null, historicalAlias: "qianliu-pool20-051",
+      upstreamModel: "pool20-051-legacy", input: 50n, output: 10n,
+      cache: 0n, reasoning: 0n, cost: "0.5", quality: "PROVIDER_REPORTED", at: usedAt,
+    });
+
+    const overview = await new DashboardRepository(db).getResourceUsageOverview(
+      enterpriseId, now.getTime(),
+    );
+    const provider = overview.providerSummaries.find((row) => row.providerCode === "pool20-051");
+    expect(provider).toMatchObject({
+      allocatedQuota: "1000", currentBalance: "87.90000000",
+      monthlyTotalTokens: "180", monthlyUsageQuality: "UNKNOWN", monthlyUnknownCount: 1,
+    });
+    const current = overview.modelDetails.find((row) => row.modelAlias === "ql-pool20-051");
+    expect(current).toMatchObject({
+      remainingQuota: "87.90000000", monthlyCost: "1.00000000",
+      monthlyTotalTokens: "120", usageQuality: "UNKNOWN", unknownCount: 1,
+      historicalUnattributed: false,
+    });
+    const historical = overview.modelDetails.find(
+      (row) => row.modelAlias === "qianliu-pool20-051",
+    );
+    expect(historical).toMatchObject({
+      unifiedModelId: null, remainingQuota: "87.90000000", monthlyCost: "0.50000000",
+      monthlyTotalTokens: "60", usageQuality: "EXACT", historicalUnattributed: true,
+    });
+    const conserved = overview.modelDetails
+      .filter((row) => row.providerCode === "pool20-051")
+      .reduce((sum, row) => sum + BigInt(row.monthlyTotalTokens ?? 0), 0n);
+    expect(conserved.toString()).toBe(provider?.monthlyTotalTokens);
   });
 
   it("覆盖套餐、缺余额、零价格与 HIGH/MEDIUM 估算可信度", async () => {

@@ -173,7 +173,7 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
       usedQuota: null,
       remainingQuota: null,
       quotaUnit: null,
-      allocatedQuota: null,
+      allocatedQuota: "0",
       rechargeAmount: null,
       currentBalance: null,
       currentPeriodCost: null,

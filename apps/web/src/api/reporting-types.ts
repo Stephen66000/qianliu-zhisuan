@@ -36,6 +36,7 @@ export interface ResourceBreakdownItem {
   monthlyReasoningTokens: string | null;
   monthlyTotalTokens: string | null;
   monthlyUsageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+  monthlyUnknownCount?: number;
   modelTokenBreakdown: Array<{
     unifiedModelId: string | null;
     modelAlias: string;
@@ -45,6 +46,7 @@ export interface ResourceBreakdownItem {
     reasoningTokens: string | null;
     totalTokens: string | null;
     usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+    unknownCount?: number;
   }>;
   tokenRate24h: string | null;
   costRate24h: string | null;
@@ -82,7 +84,7 @@ export interface ResourceModelUsageDetail {
   providerCode: string;
   providerName: string;
   mode: "API" | "CODING_PLAN";
-  unifiedModelId: string;
+  unifiedModelId: string | null;
   modelAlias: string;
   usedQuota: string | null;
   remainingQuota: string | null;
@@ -92,6 +94,8 @@ export interface ResourceModelUsageDetail {
   monthlyCostReason: string | null;
   monthlyTotalTokens: string | null;
   usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+  unknownCount?: number;
+  historicalUnattributed?: boolean;
   consumptionRate24h: string | null;
   consumptionRateUnit: "TOKEN_PER_HOUR" | "QUOTA_PER_HOUR" | null;
   consumptionRateReason: string | null;
