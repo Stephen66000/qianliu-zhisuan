@@ -34,7 +34,7 @@ export interface DashboardSummary {
     avoidedReason: string | null;
     rejectedRequestCount: number;
   };
-  resourceBreakdown: ResourceBreakdownItem[];
+  resourceStatus: ResourceStatusSummary;
   overageList: OverageItem[];
   monthlyTokenUsage: {
     totalInputTokens: string;
@@ -63,6 +63,50 @@ export interface DashboardSummary {
       share: string;
     }>;
   };
+}
+
+export interface ResourceStatusSummary {
+  total: number;
+  status: string;
+  statusCounts: Record<string, number>;
+  abnormalResources: Array<{
+    resourceId: string;
+    resourceName: string;
+    providerName: string;
+    mode: "API" | "CODING_PLAN";
+    status: string;
+  }>;
+}
+
+export interface ResourceUsageOverview {
+  generatedAt: string;
+  providerSummaries: ResourceBreakdownItem[];
+  modelDetails: ResourceModelUsageDetail[];
+}
+
+export interface ResourceModelUsageDetail {
+  resourceId: string;
+  resourceName: string;
+  providerCode: string;
+  providerName: string;
+  mode: "API" | "CODING_PLAN";
+  unifiedModelId: string;
+  modelAlias: string;
+  usedQuota: string | null;
+  remainingQuota: string | null;
+  quotaUnit: string | null;
+  currency: string | null;
+  monthlyCost: string | null;
+  monthlyCostReason: string | null;
+  monthlyTotalTokens: string | null;
+  usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+  consumptionRate24h: string | null;
+  consumptionRateUnit: "TOKEN_PER_HOUR" | "QUOTA_PER_HOUR" | null;
+  consumptionRateReason: string | null;
+  forecastExhaustAt: string | null;
+  forecastNotCalculableReason: string | null;
+  forecastConfidence: string | null;
+  status: string;
 }
 
 export interface ResourceBreakdownItem {

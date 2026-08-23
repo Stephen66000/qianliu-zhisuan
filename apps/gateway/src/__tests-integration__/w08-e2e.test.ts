@@ -314,12 +314,19 @@ describe("W08 端到端 DeepSeek 代表链", () => {
       cacheMissPrice: "0.000002",
       outputPrice: "0.000004",
     });
-    const dashboard = await new DashboardRepository(db).getSummary(ENT_ID, Date.now());
-    expect(dashboard.resourceBreakdown.find((item) => item.providerCode === "deepseek")
+    const overview = await new DashboardRepository(db).getResourceUsageOverview(ENT_ID, Date.now());
+    expect(overview.providerSummaries.find((item) => item.providerCode === "deepseek")
       ?.modelTokenBreakdown).toEqual(expect.arrayContaining([
       expect.objectContaining({
         modelAlias: "ql-deepseek-v4-flash-vision-exp",
         totalTokens: "1392",
+        usageQuality: "EXACT",
+      }),
+    ]));
+    expect(overview.modelDetails).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        modelAlias: "ql-deepseek-v4-flash-vision-exp",
+        monthlyTotalTokens: "1392",
         usageQuality: "EXACT",
       }),
     ]));

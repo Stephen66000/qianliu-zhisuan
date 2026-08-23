@@ -79,9 +79,9 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
       quota_value: 220000n,
     }).execute();
 
-    const dashboard = await new DashboardRepository(db).getSummary(enterpriseId);
-    expect(dashboard.resourceBreakdown).toHaveLength(1);
-    expect(dashboard.resourceBreakdown[0]).toMatchObject({
+    const overview = await new DashboardRepository(db).getResourceUsageOverview(enterpriseId);
+    expect(overview.providerSummaries).toHaveLength(1);
+    expect(overview.providerSummaries[0]).toMatchObject({
       totalQuota: "100000.00000000",
       usedQuota: "25000.00000000",
       remainingQuota: "75000.00000000",
@@ -102,8 +102,8 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
       mode: "API",
       credential_type: "API_KEY",
     });
-    const unknown = (await new DashboardRepository(db).getSummary(enterpriseId))
-      .resourceBreakdown.find((item) => item.providerCode === "deepseek");
+    const unknown = (await new DashboardRepository(db).getResourceUsageOverview(enterpriseId))
+      .providerSummaries.find((item) => item.providerCode === "deepseek");
     expect(unknown).toMatchObject({
       totalQuota: null,
       usedQuota: null,
@@ -156,8 +156,9 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
       mode: "API",
       credential_type: "API_KEY",
     });
+    const splitOverview = await new DashboardRepository(db).getResourceUsageOverview(enterpriseId);
     const splitDashboard = await new DashboardRepository(db).getSummary(enterpriseId);
-    const split = splitDashboard.resourceBreakdown
+    const split = splitOverview.providerSummaries
       .filter((item) => item.providerCode === "kimi");
     const plan = split.find((item) => item.mode === "CODING_PLAN");
     const api = split.find((item) => item.mode === "API");
@@ -235,8 +236,8 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
       snapshot_at: new Date(collectedAt.getTime() + 1_000),
     }).execute();
 
-    const dashboard = await new DashboardRepository(db).getSummary(enterpriseId);
-    const api = dashboard.resourceBreakdown.find((item) => item.providerCode === "api-forecast");
+    const overview = await new DashboardRepository(db).getResourceUsageOverview(enterpriseId);
+    const api = overview.providerSummaries.find((item) => item.providerCode === "api-forecast");
     expect(api).toMatchObject({
       totalQuota: null,
       usedQuota: null,

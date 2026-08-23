@@ -3,12 +3,15 @@ import { Decimal } from "decimal.js";
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { listEnabledBillingRulesAt } from "./billing-rule-applicability.js";
-import type { ResourceBreakdownItem, ResourceModelTokenBreakdown } from "./dashboard-types.js";
+import type {
+  ResourceBreakdownItem,
+  ResourceModelTokenBreakdown,
+} from "./dashboard-types.js";
 
 type UsageQuality = ResourceBreakdownItem["monthlyUsageQuality"];
-type Mode = ResourceBreakdownItem["mode"];
+export type Mode = ResourceBreakdownItem["mode"];
 
-interface UsageRow {
+export interface UsageRow {
   provider_code: string;
   mode: Mode;
   resource_id: string;
@@ -20,8 +23,10 @@ interface UsageRow {
   cache_tokens: string;
   reasoning_tokens: string;
   api_cost: string;
+  deducted_quota: string;
   line_count: string;
   known_cost_count: string;
+  known_quota_count: string;
   qualities: string[];
 }
 
@@ -62,34 +67,39 @@ interface UsageAccumulator {
   cache: Decimal;
   reasoning: Decimal;
   cost: Decimal;
+  quota: Decimal;
   lineCount: number;
   costKnown: boolean;
+  quotaKnown: boolean;
   qualities: Set<string>;
 }
 
 const PreciseDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
-const RECENT_HOURS = 24;
+export const RECENT_HOURS = 24;
 
-function emptyAccumulator(): UsageAccumulator {
+export function emptyAccumulator(): UsageAccumulator {
   return {
     input: new PreciseDecimal(0), output: new PreciseDecimal(0),
     cache: new PreciseDecimal(0), reasoning: new PreciseDecimal(0),
-    cost: new PreciseDecimal(0), lineCount: 0, costKnown: true, qualities: new Set(),
+    cost: new PreciseDecimal(0), quota: new PreciseDecimal(0),
+    lineCount: 0, costKnown: true, quotaKnown: true, qualities: new Set(),
   };
 }
 
-function addRow(target: UsageAccumulator, row: UsageRow): void {
+export function addRow(target: UsageAccumulator, row: UsageRow): void {
   target.input = target.input.plus(row.input_tokens);
   target.output = target.output.plus(row.output_tokens);
   target.cache = target.cache.plus(row.cache_tokens);
   target.reasoning = target.reasoning.plus(row.reasoning_tokens);
   target.cost = target.cost.plus(row.api_cost);
+  target.quota = target.quota.plus(row.deducted_quota);
   target.lineCount += Number(row.line_count);
   target.costKnown = target.costKnown && row.known_cost_count === row.line_count;
+  target.quotaKnown = target.quotaKnown && row.known_quota_count === row.line_count;
   row.qualities.forEach((quality) => target.qualities.add(quality));
 }
 
-function usageQuality(qualities: Iterable<string>): UsageQuality {
+export function usageQuality(qualities: Iterable<string>): UsageQuality {
   const values = [...qualities].map((quality) => quality.toUpperCase());
   if (values.some((quality) => quality === "UNKNOWN" || quality.includes("+UNKNOWN"))) {
     return "UNKNOWN";
@@ -100,7 +110,7 @@ function usageQuality(qualities: Iterable<string>): UsageQuality {
   return "EXACT";
 }
 
-function integer(value: Decimal): string {
+export function integer(value: Decimal): string {
   return value.toDecimalPlaces(0, Decimal.ROUND_DOWN).toFixed(0);
 }
 
@@ -108,7 +118,7 @@ function groupKey(providerCode: string, mode: Mode): string {
   return `${providerCode}:${mode}`;
 }
 
-async function queryUsageRows(
+export async function queryUsageRows(
   db: Kysely<Database>, enterpriseId: string, start: Date, end: Date,
 ): Promise<UsageRow[]> {
   const result = await sql<UsageRow>`
@@ -120,8 +130,10 @@ async function queryUsageRows(
            SUM(ll.raw_cache_tokens)::text AS cache_tokens,
            SUM(ll.raw_reasoning_tokens)::text AS reasoning_tokens,
            COALESCE(SUM(ll.api_cost::numeric), 0)::text AS api_cost,
+           COALESCE(SUM(ll.deducted_quota), 0)::text AS deducted_quota,
            COUNT(*)::text AS line_count,
            COUNT(ll.api_cost)::text AS known_cost_count,
+           COUNT(ll.deducted_quota)::text AS known_quota_count,
            ARRAY_AGG(DISTINCT ll.usage_quality) AS qualities
       FROM ledger_line ll
       JOIN provider_resource pr

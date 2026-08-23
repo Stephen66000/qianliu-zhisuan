@@ -29,6 +29,7 @@ import type {
   ProviderResourcesResult,
   ProvidersResult,
   ResourceHealth,
+  ResourceUsageOverview,
   RouteCandidateItem,
   SupplyForecastsResult,
   UnifiedModelsResult,
@@ -49,6 +50,7 @@ export const QUERY_KEYS = {
     ["provider-resources", resourceId, "quota-windows"] as const,
   resourceHealth: (resourceId: string) =>
     ["provider-resources", resourceId, "health"] as const,
+  resourceUsageOverview: ["provider-resources", "usage-overview"] as const,
   providers: ["providers"] as const,
   unifiedModels: ["unified-models"] as const,
   grants: (principalId: string) => ["principals", principalId, "grants"] as const,
@@ -131,12 +133,13 @@ export function useDispatchPolicies() {
   });
 }
 
-export function useSupplyForecasts() {
+export function useSupplyForecasts(enabled = true) {
   return useQuery({
     queryKey: QUERY_KEYS.supplyForecasts,
     queryFn: ({ signal }) => get<SupplyForecastsResult>("/supply-forecasts", signal),
     retry: 1,
     staleTime: 60_000,
+    enabled,
   });
 }
 
@@ -159,6 +162,16 @@ export function useProviderResources() {
   return useQuery({
     queryKey: QUERY_KEYS.providerResources,
     queryFn: ({ signal }) => get<ProviderResourcesResult>("/provider-resources", signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useResourceUsageOverview() {
+  return useQuery({
+    queryKey: QUERY_KEYS.resourceUsageOverview,
+    queryFn: ({ signal }) =>
+      get<ResourceUsageOverview>("/provider-resources/usage-overview", signal),
     retry: 1,
     staleTime: 30_000,
   });

@@ -35,8 +35,16 @@ import {
   sumDecimalTexts,
 } from "./dashboard-helpers.js";
 import { listDashboardOverages } from "./dashboard-overages.js";
-import type { DashboardSummary, ResourceBreakdownItem } from "./dashboard-types.js";
-import { loadDashboardResourceUsage } from "./dashboard-resource-usage.js";
+import type {
+  DashboardSummary,
+  ResourceBreakdownItem,
+  ResourceUsageOverview,
+} from "./dashboard-types.js";
+import {
+  loadDashboardResourceUsage,
+} from "./dashboard-resource-usage.js";
+import { loadResourceModelUsageDetails } from "./resource-model-usage.js";
+import { loadDashboardResourceStatus } from "./dashboard-resource-status.js";
 import {
   loadMonthlyOperatingCosts,
   type MonthlyOperatingCostResource,
@@ -70,7 +78,7 @@ export class DashboardRepository {
       currentInUseCount,
       earliestExhaustion,
       dispatchSavingBreakdown,
-      resourceBreakdown,
+      resourceStatus,
       overageList,
       monthlyTokenUsage,
     ] = await Promise.all([
@@ -79,14 +87,7 @@ export class DashboardRepository {
       this.countInUseEmployees(enterpriseId, now, fiveMinutesAgo),
       this.findEarliestExhaustion(enterpriseId, currentOperatingSnapshots),
       this.monthlyDispatchSavingBreakdown(enterpriseId, monthStart, monthEnd),
-      this.buildResourceBreakdown(
-        enterpriseId,
-        monthStart,
-        monthEnd,
-        date,
-        currentOperatingSnapshots,
-        monthlyOperatingCosts.resources,
-      ),
+      loadDashboardResourceStatus(this.db, enterpriseId),
       listDashboardOverages(this.db, enterpriseId),
       getMonthlyTokenUsage(this.db, enterpriseId, monthStart, monthEnd),
     ]);
@@ -108,10 +109,42 @@ export class DashboardRepository {
       monthlyDispatchSaving: dispatchSavingBreakdown.realizedSwitchCount === 0
         ? "0" : dispatchSavingBreakdown.realizedAmount,
       dispatchSavingBreakdown,
-      resourceBreakdown,
+      resourceStatus,
       overageList,
       monthlyTokenUsage,
     };
+  }
+
+  /** 厂商资源“用量总览”专用重聚合；首页默认路径不得调用。 */
+  async getResourceUsageOverview(
+    enterpriseId: string,
+    now: number = Date.now(),
+  ): Promise<ResourceUsageOverview> {
+    const date = new Date(now);
+    const { start: monthStart, end: monthEnd } = shanghaiNaturalMonth(date);
+    const [currentOperatingSnapshots, monthlyOperatingCosts] = await Promise.all([
+      new ProviderRepository(this.db).listCurrentOperatingSnapshots(enterpriseId, date),
+      loadMonthlyOperatingCosts(this.db, enterpriseId, monthStart, monthEnd),
+    ]);
+    const [providerSummaries, modelDetails] = await Promise.all([
+      this.buildResourceBreakdown(
+        enterpriseId,
+        monthStart,
+        monthEnd,
+        date,
+        currentOperatingSnapshots,
+        monthlyOperatingCosts.resources,
+      ),
+      loadResourceModelUsageDetails(
+        this.db,
+        enterpriseId,
+        monthStart,
+        monthEnd,
+        date,
+        currentOperatingSnapshots,
+      ),
+    ]);
+    return { generatedAt: date.toISOString(), providerSummaries, modelDetails };
   }
 
   /** 1. 资源账号数（未删除的资源账号数量）。 */

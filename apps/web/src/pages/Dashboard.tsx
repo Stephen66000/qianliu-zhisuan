@@ -3,7 +3,7 @@
  *
  * 口径全部来自后端 GET /dashboard（TRD §12），前端只展示不重算。
  * 结构（仪表盘补充 §1-2）：Canvas → Zone（1-4 个，间距 20px）→ Card；
- * 固定顺序：本月概览 → 资源摘要 → 员工消耗 Token；“需要处理”留在资源摘要内。
+ * 固定顺序：本月概览 → 资源状态摘要 → 员工消耗 Token；完整用量迁至厂商资源。
  */
 import { Inbox } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -14,7 +14,6 @@ import { DashboardEmployeeUsagePanel } from "../components/dashboard/DashboardEm
 import { EarliestExhaustionCard } from "../components/dashboard/EarliestExhaustionCard";
 import { MetricCard } from "../components/dashboard/MetricCard";
 import { OverageList } from "../components/dashboard/OverageList";
-import { ResourceBreakdown } from "../components/dashboard/ResourceBreakdown";
 import { ResourceAttentionList } from "../components/dashboard/ResourceAttentionList";
 import { Zone } from "../components/dashboard/Zone";
 import { EmptyState } from "../components/states/EmptyState";
@@ -54,11 +53,7 @@ export function DashboardPage() {
 
   const data = query.data;
   const noResources = data.resourceAccountCount === 0;
-  const abnormalResources = data.resourceBreakdown.flatMap((group) =>
-    group.abnormalResources.map((resource) => ({
-      ...resource, providerName: group.providerName, mode: group.mode,
-    })),
-  );
+  const abnormalResources = data.resourceStatus.abnormalResources;
   const earliestAlreadyAbnormal = data.earliestExhaustion !== null
     && abnormalResources.some((resource) => resource.resourceId === data.earliestExhaustion?.resourceId);
   const hasAttention = data.overageList.length > 0 || data.earliestExhaustion !== null
@@ -118,7 +113,7 @@ export function DashboardPage() {
       </Zone>
 
       <Zone
-        description="完整保留 1.0 经营字段；“按模型查看”仍在本月 Token 单元格内下钻。"
+        description="首页只保留需要处理的资源状态；完整厂商与模型用量请前往“厂商资源 → 用量总览”。"
         title="资源摘要"
       >
         <div className="space-y-4">
@@ -127,7 +122,7 @@ export function DashboardPage() {
               {earliestExhaustionSummary(data)}
             </p>
             <p className="rounded-lg bg-ql-surface-subtle px-3 py-2" data-testid="dashboard-resource-status">
-              资源状态：{resourceHealthSummary(data.resourceBreakdown)}
+              资源状态：{resourceHealthSummary(data.resourceStatus)}
             </p>
           </div>
 
@@ -160,9 +155,7 @@ export function DashboardPage() {
               icon={Inbox}
               title="尚未登记厂商资源"
             />
-          ) : (
-            <ResourceBreakdown items={data.resourceBreakdown} />
-          )}
+          ) : null}
         </div>
       </Zone>
 
@@ -281,23 +274,13 @@ function earliestExhaustionSummary(data: DashboardSummary): string {
     const confidence = CONFIDENCE_LABEL[value.confidence] ?? value.confidence;
     return `最早耗尽资源：${value.resourceName} · ${result} · 可信度${confidence}`;
   }
-  const hasForecast = data.resourceBreakdown.some((item) => item.forecastConfidence !== null);
-  return `最早耗尽资源：${hasForecast ? "暂无可计算结果" : "暂无预测快照"}`;
+  return `最早耗尽资源：${data.resourceAccountCount === 0 ? "暂无预测快照" : "暂无可计算结果"}`;
 }
 
 /** 资源状态聚合（PRD §10.2「资源可用状态和额度状态」）：任一非 HEALTHY 提示数量。 */
-function resourceHealthSummary(items: DashboardSummary["resourceBreakdown"]): string {
-  if (items.length === 0) {
-    return "无资源";
-  }
-  const unhealthy = items.reduce((count, item) => count + item.abnormalResources.length, 0);
-  if (unhealthy === 0) return "全部正常";
-  const worst = items.find((item) => item.status === "CREDENTIAL_INVALID")?.status ??
-    items.find((item) => item.status === "EXPIRED")?.status ??
-    items.find((item) => item.status === "EXHAUSTED")?.status ??
-    items.find((item) => item.status === "UNAVAILABLE")?.status ??
-    items.find((item) => item.status === "RATE_LIMITED")?.status ??
-    items.find((item) => item.status === "DEGRADED")?.status;
+function resourceHealthSummary(summary: DashboardSummary["resourceStatus"]): string {
+  if (summary.total === 0) return "无资源";
+  if (summary.abnormalResources.length === 0) return "全部正常";
   const label = {
     CREDENTIAL_INVALID: "凭证失效",
     EXPIRED: "已过期",
@@ -305,6 +288,6 @@ function resourceHealthSummary(items: DashboardSummary["resourceBreakdown"]): st
     UNAVAILABLE: "不可用",
     RATE_LIMITED: "限流冷却",
     DEGRADED: "降级",
-  }[worst ?? ""];
-  return `${unhealthy} 个资源需关注${label ? ` · ${label}` : ""}`;
+  }[summary.status] ?? summary.status;
+  return `${summary.abnormalResources.length} 个资源需关注${label ? ` · ${label}` : ""}`;
 }

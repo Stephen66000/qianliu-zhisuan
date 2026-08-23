@@ -13,6 +13,8 @@ const getMock = vi.fn();
 const useProviderResourcesMock = vi.fn();
 const useQuotaWindowsMock = vi.fn();
 const useSyncQuotaWindowMock = vi.fn();
+const useSupplyForecastsMock = vi.fn();
+const useResourceUsageOverviewMock = vi.fn();
 
 vi.mock("../api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClient>();
@@ -36,11 +38,21 @@ vi.mock("../api/hooks", () => ({
     data: { providers: [{ id: "11111111-1111-4111-8111-111111111111", code: "kimi", name: "Kimi" }] },
     error: null,
   }),
-  useSupplyForecasts: () => ({ data: { forecasts: [] }, error: null }),
+  useSupplyForecasts: (enabled: boolean) => useSupplyForecastsMock(enabled),
+  useResourceUsageOverview: () => useResourceUsageOverviewMock(),
   useQuotaWindows: () => useQuotaWindowsMock() ?? { data: { windows: [] } },
   useSyncQuotaWindow: () =>
     useSyncQuotaWindowMock() ?? { isPending: false, mutate: vi.fn(), isError: false },
   useResourceHealth: () => ({ data: null, isLoading: false, isError: false }),
+}));
+
+vi.mock("../api/v2-hooks", () => ({
+  useResourceUtilization: () => ({
+    data: { month: "2026-08", generatedAt: "2026-08-23T00:00:00.000Z", resources: [] },
+    isLoading: false, error: null, refetch: vi.fn(),
+  }),
+  useResourceMonthlyBudget: () => ({ data: { current: null, history: [] }, isLoading: false, error: null }),
+  useSaveResourceMonthlyBudget: () => ({ mutate: vi.fn(), isPending: false, error: null }),
 }));
 
 const resource: ProviderResourceItem = {
@@ -83,19 +95,66 @@ async function detectModels(user: ReturnType<typeof userEvent.setup>) {
   expect((await screen.findAllByText("kimi-k2")).length).toBeGreaterThan(0);
 }
 
-function renderPage() {
+function renderPage(path = "/resources") {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <ResourcesPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
+describe("厂商资源四 Tab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useProviderResourcesMock.mockReturnValue({
+      data: { resources: [resource] }, error: null, isLoading: false, refetch: vi.fn(),
+    });
+    useSupplyForecastsMock.mockReturnValue({ data: { forecasts: [] }, error: null });
+    useResourceUsageOverviewMock.mockReturnValue({
+      data: { generatedAt: "2026-08-23T00:00:00.000Z", providerSummaries: [], modelDetails: [] },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
+    useQuotaWindowsMock.mockReturnValue({ data: { windows: [] }, isLoading: false, isError: false });
+  });
+
+  it("默认资源利用，切换后只显示当前面板并按需启用供给预测", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(screen.getByRole("tab", { name: "资源利用" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "登记资源" })).toBeInTheDocument();
+    expect(useSupplyForecastsMock).toHaveBeenLastCalledWith(false);
+
+    await user.click(screen.getByRole("tab", { name: "用量总览" }));
+    expect(screen.getByRole("tab", { name: "用量总览" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("button", { name: "登记资源" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "额度窗口" }));
+    expect(screen.getByRole("heading", { name: "厂商额度窗口" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "供给与健康" }));
+    expect(screen.getByRole("heading", { name: "供给预测" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "资源健康与异常" })).toBeInTheDocument();
+    expect(useSupplyForecastsMock).toHaveBeenLastCalledWith(true);
+  });
+
+  it("旧健康锚点直接打开供给与健康", () => {
+    renderPage(`/resources#health-${resource.id}`);
+    expect(screen.getByRole("tab", { name: "供给与健康" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "资源健康与异常" })).toBeInTheDocument();
+  });
+});
+
 describe("POOL-010 厂商经营快照", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useSupplyForecastsMock.mockReturnValue({ data: { forecasts: [] }, error: null });
+    useResourceUsageOverviewMock.mockReturnValue({
+      data: { generatedAt: "2026-08-23T00:00:00.000Z", providerSummaries: [], modelDetails: [] },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
     useProviderResourcesMock.mockReturnValue({
       data: { resources: [resource] },
       error: null,
@@ -291,6 +350,11 @@ describe("POOL-010 厂商经营快照", () => {
 describe("厂商资源基础信息编辑", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useSupplyForecastsMock.mockReturnValue({ data: { forecasts: [] }, error: null });
+    useResourceUsageOverviewMock.mockReturnValue({
+      data: { generatedAt: "2026-08-23T00:00:00.000Z", providerSummaries: [], modelDetails: [] },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
     useProviderResourcesMock.mockReturnValue({
       data: { resources: [resource] },
       error: null,
@@ -331,6 +395,11 @@ describe("厂商资源基础信息编辑", () => {
 describe("POOL-027 模型发现向导", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useSupplyForecastsMock.mockReturnValue({ data: { forecasts: [] }, error: null });
+    useResourceUsageOverviewMock.mockReturnValue({
+      data: { generatedAt: "2026-08-23T00:00:00.000Z", providerSummaries: [], modelDetails: [] },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
     useProviderResourcesMock.mockReturnValue({
       data: { resources: [resource] }, error: null, isLoading: false, refetch: vi.fn(),
     });
@@ -378,6 +447,11 @@ describe("POOL-027 模型发现向导", () => {
 describe("POOL-032 厂商额度窗口", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useSupplyForecastsMock.mockReturnValue({ data: { forecasts: [] }, error: null });
+    useResourceUsageOverviewMock.mockReturnValue({
+      data: { generatedAt: "2026-08-23T00:00:00.000Z", providerSummaries: [], modelDetails: [] },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
     useProviderResourcesMock.mockReturnValue({
       data: { resources: [resource] }, error: null, isLoading: false, refetch: vi.fn(),
     });
@@ -408,7 +482,7 @@ describe("POOL-032 厂商额度窗口", () => {
         ],
       },
     });
-    renderPage();
+    renderPage("/resources?tab=quota-windows");
     // 周额度展示已用 60。
     expect(screen.getByText("周额度")).toBeInTheDocument();
     expect(screen.getByText("60")).toBeInTheDocument();
@@ -422,7 +496,7 @@ describe("POOL-032 厂商额度窗口", () => {
   it("点击立即同步触发 POST /quota-sync", async () => {
     const mutate = vi.fn();
     useSyncQuotaWindowMock.mockReturnValue({ isPending: false, mutate, isError: false });
-    renderPage();
+    renderPage("/resources?tab=quota-windows");
     await userEvent.click(screen.getByRole("button", { name: "立即同步" }));
     expect(mutate).toHaveBeenCalledTimes(1);
   });
@@ -442,7 +516,7 @@ describe("POOL-032 厂商额度窗口", () => {
         ],
       },
     });
-    renderPage();
+    renderPage("/resources?tab=quota-windows");
     // 保鲜：数值仍在（60），同时显示过期与限流原因。
     expect(screen.getByText("60")).toBeInTheDocument();
     expect(screen.getByText(/数据已过期/)).toBeInTheDocument();
@@ -451,7 +525,7 @@ describe("POOL-032 厂商额度窗口", () => {
 
   it("从未同步显示未同步与「从未成功同步」", () => {
     useQuotaWindowsMock.mockReturnValue({ data: { windows: [] } });
-    renderPage();
+    renderPage("/resources?tab=quota-windows");
     expect(screen.getByText(/未同步 — 点击右上「立即同步」首次拉取厂商额度/)).toBeInTheDocument();
     expect(screen.getByText("○ 从未成功同步")).toBeInTheDocument();
   });
@@ -467,7 +541,7 @@ describe("POOL-032 厂商额度窗口", () => {
       isLoading: false,
       refetch: vi.fn(),
     });
-    renderPage();
+    renderPage("/resources?tab=quota-windows");
     expect(screen.getByText("不适用 — 非 Coding Plan 套餐资源，无厂商窗口额度。")).toBeInTheDocument();
     expect(screen.queryByText("周额度")).not.toBeInTheDocument();
   });

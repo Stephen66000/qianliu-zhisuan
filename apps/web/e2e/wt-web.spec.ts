@@ -155,38 +155,37 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
       usage_calculation: "SYSTEM_LEDGER",
     });
 
-    await page.goto("/dashboard");
+    await page.goto("/resources?tab=usage-overview");
     await expect(page.getByText("厂商总额度", { exact: true })).toBeVisible();
     await expect(page.getByText("已分配给主体", { exact: true })).toBeVisible();
     await expect(page.getByText(/200,000 TOKEN/)).toBeVisible();
   });
 
-  test("POOL-042 DeepSeek API 行展示余额、账本 Token、模型和估算说明", async ({ page }) => {
-    await page.goto("/dashboard");
-    const row = page.getByRole("row", { name: /DeepSeek Token E2E.*API/ });
+  test("POOL-042 用量总览展示 DeepSeek 余额、账本 Token、速度和模型明细", async ({ page }) => {
+    await page.goto("/resources?tab=usage-overview");
+    const providerSection = page.getByRole("heading", { name: "厂商总体使用情况" })
+      .locator("xpath=ancestor::section[1]");
+    const row = providerSection.getByRole("row", { name: /DeepSeek Token E2E.*API/ });
     await expect(row).toBeVisible();
     await expect(row).toContainText("CNY 1,000.00");
     await expect(row).toContainText("8.00");
     await expect(row).toContainText("430");
-    await expect(row).toContainText("入 350 · 出 80");
-    await expect(row).toContainText("缓存 60 · 推理 0");
-    await expect(row).toContainText("约 352,459");
-    await expect(row).toContainText("估算 · LOW");
-    await row.getByText("按模型查看").click();
-    await expect(row.getByText("ql-deepseek-v4-flash")).toBeVisible();
-    await expect(row.getByText("ql-deepseek-v4-pro")).toBeVisible();
+    await expect(row).toContainText("17.92 Token/小时");
+    await expect(page.getByText("ql-deepseek-v4-flash")).toBeVisible();
+    await expect(page.getByText("ql-deepseek-v4-pro")).toBeVisible();
+    await expect(page.getByText("按模型查看")).toHaveCount(0);
 
-    const dashboard = await apiGet<{
-      resourceBreakdown: Array<{
+    const overview = await apiGet<{
+      providerSummaries: Array<{
         providerCode: string; monthlyTotalTokens: string | null;
-        estimatedBalanceTokens: string | null; balanceTokenEstimateReason: string | null;
       }>;
-    }>(page, "/dashboard");
-    expect(dashboard.resourceBreakdown.find((item) => item.providerCode === "pool042-deepseek"))
-      .toMatchObject({
-        monthlyTotalTokens: "430", estimatedBalanceTokens: "352459",
-        balanceTokenEstimateReason: null,
-      });
+      modelDetails: Array<{ modelAlias: string; resourceId: string }>;
+    }>(page, "/provider-resources/usage-overview");
+    expect(overview.providerSummaries.find((item) => item.providerCode === "pool042-deepseek"))
+      .toMatchObject({ monthlyTotalTokens: "430" });
+    expect(overview.modelDetails.map((item) => item.modelAlias)).toEqual(
+      expect.arrayContaining(["ql-deepseek-v4-flash", "ql-deepseek-v4-pro"]),
+    );
   });
 
   test("WT-02/03 创建员工、一次展示 Key、分配模型额度并得到接入信息", async ({ page }) => {
@@ -606,7 +605,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   });
 
   test("WT-15 页面展示速度、耗尽、恢复、覆盖时长与可信度", async ({ page }) => {
-    await page.goto("/resources");
+    await page.goto("/resources?tab=supply-health");
     const forecastRow = page.locator("#supply-forecasts")
       .getByRole("row", { name: /E2E 智谱主资源.*100.*2400.*16800/ });
     await expect(forecastRow).toContainText("12h");
@@ -1224,17 +1223,15 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
     await page.goto("/resources");
     await expect(page.getByRole("heading", { name: "资源利用事实" })).toBeVisible();
-    await expect(page.getByText("Coding Plan 业务利用率按订阅周期累计", { exact: false })).toBeVisible();
+    await expect(page.getByText("逐资源查看请求、真实 Token", { exact: false })).toBeVisible();
     await page.getByLabel("资源利用月份").fill("2026-08");
     const utilizationRow = page.locator("#resource-utilization")
       .getByRole("row", { name: /E2E 智谱主资源/ });
-    await expect(utilizationRow).toContainText("账本明细");
-    await utilizationRow.getByRole("link", { name: "账本明细" }).click();
-    await expect(page).toHaveURL(new RegExp(
-      `/usage\\?provider_resource_id=${E2E_IDS.resource}&settled_only=true$`,
-    ));
-    await expect(page.getByLabel("厂商资源")).toHaveValue(E2E_IDS.resource);
-    await expect(page.locator("tbody tr", { hasText: E2E_IDS.request })).toBeVisible();
+    await expect(utilizationRow).not.toContainText("账本明细");
+    await expect(page.getByRole("columnheader", { name: "耗尽 / 恢复 / 速度" })).toHaveCount(0);
+    await page.getByRole("tab", { name: "用量总览" }).click();
+    await expect(page.getByRole("heading", { name: "厂商总体使用情况" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "模型使用明细" })).toBeVisible();
 
     await page.goto("/operating-bill/departments?month=2026-08");
     await expect(page.getByRole("heading", { name: "部门成本与预算" })).toBeVisible();

@@ -26,11 +26,13 @@ import {
 import { registerProviderModelDiscoveryRoutes } from "./model-discovery-routes.js";
 import { registerProviderQuotaWindowRoutes } from "./quota-window-routes.js";
 import { registerProviderHealthRoutes } from "./health-routes.js";
+import { registerProviderUsageOverviewRoutes } from "./usage-overview-routes.js";
 
 export function registerProviderRoutes(app: FastifyInstance): void {
   registerProviderModelDiscoveryRoutes(app);
   registerProviderQuotaWindowRoutes(app);
   registerProviderHealthRoutes(app);
+  registerProviderUsageOverviewRoutes(app);
   // ===== Provider =====
   app.get("/providers", { preHandler: [requireAuth] }, async (req) => {
     return { providers: await app.providerRepo.listProviders(req.admin!.enterpriseId) };

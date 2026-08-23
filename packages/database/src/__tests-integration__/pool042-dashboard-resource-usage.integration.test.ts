@@ -52,6 +52,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     resourceId: string; modelId: string; historicalAlias: string; upstreamModel: string;
     input: bigint; output: bigint; cache: bigint; reasoning: bigint;
     cost: string | null; quality: string; at: Date;
+    deductedQuota?: bigint | null;
     mode?: "API" | "CODING_PLAN";
     requestStatus?: "SUCCEEDED" | "FAILED";
     responseCommitted?: boolean;
@@ -84,7 +85,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       upstream_attempt_id: attempt.id, provider_resource_id: input.resourceId,
       principal_id: principalId, resource_mode: input.mode ?? "API", raw_input_tokens: input.input,
       raw_output_tokens: input.output, raw_cache_tokens: input.cache,
-      raw_reasoning_tokens: input.reasoning, api_cost: input.cost,
+      raw_reasoning_tokens: input.reasoning, deducted_quota: input.deductedQuota ?? null,
+      api_cost: input.cost,
       usage_quality: input.quality, created_at: input.at,
     }).execute();
   }
@@ -96,6 +98,16 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     await db.insertInto("unified_model").values([
       { id: flashId, enterprise_id: enterpriseId, alias: "ql-deepseek-v4-flash", display_name: "Flash" },
       { id: proId, enterprise_id: enterpriseId, alias: "ql-deepseek-v4-pro", display_name: "Pro" },
+    ]).execute();
+    await db.insertInto("model_route").values([
+      {
+        enterprise_id: enterpriseId, unified_model_id: flashId,
+        provider_resource_id: resourceId, upstream_model: "flash-upstream", enabled: true,
+      },
+      {
+        enterprise_id: enterpriseId, unified_model_id: proId,
+        provider_resource_id: resourceId, upstream_model: "pro-upstream", enabled: true,
+      },
     ]).execute();
     await db.insertInto("billing_rule").values([
       {
@@ -130,8 +142,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       reasoning: 20n, cost: "2", quality: "PROVIDER_REPORTED", at: usedAt,
     });
 
-    const item = (await new DashboardRepository(db).getSummary(enterpriseId, now.getTime()))
-      .resourceBreakdown.find((row) => row.providerCode === "deepseek");
+    const overview = await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime());
+    const item = overview.providerSummaries.find((row) => row.providerCode === "deepseek");
     expect(item).toMatchObject({
       monthlyInputTokens: "300", monthlyOutputTokens: "120", monthlyCacheTokens: "40",
       monthlyReasoningTokens: "30", monthlyTotalTokens: "420", monthlyUsageQuality: "EXACT",
@@ -144,6 +156,17 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       expect.objectContaining({ modelAlias: "ql-deepseek-v4-pro", totalTokens: "300" }),
     ]));
     expect(item?.balanceTokenEstimateBasis).toContain("最近24小时 2 条账本");
+    expect(overview.modelDetails).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        resourceId, modelAlias: "ql-deepseek-v4-flash", monthlyCost: "0.50000000",
+        monthlyTotalTokens: "120", consumptionRate24h: "5.00",
+        consumptionRateUnit: "TOKEN_PER_HOUR",
+      }),
+      expect.objectContaining({
+        resourceId, modelAlias: "ql-deepseek-v4-pro", monthlyCost: "2.00000000",
+        monthlyTotalTokens: "300", consumptionRate24h: "12.50",
+      }),
+    ]));
   });
 
   it("同厂商多账号按各账号余额与价格分别估算，缺价或混合币种明确拒绝", async () => {
@@ -218,8 +241,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     });
     await createMultiAccountProvider({ code: "multi-currency", currencies: ["CNY", "USD"] });
 
-    const items = (await new DashboardRepository(db).getSummary(enterpriseId, now.getTime()))
-      .resourceBreakdown;
+    const items = (await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime()))
+      .providerSummaries;
     expect(items.find((row) => row.providerCode === "multi-price")).toMatchObject({
       accountCount: 2, currentBalance: "30.00000000", estimatedBalanceTokens: "1500",
       balanceTokenEstimateConfidence: "LOW", balanceTokenEstimateReason: null,
@@ -284,8 +307,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       cost: "0.1", quality: "PROVIDER_REPORTED", at: new Date(now.getTime() - 30 * 60 * 1000),
     });
 
-    const items = (await new DashboardRepository(db).getSummary(enterpriseId, now.getTime()))
-      .resourceBreakdown;
+    const items = (await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime()))
+      .providerSummaries;
     expect(items.find((row) => row.providerCode === "unknown-api")).toMatchObject({
       monthlyTotalTokens: null, monthlyUsageQuality: "UNKNOWN", tokenRate24h: null, costRate24h: null,
       estimatedBalanceTokens: null, balanceTokenEstimateReason: "USAGE_UNKNOWN",
@@ -328,8 +351,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       errorCode: "candidate_admission_revoked",
     });
 
-    const item = (await new DashboardRepository(db).getSummary(enterpriseId, now.getTime()))
-      .resourceBreakdown.find((row) => row.providerCode === "pool20-045");
+    const item = (await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime()))
+      .providerSummaries.find((row) => row.providerCode === "pool20-045");
     expect(item).toMatchObject({
       monthlyTotalTokens: "120",
       monthlyUsageQuality: "EXACT",
@@ -405,12 +428,24 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       enterprise_id: enterpriseId, provider_id: planProvider.id, name: "plan-boundary",
       mode: "CODING_PLAN", credential_type: "API_KEY",
     }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: enterpriseId, provider_resource_id: plan.id, version: 1,
+      source: "ADMIN", collected_at: new Date(now.getTime() - 60_000), currency: "CNY",
+      package_cost: "300", total_quota: "100", used_quota: "20",
+      remaining_quota: "80", quota_unit: "POINT",
+      effective_from: new Date("2026-08-01T00:00:00.000Z"),
+      effective_until: new Date("2026-09-01T00:00:00.000Z"),
+    }).execute();
+    await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: modelId,
+      provider_resource_id: plan.id, upstream_model: "plan-boundary", enabled: true,
+    }).execute();
     await addLine({ resourceId: plan.id, modelId, historicalAlias: "old", upstreamModel: "plan-boundary",
       input: 10n, output: 2n, cache: 0n, reasoning: 0n, cost: "999",
-      quality: "PROVIDER_REPORTED", at: usedAt, mode: "CODING_PLAN" });
+      quality: "PROVIDER_REPORTED", at: usedAt, mode: "CODING_PLAN", deductedQuota: 12n });
 
-    const items = (await new DashboardRepository(db).getSummary(enterpriseId, now.getTime()))
-      .resourceBreakdown;
+    const overview = await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime());
+    const items = overview.providerSummaries;
     expect(items.find((row) => row.providerCode === "no-balance")).toMatchObject({
       costRate24h: "0.00416667", estimatedBalanceTokens: null,
       balanceTokenEstimateReason: "BALANCE_MISSING",
@@ -430,6 +465,12 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     expect(items.find((row) => row.providerCode === "plan-boundary")).toMatchObject({
       tokenRate24h: "0.50", costRate24h: null, estimatedBalanceTokens: null,
       balanceTokenEstimateReason: "NOT_API_RESOURCE",
+    });
+    expect(overview.modelDetails.find((row) => row.resourceId === plan.id)).toMatchObject({
+      modelAlias: "ql-boundary", usedQuota: "12", remainingQuota: "80.00000000",
+      quotaUnit: "POINT", monthlyCost: null, monthlyCostReason: "套餐固定费，不按模型拆分",
+      monthlyTotalTokens: "12", consumptionRate24h: "0.50",
+      consumptionRateUnit: "QUOTA_PER_HOUR",
     });
   });
 });

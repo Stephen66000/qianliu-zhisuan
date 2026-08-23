@@ -26,7 +26,7 @@ function item(overrides: Partial<ResourceBreakdownItem>): ResourceBreakdownItem 
 }
 
 describe("POOL-042 ResourceBreakdown 边界展示", () => {
-  it("明确展示估算/未知/币种与既有预测的不可计算原因", () => {
+  it("总体表明确展示估算、未知、速度与既有预测的不可计算原因", () => {
     render(<ResourceBreakdown items={[
       item({
         providerCode: "estimated", providerName: "估算厂商", monthlyUsageQuality: "ESTIMATED",
@@ -86,14 +86,11 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
     ]} />);
 
     expect(screen.getAllByText("估算计量").length).toBeGreaterThan(0);
-    expect(screen.getByText("ql-unknown-model")).toBeInTheDocument();
-    expect(screen.getByText("Token 未知")).toBeInTheDocument();
+    expect(screen.queryByText("ql-unknown-model")).not.toBeInTheDocument();
+    expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.getByText("不可计算（计量未知）")).toBeInTheDocument();
     expect(screen.getByText("最近24小时无可用数据")).toBeInTheDocument();
-    expect(screen.getByText("不可计算：当前有效价格缺失")).toBeInTheDocument();
-    expect(screen.getByText("不可计算：数据不足")).toBeInTheDocument();
     expect(screen.getByText("not-a-number Token/小时")).toBeInTheDocument();
-    expect(screen.getByText("估算 · LOW")).toBeInTheDocument();
     expect(screen.getByText("金额 2/h")).toBeInTheDocument();
     expect(screen.getByText("2/h 额度")).toBeInTheDocument();
     expect(screen.getByText("余额未知")).toBeInTheDocument();

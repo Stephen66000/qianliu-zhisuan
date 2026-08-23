@@ -166,24 +166,24 @@ describe("W20-08 资源利用事实 Web", () => {
     });
   });
 
-  it("API 无分母显示未设置，不伪造 0%", () => {
+  it("API 利用率显示不适用，费用与已有余额保留", () => {
     renderPanel();
     const row = screen.getByText("DeepSeek · API 账户").closest("tr")!;
-    expect(within(row).getAllByText("未设置月预算")).toHaveLength(2);
+    expect(within(row).getByText("¥12.50")).toBeInTheDocument();
+    expect(within(row).getByText("余额 ¥87.50")).toBeInTheDocument();
     expect(within(row).queryByText("0.0%")).not.toBeInTheDocument();
     expect(within(row).getByText(/2 天无调用/)).toBeInTheDocument();
     expect(within(row).getByText(/未判定/)).toBeInTheDocument();
   });
 
-  it("Coding Plan 分开展示 5 小时和周窗口，过期预测不展示精确耗尽日期", () => {
+  it("Coding Plan 只保留周期利用率和订阅周期，不展示窗口与预测", () => {
     renderPanel();
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
-    expect(within(row).getByText("5 小时：40/100 PERCENT · SUCCESS")).toBeInTheDocument();
-    expect(within(row).getByText("周：20/100 PERCENT · SUCCESS")).toBeInTheDocument();
+    expect(within(row).queryByText(/5 小时：/)).not.toBeInTheDocument();
+    expect(within(row).queryByText(/周：/)).not.toBeInTheDocument();
     expect(within(row).getByText("35.0%")).toBeInTheDocument();
     expect(within(row).getByText("订阅周期累计")).toBeInTheDocument();
     expect(within(row).getByText("2026-08-01～2026-09-01")).toBeInTheDocument();
-    expect(within(row).getByText("STALE · 预测超过 15 分钟")).toBeInTheDocument();
     expect(within(row).queryByText(/2099/)).not.toBeInTheDocument();
     expect(within(row).getByText(/无调用天数未知/)).toBeInTheDocument();
     expect(within(row).getByText(/未判定/)).toBeInTheDocument();
@@ -217,7 +217,7 @@ describe("W20-08 资源利用事实 Web", () => {
     renderPanel();
     const row = screen.getByText("Kimi · 周期待补套餐").closest("tr")!;
     expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
-    expect(within(row).getAllByText("缺少订阅结束日期")).toHaveLength(2);
+    expect(within(row).getByText("缺少订阅结束日期")).toBeInTheDocument();
     expect(within(row).getByText("2026-08-01～未知")).toBeInTheDocument();
   });
 
@@ -239,7 +239,7 @@ describe("W20-08 资源利用事实 Web", () => {
     }, expect.any(Object));
   });
 
-  it("POOL20-047：预算判断依据使用实际币种", () => {
+  it("POOL20-047：预算列使用实际币种，不再重复展示判断依据", () => {
     useResourceUtilizationMock.mockReturnValue({
       data: {
         month: "2026-08",
@@ -260,7 +260,22 @@ describe("W20-08 资源利用事实 Web", () => {
     });
     renderPanel();
     expect(screen.getByText("USD 200.00")).toBeInTheDocument();
-    expect(screen.getByText("预算 USD 200.00")).toBeInTheDocument();
+    expect(screen.queryByText("预算 USD 200.00")).not.toBeInTheDocument();
     expect(screen.queryByText(/预算 ¥/)).not.toBeInTheDocument();
+  });
+
+  it("余额未设置时只显示费用，不显示余额占位", () => {
+    useResourceUtilizationMock.mockReturnValue({
+      data: {
+        month: "2026-08", generatedAt: "2026-08-13T00:00:00.000Z",
+        resources: [resource({ currentBalance: null })],
+      },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
+    renderPanel();
+    const row = screen.getByText("测试厂商 · 测试资源").closest("tr")!;
+    expect(within(row).getByText("¥12.50")).toBeInTheDocument();
+    expect(within(row).queryByText(/余额/)).not.toBeInTheDocument();
+    expect(within(row).queryByText("未设置")).not.toBeInTheDocument();
   });
 });

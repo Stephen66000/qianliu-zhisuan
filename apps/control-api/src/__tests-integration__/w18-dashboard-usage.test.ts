@@ -339,7 +339,10 @@ describe("W18 空状态（新企业无数据）", () => {
       potentialPeakSavingAmount: null, avoidedPeakDeduction: "0", rejectedRequestCount: 0,
     });
     expect(body.earliestExhaustion).toBeNull();
-    expect(body.resourceBreakdown).toEqual([]);
+    expect(body.resourceStatus).toEqual({
+      total: 0, status: "EMPTY", statusCounts: {}, abnormalResources: [],
+    });
+    expect(body).not.toHaveProperty("resourceBreakdown");
     expect(body.overageList).toEqual([]);
     expect(body.monthlyTokenUsage).toEqual({
       totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
@@ -358,6 +361,11 @@ describe("W18 空状态（新企业无数据）", () => {
 
   it("/dashboard 未认证返回 401", async () => {
     const res = await app.inject({ method: "GET", url: "/dashboard" });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("/provider-resources/usage-overview 未认证返回 401", async () => {
+    const res = await app.inject({ method: "GET", url: "/provider-resources/usage-overview" });
     expect(res.statusCode).toBe(401);
   });
 });
@@ -404,15 +412,21 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
       realizedAmount: "1.50000000", realizedSwitchCount: 1,
       potentialPeakSavingAmount: null, avoidedPeakDeduction: "300", avoidedDeductionCount: 1,
     });
-    // 资源摘要：1 个厂商（zhipu CODING_PLAN）
-    expect(body.resourceBreakdown).toHaveLength(1);
-    expect(body.resourceBreakdown[0].providerCode).toBe("zhipu");
-    expect(body.resourceBreakdown[0].mode).toBe("CODING_PLAN");
-    expect(body.resourceBreakdown[0].accountCount).toBe(1);
-    expect(Number(body.resourceBreakdown[0].totalQuota)).toBe(150000);
-    expect(Number(body.resourceBreakdown[0].usedQuota)).toBe(40000);
-    expect(Number(body.resourceBreakdown[0].remainingQuota)).toBe(110000);
-    expect(Number(body.resourceBreakdown[0].allocatedQuota)).toBe(100000);
+    expect(body.resourceStatus).toMatchObject({ total: 1, status: "HEALTHY" });
+    expect(body).not.toHaveProperty("resourceBreakdown");
+    const overviewResponse = await app.inject({
+      method: "GET", url: "/provider-resources/usage-overview",
+      headers: { cookie: adminCookie },
+    });
+    expect(overviewResponse.statusCode).toBe(200);
+    const summary = overviewResponse.json().providerSummaries[0];
+    expect(summary.providerCode).toBe("zhipu");
+    expect(summary.mode).toBe("CODING_PLAN");
+    expect(summary.accountCount).toBe(1);
+    expect(Number(summary.totalQuota)).toBe(150000);
+    expect(Number(summary.usedQuota)).toBe(40000);
+    expect(Number(summary.remainingQuota)).toBe(110000);
+    expect(Number(summary.allocatedQuota)).toBe(100000);
     // 超额列表：1 条（overage 5000）
     expect(body.overageList).toHaveLength(1);
     expect(body.overageList[0].principalId).toBe(seededPrincipalId);
@@ -480,17 +494,17 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
       method: "GET", url: "/dashboard", headers: { cookie: adminCookie },
     });
     expect(response.statusCode).toBe(200);
-    const item = response.json().resourceBreakdown.find(
-      (row: { mode: string }) => row.mode === "CODING_PLAN",
-    );
-    expect(item).toEqual(expect.objectContaining({
+    expect(response.json().resourceStatus).toEqual(expect.objectContaining({
+      total: expect.any(Number),
       status: "DEGRADED",
-      statusCounts: { DEGRADED: 1 },
-      abnormalResources: [{
+      statusCounts: expect.objectContaining({ DEGRADED: 1 }),
+      abnormalResources: expect.arrayContaining([{
         resourceId: seededResourceId,
         resourceName: "智谱主账号",
+        providerName: "智谱",
+        mode: "CODING_PLAN",
         status: "DEGRADED",
-      }],
+      }]),
     }));
     await db.updateTable("provider_resource").set({ status: "ACTIVE" })
       .where("id", "=", seededResourceId).execute();
@@ -571,13 +585,16 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().monthlyApiCost).toBe("12.34000000");
     expect(response.json().monthlyTotalSpend).toBe("311.34000000");
-    expect(response.json().resourceBreakdown).toEqual(expect.arrayContaining([
+    const overview = await app.inject({
+      method: "GET", url: "/provider-resources/usage-overview", headers: { cookie: adminCookie },
+    });
+    expect(overview.json().providerSummaries).toEqual(expect.arrayContaining([
       expect.objectContaining({ mode: "API", monthlyCost: "12.34000000" }),
       expect.objectContaining({ mode: "CODING_PLAN", monthlyCost: "299.00000000" }),
     ]));
   });
 
-  it("POOL-042：/dashboard 返回 API Token 分项、模型、速度与余额估算", async () => {
+  it("POOL-042：用量总览接口返回 API Token 分项、模型、速度与余额估算", async () => {
     const provider = await db.insertInto("provider").values({
       enterprise_id: ENT_ID, code: "pool042-api", name: "DeepSeek POOL-042",
       adapter_type: "openai",
@@ -597,6 +614,10 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     await db.insertInto("unified_model").values({
       id: modelId, enterprise_id: ENT_ID, alias: "ql-deepseek-v4-flash",
       display_name: "DeepSeek Flash",
+    }).execute();
+    await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID, unified_model_id: modelId,
+      provider_resource_id: resource.id, upstream_model: "deepseek-flash", enabled: true,
     }).execute();
     await db.insertInto("billing_rule").values({
       enterprise_id: ENT_ID, provider_resource_id: resource.id,
@@ -634,10 +655,10 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     }).execute();
 
     const response = await app.inject({
-      method: "GET", url: "/dashboard", headers: { cookie: adminCookie },
+      method: "GET", url: "/provider-resources/usage-overview", headers: { cookie: adminCookie },
     });
     expect(response.statusCode).toBe(200);
-    const item = response.json().resourceBreakdown.find(
+    const item = response.json().providerSummaries.find(
       (row: { providerCode: string }) => row.providerCode === "pool042-api",
     );
     expect(item).toMatchObject({
@@ -650,6 +671,13 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(item.modelTokenBreakdown).toEqual([
       expect.objectContaining({ modelAlias: "ql-deepseek-v4-flash", totalTokens: "120" }),
     ]);
+    expect(response.json().modelDetails).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        resourceId: resource.id, modelAlias: "ql-deepseek-v4-flash",
+        monthlyCost: "0.24000000", monthlyTotalTokens: "120",
+        consumptionRate24h: "5.00", consumptionRateUnit: "TOKEN_PER_HOUR",
+      }),
+    ]));
     await db.deleteFrom("billing_rule").where("rule_version", "=", "pool042-v1").execute();
   });
 

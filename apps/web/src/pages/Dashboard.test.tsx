@@ -64,7 +64,7 @@ function emptySummary(): DashboardSummary {
       avoidedPeakDeduction: "0", avoidedDeductionCount: 0,
       avoidedReason: "本月无具备双端倍率快照的已执行切换", rejectedRequestCount: 0,
     },
-    resourceBreakdown: [],
+    resourceStatus: { total: 0, status: "EMPTY", statusCounts: {}, abnormalResources: [] },
     overageList: [],
     monthlyTokenUsage: {
       totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
@@ -109,51 +109,7 @@ function seededSummary(): DashboardSummary {
       confidence: "MEDIUM",
       notCalculableReason: null,
     },
-    resourceBreakdown: [
-      {
-        providerCode: "zhipu",
-        providerName: "智谱",
-        mode: "CODING_PLAN",
-        accountCount: 2,
-        totalQuota: "100000",
-        usedQuota: "50000",
-        remainingQuota: "50000",
-        quotaUnit: "TOKEN",
-        allocatedQuota: "120000",
-        currency: "CNY",
-        rechargeAmount: null,
-        currentBalance: null,
-        currentPeriodCost: null,
-        packageCost: "299",
-        subscriptionPeriodStart: "2026-06-26",
-        subscriptionPeriodEnd: "2026-09-26",
-        snapshotAt: "2026-07-29T12:00:00.000Z",
-        monthlyCost: "299.00000000",
-        monthlyCostReason: null,
-        monthlyInputTokens: "80000",
-        monthlyOutputTokens: "20000",
-        monthlyCacheTokens: "10000",
-        monthlyReasoningTokens: "5000",
-        monthlyTotalTokens: "100000",
-        monthlyUsageQuality: "EXACT",
-        modelTokenBreakdown: [],
-        tokenRate24h: "1000",
-        costRate24h: null,
-        estimatedBalanceTokens: null,
-        balanceTokenEstimateConfidence: null,
-        balanceTokenEstimateReason: "NOT_API_RESOURCE",
-        balanceTokenEstimateBasis: null,
-        currentRate24h: "2400.5",
-        currentRateUnit: "QUOTA_PER_HOUR",
-        forecastConfidence: "MEDIUM",
-        forecastNotCalculableReason: null,
-        forecastDataPoints: 20,
-        forecastExhaustAt: "2026-07-30T12:00:00.000Z",
-        status: "HEALTHY",
-        statusCounts: { ACTIVE: 2 },
-        abnormalResources: [],
-      },
-    ],
+    resourceStatus: { total: 2, status: "HEALTHY", statusCounts: { ACTIVE: 2 }, abnormalResources: [] },
     overageList: [
       {
         principalId: "p1",
@@ -305,12 +261,8 @@ describe("W18 首页看板", () => {
     // 超额列表：比例 "0.0500" → "5.00%"
     expect(screen.getAllByText("张三").length).toBe(2);
     expect(screen.getByText("5.00%")).toBeInTheDocument();
-    // 资源摘要
-    expect(screen.getByText("智谱")).toBeInTheDocument();
-    expect(screen.getAllByText("100,000").length).toBeGreaterThan(0);
-    const planRow = screen.getByText("智谱").closest("tr")!;
-    expect(within(planRow).getAllByText("CNY 299.00")).toHaveLength(2);
-    expect(within(planRow).getByText("订阅周期 2026-06-26～2026-09-26")).toBeInTheDocument();
+    expect(screen.getByText(/完整厂商与模型用量请前往/)).toBeInTheDocument();
+    expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.getByText("员工消耗 Token")).toBeInTheDocument();
     expect(screen.getAllByText("9,007,199,254,740,995,000")).toHaveLength(2);
     expect(screen.getByText("25.00%")).toBeInTheDocument();
@@ -428,11 +380,15 @@ describe("W18 首页看板", () => {
 
   it("POOL-023：降级资源不再显示全部正常", () => {
     const data = seededSummary();
-    data.resourceBreakdown[0]!.status = "DEGRADED";
-    data.resourceBreakdown[0]!.statusCounts = { ACTIVE: 1, DEGRADED: 1 };
-    data.resourceBreakdown[0]!.abnormalResources = [{
-      resourceId: "r2", resourceName: "智谱备用账号", status: "DEGRADED",
-    }];
+    data.resourceStatus = {
+      total: 2,
+      status: "DEGRADED",
+      statusCounts: { ACTIVE: 1, DEGRADED: 1 },
+      abnormalResources: [{
+        resourceId: "r2", resourceName: "智谱备用账号", providerName: "智谱",
+        mode: "CODING_PLAN", status: "DEGRADED",
+      }],
+    };
     useDashboardMock.mockReturnValue({
       isLoading: false, error: null, data, refetch: vi.fn(),
     });
@@ -443,40 +399,11 @@ describe("W18 首页看板", () => {
     expect(screen.getByTestId("dashboard-resource-status")).not.toHaveTextContent("全部正常");
   });
 
-  it("POOL-042：API 资源显示 Token 分项、模型下钻、速度和余额估算说明", () => {
-    const data = seededSummary();
-    data.resourceBreakdown.push({
-      ...data.resourceBreakdown[0]!,
-      providerCode: "deepseek", providerName: "DeepSeek", mode: "API",
-      accountCount: 1, totalQuota: null, usedQuota: null, remainingQuota: null,
-      quotaUnit: null, allocatedQuota: null, currency: "CNY",
-      currentBalance: "68", currentPeriodCost: "47.41", monthlyCost: "6.32",
-      monthlyInputTokens: "800000", monthlyOutputTokens: "200000",
-      monthlyCacheTokens: "100000", monthlyReasoningTokens: "50000",
-      monthlyTotalTokens: "1000000", monthlyUsageQuality: "EXACT",
-      modelTokenBreakdown: [{
-        unifiedModelId: "model-flash", modelAlias: "ql-deepseek-v4-flash",
-        inputTokens: "800000", outputTokens: "200000", cacheTokens: "100000",
-        reasoningTokens: "50000", totalTokens: "1000000",
-        usageQuality: "EXACT",
-      }],
-      tokenRate24h: "41666.67", costRate24h: "0.25",
-      estimatedBalanceTokens: "12500000", balanceTokenEstimateConfidence: "HIGH",
-      balanceTokenEstimateReason: null,
-      balanceTokenEstimateBasis: "最近24小时 24 条账本；按当前有效价格估算",
-    });
-    useDashboardMock.mockReturnValue({
-      isLoading: false, error: null, data, refetch: vi.fn(),
-    });
+  it("首页不再承载厂商与模型用量大表", () => {
+    useDashboardMock.mockReturnValue({ isLoading: false, error: null, data: seededSummary(), refetch: vi.fn() });
     renderDashboard();
-    expect(screen.getByText("DeepSeek")).toBeInTheDocument();
-    const apiRow = screen.getByText("DeepSeek").closest("tr")!;
-    expect(within(apiRow).getByText("CNY 68.00")).toBeInTheDocument();
-    expect(within(apiRow).getByText("API 花费 CNY 6.32")).toBeInTheDocument();
-    expect(screen.getAllByText("1,000,000")).toHaveLength(2);
-    expect(screen.getByText("ql-deepseek-v4-flash")).toBeInTheDocument();
-    expect(screen.getByText("41,666.67 Token/小时")).toBeInTheDocument();
-    expect(screen.getByText("约 12,500,000")).toBeInTheDocument();
-    expect(screen.getByText("估算 · HIGH")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "厂商总额度" })).not.toBeInTheDocument();
+    expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
+    expect(screen.getByText(/厂商资源 → 用量总览/)).toBeInTheDocument();
   });
 });

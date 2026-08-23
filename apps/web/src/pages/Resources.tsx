@@ -31,6 +31,8 @@ import {
 import { QuotaWindowPanel } from "../components/resources/QuotaWindowPanel";
 import { ResourceHealthPanel } from "../components/resources/ResourceHealthPanel";
 import { ResourceUtilizationPanel } from "../components/resources/ResourceUtilizationPanel";
+import { ResourceUsageOverviewPanel } from "../components/resources/ResourceUsageOverviewPanel";
+import { ResourceTabs, useResourceTab } from "../components/resources/ResourceTabs";
 import { useFeatureFlags } from "../feature-flags";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
@@ -88,9 +90,10 @@ const STATUS_LABEL: Record<string, string> = {
 // eslint-disable-next-line complexity -- 资源页聚合登记、发现、同步、经营快照与恢复流程，条件均为互斥 UI 状态。
 export function ResourcesPage() {
   const featureFlags = useFeatureFlags();
+  const { activeTab, selectTab } = useResourceTab();
   const query = useProviderResources();
   const providersQuery = useProviders();
-  const forecastsQuery = useSupplyForecasts();
+  const forecastsQuery = useSupplyForecasts(activeTab === "supply-health");
   useRedirectOnUnauthorized(query.error ?? providersQuery.error ?? forecastsQuery.error);
   const queryClient = useQueryClient();
 
@@ -280,6 +283,9 @@ export function ResourcesPage() {
       description="厂商 API 与套餐资源的登记、凭证安全与受控恢复（WT-19）"
       title="厂商资源"
     >
+      <ResourceTabs activeTab={activeTab} onSelect={selectTab} />
+
+      {activeTab === "utilization" ? <div aria-labelledby="resource-tab-utilization" id="resource-tab-panel-utilization" role="tabpanel">
       <div className="mb-4 flex justify-end">
         <button
           className="flex h-9 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[14px] font-medium text-white hover:bg-ql-action-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
@@ -961,8 +967,22 @@ export function ResourcesPage() {
         </div>
       </QueryGate>
 
-      <div id="quota-windows"><QuotaWindowPanel providers={providerOptions} resources={resources} /></div>
+      </div> : null}
 
+      {activeTab === "usage-overview" ? (
+        <div aria-labelledby="resource-tab-usage-overview" id="resource-tab-panel-usage-overview" role="tabpanel">
+          <ResourceUsageOverviewPanel />
+        </div>
+      ) : null}
+
+      {activeTab === "quota-windows" ? (
+        <div aria-labelledby="resource-tab-quota-windows" id="resource-tab-panel-quota-windows" role="tabpanel">
+          <div id="quota-windows"><QuotaWindowPanel providers={providerOptions} resources={resources} /></div>
+        </div>
+      ) : null}
+
+      {activeTab === "supply-health" ? (
+      <div aria-labelledby="resource-tab-supply-health" id="resource-tab-panel-supply-health" role="tabpanel">
       <section className="mt-5 rounded-xl border border-ql-border bg-ql-surface p-4" id="supply-forecasts">
         <h2 className="text-[14px] font-semibold text-ql-fg">供给预测</h2>
         <p className="mt-1 text-[12px] text-ql-fg-tertiary">
@@ -1014,6 +1034,8 @@ export function ResourcesPage() {
       </section>
 
       <div id="resource-health"><ResourceHealthPanel providers={providerOptions} resources={resources} /></div>
+      </div>
+      ) : null}
 
       {/* 凭证恢复：二次确认 + 可选轮换（WT-19） */}
       <ConfirmDialog
