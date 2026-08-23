@@ -552,7 +552,7 @@ export function QuotaRulesPage() {
                 <tr className="border-b border-ql-border-zone last:border-b-0" key={model.id}>
                   <td className="p-2 font-mono">{model.alias}</td>
                   <td className="p-2">{model.display_name}</td>
-                  <td className="p-2">{model.archived_at ? "已归档" : model.status === "ACTIVE" ? "启用" : "停用"}</td>
+                  <td className="p-2">{model.archived_at ? "已归档" : model.status === "ACTIVE" ? "启用" : model.status === "PENDING_CONFIG" ? "待配置" : "停用"}</td>
                   <td className="p-2 text-right">
                     <button
                       className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
@@ -577,6 +577,8 @@ export function QuotaRulesPage() {
                       >
                         停用
                       </button>
+                    ) : model.status === "PENDING_CONFIG" ? (
+                      <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft" onClick={() => updateModel.mutate({ model, status: "ACTIVE" })} type="button">启用</button>
                     ) : (
                       <button
                         className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"

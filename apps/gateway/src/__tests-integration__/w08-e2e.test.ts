@@ -11,7 +11,16 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, GatewayLedgerRepository, ResourcePoolRepository, QuotaGateRepository, type Database } from "@qianliu/database";
+import {
+  createKysely,
+  migrateToLatest,
+  DashboardRepository,
+  GatewayLedgerRepository,
+  OperatingBillAccountRepository,
+  ResourcePoolRepository,
+  QuotaGateRepository,
+  type Database,
+} from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import {
   generateApiKey,
@@ -45,13 +54,20 @@ beforeAll(async () => {
     display_name: "仟流 DeepSeek",
     status: "ACTIVE",
   }).returningAll().executeTakeFirstOrThrow();
+  const visionModel = await db.insertInto("unified_model").values({
+    enterprise_id: ENT_ID,
+    alias: "ql-deepseek-v4-flash-vision-exp",
+    display_name: "DeepSeek V4 Flash Vision Exp",
+    required_capabilities: JSON.stringify(["chat", "stream", "vision"]) as unknown as string[],
+    status: "ACTIVE",
+  }).returningAll().executeTakeFirstOrThrow();
   validKey = generateApiKey();
   await db.insertInto("principal_key").values({
     enterprise_id: ENT_ID,
     principal_id: PRINCIPAL_ID,
     key_prefix: apiKeyPrefix(validKey),
     key_digest: digestApiKey(validKey, PEPPER),
-    allowed_model_ids: JSON.stringify([unifiedModel.id]) as unknown as string[],
+    allowed_model_ids: JSON.stringify([unifiedModel.id, visionModel.id]) as unknown as string[],
     status: "ACTIVE",
   }).execute();
   const provider = await db.insertInto("provider").values({
@@ -61,31 +77,27 @@ beforeAll(async () => {
     enterprise_id: ENT_ID, provider_id: provider.id, name: "DeepSeek 主账号",
     mode: "API", credential_type: "API_KEY",
   }).returningAll().executeTakeFirstOrThrow();
-  await db.insertInto("model_route").values({
-    enterprise_id: ENT_ID,
-    unified_model_id: unifiedModel.id,
-    provider_resource_id: resource.id,
-    upstream_model: "deepseek-chat",
-  }).execute();
-  await db.insertInto("principal_grant").values({
-    enterprise_id: ENT_ID,
-    principal_id: PRINCIPAL_ID,
-    provider: "deepseek",
-    model_alias: "qianliu-deepseek",
-    quota_value: 10_000_000n,
-  }).execute();
-  await db.insertInto("billing_rule").values({
-    enterprise_id: ENT_ID,
-    provider_resource_id: resource.id,
-    upstream_model: "deepseek-chat",
-    rule_type: "API_PRICE",
-    rule_version: "deepseek-test-peak-v1",
-    effective_from: new Date(0),
-    timezone: "Asia/Shanghai",
-    days_of_week: JSON.stringify([1, 2, 3, 4, 5, 6, 7]) as unknown as number[],
-    start_time: "00:00",
-    end_time: "12:00",
-    time_windows: JSON.stringify([
+  await db.insertInto("model_route").values([
+    {
+      enterprise_id: ENT_ID, unified_model_id: unifiedModel.id,
+      provider_resource_id: resource.id, upstream_model: "deepseek-chat",
+    },
+    {
+      enterprise_id: ENT_ID, unified_model_id: visionModel.id,
+      provider_resource_id: resource.id, upstream_model: "deepseek-v4-flash-vision-exp",
+    },
+  ]).execute();
+  await db.insertInto("principal_grant").values([
+    {
+      enterprise_id: ENT_ID, principal_id: PRINCIPAL_ID, provider: "deepseek",
+      model_alias: "qianliu-deepseek", quota_value: 10_000_000n,
+    },
+    {
+      enterprise_id: ENT_ID, principal_id: PRINCIPAL_ID, provider: "deepseek",
+      model_alias: "ql-deepseek-v4-flash-vision-exp", quota_value: 10_000_000n,
+    },
+  ]).execute();
+  const priceWindows = JSON.stringify([
       {
         timezone: "Asia/Shanghai",
         days_of_week: [1, 2, 3, 4, 5, 6, 7],
@@ -98,12 +110,27 @@ beforeAll(async () => {
         start_time: "12:00",
         end_time: "00:00",
       },
-    ]) as never,
-    cache_hit_price: "0.000001",
-    cache_miss_price: "0.000002",
-    output_price: "0.000004",
-    priority: 10,
-  }).execute();
+    ]) as never;
+  await db.insertInto("billing_rule").values([
+    {
+      enterprise_id: ENT_ID, provider_resource_id: resource.id,
+      upstream_model: "deepseek-chat", rule_type: "API_PRICE",
+      rule_version: "deepseek-test-peak-v1", effective_from: new Date(0),
+      timezone: "Asia/Shanghai", days_of_week: JSON.stringify([1, 2, 3, 4, 5, 6, 7]) as unknown as number[],
+      start_time: "00:00", end_time: "12:00", time_windows: priceWindows,
+      cache_hit_price: "0.000001", cache_miss_price: "0.000002",
+      output_price: "0.000004", priority: 10,
+    },
+    {
+      enterprise_id: ENT_ID, provider_resource_id: resource.id,
+      upstream_model: "deepseek-v4-flash-vision-exp", rule_type: "API_PRICE",
+      rule_version: "deepseek-vision-test-peak-v1", effective_from: new Date(0),
+      timezone: "Asia/Shanghai", days_of_week: JSON.stringify([1, 2, 3, 4, 5, 6, 7]) as unknown as number[],
+      start_time: "00:00", end_time: "12:00", time_windows: priceWindows,
+      cache_hit_price: "0.000001", cache_miss_price: "0.000002",
+      output_price: "0.000004", priority: 10,
+    },
+  ]).execute();
 
   // StubUpstream：返回真实形状 usage（含 cache）
   stub = new StubUpstream({
@@ -246,6 +273,71 @@ describe("W08 端到端 DeepSeek 代表链", () => {
     });
     expect((line.billing_rule_snapshot as { timeWindows: unknown[] }).timeWindows).toHaveLength(2);
     expect((line.billing_rule_snapshot as { matchedWindow: unknown }).matchedWindow).not.toBeNull();
+  });
+
+  it("POOL20-049：Vision 模型可授权调用，图片 Token 进入输入用量并按模型规则计费", async () => {
+    const models = await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() });
+    expect(models.json().data.map((model: { id: string }) => model.id)).toContain(
+      "ql-deepseek-v4-flash-vision-exp",
+    );
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/chat/completions",
+      headers: authHeader(),
+      payload: {
+        model: "ql-deepseek-v4-flash-vision-exp",
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: "读取图表" },
+            { type: "image_url", image_url: { url: "https://example.com/chart.png" } },
+          ],
+        }],
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    const requestId = response.headers["x-request-id"];
+    const ledgerRepo = new GatewayLedgerRepository(db);
+    const request = await ledgerRepo.getRequest(requestId);
+    const usage = (await ledgerRepo.listUsageEvents(requestId))[0]!;
+    const line = (await ledgerRepo.listLedgerLines(requestId))[0]!;
+    expect(request).toMatchObject({
+      unified_model: "ql-deepseek-v4-flash-vision-exp",
+      status: "SUCCEEDED",
+    });
+    expect(Number(usage.input_tokens)).toBe(980);
+    expect(Number(usage.output_tokens)).toBe(412);
+    expect(line.api_cost).not.toBeNull();
+    expect(line.rule_version).toBe("deepseek-vision-test-peak-v1");
+    expect(line.billing_rule_snapshot).toMatchObject({
+      cacheHitPrice: "0.000001",
+      cacheMissPrice: "0.000002",
+      outputPrice: "0.000004",
+    });
+    const dashboard = await new DashboardRepository(db).getSummary(ENT_ID, Date.now());
+    expect(dashboard.resourceBreakdown.find((item) => item.providerCode === "deepseek")
+      ?.modelTokenBreakdown).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        modelAlias: "ql-deepseek-v4-flash-vision-exp",
+        totalTokens: "1392",
+        usageQuality: "EXACT",
+      }),
+    ]));
+    const month = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit",
+    }).format(new Date()).slice(0, 7);
+    const employeeBill = await new OperatingBillAccountRepository(db)
+      .getEmployeeDetail(ENT_ID, month, PRINCIPAL_ID);
+    expect(employeeBill.providers.find((provider) => provider.providerCode === "deepseek")
+      ?.models).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        currentAlias: "ql-deepseek-v4-flash-vision-exp",
+        totals: expect.objectContaining({
+          totalTokens: "1392",
+          apiCost: line.api_cost,
+        }),
+      }),
+    ]));
   });
 
   it("WT-14：未支持能力端到端 422", async () => {

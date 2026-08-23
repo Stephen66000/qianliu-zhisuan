@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { post } from "../../api/client";
 import { QUERY_KEYS } from "../../api/hooks";
@@ -112,18 +113,28 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
   const queryClient = useQueryClient();
   const [discovery, setDiscovery] = useState<ModelDiscoveryResponse | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirmedModels, setConfirmedModels] = useState<Array<{
+    alias: string;
+    upstreamModel: string;
+    status: "ACTIVE" | "PENDING_CONFIG";
+  }>>([]);
   const sync = useMutation({
     mutationFn: () => post<ModelDiscoveryResponse>(`/provider-resources/${target.id}/models/sync`, {}),
     onSuccess: (result) => {
+      setConfirmedModels([]);
       setDiscovery(result);
       setSelectedIds(result.models.filter((model) => model.compatible).map((model) => model.id));
     },
   });
   const confirm = useMutation({
-    mutationFn: () => post(`/provider-resources/${target.id}/models/confirm`, { selected_model_ids: selectedIds }),
-    onSuccess: () => {
+    mutationFn: () => post<{ models: Array<{
+      alias: string;
+      upstreamModel: string;
+      status: "ACTIVE" | "PENDING_CONFIG";
+    }> }>(`/provider-resources/${target.id}/models/confirm`, { selected_model_ids: selectedIds }),
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
-      onClose();
+      setConfirmedModels(result.models);
     },
   });
   return <section className="mb-5 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
@@ -135,7 +146,14 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
         {sync.isPending ? "同步中…" : "立即同步"}
       </button>
     </div>
-    {discovery ? <div className="mt-3 space-y-2">
+    {confirmedModels.length > 0 ? <div className="mt-3 rounded-lg border border-ql-success bg-ql-success-soft p-3 text-[12px]">
+      <p className="font-medium text-ql-success">已确认加入 {confirmedModels.length} 个模型</p>
+      <p className="mt-1 text-ql-fg-secondary">新模型已进入“待配置”；请继续启用统一模型、Model Route 并配置计价规则。完成后主体页自动可分配。</p>
+      <div className="mt-2 flex gap-3">
+        <Link className="font-medium text-ql-action" to="/quota-rules">继续配置</Link>
+        <button className="text-ql-fg-secondary" onClick={onClose} type="button">关闭</button>
+      </div>
+    </div> : discovery ? <div className="mt-3 space-y-2">
       {discovery.models.map((model) => <ModelChoice compatibleText="可加入" key={model.id} model={model}
         onChange={(checked) => setSelectedIds((current) => checked
           ? [...current, model.id] : current.filter((id) => id !== model.id))}

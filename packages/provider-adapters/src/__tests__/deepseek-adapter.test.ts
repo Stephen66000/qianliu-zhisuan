@@ -107,6 +107,7 @@ describe("DeepSeekAdapter", () => {
       usage: { input: 0, output: 0, cache: 0, quality: "PROVIDER_REPORTED" },
     }));
     expect(adapter.capabilities.has("chat")).toBe(true);
+    expect(adapter.capabilities.has("vision")).toBe(true);
     expect(adapter.capabilities.has("prompt_cache")).toBe(true);
     expect(adapter.providerCode).toBe("deepseek");
   });

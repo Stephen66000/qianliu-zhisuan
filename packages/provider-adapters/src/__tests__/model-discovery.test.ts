@@ -104,11 +104,22 @@ describe("POOL-027 厂商模型发现", () => {
       providerCode: "deepseek", mode: "API", credential: "secret",
       fetch: async () => ({
         ok: true, status: 200,
-        json: async () => ({ data: [{ id: "vision-gen-v1" }, { id: "chat-v1" }, { id: "chat-v1" }] }),
+        json: async () => ({ data: [
+          { id: "vision-gen-v1" },
+          { id: "deepseek-v4-flash-vision-exp" },
+          { id: "chat-v1" },
+          { id: "chat-v1" },
+        ] }),
       }),
     });
     expect(result.models).toEqual([
       expect.objectContaining({ id: "chat-v1", compatible: true }),
+      expect.objectContaining({
+        id: "deepseek-v4-flash-vision-exp",
+        modelType: "CHAT",
+        capabilities: ["chat", "stream", "vision"],
+        compatible: true,
+      }),
       expect.objectContaining({ id: "vision-gen-v1", modelType: "IMAGE", compatible: false }),
     ]);
   });

@@ -5,13 +5,14 @@
  * 凭证安全：上游 Secret 用 AES-256-GCM 加密后存密文 + 指纹；
  * 明文绝不入库（TRD §5.4 L252）；列表只返回指纹。
  */
-import type { Selectable } from "kysely";
+import type { Kysely, Selectable } from "kysely";
 import { sql } from "kysely";
 import type {
   ProviderTable,
   ProviderResourceTable,
   UnifiedModelTable,
   ModelRouteTable,
+  Database,
 } from "../kysely.js";
 import type { DiscoveredProviderModel } from "@qianliu/provider-adapters";
 import { ProviderModelDiscoveryRepository } from "./provider-model-discovery-repository.js";
@@ -199,6 +200,10 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
             required_capabilities: JSON.stringify(discovered.capabilities) as unknown as string[],
             status: "PENDING_CONFIG",
           }).returningAll().executeTakeFirstOrThrow();
+        } else {
+          unified = await mergeDiscoveredCapabilities(
+            trx, input.enterpriseId, unified, discovered.capabilities,
+          );
         }
         const route = await trx.insertInto("model_route").values({
           enterprise_id: input.enterpriseId, unified_model_id: unified.id,
@@ -249,6 +254,10 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
             required_capabilities: JSON.stringify(discovered.capabilities) as unknown as string[],
             status: "PENDING_CONFIG",
           }).returningAll().executeTakeFirstOrThrow();
+        } else {
+          unified = await mergeDiscoveredCapabilities(
+            trx, input.enterpriseId, unified, discovered.capabilities,
+          );
         }
         let route = await trx.selectFrom("model_route").selectAll()
           .where("enterprise_id", "=", input.enterpriseId)
@@ -400,4 +409,23 @@ function stableModelAlias(providerCode: string, upstreamModel: string, displayNa
   const base = displayName ?? upstreamModel;
   const slug = base.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-|-$/g, "");
   return `ql-${slug}`.slice(0, 64);
+}
+
+async function mergeDiscoveredCapabilities(
+  trx: Kysely<Database>,
+  enterpriseId: string,
+  unified: UnifiedModel,
+  discovered: string[],
+): Promise<UnifiedModel> {
+  const merged = [...new Set([...(unified.required_capabilities ?? []), ...discovered])].sort();
+  const current = [...(unified.required_capabilities ?? [])].sort();
+  if (merged.length === current.length && merged.every((value, index) => value === current[index])) {
+    return unified;
+  }
+  return trx.updateTable("unified_model").set({
+    required_capabilities: JSON.stringify(merged) as unknown as string[],
+    version: sql`version + 1`,
+    updated_at: new Date(),
+  }).where("enterprise_id", "=", enterpriseId).where("id", "=", unified.id)
+    .returningAll().executeTakeFirstOrThrow();
 }

@@ -337,7 +337,9 @@ describe("POOL-027 模型发现向导", () => {
     postMock.mockImplementation(async (path: string) =>
       path.includes("model-discovery") || path.includes("models/sync")
         ? discovery
-        : path.includes("models/confirm") ? { models: [] } : { result: { resourceId: resource.id } });
+        : path.includes("models/confirm") ? { models: [{
+          alias: "ql-kimi-k2", upstreamModel: "kimi-k2", status: "PENDING_CONFIG",
+        }] } : { result: { resourceId: resource.id } });
   });
 
   it("检测后默认只全选兼容模型，向量模型不可误选", async () => {
@@ -367,6 +369,8 @@ describe("POOL-027 模型发现向导", () => {
       `/provider-resources/${resource.id}/models/confirm`,
       { selected_model_ids: ["kimi-k2"] },
     ));
+    expect(await screen.findByText("已确认加入 1 个模型")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "继续配置" })).toHaveAttribute("href", "/quota-rules");
     expect(screen.queryByText("多个模型用英文逗号分隔")).not.toBeInTheDocument();
   });
 });

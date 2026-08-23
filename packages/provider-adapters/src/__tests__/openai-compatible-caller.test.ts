@@ -320,6 +320,63 @@ describe("Responses → Chat Completions", () => {
     ]);
     expect(body.tool_choice).toBe("required");
   });
+
+  it("DeepSeek Vision：Anthropic Messages 图片块转换为上游多模态内容", () => {
+    const body = toChatCompletionsRequest(resource({ providerCode: "deepseek" }), {
+      requestId: "req-vision-messages",
+      unifiedModel: "ql-deepseek-v4-flash-vision-exp",
+      capability: "messages",
+      stream: false,
+      body: {
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: "分析图片" },
+            { type: "image", source: { type: "base64", media_type: "image/png", data: "aW1hZ2U=" } },
+            { type: "image", source: { type: "url", url: "https://example.com/a.png" } },
+            { type: "image", source: { type: "file", file_id: "file-api-vision" } },
+          ],
+        }],
+      },
+    });
+    expect(body.messages).toEqual([{
+      role: "user",
+      content: [
+        { type: "text", text: "分析图片" },
+        { type: "image_url", image_url: { url: "data:image/png;base64,aW1hZ2U=" } },
+        { type: "image_url", image_url: { url: "https://example.com/a.png" } },
+        { type: "file", file_id: "file-api-vision" },
+      ],
+    }]);
+  });
+
+  it("DeepSeek Vision：Responses 保留 image_url detail 与 file_id", () => {
+    const body = toChatCompletionsRequest(resource({ providerCode: "deepseek" }), {
+      requestId: "req-vision-responses",
+      unifiedModel: "ql-deepseek-v4-flash-vision-exp",
+      capability: "responses",
+      stream: false,
+      body: {
+        model: "ql-deepseek-v4-flash-vision-exp",
+        input: [{
+          role: "user",
+          content: [
+            { type: "input_text", text: "读取图表" },
+            { type: "input_image", image_url: "https://example.com/chart.png", detail: "low" },
+            { type: "input_image", file_id: "file-api-chart" },
+          ],
+        }],
+      },
+    });
+    expect(body.messages).toEqual([{
+      role: "user",
+      content: [
+        { type: "text", text: "读取图表" },
+        { type: "image_url", image_url: { url: "https://example.com/chart.png", detail: "low" } },
+        { type: "file", file_id: "file-api-chart" },
+      ],
+    }]);
+  });
 });
 
 describe("OpenAI-compatible HTTP caller", () => {

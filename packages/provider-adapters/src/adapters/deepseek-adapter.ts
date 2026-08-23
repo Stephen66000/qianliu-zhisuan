@@ -31,6 +31,7 @@ export class DeepSeekAdapter implements ProviderAdapter {
     "responses",
     "stream",
     "tools",
+    "vision",
     "prompt_cache", // DeepSeek 支持 Prompt Cache
   ]);
 

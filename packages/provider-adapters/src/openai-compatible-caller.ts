@@ -697,7 +697,16 @@ function responseContentToChatContent(content: unknown): unknown {
       return [{ type: "text", text: stringValue(part.text) }];
     }
     if (type === "input_image" && typeof part.image_url === "string") {
-      return [{ type: "image_url", image_url: { url: part.image_url } }];
+      const detail = ["low", "high", "original", "auto"].includes(stringValue(part.detail))
+        ? stringValue(part.detail)
+        : undefined;
+      return [{
+        type: "image_url",
+        image_url: { url: part.image_url, ...(detail ? { detail } : {}) },
+      }];
+    }
+    if (type === "input_image" && typeof part.file_id === "string") {
+      return [{ type: "file", file_id: part.file_id }];
     }
     return [];
   });
@@ -764,9 +773,40 @@ function anthropicMessageToChatMessages(raw: unknown): ChatMessage[] {
       content: contentToText(item.content),
     });
   }
-  const userContent = contentToText(nonToolResultParts);
-  if (userContent) messages.push({ role: "user", content: userContent });
+  const userContent = anthropicUserContentToChatContent(nonToolResultParts);
+  if (Array.isArray(userContent) ? userContent.length > 0 : userContent) {
+    messages.push({ role: "user", content: userContent });
+  }
   return messages;
+}
+
+function anthropicUserContentToChatContent(parts: unknown[]): unknown {
+  let hasMedia = false;
+  const converted = parts.flatMap((raw): unknown[] => {
+    if (!isRecord(raw)) return [];
+    if (raw.type === "text" && typeof raw.text === "string") {
+      return [{ type: "text", text: raw.text }];
+    }
+    if (raw.type !== "image" || !isRecord(raw.source)) return [];
+    hasMedia = true;
+    const source = raw.source;
+    if (source.type === "base64"
+      && typeof source.media_type === "string"
+      && typeof source.data === "string") {
+      return [{
+        type: "image_url",
+        image_url: { url: `data:${source.media_type};base64,${source.data}` },
+      }];
+    }
+    if (source.type === "url" && typeof source.url === "string") {
+      return [{ type: "image_url", image_url: { url: source.url } }];
+    }
+    if (source.type === "file" && typeof source.file_id === "string") {
+      return [{ type: "file", file_id: source.file_id }];
+    }
+    return [];
+  });
+  return hasMedia && converted.length > 0 ? converted : contentToText(parts);
 }
 
 function normalizeRole(role: unknown): ChatMessage["role"] | null {

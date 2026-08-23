@@ -83,6 +83,14 @@ function classifyModel(id: string): Pick<DiscoveredProviderModel, "modelType" | 
   if (/(^|[-_])(image|vision-gen|tts|audio)([-_]|$)/.test(normalized)) {
     return { modelType: "IMAGE", capabilities: [], compatible: false, unavailableReason: "Gateway 暂不承载该模型类型" };
   }
+  if (/(^|[-_])vision([-_]|$)/.test(normalized)) {
+    return {
+      modelType: "CHAT",
+      capabilities: ["chat", "stream", "vision"],
+      compatible: true,
+      unavailableReason: null,
+    };
+  }
   return { modelType: "CHAT", capabilities: ["chat", "stream"], compatible: true, unavailableReason: null };
 }
 

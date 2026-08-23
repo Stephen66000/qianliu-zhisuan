@@ -87,6 +87,22 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     expect(route.enabled).toBe(false);
     const model = await db.selectFrom("unified_model").selectAll().executeTakeFirstOrThrow();
     expect(model.status).toBe("PENDING_CONFIG");
+    const catalog = await app.inject({
+      method: "GET", url: "/employee-model-rules/catalog", headers: { cookie },
+    });
+    expect(catalog.statusCode).toBe(200);
+    expect(catalog.json().models).toEqual([
+      expect.objectContaining({
+        unified_model_id: model.id,
+        route_id: route.id,
+        ready: false,
+        unavailable_reasons: expect.arrayContaining([
+          "统一模型未启用",
+          "Model Route 未启用",
+          "缺少当前生效的计价或扣减规则",
+        ]),
+      }),
+    ]);
     expect(await db.selectFrom("principal_key").selectAll().execute()).toHaveLength(0);
     expect(await db.selectFrom("principal_grant").selectAll().execute()).toHaveLength(0);
     const resource = await db.selectFrom("provider_resource").selectAll().executeTakeFirstOrThrow();
@@ -208,11 +224,18 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     });
     expect(created.statusCode).toBe(201);
     const resourceId = created.json().resource.id as string;
+    const existingVisionModel = await db.insertInto("unified_model").values({
+      enterprise_id: enterpriseId,
+      alias: "ql-deepseek-v4-flash-vision-exp",
+      display_name: "deepseek-v4-flash-vision-exp",
+      required_capabilities: JSON.stringify(["chat"]) as unknown as string[],
+      status: "PENDING_CONFIG",
+    }).returningAll().executeTakeFirstOrThrow();
     const fetchMock = vi.spyOn(globalThis, "fetch");
     fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ data: [{ id: "deepseek-chat" }] }),
+      json: async () => ({ data: [{ id: "deepseek-v4-flash-vision-exp" }] }),
     } as Response);
     const firstSync = await app.inject({
       method: "POST",
@@ -221,6 +244,27 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
       payload: {},
     });
     expect(firstSync.statusCode).toBe(200);
+    expect(firstSync.json().models[0]).toMatchObject({
+      id: "deepseek-v4-flash-vision-exp",
+      capabilities: ["chat", "stream", "vision"],
+      compatible: true,
+    });
+    const confirmed = await app.inject({
+      method: "POST",
+      url: `/provider-resources/${resourceId}/models/confirm`,
+      headers: { cookie },
+      payload: { selected_model_ids: ["deepseek-v4-flash-vision-exp"] },
+    });
+    expect(confirmed.statusCode).toBe(200);
+    expect(confirmed.json().models[0]).toMatchObject({
+      unifiedModelId: existingVisionModel.id,
+      reused: true,
+    });
+    expect(await db.selectFrom("unified_model").select(["required_capabilities", "version"])
+      .where("id", "=", existingVisionModel.id).executeTakeFirstOrThrow()).toMatchObject({
+      required_capabilities: ["chat", "stream", "vision"],
+      version: existingVisionModel.version + 1,
+    });
 
     await db.updateTable("provider_resource").set({ status: "DEGRADED" })
       .where("id", "=", resourceId).execute();
@@ -246,13 +290,13 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
       items_stale: true,
     });
     expect(latest.json().items.map((item: { upstream_model: string }) => item.upstream_model))
-      .toEqual(["deepseek-chat"]);
+      .toEqual(["deepseek-v4-flash-vision-exp"]);
 
     const confirm = await app.inject({
       method: "POST",
       url: `/provider-resources/${resourceId}/models/confirm`,
       headers: { cookie },
-      payload: { selected_model_ids: ["deepseek-chat"] },
+      payload: { selected_model_ids: ["deepseek-v4-flash-vision-exp"] },
     });
     expect(confirm.statusCode).toBe(409);
     expect(confirm.json().error).toBe("model_discovery_stale");

@@ -448,6 +448,28 @@ describe("POOL20-036～037 配置归档与调度恢复", () => {
     postMock.mockResolvedValue({});
   });
 
+  it("POOL20-049：新接入的待配置模型可正式启用", async () => {
+    modelsMock.mockReturnValue(query({ models: [{
+      id: "model-vision", enterprise_id: "enterprise-1",
+      alias: "ql-deepseek-v4-flash-vision-exp",
+      display_name: "deepseek-v4-flash-vision-exp",
+      required_capabilities: ["chat", "stream", "vision"],
+      status: "PENDING_CONFIG", version: 1,
+      archived_at: null, archived_by_admin_id: null,
+      created_at: "2026-08-23T00:00:00Z", updated_at: "2026-08-23T00:00:00Z",
+    }] }));
+    const user = userEvent.setup();
+    render(<MemoryRouter><QuotaRulesPage /></MemoryRouter>);
+    const row = screen.getAllByText("deepseek-v4-flash-vision-exp")
+      .find((node) => node.tagName === "TD")!.closest("tr")!;
+    expect(within(row).getByText("待配置")).toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: "启用" }));
+    await waitFor(() => expect(patchMock).toHaveBeenCalledWith(
+      "/unified-models/model-vision",
+      { expected_version: 1, status: "ACTIVE" },
+    ));
+  });
+
   it("统一模型归档先显示冻结文案，取消零写入，确认才调用 API", async () => {
     modelsMock.mockReturnValue(query({ models: [{
       id: "model-disabled", enterprise_id: "enterprise-1", alias: "ql-disabled",
