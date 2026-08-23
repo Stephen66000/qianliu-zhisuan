@@ -51,6 +51,7 @@ if test "${1:-}" = "--check-contract"; then
   grep -q 'target_head="0056_resource_monthly_budget"' "$0"
   grep -q '0055_upstream_error_evidence' "$0"
   grep -q '0056_resource_monthly_budget.js' "$0"
+  grep -q 'test "$budget_schema_check" = "1,14,6,3"' "$0"
   echo "release_contract_check=PASS"
   exit 0
 elif test "${1:-}" = "--check-env"; then
@@ -305,7 +306,7 @@ budget_schema_check="$(db_query "
                           'provider_resource_monthly_budget_idempotency_uq',
                           'provider_resource_monthly_budget_current_uq'))
   );")"
-test "$budget_schema_check" = "1,13,6,3"
+test "$budget_schema_check" = "1,14,6,3"
 log "migration evidence 0053_sha=${migration_0053_sha} 0054_sha=${migration_0054_sha} 0055_sha=${migration_0055_sha} 0056_sha=${migration_0056_sha}"
 log "rollback boundary: 0055 diagnostic evidence and 0056 budget facts reject destructive down; restore verified backup instead"
 
