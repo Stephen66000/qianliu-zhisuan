@@ -8,6 +8,8 @@ interface ToolBlock {
   started: boolean;
 }
 
+const STREAM_PING_INTERVAL_MS = 5_000;
+
 /**
  * OpenAI-compatible Chat delta -> Anthropic Messages SSE 实时转换。
  * 不缓存消息正文；仅在内存中保留工具块的索引、ID 和名称。
@@ -27,6 +29,13 @@ export function createMessagesStreamWriter(
   let stopReason: "end_turn" | "tool_use" | "max_tokens" = "end_turn";
   const openBlocks = new Set<number>();
   const tools = new Map<number, ToolBlock>();
+  let pingTimer: ReturnType<typeof setInterval> | null = null;
+
+  const stopPings = () => {
+    if (pingTimer === null) return;
+    clearInterval(pingTimer);
+    pingTimer = null;
+  };
 
   const write = (event: string, data: Record<string, unknown>) => {
     if (ended || reply.raw.destroyed) return;
@@ -60,6 +69,14 @@ export function createMessagesStreamWriter(
         usage: { input_tokens: 0, output_tokens: 0 },
       },
     })}\n\n`);
+    pingTimer = setInterval(() => {
+      if (ended || reply.raw.destroyed) {
+        stopPings();
+        return;
+      }
+      reply.raw.write('event: ping\ndata: {"type":"ping"}\n\n');
+    }, STREAM_PING_INTERVAL_MS);
+    pingTimer.unref?.();
   };
   const ensureTextBlock = () => {
     if (textBlockIndex !== null) return textBlockIndex;
@@ -152,6 +169,7 @@ export function createMessagesStreamWriter(
     complete(outcome) {
       if (ended) return;
       if (!started) start();
+      stopPings();
       for (const block of [...tools.values()].sort((left, right) => left.blockIndex - right.blockIndex)) {
         startToolBlock(block);
       }
@@ -177,6 +195,7 @@ export function createMessagesStreamWriter(
           request_id: error.requestId,
         },
       });
+      stopPings();
       ended = true;
       if (!reply.raw.destroyed) reply.raw.end();
     },
