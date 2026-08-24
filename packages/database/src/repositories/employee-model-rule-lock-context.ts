@@ -70,7 +70,6 @@ export async function captureManualBaseline(
 ): Promise<void> {
   const existing = await trx.selectFrom("principal_model_manual_authorization").select("unified_model_id")
     .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId).execute();
-  if (existing.length > 0) return;
   const key = await trx.selectFrom("principal_key").select("allowed_model_ids")
     .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
     .where("status", "=", "ACTIVE").forUpdate().executeTakeFirst();
@@ -79,7 +78,11 @@ export async function captureManualBaseline(
     .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
     .where("status", "=", "ACTIVE").execute();
   const managedIds = new Set(managed.map((row) => row.unified_model_id));
-  const manualIds = (key.allowed_model_ids ?? []).filter((id) => !managedIds.has(id));
+  const existingIds = new Set(existing.map((row) => row.unified_model_id));
+  // 批量授权是增量合同：发布前把当前 Key 后来增加的未受管型号持续并入基线，
+  // 不能因为曾经捕获过一条旧基线就跳过；受管型号仍由 assignment／厂商池维护。
+  const manualIds = (key.allowed_model_ids ?? [])
+    .filter((id) => !managedIds.has(id) && !existingIds.has(id));
   if (manualIds.length > 0) await trx.insertInto("principal_model_manual_authorization")
     .values(manualIds.map((unified_model_id) => ({ enterprise_id: enterpriseId, principal_id: principalId, unified_model_id })))
     .onConflict((oc) => oc.doNothing()).execute();

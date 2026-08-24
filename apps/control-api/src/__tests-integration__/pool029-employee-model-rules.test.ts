@@ -289,6 +289,72 @@ describe("POOL-029 员工模型授权发布闭环", () => {
       .executeTakeFirst()).toBeDefined();
   });
 
+  it("POOL20-052：已有不完整基线时批量新增模型不覆盖当前 Key 的其他厂商权限", async () => {
+    const principalId = randomUUID();
+    const existingProviderId = randomUUID();
+    const existingResourceId = randomUUID();
+    const existingModelId = randomUUID();
+    await db.insertInto("principal").values({
+      id: principalId, enterprise_id: enterpriseId, type: "EMPLOYEE",
+      name: "增量授权员工", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("provider").values({
+      id: existingProviderId, enterprise_id: enterpriseId, code: "pool052-existing",
+      name: "原有厂商", adapter_type: "openai", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("provider_resource").values({
+      id: existingResourceId, enterprise_id: enterpriseId, provider_id: existingProviderId,
+      name: "原有 API", mode: "API", credential_type: "API_KEY", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("unified_model").values({
+      id: existingModelId, enterprise_id: enterpriseId,
+      alias: "pool052-existing", display_name: "原有模型", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: existingModelId,
+      provider_resource_id: existingResourceId, upstream_model: "pool052-existing", enabled: true,
+    }).execute();
+    await db.insertInto("billing_rule").values({
+      enterprise_id: enterpriseId, provider_resource_id: existingResourceId,
+      upstream_model: "pool052-existing", rule_type: "API_PRICE", rule_version: "pool052-v1",
+      effective_from: new Date("2026-01-01T00:00:00Z"), cache_miss_price: "0.1", enabled: true,
+    }).execute();
+    await db.insertInto("principal_key").values({
+      enterprise_id: enterpriseId, principal_id: principalId, key_prefix: "pool052",
+      key_digest: randomUUID(), allowed_model_ids: JSON.stringify([existingModelId]) as unknown as string[],
+      status: "ACTIVE",
+    }).execute();
+    // 模拟生产：基线表已有旧记录，但后来加入 Key 的原有模型没有被继续合并。
+    await db.insertInto("principal_model_manual_authorization").values({
+      enterprise_id: enterpriseId, principal_id: principalId, unified_model_id: manualModelId,
+    }).execute();
+
+    const created = await createRule([principalId], modelId, "POOL20-052 增量授权");
+    const versionId = created.json().version.id as string;
+    const validated = await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${versionId}/validate`, headers: { cookie },
+    });
+    expect(validated.statusCode).toBe(200);
+    expect(validated.json().validation.changes.removed).toEqual([]);
+    const version = await db.selectFrom("employee_model_rule_version").selectAll()
+      .where("id", "=", versionId).executeTakeFirstOrThrow();
+    const published = await app.inject({
+      method: "POST", url: `/employee-model-rules/versions/${versionId}/publish`, headers: { cookie },
+      payload: {
+        expected_lock_version: version.lock_version,
+        idempotency_key: "pool052-additive-publish",
+        quota_mode: "ADD",
+      },
+    });
+    expect(published.statusCode).toBe(200);
+    const key = await db.selectFrom("principal_key").select("allowed_model_ids")
+      .where("principal_id", "=", principalId).executeTakeFirstOrThrow();
+    expect(key.allowed_model_ids).toEqual(expect.arrayContaining([existingModelId, modelId]));
+    expect(await db.selectFrom("principal_model_manual_authorization").select("unified_model_id")
+      .where("principal_id", "=", principalId).where("unified_model_id", "=", existingModelId)
+      .executeTakeFirst()).toBeDefined();
+  });
+
   it("手工授权与规则发布并发时按 Key 行锁串行化，不覆盖刚发布的模型", async () => {
     const principalId = randomUUID();
     await db.insertInto("principal").values({

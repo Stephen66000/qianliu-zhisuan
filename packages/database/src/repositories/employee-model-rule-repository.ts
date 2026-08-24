@@ -269,7 +269,11 @@ export class EmployeeModelRuleRepository {
       const previous = await trx.selectFrom("employee_model_rule_version").select("id")
         .where("enterprise_id", "=", input.enterpriseId).where("rule_id", "=", version.rule_id)
         .where("status", "=", "PUBLISHED").where("id", "!=", version.id).forUpdate().execute();
-      for (const item of previous) await disableEmployeeRuleVersion(trx, input.enterpriseId, item.id);
+      // 新版本发布是增量授权：旧版本只退役 assignment 所有权，不把未选型号写入
+      // 显式禁用清单；真正撤权只能走单独的“停用”动作。
+      for (const item of previous) {
+        await disableEmployeeRuleVersion(trx, input.enterpriseId, item.id, false);
+      }
 
       for (const principalId of [...validation.principal_ids].sort()) {
         // POOL-033：规则只管型号准入开关，额度归主体×厂商池。每主体每厂商至多一个 ACTIVE 池

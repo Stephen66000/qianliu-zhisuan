@@ -108,11 +108,9 @@ async function calculatePermissionChanges(
     .filter((row) => row.rule_id !== version.rule_id)
     .map((row) => modelKey(row.principal_id, row.unified_model_id));
   const previousRuleRows = currentRows.filter((row) => row.rule_id === version.rule_id);
-  const finalModelKeys = [
-    ...manualRows.map((row) => modelKey(row.principal_id, row.unified_model_id)),
-    ...otherRuleModelKeys,
-    ...proposedModelKeys,
-  ];
+  // 批量发布默认只增加：发布后集合必须包含发布前全部权限与本次目标。
+  // 模型撤权由独立停用/接入配置承担，校验预览不得承诺“撤销 0”却在发布时覆盖。
+  const finalModelKeys = [...beforeModelKeys, ...otherRuleModelKeys, ...proposedModelKeys];
   const classified = classifyPermissionKeys({
     proposed: proposedModelKeys,
     before: beforeModelKeys,

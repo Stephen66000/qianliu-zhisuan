@@ -90,6 +90,7 @@ describe("POOL-029 批量模型授权页面", () => {
     expect(screen.getByText("1 人 × 1 模型 = 1 项")).toBeInTheDocument();
     expect(screen.getByText("新增 1 / 保留 0 / 撤销 0")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "发布" })).toBeInTheDocument();
+    expect(screen.getByLabelText("池额度方式")).toHaveValue("ADD");
     screen.getAllByRole("button", { name: "历史" })[0]!.click();
     const history = await screen.findByRole("region", { name: "规则版本历史" });
     expect(history).toBeInTheDocument();

@@ -238,6 +238,22 @@ describe("POOL-039 employee rule lifecycle mutation contract", () => {
     expect(trx.updates).toHaveLength(0);
   });
 
+  it("retires a previous version during additive publish without writing model revocations", async () => {
+    const trx = new LifecycleTransaction();
+    trx.assignments = [{
+      principal_id: "principal-a", grant_id: "grant-a",
+      unified_model_id: "model-old", provider_resource_id: "resource-alpha",
+    }];
+    await expect(disableEmployeeRuleVersion(trx as never, "enterprise", "version-1", false))
+      .resolves.toEqual(["principal-a"]);
+    expect(trx.inserts).toHaveLength(0);
+    expect(trx.updates).toContainEqual(expect.objectContaining({
+      table: "employee_model_rule_assignment",
+      row: expect.objectContaining({ status: "DISABLED" }),
+    }));
+    expect(trx.updates.filter((update) => update.table === "principal_key")).toHaveLength(0);
+  });
+
   it("disables assignments, preserves shared models and refreshes principals in stable order", async () => {
     const trx = new LifecycleTransaction();
     trx.assignments = [

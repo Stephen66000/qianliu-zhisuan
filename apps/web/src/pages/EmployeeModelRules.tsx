@@ -138,7 +138,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [modelSearch, setModelSearch] = useState("");
   // POOL-033 §6：发布时显式选择池额度语义（SET=设为规则值 / ADD=锁内追加）。
-  const [quotaMode, setQuotaMode] = useState<"SET" | "ADD">("SET");
+  const [quotaMode, setQuotaMode] = useState<"SET" | "ADD">("ADD");
 
   const employees = useMemo(() => (catalog.data?.principals ?? []).filter((item) =>
     `${item.name} ${item.department_label ?? ""}`.toLowerCase().includes(employeeSearch.toLowerCase())),
@@ -321,8 +321,8 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
                     onChange={(event) => setQuotaMode(event.target.value as "SET" | "ADD")}
                     value={quotaMode}
                   >
+                    <option value="ADD">追加额度（默认）</option>
                     <option value="SET">设置总额度</option>
-                    <option value="ADD">追加额度</option>
                   </select>
                   <button className="text-ql-action" onClick={() => publishRule.mutate({ versionId: rule.id, expectedLockVersion: rule.lock_version, idempotencyKey: crypto.randomUUID(), quotaMode })} type="button">发布</button>
                 </span> : null}

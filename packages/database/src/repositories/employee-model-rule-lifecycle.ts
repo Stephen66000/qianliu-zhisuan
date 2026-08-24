@@ -136,6 +136,7 @@ export async function disableEmployeeRuleVersion(
   trx: Transaction<Database>,
   enterpriseId: string,
   versionId: string,
+  revokeModels = true,
 ): Promise<string[]> {
   const assignments = await trx.selectFrom("employee_model_rule_assignment")
     .select(["principal_id", "grant_id", "unified_model_id", "provider_resource_id"])
@@ -153,7 +154,7 @@ export async function disableEmployeeRuleVersion(
     for (const assignment of assignments) {
       affectedPairs.set(`${assignment.principal_id}:${assignment.unified_model_id}`, assignment);
     }
-    for (const assignment of affectedPairs.values()) {
+    for (const assignment of revokeModels ? affectedPairs.values() : []) {
       const stillMaintained = await trx.selectFrom("employee_model_rule_assignment")
         .select("id").where("enterprise_id", "=", enterpriseId)
         .where("principal_id", "=", assignment.principal_id)
@@ -180,8 +181,10 @@ export async function disableEmployeeRuleVersion(
         }
       }
     }
-    for (const principalId of unique(assignments.map((row) => row.principal_id)).sort()) {
-      await refreshEmployeeKeyModels(trx, enterpriseId, principalId);
+    if (revokeModels) {
+      for (const principalId of unique(assignments.map((row) => row.principal_id)).sort()) {
+        await refreshEmployeeKeyModels(trx, enterpriseId, principalId);
+      }
     }
   }
   await trx.updateTable("employee_model_rule_version")

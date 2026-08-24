@@ -129,7 +129,7 @@ describe("POOL-039 repository incremental mutation contract", () => {
     }, "alpha")).toEqual({ quota_value: 99n, allow_overage: false, valid_until: null });
   });
 
-  it("captures only the manual part of an existing Key baseline", async () => {
+  it("captures every unmanaged Key model missing from the current baseline", async () => {
     const trx = new MutationTransaction({
       "principal_model_manual_authorization:unified_model_id": [],
       "principal_key:allowed_model_ids": { allowed_model_ids: ["manual", "managed"] },
@@ -151,13 +151,18 @@ describe("POOL-039 repository incremental mutation contract", () => {
     expect(trx.conflicts).toEqual(["principal_model_manual_authorization:doNothing"]);
   });
 
-  it("does not overwrite an already captured baseline", async () => {
+  it("merges models added after the first baseline capture", async () => {
     const trx = new MutationTransaction({
       "principal_model_manual_authorization:unified_model_id": [{ unified_model_id: "manual" }],
+      "principal_key:allowed_model_ids": { allowed_model_ids: ["manual", "later"] },
+      "employee_model_rule_assignment:unified_model_id": [],
     });
     await captureManualBaseline(trx as never, "enterprise", "principal-a");
-    expect(trx.inserts).toHaveLength(0);
-    expect(trx.queryOps.some((op) => op.startsWith("principal_key"))).toBe(false);
+    expect(trx.inserts).toEqual([{
+      table: "principal_model_manual_authorization",
+      row: [{ enterprise_id: "enterprise", principal_id: "principal-a", unified_model_id: "later" }],
+    }]);
+    expect(trx.queryOps.some((op) => op.startsWith("principal_key"))).toBe(true);
   });
 
   it("handles a null Key whitelist and does not insert an empty baseline", async () => {
