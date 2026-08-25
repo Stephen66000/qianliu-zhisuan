@@ -137,8 +137,15 @@ export interface ProviderModelDiscoveryTable {
   id: Generated<string>;
   enterprise_id: string;
   provider_resource_id: string;
-  source: "PROVIDER_API" | "VERSIONED_CATALOG";
+  source: "PROVIDER_API" | "OFFICIAL_DOCUMENTATION" | "LAST_SUCCESSFUL_SNAPSHOT" | "BUILTIN_FALLBACK" | "VERSIONED_CATALOG";
   source_version: string;
+  parser_version: string | null;
+  source_url: string | null;
+  source_etag: string | null;
+  source_last_modified: string | null;
+  source_content_hash: string | null;
+  source_checked_at: Date | null;
+  stale: Generated<boolean>;
   status: "SUCCEEDED" | "FAILED";
   discovered_at: Date;
   failure_code: string | null;
@@ -154,9 +161,10 @@ export interface ProviderModelDiscoveryItemTable {
   display_name: string;
   model_type: "CHAT" | "EMBEDDING" | "IMAGE" | "UNKNOWN";
   capabilities: string[];
-  source: "PROVIDER_API" | "VERSIONED_CATALOG";
+  source: "PROVIDER_API" | "OFFICIAL_DOCUMENTATION" | "LAST_SUCCESSFUL_SNAPSHOT" | "BUILTIN_FALLBACK" | "VERSIONED_CATALOG";
   compatible: boolean;
   unavailable_reason: string | null;
+  facts: Record<string, unknown>;
   availability_status: "AVAILABLE" | "REMOVED";
   first_discovered_at: Date;
   last_discovered_at: Date;
@@ -171,6 +179,21 @@ export interface ProviderModelOnboardingTable {
   request_fingerprint: string;
   provider_resource_id: string;
   result: Record<string, unknown>;
+  created_at: Generated<Date>;
+}
+
+export interface ProviderModelValidationTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_resource_id: string;
+  unified_model_id: string;
+  upstream_model: string;
+  idempotency_key: string;
+  request_fingerprint: string;
+  status: "IN_PROGRESS" | "SUCCEEDED" | "FAILED";
+  result: Record<string, unknown>;
+  started_at: Generated<Date>;
+  finished_at: Date | null;
   created_at: Generated<Date>;
 }
 

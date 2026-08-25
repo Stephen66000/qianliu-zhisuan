@@ -66,14 +66,55 @@ function onboard(idempotencyKey: string, name: string) {
   });
 }
 
+function mockOfficialDocs() {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = String(input);
+    const body = url.includes("kimi")
+      ? "Model ID | `k3` | `k3-256k` | `kimi-for-coding` | `kimi-for-coding-highspeed`"
+      : "| 模型 ID | `glm-5.2` | `glm-5.3` |\n| 上下文 | 256K | 1M | 最大输出 | 128K | 128K |";
+    return {
+      ok: true,
+      status: 200,
+      url,
+      headers: { get: (name: string) => name === "etag" ? "test-docs" : null },
+      text: async () => body,
+    } as unknown as Response;
+  });
+}
+
+function mockValidationUpstream(delayMs = 0) {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const body = JSON.parse(String(init.body)) as { stream?: boolean; tools?: unknown[] };
+    if (body.stream) {
+      async function* stream() {
+        yield new TextEncoder().encode('data: {"choices":[{"delta":{"content":"ok"}}]}\n\n');
+        yield new TextEncoder().encode('data: {"choices":[],"usage":{"prompt_tokens":2,"completion_tokens":1}}\n\n');
+        yield new TextEncoder().encode("data: [DONE]\n\n");
+      }
+      return { ok: true, status: 200, headers: { get: () => null }, body: stream() } as unknown as Response;
+    }
+    const message = body.tools ? {
+      role: "assistant", content: null,
+      tool_calls: [{ id: "validation-call", type: "function", function: { name: "qianliu_validation_echo", arguments: '{"value":"ok"}' } }],
+    } : { role: "assistant", content: "ok" };
+    return {
+      ok: true, status: 200, headers: { get: () => null },
+      json: async () => ({ model: "glm-5.3", choices: [{ message }], usage: { prompt_tokens: 2, completion_tokens: 1 } }),
+      body: null,
+    } as unknown as Response;
+  });
+}
+
 describe("POOL-027 厂商模型自动发现与接入", () => {
   it("检测只返回 Coding Plan 目录，创建资源/模型/禁用路由且不扩大 Key 权限", async () => {
+    mockOfficialDocs();
     const discovery = await app.inject({
       method: "POST", url: "/provider-resources/model-discovery", headers: { cookie },
       payload: { provider_id: providerId, mode: "CODING_PLAN", credential_plaintext: "secret" },
     });
     expect(discovery.statusCode).toBe(200);
-    expect(discovery.json().source).toBe("VERSIONED_CATALOG");
+    expect(discovery.json().source).toBe("OFFICIAL_DOCUMENTATION");
     expect(discovery.json().models.map((model: { id: string }) => model.id)).toContain("glm-5.2");
     expect(discovery.json().models.some((model: { id: string }) => model.id.includes("embedding"))).toBe(false);
 
@@ -115,23 +156,24 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
       id: kimiProviderId, enterprise_id: enterpriseId, code: "kimi", name: "Kimi",
       adapter_type: "kimi", status: "ACTIVE",
     }).execute();
-    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const fetchMock = mockOfficialDocs();
     const discovery = await app.inject({
       method: "POST", url: "/provider-resources/model-discovery", headers: { cookie },
       payload: { provider_id: kimiProviderId, mode: "CODING_PLAN", credential_plaintext: "coding-plan-secret" },
     });
     expect(discovery.statusCode).toBe(200);
     expect(discovery.json()).toMatchObject({
-      source: "VERSIONED_CATALOG",
-      source_version: "kimi-coding-plan-2026-08-03",
+      source: "OFFICIAL_DOCUMENTATION",
+      source_version: "kimi-code-models-v1",
     });
     expect(discovery.json().models.map((model: { id: string }) => model.id)).toEqual([
       "k3", "k3-256k", "kimi-for-coding", "kimi-for-coding-highspeed",
     ]);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("相同幂等键不重复创建；第二资源复用统一模型只增加路由", async () => {
+    mockOfficialDocs();
     const retry = await onboard("pool027-onboard-001", "智谱 Plan A");
     expect(retry.statusCode).toBe(201);
     expect(await db.selectFrom("provider_resource").selectAll().execute()).toHaveLength(1);
@@ -158,6 +200,7 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
   });
 
   it("同步快照按企业隔离，确认已存在模型保持幂等", async () => {
+    mockOfficialDocs();
     const resource = await db.selectFrom("provider_resource").select("id")
       .where("name", "=", "智谱 Plan A").executeTakeFirstOrThrow();
     await db.updateTable("provider_resource").set({ status: "DEGRADED" })
@@ -167,8 +210,8 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     });
     expect(sync.statusCode).toBe(200);
     expect(sync.json()).toMatchObject({
-      source: "VERSIONED_CATALOG",
-      source_version: "zhipu-coding_plan-2026-08-03",
+      source: "OFFICIAL_DOCUMENTATION",
+      source_version: "zhipu-docs-v1",
     });
     const confirm = await app.inject({
       method: "POST", url: `/provider-resources/${resource.id}/models/confirm`, headers: { cookie },
@@ -183,6 +226,7 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
   });
 
   it("不可服务资源不能同步或确认模型", async () => {
+    mockOfficialDocs();
     const resource = await db.selectFrom("provider_resource").select("id")
       .where("name", "=", "智谱 Plan B").executeTakeFirstOrThrow();
     await db.updateTable("provider_resource").set({ status: "EXPIRED" })
@@ -198,6 +242,63 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
       payload: { selected_model_ids: ["glm-5.2"] },
     });
     expect(confirm.statusCode).toBe(404);
+  });
+
+  it("真实验证持久化 Evidence，验证前不能启用，成功后允许启用且不新增授权", async () => {
+    const resource = await db.selectFrom("provider_resource").selectAll()
+      .where("name", "=", "智谱 Plan A").executeTakeFirstOrThrow();
+    const confirm = await app.inject({
+      method: "POST", url: `/provider-resources/${resource.id}/models/confirm`, headers: { cookie },
+      payload: { selected_model_ids: ["glm-5.3"] },
+    });
+    expect(confirm.statusCode).toBe(200);
+    const route = await db.selectFrom("model_route").selectAll()
+      .where("provider_resource_id", "=", resource.id).where("upstream_model", "=", "glm-5.3")
+      .executeTakeFirstOrThrow();
+    const beforeValidation = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(beforeValidation.statusCode).toBe(409);
+    expect(beforeValidation.json().error).toBe("model_route_validation_required");
+
+    const upstream = mockValidationUpstream();
+    const validation = await app.inject({
+      method: "POST", url: `/provider-resources/${resource.id}/models/glm-5.3/validate`, headers: { cookie },
+      payload: { idempotency_key: "glm53-validation-001", confirm_quota_consumption: true },
+    });
+    expect(validation.statusCode).toBe(200);
+    expect(validation.json().validation).toMatchObject({ status: "SUCCEEDED", upstreamModel: "glm-5.3" });
+    expect(upstream).toHaveBeenCalledTimes(3);
+    const replay = await app.inject({
+      method: "POST", url: `/provider-resources/${resource.id}/models/glm-5.3/validate`, headers: { cookie },
+      payload: { idempotency_key: "glm53-validation-001", confirm_quota_consumption: true },
+    });
+    expect(replay.statusCode).toBe(200);
+    expect(upstream).toHaveBeenCalledTimes(3);
+    upstream.mockRestore();
+
+    const enabled = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(enabled.statusCode).toBe(200);
+    expect(enabled.json().route.enabled).toBe(true);
+    expect(await db.selectFrom("principal_key").selectAll().execute()).toHaveLength(0);
+    expect(await db.selectFrom("principal_grant").selectAll().execute()).toHaveLength(0);
+  });
+
+  it("验证互斥是持久化门禁，不同幂等键并发只允许一个真实调用", async () => {
+    const resource = await db.selectFrom("provider_resource").selectAll()
+      .where("name", "=", "智谱 Plan A").executeTakeFirstOrThrow();
+    const upstream = mockValidationUpstream(80);
+    const [first, second] = await Promise.all([
+      app.inject({ method: "POST", url: `/provider-resources/${resource.id}/models/glm-5.2/validate`, headers: { cookie }, payload: { idempotency_key: "glm52-validation-a", confirm_quota_consumption: true } }),
+      app.inject({ method: "POST", url: `/provider-resources/${resource.id}/models/glm-5.2/validate`, headers: { cookie }, payload: { idempotency_key: "glm52-validation-b", confirm_quota_consumption: true } }),
+    ]);
+    expect([first.statusCode, second.statusCode].sort()).toEqual([200, 409]);
+    expect(upstream).toHaveBeenCalledTimes(2);
+    upstream.mockRestore();
   });
 
   it("同步失败记录失败尝试、保留上次成功快照并阻止从过期结果确认", async () => {
@@ -266,6 +367,10 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
       version: existingVisionModel.version + 1,
     });
 
+    await db.updateTable("provider_model_discovery").set({
+      source_checked_at: new Date(Date.now() - 61_000),
+      discovered_at: new Date(Date.now() - 61_000),
+    }).where("provider_resource_id", "=", resourceId).execute();
     await db.updateTable("provider_resource").set({ status: "DEGRADED" })
       .where("id", "=", resourceId).execute();
 

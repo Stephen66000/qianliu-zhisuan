@@ -671,6 +671,9 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
   });
 
   it("0053 已有期初事实时拒绝破坏性回退", async () => {
+    expect(await migrateDown(db)).toBe("0057_model_discovery_v12");
+    expect(await migrateDown(db)).toBe("0056_resource_monthly_budget");
+    expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
     expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
     await expect(migrateDown(db)).rejects.toThrow("0053 contains opening balance facts");
   });

@@ -133,6 +133,11 @@ export const ConfirmDiscoveredModelsSchema = z.object({
   selected_model_ids: z.array(z.string().min(1).max(128)).min(1).max(100),
 });
 
+export const ModelValidationSchema = z.object({
+  idempotency_key: z.string().min(8).max(128),
+  confirm_quota_consumption: z.literal(true),
+});
+
 export const CreateUnifiedModelSchema = z.object({
   alias: z.string().min(1).max(64),
   display_name: z.string().min(1).max(128),
@@ -156,8 +161,97 @@ export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverPro
   return {
     source: discovery.source,
     source_version: discovery.sourceVersion,
+    parser_version: discovery.parserVersion,
+    source_url: discovery.sourceUrl,
+    source_etag: discovery.sourceEtag,
+    source_last_modified: discovery.sourceLastModified,
+    source_content_hash: discovery.sourceContentHash,
+    source_checked_at: discovery.sourceCheckedAt.toISOString(),
     discovered_at: discovery.discoveredAt.toISOString(),
+    stale: discovery.stale,
+    reused: discovery.reused,
     models: discovery.models,
+    catalog_diff: discovery.catalogDiff ? {
+      added: discovery.catalogDiff.added,
+      retained: discovery.catalogDiff.retained,
+      not_advertised: discovery.catalogDiff.notAdvertised,
+    } : null,
+    integration_states: discovery.integrationStates.map((state) => ({
+      upstream_model: state.upstreamModel,
+      unified_model_exists: state.unifiedModelExists,
+      current_resource_route: state.currentResourceRoute,
+    })),
+    ...(discovery.failureCode ? { failure_code: discovery.failureCode } : {}),
+  };
+}
+
+export function publicStoredDiscovery(input: {
+  discovery: {
+    source: string;
+    source_version: string;
+    parser_version: string | null;
+    source_url: string | null;
+    source_etag: string | null;
+    source_last_modified: string | null;
+    source_content_hash: string | null;
+    source_checked_at: Date | null;
+    discovered_at: Date;
+    stale: boolean;
+    status: string;
+    failure_code: string | null;
+  };
+  items: Array<{
+    upstream_model: string;
+    display_name: string;
+    model_type: "CHAT" | "EMBEDDING" | "IMAGE" | "UNKNOWN";
+    capabilities: string[];
+    source: string;
+    compatible: boolean;
+    unavailable_reason: string | null;
+    facts: Record<string, unknown>;
+    availability_status: "AVAILABLE" | "REMOVED";
+  }>;
+  itemsStale: boolean;
+  catalogDiff?: { added: string[]; retained: string[]; notAdvertised: string[] } | null;
+  integrationStates?: Array<{ upstreamModel: string; unifiedModelExists: boolean; currentResourceRoute: string }>;
+  reused?: boolean;
+  failureCode?: string | null;
+}) {
+  const checkedAt = input.discovery.source_checked_at ?? input.discovery.discovered_at;
+  return {
+    source: input.discovery.source,
+    source_version: input.discovery.source_version,
+    parser_version: input.discovery.parser_version,
+    source_url: input.discovery.source_url,
+    source_etag: input.discovery.source_etag,
+    source_last_modified: input.discovery.source_last_modified,
+    source_content_hash: input.discovery.source_content_hash,
+    source_checked_at: checkedAt.toISOString(),
+    discovered_at: input.discovery.discovered_at.toISOString(),
+    stale: input.itemsStale || input.discovery.stale,
+    reused: input.reused ?? false,
+    models: input.items.map((item) => ({
+      id: item.upstream_model,
+      displayName: item.display_name,
+      modelType: item.model_type,
+      capabilities: item.capabilities,
+      source: item.source,
+      compatible: item.compatible,
+      unavailableReason: item.unavailable_reason,
+      facts: item.facts,
+      availabilityStatus: item.availability_status,
+    })),
+    catalog_diff: input.catalogDiff ? {
+      added: input.catalogDiff.added,
+      retained: input.catalogDiff.retained,
+      not_advertised: input.catalogDiff.notAdvertised,
+    } : null,
+    integration_states: input.integrationStates?.map((state) => ({
+      upstream_model: state.upstreamModel,
+      unified_model_exists: state.unifiedModelExists,
+      current_resource_route: state.currentResourceRoute,
+    })) ?? [],
+    ...(input.failureCode ? { failure_code: input.failureCode } : {}),
   };
 }
 
@@ -200,6 +294,7 @@ export function sendDiscoveryError(
   return reply.code(status).send({
     error: `model_discovery_${cause.code.toLowerCase()}`,
     message: cause.message,
+    parser_version: cause.parserVersion ?? null,
   });
 }
 

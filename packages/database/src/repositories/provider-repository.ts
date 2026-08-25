@@ -28,10 +28,13 @@ import {
 export {
   EnterpriseReferenceError,
   IdempotencyConflictError,
+  ModelRouteNotReadyError,
+  ModelValidationInProgressError,
   type CreateProviderInput,
   type CreateProviderResourceInput,
   type OperatingSnapshotInput,
   type ProviderModelOnboardingResult,
+  type ModelValidationResult,
 } from "./provider-types.js";
 export type { ProviderOperatingSyncState, ProviderResourceOperatingSnapshot } from "./provider-operating-repository.js";
 
@@ -172,6 +175,13 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       const discoveryRow = await trx.insertInto("provider_model_discovery").values({
         enterprise_id: input.enterpriseId, provider_resource_id: resource.id,
         source: input.discovery.source, source_version: input.discovery.sourceVersion,
+        parser_version: input.discovery.parserVersion,
+        source_url: input.discovery.sourceUrl,
+        source_etag: input.discovery.sourceEtag,
+        source_last_modified: input.discovery.sourceLastModified,
+        source_content_hash: input.discovery.sourceContentHash,
+        source_checked_at: input.discovery.sourceCheckedAt,
+        stale: input.discovery.stale,
         status: "SUCCEEDED", discovered_at: input.discovery.discoveredAt, failure_code: null,
       }).returningAll().executeTakeFirstOrThrow();
       await trx.insertInto("provider_model_discovery_item").values(input.discovery.models.map((model) => ({
@@ -180,6 +190,7 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
         display_name: model.displayName, model_type: model.modelType,
         capabilities: JSON.stringify(model.capabilities) as unknown as string[], source: model.source,
         compatible: model.compatible, unavailable_reason: model.unavailableReason,
+        facts: model.facts as unknown as Record<string, unknown>,
         availability_status: "AVAILABLE" as const, first_discovered_at: input.discovery.discoveredAt,
         last_discovered_at: input.discovery.discoveredAt,
         last_validated_at: input.discovery.source === "PROVIDER_API" ? input.discovery.discoveredAt : null,

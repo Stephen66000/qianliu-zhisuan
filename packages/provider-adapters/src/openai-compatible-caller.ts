@@ -239,6 +239,7 @@ export function toChatCompletionsRequest(
     ...(tools && tools.length > 0 ? { tools } : {}),
     ...(toolChoice !== undefined ? { tool_choice: toolChoice } : {}),
     ...(parallelToolCalls !== undefined ? { parallel_tool_calls: parallelToolCalls } : {}),
+    ...(typeof body?.reasoning_effort === "string" ? { reasoning_effort: body.reasoning_effort } : {}),
   };
 }
 

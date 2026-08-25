@@ -14,6 +14,7 @@ import type {
   ModelRoute,
   OperatingSnapshotInput,
 } from "./provider-repository.js";
+import { ModelRouteNotReadyError } from "./provider-repository.js";
 import type { PrincipalGrant } from "./grant-repository.js";
 
 /**
@@ -129,15 +130,36 @@ export class AdminWriteRepository {
     expectedVersion: number,
     patch: { priority?: number; weight?: number; enabled?: boolean },
   ): Promise<ModelRoute | null> {
-    return this.db
-      .updateTable("model_route")
-      .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
-      .where("id", "=", id)
-      .where("enterprise_id", "=", enterpriseId)
-      .where("archived_at", "is", null)
-      .where(versionLock(expectedVersion))
-      .returningAll()
-      .executeTakeFirst() as Promise<ModelRoute | null>;
+    return this.db.transaction().execute(async (trx) => {
+      if (patch.enabled === true) {
+        const target = await trx.selectFrom("model_route")
+          .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
+          .select(["model_route.unified_model_id", "model_route.provider_resource_id", "model_route.upstream_model", "unified_model.status"])
+          .where("model_route.id", "=", id)
+          .where("model_route.enterprise_id", "=", enterpriseId)
+          .where("model_route.archived_at", "is", null)
+          .executeTakeFirst();
+        if (target?.status === "PENDING_CONFIG") {
+          const validated = await trx.selectFrom("provider_model_validation")
+            .select("id")
+            .where("enterprise_id", "=", enterpriseId)
+            .where("provider_resource_id", "=", target.provider_resource_id)
+            .where("upstream_model", "=", target.upstream_model)
+            .where("status", "=", "SUCCEEDED")
+            .executeTakeFirst();
+          if (!validated) throw new ModelRouteNotReadyError();
+        }
+      }
+      return trx
+        .updateTable("model_route")
+        .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
+        .where("id", "=", id)
+        .where("enterprise_id", "=", enterpriseId)
+        .where("archived_at", "is", null)
+        .where(versionLock(expectedVersion))
+        .returningAll()
+        .executeTakeFirst() as Promise<ModelRoute | null>;
+    });
   }
 
   /** 更新主体额度（version 乐观锁；调额/允许超额/有效期/停用）。 */

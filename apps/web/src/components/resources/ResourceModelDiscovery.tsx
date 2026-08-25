@@ -13,15 +13,36 @@ export interface DiscoveredModelItem {
   displayName: string;
   modelType: string;
   capabilities: string[];
-  source: "PROVIDER_API" | "VERSIONED_CATALOG";
+  source: string;
   compatible: boolean;
   unavailableReason: string | null;
+  facts?: {
+    modalities?: string[];
+    protocols?: string[];
+    contextWindow?: number | null;
+    maxOutputTokens?: number | null;
+    reasoning?: { required: boolean | null; levels: string[]; default: string | null } | null;
+    clientVariants?: Array<{ protocol: string; model: string; purpose: string; canonicalModel: string }>;
+    fieldEvidence?: Record<string, Array<{ url: string; checkedAt: string; extractedValue: string }>>;
+  };
+  availabilityStatus?: "AVAILABLE" | "REMOVED";
 }
 
 export interface ModelDiscoveryResponse {
   source: string;
   source_version: string;
+  parser_version?: string | null;
+  source_url?: string | null;
+  source_etag?: string | null;
+  source_last_modified?: string | null;
+  source_content_hash?: string | null;
+  source_checked_at?: string;
   discovered_at: string;
+  stale?: boolean;
+  reused?: boolean;
+  failure_code?: string;
+  catalog_diff?: { added: string[]; retained: string[]; not_advertised: string[] } | null;
+  integration_states?: Array<{ upstream_model: string; unified_model_exists: boolean; current_resource_route: string }>;
   models: DiscoveredModelItem[];
 }
 
@@ -68,7 +89,8 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
         {mutation.isPending ? "检测中…" : "检测可用模型"}
       </button>
     </div>
-    {props.discovery ? <div className="mt-3 space-y-2">
+      {props.discovery ? <div className="mt-3 space-y-2">
+        <DiscoveryMeta discovery={props.discovery} />
       <div className="flex flex-wrap gap-2">
         <input aria-label="搜索发现模型" className={`${INPUT_CLASS} max-w-xs`}
           onChange={(event) => setSearch(event.target.value)} placeholder="搜索模型" value={search} />
@@ -97,13 +119,15 @@ function ModelChoice(props: {
   onChange: (value: boolean) => void;
 }) {
   return <label className="flex items-start gap-2 rounded-md border border-ql-border-zone px-3 py-2 text-[12px]">
-    <input checked={props.selected} disabled={!props.model.compatible}
+    <input checked={props.selected} disabled={!props.model.compatible || props.model.availabilityStatus === "REMOVED"}
       onChange={(event) => props.onChange(event.target.checked)} type="checkbox" />
     <span><strong className="font-mono">{props.model.id}</strong>
       <span className="ml-2 text-ql-fg-tertiary">
-        {props.model.compatible
-          ? props.compatibleText ?? props.model.capabilities.join("、")
-          : props.model.unavailableReason}
+        {props.model.availabilityStatus === "REMOVED"
+          ? "官方本次未再列出，保留现有路由供人工复核"
+          : props.model.compatible
+            ? `${props.compatibleText ?? props.model.capabilities.join("、")}${formatFacts(props.model)}`
+            : props.model.unavailableReason}
       </span>
     </span>
   </label>;
@@ -116,8 +140,10 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
   const [confirmedModels, setConfirmedModels] = useState<Array<{
     alias: string;
     upstreamModel: string;
+    routeId?: string;
     status: "ACTIVE" | "PENDING_CONFIG";
   }>>([]);
+  const [validationResults, setValidationResults] = useState<Record<string, { status: string; errorCode: string | null }>>({});
   const sync = useMutation({
     mutationFn: () => post<ModelDiscoveryResponse>(`/provider-resources/${target.id}/models/sync`, {}),
     onSuccess: (result) => {
@@ -130,11 +156,21 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     mutationFn: () => post<{ models: Array<{
       alias: string;
       upstreamModel: string;
+      routeId: string;
       status: "ACTIVE" | "PENDING_CONFIG";
     }> }>(`/provider-resources/${target.id}/models/confirm`, { selected_model_ids: selectedIds }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
       setConfirmedModels(result.models);
+    },
+  });
+  const validate = useMutation({
+    mutationFn: (upstreamModel: string) => post<{ validation: { status: string; errorCode: string | null } }>(
+      `/provider-resources/${target.id}/models/${encodeURIComponent(upstreamModel)}/validate`,
+      { idempotency_key: crypto.randomUUID(), confirm_quota_consumption: true },
+    ),
+    onSuccess: (result, upstreamModel) => {
+      setValidationResults((current) => ({ ...current, [upstreamModel]: result.validation }));
     },
   });
   return <section className="mb-5 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
@@ -148,12 +184,22 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     </div>
     {confirmedModels.length > 0 ? <div className="mt-3 rounded-lg border border-ql-success bg-ql-success-soft p-3 text-[12px]">
       <p className="font-medium text-ql-success">已确认加入 {confirmedModels.length} 个模型</p>
-      <p className="mt-1 text-ql-fg-secondary">新模型已进入“待配置”；请继续启用统一模型、Model Route 并配置计价规则。完成后主体页自动可分配。</p>
+      <p className="mt-1 text-ql-fg-secondary">请先逐个执行真实验证（会消耗少量厂商额度）；验证通过后才能启用 Model Route。主体授权仍需另行配置。</p>
+      <div className="mt-3 space-y-2">
+        {confirmedModels.map((model) => {
+          const validation = validationResults[model.upstreamModel];
+          return <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ql-border-zone bg-ql-surface px-3 py-2" key={model.routeId ?? model.upstreamModel}>
+            <span><strong className="font-mono">{model.upstreamModel}</strong><span className="ml-2 text-ql-fg-tertiary">{validation?.status === "SUCCEEDED" ? "READY · 可启用" : validation?.status === "FAILED" ? `验证失败 · ${validation.errorCode ?? "未知错误"}` : "待验证"}</span></span>
+            <button className="rounded-md border border-ql-action px-3 py-1.5 text-ql-action disabled:opacity-60" disabled={validate.isPending} onClick={() => validate.mutate(model.upstreamModel)} type="button">{validate.isPending ? "验证中…" : "真实验证（会消耗额度）"}</button>
+          </div>;
+        })}
+      </div>
       <div className="mt-2 flex gap-3">
         <Link className="font-medium text-ql-action" to="/quota-rules">继续配置</Link>
         <button className="text-ql-fg-secondary" onClick={onClose} type="button">关闭</button>
       </div>
     </div> : discovery ? <div className="mt-3 space-y-2">
+      <DiscoveryMeta discovery={discovery} />
       {discovery.models.map((model) => <ModelChoice compatibleText="可加入" key={model.id} model={model}
         onChange={(checked) => setSelectedIds((current) => checked
           ? [...current, model.id] : current.filter((id) => id !== model.id))}
@@ -170,4 +216,31 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
       {(sync.error ?? confirm.error)?.message}
     </p> : null}
   </section>;
+}
+
+function DiscoveryMeta({ discovery }: { discovery: ModelDiscoveryResponse }) {
+  const diff = discovery.catalog_diff;
+  return <div className="rounded-md border border-ql-border-zone bg-ql-surface px-3 py-2 text-[11px] text-ql-fg-tertiary">
+    <div className="flex flex-wrap gap-x-3 gap-y-1">
+      <span>来源：{discovery.source}</span>
+      {discovery.parser_version ? <span>解析器：{discovery.parser_version}</span> : null}
+      <span>检查：{formatDateTimeFull(discovery.source_checked_at ?? discovery.discovered_at)}</span>
+      {discovery.reused ? <span>复用 60 秒结果</span> : null}
+      {discovery.stale ? <span className="font-medium text-ql-warning">过期/降级展示</span> : null}
+    </div>
+    {discovery.source_url ? <a className="mt-1 block truncate text-ql-action" href={discovery.source_url} rel="noreferrer" target="_blank">官方来源：{discovery.source_url}</a> : null}
+    {discovery.failure_code ? <p className="mt-1 text-ql-danger">本次同步：{discovery.failure_code}；未采用不完整结果。</p> : null}
+    {diff ? <p className="mt-1">目录变化：新增 {diff.added.length} · 保留 {diff.retained.length} · 官方未再列出 {diff.not_advertised.length}</p> : null}
+  </div>;
+}
+
+function formatFacts(model: DiscoveredModelItem): string {
+  const facts = model.facts;
+  if (!facts) return "";
+  const parts = [
+    facts.contextWindow ? `${facts.contextWindow >= 1_000_000 ? "1M" : `${Math.round(facts.contextWindow / 1024)}K`} 上下文` : null,
+    facts.maxOutputTokens ? `最大输出 ${Math.round(facts.maxOutputTokens / 1024)}K` : null,
+    facts.reasoning?.levels.length ? facts.reasoning.levels.join("/") : null,
+  ].filter((value): value is string => Boolean(value));
+  return parts.length > 0 ? ` · ${parts.join(" · ")}` : "";
 }

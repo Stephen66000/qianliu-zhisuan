@@ -27,6 +27,39 @@ export class IdempotencyConflictError extends Error {
   }
 }
 
+export class ModelValidationInProgressError extends Error {
+  constructor(message: string = "model validation is already in progress") {
+    super(message);
+    this.name = "ModelValidationInProgressError";
+  }
+}
+
+export class ModelRouteNotReadyError extends Error {
+  constructor(message: string = "model route requires a successful validation before enabling") {
+    super(message);
+    this.name = "ModelRouteNotReadyError";
+  }
+}
+
+export interface ModelValidationResult {
+  validationId: string;
+  status: "SUCCEEDED" | "FAILED";
+  requestId: string;
+  upstreamModel: string;
+  checks: Array<{
+    kind: "NON_STREAM" | "STREAM" | "TOOL";
+    status: number;
+    ok: boolean;
+    durationMs: number;
+    firstByteMs: number | null;
+    usage: { input: number; output: number; cache: number; reasoning: number };
+    errorCode: string | null;
+  }>;
+  errorCode: string | null;
+  startedAt: string;
+  finishedAt: string;
+}
+
 export interface CreateProviderInput {
   enterprise_id: string;
   code: string;

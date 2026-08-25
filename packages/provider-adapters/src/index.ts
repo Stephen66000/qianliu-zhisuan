@@ -77,14 +77,30 @@ export const PROVIDER_ADAPTERS_VERSION = "0.3.0" as const;
 
 export {
   discoverProviderModels,
+  builtinProviderModelDiscovery,
+  clearProviderModelDiscoveryCache,
+  officialSourceConfig,
   providerModelDiscoveryDescriptor,
   ProviderModelDiscoveryError,
+  type DiscoveryErrorCode,
+  type DiscoverySource,
   type DiscoveredProviderModel,
+  type DiscoveredModelFacts,
   type DiscoveryFetch,
+  type OfficialSourceConfig,
+  type OfficialSourceOverrides,
   type ModelDiscoveryResult,
+  type ModelDiscoveryCatalogDiff,
+  type ModelIntegrationState,
   type ProviderCode,
   type ResourceMode,
 } from "./model-discovery.js";
+
+export {
+  validateProviderModel,
+  type ModelValidationCheck,
+  type ModelValidationEvidence,
+} from "./model-validation.js";
 
 export {
   queryCodingPlanQuota,

@@ -101,6 +101,8 @@ export {
   ProviderRepository,
   EnterpriseReferenceError,
   IdempotencyConflictError,
+  ModelRouteNotReadyError,
+  ModelValidationInProgressError,
   type Provider,
   type ProviderResource,
   type ProviderResourceOperatingSnapshot,
@@ -110,6 +112,7 @@ export {
   type ModelRoute,
   type CreateProviderInput,
   type CreateProviderResourceInput,
+  type ModelValidationResult,
 } from "./repositories/provider-repository.js";
 export {
   DEFAULT_RESET_TIMEZONE,

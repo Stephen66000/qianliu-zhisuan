@@ -10,7 +10,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { encryptCredential, credentialFingerprint } from "@qianliu/provider-adapters";
-import { AdminRecoverNotFoundError } from "@qianliu/database";
+import { AdminRecoverNotFoundError, ModelRouteNotReadyError } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   OperatingSnapshotSchema,
@@ -299,16 +299,27 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
       }
       const ent = req.admin!.enterpriseId;
-      const updated = await app.adminWriteRepo.updateModelRoute(
-        ent,
-        req.params.id,
-        parsed.data.expected_version,
-        {
-          priority: parsed.data.priority,
-          weight: parsed.data.weight,
-          enabled: parsed.data.enabled,
-        },
-      );
+      let updated;
+      try {
+        updated = await app.adminWriteRepo.updateModelRoute(
+          ent,
+          req.params.id,
+          parsed.data.expected_version,
+          {
+            priority: parsed.data.priority,
+            weight: parsed.data.weight,
+            enabled: parsed.data.enabled,
+          },
+        );
+      } catch (error) {
+        if (error instanceof ModelRouteNotReadyError) {
+          return reply.code(409).send({
+            error: "model_route_validation_required",
+            message: "真实验证通过后才能启用该 Model Route",
+          });
+        }
+        throw error;
+      }
       if (!updated) {
         // 乐观锁 0 命中：不存在或期间被修改；区分 404/409 需先读
         const exists = await app.db

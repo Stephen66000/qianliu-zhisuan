@@ -18,6 +18,7 @@ import type {
   ProviderModelDiscoveryItemTable,
   ProviderModelDiscoveryTable,
   ProviderModelOnboardingTable,
+  ProviderModelValidationTable,
   ProviderResourceOperatingSnapshotTable,
 } from "./kysely-operations-tables.js";
 import type { EmployeeModelRuleAssignmentTable, EmployeeModelRuleVersionTable, PrincipalModelManualAuthorizationTable } from "./employee-model-rule-types.js";
@@ -678,6 +679,7 @@ export interface Database {
   provider_model_discovery: ProviderModelDiscoveryTable;
   provider_model_discovery_item: ProviderModelDiscoveryItemTable;
   provider_model_onboarding: ProviderModelOnboardingTable;
+  provider_model_validation: ProviderModelValidationTable;
   resource_status_event: ResourceStatusEventTable;
   unified_model: UnifiedModelTable;
   model_route: ModelRouteTable;
