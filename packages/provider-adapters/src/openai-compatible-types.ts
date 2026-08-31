@@ -58,6 +58,8 @@ export interface ChatCompletionBody {
   reasoning_effort?: string;
   thinking?: unknown;
   tool_stream?: boolean;
+  response_format?: unknown;
+  max_completion_tokens?: number;
 }
 
 export interface UpstreamMessage extends ReasoningFieldExtensions {

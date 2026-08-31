@@ -47,7 +47,7 @@ const BillingWindowSchema = z
     }
   });
 
-const CreateBillingRuleSchema = z
+export const CreateBillingRuleSchema = z
   .object({
     rule_type: z.enum(["API_PRICE", "TIME_WINDOW", "MODEL_TIER", "CACHE_STATE"]),
     rule_version: z.string().min(1).max(64),
@@ -150,6 +150,69 @@ const CreateBillingRuleSchema = z
     }
   });
 
+const CreateBillingRuleSetSchema = z.object({
+  rules: z.array(CreateBillingRuleSchema).min(1).max(32),
+});
+
+type CreateBillingRule = z.infer<typeof CreateBillingRuleSchema>;
+
+async function enabledModelRouteExists(
+  app: FastifyInstance,
+  enterpriseId: string,
+  providerResourceId: string,
+  upstreamModel: string,
+): Promise<boolean> {
+  const route = await app.db
+    .selectFrom("model_route")
+    .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
+    .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
+    .select("model_route.id")
+    .where("model_route.enterprise_id", "=", enterpriseId)
+    .where("unified_model.enterprise_id", "=", enterpriseId)
+    .where("provider_resource.enterprise_id", "=", enterpriseId)
+    .where("unified_model.status", "=", "ACTIVE")
+    .where("unified_model.archived_at", "is", null)
+    .where("provider_resource.status", "=", "ACTIVE")
+    .where("model_route.enabled", "=", true)
+    .where("model_route.archived_at", "is", null)
+    .where("model_route.provider_resource_id", "=", providerResourceId)
+    .where("model_route.upstream_model", "=", upstreamModel)
+    .executeTakeFirst();
+  return Boolean(route);
+}
+
+export function toBillingRuleInput(enterpriseId: string, input: CreateBillingRule) {
+  return {
+    enterprise_id: enterpriseId,
+    rule_type: input.rule_type,
+    rule_version: input.rule_version,
+    provider_resource_id: input.provider_resource_id,
+    upstream_model: input.upstream_model,
+    effective_from: new Date(input.effective_from),
+    effective_to:
+      input.effective_to === undefined
+        ? undefined
+        : input.effective_to === null
+          ? null
+          : new Date(input.effective_to),
+    timezone: input.timezone,
+    days_of_week: input.days_of_week,
+    start_time: input.start_time,
+    end_time: input.end_time,
+    time_windows: input.windows?.map((window) => ({
+      ...window,
+      days_of_week: window.days_of_week ?? null,
+    })),
+    multiplier: input.multiplier,
+    cache_hit_price: input.cache_hit_price,
+    cache_miss_price: input.cache_miss_price,
+    output_price: input.output_price,
+    currency: input.currency,
+    priority: input.priority,
+    source: input.source,
+  };
+}
+
 export function registerReadModelRoutes(app: FastifyInstance): void {
   // GET /billing-rules —— 计价规则列表（含 disabled/历史，管理后台用）
   app.get<{ Querystring: { archived?: string } }>("/billing-rules", { preHandler: [requireAuth] }, async (req, reply) => {
@@ -174,62 +237,21 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
           message: "资源和上游模型必须同时指定，并对应一条启用的 Model Route",
         });
       }
-      const route = await app.db
-        .selectFrom("model_route")
-        .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
-        .innerJoin(
-          "provider_resource",
-          "provider_resource.id",
-          "model_route.provider_resource_id",
-        )
-        .select("model_route.id")
-        .where("model_route.enterprise_id", "=", req.admin!.enterpriseId)
-        .where("unified_model.enterprise_id", "=", req.admin!.enterpriseId)
-        .where("provider_resource.enterprise_id", "=", req.admin!.enterpriseId)
-        .where("unified_model.status", "=", "ACTIVE")
-        .where("unified_model.archived_at", "is", null)
-        .where("provider_resource.status", "=", "ACTIVE")
-        .where("model_route.enabled", "=", true)
-        .where("model_route.archived_at", "is", null)
-        .where("model_route.provider_resource_id", "=", input.provider_resource_id)
-        .where("model_route.upstream_model", "=", input.upstream_model)
-        .executeTakeFirst();
-      if (!route) {
+      if (!await enabledModelRouteExists(
+        app,
+        req.admin!.enterpriseId,
+        input.provider_resource_id,
+        input.upstream_model,
+      )) {
         return reply.code(409).send({
           error: "route_not_enabled",
           message: "计价规则必须绑定当前企业的一条启用 Model Route",
         });
       }
     }
-    const rule = await app.ledgerRepo.createBillingRule({
-      enterprise_id: req.admin!.enterpriseId,
-      rule_type: input.rule_type,
-      rule_version: input.rule_version,
-      provider_resource_id: input.provider_resource_id,
-      upstream_model: input.upstream_model,
-      effective_from: new Date(input.effective_from),
-      effective_to:
-        input.effective_to === undefined
-          ? undefined
-          : input.effective_to === null
-            ? null
-            : new Date(input.effective_to),
-      timezone: input.timezone,
-      days_of_week: input.days_of_week,
-      start_time: input.start_time,
-      end_time: input.end_time,
-      time_windows: input.windows?.map((window) => ({
-        ...window,
-        days_of_week: window.days_of_week ?? null,
-      })),
-      multiplier: input.multiplier,
-      cache_hit_price: input.cache_hit_price,
-      cache_miss_price: input.cache_miss_price,
-      output_price: input.output_price,
-      currency: input.currency,
-      priority: input.priority,
-      source: input.source,
-    });
+    const rule = await app.ledgerRepo.createBillingRule(
+      toBillingRuleInput(req.admin!.enterpriseId, input),
+    );
     await app.auditRepo.write({
       enterprise_id: req.admin!.enterpriseId,
       admin_user_id: req.admin!.adminUserId,
@@ -245,6 +267,57 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
       result: "SUCCESS",
     });
     return reply.code(201).send({ rule });
+  });
+
+  // 复制整套规则：客户端完成差异确认后一次提交，服务端原子落库。
+  app.post("/billing-rule-sets", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = CreateBillingRuleSetSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+    }
+    const [first, ...rest] = parsed.data.rules;
+    if (
+      !first?.provider_resource_id
+      || !first.upstream_model
+      || rest.some((rule) =>
+        rule.provider_resource_id !== first.provider_resource_id
+        || rule.upstream_model !== first.upstream_model)
+    ) {
+      return reply.code(400).send({
+        error: "invalid_rule_set_target",
+        message: "整套规则必须绑定同一条启用的 Model Route",
+      });
+    }
+    const enterpriseId = req.admin!.enterpriseId;
+    if (!await enabledModelRouteExists(
+      app,
+      enterpriseId,
+      first.provider_resource_id,
+      first.upstream_model,
+    )) {
+      return reply.code(409).send({
+        error: "route_not_enabled",
+        message: "计价规则必须绑定当前企业的一条启用 Model Route",
+      });
+    }
+    const rules = await app.ledgerRepo.createBillingRulesAtomically(
+      parsed.data.rules.map((rule) => toBillingRuleInput(enterpriseId, rule)),
+    );
+    await app.auditRepo.write({
+      enterprise_id: enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "billing_rule_set.copy",
+      target_type: "billing_rule_set",
+      target_id: rules[0]!.id,
+      change_summary: {
+        provider_resource_id: first.provider_resource_id,
+        upstream_model: first.upstream_model,
+        rule_ids: rules.map((rule) => rule.id),
+        rule_versions: rules.map((rule) => rule.rule_version),
+      },
+      result: "SUCCESS",
+    });
+    return reply.code(201).send({ rules });
   });
 
   // GET /dispatch-policies —— 经营策略列表（含全部状态 DRAFT/VALIDATED/PUBLISHED/RETIRED）

@@ -62,6 +62,7 @@ export function ConfirmDialog({
 
   return (
     <div
+      aria-label={title}
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-ql-canvas/60 p-4"
       onClick={onCancel}

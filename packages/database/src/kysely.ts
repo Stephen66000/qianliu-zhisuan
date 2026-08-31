@@ -603,6 +603,26 @@ export interface BillingRuleWindow {
   end_time: string;
 }
 
+export interface BillingRuleImportTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  admin_user_id: string;
+  model_route_id: string;
+  image_sha256: string;
+  image_mime: string;
+  image_bytes: number;
+  extractor_model: string;
+  extractor_request_id: string | null;
+  status: Generated<string>;
+  source_evidence: Record<string, unknown>;
+  candidate_rules: Record<string, unknown>[];
+  warnings: Record<string, unknown>[];
+  created_rule_ids: string[] | null;
+  version: Generated<number>;
+  created_at: Generated<Date>;
+  confirmed_at: Date | null;
+}
+
 export interface LedgerTransactionTable {
   id: Generated<string>;
   ai_request_id: string;
@@ -689,6 +709,7 @@ export interface Database {
   usage_event: UsageEventTable;
   ledger_line: LedgerLineTable;
   billing_rule: BillingRuleTable;
+  billing_rule_import: BillingRuleImportTable;
   ledger_transaction: LedgerTransactionTable;
   usage_bucket_aggregate: UsageBucketAggregateTable;
   usage_aggregate_dirty_bucket: UsageAggregateDirtyBucketTable;

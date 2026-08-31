@@ -8,6 +8,7 @@ import {
   QuotaRulesPage,
   buildBillingRulePayload,
   buildDispatchPolicyPayload,
+  copyableRuleSets,
 } from "./QuotaRules.js";
 
 const useBillingRulesMock = vi.fn();
@@ -51,11 +52,11 @@ vi.mock("@tanstack/react-query", async () => {
     useQueryClient: () => ({ invalidateQueries: invalidateMock }),
     useMutation: (options: {
       mutationFn: (value: unknown) => Promise<unknown>;
-      onSuccess?: () => void;
+      onSuccess?: (data: unknown, value: unknown) => void;
     }) => ({
       mutate: async (value: unknown) => {
-        await options.mutationFn(value);
-        options.onSuccess?.();
+        const data = await options.mutationFn(value);
+        options.onSuccess?.(data, value);
       },
       isPending: false,
       error: null,
@@ -234,6 +235,203 @@ describe("计价规则 Web 表单", () => {
         }),
       );
     });
+  });
+
+  it("同一资源内优先推荐模型名最接近的当前有效规则集", () => {
+    const baseRule = useBillingRulesMock().data.rules[0] as BillingRule;
+    const targetRoute = {
+      id: "route-target",
+      unified_model_id: "model-target",
+      provider_resource_id: "11111111-1111-4111-8111-111111111111",
+      upstream_model: "glm-5.3-flash",
+      priority: 100,
+      weight: 1,
+      enabled: true,
+      version: 1,
+      enterprise_id: "enterprise-1",
+      created_at: "2020-01-01T00:00:00.000Z",
+      updated_at: "2020-01-01T00:00:00.000Z",
+    };
+    const candidates = copyableRuleSets([
+      {
+        ...baseRule,
+        id: "glm-46",
+        provider_resource_id: targetRoute.provider_resource_id,
+        upstream_model: "glm-4.6",
+        effective_from: "2020-01-01T00:00:00.000Z",
+      },
+      {
+        ...baseRule,
+        id: "glm-52",
+        provider_resource_id: targetRoute.provider_resource_id,
+        upstream_model: "glm-5.2",
+        effective_from: "2020-01-01T00:00:00.000Z",
+      },
+      {
+        ...baseRule,
+        id: "expired",
+        provider_resource_id: targetRoute.provider_resource_id,
+        upstream_model: "glm-5.3",
+        effective_from: "2019-01-01T00:00:00.000Z",
+        effective_to: "2019-02-01T00:00:00.000Z",
+      },
+    ], targetRoute, Date.parse("2026-08-31T00:00:00.000Z"));
+
+    expect(candidates.map((candidate) => candidate.upstreamModel)).toEqual(["glm-5.2", "glm-4.6"]);
+  });
+
+  it("复制整套规则时展示差异确认并一次提交全部新版本", async () => {
+    const user = userEvent.setup();
+    const resourceId = "11111111-1111-4111-8111-111111111111";
+    const baseRule = useBillingRulesMock().data.rules[0] as BillingRule;
+    useBillingRulesMock.mockReturnValue(query({
+      rules: [
+        {
+          ...baseRule,
+          id: "source-api",
+          provider_resource_id: resourceId,
+          upstream_model: "glm-5.2",
+          effective_from: "2020-01-01T00:00:00.000Z",
+        },
+        {
+          ...baseRule,
+          id: "source-window",
+          rule_type: "TIME_WINDOW",
+          rule_version: "glm-52-v1",
+          provider_resource_id: resourceId,
+          upstream_model: "glm-5.2",
+          effective_from: "2020-01-01T00:00:00.000Z",
+          multiplier: "3",
+          cache_hit_price: null,
+          cache_miss_price: null,
+          output_price: null,
+        },
+      ],
+    }));
+    modelsMock.mockReturnValue(query({
+      models: [{
+        id: "model-target",
+        alias: "ql-glm-5.3-flash",
+        display_name: "GLM-5.3 Flash",
+        status: "ACTIVE",
+        version: 1,
+      }],
+    }));
+    resourcesMock.mockReturnValue(query({
+      resources: [{ id: resourceId, name: "智谱 Coding Plan" }],
+    }));
+    routesMock.mockReturnValue(query({
+      routes: [{
+        id: "route-target",
+        unified_model_id: "model-target",
+        provider_resource_id: resourceId,
+        upstream_model: "glm-5.3-flash",
+        priority: 100,
+        weight: 1,
+        enabled: true,
+        version: 1,
+      }],
+    }));
+
+    render(
+      <MemoryRouter>
+        <QuotaRulesPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "新建规则" }));
+    await user.selectOptions(screen.getByLabelText("目标 Model Route"), "route-target");
+    expect(screen.getByLabelText("来源规则集")).toHaveValue(`${resourceId}::glm-5.2`);
+    await user.clear(screen.getByLabelText("输出单价"));
+    await user.type(screen.getByLabelText("输出单价"), "0.000006");
+    expect(screen.getByText(/差异预览：glm-5.2 → glm-5.3-flash/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "差异确认" }));
+    expect(screen.getByRole("dialog", { name: "确认规则集差异" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "确认并创建整套规则" }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        "/billing-rule-sets",
+        expect.objectContaining({
+          rules: expect.arrayContaining([
+            expect.objectContaining({
+              provider_resource_id: resourceId,
+              upstream_model: "glm-5.3-flash",
+              output_price: "0.000006",
+              source: "WEB_ADMIN_COPY:source-api",
+            }),
+            expect.objectContaining({
+              rule_type: "TIME_WINDOW",
+              multiplier: "3",
+              source: "WEB_ADMIN_COPY:source-window",
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it("从官网截图识别后左右对照证据并确认创建", async () => {
+    const user = userEvent.setup();
+    const resourceId = "11111111-1111-4111-8111-111111111111";
+    modelsMock.mockReturnValue(query({ models: [{
+      id: "model-flash", alias: "ql-glm-5.3-flash", display_name: "GLM-5.3 Flash", status: "ACTIVE", version: 1,
+    }] }));
+    resourcesMock.mockReturnValue(query({ resources: [{ id: resourceId, name: "智谱 API" }] }));
+    routesMock.mockReturnValue(query({ routes: [{
+      id: "route-flash", unified_model_id: "model-flash", provider_resource_id: resourceId,
+      upstream_model: "glm-5.3-flash", priority: 100, weight: 1, enabled: true, version: 1,
+    }] }));
+    const imported = {
+      id: "import-1",
+      status: "EXTRACTED",
+      version: 1,
+      imageSha256: "a".repeat(64),
+      imageMime: "image/png",
+      imageBytes: 100,
+      extractorModel: "ql-k3",
+      extractorRequestId: "chatcmpl-1",
+      sourceEvidence: { unitBasis: "CNY_PER_MILLION_TOKENS", targetRow: {
+        model_name: "GLM-5.3-Flash", context_display: "1M",
+        input_price: { current: "0.4", original: "0.8" },
+        output_price: { current: "1.4", original: "2.8" },
+        cache_storage: "限时免费",
+        cache_hit_price: { current: "0.115", original: "0.23" },
+        input_modalities: ["图片", "文本"], badges: ["5折限时两周"],
+      } },
+      candidateRules: [{
+        rule_type: "API_PRICE", windows: [], multiplier: "", cache_hit_price: "0.000000115",
+        cache_miss_price: "0.0000004", output_price: "0.0000014", currency: "CNY", priority: 100,
+      }],
+      warnings: [{ code: "SOURCE_AMBIGUITY_1", message: "上下文单位待确认", field: null, blocking: false }],
+      createdRuleIds: null,
+    };
+    postMock.mockImplementation((path: string) => Promise.resolve(
+      path === "/billing-rule-imports/preview"
+        ? { import: imported }
+        : { import: { ...imported, status: "CONFIRMED" } },
+    ));
+
+    render(<MemoryRouter><QuotaRulesPage /></MemoryRouter>);
+    await user.click(screen.getByRole("button", { name: "新建规则" }));
+    await user.click(screen.getByRole("button", { name: "从官网截图识别" }));
+    await user.selectOptions(screen.getByLabelText("目标 Model Route"), "route-flash");
+    await user.upload(screen.getByLabelText("官网规则截图"), new File([new Uint8Array([1, 2, 3])], "pricing.png", { type: "image/png" }));
+    await user.click(screen.getByRole("button", { name: "识别截图" }));
+
+    expect(await screen.findByText(/0.4\/0.8 元\/\u767e万 Token/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("0.0000004")).toBeInTheDocument();
+    expect(screen.getByText(/ql-k3/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "确认并创建整套规则" }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith(
+      "/billing-rule-imports/import-1/confirm",
+      expect.objectContaining({
+        expected_version: 1,
+        source_price_unit: "CNY_PER_MILLION_TOKENS",
+        rules: [expect.objectContaining({ cache_miss_price: "0.0000004" })],
+      }),
+    ));
   });
 });
 

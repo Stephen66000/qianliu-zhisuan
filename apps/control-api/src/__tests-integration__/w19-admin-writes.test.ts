@@ -18,6 +18,7 @@ import { sql } from "kysely";
 import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
+import type { RuleExtractor } from "../billing-rule-imports/extractor.js";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -41,7 +42,42 @@ beforeAll(async () => {
     .execute();
 
   const { buildControlApi } = await import("../server.js");
-  app = buildControlApi(db);
+  const ruleExtractor: RuleExtractor = {
+    extract: async ({ targetUpstreamModel }) => ({
+      extractorModel: "ql-k3",
+      extractorRequestId: "chatcmpl-import-test",
+      extraction: {
+        source_kind: "pricing_table",
+        unit_basis: "CNY_PER_MILLION_TOKENS",
+        rows: [],
+        ambiguities: ["上下文单位待确认"],
+      },
+      targetEvidence: {
+        model_name: targetUpstreamModel,
+        context_display: "1M",
+        input_price: { current: "0.4", original: "0.8" },
+        output_price: { current: "1.4", original: "2.8" },
+        cache_storage: "限时免费",
+        cache_hit_price: { current: "0.115", original: "0.23" },
+        input_modalities: ["图片", "文本"],
+        badges: ["5折限时两周"],
+        time_windows: [],
+        model_tier_multiplier: null,
+      },
+      candidateRules: [{
+        rule_type: "API_PRICE",
+        windows: [],
+        multiplier: "",
+        cache_hit_price: "0.000000115",
+        cache_miss_price: "0.0000004",
+        output_price: "0.0000014",
+        currency: "CNY",
+        priority: 100,
+      }],
+      warnings: [{ code: "SOURCE_AMBIGUITY_1", message: "上下文单位待确认", field: null, blocking: false }],
+    }),
+  };
+  app = buildControlApi(db, { ruleExtractor });
   await app.ready();
 
   const loginRes = await app.inject({
@@ -341,6 +377,245 @@ describe("W19 管理写操作闭环", () => {
     });
     expect(inPlacePriceChange.statusCode).toBe(400);
     expect(inPlacePriceChange.json().error).toBe("invalid_request");
+  });
+
+  it("POST /billing-rule-sets 校验差异后原子创建同一 Model Route 的整套规则", async () => {
+    const { resource } = await seedProviderResource();
+    const upstreamModel = `glm-copy-${randomUUID().slice(0, 8)}`;
+    const model = await db
+      .insertInto("unified_model")
+      .values({
+        enterprise_id: ENT_ID,
+        alias: `billing-copy-${randomUUID().slice(0, 8)}`,
+        display_name: "整套规则复制模型",
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID,
+      unified_model_id: model.id,
+      provider_resource_id: resource.id,
+      upstream_model: upstreamModel,
+      enabled: true,
+    }).execute();
+
+    const copied = await app.inject({
+      method: "POST",
+      url: "/billing-rule-sets",
+      headers: { cookie: adminCookie },
+      payload: {
+        rules: [
+          {
+            rule_type: "API_PRICE",
+            rule_version: "copy-v1",
+            provider_resource_id: resource.id,
+            upstream_model: upstreamModel,
+            effective_from: new Date().toISOString(),
+            cache_miss_price: "0.000001",
+            output_price: "0.000002",
+            priority: 10,
+            source: "WEB_ADMIN_COPY:source-api",
+          },
+          {
+            rule_type: "TIME_WINDOW",
+            rule_version: "copy-v1",
+            provider_resource_id: resource.id,
+            upstream_model: upstreamModel,
+            effective_from: new Date().toISOString(),
+            windows: [{
+              timezone: "Asia/Shanghai",
+              days_of_week: [1, 2, 3, 4, 5, 6, 7],
+              start_time: "14:00",
+              end_time: "18:00",
+            }],
+            multiplier: "3",
+            priority: 20,
+            source: "WEB_ADMIN_COPY:source-window",
+          },
+        ],
+      },
+    });
+
+    expect(copied.statusCode).toBe(201);
+    expect(copied.json().rules).toHaveLength(2);
+    expect(await db.selectFrom("billing_rule")
+      .select("id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("provider_resource_id", "=", resource.id)
+      .where("upstream_model", "=", upstreamModel)
+      .execute()).toHaveLength(2);
+    expect(await countAudit("billing_rule_set.copy")).toBe(1);
+
+    const invalidModel = `${upstreamModel}-invalid`;
+    await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID,
+      unified_model_id: model.id,
+      provider_resource_id: resource.id,
+      upstream_model: invalidModel,
+      enabled: true,
+    }).execute();
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/billing-rule-sets",
+      headers: { cookie: adminCookie },
+      payload: {
+        rules: [
+          {
+            rule_type: "API_PRICE",
+            rule_version: "invalid-v1",
+            provider_resource_id: resource.id,
+            upstream_model: invalidModel,
+            effective_from: new Date().toISOString(),
+            output_price: "0.000002",
+          },
+          {
+            rule_type: "TIME_WINDOW",
+            rule_version: "invalid-v1",
+            provider_resource_id: resource.id,
+            upstream_model: invalidModel,
+            effective_from: new Date().toISOString(),
+            windows: [{
+              timezone: "Asia/Shanghai",
+              start_time: "14:00",
+              end_time: "18:00",
+            }],
+          },
+        ],
+      },
+    });
+    expect(rejected.statusCode).toBe(400);
+    expect(await db.selectFrom("billing_rule")
+      .select("id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("upstream_model", "=", invalidModel)
+      .execute()).toHaveLength(0);
+  });
+
+  it("官网截图预览不保存原图，确认后原子创建规则并防重放", async () => {
+    const { resource } = await seedProviderResource();
+    const upstreamModel = `glm-5.3-flash-${randomUUID().slice(0, 6)}`;
+    const model = await db.insertInto("unified_model").values({
+      enterprise_id: ENT_ID,
+      alias: `screenshot-${randomUUID().slice(0, 8)}`,
+      display_name: "截图识别模型",
+    }).returningAll().executeTakeFirstOrThrow();
+    const route = await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID,
+      unified_model_id: model.id,
+      provider_resource_id: resource.id,
+      upstream_model: upstreamModel,
+      enabled: true,
+    }).returningAll().executeTakeFirstOrThrow();
+    const image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nEAAAAAASUVORK5CYII=";
+    const preview = await app.inject({
+      method: "POST",
+      url: "/billing-rule-imports/preview",
+      headers: { cookie: adminCookie },
+      payload: { model_route_id: route.id, image_data_url: image },
+    });
+    expect(preview.statusCode, JSON.stringify(preview.json())).toBe(201);
+    const imported = preview.json().import;
+    expect(imported.extractorModel).toBe("ql-k3");
+    expect(imported.candidateRules[0]).toMatchObject({
+      cache_miss_price: "0.0000004",
+      output_price: "0.0000014",
+    });
+    const stored = await db.selectFrom("billing_rule_import").selectAll()
+      .where("id", "=", imported.id).executeTakeFirstOrThrow();
+    expect(stored.image_sha256).toHaveLength(64);
+    expect(JSON.stringify(stored)).not.toContain("iVBORw0KGgo");
+    expect(stored.source_evidence).not.toHaveProperty("extracted");
+    expect(JSON.stringify(stored)).not.toContain("上下文单位待确认");
+
+    const wrongUnit = await app.inject({
+      method: "POST",
+      url: `/billing-rule-imports/${imported.id}/confirm`,
+      headers: { cookie: adminCookie },
+      payload: {
+        expected_version: imported.version,
+        rule_version: "screenshot-v1",
+        effective_from: new Date().toISOString(),
+        effective_to: null,
+        acknowledged_warning_codes: [],
+        source_price_unit: "CNY_PER_TOKEN",
+        rules: imported.candidateRules,
+      },
+    });
+    expect(wrongUnit.statusCode).toBe(409);
+    expect(wrongUnit.json().error).toBe("source_unit_mismatch");
+
+    const confirmed = await app.inject({
+      method: "POST",
+      url: `/billing-rule-imports/${imported.id}/confirm`,
+      headers: { cookie: adminCookie },
+      payload: {
+        expected_version: imported.version,
+        rule_version: "screenshot-v1",
+        effective_from: new Date().toISOString(),
+        effective_to: null,
+        acknowledged_warning_codes: [],
+        source_price_unit: "CNY_PER_MILLION_TOKENS",
+        rules: imported.candidateRules,
+      },
+    });
+    expect(confirmed.statusCode).toBe(201);
+    expect(confirmed.json().rules).toHaveLength(1);
+    expect(confirmed.json().rules[0].source).toBe(`SCREENSHOT_IMPORT:${imported.id}`);
+    expect(await countAudit("billing_rule_import.preview")).toBe(1);
+    expect(await countAudit("billing_rule_import.confirm")).toBe(1);
+
+    const replay = await app.inject({
+      method: "POST",
+      url: `/billing-rule-imports/${imported.id}/confirm`,
+      headers: { cookie: adminCookie },
+      payload: {
+        expected_version: imported.version,
+        rule_version: "screenshot-v1",
+        effective_from: new Date().toISOString(),
+        effective_to: null,
+        acknowledged_warning_codes: [],
+        source_price_unit: "CNY_PER_MILLION_TOKENS",
+        rules: imported.candidateRules,
+      },
+    });
+    expect(replay.statusCode).toBe(409);
+
+    const atomicPreview = await app.inject({
+      method: "POST",
+      url: "/billing-rule-imports/preview",
+      headers: { cookie: adminCookie },
+      payload: { model_route_id: route.id, image_data_url: image },
+    });
+    const atomicImport = atomicPreview.json().import;
+    const beforeCount = (await db.selectFrom("billing_rule").select("id")
+      .where("enterprise_id", "=", ENT_ID).where("upstream_model", "=", upstreamModel).execute()).length;
+    await sql`CREATE OR REPLACE FUNCTION fail_screenshot_confirm_audit() RETURNS trigger AS $$ BEGIN IF NEW.action = 'billing_rule_import.confirm' THEN RAISE EXCEPTION 'injected screenshot audit failure'; END IF; RETURN NEW; END; $$ LANGUAGE plpgsql`.execute(db);
+    await sql`CREATE TRIGGER fail_screenshot_confirm_audit BEFORE INSERT ON operation_log FOR EACH ROW EXECUTE FUNCTION fail_screenshot_confirm_audit()`.execute(db);
+    try {
+      const failedConfirm = await app.inject({
+        method: "POST",
+        url: `/billing-rule-imports/${atomicImport.id}/confirm`,
+        headers: { cookie: adminCookie },
+        payload: {
+          expected_version: atomicImport.version,
+          rule_version: "screenshot-v2",
+          effective_from: new Date().toISOString(),
+          effective_to: null,
+          acknowledged_warning_codes: [],
+          source_price_unit: "CNY_PER_MILLION_TOKENS",
+          rules: atomicImport.candidateRules,
+        },
+      });
+      expect(failedConfirm.statusCode).toBe(500);
+      expect((await db.selectFrom("billing_rule_import").select("status")
+        .where("id", "=", atomicImport.id).executeTakeFirstOrThrow()).status).toBe("EXTRACTED");
+      expect((await db.selectFrom("billing_rule").select("id")
+        .where("enterprise_id", "=", ENT_ID).where("upstream_model", "=", upstreamModel).execute()).length)
+        .toBe(beforeCount);
+    } finally {
+      await sql`DROP TRIGGER IF EXISTS fail_screenshot_confirm_audit ON operation_log`.execute(db);
+      await sql`DROP FUNCTION IF EXISTS fail_screenshot_confirm_audit()`.execute(db);
+    }
   });
 
   it("POST/GET /billing-rules 单条规则持久化两个时窗，并强制价格/倍率语义隔离", async () => {

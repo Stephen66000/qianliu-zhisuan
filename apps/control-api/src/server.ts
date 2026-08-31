@@ -32,6 +32,7 @@ import {
   PrincipalAccessConfigRepository,
   ProviderQuotaWindowRepository,
   ResourcePoolRepository,
+  BillingRuleImportRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
 } from "@qianliu/database";
@@ -70,6 +71,8 @@ import {
   readPositiveIntEnv,
   type FeatureFlags,
 } from "@qianliu/config";
+import { createRuleExtractor, type RuleExtractor } from "./billing-rule-imports/extractor.js";
+import { registerBillingRuleImportRoutes } from "./billing-rule-imports/routes.js";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
 export interface AdminContext {
@@ -108,6 +111,7 @@ declare module "fastify" {
     quotaWindowRepo: ProviderQuotaWindowRepository;
     poolRepo: ResourcePoolRepository;
     featureFlags: FeatureFlags;
+    billingRuleImportRepo: BillingRuleImportRepository;
   }
 }
 
@@ -126,6 +130,7 @@ export function readRequestBodyLimit(env: NodeJS.ProcessEnv): number {
 export interface ControlApiOptions {
   port?: number;
   host?: string;
+  ruleExtractor?: RuleExtractor;
 }
 
 function alertThresholdsFromEnv(env: NodeJS.ProcessEnv): AlertThresholds {
@@ -168,7 +173,7 @@ function alertThresholdsFromEnv(env: NodeJS.ProcessEnv): AlertThresholds {
   };
 }
 
-export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions = {}): FastifyInstance {
+export function buildControlApi(db: Kysely<Database>, opts: ControlApiOptions = {}): FastifyInstance {
   const featureFlags = readFeatureFlags(process.env);
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info" },
@@ -217,6 +222,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("quotaWindowRepo", new ProviderQuotaWindowRepository(db));
   app.decorate("poolRepo", new ResourcePoolRepository(db));
   app.decorate("featureFlags", featureFlags);
+  app.decorate("billingRuleImportRepo", new BillingRuleImportRepository(db));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
@@ -268,6 +274,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
       overviewV2: featureFlags.FEATURE_USAGE_OVERVIEW_V2,
     });
     registerReadModelRoutes(child);
+    registerBillingRuleImportRoutes(child, opts.ruleExtractor ?? createRuleExtractor());
     registerAdminWriteRoutes(child);
     registerGatewayRequestRoutes(child);
     registerAlertRoutes(child);
