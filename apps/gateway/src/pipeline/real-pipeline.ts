@@ -1051,20 +1051,14 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     // 5. 返回北向响应（OpenAI/Anthropic 兼容）
     // W16：经营调度终止（REJECT/RATE_LIMIT）→ 403/429，理由来自 dispatch_decision
     if (dispatchTerminated) {
-      const code = dispatchFinalAction === "REJECT" ? 403 : 429;
-      const errCode = dispatchFinalAction === "REJECT" ? "dispatch_rejected" : "dispatch_rate_limited";
-      const policyWindow = dispatchPolicyWindow(dispatchMatchedPolicy);
-      const resetAt = dispatchResetAt(dispatchMatchedPolicy, requestStartedAt);
-      const dispatchMessage = dispatchFinalAction === "REJECT"
-        ? `高峰时段暂停使用${policyWindow ? `；策略时段 ${policyWindow}` : ""}${resetAt ? `；${resetAt} 后恢复` : ""}`
-        : "经营调度限流";
-      await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", errCode, dispatchReasonCode);
-      return reply.code(code).header("x-request-id", traceId).send({
-        error: {
-          message: dispatchMessage, type: "server_error", code: errCode, param: null,
-          retryable: false, request_id: requestId, policy_window: policyWindow, reset_at: resetAt,
-          attempt_count: 0, usage_created: false, charged: false,
-        },
+      return sendDispatchTermination(reply, capability, traceId, requestId, {
+        finalAction: dispatchFinalAction as "REJECT" | "RATE_LIMIT",
+        reasonCode: dispatchReasonCode,
+        matchedPolicy: dispatchMatchedPolicy,
+        requestStartedAt,
+        updateStatus: (errorCode) => deps.ledgerRepo.updateRequestStatus(
+          requestId, "FAILED", errorCode, dispatchReasonCode,
+        ),
       });
     }
     if (!finalOutcome) {
@@ -1420,6 +1414,75 @@ function dispatchPolicyWindow(policy: DispatchPolicy | null): string | null {
       ? "每日"
       : days.map((day) => `周${"一二三四五六日"[day - 1] ?? day}`).join("、");
   return `${dayLabel} ${policy.matchStartTime.slice(0, 5)}-${policy.matchEndTime.slice(0, 5)} ${policy.matchTimezone ?? "企业时区"}`;
+}
+
+function dispatchUnavailableWindow(policy: DispatchPolicy | null): {
+  timezone: string;
+  days_of_week: readonly number[] | null;
+  start_time: string;
+  end_time: string;
+} | undefined {
+  if (
+    policy?.action !== "REJECT" ||
+    policy.matchTimezone === null ||
+    policy.matchStartTime === null ||
+    policy.matchEndTime === null
+  ) return undefined;
+  return {
+    timezone: policy.matchTimezone,
+    days_of_week: policy.matchDaysOfWeek,
+    start_time: policy.matchStartTime,
+    end_time: policy.matchEndTime,
+  };
+}
+
+async function sendDispatchTermination(
+  reply: FastifyReply,
+  capability: "chat" | "messages" | "responses",
+  traceId: string,
+  requestId: string,
+  input: {
+    finalAction: "REJECT" | "RATE_LIMIT";
+    reasonCode: string;
+    matchedPolicy: DispatchPolicy | null;
+    requestStartedAt: number;
+    updateStatus: (errorCode: string) => Promise<unknown>;
+  },
+) {
+  const code = input.finalAction === "REJECT" ? 403 : 429;
+  const errorCode = input.finalAction === "REJECT" ? "dispatch_rejected" : "dispatch_rate_limited";
+  const policyWindow = dispatchPolicyWindow(input.matchedPolicy);
+  const resetAt = dispatchResetAt(input.matchedPolicy, input.requestStartedAt);
+  const unavailableWindow = dispatchUnavailableWindow(input.matchedPolicy);
+  const message = input.finalAction === "REJECT"
+    ? `高峰时段暂停使用${policyWindow ? `；策略时段 ${policyWindow}` : ""}${resetAt ? `；${resetAt} 后恢复` : ""}`
+    : "经营调度限流";
+  await input.updateStatus(errorCode);
+  const error = {
+    message,
+    type: capability === "messages" ? "api_error" : "server_error",
+    code: errorCode,
+    param: null,
+    retryable: false,
+    request_id: requestId,
+    policy_window: policyWindow,
+    reset_at: resetAt,
+    attempt_count: 0,
+    usage_created: false,
+    charged: false,
+    dispatch: {
+      final_action: input.finalAction,
+      reason_code: input.reasonCode,
+      policy_version: input.matchedPolicy?.policyVersion ?? null,
+      ...(unavailableWindow ? { unavailable_window: unavailableWindow } : {}),
+    },
+  };
+  if (capability === "messages") {
+    return reply.code(code).header("x-request-id", traceId).send({
+      type: "error", error, request_id: requestId,
+    });
+  }
+  return reply.code(code).header("x-request-id", traceId).send({ error });
 }
 
 /** 当前冻结策略使用 Asia/Shanghai；其他时区保持未知，避免伪造精确恢复时间。 */

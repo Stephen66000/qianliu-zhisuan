@@ -329,6 +329,22 @@ describe("W16 经营调度", () => {
         messages: [{ role: "user", content: "boundary" }],
       },
     });
+    const sendMessages = () => app.inject({
+      method: "POST",
+      url: "/v1/messages",
+      headers: authHeader(),
+      payload: {
+        model: "ql-glm-5.2",
+        messages: [{ role: "user", content: "boundary" }],
+        max_tokens: 20,
+      },
+    });
+    const sendResponses = () => app.inject({
+      method: "POST",
+      url: "/v1/responses",
+      headers: authHeader(),
+      payload: { model: "ql-glm-5.2", input: "boundary" },
+    });
 
     expect((await send()).statusCode).toBe(200);
     expect(stub.calls).toHaveLength(1);
@@ -349,6 +365,48 @@ describe("W16 经营调度", () => {
       attempt_count: 0,
       usage_created: false,
       charged: false,
+      dispatch: {
+        final_action: "REJECT",
+        reason_code: "REJECTED",
+        policy_version: "zhipu-peak-reject-v1",
+        unavailable_window: {
+          timezone: "Asia/Shanghai",
+          days_of_week: [1, 2, 3, 4, 5],
+          start_time: "14:00:00",
+          end_time: "18:00:00",
+        },
+      },
+    }));
+    const messagesAtStart = await sendMessages();
+    expect(messagesAtStart.statusCode).toBe(403);
+    expect(messagesAtStart.json()).toEqual(expect.objectContaining({
+      type: "error",
+      error: expect.objectContaining({
+        type: "api_error",
+        code: "dispatch_rejected",
+        dispatch: expect.objectContaining({
+          policy_version: "zhipu-peak-reject-v1",
+          unavailable_window: expect.objectContaining({
+            timezone: "Asia/Shanghai",
+            start_time: "14:00:00",
+            end_time: "18:00:00",
+          }),
+        }),
+      }),
+    }));
+    const responsesAtStart = await sendResponses();
+    expect(responsesAtStart.statusCode).toBe(403);
+    expect(responsesAtStart.json().error).toEqual(expect.objectContaining({
+      type: "server_error",
+      code: "dispatch_rejected",
+      dispatch: expect.objectContaining({
+        policy_version: "zhipu-peak-reject-v1",
+        unavailable_window: expect.objectContaining({
+          timezone: "Asia/Shanghai",
+          start_time: "14:00:00",
+          end_time: "18:00:00",
+        }),
+      }),
     }));
     expect(stub.calls).toHaveLength(1);
 
@@ -495,7 +553,15 @@ describe("W16 经营调度", () => {
       payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: "hi" }] },
     });
     expect(chatRes.statusCode).toBe(403);
-    expect(chatRes.json().error.code).toBe("dispatch_rejected");
+    expect(chatRes.json().error).toEqual(expect.objectContaining({
+      code: "dispatch_rejected",
+      dispatch: {
+        final_action: "REJECT",
+        reason_code: "REJECTED",
+        policy_version: "w16-v1",
+      },
+    }));
+    expect(chatRes.json().error.dispatch).not.toHaveProperty("unavailable_window");
     const requestId = chatRes.headers["x-request-id"];
     await app.close();
 
@@ -548,7 +614,15 @@ describe("W16 经营调度", () => {
       payload: { model: "ql-glm-5.2", messages: [{ role: "user", content: "hi" }] },
     });
     expect(chatRes.statusCode).toBe(429);
-    expect(chatRes.json().error.code).toBe("dispatch_rate_limited");
+    expect(chatRes.json().error).toEqual(expect.objectContaining({
+      message: "经营调度限流",
+      code: "dispatch_rate_limited",
+      dispatch: {
+        final_action: "RATE_LIMIT",
+        reason_code: "RATE_LIMITED",
+        policy_version: "w16-v1",
+      },
+    }));
     const requestId = chatRes.headers["x-request-id"];
     await app.close();
 
