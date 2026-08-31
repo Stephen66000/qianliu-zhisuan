@@ -117,6 +117,7 @@ export {
 export {
   DEFAULT_RESET_TIMEZONE,
   calculateQuotaPeriod,
+  effectiveOperatingResourceStatus,
   projectCurrentOperatingSnapshots,
   type ResetCycle,
   type QuotaPeriod,

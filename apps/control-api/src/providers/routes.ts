@@ -13,7 +13,7 @@ import {
   credentialFingerprint,
   encryptCredential,
 } from "@qianliu/provider-adapters";
-import { EnterpriseReferenceError } from "@qianliu/database";
+import { EnterpriseReferenceError, effectiveOperatingResourceStatus } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   CreateProviderSchema,
@@ -86,7 +86,11 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         credential_type: r.credential_type,
         credential_fingerprint: r.credential_fingerprint,
         credential_version: r.credential_version,
-        status: r.status,
+        status: effectiveOperatingResourceStatus({
+          status: r.status,
+          mode: r.mode as "API" | "CODING_PLAN",
+          snapshot: byResource.get(r.id) ?? null,
+        }),
         // POOL-031：资源健康详情字段（脱敏运行元数据，不含凭证/正文）。
         consecutive_failures: r.consecutive_failures,
         cooldown_until: r.cooldown_until?.toISOString() ?? null,

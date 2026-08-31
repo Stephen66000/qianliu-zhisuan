@@ -1,5 +1,7 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
+import { Decimal } from "decimal.js";
+import { RESOURCE_STATUS, type ResourceStatus } from "@qianliu/domain";
 
 import type { Database } from "../kysely.js";
 import type { ProviderResourceOperatingSnapshot } from "./provider-repository.js";
@@ -17,6 +19,24 @@ export interface CurrentProviderOperatingSnapshot extends ProviderResourceOperat
   quota_period_start: Date | null;
   quota_period_end: Date | null;
   calculated_at: Date;
+}
+
+/**
+ * 经营数据已经明确耗尽时，读模型不得继续展示为可用。
+ * 该投影不改写资源状态机；未知余额也不会被推断为耗尽。
+ */
+export function effectiveOperatingResourceStatus(input: {
+  status: string;
+  mode: "API" | "CODING_PLAN";
+  snapshot: Pick<CurrentProviderOperatingSnapshot, "current_balance" | "remaining_quota"> | null;
+}): ResourceStatus {
+  const status = input.status as ResourceStatus;
+  if (status !== RESOURCE_STATUS.ACTIVE && status !== RESOURCE_STATUS.DEGRADED) return status;
+  const remaining = input.mode === "API"
+    ? input.snapshot?.current_balance ?? null
+    : input.snapshot?.remaining_quota ?? null;
+  if (remaining === null) return status;
+  return new Decimal(remaining).lte(0) ? RESOURCE_STATUS.EXHAUSTED : status;
 }
 
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;

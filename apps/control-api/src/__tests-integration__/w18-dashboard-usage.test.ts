@@ -985,4 +985,67 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(body.forecasts[0].confidence).toBe("MEDIUM");
     expect(body.forecasts[0].resource_name).toBe("智谱主账号");
   });
+
+  it("明确为零的最新余额在资源列表、首页和用量总览统一展示为耗尽", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+      payload: {
+        provider_id: seededProviderId,
+        name: "余额为零的 API 资源",
+        mode: "API",
+        credential_type: "API_KEY",
+        credential_plaintext: "sk-zero-balance-test",
+        operating_snapshot: {
+          source: "ADMIN",
+          collected_at: new Date().toISOString(),
+          currency: "CNY",
+          recharge_amount: "100",
+          current_balance: "0",
+          current_period_cost: "100",
+        },
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const zeroResourceId = created.json().resource.id as string;
+
+    const stored = await db.selectFrom("provider_resource")
+      .select("status").where("id", "=", zeroResourceId).executeTakeFirstOrThrow();
+    expect(stored.status).toBe("ACTIVE");
+
+    const resources = await app.inject({
+      method: "GET", url: "/provider-resources", headers: { cookie: adminCookie },
+    });
+    expect(resources.statusCode).toBe(200);
+    expect(resources.json().resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: zeroResourceId, status: "EXHAUSTED" }),
+    ]));
+
+    const dashboard = await app.inject({
+      method: "GET", url: "/dashboard", headers: { cookie: adminCookie },
+    });
+    expect(dashboard.statusCode).toBe(200);
+    expect(dashboard.json().resourceStatus).toMatchObject({
+      status: "EXHAUSTED",
+      abnormalResources: expect.arrayContaining([
+        expect.objectContaining({ resourceId: zeroResourceId, status: "EXHAUSTED" }),
+      ]),
+    });
+
+    const overview = await app.inject({
+      method: "GET", url: "/provider-resources/usage-overview", headers: { cookie: adminCookie },
+    });
+    expect(overview.statusCode).toBe(200);
+    expect(overview.json().providerSummaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providerCode: "zhipu",
+        mode: "API",
+        status: "EXHAUSTED",
+        abnormalResources: expect.arrayContaining([
+          expect.objectContaining({ resourceId: zeroResourceId, status: "EXHAUSTED" }),
+        ]),
+      }),
+    ]));
+  });
 });

@@ -26,7 +26,10 @@ import { sql } from "kysely";
 import { Decimal } from "decimal.js";
 import type { Database } from "../kysely.js";
 import { ProviderRepository } from "./provider-repository.js";
-import type { CurrentProviderOperatingSnapshot } from "./provider-operating.js";
+import {
+  effectiveOperatingResourceStatus,
+  type CurrentProviderOperatingSnapshot,
+} from "./provider-operating.js";
 import { worstResourceStatus, type ResourceStatus } from "@qianliu/domain";
 import {
   decimalTextsEqual,
@@ -87,7 +90,7 @@ export class DashboardRepository {
       this.countInUseEmployees(enterpriseId, now, fiveMinutesAgo),
       this.findEarliestExhaustion(enterpriseId, currentOperatingSnapshots),
       this.monthlyDispatchSavingBreakdown(enterpriseId, monthStart, monthEnd),
-      loadDashboardResourceStatus(this.db, enterpriseId),
+      loadDashboardResourceStatus(this.db, enterpriseId, currentOperatingSnapshots),
       listDashboardOverages(this.db, enterpriseId),
       getMonthlyTokenUsage(this.db, enterpriseId, monthStart, monthEnd),
     ]);
@@ -384,9 +387,16 @@ export class DashboardRepository {
     for (const r of rows) {
       const providerCode = r.provider_code;
       const mode = r.mode as "API" | "CODING_PLAN";
-      const groupStatuses = statusRows.filter((row) =>
-        row.provider_code === providerCode && row.mode === mode
-      );
+      const groupStatuses = statusRows
+        .filter((row) => row.provider_code === providerCode && row.mode === mode)
+        .map((row) => ({
+          ...row,
+          status: effectiveOperatingResourceStatus({
+            status: row.status,
+            mode,
+            snapshot: operatingSnapshotByResource.get(row.resource_id) ?? null,
+          }),
+        }));
       const worstStatus = worstResourceStatus(
         groupStatuses.map((row) => row.status as ResourceStatus),
       );
