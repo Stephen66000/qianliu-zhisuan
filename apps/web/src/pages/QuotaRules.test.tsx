@@ -251,6 +251,8 @@ describe("计价规则 Web 表单", () => {
       enterprise_id: "enterprise-1",
       created_at: "2020-01-01T00:00:00.000Z",
       updated_at: "2020-01-01T00:00:00.000Z",
+      archived_at: null,
+      archived_by_admin_id: null,
     };
     const candidates = copyableRuleSets([
       {
