@@ -23,6 +23,7 @@ import type {
   DispatchPolicy,
   ModelRouteItem,
   Principal,
+  ProviderResourceItem,
   UnifiedModel,
 } from "../api/types";
 import { StatusTag } from "../components/dashboard/StatusTag";
@@ -88,6 +89,7 @@ export const BillingRuleSchema = z
     cache_hit_price: OptionalDecimal,
     cache_miss_price: OptionalDecimal,
     output_price: OptionalDecimal,
+    currency: z.string().length(3, "币种使用 3 位代码").default("CNY"),
     priority: z.coerce.number().int().min(0),
   })
   .superRefine((input, ctx) => {
@@ -191,9 +193,194 @@ export function buildBillingRulePayload(values: BillingRuleValues) {
     cache_miss_price: values.cache_miss_price || null,
     output_price: values.output_price || null,
     priority: values.priority,
-    currency: "CNY",
+    currency: values.currency,
     source: "WEB_ADMIN",
   };
+}
+
+type CopyRuleDraft = {
+  sourceRule: BillingRule;
+  rule_type: BillingRuleValues["rule_type"];
+  windows: BillingWindowForm[];
+  multiplier: string;
+  cache_hit_price: string;
+  cache_miss_price: string;
+  output_price: string;
+  currency: string;
+  priority: number;
+};
+
+type ImportedRuleDraft = Omit<CopyRuleDraft, "sourceRule">;
+
+interface RuleImportWarning {
+  code: string;
+  message: string;
+  field: string | null;
+  blocking: boolean;
+}
+
+interface RuleImportView {
+  id: string;
+  status: "EXTRACTED" | "CONFIRMED";
+  version: number;
+  imageSha256: string;
+  imageMime: string;
+  imageBytes: number;
+  extractorModel: string;
+  extractorRequestId: string | null;
+  sourceEvidence: {
+    targetModel?: string;
+    unitBasis?: string;
+    targetRow?: {
+      model_name: string;
+      context_display: string | null;
+      input_price: { current: string | null; original: string | null };
+      output_price: { current: string | null; original: string | null };
+      cache_storage: string | null;
+      cache_hit_price: { current: string | null; original: string | null };
+      input_modalities: string[];
+      badges: string[];
+    } | null;
+  };
+  candidateRules: ImportedRuleDraft[];
+  warnings: RuleImportWarning[];
+  createdRuleIds: string[] | null;
+}
+
+type ScreenshotPriceUnit = "CNY_PER_TOKEN" | "CNY_PER_THOUSAND_TOKENS" | "CNY_PER_MILLION_TOKENS";
+
+function normalizeScreenshotPrice(value: string | null, unit: ScreenshotPriceUnit): string {
+  if (value === null) return "";
+  const zeros = unit === "CNY_PER_TOKEN" ? 0 : unit === "CNY_PER_THOUSAND_TOKENS" ? 3 : 6;
+  if (zeros === 0) return value;
+  const [whole, fraction = ""] = value.split(".");
+  const digits = `${whole}${fraction}`.replace(/^0+/, "") || "0";
+  const scale = fraction.length + zeros;
+  const padded = digits.padStart(scale + 1, "0");
+  const decimalAt = padded.length - scale;
+  return `${padded.slice(0, decimalAt)}.${padded.slice(decimalAt)}`.replace(/0+$/, "").replace(/\.$/, "");
+}
+
+export interface CopyableRuleSet {
+  key: string;
+  providerResourceId: string;
+  upstreamModel: string;
+  rules: BillingRule[];
+  latestEffectiveAt: number;
+}
+
+const COPY_FIELDS: Array<keyof Omit<CopyRuleDraft, "sourceRule" | "rule_type">> = [
+  "windows",
+  "multiplier",
+  "cache_hit_price",
+  "cache_miss_price",
+  "output_price",
+  "currency",
+  "priority",
+];
+
+function commonPrefixLength(left: string, right: string): number {
+  const a = left.toLowerCase();
+  const b = right.toLowerCase();
+  let length = 0;
+  while (length < a.length && length < b.length && a[length] === b[length]) length += 1;
+  return length;
+}
+
+/** 只在同一厂商资源内推荐；同系列名称前缀越近、生效时间越新越优先。 */
+export function copyableRuleSets(
+  rules: BillingRule[],
+  targetRoute: ModelRouteItem | undefined,
+  now = Date.now(),
+): CopyableRuleSet[] {
+  if (!targetRoute) return [];
+  const groups = new Map<string, CopyableRuleSet>();
+  for (const rule of rules) {
+    const effectiveFrom = new Date(rule.effective_from).getTime();
+    const effectiveTo = rule.effective_to ? new Date(rule.effective_to).getTime() : null;
+    if (
+      !rule.enabled
+      || !rule.provider_resource_id
+      || !rule.upstream_model
+      || rule.provider_resource_id !== targetRoute.provider_resource_id
+      || rule.upstream_model === targetRoute.upstream_model
+      || !Number.isFinite(effectiveFrom)
+      || effectiveFrom > now
+      || (effectiveTo !== null && effectiveTo <= now)
+    ) continue;
+    const key = `${rule.provider_resource_id}::${rule.upstream_model}`;
+    const group = groups.get(key) ?? {
+      key,
+      providerResourceId: rule.provider_resource_id,
+      upstreamModel: rule.upstream_model,
+      rules: [],
+      latestEffectiveAt: effectiveFrom,
+    };
+    group.rules.push(rule);
+    group.latestEffectiveAt = Math.max(group.latestEffectiveAt, effectiveFrom);
+    groups.set(key, group);
+  }
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      rules: [...group.rules].sort((left, right) =>
+        left.priority - right.priority || left.rule_type.localeCompare(right.rule_type)),
+    }))
+    .sort((left, right) =>
+      commonPrefixLength(targetRoute.upstream_model, right.upstreamModel)
+        - commonPrefixLength(targetRoute.upstream_model, left.upstreamModel)
+      || right.latestEffectiveAt - left.latestEffectiveAt
+      || left.upstreamModel.localeCompare(right.upstreamModel));
+}
+
+function copyDraftsFromRules(rules: BillingRule[]): CopyRuleDraft[] {
+  return rules.map((rule) => ({
+    sourceRule: rule,
+    rule_type: rule.rule_type as BillingRuleValues["rule_type"],
+    windows: editableWindows(rule),
+    multiplier: rule.multiplier ?? "",
+    cache_hit_price: rule.cache_hit_price ?? "",
+    cache_miss_price: rule.cache_miss_price ?? "",
+    output_price: rule.output_price ?? "",
+    currency: rule.currency,
+    priority: rule.priority,
+  }));
+}
+
+function changedCopyFields(draft: CopyRuleDraft): string[] {
+  const source = copyDraftsFromRules([draft.sourceRule])[0]!;
+  return COPY_FIELDS.filter((field) =>
+    JSON.stringify(draft[field]) !== JSON.stringify(source[field])).map(String);
+}
+
+export function buildCopiedRulePayloads(input: {
+  drafts: CopyRuleDraft[];
+  targetRoute: ModelRouteItem;
+  ruleVersion: string;
+  effectiveFrom: string;
+  effectiveTo: string;
+}) {
+  return input.drafts.map((draft) => {
+    const parsed = BillingRuleSchema.parse({
+      rule_type: draft.rule_type,
+      rule_version: input.ruleVersion,
+      provider_resource_id: input.targetRoute.provider_resource_id,
+      upstream_model: input.targetRoute.upstream_model,
+      effective_from: input.effectiveFrom,
+      effective_to: input.effectiveTo,
+      windows: draft.windows,
+      multiplier: draft.multiplier,
+      cache_hit_price: draft.cache_hit_price,
+      cache_miss_price: draft.cache_miss_price,
+      output_price: draft.output_price,
+      currency: draft.currency,
+      priority: draft.priority,
+    });
+    return {
+      ...buildBillingRulePayload(parsed),
+      source: `WEB_ADMIN_COPY:${draft.sourceRule.id}`,
+    };
+  });
 }
 
 function principalList(data: { principals: Principal[] } | undefined): Principal[] {
@@ -206,6 +393,8 @@ function firstQueryError(errors: Array<Error | null>): Error | null {
 
 export { buildDispatchPolicyPayload } from "../components/quota/dispatch-policy-form";
 
+// 本页同时编排四个有依赖顺序的管理区；规则集编辑细节已拆到子组件。
+// eslint-disable-next-line complexity
 export function QuotaRulesPage() {
   const queryClient = useQueryClient();
   const rulesQuery = useBillingRules();
@@ -229,6 +418,24 @@ export function QuotaRulesPage() {
   const [showModelForm, setShowModelForm] = useState(false);
   const [showRouteForm, setShowRouteForm] = useState(false);
   const [selectedRuleRouteId, setSelectedRuleRouteId] = useState("");
+  const [ruleCreationMode, setRuleCreationMode] = useState<"COPY" | "SCREENSHOT" | "BLANK">("COPY");
+  const [copySourceKey, setCopySourceKey] = useState("");
+  const [copyDrafts, setCopyDrafts] = useState<CopyRuleDraft[]>([]);
+  const [copyRuleVersion, setCopyRuleVersion] = useState("v1");
+  const [copyEffectiveFrom, setCopyEffectiveFrom] = useState(localDateTimeValue());
+  const [copyEffectiveTo, setCopyEffectiveTo] = useState("");
+  const [copyValidationError, setCopyValidationError] = useState("");
+  const [copyReviewPayloads, setCopyReviewPayloads] = useState<ReturnType<
+    typeof buildCopiedRulePayloads
+  > | null>(null);
+  const [screenshotDataUrl, setScreenshotDataUrl] = useState("");
+  const [screenshotImport, setScreenshotImport] = useState<RuleImportView | null>(null);
+  const [screenshotDrafts, setScreenshotDrafts] = useState<ImportedRuleDraft[]>([]);
+  const [screenshotRuleVersion, setScreenshotRuleVersion] = useState("v1");
+  const [screenshotEffectiveFrom, setScreenshotEffectiveFrom] = useState(localDateTimeValue());
+  const [acknowledgedWarnings, setAcknowledgedWarnings] = useState<string[]>([]);
+  const [screenshotError, setScreenshotError] = useState("");
+  const [screenshotPriceUnit, setScreenshotPriceUnit] = useState<ScreenshotPriceUnit | "">("");
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [disableModelTarget, setDisableModelTarget] = useState<UnifiedModel | null>(null);
   const [disableRouteTarget, setDisableRouteTarget] = useState<ModelRouteItem | null>(null);
@@ -260,6 +467,7 @@ export function QuotaRulesPage() {
       cache_hit_price: "0",
       cache_miss_price: "0.000001",
       output_price: "0.000002",
+      currency: "CNY",
       priority: 100,
     },
   });
@@ -346,6 +554,63 @@ export function QuotaRulesPage() {
       void refreshRules();
     },
   });
+  const createRuleSet = useMutation({
+    mutationFn: (rules: ReturnType<typeof buildCopiedRulePayloads>) =>
+      post("/billing-rule-sets", { rules }),
+    onSuccess: () => {
+      setShowRuleForm(false);
+      setSelectedRuleRouteId("");
+      setCopySourceKey("");
+      setCopyDrafts([]);
+      setCopyReviewPayloads(null);
+      setCopyValidationError("");
+      void refreshRules();
+    },
+  });
+  const previewScreenshot = useMutation({
+    mutationFn: (input: { modelRouteId: string; imageDataUrl: string }) =>
+      post<{ import: RuleImportView }>("/billing-rule-imports/preview", {
+        model_route_id: input.modelRouteId,
+        image_data_url: input.imageDataUrl,
+      }),
+    onSuccess: (data) => {
+      setScreenshotImport(data.import);
+      setScreenshotDrafts(data.import.candidateRules);
+      setScreenshotPriceUnit(
+        (["CNY_PER_TOKEN", "CNY_PER_THOUSAND_TOKENS", "CNY_PER_MILLION_TOKENS"] as const)
+          .find((unit) => unit === data.import.sourceEvidence.unitBasis) ?? "",
+      );
+      setAcknowledgedWarnings([]);
+      setScreenshotError("");
+    },
+  });
+  const confirmScreenshot = useMutation({
+    mutationFn: (input: {
+      imported: RuleImportView;
+      drafts: ImportedRuleDraft[];
+      ruleVersion: string;
+      effectiveFrom: string;
+      warningCodes: string[];
+      sourcePriceUnit: ScreenshotPriceUnit;
+    }) => post<{ import: RuleImportView }>(`/billing-rule-imports/${input.imported.id}/confirm`, {
+      expected_version: input.imported.version,
+      rule_version: input.ruleVersion,
+      effective_from: new Date(input.effectiveFrom).toISOString(),
+      effective_to: null,
+      acknowledged_warning_codes: input.warningCodes,
+      source_price_unit: input.sourcePriceUnit,
+      rules: input.drafts,
+    }),
+    onSuccess: () => {
+      setShowRuleForm(false);
+      setScreenshotImport(null);
+      setScreenshotDrafts([]);
+      setScreenshotDataUrl("");
+      setAcknowledgedWarnings([]);
+      setScreenshotPriceUnit("");
+      void refreshRules();
+    },
+  });
   const updateRule = useMutation({
     mutationFn: (input: { rule: BillingRule; patch: Record<string, unknown> }) =>
       patch(`/billing-rules/${input.rule.id}`, {
@@ -417,7 +682,7 @@ export function QuotaRulesPage() {
     },
   });
 
-  const rules = rulesQuery.data?.rules ?? [];
+  const rules = useMemo(() => rulesQuery.data?.rules ?? [], [rulesQuery.data?.rules]);
   const policies = policiesQuery.data?.policies ?? [];
   const routes = routesQuery.data?.routes ?? [];
   const hasActiveModels = models.some((model) => model.status === "ACTIVE");
@@ -425,6 +690,96 @@ export function QuotaRulesPage() {
   const enabledRoutes = routes.filter((route) => route.enabled);
   const canCreateRule = canCreateRoute && enabledRoutes.length > 0;
   const principalById = new Map(principals.map((principal) => [principal.id, principal]));
+  const selectedRuleRoute = enabledRoutes.find((route) => route.id === selectedRuleRouteId);
+  const copySources = useMemo(
+    () => copyableRuleSets(rules, selectedRuleRoute),
+    [rules, selectedRuleRoute],
+  );
+  const selectedCopySource = copySources.find((source) => source.key === copySourceKey);
+  const editedCopyFieldCount = copyDrafts.reduce(
+    (count, draft) => count + changedCopyFields(draft).length,
+    0,
+  );
+
+  const selectCopySource = (source: CopyableRuleSet | undefined) => {
+    setCopySourceKey(source?.key ?? "");
+    setCopyDrafts(source ? copyDraftsFromRules(source.rules) : []);
+    setCopyValidationError("");
+    setCopyReviewPayloads(null);
+  };
+
+  const selectRuleTarget = (routeId: string) => {
+    const route = enabledRoutes.find((item) => item.id === routeId);
+    setSelectedRuleRouteId(routeId);
+    ruleForm.setValue("provider_resource_id", route?.provider_resource_id ?? "", {
+      shouldValidate: true,
+    });
+    ruleForm.setValue("upstream_model", route?.upstream_model ?? "", {
+      shouldValidate: true,
+    });
+    const recommended = copyableRuleSets(rules, route)[0];
+    selectCopySource(recommended);
+    if (route) {
+      setCopyRuleVersion(`${route.upstream_model}-v1`.slice(0, 64));
+    }
+  };
+
+  const updateCopyDraft = (
+    index: number,
+    patch: Partial<Omit<CopyRuleDraft, "sourceRule" | "rule_type">>,
+  ) => {
+    setCopyDrafts((current) => current.map((draft, draftIndex) =>
+      draftIndex === index ? { ...draft, ...patch } : draft));
+    setCopyReviewPayloads(null);
+  };
+
+  const reviewCopiedRules = () => {
+    if (!selectedRuleRoute || !selectedCopySource) {
+      setCopyValidationError("请先选择目标 Model Route 和来源规则集");
+      return;
+    }
+    try {
+      const payloads = buildCopiedRulePayloads({
+        drafts: copyDrafts,
+        targetRoute: selectedRuleRoute,
+        ruleVersion: copyRuleVersion,
+        effectiveFrom: copyEffectiveFrom,
+        effectiveTo: copyEffectiveTo,
+      });
+      setCopyValidationError("");
+      setCopyReviewPayloads(payloads);
+    } catch (error) {
+      setCopyValidationError(error instanceof Error ? error.message : "规则集校验失败");
+    }
+  };
+
+  const readScreenshot = (file: File | undefined) => {
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      setScreenshotError("仅支持 5MB 以内的 PNG、JPEG 或 WebP 图片");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setScreenshotDataUrl(typeof reader.result === "string" ? reader.result : "");
+      setScreenshotImport(null);
+      setScreenshotDrafts([]);
+      setAcknowledgedWarnings([]);
+      setScreenshotPriceUnit("");
+      setScreenshotError("");
+    };
+    reader.onerror = () => setScreenshotError("读取截图失败");
+    reader.readAsDataURL(file);
+  };
+
+  const updateScreenshotDraft = (index: number, patch: Partial<ImportedRuleDraft>) => {
+    setScreenshotDrafts((current) => current.map((draft, draftIndex) =>
+      draftIndex === index ? { ...draft, ...patch } : draft));
+  };
+
+  const unresolvedScreenshotWarnings = screenshotImport?.warnings.filter(
+    (warning) => warning.blocking && !acknowledgedWarnings.includes(warning.code),
+  ) ?? [];
 
   const editPolicy = (policy: DispatchPolicy) => {
     const scope = policy.matchPrincipalScope ?? [];
@@ -453,6 +808,9 @@ export function QuotaRulesPage() {
   };
   const error =
     createRule.error ??
+    createRuleSet.error ??
+    previewScreenshot.error ??
+    confirmScreenshot.error ??
     updateRule.error ??
     createPolicy.error ??
     transitionPolicy.error ??
@@ -687,10 +1045,149 @@ export function QuotaRulesPage() {
             ? "前置条件已满足。创建计价规则后，继续检查下方调度策略。"
             : "前置条件：先创建统一模型、登记厂商资源，并至少启用一条 Model Route。"
         }
-        onAction={() => setShowRuleForm((value) => !value)}
+        onAction={() => {
+          setShowRuleForm((value) => !value);
+          setRuleCreationMode(rules.some((rule) => rule.enabled) ? "COPY" : "BLANK");
+          setCopyReviewPayloads(null);
+          setCopyValidationError("");
+          setScreenshotError("");
+        }}
         title="计价规则模板"
       >
         {showRuleForm ? (
+          <div className="mb-3 flex flex-wrap gap-2" aria-label="规则创建方式">
+            <button
+              className={`rounded-lg border px-3 py-2 text-[12px] font-medium ${
+                ruleCreationMode === "COPY"
+                  ? "border-ql-action bg-ql-action-soft text-ql-action"
+                  : "border-ql-border text-ql-fg-secondary"
+              }`}
+              disabled={!rules.some((rule) => rule.enabled)}
+              onClick={() => setRuleCreationMode("COPY")}
+              type="button"
+            >
+              复制已有整套规则（推荐）
+            </button>
+            <button
+              className={`rounded-lg border px-3 py-2 text-[12px] font-medium ${
+                ruleCreationMode === "SCREENSHOT"
+                  ? "border-ql-action bg-ql-action-soft text-ql-action"
+                  : "border-ql-border text-ql-fg-secondary"
+              }`}
+              onClick={() => setRuleCreationMode("SCREENSHOT")}
+              type="button"
+            >
+              从官网截图识别
+            </button>
+            <button
+              className={`rounded-lg border px-3 py-2 text-[12px] font-medium ${
+                ruleCreationMode === "BLANK"
+                  ? "border-ql-action bg-ql-action-soft text-ql-action"
+                  : "border-ql-border text-ql-fg-secondary"
+              }`}
+              onClick={() => setRuleCreationMode("BLANK")}
+              type="button"
+            >
+              空白创建
+            </button>
+          </div>
+        ) : null}
+        {showRuleForm && ruleCreationMode === "COPY" ? (
+          <CopyRuleSetForm
+            copyDrafts={copyDrafts}
+            copyEffectiveFrom={copyEffectiveFrom}
+            copyEffectiveTo={copyEffectiveTo}
+            copyRuleVersion={copyRuleVersion}
+            copySourceKey={copySourceKey}
+            copySources={copySources}
+            editedCopyFieldCount={editedCopyFieldCount}
+            enabledRoutes={enabledRoutes}
+            onDraftChange={updateCopyDraft}
+            onEffectiveFromChange={(value) => {
+              setCopyEffectiveFrom(value);
+              setCopyReviewPayloads(null);
+            }}
+            onEffectiveToChange={(value) => {
+              setCopyEffectiveTo(value);
+              setCopyReviewPayloads(null);
+            }}
+            onReview={reviewCopiedRules}
+            onRuleVersionChange={(value) => {
+              setCopyRuleVersion(value);
+              setCopyReviewPayloads(null);
+            }}
+            onSourceChange={selectCopySource}
+            onTargetChange={selectRuleTarget}
+            resources={resources}
+            selectedCopySource={selectedCopySource}
+            selectedRuleRoute={selectedRuleRoute}
+            selectedRuleRouteId={selectedRuleRouteId}
+            validationError={copyValidationError}
+          />
+        ) : null}
+        {showRuleForm && ruleCreationMode === "SCREENSHOT" ? (
+          <ScreenshotRuleImportForm
+            acknowledgedWarnings={acknowledgedWarnings}
+            confirmPending={confirmScreenshot.isPending}
+            drafts={screenshotDrafts}
+            effectiveFrom={screenshotEffectiveFrom}
+            enabledRoutes={enabledRoutes}
+            error={screenshotError}
+            imageDataUrl={screenshotDataUrl}
+            imported={screenshotImport}
+            onAcknowledge={(code, checked) => setAcknowledgedWarnings((current) =>
+              checked ? [...new Set([...current, code])] : current.filter((item) => item !== code))}
+            onAnalyze={() => {
+              if (!selectedRuleRouteId || !screenshotDataUrl) {
+                setScreenshotError("请先选择目标 Model Route 并上传截图");
+                return;
+              }
+              previewScreenshot.mutate({ modelRouteId: selectedRuleRouteId, imageDataUrl: screenshotDataUrl });
+            }}
+            onConfirm={() => {
+              if (!screenshotImport || !screenshotPriceUnit || unresolvedScreenshotWarnings.length > 0) return;
+              confirmScreenshot.mutate({
+                imported: screenshotImport,
+                drafts: screenshotDrafts,
+                ruleVersion: screenshotRuleVersion,
+                effectiveFrom: screenshotEffectiveFrom,
+                warningCodes: acknowledgedWarnings,
+                sourcePriceUnit: screenshotPriceUnit,
+              });
+            }}
+            onDraftChange={updateScreenshotDraft}
+            onEffectiveFromChange={setScreenshotEffectiveFrom}
+            onFile={readScreenshot}
+            onRuleVersionChange={setScreenshotRuleVersion}
+            onSourcePriceUnitChange={(unit) => {
+              setScreenshotPriceUnit(unit);
+              const row = screenshotImport?.sourceEvidence.targetRow;
+              if (!row) return;
+              setScreenshotDrafts((current) => current.map((draft) => draft.rule_type === "API_PRICE" ? {
+                ...draft,
+                cache_hit_price: normalizeScreenshotPrice(row.cache_hit_price.current, unit),
+                cache_miss_price: normalizeScreenshotPrice(row.input_price.current, unit),
+                output_price: normalizeScreenshotPrice(row.output_price.current, unit),
+              } : draft));
+            }}
+            onTargetChange={(routeId) => {
+              selectRuleTarget(routeId);
+              setScreenshotImport(null);
+              setScreenshotDrafts([]);
+              setAcknowledgedWarnings([]);
+              setScreenshotPriceUnit("");
+              const route = enabledRoutes.find((item) => item.id === routeId);
+              if (route) setScreenshotRuleVersion(`${route.upstream_model}-v1`.slice(0, 64));
+            }}
+            previewPending={previewScreenshot.isPending}
+            resources={resources}
+            ruleVersion={screenshotRuleVersion}
+            sourcePriceUnit={screenshotPriceUnit}
+            selectedRouteId={selectedRuleRouteId}
+            unresolvedWarningCount={unresolvedScreenshotWarnings.length}
+          />
+        ) : null}
+        {showRuleForm && ruleCreationMode === "BLANK" ? (
           <form
             className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 md:grid-cols-4"
             onSubmit={ruleForm.handleSubmit((values) => createRule.mutate(values))}
@@ -1265,6 +1762,24 @@ export function QuotaRulesPage() {
       </ManagementSection>
 
       <ConfirmDialog
+        confirmLabel="确认并创建整套规则"
+        impact={`将为 ${selectedRuleRoute?.upstream_model ?? ""} 原子创建 ${copyReviewPayloads?.length ?? 0} 条新规则；原规则与历史结算不变。`}
+        loading={createRuleSet.isPending}
+        onCancel={() => setCopyReviewPayloads(null)}
+        onConfirm={() => {
+          if (copyReviewPayloads) createRuleSet.mutate(copyReviewPayloads);
+        }}
+        open={copyReviewPayloads !== null}
+        title="确认规则集差异"
+      >
+        <div className="rounded-lg bg-ql-surface-subtle p-3 text-[12px] leading-5 text-ql-fg-secondary">
+          <p>来源模型：{selectedCopySource?.upstreamModel ?? "—"}</p>
+          <p>目标模型：{selectedRuleRoute?.upstream_model ?? "—"}</p>
+          <p>新版本：{copyRuleVersion || "—"}</p>
+          <p>修改的可继承字段：{editedCopyFieldCount} 项</p>
+        </div>
+      </ConfirmDialog>
+      <ConfirmDialog
         danger={policyActionTarget?.action === "retire"}
         confirmLabel={policyActionTarget?.action === "publish" ? "确认发布" : "确认停用"}
         impact={policyTransitionImpact(policyActionTarget, principalById)}
@@ -1302,6 +1817,464 @@ export function QuotaRulesPage() {
         title="停用 Model Route"
       />
     </PageShell>
+  );
+}
+
+function ScreenshotRuleImportForm({
+  acknowledgedWarnings,
+  confirmPending,
+  drafts,
+  effectiveFrom,
+  enabledRoutes,
+  error,
+  imageDataUrl,
+  imported,
+  previewPending,
+  resources,
+  ruleVersion,
+  sourcePriceUnit,
+  selectedRouteId,
+  unresolvedWarningCount,
+  onAcknowledge,
+  onAnalyze,
+  onConfirm,
+  onDraftChange,
+  onEffectiveFromChange,
+  onFile,
+  onRuleVersionChange,
+  onSourcePriceUnitChange,
+  onTargetChange,
+}: {
+  acknowledgedWarnings: string[];
+  confirmPending: boolean;
+  drafts: ImportedRuleDraft[];
+  effectiveFrom: string;
+  enabledRoutes: ModelRouteItem[];
+  error: string;
+  imageDataUrl: string;
+  imported: RuleImportView | null;
+  previewPending: boolean;
+  resources: Array<Pick<ProviderResourceItem, "id" | "name">>;
+  ruleVersion: string;
+  sourcePriceUnit: ScreenshotPriceUnit | "";
+  selectedRouteId: string;
+  unresolvedWarningCount: number;
+  onAcknowledge: (code: string, checked: boolean) => void;
+  onAnalyze: () => void;
+  onConfirm: () => void;
+  onDraftChange: (index: number, patch: Partial<ImportedRuleDraft>) => void;
+  onEffectiveFromChange: (value: string) => void;
+  onFile: (file: File | undefined) => void;
+  onRuleVersionChange: (value: string) => void;
+  onSourcePriceUnitChange: (unit: ScreenshotPriceUnit) => void;
+  onTargetChange: (routeId: string) => void;
+}) {
+  const evidence = imported?.sourceEvidence.targetRow;
+  const unitLocked = imported?.sourceEvidence.unitBasis === "CNY_PER_TOKEN"
+    || imported?.sourceEvidence.unitBasis === "CNY_PER_THOUSAND_TOKENS"
+    || imported?.sourceEvidence.unitBasis === "CNY_PER_MILLION_TOKENS";
+  return (
+    <div className="mb-4 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <FormField htmlFor="screenshot-target-route" label="目标 Model Route">
+          <select className={INPUT_CLASS} id="screenshot-target-route" onChange={(event) => onTargetChange(event.target.value)} value={selectedRouteId}>
+            <option value="">请选择</option>
+            {enabledRoutes.map((route) => (
+              <option key={route.id} value={route.id}>
+                {resources.find((resource) => resource.id === route.provider_resource_id)?.name ?? route.provider_resource_id}
+                {" · "}{route.upstream_model}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField hint="PNG、JPEG 或 WebP，最大 5MB；原图不长期保存" htmlFor="pricing-screenshot" label="官网规则截图">
+          <input accept="image/png,image/jpeg,image/webp" className={INPUT_CLASS} id="pricing-screenshot" onChange={(event) => onFile(event.target.files?.[0])} type="file" />
+        </FormField>
+        <FormField htmlFor="screenshot-rule-version" label="新规则版本">
+          <input className={INPUT_CLASS} id="screenshot-rule-version" maxLength={64} onChange={(event) => onRuleVersionChange(event.target.value)} value={ruleVersion} />
+        </FormField>
+        <FormField htmlFor="screenshot-effective-from" label="生效时间">
+          <input className={INPUT_CLASS} id="screenshot-effective-from" onChange={(event) => onEffectiveFromChange(event.target.value)} type="datetime-local" value={effectiveFrom} />
+        </FormField>
+      </div>
+      <div className="mt-4 flex justify-end">
+        <button className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60" disabled={!selectedRouteId || !imageDataUrl || previewPending} onClick={onAnalyze} type="button">
+          {previewPending ? "K3 识别中…" : "识别截图"}
+        </button>
+      </div>
+      {error ? <p className="mt-3 rounded-lg bg-ql-danger-soft p-3 text-[12px] text-ql-danger" role="alert">{error}</p> : null}
+
+      {imageDataUrl ? (
+        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="rounded-lg border border-ql-border-zone bg-white p-3">
+            <p className="mb-2 text-[12px] font-medium text-ql-fg">官网截图</p>
+            <img alt="待识别的官网规则截图" className="max-h-[520px] w-full object-contain" src={imageDataUrl} />
+          </div>
+          <div className="rounded-lg border border-ql-border-zone bg-ql-surface p-3">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[12px] font-medium text-ql-fg">候选规则</p>
+                <p className="text-[11px] text-ql-fg-tertiary">
+                  {imported ? `${imported.extractorModel} · SHA-256 ${imported.imageSha256.slice(0, 12)}…` : "识别后在此对照修改"}
+                </p>
+              </div>
+              {imported ? <StatusTag tone="neutral">{drafts.length} 条</StatusTag> : null}
+            </div>
+            {evidence ? (
+              <div className="mb-3 rounded-lg bg-ql-canvas p-3 text-[11px] leading-5 text-ql-fg-secondary">
+                <p>证据模型：{evidence.model_name}；上下文：{evidence.context_display ?? "未确认"}</p>
+                <p>输入现价/原价：{evidence.input_price.current ?? "—"}/{evidence.input_price.original ?? "—"} 元/百万 Token</p>
+                <p>输出现价/原价：{evidence.output_price.current ?? "—"}/{evidence.output_price.original ?? "—"} 元/百万 Token</p>
+                <p>缓存命中现价/原价：{evidence.cache_hit_price.current ?? "—"}/{evidence.cache_hit_price.original ?? "—"}</p>
+                <p>模态：{evidence.input_modalities.join("、") || "—"}；标记：{evidence.badges.join("、") || "—"}</p>
+              </div>
+            ) : null}
+            {imported ? (
+              <FormField
+                hint={unitLocked ? "截图表头已明确，单位不可改写" : "必须对照截图明确选择；服务端将重新换算"}
+                htmlFor="screenshot-price-unit"
+                label="截图价格单位"
+              >
+                <select
+                  className={INPUT_CLASS}
+                  disabled={unitLocked}
+                  id="screenshot-price-unit"
+                  onChange={(event) => onSourcePriceUnitChange(event.target.value as ScreenshotPriceUnit)}
+                  value={sourcePriceUnit}
+                >
+                  <option value="">请确认单位</option>
+                  <option value="CNY_PER_TOKEN">元 / Token</option>
+                  <option value="CNY_PER_THOUSAND_TOKENS">元 / 千 Token</option>
+                  <option value="CNY_PER_MILLION_TOKENS">元 / 百万 Token</option>
+                </select>
+              </FormField>
+            ) : null}
+            <div className="flex flex-col gap-3">
+              {drafts.map((draft, index) => (
+                <ImportedRuleCard draft={draft} index={index} key={`${draft.rule_type}-${index}`} onChange={onDraftChange} />
+              ))}
+            </div>
+            {imported?.warnings.map((warning) => (
+              <label className={`mt-2 flex items-start gap-2 rounded-lg p-2 text-[11px] ${warning.blocking ? "bg-ql-warning-soft text-ql-warning" : "bg-ql-canvas text-ql-fg-secondary"}`} key={warning.code}>
+                {warning.blocking ? (
+                  <input checked={acknowledgedWarnings.includes(warning.code)} onChange={(event) => onAcknowledge(warning.code, event.target.checked)} type="checkbox" />
+                ) : null}
+                <span>{warning.message}{warning.blocking ? "（请对照截图修改后勾选确认）" : ""}</span>
+              </label>
+            ))}
+            {imported ? (
+              <button className="mt-4 h-9 w-full rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60" disabled={drafts.length === 0 || !sourcePriceUnit || unresolvedWarningCount > 0 || confirmPending} onClick={onConfirm} type="button">
+                {confirmPending ? "创建中…" : "确认并创建整套规则"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ImportedRuleCard({ draft, index, onChange }: {
+  draft: ImportedRuleDraft;
+  index: number;
+  onChange: (index: number, patch: Partial<ImportedRuleDraft>) => void;
+}) {
+  const updateWindow = (windowIndex: number, patch: Partial<BillingWindowForm>) =>
+    onChange(index, { windows: draft.windows.map((window, itemIndex) => itemIndex === windowIndex ? { ...window, ...patch } : window) });
+  return (
+    <div className="rounded-lg border border-ql-border-zone p-3">
+      <p className="mb-2 text-[12px] font-semibold text-ql-fg">{draft.rule_type}</p>
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        {draft.rule_type === "API_PRICE" ? <>
+          <CopyInput label="缓存命中单价（元/Token）" value={draft.cache_hit_price} onChange={(value) => onChange(index, { cache_hit_price: value })} />
+          <CopyInput label="输入单价（元/Token）" value={draft.cache_miss_price} onChange={(value) => onChange(index, { cache_miss_price: value })} />
+          <CopyInput label="输出单价（元/Token）" value={draft.output_price} onChange={(value) => onChange(index, { output_price: value })} />
+        </> : <CopyInput label="套餐用量倍率" value={draft.multiplier} onChange={(value) => onChange(index, { multiplier: value })} />}
+        <CopyInput label="优先级" type="number" value={String(draft.priority)} onChange={(value) => onChange(index, { priority: Number(value) })} />
+      </div>
+      {draft.windows.map((window, windowIndex) => (
+        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-4" key={windowIndex}>
+          <CopyInput label="时区" value={window.timezone} onChange={(value) => updateWindow(windowIndex, { timezone: value })} />
+          <CopyInput label="星期 1-7" value={window.days_of_week} onChange={(value) => updateWindow(windowIndex, { days_of_week: value })} />
+          <CopyInput label="开始" type="time" value={window.start_time} onChange={(value) => updateWindow(windowIndex, { start_time: value })} />
+          <CopyInput label="结束" type="time" value={window.end_time} onChange={(value) => updateWindow(windowIndex, { end_time: value })} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CopyRuleSetForm({
+  copyDrafts,
+  copyEffectiveFrom,
+  copyEffectiveTo,
+  copyRuleVersion,
+  copySourceKey,
+  copySources,
+  editedCopyFieldCount,
+  enabledRoutes,
+  resources,
+  selectedCopySource,
+  selectedRuleRoute,
+  selectedRuleRouteId,
+  validationError,
+  onDraftChange,
+  onEffectiveFromChange,
+  onEffectiveToChange,
+  onReview,
+  onRuleVersionChange,
+  onSourceChange,
+  onTargetChange,
+}: {
+  copyDrafts: CopyRuleDraft[];
+  copyEffectiveFrom: string;
+  copyEffectiveTo: string;
+  copyRuleVersion: string;
+  copySourceKey: string;
+  copySources: CopyableRuleSet[];
+  editedCopyFieldCount: number;
+  enabledRoutes: ModelRouteItem[];
+  resources: Array<Pick<ProviderResourceItem, "id" | "name">>;
+  selectedCopySource: CopyableRuleSet | undefined;
+  selectedRuleRoute: ModelRouteItem | undefined;
+  selectedRuleRouteId: string;
+  validationError: string;
+  onDraftChange: (
+    index: number,
+    patch: Partial<Omit<CopyRuleDraft, "sourceRule" | "rule_type">>,
+  ) => void;
+  onEffectiveFromChange: (value: string) => void;
+  onEffectiveToChange: (value: string) => void;
+  onReview: () => void;
+  onRuleVersionChange: (value: string) => void;
+  onSourceChange: (source: CopyableRuleSet | undefined) => void;
+  onTargetChange: (routeId: string) => void;
+}) {
+  return (
+    <div className="mb-4 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <FormField htmlFor="copy-target-route" label="目标 Model Route">
+          <select
+            className={INPUT_CLASS}
+            id="copy-target-route"
+            onChange={(event) => onTargetChange(event.target.value)}
+            value={selectedRuleRouteId}
+          >
+            <option value="">请选择</option>
+            {enabledRoutes.map((route) => (
+              <option key={route.id} value={route.id}>
+                {resources.find((resource) => resource.id === route.provider_resource_id)?.name
+                  ?? route.provider_resource_id}
+                {" · "}{route.upstream_model}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField
+          hint={copySources.length > 0 ? "已按同一资源、模型名相似度和最近生效时间排序" : undefined}
+          htmlFor="copy-source-rule-set"
+          label="来源规则集"
+        >
+          <select
+            className={INPUT_CLASS}
+            disabled={!selectedRuleRoute || copySources.length === 0}
+            id="copy-source-rule-set"
+            onChange={(event) =>
+              onSourceChange(copySources.find((source) => source.key === event.target.value))}
+            value={copySourceKey}
+          >
+            <option value="">
+              {selectedRuleRoute && copySources.length === 0
+                ? "同一资源下无可复制规则"
+                : "请先选择目标"}
+            </option>
+            {copySources.map((source, index) => (
+              <option key={source.key} value={source.key}>
+                {source.upstreamModel}（{source.rules.length} 条）{index === 0 ? " · 推荐" : ""}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField htmlFor="copy-rule-version" label="新规则版本">
+          <input
+            className={INPUT_CLASS}
+            id="copy-rule-version"
+            maxLength={64}
+            onChange={(event) => onRuleVersionChange(event.target.value)}
+            value={copyRuleVersion}
+          />
+        </FormField>
+        <FormField htmlFor="copy-effective-from" label="生效时间">
+          <input
+            className={INPUT_CLASS}
+            id="copy-effective-from"
+            onChange={(event) => onEffectiveFromChange(event.target.value)}
+            type="datetime-local"
+            value={copyEffectiveFrom}
+          />
+        </FormField>
+        <FormField htmlFor="copy-effective-to" label="失效时间（可空）">
+          <input
+            className={INPUT_CLASS}
+            id="copy-effective-to"
+            onChange={(event) => onEffectiveToChange(event.target.value)}
+            type="datetime-local"
+            value={copyEffectiveTo}
+          />
+        </FormField>
+      </div>
+
+      {selectedRuleRoute && copySources.length === 0 ? (
+        <p className="mt-3 rounded-lg bg-ql-warning-soft p-3 text-[12px] text-ql-warning">
+          该资源下没有其他模型的当前有效规则，请改用空白创建。
+        </p>
+      ) : null}
+
+      <div className="mt-4 flex flex-col gap-3">
+        {copyDrafts.map((draft, index) => (
+          <CopyRuleCard
+            draft={draft}
+            index={index}
+            key={draft.sourceRule.id}
+            onChange={onDraftChange}
+          />
+        ))}
+      </div>
+
+      {selectedCopySource ? (
+        <div className="mt-4 rounded-lg border border-ql-border-zone bg-ql-canvas p-3 text-[12px] text-ql-fg-secondary">
+          差异预览：{selectedCopySource.upstreamModel} → {selectedRuleRoute?.upstream_model}；
+          共 {copyDrafts.length} 条规则；经济字段、时间窗口或优先级已修改 {editedCopyFieldCount} 项。
+        </div>
+      ) : null}
+      {validationError ? (
+        <p className="mt-3 rounded-lg bg-ql-danger-soft p-3 text-[12px] text-ql-danger" role="alert">
+          {validationError}
+        </p>
+      ) : null}
+      <div className="mt-4 flex justify-end">
+        <button
+          className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
+          disabled={!selectedCopySource || copyDrafts.length === 0}
+          onClick={onReview}
+          type="button"
+        >
+          差异确认
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CopyRuleCard({
+  draft,
+  index,
+  onChange,
+}: {
+  draft: CopyRuleDraft;
+  index: number;
+  onChange: (
+    index: number,
+    patch: Partial<Omit<CopyRuleDraft, "sourceRule" | "rule_type">>,
+  ) => void;
+}) {
+  const changed = changedCopyFields(draft);
+  const updateWindow = (windowIndex: number, patch: Partial<BillingWindowForm>) =>
+    onChange(index, {
+      windows: draft.windows.map((window, itemIndex) =>
+        itemIndex === windowIndex ? { ...window, ...patch } : window),
+    });
+  return (
+    <div className="rounded-lg border border-ql-border-zone bg-ql-surface p-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-semibold text-ql-fg">{draft.rule_type}</p>
+          <p className="text-[11px] text-ql-fg-tertiary">
+            来源 {draft.sourceRule.upstream_model} · {draft.sourceRule.rule_version}
+          </p>
+        </div>
+        <StatusTag tone={changed.length > 0 ? "warning" : "neutral"}>
+          {changed.length > 0 ? `已修改 ${changed.length} 项` : "原样复制"}
+        </StatusTag>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        {draft.rule_type === "API_PRICE" ? (
+          <>
+            <CopyInput label="缓存命中单价" value={draft.cache_hit_price} onChange={(value) => onChange(index, { cache_hit_price: value })} />
+            <CopyInput label="输入单价" value={draft.cache_miss_price} onChange={(value) => onChange(index, { cache_miss_price: value })} />
+            <CopyInput label="输出单价" value={draft.output_price} onChange={(value) => onChange(index, { output_price: value })} />
+          </>
+        ) : (
+          <CopyInput label="套餐用量倍率" value={draft.multiplier} onChange={(value) => onChange(index, { multiplier: value })} />
+        )}
+        <CopyInput label="币种" value={draft.currency} onChange={(value) => onChange(index, { currency: value.toUpperCase() })} />
+        <CopyInput label="优先级" type="number" value={String(draft.priority)} onChange={(value) => onChange(index, { priority: Number(value) })} />
+      </div>
+      {draft.rule_type !== "MODEL_TIER" ? (
+        <div className="mt-3 rounded border border-ql-border-zone p-2">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[11px] font-medium text-ql-fg-secondary">时间窗口</span>
+            <button
+              className="rounded px-2 py-1 text-[11px] text-ql-action hover:bg-ql-action-soft"
+              onClick={() => onChange(index, {
+                windows: [...draft.windows, {
+                  timezone: "Asia/Shanghai",
+                  days_of_week: "1,2,3,4,5,6,7",
+                  start_time: "09:00",
+                  end_time: "12:00",
+                }],
+              })}
+              type="button"
+            >
+              添加窗口
+            </button>
+          </div>
+          {draft.windows.map((window, windowIndex) => (
+            <div className="mb-2 grid grid-cols-1 gap-2 last:mb-0 md:grid-cols-5" key={`${draft.sourceRule.id}-${windowIndex}`}>
+              <CopyInput label="时区" value={window.timezone} onChange={(value) => updateWindow(windowIndex, { timezone: value })} />
+              <CopyInput label="星期 1-7" value={window.days_of_week} onChange={(value) => updateWindow(windowIndex, { days_of_week: value })} />
+              <CopyInput label="开始（含）" type="time" value={window.start_time} onChange={(value) => updateWindow(windowIndex, { start_time: value })} />
+              <CopyInput label="结束（不含）" type="time" value={window.end_time} onChange={(value) => updateWindow(windowIndex, { end_time: value })} />
+              <div className="flex items-end">
+                <button
+                  className="h-9 rounded px-2 text-[11px] text-ql-danger hover:bg-ql-danger-soft"
+                  onClick={() => onChange(index, {
+                    windows: draft.windows.filter((_, itemIndex) => itemIndex !== windowIndex),
+                  })}
+                  type="button"
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CopyInput({
+  label,
+  value,
+  type = "text",
+  onChange,
+}: {
+  label: string;
+  value: string;
+  type?: "text" | "number" | "time";
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-[11px] text-ql-fg-secondary">
+      <span>{label}</span>
+      <input
+        className={INPUT_CLASS}
+        onChange={(event) => onChange(event.target.value)}
+        type={type}
+        value={value}
+      />
+    </label>
   );
 }
 

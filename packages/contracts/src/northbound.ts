@@ -31,6 +31,12 @@ export interface ChatCompletionRequest {
   stream?: boolean;
   tools?: unknown[];
   tool_choice?: unknown;
+  /** OpenAI-compatible 结构化输出约束（例如 json_schema + strict）。 */
+  response_format?: unknown;
+  /** 厂商兼容的推理强度；具体枚举由上游模型校验。 */
+  reasoning_effort?: string;
+  /** 上游最大输出 Token，用于限制成本与响应体量。 */
+  max_completion_tokens?: number;
 }
 
 export interface ChatCompletionChoice {

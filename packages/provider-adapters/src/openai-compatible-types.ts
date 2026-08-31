@@ -55,6 +55,8 @@ export interface ChatCompletionBody {
   parallel_tool_calls?: boolean;
   max_tokens?: number;
   reasoning_effort?: string;
+  response_format?: unknown;
+  max_completion_tokens?: number;
 }
 
 export interface UpstreamMessage {

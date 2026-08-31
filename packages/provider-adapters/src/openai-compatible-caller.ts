@@ -164,6 +164,26 @@ export function resolveProviderSecret(input: {
 }
 
 /** Responses / Chat / Messages 北向载荷统一转换为上游 Chat Completions。 */
+function chatPassThroughFields(
+  capability: AdapterRequest["capability"],
+  body: Record<string, unknown> | null,
+): Pick<ChatCompletionBody, "reasoning_effort" | "response_format" | "max_completion_tokens"> {
+  if (capability !== "chat" || body === null) return {};
+  return {
+    ...(typeof body.reasoning_effort === "string"
+      ? { reasoning_effort: body.reasoning_effort }
+      : {}),
+    ...(body.response_format !== undefined
+      ? { response_format: body.response_format }
+      : {}),
+    ...(typeof body.max_completion_tokens === "number"
+      && Number.isInteger(body.max_completion_tokens)
+      && body.max_completion_tokens > 0
+      ? { max_completion_tokens: body.max_completion_tokens }
+      : {}),
+  };
+}
+
 export function toChatCompletionsRequest(
   resource: AdapterResource,
   request: AdapterRequest,
@@ -222,6 +242,7 @@ export function toChatCompletionsRequest(
     ...(tools && tools.length > 0 ? { tools } : {}),
     ...(toolChoice !== undefined ? { tool_choice: toolChoice } : {}),
     ...(parallelToolCalls !== undefined ? { parallel_tool_calls: parallelToolCalls } : {}),
+    ...chatPassThroughFields(request.capability, body),
   };
 }
 

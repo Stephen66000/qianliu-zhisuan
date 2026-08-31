@@ -25,7 +25,10 @@ async function start(): Promise<void> {
   requireEnv("GATEWAY_KEY_PEPPER");
   requireEnv("CREDENTIAL_KEK");
   requireEnv("COOKIE_SECRET");
-  if (process.env.NODE_ENV === "production") requireEnv("WEB_ORIGIN");
+  if (process.env.NODE_ENV === "production") {
+    requireEnv("WEB_ORIGIN");
+    requireEnv("RULE_EXTRACTION_GATEWAY_API_KEY");
+  }
   const db = createKysely();
   const app = buildControlApi(db, { port, host });
   const shutdown = installGracefulShutdown({

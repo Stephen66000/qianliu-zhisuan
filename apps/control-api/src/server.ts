@@ -32,6 +32,7 @@ import {
   PrincipalAccessConfigRepository,
   ProviderQuotaWindowRepository,
   ResourcePoolRepository,
+  BillingRuleImportRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
 } from "@qianliu/database";
@@ -62,6 +63,8 @@ import { registerDeploymentLogRoutes } from "./deployment-logs/routes.js";
 import { registerEmployeeModelRuleRoutes } from "./employee-model-rules/routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
 import { readPositiveIntEnv } from "@qianliu/config";
+import { createRuleExtractor, type RuleExtractor } from "./billing-rule-imports/extractor.js";
+import { registerBillingRuleImportRoutes } from "./billing-rule-imports/routes.js";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
 export interface AdminContext {
@@ -99,6 +102,7 @@ declare module "fastify" {
     principalAccessConfigRepo: PrincipalAccessConfigRepository;
     quotaWindowRepo: ProviderQuotaWindowRepository;
     poolRepo: ResourcePoolRepository;
+    billingRuleImportRepo: BillingRuleImportRepository;
   }
 }
 
@@ -117,6 +121,7 @@ export function readRequestBodyLimit(env: NodeJS.ProcessEnv): number {
 export interface ControlApiOptions {
   port?: number;
   host?: string;
+  ruleExtractor?: RuleExtractor;
 }
 
 function alertThresholdsFromEnv(env: NodeJS.ProcessEnv): AlertThresholds {
@@ -159,7 +164,7 @@ function alertThresholdsFromEnv(env: NodeJS.ProcessEnv): AlertThresholds {
   };
 }
 
-export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions = {}): FastifyInstance {
+export function buildControlApi(db: Kysely<Database>, opts: ControlApiOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info" },
     // W24：反代（Caddy/nginx）终止 TLS 时，信任 X-Forwarded-* 以正确判定协议/主机（影响 Cookie secure）。
@@ -199,6 +204,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("principalAccessConfigRepo", new PrincipalAccessConfigRepository(db));
   app.decorate("quotaWindowRepo", new ProviderQuotaWindowRepository(db));
   app.decorate("poolRepo", new ResourcePoolRepository(db));
+  app.decorate("billingRuleImportRepo", new BillingRuleImportRepository(db));
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
@@ -244,6 +250,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerDashboardRoutes(child);
     registerUsageRoutes(child);
     registerReadModelRoutes(child);
+    registerBillingRuleImportRoutes(child, opts.ruleExtractor ?? createRuleExtractor());
     registerAdminWriteRoutes(child);
     registerGatewayRequestRoutes(child);
     registerAlertRoutes(child);

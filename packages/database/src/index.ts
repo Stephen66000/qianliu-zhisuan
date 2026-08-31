@@ -110,6 +110,10 @@ export {
   type FinalizeLedgerSettlementInput,
 } from "./repositories/gateway-ledger-repository.js";
 export {
+  BillingRuleImportRepository,
+  BillingRuleImportConflictError,
+} from "./repositories/billing-rule-import-repository.js";
+export {
   GatewayLedgerSettlementConflictError,
   summarizeLedgerUsageQuality,
 } from "./repositories/gateway-ledger-settlement.js";

@@ -322,6 +322,58 @@ describe("Responses → Chat Completions", () => {
   });
 });
 
+describe("Chat Completions 保真透传", () => {
+  it("保留多模态消息、严格 JSON Schema 与推理强度", () => {
+    const responseFormat = {
+      type: "json_schema",
+      json_schema: {
+        name: "pricing_table",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            rows: { type: "array", items: { type: "object" } },
+          },
+          required: ["rows"],
+          additionalProperties: false,
+        },
+      },
+    };
+    const imageContent = [
+      {
+        type: "image_url",
+        image_url: { url: "data:image/png;base64,iVBORw0KGgo=" },
+      },
+      { type: "text", text: "提取计价表" },
+    ];
+
+    const body = toChatCompletionsRequest(resource({
+      providerCode: "kimi",
+      upstreamModel: "kimi-k3",
+    }), {
+      requestId: "req-chat-vision-schema",
+      unifiedModel: "ql-k3",
+      capability: "chat",
+      stream: false,
+      body: {
+        model: "ql-k3",
+        messages: [{ role: "user", content: imageContent }],
+        reasoning_effort: "low",
+        max_completion_tokens: 4096,
+        response_format: responseFormat,
+      },
+    });
+
+    expect(body).toMatchObject({
+      model: "kimi-k3",
+      messages: [{ role: "user", content: imageContent }],
+      reasoning_effort: "low",
+      max_completion_tokens: 4096,
+      response_format: responseFormat,
+    });
+  });
+});
+
 describe("OpenAI-compatible HTTP caller", () => {
   it("非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses", async () => {
     let capturedUrl = "";

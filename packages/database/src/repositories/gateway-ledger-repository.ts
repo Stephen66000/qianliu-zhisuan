@@ -46,6 +46,33 @@ import {
 
 export type * from "./gateway-ledger-types.js";
 
+export interface CreateBillingRuleInput {
+  enterprise_id: string;
+  rule_type: string;
+  rule_version: string;
+  provider_resource_id?: string | null;
+  upstream_model?: string | null;
+  effective_from: Date;
+  effective_to?: Date | null;
+  timezone?: string | null;
+  days_of_week?: number[] | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  time_windows?: Array<{
+    timezone: string;
+    days_of_week: number[] | null;
+    start_time: string;
+    end_time: string;
+  }> | null;
+  multiplier?: string | null;
+  cache_hit_price?: string | null;
+  cache_miss_price?: string | null;
+  output_price?: string | null;
+  currency?: string;
+  priority?: number;
+  source?: string | null;
+}
+
 export class GatewayLedgerRepository {
   constructor(private db: Kysely<Database>) {}
 
@@ -341,32 +368,7 @@ export class GatewayLedgerRepository {
       .execute() as never;
   }
 
-  async createBillingRule(input: {
-    enterprise_id: string;
-    rule_type: string;
-    rule_version: string;
-    provider_resource_id?: string | null;
-    upstream_model?: string | null;
-    effective_from: Date;
-    effective_to?: Date | null;
-    timezone?: string | null;
-    days_of_week?: number[] | null;
-    start_time?: string | null;
-    end_time?: string | null;
-    time_windows?: Array<{
-      timezone: string;
-      days_of_week: number[] | null;
-      start_time: string;
-      end_time: string;
-    }> | null;
-    multiplier?: string | null;
-    cache_hit_price?: string | null;
-    cache_miss_price?: string | null;
-    output_price?: string | null;
-    currency?: string;
-    priority?: number;
-    source?: string | null;
-  }) {
+  async createBillingRule(input: CreateBillingRuleInput) {
     const firstWindow = input.time_windows?.[0];
     return this.db
       .insertInto("billing_rule")
@@ -397,5 +399,17 @@ export class GatewayLedgerRepository {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+  }
+
+  /** 整套规则复制：同一事务内全部创建，避免留下部分成功的规则集。 */
+  async createBillingRulesAtomically(inputs: CreateBillingRuleInput[]) {
+    return this.db.transaction().execute(async (trx) => {
+      const repository = new GatewayLedgerRepository(trx);
+      const rules = [];
+      for (const input of inputs) {
+        rules.push(await repository.createBillingRule(input));
+      }
+      return rules;
+    });
   }
 }
