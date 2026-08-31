@@ -1,0 +1,9 @@
+BEGIN;
+INSERT INTO enterprise(id, name) VALUES
+  ('54000000-0000-4000-8000-000000000001', '跨企业 A'),
+  ('54000000-0000-4000-8000-000000000002', '跨企业 B');
+INSERT INTO principal(id, enterprise_id, type, name, status) VALUES
+  ('54000000-0000-4000-8000-000000000011', '54000000-0000-4000-8000-000000000002', 'EMPLOYEE', '企业 B 主体', 'ACTIVE');
+INSERT INTO principal_key(id, enterprise_id, principal_id, key_prefix, key_digest, status) VALUES
+  ('54000000-0000-4000-8000-000000000012', '54000000-0000-4000-8000-000000000001', '54000000-0000-4000-8000-000000000011', 'cross', 'cross-digest', 'ACTIVE');
+COMMIT;

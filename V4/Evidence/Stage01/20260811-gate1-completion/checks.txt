@@ -1,0 +1,59 @@
+executed_at=2026-08-11 22:12 Asia/Shanghai
+candidate=仟流智算 2.0 标准版 / Gate 1 Final.2
+result=done
+
+[planning_change]
+PC-20260811-01=done
+PC-20260811-02=done
+global_identity_governance_removed=true
+minimal_account_realm_mfa_roster_contract=true
+discriminated_export_manifest=true
+
+[prototype_walkthrough]
+exit=0
+Prototype walkthrough OK: 7/7 page tasks, 9/9 walkthrough scenarios, dual-role-secret, owner-dual-share, typed-scope-period-resolution, post-close-value, export-realm-split, failure/recovery-only, support-actor-reject-reapply, bootstrap-invite, reopen, mobile layout
+
+[html_script_parse]
+exit=0
+HTML scripts OK: V4/原型/仟流智算-2.0-标准版原型.html (1)
+HTML scripts OK: V4/仟流智算-Stage01方案准备进度图-v2.0.html (1)
+
+[stage01_progress]
+exit=0
+Stage01 STAGE_DATA OK: 38/38 done, evidence paths present
+
+[candidate_manifest]
+exit=0
+22/22 files SHA-256 OK
+
+[syntax]
+json=0
+shell=0
+cjs=0
+trailing_whitespace=0
+
+[contract_scan]
+POOL-044=0
+legacy_identity_fields=0
+period_state_count=4
+CHECKING_FAILED_as_period_state=false
+agent_in_2_0_standard=false
+
+[poc_results]
+POC20-001=PASS_WITH_LIMITATIONS
+POC20-002=PASS_WITH_LIMITATIONS
+POC20-003=PASS_WITH_LIMITATIONS
+POC20-004=PASS_WITH_LIMITATIONS
+
+[bounded_gate_audit]
+P0=0
+P1=0
+blocking_evidence_gap=0
+lifecycle_support_owner_recovery_erasure_contract=consistent
+export_manifest_contract=consistent
+
+[scope_truth]
+product_code_implemented=false
+customer_evidence_available=false
+customer_validation_status=todo
+git_write_actions=none

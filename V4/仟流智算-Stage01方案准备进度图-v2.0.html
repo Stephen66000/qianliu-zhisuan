@@ -1,0 +1,1716 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>仟流 AI 开发 SOP v1.0｜01 方案准备进度图</title>
+  <style>
+    :root,
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --ql-canvas: #F4F7FB;
+      --ql-surface: #FFFFFF;
+      --ql-surface-subtle: #F8FAFC;
+      --ql-surface-muted: #EEF2F6;
+      --ql-surface-brand-soft: #EEF4FE;
+      --ql-border: #D8E1EB;
+      --ql-border-strong: #7D8FA4;
+      --ql-text-primary: #172033;
+      --ql-text-secondary: #526175;
+      --ql-text-tertiary: #6B7280;
+      --ql-text-disabled: #9AA6B2;
+      --ql-action: #2F6FCE;
+      --ql-action-hover: #255DB2;
+      --ql-action-soft: #E8F0FD;
+      --ql-accent-visual: #00D2D4;
+      --ql-accent-text: #00787A;
+      --ql-success: #267A3D;
+      --ql-success-soft: #EAF6ED;
+      --ql-warning: #9A4A2E;
+      --ql-warning-soft: #FBEFE9;
+      --ql-danger: #C7352E;
+      --ql-danger-soft: #FDEDEC;
+      --ql-neutral-soft: #EEF2F6;
+      --ql-focus: rgba(47, 111, 206, 0.22);
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --ql-canvas: #0F1B2E;
+      --ql-surface: #14243A;
+      --ql-surface-subtle: #182B45;
+      --ql-surface-muted: #1B314F;
+      --ql-surface-brand-soft: #1C3458;
+      --ql-border: #294564;
+      --ql-border-strong: #6F8FB3;
+      --ql-text-primary: #F5F7FA;
+      --ql-text-secondary: #C4CEDA;
+      --ql-text-tertiary: #9CA3AF;
+      --ql-text-disabled: #65758A;
+      --ql-action: #6EA0F5;
+      --ql-action-hover: #8AB5FA;
+      --ql-action-soft: rgba(65, 126, 224, 0.18);
+      --ql-accent-visual: #00D2D4;
+      --ql-accent-text: #5DE4E6;
+      --ql-success: #5CCB76;
+      --ql-success-soft: rgba(52, 168, 83, 0.16);
+      --ql-warning: #F0A07E;
+      --ql-warning-soft: rgba(217, 119, 87, 0.16);
+      --ql-danger: #FF746C;
+      --ql-danger-soft: rgba(234, 67, 53, 0.16);
+      --ql-neutral-soft: #1B314F;
+      --ql-focus: rgba(110, 160, 245, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--ql-canvas);
+      color: var(--ql-text-primary);
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "SF Pro Text",
+        "PingFang SC",
+        "Microsoft YaHei",
+        "Noto Sans CJK SC",
+        "Segoe UI",
+        sans-serif;
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background: var(--ql-canvas);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    a {
+      color: var(--ql-action);
+      text-underline-offset: 3px;
+    }
+
+    a:hover {
+      color: var(--ql-action-hover);
+    }
+
+    a:focus-visible,
+    button:focus-visible,
+    select:focus-visible {
+      outline: 3px solid var(--ql-focus);
+      outline-offset: 2px;
+    }
+
+    .page-shell {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      padding: 24px 32px 48px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 64px;
+      padding: 10px 0 18px;
+      border-bottom: 1px solid var(--ql-border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
+
+    .brand-fallback {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      color: #FFFFFF;
+      background: #417EE0;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+
+    .brand-name {
+      font-size: 17px;
+      line-height: 24px;
+      font-weight: 600;
+    }
+
+    .brand-subtitle {
+      color: var(--ql-text-tertiary);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .theme-field {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+      gap: 8px;
+      color: var(--ql-text-secondary);
+      font-size: 13px;
+    }
+
+    .theme-field select {
+      min-height: 36px;
+      padding: 6px 32px 6px 10px;
+      color: var(--ql-text-primary);
+      background: var(--ql-surface);
+      border: 1px solid var(--ql-border-strong);
+      border-radius: 8px;
+    }
+
+    .stage-nav {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin: 24px 0;
+    }
+
+    .stage-node {
+      min-width: 0;
+      padding: 12px 14px;
+      color: var(--ql-text-tertiary);
+      background: var(--ql-surface-subtle);
+      border: 1px solid var(--ql-border);
+      border-radius: 12px;
+    }
+
+    .stage-node[aria-current="step"] {
+      color: var(--ql-action);
+      background: var(--ql-surface-brand-soft);
+      border-color: var(--ql-action);
+    }
+
+    .stage-number {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 12px;
+      line-height: 18px;
+      font-weight: 600;
+    }
+
+    .stage-name {
+      color: inherit;
+      font-size: 15px;
+      line-height: 22px;
+      font-weight: 600;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--ql-action);
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 600;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+      font-size: 28px;
+      line-height: 36px;
+      font-weight: 700;
+    }
+
+    h2 {
+      margin-bottom: 4px;
+      font-size: 22px;
+      line-height: 30px;
+      font-weight: 650;
+    }
+
+    h3 {
+      margin-bottom: 2px;
+      font-size: 18px;
+      line-height: 26px;
+      font-weight: 600;
+    }
+
+    .hero-copy {
+      max-width: 780px;
+      margin-bottom: 0;
+      color: var(--ql-text-secondary);
+      font-size: 16px;
+      line-height: 26px;
+    }
+
+    .hero-badges {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .badge-neutral {
+      color: var(--ql-text-secondary);
+      background: var(--ql-neutral-soft);
+    }
+
+    .badge-brand {
+      color: var(--ql-action);
+      background: var(--ql-action-soft);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr 1.5fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .summary-card,
+    .deliverable-card,
+    .group,
+    .review-panel {
+      background: var(--ql-surface);
+      border: 1px solid var(--ql-border);
+      border-radius: 12px;
+    }
+
+    .summary-card {
+      min-width: 0;
+      padding: 18px 20px;
+    }
+
+    .summary-label {
+      margin-bottom: 5px;
+      color: var(--ql-text-tertiary);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .summary-value {
+      color: var(--ql-text-primary);
+      font-size: 18px;
+      line-height: 26px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .summary-value.progress-value {
+      color: var(--ql-accent-text);
+      font-size: 38px;
+      line-height: 44px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-context {
+      margin-top: 5px;
+      color: var(--ql-text-secondary);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .current-strip {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 24px;
+      padding: 14px 16px;
+      color: var(--ql-text-secondary);
+      background: var(--ql-action-soft);
+      border-left: 4px solid var(--ql-action);
+      border-radius: 0 12px 12px 0;
+    }
+
+    .current-strip strong {
+      color: var(--ql-text-primary);
+    }
+
+    .deliverables-head,
+    .groups-head,
+    .review-head,
+    .boundary-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .section-note {
+      margin: 0;
+      color: var(--ql-text-tertiary);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .deliverables-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .deliverable-card {
+      min-width: 0;
+      padding: 18px;
+    }
+
+    .deliverable-top,
+    .group-top,
+    .review-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .deliverable-kicker,
+    .group-kicker {
+      margin-bottom: 2px;
+      color: var(--ql-action);
+      font-size: 12px;
+      line-height: 18px;
+      font-weight: 600;
+    }
+
+    .deliverable-description,
+    .group-description {
+      margin: 6px 0 0;
+      color: var(--ql-text-secondary);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .count {
+      color: var(--ql-text-secondary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 7px;
+      margin-top: 14px;
+      overflow: hidden;
+      background: var(--ql-surface-muted);
+      border-radius: 999px;
+    }
+
+    .progress-fill {
+      width: 0;
+      height: 100%;
+      background: var(--ql-success);
+      border-radius: inherit;
+      transition: width 140ms ease;
+    }
+
+    .groups {
+      display: grid;
+      gap: 16px;
+    }
+
+    .group {
+      overflow: hidden;
+    }
+
+    .group-header {
+      padding: 18px 20px 16px;
+      background: var(--ql-surface-subtle);
+      border-bottom: 1px solid var(--ql-border);
+    }
+
+    .group-summary {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+      gap: 10px;
+    }
+
+    .group-items {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .check-item {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr) minmax(230px, 0.55fr);
+      gap: 14px;
+      align-items: start;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--ql-border);
+    }
+
+    .check-item:last-child {
+      border-bottom: 0;
+    }
+
+    .check-item[data-status="done"] {
+      background: var(--ql-success-soft);
+    }
+
+    .check-item[data-status="blocked"] {
+      background: var(--ql-warning-soft);
+    }
+
+    .check-item[data-status="failed"] {
+      background: var(--ql-danger-soft);
+    }
+
+    .check-item[data-status="doing"] {
+      background: var(--ql-action-soft);
+    }
+
+    .item-id {
+      color: var(--ql-text-tertiary);
+      font-size: 12px;
+      line-height: 20px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .item-title {
+      margin-bottom: 3px;
+      color: var(--ql-text-primary);
+      font-size: 14px;
+      line-height: 22px;
+      font-weight: 600;
+    }
+
+    .item-criteria {
+      color: var(--ql-text-secondary);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .item-meta {
+      display: grid;
+      justify-items: end;
+      gap: 7px;
+      min-width: 0;
+      text-align: right;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 26px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .status-badge[data-status="todo"],
+    .status-badge[data-status="cancelled"] {
+      color: var(--ql-text-secondary);
+      background: var(--ql-neutral-soft);
+    }
+
+    .status-badge[data-status="doing"] {
+      color: var(--ql-action);
+      background: var(--ql-action-soft);
+    }
+
+    .status-badge[data-status="done"] {
+      color: var(--ql-success);
+      background: var(--ql-success-soft);
+    }
+
+    .status-badge[data-status="blocked"] {
+      color: var(--ql-warning);
+      background: var(--ql-warning-soft);
+    }
+
+    .status-badge[data-status="failed"] {
+      color: var(--ql-danger);
+      background: var(--ql-danger-soft);
+    }
+
+    .evidence {
+      max-width: 100%;
+      color: var(--ql-text-tertiary);
+      font-size: 12px;
+      line-height: 18px;
+      overflow-wrap: anywhere;
+    }
+
+    .evidence a {
+      font-weight: 500;
+    }
+
+    .owner {
+      color: var(--ql-text-tertiary);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .review-section {
+      margin-top: 32px;
+    }
+
+    .review-panel {
+      padding: 20px;
+    }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .review-field {
+      min-width: 0;
+      padding: 12px;
+      background: var(--ql-surface-subtle);
+      border: 1px solid var(--ql-border);
+      border-radius: 8px;
+    }
+
+    .review-field-label {
+      margin-bottom: 3px;
+      color: var(--ql-text-tertiary);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .review-field-value {
+      color: var(--ql-text-primary);
+      font-size: 14px;
+      line-height: 22px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .review-rule {
+      margin: 16px 0 0;
+      color: var(--ql-text-secondary);
+    }
+
+    .boundary {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--ql-border);
+    }
+
+    .boundary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 24px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .boundary-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      color: var(--ql-text-secondary);
+    }
+
+    .boundary-icon {
+      color: var(--ql-action);
+      font-weight: 700;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .footer {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-top: 32px;
+      padding-top: 20px;
+      color: var(--ql-text-tertiary);
+      border-top: 1px solid var(--ql-border);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .footer div:last-child {
+      text-align: right;
+    }
+
+    @media (max-width: 1024px) {
+      .page-shell {
+        padding-inline: 24px;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .summary-card:last-child {
+        grid-column: 1 / -1;
+      }
+
+      .deliverables-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .review-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .check-item {
+        grid-template-columns: 52px minmax(0, 1fr);
+      }
+
+      .item-meta {
+        grid-column: 2;
+        justify-items: start;
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page-shell {
+        padding: 16px 16px 36px;
+      }
+
+      .topbar,
+      .hero,
+      .deliverables-head,
+      .groups-head,
+      .review-head,
+      .boundary-head,
+      .footer {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar {
+        display: flex;
+      }
+
+      .theme-field {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .stage-nav {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        display: flex;
+      }
+
+      .hero-badges {
+        justify-content: flex-start;
+      }
+
+      .summary-grid,
+      .review-grid,
+      .boundary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-card:last-child {
+        grid-column: auto;
+      }
+
+      .check-item {
+        grid-template-columns: 1fr;
+        padding: 14px 16px;
+      }
+
+      .item-meta {
+        grid-column: auto;
+      }
+
+      .group-header {
+        padding-inline: 16px;
+      }
+
+      .group-top {
+        flex-direction: column;
+      }
+
+      .group-summary {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .footer div:last-child {
+        text-align: left;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    @media print {
+      :root,
+      :root[data-theme="light"],
+      :root[data-theme="dark"] {
+        color-scheme: light;
+        --ql-canvas: #FFFFFF;
+        --ql-surface: #FFFFFF;
+        --ql-surface-subtle: #F8FAFC;
+        --ql-surface-muted: #EEF2F6;
+        --ql-surface-brand-soft: #EEF4FE;
+        --ql-border: #D8E1EB;
+        --ql-text-primary: #172033;
+        --ql-text-secondary: #526175;
+        --ql-text-tertiary: #6B7280;
+        --ql-action: #2F6FCE;
+        --ql-action-soft: #E8F0FD;
+        --ql-accent-text: #00787A;
+        --ql-success: #267A3D;
+        --ql-success-soft: #EAF6ED;
+        --ql-warning: #9A4A2E;
+        --ql-warning-soft: #FBEFE9;
+        --ql-danger: #C7352E;
+        --ql-danger-soft: #FDEDEC;
+        --ql-neutral-soft: #EEF2F6;
+      }
+
+      body {
+        background: #FFFFFF;
+      }
+
+      .page-shell {
+        width: 100%;
+        padding: 0;
+      }
+
+      .theme-field {
+        display: none;
+      }
+
+      .group,
+      .deliverable-card,
+      .summary-card,
+      .review-panel {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img
+          id="brand-logo"
+          class="brand-logo"
+          src="../../%E8%A7%86%E8%A7%89%E8%A7%84%E8%8C%83/%E4%BB%9F%E6%B5%81%E7%A7%91%E6%8A%80%20%E9%80%8F%E6%98%8E%E5%BA%95logo%20500px.png"
+          alt="仟流科技"
+        >
+        <span id="brand-fallback" class="brand-fallback" aria-hidden="true">仟</span>
+        <div>
+          <div class="brand-name">仟流 AI 开发 SOP</div>
+          <div class="brand-subtitle">从想法到可交付产品的逐级降风险系统</div>
+        </div>
+      </div>
+      <label class="theme-field" for="theme-select">
+        <span>显示主题</span>
+        <select id="theme-select" aria-label="显示主题">
+          <option value="system">跟随系统</option>
+          <option value="light">浅色</option>
+          <option value="dark">深色</option>
+        </select>
+      </label>
+    </header>
+
+    <nav class="stage-nav" aria-label="仟流 AI 开发 SOP 三阶段">
+      <div class="stage-node" aria-current="step">
+        <span class="stage-number">01 · 当前阶段</span>
+        <span class="stage-name">方案准备</span>
+      </div>
+      <div class="stage-node">
+        <span class="stage-number">02 · 后续阶段</span>
+        <span class="stage-name">开发计划</span>
+      </div>
+      <div class="stage-node">
+        <span class="stage-number">03 · 后续阶段</span>
+        <span class="stage-name">开发执行</span>
+      </div>
+    </nav>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">STAGE 01 · SOLUTION PREPARATION</p>
+          <h1 id="page-title">方案准备进度图</h1>
+          <p class="hero-copy">
+            把产品想法转化为足以支撑开发计划的产品方案、技术方案与立项版本基线。
+            本图只检查当前阶段；第二、第三阶段尚未到期，不提前制造欠账。
+          </p>
+        </div>
+        <div class="hero-badges" aria-label="版本和状态">
+          <span class="badge badge-brand">v1.0</span>
+          <span id="stage-state-badge" class="badge badge-neutral">待办</span>
+        </div>
+      </section>
+
+      <section class="summary-grid" aria-label="方案准备阶段摘要">
+        <article class="summary-card">
+          <div class="summary-label">阶段完成度</div>
+          <div id="overall-progress" class="summary-value progress-value">0 / 0</div>
+          <div id="overall-progress-context" class="summary-context">正在读取检查项</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-label">当前阻塞</div>
+          <div id="blocker-count" class="summary-value">0 项</div>
+          <div id="blocker-context" class="summary-context">暂无已登记阻塞</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-label">唯一下一步动作</div>
+          <div id="next-action" class="summary-value">绑定具体项目并填写 SP-01</div>
+          <div id="next-action-owner" class="summary-context">Owner：待指定</div>
+        </article>
+      </section>
+
+      <section class="current-strip" aria-label="当前状态">
+        <span aria-hidden="true">●</span>
+        <div>
+          <strong id="project-name">待绑定项目</strong>
+          <span id="current-focus">：当前为模板草案，尚未产生项目级进度。</span>
+        </div>
+      </section>
+
+      <section aria-labelledby="deliverables-title">
+        <div class="deliverables-head">
+          <div>
+            <h2 id="deliverables-title">三份阶段成果</h2>
+            <p class="section-note">成果可以合并承载，但信息、走查、PoC 和真实结论不能省略。</p>
+          </div>
+        </div>
+        <div id="deliverables-grid" class="deliverables-grid"></div>
+      </section>
+
+      <section aria-labelledby="groups-title">
+        <div class="groups-head">
+          <div>
+            <h2 id="groups-title">方案准备检查图</h2>
+            <p class="section-note">每个 OK 都必须同时满足完成标准，并绑定成果或 Evidence。</p>
+          </div>
+          <span id="required-count" class="badge badge-neutral">0 个检查项</span>
+        </div>
+        <div id="groups" class="groups"></div>
+      </section>
+
+      <section class="review-section" aria-labelledby="review-title">
+        <div class="review-head">
+          <div>
+            <h2 id="review-title">产品与技术方案完成检查</h2>
+            <p class="section-note">当前任务完成检查；不要求另一个 AI，不建立第二套结论。</p>
+          </div>
+        </div>
+        <div class="review-panel">
+          <div class="review-top">
+            <div>
+              <div class="group-kicker">STAGE EXIT</div>
+              <h3>阶段唯一状态</h3>
+            </div>
+            <span id="review-status" class="status-badge" data-status="todo">○ 待办</span>
+          </div>
+          <div class="review-grid">
+            <div class="review-field">
+              <div class="review-field-label">适用对象</div>
+              <div id="review-object" class="review-field-value">待绑定</div>
+            </div>
+            <div class="review-field">
+              <div class="review-field-label">当前步骤</div>
+              <div id="review-owner-decision" class="review-field-value">完成三份阶段成果</div>
+            </div>
+            <div class="review-field">
+              <div class="review-field-label">允许动作</div>
+              <div id="review-allowed" class="review-field-value">仅允许继续准备方案</div>
+            </div>
+            <div class="review-field">
+              <div class="review-field-label">禁止动作</div>
+              <div id="review-forbidden" class="review-field-value">不得启动全面编码</div>
+            </div>
+            <div class="review-field">
+              <div class="review-field-label">复查触发点</div>
+              <div id="review-trigger" class="review-field-value">三份阶段成果就绪</div>
+            </div>
+          </div>
+          <p class="review-rule">
+            完成标准满足、阻断问题归零并绑定 Evidence 后，阶段状态直接设为 <strong>done（完成）</strong>；
+            这是唯一成功状态。业务验证假设属于可选信息，不进入本阶段完成度。
+          </p>
+        </div>
+      </section>
+
+      <section class="boundary" aria-labelledby="boundary-title">
+        <div class="boundary-head">
+          <div>
+            <h2 id="boundary-title">管理边界</h2>
+            <p class="section-note">开发是主流程，治理是护栏。</p>
+          </div>
+        </div>
+        <ul class="boundary-grid">
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>只检查当前阶段，后续阶段不提前创建欠账。</span></li>
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>成果可以合并承载，不为凑文件数量重复写材料。</span></li>
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>完成状态必须有真实成果或 Evidence，AI 声明不算完成。</span></li>
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>必要原型走查和 PoC 不能被纯文字说明替代。</span></li>
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>不以文件名、排版、模板或编号完美作为阶段阻塞依据。</span></li>
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>新增检查项必须说明降低什么具体风险。</span></li>
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>局部问题只阻塞受影响范围，不扩大为全项目停工。</span></li>
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>达到退出条件后必须收口，不能以“还能继续找问题”延长检查。</span></li>
+          <li class="boundary-item"><span class="boundary-icon">✓</span><span>另一个 AI 复核不是流程节点；业务验证假设不阻塞方案阶段完成。</span></li>
+        </ul>
+        <div class="legend" aria-label="状态图例">
+          <span class="status-badge" data-status="todo">○ 待办</span>
+          <span class="status-badge" data-status="doing">↻ 进行中</span>
+          <span class="status-badge" data-status="done">✓ 完成</span>
+          <span class="status-badge" data-status="blocked">! 阻塞</span>
+          <span class="status-badge" data-status="failed">× 失败</span>
+          <span class="status-badge" data-status="cancelled">— 已取消</span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div>
+        视觉基线：仟流视觉法则 1.2 · 仟流 Web 产品视觉规范 1.0 · 仟流 Agent 产品视觉与交互规范 1.0
+      </div>
+      <div id="footer-update">最后更新：2026-08-01</div>
+    </footer>
+  </div>
+
+  <script>
+    /*
+      仟流 AI 开发 SOP v1.0｜方案准备进度数据
+
+      维护规则：
+      1. 日常更新只修改 STAGE_DATA，不手工修改页面汇总数字。
+      2. status=done 时必须同时填写 evidence；没有真实成果不能标记完成。
+      3. 不适用项从 groups 和完成度分母中移除，并在 note 或范围记录中说明理由。
+      4. status=cancelled 时必须在 note 中填写 Planning Change ID 和取消理由。
+      5. 不因排版、模板或文件名问题把项目标记为 blocked。
+      6. 新增 item 时必须说明它降低的具体风险。
+    */
+    const STAGE_DATA = {
+      meta: {
+        sopVersion: "v1.0",
+        projectName: "仟流智算",
+        projectVersion: "2.0 标准版 / Gate 1 Final.2",
+
+        currentFocus: "Stage 01 已按 PC-20260811-02 重锁：回收全局身份治理扩张，保留最小账号级双控与判别式导出。",
+        nextAction: "进入 Stage 02，只形成整体开发计划、项目工程规则、开发执行基线和进度 Evidence",
+        nextActionOwner: "佳哥／当前 Codex 任务",
+        updatedAt: "2026-08-11 22:10 Asia/Shanghai"
+      },
+      review: {
+        object: "Stage 01 / Gate 1 Final",
+        currentStep: "SP-38 阶段完成与下一步（已完成）",
+        allowedAction: "Stage 01 成果只读；下一阶段仅允许形成 Stage 02 三份权威成果和完成检查 Evidence",
+        forbiddenAction: "不得开发产品代码，不得创建分支/worktree、commit、push、PR、发布或操作生产环境",
+        revisitTrigger: "P0/P1 或阻断性 Evidence Gap；范围变化先登记 Planning Change"
+      },
+      deliverables: [
+        {
+          id: "D1",
+          title: "产品方案",
+          description: "PRD、用户场景、业务流程、产品原型与验收意图。",
+          itemIds: ["SP-08", "SP-09", "SP-10", "SP-11", "SP-12", "SP-13", "SP-14", "SP-15"]
+        },
+        {
+          id: "D2",
+          title: "技术方案",
+          description: "TRD、架构、数据与接口、安全边界、运行恢复和必要 PoC。",
+          itemIds: ["SP-16", "SP-17", "SP-18", "SP-19", "SP-20", "SP-21", "SP-22", "SP-23", "SP-24", "SP-25", "SP-26", "SP-27", "SP-28", "SP-29", "SP-30"]
+        },
+        {
+          id: "D3",
+          title: "立项与版本基线",
+          description: "立项理由、版本目标、范围、风险、资源、验收、完成检查和阶段移交。",
+          itemIds: ["SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07", "SP-31", "SP-32", "SP-33", "SP-34", "SP-35", "SP-36", "SP-37", "SP-38"]
+        }
+      ],
+      groups: [
+        {
+          id: "G1",
+          title: "立项与目标",
+          description: "先确认为什么做、为谁做、当前版本解决什么，不用模糊愿景直接启动开发。",
+          items: [
+            {
+              id: "SP-01",
+              title: "项目、产品与版本身份",
+              criteria: "项目名称、产品名称、当前版本、产品负责人和技术负责人均已明确。",
+              status: "done",
+              owner: "佳哥",
+              evidence: ["V4/仟流智算-立项与版本基线-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-02",
+              title: "真实业务问题",
+              criteria: "用可观察的现状描述问题，说明谁在什么场景下受到什么影响。",
+              status: "done",
+              owner: "佳哥／产品 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-03",
+              title: "目标用户与关键责任人",
+              criteria: "目标用户、购买/决策者、实际使用者及关键业务 Owner 已识别。",
+              status: "done",
+              owner: "佳哥／产品 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md", "V4/仟流智算-角色权限矩阵-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-04",
+              title: "业务价值与成功标准",
+              criteria: "已说明做成后改变什么，并定义可验证的业务或产品成功标准。",
+              status: "done",
+              owner: "佳哥／产品 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md", "V4/仟流智算-初始验收矩阵-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-05",
+              title: "当前版本目标",
+              criteria: "当前版本只保留一个清晰主目标，并说明它对产品总目标的贡献。",
+              status: "done",
+              owner: "佳哥",
+              evidence: ["V4/仟流智算-立项与版本基线-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-06",
+              title: "范围与非目标",
+              criteria: "scope / non-scope 已明确，能够判断新增需求是否属于当前版本。",
+              status: "done",
+              owner: "佳哥／产品 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md", "V4/Planning-Change-Log.md"],
+              note: ""
+            },
+            {
+              id: "SP-07",
+              title: "资源、依赖与初步约束",
+              criteria: "关键人员、预算/时间、外部依赖、环境和无法绕过的约束已登记。",
+              status: "done",
+              owner: "佳哥／技术 Owner",
+              evidence: ["V4/仟流智算-立项与版本基线-v2.0.md", "V4/仟流智算-开发规划-v2.0.md"],
+              note: ""
+            }
+          ]
+        },
+        {
+          id: "G2",
+          title: "产品方案",
+          description: "把产品目标转成可以走查的用户场景、业务流程、需求边界和原型。",
+          items: [
+            {
+              id: "SP-08",
+              title: "PRD 主线",
+              criteria: "PRD 已覆盖目标、用户、问题、范围、核心能力、非目标和验收意图。",
+              status: "done",
+              owner: "产品 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-09",
+              title: "角色与关键使用场景",
+              criteria: "主要角色、触发条件、关键任务和期望结果已形成可检查的场景清单。",
+              status: "done",
+              owner: "产品／安全 Owner",
+              evidence: ["V4/仟流智算-角色权限矩阵-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-10",
+              title: "端到端业务流程",
+              criteria: "从真实入口到业务结果的主流程、分支、责任边界和异常出口已画清。",
+              status: "done",
+              owner: "产品 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md", "V4/原型/仟流智算-2.0-标准版原型.html"],
+              note: ""
+            },
+            {
+              id: "SP-11",
+              title: "需求范围与优先级",
+              criteria: "当前版本能力、后续版本候选和明确不做项已分开，不存在隐性全做。",
+              status: "done",
+              owner: "佳哥／产品 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md", "V4/Planning-Change-Log.md"],
+              note: ""
+            },
+            {
+              id: "SP-12",
+              title: "产品原型覆盖",
+              criteria: "原型覆盖核心场景、关键页面、重要状态和用户需要作出的主要决定。",
+              status: "done",
+              owner: "产品 Owner",
+              evidence: ["V4/原型/仟流智算-2.0-标准版原型.html"],
+              note: ""
+            },
+            {
+              id: "SP-13",
+              title: "真实原型走查",
+              criteria: "产品、业务和技术已按真实任务走查原型，问题有结论而非只看截图。",
+              status: "done",
+              owner: "当前 Codex 任务",
+              evidence: ["V4/Evidence/Stage01/20260811-standard-prototype-walkthrough/README.md"],
+              note: ""
+            },
+            {
+              id: "SP-14",
+              title: "空、错、拒绝和恢复状态",
+              criteria: "空状态、校验失败、权限拒绝、超时、取消和恢复入口在产品层面有定义。",
+              status: "done",
+              owner: "产品／技术 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md", "V4/Evidence/Stage01/20260811-standard-prototype-walkthrough/README.md"],
+              note: ""
+            },
+            {
+              id: "SP-15",
+              title: "验收意图",
+              criteria: "每项核心能力均能对应一个可执行场景和可观察结果，尚不要求写成测试脚本。",
+              status: "done",
+              owner: "产品／测试 Owner",
+              evidence: ["V4/仟流智算-初始验收矩阵-v2.0.md"],
+              note: ""
+            }
+          ]
+        },
+        {
+          id: "G3",
+          title: "技术方案",
+          description: "证明方案不只是能画出来，还能在真实技术边界内可靠落地。",
+          items: [
+            {
+              id: "SP-16",
+              title: "TRD 主线",
+              criteria: "TRD 已覆盖系统目标、架构选择、边界、关键合同、运行方式和技术非目标。",
+              status: "done",
+              owner: "技术 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-17",
+              title: "产品与技术架构",
+              criteria: "系统组成、责任边界、依赖方向、部署单元及人与 AI 的控制关系已明确。",
+              status: "done",
+              owner: "技术 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-18",
+              title: "真实入口与调用链",
+              criteria: "已明确用户或系统从哪里进入，以及能力怎样沿真实链路产生最终结果。",
+              status: "done",
+              owner: "产品／技术 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md", "V4/仟流智算-初始验收矩阵-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-19",
+              title: "数据模型与事实源",
+              criteria: "核心实体、状态归属、持久化位置、事实源和数据生命周期已定义。",
+              status: "done",
+              owner: "数据／技术 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md", "V4/ADR/ADR-20-003-账期状态机水位与锁序.md"],
+              note: ""
+            },
+            {
+              id: "SP-20",
+              title: "接口、协议与兼容边界",
+              criteria: "关键接口、事件、版本、消费者、错误语义和兼容策略已说明。",
+              status: "done",
+              owner: "技术 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-21",
+              title: "身份、权限、租户与数据安全",
+              criteria: "可信身份来源、权限校验位置、租户隔离、敏感数据和出站边界已明确。",
+              status: "done",
+              owner: "安全／技术 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md", "V4/仟流智算-角色权限矩阵-v2.0.md", "_knowledge_base/2.0本地身份安全基线-2026年8月.md"],
+              note: ""
+            },
+            {
+              id: "SP-22",
+              title: "状态、副作用与幂等",
+              criteria: "关键状态机、外部副作用、重复执行和 commit-unknown 的处理原则已定义。",
+              status: "done",
+              owner: "技术 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md", "V4/ADR/ADR-20-003-账期状态机水位与锁序.md"],
+              note: ""
+            },
+            {
+              id: "SP-23",
+              title: "失败、恢复与回滚",
+              criteria: "关键失败模式、止损、人工接管、恢复、补偿和回滚边界已说明。",
+              status: "done",
+              owner: "技术／运维 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md", "V4/Evidence/Stage01/POC20-002/README.md", "V4/Evidence/Stage01/POC20-003/README.md"],
+              note: ""
+            },
+            {
+              id: "SP-24",
+              title: "NFR 与运行约束",
+              criteria: "性能、可靠性、可观测性、兼容、部署和环境约束已按风险说明。",
+              status: "done",
+              owner: "技术／运维 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md", "V4/Evidence/Stage01/POC20-004/README.md"],
+              note: ""
+            }
+          ]
+        },
+        {
+          id: "G4",
+          title: "可行性、PoC 与风险",
+          description: "只对真正不确定且会改变方案的风险做验证，不为了流程表演制造 PoC。",
+          items: [
+            {
+              id: "SP-25",
+              title: "关键不确定性清单",
+              criteria: "已列出可能推翻产品、架构、成本或交付判断的关键未知项。",
+              status: "done",
+              owner: "产品／技术 Owner",
+              evidence: ["V4/PoC/仟流智算-2.0-关键PoC计划.md"],
+              note: ""
+            },
+            {
+              id: "SP-26",
+              title: "PoC 必要性决策",
+              criteria: "逐项决定验证、接受、规避或延后；决定不做 PoC 时有明确理由。",
+              status: "done",
+              owner: "技术 Owner",
+              evidence: ["V4/PoC/仟流智算-2.0-关键PoC计划.md"],
+              note: ""
+            },
+            {
+              id: "SP-27",
+              title: "必要 PoC 真实执行",
+              criteria: "适用时已在足以支撑结论的真实或代表性环境运行，而非只写方案。",
+              status: "done",
+              owner: "当前 Codex 任务",
+              evidence: ["V4/Evidence/Stage01/POC20-001/README.md", "V4/Evidence/Stage01/POC20-002/README.md", "V4/Evidence/Stage01/POC20-003/README.md", "V4/Evidence/Stage01/POC20-004/README.md"],
+              note: "若不适用，从当前范围和完成度分母中移除并记录原因。"
+            },
+            {
+              id: "SP-28",
+              title: "PoC 结论进入方案",
+              criteria: "通过、失败、限制和测量结果已反映到产品范围或技术方案中。",
+              status: "done",
+              owner: "产品／技术 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md", "V4/仟流智算-技术需求文档-v2.0.md", "V4/ADR"],
+              note: ""
+            },
+            {
+              id: "SP-29",
+              title: "风险、Owner 与退出条件",
+              criteria: "当前风险已按 NORMAL / HIGH 标记，并有真实影响、Owner、缓解措施、升级触发器和退出条件。",
+              status: "done",
+              owner: "佳哥／技术 Owner",
+              evidence: ["V4/仟流智算-立项与版本基线-v2.0.md", "V4/仟流智算-开发规划-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-30",
+              title: "外部依赖与替代路径",
+              criteria: "供应商、模型、平台、审批和关键服务依赖有可用性判断及必要替代路径。",
+              status: "done",
+              owner: "技术／运维 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md", "V4/ADR/ADR-20-005-标准版部署身份与导出边界.md"],
+              note: ""
+            }
+          ]
+        },
+        {
+          id: "G5",
+          title: "基线一致性与阶段退出",
+          description: "把分散成果收成可追踪的三个基线，并只授权进入开发计划阶段。",
+          items: [
+            {
+              id: "SP-31",
+              title: "产品方案基线",
+              criteria: "产品方案的权威文件、版本和成果链接已确定，不存在多个相互冲突的副本。",
+              status: "done",
+              owner: "产品 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-32",
+              title: "技术方案基线",
+              criteria: "技术方案的权威文件、版本和 PoC 结论链接已确定。",
+              status: "done",
+              owner: "技术 Owner",
+              evidence: ["V4/仟流智算-技术需求文档-v2.0.md", "V4/ADR", "V4/PoC/仟流智算-2.0-关键PoC计划.md"],
+              note: ""
+            },
+            {
+              id: "SP-33",
+              title: "立项与版本基线",
+              criteria: "当前目标、范围、资源、风险和成功标准已形成权威版本。",
+              status: "done",
+              owner: "佳哥",
+              evidence: ["V4/仟流智算-立项与版本基线-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-34",
+              title: "产品、技术与原型一致性",
+              criteria: "PRD、TRD、业务流程和原型的名称、边界、状态与关键合同没有实质冲突。",
+              status: "done",
+              owner: "产品／技术 Owner",
+              evidence: ["V4/仟流智算-产品需求文档-v2.0.md", "V4/仟流智算-技术需求文档-v2.0.md", "V4/原型/仟流智算-2.0-标准版原型.html"],
+              note: ""
+            },
+            {
+              id: "SP-35",
+              title: "初始验收矩阵",
+              criteria: "核心需求已映射到业务场景、预期结果、责任人和后续验证方式。",
+              status: "done",
+              owner: "产品／测试 Owner",
+              evidence: ["V4/仟流智算-初始验收矩阵-v2.0.md"],
+              note: ""
+            },
+            {
+              id: "SP-36",
+              title: "阶段成果索引",
+              criteria: "三份阶段成果、风险、未决事项、Evidence 和建议下一动作可以直接读取。",
+              status: "done",
+              owner: "当前 Codex 任务",
+              evidence: ["V4/仟流智算-立项与版本基线-v2.0.md", "V4/仟流智算-Stage01方案准备进度图-v2.0.html"],
+              note: ""
+            },
+            {
+              id: "SP-37",
+              title: "产品与技术方案完成检查",
+              criteria: "当前任务已按冻结目标完成自检和必要整改，P0/P1 与阻断性 Evidence Gap 为零。",
+              status: "done",
+              owner: "当前 Codex 任务",
+              evidence: ["V4/Evidence/Stage01/20260811-gate1-completion/README.md", "V4/Evidence/Stage01/20260811-gate1-completion/checks.txt"],
+              note: "最新原型 7/7 页面主任务、9/9 走查场景通过；PC-20260811-02 回收后机械检查与受限双审通过，P0/P1 与阻断性 Evidence Gap 均为零。"
+            },
+            {
+              id: "SP-38",
+              title: "阶段完成与下一步",
+              criteria: "阶段状态已设为 done，并绑定对象版本、允许动作、禁止动作和复查触发点。",
+              status: "done",
+              owner: "佳哥／当前 Codex 任务",
+              evidence: ["V4/Evidence/Stage01/20260811-gate1-completion/README.md", "V4/仟流智算-立项与版本基线-v2.0.md", "V4/仟流智算-Stage01方案准备进度图-v2.0.html"],
+              note: "Stage 01 已关闭并移交 Stage 02；客户访谈与设计客户确认保持交付后 validation_status=todo，不阻塞标准版。"
+            }
+          ]
+        }
+      ]
+    };
+
+    const STATUS = {
+      todo: { icon: "○", label: "待办" },
+      doing: { icon: "↻", label: "进行中" },
+      done: { icon: "✓", label: "完成" },
+      blocked: { icon: "!", label: "阻塞" },
+      failed: { icon: "×", label: "失败" },
+      cancelled: { icon: "—", label: "已取消" }
+    };
+
+    const CLOSED_STATUSES = new Set(["done"]);
+    const BLOCKING_STATUSES = new Set(["blocked", "failed"]);
+    const PLANNING_CHANGE_ID_PATTERN = /PC-\d{8}-\d{2}/;
+
+    const escapeHtml = (value) => String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+    const inScopeItems = (items) => items.filter((item) => item.status !== "cancelled");
+
+    const allItems = () => inScopeItems(STAGE_DATA.groups.flatMap((group) => group.items));
+
+    const itemMap = () => new Map(allItems().map((item) => [item.id, item]));
+
+    const isValidClosedItem = (item) => {
+      return CLOSED_STATUSES.has(item.status) &&
+        Array.isArray(item.evidence) && item.evidence.length > 0;
+    };
+
+    const closedCount = (items) => items.filter(isValidClosedItem).length;
+
+    const deriveStatus = (items) => {
+      if (items.some((item) => item.status === "failed")) return "failed";
+      if (items.some((item) => item.status === "blocked")) return "blocked";
+      if (items.some((item) => item.status === "done" && !isValidClosedItem(item))) return "blocked";
+      if (items.length > 0 && items.every(isValidClosedItem)) return "done";
+      if (items.some((item) => item.status === "doing")) return "doing";
+      return "todo";
+    };
+
+    const progressPercent = (items) =>
+      items.length === 0 ? 0 : Math.round((closedCount(items) / items.length) * 100);
+
+    const statusBadge = (status, customText = "") => {
+      const config = STATUS[status] || STATUS.todo;
+      const label = customText || config.label;
+      return `
+        <span class="status-badge" data-status="${escapeHtml(status)}">
+          <span aria-hidden="true">${escapeHtml(config.icon)}</span>
+          ${escapeHtml(label)}
+        </span>
+      `;
+    };
+
+    const evidenceMarkup = (item) => {
+      if (!Array.isArray(item.evidence) || item.evidence.length === 0) {
+        return `<span>Evidence：未绑定</span>`;
+      }
+
+      const links = item.evidence.map((entry) => {
+        const label = typeof entry === "string" ? entry : entry.label;
+        const href = typeof entry === "string" ? entry : entry.href;
+        return `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
+      });
+
+      return `<span>Evidence：${links.join(" · ")}</span>`;
+    };
+
+    const renderDeliverables = () => {
+      const map = itemMap();
+      const container = document.getElementById("deliverables-grid");
+
+      container.innerHTML = STAGE_DATA.deliverables.map((deliverable) => {
+        const items = deliverable.itemIds.map((id) => map.get(id)).filter(Boolean);
+        const complete = closedCount(items);
+        const percent = progressPercent(items);
+
+        return `
+          <article class="deliverable-card">
+            <div class="deliverable-top">
+              <div>
+                <div class="deliverable-kicker">${escapeHtml(deliverable.id)}</div>
+                <h3>${escapeHtml(deliverable.title)}</h3>
+              </div>
+              <span class="count">${complete} / ${items.length}</span>
+            </div>
+            <p class="deliverable-description">${escapeHtml(deliverable.description)}</p>
+            <div class="progress-track" role="progressbar"
+                 aria-label="${escapeHtml(deliverable.title)}完成度"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}">
+              <div class="progress-fill" style="width: ${percent}%"></div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    };
+
+    const renderGroups = () => {
+      const container = document.getElementById("groups");
+
+      container.innerHTML = STAGE_DATA.groups.map((group) => {
+        const trackedItems = inScopeItems(group.items);
+        const complete = closedCount(trackedItems);
+        const percent = progressPercent(trackedItems);
+
+        const itemsMarkup = group.items.map((item) => `
+          <li class="check-item" data-status="${escapeHtml(item.status)}">
+            <div class="item-id">${escapeHtml(item.id)}</div>
+            <div>
+              <div class="item-title">${escapeHtml(item.title)}</div>
+              <div class="item-criteria">${escapeHtml(item.criteria)}</div>
+              ${item.note ? `<div class="evidence">备注：${escapeHtml(item.note)}</div>` : ""}
+            </div>
+            <div class="item-meta">
+              ${statusBadge(item.status)}
+              <div class="owner">Owner：${escapeHtml(item.owner || "待指定")}</div>
+              <div class="evidence">${evidenceMarkup(item)}</div>
+            </div>
+          </li>
+        `).join("");
+
+        return `
+          <section class="group" aria-labelledby="${escapeHtml(group.id)}-title">
+            <div class="group-header">
+              <div class="group-top">
+                <div>
+                  <div class="group-kicker">${escapeHtml(group.id)}</div>
+                  <h3 id="${escapeHtml(group.id)}-title">${escapeHtml(group.title)}</h3>
+                  <p class="group-description">${escapeHtml(group.description)}</p>
+                </div>
+                <div class="group-summary">
+                  <span class="count">${complete} / ${trackedItems.length}</span>
+                  ${statusBadge(trackedItems.length > 0 && complete === trackedItems.length ? "done" : "todo",
+                    trackedItems.length > 0 && complete === trackedItems.length ? "本组完成" : "未完成")}
+                </div>
+              </div>
+              <div class="progress-track" role="progressbar"
+                   aria-label="${escapeHtml(group.title)}完成度"
+                   aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}">
+                <div class="progress-fill" style="width: ${percent}%"></div>
+              </div>
+            </div>
+            <ol class="group-items">${itemsMarkup}</ol>
+          </section>
+        `;
+      }).join("");
+    };
+
+    const renderSummary = () => {
+      const items = allItems();
+      const complete = closedCount(items);
+      const blockers = items.filter((item) => BLOCKING_STATUSES.has(item.status));
+      const evidenceMissingOnDone = items.filter((item) =>
+        item.status === "done" && (!Array.isArray(item.evidence) || item.evidence.length === 0)
+      );
+      const invalidCancelled = items.filter((item) =>
+        item.status === "cancelled" && !PLANNING_CHANGE_ID_PATTERN.test(String(item.note || ""))
+      );
+
+      document.getElementById("overall-progress").textContent = `${complete} / ${items.length}`;
+      document.getElementById("overall-progress-context").textContent =
+        `${progressPercent(items)}% 已完成；取消项不计完成`;
+      document.getElementById("blocker-count").textContent = `${blockers.length} 项`;
+      document.getElementById("blocker-context").textContent = blockers.length === 0
+        ? "暂无已登记阻塞"
+        : blockers.map((item) => item.id).join("、");
+      document.getElementById("next-action").textContent = STAGE_DATA.meta.nextAction;
+      document.getElementById("next-action-owner").textContent =
+        `Owner：${STAGE_DATA.meta.nextActionOwner}`;
+      document.getElementById("project-name").textContent = STAGE_DATA.meta.projectName;
+      document.getElementById("current-focus").textContent = `：${STAGE_DATA.meta.currentFocus}`;
+      document.getElementById("stage-state-badge").textContent =
+        (STATUS[deriveStatus(items)] || STATUS.todo).label;
+      document.getElementById("required-count").textContent = `${items.length} 个检查项`;
+      document.getElementById("footer-update").textContent =
+        `最后更新：${STAGE_DATA.meta.updatedAt}`;
+
+      if (evidenceMissingOnDone.length > 0) {
+        document.getElementById("blocker-context").textContent =
+          `数据异常：${evidenceMissingOnDone.map((item) => item.id).join("、")} 已完成但缺少 Evidence`;
+      } else if (invalidCancelled.length > 0) {
+        document.getElementById("blocker-context").textContent =
+          `数据异常：${invalidCancelled.map((item) => item.id).join("、")} 已取消但缺少有效 Planning Change ID`;
+      }
+    };
+
+    const renderReview = () => {
+      const review = STAGE_DATA.review;
+      const status = deriveStatus(allItems());
+      const config = STATUS[status] || STATUS.todo;
+      const reviewStatus = document.getElementById("review-status");
+
+      reviewStatus.dataset.status = status;
+      reviewStatus.innerHTML =
+        `<span aria-hidden="true">${escapeHtml(config.icon)}</span> ${escapeHtml(config.label)}`;
+      document.getElementById("review-object").textContent = review.object;
+      document.getElementById("review-owner-decision").textContent = review.currentStep;
+      document.getElementById("review-allowed").textContent = review.allowedAction;
+      document.getElementById("review-forbidden").textContent = review.forbiddenAction;
+      document.getElementById("review-trigger").textContent = review.revisitTrigger;
+    };
+
+    const themeSelect = document.getElementById("theme-select");
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const themeStorageKey = "ql-sop-theme-preference";
+
+    const resolveTheme = (preference) =>
+      preference === "system" ? (media.matches ? "dark" : "light") : preference;
+
+    const applyTheme = (preference) => {
+      document.documentElement.dataset.theme = resolveTheme(preference);
+      themeSelect.value = preference;
+    };
+
+    const savedTheme = localStorage.getItem(themeStorageKey) || "system";
+    applyTheme(savedTheme);
+
+    themeSelect.addEventListener("change", (event) => {
+      const preference = event.target.value;
+      localStorage.setItem(themeStorageKey, preference);
+      applyTheme(preference);
+    });
+
+    media.addEventListener("change", () => {
+      const preference = localStorage.getItem(themeStorageKey) || "system";
+      if (preference === "system") {
+        applyTheme(preference);
+      }
+    });
+
+    const logo = document.getElementById("brand-logo");
+    const logoFallback = document.getElementById("brand-fallback");
+    logo.addEventListener("error", () => {
+      logo.style.display = "none";
+      logoFallback.style.display = "inline-flex";
+    });
+
+    renderSummary();
+    renderDeliverables();
+    renderGroups();
+    renderReview();
+  </script>
+</body>
+</html>

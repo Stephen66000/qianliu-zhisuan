@@ -1,0 +1,78 @@
+{
+  "poc_id": "POC20-001",
+  "executed_at": "2026-08-11T19:43:35+08:00",
+  "finished_at": "2026-08-11T19:43:38+08:00",
+  "executor": "Codex / Stage01 Execution",
+  "result": "PASS_WITH_LIMITATIONS",
+  "scope": "isolated representative PostgreSQL/RLS and real pg.Pool verification; not product implementation",
+  "candidate": {
+    "semantics": "Independent PoC schema; product source is not consumed, so the workspace HEAD is not a product candidate.",
+    "final_tag": "v1.0.0-final",
+    "v1_final_commit": "b3fb74b387ef61734d949be2e97fab7904bca959",
+    "v1_final_tree": "68719129f9e9ee6a0ebfa56ab371cc42912fb34c",
+    "workspace_head_execution_environment": "c04df1f7d2ea84f2cdbd2bddfe2f586c7ee451d8",
+    "bundle_manifest_path": "bundle-manifest.sha256",
+    "bundle_manifest_sha256": "9f75fb72b6c3d5dad1f98b2d0933b98931dd2b034ec57b62f9ce407a524db374",
+    "bundle_definition": "SHA-256 per top-level regular input file under V4/PoC/POC20-001, relative filename, two ASCII spaces and LF; filenames sorted with LC_ALL=C and final LF included. Generated Evidence and runtime data are excluded."
+  },
+  "raw_execution_output": {
+    "path": "stdout-20260811T114335Z.log",
+    "sha256": "019fd4e4aaaadc6212266c8fbe2a3716341cc97bd41f3c3099bb41b5d842b61b"
+  },
+  "environment": {
+    "postgresql": "17.10 x86_64-pc-linux-musl",
+    "image": "postgres:17-alpine",
+    "image_id": "sha256:93aa428db0aeeb71d24dcad1491bef6e1396a4255697e4bfc4c725bfeb981b74",
+    "node": "v22.17.1",
+    "pg": "8.16.3",
+    "data": "synthetic only"
+  },
+  "evidence": {
+    "app_role": "NOSUPERUSER/NOBYPASSRLS",
+    "rls_tables": [
+      "enterprise",
+      "principal",
+      "provider_resource",
+      "support_export",
+      "usage_event"
+    ],
+    "no_context_read": 0,
+    "no_context_write_sqlstate": "42501",
+    "no_context_update_rows": 0,
+    "no_context_delete_rows": 0,
+    "no_context_upsert_sqlstate": "42501",
+    "tenant_a_own_rows": 1,
+    "tenant_a_cross_direct_rows": 0,
+    "tenant_a_cross_update_rows": 0,
+    "tenant_a_cross_insert_sqlstate": "42501",
+    "tenant_a_cross_reference_sqlstate": "23503",
+    "tenant_a_export_objects": [
+      "enterprise/a/export.csv"
+    ],
+    "pool_reuse_after_commit_rows": 0,
+    "tenant_b_own_rows": 1,
+    "pool_reuse_after_rollback_rows": 0,
+    "invalid_context_sqlstate": "22P02",
+    "session_set_hazard": "REPRODUCED: tenant A context survived pool checkout",
+    "concurrent_pool_max_4": "24/24 isolated operations",
+    "query_plan": "Seq Scan on a two-row fixture; no performance conclusion"
+  },
+  "limitations": [
+    "No product code, product migration or production database was modified.",
+    "Current 1.0 runtime roles and repositories do not yet implement this contract.",
+    "Worker, Redis and a real export implementation were not dynamically exercised.",
+    "The two-row fixture cannot establish RLS performance overhead; POC20-004 owns that result."
+  ],
+  "gate_assessment": {
+    "blocking_p0": 0,
+    "blocking_p1": 0,
+    "followup_implementation_gates": [
+      "Split migration/owner roles from runtime roles and enforce the short-transaction enterprise context contract.",
+      "Enterprise-enable the ten identified tables and add representative composite constraints.",
+      "Exercise the real Worker, Redis and export chains on the complete 2.0 candidate."
+    ],
+    "residual_risks": [
+      "RLS performance at the frozen capacity remains a Gate 2 qualification risk, not an open P1 on this PoC object."
+    ]
+  }
+}

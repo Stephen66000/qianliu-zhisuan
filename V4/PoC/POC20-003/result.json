@@ -1,0 +1,20 @@
+{
+  "poc_id": "POC20-003",
+  "status": "done",
+  "result": "PASS_WITH_LIMITATIONS",
+  "candidate": {
+    "final_commit": "b3fb74b387ef61734d949be2e97fab7904bca959",
+    "final_tree": "68719129f9e9ee6a0ebfa56ab371cc42912fb34c",
+    "poc_bundle_sha256": "8e120072948093658496888b63c719e019d38c3dc2c8321950a4a3a9a6500751"
+  },
+  "execution": {
+    "executor": "Codex / Stage01 Execution",
+    "started_at": "2026-08-11T11:37:06Z",
+    "finished_at": "2026-08-11T11:37:18Z",
+    "declared_test_blocks": 35,
+    "runtime_tests_passed": 57,
+    "runtime_tests_failed": 0
+  },
+  "authoritative_result": "V4/Evidence/Stage01/POC20-003/result.json",
+  "raw_stdout": "V4/Evidence/Stage01/POC20-003/final-tag-run.stdout.log"
+}

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>经营账单 · 员工账原型</title>
+  <style>
+    :root {
+      --bg: #f4f7fc;
+      --card: #ffffff;
+      --line: #dce5f1;
+      --muted: #718096;
+      --text: #1d2a3a;
+      --subtle: #eef4fd;
+      --blue: #3479df;
+      --blue-soft: #eaf2ff;
+      --green: #17865c;
+      --orange: #b66a2c;
+      --shadow: 0 10px 30px rgba(55, 91, 137, .07);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: var(--bg); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { max-width: 1500px; margin: 0 auto; padding: 34px 42px 60px; }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+    h1 { margin: 0; font-size: 34px; letter-spacing: -.02em; }
+    .subtitle { margin-top: 7px; color: var(--muted); font-size: 16px; }
+    .month { display: flex; align-items: center; gap: 10px; padding: 13px 18px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); box-shadow: var(--shadow); color: #47566b; }
+    .month strong { font-size: 16px; }
+    .nav { display: flex; gap: 8px; margin-top: 30px; padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: var(--shadow); }
+    .nav button { border: 0; border-radius: 11px; padding: 13px 20px; color: #5d6b7d; background: transparent; font-weight: 600; }
+    .nav button.active { color: var(--blue); background: var(--blue-soft); }
+    .page { margin-top: 24px; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin: 24px 0 16px; }
+    .section-head h2 { margin: 0; font-size: 22px; }
+    .section-head p { margin: 4px 0 0; color: var(--muted); }
+    .toolbar { display: flex; align-items: center; gap: 10px; }
+    .search, .filter { height: 40px; padding: 0 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); outline: none; }
+    .search { width: 210px; }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .metric { padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); }
+    .metric-label { color: var(--muted); font-size: 13px; }
+    .metric-value { margin-top: 8px; font-size: 25px; font-weight: 700; letter-spacing: -.02em; }
+    .metric-note { margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .table-card { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 14px 18px; border-bottom: 1px solid var(--line); background: #f8faff; color: var(--muted); text-align: left; font-size: 12px; font-weight: 600; }
+    td { padding: 16px 18px; border-bottom: 1px solid #edf1f7; vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .name { font-weight: 700; }
+    .sub { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { padding: 4px 8px; border-radius: 7px; background: #f1f5fa; color: #526175; font-size: 12px; }
+    .link { border: 0; padding: 0; color: var(--blue); background: transparent; font-weight: 600; }
+    .total td { background: #fbfcff; font-weight: 700; }
+    .back { border: 0; padding: 0; color: var(--blue); background: transparent; font-weight: 600; }
+    .detail-head { display: flex; align-items: center; gap: 14px; }
+    .avatar { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; color: var(--blue); background: var(--blue-soft); font-size: 20px; font-weight: 700; }
+    .detail-title { font-size: 23px; font-weight: 700; }
+    .detail-sub { color: var(--muted); }
+    .detail-layout { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; margin-top: 18px; }
+    .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: var(--shadow); }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .panel-title { font-size: 16px; font-weight: 700; }
+    .panel-note { color: var(--muted); font-size: 12px; }
+    .provider { margin: 14px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+    .provider-head { display: grid; grid-template-columns: 1fr repeat(3, 120px) 24px; align-items: center; gap: 10px; padding: 13px 14px; background: #fbfcff; }
+    .provider-name { font-weight: 700; }
+    .provider-name span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 400; }
+    .provider-head .num { font-weight: 700; }
+    .caret { color: var(--muted); transition: transform .2s ease; }
+    .provider.open .caret { transform: rotate(90deg); }
+    .models { display: none; border-top: 1px solid var(--line); }
+    .provider.open .models { display: block; }
+    .model-row { display: grid; grid-template-columns: 1fr repeat(4, 120px); gap: 10px; align-items: center; padding: 12px 14px 12px 28px; border-bottom: 1px solid #edf1f7; }
+    .model-row:last-child { border-bottom: 0; }
+    .model-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .model-caption { margin-top: 2px; color: var(--muted); font-family: inherit; font-size: 11px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; padding: 0 20px 18px; color: var(--muted); font-size: 12px; }
+    .dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--blue); }
+    .dot.green { background: var(--green); }
+    .dot.orange { background: var(--orange); }
+    .chart { height: 190px; margin: 12px 20px 20px; padding: 15px 10px 0; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom, transparent 0, transparent 44px, #edf1f7 45px); }
+    .bars { display: flex; align-items: flex-end; justify-content: space-around; height: 100%; gap: 18px; }
+    .bar-col { display: flex; align-items: center; flex-direction: column; justify-content: flex-end; height: 100%; color: var(--muted); font-size: 11px; }
+    .bar { width: 28px; min-height: 8px; border-radius: 7px 7px 0 0; background: linear-gradient(180deg, #79a9f2, #3479df); }
+    .bar-col small { margin-top: 6px; }
+    .empty { padding: 60px 20px; text-align: center; color: var(--muted); }
+    @media (max-width: 1100px) { .shell { padding: 24px 20px 45px; } .summary { grid-template-columns: repeat(2, 1fr); } .detail-layout { grid-template-columns: 1fr; } .table-card { overflow-x: auto; } table { min-width: 900px; } }
+    @media (max-width: 650px) { .top, .section-head { align-items: flex-start; flex-direction: column; } .summary { grid-template-columns: 1fr; } .nav { overflow-x: auto; } .nav button { white-space: nowrap; } .provider-head, .model-row { grid-template-columns: 1fr repeat(3, 88px) 20px; } .model-row { grid-template-columns: 1fr repeat(4, 90px); overflow-x: auto; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div>
+        <h1>经营账单 <span style="font-size:14px;color:#b66a2c;vertical-align:middle;background:#fff1e7;padding:5px 9px;border-radius:8px;">原型</span></h1>
+        <div class="subtitle">回答三个问题：买了什么、谁在用、产生了什么价值</div>
+      </div>
+      <div class="month">▣ <strong>2026 年 08 月</strong><span>北京时区自然月</span></div>
+    </header>
+
+    <nav class="nav" aria-label="经营账单导航">
+      <button>▦　月度总览</button>
+      <button class="active" data-nav="employees">♙　员工账</button>
+      <button data-nav="projects">▤　项目账</button>
+      <button>◉　套餐利用分析</button>
+      <button>♧　价值确认</button>
+      <button>▣　结账管理</button>
+    </nav>
+
+    <section class="page">
+      <div id="employees" class="view active">
+        <div id="employee-list">
+          <div class="summary">
+            <article class="metric"><div class="metric-label">本月总 Token</div><div class="metric-value">184.87M</div><div class="metric-note">输入、输出、缓存合计</div></article>
+            <article class="metric"><div class="metric-label">本月归集成本</div><div class="metric-value">¥627.14</div><div class="metric-note">API 实际成本 + 套餐分摊</div></article>
+            <article class="metric"><div class="metric-label">活跃员工</div><div class="metric-value">4 人</div><div class="metric-note">本月有成功请求</div></article>
+            <article class="metric"><div class="metric-label">请求次数</div><div class="metric-value">2,092</div><div class="metric-note">较上月 ↑ 18.4%</div></article>
+          </div>
+
+          <div class="section-head">
+            <div><h2>员工总账</h2><p>先看员工总量，再下钻到厂商和具体模型</p></div>
+            <div class="toolbar"><select class="filter"><option>全部厂商</option><option>DeepSeek</option><option>Kimi</option><option>智谱</option></select><input class="search" placeholder="搜索员工或模型" /></div>
+          </div>
+
+          <div class="table-card">
+            <table>
+              <thead><tr><th>员工</th><th>使用厂商</th><th class="num">总 Token</th><th class="num">额度扣减</th><th class="num">归集成本</th><th class="num">活跃 / 请求</th><th>明细</th></tr></thead>
+              <tbody>
+                <tr><td><div class="name">于滔</div><div class="sub">本月最高消耗</div></td><td><div class="chips"><span class="chip">DeepSeek</span><span class="chip">Kimi</span></div></td><td class="num"><b>114,030,653</b></td><td class="num">114,030,176</td><td class="num"><b>¥425.19</b></td><td class="num">7 天 / 1,288 次</td><td><button class="link" data-open="yutao">查看详情 →</button></td></tr>
+                <tr><td><div class="name">李佳</div></td><td><div class="chips"><span class="chip">Kimi</span><span class="chip">DeepSeek</span><span class="chip">智谱</span></div></td><td class="num"><b>52,114,030</b></td><td class="num">36,592,180</td><td class="num"><b>¥167.42</b></td><td class="num">7 天 / 612 次</td><td><button class="link" data-open="yutao">查看详情 →</button></td></tr>
+                <tr><td><div class="name">王涛</div></td><td><div class="chips"><span class="chip">Kimi</span><span class="chip">DeepSeek</span></div></td><td class="num"><b>10,211,015</b></td><td class="num">8,257,678</td><td class="num"><b>¥178.44</b></td><td class="num">2 天 / 276 次</td><td><button class="link" data-open="yutao">查看详情 →</button></td></tr>
+                <tr><td><div class="name">曹磊</div></td><td><div class="chips"><span class="chip">Kimi</span></div></td><td class="num"><b>8,514,841</b></td><td class="num">7,855,362</td><td class="num"><b>¥56.09</b></td><td class="num">4 天 / 513 次</td><td><button class="link" data-open="yutao">查看详情 →</button></td></tr>
+                <tr class="total"><td>合计</td><td>4 名员工</td><td class="num">184,870,539</td><td class="num">132,735,396</td><td class="num">¥627.14</td><td class="num">—</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="employee-detail" hidden>
+          <button class="back" id="back">← 返回员工账</button>
+          <div class="section-head" style="margin-top:14px;align-items:center;">
+            <div class="detail-head"><div class="avatar">于</div><div><div class="detail-title">于滔 · 员工账</div><div class="detail-sub">2026 年 08 月 · 7 天活跃 · 1,288 次请求</div></div></div>
+            <div class="toolbar"><select class="filter"><option>2026 年 08 月</option><option>2026 年 07 月</option></select><button class="filter">导出明细</button></div>
+          </div>
+          <div class="summary">
+            <article class="metric"><div class="metric-label">本月总 Token</div><div class="metric-value">114.03M</div><div class="metric-note">输入 83.4M · 输出 28.9M · 缓存 1.7M</div></article>
+            <article class="metric"><div class="metric-label">归集总成本</div><div class="metric-value">¥425.19</div><div class="metric-note">API ¥0.00 · 套餐分摊 ¥425.19</div></article>
+            <article class="metric"><div class="metric-label">使用模型</div><div class="metric-value">4 个</div><div class="metric-note">DeepSeek 2 个 · Kimi 2 个</div></article>
+            <article class="metric"><div class="metric-label">日均消耗</div><div class="metric-value">16.29M</div><div class="metric-note">按实际落账 Token 计算</div></article>
+          </div>
+
+          <div class="detail-layout">
+            <section class="panel">
+              <div class="panel-head"><div><div class="panel-title">按厂商 / 模型统计</div><div class="panel-note">先看厂商合计，展开查看具体模型</div></div><span class="chip">Token 口径：已落账事实</span></div>
+              <div class="provider open">
+                <div class="provider-head"><div class="provider-name">DeepSeek<span>2 个模型 · 842 次请求</span></div><div class="num">68.42M</div><div class="num">¥0.00</div><div class="num">占比 60.0%</div><button class="link caret" aria-label="展开">›</button></div>
+                <div class="models">
+                  <div class="model-row"><div class="model-name">ql-deepseek-v4-flash<div class="model-caption">输入 42.1M · 输出 10.6M</div></div><div class="num">52.70M</div><div class="num">516 次</div><div class="num">¥0.00</div><div class="num">77.0%</div></div>
+                  <div class="model-row"><div class="model-name">ql-deepseek-v4-pro<div class="model-caption">输入 11.8M · 输出 3.9M</div></div><div class="num">15.72M</div><div class="num">326 次</div><div class="num">¥0.00</div><div class="num">23.0%</div></div>
+                </div>
+              </div>
+              <div class="provider"><div class="provider-head"><div class="provider-name">Kimi<span>2 个模型 · 446 次请求</span></div><div class="num">45.61M</div><div class="num">¥425.19</div><div class="num">占比 40.0%</div><button class="link caret" aria-label="展开">›</button></div><div class="models"><div class="model-row"><div class="model-name">ql-k3<div class="model-caption">输入 24.3M · 输出 7.4M</div></div><div class="num">31.70M</div><div class="num">302 次</div><div class="num">¥286.20</div><div class="num">69.5%</div></div><div class="model-row"><div class="model-name">ql-k3-256k<div class="model-caption">输入 10.8M · 输出 3.1M</div></div><div class="num">13.91M</div><div class="num">144 次</div><div class="num">¥138.99</div><div class="num">30.5%</div></div></div></div>
+              <div class="legend"><span><i class="dot"></i>Token 总量</span><span><i class="dot green"></i>实际 API 成本</span><span><i class="dot orange"></i>套餐分摊成本</span></div>
+            </section>
+            <section class="panel"><div class="panel-head"><div><div class="panel-title">每日 Token 消耗</div><div class="panel-note">按自然日聚合，支持下钻请求</div></div><span class="chip">近 7 天</span></div><div class="chart"><div class="bars"><div class="bar-col"><div class="bar" style="height:28%"></div><small>08-02</small></div><div class="bar-col"><div class="bar" style="height:45%"></div><small>08-03</small></div><div class="bar-col"><div class="bar" style="height:36%"></div><small>08-04</small></div><div class="bar-col"><div class="bar" style="height:72%"></div><small>08-05</small></div><div class="bar-col"><div class="bar" style="height:54%"></div><small>08-06</small></div><div class="bar-col"><div class="bar" style="height:91%"></div><small>08-07</small></div><div class="bar-col"><div class="bar" style="height:67%"></div><small>08-08</small></div></div></div><div class="legend"><span><i class="dot"></i>Token 消耗</span><span>数据质量：精确</span></div></section>
+          </div>
+        </div>
+      </div>
+
+      <div id="projects" class="view"><div class="empty"><div style="font-size:28px;margin-bottom:8px;">项目账</div>员工账与项目账已经拆分，项目页将按项目展示 Token、成本、成员和请求明细。</div></div>
+    </section>
+  </main>
+  <script>
+    const employeeList = document.getElementById('employee-list');
+    const employeeDetail = document.getElementById('employee-detail');
+    document.querySelectorAll('[data-open]').forEach((button) => button.addEventListener('click', () => { employeeList.hidden = true; employeeDetail.hidden = false; }));
+    document.getElementById('back').addEventListener('click', () => { employeeDetail.hidden = true; employeeList.hidden = false; });
+    document.querySelectorAll('.provider-head').forEach((head) => head.addEventListener('click', (event) => { if (event.target.closest('.link')) head.parentElement.classList.toggle('open'); }));
+    document.querySelectorAll('[data-nav]').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('[data-nav]').forEach((item) => item.classList.remove('active')); button.classList.add('active'); document.querySelectorAll('.view').forEach((view) => view.classList.remove('active')); document.getElementById(button.dataset.nav).classList.add('active'); }));
+  </script>
+</body>
+</html>

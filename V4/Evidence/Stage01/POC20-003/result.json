@@ -1,0 +1,120 @@
+{
+  "poc_id": "POC20-003",
+  "executed_at": "2026-08-11T11:37:06Z",
+  "finished_at": "2026-08-11T11:37:18Z",
+  "executor": "Codex / Stage01 Execution",
+  "result": "PASS_WITH_LIMITATIONS",
+  "scope": "v1.0.0-final concurrency regression plus representative 2.0 period overlay; not product implementation",
+  "candidate": {
+    "source": "git archive v1.0.0-final^{commit}",
+    "final_commit": "b3fb74b387ef61734d949be2e97fab7904bca959",
+    "final_tree": "68719129f9e9ee6a0ebfa56ab371cc42912fb34c",
+    "package_json_sha256": "3b89d9e76bbe32c1f53f0af49a20ad219417a8feb375b34707d6417e287f42c0",
+    "pnpm_lock_sha256": "31d094607e9ca50d8a773a98c38f66d90962771b31727a2d7235a0489fb48f83",
+    "bundle_sha256": "8e120072948093658496888b63c719e019d38c3dc2c8321950a4a3a9a6500751",
+    "bundle_definition": "SHA-256 of the sorted relative-path SHA-256 manifest for fixture.sql, overlay.sql, run.sh and state_machine_check.cjs. Generated README/result, container data and stdout are excluded. Product source, migrations and the regression test come only from final_commit/final_tree.",
+    "bundle_files": {
+      "fixture.sql": "c0b93efc19ccbc24cdd339f888becaa080986a1851e44a8b9012f10a8b6fcc74",
+      "overlay.sql": "fd72237fb47a0aebcf82b161d173beecf1697952f41eabbad4c684e7b7b91bf7",
+      "run.sh": "312b9e73b00867898963e0b711507550fde8a8a01d877b8d075629394a9bce32",
+      "state_machine_check.cjs": "9bc954ff87a09ca4a23ab96996e385b5aa8ef843aa517bf28a091565fdeb1662"
+    }
+  },
+  "environment": {
+    "postgresql": "17.10 x86_64-pc-linux-musl",
+    "image": "postgres:17-alpine",
+    "node_driver": "pg 8.16.3",
+    "node": "v22.17.1",
+    "package_install": "corepack pnpm@11.11.0 install --offline --frozen-lockfile; downloaded 0 packages",
+    "data": "synthetic only"
+  },
+  "raw_stdout": {
+    "path": "V4/Evidence/Stage01/POC20-003/final-tag-run.stdout.log",
+    "sha256": "48df49b15392860f9a2e37b9d4f73e2c12a4039df2f7a88aa97d2fa51a7b34ed",
+    "exit_code": 0
+  },
+  "evidence": {
+    "existing_1_0_regression": {
+      "test_file": "pool043-operating-bill-concurrency.integration.test.ts",
+      "declared_test_blocks": 35,
+      "runtime_tests": 57,
+      "passed": 57,
+      "failed": 0
+    },
+    "period_states": [
+      "DRAFT",
+      "CHECKING",
+      "CLOSED",
+      "REOPENED"
+    ],
+    "failed_check": {
+      "period_status": "DRAFT",
+      "check_result": "FAILED"
+    },
+    "pending_recovery": {
+      "blocked_sqlstate": "P3002",
+      "closed_fact_count": 1
+    },
+    "failure_injection": {
+      "precommit_rollback_residue": 0,
+      "statement_transaction_residue": 0,
+      "stale_check_recovered": true
+    },
+    "settlement_first": {
+      "close_waited_for_lock": true,
+      "fact_count": 1
+    },
+    "close_first": {
+      "settlement_waited_for_lock": true,
+      "late_settlement_sqlstate": "P3003",
+      "fact_count": 0
+    },
+    "idempotency_and_reopen": {
+      "same_close_key_replayed": true,
+      "concurrent_same_key_replays": 20,
+      "different_close_key_sqlstate": "P3006",
+      "reopen_replayed": true,
+      "stale_reopen_replay_changed_state": false,
+      "stale_reopen_new_key_sqlstate": "P3013",
+      "versions": 2,
+      "settlement_watermarks": [1, 2],
+      "old_statement_hash_unchanged": true,
+      "statement_hash_recomputed": true,
+      "immutable_sqlstate": "P3008"
+    },
+    "enterprise_lock_independence": true,
+    "timezone_attribution": {
+      "instant": "2026-08-01T03:00:00Z",
+      "asia_shanghai_period": "2026-08",
+      "america_los_angeles_period": "2026-07",
+      "fact_count_each": 1,
+      "exclusive_end_sqlstate": "P3005"
+    },
+    "final_invariants": {
+      "permanent_checking_periods": 0,
+      "running_checks": 0,
+      "duplicate_settlements": 0,
+      "statement_version_hash_mismatches": 0
+    }
+  },
+  "limitations": [
+    "The overlay is not the formal 0045+ migration or product repository implementation.",
+    "Process loss was represented by transaction rollback plus an expired checking lease; no real SIGKILL or database failover was executed.",
+    "The overlay command table does not yet persist a request hash, so same-key-different-payload conflict handling remains a Stage 02 requirement.",
+    "The overlay stores one statement hash only; the formal contract also requires a separately reproducible source_fact_hash and canonicalization version.",
+    "Allocation conservation, multi-month settlements, production-scale lock contention and target capacity remain unverified.",
+    "The existing 1.0 Gateway settlement finalizer still needs to enter the formal period lock order during Stage 02 implementation."
+  ],
+  "gate_assessment": {
+    "blocking_p0": 0,
+    "blocking_p1": 0,
+    "followup_implementation_gates": [
+      "Implement the formal lock order and four-state period contract in the product schema and repositories.",
+      "Persist request_hash, source_fact_hash, statement_hash and canonicalization version with immutable permissions.",
+      "Verify real process loss, allocation conservation and Gateway/Worker integration in W20-11 through W20-15."
+    ],
+    "residual_risks": [
+      "Cross-language canonicalization, multi-period locking and production-scale contention remain implementation/Gate 2 risks, not open P1 findings on this PoC object."
+    ]
+  }
+}

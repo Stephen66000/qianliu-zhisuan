@@ -1,0 +1,9 @@
+executed_at=2026-08-11 22:11:54 Asia/Shanghai
+candidate=V4/原型/仟流智算-2.0-标准版原型.html
+candidate_version=Stage 01 standard prototype v1.8
+rerun_after_decision_freeze=true
+data=SYNTHETIC_FIXTURE_ONLY
+python=3.10.20
+playwright=1.38.0
+chrome=151.0.7922.108
+result=Prototype walkthrough OK: 7/7 page tasks, 9/9 walkthrough scenarios, dual-role-secret, owner-dual-share, typed-scope-period-resolution, post-close-value, export-realm-split, failure/recovery-only, support-actor-reject-reapply, bootstrap-invite, reopen, mobile layout

@@ -1,0 +1,15 @@
+verification_started_at=2026-08-11T11:42:59Z
+executor=Codex / Stage01 Execution
+final_tag=v1.0.0-final
+final_commit=b3fb74b387ef61734d949be2e97fab7904bca959
+final_tree=68719129f9e9ee6a0ebfa56ab371cc42912fb34c
+final_migration_tree=2e21e1b8c4a286784c5d50cc85046b3508a538aa
+workspace_head_execution_environment=c04df1f7d2ea84f2cdbd2bddfe2f586c7ee451d8
+workspace_migration_tree=2e21e1b8c4a286784c5d50cc85046b3508a538aa
+tag_to_workspace_migration_diff_count=0
+workspace_migration_status_count=0
+migration_manifest_definition=SHA-256 per *.js file, relative filename, two ASCII spaces, LF; filenames LC_ALL=C byte-sorted; final LF included
+migration_manifest_sha256=4be761e1822f5aa7ee51d72784bc2e8d93e07a0067f9ff48b3b604c885478f29
+migration_file_count=45
+verification_finished_at=2026-08-11T11:42:59Z
+result=PASS

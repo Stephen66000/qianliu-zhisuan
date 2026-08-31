@@ -1,0 +1,156 @@
+{
+  "poc_id": "POC20-004A",
+  "executed_at": "2026-08-11T11:37:51Z",
+  "finished_at": "2026-08-11T11:38:14Z",
+  "executor": "Codex / Stage01 Execution",
+  "result": "PASS_WITH_LIMITATIONS",
+  "decision": "freeze a conservative standard envelope; reject 500/200 as the default until the 2.0 final candidate proves it",
+  "scope": "Stage 01 capacity calibration: candidate-independent representative database profile plus the real v1.0.0-final Gateway pipeline; not a 2.0 final-candidate qualification",
+  "candidate": {
+    "source": "git archive v1.0.0-final^{commit}",
+    "final_commit": "b3fb74b387ef61734d949be2e97fab7904bca959",
+    "final_tree": "68719129f9e9ee6a0ebfa56ab371cc42912fb34c",
+    "package_json_sha256": "3b89d9e76bbe32c1f53f0af49a20ad219417a8feb375b34707d6417e287f42c0",
+    "pnpm_lock_sha256": "31d094607e9ca50d8a773a98c38f66d90962771b31727a2d7235a0489fb48f83",
+    "poc_bundle_sha256": "81cc238f1b5e4bd75c3e54450d1c1bbec607e3cc0818283eb093fd12e95c8802",
+    "poc_bundle_definition": "SHA-256 of the sorted relative-path SHA-256 manifest for schema.sql, database_capacity_check.cjs, gateway_capacity_check.ts and run.sh. Generated README/result and stdout are excluded.",
+    "poc_file_sha256": {
+      "schema.sql": "e6073e12a66e08d823d76fdf270f817fa3e01a7775b498589149dcae41f7ee2f",
+      "database_capacity_check.cjs": "f9c2abefff0e690c5f62285d8870550315df2e8f33746f580fc0d7e8fb822aa4",
+      "gateway_capacity_check.ts": "f9429c9b18d134aac01a862c742b96d0e6ea0e231a0f5ae3cf9692c5b1928232",
+      "run.sh": "2a887bb2df62167c90435ec83ea011231f0f4b8d5881aa33a012135f30422a45"
+    }
+  },
+  "raw_stdout": {
+    "gateway_staircase_path": "V4/Evidence/Stage01/POC20-004/final-tag-gateway-staircase.stdout.log",
+    "gateway_staircase_sha256": "a2262a22be93f64273b0d39614f5a21aba0a1ddc8a2c07d2e99c3901971df9e7",
+    "gateway_staircase_exit_code": 0,
+    "database_full_profile_stdout": null,
+    "database_full_profile_stdout_note": "The prior 10M synthetic database run preserved structured metrics but not raw stdout. It was not rerun in this Final archive pass; no new execution time or stdout is claimed."
+  },
+  "environment": {
+    "host": "Apple M1 Pro, 8 CPU, 16 GiB RAM, macOS 26.6.1",
+    "docker": "Docker Desktop 4.39.0, Engine 28.0.1, 8 CPU, 8218316800 bytes memory",
+    "postgresql": "17.10 aarch64-unknown-linux-musl",
+    "node": "v22.17.1",
+    "data": "synthetic only"
+  },
+  "database_full_profile": {
+    "provenance": {
+      "mode": "reused candidate-independent PoC result",
+      "original_structured_result_time": "2026-08-11T19:00:00+08:00",
+      "product_source_imported": false,
+      "schema_sql_sha256": "e6073e12a66e08d823d76fdf270f817fa3e01a7775b498589149dcae41f7ee2f",
+      "database_capacity_check_sha256": "f9c2abefff0e690c5f62285d8870550315df2e8f33746f580fc0d7e8fb822aa4"
+    },
+    "members": 100,
+    "principals": 1000,
+    "monthly_ledger_rows": 10000000,
+    "durations_ms": {
+      "data_insert": 93704.095,
+      "index_and_analyze": 14502.576,
+      "close_rollup": 3166.007
+    },
+    "query_p95_ms": {
+      "management_rollup": 2.659,
+      "ledger_detail": 2.459,
+      "mixed_500_concurrent": 222.966
+    },
+    "storage_bytes": {
+      "ledger_total": 2482479104,
+      "ledger_heap": 1170292736,
+      "ledger_indexes": 1311858688,
+      "rollup_total": 188416
+    },
+    "invariants": {
+      "row_count": 10000000,
+      "input_tokens": "1499999636",
+      "output_tokens": "349999910",
+      "api_cost": "49950.00000000",
+      "rollup_request_count": 10000000,
+      "rls_cross_tenant_rows": 0,
+      "hash": "a210f51fa777155a6398e1c6cd0a1143"
+    }
+  },
+  "backup_restore": {
+    "result": "PASS",
+    "dump_ms": 15917,
+    "restore_ms": 36530,
+    "dump_bytes": 193757977,
+    "dump_sha256": "4fc26f91e5f8fe42a8cbff468e31cf953a4f36495c608dce4609ee2e220da25a",
+    "restored_rows": 10000000,
+    "restored_invariant_hash": "a210f51fa777155a6398e1c6cd0a1143"
+  },
+  "gateway_profiles": [
+    {
+      "normal_concurrency": 500,
+      "stream_concurrency": 200,
+      "success": "500/500 and 200/200",
+      "gateway_stream_ttft_p95_ms": 885.341,
+      "direct_stream_ttft_p95_ms": 97.013,
+      "incremental_ttft_p95_ms": 788.328,
+      "gateway_normal_first_byte_p95_ms": 5503.776,
+      "incremental_ttft_le_150ms": false,
+      "ledger_invariants": "710/710 requests, attempts, usage events, ledger lines and transactions"
+    },
+    {
+      "normal_concurrency": 100,
+      "stream_concurrency": 50,
+      "success": "100/100 and 50/50",
+      "gateway_stream_ttft_p95_ms": 215.082,
+      "direct_stream_ttft_p95_ms": 21.223,
+      "incremental_ttft_p95_ms": 193.859,
+      "gateway_normal_first_byte_p95_ms": 1302.013,
+      "incremental_ttft_le_150ms": false,
+      "ledger_invariants": "160/160 requests, attempts, usage events, ledger lines and transactions"
+    },
+    {
+      "normal_concurrency": 50,
+      "stream_concurrency": 20,
+      "success": "50/50 and 20/20",
+      "gateway_stream_ttft_p95_ms": 87.087,
+      "direct_stream_ttft_p95_ms": 7.679,
+      "incremental_ttft_p95_ms": 79.408,
+      "gateway_normal_first_byte_p95_ms": 544.319,
+      "incremental_ttft_le_150ms": true,
+      "ledger_invariants": "80/80 requests, attempts, usage events, ledger lines and transactions"
+    }
+  ],
+  "frozen_stage01_envelope": {
+    "members": 100,
+    "principals": 1000,
+    "gateway_concurrency": 50,
+    "stream_concurrency": 20,
+    "monthly_settled_ledger_lines": 10000000,
+    "common_management_query_p95_ms": 500,
+    "gateway_incremental_ttft_p95_ms": 150,
+    "close_minutes": 30,
+    "rpo_hours": 24,
+    "rto_hours": 4,
+    "default_bom": "8 vCPU / 16 GiB RAM / 250 GB SSD; must be requalified on the complete 2.0 candidate"
+  },
+  "limitations": [
+    "The 10M database path uses a representative ledger/read-model schema, not the formal 2.0 schema, allocation engine or Statement implementation.",
+    "The Gateway path is the real v1.0.0-final pipeline against a local deterministic stub; it does not contain 2.0 RLS, organization, budget or period code.",
+    "The 10M database profile reuses the prior structured result because that PoC imports no product code and its input fingerprints are unchanged; its original raw stdout was not preserved and the database profile was not rerun in this Final archive pass.",
+    "Streams were held for 120 ms with tiny request bodies; realistic payload distribution, multi-minute streams, steady RPS and upstream failure rates remain Gate 2 work.",
+    "The load generator ran on the same host and no per-container CPU/RSS time series was captured.",
+    "A single restore proves recoverability and observed RTO only; it does not prove a continuously operated RPO schedule, encryption or retention policy.",
+    "Redis, Worker, object storage, full Compose, PostgreSQL failover and production network/storage were not fault-injected.",
+    "500/200 achieved 100% functional success but failed the <=150 ms incremental TTFT target, so it is a Gate 2 stretch target rather than the standard default or an open P1 on this PoC object."
+  ],
+  "gate_assessment": {
+    "blocking_p0": 0,
+    "blocking_p1": 0,
+    "current_poc_outcome": "The Stage 01 calibration question is closed with a frozen 50/20 default envelope.",
+    "gate2_stretch_target": "500 Gateway and 200 streaming concurrency; qualification is deferred to W20-19 on the complete 2.0 candidate and is not a current P1.",
+    "followup_implementation_gates": [
+      "Requalify the 50/20 default envelope on the complete 2.0 candidate and target BOM.",
+      "Run the 500/200 stretch profile with realistic long streams, payload distribution and steady request rate.",
+      "Complete full Compose fault injection, encrypted backup scheduling, retention and isolated recovery evidence in W20-18/W20-19."
+    ],
+    "residual_risks": [
+      "Cloud cost, external PostgreSQL/Redis, other CPU architectures and object-storage throughput remain target-environment calibration risks."
+    ]
+  }
+}

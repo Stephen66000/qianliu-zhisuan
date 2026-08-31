@@ -1,0 +1,27 @@
+{
+  "poc_id": "POC20-004A",
+  "status": "done",
+  "result": "PASS_WITH_LIMITATIONS",
+  "candidate": {
+    "final_commit": "b3fb74b387ef61734d949be2e97fab7904bca959",
+    "final_tree": "68719129f9e9ee6a0ebfa56ab371cc42912fb34c",
+    "poc_bundle_sha256": "81cc238f1b5e4bd75c3e54450d1c1bbec607e3cc0818283eb093fd12e95c8802"
+  },
+  "execution": {
+    "executor": "Codex / Stage01 Execution",
+    "started_at": "2026-08-11T11:37:51Z",
+    "finished_at": "2026-08-11T11:38:14Z",
+    "gateway_profiles": [
+      { "normal": 50, "stream": 20, "incremental_ttft_p95_ms": 79.408, "threshold_passed": true, "facts": 80 },
+      { "normal": 100, "stream": 50, "incremental_ttft_p95_ms": 193.859, "threshold_passed": false, "facts": 160 },
+      { "normal": 500, "stream": 200, "incremental_ttft_p95_ms": 788.328, "threshold_passed": false, "facts": 710 }
+    ]
+  },
+  "database_profile": {
+    "mode": "reused candidate-independent structured result",
+    "product_source_imported": false,
+    "rerun_in_final_archive_pass": false
+  },
+  "authoritative_result": "V4/Evidence/Stage01/POC20-004/result.json",
+  "raw_stdout": "V4/Evidence/Stage01/POC20-004/final-tag-gateway-staircase.stdout.log"
+}

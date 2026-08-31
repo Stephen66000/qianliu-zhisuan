@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="qianliu-document-status" content="prototype-confirmed-2026-08-12" />
+  <title>仟流智算 2.0｜技术架构图</title>
+  <style>
+    :root {
+      --bg: #f3f7fc;
+      --paper: #ffffff;
+      --paper-soft: #f7faff;
+      --ink: #13213a;
+      --muted: #66758c;
+      --line: #dce6f2;
+      --blue: #2877ed;
+      --blue-soft: #eaf3ff;
+      --cyan: #10b7c5;
+      --cyan-soft: #e9fbfc;
+      --green: #239a63;
+      --green-soft: #eaf8f1;
+      --orange: #d77725;
+      --orange-soft: #fff4e8;
+      --red: #c34b5c;
+      --red-soft: #fff0f2;
+      --shadow: 0 14px 36px rgba(35, 65, 110, .08);
+    }
+    [data-theme="dark"] {
+      --bg: #0d1523;
+      --paper: #121f31;
+      --paper-soft: #17263a;
+      --ink: #edf5ff;
+      --muted: #9caec4;
+      --line: #2b3d54;
+      --blue: #62a4ff;
+      --blue-soft: #173358;
+      --cyan: #38d0db;
+      --cyan-soft: #123840;
+      --green: #55cf91;
+      --green-soft: #163a2c;
+      --orange: #f0a55e;
+      --orange-soft: #47311f;
+      --red: #f08795;
+      --red-soft: #47242d;
+      --shadow: 0 16px 42px rgba(0, 0, 0, .24);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(40,119,237,.10), transparent 30rem),
+        radial-gradient(circle at 92% 10%, rgba(16,183,197,.08), transparent 28rem),
+        var(--bg);
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button { font: inherit; }
+    .shell { width: min(1480px, calc(100% - 40px)); margin: 0 auto; padding: 32px 0 56px; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      padding: 18px 22px; border: 1px solid var(--line); border-radius: 18px;
+      background: color-mix(in srgb, var(--paper) 92%, transparent); box-shadow: var(--shadow);
+      position: sticky; top: 12px; z-index: 10; backdrop-filter: blur(16px);
+    }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .brand img { width: 38px; height: 38px; object-fit: contain; }
+    .brand strong { display: block; font-size: 17px; letter-spacing: .02em; }
+    .brand span { color: var(--muted); font-size: 12px; }
+    .controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .control {
+      border: 1px solid var(--line); background: var(--paper); color: var(--muted);
+      border-radius: 10px; padding: 8px 12px; cursor: pointer;
+    }
+    .control:hover, .control[aria-pressed="true"] { color: var(--blue); border-color: var(--blue); background: var(--blue-soft); }
+    .hero { display: grid; grid-template-columns: 1.4fr .8fr; gap: 20px; margin: 26px 0 20px; }
+    .hero-card, .summary-card, .panel {
+      background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow);
+    }
+    .hero-card { padding: 28px 30px; }
+    .eyebrow { color: var(--blue); font-weight: 750; letter-spacing: .10em; font-size: 12px; text-transform: uppercase; }
+    h1 { margin: 8px 0 10px; font-size: clamp(28px, 4vw, 46px); line-height: 1.12; letter-spacing: -.035em; }
+    .hero p { margin: 0; color: var(--muted); max-width: 830px; }
+    .summary-card { padding: 20px; display: grid; gap: 12px; }
+    .summary-item { padding: 12px 14px; border-radius: 12px; background: var(--paper-soft); border: 1px solid var(--line); }
+    .summary-item b { display: block; margin-bottom: 2px; }
+    .summary-item span { color: var(--muted); font-size: 12px; }
+    .panel { margin-top: 20px; padding: 24px; overflow: hidden; }
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .panel h2 { margin: 0; font-size: 20px; }
+    .panel-head p { margin: 4px 0 0; color: var(--muted); }
+    .badge { white-space: nowrap; border-radius: 999px; padding: 5px 10px; background: var(--green-soft); color: var(--green); font-weight: 700; font-size: 12px; }
+    .arch { display: grid; gap: 14px; }
+    .lane {
+      display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px;
+      padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper-soft);
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .lane-label { color: var(--muted); font-weight: 750; padding: 12px 4px; }
+    .nodes { display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; align-items: stretch; }
+    .node {
+      grid-column: span 3; min-height: 92px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px;
+      background: var(--paper); position: relative;
+    }
+    .node.wide { grid-column: span 4; }
+    .node.half { grid-column: span 6; }
+    .node.full { grid-column: 1 / -1; }
+    .node strong { display: block; font-size: 14px; margin-bottom: 5px; }
+    .node small { color: var(--muted); display: block; line-height: 1.45; }
+    .node.blue { border-top: 3px solid var(--blue); }
+    .node.cyan { border-top: 3px solid var(--cyan); }
+    .node.green { border-top: 3px solid var(--green); }
+    .node.orange { border-top: 3px solid var(--orange); }
+    .node.red { border-top: 3px solid var(--red); }
+    .flow {
+      display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: center; gap: 7px;
+      padding: 2px 18px; color: var(--muted); text-align: center; font-size: 12px;
+    }
+    .flow .arrow { color: var(--blue); font-size: 19px; font-weight: 800; }
+    .flow b { color: var(--ink); }
+    .contract-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .contract { border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: var(--paper-soft); }
+    .contract h3 { margin: 0 0 8px; font-size: 15px; }
+    .contract ul { margin: 0; padding-left: 18px; color: var(--muted); }
+    .contract li + li { margin-top: 5px; }
+    .keep h3 { color: var(--blue); }
+    .add h3 { color: var(--green); }
+    .stop h3 { color: var(--red); }
+    .trace { width: 100%; border-collapse: collapse; min-width: 860px; }
+    .trace-wrap { overflow-x: auto; }
+    .trace th, .trace td { text-align: left; vertical-align: top; padding: 12px; border-bottom: 1px solid var(--line); }
+    .trace th { color: var(--muted); font-size: 12px; background: var(--paper-soft); }
+    .trace code { color: var(--blue); background: var(--blue-soft); border-radius: 5px; padding: 2px 5px; }
+    .foot { margin-top: 18px; color: var(--muted); font-size: 12px; text-align: right; }
+    body[data-lens="hotpath"] .lane[data-scope="increment"],
+    body[data-lens="hotpath"] .lane[data-scope="boundary"] { opacity: .22; transform: scale(.995); }
+    body[data-lens="increment"] .lane[data-scope="baseline"],
+    body[data-lens="increment"] .lane[data-scope="boundary"] { opacity: .22; transform: scale(.995); }
+    body[data-lens="boundary"] .lane:not([data-scope="boundary"]) { opacity: .22; transform: scale(.995); }
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; }
+      .topbar { position: static; align-items: flex-start; }
+      .nodes { grid-template-columns: repeat(6, 1fr); }
+      .node, .node.wide { grid-column: span 3; }
+      .node.half { grid-column: span 6; }
+      .contract-grid { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      .flow .arrow { transform: rotate(90deg); }
+    }
+    @media (max-width: 660px) {
+      .shell { width: min(100% - 22px, 1480px); padding-top: 12px; }
+      .topbar, .panel, .hero-card, .summary-card { border-radius: 14px; }
+      .topbar { flex-direction: column; }
+      .controls { justify-content: flex-start; }
+      .lane { grid-template-columns: 1fr; }
+      .lane-label { padding: 0; }
+      .nodes { grid-template-columns: 1fr; }
+      .node, .node.wide, .node.half, .node.full { grid-column: 1; }
+    }
+  </style>
+</head>
+<body data-lens="all">
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <img src="./原型/assets/qianliu-logo-primary.png" alt="仟流 Logo" />
+        <div><strong>仟流智算 2.0 技术架构</strong><span>确认原型对应版 · 2026-08-12</span></div>
+      </div>
+      <div class="controls" aria-label="架构视图切换">
+        <button class="control" type="button" data-lens="all" aria-pressed="true">完整架构</button>
+        <button class="control" type="button" data-lens="hotpath" aria-pressed="false">1.0 主链</button>
+        <button class="control" type="button" data-lens="increment" aria-pressed="false">2.0 增量</button>
+        <button class="control" type="button" data-lens="boundary" aria-pressed="false">边界</button>
+        <button class="control" type="button" id="themeToggle" aria-pressed="false">深色</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-card">
+        <span class="eyebrow">Architecture Baseline</span>
+        <h1>守住 1.0 主链，叠加 2.0 经营能力</h1>
+        <p>2.0 不是另起一套企业后台。请求、计量、账本、资源、主体、模型与运行保障沿用 1.0；新增通讯录导入、周期用量、部门预算归集、资源利用事实与轻量采购复盘。</p>
+      </div>
+      <aside class="summary-card">
+        <div class="summary-item"><b>产品单元</b><span>一个客户企业内的仟流智算</span></div>
+        <div class="summary-item"><b>数据真源</b><span>已结算请求事实与厂商原生权益事实</span></div>
+        <div class="summary-item"><b>明确不做</b><span>总控台、正式对账／导出、Agent 首发</span></div>
+      </aside>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div><h2>运行架构</h2><p>点击顶部视角，仅用于突出相关层；所有层始终保留在同一张图中。</p></div>
+        <span class="badge">边界已冻结</span>
+      </div>
+
+      <div class="arch">
+        <div class="lane" data-scope="baseline">
+          <div class="lane-label">使用入口</div>
+          <div class="nodes">
+            <div class="node blue wide"><strong>企业管理员 Web</strong><small>首页、主体、规则、厂商资源、用量、经营账单、运行保障、管理员与设置</small></div>
+            <div class="node blue wide"><strong>员工／项目客户端</strong><small>使用既有主体 Key 与授权模型发起请求；项目仍是独立使用主体</small></div>
+            <div class="node cyan wide"><strong>通讯录来源</strong><small>企业微信／飞书单向同步，或按模板上传 Excel</small></div>
+          </div>
+        </div>
+
+        <div class="flow" aria-label="请求主链">
+          <b>客户端</b><span class="arrow">→</span><b>Gateway</b><span class="arrow">→</span><b>Provider Adapter</b><span class="arrow">→</span><b>厂商模型</b>
+        </div>
+
+        <div class="lane" data-scope="baseline">
+          <div class="lane-label">在线服务</div>
+          <div class="nodes">
+            <div class="node blue"><strong>Web App</strong><small>只消费 Control API；保留 1.0 信息和操作闭环</small></div>
+            <div class="node blue"><strong>Control API</strong><small>主体、授权、资源、用量、账单、预算、管理员与审计接口</small></div>
+            <div class="node blue"><strong>Gateway</strong><small>鉴权、路由、限额、流式转发；2.0 不改变热路径合同</small></div>
+            <div class="node blue"><strong>Provider Adapter</strong><small>DeepSeek、Kimi、智谱等既有 SDK／协议适配</small></div>
+          </div>
+        </div>
+
+        <div class="lane" data-scope="increment">
+          <div class="lane-label">2.0 增量服务</div>
+          <div class="nodes">
+            <div class="node cyan"><strong>Directory Import</strong><small>同步／解析、字段标准化、幂等匹配、歧义清单、主体与配置衔接</small></div>
+            <div class="node green"><strong>Usage Read Model</strong><small>员工／项目日周月聚合；全部与单主体查询；请求明细沿用事实源</small></div>
+            <div class="node green"><strong>Budget & Attribution</strong><small>部门预算、组织快照、项目归属快照、唯一成本归集、待归属</small></div>
+            <div class="node orange"><strong>Resource Intelligence</strong><small>原生窗口利用率、余额／速度、耗尽或恢复、闲置事实、采购复盘</small></div>
+          </div>
+        </div>
+
+        <div class="lane" data-scope="baseline">
+          <div class="lane-label">异步任务</div>
+          <div class="nodes">
+            <div class="node cyan wide"><strong>Worker · 通讯录</strong><small>增量拉取、Excel 导入、重试与错误行输出；不向外部通讯录回写</small></div>
+            <div class="node green wide"><strong>Worker · 经营聚合</strong><small>按事实水位生成周期聚合、部门归集与月度账单读模型</small></div>
+            <div class="node orange wide"><strong>Worker · 资源快照</strong><small>同步厂商权益窗口、计算可解释利用率／耗尽／闲置事实</small></div>
+          </div>
+        </div>
+
+        <div class="lane" data-scope="baseline">
+          <div class="lane-label">数据与缓存</div>
+          <div class="nodes">
+            <div class="node blue half"><strong>PostgreSQL · 权威事实</strong><small>Principal／授权配置、Attempt／Usage／Ledger／Settlement、资源与审计；新增目录映射、组织快照、预算、周期聚合和资源事实。正文继续零留存。</small></div>
+            <div class="node cyan half"><strong>Redis · 可重建状态</strong><small>热路径限额、短期缓存、锁与任务协调；不得成为经营汇总或账单真源。</small></div>
+          </div>
+        </div>
+
+        <div class="lane" data-scope="boundary">
+          <div class="lane-label">安全与边界</div>
+          <div class="nodes">
+            <div class="node red"><strong>企业内权限</strong><small>沿用企业上下文与 RBAC；企业 ID 是数据隔离键，不是多企业总控台入口</small></div>
+            <div class="node red"><strong>密钥与审计</strong><small>厂商凭证加密、主体 Key 不回读、敏感操作和导入结果留审计</small></div>
+            <div class="node red"><strong>Coming Soon</strong><small>对账与导出只保留空页面，不建设后端任务、对象存储或下载链</small></div>
+            <div class="node red"><strong>非首发</strong><small>仟流科技总控台、企业生命周期、Agent、坐席账号和跨厂商评价</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>三条数据链</h2><p>新页面只建立读模型，不发明第二套事实。</p></div></div>
+      <div class="contract-grid">
+        <article class="contract keep"><h3>请求与计量链（1.0）</h3><ul><li>请求 → Attempt／Usage → Ledger／Settlement</li><li>首页、用量账本和经营账单共同回算</li><li>2.0 不改 Gateway 的鉴权、路由和扣减语义</li></ul></article>
+        <article class="contract add"><h3>组织与经营链（2.0）</h3><ul><li>通讯录／Excel → 映射 → 主体与组织关系</li><li>结算事实 + 归属快照 → 部门成本与预算状态</li><li>日／周／月只改变查询窗口，不改变底层事实</li></ul></article>
+        <article class="contract stop"><h3>资源与复盘链（2.0）</h3><ul><li>厂商原生权益 + 使用事实 → 利用率与耗尽事实</li><li>无法计算时记录原因，不伪造统一 Token</li><li>采购复盘只给事实与备注，不自动代替人决策</li></ul></article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>需求到组件追踪</h2><p>用于开发拆包与验收定位；最终字段和接口以 TRD 为准。</p></div></div>
+      <div class="trace-wrap">
+        <table class="trace">
+          <thead><tr><th>需求</th><th>主要入口</th><th>主要组件</th><th>权威数据</th><th>验收</th></tr></thead>
+          <tbody>
+            <tr><td><code>FR2-001</code> 1.0 兼容</td><td>全部既有页面</td><td>Web／Control API／Gateway／Worker</td><td>既有 1.0 表与日志</td><td>AT-001</td></tr>
+            <tr><td><code>FR2-002</code> 通讯录</td><td>组织与成员</td><td>Directory Import／Worker</td><td>目录映射、组织关系、Principal</td><td>AT-002</td></tr>
+            <tr><td><code>FR2-003</code> 周期用量</td><td>首页／用量统计</td><td>Usage Read Model</td><td>Usage／Ledger／Settlement</td><td>AT-003</td></tr>
+            <tr><td><code>FR2-004</code> 部门预算</td><td>额度规则／部门账</td><td>Budget & Attribution</td><td>组织与项目归属快照、结算事实</td><td>AT-004</td></tr>
+            <tr><td><code>FR2-005</code> 月度账单</td><td>经营账单</td><td>Operating Bill Read Model</td><td>结算事实、采购事实、归集结果</td><td>AT-005</td></tr>
+            <tr><td><code>FR2-006</code> 资源事实</td><td>厂商资源</td><td>Resource Intelligence</td><td>厂商窗口、余额、使用速度、快照</td><td>AT-006</td></tr>
+            <tr><td><code>FR2-007</code> 采购复盘</td><td>经营账单／采购复盘</td><td>Resource Intelligence／Control API</td><td>资源事实、采购记录、人工备注</td><td>AT-007</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="foot">仟流智算 2.0 · 技术架构基线 · Planning Change PC-20260812-03</p>
+  </main>
+  <script>
+    const lensButtons = [...document.querySelectorAll('[data-lens]')].filter((item) => item.tagName === 'BUTTON');
+    lensButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        document.body.dataset.lens = button.dataset.lens;
+        lensButtons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+      });
+    });
+    const themeButton = document.getElementById('themeToggle');
+    themeButton.addEventListener('click', () => {
+      const dark = document.documentElement.dataset.theme !== 'dark';
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      themeButton.textContent = dark ? '浅色' : '深色';
+      themeButton.setAttribute('aria-pressed', String(dark));
+    });
+  </script>
+</body>
+</html>

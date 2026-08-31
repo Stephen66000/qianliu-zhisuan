@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "project": "仟流智算",
+  "product_version": "2.0",
+  "stage": "Stage 01",
+  "gate": "Gate 1",
+  "candidate": "2.0 标准版 / Gate 1 Final.2",
+  "completed_at": "2026-08-11T22:12:00+08:00",
+  "status": "done",
+  "product_document_version": "v2.0-gate1.1",
+  "technical_document_version": "v2.0-gate1.1",
+  "baseline_version": "v2.0-stage01-final.2",
+  "planning_changes": ["PC-20260811-01", "PC-20260811-02"],
+  "findings": {
+    "p0": 0,
+    "p1": 0,
+    "blocking_evidence_gap": 0
+  },
+  "prototype_walkthrough": {
+    "status": "done",
+    "tasks_passed": 7,
+    "tasks_total": 7,
+    "scenarios_passed": 9,
+    "scenarios_total": 9,
+    "fixture": "synthetic"
+  },
+  "poc": {
+    "POC20-001": "PASS_WITH_LIMITATIONS",
+    "POC20-002": "PASS_WITH_LIMITATIONS",
+    "POC20-003": "PASS_WITH_LIMITATIONS",
+    "POC20-004": "PASS_WITH_LIMITATIONS"
+  },
+  "customer_evidence_available": false,
+  "customer_validation_status": "todo",
+  "product_implementation_status": "todo",
+  "git_write_actions": [],
+  "next_action": "进入 Stage 02，只形成整体开发计划、项目工程规则、开发执行基线和完成检查 Evidence"
+}

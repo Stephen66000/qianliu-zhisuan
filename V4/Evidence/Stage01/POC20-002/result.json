@@ -1,0 +1,127 @@
+{
+  "poc_id": "POC20-002",
+  "executed_at": "2026-08-11T19:43:51+08:00",
+  "finished_at": "2026-08-11T19:44:00+08:00",
+  "executor": "Codex / Stage01 Execution",
+  "result": "PASS_WITH_LIMITATIONS",
+  "scope": "real 0000-0044 Kysely migration chain plus representative 2.0 SQL overlay; not formal 0045 or production rehearsal",
+  "candidate": {
+    "semantics": "v1.0.0-final migration tree plus an isolated representative overlay; workspace HEAD is execution environment only.",
+    "final_tag": "v1.0.0-final",
+    "v1_final_commit": "b3fb74b387ef61734d949be2e97fab7904bca959",
+    "v1_final_tree": "68719129f9e9ee6a0ebfa56ab371cc42912fb34c",
+    "workspace_head_execution_environment": "c04df1f7d2ea84f2cdbd2bddfe2f586c7ee451d8",
+    "migration_git_tree": "2e21e1b8c4a286784c5d50cc85046b3508a538aa",
+    "migration_manifest_path": "migration-manifest.sha256",
+    "migration_manifest_sha256": "4be761e1822f5aa7ee51d72784bc2e8d93e07a0067f9ff48b3b604c885478f29",
+    "bundle_manifest_path": "bundle-manifest.sha256",
+    "bundle_manifest_sha256": "7df7c6d8279bec155cb4131c84ac06d68531a1cffb73c79fe6257bd4b13c4fdd",
+    "bundle_definition": "SHA-256 per top-level regular input file under V4/PoC/POC20-002, relative filename, two ASCII spaces and LF; filenames sorted with LC_ALL=C and final LF included. Generated Evidence and runtime data are excluded."
+  },
+  "baseline_verification": {
+    "executed_at": "2026-08-11T19:42:59+08:00",
+    "tag_to_workspace_migration_diff_count": 0,
+    "workspace_migration_status_count": 0,
+    "final_migration_tree": "2e21e1b8c4a286784c5d50cc85046b3508a538aa",
+    "workspace_migration_tree": "2e21e1b8c4a286784c5d50cc85046b3508a538aa",
+    "migration_file_count": 45,
+    "result": "PASS",
+    "raw_metadata": {
+      "path": "migration-baseline-verification.txt",
+      "sha256": "f8c3848d687bde73bcdb10246992a79c794cc61a47a2f475da37b09c0eca9673"
+    }
+  },
+  "raw_execution_output": {
+    "path": "stdout-20260811T114351Z.log",
+    "sha256": "d0b34955525b3ec1376a155f9f64382d17589d750ef9353219bef6bf49440862"
+  },
+  "environment": {
+    "postgresql": "17.10 x86_64-pc-linux-musl",
+    "image": "postgres:17-alpine",
+    "data": "synthetic only",
+    "databases": [
+      "clean migration path",
+      "missing target manifest",
+      "cross-enterprise corruption"
+    ]
+  },
+  "evidence": {
+    "migration_anchor": {
+      "last": "0044_operating_bill_model_identity",
+      "count": 45
+    },
+    "original_0044": {
+      "semantic_schema_sha256": "21accaee2d48c34c9d2f4cd50ef211a5710e8203c7e1ac09ce9ced73660c98ca",
+      "old_columns_data_sha256": "fb8dc8c5b25a4d5c3adeb5b3872612522ed34318574bb2ddfc097cf5fcf27924"
+    },
+    "first_up": {
+      "duration_ms": 134.496583,
+      "semantic_schema_sha256": "241e42b1fefdd91bf97e8377c0c4238b1d5538608ee17603550dbbd1c7ecdf38",
+      "old_columns_data_sha256": "fb8dc8c5b25a4d5c3adeb5b3872612522ed34318574bb2ddfc097cf5fcf27924",
+      "enterprise_columns": "10/10 NOT NULL",
+      "representative_constraints": 79,
+      "cross_tenant_write_sqlstate": "23503",
+      "legacy_read_rows": 3,
+      "legacy_write_sqlstate": "42501"
+    },
+    "rollback_to_0044": {
+      "duration_ms": 48.951875,
+      "semantic_schema_sha256": "21accaee2d48c34c9d2f4cd50ef211a5710e8203c7e1ac09ce9ced73660c98ca",
+      "old_columns_data_sha256": "fb8dc8c5b25a4d5c3adeb5b3872612522ed34318574bb2ddfc097cf5fcf27924",
+      "legacy_read_rows": 3,
+      "legacy_write_sqlstate": "42501"
+    },
+    "reupgrade": {
+      "duration_ms": 104.368625,
+      "semantic_schema_sha256": "241e42b1fefdd91bf97e8377c0c4238b1d5538608ee17603550dbbd1c7ecdf38",
+      "old_columns_data_sha256": "fb8dc8c5b25a4d5c3adeb5b3872612522ed34318574bb2ddfc097cf5fcf27924",
+      "same_semantic_schema_as_first_up": true,
+      "physical_column_ordinal_drift": true
+    },
+    "invariants_all_checkpoints": {
+      "requests": 3,
+      "attempts": 4,
+      "usages": 2,
+      "ledger_lines": 2,
+      "ledger_transactions": 2,
+      "input_tokens": "9007199254741093",
+      "output_tokens": "90",
+      "cache_tokens": "180",
+      "reasoning_tokens": "7",
+      "deducted_quota": "200",
+      "transaction_api_cost": "2.50",
+      "periods": 2,
+      "bill_versions": 2,
+      "usage_line_mismatches": 0,
+      "transaction_mismatches": 0
+    },
+    "cutover_down_guard_sqlstate": "P2004",
+    "missing_manifest_sqlstate": "P2000",
+    "missing_manifest_ddl_residue": 0,
+    "cross_enterprise_preflight_sqlstate": "P2002",
+    "cross_enterprise_preflight_ddl_residue": 0,
+    "hash_contract": {
+      "comparison_scope": "equality across before, first-up, rollback and re-up checkpoints within this single execution",
+      "cross_run_fixed_value_promised": false,
+      "reason": "Generated timestamps or fixture/migration metadata values may differ between executions; the invariant is checkpoint equality within one run, not a permanent golden digest."
+    }
+  },
+  "limitations": [
+    "The representative overlay is not a product migration and was not added to packages/database/migrations.",
+    "No production schema drift, historical data ambiguity, large-table lock time or old/new application candidate was tested.",
+    "PostgreSQL drop-and-readd changes physical column ordinal positions; clients must bind named columns and semantic schema contracts.",
+    "Current production-style compose roles do not yet enforce the demonstrated legacy read-only fence."
+  ],
+  "gate_assessment": {
+    "blocking_p0": 0,
+    "blocking_p1": 0,
+    "followup_implementation_gates": [
+      "Implement and review the formal 0045+ migrations and ownership preflight.",
+      "Split deployment roles and enforce the old-application read-only cutover fence.",
+      "Run up/down/up and restore against a representative target-size database and the actual old/new application candidates."
+    ],
+    "residual_risks": [
+      "Production schema drift, large-table lock time and physical column ordinal compatibility remain Gate 2 risks, not open P1 findings on this PoC object."
+    ]
+  }
+}

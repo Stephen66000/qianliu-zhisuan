@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="qianliu-progress-baseline" content="v2.0-stage03-w20-10.1" />
+  <title>仟流智算 2.0｜开发执行进度</title>
+  <style>
+    :root {
+      --bg: #f3f7fc; --paper: #fff; --soft: #f7faff; --ink: #14223b; --muted: #6a7890;
+      --line: #dce6f2; --blue: #2877ed; --blue-soft: #eaf3ff; --green: #299763; --green-soft: #eaf8f1;
+      --orange: #d87827; --orange-soft: #fff3e7; --red: #c34a5a; --red-soft: #fff0f2; --shadow: 0 14px 36px rgba(35,65,110,.08);
+    }
+    [data-theme="dark"] {
+      --bg: #0d1523; --paper: #121f31; --soft: #17263a; --ink: #edf5ff; --muted: #9caec4; --line: #2b3d54;
+      --blue: #62a4ff; --blue-soft: #173358; --green: #55cf91; --green-soft: #163a2c;
+      --orange: #f0a55e; --orange-soft: #47311f; --red: #f08795; --red-soft: #47242d; --shadow: 0 16px 42px rgba(0,0,0,.24);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; color: var(--ink); background: radial-gradient(circle at 8% 0%, rgba(40,119,237,.10), transparent 30rem), var(--bg); font: 14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+    button { font: inherit; }
+    .shell { width: min(1440px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 54px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--shadow); }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand img { width: 38px; height: 38px; object-fit: contain; }
+    .brand strong { display: block; font-size: 17px; }
+    .brand span { color: var(--muted); font-size: 12px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .button, .filter { border: 1px solid var(--line); background: var(--paper); color: var(--muted); border-radius: 10px; padding: 8px 12px; cursor: pointer; }
+    .button:hover, .filter:hover, .filter.active { color: var(--blue); border-color: var(--blue); background: var(--blue-soft); }
+    .hero { display: grid; grid-template-columns: 1.35fr .65fr; gap: 18px; margin: 22px 0 18px; }
+    .card, .panel { border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--shadow); }
+    .hero-main { padding: 26px 28px; }
+    .eyebrow { color: var(--blue); font-weight: 750; letter-spacing: .09em; font-size: 12px; }
+    h1 { font-size: clamp(27px, 4vw, 43px); line-height: 1.12; letter-spacing: -.035em; margin: 8px 0 10px; }
+    .hero p { color: var(--muted); margin: 0; }
+    .next { padding: 20px; }
+    .next-label { color: var(--muted); font-size: 12px; }
+    .next strong { display: block; font-size: 17px; margin: 6px 0 8px; }
+    .status { display: inline-flex; border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 750; }
+    .status.todo { color: var(--muted); background: var(--soft); border: 1px solid var(--line); }
+    .status.doing { color: var(--orange); background: var(--orange-soft); }
+    .status.done { color: var(--green); background: var(--green-soft); }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+    .stat { padding: 16px 18px; }
+    .stat b { display: block; font-size: 25px; margin-top: 5px; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .bar { height: 7px; margin-top: 10px; border-radius: 999px; overflow: hidden; background: var(--soft); }
+    .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), #35c4d1); }
+    .panel { padding: 22px; margin-top: 18px; }
+    .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+    h2 { font-size: 20px; margin: 0; }
+    .panel-head p { margin: 4px 0 0; color: var(--muted); }
+    .milestones { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+    .milestone { padding: 14px; border: 1px solid var(--line); background: var(--soft); border-radius: 13px; }
+    .milestone.current { border-color: var(--blue); background: var(--blue-soft); }
+    .milestone b { display: block; margin-bottom: 5px; }
+    .milestone small { color: var(--muted); }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .packages { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .package { border: 1px solid var(--line); border-radius: 14px; padding: 17px; background: var(--soft); }
+    .package.current { border-color: var(--blue); box-shadow: inset 4px 0 var(--blue); background: var(--blue-soft); }
+    .package-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .package h3 { margin: 0 0 4px; font-size: 15px; }
+    .package .meta, .package p { color: var(--muted); font-size: 12px; }
+    .package p { margin: 10px 0 0; }
+    .risk { color: var(--red); font-weight: 750; }
+    .risk.normal { color: var(--green); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    th, td { text-align: left; vertical-align: top; padding: 11px 12px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: 12px; background: var(--soft); }
+    .boundary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .boundary article { padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: var(--soft); }
+    .boundary h3 { margin: 0 0 6px; font-size: 14px; }
+    .boundary p { margin: 0; color: var(--muted); font-size: 12px; }
+    .foot { color: var(--muted); text-align: right; font-size: 12px; margin-top: 16px; }
+    @media (max-width: 1020px) { .hero { grid-template-columns: 1fr; } .milestones { grid-template-columns: repeat(3,1fr); } .stats { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 720px) { .shell { width: min(100% - 22px, 1440px); padding-top: 12px; } .topbar { flex-direction: column; align-items: flex-start; } .packages, .boundary { grid-template-columns: 1fr; } .milestones { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 460px) { .stats, .milestones { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><img src="./原型/assets/qianliu-logo-primary.png" alt="仟流 Logo" /><div><strong>仟流智算 2.0 开发执行进度</strong><span>确认原型后的执行基线 · 2026-08-12</span></div></div>
+      <div class="actions"><button class="button" type="button" id="themeToggle">深色</button></div>
+    </header>
+
+    <section class="hero">
+      <div class="card hero-main"><span class="eyebrow">STAGE 03 · DOING</span><h1>W20-02～10 已完成，W20-11 等待目标环境</h1><p>M20-1～M20-4 已按冻结开发计划完成；W20-10 已绑定唯一候选，W20-11 的本地服务烟测与隔离恢复实演均不替代标准目标环境交付。</p></div>
+      <aside class="card next"><span class="next-label">当前对象</span><strong id="nextObject">W20-11 · 目标环境交付</strong><span class="status todo">todo</span><p>交付脚本已预编制且隔离回退 PASS；等待标准目标环境、真实 Secret、TLS、代表性数据、备份／监控及目标恢复授权。</p></aside>
+    </section>
+
+    <section class="stats" id="stats"></section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>里程碑</h2><p>M20-0～M20-5，按真实业务能力推进。</p></div></div>
+      <div class="milestones" id="milestones"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>开发工作包</h2><p>日常只更新下方 STAGE_DATA 的状态、Evidence 和当前对象。</p></div><span id="packageCount"></span></div>
+      <div class="filters" id="filters"></div>
+      <div class="packages" id="packages"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>排期</h2><p>AI 执行日按累计 8 小时可核验实现、测试、修复和 Evidence 计算。</p></div></div>
+      <div class="table-wrap"><table><thead><tr><th>里程碑</th><th>P50</th><th>P80</th><th>主要结果</th></tr></thead><tbody id="schedule"></tbody></table></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>冻结边界</h2><p>避免再把总控台或假能力混入客户企业产品。</p></div></div>
+      <div class="boundary">
+        <article><h3>必须保留</h3><p>1.0 页面、字段、操作、筛选、URL、分页、下钻和账本行为完整承接。</p></article>
+        <article><h3>本轮新增</h3><p>通讯录、周期用量、部门预算与唯一归集、资源事实、轻量采购复盘。</p></article>
+        <article><h3>明确不做</h3><p>总控台、Agent 新入口、正式对账／导出、自动采购、厂商实时价格与大 BI。</p></article>
+      </div>
+    </section>
+
+    <p class="foot">权威计划：V4/仟流智算-开发规划-v2.0.md · PC-20260812-03／04</p>
+  </main>
+
+  <script>
+    const STAGE_DATA = {
+      stage: { id: "Stage 03", status: "doing", currentMilestone: "M20-5", currentWorkPackage: "W20-11" },
+      milestones: [
+        { id: "M20-0", title: "1.0 兼容与回归基线", status: "done", p50: 2, p80: 3, result: "已冻结 1.0 可执行回归合同" },
+        { id: "M20-1", title: "通讯录导入与主体衔接", status: "done", p50: 4, p80: 6, result: "接口／Excel 导入并生成可操作主体" },
+        { id: "M20-2", title: "员工／项目周期用量", status: "done", p50: 3, p80: 5, result: "全体／单主体日周月及 1.0 下钻" },
+        { id: "M20-3", title: "部门预算与月度经营", status: "done", p50: 5, p80: 7, result: "预算预警、唯一归集与三账守恒" },
+        { id: "M20-4", title: "资源事实与采购复盘", status: "done", p50: 3, p80: 5, result: "逐资源利用、耗尽、闲置与备注" },
+        { id: "M20-5", title: "完整回归与交付", status: "doing", p50: 3, p80: 4, result: "同一最终候选和目标环境交付" }
+      ],
+      workPackages: [
+        { id: "W20-01", milestone: "M20-0", title: "冻结 1.0 兼容与回归基线", risk: "HIGH", status: "done", dependencies: "Stage 02 done＋Owner W20-01 授权", evidence: "E-W20-01" },
+        { id: "W20-02", milestone: "M20-1", title: "通讯录来源与导入", risk: "HIGH", status: "done", dependencies: "W20-01", evidence: "E-W20-02" },
+        { id: "W20-03", milestone: "M20-1", title: "导入成员衔接使用主体", risk: "HIGH", status: "done", dependencies: "W20-02", evidence: "E-W20-03" },
+        { id: "W20-04", milestone: "M20-2", title: "周期用量聚合合同", risk: "NORMAL", status: "done", dependencies: "W20-01", evidence: "E-W20-04" },
+        { id: "W20-05", milestone: "M20-2", title: "周期用量页面与 1.0 下钻集成", risk: "NORMAL", status: "done", dependencies: "W20-04", evidence: "E-W20-05" },
+        { id: "W20-06", milestone: "M20-3", title: "部门预算与预警", risk: "HIGH", status: "done", dependencies: "W20-03＋W20-04", evidence: "E-W20-06" },
+        { id: "W20-07", milestone: "M20-3", title: "唯一成本归集与月度经营", risk: "HIGH", status: "done", dependencies: "W20-05＋W20-06", evidence: "E-W20-07" },
+        { id: "W20-08", milestone: "M20-4", title: "逐资源利用、耗尽与闲置事实", risk: "NORMAL", status: "done", dependencies: "W20-04＋W20-07", evidence: "E-W20-08" },
+        { id: "W20-09", milestone: "M20-4", title: "轻量采购复盘", risk: "NORMAL", status: "done", dependencies: "W20-08", evidence: "E-W20-09" },
+        { id: "W20-10", milestone: "M20-5", title: "完整回归与最终候选", risk: "HIGH", status: "done", dependencies: "W20-01～W20-09", evidence: "E-W20-10＋candidate-lock.final.json" },
+        { id: "W20-11", milestone: "M20-5", title: "目标环境交付", risk: "HIGH", status: "todo", dependencies: "W20-10＋目标环境", evidence: "E-W20-11" }
+      ]
+    };
+
+    const STATUS_LABEL = { todo: "未开始", doing: "进行中", done: "已完成", blocked: "阻塞", failed: "失败", cancelled: "取消" };
+    const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+    const completed = STAGE_DATA.workPackages.filter((item) => item.status === "done").length;
+    const doing = STAGE_DATA.workPackages.filter((item) => item.status === "doing").length;
+    const percent = Math.round(completed / STAGE_DATA.workPackages.length * 100);
+    document.getElementById("stats").innerHTML = [
+      ["工程进度", `${percent}%`, `${completed} / ${STAGE_DATA.workPackages.length} 个工作包`, percent],
+      ["当前阶段", STAGE_DATA.stage.id, STATUS_LABEL[STAGE_DATA.stage.status], 0],
+      ["进行中", String(doing), "同一时刻最多 1 个当前包", 0],
+      ["预计总量", "20 / 30 日", "P50 / P80 AI 执行日", 0]
+    ].map(([label, value, note, width]) => `<article class="card stat"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b><span>${escapeHtml(note)}</span><div class="bar"><i style="width:${width}%"></i></div></article>`).join("");
+
+    document.getElementById("milestones").innerHTML = STAGE_DATA.milestones.map((item) => `<article class="milestone ${item.id === STAGE_DATA.stage.currentMilestone ? "current" : ""}"><b>${escapeHtml(item.id)} · ${escapeHtml(item.title)}</b><span class="status ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span><br><small>P50 ${item.p50} 日 / P80 ${item.p80} 日</small></article>`).join("");
+
+    const renderPackages = (filter = "ALL") => {
+      const rows = STAGE_DATA.workPackages.filter((item) => filter === "ALL" || item.milestone === filter);
+      document.getElementById("packageCount").textContent = `显示 ${rows.length} / ${STAGE_DATA.workPackages.length}`;
+      document.getElementById("packages").innerHTML = rows.map((item) => `<article class="package ${item.id === STAGE_DATA.stage.currentWorkPackage ? "current" : ""}"><div class="package-head"><div><h3>${escapeHtml(item.id)} · ${escapeHtml(item.title)}</h3><div class="meta">${escapeHtml(item.milestone)} · 依赖：${escapeHtml(item.dependencies)}</div></div><div><span class="risk ${item.risk === "NORMAL" ? "normal" : ""}">${escapeHtml(item.risk)}</span> <span class="status ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></div></div><p>计划 Evidence：${escapeHtml(item.evidence)} · ${item.status === "done" ? "完成证据已归档。" : "当前未产生完成证据。"}</p></article>`).join("");
+    };
+    const filters = ["ALL", ...STAGE_DATA.milestones.map((item) => item.id)];
+    document.getElementById("filters").innerHTML = filters.map((id, index) => `<button type="button" class="filter ${index === 0 ? "active" : ""}" data-filter="${escapeHtml(id)}">${escapeHtml(id === "ALL" ? "全部" : id)}</button>`).join("");
+    document.querySelectorAll("[data-filter]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-filter]").forEach((item) => item.classList.remove("active")); button.classList.add("active"); renderPackages(button.dataset.filter); }));
+    renderPackages();
+
+    document.getElementById("schedule").innerHTML = [...STAGE_DATA.milestones, { id: "合计", title: "", p50: 20, p80: 30, result: "外部授权与环境等待单列" }].map((item) => `<tr><td><b>${escapeHtml(item.id)}</b>${item.title ? ` · ${escapeHtml(item.title)}` : ""}</td><td>${item.p50} 日</td><td>${item.p80} 日</td><td>${escapeHtml(item.result)}</td></tr>`).join("");
+
+    document.getElementById("themeToggle").addEventListener("click", (event) => { const dark = document.documentElement.dataset.theme !== "dark"; document.documentElement.dataset.theme = dark ? "dark" : "light"; event.currentTarget.textContent = dark ? "浅色" : "深色"; });
+  </script>
+</body>
+</html>

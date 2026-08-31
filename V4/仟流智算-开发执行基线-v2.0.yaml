@@ -1,0 +1,202 @@
+schema_version: "qianliu-development-baseline/v2"
+project: "仟流智算"
+product_version: "2.0"
+baseline_version: "v2.0-w20-11.4"
+updated_at: "2026-08-13T13:55:12+08:00"
+timezone: "Asia/Shanghai"
+
+status_vocabulary:
+  - "todo"
+  - "doing"
+  - "blocked"
+  - "failed"
+  - "done"
+  - "cancelled"
+
+sop_binding:
+  name: "仟流AI开发SOP"
+  version: "v1.0"
+  path: "/Users/mac/Documents/AI专区/仟流 规范与体系/编程规范/仟流AI开发SOP/仟流AI开发SOP-v1.0.md"
+  current_stage_spec: "/Users/mac/Documents/AI专区/仟流 规范与体系/编程规范/仟流AI开发SOP/03-开发执行-v1.0.md"
+
+authority:
+  mode: "git-backed"
+  repository_root: "/Users/mac/Projects/仟流智算"
+  current_state_source: "V4/仟流智算-开发执行基线-v2.0.yaml"
+  product_contract: "V4/仟流智算-产品需求文档-v2.0.md"
+  technical_contract: "V4/仟流智算-技术需求文档-v2.0.md"
+  development_plan: "V4/仟流智算-开发规划-v2.0.md"
+  acceptance_contract: "V4/仟流智算-初始验收矩阵-v2.0.md"
+  architecture_view: "V4/仟流智算-2.0-技术架构图.html"
+  progress_source: "V4/仟流智算-Stage03开发执行进度图-v2.0.html"
+  engineering_rules: "V4/仟流智算-项目工程规则-v2.0.md"
+  planning_change_log: "V4/Planning-Change-Log.md"
+  evidence_root: "V4/Evidence"
+  rule: "本 YAML 只维护当前阶段、对象、授权、风险和下一动作；产品与技术口径以 PRD/TRD 为准。"
+
+bindings:
+  lock_status: "final"
+  lock_rule: "绑定成果已通过一致性检查并写入真实 SHA-256；成果变化必须重新计算 Hash 并重锁受影响范围。"
+  artifacts:
+    - id: "PRD"
+      path: "V4/仟流智算-产品需求文档-v2.0.md"
+      version: "v2.0-rebaseline.2"
+      sha256: "94605b1f449cdf5b4fa8437840679830526ddaf4efd47f8ae5a21685fdd19e3c"
+    - id: "TRD"
+      path: "V4/仟流智算-技术需求文档-v2.0.md"
+      version: "v2.0-w20-01-baseline"
+      sha256: "e69566e321e6b43477d997436db59cc2cfb0fc88d00a6e1ea206da560441c42d"
+    - id: "development_plan"
+      path: "V4/仟流智算-开发规划-v2.0.md"
+      version: "v2.0-stage03-w20-01.1"
+      sha256: "a85761d708e4d661334f054d8b7034e24c9e6af315a902bc2f2e7b08e75ce53a"
+    - id: "acceptance_matrix"
+      path: "V4/仟流智算-初始验收矩阵-v2.0.md"
+      version: "v2.0-prototype-confirmed.2"
+      sha256: "031d020fc0c2125ff5d6139d785e9eb06590e513fe9086395e14870cb2c69ed5"
+    - id: "prototype"
+      path: "V4/原型/仟流智算-2.0-标准版原型.html"
+      version: "v2.0-pc04-compatible"
+      sha256: "8db389204c110af1a66471cf7c72e4dd0611fdcdc2f0e1d444518da6a8165d95"
+    - id: "architecture"
+      path: "V4/仟流智算-2.0-技术架构图.html"
+      version: "prototype-confirmed-2026-08-12"
+      sha256: "0dd57db5d25c5e7f037a90753dc286de0eb38f2faf713f7aebc97fa41f0556a1"
+    - id: "stage03_progress"
+      path: "V4/仟流智算-Stage03开发执行进度图-v2.0.html"
+      version: "v2.0-stage03-w20-11.2"
+      sha256: "12229d17dda6957330821ca7c1c4d750d063a883f39b54240f74544598031af3"
+    - id: "engineering_rules"
+      path: "V4/仟流智算-项目工程规则-v2.0.md"
+      version: "v2.0-rules-rebaseline.1"
+      sha256: "56fd70b1f524ef019d2d8edaf925daa5c835707868f8b7f16ea1e194d9836bc6"
+    - id: "planning_change"
+      path: "V4/Planning-Change-Log.md"
+      version: "v1.3"
+      sha256: "aa3ed7472eeaa485fcfaaa3db49add8c928b7b160e1576f0bbb13701959eac6f"
+
+product_boundary:
+  decision: "仟流智算 2.0 是当前客户企业内的 1.0 原位增量升级；仟流科技总控台是独立产品且本轮不启动。"
+  in_scope:
+    - "FR2-001：1.0 兼容与管理闭环保留"
+    - "FR2-002：通讯录单向同步与 Excel 模板导入"
+    - "FR2-003：员工／项目日周月与单主体用量"
+    - "FR2-004：部门预算与唯一成本归集"
+    - "FR2-005：月度经营账单增量"
+    - "FR2-006：资源利用、耗尽与闲置事实"
+    - "FR2-007：轻量采购复盘"
+  out_of_scope:
+    - "仟流科技总控台、跨企业目录、企业开通与生命周期"
+    - "Agent 新运行入口或自动执行"
+    - "正式对账与导出；页面仅 Coming Soon"
+    - "企业坐席、厂商成员账号、厂商实时价格、跨厂商效果评价"
+    - "后台固时任务、自动采购、自动充值和大 BI"
+
+repository_baseline:
+  historical_final_tag: "v1.0.0-final"
+  historical_database_migration: "0044_operating_bill_model_identity"
+  truth: "以上是历史封板快照；W20-01 已重新核验封板后 1.0 可用调整、当前 Git／远端状态和真实迁移头，结果以下方精确值为准。"
+  protection_rule: "来源不明或用户未提交改动均视为用户资产，不得 clean/reset/checkout 覆盖或机械回退到旧 Tag。"
+  exact_code_start: "6fc1bec2a211c0d9c399400076cc56720f5c1815"
+  exact_tree: "198b071b41c052080836fdaac4f399c6c69e7aac"
+  current_database_migration: "0049_resource_utilization_and_procurement_review"
+  next_migration_number: "0050"
+
+stages:
+  stage01:
+    name: "方案准备"
+    status: "done"
+    result: "产品边界、原型与 POOL20-001～024 已确认。"
+  stage02:
+    name: "开发计划"
+    status: "done"
+    exit_condition: "六份受影响成果、工程规则、执行基线和 Planning Change 一致；P0/P1 与阻断性 Evidence Gap 为零。"
+    result: "PC-20260812-03 已收口；FR、AT、M、W、POOL、链接、HTML、YAML 与绑定 Hash 检查通过。"
+  stage03:
+    name: "开发执行"
+    status: "doing"
+    entry_condition: "Stage 02=done，且 Owner 已授权在本任务隔离 worktree 执行 W20-01。"
+    result: "M20-1～M20-4／W20-02～W20-09 已按冻结开发计划完成；W20-10 已闭合（候选 commit c1e7806／tree baadca0）。W20-11 已完成交付物预编制、本地认证烟测与隔离空库 0045→0049→0045 备份恢复实演；标准目标环境、真实 Secret、TLS、目标旧数据升级、代表性导入、七项业务主链、定时备份／监控及目标恢复仍未完成。"
+
+milestones:
+  - id: "M20-0"
+    title: "1.0 兼容与回归基线"
+    status: "done"
+    work_packages: ["W20-01"]
+  - id: "M20-1"
+    title: "通讯录导入并衔接使用主体"
+    status: "done"
+    work_packages: ["W20-02", "W20-03"]
+  - id: "M20-2"
+    title: "员工／项目周期用量"
+    status: "done"
+    work_packages: ["W20-04", "W20-05"]
+  - id: "M20-3"
+    title: "部门预算、唯一成本归集与月度经营"
+    status: "done"
+    work_packages: ["W20-06", "W20-07"]
+  - id: "M20-4"
+    title: "资源利用事实与采购复盘"
+    status: "done"
+    work_packages: ["W20-08", "W20-09"]
+  - id: "M20-5"
+    title: "完整回归与交付"
+    status: "doing"
+    work_packages: ["W20-10", "W20-11"]
+
+work_packages:
+  - { id: "W20-01", milestone: "M20-0", title: "冻结 1.0 兼容与回归基线", status: "done", risk: "HIGH", dependencies: ["Stage 02 done", "Owner W20-01 authorization"] }
+  - { id: "W20-02", milestone: "M20-1", title: "通讯录来源与导入", status: "done", risk: "HIGH", dependencies: ["W20-01"] }
+  - { id: "W20-03", milestone: "M20-1", title: "导入成员衔接使用主体", status: "done", risk: "HIGH", dependencies: ["W20-02"] }
+  - { id: "W20-04", milestone: "M20-2", title: "周期用量聚合合同", status: "done", risk: "NORMAL", dependencies: ["W20-01"] }
+  - { id: "W20-05", milestone: "M20-2", title: "周期用量页面与 1.0 下钻集成", status: "done", risk: "NORMAL", dependencies: ["W20-04"] }
+  - { id: "W20-06", milestone: "M20-3", title: "部门预算与预警", status: "done", risk: "HIGH", dependencies: ["W20-03", "W20-04"] }
+  - { id: "W20-07", milestone: "M20-3", title: "唯一成本归集与月度经营", status: "done", risk: "HIGH", dependencies: ["W20-05", "W20-06"] }
+  - { id: "W20-08", milestone: "M20-4", title: "逐资源利用、耗尽与闲置事实", status: "done", risk: "NORMAL", dependencies: ["W20-04", "W20-07"] }
+  - { id: "W20-09", milestone: "M20-4", title: "轻量采购复盘", status: "done", risk: "NORMAL", dependencies: ["W20-08"] }
+  - { id: "W20-10", milestone: "M20-5", title: "完整回归与最终候选", status: "done", risk: "HIGH", dependencies: ["W20-01", "W20-02", "W20-03", "W20-04", "W20-05", "W20-06", "W20-07", "W20-08", "W20-09"], candidate_commit: "c1e780686518841f31737001c4521e2e9c813867", candidate_tree: "baadca05ebfa038231a495f019c5085dad86519b" }
+  - { id: "W20-11", milestone: "M20-5", title: "目标环境交付", status: "todo", risk: "HIGH", dependencies: ["W20-10", "TARGET_ENVIRONMENT"] }
+
+current_object:
+  type: "work_package"
+  id: "W20-11"
+  title: "目标环境交付"
+  status: "todo"
+  risk: "HIGH"
+  owner: "技术 Owner"
+
+allowed_actions:
+  - "implement_and_validate_W20_02_through_W20_11_in_isolated_worktree"
+  - "edit_product_code_additive_migrations_tests_and_evidence"
+  - "install_locked_dependencies_and_use_disposable_local_test_services"
+  - "advance_work_packages_without_intermediate_owner_confirmation"
+
+forbidden_actions:
+  - "create_or_switch_git_branch_or_worktree"
+  - "git_stage_commit_push_pr_merge_tag_publish"
+  - "access_or_mutate_production_or_customer_data"
+  - "send_external_messages_or_call_mutating_provider_endpoints"
+  - "clean_reset_checkout_overwrite_or_prune_user_work"
+
+blockers: []
+
+conditional_dependencies:
+  - id: "DIRECTORY_TEST_SOURCE"
+    status: "todo"
+    effect: "不阻塞统一管道和 Excel 开发；只影响企业微信／飞书真实接口验收。"
+  - id: "TARGET_ENVIRONMENT"
+    status: "todo"
+    effect: "开发者 MacBook 本地烟测与隔离恢复实演不满足标准目标环境合同；继续等待运维 Owner 提供环境并分别授权 Secret、升级、代表性导入、备份和目标恢复动作。"
+  - id: "CUSTOMER_VALIDATION"
+    status: "todo"
+    truth: "当前没有客户访谈或设计客户确认 Evidence。"
+    effect: "不阻塞 2.0 开发或工程交付。"
+
+handoff:
+  next_stage: "Stage 03"
+  next_milestone: "M20-5"
+  next_work_package: "W20-11"
+  next_work_package_status: "todo"
+  authorization_required: true
+  authorization_scope: "Owner 已授权按冻结开发计划连续完成 W20-02～W20-11；W20-10 的一次性候选 commit 授权已使用。当前仍不含新增 stage／commit、push、PR、merge、Tag、发布、生产／客户数据或目标环境变更。"
+  unique_next_action: "由运维 Owner 提供不依赖开发者本机的标准目标环境和真实上游凭证，并分别授权安装／升级、代表性导入、备份及回退恢复；完成后按 W20-11 checklist 留存原始 Evidence。"
