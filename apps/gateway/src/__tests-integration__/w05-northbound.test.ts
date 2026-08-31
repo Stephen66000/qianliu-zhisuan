@@ -680,6 +680,68 @@ describe("W05 北向合同", () => {
     expect(res.headers["x-request-id"]).toBeDefined();
   });
 
+  it("真实 pipeline 非流式响应保留厂商推理字段", async () => {
+    let includeReasoningExtensions = true;
+    const reasoningApp = buildGateway(db, PEPPER, createRealPipeline({
+      db,
+      ledgerRepo: new GatewayLedgerRepository(db),
+      poolRepo: new ResourcePoolRepository(db),
+      quotaRepo: new QuotaGateRepository(db),
+      listCandidates: async () => [{
+        routeId, resourceId, providerId, unifiedModelId: allowedModelId,
+        providerCode: "deepseek", upstreamModel: "deepseek-chat",
+        priority: 100, weight: 1, mode: "API", status: "ACTIVE", probe: false,
+        principalId: PRINCIPAL_ID,
+      }],
+      caller: async () => ({
+        status: 200,
+        committed: true,
+        usage: { input: 10, output: 5, cache: 0, reasoning: 3, quality: "PROVIDER_REPORTED" },
+        responseOutput: [{
+          type: "function_call", call_id: "call_reasoning_pipeline",
+          name: "status", arguments: "{}",
+        }],
+        ...(includeReasoningExtensions ? {
+          responseReasoningExtensions: {
+            reasoning_content: "pipeline-reasoning",
+            reasoning_details: [{ type: "reasoning.summary", text: "summary" }],
+            reasoning: { trace: "native" },
+          },
+        } : {}),
+      }),
+    }));
+    await reasoningApp.ready();
+    try {
+      const response = await reasoningApp.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: { ...authHeader(), "content-type": "application/json" },
+        payload: { model: "qianliu-deepseek", messages: [{ role: "user", content: "run" }] },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().choices[0].message).toMatchObject({
+        role: "assistant",
+        reasoning_content: "pipeline-reasoning",
+        reasoning_details: [{ type: "reasoning.summary", text: "summary" }],
+        reasoning: { trace: "native" },
+        tool_calls: [{ id: "call_reasoning_pipeline" }],
+      });
+      includeReasoningExtensions = false;
+      const withoutExtensions = await reasoningApp.inject({
+        method: "POST",
+        url: "/v1/chat/completions",
+        headers: { ...authHeader(), "content-type": "application/json" },
+        payload: { model: "qianliu-deepseek", messages: [{ role: "user", content: "run again" }] },
+      });
+      const assistant = withoutExtensions.json().choices[0].message;
+      expect(Object.hasOwn(assistant, "reasoning_content")).toBe(false);
+      expect(Object.hasOwn(assistant, "reasoning_details")).toBe(false);
+      expect(Object.hasOwn(assistant, "reasoning")).toBe(false);
+    } finally {
+      await reasoningApp.close();
+    }
+  });
+
   it("POOL-043：真实 pipeline 在调度前冻结稳定模型 ID，同时保留请求 alias", async () => {
     const ledgerRepo = new GatewayLedgerRepository(db);
     const identityApp = buildGateway(db, PEPPER, createRealPipeline({

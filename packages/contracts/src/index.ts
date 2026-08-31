@@ -8,6 +8,7 @@
  */
 
 import type { RequestShapeSummary, UpstreamErrorEvidence } from "./diagnostic-evidence.js";
+import type { ReasoningFieldExtensions } from "./northbound.js";
 
 export * from "./diagnostic-evidence.js";
 
@@ -52,6 +53,8 @@ export interface Outcome {
   usage: Usage;
   /** 规范化 assistant 输出项；仅驻留内存，供各北向协议转换，不写入账本正文。 */
   responseOutput?: unknown[];
+  /** 厂商推理字段；仅供 OpenAI-compatible 北向响应原样回传，不持久化。 */
+  responseReasoningExtensions?: ReasoningFieldExtensions;
   /**
    * 兼容本地既有真实 Caller 的内存态原始 JSON；不得写入账本、日志或 Evidence。
    * 新的多厂商 Caller 优先使用 responseOutput，W04 再统一收敛该兼容字段。

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseRequestShapeSummary } from "@qianliu/contracts";
 
 import {
   buildRequestShapeSummary,
@@ -21,6 +22,27 @@ function body(overrides: Record<string, unknown> = {}) {
 }
 
 describe("upstream error evidence", () => {
+  it("推理扩展只记录顶层字段存在性，不记录 reasoning 正文", () => {
+    const reasoningCanary = "PRIVATE_REASONING_MUST_NOT_ENTER_DIAGNOSTICS";
+    const shape = buildRequestShapeSummary(body({
+      messages: [{
+        role: "assistant",
+        content: null,
+        reasoning_content: reasoningCanary,
+        reasoning_details: [{ type: "reasoning.summary", text: reasoningCanary }],
+        reasoning: { trace: reasoningCanary },
+      }],
+      thinking: { type: "enabled", clear_thinking: false },
+      tool_stream: true,
+    }));
+
+    expect(shape.topLevelFields).toEqual(expect.arrayContaining([
+      "thinking", "tool_stream",
+    ]));
+    expect(parseRequestShapeSummary(shape)).toEqual(shape);
+    expect(JSON.stringify(shape)).not.toContain(reasoningCanary);
+  });
+
   it("只保留白名单错误元组，不保存 raw message、Secret 或业务字段", () => {
     const shape = buildRequestShapeSummary(body({
       tools: [{

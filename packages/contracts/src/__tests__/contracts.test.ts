@@ -5,6 +5,9 @@ import {
   CAPABILITY_MATRIX,
   UNSUPPORTED_POST_PATHS,
   parseUpstreamErrorEvidence,
+  type ChatCompletionChunk,
+  type ChatCompletionRequest,
+  type ChatCompletionResponse,
   type ErrorEnvelope,
 } from "../index.js";
 
@@ -69,5 +72,57 @@ describe("@qianliu/contracts baseline", () => {
       httpStatus: 429, type: "rate_limit_error", code: "rate_limit_exceeded",
       param: null, messageCategory: "UNCLASSIFIED", diagnosticHash: "0".repeat(64),
     })).toBeNull();
+  });
+
+  it("OpenAI-compatible Chat 合同覆盖推理字段、工具调用及顶层控制字段", () => {
+    const request: ChatCompletionRequest = {
+      model: "ql-deepseek-v4-flash",
+      stream: true,
+      stream_options: { include_usage: true },
+      reasoning_effort: "high",
+      thinking: { type: "enabled", clear_thinking: false },
+      tool_stream: false,
+      messages: [{
+        role: "assistant",
+        content: null,
+        reasoning_content: "reasoning",
+        reasoning_details: [{ type: "reasoning.summary" }],
+        reasoning: { trace: "native" },
+        tool_calls: [{ id: "call_1" }],
+      }, { role: "tool", content: "ok", tool_call_id: "call_1" }],
+    };
+    const response: ChatCompletionResponse = {
+      id: "chatcmpl-contract",
+      object: "chat.completion",
+      created: 1,
+      model: request.model,
+      choices: [{
+        index: 0,
+        message: {
+          role: "assistant",
+          content: null,
+          reasoning_content: "reasoning",
+          tool_calls: [{ id: "call_2" }],
+        },
+        finish_reason: "tool_calls",
+      }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    };
+    const chunk: ChatCompletionChunk = {
+      id: "chatcmpl-contract",
+      object: "chat.completion.chunk",
+      created: 1,
+      model: request.model,
+      choices: [{
+        index: 0,
+        delta: { reasoning_content: "reasoning", tool_calls: [{ id: "call_2" }] },
+        finish_reason: "tool_calls",
+      }],
+      usage: null,
+    };
+
+    expect(request.tool_stream).toBe(false);
+    expect(response.choices[0]?.message.reasoning_content).toBe("reasoning");
+    expect(chunk.choices[0]?.delta.reasoning_content).toBe("reasoning");
   });
 });

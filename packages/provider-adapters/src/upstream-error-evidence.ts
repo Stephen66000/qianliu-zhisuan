@@ -15,7 +15,7 @@ import type { ChatCompletionBody, ChatMessage } from "./openai-compatible-types.
 
 const TOP_LEVEL_FIELDS = [
   "max_tokens", "messages", "model", "parallel_tool_calls", "reasoning_effort", "stream",
-  "stream_options", "tool_choice", "tools",
+  "stream_options", "thinking", "tool_choice", "tool_stream", "tools",
 ] as const;
 const CONTENT_BLOCK_TYPES = new Set([
   "image_url", "input_audio", "input_text", "refusal", "text", "tool_result", "tool_use",

@@ -83,6 +83,9 @@ export function createChatStreamWriter(
         // Stub/非流式测试 Caller 没有逐块回调时保留合同，但生产真实 Caller 不走此分支。
         const assistant = normalizeOutput(outcome.responseOutput);
         write(chatChunk(input, { role: "assistant", content: "" }, null));
+        if (outcome.responseReasoningExtensions) {
+          write(chatChunk(input, { ...outcome.responseReasoningExtensions }, null));
+        }
         if (assistant.text) write(chatChunk(input, { content: assistant.text }, null));
         assistant.calls.forEach((call, index) => write(chatChunk(input, {
           tool_calls: [{

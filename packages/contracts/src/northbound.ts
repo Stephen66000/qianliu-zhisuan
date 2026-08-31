@@ -20,22 +20,46 @@ export interface ListModelsResponse {
 
 // ===== POST /v1/chat/completions =====
 
-export interface ChatCompletionRequestMessage {
+/**
+ * OpenAI-compatible 厂商的推理回传扩展。
+ * 字段和值原样驻留内存，供带工具调用的后续请求回传；不得持久化。
+ */
+export interface ReasoningFieldExtensions {
+  reasoning_content?: unknown;
+  reasoning_details?: unknown;
+  reasoning?: unknown;
+}
+
+export interface ChatCompletionRequestMessage extends ReasoningFieldExtensions {
   role: "system" | "user" | "assistant" | "tool";
-  content: string;
+  content: unknown;
+  tool_call_id?: string;
+  tool_calls?: unknown[];
 }
 
 export interface ChatCompletionRequest {
   model: string;
   messages: ChatCompletionRequestMessage[];
   stream?: boolean;
+  stream_options?: { include_usage?: boolean };
   tools?: unknown[];
   tool_choice?: unknown;
+  parallel_tool_calls?: boolean;
+  max_tokens?: number;
+  reasoning_effort?: string;
+  thinking?: unknown;
+  tool_stream?: boolean;
+}
+
+export interface ChatCompletionAssistantMessage extends ReasoningFieldExtensions {
+  role: "assistant";
+  content: string | null;
+  tool_calls?: unknown[];
 }
 
 export interface ChatCompletionChoice {
   index: number;
-  message: { role: "assistant"; content: string };
+  message: ChatCompletionAssistantMessage;
   finish_reason: "stop" | "length" | "tool_calls" | null;
 }
 
@@ -64,10 +88,14 @@ export interface ChatCompletionChunk {
   model: string;
   choices: Array<{
     index: number;
-    delta: { role?: "assistant"; content?: string };
-    finish_reason: "stop" | "length" | null;
+    delta: ReasoningFieldExtensions & {
+      role?: "assistant";
+      content?: string | null;
+      tool_calls?: unknown[];
+    };
+    finish_reason: "stop" | "length" | "tool_calls" | null;
   }>;
-  usage?: ChatCompletionUsage;
+  usage?: ChatCompletionUsage | null;
 }
 
 // ===== POST /v1/messages（Anthropic）=====
@@ -111,6 +139,10 @@ export interface ResponsesRequest {
     effort?: string | null;
     summary?: string | null;
   };
+  /** 厂商兼容扩展：仅在请求明确携带时原样转发。 */
+  thinking?: unknown;
+  /** 厂商兼容扩展：工具调用增量流。 */
+  tool_stream?: boolean;
   text?: Record<string, unknown>;
   max_output_tokens?: number;
   store?: boolean;

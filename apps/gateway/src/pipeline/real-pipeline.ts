@@ -218,8 +218,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     }
     reply.header("x-request-id", traceId);
     reply.header("x-ai-request-id", requestId);
-    // Responses 当前是 Chat Completions 转换子集，仍保持缓冲式；
-    // Chat / Messages 由真实上游 chunk 回调驱动北向 SSE。
+    // Responses 当前仍缓冲转换；Chat / Messages 由真实上游 chunk 回调驱动北向 SSE。
     const streamWriter: GatewayStreamWriter | null = body.stream && capability === "chat"
       ? createChatStreamWriter(reply, { requestId, traceId, createdAt: created, model: body.model })
       : body.stream && capability === "messages"
@@ -1252,7 +1251,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
       model: body.model,
       choices: [{
         index: 0,
-        message: {
+        message: Object.assign({
           role: "assistant",
           content: assistant.text || (assistant.functionCalls.length > 0 ? null : "OK"),
           ...(assistant.functionCalls.length > 0
@@ -1264,7 +1263,7 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
                 })),
               }
             : {}),
-        },
+        }, finalOutcome.responseReasoningExtensions ?? {}),
         finish_reason: assistant.functionCalls.length > 0 ? "tool_calls" : "stop",
       }],
       usage: {

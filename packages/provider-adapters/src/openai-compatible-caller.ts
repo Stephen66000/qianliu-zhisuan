@@ -8,6 +8,7 @@
  */
 import type {
   Outcome,
+  ReasoningFieldExtensions,
   ResponsesRequest,
   Usage,
 } from "@qianliu/contracts";
@@ -230,6 +231,7 @@ export function toChatCompletionsRequest(
     && typeof body.tool_choice.disable_parallel_tool_use === "boolean"
     ? !body.tool_choice.disable_parallel_tool_use
     : undefined;
+  const vendorExtensions = vendorRequestExtensions(body);
 
   return {
     model: resource.upstreamModel,
@@ -240,6 +242,16 @@ export function toChatCompletionsRequest(
     ...(toolChoice !== undefined ? { tool_choice: toolChoice } : {}),
     ...(parallelToolCalls !== undefined ? { parallel_tool_calls: parallelToolCalls } : {}),
     ...(typeof body?.reasoning_effort === "string" ? { reasoning_effort: body.reasoning_effort } : {}),
+    ...vendorExtensions,
+  };
+}
+
+function vendorRequestExtensions(
+  body: Record<string, unknown> | null,
+): Pick<ChatCompletionBody, "thinking" | "tool_stream"> {
+  return {
+    ...(body?.thinking !== undefined ? { thinking: body.thinking } : {}),
+    ...(typeof body?.tool_stream === "boolean" ? { tool_stream: body.tool_stream } : {}),
   };
 }
 
@@ -287,6 +299,8 @@ export function responsesToChatCompletions(
     ...(request.reasoning?.effort
       ? { reasoning_effort: request.reasoning.effort }
       : {}),
+    ...(request.thinking !== undefined ? { thinking: request.thinking } : {}),
+    ...(typeof request.tool_stream === "boolean" ? { tool_stream: request.tool_stream } : {}),
   };
 }
 
@@ -383,6 +397,7 @@ async function parseJsonResponse(
     };
   }
   const message = firstChoice.message as UpstreamMessage;
+  const responseReasoningExtensions = reasoningFieldExtensions(message);
 
   return {
     status: response.status,
@@ -390,6 +405,7 @@ async function parseJsonResponse(
     usage,
     firstByteAt: timeout.firstByteAt,
     responseOutput: chatAssistantToResponsesOutput(message, request.requestId),
+    ...(responseReasoningExtensions ? { responseReasoningExtensions } : {}),
   };
 }
 
@@ -718,6 +734,9 @@ function normalizeExistingChatMessage(raw: unknown): ChatMessage | null {
   if (!isRecord(raw)) return null;
   const role = normalizeRole(raw.role);
   if (!role) return null;
+  const reasoningExtensions = role === "assistant"
+    ? reasoningFieldExtensions(raw)
+    : undefined;
   return {
     role,
     content: raw.content ?? "",
@@ -727,7 +746,22 @@ function normalizeExistingChatMessage(raw: unknown): ChatMessage | null {
     ...(Array.isArray(raw.tool_calls)
       ? { tool_calls: raw.tool_calls as ChatToolCall[] }
       : {}),
+    ...(reasoningExtensions ?? {}),
   };
+}
+
+/** 只复制白名单推理字段；不改名、不解析、不记录字段值。 */
+function reasoningFieldExtensions(
+  raw: ReasoningFieldExtensions,
+): ReasoningFieldExtensions | undefined {
+  const extensions: ReasoningFieldExtensions = {};
+  let found = false;
+  for (const key of ["reasoning_content", "reasoning_details", "reasoning"] as const) {
+    if (!Object.prototype.hasOwnProperty.call(raw, key) || raw[key] === undefined) continue;
+    extensions[key] = raw[key];
+    found = true;
+  }
+  return found ? extensions : undefined;
 }
 
 /** Anthropic Messages 内容块展开为 OpenAI Chat Completions 消息。 */

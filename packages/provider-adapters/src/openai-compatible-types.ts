@@ -1,3 +1,4 @@
+import type { ReasoningFieldExtensions } from "@qianliu/contracts";
 import type { AdapterResource } from "./index.js";
 
 export interface HttpResponseLike {
@@ -38,7 +39,7 @@ export interface ChatToolCall {
   };
 }
 
-export interface ChatMessage {
+export interface ChatMessage extends ReasoningFieldExtensions {
   role: "system" | "user" | "assistant" | "tool";
   content: unknown;
   tool_call_id?: string;
@@ -55,9 +56,11 @@ export interface ChatCompletionBody {
   parallel_tool_calls?: boolean;
   max_tokens?: number;
   reasoning_effort?: string;
+  thinking?: unknown;
+  tool_stream?: boolean;
 }
 
-export interface UpstreamMessage {
+export interface UpstreamMessage extends ReasoningFieldExtensions {
   content?: unknown;
   tool_calls?: unknown;
 }

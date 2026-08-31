@@ -67,7 +67,7 @@ const UPSTREAM_ERROR_CODES = new Set([
 const SUMMARY_ARRAY_VALUES = {
   topLevelFields: new Set([
     "max_tokens", "messages", "model", "parallel_tool_calls", "reasoning_effort", "stream",
-    "stream_options", "tool_choice", "tools",
+    "stream_options", "thinking", "tool_choice", "tool_stream", "tools",
   ]),
   contentKinds: new Set(["array", "boolean", "null", "number", "object", "other", "string"]),
   contentBlockTypes: new Set([
@@ -83,8 +83,9 @@ const SUMMARY_ARRAY_VALUES = {
 const DIAGNOSTIC_PARAM_SEGMENTS = new Set([
   "additionalProperties", "arguments", "content", "function", "image_url", "include_usage",
   "items", "max_tokens", "messages", "model", "name", "parallel_tool_calls", "parameters",
-  "properties", "reasoning_effort", "required", "role", "stream", "stream_options", "text",
-  "tool_call_id", "tool_calls", "tool_choice", "tools", "type",
+  "properties", "reasoning", "reasoning_content", "reasoning_details", "reasoning_effort",
+  "required", "role", "stream", "stream_options", "text",
+  "thinking", "tool_call_id", "tool_calls", "tool_choice", "tool_stream", "tools", "type",
 ]);
 const TOOL_SCHEMA_ISSUES = new Set([
   "NON_FUNCTION_TOOL", "FUNCTION_MISSING", "FUNCTION_NAME_INVALID",
