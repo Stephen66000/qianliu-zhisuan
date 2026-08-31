@@ -69,6 +69,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0055_upstream_error_evidence", "Success"],
         ["0056_resource_monthly_budget", "Success"],
         ["0057_model_discovery_v12", "Success"],
+        ["0058_billing_rule_import", "Success"],
       ]);
       const rows = await db.selectFrom("ai_request")
         .select(["id", "unified_model", "unified_model_id"]).orderBy("id").execute();
@@ -106,6 +107,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
         unified_model: "ql-deepseek-v4-flash", unified_model_id: modelA,
       });
 
+      expect(await migrateDown(db)).toBe("0058_billing_rule_import");
       expect(await migrateDown(db)).toBe("0057_model_discovery_v12");
       expect(await migrateDown(db)).toBe("0056_resource_monthly_budget");
       expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
@@ -159,6 +161,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0055_upstream_error_evidence", "Success"],
         ["0056_resource_monthly_budget", "Success"],
         ["0057_model_discovery_v12", "Success"],
+        ["0058_billing_rule_import", "Success"],
       ]);
       const rebound = await db.selectFrom("ai_request")
         .select(["unified_model", "unified_model_id"])

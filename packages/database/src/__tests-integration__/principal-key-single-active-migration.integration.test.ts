@@ -100,6 +100,7 @@ describe("0023 Principal Key 单 ACTIVE 迁移", () => {
         constraint: "principal_key_one_active_per_principal_uq",
       });
 
+      expect(await migrateDown(db)).toBe("0058_billing_rule_import");
       expect(await migrateDown(db)).toBe("0057_model_discovery_v12");
       expect(await migrateDown(db)).toBe("0056_resource_monthly_budget");
       expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
