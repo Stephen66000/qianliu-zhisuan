@@ -76,6 +76,23 @@ export class RuleExtractionError extends Error {
   }
 }
 
+/**
+ * 兼容模型偶发返回的单层 ```json 外壳。
+ * 围栏外文字、嵌套围栏和非法 Schema 均 fail-closed，不从普通回答中搜索 JSON 片段。
+ */
+export function parseStructuredPricingContent(content: string): PricingExtraction {
+  const trimmed = content.trim();
+  let jsonText = trimmed;
+  if (trimmed.startsWith("```")) {
+    const fenced = /^```json[\t ]*\r?\n([\s\S]*?)\r?\n```$/.exec(trimmed);
+    if (!fenced || fenced[1]!.includes("```")) {
+      throw new RuleExtractionError("INVALID_JSON_FENCE", "识别结果不是单层标准 json 围栏");
+    }
+    jsonText = fenced[1]!.trim();
+  }
+  return PricingExtractionSchema.parse(JSON.parse(jsonText));
+}
+
 const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
@@ -279,7 +296,7 @@ export function createRuleExtractor(input: {
           const content = ((payload.choices as Array<{ message?: { content?: unknown } }> | undefined)
             ?.[0]?.message?.content);
           if (typeof content !== "string") throw new Error("响应缺少 message.content");
-          const extraction = PricingExtractionSchema.parse(JSON.parse(content));
+          const extraction = parseStructuredPricingContent(content);
           return {
             extractorModel: model,
             extractorRequestId: typeof payload.id === "string" ? payload.id : null,

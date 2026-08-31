@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createRuleExtractor,
   normalizePricingExtraction,
+  parseStructuredPricingContent,
   type PricingExtraction,
 } from "./extractor.js";
 
@@ -24,6 +25,14 @@ const EXTRACTION: PricingExtraction = {
 };
 
 describe("截图计价规则识别", () => {
+  it("接受纯 JSON 或单层标准 json 围栏，拒绝额外文字与嵌套围栏", () => {
+    expect(parseStructuredPricingContent(JSON.stringify(EXTRACTION))).toEqual(EXTRACTION);
+    expect(parseStructuredPricingContent(`\`\`\`json\n${JSON.stringify(EXTRACTION)}\n\`\`\``)).toEqual(EXTRACTION);
+    expect(() => parseStructuredPricingContent(`结果如下\n\`\`\`json\n${JSON.stringify(EXTRACTION)}\n\`\`\``)).toThrow();
+    expect(() => parseStructuredPricingContent(`\`\`\`json\n{"value":"\`\`\`"}\n\`\`\``)).toThrow(/INVALID_JSON_FENCE|单层/);
+    expect(() => parseStructuredPricingContent("```JSON\n{}\n```" )).toThrow();
+  });
+
   it("保留现价/原价证据并用 Decimal 换算单 Token 单价", () => {
     const result = normalizePricingExtraction(EXTRACTION, "glm-5.3-flash");
     expect(result.targetEvidence?.input_price).toEqual({ current: "0.4", original: "0.8" });
