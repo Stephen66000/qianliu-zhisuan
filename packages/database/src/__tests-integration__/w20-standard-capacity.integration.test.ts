@@ -255,7 +255,8 @@ describe("W20-10 标准容量合同", () => {
           resourceId,
           requestCount: 1_000_000,
           realTokens: "30000000",
-          apiCost: "300.00000000",
+          apiCost: null,
+          notCalculableReason: "MONTHLY_BUDGET_NOT_CONFIGURED",
         }),
       ]);
     });

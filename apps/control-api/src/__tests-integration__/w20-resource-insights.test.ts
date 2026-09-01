@@ -25,13 +25,10 @@ let kimiResourceId: string;
 let zhipuResourceId: string;
 let otherApiResourceId: string;
 
-const currentMonth = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Shanghai",
-  year: "numeric",
-  month: "2-digit",
-}).format(new Date()).slice(0, 7);
+const currentMonth = "2026-08";
 const currentMonthStart = `${currentMonth}-01`;
-const recentUsageAt = new Date(Date.now() - 36 * 60 * 60_000);
+const recentUsageAt = new Date("2026-08-15T04:00:00.000Z");
+const fixtureSnapshotAt = new Date("2026-08-20T04:00:00.000Z");
 
 async function insertLedgerFact(resourceId: string): Promise<void> {
   const requestId = randomUUID();
@@ -186,11 +183,11 @@ beforeAll(async () => {
        currency, current_balance, package_cost, total_quota, used_quota,
        remaining_quota, quota_unit, effective_from, effective_until)
     VALUES
-      (${enterpriseId}::uuid, ${apiResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
+      (${enterpriseId}::uuid, ${apiResourceId}::uuid, 1, 'PROVIDER_SYNC', ${fixtureSnapshotAt},
        'CNY', 87.5, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-      (${enterpriseId}::uuid, ${kimiResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
+      (${enterpriseId}::uuid, ${kimiResourceId}::uuid, 1, 'PROVIDER_SYNC', ${fixtureSnapshotAt},
        'CNY', NULL, 300, 100, 35, 65, 'POINT', '2026-08-01T00:00:00+08:00', '2026-09-01T00:00:00+08:00'),
-      (${enterpriseId}::uuid, ${zhipuResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
+      (${enterpriseId}::uuid, ${zhipuResourceId}::uuid, 1, 'PROVIDER_SYNC', ${fixtureSnapshotAt},
        'CNY', NULL, 500, 100, 90, 10, 'POINT', '2026-06-26T00:00:00+08:00', '2026-09-26T00:00:00+08:00')
   `.execute(db);
   await sql`
@@ -428,7 +425,7 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
       provider_resource_id: kimiResourceId,
       version: 2,
       source: "PROVIDER_SYNC",
-      collected_at: new Date(),
+      collected_at: fixtureSnapshotAt,
       currency: "CNY",
       package_cost: "300",
       total_quota: "100",
@@ -484,7 +481,7 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
       provider_resource_id: kimiResourceId,
       version: 3,
       source: "PROVIDER_SYNC",
-      collected_at: new Date(Date.now() + 1),
+      collected_at: new Date(fixtureSnapshotAt.getTime() + 1),
       currency: "CNY",
       package_cost: "300",
       total_quota: "100",
@@ -521,7 +518,7 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
       provider_resource_id: kimiResourceId,
       version: 4,
       source: "PROVIDER_SYNC",
-      collected_at: new Date(Date.now() + 2),
+      collected_at: new Date(fixtureSnapshotAt.getTime() + 2),
       currency: "CNY",
       package_cost: "300",
       total_quota: "100",

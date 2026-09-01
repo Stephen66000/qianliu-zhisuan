@@ -21,12 +21,22 @@ for (const name of databaseVariables) delete env[name];
 
 const commands = [
   {
+    name: "00-standard-capacity",
+    args: [
+      "pnpm@11.11.0", "--filter", "@qianliu/database", "exec",
+      "vitest", "run", "--config", "../../vitest.config.ts",
+      "src/__tests-integration__/w20-standard-capacity.integration.test.ts",
+      "--no-file-parallelism", "--maxWorkers=1", "--maxConcurrency=1",
+    ],
+  },
+  {
     name: "01-non-web-vitest",
     args: [
       "pnpm@11.11.0", "-r", "--workspace-concurrency=1", "--no-bail",
       "--filter", "./apps/**", "--filter", "./packages/**", "--filter", "!@qianliu/web",
       "exec", "vitest", "run", "--config", "../../vitest.config.ts",
       "--no-file-parallelism", "--maxWorkers=1", "--maxConcurrency=1",
+      "--exclude", "**/w20-standard-capacity.integration.test.ts",
     ],
   },
   {
