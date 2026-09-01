@@ -129,6 +129,10 @@ async function seedFullData(): Promise<{
   // 一次成功请求（当前自然月）+ ledger_transaction（含 API 费用）
   const requestId = randomUUID();
   const now = new Date();
+  const shanghaiNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const subscriptionEnteredAt = new Date(Date.UTC(
+    shanghaiNow.getUTCFullYear(), shanghaiNow.getUTCMonth(), 1, 1,
+  ) - 8 * 60 * 60 * 1000);
   await db.insertInto("provider_resource_operating_snapshot").values({
     enterprise_id: ENT_ID,
     provider_resource_id: resource.id,
@@ -141,7 +145,7 @@ async function seedFullData(): Promise<{
     used_quota: "40000",
     remaining_quota: "110000",
     quota_unit: "TOKEN",
-    effective_from: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+    effective_from: subscriptionEnteredAt,
     effective_until: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
     next_reset_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
   }).execute();
@@ -353,6 +357,15 @@ describe("W18 空状态（新企业无数据）", () => {
       attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
       rangeStart: expect.any(String), rangeEndExclusive: expect.any(String), employeeRanking: [],
     });
+    expect(body.employeeUsageOverview).toMatchObject({
+      period: "TODAY",
+      subjectType: "EMPLOYEE",
+    });
+    expect(body.employeeUsageOverview.trend).toHaveLength(24);
+    expect(body.employeeUsageOverview.trend.every(
+      (point: { realTokens: string; collectionStatus: string }) =>
+        point.realTokens === "0" && point.collectionStatus === "MISSING",
+    )).toBe(true);
     // 数据源 gap 字段诚实为 null（不伪造）
     expect(body.monthlyPackagePayment).toBeNull();
     expect(body.monthlyTotalSpend).toBeNull();
@@ -681,7 +694,7 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     await db.deleteFrom("billing_rule").where("rule_version", "=", "pool042-v1").execute();
   });
 
-  it("POOL20-039/043/047：部分 API 已知时首页不冒充 API 或本月总额，套餐事实独立保留", async () => {
+  it("0901-01/02：余额事实缺口不影响已冻结 API 费用和当月订阅汇总", async () => {
     const provider = await db.insertInto("provider").values({
       enterprise_id: ENT_ID, code: `partial-${randomUUID().slice(0, 8)}`, name: "部分事实 API",
       adapter_type: "openai",
@@ -700,12 +713,12 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
       });
       expect(response.statusCode).toBe(200);
       expect(response.json()).toMatchObject({
-        monthlyApiCost: null,
-        monthlyApiCosts: [],
+        monthlyApiCost: "12.58000000",
+        monthlyApiCosts: [{ currency: "CNY", amount: "12.58000000" }],
         monthlyPackagePayment: "299.00000000",
         monthlyPackagePayments: [{ currency: "CNY", amount: "299.00000000" }],
-        monthlyTotalSpend: null,
-        monthlyTotalSpends: [],
+        monthlyTotalSpend: "311.58000000",
+        monthlyTotalSpends: [{ currency: "CNY", amount: "311.58000000" }],
       });
     } finally {
       await db.deleteFrom("provider_resource_operating_snapshot")
@@ -850,6 +863,24 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
       expect.objectContaining({ requestId: seededRequestId, agentFamily: "CODEX", agentVersion: "0.146.0" }),
     ]));
 
+    const key = await db.selectFrom("principal_key").select("id")
+      .where("principal_id", "=", seededPrincipalId).executeTakeFirstOrThrow();
+    const unknownRequestId = randomUUID();
+    await db.insertInto("ai_request").values({
+      id: unknownRequestId,
+      enterprise_id: ENT_ID,
+      principal_id: seededPrincipalId,
+      principal_key_id: key.id,
+      protocol: "openai",
+      unified_model: "legacy-unknown-model",
+      status: "FAILED",
+      agent_family: "UNKNOWN",
+      agent_identity_source: "NONE",
+      agent_identity_confidence: "UNKNOWN",
+      started_at: new Date(Date.now() - 60_000),
+      finished_at: new Date(Date.now() - 59_000),
+    }).execute();
+
     const saved = await app.inject({
       method: "PATCH",
       url: `/principals/${seededPrincipalId}/agent-expectations`,
@@ -867,8 +898,41 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
       expectedAgentFamilies: ["CODEX", "WORKBUDDY"],
       agents: expect.arrayContaining([
         expect.objectContaining({ agentFamily: "CODEX", requestCount: "1" }),
+        expect.objectContaining({
+          agentFamily: "UNKNOWN",
+          identitySources: expect.arrayContaining(["NONE"]),
+        }),
       ]),
     });
+    const unknownSummary = summary.json().agents.find(
+      (agent: { agentFamily: string }) => agent.agentFamily === "UNKNOWN",
+    );
+    expect(Number(unknownSummary.requestCount)).toBeGreaterThanOrEqual(1);
+    expect(unknownSummary.firstUsedAt).toBeTruthy();
+    expect(unknownSummary.lastUsedAt).toBeTruthy();
+
+    const traced = await app.inject({
+      method: "GET",
+      url: `/usage?principal_id=${seededPrincipalId}&agent_family=UNKNOWN`,
+      headers: { cookie: adminCookie },
+    });
+    expect(traced.statusCode).toBe(200);
+    expect(traced.json().records).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        requestId: unknownRequestId,
+        agentFamily: "UNKNOWN",
+        hasSettlement: false,
+        usageQuality: "UNKNOWN",
+      }),
+    ]));
+
+    const invalidExpectation = await app.inject({
+      method: "PATCH",
+      url: `/principals/${seededPrincipalId}/agent-expectations`,
+      headers: { cookie: adminCookie },
+      payload: { agent_families: ["UNKNOWN"] },
+    });
+    expect(invalidExpectation.statusCode).toBe(400);
   });
 
   it("/usage 请求/主体搜索与厂商资源、状态、超额组合筛选共用分页总数口径", async () => {

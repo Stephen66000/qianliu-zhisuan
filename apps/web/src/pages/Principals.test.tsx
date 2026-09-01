@@ -19,6 +19,7 @@ const usePrincipalsMock = vi.fn();
 const usePrincipalKeysMock = vi.fn();
 const useGrantsMock = vi.fn();
 const useAccessConfigurationMock = vi.fn();
+const usePrincipalAgentUsageMock = vi.fn();
 const getMock = vi.fn();
 const postMock = vi.fn();
 const patchMock = vi.fn();
@@ -30,16 +31,7 @@ vi.mock("../api/hooks", () => ({
   usePrincipalKeys: () => usePrincipalKeysMock(),
   useGrants: () => useGrantsMock(),
   useAccessConfiguration: () => useAccessConfigurationMock(),
-  usePrincipalAgentUsage: () => ({
-    isLoading: false,
-    error: null,
-    data: { expectedAgentFamilies: ["CODEX"], agents: [{
-      agentFamily: "CODEX", latestVersion: "0.146.0", identitySource: "DECLARED_HEADER",
-      identityConfidence: "DECLARED", firstUsedAt: "2026-08-03T01:00:00.000Z",
-      lastUsedAt: "2026-08-03T02:00:00.000Z", requestCount: "2", totalTokens: "300",
-      totalApiCost: "1.20", models: ["qianliu-glm"],
-    }] },
-  }),
+  usePrincipalAgentUsage: () => usePrincipalAgentUsageMock(),
   useUnifiedModels: () => ({
     isLoading: false,
     error: null,
@@ -59,6 +51,7 @@ vi.mock("../api/hooks", () => ({
     principals: ["principals"],
     principalKeys: (id: string) => ["principals", id, "keys"],
     grants: (id: string) => ["principals", id, "grants"],
+    accessConfiguration: (id: string) => ["principals", id, "access-configuration"],
     principalAgentUsage: (id: string) => ["principals", id, "agent-usage"],
   },
 }));
@@ -173,6 +166,17 @@ describe("W19 使用主体", () => {
         config_version: 1,
       },
       refetch: vi.fn(),
+    });
+    usePrincipalAgentUsageMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: { expectedAgentFamilies: ["CODEX"], agents: [{
+        agentFamily: "CODEX", latestVersion: "0.146.0", identitySource: "DECLARED_HEADER",
+        identitySources: ["DECLARED_HEADER"], identityConfidence: "DECLARED",
+        firstUsedAt: "2026-08-03T01:00:00.000Z",
+        lastUsedAt: "2026-08-03T02:00:00.000Z", requestCount: "2", totalTokens: "300",
+        totalApiCost: "1.20", models: ["qianliu-glm"],
+      }] },
     });
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -378,6 +382,74 @@ describe("W19 使用主体", () => {
     expect(copied).toContain("Gateway Base URL: http://127.0.0.1:8787/v1");
     expect(copied).toContain("Models: qianliu-glm");
     expect(copied).not.toContain("••••");
+  });
+
+  it("共享额度展示业务语义和真实型号，已停用授权可手工归档", async () => {
+    useGrantsMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: { grants: [{
+        id: "00000000-0000-4000-8000-000000000091",
+        principal_id: "p1",
+        provider: "zhipu",
+        model_alias: "*",
+        quota_unit: "TOKEN",
+        quota_value: "88000",
+        allow_overage: false,
+        valid_until: null,
+        status: "DISABLED",
+        version: 2,
+        created_at: "2026-07-28T02:00:00.000Z",
+        updated_at: "2026-08-03T02:00:00.000Z",
+      }] },
+      refetch: vi.fn(),
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "接入配置" }));
+    expect(screen.getByText("该厂商共享额度")).toBeInTheDocument();
+    expect(screen.getByText("已授权 1 个型号：仟流 GLM")).toBeInTheDocument();
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "归档" }));
+    expect(screen.getByText(/额度、请求、账本、审计和历史关联继续保留/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "确认归档" }));
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        "/grants/00000000-0000-4000-8000-000000000091/archive",
+      );
+    });
+  });
+
+  it("明确区分管理员预期与实际观测，并支持 Unknown 请求下钻", async () => {
+    usePrincipalAgentUsageMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: { expectedAgentFamilies: ["CODEX"], agents: [{
+        agentFamily: "UNKNOWN",
+        latestVersion: null,
+        identitySource: "NONE",
+        identitySources: ["NONE"],
+        identityConfidence: "UNKNOWN",
+        firstUsedAt: "2026-08-01T01:00:00.000Z",
+        lastUsedAt: "2026-08-03T02:00:00.000Z",
+        requestCount: "3",
+        totalTokens: "0",
+        totalApiCost: "0",
+        models: ["legacy-model"],
+      }] },
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "接入配置" }));
+    expect(screen.getByText("计划／预期 Agent")).toBeInTheDocument();
+    expect(screen.getByText(/由管理员手工维护/)).toBeInTheDocument();
+    expect(screen.getByText("实际观测 Agent")).toBeInTheDocument();
+    expect(screen.getByText(/Other 表示有客户端标识/)).toBeInTheDocument();
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看请求" })).toHaveAttribute(
+      "href",
+      "/usage?principal_id=p1&agent_family=UNKNOWN",
+    );
   });
 
   it("切换主体后不展示上一主体延迟返回的一次性 Key 明文", async () => {

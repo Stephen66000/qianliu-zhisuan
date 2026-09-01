@@ -22,8 +22,10 @@ import {
   useUnifiedModels,
 } from "../api/hooks";
 import type {
+  AccessConfiguration,
   Principal,
   PrincipalCleanupPreview,
+  PrincipalGrantItem,
 } from "../api/types";
 import { PageShell } from "../components/layout/PageShell";
 import { AgentUsagePanel } from "../components/principals/AgentUsagePanel";
@@ -455,6 +457,7 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
   const [resetConfirm, setResetConfirm] = useState(false);
+  const [archiveGrantTarget, setArchiveGrantTarget] = useState<PrincipalGrantItem | null>(null);
   // POOL-033（GLM 评审 P0-1）：池化后额度只读展示——调额/超额/停用统一走上方
   // 接入配置面板（编排端点单事务），不再提供 PATCH /grants/:id 直写入口。
   const currentPrincipalIdRef = useRef(principal.id);
@@ -466,6 +469,7 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
     setKeyDialogOpen(false);
     setCopyStatus("idle");
     setResetConfirm(false);
+    setArchiveGrantTarget(null);
   }, [principal.id]);
 
   useEffect(() => {
@@ -520,6 +524,18 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
         setCopyStatus("idle");
         setResetConfirm(false);
       }
+    },
+  });
+
+  const archiveGrant = useMutation({
+    mutationFn: (grant: PrincipalGrantItem) =>
+      post<{ grant: PrincipalGrantItem }>(`/grants/${grant.id}/archive`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.grants(principal.id) });
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.accessConfiguration(principal.id),
+      });
+      setArchiveGrantTarget(null);
     },
   });
 
@@ -701,11 +717,26 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
             <tbody>
               {grants.map((grant) => (
                 <tr className="border-b border-ql-border-zone last:border-b-0" key={grant.id}>
-                  <td className="p-2 font-medium">{grant.model_alias}</td>
+                  <td className="p-2 font-medium">
+                    {grant.model_alias === "*" ? (
+                      <SharedQuotaModels accessConfig={accessConfig} provider={grant.provider} />
+                    ) : grant.model_alias}
+                  </td>
                   <td className="p-2 text-ql-fg-secondary">{grant.provider}</td>
                   <td className="p-2 text-right font-mono">{formatCount(grant.quota_value)}</td>
                   <td className="p-2">{grant.allow_overage ? "允许" : "不允许"}</td>
-                  <td className="p-2">{grant.status === "ACTIVE" ? "有效" : "已停用"}</td>
+                  <td className="p-2">
+                    {grant.status === "ACTIVE" ? "有效" : grant.status === "DISABLED" ? (
+                      <div className="flex items-center gap-2">
+                        <span>已停用</span>
+                        <button
+                          className="rounded px-2 py-1 text-[11px] text-ql-action hover:bg-ql-action-soft"
+                          onClick={() => setArchiveGrantTarget(grant)}
+                          type="button"
+                        >归档</button>
+                      </div>
+                    ) : "已过期"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -717,6 +748,16 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
       ) : null}
 
       <AgentUsagePanel principalId={principal.id} />
+
+      <ConfirmDialog
+        confirmLabel="确认归档"
+        impact={`归档后，这条 ${archiveGrantTarget?.provider ?? "厂商"} 授权将退出日常授权列表；额度、请求、账本、审计和历史关联继续保留。`}
+        loading={archiveGrant.isPending}
+        onCancel={() => setArchiveGrantTarget(null)}
+        onConfirm={() => archiveGrantTarget && archiveGrant.mutate(archiveGrantTarget)}
+        open={archiveGrantTarget !== null}
+        title="归档已停用授权"
+      />
 
       <ConfirmDialog
         danger
@@ -737,6 +778,25 @@ function PrincipalAccessPanel({ principal }: { principal: Principal }) {
       />
     </section>
   );
+}
+
+function SharedQuotaModels({
+  accessConfig,
+  provider,
+}: {
+  accessConfig: AccessConfiguration | undefined;
+  provider: string;
+}) {
+  const models = accessConfig?.providers
+    .find((item) => item.provider_code === provider)
+    ?.models.filter((model) => model.enabled)
+    .map((model) => model.display_name) ?? [];
+  return <div>
+    <span>该厂商共享额度</span>
+    <span className="block max-w-[28rem] font-normal text-ql-fg-tertiary">
+      已授权 {models.length} 个型号：{models.join("、") || "暂无有效型号"}
+    </span>
+  </div>;
 }
 
 function ProjectDepartmentEditor({ projectId }: { projectId: string }) {

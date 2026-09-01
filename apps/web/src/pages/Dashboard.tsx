@@ -64,7 +64,7 @@ export function DashboardPage() {
       <DashboardHeader />
 
       <Zone
-        description="八个指标统一展示；本月总支出 = 套餐支出 + API 花费。"
+        description="八个指标统一展示；本月总支出 = 当月订阅支出 + 已确认 API 费用。"
         title="本月概览"
       >
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -87,7 +87,7 @@ export function DashboardPage() {
           />
           <MetricCard
             emptyText={data.monthlyApiSpendReason ?? "API 花费不可计算"}
-            hint="期初余额 + 本月充值 - 期末余额；账本计价仅用于核对"
+            hint="按本月已冻结账本费用汇总"
             label="API 花费"
             value={currencyMetric(data.monthlyApiCosts, data.monthlyApiCost)}
           />

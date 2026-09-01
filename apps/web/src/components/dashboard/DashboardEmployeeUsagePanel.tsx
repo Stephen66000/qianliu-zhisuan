@@ -14,7 +14,7 @@ export function DashboardEmployeeUsagePanel({ initial }: { initial: UsageOvervie
   const [params, setParams] = useSearchParams();
   const [anchor] = useState(() => initial.anchor || new Date().toISOString());
   const rawPeriod = params.get("dashboard_usage_period");
-  const period = (["TODAY", "WEEK", "MONTH"].includes(rawPeriod ?? "") ? rawPeriod : "MONTH") as UsagePeriod;
+  const period = (["TODAY", "WEEK", "MONTH"].includes(rawPeriod ?? "") ? rawPeriod : "TODAY") as UsagePeriod;
   const subjectId = params.get("dashboard_usage_subject_id") ?? "";
   const apiQuery = useMemo(() => {
     const query = new URLSearchParams({ subject_type: "EMPLOYEE", period, anchor });
@@ -22,7 +22,7 @@ export function DashboardEmployeeUsagePanel({ initial }: { initial: UsageOvervie
     return query.toString();
   }, [anchor, period, subjectId]);
   const query = useUsageOverview(apiQuery);
-  const isInitialView = period === "MONTH" && !subjectId;
+  const isInitialView = period === "TODAY" && !subjectId;
   const data = query.data ?? (isInitialView ? initial : undefined);
 
   const setFilter = (name: string, value: string) => {
@@ -75,12 +75,25 @@ export function DashboardEmployeeUsagePanel({ initial }: { initial: UsageOvervie
           <span className="text-[10px] text-ql-fg-tertiary">{data.timezone} · {data.source === "LIVE_LEDGER" ? "实时账本" : "聚合读模型"}</span>
         </div>
         <div aria-label="首页员工用量趋势图" className="mt-2 flex h-32 items-end gap-1 overflow-x-auto">
-          {data.trend.map((item) => (
-            <div className="flex min-w-5 flex-1 flex-col items-center justify-end gap-1" key={item.bucketStart}>
-              <div className="w-full rounded-t bg-ql-action" title={`${item.label}: ${item.realTokens}`} style={{ height: `${Math.max(2, Number(item.realTokens) / max * 88)}px` }} />
+          {data.trend.map((item) => {
+            const value = Number(item.realTokens);
+            const hasUsage = value > 0;
+            const valueLabel = hasUsage || item.collectionStatus === "COMPLETE"
+              ? formatCount(item.realTokens)
+              : "未采集";
+            return <div className="flex min-w-8 flex-1 flex-col items-center justify-end gap-1" key={item.bucketStart}>
+              <span className="whitespace-nowrap text-[9px] text-ql-fg-secondary">{valueLabel}</span>
+              <div className="flex h-[88px] w-full items-end justify-center">
+                {hasUsage ? <div
+                  aria-label={`${item.label} 消耗 ${valueLabel}`}
+                  className="w-full rounded-t bg-ql-action"
+                  title={`${item.label}: ${valueLabel}${item.collectionStatus === "MISSING" ? "（仍在采集）" : ""}`}
+                  style={{ height: `${Math.max(6, value / max * 88)}px` }}
+                /> : null}
+              </div>
               <span className="whitespace-nowrap text-[9px] text-ql-fg-tertiary">{item.label}</span>
-            </div>
-          ))}
+            </div>;
+          })}
         </div>
       </div>
 

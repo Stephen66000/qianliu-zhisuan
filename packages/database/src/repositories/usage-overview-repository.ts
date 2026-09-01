@@ -43,6 +43,7 @@ export interface UsageOverviewPoint extends Omit<UsageOverviewMetrics, "activeSu
   bucketStart: string;
   bucketEnd: string;
   label: string;
+  collectionStatus: "COMPLETE" | "MISSING";
 }
 
 export interface UsageOverviewRankingItem extends Omit<UsageOverviewMetrics, "activeSubjects"> {
@@ -112,6 +113,7 @@ interface TrendRow extends Omit<AggregateRow, "active_subjects" | "fact_watermar
   bucket_start: Date;
   bucket_end: Date;
   label: string;
+  collection_complete: boolean;
 }
 
 interface RankingRow extends Omit<AggregateRow, "active_subjects" | "fact_watermark"> {
@@ -150,7 +152,7 @@ export class UsageOverviewRepository {
       : buildLiveUsageFacts(input, range);
     const aggregate = await this.loadMetrics(facts);
     const [trend, ranking] = await Promise.all([
-      this.loadTrend(input.period, range, facts),
+      this.loadTrend(input, range, facts, currentTime),
       this.loadRanking(facts, aggregate.metrics.realTokens),
     ]);
     return {
@@ -221,10 +223,12 @@ export class UsageOverviewRepository {
   }
 
   private async loadTrend(
-    period: UsageOverviewPeriod,
+    input: UsageOverviewQuery,
     range: UsageOverviewRange,
     facts: RawBuilder<unknown>,
+    currentTime: Date,
   ): Promise<UsageOverviewPoint[]> {
+    const period = input.period;
     const label = period === "WEEK"
         ? sql`('周' || substr('一二三四五六日', extract(isodow from local_bucket)::integer, 1))`
         : sql`to_char(local_bucket, 'MM-DD')`;
@@ -264,7 +268,24 @@ export class UsageOverviewRepository {
              ,COALESCE(SUM(f.estimated_count), 0) AS estimated_count
              ,COALESCE(SUM(f.account_aggregated_count), 0) AS account_aggregated_count
              ,COALESCE(SUM(f.mixed_count), 0) AS mixed_count
-             ,COALESCE(SUM(f.unknown_count), 0) AS unknown_count
+             ,COALESCE(SUM(f.unknown_count), 0) AS unknown_count,
+             CASE WHEN b.bucket_end <= ${currentTime}
+                    AND EXISTS (
+                      SELECT 1
+                        FROM usage_aggregate_bucket_state state
+                        LEFT JOIN usage_aggregate_dirty_bucket dirty
+                          ON dirty.enterprise_id = state.enterprise_id
+                         AND dirty.bucket_granularity = state.bucket_granularity
+                         AND dirty.bucket_start = state.bucket_start
+                         AND dirty.timezone = state.timezone
+                       WHERE state.enterprise_id = ${input.enterpriseId}::uuid
+                         AND state.bucket_granularity = ${period === "TODAY" ? "HOUR" : "DAY"}
+                         AND state.bucket_start = b.bucket_start
+                         AND state.timezone = ${range.timezone}
+                         AND state.generated_at IS NOT NULL
+                         AND dirty.bucket_start IS NULL
+                    )
+                  THEN true ELSE false END AS collection_complete
         FROM buckets b
         LEFT JOIN facts f ON f.started_at >= b.bucket_start AND f.started_at < b.bucket_end
        GROUP BY b.bucket_start, b.bucket_end, b.label
@@ -274,6 +295,7 @@ export class UsageOverviewRepository {
       bucketStart: row.bucket_start.toISOString(),
       bucketEnd: row.bucket_end.toISOString(),
       label: row.label,
+      collectionStatus: row.collection_complete ? "COMPLETE" : "MISSING",
       ...mapCountMetrics(row),
     }));
   }

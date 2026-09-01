@@ -78,6 +78,7 @@ export {
 } from "./repositories/key-repository.js";
 export {
   GrantRepository,
+  GrantNotArchivableError,
   type PrincipalGrant,
   type CreateGrantInput,
 } from "./repositories/grant-repository.js";

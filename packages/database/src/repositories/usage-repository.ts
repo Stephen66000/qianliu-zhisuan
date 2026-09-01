@@ -1,8 +1,9 @@
 /**
  * 用量账本仓储（W18/W20/POOL-012）—— 企业内请求级分页、搜索与组合筛选。
  *
- * 账本只消费已冻结事实：最终资源来自 ledger_line/upstream_attempt，超额来自
- * ledger_transaction.overage；不会根据当前 Grant/Counter 重算历史。
+ * 已结算金额只消费冻结事实；请求列表同时保留尚未生成 ledger_transaction 的真实请求。
+ * 最终资源来自 ledger_line/upstream_attempt，超额来自 ledger_transaction.overage；
+ * 不会根据当前 Grant/Counter 重算历史。
  */
 import type { Kysely, RawBuilder } from "kysely";
 import { sql } from "kysely";
@@ -66,6 +67,7 @@ export interface UsageRecord {
   totalApiCost: string;
   usageQuality: string;
   attemptCount: number;
+  hasSettlement: boolean;
 }
 
 export interface UsageResult {
@@ -106,6 +108,7 @@ interface UsageSqlRow {
   total_api_cost: string;
   usage_quality: string;
   attempt_count: number | bigint;
+  has_settlement: boolean;
 }
 
 export class UsageRepository {
@@ -117,7 +120,6 @@ export class UsageRepository {
     const limit = Math.max(1, Math.min(requestedLimit, 500));
     const offset = Math.max(0, requestedOffset);
     const conditions: RawBuilder<unknown>[] = [
-      sql`lt.enterprise_id = ${query.enterpriseId}`,
       sql`ar.enterprise_id = ${query.enterpriseId}`,
       sql`p.enterprise_id = ${query.enterpriseId}`,
     ];
@@ -127,17 +129,17 @@ export class UsageRepository {
       const containsPattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
       const escapeChar = "\\";
       conditions.push(sql`(
-        lt.ai_request_id::text ILIKE ${containsPattern} ESCAPE ${escapeChar}
+        ar.id::text ILIKE ${containsPattern} ESCAPE ${escapeChar}
         OR p.name ILIKE ${containsPattern} ESCAPE ${escapeChar}
       )`);
     }
-    if (query.principalId) conditions.push(sql`lt.principal_id = ${query.principalId}`);
+    if (query.principalId) conditions.push(sql`ar.principal_id = ${query.principalId}`);
     const attributedProject = sql`coalesce(
       (
         SELECT ras.project_principal_id
           FROM request_attribution_snapshot ras
          WHERE ras.enterprise_id = ${query.enterpriseId}
-           AND ras.ai_request_id = lt.ai_request_id
+           AND ras.ai_request_id = ar.id
          ORDER BY ras.version DESC, ras.created_at DESC, ras.id DESC
          LIMIT 1
       ),
@@ -145,7 +147,7 @@ export class UsageRepository {
         SELECT opa.project_principal_id
           FROM operating_bill_request_project_assignment opa
          WHERE opa.enterprise_id = ${query.enterpriseId}
-           AND opa.ai_request_id = lt.ai_request_id
+           AND opa.ai_request_id = ar.id
          LIMIT 1
       )
     )`;
@@ -162,9 +164,10 @@ export class UsageRepository {
     if (query.unifiedModel) conditions.push(sql`ar.unified_model = ${query.unifiedModel}`);
     if (query.status) conditions.push(sql`ar.status = ${query.status}`);
     if (query.settledOnly) conditions.push(sql`lt.status = 'SETTLED'`);
-    if (query.from) conditions.push(sql`lt.created_at >= ${query.from}`);
-    if (query.to) conditions.push(sql`lt.created_at <= ${query.to}`);
-    if (query.toExclusive) conditions.push(sql`lt.created_at < ${query.toExclusive}`);
+    const usageTime = sql`COALESCE(lt.created_at, ar.started_at)`;
+    if (query.from) conditions.push(sql`${usageTime} >= ${query.from}`);
+    if (query.to) conditions.push(sql`${usageTime} <= ${query.to}`);
+    if (query.toExclusive) conditions.push(sql`${usageTime} < ${query.toExclusive}`);
     if (query.overageOnly) conditions.push(sql`lt.overage = true`);
 
     if (query.providerId || query.providerResourceId) {
@@ -182,7 +185,7 @@ export class UsageRepository {
               INNER JOIN provider pv
                 ON pv.id = pr.provider_id
                AND pv.enterprise_id = ${query.enterpriseId}
-             WHERE ll.ai_request_id = lt.ai_request_id
+             WHERE ll.ai_request_id = ar.id
                AND ll.enterprise_id = ${query.enterpriseId}
              ORDER BY ua.attempt_no DESC, ll.created_at DESC, ll.id DESC
              LIMIT 1
@@ -199,17 +202,19 @@ export class UsageRepository {
     const where = sql.join(conditions, sql` AND `);
     const countResult = await sql<{ cnt: bigint | string }>`
       SELECT count(*) AS cnt
-        FROM ledger_transaction lt
-        INNER JOIN principal p ON p.id = lt.principal_id
-        INNER JOIN ai_request ar ON ar.id = lt.ai_request_id
+        FROM ai_request ar
+        INNER JOIN principal p
+          ON p.id = ar.principal_id AND p.enterprise_id = ${query.enterpriseId}
+        LEFT JOIN ledger_transaction lt
+          ON lt.ai_request_id = ar.id AND lt.enterprise_id = ${query.enterpriseId}
        WHERE ${where}
     `.execute(this.db);
     const total = Number(countResult.rows[0]?.cnt ?? 0);
 
     const result = await sql<UsageSqlRow>`
       SELECT
-        lt.ai_request_id AS request_id,
-        lt.principal_id,
+        ar.id AS request_id,
+        ar.principal_id,
         p.name AS principal_name,
         p.type AS principal_type,
         ar.client_id,
@@ -230,17 +235,20 @@ export class UsageRepository {
         final_resource.resource_id AS final_resource_id,
         final_resource.resource_name AS final_resource_name,
         lt.overage,
-        lt.total_input_tokens,
-        lt.total_output_tokens,
-        lt.total_cache_tokens,
-        lt.total_reasoning_tokens,
-        lt.total_deducted_quota,
-        lt.total_api_cost,
-        lt.usage_quality,
-        lt.attempt_count
-      FROM ledger_transaction lt
-      INNER JOIN principal p ON p.id = lt.principal_id
-      INNER JOIN ai_request ar ON ar.id = lt.ai_request_id
+        COALESCE(lt.total_input_tokens, 0) AS total_input_tokens,
+        COALESCE(lt.total_output_tokens, 0) AS total_output_tokens,
+        COALESCE(lt.total_cache_tokens, 0) AS total_cache_tokens,
+        COALESCE(lt.total_reasoning_tokens, 0) AS total_reasoning_tokens,
+        COALESCE(lt.total_deducted_quota, 0) AS total_deducted_quota,
+        COALESCE(lt.total_api_cost, 0)::text AS total_api_cost,
+        COALESCE(lt.usage_quality, 'UNKNOWN') AS usage_quality,
+        COALESCE(lt.attempt_count, 0) AS attempt_count,
+        (lt.id IS NOT NULL) AS has_settlement
+      FROM ai_request ar
+      INNER JOIN principal p
+        ON p.id = ar.principal_id AND p.enterprise_id = ${query.enterpriseId}
+      LEFT JOIN ledger_transaction lt
+        ON lt.ai_request_id = ar.id AND lt.enterprise_id = ${query.enterpriseId}
       LEFT JOIN LATERAL (
         SELECT
           pv.id AS provider_id,
@@ -258,13 +266,13 @@ export class UsageRepository {
         INNER JOIN provider pv
           ON pv.id = pr.provider_id
          AND pv.enterprise_id = ${query.enterpriseId}
-        WHERE ll.ai_request_id = lt.ai_request_id
+        WHERE ll.ai_request_id = ar.id
           AND ll.enterprise_id = ${query.enterpriseId}
         ORDER BY ua.attempt_no DESC, ll.created_at DESC, ll.id DESC
         LIMIT 1
       ) final_resource ON true
       WHERE ${where}
-      ORDER BY lt.created_at DESC, lt.ai_request_id DESC
+      ORDER BY ar.started_at DESC, ar.id DESC
       LIMIT ${limit}
       OFFSET ${offset}
     `.execute(this.db);
@@ -303,6 +311,7 @@ export class UsageRepository {
       totalApiCost: row.total_api_cost,
       usageQuality: row.usage_quality,
       attemptCount: Number(row.attempt_count),
+      hasSettlement: row.has_settlement,
     }));
 
     return { records, total, limit, offset };
@@ -313,6 +322,7 @@ export class UsageRepository {
       agent_family: string;
       latest_version: string | null;
       identity_source: string;
+      identity_sources: string[];
       identity_confidence: string;
       first_used_at: Date;
       last_used_at: Date;
@@ -325,16 +335,18 @@ export class UsageRepository {
         ar.agent_family,
         (array_agg(ar.agent_version ORDER BY ar.started_at DESC) FILTER (WHERE ar.agent_version IS NOT NULL))[1] AS latest_version,
         (array_agg(ar.agent_identity_source ORDER BY ar.started_at DESC))[1] AS identity_source,
+        array_agg(DISTINCT ar.agent_identity_source ORDER BY ar.agent_identity_source) AS identity_sources,
         (array_agg(ar.agent_identity_confidence ORDER BY ar.started_at DESC))[1] AS identity_confidence,
         min(ar.started_at) AS first_used_at,
         max(ar.started_at) AS last_used_at,
         count(*) AS request_count,
-        sum(lt.total_input_tokens + lt.total_output_tokens) AS total_tokens,
-        sum(lt.total_api_cost)::text AS total_api_cost,
+        COALESCE(sum(lt.total_input_tokens + lt.total_output_tokens), 0) AS total_tokens,
+        COALESCE(sum(lt.total_api_cost), 0)::text AS total_api_cost,
         array_agg(DISTINCT ar.unified_model) AS models
-      FROM ledger_transaction lt
-      INNER JOIN ai_request ar ON ar.id = lt.ai_request_id AND ar.enterprise_id = ${enterpriseId}
-      WHERE lt.enterprise_id = ${enterpriseId} AND lt.principal_id = ${principalId}
+      FROM ai_request ar
+      LEFT JOIN ledger_transaction lt
+        ON lt.ai_request_id = ar.id AND lt.enterprise_id = ${enterpriseId}
+      WHERE ar.enterprise_id = ${enterpriseId} AND ar.principal_id = ${principalId}
       GROUP BY ar.agent_family
       ORDER BY max(ar.started_at) DESC, ar.agent_family ASC
     `.execute(this.db);
@@ -342,6 +354,7 @@ export class UsageRepository {
       agentFamily: row.agent_family,
       latestVersion: row.latest_version,
       identitySource: row.identity_source,
+      identitySources: row.identity_sources,
       identityConfidence: row.identity_confidence,
       firstUsedAt: row.first_used_at.toISOString(),
       lastUsedAt: row.last_used_at.toISOString(),
@@ -379,6 +392,7 @@ export interface AgentUsageSummary {
   agentFamily: string;
   latestVersion: string | null;
   identitySource: string;
+  identitySources: string[];
   identityConfidence: string;
   firstUsedAt: string;
   lastUsedAt: string;

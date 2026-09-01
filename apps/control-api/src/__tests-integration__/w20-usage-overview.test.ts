@@ -192,7 +192,7 @@ describe("W20-04 /usage/overview", () => {
       resourceAccountCount: 0,
       employeeUsageOverview: {
         subjectType: "EMPLOYEE",
-        period: "MONTH",
+        period: "TODAY",
         source: "LIVE_LEDGER",
       },
     });

@@ -209,6 +209,7 @@ export interface UsageRecord {
   totalApiCost: string;
   usageQuality: string;
   attemptCount: number;
+  hasSettlement: boolean;
 }
 
 export interface UsageResult {
@@ -242,6 +243,7 @@ export interface AgentUsageSummary {
   agentFamily: string;
   latestVersion: string | null;
   identitySource: string;
+  identitySources: string[];
   identityConfidence: string;
   firstUsedAt: string;
   lastUsedAt: string;

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { patch } from "../../api/client";
 import { QUERY_KEYS, usePrincipalAgentUsage } from "../../api/hooks";
@@ -8,6 +9,16 @@ const EXPECTED_AGENT_OPTIONS = [
   ["WORKBUDDY", "WorkBuddy"], ["CODEX", "Codex"], ["ZCODE", "Z Code"],
   ["CLAUDE_CODE", "Claude Code"], ["QIANLIU_IDE", "仟流 IDE"],
 ] as const;
+
+const AGENT_LABEL: Record<string, string> = {
+  WORKBUDDY: "WorkBuddy",
+  CODEX: "Codex",
+  ZCODE: "Z Code",
+  CLAUDE_CODE: "Claude Code",
+  QIANLIU_IDE: "仟流 IDE",
+  OTHER: "Other",
+  UNKNOWN: "Unknown",
+};
 
 export function AgentUsagePanel({ principalId }: { principalId: string }) {
   const queryClient = useQueryClient();
@@ -22,10 +33,11 @@ export function AgentUsagePanel({ principalId }: { principalId: string }) {
   });
 
   return <div className="mt-4 rounded-lg border border-ql-border-zone bg-ql-surface p-4">
-    <h3 className="text-[13px] font-semibold text-ql-fg">Agent 使用情况</h3>
-    <p className="mt-1 text-[11px] text-ql-fg-tertiary">来自真实请求观测，仅用于统计诊断，不参与鉴权、额度、计费或调度。</p>
-    <fieldset className="mt-3 flex flex-wrap gap-3 rounded-md border border-ql-border-zone p-2">
-      <legend className="px-1 text-[11px] text-ql-fg-secondary">预期 Agent（交付元数据，可多选）</legend>
+    <h3 className="text-[13px] font-semibold text-ql-fg">Agent 配置与实际使用</h3>
+    <fieldset className="mt-3 rounded-md border border-ql-border-zone bg-ql-surface-subtle p-3">
+      <legend className="px-1 text-[12px] font-medium text-ql-fg">计划／预期 Agent</legend>
+      <p className="mb-2 text-[11px] text-ql-fg-tertiary">由管理员手工维护，表示计划使用哪些客户端，不是系统识别结果。</p>
+      <div className="flex flex-wrap gap-3">
       {EXPECTED_AGENT_OPTIONS.map(([value, label]) => {
         const selected = query.data?.expectedAgentFamilies.includes(value) ?? false;
         return <label className="flex items-center gap-1 text-[12px]" key={value}>
@@ -37,24 +49,31 @@ export function AgentUsagePanel({ principalId }: { principalId: string }) {
           }} type="checkbox" />{label}
         </label>;
       })}
+      </div>
     </fieldset>
+    <div className="mt-4 border-t border-ql-border-zone pt-3">
+      <h4 className="text-[12px] font-medium text-ql-fg">实际观测 Agent</h4>
+      <p className="mt-1 text-[11px] text-ql-fg-tertiary">按真实请求聚合，仅用于统计诊断，不参与鉴权、模型权限、额度、计费或调度。Other 表示有客户端标识但规则未匹配；Unknown 表示标识不足或属于历史迁移数据。</p>
     {query.isLoading
       ? <p className="mt-3 text-[12px] text-ql-fg-tertiary">正在读取…</p>
       : (query.data?.agents.length ?? 0) === 0
         ? <p className="mt-3 text-[12px] text-ql-fg-tertiary">尚未观察到 Agent 请求</p>
         : <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-[12px]">
-            <thead className="text-ql-fg-secondary"><tr><th className="p-2">Agent / 版本</th><th className="p-2">识别来源</th><th className="p-2 text-right">请求</th><th className="p-2 text-right">Token</th><th className="p-2 text-right">API 费用</th><th className="p-2">最近使用</th><th className="p-2">模型</th></tr></thead>
+            <thead className="text-ql-fg-secondary"><tr><th className="p-2">Agent / 版本</th><th className="p-2">识别来源</th><th className="p-2 text-right">请求</th><th className="p-2 text-right">Token</th><th className="p-2 text-right">API 费用</th><th className="p-2">首次使用</th><th className="p-2">最近使用</th><th className="p-2">模型</th><th className="p-2">追溯</th></tr></thead>
             <tbody>{query.data?.agents.map((agent) => <tr className="border-t border-ql-border-zone" key={agent.agentFamily}>
-              <td className="p-2 font-medium">{agent.agentFamily}<span className="block font-normal text-ql-fg-tertiary">{agent.latestVersion ? `v${agent.latestVersion}` : "版本未知"}</span>{(query.data?.expectedAgentFamilies.length ?? 0) > 0 && !query.data?.expectedAgentFamilies.includes(agent.agentFamily) ? <span className="block text-[11px] font-normal text-ql-warning">与预期不一致</span> : null}</td>
-              <td className="p-2 text-ql-fg-secondary">{agent.identitySource} · {agent.identityConfidence}</td>
+              <td className="p-2 font-medium">{AGENT_LABEL[agent.agentFamily] ?? agent.agentFamily}<span className="block font-normal text-ql-fg-tertiary">{agent.latestVersion ? `v${agent.latestVersion}` : "版本未知"}</span>{(query.data?.expectedAgentFamilies.length ?? 0) > 0 && !query.data?.expectedAgentFamilies.includes(agent.agentFamily) ? <span className="block text-[11px] font-normal text-ql-warning">与预期不一致</span> : null}</td>
+              <td className="p-2 text-ql-fg-secondary">{(agent.identitySources ?? [agent.identitySource]).join("、")}<span className="block text-ql-fg-tertiary">{agent.identityConfidence}</span></td>
               <td className="p-2 text-right">{formatCount(agent.requestCount)}</td>
               <td className="p-2 text-right">{formatCount(agent.totalTokens)}</td>
               <td className="p-2 text-right">{formatMoney(agent.totalApiCost)}</td>
+              <td className="p-2">{formatDateTimeFull(agent.firstUsedAt)}</td>
               <td className="p-2">{formatDateTimeFull(agent.lastUsedAt)}</td>
               <td className="p-2">{agent.models.join("、")}</td>
+              <td className="p-2"><Link className="whitespace-nowrap text-ql-action" to={`/usage?principal_id=${principalId}&agent_family=${agent.agentFamily}`}>查看请求</Link></td>
             </tr>)}</tbody>
           </table>
         </div>}
+    </div>
   </div>;
 }

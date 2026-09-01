@@ -11,7 +11,7 @@
  *   1. 资源账号数：当前企业未删除的资源账号数量；
  *   2. 本账期活跃人数：当月至少一次成功调用的、启用中（status=ACTIVE 且未归档）的 EMPLOYEE 数量；
  *   3. 当前正在使用人数：存在进行中请求或最近 5 分钟有成功请求的、启用中（status=ACTIVE 且未归档）的员工去重数；
- *   4. 本月套餐支付金额 / 5. 本月 API 花费（余额桥接）/ 6. 本月充值金额；
+ *   4. 本月套餐支出（按订阅录入时间归月）/ 5. 本月 API 已冻结账本费用 / 6. 本月充值金额；
  *   7. 预计最早耗尽：可计算资源中最早的 forecast_exhaust_at + 可信度 + 下一恢复时间；
  *   8. 本月调度节省：只汇总 dispatch_decision 中 saving_calculable=true 且动作已执行的节省值。
  *
@@ -49,6 +49,7 @@ import {
   loadMonthlyOperatingCosts,
   type MonthlyOperatingCostResource,
 } from "./monthly-operating-cost.js";
+import { summarizeDashboardMonthlySpend } from "./dashboard-monthly-spend.js";
 
 export type * from "./dashboard-types.js";
 
@@ -69,6 +70,9 @@ export class DashboardRepository {
       .listCurrentOperatingSnapshots(enterpriseId, date);
     const monthlyOperatingCosts = await loadMonthlyOperatingCosts(
       this.db, enterpriseId, monthStart, monthEnd,
+    );
+    const dashboardSpend = summarizeDashboardMonthlySpend(
+      monthlyOperatingCosts.resources, monthStart, monthEnd,
     );
 
     // 并行执行独立聚合查询
@@ -96,13 +100,13 @@ export class DashboardRepository {
       resourceAccountCount,
       activeEmployeeCount,
       currentInUseCount,
-      monthlyPackagePayment: monthlyOperatingCosts.summary.packageCost,
-      monthlyPackagePayments: monthlyOperatingCosts.summary.packageCosts,
-      monthlyApiCost: monthlyOperatingCosts.summary.apiSpend,
-      monthlyApiCosts: monthlyOperatingCosts.summary.apiSpends,
-      monthlyApiSpendReason: monthlyOperatingCosts.summary.apiSpendReason,
-      monthlyTotalSpend: monthlyOperatingCosts.summary.totalSpend,
-      monthlyTotalSpends: monthlyOperatingCosts.summary.totalSpends,
+      monthlyPackagePayment: dashboardSpend.packagePayment,
+      monthlyPackagePayments: dashboardSpend.packagePayments,
+      monthlyApiCost: dashboardSpend.apiCost,
+      monthlyApiCosts: dashboardSpend.apiCosts,
+      monthlyApiSpendReason: dashboardSpend.apiCostReason,
+      monthlyTotalSpend: dashboardSpend.totalSpend,
+      monthlyTotalSpends: dashboardSpend.totalSpends,
       monthlyRechargeAmount: monthlyOperatingCosts.summary.rechargeAmount,
       monthlyRechargeAmounts: monthlyOperatingCosts.summary.rechargeAmounts,
       earliestExhaustion,

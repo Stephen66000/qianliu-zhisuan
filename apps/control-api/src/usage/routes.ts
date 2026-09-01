@@ -49,7 +49,7 @@ export function registerUsageRoutes(
   app: FastifyInstance,
   options: { overviewV2?: boolean } = {},
 ): void {
-  const AgentFamilySchema = z.enum(["WORKBUDDY", "CODEX", "ZCODE", "CLAUDE_CODE", "QIANLIU_IDE", "OTHER", "UNKNOWN"]);
+  const ExpectedAgentFamilySchema = z.enum(["WORKBUDDY", "CODEX", "ZCODE", "CLAUDE_CODE", "QIANLIU_IDE"]);
   const UsageOverviewQuerySchema = z.object({
     subject_type: z.enum(["EMPLOYEE", "PROJECT", "employee", "project"]).default("EMPLOYEE"),
     subject_id: z.string().uuid().optional(),
@@ -122,7 +122,7 @@ export function registerUsageRoutes(
 
   app.patch("/principals/:id/agent-expectations", { preHandler: [requireAuth] }, async (req, reply) => {
     const params = z.object({ id: z.string().uuid() }).safeParse(req.params);
-    const body = z.object({ agent_families: z.array(AgentFamilySchema).max(8) }).safeParse(req.body);
+    const body = z.object({ agent_families: z.array(ExpectedAgentFamilySchema).max(5) }).safeParse(req.body);
     if (!params.success || !body.success) return reply.code(400).send({ error: "invalid_request" });
     const principal = await app.principalRepo.findById(req.admin!.enterpriseId, params.data.id);
     if (!principal) return reply.code(404).send({ error: "not_found" });

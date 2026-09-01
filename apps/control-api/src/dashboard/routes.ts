@@ -24,7 +24,7 @@ export function registerDashboardRoutes(
     const employeeUsageOverview = await new UsageOverviewRepository(app.db).getOverview({
       enterpriseId: req.admin!.enterpriseId,
       subjectType: "EMPLOYEE",
-      period: "MONTH",
+      period: "TODAY",
       anchor,
     });
     return { ...summary, employeeUsageOverview };

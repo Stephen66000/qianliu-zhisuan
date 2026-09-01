@@ -30,7 +30,7 @@ function overview(overrides: Partial<UsageOverview> = {}): UsageOverview {
     timezone: "Asia/Shanghai",
     range: { from: "2026-08-09T16:00:00.000Z", to: "2026-08-16T16:00:00.000Z" },
     metrics: { activeSubjects: 1, requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120", usageQuality: "PROVIDER_REPORTED", providerReportedCount: 2, estimatedCount: 0, accountAggregatedCount: 0, mixedCount: 0, unknownCount: 0 },
-    trend: [{ bucketStart: "2026-08-09T16:00:00.000Z", bucketEnd: "2026-08-10T16:00:00.000Z", label: "周一", requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120" }],
+    trend: [{ bucketStart: "2026-08-09T16:00:00.000Z", bucketEnd: "2026-08-10T16:00:00.000Z", label: "周一", collectionStatus: "COMPLETE", requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120" }],
     ranking: [{ subjectId: projectId, subjectName: "星河项目", departmentLabel: "研发", requestCount: "2", inputTokens: "100", outputTokens: "20", cacheTokens: "50", reasoningTokens: "5", realTokens: "120", apiCost: "1.5", deductedQuota: "120", share: "1" }],
     factWatermark: "2026-08-12T03:00:00.000Z",
     generatedAt: "2026-08-12T04:01:00.000Z",

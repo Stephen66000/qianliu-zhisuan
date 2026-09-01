@@ -444,6 +444,47 @@ describe("W03 下游 Key 与 Grant", () => {
     }
   });
 
+  it("仅已停用 Grant 可归档，归档后退出日常列表但历史记录保留", async () => {
+    const grant = await db.insertInto("principal_grant").values({
+      enterprise_id: ENT_ID,
+      principal_id: testPrincipalId,
+      provider: "zhipu",
+      model_alias: "*",
+      pool_model_alias: "*",
+      quota_value: 88000n,
+      status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    const activeArchive = await app.inject({
+      method: "POST",
+      url: `/grants/${grant.id}/archive`,
+      headers: { cookie: adminCookie },
+    });
+    expect(activeArchive.statusCode).toBe(409);
+    expect(activeArchive.json().message).toContain("有效授权请先停用");
+
+    await db.updateTable("principal_grant").set({ status: "DISABLED" })
+      .where("id", "=", grant.id).execute();
+    const archived = await app.inject({
+      method: "POST",
+      url: `/grants/${grant.id}/archive`,
+      headers: { cookie: adminCookie },
+    });
+    expect(archived.statusCode).toBe(200);
+    expect(archived.json().grant.status).toBe("ARCHIVED");
+
+    const dailyList = await app.inject({
+      method: "GET",
+      url: `/principals/${testPrincipalId}/grants`,
+      headers: { cookie: adminCookie },
+    });
+    expect(dailyList.json().grants.map((item: { id: string }) => item.id)).not.toContain(grant.id);
+    expect(await db.selectFrom("principal_grant").select("status")
+      .where("id", "=", grant.id).executeTakeFirstOrThrow()).toEqual({ status: "ARCHIVED" });
+    expect(await db.selectFrom("operation_log").select("action")
+      .where("target_id", "=", grant.id).where("action", "=", "grant.archive")
+      .executeTakeFirstOrThrow()).toEqual({ action: "grant.archive" });
+  });
+
   it("停用主体同步撤销全部 Key（TRD §5.3 L219）", async () => {
     const pid = await createPrincipal("PROJECT", "停用测试项目");
     await app.inject({

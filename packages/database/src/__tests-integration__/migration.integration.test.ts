@@ -101,6 +101,20 @@ describe("Kysely 迁移框架（PG17 Testcontainer）", () => {
     }
   });
 
+  it("0901-04：Grant 状态约束允许手工归档", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const constraint = await sql`
+        SELECT pg_get_constraintdef(oid) AS definition
+          FROM pg_constraint
+         WHERE conname = 'principal_grant_status_check'
+      `.execute(db);
+      expect((constraint.rows[0] as { definition: string }).definition).toContain("ARCHIVED");
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it("migrateDown 回滚最近迁移", async () => {
     const db = createKysely(pg.connectionString);
     try {

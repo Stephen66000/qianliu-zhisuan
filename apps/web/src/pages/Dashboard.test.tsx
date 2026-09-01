@@ -31,13 +31,17 @@ vi.mock("../api/v2-hooks", () => ({
 const overviewEmployeeId = "10000000-0000-4000-8000-000000000001";
 function employeeOverview(): UsageOverview {
   return {
-    subjectType: "EMPLOYEE", subjectId: null, period: "MONTH", anchor: "2026-08-12T04:00:00.000Z", timezone: "Asia/Shanghai",
-    range: { from: "2026-07-31T16:00:00.000Z", to: "2026-08-31T16:00:00.000Z" },
+    subjectType: "EMPLOYEE", subjectId: null, period: "TODAY", anchor: "2026-08-12T04:00:00.000Z", timezone: "Asia/Shanghai",
+    range: { from: "2026-08-11T16:00:00.000Z", to: "2026-08-12T16:00:00.000Z" },
     metrics: { activeSubjects: 1, requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000", usageQuality: "PROVIDER_REPORTED", providerReportedCount: 3, estimatedCount: 0, accountAggregatedCount: 0, mixedCount: 0, unknownCount: 0 },
-    trend: [{ bucketStart: "2026-07-31T16:00:00.000Z", bucketEnd: "2026-08-01T16:00:00.000Z", label: "08-01", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000" }],
+    trend: [
+      { bucketStart: "2026-08-11T16:00:00.000Z", bucketEnd: "2026-08-11T17:00:00.000Z", label: "00:00", collectionStatus: "COMPLETE", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000" },
+      { bucketStart: "2026-08-11T17:00:00.000Z", bucketEnd: "2026-08-11T18:00:00.000Z", label: "01:00", collectionStatus: "COMPLETE", requestCount: "0", inputTokens: "0", outputTokens: "0", cacheTokens: "0", reasoningTokens: "0", realTokens: "0", apiCost: "0", deductedQuota: "0" },
+      { bucketStart: "2026-08-11T18:00:00.000Z", bucketEnd: "2026-08-11T19:00:00.000Z", label: "02:00", collectionStatus: "MISSING", requestCount: "0", inputTokens: "0", outputTokens: "0", cacheTokens: "0", reasoningTokens: "0", realTokens: "0", apiCost: "0", deductedQuota: "0" },
+    ],
     ranking: [{ subjectId: overviewEmployeeId, subjectName: "李雷", departmentLabel: "研发", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000", share: "1" }],
     factWatermark: "2026-08-10T00:00:00.000Z", generatedAt: "2026-08-12T04:00:00.000Z",
-    detailQuery: { principalId: null, projectId: null, subjectType: "EMPLOYEE", settledOnly: true, from: "2026-07-31T16:00:00.000Z", toExclusive: "2026-08-31T16:00:00.000Z" },
+    detailQuery: { principalId: null, projectId: null, subjectType: "EMPLOYEE", settledOnly: true, from: "2026-08-11T16:00:00.000Z", toExclusive: "2026-08-12T16:00:00.000Z" },
     stale: false, source: "LIVE_LEDGER",
   };
 }
@@ -356,7 +360,7 @@ describe("W18 首页看板", () => {
     expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
   });
 
-  it("员工区保留 1.0 月度总量，周期与单员工趋势由后端聚合切换", async () => {
+  it("员工趋势默认今日：有消耗显示数字和蓝柱，完整零值无柱，缺口显示未采集", async () => {
     const user = userEvent.setup();
     const data = seededSummary();
     data.employeeUsageOverview = employeeOverview();
@@ -364,7 +368,12 @@ describe("W18 首页看板", () => {
     renderDashboard();
 
     expect(screen.getByText("本月消耗 Token 总数")).toBeInTheDocument();
-    expect(screen.getByLabelText("首页员工用量趋势图")).toBeInTheDocument();
+    const chart = screen.getByLabelText("首页员工用量趋势图");
+    expect(screen.getByRole("combobox", { name: "首页员工用量周期" })).toHaveValue("TODAY");
+    expect(within(chart).getByText("10,000")).toBeInTheDocument();
+    expect(within(chart).getByText("0")).toBeInTheDocument();
+    expect(within(chart).getByText("未采集")).toBeInTheDocument();
+    expect(within(chart).getAllByLabelText(/消耗/)).toHaveLength(1);
     await user.selectOptions(screen.getByRole("combobox", { name: "首页员工用量周期" }), "WEEK");
     await waitFor(() => {
       const query = new URLSearchParams(useUsageOverviewMock.mock.calls.at(-1)?.[0]);

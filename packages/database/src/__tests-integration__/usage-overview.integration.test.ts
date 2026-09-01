@@ -14,6 +14,10 @@ import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/test
 let pg: PostgresTestInstance;
 let db: ReturnType<typeof createKysely>;
 
+function withoutCollectionStatus<T extends { collectionStatus: string }>(items: T[]) {
+  return items.map(({ collectionStatus: _collectionStatus, ...item }) => item);
+}
+
 const enterpriseId = randomUUID();
 const otherEnterpriseId = randomUUID();
 const employeeOneId = randomUUID();
@@ -372,10 +376,14 @@ describe("W20-04 UsageOverviewRepository", () => {
       source: "BUCKET_AGGREGATE",
       stale: false,
       metrics: live.metrics,
-      trend: live.trend,
       ranking: live.ranking,
       detailQuery: live.detailQuery,
     });
+    expect(withoutCollectionStatus(cached.trend)).toEqual(withoutCollectionStatus(live.trend));
+    expect(live.trend.every((point) => point.collectionStatus === "MISSING")).toBe(true);
+    expect(cached.trend.every((point) => point.collectionStatus === (
+      new Date(point.bucketEnd) <= fixedNow ? "COMPLETE" : "MISSING"
+    ))).toBe(true);
     expect(cached.generatedAt).not.toBe(live.generatedAt);
     const cachedProject = await overview.getOverview({
       enterpriseId,
@@ -387,9 +395,11 @@ describe("W20-04 UsageOverviewRepository", () => {
     expect(cachedProject).toMatchObject({
       source: "BUCKET_AGGREGATE",
       metrics: liveProject.metrics,
-      trend: liveProject.trend,
       ranking: liveProject.ranking,
     });
+    expect(withoutCollectionStatus(cachedProject.trend)).toEqual(
+      withoutCollectionStatus(liveProject.trend),
+    );
   });
 
   it("DST 23 小时日的 HOUR 聚合趋势与 LIVE 同源守恒", async () => {
@@ -413,9 +423,12 @@ describe("W20-04 UsageOverviewRepository", () => {
       source: "BUCKET_AGGREGATE",
       stale: false,
       metrics: live.metrics,
-      trend: live.trend,
       ranking: live.ranking,
     });
+    expect(withoutCollectionStatus(cached.trend)).toEqual(withoutCollectionStatus(live.trend));
+    expect(cached.trend.every((point) => point.collectionStatus === (
+      new Date(point.bucketEnd) <= fixedNow ? "COMPLETE" : "MISSING"
+    ))).toBe(true);
     expect(cached.trend.reduce((sum, point) => sum + BigInt(point.realTokens), 0n)).toBe(55n);
   });
 

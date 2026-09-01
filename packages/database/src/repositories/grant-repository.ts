@@ -4,7 +4,7 @@
  * 依据：TRD §5.5。一期 quota_unit 固定 TOKEN。
  * 创建 grant 时同步初始化 quota_counter（W14 热路径消费；M1 建表+初始化）。
  */
-import type { Kysely, Selectable } from "kysely";
+import { sql, type Kysely, type Selectable } from "kysely";
 import type { Database, PrincipalGrantTable } from "../kysely.js";
 import { PrincipalNotActiveError } from "./principal-repository.js";
 
@@ -18,6 +18,13 @@ export interface CreateGrantInput {
   quota_value: bigint;
   allow_overage?: boolean;
   valid_until?: Date | null;
+}
+
+export class GrantNotArchivableError extends Error {
+  constructor(readonly status: string) {
+    super("仅已停用授权可以归档");
+    this.name = "GrantNotArchivableError";
+  }
 }
 
 export class GrantRepository {
@@ -65,7 +72,27 @@ export class GrantRepository {
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
       .where("principal_id", "=", principalId)
+      .where("status", "<>", "ARCHIVED")
       .orderBy("created_at", "desc")
       .execute();
+  }
+
+  async archive(enterpriseId: string, grantId: string): Promise<PrincipalGrant | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const grant = await trx.selectFrom("principal_grant")
+        .selectAll()
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", grantId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!grant) return null;
+      if (grant.status !== "DISABLED") throw new GrantNotArchivableError(grant.status);
+      return trx.updateTable("principal_grant")
+        .set({ status: "ARCHIVED", version: sql`version + 1`, updated_at: new Date() })
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", grantId)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    });
   }
 }

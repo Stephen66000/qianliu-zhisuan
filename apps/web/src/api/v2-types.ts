@@ -88,7 +88,7 @@ export interface UsageOverview {
     providerReportedCount: number; estimatedCount: number; accountAggregatedCount: number;
     mixedCount: number; unknownCount: number;
   };
-  trend: Array<{ bucketStart: string; bucketEnd: string; label: string; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number }>;
+  trend: Array<{ bucketStart: string; bucketEnd: string; label: string; collectionStatus: "COMPLETE" | "MISSING"; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number }>;
   ranking: Array<{ subjectId: string; subjectName: string; departmentLabel: string | null; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number; share: string }>;
   factWatermark: string | null;
   generatedAt: string;

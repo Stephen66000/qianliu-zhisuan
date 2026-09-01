@@ -11,7 +11,7 @@
  * 一期 quota_unit 固定 TOKEN。
  */
 import type { FastifyInstance } from "fastify";
-import { PrincipalNotActiveError } from "@qianliu/database";
+import { GrantNotArchivableError, PrincipalNotActiveError } from "@qianliu/database";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 
@@ -114,6 +114,47 @@ export function registerGrantRoutes(app: FastifyInstance): void {
       });
 
       return reply.code(201).send({ grant });
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/grants/:id/archive",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const parsed = z.string().uuid().safeParse(req.params.id);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "invalid_request", message: "授权 ID 无效" });
+      }
+      let grant;
+      try {
+        grant = await app.grantRepo.archive(req.admin!.enterpriseId, parsed.data);
+      } catch (error) {
+        if (error instanceof GrantNotArchivableError) {
+          return reply.code(409).send({
+            error: "invalid_state",
+            message: "仅已停用授权可以归档；有效授权请先停用",
+          });
+        }
+        throw error;
+      }
+      if (!grant) {
+        return reply.code(404).send({ error: "not_found", message: "授权不存在" });
+      }
+      await app.auditRepo.write({
+        enterprise_id: req.admin!.enterpriseId,
+        admin_user_id: req.admin!.adminUserId,
+        action: "grant.archive",
+        target_type: "principal_grant",
+        target_id: grant.id,
+        change_summary: {
+          principal_id: grant.principal_id,
+          provider: grant.provider,
+          prior_status: "DISABLED",
+          status: "ARCHIVED",
+        },
+        result: "SUCCESS",
+      });
+      return { grant };
     },
   );
 }

@@ -76,6 +76,7 @@ function sampleRecord(): UsageResult["records"][number] {
     totalApiCost: "0",
     usageQuality: "UPSTREAM_REPORTED",
     attemptCount: 1,
+    hasSettlement: true,
   };
 }
 
@@ -131,6 +132,24 @@ describe("W18 用量账本", () => {
     });
     renderUsage();
     expect(screen.getByText("失败")).toBeInTheDocument();
+  });
+
+  it("无结算请求显示未结算，不冒充套餐内", () => {
+    useUsageMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: usageResult([{
+        ...sampleRecord(),
+        status: "FAILED",
+        hasSettlement: false,
+        usageQuality: "UNKNOWN",
+        attemptCount: 0,
+      }], 1),
+      refetch: vi.fn(),
+    });
+    renderUsage();
+    expect(screen.getByText("未结算")).toBeInTheDocument();
+    expect(screen.queryByText("套餐内")).not.toBeInTheDocument();
   });
 
   it("分页：总数 > 一页时下一页可点", () => {
