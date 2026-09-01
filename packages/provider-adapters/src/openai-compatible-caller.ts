@@ -191,6 +191,7 @@ export function toChatCompletionsRequest(
       request.body as ResponsesRequest,
       resource.upstreamModel,
       request.stream,
+      resource.providerCode,
     );
   }
 
@@ -231,7 +232,11 @@ export function toChatCompletionsRequest(
     && typeof body.tool_choice.disable_parallel_tool_use === "boolean"
     ? !body.tool_choice.disable_parallel_tool_use
     : undefined;
-  const vendorExtensions = vendorRequestExtensions(body);
+  const vendorExtensions = providerRequestExtensions(
+    resource,
+    body,
+    body?.reasoning_effort,
+  );
 
   return {
     model: resource.upstreamModel,
@@ -241,18 +246,84 @@ export function toChatCompletionsRequest(
     ...(tools && tools.length > 0 ? { tools } : {}),
     ...(toolChoice !== undefined ? { tool_choice: toolChoice } : {}),
     ...(parallelToolCalls !== undefined ? { parallel_tool_calls: parallelToolCalls } : {}),
-    ...(typeof body?.reasoning_effort === "string" ? { reasoning_effort: body.reasoning_effort } : {}),
     ...vendorExtensions,
   };
 }
 
+function providerRequestExtensions(
+  resource: Pick<AdapterResource, "providerCode" | "upstreamModel">,
+  body: Record<string, unknown> | null,
+  reasoningEffort: unknown,
+): Pick<ChatCompletionBody, "reasoning_effort" | "thinking" | "tool_stream"> {
+  const normalizedEffort = providerReasoningEffort(resource, reasoningEffort);
+  if (resource.providerCode === "zhipu") {
+    return {
+      ...(normalizedEffort ? { reasoning_effort: normalizedEffort } : {}),
+      ...vendorRequestExtensions(body, true, true),
+    };
+  }
+  if (resource.providerCode === "deepseek") {
+    return {
+      ...(normalizedEffort ? { reasoning_effort: normalizedEffort } : {}),
+      ...vendorRequestExtensions(body, false, false),
+    };
+  }
+  return normalizedEffort ? { reasoning_effort: normalizedEffort } : {};
+}
+
 function vendorRequestExtensions(
   body: Record<string, unknown> | null,
+  includeToolStream: boolean,
+  includeClearThinking: boolean,
 ): Pick<ChatCompletionBody, "thinking" | "tool_stream"> {
+  const thinking = providerThinking(body?.thinking, includeClearThinking);
   return {
-    ...(body?.thinking !== undefined ? { thinking: body.thinking } : {}),
-    ...(typeof body?.tool_stream === "boolean" ? { tool_stream: body.tool_stream } : {}),
+    ...(thinking ? { thinking } : {}),
+    ...(includeToolStream && typeof body?.tool_stream === "boolean"
+      ? { tool_stream: body.tool_stream }
+      : {}),
   };
+}
+
+function providerThinking(
+  raw: unknown,
+  includeClearThinking: boolean,
+): { type: "enabled" | "disabled"; clear_thinking?: boolean } | undefined {
+  if (!isRecord(raw) || (raw.type !== "enabled" && raw.type !== "disabled")) return undefined;
+  return {
+    type: raw.type,
+    ...(includeClearThinking && typeof raw.clear_thinking === "boolean"
+      ? { clear_thinking: raw.clear_thinking }
+      : {}),
+  };
+}
+
+function providerReasoningEffort(
+  resource: Pick<AdapterResource, "providerCode" | "upstreamModel">,
+  raw: unknown,
+): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  if (resource.providerCode === "zhipu") {
+    if (!supportsZhipuReasoningEffort(resource.upstreamModel)) return undefined;
+    return ["max", "xhigh", "high", "medium", "low", "minimal", "none"].includes(raw)
+      ? raw
+      : undefined;
+  }
+  if (resource.providerCode === "deepseek") {
+    return ["max", "xhigh", "high", "medium", "low"].includes(raw) ? raw : undefined;
+  }
+  if (!/^(?:kimi-)?k3(?:-|$)/i.test(resource.upstreamModel)) return undefined;
+  if (raw === "medium") return "high";
+  if (raw === "xhigh") return "max";
+  return ["max", "high", "low"].includes(raw) ? raw : undefined;
+}
+
+function supportsZhipuReasoningEffort(upstreamModel: string): boolean {
+  const match = /^glm-(\d+)(?:\.(\d+))?/i.exec(upstreamModel);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2] ?? 0);
+  return major > 5 || (major === 5 && minor >= 2);
 }
 
 /** 官方 Responses 输入到 OpenAI-compatible Chat Completions 的确定性转换。 */
@@ -260,6 +331,7 @@ export function responsesToChatCompletions(
   request: ResponsesRequest,
   upstreamModel: string,
   stream = request.stream ?? false,
+  providerCode: ProviderCode = "deepseek",
 ): ChatCompletionBody {
   const messages: ChatMessage[] = [];
   if (request.instructions) {
@@ -296,11 +368,11 @@ export function responsesToChatCompletions(
     ...(request.max_output_tokens !== undefined
       ? { max_tokens: request.max_output_tokens }
       : {}),
-    ...(request.reasoning?.effort
-      ? { reasoning_effort: request.reasoning.effort }
-      : {}),
-    ...(request.thinking !== undefined ? { thinking: request.thinking } : {}),
-    ...(typeof request.tool_stream === "boolean" ? { tool_stream: request.tool_stream } : {}),
+    ...providerRequestExtensions(
+      { providerCode, upstreamModel },
+      request as unknown as Record<string, unknown>,
+      request.reasoning?.effort,
+    ),
   };
 }
 
@@ -756,7 +828,7 @@ function reasoningFieldExtensions(
 ): ReasoningFieldExtensions | undefined {
   const extensions: ReasoningFieldExtensions = {};
   let found = false;
-  for (const key of ["reasoning_content", "reasoning_details", "reasoning"] as const) {
+  for (const key of ["reasoning_content"] as const) {
     if (!Object.prototype.hasOwnProperty.call(raw, key) || raw[key] === undefined) continue;
     extensions[key] = raw[key];
     found = true;

@@ -91,7 +91,7 @@ describe("Responses → Chat Completions", () => {
     }]);
   });
 
-  it("保留 instructions、消息、工具调用、工具结果及推理参数", () => {
+  it("DeepSeek Responses 保留推理开关，但不转发智谱专用 tool_stream", () => {
     const request = responsesRequest();
     const body = responsesToChatCompletions(
       request.body as never,
@@ -144,14 +144,18 @@ describe("Responses → Chat Completions", () => {
     expect(body.parallel_tool_calls).toBe(false);
     expect(body.max_tokens).toBe(512);
     expect(body.reasoning_effort).toBe("high");
-    expect(body.thinking).toEqual({ type: "enabled", clear_thinking: false });
-    expect(body.tool_stream).toBe(true);
+    expect(body.thinking).toEqual({ type: "enabled" });
+    expect(Object.hasOwn(body, "tool_stream")).toBe(false);
   });
 
-  it.each(["deepseek", "zhipu", "kimi"] as const)(
-    "%s：多轮工具调用原样保留推理字段、thinking 与 tool_stream",
-    (providerCode) => {
-      const body = toChatCompletionsRequest(resource({ providerCode }), {
+  it.each([
+    ["deepseek", "deepseek-v4-flash", { type: "enabled" }, false],
+    ["zhipu", "glm-5.3", { type: "enabled", clear_thinking: false }, true],
+    ["kimi", "k3", undefined, false],
+  ] as const)(
+    "%s：按厂商合同过滤顶层 thinking/tool_stream",
+    (providerCode, upstreamModel, expectedThinking, keepsToolStream) => {
+      const body = toChatCompletionsRequest(resource({ providerCode, upstreamModel }), {
         requestId: `reasoning-roundtrip-${providerCode}`,
         unifiedModel: `ql-${providerCode}`,
         capability: "chat",
@@ -187,12 +191,44 @@ describe("Responses → Chat Completions", () => {
       expect(body.messages[1]).toMatchObject({
         role: "assistant",
         reasoning_content: "provider-reasoning-content",
-        reasoning_details: [{ type: "reasoning.summary", text: "summary" }],
-        reasoning: { trace: "provider-native-reasoning" },
         tool_calls: [{ id: "call_reasoning_1" }],
       });
-      expect(body.thinking).toEqual({ type: "enabled", clear_thinking: false });
-      expect(body.tool_stream).toBe(true);
+      expect(Object.hasOwn(body.messages[1]!, "reasoning_details")).toBe(false);
+      expect(Object.hasOwn(body.messages[1]!, "reasoning")).toBe(false);
+      expect(body.thinking).toEqual(expectedThinking);
+      expect(Object.hasOwn(body, "tool_stream")).toBe(keepsToolStream);
+      if (keepsToolStream) expect(body.tool_stream).toBe(true);
+    },
+  );
+
+  it.each([
+    ["deepseek", "deepseek-v4-flash", "low", "low"],
+    ["deepseek", "deepseek-v4-flash", "medium", "medium"],
+    ["deepseek", "deepseek-v4-flash", "xhigh", "xhigh"],
+    ["deepseek", "deepseek-v4-flash", "minimal", undefined],
+    ["zhipu", "glm-5.3", "minimal", "minimal"],
+    ["zhipu", "glm-5.3", "none", "none"],
+    ["zhipu", "glm-5.3", "invalid", undefined],
+    ["zhipu", "glm-4.7", "max", undefined],
+    ["kimi", "k3", "low", "low"],
+    ["kimi", "k3-256k", "medium", "high"],
+    ["kimi", "kimi-k3", "xhigh", "max"],
+    ["kimi", "k3", "none", undefined],
+    ["kimi", "kimi-k2.6", "high", undefined],
+  ] as const)(
+    "%s/%s：reasoning_effort=%s 归一化为 %s",
+    (providerCode, upstreamModel, input, expected) => {
+      const body = toChatCompletionsRequest(resource({ providerCode, upstreamModel }), {
+        requestId: `reasoning-effort-${providerCode}-${input}`,
+        unifiedModel: `ql-${providerCode}`,
+        capability: "chat",
+        stream: false,
+        body: {
+          messages: [{ role: "user", content: "effort" }],
+          reasoning_effort: input,
+        },
+      });
+      expect(body.reasoning_effort).toBe(expected);
     },
   );
 
@@ -227,18 +263,35 @@ describe("Responses → Chat Completions", () => {
     expect(Object.hasOwn(withoutExtensions.messages[0]!, "reasoning_details")).toBe(false);
     expect(Object.hasOwn(withoutExtensions.messages[0]!, "reasoning")).toBe(false);
 
-    const explicitValues = toChatCompletionsRequest(resource(), {
-      requestId: "reasoning-explicit-values",
+    const invalidExtensions = toChatCompletionsRequest(resource(), {
+      requestId: "reasoning-invalid-extensions",
       unifiedModel: "ql-deepseek-v4-flash",
       capability: "chat",
       stream: false,
       body: {
+        messages: [{ role: "user", content: "invalid" }],
+        reasoning_effort: 3,
+        thinking: { type: "auto", clear_thinking: false },
+      },
+    });
+    expect(Object.hasOwn(invalidExtensions, "reasoning_effort")).toBe(false);
+    expect(Object.hasOwn(invalidExtensions, "thinking")).toBe(false);
+
+    const explicitValues = toChatCompletionsRequest(resource({
+      providerCode: "zhipu",
+      upstreamModel: "glm-5.3",
+    }), {
+      requestId: "reasoning-explicit-values",
+      unifiedModel: "ql-glm-5.3",
+      capability: "chat",
+      stream: false,
+      body: {
         messages: [{ role: "assistant", content: null, reasoning_content: null }],
-        thinking: null,
+        thinking: { type: "disabled", clear_thinking: true, foreign: "drop" },
         tool_stream: false,
       },
     });
-    expect(explicitValues.thinking).toBeNull();
+    expect(explicitValues.thinking).toEqual({ type: "disabled", clear_thinking: true });
     expect(explicitValues.tool_stream).toBe(false);
     expect(explicitValues.messages[0]?.reasoning_content).toBeNull();
 
@@ -298,6 +351,8 @@ describe("Responses → Chat Completions", () => {
     expect(body.messages[6]).toMatchObject({
       role: "assistant", reasoning_content: "reasoning-0", tool_calls: [{ id: "call_0" }],
     });
+    expect(body.thinking).toEqual({ type: "enabled" });
+    expect(Object.hasOwn(body, "tool_stream")).toBe(false);
   });
 
   it("Codex 的 namespace 与托管 web_search 不得伪装成空名称 Chat 工具", () => {
@@ -661,12 +716,72 @@ describe("OpenAI-compatible HTTP caller", () => {
     }]);
     expect(outcome.responseReasoningExtensions).toEqual({
       reasoning_content: "provider-reasoning-content",
-      reasoning_details: [{ type: "reasoning.summary", text: "summary" }],
-      reasoning: { trace: "provider-native-reasoning" },
     });
   });
 
-  it("400 诊断不记录推理正文，但保留 thinking/tool_stream 存在性", async () => {
+  it("Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream", async () => {
+    let capturedBody: Record<string, unknown> = {};
+    const tools = Array.from({ length: 36 }, (_, index) => ({
+      type: "function",
+      function: {
+        name: `tool_${index}`,
+        description: `tool ${index}`,
+        parameters: { type: "object", properties: {} },
+      },
+    }));
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async (_url, init) => {
+        capturedBody = JSON.parse(init.body) as Record<string, unknown>;
+        return jsonResponse({
+          choices: [{ message: { role: "assistant", content: "ok" } }],
+          usage: { prompt_tokens: 8, completion_tokens: 1 },
+        });
+      },
+      env: { KIMI_CODING_BASE_URL: "https://kimi.example" },
+    });
+
+    const outcome = await caller(resource({
+      providerCode: "kimi",
+      upstreamModel: "k3",
+      secret: new SecretValue("kimi-test"),
+    }), {
+      requestId: "kimi-k3-provider-policy-regression",
+      unifiedModel: "ql-k3",
+      capability: "chat",
+      stream: false,
+      body: {
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "识别图片" },
+              { type: "image_url", image_url: { url: "data:image/png;base64,aW1hZ2U=" } },
+            ],
+          },
+          { role: "assistant", content: "继续", reasoning_content: "preserved" },
+        ],
+        tools,
+        reasoning_effort: "high",
+        thinking: { type: "enabled", clear_thinking: false },
+        tool_stream: true,
+      },
+    }, 1);
+
+    expect(outcome).toMatchObject({ status: 200, committed: true });
+    expect(capturedBody.model).toBe("k3");
+    expect(capturedBody.reasoning_effort).toBe("high");
+    expect(Object.hasOwn(capturedBody, "thinking")).toBe(false);
+    expect(Object.hasOwn(capturedBody, "tool_stream")).toBe(false);
+    expect(capturedBody.tools).toHaveLength(36);
+    expect(capturedBody.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        role: "assistant",
+        reasoning_content: "preserved",
+      }),
+    ]));
+  });
+
+  it("400 诊断不记录推理正文，并只反映实际发往 DeepSeek 的顶层字段", async () => {
     const canary = "PRIVATE_REASONING_CONTENT_MUST_NOT_PERSIST";
     const caller = createOpenAiCompatibleCaller({
       fetch: async () => jsonResponse({
@@ -692,9 +807,8 @@ describe("OpenAI-compatible HTTP caller", () => {
       },
     }, 1);
 
-    expect(outcome.requestShapeSummary?.topLevelFields).toEqual(expect.arrayContaining([
-      "thinking", "tool_stream",
-    ]));
+    expect(outcome.requestShapeSummary?.topLevelFields).toContain("thinking");
+    expect(outcome.requestShapeSummary?.topLevelFields).not.toContain("tool_stream");
     expect(JSON.stringify(outcome)).not.toContain(canary);
   });
 
