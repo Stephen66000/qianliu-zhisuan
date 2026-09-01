@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { useDashboard } from "../api/hooks";
 import type { DashboardSummary } from "../api/types";
 import { EarliestExhaustionCard } from "../components/dashboard/EarliestExhaustionCard";
+import { EmployeeHourlyUsage } from "../components/dashboard/EmployeeHourlyUsage";
 import { MetricCard } from "../components/dashboard/MetricCard";
 import { OverageList } from "../components/dashboard/OverageList";
 import { ResourceBreakdown } from "../components/dashboard/ResourceBreakdown";
@@ -92,6 +93,11 @@ export function DashboardPage() {
             value={formatMoney(data.monthlyApiCost)}
           />
           <MetricCard
+            emptyText="支出数据不完整"
+            label="本月总支出（元）"
+            value={data.monthlyTotalSpend === null ? null : formatMoney(data.monthlyTotalSpend)}
+          />
+          <MetricCard
             emptyText="数据源待接入"
             label="本月充值（元）"
             value={data.monthlyRechargeAmount === null ? null : formatMoney(data.monthlyRechargeAmount)}
@@ -137,25 +143,26 @@ export function DashboardPage() {
       </Zone>
 
       <Zone
-        description="当前上海自然月；总量包含全部主体，员工排行只统计员工。总 Token = 输入 + 输出，缓存和推理为子集，不重复相加。"
-        title="员工 Token 消耗"
+        description="当前上海自然日；有消耗显示蓝柱和真实数值，零消耗只显示 0，结算事实不完整显示未采集。"
+        title="员工 Token 消耗（今日）"
       >
-        <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
+        <EmployeeHourlyUsage items={data.todayEmployeeUsage.hourly} />
+        <div className="mt-4 grid gap-4 lg:grid-cols-[16rem_1fr]">
           <div className="rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
-            <p className="text-[12px] text-ql-fg-tertiary">本月消耗 Token 总数</p>
+            <p className="text-[12px] text-ql-fg-tertiary">今日消耗 Token 总数</p>
             <p className="mt-2 font-mono text-[24px] font-semibold text-ql-fg">
-              {formatCount(data.monthlyTokenUsage.totalTokens)}
+              {formatCount(data.todayEmployeeUsage.totalTokens)}
             </p>
             <dl className="mt-3 space-y-1 text-[12px] text-ql-fg-secondary">
-              <div className="flex justify-between"><dt>输入</dt><dd>{formatCount(data.monthlyTokenUsage.totalInputTokens)}</dd></div>
-              <div className="flex justify-between"><dt>输出</dt><dd>{formatCount(data.monthlyTokenUsage.totalOutputTokens)}</dd></div>
-              <div className="flex justify-between"><dt>缓存（输入子集）</dt><dd>{formatCount(data.monthlyTokenUsage.totalCacheTokens)}</dd></div>
-              <div className="flex justify-between"><dt>推理（输出子集）</dt><dd>{formatCount(data.monthlyTokenUsage.totalReasoningTokens)}</dd></div>
+              <div className="flex justify-between"><dt>输入</dt><dd>{formatCount(data.todayEmployeeUsage.totalInputTokens)}</dd></div>
+              <div className="flex justify-between"><dt>输出</dt><dd>{formatCount(data.todayEmployeeUsage.totalOutputTokens)}</dd></div>
+              <div className="flex justify-between"><dt>缓存（输入子集）</dt><dd>{formatCount(data.todayEmployeeUsage.totalCacheTokens)}</dd></div>
+              <div className="flex justify-between"><dt>推理（输出子集）</dt><dd>{formatCount(data.todayEmployeeUsage.totalReasoningTokens)}</dd></div>
             </dl>
           </div>
-          {data.monthlyTokenUsage.employeeRanking.length === 0 ? (
+          {data.todayEmployeeUsage.employeeRanking.length === 0 ? (
             <EmptyState
-              description="本月尚无员工已结算 Token；项目和测试主体不会进入员工排行。"
+              description="今日尚无员工已结算 Token；项目和测试主体不会进入员工排行。"
               icon={Inbox}
               title="暂无员工消耗"
             />
@@ -168,7 +175,7 @@ export function DashboardPage() {
                   <th className="p-2 text-right">缓存</th><th className="p-2 text-right">总量</th>
                   <th className="p-2 text-right">占全体</th>
                 </tr></thead>
-                <tbody>{data.monthlyTokenUsage.employeeRanking.map((item, index) => (
+                <tbody>{data.todayEmployeeUsage.employeeRanking.map((item, index) => (
                   <tr className="border-b border-ql-border-zone" key={item.principalId}>
                     <td className="p-2">{index + 1}</td><td className="p-2 font-medium">{item.principalName}</td>
                     <td className="p-2 text-right font-mono">{formatCount(item.inputTokens)}</td>

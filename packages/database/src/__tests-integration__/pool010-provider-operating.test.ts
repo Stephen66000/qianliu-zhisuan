@@ -56,6 +56,7 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
         currency: "CNY",
         package_name: "团队版",
         package_cost: "299",
+        effective_from: collectedAt,
         total_quota: "100000",
         used_quota: "25000",
         remaining_quota: "75000",
@@ -155,6 +156,25 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
       name: "Kimi API 未同步",
       mode: "API",
       credential_type: "API_KEY",
+    });
+    await providerRepo.createResource({
+      enterprise_id: enterpriseId,
+      provider_id: provider.id,
+      name: "上月 Kimi 套餐",
+      mode: "CODING_PLAN",
+      credential_type: "SUBSCRIPTION_SESSION",
+      operating_snapshot: {
+        source: "ADMIN",
+        collected_at: new Date(),
+        currency: "CNY",
+        package_name: "上月团队版",
+        package_cost: "500",
+        total_quota: "200000",
+        used_quota: "10000",
+        remaining_quota: "190000",
+        quota_unit: "TOKEN",
+        effective_from: new Date(collectedAt.getTime() - 40 * 24 * 60 * 60 * 1000),
+      },
     });
     const splitDashboard = await new DashboardRepository(db).getSummary(enterpriseId);
     const split = splitDashboard.resourceBreakdown

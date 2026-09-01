@@ -30,6 +30,8 @@ import { worstResourceStatus, type ResourceStatus } from "@qianliu/domain";
 import {
   decimalTextsEqual,
   getMonthlyTokenUsage,
+  getTodayEmployeeUsage,
+  shanghaiNaturalDay,
   shanghaiNaturalMonth,
   sumDecimalTexts,
 } from "./dashboard-helpers.js";
@@ -49,6 +51,7 @@ export class DashboardRepository {
   async getSummary(enterpriseId: string, now: number = Date.now()): Promise<DashboardSummary> {
     const date = new Date(now);
     const { start: monthStart, end: monthEnd } = shanghaiNaturalMonth(date);
+    const { start: dayStart } = shanghaiNaturalDay(date);
     // 最近 5 分钟窗口
     const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
     const currentOperatingSnapshots = await new ProviderRepository(this.db)
@@ -65,6 +68,7 @@ export class DashboardRepository {
       resourceBreakdown,
       overageList,
       monthlyTokenUsage,
+      todayEmployeeUsage,
     ] = await Promise.all([
       this.countResources(enterpriseId),
       this.countActiveEmployees(enterpriseId, monthStart, monthEnd),
@@ -80,18 +84,24 @@ export class DashboardRepository {
       ),
       listDashboardOverages(this.db, enterpriseId),
       getMonthlyTokenUsage(this.db, enterpriseId, monthStart, monthEnd),
+      getTodayEmployeeUsage(this.db, enterpriseId, dayStart, date),
     ]);
+
+    const monthlyPackagePayment = await this.sumMonthlyPackagePayment(
+      enterpriseId,
+      monthStart,
+      monthEnd,
+    );
 
     return {
       resourceAccountCount,
       activeEmployeeCount,
       currentInUseCount,
-      monthlyPackagePayment: await this.sumLatestSnapshotAmount(
-        enterpriseId,
-        "CODING_PLAN",
-        "package_cost",
-      ),
+      monthlyPackagePayment,
       monthlyApiCost,
+      monthlyTotalSpend: monthlyPackagePayment === null
+        ? null
+        : sumDecimalTexts([monthlyPackagePayment, monthlyApiCost]),
       monthlyRechargeAmount: await this.sumLatestSnapshotAmount(
         enterpriseId,
         "API",
@@ -102,6 +112,7 @@ export class DashboardRepository {
       resourceBreakdown,
       overageList,
       monthlyTokenUsage,
+      todayEmployeeUsage,
     };
   }
 
@@ -500,6 +511,50 @@ export class DashboardRepository {
       row.value_count === row.resource_count &&
       row.currency_count === row.resource_count &&
       row.currencies === "1";
+    return complete ? row.total : null;
+  }
+
+  /** 套餐支出按录入的订阅时间（effective_from）归属自然月，不按有效期摊销。 */
+  private async sumMonthlyPackagePayment(
+    enterpriseId: string,
+    monthStart: Date,
+    monthEnd: Date,
+  ): Promise<string | null> {
+    const result = await sql<{
+      snapshot_count: string;
+      value_count: string;
+      total: string | null;
+      currencies: string;
+      currency_count: string;
+    }>`
+      WITH resources AS (
+        SELECT id
+          FROM provider_resource
+         WHERE enterprise_id = ${enterpriseId}
+           AND mode = 'CODING_PLAN'
+      ), latest AS (
+        SELECT DISTINCT ON (s.provider_resource_id) s.*
+          FROM provider_resource_operating_snapshot s
+          JOIN resources r ON r.id = s.provider_resource_id
+         WHERE s.enterprise_id = ${enterpriseId}
+         ORDER BY s.provider_resource_id, s.version DESC
+      ), monthly AS (
+        SELECT *
+          FROM latest
+         WHERE effective_from >= ${monthStart}
+           AND effective_from < ${monthEnd}
+      )
+      SELECT COUNT(*)::text AS snapshot_count,
+             COUNT(package_cost)::text AS value_count,
+             SUM(package_cost)::text AS total,
+             COUNT(DISTINCT currency)::text AS currencies,
+             COUNT(currency)::text AS currency_count
+        FROM monthly
+    `.execute(this.db);
+    const row = result.rows[0];
+    if (!row || row.snapshot_count === "0") return "0";
+    const complete = row.value_count === row.snapshot_count &&
+      row.currency_count === row.snapshot_count && row.currencies === "1";
     return complete ? row.total : null;
   }
 

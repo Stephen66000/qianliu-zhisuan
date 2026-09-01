@@ -137,6 +137,7 @@ async function seedFullData(): Promise<{
     collected_at: new Date(now.getTime() - 60_000),
     currency: "CNY",
     package_cost: "299",
+    effective_from: now,
     total_quota: "150000",
     used_quota: "40000",
     remaining_quota: "110000",
@@ -326,6 +327,8 @@ describe("W18 空状态（新企业无数据）", () => {
     expect(body.activeEmployeeCount).toBe(0);
     expect(body.currentInUseCount).toBe(0);
     expect(body.monthlyApiCost).toBe("0");
+    expect(body.monthlyPackagePayment).toBe("0");
+    expect(body.monthlyTotalSpend).toBe("0");
     expect(body.monthlyDispatchSaving).toBe("0");
     expect(body.earliestExhaustion).toBeNull();
     expect(body.resourceBreakdown).toEqual([]);
@@ -334,8 +337,16 @@ describe("W18 空状态（新企业无数据）", () => {
       totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
       totalReasoningTokens: "0", totalTokens: "0", employeeRanking: [],
     });
-    // 数据源 gap 字段诚实为 null（不伪造）
-    expect(body.monthlyPackagePayment).toBeNull();
+    expect(body.todayEmployeeUsage).toMatchObject({
+      totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
+      totalReasoningTokens: "0", totalTokens: "0", employeeRanking: [],
+    });
+    expect(body.todayEmployeeUsage.hourly.length).toBeGreaterThan(0);
+    expect(body.todayEmployeeUsage.hourly.every(
+      (item: { totalTokens: string; collectionStatus: string }) =>
+        item.totalTokens === "0" && item.collectionStatus === "COMPLETE",
+    )).toBe(true);
+    // 充值数据源 gap 字段诚实为 null（不伪造）
     expect(body.monthlyRechargeAmount).toBeNull();
   });
 
@@ -374,6 +385,8 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
     expect(body.activeEmployeeCount).toBe(1);
     // 5. API 费用 = "0"（套餐内 total_api_cost 全 0）
     expect(Number(body.monthlyApiCost)).toBe(0);
+    expect(Number(body.monthlyPackagePayment)).toBe(299);
+    expect(Number(body.monthlyTotalSpend)).toBe(299);
     // 7. 最早耗尽：有可计算预测
     expect(body.earliestExhaustion).not.toBeNull();
     expect(body.earliestExhaustion.resourceId).toBe(seededResourceId);
@@ -402,6 +415,18 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
         inputTokens: "210", outputTokens: "105", totalTokens: "315", share: "1.00000000000000000000",
       }],
     });
+    expect(body.todayEmployeeUsage).toMatchObject({
+      totalInputTokens: "210", totalOutputTokens: "105", totalCacheTokens: "0",
+      totalReasoningTokens: "0", totalTokens: "315",
+      employeeRanking: [{
+        principalId: seededPrincipalId, principalName: "测试员工",
+        inputTokens: "210", outputTokens: "105", totalTokens: "315",
+      }],
+    });
+    expect(body.todayEmployeeUsage.hourly.some(
+      (item: { totalTokens: string; collectionStatus: string }) =>
+        item.totalTokens === "315" && item.collectionStatus === "COMPLETE",
+    )).toBe(true);
   });
 
   it("POOL-024：大整数、项目排除与并列稳定排序", async () => {

@@ -55,6 +55,7 @@ export interface DashboardSummary {
   currentInUseCount: number;
   monthlyPackagePayment: string | null;
   monthlyApiCost: string;
+  monthlyTotalSpend: string | null;
   monthlyRechargeAmount: string | null;
   earliestExhaustion: EarliestExhaustion | null;
   monthlyDispatchSaving: string;
@@ -75,6 +76,28 @@ export interface DashboardSummary {
       reasoningTokens: string;
       totalTokens: string;
       share: string;
+    }>;
+  };
+  todayEmployeeUsage: {
+    totalInputTokens: string;
+    totalOutputTokens: string;
+    totalCacheTokens: string;
+    totalReasoningTokens: string;
+    totalTokens: string;
+    employeeRanking: Array<{
+      principalId: string;
+      principalName: string;
+      inputTokens: string;
+      outputTokens: string;
+      cacheTokens: string;
+      reasoningTokens: string;
+      totalTokens: string;
+      share: string;
+    }>;
+    hourly: Array<{
+      hour: number;
+      totalTokens: string;
+      collectionStatus: "COMPLETE" | "MISSING";
     }>;
   };
 }

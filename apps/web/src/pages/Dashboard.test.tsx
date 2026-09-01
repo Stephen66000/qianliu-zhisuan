@@ -21,8 +21,9 @@ function emptySummary(): DashboardSummary {
     resourceAccountCount: 0,
     activeEmployeeCount: 0,
     currentInUseCount: 0,
-    monthlyPackagePayment: null,
+    monthlyPackagePayment: "0",
     monthlyApiCost: "0",
+    monthlyTotalSpend: "0",
     monthlyRechargeAmount: null,
     earliestExhaustion: null,
     monthlyDispatchSaving: "0",
@@ -31,6 +32,14 @@ function emptySummary(): DashboardSummary {
     monthlyTokenUsage: {
       totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
       totalReasoningTokens: "0", totalTokens: "0", employeeRanking: [],
+    },
+    todayEmployeeUsage: {
+      totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
+      totalReasoningTokens: "0", totalTokens: "0", employeeRanking: [],
+      hourly: [
+        { hour: 0, totalTokens: "0", collectionStatus: "COMPLETE" },
+        { hour: 1, totalTokens: "0", collectionStatus: "MISSING" },
+      ],
     },
   };
 }
@@ -42,6 +51,8 @@ function seededSummary(): DashboardSummary {
     activeEmployeeCount: 5,
     currentInUseCount: 3,
     monthlyApiCost: "12.50000000",
+    monthlyPackagePayment: "299.00000000",
+    monthlyTotalSpend: "311.50000000",
     monthlyDispatchSaving: "1.50000000",
     earliestExhaustion: {
       resourceId: "r1",
@@ -105,6 +116,20 @@ function seededSummary(): DashboardSummary {
         totalTokens: "10000", share: "0.25",
       }],
     },
+    todayEmployeeUsage: {
+      totalInputTokens: "6000", totalOutputTokens: "4000", totalCacheTokens: "3000",
+      totalReasoningTokens: "400", totalTokens: "10000",
+      employeeRanking: [{
+        principalId: "p1", principalName: "张三", inputTokens: "6000",
+        outputTokens: "4000", cacheTokens: "3000", reasoningTokens: "400",
+        totalTokens: "10000", share: "1",
+      }],
+      hourly: [
+        { hour: 0, totalTokens: "0", collectionStatus: "COMPLETE" },
+        { hour: 1, totalTokens: "10000", collectionStatus: "COMPLETE" },
+        { hour: 2, totalTokens: "0", collectionStatus: "MISSING" },
+      ],
+    },
   };
 }
 
@@ -163,7 +188,7 @@ describe("W18 首页看板", () => {
     expect(screen.getAllByText("0.00").length).toBeGreaterThan(0);
   });
 
-  it("数据源 gap：套餐支付/充值为 null → 空状态文案，不伪造数字", () => {
+  it("数据源 gap：充值为 null → 空状态文案，不伪造数字", () => {
     useDashboardMock.mockReturnValue({
       isLoading: false,
       error: null,
@@ -172,7 +197,7 @@ describe("W18 首页看板", () => {
     });
     renderDashboard();
     const gaps = screen.getAllByText("数据源待接入");
-    expect(gaps).toHaveLength(2);
+    expect(gaps).toHaveLength(1);
   });
 
   it("有数据：八项指标 + 资源摘要 + 超额 + 最早耗尽核心区", () => {
@@ -200,9 +225,15 @@ describe("W18 首页看板", () => {
     // 资源摘要
     expect(screen.getByText("智谱")).toBeInTheDocument();
     expect(screen.getAllByText("100,000").length).toBeGreaterThan(0);
-    expect(screen.getByText("员工 Token 消耗")).toBeInTheDocument();
-    expect(screen.getByText("9,007,199,254,740,995,000")).toBeInTheDocument();
-    expect(screen.getByText("25.00%")).toBeInTheDocument();
+    expect(screen.getByText("本月总支出（元）")).toBeInTheDocument();
+    expect(screen.getByText("员工 Token 消耗（今日）")).toBeInTheDocument();
+    expect(screen.getAllByText("10,000").length).toBeGreaterThan(0);
+    expect(screen.getByText("100.00%")).toBeInTheDocument();
+    const zeroHour = screen.getByLabelText("00:00 消耗 0");
+    const usedHour = screen.getByLabelText("01:00 消耗 10,000");
+    expect(zeroHour.querySelector("[data-hourly-bar]")).toBeNull();
+    expect(usedHour.querySelector("[data-hourly-bar]")).not.toBeNull();
+    expect(screen.getByLabelText("02:00 未采集").querySelector("[data-hourly-bar]")).toBeNull();
     expect(screen.getByRole("link", { name: "查看完整用量账本" })).toHaveAttribute("href", "/usage");
   });
 
