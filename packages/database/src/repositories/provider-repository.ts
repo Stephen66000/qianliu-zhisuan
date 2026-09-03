@@ -5,17 +5,17 @@
  * 凭证安全：上游 Secret 用 AES-256-GCM 加密后存密文 + 指纹；
  * 明文绝不入库（TRD §5.4 L252）；列表只返回指纹。
  */
-import type { Kysely, Selectable } from "kysely";
+import type { Selectable } from "kysely";
 import { sql } from "kysely";
 import type {
   ProviderTable,
   ProviderResourceTable,
   UnifiedModelTable,
   ModelRouteTable,
-  Database,
 } from "../kysely.js";
 import type { DiscoveredProviderModel } from "@qianliu/provider-adapters";
 import { ProviderModelDiscoveryRepository } from "./provider-model-discovery-repository.js";
+import { mergeDiscoveredCapabilities, stableModelAlias } from "./provider-model-utils.js";
 import {
   EnterpriseReferenceError,
   IdempotencyConflictError,
@@ -409,34 +409,4 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       Array<ModelRoute & { resource_name: string; resource_status: string }>
     >;
   }
-}
-
-/**
- * POOL-038：alias 格式从 `qianliu-{provider}-{model}` 改为 `ql-{display_name}`。
- * 优先用 display_name（客户端可见名），回退 upstreamModel；保留 providerCode 做 fallback
- * 防止跨厂商同名 display_name 撞唯一约束（display_name 无唯一约束）。
- */
-function stableModelAlias(providerCode: string, upstreamModel: string, displayName?: string): string {
-  const base = displayName ?? upstreamModel;
-  const slug = base.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-|-$/g, "");
-  return `ql-${slug}`.slice(0, 64);
-}
-
-async function mergeDiscoveredCapabilities(
-  trx: Kysely<Database>,
-  enterpriseId: string,
-  unified: UnifiedModel,
-  discovered: string[],
-): Promise<UnifiedModel> {
-  const merged = [...new Set([...(unified.required_capabilities ?? []), ...discovered])].sort();
-  const current = [...(unified.required_capabilities ?? [])].sort();
-  if (merged.length === current.length && merged.every((value, index) => value === current[index])) {
-    return unified;
-  }
-  return trx.updateTable("unified_model").set({
-    required_capabilities: JSON.stringify(merged) as unknown as string[],
-    version: sql`version + 1`,
-    updated_at: new Date(),
-  }).where("enterprise_id", "=", enterpriseId).where("id", "=", unified.id)
-    .returningAll().executeTakeFirstOrThrow();
 }
