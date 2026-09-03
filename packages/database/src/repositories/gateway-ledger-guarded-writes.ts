@@ -16,6 +16,7 @@ import type {
 import { GatewayLedgerSettlementConflictError } from "./gateway-ledger-settlement.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
 import { ensureRequestAttributionSnapshot } from "./request-attribution-writer.js";
+import { resolveSubscriptionPeriodAtSettlement } from "./subscription-period-attribution.js";
 
 export interface AttemptResultUpdate {
   http_status?: number | null;
@@ -217,10 +218,14 @@ export async function createGuardedLedgerLine(
         "usage_event.created_at", "usage_event.ai_request_id", "usage_event.enterprise_id",
         "usage_event.upstream_attempt_id", "usage_event.provider_resource_id",
         "provider_resource.mode", "provider_resource.enterprise_id as resource_enterprise_id",
-      ])
+    ])
       .where("usage_event.id", "=", input.usage_event_id).executeTakeFirst();
     assertGuardedLedgerIdentity(usage, request.principal_id, input);
     await guardOperatingBillLedgerWrite(trx, input.enterprise_id, usage.created_at);
+    const settledAt = input.settled_at ?? usage.created_at;
+    const subscriptionPeriodId = await resolveSubscriptionPeriodAtSettlement(
+      trx, input, settledAt,
+    );
     return trx.insertInto("ledger_line").values({
       ai_request_id: input.ai_request_id,
       enterprise_id: input.enterprise_id,
@@ -235,6 +240,10 @@ export async function createGuardedLedgerLine(
       raw_reasoning_tokens: input.raw_reasoning_tokens ?? 0n,
       deducted_quota: input.deducted_quota ?? null,
       api_cost: input.api_cost ?? null,
+      api_cost_currency: input.api_cost_currency ?? null,
+      api_cost_status: input.api_cost_status ?? null,
+      subscription_period_id: subscriptionPeriodId,
+      settled_at: settledAt,
       usage_quality: input.usage_quality,
       billing_rule_id: input.billing_rule_id ?? null,
       rule_version: input.rule_version ?? null,

@@ -1,0 +1,322 @@
+import { randomUUID } from "node:crypto";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createKysely, GatewayLedgerRepository, migrateToLatest, ProviderFinanceRepository,
+  PROVIDER_FINANCE_CUTOVER } from "../index.js";
+import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+
+let pg: PostgresTestInstance;
+let enterpriseId: string;
+let adminId: string;
+let apiResourceId: string;
+let planResourceId: string;
+let principalId: string;
+let principalKeyId: string;
+
+beforeAll(async () => {
+  pg = await startPostgresContainer("provider_finance_repository");
+  const db = createKysely(pg.connectionString);
+  await migrateToLatest(db);
+  enterpriseId = randomUUID(); adminId = randomUUID();
+  apiResourceId = randomUUID(); planResourceId = randomUUID();
+  principalId = randomUUID(); principalKeyId = randomUUID();
+  const providerId = randomUUID();
+  await db.insertInto("enterprise").values({ id: enterpriseId, name: "Finance Repository" }).execute();
+  await db.insertInto("admin_user").values({
+    id: adminId, enterprise_id: enterpriseId, username: "finance-repo-admin",
+    password_hash: "not-used", status: "ACTIVE",
+  }).execute();
+  await db.insertInto("provider").values({
+    id: providerId, enterprise_id: enterpriseId, code: "deepseek",
+    name: "DeepSeek", adapter_type: "OPENAI_COMPATIBLE",
+  }).execute();
+  await db.insertInto("provider_resource").values([
+    { id: apiResourceId, enterprise_id: enterpriseId, provider_id: providerId,
+      name: "DeepSeek API", mode: "API", credential_type: "API_KEY" },
+    { id: planResourceId, enterprise_id: enterpriseId, provider_id: providerId,
+      name: "Plan", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION" },
+  ]).execute();
+  await db.insertInto("principal").values({
+    id: principalId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "Finance User",
+    department_label: null, person_id: null, owner_person_id: null,
+  }).execute();
+  await db.insertInto("principal_key").values({
+    id: principalKeyId, enterprise_id: enterpriseId, principal_id: principalId,
+    key_prefix: "ql-finance", key_digest: "finance-test-digest", allowed_model_ids: [],
+    ip_allowlist: [], expires_at: null, quota_limit: null, concurrency_limit: null,
+    last_used_at: null, revoked_at: null,
+  }).execute();
+  await db.destroy();
+}, 120_000);
+
+afterAll(async () => { await pg?.stop(); }, 60_000);
+
+describe("ProviderFinanceRepository", () => {
+  it("records one opening and recharge idempotently, then projects one balance", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const repo = new ProviderFinanceRepository(db);
+      const opening = await repo.recordOpeningBalance({
+        enterpriseId, resourceId: apiResourceId, adminId, accountAmount: "50",
+        accountCurrency: "CNY", occurredAt: PROVIDER_FINANCE_CUTOVER,
+        evidenceRef: "opening", idempotencyKey: randomUUID(),
+      });
+      const idempotencyKey = randomUUID();
+      const input = {
+        enterpriseId, resourceId: apiResourceId, adminId, accountAmount: "100",
+        accountCurrency: "CNY" as const, cashPaidCny: "100",
+        occurredAt: new Date("2026-09-02T01:00:00.000Z"),
+        externalReference: "finance-repo-pay-1", idempotencyKey,
+      };
+      const first = await repo.recordRecharge(input);
+      const replay = await repo.recordRecharge(input);
+      expect(replay).toMatchObject({ id: first.id, replayed: true });
+      expect(first.replayed).toBe(false);
+      const balance = await repo.getCurrentBalance(
+        enterpriseId, apiResourceId, "CNY", new Date("2026-09-02T02:00:00.000Z"),
+      );
+      expect(balance).toMatchObject({
+        state: "NORMAL", balance: "150.00000000",
+        components: { openingBalance: "50.00000000", recharges: "100.00000000" },
+      });
+      expect(await db.selectFrom("provider_finance_event").selectAll()
+        .where("provider_resource_id", "=", apiResourceId).execute()).toHaveLength(2);
+      await repo.recordOpeningCorrection({
+        enterpriseId, resourceId: apiResourceId, adminId, openingEventId: opening.id,
+        accountAmount: "10", accountCurrency: "CNY", occurredAt: PROVIDER_FINANCE_CUTOVER,
+        evidenceRef: "opening-correction", idempotencyKey: randomUUID(),
+      });
+      await repo.reverseFinanceEvent({
+        enterpriseId, eventId: first.id, adminId, reason: "wrong recharge",
+        evidenceRef: "reversal-proof", idempotencyKey: randomUUID(),
+      });
+      expect(await repo.getCurrentBalance(
+        enterpriseId, apiResourceId, "CNY", new Date("2026-09-02T02:00:00.000Z"),
+      )).toMatchObject({ state: "NORMAL", balance: "60.00000000" });
+      const financeCase = await repo.createReconciliationCase({
+        enterpriseId, resourceId: apiResourceId, adminId, accountCurrency: "CNY",
+        providerConfirmedBalance: "65", balanceAsOf: new Date("2026-09-02T02:00:00.000Z"),
+        evidenceRef: "provider-balance-proof",
+      });
+      const confirmKey = randomUUID();
+      await repo.confirmReconciliationCase({
+        enterpriseId, caseId: financeCase.id, adminId, note: "confirmed difference",
+        expectedVersion: 1, idempotencyKey: confirmKey,
+      });
+      await expect(repo.confirmReconciliationCase({
+        enterpriseId, caseId: financeCase.id, adminId, note: "changed retry payload",
+        expectedVersion: 1, idempotencyKey: confirmKey,
+      })).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+      expect(await repo.getCurrentBalance(
+        enterpriseId, apiResourceId, "CNY", new Date("2026-09-02T02:00:00.000Z"),
+      )).toMatchObject({ state: "NORMAL", balance: "65.00000000" });
+      const rejectedCase = await repo.createReconciliationCase({
+        enterpriseId, resourceId: apiResourceId, adminId, accountCurrency: "CNY",
+        providerConfirmedBalance: "64", balanceAsOf: new Date("2026-09-02T02:00:00.000Z"),
+        evidenceRef: "reject-proof",
+      });
+      const rejectKey = randomUUID();
+      const rejected = await repo.rejectReconciliationCase({
+        enterpriseId, caseId: rejectedCase.id, adminId, note: "provider evidence rejected",
+        expectedVersion: 1, idempotencyKey: rejectKey,
+      });
+      expect(rejected).toMatchObject({ status: "REJECTED", decision: "REJECTED" });
+      await expect(repo.rejectReconciliationCase({
+        enterpriseId, caseId: rejectedCase.id, adminId, note: "provider evidence rejected",
+        expectedVersion: 1, idempotencyKey: rejectKey,
+      })).resolves.toMatchObject({ status: "REJECTED", decision: "REJECTED" });
+    } finally { await db.destroy(); }
+  });
+
+  it("writes a Coding Plan finance event and period atomically", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const repo = new ProviderFinanceRepository(db);
+      const result = await repo.recordSubscription({
+        enterpriseId, resourceId: planResourceId, adminId, kind: "PURCHASE",
+        productName: "Kimi Coding Plan", accountAmount: "199", accountCurrency: "CNY",
+        cashPaidCny: "199", occurredAt: new Date("2026-09-02T00:00:00.000Z"),
+        periodStart: new Date("2026-09-01T16:00:00.000Z"),
+        periodEndExclusive: new Date("2026-10-01T16:00:00.000Z"),
+        externalReference: "finance-repo-plan-1", idempotencyKey: randomUUID(),
+      });
+      expect(result.event).toMatchObject({
+        eventType: "CODING_PLAN_PURCHASE", accountAmount: "199.00000000",
+      });
+      expect(await db.selectFrom("provider_subscription_period").selectAll()
+        .where("id", "=", result.periodId).executeTakeFirst()).toMatchObject({
+        finance_event_id: result.event.id, product_name: "Kimi Coding Plan",
+      });
+      expect(await repo.getMonthlyFinanceSummary(enterpriseId, "2026-09")).toMatchObject({
+        cashOutflowCny: "199.00000000", codingPlanFixedCostCny: "199.00000000",
+        operatingCostCny: "199.00000000", complete: true,
+      });
+    } finally { await db.destroy(); }
+  });
+
+  it("requires a one-time confirmation for a duplicate without external reference", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const repo = new ProviderFinanceRepository(db);
+      const base = {
+        enterpriseId, resourceId: apiResourceId, adminId, accountAmount: "2",
+        accountCurrency: "CNY" as const, cashPaidCny: "2",
+        occurredAt: new Date("2026-09-02T05:00:00.000Z"),
+      };
+      const originalKey = randomUUID();
+      const original = await repo.recordRecharge({ ...base, idempotencyKey: originalKey });
+      await expect(repo.recordRecharge({ ...base, idempotencyKey: originalKey }))
+        .resolves.toMatchObject({ id: original.id, replayed: true });
+      let detail: { candidateId: string; confirmationToken: string; requestHash: string } | undefined;
+      try {
+        await repo.recordRecharge({ ...base, idempotencyKey: randomUUID() });
+      } catch (error) {
+        detail = (error as { detail?: typeof detail }).detail;
+      }
+      expect(detail).toEqual(expect.objectContaining({
+        candidateId: expect.any(String), confirmationToken: expect.any(String),
+      }));
+      const confirmationKey = randomUUID();
+      const confirmed = await repo.confirmDuplicateCandidate({
+        enterpriseId, candidateId: detail!.candidateId, adminId,
+        confirmationToken: detail!.confirmationToken, requestHash: detail!.requestHash,
+        idempotencyKey: confirmationKey,
+      });
+      expect(confirmed).toMatchObject({ replayed: false });
+      await expect(repo.confirmDuplicateCandidate({
+        enterpriseId, candidateId: detail!.candidateId, adminId,
+        confirmationToken: detail!.confirmationToken, requestHash: detail!.requestHash,
+        idempotencyKey: confirmationKey,
+      })).resolves.toMatchObject({ replayed: true });
+      expect(await db.selectFrom("provider_finance_duplicate_candidate").select("status")
+        .where("id", "=", detail!.candidateId).executeTakeFirst()).toEqual({ status: "CONSUMED" });
+    } finally { await db.destroy(); }
+  });
+
+  it("serializes concurrent duplicate detection before committing money", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const repo = new ProviderFinanceRepository(db);
+      const base = { enterpriseId, resourceId: apiResourceId, adminId,
+        accountAmount: "3", accountCurrency: "CNY" as const, cashPaidCny: "3",
+        occurredAt: new Date("2026-09-02T06:00:00.000Z") };
+      const results = await Promise.allSettled([
+        repo.recordRecharge({ ...base, idempotencyKey: randomUUID() }),
+        repo.recordRecharge({ ...base, idempotencyKey: randomUUID() }),
+      ]);
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+      expect(results.find((result) => result.status === "rejected")).toMatchObject({
+        reason: { code: "DUPLICATE_CONFIRMATION_REQUIRED" },
+      });
+      expect(await db.selectFrom("provider_finance_event").select("id")
+        .where("provider_resource_id", "=", apiResourceId)
+        .where("event_type", "=", "API_RECHARGE").where("account_amount", "=", "3")
+        .where("occurred_at", "=", base.occurredAt).execute()).toHaveLength(1);
+    } finally { await db.destroy(); }
+  });
+
+  it("freezes the latest covering Coding Plan period at settlement", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const finance = new ProviderFinanceRepository(db);
+      const later = await finance.recordSubscription({
+        enterpriseId, resourceId: planResourceId, adminId, kind: "RENEWAL",
+        productName: "Kimi Coding Plan overlap", accountAmount: "199", accountCurrency: "CNY",
+        cashPaidCny: "199", occurredAt: new Date("2026-09-02T08:00:00.000Z"),
+        periodStart: new Date("2026-09-01T16:00:00.000Z"),
+        periodEndExclusive: new Date("2026-10-01T16:00:00.000Z"),
+        externalReference: "finance-repo-plan-overlap", idempotencyKey: randomUUID(),
+      });
+      const ledger = new GatewayLedgerRepository(db);
+      const requestId = randomUUID();
+      await ledger.createRequest({
+        id: requestId, enterprise_id: enterpriseId, principal_id: principalId,
+        principal_key_id: principalKeyId, protocol: "OPENAI_CHAT", unified_model: "kimi-k2",
+        unified_model_id: null,
+      });
+      const attempt = await ledger.createAttempt({
+        ai_request_id: requestId, enterprise_id: enterpriseId, attempt_no: 1,
+        provider_resource_id: planResourceId, upstream_model: "kimi-k2",
+      });
+      const result = await ledger.createUsageAndLedgerLineIfAbsent({
+        usage: { ai_request_id: requestId, enterprise_id: enterpriseId,
+          upstream_attempt_id: attempt.id, provider_resource_id: planResourceId,
+          input_tokens: 10n, output_tokens: 2n, cache_tokens: 8n, reasoning_tokens: 1n,
+          usage_quality: "PROVIDER_REPORTED", dedup_key: `${requestId}:attempt1` },
+        ledger_line: { ai_request_id: requestId, enterprise_id: enterpriseId,
+          upstream_attempt_id: attempt.id, provider_resource_id: planResourceId,
+          principal_id: principalId, resource_mode: "CODING_PLAN",
+          raw_input_tokens: 10n, raw_output_tokens: 2n, raw_cache_tokens: 8n,
+          raw_reasoning_tokens: 1n, deducted_quota: 24n, api_cost: null,
+          api_cost_currency: null, api_cost_status: "NOT_APPLICABLE",
+          settled_at: new Date("2026-09-03T00:00:00.000Z"),
+          usage_quality: "PROVIDER_REPORTED" },
+      });
+      expect(result.line.subscription_period_id).toBe(later.periodId);
+    } finally { await db.destroy(); }
+  });
+
+  it("fails closed when a post-cutover API cost fact is unclassified", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const provider = await db.selectFrom("provider").select("id")
+        .where("enterprise_id", "=", enterpriseId).executeTakeFirstOrThrow();
+      const incompleteResourceId = randomUUID();
+      await db.insertInto("provider_resource").values({
+        id: incompleteResourceId, enterprise_id: enterpriseId, provider_id: provider.id,
+        name: "Incomplete API", mode: "API", credential_type: "API_KEY",
+      }).execute();
+      const finance = new ProviderFinanceRepository(db);
+      await finance.recordOpeningBalance({
+        enterpriseId, resourceId: incompleteResourceId, adminId, accountAmount: "10",
+        accountCurrency: "CNY", occurredAt: PROVIDER_FINANCE_CUTOVER,
+        evidenceRef: "incomplete-opening", idempotencyKey: randomUUID(),
+      });
+      const ledger = new GatewayLedgerRepository(db);
+      const requestId = randomUUID();
+      await ledger.createRequest({ id: requestId, enterprise_id: enterpriseId,
+        principal_id: principalId, principal_key_id: principalKeyId, protocol: "OPENAI_CHAT",
+        unified_model: "deepseek-chat", unified_model_id: null });
+      const attempt = await ledger.createAttempt({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, attempt_no: 1, provider_resource_id: incompleteResourceId,
+        upstream_model: "deepseek-chat" });
+      await ledger.createUsageAndLedgerLineIfAbsent({
+        usage: { ai_request_id: requestId, enterprise_id: enterpriseId,
+          upstream_attempt_id: attempt.id, provider_resource_id: incompleteResourceId,
+          input_tokens: 1n, output_tokens: 1n, cache_tokens: 0n, reasoning_tokens: 0n,
+          usage_quality: "PROVIDER_REPORTED", dedup_key: `${requestId}:attempt1` },
+        ledger_line: { ai_request_id: requestId, enterprise_id: enterpriseId,
+          upstream_attempt_id: attempt.id, provider_resource_id: incompleteResourceId,
+          principal_id: principalId, resource_mode: "API", raw_input_tokens: 1n,
+          raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+          api_cost: "1", settled_at: new Date("2026-09-03T01:00:00.000Z"),
+          usage_quality: "PROVIDER_REPORTED" },
+      });
+      expect(await finance.getCurrentBalance(enterpriseId, incompleteResourceId, "CNY",
+        new Date("2026-09-03T02:00:00.000Z"))).toMatchObject({
+        state: "INCOMPLETE_USAGE_COST", balance: null,
+        gaps: [expect.objectContaining({ code: "API_USAGE_COST_UNKNOWN" })],
+      });
+      expect(await finance.getMonthlyFinanceSummary(enterpriseId, "2026-09")).toMatchObject({
+        complete: false,
+        gaps: expect.arrayContaining([
+          { code: "API_USAGE_COST_UNKNOWN", count: 1 },
+          { code: "API_COST_CURRENCY_MISSING", count: 1 },
+        ]),
+      });
+    } finally { await db.destroy(); }
+  });
+
+  it("returns archived and missing-opening states without fabricating zero", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const repo = new ProviderFinanceRepository(db);
+      expect(await repo.getCurrentBalance(
+        enterpriseId, apiResourceId, "USD", new Date("2026-08-31T15:59:59.000Z"),
+      )).toMatchObject({ state: "LEGACY_ARCHIVED", balance: null });
+      expect(await repo.getCurrentBalance(
+        enterpriseId, apiResourceId, "USD", new Date("2026-09-02T02:00:00.000Z"),
+      )).toMatchObject({ state: "MISSING_OPENING_BALANCE", balance: null });
+    } finally { await db.destroy(); }
+  });
+});

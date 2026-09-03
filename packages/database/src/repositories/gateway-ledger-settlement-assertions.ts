@@ -55,6 +55,10 @@ export function assertLineMatches(line: LedgerLine, input: CreateUsageLedgerLine
     || BigInt(line.raw_reasoning_tokens) !== (expected.raw_reasoning_tokens ?? 0n)
     || !optionalBigintEquals(line.deducted_quota, expected.deducted_quota)
     || !optionalDecimalEquals(line.api_cost, expected.api_cost)
+    || line.api_cost_currency !== (expected.api_cost_currency ?? null)
+    || line.api_cost_status !== (expected.api_cost_status ?? null)
+    || (expected.subscription_period_id !== undefined
+      && line.subscription_period_id !== expected.subscription_period_id)
     || line.usage_quality !== expected.usage_quality
     || line.billing_rule_id !== (expected.billing_rule_id ?? null)
     || line.rule_version !== (expected.rule_version ?? null)

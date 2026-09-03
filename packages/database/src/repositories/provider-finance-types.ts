@@ -1,0 +1,133 @@
+export const PROVIDER_FINANCE_CUTOVER = new Date("2026-08-31T16:00:00.000Z");
+
+export type FinanceCurrency = "CNY" | "USD";
+export type FinanceEventType =
+  | "API_OPENING_BALANCE" | "API_OPENING_BALANCE_CORRECTION" | "API_RECHARGE"
+  | "API_BALANCE_RECONCILIATION" | "CODING_PLAN_PURCHASE"
+  | "CODING_PLAN_RENEWAL" | "REVERSAL";
+export type FinanceBalanceState =
+  | "NORMAL" | "MISSING_OPENING_BALANCE" | "INCOMPLETE_USAGE_COST"
+  | "NEGATIVE_RECONCILIATION_REQUIRED" | "LEGACY_ARCHIVED";
+
+export interface FinanceEventView {
+  id: string;
+  providerResourceId: string;
+  eventType: FinanceEventType;
+  accountAmount: string;
+  accountCurrency: FinanceCurrency;
+  cashPaidCny: string | null;
+  occurredAt: string;
+  externalReference: string | null;
+  reversalOfEventId: string | null;
+  correctionOfEventId: string | null;
+  reconciliationCaseId: string | null;
+  description: string | null;
+  evidenceRef: string | null;
+  source: string;
+  createdAt: string;
+  replayed?: boolean;
+}
+
+export interface FinanceBalanceView {
+  providerResourceId: string;
+  currency: FinanceCurrency;
+  asOf: string;
+  state: FinanceBalanceState;
+  balance: string | null;
+  components: {
+    openingBalance: string;
+    openingCorrections: string;
+    recharges: string;
+    usageDebits: string;
+    balanceReconciliations: string;
+    reversals: string;
+  };
+  factWatermark: {
+    latestFinanceEventId: string | null;
+    latestFinanceOccurredAt: string | null;
+    latestLedgerLineId: string | null;
+    latestSettledAt: string | null;
+  };
+  reconciliationCaseId: string | null;
+  gaps: Array<{ code: string; requestId?: string; ledgerLineId?: string }>;
+}
+
+export interface FinanceEventInput {
+  enterpriseId: string;
+  resourceId: string;
+  adminId: string;
+  accountAmount: string;
+  accountCurrency: FinanceCurrency;
+  cashPaidCny?: string | null;
+  occurredAt: Date;
+  externalReference?: string | null;
+  description?: string | null;
+  evidenceRef?: string | null;
+  idempotencyKey: string;
+  duplicateCandidateId?: string | null;
+  duplicateConfirmationToken?: string | null;
+}
+
+export interface SubscriptionInput extends FinanceEventInput {
+  kind: "PURCHASE" | "RENEWAL";
+  productName: string;
+  periodStart: Date;
+  periodEndExclusive: Date;
+}
+
+export interface OpeningCorrectionInput extends FinanceEventInput {
+  openingEventId: string;
+}
+
+export interface ReverseFinanceEventInput {
+  enterpriseId: string;
+  eventId: string;
+  adminId: string;
+  reason: string;
+  evidenceRef: string;
+  idempotencyKey: string;
+}
+
+export interface ReconciliationCaseInput {
+  enterpriseId: string;
+  resourceId: string;
+  adminId: string;
+  accountCurrency: FinanceCurrency;
+  providerConfirmedBalance: string;
+  balanceAsOf: Date;
+  evidenceRef: string;
+}
+
+export interface DuplicateConfirmationInput {
+  enterpriseId: string;
+  candidateId: string;
+  adminId: string;
+  confirmationToken: string;
+  requestHash: string;
+  idempotencyKey: string;
+}
+
+export interface MonthlyFinanceSummary {
+  month: string;
+  timezone: "Asia/Shanghai";
+  cashOutflowCny: string;
+  apiRecharges: Array<{ currency: FinanceCurrency; amount: string }>;
+  apiOperatingCosts: Array<{ currency: FinanceCurrency; amount: string }>;
+  codingPlanOrders: Array<{ currency: FinanceCurrency; amount: string }>;
+  codingPlanFixedCostCny: string;
+  operatingCostCny: string;
+  operatingCostByCurrency: Array<{ currency: FinanceCurrency; amount: string }>;
+  complete: boolean;
+  gaps: Array<{ code: string; count: number }>;
+}
+
+export class ProviderFinanceError extends Error {
+  constructor(
+    readonly code: "NOT_FOUND" | "INVALID_MODE" | "INVALID_REQUEST" | "CONFLICT" | "IDEMPOTENCY_CONFLICT" | "DUPLICATE_CONFIRMATION_REQUIRED",
+    message: string,
+    readonly detail?: unknown,
+  ) {
+    super(message);
+    this.name = "ProviderFinanceError";
+  }
+}

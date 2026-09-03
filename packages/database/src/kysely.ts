@@ -21,6 +21,13 @@ import type {
   ProviderModelValidationTable,
   ProviderResourceOperatingSnapshotTable,
 } from "./kysely-operations-tables.js";
+import type {
+  ProviderFinanceDuplicateCandidateTable,
+  ProviderFinanceEventTable,
+  ProviderFinanceIdempotencyTable,
+  ProviderFinanceReconciliationCaseTable,
+  ProviderSubscriptionPeriodTable,
+} from "./kysely-finance-tables.js";
 import type { EmployeeModelRuleAssignmentTable, EmployeeModelRuleVersionTable, PrincipalModelManualAuthorizationTable } from "./employee-model-rule-types.js";
 import type {
   AvailabilityEventTable,
@@ -46,6 +53,7 @@ export type * from "./kysely-availability-tables.js";
 export type * from "./kysely-directory-tables.js";
 export type * from "./provider-quota-window-types.js";
 export type * from "./kysely-w20-tables.js";
+export type * from "./kysely-finance-tables.js";
 
 export interface KyselyMigrationTable { name: string }
 export interface KyselyMigrationLockTable { id: number }
@@ -554,6 +562,10 @@ export interface LedgerLineTable {
   raw_reasoning_tokens: Generated<bigint>;
   deducted_quota: bigint | null;
   api_cost: string | null;
+  api_cost_currency: Generated<"CNY" | "USD" | null>;
+  api_cost_status: Generated<"PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | null>;
+  subscription_period_id: Generated<string | null>;
+  settled_at: Generated<Date | null>;
   usage_quality: string;
   // ===== W13（迁移 0011）：冻结命中的计价规则版本 =====
   billing_rule_id: string | null;
@@ -675,6 +687,11 @@ export interface Database {
   provider_resource_monthly_budget: ProviderResourceMonthlyBudgetTable;
   provider_resource_operating_snapshot: ProviderResourceOperatingSnapshotTable;
   provider_resource_operating_sync_attempt: ProviderResourceOperatingSyncAttemptTable;
+  provider_finance_event: ProviderFinanceEventTable;
+  provider_subscription_period: ProviderSubscriptionPeriodTable;
+  provider_finance_reconciliation_case: ProviderFinanceReconciliationCaseTable;
+  provider_finance_idempotency: ProviderFinanceIdempotencyTable;
+  provider_finance_duplicate_candidate: ProviderFinanceDuplicateCandidateTable;
   provider_quota_window: ProviderQuotaWindowTable;
   provider_model_discovery: ProviderModelDiscoveryTable;
   provider_model_discovery_item: ProviderModelDiscoveryItemTable;

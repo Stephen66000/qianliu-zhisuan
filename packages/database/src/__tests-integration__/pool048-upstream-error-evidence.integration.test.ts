@@ -144,6 +144,8 @@ describe("POOL20-048 0055 上游错误证据", () => {
       await expect(db.updateTable("upstream_attempt").set({
         request_shape_summary: { oversized: "x".repeat(5_000) },
       }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow();
+      expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
+      expect(await migrateDown(db)).toBe("0058_principal_grant_archive");
       expect(await migrateDown(db)).toBe("0057_model_discovery_v12");
       expect(await migrateDown(db)).toBe("0056_resource_monthly_budget");
       await expect(migrateDown(db)).rejects.toThrow(/0055 contains diagnostic evidence/);

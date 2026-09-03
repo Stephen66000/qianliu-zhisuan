@@ -19,6 +19,7 @@ import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js
 import { loadRequestSettlementFacts } from "./gateway-ledger-request-facts.js";
 import { settleQuota as calculateSettledQuota } from "@qianliu/domain";
 import { ensureRequestAttributionSnapshot } from "./request-attribution-writer.js";
+import { resolveSubscriptionPeriodAtSettlement } from "./subscription-period-attribution.js";
 
 export {
   assertAttemptMatches,
@@ -191,12 +192,20 @@ export async function persistUsageLedgerLine(
 
   // 历史 usage-only 自愈必须保留 usage 的事实月份，不能按修复执行时间跨月改账。
   await guardOperatingBillLedgerWrite(trx, input.usage.enterprise_id, usage.created_at);
+  const settledAt = input.ledger_line.settled_at ?? usage.created_at;
+  const subscriptionPeriodId = await resolveSubscriptionPeriodAtSettlement(
+    trx, input.ledger_line, settledAt,
+  );
   const line = await trx.insertInto("ledger_line").values({
     ...input.ledger_line,
     usage_event_id: usage.id,
     raw_reasoning_tokens: input.ledger_line.raw_reasoning_tokens ?? 0n,
     deducted_quota: input.ledger_line.deducted_quota ?? null,
     api_cost: input.ledger_line.api_cost ?? null,
+    api_cost_currency: input.ledger_line.api_cost_currency ?? null,
+    api_cost_status: input.ledger_line.api_cost_status ?? null,
+    subscription_period_id: subscriptionPeriodId,
+    settled_at: settledAt,
     billing_rule_id: input.ledger_line.billing_rule_id ?? null,
     rule_version: input.ledger_line.rule_version ?? null,
     multiplier: input.ledger_line.multiplier ?? null,

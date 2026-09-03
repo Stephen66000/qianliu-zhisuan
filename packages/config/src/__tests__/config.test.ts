@@ -4,6 +4,7 @@ import {
   PROVIDER_SECRET_ENV,
   CONFIG_VERSION,
   readFeatureFlags,
+  readProviderFinanceMode,
   readPositiveIntEnv,
 } from "../index.js";
 
@@ -86,6 +87,14 @@ describe("@qianliu/config", () => {
       FEATURE_USAGE_OVERVIEW_V2: "true",
     }).FEATURE_USAGE_OVERVIEW_V2).toBe(true);
     expect(() => readFeatureFlags({ FEATURE_USAGE_OVERVIEW_V2: "TRUE" })).toThrow();
+  });
+
+  it("资金账本模式测试默认ACTIVE、生产默认OFF且只接受三级枚举", () => {
+    expect(readProviderFinanceMode({ NODE_ENV: "test" })).toBe("ACTIVE");
+    expect(readProviderFinanceMode({ NODE_ENV: "production" })).toBe("OFF");
+    expect(readProviderFinanceMode({ NODE_ENV: "production", PROVIDER_FINANCE_MODE: "DARK" }))
+      .toBe("DARK");
+    expect(() => readProviderFinanceMode({ PROVIDER_FINANCE_MODE: "active" })).toThrow();
   });
 });
 

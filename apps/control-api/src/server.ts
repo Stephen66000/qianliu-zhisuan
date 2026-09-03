@@ -31,6 +31,7 @@ import {
   EmployeeModelRuleRepository,
   PrincipalAccessConfigRepository,
   ProviderQuotaWindowRepository,
+  ProviderFinanceRepository,
   ResourcePoolRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
@@ -64,11 +65,14 @@ import { registerResourceInsightRoutes } from "./resource-insights/routes.js";
 import { registerEnterpriseSettingsRoutes } from "./enterprise-settings/routes.js";
 import { registerDepartmentCostRoutes } from "./department-costs/routes.js";
 import { registerDirectoryRoutes } from "./directory/routes.js";
+import { registerProviderFinanceRoutes } from "./provider-finance/routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
 import {
   readFeatureFlags,
+  readProviderFinanceMode,
   readPositiveIntEnv,
   type FeatureFlags,
+  type ProviderFinanceMode,
 } from "@qianliu/config";
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
@@ -106,8 +110,10 @@ declare module "fastify" {
     employeeModelRuleRepo: EmployeeModelRuleRepository;
     principalAccessConfigRepo: PrincipalAccessConfigRepository;
     quotaWindowRepo: ProviderQuotaWindowRepository;
+    providerFinanceRepo: ProviderFinanceRepository;
     poolRepo: ResourcePoolRepository;
     featureFlags: FeatureFlags;
+    providerFinanceMode: ProviderFinanceMode;
   }
 }
 
@@ -170,6 +176,7 @@ function alertThresholdsFromEnv(env: NodeJS.ProcessEnv): AlertThresholds {
 
 export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions = {}): FastifyInstance {
   const featureFlags = readFeatureFlags(process.env);
+  const providerFinanceMode = readProviderFinanceMode(process.env);
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info" },
     // W24：反代（Caddy/nginx）终止 TLS 时，信任 X-Forwarded-* 以正确判定协议/主机（影响 Cookie secure）。
@@ -215,8 +222,10 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("employeeModelRuleRepo", new EmployeeModelRuleRepository(db));
   app.decorate("principalAccessConfigRepo", new PrincipalAccessConfigRepository(db));
   app.decorate("quotaWindowRepo", new ProviderQuotaWindowRepository(db));
+  app.decorate("providerFinanceRepo", new ProviderFinanceRepository(db));
   app.decorate("poolRepo", new ResourcePoolRepository(db));
   app.decorate("featureFlags", featureFlags);
+  app.decorate("providerFinanceMode", providerFinanceMode);
   // KEK：从环境注入；F-02 dev fallback 仅测试态可达，生产入口 main.ts 已拦截缺失
   app.decorate(
     "credentialKek",
@@ -261,6 +270,9 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerKeyRoutes(child);
     registerGrantRoutes(child);
     registerProviderRoutes(child);
+    if (providerFinanceMode !== "OFF") {
+      registerProviderFinanceRoutes(child, { mode: providerFinanceMode });
+    }
     registerDashboardRoutes(child, {
       usageOverviewV2: featureFlags.FEATURE_USAGE_OVERVIEW_V2,
     });

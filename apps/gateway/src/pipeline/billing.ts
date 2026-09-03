@@ -14,6 +14,7 @@ import {
 
 export interface BillingOutcome {
   apiCost: string | null;
+  currency: string | null;
   deductedQuota: string | null;
   ruleId: string | null;
   ruleVersion: string | null;
@@ -86,6 +87,7 @@ export function computeBillingFromRule(
     const rawTotal = usage.input + usage.output;
     return {
       apiCost: null,
+      currency: null,
       deductedQuota: multiplier === null ? null : computeDeductedQuota(rawTotal, multiplier),
       ruleId: rule?.id ?? null,
       ruleVersion: rule?.ruleVersion ?? null,
@@ -101,6 +103,7 @@ export function computeBillingFromRule(
     : null;
   return {
     apiCost,
+    currency: rule?.currency ?? null,
     deductedQuota: null,
     ruleId: rule?.id ?? null,
     ruleVersion: rule?.ruleVersion ?? null,

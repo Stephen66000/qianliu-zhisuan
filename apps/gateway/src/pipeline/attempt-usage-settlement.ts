@@ -1,5 +1,6 @@
 import type { Outcome } from "@qianliu/contracts";
 import {
+  type CreateUsageLedgerLineInput,
   summarizeLedgerUsageQuality,
   type FinalizeRejectedAttemptSettlementInput,
   type GatewayLedgerRepository,
@@ -70,6 +71,8 @@ export async function persistAttemptUsageEvidence(
 ): Promise<bigint | null> {
   const usage = input.outcome.usage;
   const billing = await resolveBilling(input, usage);
+  const pricedApi = input.resourceMode === "API" && billing.apiCost !== null
+    && (billing.currency === "CNY" || billing.currency === "USD");
   const settlement = await input.ledgerRepo.createUsageAndLedgerLineIfAbsent({
     usage: {
       ai_request_id: input.requestId,
@@ -95,7 +98,11 @@ export async function persistAttemptUsageEvidence(
       raw_cache_tokens: BigInt(usage.cache),
       raw_reasoning_tokens: BigInt(usage.reasoning ?? 0),
       deducted_quota: billing.deductedQuota === null ? null : BigInt(billing.deductedQuota),
-      api_cost: billing.apiCost,
+      api_cost: pricedApi ? billing.apiCost : null,
+      api_cost_currency: pricedApi ? billing.currency as "CNY" | "USD" : null,
+      api_cost_status: input.resourceMode === "CODING_PLAN" ? "NOT_APPLICABLE"
+        : pricedApi ? "PRICED_USAGE" : "UNKNOWN_COST",
+      settled_at: new Date(),
       usage_quality: usage.quality,
       billing_rule_id: billing.ruleId,
       rule_version: billing.ruleVersion,
@@ -135,7 +142,7 @@ function rejectedAttemptEvidence(input: Pick<
   FinalizeRejectedAttemptInput,
   "requestId" | "enterpriseId" | "principalId" | "attemptId" | "attemptNo"
   | "resourceId" | "resourceMode"
->) {
+>): CreateUsageLedgerLineInput {
   return {
     usage: {
       ai_request_id: input.requestId,
@@ -164,6 +171,10 @@ function rejectedAttemptEvidence(input: Pick<
       // 已确认未访问上游：API 成本是精确 0，不是“未知”。否则后续成功
       // Attempt 的真实费用会被请求级未知行吞掉，错误聚合成 0。
       api_cost: input.resourceMode === "API" ? "0.00000000" : null,
+      api_cost_currency: null,
+      api_cost_status: input.resourceMode === "API"
+        ? "CONFIRMED_ZERO_NO_UPSTREAM" : "NOT_APPLICABLE",
+      settled_at: new Date(),
       usage_quality: "UNKNOWN",
       billing_rule_id: null,
       rule_version: null,
@@ -234,6 +245,7 @@ async function resolveBilling(
     || (!hasMeasuredTokens(input.outcome) && usage.quality !== "PROVIDER_REPORTED")) {
     return {
       apiCost: null,
+      currency: null,
       deductedQuota: null,
       ruleId: null,
       ruleVersion: null,

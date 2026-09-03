@@ -60,6 +60,8 @@ describe.sequential("POOL20-047 API 资源月预算迁移", () => {
         request_hash: "b".repeat(64),
         response_snapshot: {},
       }).execute()).rejects.toThrow();
+      expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
+      expect(await migrateDown(db)).toBe("0058_principal_grant_archive");
       expect(await migrateDown(db)).toBe("0057_model_discovery_v12");
       await expect(migrateDown(db)).rejects.toThrow(/0056 contains resource monthly budget facts/);
       await db.deleteFrom("provider_resource_monthly_budget").execute();

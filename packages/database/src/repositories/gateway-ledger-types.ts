@@ -77,6 +77,10 @@ export interface LedgerLineInput {
   raw_reasoning_tokens?: bigint;
   deducted_quota?: bigint | null;
   api_cost?: string | null;
+  api_cost_currency?: "CNY" | "USD" | null;
+  api_cost_status?: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | null;
+  subscription_period_id?: string | null;
+  settled_at?: Date | null;
   usage_quality: string;
   billing_rule_id?: string | null;
   rule_version?: string | null;

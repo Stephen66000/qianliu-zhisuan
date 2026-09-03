@@ -302,5 +302,34 @@ export {
   type QuotaWindowUpsertInput,
   type CurrentQuotaWindow,
 } from "./repositories/provider-quota-window-repository.js";
+export {
+  ProviderFinanceRepository,
+} from "./repositories/provider-finance-repository.js";
+export {
+  ProviderFinanceCutoverRepository,
+} from "./repositories/provider-finance-cutover-repository.js";
+export type {
+  FinanceCarryoverCandidate,
+  FinanceConservationReport,
+  FinanceOpeningCandidate,
+  FinancePreflightReport,
+  FinancePurchaseCandidate,
+  FinanceUsageBackfillReport,
+} from "./repositories/provider-finance-cutover-types.js";
+export {
+  PROVIDER_FINANCE_CUTOVER,
+  ProviderFinanceError,
+  type FinanceBalanceState,
+  type FinanceBalanceView,
+  type FinanceCurrency,
+  type FinanceEventInput,
+  type FinanceEventType,
+  type FinanceEventView,
+  type MonthlyFinanceSummary,
+  type OpeningCorrectionInput,
+  type ReconciliationCaseInput,
+  type ReverseFinanceEventInput,
+  type SubscriptionInput,
+} from "./repositories/provider-finance-types.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;

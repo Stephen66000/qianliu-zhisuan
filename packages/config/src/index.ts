@@ -29,6 +29,14 @@ export const FEATURE_FLAG_NAMES = [
 
 export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number];
 export type FeatureFlags = Record<FeatureFlagName, boolean>;
+export const ProviderFinanceModeSchema = z.enum(["OFF", "DARK", "ACTIVE"]);
+export type ProviderFinanceMode = z.infer<typeof ProviderFinanceModeSchema>;
+
+export function readProviderFinanceMode(env: NodeJS.ProcessEnv = process.env): ProviderFinanceMode {
+  return ProviderFinanceModeSchema.parse(
+    env.PROVIDER_FINANCE_MODE ?? (env.NODE_ENV === "test" ? "ACTIVE" : "OFF"),
+  );
+}
 
 const FeatureFlagsSchema = z.object({
   FEATURE_DIRECTORY_IMPORT: z.boolean(),
