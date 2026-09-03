@@ -255,7 +255,6 @@
     },
     "exceptions": [
       { "file": "apps/web/src/pages/QuotaRules.tsx", "baseline": 1394 },
-      { "file": "apps/web/src/pages/Resources.tsx", "baseline": 1080 },
       { "file": "packages/database/src/repositories/gateway-ledger-repository.ts", "baseline": 455 }
     ]
   },
