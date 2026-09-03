@@ -263,8 +263,7 @@
       { "file": "apps/control-api/src/cli/seed-e2e.ts", "baseline": 588 },
       { "file": "packages/database/src/repositories/dashboard-repository.ts", "baseline": 619 },
       { "file": "packages/database/src/repositories/alert-event-repository.ts", "baseline": 533 },
-      { "file": "packages/database/src/repositories/gateway-ledger-repository.ts", "baseline": 455 },
-      { "file": "packages/database/src/repositories/operating-bill-repository.ts", "baseline": 444 }
+      { "file": "packages/database/src/repositories/gateway-ledger-repository.ts", "baseline": 455 }
     ]
   },
   "security_exceptions": [

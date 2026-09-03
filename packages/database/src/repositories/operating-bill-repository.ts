@@ -41,6 +41,10 @@ import type {
 } from "./operating-bill-types.js";
 import { ProviderFinanceRepository } from "./provider-finance-repository.js";
 import { projectOperatingBillFinance } from "./operating-bill-finance-projection.js";
+import {
+  findOperatingBillPeriod, getOperatingBillValueItem, listAvailableOperatingBillMonths, listOperatingBillEvents,
+  listOperatingBillValueItems, listOperatingBillVersions,
+} from "./operating-bill-read.js";
 
 export type * from "./operating-bill-types.js";
 export { operatingBillMonthRange, InvalidOperatingBillMonthError } from "./operating-bill-month.js";
@@ -62,7 +66,7 @@ export class OperatingBillRepository {
 
   async getBill(enterpriseId: string, month: string): Promise<OperatingBillView> {
     const range = operatingBillMonthRange(month);
-    const period = await this.findPeriod(enterpriseId, range.monthDate);
+    const period = await findOperatingBillPeriod(this.db, enterpriseId, range.monthDate);
     let snapshot: OperatingBillSnapshot;
     if (period?.status === "CLOSED") {
       const frozen = await this.db
@@ -77,7 +81,10 @@ export class OperatingBillRepository {
       snapshot = await this.buildDraft(enterpriseId, month, period ?? null);
     }
     const [versions, events] = period
-      ? await Promise.all([this.listVersions(enterpriseId, period.id), this.listEvents(enterpriseId, period.id)])
+      ? await Promise.all([
+          listOperatingBillVersions(this.db, enterpriseId, period.id),
+          listOperatingBillEvents(this.db, enterpriseId, period.id),
+        ])
       : [[], []];
     return { ...snapshot, versions, events };
   }
@@ -87,22 +94,7 @@ export class OperatingBillRepository {
     status: "DRAFT" | "CLOSED";
     currentVersion: number;
   }>> {
-    const result = await sql<{ month: string; status: "DRAFT" | "CLOSED"; current_version: number }>`
-      SELECT to_char(period_month, 'YYYY-MM') AS month, status, current_version
-        FROM operating_bill_period
-       WHERE enterprise_id = ${enterpriseId}
-       ORDER BY period_month DESC
-    `.execute(this.db);
-    const current = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit",
-    }).format(new Date()).slice(0, 7);
-    const rows = result.rows.map((row) => ({
-      month: row.month, status: row.status, currentVersion: row.current_version,
-    }));
-    if (!rows.some((row) => row.month === current)) {
-      rows.unshift({ month: current, status: "DRAFT", currentVersion: 0 });
-    }
-    return rows;
+    return listAvailableOperatingBillMonths(enterpriseId, this.db);
   }
 
   async createValueItem(input: {
@@ -158,7 +150,7 @@ export class OperatingBillRepository {
         .where("id", "=", period.id).execute();
       return item;
     });
-    return this.getValueItemView(input.enterpriseId, created.id);
+    return getOperatingBillValueItem(this.db, input.enterpriseId, created.id);
   }
 
   async confirmValueItem(input: {
@@ -188,7 +180,7 @@ export class OperatingBillRepository {
           .where("id", "=", item.period_id).execute();
       }
     });
-    return this.getValueItemView(input.enterpriseId, input.itemId);
+    return getOperatingBillValueItem(this.db, input.enterpriseId, input.itemId);
   }
 
   async confirmResourceFacts(input: {
@@ -413,7 +405,7 @@ export class OperatingBillRepository {
     period: OperatingBillPeriod | null,
   ): Promise<OperatingBillSnapshot> {
     const { start, end } = operatingBillMonthRange(month);
-    const values = period ? await this.listValueItems(enterpriseId, period.id) : [];
+    const values = period ? await listOperatingBillValueItems(this.db, enterpriseId, period.id) : [];
     const draft = await buildOperatingBillDraft(
       this.db, enterpriseId, month, period, values, start, end,
     );
@@ -425,64 +417,5 @@ export class OperatingBillRepository {
         this.db as unknown as Transaction<Database>, enterpriseId, month, asOf,
       ) : await finance.listResourceFinanceViews(enterpriseId, month, asOf);
     return projectOperatingBillFinance(this.db, enterpriseId, month, draft, views);
-  }
-  private findPeriod(enterpriseId: string, monthDate: string): Promise<OperatingBillPeriod | undefined> {
-    return this.db.selectFrom("operating_bill_period").selectAll()
-      .where("enterprise_id", "=", enterpriseId).where("period_month", "=", monthDate)
-      .executeTakeFirst();
-  }
-
-  private async getValueItemView(enterpriseId: string, id: string): Promise<OperatingBillValueItemView> {
-    const item = await this.db.selectFrom("operating_bill_value_item as v")
-      .innerJoin("admin_user as submitter", "submitter.id", "v.submitted_by")
-      .leftJoin("admin_user as confirmer", "confirmer.id", "v.confirmed_by")
-      .leftJoin("principal as related", "related.id", "v.related_principal_id")
-      .selectAll("v")
-      .select([
-        "submitter.display_name as submitted_by_name", "confirmer.display_name as confirmed_by_name",
-        "related.name as related_principal_name",
-      ])
-      .where("v.enterprise_id", "=", enterpriseId).where("v.id", "=", id).executeTakeFirst();
-    if (!item) throw new OperatingBillReferenceError();
-    return item;
-  }
-
-  private listValueItems(enterpriseId: string, periodId: string): Promise<OperatingBillValueItemView[]> {
-    return this.db.selectFrom("operating_bill_value_item as v")
-      .innerJoin("admin_user as submitter", "submitter.id", "v.submitted_by")
-      .leftJoin("admin_user as confirmer", "confirmer.id", "v.confirmed_by")
-      .leftJoin("principal as related", "related.id", "v.related_principal_id")
-      .selectAll("v")
-      .select([
-        "submitter.display_name as submitted_by_name", "confirmer.display_name as confirmed_by_name",
-        "related.name as related_principal_name",
-      ])
-      .where("v.enterprise_id", "=", enterpriseId).where("v.period_id", "=", periodId)
-      .orderBy("v.created_at", "asc").execute();
-  }
-
-  private async listVersions(enterpriseId: string, periodId: string): Promise<OperatingBillView["versions"]> {
-    const rows = await this.db.selectFrom("operating_bill_version as v")
-      .innerJoin("admin_user as a", "a.id", "v.closed_by")
-      .select(["v.id", "v.version", "v.closed_at", "v.close_note", "v.exceptions", "a.display_name as closed_by_name"])
-      .where("v.enterprise_id", "=", enterpriseId).where("v.period_id", "=", periodId)
-      .orderBy("v.version", "desc").execute();
-    return rows.map((row) => ({
-      id: row.id, version: row.version, closedAt: row.closed_at.toISOString(),
-      closedBy: row.closed_by_name, closeNote: row.close_note,
-      exceptions: row.exceptions,
-    }));
-  }
-
-  private async listEvents(enterpriseId: string, periodId: string): Promise<OperatingBillView["events"]> {
-    const rows = await this.db.selectFrom("operating_bill_event as e")
-      .innerJoin("admin_user as a", "a.id", "e.actor_admin_id")
-      .select(["e.id", "e.action", "e.version", "e.reason", "e.created_at", "a.display_name as actor_name"])
-      .where("e.enterprise_id", "=", enterpriseId).where("e.period_id", "=", periodId)
-      .orderBy("e.created_at", "desc").execute();
-    return rows.map((row) => ({
-      id: row.id, action: row.action, version: row.version, reason: row.reason,
-      actor: row.actor_name, createdAt: row.created_at.toISOString(),
-    }));
   }
 }
