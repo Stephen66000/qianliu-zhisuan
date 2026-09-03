@@ -1,67 +1,16 @@
-import { Decimal } from "decimal.js";
 import { sql, type Kysely, type RawBuilder } from "kysely";
 import type { Database } from "../kysely.js";
-import {
-  departmentMoney as money,
-  departmentMonthDate as monthDate,
-} from "./department-cost-types.js";
+import { departmentMonthDate as monthDate } from "./department-cost-types.js";
+import type {
+  RawBounds, RawCostAggregateRow, RawCostRow, RawEnterpriseSummary,
+  RawPackageSummary, RawRequestRow,
+} from "./department-cost-read-model-query-types.js";
+import { emptyRawCost, summarizeEnterpriseCosts } from "./department-cost-read-model-summary.js";
 
-interface RawLineCostRow {
-  department_id: string | null;
-  employee_direct_cost: string | null;
-  project_cost: string | null;
-  api_cost: string | null;
-  package_allocated_cost: string | null;
-  input_tokens: string;
-  output_tokens: string;
-}
+export type {
+  RawCostRow, RawEnterpriseSummary, RawPackageSummary,
+} from "./department-cost-read-model-query-types.js";
 
-export interface RawCostRow extends RawLineCostRow {
-  request_count: string;
-  missing_snapshot_count: string;
-}
-
-export interface RawPackageSummary {
-  package_cost: string | null;
-  unallocated_package_cost: string | null;
-  unknown_resource_count: string;
-  unallocated_resource_count: string;
-}
-
-export interface RawEnterpriseSummary {
-  input_tokens: string;
-  output_tokens: string;
-  api_cost: string | null;
-  request_count: string;
-}
-
-interface RawCostAggregateRow extends RawPackageSummary {
-  department_id: string | null;
-  employee_direct_cost: string | null;
-  project_cost: string | null;
-  api_cost: string | null;
-  package_allocated_cost: string | null;
-  input_tokens: string | null;
-  output_tokens: string | null;
-  cost_row_present: boolean | null;
-  timezone: string;
-}
-
-interface RawRequestRow {
-  department_id: string | null;
-  request_count: string;
-  missing_snapshot_count: string;
-}
-
-interface RawBounds {
-  timezone: string;
-  started_at: Date;
-  ended_at: Date;
-  has_plan_resources: boolean;
-}
-
-const Money = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
-const ZERO = "0.00000000";
 const UNASSIGNED = "__unassigned__";
 
 function latestAttributionQuery(enterpriseId: string): RawBuilder<unknown> {
@@ -323,30 +272,6 @@ function knownCategoryCost(category: "EMPLOYEE_DIRECT" | "PROJECT"): RawBuilder<
   `;
 }
 
-function emptyCost(departmentId: string | null): RawCostRow {
-  return {
-    department_id: departmentId, employee_direct_cost: ZERO, project_cost: ZERO,
-    api_cost: ZERO, package_allocated_cost: ZERO, input_tokens: "0", output_tokens: "0",
-    request_count: "0", missing_snapshot_count: "0",
-  };
-}
-
-function summarizeEnterprise(rows: RawCostRow[]): RawEnterpriseSummary {
-  if (rows.length === 0) {
-    return { input_tokens: "0", output_tokens: "0", api_cost: ZERO, request_count: "0" };
-  }
-  const apiCosts = rows.map((row) => row.api_cost);
-  return {
-    input_tokens: rows.reduce((sum, row) => sum + BigInt(row.input_tokens), 0n).toString(),
-    output_tokens: rows.reduce((sum, row) => sum + BigInt(row.output_tokens), 0n).toString(),
-    api_cost: apiCosts.some((value) => value === null)
-      ? null
-      : money(apiCosts.reduce((sum, value) => new Money(sum).plus(value!), new Money(0))),
-    // 每个请求只有一个最新归属快照，因此不同部门分组的 request 集合不相交。
-    request_count: rows.reduce((sum, row) => sum + BigInt(row.request_count), 0n).toString(),
-  };
-}
-
 export async function loadRawCosts(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -457,7 +382,7 @@ export async function loadRawCosts(
   }
   for (const row of requestResult.rows) {
     const key = row.department_id ?? UNASSIGNED;
-    const cost = costsByDepartment.get(key) ?? emptyCost(row.department_id);
+    const cost = costsByDepartment.get(key) ?? emptyRawCost(row.department_id);
     cost.request_count = row.request_count;
     cost.missing_snapshot_count = row.missing_snapshot_count;
     costsByDepartment.set(key, cost);
@@ -471,7 +396,7 @@ export async function loadRawCosts(
       unknown_resource_count: summary.unknown_resource_count,
       unallocated_resource_count: summary.unallocated_resource_count,
     },
-    enterprise: summarizeEnterprise(costs),
+    enterprise: summarizeEnterpriseCosts(costs),
     timezone: summary.timezone,
   };
 }
