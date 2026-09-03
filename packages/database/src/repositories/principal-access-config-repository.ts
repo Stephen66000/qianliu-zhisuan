@@ -11,12 +11,10 @@
  * 额度模型（决策点：池挂主体×厂商）：每主体每厂商至多一个 ACTIVE 池 Grant
  * （0039 唯一索引保证）。规则不再承载额度（quota_value 可空）。
  */
-import { createHash } from "node:crypto";
 import type { Kysely, Transaction } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 import { EmployeeModelRuleRepository } from "./employee-model-rule-repository.js";
-import { mergeDeclaredModelIds } from "./employee-model-authorization-policy.js";
 import {
   lockActivePrincipalKeys,
   lockActiveProviderPools,
@@ -28,6 +26,13 @@ import {
   type PrincipalAccessModelRow,
   type PrincipalAccessPoolRow,
 } from "./principal-access-read-model.js";
+import { stableHash, stableProviderCodes } from "./principal-access-config-utils.js";
+
+export {
+  computeAllowedModelIds,
+  stableHash,
+  stableProviderCodes,
+} from "./principal-access-config-utils.js";
 
 export class PrincipalAccessConfigError extends Error {
   constructor(
@@ -42,26 +47,6 @@ export class PrincipalAccessConfigError extends Error {
 
 function jsonValue<T>(value: T): T {
   return JSON.stringify(value) as unknown as T;
-}
-
-/** 规范化请求体（键序无关）用于幂等 hash。 */
-export function stableHash(value: unknown): string {
-  const normalize = (v: unknown): unknown => {
-    if (v instanceof Date) return v.toISOString();
-    if (v === null || typeof v !== "object") return v;
-    if (Array.isArray(v)) return v.map(normalize);
-    return Object.fromEntries(
-      Object.entries(v as Record<string, unknown>)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, val]) => [k, normalize(val)]),
-    );
-  };
-  return createHash("sha256").update(JSON.stringify(normalize(value))).digest("hex");
-}
-
-export function stableProviderCodes(currentProviders: string[], requestedProviders: string[]): string[] {
-  return [...new Set([...currentProviders, ...requestedProviders])]
-    .sort((left, right) => left.localeCompare(right, "en"));
 }
 
 export interface PoolSpec {
@@ -493,19 +478,4 @@ export class PrincipalAccessConfigRepository {
     // 池被关闭的厂商：该厂商所有型号的禁用清单清空（无所谓，池 DISABLED 已整体拒）。
     // 无需额外动作——池 DISABLED 后 findAdmissibleGrant 不再命中。
   }
-}
-
-/** 白名单重算的纯函数（供测试与复用）：手工 ∪ 受管开关 ∪ 池内未禁用型号。 */
-export function computeAllowedModelIds(input: {
-  manualIds: string[];
-  managedAssignmentModelIds: string[];
-  poolModelIds: string[];      // 已开通厂商的全部就绪型号
-  disabledModelIds: string[];  // 显式禁用清单
-}): string[] {
-  const disabled = new Set(input.disabledModelIds);
-  const poolAllowed = input.poolModelIds.filter((id) => !disabled.has(id));
-  return mergeDeclaredModelIds(
-    mergeDeclaredModelIds(input.manualIds, input.managedAssignmentModelIds),
-    poolAllowed,
-  );
 }
