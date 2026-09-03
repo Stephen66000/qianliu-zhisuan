@@ -5,7 +5,7 @@ import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/test
 
 import {
   createKysely, GatewayLedgerRepository, migrateDown, migrateToLatest, ProviderFinanceCutoverRepository,
-  ProviderFinanceRepository, PROVIDER_FINANCE_CUTOVER,
+  ProviderFinanceRepository, PROVIDER_FINANCE_CUTOVER, PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
 } from "../index.js";
 
 let pg: PostgresTestInstance;
@@ -26,7 +26,7 @@ describe("provider finance cutover rehearsal", () => {
       await db.insertInto("admin_user").values({ id: adminId, enterprise_id: enterpriseId,
         username: "cutover-admin", password_hash: "unused", status: "ACTIVE" }).execute();
       await db.insertInto("provider").values({ id: providerId, enterprise_id: enterpriseId,
-        code: "cutover", name: "Cutover Provider", adapter_type: "OPENAI_COMPATIBLE" }).execute();
+        code: "deepseek", name: "Cutover Provider", adapter_type: "OPENAI_COMPATIBLE" }).execute();
       await db.insertInto("provider_resource").values([
         { id: apiResourceId, enterprise_id: enterpriseId, provider_id: providerId,
           name: "API", mode: "API", credential_type: "API_KEY" },
@@ -187,12 +187,13 @@ describe("provider finance cutover rehearsal", () => {
         (id,enterprise_id,provider_resource_id,version,source,collected_at,currency,
          current_balance,provider_balance_available,balance_source,usage_calculation)
         VALUES (${providerBalanceSnapshotId}::uuid,${enterpriseId}::uuid,${apiResourceId}::uuid,
-          2,'PROVIDER_SYNC','2026-09-02T07:00:00Z','CNY',45,true,'PROVIDER_API','SYSTEM_LEDGER')`
+          2,'PROVIDER_SYNC',${PROVIDER_FINANCE_LEGACY_COST_CUTOFF},'CNY',45,true,
+          'PROVIDER_API','SYSTEM_LEDGER')`
         .execute(db);
       const resolutionInput = {
         enterpriseId, resourceId: apiResourceId, adminId, accountCurrency: "CNY" as const,
         windowStart: PROVIDER_FINANCE_CUTOVER,
-        windowEndInclusive: new Date("2026-09-02T07:00:00Z"),
+        windowEndInclusive: PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
         providerBalanceSnapshotId, evidenceRef: "provider-balance-gap-proof",
         idempotencyKey: randomUUID(),
       };
@@ -202,6 +203,12 @@ describe("provider finance cutover rehearsal", () => {
         missingApiCost: "4.00000000", unknownLineCount: "1", replayed: false });
       await expect(cutover.resolveLegacyApiCostGap(resolutionInput))
         .resolves.toMatchObject({ id: resolved.id, replayed: true });
+      await expect(db.updateTable("provider_resource_operating_snapshot")
+        .set({ current_balance: "44" }).where("id", "=", providerBalanceSnapshotId).execute())
+        .rejects.toThrow(/sealed by a legacy cost resolution/);
+      await expect(cutover.resolveLegacyApiCostGap({ ...resolutionInput,
+        windowEndInclusive: new Date(PROVIDER_FINANCE_LEGACY_COST_CUTOFF.getTime() - 1),
+        idempotencyKey: randomUUID() })).rejects.toMatchObject({ code: "INVALID_REQUEST" });
       await expect(cutover.resolveLegacyApiCostGap({ ...resolutionInput,
         resourceId: planResourceId, idempotencyKey: randomUUID() }))
         .rejects.toMatchObject({ code: "INVALID_MODE" });
@@ -217,7 +224,7 @@ describe("provider finance cutover rehearsal", () => {
         state: "INCOMPLETE_USAGE_COST", balance: null,
       });
       expect(await finance.getCurrentBalance(enterpriseId, apiResourceId, "CNY",
-        new Date("2026-09-02T08:00:00Z"))).toMatchObject({
+        new Date(PROVIDER_FINANCE_LEGACY_COST_CUTOFF.getTime() + 1))).toMatchObject({
         state: "NORMAL", balance: "45.00000000",
         components: { legacyCostAdjustments: "-4.00000000", usageDebits: "1.00000000" },
       });
@@ -233,7 +240,7 @@ describe("provider finance cutover rehearsal", () => {
       });
       expect(afterResolution.failures)
         .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_CLASSIFICATION_MISMATCH" }));
-      await expect(migrateDown(db)).rejects.toThrow(/0060 rollback blocked/);
+      await expect(migrateDown(db)).rejects.toThrow(/0061 rollback blocked/);
     } finally {
       await db.destroy();
     }
@@ -275,6 +282,38 @@ describe("provider finance cutover rehearsal", () => {
         expect.objectContaining({ resourceId, currency: "USD",
           state: "NORMAL", balance: "5.00000000", formulaMatches: true }),
       ]);
+      const activation = await cutover.activateStrictWrites(enterpriseId, adminId, "2026-09");
+      expect(activation).toMatchObject({ replayed: false,
+        conservation: { passed: true, failures: [] } });
+      await expect(cutover.activateStrictWrites(enterpriseId, adminId, "2026-09"))
+        .resolves.toMatchObject({ replayed: true, activatedAt: activation.activatedAt });
+      const principalId = randomUUID(); const principalKeyId = randomUUID();
+      await db.insertInto("principal").values({ id: principalId, enterprise_id: enterpriseId,
+        type: "EMPLOYEE", name: "Strict Writer", department_label: null,
+        person_id: null, owner_person_id: null }).execute();
+      await db.insertInto("principal_key").values({ id: principalKeyId,
+        enterprise_id: enterpriseId, principal_id: principalId, key_prefix: "ql-strict",
+        key_digest: randomUUID(), allowed_model_ids: [], ip_allowlist: [], expires_at: null,
+        quota_limit: null, concurrency_limit: null, last_used_at: null, revoked_at: null }).execute();
+      const ledger = new GatewayLedgerRepository(db); const requestId = randomUUID();
+      await ledger.createRequest({ id: requestId, enterprise_id: enterpriseId,
+        principal_id: principalId, principal_key_id: principalKeyId, protocol: "OPENAI_CHAT",
+        unified_model: "deepseek-chat", unified_model_id: null });
+      const attempt = await ledger.createAttempt({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, attempt_no: 1, provider_resource_id: resourceId,
+        upstream_model: "deepseek-chat" });
+      const usage = await ledger.createUsageEventIfAbsent({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, upstream_attempt_id: attempt.id,
+        provider_resource_id: resourceId, input_tokens: 1n, output_tokens: 1n,
+        cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: "PROVIDER_REPORTED",
+        dedup_key: `${requestId}:attempt1` });
+      await expect(ledger.createLedgerLine({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, usage_event_id: usage!.id,
+        upstream_attempt_id: attempt.id, provider_resource_id: resourceId,
+        principal_id: principalId, resource_mode: "API", raw_input_tokens: 1n,
+        raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+        api_cost: "0.01", usage_quality: "PROVIDER_REPORTED" }))
+        .rejects.toThrow(/requires settlement and cost status/);
     } finally {
       await db.destroy();
     }

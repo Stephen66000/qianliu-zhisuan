@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { dayAfterShanghaiDate, defaultServiceEndDate, SubscriptionBody } from "./contracts.js";
+import {
+  currentShanghaiMonthRange,
+  dayAfterShanghaiDate,
+  defaultServiceEndDate,
+  SubscriptionBody,
+} from "./contracts.js";
 
 describe("Coding Plan calendar-month service period", () => {
   it.each([
@@ -25,5 +30,12 @@ describe("Coding Plan calendar-month service period", () => {
       .toBe(false);
     expect(SubscriptionBody.safeParse({ ...base, service_period_end: "2026-09-17",
       description: "厂商订单明确提前一天到期" }).success).toBe(true);
+  });
+
+  it("defaults history to the current Shanghai calendar month", () => {
+    expect(currentShanghaiMonthRange(new Date("2026-09-30T16:30:00.000Z"))).toEqual({
+      from: new Date("2026-09-30T16:00:00.000Z"),
+      to: new Date("2026-10-31T16:00:00.000Z"),
+    });
   });
 });

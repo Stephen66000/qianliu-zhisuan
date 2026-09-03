@@ -14,7 +14,8 @@
     "test:e2e": "echo 'no e2e tests in database' && exit 0",
     "db:migrate": "tsx src/cli/migrate.ts up",
     "db:rollback": "tsx src/cli/migrate.ts down",
-    "finance:preflight": "tsx src/cli/provider-finance-preflight.ts"
+    "finance:preflight": "tsx src/cli/provider-finance-preflight.ts",
+    "finance:activate": "tsx src/cli/provider-finance-activate.ts"
   },
   "dependencies": {
     "@qianliu/provider-adapters": "workspace:*",

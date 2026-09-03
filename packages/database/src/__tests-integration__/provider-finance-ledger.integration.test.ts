@@ -89,6 +89,21 @@ describe("0059 provider finance ledger contract", () => {
         VALUES (${otherEnterpriseId}::uuid, ${apiResourceId}::uuid, 'API_OPENING_BALANCE',
                 0, 'CNY', ${cutover}, 'MIGRATION', ${randomUUID()})
       `.execute(db)).rejects.toThrow();
+      await expect(sql`
+        INSERT INTO provider_finance_event
+          (enterprise_id, provider_resource_id, event_type, account_amount, account_currency,
+           cash_paid_cny, occurred_at, source, idempotency_key)
+        VALUES (${enterpriseId}::uuid, ${apiResourceId}::uuid, 'API_RECHARGE',
+          1, 'CNY', 1, '2026-09-02T05:00:00Z', 'ADMIN', ${randomUUID()})
+      `.execute(db)).rejects.toThrow();
+      const receiptKey = randomUUID();
+      await db.insertInto("provider_finance_idempotency").values({
+        enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+        idempotency_key: receiptKey, request_hash: "a".repeat(64), response_snapshot: {},
+      }).execute();
+      await expect(db.updateTable("provider_finance_idempotency")
+        .set({ request_hash: "b".repeat(64) }).where("idempotency_key", "=", receiptKey)
+        .execute()).rejects.toThrow(/append-only/);
     } finally {
       await db.destroy();
     }
@@ -130,6 +145,9 @@ describe("0059 provider finance ledger contract", () => {
       });
       expect(await db.selectFrom("provider_finance_reconciliation_case").select("status")
         .where("id", "=", caseRow.id).executeTakeFirst()).toEqual({ status: "RESOLVED" });
+      await expect(db.updateTable("provider_finance_reconciliation_case")
+        .set({ decision_note: "mutated" }).where("id", "=", caseRow.id).execute())
+        .rejects.toThrow(/terminal reconciliation case is immutable/);
       const orphanCase = await db.insertInto("provider_finance_reconciliation_case").values({
         enterprise_id: enterprise.id, provider_resource_id: resource.id, account_currency: "CNY",
         local_balance: "1", provider_confirmed_balance: "2", difference_amount: "1",
@@ -172,6 +190,7 @@ describe("0059 provider finance ledger contract", () => {
   it("blocks destructive rollback after provider finance facts exist", async () => {
     const db = createKysely(pg.connectionString);
     try {
+      expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
       expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
       await expect(migrateDown(db)).rejects.toThrow(/0059 rollback blocked/);
     } finally {

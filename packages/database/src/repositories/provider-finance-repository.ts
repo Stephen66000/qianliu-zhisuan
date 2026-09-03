@@ -84,6 +84,14 @@ async function lockResource(
 export class ProviderFinanceRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
+  async isStrictWritesEnabled(enterpriseId: string): Promise<boolean> {
+    const result = await sql<{ enabled: boolean }>`
+      SELECT COALESCE((SELECT strict_writes_enabled
+        FROM provider_finance_runtime_state WHERE enterprise_id=${enterpriseId}::uuid), false)
+        AS enabled`.execute(this.db);
+    return result.rows[0]?.enabled === true;
+  }
+
   async recordOpeningBalance(input: FinanceEventInput): Promise<FinanceEventView> {
     if (input.occurredAt.getTime() !== PROVIDER_FINANCE_CUTOVER.getTime()) {
       throw new ProviderFinanceError("INVALID_REQUEST", "期初余额时间必须等于新账本切换时点");
@@ -124,14 +132,19 @@ export class ProviderFinanceRepository {
       kind: input.kind, productName: input.productName, periodStart: input.periodStart.toISOString(),
       periodEndExclusive: input.periodEndExclusive.toISOString() });
     const result = await this.db.transaction().execute(async (trx) => {
+      const earlyReplay = await this.replay(trx, input, requestHash);
+      if (earlyReplay) {
+        const prior = earlyReplay as { event: FinanceEventView; periodId: string };
+        return { ...prior, event: { ...prior.event, replayed: true } };
+      }
       const resource = await lockResource(trx, input.enterpriseId, input.resourceId);
       if (resource.mode !== "CODING_PLAN") throw new ProviderFinanceError("INVALID_MODE", "请选择 Coding Plan 资源");
-      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const replay = await this.replay(trx, input, requestHash);
       if (replay) {
         const result = replay as { event: FinanceEventView; periodId: string };
         return { ...result, event: { ...result.event, replayed: true } };
       }
+      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const duplicate = await this.authorizeDuplicate(trx, eventType, input, requestHash);
       if (duplicate.requirement) return { duplicate: duplicate.requirement };
       const row = await trx.insertInto("provider_finance_event").values({
@@ -174,11 +187,13 @@ export class ProviderFinanceRepository {
       occurredAt: input.occurredAt.toISOString(), externalReference: input.externalReference ?? null,
       description: input.description ?? null, evidenceRef: input.evidenceRef ?? null });
     const result = await this.db.transaction().execute(async (trx) => {
+      const earlyReplay = await this.replay(trx, input, requestHash);
+      if (earlyReplay) return { ...earlyReplay as FinanceEventView, replayed: true };
       const resource = await lockResource(trx, input.enterpriseId, input.resourceId);
       if (resource.mode !== "API") throw new ProviderFinanceError("INVALID_MODE", "请选择 API 资源");
-      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const replay = await this.replay(trx, input, requestHash);
       if (replay) return { ...replay as FinanceEventView, replayed: true };
+      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const duplicate = await this.authorizeDuplicate(trx, eventType, input, requestHash);
       if (duplicate.requirement) return { duplicate: duplicate.requirement };
       const row = await trx.insertInto("provider_finance_event").values({
@@ -248,6 +263,10 @@ export class ProviderFinanceRepository {
     candidateId: string; confirmationToken: string; requestHash: string; expiresInSeconds: number;
   } }> {
     if (eventType === "API_OPENING_BALANCE" || input.externalReference) return { candidateId: null };
+    await trx.updateTable("provider_finance_duplicate_candidate").set({ status: "EXPIRED" })
+      .where("enterprise_id", "=", input.enterpriseId)
+      .where("provider_resource_id", "=", input.resourceId)
+      .where("status", "=", "PENDING").where("expires_at", "<=", new Date()).execute();
     const existing = await trx.selectFrom("provider_finance_event").select(["id", "idempotency_key"])
       .where("enterprise_id", "=", input.enterpriseId).where("provider_resource_id", "=", input.resourceId)
       .where("event_type", "=", eventType).where("account_amount", "=", money(input.accountAmount))
@@ -293,6 +312,9 @@ export class ProviderFinanceRepository {
   async confirmDuplicateCandidate(input: DuplicateConfirmationInput): Promise<FinanceEventView | {
     event: FinanceEventView; periodId: string;
   }> {
+    await this.db.updateTable("provider_finance_duplicate_candidate").set({ status: "EXPIRED" })
+      .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.candidateId)
+      .where("status", "=", "PENDING").where("expires_at", "<=", new Date()).execute();
     const candidate = await this.db.selectFrom("provider_finance_duplicate_candidate").selectAll()
       .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.candidateId)
       .where("created_by_admin_user_id", "=", input.adminId).executeTakeFirst();
@@ -361,11 +383,13 @@ export class ProviderFinanceRepository {
     }
     const requestHash = stableHash({ ...input, occurredAt: input.occurredAt.toISOString() });
     return this.db.transaction().execute(async (trx) => {
+      const earlyReplay = await this.replay(trx, input, requestHash);
+      if (earlyReplay) return { ...earlyReplay as FinanceEventView, replayed: true };
       const resource = await lockResource(trx, input.enterpriseId, input.resourceId);
       if (resource.mode !== "API") throw new ProviderFinanceError("INVALID_MODE", "请选择 API 资源");
-      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const replay = await this.replay(trx, input, requestHash);
       if (replay) return { ...replay as FinanceEventView, replayed: true };
+      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const row = await trx.insertInto("provider_finance_event").values({
         enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
         event_type: "API_OPENING_BALANCE_CORRECTION", account_amount: money(input.accountAmount),
@@ -388,8 +412,6 @@ export class ProviderFinanceRepository {
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.eventId)
         .forUpdate().executeTakeFirst();
       if (!original) throw new ProviderFinanceError("NOT_FOUND", "资金事件不存在");
-      await lockResource(trx, input.enterpriseId, original.provider_resource_id);
-      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, original.occurred_at);
       const eventInput: FinanceEventInput = {
         enterpriseId: input.enterpriseId, resourceId: original.provider_resource_id,
         adminId: input.adminId, accountAmount: money(new Money(original.account_amount).negated()),
@@ -402,6 +424,10 @@ export class ProviderFinanceRepository {
         evidenceRef: input.evidenceRef });
       const replay = await this.replay(trx, eventInput, requestHash);
       if (replay) return { ...replay as FinanceEventView, replayed: true };
+      await lockResource(trx, input.enterpriseId, original.provider_resource_id);
+      const replayAfterLock = await this.replay(trx, eventInput, requestHash);
+      if (replayAfterLock) return { ...replayAfterLock as FinanceEventView, replayed: true };
+      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, original.occurred_at);
       const row = await trx.insertInto("provider_finance_event").values({
         enterprise_id: input.enterpriseId, provider_resource_id: original.provider_resource_id,
         event_type: "REVERSAL", account_amount: eventInput.accountAmount,
@@ -426,7 +452,7 @@ export class ProviderFinanceRepository {
       throw new ProviderFinanceError("INVALID_REQUEST", "对账截止时间不能晚于当前时间");
     }
     return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
-      const balance = await this.loadCurrentBalance(
+      const balance = await this.loadCurrentBalanceSnapshot(
         trx, input.enterpriseId, input.resourceId, input.accountCurrency, input.balanceAsOf,
       );
       if (!balance) throw new ProviderFinanceError("NOT_FOUND", "API资源不存在");
@@ -526,7 +552,7 @@ export class ProviderFinanceRepository {
       if (financeCase.status !== "OPEN" || financeCase.version !== input.expectedVersion) {
         throw new ProviderFinanceError("CONFLICT", "对账案件已被处理或版本冲突");
       }
-      const current = await this.loadCurrentBalance(trx, input.enterpriseId,
+      const current = await this.loadCurrentBalanceSnapshot(trx, input.enterpriseId,
         financeCase.provider_resource_id, financeCase.account_currency, financeCase.balance_as_of);
       if (!current?.balance || current.balance !== financeCase.local_balance
         || stableHash(current.factWatermark) !== stableHash(financeCase.fact_watermark)) {
@@ -567,11 +593,12 @@ export class ProviderFinanceRepository {
         if (effectiveAsOf.getTime() > Date.now()) {
           throw new ProviderFinanceError("INVALID_REQUEST", "余额截止时间不能晚于当前时间");
         }
-        return this.loadCurrentBalance(trx, enterpriseId, resourceId, currency, effectiveAsOf);
+        return this.loadCurrentBalanceSnapshot(trx, enterpriseId, resourceId, currency, effectiveAsOf);
       });
   }
 
-  private async loadCurrentBalance(
+  /** @internal Reuses a caller-owned repeatable-read snapshot for atomic reports. */
+  async loadCurrentBalanceSnapshot(
     trx: Transaction<Database>, enterpriseId: string, resourceId: string,
     currency: FinanceCurrency, asOf: Date,
   ): Promise<FinanceBalanceView | null> {
@@ -660,37 +687,52 @@ export class ProviderFinanceRepository {
   async listFinanceEvents(
     enterpriseId: string,
     resourceId: string,
-    input: { from?: Date; to?: Date; limit: number; offset: number },
+    input: { from?: Date; to?: Date; eventType?: FinanceEventType; limit: number; offset: number },
   ): Promise<{ items: FinanceEventView[]; total: number } | null> {
-    const resource = await this.db.selectFrom("provider_resource").select("id")
-      .where("enterprise_id", "=", enterpriseId).where("id", "=", resourceId)
-      .where("status", "<>", "DELETED").executeTakeFirst();
-    if (!resource) return null;
-    let query = this.db.selectFrom("provider_finance_event").selectAll()
-      .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId);
-    let countQuery = this.db.selectFrom("provider_finance_event")
-      .select((eb) => eb.fn.countAll<number>().as("count"))
-      .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId);
-    if (input.from) query = query.where("occurred_at", ">=", input.from);
-    if (input.to) query = query.where("occurred_at", "<", input.to);
-    if (input.from) countQuery = countQuery.where("occurred_at", ">=", input.from);
-    if (input.to) countQuery = countQuery.where("occurred_at", "<", input.to);
-    const [rows, count] = await Promise.all([
-      query.orderBy("occurred_at", "desc").orderBy("created_at", "desc").orderBy("id", "desc")
-        .limit(input.limit).offset(input.offset).execute(),
-      countQuery.executeTakeFirstOrThrow(),
-    ]);
-    return { items: rows.map(eventView), total: Number(count.count) };
+    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+      await sql`SET TRANSACTION READ ONLY`.execute(trx);
+      const resource = await trx.selectFrom("provider_resource").select("id")
+        .where("enterprise_id", "=", enterpriseId).where("id", "=", resourceId)
+        .where("status", "<>", "DELETED").executeTakeFirst();
+      if (!resource) return null;
+      let query = trx.selectFrom("provider_finance_event").selectAll()
+        .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId);
+      let countQuery = trx.selectFrom("provider_finance_event")
+        .select((eb) => eb.fn.countAll<number>().as("count"))
+        .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId);
+      if (input.from) query = query.where("occurred_at", ">=", input.from);
+      if (input.to) query = query.where("occurred_at", "<", input.to);
+      if (input.eventType) query = query.where("event_type", "=", input.eventType);
+      if (input.from) countQuery = countQuery.where("occurred_at", ">=", input.from);
+      if (input.to) countQuery = countQuery.where("occurred_at", "<", input.to);
+      if (input.eventType) countQuery = countQuery.where("event_type", "=", input.eventType);
+      const [rows, count] = await Promise.all([
+        query.orderBy("occurred_at", "desc").orderBy("created_at", "desc").orderBy("id", "desc")
+          .limit(input.limit).offset(input.offset).execute(),
+        countQuery.executeTakeFirstOrThrow(),
+      ]);
+      return { items: rows.map(eventView), total: Number(count.count) };
+    });
   }
 
   async getMonthlyFinanceSummary(
     enterpriseId: string, month: string,
   ): Promise<MonthlyFinanceSummary> {
+    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+      await sql`SET TRANSACTION READ ONLY`.execute(trx);
+      return this.loadMonthlyFinanceSummary(trx, enterpriseId, month);
+    });
+  }
+
+  /** @internal Reuses a caller-owned repeatable-read snapshot for cutover conservation. */
+  async loadMonthlyFinanceSummary(
+    trx: Transaction<Database>, enterpriseId: string, month: string,
+  ): Promise<MonthlyFinanceSummary> {
     const { start, end } = operatingBillMonthRange(month);
     const [cash, eventAmounts, apiCosts, gapResult] = await Promise.all([
       sql<{ amount: string }>`SELECT COALESCE(SUM(cash_paid_cny),0)::text AS amount
         FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
-          AND occurred_at>=${start} AND occurred_at<${end}`.execute(this.db),
+          AND occurred_at>=${start} AND occurred_at<${end}`.execute(trx),
       sql<{ mode: "API" | "CODING_PLAN"; currency: FinanceCurrency; amount: string;
         cash_cny: string }>`
         SELECT pr.mode, event.account_currency AS currency,
@@ -703,7 +745,7 @@ export class ProviderFinanceRepository {
            AND event.occurred_at>=${start} AND event.occurred_at<${end}
            AND (event.event_type IN ('API_RECHARGE','CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL')
              OR event.event_type='REVERSAL')
-         GROUP BY pr.mode, event.account_currency ORDER BY pr.mode, event.account_currency`.execute(this.db),
+         GROUP BY pr.mode, event.account_currency ORDER BY pr.mode, event.account_currency`.execute(trx),
       sql<{ currency: FinanceCurrency; amount: string }>`
         SELECT currency, COALESCE(SUM(amount),0)::text AS amount FROM (
           SELECT api_cost_currency AS currency, api_cost AS amount
@@ -716,7 +758,7 @@ export class ProviderFinanceRepository {
              AND event_type='API_LEGACY_COST_ADJUSTMENT'
              AND occurred_at>=${start} AND occurred_at<${end}
         ) cost
-        GROUP BY currency ORDER BY currency`.execute(this.db),
+        GROUP BY currency ORDER BY currency`.execute(trx),
       sql<{ code: string; count: string }>`
         SELECT 'API_USAGE_COST_UNKNOWN' AS code, COUNT(*)::text AS count
           FROM ledger_line line
@@ -768,7 +810,7 @@ export class ProviderFinanceRepository {
           FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
            AND event_type IN ('API_RECHARGE','CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL')
            AND cash_paid_cny IS NULL AND occurred_at>=${start} AND occurred_at<${end}
-      `.execute(this.db),
+      `.execute(trx),
     ]);
     const apiRecharges = eventAmounts.rows.filter((row) => row.mode === "API")
       .map((row) => ({ currency: row.currency, amount: money(row.amount) }));
@@ -793,13 +835,15 @@ export class ProviderFinanceRepository {
   }
 
   async listSubscriptionPeriods(enterpriseId: string, resourceId: string) {
-    const resource = await this.db.selectFrom("provider_resource").select("id")
+    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+    await sql`SET TRANSACTION READ ONLY`.execute(trx);
+    const resource = await trx.selectFrom("provider_resource").select("id")
       .where("enterprise_id", "=", enterpriseId).where("id", "=", resourceId)
       .where("mode", "=", "CODING_PLAN").where("status", "<>", "DELETED")
       .executeTakeFirst();
     if (!resource) return null;
     const now = new Date();
-    const rows = await this.db.selectFrom("provider_subscription_period")
+    const rows = await trx.selectFrom("provider_subscription_period")
       .leftJoin("provider_finance_event", (join) => join
         .onRef("provider_finance_event.enterprise_id", "=", "provider_subscription_period.enterprise_id")
         .onRef("provider_finance_event.id", "=", "provider_subscription_period.finance_event_id"))
@@ -821,7 +865,7 @@ export class ProviderFinanceRepository {
               COALESCE(SUM(raw_input_tokens+raw_output_tokens),0)::text AS true_tokens
          FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
           AND provider_resource_id=${resourceId}::uuid AND resource_mode='CODING_PLAN'
-          AND subscription_period_id IS NOT NULL GROUP BY subscription_period_id`.execute(this.db);
+          AND subscription_period_id IS NOT NULL GROUP BY subscription_period_id`.execute(trx);
     const usageByPeriod = new Map(usageResult.rows.map((usage) => [usage.subscription_period_id, usage]));
     return rows.map((row) => ({ ...row, current_status: row.reversed_by_event_id ? "REVERSED"
       : now >= row.period_end_exclusive ? "EXPIRED"
@@ -830,5 +874,53 @@ export class ProviderFinanceRepository {
         subscription_period_id: row.id, request_count: "0", input_tokens: "0",
         output_tokens: "0", cache_tokens: "0", reasoning_tokens: "0", true_tokens: "0",
       } }));
+    });
+  }
+
+  async getSubscriptionPeriodUsage(enterpriseId: string, periodId: string) {
+    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+    await sql`SET TRANSACTION READ ONLY`.execute(trx);
+    const period = await trx.selectFrom("provider_subscription_period")
+      .select(["id", "provider_resource_id", "product_name", "period_start",
+        "period_end_exclusive", "reversed_by_event_id"])
+      .where("enterprise_id", "=", enterpriseId).where("id", "=", periodId)
+      .executeTakeFirst();
+    if (!period) return null;
+    const result = await sql<{ request_count: string; input_tokens: string; output_tokens: string;
+      cache_tokens: string; reasoning_tokens: string; true_tokens: string }>`
+      SELECT COUNT(DISTINCT ai_request_id)::text AS request_count,
+             COALESCE(SUM(raw_input_tokens),0)::text AS input_tokens,
+             COALESCE(SUM(raw_output_tokens),0)::text AS output_tokens,
+             COALESCE(SUM(raw_cache_tokens),0)::text AS cache_tokens,
+             COALESCE(SUM(raw_reasoning_tokens),0)::text AS reasoning_tokens,
+             COALESCE(SUM(raw_input_tokens+raw_output_tokens),0)::text AS true_tokens
+        FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
+         AND subscription_period_id=${periodId}::uuid`.execute(trx);
+    return { period, tokenUsage: result.rows[0]! };
+    });
+  }
+
+  async listReconciliationCases(
+    enterpriseId: string,
+    input: { status?: "OPEN" | "REJECTED" | "RESOLVED"; limit: number; offset: number },
+  ) {
+    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+      await sql`SET TRANSACTION READ ONLY`.execute(trx);
+      let query = trx.selectFrom("provider_finance_reconciliation_case").selectAll()
+        .where("enterprise_id", "=", enterpriseId);
+      let countQuery = trx.selectFrom("provider_finance_reconciliation_case")
+        .select((eb) => eb.fn.countAll<number>().as("count"))
+        .where("enterprise_id", "=", enterpriseId);
+      if (input.status) {
+        query = query.where("status", "=", input.status);
+        countQuery = countQuery.where("status", "=", input.status);
+      }
+      const [rows, count] = await Promise.all([
+        query.orderBy("created_at", "desc").orderBy("id", "desc")
+          .limit(input.limit).offset(input.offset).execute(),
+        countQuery.executeTakeFirstOrThrow(),
+      ]);
+      return { items: rows, total: Number(count.count) };
+    });
   }
 }

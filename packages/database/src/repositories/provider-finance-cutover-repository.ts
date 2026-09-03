@@ -8,7 +8,11 @@ import type {
   FinancePurchaseCandidate, FinanceUsageBackfillReport, LegacyApiCostResolutionInput,
   LegacyApiCostResolutionView,
 } from "./provider-finance-cutover-types.js";
-import { PROVIDER_FINANCE_CUTOVER, ProviderFinanceError } from "./provider-finance-types.js";
+import {
+  PROVIDER_FINANCE_CUTOVER,
+  PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
+  ProviderFinanceError,
+} from "./provider-finance-types.js";
 import { ProviderFinanceRepository } from "./provider-finance-repository.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
 
@@ -61,6 +65,13 @@ export class ProviderFinanceCutoverRepository {
   async buildPreflightReport(enterpriseId: string): Promise<FinancePreflightReport> {
     return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
       await sql`SET TRANSACTION READ ONLY`.execute(trx);
+      return this.loadPreflightReport(trx, enterpriseId);
+    });
+  }
+
+  private async loadPreflightReport(
+    trx: Transaction<Database>, enterpriseId: string,
+  ): Promise<FinancePreflightReport> {
       const [openingResult, purchaseResult, carryoverResult, usage] = await Promise.all([
         sql<{
           enterprise_id: string; provider_id: string; provider_name: string; resource_id: string;
@@ -219,7 +230,6 @@ export class ProviderFinanceCutoverRepository {
           missingSubscriptionPeriodRows: numericCount(usage.missing_plan_period),
         }, ready: blockers.length === 0, blockers,
       };
-    });
   }
 
   async backfillUsageFacts(
@@ -337,7 +347,7 @@ export class ProviderFinanceCutoverRepository {
     input: LegacyApiCostResolutionInput,
   ): Promise<LegacyApiCostResolutionView> {
     if (input.windowStart.getTime() !== PROVIDER_FINANCE_CUTOVER.getTime()
-      || input.windowEndInclusive < input.windowStart
+      || input.windowEndInclusive.getTime() !== PROVIDER_FINANCE_LEGACY_COST_CUTOFF.getTime()
       || input.windowEndInclusive.getTime() > Date.now()) {
       throw new ProviderFinanceError("INVALID_REQUEST", "历史费用封口窗口不合法");
     }
@@ -350,14 +360,30 @@ export class ProviderFinanceCutoverRepository {
       evidenceRef: input.evidenceRef,
     })).digest("hex");
     return this.db.transaction().setIsolationLevel("serializable").execute(async (trx) => {
-      const resource = await trx.selectFrom("provider_resource").select("mode")
-        .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.resourceId)
-        .where("status", "<>", "DELETED").forUpdate().executeTakeFirst();
-      if (!resource) throw new ProviderFinanceError("NOT_FOUND", "厂商资源不存在");
-      if (resource.mode !== "API") {
-        throw new ProviderFinanceError("INVALID_MODE", "历史动态费用封口只允许API资源");
+      const earlyPrior = await trx.selectFrom("provider_finance_idempotency")
+        .select(["request_hash", "response_snapshot"])
+        .where("enterprise_id", "=", input.enterpriseId)
+        .where("provider_resource_id", "=", input.resourceId)
+        .where("idempotency_key", "=", input.idempotencyKey).executeTakeFirst();
+      if (earlyPrior) {
+        if (earlyPrior.request_hash !== requestHash) {
+          throw new ProviderFinanceError("IDEMPOTENCY_CONFLICT", "幂等键已用于不同请求");
+        }
+        return { ...(earlyPrior.response_snapshot as unknown as LegacyApiCostResolutionView),
+          replayed: true };
       }
-      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.windowEndInclusive);
+      const resource = await trx.selectFrom("provider_resource")
+        .innerJoin("provider", (join) => join
+          .onRef("provider.enterprise_id", "=", "provider_resource.enterprise_id")
+          .onRef("provider.id", "=", "provider_resource.provider_id"))
+        .select(["provider_resource.mode", "provider.code as provider_code"])
+        .where("provider_resource.enterprise_id", "=", input.enterpriseId)
+        .where("provider_resource.id", "=", input.resourceId)
+        .where("provider_resource.status", "<>", "DELETED").forUpdate().executeTakeFirst();
+      if (!resource) throw new ProviderFinanceError("NOT_FOUND", "厂商资源不存在");
+      if (resource.mode !== "API" || resource.provider_code.toLowerCase() !== "deepseek") {
+        throw new ProviderFinanceError("INVALID_MODE", "历史动态费用封口只允许DeepSeek API资源");
+      }
       const prior = await trx.selectFrom("provider_finance_idempotency")
         .select(["request_hash", "response_snapshot"])
         .where("enterprise_id", "=", input.enterpriseId)
@@ -370,6 +396,7 @@ export class ProviderFinanceCutoverRepository {
         return { ...(prior.response_snapshot as unknown as LegacyApiCostResolutionView),
           replayed: true };
       }
+      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.windowEndInclusive);
       const snapshot = await trx.selectFrom("provider_resource_operating_snapshot")
         .select(["id", "current_balance", "currency", "collected_at", "source",
           "balance_source"])
@@ -476,9 +503,64 @@ export class ProviderFinanceCutoverRepository {
   async buildConservationReport(
     enterpriseId: string, month: string,
   ): Promise<FinanceConservationReport> {
+    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+      await sql`SET TRANSACTION READ ONLY`.execute(trx);
+      return this.loadConservationReport(trx, enterpriseId, month);
+    });
+  }
+
+  async activateStrictWrites(
+    enterpriseId: string, adminId: string, month: string,
+  ): Promise<{ activatedAt: string; conservation: FinanceConservationReport; replayed: boolean }> {
+    return this.db.transaction().setIsolationLevel("serializable").execute(async (trx) => {
+      await sql`SELECT pg_advisory_xact_lock(hashtextextended(
+        ${`provider-finance-activation:${enterpriseId}`}::text, 0::bigint))`.execute(trx);
+      const existing = await sql<{ strict_writes_enabled: boolean; activated_at: Date | null }>`
+        SELECT strict_writes_enabled, activated_at
+          FROM provider_finance_runtime_state
+         WHERE enterprise_id=${enterpriseId}::uuid FOR UPDATE`.execute(trx);
+      const current = existing.rows[0];
+      if (current?.strict_writes_enabled && current.activated_at) {
+        const conservation = await this.loadConservationReport(trx, enterpriseId, month);
+        return { activatedAt: current.activated_at.toISOString(), conservation, replayed: true };
+      }
+      const conservation = await this.loadConservationReport(trx, enterpriseId, month);
+      if (!conservation.passed) {
+        throw new ProviderFinanceError("CONFLICT", "守恒检查未通过，不能启用严格资金写合同",
+          conservation.failures);
+      }
+      const activatedAt = new Date();
+      await sql`
+        INSERT INTO provider_finance_runtime_state
+          (enterprise_id, strict_writes_enabled, activated_at,
+           activated_by_admin_user_id, updated_at)
+        VALUES (${enterpriseId}::uuid, true, ${activatedAt}, ${adminId}::uuid, ${activatedAt})
+        ON CONFLICT (enterprise_id) DO UPDATE SET
+          strict_writes_enabled=true,
+          activated_at=EXCLUDED.activated_at,
+          activated_by_admin_user_id=EXCLUDED.activated_by_admin_user_id,
+          updated_at=EXCLUDED.updated_at
+      `.execute(trx);
+      await trx.insertInto("operation_log").values({
+        enterprise_id: enterpriseId, admin_user_id: adminId,
+        action: "provider_finance.strict_writes.activate",
+        target_type: "provider_finance_runtime_state", target_id: enterpriseId,
+        result: "SUCCESS", failure_reason: null,
+        change_summary: JSON.stringify({ month, activated_at: activatedAt.toISOString(),
+          conservation_checked_at: conservation.checkedAt }) as unknown as Record<string, unknown>,
+      }).execute();
+      return { activatedAt: activatedAt.toISOString(), conservation, replayed: false };
+    });
+  }
+
+  private async loadConservationReport(
+    trx: Transaction<Database>, enterpriseId: string, month: string,
+  ): Promise<FinanceConservationReport> {
+    const checkedAt = new Date();
+    const finance = new ProviderFinanceRepository(this.db);
     const [preflight, monthly, countResult, balancePairs] = await Promise.all([
-      this.buildPreflightReport(enterpriseId),
-      new ProviderFinanceRepository(this.db).getMonthlyFinanceSummary(enterpriseId, month),
+      this.loadPreflightReport(trx, enterpriseId),
+      finance.loadMonthlyFinanceSummary(trx, enterpriseId, month),
       sql<{
         opening_events: string; recharge_events: string; subscription_events: string;
         api_rows: string; priced_api: string; zero_api: string; unknown_api: string;
@@ -521,18 +603,17 @@ export class ProviderFinanceCutoverRepository {
          AND resolution.id=line.legacy_cost_resolution_id
        WHERE line.enterprise_id=${enterpriseId}::uuid
          AND COALESCE(line.settled_at,line.created_at)>=${PROVIDER_FINANCE_CUTOVER}
-      `.execute(this.db),
+      `.execute(trx),
       sql<{ provider_resource_id: string; account_currency: "CNY" | "USD" }>`
         SELECT provider_resource_id, account_currency
           FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
            AND event_type='API_OPENING_BALANCE'
          ORDER BY provider_resource_id, account_currency
-      `.execute(this.db),
+      `.execute(trx),
     ]);
-    const finance = new ProviderFinanceRepository(this.db);
     const balanceViews = await Promise.all(balancePairs.rows.map(async (pair) => {
-      const view = await finance.getCurrentBalance(
-        enterpriseId, pair.provider_resource_id, pair.account_currency,
+      const view = await finance.loadCurrentBalanceSnapshot(
+        trx, enterpriseId, pair.provider_resource_id, pair.account_currency, checkedAt,
       );
       let formulaMatches: boolean | null = null;
       if (view?.balance !== null && view?.balance !== undefined) {
@@ -569,7 +650,7 @@ export class ProviderFinanceCutoverRepository {
       { code: "CODING_PLAN_ATTRIBUTION_MISMATCH",
         count: counts.codingPlanUsageRows - counts.attributedCodingPlanRows },
     ].filter((item) => item.count > 0);
-    return { enterpriseId, month, checkedAt: new Date().toISOString(), counts,
+    return { enterpriseId, month, checkedAt: checkedAt.toISOString(), counts,
       balances: balanceViews, monthlyComplete: monthly.complete,
       passed: failures.length === 0, failures };
   }

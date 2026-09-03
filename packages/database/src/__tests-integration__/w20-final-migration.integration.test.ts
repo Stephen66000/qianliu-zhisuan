@@ -173,6 +173,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0058_principal_grant_archive", "Success"],
         ["0059_provider_finance_ledger", "Success"],
         ["0060_provider_finance_legacy_cost_resolution", "Success"],
+        ["0061_provider_finance_audit_hardening", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -233,6 +234,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       expect(qualityConstraint.rows[0]?.definition).toContain("MIXED");
       await db.updateTable("usage_event").set({ usage_quality: "MIXED" })
         .where("enterprise_id", "=", enterpriseId).execute();
+      expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
       expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
       expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
       expect(await migrateDown(db)).toBe("0058_principal_grant_archive");
@@ -306,6 +308,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0058_principal_grant_archive", "Success"],
         ["0059_provider_finance_ledger", "Success"],
         ["0060_provider_finance_legacy_cost_resolution", "Success"],
+        ["0061_provider_finance_audit_hardening", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
@@ -378,6 +381,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         .execute()).rejects.toThrow(/append-only/i);
       await expect(db.deleteFrom("operating_bill_opening_balance")
         .where("provider_resource_id", "=", resourceId).execute()).rejects.toThrow(/append-only/i);
+      expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
       expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
       expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
       expect(await migrateDown(db)).toBe("0058_principal_grant_archive");

@@ -1,11 +1,12 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { ProviderFinanceError } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
-  BalanceQuery, dayAfterShanghaiDate, defaultServiceEndDate, DuplicateConfirmationBody,
+  BalanceQuery, currentShanghaiMonthRange, dayAfterShanghaiDate, defaultServiceEndDate,
+  DuplicateConfirmationBody,
   EventQuery, MonthQuery, OpeningBalanceBody,
   OpeningCorrectionBody, RechargeBody, ReconciliationCaseBody,
-  ReconciliationDecisionBody, ResourceParams, ReversalBody, shanghaiDayStart,
+  ReconciliationDecisionBody, ReconciliationQuery, ResourceParams, ReversalBody, shanghaiDayStart,
   SubscriptionBody,
 } from "./contracts.js";
 
@@ -37,9 +38,15 @@ export function registerProviderFinanceRoutes(
   app: FastifyInstance,
   options: { mode: "DARK" | "ACTIVE" },
 ): void {
-  const requireActive = async (_req: unknown, reply: FastifyReply) => {
+  const requireActive = async (req: FastifyRequest, reply: FastifyReply) => {
     if (options.mode !== "ACTIVE") {
       return reply.code(404).send({ error: "not_found", message: "资金写入口尚未启用" });
+    }
+    if (!req.admin || !await app.providerFinanceRepo.isStrictWritesEnabled(req.admin.enterpriseId)) {
+      return reply.code(503).send({
+        error: "finance_write_contract_inactive",
+        message: "严格资金写合同尚未通过守恒门启用",
+      });
     }
   };
   const writeGuards = [requireAuth, requireActive];
@@ -130,9 +137,11 @@ export function registerProviderFinanceRoutes(
   app.get("/provider-resources/:id/finance/events", { preHandler: [requireAuth] }, async (req, reply) => {
     const params = ResourceParams.safeParse(req.params); const query = EventQuery.safeParse(req.query);
     if (!params.success || !query.success) return invalid(reply, query.success ? undefined : query.error.issues[0]?.message);
+    const defaultRange = !query.data.from && !query.data.to ? currentShanghaiMonthRange() : null;
     const result = await app.providerFinanceRepo.listFinanceEvents(req.admin!.enterpriseId, params.data.id, {
-      from: query.data.from ? new Date(query.data.from) : undefined,
-      to: query.data.to ? new Date(query.data.to) : undefined,
+      from: query.data.from ? new Date(query.data.from) : defaultRange?.from,
+      to: query.data.to ? new Date(query.data.to) : defaultRange?.to,
+      eventType: query.data.type,
       limit: query.data.limit, offset: query.data.offset,
     });
     if (!result) return reply.code(404).send({ error: "not_found", message: "资源不存在" });
@@ -145,6 +154,22 @@ export function registerProviderFinanceRoutes(
     const periods = await app.providerFinanceRepo.listSubscriptionPeriods(req.admin!.enterpriseId, params.data.id);
     if (!periods) return reply.code(404).send({ error: "not_found", message: "Coding Plan资源不存在" });
     return { periods };
+  });
+
+  app.get("/provider-subscription-periods/:id/usage", { preHandler: [requireAuth] }, async (req, reply) => {
+    const params = ResourceParams.safeParse(req.params);
+    if (!params.success) return invalid(reply);
+    const usage = await app.providerFinanceRepo.getSubscriptionPeriodUsage(
+      req.admin!.enterpriseId, params.data.id,
+    );
+    if (!usage) return reply.code(404).send({ error: "not_found", message: "订阅周期不存在" });
+    return usage;
+  });
+
+  app.get("/provider-finance/reconciliation-cases", { preHandler: [requireAuth] }, async (req, reply) => {
+    const query = ReconciliationQuery.safeParse(req.query);
+    if (!query.success) return invalid(reply, query.error.issues[0]?.message);
+    return app.providerFinanceRepo.listReconciliationCases(req.admin!.enterpriseId, query.data);
   });
 
   app.post("/provider-finance-events/:id/reversal", { preHandler: writeGuards }, async (req, reply) => {

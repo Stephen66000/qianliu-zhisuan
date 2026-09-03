@@ -320,6 +320,7 @@ export type {
 } from "./repositories/provider-finance-cutover-types.js";
 export {
   PROVIDER_FINANCE_CUTOVER,
+  PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
   ProviderFinanceError,
   type FinanceBalanceState,
   type FinanceBalanceView,

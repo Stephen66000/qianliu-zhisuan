@@ -53,6 +53,16 @@ export const BalanceQuery = z.object({
 export const EventQuery = z.object({
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
+  type: z.enum([
+    "API_OPENING_BALANCE", "API_OPENING_BALANCE_CORRECTION", "API_RECHARGE",
+    "API_BALANCE_RECONCILIATION", "API_LEGACY_COST_ADJUSTMENT",
+    "CODING_PLAN_PURCHASE", "CODING_PLAN_RENEWAL", "REVERSAL",
+  ]).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export const ReconciliationQuery = z.object({
+  status: z.enum(["OPEN", "REJECTED", "RESOLVED"]).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -93,4 +103,14 @@ export function defaultServiceEndDate(value: string): string {
   const lastDayOfNextMonth = new Date(Date.UTC(year!, month! + 1, 0)).getUTCDate();
   const nextAnniversary = Date.UTC(year!, month!, Math.min(day!, lastDayOfNextMonth));
   return new Date(nextAnniversary - 24 * 3600_000).toISOString().slice(0, 10);
+}
+
+export function currentShanghaiMonthRange(now = new Date()): { from: Date; to: Date } {
+  const shanghai = new Date(now.getTime() + 8 * 3600_000);
+  const year = shanghai.getUTCFullYear();
+  const month = shanghai.getUTCMonth();
+  return {
+    from: new Date(Date.UTC(year, month, 1) - 8 * 3600_000),
+    to: new Date(Date.UTC(year, month + 1, 1) - 8 * 3600_000),
+  };
 }

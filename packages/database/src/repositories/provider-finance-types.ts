@@ -1,4 +1,9 @@
 export const PROVIDER_FINANCE_CUTOVER = new Date("2026-08-31T16:00:00.000Z");
+/**
+ * 0060 只用于封住切换日至暗部署完成之间的 DeepSeek 历史动态费用。
+ * 该时点来自生产厂商余额证据，之后的新未知费用必须保持失败关闭。
+ */
+export const PROVIDER_FINANCE_LEGACY_COST_CUTOFF = new Date("2026-09-03T06:56:18.540Z");
 
 export type FinanceCurrency = "CNY" | "USD";
 export type FinanceEventType =

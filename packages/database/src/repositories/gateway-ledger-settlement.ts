@@ -190,9 +190,9 @@ export async function persistUsageLedgerLine(
     return { usage, line: lines[0], created: false };
   }
 
-  // 历史 usage-only 自愈必须保留 usage 的事实月份，不能按修复执行时间跨月改账。
-  await guardOperatingBillLedgerWrite(trx, input.usage.enterprise_id, usage.created_at);
   const settledAt = input.ledger_line.settled_at ?? usage.created_at;
+  // 资金与周期统一按结算时点归属；重放仍使用首次冻结的 settled_at。
+  await guardOperatingBillLedgerWrite(trx, input.usage.enterprise_id, settledAt);
   const subscriptionPeriodId = await resolveSubscriptionPeriodAtSettlement(
     trx, input.ledger_line, settledAt,
   );

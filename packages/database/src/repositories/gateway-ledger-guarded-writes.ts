@@ -221,8 +221,8 @@ export async function createGuardedLedgerLine(
     ])
       .where("usage_event.id", "=", input.usage_event_id).executeTakeFirst();
     assertGuardedLedgerIdentity(usage, request.principal_id, input);
-    await guardOperatingBillLedgerWrite(trx, input.enterprise_id, usage.created_at);
     const settledAt = input.settled_at ?? usage.created_at;
+    await guardOperatingBillLedgerWrite(trx, input.enterprise_id, settledAt);
     const subscriptionPeriodId = await resolveSubscriptionPeriodAtSettlement(
       trx, input, settledAt,
     );

@@ -124,6 +124,19 @@ describe("ProviderFinanceRepository", () => {
         enterpriseId, caseId: rejectedCase.id, adminId, note: "provider evidence rejected",
         expectedVersion: 1, idempotencyKey: rejectKey,
       })).resolves.toMatchObject({ status: "REJECTED", decision: "REJECTED" });
+
+      await db.insertInto("operating_bill_period").values({
+        enterprise_id: enterpriseId, period_month: "2026-09-01", status: "CLOSED",
+        current_version: 1, created_by: adminId,
+      }).execute();
+      try {
+        await expect(repo.recordRecharge(input))
+          .resolves.toMatchObject({ id: first.id, replayed: true });
+      } finally {
+        await db.updateTable("operating_bill_period").set({ status: "DRAFT" })
+          .where("enterprise_id", "=", enterpriseId)
+          .where("period_month", "=", "2026-09-01").execute();
+      }
     } finally { await db.destroy(); }
   });
 
@@ -146,6 +159,10 @@ describe("ProviderFinanceRepository", () => {
         .where("id", "=", result.periodId).executeTakeFirst()).toMatchObject({
         finance_event_id: result.event.id, product_name: "Kimi Coding Plan",
       });
+      await expect(db.updateTable("provider_subscription_period")
+        .set({ period_start: new Date("2026-09-02T16:00:00.000Z") })
+        .where("id", "=", result.periodId).execute())
+        .rejects.toThrow(/subscription period/);
       expect(await repo.getMonthlyFinanceSummary(enterpriseId, "2026-09")).toMatchObject({
         cashOutflowCny: "199.00000000", codingPlanFixedCostCny: "199.00000000",
         operatingCostCny: "199.00000000", complete: true,
@@ -189,6 +206,23 @@ describe("ProviderFinanceRepository", () => {
       })).resolves.toMatchObject({ replayed: true });
       expect(await db.selectFrom("provider_finance_duplicate_candidate").select("status")
         .where("id", "=", detail!.candidateId).executeTakeFirst()).toEqual({ status: "CONSUMED" });
+      let expiredDetail: typeof detail;
+      try {
+        await repo.recordRecharge({ ...base, idempotencyKey: randomUUID() });
+      } catch (error) {
+        expiredDetail = (error as { detail?: typeof detail }).detail;
+      }
+      await db.updateTable("provider_finance_duplicate_candidate")
+        .set({ expires_at: new Date("2026-09-01T00:00:00.000Z") })
+        .where("id", "=", expiredDetail!.candidateId).execute();
+      await expect(repo.confirmDuplicateCandidate({
+        enterpriseId, candidateId: expiredDetail!.candidateId, adminId,
+        confirmationToken: expiredDetail!.confirmationToken,
+        requestHash: expiredDetail!.requestHash, idempotencyKey: randomUUID(),
+      })).rejects.toMatchObject({ code: "CONFLICT" });
+      expect(await db.selectFrom("provider_finance_duplicate_candidate").select("status")
+        .where("id", "=", expiredDetail!.candidateId).executeTakeFirst())
+        .toEqual({ status: "EXPIRED" });
     } finally { await db.destroy(); }
   });
 
@@ -253,6 +287,10 @@ describe("ProviderFinanceRepository", () => {
           usage_quality: "PROVIDER_REPORTED" },
       });
       expect(result.line.subscription_period_id).toBe(later.periodId);
+      await expect(db.updateTable("ledger_line")
+        .set({ settled_at: new Date("2026-11-03T00:00:00.000Z") })
+        .where("id", "=", result.line.id).execute())
+        .rejects.toThrow(/does not cover settlement time/);
     } finally { await db.destroy(); }
   });
 

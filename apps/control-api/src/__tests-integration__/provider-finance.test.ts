@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { sql } from "kysely";
 import { createKysely, migrateToLatest } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
@@ -42,6 +43,24 @@ beforeAll(async () => {
 afterAll(async () => { await app?.close(); await db?.destroy(); await pg?.stop(); }, 60_000);
 
 describe("provider finance routes", () => {
+  it("does not expose ACTIVE writes before the database contract is activated", async () => {
+    try {
+      const response = await app.inject({ method: "POST",
+        url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
+        payload: { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
+          occurred_at: "2026-09-02T01:00:00.000Z", idempotency_key: randomUUID() } });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toMatchObject({ error: "finance_write_contract_inactive" });
+    } finally {
+      await sql`
+        INSERT INTO provider_finance_runtime_state
+          (enterprise_id, strict_writes_enabled, activated_at,
+           activated_by_admin_user_id, updated_at)
+        VALUES (${enterpriseId}::uuid, true, now(), ${adminId}::uuid, now())
+      `.execute(db);
+    }
+  });
+
   it("records opening and recharge then returns the same projected balance", async () => {
     const opening = await app.inject({ method: "POST",
       url: `/provider-resources/${apiResourceId}/finance/opening-balances`, headers: { cookie },
@@ -98,6 +117,17 @@ describe("provider finance routes", () => {
       url: `/provider-resources/${apiResourceId}/finance/balance?currency=CNY&as_of=2026-09-02T02:00:00.000Z`,
       headers: { cookie } });
     expect(after.json()).toMatchObject({ state: "NORMAL", balance: "65.00000000" });
+    const history = await app.inject({ method: "GET",
+      url: `/provider-resources/${apiResourceId}/finance/events?type=API_RECHARGE`,
+      headers: { cookie } });
+    expect(history.statusCode).toBe(200);
+    expect(history.json()).toMatchObject({ total: 1,
+      items: [expect.objectContaining({ id: rechargeId, eventType: "API_RECHARGE" })] });
+    const cases = await app.inject({ method: "GET",
+      url: "/provider-finance/reconciliation-cases?status=RESOLVED", headers: { cookie } });
+    expect(cases.statusCode).toBe(200);
+    expect(cases.json()).toMatchObject({ total: 1,
+      items: [expect.objectContaining({ id: caseId, status: "RESOLVED" })] });
   });
 
   it("records a Coding Plan and exposes its service period", async () => {
@@ -108,6 +138,7 @@ describe("provider finance routes", () => {
         occurred_at: "2026-09-02T00:00:00.000Z", service_period_start: "2026-09-02",
         external_reference: "plan-pay-1", idempotency_key: randomUUID() } });
     expect(response.statusCode).toBe(201);
+    const periodId = response.json().periodId as string;
     const periods = await app.inject({ method: "GET",
       url: `/provider-resources/${planResourceId}/subscription-periods`, headers: { cookie } });
     expect(periods.statusCode).toBe(200);
@@ -121,6 +152,11 @@ describe("provider finance routes", () => {
       token_usage: expect.objectContaining({ input_tokens: "0", output_tokens: "0",
         cache_tokens: "0", reasoning_tokens: "0", true_tokens: "0" }),
     })]);
+    const usage = await app.inject({ method: "GET",
+      url: `/provider-subscription-periods/${periodId}/usage`, headers: { cookie } });
+    expect(usage.statusCode).toBe(200);
+    expect(usage.json()).toMatchObject({ period: { id: periodId },
+      tokenUsage: { request_count: "0", true_tokens: "0" } });
     const summary = await app.inject({ method: "GET",
       url: "/provider-finance/summary?month=2026-09", headers: { cookie } });
     expect(summary.statusCode).toBe(200);

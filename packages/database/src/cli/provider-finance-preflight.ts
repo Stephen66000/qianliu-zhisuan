@@ -1,6 +1,10 @@
 import { createKysely } from "../kysely.js";
 import { ProviderFinanceCutoverRepository } from "../repositories/provider-finance-cutover-repository.js";
 import { PROVIDER_FINANCE_CUTOVER } from "../repositories/provider-finance-types.js";
+import {
+  providerFinancePreflightExitCode,
+  providerFinancePreflightMode,
+} from "./provider-finance-preflight-policy.js";
 
 function argument(name: string): string | undefined {
   const prefix = `--${name}=`;
@@ -56,8 +60,9 @@ try {
   const after = apply || resolveLegacyCost
     ? await repository.buildPreflightReport(enterpriseId) : before;
   const conservation = await repository.buildConservationReport(enterpriseId, month);
+  const decision = after.ready && conservation.passed ? "GO_CANDIDATE" : "NO_GO";
   const result = {
-    mode: apply ? "APPLY_USAGE_BACKFILL" : "DRY_RUN",
+    mode: providerFinancePreflightMode(apply, resolveLegacyCost),
     enterpriseId,
     generatedAt: new Date().toISOString(),
     before,
@@ -65,10 +70,10 @@ try {
     legacyCostResolution,
     after,
     conservation,
-    decision: after.ready && conservation.passed ? "GO_CANDIDATE" : "NO_GO",
+    decision,
   };
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-  if (!after.ready) process.exitCode = 2;
+  process.exitCode = providerFinancePreflightExitCode(decision);
 } finally {
   await db.destroy();
 }
