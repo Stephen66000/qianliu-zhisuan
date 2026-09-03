@@ -15,62 +15,15 @@ import type { Database } from "../kysely.js";
 import { deriveDepartmentBudgetAlerts } from "./alert-event-department-budget.js";
 import { decimalTextsEqual } from "./dashboard-helpers.js";
 import { ProviderRepository } from "./provider-repository.js";
+import {
+  deriveDispatchAlerts, deriveRoutingAlerts, deriveStreamingAlerts, toAlertEvent,
+} from "./alert-event-request-derivations.js";
+import {
+  DEFAULT_THRESHOLDS, type AlertEvent, type AlertThresholds, type DerivedAlert,
+} from "./alert-event-types.js";
 
-/** 四告警域（PRD §11）。 */
-export type AlertDomain =
-  | "RESOURCE_UNAVAILABLE"
-  | "USAGE_SPIKE"
-  | "QUOTA_ANOMALY"
-  | "CREDENTIAL_INVALID";
-
-export interface AlertEvent {
-  id: string;
-  alertKey: string;
-  domain: AlertDomain;
-  signal: string;
-  severity: "HIGH" | "MEDIUM" | "LOW";
-  title: string;
-  detail: string | null;
-  resourceId: string | null;
-  principalId: string | null;
-  aiRequestId: string | null;
-  status: "OPEN" | "INVESTIGATING" | "RESOLVED" | "IGNORED" | "AUTO_RESOLVED";
-  firstSeenAt: string;
-  lastSeenAt: string;
-  resolvedAt: string | null;
-  resolutionNote: string | null;
-}
-
-/** 派生候选（评估一次得到的"当前应为 OPEN 的告警"）。 */
-interface DerivedAlert {
-  alertKey: string;
-  domain: AlertDomain;
-  signal: string;
-  severity: "HIGH" | "MEDIUM" | "LOW";
-  title: string;
-  detail: string;
-  resourceId: string | null;
-  principalId: string | null;
-  aiRequestId: string | null;
-}
-
-export interface AlertThresholds {
-  /** 提前耗尽覆盖时长阈值（小时）。 */
-  exhaustCoverageHours: number;
-  /** 用量突增费用阈值（元）。 */
-  usageSpikeCost: number;
-  /** 主体额度使用率阈值（0~1）。 */
-  principalQuotaRatio: number;
-  /** 资源连续失败阈值。 */
-  resourceFailureCount: number;
-}
-
-export const DEFAULT_THRESHOLDS: AlertThresholds = {
-  exhaustCoverageHours: 24,
-  usageSpikeCost: 100,
-  principalQuotaRatio: 0.9,
-  resourceFailureCount: 3,
-};
+export type { AlertDomain, AlertEvent, AlertThresholds, DerivedAlert } from "./alert-event-types.js";
+export { DEFAULT_THRESHOLDS } from "./alert-event-types.js";
 
 const CREDENTIAL_INVALID_STATES = new Set(["CREDENTIAL_INVALID", "EXPIRED"]);
 const RESOURCE_UNAVAILABLE_STATES = new Set(["DEGRADED", "EXHAUSTED", "RATE_LIMITED", "UNAVAILABLE"]);
@@ -210,7 +163,7 @@ export class AlertEventRepository {
       .where("status", "in", statuses)
       .orderBy("last_seen_at", "desc")
       .execute();
-    return rows.map((r) => this.toEvent(r));
+    return rows.map(toAlertEvent);
   }
 
   /** 历史（含已处理/已忽略/自动恢复）。 */
@@ -249,9 +202,9 @@ export class AlertEventRepository {
     out.push(...(await this.derivePrincipalUsage(enterpriseId)));
     out.push(...(await this.deriveCallDeduction(enterpriseId)));
     out.push(...(await this.deriveCredential(enterpriseId)));
-    out.push(...(await this.deriveRouting(enterpriseId)));
-    out.push(...(await this.deriveStreaming(enterpriseId)));
-    out.push(...(await this.deriveDispatch(enterpriseId)));
+    out.push(...(await deriveRoutingAlerts(this.db, enterpriseId)));
+    out.push(...(await deriveStreamingAlerts(this.db, enterpriseId)));
+    out.push(...(await deriveDispatchAlerts(this.db, enterpriseId)));
     if (this.includeDepartmentBudget) {
       out.push(...(await deriveDepartmentBudgetAlerts(this.db, enterpriseId)));
     }
@@ -465,131 +418,4 @@ export class AlertEventRepository {
     return out;
   }
 
-  /** 信号 5：路由无候选/熔断/频繁故障切换。 */
-  private async deriveRouting(enterpriseId: string): Promise<DerivedAlert[]> {
-    const rows = await this.db
-      .selectFrom("ai_request")
-      .select(["id", "principal_id", "error_classification", "error_code"])
-      .where("enterprise_id", "=", enterpriseId)
-      .where("status", "=", "FAILED")
-      .where("error_classification", "in", [
-        "NO_AVAILABLE_RESOURCE",
-        "ROUTING_FAILED",
-        "CIRCUIT_OPEN",
-      ])
-      .execute();
-    return rows.map((r) => ({
-      alertKey: `RESOURCE_UNAVAILABLE:routing:${r.id}`,
-      domain: "RESOURCE_UNAVAILABLE",
-      signal: "routing_anomaly",
-      severity: "HIGH",
-      title: "路由无可用候选",
-      detail: `${r.error_classification ?? "ROUTING_FAILED"}${r.error_code ? `（${r.error_code}）` : ""}`,
-      resourceId: null,
-      principalId: r.principal_id,
-      aiRequestId: r.id,
-    }));
-  }
-
-  /** 信号 6：流式提交后中断/结束事件缺失。 */
-  private async deriveStreaming(enterpriseId: string): Promise<DerivedAlert[]> {
-    const rows = await this.db
-      .selectFrom("ai_request")
-      .select(["id", "principal_id", "error_classification", "error_code"])
-      .where("enterprise_id", "=", enterpriseId)
-      .where("stream", "=", true)
-      .where("status", "=", "FAILED")
-      .where("error_classification", "in", [
-        "STREAM_INTERRUPTED",
-        "STREAM_END_MISSING",
-        "CLIENT_CANCEL_NOT_PROPAGATED",
-      ])
-      .execute();
-    return rows.map((r) => ({
-      alertKey: `RESOURCE_UNAVAILABLE:streaming:${r.id}`,
-      domain: "RESOURCE_UNAVAILABLE",
-      signal: "streaming_anomaly",
-      severity: "HIGH",
-      title: "流式响应异常",
-      detail: `${r.error_classification ?? "STREAM_INTERRUPTED"}${r.error_code ? `（${r.error_code}）` : ""}`,
-      resourceId: null,
-      principalId: r.principal_id,
-      aiRequestId: r.id,
-    }));
-  }
-
-  /** 信号 8：策略动作未按决策执行或节省基线不可解释。 */
-  private async deriveDispatch(enterpriseId: string): Promise<DerivedAlert[]> {
-    const rows = await this.db
-      .selectFrom("dispatch_decision")
-      .select([
-        "id",
-        "ai_request_id",
-        "matched_policy_action",
-        "final_action",
-        "saving_calculable",
-        "not_calculable_reason",
-      ])
-      .where("enterprise_id", "=", enterpriseId)
-      .where("matched_policy_id", "is not", null)
-      .execute();
-    return rows
-      .filter(
-        (r) =>
-          (r.matched_policy_action !== null &&
-            r.matched_policy_action !== r.final_action) ||
-          (!r.saving_calculable &&
-            r.not_calculable_reason === "unexplained_baseline"),
-      )
-      .map((r) => ({
-        alertKey: `RESOURCE_UNAVAILABLE:dispatch:${r.id}`,
-        domain: "RESOURCE_UNAVAILABLE" as const,
-        signal: "dispatch_anomaly",
-        severity: "MEDIUM" as const,
-        title: "调度执行异常",
-        detail:
-          r.matched_policy_action !== r.final_action
-            ? `策略动作 ${r.matched_policy_action ?? "未知"}，实际动作 ${r.final_action}`
-            : `节省基线不可解释：${r.not_calculable_reason ?? "未知"}`,
-        resourceId: null,
-        principalId: null,
-        aiRequestId: r.ai_request_id,
-      }));
-  }
-
-  private toEvent(r: {
-    id: string;
-    alert_key: string;
-    domain: string;
-    signal: string;
-    severity: string;
-    title: string;
-    detail: string | null;
-    resource_id: string | null;
-    principal_id: string | null;
-    ai_request_id: string | null;
-    status: string;
-    first_seen_at: Date;
-    last_seen_at: Date;
-    resolved_at: Date | null;
-    resolution_note: string | null;
-  }): AlertEvent {
-    return {
-      id: r.id,
-      alertKey: r.alert_key,
-      domain: r.domain as AlertDomain,
-      signal: r.signal,
-      severity: r.severity as AlertEvent["severity"],
-      title: r.title,
-      detail: r.detail,
-      resourceId: r.resource_id,
-      principalId: r.principal_id,
-      aiRequestId: r.ai_request_id,
-      status: r.status as AlertEvent["status"],
-      firstSeenAt: r.first_seen_at.toISOString(),
-      lastSeenAt: r.last_seen_at.toISOString(),
-      resolvedAt: r.resolved_at ? r.resolved_at.toISOString() : null,
-      resolutionNote: r.resolution_note,
-    };
-  }
 }
