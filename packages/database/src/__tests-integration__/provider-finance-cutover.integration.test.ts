@@ -227,6 +227,12 @@ describe("provider finance cutover rehearsal", () => {
       });
       expect((await cutover.buildPreflightReport(enterpriseId)).blockers)
         .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_COST_UNCLASSIFIED" }));
+      const afterResolution = await cutover.buildConservationReport(enterpriseId, "2026-09");
+      expect(afterResolution.counts).toMatchObject({
+        apiUsageRows: 2, pricedApiRows: 1, unknownApiRows: 0, resolvedLegacyApiRows: 1,
+      });
+      expect(afterResolution.failures)
+        .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_CLASSIFICATION_MISMATCH" }));
       await expect(migrateDown(db)).rejects.toThrow(/0060 rollback blocked/);
     } finally {
       await db.destroy();

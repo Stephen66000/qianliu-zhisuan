@@ -482,7 +482,8 @@ export class ProviderFinanceCutoverRepository {
       sql<{
         opening_events: string; recharge_events: string; subscription_events: string;
         api_rows: string; priced_api: string; zero_api: string; unknown_api: string;
-        plan_rows: string; attributed_plan: string; token_mismatches: string;
+        resolved_legacy_api: string; plan_rows: string; attributed_plan: string;
+        token_mismatches: string;
       }>`
         SELECT
           (SELECT COUNT(*) FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
@@ -501,6 +502,9 @@ export class ProviderFinanceCutoverRepository {
             AND (line.api_cost_status='UNKNOWN_COST' OR line.api_cost_status IS NULL)
             AND (resolution.id IS NULL OR resolution.status<>'RESOLVED'))::text
             AS unknown_api,
+          COUNT(*) FILTER (WHERE line.resource_mode='API'
+            AND line.api_cost_status='UNKNOWN_COST'
+            AND resolution.status='RESOLVED')::text AS resolved_legacy_api,
           COUNT(*) FILTER (WHERE line.resource_mode='CODING_PLAN')::text AS plan_rows,
           COUNT(*) FILTER (WHERE line.resource_mode='CODING_PLAN'
             AND line.subscription_period_id IS NOT NULL)::text AS attributed_plan,
@@ -548,6 +552,7 @@ export class ProviderFinanceCutoverRepository {
       subscriptionEvents: numericCount(row.subscription_events), apiUsageRows: numericCount(row.api_rows),
       pricedApiRows: numericCount(row.priced_api), confirmedZeroApiRows: numericCount(row.zero_api),
       unknownApiRows: numericCount(row.unknown_api), codingPlanUsageRows: numericCount(row.plan_rows),
+      resolvedLegacyApiRows: numericCount(row.resolved_legacy_api),
       attributedCodingPlanRows: numericCount(row.attributed_plan),
       tokenFactMismatches: numericCount(row.token_mismatches),
     };
@@ -559,7 +564,8 @@ export class ProviderFinanceCutoverRepository {
       { code: "TOKEN_FACT_MISMATCH", count: counts.tokenFactMismatches },
       { code: "API_USAGE_CLASSIFICATION_MISMATCH",
         count: counts.apiUsageRows - counts.pricedApiRows
-          - counts.confirmedZeroApiRows - counts.unknownApiRows },
+          - counts.confirmedZeroApiRows - counts.unknownApiRows
+          - counts.resolvedLegacyApiRows },
       { code: "CODING_PLAN_ATTRIBUTION_MISMATCH",
         count: counts.codingPlanUsageRows - counts.attributedCodingPlanRows },
     ].filter((item) => item.count > 0);

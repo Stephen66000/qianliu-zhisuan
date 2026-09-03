@@ -90,6 +90,7 @@ export interface FinanceConservationReport {
     pricedApiRows: number;
     confirmedZeroApiRows: number;
     unknownApiRows: number;
+    resolvedLegacyApiRows: number;
     codingPlanUsageRows: number;
     attributedCodingPlanRows: number;
     tokenFactMismatches: number;
