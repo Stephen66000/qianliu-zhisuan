@@ -5,6 +5,7 @@ import {
   type DepartmentBillView,
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
+import { financeReadModelEnabled } from "../provider-finance/dashboard-projection.js";
 import {
   BudgetPutSchema,
   IdSchema,
@@ -39,7 +40,8 @@ async function readBillOrReply(
   month: string,
 ): Promise<DepartmentBillView | null> {
   try {
-    return await loadDepartmentBill(app.db, enterpriseId, month);
+    return await loadDepartmentBill(app.db, enterpriseId, month,
+      await financeReadModelEnabled(app.providerFinanceMode, app.providerFinanceRepo, enterpriseId));
   } catch (error) {
     if (error instanceof DepartmentBillEvidenceUnavailableError) {
       reply.code(409).send({

@@ -4,8 +4,10 @@ import { Decimal } from "decimal.js";
 import { sql } from "kysely";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
-import { listResourceUtilization } from "./query.js";
+import type { ResourceFinanceView } from "@qianliu/database";
+import { listResourceUtilization, type ResourceUtilizationRow } from "./query.js";
 import { registerResourceMonthlyBudgetRoutes } from "./budget-routes.js";
+import { financeReadModelEnabled } from "../provider-finance/dashboard-projection.js";
 
 const Month = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/);
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
@@ -29,9 +31,20 @@ export function registerResourceInsightRoutes(
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", message: "month 必须为 YYYY-MM" });
     }
+    const resources = await listResourceUtilization(app.db, req.admin!.enterpriseId, parsed.data.month);
+    const financeRead = await financeReadModelEnabled(
+      app.providerFinanceMode, app.providerFinanceRepo, req.admin!.enterpriseId,
+    );
+    const finance = !financeRead ? []
+      : await app.providerFinanceRepo.listResourceFinanceViews(
+        req.admin!.enterpriseId, parsed.data.month,
+      );
+    const financeByResource = new Map(finance.map((item) => [item.resourceId, item]));
     return {
       month: parsed.data.month,
-      resources: await listResourceUtilization(app.db, req.admin!.enterpriseId, parsed.data.month),
+      resources: resources.map((resource) => projectFinanceUtilization(
+        resource, financeByResource.get(resource.resourceId),
+      )),
       generatedAt: new Date().toISOString(),
     };
   });
@@ -172,6 +185,43 @@ export function registerResourceInsightRoutes(
       return outcome.value;
     },
   );
+}
+
+export function projectFinanceUtilization(
+  resource: ResourceUtilizationRow,
+  finance: ResourceFinanceView | undefined,
+): ResourceUtilizationRow {
+  if (!finance) return resource;
+  if (resource.mode === "CODING_PLAN") {
+    return { ...resource, packageCost: finance.monthlyPlanCashCny,
+      purchaseCashAmount: finance.monthlyPlanCashCny,
+      servicePeriodStart: finance.currentPeriod?.periodStart.slice(0, 10) ?? null,
+      servicePeriodEnd: finance.currentPeriod?.periodEndExclusive.slice(0, 10) ?? null };
+  }
+  const account = finance.accounts.length === 1 ? finance.accounts[0] : null;
+  const next = { ...resource,
+    apiCost: account?.monthlyApiCost ?? null,
+    currentBalance: account?.balanceState === "NORMAL" ? account.balance : null,
+    purchaseCashAmount: account?.monthlyRecharge ?? "0.00000000",
+    currency: account?.currency ?? null };
+  if (next.budgetStatus !== "ACTIVE" || next.budgetAmount === null
+    || next.budgetCurrency === null) return { ...next, utilizationRate: null,
+    utilizationBasis: null, utilizationStatus: "NOT_CONFIGURED",
+    notCalculableReason: "MONTHLY_BUDGET_NOT_CONFIGURED" };
+  if (!account || account.balanceState !== "NORMAL") return { ...next,
+    utilizationRate: null, utilizationBasis: null, utilizationStatus: "UNKNOWN",
+    notCalculableReason: account?.balanceState ?? "API_FINANCE_ACCOUNT_NOT_UNIQUE" };
+  if (account.currency !== next.budgetCurrency) return { ...next, utilizationRate: null,
+    utilizationBasis: null, utilizationStatus: "UNKNOWN",
+    notCalculableReason: "BUDGET_CURRENCY_MISMATCH" };
+  const spend = new MoneyDecimal(account.monthlyApiCost);
+  const budget = new MoneyDecimal(next.budgetAmount);
+  return { ...next, utilizationRate: spend.div(budget).toDecimalPlaces(8).toFixed(8),
+    budgetDifference: budget.minus(spend).toDecimalPlaces(8).toFixed(8),
+    utilizationBasis: "API_MONTHLY_BUDGET",
+    utilizationStatus: spend.gte(budget) ? "OVER_BUDGET"
+      : spend.gte(budget.times("0.8")) ? "WARNING" : "NORMAL",
+    notCalculableReason: null };
 }
 
 function operatingBillBudgetProjection(

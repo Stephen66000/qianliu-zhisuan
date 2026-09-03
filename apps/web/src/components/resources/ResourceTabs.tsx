@@ -1,17 +1,19 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-export type ResourceTab = "utilization" | "usage-overview" | "quota-windows" | "supply-health";
+export type ResourceTab = "utilization" | "usage-overview" | "quota-windows" | "supply-health" | "finance";
 
 const RESOURCE_TABS: Array<{ id: ResourceTab; label: string }> = [
   { id: "utilization", label: "资源利用" },
   { id: "usage-overview", label: "用量总览" },
   { id: "quota-windows", label: "额度窗口" },
   { id: "supply-health", label: "供给与健康" },
+  { id: "finance", label: "充值与订阅" },
 ];
 
-function tabFromLocation(requested: string | null, hash: string): ResourceTab {
-  if (RESOURCE_TABS.some((tab) => tab.id === requested)) return requested as ResourceTab;
+function tabFromLocation(requested: string | null, hash: string, financeEnabled: boolean): ResourceTab {
+  if (RESOURCE_TABS.some((tab) => tab.id === requested)
+    && (requested !== "finance" || financeEnabled)) return requested as ResourceTab;
   if (hash === "#quota-windows") return "quota-windows";
   if (hash === "#supply-forecasts" || hash === "#resource-health" || hash.startsWith("#health-")) {
     return "supply-health";
@@ -19,11 +21,11 @@ function tabFromLocation(requested: string | null, hash: string): ResourceTab {
   return "utilization";
 }
 
-export function useResourceTab() {
+export function useResourceTab(financeEnabled = false) {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const activeTab = tabFromLocation(searchParams.get("tab"), location.hash);
+  const activeTab = tabFromLocation(searchParams.get("tab"), location.hash, financeEnabled);
   const selectTab = (tab: ResourceTab) => {
     const next = new URLSearchParams(searchParams);
     if (tab === "utilization") next.delete("tab");
@@ -47,13 +49,15 @@ export function useResourceTab() {
 export function ResourceTabs({
   activeTab,
   onSelect,
+  showFinance = false,
 }: {
   activeTab: ResourceTab;
   onSelect: (tab: ResourceTab) => void;
+  showFinance?: boolean;
 }) {
   return (
     <div aria-label="厂商资源视图" className="mb-5 flex gap-2 overflow-x-auto border-b border-ql-border" role="tablist">
-      {RESOURCE_TABS.map((tab) => (
+      {RESOURCE_TABS.filter((tab) => tab.id !== "finance" || showFinance).map((tab) => (
         <button
           aria-controls={`resource-tab-panel-${tab.id}`}
           aria-selected={activeTab === tab.id}

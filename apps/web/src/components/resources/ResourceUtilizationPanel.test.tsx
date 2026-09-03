@@ -228,7 +228,10 @@ describe("W20-08 资源利用事实 Web", () => {
     await user.click(screen.getByRole("button", { name: "设置月预算" }));
     const budgetRegion = screen.getByRole("region", { name: "API 资源月预算设置" });
     expect(budgetRegion).toBeInTheDocument();
-    expect(within(budgetRegion).getByDisplayValue("2026-08")).toBeDisabled();
+    const expectedMonth = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit",
+    }).format(new Date()).slice(0, 7);
+    expect(within(budgetRegion).getByDisplayValue(expectedMonth)).toBeDisabled();
     await user.type(screen.getByLabelText("月预算金额"), "200");
     await user.selectOptions(screen.getByLabelText("月预算币种"), "USD");
     await user.click(screen.getByRole("button", { name: "保存月预算" }));

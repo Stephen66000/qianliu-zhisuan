@@ -14,6 +14,7 @@ import { AdminRecoverNotFoundError, ModelRouteNotReadyError } from "@qianliu/dat
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   OperatingSnapshotSchema,
+  financeManagedOperatingSnapshotError,
   operatingSnapshotModeError,
   toOperatingSnapshotInput,
 } from "../providers/contracts.js";
@@ -114,6 +115,11 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         return reply.code(404).send({ error: "not_found", message: "资源不存在" });
       }
       if (parsed.data.operating_snapshot) {
+        const financeError = app.providerFinanceMode === "OFF" ? null
+          : financeManagedOperatingSnapshotError(before.mode, parsed.data.operating_snapshot);
+        if (financeError) return reply.code(409).send({
+          error: "finance_entry_moved", message: financeError,
+        });
         const modeError = operatingSnapshotModeError(
           before.mode,
           parsed.data.operating_snapshot,

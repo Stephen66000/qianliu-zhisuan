@@ -5,7 +5,7 @@
  * 账本计价保留为核对证据。结账时把完整读模型冻结到
  * operating_bill_version.snapshot。读取已结账月份永远返回冻结版本，不按新规则重算。
  */
-import { sql, type Kysely } from "kysely";
+import { sql, type Kysely, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import { buildOperatingBillDraft } from "./operating-bill-draft.js";
 import { OperatingBillAccountRepository } from "./operating-bill-account-repository.js";
@@ -39,6 +39,8 @@ import type {
   OperatingBillValueItemView,
   OperatingBillView,
 } from "./operating-bill-types.js";
+import { ProviderFinanceRepository } from "./provider-finance-repository.js";
+import { projectOperatingBillFinance } from "./operating-bill-finance-projection.js";
 
 export type * from "./operating-bill-types.js";
 export { operatingBillMonthRange, InvalidOperatingBillMonthError } from "./operating-bill-month.js";
@@ -47,7 +49,16 @@ export * from "./operating-bill-errors.js";
 export { OperatingBillClosedError } from "./operating-bill-write-barrier.js";
 
 export class OperatingBillRepository {
-  constructor(private db: Kysely<Database>) {}
+  constructor(
+    private db: Kysely<Database>,
+    private financeMode: "OFF" | "DARK" | "ACTIVE" = "OFF",
+    private transactionBound = false,
+  ) {}
+
+  private async financeEnabled(enterpriseId: string): Promise<boolean> {
+    return this.financeMode === "DARK" || this.financeMode === "ACTIVE"
+      && await new ProviderFinanceRepository(this.db).isStrictWritesEnabled(enterpriseId);
+  }
 
   async getBill(enterpriseId: string, month: string): Promise<OperatingBillView> {
     const range = operatingBillMonthRange(month);
@@ -312,11 +323,12 @@ export class OperatingBillRepository {
         if (await hasPendingOperatingBillSettlement(
           trx, input.enterpriseId, input.month, new Date(),
         )) throw new OperatingBillConcurrentModificationError();
-        const repo = new OperatingBillRepository(trx);
+        const repo = new OperatingBillRepository(trx, this.financeMode, true);
         const draft = await repo.buildDraft(input.enterpriseId, input.month, period);
+        const financeEnabled = await repo.financeEnabled(input.enterpriseId);
         const departmentEvidence = input.includeDepartmentEvidence === false
           ? null
-          : await loadDepartmentCloseEvidence(trx, input.enterpriseId, input.month);
+          : await loadDepartmentCloseEvidence(trx, input.enterpriseId, input.month, financeEnabled);
         // 部门行与企业基础事实不守恒属于硬错误，allowIncomplete 不得绕过。
         if (departmentEvidence) assertDepartmentCostConserved(departmentEvidence.departmentBill);
         if (draft.gaps.length > 0 && !input.allowIncomplete) {
@@ -402,7 +414,17 @@ export class OperatingBillRepository {
   ): Promise<OperatingBillSnapshot> {
     const { start, end } = operatingBillMonthRange(month);
     const values = period ? await this.listValueItems(enterpriseId, period.id) : [];
-    return buildOperatingBillDraft(this.db, enterpriseId, month, period, values, start, end);
+    const draft = await buildOperatingBillDraft(
+      this.db, enterpriseId, month, period, values, start, end,
+    );
+    if (!await this.financeEnabled(enterpriseId)) return draft;
+    const asOf = new Date(Math.min(Date.now(), end.getTime() - 1));
+    const finance = new ProviderFinanceRepository(this.db);
+    const views = this.transactionBound
+      ? await finance.loadResourceFinanceViews(
+        this.db as unknown as Transaction<Database>, enterpriseId, month, asOf,
+      ) : await finance.listResourceFinanceViews(enterpriseId, month, asOf);
+    return projectOperatingBillFinance(this.db, enterpriseId, month, draft, views);
   }
   private findPeriod(enterpriseId: string, monthDate: string): Promise<OperatingBillPeriod | undefined> {
     return this.db.selectFrom("operating_bill_period").selectAll()

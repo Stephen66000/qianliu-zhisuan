@@ -173,6 +173,7 @@ export {
   DashboardRepository,
   type DashboardSummary,
   type ResourceBreakdownItem,
+  type ResourceUsageOverview,
   type OverageItem,
 } from "./repositories/dashboard-repository.js";
 export {
@@ -329,6 +330,7 @@ export {
   type FinanceEventType,
   type FinanceEventView,
   type MonthlyFinanceSummary,
+  type ResourceFinanceView,
   type OpeningCorrectionInput,
   type ReconciliationCaseInput,
   type ReverseFinanceEventInput,

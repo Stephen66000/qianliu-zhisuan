@@ -25,6 +25,7 @@ import {
   ModelDiscoverySchema,
   ModelValidationSchema,
   OnboardResourceSchema,
+  financeManagedOperatingSnapshotError,
   isProviderCode,
   onboardingRequestFingerprint,
   operatingSnapshotModeError,
@@ -67,6 +68,11 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     }
     const { credential_plaintext, operating_snapshot, selected_model_ids, idempotency_key, ...resource } = parsed.data;
     if (operating_snapshot) {
+      const financeError = app.providerFinanceMode === "OFF" ? null
+        : financeManagedOperatingSnapshotError(resource.mode, operating_snapshot);
+      if (financeError) return reply.code(409).send({
+        error: "finance_entry_moved", message: financeError,
+      });
       const modeError = operatingSnapshotModeError(resource.mode, operating_snapshot);
       if (modeError) return reply.code(400).send({ error: "invalid_operating_mode", message: modeError });
     }

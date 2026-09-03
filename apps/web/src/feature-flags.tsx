@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import type { FeatureFlags } from "./api/types";
+import type { FeatureFlags, ProviderFinanceMode } from "./api/types";
 
 export const DISABLED_FEATURE_FLAGS: FeatureFlags = {
   FEATURE_DIRECTORY_IMPORT: false,
@@ -36,4 +36,20 @@ export function FeatureFlagsProvider({
 
 export function useFeatureFlags(): FeatureFlags {
   return useContext(FeatureFlagContext);
+}
+
+const ProviderFinanceModeContext = createContext<ProviderFinanceMode>("OFF");
+
+export function ProviderFinanceModeProvider({
+  value,
+  children,
+}: {
+  value: ProviderFinanceMode;
+  children: ReactNode;
+}) {
+  return <ProviderFinanceModeContext.Provider value={value}>{children}</ProviderFinanceModeContext.Provider>;
+}
+
+export function useProviderFinanceMode(): ProviderFinanceMode {
+  return useContext(ProviderFinanceModeContext);
 }

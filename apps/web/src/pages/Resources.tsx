@@ -5,7 +5,7 @@
  * 恢复操作 = POST /provider-resources/:id/recover（WT-19），破坏性 → 二次确认。
  */
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Server } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,8 +32,9 @@ import { QuotaWindowPanel } from "../components/resources/QuotaWindowPanel";
 import { ResourceHealthPanel } from "../components/resources/ResourceHealthPanel";
 import { ResourceUtilizationPanel } from "../components/resources/ResourceUtilizationPanel";
 import { ResourceUsageOverviewPanel } from "../components/resources/ResourceUsageOverviewPanel";
+import { ProviderFinancePanel } from "../components/resources/ProviderFinancePanel";
 import { ResourceTabs, useResourceTab } from "../components/resources/ResourceTabs";
-import { useFeatureFlags } from "../feature-flags";
+import { useFeatureFlags, useProviderFinanceMode } from "../feature-flags";
 import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../components/writes/FormField";
@@ -51,7 +52,6 @@ import {
   MONEY_OPERATING_KEYS,
   PLAN_OPERATING_KEYS,
   RESET_CYCLE_LABELS,
-  formError,
   operatingDraftFromResource,
   operatingFieldsForMode,
   operatingMoneyError,
@@ -68,6 +68,32 @@ function ReadOnlyMetric({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-mono text-[13px] text-ql-fg">{value}</p>
     </div>
   );
+}
+
+function ResourceFinanceDisplay({ resource }: { resource: ProviderResourceItem }) {
+  const finance = resource.finance;
+  if (finance) {
+    if (resource.mode === "API") {
+      const account = finance.accounts.length === 1 ? finance.accounts[0] : null;
+      if (!account) return <span>资金账户币种不唯一</span>;
+      return <span className="block leading-5">
+        <span className="block">本月充值 {account.currency} {formatMoney(account.monthlyRecharge)}</span>
+        <span className="block">余额 {account.balanceState === "NORMAL" && account.balance !== null ? `${account.currency} ${formatMoney(account.balance)}` : account.balanceState}</span>
+        <span className="block">本月 API 成本 {account.currency} {formatMoney(account.monthlyApiCost)}</span>
+      </span>;
+    }
+    return <span className="block leading-5">
+      <span className="block">本月订阅实付 ¥{formatMoney(finance.monthlyPlanCashCny)}</span>
+      <span className="block">周期 Token {finance.currentPeriod ? formatCount(finance.currentPeriod.trueTokens) : "无有效周期"}</span>
+      <span className="block">{finance.currentPeriod ? `${finance.currentPeriod.periodStart.slice(0, 10)} ～ ${finance.currentPeriod.periodEndExclusive.slice(0, 10)}` : "—"}</span>
+    </span>;
+  }
+  if (!resource.operating_snapshot) return <>未录入/未同步</>;
+  return resource.mode === "CODING_PLAN" ? <span className="block leading-5">
+    <span className="block">总额度 {resource.operating_snapshot.total_quota ? formatCount(resource.operating_snapshot.total_quota) : "未知"}</span>
+    <span className="block">系统已用 {resource.operating_snapshot.used_quota ? formatCount(resource.operating_snapshot.used_quota) : "未知"}</span>
+    <span className="block">剩余 {resource.operating_snapshot.remaining_quota ? formatCount(resource.operating_snapshot.remaining_quota) : "未知"} {resource.operating_snapshot.quota_unit ?? ""}</span>
+  </span> : <span>资金账本未启用</span>;
 }
 
 const ISOLATED = new Set(["CREDENTIAL_INVALID", "EXHAUSTED", "EXPIRED", "UNAVAILABLE", "RATE_LIMITED"]);
@@ -90,7 +116,8 @@ const STATUS_LABEL: Record<string, string> = {
 // eslint-disable-next-line complexity -- 资源页聚合登记、发现、同步、经营快照与恢复流程，条件均为互斥 UI 状态。
 export function ResourcesPage() {
   const featureFlags = useFeatureFlags();
-  const { activeTab, selectTab } = useResourceTab();
+  const providerFinanceMode = useProviderFinanceMode();
+  const { activeTab, selectTab } = useResourceTab(providerFinanceMode !== "OFF");
   const query = useProviderResources();
   const providersQuery = useProviders();
   const forecastsQuery = useSupplyForecasts(activeTab === "supply-health");
@@ -118,12 +145,9 @@ export function ResourcesPage() {
         effective_until, reset_cycle, reset_anchor_at, ...resource
       } = values;
       const hasOperating = resource.mode === "CODING_PLAN"
-        ? [package_name, package_cost, total_quota, effective_from, effective_until]
+        ? [package_name, total_quota]
             .some(Boolean)
-        : [
-            recharge_amount, current_balance, current_period_cost, cumulative_cost,
-            balance_updated_at, cost_period_start, cost_period_end,
-          ].some(Boolean);
+        : false;
       const draft = {
         currency, recharge_amount, current_balance, current_period_cost,
         cumulative_cost, balance_updated_at, cost_period_start, cost_period_end,
@@ -221,7 +245,6 @@ export function ResourcesPage() {
   });
 
   const {
-    control,
     register,
     handleSubmit,
     getValues,
@@ -280,10 +303,10 @@ export function ResourcesPage() {
 
   return (
     <PageShell
-      description="厂商 API 与套餐资源的登记、凭证安全与受控恢复（WT-19）"
+      description="厂商 API 与 Coding Plan 资源、资金账本、凭证安全与受控恢复"
       title="厂商资源"
     >
-      <ResourceTabs activeTab={activeTab} onSelect={selectTab} />
+      <ResourceTabs activeTab={activeTab} onSelect={selectTab} showFinance={providerFinanceMode !== "OFF"} />
 
       {activeTab === "utilization" ? <div aria-labelledby="resource-tab-utilization" id="resource-tab-panel-utilization" role="tabpanel">
       <div className="mb-4 flex justify-end">
@@ -501,37 +524,13 @@ export function ResourcesPage() {
                 <FormField htmlFor="res-package-name" label="套餐名称">
                   <input className={INPUT_CLASS} id="res-package-name" {...register("package_name")} />
                 </FormField>
-                <FormField error={errors.package_cost?.message} htmlFor="res-package-cost" label="套餐费用">
-                  <Controller control={control} name="package_cost" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.package_cost)} id="res-package-cost" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
-                </FormField>
+                <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[12px] text-ql-fg-tertiary">订阅金额和服务周期在“充值与订阅”中登记。</div>
               </>
             ) : (
-              <>
-                <FormField error={errors.recharge_amount?.message} htmlFor="res-recharge" label="充值金额">
-                  <Controller control={control} name="recharge_amount" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.recharge_amount)} id="res-recharge" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
-                </FormField>
-                <FormField error={errors.current_balance?.message} htmlFor="res-balance" label="当前余额">
-                  <Controller control={control} name="current_balance" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.current_balance)} id="res-balance" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
-                </FormField>
-                <FormField error={errors.current_period_cost?.message} htmlFor="res-period-cost" label="本期实际费用">
-                  <Controller control={control} name="current_period_cost" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.current_period_cost)} id="res-period-cost" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
-                </FormField>
-                <FormField error={errors.cumulative_cost?.message} htmlFor="res-cumulative-cost" label="累计费用">
-                  <Controller control={control} name="cumulative_cost" render={({ field }) => <MoneyAmountInput aria-invalid={Boolean(errors.cumulative_cost)} id="res-cumulative-cost" name={field.name} onBlur={field.onBlur} onChange={field.onChange} value={field.value} />} />
-                </FormField>
-              </>
+              <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[12px] text-ql-fg-tertiary sm:col-span-2">API 期初、充值、余额和费用统一由“充值与订阅”资金账本管理。</div>
             )}
-            <FormField htmlFor="res-currency" label="币种">
-              <input className={INPUT_CLASS} id="res-currency" {...register("currency")} />
-            </FormField>
             {createMode === "CODING_PLAN" ? (
               <>
-                <FormField error={formError(errors, "effective_until")} htmlFor="res-effective-until" label="有效期">
-                  <input className={INPUT_CLASS} id="res-effective-until" type="datetime-local" {...register("effective_until")} />
-                </FormField>
-                <FormField error={errors.effective_from?.message} htmlFor="res-effective-from" label="生效时间">
-                  <input className={INPUT_CLASS} id="res-effective-from" type="datetime-local" {...register("effective_from")} />
-                </FormField>
                 <FormField htmlFor="res-reset-cycle" label="重置周期">
                   <select className={INPUT_CLASS} id="res-reset-cycle" {...register("reset_cycle")}>
                     <option value="NONE">不重置</option>
@@ -548,19 +547,7 @@ export function ResourcesPage() {
                   </FormField>
                 ) : null}
               </>
-            ) : (
-              <>
-                <FormField htmlFor="res-balance-updated" label="余额更新时间">
-                  <input className={INPUT_CLASS} id="res-balance-updated" type="datetime-local" {...register("balance_updated_at")} />
-                </FormField>
-                <FormField htmlFor="res-cost-start" label="费用周期开始">
-                  <input className={INPUT_CLASS} id="res-cost-start" type="datetime-local" {...register("cost_period_start")} />
-                </FormField>
-                <FormField htmlFor="res-cost-end" label="费用周期结束">
-                  <input className={INPUT_CLASS} id="res-cost-end" type="datetime-local" {...register("cost_period_end")} />
-                </FormField>
-              </>
-            )}
+            ) : null}
           </div>
           {createValidationError ? (
             <p className="text-[13px] leading-5 text-ql-danger" role="alert">{createValidationError}</p>
@@ -829,7 +816,7 @@ export function ResourcesPage() {
                 <th className="py-2 pr-4 font-medium">名称</th>
                 <th className="py-2 pr-4 font-medium">厂商/模型</th>
                 <th className="py-2 pr-4 font-medium">模式</th>
-                <th className="py-2 pr-4 font-medium">厂商经营数据</th>
+                <th className="py-2 pr-4 font-medium">资金 / 额度数据</th>
                 <th className="py-2 pr-4 font-medium">数据时间</th>
                 <th className="py-2 pr-4 font-medium">凭证指纹</th>
                 <th className="py-2 pr-4 font-medium">状态</th>
@@ -854,21 +841,7 @@ export function ResourcesPage() {
                   </td>
                   <td className="py-2.5 pr-4 text-ql-fg-secondary">{MODE_LABEL[r.mode]}</td>
                   <td className="break-words py-2.5 pr-4 text-ql-fg-secondary">
-                    {r.operating_snapshot ? (
-                      r.mode === "CODING_PLAN" ? (
-                        <span className="block leading-5">
-                          <span className="block">总额度 {r.operating_snapshot.total_quota ? formatCount(r.operating_snapshot.total_quota) : "未知"}</span>
-                          <span className="block">系统已用 {r.operating_snapshot.used_quota ? formatCount(r.operating_snapshot.used_quota) : "未知"}</span>
-                          <span className="block">剩余 {r.operating_snapshot.remaining_quota ? formatCount(r.operating_snapshot.remaining_quota) : "未知"} {r.operating_snapshot.quota_unit ?? ""}</span>
-                        </span>
-                      ) : (
-                        <span className="block leading-5">
-                          <span className="block">充值 {r.operating_snapshot.currency ?? ""} {r.operating_snapshot.recharge_amount === null ? "未知" : formatMoney(r.operating_snapshot.recharge_amount)}</span>
-                          <span className="block">余额 {r.operating_snapshot.current_balance === null ? "未知" : formatMoney(r.operating_snapshot.current_balance)}</span>
-                          <span className="block">本期费用 {r.operating_snapshot.current_period_cost === null ? "未知" : formatMoney(r.operating_snapshot.current_period_cost)}</span>
-                        </span>
-                      )
-                    ) : "未录入/未同步"}
+                    <ResourceFinanceDisplay resource={r} />
                   </td>
                   <td
                     className="break-words py-2.5 pr-4 align-top text-ql-fg-secondary"
@@ -934,7 +907,7 @@ export function ResourcesPage() {
                         }}
                         type="button"
                       >同步模型</button>
-                      <button
+                      {r.mode === "CODING_PLAN" ? <button
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={async () => {
                           setOperatingTarget(r);
@@ -947,8 +920,8 @@ export function ResourcesPage() {
                         }}
                         type="button"
                       >
-                        {r.mode === "CODING_PLAN" ? "更新套餐配置" : "更新经营数据"}
-                      </button>
+                        更新额度配置
+                      </button> : null}
                       {ISOLATED.has(r.status) ? (
                       <button
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-warning hover:bg-ql-warning-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-warning"
@@ -1035,6 +1008,14 @@ export function ResourcesPage() {
 
       <div id="resource-health"><ResourceHealthPanel providers={providerOptions} resources={resources} /></div>
       </div>
+      ) : null}
+
+      {activeTab === "finance" && providerFinanceMode !== "OFF" ? (
+        <ProviderFinancePanel
+          mode={providerFinanceMode}
+          providers={providerOptions}
+          resources={resources}
+        />
       ) : null}
 
       {/* 凭证恢复：二次确认 + 可选轮换（WT-19） */}

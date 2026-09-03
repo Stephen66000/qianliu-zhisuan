@@ -97,7 +97,6 @@ export function operatingSnapshotModeError(
   }
   if (mode === "CODING_PLAN" && snapshot.source === "ADMIN") {
     if (!snapshot.total_quota) return "套餐资源必须填写总额度";
-    if (!snapshot.effective_from) return "套餐资源必须填写生效时间";
     const resetCycle = snapshot.reset_cycle?.toUpperCase() ?? "NONE";
     if (!["NONE", "DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"].includes(resetCycle)) {
       return "重置周期必须是不重置、每日、每周、每月、每季或每年";
@@ -105,6 +104,23 @@ export function operatingSnapshotModeError(
     if (resetCycle !== "NONE" && !snapshot.reset_anchor_at) return "启用周期重置时必须填写重置日期";
   }
   return null;
+}
+
+export function financeManagedOperatingSnapshotError(
+  mode: "API" | "CODING_PLAN",
+  snapshot: z.output<typeof OperatingSnapshotSchema>,
+): string | null {
+  if (snapshot.source !== "ADMIN") return null;
+  const financeFields = mode === "API"
+    ? ["recharge_amount", "current_balance", "cumulative_cost", "current_period_cost",
+      "cost_period_start", "cost_period_end", "balance_updated_at"] as const
+    : ["package_cost", "effective_from", "effective_until"] as const;
+  const populated = financeFields.filter((field) => {
+    const value = snapshot[field];
+    return value !== null && value !== undefined && value !== "";
+  });
+  return populated.length > 0
+    ? `资金字段只能在充值与订阅模块登记：${populated.join(", ")}` : null;
 }
 
 export const CreateResourceSchema = z.object({

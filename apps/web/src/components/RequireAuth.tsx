@@ -8,7 +8,11 @@ import { UnauthorizedError } from "../api/client";
 import { AppLayout } from "./layout/AppLayout";
 import { ErrorState } from "./states/ErrorState";
 import { LoadingState } from "./states/LoadingState";
-import { DISABLED_FEATURE_FLAGS, FeatureFlagsProvider } from "../feature-flags";
+import {
+  DISABLED_FEATURE_FLAGS,
+  FeatureFlagsProvider,
+  ProviderFinanceModeProvider,
+} from "../feature-flags";
 
 export function RequireAuth() {
   const location = useLocation();
@@ -43,7 +47,9 @@ export function RequireAuth() {
 
   return (
     <FeatureFlagsProvider value={session.data.featureFlags ?? DISABLED_FEATURE_FLAGS}>
-      <AppLayout admin={session.data.admin} />
+      <ProviderFinanceModeProvider value={session.data.providerFinanceMode ?? "OFF"}>
+        <AppLayout admin={session.data.admin} />
+      </ProviderFinanceModeProvider>
     </FeatureFlagsProvider>
   );
 }

@@ -17,6 +17,7 @@ import {
   type MonthlyFinanceSummary,
   type OpeningCorrectionInput,
   type ReconciliationCaseInput,
+  type ResourceFinanceView,
   type ReverseFinanceEventInput,
   type SubscriptionInput,
 } from "./provider-finance-types.js";
@@ -722,6 +723,123 @@ export class ProviderFinanceRepository {
       await sql`SET TRANSACTION READ ONLY`.execute(trx);
       return this.loadMonthlyFinanceSummary(trx, enterpriseId, month);
     });
+  }
+
+  async listResourceFinanceViews(
+    enterpriseId: string, month: string, asOf = new Date(),
+  ): Promise<ResourceFinanceView[]> {
+    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+      await sql`SET TRANSACTION READ ONLY`.execute(trx);
+      return this.loadResourceFinanceViews(trx, enterpriseId, month, asOf);
+    });
+  }
+
+  /** @internal Reuses the operating-bill close transaction snapshot. */
+  async loadResourceFinanceViews(
+    trx: Transaction<Database>, enterpriseId: string, month: string, asOf: Date,
+  ): Promise<ResourceFinanceView[]> {
+      const { start, end } = operatingBillMonthRange(month);
+      const [resources, accountKeys, apiCosts, recharges, planCosts, periods] = await Promise.all([
+        trx.selectFrom("provider_resource").select(["id", "mode"])
+          .where("enterprise_id", "=", enterpriseId).where("status", "<>", "DELETED").execute(),
+        sql<{ provider_resource_id: string; currency: FinanceCurrency }>`
+          SELECT DISTINCT provider_resource_id, currency FROM (
+            SELECT provider_resource_id, account_currency AS currency
+              FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
+               AND event_type='API_OPENING_BALANCE'
+            UNION
+            SELECT provider_resource_id, api_cost_currency AS currency
+              FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
+               AND resource_mode='API' AND api_cost_status='PRICED_USAGE'
+               AND api_cost_currency IS NOT NULL AND settled_at>=${start} AND settled_at<${end}
+          ) account ORDER BY provider_resource_id, currency`.execute(trx),
+        sql<{ provider_resource_id: string; currency: FinanceCurrency; amount: string }>`
+          SELECT provider_resource_id, currency, COALESCE(SUM(amount),0)::text AS amount FROM (
+            SELECT provider_resource_id, api_cost_currency AS currency, api_cost AS amount
+              FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
+               AND resource_mode='API' AND api_cost_status='PRICED_USAGE'
+               AND settled_at>=${start} AND settled_at<${end}
+            UNION ALL
+            SELECT provider_resource_id, account_currency, -account_amount
+              FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
+               AND event_type='API_LEGACY_COST_ADJUSTMENT'
+               AND occurred_at>=${start} AND occurred_at<${end}
+          ) cost GROUP BY provider_resource_id, currency`.execute(trx),
+        sql<{ provider_resource_id: string; currency: FinanceCurrency; amount: string }>`
+          SELECT provider_resource_id, account_currency AS currency,
+                 COALESCE(SUM(account_amount),0)::text AS amount
+            FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
+             AND event_type IN ('API_RECHARGE','REVERSAL')
+             AND occurred_at>=${start} AND occurred_at<${end}
+           GROUP BY provider_resource_id, account_currency`.execute(trx),
+        sql<{ provider_resource_id: string; cash_cny: string }>`
+          SELECT event.provider_resource_id, COALESCE(SUM(event.cash_paid_cny),0)::text AS cash_cny
+            FROM provider_finance_event event
+            JOIN provider_resource resource ON resource.enterprise_id=event.enterprise_id
+             AND resource.id=event.provider_resource_id AND resource.mode='CODING_PLAN'
+           WHERE event.enterprise_id=${enterpriseId}::uuid
+             AND event.event_type IN ('CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL','REVERSAL')
+             AND event.occurred_at>=${start} AND event.occurred_at<${end}
+           GROUP BY event.provider_resource_id`.execute(trx),
+        sql<{ id: string; provider_resource_id: string; product_name: string;
+          period_start: Date; period_end_exclusive: Date; true_tokens: string;
+          request_count: string }>`
+          SELECT DISTINCT ON (period.provider_resource_id)
+                 period.id, period.provider_resource_id, period.product_name,
+                 period.period_start, period.period_end_exclusive,
+                 COALESCE(usage.true_tokens,0)::text AS true_tokens,
+                 COALESCE(usage.request_count,0)::text AS request_count
+            FROM provider_subscription_period period
+            LEFT JOIN LATERAL (
+              SELECT SUM(line.raw_input_tokens+line.raw_output_tokens) AS true_tokens,
+                     COUNT(DISTINCT line.ai_request_id) AS request_count
+                FROM ledger_line line WHERE line.enterprise_id=period.enterprise_id
+                 AND line.subscription_period_id=period.id
+            ) usage ON true
+           WHERE period.enterprise_id=${enterpriseId}::uuid
+             AND period.reversed_by_event_id IS NULL
+             AND period.period_start<=${asOf} AND period.period_end_exclusive>${asOf}
+           ORDER BY period.provider_resource_id, period.period_start DESC,
+                    period.created_at DESC, period.id DESC`.execute(trx),
+      ]);
+      const key = (resourceId: string, currency: string) => `${resourceId}:${currency}`;
+      const costs = new Map(apiCosts.rows.map((row) => [key(row.provider_resource_id, row.currency), row.amount]));
+      const recharge = new Map(recharges.rows.map((row) => [key(row.provider_resource_id, row.currency), row.amount]));
+      const planCash = new Map(planCosts.rows.map((row) => [row.provider_resource_id, row.cash_cny]));
+      const currentPeriods = new Map(periods.rows.map((row) => [row.provider_resource_id, row]));
+      const balances = await Promise.all(accountKeys.rows.map(async (account) => ({
+        account,
+        balance: await this.loadCurrentBalanceSnapshot(
+          trx, enterpriseId, account.provider_resource_id, account.currency, asOf,
+        ),
+        opening: await this.loadCurrentBalanceSnapshot(
+          trx, enterpriseId, account.provider_resource_id, account.currency, start,
+        ),
+      })));
+      const accountsByResource = new Map<string, ResourceFinanceView["accounts"]>();
+      for (const item of balances) {
+        const list = accountsByResource.get(item.account.provider_resource_id) ?? [];
+        list.push({ currency: item.account.currency,
+          balanceState: item.balance?.state ?? "MISSING_OPENING_BALANCE",
+          balance: item.balance?.balance ?? null,
+          monthOpeningState: item.opening?.state ?? "MISSING_OPENING_BALANCE",
+          monthOpeningBalance: item.opening?.balance ?? null,
+          monthlyRecharge: money(recharge.get(key(item.account.provider_resource_id,
+            item.account.currency)) ?? 0),
+          monthlyApiCost: money(costs.get(key(item.account.provider_resource_id,
+            item.account.currency)) ?? 0) });
+        accountsByResource.set(item.account.provider_resource_id, list);
+      }
+      return resources.map((resource) => {
+        const period = currentPeriods.get(resource.id);
+        return { resourceId: resource.id, mode: resource.mode,
+          accounts: accountsByResource.get(resource.id) ?? [],
+          monthlyPlanCashCny: money(planCash.get(resource.id) ?? 0),
+          currentPeriod: period ? { id: period.id, productName: period.product_name,
+            periodStart: period.period_start.toISOString(),
+            periodEndExclusive: period.period_end_exclusive.toISOString(),
+            trueTokens: period.true_tokens, requestCount: period.request_count } : null };
+      });
   }
 
   /** @internal Reuses a caller-owned repeatable-read snapshot for cutover conservation. */

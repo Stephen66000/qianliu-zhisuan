@@ -216,7 +216,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     ),
   );
   app.decorate("runtimeAssuranceRepo", new RuntimeAssuranceRepository(db));
-  app.decorate("operatingBillRepo", new OperatingBillRepository(db));
+  app.decorate("operatingBillRepo", new OperatingBillRepository(db, providerFinanceMode));
   app.decorate("operatingBillAccountRepo", new OperatingBillAccountRepository(db));
   app.decorate("deploymentLogRepo", new DeploymentLogRepository(db));
   app.decorate("employeeModelRuleRepo", new EmployeeModelRuleRepository(db));

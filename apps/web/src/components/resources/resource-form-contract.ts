@@ -48,13 +48,6 @@ export const CreateResourceSchema = z.object({
   if (value.mode === "CODING_PLAN" && !value.total_quota) {
     ctx.addIssue({ code: "custom", path: ["total_quota"], message: "套餐资源必须填写总额度" });
   }
-  if (value.mode === "CODING_PLAN" && !value.effective_from) {
-    ctx.addIssue({ code: "custom", path: ["effective_from"], message: "请选择套餐生效时间" });
-  }
-  if (value.mode === "CODING_PLAN" && value.effective_from && value.effective_until
-      && new Date(value.effective_until) <= new Date(value.effective_from)) {
-    ctx.addIssue({ code: "custom", path: ["effective_until"], message: "套餐失效时间必须晚于生效时间" });
-  }
   if (value.mode === "CODING_PLAN" && value.reset_cycle !== "NONE" && !value.reset_anchor_at) {
     ctx.addIssue({ code: "custom", path: ["reset_anchor_at"], message: "请选择重置日期" });
   }
@@ -97,13 +90,9 @@ export const OPERATING_FIELDS = [
 ] as const;
 
 export const PLAN_OPERATING_KEYS = new Set([
-  "total_quota", "quota_unit", "package_name", "package_cost", "currency", "effective_from",
-  "effective_until", "reset_cycle", "reset_anchor_at",
+  "total_quota", "quota_unit", "package_name", "reset_cycle", "reset_anchor_at",
 ]);
-export const API_OPERATING_KEYS = new Set([
-  "recharge_amount", "current_balance", "current_period_cost", "cumulative_cost", "currency",
-  "balance_updated_at", "cost_period_start", "cost_period_end",
-]);
+export const API_OPERATING_KEYS = new Set<string>();
 export const MONEY_OPERATING_KEYS = new Set([
   "package_cost", "recharge_amount", "current_balance", "current_period_cost", "cumulative_cost",
 ]);
@@ -137,7 +126,8 @@ export function operatingPayload(draft: Record<string, string>, mode: ProviderRe
   return mode === "API"
     ? { ...payload, package_name: null, package_cost: null, total_quota: null, quota_unit: null,
         effective_from: null, effective_until: null, reset_cycle: null, reset_anchor_at: null }
-    : { ...payload, recharge_amount: null, current_balance: null, cumulative_cost: null,
+    : { ...payload, currency: null, package_cost: null, effective_from: null, effective_until: null,
+        recharge_amount: null, current_balance: null, cumulative_cost: null,
         current_period_cost: null, cost_period_start: null, cost_period_end: null, balance_updated_at: null };
 }
 
@@ -162,10 +152,6 @@ export function planDraftError(draft: Record<string, string>): string | null {
   if (!draft.total_quota) return "请填写厂商总额度";
   const quotaError = validateIntegerAmount(draft.total_quota, NUMERIC_30_8_INTEGER_MAX);
   if (quotaError) return quotaError;
-  if (!draft.effective_from) return "请选择套餐生效时间";
-  if (draft.effective_until && new Date(draft.effective_until) <= new Date(draft.effective_from)) {
-    return "套餐失效时间必须晚于生效时间";
-  }
   if (draft.reset_cycle !== "NONE" && !draft.reset_anchor_at) return "请选择重置日期";
   return null;
 }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { OperatingSnapshotSchema } from "./contracts.js";
+import {
+  financeManagedOperatingSnapshotError,
+  OperatingSnapshotSchema,
+} from "./contracts.js";
 
 describe("OperatingSnapshotSchema", () => {
   it("拒绝早于或等于生效时间的套餐失效时间", () => {
@@ -30,5 +33,18 @@ describe("OperatingSnapshotSchema", () => {
       collected_at: "2026-08-03T03:49:00.000Z",
       current_balance: "109.41123456",
     }).success).toBe(true);
+  });
+
+  it("资金模式启用后拒绝从经营快照写余额或订阅费用", () => {
+    const api = OperatingSnapshotSchema.parse({ source: "ADMIN",
+      collected_at: "2026-09-03T00:00:00.000Z", current_balance: "100" });
+    const plan = OperatingSnapshotSchema.parse({ source: "ADMIN",
+      collected_at: "2026-09-03T00:00:00.000Z", total_quota: "1000",
+      package_cost: "199" });
+    expect(financeManagedOperatingSnapshotError("API", api)).toContain("current_balance");
+    expect(financeManagedOperatingSnapshotError("CODING_PLAN", plan)).toContain("package_cost");
+    expect(financeManagedOperatingSnapshotError("CODING_PLAN", {
+      ...plan, package_cost: null,
+    })).toBeNull();
   });
 });

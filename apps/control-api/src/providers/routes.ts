@@ -20,6 +20,7 @@ import {
   CreateResourceSchema,
   CreateRouteSchema,
   CreateUnifiedModelSchema,
+  financeManagedOperatingSnapshotError,
   operatingSnapshotModeError,
   toOperatingSnapshotInput,
 } from "./contracts.js";
@@ -27,6 +28,7 @@ import { registerProviderModelDiscoveryRoutes } from "./model-discovery-routes.j
 import { registerProviderQuotaWindowRoutes } from "./quota-window-routes.js";
 import { registerProviderHealthRoutes } from "./health-routes.js";
 import { registerProviderUsageOverviewRoutes } from "./usage-overview-routes.js";
+import { financeReadModelEnabled, shanghaiMonthAt } from "../provider-finance/dashboard-projection.js";
 
 export function registerProviderRoutes(app: FastifyInstance): void {
   registerProviderModelDiscoveryRoutes(app);
@@ -62,16 +64,23 @@ export function registerProviderRoutes(app: FastifyInstance): void {
   // ===== Provider Resource（凭证加密存储）=====
   app.get("/provider-resources", { preHandler: [requireAuth] }, async (req) => {
     const enterpriseId = req.admin!.enterpriseId;
-    const [resources, snapshots, syncStates] = await Promise.all([
+    const now = new Date();
+    const financeRead = await financeReadModelEnabled(
+      app.providerFinanceMode, app.providerFinanceRepo, enterpriseId,
+    );
+    const [resources, snapshots, syncStates, financeViews] = await Promise.all([
       app.providerRepo.listResources(enterpriseId),
       app.providerRepo.listCurrentOperatingSnapshots(enterpriseId),
       app.providerRepo.listLatestOperatingSyncStates(enterpriseId),
+      !financeRead ? []
+        : app.providerFinanceRepo.listResourceFinanceViews(enterpriseId, shanghaiMonthAt(now), now),
     ]);
     const byResource = new Map(snapshots.map((snapshot) => [
       snapshot.provider_resource_id,
       snapshot,
     ]));
     const syncByResource = new Map(syncStates.map((state) => [state.provider_resource_id, state]));
+    const financeByResource = new Map(financeViews.map((view) => [view.resourceId, view]));
     const staleBefore = Date.now() - 36 * 60 * 60 * 1_000;
     // 列表只返回指纹，绝不返回密文/明文
     return {
@@ -103,6 +112,7 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         created_at: r.created_at,
         updated_at: r.updated_at,
         operating_snapshot: byResource.get(r.id) ?? null,
+        finance: financeByResource.get(r.id) ?? null,
         operating_sync: sync ? {
           balance_status: sync.balance_status,
           cost_status: sync.cost_status,
@@ -160,6 +170,11 @@ export function registerProviderRoutes(app: FastifyInstance): void {
     }
     const { credential_plaintext, operating_snapshot, ...rest } = parsed.data;
     if (operating_snapshot) {
+      const financeError = app.providerFinanceMode === "OFF" ? null
+        : financeManagedOperatingSnapshotError(rest.mode, operating_snapshot);
+      if (financeError) return reply.code(409).send({
+        error: "finance_entry_moved", message: financeError,
+      });
       const modeError = operatingSnapshotModeError(rest.mode, operating_snapshot);
       if (modeError) {
         return reply.code(400).send({ error: "invalid_operating_mode", message: modeError });

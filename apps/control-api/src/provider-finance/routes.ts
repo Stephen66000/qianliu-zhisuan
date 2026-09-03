@@ -252,4 +252,11 @@ export function registerProviderFinanceRoutes(
     if (!query.success) return invalid(reply, query.error.issues[0]?.message);
     return app.providerFinanceRepo.getMonthlyFinanceSummary(req.admin!.enterpriseId, query.data.month);
   });
+
+  app.get("/provider-finance/resources", { preHandler: [requireAuth] }, async (req, reply) => {
+    const query = MonthQuery.safeParse(req.query);
+    if (!query.success) return invalid(reply, query.error.issues[0]?.message);
+    return { month: query.data.month, resources: await app.providerFinanceRepo
+      .listResourceFinanceViews(req.admin!.enterpriseId, query.data.month) };
+  });
 }

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { sql } from "kysely";
-import { createKysely, migrateToLatest } from "@qianliu/database";
+import { createKysely, GatewayLedgerRepository, migrateToLatest } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 
@@ -128,6 +128,14 @@ describe("provider finance routes", () => {
     expect(cases.statusCode).toBe(200);
     expect(cases.json()).toMatchObject({ total: 1,
       items: [expect.objectContaining({ id: caseId, status: "RESOLVED" })] });
+    const resources = await app.inject({ method: "GET",
+      url: "/provider-finance/resources?month=2026-09", headers: { cookie } });
+    expect(resources.statusCode).toBe(200);
+    expect(resources.json().resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceId: apiResourceId, mode: "API",
+        accounts: [expect.objectContaining({ currency: "CNY", balanceState: "NORMAL",
+          balance: "65.00000000", monthlyRecharge: "0.00000000" })] }),
+    ]));
   });
 
   it("records a Coding Plan and exposes its service period", async () => {
@@ -163,6 +171,84 @@ describe("provider finance routes", () => {
     expect(summary.json()).toMatchObject({
       cashOutflowCny: "199.00000000", codingPlanFixedCostCny: "199.00000000",
       operatingCostCny: "199.00000000", complete: true,
+    });
+    const resourceFinance = await app.inject({ method: "GET",
+      url: "/provider-finance/resources?month=2026-09", headers: { cookie } });
+    expect(resourceFinance.json().resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceId: planResourceId,
+        monthlyPlanCashCny: "199.00000000",
+        currentPeriod: expect.objectContaining({ id: periodId, trueTokens: "0" }) }),
+    ]));
+    const ledger = new GatewayLedgerRepository(db);
+    for (const [index, tokens] of [300n, 100n].entries()) {
+      const principalId = randomUUID(); const keyId = randomUUID(); const requestId = randomUUID();
+      await db.insertInto("principal").values({ id: principalId, enterprise_id: enterpriseId,
+        type: "EMPLOYEE", name: `Finance Employee ${index + 1}`, department_label: null,
+        person_id: null, owner_person_id: null }).execute();
+      await db.insertInto("principal_key").values({ id: keyId, enterprise_id: enterpriseId,
+        principal_id: principalId, key_prefix: `ql-finance-${index}`, key_digest: randomUUID(),
+        allowed_model_ids: [], ip_allowlist: [], expires_at: null, quota_limit: null,
+        concurrency_limit: null, last_used_at: null, revoked_at: null }).execute();
+      await ledger.createRequest({ id: requestId, enterprise_id: enterpriseId,
+        principal_id: principalId, principal_key_id: keyId, protocol: "OPENAI_CHAT",
+        unified_model: "kimi-k2", unified_model_id: null });
+      const attempt = await ledger.createAttempt({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, attempt_no: 1, provider_resource_id: planResourceId,
+        upstream_model: "kimi-k2" });
+      await ledger.createUsageAndLedgerLineIfAbsent({ usage: { ai_request_id: requestId,
+        enterprise_id: enterpriseId, upstream_attempt_id: attempt.id,
+        provider_resource_id: planResourceId, input_tokens: tokens, output_tokens: 0n,
+        cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: "PROVIDER_REPORTED",
+        dedup_key: `${requestId}:attempt1` }, ledger_line: { ai_request_id: requestId,
+        enterprise_id: enterpriseId, upstream_attempt_id: attempt.id,
+        provider_resource_id: planResourceId, principal_id: principalId,
+        resource_mode: "CODING_PLAN", raw_input_tokens: tokens, raw_output_tokens: 0n,
+        raw_cache_tokens: 0n, raw_reasoning_tokens: 0n, api_cost: null,
+        api_cost_status: "NOT_APPLICABLE", settled_at: new Date("2026-09-03T00:00:00.000Z"),
+        usage_quality: "PROVIDER_REPORTED" } });
+      const finishedAt = new Date("2026-09-03T00:00:01.000Z");
+      await ledger.updateAttemptResult(attempt.id, { http_status: 200,
+        response_committed: true, first_byte_at: finishedAt, finished_at: finishedAt,
+        error_classification: null, error_code: null });
+      await ledger.finalizeLedgerSettlementIfAbsent({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, principal_id: principalId,
+        total_input_tokens: tokens, total_output_tokens: 0n, total_cache_tokens: 0n,
+        total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: "0",
+        usage_quality: "PROVIDER_REPORTED", attempt_count: 1, request_status: "SUCCEEDED" });
+    }
+    const providerResources = await app.inject({ method: "GET",
+      url: "/provider-resources", headers: { cookie } });
+    expect(providerResources.json().resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: planResourceId,
+        finance: expect.objectContaining({ monthlyPlanCashCny: "199.00000000" }) }),
+    ]));
+    const utilization = await app.inject({ method: "GET",
+      url: "/provider-resources/utilization?month=2026-09", headers: { cookie } });
+    expect(utilization.json().resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceId: planResourceId, packageCost: "199.00000000",
+        servicePeriodStart: "2026-09-01", servicePeriodEnd: "2026-10-01" }),
+      expect.objectContaining({ resourceId: apiResourceId, currentBalance: "65.00000000" }),
+    ]));
+    const dashboard = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie } });
+    expect(dashboard.json()).toMatchObject({ monthlyPackagePayment: "199.00000000",
+      monthlyTotalSpend: "199.00000000" });
+    const bill = await app.inject({ method: "GET",
+      url: "/operating-bills/2026-09", headers: { cookie } });
+    expect(bill.json()).toMatchObject({ status: "DRAFT",
+      summary: { packageCost: "199.00000000", totalCost: "199.00000000",
+        unallocatedCost: "0.00000000" },
+      sourceFacts: { providerFinance: { resourceViews: expect.any(Array) } } });
+    expect(bill.json().subjects).toEqual(expect.arrayContaining([
+      expect.objectContaining({ principalName: "Finance Employee 1",
+        packageAllocatedCost: "149.25000000" }),
+      expect.objectContaining({ principalName: "Finance Employee 2",
+        packageAllocatedCost: "49.75000000" }),
+    ]));
+    const departments = await app.inject({ method: "GET",
+      url: "/operating-bills/2026-09/departments", headers: { cookie } });
+    expect(departments.json()).toMatchObject({
+      totals: { packageCost: "199.00000000", totalCost: "199.00000000" },
+      conservation: { status: "BALANCED" },
     });
   });
 
@@ -210,6 +296,13 @@ describe("provider finance routes", () => {
     const missingPeriods = await app.inject({ method: "GET",
       url: `/provider-resources/${randomUUID()}/subscription-periods`, headers: { cookie } });
     expect(missingPeriods.statusCode).toBe(404);
+    const oldSnapshotWrite = await app.inject({ method: "PATCH",
+      url: `/provider-resources/${apiResourceId}`, headers: { cookie },
+      payload: { expected_version: 1, operating_snapshot: { source: "ADMIN",
+        collected_at: "2026-09-03T00:00:00.000Z", currency: "CNY",
+        current_balance: "999" } } });
+    expect(oldSnapshotWrite.statusCode).toBe(409);
+    expect(oldSnapshotWrite.json()).toMatchObject({ error: "finance_entry_moved" });
   });
 
   it("DARK模式允许只读但隐藏全部资金写入口", async () => {
@@ -221,11 +314,24 @@ describe("provider finance routes", () => {
       const read = await darkApp.inject({ method: "GET",
         url: `/provider-resources/${apiResourceId}/finance/balance?currency=CNY`, headers: { cookie } });
       expect(read.statusCode).toBe(200);
+      const session = await darkApp.inject({ method: "GET", url: "/auth/me", headers: { cookie } });
+      expect(session.json().providerFinanceMode).toBe("DARK");
+      const resources = await darkApp.inject({ method: "GET",
+        url: "/provider-resources", headers: { cookie } });
+      expect(resources.json().resources.find((item: { id: string }) => item.id === apiResourceId)
+        .finance).toBeTruthy();
       const write = await darkApp.inject({ method: "POST",
         url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
         payload: { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
           occurred_at: "2026-09-02T01:00:00.000Z", idempotency_key: randomUUID() } });
       expect(write.statusCode).toBe(404);
+      const close = await darkApp.inject({ method: "POST",
+        url: "/operating-bills/2026-09/close", headers: { cookie },
+        payload: { allow_incomplete: true, note: "finance projection freeze" } });
+      expect(close.statusCode).toBe(200);
+      expect(close.json()).toMatchObject({ status: "CLOSED",
+        sourceFacts: { providerFinance: { resourceViews: expect.any(Array) },
+          departmentBill: { conservation: { status: "BALANCED" } } } });
     } finally {
       await darkApp.close();
       if (prior === undefined) delete process.env.PROVIDER_FINANCE_MODE;

@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as ApiClient from "../api/client";
 import type { ProviderResourceItem } from "../api/types";
 import { ResourcesPage } from "./Resources";
+import { ProviderFinanceModeProvider } from "../feature-flags";
+import type { ProviderFinanceMode } from "../api/types";
 
 const postMock = vi.fn();
 const patchMock = vi.fn();
@@ -95,11 +97,11 @@ async function detectModels(user: ReturnType<typeof userEvent.setup>) {
   expect((await screen.findAllByText("kimi-k2")).length).toBeGreaterThan(0);
 }
 
-function renderPage(path = "/resources") {
+function renderPage(path = "/resources", financeMode: ProviderFinanceMode = "OFF") {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[path]}>
-        <ResourcesPage />
+        <ProviderFinanceModeProvider value={financeMode}><ResourcesPage /></ProviderFinanceModeProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -144,6 +146,50 @@ describe("厂商资源四 Tab", () => {
     renderPage(`/resources#health-${resource.id}`);
     expect(screen.getByRole("tab", { name: "供给与健康" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("heading", { name: "资源健康与异常" })).toBeInTheDocument();
+  });
+
+  it("DARK增加充值与订阅Tab，只有充值按钮且入账保持关闭", async () => {
+    const user = userEvent.setup();
+    getMock.mockImplementation(async (path: string) => path.startsWith("/provider-finance/summary")
+      ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "600",
+        apiRecharges: [{ currency: "CNY", amount: "600" }], apiOperatingCosts: [],
+        codingPlanOrders: [], codingPlanFixedCostCny: "0", operatingCostCny: "0",
+        operatingCostByCurrency: [], complete: true, gaps: [] }
+      : path.includes("/finance/events") ? { items: [], total: 0 } : { periods: [] });
+    renderPage("/resources", "DARK");
+    expect(screen.getAllByRole("tab")).toHaveLength(5);
+    await user.click(screen.getByRole("tab", { name: "充值与订阅" }));
+    expect(await screen.findByText("人民币实付")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "充值" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "新增订阅" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "充值" }));
+    await user.click(screen.getByRole("button", { name: "Coding Plan" }));
+    expect(screen.getByLabelText("厂商产品模型")).toHaveValue(resource.id);
+    expect(screen.getByRole("button", { name: "入账确认" })).toBeDisabled();
+  });
+
+  it("ACTIVE从充值按钮登记Coding Plan并包含自然月周期入口", async () => {
+    const user = userEvent.setup();
+    getMock.mockImplementation(async (path: string) => path.startsWith("/provider-finance/summary")
+      ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "0",
+        apiRecharges: [], apiOperatingCosts: [], codingPlanOrders: [],
+        codingPlanFixedCostCny: "0", operatingCostCny: "0",
+        operatingCostByCurrency: [], complete: true, gaps: [] }
+      : path.includes("/finance/events") ? { items: [], total: 0 } : { periods: [] });
+    postMock.mockResolvedValue({ event: { id: "event-1" }, periodId: "period-1" });
+    renderPage("/resources?tab=finance", "ACTIVE");
+    await user.click(screen.getByRole("button", { name: "充值" }));
+    await user.click(screen.getByRole("button", { name: "Coding Plan" }));
+    await user.type(screen.getByLabelText("订阅金额"), "199");
+    await user.type(screen.getByLabelText("人民币实付"), "199");
+    await user.type(screen.getByLabelText("服务周期开始日"), "2026-09-19");
+    await user.click(screen.getByRole("button", { name: "入账确认" }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith(
+      `/provider-resources/${resource.id}/finance/subscriptions`,
+      expect.objectContaining({ kind: "RENEWAL", product_name: "Kimi 套餐",
+        account_amount: "199.00", cash_paid_cny: "199.00",
+        service_period_start: "2026-09-19" }),
+    ));
   });
 });
 
@@ -202,10 +248,8 @@ describe("POOL-010 厂商经营快照", () => {
     await detectModels(user);
     await user.type(screen.getByLabelText("厂商总额度"), "30000000");
     expect(screen.getByLabelText("厂商总额度")).toHaveValue("30,000,000");
-    await user.type(screen.getByLabelText("生效时间"), "2026-07-01T00:00");
-    await user.type(screen.getByLabelText("套餐费用"), "299.4");
-    await user.tab();
-    expect(screen.getByLabelText("套餐费用")).toHaveValue("299.40");
+    expect(screen.queryByLabelText("套餐费用")).not.toBeInTheDocument();
+    expect(screen.getByText(/订阅金额和服务周期在“充值与订阅”中登记/)).toBeInTheDocument();
     expect(screen.queryByLabelText("厂商已用额度")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("厂商剩余额度")).not.toBeInTheDocument();
     expect(screen.getByText(/已用额度取当前周期内该资源的账本扣减/)).toBeInTheDocument();
@@ -222,7 +266,9 @@ describe("POOL-010 厂商经营快照", () => {
         source: "ADMIN",
         total_quota: "30000000",
         quota_unit: "TOKEN",
-        package_cost: "299.40",
+        package_cost: null,
+        effective_from: null,
+        effective_until: null,
         reset_cycle: "QUARTERLY",
         reset_anchor_at: "2026-07-31T16:00:00.000Z",
       },
@@ -232,11 +278,12 @@ describe("POOL-010 厂商经营快照", () => {
     expect(onboardPayload.operating_snapshot).not.toHaveProperty("next_reset_at");
   });
 
-  it("API 与套餐表单只展示各自经营字段", async () => {
+  it("资源登记不再提供资金入口，套餐只保留额度配置", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: "登记资源" }));
-    expect(screen.getByLabelText("当前余额")).toBeInTheDocument();
+    expect(screen.queryByLabelText("当前余额")).not.toBeInTheDocument();
+    expect(screen.getByText(/API 期初、充值、余额和费用统一由“充值与订阅”资金账本管理/)).toBeInTheDocument();
     expect(screen.queryByLabelText("厂商总额度")).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("模式"), "CODING_PLAN");
@@ -267,12 +314,11 @@ describe("POOL-010 厂商经营快照", () => {
   it("PATCH 使用 expected_version 追加快照，并展示 v2/v1 历史", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByRole("button", { name: "更新套餐配置" }));
+    await user.click(screen.getByRole("button", { name: "更新额度配置" }));
     expect(await screen.findByText("v2 · ADMIN")).toBeInTheDocument();
     expect(screen.getByText("v1 · ADMIN")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("厂商总额度"));
     await user.type(screen.getByLabelText("厂商总额度"), "100");
-    await user.type(screen.getByLabelText("套餐生效时间"), "2026-07-01T00:00");
     await user.selectOptions(screen.getByLabelText("重置周期"), "MONTHLY");
     await user.type(screen.getByLabelText("重置日期"), "2026-08-01T00:00");
     await user.click(screen.getByRole("button", { name: "追加快照" }));
@@ -293,22 +339,19 @@ describe("POOL-010 厂商经营快照", () => {
     expect(payload).not.toHaveProperty("next_reset_at");
   });
 
-  it("套餐失效时间不得早于或等于生效时间", async () => {
+  it("额度快照不再包含套餐费用和服务周期字段", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByRole("button", { name: "更新套餐配置" }));
+    await user.click(screen.getByRole("button", { name: "更新额度配置" }));
     await user.type(screen.getByLabelText("厂商总额度"), "100");
-    await user.type(screen.getByLabelText("套餐生效时间"), "2026-08-03T11:49");
-    await user.type(screen.getByLabelText("套餐失效时间"), "2026-08-03T11:49");
     await user.click(screen.getByRole("button", { name: "追加快照" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "套餐失效时间必须晚于生效时间",
-    );
-    expect(patchMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(patchMock).toHaveBeenCalled());
+    const payload = patchMock.mock.calls[0]?.[1].operating_snapshot;
+    expect(payload).toMatchObject({ package_cost: null, effective_from: null,
+      effective_until: null });
   });
 
-  it("金额输入拒绝三位小数且列表只展示两位", async () => {
-    const user = userEvent.setup();
+  it("API旧快照金额不再显示或提供编辑入口", () => {
     useProviderResourcesMock.mockReturnValue({
       data: {
         resources: [{
@@ -333,16 +376,9 @@ describe("POOL-010 厂商经营快照", () => {
       refetch: vi.fn(),
     });
     renderPage();
-    expect(screen.getByText("充值 CNY 109.41")).toBeInTheDocument();
-    expect(screen.getByText("余额 68.00")).toBeInTheDocument();
-    expect(screen.getByText("本期费用 47.41")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "更新经营数据" }));
-    const balance = screen.getByLabelText("当前余额");
-    expect(balance).toHaveValue("68.00");
-    await user.clear(balance);
-    await user.type(balance, "68.001");
-    await user.click(screen.getByRole("button", { name: "追加快照" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("当前余额：请输入非负金额，最多保留两位小数");
+    expect(screen.getByText("资金账本未启用")).toBeInTheDocument();
+    expect(screen.queryByText("充值 CNY 109.41")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "更新经营数据" })).not.toBeInTheDocument();
     expect(patchMock).not.toHaveBeenCalled();
   });
 });

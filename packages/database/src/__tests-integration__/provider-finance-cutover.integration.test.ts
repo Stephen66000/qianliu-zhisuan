@@ -5,7 +5,8 @@ import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/test
 
 import {
   createKysely, GatewayLedgerRepository, migrateDown, migrateToLatest, ProviderFinanceCutoverRepository,
-  ProviderFinanceRepository, PROVIDER_FINANCE_CUTOVER, PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
+  OperatingBillRepository, ProviderFinanceRepository, PROVIDER_FINANCE_CUTOVER,
+  PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
 } from "../index.js";
 
 let pg: PostgresTestInstance;
@@ -232,6 +233,12 @@ describe("provider finance cutover rehearsal", () => {
         complete: true, apiOperatingCosts: [{ currency: "CNY", amount: "5.00000000" }],
         operatingCostCny: "5.00000000",
       });
+      const operatingBill = await new OperatingBillRepository(db, "DARK")
+        .getBill(enterpriseId, "2026-09");
+      expect(operatingBill.subjects).toEqual(expect.arrayContaining([
+        expect.objectContaining({ principalId: "__unassigned_project__",
+          apiCost: "4.00000000", totalAllocatedCost: "4.00000000" }),
+      ]));
       expect((await cutover.buildPreflightReport(enterpriseId)).blockers)
         .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_COST_UNCLASSIFIED" }));
       const afterResolution = await cutover.buildConservationReport(enterpriseId, "2026-09");

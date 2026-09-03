@@ -128,6 +128,29 @@ export interface MonthlyFinanceSummary {
   gaps: Array<{ code: string; count: number }>;
 }
 
+export interface ResourceFinanceView {
+  resourceId: string;
+  mode: "API" | "CODING_PLAN";
+  accounts: Array<{
+    currency: FinanceCurrency;
+    balanceState: FinanceBalanceState;
+    balance: string | null;
+    monthOpeningState: FinanceBalanceState;
+    monthOpeningBalance: string | null;
+    monthlyRecharge: string;
+    monthlyApiCost: string;
+  }>;
+  monthlyPlanCashCny: string;
+  currentPeriod: null | {
+    id: string;
+    productName: string;
+    periodStart: string;
+    periodEndExclusive: string;
+    trueTokens: string;
+    requestCount: string;
+  };
+}
+
 export class ProviderFinanceError extends Error {
   constructor(
     readonly code: "NOT_FOUND" | "INVALID_MODE" | "INVALID_REQUEST" | "CONFLICT" | "IDEMPOTENCY_CONFLICT" | "DUPLICATE_CONFIRMATION_REQUIRED",

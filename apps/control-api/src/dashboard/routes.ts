@@ -8,6 +8,11 @@
 import type { FastifyInstance } from "fastify";
 import { UsageOverviewRepository } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
+import {
+  financeReadModelEnabled,
+  projectDashboardFinance,
+  shanghaiMonthAt,
+} from "../provider-finance/dashboard-projection.js";
 
 export function registerDashboardRoutes(
   app: FastifyInstance,
@@ -16,10 +21,17 @@ export function registerDashboardRoutes(
   // GET /dashboard —— 首页八项口径聚合（TRD §12）
   app.get("/dashboard", { preHandler: [requireAuth] }, async (req) => {
     const anchor = new Date();
-    const summary = await app.dashboardRepo.getSummary(
-      req.admin!.enterpriseId,
-      anchor.getTime(),
+    const enterpriseId = req.admin!.enterpriseId;
+    const financeRead = await financeReadModelEnabled(
+      app.providerFinanceMode, app.providerFinanceRepo, enterpriseId,
     );
+    const [legacySummary, financeSummary] = await Promise.all([
+      app.dashboardRepo.getSummary(enterpriseId, anchor.getTime()),
+      !financeRead ? null
+        : app.providerFinanceRepo.getMonthlyFinanceSummary(enterpriseId, shanghaiMonthAt(anchor)),
+    ]);
+    const summary = financeSummary
+      ? projectDashboardFinance(legacySummary, financeSummary) : legacySummary;
     if (options.usageOverviewV2 === false) return summary;
     const employeeUsageOverview = await new UsageOverviewRepository(app.db).getOverview({
       enterpriseId: req.admin!.enterpriseId,

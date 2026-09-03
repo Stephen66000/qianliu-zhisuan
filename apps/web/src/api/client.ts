@@ -14,12 +14,14 @@ import type { ApiErrorBody } from "./types";
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly detail: unknown;
 
   constructor(status: number, body: ApiErrorBody | null, fallbackMessage: string) {
     super(body?.message ?? fallbackMessage);
     this.name = "ApiError";
     this.status = status;
     this.code = body?.error ?? "unknown_error";
+    this.detail = body?.detail;
   }
 }
 

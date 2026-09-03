@@ -16,9 +16,10 @@ export async function loadLiveDepartmentBill(
   db: Kysely<Database>,
   enterpriseId: string,
   month: string,
+  financeEnabled = false,
 ): Promise<DepartmentBillView> {
   const [{ costs, packages, enterprise, timezone }, departmentsResult, periodResult] = await Promise.all([
-    loadRawCosts(db, enterpriseId, month),
+    loadRawCosts(db, enterpriseId, month, financeEnabled),
     sql<RawDepartment>`
       SELECT ou.id, ou.name, ou.status, b.id AS budget_id, b.currency, b.amount::text,
              b.warning_threshold::text, b.version AS budget_version,

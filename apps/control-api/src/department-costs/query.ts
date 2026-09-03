@@ -10,8 +10,9 @@ export function loadDepartmentBillView(
   db: Kysely<Database>,
   enterpriseId: string,
   month: string,
+  financeEnabled = false,
 ): Promise<DepartmentBillView> {
-  return loadDatabaseDepartmentBill(db, enterpriseId, month);
+  return loadDatabaseDepartmentBill(db, enterpriseId, month, financeEnabled);
 }
 
 export { loadDepartmentBillView as loadDepartmentBill };

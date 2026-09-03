@@ -7,14 +7,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { get, post } from "./client";
-import type { AdminSession, FeatureFlags, LoginResponse } from "./types";
+import type { AdminSession, FeatureFlags, LoginResponse, ProviderFinanceMode } from "./types";
 
 export const AUTH_QUERY_KEY = ["auth", "me"] as const;
 
 export function useAdminSession() {
   return useQuery({
     queryKey: AUTH_QUERY_KEY,
-    queryFn: ({ signal }) => get<{ admin: AdminSession; featureFlags: FeatureFlags }>("/auth/me", signal),
+    queryFn: ({ signal }) => get<{
+      admin: AdminSession; featureFlags: FeatureFlags; providerFinanceMode: ProviderFinanceMode;
+    }>("/auth/me", signal),
     retry: false,
     staleTime: 5 * 60_000,
   });

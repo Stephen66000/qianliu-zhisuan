@@ -176,6 +176,98 @@ function costCtes(
   `;
 }
 
+/** 新资金合同：当月实际订阅实付为100%，按当月输入+输出Token占比分摊。 */
+function financeCostCtes(
+  enterpriseId: string,
+  startedAt: Date,
+  endedAt: Date,
+): RawBuilder<unknown> {
+  return sql`
+    latest_attribution AS (
+      ${latestAttributionQuery(enterpriseId)}
+    ), plan_resources AS (
+      SELECT resource.id AS provider_resource_id,
+             coalesce(sum(event.cash_paid_cny) FILTER (
+               WHERE event.event_type IN ('CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL','REVERSAL')
+                 AND event.occurred_at>=${startedAt}::timestamptz
+                 AND event.occurred_at<${endedAt}::timestamptz
+             ),0)::numeric AS package_cost,
+             true AS cost_known,
+             ${startedAt}::timestamptz AS started_at,
+             ${endedAt}::timestamptz AS ended_at
+        FROM provider_resource resource
+        LEFT JOIN provider_finance_event event
+          ON event.enterprise_id=resource.enterprise_id
+         AND event.provider_resource_id=resource.id
+       WHERE resource.enterprise_id=${enterpriseId}::uuid
+         AND resource.mode='CODING_PLAN' AND resource.status<>'DELETED'
+       GROUP BY resource.id
+    ), plan_state AS (
+      SELECT resource.provider_resource_id, resource.package_cost, true AS cost_known,
+             resource.package_cost<>0 AND coalesce(usage.total_tokens,0)>0 AS allocatable,
+             coalesce(usage.total_tokens,0)::numeric AS total_deducted,
+             resource.started_at, resource.ended_at
+        FROM plan_resources resource
+        LEFT JOIN LATERAL (
+          SELECT sum(line.raw_input_tokens+line.raw_output_tokens)::numeric AS total_tokens
+            FROM ledger_line line
+           WHERE line.enterprise_id=${enterpriseId}::uuid
+             AND line.provider_resource_id=resource.provider_resource_id
+             AND line.resource_mode='CODING_PLAN'
+             AND line.settled_at>=resource.started_at AND line.settled_at<resource.ended_at
+        ) usage ON true
+    ), plan_line_floor AS (
+      SELECT line.id AS ledger_line_id, line.provider_resource_id,
+             floor(state.package_cost*100000000::numeric
+               *(line.raw_input_tokens+line.raw_output_tokens)::numeric/state.total_deducted) AS base_units,
+             (state.package_cost*100000000::numeric
+               *(line.raw_input_tokens+line.raw_output_tokens)::numeric/state.total_deducted)
+               - floor(state.package_cost*100000000::numeric
+                 *(line.raw_input_tokens+line.raw_output_tokens)::numeric/state.total_deducted) AS fraction,
+             round(state.package_cost*100000000::numeric) AS total_units
+        FROM plan_state state
+        JOIN ledger_line line ON line.enterprise_id=${enterpriseId}::uuid
+         AND line.provider_resource_id=state.provider_resource_id
+         AND line.resource_mode='CODING_PLAN'
+         AND line.settled_at>=state.started_at AND line.settled_at<state.ended_at
+       WHERE state.allocatable
+    ), plan_line_rank AS (
+      SELECT floor.*,
+             row_number() OVER (PARTITION BY provider_resource_id
+               ORDER BY fraction DESC, ledger_line_id) AS remainder_rank,
+             total_units-sum(base_units) OVER (PARTITION BY provider_resource_id) AS remainder_units
+        FROM plan_line_floor floor
+    ), plan_line_allocation AS (
+      SELECT ledger_line_id,
+             (base_units+CASE WHEN remainder_rank<=remainder_units THEN 1 ELSE 0 END)
+               /100000000::numeric AS allocated_cost
+        FROM plan_line_rank
+    ), line_facts AS (
+      SELECT attribution.organization_unit_id AS department_id,
+             coalesce(attribution.cost_category,'UNASSIGNED') AS cost_category,
+             line.resource_mode, line.raw_input_tokens, line.raw_output_tokens,
+             CASE WHEN line.resource_mode='API' AND line.api_cost_status='PRICED_USAGE'
+               THEN line.api_cost ELSE 0::numeric END AS api_line_cost,
+             CASE WHEN line.resource_mode='CODING_PLAN'
+               THEN coalesce(allocation.allocated_cost,0) ELSE 0::numeric END AS package_line_cost
+        FROM ledger_line line
+        LEFT JOIN latest_attribution attribution ON attribution.ai_request_id=line.ai_request_id
+        LEFT JOIN plan_line_allocation allocation ON allocation.ledger_line_id=line.id
+       WHERE line.enterprise_id=${enterpriseId}::uuid
+         AND line.settled_at>=${startedAt}::timestamptz
+         AND line.settled_at<${endedAt}::timestamptz
+      UNION ALL
+      SELECT NULL::uuid, 'UNASSIGNED', 'API', 0::bigint, 0::bigint,
+             -event.account_amount, 0::numeric
+        FROM provider_finance_event event
+       WHERE event.enterprise_id=${enterpriseId}::uuid
+         AND event.event_type='API_LEGACY_COST_ADJUSTMENT'
+         AND event.occurred_at>=${startedAt}::timestamptz
+         AND event.occurred_at<${endedAt}::timestamptz
+    )
+  `;
+}
+
 /** 没有可经营的 Coding Plan 时跳过套餐分摊 CTE，API 与未知值口径保持不变。 */
 function apiOnlyCostCtes(
   enterpriseId: string,
@@ -248,6 +340,7 @@ export async function loadRawCosts(
   db: Kysely<Database>,
   enterpriseId: string,
   month: string,
+  financeEnabled = false,
 ): Promise<{
   costs: RawCostRow[];
   packages: RawPackageSummary;
@@ -271,7 +364,8 @@ export async function loadRawCosts(
       ) settings
   `.execute(db);
   const bounds = boundsResult.rows[0]!;
-  const ctes = bounds.has_plan_resources
+  const ctes = financeEnabled ? financeCostCtes(enterpriseId, bounds.started_at, bounds.ended_at)
+    : bounds.has_plan_resources
     ? costCtes(enterpriseId, bounds.started_at, bounds.ended_at)
     : apiOnlyCostCtes(enterpriseId, bounds.started_at, bounds.ended_at);
   const costQuery = sql<RawCostAggregateRow>`

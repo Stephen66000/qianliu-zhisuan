@@ -14,6 +14,7 @@ import type {
   FrozenDepartmentBudgetFact,
   FrozenResourcePurchaseFact,
 } from "./department-cost-evidence.js";
+import type { ResourceFinanceView } from "./provider-finance-types.js";
 
 export type OperatingBillPeriod = Selectable<OperatingBillPeriodTable>;
 export type OperatingBillValueItem = Selectable<OperatingBillValueItemTable>;
@@ -197,6 +198,7 @@ export interface OperatingBillSnapshot {
     departmentAttributionFacts?: FrozenDepartmentAttributionFact[];
     departmentBudgetFacts?: FrozenDepartmentBudgetFact[];
     resourcePurchaseFacts?: FrozenResourcePurchaseFact[];
+    providerFinance?: { resourceViews: ResourceFinanceView[] };
   };
 }
 

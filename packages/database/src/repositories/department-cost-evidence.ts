@@ -104,6 +104,7 @@ export async function loadDepartmentBill(
   db: Kysely<Database>,
   enterpriseId: string,
   month: string,
+  financeEnabled = false,
 ): Promise<DepartmentBillView> {
   const result = await sql<FrozenDepartmentResult>`
     SELECT p.status, p.current_version,
@@ -120,7 +121,7 @@ export async function loadDepartmentBill(
     if (!period.department_bill) throw new DepartmentBillEvidenceUnavailableError();
     return period.department_bill;
   }
-  return loadLiveDepartmentBill(db, enterpriseId, month);
+  return loadLiveDepartmentBill(db, enterpriseId, month, financeEnabled);
 }
 
 /** 在 closeMonth 的 RR 事务快照内一次性收集部门读模型及其可追溯事实。 */
@@ -128,8 +129,9 @@ export async function loadDepartmentCloseEvidence(
   db: Kysely<Database>,
   enterpriseId: string,
   month: string,
+  financeEnabled = false,
 ): Promise<DepartmentCloseEvidence> {
-  const departmentBill = await loadLiveDepartmentBill(db, enterpriseId, month);
+  const departmentBill = await loadLiveDepartmentBill(db, enterpriseId, month, financeEnabled);
   const [attributionResult, budgetResult, purchaseResult] = await Promise.all([
     sql<RawAttributionFact>`
       WITH bounds AS (
