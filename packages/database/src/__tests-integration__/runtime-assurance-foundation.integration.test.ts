@@ -95,7 +95,8 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
       ]);
 
       const before = await schemaFingerprint(db);
-    expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
+      expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
+      expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
     expect(await migrateDown(db)).toBe("0058_principal_grant_archive");
     expect(await migrateDown(db)).toBe("0057_model_discovery_v12");
     expect(await migrateDown(db)).toBe("0056_resource_monthly_budget");

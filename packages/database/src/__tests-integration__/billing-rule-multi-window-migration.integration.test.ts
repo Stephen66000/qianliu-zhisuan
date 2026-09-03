@@ -87,6 +87,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
+      expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
       expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
       expect(await migrateDown(db)).toBe("0058_principal_grant_archive");
       expect(await migrateDown(db)).toBe("0057_model_discovery_v12");

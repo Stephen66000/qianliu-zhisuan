@@ -5,6 +5,7 @@ export type ProviderFinanceEventType =
   | "API_OPENING_BALANCE_CORRECTION"
   | "API_RECHARGE"
   | "API_BALANCE_RECONCILIATION"
+  | "API_LEGACY_COST_ADJUSTMENT"
   | "CODING_PLAN_PURCHASE"
   | "CODING_PLAN_RENEWAL"
   | "REVERSAL";
@@ -22,12 +23,35 @@ export interface ProviderFinanceEventTable {
   reversal_of_event_id: string | null;
   correction_of_event_id: string | null;
   reconciliation_case_id: string | null;
+  legacy_cost_resolution_id: Generated<string | null>;
   description: string | null;
   evidence_ref: string | null;
   source: "ADMIN" | "MIGRATION" | "RECONCILIATION" | "SYSTEM_REVERSAL";
   idempotency_key: string;
   created_by_admin_user_id: string | null;
   created_at: Generated<Date>;
+}
+
+export interface ProviderFinanceLegacyCostResolutionTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_resource_id: string;
+  account_currency: "CNY" | "USD";
+  window_start: Date;
+  window_end_inclusive: Date;
+  provider_balance_snapshot_id: string;
+  provider_confirmed_balance: string;
+  local_balance_before_adjustment: string;
+  known_api_cost: string;
+  missing_api_cost: string;
+  unknown_line_count: bigint;
+  status: Generated<"OPEN" | "RESOLVED">;
+  adjustment_event_id: string | null;
+  evidence_ref: string;
+  created_by_admin_user_id: string;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+  resolved_at: Date | null;
 }
 
 export interface ProviderSubscriptionPeriodTable {

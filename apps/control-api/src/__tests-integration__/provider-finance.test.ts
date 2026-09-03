@@ -116,6 +116,10 @@ describe("provider finance routes", () => {
       period_start: "2026-09-01T16:00:00.000Z",
       period_end_exclusive: "2026-10-01T16:00:00.000Z",
       current_status: "ACTIVE",
+      fixed_fee_amount: "199.00000000", fixed_fee_currency: "CNY",
+      fixed_cash_paid_cny: "199.00000000",
+      token_usage: expect.objectContaining({ input_tokens: "0", output_tokens: "0",
+        cache_tokens: "0", reasoning_tokens: "0", true_tokens: "0" }),
     })]);
     const summary = await app.inject({ method: "GET",
       url: "/provider-finance/summary?month=2026-09", headers: { cookie } });

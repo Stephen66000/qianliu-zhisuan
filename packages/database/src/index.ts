@@ -315,6 +315,8 @@ export type {
   FinancePreflightReport,
   FinancePurchaseCandidate,
   FinanceUsageBackfillReport,
+  LegacyApiCostResolutionInput,
+  LegacyApiCostResolutionView,
 } from "./repositories/provider-finance-cutover-types.js";
 export {
   PROVIDER_FINANCE_CUTOVER,

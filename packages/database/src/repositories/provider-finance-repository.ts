@@ -53,6 +53,7 @@ function eventView(row: {
   account_currency: string; cash_paid_cny: string | null; occurred_at: Date;
   external_reference: string | null; reversal_of_event_id: string | null;
   correction_of_event_id: string | null; reconciliation_case_id: string | null;
+  legacy_cost_resolution_id: string | null;
   description: string | null; evidence_ref: string | null; source: string; created_at: Date;
 }): FinanceEventView {
   return {
@@ -63,6 +64,7 @@ function eventView(row: {
     externalReference: row.external_reference, reversalOfEventId: row.reversal_of_event_id,
     correctionOfEventId: row.correction_of_event_id,
     reconciliationCaseId: row.reconciliation_case_id,
+    legacyCostResolutionId: row.legacy_cost_resolution_id,
     description: row.description, evidenceRef: row.evidence_ref,
     source: row.source, createdAt: row.created_at.toISOString(), replayed: false,
   };
@@ -580,7 +582,8 @@ export class ProviderFinanceRepository {
       const empty = {
         openingBalance: "0.00000000", openingCorrections: "0.00000000",
         recharges: "0.00000000", usageDebits: "0.00000000",
-        balanceReconciliations: "0.00000000", reversals: "0.00000000",
+        balanceReconciliations: "0.00000000", legacyCostAdjustments: "0.00000000",
+        reversals: "0.00000000",
       };
       if (asOf < PROVIDER_FINANCE_CUTOVER) return {
         providerResourceId: resourceId, currency, asOf: asOf.toISOString(),
@@ -591,11 +594,13 @@ export class ProviderFinanceRepository {
       };
       const [events, usage, unknown, openCase] = await Promise.all([
         sql<{ opening: string; corrections: string; recharges: string; reconciliations: string;
+          legacy_costs: string;
           reversals: string; opening_count: string; latest_id: string | null; latest_at: Date | null }>`
           SELECT COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_OPENING_BALANCE'),0)::text AS opening,
                  COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_OPENING_BALANCE_CORRECTION'),0)::text AS corrections,
                  COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_RECHARGE'),0)::text AS recharges,
                  COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_BALANCE_RECONCILIATION'),0)::text AS reconciliations,
+                 COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_LEGACY_COST_ADJUSTMENT'),0)::text AS legacy_costs,
                  COALESCE(SUM(account_amount) FILTER (WHERE event_type='REVERSAL'),0)::text AS reversals,
                  COUNT(*) FILTER (WHERE event_type='API_OPENING_BALANCE')::text AS opening_count,
                  (ARRAY_AGG(id ORDER BY occurred_at DESC, created_at DESC, id DESC))[1] AS latest_id,
@@ -614,12 +619,20 @@ export class ProviderFinanceRepository {
              AND provider_resource_id=${resourceId}::uuid AND resource_mode='API'
              AND COALESCE(settled_at,created_at) >= ${PROVIDER_FINANCE_CUTOVER}
              AND COALESCE(settled_at,created_at) <= ${asOf}`.execute(trx),
-        sql<{ id: string; ai_request_id: string }>`SELECT id, ai_request_id FROM ledger_line
-          WHERE enterprise_id=${enterpriseId}::uuid AND provider_resource_id=${resourceId}::uuid
-            AND resource_mode='API' AND (api_cost_status='UNKNOWN_COST' OR api_cost_status IS NULL)
-            AND COALESCE(settled_at, created_at) >= ${PROVIDER_FINANCE_CUTOVER}
-            AND COALESCE(settled_at, created_at) <= ${asOf}
-          ORDER BY COALESCE(settled_at, created_at), id LIMIT 100`.execute(trx),
+        sql<{ id: string; ai_request_id: string }>`SELECT line.id, line.ai_request_id
+          FROM ledger_line line
+          LEFT JOIN provider_finance_legacy_cost_resolution resolution
+            ON resolution.enterprise_id=line.enterprise_id
+           AND resolution.id=line.legacy_cost_resolution_id
+          WHERE line.enterprise_id=${enterpriseId}::uuid
+            AND line.provider_resource_id=${resourceId}::uuid
+            AND line.resource_mode='API'
+            AND (line.api_cost_status='UNKNOWN_COST' OR line.api_cost_status IS NULL)
+            AND COALESCE(line.settled_at, line.created_at) >= ${PROVIDER_FINANCE_CUTOVER}
+            AND COALESCE(line.settled_at, line.created_at) <= ${asOf}
+            AND (resolution.id IS NULL OR resolution.status<>'RESOLVED'
+              OR resolution.window_end_inclusive>${asOf})
+          ORDER BY COALESCE(line.settled_at, line.created_at), line.id LIMIT 100`.execute(trx),
         trx.selectFrom("provider_finance_reconciliation_case").select("id")
           .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId)
           .where("account_currency", "=", currency).where("status", "=", "OPEN")
@@ -628,7 +641,8 @@ export class ProviderFinanceRepository {
       const e = events.rows[0]!; const u = usage.rows[0]!;
       const components = { openingBalance: money(e.opening), openingCorrections: money(e.corrections),
         recharges: money(e.recharges), usageDebits: money(u.amount),
-        balanceReconciliations: money(e.reconciliations), reversals: money(e.reversals) };
+        balanceReconciliations: money(e.reconciliations),
+        legacyCostAdjustments: money(e.legacy_costs), reversals: money(e.reversals) };
       const base = { providerResourceId: resourceId, currency, asOf: asOf.toISOString(), components,
         factWatermark: { latestFinanceEventId: e.latest_id,
           latestFinanceOccurredAt: e.latest_at?.toISOString() ?? null,
@@ -638,7 +652,7 @@ export class ProviderFinanceRepository {
       if (unknown.rows.length > 0) return { ...base, state: "INCOMPLETE_USAGE_COST", balance: null,
         gaps: unknown.rows.map((row) => ({ code: "API_USAGE_COST_UNKNOWN", requestId: row.ai_request_id, ledgerLineId: row.id })) };
       const balance = new Money(e.opening).plus(e.corrections).plus(e.recharges)
-        .plus(e.reconciliations).plus(e.reversals).minus(u.amount);
+        .plus(e.reconciliations).plus(e.legacy_costs).plus(e.reversals).minus(u.amount);
       return { ...base, state: balance.isNegative() ? "NEGATIVE_RECONCILIATION_REQUIRED" : "NORMAL",
         balance: money(balance), gaps: [] };
   }
@@ -691,17 +705,29 @@ export class ProviderFinanceRepository {
              OR event.event_type='REVERSAL')
          GROUP BY pr.mode, event.account_currency ORDER BY pr.mode, event.account_currency`.execute(this.db),
       sql<{ currency: FinanceCurrency; amount: string }>`
-        SELECT api_cost_currency AS currency, COALESCE(SUM(api_cost),0)::text AS amount
-          FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
-           AND resource_mode='API' AND api_cost_status='PRICED_USAGE'
-           AND settled_at>=${start} AND settled_at<${end}
-         GROUP BY api_cost_currency ORDER BY api_cost_currency`.execute(this.db),
+        SELECT currency, COALESCE(SUM(amount),0)::text AS amount FROM (
+          SELECT api_cost_currency AS currency, api_cost AS amount
+            FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
+             AND resource_mode='API' AND api_cost_status='PRICED_USAGE'
+             AND settled_at>=${start} AND settled_at<${end}
+          UNION ALL
+          SELECT account_currency AS currency, -account_amount AS amount
+            FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
+             AND event_type='API_LEGACY_COST_ADJUSTMENT'
+             AND occurred_at>=${start} AND occurred_at<${end}
+        ) cost
+        GROUP BY currency ORDER BY currency`.execute(this.db),
       sql<{ code: string; count: string }>`
         SELECT 'API_USAGE_COST_UNKNOWN' AS code, COUNT(*)::text AS count
-          FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
-           AND (api_cost_status='UNKNOWN_COST' OR api_cost_status IS NULL)
-           AND COALESCE(settled_at, created_at)>=${start}
-           AND COALESCE(settled_at, created_at)<${end}
+          FROM ledger_line line
+          LEFT JOIN provider_finance_legacy_cost_resolution resolution
+            ON resolution.enterprise_id=line.enterprise_id
+           AND resolution.id=line.legacy_cost_resolution_id
+         WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='API'
+           AND (line.api_cost_status='UNKNOWN_COST' OR line.api_cost_status IS NULL)
+           AND COALESCE(line.settled_at, line.created_at)>=${start}
+           AND COALESCE(line.settled_at, line.created_at)<${end}
+           AND (resolution.id IS NULL OR resolution.status<>'RESOLVED')
         UNION ALL
         SELECT 'API_COST_CURRENCY_MISSING', COUNT(*)::text
           FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
@@ -773,11 +799,36 @@ export class ProviderFinanceRepository {
       .executeTakeFirst();
     if (!resource) return null;
     const now = new Date();
-    const rows = await this.db.selectFrom("provider_subscription_period").selectAll()
-      .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId)
-      .orderBy("period_start", "desc").execute();
+    const rows = await this.db.selectFrom("provider_subscription_period")
+      .leftJoin("provider_finance_event", (join) => join
+        .onRef("provider_finance_event.enterprise_id", "=", "provider_subscription_period.enterprise_id")
+        .onRef("provider_finance_event.id", "=", "provider_subscription_period.finance_event_id"))
+      .selectAll("provider_subscription_period")
+      .select(["provider_finance_event.account_amount as fixed_fee_amount",
+        "provider_finance_event.account_currency as fixed_fee_currency",
+        "provider_finance_event.cash_paid_cny as fixed_cash_paid_cny"])
+      .where("provider_subscription_period.enterprise_id", "=", enterpriseId)
+      .where("provider_subscription_period.provider_resource_id", "=", resourceId)
+      .orderBy("provider_subscription_period.period_start", "desc").execute();
+    const usageResult = await sql<{
+      subscription_period_id: string; request_count: string; input_tokens: string;
+      output_tokens: string; cache_tokens: string; reasoning_tokens: string; true_tokens: string;
+    }>`SELECT subscription_period_id, COUNT(DISTINCT ai_request_id)::text AS request_count,
+              COALESCE(SUM(raw_input_tokens),0)::text AS input_tokens,
+              COALESCE(SUM(raw_output_tokens),0)::text AS output_tokens,
+              COALESCE(SUM(raw_cache_tokens),0)::text AS cache_tokens,
+              COALESCE(SUM(raw_reasoning_tokens),0)::text AS reasoning_tokens,
+              COALESCE(SUM(raw_input_tokens+raw_output_tokens),0)::text AS true_tokens
+         FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
+          AND provider_resource_id=${resourceId}::uuid AND resource_mode='CODING_PLAN'
+          AND subscription_period_id IS NOT NULL GROUP BY subscription_period_id`.execute(this.db);
+    const usageByPeriod = new Map(usageResult.rows.map((usage) => [usage.subscription_period_id, usage]));
     return rows.map((row) => ({ ...row, current_status: row.reversed_by_event_id ? "REVERSED"
       : now >= row.period_end_exclusive ? "EXPIRED"
-        : now >= row.period_start ? "ACTIVE" : "UPCOMING" }));
+        : now >= row.period_start ? "ACTIVE" : "UPCOMING",
+      token_usage: usageByPeriod.get(row.id) ?? {
+        subscription_period_id: row.id, request_count: "0", input_tokens: "0",
+        output_tokens: "0", cache_tokens: "0", reasoning_tokens: "0", true_tokens: "0",
+      } }));
   }
 }

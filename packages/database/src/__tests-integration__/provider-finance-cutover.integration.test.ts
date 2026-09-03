@@ -4,7 +4,7 @@ import { sql } from "kysely";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 
 import {
-  createKysely, GatewayLedgerRepository, migrateToLatest, ProviderFinanceCutoverRepository,
+  createKysely, GatewayLedgerRepository, migrateDown, migrateToLatest, ProviderFinanceCutoverRepository,
   ProviderFinanceRepository, PROVIDER_FINANCE_CUTOVER,
 } from "../index.js";
 
@@ -181,6 +181,53 @@ describe("provider finance cutover rehearsal", () => {
           { code: "TOKEN_FACT_MISMATCH", count: 4 },
         ]),
       });
+      await db.deleteFrom("ledger_line").where("id", "=", lineIds[3]!).execute();
+      const providerBalanceSnapshotId = randomUUID();
+      await sql`INSERT INTO provider_resource_operating_snapshot
+        (id,enterprise_id,provider_resource_id,version,source,collected_at,currency,
+         current_balance,provider_balance_available,balance_source,usage_calculation)
+        VALUES (${providerBalanceSnapshotId}::uuid,${enterpriseId}::uuid,${apiResourceId}::uuid,
+          2,'PROVIDER_SYNC','2026-09-02T07:00:00Z','CNY',45,true,'PROVIDER_API','SYSTEM_LEDGER')`
+        .execute(db);
+      const resolutionInput = {
+        enterpriseId, resourceId: apiResourceId, adminId, accountCurrency: "CNY" as const,
+        windowStart: PROVIDER_FINANCE_CUTOVER,
+        windowEndInclusive: new Date("2026-09-02T07:00:00Z"),
+        providerBalanceSnapshotId, evidenceRef: "provider-balance-gap-proof",
+        idempotencyKey: randomUUID(),
+      };
+      const resolved = await cutover.resolveLegacyApiCostGap(resolutionInput);
+      expect(resolved).toMatchObject({ providerConfirmedBalance: "45.00000000",
+        localBalanceBeforeAdjustment: "49.00000000", knownApiCost: "1.00000000",
+        missingApiCost: "4.00000000", unknownLineCount: "1", replayed: false });
+      await expect(cutover.resolveLegacyApiCostGap(resolutionInput))
+        .resolves.toMatchObject({ id: resolved.id, replayed: true });
+      await expect(cutover.resolveLegacyApiCostGap({ ...resolutionInput,
+        resourceId: planResourceId, idempotencyKey: randomUUID() }))
+        .rejects.toMatchObject({ code: "INVALID_MODE" });
+      const finance = new ProviderFinanceRepository(db);
+      expect(await finance.listSubscriptionPeriods(enterpriseId, planResourceId)).toEqual([
+        expect.objectContaining({ id: carryover.id, fixed_fee_amount: null,
+          token_usage: expect.objectContaining({ request_count: "1", input_tokens: "8",
+            output_tokens: "2", cache_tokens: "4", reasoning_tokens: "1",
+            true_tokens: "10" }) }),
+      ]);
+      expect(await finance.getCurrentBalance(enterpriseId, apiResourceId, "CNY",
+        new Date("2026-09-02T05:00:00Z"))).toMatchObject({
+        state: "INCOMPLETE_USAGE_COST", balance: null,
+      });
+      expect(await finance.getCurrentBalance(enterpriseId, apiResourceId, "CNY",
+        new Date("2026-09-02T08:00:00Z"))).toMatchObject({
+        state: "NORMAL", balance: "45.00000000",
+        components: { legacyCostAdjustments: "-4.00000000", usageDebits: "1.00000000" },
+      });
+      expect(await finance.getMonthlyFinanceSummary(enterpriseId, "2026-09")).toMatchObject({
+        complete: true, apiOperatingCosts: [{ currency: "CNY", amount: "5.00000000" }],
+        operatingCostCny: "5.00000000",
+      });
+      expect((await cutover.buildPreflightReport(enterpriseId)).blockers)
+        .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_COST_UNCLASSIFIED" }));
+      await expect(migrateDown(db)).rejects.toThrow(/0060 rollback blocked/);
     } finally {
       await db.destroy();
     }

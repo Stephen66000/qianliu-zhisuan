@@ -25,6 +25,7 @@ import type {
   ProviderFinanceDuplicateCandidateTable,
   ProviderFinanceEventTable,
   ProviderFinanceIdempotencyTable,
+  ProviderFinanceLegacyCostResolutionTable,
   ProviderFinanceReconciliationCaseTable,
   ProviderSubscriptionPeriodTable,
 } from "./kysely-finance-tables.js";
@@ -564,6 +565,7 @@ export interface LedgerLineTable {
   api_cost: string | null;
   api_cost_currency: Generated<"CNY" | "USD" | null>;
   api_cost_status: Generated<"PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | null>;
+  legacy_cost_resolution_id: Generated<string | null>;
   subscription_period_id: Generated<string | null>;
   settled_at: Generated<Date | null>;
   usage_quality: string;
@@ -692,6 +694,7 @@ export interface Database {
   provider_finance_reconciliation_case: ProviderFinanceReconciliationCaseTable;
   provider_finance_idempotency: ProviderFinanceIdempotencyTable;
   provider_finance_duplicate_candidate: ProviderFinanceDuplicateCandidateTable;
+  provider_finance_legacy_cost_resolution: ProviderFinanceLegacyCostResolutionTable;
   provider_quota_window: ProviderQuotaWindowTable;
   provider_model_discovery: ProviderModelDiscoveryTable;
   provider_model_discovery_item: ProviderModelDiscoveryItemTable;

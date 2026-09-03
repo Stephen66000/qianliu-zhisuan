@@ -3,7 +3,7 @@ export const PROVIDER_FINANCE_CUTOVER = new Date("2026-08-31T16:00:00.000Z");
 export type FinanceCurrency = "CNY" | "USD";
 export type FinanceEventType =
   | "API_OPENING_BALANCE" | "API_OPENING_BALANCE_CORRECTION" | "API_RECHARGE"
-  | "API_BALANCE_RECONCILIATION" | "CODING_PLAN_PURCHASE"
+  | "API_BALANCE_RECONCILIATION" | "API_LEGACY_COST_ADJUSTMENT" | "CODING_PLAN_PURCHASE"
   | "CODING_PLAN_RENEWAL" | "REVERSAL";
 export type FinanceBalanceState =
   | "NORMAL" | "MISSING_OPENING_BALANCE" | "INCOMPLETE_USAGE_COST"
@@ -21,6 +21,7 @@ export interface FinanceEventView {
   reversalOfEventId: string | null;
   correctionOfEventId: string | null;
   reconciliationCaseId: string | null;
+  legacyCostResolutionId: string | null;
   description: string | null;
   evidenceRef: string | null;
   source: string;
@@ -40,6 +41,7 @@ export interface FinanceBalanceView {
     recharges: string;
     usageDebits: string;
     balanceReconciliations: string;
+    legacyCostAdjustments: string;
     reversals: string;
   };
   factWatermark: {

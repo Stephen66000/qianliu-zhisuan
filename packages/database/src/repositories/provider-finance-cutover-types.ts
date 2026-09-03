@@ -105,3 +105,30 @@ export interface FinanceConservationReport {
   passed: boolean;
   failures: Array<{ code: string; count: number }>;
 }
+
+export interface LegacyApiCostResolutionInput {
+  enterpriseId: string;
+  resourceId: string;
+  adminId: string;
+  accountCurrency: "CNY" | "USD";
+  windowStart: Date;
+  windowEndInclusive: Date;
+  providerBalanceSnapshotId: string;
+  evidenceRef: string;
+  idempotencyKey: string;
+}
+
+export interface LegacyApiCostResolutionView {
+  id: string;
+  adjustmentEventId: string;
+  providerResourceId: string;
+  accountCurrency: "CNY" | "USD";
+  windowStart: string;
+  windowEndInclusive: string;
+  providerConfirmedBalance: string;
+  localBalanceBeforeAdjustment: string;
+  knownApiCost: string;
+  missingApiCost: string;
+  unknownLineCount: string;
+  replayed: boolean;
+}

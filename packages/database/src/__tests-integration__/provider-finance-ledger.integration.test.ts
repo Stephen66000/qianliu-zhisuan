@@ -172,6 +172,7 @@ describe("0059 provider finance ledger contract", () => {
   it("blocks destructive rollback after provider finance facts exist", async () => {
     const db = createKysely(pg.connectionString);
     try {
+      expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
       await expect(migrateDown(db)).rejects.toThrow(/0059 rollback blocked/);
     } finally {
       await db.destroy();
