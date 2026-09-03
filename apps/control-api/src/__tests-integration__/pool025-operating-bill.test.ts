@@ -45,6 +45,7 @@ async function addUsage(input: {
     provider_resource_id: input.resourceId, input_tokens: BigInt(input.input),
     output_tokens: BigInt(input.output), cache_tokens: 0n, reasoning_tokens: 0n,
     usage_quality: "PROVIDER_REPORTED", dedup_key: `pool025-${requestId}`,
+    created_at: occurredAt,
   }).returningAll().executeTakeFirstOrThrow();
   const line = await db.insertInto("ledger_line").values({
     ai_request_id: requestId, enterprise_id: enterpriseId, usage_event_id: usage.id,
@@ -52,7 +53,7 @@ async function addUsage(input: {
     principal_id: employeeId, resource_mode: input.mode, raw_input_tokens: BigInt(input.input),
     raw_output_tokens: BigInt(input.output), raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
     deducted_quota: input.deducted === null ? null : BigInt(input.deducted),
-    api_cost: input.cost, usage_quality: "PROVIDER_REPORTED",
+    api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", created_at: occurredAt,
   }).returningAll().executeTakeFirstOrThrow();
   await db.insertInto("ledger_transaction").values({
     ai_request_id: requestId,
@@ -67,6 +68,7 @@ async function addUsage(input: {
     usage_quality: "PROVIDER_REPORTED",
     attempt_count: 1,
     status: "SETTLED",
+    created_at: occurredAt,
   }).execute();
   return line;
 }
