@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMoney } from "./format";
+import { formatMoney, formatShanghaiDate } from "./format";
 
 describe("POOL-019 金额展示", () => {
   it("固定两位、千分位并以十进制半入舍入", () => {
@@ -11,5 +11,9 @@ describe("POOL-019 金额展示", () => {
 
   it("无效值原样保留，不伪造为零", () => {
     expect(formatMoney("未知")).toBe("未知");
+  });
+
+  it("上海自然日不显示成前一个 UTC 日期", () => {
+    expect(formatShanghaiDate("2026-08-18T16:00:00.000Z")).toBe("2026-08-19");
   });
 });

@@ -246,13 +246,24 @@ function financeCostCtes(
       SELECT attribution.organization_unit_id AS department_id,
              coalesce(attribution.cost_category,'UNASSIGNED') AS cost_category,
              line.resource_mode, line.raw_input_tokens, line.raw_output_tokens,
-             CASE WHEN line.resource_mode='API' AND line.api_cost_status='PRICED_USAGE'
-               THEN line.api_cost ELSE 0::numeric END AS api_line_cost,
+             CASE
+               WHEN line.resource_mode<>'API' THEN 0::numeric
+               WHEN line.api_cost_status='PRICED_USAGE' AND line.api_cost_currency IS NOT NULL
+                 THEN line.api_cost
+               WHEN line.api_cost_status='CONFIRMED_ZERO_NO_UPSTREAM' THEN 0::numeric
+               WHEN line.api_cost_status='UNKNOWN_COST' AND resolution.status='RESOLVED'
+                 AND resolution.window_end_inclusive>=COALESCE(line.settled_at,line.created_at)
+                 THEN 0::numeric
+               ELSE NULL::numeric
+             END AS api_line_cost,
              CASE WHEN line.resource_mode='CODING_PLAN'
                THEN coalesce(allocation.allocated_cost,0) ELSE 0::numeric END AS package_line_cost
         FROM ledger_line line
         LEFT JOIN latest_attribution attribution ON attribution.ai_request_id=line.ai_request_id
         LEFT JOIN plan_line_allocation allocation ON allocation.ledger_line_id=line.id
+        LEFT JOIN provider_finance_legacy_cost_resolution resolution
+          ON resolution.enterprise_id=line.enterprise_id
+         AND resolution.id=line.legacy_cost_resolution_id
        WHERE line.enterprise_id=${enterpriseId}::uuid
          AND line.settled_at>=${startedAt}::timestamptz
          AND line.settled_at<${endedAt}::timestamptz

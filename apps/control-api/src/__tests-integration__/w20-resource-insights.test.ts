@@ -688,7 +688,7 @@ describe("W20-09 轻量采购复盘", () => {
       purchaseCashAmounts: [{ currency: "CNY", amount: "920.00000000" }],
       apiSpends: [],
       packageCosts: [{ currency: "CNY", amount: "800.00000000" }],
-      planUtilization: "69.38",
+      planUtilization: "56.25",
     });
     expect(body.note).toEqual({ text: "", version: 0, updatedAt: null, updatedBy: null });
     expect(JSON.stringify(body)).not.toContain("人工判断");

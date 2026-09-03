@@ -60,6 +60,15 @@ export function formatDateTimeFull(iso: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+/** ISO 时间按上海时区转换为自然日，避免 UTC 日期截断提前一天。 */
+export function formatShanghaiDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const shifted = new Date(date.getTime() + 8 * 3600_000);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`;
+}
+
 /** 耗时毫秒 → "1.2s" / "320ms"。null（进行中）由调用方处理。 */
 export function formatDuration(ms: number): string {
   if (ms >= 1000) {

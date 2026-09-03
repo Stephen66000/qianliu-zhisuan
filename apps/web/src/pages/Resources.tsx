@@ -43,7 +43,7 @@ import {
 } from "../components/writes/IntegerAmountInput";
 import { MoneyAmountInput } from "../components/writes/MoneyAmountInput";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
-import { formatCount, formatDateTimeFull, formatMoney } from "../lib/format";
+import { formatCount, formatDateTimeFull, formatMoney, formatShanghaiDate } from "../lib/format";
 import {
   API_OPERATING_KEYS,
   CreateResourceSchema,
@@ -85,7 +85,7 @@ function ResourceFinanceDisplay({ resource }: { resource: ProviderResourceItem }
     return <span className="block leading-5">
       <span className="block">本月订阅实付 ¥{formatMoney(finance.monthlyPlanCashCny)}</span>
       <span className="block">周期 Token {finance.currentPeriod ? formatCount(finance.currentPeriod.trueTokens) : "无有效周期"}</span>
-      <span className="block">{finance.currentPeriod ? `${finance.currentPeriod.periodStart.slice(0, 10)} ～ ${finance.currentPeriod.periodEndExclusive.slice(0, 10)}` : "—"}</span>
+      <span className="block">{finance.currentPeriod ? `${formatShanghaiDate(finance.currentPeriod.periodStart)} ～ ${formatShanghaiDate(finance.currentPeriod.periodEndExclusive)}` : "—"}</span>
     </span>;
   }
   if (!resource.operating_snapshot) return <>未录入/未同步</>;

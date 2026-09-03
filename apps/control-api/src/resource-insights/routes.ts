@@ -7,7 +7,7 @@ import { requireAuth } from "../plugins/auth-guard.js";
 import type { ResourceFinanceView } from "@qianliu/database";
 import { listResourceUtilization, type ResourceUtilizationRow } from "./query.js";
 import { registerResourceMonthlyBudgetRoutes } from "./budget-routes.js";
-import { financeReadModelEnabled } from "../provider-finance/dashboard-projection.js";
+import { financeReadModelEnabled, shanghaiDateAt } from "../provider-finance/dashboard-projection.js";
 
 const Month = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/);
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
@@ -195,8 +195,8 @@ export function projectFinanceUtilization(
   if (resource.mode === "CODING_PLAN") {
     return { ...resource, packageCost: finance.monthlyPlanCashCny,
       purchaseCashAmount: finance.monthlyPlanCashCny,
-      servicePeriodStart: finance.currentPeriod?.periodStart.slice(0, 10) ?? null,
-      servicePeriodEnd: finance.currentPeriod?.periodEndExclusive.slice(0, 10) ?? null };
+      servicePeriodStart: finance.currentPeriod ? shanghaiDateAt(finance.currentPeriod.periodStart) : null,
+      servicePeriodEnd: finance.currentPeriod ? shanghaiDateAt(finance.currentPeriod.periodEndExclusive) : null };
   }
   const account = finance.accounts.length === 1 ? finance.accounts[0] : null;
   const next = { ...resource,

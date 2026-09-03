@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DashboardSummary, MonthlyFinanceSummary } from "@qianliu/database";
 
-import { projectDashboardFinance, shanghaiMonthAt } from "./dashboard-projection.js";
+import { projectDashboardFinance, shanghaiDateAt, shanghaiMonthAt } from "./dashboard-projection.js";
 
 const base = {
   monthlyPackagePayment: "999", monthlyPackagePayments: [], monthlyApiCost: "999",
@@ -26,5 +26,9 @@ it("projects the unique finance ledger into dashboard money fields", () => {
 describe("Shanghai month", () => {
   it("uses the local natural month at UTC boundaries", () => {
     expect(shanghaiMonthAt(new Date("2026-09-30T16:00:00.000Z"))).toBe("2026-10");
+  });
+
+  it("renders Shanghai midnight as the registered local date", () => {
+    expect(shanghaiDateAt("2026-08-18T16:00:00.000Z")).toBe("2026-08-19");
   });
 });

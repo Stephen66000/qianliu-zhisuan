@@ -50,6 +50,12 @@ export function shanghaiMonthAt(value: Date): string {
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+export function shanghaiDateAt(value: Date | string): string {
+  const instant = typeof value === "string" ? new Date(value) : value;
+  const shifted = new Date(instant.getTime() + 8 * 3600_000);
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}-${String(shifted.getUTCDate()).padStart(2, "0")}`;
+}
+
 export async function financeReadModelEnabled(
   mode: ProviderFinanceMode,
   repository: ProviderFinanceRepository,
