@@ -253,9 +253,7 @@
       "review_due": "2026-09-01",
       "exit": "拆分且回归通过后降至 400 逻辑行以内"
     },
-    "exceptions": [
-      { "file": "packages/database/src/repositories/gateway-ledger-repository.ts", "baseline": 455 }
-    ]
+    "exceptions": []
   },
   "security_exceptions": [
     {
