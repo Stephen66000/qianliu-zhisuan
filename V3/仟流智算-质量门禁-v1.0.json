@@ -259,7 +259,6 @@
       { "file": "packages/provider-adapters/src/openai-compatible-caller.ts", "baseline": 1017 },
       { "file": "packages/database/src/repositories/runtime-assurance-repository.ts", "baseline": 919 },
       { "file": "apps/web/src/pages/Principals.tsx", "baseline": 881 },
-      { "file": "packages/database/src/kysely.ts", "baseline": 655 },
       { "file": "apps/control-api/src/cli/seed-e2e.ts", "baseline": 588 },
       { "file": "packages/database/src/repositories/dashboard-repository.ts", "baseline": 619 },
       { "file": "packages/database/src/repositories/gateway-ledger-repository.ts", "baseline": 455 }
