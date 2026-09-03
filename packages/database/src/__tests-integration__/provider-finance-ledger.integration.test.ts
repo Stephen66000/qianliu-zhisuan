@@ -38,6 +38,22 @@ describe("0059 provider finance ledger contract", () => {
         { id: planResourceId, enterprise_id: enterpriseId, provider_id: providerId,
           name: "Plan", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION" },
       ]).execute();
+      await expect(db.insertInto("provider_subscription_period").values({
+        enterprise_id: enterpriseId, provider_resource_id: planResourceId,
+        finance_event_id: null, product_name: "Owner-confirmed carryover",
+        period_start: new Date("2026-08-18T16:00:00.000Z"),
+        period_end_exclusive: new Date("2026-09-18T16:00:00.000Z"),
+        source: "MIGRATED_CARRYOVER", migration_source_record_id: null,
+        reversed_by_event_id: null, created_by_admin_user_id: adminId,
+      }).execute()).resolves.toBeDefined();
+      await expect(db.insertInto("provider_subscription_period").values({
+        enterprise_id: enterpriseId, provider_resource_id: planResourceId,
+        finance_event_id: null, product_name: "Carryover without evidence",
+        period_start: new Date("2026-07-18T16:00:00.000Z"),
+        period_end_exclusive: new Date("2026-08-18T16:00:00.000Z"),
+        source: "MIGRATED_CARRYOVER", migration_source_record_id: null,
+        reversed_by_event_id: null, created_by_admin_user_id: null,
+      }).execute()).rejects.toThrow();
       const cutover = new Date("2026-08-31T16:00:00.000Z");
       await db.insertInto("provider_finance_event").values({
         enterprise_id: enterpriseId, provider_resource_id: apiResourceId,

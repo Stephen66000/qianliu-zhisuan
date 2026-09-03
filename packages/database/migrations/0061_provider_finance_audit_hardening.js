@@ -63,7 +63,8 @@ export async function up(db) {
         (source IN ('PURCHASE','RENEWAL') AND finance_event_id IS NOT NULL
           AND migration_source_record_id IS NULL)
         OR (source = 'MIGRATED_CARRYOVER' AND finance_event_id IS NULL
-          AND migration_source_record_id IS NOT NULL)
+          AND (migration_source_record_id IS NOT NULL
+            OR created_by_admin_user_id IS NOT NULL))
         OR (source = 'MIGRATED_PURCHASE' AND migration_source_record_id IS NOT NULL)
       );
   `.execute(db);
