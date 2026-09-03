@@ -396,7 +396,7 @@ describe("P1-02：单人接入与 Gateway 计费准入使用同一合同", () =>
     }
   });
 
-  it("既有厂商池的计费规则失效后 GET、Key 与就绪状态同步撤权", async () => {
+  it("既有厂商池的计费规则失效后保留配置选择，但从有效 Key 白名单撤权", async () => {
     const principalId = await createEmployeeWithKey("P102-既有池撤权");
     const put = await putAccessConfig(principalId, 1, "p102-existing-pool-put", [{
       provider_code: "deepseek", quota_value: "1000000", enabled_model_ids: [proModelId],
@@ -430,9 +430,9 @@ describe("P1-02：单人接入与 Gateway 计费准入使用同一合同", () =>
       const afterPro = afterBody.providers
         .find((provider: { provider_code: string }) => provider.provider_code === "deepseek")
         .models.find((model: { unified_model_id: string }) => model.unified_model_id === proModelId);
-      expect(afterPro).toMatchObject({ ready: false, enabled: false });
-      expect(afterBody.summary.model_count).toBe(0);
-      expect(afterBody.key.authorization_status).toBe("PENDING");
+      expect(afterPro).toMatchObject({ ready: false, enabled: true });
+      expect(afterBody.summary.model_count).toBe(1);
+      expect(afterBody.key.authorization_status).toBe("AUTHORIZED");
 
       await db.transaction().execute(async (trx) => {
         await ruleRepo.refreshKeyModels(trx, enterpriseId, principalId);

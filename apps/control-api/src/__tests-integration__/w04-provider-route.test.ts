@@ -38,7 +38,14 @@ beforeAll(async () => {
     .execute();
 
   const { buildControlApi } = await import("../server.js");
-  app = buildControlApi(db);
+  const previousFinanceMode = process.env.PROVIDER_FINANCE_MODE;
+  process.env.PROVIDER_FINANCE_MODE = "OFF";
+  try {
+    app = buildControlApi(db);
+  } finally {
+    if (previousFinanceMode === undefined) delete process.env.PROVIDER_FINANCE_MODE;
+    else process.env.PROVIDER_FINANCE_MODE = previousFinanceMode;
+  }
   await app.ready();
 
   const loginRes = await app.inject({
