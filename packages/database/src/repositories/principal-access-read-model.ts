@@ -31,9 +31,12 @@ export function assemblePrincipalAccessReadModel(input: {
   models: PrincipalAccessModelRow[];
   pools: PrincipalAccessPoolRow[];
   disabledKeys: Set<string>;
+  /** Key 或有效 assignment 证明此前已明确配置过的型号。 */
+  configuredModelIds?: string[];
   manualPendingIds: string[];
   configVersion: number;
 }) {
+  const configuredModelIds = new Set(input.configuredModelIds ?? []);
   const byProvider = new Map<string, { name: string; models: PrincipalAccessModelRow[] }>();
   for (const model of input.models) {
     const bucket = byProvider.get(model.provider_code) ?? { name: model.provider_name, models: [] };
@@ -63,9 +66,11 @@ export function assemblePrincipalAccessReadModel(input: {
         resource_mode: model.mode,
         ready: model.ready,
         unavailable_reasons: model.unavailable_reasons,
-        enabled: model.ready
-          && pool !== null
-          && !input.disabledKeys.has(`${code}:${model.unified_model_id}`),
+        // enabled 表示持久化的授权意图，ready 表示当前是否可调用。
+        // 资源耗尽等临时状态不能把既有授权伪装成“未开通”，否则下一次保存会误删配置。
+        enabled: pool !== null
+          && !input.disabledKeys.has(`${code}:${model.unified_model_id}`)
+          && (model.ready || configuredModelIds.has(model.unified_model_id)),
       })),
     };
   });

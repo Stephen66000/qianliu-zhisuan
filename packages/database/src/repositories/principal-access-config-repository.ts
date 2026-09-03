@@ -146,6 +146,15 @@ export class PrincipalAccessConfigRepository {
       .execute();
     const disabledSet = new Set(disabledRows.map((r) => `${r.provider}:${r.unified_model_id}`));
 
+    const configuredAssignments = await this.db.selectFrom("employee_model_rule_assignment")
+      .innerJoin("principal_grant", "principal_grant.id", "employee_model_rule_assignment.grant_id")
+      .select("employee_model_rule_assignment.unified_model_id")
+      .where("employee_model_rule_assignment.enterprise_id", "=", enterpriseId)
+      .where("employee_model_rule_assignment.principal_id", "=", principalId)
+      .where("employee_model_rule_assignment.status", "=", "ACTIVE")
+      .where("principal_grant.status", "=", "ACTIVE")
+      .execute();
+
     // 待接管手工基线。
     const manualPending = await this.db.selectFrom("principal_model_manual_authorization")
       .select("unified_model_id")
@@ -169,6 +178,10 @@ export class PrincipalAccessConfigRepository {
       models,
       pools,
       disabledKeys: disabledSet,
+      configuredModelIds: [
+        ...(key?.allowed_model_ids ?? []),
+        ...configuredAssignments.map((row) => row.unified_model_id),
+      ],
       manualPendingIds: manualPending.map((row) => row.unified_model_id),
       configVersion: state?.config_version ?? 1,
     });
@@ -223,6 +236,26 @@ export class PrincipalAccessConfigRepository {
       const catalog = await new EmployeeModelRuleRepository(trx).catalog(input.enterpriseId);
       const models = catalog.models as PrincipalAccessModelRow[];
       const modelById = new Map(models.map((m) => [m.unified_model_id, m]));
+      const [configuredKey, configuredAssignments] = await Promise.all([
+        trx.selectFrom("principal_key")
+          .select("allowed_model_ids")
+          .where("enterprise_id", "=", input.enterpriseId)
+          .where("principal_id", "=", input.principalId)
+          .where("status", "=", "ACTIVE")
+          .executeTakeFirst(),
+        trx.selectFrom("employee_model_rule_assignment")
+          .innerJoin("principal_grant", "principal_grant.id", "employee_model_rule_assignment.grant_id")
+          .select("employee_model_rule_assignment.unified_model_id")
+          .where("employee_model_rule_assignment.enterprise_id", "=", input.enterpriseId)
+          .where("employee_model_rule_assignment.principal_id", "=", input.principalId)
+          .where("employee_model_rule_assignment.status", "=", "ACTIVE")
+          .where("principal_grant.status", "=", "ACTIVE")
+          .execute(),
+      ]);
+      const previouslyConfiguredModelIds = new Set([
+        ...(configuredKey?.allowed_model_ids ?? []),
+        ...configuredAssignments.map((row) => row.unified_model_id),
+      ]);
       const issues: Array<{ code: string; message: string; unified_model_id?: string; provider_code?: string }> = [];
       for (const pool of input.pools) {
         const providerModels = models.filter((m) => m.provider_code === pool.provider_code);
@@ -233,7 +266,7 @@ export class PrincipalAccessConfigRepository {
           const m = modelById.get(modelId);
           if (!m || m.provider_code !== pool.provider_code) {
             issues.push({ code: "MODEL_UNAVAILABLE", unified_model_id: modelId, provider_code: pool.provider_code, message: `型号不属于厂商 ${pool.provider_code} 或不属于本企业` });
-          } else if (!m.ready) {
+          } else if (!m.ready && !previouslyConfiguredModelIds.has(modelId)) {
             issues.push({ code: "MODEL_UNAVAILABLE", unified_model_id: modelId, provider_code: pool.provider_code, message: `型号 ${m.display_name} 未就绪：${m.unavailable_reasons.join("；")}` });
           }
         }
@@ -242,7 +275,11 @@ export class PrincipalAccessConfigRepository {
         }
       }
       if (issues.length > 0) {
-        throw new PrincipalAccessConfigError("NOT_READY", "接入配置就绪校验未通过", { issues });
+        throw new PrincipalAccessConfigError(
+          "NOT_READY",
+          issues[0]?.message ?? "接入配置就绪校验未通过",
+          { issues },
+        );
       }
 
       // 5. 手工接管先于池锁：Key 已在事务最前面锁定，旧白名单不会被并发发布覆盖。

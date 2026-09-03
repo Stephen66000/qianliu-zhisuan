@@ -111,6 +111,127 @@ async function createConcurrentFixture(round: number) {
 }
 
 describe("POOL-039 真实 PostgreSQL 锁序并发", () => {
+  it("既有耗尽厂商授权可原样保留，同时新增就绪厂商型号", async () => {
+    const deepseekProviderId = randomUUID();
+    const deepseekResourceId = randomUUID();
+    const deepseekModelId = randomUUID();
+    const principalId = randomUUID();
+    await db.insertInto("provider").values({
+      id: deepseekProviderId, enterprise_id: enterpriseId, code: "deepseek",
+      name: "DeepSeek", adapter_type: "deepseek", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("provider_resource").values({
+      id: deepseekResourceId, enterprise_id: enterpriseId, provider_id: deepseekProviderId,
+      name: "耗尽的 DeepSeek", mode: "CODING_PLAN", credential_type: "API_KEY", status: "EXHAUSTED",
+    }).execute();
+    await db.insertInto("unified_model").values({
+      id: deepseekModelId, enterprise_id: enterpriseId,
+      alias: "pool039-deepseek", display_name: "DeepSeek V3", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: deepseekModelId,
+      provider_resource_id: deepseekResourceId, upstream_model: "deepseek-v3", enabled: true,
+    }).execute();
+    await db.insertInto("billing_rule").values({
+      enterprise_id: enterpriseId, provider_resource_id: deepseekResourceId,
+      upstream_model: "deepseek-v3", rule_type: "MODEL_TIER", rule_version: "pool039-deepseek-v1",
+      effective_from: new Date("2026-01-01T00:00:00Z"), multiplier: "1", enabled: true,
+    }).execute();
+    await db.insertInto("principal").values({
+      id: principalId, enterprise_id: enterpriseId, type: "EMPLOYEE",
+      name: "存量耗尽授权员工", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("principal_key").values({
+      enterprise_id: enterpriseId, principal_id: principalId, key_prefix: "pool039-exhausted",
+      key_digest: randomUUID(), allowed_model_ids: JSON.stringify([deepseekModelId]) as unknown as string[],
+      status: "ACTIVE",
+    }).execute();
+    const deepseekGrant = await db.insertInto("principal_grant").values({
+      enterprise_id: enterpriseId, principal_id: principalId, provider: "deepseek",
+      model_alias: "*", pool_model_alias: "*", quota_unit: "TOKEN", quota_value: 5000n,
+      allow_overage: false, valid_from: new Date("2026-01-01T00:00:00Z"), status: "ACTIVE",
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("quota_counter").values({ grant_id: deepseekGrant.id }).execute();
+    await db.insertInto("principal_access_config_state").values({
+      enterprise_id: enterpriseId, principal_id: principalId, config_version: 1,
+    }).execute();
+
+    const before = await app.inject({
+      method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+    });
+    expect(before.statusCode).toBe(200);
+    expect(before.json().providers.find(
+      (provider: { provider_code: string }) => provider.provider_code === "deepseek",
+    )).toMatchObject({
+      pool: { quota_value: "5000" },
+      models: [expect.objectContaining({
+        unified_model_id: deepseekModelId, ready: false, enabled: true,
+      })],
+    });
+
+    const saved = await app.inject({
+      method: "PUT", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+      payload: {
+        expected_version: 1,
+        idempotency_key: "pool039-preserve-exhausted",
+        providers: [
+          { provider_code: "deepseek", quota_value: "5000", allow_overage: false,
+            valid_until: null, enabled_model_ids: [deepseekModelId] },
+          { provider_code: "kimi", quota_value: "9000", allow_overage: false,
+            valid_until: null, enabled_model_ids: [targetModelId] },
+        ],
+      },
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().changes).toMatchObject({
+      pools_added: ["kimi"], pools_updated: ["deepseek"],
+    });
+    expect(await db.selectFrom("principal_grant").select(["provider", "status"])
+      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
+      .where("status", "=", "ACTIVE").orderBy("provider").execute()).toEqual([
+      { provider: "deepseek", status: "ACTIVE" },
+      { provider: "kimi", status: "ACTIVE" },
+    ]);
+    expect((await db.selectFrom("principal_key").select("allowed_model_ids")
+      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
+      .where("status", "=", "ACTIVE").executeTakeFirstOrThrow()).allowed_model_ids)
+      .toEqual([targetModelId]);
+
+    const newUnavailableModelId = randomUUID();
+    await db.insertInto("unified_model").values({
+      id: newUnavailableModelId, enterprise_id: enterpriseId,
+      alias: "pool039-new-unavailable", display_name: "新未就绪型号", status: "ACTIVE",
+    }).execute();
+    await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: newUnavailableModelId,
+      provider_resource_id: deepseekResourceId, upstream_model: "new-unavailable", enabled: true,
+    }).execute();
+    await db.insertInto("billing_rule").values({
+      enterprise_id: enterpriseId, provider_resource_id: deepseekResourceId,
+      upstream_model: "new-unavailable", rule_type: "MODEL_TIER",
+      rule_version: "pool039-new-unavailable-v1",
+      effective_from: new Date("2026-01-01T00:00:00Z"), multiplier: "1", enabled: true,
+    }).execute();
+    const rejected = await app.inject({
+      method: "PUT", url: `/principals/${principalId}/access-configuration`, headers: { cookie },
+      payload: {
+        expected_version: 2,
+        idempotency_key: "pool039-reject-new-unavailable",
+        providers: [
+          { provider_code: "deepseek", quota_value: "5000", allow_overage: false,
+            valid_until: null, enabled_model_ids: [deepseekModelId, newUnavailableModelId] },
+          { provider_code: "kimi", quota_value: "9000", allow_overage: false,
+            valid_until: null, enabled_model_ids: [targetModelId] },
+        ],
+      },
+    });
+    expect(rejected.statusCode).toBe(422);
+    expect(rejected.json().message).toBe("型号 新未就绪型号 未就绪：厂商资源不可服务");
+    expect((await db.selectFrom("principal_access_config_state").select("config_version")
+      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId)
+      .executeTakeFirstOrThrow()).config_version).toBe(2);
+  });
+
   it("已有 manual baseline 下单人 PUT × 批量发布无 40P01/500，最终事实一致", async () => {
     for (const round of [1, 2, 3]) {
       const fixture = await createConcurrentFixture(round);

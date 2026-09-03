@@ -47,7 +47,7 @@ function draftFromConfig(config: AccessConfiguration): Map<string, ProviderDraft
   const map = new Map<string, ProviderDraft>();
   for (const provider of config.providers) {
     const enabledModelIds = new Set(
-      provider.models.filter((m) => m.ready && m.enabled).map((m) => m.unified_model_id),
+      provider.models.filter((m) => m.enabled).map((m) => m.unified_model_id),
     );
     map.set(provider.provider_code, {
       provider_code: provider.provider_code,
@@ -100,6 +100,8 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
     onError: (error) => {
       setSaveSuccess(false);
       setSaveError(error instanceof Error ? error.message : "保存失败，请重试");
+      // PUT 是原子事务；失败后恢复最后一次服务端读模型，避免勾选状态冒充已生效。
+      if (config) setDrafts(draftFromConfig(config));
     },
   });
 
@@ -124,6 +126,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
   if (!config) return null;
 
   const updateDraft = (providerCode: string, patch: Partial<ProviderDraft>) => {
+    setSaveError(null);
     setDrafts((prev) => {
       const next = new Map(prev);
       const current = next.get(providerCode);
@@ -143,6 +146,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
   };
 
   const handleSave = () => {
+    setSaveError(null);
     const providers: AccessConfigPoolInput[] = [...drafts.values()]
       .filter((d) => d.enabled)
       .map((d) => ({
@@ -200,6 +204,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                 </div>
                 <label className="flex items-center gap-2 text-sm" onClick={(e) => e.stopPropagation()}>
                   <input
+                    aria-label={`${provider.provider_name}开通`}
                     type="checkbox"
                     checked={draft.enabled}
                     onChange={(e) => {
@@ -227,6 +232,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                     <label className="block text-sm">
                       <span className="mb-1 block text-muted-foreground">Token 额度</span>
                       <input
+                        aria-label={`${provider.provider_name} Token 额度`}
                         type="text"
                         inputMode="numeric"
                         className="w-full rounded-md border px-3 py-2"
@@ -283,10 +289,19 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                           <div className="mt-1 space-y-1">
                             {notReadyModels.map((model) => (
                               <div key={model.unified_model_id} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <input type="checkbox" disabled />
+                                <input
+                                  aria-label={`${model.display_name}（暂不可用）`}
+                                  checked={draft.enabled_model_ids.has(model.unified_model_id)}
+                                  disabled
+                                  readOnly
+                                  type="checkbox"
+                                />
                                 <span>{model.display_name}</span>
                                 <span className="text-muted-foreground">({model.alias})</span>
-                                <span className="text-xs">未就绪：{model.unavailable_reasons.join("；")}</span>
+                                <span className="text-xs">
+                                  {draft.enabled_model_ids.has(model.unified_model_id) ? "已配置，暂不可用" : "未开通"}：
+                                  {model.unavailable_reasons.join("；")}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -300,6 +315,13 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
           );
         })}
       </div>
+
+      {saveError && (
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>保存失败：{saveError}。页面已恢复为上次生效的配置。</span>
+        </div>
+      )}
 
       <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
         <div>
@@ -316,7 +338,6 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
               <CheckCircle2 className="h-4 w-4" /> 已保存
             </span>
           )}
-          {saveError && <span className="text-sm text-destructive">{saveError}</span>}
           <button
             type="button"
             className="rounded-md border border-primary/30 bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:border-primary/20 disabled:bg-primary/5 disabled:opacity-50"
