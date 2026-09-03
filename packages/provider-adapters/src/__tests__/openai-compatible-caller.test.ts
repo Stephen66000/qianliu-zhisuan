@@ -1226,6 +1226,32 @@ describe("OpenAI-compatible HTTP caller", () => {
     });
   });
 
+  it("Kimi 403 五小时窗口耗尽返回限流信号和厂商恢复时间", async () => {
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse({
+        error: {
+          type: "permission_error",
+          message: "The 5-hour rolling window quota has been exhausted.",
+          resetTime: "2026-09-03T17:00:00.000Z",
+        },
+      }, 403),
+      env: { KIMI_CODING_BASE_URL: "https://kimi.example" },
+    });
+
+    const outcome = await caller(
+      resource({ providerCode: "kimi", secret: new SecretValue("kimi-test") }),
+      responsesRequest(),
+      1,
+    );
+
+    expect(outcome).toMatchObject({
+      status: 403,
+      upstreamErrorKind: "WINDOW_EXHAUSTED",
+      unifiedAvailabilitySignal: "RATE_LIMIT_RETRY_AFTER",
+      recoverAt: "2026-09-03T17:00:00.000Z",
+    });
+  });
+
   it("Retry-After HTTP 日期和非法恢复时间都有稳定边界", async () => {
     const future = new Date(Date.now() + 60_000).toUTCString();
     const dated = createOpenAiCompatibleCaller({

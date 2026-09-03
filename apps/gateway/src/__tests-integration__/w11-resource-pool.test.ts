@@ -270,6 +270,39 @@ describe("W11 凭证生命周期与账号池", () => {
     await poolRepo.recordSuccess(resB); // 回 ACTIVE
   });
 
+  it("厂商额度同步成功可自动解除 Coding Plan 终态隔离", async () => {
+    const resourceId = (await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID,
+      provider_id: providerId,
+      name: "kimi-quota-sync-recovery",
+      mode: "CODING_PLAN",
+      credential_type: "SUBSCRIPTION_SESSION",
+      resource_pool_id: "pool-kimi-sync",
+      credential_fingerprint: "quota-sync-recovery-fp",
+      credential_version: 1,
+      status: "CREDENTIAL_INVALID",
+      cooldown_until: new Date(Date.now() - 1_000),
+    }).returning("id").executeTakeFirstOrThrow()).id;
+
+    const scheduledAt = new Date(Date.now() + 60_000);
+    await expect(poolRepo.scheduleQuotaSync(resourceId, scheduledAt)).resolves.toBe(true);
+    expect((await poolRepo.getResource(resourceId))?.cooldown_until).toEqual(scheduledAt);
+
+    const recovered = await poolRepo.recordQuotaSyncRecovery(resourceId);
+    expect(recovered).toMatchObject({
+      toStatus: "DEGRADED",
+      reason: "QUOTA_SYNC_RECOVERED",
+      cooldownUntil: null,
+    });
+    expect((await poolRepo.listStatusEvents(resourceId)).at(-1)).toMatchObject({
+      from_status: "CREDENTIAL_INVALID",
+      to_status: "DEGRADED",
+      reason: "QUOTA_SYNC_RECOVERED",
+      actor: "system",
+    });
+    await expect(poolRepo.recordSuccess(resourceId)).resolves.toMatchObject({ toStatus: "ACTIVE" });
+  });
+
   it("canary：凭证明文/请求正文在 resource_status_event 0 命中", async () => {
     const CANARY = "W11_CREDENTIAL_PLAINTEXT_CANARY_XX_24680";
     // 用 canary 作为"凭证明文"制造一次刷新失败（错误分类字段不应记录明文）

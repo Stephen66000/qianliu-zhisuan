@@ -1,13 +1,15 @@
 /**
  * POOL-032：厂商 Coding Plan 额度窗口定时同步 tick。
  *
- * 遍历所有 CODING_PLAN 资源（kimi/zhipu），解密凭证 → 调厂商额度接口 → 写窗口快照。
- * 不在员工请求热路径执行；失败保鲜（markStale），不影响 Gateway 与资源健康状态。
+ * 只处理到期的 CODING_PLAN 资源（kimi/zhipu），解密凭证 → 调厂商额度接口 → 写窗口快照。
+ * 健康资源按分钟节流；隔离资源按 cooldown_until 定点检查。厂商当次响应确认所有窗口
+ * 有余量时自动恢复到 DEGRADED，下一次真实请求成功后再进入 ACTIVE。
  */
 import { type Kysely } from "kysely";
 import {
   type Database,
   ProviderQuotaWindowRepository,
+  ResourcePoolRepository,
 } from "@qianliu/database";
 import {
   type ProviderCode,
@@ -24,6 +26,7 @@ import {
 export interface QuotaTickResult {
   resourcesScanned: number;
   windowsUpserted: number;
+  resourcesRecovered: number;
   failed: number;
 }
 
@@ -32,10 +35,12 @@ interface CodingPlanResourceRow {
   id: string;
   provider_code: string;
   credential_ciphertext: string | null;
+  status: string;
+  cooldown_until: Date | null;
 }
 
-function isProviderCode(code: string): code is ProviderCode {
-  return code === "deepseek" || code === "kimi" || code === "zhipu";
+function supportsQuotaSync(code: string): code is ProviderCode {
+  return code === "kimi" || code === "zhipu";
 }
 
 /**
@@ -49,32 +54,60 @@ export async function runCodingPlanQuotaTick(input: {
   kimiEnabled?: boolean;
   zhipuEnabled?: boolean;
   now?: Date;
+  healthySyncIntervalMs?: number;
+  retryIntervalMs?: number;
 }): Promise<QuotaTickResult> {
   const now = input.now ?? new Date();
   const kek = decodeKek(input.kekBase64);
   const repo = new ProviderQuotaWindowRepository(input.db);
+  const poolRepo = new ResourcePoolRepository(input.db);
   const kimiEnabled = input.kimiEnabled ?? process.env.KIMI_QUOTA_SYNC_ENABLED !== "false";
   const zhipuEnabled = input.zhipuEnabled ?? process.env.ZHIPU_QUOTA_SYNC_ENABLED !== "false";
 
-  // 查所有 CODING_PLAN 且有凭证的 ACTIVE/DEGRADED 资源。
-  const resources = await input.db.selectFrom("provider_resource")
+  const healthySyncIntervalMs = input.healthySyncIntervalMs ?? 5 * 60_000;
+  const retryIntervalMs = input.retryIntervalMs ?? 5 * 60_000;
+  const candidates = await input.db.selectFrom("provider_resource")
     .innerJoin("provider", "provider.id", "provider_resource.provider_id")
     .select([
       "provider_resource.enterprise_id as enterprise_id",
       "provider_resource.id as id",
       "provider.code as provider_code",
       "provider_resource.credential_ciphertext as credential_ciphertext",
+      "provider_resource.status as status",
+      "provider_resource.cooldown_until as cooldown_until",
     ])
     .where("provider_resource.mode", "=", "CODING_PLAN")
-    .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED"])
+    .where("provider_resource.status", "in", [
+      "ACTIVE", "DEGRADED", "RATE_LIMITED", "EXHAUSTED", "CREDENTIAL_INVALID",
+    ])
     .where("provider.status", "=", "ACTIVE")
     .where("provider_resource.credential_ciphertext", "is not", null)
     .execute() as CodingPlanResourceRow[];
 
+  const lastSyncRows = await input.db.selectFrom("provider_quota_window")
+    .select("provider_resource_id")
+    .select((eb) => eb.fn.max("collected_at").as("last_collected_at"))
+    .where("is_current", "=", true)
+    .groupBy("provider_resource_id")
+    .execute() as Array<{ provider_resource_id: string; last_collected_at: Date | null }>;
+  const lastSyncAt = new Map(lastSyncRows.map((row) => [
+    row.provider_resource_id, row.last_collected_at?.getTime() ?? null,
+  ]));
+  const resources = candidates.filter((resource): resource is CodingPlanResourceRow & {
+    provider_code: ProviderCode;
+  } => {
+    if (!supportsQuotaSync(resource.provider_code)) return false;
+    if (resource.status === "ACTIVE" || resource.status === "DEGRADED") {
+      const last = lastSyncAt.get(resource.id);
+      return last === undefined || last === null || last <= now.getTime() - healthySyncIntervalMs;
+    }
+    return resource.cooldown_until === null || resource.cooldown_until <= now;
+  });
+
   let windowsUpserted = 0;
+  let resourcesRecovered = 0;
   let failed = 0;
   for (const resource of resources) {
-    if (!isProviderCode(resource.provider_code)) continue;
     if (resource.provider_code === "kimi" && !kimiEnabled) continue;
     if (resource.provider_code === "zhipu" && !zhipuEnabled) continue;
     const mode = "CODING_PLAN" as ResourceMode;
@@ -104,6 +137,27 @@ export async function runCodingPlanQuotaTick(input: {
         }, now);
         windowsUpserted += 1;
       }
+      const knownWindows = result.windows.filter((window) =>
+        !window.unsupported && window.remaining !== null
+      );
+      const knownWindowTypes = new Set(knownWindows.map((window) => window.windowType));
+      const allRequiredWindowsKnown = ["FIVE_HOUR", "WEEKLY"].every((windowType) =>
+        knownWindowTypes.has(windowType as "FIVE_HOUR" | "WEEKLY")
+      );
+      const allKnownWindowsAvailable = knownWindows.every((window) => Number(window.remaining) > 0);
+      if (allRequiredWindowsKnown && allKnownWindowsAvailable) {
+        if (await poolRepo.recordQuotaSyncRecovery(resource.id)) resourcesRecovered += 1;
+      } else if (!["ACTIVE", "DEGRADED"].includes(resource.status)) {
+        const nextResetAt = result.windows
+          .filter((window) => !window.unsupported
+            && window.remaining !== null
+            && Number(window.remaining) <= 0)
+          .map((window) => window.resetAt)
+          .filter((value): value is Date => value !== null && value > now)
+          .sort((left, right) => left.getTime() - right.getTime())[0]
+          ?? new Date(now.getTime() + retryIntervalMs);
+        await poolRepo.scheduleQuotaSync(resource.id, nextResetAt, now);
+      }
       console.error(JSON.stringify({
         event: "quota_sync_success", resource_id: resource.id,
         provider: resource.provider_code, windows: result.windows.length,
@@ -118,11 +172,18 @@ export async function runCodingPlanQuotaTick(input: {
         );
       }
       failed += 1;
+      if (!["ACTIVE", "DEGRADED"].includes(resource.status)) {
+        await poolRepo.scheduleQuotaSync(
+          resource.id,
+          new Date(now.getTime() + retryIntervalMs),
+          now,
+        );
+      }
       console.error(JSON.stringify({
         event: "quota_sync_failed", resource_id: resource.id,
         provider: resource.provider_code, error_code: code,
       }));
     }
   }
-  return { resourcesScanned: resources.length, windowsUpserted, failed };
+  return { resourcesScanned: resources.length, windowsUpserted, resourcesRecovered, failed };
 }

@@ -211,6 +211,7 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             event: "quota_window_tick_completed",
             resources_scanned: quota.resourcesScanned,
             windows_upserted: quota.windowsUpserted,
+            resources_recovered: quota.resourcesRecovered,
             failed: quota.failed,
           }));
           console.log(JSON.stringify({ event: "provider_operating_sync_tick_completed", ...operating }));

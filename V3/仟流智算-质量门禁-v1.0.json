@@ -254,7 +254,6 @@
       "exit": "拆分且回归通过后降至 400 逻辑行以内"
     },
     "exceptions": [
-      { "file": "apps/gateway/src/pipeline/real-pipeline.ts", "baseline": 1404 },
       { "file": "apps/web/src/pages/QuotaRules.tsx", "baseline": 1394 },
       { "file": "apps/web/src/pages/Resources.tsx", "baseline": 1080 },
       { "file": "packages/provider-adapters/src/openai-compatible-caller.ts", "baseline": 1017 },

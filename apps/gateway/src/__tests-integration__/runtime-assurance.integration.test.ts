@@ -15,7 +15,7 @@ let pg: PostgresTestInstance;
 let db: Database;
 let app: FastifyInstance;
 let key: string;
-let mode: "QUOTA" | "TECHNICAL" = "QUOTA";
+let mode: "QUOTA" | "WINDOW" | "TECHNICAL" = "QUOTA";
 const enterpriseId = randomUUID();
 const principalId = randomUUID();
 const pepper = "ra-gateway-test-pepper-32bytes!!!";
@@ -64,22 +64,37 @@ beforeAll(async () => {
     version: { unified_signal: "QUOTA_EXHAUSTED", action: "BLOCK", recovery_method: "UPSTREAM_RESET_TIME", fallback_duration_seconds: 600 },
   });
   await runtimeRepo.publishRule(rule.rule.id, rule.current_version.version, rule.rule.created_by!);
+  const windowRule = await runtimeRepo.createRule({
+    name: "厂商额度窗口限流", ruleType: "UPSTREAM_SIGNAL", actorId,
+    version: { unified_signal: "RATE_LIMIT_RETRY_AFTER", action: "BLOCK", recovery_method: "UPSTREAM_RESET_TIME", fallback_duration_seconds: 600 },
+  });
+  await runtimeRepo.publishRule(windowRule.rule.id, windowRule.current_version.version, windowRule.rule.created_by!);
   const warn = await runtimeRepo.createRule({
     name: "技术故障预警", ruleType: "OBSERVATION_ALERT", actorId,
     version: { unified_signal: "TECHNICAL_FAILURE", action: "WARN_ONLY", recovery_method: null },
   });
   await runtimeRepo.publishRule(warn.rule.id, warn.current_version.version, warn.rule.created_by!);
 
-  const caller: UpstreamCaller = async () => mode === "QUOTA" ? {
-    status: 429, committed: false,
-    usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
-    error: "1310", upstreamCode: "1310", upstreamErrorKind: "QUOTA_EXHAUSTED",
-    unifiedAvailabilitySignal: "QUOTA_EXHAUSTED", retryAfterMs: 600_000,
-    recoverAt: new Date(Date.now() + 600_000).toISOString(),
-  } : {
-    status: 503, committed: false,
-    usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
-    error: "upstream_http_503", unifiedAvailabilitySignal: "TECHNICAL_FAILURE",
+  const caller: UpstreamCaller = async () => {
+    if (mode === "QUOTA") return {
+      status: 429, committed: false,
+      usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+      error: "1310", upstreamCode: "1310", upstreamErrorKind: "QUOTA_EXHAUSTED",
+      unifiedAvailabilitySignal: "QUOTA_EXHAUSTED", retryAfterMs: 600_000,
+      recoverAt: new Date(Date.now() + 600_000).toISOString(),
+    };
+    if (mode === "WINDOW") return {
+      status: 403, committed: false,
+      usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+      error: "window_exhausted", upstreamErrorKind: "WINDOW_EXHAUSTED",
+      unifiedAvailabilitySignal: "RATE_LIMIT_RETRY_AFTER", retryAfterMs: 600_000,
+      recoverAt: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
+    };
+    return {
+      status: 503, committed: false,
+      usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+      error: "upstream_http_503", unifiedAvailabilitySignal: "TECHNICAL_FAILURE",
+    };
   };
   const ledgerRepo = new GatewayLedgerRepository(db);
   const poolRepo = new ResourcePoolRepository(db);
@@ -136,6 +151,31 @@ describe("RA-W04 Gateway 运行保障纵向链路", () => {
       type: "error",
       error: { type: "api_error", event_id: expect.stringMatching(/^BRK-/) },
     });
+  });
+
+  it("额度窗口熔断在 Anthropic 协议下仍返回 429", async () => {
+    await db.updateTable("availability_event").set({ status: "CANCELLED", recovered_at: new Date(), recovery_reason: "测试切换" })
+      .where("status", "=", "OPEN").execute();
+    const poolRepo = new ResourcePoolRepository(db);
+    await poolRepo.adminRecover(resourceId);
+    await poolRepo.recordSuccess(resourceId);
+    mode = "WINDOW";
+
+    const response = await request("/v1/messages");
+    expect(response.statusCode).toBe(429);
+    expect(response.json()).toMatchObject({
+      type: "error",
+      error: {
+        type: "rate_limit_error",
+        code: "upstream_availability_blocked",
+        retryable: true,
+        event_id: expect.stringMatching(/^BRK-/),
+      },
+    });
+    expect(response.headers["retry-after"]).toBeDefined();
+    const recoverAt = Date.parse(response.json().error.recover_at);
+    expect(recoverAt).toBeGreaterThan(Date.now());
+    expect(recoverAt).toBeLessThanOrEqual(Date.now() + 6 * 60 * 60_000);
   });
 
   it("普通 5xx 连续发生只 DEGRADED + 预警，不创建硬熔断事件", async () => {

@@ -22,7 +22,8 @@ import type { ErrorClassification } from "./index.js";
  *   - 客户端/能力/账本类错误       → 不计入资源健康
  *
  * 恢复边界：
- *   - CREDENTIAL_INVALID / EXHAUSTED：只能 adminRecover（重新授权/充值后受控恢复）
+ *   - CREDENTIAL_INVALID / EXHAUSTED：默认只能 adminRecover；Coding Plan 厂商额度接口
+ *     当次确认凭证有效且所有窗口有余量时，可由 deriveQuotaSyncRecovery 恢复
  *   - UNAVAILABLE：冷却到期 → 半开探测（evaluateAdmission）；探测成功 → DEGRADED
  *   - EXPIRED：凭证过期时间到达由 deriveCredentialExpiry 标记
  */
@@ -73,6 +74,7 @@ export const STATE_REASON = {
   CREDENTIAL_EXPIRED: "CREDENTIAL_EXPIRED", // 凭证到期
   REFRESH_FAILED: "REFRESH_FAILED", // 刷新失败（WT-19 隔离）
   ADMIN_RECOVER: "ADMIN_RECOVER", // 人工受控恢复（重新授权/充值后）
+  QUOTA_SYNC_RECOVERED: "QUOTA_SYNC_RECOVERED", // 厂商额度接口确认凭证有效且窗口已恢复
   HALF_OPEN_PROBE_OK: "HALF_OPEN_PROBE_OK", // 半开探测成功
 } as const;
 
@@ -98,7 +100,9 @@ export const RESOURCE_POOL_POLICY = {
   breakerCooldownBaseMs: 60_000,
   /** 冷却上限毫秒（退避封顶）。 */
   cooldownCapMs: 30 * 60_000,
-  version: "pool014-v2",
+  /** 五小时窗口的厂商时间允许 1 小时容差；超界值按此上限重新确认。 */
+  providerWindowCooldownMaxMs: 6 * 60 * 60_000,
+  version: "pool014-v3",
 } as const;
 
 // ===== 纯函数推导 =====
@@ -116,6 +120,14 @@ export interface StateTransition {
   cooldownUntil: number | null;
   /** 该迁移是否暂时或永久阻止普通请求准入。 */
   isolates: boolean;
+}
+
+/** 把厂商返回的额度窗口恢复时间限制在可复核的可信范围内。 */
+export function clampProviderWindowRecoveryAt(now: number, recoverAt: number): number {
+  return Math.min(
+    Math.max(now + 1_000, recoverAt),
+    now + RESOURCE_POOL_POLICY.providerWindowCooldownMaxMs,
+  );
 }
 
 const ISOLATED_STATUSES: ReadonlySet<ResourceStatus> = new Set([
@@ -144,7 +156,7 @@ export function deriveResourceTransition(
   state: ResourceRuntimeState,
   classification: ErrorClassification,
   now: number,
-  options: { retryAfterMs?: number } = {},
+  options: { retryAfterMs?: number; cooldownUntil?: number } = {},
 ): StateTransition | null {
   const terminallyIsolated =
     state.status === RESOURCE_STATUS.CREDENTIAL_INVALID ||
@@ -183,18 +195,20 @@ export function deriveResourceTransition(
         && now < state.cooldownUntil
       ) return null;
       const failures = state.consecutiveFailures + 1;
-      const cooldownMs = Math.min(
-        Math.max(
-          1_000,
-          options.retryAfterMs ?? RESOURCE_POOL_POLICY.rateLimitCooldownBaseMs,
-        ),
-        RESOURCE_POOL_POLICY.cooldownCapMs,
-      );
+      const cooldownUntil = options.cooldownUntil === undefined
+        ? now + Math.min(
+          Math.max(
+            1_000,
+            options.retryAfterMs ?? RESOURCE_POOL_POLICY.rateLimitCooldownBaseMs,
+          ),
+          RESOURCE_POOL_POLICY.cooldownCapMs,
+        )
+        : clampProviderWindowRecoveryAt(now, options.cooldownUntil);
       return {
         toStatus: RESOURCE_STATUS.RATE_LIMITED,
         reason: STATE_REASON.RATE_LIMITED,
         consecutiveFailures: failures,
-        cooldownUntil: now + cooldownMs,
+        cooldownUntil,
         isolates: true,
       };
     }
@@ -218,6 +232,22 @@ export function deriveResourceTransition(
     default:
       return null;
   }
+}
+
+/** 厂商额度接口的当次成功响应，是终态资源自动恢复的强证据。 */
+export function deriveQuotaSyncRecovery(state: ResourceRuntimeState): StateTransition | null {
+  if (
+    state.status !== RESOURCE_STATUS.RATE_LIMITED
+    && state.status !== RESOURCE_STATUS.EXHAUSTED
+    && state.status !== RESOURCE_STATUS.CREDENTIAL_INVALID
+  ) return null;
+  return {
+    toStatus: RESOURCE_STATUS.DEGRADED,
+    reason: STATE_REASON.QUOTA_SYNC_RECOVERED,
+    consecutiveFailures: 0,
+    cooldownUntil: null,
+    isolates: false,
+  };
 }
 
 /** 被动请求成功 → 状态迁移（成功路径与错误路径分开，语义清晰）。 */

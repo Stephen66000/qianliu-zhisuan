@@ -8,7 +8,8 @@
  *   - 状态推导规则在 @qianliu/domain（resource-lifecycle.ts，纯函数）；
  *   - 本仓储只做：读当前状态 → 应用迁移（status + 字段更新 + resource_status_event 审计，
  *     同事务）→ 查询可服务资源（硬过滤，供 W12 评分使用）。
- *   - 恢复边界：CREDENTIAL_INVALID/EXHAUSTED/EXPIRED 只能 adminRecover（WT-19 受控恢复）。
+ *   - 恢复边界：终态默认由 adminRecover 受控恢复；Coding Plan 厂商额度接口当次确认
+ *     凭证有效且所有窗口有余量时，允许 recordQuotaSyncRecovery 自动恢复。
  */
 import type { Kysely, Selectable } from "kysely";
 import type { Database, ProviderResourceTable, ResourceStatusEventTable } from "../kysely.js";
@@ -18,6 +19,7 @@ import {
   deriveCredentialExpiry,
   deriveRefreshFailure,
   deriveAdminRecovery,
+  deriveQuotaSyncRecovery,
   evaluateAdmission,
   RESOURCE_STATUS,
   type ErrorClassification,
@@ -25,6 +27,7 @@ import {
   type ResourceStatus,
   type StateTransition,
 } from "@qianliu/domain";
+import { refreshEmployeeKeyModels } from "./employee-model-rule-lifecycle.js";
 
 export type ResourceStatusEvent = Selectable<ResourceStatusEventTable>;
 export type ProviderResourceRow = Selectable<ProviderResourceTable>;
@@ -74,7 +77,7 @@ export class ResourcePoolRepository {
     resourceId: string,
     classification: ErrorClassification,
     now: Date = new Date(),
-    options: { retryAfterMs?: number } = {},
+    options: { retryAfterMs?: number; cooldownUntil?: number } = {},
   ): Promise<StateTransition | null> {
     return this.db.transaction().execute(async (trx) => {
       const row = await trx
@@ -158,6 +161,76 @@ export class ResourcePoolRepository {
       await this.applyTransitionTx(trx, row, transition, null, "system");
       return transition;
     });
+  }
+
+  /** 厂商额度接口确认凭证有效且所有已知窗口均有余量后，自动解除隔离。 */
+  async recordQuotaSyncRecovery(
+    resourceId: string,
+  ): Promise<StateTransition | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx.selectFrom("provider_resource")
+        .selectAll().where("id", "=", resourceId).forUpdate().executeTakeFirstOrThrow();
+      const transition = deriveQuotaSyncRecovery(toRuntimeState(row));
+      if (!transition) return null;
+      await trx.updateTable("provider_resource").set({
+        credential_refresh_status: "OK",
+        refresh_error_classification: null,
+        updated_at: new Date(),
+      }).where("id", "=", resourceId).execute();
+      await this.applyTransitionTx(trx, row, transition, null, "system");
+      const provider = await trx.selectFrom("provider").select("code")
+        .where("enterprise_id", "=", row.enterprise_id)
+        .where("id", "=", row.provider_id)
+        .executeTakeFirstOrThrow();
+      const [poolPrincipals, assignmentPrincipals, manualPrincipals] = await Promise.all([
+        trx.selectFrom("principal_grant").select("principal_id")
+          .where("enterprise_id", "=", row.enterprise_id)
+          .where("provider", "=", provider.code)
+          .where("status", "=", "ACTIVE")
+          .execute(),
+        trx.selectFrom("employee_model_rule_assignment").select("principal_id")
+          .where("enterprise_id", "=", row.enterprise_id)
+          .where("provider_resource_id", "=", resourceId)
+          .where("status", "=", "ACTIVE")
+          .execute(),
+        trx.selectFrom("principal_model_manual_authorization")
+          .innerJoin("model_route", (join) => join
+            .onRef("model_route.enterprise_id", "=", "principal_model_manual_authorization.enterprise_id")
+            .onRef("model_route.unified_model_id", "=", "principal_model_manual_authorization.unified_model_id"))
+          .select("principal_model_manual_authorization.principal_id")
+          .where("principal_model_manual_authorization.enterprise_id", "=", row.enterprise_id)
+          .where("model_route.provider_resource_id", "=", resourceId)
+          .execute(),
+      ]);
+      const principalIds = [...new Set([
+        ...poolPrincipals.map((item) => item.principal_id),
+        ...assignmentPrincipals.map((item) => item.principal_id),
+        ...manualPrincipals.map((item) => item.principal_id),
+      ])].sort((left, right) => left.localeCompare(right, "en"));
+      for (const principalId of principalIds) {
+        await refreshEmployeeKeyModels(trx, row.enterprise_id, principalId);
+      }
+      return transition;
+    });
+  }
+
+  /** 隔离资源额度仍未恢复或同步失败时，只安排下一次检查，不改变隔离原因。 */
+  async scheduleQuotaSync(
+    resourceId: string,
+    nextCheckAt: Date,
+    now: Date = new Date(),
+  ): Promise<boolean> {
+    const updated = await this.db.updateTable("provider_resource")
+      .set({ cooldown_until: nextCheckAt, updated_at: now })
+      .where("id", "=", resourceId)
+      .where("status", "in", [
+        RESOURCE_STATUS.RATE_LIMITED,
+        RESOURCE_STATUS.EXHAUSTED,
+        RESOURCE_STATUS.CREDENTIAL_INVALID,
+      ])
+      .returning("id")
+      .executeTakeFirst();
+    return updated !== undefined;
   }
 
   /** 凭证到期检查（WT-19）：到期则迁移 EXPIRED。 */

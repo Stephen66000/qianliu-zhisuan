@@ -64,7 +64,8 @@ export interface Outcome {
   cost?: string; // decimal.js 字符串（避免 number 精度损失）
   error?: string;
   /**
-   * 上游 429 的稳定语义。只保存归一化类型，不保存厂商原始正文，满足
+   * 上游限流与额度错误的稳定语义（含厂商用 403 表达窗口耗尽的情况）。
+   * 只保存归一化类型，不保存厂商原始正文，满足
    * METADATA_ONLY；Gateway 据此区分瞬时拥塞、并发占满和额度周期耗尽。
    */
   upstreamErrorKind?:

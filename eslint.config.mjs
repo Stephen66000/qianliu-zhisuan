@@ -75,10 +75,6 @@ export default [
     rules: { complexity: ["error", 35] },
   },
   {
-    files: ["apps/gateway/src/pipeline/real-pipeline.ts"],
-    rules: { complexity: ["error", 182] },
-  },
-  {
     files: ["apps/web/src/pages/Principals.tsx"],
     rules: { complexity: ["error", 48] },
   },

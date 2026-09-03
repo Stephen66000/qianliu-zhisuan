@@ -101,8 +101,9 @@ function classifyAvailabilitySignal(
   if (kind === "QUOTA_EXHAUSTED" && (status === 402 || status === 403)) {
     return "QUOTA_EXHAUSTED";
   }
+  if (kind === "WINDOW_EXHAUSTED") return "RATE_LIMIT_RETRY_AFTER";
   if (status === 429) {
-    if ((kind === "WINDOW_EXHAUSTED" || kind === "QUOTA_EXHAUSTED") && recoverAt) {
+    if (kind === "QUOTA_EXHAUSTED" && recoverAt) {
       return "QUOTA_EXHAUSTED";
     }
     if (kind === "ENGINE_OVERLOADED" || kind === "CONCURRENCY_LIMITED") return "TECHNICAL_FAILURE";

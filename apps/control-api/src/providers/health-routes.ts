@@ -32,6 +32,7 @@ const REASON_LABEL: Record<string, string> = {
   [STATE_REASON.REFRESH_FAILED]: "凭证刷新失败",
   [STATE_REASON.ADMIN_RECOVER]: "管理员人工恢复",
   [STATE_REASON.HALF_OPEN_PROBE_OK]: "半开探测成功",
+  [STATE_REASON.QUOTA_SYNC_RECOVERED]: "厂商额度同步确认恢复",
 };
 
 /** 根据准入判定推导调度影响文案。 */
@@ -45,11 +46,19 @@ function dispatchImpact(admit: boolean, probe: boolean, status: string): string 
 }
 
 /** 根据状态与原因推导恢复说明。 */
-function recoveryGuide(status: string, reason: string | null, cooldownUntil: string | null): string {
+function recoveryGuide(
+  status: string,
+  reason: string | null,
+  cooldownUntil: string | null,
+  mode: string,
+): string {
   switch (status) {
     case RESOURCE_STATUS.ACTIVE:
       return "资源健康，无需处置。";
     case RESOURCE_STATUS.DEGRADED:
+      if (reason === STATE_REASON.QUOTA_SYNC_RECOVERED) {
+        return "厂商额度已确认恢复，下一次成功请求后自动恢复为正常。";
+      }
       return "技术失败自动降级，后续成功请求会自动恢复为正常。";
     case RESOURCE_STATUS.RATE_LIMITED:
       return cooldownUntil
@@ -58,12 +67,18 @@ function recoveryGuide(status: string, reason: string | null, cooldownUntil: str
     case RESOURCE_STATUS.UNAVAILABLE:
       return "连续失败已隔离，冷却到期后自动半开探测；持续失败请检查上游。";
     case RESOURCE_STATUS.CREDENTIAL_INVALID:
+      if (mode === "CODING_PLAN" && cooldownUntil) {
+        return `等待厂商额度与凭证复核，系统将在 ${cooldownUntil} 自动重试同步。`;
+      }
       return reason === STATE_REASON.REFRESH_FAILED
         ? "凭证自动刷新失败，请更新凭证后人工恢复。"
         : "厂商拒绝凭证，请更新凭证后人工恢复。";
     case RESOURCE_STATUS.EXPIRED:
       return "凭证已到期，请更新凭证后人工恢复。";
     case RESOURCE_STATUS.EXHAUSTED:
+      if (mode === "CODING_PLAN" && cooldownUntil) {
+        return `厂商额度已耗尽，系统将在 ${cooldownUntil} 自动重试同步。`;
+      }
       return "厂商额度耗尽，请补充套餐或等待额度重置后人工恢复。";
     default:
       return "请检查资源配置或联系管理员。";
@@ -74,7 +89,11 @@ export function registerProviderHealthRoutes(app: FastifyInstance): void {
   app.get<{ Params: { id: string } }>(
     "/provider-resources/:id/health", { preHandler: [requireAuth] }, async (req, reply) => {
       const enterpriseId = req.admin!.enterpriseId;
-      const resource = await app.providerRepo.getResourceForModelDiscovery(enterpriseId, req.params.id);
+      const resource = await app.db.selectFrom("provider_resource")
+        .selectAll()
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", req.params.id)
+        .executeTakeFirst();
       if (!resource) {
         return reply.code(404).send({ error: "not_found", message: "资源不存在" });
       }
@@ -107,7 +126,9 @@ export function registerProviderHealthRoutes(app: FastifyInstance): void {
         : null;
       // 最近一次成功事件。
       const lastSuccessEvent = [...events].reverse()
-        .find((e) => e.reason === STATE_REASON.PASSIVE_SUCCESS || e.reason === STATE_REASON.HALF_OPEN_PROBE_OK)
+        .find((e) => e.reason === STATE_REASON.PASSIVE_SUCCESS
+          || e.reason === STATE_REASON.HALF_OPEN_PROBE_OK
+          || e.reason === STATE_REASON.QUOTA_SYNC_RECOVERED)
         ?? null;
 
       const reason = latestEvent?.reason ?? null;
@@ -134,7 +155,7 @@ export function registerProviderHealthRoutes(app: FastifyInstance): void {
         refresh_error_classification: resource.refresh_error_classification ?? null,
         credential_expires_at: resource.credential_expires_at?.toISOString() ?? null,
         dispatch_impact: dispatchImpact(admission.admit, admission.probe, resource.status),
-        recovery_guide: recoveryGuide(resource.status, reason, cooldownUntilIso),
+        recovery_guide: recoveryGuide(resource.status, reason, cooldownUntilIso, resource.mode),
         can_recover: new Set<string>([
           RESOURCE_STATUS.CREDENTIAL_INVALID,
           RESOURCE_STATUS.EXPIRED,

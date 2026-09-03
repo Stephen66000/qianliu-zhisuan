@@ -75,7 +75,7 @@ async function ensureProvider(code: "deepseek" | "zhipu" | "kimi") {
     .executeTakeFirstOrThrow();
 }
 
-async function seedProviderResource(status = "ACTIVE") {
+async function seedProviderResource(status = "ACTIVE", mode: "API" | "CODING_PLAN" = "API") {
   const provider = await ensureProvider("zhipu");
   const resource = await db
     .insertInto("provider_resource")
@@ -83,8 +83,8 @@ async function seedProviderResource(status = "ACTIVE") {
       enterprise_id: ENT_ID,
       provider_id: provider.id,
       name: `智谱主账号-${randomUUID().slice(0, 8)}`,
-      mode: "API",
-      credential_type: "API_KEY",
+      mode,
+      credential_type: mode === "CODING_PLAN" ? "SUBSCRIPTION_SESSION" : "API_KEY",
       status,
       credential_version: 1,
     })
@@ -899,6 +899,54 @@ describe("W19 管理写操作闭环", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().resource.status).toBe("DEGRADED");
     expect(res.json().resource.credential_version).toBe(1);
+  });
+
+  it("GET /provider-resources/:id/health：展示 Coding Plan 自动同步恢复状态", async () => {
+    const { resource } = await seedProviderResource("CREDENTIAL_INVALID", "CODING_PLAN");
+    const recoveredAt = new Date();
+    await db.updateTable("provider_resource").set({
+      status: "DEGRADED",
+      credential_refresh_status: "OK",
+      refresh_error_classification: null,
+      cooldown_until: null,
+    }).where("id", "=", resource.id).execute();
+    await db.insertInto("resource_status_event").values({
+      enterprise_id: ENT_ID,
+      provider_resource_id: resource.id,
+      from_status: "CREDENTIAL_INVALID",
+      to_status: "DEGRADED",
+      reason: "QUOTA_SYNC_RECOVERED",
+      actor: "system",
+      created_at: recoveredAt,
+    }).execute();
+
+    const recovered = await app.inject({
+      method: "GET",
+      url: `/provider-resources/${resource.id}/health`,
+      headers: { cookie: adminCookie },
+    });
+    expect(recovered.statusCode).toBe(200);
+    expect(recovered.json()).toMatchObject({
+      status: "DEGRADED",
+      reason_code: "QUOTA_SYNC_RECOVERED",
+      reason_label: "厂商额度同步确认恢复",
+      credential_refresh_status: "OK",
+    });
+    expect(recovered.json().last_success_at).toBe(recoveredAt.toISOString());
+    expect(recovered.json().recovery_guide).toContain("下一次成功请求后自动恢复");
+
+    const { resource: waiting } = await seedProviderResource("EXHAUSTED", "CODING_PLAN");
+    const cooldownUntil = new Date(Date.now() + 5 * 60_000);
+    await db.updateTable("provider_resource").set({ cooldown_until: cooldownUntil })
+      .where("id", "=", waiting.id).execute();
+    const pending = await app.inject({
+      method: "GET",
+      url: `/provider-resources/${waiting.id}/health`,
+      headers: { cookie: adminCookie },
+    });
+    expect(pending.statusCode).toBe(200);
+    expect(pending.json().recovery_guide).toContain("自动重试同步");
+    expect(pending.json().recovery_guide).toContain(cooldownUntil.toISOString());
   });
 
   it("六要素：未认证 401 / 不存在 404 / 跨企业不可见", async () => {

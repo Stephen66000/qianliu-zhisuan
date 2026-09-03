@@ -729,6 +729,68 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
     }
   });
 
+  it("Kimi 403 五小时窗口耗尽按厂商时间进入 RATE_LIMITED，到期可半开恢复", async () => {
+    const resetAt = new Date(Date.now() + 2 * 60 * 60_000);
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      quotaValue: 100_000n,
+      caller: async () => ({
+        status: 403,
+        committed: false,
+        usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+        error: "permission_error",
+        upstreamErrorKind: "WINDOW_EXHAUSTED",
+        unifiedAvailabilitySignal: "RATE_LIMIT_RETRY_AFTER",
+        failureLayer: "UPSTREAM_HTTP",
+      }),
+    });
+    try {
+      await db.insertInto("provider_quota_window").values({
+        enterprise_id: ENT_ID,
+        provider_resource_id: fx.resourceId,
+        window_type: "FIVE_HOUR",
+        limit_value: "100",
+        used_value: "98",
+        remaining_value: "2",
+        unit: "POINT",
+        ratio: "0.980000",
+        reset_at: resetAt,
+        provider_data_at: new Date(),
+        collected_at: new Date(),
+        source: "PROVIDER_SYNC",
+        adapter_version: "test-v1",
+        sync_status: "SUCCESS",
+        sync_error_code: null,
+        last_success_at: new Date(),
+      }).execute();
+      const response = await fx.app.inject({
+        method: "POST",
+        url: "/v1/messages",
+        headers: authHeader(fx.key),
+        payload: {
+          model: KIMI_ALIAS,
+          max_tokens: 256,
+          messages: [{ role: "user", content: "五小时窗口测试" }],
+        },
+      });
+
+      expect(response.statusCode).toBe(429);
+      expect(response.json().error).toMatchObject({
+        code: "upstream_window_exhausted",
+        retryable: true,
+        next_reset_at: resetAt.toISOString(),
+      });
+      const resource = await db.selectFrom("provider_resource")
+        .select(["status", "cooldown_until"])
+        .where("id", "=", fx.resourceId)
+        .executeTakeFirstOrThrow();
+      expect(resource.status).toBe("RATE_LIMITED");
+      expect(resource.cooldown_until?.toISOString()).toBe(resetAt.toISOString());
+    } finally {
+      await fx.close();
+    }
+  });
+
   it("F-01-4：allow_overage=true → ALLOW_OVERAGE → 成功 + 超额记录", async () => {
     const fx = await buildFixture({ mode: "CODING_PLAN", quotaValue: 1n, allowOverage: true });
     try {

@@ -7,7 +7,7 @@
  *   - 成功路径：计数清零、UNAVAILABLE 半开成功→DEGRADED（一次成功不抹趋势）
  *   - 准入门禁：ACTIVE/DEGRADED 放行、冷却中拒绝、冷却到期半开探测、终态隔离拒绝
  *   - 幂等：隔离态重复事件不重复迁移
- *   - 恢复边界：CREDENTIAL_INVALID/EXHAUSTED/EXPIRED 仅 adminRecover 可恢复
+ *   - 恢复边界：终态默认人工恢复；Coding Plan 厂商额度强证据可自动恢复
  *
  * 依据：TRD §9 行 585-598、§5.4 行 243-249；WT-07/19。
  */
@@ -23,6 +23,7 @@ import {
   deriveCredentialExpiry,
   deriveRefreshFailure,
   deriveAdminRecovery,
+  deriveQuotaSyncRecovery,
   evaluateAdmission,
   type ResourceRuntimeState,
 } from "../index.js";
@@ -106,6 +107,26 @@ describe("deriveResourceTransition 处置矩阵（TRD §9）", () => {
     expect(nextWave!.cooldownUntil).toBe(T0 + 14_000);
   });
 
+  it("厂商精确重置时间不受通用 30 分钟冷却上限截断", () => {
+    const resetAt = T0 + 4 * 60 * 60_000;
+    const transition = deriveResourceTransition(
+      active(), "UPSTREAM_RATE_LIMITED", T0, { cooldownUntil: resetAt },
+    );
+    expect(transition?.cooldownUntil).toBe(resetAt);
+  });
+
+  it("异常远期厂商时间按五小时窗口可信上限重新确认", () => {
+    const transition = deriveResourceTransition(
+      active(),
+      "UPSTREAM_RATE_LIMITED",
+      T0,
+      { cooldownUntil: T0 + 30 * 24 * 60 * 60_000 },
+    );
+    expect(transition?.cooldownUntil).toBe(
+      T0 + RESOURCE_POOL_POLICY.providerWindowCooldownMaxMs,
+    );
+  });
+
   it("临时故障达到旧阈值后仍保持 DEGRADED + ALLOW", () => {
     const t1 = deriveResourceTransition(active(), "UPSTREAM_TEMPORARY", T0);
     expect(t1!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
@@ -186,6 +207,26 @@ describe("deriveSuccessTransition 成功路径", () => {
   it("终态隔离资源成功被防御性忽略", () => {
     expect(deriveSuccessTransition(active({ status: RESOURCE_STATUS.CREDENTIAL_INVALID }))).toBeNull();
     expect(deriveSuccessTransition(active({ status: RESOURCE_STATUS.EXHAUSTED }))).toBeNull();
+  });
+});
+
+describe("deriveQuotaSyncRecovery 厂商额度证据恢复", () => {
+  it.each(["RATE_LIMITED", "EXHAUSTED", "CREDENTIAL_INVALID"] as const)(
+    "%s 在额度接口确认恢复后进入 DEGRADED",
+    (status) => {
+      expect(deriveQuotaSyncRecovery(active({
+        status, consecutiveFailures: 3, cooldownUntil: T0 + 10_000,
+      }))).toMatchObject({
+        toStatus: "DEGRADED",
+        reason: "QUOTA_SYNC_RECOVERED",
+        consecutiveFailures: 0,
+        cooldownUntil: null,
+      });
+    },
+  );
+
+  it("健康态不产生恢复事件", () => {
+    expect(deriveQuotaSyncRecovery(active())).toBeNull();
   });
 });
 
