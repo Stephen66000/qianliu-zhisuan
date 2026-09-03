@@ -8,96 +8,22 @@
  * 期间被他人修改则 409 conflict（W19 DoD「并发修改测试」的落点）。
  */
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
 import { encryptCredential, credentialFingerprint } from "@qianliu/provider-adapters";
 import { AdminRecoverNotFoundError, ModelRouteNotReadyError } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
-  OperatingSnapshotSchema,
   financeManagedOperatingSnapshotError,
   operatingSnapshotModeError,
   toOperatingSnapshotInput,
 } from "../providers/contracts.js";
-import type { ResourceViewInput } from "./types.js";
-
-/** 单调版本号乐观锁（P2-01）：前端携带读取时的 version，期间被改则 409 conflict。 */
-const ExpectedVersion = z.number().int().positive();
-
-/** 额度值（P2-02）：先字符串正则校验非负整数，再转 BigInt；拒绝 abc/1.5/-1（此前会变 500 或接受负值）。 */
-const QuotaValue = z
-  .union([z.string(), z.number()])
-  .transform(String)
-  .refine((v) => /^\d+$/.test(v), { message: "额度必须是非负整数" })
-  .transform((v) => BigInt(v));
-
-const UpdateResourceSchema = z.object({
-  expected_version: ExpectedVersion,
-  name: z.string().min(1).max(255).optional(),
-  concurrency_limit: z.number().int().positive().nullable().optional(),
-  upstream_models: z.array(z.string().min(1).max(128)).max(100).nullable().optional(),
-  operating_snapshot: OperatingSnapshotSchema.optional(),
-}).strict();
-
-const UpdateUnifiedModelSchema = z.object({
-  expected_version: ExpectedVersion,
-  display_name: z.string().min(1).max(128).optional(),
-  status: z.enum(["ACTIVE", "DISABLED"]).optional(),
-});
-
-const UpdateModelRouteSchema = z.object({
-  expected_version: ExpectedVersion,
-  priority: z.number().int().optional(),
-  weight: z.number().int().positive().optional(),
-  enabled: z.boolean().optional(),
-});
-
-const UpdateGrantSchema = z.object({
-  expected_version: ExpectedVersion,
-  quota_value: QuotaValue.optional(),
-  allow_overage: z.boolean().optional(),
-  valid_until: z.string().datetime().nullable().optional(),
-  status: z.enum(["ACTIVE", "DISABLED"]).optional(),
-});
-
-const UpdateBillingRuleSchema = z
-  .object({
-    expected_version: ExpectedVersion,
-    effective_to: z.string().datetime().nullable().optional(),
-    enabled: z.boolean().optional(),
-  })
-  // 价格、倍率、窗口和优先级共同定义规则版本，禁止原地改写。
-  // 变更这些字段必须 POST 新 rule_version，并用 effective_from/effective_to 切换。
-  .strict();
-
-const ArchiveLifecycleSchema = z.object({ expected_version: ExpectedVersion }).strict();
-
-const RecoverResourceSchema = z.object({
-  /** 可选：同时轮换凭证（明文一次接收，立即加密，绝不入库）。 */
-  credential_plaintext: z.string().min(1).optional(),
-});
-
-/** 资源公开视图（绝不返回密文/明文）。 */
-function resourceView(r: ResourceViewInput, operatingSnapshot: unknown = null) {
-  return {
-    id: r.id,
-    provider_id: r.provider_id,
-    name: r.name,
-    mode: r.mode,
-    credential_type: r.credential_type,
-    credential_fingerprint: r.credential_fingerprint,
-    credential_version: r.credential_version,
-    status: r.status,
-    upstream_models: r.upstream_models,
-    concurrency_limit: r.concurrency_limit,
-    version: r.version,
-    monthly_budget_amount: r.monthly_budget_amount ?? null, monthly_budget_currency: r.monthly_budget_currency ?? null,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
-    operating_snapshot: operatingSnapshot,
-  };
-}
+import {
+  RecoverResourceSchema, UpdateBillingRuleSchema, UpdateGrantSchema,
+  UpdateModelRouteSchema, UpdateResourceSchema, UpdateUnifiedModelSchema, resourceView,
+} from "./contracts.js";
+import { registerAdminArchiveRoutes } from "./archive-routes.js";
 
 export function registerAdminWriteRoutes(app: FastifyInstance): void {
+  registerAdminArchiveRoutes(app);
   // ===== 厂商资源：基础信息更新（并发乐观锁） =====
   app.patch<{ Params: { id: string } }>(
     "/provider-resources/:id",
@@ -178,41 +104,6 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
     },
   );
 
-  app.post<{ Params: { id: string; action: string } }>(
-    "/unified-models/:id/:action",
-    { preHandler: [requireAuth] },
-    async (req, reply) => {
-      const action = z.enum(["archive", "unarchive"]).safeParse(req.params.action);
-      const parsed = ArchiveLifecycleSchema.safeParse(req.body);
-      if (!action.success) return reply.code(404).send({ error: "not_found", message: "未知归档操作" });
-      if (!parsed.success) return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
-      const archived = action.data === "archive";
-      const updated = await app.adminWriteRepo.setUnifiedModelArchived(
-        req.admin!.enterpriseId,
-        req.params.id,
-        parsed.data.expected_version,
-        archived,
-        req.admin!.adminUserId,
-      );
-      if (!updated) {
-        return reply.code(409).send({
-          error: "invalid_state",
-          message: archived ? "统一模型必须先停用，且版本未被修改，才能归档" : "统一模型未归档或版本已变化",
-        });
-      }
-      await app.auditRepo.write({
-        enterprise_id: req.admin!.enterpriseId,
-        admin_user_id: req.admin!.adminUserId,
-        action: `unified_model.${action.data}`,
-        target_type: "unified_model",
-        target_id: updated.id,
-        change_summary: { archived_at: updated.archived_at, status: updated.status },
-        result: "SUCCESS",
-      });
-      return { model: updated };
-    },
-  );
-
   // ===== 统一模型：更新 / 停用 =====
   app.patch<{ Params: { id: string } }>(
     "/unified-models/:id",
@@ -257,41 +148,6 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         result: "SUCCESS",
       });
       return { model: updated };
-    },
-  );
-
-  app.post<{ Params: { id: string; action: string } }>(
-    "/model-routes/:id/:action",
-    { preHandler: [requireAuth] },
-    async (req, reply) => {
-      const action = z.enum(["archive", "unarchive"]).safeParse(req.params.action);
-      const parsed = ArchiveLifecycleSchema.safeParse(req.body);
-      if (!action.success) return reply.code(404).send({ error: "not_found", message: "未知归档操作" });
-      if (!parsed.success) return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
-      const archived = action.data === "archive";
-      const updated = await app.adminWriteRepo.setModelRouteArchived(
-        req.admin!.enterpriseId,
-        req.params.id,
-        parsed.data.expected_version,
-        archived,
-        req.admin!.adminUserId,
-      );
-      if (!updated) {
-        return reply.code(409).send({
-          error: "invalid_state",
-          message: archived ? "Model Route 必须先停用，且版本未被修改，才能归档" : "Model Route 未归档或版本已变化",
-        });
-      }
-      await app.auditRepo.write({
-        enterprise_id: req.admin!.enterpriseId,
-        admin_user_id: req.admin!.adminUserId,
-        action: `model_route.${action.data}`,
-        target_type: "model_route",
-        target_id: updated.id,
-        change_summary: { archived_at: updated.archived_at, enabled: updated.enabled },
-        result: "SUCCESS",
-      });
-      return { route: updated };
     },
   );
 
@@ -357,41 +213,6 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
         result: "SUCCESS",
       });
       return { route: updated };
-    },
-  );
-
-  app.post<{ Params: { id: string; action: string } }>(
-    "/billing-rules/:id/:action",
-    { preHandler: [requireAuth] },
-    async (req, reply) => {
-      const action = z.enum(["archive", "unarchive"]).safeParse(req.params.action);
-      const parsed = ArchiveLifecycleSchema.safeParse(req.body);
-      if (!action.success) return reply.code(404).send({ error: "not_found", message: "未知归档操作" });
-      if (!parsed.success) return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
-      const archived = action.data === "archive";
-      const updated = await app.adminWriteRepo.setBillingRuleArchived(
-        req.admin!.enterpriseId,
-        req.params.id,
-        parsed.data.expected_version,
-        archived,
-        req.admin!.adminUserId,
-      );
-      if (!updated) {
-        return reply.code(409).send({
-          error: "invalid_state",
-          message: archived ? "计价规则必须先停用，且版本未被修改，才能归档" : "计价规则未归档或版本已变化",
-        });
-      }
-      await app.auditRepo.write({
-        enterprise_id: req.admin!.enterpriseId,
-        admin_user_id: req.admin!.adminUserId,
-        action: `billing_rule.${action.data}`,
-        target_type: "billing_rule",
-        target_id: updated.id,
-        change_summary: { archived_at: updated.archived_at, enabled: updated.enabled },
-        result: "SUCCESS",
-      });
-      return { rule: updated };
     },
   );
 
