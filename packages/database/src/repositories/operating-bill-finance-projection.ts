@@ -83,9 +83,13 @@ export async function projectOperatingBillFinance(
   const financeResourceIds = new Set(views.map((view) => view.resourceId));
   const retainedGaps = snapshot.gaps.filter((gap) => {
     if (!gap.providerResourceId || !financeResourceIds.has(gap.providerResourceId)) return true;
-    return !["OPERATING_SNAPSHOT_MISSING", "API_BALANCE_MISSING", "API_SPEND_NOT_CALCULABLE",
-      "NEGATIVE_BALANCE_BRIDGE", "CURRENCY_MISMATCH", "PLAN_FACT_MISSING",
-      "UNALLOCATED_PACKAGE_COST"].includes(gap.code);
+    const view = byResource.get(gap.providerResourceId);
+    if (view?.mode === "API" && view.accounts.length === 0) return true;
+    return !["OPERATING_SNAPSHOT_MISSING", "API_BALANCE_MISSING",
+      "API_BALANCE_BRIDGE_MISSING", "API_OPENING_BALANCE_MISSING",
+      "API_ENDING_BALANCE_MISSING", "API_CURRENCY_MISMATCH",
+      "API_NEGATIVE_BALANCE_BRIDGE", "API_SPEND_NOT_CALCULABLE", "API_COST_UNKNOWN",
+      "PLAN_FACT_MISSING", "UNALLOCATED_PACKAGE_COST"].includes(gap.code);
   });
   const stateCode = {
     MISSING_OPENING_BALANCE: "API_OPENING_BALANCE_MISSING",

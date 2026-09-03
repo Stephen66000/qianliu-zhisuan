@@ -235,6 +235,13 @@ describe("provider finance cutover rehearsal", () => {
       });
       const operatingBill = await new OperatingBillRepository(db, "DARK")
         .getBill(enterpriseId, "2026-09");
+      expect(operatingBill.summary.apiSpends).toEqual([
+        { currency: "CNY", amount: "5.00000000" },
+      ]);
+      expect(operatingBill.gaps).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ code: "API_NEGATIVE_BALANCE_BRIDGE" }),
+        expect.objectContaining({ code: "API_COST_UNKNOWN" }),
+      ]));
       expect(operatingBill.subjects).toEqual(expect.arrayContaining([
         expect.objectContaining({ principalId: "__unassigned_project__",
           apiCost: "4.00000000", totalAllocatedCost: "4.00000000" }),
