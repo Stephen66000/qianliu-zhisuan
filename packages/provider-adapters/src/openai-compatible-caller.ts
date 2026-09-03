@@ -232,15 +232,22 @@ export function toChatCompletionsRequest(
     && typeof body.tool_choice.disable_parallel_tool_use === "boolean"
     ? !body.tool_choice.disable_parallel_tool_use
     : undefined;
+  const upstreamMessages = backfillToolReasoning(
+    resource,
+    tools,
+    messages,
+  );
   const vendorExtensions = providerRequestExtensions(
     resource,
     body,
     body?.reasoning_effort,
+    upstreamMessages,
+    tools,
   );
 
   return {
     model: resource.upstreamModel,
-    messages,
+    messages: upstreamMessages,
     stream: request.stream,
     ...(request.stream ? { stream_options: { include_usage: true as const } } : {}),
     ...(tools && tools.length > 0 ? { tools } : {}),
@@ -250,16 +257,39 @@ export function toChatCompletionsRequest(
   };
 }
 
+/** DeepSeek 与 Kimi K3 的工具续轮对缺失 reasoning_content 做结构兼容。 */
+function backfillToolReasoning(
+  resource: Pick<AdapterResource, "providerCode" | "upstreamModel">,
+  tools: unknown[] | undefined,
+  messages: ChatMessage[],
+): ChatMessage[] {
+  const supportsEmptyReasoning = resource.providerCode === "deepseek"
+    || (resource.providerCode === "kimi" && isKimiK3Model(resource.upstreamModel));
+  if (!supportsEmptyReasoning || !tools?.length) return messages;
+  return messages.map((message) =>
+    message.role === "assistant"
+      && !Object.prototype.hasOwnProperty.call(message, "reasoning_content")
+      ? { ...message, reasoning_content: "" }
+      : message
+  );
+}
+
 function providerRequestExtensions(
   resource: Pick<AdapterResource, "providerCode" | "upstreamModel">,
   body: Record<string, unknown> | null,
   reasoningEffort: unknown,
+  messages: ChatMessage[] = [],
+  tools?: unknown[],
 ): Pick<ChatCompletionBody, "reasoning_effort" | "thinking" | "tool_stream"> {
   const normalizedEffort = providerReasoningEffort(resource, reasoningEffort);
   if (resource.providerCode === "zhipu") {
+    const extensions = vendorRequestExtensions(body, true, true);
     return {
       ...(normalizedEffort ? { reasoning_effort: normalizedEffort } : {}),
-      ...vendorRequestExtensions(body, true, true),
+      ...extensions,
+      ...(shouldRestartZhipuThinking(body, tools, messages)
+        ? { thinking: { type: "enabled" as const, clear_thinking: true } }
+        : {}),
     };
   }
   if (resource.providerCode === "deepseek") {
@@ -269,6 +299,24 @@ function providerRequestExtensions(
     };
   }
   return normalizedEffort ? { reasoning_effort: normalizedEffort } : {};
+}
+
+/** GLM 工具历史缺少真实推理时退出保留式思考，避免伪造或续接不完整推理。 */
+function shouldRestartZhipuThinking(
+  body: Record<string, unknown> | null,
+  tools: unknown[] | undefined,
+  messages: ChatMessage[],
+): boolean {
+  if (!tools?.length) return false;
+  const thinking = body?.thinking;
+  if (isRecord(thinking) && thinking.type === "disabled") return false;
+  if (isRecord(thinking) && thinking.clear_thinking === true) return false;
+  return messages.some((message) =>
+    message.role === "assistant"
+      && Boolean(message.tool_calls?.length)
+      && (typeof message.reasoning_content !== "string"
+        || message.reasoning_content.length === 0)
+  );
 }
 
 function vendorRequestExtensions(
@@ -312,10 +360,14 @@ function providerReasoningEffort(
   if (resource.providerCode === "deepseek") {
     return ["max", "xhigh", "high", "medium", "low"].includes(raw) ? raw : undefined;
   }
-  if (!/^(?:kimi-)?k3(?:-|$)/i.test(resource.upstreamModel)) return undefined;
+  if (!isKimiK3Model(resource.upstreamModel)) return undefined;
   if (raw === "medium") return "high";
   if (raw === "xhigh") return "max";
   return ["max", "high", "low"].includes(raw) ? raw : undefined;
+}
+
+function isKimiK3Model(upstreamModel: string): boolean {
+  return /^(?:kimi-)?k3(?:-|$)/i.test(upstreamModel);
 }
 
 function supportsZhipuReasoningEffort(upstreamModel: string): boolean {
