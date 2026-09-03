@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { sql, type Kysely, type Transaction } from "kysely";
 import { Decimal } from "decimal.js";
 
@@ -10,11 +9,11 @@ import type {
 } from "./provider-finance-cutover-types.js";
 import {
   PROVIDER_FINANCE_CUTOVER,
-  PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
   ProviderFinanceError,
 } from "./provider-finance-types.js";
 import { ProviderFinanceRepository } from "./provider-finance-repository.js";
-import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
+import { ProviderFinanceUsageBackfill } from "./provider-finance-usage-backfill.js";
+import { resolveLegacyApiCostGap } from "./provider-finance-legacy-resolution.js";
 
 const numericCount = (value: string | number | bigint | undefined): number => Number(value ?? 0);
 
@@ -235,269 +234,13 @@ export class ProviderFinanceCutoverRepository {
   async backfillUsageFacts(
     enterpriseId: string, apply = false,
   ): Promise<FinanceUsageBackfillReport> {
-    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
-      if (!apply) {
-        await sql`SET TRANSACTION READ ONLY`.execute(trx);
-        const eligible = await this.loadEligibleCounts(trx, enterpriseId);
-        const gaps = await this.loadRemainingGaps(trx, enterpriseId);
-        return this.backfillReport(enterpriseId, "DRY_RUN", eligible,
-          { settlementTime: 0, apiCostCurrency: 0, apiCostStatus: 0, subscriptionPeriod: 0 },
-          0, gaps);
-      }
-      await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`provider-finance:${enterpriseId}`}, 0))`
-        .execute(trx);
-      await sql`SET LOCAL lock_timeout='5s'`.execute(trx);
-      const eligible = await this.loadEligibleCounts(trx, enterpriseId);
-      await sql`
-        CREATE TEMP TABLE provider_finance_usage_backfill_before ON COMMIT DROP AS
-        SELECT id,
-               md5((to_jsonb(line) - 'api_cost_currency' - 'api_cost_status'
-                 - 'subscription_period_id' - 'settled_at')::text) AS non_target_hash,
-               (settled_at IS NULL) AS settlement_missing,
-               (api_cost_currency IS NULL) AS currency_missing,
-               (api_cost_status IS NULL) AS status_missing,
-               (subscription_period_id IS NULL) AS period_missing
-          FROM ledger_line line
-         WHERE enterprise_id=${enterpriseId}::uuid
-           AND COALESCE(settled_at,created_at)>=${PROVIDER_FINANCE_CUTOVER}
-      `.execute(trx);
-      await sql`UPDATE ledger_line SET settled_at=created_at
-        WHERE enterprise_id=${enterpriseId}::uuid AND settled_at IS NULL
-          AND created_at>=${PROVIDER_FINANCE_CUTOVER}`.execute(trx);
-      await sql`
-        UPDATE ledger_line SET
-          api_cost_currency=COALESCE(api_cost_currency, billing_rule_snapshot->>'currency'),
-          api_cost_status='PRICED_USAGE'
-        WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
-          AND settled_at>=${PROVIDER_FINANCE_CUTOVER} AND api_cost_status IS NULL
-          AND api_cost IS NOT NULL
-          AND billing_rule_snapshot->>'currency' IN ('CNY','USD')
-          AND (api_cost_currency IS NULL OR api_cost_currency=billing_rule_snapshot->>'currency')
-      `.execute(trx);
-      await sql`
-        UPDATE ledger_line line SET api_cost_status='CONFIRMED_ZERO_NO_UPSTREAM'
-          FROM upstream_attempt attempt
-         WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='API'
-           AND line.settled_at>=${PROVIDER_FINANCE_CUTOVER} AND line.api_cost_status IS NULL
-           AND line.api_cost=0 AND line.api_cost_currency IS NULL AND line.billing_rule_id IS NULL
-           AND line.raw_input_tokens=0 AND line.raw_output_tokens=0
-           AND line.raw_cache_tokens=0 AND line.raw_reasoning_tokens=0
-           AND attempt.enterprise_id=line.enterprise_id AND attempt.id=line.upstream_attempt_id
-           AND attempt.first_byte_at IS NULL AND attempt.response_committed=false
-           AND attempt.error_classification='DOWNSTREAM_AUTH_OR_QUOTA'
-      `.execute(trx);
-      await sql`UPDATE ledger_line SET api_cost_status='UNKNOWN_COST'
-        WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
-          AND settled_at>=${PROVIDER_FINANCE_CUTOVER} AND api_cost_status IS NULL
-          AND api_cost IS NULL AND api_cost_currency IS NULL`.execute(trx);
-      await sql`UPDATE ledger_line SET api_cost_status='NOT_APPLICABLE'
-        WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='CODING_PLAN'
-          AND settled_at>=${PROVIDER_FINANCE_CUTOVER} AND api_cost_status IS NULL
-          AND api_cost IS NULL AND api_cost_currency IS NULL`.execute(trx);
-      await sql`
-        UPDATE ledger_line line SET subscription_period_id=(
-          SELECT period.id FROM provider_subscription_period period
-           WHERE period.enterprise_id=line.enterprise_id
-             AND period.provider_resource_id=line.provider_resource_id
-             AND period.reversed_by_event_id IS NULL
-             AND period.period_start<=line.settled_at
-             AND period.period_end_exclusive>line.settled_at
-           ORDER BY period.period_start DESC, period.created_at DESC, period.id DESC LIMIT 1
-        )
-        WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='CODING_PLAN'
-          AND line.settled_at>=${PROVIDER_FINANCE_CUTOVER}
-          AND line.subscription_period_id IS NULL
-          AND EXISTS (
-            SELECT 1 FROM provider_subscription_period period
-             WHERE period.enterprise_id=line.enterprise_id
-               AND period.provider_resource_id=line.provider_resource_id
-               AND period.reversed_by_event_id IS NULL
-               AND period.period_start<=line.settled_at
-               AND period.period_end_exclusive>line.settled_at
-          )
-      `.execute(trx);
-      const changedResult = await sql<{
-        settlement_time: string; currency: string; status: string; period: string; hash_mismatch: string;
-      }>`
-        SELECT COUNT(*) FILTER (WHERE before.settlement_missing AND line.settled_at IS NOT NULL)::text
-                 AS settlement_time,
-               COUNT(*) FILTER (WHERE before.currency_missing AND line.api_cost_currency IS NOT NULL)::text
-                 AS currency,
-               COUNT(*) FILTER (WHERE before.status_missing AND line.api_cost_status IS NOT NULL)::text
-                 AS status,
-               COUNT(*) FILTER (WHERE before.period_missing AND line.subscription_period_id IS NOT NULL)::text
-                 AS period,
-               COUNT(*) FILTER (WHERE before.non_target_hash <>
-                 md5((to_jsonb(line) - 'api_cost_currency' - 'api_cost_status'
-                   - 'subscription_period_id' - 'settled_at')::text))::text AS hash_mismatch
-          FROM provider_finance_usage_backfill_before before
-          JOIN ledger_line line ON line.id=before.id
-      `.execute(trx);
-      const changed = changedResult.rows[0]!;
-      return this.backfillReport(enterpriseId, "APPLY", eligible, {
-        settlementTime: numericCount(changed.settlement_time),
-        apiCostCurrency: numericCount(changed.currency),
-        apiCostStatus: numericCount(changed.status),
-        subscriptionPeriod: numericCount(changed.period),
-      }, numericCount(changed.hash_mismatch), await this.loadRemainingGaps(trx, enterpriseId));
-    });
+    return new ProviderFinanceUsageBackfill(this.db).run(enterpriseId, apply);
   }
 
   async resolveLegacyApiCostGap(
     input: LegacyApiCostResolutionInput,
   ): Promise<LegacyApiCostResolutionView> {
-    if (input.windowStart.getTime() !== PROVIDER_FINANCE_CUTOVER.getTime()
-      || input.windowEndInclusive.getTime() !== PROVIDER_FINANCE_LEGACY_COST_CUTOFF.getTime()
-      || input.windowEndInclusive.getTime() > Date.now()) {
-      throw new ProviderFinanceError("INVALID_REQUEST", "历史费用封口窗口不合法");
-    }
-    const requestHash = createHash("sha256").update(JSON.stringify({
-      enterpriseId: input.enterpriseId, resourceId: input.resourceId,
-      adminId: input.adminId, accountCurrency: input.accountCurrency,
-      windowStart: input.windowStart.toISOString(),
-      windowEndInclusive: input.windowEndInclusive.toISOString(),
-      providerBalanceSnapshotId: input.providerBalanceSnapshotId,
-      evidenceRef: input.evidenceRef,
-    })).digest("hex");
-    return this.db.transaction().setIsolationLevel("serializable").execute(async (trx) => {
-      const earlyPrior = await trx.selectFrom("provider_finance_idempotency")
-        .select(["request_hash", "response_snapshot"])
-        .where("enterprise_id", "=", input.enterpriseId)
-        .where("provider_resource_id", "=", input.resourceId)
-        .where("idempotency_key", "=", input.idempotencyKey).executeTakeFirst();
-      if (earlyPrior) {
-        if (earlyPrior.request_hash !== requestHash) {
-          throw new ProviderFinanceError("IDEMPOTENCY_CONFLICT", "幂等键已用于不同请求");
-        }
-        return { ...(earlyPrior.response_snapshot as unknown as LegacyApiCostResolutionView),
-          replayed: true };
-      }
-      const resource = await trx.selectFrom("provider_resource")
-        .innerJoin("provider", (join) => join
-          .onRef("provider.enterprise_id", "=", "provider_resource.enterprise_id")
-          .onRef("provider.id", "=", "provider_resource.provider_id"))
-        .select(["provider_resource.mode", "provider.code as provider_code"])
-        .where("provider_resource.enterprise_id", "=", input.enterpriseId)
-        .where("provider_resource.id", "=", input.resourceId)
-        .where("provider_resource.status", "<>", "DELETED").forUpdate().executeTakeFirst();
-      if (!resource) throw new ProviderFinanceError("NOT_FOUND", "厂商资源不存在");
-      if (resource.mode !== "API" || resource.provider_code.toLowerCase() !== "deepseek") {
-        throw new ProviderFinanceError("INVALID_MODE", "历史动态费用封口只允许DeepSeek API资源");
-      }
-      const prior = await trx.selectFrom("provider_finance_idempotency")
-        .select(["request_hash", "response_snapshot"])
-        .where("enterprise_id", "=", input.enterpriseId)
-        .where("provider_resource_id", "=", input.resourceId)
-        .where("idempotency_key", "=", input.idempotencyKey).executeTakeFirst();
-      if (prior) {
-        if (prior.request_hash !== requestHash) {
-          throw new ProviderFinanceError("IDEMPOTENCY_CONFLICT", "幂等键已用于不同请求");
-        }
-        return { ...(prior.response_snapshot as unknown as LegacyApiCostResolutionView),
-          replayed: true };
-      }
-      await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.windowEndInclusive);
-      const snapshot = await trx.selectFrom("provider_resource_operating_snapshot")
-        .select(["id", "current_balance", "currency", "collected_at", "source",
-          "balance_source"])
-        .where("enterprise_id", "=", input.enterpriseId)
-        .where("provider_resource_id", "=", input.resourceId)
-        .where("id", "=", input.providerBalanceSnapshotId).executeTakeFirst();
-      if (!snapshot || snapshot.source !== "PROVIDER_SYNC"
-        || snapshot.balance_source !== "PROVIDER_API"
-        || snapshot.currency !== input.accountCurrency || snapshot.current_balance === null
-        || snapshot.collected_at.getTime() !== input.windowEndInclusive.getTime()) {
-        throw new ProviderFinanceError("CONFLICT", "必须使用窗口末端的厂商API余额快照");
-      }
-      const [fundsResult, knownResult, unknownResult] = await Promise.all([
-        sql<{ amount: string }>`SELECT COALESCE(SUM(account_amount),0)::text AS amount
-          FROM provider_finance_event WHERE enterprise_id=${input.enterpriseId}::uuid
-           AND provider_resource_id=${input.resourceId}::uuid
-           AND account_currency=${input.accountCurrency}
-           AND occurred_at<=${input.windowEndInclusive}`.execute(trx),
-        sql<{ amount: string }>`SELECT COALESCE(SUM(api_cost),0)::text AS amount
-          FROM ledger_line WHERE enterprise_id=${input.enterpriseId}::uuid
-           AND provider_resource_id=${input.resourceId}::uuid
-           AND resource_mode='API' AND api_cost_status='PRICED_USAGE'
-           AND settled_at>=${input.windowStart} AND settled_at<=${input.windowEndInclusive}`
-          .execute(trx),
-        trx.selectFrom("ledger_line").select("id")
-          .where("enterprise_id", "=", input.enterpriseId)
-          .where("provider_resource_id", "=", input.resourceId)
-          .where("resource_mode", "=", "API").where("api_cost_status", "=", "UNKNOWN_COST")
-          .where("api_cost", "is", null).where("api_cost_currency", "is", null)
-          .where("legacy_cost_resolution_id", "is", null)
-          .where("settled_at", ">=", input.windowStart)
-          .where("settled_at", "<=", input.windowEndInclusive).forUpdate().execute(),
-      ]);
-      if (unknownResult.length === 0) {
-        throw new ProviderFinanceError("CONFLICT", "封口窗口内没有待解决的未知API费用");
-      }
-      const knownApiCost = new Decimal(knownResult.rows[0]!.amount);
-      const localBefore = new Decimal(fundsResult.rows[0]!.amount).minus(knownApiCost);
-      const providerBalance = new Decimal(snapshot.current_balance);
-      const missingCost = localBefore.minus(providerBalance);
-      if (!missingCost.isPositive()) {
-        throw new ProviderFinanceError("CONFLICT", "厂商余额未形成正向历史费用缺口");
-      }
-      const fixed = (value: Decimal) => value.toDecimalPlaces(8).toFixed(8);
-      const resolution = await trx.insertInto("provider_finance_legacy_cost_resolution").values({
-        enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
-        account_currency: input.accountCurrency, window_start: input.windowStart,
-        window_end_inclusive: input.windowEndInclusive,
-        provider_balance_snapshot_id: input.providerBalanceSnapshotId,
-        provider_confirmed_balance: fixed(providerBalance),
-        local_balance_before_adjustment: fixed(localBefore), known_api_cost: fixed(knownApiCost),
-        missing_api_cost: fixed(missingCost), unknown_line_count: BigInt(unknownResult.length),
-        adjustment_event_id: null, evidence_ref: input.evidenceRef,
-        created_by_admin_user_id: input.adminId, resolved_at: null,
-      }).returning("id").executeTakeFirstOrThrow();
-      const event = await trx.insertInto("provider_finance_event").values({
-        enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
-        event_type: "API_LEGACY_COST_ADJUSTMENT", account_amount: fixed(missingCost.negated()),
-        account_currency: input.accountCurrency, cash_paid_cny: null,
-        occurred_at: input.windowEndInclusive, external_reference: null,
-        reversal_of_event_id: null, correction_of_event_id: null, reconciliation_case_id: null,
-        legacy_cost_resolution_id: resolution.id,
-        description: "9月1日至暗部署前DeepSeek历史动态费用封口",
-        evidence_ref: input.evidenceRef, source: "MIGRATION",
-        idempotency_key: input.idempotencyKey, created_by_admin_user_id: input.adminId,
-      }).returning("id").executeTakeFirstOrThrow();
-      const linked = await trx.updateTable("ledger_line").set({
-        legacy_cost_resolution_id: resolution.id,
-      }).where("id", "in", unknownResult.map((row) => row.id))
-        .where("legacy_cost_resolution_id", "is", null).executeTakeFirst();
-      if (Number(linked.numUpdatedRows) !== unknownResult.length) {
-        throw new ProviderFinanceError("CONFLICT", "历史未知费用行在封口时发生变化");
-      }
-      await trx.updateTable("provider_finance_legacy_cost_resolution").set({
-        status: "RESOLVED", adjustment_event_id: event.id,
-        resolved_at: new Date(), updated_at: new Date(),
-      }).where("id", "=", resolution.id).executeTakeFirstOrThrow();
-      const response: LegacyApiCostResolutionView = {
-        id: resolution.id, adjustmentEventId: event.id,
-        providerResourceId: input.resourceId, accountCurrency: input.accountCurrency,
-        windowStart: input.windowStart.toISOString(),
-        windowEndInclusive: input.windowEndInclusive.toISOString(),
-        providerConfirmedBalance: fixed(providerBalance),
-        localBalanceBeforeAdjustment: fixed(localBefore), knownApiCost: fixed(knownApiCost),
-        missingApiCost: fixed(missingCost), unknownLineCount: String(unknownResult.length),
-        replayed: false,
-      };
-      await trx.insertInto("operation_log").values({
-        enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
-        action: "provider_finance_legacy_cost.resolve",
-        target_type: "provider_finance_legacy_cost_resolution", target_id: resolution.id,
-        result: "SUCCESS", failure_reason: null,
-        change_summary: JSON.stringify(response) as unknown as Record<string, unknown>,
-      }).execute();
-      await trx.insertInto("provider_finance_idempotency").values({
-        enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
-        idempotency_key: input.idempotencyKey, request_hash: requestHash,
-        response_snapshot: JSON.stringify(response) as unknown as Record<string, unknown>,
-      }).execute();
-      return response;
-    });
+    return resolveLegacyApiCostGap(this.db, input);
   }
 
   async buildConservationReport(
@@ -655,65 +398,7 @@ export class ProviderFinanceCutoverRepository {
       passed: failures.length === 0, failures };
   }
 
-  private async loadEligibleCounts(trx: Transaction<Database>, enterpriseId: string) {
-    const result = await sql<{
-      settlement_time: string; priced_api: string; zero_api: string; unknown_api: string;
-      plan_status: string; plan_period: string;
-    }>`
-      SELECT COUNT(*) FILTER (WHERE line.settled_at IS NULL)::text AS settlement_time,
-             COUNT(*) FILTER (WHERE line.resource_mode='API' AND line.api_cost_status IS NULL
-               AND line.api_cost IS NOT NULL AND line.billing_rule_snapshot->>'currency' IN ('CNY','USD')
-               AND (line.api_cost_currency IS NULL
-                 OR line.api_cost_currency=line.billing_rule_snapshot->>'currency'))::text AS priced_api,
-             COUNT(*) FILTER (WHERE line.resource_mode='API' AND line.api_cost_status IS NULL
-               AND line.api_cost=0 AND line.api_cost_currency IS NULL AND line.billing_rule_id IS NULL
-               AND line.raw_input_tokens=0 AND line.raw_output_tokens=0
-               AND line.raw_cache_tokens=0 AND line.raw_reasoning_tokens=0
-               AND attempt.first_byte_at IS NULL AND attempt.response_committed=false
-               AND attempt.error_classification='DOWNSTREAM_AUTH_OR_QUOTA')::text AS zero_api,
-             COUNT(*) FILTER (WHERE line.resource_mode='API' AND line.api_cost_status IS NULL
-               AND line.api_cost IS NULL AND line.api_cost_currency IS NULL)::text AS unknown_api,
-             COUNT(*) FILTER (WHERE line.resource_mode='CODING_PLAN' AND line.api_cost_status IS NULL
-               AND line.api_cost IS NULL AND line.api_cost_currency IS NULL)::text AS plan_status,
-             COUNT(*) FILTER (WHERE line.resource_mode='CODING_PLAN'
-               AND line.subscription_period_id IS NULL AND EXISTS (
-                 SELECT 1 FROM provider_subscription_period period
-                  WHERE period.enterprise_id=line.enterprise_id
-                    AND period.provider_resource_id=line.provider_resource_id
-                    AND period.reversed_by_event_id IS NULL
-                    AND period.period_start<=COALESCE(line.settled_at,line.created_at)
-                    AND period.period_end_exclusive>COALESCE(line.settled_at,line.created_at)
-               ))::text AS plan_period
-        FROM ledger_line line
-        LEFT JOIN upstream_attempt attempt ON attempt.enterprise_id=line.enterprise_id
-         AND attempt.id=line.upstream_attempt_id
-       WHERE line.enterprise_id=${enterpriseId}::uuid
-         AND COALESCE(line.settled_at,line.created_at)>=${PROVIDER_FINANCE_CUTOVER}
-    `.execute(trx);
-    const row = result.rows[0]!;
-    return { settlementTime: numericCount(row.settlement_time), pricedApi: numericCount(row.priced_api),
-      confirmedZeroApi: numericCount(row.zero_api), unknownApi: numericCount(row.unknown_api),
-      codingPlanStatus: numericCount(row.plan_status), codingPlanPeriod: numericCount(row.plan_period) };
-  }
 
-  private async loadRemainingGaps(trx: Transaction<Database>, enterpriseId: string) {
-    const usage = await loadUsageCounts(trx, enterpriseId);
-    return [
-      { code: "API_USAGE_COST_UNCLASSIFIED", count: numericCount(usage.unclassified_api) },
-      { code: "API_COST_CURRENCY_MISSING", count: numericCount(usage.missing_api_currency) },
-      { code: "API_COST_CURRENCY_CONFLICT", count: numericCount(usage.conflicting_api_currency) },
-      { code: "SETTLEMENT_TIME_MISSING", count: numericCount(usage.missing_settled_at) },
-      { code: "SUBSCRIPTION_PERIOD_MISSING", count: numericCount(usage.missing_plan_period) },
-    ].filter((item) => item.count > 0);
-  }
 
-  private backfillReport(
-    enterpriseId: string, mode: "DRY_RUN" | "APPLY",
-    eligible: FinanceUsageBackfillReport["eligible"],
-    changed: FinanceUsageBackfillReport["changed"], nonTargetHashMismatches: number,
-    remainingGaps: FinanceUsageBackfillReport["remainingGaps"],
-  ): FinanceUsageBackfillReport {
-    return { enterpriseId, mode, cutover: PROVIDER_FINANCE_CUTOVER.toISOString(), eligible,
-      changed, nonTargetHashMismatches, remainingGaps };
-  }
+
 }
