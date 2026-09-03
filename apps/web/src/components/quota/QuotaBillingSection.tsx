@@ -1,0 +1,320 @@
+import { Gauge } from "lucide-react";
+import { ManagementSection } from "./ManagementSection";
+import { QueryGate } from "../states/QueryGate";
+import { StatusTag } from "../dashboard/StatusTag";
+import { FormField, INPUT_CLASS } from "../writes/FormField";
+import { WeekdayPicker, formatDaysOfWeek, parseDaysOfWeek } from "./WeekdayPicker";
+import { editableWindows } from "../../pages/quota-rule-contract";
+import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
+
+export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
+  const { archiveConfig, selectedRuleRouteId, setSelectedRuleRouteId, resources, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, enabledRoutes, rules, updateRule, setArchiveTarget, createRule, rulesQuery } = model;
+  return <>
+      <ManagementSection
+        actionLabel="新建规则"
+        actionDisabled={!canCreateRule}
+        hint={
+          canCreateRule
+            ? "前置条件已满足。创建计价规则后，继续检查下方调度策略。"
+            : "前置条件：先创建统一模型、登记厂商资源，并至少启用一条 Model Route。"
+        }
+        onAction={() => setShowRuleForm((value) => !value)}
+        title="计价规则模板"
+      >
+        {showRuleForm ? (
+          <form
+            className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 md:grid-cols-4"
+            onSubmit={ruleForm.handleSubmit((values) => createRule.mutate(values))}
+          >
+            <FormField
+              error={ruleForm.formState.errors.rule_type?.message}
+              htmlFor="rule-type"
+              label="规则类型"
+            >
+              <select className={INPUT_CLASS} id="rule-type" {...ruleForm.register("rule_type")}>
+                <option value="API_PRICE">API Token 计价</option>
+                <option value="TIME_WINDOW">时段倍率</option>
+                <option value="MODEL_TIER">模型分层</option>
+                <option value="CACHE_STATE">缓存状态</option>
+              </select>
+            </FormField>
+            <FormField
+              error={ruleForm.formState.errors.rule_version?.message}
+              htmlFor="rule-version"
+              label="规则版本"
+            >
+              <input className={INPUT_CLASS} id="rule-version" {...ruleForm.register("rule_version")} />
+            </FormField>
+            <FormField
+              error={
+                ruleForm.formState.errors.provider_resource_id?.message ??
+                ruleForm.formState.errors.upstream_model?.message
+              }
+              htmlFor="rule-resource"
+              label="启用 Model Route"
+            >
+              <select
+                className={INPUT_CLASS}
+                id="rule-resource"
+                onChange={(event) => {
+                  const route = enabledRoutes.find((item) => item.id === event.target.value);
+                  setSelectedRuleRouteId(event.target.value);
+                  ruleForm.setValue(
+                    "provider_resource_id",
+                    route?.provider_resource_id ?? "",
+                    { shouldValidate: true },
+                  );
+                  ruleForm.setValue("upstream_model", route?.upstream_model ?? "", {
+                    shouldValidate: true,
+                  });
+                }}
+                value={selectedRuleRouteId}
+              >
+                <option value="">请选择</option>
+                {enabledRoutes.map((route) => (
+                  <option key={route.id} value={route.id}>
+                    {resources.find((resource) => resource.id === route.provider_resource_id)?.name ??
+                      route.provider_resource_id}
+                    {" · "}
+                    {route.upstream_model}
+                  </option>
+                ))}
+              </select>
+              <input type="hidden" {...ruleForm.register("provider_resource_id")} />
+              <input type="hidden" {...ruleForm.register("upstream_model")} />
+            </FormField>
+            <FormField
+              error={ruleForm.formState.errors.effective_from?.message}
+              htmlFor="rule-effective-from"
+              label="生效时间"
+            >
+              <input
+                className={INPUT_CLASS}
+                id="rule-effective-from"
+                type="datetime-local"
+                {...ruleForm.register("effective_from")}
+              />
+            </FormField>
+            <FormField
+              error={ruleForm.formState.errors.effective_to?.message}
+              htmlFor="rule-effective-to"
+              label="失效时间（可空）"
+            >
+              <input
+                className={INPUT_CLASS}
+                id="rule-effective-to"
+                type="datetime-local"
+                {...ruleForm.register("effective_to")}
+              />
+            </FormField>
+            {selectedRuleType !== "MODEL_TIER" ? (
+              <div className="md:col-span-4 rounded-lg border border-ql-border-zone p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-[12px] font-medium text-ql-fg">时间窗口</p>
+                    <p className="text-[11px] text-ql-fg-tertiary">可配置多段；开始含、结束不含。</p>
+                  </div>
+                  <button
+                    className="rounded px-2 py-1 text-[12px] text-ql-action hover:bg-ql-action-soft"
+                    onClick={() => appendRuleWindow({
+                      timezone: "Asia/Shanghai",
+                      days_of_week: "1,2,3,4,5,6,7",
+                      start_time: "09:00",
+                      end_time: "12:00",
+                    })}
+                    type="button"
+                  >
+                    添加窗口
+                  </button>
+                </div>
+                {(ruleForm.formState.errors.windows as { message?: string } | undefined)?.message ? (
+                  <p className="mb-2 text-[11px] text-ql-danger">
+                    {(ruleForm.formState.errors.windows as { message?: string }).message}
+                  </p>
+                ) : null}
+                <div className="flex flex-col gap-2">
+                  {ruleWindowFields.map((field, index) => (
+                    <div
+                      className="grid grid-cols-1 gap-2 rounded border border-ql-border-zone p-2 md:grid-cols-5"
+                      key={field.id}
+                    >
+                      <FormField
+                        error={ruleForm.formState.errors.windows?.[index]?.timezone?.message}
+                        htmlFor={`rule-window-${index}-timezone`}
+                        label="IANA 时区"
+                      >
+                        <input
+                          className={INPUT_CLASS}
+                          id={`rule-window-${index}-timezone`}
+                          {...ruleForm.register(`windows.${index}.timezone`)}
+                        />
+                      </FormField>
+                      <FormField
+                        error={ruleForm.formState.errors.windows?.[index]?.days_of_week?.message}
+                        htmlFor={`rule-window-${index}-days`}
+                        label="星期"
+                      >
+                        <WeekdayPicker
+                          value={ruleForm.watch(`windows.${index}.days_of_week`) ?? ""}
+                          onChange={(next) =>
+                            ruleForm.setValue(`windows.${index}.days_of_week`, next, { shouldValidate: true })
+                          }
+                        />
+                      </FormField>
+                      <FormField
+                        error={ruleForm.formState.errors.windows?.[index]?.start_time?.message}
+                        htmlFor={`rule-window-${index}-start`}
+                        label="开始（含）"
+                      >
+                        <input
+                          className={INPUT_CLASS}
+                          id={`rule-window-${index}-start`}
+                          type="time"
+                          {...ruleForm.register(`windows.${index}.start_time`)}
+                        />
+                      </FormField>
+                      <FormField
+                        error={ruleForm.formState.errors.windows?.[index]?.end_time?.message}
+                        htmlFor={`rule-window-${index}-end`}
+                        label="结束（不含）"
+                      >
+                        <input
+                          className={INPUT_CLASS}
+                          id={`rule-window-${index}-end`}
+                          type="time"
+                          {...ruleForm.register(`windows.${index}.end_time`)}
+                        />
+                      </FormField>
+                      <div className="flex items-end">
+                        <button
+                          className="h-9 rounded px-2 text-[12px] text-ql-danger hover:bg-ql-danger-soft"
+                          onClick={() => removeRuleWindow(index)}
+                          type="button"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <FormField
+              error={ruleForm.formState.errors.multiplier?.message}
+              htmlFor="rule-multiplier"
+              label="套餐用量倍率"
+            >
+              <input className={INPUT_CLASS} id="rule-multiplier" {...ruleForm.register("multiplier")} />
+            </FormField>
+            <FormField
+              error={ruleForm.formState.errors.cache_hit_price?.message}
+              htmlFor="rule-cache-hit"
+              label="缓存命中单价"
+            >
+              <input className={INPUT_CLASS} id="rule-cache-hit" {...ruleForm.register("cache_hit_price")} />
+            </FormField>
+            <FormField
+              error={ruleForm.formState.errors.cache_miss_price?.message}
+              htmlFor="rule-cache-miss"
+              label="输入单价"
+            >
+              <input className={INPUT_CLASS} id="rule-cache-miss" {...ruleForm.register("cache_miss_price")} />
+            </FormField>
+            <FormField
+              error={ruleForm.formState.errors.output_price?.message}
+              htmlFor="rule-output"
+              label="输出单价"
+            >
+              <input className={INPUT_CLASS} id="rule-output" {...ruleForm.register("output_price")} />
+            </FormField>
+            <FormField
+              error={ruleForm.formState.errors.priority?.message}
+              htmlFor="rule-priority"
+              label="优先级"
+            >
+              <input className={INPUT_CLASS} id="rule-priority" type="number" {...ruleForm.register("priority")} />
+            </FormField>
+            <div className="md:col-span-4 flex justify-end">
+              <button
+                className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
+                disabled={createRule.isPending}
+                type="submit"
+              >
+                创建规则
+              </button>
+            </div>
+          </form>
+        ) : null}
+        <p className="mb-3 text-[11px] text-ql-fg-tertiary">
+          价格、倍率、时间窗和优先级属于规则版本，不可原地改写；变更时请新建
+          rule_version，并用生效/失效时间完成切换。
+        </p>
+        <QueryGate
+          emptyDescription="先登记厂商资源，再创建用于账本结算的计价规则模板。"
+          emptyIcon={Gauge}
+          emptyTitle="尚未配置计价规则"
+          error={rulesQuery.error}
+          isEmpty={rules.length === 0}
+          isLoading={rulesQuery.isLoading}
+          onRetry={() => void rulesQuery.refetch()}
+        >
+          <table className="w-full border-collapse text-left text-[12px]">
+            <thead>
+              <tr className="border-b border-ql-border text-ql-fg-tertiary">
+                <th className="p-2 font-medium">版本</th>
+                <th className="p-2 font-medium">类型</th>
+                <th className="p-2 font-medium">上游模型</th>
+                <th className="p-2 font-medium">时段 [开始,结束)</th>
+                <th className="p-2 text-right font-medium">单价 / 倍率</th>
+                <th className="p-2 font-medium">状态</th>
+                <th className="p-2 text-right font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((rule) => (
+                <tr className="border-b border-ql-border-zone last:border-b-0" key={rule.id}>
+                  <td className="p-2 font-mono">{rule.rule_version}</td>
+                  <td className="p-2">{rule.rule_type}</td>
+                  <td className="p-2">{rule.upstream_model ?? "全部"}</td>
+                  <td className="p-2 font-mono">
+                    {editableWindows(rule).length > 0
+                      ? editableWindows(rule)
+                          .map((window) =>
+                            `${formatDaysOfWeek(parseDaysOfWeek(window.days_of_week))} ${window.timezone} ${window.start_time}–${window.end_time}`)
+                          .join("；")
+                      : "基础规则（全天）"}
+                  </td>
+                  <td className="p-2 text-right font-mono">
+                    {rule.rule_type === "API_PRICE"
+                      ? `${rule.cache_hit_price ?? "—"} / ${rule.cache_miss_price ?? "—"} / ${rule.output_price ?? "—"}`
+                      : `×${rule.multiplier ?? "—"}`}
+                  </td>
+                  <td className="p-2">
+                    <StatusTag tone={rule.enabled ? "neutral" : "warning"}>
+                      {rule.archived_at ? "已归档" : rule.enabled ? "启用" : "停用"}
+                    </StatusTag>
+                  </td>
+                  <td className="p-2 text-right">
+                    {rule.archived_at ? (
+                      <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: false })}
+                        type="button">取消归档</button>
+                    ) : <>
+                      <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
+                        type="button">{rule.enabled ? "停用" : "启用"}</button>
+                      {!rule.enabled ? <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        onClick={() => setArchiveTarget({ kind: "rule", item: rule })}
+                        type="button">归档</button> : null}
+                    </>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </QueryGate>
+      </ManagementSection>
+
+
+  </>;
+}
