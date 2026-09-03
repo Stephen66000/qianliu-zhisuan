@@ -355,6 +355,189 @@ describe("Responses → Chat Completions", () => {
     expect(Object.hasOwn(body, "tool_stream")).toBe(false);
   });
 
+  it("DeepSeek 工具续轮为缺失推理字段的 assistant 补空字符串且保留真实值", () => {
+    const body = toChatCompletionsRequest(resource(), {
+      requestId: "deepseek-tool-reasoning-backfill",
+      unifiedModel: "ql-deepseek-v4-flash",
+      capability: "chat",
+      stream: false,
+      body: {
+        messages: [
+          { role: "user", content: "检查状态" },
+          {
+            role: "assistant",
+            content: null,
+            tool_calls: [{
+              id: "call_missing",
+              type: "function",
+              function: { name: "status", arguments: "{}" },
+            }],
+          },
+          { role: "tool", tool_call_id: "call_missing", content: "ok" },
+          {
+            role: "assistant",
+            content: null,
+            reasoning_content: "provider-reasoning",
+            tool_calls: [{
+              id: "call_existing",
+              type: "function",
+              function: { name: "status", arguments: "{}" },
+            }],
+          },
+          { role: "tool", tool_call_id: "call_existing", content: "ok" },
+        ],
+        tools: [{
+          type: "function",
+          function: { name: "status", parameters: { type: "object", properties: {} } },
+        }],
+      },
+    });
+
+    expect(body.messages[1]?.reasoning_content).toBe("");
+    expect(body.messages[3]?.reasoning_content).toBe("provider-reasoning");
+    expect(Object.hasOwn(body.messages[0]!, "reasoning_content")).toBe(false);
+    expect(Object.hasOwn(body.messages[2]!, "reasoning_content")).toBe(false);
+  });
+
+  it("DeepSeek 无工具时不补 reasoning_content", () => {
+    const body = toChatCompletionsRequest(resource(), {
+      requestId: "deepseek-no-tool-no-backfill",
+      unifiedModel: "ql-deepseek-v4-flash",
+      capability: "chat",
+      stream: false,
+      body: { messages: [{ role: "assistant", content: "ok" }] },
+    });
+
+    expect(Object.hasOwn(body.messages[0]!, "reasoning_content")).toBe(false);
+  });
+
+  it("Kimi K3 工具请求补空 reasoning_content，但不扩到 K2.6", () => {
+    const request = (upstreamModel: string) => toChatCompletionsRequest(resource({
+      providerCode: "kimi",
+      upstreamModel,
+    }), {
+      requestId: `kimi-${upstreamModel}-reasoning-backfill`,
+      unifiedModel: `ql-${upstreamModel}`,
+      capability: "chat",
+      stream: false,
+      body: {
+        messages: [
+          { role: "assistant", content: null },
+          { role: "assistant", content: null, reasoning_content: "provider-reasoning" },
+        ],
+        tools: [{
+          type: "function",
+          function: { name: "status", parameters: { type: "object", properties: {} } },
+        }],
+      },
+    });
+
+    const k3 = request("k3");
+    expect(k3.messages[0]?.reasoning_content).toBe("");
+    expect(k3.messages[1]?.reasoning_content).toBe("provider-reasoning");
+    const k26 = request("kimi-k2.6");
+    expect(Object.hasOwn(k26.messages[0]!, "reasoning_content")).toBe(false);
+  });
+
+  it("GLM 工具历史缺少真实推理时退出保留式思考并重新开始", () => {
+    const convert = (reasoningContent: unknown, thinking?: unknown) =>
+      toChatCompletionsRequest(resource({
+        providerCode: "zhipu",
+        upstreamModel: "glm-5.3",
+      }), {
+        requestId: "glm-missing-reasoning-restart",
+        unifiedModel: "ql-glm-5.3",
+        capability: "chat",
+        stream: false,
+        body: {
+          messages: [{
+            role: "assistant",
+            content: null,
+            ...(reasoningContent === undefined
+              ? {}
+              : { reasoning_content: reasoningContent }),
+            tool_calls: [{
+              id: "call_glm_restart",
+              type: "function",
+              function: { name: "status", arguments: "{}" },
+            }],
+          }],
+          tools: [{
+            type: "function",
+            function: { name: "status", parameters: { type: "object", properties: {} } },
+          }],
+          ...(thinking === undefined ? {} : { thinking }),
+        },
+      });
+
+    expect(convert(undefined, { type: "enabled", clear_thinking: false }).thinking)
+      .toEqual({ type: "enabled", clear_thinking: true });
+    expect(convert("", { type: "enabled", clear_thinking: false }).thinking)
+      .toEqual({ type: "enabled", clear_thinking: true });
+    expect(convert(undefined).thinking)
+      .toEqual({ type: "enabled", clear_thinking: true });
+    expect(convert("provider-reasoning", { type: "enabled", clear_thinking: false }).thinking)
+      .toEqual({ type: "enabled", clear_thinking: false });
+    expect(convert(undefined, { type: "disabled" }).thinking)
+      .toEqual({ type: "disabled" });
+  });
+
+  it("GLM 无工具时不因缺少 reasoning_content 改写思考策略", () => {
+    const body = toChatCompletionsRequest(resource({
+      providerCode: "zhipu",
+      upstreamModel: "glm-5.3",
+    }), {
+      requestId: "glm-no-tool-no-restart",
+      unifiedModel: "ql-glm-5.3",
+      capability: "chat",
+      stream: false,
+      body: {
+        messages: [{ role: "assistant", content: "ok" }],
+        thinking: { type: "enabled", clear_thinking: false },
+      },
+    });
+
+    expect(body.thinking).toEqual({ type: "enabled", clear_thinking: false });
+    expect(Object.hasOwn(body.messages[0]!, "reasoning_content")).toBe(false);
+  });
+
+  it("生产故障形状：212 条消息、23 个工具、103 组续轮全部补齐推理字段", () => {
+    const messages: Array<Record<string, unknown>> = Array.from(
+      { length: 6 },
+      (_, index) => ({ role: "user", content: `context-${index}` }),
+    );
+    for (let index = 0; index < 103; index += 1) {
+      const callId = `call_missing_${index}`;
+      messages.push({
+        role: "assistant",
+        content: null,
+        tool_calls: [{
+          id: callId,
+          type: "function",
+          function: { name: `tool_${index % 23}`, arguments: "{}" },
+        }],
+      });
+      messages.push({ role: "tool", tool_call_id: callId, content: "ok" });
+    }
+    const tools = Array.from({ length: 23 }, (_, index) => ({
+      type: "function",
+      function: { name: `tool_${index}`, parameters: { type: "object", properties: {} } },
+    }));
+    const body = toChatCompletionsRequest(resource(), {
+      requestId: "production-missing-reasoning-shape",
+      unifiedModel: "ql-deepseek-v4-flash",
+      capability: "chat",
+      stream: true,
+      body: { messages, tools, thinking: { type: "enabled" } },
+    });
+
+    expect(body.messages).toHaveLength(212);
+    expect(body.tools).toHaveLength(23);
+    expect(body.messages.filter((message) => message.tool_calls?.length)).toHaveLength(103);
+    expect(body.messages.filter((message) => message.role === "tool")).toHaveLength(103);
+    expect(body.messages.filter((message) => message.reasoning_content === "")).toHaveLength(103);
+  });
+
   it("Codex 的 namespace 与托管 web_search 不得伪装成空名称 Chat 工具", () => {
     const request = responsesRequest();
     const responsesBody = request.body as Record<string, unknown>;

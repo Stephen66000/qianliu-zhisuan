@@ -70,7 +70,7 @@ describe("POOL-039 principal access read-model mutation contract", () => {
     }).key).toMatchObject({ authorization_status: "PENDING" });
   });
 
-  it("does not count a billing-unready model as enabled by an active pool", () => {
+  it("keeps a configured model enabled when it becomes temporarily unavailable", () => {
     const unavailable = {
       ...model("alpha", "a"),
       ready: false,
@@ -84,12 +84,12 @@ describe("POOL-039 principal access read-model mutation contract", () => {
         id: "grant-alpha", provider: "alpha", quota_value: 10n, used_value: 0n,
         allow_overage: false, valid_until: null, source: "MANAGED_SINGLE",
       }],
-      disabledKeys: new Set(), manualPendingIds: [], configVersion: 1,
+      disabledKeys: new Set(), configuredModelIds: ["a"], manualPendingIds: [], configVersion: 1,
     });
 
-    expect(result.providers[0]?.models[0]).toMatchObject({ ready: false, enabled: false });
-    expect(result.summary.model_count).toBe(0);
-    expect(result.key?.authorization_status).toBe("PENDING");
+    expect(result.providers[0]?.models[0]).toMatchObject({ ready: false, enabled: true });
+    expect(result.summary.model_count).toBe(1);
+    expect(result.key?.authorization_status).toBe("AUTHORIZED");
   });
 
   it("does not mark a pool over-limit when usage exactly equals quota", () => {

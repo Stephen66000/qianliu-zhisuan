@@ -5,37 +5,37 @@ const models = [
     unified_model_id: "model-a", display_name: "Alpha A", alias: "alpha-a",
     provider_code: "alpha", provider_name: "Alpha", provider_resource_id: "resource-a",
     resource_name: "Alpha resource", mode: "API", model_status: "ACTIVE",
-    route_enabled: true, ready: true, unavailable_reasons: [],
+    route_enabled: true, ready: true, unavailable_reasons: [] as string[],
   },
   {
     unified_model_id: "model-b", display_name: "Beta B", alias: "beta-b",
     provider_code: "beta", provider_name: "Beta", provider_resource_id: "resource-b",
     resource_name: "Beta resource", mode: "API", model_status: "ACTIVE",
-    route_enabled: true, ready: true, unavailable_reasons: [],
+    route_enabled: true, ready: true, unavailable_reasons: [] as string[],
   },
   {
     unified_model_id: "model-c", display_name: "Alpha C", alias: "alpha-c",
     provider_code: "alpha", provider_name: "Alpha", provider_resource_id: "resource-c",
     resource_name: "Alpha resource", mode: "API", model_status: "ACTIVE",
-    route_enabled: true, ready: true, unavailable_reasons: [],
+    route_enabled: true, ready: true, unavailable_reasons: [] as string[],
   },
   {
     unified_model_id: "model-d", display_name: "Epsilon D", alias: "epsilon-d",
     provider_code: "epsilon", provider_name: "Epsilon", provider_resource_id: "resource-d",
     resource_name: "Epsilon resource", mode: "API", model_status: "ACTIVE",
-    route_enabled: true, ready: true, unavailable_reasons: [],
+    route_enabled: true, ready: true, unavailable_reasons: [] as string[],
   },
   {
     unified_model_id: "model-g", display_name: "Gamma G", alias: "gamma-g",
     provider_code: "gamma", provider_name: "Gamma", provider_resource_id: "resource-g",
     resource_name: "Gamma resource", mode: "API", model_status: "ACTIVE",
-    route_enabled: true, ready: true, unavailable_reasons: [],
+    route_enabled: true, ready: true, unavailable_reasons: [] as string[],
   },
   {
     unified_model_id: "model-delta", display_name: "Delta D", alias: "delta-d",
     provider_code: "delta", provider_name: "Delta", provider_resource_id: "resource-delta",
     resource_name: "Delta resource", mode: "API", model_status: "ACTIVE",
-    route_enabled: true, ready: true, unavailable_reasons: [],
+    route_enabled: true, ready: true, unavailable_reasons: [] as string[],
   },
 ];
 
@@ -90,6 +90,9 @@ class ConfigQuery {
   }
   selectAll() { this.selected = "all"; return this; }
   leftJoin(table: unknown, left: unknown, right: unknown) {
+    requireQueryToken(table); requireQueryToken(left); requireQueryToken(right); return this;
+  }
+  innerJoin(table: unknown, left: unknown, right: unknown) {
     requireQueryToken(table); requireQueryToken(left); requireQueryToken(right); return this;
   }
   where(column: unknown, operator?: unknown, value?: unknown) {
@@ -257,6 +260,44 @@ describe("POOL-039 principal access PUT mutation contract", () => {
     expect(trx.deleteWheres).toContainEqual({
       table: "principal_provider_disabled_model", column: "unified_model_id", operator: "in", value: ["model-a"],
     });
+  });
+
+  it("preserves a previously configured model when its resource becomes unavailable", async () => {
+    const target = models.find((model) => model.unified_model_id === "model-a")!;
+    const original = { ready: target.ready, unavailable_reasons: target.unavailable_reasons };
+    target.ready = false;
+    target.unavailable_reasons = ["厂商资源不可服务"];
+    try {
+      const trx = new ConfigTransaction();
+      const db = { transaction: () => ({ execute: (callback: (value: ConfigTransaction) => unknown) => callback(trx) }) };
+      await expect(new PrincipalAccessConfigRepository(db as never).put(input as never))
+        .resolves.toMatchObject({ config_version: 2 });
+    } finally {
+      target.ready = original.ready;
+      target.unavailable_reasons = original.unavailable_reasons;
+    }
+  });
+
+  it("still rejects a newly selected unavailable model with a specific message", async () => {
+    const target = models.find((model) => model.unified_model_id === "model-b")!;
+    const original = { ready: target.ready, unavailable_reasons: target.unavailable_reasons };
+    target.ready = false;
+    target.unavailable_reasons = ["厂商资源不可服务"];
+    try {
+      const trx = new ConfigTransaction();
+      const db = { transaction: () => ({ execute: (callback: (value: ConfigTransaction) => unknown) => callback(trx) }) };
+      await expect(new PrincipalAccessConfigRepository(db as never).put(input as never))
+        .rejects.toMatchObject({
+          code: "NOT_READY",
+          message: "型号 Beta B 未就绪：厂商资源不可服务",
+        });
+      // 版本行在同一事务中先锁定；真实数据库会随异常回滚。不得进入授权业务写入。
+      expect(trx.inserts.filter((row) => row.table !== "principal_access_config_state")).toEqual([]);
+      expect(trx.updates.every((row) => row.table === "principal_access_config_state")).toBe(true);
+    } finally {
+      target.ready = original.ready;
+      target.unavailable_reasons = original.unavailable_reasons;
+    }
   });
 
   it("rejects a PUT when the enterprise-scoped principal has no ACTIVE Key", async () => {

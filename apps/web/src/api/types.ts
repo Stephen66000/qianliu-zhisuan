@@ -534,7 +534,7 @@ export interface AccessConfigModel {
   resource_mode: "API" | "CODING_PLAN";
   ready: boolean;
   unavailable_reasons: string[];
-  /** 准入开关：该型号是否对本主体开通（池 ACTIVE 且未被显式掐掉）。 */
+  /** 配置开关：该型号是否对本主体开通；当前可调用性另看 ready。 */
   enabled: boolean;
 }
 
