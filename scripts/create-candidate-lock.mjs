@@ -60,19 +60,11 @@ async function fileManifest(root, files, excluded = new Set()) {
   return entries;
 }
 
-async function namedManifest(worktreeRoot, authorityRoot, files) {
+async function namedManifest(worktreeRoot, files) {
   const entries = [];
   for (const file of files) {
-    let absolute = path.join(worktreeRoot, file);
-    let source = "worktree";
-    try {
-      await lstat(absolute);
-    } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
-      absolute = path.join(authorityRoot, file);
-      source = "authority_worktree";
-    }
-    entries.push({ path: file, source, sha256: await hashPath(absolute) });
+    const absolute = path.join(worktreeRoot, file);
+    entries.push({ path: file, source: "worktree", sha256: await hashPath(absolute) });
   }
   return entries;
 }
@@ -94,9 +86,7 @@ function parseStatus(raw, excludedPath) {
 }
 
 const root = git(["rev-parse", "--show-toplevel"]).trim();
-const commonDirRaw = git(["rev-parse", "--git-common-dir"]).trim();
-const commonDir = path.resolve(root, commonDirRaw);
-const authorityRoot = path.dirname(commonDir);
+const authorityRoot = root;
 const destination = path.resolve(root, destinationArg);
 const destinationRelative = path.relative(root, destination).split(path.sep).join("/");
 if (destinationRelative.startsWith("../") || destinationRelative === "..") {
@@ -144,15 +134,15 @@ const configurationManifest = await fileManifest(
 );
 
 const frozenInputPaths = [
-  "V4/仟流智算-开发执行基线-v2.0.yaml",
-  "V4/仟流智算-开发规划-v2.0.md",
-  "V4/仟流智算-项目工程规则-v2.0.md",
-  "V4/仟流智算-产品需求文档-v2.0.md",
-  "V4/仟流智算-技术需求文档-v2.0.md",
-  "V4/仟流智算-初始验收矩阵-v2.0.md",
-  "V4/原型/仟流智算-2.0-标准版原型.html",
+  "V3/仟流智算-stage-state-v0.3.yaml",
+  "V3/仟流智算-开发规划-v0.3.md",
+  "V3/仟流智算-项目工程规则-v0.3.md",
+  "V3/仟流智算-产品需求文档-v0.3.md",
+  "V3/仟流智算-技术需求文档-v0.3.md",
+  "V3/仟流智算-详细开发计划与排期-v0.3.md",
+  "V3/仟流智算-质量门禁-v1.0.json",
 ];
-const frozenInputs = await namedManifest(root, authorityRoot, frozenInputPaths);
+const frozenInputs = await namedManifest(root, frozenInputPaths);
 const branch = optionalGit(["symbolic-ref", "--quiet", "--short", "HEAD"]);
 const head = git(["rev-parse", "HEAD"]).trim();
 const tree = git(["rev-parse", "HEAD^{tree}"]).trim();
