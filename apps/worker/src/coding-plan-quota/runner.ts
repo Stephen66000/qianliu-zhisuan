@@ -16,6 +16,7 @@ import {
   type ResourceMode,
   type EncryptedCredential,
   type QuotaFetch,
+  type QuotaWindow,
   decryptCredential,
   decodeKek,
   queryCodingPlanQuota,
@@ -39,8 +40,27 @@ interface CodingPlanResourceRow {
   cooldown_until: Date | null;
 }
 
-function supportsQuotaSync(code: string): code is ProviderCode {
+type QuotaProviderCode = Extract<ProviderCode, "kimi" | "zhipu">;
+
+function supportsQuotaSync(code: string): code is QuotaProviderCode {
   return code === "kimi" || code === "zhipu";
+}
+
+function quotaWindowsConfirmRecovery(
+  providerCode: QuotaProviderCode,
+  windows: readonly QuotaWindow[],
+): boolean {
+  const knownWindows = windows.filter((window) =>
+    !window.unsupported && window.remaining !== null
+  );
+  const knownWindowTypes = new Set(knownWindows.map((window) => window.windowType));
+  // Kimi 同时提供 5 小时和周窗口，两者都是必需证据；
+  // 智谱的周窗口可明确为 UNSUPPORTED，此时只要 5 小时窗口可知即可恢复。
+  const requiredWindowTypes = providerCode === "kimi"
+    ? ["FIVE_HOUR", "WEEKLY"] as const
+    : ["FIVE_HOUR"] as const;
+  return requiredWindowTypes.every((windowType) => knownWindowTypes.has(windowType))
+    && knownWindows.every((window) => Number(window.remaining) > 0);
 }
 
 /**
@@ -94,7 +114,7 @@ export async function runCodingPlanQuotaTick(input: {
     row.provider_resource_id, row.last_collected_at?.getTime() ?? null,
   ]));
   const resources = candidates.filter((resource): resource is CodingPlanResourceRow & {
-    provider_code: ProviderCode;
+    provider_code: QuotaProviderCode;
   } => {
     if (!supportsQuotaSync(resource.provider_code)) return false;
     if (resource.status === "ACTIVE" || resource.status === "DEGRADED") {
@@ -137,15 +157,7 @@ export async function runCodingPlanQuotaTick(input: {
         }, now);
         windowsUpserted += 1;
       }
-      const knownWindows = result.windows.filter((window) =>
-        !window.unsupported && window.remaining !== null
-      );
-      const knownWindowTypes = new Set(knownWindows.map((window) => window.windowType));
-      const allRequiredWindowsKnown = ["FIVE_HOUR", "WEEKLY"].every((windowType) =>
-        knownWindowTypes.has(windowType as "FIVE_HOUR" | "WEEKLY")
-      );
-      const allKnownWindowsAvailable = knownWindows.every((window) => Number(window.remaining) > 0);
-      if (allRequiredWindowsKnown && allKnownWindowsAvailable) {
+      if (quotaWindowsConfirmRecovery(resource.provider_code, result.windows)) {
         if (await poolRepo.recordQuotaSyncRecovery(resource.id)) resourcesRecovered += 1;
       } else if (!["ACTIVE", "DEGRADED"].includes(resource.status)) {
         const nextResetAt = result.windows

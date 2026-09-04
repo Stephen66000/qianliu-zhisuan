@@ -178,4 +178,84 @@ describe("Coding Plan 额度同步恢复", () => {
       await db.destroy();
     }
   });
+
+  it("智谱周窗口不支持时，以可知的 5 小时窗口自动恢复", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const enterpriseId = randomUUID();
+      const providerId = randomUUID();
+      const resourceId = randomUUID();
+      const kek = Buffer.alloc(32, 7);
+      const kekBase64 = kek.toString("base64");
+      await db.insertInto("enterprise").values({
+        id: enterpriseId,
+        name: "智谱额度恢复测试",
+      }).execute();
+      await db.insertInto("provider").values({
+        id: providerId,
+        enterprise_id: enterpriseId,
+        code: "zhipu",
+        name: "智谱",
+        adapter_type: "OPENAI_COMPATIBLE",
+        status: "ACTIVE",
+      }).execute();
+      await db.insertInto("provider_resource").values({
+        id: resourceId,
+        enterprise_id: enterpriseId,
+        provider_id: providerId,
+        name: "智谱 Coding Plan",
+        mode: "CODING_PLAN",
+        credential_type: "SUBSCRIPTION_SESSION",
+        credential_ciphertext: JSON.stringify(encryptCredential("zhipu-test", kek)),
+        status: "EXHAUSTED",
+        cooldown_until: null,
+      }).execute();
+
+      const fetch = vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            limits: [{
+              type: "TOKENS_LIMIT",
+              unit: 3,
+              number: 5,
+              percentage: 20,
+              nextResetTime: "2026-09-03T17:00:00.000Z",
+            }],
+          },
+        }),
+      })) as unknown as QuotaFetch;
+
+      await expect(runCodingPlanQuotaTick({
+        db,
+        kekBase64,
+        fetch,
+        now: new Date("2026-09-03T12:00:00.000Z"),
+      })).resolves.toEqual({
+        resourcesScanned: 1,
+        windowsUpserted: 2,
+        resourcesRecovered: 1,
+        failed: 0,
+      });
+      expect((await db.selectFrom("provider_resource")
+        .select(["status", "cooldown_until"])
+        .where("id", "=", resourceId)
+        .executeTakeFirstOrThrow())).toEqual({
+        status: "DEGRADED",
+        cooldown_until: null,
+      });
+      expect(await db.selectFrom("provider_quota_window")
+        .select(["window_type", "sync_status"])
+        .where("provider_resource_id", "=", resourceId)
+        .orderBy("window_type", "asc")
+        .execute()).toEqual([
+        { window_type: "FIVE_HOUR", sync_status: "SUCCESS" },
+        { window_type: "WEEKLY", sync_status: "UNSUPPORTED" },
+      ]);
+    } finally {
+      await db.destroy();
+    }
+  });
 });
