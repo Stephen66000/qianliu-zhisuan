@@ -188,6 +188,9 @@ async function latestProviderForecast(
         : snapshot?.remaining_quota ?? null;
       return snapshot !== undefined &&
         forecast.snapshot_at >= snapshot.calculated_at &&
+        (forecast.forecast_exhaust_at === null
+          || forecast.forecast_exhaust_at >= forecast.snapshot_at
+          || decimalTextsEqual(remaining, "0")) &&
         decimalTextsEqual(forecast.remaining_quota, remaining);
     })
     .sort((left, right) => {

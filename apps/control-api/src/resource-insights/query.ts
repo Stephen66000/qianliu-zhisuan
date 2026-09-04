@@ -58,13 +58,10 @@ export interface ResourceUtilizationRow {
 
 export interface QuotaWindowFact {
   type: "FIVE_HOUR" | "WEEKLY";
-  limitValue: string | null;
-  usedValue: string | null;
-  remainingValue: string | null;
+  limitValue: string | null; usedValue: string | null; remainingValue: string | null;
   ratio: string | null;
   unit: "PERCENT" | "POINT" | null;
-  resetAt: string | null;
-  providerDataAt: string | null;
+  resetAt: string | null; providerDataAt: string | null;
   collectedAt: string;
   syncStatus: "SUCCESS" | "STALE" | "FAILED" | "UNSUPPORTED";
   syncErrorCode: string | null;
@@ -72,14 +69,11 @@ export interface QuotaWindowFact {
 
 interface RawUtilizationRow {
   resource_id: string;
-  provider_id: string;
-  provider_name: string;
-  resource_name: string;
+  provider_id: string; provider_name: string; resource_name: string;
   mode: "API" | "CODING_PLAN";
   resource_status: string;
-  request_count: string | number;
-  real_tokens: string;
-  api_cost: string;
+  request_count: string | number; real_tokens: string;
+  api_cost: string | null;
   deducted_quota: string;
   purchase_cash_amount: string;
   currency: string | null;
@@ -135,13 +129,15 @@ export async function listResourceUtilization(
       SELECT ll.provider_resource_id,
              count(DISTINCT ll.ai_request_id)::bigint AS request_count,
              coalesce(sum(ll.raw_input_tokens + ll.raw_output_tokens), 0)::numeric AS real_tokens,
-             coalesce(sum(ll.api_cost), 0)::numeric(24,8) AS api_cost,
+             CASE WHEN count(*)=count(ll.api_cost)
+                  THEN coalesce(sum(ll.api_cost), 0)::numeric(24,8)
+                  ELSE NULL END AS api_cost,
              coalesce(sum(ll.deducted_quota), 0)::numeric AS deducted_quota,
-             max(ll.created_at) AS data_at
+             max(COALESCE(ll.settled_at,ll.created_at)) AS data_at
         FROM ledger_line ll, bounds b
        WHERE ll.enterprise_id = ${enterpriseId}::uuid
-         AND ll.created_at >= b.started_at
-         AND ll.created_at < b.ended_at
+         AND COALESCE(ll.settled_at,ll.created_at) >= b.started_at
+         AND COALESCE(ll.settled_at,ll.created_at) < b.ended_at
        GROUP BY ll.provider_resource_id
     ), purchases AS (
       SELECT rpr.provider_resource_id,
@@ -161,7 +157,7 @@ export async function listResourceUtilization(
            pr.status AS resource_status,
            coalesce(l.request_count, 0) AS request_count,
            coalesce(l.real_tokens, 0)::text AS real_tokens,
-           coalesce(l.api_cost, 0)::text AS api_cost,
+           CASE WHEN l.provider_resource_id IS NULL THEN '0' ELSE l.api_cost::text END AS api_cost,
            coalesce(l.deducted_quota, 0)::text AS deducted_quota,
            coalesce(pu.cash_amount, 0)::text AS purchase_cash_amount,
            coalesce(s.currency, mb.currency, tenant.default_currency) AS currency,
@@ -276,11 +272,11 @@ export async function listResourceUtilization(
       LEFT JOIN ledger l ON l.provider_resource_id = pr.id
       LEFT JOIN purchases pu ON pu.provider_resource_id = pr.id
       LEFT JOIN LATERAL (
-        SELECT ll.created_at AS used_at
+        SELECT COALESCE(ll.settled_at,ll.created_at) AS used_at
           FROM ledger_line ll
          WHERE ll.enterprise_id = pr.enterprise_id
            AND ll.provider_resource_id = pr.id
-         ORDER BY ll.created_at DESC
+         ORDER BY COALESCE(ll.settled_at,ll.created_at) DESC, ll.created_at DESC, ll.id DESC
          LIMIT 1
       ) lu ON true
       LEFT JOIN LATERAL (
@@ -293,6 +289,7 @@ export async function listResourceUtilization(
                sf.snapshot_at >= now() - interval '15 minutes'
                  AND s.id IS NOT NULL
                  AND sf.snapshot_at >= s.collected_at
+                 AND (sf.forecast_exhaust_at IS NULL OR sf.forecast_exhaust_at>=sf.snapshot_at OR COALESCE(sf.remaining_quota,0)=0)
                  AND (
                    (pr.mode = 'API' AND sf.remaining_quota IS NOT DISTINCT FROM s.current_balance)
                    OR (pr.mode = 'CODING_PLAN' AND sf.remaining_quota IS NOT DISTINCT FROM s.remaining_quota)
@@ -323,6 +320,8 @@ export async function listResourceUtilization(
      ORDER BY p.name, pr.name, pr.id
   `.execute(db);
   const range = operatingBillMonthRange(month);
+  const ledgerCosts = new Map(result.rows.filter((row) => row.mode === "API")
+    .map((row) => [row.resource_id, row.api_cost]));
   const [windows, monthlyOperating] = await Promise.all([sql<{
     provider_resource_id: string; window_type: "FIVE_HOUR" | "WEEKLY";
     limit_value: string | null; used_value: string | null; remaining_value: string | null;
@@ -336,7 +335,7 @@ export async function listResourceUtilization(
       FROM provider_quota_window
      WHERE enterprise_id = ${enterpriseId}::uuid AND is_current
      ORDER BY provider_resource_id, window_type
-  `.execute(db), loadMonthlyOperatingCosts(db, enterpriseId, range.start, range.end)]);
+  `.execute(db), loadMonthlyOperatingCosts(db, enterpriseId, range.start, range.end, ledgerCosts)]);
   const byResource = new Map<string, QuotaWindowFact[]>();
   for (const window of windows.rows) {
     const list = byResource.get(window.provider_resource_id) ?? [];

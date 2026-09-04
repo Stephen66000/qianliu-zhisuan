@@ -402,8 +402,8 @@ describe("W18 首页看板", () => {
       isLoading: false, error: null, data, refetch: vi.fn(),
     });
     renderDashboard();
-    expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("1 个资源需关注 · 降级");
-    expect(screen.getAllByText("降级").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("1 个资源需关注 · 可用（降权）");
+    expect(screen.getAllByText("可用（降权）").length).toBeGreaterThan(0);
     expect(screen.getAllByText("智谱备用账号").length).toBeGreaterThan(0);
     expect(screen.getByTestId("dashboard-resource-status")).not.toHaveTextContent("全部正常");
   });

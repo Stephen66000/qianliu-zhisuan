@@ -34,6 +34,8 @@ export interface ProviderFinanceSummary {
   codingPlanOrders: Array<{ currency: FinanceCurrency; amount: string }>;
   codingPlanFixedCostCny: string; operatingCostCny: string;
   operatingCostByCurrency: Array<{ currency: FinanceCurrency; amount: string }>;
+  currentApiBalances: Array<{ currency: FinanceCurrency; amount: string }>;
+  currentApiBalancesComplete: boolean;
   complete: boolean; gaps: Array<{ code: string; count: number }>;
 }
 
@@ -48,11 +50,15 @@ export interface ProviderSubscriptionPeriod {
 }
 
 export interface ResourceFinanceView {
-  resourceId: string; mode: "API" | "CODING_PLAN";
+  resourceId: string; providerCode: string; mode: "API" | "CODING_PLAN";
   accounts: Array<{ currency: FinanceCurrency; balanceState: ProviderFinanceBalance["state"];
     balance: string | null; monthOpeningState: ProviderFinanceBalance["state"];
     monthOpeningBalance: string | null; monthlyRecharge: string; monthlyApiCost: string }>;
   monthlyPlanCashCny: string;
   currentPeriod: null | { id: string; productName: string; periodStart: string;
-    periodEndExclusive: string; trueTokens: string; requestCount: string };
+    periodEndExclusive: string; fixedFeeAmount: string | null;
+    fixedFeeCurrency: FinanceCurrency | null; fixedCashPaidCny: string | null;
+    totalQuota: string | null; quotaUnit: string | null;
+    trueTokens: string; deductedQuota: string | null;
+    deductedQuotaComplete: boolean; requestCount: string };
 }

@@ -67,7 +67,7 @@ describe("POOL-022 供给预测生产闭环", () => {
       currency: "CNY",
       current_balance: "100.00",
     });
-    await providerRepo.appendOperatingSnapshot(enterpriseId, planResource.id, {
+    const planSnapshot = await providerRepo.appendOperatingSnapshot(enterpriseId, planResource.id, {
       source: "ADMIN",
       collected_at: new Date(now.getTime() - 24 * 3_600_000),
       total_quota: "1000",
@@ -75,7 +75,31 @@ describe("POOL-022 供给预测生产闭环", () => {
       quota_unit: "TOKEN",
       reset_cycle: "QUARTERLY",
       reset_anchor_at: new Date("2026-07-01T16:00:00.000Z"),
+      effective_until: new Date("2026-07-31T16:00:00.000Z"),
     });
+    await db.insertInto("provider_subscription_period").values({
+      enterprise_id: enterpriseId, provider_resource_id: planResource.id,
+      product_name: "当前订阅", period_start: new Date("2026-07-31T16:00:00.000Z"),
+      period_end_exclusive: new Date("2026-08-31T16:00:00.000Z"),
+      source: "MIGRATED_CARRYOVER", migration_source_record_id: planSnapshot!.id,
+      finance_event_id: null, created_by_admin_user_id: null,
+    }).execute();
+    const oldPlanSnapshot = await providerRepo.appendOperatingSnapshot(
+      enterpriseId, planResource.id, {
+        source: "ADMIN", collected_at: new Date(now.getTime() - 48 * 3_600_000),
+        total_quota: "1000", remaining_quota: "1000", quota_unit: "TOKEN",
+        reset_cycle: "QUARTERLY", reset_anchor_at: new Date("2026-07-01T16:00:00.000Z"),
+        effective_from: new Date("2026-07-20T16:00:00.000Z"),
+        effective_until: new Date("2026-08-25T16:00:00.000Z"),
+      },
+    );
+    await db.insertInto("provider_subscription_period").values({
+      enterprise_id: enterpriseId, provider_resource_id: planResource.id,
+      product_name: "重叠旧周期", period_start: new Date("2026-07-20T16:00:00.000Z"),
+      period_end_exclusive: new Date("2026-08-25T16:00:00.000Z"),
+      source: "MIGRATED_CARRYOVER", migration_source_record_id: oldPlanSnapshot!.id,
+      finance_event_id: null, created_by_admin_user_id: null,
+    }).execute();
 
     const ledger = new GatewayLedgerRepository(db);
     for (let index = 0; index < 10; index += 1) {
@@ -120,7 +144,7 @@ describe("POOL-022 供给预测生产闭环", () => {
     expect(Number(plan.rate_24h)).toBeGreaterThan(10);
     expect(api.forecast_exhaust_at).not.toBeNull();
     expect(plan.forecast_exhaust_at).not.toBeNull();
-    expect(plan.next_recover_at?.toISOString()).toBe("2026-10-01T16:00:00.000Z");
+    expect(plan.next_recover_at?.toISOString()).toBe("2026-08-31T16:00:00.000Z");
 
     const refreshedAt = new Date(now.getTime() + 30_000);
     await providerRepo.appendOperatingSnapshot(enterpriseId, apiResource.id, {
@@ -193,5 +217,8 @@ async function appendLine(input: {
     api_cost: input.apiCost,
     usage_quality: "PROVIDER_REPORTED",
   });
-  await db.updateTable("ledger_line").set({ created_at: input.occurredAt }).where("id", "=", line.id).execute();
+  await db.updateTable("ledger_line").set({ created_at: input.occurredAt,
+    settled_at: input.occurredAt }).where("id", "=", line.id).execute();
+  await db.updateTable("ai_request").set({ status: "SUCCEEDED", finished_at: input.occurredAt })
+    .where("id", "=", requestId).execute();
 }

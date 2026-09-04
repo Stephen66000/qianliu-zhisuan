@@ -225,7 +225,21 @@ export async function loadMonthlyOperatingCosts(
   enterpriseId: string,
   periodStart: Date,
   periodEnd: Date,
+  knownLedgerCosts?: ReadonlyMap<string, string | null>,
 ): Promise<MonthlyOperatingCosts> {
+  const ledgerPromise = knownLedgerCosts === undefined
+    ? sql<LedgerRow>`
+        SELECT provider_resource_id,
+               CASE WHEN COUNT(*) = COUNT(api_cost)
+                    THEN COALESCE(SUM(api_cost), 0)::text ELSE NULL END AS amount
+          FROM ledger_line
+         WHERE enterprise_id = ${enterpriseId}::uuid AND resource_mode = 'API'
+           AND created_at >= ${periodStart} AND created_at < ${periodEnd}
+         GROUP BY provider_resource_id
+      `.execute(db)
+    : Promise.resolve({ rows: [...knownLedgerCosts].map(([provider_resource_id, amount]) => ({
+        provider_resource_id, amount,
+      })) });
   const [resourceResult, rechargeResult, ledgerResult] = await Promise.all([
     sql<MonthlyOperatingCostResourceRow>`
       SELECT pr.id AS resource_id, p.code AS provider_code, p.name AS provider_name,
@@ -332,15 +346,7 @@ export async function loadMonthlyOperatingCosts(
          AND purchased_at >= ${periodStart} AND purchased_at < ${periodEnd}
        GROUP BY provider_resource_id, currency
     `.execute(db),
-    sql<LedgerRow>`
-      SELECT provider_resource_id,
-             CASE WHEN COUNT(*) = COUNT(api_cost)
-                  THEN COALESCE(SUM(api_cost), 0)::text ELSE NULL END AS amount
-        FROM ledger_line
-       WHERE enterprise_id = ${enterpriseId}::uuid AND resource_mode = 'API'
-         AND created_at >= ${periodStart} AND created_at < ${periodEnd}
-       GROUP BY provider_resource_id
-    `.execute(db),
+    ledgerPromise,
   ]);
   const recharges = new Map<string, RechargeRow[]>();
   for (const row of rechargeResult.rows) {

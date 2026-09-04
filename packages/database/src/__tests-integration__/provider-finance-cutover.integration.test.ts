@@ -84,6 +84,9 @@ describe("provider finance cutover rehearsal", () => {
           dedup_key: `${requestId}:attempt1` });
         requestIds.push(requestId); attemptIds.push(attempt.id); usageIds.push(usage!.id);
       }
+      await db.updateTable("ai_request").set({
+        status: "SUCCEEDED", finished_at: new Date("2026-09-02T05:00:00Z"),
+      }).where("id", "in", requestIds).execute();
         await sql`
           INSERT INTO ledger_line
             (id, ai_request_id, enterprise_id, usage_event_id, upstream_attempt_id,
@@ -215,7 +218,7 @@ describe("provider finance cutover rehearsal", () => {
         .rejects.toMatchObject({ code: "INVALID_MODE" });
       const finance = new ProviderFinanceRepository(db);
       expect(await finance.listSubscriptionPeriods(enterpriseId, planResourceId)).toEqual([
-        expect.objectContaining({ id: carryover.id, fixed_fee_amount: null,
+        expect.objectContaining({ id: carryover.id, fixed_fee_amount: "199.00000000",
           token_usage: expect.objectContaining({ request_count: "1", input_tokens: "8",
             output_tokens: "2", cache_tokens: "4", reasoning_tokens: "1",
             true_tokens: "10" }) }),
@@ -254,6 +257,7 @@ describe("provider finance cutover rehearsal", () => {
       });
       expect(afterResolution.failures)
         .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_CLASSIFICATION_MISMATCH" }));
+      await expect(migrateDown(db)).resolves.toBe("0062_resource_fact_reconciliation");
       await expect(migrateDown(db)).rejects.toThrow(/0061 rollback blocked/);
     } finally {
       await db.destroy();

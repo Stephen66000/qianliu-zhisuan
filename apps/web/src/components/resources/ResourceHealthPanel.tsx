@@ -9,6 +9,7 @@
 import type { Provider, ProviderResourceItem } from "../../api/types";
 import { useResourceHealth } from "../../api/hooks";
 import { formatDateTimeFull } from "../../lib/format";
+import { resourceStatusLabel } from "../../lib/resource-status";
 
 interface ResourceHealthPanelProps {
   resources: ProviderResourceItem[];
@@ -54,7 +55,7 @@ function HealthResourceCard({
           </p>
           <p className="text-[11px] text-ql-fg-tertiary">{resource.mode === "CODING_PLAN" ? "套餐" : "API"}</p>
         </div>
-        <StatusBadge status={resource.status} />
+        <StatusBadge label={healthQuery.data?.status_label} mode={resource.mode} status={resource.status} />
       </div>
 
       {healthQuery.isLoading ? (
@@ -105,6 +106,7 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
           {health.first_occurred_at ? <span>首次：{formatDateTimeFull(health.first_occurred_at)}</span> : null}
           {health.last_occurred_at ? <span>最近：{formatDateTimeFull(health.last_occurred_at)}</span> : null}
           {health.last_success_at ? <span>最近成功：{formatDateTimeFull(health.last_success_at)}</span> : null}
+          {health.last_quota_sync_at ? <span>额度同步：{formatDateTimeFull(health.last_quota_sync_at)}</span> : null}
           {health.cooldown_until ? <span>冷却至：{formatDateTimeFull(health.cooldown_until)}</span> : null}
           {health.credential_refresh_status && health.credential_refresh_status !== "OK" ? (
             <span className="text-ql-warning">凭证刷新：{health.credential_refresh_status}</span>
@@ -113,6 +115,9 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
             <span className="text-ql-warning">{health.refresh_error_classification}</span>
           ) : null}
         </div>
+      ) : null}
+      {health.status_event_time_reliable === false ? (
+        <p className="text-[11px] text-ql-warning">历史状态事件的时间被旧迁移冻结，首次/最近时间不展示；最近成功取真实请求账本。</p>
       ) : null}
 
       {/* 恢复说明 */}
@@ -124,20 +129,14 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
 }
 
 /** 状态色标（POOL-031：DEGRADED 显示「降级（仍可使用）」）。 */
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, mode, label: providedLabel }: {
+  status: string; mode: ProviderResourceItem["mode"]; label?: string;
+}) {
   const tone =
     status === "ACTIVE" ? "neutral"
     : status === "DEGRADED" ? "warning"
     : "danger";
-  const label =
-    status === "ACTIVE" ? "正常"
-    : status === "DEGRADED" ? "降级（仍可使用）"
-    : status === "RATE_LIMITED" ? "限流冷却"
-    : status === "UNAVAILABLE" ? "不可用"
-    : status === "EXHAUSTED" ? "额度耗尽"
-    : status === "EXPIRED" ? "凭证过期"
-    : status === "CREDENTIAL_INVALID" ? "凭证失效"
-    : status;
+  const label = providedLabel ?? resourceStatusLabel(status, mode);
 
   const colorClass =
     tone === "neutral" ? "bg-ql-surface-brand-soft text-ql-action"

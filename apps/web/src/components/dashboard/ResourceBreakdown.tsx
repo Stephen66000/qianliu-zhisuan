@@ -7,6 +7,7 @@
 import type { ResourceBreakdownItem } from "../../api/types";
 import type { ReactNode } from "react";
 import { formatCount, formatDateTimeShort, formatMoney, formatRatePerHour } from "../../lib/format";
+import { resourceStatusLabel } from "../../lib/resource-status";
 import { StatusTag } from "./StatusTag";
 
 interface ResourceBreakdownProps {
@@ -18,17 +19,6 @@ const MODE_LABEL: Record<ResourceBreakdownItem["mode"], string> = {
   CODING_PLAN: "Coding Plan",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  HEALTHY: "正常",
-  ACTIVE: "正常",
-  DEGRADED: "降级",
-  RATE_LIMITED: "限流冷却",
-  UNAVAILABLE: "不可用",
-  EXHAUSTED: "额度耗尽",
-  EXPIRED: "已过期",
-  CREDENTIAL_INVALID: "凭证失效",
-};
-
 export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
   return (
     <div className="overflow-x-auto">
@@ -38,11 +28,11 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
             <th className="py-2 pr-4 font-medium">厂商</th>
             <th className="py-2 pr-4 font-medium">模式</th>
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
-            <th className="py-2 pr-4 text-right font-medium">厂商总额度</th>
-            <th className="py-2 pr-4 text-right font-medium">厂商已用额度</th>
-            <th className="py-2 pr-4 text-right font-medium">厂商剩余额度</th>
-            <th className="py-2 pr-4 text-right font-medium">已分配给主体</th>
-            <th className="py-2 pr-4 text-right font-medium">经营余额 / 套餐</th>
+            <th className="py-2 pr-4 text-right font-medium">总额度 / 计费方式</th>
+            <th className="py-2 pr-4 text-right font-medium">已用额度</th>
+            <th className="py-2 pr-4 text-right font-medium">剩余额度 / 当前余额</th>
+            <th className="py-2 pr-4 text-right font-medium">已分配主体额度</th>
+            <th className="py-2 pr-4 text-right font-medium">当前订阅金额</th>
             <th className="py-2 pr-4 text-right font-medium">本月花费</th>
             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
             <th className="py-2 pr-4 text-right font-medium">消耗速度</th>
@@ -63,24 +53,23 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.mode === "API"
-                  ? "按量计费"
+                  ? "不适用（按量计费）"
                   : item.totalQuota === null ? "未录入/未同步" : `${formatCount(item.totalQuota)} ${item.quotaUnit ?? ""}`}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.mode === "API" ? "见本月 Token" : item.usedQuota === null ? "—" : formatCount(item.usedQuota)}
+                {item.mode === "API" ? "—" : item.usedQuota === null ? "—" : formatCount(item.usedQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.mode === "API" ? "见经营余额" : item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
+                {item.mode === "API"
+                  ? item.currentBalance === null ? "余额待补"
+                    : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`
+                  : item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.mode === "API" ? (
-                  item.currentBalance === null
-                    ? "余额待补"
-                    : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`
-                ) : (
+                {item.mode === "API" ? "—" : (
                   <>{item.packageCost === null
                     ? "套餐费用待补"
                     : `${item.currency ?? ""} ${formatMoney(item.packageCost)}`}
@@ -105,10 +94,10 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
               </td>
               <td className="py-2.5">
                 <a href="/resources?tab=supply-health#resource-health" title={item.abnormalResources.map((resource) =>
-                  `${resource.resourceName}：${STATUS_LABEL[resource.status] ?? resource.status}`
+                  `${resource.resourceName}：${resourceStatusLabel(resource.status, item.mode)}`
                 ).join("；") || "全部资源正常"}>
                   <StatusTag tone={statusTone(item.status)}>
-                    {STATUS_LABEL[item.status] ?? item.status}
+                    {resourceStatusLabel(item.status, item.mode)}
                   </StatusTag>
                   {item.abnormalResources.length > 0 ? (
                     <span className="mt-1 block max-w-36 text-[11px] text-ql-fg-tertiary">

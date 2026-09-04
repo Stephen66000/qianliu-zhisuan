@@ -346,6 +346,8 @@ export interface ResourceHealth {
   first_occurred_at: string | null;
   last_occurred_at: string | null;
   last_success_at: string | null;
+  last_quota_sync_at: string | null;
+  status_event_time_reliable: boolean;
   cooldown_until: string | null;
   last_probe_at: string | null;
   credential_refresh_status: string;

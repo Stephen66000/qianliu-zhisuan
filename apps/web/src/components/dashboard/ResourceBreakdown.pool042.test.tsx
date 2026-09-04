@@ -101,6 +101,6 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
     expect(screen.getByText("自定义异常资源")).toBeInTheDocument();
     expect(screen.getByText("CUSTOM")).toBeInTheDocument();
     expect(screen.getByText("限流冷却")).toBeInTheDocument();
-    expect(screen.getByText("降级")).toBeInTheDocument();
+    expect(screen.getByText("可用（降权）")).toBeInTheDocument();
   });
 });

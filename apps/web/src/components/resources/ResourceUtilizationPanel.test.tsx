@@ -169,11 +169,10 @@ describe("W20-08 资源利用事实 Web", () => {
   it("API 利用率显示不适用，费用与已有余额保留", () => {
     renderPanel();
     const row = screen.getByText("DeepSeek · API 账户").closest("tr")!;
-    expect(within(row).getByText("¥12.50")).toBeInTheDocument();
-    expect(within(row).getByText("余额 ¥87.50")).toBeInTheDocument();
+    expect(within(row).getByText("CNY 12.50")).toBeInTheDocument();
+    expect(within(row).getByText("余额 CNY 87.50")).toBeInTheDocument();
     expect(within(row).queryByText("0.0%")).not.toBeInTheDocument();
-    expect(within(row).getByText(/2 天无调用/)).toBeInTheDocument();
-    expect(within(row).getByText(/未判定/)).toBeInTheDocument();
+    expect(within(row).getByText(/距最近使用 2 天/)).toBeInTheDocument();
   });
 
   it("Coding Plan 只保留周期利用率和订阅周期，不展示窗口与预测", () => {
@@ -185,8 +184,7 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).getByText("订阅周期累计")).toBeInTheDocument();
     expect(within(row).getByText("2026-08-01～2026-09-01")).toBeInTheDocument();
     expect(within(row).queryByText(/2099/)).not.toBeInTheDocument();
-    expect(within(row).getByText(/无调用天数未知/)).toBeInTheDocument();
-    expect(within(row).getByText(/未判定/)).toBeInTheDocument();
+    expect(within(row).getByText("暂无结算用量")).toBeInTheDocument();
   });
 
   it("POOL20-041：缺订阅结束日期时不把额度比例包装为周期累计", () => {
@@ -277,8 +275,19 @@ describe("W20-08 资源利用事实 Web", () => {
     });
     renderPanel();
     const row = screen.getByText("测试厂商 · 测试资源").closest("tr")!;
-    expect(within(row).getByText("¥12.50")).toBeInTheDocument();
+    expect(within(row).getByText("CNY 12.50")).toBeInTheDocument();
     expect(within(row).queryByText(/余额/)).not.toBeInTheDocument();
     expect(within(row).queryByText("未设置")).not.toBeInTheDocument();
+  });
+
+  it("当天有结算用量时不显示连续零天无调用", () => {
+    useResourceUtilizationMock.mockReturnValue({
+      data: { month: "2026-08", generatedAt: "2026-08-13T00:00:00.000Z",
+        resources: [resource({ continuousNoCallDays: 0 })] },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
+    renderPanel();
+    expect(screen.getByText("今日有使用")).toBeInTheDocument();
+    expect(screen.queryByText(/连续 0 天无调用/)).not.toBeInTheDocument();
   });
 });

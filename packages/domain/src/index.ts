@@ -161,6 +161,7 @@ export {
   deriveRefreshFailure,
   deriveAdminRecovery,
   deriveQuotaSyncRecovery,
+  deriveBalanceSyncRecovery,
   evaluateAdmission,
   type ResourceStatus,
   type StateReason,

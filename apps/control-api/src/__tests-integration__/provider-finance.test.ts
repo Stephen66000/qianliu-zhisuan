@@ -147,6 +147,14 @@ describe("provider finance routes", () => {
         external_reference: "plan-pay-1", idempotency_key: randomUUID() } });
     expect(response.statusCode).toBe(201);
     const periodId = response.json().periodId as string;
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: enterpriseId, provider_resource_id: planResourceId, version: 1,
+      source: "ADMIN", collected_at: new Date("2026-09-02T00:00:00.000Z"),
+      total_quota: "1000", quota_unit: "TOKEN", used_quota: null, remaining_quota: null,
+      effective_from: new Date("2026-09-01T16:00:00.000Z"),
+      effective_until: new Date("2026-10-01T16:00:00.000Z"),
+      usage_calculation: "SYSTEM_LEDGER",
+    }).execute();
     const periods = await app.inject({ method: "GET",
       url: `/provider-resources/${planResourceId}/subscription-periods`, headers: { cookie } });
     expect(periods.statusCode).toBe(200);
@@ -170,7 +178,9 @@ describe("provider finance routes", () => {
     expect(summary.statusCode).toBe(200);
     expect(summary.json()).toMatchObject({
       cashOutflowCny: "199.00000000", codingPlanFixedCostCny: "199.00000000",
-      operatingCostCny: "199.00000000", complete: true,
+      operatingCostCny: "199.00000000", currentApiBalances: [
+        { currency: "CNY", amount: "65.00000000" },
+      ], currentApiBalancesComplete: true, complete: true,
     });
     const resourceFinance = await app.inject({ method: "GET",
       url: "/provider-finance/resources?month=2026-09", headers: { cookie } });
@@ -206,6 +216,7 @@ describe("provider finance routes", () => {
         provider_resource_id: planResourceId, principal_id: principalId,
         resource_mode: "CODING_PLAN", raw_input_tokens: tokens, raw_output_tokens: 0n,
         raw_cache_tokens: 0n, raw_reasoning_tokens: 0n, api_cost: null,
+        deducted_quota: tokens,
         api_cost_status: "NOT_APPLICABLE", settled_at: new Date("2026-09-03T00:00:00.000Z"),
         usage_quality: "PROVIDER_REPORTED" } });
       const finishedAt = new Date("2026-09-03T00:00:01.000Z");
@@ -215,7 +226,7 @@ describe("provider finance routes", () => {
       await ledger.finalizeLedgerSettlementIfAbsent({ ai_request_id: requestId,
         enterprise_id: enterpriseId, principal_id: principalId,
         total_input_tokens: tokens, total_output_tokens: 0n, total_cache_tokens: 0n,
-        total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: "0",
+        total_reasoning_tokens: 0n, total_deducted_quota: tokens, total_api_cost: "0",
         usage_quality: "PROVIDER_REPORTED", attempt_count: 1, request_status: "SUCCEEDED" });
       if (index === 2) {
         await db.updateTable("ledger_line").set({ created_at: new Date("2026-08-31T15:59:00.000Z") })
@@ -240,7 +251,10 @@ describe("provider finance routes", () => {
       url: "/provider-resources/utilization?month=2026-09", headers: { cookie } });
     expect(utilization.json().resources).toEqual(expect.arrayContaining([
       expect.objectContaining({ resourceId: planResourceId, packageCost: "199.00000000",
-        servicePeriodStart: "2026-09-02", servicePeriodEnd: "2026-10-02" }),
+        totalQuota: "1000", usedQuota: "450", remainingQuota: "550",
+        utilizationRate: "0.45000000", utilizationBasis: "CODING_PLAN_SUBSCRIPTION_PERIOD",
+        notCalculableReason: null, servicePeriodStart: "2026-09-02",
+        servicePeriodEnd: "2026-10-02" }),
       expect.objectContaining({ resourceId: apiResourceId, currentBalance: "65.00000000" }),
     ]));
     const dashboard = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie } });

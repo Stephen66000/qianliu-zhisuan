@@ -14,8 +14,15 @@ export function ResourceFinanceDisplay({ resource }: { resource: ProviderResourc
       </span>;
     }
     return <span className="block leading-5">
+      <span className="block">当前订阅金额 {finance.currentPeriod?.fixedFeeAmount
+        ? `${finance.currentPeriod.fixedFeeCurrency ?? ""} ${formatMoney(finance.currentPeriod.fixedFeeAmount)}`
+        : "待补"}</span>
       <span className="block">本月订阅实付 ¥{formatMoney(finance.monthlyPlanCashCny)}</span>
-      <span className="block">周期 Token {finance.currentPeriod ? formatCount(finance.currentPeriod.trueTokens) : "无有效周期"}</span>
+      <span className="block">周期已扣减 {finance.currentPeriod
+        ? finance.currentPeriod.deductedQuota === null ? "事实不完整"
+          : formatCount(finance.currentPeriod.deductedQuota)
+        : "无有效周期"}</span>
+      <span className="block">周期真实 Token {finance.currentPeriod ? formatCount(finance.currentPeriod.trueTokens) : "无有效周期"}</span>
       <span className="block">{finance.currentPeriod ? `${formatShanghaiDate(finance.currentPeriod.periodStart)} ～ ${formatShanghaiDate(finance.currentPeriod.periodEndExclusive)}` : "—"}</span>
     </span>;
   }
@@ -32,14 +39,4 @@ export const ISOLATED = new Set(["CREDENTIAL_INVALID", "EXHAUSTED", "EXPIRED", "
 export const MODE_LABEL: Record<ProviderResourceItem["mode"], string> = {
   API: "API",
   CODING_PLAN: "套餐",
-};
-
-export const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "正常",
-  DEGRADED: "降级",
-  CREDENTIAL_INVALID: "凭证失效",
-  EXHAUSTED: "额度耗尽",
-  EXPIRED: "已过期",
-  UNAVAILABLE: "不可用",
-  RATE_LIMITED: "限流冷却",
 };

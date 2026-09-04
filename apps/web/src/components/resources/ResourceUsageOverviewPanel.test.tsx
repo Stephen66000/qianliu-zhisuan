@@ -85,7 +85,7 @@ describe("厂商资源用量总览", () => {
     expect(screen.getByRole("heading", { name: "模型使用明细" })).toBeInTheDocument();
     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "余额可承载 Token" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: "已用额度" })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "已用额度" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "所属资源余额 / 剩余额度" })).toBeInTheDocument();
     const providerRow = screen.getAllByText("DeepSeek").find((node) => node.tagName === "TD")!.closest("tr")!;
     expect(within(providerRow).getByText("1,000")).toBeInTheDocument();
@@ -120,5 +120,19 @@ describe("厂商资源用量总览", () => {
     const row = screen.getByText("ql-deepseek-v4").closest("tr")!;
     expect(within(row).getByText("暂无成功计量")).toBeInTheDocument();
     expect(within(row).getByText("3 笔计量未知")).toBeInTheDocument();
+  });
+
+  it("API 与 Coding Plan 使用不同的耗尽文案", () => {
+    const data = overview();
+    data.modelDetails = [
+      { ...data.modelDetails[0]!, status: "EXHAUSTED" },
+      { ...data.modelDetails[1]!, status: "EXHAUSTED" },
+    ];
+    useResourceUsageOverviewMock.mockReturnValue({
+      data, isLoading: false, error: null, refetch: vi.fn(),
+    });
+    render(<MemoryRouter><ResourceUsageOverviewPanel /></MemoryRouter>);
+    expect(screen.getByText("余额不足")).toBeInTheDocument();
+    expect(screen.getByText("套餐额度耗尽")).toBeInTheDocument();
   });
 });

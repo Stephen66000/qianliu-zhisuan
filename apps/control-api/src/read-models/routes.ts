@@ -364,6 +364,9 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
           ? snapshot?.current_balance ?? null
           : snapshot?.remaining_quota ?? null;
         if (!snapshot || forecast.snapshot_at < snapshot.calculated_at ||
+          (forecast.forecast_exhaust_at !== null
+            && forecast.forecast_exhaust_at < forecast.snapshot_at
+            && !equalDecimal(remaining, "0")) ||
           !equalDecimal(forecast.forecast_remaining_quota, remaining)) return [];
         return [{
           ...forecast,

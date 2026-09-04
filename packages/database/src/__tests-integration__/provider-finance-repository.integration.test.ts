@@ -170,6 +170,94 @@ describe("ProviderFinanceRepository", () => {
     } finally { await db.destroy(); }
   });
 
+  it("projects migrated carryover fee and full-period ledger usage without a finance event", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const resourceId = randomUUID();
+      const provider = await db.selectFrom("provider").select("id")
+        .where("enterprise_id", "=", enterpriseId).executeTakeFirstOrThrow();
+      await db.insertInto("provider_resource").values({ id: resourceId,
+        enterprise_id: enterpriseId, provider_id: provider.id, name: "Carryover Plan",
+        mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION" }).execute();
+      const legacySnapshot = await db.insertInto("provider_resource_operating_snapshot").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 1,
+        source: "ADMIN", collected_at: new Date("2026-08-03T00:00:00Z"),
+        currency: "CNY", package_name: "Legacy Plan", package_cost: "199",
+        total_quota: "300000000", quota_unit: "TOKEN",
+        effective_from: new Date("2026-07-20T00:00:00Z"),
+        effective_until: new Date("2026-08-19T00:00:00Z"),
+        reset_cycle: "MONTHLY", usage_calculation: "SYSTEM_LEDGER",
+      }).returning("id").executeTakeFirstOrThrow();
+      await db.insertInto("provider_subscription_period").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId,
+        finance_event_id: null, product_name: "Carryover Plan",
+        period_start: new Date("2026-08-18T16:00:00Z"),
+        period_end_exclusive: new Date("2026-09-18T16:00:00Z"),
+        source: "MIGRATED_CARRYOVER", migration_source_record_id: legacySnapshot.id,
+        created_by_admin_user_id: adminId,
+      }).execute();
+      await db.insertInto("provider_resource_operating_snapshot").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 2,
+        source: "ADMIN", collected_at: new Date("2026-09-03T00:00:00Z"),
+        currency: "CNY", package_name: "Unrelated overlap", package_cost: "999",
+        total_quota: "1", quota_unit: "TOKEN",
+        effective_from: new Date("2026-08-20T00:00:00Z"),
+        effective_until: new Date("2026-09-10T00:00:00Z"),
+        usage_calculation: "SYSTEM_LEDGER",
+      }).execute();
+      const requestId = randomUUID(); const attemptId = randomUUID(); const usageId = randomUUID();
+      await db.insertInto("ai_request").values({ id: requestId, enterprise_id: enterpriseId,
+        principal_id: principalId, principal_key_id: principalKeyId, protocol: "chat",
+        unified_model: "ql-k3", status: "SUCCEEDED",
+        started_at: new Date("2026-08-20T00:00:00Z"),
+        finished_at: new Date("2026-08-20T00:01:00Z") }).execute();
+      await db.insertInto("upstream_attempt").values({ id: attemptId, ai_request_id: requestId,
+        enterprise_id: enterpriseId, attempt_no: 1, provider_resource_id: resourceId,
+        upstream_model: "k3", response_committed: true,
+        started_at: new Date("2026-08-20T00:00:00Z"),
+        finished_at: new Date("2026-08-20T00:01:00Z"), http_status: 200 }).execute();
+      await db.insertInto("usage_event").values({ id: usageId, ai_request_id: requestId,
+        enterprise_id: enterpriseId, upstream_attempt_id: attemptId,
+        provider_resource_id: resourceId, input_tokens: 100n, output_tokens: 23n,
+        cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: "PROVIDER_REPORTED",
+        dedup_key: `carryover:${requestId}`, created_at: new Date("2026-08-20T00:01:00Z") }).execute();
+      await db.insertInto("ledger_line").values({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, usage_event_id: usageId, upstream_attempt_id: attemptId,
+        provider_resource_id: resourceId, principal_id: principalId, resource_mode: "CODING_PLAN",
+        raw_input_tokens: 100n, raw_output_tokens: 23n, raw_cache_tokens: 0n,
+        raw_reasoning_tokens: 0n, deducted_quota: 123n, api_cost: null,
+        usage_quality: "PROVIDER_REPORTED", billing_rule_id: null, rule_version: null,
+        multiplier: "1", billing_rule_snapshot: null,
+        settled_at: new Date("2026-08-20T00:01:00Z"),
+        created_at: new Date("2026-08-20T00:01:00Z") }).execute();
+      const view = (await new ProviderFinanceRepository(db).listResourceFinanceViews(
+        enterpriseId, "2026-09", new Date("2026-09-04T00:00:00Z"),
+      )).find((item) => item.resourceId === resourceId);
+      expect(view).toMatchObject({ monthlyPlanCashCny: "0.00000000", currentPeriod: {
+        fixedFeeAmount: "199.00000000", fixedFeeCurrency: "CNY",
+        fixedCashPaidCny: "199.00000000", trueTokens: "123", deductedQuota: "123",
+        totalQuota: "300000000.00000000", quotaUnit: "TOKEN", requestCount: "1",
+      } });
+      const periods = await new ProviderFinanceRepository(db)
+        .listSubscriptionPeriods(enterpriseId, resourceId);
+      expect(periods?.[0]).toMatchObject({ fixed_fee_amount: "199.00000000",
+        fixed_fee_currency: "CNY", fixed_cash_paid_cny: "199.00000000",
+        token_usage: { request_count: "1", true_tokens: "123", deducted_quota: "123" } });
+      expect(await new ProviderFinanceRepository(db).getSubscriptionPeriodUsage(
+        enterpriseId, periods![0]!.id,
+      )).toMatchObject({ tokenUsage: { request_count: "1", true_tokens: "123",
+        deducted_quota: "123" } });
+      await db.updateTable("ledger_line").set({ deducted_quota: null })
+        .where("ai_request_id", "=", requestId).execute();
+      const incomplete = (await new ProviderFinanceRepository(db).listResourceFinanceViews(
+        enterpriseId, "2026-09", new Date("2026-09-04T00:00:00Z"),
+      )).find((item) => item.resourceId === resourceId);
+      expect(incomplete?.currentPeriod).toMatchObject({
+        deductedQuota: null, deductedQuotaComplete: false,
+      });
+    } finally { await db.destroy(); }
+  });
+
   it("requires a one-time confirmation for a duplicate without external reference", async () => {
     const db = createKysely(pg.connectionString);
     try {
@@ -253,6 +341,14 @@ describe("ProviderFinanceRepository", () => {
     const db = createKysely(pg.connectionString);
     try {
       const finance = new ProviderFinanceRepository(db);
+      const earlier = await db.insertInto("provider_subscription_period").values({
+        enterprise_id: enterpriseId, provider_resource_id: planResourceId,
+        finance_event_id: null, product_name: "Earlier overlap",
+        period_start: new Date("2026-08-31T16:00:00.000Z"),
+        period_end_exclusive: new Date("2026-09-30T16:00:00.000Z"),
+        source: "MIGRATED_CARRYOVER", migration_source_record_id: null,
+        created_by_admin_user_id: adminId,
+      }).returning("id").executeTakeFirstOrThrow();
       const later = await finance.recordSubscription({
         enterpriseId, resourceId: planResourceId, adminId, kind: "RENEWAL",
         productName: "Kimi Coding Plan overlap", accountAmount: "199", accountCurrency: "CNY",
@@ -287,6 +383,11 @@ describe("ProviderFinanceRepository", () => {
           usage_quality: "PROVIDER_REPORTED" },
       });
       expect(result.line.subscription_period_id).toBe(later.periodId);
+      const periods = await finance.listSubscriptionPeriods(enterpriseId, planResourceId);
+      expect(periods.find((period) => period.id === later.periodId)?.token_usage)
+        .toMatchObject({ request_count: "1", deducted_quota: "24" });
+      expect(periods.find((period) => period.id === earlier.id)?.token_usage)
+        .toMatchObject({ request_count: "0", deducted_quota: "0" });
       await expect(db.updateTable("ledger_line")
         .set({ settled_at: new Date("2026-11-03T00:00:00.000Z") })
         .where("id", "=", result.line.id).execute())

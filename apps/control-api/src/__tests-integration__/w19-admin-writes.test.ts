@@ -928,6 +928,7 @@ describe("W19 管理写操作闭环", () => {
     expect(recovered.statusCode).toBe(200);
     expect(recovered.json()).toMatchObject({
       status: "DEGRADED",
+      status_label: "额度已恢复，待调用确认",
       reason_code: "QUOTA_SYNC_RECOVERED",
       reason_label: "厂商额度同步确认恢复",
       credential_refresh_status: "OK",
@@ -945,8 +946,66 @@ describe("W19 管理写操作闭环", () => {
       headers: { cookie: adminCookie },
     });
     expect(pending.statusCode).toBe(200);
+    expect(pending.json().status_label).toBe("套餐额度耗尽");
     expect(pending.json().recovery_guide).toContain("自动重试同步");
     expect(pending.json().recovery_guide).toContain(cooldownUntil.toISOString());
+
+    const { resource: apiExhausted } = await seedProviderResource("EXHAUSTED", "API");
+    const apiHealth = await app.inject({ method: "GET",
+      url: `/provider-resources/${apiExhausted.id}/health`, headers: { cookie: adminCookie } });
+    expect(apiHealth.json()).toMatchObject({ status_label: "余额不足",
+      recovery_guide: expect.stringContaining("API 余额不足") });
+
+    const { resource: frozen } = await seedProviderResource("DEGRADED", "API");
+    await db.insertInto("resource_status_event").values({ enterprise_id: ENT_ID,
+      provider_resource_id: frozen.id, from_status: "ACTIVE", to_status: "DEGRADED",
+      reason: "PASSIVE_FAILURE", actor: "system", time_reliable: false,
+      created_at: frozen.created_at }).execute();
+    const frozenHealth = await app.inject({ method: "GET",
+      url: `/provider-resources/${frozen.id}/health`, headers: { cookie: adminCookie } });
+    expect(frozenHealth.json()).toMatchObject({ status_event_time_reliable: false,
+      first_occurred_at: null, last_occurred_at: null, last_success_at: null,
+      reason_code: null, error_classification: null });
+
+    const { resource: staleQuota } = await seedProviderResource("DEGRADED", "CODING_PLAN");
+    const staleAt = new Date(Date.now() + 60_000);
+    await db.insertInto("resource_status_event").values({ enterprise_id: ENT_ID,
+      provider_resource_id: staleQuota.id, from_status: "ACTIVE", to_status: "DEGRADED",
+      reason: "PASSIVE_FAILURE", actor: "system", created_at: new Date() }).execute();
+    await db.insertInto("provider_quota_window").values({ enterprise_id: ENT_ID,
+      provider_resource_id: staleQuota.id, window_type: "FIVE_HOUR", is_current: true,
+      limit_value: "100", used_value: "1", remaining_value: "99", unit: "PERCENT",
+      ratio: "0.01", reset_at: staleAt, provider_data_at: staleAt, collected_at: staleAt,
+      source: "PROVIDER_SYNC", adapter_version: "audit-test", sync_status: "STALE",
+      sync_error_code: "UPSTREAM_UNAVAILABLE", last_success_at: staleAt }).execute();
+    const staleHealth = await app.inject({ method: "GET",
+      url: `/provider-resources/${staleQuota.id}/health`, headers: { cookie: adminCookie } });
+    expect(staleHealth.json()).toMatchObject({ reason_code: "PASSIVE_FAILURE",
+      last_quota_sync_at: null, status_label: "降级（仍可使用）" });
+
+    const { resource: syncedQuota } = await seedProviderResource("DEGRADED", "CODING_PLAN");
+    await db.insertInto("provider_quota_window").values({ enterprise_id: ENT_ID,
+      provider_resource_id: syncedQuota.id, window_type: "FIVE_HOUR", is_current: true,
+      limit_value: "100", used_value: "1", remaining_value: "99", unit: "PERCENT",
+      ratio: "0.01", reset_at: staleAt, provider_data_at: staleAt, collected_at: staleAt,
+      source: "PROVIDER_SYNC", adapter_version: "audit-test", sync_status: "SUCCESS",
+      sync_error_code: null, last_success_at: staleAt }).execute();
+    const syncedHealth = await app.inject({ method: "GET",
+      url: `/provider-resources/${syncedQuota.id}/health`, headers: { cookie: adminCookie } });
+    expect(syncedHealth.json()).toMatchObject({ reason_code: "QUOTA_SYNC_RECOVERED",
+      last_quota_sync_at: staleAt.toISOString(), status_label: "额度已恢复，待调用确认" });
+    await db.insertInto("resource_status_event").values({ enterprise_id: ENT_ID,
+      provider_resource_id: syncedQuota.id, from_status: "ACTIVE", to_status: "DEGRADED",
+      reason: "PASSIVE_FAILURE", actor: "system", time_reliable: false,
+      created_at: new Date(staleAt.getTime() - 60_000) }).execute();
+    const laterFailureAt = new Date(staleAt.getTime() + 60_000);
+    await db.insertInto("resource_status_event").values({ enterprise_id: ENT_ID,
+      provider_resource_id: syncedQuota.id, from_status: "DEGRADED", to_status: "DEGRADED",
+      reason: "PASSIVE_FAILURE", actor: "system", created_at: laterFailureAt }).execute();
+    const failedAfterSync = await app.inject({ method: "GET",
+      url: `/provider-resources/${syncedQuota.id}/health`, headers: { cookie: adminCookie } });
+    expect(failedAfterSync.json()).toMatchObject({ reason_code: "PASSIVE_FAILURE",
+      status_label: "降级（仍可使用）" });
   });
 
   it("六要素：未认证 401 / 不存在 404 / 跨企业不可见", async () => {

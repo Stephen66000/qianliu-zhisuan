@@ -124,12 +124,15 @@ export interface MonthlyFinanceSummary {
   codingPlanFixedCostCny: string;
   operatingCostCny: string;
   operatingCostByCurrency: Array<{ currency: FinanceCurrency; amount: string }>;
+  currentApiBalances: Array<{ currency: FinanceCurrency; amount: string }>;
+  currentApiBalancesComplete: boolean;
   complete: boolean;
   gaps: Array<{ code: string; count: number }>;
 }
 
 export interface ResourceFinanceView {
   resourceId: string;
+  providerCode: string;
   mode: "API" | "CODING_PLAN";
   accounts: Array<{
     currency: FinanceCurrency;
@@ -146,7 +149,14 @@ export interface ResourceFinanceView {
     productName: string;
     periodStart: string;
     periodEndExclusive: string;
+    fixedFeeAmount: string | null;
+    fixedFeeCurrency: FinanceCurrency | null;
+    fixedCashPaidCny: string | null;
+    totalQuota: string | null;
+    quotaUnit: string | null;
     trueTokens: string;
+    deductedQuota: string | null;
+    deductedQuotaComplete: boolean;
     requestCount: string;
   };
 }

@@ -3,11 +3,8 @@ import type { Database } from "../kysely.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
 import { Money, money } from "./provider-finance-core.js";
 import { ProviderFinanceReconciliationRepository } from "./provider-finance-reconciliation.js";
-import type {
-  FinanceCurrency,
-  MonthlyFinanceSummary,
-  ResourceFinanceView,
-} from "./provider-finance-types.js";
+import { loadLegacySubscriptionFee, loadSubscriptionPeriodUsage } from "./provider-finance-period-facts.js";
+import type { FinanceCurrency, MonthlyFinanceSummary, ResourceFinanceView } from "./provider-finance-types.js";
 
 export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepository {
   async getMonthlyFinanceSummary(
@@ -34,8 +31,13 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
   ): Promise<ResourceFinanceView[]> {
       const { start, end } = operatingBillMonthRange(month);
       const [resources, accountKeys, apiCosts, recharges, planCosts, periods] = await Promise.all([
-        trx.selectFrom("provider_resource").select(["id", "mode"])
-          .where("enterprise_id", "=", enterpriseId).where("status", "<>", "DELETED").execute(),
+        trx.selectFrom("provider_resource")
+          .innerJoin("provider", (join) => join
+            .onRef("provider.id", "=", "provider_resource.provider_id")
+            .onRef("provider.enterprise_id", "=", "provider_resource.enterprise_id"))
+          .select(["provider_resource.id", "provider_resource.mode", "provider.code as provider_code"])
+          .where("provider_resource.enterprise_id", "=", enterpriseId)
+          .where("provider_resource.status", "<>", "DELETED").execute(),
         sql<{ provider_resource_id: string; currency: FinanceCurrency }>`
           SELECT DISTINCT provider_resource_id, currency FROM (
             SELECT provider_resource_id, account_currency AS currency
@@ -76,19 +78,67 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
              AND event.occurred_at>=${start} AND event.occurred_at<${end}
            GROUP BY event.provider_resource_id`.execute(trx),
         sql<{ id: string; provider_resource_id: string; product_name: string;
-          period_start: Date; period_end_exclusive: Date; true_tokens: string;
-          request_count: string }>`
+          period_start: Date; period_end_exclusive: Date; fixed_fee_amount: string | null;
+          fixed_fee_currency: FinanceCurrency | null; fixed_cash_paid_cny: string | null;
+          total_quota: string | null; quota_unit: string | null;
+          true_tokens: string; deducted_quota: string | null;
+          deducted_quota_complete: boolean; request_count: string }>`
           SELECT DISTINCT ON (period.provider_resource_id)
                  period.id, period.provider_resource_id, period.product_name,
                  period.period_start, period.period_end_exclusive,
+                 COALESCE(event.account_amount, legacy.package_cost)::text AS fixed_fee_amount,
+                 COALESCE(event.account_currency, legacy.currency,
+                          tenant.default_currency)::text AS fixed_fee_currency,
+                 COALESCE(event.cash_paid_cny,
+                   CASE WHEN COALESCE(legacy.currency, tenant.default_currency)='CNY'
+                        THEN legacy.package_cost ELSE NULL END)::text AS fixed_cash_paid_cny,
+                 legacy.total_quota::text AS total_quota, legacy.quota_unit,
                  COALESCE(usage.true_tokens,0)::text AS true_tokens,
+                 usage.deducted_quota::text AS deducted_quota,
+                 COALESCE(usage.deducted_quota_complete,true) AS deducted_quota_complete,
                  COALESCE(usage.request_count,0)::text AS request_count
             FROM provider_subscription_period period
+            JOIN enterprise tenant ON tenant.id=period.enterprise_id
+            LEFT JOIN provider_finance_event event
+              ON event.enterprise_id=period.enterprise_id AND event.id=period.finance_event_id
+            LEFT JOIN LATERAL (
+              SELECT snapshot.package_cost, snapshot.currency,
+                     snapshot.total_quota, snapshot.quota_unit
+                FROM provider_resource_operating_snapshot snapshot
+               WHERE snapshot.enterprise_id=period.enterprise_id
+                 AND snapshot.provider_resource_id=period.provider_resource_id
+                 AND (snapshot.package_cost IS NOT NULL OR snapshot.total_quota IS NOT NULL)
+                 AND (snapshot.id=period.migration_source_record_id OR (
+                   period.migration_source_record_id IS NULL
+                   AND snapshot.effective_from<=period.period_start
+                   AND snapshot.effective_until>=period.period_end_exclusive
+                 ))
+               ORDER BY snapshot.collected_at DESC, snapshot.version DESC
+               LIMIT 1
+            ) legacy ON true
             LEFT JOIN LATERAL (
               SELECT SUM(line.raw_input_tokens+line.raw_output_tokens) AS true_tokens,
+                     CASE WHEN COUNT(*)=COUNT(line.deducted_quota)
+                          THEN COALESCE(SUM(line.deducted_quota),0) ELSE NULL END AS deducted_quota,
+                     COUNT(*)=COUNT(line.deducted_quota) AS deducted_quota_complete,
                      COUNT(DISTINCT line.ai_request_id) AS request_count
-                FROM ledger_line line WHERE line.enterprise_id=period.enterprise_id
-                 AND line.subscription_period_id=period.id
+                FROM ledger_line line
+               WHERE line.enterprise_id=period.enterprise_id
+                 AND line.provider_resource_id=period.provider_resource_id
+                 AND COALESCE(line.settled_at,line.created_at)>=period.period_start
+                 AND COALESCE(line.settled_at,line.created_at)<period.period_end_exclusive
+                 AND (line.subscription_period_id=period.id OR (
+                   line.subscription_period_id IS NULL AND period.id=(
+                     SELECT candidate.id FROM provider_subscription_period candidate
+                      WHERE candidate.enterprise_id=line.enterprise_id
+                        AND candidate.provider_resource_id=line.provider_resource_id
+                        AND candidate.reversed_by_event_id IS NULL
+                        AND candidate.period_start<=COALESCE(line.settled_at,line.created_at)
+                        AND candidate.period_end_exclusive>COALESCE(line.settled_at,line.created_at)
+                      ORDER BY candidate.period_start DESC, candidate.created_at DESC,
+                               candidate.id DESC LIMIT 1
+                   )
+                 ))
             ) usage ON true
            WHERE period.enterprise_id=${enterpriseId}::uuid
              AND period.reversed_by_event_id IS NULL
@@ -126,13 +176,19 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
       }
       return resources.map((resource) => {
         const period = currentPeriods.get(resource.id);
-        return { resourceId: resource.id, mode: resource.mode,
+        return { resourceId: resource.id, providerCode: resource.provider_code, mode: resource.mode,
           accounts: accountsByResource.get(resource.id) ?? [],
           monthlyPlanCashCny: money(planCash.get(resource.id) ?? 0),
           currentPeriod: period ? { id: period.id, productName: period.product_name,
             periodStart: period.period_start.toISOString(),
             periodEndExclusive: period.period_end_exclusive.toISOString(),
-            trueTokens: period.true_tokens, requestCount: period.request_count } : null };
+            fixedFeeAmount: period.fixed_fee_amount,
+            fixedFeeCurrency: period.fixed_fee_currency,
+            fixedCashPaidCny: period.fixed_cash_paid_cny,
+            totalQuota: period.total_quota, quotaUnit: period.quota_unit,
+            trueTokens: period.true_tokens, deductedQuota: period.deducted_quota,
+            deductedQuotaComplete: period.deducted_quota_complete,
+            requestCount: period.request_count } : null };
       });
   }
 
@@ -224,6 +280,23 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
            AND cash_paid_cny IS NULL AND occurred_at>=${start} AND occurred_at<${end}
       `.execute(trx),
     ]);
+    const resourceViews = await this.loadResourceFinanceViews(trx, enterpriseId, month, new Date());
+    const currentBalanceTotals = new Map<FinanceCurrency, InstanceType<typeof Money>>();
+    let currentApiBalancesComplete = true;
+    for (const view of resourceViews.filter((item) => item.mode === "API")) {
+      if (view.accounts.length === 0 || view.accounts.some((account) =>
+        account.balanceState !== "NORMAL" || account.balance === null)) {
+        currentApiBalancesComplete = false;
+        continue;
+      }
+      for (const account of view.accounts) {
+        currentBalanceTotals.set(account.currency,
+          (currentBalanceTotals.get(account.currency) ?? new Money(0)).plus(account.balance!));
+      }
+    }
+    const currentApiBalances = [...currentBalanceTotals]
+      .sort(([left], [right]) => left.localeCompare(right, "en"))
+      .map(([currency, amount]) => ({ currency, amount: money(amount) }));
     const apiRecharges = eventAmounts.rows.filter((row) => row.mode === "API")
       .map((row) => ({ currency: row.currency, amount: money(row.amount) }));
     const codingPlanOrders = eventAmounts.rows.filter((row) => row.mode === "CODING_PLAN")
@@ -241,6 +314,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
       operatingCostCny: money(new Money(cnyApi).plus(planCash)),
       operatingCostByCurrency: apiCosts.rows.filter((row) => row.currency !== "CNY")
         .map((row) => ({ currency: row.currency, amount: money(row.amount) })),
+      currentApiBalances, currentApiBalancesComplete,
       complete: summaryGaps.length === 0,
       gaps: summaryGaps,
     };
@@ -266,26 +340,27 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
       .where("provider_subscription_period.enterprise_id", "=", enterpriseId)
       .where("provider_subscription_period.provider_resource_id", "=", resourceId)
       .orderBy("provider_subscription_period.period_start", "desc").execute();
-    const usageResult = await sql<{
-      subscription_period_id: string; request_count: string; input_tokens: string;
-      output_tokens: string; cache_tokens: string; reasoning_tokens: string; true_tokens: string;
-    }>`SELECT subscription_period_id, COUNT(DISTINCT ai_request_id)::text AS request_count,
-              COALESCE(SUM(raw_input_tokens),0)::text AS input_tokens,
-              COALESCE(SUM(raw_output_tokens),0)::text AS output_tokens,
-              COALESCE(SUM(raw_cache_tokens),0)::text AS cache_tokens,
-              COALESCE(SUM(raw_reasoning_tokens),0)::text AS reasoning_tokens,
-              COALESCE(SUM(raw_input_tokens+raw_output_tokens),0)::text AS true_tokens
-         FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
-          AND provider_resource_id=${resourceId}::uuid AND resource_mode='CODING_PLAN'
-          AND subscription_period_id IS NOT NULL GROUP BY subscription_period_id`.execute(trx);
-    const usageByPeriod = new Map(usageResult.rows.map((usage) => [usage.subscription_period_id, usage]));
-    return rows.map((row) => ({ ...row, current_status: row.reversed_by_event_id ? "REVERSED"
-      : now >= row.period_end_exclusive ? "EXPIRED"
-        : now >= row.period_start ? "ACTIVE" : "UPCOMING",
-      token_usage: usageByPeriod.get(row.id) ?? {
-        subscription_period_id: row.id, request_count: "0", input_tokens: "0",
-        output_tokens: "0", cache_tokens: "0", reasoning_tokens: "0", true_tokens: "0",
-      } }));
+    return Promise.all(rows.map(async (row) => {
+      const [tokenUsage, legacyFee] = await Promise.all([
+        loadSubscriptionPeriodUsage(
+          trx, enterpriseId, resourceId, row.id, row.period_start, row.period_end_exclusive,
+        ),
+        row.fixed_fee_amount === null
+          ? loadLegacySubscriptionFee(
+            trx, enterpriseId, resourceId, row.migration_source_record_id,
+            row.period_start, row.period_end_exclusive,
+          ) : null,
+      ]);
+      return { ...row,
+        fixed_fee_amount: row.fixed_fee_amount ?? legacyFee?.amount ?? null,
+        fixed_fee_currency: row.fixed_fee_currency ?? legacyFee?.currency ?? null,
+        fixed_cash_paid_cny: row.fixed_cash_paid_cny
+          ?? (legacyFee?.currency === "CNY" ? legacyFee.amount : null),
+        current_status: row.reversed_by_event_id ? "REVERSED"
+          : now >= row.period_end_exclusive ? "EXPIRED"
+            : now >= row.period_start ? "ACTIVE" : "UPCOMING",
+        token_usage: tokenUsage };
+    }));
     });
   }
 
@@ -298,17 +373,11 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
       .where("enterprise_id", "=", enterpriseId).where("id", "=", periodId)
       .executeTakeFirst();
     if (!period) return null;
-    const result = await sql<{ request_count: string; input_tokens: string; output_tokens: string;
-      cache_tokens: string; reasoning_tokens: string; true_tokens: string }>`
-      SELECT COUNT(DISTINCT ai_request_id)::text AS request_count,
-             COALESCE(SUM(raw_input_tokens),0)::text AS input_tokens,
-             COALESCE(SUM(raw_output_tokens),0)::text AS output_tokens,
-             COALESCE(SUM(raw_cache_tokens),0)::text AS cache_tokens,
-             COALESCE(SUM(raw_reasoning_tokens),0)::text AS reasoning_tokens,
-             COALESCE(SUM(raw_input_tokens+raw_output_tokens),0)::text AS true_tokens
-        FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
-         AND subscription_period_id=${periodId}::uuid`.execute(trx);
-    return { period, tokenUsage: result.rows[0]! };
+    const tokenUsage = await loadSubscriptionPeriodUsage(
+      trx, enterpriseId, period.provider_resource_id, period.id,
+      period.period_start, period.period_end_exclusive,
+    );
+    return { period, tokenUsage };
     });
   }
 

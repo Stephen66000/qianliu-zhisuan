@@ -4,8 +4,9 @@ import type { ProviderResourceOperatingSnapshot } from "../../api/types";
 import { StatusTag } from "../dashboard/StatusTag";
 import { QueryGate } from "../states/QueryGate";
 import { formatDateTimeFull } from "../../lib/format";
+import { resourceStatusLabel } from "../../lib/resource-status";
 import { operatingDraftFromResource } from "./resource-form-contract";
-import { ISOLATED, MODE_LABEL, STATUS_LABEL, ResourceFinanceDisplay } from "./resource-page-display";
+import { ISOLATED, MODE_LABEL, ResourceFinanceDisplay } from "./resource-page-display";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
 export function ResourceTable({ model }: { model: ResourcesPageModel }) {
@@ -84,7 +85,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                   </td>
                   <td className="py-2.5 pr-4">
                     {r.status === "ACTIVE" ? (
-                      <StatusTag tone="neutral">{STATUS_LABEL[r.status] ?? r.status}</StatusTag>
+                      <StatusTag tone="neutral">{resourceStatusLabel(r.status, r.mode)}</StatusTag>
                     ) : (
                       <a
                         href={`#health-${r.id}`}
@@ -94,7 +95,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                         <StatusTag
                           tone={ISOLATED.has(r.status) || r.status === "DEGRADED" ? "warning" : "neutral"}
                         >
-                          {r.status === "DEGRADED" ? "降级（仍可使用）" : (STATUS_LABEL[r.status] ?? r.status)}
+                          {resourceStatusLabel(r.status, r.mode)}
                         </StatusTag>
                       </a>
                     )}

@@ -1,6 +1,6 @@
 import { ConfirmDialog } from "../writes/ConfirmDialog";
 import { INPUT_CLASS } from "../writes/FormField";
-import { STATUS_LABEL } from "./resource-page-display";
+import { resourceStatusLabel } from "../../lib/resource-status";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
 export function ResourceRecoveryDialog({ model }: { model: ResourcesPageModel }) {
@@ -8,7 +8,8 @@ export function ResourceRecoveryDialog({ model }: { model: ResourcesPageModel })
   return <>
       <ConfirmDialog
         confirmLabel="确认恢复"
-        impact={`恢复「${recoverTarget?.name}」将从隔离状态（${STATUS_LABEL[recoverTarget?.status ?? ""] ?? recoverTarget?.status}）转为降级观察，恢复为路由候选。${rotateCredential ? "同时将轮换凭证（旧凭证立即失效）。" : "不轮换凭证。"}`}
+        impact={`恢复「${recoverTarget?.name}」将从隔离状态（${recoverTarget
+          ? resourceStatusLabel(recoverTarget.status, recoverTarget.mode) : "—"}）转为可用观察，恢复为路由候选。${rotateCredential ? "同时将轮换凭证（旧凭证立即失效）。" : "不轮换凭证。"}`}
         loading={recoverMutation.isPending}
         onCancel={() => {
           setRecoverTarget(null);

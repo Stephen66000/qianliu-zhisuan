@@ -1,16 +1,8 @@
 import { CircleAlert } from "lucide-react";
 
 import type { ResourceBreakdownItem } from "../../api/types";
+import { resourceStatusLabel } from "../../lib/resource-status";
 import { StatusTag } from "./StatusTag";
-
-const STATUS_LABEL: Record<string, string> = {
-  DEGRADED: "降级",
-  RATE_LIMITED: "限流冷却",
-  UNAVAILABLE: "不可用",
-  EXHAUSTED: "额度耗尽",
-  EXPIRED: "已过期",
-  CREDENTIAL_INVALID: "凭证失效",
-};
 
 export interface ResourceAttentionItem {
   resourceId: string;
@@ -41,7 +33,7 @@ export function ResourceAttentionList({ items }: { items: ResourceAttentionItem[
               </span>
             </div>
             <StatusTag tone={item.status === "DEGRADED" || item.status === "RATE_LIMITED" ? "warning" : "danger"}>
-              {STATUS_LABEL[item.status] ?? item.status}
+              {resourceStatusLabel(item.status, item.mode)}
             </StatusTag>
           </li>
         ))}

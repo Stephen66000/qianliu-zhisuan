@@ -23,6 +23,7 @@ import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthoriz
 import { useFeatureFlags } from "../feature-flags";
 import { formatCount, formatDateTimeShort, formatMoney, formatRatioAsPercent } from "../lib/format";
 import { currencyFacts, type CurrencyAmount } from "../lib/currency";
+import { resourceStatusLabel } from "../lib/resource-status";
 import { usageQualityText } from "../lib/usage-quality";
 
 export function DashboardPage() {
@@ -281,13 +282,10 @@ function earliestExhaustionSummary(data: DashboardSummary): string {
 function resourceHealthSummary(summary: DashboardSummary["resourceStatus"]): string {
   if (summary.total === 0) return "无资源";
   if (summary.abnormalResources.length === 0) return "全部正常";
-  const label = {
-    CREDENTIAL_INVALID: "凭证失效",
-    EXPIRED: "已过期",
-    EXHAUSTED: "额度耗尽",
-    UNAVAILABLE: "不可用",
-    RATE_LIMITED: "限流冷却",
-    DEGRADED: "降级",
-  }[summary.status] ?? summary.status;
+  const worst = summary.abnormalResources.filter((resource) => resource.status === summary.status);
+  const modes = new Set(worst.map((resource) => resource.mode));
+  const label = summary.status === "EXHAUSTED" && modes.size > 1
+    ? "余额或套餐额度不足"
+    : resourceStatusLabel(summary.status, worst[0]?.mode ?? "CODING_PLAN");
   return `${summary.abnormalResources.length} 个资源需关注${label ? ` · ${label}` : ""}`;
 }

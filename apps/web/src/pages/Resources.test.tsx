@@ -154,12 +154,15 @@ describe("厂商资源四 Tab", () => {
       ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "600",
         apiRecharges: [{ currency: "CNY", amount: "600" }], apiOperatingCosts: [],
         codingPlanOrders: [], codingPlanFixedCostCny: "0", operatingCostCny: "0",
-        operatingCostByCurrency: [], complete: true, gaps: [] }
+        operatingCostByCurrency: [], currentApiBalances: [{ currency: "CNY", amount: "498.39" }],
+        currentApiBalancesComplete: true, complete: true, gaps: [] }
       : path.includes("/finance/events") ? { items: [], total: 0 } : { periods: [] });
     renderPage("/resources", "DARK");
     expect(screen.getAllByRole("tab")).toHaveLength(5);
     await user.click(screen.getByRole("tab", { name: "充值与订阅" }));
     expect(await screen.findByText("人民币实付")).toBeInTheDocument();
+    expect(screen.getByText("当前 API 余额")).toBeInTheDocument();
+    expect(screen.getByText("CNY 498.39")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "充值" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "新增订阅" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "充值" }));
@@ -174,7 +177,8 @@ describe("厂商资源四 Tab", () => {
       ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "0",
         apiRecharges: [], apiOperatingCosts: [], codingPlanOrders: [],
         codingPlanFixedCostCny: "0", operatingCostCny: "0",
-        operatingCostByCurrency: [], complete: true, gaps: [] }
+        operatingCostByCurrency: [], currentApiBalances: [],
+        currentApiBalancesComplete: true, complete: true, gaps: [] }
       : path.includes("/finance/events") ? { items: [], total: 0 } : { periods: [] });
     postMock.mockResolvedValue({ event: { id: "event-1" }, periodId: "period-1" });
     renderPage("/resources?tab=finance", "ACTIVE");

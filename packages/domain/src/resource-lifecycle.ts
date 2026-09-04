@@ -75,6 +75,7 @@ export const STATE_REASON = {
   REFRESH_FAILED: "REFRESH_FAILED", // 刷新失败（WT-19 隔离）
   ADMIN_RECOVER: "ADMIN_RECOVER", // 人工受控恢复（重新授权/充值后）
   QUOTA_SYNC_RECOVERED: "QUOTA_SYNC_RECOVERED", // 厂商额度接口确认凭证有效且窗口已恢复
+  BALANCE_SYNC_RECOVERED: "BALANCE_SYNC_RECOVERED", // API 厂商余额接口确认已有可用余额
   HALF_OPEN_PROBE_OK: "HALF_OPEN_PROBE_OK", // 半开探测成功
 } as const;
 
@@ -244,6 +245,18 @@ export function deriveQuotaSyncRecovery(state: ResourceRuntimeState): StateTrans
   return {
     toStatus: RESOURCE_STATUS.DEGRADED,
     reason: STATE_REASON.QUOTA_SYNC_RECOVERED,
+    consecutiveFailures: 0,
+    cooldownUntil: null,
+    isolates: false,
+  };
+}
+
+/** API 厂商余额在状态故障之后确认为正数，先恢复到可服务的降级态。 */
+export function deriveBalanceSyncRecovery(state: ResourceRuntimeState): StateTransition | null {
+  if (state.status !== RESOURCE_STATUS.EXHAUSTED) return null;
+  return {
+    toStatus: RESOURCE_STATUS.DEGRADED,
+    reason: STATE_REASON.BALANCE_SYNC_RECOVERED,
     consecutiveFailures: 0,
     cooldownUntil: null,
     isolates: false,

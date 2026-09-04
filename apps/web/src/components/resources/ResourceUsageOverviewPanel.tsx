@@ -3,20 +3,11 @@ import { BarChart3 } from "lucide-react";
 import { useResourceUsageOverview } from "../../api/hooks";
 import type { ResourceModelUsageDetail } from "../../api/types";
 import { formatCount, formatDateTimeShort, formatMoney } from "../../lib/format";
+import { resourceStatusLabel } from "../../lib/resource-status";
 import { ResourceBreakdown } from "../dashboard/ResourceBreakdown";
 import { StatusTag } from "../dashboard/StatusTag";
 import { QueryGate } from "../states/QueryGate";
 import { useRedirectOnUnauthorized } from "../useRedirectOnUnauthorized";
-
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "正常",
-  DEGRADED: "降级",
-  RATE_LIMITED: "限流冷却",
-  UNAVAILABLE: "不可用",
-  EXHAUSTED: "额度耗尽",
-  EXPIRED: "已过期",
-  CREDENTIAL_INVALID: "凭证失效",
-};
 
 export function ResourceUsageOverviewPanel() {
   const query = useResourceUsageOverview();
@@ -132,7 +123,7 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
         ) : null}
       </td>
       <td className="py-2.5">
-        <StatusTag tone={statusTone(item.status)}>{STATUS_LABEL[item.status] ?? item.status}</StatusTag>
+        <StatusTag tone={statusTone(item.status)}>{resourceStatusLabel(item.status, item.mode)}</StatusTag>
       </td>
     </tr>
   );

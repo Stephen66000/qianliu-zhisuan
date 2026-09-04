@@ -24,6 +24,7 @@ import {
   deriveRefreshFailure,
   deriveAdminRecovery,
   deriveQuotaSyncRecovery,
+  deriveBalanceSyncRecovery,
   evaluateAdmission,
   type ResourceRuntimeState,
 } from "../index.js";
@@ -227,6 +228,22 @@ describe("deriveQuotaSyncRecovery 厂商额度证据恢复", () => {
 
   it("健康态不产生恢复事件", () => {
     expect(deriveQuotaSyncRecovery(active())).toBeNull();
+  });
+});
+
+describe("deriveBalanceSyncRecovery API 余额证据恢复", () => {
+  it("EXHAUSTED 在厂商确认正余额后进入 DEGRADED", () => {
+    expect(deriveBalanceSyncRecovery(active({
+      status: RESOURCE_STATUS.EXHAUSTED, consecutiveFailures: 2,
+    }))).toMatchObject({
+      toStatus: "DEGRADED", reason: "BALANCE_SYNC_RECOVERED",
+      consecutiveFailures: 0, cooldownUntil: null, isolates: false,
+    });
+  });
+
+  it("EXHAUSTED 以外的状态不由余额快照改写", () => {
+    expect(deriveBalanceSyncRecovery(active())).toBeNull();
+    expect(deriveBalanceSyncRecovery(active({ status: RESOURCE_STATUS.DEGRADED }))).toBeNull();
   });
 });
 

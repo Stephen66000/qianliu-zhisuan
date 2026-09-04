@@ -33,7 +33,7 @@ const currentMonth = new Intl.DateTimeFormat("en-CA", {
 const currentMonthStart = `${currentMonth}-01`;
 const recentUsageAt = new Date(Date.now() - 36 * 60 * 60_000);
 
-async function insertLedgerFact(resourceId: string): Promise<void> {
+async function insertLedgerFact(resourceId: string): Promise<string> {
   const requestId = randomUUID();
   await db.insertInto("ai_request").values({
     id: requestId,
@@ -84,6 +84,7 @@ async function insertLedgerFact(resourceId: string): Promise<void> {
     usage_quality: "PROVIDER_REPORTED",
     created_at: recentUsageAt,
   }).execute();
+  return requestId;
 }
 
 async function count(table: string, where = "TRUE"): Promise<number> {
@@ -290,6 +291,36 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
       expect.objectContaining({ type: "FIVE_HOUR", usedValue: "40.00000000", ratio: "0.400000" }),
       expect.objectContaining({ type: "WEEKLY", usedValue: "20.00000000", ratio: "0.200000" }),
     ]));
+  });
+
+  it("月度利用按结算时间归属，不按账本行创建时间跨月", async () => {
+    const previousMonth = new Date(
+      new Date(`${currentMonthStart}T00:00:00+08:00`).getTime() - 1_000,
+    );
+    const original = await db.selectFrom("ledger_line").select(["id", "ai_request_id"])
+      .where("provider_resource_id", "=", apiResourceId).executeTakeFirstOrThrow();
+    const laterSettledRequestId = await insertLedgerFact(apiResourceId);
+    await db.updateTable("ledger_line").set({ created_at: recentUsageAt,
+      settled_at: previousMonth }).where("id", "=", original.id).execute();
+    await db.updateTable("ledger_line").set({
+      created_at: new Date(previousMonth.getTime() - 86_400_000), settled_at: recentUsageAt,
+    }).where("ai_request_id", "=", laterSettledRequestId).execute();
+    try {
+      const response = await app.inject({ method: "GET",
+        url: `/provider-resources/utilization?month=${currentMonth}`,
+        headers: { cookie: adminCookie } });
+      expect(response.json().resources.find(
+        (resource: { resourceId: string }) => resource.resourceId === apiResourceId,
+      )).toMatchObject({ requestCount: 1, realTokens: "1000",
+        lastSettledRequestAt: recentUsageAt.toISOString() });
+    } finally {
+      await db.updateTable("ledger_line").set({ created_at: recentUsageAt, settled_at: null })
+        .where("id", "=", original.id).execute();
+      await db.deleteFrom("ledger_line").where("ai_request_id", "=", laterSettledRequestId).execute();
+      await db.deleteFrom("usage_event").where("ai_request_id", "=", laterSettledRequestId).execute();
+      await db.deleteFrom("upstream_attempt").where("ai_request_id", "=", laterSettledRequestId).execute();
+      await db.deleteFrom("ai_request").where("id", "=", laterSettledRequestId).execute();
+    }
   });
 
   it("POOL20-047：API 月预算按资源和月份追加版本，支持幂等、冲突、清除和租户隔离", async () => {

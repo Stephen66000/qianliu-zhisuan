@@ -169,11 +169,15 @@ export function ProviderFinancePanel({
           </p>
         ) : null}
         <QueryGate emptyDescription="资金摘要将在账本可用后显示。" emptyIcon={CircleDollarSign} emptyTitle="暂无资金摘要" error={summary.error} isEmpty={!summaryValue} isLoading={summary.isLoading} onRetry={() => void summary.refetch()}>
-          {summaryValue ? <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {summaryValue ? <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <FinanceMetric label="人民币实付" value={`¥${formatMoney(summaryValue.cashOutflowCny)}`} />
             <FinanceMetric label="API 经营成本" value={`¥${formatMoney(summaryValue.apiOperatingCosts.find((item) => item.currency === "CNY")?.amount ?? "0")}`} />
             <FinanceMetric label="Coding Plan 支出" value={`¥${formatMoney(summaryValue.codingPlanFixedCostCny)}`} />
             <FinanceMetric label="经营成本合计" value={`¥${formatMoney(summaryValue.operatingCostCny)}`} />
+            <FinanceMetric label="当前 API 余额" value={summaryValue.currentApiBalancesComplete
+              ? summaryValue.currentApiBalances.length === 0 ? "—" : summaryValue.currentApiBalances
+                .map((item) => `${item.currency} ${formatMoney(item.amount)}`).join(" · ")
+              : "余额不完整"} />
           </div> : null}
         </QueryGate>
       </section>

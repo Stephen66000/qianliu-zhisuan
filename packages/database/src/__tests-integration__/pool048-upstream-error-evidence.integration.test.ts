@@ -144,6 +144,7 @@ describe("POOL20-048 0055 上游错误证据", () => {
       await expect(db.updateTable("upstream_attempt").set({
         request_shape_summary: { oversized: "x".repeat(5_000) },
       }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow();
+      expect(await migrateDown(db)).toBe("0062_resource_fact_reconciliation");
       expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
       expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
       expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");

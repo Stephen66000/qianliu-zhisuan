@@ -20,6 +20,7 @@ import {
   deriveRefreshFailure,
   deriveAdminRecovery,
   deriveQuotaSyncRecovery,
+  deriveBalanceSyncRecovery,
   evaluateAdmission,
   RESOURCE_STATUS,
   type ErrorClassification,
@@ -214,6 +215,30 @@ export class ResourcePoolRepository {
     });
   }
 
+  /** API 厂商余额快照确认恢复后，解除 EXHAUSTED 硬隔离并等待真实请求确认。 */
+  async recordBalanceSyncRecovery(
+    resourceId: string, operatingSnapshotId: string,
+  ): Promise<StateTransition | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx.selectFrom("provider_resource")
+        .selectAll().where("id", "=", resourceId).forUpdate().executeTakeFirstOrThrow();
+      const transition = deriveBalanceSyncRecovery(toRuntimeState(row));
+      if (!transition) return null;
+      const evidence = await trx.selectFrom("provider_resource_operating_snapshot")
+        .select("id").where("id", "=", operatingSnapshotId)
+        .where("enterprise_id", "=", row.enterprise_id)
+        .where("provider_resource_id", "=", row.id)
+        .where("source", "=", "PROVIDER_SYNC")
+        .where("provider_balance_available", "=", true)
+        .where("balance_source", "=", "PROVIDER_API")
+        .where("current_balance", ">", "0")
+        .where("collected_at", ">", row.updated_at).executeTakeFirst();
+      if (!evidence) return null;
+      await this.applyTransitionTx(trx, row, transition, null, "system");
+      return transition;
+    });
+  }
+
   /** 隔离资源额度仍未恢复或同步失败时，只安排下一次检查，不改变隔离原因。 */
   async scheduleQuotaSync(
     resourceId: string,
@@ -349,6 +374,7 @@ export class ResourcePoolRepository {
         consecutive_failures: transition.consecutiveFailures,
         cooldown_until: transition.cooldownUntil ? new Date(transition.cooldownUntil) : null,
         actor,
+        created_at: now,
       })
       .execute();
   }
@@ -395,6 +421,7 @@ export class ResourcePoolRepository {
       .selectAll()
       .where("provider_resource_id", "=", resourceId)
       .orderBy("created_at", "asc")
+      .orderBy("id", "asc")
       .execute();
   }
 }

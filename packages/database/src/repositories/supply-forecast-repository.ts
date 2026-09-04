@@ -47,8 +47,22 @@ export class SupplyForecastRepository {
     let snapshotsSkipped = 0;
     for (const [enterpriseId, enterpriseResources] of grouped) {
       const providerRepo = new ProviderRepository(this.db);
-      const snapshots = await providerRepo.listCurrentOperatingSnapshots(enterpriseId, now);
+      const [snapshots, activePeriods] = await Promise.all([
+        providerRepo.listCurrentOperatingSnapshots(enterpriseId, now),
+        this.db.selectFrom("provider_subscription_period")
+          .distinctOn("provider_resource_id")
+          .select(["provider_resource_id", "period_end_exclusive"])
+          .where("enterprise_id", "=", enterpriseId)
+          .where("reversed_by_event_id", "is", null)
+          .where("period_start", "<=", now)
+          .where("period_end_exclusive", ">", now)
+          .orderBy("provider_resource_id").orderBy("period_start", "desc")
+          .orderBy("created_at", "desc").orderBy("id", "desc").execute(),
+      ]);
       const byResource = new Map(snapshots.map((snapshot) => [snapshot.provider_resource_id, snapshot]));
+      const periodEndByResource = new Map(activePeriods.map((period) => [
+        period.provider_resource_id, period.period_end_exclusive,
+      ]));
       for (const resource of enterpriseResources) {
         const operating = byResource.get(resource.id);
         if (!operating) {
@@ -74,10 +88,13 @@ export class SupplyForecastRepository {
           })
         ));
         const [rate1h, rate24h, rate7d] = aggregates as [WindowUsage, WindowUsage, WindowUsage];
-        const resourceExpiresAt = [resource.credential_expires_at, operating.effective_until]
+        const subscriptionEnd = resource.mode === "CODING_PLAN"
+          ? periodEndByResource.get(resource.id) ?? operating.effective_until
+          : null;
+        const resourceExpiresAt = [resource.credential_expires_at, subscriptionEnd]
           .filter((value): value is Date => value !== null)
           .sort((left, right) => left.getTime() - right.getTime())[0] ?? null;
-        const configuredNextReset = operating.next_reset_at ?? calculateQuotaPeriod({
+        const configuredNextReset = subscriptionEnd ?? operating.next_reset_at ?? calculateQuotaPeriod({
           resetCycle: operating.reset_cycle,
           resetAnchorAt: operating.reset_anchor_at,
           effectiveFrom: operating.effective_from,
@@ -146,26 +163,26 @@ export class SupplyForecastRepository {
       ? await sql<UsageAggregate>`
           SELECT COALESCE(SUM(api_cost::numeric), 0)::text AS amount,
                  COUNT(*)::text AS data_points,
-                 MIN(created_at) AS first_usage_at
-            FROM ledger_line
-           WHERE enterprise_id = ${input.enterpriseId}
-             AND provider_resource_id = ${input.resourceId}
-             AND resource_mode = 'API'
-             AND api_cost IS NOT NULL
-             AND created_at >= ${input.from}
-             AND created_at < ${input.to}
+                 MIN(COALESCE(line.settled_at,line.created_at)) AS first_usage_at
+            FROM ledger_line line
+           WHERE line.enterprise_id = ${input.enterpriseId}
+             AND line.provider_resource_id = ${input.resourceId}
+             AND line.resource_mode = 'API'
+             AND line.api_cost IS NOT NULL
+             AND COALESCE(line.settled_at,line.created_at) >= ${input.from}
+             AND COALESCE(line.settled_at,line.created_at) < ${input.to}
         `.execute(this.db)
       : await sql<UsageAggregate>`
           SELECT COALESCE(SUM(deducted_quota::numeric), 0)::text AS amount,
                  COUNT(*)::text AS data_points,
-                 MIN(created_at) AS first_usage_at
-            FROM ledger_line
-           WHERE enterprise_id = ${input.enterpriseId}
-             AND provider_resource_id = ${input.resourceId}
-             AND resource_mode = 'CODING_PLAN'
-             AND deducted_quota IS NOT NULL
-             AND created_at >= ${input.from}
-             AND created_at < ${input.to}
+                 MIN(COALESCE(line.settled_at,line.created_at)) AS first_usage_at
+            FROM ledger_line line
+           WHERE line.enterprise_id = ${input.enterpriseId}
+             AND line.provider_resource_id = ${input.resourceId}
+             AND line.resource_mode = 'CODING_PLAN'
+             AND line.deducted_quota IS NOT NULL
+             AND COALESCE(line.settled_at,line.created_at) >= ${input.from}
+             AND COALESCE(line.settled_at,line.created_at) < ${input.to}
         `.execute(this.db);
     const row = result.rows[0]!;
     const coveredHours = row.first_usage_at === null

@@ -193,10 +193,7 @@ export function projectFinanceUtilization(
 ): ResourceUtilizationRow {
   if (!finance) return resource;
   if (resource.mode === "CODING_PLAN") {
-    return { ...resource, packageCost: finance.monthlyPlanCashCny,
-      purchaseCashAmount: finance.monthlyPlanCashCny,
-      servicePeriodStart: finance.currentPeriod ? shanghaiDateAt(finance.currentPeriod.periodStart) : null,
-      servicePeriodEnd: finance.currentPeriod ? shanghaiDateAt(finance.currentPeriod.periodEndExclusive) : null };
+    return projectCodingPlanUtilization(resource, finance);
   }
   const account = finance.accounts.length === 1 ? finance.accounts[0] : null;
   const next = { ...resource,
@@ -222,6 +219,69 @@ export function projectFinanceUtilization(
     utilizationStatus: spend.gte(budget) ? "OVER_BUDGET"
       : spend.gte(budget.times("0.8")) ? "WARNING" : "NORMAL",
     notCalculableReason: null };
+}
+
+function projectCodingPlanUtilization(
+  resource: ResourceUtilizationRow,
+  finance: ResourceFinanceView,
+): ResourceUtilizationRow {
+  const period = finance.currentPeriod;
+  const totalText = period?.totalQuota ?? null;
+  const total = totalText === null ? null : new MoneyDecimal(totalText);
+  const used = period?.deductedQuota === null || period?.deductedQuota === undefined
+    ? null : new MoneyDecimal(period.deductedQuota);
+  const complete = period !== null && total !== null && total.gt(0);
+  const utilizationRate = complete && used !== null
+    ? used.div(total).toDecimalPlaces(8).toFixed(8) : null;
+  const fixedCost = planCurrentCost(period);
+  const remaining = total !== null && used !== null ? MoneyDecimal.max(0, total.minus(used)) : null;
+  return { ...resource, packageCost: fixedCost.amount,
+    purchaseCashAmount: finance.monthlyPlanCashCny,
+    currency: fixedCost.currency ?? resource.currency,
+    quotaUnit: period?.quotaUnit ?? null,
+    totalQuota: total?.toFixed() ?? null, usedQuota: used?.toFixed() ?? null,
+    remainingQuota: remaining?.toFixed() ?? null,
+    servicePeriodStart: period === null ? null : shanghaiDateAt(period.periodStart),
+    servicePeriodEnd: period === null ? null : shanghaiDateAt(period.periodEndExclusive),
+    utilizationRate,
+    idleEntitlementCost: idlePlanCost(complete, fixedCost.amount, utilizationRate),
+    utilizationBasis: complete ? "CODING_PLAN_SUBSCRIPTION_PERIOD" : null,
+    utilizationStatus: planUtilizationStatus(complete, used, total),
+    notCalculableReason: planNotCalculableReason(period !== null, total, used),
+  };
+}
+
+function planCurrentCost(period: ResourceFinanceView["currentPeriod"]): {
+  amount: string | null; currency: string | null;
+} {
+  if (!period) return { amount: null, currency: null };
+  if (period.fixedCashPaidCny !== null) {
+    return { amount: period.fixedCashPaidCny, currency: "CNY" };
+  }
+  return period.fixedFeeCurrency === "CNY"
+    ? { amount: period.fixedFeeAmount, currency: "CNY" }
+    : { amount: null, currency: period.fixedFeeCurrency };
+}
+
+function planUtilizationStatus(
+  complete: boolean, used: Decimal | null, total: Decimal | null,
+): string {
+  if (!complete || used === null || total === null) return "UNKNOWN";
+  return used.gte(total) ? "EXHAUSTED" : "UNDERUSED";
+}
+
+function idlePlanCost(complete: boolean, cost: string | null, ratio: string | null): string | null {
+  if (!complete || cost === null || ratio === null) return null;
+  return new MoneyDecimal(cost).times(MoneyDecimal.max(0, new MoneyDecimal(1).minus(ratio)))
+    .toDecimalPlaces(8).toFixed(8);
+}
+
+function planNotCalculableReason(
+  periodAvailable: boolean, total: Decimal | null, used: Decimal | null,
+): string | null {
+  if (!periodAvailable) return "SUBSCRIPTION_PERIOD_NOT_AVAILABLE";
+  return total === null || !total.gt(0) || used === null
+    ? "SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE" : null;
 }
 
 function operatingBillBudgetProjection(

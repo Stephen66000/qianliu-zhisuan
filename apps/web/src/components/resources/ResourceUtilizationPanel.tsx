@@ -35,11 +35,25 @@ function subscriptionDisplay(row: ResourceUtilization) {
 }
 
 function utilizationReason(reason: string): string {
+  if (reason === "SUBSCRIPTION_PERIOD_NOT_AVAILABLE") return "缺少当前订阅周期";
   if (reason === "SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE") return "缺少订阅开始日期";
   if (reason === "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE") return "缺少订阅结束日期";
   if (reason === "SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE") return "缺少订阅额度事实";
   if (reason === "MONTHLY_BUDGET_NOT_CONFIGURED") return "未设置月预算";
   return reason;
+}
+
+function recentUsageDisplay(row: ResourceUtilization) {
+  if (!row.lastSettledRequestAt) return "暂无结算用量";
+  const time = new Date(row.lastSettledRequestAt).toLocaleString("zh-CN", {
+    timeZone: "Asia/Shanghai",
+  });
+  if (row.continuousNoCallDays === 0) {
+    return <>{time}<span className="block text-[11px] text-ql-success">今日有使用</span></>;
+  }
+  return <>{time}<span className="block text-[11px] text-ql-fg-tertiary">
+    {row.continuousNoCallDays === null ? "距最近使用时间未知" : `距最近使用 ${row.continuousNoCallDays} 天`}
+  </span></>;
 }
 
 export function ResourceUtilizationPanel({ resources: _resources }: { resources: ProviderResourceItem[] }) {
@@ -76,10 +90,10 @@ export function ResourceUtilizationPanel({ resources: _resources }: { resources:
           <td className="py-2 font-medium">{row.providerName} · {row.resourceName}</td>
           <td>{row.mode === "API" ? "API" : "Coding Plan"}</td>
           <td className="text-right font-mono">{row.requestCount} / {Number(row.realTokens).toLocaleString()}</td>
-          <td className="text-right font-mono">{row.mode === "API" ? <>{row.apiCost === null ? "API 花费不可计算" : `¥${formatMoney(row.apiCost)}`}{row.currentBalance === null ? null : <span className="block text-[10px] text-ql-fg-tertiary">余额 ¥{formatMoney(row.currentBalance)}</span>}</> : row.packageCost === null ? "套餐费用未知" : `¥${formatMoney(row.packageCost)}`}</td>
+          <td className="text-right font-mono">{row.mode === "API" ? <>{row.apiCost === null ? "API 花费不可计算" : `${row.currency ?? "CNY"} ${formatMoney(row.apiCost)}`}{row.currentBalance === null ? null : <span className="block text-[10px] text-ql-fg-tertiary">余额 {row.currency ?? "CNY"} {formatMoney(row.currentBalance)}</span>}</> : row.packageCost === null ? "套餐费用未知" : `${row.currency ?? "CNY"} ${formatMoney(row.packageCost)}`}</td>
           <td>{utilizationDisplay(row)}</td>
           <td>{subscriptionDisplay(row)}</td>
-          <td>{row.lastSettledRequestAt ? new Date(row.lastSettledRequestAt).toLocaleString("zh-CN") : "从未调用"}<span className="block text-[11px] text-ql-fg-tertiary">{row.continuousNoCallDays === null ? "无调用天数未知" : `连续 ${row.continuousNoCallDays} 天无调用`} · 未判定</span></td>
+          <td>{recentUsageDisplay(row)}</td>
           <td>{row.mode === "API" ? <div>{row.budgetAmount ? <><span>{row.budgetCurrency} {formatMoney(row.budgetAmount)}</span><span className="block text-[10px] text-ql-fg-tertiary">差额 {row.budgetDifference === null ? "不可计算" : `${row.budgetCurrency} ${formatMoney(row.budgetDifference)}`}</span></> : null}<button className="block text-ql-action" onClick={() => { setBudgetTarget(row.resourceId); setBudget(row.budgetAmount ?? ""); setBudgetCurrency(row.budgetCurrency ?? row.currency ?? "CNY"); }} type="button">{row.budgetAmount ? "修改月预算" : "设置月预算"}</button></div> : "—"}</td>
         </tr>;
       })}</tbody></table></div>

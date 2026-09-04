@@ -52,7 +52,8 @@ describe("POOL20-025 每日经营同步", () => {
       await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now })).resolves.toMatchObject({ snapshotsCreated: 1, failed: 0 });
       await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now })).resolves.toMatchObject({ snapshotsCreated: 0 });
       expect(fetch).toHaveBeenCalledTimes(1);
-      await db.updateTable("provider_resource").set({ status: "EXHAUSTED" })
+      await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
+        updated_at: new Date("2026-08-18T01:30:00Z") })
         .where("id", "=", resourceId).execute();
       await sql`
         INSERT INTO resource_purchase_record
@@ -74,12 +75,43 @@ describe("POOL20-025 每日经营同步", () => {
         topped_up_balance: "92.00000000", balance_source: "PROVIDER_API",
         current_period_cost: "20.00000000", cost_source: "ADMIN",
       });
+      expect(await db.selectFrom("provider_resource").select("status")
+        .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "DEGRADED" });
+      expect(await db.selectFrom("resource_status_event").select(["reason", "to_status"])
+        .where("provider_resource_id", "=", resourceId).orderBy("id", "desc")
+        .executeTakeFirstOrThrow()).toMatchObject({
+        reason: "BALANCE_SYNC_RECOVERED", to_status: "DEGRADED",
+      });
+      await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
+        updated_at: new Date("2026-08-18T02:30:00Z") })
+        .where("id", "=", resourceId).execute();
+      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now: afterRecharge }))
+        .resolves.toMatchObject({ snapshotsCreated: 0, failed: 0 });
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(await db.selectFrom("provider_resource").select("status")
+        .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "DEGRADED" });
+
+      await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
+        updated_at: new Date("2026-08-18T04:00:00Z") })
+        .where("id", "=", resourceId).execute();
+      await db.insertInto("provider_resource_operating_snapshot").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 4,
+        source: "PROVIDER_SYNC", collected_at: new Date("2026-08-18T05:00:00Z"),
+        currency: "CNY", current_balance: "100", provider_balance_available: null,
+        balance_source: "PROVIDER_API", usage_calculation: "SYSTEM_LEDGER",
+      }).execute();
+      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch,
+        now: new Date("2026-08-18T06:00:00Z") }))
+        .resolves.toMatchObject({ snapshotsCreated: 0, failed: 0 });
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(await db.selectFrom("provider_resource").select("status")
+        .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "EXHAUSTED" });
 
       const failedFetch = vi.fn(async () => { throw new Error("offline"); }) as unknown as ProviderOperatingFetch;
       await expect(runProviderOperatingSyncTick({
         db, kekBase64, fetch: failedFetch, now: new Date("2026-08-19T01:00:00Z"),
       })).resolves.toMatchObject({ snapshotsCreated: 0, failed: 1 });
-      expect(await repo.listOperatingSnapshotHistory(enterpriseId, resourceId)).toHaveLength(3);
+      expect(await repo.listOperatingSnapshotHistory(enterpriseId, resourceId)).toHaveLength(4);
       const states = await repo.listLatestOperatingSyncStates(enterpriseId);
       expect(states[0]).toMatchObject({ balance_status: "FAILED", cost_status: "NOT_SUPPORTED", error_code: "UPSTREAM_UNAVAILABLE" });
       expect(states[0]?.last_success_data_at?.toISOString()).toBe(now.toISOString());

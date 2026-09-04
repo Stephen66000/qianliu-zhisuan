@@ -2,6 +2,7 @@ import { sql, type Kysely } from "kysely";
 import {
   type Database,
   ProviderRepository,
+  ResourcePoolRepository,
 } from "@qianliu/database";
 import {
   decodeKek,
@@ -17,6 +18,7 @@ import {
 interface SyncResource {
   id: string; enterprise_id: string; mode: "API" | "CODING_PLAN";
   provider_code: string; credential_ciphertext: string | null;
+  status: string; updated_at: Date;
 }
 
 export interface ProviderOperatingSyncResult {
@@ -71,6 +73,28 @@ async function shouldSkipDailySync(
   return attempted !== undefined && !(await needsPostRechargeSync(db, resource));
 }
 
+async function recoverFromFreshPositiveBalance(
+  db: Kysely<Database>, poolRepo: ResourcePoolRepository, resource: SyncResource,
+): Promise<void> {
+  if (resource.mode !== "API" || resource.status !== "EXHAUSTED") return;
+  const snapshot = await db.selectFrom("provider_resource_operating_snapshot")
+    .select("id")
+    .where("enterprise_id", "=", resource.enterprise_id)
+    .where("provider_resource_id", "=", resource.id)
+    .where("source", "=", "PROVIDER_SYNC")
+    .orderBy("collected_at", "desc").orderBy("version", "desc")
+    .executeTakeFirst();
+  if (snapshot) await poolRepo.recordBalanceSyncRecovery(resource.id, snapshot.id);
+}
+
+async function recoverFromFetchedBalance(
+  poolRepo: ResourcePoolRepository, resource: SyncResource, snapshotId: string | null,
+): Promise<void> {
+  if (resource.mode === "API" && resource.status === "EXHAUSTED" && snapshotId) {
+    await poolRepo.recordBalanceSyncRecovery(resource.id, snapshotId);
+  }
+}
+
 export async function runProviderOperatingSyncTick(input: {
   db: Kysely<Database>; kekBase64: string; fetch?: ProviderOperatingFetch; now?: Date;
 }): Promise<ProviderOperatingSyncResult> {
@@ -79,11 +103,13 @@ export async function runProviderOperatingSyncTick(input: {
   const nextSyncAt = new Date(now.getTime() + 24 * 60 * 60 * 1_000);
   const kek = decodeKek(input.kekBase64);
   const repo = new ProviderRepository(input.db);
+  const poolRepo = new ResourcePoolRepository(input.db);
   const resources = await input.db.selectFrom("provider_resource")
     .innerJoin("provider", "provider.id", "provider_resource.provider_id")
     .select([
       "provider_resource.id", "provider_resource.enterprise_id", "provider_resource.mode",
       "provider_resource.credential_ciphertext", "provider.code as provider_code",
+      "provider_resource.status", "provider_resource.updated_at",
     ])
     .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED", "EXHAUSTED"])
     .where("provider.status", "=", "ACTIVE")
@@ -92,6 +118,7 @@ export async function runProviderOperatingSyncTick(input: {
   let failed = 0;
   let notSupported = 0;
   for (const resource of resources) {
+    await recoverFromFreshPositiveBalance(input.db, poolRepo, resource);
     if (await shouldSkipDailySync(input.db, resource, syncDay)) continue;
     const startedAt = new Date(now);
     let snapshotId: string | null = null;
@@ -152,6 +179,7 @@ export async function runProviderOperatingSyncTick(input: {
           errorCode = "PROVIDER_COST_API_NOT_SUPPORTED";
           failureReason = "余额同步成功；厂商未公开费用接口，API 实际费用取本地已结算账本";
           snapshotsCreated += 1;
+          await recoverFromFetchedBalance(poolRepo, resource, snapshotId);
         }
       }
     } catch (cause) {

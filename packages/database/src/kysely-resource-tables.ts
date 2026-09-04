@@ -25,7 +25,8 @@ export interface ProviderResourceMonthlyBudgetTable {
 export interface ResourceStatusEventTable {
   id: Generated<string>; enterprise_id: string; provider_resource_id: string; from_status: string | null;
   to_status: string; reason: string; error_classification: string | null; consecutive_failures: number | null;
-  cooldown_until: Date | null; actor: Generated<string>; created_at: Generated<Date>;
+  cooldown_until: Date | null; actor: Generated<string>; time_reliable: Generated<boolean>;
+  created_at: Generated<Date>;
 }
 export interface ConcurrencyLeaseTable {
   id: Generated<string>; enterprise_id: string; provider_resource_id: string; ai_request_id: string | null;
