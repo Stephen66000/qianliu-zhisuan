@@ -280,8 +280,8 @@ function planNotCalculableReason(
   periodAvailable: boolean, total: Decimal | null, used: Decimal | null,
 ): string | null {
   if (!periodAvailable) return "SUBSCRIPTION_PERIOD_NOT_AVAILABLE";
-  return total === null || !total.gt(0) || used === null
-    ? "SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE" : null;
+  if (total === null || !total.gt(0)) return "SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE";
+  return used === null ? "SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE" : null;
 }
 
 function operatingBillBudgetProjection(

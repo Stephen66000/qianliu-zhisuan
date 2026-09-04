@@ -5,7 +5,7 @@ import {
   useSaveResourceMonthlyBudget,
 } from "../../api/v2-hooks";
 import type { ProviderResourceItem } from "../../api/types";
-import { formatMoney } from "../../lib/format";
+import { formatCount, formatMoney } from "../../lib/format";
 import { QueryGate } from "../states/QueryGate";
 import { Gauge } from "lucide-react";
 import type { ResourceUtilization } from "../../api/v2-types";
@@ -39,6 +39,7 @@ function utilizationReason(reason: string): string {
   if (reason === "SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE") return "缺少订阅开始日期";
   if (reason === "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE") return "缺少订阅结束日期";
   if (reason === "SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE") return "缺少订阅额度事实";
+  if (reason === "SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE") return "部分调用缺少扣减额度，利用率暂不可算";
   if (reason === "MONTHLY_BUDGET_NOT_CONFIGURED") return "未设置月预算";
   return reason;
 }
@@ -90,7 +91,7 @@ export function ResourceUtilizationPanel({ resources: _resources }: { resources:
           <td className="py-2 font-medium">{row.providerName} · {row.resourceName}</td>
           <td>{row.mode === "API" ? "API" : "Coding Plan"}</td>
           <td className="text-right font-mono">{row.requestCount} / {Number(row.realTokens).toLocaleString()}</td>
-          <td className="text-right font-mono">{row.mode === "API" ? <>{row.apiCost === null ? "API 花费不可计算" : `${row.currency ?? "CNY"} ${formatMoney(row.apiCost)}`}{row.currentBalance === null ? null : <span className="block text-[10px] text-ql-fg-tertiary">余额 {row.currency ?? "CNY"} {formatMoney(row.currentBalance)}</span>}</> : row.packageCost === null ? "套餐费用未知" : `${row.currency ?? "CNY"} ${formatMoney(row.packageCost)}`}</td>
+          <td className="text-right font-mono">{row.mode === "API" ? <>{row.apiCost === null ? "API 花费不可计算" : `${row.currency ?? "CNY"} ${formatMoney(row.apiCost)}`}{row.currentBalance === null ? null : <span className="block text-[10px] text-ql-fg-tertiary">余额 {row.currency ?? "CNY"} {formatMoney(row.currentBalance)}</span>}</> : <>{row.packageCost === null ? "套餐费用未知" : `${row.currency ?? "CNY"} ${formatMoney(row.packageCost)}`}<span className="block text-[10px] text-ql-fg-tertiary">订阅额度 {row.totalQuota === null ? "待补" : `${formatCount(row.totalQuota)} ${row.quotaUnit ?? ""}`}</span></>}</td>
           <td>{utilizationDisplay(row)}</td>
           <td>{subscriptionDisplay(row)}</td>
           <td>{recentUsageDisplay(row)}</td>

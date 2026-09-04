@@ -89,6 +89,7 @@ it("does not mix current-period usage with another snapshot or mislabel CNY cash
   } };
   expect(projectFinanceUtilization(row, missingDeduction)).toMatchObject({
     usedQuota: null, remainingQuota: null, utilizationRate: null,
-    notCalculableReason: "SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE",
+    totalQuota: "300000000",
+    notCalculableReason: "SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE",
   });
 });

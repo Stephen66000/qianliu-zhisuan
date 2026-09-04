@@ -17,6 +17,9 @@ export function ResourceFinanceDisplay({ resource }: { resource: ProviderResourc
       <span className="block">当前订阅金额 {finance.currentPeriod?.fixedFeeAmount
         ? `${finance.currentPeriod.fixedFeeCurrency ?? ""} ${formatMoney(finance.currentPeriod.fixedFeeAmount)}`
         : "待补"}</span>
+      <span className="block">当前订阅额度 {finance.currentPeriod?.totalQuota
+        ? `${formatCount(finance.currentPeriod.totalQuota)} ${finance.currentPeriod.quotaUnit ?? ""}`
+        : "待补"}</span>
       <span className="block">本月订阅实付 ¥{formatMoney(finance.monthlyPlanCashCny)}</span>
       <span className="block">周期已扣减 {finance.currentPeriod
         ? finance.currentPeriod.deductedQuota === null ? "事实不完整"

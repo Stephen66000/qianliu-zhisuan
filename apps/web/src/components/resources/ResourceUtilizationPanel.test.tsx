@@ -182,9 +182,42 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).queryByText(/周：/)).not.toBeInTheDocument();
     expect(within(row).getByText("35.0%")).toBeInTheDocument();
     expect(within(row).getByText("订阅周期累计")).toBeInTheDocument();
+    expect(within(row).getByText("订阅额度 100 POINT")).toBeInTheDocument();
     expect(within(row).getByText("2026-08-01～2026-09-01")).toBeInTheDocument();
     expect(within(row).queryByText(/2099/)).not.toBeInTheDocument();
     expect(within(row).getByText("暂无结算用量")).toBeInTheDocument();
+  });
+
+  it("已有订阅额度但扣减事实不完整时，不误报缺少订阅额度", () => {
+    useResourceUtilizationMock.mockReturnValue({
+      data: {
+        month: "2026-09",
+        generatedAt: "2026-09-04T11:00:00.000Z",
+        resources: [resource({
+          resourceId: "kimi-incomplete-deduction",
+          providerName: "Kimi",
+          resourceName: "Coding Plan",
+          mode: "CODING_PLAN",
+          packageCost: "199",
+          totalQuota: "300000000",
+          usedQuota: null,
+          remainingQuota: null,
+          quotaUnit: "TOKEN",
+          servicePeriodStart: "2026-08-19",
+          servicePeriodEnd: "2026-09-19",
+          utilizationRate: null,
+          utilizationBasis: null,
+          utilizationStatus: "UNKNOWN",
+          notCalculableReason: "SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE",
+        })],
+      },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
+    renderPanel();
+    const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
+    expect(within(row).getByText("订阅额度 300,000,000 TOKEN")).toBeInTheDocument();
+    expect(within(row).getByText("部分调用缺少扣减额度，利用率暂不可算")).toBeInTheDocument();
+    expect(within(row).queryByText("缺少订阅额度事实")).not.toBeInTheDocument();
   });
 
   it("POOL20-041：缺订阅结束日期时不把额度比例包装为周期累计", () => {

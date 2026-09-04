@@ -251,8 +251,10 @@ export async function listResourceUtilization(
              WHEN pr.mode = 'CODING_PLAN' AND s.effective_until IS NULL
               THEN 'SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE'
              WHEN pr.mode = 'CODING_PLAN'
-              AND NOT (s.total_quota > 0 AND s.used_quota IS NOT NULL)
+              AND (s.total_quota IS NULL OR s.total_quota <= 0)
                THEN 'SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE'
+             WHEN pr.mode = 'CODING_PLAN' AND s.used_quota IS NULL
+              THEN 'SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE'
              ELSE NULL
            END AS not_calculable_reason,
              greatest(l.data_at, pu.data_at, lu.used_at, s.collected_at, f.snapshot_at,
