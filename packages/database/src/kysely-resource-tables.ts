@@ -41,6 +41,7 @@ export interface SupplyForecastTable {
   snapshot_at: Generated<Date>;
 }
 export interface DispatchPolicyTable {
+  archived_at: Generated<Date | null>; archived_by_admin_id: Generated<string | null>; version: Generated<number>;
   id: Generated<string>; enterprise_id: string; status: Generated<string>; match_unified_model: string | null;
   match_resource_mode: string | null; match_provider_resource_id: string | null; match_timezone: string | null;
   match_days_of_week: number[] | null; match_start_time: string | null; match_end_time: string | null;

@@ -12,6 +12,7 @@
  * 安全：所有方法只存元数据，绝不接受 messages/prompt/system 正文参数。
  */
 import type { Kysely } from "kysely";
+import { hasConflictingPricingMode, lockPricingWrites, PricingModeConflictError } from "./pricing-write-guard.js";
 import type { Database } from "../kysely.js";
 import type {
   AiRequest,
@@ -287,6 +288,7 @@ export class GatewayLedgerRepository {
   /** 列出企业在某时间点后生效的启用规则（pipeline 按 attempt 时间匹配）。 */
   async listActiveBillingRules(enterpriseId: string, at: Date): Promise<
     Array<{
+      pricing_mode?: "ABSOLUTE" | "MULTIPLIER";
       id: string;
       rule_type: string;
       rule_version: string;
@@ -372,6 +374,7 @@ export class GatewayLedgerRepository {
   }
 
   async createBillingRule(input: {
+    pricing_mode?: "ABSOLUTE" | "MULTIPLIER";
     enterprise_id: string;
     rule_type: string;
     rule_version: string;
@@ -398,11 +401,15 @@ export class GatewayLedgerRepository {
     source?: string | null;
   }) {
     const firstWindow = input.time_windows?.[0];
-    return this.db
+    const create = async (db: Kysely<Database>) => {
+    await lockPricingWrites(db, input.enterprise_id);
+    if (await hasConflictingPricingMode(db, input.enterprise_id, input)) throw new PricingModeConflictError();
+    return db
       .insertInto("billing_rule")
       .values({
         enterprise_id: input.enterprise_id,
         rule_type: input.rule_type,
+        pricing_mode: input.pricing_mode ?? "ABSOLUTE",
         rule_version: input.rule_version,
         provider_resource_id: input.provider_resource_id ?? null,
         upstream_model: input.upstream_model ?? null,
@@ -427,5 +434,7 @@ export class GatewayLedgerRepository {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    };
+    return this.db.isTransaction ? create(this.db) : this.db.transaction().execute(create);
   }
 }

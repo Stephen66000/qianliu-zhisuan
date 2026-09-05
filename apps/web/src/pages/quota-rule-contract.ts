@@ -35,6 +35,8 @@ export const BillingWindowFormSchema = z
 export const BillingRuleSchema = z
   .object({
     rule_type: z.enum(["API_PRICE", "TIME_WINDOW", "MODEL_TIER", "CACHE_STATE"]),
+    pricing_mode: z.enum(["ABSOLUTE", "MULTIPLIER"]).optional(),
+    currency: z.enum(["CNY", "USD"]).optional(),
     rule_version: z.string().min(1, "版本不能为空").max(64),
     provider_resource_id: z.string().uuid("请选择资源"),
     upstream_model: z.string().min(1, "上游模型不能为空").max(128),
@@ -55,11 +57,18 @@ export const BillingRuleSchema = z
       ctx.addIssue({ code: "custom", path: ["effective_to"], message: "失效时间必须晚于生效时间" });
     }
     if (input.rule_type === "API_PRICE") {
-      if (input.multiplier) {
+      if (input.pricing_mode !== "MULTIPLIER" && input.multiplier) {
         ctx.addIssue({ code: "custom", path: ["multiplier"], message: "API 价格规则不使用额度倍率" });
       }
       if (!input.cache_hit_price && !input.cache_miss_price && !input.output_price) {
         ctx.addIssue({ code: "custom", path: ["cache_miss_price"], message: "至少填写一个单价" });
+      }
+      for (const field of ["cache_hit_price", "cache_miss_price", "output_price"] as const) {
+        if (!input[field]) ctx.addIssue({ code: "custom", path: [field], message: "请填写单价，免费项目请明确填 0" });
+      }
+      if (input.pricing_mode === "MULTIPLIER" && (!input.multiplier || !/[1-9]/.test(input.multiplier)
+        || !input.cache_hit_price || !input.cache_miss_price || !input.output_price)) {
+        ctx.addIssue({ code: "custom", path: ["multiplier"], message: "填写正倍率与三项基础单价，零价请明确填 0" });
       }
     }
     if (input.rule_type === "TIME_WINDOW" || input.rule_type === "MODEL_TIER") {
@@ -145,6 +154,7 @@ function serializeWindows(windows: BillingWindowForm[]) {
 export function buildBillingRulePayload(values: BillingRuleValues) {
   return {
     rule_type: values.rule_type,
+    pricing_mode: values.pricing_mode ?? "ABSOLUTE",
     rule_version: values.rule_version,
     provider_resource_id: values.provider_resource_id,
     upstream_model: values.upstream_model,
@@ -156,7 +166,7 @@ export function buildBillingRulePayload(values: BillingRuleValues) {
     cache_miss_price: values.cache_miss_price || null,
     output_price: values.output_price || null,
     priority: values.priority,
-    currency: "CNY",
+    currency: values.currency ?? "CNY",
     source: "WEB_ADMIN",
   };
 }

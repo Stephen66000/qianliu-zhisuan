@@ -4,28 +4,31 @@ import { QueryGate } from "../states/QueryGate";
 import { StatusTag } from "../dashboard/StatusTag";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { WeekdayPicker, formatDaysOfWeek, parseDaysOfWeek } from "./WeekdayPicker";
-import { editableWindows } from "../../pages/quota-rule-contract";
+import { BillingRuleSchema, editableWindows } from "../../pages/quota-rule-contract";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
+import { PricingRouteFields } from "./PricingRouteFields";
+import { PricingPreview } from "./PricingPreview";
 
 export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
-  const { archiveConfig, selectedRuleRouteId, setSelectedRuleRouteId, resources, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, enabledRoutes, rules, updateRule, setArchiveTarget, createRule, rulesQuery } = model;
+  const { archiveConfig, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, rules, updateRule, setArchiveTarget, createRule, rulesQuery } = model;
   return <>
       <ManagementSection
         actionLabel="新建规则"
         actionDisabled={!canCreateRule}
         hint={
           canCreateRule
-            ? "前置条件已满足。创建计价规则后，继续检查下方调度策略。"
-            : "前置条件：先创建统一模型、登记厂商资源，并至少启用一条 Model Route。"
+            ? "选择已同步模型和资源，配置价格后保存并启用。"
+            : "请先到厂商资源登记资源并同步模型。"
         }
         onAction={() => setShowRuleForm((value) => !value)}
-        title="计价规则模板"
+        title="计价"
       >
         {showRuleForm ? (
           <form
             className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 md:grid-cols-4"
             onSubmit={ruleForm.handleSubmit((values) => createRule.mutate(values))}
           >
+            <PricingRouteFields model={model} />
             <FormField
               error={ruleForm.formState.errors.rule_type?.message}
               htmlFor="rule-type"
@@ -45,44 +48,16 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             >
               <input className={INPUT_CLASS} id="rule-version" {...ruleForm.register("rule_version")} />
             </FormField>
-            <FormField
-              error={
-                ruleForm.formState.errors.provider_resource_id?.message ??
-                ruleForm.formState.errors.upstream_model?.message
-              }
-              htmlFor="rule-resource"
-              label="启用 Model Route"
-            >
-              <select
-                className={INPUT_CLASS}
-                id="rule-resource"
-                onChange={(event) => {
-                  const route = enabledRoutes.find((item) => item.id === event.target.value);
-                  setSelectedRuleRouteId(event.target.value);
-                  ruleForm.setValue(
-                    "provider_resource_id",
-                    route?.provider_resource_id ?? "",
-                    { shouldValidate: true },
-                  );
-                  ruleForm.setValue("upstream_model", route?.upstream_model ?? "", {
-                    shouldValidate: true,
-                  });
-                }}
-                value={selectedRuleRouteId}
-              >
-                <option value="">请选择</option>
-                {enabledRoutes.map((route) => (
-                  <option key={route.id} value={route.id}>
-                    {resources.find((resource) => resource.id === route.provider_resource_id)?.name ??
-                      route.provider_resource_id}
-                    {" · "}
-                    {route.upstream_model}
-                  </option>
-                ))}
-              </select>
-              <input type="hidden" {...ruleForm.register("provider_resource_id")} />
-              <input type="hidden" {...ruleForm.register("upstream_model")} />
+            <input type="hidden" {...ruleForm.register("provider_resource_id")} />
+            <input type="hidden" {...ruleForm.register("upstream_model")} />
+            <FormField htmlFor="rule-currency" label="币种">
+              <select className={INPUT_CLASS} id="rule-currency" {...ruleForm.register("currency")}><option>CNY</option><option>USD</option></select>
             </FormField>
+            {selectedRuleType === "API_PRICE" ? <FormField htmlFor="rule-pricing-mode" label="计价方式">
+              <select id="rule-pricing-mode" className={INPUT_CLASS} {...ruleForm.register("pricing_mode")}>
+                <option value="ABSOLUTE">绝对单价</option><option value="MULTIPLIER">基础单价 × 时段倍率</option>
+              </select>
+            </FormField> : null}
             <FormField
               error={ruleForm.formState.errors.effective_from?.message}
               htmlFor="rule-effective-from"
@@ -202,45 +177,63 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             <FormField
               error={ruleForm.formState.errors.multiplier?.message}
               htmlFor="rule-multiplier"
-              label="套餐用量倍率"
+              label="有效倍率（API 倍率模式 / 套餐扣减）"
             >
               <input className={INPUT_CLASS} id="rule-multiplier" {...ruleForm.register("multiplier")} />
             </FormField>
             <FormField
               error={ruleForm.formState.errors.cache_hit_price?.message}
               htmlFor="rule-cache-hit"
-              label="缓存命中单价"
+              label="缓存命中输入单价（币种/Token）"
             >
               <input className={INPUT_CLASS} id="rule-cache-hit" {...ruleForm.register("cache_hit_price")} />
             </FormField>
             <FormField
               error={ruleForm.formState.errors.cache_miss_price?.message}
               htmlFor="rule-cache-miss"
-              label="输入单价"
+              label="未命中输入单价（币种/Token）"
             >
               <input className={INPUT_CLASS} id="rule-cache-miss" {...ruleForm.register("cache_miss_price")} />
             </FormField>
             <FormField
               error={ruleForm.formState.errors.output_price?.message}
               htmlFor="rule-output"
-              label="输出单价"
+              label="输出单价（币种/Token）"
             >
               <input className={INPUT_CLASS} id="rule-output" {...ruleForm.register("output_price")} />
             </FormField>
             <FormField
               error={ruleForm.formState.errors.priority?.message}
               htmlFor="rule-priority"
-              label="优先级"
+              label="计价优先级（小值优先）"
             >
               <input className={INPUT_CLASS} id="rule-priority" type="number" {...ruleForm.register("priority")} />
             </FormField>
+            <PricingPreview values={ruleForm.watch()} />
+            <div className="md:col-span-4">
+              {model.queuedRules.map((rule, index) => <div key={index} className="mb-2 rounded border p-2 text-xs">
+                {rule.rule_version} · {rule.upstream_model} · {rule.currency} · 命中 {rule.cache_hit_price || "—"} / 未命中 {rule.cache_miss_price || "—"} / 输出 {rule.output_price || "—"} · 倍率 {rule.multiplier || "—"}
+                <span className="block">{rule.windows.length ? rule.windows.map((window) => `${window.timezone} ${window.days_of_week || "每天"} ${window.start_time}–${window.end_time}`).join("；") : "全天"} · {rule.effective_from}</span>
+                <button type="button" className="ml-3 text-ql-action" onClick={() => {
+                  const parsed = BillingRuleSchema.safeParse(ruleForm.getValues());
+                  if (!parsed.success) { void ruleForm.trigger(); return; }
+                  const current = parsed.data; ruleForm.reset(rule);
+                  model.setQueuedRules(model.queuedRules.map((item, position) => position === index ? current : item));
+                }}>编辑</button>
+                <button type="button" className="ml-3 text-ql-danger" onClick={() => model.setQueuedRules(model.queuedRules.filter((_, position) => position !== index))}>移除</button>
+              </div>)}
+              <button type="button" className="text-ql-action" onClick={ruleForm.handleSubmit((values) => {
+                model.setQueuedRules([...model.queuedRules, values]);
+                ruleForm.setValue("rule_version", `${values.rule_version.slice(0, 50)}-next`);
+              })}>加入规则集并配置下一时段</button>
+            </div>
             <div className="md:col-span-4 flex justify-end">
               <button
                 className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
                 disabled={createRule.isPending}
                 type="submit"
               >
-                创建规则
+                保存并启用
               </button>
             </div>
           </form>
@@ -273,7 +266,9 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             <tbody>
               {rules.map((rule) => (
                 <tr className="border-b border-ql-border-zone last:border-b-0" key={rule.id}>
-                  <td className="p-2 font-mono">{rule.rule_version}</td>
+                  <td className="p-2 font-mono">{rule.rule_version}<span className="block text-ql-fg-tertiary">
+                    {new Date(rule.effective_from).toLocaleString("zh-CN")} ～ {rule.effective_to ? new Date(rule.effective_to).toLocaleString("zh-CN") : "长期"}
+                  </span></td>
                   <td className="p-2">{rule.rule_type}</td>
                   <td className="p-2">{rule.upstream_model ?? "全部"}</td>
                   <td className="p-2 font-mono">
@@ -286,15 +281,16 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                   </td>
                   <td className="p-2 text-right font-mono">
                     {rule.rule_type === "API_PRICE"
-                      ? `${rule.cache_hit_price ?? "—"} / ${rule.cache_miss_price ?? "—"} / ${rule.output_price ?? "—"}`
+                      ? `${rule.currency}/Token：命中 ${rule.cache_hit_price ?? "—"} / 未命中 ${rule.cache_miss_price ?? "—"} / 输出 ${rule.output_price ?? "—"}${rule.pricing_mode === "MULTIPLIER" ? ` × ${rule.multiplier}` : "（绝对价）"}`
                       : `×${rule.multiplier ?? "—"}`}
                   </td>
                   <td className="p-2">
                     <StatusTag tone={rule.enabled ? "neutral" : "warning"}>
-                      {rule.archived_at ? "已归档" : rule.enabled ? "启用" : "停用"}
+                      {rule.archived_at ? "已归档" : !rule.enabled ? "停用" : new Date(rule.effective_from).getTime() > Date.now()
+                        ? "待生效" : rule.effective_to && new Date(rule.effective_to).getTime() <= Date.now() ? "已到期" : "生效中"}
                     </StatusTag>
                   </td>
-                  <td className="p-2 text-right">
+                  <td className="p-2 text-right whitespace-nowrap">
                     {rule.archived_at ? (
                       <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                         onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: false })}

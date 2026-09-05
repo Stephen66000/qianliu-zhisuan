@@ -14,7 +14,7 @@ export function principalScopeText(ids: string[] | null, principalById: Map<stri
 }
 
 export function policyTransitionImpact(
-  target: { policy: DispatchPolicy; action: "publish" | "retire" | "restore" } | null,
+  target: { policy: DispatchPolicy; action: "publish" | "retire" | "restore" | "archive" } | null,
   principalById: Map<string, Principal>,
 ): string {
   if (!target) return "";

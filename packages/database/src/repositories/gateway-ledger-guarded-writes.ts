@@ -19,6 +19,7 @@ import { ensureRequestAttributionSnapshot } from "./request-attribution-writer.j
 import { resolveSubscriptionPeriodAtSettlement } from "./subscription-period-attribution.js";
 
 export interface AttemptResultUpdate {
+  dispatch_check?: Record<string, unknown> | null;
   http_status?: number | null;
   response_committed?: boolean;
   first_byte_at?: Date | null;

@@ -1,6 +1,7 @@
 import type { GatewayLedgerRepository } from "@qianliu/database";
 import {
   computeApiCostFromRule,
+  billingPriceMultiplier,
   computeDeductedQuota,
   computeDispatchSaving,
   configuredTimeWindows,
@@ -34,6 +35,7 @@ export async function computeBilling(
   const rules = (await ledgerRepo.listActiveBillingRules(enterpriseId, new Date(attemptStartedAt))).map(
     (rule): BillingRule => ({
       id: rule.id,
+      pricingMode: rule.pricing_mode,
       ruleType: rule.rule_type as BillingRule["ruleType"],
       ruleVersion: rule.rule_version,
       providerResourceId: rule.provider_resource_id,
@@ -107,7 +109,7 @@ export function computeBillingFromRule(
     deductedQuota: null,
     ruleId: rule?.id ?? null,
     ruleVersion: rule?.ruleVersion ?? null,
-    multiplier: null,
+    multiplier: rule?.pricingMode === "MULTIPLIER" ? billingPriceMultiplier(rule) : null,
     ruleSnapshot: rule
       ? billingRuleSnapshot(rule, findMatchedTimeWindow(rule, attemptStartedAt))
       : null,
@@ -119,6 +121,11 @@ function billingRuleSnapshot(
   matchedWindow: BillingRuleWindow | null,
 ): Record<string, unknown> {
   return {
+    pricingMode: rule.pricingMode ?? "ABSOLUTE",
+    baseRuleId: rule.id,
+    baseRuleVersion: rule.ruleVersion,
+    windowRuleId: matchedWindow ? rule.id : null,
+    effectiveMultiplier: billingPriceMultiplier(rule),
     ruleType: rule.ruleType,
     ruleVersion: rule.ruleVersion,
     effectiveFrom: new Date(rule.effectiveFrom).toISOString(),
@@ -164,6 +171,7 @@ export async function calculateDispatchSaving(input: {
   transactionUsage: { input: number; output: number; cache: number } | null;
   actualCost: string | null;
   actualPricingEvidenceComplete: boolean;
+  baselineRule?: BillingRule | null;
   ledgerRepo: GatewayLedgerRepository;
   enterpriseId: string;
   requestStartedAt: number;
@@ -176,7 +184,9 @@ export async function calculateDispatchSaving(input: {
   const counterfactualBilling = actionExecuted
     && input.baselineCandidate?.mode === "API"
     && input.transactionUsage
-    ? await computeBilling(
+    ? input.baselineRule !== undefined
+      ? computeBillingFromRule(input.baselineRule, "API", input.requestStartedAt, input.transactionUsage)
+      : await computeBilling(
         input.ledgerRepo,
         input.enterpriseId,
         input.baselineCandidate.resourceId,

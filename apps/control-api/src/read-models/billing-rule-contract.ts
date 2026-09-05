@@ -21,6 +21,7 @@ const BillingWindowSchema = z.object({
 });
 
 const BillingRuleSchema = z.object({
+  pricing_mode: z.enum(["ABSOLUTE", "MULTIPLIER"]).optional(),
   rule_type: z.enum(["API_PRICE", "TIME_WINDOW", "MODEL_TIER", "CACHE_STATE"]),
   rule_version: z.string().min(1).max(64),
   provider_resource_id: z.string().uuid().nullable().optional(),
@@ -98,8 +99,13 @@ function validatePricingSemantics(
   windowState: ReturnType<typeof validateWindowConfiguration>,
 ): void {
   const prices = [input.cache_hit_price, input.cache_miss_price, input.output_price];
+  if (input.pricing_mode === "MULTIPLIER" && (input.rule_type !== "API_PRICE"
+    || !input.multiplier || !/[1-9]/.test(input.multiplier)
+    || prices.some((value) => value === null || value === undefined))) {
+    ctx.addIssue({ code: "custom", path: ["pricing_mode"], message: "API 倍率计价必须填写三项基础单价和正倍率" });
+  }
   if (input.rule_type === "API_PRICE") {
-    if (input.multiplier !== null && input.multiplier !== undefined) {
+    if (input.pricing_mode !== "MULTIPLIER" && input.multiplier !== null && input.multiplier !== undefined) {
       ctx.addIssue({ code: "custom", path: ["multiplier"], message: "API 价格规则不能配置额度倍率" });
     }
     if (prices.every((value) => value === null || value === undefined)) {

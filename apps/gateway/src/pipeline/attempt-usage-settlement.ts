@@ -107,7 +107,9 @@ export async function persistAttemptUsageEvidence(
       billing_rule_id: billing.ruleId,
       rule_version: billing.ruleVersion,
       multiplier: billing.multiplier,
-      billing_rule_snapshot: billing.ruleSnapshot,
+      billing_rule_snapshot: billing.ruleSnapshot ? { ...billing.ruleSnapshot,
+        pricingAt: new Date(input.attemptStartedAt).toISOString(), apiCost: billing.apiCost,
+        deductedQuota: billing.deductedQuota, usageQuality: usage.quality } : null,
     },
   });
   return settlement.line.deducted_quota === null

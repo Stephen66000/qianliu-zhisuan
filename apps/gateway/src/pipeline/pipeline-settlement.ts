@@ -62,6 +62,7 @@ export async function settlePipelineRequest(
           finalAction: state.dispatchFinalAction!,
           switchTargetId: state.dispatchSwitchTargetId,
           baselineCandidate: state.dispatchBaselineCandidate,
+          baselineRule: state.dispatchBaselineRule ?? null,
           invokedResourceIds: state.invokedResourceIds,
           transactionUsage,
           actualCost: transactionApiCost,

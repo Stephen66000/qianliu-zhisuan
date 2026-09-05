@@ -457,7 +457,7 @@ describe("W19 管理写操作闭环", () => {
   });
 
   it("调度策略草稿经校验后发布并停用，全部状态可查询且写审计", async () => {
-    const { resource } = await seedProviderResource();
+    const { resource } = await seedProviderResource("ACTIVE", "CODING_PLAN");
     const model = await db
       .insertInto("unified_model")
       .values({
@@ -468,6 +468,11 @@ describe("W19 管理写操作闭环", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    await db.insertInto("model_route").values({ enterprise_id: ENT_ID, unified_model_id: model.id,
+      provider_resource_id: resource.id, upstream_model: "glm-ready", enabled: true }).execute();
+    await db.insertInto("billing_rule").values({ enterprise_id: ENT_ID, provider_resource_id: resource.id,
+      upstream_model: "glm-ready", rule_type: "MODEL_TIER", rule_version: "ready-v1", effective_from: new Date(0),
+      multiplier: "1" }).execute();
     const principals = await db
       .insertInto("principal")
       .values([

@@ -60,7 +60,7 @@ export async function executeSelectedAttempt(
     principalId: context.principalId,
     attemptId: attempt.id,
     attemptNo: state.attemptNo,
-    attemptStartedAt: attempt.started_at.getTime(),
+    attemptStartedAt: invocationAuthorization.pricingAt,
     resourceId: candidate.resourceId,
     resourceMode: candidate.mode,
     upstreamModel: candidate.upstreamModel,

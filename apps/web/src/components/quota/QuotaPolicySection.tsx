@@ -13,7 +13,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
   return <>
       <ManagementSection
         actionLabel="新建调度策略"
-        hint="第 4 步：计价规则准备完成后，已发布策略才会参与请求调度；策略版本和历史决策保持不变。"
+        hint="选择已配置计价的模型与资源，校验并发布后参与调度。"
         onAction={() => {
           setEditingPolicy(null);
           policyForm.reset();
@@ -47,8 +47,9 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
             >
               <select className={INPUT_CLASS} id="policy-model" {...policyForm.register("match_unified_model")}>
                 <option value="">不限模型</option>
-                {models.filter((model) => model.status === "ACTIVE").map((model) => (
-                  <option key={model.id} value={model.alias}>{model.display_name}（{model.alias}）</option>
+                {models.filter((model) => !model.archived_at).map((item) => (
+                  <option key={item.id} value={item.alias} disabled={!model.readyRoutes.some((route) => route.alias === item.alias)}>
+                    {item.display_name}（{item.alias}）{model.readyRoutes.some((route) => route.alias === item.alias) ? "" : " · 路由或计价未就绪"}</option>
                 ))}
               </select>
             </FormField>
@@ -64,7 +65,8 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
               >
                 <option value="">不限资源</option>
                 {resources.map((resource) => (
-                  <option key={resource.id} value={resource.id}>{resource.name}</option>
+                  <option key={resource.id} value={resource.id} disabled={!model.readyRoutes.some((route) => route.provider_resource_id === resource.id
+                    && (!policyForm.watch("match_unified_model") || route.alias === policyForm.watch("match_unified_model")))}>{resource.name}</option>
                 ))}
               </select>
             </FormField>
@@ -249,7 +251,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                     <td className="p-2 text-right">{policy.priority}</td>
                     <td className="p-2">
                       <StatusTag tone={policy.status === "PUBLISHED" ? "neutral" : "warning"}>
-                        {policy.status}
+                        {policy.archivedAt ? "已存档" : policy.status}
                       </StatusTag>
                     </td>
                     <td className="min-w-64 p-2 text-[11px] leading-5 text-ql-fg-tertiary">
@@ -298,6 +300,8 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                       ) : null}
                       {policy.status === "RETIRED" ? (
                         <>
+                          {!policy.archivedAt ? <button type="button" className="rounded px-2 py-1 text-ql-action"
+                            onClick={() => setPolicyActionTarget({ policy, action: "archive" })}>存档</button> : null}
                           <button
                             className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                             onClick={() => setPolicyActionTarget({ policy, action: "restore" })}

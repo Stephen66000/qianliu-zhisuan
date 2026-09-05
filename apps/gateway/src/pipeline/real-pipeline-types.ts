@@ -13,6 +13,7 @@ import type {
 } from "@qianliu/database";
 import type { SecretValue, UpstreamCaller } from "@qianliu/provider-adapters";
 import type {
+  BillingRule,
   DispatchInput,
   DispatchPolicy,
   RoutingCandidateInput,
@@ -63,8 +64,9 @@ export interface RealPipelineDeps {
     winnerResourceId: string,
     winnerMode: "API" | "CODING_PLAN",
     now: number,
+    upstreamModel?: string,
   ) => Promise<{
-    priceMultiplier: string;
+    priceMultiplier: string | null;
     remainingQuotaRatio: number | null;
     forecastExhaustRisk: boolean;
   }>;
@@ -128,6 +130,9 @@ export interface PipelineExecutionState {
   dispatchReasonCode: string;
   dispatchMatchedPolicy: DispatchPolicy | null;
   dispatchSwitchTargetId: string | null;
+  dispatchRecheckTarget?: string;
+  dispatchSatisfiedSwitch?: { policyId: string; policyVersion: string; targetId: string };
+  dispatchBaselineRule?: BillingRule | null;
   dispatchDispatchInput: DispatchInput | null;
   dispatchBaselineCandidate: RoutingCandidateInput | null;
   invokedResourceIds: Set<string>;

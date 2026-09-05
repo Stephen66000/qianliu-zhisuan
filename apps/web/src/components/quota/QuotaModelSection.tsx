@@ -2,12 +2,13 @@ import { ManagementSection } from "./ManagementSection";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
 
-export function QuotaModelSection({ model }: { model: QuotaRulesPageModel }) {
+export function QuotaModelSection({ model, managementOnly = false }: { model: QuotaRulesPageModel; managementOnly?: boolean }) {
   const { showModelForm, setShowModelForm, modelForm, visibleModels, setSelectedModelId, archiveConfig, setDisableModelTarget, updateModel, setArchiveTarget, createModel } = model;
   return <>
       <ManagementSection
+        hideAction={managementOnly}
         actionLabel="新建统一模型"
-        hint="第 1 步：先定义对客户端稳定暴露的统一模型；创建后继续配置 Model Route。"
+        hint={managementOnly ? "管理已有模型的停用、归档与恢复。新配置使用上方新建规则。" : "第 1 步：先定义对客户端稳定暴露的统一模型；创建后继续配置 Model Route。"}
         onAction={() => setShowModelForm((value) => !value)}
         title="统一模型"
       >

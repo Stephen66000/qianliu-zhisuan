@@ -9,7 +9,7 @@ export type ArchiveTarget =
 
 export type PolicyActionTarget = {
   policy: DispatchPolicy;
-  action: "publish" | "retire" | "restore";
+  action: "publish" | "retire" | "restore" | "archive";
 };
 
 function archiveTitle(target: ArchiveTarget | null): string {
@@ -19,12 +19,14 @@ function archiveTitle(target: ArchiveTarget | null): string {
 }
 
 function policyLabel(target: PolicyActionTarget | null): string {
+  if (target?.action === "archive") return "确认存档";
   if (target?.action === "publish") return "确认发布";
   if (target?.action === "restore") return "确认恢复并发布";
   return "确认停用";
 }
 
 function policyTitle(target: PolicyActionTarget | null): string {
+  if (target?.action === "archive") return "存档调度策略";
   if (target?.action === "publish") return "发布调度策略";
   if (target?.action === "restore") return "恢复调度策略原配置";
   return "停用调度策略";
@@ -41,7 +43,9 @@ export function ConfigurationActionDialogs(props: {
   onPolicyCancel: () => void;
   onPolicyConfirm: (target: PolicyActionTarget) => void;
 }) {
-  const policyImpact = props.policyTarget?.action === "restore"
+  const policyImpact = props.policyTarget?.action === "archive"
+    ? "已停用策略将从默认列表隐藏，可在查看存档中找到，历史决策与审计继续保留。"
+    : props.policyTarget?.action === "restore"
     ? `将基于历史版本 ${props.policyTarget.policy.policyVersion} 自动校验并生成递增的新发布版本；历史版本继续保持 RETIRED。`
     : policyTransitionImpact(props.policyTarget, props.principalById);
   return <>

@@ -11,7 +11,9 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
-import type { DispatchPolicy } from "@qianliu/domain";
+import { billingPriceMultiplier, matchApplicableBillingRule, type DispatchPolicy } from "@qianliu/domain";
+import { listEnabledBillingRulesAt } from "./billing-rule-applicability.js";
+import { policyPricingReadiness } from "./dispatch-pricing-readiness.js";
 import { ProviderRepository } from "./provider-repository.js";
 import {
   copyRetiredPolicyAsDraft,
@@ -19,7 +21,17 @@ import {
 } from "./dispatch-policy-clone.js";
 import { mapPolicy, sameDecimal } from "./dispatch-policy-mapping.js";
 
+async function resourcePriceMultiplier(db: Kysely<Database>, enterpriseId: string, resourceId: string,
+  upstreamModel: string | undefined, resource: { mode: string } | undefined, now: number) {
+  const mode = resource?.mode;
+  if (!upstreamModel || (mode !== "API" && mode !== "CODING_PLAN")) return null;
+  return billingPriceMultiplier(matchApplicableBillingRule(await listEnabledBillingRulesAt(db, enterpriseId, new Date(now)),
+    resourceId, upstreamModel, mode, now));
+}
+
 export interface DispatchPolicyRecord extends DispatchPolicy {
+  archivedAt: Date | null;
+  version: number;
   description: string | null;
   source: string | null;
   copiedFromPolicyId: string | null;
@@ -96,8 +108,9 @@ export class DispatchPolicyRepository {
     enterpriseId: string,
     providerResourceId: string,
     now: number = Date.now(),
+    upstreamModel?: string,
   ): Promise<{
-    priceMultiplier: string;
+    priceMultiplier: string | null;
     remainingQuotaRatio: number | null;
     forecastExhaustRisk: boolean;
   }> {
@@ -141,7 +154,7 @@ export class DispatchPolicyRepository {
         ? remaining / total
         : null;
     return {
-      priceMultiplier: "1",
+      priceMultiplier: await resourcePriceMultiplier(this.db, enterpriseId, providerResourceId, upstreamModel, row, now),
       remainingQuotaRatio: ratio,
       forecastExhaustRisk:
         snapshot !== undefined &&
@@ -232,6 +245,7 @@ export class DispatchPolicyRepository {
         description: input.description ?? null,
         source: input.source ?? null,
         updated_at: new Date(),
+        version: sql`version + 1`,
       })
       .where("enterprise_id", "=", enterpriseId)
       .where("id", "=", policyId)
@@ -248,7 +262,13 @@ export class DispatchPolicyRepository {
     from: DispatchPolicy["status"],
     to: DispatchPolicy["status"],
     actorAdminId: string | null = null,
+    expectedVersion?: number,
   ): Promise<boolean> {
+    return this.db.transaction().execute(async (trx) => {
+    const current = await trx.selectFrom("dispatch_policy").selectAll()
+      .where("id", "=", policyId).where("enterprise_id", "=", enterpriseId).forUpdate().executeTakeFirst();
+    if (!current || current.status !== from || (expectedVersion !== undefined && current.version !== expectedVersion)) return false;
+    if ((to === "VALIDATED" || to === "PUBLISHED") && await policyPricingReadiness(trx, enterpriseId, current)) return false;
     const now = new Date();
     const timelinePatch = to === "VALIDATED"
       ? { validated_at: now, validated_by_admin_id: actorAdminId }
@@ -261,15 +281,16 @@ export class DispatchPolicyRepository {
         : to === "RETIRED"
           ? { retired_at: now, retired_by_admin_id: actorAdminId }
           : {};
-    const row = await this.db
+    const row = await trx
       .updateTable("dispatch_policy")
-      .set({ status: to, ...timelinePatch, updated_at: now })
+      .set({ status: to, ...timelinePatch, updated_at: now, version: sql`version + 1` })
       .where("id", "=", policyId)
       .where("enterprise_id", "=", enterpriseId)
       .where("status", "=", from)
       .returning("id")
       .executeTakeFirst();
     return row !== undefined;
+    });
   }
 
   /** 历史版本只读；复制全部条件为新草稿并生成递增版本号。 */
@@ -326,6 +347,7 @@ export class DispatchPolicyRepository {
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
       .where("status", "=", "PUBLISHED")
+      .where("archived_at", "is", null)
       .orderBy("priority", "asc")
       .execute();
     return rows.map(mapPolicy);

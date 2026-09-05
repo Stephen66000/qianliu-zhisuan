@@ -13,7 +13,7 @@ export async function listEnabledBillingRulesAt(
     "id", "rule_type", "rule_version", "provider_resource_id", "upstream_model",
     "effective_from", "effective_to", "timezone", "days_of_week", "start_time", "end_time",
     "time_windows", "multiplier", "cache_hit_price", "cache_miss_price", "output_price",
-    "currency", "priority",
+    "currency", "priority", "pricing_mode",
   ]).where("enterprise_id", "=", enterpriseId)
     .where("enabled", "=", true)
     .where("archived_at", "is", null)
@@ -25,6 +25,7 @@ export async function listEnabledBillingRulesAt(
     .execute();
   return rows.map((row) => ({
     id: row.id,
+    pricingMode: row.pricing_mode,
     ruleType: row.rule_type as BillingRule["ruleType"],
     ruleVersion: row.rule_version,
     providerResourceId: row.provider_resource_id,

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { patch, post } from "../api/client";
-import { QUERY_KEYS, useBillingRules, useDispatchPolicies, useModelRoutes, usePrincipals, useProviderResources, useUnifiedModels } from "../api/hooks";
+import { QUERY_KEYS, useBillingRules, useDispatchPolicies, useModelRoutes, usePrincipals, useProviderResources, useUnifiedModels, usePricingReadyRoutes } from "../api/hooks";
 import type { BillingRule, DispatchPolicy, ModelRouteItem, UnifiedModel } from "../api/types";
 import type { ArchiveTarget, PolicyActionTarget } from "../components/quota/ConfigurationActionDialogs";
 import { DispatchPolicyFormSchema, buildDispatchPolicyPayload, type DispatchPolicyInput, type DispatchPolicyValues } from "../components/quota/dispatch-policy-form";
@@ -14,6 +14,7 @@ export function useQuotaRulesPageModel() {
   const queryClient = useQueryClient();
   const rulesQuery = useBillingRules("all");
   const policiesQuery = useDispatchPolicies();
+  const readyQuery = usePricingReadyRoutes();
   const modelsQuery = useUnifiedModels("all");
   const resourcesQuery = useProviderResources();
   const principalsQuery = usePrincipals("all");
@@ -33,6 +34,10 @@ export function useQuotaRulesPageModel() {
   const [showModelForm, setShowModelForm] = useState(false);
   const [showRouteForm, setShowRouteForm] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [queuedRules, setQueuedRules] = useState<BillingRuleValues[]>([]);
+  const [replaceExisting, setReplaceExisting] = useState(false);
+  const [sourceRuleIds, setSourceRuleIds] = useState<string[]>([]);
+  const [submissionId, setSubmissionId] = useState(() => crypto.randomUUID());
   const [selectedRuleRouteId, setSelectedRuleRouteId] = useState("");
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [disableModelTarget, setDisableModelTarget] = useState<UnifiedModel | null>(null);
@@ -60,9 +65,10 @@ export function useQuotaRulesPageModel() {
       effective_to: "",
       windows: [],
       multiplier: "",
-      cache_hit_price: "0",
-      cache_miss_price: "0.000001",
-      output_price: "0.000002",
+      pricing_mode: "ABSOLUTE", currency: "CNY",
+      cache_hit_price: "",
+      cache_miss_price: "",
+      output_price: "",
       priority: 100,
     },
   });
@@ -73,6 +79,7 @@ export function useQuotaRulesPageModel() {
     replace: replaceRuleWindows,
   } = useFieldArray({ control: ruleForm.control, name: "windows" });
   const selectedRuleType = ruleForm.watch("rule_type");
+  const selectedPricingMode = ruleForm.watch("pricing_mode");
   const modelForm = useForm<UnifiedModelValues, unknown, UnifiedModelValues>({
     resolver: zodResolver(UnifiedModelSchema),
     defaultValues: { alias: "", display_name: "" },
@@ -115,11 +122,12 @@ export function useQuotaRulesPageModel() {
   const selectedPrincipalIds = policyForm.watch("match_principal_scope");
 
   useEffect(() => {
-    if (selectedRuleType === "API_PRICE") {
+    if (selectedRuleType === "API_PRICE" && selectedPricingMode !== "MULTIPLIER") {
       ruleForm.setValue("multiplier", "");
       return;
     }
     if (selectedRuleType === "TIME_WINDOW" || selectedRuleType === "MODEL_TIER") {
+      ruleForm.setValue("pricing_mode", "ABSOLUTE");
       ruleForm.setValue("cache_hit_price", "");
       ruleForm.setValue("cache_miss_price", "");
       ruleForm.setValue("output_price", "");
@@ -128,7 +136,7 @@ export function useQuotaRulesPageModel() {
     if (selectedRuleType === "MODEL_TIER") {
       replaceRuleWindows([]);
     }
-  }, [replaceRuleWindows, ruleForm, selectedRuleType]);
+  }, [replaceRuleWindows, ruleForm, selectedRuleType, selectedPricingMode]);
 
   const refreshRules = () =>
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.billingRules });
@@ -140,13 +148,28 @@ export function useQuotaRulesPageModel() {
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.modelRoutes(modelId) });
 
   const createRule = useMutation({
-    mutationFn: (values: BillingRuleValues) =>
-      post("/billing-rules", buildBillingRulePayload(values)),
+    mutationFn: (values: BillingRuleValues) => {
+      const route = routesQuery.data?.routes.find((item) => item.id === selectedRuleRouteId);
+      const model = models.find((item) => item.id === selectedModelId);
+      if (!route || !model) throw new Error("请选择模型和厂商资源");
+      return post("/pricing-configurations", {
+        submission_id: submissionId, route_id: route.id,
+        expected_route_version: route.version, expected_model_version: model.version,
+        priority: Number(routeForm.getValues("priority")), weight: Number(routeForm.getValues("weight")),
+        source_rule_ids: sourceRuleIds,
+        replace_existing: replaceExisting,
+        rules: [...queuedRules, values].map(buildBillingRulePayload),
+      });
+    },
     onSuccess: () => {
       setShowRuleForm(false);
       setSelectedRuleRouteId("");
       ruleForm.reset();
+      setQueuedRules([]); setSourceRuleIds([]); setSubmissionId(crypto.randomUUID()); setReplaceExisting(false);
       void refreshRules();
+      void refreshModels();
+      void queryClient.invalidateQueries({ queryKey: ["pricing-ready-routes"] });
+      if (selectedModelId) void refreshRoutes(selectedModelId);
     },
   });
   const updateRule = useMutation({
@@ -172,8 +195,10 @@ export function useQuotaRulesPageModel() {
   const transitionPolicy = useMutation({
     mutationFn: (input: {
       policy: DispatchPolicy;
-      action: "validate" | "publish" | "retire" | "copy" | "restore";
-    }) => post(`/dispatch-policies/${input.policy.id}/${input.action}`),
+      action: "validate" | "publish" | "retire" | "copy" | "restore" | "archive";
+    }) => input.action === "archive"
+      ? post(`/dispatch-policies/${input.policy.id}/archive`, { expected_version: input.policy.version })
+      : post(`/dispatch-policies/${input.policy.id}/${input.action}`),
     onSuccess: () => {
       setPolicyActionTarget(null);
       void refreshPolicies();
@@ -242,7 +267,7 @@ export function useQuotaRulesPageModel() {
   });
 
   const allRules = rulesQuery.data?.rules ?? [];
-  const policies = policiesQuery.data?.policies ?? [];
+  const policies = (policiesQuery.data?.policies ?? []).filter((policy) => showArchived === Boolean(policy.archivedAt));
   const allRoutes = routesQuery.data?.routes ?? [];
   const visibleModels = models.filter((model) => showArchived === Boolean(model.archived_at));
   const rules = allRules.filter((rule) => showArchived === Boolean(rule.archived_at));
@@ -250,7 +275,7 @@ export function useQuotaRulesPageModel() {
   const hasActiveModels = models.some((model) => model.status === "ACTIVE" && !model.archived_at);
   const canCreateRoute = hasActiveModels && resources.length > 0;
   const enabledRoutes = allRoutes.filter((route) => route.enabled && !route.archived_at);
-  const canCreateRule = canCreateRoute && enabledRoutes.length > 0;
+  const canCreateRule = models.some((item) => !item.archived_at) && resources.length > 0;
   const principalById = new Map(principals.map((principal) => [principal.id, principal]));
 
   const editPolicy = (policy: DispatchPolicy) => {
@@ -290,6 +315,8 @@ export function useQuotaRulesPageModel() {
     archiveConfig.error;
 
   return {
+    readyRoutes: readyQuery.data?.routes ?? [],
+    queuedRules, setQueuedRules, sourceRuleIds, setSourceRuleIds, setSubmissionId, allRules, allRoutes, replaceExisting, setReplaceExisting,
     error, showArchived, setShowArchived, showModelForm, setShowModelForm, modelForm, visibleModels, setSelectedModelId, archiveConfig, setDisableModelTarget, updateModel, canCreateRoute, hasActiveModels, showRouteForm, setShowRouteForm, routeForm, selectedModelId, selectedRuleRouteId, setSelectedRuleRouteId, models, resources, routes, setDisableRouteTarget, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, enabledRoutes, rules, updateRule, setArchiveTarget, showPolicyForm, setShowPolicyForm, editingPolicy, setEditingPolicy, policyForm, selectedPolicyAction, principalScopeMode, selectedPrincipalIds, principals, principalSearch, setPrincipalSearch, createPolicy, policies, editPolicy, setPolicyActionTarget, transitionPolicy, archiveTarget, policyActionTarget, principalById, disableModelTarget, disableRouteTarget, createModel, createRoute, updateRoute, createRule, rulesQuery, policiesQuery, modelsQuery, resourcesQuery, routesQuery
   };
 }

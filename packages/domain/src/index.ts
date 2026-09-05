@@ -196,6 +196,7 @@ export {
   matchApplicableBillingRule,
   computeDeductedQuota,
   computeApiCostFromRule,
+  billingPriceMultiplier,
   type BillingRule,
   type BillingRuleWindow,
   type BillingResourceMode,

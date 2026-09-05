@@ -6,12 +6,14 @@ import {
 } from "../auth/current-model-authorization.js";
 import {
   finalizeRejectedAttemptBeforeUpstream,
+  persistRejectedAttemptBeforeUpstreamEvidence,
 } from "./attempt-usage-settlement.js";
 import {
   hasCurrentKeyModelAuthorization,
   settleRevokedAttempt,
 } from "./revoked-attempt-settlement.js";
 import { publishFailedRequest } from "./pipeline-failure-settlement.js";
+import { attemptDispatchGuard } from "./attempt-dispatch-guard.js";
 import {
   acquireConcurrencyLeaseWithWait,
   estimateRawTokens,
@@ -217,6 +219,46 @@ export async function prepareSelectedAttempt(
         request_id: requestId,
       },
     });
+    return { kind: "STOP", result: "RETURNED" };
+  }
+  const dispatchBlock = await attemptDispatchGuard(context, state, candidate,
+    invocationAuthorization.billingRule, invocationAuthorization.pricingAt, attempt.id);
+  if (dispatchBlock?.finalAction === "SWITCH" && dispatchBlock.switchTargetResourceId && state.attemptNo < context.maxAttempts) {
+    await persistRejectedAttemptBeforeUpstreamEvidence({ ledgerRepo: deps.ledgerRepo, requestId,
+      enterpriseId: principal.enterpriseId, principalId: context.principalId, attemptId: attempt.id,
+      attemptNo: state.attemptNo, resourceId: candidate.resourceId, resourceMode: candidate.mode,
+      attemptResult: { http_status: 409, response_committed: false, finished_at: new Date(),
+        error_classification: "DOWNSTREAM_AUTH_OR_QUOTA", error_code: "dispatch_reselected_before_upstream",
+        switch_reason: dispatchBlock.reasonCode },
+      quotaSettlements: grantId ? [{ grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n }] : [],
+      releaseLeaseIds: leaseId ? [leaseId] : [],
+    });
+    if (probeLease) await runBestEffort(request.log, "release reselected probe", () =>
+      deps.poolRepo.releaseHalfOpenProbe(candidate.resourceId, probeLease.acquiredAt));
+    state.triedResourceIds.add(candidate.resourceId);
+    state.dispatchRecheckTarget = dispatchBlock.switchTargetResourceId;
+    state.dispatchSatisfiedSwitch = { policyId: dispatchBlock.matchedPolicy!.id,
+      policyVersion: dispatchBlock.matchedPolicy!.policyVersion, targetId: dispatchBlock.switchTargetResourceId };
+    return { kind: "STOP", result: "CONTINUE" };
+  }
+  if (dispatchBlock) {
+    const statusCode = dispatchBlock.finalAction === "REJECT" ? 403 : 429;
+    await finalizeRejectedAttemptBeforeUpstream({ ledgerRepo: deps.ledgerRepo,
+      requestId, enterpriseId: principal.enterpriseId, principalId: context.principalId,
+      attemptId: attempt.id, attemptNo: state.attemptNo, resourceId: candidate.resourceId, resourceMode: candidate.mode,
+      errorCode: "dispatch_changed_before_upstream",
+      attemptResult: { http_status: statusCode, response_committed: false, finished_at: new Date(),
+        error_classification: "DOWNSTREAM_AUTH_OR_QUOTA", error_code: "dispatch_changed_before_upstream", switch_reason: null },
+      quotaSettlements: [...state.pendingQuotaSettlements,
+        ...(grantId ? [{ grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n }] : [])],
+      releaseLeaseIds: [...state.pendingLeaseIds, ...(leaseId ? [leaseId] : [])], overage: state.requestOverage,
+    });
+    if (probeLease) await runBestEffort(request.log, "release dispatch rejected probe", () =>
+      deps.poolRepo.releaseHalfOpenProbe(candidate.resourceId, probeLease.acquiredAt));
+    reply.code(statusCode).header("x-request-id", traceId).send({ error: {
+      message: "当前时段调度策略禁止此调用，请稍后重试", type: "rate_limit_error",
+      code: "dispatch_changed_before_upstream", retryable: true, request_id: requestId,
+    } });
     return { kind: "STOP", result: "RETURNED" };
   }
   return {

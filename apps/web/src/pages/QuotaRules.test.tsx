@@ -3,6 +3,17 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BillingRule, DispatchPolicy } from "../api/types.js";
+import { useQuotaRulesPageModel } from "./quota-rules-page-model";
+import { QuotaModelSection } from "../components/quota/QuotaModelSection";
+import { QuotaRouteSection } from "../components/quota/QuotaRouteSection";
+import { QuotaBillingSection } from "../components/quota/QuotaBillingSection";
+import { QuotaDialogs } from "../components/quota/QuotaDialogs";
+
+// Removed from the normal page; preserve isolated regression coverage for existing lifecycle components.
+function LegacyConfigurationComponents() {
+  const model = useQuotaRulesPageModel();
+  return <><QuotaModelSection model={model} /><QuotaRouteSection model={model} /><QuotaBillingSection model={model} /><QuotaDialogs model={model} /></>;
+}
 import {
   BillingRuleSchema,
   QuotaRulesPage,
@@ -23,6 +34,7 @@ const invalidateMock = vi.fn();
 vi.mock("../api/hooks", () => ({
   useBillingRules: () => useBillingRulesMock(),
   useDispatchPolicies: () => policiesMock(),
+  usePricingReadyRoutes: () => query({ routes: [] }),
   useUnifiedModels: () => modelsMock(),
   useProviderResources: () => resourcesMock(),
   useModelRoutes: () => routesMock(),
@@ -248,7 +260,7 @@ describe("额度规则配置依赖顺序", () => {
     principalsMock.mockReturnValue(query({ principals: [] }));
   });
 
-  it("按统一模型、Model Route、计价规则、调度策略的 DOM 顺序编排", () => {
+  it("计价和调度分为两个 Tab，移除重复创建和部门预算入口", () => {
     render(
       <MemoryRouter>
         <QuotaRulesPage />
@@ -259,14 +271,13 @@ describe("额度规则配置依赖顺序", () => {
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent)
       .filter((text) =>
-        ["统一模型", "Model Route", "计价规则模板", "调度策略"].includes(text ?? ""),
+        ["计价", "调度策略"].includes(text ?? ""),
       );
-    expect(dependencyHeadings).toEqual([
-      "统一模型",
-      "Model Route",
-      "计价规则模板",
-      "调度策略",
-    ]);
+    expect(dependencyHeadings).toEqual(["计价"]);
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "新建路由" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "新建统一模型" })).not.toBeInTheDocument();
+    expect(screen.queryByText("部门预算")).not.toBeInTheDocument();
   });
 
   it("空企业禁用依赖型创建并明确下一步", () => {
@@ -276,10 +287,8 @@ describe("额度规则配置依赖顺序", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("button", { name: "新建路由" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "新建规则" })).toBeDisabled();
-    expect(screen.getByText(/先在上方创建并启用统一模型/)).toBeInTheDocument();
-    expect(screen.getByText(/至少启用一条 Model Route/)).toBeInTheDocument();
+    expect(screen.getByText(/请先到厂商资源登记资源并同步模型/)).toBeInTheDocument();
   });
 
   it("模型、资源和启用路由就绪后开放下一步", () => {
@@ -314,9 +323,8 @@ describe("额度规则配置依赖顺序", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("button", { name: "新建路由" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "新建规则" })).toBeEnabled();
-    expect(screen.getByText(/前置条件已满足/)).toBeInTheDocument();
+    expect(screen.getByText(/选择已同步模型和资源/)).toBeInTheDocument();
   });
 });
 
@@ -371,6 +379,7 @@ describe("调度策略主体范围", () => {
       </MemoryRouter>,
     );
 
+    await user.click(screen.getByRole("tab", { name: "调度策略" }));
     await user.click(screen.getByRole("button", { name: "新建调度策略" }));
     await user.click(screen.getByLabelText("指定主体"));
     await user.type(screen.getByLabelText("搜索主体"), "研发部");
@@ -459,7 +468,7 @@ describe("POOL20-036～037 配置归档与调度恢复", () => {
       created_at: "2026-08-23T00:00:00Z", updated_at: "2026-08-23T00:00:00Z",
     }] }));
     const user = userEvent.setup();
-    render(<MemoryRouter><QuotaRulesPage /></MemoryRouter>);
+    render(<MemoryRouter><LegacyConfigurationComponents /></MemoryRouter>);
     const row = screen.getAllByText("deepseek-v4-flash-vision-exp")
       .find((node) => node.tagName === "TD")!.closest("tr")!;
     expect(within(row).getByText("待配置")).toBeInTheDocument();
@@ -478,7 +487,7 @@ describe("POOL20-036～037 配置归档与调度恢复", () => {
       created_at: "2026-08-01T00:00:00Z", updated_at: "2026-08-01T00:00:00Z",
     }] }));
     const user = userEvent.setup();
-    render(<MemoryRouter><QuotaRulesPage /></MemoryRouter>);
+    render(<MemoryRouter><LegacyConfigurationComponents /></MemoryRouter>);
     const row = screen.getAllByText("待归档模型").find((node) => node.tagName === "TD")!.closest("tr")!;
     await user.click(within(row).getByRole("button", { name: "归档" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("确认归档统一模型？");
@@ -497,6 +506,7 @@ describe("POOL20-036～037 配置归档与调度恢复", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><QuotaRulesPage /></MemoryRouter>);
     expect(screen.queryByText("重新启用 / 复制为新版本")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "调度策略" }));
     await user.click(screen.getByRole("button", { name: "复制为新版本" }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith(
       "/dispatch-policies/policy-retired/copy",
@@ -539,16 +549,6 @@ describe("POOL20-036～037 配置归档与调度恢复", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><QuotaRulesPage /></MemoryRouter>);
 
-    const routeRow = screen.getByText("route-upstream").closest("tr")!;
-    await user.click(within(routeRow).getByRole("button", { name: "归档" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("确认归档 Model Route？");
-    expect(screen.getByRole("dialog")).toHaveTextContent("归档后，该模型将从默认列表和新配置入口中隐藏");
-    await user.click(screen.getByRole("button", { name: "确认归档" }));
-    await waitFor(() => expect(postMock).toHaveBeenCalledWith(
-      "/model-routes/route-disabled/archive", { expected_version: 2 },
-    ));
-
-    postMock.mockClear();
     const ruleRow = screen.getByText("archive-rule-v1").closest("tr")!;
     await user.click(within(ruleRow).getByRole("button", { name: "归档" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("确认归档计价规则？");

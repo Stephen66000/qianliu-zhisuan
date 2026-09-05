@@ -2,14 +2,15 @@ import { ManagementSection } from "./ManagementSection";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
 
-export function QuotaRouteSection({ model }: { model: QuotaRulesPageModel }) {
+export function QuotaRouteSection({ model, managementOnly = false }: { model: QuotaRulesPageModel; managementOnly?: boolean }) {
   const { setSelectedModelId, archiveConfig, canCreateRoute, hasActiveModels, showRouteForm, setShowRouteForm, routeForm, selectedModelId, setSelectedRuleRouteId, models, resources, routes, setDisableRouteTarget, ruleForm, setArchiveTarget, createRoute, updateRoute } = model;
   return <>
       <ManagementSection
+        hideAction={managementOnly}
         actionLabel="新建路由"
         actionDisabled={!canCreateRoute}
         hint={
-          canCreateRoute
+          managementOnly ? "管理已有资源路由。配置价格和启用使用上方新建规则。" : canCreateRoute
             ? "第 2 步：为统一模型绑定可调用的厂商资源；启用路由后继续配置计价规则。"
             : hasActiveModels
               ? "前置条件：尚未登记厂商资源，请先到「厂商资源」页面登记。"

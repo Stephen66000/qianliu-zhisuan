@@ -87,7 +87,7 @@ export interface DispatchInput {
   /** 资源模式。 */
   resourceMode: "API" | "CODING_PLAN";
   /** 该请求时点命中的价格倍率（来自 W13 billing_rule；无规则="1"）。 */
-  priceMultiplier: string;
+  priceMultiplier: string | null;
   /** 剩余额度比例（remaining/quota，0..1；未知=null）。 */
   remainingQuotaRatio: number | null;
   /** 预计耗尽是否在周期内（来自 W15 forecast；true=有耗尽风险）。 */
@@ -135,6 +135,7 @@ export function matchPolicy(policy: DispatchPolicy, input: DispatchInput): boole
   }
   // 价格倍率下限（≥）
   if (policy.matchPriceMultiplierMin !== null) {
+    if (input.priceMultiplier === null) return false;
     if (compareDecimal(input.priceMultiplier, policy.matchPriceMultiplierMin) < 0) return false;
   }
   // 剩余额度比例上限（≤）

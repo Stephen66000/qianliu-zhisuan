@@ -279,6 +279,12 @@ export function useModelRoutes(
   });
 }
 
+export function usePricingReadyRoutes() {
+  return useQuery({ queryKey: ["pricing-ready-routes"],
+    queryFn: ({ signal }) => get<{ routes: Array<{ id: string; alias: string; provider_resource_id: string; mode: string; upstream_model: string }> }>("/pricing-ready-routes", signal),
+    staleTime: 0, retry: 1 });
+}
+
 // ---------- W20 诊断下钻 ----------
 
 export function useGatewayRequest(requestId: string | null) {

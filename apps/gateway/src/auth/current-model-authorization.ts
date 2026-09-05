@@ -144,6 +144,7 @@ export async function listCurrentAuthorizedModels(
 }
 
 export interface CurrentInvocationAuthorization {
+  pricingAt: number;
   billingRule: BillingRule;
 }
 
@@ -200,6 +201,7 @@ async function resolveCurrentInvocationAuthorization(
       "billing_rule.start_time as billing_start_time",
       "billing_rule.end_time as billing_end_time",
       "billing_rule.time_windows as billing_time_windows",
+      "billing_rule.pricing_mode as billing_pricing_mode",
       "billing_rule.multiplier as billing_multiplier",
       "billing_rule.cache_hit_price as billing_cache_hit_price",
       "billing_rule.cache_miss_price as billing_cache_miss_price",
@@ -288,6 +290,7 @@ async function resolveCurrentInvocationAuthorization(
   if (!(authorization.allowed_model_ids ?? []).includes(authorization.model_id)) return null;
   const rules: BillingRule[] = rows.map((row) => ({
     id: row.billing_rule_id,
+    pricingMode: row.billing_pricing_mode,
     ruleType: row.billing_rule_type as BillingRule["ruleType"],
     ruleVersion: row.billing_rule_version,
     providerResourceId: row.billing_provider_resource_id,
@@ -318,7 +321,7 @@ async function resolveCurrentInvocationAuthorization(
     authorization.resource_mode as BillingResourceMode,
     input.now.getTime(),
   );
-  return billingRule ? { billingRule } : null;
+  return billingRule ? { billingRule, pricingAt: input.now.getTime() } : null;
 }
 
 /** Key／Grant／route 与计费规则在同一 REPEATABLE READ 快照中完成最终复核。 */

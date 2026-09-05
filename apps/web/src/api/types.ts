@@ -34,6 +34,7 @@ export interface BillingRuleWindow {
 }
 
 export interface BillingRule {
+  pricing_mode?: "ABSOLUTE" | "MULTIPLIER";
   id: string;
   rule_type: string;
   rule_version: string;
@@ -68,6 +69,8 @@ export interface BillingRulesResult {
 // ---------- /dispatch-policies（camelCase，含全部生命周期状态） ----------
 
 export interface DispatchPolicy {
+  archivedAt?: string | null;
+  version?: number;
   id: string;
   status: "DRAFT" | "VALIDATED" | "PUBLISHED" | "RETIRED";
   matchUnifiedModel: string | null;

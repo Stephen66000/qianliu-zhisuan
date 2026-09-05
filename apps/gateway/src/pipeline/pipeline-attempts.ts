@@ -16,6 +16,14 @@ export async function runPipelineAttempts(
       state.triedResourceIds,
     );
     state.winner = pickWinner(state.lastScored);
+    if (state.dispatchRecheckTarget) {
+      const forced = state.lastScored.find((item) => item.input.resourceId === state.dispatchRecheckTarget);
+      state.dispatchRecheckTarget = undefined;
+      if (forced) {
+        if (state.winner) state.winner.selected = false;
+        forced.selected = true; state.winner = forced;
+      }
+    }
     if (!state.winner) break;
 
     await applyInitialDispatchDecision(context, state);

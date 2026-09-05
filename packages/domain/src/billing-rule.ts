@@ -30,6 +30,8 @@ export interface BillingRuleWindow {
 }
 
 export interface BillingRule {
+  /** Legacy absolute prices never multiply; multiplier prices freeze base prices in the same version. */
+  pricingMode?: "ABSOLUTE" | "MULTIPLIER";
   id: string;
   ruleType: "TIME_WINDOW" | "MODEL_TIER" | "CACHE_STATE" | "API_PRICE";
   ruleVersion: string;
@@ -212,7 +214,8 @@ export function computeDeductedQuota(rawUsage: number, multiplier: string): stri
  * 价格取匹配到的 API_PRICE 规则（缺失分项按 0 处理）。
  */
 export function computeApiCostFromRule(
-  rule: { cacheHitPrice: string | null; cacheMissPrice: string | null; outputPrice: string | null },
+  rule: { cacheHitPrice: string | null; cacheMissPrice: string | null; outputPrice: string | null;
+    pricingMode?: "ABSOLUTE" | "MULTIPLIER"; multiplier?: string | null },
   input: number,
   output: number,
   cache: number,
@@ -223,7 +226,22 @@ export function computeApiCostFromRule(
     .times(new Decimal(rule.cacheHitPrice ?? "0"))
     .plus(miss.times(new Decimal(rule.cacheMissPrice ?? "0")))
     .plus(new Decimal(output).times(new Decimal(rule.outputPrice ?? "0")));
+  if (rule.pricingMode === "MULTIPLIER") {
+    if (!rule.multiplier || !new Decimal(rule.multiplier).gt(0)
+      || [rule.cacheHitPrice, rule.cacheMissPrice, rule.outputPrice].some((value) => value === null)) {
+      throw new Error("incomplete_multiplier_price");
+    }
+    return cost.times(rule.multiplier).toFixed(8);
+  }
   return cost.toFixed(8);
+}
+
+/** Absolute time-window prices have no factual scalar ratio; never infer one. */
+export function billingPriceMultiplier(rule: BillingRule | null): string | null {
+  if (!rule) return null;
+  if (rule.ruleType !== "API_PRICE") return rule.multiplier;
+  if (rule.pricingMode === "MULTIPLIER") return rule.multiplier;
+  return configuredTimeWindows(rule).length === 0 ? "1" : null;
 }
 
 /** 匹配套餐/API 价格规则（API_PRICE 类型，按生效版本）。 */

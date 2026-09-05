@@ -1,6 +1,7 @@
 import { sql, type Kysely, type Selectable, type Transaction } from "kysely";
 
 import type { Database, DispatchPolicyTable } from "../kysely.js";
+import { policyPricingReadiness } from "./dispatch-pricing-readiness.js";
 
 type PolicyRow = Selectable<DispatchPolicyTable>;
 
@@ -112,7 +113,7 @@ async function validateReferences(
       .execute()).map((row) => row.id));
     if (principalIds.some((id) => !active.has(id))) return "主体范围包含停用、归档或不存在的主体";
   }
-  return null;
+  return policyPricingReadiness(trx, enterpriseId, source);
 }
 
 async function retiredSource(

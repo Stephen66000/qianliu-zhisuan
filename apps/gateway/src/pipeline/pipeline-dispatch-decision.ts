@@ -1,5 +1,6 @@
-import { decideDispatch, type DispatchInput } from "@qianliu/domain";
-import { dispatchCounterfactualEvidence } from "./billing.js";
+import { billingPriceMultiplier, decideDispatch, matchApplicableBillingRule, type DispatchInput } from "@qianliu/domain";
+import { listEnabledBillingRulesAt } from "@qianliu/database";
+import { computeBillingFromRule, dispatchCounterfactualEvidence } from "./billing.js";
 import { dispatchPolicyWindow, dispatchResetAt } from "./runtime-controls.js";
 import type { PipelineContext, PipelineExecutionState } from "./real-pipeline-types.js";
 
@@ -19,6 +20,7 @@ export async function applyInitialDispatchDecision(
         state.winner.input.resourceId,
         state.winner.input.mode,
         requestStartedAt,
+        state.winner.input.upstreamModel,
       )
     : { priceMultiplier: "1", remainingQuotaRatio: null, forecastExhaustRisk: false };
   const dispatchInput: DispatchInput = {
@@ -32,6 +34,10 @@ export async function applyInitialDispatchDecision(
     principalId: principal.principalId,
   };
   state.dispatchBaselineCandidate = { ...state.winner.input };
+  state.dispatchBaselineRule = matchApplicableBillingRule(await listEnabledBillingRulesAt(deps.db,
+    principal.enterpriseId, new Date(requestStartedAt)), state.winner.input.resourceId,
+    state.winner.input.upstreamModel, state.winner.input.mode, requestStartedAt);
+  dispatchInput.priceMultiplier = billingPriceMultiplier(state.dispatchBaselineRule);
   const policies = await deps.dispatchRepo.listPublishedPolicies(principal.enterpriseId);
   const decision = decideDispatch(policies, dispatchInput, availableIds);
   state.dispatchFinalAction = decision.finalAction;
@@ -59,7 +65,8 @@ export async function applyInitialDispatchDecision(
         matchedEndTime: decision.matchedPolicy?.matchEndTime ?? null,
         policyWindow: dispatchPolicyWindow(decision.matchedPolicy),
         policyResetAt: dispatchResetAt(decision.matchedPolicy, requestStartedAt),
-        ...dispatchCounterfactualEvidence(state.dispatchBaselineCandidate, null),
+        ...dispatchCounterfactualEvidence(state.dispatchBaselineCandidate, computeBillingFromRule(state.dispatchBaselineRule,
+          state.winner.input.mode, requestStartedAt, { input: 0, output: 0, cache: 0 })),
         executedResourceIds: [],
         usageEvidence: null,
         actualPricingEvidence: [],

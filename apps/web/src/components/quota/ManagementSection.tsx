@@ -8,6 +8,7 @@ export function ManagementSection({
   hint,
   onAction,
   children,
+  hideAction = false,
 }: {
   title: string;
   actionLabel: string;
@@ -15,6 +16,7 @@ export function ManagementSection({
   hint: string;
   onAction: () => void;
   children: ReactNode;
+  hideAction?: boolean;
 }) {
   return (
     <section className="mb-5 rounded-xl border border-ql-border bg-ql-surface p-4">
@@ -23,7 +25,7 @@ export function ManagementSection({
           <h2 className="text-[14px] font-semibold text-ql-fg">{title}</h2>
           <p className="mt-1 text-[12px] leading-5 text-ql-fg-secondary">{hint}</p>
         </div>
-        <button
+        {!hideAction ? <button
           className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-ql-border px-3 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft disabled:cursor-not-allowed disabled:opacity-50"
           disabled={actionDisabled}
           onClick={onAction}
@@ -31,7 +33,7 @@ export function ManagementSection({
         >
           <Plus aria-hidden className="h-3.5 w-3.5" />
           {actionLabel}
-        </button>
+        </button> : null}
       </div>
       {children}
     </section>

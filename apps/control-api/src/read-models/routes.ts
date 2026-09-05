@@ -8,12 +8,14 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { sql } from "kysely";
+import { archiveDispatchPolicy, policyPricingReadiness, PricingModeConflictError } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   CreateDispatchPolicySchema,
   dispatchPolicyFields,
 } from "./dispatch-policy-contract.js";
 import { CreateBillingRuleSchema } from "./billing-rule-contract.js";
+import { registerPricingConfigurationRoutes } from "./pricing-configuration-routes.js";
 
 function equalDecimal(left: string | null, right: string | null): boolean {
   if (left === null || right === null) return left === right;
@@ -26,6 +28,7 @@ function equalDecimal(left: string | null, right: string | null): boolean {
 }
 
 export function registerReadModelRoutes(app: FastifyInstance): void {
+  registerPricingConfigurationRoutes(app);
   // GET /billing-rules —— 计价规则列表（含 disabled/历史，管理后台用）
   app.get<{ Querystring: { archived?: string } }>("/billing-rules", { preHandler: [requireAuth] }, async (req, reply) => {
     const archived = z.enum(["exclude", "only", "all"]).default("exclude").safeParse(req.query.archived);
@@ -79,6 +82,7 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
     const rule = await app.ledgerRepo.createBillingRule({
       enterprise_id: req.admin!.enterpriseId,
       rule_type: input.rule_type,
+      pricing_mode: input.pricing_mode,
       rule_version: input.rule_version,
       provider_resource_id: input.provider_resource_id,
       upstream_model: input.upstream_model,
@@ -104,7 +108,8 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
       currency: input.currency,
       priority: input.priority,
       source: input.source,
-    });
+    }).catch((error: unknown) => { if (error instanceof PricingModeConflictError) return null; throw error; });
+    if (!rule) return reply.code(409).send({ error: "pricing_mode_conflict", message: "绝对价格与倍率计价冲突，请通过新建规则替换整套旧价格" });
     await app.auditRepo.write({
       enterprise_id: req.admin!.enterpriseId,
       admin_user_id: req.admin!.adminUserId,
@@ -200,6 +205,14 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
     "/dispatch-policies/:id/:action",
     { preHandler: [requireAuth] },
     async (req, reply) => {
+      if (req.params.action === "archive") {
+        const body = z.object({ expected_version: z.number().int().positive() }).safeParse(req.body);
+        if (!body.success) return reply.code(400).send({ error: "invalid_request", message: "缺少当前版本" });
+        const changed = await archiveDispatchPolicy(app.db, req.admin!.enterpriseId, req.params.id,
+          req.admin!.adminUserId, body.data.expected_version);
+        if (!changed) return reply.code(409).send({ error: "conflict", message: "只有未存档的已停用策略可以存档，请刷新" });
+        return { policy: await app.dispatchRepo.getPolicy(req.admin!.enterpriseId, req.params.id) };
+      }
       const action = z.enum(["validate", "publish", "retire", "copy", "restore"]).safeParse(req.params.action);
       if (!action.success) {
         return reply.code(404).send({ error: "not_found", message: "未知策略操作" });
@@ -262,7 +275,13 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
         });
       }
 
-      if (action.data === "validate") {
+      if (action.data === "validate" || action.data === "publish") {
+        const invalidPricing = await policyPricingReadiness(app.db, enterpriseId, {
+          match_unified_model: policy.matchUnifiedModel, match_provider_resource_id: policy.matchProviderResourceId,
+          match_resource_mode: policy.matchResourceMode, switch_equivalent_group: [...policy.switchEquivalentGroup],
+          match_price_multiplier_min: policy.matchPriceMultiplierMin,
+        });
+        if (invalidPricing) return reply.code(400).send({ error: "invalid_reference", message: invalidPricing });
         const [models, resources, principals] = await Promise.all([
           app.providerRepo.listUnifiedModels(enterpriseId),
           app.providerRepo.listResources(enterpriseId),
@@ -296,6 +315,7 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
         expected.from,
         expected.to,
         req.admin!.adminUserId,
+        policy.version,
       );
       if (!changed) {
         return reply.code(409).send({

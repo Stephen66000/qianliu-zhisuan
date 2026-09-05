@@ -28,6 +28,7 @@ export interface RouteCandidateTable {
   created_at: Generated<Date>;
 }
 export interface UpstreamAttemptTable {
+  dispatch_check: Generated<Record<string, unknown> | null>;
   id: Generated<string>; ai_request_id: string; enterprise_id: string; attempt_no: number;
   provider_resource_id: string; upstream_model: string; started_at: Generated<Date>; first_byte_at: Date | null;
   finished_at: Date | null; http_status: number | null; error_classification: string | null; error_code: string | null;
@@ -55,6 +56,7 @@ export interface LedgerLineTable {
 }
 export interface BillingRuleWindow { timezone: string; days_of_week: number[] | null; start_time: string; end_time: string }
 export interface BillingRuleTable {
+  pricing_mode: Generated<"ABSOLUTE" | "MULTIPLIER">;
   id: Generated<string>; enterprise_id: string; provider_resource_id: string | null; upstream_model: string | null;
   rule_type: string; rule_version: string; effective_from: Date; effective_to: Date | null;
   timezone: string | null; days_of_week: number[] | null; start_time: string | null; end_time: string | null;

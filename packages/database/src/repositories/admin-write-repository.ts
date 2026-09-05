@@ -16,6 +16,7 @@ import type {
 } from "./provider-repository.js";
 import { ModelRouteNotReadyError } from "./provider-repository.js";
 import type { PrincipalGrant } from "./grant-repository.js";
+import { hasConflictingPricingMode, lockPricingWrites } from "./pricing-write-guard.js";
 
 /**
  * 单调 version 乐观锁（P2-01 整改，替代 updated_at 毫秒截断）。
@@ -273,7 +274,14 @@ export class AdminWriteRepository {
       enabled?: boolean;
     },
   ) {
-    return this.db
+    return this.db.transaction().execute(async (trx) => {
+      await lockPricingWrites(trx, enterpriseId);
+      const before = await trx.selectFrom("billing_rule").selectAll().where("id", "=", id)
+        .where("enterprise_id", "=", enterpriseId).forUpdate().executeTakeFirst();
+      if (!before || before.version !== expectedVersion) return undefined;
+      const prospective = { ...before, ...Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) };
+      if (prospective.enabled && await hasConflictingPricingMode(trx, enterpriseId, prospective)) return undefined;
+    return trx
       .updateTable("billing_rule")
       .set({ ...patch, version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", id)
@@ -282,6 +290,7 @@ export class AdminWriteRepository {
       .where(versionLock(expectedVersion))
       .returningAll()
       .executeTakeFirst();
+    });
   }
 
   async setUnifiedModelArchived(

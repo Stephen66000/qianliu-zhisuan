@@ -12,6 +12,7 @@ export function sameDecimal(left: string | null, right: string | null): boolean 
 }
 
 export function mapPolicy(row: {
+  archived_at?: Date | null; version?: number;
   id: string; status: string; match_unified_model: string | null;
   match_resource_mode: string | null; match_provider_resource_id: string | null;
   match_timezone: string | null; match_days_of_week: number[] | null;
@@ -27,6 +28,8 @@ export function mapPolicy(row: {
 }): DispatchPolicyRecord {
   return {
     id: row.id,
+    archivedAt: row.archived_at ?? null,
+    version: row.version ?? 1,
     status: row.status as DispatchPolicy["status"],
     matchUnifiedModel: row.match_unified_model,
     matchResourceMode: row.match_resource_mode as DispatchPolicy["matchResourceMode"],
