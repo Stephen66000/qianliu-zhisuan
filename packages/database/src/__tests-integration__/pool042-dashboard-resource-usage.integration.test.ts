@@ -329,7 +329,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     });
   });
 
-  it("POOL20-045：新模型精确用量不被上游前撤权的零 Token 诊断行污染", async () => {
+  it("POOL20-045：用量总览只统计成功消耗，失败诊断行不污染任何指标", async () => {
     const resourceId = await createApiResource("pool20-045", "10");
     const modelId = randomUUID();
     await db.insertInto("unified_model").values({
@@ -346,21 +346,28 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     });
     await addLine({
       resourceId, modelId, historicalAlias: "ql-k3-256k", upstreamModel: "k3-256k",
-      input: 0n, output: 0n, cache: 0n, reasoning: 0n,
-      cost: null, quality: "UNKNOWN", at: usedAt,
-      requestStatus: "FAILED", responseCommitted: false, httpStatus: 403,
+      input: 999n, output: 1n, cache: 100n, reasoning: 10n,
+      cost: "9.00000000", deductedQuota: 1000n, quality: "UNKNOWN", at: usedAt,
+      requestStatus: "FAILED",
+      responseCommitted: false, httpStatus: 403,
       errorCode: "candidate_admission_revoked",
     });
 
-    const item = (await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime()))
-      .providerSummaries.find((row) => row.providerCode === "pool20-045");
+    const overview = await new DashboardRepository(db).getResourceUsageOverview(
+      enterpriseId, now.getTime(),
+    );
+    const item = overview.providerSummaries.find((row) => row.providerCode === "pool20-045");
     expect(item).toMatchObject({
       monthlyTotalTokens: "120",
       monthlyUsageQuality: "EXACT",
+      monthlyUnknownCount: 0,
+      tokenRate24h: "5.00",
+      costRate24h: "0.00416667",
       modelTokenBreakdown: [expect.objectContaining({
         modelAlias: "ql-k3-256k",
         totalTokens: "120",
         usageQuality: "EXACT",
+        unknownCount: 0,
       })],
     });
   });
@@ -406,12 +413,12 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     const provider = overview.providerSummaries.find((row) => row.providerCode === "pool20-051");
     expect(provider).toMatchObject({
       allocatedQuota: "1000", currentBalance: "87.90000000",
-      monthlyTotalTokens: "180", monthlyUsageQuality: "UNKNOWN", monthlyUnknownCount: 1,
+      monthlyTotalTokens: "180", monthlyUsageQuality: "EXACT", monthlyUnknownCount: 0,
     });
     const current = overview.modelDetails.find((row) => row.modelAlias === "ql-pool20-051");
     expect(current).toMatchObject({
       remainingQuota: "87.90000000", monthlyCost: "1.00000000",
-      monthlyTotalTokens: "120", usageQuality: "UNKNOWN", unknownCount: 1,
+      monthlyTotalTokens: "120", usageQuality: "EXACT", unknownCount: 0,
       historicalUnattributed: false,
     });
     const historical = overview.modelDetails.find(
