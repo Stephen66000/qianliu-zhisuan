@@ -158,19 +158,7 @@ export async function queryUsageRows(
         ON um.id = ar.unified_model_id AND um.enterprise_id = ${enterpriseId}
      WHERE ll.enterprise_id = ${enterpriseId}
        AND ll.created_at >= ${start} AND ll.created_at < ${end}
-       AND NOT (
-         ua.response_committed = false
-         AND ua.error_code IN (
-           'key_or_model_authorization_revoked',
-           'principal_grant_required',
-           'candidate_admission_revoked'
-         )
-         AND ll.raw_input_tokens = 0
-         AND ll.raw_output_tokens = 0
-         AND ll.raw_cache_tokens = 0
-         AND ll.raw_reasoning_tokens = 0
-         AND upper(ll.usage_quality) LIKE '%UNKNOWN%'
-       )
+       AND ar.status = 'SUCCEEDED'
      GROUP BY p.code, p.name, pr.mode, pr.id, pr.name, pr.status, ua.upstream_model,
               ar.unified_model_id, COALESCE(um.alias, ar.unified_model)
      ORDER BY p.code, pr.mode, COALESCE(um.alias, ar.unified_model)
