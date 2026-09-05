@@ -19,6 +19,7 @@ vi.mock("../../api/hooks", () => ({
     principals: ["principals"],
     grants: (id: string) => ["principals", id, "grants"],
     dashboard: ["dashboard"],
+    resourceUsageOverview: ["provider-resources", "usage-overview"],
   },
 }));
 

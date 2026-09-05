@@ -19,14 +19,25 @@ async function sumAllocatedQuota(
   enterpriseId: string,
   providerCode: string,
   mode: ResourceMode,
+  now: Date,
 ): Promise<string> {
   const row = await sql<{ total: string }>`
+    WITH active_grants AS (
+      SELECT * FROM principal_grant
+       WHERE enterprise_id = ${enterpriseId}
+         AND provider = ${providerCode} AND status = 'ACTIVE'
+         AND valid_from <= ${now}
+         AND (valid_until IS NULL OR valid_until > ${now})
+    )
     SELECT COALESCE(SUM(g.quota_value::numeric), 0)::text AS total
-    FROM principal_grant g
-    WHERE g.enterprise_id = ${enterpriseId}
-      AND g.provider = ${providerCode}
-      AND g.status = 'ACTIVE'
-      AND (
+    FROM active_grants g
+    WHERE g.pool_model_alias = '*'
+      OR (g.pool_model_alias IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM active_grants pool
+           WHERE pool.principal_id = g.principal_id AND pool.pool_model_alias = '*'
+        )
+        AND (
         EXISTS (
           SELECT 1
             FROM unified_model um
@@ -63,7 +74,7 @@ async function sumAllocatedQuota(
                AND um.alias = g.model_alias
           )
         )
-      )
+      ))
   `.execute(db);
   return row.rows[0]?.total ?? "0";
 }
@@ -265,7 +276,7 @@ export async function buildResourceBreakdown(
     }, {});
     const [operating, allocatedQuota, forecast] = await Promise.all([
       sumProviderOperatingSnapshot(db, enterpriseId, providerCode, mode, currentOperatingSnapshots),
-      sumAllocatedQuota(db, enterpriseId, providerCode, mode),
+      sumAllocatedQuota(db, enterpriseId, providerCode, mode, now),
       latestProviderForecast(db, enterpriseId, providerCode, mode, currentOperatingSnapshots),
     ]);
     const usage = usageFor(providerCode, mode, groupStatuses.map((resource) => {

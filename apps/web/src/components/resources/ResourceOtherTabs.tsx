@@ -24,9 +24,6 @@ export function ResourceOtherTabs({ model }: { model: ResourcesPageModel }) {
       <div aria-labelledby="resource-tab-supply-health" id="resource-tab-panel-supply-health" role="tabpanel">
       <section className="mt-5 rounded-xl border border-ql-border bg-ql-surface p-4" id="supply-forecasts">
         <h2 className="text-[14px] font-semibold text-ql-fg">供给预测</h2>
-        <p className="mt-1 text-[12px] text-ql-fg-tertiary">
-          展示每个资源最新快照；数据不足时不伪造精确预测。
-        </p>
         {forecasts.length === 0 ? (
           <p className="mt-3 text-[13px] text-ql-fg-tertiary">暂无预测快照</p>
         ) : (

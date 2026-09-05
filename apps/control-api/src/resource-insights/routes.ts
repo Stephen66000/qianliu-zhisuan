@@ -7,6 +7,7 @@ import { requireAuth } from "../plugins/auth-guard.js";
 import type { ResourceFinanceView } from "@qianliu/database";
 import { listResourceUtilization, type ResourceUtilizationRow } from "./query.js";
 import { registerResourceMonthlyBudgetRoutes } from "./budget-routes.js";
+import { loadResourceUtilizationSnapshot } from "./token-utilization.js";
 import { financeReadModelEnabled, shanghaiDateAt } from "../provider-finance/dashboard-projection.js";
 
 const Month = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/);
@@ -31,7 +32,9 @@ export function registerResourceInsightRoutes(
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", message: "month 必须为 YYYY-MM" });
     }
-    const resources = await listResourceUtilization(app.db, req.admin!.enterpriseId, parsed.data.month);
+    const { resources, generatedAt } = await loadResourceUtilizationSnapshot(
+      app.db, req.admin!.enterpriseId, parsed.data.month,
+    );
     const financeRead = await financeReadModelEnabled(
       app.providerFinanceMode, app.providerFinanceRepo, req.admin!.enterpriseId,
     );
@@ -42,10 +45,11 @@ export function registerResourceInsightRoutes(
     const financeByResource = new Map(finance.map((item) => [item.resourceId, item]));
     return {
       month: parsed.data.month,
-      resources: resources.map((resource) => projectFinanceUtilization(
-        resource, financeByResource.get(resource.resourceId),
-      )),
-      generatedAt: new Date().toISOString(),
+      resources: resources.map((resource) => ({
+        ...projectFinanceUtilization(resource, financeByResource.get(resource.resourceId)),
+        tokenUtilization: resource.tokenUtilization,
+      })),
+      generatedAt,
     };
   });
   if (options.utilizationV2 !== false) registerResourceMonthlyBudgetRoutes(app);

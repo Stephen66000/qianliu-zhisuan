@@ -29,9 +29,6 @@ export function ResourceUsageOverviewPanel() {
           <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
             <div className="mb-3">
               <h2 className="text-[15px] font-semibold text-ql-fg">厂商总体使用情况</h2>
-              <p className="mt-1 text-[12px] text-ql-fg-tertiary">
-                按厂商与模式汇总额度、费用、本月 Token、消耗速度和耗尽状态。
-              </p>
             </div>
             <ResourceBreakdown items={data.providerSummaries} />
           </section>
@@ -39,20 +36,16 @@ export function ResourceUsageOverviewPanel() {
           <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
             <div className="mb-3">
               <h2 className="text-[15px] font-semibold text-ql-fg">模型使用明细</h2>
-              <p className="mt-1 text-[12px] text-ql-fg-tertiary">
-                每行对应一个具体模型和具体资源；Coding Plan 剩余额度与耗尽时间属于共享资源。
-              </p>
             </div>
             {data.modelDetails.length === 0 ? (
               <p className="py-5 text-center text-[13px] text-ql-fg-tertiary">暂无已登记模型</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[70rem] border-collapse text-left text-[12px]">
+                <table className="w-full min-w-[60rem] border-collapse text-left text-[12px]">
                   <thead>
                     <tr className="border-b border-ql-border text-ql-fg-tertiary">
                       <th className="py-2 pr-4 font-medium">模型</th>
                       <th className="py-2 pr-4 font-medium">所属厂商 / 资源</th>
-                      <th className="py-2 pr-4 text-right font-medium">所属资源余额 / 剩余额度</th>
                       <th className="py-2 pr-4 text-right font-medium">本月花费</th>
                       <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
                       <th className="py-2 pr-4 text-right font-medium">最近 24 小时速度</th>
@@ -88,18 +81,8 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
           {item.mode === "API" ? "API" : "Coding Plan"}
         </span>
       </td>
-      <td className="py-2.5 pr-4 text-right font-mono">
-        {item.remainingQuota === null
-          ? "—"
-          : item.mode === "API"
-            ? `${item.currency ?? "CNY"} ${formatMoney(item.remainingQuota)}`
-            : `${formatCount(item.remainingQuota)} ${item.quotaUnit ?? ""}`}
-        {item.remainingQuota !== null ? (
-          <span className="block font-sans text-[10px] text-ql-fg-tertiary">共享资源</span>
-        ) : null}
-      </td>
       <td className="py-2.5 pr-4 text-right">
-        {item.monthlyCost === null
+        {item.mode === "CODING_PLAN" ? "不涉及" : item.monthlyCost === null
           ? <span className="text-ql-fg-tertiary">{item.monthlyCostReason ?? "不可计算"}</span>
           : <>{`${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
             {item.monthlyCostReason ? (

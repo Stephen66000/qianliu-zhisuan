@@ -35,9 +35,6 @@ export function QuotaWindowPanel({ resources, providers }: QuotaWindowPanelProps
   return (
     <section className="mt-5 rounded-xl border border-ql-border bg-ql-surface p-4">
       <h2 className="text-[14px] font-semibold text-ql-fg">厂商额度窗口</h2>
-      <p className="mt-1 text-[12px] text-ql-fg-tertiary">
-        厂商 Coding Plan 返回的实时窗口额度。与仟流本地累计、供给预测口径独立，缺失字段显示「厂商未提供」。
-      </p>
 
       <div className="mt-3 space-y-3">
         {resources.map((resource) => (

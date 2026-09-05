@@ -22,6 +22,7 @@ vi.mock("../../api/v2-hooks", () => ({
 }));
 
 function resource(overrides: Partial<ResourceUtilization>): ResourceUtilization {
+  const currentMonthTokens = overrides.realTokens ?? "9000000";
   return {
     resourceId: "resource-default",
     providerId: "provider-default",
@@ -30,7 +31,12 @@ function resource(overrides: Partial<ResourceUtilization>): ResourceUtilization 
     mode: "API",
     resourceStatus: "ACTIVE",
     requestCount: 1,
-    realTokens: "1000",
+    realTokens: currentMonthTokens,
+    tokenUtilization: {
+      currentMonthTokens, trailingThreeMonthAverageTokens: "10000000",
+      baselineMonths: ["2026-05", "2026-06", "2026-07"], baselineMonthCount: 3,
+      rate: String(Number(currentMonthTokens) / 10000000), basis: "CURRENT_MONTH_VS_PREVIOUS_3_COMPLETE_MONTHS", unavailableReason: null,
+    },
     apiCost: "12.50000000",
     deductedQuota: "0",
     purchaseCashAmount: "100.00000000",
@@ -166,29 +172,34 @@ describe("W20-08 资源利用事实 Web", () => {
     });
   });
 
-  it("API 利用率显示不适用，费用与已有余额保留", () => {
+  it("API 显示 Token 利用率，无预算仍可计算，费用与余额保留", () => {
     renderPanel();
     const row = screen.getByText("DeepSeek · API 账户").closest("tr")!;
     expect(within(row).getByText("CNY 12.50")).toBeInTheDocument();
     expect(within(row).getByText("余额 CNY 87.50")).toBeInTheDocument();
     expect(within(row).queryByText("0.0%")).not.toBeInTheDocument();
+    expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("近三月月均 Token 10,000,000"));
+    expect(within(row).getByText("1 / 9,000,000")).toBeInTheDocument();
+    expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 9,000,000"));
     expect(within(row).getByText(/距最近使用 2 天/)).toBeInTheDocument();
   });
 
-  it("Coding Plan 只保留周期利用率和订阅周期，不展示窗口与预测", () => {
+  it("Coding Plan 使用同一 Token 基线，订阅周期及额度独立展示", () => {
     renderPanel();
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
     expect(within(row).queryByText(/5 小时：/)).not.toBeInTheDocument();
     expect(within(row).queryByText(/周：/)).not.toBeInTheDocument();
-    expect(within(row).getByText("35.0%")).toBeInTheDocument();
-    expect(within(row).getByText("订阅周期累计")).toBeInTheDocument();
+    expect(within(row).getByText("0.0%")).toBeInTheDocument();
+    expect(within(row).getByText("0 / 0")).toBeInTheDocument();
+    expect(within(row).getByText("0.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 0"));
+    expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
     expect(within(row).getByText("订阅额度 100 POINT")).toBeInTheDocument();
     expect(within(row).getByText("2026-08-01～2026-09-01")).toBeInTheDocument();
     expect(within(row).queryByText(/2099/)).not.toBeInTheDocument();
     expect(within(row).getByText("暂无结算用量")).toBeInTheDocument();
   });
 
-  it("已有订阅额度但扣减事实不完整时，不误报缺少订阅额度", () => {
+  it("扣减事实不完整不会阻止 Token 利用率展示", () => {
     useResourceUtilizationMock.mockReturnValue({
       data: {
         month: "2026-09",
@@ -216,7 +227,8 @@ describe("W20-08 资源利用事实 Web", () => {
     renderPanel();
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
     expect(within(row).getByText("订阅额度 300,000,000 TOKEN")).toBeInTheDocument();
-    expect(within(row).getByText("部分调用缺少扣减额度，利用率暂不可算")).toBeInTheDocument();
+    expect(within(row).getByText("90.0%")).toBeInTheDocument();
+    expect(within(row).queryByText("部分调用缺少扣减额度，利用率暂不可算")).not.toBeInTheDocument();
     expect(within(row).queryByText("缺少订阅额度事实")).not.toBeInTheDocument();
   });
 
@@ -248,8 +260,53 @@ describe("W20-08 资源利用事实 Web", () => {
     renderPanel();
     const row = screen.getByText("Kimi · 周期待补套餐").closest("tr")!;
     expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
-    expect(within(row).getByText("缺少订阅结束日期")).toBeInTheDocument();
+    expect(within(row).getByText("90.0%")).toBeInTheDocument();
     expect(within(row).getByText("2026-08-01～未知")).toBeInTheDocument();
+  });
+
+  it.each(["INSUFFICIENT_HISTORY", "ZERO_BASELINE"] as const)("%s 显示占位及悬停原因，不回退旧额度利用率", (reason) => {
+    const row = resource({ utilizationRate: "0.7" });
+    row.tokenUtilization = { ...row.tokenUtilization!, rate: null, unavailableReason: reason,
+      trailingThreeMonthAverageTokens: reason === "ZERO_BASELINE" ? "0" : null };
+    useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
+    renderPanel();
+    expect(screen.getByTitle(new RegExp(reason === "ZERO_BASELINE" ? "近三月月均为 0" : "历史不足三个完整自然月"))).toHaveTextContent("—");
+    expect(screen.queryByText("70.0%")).not.toBeInTheDocument();
+  });
+
+  it("月均 Token 为小数时悬停不截断为 0", () => {
+    const row = resource({ realTokens: "1" });
+    row.tokenUtilization = { ...row.tokenUtilization!, currentMonthTokens: "1",
+      trailingThreeMonthAverageTokens: "0.33333333", rate: "3" };
+    useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
+    renderPanel();
+    expect(screen.getByText("300.0%")).toHaveAttribute("title", expect.stringContaining("近三月月均 Token 0.33333333"));
+  });
+
+  it.each([
+    ["1150000", "0.01150000", "1.2%"],
+    ["2550000", "0.02550000", "2.6%"],
+    ["1149999", "0.01149999", "1.1%"],
+    ["50000", "0.00050000", "0.1%"],
+    ["99950000", "0.99950000", "100.0%"],
+    ["199950000", "1.99950000", "200.0%"],
+    ["0", "0.00000000", "0.0%"],
+  ])("P3：%s Token 的比例 %s 按十进制舍入为 %s", (tokens, rate, expected) => {
+    const row = resource({ realTokens: tokens });
+    row.tokenUtilization = { ...row.tokenUtilization!, trailingThreeMonthAverageTokens: "100000000", rate };
+    useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
+    renderPanel();
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
+  it("P3：超安全整数 Token 在主表和悬停中保持相同原值", () => {
+    const tokens = "9007199254740993";
+    const row = resource({ realTokens: tokens });
+    row.tokenUtilization = { ...row.tokenUtilization!, rate: "900719925.47409930" };
+    useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
+    renderPanel();
+    expect(screen.getByText("1 / 9,007,199,254,740,993")).toBeInTheDocument();
+    expect(screen.getByTitle(/本月真实 Token 9,007,199,254,740,993/)).toBeInTheDocument();
   });
 
   it("POOL20-047：API 资源按当前选择月份设置预算，Coding Plan 不出现入口", async () => {

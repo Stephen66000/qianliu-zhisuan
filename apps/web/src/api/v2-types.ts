@@ -104,7 +104,19 @@ export interface UsageOverview {
   source: "LIVE_LEDGER" | "BUCKET_AGGREGATE";
 }
 
+export interface TokenUtilization {
+  currentMonthTokens: string;
+  trailingThreeMonthAverageTokens: string | null;
+  baselineMonths: [string, string, string];
+  baselineMonthCount: number;
+  rate: string | null;
+  basis: "CURRENT_MONTH_VS_PREVIOUS_3_COMPLETE_MONTHS";
+  unavailableReason: "INSUFFICIENT_HISTORY" | "ZERO_BASELINE" | null;
+}
+
 export interface ResourceUtilization {
+  /** Only the live resource utilization endpoint adds this; frozen procurement views do not. */
+  tokenUtilization?: TokenUtilization;
   resourceId: string; providerId: string; providerName: string; resourceName: string;
   mode: "API" | "CODING_PLAN"; resourceStatus: string; requestCount: number;
   realTokens: string; apiCost: string | null; deductedQuota: string; purchaseCashAmount: string | null;

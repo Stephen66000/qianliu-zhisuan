@@ -21,9 +21,6 @@ export function ResourceHealthPanel({ resources, providers }: ResourceHealthPane
   return (
     <section className="mt-5 rounded-xl border border-ql-border bg-ql-surface p-4">
       <h2 className="text-[14px] font-semibold text-ql-fg">资源健康与异常</h2>
-      <p className="mt-1 text-[12px] text-ql-fg-tertiary">
-        按资源展示运行状态、原因、调度影响和恢复说明。与经营数据缺口、预测不可计算分栏呈现。
-      </p>
       <div className="mt-3 space-y-3">
         {resources.map((resource) => (
           <HealthResourceCard

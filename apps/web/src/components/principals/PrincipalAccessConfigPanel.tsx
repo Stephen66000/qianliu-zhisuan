@@ -92,6 +92,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals }),
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.grants(principalId) }),
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceUsageOverview }),
       ]);
       setSaveSuccess(true);
       setSaveError(null);

@@ -86,20 +86,20 @@ describe("厂商资源用量总览", () => {
     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "余额可承载 Token" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "已用额度" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "所属资源余额 / 剩余额度" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "所属资源余额 / 剩余额度" })).not.toBeInTheDocument();
     const providerRow = screen.getAllByText("DeepSeek").find((node) => node.tagName === "TD")!.closest("tr")!;
     expect(within(providerRow).getByText("1,000")).toBeInTheDocument();
     expect(within(providerRow).getByText("已记录；另有 2 笔计量未知")).toBeInTheDocument();
 
     const apiRow = screen.getByText("ql-deepseek-v4").closest("tr")!;
     expect(within(apiRow).getByText("CNY 12.10")).toBeInTheDocument();
-    expect(within(apiRow).getByText("CNY 87.90")).toBeInTheDocument();
+    expect(within(apiRow).queryByText("CNY 87.90")).not.toBeInTheDocument();
     expect(within(apiRow).getByText("已记录；另有 2 笔计量未知")).toBeInTheDocument();
     expect(within(apiRow).getByText("4.17 Token/小时")).toBeInTheDocument();
     const planRow = screen.getByText("ql-kimi-k3").closest("tr")!;
-    expect(within(planRow).getByText("套餐固定费，不按模型拆分")).toBeInTheDocument();
-    expect(within(planRow).getByText("65 POINT")).toBeInTheDocument();
-    expect(within(planRow).getByText("共享资源")).toBeInTheDocument();
+    expect(within(planRow).getByText("不涉及")).toBeInTheDocument();
+    expect(within(planRow).queryByText("65 POINT")).not.toBeInTheDocument();
+    expect(within(planRow).queryByText("共享资源")).not.toBeInTheDocument();
     expect(within(planRow).getByText("2.5 POINT/小时")).toBeInTheDocument();
     const legacyRow = screen.getByText("qianliu-deepseek").closest("tr")!;
     expect(within(legacyRow).getByText("历史旧标识 / 未归属具体模型")).toBeInTheDocument();

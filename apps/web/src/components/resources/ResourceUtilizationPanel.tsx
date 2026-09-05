@@ -15,33 +15,36 @@ function currentMonth(): string {
 }
 
 function utilizationDisplay(row: ResourceUtilization) {
-  if (row.mode !== "CODING_PLAN") return "—";
-  const value = row.utilizationRate === null
-    ? "—"
-    : `${(Number(row.utilizationRate) * 100).toFixed(1)}%`;
-  const basis = row.notCalculableReason
-    ? utilizationReason(row.notCalculableReason)
-    : row.mode === "CODING_PLAN" && row.utilizationBasis
-    ? "订阅周期累计"
-    : row.utilizationBasis ?? row.utilizationStatus;
-  return <>{value}<span className="block text-[11px] text-ql-fg-tertiary">{basis}</span></>;
+  const fact = row.tokenUtilization;
+  if (!fact) return <span title="暂无利用率数据">—</span>;
+  const reason = fact.unavailableReason === "INSUFFICIENT_HISTORY" ? "历史不足三个完整自然月"
+    : fact.unavailableReason === "ZERO_BASELINE" ? "近三月月均为 0" : null;
+  const average = fact.trailingThreeMonthAverageTokens === null ? "—" : formatTokenAverage(fact.trailingThreeMonthAverageTokens);
+  const title = `本月真实 Token ${formatCount(fact.currentMonthTokens)} / 近三月月均 Token ${average}（${fact.baselineMonths.join("、")}）${reason ? `；${reason}` : ""}`;
+  return <span title={title}>{fact.rate === null ? "—" : utilizationPercent(fact.rate)}</span>;
+}
+
+/** One-decimal percent, rounded half-up in decimal rather than through binary floating point. */
+function utilizationPercent(rate: string): string {
+  const match = /^(\d+)(?:\.(\d*))?$/.exec(rate);
+  if (!match) return "—";
+  const fraction = match[2] ?? "";
+  const tenths = BigInt(match[1]!) * 1000n + BigInt((fraction + "000").slice(0, 3));
+  const rounded = (fraction[3] ?? "0") >= "5" ? tenths + 1n : tenths;
+  return `${rounded / 10n}.${rounded % 10n}%`;
+}
+
+function formatTokenAverage(value: string): string {
+  const [integer, fraction] = value.split(".");
+  const decimals = fraction?.replace(/0+$/, "");
+  return `${formatCount(integer!)}${decimals ? `.${decimals}` : ""}`;
 }
 
 function subscriptionDisplay(row: ResourceUtilization) {
   if (row.mode !== "CODING_PLAN") {
     return "—";
   }
-  return <>{row.servicePeriodStart?.slice(0, 10) ?? "未知"}～{row.servicePeriodEnd?.slice(0, 10) ?? "未知"}<span className="block text-[10px] text-ql-fg-tertiary">按登记事实展示，不推断月订阅</span></>;
-}
-
-function utilizationReason(reason: string): string {
-  if (reason === "SUBSCRIPTION_PERIOD_NOT_AVAILABLE") return "缺少当前订阅周期";
-  if (reason === "SUBSCRIPTION_PERIOD_START_NOT_AVAILABLE") return "缺少订阅开始日期";
-  if (reason === "SUBSCRIPTION_PERIOD_END_NOT_AVAILABLE") return "缺少订阅结束日期";
-  if (reason === "SUBSCRIPTION_QUOTA_FACT_NOT_AVAILABLE") return "缺少订阅额度事实";
-  if (reason === "SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE") return "部分调用缺少扣减额度，利用率暂不可算";
-  if (reason === "MONTHLY_BUDGET_NOT_CONFIGURED") return "未设置月预算";
-  return reason;
+  return <>{row.servicePeriodStart?.slice(0, 10) ?? "未知"}～{row.servicePeriodEnd?.slice(0, 10) ?? "未知"}</>;
 }
 
 function recentUsageDisplay(row: ResourceUtilization) {
@@ -82,15 +85,15 @@ export function ResourceUtilizationPanel({ resources: _resources }: { resources:
   }, { onSuccess: closeBudget });
   return <section className="mb-5 rounded-xl border border-ql-border-zone bg-ql-surface p-4" id="resource-utilization">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-[15px] font-semibold">资源利用事实</h2><p className="mt-1 text-[12px] text-ql-fg-tertiary">逐资源查看请求、真实 Token、费用、Coding Plan 利用率、最近使用和预算。</p></div>
+      <div><h2 className="text-[15px] font-semibold">资源利用事实</h2></div>
       <input aria-label="资源利用月份" className="ql-input" onChange={(event) => setMonth(event.target.value)} type="month" value={month}/>
     </div>
     <QueryGate emptyDescription="登记并产生资源事实后显示利用率。" emptyIcon={Gauge} emptyTitle="暂无资源利用数据" error={query.error} isEmpty={rows.length === 0} isLoading={query.isLoading} onRetry={() => void query.refetch()}>
-      <div className="overflow-x-auto"><table className="w-full min-w-[68rem] text-left text-[12px]"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th className="py-2">资源</th><th>形态</th><th className="text-right">请求 / 真实 Token</th><th className="text-right">费用 / 余额</th><th>利用率</th><th>订阅周期</th><th>最近使用 / 无调用</th><th>预算</th></tr></thead><tbody>{rows.map((row) => {
+      <div className="overflow-x-auto"><table className="w-full min-w-[68rem] text-left text-[12px] [&_th]:pr-4 [&_td]:pr-4"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th scope="col" className="py-2">资源</th><th scope="col">形态</th><th scope="col" className="text-right">请求 / 真实 Token</th><th scope="col" className="text-right">费用 / 余额</th><th scope="col">利用率（近三月均值）</th><th scope="col">订阅周期</th><th scope="col">最近使用 / 无调用</th><th scope="col">预算</th></tr></thead><tbody>{rows.map((row) => {
         return <tr className="border-b border-ql-border-zone align-top" key={row.resourceId}>
           <td className="py-2 font-medium">{row.providerName} · {row.resourceName}</td>
           <td>{row.mode === "API" ? "API" : "Coding Plan"}</td>
-          <td className="text-right font-mono">{row.requestCount} / {Number(row.realTokens).toLocaleString()}</td>
+          <td className="text-right font-mono">{row.requestCount} / {formatCount(row.realTokens)}</td>
           <td className="text-right font-mono">{row.mode === "API" ? <>{row.apiCost === null ? "API 花费不可计算" : `${row.currency ?? "CNY"} ${formatMoney(row.apiCost)}`}{row.currentBalance === null ? null : <span className="block text-[10px] text-ql-fg-tertiary">余额 {row.currency ?? "CNY"} {formatMoney(row.currentBalance)}</span>}</> : <>{row.packageCost === null ? "套餐费用未知" : `${row.currency ?? "CNY"} ${formatMoney(row.packageCost)}`}<span className="block text-[10px] text-ql-fg-tertiary">订阅额度 {row.totalQuota === null ? "待补" : `${formatCount(row.totalQuota)} ${row.quotaUnit ?? ""}`}</span></>}</td>
           <td>{utilizationDisplay(row)}</td>
           <td>{subscriptionDisplay(row)}</td>

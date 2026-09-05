@@ -25,9 +25,9 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1180px] table-fixed border-collapse text-left">
             <colgroup>
-              <col className="w-[9%]" /><col className="w-[13%]" /><col className="w-[5%]" />
-              <col className="w-[15%]" /><col className="w-[14%]" /><col className="w-[10%]" />
-              <col className="w-[8%]" /><col className="w-[12%]" /><col className="w-[14%]" />
+              <col className="w-[10%]" /><col className="w-[15%]" /><col className="w-[6%]" />
+              <col className="w-[19%]" /><col className="w-[14%]" />
+              <col className="w-[9%]" /><col className="w-[12%]" /><col className="w-[15%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
@@ -36,7 +36,6 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                 <th className="py-2 pr-4 font-medium">模式</th>
                 <th className="py-2 pr-4 font-medium">资金 / 额度数据</th>
                 <th className="py-2 pr-4 font-medium">数据时间</th>
-                <th className="py-2 pr-4 font-medium">凭证指纹</th>
                 <th className="py-2 pr-4 font-medium">状态</th>
                 <th className="py-2 pr-4 font-medium">创建时间</th>
                 <th className="py-2 text-right font-medium">操作</th>
@@ -79,9 +78,6 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                         )}</span></>
                         : "—"}
                     </span>
-                  </td>
-                  <td className="py-2.5 pr-4 font-mono text-[12px] text-ql-fg-tertiary">
-                    {r.credential_fingerprint ?? "—"}
                   </td>
                   <td className="py-2.5 pr-4">
                     {r.status === "ACTIVE" ? (

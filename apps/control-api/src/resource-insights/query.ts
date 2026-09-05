@@ -113,7 +113,7 @@ interface RawUtilizationRow {
 export async function listResourceUtilization(
   db: Kysely<Database>,
   enterpriseId: string,
-  month: string,
+  month: string, asOf?: Date,
 ): Promise<ResourceUtilizationRow[]> {
   const monthStart = `${month}-01`;
   const result = await sql<RawUtilizationRow>`
@@ -138,6 +138,7 @@ export async function listResourceUtilization(
        WHERE ll.enterprise_id = ${enterpriseId}::uuid
          AND COALESCE(ll.settled_at,ll.created_at) >= b.started_at
          AND COALESCE(ll.settled_at,ll.created_at) < b.ended_at
+         ${asOf ? sql`AND COALESCE(ll.settled_at,ll.created_at) <= ${asOf}` : sql``}
        GROUP BY ll.provider_resource_id
     ), purchases AS (
       SELECT rpr.provider_resource_id,

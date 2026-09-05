@@ -1,0 +1,92 @@
+{
+  "base": "6e4fb4b37e99ba0290f19c13a011adf53a34d1c0",
+  "requiredIndependence": "I1 per explicit user instruction",
+  "scope": "provider-module implementation and tests",
+  "digest": "cddfb2bf82a285dcafc965d4106beec9e1e6beb2b38d7573f01af92f0f0755e2",
+  "files": [
+    {
+      "path": "apps/control-api/src/__tests-integration__/provider-review.test.ts",
+      "sha256": "4a1e474121e7368760ef7ae17d6123772deddc75f6b9a4fdd2520de88d51145b"
+    },
+    {
+      "path": "apps/control-api/src/resource-insights/query.ts",
+      "sha256": "ea4748a2a88e0ef6b0f058a7c5935cc8ae47252129c16ac34ea5220bffc52d46"
+    },
+    {
+      "path": "apps/control-api/src/resource-insights/routes.ts",
+      "sha256": "2acb8c809a055ef089f4d59f2809fa7b514e72f6e820cce3252d214611ea7c08"
+    },
+    {
+      "path": "apps/control-api/src/resource-insights/token-utilization.ts",
+      "sha256": "c0aa520e54e364fd62ed682d8748d2bfb8914c90be966bc115e8818f3b496e25"
+    },
+    {
+      "path": "apps/web/e2e/provider-review.spec.ts",
+      "sha256": "f99eec3e47dc0f8b81144c60f6dffe0c36707afb8a42b80a89074ee7f9598abe"
+    },
+    {
+      "path": "apps/web/e2e/wt-web.spec.ts",
+      "sha256": "78faa8a7b8199178542fae3ec697e68f1aa556f39d01808ab9dae1098f80cbf3"
+    },
+    {
+      "path": "apps/web/src/api/v2-types.ts",
+      "sha256": "0b1eed4bf731ec47282d1c909bd5a469e0180adc24bae5074e37614649bb0bcf"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalAccessConfigPanel.test.tsx",
+      "sha256": "ef290ce578210a909e5b7a4278ee0649f6faa24a339a156f2f2502503760eda3"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalAccessConfigPanel.tsx",
+      "sha256": "589bdab87c3adffb5c882b70dae6a5eece9b57081ead0a6022ae788bf02f2966"
+    },
+    {
+      "path": "apps/web/src/components/resources/QuotaWindowPanel.tsx",
+      "sha256": "e8c1315375765448730e0e6d638718840c2eae08a9c41e69c3c76dd4a3e0ebf6"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceHealthPanel.tsx",
+      "sha256": "b76f09458977bddfe891b7f5297fd670b4c6488be059346b33efd2064c16be86"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceOtherTabs.tsx",
+      "sha256": "a313f5399fe41cee3e985820df87e730942c4d85f9108ef5ffe9807097a34d7b"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceTable.tsx",
+      "sha256": "5fe43e19c2e09f3f98f5b4fbf350a3055c47bdbfe5e987aad0ffa04a707c6d96"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceUsageOverviewPanel.test.tsx",
+      "sha256": "d6b71a681ef5a9c0ced66b016f7ad6b2f3683f31d4be05844a20b67eedf1d1f0"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceUsageOverviewPanel.tsx",
+      "sha256": "919564fd985ad8ac4cabe89ebde0d7c9dd33f2128b46d3dc615284ea4c2cc75a"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceUtilizationPanel.test.tsx",
+      "sha256": "1bc2569845a4b891c9377f7b7a8836d5f6c740cb286b550656780f021ab4288b"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceUtilizationPanel.tsx",
+      "sha256": "1d471feca7ebf30a5566122202925a21ea7ce8df82c7b1cb4395565eb64fb947"
+    },
+    {
+      "path": "apps/web/src/components/resources/resource-page-display.test.tsx",
+      "sha256": "7cfd51014aab0a0755a5d941f7f697409b67a331e410c76452ae03ca0492c47c"
+    },
+    {
+      "path": "apps/web/src/components/resources/resource-page-display.tsx",
+      "sha256": "e0cac5b1630cc40da50906a883625477ae194d50b59a49f8d797d552f7b91337"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts",
+      "sha256": "2069126d8927f970d3e75a28ea434e6b714b1eeea659ca73946c9e1bc0a6a875"
+    },
+    {
+      "path": "packages/database/src/repositories/dashboard-breakdown.ts",
+      "sha256": "8e06ed540355b480c00e67cb88fa8ef25feaf7dbc4635cca12edeb289ee1251c"
+    }
+  ]
+}

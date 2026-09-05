@@ -21,10 +21,6 @@ export function ResourceFinanceDisplay({ resource }: { resource: ProviderResourc
         ? `${formatCount(finance.currentPeriod.totalQuota)} ${finance.currentPeriod.quotaUnit ?? ""}`
         : "待补"}</span>
       <span className="block">本月订阅实付 ¥{formatMoney(finance.monthlyPlanCashCny)}</span>
-      <span className="block">周期已扣减 {finance.currentPeriod
-        ? finance.currentPeriod.deductedQuota === null ? "事实不完整"
-          : formatCount(finance.currentPeriod.deductedQuota)
-        : "无有效周期"}</span>
       <span className="block">周期真实 Token {finance.currentPeriod ? formatCount(finance.currentPeriod.trueTokens) : "无有效周期"}</span>
       <span className="block">{finance.currentPeriod ? `${formatShanghaiDate(finance.currentPeriod.periodStart)} ～ ${formatShanghaiDate(finance.currentPeriod.periodEndExclusive)}` : "—"}</span>
     </span>;

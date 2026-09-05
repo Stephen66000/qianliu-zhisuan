@@ -379,6 +379,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     await db.insertInto("principal_grant").values({
       enterprise_id: enterpriseId, principal_id: principalId,
       provider: "pool20-051", model_alias: "ql-pool20-051", quota_value: 1_000n,
+      valid_from: new Date("2026-08-01T00:00:00+08:00"),
     }).execute();
     const usedAt = new Date(now.getTime() - 30 * 60 * 1000);
     await addLine({
