@@ -35,7 +35,7 @@ function resource(overrides: Partial<ResourceUtilization>): ResourceUtilization 
     tokenUtilization: {
       currentMonthTokens, trailingThreeMonthAverageTokens: "10000000",
       baselineMonths: ["2026-05", "2026-06", "2026-07"], baselineMonthCount: 3,
-      rate: String(Number(currentMonthTokens) / 10000000), basis: "CURRENT_MONTH_VS_PREVIOUS_3_COMPLETE_MONTHS", unavailableReason: null,
+      rate: String(Number(currentMonthTokens) / 10000000), basis: "CURRENT_MONTH_VS_UP_TO_3_COMPLETE_MONTHS", unavailableReason: null,
     },
     apiCost: "12.50000000",
     deductedQuota: "0",
@@ -178,7 +178,7 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).getByText("CNY 12.50")).toBeInTheDocument();
     expect(within(row).getByText("余额 CNY 87.50")).toBeInTheDocument();
     expect(within(row).queryByText("0.0%")).not.toBeInTheDocument();
-    expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("近三月月均 Token 10,000,000"));
+    expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("近 3 个完整月月均 Token 10,000,000"));
     expect(within(row).getByText("1 / 9,000,000")).toBeInTheDocument();
     expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 9,000,000"));
     expect(within(row).getByText(/距最近使用 2 天/)).toBeInTheDocument();
@@ -267,11 +267,26 @@ describe("W20-08 资源利用事实 Web", () => {
   it.each(["INSUFFICIENT_HISTORY", "ZERO_BASELINE"] as const)("%s 显示占位及悬停原因，不回退旧额度利用率", (reason) => {
     const row = resource({ utilizationRate: "0.7" });
     row.tokenUtilization = { ...row.tokenUtilization!, rate: null, unavailableReason: reason,
+      baselineMonths: reason === "ZERO_BASELINE" ? ["2026-08"] : [],
+      baselineMonthCount: reason === "ZERO_BASELINE" ? 1 : 0,
       trailingThreeMonthAverageTokens: reason === "ZERO_BASELINE" ? "0" : null };
     useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
     renderPanel();
-    expect(screen.getByTitle(new RegExp(reason === "ZERO_BASELINE" ? "近三月月均为 0" : "历史不足三个完整自然月"))).toHaveTextContent("—");
+    expect(screen.getByTitle(new RegExp(reason === "ZERO_BASELINE" ? "历史月均为 0" : "暂无完整历史自然月"))).toHaveTextContent("—");
     expect(screen.queryByText("70.0%")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [1, ["2026-08"], "近 1 个完整月月均 Token"],
+    [2, ["2026-07", "2026-08"], "近 2 个完整月月均 Token"],
+    [3, ["2026-06", "2026-07", "2026-08"], "近 3 个完整月月均 Token"],
+  ])("使用 %s 个完整历史月时悬停说明实际分母", (count, months, label) => {
+    const row = resource({});
+    row.tokenUtilization = { ...row.tokenUtilization!, baselineMonthCount: count,
+      baselineMonths: months, trailingThreeMonthAverageTokens: "10000000" };
+    useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
+    renderPanel();
+    expect(screen.getByText("90.0%")).toHaveAttribute("title", expect.stringContaining(label));
   });
 
   it("月均 Token 为小数时悬停不截断为 0", () => {
@@ -280,7 +295,7 @@ describe("W20-08 资源利用事实 Web", () => {
       trailingThreeMonthAverageTokens: "0.33333333", rate: "3" };
     useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
     renderPanel();
-    expect(screen.getByText("300.0%")).toHaveAttribute("title", expect.stringContaining("近三月月均 Token 0.33333333"));
+    expect(screen.getByText("300.0%")).toHaveAttribute("title", expect.stringContaining("近 3 个完整月月均 Token 0.33333333"));
   });
 
   it.each([

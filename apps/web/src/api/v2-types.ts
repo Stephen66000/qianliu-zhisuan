@@ -107,10 +107,10 @@ export interface UsageOverview {
 export interface TokenUtilization {
   currentMonthTokens: string;
   trailingThreeMonthAverageTokens: string | null;
-  baselineMonths: [string, string, string];
+  baselineMonths: string[];
   baselineMonthCount: number;
   rate: string | null;
-  basis: "CURRENT_MONTH_VS_PREVIOUS_3_COMPLETE_MONTHS";
+  basis: "CURRENT_MONTH_VS_UP_TO_3_COMPLETE_MONTHS";
   unavailableReason: "INSUFFICIENT_HISTORY" | "ZERO_BASELINE" | null;
 }
 

@@ -17,10 +17,12 @@ function currentMonth(): string {
 function utilizationDisplay(row: ResourceUtilization) {
   const fact = row.tokenUtilization;
   if (!fact) return <span title="暂无利用率数据">—</span>;
-  const reason = fact.unavailableReason === "INSUFFICIENT_HISTORY" ? "历史不足三个完整自然月"
-    : fact.unavailableReason === "ZERO_BASELINE" ? "近三月月均为 0" : null;
+  const reason = fact.unavailableReason === "INSUFFICIENT_HISTORY" ? "暂无完整历史自然月"
+    : fact.unavailableReason === "ZERO_BASELINE" ? "历史月均为 0" : null;
   const average = fact.trailingThreeMonthAverageTokens === null ? "—" : formatTokenAverage(fact.trailingThreeMonthAverageTokens);
-  const title = `本月真实 Token ${formatCount(fact.currentMonthTokens)} / 近三月月均 Token ${average}（${fact.baselineMonths.join("、")}）${reason ? `；${reason}` : ""}`;
+  const monthLabel = fact.baselineMonthCount > 0 ? `近 ${fact.baselineMonthCount} 个完整月` : "历史完整月";
+  const months = fact.baselineMonths.length > 0 ? `（${fact.baselineMonths.join("、")}）` : "";
+  const title = `本月真实 Token ${formatCount(fact.currentMonthTokens)} / ${monthLabel}月均 Token ${average}${months}${reason ? `；${reason}` : ""}`;
   return <span title={title}>{fact.rate === null ? "—" : utilizationPercent(fact.rate)}</span>;
 }
 
@@ -89,7 +91,7 @@ export function ResourceUtilizationPanel({ resources: _resources }: { resources:
       <input aria-label="资源利用月份" className="ql-input" onChange={(event) => setMonth(event.target.value)} type="month" value={month}/>
     </div>
     <QueryGate emptyDescription="登记并产生资源事实后显示利用率。" emptyIcon={Gauge} emptyTitle="暂无资源利用数据" error={query.error} isEmpty={rows.length === 0} isLoading={query.isLoading} onRetry={() => void query.refetch()}>
-      <div className="overflow-x-auto"><table className="w-full min-w-[68rem] text-left text-[12px] [&_th]:pr-4 [&_td]:pr-4"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th scope="col" className="py-2">资源</th><th scope="col">形态</th><th scope="col" className="text-right">请求 / 真实 Token</th><th scope="col" className="text-right">费用 / 余额</th><th scope="col">利用率（近三月均值）</th><th scope="col">订阅周期</th><th scope="col">最近使用 / 无调用</th><th scope="col">预算</th></tr></thead><tbody>{rows.map((row) => {
+      <div className="overflow-x-auto"><table className="w-full min-w-[68rem] text-left text-[12px] [&_th]:pr-4 [&_td]:pr-4"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th scope="col" className="py-2">资源</th><th scope="col">形态</th><th scope="col" className="text-right">请求 / 真实 Token</th><th scope="col" className="text-right">费用 / 余额</th><th scope="col">利用率（近月均值）</th><th scope="col">订阅周期</th><th scope="col">最近使用 / 无调用</th><th scope="col">预算</th></tr></thead><tbody>{rows.map((row) => {
         return <tr className="border-b border-ql-border-zone align-top" key={row.resourceId}>
           <td className="py-2 font-medium">{row.providerName} · {row.resourceName}</td>
           <td>{row.mode === "API" ? "API" : "Coding Plan"}</td>

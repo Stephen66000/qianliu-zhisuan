@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 厂商模块复盘修复：在 Mac Mini 从 e2e77e1 原位发布无迁移应用候选。
+# 厂商模块复盘修复：从已部署的首轮候选原位发布利用率口径修正。
 
 set -Eeuo pipefail
 umask 077
@@ -9,7 +9,7 @@ if test "${1:-}" = "--check-contract"; then
   test "$#" = 1
   bash -n "$0"
   grep -q 'candidate_ref="refs/heads/codex/provider-module-review-20260905"' "$0"
-  grep -q 'source_commit="e2e77e1d753e0667b105118e99b5d5d055fc1ec6"' "$0"
+  grep -q 'source_commit="405dc5f431fac0c46694990fc245f1f8ecdc8278"' "$0"
   grep -q 'expected_migration="0063_operating_snapshot_subscription_period"' "$0"
   echo "release_contract_check=PASS"
   exit 0
@@ -22,7 +22,7 @@ repo_url="git@github.com:Stephen66000/qianliu-zhisuan.git"
 candidate_ref="refs/heads/codex/provider-module-review-20260905"
 candidate_commit="${CANDIDATE_COMMIT:?请传入已审核候选的完整 Commit SHA}"
 candidate_tree="${CANDIDATE_TREE:?请传入已审核候选的完整 Tree SHA}"
-source_commit="e2e77e1d753e0667b105118e99b5d5d055fc1ec6"
+source_commit="405dc5f431fac0c46694990fc245f1f8ecdc8278"
 expected_migration="0063_operating_snapshot_subscription_period"
 server_root="${QIANLIU_SERVER_HOME:-/Users/stephen}"
 current_pointer="${server_root}/qianliu-current-release.txt"

@@ -100,7 +100,7 @@ test("厂商模块复盘：真实接口与页面一致、四 Tab 按需加载、
     if (request.url().includes("/provider-resources/usage-overview")) overviewRequests.push(request.url());
   });
   await page.goto("/resources");
-  await expect(page.getByRole("columnheader", { name: "利用率（近三月均值）" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "利用率（近月均值）" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "凭证指纹" })).toHaveCount(0);
   await expect(page.getByText(/逐资源查看请求|按登记事实展示/)).toHaveCount(0);
   const month = await page.getByLabel("资源利用月份").inputValue();
@@ -108,7 +108,7 @@ test("厂商模块复盘：真实接口与页面一致、四 Tab 按需加载、
   expect(usage.resources.length).toBeGreaterThan(0);
   for (const resource of usage.resources) {
     const fact = resource.tokenUtilization!;
-    expect(fact.basis).toBe("CURRENT_MONTH_VS_PREVIOUS_3_COMPLETE_MONTHS");
+    expect(fact.basis).toBe("CURRENT_MONTH_VS_UP_TO_3_COMPLETE_MONTHS");
     const row = page.locator("#resource-utilization").getByRole("row")
       .filter({ has: page.getByText(`${resource.providerName} · ${resource.resourceName}`, { exact: true }) });
     const rate = row.locator("td").nth(4);

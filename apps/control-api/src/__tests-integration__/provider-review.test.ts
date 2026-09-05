@@ -73,7 +73,7 @@ it("API 和套餐一次批量聚合四个月真实 Token，旧扣减和预算不
   for (const target of [api, plan]) expect(facts.get(target.id)).toEqual({
     currentMonthTokens: "9000000", trailingThreeMonthAverageTokens: "10000000.00000000",
     baselineMonths: ["2026-06", "2026-07", "2026-08"], baselineMonthCount: 3,
-    rate: "0.90000000", basis: "CURRENT_MONTH_VS_PREVIOUS_3_COMPLETE_MONTHS", unavailableReason: null,
+    rate: "0.90000000", basis: "CURRENT_MONTH_VS_UP_TO_3_COMPLETE_MONTHS", unavailableReason: null,
   });
 });
 
@@ -93,19 +93,33 @@ it("企业自然月及结算边界准确；当前月仅计算截止当前的记�
   expect(history.get(target.id)?.currentMonthTokens).toBe("60");
 });
 
-it("无调用月份计零，历史不足和零分母不伪造百分比，本月零用量为 0%", async () => {
+it("按可用的一个或两个完整月计算，零用量月计入均值", async () => {
   const idleMonth = await resource();
   await line(idleMonth, 300n, "2026-07-02T00:00:00Z");
-  const empty = await resource();
-  const young = await resource("CODING_PLAN", "2026-06-02T00:00:00Z");
-  await line(young, 300n, "2026-07-02T00:00:00Z");
+  const oneMonth = await resource("API", "2026-07-29T00:00:00Z");
+  await line(oneMonth, 900n, "2026-07-30T00:00:00Z"); // 注册月不完整，不进入分母
+  await line(oneMonth, 300n, "2026-08-02T00:00:00Z");
+  await line(oneMonth, 150n, "2026-09-02T00:00:00Z");
+  const twoMonths = await resource("CODING_PLAN", "2026-06-02T00:00:00Z");
+  await line(twoMonths, 300n, "2026-07-02T00:00:00Z");
+  await line(twoMonths, 300n, "2026-09-02T00:00:00Z");
   const facts = await loadResourceTokenUtilization(db, enterpriseId, "2026-09", now);
   expect(facts.get(idleMonth.id)).toMatchObject({ rate: "0.00000000",
     trailingThreeMonthAverageTokens: "100.00000000", unavailableReason: null });
-  expect(facts.get(empty.id)).toMatchObject({ rate: null, baselineMonthCount: 3,
-    trailingThreeMonthAverageTokens: "0.00000000", unavailableReason: "ZERO_BASELINE" });
-  expect(facts.get(young.id)).toMatchObject({ rate: null, baselineMonthCount: 2,
-    trailingThreeMonthAverageTokens: null, unavailableReason: "INSUFFICIENT_HISTORY" });
+  expect(facts.get(oneMonth.id)).toMatchObject({ baselineMonths: ["2026-08"], baselineMonthCount: 1,
+    trailingThreeMonthAverageTokens: "300.00000000", rate: "0.50000000", unavailableReason: null });
+  expect(facts.get(twoMonths.id)).toMatchObject({ baselineMonths: ["2026-07", "2026-08"], baselineMonthCount: 2,
+    trailingThreeMonthAverageTokens: "150.00000000", rate: "2.00000000", unavailableReason: null });
+});
+
+it("没有完整历史月或可用历史月均为零时才不计算", async () => {
+  const noFullMonth = await resource("API", "2026-09-01T00:00:00Z");
+  const zeroBaseline = await resource("CODING_PLAN", "2026-07-29T00:00:00Z");
+  const facts = await loadResourceTokenUtilization(db, enterpriseId, "2026-09", now);
+  expect(facts.get(noFullMonth.id)).toMatchObject({ baselineMonths: [], baselineMonthCount: 0,
+    trailingThreeMonthAverageTokens: null, rate: null, unavailableReason: "INSUFFICIENT_HISTORY" });
+  expect(facts.get(zeroBaseline.id)).toMatchObject({ baselineMonths: ["2026-08"], baselineMonthCount: 1,
+    trailingThreeMonthAverageTokens: "0.00000000", rate: null, unavailableReason: "ZERO_BASELINE" });
 });
 
 it("不同企业时区与年度切换、租户隔离", async () => {
