@@ -370,6 +370,151 @@ describe("provider finance routes", () => {
     });
   });
 
+  it("保存额度配置后立即更新当前订阅周期，并继承登记金额", async () => {
+    const resources = await app.inject({ method: "GET",
+      url: "/provider-resources", headers: { cookie } });
+    const resource = resources.json().resources.find(
+      (item: { id: string }) => item.id === planResourceId,
+    );
+    const saved = await app.inject({ method: "PATCH",
+      url: `/provider-resources/${planResourceId}`, headers: { cookie },
+      payload: { expected_version: resource.version, operating_snapshot: {
+        source: "ADMIN", collected_at: new Date().toISOString(),
+        package_name: "Kimi Coding Plan", total_quota: "3000", quota_unit: "TOKEN",
+        reset_cycle: "MONTHLY", reset_anchor_at: "2026-10-01T16:00:00.000Z",
+      } } });
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect(saved.json().resource.operating_snapshot).toMatchObject({
+      version: 2, source: "ADMIN", package_name: "Kimi Coding Plan",
+      package_cost: "199.00000000", currency: "CNY",
+      total_quota: "3000.00000000", quota_unit: "TOKEN",
+      effective_from: "2026-09-01T16:00:00.000Z",
+      effective_until: "2026-10-01T16:00:00.000Z",
+      usage_calculation: "SYSTEM_LEDGER",
+    });
+    const history = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(["version", "total_quota", "package_cost", "effective_from", "effective_until"])
+      .where("provider_resource_id", "=", planResourceId).orderBy("version").execute();
+    expect(history).toEqual([
+      { version: 1, total_quota: "1000.00000000", package_cost: null,
+        effective_from: new Date("2026-09-01T16:00:00.000Z"),
+        effective_until: new Date("2026-10-01T16:00:00.000Z") },
+      { version: 2, total_quota: "3000.00000000", package_cost: "199.00000000",
+        effective_from: new Date("2026-09-01T16:00:00.000Z"),
+        effective_until: new Date("2026-10-01T16:00:00.000Z") },
+    ]);
+
+    const finance = await app.inject({ method: "GET",
+      url: "/provider-finance/resources?month=2026-09", headers: { cookie } });
+    expect(finance.json().resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceId: planResourceId,
+        currentPeriod: expect.objectContaining({ fixedFeeAmount: "199.00000000",
+          totalQuota: "3000.00000000", deductedQuota: "450" }) }),
+    ]));
+    const utilization = await app.inject({ method: "GET",
+      url: "/provider-resources/utilization?month=2026-09", headers: { cookie } });
+    expect(utilization.json().resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceId: planResourceId, packageCost: "199.00000000",
+        totalQuota: "3000", usedQuota: "450", remainingQuota: "2550",
+        utilizationRate: "0.15000000" }),
+    ]));
+    const overview = await app.inject({ method: "GET",
+      url: "/provider-resources/usage-overview", headers: { cookie } });
+    expect(overview.json().providerSummaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ providerCode: "deepseek", mode: "CODING_PLAN",
+        packageCost: "199.00000000", totalQuota: "3000.00000000",
+        usedQuota: "450.00000000", remainingQuota: "2550.00000000" }),
+    ]));
+  });
+
+  it("历史迁移周期的新额度保存后取代无周期配置", async () => {
+    const provider = await db.selectFrom("provider_resource").select("provider_id")
+      .where("id", "=", planResourceId).executeTakeFirstOrThrow();
+    const resourceId = randomUUID();
+    await db.insertInto("provider_resource").values({
+      id: resourceId, enterprise_id: enterpriseId, provider_id: provider.provider_id,
+      name: "Migrated Kimi", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION",
+    }).execute();
+    const sourceSnapshotId = randomUUID();
+    await db.insertInto("provider_resource_operating_snapshot").values([
+      { id: sourceSnapshotId, enterprise_id: enterpriseId,
+        provider_resource_id: resourceId, version: 1,
+        source: "ADMIN", collected_at: new Date("2026-08-03T00:00:00.000Z"),
+        currency: "CNY", package_name: "Kimi Coding Plan", package_cost: "199",
+        total_quota: "300000000", quota_unit: "TOKEN",
+        effective_from: new Date("2026-08-18T16:00:00.000Z"),
+        effective_until: new Date("2026-09-18T16:00:00.000Z"),
+        reset_cycle: "MONTHLY", reset_anchor_at: new Date("2026-09-18T16:00:00.000Z"),
+        usage_calculation: "SYSTEM_LEDGER" },
+      { enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 2,
+        source: "ADMIN", collected_at: new Date("2026-09-04T11:27:01.000Z"),
+        package_name: "Kimi Coding Plan", package_cost: null,
+        total_quota: "3000000000", quota_unit: "TOKEN",
+        effective_from: null, effective_until: null,
+        reset_cycle: "MONTHLY", reset_anchor_at: new Date("2026-09-18T16:00:00.000Z"),
+        usage_calculation: "SYSTEM_LEDGER" },
+    ]).execute();
+    await db.insertInto("provider_subscription_period").values({
+      enterprise_id: enterpriseId, provider_resource_id: resourceId,
+      finance_event_id: null, product_name: "Kimi Coding Plan",
+      period_start: new Date("2026-08-18T16:00:00.000Z"),
+      period_end_exclusive: new Date("2026-09-18T16:00:00.000Z"),
+      source: "MIGRATED_CARRYOVER", migration_source_record_id: sourceSnapshotId,
+      created_by_admin_user_id: adminId,
+    }).execute();
+    const resource = await db.selectFrom("provider_resource").select("version")
+      .where("id", "=", resourceId).executeTakeFirstOrThrow();
+    const saved = await app.inject({ method: "PATCH",
+      url: `/provider-resources/${resourceId}`, headers: { cookie },
+      payload: { expected_version: resource.version, operating_snapshot: {
+        source: "ADMIN", collected_at: new Date().toISOString(),
+        package_name: "Kimi Coding Plan", total_quota: "3000000000", quota_unit: "TOKEN",
+        reset_cycle: "MONTHLY", reset_anchor_at: "2026-09-18T16:00:00.000Z",
+      } } });
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect(saved.json().resource.operating_snapshot).toMatchObject({
+      version: 3, package_cost: "199.00000000", currency: "CNY",
+      total_quota: "3000000000.00000000",
+      effective_from: "2026-08-18T16:00:00.000Z",
+      effective_until: "2026-09-18T16:00:00.000Z",
+      subscription_period_id: expect.any(String),
+    });
+    const finance = await app.inject({ method: "GET",
+      url: "/provider-finance/resources?month=2026-09", headers: { cookie } });
+    expect(finance.json().resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceId,
+        currentPeriod: expect.objectContaining({ fixedFeeAmount: "199.00000000",
+          totalQuota: "3000000000.00000000" }) }),
+    ]));
+  });
+
+  it("没有当前订阅周期时拒绝保存额度，不留半成品", async () => {
+    const provider = await db.selectFrom("provider_resource").select("provider_id")
+      .where("id", "=", planResourceId).executeTakeFirstOrThrow();
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: enterpriseId, provider_id: provider.provider_id,
+      name: "No current period", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION",
+    }).returning(["id", "version"]).executeTakeFirstOrThrow();
+    const response = await app.inject({ method: "PATCH",
+      url: `/provider-resources/${resource.id}`, headers: { cookie },
+      payload: { expected_version: resource.version, operating_snapshot: {
+        source: "ADMIN", collected_at: new Date().toISOString(),
+        package_name: "No period", total_quota: "1000", quota_unit: "TOKEN",
+        reset_cycle: "MONTHLY", reset_anchor_at: "2026-09-18T16:00:00.000Z",
+      } } });
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({
+      error: "current_subscription_period_required",
+      message: "当前没有有效订阅周期，请先在充值与订阅中登记当前周期",
+    });
+    expect(await db.selectFrom("provider_resource").select("version")
+      .where("id", "=", resource.id).executeTakeFirstOrThrow()).toEqual({
+      version: resource.version,
+    });
+    expect(await db.selectFrom("provider_resource_operating_snapshot").select("id")
+      .where("provider_resource_id", "=", resource.id).execute()).toHaveLength(0);
+  });
+
   it("requires and consumes a persisted duplicate confirmation", async () => {
     const base = { account_currency: "CNY", account_amount: "4", cash_paid_cny: "4",
       occurred_at: "2026-09-02T07:00:00.000Z" };

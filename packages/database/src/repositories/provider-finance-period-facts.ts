@@ -51,7 +51,7 @@ export async function loadSubscriptionPeriodUsage(
 
 export async function loadLegacySubscriptionFee(
   db: Kysely<Database>, enterpriseId: string, resourceId: string,
-  sourceSnapshotId: string | null, start: Date, end: Date,
+  periodId: string, sourceSnapshotId: string | null, start: Date, end: Date,
 ): Promise<{ amount: string | null; currency: FinanceCurrency } | null> {
   const result = await sql<{ amount: string | null; currency: FinanceCurrency }>`
     SELECT snapshot.package_cost::text AS amount,
@@ -61,8 +61,12 @@ export async function loadLegacySubscriptionFee(
      WHERE snapshot.enterprise_id=${enterpriseId}::uuid
        AND snapshot.provider_resource_id=${resourceId}::uuid
        AND snapshot.package_cost IS NOT NULL
-       AND (snapshot.id=${sourceSnapshotId}::uuid OR (${sourceSnapshotId}::uuid IS NULL
-         AND snapshot.effective_from<=${start} AND snapshot.effective_until>=${end}))
+       AND (snapshot.subscription_period_id=${periodId}::uuid OR (
+         snapshot.subscription_period_id IS NULL AND (
+           snapshot.id=${sourceSnapshotId}::uuid OR (${sourceSnapshotId}::uuid IS NULL
+             AND snapshot.effective_from<=${start} AND snapshot.effective_until>=${end})
+         )
+       ))
      ORDER BY snapshot.collected_at DESC, snapshot.version DESC
      LIMIT 1
   `.execute(db);

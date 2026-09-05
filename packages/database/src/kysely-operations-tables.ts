@@ -201,6 +201,7 @@ export interface ProviderResourceOperatingSnapshotTable {
   id: Generated<string>;
   enterprise_id: string;
   provider_resource_id: string;
+  subscription_period_id: Generated<string | null>;
   version: number;
   source: "ADMIN" | "PROVIDER_SYNC" | "BILL_RECONCILIATION";
   collected_at: Date;

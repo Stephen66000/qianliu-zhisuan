@@ -272,6 +272,7 @@ export {
 export {
   AdminWriteRepository,
   AdminRecoverNotFoundError,
+  CurrentSubscriptionPeriodRequiredError,
 } from "./repositories/admin-write-repository.js";
 export {
   AlertEventRepository,

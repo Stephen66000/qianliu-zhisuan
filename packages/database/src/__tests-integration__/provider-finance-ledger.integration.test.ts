@@ -206,6 +206,7 @@ describe("0059 provider finance ledger contract", () => {
   it("blocks destructive rollback after provider finance facts exist", async () => {
     const db = createKysely(pg.connectionString);
     try {
+      expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
       expect(await migrateDown(db)).toBe("0062_resource_fact_reconciliation");
       expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
       expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");

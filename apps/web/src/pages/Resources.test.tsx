@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as ApiClient from "../api/client";
 import type { ProviderResourceItem } from "../api/types";
+import { QUERY_KEYS } from "../api/hooks";
 import { ResourcesPage } from "./Resources";
 import { ProviderFinanceModeProvider } from "../feature-flags";
 import type { ProviderFinanceMode } from "../api/types";
@@ -31,6 +32,7 @@ vi.mock("../api/client", async (importOriginal) => {
 vi.mock("../api/hooks", () => ({
   QUERY_KEYS: {
     providerResources: ["provider-resources"],
+    resourceUsageOverview: ["provider-resources", "usage-overview"],
     providers: ["providers"],
     supplyForecasts: ["supply-forecasts"],
     dashboard: ["dashboard"],
@@ -98,13 +100,14 @@ async function detectModels(user: ReturnType<typeof userEvent.setup>) {
 }
 
 function renderPage(path = "/resources", financeMode: ProviderFinanceMode = "OFF") {
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return { ...render(
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
         <ProviderFinanceModeProvider value={financeMode}><ResourcesPage /></ProviderFinanceModeProvider>
       </MemoryRouter>
     </QueryClientProvider>,
-  );
+  ), queryClient };
 }
 
 describe("厂商资源四 Tab", () => {
@@ -315,9 +318,10 @@ describe("POOL-010 厂商经营快照", () => {
     });
   });
 
-  it("PATCH 使用 expected_version 追加快照，并展示 v2/v1 历史", async () => {
+  it("PATCH 使用 expected_version 保存配置，并展示 v2/v1 历史", async () => {
     const user = userEvent.setup();
-    renderPage();
+    const { queryClient } = renderPage();
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
     await user.click(screen.getByRole("button", { name: "更新额度配置" }));
     expect(await screen.findByText("v2 · ADMIN")).toBeInTheDocument();
     expect(screen.getByText("v1 · ADMIN")).toBeInTheDocument();
@@ -325,7 +329,8 @@ describe("POOL-010 厂商经营快照", () => {
     await user.type(screen.getByLabelText("厂商总额度"), "100");
     await user.selectOptions(screen.getByLabelText("重置周期"), "MONTHLY");
     await user.type(screen.getByLabelText("重置日期"), "2026-08-01T00:00");
-    await user.click(screen.getByRole("button", { name: "追加快照" }));
+    expect(screen.getByText("历史修改记录（倒序）")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "保存额度配置" }));
     await waitFor(() => expect(patchMock).toHaveBeenCalled());
     expect(patchMock).toHaveBeenCalledWith(
       `/provider-resources/${resource.id}`,
@@ -341,6 +346,18 @@ describe("POOL-010 厂商经营快照", () => {
     expect(payload).not.toHaveProperty("used_quota");
     expect(payload).not.toHaveProperty("remaining_quota");
     expect(payload).not.toHaveProperty("next_reset_at");
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["resource-utilization"],
+    }));
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: QUERY_KEYS.resourceUsageOverview,
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: QUERY_KEYS.supplyForecasts,
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["provider-finance"],
+    });
   });
 
   it("额度快照不再包含套餐费用和服务周期字段", async () => {
@@ -348,7 +365,7 @@ describe("POOL-010 厂商经营快照", () => {
     renderPage();
     await user.click(screen.getByRole("button", { name: "更新额度配置" }));
     await user.type(screen.getByLabelText("厂商总额度"), "100");
-    await user.click(screen.getByRole("button", { name: "追加快照" }));
+    await user.click(screen.getByRole("button", { name: "保存额度配置" }));
     await waitFor(() => expect(patchMock).toHaveBeenCalled());
     const payload = patchMock.mock.calls[0]?.[1].operating_snapshot;
     expect(payload).toMatchObject({ package_cost: null, effective_from: null,

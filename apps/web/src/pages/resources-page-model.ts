@@ -106,9 +106,15 @@ export function useResourcesPageModel() {
         expected_version: target.version,
         operating_snapshot: operatingPayload(operatingDraft, target.mode),
       }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceUsageOverview }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.supplyForecasts }),
+        queryClient.invalidateQueries({ queryKey: ["resource-utilization"] }),
+        queryClient.invalidateQueries({ queryKey: ["provider-finance"] }),
+      ]);
       setOperatingTarget(null);
       setOperatingHistory([]);
     },

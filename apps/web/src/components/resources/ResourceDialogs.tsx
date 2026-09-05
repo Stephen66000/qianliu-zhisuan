@@ -97,8 +97,8 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
             更新「{operatingTarget.name}」经营数据
           </h2>
           <p className="mt-1 text-[12px] text-ql-fg-tertiary">
-            只需维护购买事实和重置规则；系统根据当前周期账本自动统计已用、剩余与下一重置日期。
-            保存会追加配置快照，旧周期和历史账本不重算。
+            只需维护当前订阅额度和重置规则；系统根据当前周期账本自动统计已用、剩余与下一重置日期。
+            保存后立即作为当前订阅周期配置，历史修改记录和旧账本继续保留。
           </p>
           {operatingTarget.mode === "CODING_PLAN" ? (
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -175,7 +175,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
           </div>
           {operatingHistory.length > 0 ? (
             <div className="mt-4 overflow-x-auto">
-              <h3 className="mb-2 text-[13px] font-semibold text-ql-fg">历史配置快照（倒序）</h3>
+              <h3 className="mb-2 text-[13px] font-semibold text-ql-fg">历史修改记录（倒序）</h3>
               <table className="w-full text-left text-[12px]">
                 <thead>
                   <tr className="border-b border-ql-border text-ql-fg-tertiary">
@@ -228,7 +228,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
               disabled={operatingMutation.isPending}
               type="submit"
             >
-              {operatingMutation.isPending ? "保存中…" : "追加快照"}
+              {operatingMutation.isPending ? "保存中…" : "保存额度配置"}
             </button>
           </div>
         </form>

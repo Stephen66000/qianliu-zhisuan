@@ -270,6 +270,7 @@ export interface UnifiedModel {
 export interface ProviderResourceOperatingSnapshot {
   id: string;
   provider_resource_id: string;
+  subscription_period_id?: string | null;
   version: number;
   source: "ADMIN" | "PROVIDER_SYNC" | "BILL_RECONCILIATION";
   collected_at: string;

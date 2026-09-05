@@ -108,11 +108,12 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
                WHERE snapshot.enterprise_id=period.enterprise_id
                  AND snapshot.provider_resource_id=period.provider_resource_id
                  AND (snapshot.package_cost IS NOT NULL OR snapshot.total_quota IS NOT NULL)
-                 AND (snapshot.id=period.migration_source_record_id OR (
-                   period.migration_source_record_id IS NULL
-                   AND snapshot.effective_from<=period.period_start
-                   AND snapshot.effective_until>=period.period_end_exclusive
-                 ))
+                 AND (snapshot.subscription_period_id=period.id
+                   OR (snapshot.subscription_period_id IS NULL
+                     AND (snapshot.id=period.migration_source_record_id
+                       OR (period.migration_source_record_id IS NULL
+                         AND snapshot.effective_from<=period.period_start
+                         AND snapshot.effective_until>=period.period_end_exclusive))))
                ORDER BY snapshot.collected_at DESC, snapshot.version DESC
                LIMIT 1
             ) legacy ON true
@@ -347,7 +348,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
         ),
         row.fixed_fee_amount === null
           ? loadLegacySubscriptionFee(
-            trx, enterpriseId, resourceId, row.migration_source_record_id,
+            trx, enterpriseId, resourceId, row.id, row.migration_source_record_id,
             row.period_start, row.period_end_exclusive,
           ) : null,
       ]);

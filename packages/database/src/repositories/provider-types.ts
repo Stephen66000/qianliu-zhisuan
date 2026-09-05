@@ -112,6 +112,7 @@ export interface OperatingSnapshotInput {
   reset_timezone?: string | null;
   usage_calculation?: "MANUAL_SNAPSHOT" | "SYSTEM_LEDGER";
   next_reset_at?: Date | null;
+  subscription_period_id?: string | null;
 }
 
 export interface OnboardResourceModelsInput {

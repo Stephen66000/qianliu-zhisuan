@@ -257,6 +257,7 @@ describe("provider finance cutover rehearsal", () => {
       });
       expect(afterResolution.failures)
         .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_CLASSIFICATION_MISMATCH" }));
+      await expect(migrateDown(db)).resolves.toBe("0063_operating_snapshot_subscription_period");
       await expect(migrateDown(db)).resolves.toBe("0062_resource_fact_reconciliation");
       await expect(migrateDown(db)).rejects.toThrow(/0061 rollback blocked/);
     } finally {
@@ -267,6 +268,7 @@ describe("provider finance cutover rehearsal", () => {
   it("returns GO candidate only when opening, monthly and balance conservation are complete", async () => {
     const db = createKysely(pg.connectionString);
     try {
+      await migrateToLatest(db);
       const enterpriseId = randomUUID(); const adminId = randomUUID();
       const providerId = randomUUID(); const resourceId = randomUUID();
       await db.insertInto("enterprise").values({ id: enterpriseId, name: "Green Rehearsal" }).execute();

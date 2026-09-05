@@ -169,6 +169,7 @@ export abstract class ProviderOperatingRepository {
         reset_timezone: input.reset_timezone ?? null,
         usage_calculation: input.usage_calculation ?? "MANUAL_SNAPSHOT",
         next_reset_at: input.next_reset_at ?? null,
+        subscription_period_id: input.subscription_period_id ?? null,
       })
       .returningAll()
       .executeTakeFirstOrThrow();

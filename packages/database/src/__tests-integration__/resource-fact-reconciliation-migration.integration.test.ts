@@ -60,6 +60,7 @@ describe("0062 resource status event timestamp repair", () => {
       expect(events[2]!.created_at.getTime()).toBeGreaterThan(events[1]!.created_at.getTime());
       expect(events.slice(1).map((event) => event.time_reliable)).toEqual([true, true]);
 
+      expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
       expect(await migrateDown(db)).toBe("0062_resource_fact_reconciliation");
       const safeDefault = await sql<{ expression: string }>`
         SELECT pg_get_expr(def.adbin, def.adrelid) AS expression
