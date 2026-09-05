@@ -9,7 +9,7 @@ if test "${1:-}" = "--check-contract"; then
   test "$#" = 1
   bash -n "$0"
   grep -q 'candidate_ref="refs/heads/codex/provider-module-review-20260905"' "$0"
-  grep -q 'source_commit="405dc5f431fac0c46694990fc245f1f8ecdc8278"' "$0"
+  grep -q 'source_commit="acad686cc8876fa4b7322f945273e7c97a8f000f"' "$0"
   grep -q 'expected_migration="0063_operating_snapshot_subscription_period"' "$0"
   echo "release_contract_check=PASS"
   exit 0
@@ -22,7 +22,7 @@ repo_url="git@github.com:Stephen66000/qianliu-zhisuan.git"
 candidate_ref="refs/heads/codex/provider-module-review-20260905"
 candidate_commit="${CANDIDATE_COMMIT:?请传入已审核候选的完整 Commit SHA}"
 candidate_tree="${CANDIDATE_TREE:?请传入已审核候选的完整 Tree SHA}"
-source_commit="405dc5f431fac0c46694990fc245f1f8ecdc8278"
+source_commit="acad686cc8876fa4b7322f945273e7c97a8f000f"
 expected_migration="0063_operating_snapshot_subscription_period"
 server_root="${QIANLIU_SERVER_HOME:-/Users/stephen}"
 current_pointer="${server_root}/qianliu-current-release.txt"

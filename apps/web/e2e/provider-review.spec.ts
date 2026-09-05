@@ -100,7 +100,7 @@ test("厂商模块复盘：真实接口与页面一致、四 Tab 按需加载、
     if (request.url().includes("/provider-resources/usage-overview")) overviewRequests.push(request.url());
   });
   await page.goto("/resources");
-  await expect(page.getByRole("columnheader", { name: "利用率（近月均值）" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "利用率" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "凭证指纹" })).toHaveCount(0);
   await expect(page.getByText(/逐资源查看请求|按登记事实展示/)).toHaveCount(0);
   const month = await page.getByLabel("资源利用月份").inputValue();

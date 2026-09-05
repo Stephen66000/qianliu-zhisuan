@@ -1223,7 +1223,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
     await page.goto("/resources");
     await expect(page.getByRole("heading", { name: "资源利用事实" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "利用率（近月均值）" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "利用率" })).toBeVisible();
     await page.getByLabel("资源利用月份").fill("2026-08");
     const utilizationRow = page.locator("#resource-utilization")
       .getByRole("row", { name: /E2E 智谱主资源/ });

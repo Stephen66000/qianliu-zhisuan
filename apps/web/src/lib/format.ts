@@ -31,6 +31,23 @@ export function formatCount(value: string): string {
   }
 }
 
+/** 十进制展示：最多两位小数、半入舍入、去尾零并保留大整数精度。 */
+export function formatDecimal(value: string, maximumFractionDigits = 2): string {
+  const match = /^([+-]?)(\d+)(?:\.(\d*))?$/.exec(value);
+  if (!match || maximumFractionDigits < 0 || !Number.isInteger(maximumFractionDigits)) return value;
+  const sign = match[1] === "-" ? "-" : "";
+  const fraction = match[3] ?? "";
+  const scale = 10n ** BigInt(maximumFractionDigits);
+  let scaled = BigInt(match[2]!) * scale
+    + BigInt((fraction + "0".repeat(maximumFractionDigits)).slice(0, maximumFractionDigits) || "0");
+  if ((fraction[maximumFractionDigits] ?? "0") >= "5") scaled += 1n;
+  const integer = scaled / scale;
+  const decimals = maximumFractionDigits === 0 ? ""
+    : String(scaled % scale).padStart(maximumFractionDigits, "0").replace(/0+$/, "");
+  const displaySign = sign && scaled !== 0n ? sign : "";
+  return `${displaySign}${integer.toLocaleString("zh-CN")}${decimals ? `.${decimals}` : ""}`;
+}
+
 /** 超额比例：小数文本（"0.0500"）→ "5.00%"（展示层 ×100，仅格式转换）。 */
 export function formatRatioAsPercent(ratio: string): string {
   const num = Number(ratio);
@@ -79,9 +96,5 @@ export function formatDuration(ms: number): string {
 
 /** 速率（十进制字符串/小时）→ 千分位 + "/h"。 */
 export function formatRatePerHour(rate: string): string {
-  const num = Number(rate);
-  if (!Number.isFinite(num)) {
-    return rate;
-  }
-  return `${Math.trunc(num).toLocaleString("zh-CN")}/h`;
+  return `${formatDecimal(rate)}/h`;
 }

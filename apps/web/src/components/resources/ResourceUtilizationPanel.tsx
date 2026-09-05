@@ -5,7 +5,7 @@ import {
   useSaveResourceMonthlyBudget,
 } from "../../api/v2-hooks";
 import type { ProviderResourceItem } from "../../api/types";
-import { formatCount, formatMoney } from "../../lib/format";
+import { formatCount, formatDecimal, formatMoney } from "../../lib/format";
 import { QueryGate } from "../states/QueryGate";
 import { Gauge } from "lucide-react";
 import type { ResourceUtilization } from "../../api/v2-types";
@@ -19,7 +19,7 @@ function utilizationDisplay(row: ResourceUtilization) {
   if (!fact) return <span title="暂无利用率数据">—</span>;
   const reason = fact.unavailableReason === "INSUFFICIENT_HISTORY" ? "暂无完整历史自然月"
     : fact.unavailableReason === "ZERO_BASELINE" ? "历史月均为 0" : null;
-  const average = fact.trailingThreeMonthAverageTokens === null ? "—" : formatTokenAverage(fact.trailingThreeMonthAverageTokens);
+  const average = fact.trailingThreeMonthAverageTokens === null ? "—" : formatDecimal(fact.trailingThreeMonthAverageTokens);
   const monthLabel = fact.baselineMonthCount > 0 ? `近 ${fact.baselineMonthCount} 个完整月` : "历史完整月";
   const months = fact.baselineMonths.length > 0 ? `（${fact.baselineMonths.join("、")}）` : "";
   const title = `本月真实 Token ${formatCount(fact.currentMonthTokens)} / ${monthLabel}月均 Token ${average}${months}${reason ? `；${reason}` : ""}`;
@@ -34,12 +34,6 @@ function utilizationPercent(rate: string): string {
   const tenths = BigInt(match[1]!) * 1000n + BigInt((fraction + "000").slice(0, 3));
   const rounded = (fraction[3] ?? "0") >= "5" ? tenths + 1n : tenths;
   return `${rounded / 10n}.${rounded % 10n}%`;
-}
-
-function formatTokenAverage(value: string): string {
-  const [integer, fraction] = value.split(".");
-  const decimals = fraction?.replace(/0+$/, "");
-  return `${formatCount(integer!)}${decimals ? `.${decimals}` : ""}`;
 }
 
 function subscriptionDisplay(row: ResourceUtilization) {
@@ -91,7 +85,7 @@ export function ResourceUtilizationPanel({ resources: _resources }: { resources:
       <input aria-label="资源利用月份" className="ql-input" onChange={(event) => setMonth(event.target.value)} type="month" value={month}/>
     </div>
     <QueryGate emptyDescription="登记并产生资源事实后显示利用率。" emptyIcon={Gauge} emptyTitle="暂无资源利用数据" error={query.error} isEmpty={rows.length === 0} isLoading={query.isLoading} onRetry={() => void query.refetch()}>
-      <div className="overflow-x-auto"><table className="w-full min-w-[68rem] text-left text-[12px] [&_th]:pr-4 [&_td]:pr-4"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th scope="col" className="py-2">资源</th><th scope="col">形态</th><th scope="col" className="text-right">请求 / 真实 Token</th><th scope="col" className="text-right">费用 / 余额</th><th scope="col">利用率（近月均值）</th><th scope="col">订阅周期</th><th scope="col">最近使用 / 无调用</th><th scope="col">预算</th></tr></thead><tbody>{rows.map((row) => {
+      <div className="overflow-x-auto"><table className="w-full min-w-[68rem] text-left text-[12px] [&_th]:pr-4 [&_td]:pr-4"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th scope="col" className="py-2">资源</th><th scope="col">形态</th><th scope="col" className="text-right">请求 / 真实 Token</th><th scope="col" className="text-right">费用 / 余额</th><th scope="col">利用率</th><th scope="col">订阅周期</th><th scope="col">最近使用 / 无调用</th><th scope="col">预算</th></tr></thead><tbody>{rows.map((row) => {
         return <tr className="border-b border-ql-border-zone align-top" key={row.resourceId}>
           <td className="py-2 font-medium">{row.providerName} · {row.resourceName}</td>
           <td>{row.mode === "API" ? "API" : "Coding Plan"}</td>

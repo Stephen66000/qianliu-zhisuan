@@ -10,7 +10,7 @@
  */
 import type { Provider, ProviderResourceItem, ProviderQuotaWindow } from "../../api/types";
 import { useQuotaWindows, useSyncQuotaWindow } from "../../api/hooks";
-import { formatDateTimeFull } from "../../lib/format";
+import { formatDateTimeFull, formatDecimal } from "../../lib/format";
 
 /** 厂商同步错误码 → 可读原因（与 provider-adapters CodingPlanQuotaError.code 对齐）。 */
 const SYNC_ERROR_LABEL: Record<string, string> = {
@@ -189,9 +189,9 @@ function QuotaWindowCard({ window }: { window: ProviderQuotaWindow }) {
         ) : null}
       </div>
       <div className="mt-2 flex items-baseline gap-1">
-        <span className={`font-mono text-[20px] font-bold ${valTone}`}>{trimNumber(window.used_value!)}</span>
+        <span className={`font-mono text-[20px] font-bold ${valTone}`}>{formatDecimal(window.used_value!)}</span>
         {window.limit_value !== null ? (
-          <span className="text-[13px] text-ql-fg-tertiary">/ {trimNumber(window.limit_value)}</span>
+          <span className="text-[13px] text-ql-fg-tertiary">/ {formatDecimal(window.limit_value)}</span>
         ) : null}
         {unitLabel ? <span className="text-[11px] text-ql-fg-tertiary">{unitLabel}</span> : null}
       </div>
@@ -201,8 +201,8 @@ function QuotaWindowCard({ window }: { window: ProviderQuotaWindow }) {
         </div>
       ) : null}
       <p className="mt-1.5 text-[11px] text-ql-fg-tertiary">
-        已用 {trimNumber(window.used_value!)}
-        {window.remaining_value !== null ? ` · 剩余 ${trimNumber(window.remaining_value)}` : ""}
+        已用 {formatDecimal(window.used_value!)}
+        {window.remaining_value !== null ? ` · 剩余 ${formatDecimal(window.remaining_value)}` : ""}
         {window.reset_at ? ` · 重置 ${formatDateTimeFull(window.reset_at)}` : ""}
       </p>
     </div>
@@ -258,13 +258,4 @@ function byFreshnessRank(a: ProviderQuotaWindow, b: ProviderQuotaWindow): number
     FAILED: 3,
   };
   return rank[a.sync_status] - rank[b.sync_status];
-}
-
-/** numeric 字符串去掉尾随小数零（如 "60.00000000" → "60"），仅做展示层格式转换。 */
-function trimNumber(value: string): string {
-  if (value.includes(".")) {
-    const trimmed = value.replace(/\.?0+$/, "");
-    return trimmed === "" ? "0" : trimmed;
-  }
-  return value;
 }

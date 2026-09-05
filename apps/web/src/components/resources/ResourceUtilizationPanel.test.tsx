@@ -289,13 +289,13 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(screen.getByText("90.0%")).toHaveAttribute("title", expect.stringContaining(label));
   });
 
-  it("月均 Token 为小数时悬停不截断为 0", () => {
+  it("月均 Token 小数在悬停中最多保留两位", () => {
     const row = resource({ realTokens: "1" });
     row.tokenUtilization = { ...row.tokenUtilization!, currentMonthTokens: "1",
       trailingThreeMonthAverageTokens: "0.33333333", rate: "3" };
     useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
     renderPanel();
-    expect(screen.getByText("300.0%")).toHaveAttribute("title", expect.stringContaining("近 3 个完整月月均 Token 0.33333333"));
+    expect(screen.getByText("300.0%")).toHaveAttribute("title", expect.stringContaining("近 3 个完整月月均 Token 0.33"));
   });
 
   it.each([

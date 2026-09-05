@@ -2,7 +2,7 @@ import { BarChart3 } from "lucide-react";
 
 import { useResourceUsageOverview } from "../../api/hooks";
 import type { ResourceModelUsageDetail } from "../../api/types";
-import { formatCount, formatDateTimeShort, formatMoney } from "../../lib/format";
+import { formatCount, formatDateTimeShort, formatDecimal, formatMoney } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
 import { ResourceBreakdown } from "../dashboard/ResourceBreakdown";
 import { StatusTag } from "../dashboard/StatusTag";
@@ -95,7 +95,7 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
       <td className="py-2.5 pr-4 text-right font-mono">
         {item.consumptionRate24h === null
           ? <span className="font-sans text-ql-fg-tertiary">{item.consumptionRateReason ?? "不可计算"}</span>
-          : `${formatRate(item.consumptionRate24h)} ${item.consumptionRateUnit === "QUOTA_PER_HOUR" ? item.quotaUnit ?? "额度" : "Token"}/小时`}
+          : `${formatDecimal(item.consumptionRate24h)} ${item.consumptionRateUnit === "QUOTA_PER_HOUR" ? item.quotaUnit ?? "额度" : "Token"}/小时`}
       </td>
       <td className="py-2.5 pr-4">
         {item.forecastExhaustAt
@@ -110,13 +110,6 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
       </td>
     </tr>
   );
-}
-
-function formatRate(value: string): string {
-  const parsed = Number(value);
-  return Number.isFinite(parsed)
-    ? parsed.toLocaleString("zh-CN", { maximumFractionDigits: 2 })
-    : value;
 }
 
 function modelTokenText(item: ResourceModelUsageDetail) {

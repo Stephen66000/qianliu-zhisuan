@@ -2,7 +2,7 @@ import { ResourceUsageOverviewPanel } from "./ResourceUsageOverviewPanel";
 import { QuotaWindowPanel } from "./QuotaWindowPanel";
 import { ResourceHealthPanel } from "./ResourceHealthPanel";
 import { ProviderFinancePanel } from "./ProviderFinancePanel";
-import { formatDateTimeFull } from "../../lib/format";
+import { formatDateTimeFull, formatDecimal } from "../../lib/format";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
 export function ResourceOtherTabs({ model }: { model: ResourcesPageModel }) {
@@ -44,8 +44,8 @@ export function ResourceOtherTabs({ model }: { model: ResourcesPageModel }) {
                   <tr className="border-b border-ql-border-zone last:border-b-0" key={forecast.id}>
                     <td className="p-2 font-medium">{forecast.resource_name}</td>
                     <td className="p-2 text-right font-mono">
-                      {forecast.rate_1h ?? "—"} / {forecast.rate_24h ?? "—"} /{" "}
-                      {forecast.rate_7d ?? "—"}
+                      {forecast.rate_1h === null ? "—" : formatDecimal(forecast.rate_1h)} / {forecast.rate_24h === null ? "—" : formatDecimal(forecast.rate_24h)} /{" "}
+                      {forecast.rate_7d === null ? "—" : formatDecimal(forecast.rate_7d)}
                     </td>
                     <td className="p-2">
                       {forecast.forecast_exhaust_at
@@ -58,7 +58,7 @@ export function ResourceOtherTabs({ model }: { model: ResourcesPageModel }) {
                         : "—"}
                     </td>
                     <td className="p-2 text-right font-mono">
-                      {forecast.coverage_hours ? `${forecast.coverage_hours}h` : "—"}
+                      {forecast.coverage_hours ? `${formatDecimal(forecast.coverage_hours)}h` : "—"}
                     </td>
                     <td className="p-2">{forecast.confidence}</td>
                   </tr>

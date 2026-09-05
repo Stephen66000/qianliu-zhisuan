@@ -151,6 +151,20 @@ describe("厂商资源四 Tab", () => {
     expect(screen.getByRole("heading", { name: "资源健康与异常" })).toBeInTheDocument();
   });
 
+  it("供给预测速度和覆盖时长最多显示两位小数", () => {
+    useSupplyForecastsMock.mockReturnValue({ data: { forecasts: [{
+      id: "forecast-1", provider_resource_id: resource.id, resource_name: resource.name,
+      rate_1h: null, rate_24h: "0.08795916", rate_7d: "595904.78756471",
+      forecast_exhaust_at: null, next_recover_at: null, coverage_hours: "2413.38532146",
+      remaining_quota: "100", confidence: "MEDIUM", data_points: 2,
+      not_calculable_reason: "no_consumption_rate", snapshot_at: "2026-09-05T00:00:00Z",
+    }] }, error: null });
+    renderPage("/resources?tab=supply-health");
+    expect(screen.getByText("— / 0.09 / 595,904.79")).toBeInTheDocument();
+    expect(screen.getByText("2,413.39h")).toBeInTheDocument();
+    expect(screen.queryByText(/0\.08795916|2413\.38532146/)).not.toBeInTheDocument();
+  });
+
   it("DARK增加充值与订阅Tab，只有充值按钮且入账保持关闭", async () => {
     const user = userEvent.setup();
     getMock.mockImplementation(async (path: string) => path.startsWith("/provider-finance/summary")
@@ -578,6 +592,21 @@ describe("POOL-032 厂商额度窗口", () => {
     expect(screen.getByText("60")).toBeInTheDocument();
     expect(screen.getByText(/数据已过期/)).toBeInTheDocument();
     expect(screen.getByText(/厂商返回 429（限流）/)).toBeInTheDocument();
+  });
+
+  it("窗口额度最多显示两位小数", () => {
+    useQuotaWindowsMock.mockReturnValue({ data: { windows: [{
+      id: "decimal-window", provider_resource_id: resource.id, window_type: "WEEKLY",
+      limit_value: "100.00000000", used_value: "65.12600000", remaining_value: "34.87400000",
+      unit: "POINT", ratio: "0.65126", reset_at: null, provider_data_at: "2026-09-05T00:00:00Z",
+      collected_at: "2026-09-05T00:00:00Z", source: "PROVIDER_SYNC", adapter_version: "test",
+      sync_status: "SUCCESS", sync_error_code: null, last_success_at: "2026-09-05T00:00:00Z",
+    }] } });
+    renderPage("/resources?tab=quota-windows");
+    expect(screen.getAllByText("65.13").length).toBeGreaterThan(0);
+    expect(screen.getByText("/ 100")).toBeInTheDocument();
+    expect(screen.getByText(/剩余 34\.87/)).toBeInTheDocument();
+    expect(screen.queryByText(/65\.126|34\.874/)).not.toBeInTheDocument();
   });
 
   it("从未同步显示未同步与「从未成功同步」", () => {

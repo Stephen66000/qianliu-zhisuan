@@ -6,7 +6,7 @@
  */
 import type { ResourceBreakdownItem } from "../../api/types";
 import type { ReactNode } from "react";
-import { formatCount, formatDateTimeShort, formatMoney, formatRatePerHour } from "../../lib/format";
+import { formatCount, formatDateTimeShort, formatDecimal, formatMoney, formatRatePerHour } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
 import { StatusTag } from "./StatusTag";
 
@@ -155,9 +155,7 @@ function usageRateText(item: ResourceBreakdownItem): ReactNode {
 }
 
 function formatTokenRate(value: string): string {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return value;
-  return parsed.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  return formatDecimal(value);
 }
 
 function statusTone(status: string): "neutral" | "warning" | "danger" {
