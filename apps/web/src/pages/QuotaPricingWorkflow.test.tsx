@@ -163,3 +163,53 @@ it("clearing the resource resets route defaults and prevents a stale-resource su
   await screen.findByText("请选择资源", { selector: "[role=alert]" });
   expect(saved).toHaveLength(0);
 });
+
+it("取消新建规则丢弃整套草稿、沿用来源及错误，重新打开可正常新建", async () => {
+  existing = [rule(30), rule(31, { time_windows: [{ timezone: "Asia/Shanghai",
+    days_of_week: [1, 2, 3, 4, 5], start_time: "14:00", end_time: "18:00" }] })];
+  const user = await open();
+  expect(screen.queryByText("已有模型与路由管理")).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("沿用同厂商整套价格"), uuid(30));
+  await user.click(screen.getByLabelText(/从新生效时间起替换/));
+  await user.click(screen.getByRole("button", { name: "取消" }));
+  expect(saved).toHaveLength(0);
+  expect(screen.queryByRole("button", { name: "保存并启用" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "新建规则" }));
+  expect(screen.getByLabelText("厂商资源", { exact: true })).toHaveValue("");
+  expect(screen.getByLabelText("规则版本")).toHaveValue("v1");
+  expect(screen.getByLabelText("输出单价（币种/Token）")).toHaveValue("");
+  expect(screen.queryByRole("button", { name: "移除" })).not.toBeInTheDocument();
+  expect(screen.queryByText(/已沿用/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText(/从新生效时间起替换/)).not.toBeChecked();
+  await user.selectOptions(screen.getByLabelText("厂商资源", { exact: true }), uuid(21));
+  await fillPrices(user); rejectSave = true;
+  await user.click(screen.getByRole("button", { name: "保存并启用" }));
+  await screen.findByText("配置版本已变化，请刷新");
+  const firstId = saved[0]!.submission_id;
+  await user.click(screen.getByRole("button", { name: "取消" }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "新建规则" }));
+  await user.selectOptions(screen.getByLabelText("厂商资源", { exact: true }), uuid(21));
+  await fillPrices(user); rejectSave = false;
+  await user.click(screen.getByRole("button", { name: "保存并启用" }));
+  await waitFor(() => expect(saved).toHaveLength(2));
+  expect(saved[1]).toMatchObject({ source_rule_ids: [], replace_existing: false });
+  expect(saved[1]!.rules).toHaveLength(1);
+  expect(saved[1]!.submission_id).not.toBe(firstId);
+});
+
+it("取消新建调度策略不发送写请求，重新打开恢复空白草稿", async () => {
+  const user = await open();
+  await user.click(screen.getByRole("button", { name: "取消" }));
+  await user.click(screen.getByRole("tab", { name: "调度策略" }));
+  await user.click(screen.getByRole("button", { name: "新建调度策略" }));
+  await user.clear(screen.getByLabelText("策略版本"));
+  await user.type(screen.getByLabelText("策略版本"), "discard-me");
+  await user.type(screen.getByLabelText("说明"), "未保存的策略");
+  await user.click(screen.getByRole("button", { name: "取消" }));
+  expect(screen.queryByRole("button", { name: "创建草稿" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "新建调度策略" }));
+  expect(screen.getByLabelText("策略版本")).toHaveValue("v1");
+  expect(screen.getByLabelText("说明")).toHaveValue("");
+  expect(vi.mocked(fetch).mock.calls.every(([, options]) => !options?.method || options.method === "GET")).toBe(true);
+});

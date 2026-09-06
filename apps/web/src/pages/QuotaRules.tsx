@@ -1,7 +1,5 @@
 import { PageShell } from "../components/layout/PageShell";
 import { useState } from "react";
-import { QuotaModelSection } from "../components/quota/QuotaModelSection";
-import { QuotaRouteSection } from "../components/quota/QuotaRouteSection";
 import { QuotaBillingSection } from "../components/quota/QuotaBillingSection";
 import { QuotaPolicySection } from "../components/quota/QuotaPolicySection";
 import { QuotaDialogs } from "../components/quota/QuotaDialogs";
@@ -26,11 +24,6 @@ export function QuotaRulesPage() {
         查看存档
       </label>
       {tab === "pricing" ? <QuotaBillingSection model={model} /> : <QuotaPolicySection model={model} />}
-      {tab === "pricing" ? <details className="rounded border border-ql-border p-3">
-        <summary className="cursor-pointer text-sm">已有模型与路由管理</summary>
-        <QuotaModelSection model={model} managementOnly />
-        <QuotaRouteSection model={model} managementOnly />
-      </details> : null}
       <QuotaDialogs model={model} />
     </PageShell>
   );

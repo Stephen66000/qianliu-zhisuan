@@ -4,7 +4,7 @@ import { QueryGate } from "../states/QueryGate";
 import { StatusTag } from "../dashboard/StatusTag";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { WeekdayPicker, formatDaysOfWeek, parseDaysOfWeek } from "./WeekdayPicker";
-import { BillingRuleSchema, editableWindows } from "../../pages/quota-rule-contract";
+import { BillingRuleSchema, editableWindows, localDateTimeValue } from "../../pages/quota-rule-contract";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
 import { PricingRouteFields } from "./PricingRouteFields";
 import { PricingPreview } from "./PricingPreview";
@@ -227,7 +227,19 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                 ruleForm.setValue("rule_version", `${values.rule_version.slice(0, 50)}-next`);
               })}>加入规则集并配置下一时段</button>
             </div>
-            <div className="md:col-span-4 flex justify-end">
+            <div className="md:col-span-4 flex justify-end gap-2">
+              <button type="button" disabled={createRule.isPending}
+                className="h-9 rounded-lg border border-ql-border px-4 text-[13px] disabled:opacity-60"
+                onClick={() => {
+                  setShowRuleForm(false);
+                  ruleForm.reset({ rule_type: "API_PRICE", rule_version: "v1", provider_resource_id: "",
+                    upstream_model: "", effective_from: localDateTimeValue(), effective_to: "", windows: [],
+                    multiplier: "", pricing_mode: "ABSOLUTE", currency: "CNY", cache_hit_price: "",
+                    cache_miss_price: "", output_price: "", priority: 100 });
+                  model.routeForm.reset();
+                  model.setSelectedRuleRouteId(""); model.setQueuedRules([]); model.setSourceRuleIds([]);
+                  model.setReplaceExisting(false); model.setSubmissionId(crypto.randomUUID()); createRule.reset();
+                }}>取消</button>
               <button
                 className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
                 disabled={createRule.isPending}

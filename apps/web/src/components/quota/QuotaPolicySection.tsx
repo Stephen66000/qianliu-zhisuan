@@ -189,7 +189,13 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
             >
               <input className={INPUT_CLASS} id="policy-description" {...policyForm.register("description")} />
             </FormField>
-            <div className="md:col-span-4 flex justify-end">
+            <div className="md:col-span-4 flex justify-end gap-2">
+              <button type="button" disabled={createPolicy.isPending}
+                className="h-9 rounded-lg border border-ql-border px-4 text-[13px] disabled:opacity-60"
+                onClick={() => {
+                  setShowPolicyForm(false); setEditingPolicy(null); policyForm.reset();
+                  setPrincipalSearch(""); createPolicy.reset();
+                }}>取消</button>
               <button
                 className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
                 disabled={createPolicy.isPending}
