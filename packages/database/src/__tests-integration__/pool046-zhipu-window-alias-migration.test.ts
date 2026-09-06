@@ -278,6 +278,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0061_provider_finance_audit_hardening", "Success"],
         ["0062_resource_fact_reconciliation", "Success"],
         ["0063_operating_snapshot_subscription_period", "Success"],
+        ["0064_quota_pricing_and_policy_archive", "Success"],
       ]);
 
       expect(await db.selectFrom("dispatch_policy")
@@ -320,6 +321,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow();
       expect(afterSecondUp).toEqual(migratedTarget);
 
+      expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
       expect(await migrateDown(db)).toBe("0062_resource_fact_reconciliation");
       expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
@@ -394,6 +396,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0061_provider_finance_audit_hardening", "Success"],
         ["0062_resource_fact_reconciliation", "Success"],
         ["0063_operating_snapshot_subscription_period", "Success"],
+        ["0064_quota_pricing_and_policy_archive", "Success"],
       ]);
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows"])

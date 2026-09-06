@@ -194,7 +194,7 @@ export async function finalizeRejectedAttemptBeforeUpstream(
     ...rejectedAttemptEvidence(input),
     attempt_result: input.attemptResult,
     overage: input.overage ?? false,
-    error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+    error_classification: input.attemptResult.error_classification,
     error_code: input.errorCode,
     quota_settlements: input.quotaSettlements,
     release_lease_ids: input.releaseLeaseIds,

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, expect, it } from "vitest";
+import { sql } from "kysely";
 import { createKysely, migrateToLatest, savePricingConfiguration, archiveDispatchPolicy,
   DispatchPolicyRepository, GatewayLedgerRepository, AdminWriteRepository } from "../index.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -87,4 +88,110 @@ it("archive is tenant/version checked, retired-only, and keeps policy history", 
   expect(await archiveDispatchPolicy(db, enterpriseId, id, adminId, 1)).toBe(false);
   expect(await repo.getPolicy(enterpriseId, id)).toMatchObject({ status: "RETIRED", archivedAt: expect.any(Date), version: 2 });
   expect((await repo.copyPolicyAsDraft(enterpriseId, id, adminId))?.archivedAt).toBeNull();
+});
+
+it.each(["model-version", "model-archived", "resource-unavailable", "provider-disabled"] as const)(
+  "rejects changed configuration state: %s", async (kind) => {
+    const f = await fixture();
+    if (kind === "model-version") f.input.expectedModelVersion = 99;
+    if (kind === "model-archived") await db.updateTable("unified_model").set({ archived_at: new Date(), status: "DISABLED" }).where("id", "=", f.model.id).execute();
+    if (kind === "resource-unavailable") await db.updateTable("provider_resource").set({ status: "UNAVAILABLE" }).where("id", "=", f.resource.id).execute();
+    if (kind === "provider-disabled") await db.updateTable("provider").set({ status: "DISABLED" }).where("id", "=", providerId).execute();
+    try {
+      await expect(savePricingConfiguration(db, f.input)).rejects.toThrow("模型或资源已变化");
+      expect(await db.selectFrom("billing_rule").select("id").where("provider_resource_id", "=", f.resource.id).execute()).toEqual([]);
+    } finally {
+      if (kind === "provider-disabled") await db.updateTable("provider").set({ status: "ACTIVE" }).where("id", "=", providerId).execute();
+    }
+  });
+
+it.each([[true, "ACTIVE", true], [true, "PENDING_CONFIG", false], [false, "ACTIVE", false]] as const)(
+  "validation gate route=%s model=%s allowed=%s", async (enabled, status, allowed) => {
+    const f = await fixture(false);
+    await db.updateTable("model_route").set({ enabled }).where("id", "=", f.route.id).execute();
+    await db.updateTable("unified_model").set({ status }).where("id", "=", f.model.id).execute();
+    if (allowed) expect((await savePricingConfiguration(db, f.input)).ruleIds).toHaveLength(1);
+    else await expect(savePricingConfiguration(db, f.input)).rejects.toThrow("真实模型验证");
+  });
+
+it("empty sets, undefined prices and mixed valid/invalid prices reject with their specific validation errors", async () => {
+  const f = await fixture();
+  await expect(savePricingConfiguration(db, { ...f.input, rules: [] })).rejects.toThrow("至少配置一条");
+  const missing = { ...f.input.rules[0]!, rule_version: "missing", output_price: undefined, priority: 2 };
+  await expect(savePricingConfiguration(db, { ...f.input, rules: [f.input.rules[0]!, missing] })).rejects.toThrow("明确填写三项");
+  expect(await db.selectFrom("billing_rule").select("id").where("provider_resource_id", "=", f.resource.id).execute()).toEqual([]);
+});
+
+it.each(["same", "later"] as const)("replacement rejects an existing %s boundary without trimming earlier versions", async (kind) => {
+  const f = await fixture(), repo = new GatewayLedgerRepository(db);
+  const early = await repo.createBillingRule({ ...f.input.rules[0]!, enterprise_id: enterpriseId,
+    rule_version: "early", priority: 1, effective_from: new Date(0) });
+  const at = kind === "same" ? f.input.rules[0]!.effective_from : new Date("2026-10-01T00:00:00Z");
+  const late = await repo.createBillingRule({ ...f.input.rules[0]!, enterprise_id: enterpriseId,
+    rule_version: "late", priority: 2, effective_from: at });
+  await expect(savePricingConfiguration(db, { ...f.input, replaceExisting: true })).rejects.toThrow("新版本生效时间必须晚于");
+  const rows = await db.selectFrom("billing_rule").select("effective_to").where("id", "in", [early.id, late.id]).execute();
+  expect(rows.every(row => row.effective_to === null)).toBe(true);
+});
+
+it.each(["resource", "type", "duplicate"] as const)("rejects mismatched rule %s before creating rows", async (kind) => {
+  const f = await fixture();
+  if (kind === "resource") f.input.rules[0]!.provider_resource_id = randomUUID();
+  if (kind === "type") f.input.rules[0]!.rule_type = "MODEL_TIER";
+  if (kind === "duplicate") {
+    const saved = await new GatewayLedgerRepository(db).createBillingRule({ ...f.input.rules[0]!, enterprise_id: enterpriseId });
+    await db.updateTable("billing_rule").set({ enabled: false }).where("id", "=", saved.id).execute();
+  }
+  await expect(savePricingConfiguration(db, f.input)).rejects.toThrow(kind === "duplicate" ? "版本已存在" : "不一致");
+});
+
+it.each(["MODEL_TIER", "TIME_WINDOW"])("Coding Plan accepts %s without API units and rejects an API rule", async ruleType => {
+  const f = await fixture();
+  await db.updateTable("provider_resource").set({ mode: "CODING_PLAN", status: "DEGRADED" }).where("id", "=", f.resource.id).execute();
+  await expect(savePricingConfiguration(db, f.input)).rejects.toThrow("不一致");
+  const planRule = { ...f.input.rules[0]!, rule_type: ruleType, pricing_mode: "ABSOLUTE" as const,
+    time_windows: ruleType === "TIME_WINDOW" ? [{ timezone: "Asia/Shanghai", days_of_week: null, start_time: "09:00", end_time: "12:00" }] : undefined,
+    multiplier: "2", cache_hit_price: null, cache_miss_price: null, output_price: null };
+  const saved = await savePricingConfiguration(db, { ...f.input, rules: [planRule] });
+  expect(saved.ruleIds).toHaveLength(1);
+  expect(await db.selectFrom("billing_rule").select(["rule_type", "multiplier", "cache_hit_price", "source"])
+    .where("id", "=", saved.ruleIds[0]!).executeTakeFirst()).toMatchObject({
+      rule_type: ruleType, multiplier: "2", cache_hit_price: null, source: "WEB_ADMIN" });
+});
+
+it("copies a long provenance list safely and freezes exact before/after audit fields", async () => {
+  const source = await fixture(), repo = new GatewayLedgerRepository(db);
+  const sourceIds: string[] = [];
+  for (let i = 0; i < 8; i++) sourceIds.push((await repo.createBillingRule({ ...source.input.rules[0]!,
+    enterprise_id: enterpriseId, rule_version: `source-${i}`, priority: i })).id);
+  const f = await fixture();
+  const saved = await savePricingConfiguration(db, { ...f.input, sourceRuleIds: sourceIds });
+  expect((await db.selectFrom("billing_rule").select("source").where("id", "=", saved.ruleIds[0]!)
+    .executeTakeFirstOrThrow()).source).toBe(`WEB_ADMIN_COPY:${sourceIds.join(",")}`.slice(0, 255));
+  const log = await db.selectFrom("operation_log").selectAll().where("target_id", "=", f.route.id).executeTakeFirstOrThrow();
+  expect(log).toMatchObject({ action: "pricing_configuration.save", target_type: "model_route",
+    result: "SUCCESS", change_summary: { source_rule_ids: sourceIds, replaced_rule_ids: [],
+      before: { enabled: false, priority: f.route.priority, weight: f.route.weight, model_status: "PENDING_CONFIG" },
+      after: { enabled: true, priority: 80, weight: 2, model_status: "ACTIVE" } } });
+});
+
+it("additive prices do not close prior versions; replacement audit names every replaced rule", async () => {
+  const f = await fixture(), repo = new GatewayLedgerRepository(db);
+  const old = await repo.createBillingRule({ ...f.input.rules[0]!, enterprise_id: enterpriseId,
+    rule_version: "old-additive", priority: 1, effective_from: new Date(0) });
+  const added = await savePricingConfiguration(db, { ...f.input, rules: [{ ...f.input.rules[0]!, priority: 2 }] });
+  expect((await db.selectFrom("billing_rule").select("effective_to").where("id", "=", old.id).executeTakeFirstOrThrow()).effective_to).toBeNull();
+  const boundary = new Date("2026-10-01T00:00:00Z");
+  await savePricingConfiguration(db, { ...f.input, submissionId: randomUUID(), requestHash: "replacement",
+    expectedModelVersion: 2, expectedRouteVersion: 2, replaceExisting: true,
+    rules: [{ ...f.input.rules[0]!, rule_version: "replacement", effective_from: boundary }] });
+  const audit = await db.selectFrom("operation_log").select("change_summary")
+    .where("target_id", "=", f.route.id)
+    .where(sql<string>`change_summary->>'request_hash'`, "=", "replacement").executeTakeFirstOrThrow();
+  expect(audit.change_summary).toMatchObject({ request_hash: "replacement",
+    replaced_rule_ids: expect.arrayContaining([old.id, added.ruleIds[0]]),
+    before: { enabled: true, priority: 80, weight: 2, model_status: "ACTIVE" },
+    after: { enabled: true, priority: 80, weight: 2, model_status: "ACTIVE" } });
+  expect(await db.selectFrom("billing_rule").select("effective_to").where("id", "in", [old.id, added.ruleIds[0]!]).execute())
+    .toEqual([{ effective_to: boundary }, { effective_to: boundary }]);
 });

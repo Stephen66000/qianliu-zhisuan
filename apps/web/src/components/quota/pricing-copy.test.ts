@@ -36,4 +36,15 @@ it("shows small per-token and final per-million prices without binary rounding o
   expect(decimalProduct("0.000000004", "3")).toBe("0.000000012");
   expect(decimalProduct("0.000000012", "1000000")).toBe("0.012");
   expect(decimalProduct("0", "3")).toBe("0");
+  expect(decimalProduct("1.", "3")).toBe("—");
+  expect(decimalProduct("1", "")).toBe("—");
+});
+
+it("preserves package multipliers and missing API fields without inserting another provider's price", () => {
+  expect(copyPrice(rule("package", "d", { rule_type: "MODEL_TIER", multiplier: "3",
+    cache_hit_price: null, cache_miss_price: null, output_price: null }), "d", "glm-new", "copy")).toMatchObject({
+    rule_type: "MODEL_TIER", multiplier: "3", cache_hit_price: "", cache_miss_price: "", output_price: "",
+  });
+  expect(copyPrice(rule("peak", "a", { pricing_mode: "MULTIPLIER", multiplier: "3" }), "b", "flash", "copy").pricing_mode).toBe("MULTIPLIER");
+  expect(pricingCopyCandidates([rule("a")], resources, "missing", "flash")).toEqual([]);
 });

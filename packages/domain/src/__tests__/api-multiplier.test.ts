@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { billingPriceMultiplier, computeApiCostFromRule, matchApplicableBillingRule, type BillingRule } from "../billing-rule.js";
+import { matchPolicy, type DispatchInput, type DispatchPolicy } from "../dispatch-policy.js";
 
 const base: BillingRule = { id: "base", ruleType: "API_PRICE", ruleVersion: "v1", providerResourceId: "r", upstreamModel: "m",
   effectiveFrom: 0, effectiveTo: null, timezone: null, daysOfWeek: null, startTime: null, endTime: null,
@@ -32,4 +33,35 @@ it("rounds once after the multiplier, not the intermediate cost", () => {
 it("missing multiplier or base component cannot produce a zero price", () => {
   expect(() => computeApiCostFromRule({ ...base, multiplier: null }, 1, 0, 0)).toThrow("incomplete_multiplier_price");
   expect(() => computeApiCostFromRule({ ...base, cacheHitPrice: null }, 1, 0, 0)).toThrow("incomplete_multiplier_price");
+});
+
+it("distinguishes unknown rules, quota multipliers and absolute all-day prices", () => {
+  expect(billingPriceMultiplier(null)).toBeNull();
+  expect(billingPriceMultiplier({ ...base, ruleType: "MODEL_TIER", pricingMode: "ABSOLUTE", multiplier: "2" })).toBe("2");
+  expect(billingPriceMultiplier({ ...peak, ruleType: "TIME_WINDOW", pricingMode: "ABSOLUTE" })).toBe("3");
+  expect(billingPriceMultiplier({ ...base, pricingMode: "ABSOLUTE", multiplier: "9" })).toBe("1");
+  expect(billingPriceMultiplier({ ...base, pricingMode: undefined })).toBe("1");
+});
+
+it("preserves legacy missing-component costs without converting absent prices to invalid decimals", () => {
+  const legacy = { ...base, pricingMode: "ABSOLUTE" as const };
+  expect(computeApiCostFromRule({ ...legacy, cacheMissPrice: null }, 10, 20, 2)).toBe("0.00008200");
+  expect(computeApiCostFromRule({ ...legacy, outputPrice: null }, 10, 20, 2)).toBe("0.00001800");
+  expect(() => computeApiCostFromRule({ ...base, multiplier: "0" }, 10, 20, 2)).toThrow("incomplete_multiplier_price");
+});
+
+it("an unknown multiplier cannot satisfy a peak policy, while known boundary values can", () => {
+  const policy: DispatchPolicy = { id: "p", status: "PUBLISHED", matchUnifiedModel: null,
+    matchResourceMode: null, matchProviderResourceId: null, matchTimezone: null, matchDaysOfWeek: null,
+    matchStartTime: null, matchEndTime: null, matchPriceMultiplierMin: "3", matchRemainingQuotaRatioMax: null,
+    matchForecastExhaustRisk: null, matchPrincipalScope: null, action: "REJECT", switchEquivalentGroup: [],
+    rateLimitPerMinute: null, policyVersion: "v1", priority: 100 };
+  const input: DispatchInput = { now: 0, unifiedModel: "m", selectedResourceId: "r", resourceMode: "API",
+    priceMultiplier: null, remainingQuotaRatio: null, forecastExhaustRisk: false, principalId: "employee" };
+  expect(matchPolicy(policy, input)).toBe(false);
+  expect(matchPolicy({ ...policy, matchPriceMultiplierMin: "0" }, input)).toBe(false);
+  expect(matchPolicy({ ...policy, matchPriceMultiplierMin: "0" }, { ...input, priceMultiplier: "0" })).toBe(true);
+  expect(matchPolicy(policy, { ...input, priceMultiplier: "2.999" })).toBe(false);
+  expect(matchPolicy(policy, { ...input, priceMultiplier: "3" })).toBe(true);
+  expect(matchPolicy({ ...policy, matchPriceMultiplierMin: null }, input)).toBe(true);
 });

@@ -2,6 +2,7 @@ import { sql, type Kysely, type Selectable, type Transaction } from "kysely";
 
 import type { Database, DispatchPolicyTable } from "../kysely.js";
 import { policyPricingReadiness } from "./dispatch-pricing-readiness.js";
+import { lockPricingWrites } from "./pricing-write-guard.js";
 
 type PolicyRow = Selectable<DispatchPolicyTable>;
 
@@ -151,6 +152,8 @@ export async function restoreRetiredPolicyAsPublished(
   db: Kysely<Database>, enterpriseId: string, policyId: string, actorAdminId: string,
 ): Promise<RestorePolicyResult> {
   return db.transaction().execute(async (trx) => {
+    // Acquire pricing before reference row locks, matching atomic price configuration lock order.
+    await lockPricingWrites(trx, enterpriseId);
     await sql`SELECT pg_advisory_xact_lock(hashtext(${`${enterpriseId}:dispatch-policy-version`}))`.execute(trx);
     const replay = await trx.selectFrom("dispatch_policy").selectAll()
       .where("enterprise_id", "=", enterpriseId)

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { sql, type KyselyPlugin } from "kysely";
 import { createKysely, DashboardRepository, migrateToLatest } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
-import { loadResourceTokenUtilization } from "../resource-insights/token-utilization.js";
+import { loadResourceTokenUtilization, loadResourceUtilizationSnapshot } from "../resource-insights/token-utilization.js";
 import { listResourceUtilization } from "../resource-insights/query.js";
 import { buildControlApi } from "../server.js";
 import { hashPassword } from "../auth/password.js";
@@ -136,6 +136,9 @@ it("不同企业时区与年度切换、租户隔离", async () => {
     const facts = await loadResourceTokenUtilization(db, enterpriseId, "2026-01", now);
     expect(facts.get(target.id)).toMatchObject({ baselineMonths: ["2025-10", "2025-11", "2025-12"],
       currentMonthTokens: "30", trailingThreeMonthAverageTokens: "30.00000000", rate: "1.00000000" });
+    const snapshot = await loadResourceUtilizationSnapshot(db, enterpriseId, "2026-01", now);
+    expect(snapshot.resources.find((row) => row.resourceId === target.id)?.tokenUtilization)
+      .toEqual(facts.get(target.id));
   } finally {
     await db.updateTable("enterprise").set({ timezone: "Asia/Shanghai" }).where("id", "=", enterpriseId).execute();
   }
@@ -272,5 +275,34 @@ it("CQA-01：聚合结果缺失时失败关闭并结束事务，后续请求仍�
   expect(recovered.statusCode).toBe(200);
   for (const row of recovered.json<UtilizationBody>().resources) {
     expect(row.realTokens).toBe(row.tokenUtilization.currentMonthTokens);
+  }
+});
+
+it.each([
+  ["API", "2026-05-31T16:00:00Z", 3],
+  ["CODING_PLAN", "2026-05-31T16:00:00Z", 3],
+  ["API", "2026-06-02T00:00:00Z", 2],
+  ["CODING_PLAN", "2026-06-02T00:00:00Z", 2],
+  ["API", "2026-07-29T00:00:00Z", 1],
+  ["CODING_PLAN", "2026-07-29T00:00:00Z", 1],
+  ["API", "2026-09-01T00:00:00Z", 0],
+  ["CODING_PLAN", "2026-09-01T00:00:00Z", 0],
+] as const)("%s 自 %s 起复用本月汇总，%i 个基线月与独立四月聚合完全一致", async (mode, createdAt, months) => {
+  const target = await resource(mode, createdAt);
+  await line(target, 100n, "2026-06-02T00:00:00Z");
+  await line(target, 200n, "2026-07-02T00:00:00Z");
+  await line(target, 300n, "2026-08-02T00:00:00Z");
+  await line(target, 7n, "2026-08-31T16:00:00Z", "2026-08-31T15:59:59Z");
+  await line(target, 9007199254740993n, "2026-09-02T00:00:00Z");
+  await line(target, 1n, now.toISOString());
+  await line(target, 999n, "2026-09-05T04:00:00.001Z");
+  for (const month of ["2026-08", "2026-09"]) {
+    const reference = await loadResourceTokenUtilization(db, enterpriseId, month, now);
+    const snapshot = await loadResourceUtilizationSnapshot(db, enterpriseId, month, now);
+    const row = snapshot.resources.find((item) => item.resourceId === target.id)!;
+    expect(row.tokenUtilization).toEqual(reference.get(target.id));
+    expect(row.realTokens).toBe(month === "2026-09" ? "9007199254741001" : "300");
+    expect(row.tokenUtilization.currentMonthTokens).toBe(row.realTokens);
+    if (month === "2026-09") expect(row.tokenUtilization.baselineMonthCount).toBe(months);
   }
 });

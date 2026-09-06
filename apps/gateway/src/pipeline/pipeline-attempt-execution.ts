@@ -78,11 +78,15 @@ export async function executeSelectedAttempt(
     switch_reason: null,
   });
   if (candidate.mode === "CODING_PLAN" && grantId) {
-    const actualDeducted = outcome.committed && !outcome.error ? persistedDeductedQuota ?? 0n : 0n;
-    if (outcome.committed && !outcome.error) {
-      const availableBeforeRequest = reservedEstimate + reservedProjectedRemaining > 0n
-        ? reservedEstimate + reservedProjectedRemaining
-        : 0n;
+    // Measured consumption belongs to this attempt even if its response failed.
+    // UNKNOWN stays null in the ledger; only its unconsumed reservation is returned here.
+    const actualDeducted = persistedDeductedQuota ?? 0n;
+    if (persistedDeductedQuota !== null) {
+      const pendingAdjustment = state.pendingQuotaSettlements
+        .filter((item) => item.grant_id === grantId)
+        .reduce((sum, item) => sum + item.reserved_estimate - item.actual_deducted, 0n);
+      const available = reservedEstimate + reservedProjectedRemaining + pendingAdjustment;
+      const availableBeforeRequest = available > 0n ? available : 0n;
       state.requestOverage ||= actualDeducted > 0n && actualDeducted > availableBeforeRequest;
     }
     state.pendingQuotaSettlements.push({

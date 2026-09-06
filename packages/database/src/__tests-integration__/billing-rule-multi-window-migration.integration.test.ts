@@ -87,6 +87,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
+      expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
       expect(await migrateDown(db)).toBe("0062_resource_fact_reconciliation");
       expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
@@ -154,6 +155,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
       });
 
       const rebuilt = await migrateToLatest(db);
+      expect(rebuilt).toContain("0064_quota_pricing_and_policy_archive");
       expect(rebuilt).toContain("0021_billing_rule_multi_windows");
       expect(rebuilt).toContain("0022_principal_key_minimum_model_permissions");
       expect(rebuilt).toContain("0023_principal_key_single_active");

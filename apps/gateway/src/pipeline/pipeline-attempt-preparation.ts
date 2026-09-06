@@ -14,6 +14,7 @@ import {
 } from "./revoked-attempt-settlement.js";
 import { publishFailedRequest } from "./pipeline-failure-settlement.js";
 import { attemptDispatchGuard } from "./attempt-dispatch-guard.js";
+import { finalizeDispatchCheckFailure } from "./dispatch-check-failure.js";
 import {
   acquireConcurrencyLeaseWithWait,
   estimateRawTokens,
@@ -221,8 +222,14 @@ export async function prepareSelectedAttempt(
     });
     return { kind: "STOP", result: "RETURNED" };
   }
-  const dispatchBlock = await attemptDispatchGuard(context, state, candidate,
-    invocationAuthorization.billingRule, invocationAuthorization.pricingAt, attempt.id);
+  let dispatchBlock: Awaited<ReturnType<typeof attemptDispatchGuard>>;
+  try {
+    dispatchBlock = await attemptDispatchGuard(context, state, candidate,
+      invocationAuthorization.billingRule, invocationAuthorization.pricingAt, attempt.id);
+  } catch {
+    await finalizeDispatchCheckFailure(context, state, { candidate, attempt, grantId, reservedEstimate, leaseId, probeLease });
+    return { kind: "STOP", result: "RETURNED" };
+  }
   if (dispatchBlock?.finalAction === "SWITCH" && dispatchBlock.switchTargetResourceId && state.attemptNo < context.maxAttempts) {
     await persistRejectedAttemptBeforeUpstreamEvidence({ ledgerRepo: deps.ledgerRepo, requestId,
       enterpriseId: principal.enterpriseId, principalId: context.principalId, attemptId: attempt.id,

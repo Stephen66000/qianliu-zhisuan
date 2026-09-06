@@ -1,9 +1,11 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
+import { lockPricingWrites } from "./pricing-write-guard.js";
 
 /** Readiness is structural over effective rules, not whether the wall clock is inside a peak window. */
 export async function listPricingReadyRoutes(db: Kysely<Database>, enterpriseId: string) {
+  const at = new Date();
   return db.selectFrom("model_route as r").innerJoin("unified_model as m", "m.id", "r.unified_model_id")
     .innerJoin("provider_resource as p", "p.id", "r.provider_resource_id")
     .innerJoin("provider as v", "v.id", "p.provider_id")
@@ -15,7 +17,7 @@ export async function listPricingReadyRoutes(db: Kysely<Database>, enterpriseId:
     .where("m.status", "=", "ACTIVE").where("p.status", "in", ["ACTIVE", "DEGRADED"])
     .where(sql<boolean>`EXISTS (SELECT 1 FROM billing_rule b
       WHERE b.enterprise_id = ${enterpriseId} AND b.enabled AND b.archived_at IS NULL
-      AND b.effective_from <= now() AND (b.effective_to IS NULL OR b.effective_to > now())
+      AND b.effective_from <= ${at} AND (b.effective_to IS NULL OR b.effective_to > ${at})
       AND (b.provider_resource_id IS NULL OR b.provider_resource_id = r.provider_resource_id)
       AND (b.upstream_model IS NULL OR b.upstream_model = r.upstream_model)
       AND ((p.mode = 'API' AND b.rule_type = 'API_PRICE'
@@ -29,6 +31,9 @@ export async function policyPricingReadiness(db: Kysely<Database>, enterpriseId:
   match_resource_mode: string | null; switch_equivalent_group: string[] | null;
   match_price_multiplier_min: string | null;
 }) {
+  // Hold the same transaction lock as price create/disable/replace through the publication commit.
+  // Plain UI queries are advisory only; an autocommit lock would offer no protection.
+  if (db.isTransaction) await lockPricingWrites(db, enterpriseId);
   const all = await listPricingReadyRoutes(db, enterpriseId);
   const matching = all.filter((route) => (!policy.match_unified_model || route.alias === policy.match_unified_model)
     && (!policy.match_provider_resource_id || route.provider_resource_id === policy.match_provider_resource_id)

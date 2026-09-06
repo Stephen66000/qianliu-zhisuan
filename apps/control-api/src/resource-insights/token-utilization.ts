@@ -19,7 +19,8 @@ export async function loadResourceUtilizationSnapshot(
 ): Promise<{ generatedAt: string; resources: Array<ResourceUtilizationRow & { tokenUtilization: TokenUtilization }> }> {
   return db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
     const resources = await listResourceUtilization(trx, enterpriseId, month, asOf);
-    const tokenFacts = await loadResourceTokenUtilization(trx, enterpriseId, month, asOf);
+    const currentMonthTokens = Object.fromEntries(resources.map((r) => [r.resourceId, r.realTokens]));
+    const tokenFacts = await queryResourceTokenUtilization(trx, enterpriseId, month, asOf, currentMonthTokens);
     return { generatedAt: asOf.toISOString(), resources: resources.map((resource) => {
       const tokenUtilization = tokenFacts.get(resource.resourceId);
       if (!tokenUtilization) throw new Error("Resource missing from utilization snapshot");
@@ -32,6 +33,17 @@ export async function loadResourceUtilizationSnapshot(
 export async function loadResourceTokenUtilization(
   db: Kysely<Database>, enterpriseId: string, month: string, now = new Date(),
 ): Promise<Map<string, TokenUtilization>> {
+  return queryResourceTokenUtilization(db, enterpriseId, month, now);
+}
+
+/** The snapshot path reuses its month total and reads only history; standalone callers read all four months. */
+async function queryResourceTokenUtilization(
+  db: Kysely<Database>, enterpriseId: string, month: string, now: Date,
+  currentMonthTokens?: Record<string, string>,
+): Promise<Map<string, TokenUtilization>> {
+  const currentTokens = currentMonthTokens === undefined
+    ? sql`COALESCE(t.current_tokens, 0)`
+    : sql`(${JSON.stringify(currentMonthTokens)}::jsonb ->> pr.id::text)::numeric`;
   const result = await sql<{
     resource_id: string; current_tokens: string; average_tokens: string | null;
     baseline_months: string[]; baseline_month_count: number;
@@ -62,9 +74,10 @@ export async function loadResourceTokenUtilization(
          AND COALESCE(ll.settled_at, ll.created_at) >= b.baseline_start
          AND COALESCE(ll.settled_at, ll.created_at) < b.ended_at
          AND COALESCE(ll.settled_at, ll.created_at) <= ${now}
+         ${currentMonthTokens === undefined ? sql`` : sql`AND COALESCE(ll.settled_at, ll.created_at) < b.started_at`}
        GROUP BY ll.provider_resource_id
     ), facts AS (
-      SELECT pr.id AS resource_id, COALESCE(t.current_tokens, 0) AS current_tokens,
+      SELECT pr.id AS resource_id, ${currentTokens} AS current_tokens,
              COALESCE(t.baseline_tokens, 0) AS baseline_tokens,
              ARRAY(SELECT to_char(b.month_start - n * interval '1 month', 'YYYY-MM')
                      FROM generate_series(3, 1, -1) AS n
