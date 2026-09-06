@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exact usage-search release. No database migration and no dependency/topology changes.
+# Exact compact usage-overview release. No database migration and no dependency/topology changes.
 set -Eeuo pipefail
 trap 'printf "STOP: release check failed at line %s (exit %s)\n" "$LINENO" "$?" >&2' ERR
 umask 077
@@ -11,11 +11,11 @@ if test "${1:-}" = --check-contract; then
   exit 0
 fi
 mode="${1:-deploy}"
-case "$mode" in deploy|--preflight) ;; *) echo 'Usage: bash release-usage-dd509ee.sh [--preflight|--check-contract]'; exit 2;; esac
+case "$mode" in deploy|--preflight) ;; *) echo 'Usage: bash release-usage-b29df67.sh [--preflight|--check-contract]'; exit 2;; esac
 test "$#" -le 1
-candidate=dd509eeff13efd672f1dd3bce60d035b998e2260
-tree=b927e06684deebb579b25af6727efe9ab83240fe
-expected_source=2b75bd97bada4c7b463ec9d78869c2a0a914c0da
+candidate=b29df679283842d7503aab0991872b63c23be21b
+tree=e3dabfcd27f0ee45516ff9ab996a19f2389fb464
+expected_source=dd509eeff13efd672f1dd3bce60d035b998e2260
 migration=0064_quota_pricing_and_policy_archive
 root=/Users/stephen
 pointer="$root/qianliu-current-release.txt"
@@ -71,10 +71,10 @@ echo 'PASS: current release, clean source, topology, migration, health and free 
 if test "$mode" = --preflight; then exit 0; fi
 mkdir "$lock" || { echo 'Deployment lock held'; exit 2; }
 stamp="$(date '+%Y%m%d-%H%M%S')"
-release="$root/releases/qianliu-usage-dd509ee-$stamp"
-backup="$root/backups/qianliu-zhisuan/pre-usage-dd509ee-$stamp.dump"
-rollback_prefix="qianliu-usage-dd509ee-rollback-$stamp"
-log="$root/logs/qianliu-zhisuan/deploy-usage-dd509ee-$stamp.log"
+release="$root/releases/qianliu-usage-b29df67-$stamp"
+backup="$root/backups/qianliu-zhisuan/pre-usage-b29df67-$stamp.dump"
+rollback_prefix="qianliu-usage-b29df67-rollback-$stamp"
+log="$root/logs/qianliu-zhisuan/deploy-usage-b29df67-$stamp.log"
 started=0
 frozen=0
 pointer_changed=0
@@ -128,19 +128,19 @@ mkdir "$release"
 git -C "$release" init -q
 git -C "$release" remote add origin git@github.com:Stephen66000/qianliu-zhisuan.git
 GIT_SSH_COMMAND='ssh -o BatchMode=yes' GIT_TERMINAL_PROMPT=0 \
-  git -C "$release" fetch --depth 2 origin "$candidate"
+  git -C "$release" fetch --depth 3 origin "$candidate"
 git -C "$release" checkout -q --detach "$candidate"
 test "$(git -C "$release" rev-parse HEAD)" = "$candidate"
 test "$(git -C "$release" rev-parse 'HEAD^{tree}')" = "$tree"
-test "$(git -C "$release" rev-parse 'HEAD^')" = "$expected_source"
+git -C "$release" merge-base --is-ancestor "$expected_source" "$candidate"
 changed_files="$(git -C "$release" diff --name-only "$expected_source..$candidate")"
 while IFS= read -r changed; do
   case "$changed" in
-    V4/Evidence/USAGE-SEARCH-20260906/*|apps/web/src/components/usage/UsageOverviewPanel.test.tsx|apps/web/src/components/usage/UsageOverviewPanel.tsx|apps/web/src/components/usage/UsageSearchField.tsx|apps/web/src/components/usage/UsageSubjectPicker.tsx|apps/web/src/pages/Usage.test.tsx|apps/web/src/pages/Usage.tsx|packages/database/src/__tests-integration__/usage-overview.integration.test.ts|packages/database/src/repositories/usage-repository.ts) ;;
+    V4/Evidence/USAGE-OVERVIEW-COMPACT-20260906/*|apps/web/e2e/wt-web.spec.ts|apps/web/src/api/v2-types.ts|deploy/scripts/release-usage-search-20260906-mac-mini.sh|apps/web/src/components/usage/UsageOverviewPanel.test.tsx|apps/web/src/components/usage/UsageOverviewPanel.tsx|apps/web/src/components/usage/UsageSearchField.tsx|apps/web/src/components/usage/UsageSubjectPicker.tsx|apps/web/src/pages/Usage.test.tsx|apps/web/src/pages/Usage.tsx|packages/database/src/__tests-integration__/usage-overview.integration.test.ts|packages/database/src/repositories/usage-overview-facts.ts|packages/database/src/repositories/usage-overview-repository.ts) ;;
     *) echo "Unexpected change: $changed"; exit 2;;
   esac
 done <<< "$changed_files"
-git -C "$release" diff --quiet "$expected_source..$candidate" -- deploy package.json pnpm-lock.yaml pnpm-workspace.yaml packages/database/migrations
+git -C "$release" diff --quiet "$expected_source..$candidate" -- deploy/compose.yaml deploy/compose.target.yaml deploy/caddy deploy/postgres-init package.json pnpm-lock.yaml pnpm-workspace.yaml packages/database/migrations
 cp -p "$previous/deploy/.env" "$release/deploy/.env"
 chmod 600 "$release/deploy/.env"
 cmp -s "$previous/deploy/.env" "$release/deploy/.env"
