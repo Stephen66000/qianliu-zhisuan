@@ -1,0 +1,207 @@
+{
+  "errors": [],
+  "actual": [
+    "415,000万",
+    "192,033.33万",
+    "+17.0%",
+    "34,583.33万",
+    "+27.3%"
+  ],
+  "layouts": [
+    {
+      "width": 320,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 320,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 320,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 360,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 360,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 360,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 740,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 740,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 740,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 768,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 768,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 768,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 774,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 774,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 774,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 11.125
+    },
+    {
+      "width": 800,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 800,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 800,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 11.625
+    },
+    {
+      "width": 900,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 900,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 900,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 1024,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 1024,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 1024,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 1440,
+      "tab": "plans",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 1440,
+      "tab": "purchases",
+      "cardTextFits": true,
+      "minFont": 12
+    },
+    {
+      "width": 1440,
+      "tab": "trends",
+      "cardTextFits": true,
+      "minFont": 12
+    }
+  ],
+  "stress": [
+    {
+      "value": 99999999,
+      "display": "99,999,999",
+      "cardTextFits": true,
+      "fiveTrendCardsFit": true
+    },
+    {
+      "value": 100000000,
+      "display": "10,000万",
+      "cardTextFits": true,
+      "fiveTrendCardsFit": true
+    },
+    {
+      "value": 2000000000,
+      "display": "200,000万",
+      "cardTextFits": true,
+      "fiveTrendCardsFit": true
+    },
+    {
+      "value": 20000000000,
+      "display": "2,000,000万",
+      "cardTextFits": true,
+      "fiveTrendCardsFit": true
+    },
+    {
+      "value": 2000000000000,
+      "display": "200,000,000万",
+      "cardTextFits": true,
+      "fiveTrendCardsFit": true
+    }
+  ],
+  "exactValuesPreserved": true
+}

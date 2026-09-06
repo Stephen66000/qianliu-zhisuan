@@ -1,5 +1,6 @@
 import { sql, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
+import { effectivePrincipalDepartment } from "./principal-department-query.js";
 import { markUsageAggregateDirtyForRequest } from "./usage-aggregate-repository.js";
 
 /**
@@ -24,19 +25,26 @@ export async function ensureRequestAttributionSnapshot(
        WHERE a.enterprise_id = ${enterpriseId}::uuid AND a.ai_request_id = ${requestId}::uuid
        LIMIT 1
     ), resolved AS (
-      SELECT r.*,
-             CASE WHEN r.principal_type = 'PROJECT' THEN r.source_principal_id ELSE ep.project_principal_id END AS project_id,
-             CASE WHEN r.principal_type = 'PROJECT' OR ep.project_principal_id IS NOT NULL THEN 'PROJECT'
+      SELECT r.*, profile.id AS accounting_profile_id,profile.department_id AS accounting_department_id,profile.owner_principal_id,
+             CASE WHEN r.principal_type = 'PROJECT' THEN r.source_principal_id WHEN profile.id IS NOT NULL THEN NULL ELSE ep.project_principal_id END AS project_id,
+             CASE WHEN r.principal_type = 'PROJECT' OR (profile.id IS NULL AND ep.project_principal_id IS NOT NULL) THEN 'PROJECT'
                   WHEN r.principal_type = 'EMPLOYEE' THEN 'EMPLOYEE_DIRECT' ELSE 'UNASSIGNED' END AS category
         FROM request_fact r LEFT JOIN explicit_project ep ON true
+        LEFT JOIN LATERAL (SELECT * FROM principal_accounting_assignment
+          WHERE enterprise_id=${enterpriseId}::uuid AND principal_id=r.source_principal_id
+            AND valid_from<=r.occurred_at AND (valid_until IS NULL OR valid_until>r.occurred_at)
+          ORDER BY version DESC LIMIT 1) profile ON true
     ), relation AS (
       SELECT r.*,
-             CASE WHEN r.category = 'PROJECT' THEN pa.organization_unit_id ELSE om.organization_unit_id END AS department_id,
+             CASE WHEN r.category='EMPLOYEE_DIRECT' THEN employee_department.department_id
+                  WHEN r.accounting_profile_id IS NOT NULL THEN owner_department.department_id ELSE pa.organization_unit_id END AS department_id,
              CASE WHEN r.principal_type = 'PROJECT' THEN 'PROJECT_DIRECT'
                   WHEN r.project_id IS NOT NULL THEN 'EMPLOYEE_PROJECT'
-                  WHEN om.organization_unit_id IS NOT NULL THEN 'EMPLOYEE_MEMBERSHIP'
+                  WHEN employee_department.department_id IS NOT NULL OR om.organization_unit_id IS NOT NULL THEN 'EMPLOYEE_MEMBERSHIP'
                   ELSE 'UNASSIGNED' END AS source_code
         FROM resolved r
+        LEFT JOIN LATERAL (${effectivePrincipalDepartment(enterpriseId, sql`r.owner_principal_id`, sql`r.occurred_at`)}) owner_department ON r.category='PROJECT'
+        LEFT JOIN LATERAL (${effectivePrincipalDepartment(enterpriseId, sql`r.source_principal_id`, sql`r.occurred_at`)}) employee_department ON r.category='EMPLOYEE_DIRECT'
         LEFT JOIN LATERAL (
           SELECT organization_unit_id FROM project_department_assignment
            WHERE enterprise_id = ${enterpriseId}::uuid AND project_principal_id = r.project_id

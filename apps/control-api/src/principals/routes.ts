@@ -7,13 +7,22 @@
  */
 import type { FastifyInstance } from "fastify";
 import { sql } from "kysely";
+import {
+  PrincipalRepository,
+  savePrincipalAccountingInTransaction,
+  PrincipalAccountingError,
+} from "@qianliu/database";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
+
+import { registerPrincipalAccountingRoutes } from "./accounting-route.js";
 
 const CreatePrincipalSchema = z.object({
   type: z.enum(["EMPLOYEE", "PROJECT"]),
   name: z.string().min(1).max(255),
   department_label: z.string().max(255).optional(),
+  owner_principal_id: z.string().uuid().optional(),
+  accounting_required: z.boolean().optional(),
 });
 
 const UpdatePrincipalSchema = z.object({
@@ -46,6 +55,7 @@ export function registerPrincipalRoutes(
   app: FastifyInstance,
   options: { departmentCost?: boolean } = {},
 ): void {
+  if (options.departmentCost !== false) registerPrincipalAccountingRoutes(app);
   // 列表
   app.get("/principals", { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = ListPrincipalQuerySchema.safeParse(req.query);
@@ -211,19 +221,46 @@ export function registerPrincipalRoutes(
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
     }
-    const created = await app.principalRepo.create({
-      enterprise_id: req.admin!.enterpriseId,
-      ...parsed.data,
-    });
-    await app.auditRepo.write({
-      enterprise_id: req.admin!.enterpriseId,
-      admin_user_id: req.admin!.adminUserId,
-      action: "principal.create",
-      target_type: "principal",
-      target_id: created.id,
-      change_summary: { type: created.type, name: created.name },
-      result: "SUCCESS",
-    });
+    let created;
+    try {
+      created = await app.db.transaction().execute(async (trx) => {
+        const principal = await new PrincipalRepository(trx).create({
+          enterprise_id: req.admin!.enterpriseId,
+          type: parsed.data.type,
+          name: parsed.data.name,
+          department_label: parsed.data.department_label,
+        });
+        if (parsed.data.accounting_required)
+          await savePrincipalAccountingInTransaction(trx, {
+            enterpriseId: req.admin!.enterpriseId,
+            principalId: principal.id,
+            adminId: req.admin!.adminUserId,
+            departmentName: parsed.data.department_label,
+            ownerPrincipalId: parsed.data.owner_principal_id,
+            expectedVersion: 0,
+          });
+        await trx
+          .insertInto("operation_log")
+          .values({
+            enterprise_id: req.admin!.enterpriseId,
+            admin_user_id: req.admin!.adminUserId,
+            action: "principal.create",
+            target_type: "principal",
+            target_id: principal.id,
+            result: "SUCCESS",
+            failure_reason: null,
+            change_summary: { type: principal.type, name: principal.name },
+          })
+          .execute();
+        return principal;
+      });
+    } catch (error) {
+      if (error instanceof PrincipalAccountingError)
+        return reply
+          .code(400)
+          .send({ error: error.code, message: error.message });
+      throw error;
+    }
     return reply.code(201).send({ principal: created });
   });
 

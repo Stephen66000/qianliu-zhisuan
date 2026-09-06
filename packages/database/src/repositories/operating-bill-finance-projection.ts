@@ -105,7 +105,9 @@ export async function projectOperatingBillFinance(
       field: account.balanceState === "INCOMPLETE_USAGE_COST" ? "ledger_line.api_cost" : "balance",
     }]));
   const seenGaps = new Set<string>();
-  const gaps = [...retainedGaps, ...financeGaps].filter((gap) => {
+  const allocationGaps: OperatingBillSnapshot["gaps"] = new Money(allocation.unallocatedCost).gt(0)
+    ? [{ code: "UNALLOCATED_PACKAGE_COST", message: `仍有 ${allocation.unallocatedCost} 元套餐费用缺少完整用量归属` }] : [];
+  const gaps = [...retainedGaps, ...financeGaps, ...allocationGaps].filter((gap) => {
     const key = `${gap.code}:${gap.providerResourceId ?? ""}:${gap.field ?? ""}`;
     if (seenGaps.has(key)) return false;
     seenGaps.add(key); return true;
@@ -132,7 +134,7 @@ async function allocatePlanCostsByCalendarMonthTokens(
   const [result, legacyResult] = await Promise.all([sql<{ subject_id: string; subject_name: string;
     subject_type: "EMPLOYEE" | "PROJECT"; provider_resource_id: string; provider_name: string;
     input_tokens: string; output_tokens: string; cache_tokens: string; reasoning_tokens: string;
-    tokens: string; active_dates: string[]; request_ids: string[] }>`
+    tokens: string; unknown_count: string; active_dates: string[]; request_ids: string[] }>`
     SELECT COALESCE(project.id, source.id)::text AS subject_id,
            COALESCE(project.name, source.name) AS subject_name,
            CASE WHEN project.id IS NOT NULL OR source.type='PROJECT'
@@ -143,6 +145,7 @@ async function allocatePlanCostsByCalendarMonthTokens(
            SUM(line.raw_cache_tokens)::text AS cache_tokens,
            SUM(line.raw_reasoning_tokens)::text AS reasoning_tokens,
            SUM(line.raw_input_tokens+line.raw_output_tokens)::text AS tokens,
+           COUNT(*) FILTER (WHERE line.usage_quality='UNKNOWN')::text AS unknown_count,
            ARRAY_AGG(DISTINCT to_char(line.settled_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')) AS active_dates,
            ARRAY_AGG(DISTINCT line.ai_request_id::text) AS request_ids
       FROM ledger_line line
@@ -172,14 +175,20 @@ async function allocatePlanCostsByCalendarMonthTokens(
   for (const view of views.filter((item) => item.mode === "CODING_PLAN"
     && new Money(item.monthlyPlanCashCny).gt(0))) {
     planCost = planCost.plus(view.monthlyPlanCashCny);
-    const rows = result.rows.filter((row) => row.provider_resource_id === view.resourceId
-      && new Money(row.tokens).gt(0));
+    const resourceRows = result.rows.filter((row) => row.provider_resource_id === view.resourceId);
+    // Unknown tokens invalidate this resource's denominator, not just one subject's share.
+    if (resourceRows.some((row) => Number(row.unknown_count) > 0)) {
+      unallocated = unallocated.plus(view.monthlyPlanCashCny);
+      continue;
+    }
+    const rows = resourceRows.filter((row) => new Money(row.tokens).gt(0));
     const total = rows.reduce((sum, row) => sum.plus(row.tokens), new Money(0));
     if (total.isZero()) {
       unallocated = unallocated.plus(view.monthlyPlanCashCny);
       continue;
     }
-      const totalUnits = new Money(view.monthlyPlanCashCny).mul(100_000_000)
+      const allocationScale = new Money(view.monthlyPlanCashCny).decimalPlaces() <= 2 ? 100 : 100_000_000;
+      const totalUnits = new Money(view.monthlyPlanCashCny).mul(allocationScale)
         .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
       const parts = rows.map((row) => {
         const exact = totalUnits.mul(row.tokens).div(total);
@@ -194,7 +203,7 @@ async function allocatePlanCostsByCalendarMonthTokens(
         const units = part.base.plus(remainder > 0 ? 1 : 0);
         remainder -= remainder > 0 ? 1 : 0;
         const key = `${part.row.subject_type}:${part.row.subject_id}`;
-        const amount = units.div(100_000_000);
+        const amount = units.div(allocationScale);
         allocations.set(key,
           (allocations.get(key) ?? new Money(0))
             .plus(amount));

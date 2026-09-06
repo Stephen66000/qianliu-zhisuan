@@ -204,7 +204,9 @@ function summaryTotals(row: RawFrozenSummary | undefined): OperatingBillAccountT
 }
 
 export async function loadFrozenOperatingBillAccountSummary(
-  db: Kysely<Database>, enterpriseId: string, month: string,
+  db: Kysely<Database>,
+  enterpriseId: string,
+  month: string,
   dimension: "EMPLOYEE" | "PROJECT",
   query: { providerCode?: string; search?: string; limit: number; offset: number },
 ): Promise<{ totals: OperatingBillAccountTotals; rows: OperatingBillAccountSubjectRow[]; total: number }> {
@@ -225,7 +227,7 @@ export async function loadFrozenOperatingBillAccountSummary(
              CASE WHEN ${dimension} = 'PROJECT' AND source_principal_type = 'EMPLOYEE'
                        AND project_id IS NULL THEN TRUE ELSE FALSE END AS is_unassigned
         FROM frozen_facts
-       WHERE ${dimension} <> 'EMPLOYEE' OR source_principal_type = 'EMPLOYEE'
+       WHERE source_principal_type = ${dimension}
     ), scoped_facts AS (
       SELECT * FROM dimension_facts WHERE TRUE ${provider}${search}
     ), summaries AS (
@@ -304,7 +306,7 @@ export async function loadFrozenOperatingBillAccountSummary(
       subjectId: row.subject_id,
       subjectName: row.subject_name!,
       isUnassigned: row.is_unassigned ?? false,
-      projectOwner: dimension === "PROJECT" && row.project_owner_person_id && row.project_owner_name
+      projectOwner: dimension === "PROJECT" && row.project_owner_name
         ? { personId: row.project_owner_person_id, personName: row.project_owner_name }
         : null,
       projectDepartments: dimension === "PROJECT"
@@ -319,7 +321,11 @@ export async function loadFrozenOperatingBillAccountSummary(
   for (const row of result.rows.filter((item) => item.level === "PROVIDER")) {
     const subject = subjects.get(row.subject_id ?? "__unassigned_project__");
     if (subject && row.provider_code && row.provider_name) {
-      subject.providers.push({ providerCode: row.provider_code, providerName: row.provider_name });
+      subject.providers.push({
+        providerCode: row.provider_code,
+        providerName: row.provider_name,
+        totals: summaryTotals(row),
+      });
     }
   }
   return {

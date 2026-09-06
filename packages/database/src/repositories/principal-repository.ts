@@ -4,6 +4,7 @@
  * 依据：TRD §5.2。enterprise_id 贯穿所有查询。
  * 停用语义：status=DISABLED；停用时上层应同步撤销 Key（W03）。
  */
+import { readPrincipalCleanupPreview } from "./principal-cleanup-preview.js";
 import { sql, type Kysely, type Selectable } from "kysely";
 import type { Database, PrincipalTable } from "../kysely.js";
 
@@ -39,6 +40,7 @@ export interface PrincipalCleanupPreview {
   ledgerCount: number;
   employeeLoginCount: number;
   authorizationRuleAssignmentCount: number;
+  accountingAssignmentCount?: number;
   canDelete: boolean;
 }
 
@@ -292,7 +294,11 @@ export class PrincipalRepository {
         .execute();
       await trx
         .updateTable("principal_grant")
-        .set({ status: "DISABLED", updated_at: now, version: sql`version + 1` })
+        .set({
+          status: "DISABLED",
+          updated_at: now,
+          version: sql`version + 1`,
+        })
         .where("enterprise_id", "=", enterpriseId)
         .where("principal_id", "=", id)
         .where("status", "=", "ACTIVE")
@@ -350,70 +356,8 @@ export class PrincipalRepository {
     });
   }
 
-  private async readCleanupPreview(
-    db: Kysely<Database>,
-    enterpriseId: string,
-    id: string,
-  ): Promise<PrincipalCleanupPreview> {
-    const queryResult = await sql<{
-      key_count: string;
-      active_key_count: string;
-      grant_count: string;
-      active_grant_count: string;
-      request_count: string;
-      usage_count: string;
-      ledger_count: string;
-      employee_login_count: string;
-      authorization_rule_assignment_count: string;
-    }>`
-      SELECT
-        (SELECT count(*) FROM principal_key
-          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid) AS key_count,
-        (SELECT count(*) FROM principal_key
-          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid
-            AND status = 'ACTIVE') AS active_key_count,
-        (SELECT count(*) FROM principal_grant
-          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid) AS grant_count,
-        (SELECT count(*) FROM principal_grant
-          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid
-            AND status = 'ACTIVE') AS active_grant_count,
-        (SELECT count(*) FROM ai_request
-          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid) AS request_count,
-        (SELECT count(*) FROM usage_event ue
-          JOIN upstream_attempt ua ON ua.id = ue.upstream_attempt_id
-          JOIN ai_request ar ON ar.id = ua.ai_request_id
-          WHERE ar.enterprise_id = ${enterpriseId}::uuid AND ar.principal_id = ${id}::uuid) AS usage_count,
-        ((SELECT count(*) FROM ledger_line
-          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid) +
-         (SELECT count(*) FROM ledger_transaction
-          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid)) AS ledger_count,
-        (SELECT count(*) FROM employee_login
-          WHERE principal_id = ${id}::uuid) AS employee_login_count,
-        (SELECT count(*) FROM employee_model_rule_assignment
-          WHERE enterprise_id = ${enterpriseId}::uuid AND principal_id = ${id}::uuid)
-          AS authorization_rule_assignment_count
-    `.execute(db);
-    const result = queryResult.rows[0];
-    if (!result) throw new Error("principal cleanup preview query returned no row");
-    const preview = {
-      keyCount: Number(result.key_count),
-      activeKeyCount: Number(result.active_key_count),
-      grantCount: Number(result.grant_count),
-      activeGrantCount: Number(result.active_grant_count),
-      requestCount: Number(result.request_count),
-      usageCount: Number(result.usage_count),
-      ledgerCount: Number(result.ledger_count),
-      employeeLoginCount: Number(result.employee_login_count),
-      authorizationRuleAssignmentCount: Number(result.authorization_rule_assignment_count),
-      canDelete: false,
-    };
-    preview.canDelete =
-      preview.requestCount === 0 &&
-      preview.usageCount === 0 &&
-      preview.ledgerCount === 0 &&
-      preview.employeeLoginCount === 0 &&
-      preview.authorizationRuleAssignmentCount === 0;
-    return preview;
+  private readCleanupPreview(db: Kysely<Database>, enterpriseId: string, id: string): Promise<PrincipalCleanupPreview> {
+    return readPrincipalCleanupPreview(db, enterpriseId, id);
   }
 
   private async insertAudit(

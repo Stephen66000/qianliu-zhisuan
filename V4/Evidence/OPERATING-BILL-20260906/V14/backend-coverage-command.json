@@ -1,0 +1,13 @@
+{
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "/Users/mac/.codex/worktrees/operating-bill-0906/\u4edf\u6d41\u667a\u7b97/V4/Evidence/OPERATING-BILL-20260906/V14/backend-coverage.config.mjs",
+    "--coverage",
+    "--maxWorkers=1",
+    "--no-file-parallelism"
+  ],
+  "exit_code": 1
+}

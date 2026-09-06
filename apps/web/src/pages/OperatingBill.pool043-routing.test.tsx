@@ -1,10 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OperatingBill } from "../api/operating-bills";
 import { OperatingBillPage } from "./OperatingBill";
+
+import { analysisFixture } from "../__tests__/operating-analysis-fixture";
 
 const bill: OperatingBill = {
   month: "2026-08",
@@ -53,6 +54,19 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
 }));
 
+vi.mock("../api/operating-analysis", () => ({
+  useOperatingAnalysis: () => ({
+    data: analysisFixture,
+    isLoading: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+vi.mock("../api/operating-bill-payments", () => ({
+  useOperatingBillPayments: () => ({ data: [], isLoading: false, error: null }),
+}));
+
 vi.mock("../api/operating-bills", () => ({
   useCloseOperatingBill: () => ({ mutate: vi.fn(), isPending: false, error: null }),
   useConfirmOperatingBillValue: () => ({ mutate: mocks.confirm, isPending: false, error: null }),
@@ -86,10 +100,20 @@ describe("POOL-043 旧主体页分流", () => {
 
   it("旧 subjects 入口保留月份并替换到独立员工账", () => {
     render(
-      <MemoryRouter initialEntries={["/operating-bill?month=2026-08&tab=subjects"]}>
+      <MemoryRouter
+        initialEntries={["/operating-bill?month=2026-08&tab=subjects"]}
+      >
         <Routes>
           <Route element={<OperatingBillPage />} path="/operating-bill" />
-          <Route element={<><div>独立员工账</div><LocationProbe /></>} path="/operating-bill/employees" />
+          <Route
+            element={
+              <>
+                <div>独立员工账</div>
+                <LocationProbe />
+              </>
+            }
+            path="/operating-bill/employees"
+          />
         </Routes>
       </MemoryRouter>,
     );
@@ -112,57 +136,23 @@ describe("POOL-043 旧主体页分流", () => {
     expect(screen.getByRole("heading", { name: "厂商投入构成" })).toBeInTheDocument();
   });
 
-  it("保留非主体页签的原有独立内容", async () => {
-    const user = userEvent.setup();
+  it("价值确认留空，不展示或写入已有价值事项", () => {
     render(
-      <MemoryRouter initialEntries={["/operating-bill?month=2026-08&tab=value"]}>
+      <MemoryRouter
+        initialEntries={["/operating-bill?month=2026-08&tab=value"]}
+      >
         <OperatingBillPage />
       </MemoryRouter>,
     );
-
-    expect(screen.getByRole("heading", { name: "新增价值事项" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "价值确认" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-
-    const save = screen.getByRole("button", { name: "保存待确认" });
-    await user.click(save);
+    expect(
+      screen.getByRole("region", { name: "价值确认" }),
+    ).toBeEmptyDOMElement();
+    expect(screen.queryByText("已提交价值")).toBeNull();
     expect(mocks.create).not.toHaveBeenCalled();
-    await user.type(screen.getByPlaceholderText("价值事项"), "节省成本");
-    await user.type(screen.getByPlaceholderText("金额"), "1.234");
-    await user.click(save);
-    expect(screen.getByRole("alert")).toHaveTextContent("最多保留两位小数");
-    await user.clear(screen.getByPlaceholderText("金额"));
-    await user.type(screen.getByPlaceholderText("金额"), "12.34");
-    await user.type(screen.getByPlaceholderText("证据引用"), "invoice-1");
-    await user.click(save);
-    expect(mocks.create).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        title: "节省成本",
-        value_type: "MONETARY",
-        amount: "12.34",
-        metric_value: null,
-        evidence_ref: "invoice-1",
-      }),
-      expect.any(Object),
-    );
-
-    await user.click(screen.getByRole("button", { name: "确认" }));
-    expect(mocks.confirm).toHaveBeenCalledWith("value-1");
-
-    await user.selectOptions(screen.getByRole("combobox"), "NON_MONETARY");
-    await user.type(screen.getByPlaceholderText("价值事项"), "产出文档");
-    await user.type(screen.getByPlaceholderText("指标值"), "3 份");
-    await user.click(save);
-    expect(mocks.create).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        title: "产出文档",
-        value_type: "NON_MONETARY",
-        amount: null,
-        metric_value: "3 份",
-      }),
-      expect.any(Object),
-    );
+    expect(mocks.confirm).not.toHaveBeenCalled();
   });
 });

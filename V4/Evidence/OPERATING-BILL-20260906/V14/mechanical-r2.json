@@ -1,0 +1,36 @@
+[
+  {
+    "name": "r2-lint",
+    "command": [
+      "node",
+      "node_modules/eslint/bin/eslint.js",
+      "packages/database/src/repositories/operating-bill-account-month-lines.ts",
+      "packages/database/src/repositories/operating-analysis-repository.ts",
+      "packages/database/src/repositories/operating-bill-account-frozen.ts",
+      "packages/database/src/repositories/operating-bill-finance-projection.ts",
+      "packages/database/src/__tests-integration__/operating-analysis.integration.test.ts",
+      "packages/database/src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts",
+      "--max-warnings=0"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "r2-size",
+    "command": [
+      "node",
+      "scripts/check-source-size.mjs"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "r2-typecheck",
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "packages/database/tsconfig.json"
+    ],
+    "exit_code": 0
+  }
+]

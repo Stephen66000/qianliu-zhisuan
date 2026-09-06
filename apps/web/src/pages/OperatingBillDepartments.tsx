@@ -1,28 +1,105 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useCheckDepartmentBill, useDepartmentBill, useSaveDepartmentBudget } from "../api/v2-hooks";
-import type { DepartmentBill } from "../api/v2-types";
+import { Link, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { get } from "../api/client";
+import type {
+  OperatingBillEmployeeRow,
+  OperatingBillMetricTotals,
+} from "../api/operating-bill-accounts";
 import { OperatingBillShell, operatingBillMonth } from "../components/operating-bill/OperatingBillShell";
+import {
+  AccountCell,
+  AccountTable,
+  MetricGrid,
+} from "../components/operating-bill/AccountShared";
+import {
+  subjectUsageHeaders,
+  SubjectUsageCells,
+} from "../components/operating-bill/SubjectUsageCells";
+import {
+  BillCard,
+  SectionHeading,
+} from "../components/operating-bill/BillShared";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
-import { formatCount, formatMoney } from "../lib/format";
+import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 
-const BUDGET_STATUS_LABEL: Record<DepartmentBill["rows"][number]["budgetStatus"], string> = {
-  NOT_SET: "未设置",
-  NORMAL: "正常",
-  WARNING: "已预警",
-  OVER_BUDGET: "超预算",
-};
-
+export interface DepartmentAccounts {
+  month: string;
+  status: "DRAFT" | "CLOSED";
+  rows: OperatingBillEmployeeRow[];
+  totals: OperatingBillMetricTotals;
+}
+export function useDepartmentAccounts(month: string) {
+  return useQuery({
+    queryKey: ["operating-department-accounts", month],
+    queryFn: ({ signal }) =>
+      get<DepartmentAccounts>(
+        `/operating-bills/${month}/department-accounts`,
+        signal,
+      ),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    retry: 1,
+  });
+}
 export function OperatingBillDepartmentsPage() {
-  const [params] = useSearchParams(); const month = operatingBillMonth(params.get("month"));
-  const query = useDepartmentBill(month); const save = useSaveDepartmentBudget(month); const check = useCheckDepartmentBill(month);
-  const [editing, setEditing] = useState<string | null>(null); const [amount, setAmount] = useState(""); const [threshold, setThreshold] = useState("0.80000000");
-  if (query.isLoading) return <OperatingBillShell active="departments" month={month}><LoadingState label="正在归集部门成本…" rows={6}/></OperatingBillShell>;
-  if (query.error || !query.data) return <OperatingBillShell active="departments" month={month}><ErrorState message={query.error?.message ?? "部门账加载失败"} onRetry={() => void query.refetch()}/></OperatingBillShell>;
-  const bill = query.data;
-  return <OperatingBillShell active="departments" month={month} status={bill.status} version={bill.version}><div className="space-y-4">
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{[["企业总成本", bill.totals.totalCost === null ? "—" : `¥${formatMoney(bill.totals.totalCost)}`], ["真实 Token", formatCount(bill.totals.actualTokens)], ["API 费用", bill.totals.apiCost === null ? "—" : `¥${formatMoney(bill.totals.apiCost)}`], ["归集守恒", bill.conservation.status]].map(([label, value]) => <article className="rounded-xl border border-ql-border-zone bg-ql-surface p-4" key={label}><p className="text-[12px] text-ql-fg-tertiary">{label}</p><strong className="mt-2 block text-[22px]">{value}</strong></article>)}</div>
-    <section className="overflow-hidden rounded-xl border border-ql-border-zone bg-ql-surface"><div className="flex items-center justify-between p-4"><div><h2 className="text-[15px] font-semibold">部门成本与预算</h2><p className="mt-1 text-[11px] text-ql-fg-tertiary">每条成本只归一个部门槽位；待归属与未知保持可见。</p></div><button className="rounded-lg border border-ql-border px-3 py-2 text-[12px]" disabled={check.isPending} onClick={() => check.mutate()} type="button">检查账单</button></div>{check.data ? <p className={`mx-4 mb-3 text-[12px] ${check.data.ok ? "text-ql-success" : "text-ql-warning"}`}>{check.data.ok ? "账单检查通过" : `发现 ${check.data.gaps.length} 个数据缺口：${check.data.gaps.map((gap) => gap.code).join("、")}`}</p> : null}<div className="overflow-x-auto"><table className="w-full min-w-[72rem] text-left text-[12px]"><thead><tr className="border-y border-ql-border-zone bg-ql-surface-subtle text-ql-fg-tertiary"><th className="p-3">部门</th><th className="text-right">员工直接成本</th><th className="text-right">项目成本</th><th className="text-right">合计</th><th className="text-right">真实 Token</th><th className="text-right">API 费用</th><th className="text-right">套餐分摊</th><th>预算 / 状态</th></tr></thead><tbody>{bill.rows.map((row) => <tr className="border-b border-ql-border-zone" key={row.departmentId ?? "unassigned"}><td className="p-3 font-medium">{row.departmentName}{row.reasonCodes.length ? <span className="block text-[10px] text-ql-warning">{row.reasonCodes.join("、")}</span> : null}</td><td className="text-right">{row.employeeDirectCost === null ? "—" : `¥${formatMoney(row.employeeDirectCost)}`}</td><td className="text-right">{row.projectCost === null ? "—" : `¥${formatMoney(row.projectCost)}`}</td><td className="text-right font-medium">{row.totalCost === null ? "—" : `¥${formatMoney(row.totalCost)}`}</td><td className="text-right font-mono">{formatCount(row.actualTokens)}</td><td className="text-right">{row.apiCost === null ? "—" : `¥${formatMoney(row.apiCost)}`}</td><td className="text-right">{row.packageAllocatedCost === null ? "—" : `¥${formatMoney(row.packageAllocatedCost)}`}</td><td>{row.departmentId ? editing === row.departmentId ? <div className="flex items-center gap-1"><input aria-label={`${row.departmentName}预算`} className="ql-input w-24" disabled={bill.status === "CLOSED"} min="0" onChange={(event) => setAmount(event.target.value)} step="0.01" type="number" value={amount}/><input aria-label={`${row.departmentName}警戒线`} className="ql-input w-20" disabled={bill.status === "CLOSED"} max="1" min="0.01" onChange={(event) => setThreshold(event.target.value)} step="0.01" type="number" value={threshold}/><button className="text-ql-action" disabled={bill.status === "CLOSED" || save.isPending} onClick={() => save.mutate({ departmentId: row.departmentId!, amount, currency: row.budget?.currency ?? "CNY", warning_threshold: threshold, expected_version: row.budget?.version ?? 0 }, { onSuccess: () => setEditing(null) })} type="button">保存</button></div> : <button className="text-left text-ql-action" disabled={bill.status === "CLOSED"} onClick={() => { setEditing(row.departmentId); setAmount(row.budget?.amount ?? ""); setThreshold(row.budget?.warningThreshold ?? "0.80000000"); }} type="button">{row.budget ? `¥${formatMoney(row.budget.amount)} · ${BUDGET_STATUS_LABEL[row.budgetStatus]}` : "设置预算"}</button> : "—"}</td></tr>)}</tbody></table></div></section>
-  </div></OperatingBillShell>;
+  const [params] = useSearchParams(),
+    month = operatingBillMonth(params.get("month"));
+  const query = useDepartmentAccounts(month);
+  useRedirectOnUnauthorized(query.error);
+  return (
+    <OperatingBillShell active="departments" month={month}>
+      {query.isLoading ? (
+        <LoadingState label="正在汇总部门账…" rows={5} />
+      ) : !query.data ? (
+        <ErrorState message={query.error?.message ?? "部门账加载失败"} onRetry={() => void query.refetch()}/>
+      ) : (
+        <div className="space-y-4">
+          {query.error ? (
+            <p role="alert" className="text-ql-danger">
+              刷新失败，当前显示上次读取的数据：{query.error.message}
+            </p>
+          ) : null}
+          {query.data.rows.some(
+            (row) => row.isUnassigned && row.totals.requestCount > 0,
+          ) ? (
+            <p
+              role="alert"
+              className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning"
+            >
+              存在待归属用量，请管理员前往{" "}
+              <Link className="underline" to="/principals">
+                使用主体
+              </Link>{" "}
+              补齐员工部门或项目负责人。
+            </p>
+          ) : null}
+          <MetricGrid totals={query.data.totals} />
+          <BillCard>
+            <SectionHeading title="部门账" />
+            <AccountTable
+              headers={["部门", ...subjectUsageHeaders]}
+              leadingTextColumns={1}
+            >
+              {query.data.rows.map((row) => (
+                <tr
+                  className="border-b border-ql-border-zone"
+                  key={row.subjectId ?? "unassigned"}
+                >
+                  <AccountCell>{row.subjectName}</AccountCell>
+                  <SubjectUsageCells row={row} />
+                </tr>
+              ))}
+            </AccountTable>
+            {query.data.rows.length === 0 ? (
+              <p className="p-6 text-center">本月暂无部门用量</p>
+            ) : null}
+          </BillCard>
+        </div>
+      )}
+    </OperatingBillShell>
+  );
 }

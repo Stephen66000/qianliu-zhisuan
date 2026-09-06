@@ -1,0 +1,22 @@
+{
+  "candidate": "candidate-r1.json",
+  "lint": "PASS",
+  "typecheck": "PASS: database/control-api/gateway/web",
+  "size": "PASS: 455 production files",
+  "architecture": "PASS: 455 production files, no runtime cycle",
+  "duplication": "PASS: 44 changed production TypeScript/TSX files, 0.53% vs 5% threshold",
+  "web_tests": "79 passed using 11 changed test files plus 2 existing relevant API hook test files",
+  "web_affected_file_coverage": {
+    "statements": 82.35,
+    "branches": 81.96,
+    "functions": 78.37,
+    "lines": 82.35,
+    "decision": "FAIL thresholds95/85/90/95"
+  },
+  "web_changed_instrumented_line_coverage": "75.59%, diagnostic only",
+  "backend_combined_tests": "36 passed, 1 failed: request-attribution fixture uses host request time and DB assignment time; reviewer evaluating",
+  "incremental_mutation": "NOT_RUN; applicability review required",
+  "coverage_ratchet": "NOT_ESTABLISHED for this candidate; do not reuse old baseline pass",
+  "new_dependencies": false,
+  "production_access": false
+}

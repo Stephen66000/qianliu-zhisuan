@@ -1,0 +1,142 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/packages/database
+
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests | 2 failed) 7372ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 返回员工月度字段、provider/model 稳定分组、历史 alias 与未知口径 36ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 请求明细按 stable ID 下钻，保留发生时 alias、状态、时间和独立费用字段 18ms
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 项目账只投影一次请求，明确未归属，归属变更沿用 ledger 月份与结账门禁 15ms
+     → expected [ { …(7) } ] to deeply equal ArrayContaining{…}
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 结账冻结账户事实，底层账本变化不改写历史，但展示最新正式 alias 120ms
+     → expected [] to deeply equal [ '星河项目' ]
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 支持筛选、空数据并严格隔离企业与主体类型 58ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一套餐资源任一扣减事实缺失时，不把其余请求分摊伪装为精确值 34ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > SQL 下推请求分页保留全量 total，并用 request ID 稳定解决同时间次序 118ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 未指定 provider 时先合并同一 request 的跨厂商账本行，再计数和分页 103ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一请求的多条 ledger line 跨北京日界时，活跃天数为 2 且请求数仍为 1 27ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > CLOSED 空月的员工、项目、详情和请求下钻都返回精确空态 52ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 真实 PostgreSQL 对无法证明稳定 ID 的历史 alias 保持未解析并可冻结追溯 54ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配 111ms
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (3 tests) 2350ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 项目账只投影一次请求，明确未归属，归属变更沿用 ledger 月份与结账门禁
+AssertionError: expected [ { …(7) } ] to deeply equal ArrayContaining{…}
+
+- Expected
++ Received
+
+- ArrayContaining [
+-   ObjectContaining {
+-     "isUnassigned": false,
+-     "projectDepartments": [
++ [
+    {
+-         "departmentId": "559fc314-fef3-4893-9598-82e06588de84",
+-         "departmentName": "研发中心",
+-       },
+-     ],
+-     "projectOwner": {
+-       "personId": "19f6a836-550e-4e7f-93ab-7e1a00f8725e",
+-       "personName": "项目负责人",
+-     },
+-     "subjectId": "314d13bb-4e4c-4b40-bed3-6e368821ec87",
+-     "subjectName": "星河项目",
+-   },
+-   ObjectContaining {
+-     "isUnassigned": true,
+-     "projectDepartments": [],
+-     "projectOwner": null,
+-     "subjectId": null,
+-     "subjectName": "未归属项目",
+-   },
+-   ObjectContaining {
+      "isUnassigned": false,
+      "projectDepartments": [
+        {
+          "departmentId": "9cf87fee-19c8-4cd9-99be-b60817d0b4a7",
+          "departmentName": "产品中心",
+        },
+      ],
+      "projectOwner": {
+        "personId": "19f6a836-550e-4e7f-93ab-7e1a00f8725e",
+        "personName": "项目负责人",
++     },
++     "providers": [
++       {
++         "providerCode": "deepseek",
++         "providerName": "DeepSeek",
++         "totals": {
++           "activeDays": 1,
++           "apiCost": "1.00000000",
++           "cacheTokens": "0",
++           "deductedQuota": "0",
++           "inputTokens": "10",
++           "lastUsedAt": "2026-08-07T04:00:00.000Z",
++           "outputTokens": "1",
++           "packageAllocatedCost": "0.00000000",
++           "reasoningTokens": "0",
++           "requestCount": 1,
++           "totalAllocatedCost": "1.00000000",
++           "totalTokens": "11",
++           "usageQuality": "EXACT",
+          },
++       },
++     ],
+      "subjectId": "56ef559a-09a7-46ae-b48b-197cd9bc1997",
+      "subjectName": "直接项目",
++     "totals": {
++       "activeDays": 1,
++       "apiCost": "1.00000000",
++       "cacheTokens": "0",
++       "deductedQuota": "0",
++       "inputTokens": "10",
++       "lastUsedAt": "2026-08-07T04:00:00.000Z",
++       "outputTokens": "1",
++       "packageAllocatedCost": "0.00000000",
++       "reasoningTokens": "0",
++       "requestCount": 1,
++       "totalAllocatedCost": "1.00000000",
++       "totalTokens": "11",
++       "usageQuality": "EXACT",
++     },
+    },
+  ]
+
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:327:25
+    325|   it("项目账只投影一次请求，明确未归属，归属变更沿用 ledger 月份与结账门禁", async () => {
+    326|     const before = await accountRepo.listAccounts(enterpriseId, "2026-…
+    327|     expect(before.rows).toEqual(expect.arrayContaining([
+       |                         ^
+    328|       expect.objectContaining({
+    329|         subjectId: projectId, subjectName: "星河项目", isUnassigned: false,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 结账冻结账户事实，底层账本变化不改写历史，但展示最新正式 alias
+AssertionError: expected [] to deeply equal [ '星河项目' ]
+
+- Expected
++ Received
+
+- [
+-   "星河项目",
+- ]
++ []
+
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:408:44
+    406|     expect((await accountRepo.listAccounts(
+    407|       enterpriseId, "2026-08", "PROJECT", { providerCode: "deepseek", …
+    408|     )).rows.map((row) => row.subjectName)).toEqual(["星河项目"]);
+       |                                            ^
+    409|     await expect(billRepo.assignRequestToProject({
+    410|       enterpriseId, adminId, month: "2026-08", requestId: assignedRequ…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 13 passed (15)
+   Start at  21:19:03
+   Duration  11.95s (transform 593ms, setup 0ms, collect 1.91s, tests 9.72s, environment 0ms, prepare 92ms)
+

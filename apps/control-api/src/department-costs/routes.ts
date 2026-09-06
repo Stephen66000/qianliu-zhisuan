@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
   DepartmentBillEvidenceUnavailableError,
+  loadOperatingDepartmentAccounts,
   type DepartmentBillView,
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
@@ -84,6 +85,31 @@ function purchaseFailure(kind: string, reply: FastifyReply) {
 }
 
 export function registerDepartmentCostRoutes(app: FastifyInstance): void {
+  app.get<{ Params: { month: string } }>(
+    "/operating-bills/:month/department-accounts",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      if (!MonthSchema.safeParse(req.params.month).success)
+        return invalid(reply);
+      try {
+        return await loadOperatingDepartmentAccounts(
+          app.db,
+          req.admin!.enterpriseId,
+          req.params.month,
+        );
+      } catch (error) {
+        if (error instanceof DepartmentBillEvidenceUnavailableError)
+          return reply
+            .code(409)
+            .send({
+              error: "department_evidence_unavailable",
+              message: "该历史账期缺少部门冻结数据",
+            });
+        throw error;
+      }
+    },
+  );
+
   app.get<{ Params: { departmentId: string; month: string } }>(
     "/department-budgets/:departmentId/:month",
     { preHandler: [requireAuth] },

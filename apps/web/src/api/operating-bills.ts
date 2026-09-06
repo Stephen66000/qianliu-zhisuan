@@ -144,22 +144,31 @@ function invalidateOperatingBillViews(
     predicate: (query) => {
       const [root, scope] = query.queryKey;
       if (root === "operating-bill-employee-requests") {
-        return typeof scope === "object" && scope !== null
-          && "month" in scope && scope.month === month;
+        return (
+          typeof scope === "object" && scope !== null
+          && "month" in scope && scope.month === month
+        );
       }
-      return (root === "operating-bill-employees"
+      return (
+        (root === "operating-bill-employees"
         || root === "operating-bill-projects"
-        || root === "operating-bill-employee") && scope === month;
+        || root === "operating-bill-employee") && scope === month
+      );
     },
   });
 }
 
-export function useOperatingBill(month: string) {
+export function useOperatingBill(month: string, enabled = true) {
   return useQuery({
     queryKey: billKey(month),
     queryFn: ({ signal }) => get<OperatingBill>(`/operating-bills/${month}`, signal),
     retry: 1,
-    staleTime: 15_000,
+    enabled,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 

@@ -1,0 +1,19 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/apps/web
+
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 233ms
+ ✓ src/pages/Principals.test.tsx (15 tests) 855ms
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 1113ms
+ ✓ src/pages/OperatingBill.test.tsx (12 tests) 606ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 295ms
+ ✓ src/components/operating-bill/OperatingBillShell.test.tsx (3 tests) 318ms
+ ✓ src/pages/OperatingBill.pool043-routing.test.tsx (3 tests) 175ms
+ ✓ src/components/operating-bill/AccountShared.test.tsx (3 tests) 140ms
+ ✓ src/api/operating-bill-payments.test.ts (3 tests) 13ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 84ms
+
+ Test Files  10 passed (10)
+      Tests  64 passed (64)
+   Start at  21:36:45
+   Duration  7.34s (transform 587ms, setup 1.72s, collect 2.02s, tests 3.83s, environment 4.13s, prepare 802ms)
+

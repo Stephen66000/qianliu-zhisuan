@@ -66,16 +66,28 @@ describe("POOL-043 账单展示口径", () => {
       usageQuality: "UNKNOWN",
     };
     render(<MetricGrid totals={totals} />);
-    expect(screen.getAllByText("未知")).toHaveLength(8);
-    expect(screen.getByText("最近 —")).toBeInTheDocument();
+    expect(screen.getAllByText("未知")).toHaveLength(4);
+    expect(screen.queryByText("最近 —")).toBeNull();
+    for (const label of [
+      "本月总 Token",
+      "输入 Token",
+      "输出 Token",
+      "API 消费",
+      "活跃天数",
+      "请求次数",
+    ])
+      expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.queryByText("套餐分摊")).toBeNull();
+    expect(screen.queryByText("归集成本")).toBeNull();
   });
 
   it("筛选和表格组件透传真实交互与对齐语义", async () => {
     const user = userEvent.setup();
     const onProviderChange = vi.fn();
     const onSearchChange = vi.fn();
-    render(<>
-      <AccountFilters
+    render(
+      <>
+        <AccountFilters
         onProviderChange={onProviderChange}
         onSearchChange={onSearchChange}
         providerCode=""
@@ -83,13 +95,21 @@ describe("POOL-043 账单展示口径", () => {
         search=""
         searchLabel="搜索主体"
       />
-      <AccountTable headers={["主体", "厂商", "Token"]}>
-        <tr><AccountCell>于滔</AccountCell><AccountCell>DeepSeek</AccountCell><AccountCell numeric>100</AccountCell></tr>
-      </AccountTable>
-    </>);
+        <AccountTable headers={["主体", "厂商", "Token"]}>
+          <tr>
+            <AccountCell>于滔</AccountCell>
+            <AccountCell>DeepSeek</AccountCell>
+            <AccountCell numeric>100</AccountCell>
+          </tr>
+        </AccountTable>
+      </>,
+    );
     await user.selectOptions(screen.getByLabelText("厂商"), "deepseek");
     await user.type(screen.getByLabelText("搜索主体"), "于");
-    expect(screen.getByLabelText("搜索主体")).toHaveAttribute("maxlength", "255");
+    expect(screen.getByLabelText("搜索主体")).toHaveAttribute(
+      "maxlength",
+      "255",
+    );
     expect(onProviderChange).toHaveBeenCalledWith("deepseek");
     expect(onSearchChange).toHaveBeenCalledWith("于");
     expect(screen.getByRole("columnheader", { name: "Token" })).toHaveClass("text-right");

@@ -7,6 +7,7 @@ import type {
 } from "../../api/operating-bill-accounts";
 import { formatCount, formatMoney } from "../../lib/format";
 import { StatusTag } from "../dashboard/StatusTag";
+import { BillStat } from "./BillStat";
 import { inputClass } from "./BillShared";
 
 const qualityLabels: Record<OperatingBillUsageQuality, string> = {
@@ -63,30 +64,51 @@ export function accountTime(value: string | null): string {
 }
 
 export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
-  const metrics = [
-    ["本月总 Token", accountCount(totals.totalTokens, totals.usageQuality), "输入 + 输出"],
-    ["输入 Token", accountCount(totals.inputTokens, totals.usageQuality), "缓存命中包含在输入中"],
-    ["输出 Token", accountCount(totals.outputTokens, totals.usageQuality), "模型生成"],
-    ["缓存 Token", accountCount(totals.cacheTokens, totals.usageQuality), "输入 Token 子集"],
-    ["额度扣减", accountQuota(totals.deductedQuota), "独立额度口径"],
-    ["账本 API 计价", accountMoney(totals.apiCost), "逐请求计价，仅作为经营 API 花费核对证据"],
-    ["套餐分摊", accountMoney(totals.packageAllocatedCost), "Coding Plan 套餐内分摊"],
-    ["归集成本", accountMoney(totals.totalAllocatedCost), "账本 API 计价 + 套餐分摊"],
-    ["活跃天数", `${totals.activeDays} 天`, "北京时间自然日"],
-    ["请求次数", `${totals.requestCount} 次`, `最近 ${accountTime(totals.lastUsedAt)}`],
+  const tokenValue = (value: string | null) =>
+    totals.usageQuality === "UNKNOWN" ? null : value;
+  const metrics: Array<{
+    label: string;
+    value: string | null;
+    tokens?: boolean;
+  }> = [
+    {
+      label: "本月总 Token",
+      value: tokenValue(totals.totalTokens),
+      tokens: true,
+    },
+    {
+      label: "输入 Token",
+      value: tokenValue(totals.inputTokens),
+      tokens: true,
+    },
+    {
+      label: "输出 Token",
+      value: tokenValue(totals.outputTokens),
+      tokens: true,
+    },
+    { label: "API 消费", value: accountMoney(totals.apiCost) },
+    {
+      label: "活跃天数",
+      value: totals.activeDays === null ? null : String(totals.activeDays),
+    },
+    { label: "请求次数", value: String(totals.requestCount) },
   ];
   return (
-    <section aria-label="账单指标" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3 2xl:col-span-5">
+    <section
+      aria-label="账单指标"
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+    >
+      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
         <span className="text-[12px] text-ql-fg-secondary">Token 计量口径</span>
         <UsageQualityTag quality={totals.usageQuality} />
       </div>
-      {metrics.map(([label, value, note]) => (
-        <article className="rounded-xl border border-ql-border-zone bg-ql-surface p-4" key={label}>
-          <p className="text-[12px] text-ql-fg-secondary">{label}</p>
-          <strong className="mt-2 block text-[21px] text-ql-fg">{value}</strong>
-          <p className="mt-1 text-[11px] text-ql-fg-tertiary">{note}</p>
-        </article>
+      {metrics.map((metric) => (
+        <BillStat
+          key={metric.label}
+          {...metric}
+          missing="未知"
+          approximate={metric.tokens && totals.usageQuality !== "EXACT"}
+        />
       ))}
     </section>
   );
@@ -152,7 +174,11 @@ export function AccountTable({
         <thead className="border-y border-ql-border-zone bg-ql-surface-subtle text-[12px] text-ql-fg-tertiary">
           <tr>
             {headers.map((header, index) => (
-              <th className={`px-3 py-2 font-medium ${index >= leadingTextColumns ? "text-right" : ""}`} key={header}>
+              <th
+                scope="col"
+                className={`whitespace-nowrap px-3 py-2 font-medium ${index >= leadingTextColumns ? "text-right" : ""}`}
+                key={header}
+              >
                 {header}
               </th>
             ))}
@@ -189,7 +215,9 @@ export function AccountPagination({
   const end = Math.min(offset + limit, total);
   return (
     <nav aria-label="账单分页" className="flex items-center justify-end gap-3 border-t border-ql-border-zone px-4 py-3">
-      <span className="text-[12px] text-ql-fg-secondary">{start}–{end} / {total}</span>
+      <span className="text-[12px] text-ql-fg-secondary">
+        {start}–{end} / {total}
+      </span>
       <button
         className="rounded-lg border border-ql-border-zone px-3 py-1.5 text-[12px] text-ql-fg disabled:opacity-40"
         disabled={offset === 0}

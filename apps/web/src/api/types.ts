@@ -126,6 +126,7 @@ export interface PrincipalCleanupPreview {
   ledgerCount: number;
   employeeLoginCount: number;
   authorizationRuleAssignmentCount?: number;
+  accountingAssignmentCount?: number;
   canDelete: boolean;
 }
 
@@ -173,7 +174,6 @@ export interface ProviderResourceItem {
 export interface ProviderResourcesResult {
   resources: ProviderResourceItem[];
 }
-
 
 export interface ProviderResourceOperatingSnapshot {
   id: string;
@@ -267,7 +267,6 @@ export interface ResourceHealth {
   can_recover: boolean;
 }
 
-
 /** GET /providers 响应元素（snake_case）。 */
 export interface Provider {
   id: string;
@@ -320,7 +319,5 @@ export interface PrincipalKeyItem {
 export interface PrincipalKeysResult {
   keys: PrincipalKeyItem[];
 }
-
-
 
 export * from "./diagnostic-types";

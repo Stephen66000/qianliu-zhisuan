@@ -1,0 +1,1507 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Operating Bill Prototype</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="Operating Bill Prototype" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Operating Bill Prototype&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;style&gt;
+#ql-bill-prototype{--ql-page:light-dark(#f5f7fc,#171b24);--ql-paper:light-dark(#ffffff,#212631);--ql-ink:light-dark(#192237,#edf0f8);--ql-muted:light-dark(#647087,#abb5c9);--ql-line:light-dark(#e3e8f1,#3c4558);--ql-blue:light-dark(#315fe5,#92b0ff);--ql-soft:light-dark(#edf2ff,#303e60);--ql-green:light-dark(#197c62,#6ed5b7);--ql-pad:14px;background:var(--ql-page);color:var(--ql-ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,&quot;PingFang SC&quot;,sans-serif;padding:24px;border-radius:14px;box-sizing:border-box}
+#ql-bill-prototype *{box-sizing:border-box}#ql-bill-prototype h1{font-size:26px;line-height:1.3;margin:0;font-weight:650}#ql-bill-prototype h2{font-size:17px;margin:0;font-weight:600}#ql-bill-prototype h3{font-size:14px;margin:0 0 14px;font-weight:600}#ql-bill-prototype .ql-head,#ql-bill-prototype .ql-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}#ql-bill-prototype .ql-head{margin-bottom:18px}#ql-bill-prototype .ql-badge{background:var(--ql-soft);color:var(--ql-blue);border-radius:6px;padding:4px 9px;font-size:12px}
+#ql-bill-prototype button,#ql-bill-prototype select{font:inherit;background:var(--ql-paper);color:var(--ql-ink);border:1px solid var(--ql-line);border-radius:7px;min-height:36px;padding:7px 12px;cursor:pointer}#ql-bill-prototype button[aria-selected=&quot;true&quot;],#ql-bill-prototype button[aria-pressed=&quot;true&quot;]{color:var(--ql-blue);background:var(--ql-soft);border-color:transparent}#ql-bill-prototype .ql-tabs{display:flex;gap:6px;flex-wrap:wrap;background:var(--ql-paper);padding:6px;border:1px solid var(--ql-line);border-radius:10px;margin-bottom:20px}#ql-bill-prototype .ql-tabs button{border-color:transparent}#ql-bill-prototype .ql-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#ql-bill-prototype .ql-controls label{display:flex;align-items:center;gap:8px;color:var(--ql-muted)}
+#ql-bill-prototype .ql-panel{background:var(--ql-paper);border:1px solid var(--ql-line);border-radius:11px;margin:14px 0;overflow:hidden}#ql-bill-prototype .ql-section-head{padding:18px}#ql-bill-prototype .ql-scroll{overflow-x:auto}#ql-bill-prototype table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}#ql-bill-prototype td,#ql-bill-prototype th{padding:var(--ql-pad);text-align:right;border-bottom:1px solid var(--ql-line);white-space:nowrap;font-weight:400}#ql-bill-prototype th{color:var(--ql-muted);background:var(--ql-page);font-size:12px}#ql-bill-prototype td:first-child,#ql-bill-prototype th:first-child{text-align:left}#ql-bill-prototype tr:last-child td{border-bottom:0}#ql-bill-prototype tfoot td{background:var(--ql-soft);font-weight:600}#ql-bill-prototype .ql-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}#ql-bill-prototype #ql-trend-stats{grid-template-columns:repeat(5,minmax(0,1fr))}#ql-bill-prototype #ql-trend-stats .ql-stat strong{font-size:clamp(14px,1.8vw,21px)}#ql-bill-prototype .ql-stat{padding:18px;background:var(--ql-paper);border:1px solid var(--ql-line);border-radius:10px}#ql-bill-prototype .ql-stat-label{color:var(--ql-muted);font-size:12px}#ql-bill-prototype .ql-stat strong{display:block;font-size:24px;font-weight:600;margin-top:6px;font-variant-numeric:tabular-nums}#ql-bill-prototype .ql-unit{font-size:12px;color:var(--ql-muted);font-weight:400}#ql-bill-prototype .ql-progress{background:var(--ql-page);height:7px;border-radius:4px;overflow:hidden;min-width:75px}#ql-bill-prototype .ql-progress span{display:block;height:100%;background:var(--ql-blue)}#ql-bill-prototype .ql-ratio{display:grid;grid-template-columns:minmax(80px,1fr) 65px;gap:12px;align-items:center}#ql-bill-prototype .ql-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}#ql-bill-prototype .ql-charts{padding:0 18px 18px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}#ql-bill-prototype .ql-bar-row{display:grid;grid-template-columns:34px 1fr 55px;gap:9px;align-items:center;margin:13px 0;font-size:12px;font-variant-numeric:tabular-nums}#ql-bill-prototype .ql-bar-row b{font-weight:500;text-align:right}#ql-bill-prototype .ql-bar-row .ql-track{background:var(--ql-page);height:18px}#ql-bill-prototype .ql-bar-row .ql-track span{height:100%;background:var(--ql-blue);display:block}#ql-bill-prototype .ql-gain{color:var(--ql-green)}#ql-bill-prototype [hidden]{display:none!important}#ql-bill-prototype .ql-year-table{min-width:900px}#ql-bill-prototype .ql-year-table td,#ql-bill-prototype .ql-year-table th{padding:var(--ql-pad) 8px}#ql-bill-prototype .ql-gap{color:var(--ql-muted)}
+@media(max-width:740px){#ql-bill-prototype #ql-trend-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#ql-bill-prototype{padding:14px}#ql-bill-prototype .ql-two{grid-template-columns:1fr}#ql-bill-prototype .ql-charts{grid-template-columns:1fr}#ql-bill-prototype .ql-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#ql-bill-prototype .ql-stat strong{font-size:21px}}@media(max-width:400px){#ql-bill-prototype #ql-trend-stats{grid-template-columns:1fr}#ql-bill-prototype .ql-stats{grid-template-columns:1fr}#ql-bill-prototype h1{font-size:23px}}@media(pointer:coarse){#ql-bill-prototype button,#ql-bill-prototype select{min-height:44px}}
+#ql-bill-prototype .ql-monthly-review{min-width:820px}#ql-bill-prototype .ql-monthly-review td,#ql-bill-prototype .ql-monthly-review th{padding:var(--ql-pad) 9px}#ql-bill-prototype .ql-monthly-review .ql-group-heading{text-align:center}
+#ql-bill-prototype .ql-stat{min-width:0}#ql-bill-prototype #ql-trend-stats .ql-stat{padding:16px 8px}#ql-bill-prototype [data-fit]{display:block;max-width:100%;white-space:nowrap}#ql-bill-prototype .ql-stat-unit{font-size:11px;font-weight:400;color:var(--ql-muted);margin-left:4px}
+@media(max-width:900px){#ql-bill-prototype #ql-trend-stats{gap:8px}#ql-bill-prototype #ql-trend-stats .ql-stat{padding:16px 3px}}
+&lt;/style&gt;
+&lt;div id=&quot;ql-bill-prototype&quot; aria-label=&quot;经营账单页面原型&quot;&gt;
+  &lt;div class=&quot;ql-head&quot;&gt;&lt;div class=&quot;ql-controls&quot;&gt;&lt;h1&gt;经营账单&lt;/h1&gt;&lt;span class=&quot;ql-badge&quot;&gt;讨论原型 · 示例数据&lt;/span&gt;&lt;/div&gt;&lt;label class=&quot;ql-controls&quot;&gt;2026 年 &lt;select id=&quot;ql-cutoff&quot; aria-label=&quot;示例月份&quot;&gt;&lt;option value=&quot;8&quot;&gt;截至 8 月&lt;/option&gt;&lt;option value=&quot;9&quot; selected&gt;截至 9 月&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;
+  &lt;nav class=&quot;ql-tabs&quot; aria-label=&quot;经营账单原型页签&quot; role=&quot;tablist&quot;&gt;
+    &lt;button id=&quot;ql-tab-plans&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-controls=&quot;ql-plans&quot; aria-selected=&quot;false&quot; data-page=&quot;plans&quot;&gt;套餐利用率&lt;/button&gt;
+    &lt;button id=&quot;ql-tab-purchases&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-controls=&quot;ql-purchases&quot; aria-selected=&quot;false&quot; data-page=&quot;purchases&quot;&gt;采购复盘&lt;/button&gt;
+    &lt;button id=&quot;ql-tab-trends&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-controls=&quot;ql-trends&quot; aria-selected=&quot;true&quot; data-page=&quot;trends&quot;&gt;月度总览 · AI 使用趋势&lt;/button&gt;
+  &lt;/nav&gt;
+  &lt;div id=&quot;ql-plans&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ql-tab-plans&quot; hidden&gt;
+    &lt;div class=&quot;ql-section-head&quot;&gt;&lt;h2&gt;套餐利用率&lt;/h2&gt;&lt;div class=&quot;ql-controls&quot; aria-label=&quot;厂商选择&quot;&gt;&lt;button type=&quot;button&quot; aria-pressed=&quot;true&quot; data-vendor=&quot;kimi&quot;&gt;Kimi&lt;/button&gt;&lt;button type=&quot;button&quot; aria-pressed=&quot;false&quot; data-vendor=&quot;zhipu&quot;&gt;智谱&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+    &lt;div class=&quot;ql-stats&quot; id=&quot;ql-plan-stats&quot;&gt;&lt;/div&gt;
+    &lt;section class=&quot;ql-panel&quot;&gt;&lt;div class=&quot;ql-section-head&quot;&gt;&lt;h2 id=&quot;ql-token-title&quot;&gt;Kimi 月度 Token&lt;/h2&gt;&lt;span class=&quot;ql-unit&quot; id=&quot;ql-peak-basis&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;ql-scroll&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;月份&lt;/th&gt;&lt;th&gt;输入 Token&lt;/th&gt;&lt;th&gt;输出 Token&lt;/th&gt;&lt;th&gt;总 Token&lt;/th&gt;&lt;th&gt;历史峰值利用率&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody id=&quot;ql-plan-tokens&quot;&gt;&lt;/tbody&gt;&lt;tfoot id=&quot;ql-plan-token-total&quot;&gt;&lt;/tfoot&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+  &lt;/div&gt;
+  &lt;div id=&quot;ql-purchases&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ql-tab-purchases&quot; hidden&gt;
+    &lt;div class=&quot;ql-stats&quot; id=&quot;ql-purchase-stats&quot;&gt;&lt;/div&gt;
+    &lt;section class=&quot;ql-panel&quot;&gt;&lt;div class=&quot;ql-section-head&quot;&gt;&lt;h2&gt;年度采购实付&lt;/h2&gt;&lt;span class=&quot;ql-unit&quot;&gt;人民币 · 元&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;ql-scroll&quot;&gt;&lt;table class=&quot;ql-year-table&quot;&gt;&lt;thead id=&quot;ql-year-head&quot;&gt;&lt;/thead&gt;&lt;tbody id=&quot;ql-year-body&quot;&gt;&lt;/tbody&gt;&lt;tfoot id=&quot;ql-year-total&quot;&gt;&lt;/tfoot&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+    &lt;section class=&quot;ql-panel&quot;&gt;&lt;div class=&quot;ql-section-head&quot;&gt;&lt;h2&gt;采购与使用月度复盘&lt;/h2&gt;&lt;span class=&quot;ql-unit&quot;&gt;金额：元 · 利用率：%&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;ql-scroll&quot;&gt;&lt;table class=&quot;ql-monthly-review&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th scope=&quot;col&quot; rowspan=&quot;2&quot;&gt;月份&lt;/th&gt;&lt;th scope=&quot;colgroup&quot; colspan=&quot;5&quot; class=&quot;ql-group-heading&quot;&gt;DeepSeek&lt;/th&gt;&lt;th scope=&quot;colgroup&quot; class=&quot;ql-group-heading&quot;&gt;Kimi&lt;/th&gt;&lt;th scope=&quot;colgroup&quot; class=&quot;ql-group-heading&quot;&gt;智谱&lt;/th&gt;&lt;/tr&gt;&lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;期初余额&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;充值到账&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;实际付款&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;API 消耗&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;期末余额&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;峰值利用率&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;峰值利用率&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody id=&quot;ql-deepseek&quot;&gt;&lt;/tbody&gt;&lt;tfoot id=&quot;ql-deepseek-total&quot;&gt;&lt;/tfoot&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+  &lt;/div&gt;
+  &lt;div id=&quot;ql-trends&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ql-tab-trends&quot;&gt;
+    &lt;div class=&quot;ql-section-head&quot;&gt;&lt;h2&gt;AI 使用趋势&lt;/h2&gt;&lt;span class=&quot;ql-unit&quot;&gt;月度总览内&lt;/span&gt;&lt;/div&gt;
+    &lt;div class=&quot;ql-stats&quot; id=&quot;ql-trend-stats&quot;&gt;&lt;/div&gt;
+    &lt;section class=&quot;ql-panel&quot;&gt;&lt;div class=&quot;ql-section-head&quot;&gt;&lt;h2&gt;近三个月&lt;/h2&gt;&lt;span class=&quot;ql-unit&quot;&gt;Token 单位：百万&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;ql-charts&quot; id=&quot;ql-trend-charts&quot;&gt;&lt;/div&gt;&lt;/section&gt;
+    &lt;section class=&quot;ql-panel&quot;&gt;&lt;div class=&quot;ql-section-head&quot;&gt;&lt;h2&gt;月度明细&lt;/h2&gt;&lt;/div&gt;&lt;div class=&quot;ql-scroll&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;月份&lt;/th&gt;&lt;th&gt;公司总 Token&lt;/th&gt;&lt;th&gt;员工 Token&lt;/th&gt;&lt;th&gt;项目 Token&lt;/th&gt;&lt;th&gt;系统员工人数&lt;/th&gt;&lt;th&gt;使用人数&lt;/th&gt;&lt;th&gt;本月人均 Token&lt;/th&gt;&lt;th&gt;使用覆盖率&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody id=&quot;ql-trend-table&quot;&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;script&gt;
+(()=&gt;{
+  const root=document.getElementById(&#x27;ql-bill-prototype&#x27;);
+  const state={vendor:&#x27;kimi&#x27;,cutoff:9,density:&#x27;normal&#x27;};
+  const data={kimi:{name:&#x27;Kimi&#x27;,fee:699,tokens:[400,520,650,800,1100,1500,1000,2000,3000]},zhipu:{name:&#x27;智谱&#x27;,fee:399,tokens:[180,240,350,500,650,820,1000,1200,1080]}};
+  const recharge=[500,500,0,800,500,1000,800,1000,1000];
+  const credited=[500,500,0,800,500,1000,800,1000,1100];
+  const usage=[250,360,340,500,580,650,720,880,930];
+  const employees=[8,8,9,9,10,10,10,12,12];
+  const active=[3,4,5,6,7,8,8,10,11];
+  const num=x=&gt;Math.round(x).toLocaleString(&#x27;zh-CN&#x27;);
+  const money=x=&gt;&#x27;¥&#x27;+x.toLocaleString(&#x27;zh-CN&#x27;,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const sum=a=&gt;a.reduce((x,y)=&gt;x+y,0);
+  const put=(id,html)=&gt;root.querySelector(&#x27;#&#x27;+id).innerHTML=html;
+  const stat=(label,value,exactToken=null)=&gt;&#x27;&lt;div class=&quot;ql-stat&quot;&gt;&lt;span class=&quot;ql-stat-label&quot; data-fit=&quot;label&quot;&gt;&#x27;+label+&#x27;&lt;/span&gt;&lt;strong data-fit=&quot;value&quot;&#x27;+(exactToken===null?&#x27;&#x27;:&#x27; data-token-value=&quot;&#x27;+Math.round(exactToken)+&#x27;&quot; aria-label=&quot;&#x27;+num(exactToken)+&#x27; Token&quot;&#x27;)+&#x27;&gt;&#x27;+value+&#x27;&lt;/strong&gt;&lt;/div&gt;&#x27;;
+  const tokenStat=(label,value)=&gt;stat(label,Math.abs(value)&gt;=100000000
+    ? (value/10000).toLocaleString(&#x27;zh-CN&#x27;,{maximumFractionDigits:2})+&#x27;&lt;span class=&quot;ql-stat-unit&quot;&gt;万&lt;/span&gt;&#x27;
+    : num(value),value);
+  let fitFrame=0;
+  function fitCards(){
+    root.querySelectorAll(&#x27;[data-fit]&#x27;).forEach(element=&gt;{
+      if(element.clientWidth===0)return;
+      const maximum=element.dataset.fit===&#x27;label&#x27;?12:element.closest(&#x27;#ql-trend-stats&#x27;)?22:24;
+      let low=11,high=maximum;
+      element.style.fontSize=high+&#x27;px&#x27;;
+      if(element.scrollWidth&lt;=element.clientWidth)return;
+      while(high-low&gt;0.15){
+        const middle=(low+high)/2;
+        element.style.fontSize=middle+&#x27;px&#x27;;
+        if(element.scrollWidth&gt;element.clientWidth)high=middle;else low=middle;
+      }
+      element.style.fontSize=low+&#x27;px&#x27;;
+    });
+  }
+  function queueFit(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fitCards);}
+  const cell=(v)=&gt;&#x27;&lt;td&gt;&#x27;+v+&#x27;&lt;/td&gt;&#x27;;
+  const row=(values)=&gt;&#x27;&lt;tr&gt;&#x27;+values.map(cell).join(&#x27;&#x27;)+&#x27;&lt;/tr&gt;&#x27;;
+  function render(){
+    root.style.setProperty(&#x27;--ql-pad&#x27;,state.density===&#x27;compact&#x27;?&#x27;10px&#x27;:&#x27;14px&#x27;);
+    const n=state.cutoff,v=data[state.vendor],tokens=v.tokens.slice(0,n),peak=Math.max(...tokens),total=sum(tokens),last=tokens.at(-1);
+    put(&#x27;ql-plan-stats&#x27;,tokenStat(&#x27;本月总 Token&#x27;,last*1e6)+tokenStat(&#x27;历史最高月 Token&#x27;,peak*1e6)+stat(&#x27;本月历史峰值利用率&#x27;,(last/peak*100).toFixed(1)+&#x27;%&#x27;));
+    root.querySelector(&#x27;#ql-token-title&#x27;).textContent=v.name+&#x27; 月度 Token&#x27;;
+    root.querySelector(&#x27;#ql-peak-basis&#x27;).textContent=&#x27;统一基准：&#x27;+num(peak*1e6)+&#x27; Token&#x27;;
+    put(&#x27;ql-plan-tokens&#x27;,tokens.map((t,i)=&gt;row([(i+1)+&#x27; 月&#x27;,num(t*0.9e6),num(t*0.1e6),num(t*1e6),&#x27;&lt;div class=&quot;ql-ratio&quot;&gt;&lt;div class=&quot;ql-progress&quot; aria-hidden=&quot;true&quot;&gt;&lt;span style=&quot;width:&#x27;+(t/peak*100)+&#x27;%&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;span&gt;&#x27;+(t/peak*100).toFixed(1)+&#x27;%&lt;/span&gt;&lt;/div&gt;&#x27;])).join(&#x27;&#x27;));
+    put(&#x27;ql-plan-token-total&#x27;,row([&#x27;年度累计&#x27;,num(total*0.9e6),num(total*0.1e6),num(total*1e6),&#x27;—&#x27;]));
+
+    const monthly=recharge.slice(0,n).map(x=&gt;x+data.kimi.fee+data.zhipu.fee);
+    put(&#x27;ql-purchase-stats&#x27;,stat(&#x27;年度实付累计&#x27;,money(sum(monthly)))+stat(&#x27;月均采购实付&#x27;,money(sum(monthly)/n))+stat(&#x27;最高采购月份&#x27;,monthly.flatMap((v,i)=&gt;v===Math.max(...monthly)?[i+1]:[]).join(&#x27;、&#x27;)+&#x27; 月&#x27;));
+    put(&#x27;ql-year-head&#x27;,&#x27;&lt;tr&gt;&lt;th&gt;厂商 / 购买类型&lt;/th&gt;&#x27;+Array.from({length:12},(_,i)=&gt;&#x27;&lt;th&gt;&#x27;+(i+1)+&#x27; 月&lt;/th&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;th&gt;年度合计&lt;/th&gt;&lt;/tr&gt;&#x27;);
+    const yearly=[[&#x27;DeepSeek · API 充值&#x27;,recharge],[&#x27;智谱 · Coding Plan&#x27;,Array(9).fill(399)],[&#x27;Kimi · Coding Plan&#x27;,Array(9).fill(699)]];
+    put(&#x27;ql-year-body&#x27;,yearly.map(([label,a])=&gt;row([label,...Array.from({length:12},(_,i)=&gt;i&lt;n?num(a[i]):&#x27;&lt;span class=&quot;ql-gap&quot;&gt;—&lt;/span&gt;&#x27;),num(sum(a.slice(0,n)))])).join(&#x27;&#x27;));
+    put(&#x27;ql-year-total&#x27;,row([&#x27;月度总计&#x27;,...Array.from({length:12},(_,i)=&gt;i&lt;n?num(monthly[i]):&#x27;—&#x27;),num(sum(monthly))]));
+    let balance=200;
+    const utilization=(provider,i)=&gt;(provider.tokens[i]/Math.max(...provider.tokens.slice(0,n))*100).toFixed(1)+&#x27;%&#x27;;
+    put(&#x27;ql-deepseek&#x27;,recharge.slice(0,n).map((paid,i)=&gt;{const opening=balance;balance+=credited[i]-usage[i];return row([(i+1)+&#x27; 月&#x27;,money(opening),money(credited[i]),money(paid),money(usage[i]),money(balance),utilization(data.kimi,i),utilization(data.zhipu,i)]);}).join(&#x27;&#x27;));
+    put(&#x27;ql-deepseek-total&#x27;,row([&#x27;年度汇总&#x27;,money(200),money(sum(credited.slice(0,n))),money(sum(recharge.slice(0,n))),money(sum(usage.slice(0,n))),money(balance),&#x27;—&#x27;,&#x27;—&#x27;]));
+    const trends=Array.from({length:n},(_,i)=&gt;{const all=(data.kimi.tokens[i]+data.zhipu.tokens[i]+[10,13,15,20,25,35,45,60,70][i])*1e6;const staff=Math.round(all*.7);return {month:i+1,all,staff,project:all-staff,people:employees[i],active:active[i],per:all/employees[i]};});
+    const latest=trends.at(-1),prev=trends.at(-2),growth=(latest.per/prev.per-1)*100;
+    const ytdAverage=sum(trends.map(t=&gt;t.all))/n;
+    const previousYtdAverage=sum(trends.slice(0,-1).map(t=&gt;t.all))/(n-1);
+    const averageGrowth=(ytdAverage/previousYtdAverage-1)*100;
+    const delta=x=&gt;&#x27;&lt;span class=&quot;ql-gain&quot;&gt;&#x27;+(x&gt;=0?&#x27;+&#x27;:&#x27;&#x27;)+x.toFixed(1)+&#x27;%&lt;/span&gt;&#x27;;
+    put(&#x27;ql-trend-stats&#x27;,tokenStat(&#x27;公司当月使用 Token&#x27;,latest.all)+tokenStat(&#x27;公司月均 Token（YTD）&#x27;,ytdAverage)+stat(&#x27;公司月均环比&#x27;,delta(averageGrowth))+tokenStat(&#x27;本月人均 Token&#x27;,latest.per)+stat(&#x27;本月人均环比&#x27;,delta(growth)));
+
+    const recent=trends.slice(-3),series=[[&#x27;公司总 Token&#x27;,&#x27;all&#x27;],[&#x27;公司人均 Token&#x27;,&#x27;per&#x27;],[&#x27;项目 Token&#x27;,&#x27;project&#x27;]];
+    put(&#x27;ql-trend-charts&#x27;,series.map(([label,key])=&gt;{const maximum=Math.max(...recent.map(t=&gt;t[key]));return &#x27;&lt;div role=&quot;img&quot; aria-label=&quot;&#x27;+label+&#x27;近三个月趋势&quot;&gt;&lt;h3&gt;&#x27;+label+&#x27;&lt;/h3&gt;&#x27;+recent.map(t=&gt;&#x27;&lt;div class=&quot;ql-bar-row&quot;&gt;&lt;span&gt;&#x27;+t.month+&#x27; 月&lt;/span&gt;&lt;div class=&quot;ql-track&quot;&gt;&lt;span style=&quot;width:&#x27;+t[key]/maximum*100+&#x27;%&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;b&gt;&#x27;+num(t[key]/1e6)+&#x27;&lt;/b&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;}).join(&#x27;&#x27;));
+    put(&#x27;ql-trend-table&#x27;,trends.map(t=&gt;row([t.month+&#x27; 月&#x27;,num(t.all),num(t.staff),num(t.project),t.people,t.active,num(t.per),(t.active/t.people*100).toFixed(1)+&#x27;%&#x27;])).join(&#x27;&#x27;));
+    queueFit();
+  }
+  root.querySelector(&#x27;#ql-cutoff&#x27;).addEventListener(&#x27;change&#x27;,e=&gt;{state.cutoff=Number(e.target.value);render();});
+  root.querySelectorAll(&#x27;[data-vendor]&#x27;).forEach(button=&gt;button.addEventListener(&#x27;click&#x27;,()=&gt;{state.vendor=button.dataset.vendor;root.querySelectorAll(&#x27;[data-vendor]&#x27;).forEach(b=&gt;b.setAttribute(&#x27;aria-pressed&#x27;,String(b===button)));render();}));
+  root.querySelectorAll(&#x27;[data-page]&#x27;).forEach(button=&gt;button.addEventListener(&#x27;click&#x27;,()=&gt;{root.querySelectorAll(&#x27;[data-page]&#x27;).forEach(b=&gt;{b.setAttribute(&#x27;aria-selected&#x27;,String(b===button));root.querySelector(&#x27;#ql-&#x27;+b.dataset.page).hidden=b!==button;});queueFit();}));
+  render();
+  let lastWidth=0;
+  new ResizeObserver(entries=&gt;{const width=entries[0].contentRect.width;if(width!==lastWidth){lastWidth=width;queueFit();}}).observe(root);
+  document.fonts.ready.then(queueFit);
+  if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addSelect(state,&#x27;density&#x27;,{label:&#x27;表格密度&#x27;,options:[{label:&#x27;舒适&#x27;,value:&#x27;normal&#x27;},{label:&#x27;紧凑&#x27;,value:&#x27;compact&#x27;}]});}
+})();
+&lt;/script&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerdown&quot;, handlePointer);
+    document.removeEventListener(&quot;pointercancel&quot;, handlePointer);
+    document.removeEventListener(&quot;click&quot;, handleTouchClick);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerdown&quot;, handlePointer);
+  document.addEventListener(&quot;pointercancel&quot;, handlePointer);
+  document.addEventListener(&quot;click&quot;, handleTouchClick);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

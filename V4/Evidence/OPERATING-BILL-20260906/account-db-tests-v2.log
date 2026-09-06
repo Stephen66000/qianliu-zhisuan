@@ -1,0 +1,380 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/packages/database
+
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests | 12 failed) 2568ms
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 返回员工月度字段、provider/model 稳定分组、历史 alias 与未知口径 18ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 请求明细按 stable ID 下钻，保留发生时 alias、状态、时间和独立费用字段 5ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 项目账只投影一次请求，明确未归属，归属变更沿用 ledger 月份与结账门禁 5ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 结账冻结账户事实，底层账本变化不改写历史，但展示最新正式 alias 3ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 支持筛选、空数据并严格隔离企业与主体类型 2ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一套餐资源任一扣减事实缺失时，不把其余请求分摊伪装为精确值 3ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > SQL 下推请求分页保留全量 total，并用 request ID 稳定解决同时间次序 40ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 未指定 provider 时先合并同一 request 的跨厂商账本行，再计数和分页 13ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一请求的多条 ledger line 跨北京日界时，活跃天数为 2 且请求数仍为 1 10ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > CLOSED 空月的员工、项目、详情和请求下钻都返回精确空态 46ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 真实 PostgreSQL 对无法证明稳定 ID 的历史 alias 保持未解析并可冻结追溯 7ms
+     → relation "resource_tokens" does not exist
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配 6ms
+     → Coding Plan finance event is missing its period
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 返回员工月度字段、provider/model 稳定分组、历史 alias 与未知口径
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+    295|   const needle = query.search?.trim();
+    296|   const search = needle ? sql` AND POSITION(lower(${needle}) IN lower(…
+    297|   const result = await sql<RawSummary>`
+       |                  ^
+    298|     WITH ${liveLineFactCtes(enterpriseId, month)}, dimension_lines AS (
+    299|       SELECT line_facts.*,
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:262:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 请求明细按 stable ID 下钻，保留发生时 alias、状态、时间和独立费用字段
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillRequestPage src/repositories/operating-bill-account-live.ts:397:18
+    395|   page: { limit: number; offset: number },
+    396| ): Promise<{ facts: OperatingBillAccountFact[]; total: number; employe…
+    397|   const result = await sql<RawPagedFact>`
+       |                  ^
+    398|     WITH ${liveLineFactCtes(enterpriseId, month)}, request_provider_fa…
+    399|       ${requestFactsSql(filter)}
+ ❯ src/repositories/operating-bill-account-repository.ts:107:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillRequestPage src/repositories/operating-bill-account-live.ts:397:18
+ ❯ src/repositories/operating-bill-account-repository.ts:107:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:293:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 项目账只投影一次请求，明确未归属，归属变更沿用 ledger 月份与结账门禁
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+    295|   const needle = query.search?.trim();
+    296|   const search = needle ? sql` AND POSITION(lower(${needle}) IN lower(…
+    297|   const result = await sql<RawSummary>`
+       |                  ^
+    298|     WITH ${liveLineFactCtes(enterpriseId, month)}, dimension_lines AS (
+    299|       SELECT line_facts.*,
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:322:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 结账冻结账户事实，底层账本变化不改写历史，但展示最新正式 alias
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillEmployeeSummary src/repositories/operating-bill-account-live-detail.ts:18:18
+     16| ) {
+     17|   const provider = providerCode ? sql` AND provider_code = ${providerC…
+     18|   const result = await sql<RawEmployeeAccountSummary>`
+       |                  ^
+     19|     WITH ${liveLineFactCtes(enterpriseId, month)}, employee_lines AS (
+     20|       SELECT line_facts.*,
+ ❯ src/repositories/operating-bill-account-repository.ts:83:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillEmployeeSummary src/repositories/operating-bill-account-live-detail.ts:18:18
+ ❯ src/repositories/operating-bill-account-repository.ts:83:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:361:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 支持筛选、空数据并严格隔离企业与主体类型
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+    295|   const needle = query.search?.trim();
+    296|   const search = needle ? sql` AND POSITION(lower(${needle}) IN lower(…
+    297|   const result = await sql<RawSummary>`
+       |                  ^
+    298|     WITH ${liveLineFactCtes(enterpriseId, month)}, dimension_lines AS (
+    299|       SELECT line_facts.*,
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:412:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一套餐资源任一扣减事实缺失时，不把其余请求分摊伪装为精确值
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+    295|   const needle = query.search?.trim();
+    296|   const search = needle ? sql` AND POSITION(lower(${needle}) IN lower(…
+    297|   const result = await sql<RawSummary>`
+       |                  ^
+    298|     WITH ${liveLineFactCtes(enterpriseId, month)}, dimension_lines AS (
+    299|       SELECT line_facts.*,
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:436:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > SQL 下推请求分页保留全量 total，并用 request ID 稳定解决同时间次序
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillRequestPage src/repositories/operating-bill-account-live.ts:397:18
+    395|   page: { limit: number; offset: number },
+    396| ): Promise<{ facts: OperatingBillAccountFact[]; total: number; employe…
+    397|   const result = await sql<RawPagedFact>`
+       |                  ^
+    398|     WITH ${liveLineFactCtes(enterpriseId, month)}, request_provider_fa…
+    399|       ${requestFactsSql(filter)}
+ ❯ src/repositories/operating-bill-account-repository.ts:107:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillRequestPage src/repositories/operating-bill-account-live.ts:397:18
+ ❯ src/repositories/operating-bill-account-repository.ts:107:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:462:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 未指定 provider 时先合并同一 request 的跨厂商账本行，再计数和分页
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillRequestPage src/repositories/operating-bill-account-live.ts:397:18
+    395|   page: { limit: number; offset: number },
+    396| ): Promise<{ facts: OperatingBillAccountFact[]; total: number; employe…
+    397|   const result = await sql<RawPagedFact>`
+       |                  ^
+    398|     WITH ${liveLineFactCtes(enterpriseId, month)}, request_provider_fa…
+    399|       ${requestFactsSql(filter)}
+ ❯ src/repositories/operating-bill-account-repository.ts:107:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillRequestPage src/repositories/operating-bill-account-live.ts:397:18
+ ❯ src/repositories/operating-bill-account-repository.ts:107:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:523:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一请求的多条 ledger line 跨北京日界时，活跃天数为 2 且请求数仍为 1
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+    295|   const needle = query.search?.trim();
+    296|   const search = needle ? sql` AND POSITION(lower(${needle}) IN lower(…
+    297|   const result = await sql<RawSummary>`
+       |                  ^
+    298|     WITH ${liveLineFactCtes(enterpriseId, month)}, dimension_lines AS (
+    299|       SELECT line_facts.*,
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountSummary src/repositories/operating-bill-account-live.ts:297:18
+ ❯ src/repositories/operating-bill-account-repository.ts:61:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:586:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > CLOSED 空月的员工、项目、详情和请求下钻都返回精确空态
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountFacts src/repositories/operating-bill-account-live.ts:264:18
+    262|   filter: LiveAccountFactFilter = {},
+    263| ): Promise<OperatingBillAccountFact[]> {
+    264|   const result = await sql<RawAccountFact>`
+       |                  ^
+    265|     WITH ${liveLineFactCtes(enterpriseId, month)}
+    266|     ${requestFactsSql(filter)}
+ ❯ src/repositories/operating-bill-repository.ts:343:28
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillAccountFacts src/repositories/operating-bill-account-live.ts:264:18
+ ❯ src/repositories/operating-bill-repository.ts:343:28
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ withOperatingBillSerializationRetry src/repositories/operating-bill-concurrency.ts:9:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 真实 PostgreSQL 对无法证明稳定 ID 的历史 alias 保持未解析并可冻结追溯
+error: relation "resource_tokens" does not exist
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillEmployeeSummary src/repositories/operating-bill-account-live-detail.ts:18:18
+     16| ) {
+     17|   const provider = providerCode ? sql` AND provider_code = ${providerC…
+     18|   const result = await sql<RawEmployeeAccountSummary>`
+       |                  ^
+     19|     WITH ${liveLineFactCtes(enterpriseId, month)}, employee_lines AS (
+     20|       SELECT line_facts.*,
+ ❯ src/repositories/operating-bill-account-repository.ts:83:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ loadLiveOperatingBillEmployeeSummary src/repositories/operating-bill-account-live-detail.ts:18:18
+ ❯ src/repositories/operating-bill-account-repository.ts:83:11
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:624:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/12]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配
+error: Coding Plan finance event is missing its period
+ ❯ ../../../../../../Projects/仟流智算/node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ InsertQueryBuilder.execute ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-builder/insert-query-builder.js:1106:24
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:657:5
+    655|       (enterprise_id, strict_writes_enabled, activated_at, activated_b…
+    656|       VALUES (${enterpriseId}::uuid,true,now(),${adminId}::uuid)`.exec…
+    657|     await db.insertInto("provider_finance_event").values({ enterprise_…
+       |     ^
+    658|       provider_resource_id: resource.id, event_type: "CODING_PLAN_PURC…
+    659|       account_amount: "199", account_currency: "CNY", cash_paid_cny: "…
+ ❯ PostgresConnection.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ DefaultConnectionProvider.provideConnection ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20
+ ❯ DefaultQueryExecutor.executeQuery ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:16
+ ❯ InsertQueryBuilder.execute ../../../../../../Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-builder/insert-query-builder.js:1106:24
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:657:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/12]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  12 failed (12)
+   Start at  19:11:22
+   Duration  4.14s (transform 638ms, setup 0ms, collect 1.38s, tests 2.57s, environment 0ms, prepare 54ms)
+

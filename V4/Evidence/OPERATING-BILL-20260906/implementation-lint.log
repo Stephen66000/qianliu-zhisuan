@@ -1,0 +1,6 @@
+
+/Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/packages/database/src/repositories/principal-accounting.ts
+  21:8  error  Async function 'savePrincipalAccountingInTransaction' has a complexity of 31. Maximum allowed is 30  complexity
+
+✖ 1 problem (1 error, 0 warnings)
+

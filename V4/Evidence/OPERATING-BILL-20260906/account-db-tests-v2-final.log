@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests) 3936ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  19:15:45
+   Duration  5.93s (transform 795ms, setup 0ms, collect 1.80s, tests 3.94s, environment 0ms, prepare 58ms)
+

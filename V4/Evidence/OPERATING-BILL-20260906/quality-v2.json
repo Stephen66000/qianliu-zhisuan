@@ -1,0 +1,16 @@
+{
+  "branch": "codex/operating-bill-redesign-0906",
+  "webTests": { "filesPassed": 9, "testsPassed": 57, "exitCode": 0 },
+  "postgresAccountTests": { "filesPassed": 1, "testsPassed": 12, "exitCode": 0, "database": "temporary Docker PostgreSQL" },
+  "typecheckWeb": { "exitCode": 0 },
+  "typecheckDatabase": { "exitCode": 0 },
+  "eslintChangedFiles": { "exitCode": 0 },
+  "sourceSize": { "files": 439, "exitCode": 0 },
+  "architecture": { "files": 439, "runtimeCycles": 0, "exitCode": 0 },
+  "webBuild": { "exitCode": 0, "warning": "bundle exceeds 500 kB" },
+  "prototype": { "mergedTokenAndPeakTable": true, "purchaseColumns": 6, "monthlyUtilizationVendorRows": 2, "desktopTrendMetricsInOneRow": 4, "validatedWidths": [360, 1024] },
+  "committed": false,
+  "pushed": false,
+  "deployed": false,
+  "productionDatabaseVerified": false
+}

@@ -1,0 +1,15 @@
+{
+  "baseline": "4cea87f",
+  "branch": "codex/operating-bill-redesign-0906",
+  "webTests": { "filesPassed": 8, "testsPassed": 55, "exitCode": 0 },
+  "typecheck": { "command": "tsc -p apps/web/tsconfig.json --noEmit", "exitCode": 0 },
+  "eslint": { "scope": "modified production files and OperatingBill page tests", "maxWarnings": 0, "exitCode": 0 },
+  "architecture": { "productionSourceFiles": 437, "runtimeCycles": 0, "exitCode": 0 },
+  "sourceSize": { "sourceFiles": 437, "defaultLogicalLineLimit": 400, "exitCode": 0 },
+  "diffCheck": { "exitCode": 0 },
+  "webBuild": { "exitCode": 0, "warning": "bundle exceeds 500 kB" },
+  "productionDatabaseVerified": false,
+  "committed": false,
+  "pushed": false,
+  "deployed": false
+}

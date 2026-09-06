@@ -1,0 +1,43 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/packages/database
+
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests | 1 failed) 3603ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 返回员工月度字段、provider/model 稳定分组、历史 alias 与未知口径 51ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 请求明细按 stable ID 下钻，保留发生时 alias、状态、时间和独立费用字段 22ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 项目账只统计项目主体，员工请求的历史项目标签不重复入账 63ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 结账冻结账户事实，底层账本变化不改写历史，但展示最新正式 alias 122ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 支持筛选、空数据并严格隔离企业与主体类型 52ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一套餐资源任一扣减事实缺失时，不把其余请求分摊伪装为精确值 37ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > SQL 下推请求分页保留全量 total，并用 request ID 稳定解决同时间次序 118ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 未指定 provider 时先合并同一 request 的跨厂商账本行，再计数和分页 120ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一请求的多条 ledger line 跨北京日界时，活跃天数为 2 且请求数仍为 1 27ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > CLOSED 空月的员工、项目、详情和请求下钻都返回精确空态 58ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 真实 PostgreSQL 对无法证明稳定 ID 的历史 alias 保持未解析并可冻结追溯 53ms
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配 180ms
+     → expected '0.00000000' to be '199.00000000' // Object.is equality
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (4 tests) 2960ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配
+AssertionError: expected '0.00000000' to be '199.00000000' // Object.is equality
+
+Expected: "199.00000000"
+Received: "0.00000000"
+
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:863:46
+    861|     expect((await loadOperatingDepartmentAccounts(db,enterpriseId,"202…
+    862|     const overview = await new OperatingBillRepository(db).getBill(ent…
+    863|     expect(overview.summary.unallocatedCost).toBe("199.00000000");
+       |                                              ^
+    864|     expect(overview.subjects.every((row) => row.packageAllocatedCost =…
+    865|     expect(overview.gaps.some((gap) => gap.code === "UNALLOCATED_PACKA…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 15 passed (16)
+   Start at  23:41:00
+   Duration  8.68s (transform 645ms, setup 0ms, collect 1.77s, tests 6.56s, environment 0ms, prepare 105ms)
+

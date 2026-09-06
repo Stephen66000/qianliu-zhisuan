@@ -16,6 +16,8 @@ import { requireAuth } from "../plugins/auth-guard.js";
 import { OperatingSnapshotSchema, operatingSnapshotModeError, toOperatingSnapshotInput } from "../providers/contracts.js";
 import { registerOpeningBalanceRoute } from "./opening-balance-route.js";
 
+import { registerOperatingAnalysisRoute } from "./analysis-route.js";
+
 const MonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 const IdSchema = z.string().uuid();
 const DecimalText = z.union([z.string(), z.number()]).transform(String)
@@ -107,6 +109,7 @@ function handleOperatingBillError(error: unknown, reply: FastifyReply) {
 
 export function registerOperatingBillRoutes(app: FastifyInstance): void {
   registerOpeningBalanceRoute(app);
+  registerOperatingAnalysisRoute(app);
   app.post("/operating-bill-snapshot-imports", { preHandler: [requireAuth] }, async (req, reply) => {
     const body = SnapshotImportSchema.safeParse(req.body);
     if (!body.success) return invalid(reply);

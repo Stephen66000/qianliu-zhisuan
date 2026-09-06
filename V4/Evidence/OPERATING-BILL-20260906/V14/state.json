@@ -1,0 +1,99 @@
+{
+  "audit_id": "OPERATING-BILL-V14-20260906",
+  "state_version": 6,
+  "state": "BOUNDED_REVIEW_CLOSED_BY_USER",
+  "round": 2,
+  "required_independence": "I1",
+  "contract": "contract.md",
+  "candidate": "candidate-r2.json",
+  "round_history": [
+    {
+      "round": 1,
+      "stage": "functional",
+      "decision": "FAIL",
+      "candidate": "candidate-r1.json",
+      "reviewer": "/root/operating_v14_review",
+      "start_end_lock": "STABLE 64/64",
+      "findings": [
+        "F1 P1 UNKNOWN plan allocation",
+        "F2 P2 incomplete two-provider mean",
+        "F3 P2 frozen owner nullable person_id"
+      ],
+      "evidence_gaps": [
+        "E1 department attribution test failure",
+        "coverage thresholds not met; incremental mutation and ratchet absent"
+      ]
+    },
+    {
+      "round": 2,
+      "stage": "functional",
+      "decision": "PASS",
+      "candidate": "candidate-r2.json",
+      "reviewer": "/root/operating_v14_review",
+      "start_end_lock": "STABLE 64/64",
+      "closed_findings": [
+        "F1",
+        "F2",
+        "F3",
+        "E1"
+      ],
+      "ended_at": "2026-09-06T15:44:54.928Z"
+    },
+    {
+      "round": 2,
+      "stage": "code_quality",
+      "decision": "FAIL",
+      "candidate": "candidate-r2.json",
+      "reviewer": "/root/operating_v14_review",
+      "start_end_lock": "STABLE 64/64",
+      "ended_at": "2026-09-06T15:46:58.742Z",
+      "closed_findings": [
+        "F1",
+        "F2",
+        "F3",
+        "E1"
+      ],
+      "remaining": [
+        "QG1 coverage thresholds failed",
+        "QG2 ratchet not established; equivalent complexity coverage gate incomplete",
+        "QG3 incremental monetary allocation mutation not run"
+      ]
+    }
+  ],
+  "reviewer": "/root/operating_v14_review",
+  "functional_audit_decision": "PASS",
+  "functional_reviewed_object": "d41e7a8ed6ab3315f3feda8a89045223d25e1663714be97b70d3642e9d99944b",
+  "audits": {
+    "code_quality": {
+      "status": "FAIL",
+      "round": 2,
+      "candidate": "candidate-r2.json",
+      "reviewer": "/root/operating_v14_review",
+      "start_lock_verification": "STABLE 64/64",
+      "authorized_actions": [
+        "read_code",
+        "read_evidence",
+        "return_findings_and_decision"
+      ],
+      "end_lock_verification": "STABLE 64/64"
+    }
+  },
+  "callback_result": "verified and appended to round_history",
+  "user_disposition": {
+    "decision": "本次审核整改收口，不追加覆盖率扩展、ratchet、增量Mutation",
+    "closed_product_findings": [
+      "F1",
+      "F2",
+      "F3",
+      "E1"
+    ],
+    "quality_gaps_retained_as_facts": [
+      "QG1",
+      "QG2",
+      "QG3"
+    ],
+    "full_quality_gate_pass": false,
+    "next_stage": "提交与发布准备",
+    "commit_push_deploy_performed": false
+  }
+}
