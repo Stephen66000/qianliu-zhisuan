@@ -11,6 +11,7 @@ export function UsageSearchField({
   label,
   placeholder,
   pending = false,
+  hideLabel = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -18,6 +19,7 @@ export function UsageSearchField({
   label: string;
   placeholder: string;
   pending?: boolean;
+  hideLabel?: boolean;
 }) {
   const inputId = useId();
   return (
@@ -30,7 +32,7 @@ export function UsageSearchField({
       role="search"
     >
       <label
-        className="mb-1 block text-[12px] text-ql-fg-secondary"
+        className={hideLabel ? "sr-only" : "mb-1 block text-[12px] text-ql-fg-secondary"}
         htmlFor={inputId}
       >
         用量搜索

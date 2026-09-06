@@ -1,0 +1,27 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算/apps/control-api
+
+{"level":30,"time":1788682439970,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440014,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":42.963624998927116,"msg":"request completed"}
+{"level":30,"time":1788682440015,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/usage/overview?subject_type=employee&period=week&anchor=2026-08-12T04%3A00%3A00.000Z","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440038,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":22.98149999976158,"msg":"request completed"}
+{"level":30,"time":1788682440040,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"GET","url":"/principals?type=EMPLOYEE&search=API%20%E5%91%98%E5%B7%A5&limit=1&offset=0","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440052,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":11.89095900952816,"msg":"request completed"}
+{"level":30,"time":1788682440052,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"GET","url":"/principals?type=EMPLOYEE&search=API%20%E5%91%98%E5%B7%A5&limit=1&offset=1","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440056,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":200},"responseTime":4.209499999880791,"msg":"request completed"}
+{"level":30,"time":1788682440057,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"GET","url":"/principals/resolve-exact?type=EMPLOYEE&name=API%20%E5%91%98%E5%B7%A5%E4%BA%8C","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440059,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":200},"responseTime":1.9027500003576279,"msg":"request completed"}
+{"level":30,"time":1788682440062,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"GET","url":"/principals/resolve-exact?type=PROJECT&name=%E5%88%86%E9%A1%B5%E9%87%8D%E5%90%8D%E9%A1%B9%E7%9B%AE","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440064,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":200},"responseTime":1.9362910091876984,"msg":"request completed"}
+{"level":30,"time":1788682440065,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"GET","url":"/usage/overview?subject_type=employee&subject_id=2b2d5c92-7b53-46a4-9805-beb851fe4679&period=month","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440068,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":404},"responseTime":3.4310410022735596,"msg":"request completed"}
+{"level":30,"time":1788682440069,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"GET","url":"/usage/overview?anchor=not-a-date","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440071,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":400},"responseTime":2.073834002017975,"msg":"request completed"}
+{"level":30,"time":1788682440072,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"GET","url":"/dashboard","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788682440122,"pid":13114,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":200},"responseTime":50.06812499463558,"msg":"request completed"}
+ ✓ src/__tests-integration__/w20-usage-overview.test.ts (5 tests) 3557ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  16:13:55
+   Duration  5.07s (transform 826ms, setup 0ms, collect 1.34s, tests 3.56s, environment 0ms, prepare 52ms)

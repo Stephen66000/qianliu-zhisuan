@@ -309,8 +309,17 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     expect(grants.grants[0]?.quota_value).toBe("500000");
   });
 
-  test("WT-05/11 一次两 Attempt 的汇总与两条不可覆盖计量明细一致", async ({ page }) => {
+  test("用量账本默认进入概览，显式切换后能查请求明细", async ({ page }) => {
     await page.goto("/usage");
+    await expect(page.getByRole("heading", { name: "消耗排名" })).toBeVisible();
+    await expect(page.getByLabel("用量主体类型")).toHaveValue("EMPLOYEE");
+    await expect(page.getByLabel("状态", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "请求明细", exact: true }).click();
+    await expect(page.locator("tbody tr", { hasText: E2E_IDS.request })).toHaveCount(1);
+  });
+
+  test("WT-05/11 一次两 Attempt 的汇总与两条不可覆盖计量明细一致", async ({ page }) => {
+    await page.goto("/usage?tab=details");
     const row = page.locator("tr", { hasText: E2E_IDS.request });
     await expect(row).toContainText("200");
     await expect(row).toContainText("100");
@@ -351,7 +360,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.getByLabel("厂商筛选").selectOption({ label: "智谱 E2E" });
     await page.getByLabel("厂商资源").selectOption({ label: "E2E 智谱主资源" });
 
-    await expect(page.getByLabel("搜索请求 ID 或主体名称")).toHaveValue(
+    await expect(page.getByLabel("搜索主体、姓名或项目")).toHaveValue(
       E2E_IDS.request.slice(0, 18),
     );
     await expect(page.getByLabel("主体", { exact: true })).toHaveValue(E2E_IDS.principal);
@@ -368,7 +377,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(page.locator("tbody tr", { hasText: E2E_IDS.request })).toHaveCount(1);
 
     await page.getByRole("button", { name: "清除筛选" }).click();
-    await expect(page).toHaveURL(/\/usage$/);
+    await expect(page).toHaveURL(/\/usage\?tab=details$/);
     await expect(page.getByLabel("只看超额")).not.toBeChecked();
     await expect(page.locator("tbody tr", { hasText: E2E_IDS.streamRequest })).toHaveCount(1);
   });
@@ -558,7 +567,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   });
 
   test("WT-12 流式已提交后中断只留下一个 Attempt，不发生跨上游拼接", async ({ page }) => {
-    await page.goto("/usage");
+    await page.goto("/usage?tab=details");
     const row = page.locator("tr", { hasText: E2E_IDS.streamRequest });
     await expect(row).toContainText("失败");
     await row.getByRole("button", { name: "展开路由过程" }).click();
@@ -578,7 +587,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   });
 
   test("WT-13/18 路由明细展示完整评分因子且不含会话正文", async ({ page }) => {
-    await page.goto("/usage");
+    await page.goto("/usage?tab=details");
     const row = page.locator("tr", { hasText: E2E_IDS.request });
     await row.getByRole("button", { name: "展开路由过程" }).click();
     const detail = row.locator("xpath=following-sibling::tr[1]");
@@ -625,7 +634,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   });
 
   test("WT-16/17 调度页解释输入、命中策略、动作、反事实和实际节省", async ({ page }) => {
-    await page.goto("/usage");
+    await page.goto("/usage?tab=details");
     const row = page.locator("tr", { hasText: E2E_IDS.request });
     await row.getByRole("button", { name: "展开路由过程" }).click();
     const detail = row.locator("xpath=following-sibling::tr[1]");

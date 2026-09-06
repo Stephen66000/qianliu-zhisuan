@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "fixtureOnly": true,
+  "checks": [
+    "default module is overview without hidden detail requests",
+    "single row overview filters",
+    "four employees visible at 1440x768",
+    "no helper text or technical data-source copy",
+    "overview button applies subject",
+    "single-page candidates hide pagination",
+    "details draft waits for query",
+    "query and Enter apply name/project",
+    "clear filters resets search",
+    "desktop first row has four controls",
+    "responsive 4/2/1 columns without filter overflow",
+    "no browser errors"
+  ],
+  "layout": [
+    {
+      "viewport": 1440,
+      "columns": "256px 256px 256px 256px",
+      "scroll": 1060,
+      "width": 1060
+    },
+    {
+      "viewport": 1024,
+      "columns": "316px 316px",
+      "scroll": 644,
+      "width": 644
+    },
+    {
+      "viewport": 390,
+      "columns": "298px",
+      "scroll": 298,
+      "width": 298
+    }
+  ],
+  "requests": [
+    "/api/auth/me",
+    "/api/usage/overview?subject_type=EMPLOYEE&period=MONTH&anchor=2026-09-06T08%3A13%3A31.462Z",
+    "/api/principals?archived=exclude&type=EMPLOYEE&limit=20&offset=0",
+    "/api/usage/overview?subject_type=PROJECT&period=MONTH&anchor=2026-09-06T08%3A13%3A31.462Z",
+    "/api/principals?archived=exclude&type=PROJECT&limit=20&offset=0",
+    "/api/principals?archived=exclude&type=PROJECT&limit=20&offset=0&search=%E6%98%9F%E6%B2%B3%E9%A1%B9%E7%9B%AE",
+    "/api/principals/resolve-exact?type=PROJECT&name=%E6%98%9F%E6%B2%B3%E9%A1%B9%E7%9B%AE",
+    "/api/usage/overview?subject_type=PROJECT&period=MONTH&anchor=2026-09-06T08%3A13%3A31.462Z&subject_id=20000000-0000-4000-8000-000000000001",
+    "/api/principals/20000000-0000-4000-8000-000000000001",
+    "/api/usage?limit=20&offset=0&subject_type=PROJECT",
+    "/api/principals?archived=exclude",
+    "/api/providers",
+    "/api/provider-resources",
+    "/api/unified-models?archived=exclude",
+    "/api/usage?limit=20&offset=0&search=%E6%98%9F%E6%B2%B3%E9%A1%B9%E7%9B%AE&subject_type=PROJECT",
+    "/api/usage?limit=20&offset=0&search=%E5%BC%A0%E4%B8%89&subject_type=PROJECT",
+    "/api/usage?limit=20&offset=0"
+  ]
+}

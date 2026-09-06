@@ -16,6 +16,7 @@ interface AggregateCoverageRow {
   state_count: bigint | string;
   dirty_count: bigint | string;
   generated_at: Date | null;
+  has_unsuccessful_settlements: boolean;
 }
 
 export interface UsageAggregateCoverage {
@@ -92,7 +93,14 @@ export async function loadUsageAggregateCoverage(
     SELECT count(*) AS expected_count,
            count(state.bucket_start) AS state_count,
            count(dirty.bucket_start) AS dirty_count,
-           max(state.generated_at) AS generated_at
+           max(state.generated_at) AS generated_at,
+           EXISTS (
+             SELECT 1 FROM ledger_transaction lt
+             JOIN ai_request ar ON ar.id = lt.ai_request_id AND ar.enterprise_id = lt.enterprise_id
+             WHERE lt.enterprise_id = ${input.enterpriseId}
+               AND lt.status = 'SETTLED' AND ar.status <> 'SUCCEEDED'
+               AND lt.created_at >= ${range.range_start} AND lt.created_at < ${range.range_end}
+           ) AS has_unsuccessful_settlements
       FROM expected
       LEFT JOIN usage_aggregate_bucket_state state
         ON state.enterprise_id = ${input.enterpriseId}::uuid
@@ -113,7 +121,10 @@ export async function loadUsageAggregateCoverage(
   const complete = expectedCount > 0
     && stateCount === expectedCount
     && dirtyCount === 0
-    && generatedAt !== null;
+    && generatedAt !== null
+    // Existing aggregates include all settled requests. Use live successful facts
+    // whenever this range contains excluded requests; no stale cache can leak them.
+    && !row?.has_unsuccessful_settlements;
   return {
     complete,
     generatedAt: complete ? generatedAt : null,
@@ -171,6 +182,7 @@ export function buildLiveUsageFacts(
        AND target.type = ${input.subjectType}
      WHERE lt.enterprise_id = ${input.enterpriseId}
        AND lt.status = 'SETTLED'
+       AND ar.status = 'SUCCEEDED'
        AND lt.created_at >= ${range.range_start}
        AND lt.created_at < ${range.range_end}
        ${subjectFilter}

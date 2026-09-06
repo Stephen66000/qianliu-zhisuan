@@ -1,0 +1,26 @@
+{
+  "source": "Read-only inspection of already authenticated production browser UI",
+  "url": "https://ic.qianliuai.com/usage?tab=overview&period=WEEK",
+  "range": [
+    "2026-08-30T16:00:00.000Z",
+    "2026-09-06T16:00:00.000Z"
+  ],
+  "subject_type": "EMPLOYEE",
+  "overview": {
+    "active_subjects": 4,
+    "request_count": 4020,
+    "real_tokens": "226208343",
+    "api_cost": "29.10",
+    "deducted_quota": "124886373",
+    "unknown_count": 92,
+    "data_time": "2026-09-06 15:52:50"
+  },
+  "drilldown": {
+    "settled_only": true,
+    "status": "FAILED",
+    "total": 100,
+    "sampled_rows": 20,
+    "sampled_rows_input_output_cache_deduction": "all zero; UI API cost shown as 套餐内"
+  },
+  "limits": "92 unknown-quality requests and 100 failed settled requests are distinct counts; exact overlap was not independently enumerated. No production mutation."
+}

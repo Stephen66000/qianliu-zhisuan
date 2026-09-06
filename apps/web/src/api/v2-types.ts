@@ -97,6 +97,7 @@ export interface UsageOverview {
     projectId: string | null;
     subjectType: "EMPLOYEE" | "PROJECT";
     settledOnly: true;
+    status?: "SUCCEEDED";
     from: string;
     toExclusive: string;
   };

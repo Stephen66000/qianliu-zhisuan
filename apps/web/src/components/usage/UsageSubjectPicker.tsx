@@ -16,12 +16,14 @@ export function UsageSubjectPicker({
   onChange,
   selectLabel = "指定用量主体",
   searchLabel = "搜索用量主体",
+  compact = false,
 }: {
   subjectType: "EMPLOYEE" | "PROJECT";
   value: string;
   onChange: (value: string) => void;
   selectLabel?: string;
   searchLabel?: string;
+  compact?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
@@ -103,6 +105,7 @@ export function UsageSubjectPicker({
   return (
     <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
       <UsageSearchField
+        hideLabel={compact}
         label={searchLabel}
         onChange={(next) => {
           exactRequestGeneration.current += 1;
@@ -118,10 +121,10 @@ export function UsageSubjectPicker({
       />
       <div className="min-w-0">
         <label className="mb-1 block text-[12px] text-ql-fg-secondary">
-          匹配主体
+          <span className={compact ? "sr-only" : ""}>匹配主体</span>
           <select
             aria-label={selectLabel}
-            className={`${usageInputClass} mt-1`}
+            className={`${usageInputClass} ${compact ? "" : "mt-1"}`}
             disabled={optionsQuery.isLoading && choices.length === 0}
             onChange={(event) => {
               exactRequestGeneration.current += 1;
@@ -143,7 +146,7 @@ export function UsageSubjectPicker({
             ))}
           </select>
         </label>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        {(!compact || total > PAGE_SIZE || optionsQuery.error) ? <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className="whitespace-nowrap text-[11px] text-ql-fg-tertiary">
             {optionsQuery.error ? "主体列表加载失败" : `共 ${total} 个`}
           </span>
@@ -169,7 +172,7 @@ export function UsageSubjectPicker({
               </button>
             </>
           ) : null}
-        </div>
+        </div> : null}
       </div>
       {exactError ? (
         <p

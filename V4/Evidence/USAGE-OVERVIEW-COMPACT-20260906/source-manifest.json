@@ -1,0 +1,17 @@
+{
+  "baseline": "2840ae359441455ec309826e8a9346b5dd61de15",
+  "status": "validated-pre-commit-snapshot",
+  "sha256": {
+    "apps/web/e2e/wt-web.spec.ts": "10eea39354daa3a84fa23d2bd1eadd602adfd038bb5dd21fd6ba0d430304b1e3",
+    "apps/web/src/api/v2-types.ts": "b42548f5b86fe4848cc13acd9b2d3df5f960370547c1cf9484f7ad10be4c6ffa",
+    "apps/web/src/components/usage/UsageOverviewPanel.test.tsx": "1abc3304a6f3539c1cee918b87d62a8961318d736323e945f5d55b8a0f31e33d",
+    "apps/web/src/components/usage/UsageOverviewPanel.tsx": "65e32a7f10733e3d3b5d30d83650a5c037f9508376ea96262c16c9467d5fb78d",
+    "apps/web/src/components/usage/UsageSearchField.tsx": "7091d0535f71d0e2c86ad9c029cc9e2fbfa6210860cdf9790c2fa751e51b1988",
+    "apps/web/src/components/usage/UsageSubjectPicker.tsx": "c9e9768f45badcb9354ee87e86fc59a982a8918a847220f81cb227fd0c66b381",
+    "apps/web/src/pages/Usage.test.tsx": "82b8ec368e5837150324c4e6b054838fdb4fa69159a92a0cd7dfd7eccbc24f32",
+    "apps/web/src/pages/Usage.tsx": "337a064a146f51f947634069513f2a3952a3443f97f6fc8a23e1207675de4009",
+    "packages/database/src/__tests-integration__/usage-overview.integration.test.ts": "3599218659e41ed1f1ffccd4423b33217b777ce8ebc633533310f9829241e24f",
+    "packages/database/src/repositories/usage-overview-facts.ts": "bce1a15af003ee10a36396921906377c9ec9722b22c5cefc87c1d42fc9e50b08",
+    "packages/database/src/repositories/usage-overview-repository.ts": "8b4637527de0df11e33fb3efcae1d7bc0004add790f03a9f1fe21d29e832832e"
+  }
+}

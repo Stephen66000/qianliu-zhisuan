@@ -64,9 +64,26 @@ function ProjectFilter({ principals, value, onChange }: {
   </label>;
 }
 
+const DETAIL_FILTERS = ["search", "principal_id", "project_id", "client_id", "agent_family", "provider_id", "provider_resource_id", "unified_model", "status", "from", "to", "to_exclusive", "overage_only", "settled_only", "page"];
+
+export function UsagePage() {
+  const flags = useFeatureFlags();
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab");
+  const legacyDetails = !tab && DETAIL_FILTERS.some((key) => params.has(key));
+  if (!flags.FEATURE_USAGE_OVERVIEW_V2 || tab === "details" || legacyDetails) return <UsageDetailsPage />;
+  return <PageShell title="用量账本">
+    <div className="mb-3 flex gap-2 border-b border-ql-border">
+      <button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">用量概览</button>
+      <button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => { const next = new URLSearchParams(params); next.set("tab", "details"); setParams(next, { replace: true }); }} type="button">请求明细</button>
+    </div>
+    <UsageOverviewPanel />
+  </PageShell>;
+}
+
 // Declarative filter/table states are mutually exclusive UI flows.
 // eslint-disable-next-line complexity
-export function UsagePage() {
+function UsageDetailsPage() {
   const featureFlags = useFeatureFlags();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -123,9 +140,6 @@ export function UsagePage() {
   );
   const hasFilters = [...searchParams.keys()].some((key) => key !== "page" && key !== "tab");
 
-  if (featureFlags.FEATURE_USAGE_OVERVIEW_V2 && searchParams.get("tab") === "overview") {
-    return <PageShell description="按员工或项目查看周期用量，进入请求明细核对具体消耗" title="用量账本"><div className="mb-4 flex gap-2 border-b border-ql-border"><button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">用量概览</button><button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "details")} type="button">请求明细</button></div><UsageOverviewPanel /></PageShell>;
-  }
 
   return (
     <PageShell description="按主体、姓名或项目查找用量，查看每次请求的消耗明细" title="用量账本">
@@ -253,7 +267,7 @@ export function UsagePage() {
             disabled={!hasFilters}
             onClick={() => {
               setExpandedId(null);
-              setSearchParams(searchParams.has("tab") ? { tab: "details" } : {}, { replace: true });
+              setSearchParams({ tab: "details" }, { replace: true });
             }}
             type="button"
           >

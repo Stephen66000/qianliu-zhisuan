@@ -72,6 +72,7 @@ export interface UsageOverviewResult {
     projectId: string | null;
     subjectType: UsageOverviewSubjectType;
     settledOnly: true;
+    status: "SUCCEEDED";
     from: string;
     toExclusive: string;
   };
@@ -176,6 +177,7 @@ export class UsageOverviewRepository {
         projectId: input.subjectType === "PROJECT" ? input.subjectId ?? null : null,
         subjectType: input.subjectType,
         settledOnly: true,
+        status: "SUCCEEDED",
         from: range.range_start.toISOString(),
         toExclusive: range.range_end.toISOString(),
       },

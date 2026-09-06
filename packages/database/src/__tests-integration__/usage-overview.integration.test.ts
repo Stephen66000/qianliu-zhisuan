@@ -275,6 +275,7 @@ describe("W20-04 UsageOverviewRepository", () => {
       from: new Date(employeeOverview.detailQuery.from),
       toExclusive: new Date(employeeOverview.detailQuery.toExclusive),
       settledOnly: employeeOverview.detailQuery.settledOnly,
+      status: employeeOverview.detailQuery.status,
       limit: 500,
     });
     expect(employeeOverview.detailQuery).toMatchObject({ subjectType: "EMPLOYEE", settledOnly: true });
@@ -291,6 +292,7 @@ describe("W20-04 UsageOverviewRepository", () => {
       from: new Date(projectOverview.detailQuery.from),
       toExclusive: new Date(projectOverview.detailQuery.toExclusive),
       settledOnly: projectOverview.detailQuery.settledOnly,
+      status: projectOverview.detailQuery.status,
       limit: 500,
     });
     expectConservation(projectOverview.metrics, projectDetails.records);
@@ -365,6 +367,45 @@ describe("W20-04 UsageOverviewRepository", () => {
   it("0047 建立可重建聚合表且初始不伪装已有缓存", async () => {
     const rows = await db.selectFrom("usage_bucket_aggregate").selectAll().execute();
     expect(rows).toEqual([]);
+  });
+
+  it.each(["EMPLOYEE", "PROJECT"] as const)("%s 概览排除失败记录，即使旧聚合已完整也与成功明细守恒", async (subjectType) => {
+    const ownEnterprise = randomUUID();
+    const subject = randomUUID();
+    const failedSubject = randomUUID();
+    const at = new Date("2026-08-12T00:10:00.000Z");
+    const now = new Date("2026-08-12T00:30:00.000Z");
+    await db.insertInto("enterprise").values({ id: ownEnterprise, name: "成功用量测试", timezone: "UTC" }).execute();
+    await db.insertInto("principal").values([
+      { id: subject, enterprise_id: ownEnterprise, type: subjectType, name: "成功主体" },
+      { id: failedSubject, enterprise_id: ownEnterprise, type: subjectType, name: "仅失败主体" },
+    ]).execute();
+    await seedRequest(subject, at, 10n, 1n, 8n, 0n, 11n, "1", ownEnterprise);
+    // A successful request with unknown quality must retain its recorded consumption.
+    await seedRequest(subject, at, 20n, 2n, 15n, 0n, 22n, "2", ownEnterprise, "SETTLED", "UNKNOWN");
+    for (const status of ["FAILED", "CANCELLED", "IN_PROGRESS"]) {
+      const id = await seedRequest(failedSubject, at, 900n, 90n, 800n, 0n, 990n, "90", ownEnterprise, "SETTLED", "UNKNOWN");
+      await db.updateTable("ai_request").set({ status }).where("id", "=", id).execute();
+    }
+    const repo = new UsageOverviewRepository(db, () => now);
+    const input = { enterpriseId: ownEnterprise, subjectType, period: "TODAY" as const, anchor: now };
+    const live = await repo.getOverview(input);
+    expect(live.metrics).toMatchObject({ activeSubjects: 1, requestCount: "2", realTokens: "33", apiCost: "3.00000000", deductedQuota: "33", unknownCount: 1 });
+    expect(live.ranking.map((row) => row.subjectId)).toEqual([subject]);
+    expect(live.trend.reduce((sum, point) => sum + BigInt(point.realTokens), 0n)).toBe(33n);
+    await new UsageAggregateRepository(db).rebuildBucket({ enterpriseId: ownEnterprise, timezone: "UTC", bucketGranularity: "HOUR", bucketStart: new Date("2026-08-12T00:00:00.000Z") });
+    const cached = await db.selectFrom("usage_bucket_aggregate").select("request_count").where("enterprise_id", "=", ownEnterprise).execute();
+    expect(cached.reduce((sum, row) => sum + Number(row.request_count), 0)).toBe(5);
+    const afterCache = await repo.getOverview(input);
+    expect(afterCache.source).toBe("LIVE_LEDGER");
+    expect(afterCache.metrics).toEqual(live.metrics);
+    expect(afterCache.trend).toEqual(live.trend.map((point) => ({ ...point, collectionStatus: "MISSING" })));
+    expect(afterCache.ranking).toEqual(live.ranking);
+    expect(afterCache.detailQuery.status).toBe("SUCCEEDED");
+    const details = await new UsageRepository(db).list({ enterpriseId: ownEnterprise, subjectType, settledOnly: true, status: afterCache.detailQuery.status, from: new Date(afterCache.detailQuery.from), toExclusive: new Date(afterCache.detailQuery.toExclusive) });
+    expect(details.total).toBe(2);
+    expect(details.records.reduce((sum, row) => sum + BigInt(row.totalInputTokens) + BigInt(row.totalOutputTokens), 0n)).toBe(33n);
+    expect((await new UsageRepository(db).list({ enterpriseId: ownEnterprise, status: "FAILED" })).total).toBe(1);
   });
 
   it("完整桶水位时实际读聚合，与 LIVE 账本的指标趋势排名一致", async () => {

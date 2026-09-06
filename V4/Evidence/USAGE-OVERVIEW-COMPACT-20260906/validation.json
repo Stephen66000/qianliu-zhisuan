@@ -1,0 +1,26 @@
+{
+  "web_tests": {
+    "passed": 35,
+    "source": "Current task tool output at 16:10; Usage 10 + UsageOverviewPanel 11 + Dashboard 14"
+  },
+  "database_tests": {
+    "passed": 18,
+    "file": "database-tests.txt"
+  },
+  "api_tests": {
+    "passed": 5,
+    "file": "api-tests.txt"
+  },
+  "real_api_e2e": {
+    "passed": 6,
+    "file": "e2e.txt",
+    "environment": "isolated Testcontainers PostgreSQL, temporary ports, generated test secrets"
+  },
+  "browser_layout": "browser-check.json",
+  "build": "web-build.txt",
+  "typecheck": "web and database passed",
+  "lint": "changed files passed",
+  "architecture": "passed",
+  "source_size": "passed",
+  "diff_check": "passed"
+}

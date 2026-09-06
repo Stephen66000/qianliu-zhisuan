@@ -10,6 +10,7 @@ import type { UsageResult } from "../api/types";
 import { UsagePage } from "./Usage";
 
 const useUsageMock = vi.fn();
+vi.mock("../components/usage/UsageOverviewPanel", () => ({ UsageOverviewPanel: () => <div data-testid="overview">概览内容</div> }));
 
 vi.mock("../api/hooks", () => ({
   useUsage: (params: unknown) => useUsageMock(params),
@@ -80,7 +81,7 @@ function sampleRecord(): UsageResult["records"][number] {
   };
 }
 
-function renderUsage(initialEntry = "/usage") {
+function renderUsage(initialEntry = "/usage?tab=details") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <UsagePage />
@@ -91,6 +92,17 @@ function renderUsage(initialEntry = "/usage") {
 describe("W18 用量账本", () => {
   beforeEach(() => {
     useUsageMock.mockReset();
+  });
+
+  it("模块默认进入概览且不查询请求明细，点击页签后进入明细", async () => {
+    const user = userEvent.setup();
+    useUsageMock.mockReturnValue({ isLoading: false, data: usageResult([], 0), refetch: vi.fn() });
+    renderUsage("/usage");
+    expect(screen.getByTestId("overview")).toBeInTheDocument();
+    expect(useUsageMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "请求明细" }));
+    expect(screen.queryByTestId("overview")).not.toBeInTheDocument();
+    expect(screen.getByText("没有账本记录")).toBeInTheDocument();
   });
 
   it("空态：说明为什么为空 + 下一步（PRD §10.4）", () => {

@@ -73,7 +73,7 @@ describe("W20-04 用量概览 Web", () => {
     expect(screen.getByRole("combobox", { name: "指定用量主体" })).toHaveValue(projectId);
   });
 
-  it("POOL20-045：下钻使用与首页同源的账户聚合质量解释", () => {
+  it("指标保留数值，移除计量说明与技术来源文案", () => {
     useUsageOverviewMock.mockReturnValue({
       isLoading: false, error: null, refetch: vi.fn(),
       data: overview({ metrics: {
@@ -82,7 +82,11 @@ describe("W20-04 用量概览 Web", () => {
       } }),
     });
     renderPanel();
-    expect(screen.getByText(/2 笔账户聚合计量，非逐请求精确值/)).toBeInTheDocument();
+    expect(screen.queryByText(/账户聚合计量|计量未知|聚合读模型|实时账本|聚合数据已滞后/)).not.toBeInTheDocument();
+    expect(screen.getByText(/数据时间/)).toBeInTheDocument();
+    expect(screen.queryByText("参考日期")).not.toBeInTheDocument();
+    expect(screen.queryByText(/输入名称后点击/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("用量锚点")).toBeInTheDocument();
   });
 
   it("排名点击回写 URL，明细下钻携带主体口径与半开时间", async () => {
@@ -96,6 +100,7 @@ describe("W20-04 用量概览 Web", () => {
       tab: "details",
       subject_type: "PROJECT",
       settled_only: "true",
+      status: "SUCCEEDED",
       project_id: projectId,
       from: "2026-08-09T16:00:00.000Z",
       to_exclusive: "2026-08-16T16:00:00.000Z",
