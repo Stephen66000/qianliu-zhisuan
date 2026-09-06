@@ -11,7 +11,7 @@ import type { Database } from "../kysely.js";
 
 export interface UsageQuery {
   enterpriseId: string;
-  /** 请求 ID 或主体名称（字面量、不解释 SQL 通配符）的部分搜索。 */
+  /** 主体、部门或归属项目名称的部分搜索；兼容旧请求 ID 搜索（字面量）。 */
   search?: string;
   principalId?: string;
   projectId?: string;
@@ -124,15 +124,6 @@ export class UsageRepository {
       sql`p.enterprise_id = ${query.enterpriseId}`,
     ];
 
-    const search = query.search?.trim();
-    if (search) {
-      const containsPattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
-      const escapeChar = "\\";
-      conditions.push(sql`(
-        ar.id::text ILIKE ${containsPattern} ESCAPE ${escapeChar}
-        OR p.name ILIKE ${containsPattern} ESCAPE ${escapeChar}
-      )`);
-    }
     if (query.principalId) conditions.push(sql`ar.principal_id = ${query.principalId}`);
     const attributedProject = sql`coalesce(
       (
@@ -151,6 +142,23 @@ export class UsageRepository {
          LIMIT 1
       )
     )`;
+    const search = query.search?.trim();
+    if (search) {
+      const containsPattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
+      const escapeChar = "\\";
+      conditions.push(sql`(
+        ar.id::text ILIKE ${containsPattern} ESCAPE ${escapeChar}
+        OR p.name ILIKE ${containsPattern} ESCAPE ${escapeChar}
+        OR p.department_label ILIKE ${containsPattern} ESCAPE ${escapeChar}
+        OR EXISTS (
+          SELECT 1 FROM principal project
+           WHERE project.enterprise_id = ${query.enterpriseId}
+             AND project.type = 'PROJECT'
+             AND project.id = ${attributedProject}
+             AND project.name ILIKE ${containsPattern} ESCAPE ${escapeChar}
+        )
+      )`);
+    }
     if (query.subjectType === "EMPLOYEE") conditions.push(sql`p.type = 'EMPLOYEE'`);
     if (query.subjectType === "PROJECT") {
       conditions.push(sql`(p.type = 'PROJECT' OR ${attributedProject} IS NOT NULL)`);

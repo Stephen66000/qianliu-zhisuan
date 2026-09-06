@@ -1,6 +1,6 @@
 /** 用量账本：请求级事实、企业内组合筛选、URL 可复现和路由下钻。 */
 import { useState } from "react";
-import { Inbox, Search, X } from "lucide-react";
+import { Inbox, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import {
@@ -20,6 +20,8 @@ import { UsageRow } from "../components/usage/UsageRow";
 import { formatCount } from "../lib/format";
 import { UsageOverviewPanel } from "../components/usage/UsageOverviewPanel";
 import { useFeatureFlags } from "../feature-flags";
+
+import { UsageKeywordSearch } from "../components/usage/UsageSearchField";
 
 const PAGE_SIZE = 20;
 
@@ -44,7 +46,7 @@ function searchParamValue(params: URLSearchParams, name: string): string {
 }
 
 const inputClass =
-  "h-9 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg outline-none focus:border-ql-action focus:ring-1 focus:ring-ql-action";
+  "h-9 min-w-0 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg outline-none focus:border-ql-action focus:ring-1 focus:ring-ql-action";
 
 function ProjectFilter({ principals, value, onChange }: {
   principals: Principal[];
@@ -119,29 +121,18 @@ export function UsagePage() {
   const visibleResources = (resourcesQuery.data?.resources ?? []).filter(
     (resource) => !selectedProviderId || resource.provider_id === selectedProviderId,
   );
-  const hasFilters = [...searchParams.keys()].some((key) => key !== "page");
+  const hasFilters = [...searchParams.keys()].some((key) => key !== "page" && key !== "tab");
 
   if (featureFlags.FEATURE_USAGE_OVERVIEW_V2 && searchParams.get("tab") === "overview") {
-    return <PageShell description="员工与项目按今日、本周、本月查看；与请求明细共用同一账本事实" title="用量账本"><div className="mb-4 flex gap-2 border-b border-ql-border"><button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">用量概览</button><button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "details")} type="button">请求明细</button></div><UsageOverviewPanel /></PageShell>;
+    return <PageShell description="按员工或项目查看周期用量，进入请求明细核对具体消耗" title="用量账本"><div className="mb-4 flex gap-2 border-b border-ql-border"><button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">用量概览</button><button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "details")} type="button">请求明细</button></div><UsageOverviewPanel /></PageShell>;
   }
 
   return (
-    <PageShell description="按数据库事实定位请求；筛选条件保存在当前 URL，可刷新或复制复现" title="用量账本">
+    <PageShell description="按主体、姓名或项目查找用量，查看每次请求的消耗明细" title="用量账本">
       <div className="mb-4 flex gap-2 border-b border-ql-border">{featureFlags.FEATURE_USAGE_OVERVIEW_V2 ? <button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "overview")} type="button">用量概览</button> : null}<button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">请求明细</button></div>
       <div className="mb-4 rounded-xl border border-ql-border-zone bg-ql-surface-subtle p-3">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <label className="relative xl:col-span-2">
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">请求 ID / 主体名称</span>
-            <Search aria-hidden className="absolute bottom-2.5 left-3 h-4 w-4 text-ql-fg-tertiary" />
-            <input
-              aria-label="搜索请求 ID 或主体名称"
-              className={`${inputClass} w-full pl-9`}
-              onChange={(event) => setFilter("search", event.target.value)}
-              placeholder="输入完整或部分内容"
-              type="search"
-              value={searchParams.get("search") ?? ""}
-            />
-          </label>
+          <UsageKeywordSearch key={searchParams.get("search") ?? ""} initialValue={searchParams.get("search") ?? ""} onSearch={(value) => setFilter("search", value)} />
           <label>
             <span className="mb-1 block text-[12px] text-ql-fg-secondary">主体</span>
             <select
@@ -262,7 +253,7 @@ export function UsagePage() {
             disabled={!hasFilters}
             onClick={() => {
               setExpandedId(null);
-              setSearchParams({}, { replace: true });
+              setSearchParams(searchParams.has("tab") ? { tab: "details" } : {}, { replace: true });
             }}
             type="button"
           >

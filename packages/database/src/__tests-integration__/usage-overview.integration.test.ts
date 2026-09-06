@@ -226,6 +226,26 @@ describe("W20-04 UsageOverviewRepository", () => {
     });
   });
 
+  it("用量关键词匹配姓名、部门和项目归属，保留快照优先级与分页总数", async () => {
+    const repo = new UsageRepository(db);
+    const attributed = await repo.list({ enterpriseId, search: "归集", limit: 1 });
+    expect(attributed.total).toBe(1);
+    expect(attributed.records[0]?.principalId).toBe(employeeTwoId);
+    const nextPage = await repo.list({ enterpriseId, search: "归集", limit: 1, offset: 1 });
+    expect(nextPage.total).toBe(1);
+    expect(nextPage.records).toHaveLength(0);
+    const direct = await repo.list({ enterpriseId, search: "甲项目" });
+    expect(direct.total).toBe(1);
+    expect(direct.records[0]?.principalId).toBe(projectId);
+    const employee = await repo.list({ enterpriseId, search: "乙员工" });
+    expect(employee.records.map((row) => row.requestId)).toEqual(attributed.records.map((row) => row.requestId));
+    const department = await repo.list({ enterpriseId, search: "产品" });
+    expect(department.records.map((row) => row.requestId)).toEqual(attributed.records.map((row) => row.requestId));
+    expect((await repo.list({ enterpriseId: otherEnterpriseId, search: "归集" })).total).toBe(0);
+    expect((await repo.list({ enterpriseId, search: "归集%" })).total).toBe(0);
+    expect((await repo.list({ enterpriseId, search: "归集_" })).total).toBe(0);
+  });
+
   it("空主体仍返回完整 24 小时零趋势，错类型主体不泄露", async () => {
     const empty = await new UsageOverviewRepository(db).getOverview({
       enterpriseId, subjectType: "PROJECT", subjectId: emptyProjectId, period: "TODAY", anchor,

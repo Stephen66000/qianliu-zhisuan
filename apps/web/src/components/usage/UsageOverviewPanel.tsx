@@ -5,6 +5,7 @@ import { formatCount, formatMoney } from "../../lib/format";
 import { usageQualityText } from "../../lib/usage-quality";
 import { ErrorState } from "../states/ErrorState";
 import { LoadingState } from "../states/LoadingState";
+import { usageInputClass } from "./UsageSearchField";
 import { UsageSubjectPicker } from "./UsageSubjectPicker";
 
 export function UsageOverviewPanel() {
@@ -24,11 +25,16 @@ export function UsageOverviewPanel() {
   const quality = usageQualityText(data.metrics);
   const max = Math.max(1, ...data.trend.map((item) => Number(item.realTokens)));
   return <div className="space-y-4">
-    <div className="flex flex-wrap gap-3 rounded-xl border border-ql-border-zone bg-ql-surface-subtle p-3">
-      <select aria-label="用量主体类型" className="ql-input" onChange={(event) => set("subject_type", event.target.value)} value={subjectType}><option value="EMPLOYEE">员工</option><option value="PROJECT">项目</option></select>
-      <select aria-label="用量周期" className="ql-input" onChange={(event) => set("period", event.target.value)} value={period}><option value="TODAY">今日</option><option value="WEEK">本周</option><option value="MONTH">本月</option></select>
-      <UsageSubjectPicker onChange={(value) => set("subject_id", value)} subjectType={subjectType} value={subjectId} />
-      <input aria-label="用量锚点" className="ql-input" onChange={(event) => set("anchor", new Date(`${event.target.value}T12:00:00+08:00`).toISOString())} type="date" value={anchor.slice(0, 10)}/>
+    <div className="rounded-xl border border-ql-border-zone bg-ql-surface-subtle p-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <label className="min-w-0"><span className="mb-1 block text-[12px] text-ql-fg-secondary">主体类型</span><select aria-label="用量主体类型" className={usageInputClass} onChange={(event) => set("subject_type", event.target.value)} value={subjectType}><option value="EMPLOYEE">员工</option><option value="PROJECT">项目</option></select></label>
+        <label className="min-w-0"><span className="mb-1 block text-[12px] text-ql-fg-secondary">用量周期</span><select aria-label="用量周期" className={usageInputClass} onChange={(event) => set("period", event.target.value)} value={period}><option value="TODAY">今日</option><option value="WEEK">本周</option><option value="MONTH">本月</option></select></label>
+        <div className="min-w-0 md:col-span-2"><UsageSubjectPicker onChange={(value) => set("subject_id", value)} subjectType={subjectType} value={subjectId} /></div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-ql-border-zone pt-3">
+        <label className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[12px] text-ql-fg-secondary">参考日期<input aria-label="用量锚点" className={`${usageInputClass} w-40`} onChange={(event) => { if (event.target.value) set("anchor", new Date(`${event.target.value}T12:00:00+08:00`).toISOString()); }} type="date" value={anchor.slice(0, 10)}/></label>
+        <p className="text-[12px] text-ql-fg-tertiary">输入名称后点击查询或按回车；也可从匹配主体中选择。</p>
+      </div>
     </div>
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">{metrics.map(([label, value]) => <article className="rounded-xl border border-ql-border-zone bg-ql-surface p-4" key={label}><p className="text-[12px] text-ql-fg-tertiary">{label}</p><strong className="mt-2 block font-mono text-[24px]">{value}</strong>{label === "真实 Token" ? <p className="mt-1 text-[10px] text-ql-fg-tertiary">{quality}</p> : null}</article>)}</div>
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4"><div className="flex items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">趋势</h2><p className="mt-1 text-[11px] text-ql-fg-tertiary">{new Date(data.range.from).toLocaleString("zh-CN")} — {new Date(data.range.to).toLocaleString("zh-CN")} · {data.timezone}</p></div><span className={`text-right text-[11px] ${data.stale ? "text-ql-warning" : "text-ql-fg-tertiary"}`}>{data.source === "LIVE_LEDGER" ? "实时账本" : data.stale ? "聚合数据已滞后" : "聚合读模型"}<span className="block">数据时间 {new Date(data.generatedAt).toLocaleString("zh-CN")}</span></span></div><div className="mt-4 flex h-44 items-end gap-1 overflow-x-auto" aria-label="用量趋势图">{data.trend.map((item) => <div className="flex min-w-6 flex-1 flex-col items-center justify-end gap-1" key={item.bucketStart}><span className="text-[10px] text-ql-fg-tertiary">{Number(item.realTokens) ? formatCount(item.realTokens) : ""}</span><div className="w-full rounded-t bg-ql-action" style={{ height: `${Math.max(2, Number(item.realTokens) / max * 120)}px` }}/><span className="whitespace-nowrap text-[10px] text-ql-fg-tertiary">{item.label}</span></div>)}</div></section>

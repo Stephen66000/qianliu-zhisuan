@@ -124,6 +124,31 @@ describe("W20-04 用量概览 Web", () => {
     expect(resolvePrincipalExactMatchMock).toHaveBeenCalledWith("PROJECT", "星河项目");
   });
 
+  it("点击查询与 Enter 使用相同的唯一主体确认，空搜索恢复全部主体", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const search = screen.getByRole("searchbox", { name: "搜索用量主体" });
+    await user.type(search, "星河项目");
+    expect(resolvePrincipalExactMatchMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "查询" }));
+    await waitFor(() => expect(resolvePrincipalExactMatchMock).toHaveBeenCalledWith("PROJECT", "星河项目"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "查询" })).toBeEnabled());
+    await user.clear(search);
+    await user.click(screen.getByRole("button", { name: "查询" }));
+    expect(screen.getByTestId("location")).not.toHaveTextContent("subject_id=");
+  });
+
+  it("无精确匹配时提示选择候选，单页候选不展示翻页按钮", async () => {
+    resolvePrincipalExactMatchMock.mockResolvedValueOnce({ principal: null, match_count: 0 });
+    usePrincipalOptionsMock.mockReturnValue({ isLoading: false, error: null, data: { principals: [], total: 0 } });
+    const user = userEvent.setup();
+    renderPanel();
+    await user.type(screen.getByRole("searchbox", { name: "搜索用量主体" }), "不存在");
+    await user.click(screen.getByRole("button", { name: "查询" }));
+    expect(await screen.findByText(/没有完全匹配的主体/)).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("button", { name: "主体下一页" })).not.toBeInTheDocument();
+  });
+
   it("企业内存在分页同名主体时 Enter 不自动应用", async () => {
     resolvePrincipalExactMatchMock.mockResolvedValueOnce({ principal: null, match_count: 2 });
     const user = userEvent.setup();
@@ -132,6 +157,7 @@ describe("W20-04 用量概览 Web", () => {
     await user.keyboard("{Enter}");
     await waitFor(() => expect(resolvePrincipalExactMatchMock).toHaveBeenCalledWith("PROJECT", "重名项目"));
     expect(screen.getByTestId("location")).not.toHaveTextContent("subject_id=");
+    expect(await screen.findByText(/找到同名主体/)).toHaveAttribute("role", "status");
   });
 
   it("精确匹配请求失败时给出可访问提示且不回写旧选择", async () => {

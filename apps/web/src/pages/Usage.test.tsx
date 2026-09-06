@@ -188,7 +188,7 @@ describe("W18 用量账本", () => {
     renderUsage(
       "/usage?search=req-00&principal_id=00000000-0000-4000-8000-000000000001&overage_only=true&page=3",
     );
-    expect(screen.getByLabelText("搜索请求 ID 或主体名称")).toHaveValue("req-00");
+    expect(screen.getByLabelText("搜索主体、姓名或项目")).toHaveValue("req-00");
     expect(screen.getByLabelText("主体")).toHaveValue("00000000-0000-4000-8000-000000000001");
     expect(screen.getByLabelText("只看超额")).toBeChecked();
     expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -199,7 +199,7 @@ describe("W18 用量账本", () => {
     }));
 
     await user.click(screen.getByRole("button", { name: "清除筛选" }));
-    expect(screen.getByLabelText("搜索请求 ID 或主体名称")).toHaveValue("");
+    expect(screen.getByLabelText("搜索主体、姓名或项目")).toHaveValue("");
     expect(screen.getByLabelText("只看超额")).not.toBeChecked();
     expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({
       search: undefined,
@@ -224,4 +224,22 @@ describe("W18 用量账本", () => {
       offset: 0,
     }));
   });
+  it("输入姓名或项目后点击查询或回车才应用，并重置页码", async () => {
+    const user = userEvent.setup();
+    useUsageMock.mockReturnValue({ isLoading: false, error: null, data: usageResult([], 60), refetch: vi.fn() });
+    renderUsage("/usage?tab=details&page=3");
+    const search = screen.getByRole("searchbox", { name: "搜索主体、姓名或项目" });
+    await user.type(search, "张三");
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({ search: undefined, offset: 40 }));
+    await user.click(screen.getByRole("button", { name: "查询" }));
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({ search: "张三", offset: 0 }));
+    const applied = screen.getByRole("searchbox", { name: "搜索主体、姓名或项目" });
+    await user.clear(applied);
+    await user.type(applied, " 星河项目{Enter}");
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({ search: "星河项目", offset: 0 }));
+    await user.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({ search: undefined }));
+  });
+
 });

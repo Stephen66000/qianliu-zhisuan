@@ -1,0 +1,15 @@
+{
+  "baseline": "2b75bd97bada4c7b463ec9d78869c2a0a914c0da",
+  "branch": "codex/quota-pricing-review-20260905",
+  "status": "validated-pre-commit-snapshot",
+  "files": {
+    "apps/web/src/components/usage/UsageOverviewPanel.test.tsx": "33aaaad5310e21e7d65209c6a2d600b6518ecade720076570cacbc7a72f08e47",
+    "apps/web/src/components/usage/UsageOverviewPanel.tsx": "7b85469752b90b3b1e8bc60cf0a3c9324f23e00e21b193dcd556247de6f2180e",
+    "apps/web/src/components/usage/UsageSubjectPicker.tsx": "ed0dc992822c23ca76001a3432d18d026843977f038e547be17b89068d96abd9",
+    "apps/web/src/pages/Usage.test.tsx": "0ba2d55c93714e3e915c31fac75fcd7e7e0e3bd221afb9d9f4f7cbbd4d666ffd",
+    "apps/web/src/pages/Usage.tsx": "67273641de1cf999b0299a866966a9dfa93445dae35425691d8fd541c94df555",
+    "packages/database/src/__tests-integration__/usage-overview.integration.test.ts": "d4f01e619dbecf62e908a96d001d02ec252c25761a1a7f02857f027155ceb8fa",
+    "packages/database/src/repositories/usage-repository.ts": "700f603e4e5156f6bbdcad0d1dbb3b31473b2bdb9bc1413baf1d38ffc270578c",
+    "apps/web/src/components/usage/UsageSearchField.tsx": "ccf591f25ef8937707f1d3ac022c0d7052d334c429463dc118d3e9276be0ffbe"
+  }
+}
