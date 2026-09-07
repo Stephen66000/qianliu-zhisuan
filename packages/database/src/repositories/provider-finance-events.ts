@@ -72,6 +72,20 @@ export class ProviderFinanceEventRepository {
         const result = replay as { event: FinanceEventView; periodId: string };
         return { ...result, event: { ...result.event, replayed: true } };
       }
+      const systemPeriod = await trx.selectFrom("provider_subscription_period as period")
+        .innerJoin("provider_finance_event as event", join => join.onRef("event.id", "=", "period.finance_event_id")
+          .onRef("event.enterprise_id", "=", "period.enterprise_id"))
+        .selectAll("event").select("period.id as period_id")
+        .where("period.enterprise_id", "=", input.enterpriseId).where("period.provider_resource_id", "=", input.resourceId)
+        .where("period.period_start", "=", input.periodStart).where("period.period_end_exclusive", "=", input.periodEndExclusive)
+        .where("period.reversed_by_event_id", "is", null).where("event.source", "=", "SYSTEM_RENEWAL").executeTakeFirst();
+      if (systemPeriod) {
+        if (systemPeriod.account_amount !== money(input.accountAmount) || systemPeriod.account_currency !== input.accountCurrency
+          || systemPeriod.cash_paid_cny !== money(input.cashPaidCny!)) {
+          throw new ProviderFinanceError("CONFLICT", "本周期已系统续订，金额不同请先核对原记录");
+        }
+        return { event: { ...eventView(systemPeriod), replayed: true }, periodId: systemPeriod.period_id };
+      }
       await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const duplicate = await this.authorizeDuplicate(trx, eventType, input, requestHash);
       if (duplicate.requirement) return { duplicate: duplicate.requirement };
@@ -92,6 +106,9 @@ export class ProviderFinanceEventRepository {
         source: input.kind, migration_source_record_id: null, reversed_by_event_id: null,
         created_by_admin_user_id: input.adminId,
       }).returning("id").executeTakeFirstOrThrow();
+      // A newly registered subscription starts a new standing renewal instruction; replay does not undo cancellation.
+      await trx.updateTable("provider_resource").set({ subscription_auto_renew_enabled: true })
+        .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.resourceId).execute();
       const response = { event: eventView(row), periodId: period.id };
       await this.auditAndRemember(trx, input, eventType, row.id, requestHash, response);
       await this.consumeDuplicateCandidate(trx, duplicate.candidateId, row.id);

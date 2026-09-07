@@ -12,23 +12,23 @@ function partial() {
   data.plans[0]!.months[7]!.usageIncomplete = true;
   return data;
 }
-describe("不完整计量的经营分析展示", () => {
-  it("趋势保留数字并标记不完整，不隐藏已记录量", () => {
+describe("经营报表展示已记录数值", () => {
+  it("趋势完整显示已记录数值，不把质量标记变成月份缺失", () => {
     render(<OperatingTrends data={partial()} />);
-    expect(screen.getByRole("status")).toHaveTextContent("已记录");
-    expect(screen.getByText("公司当月使用 Token").closest("article")).toHaveTextContent("约");
-    expect(screen.getByText("公司当月使用 Token").closest("article")).toHaveTextContent("10,000");
-    expect(screen.getByText("2026-08").closest("tr")).toHaveTextContent("不完整");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByText("公司当月使用 Token").closest("article")).not.toHaveTextContent("约");
+    expect(screen.getByText("公司当月使用 Token").closest("article")).toHaveTextContent("100,000,000");
+    expect(screen.getByText("2026-08").closest("tr")).not.toHaveTextContent("不完整");
   });
-  it("套餐峰值参考值带约数标记，完整月份受不完整峰值影响也标记", () => {
+  it("套餐峰值和利用率正常显示，不传播近似标记", () => {
     render(<OperatingPlans data={partial()} />);
-    expect(screen.getByRole("status")).toHaveTextContent("已记录");
-    expect(screen.getByText("本月历史峰值利用率").closest("article")).toHaveTextContent("约 100%");
-    expect(screen.getByText("2026-07").closest("tr")).toHaveTextContent("约 0%");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByText("本月历史峰值利用率").closest("article")).toHaveTextContent("100%");
+    expect(screen.getByText("2026-07").closest("tr")).toHaveTextContent("0%");
   });
-  it("采购页同步标记利用率参考值，实际付款金额保持原数", () => {
+  it("采购页分开付款事实与利用率，均展示计算值", () => {
     render(<OperatingProcurement data={partial()} />);
-    expect(screen.getByText("约 100%")).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
     expect(screen.getAllByText("¥313.00").length).toBeGreaterThan(0);
   });
 });

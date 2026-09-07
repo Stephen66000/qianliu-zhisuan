@@ -28,20 +28,20 @@ export function UsageQualityTag({ quality }: { quality: OperatingBillUsageQualit
 
 export function accountCount(
   value: string | null,
-  quality: OperatingBillUsageQuality,
+  _quality: OperatingBillUsageQuality,
 ): string {
-  if (value === null || quality === "UNKNOWN") return "未知";
+  if (value === null) return "未知";
   const formatted = formatCount(value);
-  return quality === "EXACT" ? formatted : `约 ${formatted}`;
+  return formatted;
 }
 
 export function accountPercentage(
   value: string | null,
-  quality: OperatingBillUsageQuality,
+  _quality: OperatingBillUsageQuality,
 ): string {
-  if (value === null || quality === "UNKNOWN") return "—";
+  if (value === null) return "—";
   const formatted = `${value}%`;
-  return quality === "EXACT" ? formatted : `约 ${formatted}`;
+  return formatted;
 }
 
 export function accountMoney(value: string | null): string {
@@ -98,16 +98,12 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
       aria-label="账单指标"
       className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
     >
-      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
-        <span className="text-[12px] text-ql-fg-secondary">Token 计量口径</span>
-        <UsageQualityTag quality={totals.usageQuality} />
-      </div>
+
       {metrics.map((metric) => (
         <BillStat
           key={metric.label}
           {...metric}
           missing="未知"
-          approximate={metric.tokens && totals.usageQuality !== "EXACT"}
         />
       ))}
     </section>

@@ -1,0 +1,22 @@
+[
+  {
+    "scope": "packages/database",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "scope": "apps/web",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "scope": "apps/control-api",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "scope": "apps/worker",
+    "exit": 0,
+    "output": ""
+  }
+]

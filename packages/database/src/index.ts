@@ -355,3 +355,5 @@ export {
 
 export { loadOperatingDepartmentAccounts } from "./repositories/operating-department-accounts.js";
 export { previewPrincipalAttributionBackfill, confirmPrincipalAttributionBackfill } from "./repositories/principal-attribution-backfill.js";
+
+export { getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal, renewDueSubscription, runSubscriptionAutoRenewals } from "./repositories/provider-finance-renewal.js";

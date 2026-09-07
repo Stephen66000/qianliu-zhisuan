@@ -91,7 +91,6 @@ export function OperatingBillPage() {
               <OperatingBillOverview
                 bill={bill.data!}
                 planUtilization={analysis.data.summary.planUtilization}
-                planUtilizationApproximate={analysis.data.plans.some((plan) => ["kimi", "zhipu"].includes(plan.providerCode) && plan.historyIncomplete)}
                 payments={analysis.data.payments}
               />
               <OperatingTrends data={analysis.data} />

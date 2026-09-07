@@ -64,18 +64,9 @@ export function OperatingBillDepartmentsPage() {
             </p>
           ) : null}
           {query.data.rows.some(
-            (row) => row.isUnassigned && row.totals.requestCount > 0,
+            (row) => row.isUnassigned && (Number(row.totals.totalTokens) > 0 || Number(row.totals.apiCost) > 0),
           ) ? (
-            <p
-              role="alert"
-              className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning"
-            >
-              存在待归属用量，请管理员前往{" "}
-              <Link className="underline" to="/principals">
-                使用主体
-              </Link>{" "}
-              补齐员工部门或项目负责人；历史缺失记录可在归属设置中“补齐历史归属”，预览后确认。
-            </p>
+            <div className="flex justify-end"><Link className="text-[13px] text-ql-action underline" to="/principals">补齐历史归属</Link></div>
           ) : null}
           <MetricGrid totals={query.data.totals} />
           <BillCard>

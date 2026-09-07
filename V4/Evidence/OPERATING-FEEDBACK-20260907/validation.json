@@ -1,0 +1,18 @@
+{
+  "status": "FIXED_LOCAL_VALIDATED",
+  "tests": {
+    "database": 28,
+    "web": 48,
+    "control-api": 5
+  },
+  "total_tests": 81,
+  "source_set_sha256": "88595249f8a91a1f235bdae67848ee1cd94db14d2bf01996d0f9b718a2f0178e",
+  "source_lock": "STABLE",
+  "types_lint_build": "PASS",
+  "migration_added": false,
+  "submitted": false,
+  "pushed": false,
+  "deployed": false,
+  "current_rules": "Preserve existing attribution; fill missing open-bill attribution in the read model from saved employee department or project owner department. No historical writes.",
+  "payments": "Reports follow confirmed finance events and legacy purchase records, preserving ADMIN/IMPORT/PROVIDER_SYNC provenance and excluding duplicate migrated IDs. No scheduled or inferred cash-payment creation."
+}

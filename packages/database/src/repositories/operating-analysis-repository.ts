@@ -1,3 +1,4 @@
+import { loadAnalysisPurchases } from "./operating-analysis-purchases.js";
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { ProviderFinanceRepository } from "./provider-finance-repository.js";
@@ -11,15 +12,6 @@ import {
   recordedAnalysisUsage,
 } from "./operating-analysis-usage.js";
 
-interface CashFact {
-  month: string;
-  resource_id: string;
-  provider_code: string;
-  provider_name: string;
-  mode: "API" | "CODING_PLAN";
-  currency: string;
-  cash: string;
-}
 export async function loadOperatingAnalysis(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -39,22 +31,9 @@ export async function loadOperatingAnalysis(
     .execute(async (trx) => {
       await sql`SET TRANSACTION READ ONLY`.execute(trx);
       const finance = new ProviderFinanceRepository(trx);
-      const [facts, cashResult, views, paymentResult] = await Promise.all([
+      const [facts, cashRows, views] = await Promise.all([
         loadAnalysisUsage(trx, enterpriseId, now),
-        sql<CashFact>`SELECT to_char(event.occurred_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM') AS month,
-        resource.id AS resource_id,provider.code AS provider_code,provider.name AS provider_name,resource.mode,event.account_currency AS currency,
-        SUM(event.cash_paid_cny)::text AS cash
-        FROM provider_finance_event event
-        JOIN provider_resource resource ON resource.enterprise_id=event.enterprise_id AND resource.id=event.provider_resource_id
-        JOIN provider ON provider.enterprise_id=resource.enterprise_id AND provider.id=resource.provider_id
-        WHERE event.enterprise_id=${enterpriseId}::uuid
-          AND event.occurred_at>=${new Date(`${year}-01-01T00:00:00+08:00`)}
-          AND event.occurred_at<${new Date(`${Number(year) + 1}-01-01T00:00:00+08:00`)} AND event.occurred_at<=${new Date(Math.min(now.getTime(), selected.end.getTime() - 1))}
-          AND event.event_type IN ('API_RECHARGE','CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL','REVERSAL')
-          AND event.cash_paid_cny IS NOT NULL AND event.cash_paid_cny<>0
-        GROUP BY month,resource.id,provider.code,provider.name,resource.mode,event.account_currency`.execute(
-          trx,
-        ),
+        loadAnalysisPurchases(trx, enterpriseId, selectedMonth, now),
         Promise.all(
           months.map(async (month) => {
             const { start, end } = operatingBillMonthRange(month);
@@ -67,35 +46,12 @@ export async function loadOperatingAnalysis(
             );
           }),
         ),
-        sql<{
-          id: string;
-          provider_resource_id: string;
-          provider_name: string;
-          resource_name: string;
-          event_type: string;
-          cash_paid_cny: string;
-          occurred_at: Date;
-          external_reference: string | null;
-          description: string | null;
-        }>`SELECT event.id,event.provider_resource_id,provider.name AS provider_name,resource.name AS resource_name,event.event_type,event.cash_paid_cny::text,event.occurred_at,event.external_reference,event.description
-         FROM provider_finance_event event JOIN provider_resource resource ON resource.enterprise_id=event.enterprise_id AND resource.id=event.provider_resource_id
-         JOIN provider ON provider.enterprise_id=resource.enterprise_id AND provider.id=resource.provider_id
-         WHERE event.enterprise_id=${enterpriseId}::uuid AND event.occurred_at>=${selected.start} AND event.occurred_at<${selected.end} AND event.occurred_at<=${now}
-           AND event.event_type IN ('API_RECHARGE','CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL','REVERSAL') AND event.cash_paid_cny IS NOT NULL AND event.cash_paid_cny<>0
-         ORDER BY event.occurred_at DESC,event.created_at DESC,event.id DESC`.execute(
-          trx,
-        ),
       ]);
-      const payments = paymentResult.rows.map((row) => ({
-        id: row.id,
-        providerResourceId: row.provider_resource_id,
-        providerName: row.provider_name,
-        resourceName: row.resource_name,
-        eventType: row.event_type,
-        cashPaidCny: row.cash_paid_cny,
-        occurredAt: row.occurred_at.toISOString(),
-        externalReference: row.external_reference,
-        description: row.description,
+      const payments = cashRows.filter((row) => row.month === selectedMonth).map((row) => ({
+        id: row.id, providerResourceId: row.resource_id, providerName: row.provider_name,
+        resourceName: row.resource_name, eventType: row.event_type, cashPaidCny: row.cash,
+        occurredAt: row.occurred_at.toISOString(), externalReference: row.external_reference,
+        description: row.description, source: row.source,
       }));
       const currentMonth = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Shanghai",
@@ -169,31 +125,26 @@ export async function loadOperatingAnalysis(
       });
       const purchases = [
         ...new Set(
-          cashResult.rows.map((row) => `${row.provider_code}:${row.mode}`),
+          [...cashRows.map((row) => `${row.provider_code}:${row.mode}`), ...views.flat().map((row) => `${row.providerCode}:${row.mode}`)],
         ),
       ]
         .sort()
         .map((key) => {
-          const rows = cashResult.rows.filter(
+          const rows = cashRows.filter(
             (row) => `${row.provider_code}:${row.mode}` === key,
           );
           const monthlyCash = months.map((month) =>
             month > currentMonth || month > selectedMonth
               ? null
-              : addAnalysis(
-                  rows
-                    .filter((row) => row.month === month)
-                    .map((row) => row.cash),
-                ).toFixed(2),
+              : rows.some((row) => row.month === month && row.cash === null) ? null : addAnalysis(rows.filter((row) => row.month === month).map((row) => row.cash!)).toFixed(2),
           );
           return {
-            providerCode: rows[0]!.provider_code,
-            providerName: rows[0]!.provider_name,
-            mode: rows[0]!.mode,
+            providerCode: key.split(":")[0]!,
+            providerName: rows[0]?.provider_name ?? ({ kimi: "Kimi", zhipu: "智谱", deepseek: "DeepSeek" }[key.split(":")[0]!] ?? key.split(":")[0]!),
+            mode: key.split(":")[1] as "API" | "CODING_PLAN",
             monthlyCash,
-            yearCash: addAnalysis(
-              monthlyCash.filter((x): x is string => x !== null),
-            ).toFixed(2),
+            yearCash: monthlyCash.some((value, index) => months[index]! <= currentMonth && months[index]! <= selectedMonth && value === null)
+              ? null : addAnalysis(monthlyCash.filter((x): x is string => x !== null)).toFixed(2),
           };
         });
       const keys = [
@@ -216,7 +167,7 @@ export async function loadOperatingAnalysis(
           providerName:
             facts.usage.find((row) => row.provider_code === providerCode)
               ?.provider_name ??
-            cashResult.rows.find((row) => row.provider_code === providerCode)
+            cashRows.find((row) => row.provider_code === providerCode)
               ?.provider_name ??
             providerCode,
           currency,
@@ -229,6 +180,8 @@ export async function loadOperatingAnalysis(
               view.accounts.filter((account) => account.currency === currency),
             );
             const valid = month <= currentMonth && accounts.length > 0;
+            const paid = cashRows.filter((row) => row.month === month && row.currency === currency
+              && resources.some((resource) => resource.resourceId === row.resource_id));
             return {
               month,
               openingBalance:
@@ -245,21 +198,9 @@ export async function loadOperatingAnalysis(
               recharge: valid
                 ? addAnalysis(accounts.map((a) => a.monthlyRecharge)).toFixed(2)
                 : null,
-              paidCny:
-                month <= currentMonth
-                  ? addAnalysis(
-                      cashResult.rows
-                        .filter(
-                          (row) =>
-                            row.month === month &&
-                            row.currency === currency &&
-                            resources.some(
-                              (r) => r.resourceId === row.resource_id,
-                            ),
-                        )
-                        .map((row) => row.cash),
-                    ).toFixed(2)
-                  : null,
+              paidCny: month <= currentMonth
+                ? paid.some((row) => row.cash === null) ? null : addAnalysis(paid.map((row) => row.cash!)).toFixed(2)
+                : null,
               apiSpend:
                 valid &&
                 accounts.every(
@@ -299,7 +240,8 @@ export async function loadOperatingAnalysis(
           },
         };
       });
-      const ytd = usageMonths.slice(0, monthNumber),
+      const firstUsageMonth = facts.usage.map((row) => row.month).sort()[0] ?? selectedMonth;
+      const ytd = usageMonths.slice(0, monthNumber).filter((row) => row.month >= firstUsageMonth),
         prior = ytd.slice(0, -1);
       const average = (rows: typeof ytd) =>
         rows.length && rows.every((row) => row.totalTokens !== null)
@@ -316,13 +258,11 @@ export async function loadOperatingAnalysis(
       const monthlyCash = months.map((month, i) =>
         month > currentMonth || month > selectedMonth
           ? null
-          : addAnalysis(
-              purchases.map((row) => row.monthlyCash[i] ?? "0"),
-            ).toFixed(2),
+          : purchases.some((row) => row.monthlyCash[i] === null) ? null
+            : addAnalysis(purchases.map((row) => row.monthlyCash[i] ?? "0")).toFixed(2),
       );
-      const yearCash = addAnalysis(
-        monthlyCash.filter((v): v is string => v !== null),
-      ).toFixed(2);
+      const yearCash = monthlyCash.some((value, index) => months[index]! <= currentMonth && months[index]! <= selectedMonth && value === null)
+        ? null : addAnalysis(monthlyCash.filter((v): v is string => v !== null)).toFixed(2);
       const maxCash = monthlyCash.reduce<string>(
         (maximum, value) =>
           value !== null && new AnalysisDecimal(value).gt(maximum)
@@ -334,7 +274,7 @@ export async function loadOperatingAnalysis(
         monthlyCash,
         yearCash,
         averageCash:
-          selectedMonth > currentMonth
+          selectedMonth > currentMonth || yearCash === null
             ? null
             : new AnalysisDecimal(yearCash).div(monthNumber).toFixed(2),
         highestMonths: new AnalysisDecimal(maxCash).gt(0)
@@ -362,6 +302,7 @@ export async function loadOperatingAnalysis(
         summary: {
           companyTokens: current.totalTokens,
           ytdAverageTokens: currentAverage?.toFixed(2) ?? null,
+          averageMonthCount: ytd.length,
           ytdAverageChange: change(
             currentAverage?.toString() ?? null,
             previousAverage?.toString() ?? null,

@@ -1,0 +1,33 @@
+{
+  "database": {
+    "passed": 43,
+    "log": "database-final.log"
+  },
+  "control_api": {
+    "passed": 10,
+    "log": "control-api-final.log"
+  },
+  "worker": {
+    "passed": 5,
+    "log": "worker-r2.log"
+  },
+  "web": {
+    "passed": 62,
+    "logs": [
+      "web-final.log",
+      "web-entry-final.log"
+    ]
+  },
+  "total_passed": 120,
+  "web_build": "PASS",
+  "typecheck": "PASS four packages; Web repeated after polling change",
+  "lint": "PASS",
+  "architecture": "PASS 466 source files",
+  "source_size": "PASS 466 files",
+  "diff_check": "PASS",
+  "review": "I0 bounded author review",
+  "production_modified": false,
+  "committed": false,
+  "pushed": false,
+  "deployed": false
+}

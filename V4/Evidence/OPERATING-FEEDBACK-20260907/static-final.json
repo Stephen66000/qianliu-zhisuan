@@ -1,0 +1,78 @@
+[
+  {
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "-p",
+      "apps/web/tsconfig.json"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "node_modules/.bin/eslint",
+      "apps/web/src/api/operating-analysis.ts",
+      "apps/web/src/components/operating-bill/AccountShared.test.tsx",
+      "apps/web/src/components/operating-bill/AccountShared.tsx",
+      "apps/web/src/components/operating-bill/BillStat.test.tsx",
+      "apps/web/src/components/operating-bill/BillStat.tsx",
+      "apps/web/src/components/operating-bill/MonthlyPayments.test.tsx",
+      "apps/web/src/components/operating-bill/MonthlyPayments.tsx",
+      "apps/web/src/components/operating-bill/OperatingAnalysisPartial.test.tsx",
+      "apps/web/src/components/operating-bill/OperatingPlans.tsx",
+      "apps/web/src/components/operating-bill/OperatingProcurement.tsx",
+      "apps/web/src/components/operating-bill/OperatingTrends.tsx",
+      "apps/web/src/pages/OperatingBill.tsx",
+      "apps/web/src/pages/OperatingBillAccounts.test.tsx",
+      "apps/web/src/pages/OperatingBillDepartments.test.tsx",
+      "apps/web/src/pages/OperatingBillDepartments.tsx",
+      "apps/web/src/pages/OperatingBillOverview.tsx",
+      "apps/web/src/pages/OperatingBillProcurement.test.tsx",
+      "packages/database/src/__tests-integration__/operating-analysis.integration.test.ts",
+      "packages/database/src/__tests-integration__/operating-feedback.integration.test.ts",
+      "packages/database/src/repositories/operating-analysis-purchases.ts",
+      "packages/database/src/repositories/operating-analysis-repository.ts",
+      "packages/database/src/repositories/operating-analysis-usage.ts",
+      "packages/database/src/repositories/operating-bill-account-aggregate.ts",
+      "packages/database/src/repositories/operating-bill-account-month-lines.ts",
+      "packages/database/src/repositories/operating-bill-account-repository.ts",
+      "packages/database/src/repositories/operating-bill-project-metadata.ts",
+      "packages/database/src/repositories/operating-consumption-filter.ts",
+      "packages/database/src/repositories/operating-department-rules.ts",
+      "--max-warnings",
+      "0"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "node",
+      "scripts/check-architecture.mjs"
+    ],
+    "exit": 0,
+    "output": "architecture gate passed: 462 production source files, no runtime cycles\n"
+  },
+  {
+    "command": [
+      "node",
+      "scripts/check-source-size.mjs"
+    ],
+    "exit": 0,
+    "output": "source-size gate passed: 462 files, default <= 400 logical lines\n"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "--",
+      "apps",
+      "packages"
+    ],
+    "exit": 0,
+    "output": ""
+  }
+]

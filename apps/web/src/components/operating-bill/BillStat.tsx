@@ -5,33 +5,18 @@ export function compactBillTokens(value: string): {
   text: string;
   unit: string;
 } {
-  const match = /^(\d+)(?:\.(\d+))?$/.exec(value);
-  if (!match) return { text: value, unit: "" };
-  const integer = BigInt(match[1]!);
-  if (integer < 100_000_000n)
-    return { text: formatDecimal(value, 0), unit: "" };
-  const hundredths = (integer + 50n) / 100n;
-  const whole = hundredths / 100n,
-    fraction = String(hundredths % 100n)
-      .padStart(2, "0")
-      .replace(/0+$/, "");
-  return {
-    text: `${whole.toLocaleString("zh-CN")}${fraction ? `.${fraction}` : ""}`,
-    unit: "万",
-  };
+  return { text: formatDecimal(value, 2), unit: "" };
 }
 
 export function BillStat({
   label,
   value,
   tokens = false,
-  approximate = false,
   missing = "—",
 }: {
   label: string;
   value: string | null;
   tokens?: boolean;
-  approximate?: boolean;
   missing?: string;
 }) {
   const root = useRef<HTMLElement>(null);
@@ -65,7 +50,7 @@ export function BillStat({
     if (root.current) observer?.observe(root.current);
     void document.fonts?.ready.then(fit);
     return () => observer?.disconnect();
-  }, [label, value, approximate]);
+  }, [label, value]);
   return (
     <article
       ref={root}
@@ -84,7 +69,6 @@ export function BillStat({
         }
         className="mt-2 block whitespace-nowrap text-[24px] font-semibold tabular-nums text-ql-fg"
       >
-        {approximate && value !== null ? "约 " : ""}
         {display.text}
         {display.unit ? (
           <span className="ml-1 text-[11px] font-normal text-ql-fg-secondary">

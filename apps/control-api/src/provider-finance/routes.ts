@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { ProviderFinanceError } from "@qianliu/database";
+import { ProviderFinanceError, getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   BalanceQuery, currentShanghaiMonthRange, dayAfterShanghaiDate, defaultServiceEndDate,
@@ -146,6 +146,19 @@ export function registerProviderFinanceRoutes(
     });
     if (!result) return reply.code(404).send({ error: "not_found", message: "资源不存在" });
     return result;
+  });
+
+  app.get("/provider-resources/:id/finance/auto-renewal", { preHandler: [requireAuth] }, async (req, reply) => {
+    const params = ResourceParams.safeParse(req.params);
+    if (!params.success) return invalid(reply);
+    try { return await getSubscriptionAutoRenewal(app.db, req.admin!.enterpriseId, params.data.id); }
+    catch (error) { return financeFailure(error, reply); }
+  });
+  app.post("/provider-resources/:id/finance/auto-renewal/cancel", { preHandler: writeGuards }, async (req, reply) => {
+    const params = ResourceParams.safeParse(req.params);
+    if (!params.success) return invalid(reply);
+    try { return await cancelSubscriptionAutoRenewal(app.db, req.admin!.enterpriseId, params.data.id, req.admin!.adminUserId); }
+    catch (error) { return financeFailure(error, reply); }
   });
 
   app.get("/provider-resources/:id/subscription-periods", { preHandler: [requireAuth] }, async (req, reply) => {

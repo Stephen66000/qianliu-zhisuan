@@ -29,16 +29,16 @@ describe("POOL-043 账单展示口径", () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(accountCount("1200", "EXACT")).toBe("1,200");
-    expect(accountCount("1200", "ESTIMATED")).toBe("约 1,200");
-    expect(accountCount("1200", "ACCOUNT_AGGREGATED")).toBe("约 1,200");
-    expect(accountCount("1200", "MIXED")).toBe("约 1,200");
-    expect(accountCount("1200", "UNKNOWN")).toBe("未知");
+    expect(accountCount("1200", "ESTIMATED")).toBe("1,200");
+    expect(accountCount("1200", "ACCOUNT_AGGREGATED")).toBe("1,200");
+    expect(accountCount("1200", "MIXED")).toBe("1,200");
+    expect(accountCount("1200", "UNKNOWN")).toBe("1,200");
     expect(accountCount(null, "EXACT")).toBe("未知");
     expect(accountPercentage("60.00", "EXACT")).toBe("60.00%");
-    expect(accountPercentage("40.00", "ESTIMATED")).toBe("约 40.00%");
-    expect(accountPercentage("40.00", "ACCOUNT_AGGREGATED")).toBe("约 40.00%");
-    expect(accountPercentage("40.00", "MIXED")).toBe("约 40.00%");
-    expect(accountPercentage("40.00", "UNKNOWN")).toBe("—");
+    expect(accountPercentage("40.00", "ESTIMATED")).toBe("40.00%");
+    expect(accountPercentage("40.00", "ACCOUNT_AGGREGATED")).toBe("40.00%");
+    expect(accountPercentage("40.00", "MIXED")).toBe("40.00%");
+    expect(accountPercentage("40.00", "UNKNOWN")).toBe("40.00%");
     expect(accountPercentage(null, "EXACT")).toBe("—");
     expect(accountMoney(null)).toBe("未知");
     expect(accountMoney("2.5")).toBe("¥2.50");

@@ -26,7 +26,7 @@ export interface ProviderFinanceEventTable {
   legacy_cost_resolution_id: Generated<string | null>;
   description: string | null;
   evidence_ref: string | null;
-  source: "ADMIN" | "MIGRATION" | "RECONCILIATION" | "SYSTEM_REVERSAL";
+  source: "ADMIN" | "MIGRATION" | "RECONCILIATION" | "SYSTEM_REVERSAL" | "SYSTEM_RENEWAL";
   idempotency_key: string;
   created_by_admin_user_id: string | null;
   created_at: Generated<Date>;

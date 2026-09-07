@@ -124,7 +124,7 @@ export function finishAccountTotals(target: AccountAccumulator): OperatingBillAc
     };
   }
   const usageQuality = summarizeUsageQuality(target.qualities);
-  const tokensKnown = usageQuality !== "UNKNOWN";
+  const tokensKnown = usageQuality !== "UNKNOWN" || target.input.plus(target.output).gt(0);
   const apiCost = target.apiCostKnown ? money(target.apiCost) : null;
   const packageCost = target.packageCostKnown ? money(target.packageCost) : null;
   return {
@@ -149,9 +149,9 @@ export function finishAccountTotals(target: AccountAccumulator): OperatingBillAc
 export function finishAccountSummary(input: OperatingBillAccountSummaryInput): OperatingBillAccountTotals {
   if (input.requestCount === 0) return finishAccountTotals(newAccountAccumulator());
   const usageQuality = summarizeUsageQuality(input.qualities);
-  const tokensKnown = usageQuality !== "UNKNOWN";
   const inputTokens = decimal(input.inputTokens);
   const outputTokens = decimal(input.outputTokens);
+  const tokensKnown = usageQuality !== "UNKNOWN" || inputTokens.plus(outputTokens).gt(0);
   const apiCost = input.apiCost === null ? null : money(decimal(input.apiCost));
   const packageCost = input.packageAllocatedCost === null ? null : money(decimal(input.packageAllocatedCost));
   return {

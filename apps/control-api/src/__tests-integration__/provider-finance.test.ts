@@ -61,6 +61,22 @@ describe("provider finance routes", () => {
     }
   });
 
+  it("automatic renewal control is tenant-authenticated and cancellation is idempotent", async () => {
+    const providerId=randomUUID(), resourceId=randomUUID();
+    await db.insertInto("provider").values({id:providerId,enterprise_id:enterpriseId,code:"kimi",name:"Kimi",adapter_type:"OPENAI_COMPATIBLE"}).execute();
+    await db.insertInto("provider_resource").values({id:resourceId,enterprise_id:enterpriseId,provider_id:providerId,name:"Kimi",mode:"CODING_PLAN",credential_type:"SUBSCRIPTION_SESSION"}).execute();
+    const url=`/provider-resources/${resourceId}/finance/auto-renewal`;
+    expect((await app.inject({method:"POST",url:url+"/cancel",payload:{}})).statusCode).toBe(401);
+    const initial=await app.inject({method:"GET",url,headers:{cookie}});
+    expect(initial.statusCode).toBe(200);expect(initial.json()).toMatchObject({enabled:true});
+    for (let i=0;i<2;i++) {
+      const cancelled=await app.inject({method:"POST",url:url+"/cancel",headers:{cookie},payload:{}});
+      expect(cancelled.statusCode).toBe(200);expect(cancelled.json()).toEqual({enabled:false});
+    }
+    expect((await app.inject({method:"GET",url,headers:{cookie}})).json().enabled).toBe(false);
+    expect((await app.inject({method:"POST",url:`/provider-resources/${randomUUID()}/finance/auto-renewal/cancel`,headers:{cookie},payload:{}})).statusCode).toBe(404);
+  });
+
   it("records opening and recharge then returns the same projected balance", async () => {
     const opening = await app.inject({ method: "POST",
       url: `/provider-resources/${apiResourceId}/finance/opening-balances`, headers: { cookie },
@@ -271,11 +287,11 @@ describe("provider finance routes", () => {
       expect.objectContaining({ principalName: "Finance Employee 1",
         packageAllocatedCost: "0.00000000" }),
       expect.objectContaining({ principalName: "Finance Employee 2",
-        packageAllocatedCost: "44.22222222" }),
+        packageAllocatedCost: "44.22000000" }),
       expect.objectContaining({ principalName: "Finance Employee 3",
-        packageAllocatedCost: "22.11111111" }),
+        packageAllocatedCost: "22.11000000" }),
       expect.objectContaining({ principalName: "Finance Project", principalType: "PROJECT",
-        packageAllocatedCost: "132.66666667" }),
+        packageAllocatedCost: "132.67000000" }),
     ]));
     expect(billBody.subjects.reduce((sum: number, subject: { packageAllocatedCost: string }) =>
       sum + Number(subject.packageAllocatedCost), 0)).toBe(199);

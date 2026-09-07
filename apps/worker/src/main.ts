@@ -1,3 +1,4 @@
+import { runSubscriptionRenewalTick } from "./subscription-renewal/runner.js";
 /**
  * @qianliu/worker —— 对账、预测、恢复、备份任务入口。
  *
@@ -193,6 +194,13 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
     await runSchedulerLoop({
       db, intervalMs, signal: controller.signal, health,
       tick: async () => runScheduledOperationalTasks({
+        renewals: async () => {
+          const result = await runSubscriptionRenewalTick({ db });
+          console.log(JSON.stringify({ event: "subscription_auto_renewal_tick", ...result }));
+        },
+        onRenewalError: (cause) => console.error(JSON.stringify({
+          event: "subscription_auto_renewal_tick_failed", error_type: cause instanceof Error ? cause.name : typeof cause,
+        })),
         core: async () => {
           const runtime = await runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() });
           const forecast = await runSupplyForecastTick(supplyForecastRepository);

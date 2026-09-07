@@ -1,3 +1,5 @@
+import { currentDepartmentRulesCte } from "./operating-department-rules.js";
+import { operatingConsumptionFilter } from "./operating-consumption-filter.js";
 import { sql, type RawBuilder } from "kysely";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
 import { liveProjectMetadataJoins } from "./operating-bill-project-metadata.js";
@@ -12,7 +14,7 @@ function accountMonthLineCtes(enterpriseId: string, start: Date, end: Date) {
       SELECT ll.*, finance.enabled AS finance_enabled,
              CASE WHEN finance.enabled THEN ll.settled_at ELSE ll.created_at END AS account_at
         FROM ledger_line ll CROSS JOIN finance_state finance
-       WHERE ll.enterprise_id=${enterpriseId}::uuid
+       WHERE ll.enterprise_id=${enterpriseId}::uuid AND ${operatingConsumptionFilter()}
          AND ((finance.enabled AND ll.settled_at>=${start} AND ll.settled_at<${end})
            OR (NOT finance.enabled AND ll.created_at>=${start} AND ll.created_at<${end}))
     ), monthly_plan_fees AS (
@@ -55,7 +57,7 @@ export function liveLineFactCtes(
 ): RawBuilder<unknown> {
   const { start, end } = operatingBillMonthRange(month);
   return sql`
-    ${accountMonthLineCtes(enterpriseId, start, end)}, latest_snapshot AS (
+    ${accountMonthLineCtes(enterpriseId, start, end)}, ${currentDepartmentRulesCte(enterpriseId)}, latest_snapshot AS (
       SELECT DISTINCT ON (s.provider_resource_id)
              s.provider_resource_id, s.package_cost, s.effective_from, s.effective_until
         FROM provider_resource_operating_snapshot s
@@ -83,7 +85,7 @@ export function liveLineFactCtes(
              p.code AS provider_code, p.name AS provider_name,
              ar.unified_model_id, um.alias AS current_alias,
              ar.unified_model AS historical_alias, ar.status AS request_status,
-             attribution.organization_unit_id AS department_id,
+             COALESCE(attribution.organization_unit_id, department_rule.department_id) AS department_id,
              ll.account_at AS created_at, ll.usage_quality, ll.resource_mode,
              ll.raw_input_tokens, ll.raw_output_tokens,
              ll.raw_cache_tokens, ll.raw_reasoning_tokens,
@@ -116,6 +118,8 @@ export function liveLineFactCtes(
         LEFT JOIN operating_bill_request_project_assignment assignment
           ON assignment.ai_request_id = ll.ai_request_id AND assignment.enterprise_id = ${enterpriseId}
         ${liveProjectMetadataJoins(enterpriseId)}
+        LEFT JOIN current_department_rules department_rule
+          ON department_rule.principal_id=COALESCE(project.id, source.id)
         LEFT JOIN monthly_subject_fees share ON share.provider_resource_id=ll.provider_resource_id
           AND share.principal_id=ll.principal_id
         LEFT JOIN monthly_plan_fees month_fee ON month_fee.provider_resource_id=ll.provider_resource_id

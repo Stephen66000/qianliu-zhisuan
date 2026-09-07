@@ -1,3 +1,4 @@
+import { attachCurrentProjectSettings } from "./operating-bill-project-metadata.js";
 import { Decimal } from "decimal.js";
 import type { Kysely } from "kysely";
 import type { Database } from "../kysely.js";
@@ -59,6 +60,7 @@ export class OperatingBillAccountRepository {
       const summary = status === "CLOSED"
         ? await loadFrozenOperatingBillAccountSummary(repo.db, enterpriseId, month, dimension, page)
         : await loadLiveOperatingBillAccountSummary(repo.db, enterpriseId, month, dimension, page);
+      if (dimension === "PROJECT" && status !== "CLOSED") await attachCurrentProjectSettings(repo.db, enterpriseId, summary.rows);
       for (const row of summary.rows) {
         row.providers.sort((a, b) => a.providerName.localeCompare(b.providerName));
       }

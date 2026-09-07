@@ -67,13 +67,8 @@ describe("部门主体账", () => {
     expect(
       await screen.findByRole("columnheader", { name: "DeepSeek API 消费" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "补齐员工部门或项目负责人",
-    );
-    expect(screen.getByRole("link", { name: "使用主体" })).toHaveAttribute(
-      "href",
-      "/principals",
-    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "补齐历史归属" })).toHaveAttribute("href", "/principals");
     expect(
       screen.getByRole("columnheader", { name: "活跃天数" }),
     ).toBeInTheDocument();

@@ -46,7 +46,7 @@ describe("经营分析真实数据链", () => {
     await usage(t,t.b,"zhipu",100n,new Date("2026-09-02T00:00:00Z"));
     await usage(t,t.a,"kimi",0n,new Date("2026-09-03T00:00:00Z"),"0","UNKNOWN");
     const report = await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",new Date("2026-09-06T12:00:00Z"));
-    expect(report.summary).toMatchObject({companyTokens:"400",ytdAverageTokens:"66.67",ytdAverageChange:"166.67",perCapitaTokens:"200.00",perCapitaChange:"0.00",planUtilization:"100.00"});
+    expect(report.summary).toMatchObject({companyTokens:"400",ytdAverageTokens:"300.00",ytdAverageChange:"50.00",perCapitaTokens:"200.00",perCapitaChange:"0.00",planUtilization:"100.00"});
     expect(report.months[8]).toMatchObject({totalTokens:"400",usageIncomplete:true});
     expect(report.months[9]!.totalTokens).toBeNull();
     const kimi = report.plans.find((p)=>p.providerCode==="kimi")!;
@@ -123,8 +123,8 @@ describe("经营分析真实数据链", () => {
     );
     expect(report.summary).toMatchObject({
       companyTokens: "850",
-      ytdAverageTokens: "105.56",
-      ytdAverageChange: "744.44",
+      ytdAverageTokens: "475.00",
+      ytdAverageChange: "375.00",
       perCapitaTokens: "425.00",
       perCapitaChange: "325.00",
       planUtilization: "100.00",
