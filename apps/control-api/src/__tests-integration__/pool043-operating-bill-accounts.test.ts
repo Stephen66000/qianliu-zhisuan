@@ -393,6 +393,18 @@ describe("POOL-043 Control API 员工账／项目账", () => {
     });
     expect(profile.statusCode).toBe(200);
     expect(profile.json().assignment.ownerPrincipalId).toBe(owner);
+    const historyUrl=`/principals/${project.json().principal.id}/attribution-backfill`;
+    const historyPayload={from:"2026-09-01",to:"2026-09-06",department_id:profile.json().suggestedDepartmentId,reason:"确认历史项目部门"};
+    expect((await app.inject({method:"POST",url:`${historyUrl}/preview`,payload:historyPayload})).statusCode).toBe(401);
+    expect((await app.inject({method:"POST",url:`${historyUrl}/preview`,headers:{cookie:otherCookie},payload:historyPayload})).statusCode).toBe(404);
+    expect((await app.inject({method:"POST",url:`${historyUrl}/preview`,headers:{cookie},payload:{...historyPayload,from:"2026-02-30"}})).statusCode).toBe(400);
+    const historyPreview=await app.inject({method:"POST",url:`${historyUrl}/preview`,headers:{cookie},payload:historyPayload});
+    expect(historyPreview.statusCode).toBe(200);
+    expect(historyPreview.json()).toMatchObject({requestCount:0,departmentName:"验收部门"});
+    expect((await app.inject({method:"POST",url:historyUrl,headers:{cookie},payload:historyPayload})).statusCode).toBe(400);
+    const historyConfirmed=await app.inject({method:"POST",url:historyUrl,headers:{cookie},payload:{...historyPayload,fingerprint:historyPreview.json().fingerprint}});
+    expect(historyConfirmed.statusCode).toBe(200);
+    expect(historyConfirmed.json()).toEqual({confirmedCount:0});
     expect(
       (
         await app.inject({

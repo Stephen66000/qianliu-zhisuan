@@ -74,7 +74,7 @@ export function OperatingBillDepartmentsPage() {
               <Link className="underline" to="/principals">
                 使用主体
               </Link>{" "}
-              补齐员工部门或项目负责人。
+              补齐员工部门或项目负责人；历史缺失记录可在归属设置中“补齐历史归属”，预览后确认。
             </p>
           ) : null}
           <MetricGrid totals={query.data.totals} />

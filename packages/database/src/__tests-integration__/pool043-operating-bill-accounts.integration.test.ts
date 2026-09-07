@@ -863,5 +863,15 @@ describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
     expect(overview.summary.unallocatedCost).toBe("199.00000000");
     expect(overview.subjects.every((row) => row.packageAllocatedCost === "0.00000000")).toBe(true);
     expect(overview.gaps.some((gap) => gap.code === "UNALLOCATED_PACKAGE_COST")).toBe(true);
+    await new ProviderFinanceRepository(db).reverseFinanceEvent({
+      enterpriseId,adminId,eventId:subscription.event.id,
+      reason:"测试当月套餐费用冲销至零",evidenceRef:"test-zero-plan-fee",idempotencyKey:randomUUID(),
+    });
+    const zeroFee = await accountRepo.listAccounts(enterpriseId,"2026-09","EMPLOYEE",query);
+    expect(zeroFee.rows.every((row) => row.totals.packageAllocatedCost === "0.00000000")).toBe(true);
+    expect((await accountRepo.listAccounts(enterpriseId,"2026-09","PROJECT",query)).totals.packageAllocatedCost).toBe("0.00000000");
+    expect((await accountRepo.getEmployeeDetail(enterpriseId,"2026-09",employeeId,query.providerCode)).totals.packageAllocatedCost).toBe("0.00000000");
+    expect((await loadOperatingDepartmentAccounts(db,enterpriseId,"2026-09")).totals.packageAllocatedCost).toBe("0.00000000");
+    expect((await new OperatingBillRepository(db,"ACTIVE").getBill(enterpriseId,"2026-09")).summary.packageCost).toBe("0.00000000");
   });
 });

@@ -3,8 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { get, put } from "../../api/client";
 import type { Principal } from "../../api/types";
 import { INPUT_CLASS } from "../writes/FormField";
+import { HistoricalAttributionPanel } from "./HistoricalAttributionPanel";
 
 interface Profile {
+  suggestedDepartmentId?: string | null;
   assignment: null | {
     departmentId: string | null;
     ownerPrincipalId: string | null;
@@ -140,6 +142,7 @@ export function PrincipalAccountingPanel({
               保存归属
             </button>
           </div>
+          <HistoricalAttributionPanel principalId={principal.id} departments={query.data?.departments ?? []} suggestedDepartmentId={query.data?.suggestedDepartmentId} />
         </>
       )}
     </section>

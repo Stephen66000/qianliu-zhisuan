@@ -354,3 +354,4 @@ export {
 } from "./repositories/principal-accounting.js";
 
 export { loadOperatingDepartmentAccounts } from "./repositories/operating-department-accounts.js";
+export { previewPrincipalAttributionBackfill, confirmPrincipalAttributionBackfill } from "./repositories/principal-attribution-backfill.js";

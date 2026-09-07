@@ -90,6 +90,7 @@ export function liveLineFactCtes(
              ll.deducted_quota, ll.api_cost,
              CASE
                WHEN ll.resource_mode <> 'CODING_PLAN' THEN 0::numeric
+               WHEN ll.finance_enabled AND COALESCE(month_fee.amount,0) = 0 THEN 0::numeric
                WHEN ll.finance_enabled AND denom.unknown_plan_line_count > 0 THEN NULL
                WHEN ll.finance_enabled THEN CASE WHEN share.tokens > 0
                  THEN share.amount
@@ -117,6 +118,7 @@ export function liveLineFactCtes(
         ${liveProjectMetadataJoins(enterpriseId)}
         LEFT JOIN monthly_subject_fees share ON share.provider_resource_id=ll.provider_resource_id
           AND share.principal_id=ll.principal_id
+        LEFT JOIN monthly_plan_fees month_fee ON month_fee.provider_resource_id=ll.provider_resource_id
         LEFT JOIN latest_snapshot snap ON snap.provider_resource_id = ll.provider_resource_id
         LEFT JOIN resource_deducted denom ON denom.provider_resource_id = ll.provider_resource_id
        WHERE ll.enterprise_id = ${enterpriseId}

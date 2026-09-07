@@ -70,8 +70,12 @@ export async function readPrincipalAccounting(
           ).execute(db)
         ).rows[0] as { department_id: string; valid_from: Date } | undefined)
       : undefined;
+  const suggested = principal.type === "EMPLOYEE" ? effective : assignment?.owner_principal_id
+    ? (await effectivePrincipalDepartment(enterpriseId, assignment.owner_principal_id, sql`clock_timestamp()`).execute(db)).rows[0] as {department_id:string} | undefined
+    : undefined;
   return {
     principal,
+    suggestedDepartmentId: suggested?.department_id ?? null,
     assignment:
       assignment || effective
         ? {

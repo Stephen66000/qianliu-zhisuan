@@ -6,6 +6,7 @@ import {
   PrincipalAccountingError,
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
+import { registerAttributionBackfillRoutes } from "./attribution-backfill-route.js";
 const params = z.object({ id: z.string().uuid() });
 const body = z.object({
   department_id: z.string().uuid().optional(),
@@ -14,6 +15,7 @@ const body = z.object({
   expected_version: z.number().int().nonnegative(),
 });
 export function registerPrincipalAccountingRoutes(app: FastifyInstance) {
+  registerAttributionBackfillRoutes(app);
   app.get<{ Params: { id: string } }>(
     "/principals/:id/accounting-profile",
     { preHandler: [requireAuth] },

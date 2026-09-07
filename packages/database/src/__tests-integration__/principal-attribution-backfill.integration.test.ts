@@ -1,0 +1,67 @@
+import { beforeAll, afterAll, expect, it } from "vitest";
+import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+import { createKysely, migrateToLatest, savePrincipalAccounting, readPrincipalAccounting, loadOperatingDepartmentAccounts, OperatingBillRepository, previewPrincipalAttributionBackfill, confirmPrincipalAttributionBackfill } from "../index.js";
+import { createAnalysisFixture, seedAnalysisUsage } from "./fixtures/operating-analysis.js";
+import { ensureRequestAttributionSnapshot } from "../repositories/request-attribution-writer.js";
+let pg:PostgresTestInstance;
+let db:ReturnType<typeof createKysely>;
+beforeAll(async()=>{pg=await startPostgresContainer("attribution_backfill");db=createKysely(pg.connectionString);await migrateToLatest(db);},120000);
+afterAll(async()=>{await db?.destroy();await pg?.stop();},60000);
+const at=new Date("2026-09-02T00:00:00Z");
+async function setup() {
+  const t=await createAnalysisFixture(db);
+  await savePrincipalAccounting(db,{enterpriseId:t.enterpriseId,principalId:t.a,adminId:t.adminId,departmentName:"研发部",expectedVersion:0});
+  const departmentId=(await readPrincipalAccounting(db,t.enterpriseId,t.a)).suggestedDepartmentId!;
+  return {t,input:{enterpriseId:t.enterpriseId,principalId:t.a,departmentId,from:new Date("2026-09-01T00:00:00+08:00"),until:new Date("2026-09-07T00:00:00+08:00")}};
+}
+it("只补缺失归属并保留旧版本、已归属请求和原始费用，调部门后历史不漂移",async()=>{
+  const {t,input}=await setup();
+  const missing=await seedAnalysisUsage(t,t.a,"deepseek",10n,at,"1");
+  await db.transaction().execute(trx=>ensureRequestAttributionSnapshot(trx,t.enterpriseId,missing));
+  const known=await seedAnalysisUsage(t,t.a,"deepseek",20n,at,"2");
+  await db.insertInto("request_attribution_snapshot").values({enterprise_id:t.enterpriseId,ai_request_id:known,source_principal_id:t.a,organization_unit_id:input.departmentId,cost_category:"EMPLOYEE_DIRECT",attribution_source:"EMPLOYEE_MEMBERSHIP",request_occurred_at:at,version:1,snapshot_origin:"RUNTIME"}).execute();
+  await seedAnalysisUsage(t,t.b,"deepseek",30n,at,"3");
+  const original=await db.selectFrom("ledger_line").selectAll().where("enterprise_id","=",t.enterpriseId).orderBy("id").execute();
+  const preview=await previewPrincipalAttributionBackfill(db,input);
+  expect(preview.requestCount).toBe(1);
+  const confirm={...input,adminId:t.adminId,reason:"确认此期间属于研发部",fingerprint:preview.fingerprint};
+  expect(await confirmPrincipalAttributionBackfill(db,confirm)).toEqual({confirmedCount:1});
+  const snapshots=await db.selectFrom("request_attribution_snapshot").selectAll().where("ai_request_id","=",missing).orderBy("version").execute();
+  expect(snapshots).toHaveLength(2);
+  expect(snapshots[0]!.organization_unit_id).toBeNull();
+  expect(snapshots[1]).toMatchObject({version:2,supersedes_id:snapshots[0]!.id,organization_unit_id:input.departmentId,snapshot_origin:"CORRECTION",created_by:t.adminId});
+  expect(await db.selectFrom("ledger_line").selectAll().where("enterprise_id","=",t.enterpriseId).orderBy("id").execute()).toEqual(original);
+  await expect(confirmPrincipalAttributionBackfill(db,confirm)).rejects.toThrow("重新预览");
+  await savePrincipalAccounting(db,{enterpriseId:t.enterpriseId,principalId:t.a,adminId:t.adminId,departmentName:"销售部",expectedVersion:1});
+  const bill=await loadOperatingDepartmentAccounts(db,t.enterpriseId,"2026-09");
+  expect(bill.rows.find(row=>row.subjectName==="研发部")!.totals).toMatchObject({totalTokens:"30",apiCost:"3.00000000",requestCount:2});
+  expect(bill.rows.find(row=>row.isUnassigned)!.totals.totalTokens).toBe("30");
+  expect((await db.selectFrom("operation_log").selectAll().where("enterprise_id","=",t.enterpriseId).where("action","=","principal.attribution.backfill").execute())).toHaveLength(1);
+});
+it("已录入项目负责人提供部门建议，缺失快照一次建立且聚合桶按批次刷新",async()=>{
+  const {t,input}=await setup();
+  await savePrincipalAccounting(db,{enterpriseId:t.enterpriseId,principalId:t.project,adminId:t.adminId,ownerPrincipalId:t.a,expectedVersion:0});
+  const profile=await readPrincipalAccounting(db,t.enterpriseId,t.project);
+  expect(profile.assignment!.ownerPrincipalId).toBe(t.a);
+  expect(profile.suggestedDepartmentId).toBe(input.departmentId);
+  await seedAnalysisUsage(t,t.project,"deepseek",10n,at,"1");
+  await seedAnalysisUsage(t,t.project,"deepseek",20n,at,"2");
+  const projectInput={...input,principalId:t.project};
+  const preview=await previewPrincipalAttributionBackfill(db,projectInput);
+  expect(preview.requestCount).toBe(2);
+  expect(await confirmPrincipalAttributionBackfill(db,{...projectInput,adminId:t.adminId,reason:"确认项目此期间归研发部",fingerprint:preview.fingerprint})).toEqual({confirmedCount:2});
+  expect((await loadOperatingDepartmentAccounts(db,t.enterpriseId,"2026-09")).rows[0]!.totals).toMatchObject({totalTokens:"30",requestCount:2});
+  expect(await db.selectFrom("usage_aggregate_dirty_bucket").selectAll().where("enterprise_id","=",t.enterpriseId).execute()).toHaveLength(2);
+});
+it("跨企业和失效预览被拒绝，已结账月份不能补写",async()=>{
+  const {t,input}=await setup();const other=await setup();
+  await expect(previewPrincipalAttributionBackfill(db,{...input,departmentId:other.input.departmentId})).rejects.toThrow("本企业");
+  await seedAnalysisUsage(t,t.a,"deepseek",10n,at,"1");
+  const preview=await previewPrincipalAttributionBackfill(db,input);
+  await seedAnalysisUsage(t,t.a,"deepseek",20n,at,"2");
+  await expect(confirmPrincipalAttributionBackfill(db,{...input,adminId:t.adminId,reason:"确认",fingerprint:preview.fingerprint})).rejects.toThrow("重新预览");
+  const latest=await previewPrincipalAttributionBackfill(db,input);
+  await new OperatingBillRepository(db).closeMonth({enterpriseId:t.enterpriseId,adminId:t.adminId,month:"2026-09",allowIncomplete:true,note:"测试历史冻结"});
+  await expect(confirmPrincipalAttributionBackfill(db,{...input,adminId:t.adminId,reason:"确认",fingerprint:latest.fingerprint})).rejects.toThrow("已结账");
+  expect(await db.selectFrom("request_attribution_snapshot").selectAll().where("enterprise_id","=",t.enterpriseId).where("snapshot_origin","=","CORRECTION").execute()).toHaveLength(0);
+});
