@@ -1,5 +1,5 @@
 import { operatingConsumptionFilter } from "./operating-consumption-filter.js";
-import { historicalMonthlyFinance, summarizeFinanceOrders } from "./provider-finance-registered-history.js";
+import { historicalMonthlyFinance, summarizeFinanceOrders, resourcePlanCostsWithHistory } from "./provider-finance-registered-history.js";
 import { sql, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
@@ -153,7 +153,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
       const key = (resourceId: string, currency: string) => `${resourceId}:${currency}`;
       const costs = new Map(apiCosts.rows.map((row) => [key(row.provider_resource_id, row.currency), row.amount]));
       const recharge = new Map(recharges.rows.map((row) => [key(row.provider_resource_id, row.currency), row.amount]));
-      const planCash = new Map(planCosts.rows.map((row) => [row.provider_resource_id, row.cash_cny]));
+      const planCash = await resourcePlanCostsWithHistory(trx, enterpriseId, start, end, asOf, planCosts.rows);
       const currentPeriods = new Map(periods.rows.map((row) => [row.provider_resource_id, row]));
       const balances = await Promise.all(accountKeys.rows.map(async (account) => ({
         account,

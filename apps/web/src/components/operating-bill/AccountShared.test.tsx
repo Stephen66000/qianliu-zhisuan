@@ -118,7 +118,9 @@ describe("POOL-043 账单展示口径", () => {
   });
 });
 
-it("a pending cost does not erase known spending or pretend its subtotal is the full bill", () => {
-  expect(accountApiMoney({apiCost:null,knownApiCost:"48.47156860"})).toBe("¥48.47（已计费）");
+it("API money uses compact amounts for both full totals and available subtotals", () => {
+  expect(accountApiMoney({apiCost:null,knownApiCost:"19.41"})).toBe("¥19.41");
+  expect(accountApiMoney({apiCost:"4.27"})).toBe("¥4.27");
+  expect(accountApiMoney({apiCost:null,knownApiCost:"48.47156860"})).toBe("¥48.47");
   expect(accountApiMoney({apiCost:"112.91156860",knownApiCost:"112.91156860"})).toBe("¥112.91");
 });

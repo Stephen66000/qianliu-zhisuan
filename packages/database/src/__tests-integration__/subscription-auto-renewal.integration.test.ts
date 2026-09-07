@@ -3,7 +3,7 @@ import { beforeAll, afterAll, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
-import { createKysely, migrateToLatest, ProviderFinanceRepository, renewDueSubscription,
+import { createKysely, migrateToLatest, OperatingBillRepository, ProviderFinanceRepository, renewDueSubscription,
   runSubscriptionAutoRenewals, getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal, loadOperatingAnalysis } from "../index.js";
 import { createAnalysisFixture } from "./fixtures/operating-analysis.js";
 let pg: PostgresTestInstance; let db: ReturnType<typeof createKysely>;
@@ -101,6 +101,8 @@ it("a newly registered subscription re-enables continuation, while old request r
 
 it("August registered Kimi and Zhipu fees appear in history, August totals and procurement without September duplicates", async () => {
   const t=await createAnalysisFixture(db);const repo=new ProviderFinanceRepository(db);
+  await sql`INSERT INTO provider_finance_runtime_state (enterprise_id,strict_writes_enabled,activated_at,activated_by_admin_user_id,updated_at)
+    VALUES (${t.enterpriseId}::uuid,true,now(),${t.adminId}::uuid,now())`.execute(db);
   for (const [code,amount] of [["kimi","199"],["zhipu","99"]]) {
     const resourceId=t.resources.get(code!)!;
     const snapshot=await db.insertInto("provider_resource_operating_snapshot").values({enterprise_id:t.enterpriseId,provider_resource_id:resourceId,version:1,source:"ADMIN",collected_at:d("2026-08-19"),currency:"CNY",package_cost:amount!,effective_from:d("2026-08-19"),effective_until:d("2026-09-19")}).returning("id").executeTakeFirstOrThrow();
@@ -109,6 +111,12 @@ it("August registered Kimi and Zhipu fees appear in history, August totals and p
     expect(history?.items).toEqual([expect.objectContaining({accountAmount:`${amount}.00000000`,source:"HISTORICAL_REGISTRATION"})]);
   }
   expect(await repo.getMonthlyFinanceSummary(t.enterpriseId,"2026-08")).toMatchObject({codingPlanFixedCostCny:"298.00000000",cashOutflowCny:"298.00000000"});
+  const overview=await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-08");
+  expect(overview.summary).toMatchObject({packageCost:"298.00000000",packageCosts:[{currency:"CNY",amount:"298.00000000"}]});
+  expect(overview.providers.find((row)=>row.providerCode==="kimi")).toMatchObject({packageCost:"199.00000000"});
+  expect(overview.providers.find((row)=>row.providerCode==="zhipu")).toMatchObject({packageCost:"99.00000000"});
+  const september=await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09");
+  expect(september.summary.packageCost).toBe("0.00000000");
   expect(await repo.getMonthlyFinanceSummary(t.enterpriseId,"2026-09")).toMatchObject({codingPlanFixedCostCny:"0.00000000"});
   const report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-08",d("2026-09-01"));
   expect(report.payments.filter((p)=>p.id.startsWith("registered:"))).toHaveLength(2);

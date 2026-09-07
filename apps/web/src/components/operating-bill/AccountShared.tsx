@@ -51,7 +51,7 @@ export function accountMoney(value: string | null): string {
 export function accountApiMoney(totals: Pick<OperatingBillMetricTotals, "apiCost" | "knownApiCost">): string {
   if (totals.apiCost !== null) return accountMoney(totals.apiCost);
   return totals.knownApiCost !== null && totals.knownApiCost !== undefined && Number(totals.knownApiCost) > 0
-    ? `${accountMoney(totals.knownApiCost)}（已计费）` : "未知";
+    ? accountMoney(totals.knownApiCost) : "未知";
 }
 
 export function accountQuota(value: string | null): string {

@@ -40,6 +40,7 @@ it("confirmed resource renewals automatically appear once; legacy paid subscript
   const historyInput={from:new Date("2026-08-01T00:00:00+08:00"),to:new Date("2026-09-01T00:00:00+08:00"),limit:100,offset:0};
   expect((await finance.listFinanceEvents(t.enterpriseId,resourceId,historyInput))?.total).toBe(1);
   expect(await finance.getMonthlyFinanceSummary(t.enterpriseId,"2026-08")).toMatchObject({codingPlanFixedCostCny:"199.00000000"});
+  expect((await finance.listResourceFinanceViews(t.enterpriseId,"2026-08")).find((row)=>row.resourceId===resourceId)?.monthlyPlanCashCny).toBe("199.00000000");
   await db.transaction().execute(async (trx) => {
     const event = await trx.insertInto("provider_finance_event").values({enterprise_id:t.enterpriseId,provider_resource_id:resourceId,event_type:"CODING_PLAN_PURCHASE",account_amount:"199",account_currency:"CNY",cash_paid_cny:"199",occurred_at:new Date("2026-08-10T00:00:00Z"),external_reference:`legacy-purchase:${old.id}`,source:"MIGRATION",idempotency_key:randomUUID()}).returning("id").executeTakeFirstOrThrow();
     await trx.insertInto("provider_subscription_period").values({enterprise_id:t.enterpriseId,provider_resource_id:resourceId,finance_event_id:event.id,product_name:"Kimi 历史订阅",period_start:new Date("2026-08-09T16:00:00Z"),period_end_exclusive:new Date("2026-08-31T16:00:00Z"),source:"MIGRATED_PURCHASE",migration_source_record_id:old.id,created_by_admin_user_id:t.adminId}).execute();
@@ -47,6 +48,7 @@ it("confirmed resource renewals automatically appear once; legacy paid subscript
 
   expect((await finance.listFinanceEvents(t.enterpriseId,resourceId,historyInput))?.total).toBe(1);
   expect(await finance.getMonthlyFinanceSummary(t.enterpriseId,"2026-08")).toMatchObject({codingPlanFixedCostCny:"199.00000000"});
+  expect((await finance.listResourceFinanceViews(t.enterpriseId,"2026-08")).find((row)=>row.resourceId===resourceId)?.monthlyPlanCashCny).toBe("199.00000000");
   report = await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
   expect(report.purchases.find((p)=>p.providerCode==="kimi")).toMatchObject({yearCash:"398.00"});
 });

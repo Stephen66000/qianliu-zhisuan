@@ -69,3 +69,19 @@ export function summarizeFinanceOrders(rows: Array<{ mode: "API" | "CODING_PLAN"
   return { apiRecharges: byMode("API"), codingPlanOrders: byMode("CODING_PLAN"),
     planCash: rows.filter((row) => row.mode === "CODING_PLAN").reduce((sum, row) => sum.plus(row.cash_cny), new Money(0)) };
 }
+
+/** The overview resource projection must use the same historical subscription facts as the procurement list. */
+export async function resourcePlanCostsWithHistory(
+  db: Kysely<Database>, enterpriseId: string, start: Date, end: Date, asOf: Date,
+  current: Array<{ provider_resource_id: string; cash_cny: string }>,
+): Promise<Map<string, string>> {
+  const amounts = new Map(current.map((row) => [row.provider_resource_id, row.cash_cny]));
+  const history = await registeredSubscriptionHistory(db, enterpriseId);
+  for (const row of history) {
+    const at = new Date(row.occurredAt);
+    if (row.eventType !== "CODING_PLAN_PURCHASE" && row.eventType !== "CODING_PLAN_RENEWAL") continue;
+    if (at < start || at >= end || at > asOf || row.cashPaidCny === null) continue;
+    amounts.set(row.providerResourceId, money(new Money(amounts.get(row.providerResourceId) ?? 0).plus(row.cashPaidCny)));
+  }
+  return amounts;
+}
