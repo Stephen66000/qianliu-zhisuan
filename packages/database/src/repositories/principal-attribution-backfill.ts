@@ -146,6 +146,9 @@ export async function confirmPrincipalAttributionBackfill(
         throw error;
       }
     }
+    // A settling writer may have committed new eligible requests while we waited for month locks.
+    if ((await inspect(trx, input)).fingerprint !== input.fingerprint)
+      throw new PrincipalAccountingError("CONFLICT", "待补齐记录已变化，请重新预览");
     // Existing snapshots remain immutable. Latest-version readers consume this confirmed correction.
     const rows = result.rows.map((row) => ({
       ...row,

@@ -3,6 +3,8 @@ import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/test
 import { createKysely, migrateToLatest, savePrincipalAccounting, readPrincipalAccounting, loadOperatingDepartmentAccounts, OperatingBillRepository, previewPrincipalAttributionBackfill, confirmPrincipalAttributionBackfill } from "../index.js";
 import { createAnalysisFixture, seedAnalysisUsage } from "./fixtures/operating-analysis.js";
 import { ensureRequestAttributionSnapshot } from "../repositories/request-attribution-writer.js";
+import { sql } from "kysely";
+import { guardOperatingBillLedgerWrite } from "../repositories/operating-bill-write-barrier.js";
 let pg:PostgresTestInstance;
 let db:ReturnType<typeof createKysely>;
 beforeAll(async()=>{pg=await startPostgresContainer("attribution_backfill");db=createKysely(pg.connectionString);await migrateToLatest(db);},120000);
@@ -64,4 +66,33 @@ it("跨企业和失效预览被拒绝，已结账月份不能补写",async()=>{
   await new OperatingBillRepository(db).closeMonth({enterpriseId:t.enterpriseId,adminId:t.adminId,month:"2026-09",allowIncomplete:true,note:"测试历史冻结"});
   await expect(confirmPrincipalAttributionBackfill(db,{...input,adminId:t.adminId,reason:"确认",fingerprint:latest.fingerprint})).rejects.toThrow("已结账");
   expect(await db.selectFrom("request_attribution_snapshot").selectAll().where("enterprise_id","=",t.enterpriseId).where("snapshot_origin","=","CORRECTION").execute()).toHaveLength(0);
+});
+it("等待账期锁期间集合变化，拒绝整个旧预览且不补写任何请求",async()=>{
+  const {t,input}=await setup();
+  await seedAnalysisUsage(t,t.a,"deepseek",10n,at,"1");
+  const preview=await previewPrincipalAttributionBackfill(db,input);
+  let ready=()=>{},release=()=>{};
+  const locked=new Promise<void>(resolve=>{ready=resolve;});
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  const writer=db.transaction().execute(async trx=>{
+    await guardOperatingBillLedgerWrite(trx,t.enterpriseId,at);
+    ready();await gate;
+    await seedAnalysisUsage({...t,db:trx},t.a,"deepseek",20n,at,"2");
+  });
+  await locked;
+  const confirmation=confirmPrincipalAttributionBackfill(db,{...input,adminId:t.adminId,reason:"确认",fingerprint:preview.fingerprint})
+    .then(result=>({result,error:null}),error=>({result:null,error:error as Error}));
+  try {
+    let blocked=false;
+    for(let n=0;n<150;n++) {
+      const state=await sql<{count:number}>`SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=current_database() AND wait_event='advisory'`.execute(db);
+      if(state.rows[0]!.count>0){blocked=true;break;}
+      await new Promise(resolve=>setTimeout(resolve,20));
+    }
+    expect(blocked).toBe(true);
+    release();await writer;
+    expect((await confirmation).error?.message).toContain("重新预览");
+    expect((await previewPrincipalAttributionBackfill(db,input)).requestCount).toBe(2);
+    expect(await db.selectFrom("request_attribution_snapshot").selectAll().where("enterprise_id","=",t.enterpriseId).execute()).toHaveLength(0);
+  } finally {release();await Promise.allSettled([writer,confirmation]);}
 });
