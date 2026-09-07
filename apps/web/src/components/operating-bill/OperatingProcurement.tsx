@@ -96,7 +96,7 @@ export function OperatingProcurement({ data }: { data: OperatingAnalysis }) {
                     <Num key={j}>{currencyMoney(value, account.currency)}</Num>
                   ))}
                   <Num>{currencyMoney(row.paidCny, "CNY")}</Num>
-                  <Num>{currencyMoney(row.apiSpend, account.currency)}</Num>
+                  <Num>{currencyMoney(row.apiSpend, account.currency)}{row.apiSpend !== null && row.apiSpendComplete === false ? <small className="ml-1 whitespace-nowrap">已计费</small> : null}</Num>
                   <Num>
                     {currencyMoney(row.endingBalance, account.currency)}
                   </Num>
@@ -112,7 +112,7 @@ export function OperatingProcurement({ data }: { data: OperatingAnalysis }) {
               </Num>
               <Num>{currencyMoney(account.totals.paidCny, "CNY")}</Num>
               <Num>
-                {currencyMoney(account.totals.apiSpend, account.currency)}
+                {currencyMoney(account.totals.apiSpend, account.currency)}{account.totals.apiSpend !== null && account.totals.apiSpendComplete === false ? <small className="ml-1 whitespace-nowrap">已计费</small> : null}
               </Num>
               <Num>
                 {currencyMoney(account.totals.endingBalance, account.currency)}

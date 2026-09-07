@@ -17,6 +17,7 @@ export interface OperatingBillMetricTotals {
   totalTokens: string | null;
   deductedQuota: string | null;
   apiCost: string | null;
+  knownApiCost?: string | null;
   packageAllocatedCost: string | null;
   totalAllocatedCost: string | null;
   activeDays: number | null;

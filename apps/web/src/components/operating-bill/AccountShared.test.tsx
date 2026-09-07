@@ -8,6 +8,7 @@ import {
   AccountFilters,
   accountCount,
   accountMoney,
+  accountApiMoney,
   accountPercentage,
   accountQuota,
   AccountTable,
@@ -115,4 +116,9 @@ describe("POOL-043 账单展示口径", () => {
     expect(screen.getByRole("columnheader", { name: "Token" })).toHaveClass("text-right");
     expect(screen.getByText("100").closest("td")).toHaveClass("text-right");
   });
+});
+
+it("a pending cost does not erase known spending or pretend its subtotal is the full bill", () => {
+  expect(accountApiMoney({apiCost:null,knownApiCost:"48.47156860"})).toBe("¥48.47（已计费）");
+  expect(accountApiMoney({apiCost:"112.91156860",knownApiCost:"112.91156860"})).toBe("¥112.91");
 });

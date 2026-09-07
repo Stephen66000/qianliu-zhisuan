@@ -48,6 +48,12 @@ export function accountMoney(value: string | null): string {
   return value === null ? "未知" : `¥${formatMoney(value)}`;
 }
 
+export function accountApiMoney(totals: Pick<OperatingBillMetricTotals, "apiCost" | "knownApiCost">): string {
+  if (totals.apiCost !== null) return accountMoney(totals.apiCost);
+  return totals.knownApiCost !== null && totals.knownApiCost !== undefined && Number(totals.knownApiCost) > 0
+    ? `${accountMoney(totals.knownApiCost)}（已计费）` : "未知";
+}
+
 export function accountQuota(value: string | null): string {
   return value === null ? "未知" : formatCount(value);
 }
@@ -86,7 +92,7 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
       value: tokenValue(totals.outputTokens),
       tokens: true,
     },
-    { label: "API 消费", value: accountMoney(totals.apiCost) },
+    { label: "API 消费", value: accountApiMoney(totals) },
     {
       label: "活跃天数",
       value: totals.activeDays === null ? null : String(totals.activeDays),

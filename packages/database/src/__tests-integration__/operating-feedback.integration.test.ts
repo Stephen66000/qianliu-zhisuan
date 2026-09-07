@@ -1,6 +1,7 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
+import { sql } from "kysely";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, loadOperatingAnalysis, ProviderFinanceRepository, savePrincipalAccounting, OperatingBillAccountRepository, loadOperatingDepartmentAccounts } from "../index.js";
+import { createKysely, migrateToLatest, loadOperatingAnalysis, ProviderFinanceRepository, savePrincipalAccounting, OperatingBillAccountRepository, OperatingBillRepository, loadOperatingDepartmentAccounts } from "../index.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createAnalysisFixture, seedAnalysisUsage } from "./fixtures/operating-analysis.js";
 let pg: PostgresTestInstance;
@@ -36,10 +37,16 @@ it("confirmed resource renewals automatically appear once; legacy paid subscript
   expect(report.payments.find((p)=>p.eventType==="CODING_PLAN_RENEWAL")).toMatchObject({cashPaidCny:"199.00000000",source:"ADMIN"});
   expect(report.purchases.find((p)=>p.providerCode==="kimi")).toMatchObject({yearCash:"398.00"});
   expect(report.purchases.some((p)=>p.providerCode==="zhipu")).toBe(true);
+  const historyInput={from:new Date("2026-08-01T00:00:00+08:00"),to:new Date("2026-09-01T00:00:00+08:00"),limit:100,offset:0};
+  expect((await finance.listFinanceEvents(t.enterpriseId,resourceId,historyInput))?.total).toBe(1);
+  expect(await finance.getMonthlyFinanceSummary(t.enterpriseId,"2026-08")).toMatchObject({codingPlanFixedCostCny:"199.00000000"});
   await db.transaction().execute(async (trx) => {
     const event = await trx.insertInto("provider_finance_event").values({enterprise_id:t.enterpriseId,provider_resource_id:resourceId,event_type:"CODING_PLAN_PURCHASE",account_amount:"199",account_currency:"CNY",cash_paid_cny:"199",occurred_at:new Date("2026-08-10T00:00:00Z"),external_reference:`legacy-purchase:${old.id}`,source:"MIGRATION",idempotency_key:randomUUID()}).returning("id").executeTakeFirstOrThrow();
     await trx.insertInto("provider_subscription_period").values({enterprise_id:t.enterpriseId,provider_resource_id:resourceId,finance_event_id:event.id,product_name:"Kimi 历史订阅",period_start:new Date("2026-08-09T16:00:00Z"),period_end_exclusive:new Date("2026-08-31T16:00:00Z"),source:"MIGRATED_PURCHASE",migration_source_record_id:old.id,created_by_admin_user_id:t.adminId}).execute();
   });
+
+  expect((await finance.listFinanceEvents(t.enterpriseId,resourceId,historyInput))?.total).toBe(1);
+  expect(await finance.getMonthlyFinanceSummary(t.enterpriseId,"2026-08")).toMatchObject({codingPlanFixedCostCny:"199.00000000"});
   report = await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
   expect(report.purchases.find((p)=>p.providerCode==="kimi")).toMatchObject({yearCash:"398.00"});
 });
@@ -117,4 +124,33 @@ it("owner without a department is rejected without partially changing existing r
   expect(await db.selectFrom("principal_accounting_assignment").select("id").where("principal_id","=",t.project).execute()).toHaveLength(0);
   const departments=await loadOperatingDepartmentAccounts(db,t.enterpriseId,"2026-09");
   expect(departments.rows.find(row=>row.subjectName==="旧项目部门")?.totals.totalTokens).toBe("10");
+});
+
+it("failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal", async () => {
+  const t=await createAnalysisFixture(db),resourceId=t.resources.get("deepseek")!;
+  const finance=new ProviderFinanceRepository(db);
+  await sql`INSERT INTO provider_finance_runtime_state (enterprise_id,strict_writes_enabled,activated_at,activated_by_admin_user_id,updated_at)
+    VALUES (${t.enterpriseId}::uuid,true,now(),${t.adminId}::uuid,now())`.execute(db);
+  await finance.recordOpeningBalance({enterpriseId:t.enterpriseId,resourceId,adminId:t.adminId,accountAmount:"100",accountCurrency:"CNY",occurredAt:new Date("2026-09-01T00:00:00+08:00"),idempotencyKey:randomUUID()});
+  await seedAnalysisUsage(t,t.a,"deepseek",100n,new Date("2026-09-02T00:00:00Z"),"2.5");
+  const failed=await seedAnalysisUsage(t,t.a,"deepseek",0n,new Date("2026-09-03T00:00:00Z"),"0","UNKNOWN");
+  await db.updateTable("ai_request").set({status:"FAILED"}).where("id","=",failed).execute();
+  await db.updateTable("upstream_attempt").set({response_committed:false}).where("ai_request_id","=",failed).execute();
+  await db.updateTable("ledger_line").set({api_cost:null,api_cost_currency:null,api_cost_status:"UNKNOWN_COST"}).where("ai_request_id","=",failed).execute();
+  expect(await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now)).toMatchObject({state:"NORMAL",balance:"97.50000000"});
+  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:"2.50000000"});
+  let report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
+  expect(report.summary.companyTokens).toBe("100");
+  expect(report.apiAccounts[0]?.months[8]).toMatchObject({apiSpend:"2.50",apiSpendComplete:true});
+  const unpriced=await seedAnalysisUsage(t,t.a,"deepseek",25n,new Date("2026-09-04T00:00:00Z"),"0","UNKNOWN");
+  await db.updateTable("ledger_line").set({api_cost:null,api_cost_currency:null,api_cost_status:"UNKNOWN_COST"}).where("ai_request_id","=",unpriced).execute();
+  expect((await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now))?.state).toBe("INCOMPLETE_USAGE_COST");
+  report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
+  expect(report.apiAccounts[0]?.months[8]).toMatchObject({apiSpend:"2.50",apiSpendComplete:false});
+  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:"2.50000000"});
+  const accounts=await new OperatingBillAccountRepository(db).listAccounts(t.enterpriseId,"2026-09","EMPLOYEE",{limit:20,offset:0});
+  expect(accounts.totals).toMatchObject({apiCost:null,knownApiCost:"2.50000000"});
+  const departments=await loadOperatingDepartmentAccounts(db,t.enterpriseId,"2026-09");
+  expect(departments.totals).toMatchObject({apiCost:null,knownApiCost:"2.50000000"});
+  expect((await db.selectFrom("ledger_line").select("api_cost").where("ai_request_id","=",failed).executeTakeFirstOrThrow()).api_cost).toBeNull();
 });

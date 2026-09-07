@@ -1,3 +1,5 @@
+import { operatingConsumptionFilter } from "./operating-consumption-filter.js";
+import { registeredSubscriptionHistory } from "./provider-finance-registered-history.js";
 import { sql, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import { Money, eventView, money } from "./provider-finance-core.js";
@@ -84,6 +86,7 @@ export class ProviderFinanceBalanceRepository extends ProviderFinanceEventReposi
             AND line.provider_resource_id=${resourceId}::uuid
             AND line.resource_mode='API'
             AND (line.api_cost_status='UNKNOWN_COST' OR line.api_cost_status IS NULL)
+           AND ${operatingConsumptionFilter("line")}
             AND COALESCE(line.settled_at, line.created_at) >= ${PROVIDER_FINANCE_CUTOVER}
             AND COALESCE(line.settled_at, line.created_at) <= ${asOf}
             AND (resolution.id IS NULL OR resolution.status<>'RESOLVED'
@@ -124,23 +127,14 @@ export class ProviderFinanceBalanceRepository extends ProviderFinanceEventReposi
         .where("enterprise_id", "=", enterpriseId).where("id", "=", resourceId)
         .where("status", "<>", "DELETED").executeTakeFirst();
       if (!resource) return null;
-      let query = trx.selectFrom("provider_finance_event").selectAll()
-        .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId);
-      let countQuery = trx.selectFrom("provider_finance_event")
-        .select((eb) => eb.fn.countAll<number>().as("count"))
-        .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId);
-      if (input.from) query = query.where("occurred_at", ">=", input.from);
-      if (input.to) query = query.where("occurred_at", "<", input.to);
-      if (input.eventType) query = query.where("event_type", "=", input.eventType);
-      if (input.from) countQuery = countQuery.where("occurred_at", ">=", input.from);
-      if (input.to) countQuery = countQuery.where("occurred_at", "<", input.to);
-      if (input.eventType) countQuery = countQuery.where("event_type", "=", input.eventType);
-      const [rows, count] = await Promise.all([
-        query.orderBy("occurred_at", "desc").orderBy("created_at", "desc").orderBy("id", "desc")
-          .limit(input.limit).offset(input.offset).execute(),
-        countQuery.executeTakeFirstOrThrow(),
-      ]);
-      return { items: rows.map(eventView), total: Number(count.count) };
+      const rows = await trx.selectFrom("provider_finance_event").selectAll()
+        .where("enterprise_id", "=", enterpriseId).where("provider_resource_id", "=", resourceId).execute();
+      const registered = await registeredSubscriptionHistory(trx, enterpriseId);
+      const items = [...rows.map(eventView), ...registered.filter((row) => row.providerResourceId === resourceId)]
+        .filter((row) => (!input.from || new Date(row.occurredAt) >= input.from)
+          && (!input.to || new Date(row.occurredAt) < input.to) && (!input.eventType || row.eventType === input.eventType))
+        .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+      return { items: items.slice(input.offset, input.offset + input.limit), total: items.length };
     });
   }
 

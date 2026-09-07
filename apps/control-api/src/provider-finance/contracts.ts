@@ -32,6 +32,7 @@ export const OpeningCorrectionBody = Common.omit({ external_reference: true }).e
   opening_event_id: z.string().uuid(),
 });
 export const SubscriptionBody = Common.extend({
+  auto_renew: z.boolean().optional(),
   kind: z.enum(["PURCHASE", "RENEWAL"]),
   product_name: z.string().trim().min(1).max(255),
   account_amount: PositiveAmount,

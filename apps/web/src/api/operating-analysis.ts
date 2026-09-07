@@ -76,6 +76,7 @@ export interface OperatingAnalysis {
       recharge: string | null;
       paidCny: string | null;
       apiSpend: string | null;
+      apiSpendComplete?: boolean;
       endingBalance: string | null;
     };
     months: Array<{
@@ -84,6 +85,7 @@ export interface OperatingAnalysis {
       recharge: string | null;
       paidCny: string | null;
       apiSpend: string | null;
+      apiSpendComplete?: boolean;
       endingBalance: string | null;
     }>;
   }>;

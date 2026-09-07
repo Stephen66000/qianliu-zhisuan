@@ -1,3 +1,4 @@
+import { registeredSubscriptionHistory } from "./provider-finance-registered-history.js";
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
@@ -46,5 +47,18 @@ export async function loadAnalysisPurchases(db: Kysely<Database>, enterpriseId: 
     FROM payments JOIN provider_resource resource ON resource.enterprise_id=${enterpriseId}::uuid AND resource.id=payments.provider_resource_id
     JOIN provider ON provider.enterprise_id=${enterpriseId}::uuid AND provider.id=resource.provider_id
     ORDER BY payments.occurred_at DESC,payments.id DESC`.execute(db);
-  return result.rows;
+  const registered = (await registeredSubscriptionHistory(db, enterpriseId)).filter((row) =>
+    row.id.startsWith("registered:") && new Date(row.occurredAt) >= start && new Date(row.occurredAt) <= until);
+  const resources = await db.selectFrom("provider_resource as r").innerJoin("provider as p", "p.id", "r.provider_id")
+    .select(["r.id", "r.name", "p.code", "p.name as provider_name"]).where("r.enterprise_id", "=", enterpriseId)
+    .where("p.enterprise_id", "=", enterpriseId).execute();
+  for (const row of registered) {
+    const resource = resources.find((r) => r.id === row.providerResourceId); if (!resource) continue;
+    result.rows.push({ id: row.id, resource_id: resource.id, provider_code: resource.code,
+      provider_name: resource.provider_name, resource_name: resource.name, mode: "CODING_PLAN",
+      currency: row.accountCurrency, month: new Date(new Date(row.occurredAt).getTime() + 8 * 3600000).toISOString().slice(0, 7),
+      cash: row.cashPaidCny, event_type: row.eventType, occurred_at: new Date(row.occurredAt),
+      external_reference: null, description: row.description, source: row.source });
+  }
+  return result.rows.sort((a,b) => b.occurred_at.getTime() - a.occurred_at.getTime() || b.id.localeCompare(a.id));
 }

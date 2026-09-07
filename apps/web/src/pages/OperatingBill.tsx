@@ -90,6 +90,7 @@ export function OperatingBillPage() {
             <>
               <OperatingBillOverview
                 bill={bill.data!}
+                monthTokens={analysis.data.summary.companyTokens}
                 planUtilization={analysis.data.summary.planUtilization}
                 payments={analysis.data.payments}
               />

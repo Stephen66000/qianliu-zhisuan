@@ -41,6 +41,7 @@ interface RawAccountFact extends RawProjectMetadata {
   reasoning_tokens: string;
   deducted_quota: string | null;
   api_cost: string | null;
+  known_api_cost: string | null;
   package_allocated_cost: string | null;
 }
 
@@ -57,6 +58,7 @@ interface RawSummary extends RawProjectSummaryMetadata {
   reasoning_tokens: string | null;
   deducted_quota: string | null;
   api_cost: string | null;
+  known_api_cost: string | null;
   package_allocated_cost: string | null;
   quality_signature: string | null;
   active_days: string;
@@ -110,6 +112,7 @@ function requestFactsSql(filter: LiveAccountFactFilter): RawBuilder<unknown> {
                 = COUNT(*) FILTER (WHERE resource_mode = 'API')
              THEN COALESCE(SUM(api_cost) FILTER (WHERE resource_mode = 'API'), 0)::numeric
              ELSE NULL END)::text AS api_cost,
+           COALESCE(SUM(api_cost) FILTER (WHERE resource_mode = 'API'),0)::text AS known_api_cost,
            (CASE WHEN COUNT(*) FILTER (WHERE resource_mode = 'CODING_PLAN') = 0 THEN 0::numeric
              WHEN COUNT(package_line_cost) FILTER (WHERE resource_mode = 'CODING_PLAN')
                 = COUNT(*) FILTER (WHERE resource_mode = 'CODING_PLAN')
@@ -149,6 +152,7 @@ function collapsedRequestFactsSql(): RawBuilder<unknown> {
              THEN COALESCE(SUM(deducted_quota::numeric), 0) ELSE NULL END)::text AS deducted_quota,
            (CASE WHEN COUNT(api_cost) = COUNT(*)
              THEN COALESCE(SUM(api_cost::numeric), 0) ELSE NULL END)::text AS api_cost,
+           COALESCE(SUM(known_api_cost::numeric),0)::text AS known_api_cost,
            (CASE WHEN COUNT(package_allocated_cost) = COUNT(*)
              THEN COALESCE(SUM(package_allocated_cost::numeric), 0) ELSE NULL END)::text
              AS package_allocated_cost
@@ -180,6 +184,7 @@ function mapFact(row: RawAccountFact): OperatingBillAccountFact {
     reasoningTokens: row.reasoning_tokens,
     deductedQuota: row.deducted_quota,
     apiCost: row.api_cost,
+    knownApiCost: row.known_api_cost,
     packageAllocatedCost: row.package_allocated_cost,
   };
 }
@@ -205,6 +210,7 @@ function summaryTotals(row: RawSummary | undefined): OperatingBillAccountTotals 
     reasoningTokens: row?.reasoning_tokens ?? "0",
     deductedQuota: row?.deducted_quota ?? (row ? null : "0"),
     apiCost: row?.api_cost ?? (row ? null : "0"),
+    knownApiCost: row?.known_api_cost ?? "0",
     packageAllocatedCost: row?.package_allocated_cost ?? (row ? null : "0"),
     qualities: row?.quality_signature?.split(",") ?? [],
     activeDays: Number(row?.active_days ?? 0),
@@ -257,6 +263,7 @@ export async function loadLiveOperatingBillAccountSummary(
                   = COUNT(*) FILTER (WHERE resource_mode = 'API')
                THEN COALESCE(SUM(api_cost) FILTER (WHERE resource_mode = 'API'), 0)::numeric
                ELSE NULL END)::text AS api_cost,
+           COALESCE(SUM(api_cost) FILTER (WHERE resource_mode = 'API'),0)::text AS known_api_cost,
              (CASE WHEN COUNT(*) FILTER (WHERE resource_mode = 'CODING_PLAN') = 0 THEN 0::numeric
                WHEN COUNT(package_line_cost) FILTER (WHERE resource_mode = 'CODING_PLAN')
                   = COUNT(*) FILTER (WHERE resource_mode = 'CODING_PLAN')

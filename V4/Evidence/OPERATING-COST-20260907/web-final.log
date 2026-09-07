@@ -1,0 +1,18 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/apps/web
+
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 1102ms
+ ✓ src/pages/OperatingBill.test.tsx (11 tests) 690ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 257ms
+ ✓ src/components/operating-bill/OperatingBillShell.test.tsx (3 tests) 197ms
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 174ms
+ ✓ src/components/operating-bill/AccountShared.test.tsx (4 tests) 130ms
+ ✓ src/components/operating-bill/MonthlyPayments.test.tsx (3 tests) 109ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 121ms
+ ✓ src/components/operating-bill/OperatingAnalysisPartial.test.tsx (3 tests) 133ms
+ ✓ src/components/operating-bill/BillStat.test.tsx (6 tests) 35ms
+
+ Test Files  10 passed (10)
+      Tests  55 passed (55)
+   Start at  19:10:45
+   Duration  12.58s (transform 432ms, setup 2.30s, collect 1.69s, tests 2.95s, environment 3.47s, prepare 717ms)

@@ -13,7 +13,7 @@ async function resourceState(db: Kysely<Database>, enterpriseId: string, resourc
     .where("resource.enterprise_id", "=", enterpriseId).where("provider.enterprise_id", "=", enterpriseId)
     .where("resource.id", "=", resourceId).where("resource.status", "<>", "DELETED").executeTakeFirst();
   if (!row) throw new ProviderFinanceError("NOT_FOUND", "厂商资源不存在");
-  if (row.mode !== "CODING_PLAN" || !["kimi", "zhipu"].includes(row.code)) {
+  if (row.mode !== "CODING_PLAN") {
     throw new ProviderFinanceError("INVALID_MODE", "该资源不适用套餐自动续订");
   }
   return row;
@@ -113,7 +113,7 @@ export async function runSubscriptionAutoRenewals(db: Kysely<Database>, now = ne
     JOIN LATERAL (SELECT period_end_exclusive FROM provider_subscription_period period
       WHERE period.enterprise_id=resource.enterprise_id AND period.provider_resource_id=resource.id
       ORDER BY period_start DESC,created_at DESC,id DESC LIMIT 1) latest ON true
-    WHERE resource.mode='CODING_PLAN' AND provider.code IN ('kimi','zhipu') AND resource.status<>'DELETED'
+    WHERE resource.mode='CODING_PLAN' AND resource.status<>'DELETED'
       AND resource.subscription_auto_renew_enabled AND latest.period_end_exclusive<=${now}
     ORDER BY latest.period_end_exclusive,resource.id`.execute(db);
   let created = 0; const failures: Array<{ resourceId: string; code: string }> = [];

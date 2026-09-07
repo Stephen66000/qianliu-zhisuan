@@ -1,3 +1,4 @@
+import { formatCount } from "../lib/format";
 import type { AnalysisPayment } from "../api/operating-analysis";
 import { Link } from "react-router-dom";
 
@@ -16,10 +17,12 @@ export function OperatingBillOverview({
   bill,
   planUtilization,
   payments,
+  monthTokens,
 }: {
   bill: OperatingBill;
   planUtilization?: string | null;
   payments?: AnalysisPayment[];
+  monthTokens?: string | null;
 }) {
   const apiSpends = compatibleProviderAmounts(
     bill.summary.apiSpends, bill.providers, "API", "apiCost", "apiSpendCurrency",
@@ -31,6 +34,7 @@ export function OperatingBillOverview({
   );
   const totalSpends = compatibleTotalAmounts(bill);
   const metrics = [
+    ["本月总 Token", monthTokens === null || monthTokens === undefined ? "—" : formatCount(monthTokens)],
     [
       "期初余额",
       currencyFacts(bill.summary.openingBalances, bill.summary.openingBalance ?? null, bill.summary.endingBalanceCurrency),

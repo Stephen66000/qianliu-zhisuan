@@ -58,7 +58,8 @@ export class ProviderFinanceEventRepository {
       occurredAt: input.occurredAt.toISOString(), externalReference: input.externalReference ?? null,
       description: input.description ?? null, evidenceRef: input.evidenceRef ?? null,
       kind: input.kind, productName: input.productName, periodStart: input.periodStart.toISOString(),
-      periodEndExclusive: input.periodEndExclusive.toISOString() });
+      periodEndExclusive: input.periodEndExclusive.toISOString(),
+      ...(input.autoRenew === undefined ? {} : { autoRenew: input.autoRenew }) });
     const result = await this.db.transaction().execute(async (trx) => {
       const earlyReplay = await this.replay(trx, input, requestHash);
       if (earlyReplay) {
@@ -107,7 +108,7 @@ export class ProviderFinanceEventRepository {
         created_by_admin_user_id: input.adminId,
       }).returning("id").executeTakeFirstOrThrow();
       // A newly registered subscription starts a new standing renewal instruction; replay does not undo cancellation.
-      await trx.updateTable("provider_resource").set({ subscription_auto_renew_enabled: true })
+      await trx.updateTable("provider_resource").set({ subscription_auto_renew_enabled: input.autoRenew ?? true })
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.resourceId).execute();
       const response = { event: eventView(row), periodId: period.id };
       await this.auditAndRemember(trx, input, eventType, row.id, requestHash, response);
@@ -242,7 +243,7 @@ export class ProviderFinanceEventRepository {
         accountAmount: input.accountAmount, accountCurrency: input.accountCurrency,
         cashPaidCny: input.cashPaidCny ?? null, occurredAt: input.occurredAt.toISOString(),
         description: input.description ?? null, evidenceRef: input.evidenceRef ?? null,
-        productName: subscription?.productName ?? null,
+        productName: subscription?.productName ?? null, autoRenew: subscription?.autoRenew,
         periodStart: subscription?.periodStart.toISOString() ?? null,
         periodEndExclusive: subscription?.periodEndExclusive.toISOString() ?? null,
       }) as unknown as Record<string, unknown>,
@@ -302,7 +303,7 @@ export class ProviderFinanceEventRepository {
     if (candidate.event_type === "API_RECHARGE") return this.recordRecharge(common);
     if (candidate.event_type === "CODING_PLAN_PURCHASE" || candidate.event_type === "CODING_PLAN_RENEWAL") {
       return this.recordSubscription({
-        ...common, kind: candidate.event_type === "CODING_PLAN_PURCHASE" ? "PURCHASE" : "RENEWAL",
+        ...common, autoRenew: typeof payload.autoRenew === "boolean" ? payload.autoRenew : undefined, kind: candidate.event_type === "CODING_PLAN_PURCHASE" ? "PURCHASE" : "RENEWAL",
         productName: String(payload.productName), periodStart: new Date(String(payload.periodStart)),
         periodEndExclusive: new Date(String(payload.periodEndExclusive)),
       });

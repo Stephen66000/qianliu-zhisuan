@@ -338,3 +338,10 @@ describe("POOL-025 经营账单", () => {
     expect(row).not.toHaveTextContent("5000 / 10000");
   });
 });
+
+it("monthly overview starts with the selected month's exact total tokens", () => {
+  render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
+  const card=screen.getByText("本月总 Token").closest("article");
+  expect(card).toHaveTextContent("100,000,000");
+  expect(document.querySelector("article")).toBe(card);
+});

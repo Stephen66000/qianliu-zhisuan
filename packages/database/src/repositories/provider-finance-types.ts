@@ -76,6 +76,7 @@ export interface FinanceEventInput {
 }
 
 export interface SubscriptionInput extends FinanceEventInput {
+  autoRenew?: boolean;
   kind: "PURCHASE" | "RENEWAL";
   productName: string;
   periodStart: Date;

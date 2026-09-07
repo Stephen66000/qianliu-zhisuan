@@ -98,3 +98,36 @@ it("a newly registered subscription re-enables continuation, while old request r
   expect((await getSubscriptionAutoRenewal(db,t.enterpriseId,t.resourceId)).enabled).toBe(true);
   expect(await renewDueSubscription(db,t.enterpriseId,t.resourceId,d("2026-09-03"))).toBe(true);
 });
+
+it("August registered Kimi and Zhipu fees appear in history, August totals and procurement without September duplicates", async () => {
+  const t=await createAnalysisFixture(db);const repo=new ProviderFinanceRepository(db);
+  for (const [code,amount] of [["kimi","199"],["zhipu","99"]]) {
+    const resourceId=t.resources.get(code!)!;
+    const snapshot=await db.insertInto("provider_resource_operating_snapshot").values({enterprise_id:t.enterpriseId,provider_resource_id:resourceId,version:1,source:"ADMIN",collected_at:d("2026-08-19"),currency:"CNY",package_cost:amount!,effective_from:d("2026-08-19"),effective_until:d("2026-09-19")}).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("provider_subscription_period").values({enterprise_id:t.enterpriseId,provider_resource_id:resourceId,finance_event_id:null,product_name:code!,period_start:d("2026-08-19"),period_end_exclusive:d("2026-09-19"),source:"MIGRATED_CARRYOVER",migration_source_record_id:snapshot.id,created_by_admin_user_id:t.adminId}).execute();
+    const history=await repo.listFinanceEvents(t.enterpriseId,resourceId,{from:d("2026-08-01"),to:d("2026-09-01"),limit:100,offset:0});
+    expect(history?.items).toEqual([expect.objectContaining({accountAmount:`${amount}.00000000`,source:"HISTORICAL_REGISTRATION"})]);
+  }
+  expect(await repo.getMonthlyFinanceSummary(t.enterpriseId,"2026-08")).toMatchObject({codingPlanFixedCostCny:"298.00000000",cashOutflowCny:"298.00000000"});
+  expect(await repo.getMonthlyFinanceSummary(t.enterpriseId,"2026-09")).toMatchObject({codingPlanFixedCostCny:"0.00000000"});
+  const report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-08",d("2026-09-01"));
+  expect(report.payments.filter((p)=>p.id.startsWith("registered:"))).toHaveLength(2);
+  expect(await db.selectFrom("provider_finance_event").select("id").where("enterprise_id","=",t.enterpriseId).execute()).toHaveLength(0);
+});
+it("new other-provider plan persists opt-out, then opt-in runs scheduler, history and procurement once, cancellation stops it", async () => {
+  const t=await fixture();const repo=new ProviderFinanceRepository(db);
+  const provider=await db.selectFrom("provider_resource").select("provider_id").where("id","=",t.resourceId).executeTakeFirstOrThrow();
+  await db.updateTable("provider").set({code:"another-plan"}).where("id","=",provider.provider_id).execute();
+  const input={...t.input,autoRenew:false,occurredAt:d("2026-09-02"),periodStart:d("2026-09-02"),periodEndExclusive:d("2026-09-03"),idempotencyKey:randomUUID()};
+  await repo.recordSubscription(input);await runSubscriptionAutoRenewals(db,d("2026-09-03"));
+  expect((await getSubscriptionAutoRenewal(db,t.enterpriseId,t.resourceId)).enabled).toBe(false);
+  const enabled={...input,autoRenew:true,occurredAt:d("2026-09-03"),periodStart:d("2026-09-03"),periodEndExclusive:d("2026-09-04"),idempotencyKey:randomUUID()};
+  await repo.recordSubscription(enabled);
+  await runSubscriptionAutoRenewals(db,d("2026-09-04"));await runSubscriptionAutoRenewals(db,d("2026-09-04"));
+  const history=await repo.listFinanceEvents(t.enterpriseId,t.resourceId,{limit:100,offset:0});
+  expect(history?.items.filter((p)=>p.source==="SYSTEM_RENEWAL")).toHaveLength(1);
+  const report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",d("2026-09-05"));
+  expect(report.payments.filter((p)=>p.source==="SYSTEM_RENEWAL")).toHaveLength(1);
+  await cancelSubscriptionAutoRenewal(db,t.enterpriseId,t.resourceId,t.adminId);await repo.recordSubscription(enabled);
+  expect(await renewDueSubscription(db,t.enterpriseId,t.resourceId,d("2026-09-05"))).toBe(false);
+});

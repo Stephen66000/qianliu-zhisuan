@@ -201,17 +201,8 @@ export async function loadOperatingAnalysis(
               paidCny: month <= currentMonth
                 ? paid.some((row) => row.cash === null) ? null : addAnalysis(paid.map((row) => row.cash!)).toFixed(2)
                 : null,
-              apiSpend:
-                valid &&
-                accounts.every(
-                  (a) =>
-                    a.balanceState !== "INCOMPLETE_USAGE_COST" &&
-                    a.balanceState !== "LEGACY_ARCHIVED",
-                )
-                  ? addAnalysis(accounts.map((a) => a.monthlyApiCost)).toFixed(
-                      2,
-                    )
-                  : null,
+              apiSpend: valid && accounts.every((a) => a.balanceState !== "LEGACY_ARCHIVED") ? addAnalysis(accounts.map((a) => a.monthlyApiCost)).toFixed(2) : null,
+              apiSpendComplete: valid && accounts.every((a) => a.balanceState !== "INCOMPLETE_USAGE_COST" && a.balanceState !== "LEGACY_ARCHIVED"),
               endingBalance:
                 valid &&
                 accounts.every(
@@ -235,7 +226,8 @@ export async function loadOperatingAnalysis(
             openingBalance: rows[0]?.openingBalance ?? null,
             recharge: total("recharge"),
             paidCny: total("paidCny"),
-            apiSpend: total("apiSpend"),
+            apiSpend: rows.some((row) => row.apiSpend !== null) ? addAnalysis(rows.map((row) => row.apiSpend ?? "0")).toFixed(2) : null,
+            apiSpendComplete: rows.every((row) => row.apiSpendComplete),
             endingBalance: rows.at(-1)?.endingBalance ?? null,
           },
         };

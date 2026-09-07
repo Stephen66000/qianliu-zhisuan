@@ -1,0 +1,65 @@
+{
+  "base": "1619aa817cc4828b6eef802dee61401140a03c3c",
+  "files": [
+    {
+      "path": "apps/control-api/src/__tests-integration__/subscription-renewal-flow.test.ts",
+      "sha256": "07d9d9440abb1b5cfdab740094037ac481c49fd14be9b15f482b07638f91a1ec"
+    },
+    {
+      "path": "apps/control-api/src/provider-finance/contracts.ts",
+      "sha256": "281b5d3e1b71f73581ed9c15f7e35eeb8ccb8f1329ef4718c7d27da35f1d6eec"
+    },
+    {
+      "path": "apps/control-api/src/provider-finance/routes.ts",
+      "sha256": "3c70917c982df6a6dbe57268b13b73edea99b4388481a7a2d717cf69561cfa2b"
+    },
+    {
+      "path": "apps/web/src/components/resources/ProviderFinancePanel.test.tsx",
+      "sha256": "5b28a7c3117d5288b41b0628d64dc543b5a52140647fc41282dcf98a8a861d6b"
+    },
+    {
+      "path": "apps/web/src/components/resources/ProviderFinancePanel.tsx",
+      "sha256": "1aebb552e244bd026318ecefebe0e543ed4cf5bb3789046c18699e5ebfbf87be"
+    },
+    {
+      "path": "apps/web/src/components/resources/SubscriptionHistory.tsx",
+      "sha256": "423ae65ef1af76c50cec1ec4bb9f1e761af2bb41063c2438ddc5224cd740b8b7"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/operating-feedback.integration.test.ts",
+      "sha256": "4cb03a578c327422d8515f497581cadee9930e260ce16cfac78272104aa07503"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/subscription-auto-renewal.integration.test.ts",
+      "sha256": "7160e1fb84ecc820f6994e8f1603b396cc4bfab209e3478c13a72f8ae08af990"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-purchases.ts",
+      "sha256": "9f6fde6ffe76b035a613d929f8328b6b9a964213b7784345dc1e3a804df9a89e"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-balances.ts",
+      "sha256": "5527abc56fe89be0aac5d52f05ac9e1617352ba2f17cdc058d8b1d876c5619fb"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-events.ts",
+      "sha256": "2be2d8e4ac4b01c13367b7b462849c9e3385787d647cc9732fe53418a5cc13d1"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-registered-history.ts",
+      "sha256": "8f010bff1328a150537b470c1cafebf9bb895c72f742f80a37b3b223f8b44857"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-renewal.ts",
+      "sha256": "3436055a0f49e7830f4e73c698bedc7f17d68797626013404cffda1c8387ed33"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-repository.ts",
+      "sha256": "8d2d1fc53fdac45f1c8642a3d54bc75d171b6cc2e6bb74643b1c352955b84fe3"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-types.ts",
+      "sha256": "d5b0a26b6d299c33ae47b4602d9ffc76b0fb991ec628e4609bece662ee44f98b"
+    }
+  ]
+}

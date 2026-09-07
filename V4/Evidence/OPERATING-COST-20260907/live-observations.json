@@ -1,0 +1,21 @@
+{
+  "source": "user supplied read-only PostgreSQL query output",
+  "pricedUsage": {
+    "rows": 1932,
+    "currency": "CNY",
+    "amount": "48.47156860"
+  },
+  "unknownCostRows": 6,
+  "legacyResolvedRows": 5,
+  "remainingUnknown": {
+    "requestId": "95ee3a14-2463-403b-91a5-17811779cdd1",
+    "status": "FAILED",
+    "usageQuality": "UNKNOWN",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "cacheTokens": 0,
+    "deductedQuota": null,
+    "responseCommitted": false
+  },
+  "productionDataChanged": false
+}

@@ -49,20 +49,16 @@ export async function projectOperatingBillFinance(
         currency: item.currency, amount: item.monthlyRecharge,
       })),
       endingBalance: account?.balanceState === "NORMAL" ? account.balance : null,
-      apiCost: account?.balanceState === "INCOMPLETE_USAGE_COST" ? null
-        : account?.monthlyApiCost ?? null,
-      ledgerApiCost: account?.balanceState === "INCOMPLETE_USAGE_COST" ? null
-        : account?.monthlyApiCost ?? null,
+      apiCost: account?.monthlyApiCost ?? null,
+      ledgerApiCost: account?.monthlyApiCost ?? null,
       apiSpendStatus: account?.balanceState === "NORMAL" ? "CALCULABLE" : "INCOMPLETE",
       apiSpendReason: account?.balanceState === "NORMAL" ? null
         : account?.balanceState ?? "API_FINANCE_ACCOUNT_NOT_UNIQUE",
-      totalCost: account?.balanceState === "INCOMPLETE_USAGE_COST" ? null
-        : account?.monthlyApiCost ?? null };
+      totalCost: account?.monthlyApiCost ?? null };
   });
   const apiViews = views.filter((view) => view.mode === "API");
   const apiSpends = group(apiViews.flatMap((view) => view.accounts
-    .filter((account) => account.balanceState !== "INCOMPLETE_USAGE_COST"
-      && !new Money(account.monthlyApiCost).isZero())
+    .filter((account) => !new Money(account.monthlyApiCost).isZero())
     .map((account) => ({ currency: account.currency, amount: account.monthlyApiCost }))));
   const packageCosts = group(providers.filter((p) => p.mode === "CODING_PLAN" && p.packageCost !== null)
     .filter((p) => !new Money(p.packageCost!).isZero())

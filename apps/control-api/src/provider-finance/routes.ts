@@ -107,6 +107,7 @@ export function registerProviderFinanceRoutes(
         const result = await app.providerFinanceRepo.recordSubscription({
           enterpriseId: req.admin!.enterpriseId, resourceId: params.data.id,
           adminId: req.admin!.adminUserId, kind: body.data.kind, productName: body.data.product_name,
+          autoRenew: body.data.auto_renew,
           accountAmount: body.data.account_amount, accountCurrency: body.data.account_currency,
           cashPaidCny: body.data.cash_paid_cny, occurredAt: new Date(body.data.occurred_at),
           periodStart: shanghaiDayStart(body.data.service_period_start),

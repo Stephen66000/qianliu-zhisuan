@@ -1,3 +1,4 @@
+import { accountApiMoney } from "./AccountShared";
 import { Fragment } from "react";
 
 import type { OperatingBillEmployeeRow } from "../../api/operating-bill-accounts";
@@ -58,12 +59,12 @@ export function SubjectUsageCells({ row }: { row: OperatingBillEmployeeRow }) {
                 : "0"}
             </AccountCell>
             <AccountCell numeric>
-              {accountMoney(provider ? (amount ?? null) : "0")}
+              {code === "deepseek" && usage ? accountApiMoney(usage) : accountMoney(provider ? (amount ?? null) : "0")}
             </AccountCell>
           </Fragment>
         );
       })}
-      <AccountCell numeric>{accountMoney(totals.apiCost)}</AccountCell>
+      <AccountCell numeric>{accountApiMoney(totals)}</AccountCell>
       <AccountCell numeric>{totals.activeDays ?? "—"}</AccountCell>
       <AccountCell numeric>{totals.requestCount}</AccountCell>
       <AccountCell numeric>{accountTime(totals.lastUsedAt)}</AccountCell>
