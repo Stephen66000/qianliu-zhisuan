@@ -82,11 +82,13 @@ function sendFinalOutcomeFailure(
     ? "upstream_quota_exhausted"
     : windowExhausted
       ? "upstream_window_exhausted"
-      : outcome.error;
+      : outcome.upstreamErrorEvidence?.messageCategory === "MODEL_IMAGE_UNSUPPORTED"
+        ? "model_image_unsupported" : outcome.error;
   const presentation = northboundFailurePresentation(
     outcome,
     providerDisplayName(state.finalOutcomeProviderCode),
     quotaExhausted || windowExhausted,
+    capability,
   );
   if (outcome.retryAfterMs !== undefined) {
     reply.header("retry-after", Math.max(1, Math.ceil(outcome.retryAfterMs / 1_000)));

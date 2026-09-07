@@ -43,8 +43,24 @@ function canonicalJson(value: unknown): string {
   return value === undefined ? "null" : JSON.stringify(value);
 }
 
-function messageCategory(message: string): UpstreamErrorMessageCategory {
+function messageCategory(message: string, providerCode: string, code: string | null): UpstreamErrorMessageCategory {
   const normalized = message.toLowerCase();
+  if (/(?:image (?:format|size)|图片格式|图像格式|图片尺寸|图像尺寸)/.test(normalized)
+    && /unsupported|not support|invalid|不支持|非法|无效/.test(normalized)) return "INVALID_MESSAGE_CONTENT";
+  // Decimal points inside versioned model names are not sentence boundaries.
+  const imageMessage = normalized.replace(/(\d)\.(?=\d)/g, "$1");
+  if (/model[^.。\n]{0,100}(?:does not support|doesn't support|cannot (?:process|accept))[^.。\n]{0,50}(?:image|vision)|(?:image|vision)[^.。\n]{0,60}(?:not supported|unsupported)[^.。\n]{0,60}model/.test(imageMessage)
+    || /模型[^。\n]{0,60}(?:不支持|无法处理|不能处理)[^。\n]{0,30}(?:图片|图像|视觉)|(?:图片|图像)[^。\n]{0,30}不支持[^。\n]{0,30}模型/.test(message)) {
+    return "MODEL_IMAGE_UNSUPPORTED";
+  }
+  if (providerCode === "zhipu") {
+    if (/模型[^。\n]{0,30}(?:不存在|不可用)/.test(message) || code === "1211") return "MODEL_UNAVAILABLE";
+    if (/(?:上下文|token)[^。\n]{0,40}(?:超出|超过|上限)/i.test(message)) return "CONTEXT_LENGTH_EXCEEDED";
+    if (/(?:图片|图像|消息内容)[^。\n]{0,40}(?:非法|无效|不支持|格式错误)/.test(message)) return "INVALID_MESSAGE_CONTENT";
+    // Official 1210/1212-1215 are parameter/method errors, never proof of a missing image capability.
+    if (code !== null && ["1210", "1212", "1213", "1214", "1215"].includes(code)) return "INVALID_PARAMETER";
+    if (/(?:参数|字段)[^。\n]{0,40}(?:有误|非法|无效|错误|缺失)/.test(message)) return "INVALID_PARAMETER";
+  }
   if (/(context|token).*(length|limit|maximum)|maximum context/.test(normalized)) {
     return "CONTEXT_LENGTH_EXCEEDED";
   }
@@ -84,7 +100,7 @@ export function buildUpstreamErrorEvidence(
     type: sanitizeUpstreamErrorType(error.type),
     code: sanitizeUpstreamErrorCode(error.code),
     param: sanitizeUpstreamErrorParam(error.param ?? root.param),
-    messageCategory: messageCategory(message),
+    messageCategory: messageCategory(message, providerCode, sanitizeUpstreamErrorCode(error.code)),
   };
   return {
     ...safeTuple,

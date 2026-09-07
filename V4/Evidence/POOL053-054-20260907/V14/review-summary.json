@@ -1,0 +1,33 @@
+{
+  "actual_independence": "I0",
+  "author_review": "COMPLETED_WITH_FIXES",
+  "formal_v14_decision": "NOT_SIGNED",
+  "formal_blocker": "No independent dual-audit claim; no additional approval workflow pending for this bounded review.",
+  "functional_findings_fixed": [
+    "CQA-01",
+    "CQA-02",
+    "CQA-03"
+  ],
+  "tests": {
+    "adapters": 204,
+    "gateway": 45,
+    "web": 28,
+    "contracts": 5
+  },
+  "total": 282,
+  "mutation": {
+    "total": 299,
+    "killed": 292,
+    "timeout": 1,
+    "survived": 6,
+    "no_coverage": 0,
+    "score": 97.99,
+    "break": 80
+  },
+  "source_set_sha256": "a7641a39750b82507e754cd5e900c9206e82b3c6d1e463aecd03207a9c7f1e3d",
+  "end_lock": "STABLE",
+  "submitted": false,
+  "pushed": false,
+  "deployed": false,
+  "scope_decision": "User requested bounded review without extra governance; close current code review with actual I0 disclosed."
+}

@@ -1,3 +1,4 @@
+import { hasImageInput, modelSupportsImages, preservesImageInputs, MODEL_IMAGE_UNSUPPORTED, IMAGE_INPUT_UNSUPPORTED } from "./model-image-capability.js";
 /**
  * OpenAI-compatible Provider HTTP caller.
  *
@@ -68,7 +69,11 @@ export function createOpenAiCompatibleCaller(
       return failedOutcome(500, "upstream_base_url_missing");
     }
 
+    if (hasImageInput(request.body) && modelSupportsImages(resource.providerCode, resource.upstreamModel) === false) {
+      return failedOutcome(400, MODEL_IMAGE_UNSUPPORTED);
+    }
     const chatBody = toChatCompletionsRequest(resource, request);
+    if (!preservesImageInputs(request.body, chatBody)) return failedOutcome(400, IMAGE_INPUT_UNSUPPORTED);
     const timeout = createLayeredTimeout({
       requestAbort: request.abort,
       requestTimeoutMs,

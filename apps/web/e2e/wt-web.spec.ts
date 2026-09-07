@@ -1187,13 +1187,13 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
     await page.goto("/usage?tab=overview&period=MONTH&subject_type=EMPLOYEE");
     await expect(page.getByLabel("用量主体类型")).toHaveValue("EMPLOYEE");
-    await expect(page.getByLabel("用量周期")).toHaveValue("MONTH");
+    await expect(page.getByRole("button", { name: "本月", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("heading", { name: "消耗排名" })).toBeVisible();
     await expect(page.getByRole("link", { name: "查看请求明细" })).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
     await expect(page.getByLabel("用量主体类型")).toHaveValue("EMPLOYEE");
-    await expect(page.getByLabel("用量周期")).toHaveValue("MONTH");
+    await expect(page.getByRole("button", { name: "本月", exact: true })).toHaveAttribute("aria-pressed", "true");
     expect(await page.evaluate(() =>
       document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.setViewportSize({ width: 1280, height: 720 });

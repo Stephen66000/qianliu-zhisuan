@@ -1,0 +1,31 @@
+{
+  "packageManager": "pnpm",
+  "reporters": [
+    "clear-text",
+    "json"
+  ],
+  "jsonReporter": {
+    "fileName": "/Users/mac/.codex/worktrees/pool053-054/\u4edf\u6d41\u667a\u7b97/V4/Evidence/POOL053-054-20260907/V14/mutation-final.json"
+  },
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "/Users/mac/.codex/worktrees/pool053-054/\u4edf\u6d41\u667a\u7b97/V4/Evidence/POOL053-054-20260907/V14/vitest.mutation.r2.config.mjs"
+  },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/model-image-capability.ts",
+    "src/upstream-error-evidence.ts:46:1-83:2"
+  ],
+  "thresholds": {
+    "high": 100,
+    "low": 90,
+    "break": 80
+  },
+  "timeoutMS": 15000,
+  "concurrency": 2,
+  "disableTypeChecks": true,
+  "cleanTempDir": true
+}

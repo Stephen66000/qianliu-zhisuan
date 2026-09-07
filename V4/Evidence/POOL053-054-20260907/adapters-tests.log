@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/provider-adapters
+
+ ✓ src/__tests__/upstream-error-evidence.test.ts (21 tests) 18ms
+ ✓ src/__tests__/model-image-capability.test.ts (43 tests) 15ms
+ ✓ src/__tests__/openai-compatible-caller.test.ts (76 tests) 88ms
+
+ Test Files  3 passed (3)
+      Tests  140 passed (140)
+   Start at  13:36:32
+   Duration  1.56s (transform 481ms, setup 0ms, collect 1.33s, tests 120ms, environment 0ms, prepare 538ms)

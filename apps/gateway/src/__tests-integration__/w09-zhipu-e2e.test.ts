@@ -31,6 +31,7 @@ let pg: PostgresTestInstance;
 let db: Database;
 let app: FastifyInstance;
 let validKey: string;
+let upstreamCalls = 0;
 const ENT_ID = randomUUID();
 const PRINCIPAL_ID = randomUUID();
 const PEPPER = "w09-zhipu-pepper-32bytes-min!!!";
@@ -102,7 +103,7 @@ beforeAll(async () => {
     providerCode: "zhipu",
   });
   // caller：透传给 stub（注册表按 provider_code=zhipu 解析到 ZhipuAdapter）
-  const caller = async (res: unknown, req: unknown, n: number) => stub.invoke(res as never, req as never, n);
+  const caller = async (res: unknown, req: unknown, n: number) => { upstreamCalls += 1; return stub.invoke(res as never, req as never, n); };
 
   const ledgerRepo = new GatewayLedgerRepository(db);
   const poolRepo = new ResourcePoolRepository(db);
@@ -156,6 +157,28 @@ function authHeader(): Record<string, string> {
 }
 
 describe("W09 端到端 智谱 Coding Plan 代表链", () => {
+  it.each([
+    ["/v1/chat/completions", { messages: [{ role: "user", content: [{ type: "image_url", image_url: { url: "https://example.invalid/image.png" } }] }] }],
+    ["/v1/messages", { max_tokens: 64, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/png", data: "aW1hZ2U=" } }] }] }],
+    ["/v1/responses", { input: [{ role: "user", content: [{ type: "input_image", file_id: "private-test-file" }] }] }],
+  ] as const)("POOL20-054 %s rejects image before upstream or quota consumption", async (url, body) => {
+    for (const stream of [false, true]) {
+      const before = upstreamCalls;
+      const quotaBefore = await db.selectFrom("quota_counter").selectAll().execute();
+      const res = await app.inject({ method: "POST", url, headers: authHeader(), payload: { model: "qianliu-glm-coding", stream, ...body } });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatchObject({ code: "model_image_unsupported", message: "模型不支持图片", retryable: false });
+      expect(upstreamCalls).toBe(before);
+      const requestId = res.headers["x-ai-request-id"] as string;
+      const ledger = new GatewayLedgerRepository(db);
+      expect(await ledger.getRequest(requestId)).toMatchObject({ status: "FAILED" });
+      expect(await ledger.listAttempts(requestId)).toHaveLength(0);
+      expect(await ledger.listUsageEvents(requestId)).toHaveLength(0);
+      expect(await ledger.listLedgerLines(requestId)).toHaveLength(0);
+      expect(await db.selectFrom("quota_counter").selectAll().execute()).toEqual(quotaBefore);
+    }
+  });
+
   it("WT-03：models 可见 → chat 调用 → 账本落账完整闭环", async () => {
     // 1. models（qianliu-glm-coding 别名可见）
     const modelsRes = await app.inject({ method: "GET", url: "/v1/models", headers: authHeader() });

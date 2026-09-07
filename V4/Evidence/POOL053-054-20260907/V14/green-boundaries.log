@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/provider-adapters
+
+ ✓ src/__tests__/image-audit-boundaries.test.ts (57 tests) 7ms
+ ✓ src/__tests__/model-image-capability.test.ts (43 tests) 13ms
+
+ Test Files  2 passed (2)
+      Tests  100 passed (100)
+   Start at  13:58:00
+   Duration  714ms (transform 216ms, setup 0ms, collect 667ms, tests 20ms, environment 0ms, prepare 149ms)

@@ -1,0 +1,23 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/provider-adapters
+      Coverage enabled with v8
+
+ ✓ src/__tests__/upstream-error-evidence.test.ts (21 tests) 68ms
+ ✓ src/__tests__/model-image-capability.test.ts (43 tests) 31ms
+ ✓ src/__tests__/openai-compatible-caller.test.ts (76 tests) 111ms
+
+ Test Files  3 passed (3)
+      Tests  140 passed (140)
+   Start at  13:48:01
+   Duration  1.60s (transform 652ms, setup 0ms, collect 1.96s, tests 210ms, environment 0ms, prepare 462ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   97.55 |    91.28 |     100 |   97.55 |
+ ...-capability.ts |     100 |    89.58 |     100 |     100 | 22,27,30,33,38
+ ...ible-caller.ts |   97.08 |    89.36 |     100 |   97.08 | 69-70,172-173
+ ...or-evidence.ts |   97.17 |    93.67 |     100 |   97.17 | ...70,72-73,78-79
+ ...eam-failure.ts |   97.91 |    89.47 |     100 |   97.91 | 51,114-115
+-------------------|---------|----------|---------|---------|-------------------

@@ -1,0 +1,55 @@
+[
+  {
+    "command": [
+      "node_modules/.bin/eslint",
+      "apps/gateway/src/__tests-integration__/w09-zhipu-e2e.test.ts",
+      "apps/gateway/src/pipeline/pipeline-admission.ts",
+      "apps/gateway/src/pipeline/pipeline-response.ts",
+      "apps/gateway/src/pipeline/upstream-error-diagnostic.ts",
+      "apps/web/e2e/wt-web.spec.ts",
+      "apps/web/src/api/v2-hooks.ts",
+      "apps/web/src/components/usage/UsageOverviewPanel.test.tsx",
+      "apps/web/src/components/usage/UsageOverviewPanel.tsx",
+      "apps/web/src/pages/RequestDrilldown.tsx",
+      "packages/contracts/src/diagnostic-evidence.ts",
+      "packages/contracts/src/northbound.ts",
+      "packages/provider-adapters/src/index.ts",
+      "packages/provider-adapters/src/openai-compatible-caller.ts",
+      "packages/provider-adapters/src/upstream-error-evidence.ts",
+      "packages/provider-adapters/src/upstream-failure.ts",
+      "apps/gateway/src/pipeline/upstream-error-diagnostic.test.ts",
+      "apps/web/src/components/usage/UsageOverviewRange.test.tsx",
+      "packages/provider-adapters/src/__tests__/model-image-capability.test.ts",
+      "packages/provider-adapters/src/model-image-capability.ts",
+      "--max-warnings",
+      "0"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "node",
+      "scripts/check-architecture.mjs"
+    ],
+    "exit": 0,
+    "output": "architecture gate passed: 436 production source files, no runtime cycles\n"
+  },
+  {
+    "command": [
+      "node",
+      "scripts/check-source-size.mjs"
+    ],
+    "exit": 0,
+    "output": "source-size gate passed: 436 files, default <= 400 logical lines\n"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit": 0,
+    "output": ""
+  }
+]

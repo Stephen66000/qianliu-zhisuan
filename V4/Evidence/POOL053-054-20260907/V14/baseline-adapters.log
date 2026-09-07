@@ -1,0 +1,21 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算/packages/provider-adapters
+      Coverage enabled with v8
+
+ ✓ src/__tests__/upstream-error-evidence.test.ts (21 tests) 22ms
+ ✓ src/__tests__/openai-compatible-caller.test.ts (76 tests) 81ms
+
+ Test Files  2 passed (2)
+      Tests  97 passed (97)
+   Start at  13:50:03
+   Duration  1.24s (transform 452ms, setup 0ms, collect 860ms, tests 103ms, environment 0ms, prepare 265ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   97.25 |    91.22 |     100 |   97.25 |
+ ...ible-caller.ts |   96.96 |     87.5 |     100 |   96.96 | 68-69,167-168
+ ...or-evidence.ts |   97.03 |     94.2 |     100 |   97.03 | ...56,58-59,64-65
+ ...eam-failure.ts |   97.91 |    88.78 |     100 |   97.91 | 51,114-115
+-------------------|---------|----------|---------|---------|-------------------

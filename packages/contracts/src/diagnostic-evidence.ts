@@ -4,6 +4,7 @@ export type UpstreamErrorMessageCategory =
   | "INVALID_MESSAGE_CONTENT"
   | "INVALID_TOOL_SCHEMA"
   | "CONTEXT_LENGTH_EXCEEDED"
+  | "MODEL_IMAGE_UNSUPPORTED"
   | "MODEL_UNAVAILABLE"
   | "UNCLASSIFIED";
 
@@ -51,14 +52,14 @@ export interface RequestShapeSummary {
 
 const ERROR_CATEGORIES = new Set<UpstreamErrorMessageCategory>([
   "UNSUPPORTED_PARAMETER", "INVALID_PARAMETER", "INVALID_MESSAGE_CONTENT",
-  "INVALID_TOOL_SCHEMA", "CONTEXT_LENGTH_EXCEEDED", "MODEL_UNAVAILABLE", "UNCLASSIFIED",
+  "INVALID_TOOL_SCHEMA", "CONTEXT_LENGTH_EXCEEDED", "MODEL_IMAGE_UNSUPPORTED", "MODEL_UNAVAILABLE", "UNCLASSIFIED",
 ]);
 const UPSTREAM_ERROR_TYPES = new Set([
   "api_error", "authentication_error", "invalid_request_error", "overloaded_error",
   "permission_error", "rate_limit_error", "server_error",
 ]);
 const UPSTREAM_ERROR_CODES = new Set([
-  "1211", "1302", "1305", "1308", "1309", "1310", "1311",
+  "1210", "1211", "1212", "1213", "1214", "1215", "1302", "1305", "1308", "1309", "1310", "1311",
   "api_error", "authentication_error", "billing_blocked", "context_length_exceeded",
   "insufficient_balance", "invalid_parameter", "invalid_request_error", "invalid_value",
   "model_not_found", "overloaded_error", "permission_error", "quota_exhausted",
@@ -111,7 +112,8 @@ export function sanitizeUpstreamErrorType(value: unknown): string | null {
 }
 
 export function sanitizeUpstreamErrorCode(value: unknown): string | null {
-  return typeof value === "string" && UPSTREAM_ERROR_CODES.has(value) ? value : null;
+  const normalized = typeof value === "number" && Number.isSafeInteger(value) ? String(value) : value;
+  return typeof normalized === "string" && UPSTREAM_ERROR_CODES.has(normalized) ? normalized : null;
 }
 
 export function sanitizeUpstreamErrorParam(value: unknown): string | null {

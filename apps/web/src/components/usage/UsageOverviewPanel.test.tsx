@@ -69,7 +69,7 @@ describe("W20-04 用量概览 Web", () => {
     const call = new URLSearchParams(useUsageOverviewMock.mock.calls.at(-1)?.[0]);
     expect(Object.fromEntries(call)).toMatchObject({ subject_type: "PROJECT", period: "WEEK", subject_id: projectId, anchor });
     expect(screen.getByRole("combobox", { name: "用量主体类型" })).toHaveValue("PROJECT");
-    expect(screen.getByRole("combobox", { name: "用量周期" })).toHaveValue("WEEK");
+    expect(screen.getByRole("button", { name: "本周" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("combobox", { name: "指定用量主体" })).toHaveValue(projectId);
   });
 

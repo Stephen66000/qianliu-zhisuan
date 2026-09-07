@@ -1,3 +1,4 @@
+import { hasImageInput, modelSupportsImages, MODEL_IMAGE_UNSUPPORTED } from "@qianliu/provider-adapters";
 import type { ClaimRequestResult, AvailabilityEvent } from "@qianliu/database";
 import { identifyClient, type RoutingCandidateInput } from "@qianliu/domain";
 import { createChatStreamWriter, type GatewayStreamWriter } from "../routes/chat-protocol.js";
@@ -121,15 +122,28 @@ export async function preparePipelineContext(
     return null;
   }
 
+  // Before truncation, quota reservation or any upstream invocation; use exact routed models.
+  const containsImages = hasImageInput(body);
+  const imageCompatibleCandidates = grantAuthorizedCandidates.filter((candidate) =>
+    !containsImages || modelSupportsImages(candidate.providerCode, candidate.upstreamModel) !== false);
+  if (imageCompatibleCandidates.length === 0) {
+    await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", "CLIENT_INVALID", MODEL_IMAGE_UNSUPPORTED);
+    reply.code(400).send({ error: {
+      message: "模型不支持图片", type: "invalid_request_error", code: MODEL_IMAGE_UNSUPPORTED,
+      param: "model", retryable: false, request_id: requestId,
+    } });
+    return null;
+  }
+
   const servableById = new Map(
     (await deps.poolRepo.listServableResources(principal.enterpriseId)).map((resource) => [resource.id, resource]),
   );
   const candidateByInvocationKey = new Map(
-    grantAuthorizedCandidates.map((candidate) => [invocationCandidateKey(candidate), candidate]),
+    imageCompatibleCandidates.map((candidate) => [invocationCandidateKey(candidate), candidate]),
   );
   let blockingEvent: AvailabilityEvent | null = null;
   const runtimeAllowedCandidates: RouteCandidateRow[] = [];
-  for (const candidate of grantAuthorizedCandidates) {
+  for (const candidate of imageCompatibleCandidates) {
     if (deps.runtimeAssuranceRepo && deps.runtimeAssuranceMode === "ENFORCE") {
       const open = await deps.runtimeAssuranceRepo.findOpenBlock(candidate.resourceId, candidate.upstreamModel);
       if (open) {
@@ -203,7 +217,7 @@ export async function preparePipelineContext(
     created,
     streamWriter,
     downstreamAbort,
-    effectiveBody: buildEffectiveBody(
+    effectiveBody: containsImages ? body : buildEffectiveBody(
       body, capability, deps.truncationConfig ?? null, request.log, requestId,
     ),
     eligible,

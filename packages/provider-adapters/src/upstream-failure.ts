@@ -45,7 +45,7 @@ export async function upstreamFailure(
     }
     const root = isRecord(payload) ? payload : {};
     const error = isRecord(root.error) ? root.error : {};
-    classificationCode = stringValue(error.code) || stringValue(error.type) || code;
+    classificationCode = sanitizeUpstreamErrorCode(error.code) || stringValue(error.code) || stringValue(error.type) || code;
     code = sanitizeUpstreamErrorCode(error.code)
       ?? sanitizeUpstreamErrorType(error.type)
       ?? code;

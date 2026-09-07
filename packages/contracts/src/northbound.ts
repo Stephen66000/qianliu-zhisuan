@@ -231,6 +231,7 @@ export interface ErrorEnvelope {
         | "INVALID_MESSAGE_CONTENT"
         | "INVALID_TOOL_SCHEMA"
         | "CONTEXT_LENGTH_EXCEEDED"
+        | "MODEL_IMAGE_UNSUPPORTED"
         | "MODEL_UNAVAILABLE"
         | "UNCLASSIFIED";
       upstream_type: string | null;

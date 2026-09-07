@@ -1,0 +1,19 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/apps/web
+      Coverage enabled with v8
+
+ ✓ src/components/usage/UsageOverviewRange.test.tsx (2 tests) 328ms
+ ✓ src/components/usage/UsageOverviewPanel.test.tsx (11 tests) 707ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  13:48:01
+   Duration  2.68s (transform 166ms, setup 615ms, collect 422ms, tests 1.03s, environment 1.30s, prepare 304ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |     85.1 |      90 |     100 |
+ ...rviewPanel.tsx |     100 |     85.1 |      90 |     100 | 13,29,38,43-44
+-------------------|---------|----------|---------|---------|-------------------

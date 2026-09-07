@@ -1,3 +1,4 @@
+import { MODEL_IMAGE_UNSUPPORTED, IMAGE_INPUT_UNSUPPORTED } from "@qianliu/provider-adapters";
 import type { Outcome, UpstreamErrorEvidence } from "@qianliu/contracts";
 import { parseRequestShapeSummary, parseUpstreamErrorEvidence } from "@qianliu/contracts";
 
@@ -20,11 +21,16 @@ export function northboundFailurePresentation(
   outcome: Outcome,
   providerDisplayName: string,
   quotaExhausted: boolean,
+  capability: "chat" | "messages" | "responses" = "chat",
 ): {
   diagnosticExtension: Record<string, unknown>;
   message: string;
   param: string | null;
 } {
+  if (outcome.error === MODEL_IMAGE_UNSUPPORTED || outcome.error === IMAGE_INPUT_UNSUPPORTED) {
+    return { diagnosticExtension: {}, message: outcome.error === MODEL_IMAGE_UNSUPPORTED
+      ? "模型不支持图片" : "图片输入格式不受支持，无法完整转发图片", param: outcome.error === MODEL_IMAGE_UNSUPPORTED ? "model" : capability === "responses" ? "input" : "messages" };
+  }
   if (quotaExhausted) {
     const reset = outcome.recoverAt ? `（${outcome.recoverAt}）` : "（下一重置时间未知）";
     return {
@@ -56,6 +62,7 @@ function invalidRequestDiagnosticMessage(
   evidence: UpstreamErrorEvidence,
   requestIssues: Array<{ code: string; count: number }>,
 ): string {
+  if (evidence.messageCategory === "MODEL_IMAGE_UNSUPPORTED") return "模型不支持图片";
   const field = evidence.param ? `，字段 ${evidence.param}` : "";
   const issues = requestIssues.length > 0
     ? `；结构 ${requestIssues.map((item) => `${item.code}:${item.count}`).join("/")}`

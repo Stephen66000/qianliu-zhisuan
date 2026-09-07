@@ -1,0 +1,35 @@
+{
+  "status": "DEPLOYED_AND_BROWSER_VERIFIED",
+  "release": "/Users/stephen/releases/qianliu-usage-b29df67-20260906-162646",
+  "commit": "b29df679283842d7503aab0991872b63c23be21b",
+  "tree": "e3dabfcd27f0ee45516ff9ab996a19f2389fb464",
+  "migration": "0064_quota_pricing_and_policy_archive",
+  "health": {
+    "control": 200,
+    "gateway": 200,
+    "web": 200,
+    "edge": 200,
+    "worker": "healthy"
+  },
+  "runtime_evidence_source": "User pasted Mac mini COMPLETE output",
+  "backup": "/Users/stephen/backups/qianliu-zhisuan/pre-usage-b29df67-20260906-162646.dump",
+  "backup_sha256": "92fe59854aeff5b1c31889922543bb0baa17b83efa3975516453113adec16ef9",
+  "rollback_prefix": "qianliu-usage-b29df67-rollback-20260906-162646",
+  "browser_evidence": {
+    "source": "Direct read-only inspection of logged-in production Chrome tab",
+    "default_url": "https://ic.qianliuai.com/usage",
+    "default_page": "overview",
+    "weekly_url": "https://ic.qianliuai.com/usage?tab=overview&period=WEEK",
+    "data_time": "2026-09-06 16:29:05",
+    "request_count_before": 4020,
+    "request_count_after": 3920,
+    "excluded_failed_requests": 100,
+    "real_tokens_before_and_after": "226208343",
+    "api_cost_before_and_after": "29.10",
+    "deducted_quota_before_and_after": "124886373",
+    "compact_filters_and_metrics": true,
+    "helper_text_and_quality_footnote_removed": true,
+    "chart_source_label_removed": true,
+    "drilldown_status": "SUCCEEDED"
+  }
+}

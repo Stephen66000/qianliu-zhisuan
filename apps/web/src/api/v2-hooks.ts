@@ -73,8 +73,8 @@ export function useDirectoryImportRun(id: string | null) {
 export function useDirectoryImportItems(id: string | null) {
   return useQuery({ queryKey: [...V2_KEYS.importRun(id ?? ""), "items"], queryFn: ({ signal }) => get<{ items: DirectoryImportItem[]; total: number }>(`/directory-import-runs/${id}/items?limit=100`, signal), enabled: Boolean(id), retry: 1 });
 }
-export function useUsageOverview(query: string) {
-  return useQuery({ queryKey: V2_KEYS.usageOverview(query), queryFn: ({ signal }) => get<UsageOverview>(`/usage/overview?${query}`, signal), retry: 1, staleTime: 15_000 });
+export function useUsageOverview(query: string, staleTime = 15_000) {
+  return useQuery({ queryKey: V2_KEYS.usageOverview(query), queryFn: ({ signal }) => get<UsageOverview>(`/usage/overview?${query}`, signal), retry: 1, staleTime });
 }
 export function usePrincipalOptions(type: "EMPLOYEE" | "PROJECT", search: string, offset: number, limit = 20) {
   const query = new URLSearchParams({ archived: "exclude", type, limit: String(limit), offset: String(offset) });

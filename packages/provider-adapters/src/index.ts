@@ -152,3 +152,5 @@ export {
   type HttpResponseLike,
   type OpenAiCompatibleCallerOptions,
 } from "./openai-compatible-caller.js";
+
+export { hasImageInput, modelSupportsImages, MODEL_IMAGE_UNSUPPORTED, IMAGE_INPUT_UNSUPPORTED } from "./model-image-capability.js";

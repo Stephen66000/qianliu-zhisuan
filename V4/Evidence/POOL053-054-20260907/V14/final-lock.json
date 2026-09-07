@@ -1,0 +1,28 @@
+{
+  "base": "4cea87f2e5928d7486282a934c7c6c0084f241de",
+  "source_sha256": {
+    "apps/gateway/src/__tests-integration__/w09-zhipu-e2e.test.ts": "4f7ec3529d8b15f6a77c7020239c9e3e85eb9fad070efbce056677394824421a",
+    "apps/gateway/src/pipeline/pipeline-admission.ts": "efcc27acbff65adf810e7394ba1c3016fbb17f172bcefc85b92d5a8540be0fe2",
+    "apps/gateway/src/pipeline/pipeline-response.ts": "99c4cd036f101b9cdbed9466c8759fa15ed432296bae9241e2fe49b207e5313e",
+    "apps/gateway/src/pipeline/upstream-error-diagnostic.test.ts": "c9ddb3c4c32d6bcde9d05fdea380e1dce647906a1ae953cff26650004584e72e",
+    "apps/gateway/src/pipeline/upstream-error-diagnostic.ts": "c137d231530f120a969167c9302103a5cc918e57cba8f244db86c3baead12731",
+    "apps/web/e2e/wt-web.spec.ts": "90bfc7d79411d15f8b63cc258aac4731ac3fe7a76ade0f7494c6571f9c97b3ac",
+    "apps/web/src/api/v2-hooks.ts": "1f24ebfcddc8286da48896da14cff2915e135a0ea10414c572ba9c3ec4d7ea3b",
+    "apps/web/src/components/usage/UsageOverviewPanel.test.tsx": "4388ec063fb905802b3ebfa574d2852afff2f91381ce73b431461083012d9f91",
+    "apps/web/src/components/usage/UsageOverviewPanel.tsx": "a4509344d0c51cf11c637a2609bf1559a3bda70f305f77dfa05a7f2cdf5b1763",
+    "apps/web/src/components/usage/UsageOverviewRange.test.tsx": "5bf48f5567b44849e25baec88dbd9d17a084bc473fe430969b070fd200dbbe5e",
+    "apps/web/src/pages/RequestDrilldown.tsx": "26d6eb53d64df63ffa31cd3d123261f35f4c1d0b3a4d9fbe07d77375a6008eb4",
+    "packages/contracts/src/diagnostic-evidence.ts": "65617bc04222913709e9fe86b1e56910a47304460cfb0d2d63b12c8e78d90b98",
+    "packages/contracts/src/northbound.ts": "00a9728f857919684c2bb78b507eee350715aaf898926d2fe3479f5ab790f0ac",
+    "packages/provider-adapters/src/__tests__/image-audit-boundaries.test.ts": "5c220a1482fba91623ef5c45e4cef87561b6527ddc06e6c0885b4643a87711c7",
+    "packages/provider-adapters/src/__tests__/model-image-capability.test.ts": "2c4b1d689de3f9fe2c36bbfc48d5c2d1d20f024307e4f8ee02687be44bf4a1f5",
+    "packages/provider-adapters/src/index.ts": "ddee5537b12a7111afb241f98854a91704dd208225fbfe42e7439d9f9c69a1c3",
+    "packages/provider-adapters/src/model-image-capability.ts": "0046a08ebbf3aeae174f2d5ca0a2c697b1141baabdadba18af8670b976366e93",
+    "packages/provider-adapters/src/openai-compatible-caller.ts": "d549ec33b42246ed4ff433053d3756cfd824486e9e5da477f828816a5fd4bebc",
+    "packages/provider-adapters/src/upstream-error-evidence.ts": "b2a6922c9c77a5bc43aba5670498efc1b1b402612dc579402e215193fb9d9f27",
+    "packages/provider-adapters/src/upstream-failure.ts": "60d2b232111f9419835760e5fac7e8f241a9810c4f40e908fa7958b254fb7ea7"
+  },
+  "source_set_sha256": "a7641a39750b82507e754cd5e900c9206e82b3c6d1e463aecd03207a9c7f1e3d",
+  "start_verify": "STABLE",
+  "scope": "Frozen CQA-01..04 corrections and regression tests"
+}

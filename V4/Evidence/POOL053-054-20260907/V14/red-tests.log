@@ -1,0 +1,142 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/provider-adapters
+
+ ❯ src/__tests__/image-audit-boundaries.test.ts (57 tests | 5 failed) 17ms
+   × CQA-01 protocol envelopes are not tool arguments > outer type=tool_use must not hide message images 4ms
+     → Cannot read properties of undefined (reading 'ok')
+   × CQA-01 protocol envelopes are not tool arguments > outer type=function_call must not hide message images 1ms
+     → Cannot read properties of undefined (reading 'ok')
+   × CQA-01 protocol envelopes are not tool arguments > message-level extension type does not hide content 2ms
+     → expected false to be true // Object.is equality
+   × CQA-01 protocol envelopes are not tool arguments > Responses input cannot be hidden by an outer function_call type 0ms
+     → expected false to be true // Object.is equality
+   ✓ CQA-04 image references and multiplicity > ignores non-image content null 0ms
+   ✓ CQA-04 image references and multiplicity > ignores non-image content undefined 0ms
+   ✓ CQA-04 image references and multiplicity > ignores non-image content false 0ms
+   ✓ CQA-04 image references and multiplicity > ignores non-image content 1 0ms
+   ✓ CQA-04 image references and multiplicity > ignores non-image content image 0ms
+   ✓ CQA-04 image references and multiplicity > ignores non-image content { content: 'image' } 0ms
+   ✓ CQA-04 image references and multiplicity > ignores non-image content { messages: [ { role: 'user', content: [ null, false, 1, 'image' ] } ] } 0ms
+   ✓ CQA-04 image references and multiplicity > generic files and function arguments are not image inputs 0ms
+   ✓ CQA-04 image references and multiplicity > preserves duplicates but rejects a missing or replaced image 0ms
+   ✓ CQA-04 image references and multiplicity > retains file images and inspects Responses output, system and internal envelope 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image_url"} 1ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image_url","image_url":null} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image_url","image_url":1} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image_url","image_url":{"url":1}} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"input_image"} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"input_image","image_url":1} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"input_image","file_id":1} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image"} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":null} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":"url"} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":{"type":"base64","data":"png"}} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":{"type":"base64","media_type":"image/png"}} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":{"type":"unknown","media_type":"image/png","data":"png"}} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":{"type":"url","url":1}} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":{"type":"unknown","url":"url"}} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":{"type":"file","file_id":1}} 0ms
+   ✓ CQA-04 image references and multiplicity > rejects matching invalid blocks {"type":"image","source":{"type":"unknown","file_id":"file"}} 0ms
+   × CQA-02/04 diagnostic language and independent code semantics > zhipu / null / Model glm-5.3 does not support image input => MODEL_IMAGE_UNSUPPORTED 2ms
+     → expected 'UNCLASSIFIED' to be 'MODEL_IMAGE_UNSUPPORTED' // Object.is equality
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / This model does not support image input => MODEL_IMAGE_UNSUPPORTED 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / Image input is unsupported by this model => MODEL_IMAGE_UNSUPPORTED 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / Image format is not supported => INVALID_MESSAGE_CONTENT 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > zhipu / null / 模型暂时无法处理这些图片 => MODEL_IMAGE_UNSUPPORTED 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > zhipu / null / 图片暂时不支持当前模型 => MODEL_IMAGE_UNSUPPORTED 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > zhipu / null / 模型暂时不存在 => MODEL_UNAVAILABLE 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > zhipu / 1211 /  => MODEL_UNAVAILABLE 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > zhipu / null / 上下文长度超过上限 => CONTEXT_LENGTH_EXCEEDED 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > zhipu / null / 参数类型非法 => INVALID_PARAMETER 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > zhipu / null / 图片输入无效 => INVALID_MESSAGE_CONTENT 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / 1210 /  => UNCLASSIFIED 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / context length exceeded => CONTEXT_LENGTH_EXCEEDED 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / tool has invalid schema => INVALID_TOOL_SCHEMA 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / invalid custom function => INVALID_TOOL_SCHEMA 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / function parameter unsupported => INVALID_TOOL_SCHEMA 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / image is invalid => INVALID_MESSAGE_CONTENT 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / unsupported custom parameter => UNSUPPORTED_PARAMETER 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / expected large integer for field => INVALID_PARAMETER 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / model is unavailable => MODEL_UNAVAILABLE 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > deepseek / null / unrecognized => UNCLASSIFIED 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > generic code 1210 alone has parameter semantics 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > generic code 1212 alone has parameter semantics 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > generic code 1213 alone has parameter semantics 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > generic code 1214 alone has parameter semantics 0ms
+   ✓ CQA-02/04 diagnostic language and independent code semantics > generic code 1215 alone has parameter semantics 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/image-audit-boundaries.test.ts > CQA-01 protocol envelopes are not tool arguments > outer type=tool_use must not hide message images
+ FAIL  src/__tests__/image-audit-boundaries.test.ts > CQA-01 protocol envelopes are not tool arguments > outer type=function_call must not hide message images
+TypeError: Cannot read properties of undefined (reading 'ok')
+ ❯ src/openai-compatible-caller.ts:108:19
+    106|     }
+    107|
+    108|     if (!response.ok) {
+       |                   ^
+    109|       timeout.markFirstByte();
+    110|       const requestShapeSummary = response.status === 400
+ ❯ src/__tests__/image-audit-boundaries.test.ts:12:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/__tests__/image-audit-boundaries.test.ts > CQA-01 protocol envelopes are not tool arguments > message-level extension type does not hide content
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/__tests__/image-audit-boundaries.test.ts:17:97
+     15|   });
+     16|   it("message-level extension type does not hide content", () => {
+     17|     expect(hasImageInput({ messages: [{ role: "user", type: "tool_use"…
+       |                                                                                                 ^
+     18|   });
+     19|   it("Responses input cannot be hidden by an outer function_call type"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/__tests__/image-audit-boundaries.test.ts > CQA-01 protocol envelopes are not tool arguments > Responses input cannot be hidden by an outer function_call type
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/__tests__/image-audit-boundaries.test.ts:20:135
+     18|   });
+     19|   it("Responses input cannot be hidden by an outer function_call type"…
+     20|     expect(hasImageInput({ type: "function_call", input: [{ role: "use…
+       |                                                                                                                                       ^
+     21|   });
+     22| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/__tests__/image-audit-boundaries.test.ts > CQA-02/04 diagnostic language and independent code semantics > zhipu / null / Model glm-5.3 does not support image input => MODEL_IMAGE_UNSUPPORTED
+AssertionError: expected 'UNCLASSIFIED' to be 'MODEL_IMAGE_UNSUPPORTED' // Object.is equality
+
+Expected: "MODEL_IMAGE_UNSUPPORTED"
+Received: "UNCLASSIFIED"
+
+ ❯ src/__tests__/image-audit-boundaries.test.ts:74:109
+     72|     ["deepseek", null, "model is unavailable", "MODEL_UNAVAILABLE"], […
+     73|   ])("%s / %s / %s => %s", (provider, code, message, category) => {
+     74|     expect(buildUpstreamErrorEvidence({ error: { code, message } }, 40…
+       |                                                                                                             ^
+     75|   });
+     76|   it.each(["1210", "1212", "1213", "1214", "1215"])("generic code %s a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 52 passed (57)
+   Start at  13:56:47
+   Duration  686ms (transform 181ms, setup 0ms, collect 326ms, tests 17ms, environment 0ms, prepare 57ms)

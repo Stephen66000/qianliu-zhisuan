@@ -361,6 +361,7 @@ function diagnosticCategory(category: string): string {
     INVALID_TOOL_SCHEMA: "工具 Schema 不兼容",
     CONTEXT_LENGTH_EXCEEDED: "超出上下文长度",
     MODEL_UNAVAILABLE: "模型不可用",
+    MODEL_IMAGE_UNSUPPORTED: "模型不支持图片",
     UNCLASSIFIED: "未分类请求错误",
   };
   return labels[category] ?? "未分类请求错误";

@@ -1,0 +1,66 @@
+[
+  {
+    "file": "openai-compatible-caller.ts",
+    "baseline": {
+      "statements": 96.96,
+      "branches": 87.5,
+      "functions": 100,
+      "lines": 96.96
+    },
+    "candidate": {
+      "statements": 97.08,
+      "branches": 89.79,
+      "functions": 100,
+      "lines": 97.08
+    },
+    "non_regression": true
+  },
+  {
+    "file": "upstream-error-evidence.ts",
+    "baseline": {
+      "statements": 97.03,
+      "branches": 94.2,
+      "functions": 100,
+      "lines": 97.03
+    },
+    "candidate": {
+      "statements": 100,
+      "branches": 97.53,
+      "functions": 100,
+      "lines": 100
+    },
+    "non_regression": true
+  },
+  {
+    "file": "upstream-failure.ts",
+    "baseline": {
+      "statements": 97.91,
+      "branches": 88.78,
+      "functions": 100,
+      "lines": 97.91
+    },
+    "candidate": {
+      "statements": 97.91,
+      "branches": 89.47,
+      "functions": 100,
+      "lines": 97.91
+    },
+    "non_regression": true
+  },
+  {
+    "file": "UsageOverviewPanel.tsx",
+    "baseline": {
+      "statements": 100,
+      "branches": 80,
+      "functions": 62.5,
+      "lines": 100
+    },
+    "candidate": {
+      "statements": 100,
+      "branches": 85.1,
+      "functions": 90,
+      "lines": 100
+    },
+    "non_regression": true
+  }
+]

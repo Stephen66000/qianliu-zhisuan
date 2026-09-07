@@ -1,0 +1,27 @@
+[
+  {
+    "command": [
+      "node",
+      "scripts/check-architecture.mjs"
+    ],
+    "exit": 0,
+    "output": "architecture gate passed: 436 production source files, no runtime cycles\n"
+  },
+  {
+    "command": [
+      "node",
+      "scripts/check-source-size.mjs"
+    ],
+    "exit": 0,
+    "output": "source-size gate passed: 436 files, default <= 400 logical lines\n"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit": 0,
+    "output": ""
+  }
+]

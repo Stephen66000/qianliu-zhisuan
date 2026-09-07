@@ -1,0 +1,9 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/contracts
+
+ ✓ src/__tests__/contracts.test.ts (5 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  14:04:43
+   Duration  1.04s (transform 121ms, setup 0ms, collect 142ms, tests 6ms, environment 0ms, prepare 190ms)

@@ -1,0 +1,19 @@
+{
+  "status": "DEPLOYED_HEALTH_CHECKS_PASSED",
+  "evidence_source": "User pasted COMPLETE output from Mac mini terminal; not independently queried over SSH",
+  "release": "/Users/stephen/releases/qianliu-usage-dd509ee-20260906-155209",
+  "commit": "dd509eeff13efd672f1dd3bce60d035b998e2260",
+  "tree": "b927e06684deebb579b25af6727efe9ab83240fe",
+  "migration": "0064_quota_pricing_and_policy_archive",
+  "health": {
+    "control": 200,
+    "gateway": 200,
+    "web": 200,
+    "edge": 200,
+    "worker": "healthy"
+  },
+  "backup": "/Users/stephen/backups/qianliu-zhisuan/pre-usage-dd509ee-20260906-155209.dump",
+  "backup_sha256": "a0e19362d90146fb796a810d91894f03f0b2c5d30fcacb6c87a9ad644de16287",
+  "rollback_prefix": "qianliu-usage-dd509ee-rollback-20260906-155209",
+  "production_search_ui_acceptance": "Not yet reported; local browser tests passed before deployment"
+}

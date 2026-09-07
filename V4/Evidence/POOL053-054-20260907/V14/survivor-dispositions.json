@@ -1,0 +1,32 @@
+[
+  {
+    "file": "model-image-capability.ts",
+    "ids": [
+      "139",
+      "148",
+      "154",
+      "169"
+    ],
+    "disposition": "EQUIVALENT",
+    "reason": "Internal block tags are only distinguished from request/message. Empty tags take the identical content branch, including propagation through arrays."
+  },
+  {
+    "file": "upstream-error-evidence.ts",
+    "ids": [
+      "252"
+    ],
+    "disposition": "EQUIVALENT",
+    "reason": "includes(null) is false because the fixed array contains only strings. Removing the explicit null guard has no effect."
+  },
+  {
+    "file": "upstream-error-evidence.ts",
+    "ids": [
+      "203"
+    ],
+    "disposition": "P3_TEST_DEBT",
+    "reason": "Removing the digit before a decimal has the same classification for short known IDs; near the 100-character matching bound equivalence has not been proven.",
+    "owner": "POOL053-054 maintainer",
+    "review_by": "2026-09-14",
+    "exit_condition": "Cover matching-length boundaries or prove equivalence; do not remove mutation operators."
+  }
+]

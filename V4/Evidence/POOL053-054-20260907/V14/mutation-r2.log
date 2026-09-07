@@ -1,0 +1,499 @@
+[32m13:59:19 (59350) INFO ProjectReader[39m Found 2 of 48 file(s) to be mutated.
+[32m13:59:19 (59350) INFO Instrumenter[39m Instrumented 2 source file(s) with 299 mutant(s)
+[32m13:59:19 (59350) INFO ConcurrencyTokenProvider[39m Creating 2 test runner process(es).
+[32m13:59:21 (59350) INFO DryRunExecutor[39m Starting initial test run (vitest test runner with "perTest" coverage analysis). This may take a while.
+[32m13:59:23 (59350) INFO DryRunExecutor[39m Initial test run succeeded. Ran 197 tests in 1 second (net 158.73009099999967 ms, overhead 1266.2699090000003 ms).
+
+All tests
+  image-audit-boundaries.test.ts
+    ✓ CQA-01 protocol envelopes are not tool arguments outer type=tool_use must not hide message images (killed 9)
+    ~ CQA-01 protocol envelopes are not tool arguments outer type=function_call must not hide message images (covered 113)
+    ✓ CQA-01 protocol envelopes are not tool arguments message-level extension type does not hide content (killed 4)
+    ✓ CQA-01 protocol envelopes are not tool arguments Responses input cannot be hidden by an outer function_call type (killed 3)
+    ✓ CQA-04 image references and multiplicity ignores non-image content null (killed 1)
+    ~ CQA-04 image references and multiplicity ignores non-image content undefined (covered 40)
+    ~ CQA-04 image references and multiplicity ignores non-image content false (covered 40)
+    ~ CQA-04 image references and multiplicity ignores non-image content 1 (covered 40)
+    ~ CQA-04 image references and multiplicity ignores non-image content image (covered 40)
+    ~ CQA-04 image references and multiplicity ignores non-image content { content: 'image' } (covered 40)
+    ✓ CQA-04 image references and multiplicity ignores non-image content { messages: [ { role: 'user', content: [ null, false, 1, 'image' ] } ] } (killed 4)
+    ✓ CQA-04 image references and multiplicity generic files and function arguments are not image inputs (killed 4)
+    ✓ CQA-04 image references and multiplicity preserves duplicates but rejects a missing or replaced image (killed 19)
+    ✓ CQA-04 image references and multiplicity retains file images and inspects Responses output, system and internal envelope (killed 17)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image_url"} (killed 5)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image_url","image_url":null} (killed 1)
+    ~ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image_url","image_url":1} (covered 117)
+    ~ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image_url","image_url":{"url":1}} (covered 119)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"input_image"} (killed 3)
+    ~ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"input_image","image_url":1} (covered 115)
+    ~ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"input_image","file_id":1} (covered 115)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image"} (killed 1)
+    ~ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":null} (covered 135)
+    ~ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":"url"} (covered 133)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":{"type":"base64","data":"png"}} (killed 5)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":{"type":"base64","media_type":"image/png"}} (killed 1)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":{"type":"unknown","media_type":"image/png","data":"png"}} (killed 2)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":{"type":"url","url":1}} (killed 3)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":{"type":"unknown","url":"url"}} (killed 2)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":{"type":"file","file_id":1}} (killed 2)
+    ✓ CQA-04 image references and multiplicity rejects matching invalid blocks {"type":"image","source":{"type":"unknown","file_id":"file"}} (killed 1)
+    ✓ CQA-02/04 diagnostic language and independent code semantics zhipu / null / Model glm-5.3 does not support image input => MODEL_IMAGE_UNSUPPORTED (killed 14)
+    ~ CQA-02/04 diagnostic language and independent code semantics deepseek / null / This model does not support image input => MODEL_IMAGE_UNSUPPORTED (covered 22)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / Image input is unsupported by this model => MODEL_IMAGE_UNSUPPORTED (killed 4)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / Image format is not supported => INVALID_MESSAGE_CONTENT (killed 2)
+    ✓ CQA-02/04 diagnostic language and independent code semantics zhipu / null / 模型暂时无法处理这些图片 => MODEL_IMAGE_UNSUPPORTED (killed 4)
+    ✓ CQA-02/04 diagnostic language and independent code semantics zhipu / null / 图片暂时不支持当前模型 => MODEL_IMAGE_UNSUPPORTED (killed 4)
+    ✓ CQA-02/04 diagnostic language and independent code semantics zhipu / null / 模型暂时不存在 => MODEL_UNAVAILABLE (killed 10)
+    ✓ CQA-02/04 diagnostic language and independent code semantics zhipu / 1211 /  => MODEL_UNAVAILABLE (killed 3)
+    ✓ CQA-02/04 diagnostic language and independent code semantics zhipu / null / 上下文长度超过上限 => CONTEXT_LENGTH_EXCEEDED (killed 5)
+    ✓ CQA-02/04 diagnostic language and independent code semantics zhipu / null / 参数类型非法 => INVALID_PARAMETER (killed 6)
+    ✓ CQA-02/04 diagnostic language and independent code semantics zhipu / null / 图片输入无效 => INVALID_MESSAGE_CONTENT (killed 4)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / 1210 /  => UNCLASSIFIED (killed 8)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / context length exceeded => CONTEXT_LENGTH_EXCEEDED (killed 3)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / tool has invalid schema => INVALID_TOOL_SCHEMA (killed 4)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / invalid custom function => INVALID_TOOL_SCHEMA (killed 1)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / function parameter unsupported => INVALID_TOOL_SCHEMA (killed 1)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / image is invalid => INVALID_MESSAGE_CONTENT (killed 4)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / unsupported custom parameter => UNSUPPORTED_PARAMETER (killed 4)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / expected large integer for field => INVALID_PARAMETER (killed 4)
+    ✓ CQA-02/04 diagnostic language and independent code semantics deepseek / null / model is unavailable => MODEL_UNAVAILABLE (killed 4)
+    ~ CQA-02/04 diagnostic language and independent code semantics deepseek / null / unrecognized => UNCLASSIFIED (covered 53)
+    ✓ CQA-02/04 diagnostic language and independent code semantics generic code 1210 alone has parameter semantics (killed 3)
+    ~ CQA-02/04 diagnostic language and independent code semantics generic code 1212 alone has parameter semantics (covered 61)
+    ✓ CQA-02/04 diagnostic language and independent code semantics generic code 1213 alone has parameter semantics (killed 1)
+    ✓ CQA-02/04 diagnostic language and independent code semantics generic code 1214 alone has parameter semantics (killed 1)
+    ✓ CQA-02/04 diagnostic language and independent code semantics generic code 1215 alone has parameter semantics (killed 1)
+  model-image-capability.test.ts
+    ✓ POOL20-054 image admission and lossless forwarding known text model glm-4.6 is gated, unrelated models remain unknown (killed 8)
+    ✓ POOL20-054 image admission and lossless forwarding known text model glm-4.7 is gated, unrelated models remain unknown (killed 1)
+    ✓ POOL20-054 image admission and lossless forwarding known text model glm-5 is gated, unrelated models remain unknown (killed 1)
+    ✓ POOL20-054 image admission and lossless forwarding known text model glm-5.2 is gated, unrelated models remain unknown (killed 1)
+    ✓ POOL20-054 image admission and lossless forwarding known text model glm-5.3 is gated, unrelated models remain unknown (killed 1)
+    ✓ POOL20-054 image admission and lossless forwarding chat images never call a known text-only upstream (killed 28)
+    ✓ POOL20-054 image admission and lossless forwarding messages images never call a known text-only upstream (killed 3)
+    ✓ POOL20-054 image admission and lossless forwarding responses images never call a known text-only upstream (killed 1)
+    ✓ POOL20-054 image admission and lossless forwarding chat unknown model retains its images instead of being rejected as text-only (killed 4)
+    ✓ POOL20-054 image admission and lossless forwarding messages unknown model retains its images instead of being rejected as text-only (killed 11)
+    ✓ POOL20-054 image admission and lossless forwarding responses unknown model retains its images instead of being rejected as text-only (killed 11)
+    ✓ POOL20-054 image admission and lossless forwarding unrepresentable image in a tool result fails explicitly rather than dropping it (killed 5)
+    ✓ POOL20-054 image admission and lossless forwarding tool arguments that look like image blocks are not multimodal input (killed 6)
+    ~ POOL20-054 image admission and lossless forwarding image-looking text and tool schema data do not trigger a gate (covered 76)
+    ~ Zhipu safe code and Chinese semantic normalization retains approved code 1210 while image meaning comes from the message (covered 30)
+    ~ Zhipu safe code and Chinese semantic normalization retains approved code 1211 while image meaning comes from the message (covered 30)
+    ~ Zhipu safe code and Chinese semantic normalization retains approved code 1212 while image meaning comes from the message (covered 30)
+    ~ Zhipu safe code and Chinese semantic normalization retains approved code 1213 while image meaning comes from the message (covered 30)
+    ~ Zhipu safe code and Chinese semantic normalization retains approved code 1214 while image meaning comes from the message (covered 30)
+    ~ Zhipu safe code and Chinese semantic normalization retains approved code 1215 while image meaning comes from the message (covered 30)
+    ~ Zhipu safe code and Chinese semantic normalization classifies 1210 without mislabeling generic errors as image unsupported (covered 62)
+    ~ Zhipu safe code and Chinese semantic normalization classifies 1211 without mislabeling generic errors as image unsupported (covered 39)
+    ✓ Zhipu safe code and Chinese semantic normalization classifies 1212 without mislabeling generic errors as image unsupported (killed 3)
+    ~ Zhipu safe code and Chinese semantic normalization classifies 1214 without mislabeling generic errors as image unsupported (covered 50)
+    ✘ Zhipu safe code and Chinese semantic normalization rejects unsafe/unrecognized code 123456 (covered 0)
+    ✘ Zhipu safe code and Chinese semantic normalization rejects unsafe/unrecognized code 1210.5 (covered 0)
+    ✘ Zhipu safe code and Chinese semantic normalization rejects unsafe/unrecognized code NaN (covered 0)
+    ✘ Zhipu safe code and Chinese semantic normalization rejects unsafe/unrecognized code Infinity (covered 0)
+    ✘ Zhipu safe code and Chinese semantic normalization rejects unsafe/unrecognized code 1210-secret (covered 0)
+    ✘ Zhipu safe code and Chinese semantic normalization rejects unsafe/unrecognized code private-secret (covered 0)
+    ✘ Zhipu safe code and Chinese semantic normalization rejects unsafe/unrecognized code {} (covered 0)
+    ✘ Zhipu safe code and Chinese semantic normalization rejects unsafe/unrecognized code null (covered 0)
+  openai-compatible-caller.test.ts
+    ✘ Responses → Chat Completions 仅含推理字段的上游消息保持空正文 Responses 占位，不把推理正文伪装成答案 (covered 0)
+    ✘ Responses → Chat Completions DeepSeek Responses 保留推理开关，但不转发智谱专用 tool_stream (covered 0)
+    ✘ Responses → Chat Completions deepseek：按厂商合同过滤顶层 thinking/tool_stream (covered 0)
+    ✘ Responses → Chat Completions zhipu：按厂商合同过滤顶层 thinking/tool_stream (covered 0)
+    ✘ Responses → Chat Completions kimi：按厂商合同过滤顶层 thinking/tool_stream (covered 0)
+    ✘ Responses → Chat Completions deepseek/deepseek-v4-flash：reasoning_effort=low 归一化为 low (covered 0)
+    ✘ Responses → Chat Completions deepseek/deepseek-v4-flash：reasoning_effort=medium 归一化为 medium (covered 0)
+    ✘ Responses → Chat Completions deepseek/deepseek-v4-flash：reasoning_effort=xhigh 归一化为 xhigh (covered 0)
+    ✘ Responses → Chat Completions deepseek/deepseek-v4-flash：reasoning_effort=minimal 归一化为 undefined (covered 0)
+    ✘ Responses → Chat Completions zhipu/glm-5.3：reasoning_effort=minimal 归一化为 minimal (covered 0)
+    ✘ Responses → Chat Completions zhipu/glm-5.3：reasoning_effort=none 归一化为 none (covered 0)
+    ✘ Responses → Chat Completions zhipu/glm-5.3：reasoning_effort=invalid 归一化为 undefined (covered 0)
+    ✘ Responses → Chat Completions zhipu/glm-4.7：reasoning_effort=max 归一化为 undefined (covered 0)
+    ✘ Responses → Chat Completions kimi/k3：reasoning_effort=low 归一化为 low (covered 0)
+    ✘ Responses → Chat Completions kimi/k3-256k：reasoning_effort=medium 归一化为 high (covered 0)
+    ✘ Responses → Chat Completions kimi/kimi-k3：reasoning_effort=xhigh 归一化为 max (covered 0)
+    ✘ Responses → Chat Completions kimi/k3：reasoning_effort=none 归一化为 undefined (covered 0)
+    ✘ Responses → Chat Completions kimi/kimi-k2.6：reasoning_effort=high 归一化为 undefined (covered 0)
+    ✘ Responses → Chat Completions 推理扩展缺失、空值、false 与非法 tool_stream 均按原合同处理 (covered 0)
+    ✘ Responses → Chat Completions 生产失败形状：108 条消息、23 个工具、51 组调用结果不丢推理字段 (covered 0)
+    ✘ Responses → Chat Completions DeepSeek 工具续轮为缺失推理字段的 assistant 补空字符串且保留真实值 (covered 0)
+    ✘ Responses → Chat Completions DeepSeek 无工具时不补 reasoning_content (covered 0)
+    ✘ Responses → Chat Completions Kimi K3 工具请求补空 reasoning_content，但不扩到 K2.6 (covered 0)
+    ✘ Responses → Chat Completions GLM 工具历史缺少真实推理时退出保留式思考并重新开始 (covered 0)
+    ✘ Responses → Chat Completions GLM 无工具时不因缺少 reasoning_content 改写思考策略 (covered 0)
+    ✘ Responses → Chat Completions 生产故障形状：212 条消息、23 个工具、103 组续轮全部补齐推理字段 (covered 0)
+    ✘ Responses → Chat Completions Codex 的 namespace 与托管 web_search 不得伪装成空名称 Chat 工具 (covered 0)
+    ✘ Responses → Chat Completions Anthropic messages 的 system 只注入一次并保留工具定义 (covered 0)
+    ✘ Responses → Chat Completions Claude Web Search 第二轮完整转换 tool_use、tool_result 与 tool_choice (covered 0)
+    ✘ Responses → Chat Completions Claude MCP 第二轮保留并行调用 ID 与对应结果 (covered 0)
+    ✘ Responses → Chat Completions DeepSeek Vision：Anthropic Messages 图片块转换为上游多模态内容 (covered 0)
+    ✘ Responses → Chat Completions DeepSeek Vision：Responses 保留 image_url detail 与 file_id (covered 0)
+    ✓ OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败 (killed 4)
+    ~ OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses (covered 99)
+    ✓ OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream (killed 1)
+    ~ OpenAI-compatible HTTP caller 400 诊断不记录推理正文，并只反映实际发往 DeepSeek 的顶层字段 (covered 135)
+    ~ OpenAI-compatible HTTP caller POOL20-045：Kimi 顶层 cached_tokens 进入缓存分项且不重复加入真实 Token (covered 99)
+    ~ OpenAI-compatible HTTP caller 非流式 HTTP 200 缺少 message 或有效 Usage 时拒绝伪成功 (covered 99)
+    ~ OpenAI-compatible HTTP caller 429 保留厂商限流语义：The engine is overloaded. Please retry later. (covered 99)
+    ~ OpenAI-compatible HTTP caller 429 保留厂商限流语义：Too many concurrent requests for this account. (covered 99)
+    ~ OpenAI-compatible HTTP caller 429 保留厂商限流语义：The 5-hour rolling window quota has been exhausted. (covered 99)
+    ~ OpenAI-compatible HTTP caller 429 保留厂商限流语义：Monthly quota exhausted. (covered 99)
+    ~ OpenAI-compatible HTTP caller POOL20-048：Messages 转换后的 400 生成脱敏证据与工具 Schema issue (covered 152)
+    ~ OpenAI-compatible HTTP caller POOL20-048：非 JSON 400 生成通用诊断，未知 code/type 不落 Outcome (covered 152)
+    ~ OpenAI-compatible HTTP caller 智谱业务码 1211 映射为统一信号 CONFIGURATION_ERROR (covered 99)
+    ~ OpenAI-compatible HTTP caller 智谱业务码 1308 映射为统一信号 QUOTA_EXHAUSTED (covered 99)
+    ~ OpenAI-compatible HTTP caller 智谱业务码 1310 映射为统一信号 QUOTA_EXHAUSTED (covered 99)
+    ~ OpenAI-compatible HTTP caller 智谱业务码 1309 映射为统一信号 PLAN_EXPIRED (covered 99)
+    ~ OpenAI-compatible HTTP caller 智谱业务码 1311 映射为统一信号 MODEL_UNAUTHORIZED (covered 99)
+    ~ OpenAI-compatible HTTP caller 智谱业务码 1305 映射为统一信号 TECHNICAL_FAILURE (covered 99)
+    ~ OpenAI-compatible HTTP caller Kimi 只按已验证的通用字段映射，不猜测业务码 (covered 99)
+    ~ OpenAI-compatible HTTP caller Kimi 403 套餐额度耗尽不得误判为凭证失效 (covered 99)
+    ~ OpenAI-compatible HTTP caller Kimi 403 五小时窗口耗尽返回限流信号和厂商恢复时间 (covered 99)
+    ~ OpenAI-compatible HTTP caller Retry-After HTTP 日期和非法恢复时间都有稳定边界 (covered 99)
+    ~ OpenAI-compatible HTTP caller 流式聚合文本、分片工具参数和最终 Usage，供 Gateway 输出 Responses SSE (covered 99)
+    ~ OpenAI-compatible HTTP caller 收到上游 SSE 事件即回调，不等待完整响应 (covered 99)
+    ~ OpenAI-compatible HTTP caller 首字节超时归一化为 504，不透传网络异常正文 (covered 99)
+    ~ OpenAI-compatible HTTP caller 29.9 秒首字节继续成功，Kimi 30 秒后首字节使用独立门限 (covered 99)
+    ~ OpenAI-compatible HTTP caller Kimi 超过 120 秒首字节门限仍稳定记录 FIRST_BYTE_TIMEOUT (covered 99)
+    ~ OpenAI-compatible HTTP caller 上游真实 504 保持 UPSTREAM_HTTP，不伪装成 Gateway 主动超时 (covered 99)
+    ~ OpenAI-compatible HTTP caller 流式空闲超时发生在已提交后，保留首字节与失败层 (covered 99)
+    ~ OpenAI-compatible HTTP caller 智谱 Coding Plan 资源首块后空闲超过 45 秒但在策略门限内恢复时请求成功 (covered 99)
+    ~ OpenAI-compatible HTTP caller 智谱 Coding Plan 资源首块后连续超过 120 秒无数据时记录 STREAM_IDLE_TIMEOUT (covered 99)
+    ~ OpenAI-compatible HTTP caller DeepSeek 与 Kimi 资源仍按 45 秒流式空闲门限触发 STREAM_IDLE_TIMEOUT (covered 99)
+    ~ OpenAI-compatible HTTP caller 请求总时长独立于首字节，在非流式解析阶段归一化为 504 (covered 99)
+    ~ OpenAI-compatible HTTP caller 客户端取消已提交的流时标记 CLIENT，禁止切换上游 (covered 99)
+    ~ OpenAI-compatible HTTP caller SSE 使用 CRLF 且按单字节切片时仍能识别事件边界 (covered 99)
+    ~ OpenAI-compatible HTTP caller 缓冲流收到 delta 后上游中断仍 committed=false，并保留 ESTIMATED usage (covered 99)
+    ~ OpenAI-compatible HTTP caller 没有 [DONE] 的上游 EOF 视为提交前中断 (covered 99)
+    ~ OpenAI-compatible HTTP caller 有 [DONE] 但缺最终 usage 仍视为提交前不完整流 (covered 99)
+    ~ OpenAI-compatible HTTP caller 流式 usage:null/空对象不算最终 Usage (covered 99)
+    ~ OpenAI-compatible HTTP caller 任一非 [DONE] SSE data JSON 损坏时立即按缓冲流失败 (covered 99)
+    ~ OpenAI-compatible HTTP caller 缺少资源凭证时在 fetch 前失败；智谱使用官方默认 Base URL (covered 99)
+    ✘ 资源凭证解析 优先解密资源密文；无密文时兼容回退厂商环境变量 (covered 0)
+    ✘ 资源凭证解析 兼容 PostgreSQL jsonb 返回的密文对象 (covered 0)
+    ✘ 资源凭证解析 密文损坏时不扩大为环境级凭证 (covered 0)
+  upstream-error-evidence.test.ts
+    ✘ upstream error evidence 推理扩展只记录顶层字段存在性，不记录 reasoning 正文 (covered 0)
+    ~ upstream error evidence 只保留白名单错误元组，不保存 raw message、Secret 或业务字段 (covered 42)
+    ~ upstream error evidence 诊断 hash 只随安全错误元组或结构变化，不随 raw message 变化 (covered 51)
+    ~ upstream error evidence 未知业务型 code/type/param 全部 fail-closed (covered 53)
+    ✘ upstream error evidence 摘要工具调用配对与异常类型，未知字符串统一收敛 (covered 0)
+    ✘ upstream error evidence 用固定 issue code 定位函数名与 parameters 结构错误 (covered 0)
+    ✘ upstream error evidence 超大请求计数有界并标记 overflow (covered 0)
+    ✘ upstream error evidence 未知内容块、非对象工具和超深 Schema 都只落固定摘要 (covered 0)
+    ✘ upstream error evidence 工具结构反例：missing function (covered 0)
+    ✘ upstream error evidence 工具结构反例：parameters not object (covered 0)
+    ✘ upstream error evidence 工具结构反例：properties not object (covered 0)
+    ✘ upstream error evidence 工具结构反例：required not array (covered 0)
+    ✘ upstream error evidence 工具结构反例：required missing property (covered 0)
+    ✘ upstream error evidence 固定顶层字段、content kind 和无 stream_options 边界 (covered 0)
+    ~ upstream error evidence 未知 Provider 只影响安全 hash，不进入证据字段 (covered 51)
+    ~ upstream error evidence 安全 canonical hash 锁定消息规范化和 Provider 枚举 (covered 77)
+    ✘ upstream error evidence parameters 精确边界：no root type (covered 0)
+    ✘ upstream error evidence parameters 精确边界：no properties (covered 0)
+    ✘ upstream error evidence parameters 精确边界：mixed required types (covered 0)
+    ✘ upstream error evidence parameters 精确边界：some required missing (covered 0)
+    ✘ upstream error evidence 非字符串函数名不能通过正则强制转换 (covered 0)
+
+[NoCoverage] StringLiteral
+src/model-image-capability.ts:49:91
+-         for (const value of item.value) stack.push({ value, kind: item.kind === "request" ? "message" : item.kind });
++         for (const value of item.value) stack.push({ value, kind: item.kind === "request" ? "" : item.kind });
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:34:20
+-     if (converted && block.type === "file" && typeof block.file_id === "string") return `file:${block.file_id}`;
++     if (converted && true && typeof block.file_id === "string") return `file:${block.file_id}`;
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 61 more tests!
+
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:34:45
+-     if (converted && block.type === "file" && typeof block.file_id === "string") return `file:${block.file_id}`;
++     if (converted && block.type === "file" && true) return `file:${block.file_id}`;
+Tests ran:
+    POOL20-054 image admission and lossless forwarding responses unknown model retains its images instead of being rejected as text-only
+    CQA-04 image references and multiplicity retains file images and inspects Responses output, system and internal envelope
+
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:49:65
+-         for (const value of item.value) stack.push({ value, kind: item.kind === "request" ? "message" : item.kind });
++         for (const value of item.value) stack.push({ value, kind: true ? "message" : item.kind });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 72 more tests!
+
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:49:65
+-         for (const value of item.value) stack.push({ value, kind: item.kind === "request" ? "message" : item.kind });
++         for (const value of item.value) stack.push({ value, kind: false ? "message" : item.kind });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 72 more tests!
+
+
+[Survived] EqualityOperator
+src/model-image-capability.ts:49:65
+-         for (const value of item.value) stack.push({ value, kind: item.kind === "request" ? "message" : item.kind });
++         for (const value of item.value) stack.push({ value, kind: item.kind !== "request" ? "message" : item.kind });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 72 more tests!
+
+
+[Survived] StringLiteral
+src/model-image-capability.ts:49:79
+-         for (const value of item.value) stack.push({ value, kind: item.kind === "request" ? "message" : item.kind });
++         for (const value of item.value) stack.push({ value, kind: item.kind === "" ? "message" : item.kind });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 72 more tests!
+
+
+[Survived] StringLiteral
+src/model-image-capability.ts:56:47
+-         stack.push({ value: block.system, kind: "block" }, { value: block.responsesRequest, kind: "request" });
++         stack.push({ value: block.system, kind: "" }, { value: block.responsesRequest, kind: "request" });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 78 more tests!
+
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:59:9
+-       if (item.kind === "message") {
++       if (true) {
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 72 more tests!
+
+
+[Survived] StringLiteral
+src/model-image-capability.ts:60:48
+-         stack.push({ value: block.content, kind: "block" });
++         stack.push({ value: block.content, kind: "" });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 72 more tests!
+
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:61:11
+-         if (block.type === "function_call_output") stack.push({ value: block.output, kind: "block" });
++         if (true) stack.push({ value: block.output, kind: "block" });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 72 more tests!
+
+
+[Survived] StringLiteral
+src/model-image-capability.ts:61:90
+-         if (block.type === "function_call_output") stack.push({ value: block.output, kind: "block" });
++         if (block.type === "function_call_output") stack.push({ value: block.output, kind: "" });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller POOL20-045：Kimi 顶层 cached_tokens 进入缓存分项且不重复加入真实 Token
+  and 36 more tests!
+
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:64:11
+-         if (block.type === "tool_use" || block.type === "function_call") continue;
++         if (false) continue;
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 69 more tests!
+
+
+[Survived] LogicalOperator
+src/model-image-capability.ts:64:11
+-         if (block.type === "tool_use" || block.type === "function_call") continue;
++         if (block.type === "tool_use" && block.type === "function_call") continue;
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 69 more tests!
+
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:64:11
+-         if (block.type === "tool_use" || block.type === "function_call") continue;
++         if (false || block.type === "function_call") continue;
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 69 more tests!
+
+
+[Survived] StringLiteral
+src/model-image-capability.ts:64:26
+-         if (block.type === "tool_use" || block.type === "function_call") continue;
++         if (block.type === "" || block.type === "function_call") continue;
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 69 more tests!
+
+
+[Survived] ConditionalExpression
+src/model-image-capability.ts:64:40
+-         if (block.type === "tool_use" || block.type === "function_call") continue;
++         if (block.type === "tool_use" || false) continue;
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 68 more tests!
+
+
+[Survived] StringLiteral
+src/model-image-capability.ts:64:55
+-         if (block.type === "tool_use" || block.type === "function_call") continue;
++         if (block.type === "tool_use" || block.type === "") continue;
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 68 more tests!
+
+
+[Survived] StringLiteral
+src/model-image-capability.ts:65:37
+-         for (const key of ["content", "output"]) stack.push({ value: block[key], kind: "block" });
++         for (const key of ["content", ""]) stack.push({ value: block[key], kind: "block" });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 68 more tests!
+
+
+[Survived] StringLiteral
+src/model-image-capability.ts:65:86
+-         for (const key of ["content", "output"]) stack.push({ value: block[key], kind: "block" });
++         for (const key of ["content", "output"]) stack.push({ value: block[key], kind: "" });
+Tests ran:
+    OpenAI-compatible HTTP caller 非流式非法 JSON 与流式空 body 分别归一化为协议失败
+    OpenAI-compatible HTTP caller 非流式真实 HTTP 载荷使用资源模型和凭证，并把 tool_calls/usage 转回 Responses
+    OpenAI-compatible HTTP caller Kimi K3 回归：保留 reasoning_effort、图片和工具，剔除不支持的 thinking/tool_stream
+  and 68 more tests!
+
+
+[Survived] StringLiteral
+src/upstream-error-evidence.ts:51:60
+-     const imageMessage = normalized.replace(/(\d)\.(?=\d)/g, "$1");
++     const imageMessage = normalized.replace(/(\d)\.(?=\d)/g, "");
+Tests ran:
+    OpenAI-compatible HTTP caller 400 诊断不记录推理正文，并只反映实际发往 DeepSeek 的顶层字段
+    OpenAI-compatible HTTP caller POOL20-048：Messages 转换后的 400 生成脱敏证据与工具 Schema issue
+    OpenAI-compatible HTTP caller POOL20-048：非 JSON 400 生成通用诊断，未知 code/type 不落 Outcome
+  and 43 more tests!
+
+
+[Survived] Regex
+src/upstream-error-evidence.ts:52:7
+-     if (/model[^.。\n]{0,100}(?:does not support|doesn't support|cannot (?:process|accept))[^.。\n]{0,50}(?:image|vision)|(?:image|vision)[^.。\n]{0,60}(?:not supported|unsupported)[^.。\n]{0,60}model/.test(imageMessage)
++     if (/model[^.。\n]{0,100}(?:does not support|doesn't support|cannot (?:process|accept))[^.。\n](?:image|vision)|(?:image|vision)[^.。\n]{0,60}(?:not supported|unsupported)[^.。\n]{0,60}model/.test(imageMessage)
+Tests ran:
+    OpenAI-compatible HTTP caller 400 诊断不记录推理正文，并只反映实际发往 DeepSeek 的顶层字段
+    OpenAI-compatible HTTP caller POOL20-048：Messages 转换后的 400 生成脱敏证据与工具 Schema issue
+    OpenAI-compatible HTTP caller POOL20-048：非 JSON 400 生成通用诊断，未知 code/type 不落 Outcome
+  and 43 more tests!
+
+
+[Survived] ConditionalExpression
+src/upstream-error-evidence.ts:61:9
+-       if (code !== null && ["1210", "1212", "1213", "1214", "1215"].includes(code)) return "INVALID_PARAMETER";
++       if (true) return "INVALID_PARAMETER";
+Tests ran:
+    upstream error evidence 安全 canonical hash 锁定消息规范化和 Provider 枚举
+    POOL20-054 image admission and lossless forwarding chat unknown model retains its images instead of being rejected as text-only
+    POOL20-054 image admission and lossless forwarding messages unknown model retains its images instead of being rejected as text-only
+  and 9 more tests!
+
+
+[Survived] LogicalOperator
+src/upstream-error-evidence.ts:61:9
+-       if (code !== null && ["1210", "1212", "1213", "1214", "1215"].includes(code)) return "INVALID_PARAMETER";
++       if (code !== null || ["1210", "1212", "1213", "1214", "1215"].includes(code)) return "INVALID_PARAMETER";
+Tests ran:
+    upstream error evidence 安全 canonical hash 锁定消息规范化和 Provider 枚举
+    POOL20-054 image admission and lossless forwarding chat unknown model retains its images instead of being rejected as text-only
+    POOL20-054 image admission and lossless forwarding messages unknown model retains its images instead of being rejected as text-only
+  and 9 more tests!
+
+
+[Survived] ConditionalExpression
+src/upstream-error-evidence.ts:61:9
+-       if (code !== null && ["1210", "1212", "1213", "1214", "1215"].includes(code)) return "INVALID_PARAMETER";
++       if (true && ["1210", "1212", "1213", "1214", "1215"].includes(code)) return "INVALID_PARAMETER";
+Tests ran:
+    upstream error evidence 安全 canonical hash 锁定消息规范化和 Provider 枚举
+    POOL20-054 image admission and lossless forwarding chat unknown model retains its images instead of being rejected as text-only
+    POOL20-054 image admission and lossless forwarding messages unknown model retains its images instead of being rejected as text-only
+  and 9 more tests!
+
+
+[Survived] ConditionalExpression
+src/upstream-error-evidence.ts:62:9
+-       if (/(?:参数|字段)[^。\n]{0,40}(?:有误|非法|无效|错误|缺失)/.test(message)) return "INVALID_PARAMETER";
++       if (true) return "INVALID_PARAMETER";
+Tests ran:
+    upstream error evidence 安全 canonical hash 锁定消息规范化和 Provider 枚举
+    POOL20-054 image admission and lossless forwarding chat unknown model retains its images instead of being rejected as text-only
+    POOL20-054 image admission and lossless forwarding messages unknown model retains its images instead of being rejected as text-only
+  and 2 more tests!
+
+
+[Survived] Regex
+src/upstream-error-evidence.ts:64:7
+-     if (/(context|token).*(length|limit|maximum)|maximum context/.test(normalized)) {
++     if (/(context|token).(length|limit|maximum)|maximum context/.test(normalized)) {
+Tests ran:
+    OpenAI-compatible HTTP caller 400 诊断不记录推理正文，并只反映实际发往 DeepSeek 的顶层字段
+    OpenAI-compatible HTTP caller POOL20-048：Messages 转换后的 400 生成脱敏证据与工具 Schema issue
+    OpenAI-compatible HTTP caller POOL20-048：非 JSON 400 生成通用诊断，未知 code/type 不落 Outcome
+  and 18 more tests!
+
+
+Ran 11.42 tests per mutant on average.
+----------------------------|------------------|----------|-----------|------------|----------|----------|
+                            | % Mutation score |          |           |            |          |          |
+File                        |  total | covered | # killed | # timeout | # survived | # no cov | # errors |
+----------------------------|--------|---------|----------|-----------|------------|----------|----------|
+All files                   |  90.97 |   91.28 |      271 |         1 |         26 |        1 |        0 |
+ model-image-capability.ts  |  89.69 |   90.16 |      173 |         1 |         19 |        1 |        0 |
+ upstream-error-evidence.ts |  93.33 |   93.33 |       98 |         0 |          7 |        0 |        0 |
+----------------------------|--------|---------|----------|-----------|------------|----------|----------|
+[32m14:00:14 (59350) INFO MutationTestReportHelper[39m Final mutation score of 90.97 is greater than or equal to break threshold 80
+[32m14:00:14 (59350) INFO JsonReporter[39m Your report can be found at: file:///Users/mac/.codex/worktrees/pool053-054/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/V4/Evidence/POOL053-054-20260907/V14/mutation-r2.json
+[32m14:00:14 (59350) INFO MutationTestExecutor[39m Done in 55 seconds.

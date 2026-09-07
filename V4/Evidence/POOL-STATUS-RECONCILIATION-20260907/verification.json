@@ -1,0 +1,162 @@
+{
+  "date": "2026-09-07",
+  "local_head": "4cea87f2e5928d7486282a934c7c6c0084f241de",
+  "receipt_source": "V4/Evidence/USAGE-OVERVIEW-COMPACT-20260906/production-receipt.json",
+  "receipted_release_commit": "b29df679283842d7503aab0991872b63c23be21b",
+  "release_evidence_boundary": "Historical deployment receipt; current running commit not independently read over SSH. Git ancestry confirms inclusion, not a new full production acceptance.",
+  "repair_groups": [
+    {
+      "issues": [
+        "POOL20-025",
+        "POOL20-026",
+        "POOL20-027",
+        "POOL20-028",
+        "POOL20-029",
+        "POOL20-030",
+        "POOL20-031",
+        "POOL20-032",
+        "POOL20-033",
+        "POOL20-034",
+        "POOL20-035"
+      ],
+      "commits": [
+        {
+          "commit": "0107df2be6f542140e3059a1470d770c4dcce82f",
+          "subject": "修复：闭合首组六项部署后测试问题",
+          "ancestor_of_receipted_release": true
+        },
+        {
+          "commit": "75654b87c88ab6d7475c3d472e0a93583d864727",
+          "subject": "修复 2.0 调度与计价生命周期解释闭环",
+          "ancestor_of_receipted_release": true
+        },
+        {
+          "commit": "a2e91daf0dc2d0b19d8e1ab5773ea4a2c68567d9",
+          "subject": "修复：迁移编号冲突并恢复兼容回归",
+          "ancestor_of_receipted_release": true
+        }
+      ]
+    },
+    {
+      "issues": [
+        "POOL20-036",
+        "POOL20-037",
+        "POOL20-038",
+        "POOL20-039",
+        "POOL20-040",
+        "POOL20-041",
+        "POOL20-042",
+        "POOL20-043",
+        "POOL20-044"
+      ],
+      "commits": [
+        {
+          "commit": "3858c6e94e1dae58f4a4e7a0bbcb573fba5440f8",
+          "subject": "修复：闭合2.1测试问题036至044",
+          "ancestor_of_receipted_release": true
+        },
+        {
+          "commit": "72cef647d2ea722c6a960a8137b010552b0ea90a",
+          "subject": "修复：保持经营金额汇总精度",
+          "ancestor_of_receipted_release": true
+        }
+      ]
+    },
+    {
+      "issues": [
+        "POOL20-045",
+        "POOL20-046",
+        "POOL20-047"
+      ],
+      "commits": [
+        {
+          "commit": "970e30e0ad7db1ef871b3b5e7014313bfd4aac07",
+          "subject": "修复：完成 POOL20-045 至 047 本地整改",
+          "ancestor_of_receipted_release": true
+        },
+        {
+          "commit": "869e3d6dab1072cf27b98f0d02223f9c38f43ac5",
+          "subject": "修复：关闭 V1.4 审核发现的预算双写与币种展示问题",
+          "ancestor_of_receipted_release": true
+        }
+      ]
+    },
+    {
+      "issues": [
+        "POOL20-048"
+      ],
+      "commits": [
+        {
+          "commit": "f7c9164da83cb4da57248f204142ae4e258b0823",
+          "subject": "修复：补齐上游四百错误脱敏诊断证据",
+          "ancestor_of_receipted_release": true
+        },
+        {
+          "commit": "e50754c4bdeafafd32fa35fcba0310438414e4bd",
+          "subject": "审核：关闭诊断证据门禁与实库验证",
+          "ancestor_of_receipted_release": true
+        }
+      ]
+    },
+    {
+      "issues": [
+        "POOL20-049"
+      ],
+      "commits": [
+        {
+          "commit": "d75d39b8f75c4f8a77794d5384af00b89c019f6c",
+          "subject": "fix: 贯通新多模态模型授权与计费链路",
+          "ancestor_of_receipted_release": true
+        }
+      ]
+    },
+    {
+      "issues": [
+        "POOL20-050"
+      ],
+      "commits": [
+        {
+          "commit": "06eaa871c39f34e593f6a750232e37208c0fb283",
+          "subject": "修复：为 Claude K3 Messages 流增加保活",
+          "ancestor_of_receipted_release": true
+        }
+      ]
+    },
+    {
+      "issues": [
+        "POOL20-051"
+      ],
+      "commits": [
+        {
+          "commit": "16912a51d88433208d6dddb45ffb821b632142b0",
+          "subject": "修复：纠正用量总览独立事实与模型守恒",
+          "ancestor_of_receipted_release": true
+        }
+      ]
+    },
+    {
+      "issues": [
+        "POOL20-052"
+      ],
+      "commits": [
+        {
+          "commit": "6c258bdad5319e77fc569fdc4dd6fb40687b4e76",
+          "subject": "修复：批量模型授权改为增量发布",
+          "ancestor_of_receipted_release": true
+        }
+      ]
+    }
+  ],
+  "pool053_live_check": {
+    "url": "https://ic.qianliuai.com/usage?tab=overview&anchor=2026-09-06T04%3A00%3A00.000Z&period=TODAY",
+    "actual_day": "2026-09-07",
+    "selected_day": "2026-09-06",
+    "period": "TODAY",
+    "displayed_from": "2026-09-06 00:00:00",
+    "displayed_to_exclusive": "2026-09-07 00:00:00",
+    "generated_at_before_reselect": "2026-09-07 13:15:59",
+    "generated_at_after_reselect": "2026-09-07 13:15:59",
+    "result": "STILL_REPRODUCIBLE",
+    "method": "Authenticated production Chrome UI: changed date via day control, selected TODAY, then selected TODAY again; no production writes."
+  }
+}

@@ -1,0 +1,12 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/apps/web
+
+ ✓ src/pages/RequestDrilldown.test.tsx (1 test) 157ms
+ ✓ src/components/usage/UsageOverviewRange.test.tsx (2 tests) 360ms
+ ✓ src/pages/Dashboard.test.tsx (14 tests) 329ms
+ ✓ src/components/usage/UsageOverviewPanel.test.tsx (11 tests) 684ms
+
+ Test Files  4 passed (4)
+      Tests  28 passed (28)
+   Start at  13:34:51
+   Duration  3.64s (transform 418ms, setup 1.06s, collect 1.18s, tests 1.53s, environment 2.63s, prepare 2.64s)
