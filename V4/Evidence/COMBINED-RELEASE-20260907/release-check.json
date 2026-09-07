@@ -1,0 +1,59 @@
+{
+  "candidate": "2b90de19d3d58b175599449613ce31f5b59d3638",
+  "tree": "080985e7c8a68f9f9eabdbd36c99b81ec5dc8723",
+  "expected_source": "a37de1a5c29e30aeb1d7aa84cbffadd331e22115",
+  "migration": "0065_principal_accounting_assignment",
+  "reviewed_paths_sha256": "433c7052c7cdc7cda94ea83f8c566ddc4e7a09a9e889c7de3d544af2d945bed7",
+  "reviewed_paths": 123,
+  "checks": [
+    {
+      "command": [
+        "bash",
+        "-n",
+        "deploy/scripts/release-combined-20260907-mac-mini.sh"
+      ],
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "command": [
+        "bash",
+        "deploy/scripts/release-combined-20260907-mac-mini.sh",
+        "--check-contract"
+      ],
+      "exit": 0,
+      "output": "PASS: syntax only; production has not been changed\n"
+    },
+    {
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "a37de1a5c29e30aeb1d7aa84cbffadd331e22115",
+        "2b90de19d3d58b175599449613ce31f5b59d3638"
+      ],
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--quiet",
+        "a37de1a5c29e30aeb1d7aa84cbffadd331e22115..2b90de19d3d58b175599449613ce31f5b59d3638",
+        "--",
+        "deploy/compose.yaml",
+        "deploy/compose.target.yaml",
+        "deploy/caddy",
+        "deploy/postgres-init",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "packages/database/migrations"
+      ],
+      "exit": 0,
+      "output": ""
+    }
+  ],
+  "scope": "Static exact object/path/ancestry/topology checks. No production execution."
+}

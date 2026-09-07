@@ -1,0 +1,46 @@
+[
+  {
+    "suite": "database",
+    "exit": 0,
+    "command": [
+      "../../node_modules/.bin/vitest",
+      "run",
+      "--config",
+      "../../vitest.config.ts",
+      "src/__tests-integration__/operating-analysis.integration.test.ts",
+      "src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts",
+      "src/__tests-integration__/principal-attribution-backfill.integration.test.ts",
+      "--maxWorkers=1",
+      "--no-file-parallelism"
+    ]
+  },
+  {
+    "suite": "control-api",
+    "exit": 0,
+    "command": [
+      "../../node_modules/.bin/vitest",
+      "run",
+      "--config",
+      "../../vitest.config.ts",
+      "src/__tests-integration__/pool043-operating-bill-accounts.test.ts",
+      "--maxWorkers=1",
+      "--no-file-parallelism"
+    ]
+  },
+  {
+    "suite": "gateway",
+    "exit": 0,
+    "command": [
+      "../../node_modules/.bin/vitest",
+      "run",
+      "--config",
+      "../../vitest.config.ts",
+      "src/__tests-integration__/w08-e2e.test.ts",
+      "src/__tests-integration__/w09-zhipu-e2e.test.ts",
+      "src/pipeline/upstream-error-diagnostic.test.ts",
+      "src/pipeline/history-truncation.test.ts",
+      "--maxWorkers=1",
+      "--no-file-parallelism"
+    ]
+  }
+]

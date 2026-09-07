@@ -1,0 +1,14 @@
+{
+  "tests": {
+    "database": 21,
+    "control-api": 5,
+    "gateway": 45,
+    "web": 53,
+    "adapters": 204
+  },
+  "total": 328,
+  "six_package_typecheck": "PASS",
+  "web_build": "PASS",
+  "source_diff_check": "PASS",
+  "inherited_evidence_note": "Historical logs from the operating-bill parent contain whitespace warnings and are preserved byte-for-byte; no new source whitespace errors."
+}

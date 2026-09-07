@@ -1,0 +1,14 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests) 12170ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配  454ms
+ ✓ src/__tests-integration__/principal-attribution-backfill.integration.test.ts (4 tests) 3233ms
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (5 tests) 5695ms
+   ✓ 经营分析真实数据链 > 混合未知计量时保留已记录 Token、YTD 与峰值参考值，并标明不完整  320ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  576ms
+
+ Test Files  3 passed (3)
+      Tests  21 passed (21)
+   Start at  14:31:43
+   Duration  30.97s (transform 2.26s, setup 0ms, collect 7.68s, tests 21.10s, environment 0ms, prepare 1.29s)

@@ -1,0 +1,13 @@
+{
+  "parents": [
+    "5afd318921b05162e532029ecffcb43ba0421a5f",
+    "4b87a266a47494e1c7755a05994e40c91c4c9fcf"
+  ],
+  "merged_tree": "080985e7c8a68f9f9eabdbd36c99b81ec5dc8723",
+  "conflicts": 0,
+  "pool_source_files_verified": 20,
+  "bill_source_files_verified": 24,
+  "last_receipted_production": "a37de1a5c29e30aeb1d7aa84cbffadd331e22115",
+  "migration": "0065_principal_accounting_assignment",
+  "new_migration": false
+}

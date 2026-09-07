@@ -1,0 +1,27 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/apps/web
+
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 471ms
+   ✓ 部门主体账 > 沿用员工表格，待归属引导到使用主体  357ms
+ ✓ src/components/principals/HistoricalAttributionPanel.test.tsx (2 tests) 721ms
+   ✓ 现有负责人部门仅作建议，预览后才能提交确认并保留审核依据  596ms
+ ✓ src/components/usage/UsageOverviewRange.test.tsx (2 tests) 732ms
+   ✓ POOL20-053 explicit range refresh with real Query cache > calendar selects that day; shortcuts return to Shanghai today and keep the selected subject  380ms
+   ✓ POOL20-053 explicit range refresh with real Query cache > repeated shortcuts and returning to a cached period issue fresh requests within 15 seconds  350ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 755ms
+   ✓ 经营分析报表 > 年度实付按 12 个月展开，总计使用后端金额  359ms
+ ✓ src/pages/OperatingBill.test.tsx (10 tests) 1475ms
+   ✓ POOL-025 经营账单 > 展示真实成本口径并可切换经营账单页签  467ms
+ ✓ src/components/usage/UsageOverviewPanel.test.tsx (11 tests) 1710ms
+ ✓ src/components/operating-bill/OperatingAnalysisPartial.test.tsx (3 tests) 209ms
+ ✓ src/pages/RequestDrilldown.pool048.test.tsx (2 tests) 88ms
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 3335ms
+   ✓ POOL-043 经营账单员工账／项目账 > 员工账直接消费后端合计并保留月份、厂商和员工搜索  582ms
+   ✓ POOL-043 经营账单员工账／项目账 > 员工详情按厂商展开模型 alias，再进入真实请求明细  318ms
+   ✓ POOL-043 经营账单员工账／项目账 > 员工详情展示空模型和 unresolved 历史 alias，并支持收起厂商  453ms
+   ✓ POOL-043 经营账单员工账／项目账 > 同一稳定模型跨厂商时独立维护展开状态  473ms
+
+ Test Files  9 passed (9)
+      Tests  53 passed (53)
+   Start at  14:31:43
+   Duration  7.32s (transform 1.61s, setup 4.61s, collect 5.61s, tests 9.49s, environment 9.19s, prepare 2.10s)

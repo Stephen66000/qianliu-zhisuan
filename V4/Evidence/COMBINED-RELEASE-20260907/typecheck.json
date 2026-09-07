@@ -1,0 +1,32 @@
+[
+  {
+    "scope": "packages/contracts",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "scope": "packages/provider-adapters",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "scope": "packages/database",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "scope": "apps/gateway",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "scope": "apps/control-api",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "scope": "apps/web",
+    "exit": 0,
+    "output": ""
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "exit": 2,
+  "stdout": "Current release: /Users/stephen/releases/synthetic-preflight\nCurrent commit: wrong-current-commit\nCandidate: 2b90de19d3d58b175599449613ce31f5b59d3638\nSTOP: expected current commit a37de1a5c29e30aeb1d7aa84cbffadd331e22115. Recheck release scope before continuing.\n",
+  "stderr": "",
+  "result": "PASS: wrong live commit stopped before docker/fetch/write operations in isolated command stubs"
+}
