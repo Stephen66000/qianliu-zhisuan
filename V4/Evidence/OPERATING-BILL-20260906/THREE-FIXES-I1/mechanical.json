@@ -1,0 +1,84 @@
+[
+  {
+    "check": "lint",
+    "command": [
+      "node",
+      "node_modules/eslint/bin/eslint.js",
+      "apps/control-api/src/__tests-integration__/pool043-operating-bill-accounts.test.ts",
+      "apps/control-api/src/principals/accounting-route.ts",
+      "apps/control-api/src/principals/attribution-backfill-route.ts",
+      "apps/web/src/api/operating-analysis.ts",
+      "apps/web/src/components/operating-bill/OperatingAnalysisPartial.test.tsx",
+      "apps/web/src/components/operating-bill/OperatingPlans.tsx",
+      "apps/web/src/components/operating-bill/OperatingProcurement.tsx",
+      "apps/web/src/components/operating-bill/OperatingTrends.tsx",
+      "apps/web/src/components/principals/HistoricalAttributionPanel.test.tsx",
+      "apps/web/src/components/principals/HistoricalAttributionPanel.tsx",
+      "apps/web/src/components/principals/PrincipalAccountingPanel.tsx",
+      "apps/web/src/pages/OperatingBill.tsx",
+      "apps/web/src/pages/OperatingBillDepartments.tsx",
+      "apps/web/src/pages/OperatingBillOverview.tsx",
+      "packages/database/src/__tests-integration__/operating-analysis.integration.test.ts",
+      "packages/database/src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts",
+      "packages/database/src/__tests-integration__/principal-attribution-backfill.integration.test.ts",
+      "packages/database/src/index.ts",
+      "packages/database/src/repositories/operating-analysis-repository.ts",
+      "packages/database/src/repositories/operating-analysis-usage.ts",
+      "packages/database/src/repositories/operating-bill-account-month-lines.ts",
+      "packages/database/src/repositories/principal-accounting.ts",
+      "packages/database/src/repositories/principal-attribution-backfill.ts",
+      "packages/database/src/repositories/usage-aggregate-repository.ts",
+      "--max-warnings=0"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "size",
+    "command": [
+      "node",
+      "scripts/check-source-size.mjs"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "architecture",
+    "command": [
+      "node",
+      "scripts/check-architecture.mjs"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "packages-database-types",
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "packages/database/tsconfig.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "apps-control-api-types",
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "apps/control-api/tsconfig.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "apps-web-types",
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "apps/web/tsconfig.json"
+    ],
+    "exit_code": 0
+  }
+]

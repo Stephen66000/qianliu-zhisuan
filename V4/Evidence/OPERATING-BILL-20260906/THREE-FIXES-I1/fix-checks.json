@@ -1,0 +1,22 @@
+[
+  {
+    "command": [
+      "node",
+      "node_modules/eslint/bin/eslint.js",
+      "packages/database/src/repositories/principal-attribution-backfill.ts",
+      "packages/database/src/__tests-integration__/principal-attribution-backfill.integration.test.ts",
+      "--max-warnings=0"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "packages/database/tsconfig.json"
+    ],
+    "exit_code": 0
+  }
+]
