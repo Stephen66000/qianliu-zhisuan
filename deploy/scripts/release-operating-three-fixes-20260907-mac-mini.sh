@@ -13,8 +13,8 @@ fi
 mode="${1:-deploy}"
 case "$mode" in deploy|--preflight) ;; *) echo 'Usage: bash release-operating-three-fixes-20260907-mac-mini.sh [--preflight|--check-contract]'; exit 2;; esac
 test "$#" -le 1
-candidate=e4a4f87152e8e4f641c85de7c2132533ea0b660b
-tree=ed23a4b617778f0aa290ef38a37a65e10a4584cf
+candidate=1bc26e3d83f3ff688ff0b2fcffae2c8a62b19dd9
+tree=234aff6a8d659840a3d0a38ee37b48648aab47c3
 expected_source=a37de1a5c29e30aeb1d7aa84cbffadd331e22115
 migration=0065_principal_accounting_assignment
 root=/Users/stephen
@@ -71,10 +71,10 @@ echo 'PASS: current release, clean source, topology, migration, health and free 
 if test "$mode" = --preflight; then exit 0; fi
 mkdir "$lock" || { echo 'Deployment lock held'; exit 2; }
 stamp="$(date '+%Y%m%d-%H%M%S')"
-release="$root/releases/qianliu-bill-fixes-e4a4f87-$stamp"
-backup="$root/backups/qianliu-zhisuan/pre-bill-fixes-e4a4f87-$stamp.dump"
-rollback_prefix="qianliu-bill-fixes-e4a4f87-rollback-$stamp"
-log="$root/logs/qianliu-zhisuan/deploy-bill-fixes-e4a4f87-$stamp.log"
+release="$root/releases/qianliu-bill-fixes-1bc26e3-$stamp"
+backup="$root/backups/qianliu-zhisuan/pre-bill-fixes-1bc26e3-$stamp.dump"
+rollback_prefix="qianliu-bill-fixes-1bc26e3-rollback-$stamp"
+log="$root/logs/qianliu-zhisuan/deploy-bill-fixes-1bc26e3-$stamp.log"
 started=0
 frozen=0
 pointer_changed=0
