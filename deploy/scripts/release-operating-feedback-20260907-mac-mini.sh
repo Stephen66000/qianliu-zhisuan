@@ -13,9 +13,9 @@ fi
 mode="${1:-deploy}"
 case "$mode" in deploy|--preflight) ;; *) echo 'Usage: bash release-operating-feedback-20260907-mac-mini.sh [--preflight|--check-contract]'; exit 2;; esac
 test "$#" -le 1
-candidate=4e92e4af7b90ca9d64c56e7a8d13493dd29e24b1
-tree=de2dc05ee7e3bdc8adad194d73ef899def1a33e7
-expected_source=2b90de19d3d58b175599449613ce31f5b59d3638
+candidate=db78a30ef8b6989887baf7cdc1637d3378e8f89e
+tree=19af8a4f83a382eb21b7d220818f8395ced46f60
+expected_source=d8dc77a8d297951c738c13b20d48097a320dec84
 migration=0065_principal_accounting_assignment
 target_migration=0066_subscription_auto_renewal
 root=/Users/stephen
@@ -86,10 +86,10 @@ echo 'PASS: current release, clean source, topology, migration, health and free 
 if test "$mode" = --preflight; then exit 0; fi
 mkdir "$lock" || { echo 'Deployment lock held'; exit 2; }
 stamp="$(date '+%Y%m%d-%H%M%S')"
-release="$root/releases/qianliu-operating-feedback-4e92e4a-$stamp"
-backup="$root/backups/qianliu-zhisuan/pre-operating-feedback-4e92e4a-$stamp.dump"
-rollback_prefix="qianliu-operating-feedback-4e92e4a-rollback-$stamp"
-log="$root/logs/qianliu-zhisuan/deploy-operating-feedback-4e92e4a-$stamp.log"
+release="$root/releases/qianliu-operating-feedback-db78a30-$stamp"
+backup="$root/backups/qianliu-zhisuan/pre-operating-feedback-db78a30-$stamp.dump"
+rollback_prefix="qianliu-operating-feedback-db78a30-rollback-$stamp"
+log="$root/logs/qianliu-zhisuan/deploy-operating-feedback-db78a30-$stamp.log"
 started=0
 frozen=0
 pointer_changed=0
@@ -164,7 +164,7 @@ printf 'START candidate=%s tree=%s previous=%s\n' "$candidate" "$tree" "$previou
 echo '1. Fetch exact reviewed source and verify scope'
 mkdir "$release"
 git -C "$release" init -q
-git -C "$release" remote add origin git@github.com:Stephen66000/qianliu-zhisuan.git
+git -C "$release" remote add origin ssh://git@ssh.github.com:443/Stephen66000/qianliu-zhisuan.git
 GIT_SSH_COMMAND='ssh -o BatchMode=yes' GIT_TERMINAL_PROMPT=0 \
   git -C "$release" fetch --depth 3 origin "$candidate"
 git -C "$release" checkout -q --detach "$candidate"
