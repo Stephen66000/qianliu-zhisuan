@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { get } from "./client";
 
 export interface AnalysisUsageMonth {
+  usageIncomplete?: boolean;
   month: string;
   totalTokens: string | null;
   inputTokens: string | null;
@@ -48,8 +49,10 @@ export interface OperatingAnalysis {
     providerCode: string;
     providerName: string;
     peakTokens: string;
+    historyIncomplete?: boolean;
     months: Array<{
       month: string;
+      usageIncomplete?: boolean;
       totalTokens: string | null;
       inputTokens: string | null;
       outputTokens: string | null;

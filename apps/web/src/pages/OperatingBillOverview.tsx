@@ -15,10 +15,12 @@ import { MonthlyPayments } from "../components/operating-bill/MonthlyPayments";
 export function OperatingBillOverview({
   bill,
   planUtilization,
+  planUtilizationApproximate = false,
   payments,
 }: {
   bill: OperatingBill;
   planUtilization?: string | null;
+  planUtilizationApproximate?: boolean;
   payments?: AnalysisPayment[];
 }) {
   const apiSpends = compatibleProviderAmounts(
@@ -75,7 +77,7 @@ export function OperatingBillOverview({
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map(([label, value]) => (
-          <BillStat key={label} label={label!} value={value!} />
+          <BillStat key={label} label={label!} value={value!} approximate={label === "套餐综合利用率" && value !== "—" && planUtilizationApproximate} />
         ))}
       </div>
       {bill.providers.some(

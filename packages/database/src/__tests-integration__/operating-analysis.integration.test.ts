@@ -38,6 +38,22 @@ const tenant = () => createAnalysisFixture(db);
 const requestTime = async () => (await sql<{at: Date}>`SELECT date_trunc('milliseconds',clock_timestamp()) + interval '1 millisecond' AS at`.execute(db)).rows[0]!.at;
 
 describe("经营分析真实数据链", () => {
+  it("混合未知计量时保留已记录 Token、YTD 与峰值参考值，并标明不完整", async () => {
+    const t = await tenant();
+    await usage(t,t.a,"kimi",200n,new Date("2026-08-02T00:00:00Z"));
+    await usage(t,t.a,"kimi",0n,new Date("2026-08-03T00:00:00Z"),"0","UNKNOWN");
+    await usage(t,t.a,"kimi",300n,new Date("2026-09-02T00:00:00Z"));
+    await usage(t,t.b,"zhipu",100n,new Date("2026-09-02T00:00:00Z"));
+    await usage(t,t.a,"kimi",0n,new Date("2026-09-03T00:00:00Z"),"0","UNKNOWN");
+    const report = await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",new Date("2026-09-06T12:00:00Z"));
+    expect(report.summary).toMatchObject({companyTokens:"400",ytdAverageTokens:"66.67",ytdAverageChange:"166.67",perCapitaTokens:"200.00",perCapitaChange:"0.00",planUtilization:"100.00"});
+    expect(report.months[8]).toMatchObject({totalTokens:"400",usageIncomplete:true});
+    expect(report.months[9]!.totalTokens).toBeNull();
+    const kimi = report.plans.find((p)=>p.providerCode==="kimi")!;
+    expect(kimi).toMatchObject({peakTokens:"300",historyIncomplete:true});
+    expect(kimi.months[7]).toMatchObject({totalTokens:"200",utilization:"66.67",usageIncomplete:true});
+    expect(kimi.months[8]).toMatchObject({totalTokens:"300",utilization:"100.00",usageIncomplete:true});
+  });
   it("YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token", async () => {
     const t = await tenant(),
       finance = new ProviderFinanceRepository(db);

@@ -8,6 +8,7 @@ import {
   analysisMonthUsage,
   analysisRatio,
   loadAnalysisUsage,
+  recordedAnalysisUsage,
 } from "./operating-analysis-usage.js";
 
 interface CashFact {
@@ -124,17 +125,10 @@ export async function loadOperatingAnalysis(
         const usage = facts.usage.filter(
           (row) => row.provider_code === code && row.mode === "CODING_PLAN",
         );
-        const history = new Map<string, string | null>();
-        for (const row of usage) {
-          const prior = history.get(row.month);
-          history.set(
-            row.month,
-            prior === null || Number(row.unknown_count) > 0
-              ? null
-              : addAnalysis([prior ?? "0", row.input, row.output]).toFixed(0),
-          );
-        }
-        const peakTokens = [...history.values()].reduce<string>(
+        const history = new Map([...new Set(usage.map((row) => row.month))].map((month) =>
+          [month, recordedAnalysisUsage(usage.filter((row) => row.month === month))],
+        ));
+        const peakTokens = [...history.values()].map((row) => row.totalTokens).reduce<string>(
           (peak, value) =>
             value !== null && new AnalysisDecimal(value).gt(peak)
               ? value
@@ -147,17 +141,19 @@ export async function loadOperatingAnalysis(
             usage[0]?.provider_name ??
             (code === "kimi" ? "Kimi" : code === "zhipu" ? "智谱" : code),
           peakTokens,
+          historyIncomplete: [...history.values()].some((row) => row.usageIncomplete),
           months: months.map((month) => {
             const rows = usage.filter((row) => row.month === month);
             const totalTokens =
               month > currentMonth
                 ? null
                 : history.has(month)
-                  ? history.get(month)!
+                  ? history.get(month)!.totalTokens
                   : "0";
             return {
               month,
               totalTokens,
+              usageIncomplete: history.get(month)?.usageIncomplete ?? false,
               inputTokens:
                 totalTokens === null
                   ? null

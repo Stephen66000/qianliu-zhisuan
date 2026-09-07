@@ -26,6 +26,13 @@ export const analysisRatio = (value: string | null, base: string | null) =>
     ? null
     : new AnalysisDecimal(value).div(base).mul(100).toFixed(2);
 
+/** Keep recorded usage usable for analysis; missing-only usage is not a known zero. */
+export function recordedAnalysisUsage(rows: MonthlyUsageFact[]) {
+  const usageIncomplete = rows.some((row) => Number(row.unknown_count) > 0);
+  const recorded = addAnalysis(rows.flatMap((row) => [row.input, row.output]));
+  return { usageIncomplete, totalTokens: usageIncomplete && recorded.isZero() ? null : recorded.toFixed(0) };
+}
+
 export async function loadAnalysisUsage(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -90,10 +97,10 @@ export function analysisMonthUsage(
   const start = new Date(`${month}-01T00:00:00+08:00`);
   const future = start > asOf;
   const rows = facts.usage.filter((row) => row.month === month);
-  const complete =
-    !future && rows.every((row) => Number(row.unknown_count) === 0);
+  const recorded = recordedAnalysisUsage(rows);
+  const totalTokens = future ? null : recorded.totalTokens;
   const field = (key: "input" | "output" | "cache" | "employee" | "project") =>
-    complete ? addAnalysis(rows.map((row) => row[key])).toFixed(0) : null;
+    totalTokens !== null ? addAnalysis(rows.map((row) => row[key])).toFixed(0) : null;
   const at = Math.min(monthEnd.getTime() - 1, asOf.getTime());
   const unknownPeople = facts.unknownDeletes.some(
     (row) => row.deleted_at.getTime() > at,
@@ -106,12 +113,11 @@ export function analysisMonthUsage(
             person.created_at.getTime() <= at &&
             (!person.ended_at || person.ended_at.getTime() > at),
         ).length;
-  const totalTokens = complete
-    ? addAnalysis(rows.flatMap((row) => [row.input, row.output])).toFixed(0)
-    : null;
+
   return {
     month,
     totalTokens,
+    usageIncomplete: !future && recorded.usageIncomplete,
     inputTokens: field("input"),
     outputTokens: field("output"),
     cacheTokens: field("cache"),

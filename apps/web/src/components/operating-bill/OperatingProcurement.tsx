@@ -11,11 +11,10 @@ import { analysisPercent } from "./OperatingTrends";
 
 export function OperatingProcurement({ data }: { data: OperatingAnalysis }) {
   const s = data.cashSummary;
-  const utilization = (code: string, index: number) =>
-    analysisPercent(
-      data.plans.find((plan) => plan.providerCode === code)?.months[index]
-        ?.utilization ?? null,
-    );
+  const utilization = (code: string, index: number) => {
+    const plan = data.plans.find((row) => row.providerCode === code);
+    return analysisPercent(plan?.months[index]?.utilization ?? null, false, plan?.historyIncomplete);
+  };
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
