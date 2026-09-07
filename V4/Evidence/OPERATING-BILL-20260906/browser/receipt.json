@@ -1,0 +1,13 @@
+{
+  "source": "isolated PostgreSQL + actual Control API + actual Web",
+  "login": true,
+  "analysisReads": 5,
+  "refresh30Seconds": true,
+  "companyTokensAfter": "201000000",
+  "registeredEmployeeCountAfter": 3,
+  "perCapitaAfter": "67000000.00",
+  "requiredDepartmentValidated": true,
+  "departmentAndOwnerLinked": true,
+  "cardTextFits": true,
+  "pageErrors": []
+}

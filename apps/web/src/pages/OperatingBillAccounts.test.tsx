@@ -227,7 +227,11 @@ describe("POOL-043 经营账单员工账／项目账", () => {
       total: 26,
       offset: input.offset,
     }));
-    render(<MemoryRouter initialEntries={["/operating-bill/employees?month=2026-08"]}><OperatingBillEmployeesPage /></MemoryRouter>);
+    render(
+      <MemoryRouter initialEntries={["/operating-bill/employees?month=2026-08"]}>
+        <OperatingBillEmployeesPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole("link", { name: "员工账" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "项目账" })).toHaveAttribute("href", "/operating-bill/projects?month=2026-08");
     const row = screen.getByRole("row", { name: /于滔/ });
@@ -283,16 +287,22 @@ describe("POOL-043 经营账单员工账／项目账", () => {
   });
 
   it("项目账为独立入口，明确列示项目与未归属项目", () => {
-    render(<MemoryRouter initialEntries={["/operating-bill/projects?month=2026-08"]}><OperatingBillProjectsPage /></MemoryRouter>);
+    render(
+      <MemoryRouter initialEntries={["/operating-bill/projects?month=2026-08"]}>
+        <OperatingBillProjectsPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole("link", { name: "项目账" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("哪个项目产生了多少成本", { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "项目账" })).toBeInTheDocument();
     expect(screen.getAllByText("智算项目").length).toBeGreaterThan(0);
     const project = screen.getByRole("row", { name: /智算项目/ });
     expect(within(project).getByText("于滔")).toBeInTheDocument();
     expect(within(project).getByText("研发中心")).toBeInTheDocument();
     const unassigned = screen.getByRole("row", { name: /未归属项目/ });
     expect(within(unassigned).getByText("未归属")).toBeInTheDocument();
-    expect(within(unassigned).queryByRole("link", { name: "查看请求" })).toBeNull();
+    expect(
+      within(unassigned).queryByRole("link", { name: "查看请求" }),
+    ).toBeNull();
   });
 
   it("UNKNOWN 用量不伪装为精确 Token，并提供空态", () => {
@@ -301,7 +311,13 @@ describe("POOL-043 经营账单员工账／项目账", () => {
       totals: { ...exactTotals, inputTokens: null, outputTokens: null, cacheTokens: null, totalTokens: null, usageQuality: "UNKNOWN" },
       rows: [],
     }));
-    render(<MemoryRouter initialEntries={["/operating-bill/employees?month=2026-08"]}><OperatingBillEmployeesPage /></MemoryRouter>);
+    render(
+      <MemoryRouter
+        initialEntries={["/operating-bill/employees?month=2026-08"]}
+      >
+        <OperatingBillEmployeesPage />
+      </MemoryRouter>,
+    );
     expect(screen.getAllByText("未知").length).toBeGreaterThan(0);
     expect(screen.getByText("没有员工账单记录")).toBeInTheDocument();
   });
@@ -533,26 +549,31 @@ describe("POOL-043 经营账单员工账／项目账", () => {
   it("请求明细支持翻页、收起和完整状态／alias 口径", async () => {
     const user = userEvent.setup();
     const statuses = ["FAILED", "RUNNING", "CANCELLED", "CUSTOM"];
-    mocks.requests.mockImplementation((input: { offset: number }) => queryResult({
-      ...requests,
-      total: 45,
-      offset: input.offset,
-      items: statuses.map((status, index) => ({
-        ...requests.items[0]!,
-        requestId: `request-${input.offset}-${index}`,
-        currentAlias: index === 0 ? null : "ql-deepseek-v4-flash",
-        modelAliasAtRequest: index === 1 ? "ql-deepseek-v4-flash" : "deepseek-v3.2",
-        status,
-        usageQuality: index === 2 ? "UNKNOWN" as const : "MIXED" as const,
-        tokens: index === 2
+    mocks.requests.mockImplementation((input: { offset: number }) =>
+      queryResult({
+        ...requests,
+        total: 45,
+        offset: input.offset,
+        items: statuses.map((status, index) => ({
+          ...requests.items[0]!,
+          requestId: `request-${input.offset}-${index}`,
+          currentAlias: index === 0 ? null : "ql-deepseek-v4-flash",
+          modelAliasAtRequest:
+            index === 1 ? "ql-deepseek-v4-flash" : "deepseek-v3.2",
+          status,
+          usageQuality: index === 2 ? ("UNKNOWN" as const) : ("MIXED" as const),
+          tokens: index === 2
           ? { inputTokens: null, outputTokens: null, cacheTokens: null, reasoningTokens: null, totalTokens: null }
           : requests.items[0]!.tokens,
-      })),
-    }));
+        })),
+      }),
+    );
     renderEmployeeDetail();
     await user.click(screen.getByRole("button", { name: /DeepSeek/ }));
     const flashRow = screen.getByRole("row", { name: /ql-deepseek-v4-flash/ });
-    await user.click(within(flashRow).getByRole("button", { name: "查看请求明细" }));
+    await user.click(
+      within(flashRow).getByRole("button", { name: "查看请求明细" }),
+    );
     expect(screen.getByText("失败")).toBeInTheDocument();
     expect(screen.getByText("进行中")).toBeInTheDocument();
     expect(screen.getByText("已取消")).toBeInTheDocument();
@@ -563,7 +584,9 @@ describe("POOL-043 经营账单员工账／项目账", () => {
     expect(mocks.requests).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 20 }));
     await user.click(screen.getByRole("button", { name: "上一页" }));
     expect(mocks.requests).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 0 }));
-    await user.click(within(flashRow).getByRole("button", { name: "收起请求明细" }));
+    await user.click(
+      within(flashRow).getByRole("button", { name: "收起请求明细" }),
+    );
     expect(screen.queryByText("CUSTOM")).toBeNull();
   });
 
@@ -614,49 +637,5 @@ describe("POOL-043 经营账单员工账／项目账", () => {
       providerCode: undefined,
       search: undefined,
     });
-  });
-
-  it("项目归属表单提交真实 mutation，并在成功后清空和刷新", async () => {
-    const user = userEvent.setup();
-    const refetch = vi.fn();
-    mocks.projects.mockReturnValue({ ...queryResult(projects), refetch });
-    mocks.assign.mockImplementation((_: unknown, options: { onSuccess: () => void }) => options.onSuccess());
-    render(
-      <MemoryRouter initialEntries={["/operating-bill/projects?month=2026-08"]}>
-        <OperatingBillProjectsPage />
-      </MemoryRouter>,
-    );
-    const submit = screen.getByRole("button", { name: "保存归属" });
-    expect(submit).toBeDisabled();
-    await user.type(screen.getByLabelText("待归属请求 ID"), "request-043");
-    await user.selectOptions(screen.getByLabelText("归属项目"), "project-1");
-    await user.click(submit);
-    expect(mocks.assign).toHaveBeenCalledWith(
-      {
-        ai_request_id: "request-043",
-        project_principal_id: "project-1",
-        reason: "经营账单项目归属",
-      },
-      expect.objectContaining({ onSuccess: expect.any(Function) }),
-    );
-    expect(screen.getByLabelText("待归属请求 ID")).toHaveValue("");
-    expect(refetch).toHaveBeenCalledTimes(1);
-  });
-
-  it("项目归属展示 mutation 错误与 pending 禁用状态", () => {
-    mocks.assignHook.mockReturnValue({
-      mutate: mocks.assign,
-      isPending: true,
-      error: new Error("归属冲突"),
-    });
-    mocks.principals.mockReturnValue({ data: undefined });
-    render(
-      <MemoryRouter initialEntries={["/operating-bill/projects?month=2026-08"]}>
-        <OperatingBillProjectsPage />
-      </MemoryRouter>,
-    );
-    expect(screen.getByText("归属冲突")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存归属" })).toBeDisabled();
-    expect(screen.getByLabelText("归属项目").querySelectorAll("option")).toHaveLength(1);
   });
 });

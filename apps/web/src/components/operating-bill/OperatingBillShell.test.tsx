@@ -2,10 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
-import {
-  operatingBillMonth,
-  OperatingBillShell,
-} from "./OperatingBillShell";
+import { operatingBillMonth, OperatingBillShell } from "./OperatingBillShell";
 import { DEFAULT_FEATURE_FLAGS, FeatureFlagsProvider } from "../../feature-flags";
 
 function LocationProbe() {
@@ -44,8 +41,10 @@ describe("POOL-043 经营账单壳层", () => {
         <LocationProbe />
       </MemoryRouter>,
     );
-    expect(screen.getByText("待结账")).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "经营账单页签" })).toBeInTheDocument();
+    expect(screen.queryByText("待结账")).toBeNull();
+    expect(
+      screen.getByRole("navigation", { name: "经营账单页签" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.getByRole("link", { name: "员工账" })).toHaveAttribute(
@@ -65,7 +64,7 @@ describe("POOL-043 经营账单壳层", () => {
       "href",
       "/operating-bill?month=2026-08",
     );
-    expect(screen.getByRole("link", { name: "套餐利用分析" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "套餐利用率" })).toHaveAttribute(
       "href",
       "/operating-bill?month=2026-08&tab=plans",
     );
@@ -77,7 +76,7 @@ describe("POOL-043 经营账单壳层", () => {
     );
   });
 
-  it("区分 CLOSED 版本、无版本和无状态，非法月份回退当前月", () => {
+  it("隐藏结账状态，非法月份回退当前月", () => {
     const first = render(
       <MemoryRouter>
         <OperatingBillShell active="projects" month="2026-08" status="CLOSED" version={2}>
@@ -85,7 +84,7 @@ describe("POOL-043 经营账单壳层", () => {
         </OperatingBillShell>
       </MemoryRouter>,
     );
-    expect(screen.getByText("已结账 v2")).toBeInTheDocument();
+    expect(screen.queryByText("已结账 v2")).toBeNull();
     first.unmount();
 
     const second = render(
@@ -95,7 +94,7 @@ describe("POOL-043 经营账单壳层", () => {
         </OperatingBillShell>
       </MemoryRouter>,
     );
-    expect(screen.getByText("已结账")).toBeInTheDocument();
+    expect(screen.queryByText("已结账")).toBeNull();
     second.unmount();
 
     render(

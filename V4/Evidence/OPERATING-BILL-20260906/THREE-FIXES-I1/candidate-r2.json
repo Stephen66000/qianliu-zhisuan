@@ -1,0 +1,116 @@
+{
+  "base": "a37de1a5c29e30aeb1d7aa84cbffadd331e22115",
+  "head": "56818a1d07a08349b5f621c4d4cc105cb161a3c7",
+  "business_candidate": "1bc26e3d83f3ff688ff0b2fcffae2c8a62b19dd9",
+  "files": [
+    {
+      "path": "apps/control-api/src/__tests-integration__/pool043-operating-bill-accounts.test.ts",
+      "sha256": "2e1067ed23d4d764d1f135d162255755f82e01928090911d94176177675c0849"
+    },
+    {
+      "path": "apps/control-api/src/principals/accounting-route.ts",
+      "sha256": "2c3e2a5f904854912bb1d084406640ad7b37e7e1419db3b10b58339fc0a175a7"
+    },
+    {
+      "path": "apps/control-api/src/principals/attribution-backfill-route.ts",
+      "sha256": "9ab65f9a8c3fb602a6c7cac8f0463f86e501143512729cfad89bcaa0d8834439"
+    },
+    {
+      "path": "apps/web/src/api/operating-analysis.ts",
+      "sha256": "8f8a10c59f96156fe4e9b3f2ffed7037c1669795126e4c6c95b544250b36a423"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingAnalysisPartial.test.tsx",
+      "sha256": "4e31f182748807a659c2b4a3b69ca6b775e14de60cd4f925bf3190ed5e9f8c88"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingPlans.tsx",
+      "sha256": "520b54510ccf44792c79886bc46f7d04f689318fac16666ef5545b84c5ee28cd"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingProcurement.tsx",
+      "sha256": "37dbdaf5d9b396872a0f80daf536c6828b9001d1337179fe68f440379266aa72"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingTrends.tsx",
+      "sha256": "6bee2dcb2a9401fbca66a2acc7f11f568a0d67eede98804211ed435b90bc2342"
+    },
+    {
+      "path": "apps/web/src/components/principals/HistoricalAttributionPanel.test.tsx",
+      "sha256": "11fe5f4cd0023d0adeae0cafee8d9b2a2fdbb447ded8fb593041ce14c5854cd0"
+    },
+    {
+      "path": "apps/web/src/components/principals/HistoricalAttributionPanel.tsx",
+      "sha256": "b9ca084ddeecde8d6a4a367075eb00ceff770acf9827dc5bb48851d27ac7736f"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalAccountingPanel.tsx",
+      "sha256": "9513e2e0bc0c6b9c36cfcae1ba9fe439bece920d3896900900b5e0d355b5ea6d"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBill.tsx",
+      "sha256": "31ab6f54e4ab3d2c72a90ca576f904b4d03675fcc03d7d3ab2cb5fd488f53789"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillDepartments.tsx",
+      "sha256": "50d1b862f22b4d52c453a6e9e801a04ade8aa0fe428655912efa4824496abb28"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillOverview.tsx",
+      "sha256": "2f0900d4ac96de553c05d357984204ba527e880fd2302d424072ce83b7f24ffd"
+    },
+    {
+      "path": "deploy/scripts/release-operating-bill-20260907-mac-mini.sh",
+      "sha256": "489d5347071de0afef922a10fff79c5e07feacac2b22a1e9bb2183ce08b2f038"
+    },
+    {
+      "path": "deploy/scripts/release-operating-partial-20260907-mac-mini.sh",
+      "sha256": "26084df3e425299d0e5597dc1034de0829174e6d04d4589476b2d3044436f1a9"
+    },
+    {
+      "path": "deploy/scripts/release-operating-three-fixes-20260907-mac-mini.sh",
+      "sha256": "83634d1f261397bbb7c13bab334bd86e9814b7f3d941cb867d6a68c9250eb3f8"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/operating-analysis.integration.test.ts",
+      "sha256": "9cb41fe0e12558094d5e8e429516d35a6f7f8656f63eeddebf1ecf93e384e08f"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts",
+      "sha256": "d98b3ae7c1f3d2ba5478242a1732268370e5419f9e94bfc93ad38dbc9a621d43"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/principal-attribution-backfill.integration.test.ts",
+      "sha256": "dd76480e58afa731381cbfbf99e04772598198a3007c07d99b6320fa4ed65704"
+    },
+    {
+      "path": "packages/database/src/index.ts",
+      "sha256": "213479d0ec75299fd99d70865012ac6358c57b1a05fac82632fcb65931ca3d33"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-repository.ts",
+      "sha256": "4b86db378988e5ecab3c1ce9f200d56d8fecf0480da3f3a27fdc9be63a96d351"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-usage.ts",
+      "sha256": "aeb1945482a97e0e25f3da8c11303d9a8cc4cfb733b0e778f60aea1950eb3b7f"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-month-lines.ts",
+      "sha256": "67b9303c3749617945044ee16018c65011dec38ba36eecf71a07056f4ea9b0b3"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-accounting.ts",
+      "sha256": "61be8a75d7b79ab6ab4b9ae82230c7286865880ddb575bc55b9c367960857abf"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-attribution-backfill.ts",
+      "sha256": "235c31f302e18293802787470354acbb9948104552cd1d0955223d525fde326e"
+    },
+    {
+      "path": "packages/database/src/repositories/usage-aggregate-repository.ts",
+      "sha256": "bed4dc6a2f4b36f30bafead774aa03ecce583d2e385721b5fa187aa2bed14427"
+    }
+  ],
+  "sha256": "92d4e36b151e7431d573726a6e177e8f6efc932ce0f2ededef1dc02bb538d128"
+}

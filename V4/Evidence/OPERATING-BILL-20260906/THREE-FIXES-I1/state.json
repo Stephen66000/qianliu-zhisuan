@@ -1,0 +1,30 @@
+{
+  "status": "BOUNDED_CODE_REVIEW_PASS",
+  "round": 2,
+  "reviewer": "/root/operating_v14_review",
+  "required_independence": "I1",
+  "candidate": "candidate-r2.json",
+  "start_lock": "STABLE 27/27",
+  "user_scope": "有界代码审核；不扩展覆盖率、ratchet、Mutation或全仓回归",
+  "history": [
+    {
+      "round": 1,
+      "result": "FAIL",
+      "finding": "F1 P2: preview fingerprint not rechecked after monthly lock wait",
+      "source_lock": "STABLE 27/27",
+      "ended_at": "2026-09-07T06:13:15.718746Z"
+    },
+    {
+      "round": 2,
+      "result": "PASS",
+      "closed": [
+        "F1"
+      ],
+      "new_findings": [],
+      "source_lock": "STABLE 27/27",
+      "ended_at": "2026-09-07T06:19:29.093Z",
+      "business_candidate": "1bc26e3d83f3ff688ff0b2fcffae2c8a62b19dd9",
+      "reviewed_head": "56818a1d07a08349b5f621c4d4cc105cb161a3c7"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "cwd": "packages/database",
+    "command": [
+      "node",
+      "/Users/mac/.codex/worktrees/operating-bill-0906/\u4edf\u6d41\u667a\u7b97/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "exit_code": 0
+  },
+  {
+    "cwd": "apps/control-api",
+    "command": [
+      "node",
+      "/Users/mac/.codex/worktrees/operating-bill-0906/\u4edf\u6d41\u667a\u7b97/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "exit_code": 0
+  },
+  {
+    "cwd": "apps/gateway",
+    "command": [
+      "node",
+      "/Users/mac/.codex/worktrees/operating-bill-0906/\u4edf\u6d41\u667a\u7b97/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "exit_code": 0
+  },
+  {
+    "cwd": "apps/web",
+    "command": [
+      "node",
+      "/Users/mac/.codex/worktrees/operating-bill-0906/\u4edf\u6d41\u667a\u7b97/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "exit_code": 0
+  }
+]

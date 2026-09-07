@@ -19,7 +19,7 @@ export interface OperatingBillMetricTotals {
   apiCost: string | null;
   packageAllocatedCost: string | null;
   totalAllocatedCost: string | null;
-  activeDays: number;
+  activeDays: number | null;
   requestCount: number;
   lastUsedAt: string | null;
   usageQuality: OperatingBillUsageQuality;
@@ -28,6 +28,7 @@ export interface OperatingBillMetricTotals {
 export interface OperatingBillProviderRef {
   providerCode: string;
   providerName: string;
+  totals?: OperatingBillMetricTotals;
 }
 
 export interface OperatingBillProjectDepartmentRef {
@@ -36,7 +37,7 @@ export interface OperatingBillProjectDepartmentRef {
 }
 
 export interface OperatingBillProjectOwnerRef {
-  personId: string;
+  personId: string | null;
   personName: string;
 }
 
@@ -147,7 +148,11 @@ export function useOperatingBillEmployees(
         signal,
       ),
     retry: 1,
-    staleTime: 15_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -163,7 +168,11 @@ export function useOperatingBillProjects(
         signal,
       ),
     retry: 1,
-    staleTime: 15_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -184,7 +193,11 @@ export function useOperatingBillEmployee(
       ),
     enabled: Boolean(principalId),
     retry: 1,
-    staleTime: 15_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -211,6 +224,10 @@ export function useOperatingBillEmployeeRequests(input: {
       );
     },
     retry: 1,
-    staleTime: 15_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }

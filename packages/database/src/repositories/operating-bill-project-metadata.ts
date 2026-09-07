@@ -1,5 +1,6 @@
 import { sql, type RawBuilder } from "kysely";
 
+import { effectivePrincipalDepartment } from "./principal-department-query.js";
 import type { OperatingBillAccountFact } from "./operating-bill-account-aggregate.js";
 import type { OperatingBillAccountSubjectRow } from "./operating-bill-account-types.js";
 
@@ -17,7 +18,9 @@ export interface RawProjectSummaryMetadata {
 }
 
 /** 依赖调用方已声明 ll/source/assignment 别名；只解析稳定项目、负责人和请求时点部门。 */
-export function liveProjectMetadataJoins(enterpriseId: string): RawBuilder<unknown> {
+export function liveProjectMetadataJoins(
+  enterpriseId: string,
+): RawBuilder<unknown> {
   return sql`
     LEFT JOIN LATERAL (
       SELECT snapshot.id, snapshot.project_principal_id, snapshot.organization_unit_id
@@ -34,8 +37,15 @@ export function liveProjectMetadataJoins(enterpriseId: string): RawBuilder<unkno
            ELSE assignment.project_principal_id
          END
      AND project.enterprise_id = ${enterpriseId} AND project.type = 'PROJECT'
+    LEFT JOIN LATERAL (SELECT * FROM principal_accounting_assignment
+      WHERE enterprise_id=${enterpriseId}::uuid AND principal_id=project.id
+        AND valid_from<=ll.created_at AND (valid_until IS NULL OR valid_until>ll.created_at)
+      ORDER BY version DESC LIMIT 1) accounting_profile ON true
+    LEFT JOIN principal accounting_owner ON accounting_owner.enterprise_id=${enterpriseId}::uuid
+      AND accounting_owner.id=accounting_profile.owner_principal_id
+    LEFT JOIN LATERAL (${effectivePrincipalDepartment(enterpriseId, sql`accounting_owner.id`, sql`ll.created_at`)}) accounting_owner_department ON true
     LEFT JOIN person project_owner
-      ON project_owner.id = project.owner_person_id
+      ON project_owner.id = COALESCE(accounting_owner.person_id,project.owner_person_id)
      AND project_owner.enterprise_id = ${enterpriseId}
     LEFT JOIN LATERAL (
       SELECT project_assignment.organization_unit_id
@@ -53,6 +63,7 @@ export function liveProjectMetadataJoins(enterpriseId: string): RawBuilder<unkno
       ON project.id IS NOT NULL
      AND project_department.id = CASE
            WHEN attribution.id IS NOT NULL THEN attribution.organization_unit_id
+           WHEN accounting_profile.id IS NOT NULL THEN accounting_owner_department.department_id
            ELSE project_assignment.organization_unit_id
          END
      AND project_department.enterprise_id = ${enterpriseId}
@@ -90,9 +101,13 @@ export function projectSummaryMetadata(
   dimension: "EMPLOYEE" | "PROJECT",
 ): Pick<OperatingBillAccountSubjectRow, "projectOwner" | "projectDepartments"> {
   return {
-    projectOwner: dimension === "PROJECT" && row.project_owner_person_id && row.project_owner_name
-      ? { personId: row.project_owner_person_id, personName: row.project_owner_name }
-      : null,
+    projectOwner:
+      dimension === "PROJECT" && row.project_owner_name
+        ? {
+            personId: row.project_owner_person_id,
+            personName: row.project_owner_name,
+          }
+        : null,
     projectDepartments: dimension === "PROJECT"
       ? [...row.project_departments].sort((left, right) =>
         left.departmentName.localeCompare(right.departmentName)

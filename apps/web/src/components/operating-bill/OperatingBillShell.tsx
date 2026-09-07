@@ -10,7 +10,6 @@ import {
 import type { ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { StatusTag } from "../dashboard/StatusTag";
 import { useFeatureFlags } from "../../feature-flags";
 
 export type OperatingBillSection =
@@ -21,19 +20,17 @@ export type OperatingBillSection =
   | "plans"
   | "procurement"
   | "reconciliation"
-  | "value"
-  | "closing";
+  | "value";
 
 const sections = [
   { id: "overview", label: "月度总览", icon: LayoutDashboard },
   { id: "employees", label: "员工账", icon: UsersRound },
   { id: "projects", label: "项目账", icon: BriefcaseBusiness },
   { id: "departments", label: "部门账", icon: UsersRound },
-  { id: "plans", label: "套餐利用分析", icon: Gauge },
+  { id: "plans", label: "套餐利用率", icon: Gauge },
   { id: "procurement", label: "采购复盘", icon: Gauge },
   { id: "reconciliation", label: "对账与导出", icon: FileLock2 },
   { id: "value", label: "价值确认", icon: BadgeCheck },
-  { id: "closing", label: "结账管理", icon: FileLock2 },
 ] as const;
 
 function sectionUrl(
@@ -73,8 +70,6 @@ export function operatingBillMonth(value: string | null): string {
 export function OperatingBillShell({
   active,
   month,
-  status,
-  version,
   children,
 }: {
   active: OperatingBillSection;
@@ -97,18 +92,10 @@ export function OperatingBillShell({
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-[28px] font-bold leading-9 text-ql-fg">经营账单</h1>
-            {status ? (
-              <StatusTag tone={status === "CLOSED" ? "success" : "warning"}>
-                {status === "CLOSED"
-                  ? `已结账${version === undefined ? "" : ` v${version}`}`
-                  : "待结账"}
-              </StatusTag>
-            ) : null}
+            <h1 className="text-[28px] font-bold leading-9 text-ql-fg">
+              经营账单
+            </h1>
           </div>
-          <p className="mt-1 text-[13px] text-ql-fg-tertiary">
-            员工账回答谁用了多少，项目账回答成本由哪个项目产生
-          </p>
         </div>
         <label className="flex h-9 items-center gap-2 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px]">
           <CalendarDays className="h-4 w-4 text-ql-action" />

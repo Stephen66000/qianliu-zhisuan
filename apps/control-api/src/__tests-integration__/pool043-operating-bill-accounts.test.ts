@@ -210,24 +210,15 @@ describe("POOL-043 Control API 员工账／项目账", () => {
     });
   });
 
-  it("项目账独立返回未归属项目，认证、参数和跨企业均 fail-closed", async () => {
+  it("项目账不重复收录员工请求，认证、参数和跨企业均 fail-closed", async () => {
     const projects = await app.inject({
       method: "GET", url: "/operating-bills/2026-08/projects", headers: { cookie },
     });
     expect(projects.statusCode).toBe(200);
     expect(projects.json()).toMatchObject({
       dimension: "PROJECT",
-      rows: expect.arrayContaining([
-        expect.objectContaining({
-          subjectId: projectId,
-          subjectName: "智算项目",
-          projectOwner: { personId: projectOwnerPersonId, personName: "项目负责人" },
-          projectDepartments: [{
-            departmentId: projectDepartmentId, departmentName: "研发中心",
-          }],
-        }),
-        expect.objectContaining({ subjectId: null, subjectName: "未归属项目", isUnassigned: true }),
-      ]),
+      rows: [],
+      totals: { totalTokens: "0", requestCount: 0 },
     });
     expect((await app.inject({ method: "GET", url: "/operating-bills/2026-08/employees" })).statusCode)
       .toBe(401);
@@ -250,7 +241,9 @@ describe("POOL-043 Control API 员工账／项目账", () => {
       method: "GET", url: "/operating-bills/2026-07/projects", headers: { cookie },
     });
     expect(legacy.statusCode).toBe(409);
-    expect(legacy.json()).toMatchObject({ error: "account_evidence_unavailable" });
+    expect(legacy.json()).toMatchObject({
+      error: "account_evidence_unavailable",
+    });
     expect((await app.inject({
       method: "GET", url: "/operating-bills/2026-07/employees", headers: { cookie },
     })).statusCode).toBe(409);
@@ -320,5 +313,108 @@ describe("POOL-043 Control API 员工账／项目账", () => {
     } finally {
       app.operatingBillRepo.closeMonth = original;
     }
+  });
+  it("分析与部门新接口按会话隔离，主体创建与归属原子保存", async () => {
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: "/operating-bills/2026-08/analysis",
+        })
+      ).statusCode,
+    ).toBe(401);
+    const report = await app.inject({
+      method: "GET",
+      url: "/operating-bills/2026-08/analysis",
+      headers: { cookie },
+    });
+    expect(report.statusCode).toBe(200);
+    expect(report.json().summary.companyTokens).toBe("360");
+    const other = await app.inject({
+      method: "GET",
+      url: "/operating-bills/2026-08/analysis",
+      headers: { cookie: otherCookie },
+    });
+    expect(other.statusCode).toBe(200);
+    expect(other.json().summary.companyTokens).toBe("0");
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: "/operating-bills/9999-08/analysis",
+          headers: { cookie },
+        })
+      ).statusCode,
+    ).toBe(400);
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/principals",
+      headers: { cookie },
+      payload: { type: "EMPLOYEE", name: "缺部门", accounting_required: true },
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(
+      await db
+        .selectFrom("principal")
+        .select("id")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("name", "=", "缺部门")
+        .execute(),
+    ).toEqual([]);
+    const created = await app.inject({
+      method: "POST",
+      url: "/principals",
+      headers: { cookie },
+      payload: {
+        type: "EMPLOYEE",
+        name: "新员工",
+        department_label: "验收部门",
+        accounting_required: true,
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const owner = created.json().principal.id;
+    const project = await app.inject({
+      method: "POST",
+      url: "/principals",
+      headers: { cookie },
+      payload: {
+        type: "PROJECT",
+        name: "负责人项目",
+        owner_principal_id: owner,
+        accounting_required: true,
+      },
+    });
+    expect(project.statusCode).toBe(201);
+    const profile = await app.inject({
+      method: "GET",
+      url: `/principals/${project.json().principal.id}/accounting-profile`,
+      headers: { cookie },
+    });
+    expect(profile.statusCode).toBe(200);
+    expect(profile.json().assignment.ownerPrincipalId).toBe(owner);
+    const historyUrl=`/principals/${project.json().principal.id}/attribution-backfill`;
+    const historyPayload={from:"2026-09-01",to:"2026-09-06",department_id:profile.json().suggestedDepartmentId,reason:"确认历史项目部门"};
+    expect((await app.inject({method:"POST",url:`${historyUrl}/preview`,payload:historyPayload})).statusCode).toBe(401);
+    expect((await app.inject({method:"POST",url:`${historyUrl}/preview`,headers:{cookie:otherCookie},payload:historyPayload})).statusCode).toBe(404);
+    expect((await app.inject({method:"POST",url:`${historyUrl}/preview`,headers:{cookie},payload:{...historyPayload,from:"2026-02-30"}})).statusCode).toBe(400);
+    const historyPreview=await app.inject({method:"POST",url:`${historyUrl}/preview`,headers:{cookie},payload:historyPayload});
+    expect(historyPreview.statusCode).toBe(200);
+    expect(historyPreview.json()).toMatchObject({requestCount:0,departmentName:"验收部门"});
+    expect((await app.inject({method:"POST",url:historyUrl,headers:{cookie},payload:historyPayload})).statusCode).toBe(400);
+    const historyConfirmed=await app.inject({method:"POST",url:historyUrl,headers:{cookie},payload:{...historyPayload,fingerprint:historyPreview.json().fingerprint}});
+    expect(historyConfirmed.statusCode).toBe(200);
+    expect(historyConfirmed.json()).toEqual({confirmedCount:0});
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: `/principals/${owner}/accounting-profile`,
+          headers: { cookie: otherCookie },
+        })
+      ).statusCode,
+    ).toBe(404);
+    const preview = await app.principalRepo.cleanupPreview(enterpriseId, owner);
+    expect(preview?.canDelete).toBe(false);
   });
 });

@@ -1,9 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OperatingBill } from "../api/operating-bills";
 import { OperatingBillPage, parseSnapshotCsv } from "./OperatingBill";
+
+import { analysisFixture } from "../__tests__/operating-analysis-fixture";
 
 const mutate = vi.fn();
 const importSnapshots = vi.fn();
@@ -24,6 +26,19 @@ const bill: OperatingBill = {
 };
 
 let currentBill = bill;
+
+vi.mock("../api/operating-analysis", () => ({
+  useOperatingAnalysis: () => ({
+    data: analysisFixture,
+    isLoading: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+vi.mock("../api/operating-bill-payments", () => ({
+  useOperatingBillPayments: () => ({ data: [], isLoading: false, error: null }),
+}));
 
 vi.mock("../api/operating-bills", async () => {
   const actual = await vi.importActual("../api/operating-bills");
@@ -71,41 +86,25 @@ describe("POOL-025 经营账单", () => {
 
   it("展示真实成本口径并可切换经营账单页签", async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    render(
+      <MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
     const totalCard = screen.getAllByText("本月总花费")
       .map((node) => node.closest("article")).find(Boolean)!;
     expect(totalCard).toHaveTextContent("—");
     expect(screen.getAllByText("¥12.34").length).toBeGreaterThan(0);
     expect(screen.getAllByText("¥300.00").length).toBeGreaterThan(0);
-    expect(screen.getByText("期初余额 + 本月充值 - 期末余额")).toBeInTheDocument();
-    await user.click(screen.getByRole("link", { name: /套餐利用分析/ }));
-    expect(screen.getByText("¥150.00")).toBeInTheDocument();
-    expect(screen.getByText(/不代表退款/)).toBeInTheDocument();
-    await user.click(screen.getByRole("link", { name: /结账管理/ }));
-    expect(screen.getByText("数据完整性检查通过")).toBeInTheDocument();
+    expect(screen.queryByText("期初余额 + 本月充值 - 期末余额")).toBeNull();
+    await user.click(screen.getByRole("link", { name: /套餐利用率/ }));
+    expect(
+      screen.getByRole("heading", { name: "Kimi 月度 Token" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /结账管理/ })).toBeNull();
   });
 
-  it.each([
-    ["缺开始", null, "2026-08-31"],
-    ["缺结束", "2026-08-01", null],
-  ])("POOL20-041：套餐%s时经营账单不计算利用不足和闲置金额", (_label, start, end) => {
-    currentBill = {
-      ...bill,
-      summary: { ...bill.summary, planUtilization: null },
-      providers: [{
-        ...bill.providers[0]!, servicePeriodStart: start, servicePeriodEnd: end,
-        utilization: null, planAssessment: null, idleEntitlementCost: null,
-        assessmentBasis: null,
-      }],
-    };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08&tab=plans"]}><OperatingBillPage /></MemoryRouter>);
-    const row = screen.getByText("Z Plan").closest("tr")!;
-    expect(row).toHaveTextContent("数据不足");
-    expect(row).not.toHaveTextContent("未用满");
-    expect(row).not.toHaveTextContent("¥150.00");
-  });
-
-  it("缺期初余额时明确待补，并保留账本 API 计价核对证据", () => {
+  it("缺期初余额时保留缺口，移除重复计价说明", () => {
     currentBill = {
       ...bill,
       summary: {
@@ -139,9 +138,13 @@ describe("POOL-025 经营账单", () => {
         endingBalance: "87.66",
       }],
     };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
-    expect(screen.getAllByText("待补期初余额").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("账本 API 计价（核对证据） ¥12.34")).toBeInTheDocument();
+    render(
+      <MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("待补期初余额")).toBeInTheDocument();
+    expect(screen.queryByText("账本 API 计价（核对证据） ¥12.34")).toBeNull();
     for (const label of ["期初余额", "本月充值", "期末余额", "API 花费", "套餐费用", "本月总花费"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
@@ -151,7 +154,10 @@ describe("POOL-025 经营账单", () => {
       .map((node) => node.closest("article")).find(Boolean)!;
     expect(totalCard).toHaveTextContent("—");
     expect(totalCard).not.toHaveTextContent("¥621.10");
-    expect(screen.getByRole("heading", { name: "补录期初余额" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "厂商资源" })).toHaveAttribute(
+      "href",
+      "/resources",
+    );
   });
 
   it("POOL20-039/047：CNY、USD 与跨币种时六项保留各自金额和币种", () => {
@@ -172,7 +178,11 @@ describe("POOL-025 经营账单", () => {
       },
       providers: [],
     };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    render(
+      <MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
     const card = (label: string) => screen.getAllByText(label)
       .map((node) => node.closest("article")).find(Boolean)!;
     expect(card("期初余额")).toHaveTextContent("USD 100.00");
@@ -205,7 +215,11 @@ describe("POOL-025 经营账单", () => {
       },
       providers: [api, plan],
     };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    render(
+      <MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
     const card = (label: string) => screen.getAllByText(label)
       .map((node) => node.closest("article")).find(Boolean)!;
     expect(card("API 花费")).toHaveTextContent("USD 12.50");
@@ -224,145 +238,103 @@ describe("POOL-025 经营账单", () => {
       },
       providers: [{ ...bill.providers[0]!, currency: "CNY", packageCostCurrency: undefined }],
     };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    render(
+      <MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
     const packageCard = screen.getAllByText("套餐费用")
       .map((node) => node.closest("article")).find(Boolean)!;
     expect(packageCard).toHaveTextContent("¥300.00");
   });
 
-  it("经营账单内补录期初余额并请求保存后重算", async () => {
-    const user = userEvent.setup();
-    currentBill = {
-      ...bill,
-      summary: { ...bill.summary, totalCost: null, apiCost: null, openingBalance: null,
-        monthlyRecharge: "0", apiSpendReason: "待补期初余额", endingBalance: "70" },
-      providers: [{
-        ...bill.providers[0]!, providerResourceId: "api-resource", providerName: "DeepSeek",
-        resourceName: "API 账户", mode: "API", currency: "CNY", openingBalance: null,
-        rechargeAmount: "0", apiCost: null, apiSpendReason: "待补期初余额",
-        packageCost: "0", totalCost: null, endingBalance: "70",
-      }],
-    };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
-    await user.type(screen.getByPlaceholderText("期初余额"), "100");
-    await user.type(screen.getByRole("textbox", { name: "期初余额说明" }), "财务对账");
-    await user.click(screen.getByRole("button", { name: "保存并重算" }));
-    expect(recordOpeningBalance).toHaveBeenCalledWith({
-      provider_resource_id: "api-resource", amount: "100.00", currency: "CNY", reason: "财务对账",
-    }, expect.objectContaining({ onSuccess: expect.any(Function) }));
+  it("月度总览移除充值登记和旧快照 CSV 入口", () => {
+    render(
+      <MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText("登记本月充值")).toBeNull();
+    expect(screen.queryByText("导入账单 CSV")).toBeNull();
+    expect(recordRecharge).not.toHaveBeenCalled();
   });
 
-  it("充值快照只预填，管理员确认后才写入独立充值流水", async () => {
-    const user = userEvent.setup();
-    currentBill = {
-      ...bill,
-      summary: { ...bill.summary, monthlyRecharge: "0", rechargeAmounts: [] },
-      providers: [{
-        ...bill.providers[0]!, providerResourceId: "api-resource", providerName: "DeepSeek",
-        resourceName: "DeepSeek API", mode: "API", currency: "CNY", rechargeAmount: "0",
-        apiCost: null, packageCost: "0", totalCost: null, endingBalance: "100",
-        operatingSnapshotId: "snapshot-recharge-100", snapshotRechargeAmount: "100",
-      }],
-    };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
-    expect(screen.getByPlaceholderText("充值金额")).toHaveValue("100.00");
-    await user.type(screen.getByRole("textbox", { name: "充值说明" }), "8 月 DeepSeek 充值");
-    await user.click(screen.getByRole("button", { name: "确认充值并重算" }));
-    expect(recordRecharge).toHaveBeenCalledWith(expect.objectContaining({
-      provider_resource_id: "api-resource",
-      purchase_type: "API_RECHARGE",
-      amount: "100.00",
-      currency: "CNY",
-      description: "8 月 DeepSeek 充值",
-      evidence_ref: "operating_snapshot:snapshot-recharge-100",
-      purchased_at: expect.any(String),
-    }), expect.objectContaining({ onSuccess: expect.any(Function) }));
-  });
-
-  it("POOL20-046：多 API 资源连续补录时同步剩余资源与币种", async () => {
-    const user = userEvent.setup();
-    const apiProvider = {
-      ...bill.providers[0]!, mode: "API" as const, apiCost: null, openingBalance: null,
-      rechargeAmount: "0", apiSpendReason: "待补期初余额", packageCost: "0",
-      totalCost: null, endingBalance: "50",
-    };
-    const first = { ...apiProvider, providerResourceId: "api-cny", resourceName: "人民币 API", currency: "CNY" };
-    const second = { ...apiProvider, providerResourceId: "api-usd", resourceName: "美元 API", currency: "USD" };
-    currentBill = {
-      ...bill,
-      summary: { ...bill.summary, openingBalance: null, apiCost: null, totalCost: null },
-      providers: [first, second],
-    };
-    const view = render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
-    await user.type(screen.getByPlaceholderText("期初余额"), "100");
-    await user.click(screen.getByRole("button", { name: "保存并重算" }));
-    expect(recordOpeningBalance.mock.calls[0]?.[0]).toMatchObject({
-      provider_resource_id: "api-cny", currency: "CNY",
-    });
-    recordOpeningBalance.mock.calls[0]?.[1].onSuccess();
-    currentBill = { ...currentBill, providers: [second] };
-    view.rerender(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "期初余额资源" })).toHaveValue("api-usd"));
-    expect(screen.getByRole("textbox", { name: "期初余额币种" })).toHaveValue("USD");
-    await user.type(screen.getByPlaceholderText("期初余额"), "80");
-    await user.click(screen.getByRole("button", { name: "保存并重算" }));
-    expect(recordOpeningBalance.mock.calls[1]?.[0]).toMatchObject({
-      provider_resource_id: "api-usd", amount: "80.00", currency: "USD",
-    });
-  });
-
-  it("保留对账 Coming Soon 和草稿账单 CSV 导入入口", async () => {
+  it("保留旧解析器，清空对账页", async () => {
     const user = userEvent.setup();
     expect(parseSnapshotCsv("provider_resource_id,collected_at,current_balance\nr1,2026-08-18T00:00:00Z,88")).toEqual([{
       provider_resource_id: "r1",
       snapshot: { collected_at: "2026-08-18T00:00:00Z", current_balance: "88" },
     }]);
     expect(() => parseSnapshotCsv("provider_resource_id\nr1")).toThrow("CSV 缺少 provider_resource_id 或 collected_at 表头");
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}><OperatingBillPage /></MemoryRouter>);
+    render(
+      <MemoryRouter initialEntries={["/operating-bill?month=2026-08"]}>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
     await user.click(screen.getByRole("link", { name: /对账与导出/ }));
-    expect(screen.getByText("Coming Soon")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "对账与导出" }),
+    ).toBeEmptyDOMElement();
   });
 
-  it("结账前可确认资源事实并冻结草稿", async () => {
-    const user = userEvent.setup();
-    currentBill = {
-      ...bill,
-      providers: [{
-        ...bill.providers[0]!,
-        providerResourceId: "r1",
-        purchases: [{ id: "purchase-1", type: "PACKAGE_PURCHASE", amount: "300", currency: "CNY", purchasedAt: "2026-08-01T00:00:00Z", servicePeriodStart: "2026-08-01", servicePeriodEnd: "2026-08-31", source: "ADMIN" }],
-        servicePeriodStart: "2026-08-01",
-        servicePeriodEnd: "2026-08-31",
-        operatingSnapshotSource: "PROVIDER_SYNC",
-        operatingSnapshotVersion: 2,
-        operatingSnapshotAt: "2026-08-18T00:00:00Z",
-        requestRange: { from: "2026-08-01T00:00:00Z", to: "2026-08-18T00:00:00Z", count: 3 },
-        confirmation: { status: "PENDING", note: null, confirmedBy: null, confirmedAt: null, version: 0, matchesCurrentFacts: false },
-      }],
-    };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08&tab=closing"]}><OperatingBillPage /></MemoryRouter>);
-    expect(screen.getByText("PROVIDER_SYNC")).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole("combobox", { name: /Z Plan 确认状态/ }), "CONFIRMED");
-    await user.click(screen.getByRole("button", { name: "保存确认" }));
-    expect(confirmResource).toHaveBeenCalledWith({ status: "CONFIRMED", note: null });
+  it("旧结账地址回到月度总览，不能触发结账写入", () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/operating-bill?month=2026-08&tab=closing"]}
+      >
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("heading", { name: "厂商投入构成" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "确认结账并冻结" })).toBeNull();
+    expect(closeBill).not.toHaveBeenCalled();
+    expect(reopenBill).not.toHaveBeenCalled();
   });
 
-  it("已确认草稿可结账，已结账账期可填写原因重开", async () => {
-    const user = userEvent.setup();
+  it("资金投影的零套餐费用显示零，缺失费用仍显示缺失", () => {
     currentBill = {
       ...bill,
-      providers: [{ ...bill.providers[0]!, confirmation: { status: "CONFIRMED", note: "已核对", confirmedBy: "管理员", confirmedAt: "2026-08-18T00:00:00Z", version: 1, matchesCurrentFacts: true } }],
-      versions: [{ id: "v1", version: 1, closedAt: "2026-08-18T00:00:00Z", closedBy: "管理员", closeNote: "已确认", exceptions: [] }],
-      events: [{ id: "e1", action: "CLOSED", version: 1, reason: null, actor: "管理员", createdAt: "2026-08-18T00:00:00Z" }],
+      summary: { ...bill.summary, packageCost: "0", packageCosts: [] },
+      providers: [{ ...bill.providers[0]!, packageCost: "0" }],
     };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08&tab=closing"]}><OperatingBillPage /></MemoryRouter>);
-    await user.click(screen.getByRole("button", { name: "确认结账并冻结" }));
-    expect(closeBill).toHaveBeenCalledWith({ allow_incomplete: false, note: null });
+    const view = render(
+      <MemoryRouter>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
+    const card = () =>
+      screen
+        .getAllByText("套餐费用")
+        .map((el) => el.closest("article"))
+        .find(Boolean)!;
+    expect(card()).toHaveTextContent("¥0.00");
+    currentBill = {
+      ...currentBill,
+      summary: { ...currentBill.summary, packageCost: null },
+      providers: [{ ...bill.providers[0]!, packageCost: null }],
+    };
+    view.rerender(
+      <MemoryRouter>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
+    expect(card()).toHaveTextContent("—");
+    expect(card()).not.toHaveTextContent("¥0.00");
+  });
 
-    currentBill = { ...currentBill, status: "CLOSED", version: 1 };
-    render(<MemoryRouter initialEntries={["/operating-bill?month=2026-08&tab=closing"]}><OperatingBillPage /></MemoryRouter>);
-    await user.type(screen.getByRole("textbox", { name: "重开原因" }), "需要补录采购凭证");
-    await user.click(screen.getByRole("button", { name: "重开账期" }));
-    expect(reopenBill).toHaveBeenCalledWith("需要补录采购凭证");
+  it("Coding Plan 使用主体展示人数，不再展示套餐 Token 额度", () => {
+    render(
+      <MemoryRouter>
+        <OperatingBillPage />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("columnheader", { name: "使用主体" }),
+    ).toBeInTheDocument();
+    const row = screen.getByText("Z Plan").closest("tr")!;
+    expect(row.children[5]).toHaveTextContent(/^1$/);
+    expect(row).not.toHaveTextContent("5000 / 10000");
   });
 });

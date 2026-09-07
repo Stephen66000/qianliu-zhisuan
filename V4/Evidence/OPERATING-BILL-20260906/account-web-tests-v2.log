@@ -1,0 +1,12 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/apps/web
+
+ ✓ src/components/operating-bill/AccountShared.test.tsx (3 tests) 149ms
+ ✓ src/pages/OperatingBillAccounts.test.tsx (18 tests) 1040ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 76ms
+
+ Test Files  3 passed (3)
+      Tests  23 passed (23)
+   Start at  19:12:34
+   Duration  3.23s (transform 243ms, setup 617ms, collect 553ms, tests 1.27s, environment 1.17s, prepare 156ms)
+

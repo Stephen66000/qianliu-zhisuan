@@ -1,0 +1,39 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/packages/database
+      Coverage enabled with v8
+
+ ✓ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests) 10805ms
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (3 tests) 2792ms
+ ✓ src/__tests-integration__/provider-finance-repository.integration.test.ts (8 tests) 2586ms
+
+ Test Files  3 passed (3)
+      Tests  23 passed (23)
+   Start at  23:30:48
+   Duration  20.61s (transform 914ms, setup 0ms, collect 3.43s, tests 16.18s, environment 0ms, prepare 185ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   66.01 |    84.79 |   66.66 |   66.01 |                   
+ ...-repository.ts |   98.88 |    95.58 |     100 |   98.88 | 223-225,342       
+ ...lysis-usage.ts |     100 |      100 |     100 |     100 |                   
+ ...ount-frozen.ts |   98.74 |    70.37 |     100 |   98.74 | 151,314           
+ ...ccount-live.ts |     100 |    79.16 |     100 |     100 | ...99,306,318,351 
+ ...month-lines.ts |     100 |      100 |     100 |     100 |                   
+ ...count-types.ts |       0 |        0 |       0 |       0 | 1-111             
+ ...-projection.ts |     2.8 |      100 |       0 |     2.8 | 11-252            
+ ...ct-metadata.ts |   97.82 |      100 |     100 |   97.82 | 113               
+ ...nt-accounts.ts |   55.47 |    45.45 |   66.66 |   55.47 | 59-119            
+ ...-accounting.ts |   90.07 |    81.48 |     100 |   90.07 | ...42-249,264-266 
+ ...nup-preview.ts |    2.08 |      100 |       0 |    2.08 | 5-80              
+ ...tment-query.ts |     100 |      100 |     100 |     100 |                   
+ ...-repository.ts |    6.94 |      100 |       0 |    6.94 | ...60-361,364-386 
+ ...nth-opening.ts |     100 |    71.42 |     100 |     100 | 32-34             
+ ...-repository.ts |   91.25 |    86.36 |    87.5 |   91.25 | 313,386-407       
+ ...tion-writer.ts |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------
+ERROR: Coverage for lines (66.01%) does not meet global threshold (95%)
+ERROR: Coverage for functions (66.66%) does not meet global threshold (90%)
+ERROR: Coverage for statements (66.01%) does not meet global threshold (95%)
+ERROR: Coverage for branches (84.79%) does not meet global threshold (85%)

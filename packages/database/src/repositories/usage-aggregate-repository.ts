@@ -48,6 +48,14 @@ export async function markUsageAggregateDirtyForRequest(
   enterpriseId: string,
   requestId: string,
 ): Promise<void> {
+  return markUsageAggregateDirtyForRequests(db, enterpriseId, [requestId]);
+}
+
+export async function markUsageAggregateDirtyForRequests(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  requestIds: string[],
+): Promise<void> {
   await sql`
     WITH request_fact AS (
       SELECT lt.created_at AS settled_at, e.timezone,
@@ -56,7 +64,7 @@ export async function markUsageAggregateDirtyForRequest(
         FROM ledger_transaction lt
         JOIN enterprise e ON e.id = lt.enterprise_id
        WHERE lt.enterprise_id = ${enterpriseId}::uuid
-         AND lt.ai_request_id = ${requestId}::uuid
+         AND lt.ai_request_id = ANY(${requestIds}::uuid[])
          AND lt.status = 'SETTLED'
     ), buckets AS (
       SELECT 'HOUR'::varchar(8) AS bucket_granularity,
@@ -67,7 +75,7 @@ export async function markUsageAggregateDirtyForRequest(
              ) - utc_offset AS bucket_start,
              timezone
         FROM request_fact
-      UNION ALL
+      UNION
       SELECT 'DAY'::varchar(8),
              date_trunc('day', settled_at AT TIME ZONE timezone) AT TIME ZONE timezone,
              timezone

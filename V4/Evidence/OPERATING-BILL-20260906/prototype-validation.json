@@ -1,0 +1,38 @@
+{
+  "errors": [],
+  "layout": [
+    {
+      "width": 360,
+      "tab": "plans",
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "tab": "purchases",
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "tab": "trends",
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "tab": "plans",
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "tab": "purchases",
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "tab": "trends",
+      "overflow": false
+    }
+  ],
+  "peakSwitch": "passed",
+  "vendorSwitch": "passed",
+  "tabs": "passed"
+}

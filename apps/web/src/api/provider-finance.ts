@@ -74,6 +74,12 @@ export function useRecordProviderFinance(resourceId: string | null) {
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["provider-finance"] });
+      void client.invalidateQueries({ queryKey: ["operating-bill"] });
+      void client.invalidateQueries({ queryKey: ["operating-analysis"] });
+      void client.invalidateQueries({
+        predicate: (query) =>
+          String(query.queryKey[0]).startsWith("operating-bill-"),
+      });
       void client.invalidateQueries({ queryKey: ["dashboard"] });
       void client.invalidateQueries({ queryKey: ["provider-resources"] });
     },
@@ -92,6 +98,12 @@ export function useConfirmProviderFinanceDuplicate() {
       }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["provider-finance"] });
+      void client.invalidateQueries({ queryKey: ["operating-bill"] });
+      void client.invalidateQueries({ queryKey: ["operating-analysis"] });
+      void client.invalidateQueries({
+        predicate: (query) =>
+          String(query.queryKey[0]).startsWith("operating-bill-"),
+      });
       void client.invalidateQueries({ queryKey: ["dashboard"] });
       void client.invalidateQueries({ queryKey: ["provider-resources"] });
     },

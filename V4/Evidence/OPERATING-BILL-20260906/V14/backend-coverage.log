@@ -1,0 +1,126 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算
+      Coverage enabled with v8
+
+ ✓ apps/control-api/src/__tests-integration__/w20-department-costs.test.ts (9 tests) 4058ms
+ ✓ packages/database/src/__tests-integration__/provider-finance-repository.integration.test.ts (8 tests) 2462ms
+ ✓ packages/database/src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests) 3079ms
+{"level":30,"time":1788708791574,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791616,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":41.32708299160004,"msg":"request completed"}
+{"level":30,"time":1788708791621,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/operating-bills/2026-08/employees?provider_code=deepseek&search=%E4%BA%8E%E6%BB%94","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791648,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":27.375,"msg":"request completed"}
+{"level":30,"time":1788708791650,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791671,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":20.793375000357628,"msg":"request completed"}
+{"level":30,"time":1788708791671,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?provider_code=deepseek","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791685,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":200},"responseTime":13.74337500333786,"msg":"request completed"}
+{"level":30,"time":1788708791686,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"GET","url":"/operating-bills/2026-08/projects","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791697,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":200},"responseTime":10.88858300447464,"msg":"request completed"}
+{"level":30,"time":1788708791697,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"GET","url":"/operating-bills/2026-08/employees","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791697,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":401},"responseTime":0.11183400452136993,"msg":"request completed"}
+{"level":30,"time":1788708791697,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"GET","url":"/operating-bills/bad/employees","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791699,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":400},"responseTime":1.4789579957723618,"msg":"request completed"}
+{"level":30,"time":1788708791699,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791711,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":404},"responseTime":11.98666599392891,"msg":"request completed"}
+{"level":30,"time":1788708791714,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"GET","url":"/operating-bills/2026-07/projects","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791718,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":409},"responseTime":3.505291000008583,"msg":"request completed"}
+{"level":30,"time":1788708791718,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"GET","url":"/operating-bills/2026-07/employees","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791721,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":409},"responseTime":2.8187499940395355,"msg":"request completed"}
+{"level":30,"time":1788708791721,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-b","req":{"method":"GET","url":"/operating-bills/2026-07/employees/f102de15-6875-4a91-955a-84d2365c3c43","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791725,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-b","res":{"statusCode":409},"responseTime":3.6710420101881027,"msg":"request completed"}
+{"level":30,"time":1788708791725,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-c","req":{"method":"GET","url":"/operating-bills/2026-07/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791730,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-c","res":{"statusCode":409},"responseTime":5.181541010737419,"msg":"request completed"}
+{"level":30,"time":1788708791731,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-d","req":{"method":"GET","url":"/operating-bills/9999-12/employees","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791733,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-d","res":{"statusCode":400},"responseTime":1.8756249994039536,"msg":"request completed"}
+{"level":30,"time":1788708791733,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-e","req":{"method":"GET","url":"/operating-bills/2026-08/employees?provider_code=ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791734,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-e","res":{"statusCode":400},"responseTime":1.2344589978456497,"msg":"request completed"}
+{"level":30,"time":1788708791735,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-f","req":{"method":"GET","url":"/operating-bills/2026-08/employees?search=%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791736,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-f","res":{"statusCode":400},"responseTime":1.378832995891571,"msg":"request completed"}
+{"level":30,"time":1788708791737,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-g","req":{"method":"GET","url":"/operating-bills/2026-08/employees?provider_code=pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp&search=%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C%E6%90%9C","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791747,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-g","res":{"statusCode":200},"responseTime":10.084958001971245,"msg":"request completed"}
+{"level":30,"time":1788708791747,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-h","req":{"method":"GET","url":"/operating-bills/2026-08/projects?provider_code=%20%20","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791749,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-h","res":{"statusCode":400},"responseTime":1.0932080000638962,"msg":"request completed"}
+{"level":30,"time":1788708791749,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-i","req":{"method":"GET","url":"/operating-bills/2026-08/employees/not-a-uuid","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791750,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-i","res":{"statusCode":400},"responseTime":0.9312919974327087,"msg":"request completed"}
+{"level":30,"time":1788708791750,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-j","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43?provider_code=ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791751,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-j","res":{"statusCode":400},"responseTime":1.6235000044107437,"msg":"request completed"}
+{"level":30,"time":1788708791752,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-k","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/not-a-uuid/requests","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791753,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-k","res":{"statusCode":400},"responseTime":1.3948339968919754,"msg":"request completed"}
+{"level":30,"time":1788708791753,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-l","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?provider_code=ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791754,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-l","res":{"statusCode":400},"responseTime":1.092625007033348,"msg":"request completed"}
+{"level":30,"time":1788708791754,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-m","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?limit=0","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791756,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-m","res":{"statusCode":400},"responseTime":1.2374999970197678,"msg":"request completed"}
+{"level":30,"time":1788708791756,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-n","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?limit=101","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791757,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-n","res":{"statusCode":400},"responseTime":1.1774170100688934,"msg":"request completed"}
+{"level":30,"time":1788708791757,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-o","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?offset=-1","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791758,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-o","res":{"statusCode":400},"responseTime":1.0399159938097,"msg":"request completed"}
+{"level":30,"time":1788708791758,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-p","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?offset=100001","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791759,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-p","res":{"statusCode":400},"responseTime":0.8432919979095459,"msg":"request completed"}
+{"level":30,"time":1788708791759,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-q","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?limit=1&offset=0","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791770,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-q","res":{"statusCode":200},"responseTime":10.57787498831749,"msg":"request completed"}
+{"level":30,"time":1788708791770,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-r","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?limit=100&offset=0","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791785,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-r","res":{"statusCode":200},"responseTime":14.826875001192093,"msg":"request completed"}
+{"level":30,"time":1788708791785,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-s","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests?limit=1&offset=100000","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791797,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-s","res":{"statusCode":200},"responseTime":11.131874993443489,"msg":"request completed"}
+{"level":30,"time":1788708791797,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-t","req":{"method":"GET","url":"/operating-bills/2026-08/employees/f102de15-6875-4a91-955a-84d2365c3c43/models/c2a68908-e49d-4328-a90b-ba53e538b04a/requests","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791799,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-t","res":{"statusCode":404},"responseTime":2.382083997130394,"msg":"request completed"}
+{"level":30,"time":1788708791800,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-u","req":{"method":"POST","url":"/operating-bills/2026-09/close","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791801,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-u","res":{"statusCode":409},"responseTime":1.821042001247406,"msg":"request completed"}
+{"level":30,"time":1788708791802,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-v","req":{"method":"GET","url":"/operating-bills/2026-08/analysis","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791802,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-v","res":{"statusCode":401},"responseTime":0.07545900344848633,"msg":"request completed"}
+{"level":30,"time":1788708791802,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-w","req":{"method":"GET","url":"/operating-bills/2026-08/analysis","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791847,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-w","res":{"statusCode":200},"responseTime":44.843374997377396,"msg":"request completed"}
+{"level":30,"time":1788708791847,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-x","req":{"method":"GET","url":"/operating-bills/2026-08/analysis","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791884,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-x","res":{"statusCode":200},"responseTime":36.538332998752594,"msg":"request completed"}
+{"level":30,"time":1788708791884,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-y","req":{"method":"GET","url":"/operating-bills/9999-08/analysis","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791885,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-y","res":{"statusCode":400},"responseTime":1.1702080070972443,"msg":"request completed"}
+{"level":30,"time":1788708791885,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-z","req":{"method":"POST","url":"/principals","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791890,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-z","res":{"statusCode":400},"responseTime":5.323291003704071,"msg":"request completed"}
+{"level":30,"time":1788708791891,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-10","req":{"method":"POST","url":"/principals","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791902,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-10","res":{"statusCode":201},"responseTime":11.192667007446289,"msg":"request completed"}
+{"level":30,"time":1788708791903,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-11","req":{"method":"POST","url":"/principals","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791910,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-11","res":{"statusCode":201},"responseTime":7.613083004951477,"msg":"request completed"}
+{"level":30,"time":1788708791911,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-12","req":{"method":"GET","url":"/principals/3c9793c7-829f-4bd1-95bf-62f26df5bf41/accounting-profile","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791923,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-12","res":{"statusCode":200},"responseTime":12.35912498831749,"msg":"request completed"}
+{"level":30,"time":1788708791923,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-13","req":{"method":"GET","url":"/principals/264159cc-ea15-4eb7-9b93-bf3ae5721919/accounting-profile","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788708791927,"pid":82778,"hostname":"Stephen-macbook.local","reqId":"req-13","res":{"statusCode":404},"responseTime":3.9667500108480453,"msg":"request completed"}
+ ✓ apps/control-api/src/__tests-integration__/pool043-operating-bill-accounts.test.ts (5 tests) 3119ms
+ ❯ packages/database/src/__tests-integration__/operating-analysis.integration.test.ts (3 tests | 1 failed) 2431ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token 292ms
+   ✓ 经营分析真实数据链 > 跨企业隔离，未知用量和无人数不伪装为零或人均 113ms
+   × 经营分析真实数据链 > 项目通过负责人归部门，新关系不搬迁旧请求，资料不足必须明确失败 82ms
+     → expected { inputTokens: '7', …(12) } to match object { totalTokens: '5', …(2) }
+(10 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/src/__tests-integration__/operating-analysis.integration.test.ts > 经营分析真实数据链 > 项目通过负责人归部门，新关系不搬迁旧请求，资料不足必须明确失败
+AssertionError: expected { inputTokens: '7', …(12) } to match object { totalTokens: '5', …(2) }
+(10 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "apiCost": "2.00000000",
++   "apiCost": "3.00000000",
+    "requestCount": 1,
+-   "totalTokens": "5",
++   "totalTokens": "7",
+  }
+
+ ❯ packages/database/src/__tests-integration__/operating-analysis.integration.test.ts:262:7
+    260|     expect(
+    261|       bill.rows.find((row) => row.subjectName === "研发部")!.totals,
+    262|     ).toMatchObject({
+       |       ^
+    263|       totalTokens: "5",
+    264|       apiCost: "2.00000000",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  1 failed | 36 passed (37)
+   Start at  23:32:55
+   Duration  20.80s (transform 937ms, setup 0ms, collect 3.39s, tests 15.15s, environment 1ms, prepare 285ms)
+

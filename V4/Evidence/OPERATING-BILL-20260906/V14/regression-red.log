@@ -1,0 +1,93 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/packages/database
+
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests | 1 failed) 9138ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 返回员工月度字段、provider/model 稳定分组、历史 alias 与未知口径 40ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 请求明细按 stable ID 下钻，保留发生时 alias、状态、时间和独立费用字段 24ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 项目账只统计项目主体，员工请求的历史项目标签不重复入账 59ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 结账冻结账户事实，底层账本变化不改写历史，但展示最新正式 alias 197ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 支持筛选、空数据并严格隔离企业与主体类型 69ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一套餐资源任一扣减事实缺失时，不把其余请求分摊伪装为精确值 31ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > SQL 下推请求分页保留全量 total，并用 request ID 稳定解决同时间次序 159ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 未指定 provider 时先合并同一 request 的跨厂商账本行，再计数和分页 114ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 同一请求的多条 ledger line 跨北京日界时，活跃天数为 2 且请求数仍为 1 36ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > CLOSED 空月的员工、项目、详情和请求下钻都返回精确空态 61ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 真实 PostgreSQL 对无法证明稳定 ID 的历史 alias 保持未解析并可冻结追溯 65ms
+   × POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配 133ms
+     → expected false to be true // Object.is equality
+ ❯ src/__tests-integration__/operating-analysis.integration.test.ts (4 tests | 2 failed) 2724ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token 286ms
+   × 经营分析真实数据链 > 跨企业隔离，未知用量和无人数不伪装为零或人均 135ms
+     → expected '100.00' to be null
+   ✓ 经营分析真实数据链 > 项目通过负责人归部门，新关系不搬迁旧请求，资料不足必须明确失败 148ms
+   × 经营分析真实数据链 > 手工员工负责人没有 person_id 时，结账后仍保留负责人 118ms
+     → expected null to deeply equal { personId: null, personName: '员工 A' }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/operating-analysis.integration.test.ts > 经营分析真实数据链 > 跨企业隔离，未知用量和无人数不伪装为零或人均
+AssertionError: expected '100.00' to be null
+
+- Expected: 
+null
+
++ Received: 
+"100.00"
+
+ ❯ src/__tests-integration__/operating-analysis.integration.test.ts:186:53
+    184|     const incompletePlans = await loadOperatingAnalysis(db, t.enterpri…
+    185|     expect(incompletePlans.plans.find((plan) => plan.providerCode === …
+    186|     expect(incompletePlans.summary.planUtilization).toBeNull();
+       |                                                     ^
+    187|     const other = await tenant();
+    188|     const isolated = await loadOperatingAnalysis(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests-integration__/operating-analysis.integration.test.ts > 经营分析真实数据链 > 手工员工负责人没有 person_id 时，结账后仍保留负责人
+AssertionError: expected null to deeply equal { personId: null, personName: '员工 A' }
+
+- Expected: 
+{
+  "personId": null,
+  "personName": "员工 A",
+}
+
++ Received: 
+null
+
+ ❯ src/__tests-integration__/operating-analysis.integration.test.ts:364:42
+    362|     const frozen = await accounts.listAccounts(t.enterpriseId,month,"P…
+    363|     expect(frozen.status).toBe("CLOSED");
+    364|     expect(frozen.rows[0]!.projectOwner).toEqual(live.rows[0]!.project…
+       |                                          ^
+    365|   });
+    366| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts > POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts:855:86
+    853|     await addUsage({ ...seed, principal: unknownEmployeeId, key: unkno…
+    854|     const incomplete = await accountRepo.listAccounts(enterpriseId,"20…
+    855|     expect(incomplete.rows.every((row) => row.totals.packageAllocatedC…
+       |                                                                                      ^
+    856|     expect(incomplete.totals.packageAllocatedCost).toBeNull();
+    857|     const incompleteProject = await accountRepo.listAccounts(enterpris…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 13 passed (16)
+   Start at  23:39:27
+   Duration  14.48s (transform 649ms, setup 0ms, collect 2.19s, tests 11.86s, environment 0ms, prepare 147ms)
+

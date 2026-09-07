@@ -1,0 +1,21 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/apps/web
+
+ ✓ src/pages/Principals.test.tsx (15 tests) 980ms
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 1313ms
+   ✓ POOL-043 经营账单员工账／项目账 > 员工账直接消费后端合计并保留月份、厂商和员工搜索  364ms
+ ✓ src/components/operating-bill/OperatingBillShell.test.tsx (3 tests) 216ms
+ ✓ src/pages/OperatingBill.test.tsx (10 tests) 441ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 188ms
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 127ms
+ ✓ src/pages/OperatingBill.pool043-routing.test.tsx (3 tests) 130ms
+ ✓ src/components/operating-bill/AccountShared.test.tsx (3 tests) 111ms
+ ✓ src/api/operating-bill-payments.test.ts (3 tests) 12ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 72ms
+ ✓ src/components/operating-bill/BillStat.test.tsx (6 tests) 35ms
+
+ Test Files  11 passed (11)
+      Tests  68 passed (68)
+   Start at  23:05:58
+   Duration  6.71s (transform 727ms, setup 1.42s, collect 2.04s, tests 3.62s, environment 3.14s, prepare 905ms)
+

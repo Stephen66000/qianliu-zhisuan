@@ -6,20 +6,12 @@
  */
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react";
-import { zodResolver } from "@hookform/resolvers/zod";
 
 import { del, get, post, patch } from "../api/client";
-import {
-  QUERY_KEYS,
-  usePrincipals,
-} from "../api/hooks";
-import type {
-  Principal,
-  PrincipalCleanupPreview,
-} from "../api/types";
+import { QUERY_KEYS, usePrincipals } from "../api/hooks";
+import type { Principal, PrincipalCleanupPreview } from "../api/types";
 import { PageShell } from "../components/layout/PageShell";
 import { DirectoryPanel } from "../components/principals/DirectoryPanel";
 import { StatusTag } from "../components/dashboard/StatusTag";
@@ -30,8 +22,14 @@ import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthoriz
 import { formatDateTimeFull } from "../lib/format";
 import { useFeatureFlags } from "../feature-flags";
 import { EmployeeModelRulesPage } from "./EmployeeModelRules";
+import { PrincipalCreateForm } from "../components/principals/PrincipalCreateForm";
+import { PrincipalAccountingPanel } from "../components/principals/PrincipalAccountingPanel";
 import { PrincipalAccessPanel } from "../components/principals/PrincipalAccessPanel";
-import { CreatePrincipalSchema, resolvePrincipalTab, TYPE_LABEL, type CreatePrincipalValues, type PrincipalTab } from "./principal-page-support";
+import {
+  resolvePrincipalTab,
+  TYPE_LABEL,
+  type PrincipalTab,
+} from "./principal-page-support";
 
 export function PrincipalsPage() {
   const featureFlags = useFeatureFlags();
@@ -62,23 +60,14 @@ export function PrincipalsPage() {
   const [disableTarget, setDisableTarget] = useState<Principal | null>(null);
   const [selected, setSelected] = useState<Principal | null>(null);
   const [editTarget, setEditTarget] = useState<Principal | null>(null);
+  const [accountingTarget, setAccountingTarget] = useState<Principal | null>(
+    null,
+  );
   const [editName, setEditName] = useState("");
-  const [editDepartment, setEditDepartment] = useState("");
   const [cleanupTarget, setCleanupTarget] = useState<{
     principal: Principal;
     preview: PrincipalCleanupPreview;
   } | null>(null);
-
-  const createMutation = useMutation({
-    mutationFn: (values: CreatePrincipalValues) =>
-      post<{ principal: Principal }>("/principals", values),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-      setShowCreate(false);
-      resetCreate();
-    },
-  });
 
   const disableMutation = useMutation({
     mutationFn: (target: Principal) =>
@@ -103,12 +92,13 @@ export function PrincipalsPage() {
     mutationFn: (target: Principal) =>
       patch<{ principal: Principal }>(`/principals/${target.id}`, {
         name: editName.trim(),
-        department_label: editDepartment.trim() || null,
       }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-      setSelected((current) => (current?.id === result.principal.id ? result.principal : current));
+      setSelected((current) =>
+        current?.id === result.principal.id ? result.principal : current,
+      );
       setEditTarget(null);
     },
   });
@@ -139,16 +129,6 @@ export function PrincipalsPage() {
     },
   });
 
-  const {
-    register,
-    handleSubmit,
-    reset: resetCreate,
-    formState: { errors },
-  } = useForm<CreatePrincipalValues, unknown, CreatePrincipalValues>({
-    resolver: zodResolver(CreatePrincipalSchema),
-    defaultValues: { type: "EMPLOYEE", name: "", department_label: "" },
-  });
-
   const principals = query.data?.principals ?? [];
 
   return (
@@ -158,12 +138,18 @@ export function PrincipalsPage() {
     >
       <div className="mb-4 flex gap-2 border-b border-ql-border">
         <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "principals" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("principals")} type="button">使用主体</button>
-        {featureFlags.FEATURE_DIRECTORY_IMPORT ? <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "directory" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("directory")} type="button">组织通讯录</button> : null}
+        {featureFlags.FEATURE_DIRECTORY_IMPORT ? (
+          <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "directory" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("directory")} type="button">组织通讯录</button>
+        ) : null}
         <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "batch-authorization" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("batch-authorization")} type="button">批量模型授权</button>
       </div>
-      {activeTab === "batch-authorization" ? <EmployeeModelRulesPage embedded />
-        : featureFlags.FEATURE_DIRECTORY_IMPORT && activeTab === "directory" ? <DirectoryPanel /> : <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      {activeTab === "batch-authorization" ? (
+        <EmployeeModelRulesPage embedded />
+      ) : featureFlags.FEATURE_DIRECTORY_IMPORT && activeTab === "directory" ? (
+        <DirectoryPanel />
+      ) : (
+        <>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-[13px] text-ql-fg-secondary">
           显示范围
           <select
@@ -188,67 +174,11 @@ export function PrincipalsPage() {
         </button>
       </div>
 
-      {showCreate ? (
-        <form
-          className="mb-5 flex flex-col gap-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4"
-          onSubmit={handleSubmit((values) => createMutation.mutate(values))}
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <FormField error={errors.type?.message} htmlFor="principal-type" label="类型">
-              <select className={INPUT_CLASS} id="principal-type" {...register("type")}>
-                <option value="EMPLOYEE">员工</option>
-                <option value="PROJECT">项目</option>
-              </select>
-            </FormField>
-            <FormField error={errors.name?.message} htmlFor="principal-name" label="名称">
-              <input
-                className={INPUT_CLASS}
-                id="principal-name"
-                placeholder="如：张三 / 数据平台项目组"
-                {...register("name")}
-              />
-            </FormField>
-            <FormField
-              error={errors.department_label?.message}
-              htmlFor="principal-dept"
-              label="部门/标签（可选）"
-            >
-              <input
-                className={INPUT_CLASS}
-                id="principal-dept"
-                placeholder="如：研发部"
-                {...register("department_label")}
-              />
-            </FormField>
-          </div>
-          {createMutation.error ? (
-            <p className="text-[13px] leading-5 text-ql-danger" role="alert">
-              {createMutation.error.message}
-            </p>
+          {showCreate ? (
+            <PrincipalCreateForm onClose={() => setShowCreate(false)} />
           ) : null}
-          <div className="flex justify-end gap-2">
-            <button
-              className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[14px] font-medium text-ql-fg hover:border-ql-border-strong"
-              onClick={() => {
-                setShowCreate(false);
-                resetCreate();
-              }}
-              type="button"
-            >
-              取消
-            </button>
-            <button
-              className="h-9 min-w-[5.5rem] rounded-lg bg-ql-action px-4 text-[14px] font-medium text-white hover:bg-ql-action-hover disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={createMutation.isPending}
-              type="submit"
-            >
-              {createMutation.isPending ? "创建中…" : "创建"}
-            </button>
-          </div>
-        </form>
-      ) : null}
 
-      <QueryGate
+          <QueryGate
         emptyDescription="尚未创建使用主体，也未生成主体 Key。点击右上角「新建主体」创建员工或项目。"
         emptyIcon={Users}
         emptyTitle="尚未创建使用主体"
@@ -258,28 +188,34 @@ export function PrincipalsPage() {
         loadingRows={4}
         onRetry={() => void query.refetch()}
       >
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
-                <th className="py-2 pr-4 font-medium">名称</th>
-                <th className="py-2 pr-4 font-medium">类型</th>
-                <th className="py-2 pr-4 font-medium">部门/标签</th>
-                <th className="py-2 pr-4 font-medium">状态</th>
-                <th className="py-2 pr-4 font-medium">创建时间</th>
-                <th className="py-2 text-right font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {principals.map((p) => (
-                <tr
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
+                    <th className="py-2 pr-4 font-medium">名称</th>
+                    <th className="py-2 pr-4 font-medium">类型</th>
+                    <th className="py-2 pr-4 font-medium">部门</th>
+                    <th className="py-2 pr-4 font-medium">状态</th>
+                    <th className="py-2 pr-4 font-medium">创建时间</th>
+                    <th className="py-2 text-right font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {principals.map((p) => (
+                    <tr
                   className="border-b border-ql-border-zone text-[13px] leading-5 text-ql-fg last:border-b-0 hover:bg-ql-surface-subtle"
                   key={p.id}
                 >
-                  <td className="py-2.5 pr-4 font-medium">{p.name}</td>
-                  <td className="py-2.5 pr-4 text-ql-fg-secondary">{TYPE_LABEL[p.type]}</td>
-                  <td className="py-2.5 pr-4 text-ql-fg-secondary">{p.department_label ?? "—"}</td>
-                  <td className="py-2.5 pr-4">
+                      <td className="py-2.5 pr-4 font-medium">{p.name}</td>
+                      <td className="py-2.5 pr-4 text-ql-fg-secondary">
+                        {TYPE_LABEL[p.type]}
+                      </td>
+                      <td className="py-2.5 pr-4 text-ql-fg-secondary">
+                        {p.type === "PROJECT"
+                          ? "随负责人部门"
+                          : (p.department_label ?? "待设置")}
+                      </td>
+                      <td className="py-2.5 pr-4">
                     <StatusTag tone={p.status === "DISABLED" ? "danger" : "neutral"}>
                       {p.archived_at
                         ? "已归档"
@@ -288,32 +224,43 @@ export function PrincipalsPage() {
                           : "启用中"}
                     </StatusTag>
                   </td>
-                  <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
+                      <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
                     {formatDateTimeFull(p.created_at)}
                   </td>
-                  <td className="py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button
+                      <td className="py-2.5 text-right">
+                        <div className="flex justify-end gap-1">
+                          {!p.archived_at &&
+                          featureFlags.FEATURE_DEPARTMENT_COST ? (
+                            <button
+                              className="rounded-md px-2 py-1 text-[12px] text-ql-action"
+                              onClick={() => setAccountingTarget(p)}
+                              type="button"
+                            >
+                              {p.type === "EMPLOYEE"
+                                ? "所属部门"
+                                : "项目负责人"}
+                            </button>
+                          ) : null}
+                          <button
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={() => setSelected(selected?.id === p.id ? null : p)}
                         type="button"
                       >
                         {selected?.id === p.id ? "收起配置" : "接入配置"}
                       </button>
-                      {!p.archived_at ? (
-                        <button
-                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
-                          onClick={() => {
-                            setEditTarget(p);
-                            setEditName(p.name);
-                            setEditDepartment(p.department_label ?? "");
-                          }}
-                          type="button"
-                        >
-                          编辑
-                        </button>
-                      ) : null}
-                      {!p.archived_at && p.status !== "DISABLED" ? (
+                          {!p.archived_at ? (
+                            <button
+                              className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                              onClick={() => {
+                                setEditTarget(p);
+                                setEditName(p.name);
+                              }}
+                              type="button"
+                            >
+                              编辑
+                            </button>
+                          ) : null}
+                          {!p.archived_at && p.status !== "DISABLED" ? (
                         <button
                           className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-danger"
                           onClick={() => setDisableTarget(p)}
@@ -322,7 +269,7 @@ export function PrincipalsPage() {
                           停用
                         </button>
                       ) : null}
-                      {!p.archived_at && p.status === "DISABLED" ? (
+                          {!p.archived_at && p.status === "DISABLED" ? (
                         <button
                           className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                           disabled={reactivateMutation.isPending}
@@ -332,7 +279,7 @@ export function PrincipalsPage() {
                           重新启用
                         </button>
                       ) : null}
-                      {!p.archived_at ? (
+                          {!p.archived_at ? (
                         <button
                           className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
                           disabled={previewMutation.isPending}
@@ -342,18 +289,27 @@ export function PrincipalsPage() {
                           清理
                         </button>
                       ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </QueryGate>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </QueryGate>
 
-      {selected ? <PrincipalAccessPanel key={selected.id} principal={selected} /> : null}
+          {accountingTarget ? (
+            <PrincipalAccountingPanel
+              key={accountingTarget.id}
+              principal={accountingTarget}
+              onClose={() => setAccountingTarget(null)}
+            />
+          ) : null}
+          {selected ? (
+            <PrincipalAccessPanel key={selected.id} principal={selected} />
+          ) : null}
 
-      <ConfirmDialog
+          <ConfirmDialog
         danger
         confirmLabel="确认停用"
         impact={`停用后「${disableTarget?.name}」将无法调用任何模型，其全部有效 Key 将被同步撤销。该操作可通过重新启用恢复。`}
@@ -363,7 +319,7 @@ export function PrincipalsPage() {
         open={disableTarget !== null}
         title="停用主体"
       />
-      <ConfirmDialog
+          <ConfirmDialog
         confirmLabel="保存修改"
         impact="主体类型创建后不可修改；名称变更会同步用于列表、接入配置和后续账本展示。"
         loading={editMutation.isPending}
@@ -374,8 +330,8 @@ export function PrincipalsPage() {
         open={editTarget !== null}
         title="编辑主体"
       >
-        <div className="grid gap-3">
-          <FormField htmlFor="principal-edit-name" label="名称">
+            <div className="grid gap-3">
+              <FormField htmlFor="principal-edit-name" label="名称">
             <input
               className={INPUT_CLASS}
               id="principal-edit-name"
@@ -384,34 +340,30 @@ export function PrincipalsPage() {
               value={editName}
             />
           </FormField>
-          <FormField htmlFor="principal-edit-department" label="部门/标签（可选）">
-            <input
-              className={INPUT_CLASS}
-              id="principal-edit-department"
-              maxLength={255}
-              onChange={(event) => setEditDepartment(event.target.value)}
-              value={editDepartment}
-            />
-          </FormField>
-        </div>
-      </ConfirmDialog>
-      <ConfirmDialog
-        danger
-        confirmLabel={cleanupTarget?.preview.canDelete ? "确认删除" : "确认归档"}
-        impact={
-          cleanupTarget
-            ? cleanupTarget.preview.canDelete
-              ? `「${cleanupTarget.principal.name}」没有请求、Usage 或账本历史，将删除主体及 ${cleanupTarget.preview.keyCount} 把 Key、${cleanupTarget.preview.grantCount} 条 Grant。`
-              : `「${cleanupTarget.principal.name}」已有 ${cleanupTarget.preview.requestCount} 条请求、${cleanupTarget.preview.usageCount} 条 Usage、${cleanupTarget.preview.ledgerCount} 条账本记录、${cleanupTarget.preview.authorizationRuleAssignmentCount ?? 0} 条批量模型授权，只会停用并归档；将撤销 ${cleanupTarget.preview.activeKeyCount} 把有效 Key、${cleanupTarget.preview.activeGrantCount} 条有效 Grant，历史数据继续保留。`
-            : ""
-        }
-        loading={cleanupMutation.isPending}
-        onCancel={() => setCleanupTarget(null)}
-        onConfirm={() => cleanupTarget && cleanupMutation.mutate(cleanupTarget)}
-        open={cleanupTarget !== null}
-        title={cleanupTarget?.preview.canDelete ? "删除主体" : "归档主体"}
-      />
-      </>}
+            </div>
+          </ConfirmDialog>
+          <ConfirmDialog
+            danger
+            confirmLabel={
+              cleanupTarget?.preview.canDelete ? "确认删除" : "确认归档"
+            }
+            impact={
+              cleanupTarget
+                ? cleanupTarget.preview.canDelete
+                  ? `「${cleanupTarget.principal.name}」没有请求、Usage 或账本历史，将删除主体及 ${cleanupTarget.preview.keyCount} 把 Key、${cleanupTarget.preview.grantCount} 条 Grant。`
+                  : `「${cleanupTarget.principal.name}」已有 ${cleanupTarget.preview.requestCount} 条请求、${cleanupTarget.preview.usageCount} 条 Usage、${cleanupTarget.preview.ledgerCount} 条账本记录、${cleanupTarget.preview.authorizationRuleAssignmentCount ?? 0} 条批量模型授权、${cleanupTarget.preview.accountingAssignmentCount ?? 0} 条归属记录，只会停用并归档；将撤销 ${cleanupTarget.preview.activeKeyCount} 把有效 Key、${cleanupTarget.preview.activeGrantCount} 条有效 Grant，历史数据继续保留。`
+                : ""
+            }
+            loading={cleanupMutation.isPending}
+            onCancel={() => setCleanupTarget(null)}
+            onConfirm={() =>
+              cleanupTarget && cleanupMutation.mutate(cleanupTarget)
+            }
+            open={cleanupTarget !== null}
+            title={cleanupTarget?.preview.canDelete ? "删除主体" : "归档主体"}
+          />
+        </>
+      )}
     </PageShell>
   );
 }

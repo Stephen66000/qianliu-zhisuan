@@ -343,3 +343,15 @@ export { savePricingConfiguration, PricingConfigurationError } from "./repositor
 export { archiveDispatchPolicy } from "./repositories/dispatch-policy-archive.js";
 export { listPricingReadyRoutes, policyPricingReadiness } from "./repositories/dispatch-pricing-readiness.js";
 export { PricingModeConflictError } from "./repositories/pricing-write-guard.js";
+
+export { loadOperatingAnalysis } from "./repositories/operating-analysis-repository.js";
+
+export {
+  readPrincipalAccounting,
+  savePrincipalAccounting,
+  savePrincipalAccountingInTransaction,
+  PrincipalAccountingError,
+} from "./repositories/principal-accounting.js";
+
+export { loadOperatingDepartmentAccounts } from "./repositories/operating-department-accounts.js";
+export { previewPrincipalAttributionBackfill, confirmPrincipalAttributionBackfill } from "./repositories/principal-attribution-backfill.js";

@@ -7,39 +7,24 @@ import {
   AccountCell,
   AccountFilters,
   AccountPagination,
-  accountCount,
-  accountMoney,
-  accountQuota,
   AccountTable,
-  accountTime,
   MetricGrid,
-  UsageQualityTag,
 } from "../components/operating-bill/AccountShared";
 import { BillCard, SectionHeading } from "../components/operating-bill/BillShared";
 import {
   operatingBillMonth,
   OperatingBillShell,
 } from "../components/operating-bill/OperatingBillShell";
+import {
+  SubjectUsageCells,
+  subjectUsageHeaders,
+} from "../components/operating-bill/SubjectUsageCells";
 import { EmptyState } from "../components/states/EmptyState";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 
-const headers = [
-  "员工",
-  "使用厂商",
-  "本月总 Token",
-  "输入 Token",
-  "输出 Token",
-  "缓存 Token",
-  "额度扣减",
-  "账本 API 计价",
-  "套餐分摊",
-  "归集成本",
-  "活跃 / 请求",
-  "最近使用（北京时间）",
-  "用量口径",
-];
+const headers = ["员工", ...subjectUsageHeaders];
 const PAGE_LIMIT = 25;
 
 function pageOffset(value: string | null): number {
@@ -94,8 +79,7 @@ export function OperatingBillEmployeesPage() {
                 searchLabel="搜索员工"
               />
             }
-            description="点击员工，按厂商合计继续展开到统一模型和真实请求"
-            title="员工账 · 谁用了多少"
+            title="员工账"
           />
         </BillCard>
         {providers.error ? (
@@ -107,59 +91,49 @@ export function OperatingBillEmployeesPage() {
           <ErrorState message={query.error?.message ?? "员工账加载失败"} onRetry={() => void query.refetch()} />
         ) : (
           <>
-          <MetricGrid totals={query.data.totals} />
-          <BillCard className="overflow-hidden">
-            {query.data.rows.length === 0 ? (
+            <MetricGrid totals={query.data.totals} />
+            <BillCard className="overflow-hidden">
+              {query.data.rows.length === 0 ? (
               <EmptyState
                 description="当前月份或筛选条件没有员工用量；可切换月份或清除筛选。"
                 icon={UsersRound}
                 title="没有员工账单记录"
               />
             ) : (
-              <AccountTable headers={headers}>
-                {query.data.rows.map((row) => {
-                  const detail = new URLSearchParams({ month });
-                  if (providerCode) detail.set("provider_code", providerCode);
-                  if (search) detail.set("search", search);
-                  const totals = row.totals;
-                  return (
-                    <tr className="border-b border-ql-border-zone" key={row.subjectId ?? row.subjectName}>
-                      <AccountCell>
-                        {row.subjectId ? (
+                <AccountTable headers={headers} leadingTextColumns={1}>
+                  {query.data.rows.map((row) => {
+                    const detail = new URLSearchParams({ month });
+                    if (providerCode) detail.set("provider_code", providerCode);
+                    if (search) detail.set("search", search);
+                    return (
+                      <tr className="border-b border-ql-border-zone" key={row.subjectId ?? row.subjectName}>
+                        <AccountCell>
+                          {row.subjectId ? (
                           <Link
                             className="font-medium text-ql-action hover:underline"
                             to={`/operating-bill/employees/${encodeURIComponent(row.subjectId)}?${detail}`}
                           >
                             {row.subjectName}
                           </Link>
-                        ) : <span className="font-medium text-ql-fg">{row.subjectName}</span>}
-                      </AccountCell>
-                      <AccountCell>
-                        {row.providers.map((provider) => provider.providerName).join("、") || "—"}
-                      </AccountCell>
-                      <AccountCell numeric>{accountCount(totals.totalTokens, totals.usageQuality)}</AccountCell>
-                      <AccountCell numeric>{accountCount(totals.inputTokens, totals.usageQuality)}</AccountCell>
-                      <AccountCell numeric>{accountCount(totals.outputTokens, totals.usageQuality)}</AccountCell>
-                      <AccountCell numeric>{accountCount(totals.cacheTokens, totals.usageQuality)}</AccountCell>
-                      <AccountCell numeric>{accountQuota(totals.deductedQuota)}</AccountCell>
-                      <AccountCell numeric>{accountMoney(totals.apiCost)}</AccountCell>
-                      <AccountCell numeric>{accountMoney(totals.packageAllocatedCost)}</AccountCell>
-                      <AccountCell numeric>{accountMoney(totals.totalAllocatedCost)}</AccountCell>
-                      <AccountCell numeric>{totals.activeDays} 天 / {totals.requestCount} 次</AccountCell>
-                      <AccountCell numeric>{accountTime(totals.lastUsedAt)}</AccountCell>
-                      <AccountCell numeric><UsageQualityTag quality={totals.usageQuality} /></AccountCell>
-                    </tr>
-                  );
-                })}
-              </AccountTable>
-            )}
-            <AccountPagination
+                        ) : (
+                            <span className="font-medium text-ql-fg">
+                              {row.subjectName}
+                            </span>
+                          )}
+                        </AccountCell>
+                        <SubjectUsageCells row={row} />
+                      </tr>
+                    );
+                  })}
+                </AccountTable>
+              )}
+              <AccountPagination
               limit={query.data.limit}
               offset={query.data.offset}
               onOffsetChange={setOffset}
               total={query.data.total}
             />
-          </BillCard>
+            </BillCard>
           </>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createKysely,
@@ -6,7 +7,9 @@ import {
   OperatingBillAccountReferenceError,
   OperatingBillAccountRepository,
   OperatingBillRepository,
+  ProviderFinanceRepository,
   UsageRepository,
+  loadOperatingDepartmentAccounts,
 } from "../index.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 
@@ -42,6 +45,7 @@ let unassignedRequestId: string;
 let directProjectRequestId: string;
 
 interface UsageSeed {
+  subscriptionPeriodId?: string;
   enterprise?: string;
   principal: string;
   key: string;
@@ -78,23 +82,47 @@ async function addUsage(seed: UsageSeed): Promise<string> {
     cache_tokens: seed.cache, reasoning_tokens: 0n, usage_quality: seed.quality,
     dedup_key: `pool043-${requestId}`, created_at: seed.at,
   }).returning("id").executeTakeFirstOrThrow();
-  await db.insertInto("ledger_line").values({
-    ai_request_id: requestId, enterprise_id: enterprise, usage_event_id: usage.id,
-    upstream_attempt_id: attempt.id, provider_resource_id: seed.resource,
-    principal_id: seed.principal, resource_mode: seed.mode,
-    raw_input_tokens: seed.input, raw_output_tokens: seed.output,
-    raw_cache_tokens: seed.cache, raw_reasoning_tokens: 0n,
-    deducted_quota: seed.deducted, api_cost: seed.cost, usage_quality: seed.quality,
-    created_at: seed.at,
-  }).execute();
-  await db.insertInto("ledger_transaction").values({
-    ai_request_id: requestId, enterprise_id: enterprise, principal_id: seed.principal,
-    total_input_tokens: seed.input, total_output_tokens: seed.output,
-    total_cache_tokens: seed.cache, total_reasoning_tokens: 0n,
-    total_deducted_quota: seed.deducted ?? 0n,
-    total_api_cost: seed.mode === "API" ? seed.cost ?? "0" : "0",
-    usage_quality: seed.quality, attempt_count: 1, status: "SETTLED", created_at: seed.at,
-  }).execute();
+  await db
+    .insertInto("ledger_line")
+    .values({
+      ai_request_id: requestId,
+      enterprise_id: enterprise,
+      usage_event_id: usage.id,
+      upstream_attempt_id: attempt.id,
+      provider_resource_id: seed.resource,
+      principal_id: seed.principal,
+      resource_mode: seed.mode,
+      raw_input_tokens: seed.input,
+      raw_output_tokens: seed.output,
+      raw_cache_tokens: seed.cache,
+      raw_reasoning_tokens: 0n,
+      deducted_quota: seed.deducted,
+      api_cost: seed.cost,
+      usage_quality: seed.quality,
+      created_at: seed.at,
+      settled_at: seed.at,
+      api_cost_status: seed.subscriptionPeriodId ? "NOT_APPLICABLE" : null,
+      subscription_period_id: seed.subscriptionPeriodId ?? null,
+    })
+    .execute();
+  await db
+    .insertInto("ledger_transaction")
+    .values({
+      ai_request_id: requestId,
+      enterprise_id: enterprise,
+      principal_id: seed.principal,
+      total_input_tokens: seed.input,
+      total_output_tokens: seed.output,
+      total_cache_tokens: seed.cache,
+      total_reasoning_tokens: 0n,
+      total_deducted_quota: seed.deducted ?? 0n,
+      total_api_cost: seed.mode === "API" ? (seed.cost ?? "0") : "0",
+      usage_quality: seed.quality,
+      attempt_count: 1,
+      status: "SETTLED",
+      created_at: seed.at,
+    })
+    .execute();
   return requestId;
 }
 
@@ -259,9 +287,21 @@ afterAll(async () => {
 describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
   it("返回员工月度字段、provider/model 稳定分组、历史 alias 与未知口径", async () => {
     const list = await accountRepo.listAccounts(enterpriseId, "2026-08", "EMPLOYEE");
-    expect(list.rows.map((row) => row.subjectName)).toEqual(["于滔", "未知员工"]);
+    expect(list.rows.map((row) => row.subjectName)).toEqual([
+      "于滔",
+      "未知员工",
+    ]);
     const yutao = list.rows.find((row) => row.subjectId === employeeId)!;
-    expect(yutao.providers).toEqual([{ providerCode: "deepseek", providerName: "DeepSeek" }]);
+    expect(yutao.providers).toEqual([
+      expect.objectContaining({
+        providerCode: "deepseek",
+        providerName: "DeepSeek",
+        totals: expect.objectContaining({
+          totalTokens: "9007199254741433",
+          packageAllocatedCost: "300.00000000",
+        }),
+      }),
+    ]);
     expect(yutao.totals).toMatchObject({
       inputTokens: "9007199254741293", outputTokens: "140", cacheTokens: "280",
       totalTokens: "9007199254741433", deductedQuota: "500",
@@ -315,18 +355,9 @@ describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
     });
   });
 
-  it("项目账只投影一次请求，明确未归属，归属变更沿用 ledger 月份与结账门禁", async () => {
+  it("项目账只统计项目主体，员工请求的历史项目标签不重复入账", async () => {
     const before = await accountRepo.listAccounts(enterpriseId, "2026-08", "PROJECT");
-    expect(before.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        subjectId: projectId, subjectName: "星河项目", isUnassigned: false,
-        projectOwner: { personId: projectOwnerPersonId, personName: "项目负责人" },
-        projectDepartments: [{ departmentId: projectDepartmentId, departmentName: "研发中心" }],
-      }),
-      expect.objectContaining({
-        subjectId: null, subjectName: "未归属项目", isUnassigned: true,
-        projectOwner: null, projectDepartments: [],
-      }),
+    expect(before.rows).toEqual([
       expect.objectContaining({
         subjectId: directProjectId, subjectName: "直接项目", isUnassigned: false,
         projectOwner: { personId: projectOwnerPersonId, personName: "项目负责人" },
@@ -334,15 +365,17 @@ describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
           departmentId: directProjectDepartmentId, departmentName: "产品中心",
         }],
       }),
-    ]));
-    expect(before.totals.totalTokens).toBe("9007199254741444");
-    expect(before.totals.requestCount).toBe(6);
+    ]);
+    expect(before.totals.totalTokens).toBe("11");
+    expect(before.totals.requestCount).toBe(1);
     await new OperatingBillRepository(db).assignRequestToProject({
       enterpriseId, adminId, month: "2026-08", requestId: unassignedRequestId,
       projectPrincipalId: projectId, reason: "补充归属",
     });
     const after = await accountRepo.listAccounts(enterpriseId, "2026-08", "PROJECT");
-    expect(after.rows.find((row) => row.subjectId === projectId)!.totals.requestCount).toBe(2);
+    expect(
+      after.rows.find((row) => row.subjectId === projectId),
+    ).toBeUndefined();
     expect(after.totals.totalTokens).toBe(before.totals.totalTokens);
     const usageRepo = new UsageRepository(db);
     expect((await usageRepo.list({ enterpriseId, projectId })).records.map((row) => row.requestId))
@@ -398,7 +431,7 @@ describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
     )).employee.principalName).toBe("于滔");
     expect((await accountRepo.listAccounts(
       enterpriseId, "2026-08", "PROJECT", { providerCode: "deepseek", search: "星河" },
-    )).rows.map((row) => row.subjectName)).toEqual(["星河项目"]);
+    )).rows.map((row) => row.subjectName)).toEqual([]);
     await expect(billRepo.assignRequestToProject({
       enterpriseId, adminId, month: "2026-08", requestId: assignedRequestId,
       projectPrincipalId: projectId,
@@ -640,5 +673,205 @@ describe("POOL-043 经营员工账与项目账 PostgreSQL 聚合", () => {
         }],
       }],
     });
+  });
+  it("新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配", async () => {
+    const provider = await db
+      .insertInto("provider")
+      .values({
+        enterprise_id: enterpriseId,
+        code: "kimi-monthly-share",
+        name: "Kimi 月度分配",
+        adapter_type: "kimi",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    const resource = await db
+      .insertInto("provider_resource")
+      .values({
+        enterprise_id: enterpriseId,
+        provider_id: provider.id,
+        name: "199 月套餐",
+        mode: "CODING_PLAN",
+        credential_type: "API_KEY",
+        status: "ACTIVE",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    const baseSeed = {
+      modelId: flashId,
+      alias: "kimi-test",
+      resource: resource.id,
+      mode: "CODING_PLAN" as const,
+      output: 0n,
+      cache: 0n,
+      deducted: null,
+      cost: null,
+      quality: "PROVIDER_REPORTED",
+      at: new Date("2026-09-02T04:00:00Z"),
+    };
+    await addUsage({
+      ...baseSeed,
+      principal: employeeId,
+      key: keyId,
+      input: 1000000n,
+      at: new Date("2026-08-31T15:59:59Z"),
+    });
+    await sql`INSERT INTO provider_finance_runtime_state
+      (enterprise_id, strict_writes_enabled, activated_at, activated_by_admin_user_id)
+      VALUES (${enterpriseId}::uuid,true,now(),${adminId}::uuid)`.execute(db);
+    const subscription = await new ProviderFinanceRepository(
+      db,
+    ).recordSubscription({
+      enterpriseId,
+      resourceId: resource.id,
+      adminId,
+      kind: "PURCHASE",
+      productName: "Kimi 199",
+      accountAmount: "199",
+      accountCurrency: "CNY",
+      cashPaidCny: "199",
+      occurredAt: new Date("2026-09-01T00:00:00+08:00"),
+      periodStart: new Date("2026-09-01T00:00:00+08:00"),
+      periodEndExclusive: new Date("2026-10-01T00:00:00+08:00"),
+      idempotencyKey: randomUUID(),
+    });
+    const seed = { ...baseSeed, subscriptionPeriodId: subscription.periodId };
+    await addUsage({
+      ...seed,
+      principal: employeeId,
+      key: keyId,
+      input: 600n,
+      deducted: 1n,
+    });
+    await addUsage({
+      ...seed,
+      principal: unknownEmployeeId,
+      key: unknownKeyId,
+      input: 400n,
+      deducted: 999n,
+    });
+    const query = { providerCode: "kimi-monthly-share" };
+    const list = await accountRepo.listAccounts(
+      enterpriseId,
+      "2026-09",
+      "EMPLOYEE",
+      query,
+    );
+    const employee = list.rows.find((row) => row.subjectId === employeeId)!;
+    expect(employee.providers[0]!.totals).toMatchObject({
+      totalTokens: "600",
+      packageAllocatedCost: "119.40000000",
+    });
+    expect(
+      list.rows.find((row) => row.subjectId === unknownEmployeeId)!
+        .providers[0]!.totals,
+    ).toMatchObject({
+      totalTokens: "400",
+      packageAllocatedCost: "79.60000000",
+    });
+    expect(list.totals.packageAllocatedCost).toBe("199.00000000");
+    const filtered = await accountRepo.listAccounts(
+      enterpriseId,
+      "2026-09",
+      "EMPLOYEE",
+      { ...query, search: employee.subjectName, limit: 1 },
+    );
+    expect(filtered.rows[0]!.totals.packageAllocatedCost).toBe("119.40000000");
+    expect(
+      (
+        await accountRepo.getEmployeeDetail(
+          enterpriseId,
+          "2026-09",
+          employeeId,
+          query.providerCode,
+        )
+      ).totals.packageAllocatedCost,
+    ).toBe("119.40000000");
+    await addUsage({
+      ...seed,
+      principal: directProjectId,
+      key: projectKeyId,
+      input: 1000n,
+    });
+    const updated = await accountRepo.listAccounts(
+      enterpriseId,
+      "2026-09",
+      "EMPLOYEE",
+      query,
+    );
+    expect(
+      updated.rows.find((row) => row.subjectId === employeeId)!.totals
+        .packageAllocatedCost,
+    ).toBe("59.70000000");
+    expect(
+      updated.rows.find((row) => row.subjectId === unknownEmployeeId)!.totals
+        .packageAllocatedCost,
+    ).toBe("39.80000000");
+    const projects = await accountRepo.listAccounts(
+      enterpriseId,
+      "2026-09",
+      "PROJECT",
+      query,
+    );
+    expect(
+      projects.rows.find((row) => row.subjectId === directProjectId)!
+        .providers[0]!.totals,
+    ).toMatchObject({
+      totalTokens: "1000",
+      packageAllocatedCost: "99.50000000",
+    });
+    await addUsage({ ...seed, principal: employeeId, key: keyId, input: 400n });
+    await addUsage({
+      ...seed,
+      principal: unknownEmployeeId,
+      key: unknownKeyId,
+      input: 600n,
+    });
+    const thirds = await accountRepo.listAccounts(
+      enterpriseId,
+      "2026-09",
+      "EMPLOYEE",
+      query,
+    );
+    const thirdsProjects = await accountRepo.listAccounts(
+      enterpriseId,
+      "2026-09",
+      "PROJECT",
+      query,
+    );
+    const amounts = [
+      ...thirds.rows.map((row) => row.totals.packageAllocatedCost!),
+      thirdsProjects.rows.find((row) => row.subjectId === directProjectId)!
+        .totals.packageAllocatedCost!,
+    ];
+    expect([...amounts].sort()).toEqual(["66.33000000", "66.33000000", "66.34000000"]);
+    expect(
+      amounts.reduce(
+        (sum, amount) => sum + BigInt(amount.replace(".", "")),
+        0n,
+      ),
+    ).toBe(19900000000n);
+    await addUsage({ ...seed, principal: unknownEmployeeId, key: unknownKeyId, input: 0n, quality: "UNKNOWN" });
+    const incomplete = await accountRepo.listAccounts(enterpriseId,"2026-09","EMPLOYEE",query);
+    expect(incomplete.rows.every((row) => row.totals.packageAllocatedCost === null)).toBe(true);
+    expect(incomplete.totals.packageAllocatedCost).toBeNull();
+    const incompleteProject = await accountRepo.listAccounts(enterpriseId,"2026-09","PROJECT",query);
+    expect(incompleteProject.rows[0]!.totals.packageAllocatedCost).toBeNull();
+    expect((await accountRepo.getEmployeeDetail(enterpriseId,"2026-09",employeeId,query.providerCode)).totals.packageAllocatedCost).toBeNull();
+    expect((await loadOperatingDepartmentAccounts(db,enterpriseId,"2026-09")).totals.packageAllocatedCost).toBeNull();
+    const overview = await new OperatingBillRepository(db,"ACTIVE").getBill(enterpriseId,"2026-09");
+    expect(overview.summary.unallocatedCost).toBe("199.00000000");
+    expect(overview.subjects.every((row) => row.packageAllocatedCost === "0.00000000")).toBe(true);
+    expect(overview.gaps.some((gap) => gap.code === "UNALLOCATED_PACKAGE_COST")).toBe(true);
+    await new ProviderFinanceRepository(db).reverseFinanceEvent({
+      enterpriseId,adminId,eventId:subscription.event.id,
+      reason:"测试当月套餐费用冲销至零",evidenceRef:"test-zero-plan-fee",idempotencyKey:randomUUID(),
+    });
+    const zeroFee = await accountRepo.listAccounts(enterpriseId,"2026-09","EMPLOYEE",query);
+    expect(zeroFee.rows.every((row) => row.totals.packageAllocatedCost === "0.00000000")).toBe(true);
+    expect((await accountRepo.listAccounts(enterpriseId,"2026-09","PROJECT",query)).totals.packageAllocatedCost).toBe("0.00000000");
+    expect((await accountRepo.getEmployeeDetail(enterpriseId,"2026-09",employeeId,query.providerCode)).totals.packageAllocatedCost).toBe("0.00000000");
+    expect((await loadOperatingDepartmentAccounts(db,enterpriseId,"2026-09")).totals.packageAllocatedCost).toBe("0.00000000");
+    expect((await new OperatingBillRepository(db,"ACTIVE").getBill(enterpriseId,"2026-09")).summary.packageCost).toBe("0.00000000");
   });
 });

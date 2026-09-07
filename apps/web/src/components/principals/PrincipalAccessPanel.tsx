@@ -5,12 +5,9 @@ import { KeyRound, Settings2 } from "lucide-react";
 import { post } from "../../api/client";
 import { QUERY_KEYS, useAccessConfiguration, useGrants, usePrincipalKeys, useUnifiedModels } from "../../api/hooks";
 import type { AccessConfiguration, Principal, PrincipalGrantItem } from "../../api/types";
-import { useOrganizationUnits, useProjectDepartmentAssignment, useSaveProjectDepartmentAssignment } from "../../api/v2-hooks";
 import { StatusTag } from "../dashboard/StatusTag";
 import { ConfirmDialog } from "../writes/ConfirmDialog";
-import { INPUT_CLASS } from "../writes/FormField";
 import { formatCount } from "../../lib/format";
-import { useFeatureFlags } from "../../feature-flags";
 import { AgentUsagePanel } from "./AgentUsagePanel";
 import { PrincipalAccessConfigPanel } from "./PrincipalAccessConfigPanel";
 import { PrincipalKeyDialog } from "./PrincipalKeyDialog";
@@ -27,12 +24,15 @@ function configuredAliases(accessConfig: AccessConfiguration | undefined): strin
 }
 
 function resolveGatewayBaseUrl(): string {
-  return (import.meta.env.VITE_GATEWAY_BASE_URL as string | undefined) ??
-    (import.meta.env.PROD ? "https://gw.qianliuai.com/v1" : "http://127.0.0.1:8787/v1");
+  return (
+    (import.meta.env.VITE_GATEWAY_BASE_URL as string | undefined) ??
+    (import.meta.env.PROD
+      ? "https://gw.qianliuai.com/v1"
+      : "http://127.0.0.1:8787/v1")
+  );
 }
 
 export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
-  const featureFlags = useFeatureFlags();
   const queryClient = useQueryClient();
   const keysQuery = usePrincipalKeys(principal.id);
   const grantsQuery = useGrants(principal.id);
@@ -169,10 +169,6 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
         </div>
       </div>
 
-      {featureFlags.FEATURE_DEPARTMENT_COST && principal.type === "PROJECT" ? (
-        <ProjectDepartmentEditor projectId={principal.id} />
-      ) : null}
-
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="rounded-lg border border-ql-border-zone bg-ql-surface p-4">
           <h3 className="text-[13px] font-semibold text-ql-fg">主体 Key</h3>
@@ -217,7 +213,9 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
             <h3 className="text-[13px] font-semibold text-ql-fg">接入信息</h3>
             <dl className="mt-2 grid grid-cols-[5rem_1fr] gap-1 text-[12px]">
               <dt className="text-ql-fg-tertiary">Base URL</dt>
-              <dd className="break-all font-mono text-ql-fg">{gatewayBaseUrl}</dd>
+              <dd className="break-all font-mono text-ql-fg">
+                {gatewayBaseUrl}
+              </dd>
               <dt className="text-ql-fg-tertiary">API Key</dt>
               <dd className="font-mono text-ql-fg">
                 {plaintextKey
@@ -292,17 +290,28 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
             </thead>
             <tbody>
               {grants.map((grant) => (
-                <tr className="border-b border-ql-border-zone last:border-b-0" key={grant.id}>
+                <tr
+                  className="border-b border-ql-border-zone last:border-b-0"
+                  key={grant.id}
+                >
                   <td className="p-2 font-medium">
                     {grant.model_alias === "*" ? (
                       <SharedQuotaModels accessConfig={accessConfig} provider={grant.provider} />
-                    ) : grant.model_alias}
+                    ) : (
+                      grant.model_alias
+                    )}
                   </td>
                   <td className="p-2 text-ql-fg-secondary">{grant.provider}</td>
-                  <td className="p-2 text-right font-mono">{formatCount(grant.quota_value)}</td>
-                  <td className="p-2">{grant.allow_overage ? "允许" : "不允许"}</td>
+                  <td className="p-2 text-right font-mono">
+                    {formatCount(grant.quota_value)}
+                  </td>
                   <td className="p-2">
-                    {grant.status === "ACTIVE" ? "有效" : grant.status === "DISABLED" ? (
+                    {grant.allow_overage ? "允许" : "不允许"}
+                  </td>
+                  <td className="p-2">
+                    {grant.status === "ACTIVE" ? (
+                      "有效"
+                    ) : grant.status === "DISABLED" ? (
                       <div className="flex items-center gap-2">
                         <span>已停用</span>
                         <button
@@ -311,7 +320,9 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                           type="button"
                         >归档</button>
                       </div>
-                    ) : "已过期"}
+                    ) : (
+                      "已过期"
+                    )}
                   </td>
                 </tr>
               ))}
@@ -367,37 +378,12 @@ function SharedQuotaModels({
     .find((item) => item.provider_code === provider)
     ?.models.filter((model) => model.enabled)
     .map((model) => model.display_name) ?? [];
-  return <div>
+  return (
+    <div>
     <span>该厂商共享额度</span>
     <span className="block max-w-[28rem] font-normal text-ql-fg-tertiary">
       已授权 {models.length} 个型号：{models.join("、") || "暂无有效型号"}
     </span>
-  </div>;
-}
-
-function ProjectDepartmentEditor({ projectId }: { projectId: string }) {
-  const projectDepartment = useProjectDepartmentAssignment(projectId);
-  const organizationUnits = useOrganizationUnits();
-  const save = useSaveProjectDepartmentAssignment(projectId);
-  const [departmentId, setDepartmentId] = useState("");
-  useEffect(() => {
-    setDepartmentId(projectDepartment.data?.assignment?.organization_unit_id ?? "");
-  }, [projectDepartment.data?.assignment?.organization_unit_id]);
-  return <div className="mt-4 rounded-lg border border-ql-border-zone bg-ql-surface p-4">
-    <h3 className="text-[13px] font-semibold text-ql-fg">项目归属部门</h3>
-    <p className="mt-1 text-[11px] text-ql-fg-tertiary">仅影响设置后的新请求；历史请求按发生时点快照保留。</p>
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      <select aria-label="项目归属部门" className={`${INPUT_CLASS} min-w-56`} disabled={organizationUnits.isLoading} onChange={(event) => setDepartmentId(event.target.value)} value={departmentId}>
-        <option value="">请选择部门</option>
-        {(organizationUnits.data?.units ?? []).map((unit) => <option key={unit.id} value={unit.id}>{unit.path}</option>)}
-      </select>
-      <button className="h-9 rounded-lg bg-ql-action px-3 text-[12px] font-medium text-white disabled:opacity-50" disabled={!departmentId || save.isPending} onClick={() => void save.mutateAsync({
-        organization_unit_id: departmentId,
-        expected_version: projectDepartment.data?.assignment?.version ?? 0,
-        reason: "WEB_ADMIN",
-      })} type="button">{save.isPending ? "保存中…" : "保存归属"}</button>
-      {projectDepartment.data?.assignment ? <span className="text-[11px] text-ql-fg-tertiary">版本 {projectDepartment.data.assignment.version} · {projectDepartment.data.assignment.department_name}</span> : null}
-    </div>
-    {projectDepartment.error || save.error ? <p className="mt-2 text-[12px] text-ql-danger">{(projectDepartment.error ?? save.error)?.message}</p> : null}
-  </div>;
+  </div>
+  );
 }

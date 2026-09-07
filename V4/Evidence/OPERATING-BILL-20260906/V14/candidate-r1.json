@@ -1,0 +1,263 @@
+{
+  "base": "4cea87f2e5928d7486282a934c7c6c0084f241de",
+  "branch": "codex/operating-bill-redesign-0906",
+  "code_files": [
+    {
+      "path": "apps/control-api/src/__tests-integration__/pool043-operating-bill-accounts.test.ts",
+      "sha256": "ef0e5b14b8c7c77a2123565c61f201097989de9af9f2cd73055d7e7d7a2c78d8"
+    },
+    {
+      "path": "apps/control-api/src/department-costs/routes.ts",
+      "sha256": "61b9920e7b75f8855ae31d428de7578a651a596e709e7a9d1567ad9772d82db8"
+    },
+    {
+      "path": "apps/control-api/src/operating-bills/analysis-route.ts",
+      "sha256": "0e6d1261e2957c902e2a6e5bd8ee1195aad249923e9e85bebfb8de4e6a7f63f0"
+    },
+    {
+      "path": "apps/control-api/src/operating-bills/routes.ts",
+      "sha256": "dc95cca5c304e2ba06d63b5ae887d766319c4c4f074e21ea0dc585734db11fd2"
+    },
+    {
+      "path": "apps/control-api/src/principals/accounting-route.ts",
+      "sha256": "da33920df3d985a8b6c615971cecf0cb46b8d2c29e290bf4f3ec68753ce06520"
+    },
+    {
+      "path": "apps/control-api/src/principals/routes.ts",
+      "sha256": "e407c17e7487a7dbae092e6c8498138e76b8b1f41669c99c1a88162c01a8edc3"
+    },
+    {
+      "path": "apps/web/src/__tests__/operating-analysis-fixture.ts",
+      "sha256": "07f7d146a92455f8cf30d60aaafbda68e2d0bb0667f866634ca6c468c8d949db"
+    },
+    {
+      "path": "apps/web/src/api/operating-analysis.ts",
+      "sha256": "ba69f80f71822ff2878b11a92c4f1b01c58bd34fa140a2b9d4e743a6b8a51440"
+    },
+    {
+      "path": "apps/web/src/api/operating-bill-accounts.ts",
+      "sha256": "aa6388cbce8b1f733bde43635712de372f8e2365dac1e9797f9ffe15089361c8"
+    },
+    {
+      "path": "apps/web/src/api/operating-bill-payments.test.ts",
+      "sha256": "31e0600cd31b45fa2934f6d0e3e7a52fa5bf4e21a17aa6145e654217f6fc269d"
+    },
+    {
+      "path": "apps/web/src/api/operating-bill-payments.ts",
+      "sha256": "a67e3771a45e9dbd576e8911a08427c987ae501f796992c04bd2c5e74c262b51"
+    },
+    {
+      "path": "apps/web/src/api/operating-bills.ts",
+      "sha256": "4edfb0471d3edca131c8e73090a2847dcaa459ae243dfa495655283408f87caa"
+    },
+    {
+      "path": "apps/web/src/api/provider-finance.ts",
+      "sha256": "b58cde8cb732eb7a672b08395479287af4d87d6e5eec842da3355c39ceb73c5f"
+    },
+    {
+      "path": "apps/web/src/api/types.ts",
+      "sha256": "45a84db63cb11f469c6c1b5189b2010ee98a825d56790c56e506cce04cc23f64"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/AccountShared.test.tsx",
+      "sha256": "7d5a685a100c82104a5f439abd82a8b01eed4e086d91fc187664dd7e12d95c6f"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/AccountShared.tsx",
+      "sha256": "cd9056107fd5edc727db64fa3186b4f7d7329d193c24c27c322c2708c30ffa12"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/BillStat.test.tsx",
+      "sha256": "12c1543d4bdf7a110bfc8e0cbea0fba50dbd19fa1986e61d2c06eb0058b0151b"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/BillStat.tsx",
+      "sha256": "eb2199585a08fe2782058fdbadf56bd4f7c1c0237c6cc935f72e45ae49492af9"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/MonthlyPayments.tsx",
+      "sha256": "f3ae9640a4e34f248719d72f54b684cbebd4d295937f1a478545cc40fc9306d5"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingBillShell.test.tsx",
+      "sha256": "3db8cda3db12deff69cb735dc89d825b8c7466efb0e3c9069129eebe921e5de2"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingBillShell.tsx",
+      "sha256": "d2c5343e5925954a2d2577d2147b02de3a50feaaf418c815485dddc79e24b241"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingPlans.tsx",
+      "sha256": "2b0f706ff0c399b6ef6ab5b384d470a6bbc802b698d6945b423ca7a1d0e3bd34"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingProcurement.tsx",
+      "sha256": "0a3a020f58b8e724f45a268f0e2dcea1f6dac99b2e5bd5de64c9dbfea398f483"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingTrends.tsx",
+      "sha256": "c7291609acbdf3ce94e0f19f7feb7a1fcfe48d8f161eac2f7d205a90dfc2609a"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/SubjectUsageCells.test.tsx",
+      "sha256": "1f3209f9f0ccc7d0cb9fbbeb85d6aa9c7f40c67c18b0a87797ff7671ad813869"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/SubjectUsageCells.tsx",
+      "sha256": "01708b5ef6e1fe0f3d469d93c1a87ba634b61ddf987e372e61be33b716a7652d"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalAccessPanel.tsx",
+      "sha256": "93be5576b79c1b2f4c820fa397dbc3eaf2b327afcc269161780c52579a148363"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalAccountingPanel.tsx",
+      "sha256": "ff3cae1ae8e0fbd74c06f62a6886ec445ee2175f633e9997e03e76072f18964a"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalCreateForm.tsx",
+      "sha256": "931984c27af94efc1283bede58b429ea66a790e6400b5538cf0589ca878fe50c"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBill.pool043-routing.test.tsx",
+      "sha256": "5b8b5f8c8bea7b1953c8c3971264a9848ba196306c697d328f6e6471f80377b3"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBill.test.tsx",
+      "sha256": "70b156e897327a75ae0b54291bdc67ec2acde9539ff7c7848fc2b67cd3d6389a"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBill.tsx",
+      "sha256": "c9e0c18f47b22b1426297730e714bd17a33e104f2fbc1003152825db0e038aa9"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillAccounts.test.tsx",
+      "sha256": "bbd26e69a7c0f11c8ab660839c456197adb132215ac64e6b7d4f4ca21a6b7747"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillDepartments.test.tsx",
+      "sha256": "e4c664165be895563d159537997c40d9004f8629060d93d9d0fd54561c367e97"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillDepartments.tsx",
+      "sha256": "caac3126b55c27d31717dc89203adfde2de4013c59ce67434a390d235a5e14c5"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillEmployees.tsx",
+      "sha256": "b0484a27cac96f15cfe81973f53f58939123df89218383b83b7bbf42d653e9de"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillOverview.tsx",
+      "sha256": "460fa7455756150fe5d0d67ebbe8bf7f77526c7e5ea4a6e9543945594151585b"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillProcurement.test.tsx",
+      "sha256": "9fa17007965fd60d749df6f3d5cc6a9d5f4b476c8204822f9bc443c2494e093d"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillProjects.tsx",
+      "sha256": "481bbeab1ec8f3a7291303184ecee89b23de28dac6f7965937407ae573de5a68"
+    },
+    {
+      "path": "apps/web/src/pages/Principals.test.tsx",
+      "sha256": "ea81ff0fb549a0547589bd1fca28c4dedcb8c17372304821620af6b8194027b9"
+    },
+    {
+      "path": "apps/web/src/pages/Principals.tsx",
+      "sha256": "6903e284a8d9051f21d257a05ea352b9f9c27116a69989b4fb9f6e57f34f637b"
+    },
+    {
+      "path": "apps/web/src/styles/index.css",
+      "sha256": "6d72ab9d16d8bcde46c189af7fae951d38b32de7e8344f710edbfc9ee7041981"
+    },
+    {
+      "path": "packages/database/migrations/0065_principal_accounting_assignment.js",
+      "sha256": "d5a8bc87b536ab757f7fc4dd633c9b526534762f20f2a3dfbefb5bc59862d3aa"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/fixtures/operating-analysis.ts",
+      "sha256": "c7b85795b3b28aa5caef96a65a24fb97259224a6dce35eaf9c837bc4e7e9adcf"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/operating-analysis.integration.test.ts",
+      "sha256": "34da8b6c6d87048292f516566f7930c939592a43c90803858b7cd64bc8bc6d8c"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts",
+      "sha256": "bb6a767b03e029e68a7150fe0877117a6c0544e18df22cc348fca61f43ef64a4"
+    },
+    {
+      "path": "packages/database/src/index.ts",
+      "sha256": "a2f983de8f906ca480c4178f02fd4e3b7f534dbbe4222abe8084e492477b00b8"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-repository.ts",
+      "sha256": "d09d8e927aa2dc68df5764c4d5226200887317bd8e9c446a1186dba8de12c2ac"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-usage.ts",
+      "sha256": "a6a6fdbefbce1c50397cb247874aa3dd16ed1efba708c4bd69c1adacc0510759"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-frozen.ts",
+      "sha256": "259442a2922242abcf22fe4c0c0dbc2e2b9b2abe4b13e4a7b73dda81083cb809"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-live.ts",
+      "sha256": "2091dfd8dccf3316e14b17fa7d61a680f783d0d48bb23aff152bdf7aa70baefe"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-month-lines.ts",
+      "sha256": "c697904795f361dbbf193f673e1d24ca1ff0c3bacec1b53e70f21019e97cb790"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-types.ts",
+      "sha256": "cb509012766f4df1c11a969237b97826741be5c2cb4f29e2a448fa9d7357f2e3"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-finance-projection.ts",
+      "sha256": "d28e5f328cc7607ada9d1abe197edacbf44b59e12ab714360a5550f59a9a8cbd"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-project-metadata.ts",
+      "sha256": "5a6f98977c5238d36145ee34fe22423b0071ff2a455c5e10071e830fa57518d7"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-department-accounts.ts",
+      "sha256": "4b067739b42de1405cffa08a6c99a84f1342a1443cb99d2c833f900754c1835b"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-accounting.ts",
+      "sha256": "f33034076a2821e28b660d8145d0b2297505c40cf853893b0f26c49f779da82c"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-cleanup-preview.ts",
+      "sha256": "c52ed94acb3ccc20d4b88e8c994f52c18677607e6da5e50d847470351742cfbc"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-department-query.ts",
+      "sha256": "9d924c55788dbe2d15c07fdf6e19a9f1c6aea70b329938ec87917b6c72570a7f"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-repository.ts",
+      "sha256": "4507327fab4b777faa2b7575e0aaddc15e9f6ca2666883bccf515443f8e6af1d"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-month-opening.ts",
+      "sha256": "3c7d21f8372c9f9d231a2964272186781f39a2e973943f2c43290380e462dcef"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-repository.ts",
+      "sha256": "644c6c64cfdb8bddc4641b66f357b8fe8eb2ddefa3759c3b8d4e11db9c4cc0c9"
+    },
+    {
+      "path": "packages/database/src/repositories/request-attribution-writer.ts",
+      "sha256": "8b326ef80ba668c1e22997ee632c601677f037b07f3c1d2d1dfef12dbd72ea26"
+    },
+    {
+      "path": "scripts/verify-operating-reports.mts",
+      "sha256": "484b49d1b615a592257b287b4903405cf631019ab6789c3d00b23d9daf711b44"
+    }
+  ],
+  "code_sha256": "ae6e0ccdf5075c36186942ab9fd0a0c7147403df5916b5f1f4770da4f1641d89"
+}

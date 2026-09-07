@@ -1,0 +1,62 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/operating-bill-0906/仟流智算/apps/web
+      Coverage enabled with v8
+
+ ✓ src/pages/OperatingBill.pool043-routing.test.tsx (3 tests) 367ms
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 455ms
+   ✓ 部门主体账 > 沿用员工表格，待归属引导到使用主体  407ms
+ ✓ src/components/operating-bill/OperatingBillShell.test.tsx (3 tests) 602ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 739ms
+ ✓ src/pages/OperatingBill.test.tsx (10 tests) 1636ms
+   ✓ POOL-025 经营账单 > 展示真实成本口径并可切换经营账单页签  566ms
+ ✓ src/components/operating-bill/BillStat.test.tsx (6 tests) 72ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 137ms
+ ✓ src/components/operating-bill/AccountShared.test.tsx (3 tests) 244ms
+ ✓ src/api/operating-bill-payments.test.ts (3 tests) 57ms
+ ✓ src/pages/Principals.test.tsx (15 tests) 2217ms
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 2852ms
+   ✓ POOL-043 经营账单员工账／项目账 > 员工账直接消费后端合计并保留月份、厂商和员工搜索  583ms
+   ✓ POOL-043 经营账单员工账／项目账 > 员工详情按厂商展开模型 alias，再进入真实请求明细  352ms
+   ✓ POOL-043 经营账单员工账／项目账 > 请求明细覆盖错误重试与空态  301ms
+
+ Test Files  11 passed (11)
+      Tests  68 passed (68)
+   Start at  23:30:49
+   Duration  5.31s (transform 1.44s, setup 3.99s, collect 4.89s, tests 9.38s, environment 6.94s, prepare 2.59s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   75.38 |    80.65 |   65.64 |   75.38 |                   
+ api               |   18.72 |    93.75 |    6.25 |   18.72 |                   
+  ...g-analysis.ts |       0 |        0 |       0 |       0 | 1-101             
+  ...l-accounts.ts |    6.18 |      100 |       0 |    6.18 | ...80-202,211-233 
+  ...l-payments.ts |   73.52 |      100 |      50 |   73.52 | 58-75             
+  ...ting-bills.ts |   10.31 |      100 |       0 |   10.31 | ...62-271,274-280 
+  ...er-finance.ts |    23.4 |      100 |    8.33 |    23.4 | ...4,67-87,90-111 
+ ...operating-bill |   93.19 |    85.47 |     100 |   93.19 |                   
+  ...untShared.tsx |     100 |    96.22 |     100 |     100 | 92,213            
+  BillStat.tsx     |   90.36 |    70.96 |     100 |   90.36 | 50,54-60          
+  ...yPayments.tsx |      60 |       50 |     100 |      60 | 50-68,77-88       
+  ...BillShell.tsx |     100 |      100 |     100 |     100 |                   
+  ...tingPlans.tsx |   93.33 |    71.42 |     100 |   93.33 | 14-17             
+  ...ocurement.tsx |   90.83 |    81.25 |     100 |   90.83 | 128-139           
+  ...ingTrends.tsx |      99 |     62.5 |     100 |      99 | 11                
+  ...sageCells.tsx |     100 |    94.73 |     100 |     100 | 67                
+ ...nts/principals |   65.77 |     64.1 |   65.71 |   65.77 |                   
+  ...cessPanel.tsx |   85.04 |    67.69 |   70.83 |   85.04 | ...24,230,262,324 
+  ...tingPanel.tsx |    4.13 |      100 |       0 |    4.13 | 17-147            
+  ...reateForm.tsx |   72.38 |    46.15 |      60 |   72.38 | ...25-127,130-132 
+ pages             |   95.52 |    81.45 |   77.41 |   95.52 |                   
+  ...atingBill.tsx |   98.94 |    90.47 |     100 |   98.94 | 56                
+  ...partments.tsx |    94.8 |    84.61 |      75 |    94.8 | 58,62-64          
+  ...Employees.tsx |   99.12 |    88.57 |    87.5 |   99.12 | 86                
+  ...lOverview.tsx |   98.17 |    77.14 |     100 |   98.17 | 66,69,212-213     
+  ...lProjects.tsx |   94.78 |    85.71 |      75 |   94.78 | 61-65,89          
+  Principals.tsx   |   91.82 |       75 |   69.69 |   91.82 | ...80,291,302-306 
+-------------------|---------|----------|---------|---------|-------------------
+ERROR: Coverage for lines (75.38%) does not meet global threshold (95%)
+ERROR: Coverage for functions (65.64%) does not meet global threshold (90%)
+ERROR: Coverage for statements (75.38%) does not meet global threshold (95%)
+ERROR: Coverage for branches (80.65%) does not meet global threshold (85%)

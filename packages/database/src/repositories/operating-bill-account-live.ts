@@ -8,15 +8,16 @@ import type {
   OperatingBillAccountSubjectRow,
   OperatingBillAccountTotals,
 } from "./operating-bill-account-types.js";
-import { operatingBillMonthRange } from "./operating-bill-month.js";
 import {
-  liveProjectMetadataJoins,
   mapRawProjectMetadata,
   projectMetadataSummarySql,
   projectSummaryMetadata,
   type RawProjectMetadata,
   type RawProjectSummaryMetadata,
 } from "./operating-bill-project-metadata.js";
+
+import { liveLineFactCtes } from "./operating-bill-account-month-lines.js";
+export { liveLineFactCtes } from "./operating-bill-account-month-lines.js";
 
 interface RawAccountFact extends RawProjectMetadata {
   request_id: string;
@@ -73,70 +74,6 @@ export interface LiveAccountFactFilter {
   principalId?: string;
   unifiedModelId?: string;
   providerCode?: string;
-}
-
-export function liveLineFactCtes(enterpriseId: string, month: string): RawBuilder<unknown> {
-  const { start, end } = operatingBillMonthRange(month);
-  return sql`
-    latest_snapshot AS (
-      SELECT DISTINCT ON (s.provider_resource_id)
-             s.provider_resource_id, s.package_cost, s.effective_from, s.effective_until
-        FROM provider_resource_operating_snapshot s
-       WHERE s.enterprise_id = ${enterpriseId} AND s.collected_at < ${end}
-       ORDER BY s.provider_resource_id, s.collected_at DESC, s.version DESC
-    ), resource_deducted AS (
-      SELECT ll.provider_resource_id,
-             COALESCE(SUM(ll.deducted_quota) FILTER (WHERE ll.resource_mode = 'CODING_PLAN'), 0)::numeric AS total_deducted,
-             COUNT(*) FILTER (WHERE ll.resource_mode = 'CODING_PLAN') AS plan_line_count,
-             COUNT(ll.deducted_quota) FILTER (WHERE ll.resource_mode = 'CODING_PLAN') AS known_deducted_count
-        FROM ledger_line ll
-       WHERE ll.enterprise_id = ${enterpriseId}
-         AND ll.created_at >= ${start} AND ll.created_at < ${end}
-       GROUP BY ll.provider_resource_id
-    ), line_facts AS (
-      SELECT ll.ai_request_id AS request_id,
-             source.id AS source_principal_id, source.name AS source_principal_name,
-             source.type AS source_principal_type,
-             project.id AS project_id, project.name AS project_name,
-             project_owner.id AS project_owner_person_id,
-             project_owner.name AS project_owner_name,
-             project_department.id AS project_department_id,
-             project_department.name AS project_department_name,
-             p.code AS provider_code, p.name AS provider_name,
-             ar.unified_model_id, um.alias AS current_alias,
-             ar.unified_model AS historical_alias, ar.status AS request_status,
-             ll.created_at, ll.usage_quality, ll.resource_mode,
-             ll.raw_input_tokens, ll.raw_output_tokens,
-             ll.raw_cache_tokens, ll.raw_reasoning_tokens,
-             ll.deducted_quota, ll.api_cost,
-             CASE
-               WHEN ll.resource_mode <> 'CODING_PLAN' THEN 0::numeric
-               WHEN ll.deducted_quota IS NULL OR snap.package_cost IS NULL
-                 OR denom.plan_line_count <> denom.known_deducted_count
-                 OR (snap.effective_from IS NOT NULL AND snap.effective_from >= ${end})
-                 OR (snap.effective_until IS NOT NULL AND snap.effective_until <= ${start})
-                 THEN NULL
-               WHEN denom.total_deducted > 0
-                 THEN snap.package_cost * ll.deducted_quota::numeric / denom.total_deducted
-               ELSE 0::numeric
-             END AS package_line_cost
-        FROM ledger_line ll
-        JOIN ai_request ar ON ar.id = ll.ai_request_id AND ar.enterprise_id = ${enterpriseId}
-        JOIN principal source ON source.id = ll.principal_id AND source.enterprise_id = ${enterpriseId}
-        JOIN provider_resource resource
-          ON resource.id = ll.provider_resource_id AND resource.enterprise_id = ${enterpriseId}
-        JOIN provider p ON p.id = resource.provider_id AND p.enterprise_id = ${enterpriseId}
-        LEFT JOIN unified_model um
-          ON um.id = ar.unified_model_id AND um.enterprise_id = ${enterpriseId}
-        LEFT JOIN operating_bill_request_project_assignment assignment
-          ON assignment.ai_request_id = ll.ai_request_id AND assignment.enterprise_id = ${enterpriseId}
-        ${liveProjectMetadataJoins(enterpriseId)}
-        LEFT JOIN latest_snapshot snap ON snap.provider_resource_id = ll.provider_resource_id
-        LEFT JOIN resource_deducted denom ON denom.provider_resource_id = ll.provider_resource_id
-       WHERE ll.enterprise_id = ${enterpriseId}
-         AND ll.created_at >= ${start} AND ll.created_at < ${end}
-    )
-  `;
 }
 
 function factFilters(filter: LiveAccountFactFilter): RawBuilder<unknown> {
@@ -298,7 +235,7 @@ export async function loadLiveOperatingBillAccountSummary(
              CASE WHEN ${dimension} = 'PROJECT' AND source_principal_type = 'EMPLOYEE'
                        AND project_id IS NULL THEN TRUE ELSE FALSE END AS is_unassigned
         FROM line_facts
-       WHERE ${dimension} <> 'EMPLOYEE' OR source_principal_type = 'EMPLOYEE'
+       WHERE source_principal_type = ${dimension}
     ), scoped_lines AS (
       SELECT * FROM dimension_lines WHERE TRUE ${provider}${search}
     ), summaries AS (
@@ -368,7 +305,11 @@ export async function loadLiveOperatingBillAccountSummary(
   for (const row of result.rows.filter((item) => item.level === "PROVIDER")) {
     const subject = subjects.get(row.subject_id ?? "__unassigned_project__");
     if (subject && row.provider_code && row.provider_name) {
-      subject.providers.push({ providerCode: row.provider_code, providerName: row.provider_name });
+      subject.providers.push({
+        providerCode: row.provider_code,
+        providerName: row.provider_name,
+        totals: summaryTotals(row),
+      });
     }
   }
   return {

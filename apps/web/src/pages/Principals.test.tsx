@@ -11,7 +11,9 @@ import { PrincipalsPage } from "./Principals";
 
 vi.mock("./EmployeeModelRules", () => ({
   EmployeeModelRulesPage: ({ embedded }: { embedded?: boolean }) => (
-    <section aria-label="批量模型授权面板">{embedded ? "内嵌批量模型授权" : "独立批量模型授权"}</section>
+    <section aria-label="批量模型授权面板">
+      {embedded ? "内嵌批量模型授权" : "独立批量模型授权"}
+    </section>
   ),
 }));
 
@@ -72,6 +74,11 @@ vi.mock("@tanstack/react-query", async () => {
   return {
     ...actual,
     useQueryClient: () => ({ invalidateQueries: invalidateMock }),
+    useQuery: () => ({
+      data: { principals: [principal()] },
+      isLoading: false,
+      error: null,
+    }),
     useMutation: (options: {
       mutationFn: (v: unknown) => Promise<unknown>;
       onSuccess?: (result: unknown, variables: unknown) => void;
@@ -238,6 +245,7 @@ describe("W19 使用主体", () => {
     renderPage();
     await user.click(screen.getByRole("button", { name: /新建主体/ }));
     await user.type(screen.getByLabelText("名称"), "李四");
+    await user.type(screen.getByLabelText("所属部门"), "研发部");
     await user.click(screen.getByRole("button", { name: "创建" }));
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(
@@ -271,7 +279,7 @@ describe("W19 使用主体", () => {
     expect(patchMock).not.toHaveBeenCalled();
   });
 
-  it("编辑主体：允许修改名称和部门/标签", async () => {
+  it("编辑名称与部门归属入口分开", async () => {
     patchMock.mockResolvedValue({
       principal: principal({ name: "张三（平台）", department_label: "平台部" }),
     });
@@ -280,13 +288,11 @@ describe("W19 使用主体", () => {
     await user.click(screen.getByRole("button", { name: "编辑" }));
     await user.clear(screen.getByLabelText("名称"));
     await user.type(screen.getByLabelText("名称"), "张三（平台）");
-    await user.clear(screen.getByLabelText("部门/标签（可选）"));
-    await user.type(screen.getByLabelText("部门/标签（可选）"), "平台部");
+    expect(screen.queryByLabelText("部门/标签（可选）")).toBeNull();
     await user.click(screen.getByRole("button", { name: "保存修改" }));
     await waitFor(() => {
       expect(patchMock).toHaveBeenCalledWith("/principals/p1", {
         name: "张三（平台）",
-        department_label: "平台部",
       });
     });
   });

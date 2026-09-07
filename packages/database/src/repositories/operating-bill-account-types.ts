@@ -16,7 +16,7 @@ export interface OperatingBillAccountTotals {
   apiCost: string | null;
   packageAllocatedCost: string | null;
   totalAllocatedCost: string | null;
-  activeDays: number;
+  activeDays: number | null;
   requestCount: number;
   lastUsedAt: string | null;
   usageQuality: OperatingBillUsageQuality;
@@ -25,6 +25,7 @@ export interface OperatingBillAccountTotals {
 export interface OperatingBillAccountProviderRef {
   providerCode: string;
   providerName: string;
+  totals?: OperatingBillAccountTotals;
 }
 
 export interface OperatingBillProjectDepartmentRef {
@@ -33,7 +34,7 @@ export interface OperatingBillProjectDepartmentRef {
 }
 
 export interface OperatingBillProjectOwnerRef {
-  personId: string;
+  personId: string | null;
   personName: string;
 }
 

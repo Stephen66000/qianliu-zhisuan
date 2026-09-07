@@ -1,0 +1,288 @@
+{
+  "method": "Git changed lines intersect V8 statement spans; diagnostic only, not branch/ratchet/gate replacement.",
+  "total": 1190,
+  "covered": 1038,
+  "percent": 87.23,
+  "files": [
+    {
+      "path": "apps/control-api/src/department-costs/routes.ts",
+      "lines": 24,
+      "covered": 5,
+      "uncovered": [
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110
+      ]
+    },
+    {
+      "path": "apps/control-api/src/operating-bills/analysis-route.ts",
+      "lines": 20,
+      "covered": 20,
+      "uncovered": []
+    },
+    {
+      "path": "apps/control-api/src/operating-bills/routes.ts",
+      "lines": 2,
+      "covered": 2,
+      "uncovered": []
+    },
+    {
+      "path": "apps/control-api/src/principals/accounting-route.ts",
+      "lines": 69,
+      "covered": 36,
+      "uncovered": [
+        23,
+        24,
+        36,
+        37,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72
+      ]
+    },
+    {
+      "path": "apps/control-api/src/principals/routes.ts",
+      "lines": 45,
+      "covered": 43,
+      "uncovered": [
+        262,
+        263
+      ]
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-repository.ts",
+      "lines": 359,
+      "covered": 355,
+      "uncovered": [
+        223,
+        224,
+        225,
+        342
+      ]
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-usage.ts",
+      "lines": 86,
+      "covered": 86,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-frozen.ts",
+      "lines": 10,
+      "covered": 10,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-live.ts",
+      "lines": 8,
+      "covered": 8,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-month-lines.ts",
+      "lines": 34,
+      "covered": 34,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-finance-projection.ts",
+      "lines": 12,
+      "covered": 10,
+      "uncovered": [
+        184,
+        206
+      ]
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-project-metadata.ts",
+      "lines": 14,
+      "covered": 14,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/operating-department-accounts.ts",
+      "lines": 137,
+      "covered": 76,
+      "uncovered": [
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119
+      ]
+    },
+    {
+      "path": "packages/database/src/repositories/principal-accounting.ts",
+      "lines": 262,
+      "covered": 236,
+      "uncovered": [
+        86,
+        137,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        264,
+        265,
+        266
+      ]
+    },
+    {
+      "path": "packages/database/src/repositories/principal-cleanup-preview.ts",
+      "lines": 48,
+      "covered": 48,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/principal-department-query.ts",
+      "lines": 14,
+      "covered": 14,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/principal-repository.ts",
+      "lines": 8,
+      "covered": 3,
+      "uncovered": [
+        297,
+        298,
+        299,
+        300,
+        301
+      ]
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-month-opening.ts",
+      "lines": 25,
+      "covered": 25,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-repository.ts",
+      "lines": 9,
+      "covered": 9,
+      "uncovered": []
+    },
+    {
+      "path": "packages/database/src/repositories/request-attribution-writer.ts",
+      "lines": 4,
+      "covered": 4,
+      "uncovered": []
+    }
+  ]
+}
