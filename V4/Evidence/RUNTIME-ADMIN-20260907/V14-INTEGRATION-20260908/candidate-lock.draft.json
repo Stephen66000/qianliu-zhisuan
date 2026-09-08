@@ -1,0 +1,521 @@
+{
+  "schema_version": "qianliu-candidate-lock/v2",
+  "lock_status": "draft_dirty",
+  "generated_at": "2026-09-08T01:23:42.990Z",
+  "repository": {
+    "worktree": "/Users/mac/.codex/worktrees/runtime-admin-integration-20260908/仟流智算",
+    "authority_worktree": "/Users/mac/.codex/worktrees/runtime-admin-integration-20260908/仟流智算",
+    "head": "7e3b3133df0f31883ca0e17244d280a83bffdac7",
+    "tree": "2a5bf3f447f3484627d163f2afb14dfc06e91fd5",
+    "branch": "codex/runtime-admin-integration-20260908",
+    "detached_head": false,
+    "dirty": true,
+    "dirty_path_count": 20,
+    "dirty_manifest_sha256": "1d2c7568ef377f2e1a79ec26e1a9a1d6e10e846c59e9464585802a0dbeee4b8c",
+    "dirty_entries": [
+      {
+        "path": "apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "169aaaed67f2ac41938462f7c13307c408fc8e66a62e6d6fca7cf745016bacef"
+      },
+      {
+        "path": "apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "107256ed18bdfa9a0faad603986e9828915cc3b78deb8c8ad335dddeadca45ad"
+      },
+      {
+        "path": "packages/database/migrations/0065_admin_cleanup.js",
+        "status": " D",
+        "originalPath": null,
+        "sha256": null
+      },
+      {
+        "path": "packages/database/migrations/0066_admin_cleanup.js",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "3bcb5061f57be11fe9a3817789863ba9894ea8b6f60ddd582d5c13499cca6a78"
+      },
+      {
+        "path": "packages/database/migrations/0066_alert_resource_context.js",
+        "status": " D",
+        "originalPath": null,
+        "sha256": null
+      },
+      {
+        "path": "packages/database/migrations/0067_alert_resource_context.js",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "43359791f7b6473eb49655d99abeb83b8c9c2e99e7345f75dc7a9046f6920e80"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "3e399dbf133181b198c434a6785b0b8c5825fa7e4d0a5af307a06c829483cf64"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/operating-snapshot-subscription-period-migration.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "94feb32e036b873ef2a17a82d1d76c0970ce28debf9dc9183a27c268610a7deb"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/pool043-model-identity-migration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "eeff42b7a2972e9dcdd3b9cfbb2b043969fd0064bb7651f925f9a541c4d325a9"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/pool046-zhipu-window-alias-migration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "42b7008971a59814df35b908edfbf8837acdd8d17e5c3fe005022e468a65b25f"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/pool047-resource-monthly-budget-migration.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "b9869a1c367232858c0599ac51cafacf4d22745e185681627ba44046e028c132"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "8452f30005dc910e9b254a0cec35839961079f8acaf08e3161a8c19da6d6cabd"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/principal-key-single-active-migration.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "4b4776d3493f9f7786c3f5d2a6dacf6da9dcade4b4f7e1d1ac9d5c5a00dffb44"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/provider-finance-cutover.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "62edd98e737519bd88321e7c15cb7e3d5f56aceeb6d5c36fad92d9bbe3b51d87"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/provider-finance-ledger.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "9b11f4d7dcdf0f690152d10a8441cac26befc896e1a360e833c872a8c3003826"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "7bfa2da28e8ffdfddeb1cceba80bd1226f2fb78cd06f0a6d6bb4f409c4e95dac"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/runtime-admin-migrations.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "67887d046daf76ff2d305ce9db9c2f3034a32b485677bdf5b8b5d9be39cfb554"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/runtime-assurance-foundation.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "f8b43bd6ed6857eff1cb53d52fc59852a500f94cfa1a383750d71cd371d8ba2b"
+      },
+      {
+        "path": "packages/database/src/__tests-integration__/w20-final-migration.integration.test.ts",
+        "status": " M",
+        "originalPath": null,
+        "sha256": "44821f2fb1c7f5ebffa5042d76e2c3840ca7878912fcae8134010f09dd8cea46"
+      },
+      {
+        "path": "V4/Evidence/RUNTIME-ADMIN-20260907/V14-INTEGRATION-20260908/integration-review.md",
+        "status": "??",
+        "originalPath": null,
+        "sha256": "6e9c599a8c895f63ced8fc3682769bdbb2255092891dac2adc89de4e8bc24535"
+      }
+    ],
+    "tree_manifest_sha256": "61070b0ef2b5461703fb649f5569ac08b32022d1c6f954399d92ba03c339a97c"
+  },
+  "migration": {
+    "head": "0067_alert_resource_context",
+    "count": 68,
+    "manifest_sha256": "86c9deb7dbbd6ef0b12e51b4e9c9c897efb5d50e7646e9bc0a1eb1533197c666",
+    "files": [
+      {
+        "path": "packages/database/migrations/0000_baseline_probe.js",
+        "sha256": "130bfefb16681bcc418558e29e66f19354920004d40374bd20e7b7fe5f8ffaa6"
+      },
+      {
+        "path": "packages/database/migrations/0001_enterprise_admin_session.js",
+        "sha256": "b6d8e512221c935dd1620dbb3b78fc10c299257cc4720976c3e5add4c41540a6"
+      },
+      {
+        "path": "packages/database/migrations/0002_principal.js",
+        "sha256": "22e8954c9f6004859fe75fc2145531afbc680efc656f470e578a7469ba46d088"
+      },
+      {
+        "path": "packages/database/migrations/0003_principal_key.js",
+        "sha256": "6d531f5d2a94ec07a00ae3b0d74786042c69d03f27fbfb03d07c505b856d01bd"
+      },
+      {
+        "path": "packages/database/migrations/0004_principal_grant.js",
+        "sha256": "7b6191648cf07eac451cb074c645a16bd0897b07b5a1e528fb7a25b4a4dee9c3"
+      },
+      {
+        "path": "packages/database/migrations/0005_provider_resource_route.js",
+        "sha256": "abbbd9d12bee1acf8febb16ef843d822186b4266f5056d4f67ed3e40502eebd8"
+      },
+      {
+        "path": "packages/database/migrations/0006_operation_log.js",
+        "sha256": "f8a3f09b15dbef4573bbe91618f0141ed3c0eb88b41f1aca578faad9a6be7dca"
+      },
+      {
+        "path": "packages/database/migrations/0007_gateway_request.js",
+        "sha256": "58daf8027d9a6e9eec47edf8228fa1e3a3cb1c998cc0330c9c5c6016cf1212ca"
+      },
+      {
+        "path": "packages/database/migrations/0008_attempt_usage.js",
+        "sha256": "b2423d234e7ffda5f7c395bccf438fbb05ee34f800d7bdc39263a9220647472b"
+      },
+      {
+        "path": "packages/database/migrations/0009_ledger.js",
+        "sha256": "f9d53a9d84bfc7f442f5d44075b4d2827fbeaab60e89ff6c6a98e216bc17e1ae"
+      },
+      {
+        "path": "packages/database/migrations/0010_resource_credential_lifecycle.js",
+        "sha256": "97fbce7505e132e19ae9741da625591ba3131e2349d1a4b855ebd7c33822490a"
+      },
+      {
+        "path": "packages/database/migrations/0011_billing_rule.js",
+        "sha256": "1f085ec37535cc5bc7d614af9f7cfc0fc12ba9e7890541e6a7bb281bff493c55"
+      },
+      {
+        "path": "packages/database/migrations/0012_concurrency_lease.js",
+        "sha256": "55297c198f873eb2ec3e6f94a775887d965d44823e21a6491fff996ca77a6b0e"
+      },
+      {
+        "path": "packages/database/migrations/0013_supply_forecast.js",
+        "sha256": "2e19ba38e77e3d8885bd821474023affc6381100e146b8093df22ca6902c92d7"
+      },
+      {
+        "path": "packages/database/migrations/0014_dispatch_policy.js",
+        "sha256": "bbc65f225f73215401fe6b0fd63884a29bc7111ef7081dc940a58f2651bfca8f"
+      },
+      {
+        "path": "packages/database/migrations/0015_reconciliation.js",
+        "sha256": "d719ec5dc62b3c8790641c854b10a06d0020340bfbadec1cf97a4c254e80c54e"
+      },
+      {
+        "path": "packages/database/migrations/0016_alert_disposition_type.js",
+        "sha256": "1607b4eaf252b2ec831d25fa26fa752a9442566c7c53658182313c19cfb64be0"
+      },
+      {
+        "path": "packages/database/migrations/0017_alert_event_and_version.js",
+        "sha256": "e21b5d03bd8223de9c413cbfa74ee6e261a018b8a6cda73ba14c79b618c99e61"
+      },
+      {
+        "path": "packages/database/migrations/0018_billing_rule_version.js",
+        "sha256": "326c5b8e5b5fe5caab94155a024dfea89f7966f537b1ae760c08e8aa64696a7a"
+      },
+      {
+        "path": "packages/database/migrations/0019_alert_source_clear.js",
+        "sha256": "c213086a12771f629ce5c96194e40c6ea92ddff5a0b58aa853313b9e2d32d29f"
+      },
+      {
+        "path": "packages/database/migrations/0020_p0_billing_snapshot_and_reasoning_usage.js",
+        "sha256": "9db350ed63198bcf575946d5d276f65b914ee825644dc2ff9539d19cdd7e900d"
+      },
+      {
+        "path": "packages/database/migrations/0021_billing_rule_multi_windows.js",
+        "sha256": "e229963f30afabbb732d2be738d1c561d975dcdd0ff17744d688c378e91f5a96"
+      },
+      {
+        "path": "packages/database/migrations/0022_principal_key_minimum_model_permissions.js",
+        "sha256": "588ce80a37573e4db97d8cd877cac7c0a6bc3c02639ed3d0afa13af180df2b18"
+      },
+      {
+        "path": "packages/database/migrations/0023_principal_key_single_active.js",
+        "sha256": "c6db7a81d618fce16534c95d26e2c4054af20c98f44f2cddbb0dcbb0b973b88a"
+      },
+      {
+        "path": "packages/database/migrations/0024_gateway_request_idempotency.js",
+        "sha256": "f8f30b2dea1bf5eaf359981367ce721985861c93d33a94681705c537bb1e9a89"
+      },
+      {
+        "path": "packages/database/migrations/0025_principal_archive.js",
+        "sha256": "0d7df71b1b153a934d4f4210b8a18ae57a6da904b9a99188adfd840505fc86c3"
+      },
+      {
+        "path": "packages/database/migrations/0026_provider_resource_operating_snapshot.js",
+        "sha256": "cbd3e75444a004976311f6c62a39c04141b8c6768ab238e384ce9123ea30428b"
+      },
+      {
+        "path": "packages/database/migrations/0027_usage_ledger_filters.js",
+        "sha256": "778a67e516b389c6258010274b9f923dbf79bfa2e45380381309d01ed6eb260a"
+      },
+      {
+        "path": "packages/database/migrations/0028_enterprise_reference_guards.js",
+        "sha256": "8d41e86545a3a0a0ac4d1194cc55da4f1602e5b05d2ba3e3aebcb9b2d085430a"
+      },
+      {
+        "path": "packages/database/migrations/0029_provider_quota_auto_calculation.js",
+        "sha256": "2e5127f59154ce5cb42c5ad6921b56c6b250a87cf9226fc690152a22f03677bc"
+      },
+      {
+        "path": "packages/database/migrations/0030_runtime_assurance_foundation.js",
+        "sha256": "480612e93b15f1b54ffec11de2d149c2826999488bfc15a4e02954b1bf2feab6"
+      },
+      {
+        "path": "packages/database/migrations/0031_gateway_stream_resilience.js",
+        "sha256": "9fcb5fade54f6ef0d88a6ffb31c8ca6747e756ba6b9e1dc870820d8996e75cd4"
+      },
+      {
+        "path": "packages/database/migrations/0032_admin_lifecycle.js",
+        "sha256": "7d5f811d95429505bde41fd3811ae1c2de0c1f6ef63ebff2fdcb1c120afba21b"
+      },
+      {
+        "path": "packages/database/migrations/0033_operating_bill.js",
+        "sha256": "7767bcf9c3af7d13f235612791cd009194dbf4fb71c421988c9513853a766255"
+      },
+      {
+        "path": "packages/database/migrations/0034_supply_forecast_production.js",
+        "sha256": "997ba47e6993f2e8d5ccbc317a421d33f4dcdb5b39fac21fac020ea1e252a64f"
+      },
+      {
+        "path": "packages/database/migrations/0035_deployment_log.js",
+        "sha256": "2d24226dff74893940baa3faf70170069280726d548c3a16e4b6ce7b8e1c4911"
+      },
+      {
+        "path": "packages/database/migrations/0036_provider_model_discovery.js",
+        "sha256": "8a6ccccf7df44b6838a51b2e14c687b36ca11da46b3882273aafe3b5398a3050"
+      },
+      {
+        "path": "packages/database/migrations/0037_client_identity.js",
+        "sha256": "216ea1f39dce53f4b85c90974925c160ced2b56d952174d69e82d1e8016344ea"
+      },
+      {
+        "path": "packages/database/migrations/0038_employee_model_authorization_rule.js",
+        "sha256": "1e2fca1c50a9edb748d909ae631d7da1ef2cbde83f438e0fd9cff25fa8ec4f33"
+      },
+      {
+        "path": "packages/database/migrations/0039_principal_provider_pool.js",
+        "sha256": "6512672ac059fb5daabcb8c0b64e40990bb0773d60a6329afe09f8448caea74b"
+      },
+      {
+        "path": "packages/database/migrations/0040_employee_model_rule_pool_quotas.js",
+        "sha256": "4df4ce112c67aa030c3f1c21db5ad3efb3bfd7b0dafde841d6956ce17d1c9993"
+      },
+      {
+        "path": "packages/database/migrations/0041_provider_quota_window.js",
+        "sha256": "9ed075abbd71fb362d942cb4e45d393d9a87a54f56c4fa3580d8a7335bf68aad"
+      },
+      {
+        "path": "packages/database/migrations/0042_alias_ql_format.js",
+        "sha256": "27270cc00f5598b7c3c52484777596c7e5326efef0cffcad6c06b2e98f1f735c"
+      },
+      {
+        "path": "packages/database/migrations/0043_single_owner_rule_history.js",
+        "sha256": "f116a7309ad580b8593332ebadb5cb9d742891d4c738dde4a83354ce6fc207af"
+      },
+      {
+        "path": "packages/database/migrations/0044_operating_bill_model_identity.js",
+        "sha256": "6e56824f8aac8cd29f8bd7c33260a51d69dacc1f20ed181489a8d84459218ea5"
+      },
+      {
+        "path": "packages/database/migrations/0045_zhipu_weekday_window_alias.js",
+        "sha256": "74ae28b311dfe486ea2e9bddbb7371c1f52b90099d2e07c2e29a6147eb15f1ff"
+      },
+      {
+        "path": "packages/database/migrations/0046_directory_import_foundation.js",
+        "sha256": "af9e36e000f434452e3cc237fc6c36b491e9be6944d2ac39ab18cecff90e1a75"
+      },
+      {
+        "path": "packages/database/migrations/0047_usage_bucket_aggregate.js",
+        "sha256": "8051824c9378a68129be29f1af8540d483d025ad9001c90cf36989d44fdb42b7"
+      },
+      {
+        "path": "packages/database/migrations/0048_department_cost_budget_and_purchase.js",
+        "sha256": "53bb7ed0d905ccd964f6577b40806cd0a0233cff449504755ef5c17ab8e71d75"
+      },
+      {
+        "path": "packages/database/migrations/0049_resource_utilization_and_procurement_review.js",
+        "sha256": "d251c5a2e50b19664347d092b4a55fc18df0f8a99e149b8335b0c615c848b18f"
+      },
+      {
+        "path": "packages/database/migrations/0050_group2_policy_lifecycle.js",
+        "sha256": "51654a12f82ecfbc79610ae197beffda66cc6e73a05741d1be4a44b7ce26678d"
+      },
+      {
+        "path": "packages/database/migrations/0051_pool20_operating_sync_and_closing_confirmation.js",
+        "sha256": "4088a1261c708c78ecd2fd11f6f7e4f82189651ff5c65524ba52b729bc99ced8"
+      },
+      {
+        "path": "packages/database/migrations/0052_dispatch_restore_and_resource_utilization.js",
+        "sha256": "a1d699fea202b3ab3019efcac22021d29f8d4b2c122fba3d62dc1da464bde611"
+      },
+      {
+        "path": "packages/database/migrations/0053_operating_bill_opening_balance.js",
+        "sha256": "8cc62aa4f40771cbdf2388206d59ebfe2712cd922c288d841f4a62d4878fde95"
+      },
+      {
+        "path": "packages/database/migrations/0054_usage_aggregate_settlement_time.js",
+        "sha256": "1dbe3f62b7ec5320f948f083aa4f6dc46af9b882c28e4a2732e5b8f81c7cbab4"
+      },
+      {
+        "path": "packages/database/migrations/0055_upstream_error_evidence.js",
+        "sha256": "f4cc59604369761e0e6b228c2d30a455aa8cc0a44d4babb2fc08b2635a1ffb3c"
+      },
+      {
+        "path": "packages/database/migrations/0056_resource_monthly_budget.js",
+        "sha256": "839bad27fe58cf4922ea82dfcf3f7360841ce39d3c1f3bccae50abdbafd27420"
+      },
+      {
+        "path": "packages/database/migrations/0057_model_discovery_v12.js",
+        "sha256": "e523ccfb7508f7d804c8ce0df8c3b11fe5c74b801a5bf03810f009019f38d99e"
+      },
+      {
+        "path": "packages/database/migrations/0058_principal_grant_archive.js",
+        "sha256": "9cf7a7d16c1fcf12f00478673a4c77d150aae094755de00dbff2644c109846f7"
+      },
+      {
+        "path": "packages/database/migrations/0059_provider_finance_ledger.js",
+        "sha256": "3169e55580528ce8856b657f6eae915902a023b32dcff0a3ab3a6cbf55d8044d"
+      },
+      {
+        "path": "packages/database/migrations/0060_provider_finance_legacy_cost_resolution.js",
+        "sha256": "055c2289513b52bb978e36a427435984e70282266042b935a32108b3a1ba4790"
+      },
+      {
+        "path": "packages/database/migrations/0061_provider_finance_audit_hardening.js",
+        "sha256": "2cdbe1b586ca7697f3201fed3c62d0bad578132223c3f3c5cf839aa085bcfaf9"
+      },
+      {
+        "path": "packages/database/migrations/0062_resource_fact_reconciliation.js",
+        "sha256": "e00c192a080ad31396f7ca893b9c78a444e329ddc5c7b9c105365e13eadc75e2"
+      },
+      {
+        "path": "packages/database/migrations/0063_operating_snapshot_subscription_period.js",
+        "sha256": "d47da38d16890b6c5a820806989943817877122a826bc6a7a2def05294dd4395"
+      },
+      {
+        "path": "packages/database/migrations/0064_quota_pricing_and_policy_archive.js",
+        "sha256": "ae4c6d055b703da1d1a73fb29d283f419d0e4feade01e55ed796c18d802d3827"
+      },
+      {
+        "path": "packages/database/migrations/0065_principal_accounting_assignment.js",
+        "sha256": "d5a8bc87b536ab757f7fc4dd633c9b526534762f20f2a3dfbefb5bc59862d3aa"
+      },
+      {
+        "path": "packages/database/migrations/0066_admin_cleanup.js",
+        "sha256": "3bcb5061f57be11fe9a3817789863ba9894ea8b6f60ddd582d5c13499cca6a78"
+      },
+      {
+        "path": "packages/database/migrations/0067_alert_resource_context.js",
+        "sha256": "43359791f7b6473eb49655d99abeb83b8c9c2e99e7345f75dc7a9046f6920e80"
+      }
+    ]
+  },
+  "configuration": {
+    "manifest_sha256": "a7e96c36dd0fe89515ebd1af0a3d56f38affae88ed04861207af43f53294b6a3",
+    "files": [
+      {
+        "path": ".env.example",
+        "sha256": "39600b3cfeddb25f89fead781d37a86c9a464495b533893e40c237d9401dd12d"
+      },
+      {
+        "path": "apps/control-api/Dockerfile",
+        "sha256": "9955e37eabe8b38330a47741a2af8a8794f0b1577ea939373c38c28fd77474d8"
+      },
+      {
+        "path": "apps/gateway/Dockerfile",
+        "sha256": "9ca2c998ec3e86a5b3a4c0fe18c42bf16e6be1ae55bb487891ae84b5bcf77247"
+      },
+      {
+        "path": "apps/web/Dockerfile",
+        "sha256": "d648856513e3f606bdf5f398d9410513763d2ef2ab38223eeb74fef4b0eb16de"
+      },
+      {
+        "path": "apps/worker/Dockerfile",
+        "sha256": "cc40df8690f9aee533081ff0b165cc8eb76e01b93d7641fa88926a69c1aebd97"
+      },
+      {
+        "path": "deploy/compose.yaml",
+        "sha256": "d879661443997680f0236e0e0f231cf367e484b870f21545ff1023b7f7c75fee"
+      },
+      {
+        "path": "package.json",
+        "sha256": "00b8246b12dcc8535a4258da869153db1332b376d97d6b4a847d709fc655de44"
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "sha256": "89f07361d77ba76cb2e27c2993b8f9105c42ecc12c3210991819b36445461543"
+      },
+      {
+        "path": "pnpm-workspace.yaml",
+        "sha256": "0297435b85be497ff28bccc11442ffebb46ebc163bf1a92081d5e8c9f28522a7"
+      }
+    ]
+  },
+  "frozen_inputs": {
+    "manifest_sha256": "ada7b98c6c088075de04daff27a36afa2416ad65805a3b699361af72d2476d6e",
+    "files": [
+      {
+        "path": "V3/仟流智算-stage-state-v0.3.yaml",
+        "source": "worktree",
+        "sha256": "394af666695b40ea47783ba346f35aafdf8cf8a60f5ce8ce4aba37526c8e6520"
+      },
+      {
+        "path": "V3/仟流智算-开发规划-v0.3.md",
+        "source": "worktree",
+        "sha256": "2f420f40758032c88cb5fea2ce76609caf747eabeb1c5c588d0806859ca7071d"
+      },
+      {
+        "path": "V3/仟流智算-项目工程规则-v0.3.md",
+        "source": "worktree",
+        "sha256": "05487d90c3aef6f20df029f3951ebfcabe7936d2e01e7d819fc843fc725b4b0d"
+      },
+      {
+        "path": "V3/仟流智算-产品需求文档-v0.3.md",
+        "source": "worktree",
+        "sha256": "030fec7434f44fea46188e698027f3b5e7e8fd9b9383c492fbb5b3e574097ae4"
+      },
+      {
+        "path": "V3/仟流智算-技术需求文档-v0.3.md",
+        "source": "worktree",
+        "sha256": "32758992bf308562d502c29fb7dfe309503bb4e0ad8f95d54ce8fabc94437e6b"
+      },
+      {
+        "path": "V3/仟流智算-详细开发计划与排期-v0.3.md",
+        "source": "worktree",
+        "sha256": "fca33cd5970b24acc0dcaf3257d3fd6fbb06d4c115ae3f93a3af22997bf0d8dd"
+      },
+      {
+        "path": "V3/仟流智算-质量门禁-v1.0.json",
+        "source": "worktree",
+        "sha256": "3d6a72e7da442f39ca38cbfbb4afcfb557b8d5f8b40298015cba8973a5a98695"
+      }
+    ]
+  },
+  "evidence": {
+    "root": "V4/Evidence",
+    "generated_lock_excluded": "V4/Evidence/RUNTIME-ADMIN-20260907/V14-INTEGRATION-20260908/candidate-lock.draft.json",
+    "file_count": 275,
+    "manifest_sha256": "6420f50450c1f746fd4241c3dce91b661431347fb44f6a481c8dea20d1298b14"
+  },
+  "fingerprint": {
+    "algorithm": "sha256(JSON.stringify(payload))",
+    "value": "e98048dbd0e8b25ab11e2f284106affb49e862e1a488370934eb2d828952d6ed",
+    "payload": {
+      "head": "7e3b3133df0f31883ca0e17244d280a83bffdac7",
+      "tree": "2a5bf3f447f3484627d163f2afb14dfc06e91fd5",
+      "dirty": true,
+      "dirtyManifestSha256": "1d2c7568ef377f2e1a79ec26e1a9a1d6e10e846c59e9464585802a0dbeee4b8c",
+      "treeManifestSha256": "61070b0ef2b5461703fb649f5569ac08b32022d1c6f954399d92ba03c339a97c",
+      "migrationHead": "0067_alert_resource_context",
+      "migrationManifestSha256": "86c9deb7dbbd6ef0b12e51b4e9c9c897efb5d50e7646e9bc0a1eb1533197c666",
+      "configurationManifestSha256": "a7e96c36dd0fe89515ebd1af0a3d56f38affae88ed04861207af43f53294b6a3",
+      "frozenInputsSha256": "ada7b98c6c088075de04daff27a36afa2416ad65805a3b699361af72d2476d6e",
+      "evidenceManifestSha256": "6420f50450c1f746fd4241c3dce91b661431347fb44f6a481c8dea20d1298b14"
+    }
+  }
+}

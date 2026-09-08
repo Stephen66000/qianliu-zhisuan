@@ -374,7 +374,7 @@ describe("POOL-015 管理员生命周期", () => {
     expect(JSON.stringify(logs)).not.toContain(initialPassword);
     expect(JSON.stringify(logs)).not.toContain(changedPassword);
     expect(JSON.stringify(logs)).not.toContain(resetPassword);
-    expect(await migrateDown(db)).toBe("0066_alert_resource_context");
+    expect(await migrateDown(db)).toBe("0067_alert_resource_context");
     await expect(migrateDown(db)).rejects.toThrow(
       "cannot roll back while archived administrators exist",
     );

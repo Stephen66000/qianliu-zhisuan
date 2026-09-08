@@ -5,12 +5,12 @@ import { createKysely } from "../kysely.js";
 import { createMigrator, migrateDown, migrateToLatest } from "../migrator.js";
 import { AlertEventRepository } from "../repositories/alert-event-repository.js";
 
-describe.sequential("0065/0066 运行保障与管理员迁移", () => {
+describe.sequential("0066/0067 运行保障与管理员迁移", () => {
   it("补齐历史异常资源，并阻止存在已清理管理员时回退", async () => {
-    const pg = await startPostgresContainer("runtime_admin_0065_0066");
+    const pg = await startPostgresContainer("runtime_admin_0066_0067");
     const db = createKysely(pg.connectionString);
     try {
-      const baseline = await createMigrator(db).migrateTo("0065_admin_cleanup");
+      const baseline = await createMigrator(db).migrateTo("0066_admin_cleanup");
       expect(baseline.error).toBeUndefined();
       const enterpriseId = randomUUID();
       const adminId = randomUUID();
@@ -127,7 +127,7 @@ describe.sequential("0065/0066 运行保障与管理员迁移", () => {
         .executeTakeFirstOrThrow();
 
       expect(await migrateToLatest(db)).toContain(
-        "0066_alert_resource_context",
+        "0067_alert_resource_context",
       );
       expect(
         await db
@@ -144,7 +144,7 @@ describe.sequential("0065/0066 运行保障与管理员迁移", () => {
           .where("id", "=", alertId.id)
           .executeTakeFirstOrThrow(),
       ).toEqual({ resource_id: resource.id });
-      expect(await migrateDown(db)).toBe("0066_alert_resource_context");
+      expect(await migrateDown(db)).toBe("0067_alert_resource_context");
       expect(
         await db
           .selectFrom("alert_event")

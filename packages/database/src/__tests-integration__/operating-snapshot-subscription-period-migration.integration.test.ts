@@ -57,6 +57,9 @@ describe("0063 operating snapshot subscription period binding", () => {
         collected_at: new Date(), total_quota: "1", quota_unit: "TOKEN",
       }).execute()).rejects.toThrow();
 
+      expect(await migrateDown(db)).toBe("0067_alert_resource_context");
+      expect(await migrateDown(db)).toBe("0066_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
       expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       await expect(migrateDown(db)).rejects.toThrow(
         /0063 rollback blocked: subscription-bound operating facts exist/,
