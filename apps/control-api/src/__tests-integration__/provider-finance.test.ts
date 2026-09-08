@@ -271,11 +271,11 @@ describe("provider finance routes", () => {
       expect.objectContaining({ principalName: "Finance Employee 1",
         packageAllocatedCost: "0.00000000" }),
       expect.objectContaining({ principalName: "Finance Employee 2",
-        packageAllocatedCost: "44.22222222" }),
+        packageAllocatedCost: "44.22000000" }),
       expect.objectContaining({ principalName: "Finance Employee 3",
-        packageAllocatedCost: "22.11111111" }),
+        packageAllocatedCost: "22.11000000" }),
       expect.objectContaining({ principalName: "Finance Project", principalType: "PROJECT",
-        packageAllocatedCost: "132.66666667" }),
+        packageAllocatedCost: "132.67000000" }),
     ]));
     expect(billBody.subjects.reduce((sum: number, subject: { packageAllocatedCost: string }) =>
       sum + Number(subject.packageAllocatedCost), 0)).toBe(199);

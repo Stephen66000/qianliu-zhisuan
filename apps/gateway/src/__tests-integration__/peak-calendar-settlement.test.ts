@@ -10,6 +10,9 @@ const windows = [
   { timezone: "Asia/Shanghai", days_of_week: [1, 2, 3, 4, 5], start_time: "14:00", end_time: "18:00" },
 ];
 beforeAll(async () => {
+  // Calendar scenarios precede the real test run; their grants must already be valid.
+  await db.updateTable("principal_grant").set({ valid_from: new Date("2026-09-01T00:00:00+08:00") })
+    .where("enterprise_id", "=", ENT_ID).execute();
   await db.updateTable("billing_rule").set({ enabled: false }).where("enterprise_id", "=", ENT_ID).execute();
   const api = { enterprise_id: ENT_ID, provider_resource_id: resDsA, upstream_model: "deepseek-chat",
     rule_type: "API_PRICE" as const, effective_from: new Date(0), cache_hit_price: "0.000001",
@@ -37,11 +40,11 @@ async function requestAt(at: string, plan = false) {
     const address = await app.listen({ host: "127.0.0.1", port: 0 });
     const response = await fetch(`${address}/v1/chat/completions`, { method: "POST", headers: authHeader(),
       body: JSON.stringify({ model: plan ? "ql-glm-5.2" : "qianliu-deepseek", messages: [{ role: "user", content: "calendar check" }] }) });
-    await response.text();
+    const body = await response.text();
     const id = response.headers.get("x-request-id");
     expect(id).toBeTruthy();
     const lines = await ledgerRepo.listLedgerLines(id!);
-    return { status: response.status, id: id!, lines };
+    return { status: response.status, body, id: id!, lines };
   } finally { vi.useRealTimers(); await app.close(); }
 }
 
@@ -56,7 +59,7 @@ it.each([
   ["周日同一时刻", "2026-09-06T14:00:00+08:00", "2.20000000", "1"],
 ])("真实HTTP → PG账本：%s", async (_name, at, cost, multiplier) => {
   const result = await requestAt(at);
-  expect(result.status).toBe(200); expect(stub.calls).toHaveLength(1);
+  expect(result.status, result.body).toBe(200); expect(stub.calls).toHaveLength(1);
   expect(result.lines).toHaveLength(1);
   expect(result.lines[0]).toMatchObject({ provider_resource_id: resDsA, raw_input_tokens: "1000000",
     raw_output_tokens: "100000", raw_cache_tokens: "200000", api_cost: cost, multiplier,
@@ -70,7 +73,7 @@ it.each([
   ["周日", "2026-09-06T14:00:00+08:00", "1100", "1"],
 ])("套餐真实HTTP → PG扣减：%s", async (_name, at, deducted, multiplier) => {
   const result = await requestAt(at, true);
-  expect(result.status).toBe(200); expect(stub.calls).toHaveLength(1);
+  expect(result.status, result.body).toBe(200); expect(stub.calls).toHaveLength(1);
   expect(result.lines).toHaveLength(1);
   expect(result.lines[0]).toMatchObject({ provider_resource_id: resA, raw_input_tokens: "1000",
     raw_output_tokens: "100", raw_cache_tokens: "200", deducted_quota: deducted, multiplier, api_cost: null });
@@ -87,6 +90,7 @@ it("按真实高峰倍率拒绝时不调用上游；周日自动按基础价放�
   try {
     const peak = await requestAt("2026-09-07T14:00:00+08:00");
     expect(peak.status).toBe(403); expect(stub.calls).toHaveLength(0);
+    expect(JSON.parse(peak.body).error.code).toBe("dispatch_rejected");
     expect(peak.lines.every((line) => line.api_cost === "0.00000000")).toBe(true);
     const sunday = await requestAt("2026-09-06T14:00:00+08:00");
     expect(sunday.status).toBe(200); expect(stub.calls).toHaveLength(1);

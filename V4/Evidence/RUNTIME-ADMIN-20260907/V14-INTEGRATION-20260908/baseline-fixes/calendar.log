@@ -1,0 +1,66 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/runtime-admin-integration-20260908/仟流智算/apps/gateway
+
+{"level":30,"time":1788742799000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63375"}
+{"level":30,"time":1788742799000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"70767cbc-c5b0-4247-beb1-1d14779d7408","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63375","remoteAddress":"127.0.0.1","remotePort":63376},"msg":"incoming request"}
+{"level":30,"time":1788742799000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"70767cbc-c5b0-4247-beb1-1d14779d7408","res":{"statusCode":200},"responseTime":140.57629200816154,"msg":"request completed"}
+{"scenario":"周一早峰前","at":"2026-09-07T08:59:59+08:00","apiCost":"2.20000000","multiplier":"1"}
+{"level":30,"time":1788742800000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63382"}
+{"level":30,"time":1788742800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"299382f9-0b05-4bed-95ea-a7be91d4ebc6","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63382","remoteAddress":"127.0.0.1","remotePort":63383},"msg":"incoming request"}
+{"level":30,"time":1788742800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"299382f9-0b05-4bed-95ea-a7be91d4ebc6","res":{"statusCode":200},"responseTime":102.41262498497963,"msg":"request completed"}
+{"scenario":"周一早峰开始","at":"2026-09-07T09:00:00+08:00","apiCost":"6.60000000","multiplier":"3"}
+{"level":30,"time":1788753599000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63388"}
+{"level":30,"time":1788753599000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"abdba432-0fd6-4f4d-aee6-4255e7521c5f","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63388","remoteAddress":"127.0.0.1","remotePort":63389},"msg":"incoming request"}
+{"level":30,"time":1788753599000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"abdba432-0fd6-4f4d-aee6-4255e7521c5f","res":{"statusCode":200},"responseTime":99.93270802497864,"msg":"request completed"}
+{"scenario":"周一早峰结束前","at":"2026-09-07T11:59:59+08:00","apiCost":"6.60000000","multiplier":"3"}
+{"level":30,"time":1788753600000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63390"}
+{"level":30,"time":1788753600000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"1fda9f53-4a73-4e3c-9384-b5fe0c52631b","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63390","remoteAddress":"127.0.0.1","remotePort":63391},"msg":"incoming request"}
+{"level":30,"time":1788753600000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"1fda9f53-4a73-4e3c-9384-b5fe0c52631b","res":{"statusCode":200},"responseTime":87.7822499871254,"msg":"request completed"}
+{"scenario":"周一午间低谷","at":"2026-09-07T12:00:00+08:00","apiCost":"2.20000000","multiplier":"1"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63392"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"82e30ae3-bcb8-4ec5-9e97-aa1030e78f7e","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63392","remoteAddress":"127.0.0.1","remotePort":63393},"msg":"incoming request"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"82e30ae3-bcb8-4ec5-9e97-aa1030e78f7e","res":{"statusCode":200},"responseTime":77.3257500231266,"msg":"request completed"}
+{"scenario":"周一午后高峰","at":"2026-09-07T14:00:00+08:00","apiCost":"6.60000000","multiplier":"3"}
+{"level":30,"time":1788775200000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63394"}
+{"level":30,"time":1788775200000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"65ec644f-a8d4-48ea-a98d-7e38f6f9b344","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63394","remoteAddress":"127.0.0.1","remotePort":63395},"msg":"incoming request"}
+{"level":30,"time":1788775200000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"65ec644f-a8d4-48ea-a98d-7e38f6f9b344","res":{"statusCode":200},"responseTime":67.72874999046326,"msg":"request completed"}
+{"scenario":"周一高峰结束","at":"2026-09-07T18:00:00+08:00","apiCost":"2.20000000","multiplier":"1"}
+{"level":30,"time":1789192800000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63396"}
+{"level":30,"time":1789192800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"845ec29e-021f-481a-8dbd-efb01b2d9c82","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63396","remoteAddress":"127.0.0.1","remotePort":63397},"msg":"incoming request"}
+{"level":30,"time":1789192800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"845ec29e-021f-481a-8dbd-efb01b2d9c82","res":{"statusCode":200},"responseTime":61.94175001978874,"msg":"request completed"}
+{"scenario":"周六同一时刻","at":"2026-09-12T14:00:00+08:00","apiCost":"2.20000000","multiplier":"1"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63398"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"8bea68ec-64d7-4425-8d17-632e6279e65c","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63398","remoteAddress":"127.0.0.1","remotePort":63399},"msg":"incoming request"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"8bea68ec-64d7-4425-8d17-632e6279e65c","res":{"statusCode":200},"responseTime":79.20679199695587,"msg":"request completed"}
+{"scenario":"周日同一时刻","at":"2026-09-06T14:00:00+08:00","apiCost":"2.20000000","multiplier":"1"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63400"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"ad4cba5d-b8c4-4364-b435-9b2ac95f8de2","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63400","remoteAddress":"127.0.0.1","remotePort":63401},"msg":"incoming request"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"ad4cba5d-b8c4-4364-b435-9b2ac95f8de2","res":{"statusCode":200},"responseTime":100.10154098272324,"msg":"request completed"}
+{"scenario":"周一高峰","at":"2026-09-07T14:00:00+08:00","deductedQuota":"3300","multiplier":"3"}
+{"level":30,"time":1788775200000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63402"}
+{"level":30,"time":1788775200000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"73ab177b-fc7f-4e3d-a766-220497419d83","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63402","remoteAddress":"127.0.0.1","remotePort":63403},"msg":"incoming request"}
+{"level":30,"time":1788775200000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"73ab177b-fc7f-4e3d-a766-220497419d83","res":{"statusCode":200},"responseTime":59.74883300065994,"msg":"request completed"}
+{"scenario":"周一低谷","at":"2026-09-07T18:00:00+08:00","deductedQuota":"1100","multiplier":"1"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63404"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"b37ceb78-4e97-48d8-9733-9564a681a104","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63404","remoteAddress":"127.0.0.1","remotePort":63405},"msg":"incoming request"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"b37ceb78-4e97-48d8-9733-9564a681a104","res":{"statusCode":200},"responseTime":111.44679102301598,"msg":"request completed"}
+{"scenario":"周日","at":"2026-09-06T14:00:00+08:00","deductedQuota":"1100","multiplier":"1"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63406"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"912cb8e5-4649-4646-9a39-0168b795fa40","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63406","remoteAddress":"127.0.0.1","remotePort":63407},"msg":"incoming request"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"912cb8e5-4649-4646-9a39-0168b795fa40","res":{"statusCode":403},"responseTime":23.116999983787537,"msg":"request completed"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63408"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"439302b8-c73f-489b-baf7-30b19658661a","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63408","remoteAddress":"127.0.0.1","remotePort":63409},"msg":"incoming request"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"439302b8-c73f-489b-baf7-30b19658661a","res":{"statusCode":200},"responseTime":65.4935829937458,"msg":"request completed"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63410"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"b4b53d37-ba93-4001-a7bc-198f04b0a991","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63410","remoteAddress":"127.0.0.1","remotePort":63411},"msg":"incoming request"}
+{"level":30,"time":1788760800000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"b4b53d37-ba93-4001-a7bc-198f04b0a991","res":{"statusCode":200},"responseTime":91.47525000572205,"msg":"request completed"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:63412"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"cef9044d-32f1-45ee-83c5-fab8bdeaf2fc","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:63412","remoteAddress":"127.0.0.1","remotePort":63413},"msg":"incoming request"}
+{"level":30,"time":1788674400000,"pid":83507,"hostname":"Stephen-macbook.local","reqId":"cef9044d-32f1-45ee-83c5-fab8bdeaf2fc","res":{"statusCode":200},"responseTime":70.20112499594688,"msg":"request completed"}
+ ✓ src/__tests-integration__/peak-calendar-settlement.test.ts (13 tests) 3891ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  09:30:29
+   Duration  6.80s (transform 1.29s, setup 0ms, collect 2.67s, tests 3.89s, environment 0ms, prepare 74ms)
+

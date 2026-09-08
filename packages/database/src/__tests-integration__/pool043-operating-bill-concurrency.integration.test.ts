@@ -560,12 +560,22 @@ describe("POOL-043 结账与项目归属并发边界", () => {
       await waitForCloseRowLock();
       releaseWriter();
       await writer;
-      expect(await closing).toMatchObject({ status: "CLOSED", version: 1 });
+      const closed = await closing;
+      expect(closed).toMatchObject({ status: "CLOSED", version: 1 });
+      // Preserve the concurrency contract in frozen evidence, independently of UI dimensions.
+      expect(closed.sourceFacts.accountFacts).toEqual(expect.arrayContaining([
+        expect.objectContaining({ requestId, sourcePrincipalId: employeeId,
+          sourcePrincipalType: "EMPLOYEE", projectId, inputTokens: "30", outputTokens: "3" }),
+      ]));
+      const employees = await new OperatingBillAccountRepository(db)
+        .listAccounts(enterpriseId, month, "EMPLOYEE");
+      expect(employees.rows.find((row) => row.subjectId === employeeId)?.totals)
+        .toMatchObject({ totalTokens: "33", requestCount: 1 });
       const projects = await new OperatingBillAccountRepository(db)
         .listAccounts(enterpriseId, month, "PROJECT");
-      expect(projects.rows.find((row) => row.subjectId === projectId)?.totals)
-        .toMatchObject({ totalTokens: "33", requestCount: 1 });
-      expect(projects.rows.find((row) => row.isUnassigned)).toBeUndefined();
+      // Employee requests carrying a historical project label are not counted twice.
+      expect(projects.rows).toEqual([]);
+      expect(projects.totals).toMatchObject({ totalTokens: "0", requestCount: 0 });
     } finally {
       releaseWriter();
       await Promise.allSettled([writer, closing]);

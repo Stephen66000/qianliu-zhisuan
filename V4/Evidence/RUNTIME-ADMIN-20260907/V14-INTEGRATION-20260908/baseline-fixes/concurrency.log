@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/runtime-admin-integration-20260908/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/pool043-operating-bill-concurrency.integration.test.ts (57 tests) 6420ms
+
+ Test Files  1 passed (1)
+      Tests  57 passed (57)
+   Start at  09:30:27
+   Duration  8.69s (transform 835ms, setup 0ms, collect 2.04s, tests 6.42s, environment 0ms, prepare 61ms)
+

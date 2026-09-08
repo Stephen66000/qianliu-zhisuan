@@ -1,5 +1,7 @@
 # V1.4 运行保障与管理员集成复审
 
+后续状态（2026-09-08）：集成适配已提交为 `19618d8`；下文保留首轮自检与失败记录。三组基线失败随后修复，完整测试 238 文件 / 1,743 用例通过，独立有限集成审核通过。最终验证见 [baseline-fixes/verification.md](./baseline-fixes/verification.md)，独立报告见 [independent-review.md](./independent-review.md)。
+
 - 日期：2026-09-08
 - 集成基线：`99d4f998b0ce08179c72c16ea1f7895e89e7eb44`
 - 原功能提交：`e31da82d8a06262d82814d9fb71caa69fb22a7a4`
