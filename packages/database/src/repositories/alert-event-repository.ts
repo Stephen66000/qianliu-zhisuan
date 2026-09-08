@@ -13,20 +13,39 @@
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { deriveDepartmentBudgetAlerts } from "./alert-event-department-budget.js";
+import {
+  deriveCallDeductionAlerts,
+  deriveCredentialAlerts,
+} from "./alert-event-operational-derivations.js";
 import { decimalTextsEqual } from "./dashboard-helpers.js";
 import { ProviderRepository } from "./provider-repository.js";
 import {
-  deriveDispatchAlerts, deriveRoutingAlerts, deriveStreamingAlerts, toAlertEvent,
+  deriveDispatchAlerts,
+  deriveRoutingAlerts,
+  deriveStreamingAlerts,
+  toAlertEvent,
 } from "./alert-event-request-derivations.js";
 import {
-  DEFAULT_THRESHOLDS, type AlertEvent, type AlertThresholds, type DerivedAlert,
+  DEFAULT_THRESHOLDS,
+  type AlertEvent,
+  type AlertThresholds,
+  type DerivedAlert,
 } from "./alert-event-types.js";
 
-export type { AlertDomain, AlertEvent, AlertThresholds, DerivedAlert } from "./alert-event-types.js";
+export type {
+  AlertDomain,
+  AlertEvent,
+  AlertThresholds,
+  DerivedAlert,
+} from "./alert-event-types.js";
 export { DEFAULT_THRESHOLDS } from "./alert-event-types.js";
 
-const CREDENTIAL_INVALID_STATES = new Set(["CREDENTIAL_INVALID", "EXPIRED"]);
-const RESOURCE_UNAVAILABLE_STATES = new Set(["DEGRADED", "EXHAUSTED", "RATE_LIMITED", "UNAVAILABLE"]);
+const RESOURCE_UNAVAILABLE_STATES = new Set([
+  "DEGRADED",
+  "EXHAUSTED",
+  "RATE_LIMITED",
+  "UNAVAILABLE",
+]);
 
 export class AlertEventRepository {
   constructor(
@@ -55,7 +74,8 @@ export class AlertEventRepository {
       .execute();
     const latestByKey = new Map<string, (typeof events)[number]>();
     for (const event of events) {
-      if (!latestByKey.has(event.alert_key)) latestByKey.set(event.alert_key, event);
+      if (!latestByKey.has(event.alert_key))
+        latestByKey.set(event.alert_key, event);
     }
 
     // upsert 派生的告警
@@ -73,6 +93,9 @@ export class AlertEventRepository {
             title: d.title,
             detail: d.detail,
             severity: d.severity,
+            resource_id: d.resourceId,
+            principal_id: d.principalId,
+            ai_request_id: d.aiRequestId,
           })
           .where("id", "=", existing.id)
           .execute();
@@ -87,6 +110,9 @@ export class AlertEventRepository {
             title: d.title,
             detail: d.detail,
             severity: d.severity,
+            resource_id: d.resourceId,
+            principal_id: d.principalId,
+            ai_request_id: d.aiRequestId,
           })
           .where("id", "=", existing.id)
           .execute();
@@ -200,8 +226,8 @@ export class AlertEventRepository {
     const out: DerivedAlert[] = [];
     out.push(...(await this.deriveResource(enterpriseId)));
     out.push(...(await this.derivePrincipalUsage(enterpriseId)));
-    out.push(...(await this.deriveCallDeduction(enterpriseId)));
-    out.push(...(await this.deriveCredential(enterpriseId)));
+    out.push(...(await deriveCallDeductionAlerts(this.db, enterpriseId)));
+    out.push(...(await deriveCredentialAlerts(this.db, enterpriseId)));
     out.push(...(await deriveRoutingAlerts(this.db, enterpriseId)));
     out.push(...(await deriveStreamingAlerts(this.db, enterpriseId)));
     out.push(...(await deriveDispatchAlerts(this.db, enterpriseId)));
@@ -262,23 +288,34 @@ export class AlertEventRepository {
          AND f.forecast_exhaust_at IS NOT NULL
     `.execute(this.db);
     const current = new Map(
-      (await new ProviderRepository(this.db).listCurrentOperatingSnapshots(enterpriseId))
-        .map((snapshot) => [snapshot.provider_resource_id, snapshot]),
+      (
+        await new ProviderRepository(this.db).listCurrentOperatingSnapshots(
+          enterpriseId,
+        )
+      ).map((snapshot) => [snapshot.provider_resource_id, snapshot]),
     );
     const latestByResource = new Map<string, (typeof forecasts.rows)[number]>();
     for (const f of forecasts.rows) {
       const snapshot = current.get(f.provider_resource_id);
-      const remaining = f.mode === "API"
-        ? snapshot?.current_balance ?? null
-        : snapshot?.remaining_quota ?? null;
-      if (snapshot && f.snapshot_at >= snapshot.calculated_at &&
-        decimalTextsEqual(f.remaining_quota, remaining)) {
+      const remaining =
+        f.mode === "API"
+          ? (snapshot?.current_balance ?? null)
+          : (snapshot?.remaining_quota ?? null);
+      if (
+        snapshot &&
+        f.snapshot_at >= snapshot.calculated_at &&
+        decimalTextsEqual(f.remaining_quota, remaining)
+      ) {
         latestByResource.set(f.provider_resource_id, f);
       }
     }
     for (const f of latestByResource.values()) {
-      const coverage = f.coverage_hours === null ? null : Number(f.coverage_hours);
-      if (coverage !== null && coverage < this.thresholds.exhaustCoverageHours) {
+      const coverage =
+        f.coverage_hours === null ? null : Number(f.coverage_hours);
+      if (
+        coverage !== null &&
+        coverage < this.thresholds.exhaustCoverageHours
+      ) {
         out.push({
           alertKey: `RESOURCE_UNAVAILABLE:exhaust:${f.provider_resource_id}`,
           domain: "RESOURCE_UNAVAILABLE",
@@ -296,11 +333,18 @@ export class AlertEventRepository {
   }
 
   /** 信号 2：主体额度、超额或费用异常。 */
-  private async derivePrincipalUsage(enterpriseId: string): Promise<DerivedAlert[]> {
-    const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+  private async derivePrincipalUsage(
+    enterpriseId: string,
+  ): Promise<DerivedAlert[]> {
+    const monthStart = new Date(
+      Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
+    );
     const rows = await this.db
       .selectFrom("ledger_transaction")
-      .select(["principal_id", (eb) => eb.fn.sum("total_api_cost").as("monthly_cost")])
+      .select([
+        "principal_id",
+        (eb) => eb.fn.sum("total_api_cost").as("monthly_cost"),
+      ])
       .where("enterprise_id", "=", enterpriseId)
       .where("created_at", ">=", monthStart)
       .groupBy("principal_id")
@@ -324,7 +368,11 @@ export class AlertEventRepository {
     }
     const quotas = await this.db
       .selectFrom("principal_grant")
-      .innerJoin("quota_counter", "quota_counter.grant_id", "principal_grant.id")
+      .innerJoin(
+        "quota_counter",
+        "quota_counter.grant_id",
+        "principal_grant.id",
+      )
       .select([
         "principal_grant.id as grant_id",
         "principal_grant.principal_id",
@@ -361,61 +409,4 @@ export class AlertEventRepository {
     }
     return out;
   }
-
-  /** 信号 3：调用/扣减异常，以未闭合对账差异为事实源。 */
-  private async deriveCallDeduction(enterpriseId: string): Promise<DerivedAlert[]> {
-    const rows = await this.db
-      .selectFrom("reconciliation_discrepancy")
-      .select(["id", "discrepancy_type", "severity", "ai_request_id"])
-      .where("enterprise_id", "=", enterpriseId)
-      .where("status", "in", ["OPEN", "INVESTIGATING"])
-      .execute();
-    return rows.map((r) => ({
-      alertKey: `QUOTA_ANOMALY:reconciliation:${r.id}`,
-      domain: "QUOTA_ANOMALY",
-      signal: "call_deduction_anomaly",
-      severity: r.severity as DerivedAlert["severity"],
-      title: "调用或额度扣减异常",
-      detail: `对账差异类型 ${r.discrepancy_type}`,
-      resourceId: null,
-      principalId: null,
-      aiRequestId: r.ai_request_id,
-    }));
-  }
-
-  /** 信号 4：凭证/安全异常。 */
-  private async deriveCredential(enterpriseId: string): Promise<DerivedAlert[]> {
-    const resources = await this.db
-      .selectFrom("provider_resource")
-      .select([
-        "id",
-        "name",
-        "status",
-        "credential_refresh_status",
-        "refresh_error_classification",
-      ])
-      .where("enterprise_id", "=", enterpriseId)
-      .execute();
-    const out: DerivedAlert[] = [];
-    for (const r of resources) {
-      if (
-        CREDENTIAL_INVALID_STATES.has(r.status) ||
-        r.credential_refresh_status === "FAILED"
-      ) {
-        out.push({
-          alertKey: `CREDENTIAL_INVALID:${r.status}:${r.id}`,
-          domain: "CREDENTIAL_INVALID",
-          signal: "credential_security_anomaly",
-          severity: "HIGH",
-          title: `凭证失效：${r.name}`,
-          detail: `资源状态 ${r.status}${r.refresh_error_classification ? `（${r.refresh_error_classification}）` : ""}，需重新授权后受控恢复（WT-19）`,
-          resourceId: r.id,
-          principalId: null,
-          aiRequestId: null,
-        });
-      }
-    }
-    return out;
-  }
-
 }

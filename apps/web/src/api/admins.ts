@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { get, patch, post } from "./client";
+import { del, get, patch, post } from "./client";
 import type { AdminAccount } from "./types";
 import { AUTH_QUERY_KEY } from "./auth";
 
@@ -12,17 +12,21 @@ export function useAdmins() {
   });
 }
 
-function useAdminMutation<TInput>(mutationFn: (input: TInput) => Promise<unknown>) {
+function useAdminMutation<TInput>(
+  mutationFn: (input: TInput) => Promise<unknown>,
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMINS_QUERY_KEY }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ADMINS_QUERY_KEY }),
   });
 }
 
 export function useCreateAdmin() {
-  return useAdminMutation((input: { username: string; display_name: string; password: string }) =>
-    post("/admins", input),
+  return useAdminMutation(
+    (input: { username: string; display_name: string; password: string }) =>
+      post("/admins", input),
   );
 }
 
@@ -34,13 +38,24 @@ export function useRenameAdmin() {
 
 export function useResetAdminPassword() {
   return useAdminMutation((input: { id: string; new_password: string }) =>
-    post(`/admins/${input.id}/reset-password`, { new_password: input.new_password }),
+    post(`/admins/${input.id}/reset-password`, {
+      new_password: input.new_password,
+    }),
   );
 }
 
 export function useSetAdminStatus() {
-  return useAdminMutation((input: { id: string; status: "ACTIVE" | "DISABLED" }) =>
-    post(`/admins/${input.id}/${input.status === "ACTIVE" ? "enable" : "disable"}`),
+  return useAdminMutation(
+    (input: { id: string; status: "ACTIVE" | "DISABLED" }) =>
+      post(
+        `/admins/${input.id}/${input.status === "ACTIVE" ? "enable" : "disable"}`,
+      ),
+  );
+}
+
+export function useCleanupAdmin() {
+  return useAdminMutation((input: { id: string }) =>
+    del<void>(`/admins/${input.id}`),
   );
 }
 

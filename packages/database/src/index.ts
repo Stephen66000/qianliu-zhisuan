@@ -65,7 +65,9 @@ export {
 export {
   AdminRepository,
   AdminNotFoundError,
+  AdminMustBeDisabledError,
   SelfDisableError,
+  SelfCleanupError,
   LastActiveAdminError,
   type AdminUser,
   type AdminSession,
@@ -304,12 +306,8 @@ export {
   type QuotaWindowUpsertInput,
   type CurrentQuotaWindow,
 } from "./repositories/provider-quota-window-repository.js";
-export {
-  ProviderFinanceRepository,
-} from "./repositories/provider-finance-repository.js";
-export {
-  ProviderFinanceCutoverRepository,
-} from "./repositories/provider-finance-cutover-repository.js";
+export { ProviderFinanceRepository } from "./repositories/provider-finance-repository.js";
+export { ProviderFinanceCutoverRepository } from "./repositories/provider-finance-cutover-repository.js";
 export type {
   FinanceCarryoverCandidate,
   FinanceConservationReport,
@@ -339,9 +337,15 @@ export {
 } from "./repositories/provider-finance-types.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;
-export { savePricingConfiguration, PricingConfigurationError } from "./repositories/quota-pricing-configuration.js";
+export {
+  savePricingConfiguration,
+  PricingConfigurationError,
+} from "./repositories/quota-pricing-configuration.js";
 export { archiveDispatchPolicy } from "./repositories/dispatch-policy-archive.js";
-export { listPricingReadyRoutes, policyPricingReadiness } from "./repositories/dispatch-pricing-readiness.js";
+export {
+  listPricingReadyRoutes,
+  policyPricingReadiness,
+} from "./repositories/dispatch-pricing-readiness.js";
 export { PricingModeConflictError } from "./repositories/pricing-write-guard.js";
 
 export { loadOperatingAnalysis } from "./repositories/operating-analysis-repository.js";

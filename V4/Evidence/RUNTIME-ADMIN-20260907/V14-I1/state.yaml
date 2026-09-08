@@ -1,0 +1,65 @@
+schema_version: "1.1"
+state_version: 5
+project: "仟流智算"
+stage_or_work_package: "运行保障与管理员存档清理"
+main_state: CODE_AUDIT_PASSED
+reviewed_object:
+  base: "4cea87f"
+  manifest: "V4/Evidence/RUNTIME-ADMIN-20260907/V14-FIX2/candidate-lock.json"
+  implementation_hash: "5553837c01228f4e3ab1d9753e20497dcdf1d2ae082e02045057ae1a44eb42e1"
+  manifest_hash: "2ceb5e67534f6daf16b0ad0a8ab0a2495df8e09d893ceba865e3f888fd734e61"
+functional_handoff:
+  status: PASS_FOR_BOUNDED_CODE_AUDIT
+  evidence: "用户确认原型；同对象 Web、Control API、PG17 迁移直接回归通过"
+  boundary: "不代表生产或完整阶段功能验收"
+audits:
+  code_quality:
+    status: PASS
+    audit_id: RUNTIME-ADMIN-V14-I1-R3-20260908
+    round: i1-reaudit-2
+    required_independence: I1
+    actual_independence: I1
+    reviewer: /root/i1_runtime_admin_review
+    contract: V4/Evidence/RUNTIME-ADMIN-20260907/V14-I1-R3/contract.md
+    budget: V4/Evidence/RUNTIME-ADMIN-20260907/V14-I1-R3/budget.md
+    start_lock_verification: STABLE
+    end_lock_verification: STABLE
+    report: V4/Evidence/RUNTIME-ADMIN-20260907/V14-I1-R3/代码复审报告.md
+    findings:
+      p0: 0
+      p1: 0
+      p2: 0
+      p3: 0
+    callback_result: PASS
+callback_target: /root
+round_history:
+  - audit_id: RUNTIME-ADMIN-V14-I1-20260908
+    round: i1-initial
+    reviewer: /root/i1_runtime_admin_review
+    reviewed_object: V4/Evidence/RUNTIME-ADMIN-20260907/V14-I0/candidate-lock-final2.json
+    start_lock: STABLE
+    end_lock: STABLE
+    decision: FAIL
+    remaining_p0_p1: [F-01]
+    residual_p2_p3: [F-02, F-03, F-04, F-05]
+    report: V4/Evidence/RUNTIME-ADMIN-20260907/V14-I1/代码审核报告.md
+  - audit_id: RUNTIME-ADMIN-V14-I1-R2-20260908
+    round: i1-reaudit-1
+    reviewer: /root/i1_runtime_admin_review
+    reviewed_object: V4/Evidence/RUNTIME-ADMIN-20260907/V14-FIX/candidate-lock.json
+    start_lock: STABLE
+    end_lock: STABLE
+    decision: FAIL
+    remaining_p0_p1: []
+    residual_p2_p3: [R2-P2-01, R2-P2-02, R2-P2-03]
+    report: V4/Evidence/RUNTIME-ADMIN-20260907/V14-I1-R2/代码复审报告.md
+  - audit_id: RUNTIME-ADMIN-V14-I1-R3-20260908
+    round: i1-reaudit-2
+    reviewer: /root/i1_runtime_admin_review
+    reviewed_object: V4/Evidence/RUNTIME-ADMIN-20260907/V14-FIX2/candidate-lock.json
+    start_lock: STABLE
+    end_lock: STABLE
+    decision: PASS
+    remaining_p0_p1: []
+    residual_p2_p3: []
+    report: V4/Evidence/RUNTIME-ADMIN-20260907/V14-I1-R3/代码复审报告.md

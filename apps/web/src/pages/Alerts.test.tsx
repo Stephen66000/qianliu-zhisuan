@@ -69,6 +69,8 @@ function alert(overrides: Partial<AlertItem> = {}): AlertItem {
     lastSeenAt: "2026-07-28T00:00:00.000Z",
     resolvedAt: null,
     resolutionNote: null,
+    sourceClearedAt: null,
+    resolvedBy: null,
     ...overrides,
   };
 }
