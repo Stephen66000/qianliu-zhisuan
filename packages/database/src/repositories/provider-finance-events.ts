@@ -58,7 +58,8 @@ export class ProviderFinanceEventRepository {
       occurredAt: input.occurredAt.toISOString(), externalReference: input.externalReference ?? null,
       description: input.description ?? null, evidenceRef: input.evidenceRef ?? null,
       kind: input.kind, productName: input.productName, periodStart: input.periodStart.toISOString(),
-      periodEndExclusive: input.periodEndExclusive.toISOString() });
+      periodEndExclusive: input.periodEndExclusive.toISOString(),
+      ...(input.autoRenew === undefined ? {} : { autoRenew: input.autoRenew }) });
     const result = await this.db.transaction().execute(async (trx) => {
       const earlyReplay = await this.replay(trx, input, requestHash);
       if (earlyReplay) {
@@ -71,6 +72,20 @@ export class ProviderFinanceEventRepository {
       if (replay) {
         const result = replay as { event: FinanceEventView; periodId: string };
         return { ...result, event: { ...result.event, replayed: true } };
+      }
+      const systemPeriod = await trx.selectFrom("provider_subscription_period as period")
+        .innerJoin("provider_finance_event as event", join => join.onRef("event.id", "=", "period.finance_event_id")
+          .onRef("event.enterprise_id", "=", "period.enterprise_id"))
+        .selectAll("event").select("period.id as period_id")
+        .where("period.enterprise_id", "=", input.enterpriseId).where("period.provider_resource_id", "=", input.resourceId)
+        .where("period.period_start", "=", input.periodStart).where("period.period_end_exclusive", "=", input.periodEndExclusive)
+        .where("period.reversed_by_event_id", "is", null).where("event.source", "=", "SYSTEM_RENEWAL").executeTakeFirst();
+      if (systemPeriod) {
+        if (systemPeriod.account_amount !== money(input.accountAmount) || systemPeriod.account_currency !== input.accountCurrency
+          || systemPeriod.cash_paid_cny !== money(input.cashPaidCny!)) {
+          throw new ProviderFinanceError("CONFLICT", "本周期已系统续订，金额不同请先核对原记录");
+        }
+        return { event: { ...eventView(systemPeriod), replayed: true }, periodId: systemPeriod.period_id };
       }
       await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const duplicate = await this.authorizeDuplicate(trx, eventType, input, requestHash);
@@ -92,6 +107,9 @@ export class ProviderFinanceEventRepository {
         source: input.kind, migration_source_record_id: null, reversed_by_event_id: null,
         created_by_admin_user_id: input.adminId,
       }).returning("id").executeTakeFirstOrThrow();
+      // A newly registered subscription starts a new standing renewal instruction; replay does not undo cancellation.
+      await trx.updateTable("provider_resource").set({ subscription_auto_renew_enabled: input.autoRenew ?? true })
+        .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.resourceId).execute();
       const response = { event: eventView(row), periodId: period.id };
       await this.auditAndRemember(trx, input, eventType, row.id, requestHash, response);
       await this.consumeDuplicateCandidate(trx, duplicate.candidateId, row.id);
@@ -225,7 +243,7 @@ export class ProviderFinanceEventRepository {
         accountAmount: input.accountAmount, accountCurrency: input.accountCurrency,
         cashPaidCny: input.cashPaidCny ?? null, occurredAt: input.occurredAt.toISOString(),
         description: input.description ?? null, evidenceRef: input.evidenceRef ?? null,
-        productName: subscription?.productName ?? null,
+        productName: subscription?.productName ?? null, autoRenew: subscription?.autoRenew,
         periodStart: subscription?.periodStart.toISOString() ?? null,
         periodEndExclusive: subscription?.periodEndExclusive.toISOString() ?? null,
       }) as unknown as Record<string, unknown>,
@@ -285,7 +303,7 @@ export class ProviderFinanceEventRepository {
     if (candidate.event_type === "API_RECHARGE") return this.recordRecharge(common);
     if (candidate.event_type === "CODING_PLAN_PURCHASE" || candidate.event_type === "CODING_PLAN_RENEWAL") {
       return this.recordSubscription({
-        ...common, kind: candidate.event_type === "CODING_PLAN_PURCHASE" ? "PURCHASE" : "RENEWAL",
+        ...common, autoRenew: typeof payload.autoRenew === "boolean" ? payload.autoRenew : undefined, kind: candidate.event_type === "CODING_PLAN_PURCHASE" ? "PURCHASE" : "RENEWAL",
         productName: String(payload.productName), periodStart: new Date(String(payload.periodStart)),
         periodEndExclusive: new Date(String(payload.periodEndExclusive)),
       });

@@ -234,7 +234,7 @@ describe("provider finance cutover rehearsal", () => {
       });
       expect(await finance.getMonthlyFinanceSummary(enterpriseId, "2026-09")).toMatchObject({
         complete: true, apiOperatingCosts: [{ currency: "CNY", amount: "5.00000000" }],
-        operatingCostCny: "5.00000000",
+        codingPlanFixedCostCny: "199.00000000", operatingCostCny: "204.00000000",
       });
       const operatingBill = await new OperatingBillRepository(db, "DARK")
         .getBill(enterpriseId, "2026-09");
@@ -257,8 +257,9 @@ describe("provider finance cutover rehearsal", () => {
       });
       expect(afterResolution.failures)
         .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_CLASSIFICATION_MISMATCH" }));
-      await expect(migrateDown(db)).resolves.toBe("0067_alert_resource_context");
-      await expect(migrateDown(db)).resolves.toBe("0066_admin_cleanup");
+      await expect(migrateDown(db)).resolves.toBe("0068_alert_resource_context");
+      await expect(migrateDown(db)).resolves.toBe("0067_admin_cleanup");
+      await expect(migrateDown(db)).resolves.toBe("0066_subscription_auto_renewal");
       await expect(migrateDown(db)).resolves.toBe("0065_principal_accounting_assignment");
       await expect(migrateDown(db)).resolves.toBe("0064_quota_pricing_and_policy_archive");
       await expect(migrateDown(db)).resolves.toBe("0063_operating_snapshot_subscription_period");

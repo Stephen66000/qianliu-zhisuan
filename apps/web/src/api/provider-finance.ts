@@ -35,7 +35,7 @@ export function shanghaiMonthBounds(month: string): { from: string; to: string }
 export function useProviderFinanceSummary(month: string, enabled = true) {
   return useQuery({ queryKey: FINANCE_QUERY_KEYS.summary(month),
     queryFn: ({ signal }) => get<ProviderFinanceSummary>(`/provider-finance/summary?month=${month}`, signal),
-    enabled, staleTime: 15_000, retry: 1 });
+    enabled, staleTime: 15_000, refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 1 });
 }
 
 export function useProviderFinanceBalance(
@@ -53,14 +53,14 @@ export function useProviderFinanceEvents(resourceId: string | null, month: strin
   return useQuery({ queryKey: FINANCE_QUERY_KEYS.events(resourceId ?? "", month),
     queryFn: ({ signal }) => get<{ items: ProviderFinanceEvent[]; total: number }>(
       `/provider-resources/${resourceId}/finance/events?${query}`, signal,
-    ), enabled: enabled && resourceId !== null, staleTime: 15_000, retry: 1 });
+    ), enabled: enabled && resourceId !== null, staleTime: 15_000, refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 1 });
 }
 
 export function useProviderSubscriptionPeriods(resourceId: string | null, enabled = true) {
   return useQuery({ queryKey: FINANCE_QUERY_KEYS.periods(resourceId ?? ""),
     queryFn: ({ signal }) => get<{ periods: ProviderSubscriptionPeriod[] }>(
       `/provider-resources/${resourceId}/subscription-periods`, signal,
-    ), enabled: enabled && resourceId !== null, staleTime: 15_000, retry: 1 });
+    ), enabled: enabled && resourceId !== null, staleTime: 15_000, refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 1 });
 }
 
 export function useRecordProviderFinance(resourceId: string | null) {

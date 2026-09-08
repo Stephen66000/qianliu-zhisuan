@@ -1,3 +1,4 @@
+import { operatingConsumptionFilter } from "./operating-consumption-filter.js";
 import { sql, type Kysely } from "kysely";
 import { Decimal } from "decimal.js";
 import type { Database } from "../kysely.js";
@@ -49,7 +50,7 @@ export async function loadAnalysisUsage(
       FROM ledger_line ll JOIN principal ON principal.enterprise_id=ll.enterprise_id AND principal.id=ll.principal_id
       JOIN provider_resource resource ON resource.enterprise_id=ll.enterprise_id AND resource.id=ll.provider_resource_id
       JOIN provider ON provider.enterprise_id=resource.enterprise_id AND provider.id=resource.provider_id
-      WHERE ll.enterprise_id=${enterpriseId}::uuid AND COALESCE(ll.settled_at,ll.created_at)<=${asOf}
+      WHERE ll.enterprise_id=${enterpriseId}::uuid AND ${operatingConsumptionFilter()} AND COALESCE(ll.settled_at,ll.created_at)<=${asOf}
       GROUP BY month,provider.code,provider.name,ll.resource_mode`.execute(db),
     sql<{
       month: string;
@@ -57,7 +58,7 @@ export async function loadAnalysisUsage(
     }>`SELECT to_char(COALESCE(ll.settled_at,ll.created_at) AT TIME ZONE 'Asia/Shanghai','YYYY-MM') AS month,
       COUNT(DISTINCT ll.principal_id) FILTER(WHERE principal.type='EMPLOYEE')::text AS active
       FROM ledger_line ll JOIN principal ON principal.enterprise_id=ll.enterprise_id AND principal.id=ll.principal_id
-      WHERE ll.enterprise_id=${enterpriseId}::uuid AND COALESCE(ll.settled_at,ll.created_at)<=${asOf}
+      WHERE ll.enterprise_id=${enterpriseId}::uuid AND ${operatingConsumptionFilter()} AND COALESCE(ll.settled_at,ll.created_at)<=${asOf}
       GROUP BY month`.execute(db),
     sql<EmployeeLifetime>`WITH deleted AS (
       SELECT target_id,MIN(created_at) AS ended_at FROM operation_log

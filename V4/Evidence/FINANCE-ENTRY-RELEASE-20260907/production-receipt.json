@@ -1,0 +1,18 @@
+{
+  "source": "user supplied COMPLETE receipt",
+  "release": "/Users/stephen/releases/qianliu-finance-entry-de0a2ec-20260907-191844",
+  "commit": "de0a2ec3b7446ab3e0b6d81344d7d84ac2163eab",
+  "tree": "8a467b9a21b200787a2b0af026aed320cbe83acf",
+  "migration": "0066_subscription_auto_renewal",
+  "health": {
+    "control": 200,
+    "gateway": 200,
+    "web": 200,
+    "edge": 200,
+    "worker": "healthy"
+  },
+  "backup": "/Users/stephen/backups/qianliu-zhisuan/pre-finance-entry-de0a2ec-20260907-191844.dump",
+  "backup_sha256": "fba4d177f72c93618f2b213fe70dde873c4c4e8c221388fcbff82a972244cac4",
+  "rollback_prefix": "qianliu-finance-entry-de0a2ec-rollback-20260907-191844",
+  "business_acceptance": "pending user verification; no production UI or data mutations performed by this session"
+}

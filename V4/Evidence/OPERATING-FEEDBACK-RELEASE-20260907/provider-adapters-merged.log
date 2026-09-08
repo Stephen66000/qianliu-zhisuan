@@ -1,0 +1,25 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/provider-adapters
+
+ ✓ src/__tests__/coding-plan-quota.test.ts (11 tests) 4520ms
+   ✓ POOL-032 厂商 Coding Plan 额度窗口查询 > 429 归 RATE_LIMITED（重试耗尽后抛出）  1503ms
+   ✓ POOL-032 厂商 Coding Plan 额度窗口查询 > 5xx 归 UPSTREAM_UNAVAILABLE  1503ms
+   ✓ POOL-032 厂商 Coding Plan 额度窗口查询 > 网络错误重试后仍失败归 UPSTREAM_UNAVAILABLE  1506ms
+ ✓ src/__tests__/openai-compatible-caller.test.ts (76 tests) 82ms
+ ✓ src/__tests-integration__/openai-compatible-http.test.ts (3 tests) 52ms
+ ✓ src/__tests__/model-discovery.test.ts (11 tests) 37ms
+ ✓ src/__tests__/upstream-error-evidence.test.ts (21 tests) 13ms
+ ✓ src/__tests__/model-image-capability.test.ts (44 tests) 10ms
+ ✓ src/__tests__/image-audit-boundaries.test.ts (64 tests) 9ms
+ ✓ src/__tests__/model-validation.test.ts (2 tests) 6ms
+ ✓ src/__tests__/kimi-adapter.test.ts (12 tests) 5ms
+ ✓ src/__tests__/provider-operating-facts.test.ts (2 tests) 5ms
+ ✓ src/__tests__/resource-timeout-policy.test.ts (4 tests) 3ms
+ ✓ src/__tests__/zhipu-adapter.test.ts (11 tests) 4ms
+ ✓ src/__tests__/deepseek-adapter.test.ts (9 tests) 3ms
+ ✓ src/__tests__/secret-value.test.ts (4 tests) 2ms
+
+ Test Files  14 passed (14)
+      Tests  274 passed (274)
+   Start at  18:34:46
+   Duration  7.94s (transform 270ms, setup 0ms, collect 1.01s, tests 4.75s, environment 1ms, prepare 672ms)

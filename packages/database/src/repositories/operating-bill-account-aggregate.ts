@@ -32,6 +32,7 @@ export interface OperatingBillAccountFact {
   reasoningTokens: string;
   deductedQuota: string | null;
   apiCost: string | null;
+  knownApiCost?: string | null;
   packageAllocatedCost: string | null;
 }
 
@@ -59,6 +60,7 @@ export interface OperatingBillAccountSummaryInput {
   reasoningTokens: string;
   deductedQuota: string | null;
   apiCost: string | null;
+  knownApiCost?: string | null;
   packageAllocatedCost: string | null;
   qualities: Iterable<string>;
   activeDays: number;
@@ -85,7 +87,7 @@ export function addAccountFact(target: AccountAccumulator, fact: OperatingBillAc
   target.cache = target.cache.plus(fact.cacheTokens);
   target.reasoning = target.reasoning.plus(fact.reasoningTokens);
   target.deducted = target.deducted.plus(fact.deductedQuota ?? 0);
-  target.apiCost = target.apiCost.plus(fact.apiCost ?? 0);
+  target.apiCost = target.apiCost.plus(fact.knownApiCost ?? fact.apiCost ?? 0);
   target.packageCost = target.packageCost.plus(fact.packageAllocatedCost ?? 0);
   target.deductedKnown = target.deductedKnown && fact.deductedQuota !== null;
   target.apiCostKnown = target.apiCostKnown && fact.apiCost !== null;
@@ -124,7 +126,7 @@ export function finishAccountTotals(target: AccountAccumulator): OperatingBillAc
     };
   }
   const usageQuality = summarizeUsageQuality(target.qualities);
-  const tokensKnown = usageQuality !== "UNKNOWN";
+  const tokensKnown = usageQuality !== "UNKNOWN" || target.input.plus(target.output).gt(0);
   const apiCost = target.apiCostKnown ? money(target.apiCost) : null;
   const packageCost = target.packageCostKnown ? money(target.packageCost) : null;
   return {
@@ -135,6 +137,7 @@ export function finishAccountTotals(target: AccountAccumulator): OperatingBillAc
     totalTokens: tokensKnown ? integer(target.input.plus(target.output)) : null,
     deductedQuota: target.deductedKnown ? integer(target.deducted) : null,
     apiCost,
+    knownApiCost: money(target.apiCost),
     packageAllocatedCost: packageCost,
     totalAllocatedCost: apiCost !== null && packageCost !== null
       ? money(target.apiCost.plus(target.packageCost)) : null,
@@ -149,9 +152,9 @@ export function finishAccountTotals(target: AccountAccumulator): OperatingBillAc
 export function finishAccountSummary(input: OperatingBillAccountSummaryInput): OperatingBillAccountTotals {
   if (input.requestCount === 0) return finishAccountTotals(newAccountAccumulator());
   const usageQuality = summarizeUsageQuality(input.qualities);
-  const tokensKnown = usageQuality !== "UNKNOWN";
   const inputTokens = decimal(input.inputTokens);
   const outputTokens = decimal(input.outputTokens);
+  const tokensKnown = usageQuality !== "UNKNOWN" || inputTokens.plus(outputTokens).gt(0);
   const apiCost = input.apiCost === null ? null : money(decimal(input.apiCost));
   const packageCost = input.packageAllocatedCost === null ? null : money(decimal(input.packageAllocatedCost));
   return {
@@ -162,6 +165,7 @@ export function finishAccountSummary(input: OperatingBillAccountSummaryInput): O
     totalTokens: tokensKnown ? integer(inputTokens.plus(outputTokens)) : null,
     deductedQuota: input.deductedQuota === null ? null : integer(decimal(input.deductedQuota)),
     apiCost,
+    knownApiCost: input.knownApiCost === null || input.knownApiCost === undefined ? apiCost : money(decimal(input.knownApiCost)),
     packageAllocatedCost: packageCost,
     totalAllocatedCost: apiCost !== null && packageCost !== null
       ? money(decimal(apiCost).plus(packageCost)) : null,

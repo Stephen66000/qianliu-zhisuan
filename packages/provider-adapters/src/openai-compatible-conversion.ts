@@ -253,7 +253,12 @@ export function anthropicMessageToChatMessages(raw: unknown): ChatMessage[] {
     messages.push({
       role: "tool",
       tool_call_id: toolCallId,
-      content: contentToText(item.content),
+      // Anthropic 工具结果允许同时返回文字与图片（例如浏览器截图）。
+      // 文本结果继续保持 string，含图片时转换为 OpenAI-compatible
+      // 多模态 content；不能只取 text，否则模型会在工具续轮中丢失截图。
+      content: Array.isArray(item.content)
+        ? anthropicUserContentToChatContent(item.content)
+        : contentToText(item.content),
     });
   }
   const userContent = anthropicUserContentToChatContent(nonToolResultParts);

@@ -15,12 +15,13 @@ export interface AnalysisUsageMonth {
   perCapitaTokens: string | null;
 }
 export interface AnalysisPayment {
+  source?: string;
   id: string;
   providerResourceId: string;
   providerName: string;
   resourceName: string;
   eventType: string;
-  cashPaidCny: string;
+  cashPaidCny: string | null;
   occurredAt: string;
   externalReference: string | null;
   description: string | null;
@@ -29,7 +30,7 @@ export interface OperatingAnalysis {
   payments: AnalysisPayment[];
   cashSummary: {
     monthlyCash: Array<string | null>;
-    yearCash: string;
+    yearCash: string | null;
     averageCash: string | null;
     highestMonths: string[];
   };
@@ -64,7 +65,7 @@ export interface OperatingAnalysis {
     providerName: string;
     mode: "API" | "CODING_PLAN";
     monthlyCash: Array<string | null>;
-    yearCash: string;
+    yearCash: string | null;
   }>;
   apiAccounts: Array<{
     providerCode: string;
@@ -75,6 +76,7 @@ export interface OperatingAnalysis {
       recharge: string | null;
       paidCny: string | null;
       apiSpend: string | null;
+      apiSpendComplete?: boolean;
       endingBalance: string | null;
     };
     months: Array<{
@@ -83,6 +85,7 @@ export interface OperatingAnalysis {
       recharge: string | null;
       paidCny: string | null;
       apiSpend: string | null;
+      apiSpendComplete?: boolean;
       endingBalance: string | null;
     }>;
   }>;

@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (7 tests) 2838ms
+ ✓ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests) 3205ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配  321ms
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (5 tests) 2687ms
+ ✓ src/__tests-integration__/principal-attribution-backfill.integration.test.ts (4 tests) 2449ms
+
+ Test Files  4 passed (4)
+      Tests  28 passed (28)
+   Start at  16:00:19
+   Duration  14.50s (transform 634ms, setup 0ms, collect 2.63s, tests 11.18s, environment 0ms, prepare 198ms)

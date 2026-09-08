@@ -1,0 +1,33 @@
+{
+  "base": "caf222d22e03305e6f3d183fae9d9d3735ae51f4",
+  "files": [
+    {
+      "path": "apps/web/src/components/operating-bill/AccountShared.test.tsx",
+      "sha256": "c346e9b33eeab7b7931d6c60373f67831fffbaf7351106d222a91eb34656bb9c"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/AccountShared.tsx",
+      "sha256": "28d2e93991be3661d246468ca8281f43127ce80f3a73324f2655ad84f7e710ae"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingProcurement.tsx",
+      "sha256": "e6f4e6aa6fb4f975707ac10094c630ea6273e959a87f520b917828eda1a10d9e"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/operating-feedback.integration.test.ts",
+      "sha256": "6961e94b370c4d76fe6f621cc87d3261046784db148ccf95034141e3c7a92ea3"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/subscription-auto-renewal.integration.test.ts",
+      "sha256": "733f73d30f3b52b78c825869c984e966d1edc5540d42bf8383847f32821e2f98"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-registered-history.ts",
+      "sha256": "2adf546073a1a24040d248da05f89b1f0e6bf67c1b894e29679557ca022499d8"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-repository.ts",
+      "sha256": "0d7f5b66e0a886b721a2296f8ea5ac933db50b882a4029bb52bbbcccdb12ce80"
+    }
+  ]
+}

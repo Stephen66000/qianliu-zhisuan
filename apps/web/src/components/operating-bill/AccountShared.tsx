@@ -28,24 +28,30 @@ export function UsageQualityTag({ quality }: { quality: OperatingBillUsageQualit
 
 export function accountCount(
   value: string | null,
-  quality: OperatingBillUsageQuality,
+  _quality: OperatingBillUsageQuality,
 ): string {
-  if (value === null || quality === "UNKNOWN") return "未知";
+  if (value === null) return "未知";
   const formatted = formatCount(value);
-  return quality === "EXACT" ? formatted : `约 ${formatted}`;
+  return formatted;
 }
 
 export function accountPercentage(
   value: string | null,
-  quality: OperatingBillUsageQuality,
+  _quality: OperatingBillUsageQuality,
 ): string {
-  if (value === null || quality === "UNKNOWN") return "—";
+  if (value === null) return "—";
   const formatted = `${value}%`;
-  return quality === "EXACT" ? formatted : `约 ${formatted}`;
+  return formatted;
 }
 
 export function accountMoney(value: string | null): string {
   return value === null ? "未知" : `¥${formatMoney(value)}`;
+}
+
+export function accountApiMoney(totals: Pick<OperatingBillMetricTotals, "apiCost" | "knownApiCost">): string {
+  if (totals.apiCost !== null) return accountMoney(totals.apiCost);
+  return totals.knownApiCost !== null && totals.knownApiCost !== undefined && Number(totals.knownApiCost) > 0
+    ? accountMoney(totals.knownApiCost) : "未知";
 }
 
 export function accountQuota(value: string | null): string {
@@ -86,7 +92,7 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
       value: tokenValue(totals.outputTokens),
       tokens: true,
     },
-    { label: "API 消费", value: accountMoney(totals.apiCost) },
+    { label: "API 消费", value: accountApiMoney(totals) },
     {
       label: "活跃天数",
       value: totals.activeDays === null ? null : String(totals.activeDays),
@@ -98,16 +104,12 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
       aria-label="账单指标"
       className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
     >
-      <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
-        <span className="text-[12px] text-ql-fg-secondary">Token 计量口径</span>
-        <UsageQualityTag quality={totals.usageQuality} />
-      </div>
+
       {metrics.map((metric) => (
         <BillStat
           key={metric.label}
           {...metric}
           missing="未知"
-          approximate={metric.tokens && totals.usageQuality !== "EXACT"}
         />
       ))}
     </section>

@@ -1,3 +1,5 @@
+import { operatingConsumptionFilter } from "./operating-consumption-filter.js";
+import { historicalMonthlyFinance, summarizeFinanceOrders, resourcePlanCostsWithHistory } from "./provider-finance-registered-history.js";
 import { sql, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
@@ -151,7 +153,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
       const key = (resourceId: string, currency: string) => `${resourceId}:${currency}`;
       const costs = new Map(apiCosts.rows.map((row) => [key(row.provider_resource_id, row.currency), row.amount]));
       const recharge = new Map(recharges.rows.map((row) => [key(row.provider_resource_id, row.currency), row.amount]));
-      const planCash = new Map(planCosts.rows.map((row) => [row.provider_resource_id, row.cash_cny]));
+      const planCash = await resourcePlanCostsWithHistory(trx, enterpriseId, start, end, asOf, planCosts.rows);
       const currentPeriods = new Map(periods.rows.map((row) => [row.provider_resource_id, row]));
       const balances = await Promise.all(accountKeys.rows.map(async (account) => ({
         account,
@@ -236,6 +238,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
            AND resolution.id=line.legacy_cost_resolution_id
          WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='API'
            AND (line.api_cost_status='UNKNOWN_COST' OR line.api_cost_status IS NULL)
+           AND ${operatingConsumptionFilter("line")}
            AND COALESCE(line.settled_at, line.created_at)>=${start}
            AND COALESCE(line.settled_at, line.created_at)<${end}
            AND (resolution.id IS NULL OR resolution.status<>'RESOLVED')
@@ -281,6 +284,8 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
            AND cash_paid_cny IS NULL AND occurred_at>=${start} AND occurred_at<${end}
       `.execute(trx),
     ]);
+    const historical = await historicalMonthlyFinance(trx, enterpriseId, start, end);
+    eventAmounts.rows.push(...historical.amounts);
     const resourceViews = await this.loadResourceFinanceViews(trx, enterpriseId, month, new Date());
     const currentBalanceTotals = new Map<FinanceCurrency, InstanceType<typeof Money>>();
     let currentApiBalancesComplete = true;
@@ -298,17 +303,12 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
     const currentApiBalances = [...currentBalanceTotals]
       .sort(([left], [right]) => left.localeCompare(right, "en"))
       .map(([currency, amount]) => ({ currency, amount: money(amount) }));
-    const apiRecharges = eventAmounts.rows.filter((row) => row.mode === "API")
-      .map((row) => ({ currency: row.currency, amount: money(row.amount) }));
-    const codingPlanOrders = eventAmounts.rows.filter((row) => row.mode === "CODING_PLAN")
-      .map((row) => ({ currency: row.currency, amount: money(row.amount) }));
-    const planCash = eventAmounts.rows.filter((row) => row.mode === "CODING_PLAN")
-      .reduce((sum, row) => sum.plus(row.cash_cny), new Money(0));
+    const { apiRecharges, codingPlanOrders, planCash } = summarizeFinanceOrders(eventAmounts.rows);
     const cnyApi = apiCosts.rows.find((row) => row.currency === "CNY")?.amount ?? "0";
     const summaryGaps = gapResult.rows.filter((row) => Number(row.count) > 0)
       .map((row) => ({ code: row.code, count: Number(row.count) }));
     return {
-      month, timezone: "Asia/Shanghai", cashOutflowCny: money(cash.rows[0]?.amount ?? "0"),
+      month, timezone: "Asia/Shanghai", cashOutflowCny: money(new Money(cash.rows[0]?.amount ?? "0").plus(historical.cash)),
       apiRecharges, apiOperatingCosts: apiCosts.rows.map((row) => ({
         currency: row.currency, amount: money(row.amount),
       })), codingPlanOrders, codingPlanFixedCostCny: money(planCash),

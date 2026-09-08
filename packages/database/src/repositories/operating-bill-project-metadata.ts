@@ -1,4 +1,6 @@
-import { sql, type RawBuilder } from "kysely";
+import { currentDepartmentRulesCte } from "./operating-department-rules.js";
+import type { Database } from "../kysely.js";
+import { sql, type RawBuilder, type Kysely } from "kysely";
 
 import { effectivePrincipalDepartment } from "./principal-department-query.js";
 import type { OperatingBillAccountFact } from "./operating-bill-account-aggregate.js";
@@ -114,4 +116,30 @@ export function projectSummaryMetadata(
           || left.departmentId.localeCompare(right.departmentId))
       : [],
   };
+}
+
+/** Current project settings belong to the project heading, not historical consumption attribution.
+ * Open bill rows use the same saved-rule projection as missing department attribution; closed bills keep their frozen metadata.
+ */
+export async function attachCurrentProjectSettings(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  rows: OperatingBillAccountSubjectRow[],
+) {
+  const ids = rows.map((row) => row.subjectId).filter((id): id is string => id !== null);
+  if (!ids.length) return;
+  const result = await sql<{
+    principal_id: string; owner_person_id: string | null; owner_name: string | null;
+    department_id: string | null; department_name: string | null;
+  }>`WITH ${currentDepartmentRulesCte(enterpriseId)}
+    SELECT principal_id,owner_person_id,owner_name,department_id,department_name
+    FROM current_department_rules WHERE principal_type='PROJECT'
+      AND principal_id IN (${sql.join(ids.map((id) => sql`${id}::uuid`))})`.execute(db);
+  for (const row of rows) {
+    const current = result.rows.find((item) => item.principal_id === row.subjectId);
+    if (!current) continue;
+    row.projectOwner = current.owner_name ? { personId: current.owner_person_id, personName: current.owner_name } : null;
+    row.projectDepartments = current.department_id && current.department_name
+      ? [{ departmentId: current.department_id, departmentName: current.department_name }] : [];
+  }
 }

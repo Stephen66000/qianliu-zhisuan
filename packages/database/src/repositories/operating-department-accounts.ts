@@ -18,6 +18,7 @@ interface RawDepartmentAccount {
   output: string;
   cache: string;
   api: string | null;
+  known_api?: string | null;
   subscription: string | null;
   quality: string | null;
   days: string;
@@ -31,6 +32,7 @@ const mapTotals = (row: RawDepartmentAccount | undefined) =>
     cacheTokens: row?.cache ?? "0",
     reasoningTokens: "0",
     apiCost: row ? row.api : "0",
+    knownApiCost: row?.known_api,
     packageAllocatedCost: row ? row.subscription : "0",
     deductedQuota: "0",
     qualities: row?.quality?.split(",") ?? [],
@@ -124,6 +126,7 @@ export async function loadOperatingDepartmentAccounts(
         SUM(raw_input_tokens)::text AS input,SUM(raw_output_tokens)::text AS output,SUM(raw_cache_tokens)::text AS cache,
         (CASE WHEN COUNT(*) FILTER(WHERE resource_mode='API' AND api_cost IS NULL)>0 THEN NULL
           ELSE COALESCE(SUM(api_cost) FILTER(WHERE resource_mode='API'),0) END)::text AS api,
+        COALESCE(SUM(api_cost) FILTER(WHERE resource_mode='API'),0)::text AS known_api,
         (CASE WHEN COUNT(*) FILTER(WHERE resource_mode='CODING_PLAN' AND package_line_cost IS NULL)>0 THEN NULL
           ELSE COALESCE(SUM(package_line_cost) FILTER(WHERE resource_mode='CODING_PLAN'),0) END)::text AS subscription,
         STRING_AGG(DISTINCT usage_quality,',') AS quality,COUNT(DISTINCT (line.created_at AT TIME ZONE 'Asia/Shanghai')::date)::text AS days,

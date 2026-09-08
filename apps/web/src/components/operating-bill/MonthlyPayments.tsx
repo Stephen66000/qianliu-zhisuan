@@ -34,7 +34,7 @@ export function MonthlyPayments({
   );
   return (
     <BillCard className="overflow-hidden">
-      <SectionHeading title="本月买了什么" />
+      <SectionHeading title="本月采购" />
       <Table
         headers={[
           "付款时间",
@@ -61,8 +61,10 @@ export function MonthlyPayments({
                   ? item.resourceName
                   : resource?.resourceName) ?? item.providerResourceId}
               </Cell>
-              <Cell>{labels[item.eventType]}</Cell>
-              <Cell>{item.description ?? "—"}</Cell>
+              <Cell><span className="inline-flex items-baseline gap-2 whitespace-nowrap">{labels[item.eventType]}
+                {item.eventType === "CODING_PLAN_RENEWAL" ? <span className="text-[11px] text-ql-fg-tertiary">{item.source === "ADMIN" || item.source === "MANUAL" || item.source === "IMPORT" ? "人工续订" : item.source === "PROVIDER_SYNC" || item.source === "SYSTEM_RENEWAL" ? "系统续订" : "历史续订"}</span> : null}
+              </span></Cell>
+              <Cell><span className="whitespace-nowrap">{item.description ?? ((item.eventType === "CODING_PLAN_RENEWAL" || item.eventType === "CODING_PLAN_PURCHASE") ? `${("providerName" in item ? item.providerName : resource?.providerName) ?? "套餐"} ${currencyMoney(item.cashPaidCny, "CNY")}` : "—")}</span></Cell>
               <Num>{currencyMoney(item.cashPaidCny, "CNY")}</Num>
               <Cell>{item.externalReference ?? "—"}</Cell>
             </tr>

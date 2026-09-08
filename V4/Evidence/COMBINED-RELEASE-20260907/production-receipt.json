@@ -1,0 +1,37 @@
+{
+  "status": "DEPLOYED_HEALTH_AND_USAGE_UI_VERIFIED",
+  "evidence_source": "User-provided Mac Mini COMPLETE output; not independently read over SSH",
+  "release": "/Users/stephen/releases/qianliu-combined-2b90de1-20260907-143725",
+  "commit": "2b90de19d3d58b175599449613ce31f5b59d3638",
+  "tree": "080985e7c8a68f9f9eabdbd36c99b81ec5dc8723",
+  "migration": "0065_principal_accounting_assignment",
+  "health": {
+    "control": 200,
+    "gateway": 200,
+    "web": 200,
+    "edge": 200,
+    "worker": "healthy"
+  },
+  "backup": "/Users/stephen/backups/qianliu-zhisuan/pre-combined-2b90de1-20260907-143725.dump",
+  "backup_sha256": "e8c835154a92a51e9cd72be1d0ede683661bec5e26ece5b5bb4c09087f5b19a3",
+  "rollback_prefix": "qianliu-combined-2b90de1-rollback-20260907-143725",
+  "business_validation": {
+    "pool053": "PASS: selected September 6, Today returned to September 7, repeated click refreshed data time",
+    "pool054": "Deployed with exact candidate; no live image/provider request issued during acceptance",
+    "operating_bill": "Production overview loads; zero subscription fee displayed as 0.00 and partial usage trends visible. Not a full financial-data acceptance."
+  },
+  "browser_evidence": {
+    "source": "Direct inspection of logged-in production Chrome UI",
+    "usage_url": "https://ic.qianliuai.com/usage",
+    "selected_date_before_today": "2026-09-06",
+    "date_after_today": "2026-09-07",
+    "range_after_today": [
+      "2026-09-07 00:00:00",
+      "2026-09-08 00:00:00"
+    ],
+    "data_time_before_repeat": "2026-09-07 14:40:07",
+    "data_time_after_repeat": "2026-09-07 14:40:13",
+    "operating_bill_url": "https://ic.qianliuai.com/operating-bill",
+    "operating_bill_data_time": "2026-09-07 14:40:22"
+  }
+}

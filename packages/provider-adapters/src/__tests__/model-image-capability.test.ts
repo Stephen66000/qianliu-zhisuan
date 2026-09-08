@@ -36,12 +36,38 @@ describe("POOL20-054 image admission and lossless forwarding", () => {
     expect(sent.messages[0].content[0].type).toBe(capability === "responses" && JSON.stringify(body).includes("file_id") ? "file" : "image_url");
     expect(JSON.stringify(sent)).toContain(JSON.stringify(body).includes("private-file") ? "private-file" : JSON.stringify(body).includes("aW1hZ2U=") ? "aW1hZ2U=" : url);
   });
-  it("unrepresentable image in a tool result fails explicitly rather than dropping it", async () => {
-    const fetch = vi.fn();
-    const body = { messages: [{ role: "user", content: [{ type: "tool_result", tool_use_id: "call", content: [{ type: "image", source: { type: "url", url } }] }] }] };
-    const outcome = await createOpenAiCompatibleCaller({ fetch })(resource("unknown"), { requestId: "test", unifiedModel: "test", stream: false, capability: "messages", body }, 1);
-    expect(fetch).not.toHaveBeenCalled();
-    expect(outcome.error).toBe("image_input_unsupported");
+  it.each([
+    ["url", { type: "url", url }, url],
+    ["base64", { type: "base64", media_type: "image/png", data: "aW1hZ2U=" }, "data:image/png;base64,aW1hZ2U="],
+  ])("preserves %s images and text in an Anthropic tool result", async (_kind, source, expectedUrl) => {
+    const fetch = vi.fn(async () => ({
+      ok: false, status: 400, text: async () => "", body: null,
+      json: async () => ({ error: { code: "test", message: "controlled rejection" } }),
+    }));
+    const body = { messages: [{
+      role: "user",
+      content: [{
+        type: "tool_result",
+        tool_use_id: "call",
+        content: [{ type: "text", text: "截图结果" }, { type: "image", source }],
+      }],
+    }] };
+
+    await createOpenAiCompatibleCaller({ fetch })(resource("unknown"), {
+      requestId: "test", unifiedModel: "test", stream: false, capability: "messages", body,
+    }, 1);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const init = fetch.mock.calls[0] as unknown as [string, { body: string }];
+    const sent = JSON.parse(init[1].body);
+    expect(sent.messages).toEqual([{
+      role: "tool",
+      tool_call_id: "call",
+      content: [
+        { type: "text", text: "截图结果" },
+        { type: "image_url", image_url: { url: expectedUrl } },
+      ],
+    }]);
   });
   it("tool arguments that look like image blocks are not multimodal input", () => {
     expect(hasImageInput({ messages: [{ role: "assistant", content: [{ type: "tool_use", input: { type: "image", source: { type: "url", url } } }] }] })).toBe(false);

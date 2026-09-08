@@ -1,0 +1,200 @@
+{
+  "branch": "codex/operating-feedback-20260907",
+  "base": "99d4f998b0ce08179c72c16ea1f7895e89e7eb44",
+  "files": [
+    {
+      "path": "apps/control-api/src/__tests-integration__/provider-finance.test.ts",
+      "sha256": "b16432ce1970bd9a86131649dcf722c1d25986617e0aa6659e8fcb77a0d30d12"
+    },
+    {
+      "path": "apps/control-api/src/provider-finance/routes.ts",
+      "sha256": "463dc213b3a050109f9b36589ed823c1616ce1d82c7f01cb87218b8d26077a23"
+    },
+    {
+      "path": "apps/web/src/api/operating-analysis.ts",
+      "sha256": "32aca99e230e431b7526a99bf961c59b5550251e66ff9d1b7cf1ffeed92cafaf"
+    },
+    {
+      "path": "apps/web/src/api/provider-finance.ts",
+      "sha256": "cfbd6013a5fb04c7c10d9e4ec76cf75821d81ef9beb6720ac573e7c521b3aa1f"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/AccountShared.test.tsx",
+      "sha256": "308f3aadd571b3262abc86f6b6443f07d67ca701d8bd543b061bd9815d104198"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/AccountShared.tsx",
+      "sha256": "b422ad1bf39f8e675f3e727be61ece134db78897d7e3c86e8abf006f85223ce5"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/BillStat.test.tsx",
+      "sha256": "8a4e20749883a063ebaae598dacbffcf9632369b00f7b07186e15c2c6f6075c0"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/BillStat.tsx",
+      "sha256": "cf367b09e1da97fadc19bae9d4db97b8d5a642a461d9fc3d57744482cfa57c8a"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/MonthlyPayments.test.tsx",
+      "sha256": "e3762e9f0c01efcf5364aee1879855f297e714a7491639744cfabb26a41f9da8"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/MonthlyPayments.tsx",
+      "sha256": "22ea2c58b795a349da022a0e88c8cf20778d63547e19b3ebfc6ba37fcdfa54b0"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingAnalysisPartial.test.tsx",
+      "sha256": "03c4d6540bfd4c956a4778b87d1bd73771e592616174de9545169d104925c2a1"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingPlans.tsx",
+      "sha256": "58d1f9fe1d9fd585b13a02f028f8373db8aac57f7a213cacc3989d0672043a60"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingProcurement.tsx",
+      "sha256": "e6f4e6aa6fb4f975707ac10094c630ea6273e959a87f520b917828eda1a10d9e"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/OperatingTrends.tsx",
+      "sha256": "d12f9922c5e2fddedcba57ea7e67c01c50efda2c268f4c2bb774a87e53b2055d"
+    },
+    {
+      "path": "apps/web/src/components/resources/ProviderFinancePanel.tsx",
+      "sha256": "41af6ce9d7e6dddca3049ba9d19259cdd42598504dea411c376320d5e533c489"
+    },
+    {
+      "path": "apps/web/src/components/resources/SubscriptionAutoRenewal.test.tsx",
+      "sha256": "78e768edba357d648c621da68646f5bbda3c1623469890328cf7b516a18db670"
+    },
+    {
+      "path": "apps/web/src/components/resources/SubscriptionAutoRenewal.tsx",
+      "sha256": "45c052970d98c69c9d751fa5976b0c6d666cfad21ed1d1459744d9d7dcdf2c14"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBill.tsx",
+      "sha256": "c9e0c18f47b22b1426297730e714bd17a33e104f2fbc1003152825db0e038aa9"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillAccounts.test.tsx",
+      "sha256": "e11d3de797aae20e297dc740672b37f58b0ce64eb23d380c4b39a101583a58af"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillDepartments.test.tsx",
+      "sha256": "55ce2ee15c1f7dffb8c75a5e21d9f2f55ed67d277e4480859616be00dfae3d14"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillDepartments.tsx",
+      "sha256": "65a4957babb3051d142c738ca909a845c6524be0b55c8f5ac8bc51c77fa0d10d"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillOverview.tsx",
+      "sha256": "460fa7455756150fe5d0d67ebbe8bf7f77526c7e5ea4a6e9543945594151585b"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillProcurement.test.tsx",
+      "sha256": "3a1603d2290062c8d36cc5fe6b411f7244033656078c3a60256dfcf3a73c9a59"
+    },
+    {
+      "path": "apps/worker/src/main.ts",
+      "sha256": "64c4ed7d99807629f57a98f13e1a6882c56e2363fe0ee4dea90cc1db0ef23ba7"
+    },
+    {
+      "path": "apps/worker/src/runtime-assurance/scheduled-tasks.test.ts",
+      "sha256": "9bd537986f9e82c90c971b26990f3ec6b41b82cc0f474be48ee06f73b9393f2a"
+    },
+    {
+      "path": "apps/worker/src/runtime-assurance/scheduled-tasks.ts",
+      "sha256": "d8db09c459723d740e5b3ea1f892338fcb4d4c74b557c8bf2011217e9866df65"
+    },
+    {
+      "path": "apps/worker/src/subscription-renewal/runner.test.ts",
+      "sha256": "2199b427ba3b1d94bafd2a8e73d18edddee5cd0d3c2a1643d19f234c83141f5e"
+    },
+    {
+      "path": "apps/worker/src/subscription-renewal/runner.ts",
+      "sha256": "6c1e4320ba71d9ad4e0984c694b96e8e9d76c681235c671ce7e8cd0c7d8108dc"
+    },
+    {
+      "path": "packages/database/migrations/0066_subscription_auto_renewal.js",
+      "sha256": "87130de75aa5008a3c02c34f9bb8f50ae9062764aa4caf5b41a5f4b76626b622"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/operating-analysis.integration.test.ts",
+      "sha256": "7ea7863cde7f219f5dfac39c9204e62e000929d5a264fc0f397f1e30331c56c8"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/operating-feedback.integration.test.ts",
+      "sha256": "76a603b5ffe96702cc6047e5680f79dd88e43969fe92db890983b2214bed93b2"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/subscription-auto-renewal.integration.test.ts",
+      "sha256": "3265f54751a7175460abccb808196e66f88e5e63538fb1e573b92b8f7b8b4df8"
+    },
+    {
+      "path": "packages/database/src/index.ts",
+      "sha256": "123d7c6114882f2c2f9da1f5e2d680cf9db15103e83f8bb0beec5f7be800dbc3"
+    },
+    {
+      "path": "packages/database/src/kysely-finance-tables.ts",
+      "sha256": "b7d8a922c3ac1fb6a9491fb0ace98bb8dc66d20e416854deb4a3dacffc87aacc"
+    },
+    {
+      "path": "packages/database/src/kysely-resource-tables.ts",
+      "sha256": "a357b28876d094f5747579c73ff1b6a95136cc77ef4ebdf265c8921867294bed"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-purchases.ts",
+      "sha256": "addd5cf6d9589c624107ae52fbb6f5bad6f8f564d8223611dc249137810aefc0"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-repository.ts",
+      "sha256": "c1cb843263dc5b07efade74e93f3ca1714ca0edfa8813da58b6ac883be1fdc9f"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-analysis-usage.ts",
+      "sha256": "e547a356c586b15bc7db1b7c3c5224f57423f818447383319f54369187faae4e"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-aggregate.ts",
+      "sha256": "f3ae7ce277621d26bcb872161629871af3cfd823d15624814bc2cfc13c41cc86"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-month-lines.ts",
+      "sha256": "ca3e1d55948ce490215e219e346c388860dc8d18421d52cfa96befe98894d373"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-repository.ts",
+      "sha256": "9482ea105ad73ebf31b49a0b2dfbf324d9938ece908b9856205d1ae091930152"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-project-metadata.ts",
+      "sha256": "597cfc9810cc9b9f620bedb845d82027e78c84f600cd1f4cb4afeb3c3168b830"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-consumption-filter.ts",
+      "sha256": "b9dee255508f1bc59b326a4abccaab6de9a028e79542e150b29d90caf8805594"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-department-rules.ts",
+      "sha256": "0b1023810e81aa7278ad6af091a4f3ddcaf7da60c1e046bb26d0e4c968ee8873"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-events.ts",
+      "sha256": "893d0c25b421eeda7cd4c54eea6c2268c2c9ce552f1d6d1fd86be41737b10fab"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-renewal.ts",
+      "sha256": "98c77cbecc642606b787b027fef7112facf94e025f0b00db91d4a3ef6f8ff5b2"
+    },
+    {
+      "path": "packages/database/src/repositories/subscription-renewal-calendar.test.ts",
+      "sha256": "28130a8365a6a3693efbaa27817e5665503d82829f6bce0f1a6449a53fdcd508"
+    },
+    {
+      "path": "packages/database/src/repositories/subscription-renewal-calendar.ts",
+      "sha256": "581adafb9b5c83fe29dd6fe0ab82072284447e4274c24eb60803c9f6ea0ed06e"
+    }
+  ],
+  "status": "local_uncommitted_unpushed_undeployed",
+  "migration": "0066_subscription_auto_renewal"
+}

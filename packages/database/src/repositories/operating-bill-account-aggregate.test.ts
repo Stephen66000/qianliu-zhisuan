@@ -64,7 +64,7 @@ describe("POOL-043 账户聚合纯函数", () => {
     })).toEqual({
       inputTokens: "9007199254740993", outputTokens: "7", cacheTokens: "2",
       reasoningTokens: "1", totalTokens: "9007199254741000", deductedQuota: "5",
-      apiCost: "1.20000000", packageAllocatedCost: "2.30000000",
+      apiCost: "1.20000000", knownApiCost: "1.20000000", packageAllocatedCost: "2.30000000",
       totalAllocatedCost: "3.50000000", usageQuality: "EXACT",
       activeDays: 2, requestCount: 3, lastUsedAt: "2026-08-02T00:00:00.000Z",
     });
@@ -99,6 +99,7 @@ describe("POOL-043 账户聚合纯函数", () => {
       totalTokens: "9007199254741023",
       deductedQuota: "55",
       apiCost: "2.00000000",
+      knownApiCost: "2.00000000",
       packageAllocatedCost: "3.00000000",
       totalAllocatedCost: "5.00000000",
       activeDays: 2,

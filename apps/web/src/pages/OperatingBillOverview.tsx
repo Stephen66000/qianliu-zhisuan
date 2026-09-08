@@ -1,3 +1,4 @@
+import { formatCount } from "../lib/format";
 import type { AnalysisPayment } from "../api/operating-analysis";
 import { Link } from "react-router-dom";
 
@@ -15,13 +16,13 @@ import { MonthlyPayments } from "../components/operating-bill/MonthlyPayments";
 export function OperatingBillOverview({
   bill,
   planUtilization,
-  planUtilizationApproximate = false,
   payments,
+  monthTokens,
 }: {
   bill: OperatingBill;
   planUtilization?: string | null;
-  planUtilizationApproximate?: boolean;
   payments?: AnalysisPayment[];
+  monthTokens?: string | null;
 }) {
   const apiSpends = compatibleProviderAmounts(
     bill.summary.apiSpends, bill.providers, "API", "apiCost", "apiSpendCurrency",
@@ -33,6 +34,7 @@ export function OperatingBillOverview({
   );
   const totalSpends = compatibleTotalAmounts(bill);
   const metrics = [
+    ["本月总 Token", monthTokens === null || monthTokens === undefined ? "—" : formatCount(monthTokens)],
     [
       "期初余额",
       currencyFacts(bill.summary.openingBalances, bill.summary.openingBalance ?? null, bill.summary.endingBalanceCurrency),
@@ -77,7 +79,7 @@ export function OperatingBillOverview({
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map(([label, value]) => (
-          <BillStat key={label} label={label!} value={value!} approximate={label === "套餐综合利用率" && value !== "—" && planUtilizationApproximate} />
+          <BillStat key={label} label={label!} value={value!} />
         ))}
       </div>
       {bill.providers.some(

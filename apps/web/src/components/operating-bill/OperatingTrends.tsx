@@ -4,39 +4,34 @@ import { Cell, Num, Table } from "../../pages/OperatingBillShared";
 import { BillCard, SectionHeading } from "./BillShared";
 import { BillStat } from "./BillStat";
 
-export const analysisTokens = (value: string | null, approximate = false) =>
-  value === null ? "—" : `${approximate ? "约 " : ""}${formatDecimal(value, 0)}`;
-export const analysisPercent = (value: string | null, signed = false, approximate = false) =>
+export const analysisTokens = (value: string | null) =>
+  value === null ? "—" : formatDecimal(value, 2);
+export const analysisPercent = (value: string | null, signed = false) =>
   value === null
     ? "—"
-    : `${approximate ? "约 " : ""}${signed && Number(value) > 0 ? "+" : ""}${formatDecimal(value, 1)}%`;
+    : `${signed && Number(value) > 0 ? "+" : ""}${formatDecimal(value, 2)}%`;
 export function OperatingTrends({ data }: { data: OperatingAnalysis }) {
   const s = data.summary,
     months = data.months.slice(0, Number(data.month.slice(5))),
     recent = months.slice(-3);
-  const currentPartial = months.at(-1)?.usageIncomplete;
-  const ytdPartial = months.some((row) => row.usageIncomplete);
-  const changePartial = currentPartial || months.at(-2)?.usageIncomplete;
   return (
     <div className="operating-report space-y-4">
       <h2 className="text-[16px] font-semibold">AI 使用趋势</h2>
-      {ytdPartial ? <p role="status" className="text-[13px] text-ql-warning">含未完整计量记录，显示已记录 Token 及据此计算的参考指标。</p> : null}
       <div className="bill-five-stats">
-        <BillStat label="公司当月使用 Token" value={s.companyTokens} approximate={currentPartial} tokens />
+        <BillStat label="公司当月使用 Token" value={s.companyTokens} tokens />
         <BillStat
-          label="公司月均 Token（YTD）"
+          label="公司月均 Token"
           value={s.ytdAverageTokens}
-          approximate={ytdPartial}
           tokens
         />
         <BillStat
           label="公司月均环比"
-          value={analysisPercent(s.ytdAverageChange, true, ytdPartial)}
+          value={analysisPercent(s.ytdAverageChange, true)}
         />
-        <BillStat label="本月人均 Token" value={s.perCapitaTokens} approximate={currentPartial} tokens />
+        <BillStat label="本月人均 Token" value={s.perCapitaTokens} tokens />
         <BillStat
           label="本月人均环比"
-          value={analysisPercent(s.perCapitaChange, true, changePartial)}
+          value={analysisPercent(s.perCapitaChange, true)}
         />
       </div>
       <BillCard>
@@ -64,7 +59,7 @@ export function OperatingTrends({ data }: { data: OperatingAnalysis }) {
                     <span>{Number(row.month.slice(5))} 月</span>
                     <div>
                       <span className="block text-right tabular-nums">
-                        {analysisTokens(row[key], row.usageIncomplete)}
+                        {analysisTokens(row[key])}
                       </span>
                       <div className="h-2 bg-ql-surface-subtle">
                         <div
@@ -97,13 +92,13 @@ export function OperatingTrends({ data }: { data: OperatingAnalysis }) {
         >
           {months.map((row) => (
             <tr className="border-b border-ql-border-zone" key={row.month}>
-              <Cell>{row.month}{row.usageIncomplete ? <span className="ml-1 text-ql-warning">（不完整）</span> : null}</Cell>
-              <Num>{analysisTokens(row.totalTokens, row.usageIncomplete)}</Num>
-              <Num>{analysisTokens(row.employeeTokens, row.usageIncomplete)}</Num>
-              <Num>{analysisTokens(row.projectTokens, row.usageIncomplete)}</Num>
+              <Cell>{row.month}</Cell>
+              <Num>{analysisTokens(row.totalTokens)}</Num>
+              <Num>{analysisTokens(row.employeeTokens)}</Num>
+              <Num>{analysisTokens(row.projectTokens)}</Num>
               <Num>{row.employeeCount ?? "—"}</Num>
               <Num>{row.activeEmployees ?? "—"}</Num>
-              <Num>{analysisTokens(row.perCapitaTokens, row.usageIncomplete)}</Num>
+              <Num>{analysisTokens(row.perCapitaTokens)}</Num>
             </tr>
           ))}
         </Table>

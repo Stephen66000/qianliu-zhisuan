@@ -77,8 +77,9 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0063_operating_snapshot_subscription_period", "Success"],
         ["0064_quota_pricing_and_policy_archive", "Success"],
         ["0065_principal_accounting_assignment", "Success"],
-        ["0066_admin_cleanup", "Success"],
-        ["0067_alert_resource_context", "Success"],
+        ["0066_subscription_auto_renewal", "Success"],
+        ["0067_admin_cleanup", "Success"],
+        ["0068_alert_resource_context", "Success"],
       ]);
       const rows = await db.selectFrom("ai_request")
         .select(["id", "unified_model", "unified_model_id"]).orderBy("id").execute();
@@ -116,8 +117,9 @@ describe("POOL-043 稳定模型身份迁移", () => {
         unified_model: "ql-deepseek-v4-flash", unified_model_id: modelA,
       });
 
-      expect(await migrateDown(db)).toBe("0067_alert_resource_context");
-      expect(await migrateDown(db)).toBe("0066_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0068_alert_resource_context");
+      expect(await migrateDown(db)).toBe("0067_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
       expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
       expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
@@ -187,8 +189,9 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0063_operating_snapshot_subscription_period", "Success"],
         ["0064_quota_pricing_and_policy_archive", "Success"],
         ["0065_principal_accounting_assignment", "Success"],
-        ["0066_admin_cleanup", "Success"],
-        ["0067_alert_resource_context", "Success"],
+        ["0066_subscription_auto_renewal", "Success"],
+        ["0067_admin_cleanup", "Success"],
+        ["0068_alert_resource_context", "Success"],
       ]);
       const rebound = await db.selectFrom("ai_request")
         .select(["unified_model", "unified_model_id"])

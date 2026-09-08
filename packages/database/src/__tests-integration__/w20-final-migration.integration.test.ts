@@ -178,8 +178,9 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0063_operating_snapshot_subscription_period", "Success"],
         ["0064_quota_pricing_and_policy_archive", "Success"],
         ["0065_principal_accounting_assignment", "Success"],
-        ["0066_admin_cleanup", "Success"],
-        ["0067_alert_resource_context", "Success"],
+        ["0066_subscription_auto_renewal", "Success"],
+        ["0067_admin_cleanup", "Success"],
+        ["0068_alert_resource_context", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -240,8 +241,9 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       expect(qualityConstraint.rows[0]?.definition).toContain("MIXED");
       await db.updateTable("usage_event").set({ usage_quality: "MIXED" })
         .where("enterprise_id", "=", enterpriseId).execute();
-      expect(await migrateDown(db)).toBe("0067_alert_resource_context");
-      expect(await migrateDown(db)).toBe("0066_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0068_alert_resource_context");
+      expect(await migrateDown(db)).toBe("0067_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
       expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
       expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
@@ -325,8 +327,9 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0063_operating_snapshot_subscription_period", "Success"],
         ["0064_quota_pricing_and_policy_archive", "Success"],
         ["0065_principal_accounting_assignment", "Success"],
-        ["0066_admin_cleanup", "Success"],
-        ["0067_alert_resource_context", "Success"],
+        ["0066_subscription_auto_renewal", "Success"],
+        ["0067_admin_cleanup", "Success"],
+        ["0068_alert_resource_context", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
@@ -399,8 +402,9 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         .execute()).rejects.toThrow(/append-only/i);
       await expect(db.deleteFrom("operating_bill_opening_balance")
         .where("provider_resource_id", "=", resourceId).execute()).rejects.toThrow(/append-only/i);
-      expect(await migrateDown(db)).toBe("0067_alert_resource_context");
-      expect(await migrateDown(db)).toBe("0066_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0068_alert_resource_context");
+      expect(await migrateDown(db)).toBe("0067_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
       expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
       expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");

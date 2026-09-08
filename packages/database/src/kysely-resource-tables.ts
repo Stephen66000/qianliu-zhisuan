@@ -6,6 +6,7 @@ export interface ProviderTable {
   status: Generated<string>; config_schema_version: string | null; created_at: Generated<Date>; updated_at: Generated<Date>;
 }
 export interface ProviderResourceTable {
+  subscription_auto_renew_enabled: Generated<boolean>;
   id: Generated<string>; enterprise_id: string; provider_id: string; name: string; mode: "API" | "CODING_PLAN";
   credential_type: "API_KEY" | "OAUTH" | "SUBSCRIPTION_SESSION"; credential_ciphertext: string | null;
   credential_fingerprint: string | null; credential_version: number | null; upstream_models: string[] | null;

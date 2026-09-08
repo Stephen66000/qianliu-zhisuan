@@ -144,8 +144,9 @@ describe("POOL20-048 0055 上游错误证据", () => {
       await expect(db.updateTable("upstream_attempt").set({
         request_shape_summary: { oversized: "x".repeat(5_000) },
       }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow();
-      expect(await migrateDown(db)).toBe("0067_alert_resource_context");
-      expect(await migrateDown(db)).toBe("0066_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0068_alert_resource_context");
+      expect(await migrateDown(db)).toBe("0067_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
       expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
       expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");

@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (5 tests) 3531ms
+ ✓ src/__tests-integration__/subscription-auto-renewal.integration.test.ts (10 tests) 3043ms
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (7 tests) 2603ms
+
+ Test Files  3 passed (3)
+      Tests  22 passed (22)
+   Start at  18:56:41
+   Duration  11.93s (transform 617ms, setup 0ms, collect 2.26s, tests 9.18s, environment 0ms, prepare 134ms)

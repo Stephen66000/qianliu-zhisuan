@@ -23,7 +23,7 @@ export function OperatingPlans({ data }: { data: OperatingAnalysis }) {
         {data.plans.map((row) => (
           <button
             key={row.providerCode}
-            className={buttonSecondary}
+            className={`${buttonSecondary} ${plan.providerCode === row.providerCode ? "!border-ql-action !bg-ql-action/15 !text-ql-fg" : ""}`}
             aria-pressed={plan.providerCode === row.providerCode}
             onClick={() => setCode(row.providerCode)}
           >
@@ -31,13 +31,12 @@ export function OperatingPlans({ data }: { data: OperatingAnalysis }) {
           </button>
         ))}
       </div>
-      {plan.historyIncomplete ? <p role="status" className="text-[13px] text-ql-warning">含未完整计量记录，峰值及利用率按已记录 Token 计算，仅作参考。</p> : null}
       <div className="grid gap-3 sm:grid-cols-3">
-        <BillStat label="本月总 Token" value={current.totalTokens} approximate={current.usageIncomplete} tokens />
-        <BillStat label="历史最高月 Token" value={plan.peakTokens} approximate={plan.historyIncomplete} tokens />
+        <BillStat label="本月总 Token" value={current.totalTokens} tokens />
+        <BillStat label="历史最高月 Token" value={plan.peakTokens} tokens />
         <BillStat
           label="本月历史峰值利用率"
-          value={analysisPercent(current.utilization, false, plan.historyIncomplete)}
+          value={analysisPercent(current.utilization)}
         />
       </div>
       <BillCard>
@@ -53,11 +52,11 @@ export function OperatingPlans({ data }: { data: OperatingAnalysis }) {
         >
           {plan.months.slice(0, Number(data.month.slice(5))).map((row) => (
             <tr className="border-b border-ql-border-zone" key={row.month}>
-              <Cell>{row.month}{row.usageIncomplete ? <span className="ml-1 text-ql-warning">（不完整）</span> : null}</Cell>
-              <Num>{analysisTokens(row.inputTokens, row.usageIncomplete)}</Num>
-              <Num>{analysisTokens(row.outputTokens, row.usageIncomplete)}</Num>
-              <Num>{analysisTokens(row.totalTokens, row.usageIncomplete)}</Num>
-              <Num>{analysisPercent(row.utilization, false, plan.historyIncomplete)}</Num>
+              <Cell>{row.month}</Cell>
+              <Num>{analysisTokens(row.inputTokens)}</Num>
+              <Num>{analysisTokens(row.outputTokens)}</Num>
+              <Num>{analysisTokens(row.totalTokens)}</Num>
+              <Num>{analysisPercent(row.utilization)}</Num>
             </tr>
           ))}
         </Table>

@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/pool053-054/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/subscription-auto-renewal.integration.test.ts (10 tests) 3942ms
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (8 tests) 3587ms
+   ✓ failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal  417ms
+ ✓ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests) 4155ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配  376ms
+
+ Test Files  3 passed (3)
+      Tests  30 passed (30)
+   Start at  21:22:26
+   Duration  15.48s (transform 812ms, setup 0ms, collect 3.13s, tests 11.68s, environment 0ms, prepare 224ms)

@@ -21,3 +21,11 @@ describe("POOL20-045 常驻聚合调度隔离", () => {
     expect(core).toHaveBeenCalledTimes(2);
   });
 });
+
+it("renewal runs independently before the other operational tasks and failures are reported", async () => {
+  const order:string[]=[];
+  const core=vi.fn(async()=>{order.push("core");return "ok";});
+  const error=new Error("renewal unavailable");const onRenewalError=vi.fn();
+  await runScheduledOperationalTasks({renewals:async()=>{order.push("renewal");throw error;},onRenewalError,core,aggregate:async()=>null});
+  expect(order).toEqual(["renewal","core"]);expect(onRenewalError).toHaveBeenCalledWith(error);
+});

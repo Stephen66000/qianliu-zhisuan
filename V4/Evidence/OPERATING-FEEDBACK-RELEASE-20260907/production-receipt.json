@@ -1,0 +1,16 @@
+{
+  "source": "user supplied COMPLETE receipt",
+  "release": "/Users/stephen/releases/qianliu-operating-feedback-db78a30-20260907-183733",
+  "commit": "db78a30ef8b6989887baf7cdc1637d3378e8f89e",
+  "tree": "19af8a4f83a382eb21b7d220818f8395ced46f60",
+  "migration": "0066_subscription_auto_renewal",
+  "control": 200,
+  "gateway": 200,
+  "web": 200,
+  "edge": 200,
+  "worker": "healthy",
+  "backup": "/Users/stephen/backups/qianliu-zhisuan/pre-operating-feedback-db78a30-20260907-183733.dump",
+  "backup_sha256": "94a211572544068b8b63b7ae838a0f697c776974c80b1a523e6a0dae95d12780",
+  "rollback_prefix": "qianliu-operating-feedback-db78a30-rollback-20260907-183733",
+  "business_acceptance": "pending; no live UI mutations performed"
+}

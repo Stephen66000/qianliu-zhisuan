@@ -100,8 +100,9 @@ describe("0023 Principal Key 单 ACTIVE 迁移", () => {
         constraint: "principal_key_one_active_per_principal_uq",
       });
 
-      expect(await migrateDown(db)).toBe("0067_alert_resource_context");
-      expect(await migrateDown(db)).toBe("0066_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0068_alert_resource_context");
+      expect(await migrateDown(db)).toBe("0067_admin_cleanup");
+      expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
       expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
       expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");

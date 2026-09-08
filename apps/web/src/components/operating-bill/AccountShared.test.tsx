@@ -8,6 +8,7 @@ import {
   AccountFilters,
   accountCount,
   accountMoney,
+  accountApiMoney,
   accountPercentage,
   accountQuota,
   AccountTable,
@@ -29,16 +30,16 @@ describe("POOL-043 账单展示口径", () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(accountCount("1200", "EXACT")).toBe("1,200");
-    expect(accountCount("1200", "ESTIMATED")).toBe("约 1,200");
-    expect(accountCount("1200", "ACCOUNT_AGGREGATED")).toBe("约 1,200");
-    expect(accountCount("1200", "MIXED")).toBe("约 1,200");
-    expect(accountCount("1200", "UNKNOWN")).toBe("未知");
+    expect(accountCount("1200", "ESTIMATED")).toBe("1,200");
+    expect(accountCount("1200", "ACCOUNT_AGGREGATED")).toBe("1,200");
+    expect(accountCount("1200", "MIXED")).toBe("1,200");
+    expect(accountCount("1200", "UNKNOWN")).toBe("1,200");
     expect(accountCount(null, "EXACT")).toBe("未知");
     expect(accountPercentage("60.00", "EXACT")).toBe("60.00%");
-    expect(accountPercentage("40.00", "ESTIMATED")).toBe("约 40.00%");
-    expect(accountPercentage("40.00", "ACCOUNT_AGGREGATED")).toBe("约 40.00%");
-    expect(accountPercentage("40.00", "MIXED")).toBe("约 40.00%");
-    expect(accountPercentage("40.00", "UNKNOWN")).toBe("—");
+    expect(accountPercentage("40.00", "ESTIMATED")).toBe("40.00%");
+    expect(accountPercentage("40.00", "ACCOUNT_AGGREGATED")).toBe("40.00%");
+    expect(accountPercentage("40.00", "MIXED")).toBe("40.00%");
+    expect(accountPercentage("40.00", "UNKNOWN")).toBe("40.00%");
     expect(accountPercentage(null, "EXACT")).toBe("—");
     expect(accountMoney(null)).toBe("未知");
     expect(accountMoney("2.5")).toBe("¥2.50");
@@ -115,4 +116,11 @@ describe("POOL-043 账单展示口径", () => {
     expect(screen.getByRole("columnheader", { name: "Token" })).toHaveClass("text-right");
     expect(screen.getByText("100").closest("td")).toHaveClass("text-right");
   });
+});
+
+it("API money uses compact amounts for both full totals and available subtotals", () => {
+  expect(accountApiMoney({apiCost:null,knownApiCost:"19.41"})).toBe("¥19.41");
+  expect(accountApiMoney({apiCost:"4.27"})).toBe("¥4.27");
+  expect(accountApiMoney({apiCost:null,knownApiCost:"48.47156860"})).toBe("¥48.47");
+  expect(accountApiMoney({apiCost:"112.91156860",knownApiCost:"112.91156860"})).toBe("¥112.91");
 });

@@ -270,7 +270,7 @@ describe("POOL-043 经营账单员工账／项目账", () => {
     expect(screen.getByText("ql-deepseek-v4-pro")).toBeInTheDocument();
     expect(screen.getByText("deepseek-v3.2")).toBeInTheDocument();
     expect(screen.getByText("60.00%")).toBeInTheDocument();
-    expect(screen.getByText("约 40.00%")).toBeInTheDocument();
+    expect(screen.getByText("40.00%")).toBeInTheDocument();
     const flashRow = screen.getByRole("row", { name: /ql-deepseek-v4-flash/ });
     await user.click(within(flashRow).getByRole("button", { name: "查看请求明细" }));
     expect(await screen.findByText("req-deepseek-flash-001")).toBeInTheDocument();
