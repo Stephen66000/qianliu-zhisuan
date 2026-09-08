@@ -355,6 +355,10 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
 
 function diagnosticCategory(category: string): string {
   const labels: Record<string, string> = {
+    AUTHENTICATION_FAILED: "凭证鉴权失败",
+    CREDENTIAL_EXPIRED: "凭证已过期",
+    CREDENTIAL_REVOKED: "凭证已撤销",
+    PERMISSION_DENIED: "凭证权限不足",
     UNSUPPORTED_PARAMETER: "不支持的参数",
     INVALID_PARAMETER: "参数无效",
     INVALID_MESSAGE_CONTENT: "消息内容不兼容",

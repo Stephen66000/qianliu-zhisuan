@@ -1166,6 +1166,41 @@ describe("OpenAI-compatible HTTP caller", () => {
     expect(JSON.stringify(outcome)).not.toContain(canary);
   });
 
+  it("Chat 401 保存脱敏拒绝字段与原因分类，不保存厂商原文", async () => {
+    const canary = "KIMI_PRIVATE_AUTH_MESSAGE_CANARY";
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse({
+        error: {
+          type: "authentication_error",
+          code: "expired_token",
+          message: `The access token has expired ${canary}`,
+        },
+      }, 401),
+      env: { KIMI_BASE_URL: "https://kimi.example" },
+    });
+
+    const outcome = await caller(resource({
+      providerCode: "kimi",
+      mode: "CODING_PLAN",
+      upstreamModel: "k3",
+    }), responsesRequest(), 1);
+
+    expect(outcome).toMatchObject({
+      status: 401,
+      error: "expired_token",
+      upstreamErrorEvidence: {
+        httpStatus: 401,
+        type: "authentication_error",
+        code: "expired_token",
+        param: null,
+        messageCategory: "CREDENTIAL_EXPIRED",
+      },
+      requestShapeSummary: { messageCount: 4 },
+    });
+    expect(outcome.upstreamErrorEvidence?.diagnosticHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(outcome)).not.toContain(canary);
+  });
+
   it.each([
     ["1211", "CONFIGURATION_ERROR"],
     ["1308", "QUOTA_EXHAUSTED"],

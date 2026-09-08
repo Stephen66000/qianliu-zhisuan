@@ -43,8 +43,16 @@ function canonicalJson(value: unknown): string {
   return value === undefined ? "null" : JSON.stringify(value);
 }
 
-function messageCategory(message: string): UpstreamErrorMessageCategory {
+function messageCategory(message: string, httpStatus: number): UpstreamErrorMessageCategory {
   const normalized = message.toLowerCase();
+  if (/(credential|token|api key|api_key).*(expired|expiration)|expired.*(credential|token|api key|api_key)/.test(normalized)) {
+    return "CREDENTIAL_EXPIRED";
+  }
+  if (/(credential|token|api key|api_key).*(revoked|disabled)|revoked.*(credential|token|api key|api_key)/.test(normalized)) {
+    return "CREDENTIAL_REVOKED";
+  }
+  if (httpStatus === 401) return "AUTHENTICATION_FAILED";
+  if (httpStatus === 403) return "PERMISSION_DENIED";
   if (/(context|token).*(length|limit|maximum)|maximum context/.test(normalized)) {
     return "CONTEXT_LENGTH_EXCEEDED";
   }
@@ -81,10 +89,10 @@ export function buildUpstreamErrorEvidence(
   const message = `${stringValue(error.message)} ${stringValue(root.message)}`;
   const safeTuple = {
     httpStatus,
-    type: sanitizeUpstreamErrorType(error.type),
-    code: sanitizeUpstreamErrorCode(error.code),
+    type: sanitizeUpstreamErrorType(error.type ?? root.type),
+    code: sanitizeUpstreamErrorCode(error.code ?? root.code),
     param: sanitizeUpstreamErrorParam(error.param ?? root.param),
-    messageCategory: messageCategory(message),
+    messageCategory: messageCategory(message, httpStatus),
   };
   return {
     ...safeTuple,

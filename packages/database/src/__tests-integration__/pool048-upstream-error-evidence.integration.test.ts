@@ -96,6 +96,28 @@ describe("POOL20-048 0055 上游错误证据", () => {
         request_shape_summary: safeShape,
       });
 
+      const authEvidence = {
+        ...safeEvidence,
+        httpStatus: 401,
+        type: "authentication_error",
+        code: "expired_token",
+        param: null,
+        messageCategory: "CREDENTIAL_EXPIRED",
+      };
+      await repository.updateAttemptResult(attempt.id, {
+        http_status: 401,
+        upstream_error_evidence: authEvidence,
+        request_shape_summary: safeShape,
+      });
+      expect((await db.selectFrom("upstream_attempt").select("upstream_error_evidence")
+        .where("id", "=", attempt.id).executeTakeFirstOrThrow()).upstream_error_evidence)
+        .toEqual(authEvidence);
+      await repository.updateAttemptResult(attempt.id, {
+        http_status: 400,
+        upstream_error_evidence: safeEvidence,
+        request_shape_summary: safeShape,
+      });
+
       const unsafeRequestId = randomUUID();
       await db.insertInto("ai_request").values({
         id: unsafeRequestId, enterprise_id: enterpriseId, principal_id: principalId,
@@ -144,6 +166,9 @@ describe("POOL20-048 0055 上游错误证据", () => {
       await expect(db.updateTable("upstream_attempt").set({
         request_shape_summary: { oversized: "x".repeat(5_000) },
       }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow();
+      expect(await migrateDown(db)).toBe("0067_auth_error_evidence");
+      expect(await migrateDown(db)).toBe("0066_alert_resource_context");
+      expect(await migrateDown(db)).toBe("0065_admin_cleanup");
       expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
       expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
       expect(await migrateDown(db)).toBe("0062_resource_fact_reconciliation");

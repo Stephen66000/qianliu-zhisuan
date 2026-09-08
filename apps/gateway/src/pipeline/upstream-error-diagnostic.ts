@@ -7,7 +7,7 @@ export function attemptDiagnosticUpdate(outcome: Outcome): {
 } {
   const evidence = parseUpstreamErrorEvidence(outcome.upstreamErrorEvidence);
   const shape = parseRequestShapeSummary(outcome.requestShapeSummary);
-  if (outcome.status !== 400 || !evidence || !shape) {
+  if (!new Set([400, 401, 403]).has(outcome.status) || !evidence || !shape) {
     return { upstream_error_evidence: null, request_shape_summary: null };
   }
   return {

@@ -212,7 +212,7 @@ describe("deriveSuccessTransition 成功路径", () => {
 });
 
 describe("deriveQuotaSyncRecovery 厂商额度证据恢复", () => {
-  it.each(["RATE_LIMITED", "EXHAUSTED", "CREDENTIAL_INVALID"] as const)(
+  it.each(["RATE_LIMITED", "EXHAUSTED"] as const)(
     "%s 在额度接口确认恢复后进入 DEGRADED",
     (status) => {
       expect(deriveQuotaSyncRecovery(active({
@@ -228,6 +228,14 @@ describe("deriveQuotaSyncRecovery 厂商额度证据恢复", () => {
 
   it("健康态不产生恢复事件", () => {
     expect(deriveQuotaSyncRecovery(active())).toBeNull();
+  });
+
+  it("CREDENTIAL_INVALID 不因额度接口成功而解除隔离", () => {
+    expect(deriveQuotaSyncRecovery(active({
+      status: RESOURCE_STATUS.CREDENTIAL_INVALID,
+      consecutiveFailures: 3,
+      cooldownUntil: T0 + 10_000,
+    }))).toBeNull();
   });
 });
 
