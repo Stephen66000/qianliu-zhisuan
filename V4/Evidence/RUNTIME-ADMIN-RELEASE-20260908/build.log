@@ -1,0 +1,38 @@
+$ corepack pnpm@11.11.0 -r run build
+Scope: 11 of 12 workspace projects
+packages/config build$ tsc -p tsconfig.json --noEmit
+packages/domain build$ tsc -p tsconfig.json --noEmit
+packages/contracts build$ tsc -p tsconfig.json --noEmit
+packages/testing build$ tsc -p tsconfig.json --noEmit
+packages/domain build: Done
+packages/testing build: Done
+packages/contracts build: Done
+packages/config build: Done
+apps/web build$ tsc -p tsconfig.json --noEmit && vite build
+packages/provider-adapters build$ tsc -p tsconfig.json --noEmit
+packages/observability build$ tsc -p tsconfig.json --noEmit
+packages/provider-adapters build: Done
+packages/observability build: Done
+apps/web build: vite v7.1.7 building for production...
+apps/web build: transforming...
+apps/web build: ✓ 1828 modules transformed.
+apps/web build: rendering chunks...
+apps/web build: computing gzip size...
+apps/web build: dist/index.html                                  1.44 kB │ gzip:   0.80 kB
+apps/web build: dist/assets/qianliu-logo-primary-By9IDn8v.png  789.27 kB
+apps/web build: dist/assets/index-Bu7B2tVL.css                  30.28 kB │ gzip:   6.71 kB
+apps/web build: dist/assets/index-BfrfNC1U.js                  738.00 kB │ gzip: 210.18 kB
+apps/web build: (!) Some chunks are larger than 500 kB after minification. Consider:
+apps/web build: - Using dynamic import() to code-split the application
+apps/web build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+apps/web build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+apps/web build: ✓ built in 2.79s
+apps/web build: Done
+packages/database build$ tsc -p tsconfig.json --noEmit
+packages/database build: Done
+apps/control-api build$ tsc -p tsconfig.json
+apps/worker build$ tsc -p tsconfig.json
+apps/gateway build$ tsc -p tsconfig.json
+apps/worker build: Done
+apps/gateway build: Done
+apps/control-api build: Done

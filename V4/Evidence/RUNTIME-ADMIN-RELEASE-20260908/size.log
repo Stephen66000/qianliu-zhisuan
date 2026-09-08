@@ -1,0 +1,2 @@
+$ node scripts/check-source-size.mjs
+source-size gate passed: 474 files, default <= 400 logical lines

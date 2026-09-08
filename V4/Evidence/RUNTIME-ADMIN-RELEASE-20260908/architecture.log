@@ -1,0 +1,2 @@
+$ node scripts/check-architecture.mjs
+architecture gate passed: 474 production source files, no runtime cycles

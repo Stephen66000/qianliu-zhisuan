@@ -1,0 +1,80 @@
+$ jscpd apps packages --min-lines 20 --min-tokens 100 --threshold 5 --ignore '**/dist/**,**/coverage/**,**/reports/**,**/__tests__/**,**/__tests-integration__/**,**/*.test.ts,**/*.test.tsx' --reporters console
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/department-costs/types.ts[39m[22m [1:26 - 31:16] (31 lines, 132 tokens)
+   database/src/repositories/department-cost-types.ts [3:36 - 33:16]
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/department-costs/types.ts[39m[22m [31:29 - 59:2] (29 lines, 121 tokens)
+   database/src/repositories/department-cost-types.ts [33:39 - 61:2]
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/keys/routes.ts[39m[22m [54:90 - 76:71] (23 lines, 128 tokens)
+   control-api/src/keys/routes.ts [228:40 - 251:19]
+[1mClone found (typescript)[22m
+ - [1m[32mgateway/src/auth/current-model-authorization.ts[39m[22m [81:55 - 106:12] (26 lines, 198 tokens)
+   gateway/src/auth/current-model-authorization.ts [237:51 - 262:8]
+[1mClone found (typescript)[22m
+ - [1m[32mgateway/src/routes/chat.ts[39m[22m [44:61 - 71:65] (28 lines, 144 tokens)
+   gateway/src/routes/messages.ts [22:54 - 52:22]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/diagnostic-types.ts[39m[22m [143:28 - 163:17] (21 lines, 100 tokens)
+   database/src/repositories/alert-event-types.ts [7:29 - 27:17]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [10:37 - 40:23] (31 lines, 159 tokens)
+   database/src/repositories/dashboard-types.ts [111:17 - 141:23]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [78:5 - 108:17] (31 lines, 143 tokens)
+   database/src/repositories/dashboard-types.ts [84:43 - 114:17]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [140:42 - 176:5] (37 lines, 185 tokens)
+   database/src/repositories/dashboard-types.ts [23:5 - 65:5]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [177:40 - 220:2] (44 lines, 182 tokens)
+   database/src/repositories/usage-repository.ts [34:18 - 78:2]
+[1mClone found (tsx)[22m
+ - [1m[32mweb/src/pages/OperatingBillEmployees.tsx[39m[22m [41:42 - 65:32] (25 lines, 177 tokens)
+   web/src/pages/OperatingBillProjects.tsx [44:41 - 68:32]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/billing-rule-persistence.ts[39m[22m [15:7 - 37:24] (23 lines, 122 tokens)
+   database/src/repositories/billing-rule-persistence.ts [56:7 - 78:24]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/dispatch-policy-repository.ts[39m[22m [111:9 - 135:38] (25 lines, 171 tokens)
+   database/src/repositories/dispatch-policy-repository.ts [153:9 - 176:38]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/operating-bill-account-frozen.ts[39m[22m [316:13 - 338:22] (23 lines, 155 tokens)
+   database/src/repositories/operating-bill-account-live.ts [307:48 - 329:22]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/provider-finance-cutover-repository.ts[39m[22m [16:82 - 61:13] (46 lines, 115 tokens)
+   database/src/repositories/provider-finance-usage-backfill.ts [5:71 - 50:13]
+[1mClone found (typescript)[22m
+ - [1m[32mprovider-adapters/src/adapters/deepseek-adapter.ts[39m[22m [35:19 - 74:31] (40 lines, 187 tokens)
+   provider-adapters/src/adapters/kimi-adapter.ts [33:18 - 75:31]
+[1mClone found (typescript)[22m
+ - [1m[32mprovider-adapters/src/adapters/kimi-adapter.ts[39m[22m [26:34 - 76:27] (51 lines, 213 tokens)
+   provider-adapters/src/adapters/zhipu-adapter.ts [24:35 - 73:27]
+[1mClone found (typescript)[22m
+ - [1m[32mprovider-adapters/src/adapters/kimi-adapter.ts[39m[22m [55:23 - 77:28] (23 lines, 104 tokens)
+   provider-adapters/src/adapters/zhipu-adapter.ts [53:23 - 74:4]
+[90m┌────────────┬────────────────┬─────────────┬──────────────┬──────────────┬──────────────────┬───────────────────┐[39m
+[90m│[39m[31m Format     [39m[90m│[39m[31m Files analyzed [39m[90m│[39m[31m Total lines [39m[90m│[39m[31m Total tokens [39m[90m│[39m[31m Clones found [39m[90m│[39m[31m Duplicated lines [39m[90m│[39m[31m Duplicated tokens [39m[90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m css        [90m│[39m 2              [90m│[39m 156         [90m│[39m 2464         [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m javascript [90m│[39m 58             [90m│[39m 6018        [90m│[39m 34612        [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m json       [90m│[39m 6              [90m│[39m 229         [90m│[39m 786          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m markdown   [90m│[39m 1              [90m│[39m 66          [90m│[39m 413          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m markup     [90m│[39m 1              [90m│[39m 37          [90m│[39m 432          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m tsx        [90m│[39m 99             [90m│[39m 13572       [90m│[39m 100336       [90m│[39m 1            [90m│[39m 24 (0.18%)       [90m│[39m 177 (0.18%)       [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m typescript [90m│[39m 354            [90m│[39m 58692       [90m│[39m 393636       [90m│[39m 17           [90m│[39m 515 (0.88%)      [90m│[39m 2559 (0.65%)      [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m [1mTotal:[22m     [90m│[39m 521            [90m│[39m 78770       [90m│[39m 532679       [90m│[39m 18           [90m│[39m 539 (0.68%)      [90m│[39m 2736 (0.51%)      [90m│[39m
+[90m└────────────┴────────────────┴─────────────┴──────────────┴──────────────┴──────────────────┴───────────────────┘[39m
+[90mFound 18 clones.[39m
+[90mtime: 73.499ms[39m
+
+[90m💡 Auto-refactor with AI: [1m[39mnpx skills add https://github.com/kucherenko/jscpd --skill dry-refactoring[90m[22m
+[90m🎩 New: Gangsta Agents — discipline your AI coding → gangsta.page[39m
+[90m💖 Support jscpd project → https://opencollective.com/jscpd[39m

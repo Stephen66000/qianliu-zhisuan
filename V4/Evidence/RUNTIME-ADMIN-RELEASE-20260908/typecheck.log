@@ -1,0 +1,24 @@
+$ corepack pnpm@11.11.0 -r run typecheck
+Scope: 11 of 12 workspace projects
+packages/config typecheck$ tsc -p tsconfig.json --noEmit
+packages/contracts typecheck$ tsc -p tsconfig.json --noEmit
+packages/domain typecheck$ tsc -p tsconfig.json --noEmit
+packages/testing typecheck$ tsc -p tsconfig.json --noEmit
+packages/domain typecheck: Done
+packages/contracts typecheck: Done
+packages/testing typecheck: Done
+packages/config typecheck: Done
+apps/web typecheck$ tsc -p tsconfig.json --noEmit
+packages/observability typecheck$ tsc -p tsconfig.json --noEmit
+packages/provider-adapters typecheck$ tsc -p tsconfig.json --noEmit
+packages/observability typecheck: Done
+packages/provider-adapters typecheck: Done
+apps/web typecheck: Done
+packages/database typecheck$ tsc -p tsconfig.json --noEmit
+packages/database typecheck: Done
+apps/gateway typecheck$ tsc -p tsconfig.json --noEmit
+apps/control-api typecheck$ tsc -p tsconfig.json --noEmit
+apps/worker typecheck$ tsc -p tsconfig.json --noEmit
+apps/worker typecheck: Done
+apps/control-api typecheck: Done
+apps/gateway typecheck: Done

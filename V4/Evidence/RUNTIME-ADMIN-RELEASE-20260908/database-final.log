@@ -1,0 +1,153 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/runtime-admin-integration-20260908/仟流智算/packages/database
+
+{"event":"usage_aggregate_0054_capacity","ledger_rows":1000000,"usage_event_rows":1000000,"migration_ms":4699,"dirty_buckets":776,"rebuild_batch_limit":1000}
+ ✓ src/__tests-integration__/usage-aggregate-migration-capacity.integration.test.ts (1 test) 326673ms
+   ✓ POOL20-045 0054 百万存量迁移 > 失败整体回滚；百万 ledger/usage_event 迁移受控生成 dirty 并可恢复读模型  320807ms
+{"level":30,"time":1788833486349,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833487077,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":727.8836669921875,"msg":"request completed"}
+{"level":30,"time":1788833487078,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833487716,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":638.4425420165062,"msg":"request completed"}
+{"level":30,"time":1788833487717,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833488366,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":649.4250830113888,"msg":"request completed"}
+{"level":30,"time":1788833488367,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833488995,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":200},"responseTime":628.0239579975605,"msg":"request completed"}
+{"level":30,"time":1788833488995,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833489626,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":200},"responseTime":631.2554999887943,"msg":"request completed"}
+{"level":30,"time":1788833489627,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833490283,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":200},"responseTime":655.9433749914169,"msg":"request completed"}
+{"level":30,"time":1788833490283,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833490957,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":200},"responseTime":673.8415829837322,"msg":"request completed"}
+{"level":30,"time":1788833490957,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833491591,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":200},"responseTime":633.2010410130024,"msg":"request completed"}
+{"level":30,"time":1788833491592,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833492244,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":200},"responseTime":651.7513329982758,"msg":"request completed"}
+{"level":30,"time":1788833492244,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833492880,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":200},"responseTime":635.6469579935074,"msg":"request completed"}
+{"level":30,"time":1788833492880,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-b","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833493518,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-b","res":{"statusCode":200},"responseTime":638.048750013113,"msg":"request completed"}
+{"level":30,"time":1788833493518,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-c","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833494161,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-c","res":{"statusCode":200},"responseTime":642.8328749835491,"msg":"request completed"}
+{"level":30,"time":1788833494162,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-d","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833494790,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-d","res":{"statusCode":200},"responseTime":628.5212090015411,"msg":"request completed"}
+{"level":30,"time":1788833494790,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-e","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833495442,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-e","res":{"statusCode":200},"responseTime":652.0807920098305,"msg":"request completed"}
+{"level":30,"time":1788833495443,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-f","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833496089,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-f","res":{"statusCode":200},"responseTime":646.3084999918938,"msg":"request completed"}
+{"level":30,"time":1788833496089,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-g","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833496779,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-g","res":{"statusCode":200},"responseTime":690.0683749914169,"msg":"request completed"}
+{"level":30,"time":1788833496780,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-h","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833497438,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-h","res":{"statusCode":200},"responseTime":658.2835000157356,"msg":"request completed"}
+{"level":30,"time":1788833497438,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-i","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833498086,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-i","res":{"statusCode":200},"responseTime":647.6584169864655,"msg":"request completed"}
+{"level":30,"time":1788833498086,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-j","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833498727,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-j","res":{"statusCode":200},"responseTime":640.4100840091705,"msg":"request completed"}
+{"level":30,"time":1788833498727,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-k","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833499360,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-k","res":{"statusCode":200},"responseTime":632.0410420000553,"msg":"request completed"}
+{"level":30,"time":1788833499361,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-l","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833500061,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-l","res":{"statusCode":200},"responseTime":700.4916250109673,"msg":"request completed"}
+{"level":30,"time":1788833500062,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-m","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788833500700,"pid":270,"hostname":"Stephen-macbook.local","reqId":"req-m","res":{"statusCode":200},"responseTime":637.981625020504,"msg":"request completed"}
+ ✓ src/__tests-integration__/w20-standard-capacity.integration.test.ts (2 tests) 52699ms
+   ✓ W20-10 标准容量合同 > 1,000,000 ledger 的常用管理、单主体聚合、资源与部门月账 P95 达标  19307ms
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (8 tests) 3784ms
+   ✓ failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal  321ms
+ ✓ src/__tests-integration__/alert-event-dispatch-scale.integration.test.ts (1 test) 5819ms
+   ✓ 异常中心调度历史容量 > 65,535 条正常历史决策不会耗尽绑定参数或产生异常  5818ms
+ ✓ src/__tests-integration__/subscription-auto-renewal.integration.test.ts (10 tests) 3268ms
+ ✓ src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts (1 test) 4778ms
+   ✓ 0021 billing_rule 多时间窗迁移 > 旧单窗自动回填，且最近迁移可回滚/重建  3496ms
+ ✓ src/__tests-integration__/pool010-provider-operating.test.ts (5 tests) 4802ms
+   ✓ POOL-010 厂商资源经营快照 > 0025～0029 可连续回滚并重新升级  2671ms
+ ✓ src/__tests-integration__/runtime-admin-release-rehearsal.integration.test.ts (1 test) 3067ms
+   ✓ 0066 备份可恢复，0067/0068 保留管理员历史引用且归档后禁止回退  3066ms
+ ✓ src/__tests-integration__/principal-key-single-active-migration.integration.test.ts (1 test) 4454ms
+   ✓ 0023 Principal Key 单 ACTIVE 迁移 > 修复历史重复 Key，并以 partial unique index 消除并发插入竞态  3181ms
+ ✓ src/__tests-integration__/w20-final-migration.integration.test.ts (2 tests) 4716ms
+   ✓ W20-10 0045 到 0051 升级、回退与读模型重建 > 同一 1.0 数据可升级、重建派生聚合、允许条件下 down 并再次升级  2560ms
+   ✓ W20-10 0045 到 0051 升级、回退与读模型重建 > 0053 已有期初余额事实时拒绝破坏性回退  963ms
+ ✓ src/__tests-integration__/runtime-assurance-foundation.integration.test.ts (1 test) 4601ms
+   ✓ RA-W01 0030 运行保障底座迁移 > 空库升级、依次回滚 0031/0030、重升后 Schema 指纹一致  3307ms
+ ✓ src/__tests-integration__/pool043-operating-bill-concurrency.integration.test.ts (57 tests) 3797ms
+ ✓ src/__tests-integration__/pool046-zhipu-window-alias-migration.test.ts (1 test) 3971ms
+   ✓ POOL-046 0045 智谱时段与 alias 迁移 > 只迁移目标配置、保持历史账本不变，并支持幂等 up/down 与重放  2706ms
+ ✓ src/__tests-integration__/provider-finance-cutover.integration.test.ts (2 tests) 3117ms
+   ✓ provider finance cutover rehearsal > reports manual blockers and only backfills four allowed usage fields  1552ms
+ ✓ src/__tests-integration__/pool043-model-identity-migration.test.ts (1 test) 3990ms
+   ✓ POOL-043 稳定模型身份迁移 > 只按可证明 alias 回填，保留历史 alias、未知 NULL 和企业组合外键，并可回滚  2718ms
+ ✓ src/__tests-integration__/usage-overview.integration.test.ts (14 tests) 3465ms
+   ✓ W20-04 UsageOverviewRepository > 完整桶水位时实际读聚合，与 LIVE 账本的指标趋势排名一致  1033ms
+ ✓ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests) 3204ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配  321ms
+ ✓ src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts (1 test) 3012ms
+   ✓ POOL20-048 0055 上游错误证据 > 0054 旧行升级为 null，写边界拒绝正文并在有证据时禁止破坏性 down  1718ms
+ ✓ src/__tests-integration__/pool047-resource-monthly-budget-migration.integration.test.ts (1 test) 2982ms
+   ✓ POOL20-047 API 资源月预算迁移 > 约束月份、版本和当前指针，已有事实时拒绝破坏性回退  2981ms
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (5 tests) 2929ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  301ms
+ ✓ src/__tests-integration__/usage-repository.integration.test.ts (4 tests) 2107ms
+ ✓ src/__tests-integration__/pool029-authorization-rule-migration.test.ts (2 tests) 1884ms
+   ✓ 0038 员工模型授权规则迁移 > 把既有 Key 权限冻结为手工基线，回滚不改写 Key  500ms
+ ✓ src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts (6 tests) 2674ms
+ ✓ src/__tests-integration__/usage-aggregate.integration.test.ts (7 tests) 2755ms
+   ✓ W20-04 UsageAggregateRepository > 纽约 DST 回拨保留两个 01 时桶，春季自然日只有 23 个小时桶  316ms
+ ✓ src/__tests-integration__/provider-finance-repository.integration.test.ts (8 tests) 2553ms
+ ✓ src/__tests-integration__/principal-attribution-backfill.integration.test.ts (4 tests) 2563ms
+ ✓ src/__tests-integration__/provider-finance-ledger.integration.test.ts (3 tests) 2745ms
+   ✓ 0059 provider finance ledger contract > enforces tenant, mode, signed adjustment, immutable facts and exact reversal  864ms
+   ✓ 0059 provider finance ledger contract > blocks destructive rollback after provider finance facts exist  593ms
+ ✓ src/__tests-integration__/quota-pricing-configuration.test.ts (23 tests) 2405ms
+ ✓ src/__tests-integration__/pool022-supply-forecast.test.ts (1 test) 2593ms
+   ✓ POOL-022 供给预测生产闭环 > API 按金额、套餐按扣减额度计算，同 Tick 幂等且经营快照更新后立即补新预测  426ms
+ ✓ src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts (1 test) 2479ms
+   ✓ 0062 resource status event timestamp repair > uses an insert-time SQL clock and keeps the safe default after rollback  1227ms
+ ✓ src/__tests-integration__/operating-snapshot-subscription-period-migration.integration.test.ts (1 test) 2535ms
+   ✓ 0063 operating snapshot subscription period binding > 只允许额度配置关联同企业同资源的订阅周期  1260ms
+ ✓ src/__tests-integration__/w17-reconciliation.test.ts (4 tests) 2133ms
+ ✓ src/__tests-integration__/dispatch-pricing-readiness.test.ts (20 tests) 2450ms
+ ✓ src/__tests-integration__/runtime-admin-migrations.integration.test.ts (1 test) 2398ms
+   ✓ 0067/0068 运行保障与管理员迁移 > 补齐历史异常资源，并阻止存在已清理管理员时回退  2397ms
+ ✓ src/__tests-integration__/directory-repository.integration.test.ts (3 tests) 2600ms
+   ✓ DirectoryRepository > Excel 逐项导入可部分成功，重试不重复建人且不生成 Key/Grant  1151ms
+ ✓ src/__tests-integration__/migration.integration.test.ts (7 tests) 2276ms
+   ✓ Kysely 迁移框架（PG17 Testcontainer） > migrateToLatest 建表（含 schema_migrations 与 _w01_baseline_probe）  788ms
+ ✓ src/__tests-integration__/dispatch-pricing-concurrency.test.ts (4 tests) 2297ms
+ ✓ src/__tests-integration__/principal-key-permission-migration.integration.test.ts (1 test) 1568ms
+ ✓ src/__tests-integration__/w20-resource-procurement-migration.integration.test.ts (1 test) 2011ms
+   ✓ W20-08/09 资源利用与采购复盘迁移 > 仅允许成对的正数 API 月预算，备注保持账期、长度、版本和幂等约束  736ms
+ ✓ src/__tests-integration__/pool039-lock-order-migration.integration.test.ts (1 test) 1874ms
+   ✓ POOL-039 0043 单人规则历史迁移 > 兼容既有版本，限制编辑/发布槽位，历史存在时拒绝破坏性 down，并支持回滚重放  621ms
+ ✓ src/__tests-integration__/pool032-provider-quota-window-migration.test.ts (1 test) 1808ms
+   ✓ 0041 厂商额度窗口迁移 > 新增 provider_quota_window 表（约束/唯一索引），支持写入、保鲜与回滚  510ms
+ ✓ src/__tests-integration__/pool035-pool-quotas-migration.test.ts (1 test) 1755ms
+   ✓ 0040 员工模型授权规则厂商级额度迁移 > 新增 pool_quotas jsonb 列（默认 []），支持读写厂商级额度并回滚  490ms
+ ✓ src/repositories/monthly-operating-cost.test.ts (18 tests) 15ms
+ ✓ src/repositories/gateway-ledger-settlement-quality.test.ts (14 tests) 16ms
+ ✓ src/repositories/principal-access-config-repository.mutation.test.ts (6 tests) 16ms
+ ✓ src/repositories/pool039-repositories.mutation.test.ts (10 tests) 15ms
+ ✓ src/repositories/operating-bill-account-aggregate.test.ts (20 tests) 6ms
+ ✓ src/repositories/principal-access-locks.mutation.test.ts (3 tests) 10ms
+ ✓ src/repositories/employee-model-rule-repository.mutation.test.ts (11 tests) 8ms
+ ✓ src/repositories/provider-operating.test.ts (4 tests) 3ms
+ ✓ src/repositories/employee-model-rule-lifecycle.mutation.test.ts (5 tests) 6ms
+ ✓ src/repositories/pricing-set-validation.test.ts (17 tests) 4ms
+ ✓ src/repositories/operating-bill-cost-quality.test.ts (5 tests) 3ms
+ ✓ src/repositories/operating-bill-concurrency.test.ts (7 tests) 4ms
+ ✓ src/repositories/dashboard-monthly-spend.test.ts (3 tests) 4ms
+ ✓ src/repositories/operating-bill-monthly-cost.test.ts (5 tests) 2ms
+ ✓ src/repositories/principal-access-read-model.mutation.test.ts (4 tests) 3ms
+ ✓ src/repositories/dashboard-overages.mutation.test.ts (2 tests) 2ms
+ ✓ src/repositories/subscription-renewal-calendar.test.ts (7 tests) 3ms
+ ✓ src/repositories/department-cost-evidence.test.ts (1 test) 2ms
+ ✓ src/repositories/employee-model-authorization-policy.test.ts (4 tests) 2ms
+ ✓ src/repositories/usage-quality.test.ts (2 tests) 2ms
+ ✓ src/repositories/principal-access-config-repository.test.ts (5 tests) 2ms
+ ✓ src/cli/provider-finance-preflight-policy.test.ts (5 tests) 2ms
+ ✓ src/repositories/dispatch-policy-clone.test.ts (2 tests) 2ms
+ ✓ src/repositories/operating-bill-write-barrier.test.ts (1 test) 1ms
+
+ Test Files  66 passed (66)
+      Tests  392 passed (392)
+   Start at  10:05:22
+   Duration  528.97s (transform 1.51s, setup 0ms, collect 18.57s, tests 499.72s, environment 7ms, prepare 3.23s)
+

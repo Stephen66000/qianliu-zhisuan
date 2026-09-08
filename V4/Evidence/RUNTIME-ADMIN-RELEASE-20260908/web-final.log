@@ -1,0 +1,2113 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/runtime-admin-integration-20260908/仟流智算/apps/web
+
+ ✓ src/pages/QuotaPricingWorkflow.test.tsx (8 tests) 5626ms
+   ✓ saves pending model/route and explicit multiplier prices in one request  1016ms
+   ✓ refuses missing prices and retains the draft and idempotency key after a conflict  612ms
+   ✓ copies the full same-provider set with different effective dates and allows queue editing  380ms
+   ✓ clears copied prices and queued rules when switching resource or model  610ms
+   ✓ adds/removes windows and queued rules before saving the reviewed set  930ms
+   ✓ clearing the resource resets route defaults and prevents a stale-resource submission  558ms
+   ✓ 取消新建规则丢弃整套草稿、沿用来源及错误，重新打开可正常新建  1285ms
+ ❯ src/pages/Resources.test.tsx (21 tests | 2 failed) 1406ms
+   ✓ 厂商资源四 Tab > 默认资源利用，切换后只显示当前面板并按需启用供给预测 159ms
+   ✓ 厂商资源四 Tab > 旧健康锚点直接打开供给与健康 7ms
+   ✓ 厂商资源四 Tab > 供给预测速度和覆盖时长最多显示两位小数 11ms
+   × 厂商资源四 Tab > DARK增加充值与订阅Tab，只有充值按钮且入账保持关闭 108ms
+     → Unable to find an accessible element with the role "button" and name "充值"
+
+Here are the accessible roles:
+
+  banner:
+
+  Name "":
+  [36m<header />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "厂商资源":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-[28px] font-bold leading-9 text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "充值与订阅":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-[15px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "已登记订阅":
+  [36m<h3[39m
+    [33mclass[39m=[32m"text-[14px] font-semibold"[39m
+  [36m/>[39m
+
+  Name "2026-09 资金记录":
+  [36m<h3[39m
+    [33mclass[39m=[32m"mt-4 text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-[13px] leading-5 text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"py-3 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"py-4 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "厂商资源视图":
+  [36m<div[39m
+    [33maria-label[39m=[32m"厂商资源视图"[39m
+    [33mclass[39m=[32m"mb-5 flex gap-2 overflow-x-auto border-b border-ql-border"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "资源利用":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-utilization"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-utilization"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "用量总览":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-usage-overview"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-usage-overview"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "额度窗口":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-quota-windows"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-quota-windows"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "供给与健康":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-supply-health"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-supply-health"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "充值与订阅":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-finance"[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-ql-brand text-ql-brand"[39m
+    [33mid[39m=[32m"resource-tab-finance"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "充值与订阅":
+  [36m<div[39m
+    [33maria-labelledby[39m=[32m"resource-tab-finance"[39m
+    [33mid[39m=[32m"resource-tab-panel-finance"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "充值／订阅":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "历史记录资源":
+  [36m<select[39m
+    [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+    [33mid[39m=[32m"finance-history-resource"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "请选择":
+  [36m<option[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Kimi · Kimi 套餐":
+  [36m<option[39m
+    [33mvalue[39m=[32m"22222222-2222-4222-8222-222222222222"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "已登记订阅":
+  [36m<section[39m
+    [33maria-label[39m=[32m"已登记订阅"[39m
+    [33mclass[39m=[32m"mt-4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-5"[39m
+    [36m>[39m
+      [36m<header>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-[28px] font-bold leading-9 text-ql-fg"[39m
+        [36m>[39m
+          [0m厂商资源[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1 text-[13px] leading-5 text-ql-fg-tertiary"[39m
+        [36m>[39m
+          [0m厂商 API 与 Coding Plan 资源、资金账本、凭证安全与受控恢复[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-2xl border border-ql-border-zone bg-ql-surface p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"厂商资源视图"[39m
+          [33mclass[39m=[32m"mb-5 flex gap-2 overflow-x-auto border-b border-ql-border"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-utilization"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-utilization"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m资源利用[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-usage-overview"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-usage-overview"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m用量总览[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-quota-windows"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-quota-windows"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m额度窗口[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-supply-health"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-supply-health"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m供给与健康[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-finance"[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-ql-brand text-ql-brand"[39m
+            [33mid[39m=[32m"resource-tab-finance"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m充值与订阅[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"resource-tab-finance"[39m
+          [33mid[39m=[32m"resource-tab-panel-finance"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"rounded-xl border border-ql-border-zone bg-ql-surface p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<h2[39m
+                  [33mclass[39m=[32m"text-[15px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m充值与订阅[0m
+                [36m</h2>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-[12px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0mAPI 余额与 Coding Plan 费用只认本模块资金账本；历史默认显示所选自然月。[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"资金历史月份"[39m
+                  [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+                  [33mtype[39m=[32m"month"[39m
+                  [33mvalue[39m=[32m"2026-09"[39m
+                [36m/>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-plus h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M5 12h14"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 5v14"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m充值／订阅[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning"[39m
+            [36m>[39m
+              [0m当前为只读验收模式：可以查看和测试表单，入账确认暂未开放。[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m人民币实付[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m¥600.00[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0mAPI 经营成本[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m¥0.00[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0mCoding Plan 支出[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m¥0.00[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m经营成本合计[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m¥0.00[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m当前 API 余额[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0mCNY 498.39[0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"grid gap-3 md:grid-cols-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+              [36m>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"text-[13px] font-medium leading-5 text-ql-fg"[39m
+                  [33mfor[39m=[32m"finance-history-resource"[39m
+                [36m>[39m
+                  [0m历史记录资源[0m
+                [36m</label>[39m
+                [36m<select[39m
+                  [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+                  [33mid[39m=[32m"finance-history-resource"[39m
+                [36m>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m>[39m
+                    [0m请选择[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"22222222-2222-4222-8222-222222222222"[39m
+                  [36m>[39m
+                    [0mKimi[0m
+                    [0m · [0m
+                    [0mKimi 套餐[0m
+                  [36m</option>[39m
+                [36m</select>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m当前服务周期[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m无有效周期[0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-ql-border p-3 text-[12px]"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"font-medium"[39m
+              [36m>[39m
+                [0m自动续订：[0m
+                [0m已取消[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-ql-fg-tertiary"[39m
+              [36m>[39m
+                [0m本期和历史记录保留[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<section[39m
+              [33maria-label[39m=[32m"已登记订阅"[39m
+              [33mclass[39m=[32m"mt-4"[39m
+            [36m>[39m
+              [36m<h3[39m
+                [33mclass[39m=[32m"text-[14px] font-semibold"[39m
+              [36m>[39m
+                [0m已登记订阅[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"py-3 text-[12px] text-ql-fg-tertiary"[39m
+              [36m>[39m
+                [0m暂无已登记订阅[0m
+              [36m</p>[39m
+            [36m</section>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"mt-4 text-[14px] font-semibold text-ql-fg"[39m
+            [36m>[39m
+              [0m2026-09[0m
+              [0m 资金记录[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"py-4 text-[12px] text-ql-fg-tertiary"[39m
+            [36m>[39m
+              [0m该月暂无资金记录[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × 厂商资源四 Tab > ACTIVE从充值按钮登记Coding Plan并包含自然月周期入口 37ms
+     → Unable to find an accessible element with the role "button" and name "充值"
+
+Here are the accessible roles:
+
+  banner:
+
+  Name "":
+  [36m<header />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "厂商资源":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-[28px] font-bold leading-9 text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "充值与订阅":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-[15px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "已登记订阅":
+  [36m<h3[39m
+    [33mclass[39m=[32m"text-[14px] font-semibold"[39m
+  [36m/>[39m
+
+  Name "2026-09 资金记录":
+  [36m<h3[39m
+    [33mclass[39m=[32m"mt-4 text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-[13px] leading-5 text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"py-3 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"py-4 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "厂商资源视图":
+  [36m<div[39m
+    [33maria-label[39m=[32m"厂商资源视图"[39m
+    [33mclass[39m=[32m"mb-5 flex gap-2 overflow-x-auto border-b border-ql-border"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "资源利用":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-utilization"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-utilization"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "用量总览":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-usage-overview"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-usage-overview"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "额度窗口":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-quota-windows"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-quota-windows"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "供给与健康":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-supply-health"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-supply-health"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "充值与订阅":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-finance"[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-ql-brand text-ql-brand"[39m
+    [33mid[39m=[32m"resource-tab-finance"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "充值与订阅":
+  [36m<div[39m
+    [33maria-labelledby[39m=[32m"resource-tab-finance"[39m
+    [33mid[39m=[32m"resource-tab-panel-finance"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "充值／订阅":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<div[39m
+    [33maria-busy[39m=[32m"true"[39m
+    [33mclass[39m=[32m"flex items-center justify-center gap-2 py-12 text-[13px] leading-5 text-ql-fg-secondary"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "历史记录资源":
+  [36m<select[39m
+    [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+    [33mid[39m=[32m"finance-history-resource"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "请选择":
+  [36m<option[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Kimi · Kimi 套餐":
+  [36m<option[39m
+    [33mvalue[39m=[32m"22222222-2222-4222-8222-222222222222"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "已登记订阅":
+  [36m<section[39m
+    [33maria-label[39m=[32m"已登记订阅"[39m
+    [33mclass[39m=[32m"mt-4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-5"[39m
+    [36m>[39m
+      [36m<header>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-[28px] font-bold leading-9 text-ql-fg"[39m
+        [36m>[39m
+          [0m厂商资源[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1 text-[13px] leading-5 text-ql-fg-tertiary"[39m
+        [36m>[39m
+          [0m厂商 API 与 Coding Plan 资源、资金账本、凭证安全与受控恢复[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-2xl border border-ql-border-zone bg-ql-surface p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"厂商资源视图"[39m
+          [33mclass[39m=[32m"mb-5 flex gap-2 overflow-x-auto border-b border-ql-border"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-utilization"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-utilization"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m资源利用[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-usage-overview"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-usage-overview"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m用量总览[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-quota-windows"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-quota-windows"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m额度窗口[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-supply-health"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-supply-health"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m供给与健康[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-finance"[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-ql-brand text-ql-brand"[39m
+            [33mid[39m=[32m"resource-tab-finance"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m充值与订阅[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"resource-tab-finance"[39m
+          [33mid[39m=[32m"resource-tab-panel-finance"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"rounded-xl border border-ql-border-zone bg-ql-surface p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<h2[39m
+                  [33mclass[39m=[32m"text-[15px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m充值与订阅[0m
+                [36m</h2>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-[12px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0mAPI 余额与 Coding Plan 费用只认本模块资金账本；历史默认显示所选自然月。[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"资金历史月份"[39m
+                  [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+                  [33mtype[39m=[32m"month"[39m
+                  [33mvalue[39m=[32m"2026-09"[39m
+                [36m/>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-plus h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M5 12h14"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 5v14"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m充值／订阅[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33maria-busy[39m=[32m"true"[39m
+              [33mclass[39m=[32m"flex items-center justify-center gap-2 py-12 text-[13px] leading-5 text-ql-fg-secondary"[39m
+              [33mrole[39m=[32m"status"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-loader-circle h-4 w-4 animate-spin text-ql-fg-tertiary"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span>[39m
+                [0m正在加载数据…[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"grid gap-3 md:grid-cols-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+              [36m>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"text-[13px] font-medium leading-5 text-ql-fg"[39m
+                  [33mfor[39m=[32m"finance-history-resource"[39m
+                [36m>[39m
+                  [0m历史记录资源[0m
+                [36m</label>[39m
+                [36m<select[39m
+                  [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+                  [33mid[39m=[32m"finance-history-resource"[39m
+                [36m>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m>[39m
+                    [0m请选择[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"22222222-2222-4222-8222-222222222222"[39m
+                  [36m>[39m
+                    [0mKimi[0m
+                    [0m · [0m
+                    [0mKimi 套餐[0m
+                  [36m</option>[39m
+                [36m</select>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m当前服务周期[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m无有效周期[0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-[12px] text-ql-fg-tertiary"[39m
+            [36m>[39m
+              [0m正在读取自动续订…[0m
+            [36m</p>[39m
+            [36m<section[39m
+              [33maria-label[39m=[32m"已登记订阅"[39m
+              [33mclass[39m=[32m"mt-4"[39m
+            [36m>[39m
+              [36m<h3[39m
+                [33mclass[39m=[32m"text-[14px] font-semibold"[39m
+              [36m>[39m
+                [0m已登记订阅[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"py-3 text-[12px] text-ql-fg-tertiary"[39m
+              [36m>[39m
+                [0m暂无已登记订阅[0m
+              [36m</p>[39m
+            [36m</section>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"mt-4 text-[14px] font-semibold text-ql-fg"[39m
+            [36m>[39m
+              [0m2026-09[0m
+              [0m 资金记录[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"py-4 text-[12px] text-ql-fg-tertiary"[39m
+            [36m>[39m
+              [0m读取中…[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   ✓ POOL-010 厂商经营快照 > 未知厂商数据明确显示未录入/未同步 6ms
+   ✓ POOL-010 厂商经营快照 > 创建套餐只录总额度与重置规则，系统字段不允许手填  362ms
+   ✓ POOL-010 厂商经营快照 > 资源登记不再提供资金入口，套餐只保留额度配置 50ms
+   ✓ POOL-010 厂商经营快照 > 套餐切回 API 后可正常登记，隐藏的重置周期不阻塞提交 183ms
+   ✓ POOL-010 厂商经营快照 > PATCH 使用 expected_version 保存配置，并展示 v2/v1 历史 129ms
+   ✓ POOL-010 厂商经营快照 > 额度快照不再包含套餐费用和服务周期字段 61ms
+   ✓ POOL-010 厂商经营快照 > API旧快照金额不再显示或提供编辑入口 8ms
+   ✓ 厂商资源基础信息编辑 > 保持资源 ID、凭证和已发现模型不变，只更新名称与并发限制 79ms
+   ✓ POOL-027 模型发现向导 > 检测后默认只全选兼容模型，向量模型不可误选 118ms
+   ✓ POOL-027 模型发现向导 > 已有资源可同步并确认加入，不再提供自由文本模型入口 53ms
+   ✓ POOL-032 厂商额度窗口 > 缺失字段显示厂商未提供，绝不显示 0；UNSUPPORTED 不渲染数值 5ms
+   ✓ POOL-032 厂商额度窗口 > 点击立即同步触发 POST /quota-sync 11ms
+   ✓ POOL-032 厂商额度窗口 > STALE 保留上次成功快照并显示过期提示与失败原因 4ms
+   ✓ POOL-032 厂商额度窗口 > 窗口额度最多显示两位小数 5ms
+   ✓ POOL-032 厂商额度窗口 > 从未同步显示未同步与「从未成功同步」 4ms
+   ✓ POOL-032 厂商额度窗口 > 非 Coding Plan（API）资源显示不适用，不展示窗口 4ms
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 1089ms
+ ✓ src/pages/EmployeeModelRules.test.tsx (4 tests) 963ms
+   ✓ POOL-029 批量模型授权页面 > 创建、编辑、校验、发布、停用与新版本操作都调用对应 mutation  610ms
+ ✓ src/pages/Principals.test.tsx (15 tests) 790ms
+ ✓ src/components/usage/UsageOverviewPanel.test.tsx (11 tests) 721ms
+ ✓ src/pages/OperatingBill.test.tsx (11 tests) 509ms
+ ✓ src/pages/RuntimeAssurance.test.tsx (8 tests) 472ms
+ ✓ src/pages/Usage.test.tsx (10 tests) 395ms
+ ✓ src/pages/Admins.test.tsx (3 tests) 317ms
+ ✓ src/pages/ChangePassword.test.tsx (2 tests) 337ms
+ ✓ src/pages/QuotaRules.coverage.test.tsx (6 tests) 345ms
+ ✓ src/components/principals/DirectoryPanel.test.tsx (3 tests) 336ms
+ ✓ src/pages/QuotaRules.lifecycle.test.tsx (4 tests) 303ms
+ ✓ src/pages/Dashboard.test.tsx (14 tests) 323ms
+ ✓ src/components/resources/ResourceUtilizationPanel.test.tsx (22 tests) 259ms
+ ✓ src/components/usage/UsageOverviewRange.test.tsx (2 tests) 988ms
+   ✓ POOL20-053 explicit range refresh with real Query cache > calendar selects that day; shortcuts return to Shanghai today and keep the selected subject  804ms
+ ✓ src/pages/QuotaRules.principals.test.tsx (2 tests) 294ms
+ ✓ src/components/principals/PrincipalAccessConfigPanel.test.tsx (2 tests) 489ms
+   ✓ 接入配置暂不可用存量授权 > 保存 K3 时原样携带已配置但耗尽的 DeepSeek 型号  437ms
+ ✓ src/components/principals/HistoricalAttributionPanel.test.tsx (2 tests) 258ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 276ms
+ ✓ src/api/operating-bill-accounts.test.tsx (3 tests) 185ms
+ ✓ src/pages/OperatingBillRechargeEntry.test.tsx (3 tests) 257ms
+ ✓ src/components/quota/DepartmentBudgetPanel.test.tsx (3 tests) 267ms
+ ✓ src/components/operating-bill/OperatingBillShell.test.tsx (3 tests) 232ms
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 181ms
+ ✓ src/pages/OperatingBill.pool043-routing.test.tsx (3 tests) 405ms
+ ✓ src/components/layout/Layout.pool043.test.tsx (2 tests) 239ms
+ ✓ src/pages/Alerts.test.tsx (5 tests) 186ms
+ ✓ src/components/operating-bill/AccountShared.test.tsx (4 tests) 252ms
+ ✓ src/components/resources/ResourceUsageOverviewPanel.test.tsx (3 tests) 156ms
+ ✓ src/pages/RequestDrilldown.test.tsx (1 test) 218ms
+ ✓ src/components/writes/MoneyAmountInput.test.tsx (3 tests) 210ms
+ ✓ src/pages/QuotaRules.test.tsx (4 tests) 156ms
+ ✓ src/components/operating-bill/OperatingAnalysisPartial.test.tsx (3 tests) 87ms
+ ✓ src/components/layout/Sidebar.test.tsx (1 test) 110ms
+ ✓ src/components/writes/IntegerAmountInput.test.tsx (2 tests) 144ms
+ ✓ src/api/operating-bills.pool043.test.tsx (7 tests) 83ms
+ ✓ src/pages/Settings.test.tsx (1 test) 162ms
+ ✓ src/pages/QuotaRules.dependencies.test.tsx (3 tests) 138ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 191ms
+ ✓ src/api/employee-model-rules.test.tsx (2 tests) 98ms
+ ✓ src/components/dashboard/ResourceBreakdown.pool042.test.tsx (1 test) 97ms
+ ✓ src/components/states/states.test.tsx (7 tests) 73ms
+ ✓ src/pages/RequestDrilldown.pool048.test.tsx (2 tests) 44ms
+ ✓ src/components/resources/ProviderFinancePanel.test.tsx (2 tests) 302ms
+ ✓ src/components/resources/SubscriptionAutoRenewal.test.tsx (3 tests) 125ms
+ ✓ src/App.pool043.test.tsx (5 tests) 56ms
+ ✓ src/components/operating-bill/BillStat.test.tsx (6 tests) 34ms
+ ✓ src/components/resources/resource-page-display.test.tsx (2 tests) 36ms
+ ✓ src/pages/RequestDrilldown.pool20.test.tsx (1 test) 33ms
+ ✓ src/lib/format.test.ts (4 tests) 15ms
+ ✓ src/api/operating-bill-payments.test.ts (3 tests) 33ms
+ ✓ src/components/operating-bill/MonthlyPayments.test.tsx (3 tests) 84ms
+ ✓ src/api/admins.test.tsx (1 test) 13ms
+ ✓ src/components/quota/pricing-copy.test.ts (4 tests) 11ms
+ ✓ src/pages/runtime-assurance/alert-presenters.test.ts (3 tests) 2ms
+ ✓ src/feature-flags.test.ts (1 test) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/Resources.test.tsx > 厂商资源四 Tab > DARK增加充值与订阅Tab，只有充值按钮且入账保持关闭
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "充值"
+
+Here are the accessible roles:
+
+  banner:
+
+  Name "":
+  [36m<header />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "厂商资源":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-[28px] font-bold leading-9 text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "充值与订阅":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-[15px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "已登记订阅":
+  [36m<h3[39m
+    [33mclass[39m=[32m"text-[14px] font-semibold"[39m
+  [36m/>[39m
+
+  Name "2026-09 资金记录":
+  [36m<h3[39m
+    [33mclass[39m=[32m"mt-4 text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-[13px] leading-5 text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"py-3 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"py-4 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "厂商资源视图":
+  [36m<div[39m
+    [33maria-label[39m=[32m"厂商资源视图"[39m
+    [33mclass[39m=[32m"mb-5 flex gap-2 overflow-x-auto border-b border-ql-border"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "资源利用":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-utilization"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-utilization"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "用量总览":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-usage-overview"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-usage-overview"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "额度窗口":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-quota-windows"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-quota-windows"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "供给与健康":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-supply-health"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-supply-health"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "充值与订阅":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-finance"[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-ql-brand text-ql-brand"[39m
+    [33mid[39m=[32m"resource-tab-finance"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "充值与订阅":
+  [36m<div[39m
+    [33maria-labelledby[39m=[32m"resource-tab-finance"[39m
+    [33mid[39m=[32m"resource-tab-panel-finance"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "充值／订阅":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "历史记录资源":
+  [36m<select[39m
+    [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+    [33mid[39m=[32m"finance-history-resource"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "请选择":
+  [36m<option[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Kimi · Kimi 套餐":
+  [36m<option[39m
+    [33mvalue[39m=[32m"22222222-2222-4222-8222-222222222222"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "已登记订阅":
+  [36m<section[39m
+    [33maria-label[39m=[32m"已登记订阅"[39m
+    [33mclass[39m=[32m"mt-4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-5"[39m
+    [36m>[39m
+      [36m<header>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-[28px] font-bold leading-9 text-ql-fg"[39m
+        [36m>[39m
+          [0m厂商资源[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1 text-[13px] leading-5 text-ql-fg-tertiary"[39m
+        [36m>[39m
+          [0m厂商 API 与 Coding Plan 资源、资金账本、凭证安全与受控恢复[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-2xl border border-ql-border-zone bg-ql-surface p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"厂商资源视图"[39m
+          [33mclass[39m=[32m"mb-5 flex gap-2 overflow-x-auto border-b border-ql-border"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-utilization"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-utilization"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m资源利用[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-usage-overview"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-usage-overview"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m用量总览[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-quota-windows"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-quota-windows"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m额度窗口[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-supply-health"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-supply-health"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m供给与健康[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-finance"[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-ql-brand text-ql-brand"[39m
+            [33mid[39m=[32m"resource-tab-finance"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m充值与订阅[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"resource-tab-finance"[39m
+          [33mid[39m=[32m"resource-tab-panel-finance"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"rounded-xl border border-ql-border-zone bg-ql-surface p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<h2[39m
+                  [33mclass[39m=[32m"text-[15px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m充值与订阅[0m
+                [36m</h2>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-[12px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0mAPI 余额与 Coding Plan 费用只认本模块资金账本；历史默认显示所选自然月。[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"资金历史月份"[39m
+                  [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+                  [33mtype[39m=[32m"month"[39m
+                  [33mvalue[39m=[32m"2026-09"[39m
+                [36m/>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-plus h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M5 12h14"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 5v14"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m充值／订阅[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning"[39m
+            [36m>[39m
+              [0m当前为只读验收模式：可以查看和测试表单，入账确认暂未开放。[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m人民币实付[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m¥600.00[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0mAPI 经营成本[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m¥0.00[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0mCoding Plan 支出[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m¥0.00[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m经营成本合计[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m¥0.00[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m当前 API 余额[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0mCNY 498.39[0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"grid gap-3 md:grid-cols-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+              [36m>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"text-[13px] font-medium leading-5 text-ql-fg"[39m
+                  [33mfor[39m=[32m"finance-history-resource"[39m
+                [36m>[39m
+                  [0m历史记录资源[0m
+                [36m</label>[39m
+                [36m<select[39m
+                  [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+                  [33mid[39m=[32m"finance-history-resource"[39m
+                [36m>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m>[39m
+                    [0m请选择[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"22222222-2222-4222-8222-222222222222"[39m
+                  [36m>[39m
+                    [0mKimi[0m
+                    [0m · [0m
+                    [0mKimi 套餐[0m
+                  [36m</option>[39m
+                [36m</select>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m当前服务周期[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m无有效周期[0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-ql-border p-3 text-[12px]"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"font-medium"[39m
+              [36m>[39m
+                [0m自动续订：[0m
+                [0m已取消[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-ql-fg-tertiary"[39m
+              [36m>[39m
+                [0m本期和历史记录保留[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<section[39m
+              [33maria-label[39m=[32m"已登记订阅"[39m
+              [33mclass[39m=[32m"mt-4"[39m
+            [36m>[39m
+              [36m<h3[39m
+                [33mclass[39m=[32m"text-[14px] font-semibold"[39m
+              [36m>[39m
+                [0m已登记订阅[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"py-3 text-[12px] text-ql-fg-tertiary"[39m
+              [36m>[39m
+                [0m暂无已登记订阅[0m
+              [36m</p>[39m
+            [36m</section>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"mt-4 text-[14px] font-semibold text-ql-fg"[39m
+            [36m>[39m
+              [0m2026-09[0m
+              [0m 资金记录[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"py-4 text-[12px] text-ql-fg-tertiary"[39m
+            [36m>[39m
+              [0m该月暂无资金记录[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/Resources.test.tsx:183:19
+    181|     expect(screen.getByText("当前 API 余额")).toBeInTheDocument();
+    182|     expect(screen.getByText("CNY 498.39")).toBeInTheDocument();
+    183|     expect(screen.getByRole("button", { name: "充值" })).toBeInTheDocume…
+       |                   ^
+    184|     expect(screen.queryByRole("button", { name: "新增订阅" })).not.toBeInT…
+    185|     await user.click(screen.getByRole("button", { name: "充值" }));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/pages/Resources.test.tsx > 厂商资源四 Tab > ACTIVE从充值按钮登记Coding Plan并包含自然月周期入口
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "充值"
+
+Here are the accessible roles:
+
+  banner:
+
+  Name "":
+  [36m<header />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "厂商资源":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-[28px] font-bold leading-9 text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "充值与订阅":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-[15px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "已登记订阅":
+  [36m<h3[39m
+    [33mclass[39m=[32m"text-[14px] font-semibold"[39m
+  [36m/>[39m
+
+  Name "2026-09 资金记录":
+  [36m<h3[39m
+    [33mclass[39m=[32m"mt-4 text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-[13px] leading-5 text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"py-3 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"py-4 text-[12px] text-ql-fg-tertiary"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "厂商资源视图":
+  [36m<div[39m
+    [33maria-label[39m=[32m"厂商资源视图"[39m
+    [33mclass[39m=[32m"mb-5 flex gap-2 overflow-x-auto border-b border-ql-border"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "资源利用":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-utilization"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-utilization"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "用量总览":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-usage-overview"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-usage-overview"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "额度窗口":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-quota-windows"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-quota-windows"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "供给与健康":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-supply-health"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+    [33mid[39m=[32m"resource-tab-supply-health"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "充值与订阅":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"resource-tab-panel-finance"[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-ql-brand text-ql-brand"[39m
+    [33mid[39m=[32m"resource-tab-finance"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "充值与订阅":
+  [36m<div[39m
+    [33maria-labelledby[39m=[32m"resource-tab-finance"[39m
+    [33mid[39m=[32m"resource-tab-panel-finance"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "充值／订阅":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<div[39m
+    [33maria-busy[39m=[32m"true"[39m
+    [33mclass[39m=[32m"flex items-center justify-center gap-2 py-12 text-[13px] leading-5 text-ql-fg-secondary"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "历史记录资源":
+  [36m<select[39m
+    [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+    [33mid[39m=[32m"finance-history-resource"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "请选择":
+  [36m<option[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Kimi · Kimi 套餐":
+  [36m<option[39m
+    [33mvalue[39m=[32m"22222222-2222-4222-8222-222222222222"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "已登记订阅":
+  [36m<section[39m
+    [33maria-label[39m=[32m"已登记订阅"[39m
+    [33mclass[39m=[32m"mt-4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-5"[39m
+    [36m>[39m
+      [36m<header>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-[28px] font-bold leading-9 text-ql-fg"[39m
+        [36m>[39m
+          [0m厂商资源[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1 text-[13px] leading-5 text-ql-fg-tertiary"[39m
+        [36m>[39m
+          [0m厂商 API 与 Coding Plan 资源、资金账本、凭证安全与受控恢复[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"rounded-2xl border border-ql-border-zone bg-ql-surface p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"厂商资源视图"[39m
+          [33mclass[39m=[32m"mb-5 flex gap-2 overflow-x-auto border-b border-ql-border"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-utilization"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-utilization"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m资源利用[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-usage-overview"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-usage-overview"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m用量总览[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-quota-windows"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-quota-windows"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m额度窗口[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-supply-health"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-transparent text-ql-fg-secondary"[39m
+            [33mid[39m=[32m"resource-tab-supply-health"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m供给与健康[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"resource-tab-panel-finance"[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"whitespace-nowrap border-b-2 px-4 py-2 text-[13px] border-ql-brand text-ql-brand"[39m
+            [33mid[39m=[32m"resource-tab-finance"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m充值与订阅[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"resource-tab-finance"[39m
+          [33mid[39m=[32m"resource-tab-panel-finance"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"rounded-xl border border-ql-border-zone bg-ql-surface p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<h2[39m
+                  [33mclass[39m=[32m"text-[15px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m充值与订阅[0m
+                [36m</h2>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-[12px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0mAPI 余额与 Coding Plan 费用只认本模块资金账本；历史默认显示所选自然月。[0m
+                [36m</p>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<input[39m
+                  [33maria-label[39m=[32m"资金历史月份"[39m
+                  [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+                  [33mtype[39m=[32m"month"[39m
+                  [33mvalue[39m=[32m"2026-09"[39m
+                [36m/>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-plus h-4 w-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M5 12h14"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 5v14"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m充值／订阅[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33maria-busy[39m=[32m"true"[39m
+              [33mclass[39m=[32m"flex items-center justify-center gap-2 py-12 text-[13px] leading-5 text-ql-fg-secondary"[39m
+              [33mrole[39m=[32m"status"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-loader-circle h-4 w-4 animate-spin text-ql-fg-tertiary"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span>[39m
+                [0m正在加载数据…[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"grid gap-3 md:grid-cols-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+              [36m>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"text-[13px] font-medium leading-5 text-ql-fg"[39m
+                  [33mfor[39m=[32m"finance-history-resource"[39m
+                [36m>[39m
+                  [0m历史记录资源[0m
+                [36m</label>[39m
+                [36m<select[39m
+                  [33mclass[39m=[32m"h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-[14px] text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action disabled:cursor-not-allowed disabled:bg-ql-surface-muted disabled:text-ql-fg-disabled"[39m
+                  [33mid[39m=[32m"finance-history-resource"[39m
+                [36m>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m>[39m
+                    [0m请选择[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"22222222-2222-4222-8222-222222222222"[39m
+                  [36m>[39m
+                    [0mKimi[0m
+                    [0m · [0m
+                    [0mKimi 套餐[0m
+                  [36m</option>[39m
+                [36m</select>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-lg border border-ql-border bg-ql-surface px-3 py-2"[39m
+              [36m>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-[11px] text-ql-fg-tertiary"[39m
+                [36m>[39m
+                  [0m当前服务周期[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 font-mono text-[14px] font-semibold text-ql-fg"[39m
+                [36m>[39m
+                  [0m无有效周期[0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-[12px] text-ql-fg-tertiary"[39m
+            [36m>[39m
+              [0m正在读取自动续订…[0m
+            [36m</p>[39m
+            [36m<section[39m
+              [33maria-label[39m=[32m"已登记订阅"[39m
+              [33mclass[39m=[32m"mt-4"[39m
+            [36m>[39m
+              [36m<h3[39m
+                [33mclass[39m=[32m"text-[14px] font-semibold"[39m
+              [36m>[39m
+                [0m已登记订阅[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"py-3 text-[12px] text-ql-fg-tertiary"[39m
+              [36m>[39m
+                [0m暂无已登记订阅[0m
+              [36m</p>[39m
+            [36m</section>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"mt-4 text-[14px] font-semibold text-ql-fg"[39m
+            [36m>[39m
+              [0m2026-09[0m
+              [0m 资金记录[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"py-4 text-[12px] text-ql-fg-tertiary"[39m
+            [36m>[39m
+              [0m读取中…[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/Resources.test.tsx:202:29
+    200|     postMock.mockResolvedValue({ event: { id: "event-1" }, periodId: "…
+    201|     renderPage("/resources?tab=finance", "ACTIVE");
+    202|     await user.click(screen.getByRole("button", { name: "充值" }));
+       |                             ^
+    203|     await user.click(screen.getByRole("button", { name: "Coding Plan" …
+    204|     await user.type(screen.getByLabelText("订阅金额"), "199");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 57 passed (58)
+      Tests  2 failed | 277 passed (279)
+   Start at  10:05:24
+   Duration  80.18s (transform 2.97s, setup 9.63s, collect 9.86s, tests 21.41s, environment 23.64s, prepare 5.70s)
+

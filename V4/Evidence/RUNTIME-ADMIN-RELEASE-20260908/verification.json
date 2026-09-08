@@ -1,0 +1,98 @@
+{
+  "status": "LOCAL_RELEASE_PREPARATION_VALIDATED",
+  "generated_at": "2026-09-08T02:14:51.546Z",
+  "candidate": "0bf4c1c0a17afc3a4a380f92958297efd46026b6",
+  "tree": "468182ad84d860aa73b0b71968bfe0453410c4c2",
+  "source_commit": "feca8603210bcc109346faf03860bfea50d61742",
+  "source_evidence": "User-supplied 2026-09-07 COMPLETE receipt, not SSH verified",
+  "source_migration": "0066_subscription_auto_renewal",
+  "target_migration": "0068_alert_resource_context",
+  "server_execution": "NOT_EXECUTED; user will run Mac mini commands",
+  "script_sha256": "f53db4afe227532d79a1af561997b9e9f4582d8eb87db0528b70dcbae42eb8e5",
+  "regression": {
+    "method": "Per-package final coverage: original full run plus complete Database and Web reruns after stale assertions repaired. Original failing logs retained.",
+    "files": 247,
+    "tests": 1786,
+    "packages": {
+      "config": 12,
+      "contracts": 5,
+      "domain": 180,
+      "observability": 9,
+      "provider_adapters": 274,
+      "database": 392,
+      "control_api": 287,
+      "gateway": 315,
+      "worker": 33,
+      "web": 279
+    }
+  },
+  "script_rehearsal": {
+    "kind": "isolated command doubles",
+    "cases": 20,
+    "status": "PASS"
+  },
+  "pg_rehearsal": {
+    "kind": "real PostgreSQL 17 dump and restore, 0066 to 0068 upgrade, reference retention and rollback denial after archive",
+    "status": "PASS"
+  },
+  "static_checks": [
+    "typecheck PASS",
+    "lint PASS",
+    "build PASS",
+    "architecture PASS",
+    "source size PASS",
+    "duplication PASS",
+    "shell syntax PASS",
+    "source git diff check PASS"
+  ],
+  "logs": [
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/architecture.log",
+      "sha256": "7ad78d28385fd214ba8cff28c93681cfa5432705484fb1e52d6f33876bc94ff7"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/build.log",
+      "sha256": "5ef047166bf22a1f0788547fb705df876d6f45c7c0b378b5b63e181786fc7582"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/database-final.log",
+      "sha256": "6daaafef9676882713880cf011e8de2e892f4ee2702150c45f9881300d13b302"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/duplication.log",
+      "sha256": "095e39e835dee334c0e5b26ae6203918abaa07acafa93778912750e41547385b"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/full-test.log",
+      "sha256": "a61148197363e4bf53a0f55a11aeb7604a86047ef9ea4804a53c5556e8160ad2"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/lint.log",
+      "sha256": "2e9e9590d637637c8ecfe4844f596f7ef193214324b682fad069e3ae4277129e"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/pg-rehearsal.log",
+      "sha256": "fa51730297d1d3b968fa285dd42dcebc479a88265ae3b2bb8168bd454cac4b66"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/repaired-regressions.log",
+      "sha256": "012a1c9c401048b6c41d828b794950aee6ffdbffdd3bed85dfaae11f0fde8612"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/size.log",
+      "sha256": "e956514313c5026847f99835752193124c269d6db73325e1e400d3baf281030f"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/typecheck.log",
+      "sha256": "229622074e12b18bc8357ab609910bd8834840381d160091779ca87fc44b085c"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/web-final-r2.log",
+      "sha256": "585e46f776e461d1f542f9a8aa14609039d11d5eee2645caaa54e99b67d4ef36"
+    },
+    {
+      "path": "V4/Evidence/RUNTIME-ADMIN-RELEASE-20260908/web-final.log",
+      "sha256": "70ad772dfe78703eb82875c2e3ae80ed1987ecf71b9886f3e9ff6f40b2460ca7"
+    }
+  ]
+}

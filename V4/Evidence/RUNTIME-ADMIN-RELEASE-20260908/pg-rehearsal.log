@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/runtime-admin-integration-20260908/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/runtime-admin-release-rehearsal.integration.test.ts (1 test) 4511ms
+   ✓ 0066 备份可恢复，0067/0068 保留管理员历史引用且归档后禁止回退  4510ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  10:01:19
+   Duration  5.04s (transform 41ms, setup 0ms, collect 342ms, tests 4.51s, environment 0ms, prepare 53ms)
+
