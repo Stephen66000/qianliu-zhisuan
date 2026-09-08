@@ -13,17 +13,26 @@ export type AdminSession = Selectable<AdminSessionTable>;
 export class AdminRepository {
   constructor(private db: Kysely<Database>) {}
 
-  async findByUsername(enterpriseId: string, username: string): Promise<AdminUser | undefined> {
+  async findByUsername(
+    enterpriseId: string,
+    username: string,
+  ): Promise<AdminUser | undefined> {
     return this.db
       .selectFrom("admin_user")
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
       .where("username", "=", username)
+      .where("archived_at", "is", null)
       .executeTakeFirst();
   }
 
   async findById(id: string): Promise<AdminUser | undefined> {
-    return this.db.selectFrom("admin_user").selectAll().where("id", "=", id).executeTakeFirst();
+    return this.db
+      .selectFrom("admin_user")
+      .selectAll()
+      .where("id", "=", id)
+      .where("archived_at", "is", null)
+      .executeTakeFirst();
   }
 
   async findByIdForEnterprise(
@@ -35,6 +44,7 @@ export class AdminRepository {
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
       .where("id", "=", id)
+      .where("archived_at", "is", null)
       .executeTakeFirst();
   }
 
@@ -43,14 +53,24 @@ export class AdminRepository {
       .selectFrom("admin_user")
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
+      .where("archived_at", "is", null)
       .orderBy("created_at", "asc")
       .execute();
   }
 
-  async create(enterpriseId: string, username: string, passwordHash: string): Promise<AdminUser> {
+  async create(
+    enterpriseId: string,
+    username: string,
+    passwordHash: string,
+  ): Promise<AdminUser> {
     return this.db
       .insertInto("admin_user")
-      .values({ enterprise_id: enterpriseId, username, password_hash: passwordHash, status: "ACTIVE" })
+      .values({
+        enterprise_id: enterpriseId,
+        username,
+        password_hash: passwordHash,
+        status: "ACTIVE",
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
   }
@@ -89,6 +109,7 @@ export class AdminRepository {
       })
       .where("enterprise_id", "=", enterpriseId)
       .where("id", "=", id)
+      .where("archived_at", "is", null)
       .returningAll()
       .executeTakeFirst();
   }
@@ -110,6 +131,7 @@ export class AdminRepository {
         })
         .where("enterprise_id", "=", input.enterpriseId)
         .where("id", "=", input.adminId)
+        .where("archived_at", "is", null)
         .where("password_hash", "=", input.previousPasswordHash)
         .executeTakeFirst();
       if (Number(updated.numUpdatedRows) !== 1) return false;
@@ -139,6 +161,7 @@ export class AdminRepository {
         })
         .where("enterprise_id", "=", input.enterpriseId)
         .where("id", "=", input.adminId)
+        .where("archived_at", "is", null)
         .returningAll()
         .executeTakeFirst();
       if (!updated) return undefined;
@@ -164,16 +187,19 @@ export class AdminRepository {
         .selectAll()
         .where("enterprise_id", "=", input.enterpriseId)
         .where("id", "=", input.targetAdminId)
+        .where("archived_at", "is", null)
         .forUpdate()
         .executeTakeFirst();
       if (!target) throw new AdminNotFoundError();
       if (input.status === "DISABLED") {
-        if (input.actorAdminId === input.targetAdminId) throw new SelfDisableError();
+        if (input.actorAdminId === input.targetAdminId)
+          throw new SelfDisableError();
         const activeAdmins = await trx
           .selectFrom("admin_user")
           .select("id")
           .where("enterprise_id", "=", input.enterpriseId)
           .where("status", "=", "ACTIVE")
+          .where("archived_at", "is", null)
           .forUpdate()
           .execute();
         if (activeAdmins.length <= 1) throw new LastActiveAdminError();
@@ -201,6 +227,68 @@ export class AdminRepository {
     });
   }
 
+  /**
+   * 清理已停用管理员：归档账号并撤销会话，保留被审计/经营事实引用的身份行。
+   */
+  async cleanup(input: {
+    enterpriseId: string;
+    actorAdminId: string;
+    targetAdminId: string;
+  }): Promise<AdminUser> {
+    return this.db.transaction().execute(async (trx) => {
+      const target = await trx
+        .selectFrom("admin_user")
+        .selectAll()
+        .where("enterprise_id", "=", input.enterpriseId)
+        .where("id", "=", input.targetAdminId)
+        .where("archived_at", "is", null)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!target) throw new AdminNotFoundError();
+      if (input.actorAdminId === target.id) throw new SelfCleanupError();
+      if (target.status !== "DISABLED") throw new AdminMustBeDisabledError();
+
+      const archivedAt = new Date();
+      const archived = await trx
+        .updateTable("admin_user")
+        .set({
+          archived_at: archivedAt,
+          updated_at: archivedAt,
+          version: sql<number>`version + 1`,
+        })
+        .where("id", "=", target.id)
+        .where("archived_at", "is", null)
+        .returningAll()
+        .executeTakeFirst();
+      if (!archived) throw new AdminNotFoundError();
+
+      await trx
+        .updateTable("admin_session")
+        .set({ revoked_at: archivedAt })
+        .where("admin_user_id", "=", target.id)
+        .where("revoked_at", "is", null)
+        .execute();
+      await trx
+        .insertInto("operation_log")
+        .values({
+          enterprise_id: input.enterpriseId,
+          admin_user_id: input.actorAdminId,
+          action: "admin.cleanup",
+          target_type: "admin_user",
+          target_id: target.id,
+          change_summary: {
+            username: target.username,
+            status: target.status,
+            archived_at: archivedAt.toISOString(),
+            sessions_revoked: true,
+          },
+          result: "SUCCESS",
+        })
+        .executeTakeFirstOrThrow();
+      return archived;
+    });
+  }
+
   /** 创建 session；tokenHash = SHA-256(明文 token)。 */
   async createSession(
     adminUserId: string,
@@ -209,15 +297,17 @@ export class AdminRepository {
   ): Promise<AdminSession> {
     return this.db
       .insertInto("admin_session")
-      .values({ admin_user_id: adminUserId, token_hash: tokenHash, expires_at: expiresAt })
+      .values({
+        admin_user_id: adminUserId,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+      })
       .returningAll()
       .executeTakeFirstOrThrow();
   }
 
   /** 找到有效 session 并附带管理员信息（扁平字段）。 */
-  async findSessionByTokenHash(
-    tokenHash: string,
-  ): Promise<
+  async findSessionByTokenHash(tokenHash: string): Promise<
     | {
         session_id: string;
         admin_user_id: string;
@@ -232,7 +322,11 @@ export class AdminRepository {
   > {
     return this.db
       .selectFrom("admin_session")
-      .innerJoin("admin_user as admin", "admin.id", "admin_session.admin_user_id")
+      .innerJoin(
+        "admin_user as admin",
+        "admin.id",
+        "admin_session.admin_user_id",
+      )
       .select([
         "admin_session.id as session_id",
         "admin_session.admin_user_id as admin_user_id",
@@ -246,6 +340,7 @@ export class AdminRepository {
       .where("admin_session.token_hash", "=", tokenHash)
       .where("admin_session.revoked_at", "is", null)
       .where("admin_session.expires_at", ">", new Date())
+      .where("admin.archived_at", "is", null)
       .executeTakeFirst();
   }
 
@@ -276,5 +371,19 @@ export class LastActiveAdminError extends Error {
   constructor() {
     super("不能停用最后一个有效管理员");
     this.name = "LastActiveAdminError";
+  }
+}
+
+export class SelfCleanupError extends Error {
+  constructor() {
+    super("不能清理当前登录管理员");
+    this.name = "SelfCleanupError";
+  }
+}
+
+export class AdminMustBeDisabledError extends Error {
+  constructor() {
+    super("管理员必须先停用才能清理");
+    this.name = "AdminMustBeDisabledError";
   }
 }

@@ -1,8 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
-import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+import {
+  createKysely,
+  migrateDown,
+  migrateToLatest,
+  type Database,
+} from "@qianliu/database";
+import {
+  startPostgresContainer,
+  type PostgresTestInstance,
+} from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 
 let pg: PostgresTestInstance;
@@ -13,7 +21,9 @@ const enterpriseId = randomUUID();
 const adminId = randomUUID();
 const adminPassword = "Pool015-Admin-Start!";
 
-function cookieOf(response: { headers: Record<string, string | string[] | undefined> }): string {
+function cookieOf(response: {
+  headers: Record<string, string | string[] | undefined>;
+}): string {
   const header = response.headers["set-cookie"];
   const value = Array.isArray(header) ? header[0] : header;
   if (!value) throw new Error("响应未设置 Cookie");
@@ -21,22 +31,32 @@ function cookieOf(response: { headers: Record<string, string | string[] | undefi
 }
 
 async function login(username: string, password: string) {
-  return app.inject({ method: "POST", url: "/auth/login", payload: { username, password } });
+  return app.inject({
+    method: "POST",
+    url: "/auth/login",
+    payload: { username, password },
+  });
 }
 
 beforeAll(async () => {
   pg = await startPostgresContainer();
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
-  await db.insertInto("enterprise").values({ id: enterpriseId, name: "POOL-015 企业" }).execute();
-  await db.insertInto("admin_user").values({
-    id: adminId,
-    enterprise_id: enterpriseId,
-    username: "owner",
-    display_name: "老板",
-    password_hash: await hashPassword(adminPassword),
-    status: "ACTIVE",
-  }).execute();
+  await db
+    .insertInto("enterprise")
+    .values({ id: enterpriseId, name: "POOL-015 企业" })
+    .execute();
+  await db
+    .insertInto("admin_user")
+    .values({
+      id: adminId,
+      enterprise_id: enterpriseId,
+      username: "owner",
+      display_name: "老板",
+      password_hash: await hashPassword(adminPassword),
+      status: "ACTIVE",
+    })
+    .execute();
   const { buildControlApi } = await import("../server.js");
   app = buildControlApi(db);
   await app.ready();
@@ -54,11 +74,22 @@ describe("POOL-015 管理员生命周期", () => {
     expect(ownerLogin.statusCode).toBe(200);
     const ownerCookie = cookieOf(ownerLogin);
 
+    const invalidCleanup = await app.inject({
+      method: "DELETE",
+      url: "/admins/not-a-uuid",
+      headers: { cookie: ownerCookie },
+    });
+    expect(invalidCleanup.statusCode).toBe(400);
+
     const weak = await app.inject({
       method: "POST",
       url: "/admins",
       headers: { cookie: ownerCookie },
-      payload: { username: "second", display_name: "第二管理员", password: "weak" },
+      payload: {
+        username: "second",
+        display_name: "第二管理员",
+        password: "weak",
+      },
     });
     expect(weak.statusCode).toBe(400);
 
@@ -67,7 +98,11 @@ describe("POOL-015 管理员生命周期", () => {
       method: "POST",
       url: "/admins",
       headers: { cookie: ownerCookie },
-      payload: { username: "second", display_name: "第二管理员", password: initialPassword },
+      payload: {
+        username: "second",
+        display_name: "第二管理员",
+        password: initialPassword,
+      },
     });
     expect(created.statusCode).toBe(201);
     const secondId = created.json().admin.id as string;
@@ -83,7 +118,11 @@ describe("POOL-015 管理员生命周期", () => {
       method: "POST",
       url: "/admins",
       headers: { cookie: ownerCookie },
-      payload: { username: "second", display_name: "重复", password: "Pool015-Duplicate-1!" },
+      payload: {
+        username: "second",
+        display_name: "重复",
+        password: "Pool015-Duplicate-1!",
+      },
     });
     expect(duplicate.statusCode).toBe(409);
 
@@ -91,13 +130,24 @@ describe("POOL-015 管理员生命周期", () => {
     expect(secondLogin.statusCode).toBe(200);
     const secondCookie = cookieOf(secondLogin);
     expect(secondLogin.json().admin.must_change_password).toBe(true);
-    expect((await app.inject({ method: "GET", url: "/admins", headers: { cookie: secondCookie } })).statusCode).toBe(403);
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: "/admins",
+          headers: { cookie: secondCookie },
+        })
+      ).statusCode,
+    ).toBe(403);
 
     const wrongCurrent = await app.inject({
       method: "POST",
       url: "/auth/change-password",
       headers: { cookie: secondCookie },
-      payload: { current_password: "wrong", new_password: "Pool015-Second-New-1!" },
+      payload: {
+        current_password: "wrong",
+        new_password: "Pool015-Second-New-1!",
+      },
     });
     expect(wrongCurrent.statusCode).toBe(400);
 
@@ -106,7 +156,10 @@ describe("POOL-015 管理员生命周期", () => {
       method: "POST",
       url: "/auth/change-password",
       headers: { cookie: secondCookie },
-      payload: { current_password: initialPassword, new_password: changedPassword },
+      payload: {
+        current_password: initialPassword,
+        new_password: changedPassword,
+      },
     });
     expect(changed.statusCode).toBe(204);
     expect((await login("second", initialPassword)).statusCode).toBe(401);
@@ -134,7 +187,15 @@ describe("POOL-015 管理员生命周期", () => {
     expect(reset.statusCode).toBe(200);
     expect(reset.json().admin.must_change_password).toBe(true);
     expect(JSON.stringify(reset.json())).not.toContain(resetPassword);
-    expect((await app.inject({ method: "GET", url: "/auth/me", headers: { cookie: secondReloginCookie } })).statusCode).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: "GET",
+          url: "/auth/me",
+          headers: { cookie: secondReloginCookie },
+        })
+      ).statusCode,
+    ).toBe(401);
     expect((await login("second", changedPassword)).statusCode).toBe(401);
     expect((await login("second", resetPassword)).statusCode).toBe(200);
 
@@ -145,6 +206,14 @@ describe("POOL-015 管理员生命周期", () => {
     });
     expect(selfDisable.statusCode).toBe(409);
     expect(selfDisable.json().error).toBe("self_disable_forbidden");
+
+    const selfCleanup = await app.inject({
+      method: "DELETE",
+      url: `/admins/${adminId}`,
+      headers: { cookie: ownerCookie },
+    });
+    expect(selfCleanup.statusCode).toBe(409);
+    expect(selfCleanup.json().error).toBe("self_cleanup_forbidden");
 
     const disabled = await app.inject({
       method: "POST",
@@ -162,17 +231,106 @@ describe("POOL-015 管理员生命周期", () => {
     });
     expect(enabled.statusCode).toBe(200);
 
+    const cleanupActive = await app.inject({
+      method: "DELETE",
+      url: `/admins/${secondId}`,
+      headers: { cookie: ownerCookie },
+    });
+    expect(cleanupActive.statusCode).toBe(409);
+    expect(cleanupActive.json().error).toBe("admin_must_be_disabled");
+
+    const cleanupImplementation = app.adminRepo.cleanup.bind(app.adminRepo);
+    app.adminRepo.cleanup = async () => {
+      throw new Error("cleanup-storage-failure");
+    };
+    const cleanupFailure = await app.inject({
+      method: "DELETE",
+      url: `/admins/${secondId}`,
+      headers: { cookie: ownerCookie },
+    });
+    expect(cleanupFailure.statusCode).toBe(500);
+    app.adminRepo.cleanup = cleanupImplementation;
+
+    const disabledForCleanup = await app.inject({
+      method: "POST",
+      url: `/admins/${secondId}/disable`,
+      headers: { cookie: ownerCookie },
+    });
+    expect(disabledForCleanup.statusCode).toBe(200);
+    await expect(
+      app.adminRepo.cleanup({
+        enterpriseId,
+        actorAdminId: randomUUID(),
+        targetAdminId: secondId,
+      }),
+    ).rejects.toThrow();
+    expect(
+      await db
+        .selectFrom("admin_user")
+        .select("archived_at")
+        .where("id", "=", secondId)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ archived_at: null });
+    const cleanup = await app.inject({
+      method: "DELETE",
+      url: `/admins/${secondId}`,
+      headers: { cookie: ownerCookie },
+    });
+    expect(cleanup.statusCode).toBe(204);
+    expect((await login("second", resetPassword)).statusCode).toBe(401);
+    const listedAfterCleanup = await app.inject({
+      method: "GET",
+      url: "/admins",
+      headers: { cookie: ownerCookie },
+    });
+    expect(listedAfterCleanup.statusCode).toBe(200);
+    expect(listedAfterCleanup.json().admins).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: secondId })]),
+    );
+    const archived = await db
+      .selectFrom("admin_user")
+      .select(["status", "archived_at"])
+      .where("id", "=", secondId)
+      .executeTakeFirstOrThrow();
+    expect(archived.status).toBe("DISABLED");
+    expect(archived.archived_at).toBeInstanceOf(Date);
+    const repeatedCleanup = await app.inject({
+      method: "DELETE",
+      url: `/admins/${secondId}`,
+      headers: { cookie: ownerCookie },
+    });
+    expect(repeatedCleanup.statusCode).toBe(404);
+
     const otherEnterpriseId = randomUUID();
     const otherAdminId = randomUUID();
-    await db.insertInto("enterprise").values({ id: otherEnterpriseId, name: "其他企业" }).execute();
-    await db.insertInto("admin_user").values({
-      id: otherAdminId,
-      enterprise_id: otherEnterpriseId,
-      username: "other",
-      display_name: "其他管理员",
-      password_hash: await hashPassword("Pool015-Other-Start!"),
-      status: "ACTIVE",
-    }).execute();
+    await db
+      .insertInto("enterprise")
+      .values({ id: otherEnterpriseId, name: "其他企业" })
+      .execute();
+    await db
+      .insertInto("admin_user")
+      .values({
+        id: otherAdminId,
+        enterprise_id: otherEnterpriseId,
+        username: "other",
+        display_name: "其他管理员",
+        password_hash: await hashPassword("Pool015-Other-Start!"),
+        status: "ACTIVE",
+      })
+      .execute();
+    const crossEnterpriseCleanup = await app.inject({
+      method: "DELETE",
+      url: `/admins/${otherAdminId}`,
+      headers: { cookie: ownerCookie },
+    });
+    expect(crossEnterpriseCleanup.statusCode).toBe(404);
+    expect(
+      await db
+        .selectFrom("admin_user")
+        .select("archived_at")
+        .where("id", "=", otherAdminId)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ archived_at: null });
     const crossEnterprise = await app.inject({
       method: "PATCH",
       url: `/admins/${otherAdminId}`,
@@ -181,7 +339,8 @@ describe("POOL-015 管理员生命周期", () => {
     });
     expect(crossEnterprise.statusCode).toBe(404);
 
-    const logs = await db.selectFrom("operation_log")
+    const logs = await db
+      .selectFrom("operation_log")
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
       .where("target_type", "=", "admin_user")
@@ -193,9 +352,31 @@ describe("POOL-015 管理员生命周期", () => {
     expect(actions).toContain("admin.password.reset");
     expect(actions).toContain("admin.disable");
     expect(actions).toContain("admin.enable");
+    expect(actions).toContain("admin.cleanup");
+    const cleanupLog = logs.find(
+      (log) =>
+        log.action === "admin.cleanup" &&
+        log.target_id === secondId &&
+        log.result === "SUCCESS",
+    );
+    expect(cleanupLog).toMatchObject({
+      target_type: "admin_user",
+      target_id: secondId,
+      result: "SUCCESS",
+      change_summary: {
+        username: "second",
+        status: "DISABLED",
+        archived_at: expect.any(String),
+        sessions_revoked: true,
+      },
+    });
     expect(logs.some((log) => log.result === "FAILURE")).toBe(true);
     expect(JSON.stringify(logs)).not.toContain(initialPassword);
     expect(JSON.stringify(logs)).not.toContain(changedPassword);
     expect(JSON.stringify(logs)).not.toContain(resetPassword);
+    expect(await migrateDown(db)).toBe("0066_alert_resource_context");
+    await expect(migrateDown(db)).rejects.toThrow(
+      "cannot roll back while archived administrators exist",
+    );
   }, 120_000);
 });

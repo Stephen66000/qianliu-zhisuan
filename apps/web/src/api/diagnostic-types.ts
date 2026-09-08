@@ -1,4 +1,7 @@
-import type { RequestShapeSummary, UpstreamErrorEvidence } from "@qianliu/contracts";
+import type {
+  RequestShapeSummary,
+  UpstreamErrorEvidence,
+} from "@qianliu/contracts";
 
 export interface GatewayRequestDetail {
   request: {
@@ -153,6 +156,8 @@ export interface AlertItem {
   lastSeenAt: string;
   resolvedAt: string | null;
   resolutionNote: string | null;
+  sourceClearedAt: string | null;
+  resolvedBy: string | null;
 }
 
 export interface AlertsResult {
@@ -176,7 +181,11 @@ export interface OperationLogsResult {
   logs: OperationLogItem[];
 }
 
-export type DeploymentStatus = "IN_PROGRESS" | "SUCCEEDED" | "FAILED" | "ROLLED_BACK";
+export type DeploymentStatus =
+  | "IN_PROGRESS"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "ROLLED_BACK";
 
 export interface DeploymentLogItem {
   id: string;

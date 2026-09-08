@@ -1,0 +1,322 @@
+{
+  "digests": {
+    "full_candidate_hash": "486445fccbddc636341bcec2ebdeae8fc9c8d7f1615d2c96c3aed9dfbbbdc72d",
+    "implementation_hash": "486445fccbddc636341bcec2ebdeae8fc9c8d7f1615d2c96c3aed9dfbbbdc72d",
+    "manifest_hash": "3ede373a5d09e9b78e7f5bcef86bcba0bca2eef9910516fd176787c3116e031d"
+  },
+  "entries": [
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts",
+      "sha256": "b902c8f9fad0ef2a0d1abfdab8c1324609dd3b4171b2ebcfd8f376253064c1f0",
+      "size": 11706,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts",
+      "sha256": "705d4207eefa6369a7a9a8771517a308225e83f74f39b992f65f2bf0f7852085",
+      "size": 25433,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/admins/cleanup-route.ts",
+      "sha256": "9e85088b42a02aeef95fc23e519e9cde1015e8bbf4d17567a8b8754e14e9dfe3",
+      "size": 2320,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/control-api/src/admins/routes.ts",
+      "sha256": "398b067fd3865b311e5358bc7cae9667e85fd0353f1cff5ce91e40648f5c2123",
+      "size": 11768,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/api/admins.test.tsx",
+      "sha256": "2bea73ecd2e5adaf24646e3e11420974792476e3a48822f6e7e45adf961e2d07",
+      "size": 1389,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/api/admins.ts",
+      "sha256": "238ac57ab9b94802ca6b1ce3f710cffb18fa83e83ac2105d9b01d2018f18f143",
+      "size": 1992,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/api/diagnostic-types.ts",
+      "sha256": "2ae3b3af8bfec81b4f3a6c9aac0bd892a4a28b3c72a0b9e00b89ba983b82c579",
+      "size": 5733,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/Admins.test.tsx",
+      "sha256": "18a4bab5be5ea3faf3c669e9fa9ba22efde5ab4128ef2384838be0433737fa81",
+      "size": 4540,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/Admins.tsx",
+      "sha256": "2da3228e3fb62b8b6e85eb205cafcc71fbcd55543b36e7a03456244caa4380c2",
+      "size": 15083,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/Alerts.test.tsx",
+      "sha256": "65561659296e8c1b043139afd39333dd4f012cb12c71076efa11075eed8eefb8",
+      "size": 5204,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/RuntimeAssurance.test.tsx",
+      "sha256": "92b377ba6234d7c794d31056ed834608d87a871e202bf2adf4dc23a922f8e22f",
+      "size": 10508,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/RuntimeAssurance.tsx",
+      "sha256": "210245686f9b185e0f9837355e58d27e9a477192dc3556130c701d7337560c23",
+      "size": 1126,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/runtime-assurance/AlertDetailDrawer.tsx",
+      "sha256": "6e5ed14242182c7495e2fc3f5b8a57b301935de9c17c32e5f280ce76f5931c81",
+      "size": 7288,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/runtime-assurance/AlertTableParts.tsx",
+      "sha256": "676ecbf3c06ae13b1d734c06a8153d5f7bfa1bf9bee43a6e5065a8165e1144d7",
+      "size": 5536,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/runtime-assurance/AlertsPanel.tsx",
+      "sha256": "ab5a9d3cfdb10e4fd5c7015976058c4368e5f41930f7a899936241fdad7c0f4a",
+      "size": 8094,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/runtime-assurance/alert-presenters.test.ts",
+      "sha256": "6f215560c5f6ab5c08ac3b379af66c6dbe58f5bdcfa22a4417a2063667a02ae1",
+      "size": 2066,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "apps/web/src/pages/runtime-assurance/alert-presenters.ts",
+      "sha256": "8402f8b0083e6b949e169b8154dd44a462d039b57ec3209e15f0543fa6825938",
+      "size": 1990,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0065_admin_cleanup.js",
+      "sha256": "3bcb5061f57be11fe9a3817789863ba9894ea8b6f60ddd582d5c13499cca6a78",
+      "size": 1055,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/migrations/0066_alert_resource_context.js",
+      "sha256": "43359791f7b6473eb49655d99abeb83b8c9c2e99e7345f75dc7a9046f6920e80",
+      "size": 1299,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/__tests-integration__/runtime-admin-migrations.integration.test.ts",
+      "sha256": "3851c1cc72d0930b5deb444bc7f4e3005754f2441cf12034c2b8d1de1d0edcc9",
+      "size": 4415,
+      "status": "untracked",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/index.ts",
+      "sha256": "73c82803d319bca9f66cd65921cc8564795817b8319e3365d79c0b47f4150c01",
+      "size": 10564,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/kysely-core-tables.ts",
+      "sha256": "3fe950d16fda9b7e3c351301681b6d73d48605e0d7387ad1a04ab59084f468c8",
+      "size": 3481,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/admin-repository.ts",
+      "sha256": "0623f1b3d6c097326ceac873ee6e7cb43fed2a0b8e97ce34ffb039cbc057dc35",
+      "size": 11519,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/alert-event-repository.ts",
+      "sha256": "d9ec01754899e3c5b0191c615d55995c7d773e1959c4fbb1d07b2b1635eb26b3",
+      "size": 16546,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/alert-event-request-derivations.ts",
+      "sha256": "efa38cd19e61ff5644ce777ecd0f508ab7d09d22e90675c01c10b4a07adb5b7e",
+      "size": 5660,
+      "status": "modified",
+      "type": "file"
+    },
+    {
+      "category": "implementation",
+      "mode": "0644",
+      "path": "packages/database/src/repositories/alert-event-types.ts",
+      "sha256": "29d3ca270fc0db56fb21fc382cab3d2a9346d03c2b50adf7e5932711876cd278",
+      "size": 1225,
+      "status": "modified",
+      "type": "file"
+    }
+  ],
+  "evidence_prefixes": [
+    "V4/Evidence"
+  ],
+  "excludes": [
+    ".git",
+    ".git/**",
+    "V4/Evidence/RUNTIME-ADMIN-20260907/V14-I0/candidate-lock-final2.json"
+  ],
+  "generated_at": "2026-09-07T16:05:56.608632+00:00",
+  "git": {
+    "branch": "codex/quota-pricing-review-20260905",
+    "deleted": [],
+    "head": "4cea87f2e5928d7486282a934c7c6c0084f241de",
+    "staged": [],
+    "untracked": [
+      "apps/control-api/src/admins/cleanup-route.ts",
+      "apps/web/src/api/admins.test.tsx",
+      "apps/web/src/pages/runtime-assurance/AlertDetailDrawer.tsx",
+      "apps/web/src/pages/runtime-assurance/AlertTableParts.tsx",
+      "apps/web/src/pages/runtime-assurance/AlertsPanel.tsx",
+      "apps/web/src/pages/runtime-assurance/alert-presenters.test.ts",
+      "apps/web/src/pages/runtime-assurance/alert-presenters.ts",
+      "packages/database/migrations/0065_admin_cleanup.js",
+      "packages/database/migrations/0066_alert_resource_context.js",
+      "packages/database/src/__tests-integration__/runtime-admin-migrations.integration.test.ts"
+    ],
+    "worktree_modified": [
+      "apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts",
+      "apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts",
+      "apps/control-api/src/admins/routes.ts",
+      "apps/web/src/api/admins.ts",
+      "apps/web/src/api/diagnostic-types.ts",
+      "apps/web/src/pages/Admins.test.tsx",
+      "apps/web/src/pages/Admins.tsx",
+      "apps/web/src/pages/Alerts.test.tsx",
+      "apps/web/src/pages/RuntimeAssurance.test.tsx",
+      "apps/web/src/pages/RuntimeAssurance.tsx",
+      "packages/database/src/index.ts",
+      "packages/database/src/kysely-core-tables.ts",
+      "packages/database/src/repositories/admin-repository.ts",
+      "packages/database/src/repositories/alert-event-repository.ts",
+      "packages/database/src/repositories/alert-event-request-derivations.ts",
+      "packages/database/src/repositories/alert-event-types.ts"
+    ]
+  },
+  "root_hint": "/Users/mac/Projects/仟流智算",
+  "schema_version": "1.0",
+  "selection": {
+    "kind": "explicit",
+    "paths": [
+      "apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts",
+      "apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts",
+      "apps/control-api/src/admins/cleanup-route.ts",
+      "apps/control-api/src/admins/routes.ts",
+      "apps/web/src/api/admins.test.tsx",
+      "apps/web/src/api/admins.ts",
+      "apps/web/src/api/diagnostic-types.ts",
+      "apps/web/src/pages/Admins.test.tsx",
+      "apps/web/src/pages/Admins.tsx",
+      "apps/web/src/pages/Alerts.test.tsx",
+      "apps/web/src/pages/RuntimeAssurance.test.tsx",
+      "apps/web/src/pages/RuntimeAssurance.tsx",
+      "apps/web/src/pages/runtime-assurance/AlertDetailDrawer.tsx",
+      "apps/web/src/pages/runtime-assurance/AlertTableParts.tsx",
+      "apps/web/src/pages/runtime-assurance/AlertsPanel.tsx",
+      "apps/web/src/pages/runtime-assurance/alert-presenters.test.ts",
+      "apps/web/src/pages/runtime-assurance/alert-presenters.ts",
+      "packages/database/migrations/0065_admin_cleanup.js",
+      "packages/database/migrations/0066_alert_resource_context.js",
+      "packages/database/src/__tests-integration__/runtime-admin-migrations.integration.test.ts",
+      "packages/database/src/index.ts",
+      "packages/database/src/kysely-core-tables.ts",
+      "packages/database/src/repositories/admin-repository.ts",
+      "packages/database/src/repositories/alert-event-repository.ts",
+      "packages/database/src/repositories/alert-event-request-derivations.ts",
+      "packages/database/src/repositories/alert-event-types.ts"
+    ]
+  },
+  "tool_version": "1.0"
+}

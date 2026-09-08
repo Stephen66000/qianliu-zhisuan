@@ -13,8 +13,15 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
-import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+import {
+  createKysely,
+  migrateToLatest,
+  type Database,
+} from "@qianliu/database";
+import {
+  startPostgresContainer,
+  type PostgresTestInstance,
+} from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 
 let pg: PostgresTestInstance;
@@ -31,11 +38,20 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
 
-  await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流 W20 测试企业" }).execute();
+  await db
+    .insertInto("enterprise")
+    .values({ id: ENT_ID, name: "仟流 W20 测试企业" })
+    .execute();
   const hash = await hashPassword(TEST_PASSWORD);
   await db
     .insertInto("admin_user")
-    .values({ id: ADM_ID, enterprise_id: ENT_ID, username: "admin", password_hash: hash, status: "ACTIVE" })
+    .values({
+      id: ADM_ID,
+      enterprise_id: ENT_ID,
+      username: "admin",
+      password_hash: hash,
+      status: "ACTIVE",
+    })
     .execute();
 
   const { buildControlApi } = await import("../server.js");
@@ -48,7 +64,9 @@ beforeAll(async () => {
     payload: { username: "admin", password: TEST_PASSWORD },
   });
   const setCookie = loginRes.headers["set-cookie"];
-  adminCookie = (Array.isArray(setCookie) ? setCookie[0] : setCookie)!.split(";")[0]!;
+  adminCookie = (Array.isArray(setCookie) ? setCookie[0] : setCookie)!.split(
+    ";",
+  )[0]!;
 }, 120_000);
 
 afterAll(async () => {
@@ -68,13 +86,22 @@ async function ensureProvider(code: "deepseek" | "zhipu" | "kimi") {
   if (existing) return existing;
   return db
     .insertInto("provider")
-    .values({ enterprise_id: ENT_ID, code, name: `${code} 测试`, adapter_type: code })
+    .values({
+      enterprise_id: ENT_ID,
+      code,
+      name: `${code} 测试`,
+      adapter_type: code,
+    })
     .returningAll()
     .executeTakeFirstOrThrow();
 }
 
 /** seed 一个完整请求链：request + 2 candidates + 2 attempts + transaction + decision。 */
-async function seedRequestChain(): Promise<{ requestId: string; principalId: string; resourceId: string }> {
+async function seedRequestChain(): Promise<{
+  requestId: string;
+  principalId: string;
+  resourceId: string;
+}> {
   const provider = await ensureProvider("zhipu");
   const resource = await db
     .insertInto("provider_resource")
@@ -259,31 +286,62 @@ describe("W20 诊断下钻", () => {
 
   it("POOL20-048：Attempt 诊断按白名单返回，污染 jsonb fail-closed 且跨企业 404", async () => {
     const { requestId } = await seedRequestChain();
-    const attempt = await db.selectFrom("upstream_attempt")
-      .select("id").where("ai_request_id", "=", requestId).orderBy("attempt_no").executeTakeFirstOrThrow();
+    const attempt = await db
+      .selectFrom("upstream_attempt")
+      .select("id")
+      .where("ai_request_id", "=", requestId)
+      .orderBy("attempt_no")
+      .executeTakeFirstOrThrow();
     const evidence = {
-      httpStatus: 400, type: "invalid_request_error", code: "invalid_request_error",
+      httpStatus: 400,
+      type: "invalid_request_error",
+      code: "invalid_request_error",
       param: "tools[].function.parameters.properties.*",
-      messageCategory: "INVALID_TOOL_SCHEMA", diagnosticHash: "4".repeat(64),
+      messageCategory: "INVALID_TOOL_SCHEMA",
+      diagnosticHash: "4".repeat(64),
     };
     const shape = {
-      topLevelFields: ["messages", "model", "stream", "stream_options", "tools"],
-      messageCount: 2, messageRoles: { system: 1, user: 1 }, contentKinds: ["string"],
-      contentBlockTypes: [], assistantToolCallCount: 0, toolResultCount: 0,
-      unmatchedAssistantToolCallCount: 0, unmatchedToolResultCount: 0,
-      toolCount: 1, functionToolCount: 1, invalidToolCount: 1,
-      toolSchemaIssueCounts: { FUNCTION_NAME_INVALID: 1 }, toolTypes: ["function"],
-      schemaKeywords: ["properties", "required", "type"], schemaMaxDepth: 4,
-      schemaNodeCount: 10, schemaPropertyCount: 2, toolChoiceKind: "auto",
-      stream: true, streamOptionsIncluded: true, countOverflowed: false,
+      topLevelFields: [
+        "messages",
+        "model",
+        "stream",
+        "stream_options",
+        "tools",
+      ],
+      messageCount: 2,
+      messageRoles: { system: 1, user: 1 },
+      contentKinds: ["string"],
+      contentBlockTypes: [],
+      assistantToolCallCount: 0,
+      toolResultCount: 0,
+      unmatchedAssistantToolCallCount: 0,
+      unmatchedToolResultCount: 0,
+      toolCount: 1,
+      functionToolCount: 1,
+      invalidToolCount: 1,
+      toolSchemaIssueCounts: { FUNCTION_NAME_INVALID: 1 },
+      toolTypes: ["function"],
+      schemaKeywords: ["properties", "required", "type"],
+      schemaMaxDepth: 4,
+      schemaNodeCount: 10,
+      schemaPropertyCount: 2,
+      toolChoiceKind: "auto",
+      stream: true,
+      streamOptionsIncluded: true,
+      countOverflowed: false,
     };
-    await db.updateTable("upstream_attempt").set({
-      upstream_error_evidence: evidence,
-      request_shape_summary: shape,
-    }).where("id", "=", attempt.id).execute();
+    await db
+      .updateTable("upstream_attempt")
+      .set({
+        upstream_error_evidence: evidence,
+        request_shape_summary: shape,
+      })
+      .where("id", "=", attempt.id)
+      .execute();
 
     const safe = await app.inject({
-      method: "GET", url: `/gateway-requests/${requestId}/attempts`,
+      method: "GET",
+      url: `/gateway-requests/${requestId}/attempts`,
       headers: { cookie: adminCookie },
     });
     expect(safe.statusCode).toBe(200);
@@ -293,12 +351,17 @@ describe("W20 诊断下钻", () => {
     });
 
     const canary = "POOL048_PRIVATE_CONTROL_CANARY";
-    await db.updateTable("upstream_attempt").set({
-      upstream_error_evidence: { message: canary },
-      request_shape_summary: { toolName: canary },
-    }).where("id", "=", attempt.id).execute();
+    await db
+      .updateTable("upstream_attempt")
+      .set({
+        upstream_error_evidence: { message: canary },
+        request_shape_summary: { toolName: canary },
+      })
+      .where("id", "=", attempt.id)
+      .execute();
     const polluted = await app.inject({
-      method: "GET", url: `/gateway-requests/${requestId}/attempts`,
+      method: "GET",
+      url: `/gateway-requests/${requestId}/attempts`,
       headers: { cookie: adminCookie },
     });
     expect(polluted.statusCode).toBe(200);
@@ -312,20 +375,44 @@ describe("W20 诊断下钻", () => {
     const otherPrincipalId = randomUUID();
     const otherKeyId = randomUUID();
     const otherRequestId = randomUUID();
-    await db.insertInto("enterprise").values({ id: otherEnterpriseId, name: "POOL048 其他企业" }).execute();
-    await db.insertInto("principal").values({
-      id: otherPrincipalId, enterprise_id: otherEnterpriseId, type: "EMPLOYEE", name: "其他员工",
-    }).execute();
-    await db.insertInto("principal_key").values({
-      id: otherKeyId, enterprise_id: otherEnterpriseId, principal_id: otherPrincipalId,
-      key_prefix: "pool048-other", key_digest: randomUUID(), allowed_model_ids: [],
-    }).execute();
-    await db.insertInto("ai_request").values({
-      id: otherRequestId, enterprise_id: otherEnterpriseId, principal_id: otherPrincipalId,
-      principal_key_id: otherKeyId, protocol: "chat", unified_model: "ql-other",
-    }).execute();
+    await db
+      .insertInto("enterprise")
+      .values({ id: otherEnterpriseId, name: "POOL048 其他企业" })
+      .execute();
+    await db
+      .insertInto("principal")
+      .values({
+        id: otherPrincipalId,
+        enterprise_id: otherEnterpriseId,
+        type: "EMPLOYEE",
+        name: "其他员工",
+      })
+      .execute();
+    await db
+      .insertInto("principal_key")
+      .values({
+        id: otherKeyId,
+        enterprise_id: otherEnterpriseId,
+        principal_id: otherPrincipalId,
+        key_prefix: "pool048-other",
+        key_digest: randomUUID(),
+        allowed_model_ids: [],
+      })
+      .execute();
+    await db
+      .insertInto("ai_request")
+      .values({
+        id: otherRequestId,
+        enterprise_id: otherEnterpriseId,
+        principal_id: otherPrincipalId,
+        principal_key_id: otherKeyId,
+        protocol: "chat",
+        unified_model: "ql-other",
+      })
+      .execute();
     const denied = await app.inject({
-      method: "GET", url: `/gateway-requests/${otherRequestId}/attempts`,
+      method: "GET",
+      url: `/gateway-requests/${otherRequestId}/attempts`,
       headers: { cookie: adminCookie },
     });
     expect(denied.statusCode).toBe(404);
@@ -379,17 +466,20 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    await db.insertInto("provider_resource_operating_snapshot").values({
-      enterprise_id: ENT_ID,
-      provider_resource_id: credInvalid.id,
-      version: 1,
-      source: "PROVIDER_SYNC",
-      collected_at: new Date(Date.now() - 60_000),
-      total_quota: "10000",
-      used_quota: "9000",
-      remaining_quota: "1000",
-      quota_unit: "TOKEN",
-    }).execute();
+    await db
+      .insertInto("provider_resource_operating_snapshot")
+      .values({
+        enterprise_id: ENT_ID,
+        provider_resource_id: credInvalid.id,
+        version: 1,
+        source: "PROVIDER_SYNC",
+        collected_at: new Date(Date.now() - 60_000),
+        total_quota: "10000",
+        used_quota: "9000",
+        remaining_quota: "1000",
+        quota_unit: "TOKEN",
+      })
+      .execute();
     await db
       .insertInto("supply_forecast")
       .values({
@@ -438,17 +528,38 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       .set({ status: "DEGRADED", consecutive_failures: 4 })
       .where("id", "=", resourceId)
       .execute();
-    await db.insertInto("provider_resource_operating_snapshot").values({
-      enterprise_id: ENT_ID,
-      provider_resource_id: resourceId,
-      version: 1,
-      source: "PROVIDER_SYNC",
-      collected_at: new Date(Date.now() - 60_000),
-      total_quota: "1000",
-      used_quota: "900",
-      remaining_quota: "100",
-      quota_unit: "TOKEN",
-    }).execute();
+    const resourceProvider = await db
+      .selectFrom("provider_resource")
+      .select("provider_id")
+      .where("id", "=", resourceId)
+      .executeTakeFirstOrThrow();
+    const olderResource = await db
+      .insertInto("provider_resource")
+      .values({
+        enterprise_id: ENT_ID,
+        provider_id: resourceProvider.provider_id,
+        name: `八信号旧资源-${randomUUID().slice(0, 8)}`,
+        mode: "API",
+        credential_type: "API_KEY",
+        status: "ACTIVE",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto("provider_resource_operating_snapshot")
+      .values({
+        enterprise_id: ENT_ID,
+        provider_resource_id: resourceId,
+        version: 1,
+        source: "PROVIDER_SYNC",
+        collected_at: new Date(Date.now() - 60_000),
+        total_quota: "1000",
+        used_quota: "900",
+        remaining_quota: "100",
+        current_balance: "100",
+        quota_unit: "TOKEN",
+      })
+      .execute();
     await db
       .insertInto("supply_forecast")
       .values({
@@ -530,6 +641,29 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
         },
       ])
       .execute();
+    await db
+      .insertInto("upstream_attempt")
+      .values([
+        {
+          ai_request_id: streamingRequestId,
+          enterprise_id: ENT_ID,
+          attempt_no: 1,
+          provider_resource_id: olderResource.id,
+          upstream_model: "glm-4.6-old",
+          error_classification: "UPSTREAM_5XX",
+          error_code: "OLD_FAILURE",
+        },
+        {
+          ai_request_id: streamingRequestId,
+          enterprise_id: ENT_ID,
+          attempt_no: 2,
+          provider_resource_id: resourceId,
+          upstream_model: "glm-4.6",
+          error_classification: "STREAM_INTERRUPTED",
+          error_code: "UPSTREAM_STREAM_CLOSED",
+        },
+      ])
+      .execute();
 
     const provider = await ensureProvider("deepseek");
     await db
@@ -554,6 +688,34 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       })
       .returning("id")
       .executeTakeFirstOrThrow();
+    const unexplainedRequestId = randomUUID();
+    await db
+      .insertInto("ai_request")
+      .values({
+        id: unexplainedRequestId,
+        enterprise_id: ENT_ID,
+        principal_id: principalId,
+        principal_key_id: key.id,
+        protocol: "openai",
+        unified_model: "glm-4.6",
+        status: "SUCCEEDED",
+      })
+      .execute();
+    const unexplainedDecision = await db
+      .insertInto("dispatch_decision")
+      .values({
+        enterprise_id: ENT_ID,
+        ai_request_id: unexplainedRequestId,
+        matched_policy_id: policy.id,
+        matched_policy_action: "ALLOW",
+        final_action: "ALLOW",
+        reason_code: "UNEXPLAINED_BASELINE",
+        saving_calculable: false,
+        not_calculable_reason: "unexplained_baseline",
+        switch_target_resource_id: resourceId,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
     await db
       .updateTable("dispatch_decision")
       .set({
@@ -570,10 +732,12 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       headers: { cookie: adminCookie },
     });
     expect(response.statusCode).toBe(200);
-    const signals = new Set(
-      response.json().alerts.map((alert: { signal: string }) => alert.signal),
-    );
-    expect(signals.size).toBeGreaterThanOrEqual(8);
+    const responseAlerts = response.json().alerts as Array<{
+      alertKey: string;
+      signal: string;
+      resourceId: string | null;
+    }>;
+    const signals = new Set(responseAlerts.map((alert) => alert.signal));
     for (const signal of [
       "resource_unavailable",
       "principal_usage_anomaly",
@@ -586,17 +750,41 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
     ]) {
       expect(signals.has(signal), signal).toBe(true);
     }
+    expect(signals.size).toBeGreaterThanOrEqual(8);
+    expect(
+      responseAlerts.find((alert) => alert.signal === "streaming_anomaly")
+        ?.resourceId,
+    ).toBe(resourceId);
+    expect(
+      responseAlerts.find((alert) => alert.signal === "dispatch_anomaly")
+        ?.resourceId,
+    ).toBe(resourceId);
+    expect(
+      responseAlerts.find(
+        (alert) =>
+          alert.alertKey ===
+          `RESOURCE_UNAVAILABLE:dispatch:${unexplainedDecision.id}`,
+      ),
+    ).toMatchObject({ signal: "dispatch_anomaly", resourceId });
   });
 
   it("evaluate 幂等：重复调用同 key 不重复插入，只刷新 last_seen", async () => {
-    await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    await app.inject({
+      method: "GET",
+      url: "/alerts",
+      headers: { cookie: adminCookie },
+    });
     const before = await db
       .selectFrom("alert_event")
       .select("id")
       .where("enterprise_id", "=", ENT_ID)
       .where("status", "=", "OPEN")
       .execute();
-    await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    await app.inject({
+      method: "GET",
+      url: "/alerts",
+      headers: { cookie: adminCookie },
+    });
     const after = await db
       .selectFrom("alert_event")
       .select("id")
@@ -623,10 +811,16 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
 
     const responses = await Promise.all(
       Array.from({ length: 5 }, () =>
-        app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } }),
+        app.inject({
+          method: "GET",
+          url: "/alerts",
+          headers: { cookie: adminCookie },
+        }),
       ),
     );
-    expect(responses.every((response) => response.statusCode === 200)).toBe(true);
+    expect(responses.every((response) => response.statusCode === 200)).toBe(
+      true,
+    );
     const rows = await db
       .selectFrom("alert_event")
       .select("id")
@@ -649,25 +843,44 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
     });
     const open = listRes
       .json()
-      .alerts.find((a: { status: string; domain: string }) => a.status === "OPEN" && a.domain === "CREDENTIAL_INVALID");
+      .alerts.find(
+        (a: { status: string; domain: string }) =>
+          a.status === "OPEN" && a.domain === "CREDENTIAL_INVALID",
+      );
     expect(open).toBeDefined();
 
     const res = await app.inject({
       method: "POST",
       url: "/alerts/disposition",
       headers: { cookie: adminCookie },
-      payload: { alert_key: open.alertKey, status: "RESOLVED", resolution_note: "已重新授权" },
+      payload: {
+        alert_key: open.alertKey,
+        status: "RESOLVED",
+        resolution_note: "已重新授权",
+      },
     });
     expect(res.statusCode).toBe(200);
 
     // 未处理列表不再含（key 不再有 OPEN，故 evaluate 也不会复活它——已 RESOLVED）
-    const active = await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
-    const stillActive = active.json().alerts.find((a: { alertKey: string }) => a.alertKey === open.alertKey);
+    const active = await app.inject({
+      method: "GET",
+      url: "/alerts",
+      headers: { cookie: adminCookie },
+    });
+    const stillActive = active
+      .json()
+      .alerts.find((a: { alertKey: string }) => a.alertKey === open.alertKey);
     expect(stillActive).toBeUndefined();
 
     // 历史可见
-    const hist = await app.inject({ method: "GET", url: "/alerts?history=true", headers: { cookie: adminCookie } });
-    const inHistory = hist.json().history.find((a: { alertKey: string }) => a.alertKey === open.alertKey);
+    const hist = await app.inject({
+      method: "GET",
+      url: "/alerts?history=true",
+      headers: { cookie: adminCookie },
+    });
+    const inHistory = hist
+      .json()
+      .history.find((a: { alertKey: string }) => a.alertKey === open.alertKey);
     expect(inHistory).toBeDefined();
     expect(inHistory.status).toBe("RESOLVED");
 
@@ -696,7 +909,11 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       .returningAll()
       .executeTakeFirstOrThrow();
     // 评估 → 告警出现
-    await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    await app.inject({
+      method: "GET",
+      url: "/alerts",
+      headers: { cookie: adminCookie },
+    });
     // 源恢复（状态改回 ACTIVE）
     await db
       .updateTable("provider_resource")
@@ -704,7 +921,11 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       .where("id", "=", res.id)
       .execute();
     // 再评估 → AUTO_RESOLVED
-    await app.inject({ method: "GET", url: "/alerts", headers: { cookie: adminCookie } });
+    await app.inject({
+      method: "GET",
+      url: "/alerts",
+      headers: { cookie: adminCookie },
+    });
     const row = await db
       .selectFrom("alert_event")
       .select("status")
