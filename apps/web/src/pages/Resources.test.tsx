@@ -165,7 +165,7 @@ describe("厂商资源四 Tab", () => {
     expect(screen.queryByText(/0\.08795916|2413\.38532146/)).not.toBeInTheDocument();
   });
 
-  it("DARK增加充值与订阅Tab，只有充值按钮且入账保持关闭", async () => {
+  it("DARK增加充值与订阅Tab，统一充值订阅入口且入账保持关闭", async () => {
     const user = userEvent.setup();
     getMock.mockImplementation(async (path: string) => path.startsWith("/provider-finance/summary")
       ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "600",
@@ -180,15 +180,15 @@ describe("厂商资源四 Tab", () => {
     expect(await screen.findByText("人民币实付")).toBeInTheDocument();
     expect(screen.getByText("当前 API 余额")).toBeInTheDocument();
     expect(screen.getByText("CNY 498.39")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "充值" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "充值／订阅" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "新增订阅" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "充值" }));
+    await user.click(screen.getByRole("button", { name: "充值／订阅" }));
     await user.click(screen.getByRole("button", { name: "Coding Plan" }));
     expect(screen.getByLabelText("厂商产品模型")).toHaveValue(resource.id);
     expect(screen.getByRole("button", { name: "入账确认" })).toBeDisabled();
   });
 
-  it("ACTIVE从充值按钮登记Coding Plan并包含自然月周期入口", async () => {
+  it("ACTIVE从充值订阅按钮登记Coding Plan并包含自然月周期入口", async () => {
     const user = userEvent.setup();
     getMock.mockImplementation(async (path: string) => path.startsWith("/provider-finance/summary")
       ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "0",
@@ -199,7 +199,7 @@ describe("厂商资源四 Tab", () => {
       : path.includes("/finance/events") ? { items: [], total: 0 } : { periods: [] });
     postMock.mockResolvedValue({ event: { id: "event-1" }, periodId: "period-1" });
     renderPage("/resources?tab=finance", "ACTIVE");
-    await user.click(screen.getByRole("button", { name: "充值" }));
+    await user.click(screen.getByRole("button", { name: "充值／订阅" }));
     await user.click(screen.getByRole("button", { name: "Coding Plan" }));
     await user.type(screen.getByLabelText("订阅金额"), "199");
     await user.type(screen.getByLabelText("人民币实付"), "199");
