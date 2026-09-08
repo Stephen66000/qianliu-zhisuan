@@ -235,12 +235,15 @@ export function deriveResourceTransition(
   }
 }
 
-/** 厂商额度接口的当次成功响应，是终态资源自动恢复的强证据。 */
+/**
+ * 厂商额度接口只能证明额度状态，不能证明 Chat 鉴权状态。
+ * 因此仅额度类隔离可据此恢复；CREDENTIAL_INVALID 必须由同凭证 Chat 探测
+ * 或管理员轮换凭证解除，避免“额度成功 → 投流 → 再次 401”的循环。
+ */
 export function deriveQuotaSyncRecovery(state: ResourceRuntimeState): StateTransition | null {
   if (
     state.status !== RESOURCE_STATUS.RATE_LIMITED
     && state.status !== RESOURCE_STATUS.EXHAUSTED
-    && state.status !== RESOURCE_STATUS.CREDENTIAL_INVALID
   ) return null;
   return {
     toStatus: RESOURCE_STATUS.DEGRADED,

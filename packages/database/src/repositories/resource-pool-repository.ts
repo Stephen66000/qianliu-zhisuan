@@ -8,8 +8,8 @@
  *   - 状态推导规则在 @qianliu/domain（resource-lifecycle.ts，纯函数）；
  *   - 本仓储只做：读当前状态 → 应用迁移（status + 字段更新 + resource_status_event 审计，
  *     同事务）→ 查询可服务资源（硬过滤，供 W12 评分使用）。
- *   - 恢复边界：终态默认由 adminRecover 受控恢复；Coding Plan 厂商额度接口当次确认
- *     凭证有效且所有窗口有余量时，允许 recordQuotaSyncRecovery 自动恢复。
+ *   - 恢复边界：凭证隔离只能由 Chat 探测或管理员轮换凭证恢复；Coding Plan 额度接口
+ *     只能解除 RATE_LIMITED/EXHAUSTED，不能证明 Chat 鉴权有效。
  */
 import type { Kysely, Selectable } from "kysely";
 import type { Database, ProviderResourceTable, ResourceStatusEventTable } from "../kysely.js";
@@ -164,7 +164,7 @@ export class ResourcePoolRepository {
     });
   }
 
-  /** 厂商额度接口确认凭证有效且所有已知窗口均有余量后，自动解除隔离。 */
+  /** 厂商额度接口确认所有已知窗口均有余量后，只解除额度类隔离。 */
   async recordQuotaSyncRecovery(
     resourceId: string,
   ): Promise<StateTransition | null> {
@@ -310,7 +310,8 @@ export class ResourcePoolRepository {
 
   /**
    * 人工受控恢复（WT-19：重新授权/充值后）。
-   * 仅隔离态可恢复；同时可选更新凭证版本/过期时间（新凭证已就位的事实）。
+   * 仅隔离态可恢复；CREDENTIAL_INVALID 必须携带递增后的凭证版本，证明新凭证已就位。
+   * 其他隔离原因可选更新凭证版本/过期时间。
    */
   async adminRecover(
     resourceId: string,
@@ -324,6 +325,11 @@ export class ResourcePoolRepository {
         .where("id", "=", resourceId)
         .forUpdate()
         .executeTakeFirstOrThrow();
+      const credentialVersionAdvanced = opts?.credentialVersion !== undefined
+        && opts.credentialVersion > (row.credential_version ?? 0);
+      if (row.status === RESOURCE_STATUS.CREDENTIAL_INVALID && !credentialVersionAdvanced) {
+        return null;
+      }
       const transition = deriveAdminRecovery(toRuntimeState(row));
       if (!transition) return null;
       await trx

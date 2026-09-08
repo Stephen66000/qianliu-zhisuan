@@ -18,7 +18,7 @@ afterAll(async () => {
 }, 60_000);
 
 describe("Coding Plan 额度同步恢复", () => {
-  it("只在到期时访问厂商，并用当次额度证据自动解除隔离", async () => {
+  it("额度成功不解除凭证隔离，并按间隔继续同步额度事实", async () => {
     const db = createKysely(pg.connectionString);
     try {
       await migrateToLatest(db);
@@ -127,25 +127,23 @@ describe("Coding Plan 额度同步恢复", () => {
         .resolves.toEqual({
           resourcesScanned: 1,
           windowsUpserted: 2,
-          resourcesRecovered: 1,
+          resourcesRecovered: 0,
           failed: 0,
         });
       expect((await db.selectFrom("provider_resource").select([
         "status", "cooldown_until", "credential_refresh_status", "refresh_error_classification",
       ])
         .where("id", "=", resourceId).executeTakeFirstOrThrow())).toEqual({
-        status: "DEGRADED",
-        cooldown_until: null,
-        credential_refresh_status: "OK",
-        refresh_error_classification: null,
+        status: "CREDENTIAL_INVALID",
+        cooldown_until: new Date(now.getTime() + 5 * 60_000),
+        credential_refresh_status: "FAILED",
+        refresh_error_classification: "OAUTH_REFRESH_REJECTED",
       });
       expect(await db.selectFrom("resource_status_event").select(["reason", "actor"])
-        .where("provider_resource_id", "=", resourceId).execute()).toEqual([
-        { reason: "QUOTA_SYNC_RECOVERED", actor: "system" },
-      ]);
+        .where("provider_resource_id", "=", resourceId).execute()).toEqual([]);
       expect((await db.selectFrom("principal_key").select("allowed_model_ids")
         .where("principal_id", "=", principalId).where("status", "=", "ACTIVE")
-        .executeTakeFirstOrThrow()).allowed_model_ids).toEqual([modelId]);
+        .executeTakeFirstOrThrow()).allowed_model_ids).toEqual([]);
 
       await expect(runCodingPlanQuotaTick({
         db,

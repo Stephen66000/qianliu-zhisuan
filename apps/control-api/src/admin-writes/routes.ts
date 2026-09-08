@@ -9,7 +9,11 @@
  */
 import type { FastifyInstance } from "fastify";
 import { encryptCredential, credentialFingerprint } from "@qianliu/provider-adapters";
-import { AdminRecoverNotFoundError, ModelRouteNotReadyError } from "@qianliu/database";
+import {
+  AdminCredentialRotationRequiredError,
+  AdminRecoverNotFoundError,
+  ModelRouteNotReadyError,
+} from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   RecoverResourceSchema, UpdateBillingRuleSchema, UpdateGrantSchema,
@@ -328,6 +332,12 @@ export function registerAdminWriteRoutes(app: FastifyInstance): void {
       } catch (error) {
         if (error instanceof AdminRecoverNotFoundError) {
           return reply.code(404).send({ error: "not_found", message: "资源不存在" });
+        }
+        if (error instanceof AdminCredentialRotationRequiredError) {
+          return reply.code(409).send({
+            error: "credential_update_required",
+            message: "凭证失效资源必须更新凭证后才能恢复",
+          });
         }
         throw error;
       }

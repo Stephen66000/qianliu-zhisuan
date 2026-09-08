@@ -267,6 +267,14 @@ export class AdminWriteRepository {
         return null;
       }
 
+      // Chat 401 形成的凭证隔离不能靠人工改状态解除；管理员必须提交新凭证。
+      // 额度耗尽或临时不可用仍可在外部事实恢复后手工解除。
+      if (row.status === "CREDENTIAL_INVALID" && (
+        !rotation || rotation.credential_fingerprint === row.credential_fingerprint
+      )) {
+        throw new AdminCredentialRotationRequiredError();
+      }
+
       const now = new Date();
       const updated = await trx
         .updateTable("provider_resource")
@@ -315,5 +323,13 @@ export class AdminRecoverNotFoundError extends Error {
   constructor() {
     super("provider resource not found");
     this.name = "AdminRecoverNotFoundError";
+  }
+}
+
+/** CREDENTIAL_INVALID 只能通过实际轮换凭证或受控 Chat 探测恢复。 */
+export class AdminCredentialRotationRequiredError extends Error {
+  constructor() {
+    super("credential rotation is required for credential-invalid resource recovery");
+    this.name = "AdminCredentialRotationRequiredError";
   }
 }

@@ -53,6 +53,13 @@ function authHeader(): Record<string, string> {
   return { authorization: `Bearer ${validKey}`, "content-type": "application/json" };
 }
 
+async function recoverResource(resourceId: string): Promise<void> {
+  const resource = await poolRepo.getResource(resourceId);
+  await poolRepo.adminRecover(resourceId, {
+    credentialVersion: (resource?.credential_version ?? 0) + 1,
+  });
+}
+
 /** 用当前 stub 配置构建 app（每个用例可重建 stub 故障模式）。 */
 async function buildApp(
   affinityResourceId: string | null,
@@ -259,7 +266,7 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
       expect(rowA!.consecutive_failures).toBe(1);
 
       // 恢复 A（供后续用例）
-      await poolRepo.adminRecover(resA);
+      await recoverResource(resA);
       await poolRepo.recordSuccess(resA);
     } finally {
       await app.close();
@@ -369,9 +376,9 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
     }
 
     // 恢复现场
-    await poolRepo.adminRecover(resA);
+    await recoverResource(resA);
     await poolRepo.recordSuccess(resA);
-    await poolRepo.adminRecover(resB);
+    await recoverResource(resB);
     await poolRepo.recordSuccess(resB);
   });
 
@@ -409,7 +416,7 @@ describe("W12 多因子路由 + 提交前切换 + Affinity", () => {
       await app.close();
     }
     // 恢复
-    await poolRepo.adminRecover(resA);
+    await recoverResource(resA);
     await poolRepo.recordSuccess(resA);
   });
 });

@@ -1,4 +1,8 @@
 export type UpstreamErrorMessageCategory =
+  | "AUTHENTICATION_FAILED"
+  | "CREDENTIAL_EXPIRED"
+  | "CREDENTIAL_REVOKED"
+  | "PERMISSION_DENIED"
   | "UNSUPPORTED_PARAMETER"
   | "INVALID_PARAMETER"
   | "INVALID_MESSAGE_CONTENT"
@@ -51,19 +55,23 @@ export interface RequestShapeSummary {
 }
 
 const ERROR_CATEGORIES = new Set<UpstreamErrorMessageCategory>([
+  "AUTHENTICATION_FAILED", "CREDENTIAL_EXPIRED", "CREDENTIAL_REVOKED", "PERMISSION_DENIED",
   "UNSUPPORTED_PARAMETER", "INVALID_PARAMETER", "INVALID_MESSAGE_CONTENT",
   "INVALID_TOOL_SCHEMA", "CONTEXT_LENGTH_EXCEEDED", "MODEL_IMAGE_UNSUPPORTED", "MODEL_UNAVAILABLE", "UNCLASSIFIED",
 ]);
 const UPSTREAM_ERROR_TYPES = new Set([
-  "api_error", "authentication_error", "invalid_request_error", "overloaded_error",
+  "access_denied", "api_error", "authentication_error", "invalid_request_error", "overloaded_error",
   "permission_error", "rate_limit_error", "server_error",
 ]);
 const UPSTREAM_ERROR_CODES = new Set([
   "1210", "1211", "1212", "1213", "1214", "1215", "1302", "1305", "1308", "1309", "1310", "1311",
   "api_error", "authentication_error", "billing_blocked", "context_length_exceeded",
+  "credential_expired", "credential_invalid", "credential_revoked", "expired_token",
   "insufficient_balance", "invalid_parameter", "invalid_request_error", "invalid_value",
-  "model_not_found", "overloaded_error", "permission_error", "quota_exhausted",
-  "rate_limit_exceeded", "server_error", "unauthorized", "vendor_timeout",
+  "invalid_api_key", "invalid_authentication", "model_not_found", "overloaded_error",
+  "permission_error", "quota_exhausted",
+  "rate_limit_exceeded", "server_error", "token_expired", "token_revoked", "unauthorized",
+  "vendor_timeout",
 ]);
 const SUMMARY_ARRAY_VALUES = {
   topLevelFields: new Set([
@@ -138,10 +146,11 @@ export function sanitizeUpstreamErrorParam(value: unknown): string | null {
 /** 从 DB/API 边界重新校验上游错误证据；任一字段越界则整体 fail-closed。 */
 export function parseUpstreamErrorEvidence(value: unknown): UpstreamErrorEvidence | null {
   if (!diagnosticRecord(value)) return null;
+  const httpStatus = value.httpStatus;
   const type = sanitizeUpstreamErrorType(value.type);
   const code = sanitizeUpstreamErrorCode(value.code);
   const param = sanitizeUpstreamErrorParam(value.param);
-  if (value.httpStatus !== 400
+  if (typeof httpStatus !== "number" || !new Set([400, 401, 403]).has(httpStatus)
     || !(value.type === null || type !== null)
     || !(value.code === null || code !== null)
     || !(value.param === null || param === value.param)
@@ -150,7 +159,7 @@ export function parseUpstreamErrorEvidence(value: unknown): UpstreamErrorEvidenc
     || typeof value.diagnosticHash !== "string"
     || !/^[0-9a-f]{64}$/.test(value.diagnosticHash)) return null;
   return {
-    httpStatus: value.httpStatus,
+    httpStatus,
     type,
     code,
     param,

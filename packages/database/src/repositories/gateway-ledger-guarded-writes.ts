@@ -146,10 +146,11 @@ export async function updateGuardedAttemptResult(
 ): Promise<void> {
   const safeUpdate: AttemptResultUpdate = { ...update };
   if (update.upstream_error_evidence !== undefined || update.request_shape_summary !== undefined) {
-    const evidence = update.http_status === 400
+    const diagnosticStatus = new Set([400, 401, 403]).has(update.http_status ?? 0);
+    const evidence = diagnosticStatus
       ? parseUpstreamErrorEvidence(update.upstream_error_evidence)
       : null;
-    const shape = update.http_status === 400
+    const shape = diagnosticStatus
       ? parseRequestShapeSummary(update.request_shape_summary)
       : null;
     safeUpdate.upstream_error_evidence = evidence && shape ? { ...evidence } : null;

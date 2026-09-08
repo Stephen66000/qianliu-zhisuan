@@ -144,6 +144,7 @@ describe.sequential("0067/0068 运行保障与管理员迁移", () => {
           .where("id", "=", alertId.id)
           .executeTakeFirstOrThrow(),
       ).toEqual({ resource_id: resource.id });
+      expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");
       expect(
         await db

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
+import { credentialFingerprint } from "@qianliu/provider-adapters";
 import { app, db, adminCookie, ENT_ID, seedProviderResource, countAudit } from "./w19-admin-fixture.js";
 
 describe("W19 资源恢复与隔离", () => {
@@ -62,6 +63,43 @@ describe("W19 资源恢复与隔离", () => {
     expect(res.json().error).toBe("invalid_state");
   });
 
+  it("POST /provider-resources/:id/recover：凭证失效但未更新凭证 → 保持隔离", async () => {
+    const { resource } = await seedProviderResource("CREDENTIAL_INVALID");
+    const res = await app.inject({
+      method: "POST",
+      url: `/provider-resources/${resource.id}/recover`,
+      headers: { cookie: adminCookie },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: "credential_update_required" });
+    expect((await db.selectFrom("provider_resource").select("status")
+      .where("id", "=", resource.id).executeTakeFirstOrThrow()).status)
+      .toBe("CREDENTIAL_INVALID");
+  });
+
+  it("POST /provider-resources/:id/recover：重复提交原凭证不能伪造轮换", async () => {
+    const credential = "same-credential-w19";
+    const { resource } = await seedProviderResource("CREDENTIAL_INVALID");
+    await db.updateTable("provider_resource").set({
+      credential_fingerprint: credentialFingerprint(credential),
+    }).where("id", "=", resource.id).execute();
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/provider-resources/${resource.id}/recover`,
+      headers: { cookie: adminCookie },
+      payload: { credential_plaintext: credential },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: "credential_update_required" });
+    expect(await db.selectFrom("provider_resource").select(["status", "credential_version"])
+      .where("id", "=", resource.id).executeTakeFirstOrThrow()).toEqual({
+      status: "CREDENTIAL_INVALID",
+      credential_version: 1,
+    });
+  });
+
   it("POST /provider-resources/:id/recover：不轮换凭证也可恢复（仅状态）", async () => {
     const { resource } = await seedProviderResource("EXHAUSTED");
     const res = await app.inject({
@@ -76,7 +114,7 @@ describe("W19 资源恢复与隔离", () => {
   });
 
   it("GET /provider-resources/:id/health：展示 Coding Plan 自动同步恢复状态", async () => {
-    const { resource } = await seedProviderResource("CREDENTIAL_INVALID", "CODING_PLAN");
+    const { resource } = await seedProviderResource("EXHAUSTED", "CODING_PLAN");
     const recoveredAt = new Date();
     await db.updateTable("provider_resource").set({
       status: "DEGRADED",
@@ -87,7 +125,7 @@ describe("W19 资源恢复与隔离", () => {
     await db.insertInto("resource_status_event").values({
       enterprise_id: ENT_ID,
       provider_resource_id: resource.id,
-      from_status: "CREDENTIAL_INVALID",
+      from_status: "EXHAUSTED",
       to_status: "DEGRADED",
       reason: "QUOTA_SYNC_RECOVERED",
       actor: "system",
