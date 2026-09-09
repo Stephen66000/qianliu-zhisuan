@@ -13,7 +13,12 @@ import {
 import type { AlertItem } from "../../api/types";
 import { AlertDetailDrawer } from "./AlertDetailDrawer";
 import { AlertFilters, AlertRow } from "./AlertTableParts";
-import { monthKey, occursInMonth, relationLabels } from "./alert-presenters";
+import {
+  monthKey,
+  occursInMonth,
+  relationLabels,
+  isFault,
+} from "./alert-presenters";
 
 export function AlertsPanel() {
   const client = useQueryClient();
@@ -26,6 +31,7 @@ export function AlertsPanel() {
   const [providerId, setProviderId] = useState("");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [startHandling, setStartHandling] = useState(false);
   const principalLookupFailed = Boolean(principalsQuery.error);
   const resourceLookupFailed = Boolean(resourcesQuery.error);
   const providerLookupFailed = Boolean(providersQuery.error);
@@ -63,10 +69,10 @@ export function AlertsPanel() {
       ...(alertsQuery.data?.alerts ?? []),
       ...(alertsQuery.data?.history ?? []),
     ])
-      unique.set(alert.id, alert);
+      if (isFault(alert)) unique.set(alert.id, alert);
     return [...unique.values()].sort(
       (left, right) =>
-        Date.parse(right.lastSeenAt) - Date.parse(left.lastSeenAt),
+        Date.parse(right.firstSeenAt) - Date.parse(left.firstSeenAt),
     );
   }, [alertsQuery.data]);
 
@@ -97,6 +103,7 @@ export function AlertsPanel() {
         alert.signal,
         alert.alertKey,
         alert.aiRequestId,
+        alert.model,
         resource?.name,
         provider?.name,
         provider?.code,
@@ -142,10 +149,12 @@ export function AlertsPanel() {
   };
   const selectedLabels = selected ? labelsFor(selected) : null;
   const disposition = useMutation({
-    mutationFn: (alert: AlertItem) =>
+    mutationFn: ({ alert, note }: { alert: AlertItem; note: string }) =>
       post("/alerts/disposition", {
         alert_key: alert.alertKey,
+        alert_id: alert.id,
         status: "RESOLVED",
+        resolution_note: note.trim(),
       }),
     onSuccess: () =>
       void client.invalidateQueries({ queryKey: QUERY_KEYS.alerts }),
@@ -191,7 +200,7 @@ export function AlertsPanel() {
       />
       <div className="mb-3 flex items-center justify-between text-[12px] text-ql-fg-secondary">
         <span>共 {visible.length} 条异常</span>
-        <span>“是否处理”修改后立即保存</span>
+        <span>按首次发生日期筛选；已处理须填写说明</span>
       </div>
       {alertsQuery.isLoading ? (
         <p className="py-10 text-center text-sm text-ql-fg-tertiary">
@@ -220,8 +229,16 @@ export function AlertsPanel() {
                   <AlertRow
                     alert={alert}
                     key={alert.id}
-                    onHandle={() => disposition.mutate(alert)}
-                    onView={() => setSelectedId(alert.id)}
+                    onHandle={() => {
+                      disposition.reset();
+                      setSelectedId(alert.id);
+                      setStartHandling(true);
+                    }}
+                    onView={() => {
+                      disposition.reset();
+                      setSelectedId(alert.id);
+                      setStartHandling(false);
+                    }}
                     pending={disposition.isPending}
                     principalName={labels.principalName}
                     providerName={labels.providerName}
@@ -240,10 +257,13 @@ export function AlertsPanel() {
       ) : null}
       {selected ? (
         <AlertDetailDrawer
+          key={selected.id}
           alert={selected}
+          startHandling={startHandling}
+          handledError={Boolean(disposition.error)}
           handledPending={disposition.isPending}
           onClose={() => setSelectedId(null)}
-          onHandle={() => disposition.mutate(selected)}
+          onHandle={(note) => disposition.mutate({ alert: selected, note })}
           principalName={selectedLabels?.principalName}
           providerName={selectedLabels?.providerName}
           resourceName={selectedLabels?.resourceName}

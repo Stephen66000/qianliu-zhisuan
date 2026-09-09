@@ -1,5 +1,6 @@
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
+import { isPlannedRequestBlock } from "./alert-event-exclusions.js";
 import type {
   AlertDomain,
   AlertEvent,
@@ -20,79 +21,6 @@ function latestAttemptResource(
   )`;
 }
 
-export async function deriveRoutingAlerts(
-  db: Kysely<Database>,
-  enterpriseId: string,
-): Promise<DerivedAlert[]> {
-  const rows = await db
-    .selectFrom("ai_request")
-    .select([
-      "id",
-      "principal_id",
-      "error_classification",
-      "error_code",
-      latestAttemptResource("ai_request.id", "ai_request.enterprise_id").as(
-        "provider_resource_id",
-      ),
-    ])
-    .where("enterprise_id", "=", enterpriseId)
-    .where("status", "=", "FAILED")
-    .where("error_classification", "in", [
-      "NO_AVAILABLE_RESOURCE",
-      "ROUTING_FAILED",
-      "CIRCUIT_OPEN",
-    ])
-    .execute();
-  return rows.map((row) => ({
-    alertKey: `RESOURCE_UNAVAILABLE:routing:${row.id}`,
-    domain: "RESOURCE_UNAVAILABLE",
-    signal: "routing_anomaly",
-    severity: "HIGH",
-    title: "路由无可用候选",
-    detail: `${row.error_classification ?? "ROUTING_FAILED"}${row.error_code ? `（${row.error_code}）` : ""}`,
-    resourceId: row.provider_resource_id,
-    principalId: row.principal_id,
-    aiRequestId: row.id,
-  }));
-}
-
-export async function deriveStreamingAlerts(
-  db: Kysely<Database>,
-  enterpriseId: string,
-): Promise<DerivedAlert[]> {
-  const rows = await db
-    .selectFrom("ai_request")
-    .select([
-      "id",
-      "principal_id",
-      "error_classification",
-      "error_code",
-      latestAttemptResource("ai_request.id", "ai_request.enterprise_id").as(
-        "provider_resource_id",
-      ),
-    ])
-    .where("enterprise_id", "=", enterpriseId)
-    .where("stream", "=", true)
-    .where("status", "=", "FAILED")
-    .where("error_classification", "in", [
-      "STREAM_INTERRUPTED",
-      "STREAM_END_MISSING",
-      "CLIENT_CANCEL_NOT_PROPAGATED",
-    ])
-    .execute();
-  return rows.map((row) => ({
-    alertKey: `RESOURCE_UNAVAILABLE:streaming:${row.id}`,
-    domain: "RESOURCE_UNAVAILABLE",
-    signal: "streaming_anomaly",
-    severity: "HIGH",
-    title: "流式响应异常",
-    detail: `${row.error_classification ?? "STREAM_INTERRUPTED"}${row.error_code ? `（${row.error_code}）` : ""}`,
-    resourceId: row.provider_resource_id,
-    principalId: row.principal_id,
-    aiRequestId: row.id,
-  }));
-}
-
 export async function deriveDispatchAlerts(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -107,6 +35,7 @@ export async function deriveDispatchAlerts(
       "saving_calculable",
       "not_calculable_reason",
       "switch_target_resource_id",
+      "decided_at",
       latestAttemptResource(
         "dispatch_decision.ai_request_id",
         "dispatch_decision.enterprise_id",
@@ -140,10 +69,93 @@ export async function deriveDispatchAlerts(
     resourceId: row.switch_target_resource_id ?? row.latest_resource_id,
     principalId: null,
     aiRequestId: row.ai_request_id,
+    occurredAt: row.decided_at,
+    observedAt: row.decided_at,
   }));
 }
 
+/** Every recorded final failure, except intentional cancellation and ordinary quota/policy limits. */
+export async function deriveFailedRequestAlerts(
+  db: Kysely<Database>,
+  enterpriseId: string,
+): Promise<DerivedAlert[]> {
+  const rows = await db
+    .selectFrom("ai_request")
+    .select([
+      "id",
+      "principal_id",
+      "error_classification",
+      "error_code",
+      "stream",
+      "unified_model",
+      "started_at",
+      "finished_at",
+      latestAttemptResource("ai_request.id", "ai_request.enterprise_id").as(
+        "provider_resource_id",
+      ),
+    ])
+    .where("enterprise_id", "=", enterpriseId)
+    .where("status", "=", "FAILED")
+    .where(
+      sql<boolean>`NOT ${isPlannedRequestBlock("ai_request.id", "ai_request.enterprise_id")}`,
+    )
+    .execute();
+  const excluded = new Set([
+    "client_cancelled",
+    "request_cancelled",
+    "dispatch_rejected",
+    "dispatch_rate_limited",
+    "quota_exceeded",
+    "quota_limit_exceeded",
+    "principal_quota_exceeded",
+    "quota_insufficient",
+    "provider_quota_exhausted",
+  ]);
+  const routing = new Set([
+    "NO_AVAILABLE_RESOURCE",
+    "NO_HEALTHY_CANDIDATE",
+    "ROUTING_FAILED",
+    "CIRCUIT_OPEN",
+  ]);
+  return rows
+    .filter((row) => !excluded.has(row.error_code ?? ""))
+    .map((row) => {
+      const isRouting = routing.has(row.error_classification ?? "");
+      const isStreaming =
+        row.stream &&
+        (row.error_classification?.includes("STREAM") ||
+          row.error_classification === "CLIENT_CANCEL_NOT_PROPAGATED");
+      const kind = isRouting
+        ? "routing"
+        : isStreaming
+          ? "streaming"
+          : "request";
+      return {
+        alertKey: `RESOURCE_UNAVAILABLE:${kind}:${row.id}`,
+        domain: "RESOURCE_UNAVAILABLE",
+        signal: isRouting
+          ? "routing_anomaly"
+          : isStreaming
+            ? "streaming_anomaly"
+            : "request_failure",
+        severity: "HIGH",
+        title: isRouting
+          ? "路由无可用候选"
+          : isStreaming
+            ? "流式响应异常"
+            : "模型调用失败",
+        detail: `模型 ${row.unified_model}；分类 ${row.error_classification ?? "未分类"}；错误码 ${row.error_code ?? "未记录"}`,
+        resourceId: row.provider_resource_id,
+        principalId: row.principal_id,
+        aiRequestId: row.id,
+        occurredAt: row.started_at,
+        observedAt: row.finished_at ?? row.started_at,
+      };
+    });
+}
+
 export function toAlertEvent(row: {
+  recovery_evidence?: Record<string, unknown> | null;
   id: string;
   alert_key: string;
   domain: string;
@@ -163,6 +175,7 @@ export function toAlertEvent(row: {
   resolved_by: string | null;
 }): AlertEvent {
   return {
+    recoveryEvidence: row.recovery_evidence ?? null,
     id: row.id,
     alertKey: row.alert_key,
     domain: row.domain as AlertDomain,

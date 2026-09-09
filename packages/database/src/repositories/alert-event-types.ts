@@ -5,6 +5,9 @@ export type AlertDomain =
   | "CREDENTIAL_INVALID";
 
 export interface AlertEvent {
+  recoveryEvidence?: Record<string, unknown> | null;
+  model?: string | null;
+  handledBy?: string | null;
   id: string;
   alertKey: string;
   domain: AlertDomain;
@@ -25,6 +28,8 @@ export interface AlertEvent {
 }
 
 export interface DerivedAlert {
+  occurredAt?: Date;
+  observedAt?: Date;
   alertKey: string;
   domain: AlertDomain;
   signal: string;

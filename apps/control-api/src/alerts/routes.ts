@@ -13,8 +13,11 @@ import { requireAuth } from "../plugins/auth-guard.js";
 
 const DispositionSchema = z.object({
   alert_key: z.string().min(1).max(255),
+  alert_id: z.string().uuid().optional(),
   status: z.enum(["INVESTIGATING", "RESOLVED", "IGNORED"]),
-  resolution_note: z.string().max(2000).optional(),
+  resolution_note: z.string().trim().max(2000).optional(),
+}).refine((value) => value.status === "INVESTIGATING" || Boolean(value.resolution_note), {
+  message: "已处理必须填写处理说明", path: ["resolution_note"],
 });
 
 const ListQuerySchema = z.object({
@@ -51,24 +54,13 @@ export function registerAlertRoutes(app: FastifyInstance): void {
       parsed.data.status,
       parsed.data.resolution_note,
       req.admin!.adminUserId,
+      parsed.data.alert_id,
     );
     if (!updated) {
       return reply
         .code(404)
         .send({ error: "not_found", message: "告警不存在或已处理" });
     }
-    await app.auditRepo.write({
-      enterprise_id: ent,
-      admin_user_id: req.admin!.adminUserId,
-      action: "alert.disposition",
-      target_type: "alert",
-      target_id: null,
-      change_summary: {
-        alert_key: parsed.data.alert_key,
-        status: parsed.data.status,
-      },
-      result: "SUCCESS",
-    });
     return { ok: true };
   });
 }

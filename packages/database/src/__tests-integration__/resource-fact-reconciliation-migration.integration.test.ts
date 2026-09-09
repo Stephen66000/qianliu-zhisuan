@@ -60,6 +60,7 @@ describe("0062 resource status event timestamp repair", () => {
       expect(events[2]!.created_at.getTime()).toBeGreaterThan(events[1]!.created_at.getTime());
       expect(events.slice(1).map((event) => event.time_reliable)).toEqual([true, true]);
 
+      expect(await migrateDown(db)).toBe("0069_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");
       expect(await migrateDown(db)).toBe("0067_admin_cleanup");
       expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");

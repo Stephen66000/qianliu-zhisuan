@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { sql, type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
+import { createTaskObserver } from "./observed-task.js";
 
 export interface SchedulerHealth {
   startedAt: string;
@@ -57,11 +58,12 @@ export async function runSchedulerLoop(input: {
   signal: AbortSignal;
   health: SchedulerHealth;
 }): Promise<void> {
+  const observe = createTaskObserver(input.db);
   input.health.running = true;
   while (!input.signal.aborted) {
     input.health.lastTickAt = new Date().toISOString();
     try {
-      const result = await withRuntimeSchedulerLock(input.db, input.tick);
+      const result = await observe("scheduler", "后台调度循环", () => withRuntimeSchedulerLock(input.db, input.tick), value => value === null ? null : true);
       if (result !== null) input.health.lastSuccessAt = new Date().toISOString();
     } catch (cause) {
       input.health.lastErrorAt = new Date().toISOString();

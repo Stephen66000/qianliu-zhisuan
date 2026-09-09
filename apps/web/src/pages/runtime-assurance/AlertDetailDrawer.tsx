@@ -1,16 +1,16 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
+import { AlertHandlingForm } from "./AlertHandlingForm";
 
 import type { AlertItem } from "../../api/types";
 import { StatusTag } from "../../components/dashboard/StatusTag";
-import { INPUT_CLASS } from "../../components/writes/FormField";
 import { RequestDrilldown } from "../RequestDrilldown";
+import { faultGuidance, faultCategory } from "./alert-guidance";
 import {
-  DOMAIN_LABEL,
   formatTime,
-  isActionable,
   isHandled,
   recoveryText,
+  hasVerifiedRecovery,
 } from "./alert-presenters";
 
 export function AlertDetailDrawer({
@@ -18,6 +18,8 @@ export function AlertDetailDrawer({
   principalName,
   providerName,
   resourceName,
+  startHandling = false,
+  handledError = false,
   handledPending,
   onClose,
   onHandle,
@@ -26,13 +28,15 @@ export function AlertDetailDrawer({
   principalName?: string;
   providerName?: string;
   resourceName?: string;
+  startHandling?: boolean;
+  handledError?: boolean;
   handledPending: boolean;
   onClose: () => void;
-  onHandle: () => void;
+  onHandle: (note: string) => void;
 }) {
   const handled = isHandled(alert);
-  const recovered =
-    alert.status === "AUTO_RESOLVED" || Boolean(alert.sourceClearedAt);
+  const recovered = hasVerifiedRecovery(alert);
+  const guidance = faultGuidance(alert);
   const severityTone =
     alert.severity === "HIGH"
       ? "danger"
@@ -74,7 +78,9 @@ export function AlertDetailDrawer({
             <StatusTag tone={recovered ? "success" : "warning"}>
               {recoveryText(alert)}
             </StatusTag>
-            <StatusTag tone={severityTone}>{alert.severity}</StatusTag>
+            <StatusTag tone={severityTone}>
+              {{ HIGH: "高", MEDIUM: "中", LOW: "低" }[alert.severity]}等级
+            </StatusTag>
           </div>
           <DetailSection title="基本信息">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -88,6 +94,10 @@ export function AlertDetailDrawer({
               />
               <DetailValue label="使用主体" value={principalName ?? "系统级"} />
               <DetailValue
+                label="模型"
+                value={alert.model ?? "未记录；可在关联请求中核对"}
+              />
+              <DetailValue
                 label="厂商 / 资源"
                 value={
                   [providerName, resourceName].filter(Boolean).join(" / ") ||
@@ -96,12 +106,9 @@ export function AlertDetailDrawer({
               />
             </div>
           </DetailSection>
-          <DetailSection title="异常内容">
+          <DetailSection title="异常原因">
             <div className="grid gap-4 sm:grid-cols-2">
-              <DetailValue
-                label="异常类型"
-                value={DOMAIN_LABEL[alert.domain]}
-              />
+              <DetailValue label="异常类型" value={faultCategory(alert)} />
               <DetailValue label="异常信号" value={alert.signal} />
             </div>
             <div className="mt-3 rounded-lg bg-ql-surface-subtle p-3">
@@ -113,46 +120,47 @@ export function AlertDetailDrawer({
               </p>
             </div>
           </DetailSection>
-          <DetailSection title="处理情况">
-            <label className="text-[11px] text-ql-fg-tertiary">
-              是否处理
-              <select
-                aria-label="详情是否处理"
-                className={`${INPUT_CLASS} mt-1 w-full`}
-                disabled={!isActionable(alert) || handledPending}
-                onChange={(event) => {
-                  if (event.target.value === "yes") onHandle();
-                }}
-                value={handled ? "yes" : "no"}
-              >
-                <option value="no">否</option>
-                <option value="yes">是</option>
-              </select>
-            </label>
-            <p className="mt-2 text-[11px] text-ql-fg-tertiary">
-              修改为“是”后立即保存，不再设置单独的“标记已处理”按钮。
+          <DetailSection title="影响范围">
+            <p className="text-[12px] leading-5 text-ql-fg-secondary">
+              {guidance.scope}
             </p>
-            {alert.resolutionNote ? (
-              <p className="mt-3 rounded-lg bg-ql-surface-subtle p-3 text-[12px] text-ql-fg-secondary">
-                {alert.resolutionNote}
-              </p>
-            ) : null}
           </DetailSection>
-          <DetailSection title="恢复情况">
+          <DetailSection title="处理建议">
+            <p className="text-[12px] leading-5 text-ql-fg-secondary">
+              {guidance.advice}
+            </p>
+          </DetailSection>
+          <DetailSection title="处理情况">
+            <AlertHandlingForm
+              alert={alert}
+              startHandling={startHandling}
+              handledPending={handledPending}
+              handledError={handledError}
+              onHandle={onHandle}
+            />
+          </DetailSection>
+          <DetailSection title="恢复依据">
             <div
               className={`rounded-lg p-3 text-[12px] leading-5 ${recovered ? "bg-ql-success-soft text-ql-success" : "bg-ql-warning-soft text-ql-warning"}`}
             >
               {recovered
-                ? `后台已恢复${alert.sourceClearedAt ? ` · ${formatTime(alert.sourceClearedAt)}` : ""}`
-                : "后台尚未恢复，系统将继续检测；恢复后自动更新为“已自动恢复”。"}
+                ? `${String(alert.recoveryEvidence?.summary)} · ${formatTime(String(alert.recoveryEvidence?.verifiedAt))}`
+                : recoveryText(alert) === "单次失败记录"
+                  ? "这是历史失败记录；后续新请求成功不会改写本次结果，请在处理说明中记录跟进结论。"
+                  : "尚无可靠恢复证据。历史自动恢复标记和预计恢复时间不代表调用已恢复成功。"}
+              {recovered && alert.recoveryEvidence?.referenceId ? (
+                <p className="mt-2 break-all">
+                  证据编号：{String(alert.recoveryEvidence.referenceId)}
+                </p>
+              ) : null}
             </div>
           </DetailSection>
-          {alert.aiRequestId ? (
-            <DetailSection title="关联请求">
-              <RequestDrilldown requestId={alert.aiRequestId} />
-            </DetailSection>
-          ) : null}
-          <DetailSection title="事件记录">
+          <DetailSection title="关联请求与事件记录">
+            {alert.aiRequestId ? (
+              <div className="mb-4">
+                <RequestDrilldown requestId={alert.aiRequestId} />
+              </div>
+            ) : null}
             <ol className="space-y-3 border-l border-ql-border pl-4 text-[12px] text-ql-fg-secondary">
               <li>
                 <span className="font-medium text-ql-fg">
@@ -173,7 +181,7 @@ export function AlertDetailDrawer({
                   <span className="font-medium text-ql-fg">
                     {formatTime(alert.sourceClearedAt ?? alert.resolvedAt)}
                   </span>
-                  　后台自动确认恢复
+                  　系统根据证据确认恢复
                 </li>
               ) : null}
             </ol>

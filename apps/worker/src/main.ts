@@ -1,4 +1,6 @@
 import { runSubscriptionRenewalTick } from "./subscription-renewal/runner.js";
+import { runInfrastructureChecks } from "./runtime-assurance/infrastructure-checks.js";
+import { createTaskObserver } from "./runtime-assurance/observed-task.js";
 /**
  * @qianliu/worker —— 对账、预测、恢复、备份任务入口。
  *
@@ -101,7 +103,7 @@ async function runReconciliationTask(args: string[]): Promise<void> {
   const repo = new ReconciliationRepository(db);
   try {
     console.log(`[worker] 对账开始：enterprise=${enterpriseId} range=${rangeFrom.toISOString()} ~ ${rangeTo.toISOString()}`);
-    const outcome = await repo.runReconciliation({ enterpriseId, rangeFrom, rangeTo });
+    const outcome = await createTaskObserver(db, enterpriseId)("reconciliation", "对账任务", () => repo.runReconciliation({ enterpriseId, rangeFrom, rangeTo }));
     const v = outcome.verdict;
     console.log(`[worker] 对账完成：result=${v.result} duplicate=${v.duplicateCount}(rate=${v.duplicateRate}) missing=${v.missingCount}(rate=${v.missingRate}) mismatch=${v.mismatchCount} total=${v.totalDiscrepancies}`);
     if (v.result === "FAIL") {
@@ -165,6 +167,7 @@ async function runRuntimeAssuranceOnce(): Promise<void> {
 
 async function runRuntimeAssuranceScheduler(): Promise<void> {
   const db = createKysely();
+  const observe = createTaskObserver(db);
   const controller = new AbortController();
   const health: SchedulerHealth = {
     startedAt: new Date().toISOString(), lastTickAt: null, lastSuccessAt: null,
@@ -194,14 +197,16 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
     await runSchedulerLoop({
       db, intervalMs, signal: controller.signal, health,
       tick: async () => runScheduledOperationalTasks({
-        renewals: async () => {
+        renewals: () => observe("subscription_renewal", "订阅自动续记", async () => {
           const result = await runSubscriptionRenewalTick({ db });
           console.log(JSON.stringify({ event: "subscription_auto_renewal_tick", ...result }));
-        },
+          return result;
+        }, result => "skipped" in result ? null : result.failures.length === 0),
         onRenewalError: (cause) => console.error(JSON.stringify({
           event: "subscription_auto_renewal_tick_failed", error_type: cause instanceof Error ? cause.name : typeof cause,
         })),
         core: async () => {
+          await runInfrastructureChecks({ db, observe });
           const runtime = await runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() });
           const forecast = await runSupplyForecastTick(supplyForecastRepository);
           // POOL-032：厂商 Coding Plan 额度窗口同步（失败保鲜，不影响 runtime/forecast）。
@@ -225,7 +230,7 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
           console.log(JSON.stringify({ event: "provider_operating_sync_tick_completed", ...operating }));
           return { runtime, forecast, quota, operating };
         },
-        aggregate: async () => {
+        aggregate: () => observe("usage_aggregate", "用量聚合重建", async () => {
           const now = new Date();
           const shanghaiDate = new Intl.DateTimeFormat("en-CA", {
             timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
@@ -241,7 +246,7 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             include_daily: includeDaily, ...aggregate,
           }));
           return aggregate;
-        },
+        }),
         onAggregateError: (cause) => console.error(JSON.stringify({
           event: "usage_aggregate_tick_failed",
           error_type: cause instanceof Error ? cause.name : typeof cause,

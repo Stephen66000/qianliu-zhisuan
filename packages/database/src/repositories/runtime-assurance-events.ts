@@ -9,6 +9,7 @@ import {
   type AvailabilityEvent, type LegacyUnavailableAssessment, type SignalInput, type SignalResult,
 } from "./runtime-assurance-core.js";
 import { RuntimeAssuranceRulesRepository } from "./runtime-assurance-rules.js";
+import { writeObservationFault } from "./alert-observation-writer.js";
 
 export class RuntimeAssuranceEventsRepository extends RuntimeAssuranceRulesRepository {
   async recordSignal(input: SignalInput): Promise<SignalResult> {
@@ -261,20 +262,7 @@ export class RuntimeAssuranceEventsRepository extends RuntimeAssuranceRulesRepos
     now: Date,
     detail?: string,
   ): Promise<void> {
-    const alertKey = `RUNTIME_ASSURANCE:${input.signal}:${input.providerResourceId}`;
-    await sql`
-      INSERT INTO alert_event (
-        enterprise_id, alert_key, domain, signal, severity, title, detail,
-        resource_id, principal_id, ai_request_id, status, first_seen_at, last_seen_at
-      ) VALUES (
-        ${input.enterpriseId}, ${alertKey}, 'RESOURCE_UNAVAILABLE', ${input.signal},
-        'MEDIUM', '运行保障预警', ${detail ?? input.sanitizedSummary ?? matched?.ruleType ?? null},
-        ${input.providerResourceId}, ${input.principalId}, ${input.aiRequestId}, 'OPEN', ${now}, ${now}
-      )
-      ON CONFLICT (enterprise_id, alert_key) WHERE status = 'OPEN'
-      DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at, ai_request_id = EXCLUDED.ai_request_id,
-                    detail = EXCLUDED.detail
-    `.execute(this.db);
+    await writeObservationFault(this.db, input, now, detail ?? input.sanitizedSummary ?? matched?.ruleType);
   }
 
   protected async enqueueEventDeliveryTx(

@@ -3,7 +3,7 @@ import type { AlertDomain, AlertItem } from "../../api/types";
 export const DOMAIN_LABEL: Record<AlertDomain, string> = {
   RESOURCE_UNAVAILABLE: "厂商/模型不可用",
   USAGE_SPIKE: "用量/费用异常",
-  QUOTA_ANOMALY: "额度/账本异常",
+  QUOTA_ANOMALY: "调用/账本异常",
   CREDENTIAL_INVALID: "凭证失效",
 };
 
@@ -30,7 +30,7 @@ export function occursInMonth(alert: AlertItem, month: string): boolean {
   const start = new Date(Date.UTC(year, monthIndex, 1) - 8 * 60 * 60 * 1000);
   const end = new Date(Date.UTC(year, monthIndex + 1, 1) - 8 * 60 * 60 * 1000);
   return (
-    new Date(alert.firstSeenAt) < end && new Date(alert.lastSeenAt) >= start
+    new Date(alert.firstSeenAt) >= start && new Date(alert.firstSeenAt) < end
   );
 }
 
@@ -51,13 +51,51 @@ export function isHandled(alert: AlertItem): boolean {
 }
 
 export function isActionable(alert: AlertItem): boolean {
-  return alert.status === "OPEN" || alert.status === "INVESTIGATING";
+  return !isHandled(alert) || !alert.resolutionNote?.trim();
+}
+
+export function isFault(alert: AlertItem): boolean {
+  return (
+    alert.domain !== "USAGE_SPIKE" &&
+    ![
+      "principal_usage_anomaly",
+      "supply_anomaly",
+      "department_budget_warning",
+    ].includes(alert.signal)
+  );
+}
+
+export function hasVerifiedRecovery(alert: AlertItem): boolean {
+  const proof = alert.recoveryEvidence;
+  return Boolean(
+    proof &&
+      [
+        "SUCCESSFUL_REQUEST",
+        "RECONCILIATION_RESOLVED",
+        "TASK_SUCCEEDED",
+        "SERVICE_HEALTHY",
+      ].includes(String(proof.kind)) &&
+      typeof proof.summary === "string" &&
+      typeof proof.verifiedAt === "string" &&
+      Number.isFinite(Date.parse(proof.verifiedAt)),
+  );
 }
 
 export function recoveryText(alert: AlertItem): string {
+  if (hasVerifiedRecovery(alert)) return "已自动恢复";
+  if (
+    [
+      "routing_anomaly",
+      "streaming_anomaly",
+      "request_failure",
+      "directory_task_failure",
+      "dispatch_anomaly",
+    ].includes(alert.signal)
+  )
+    return "单次失败记录";
   if (alert.status === "AUTO_RESOLVED" || alert.sourceClearedAt)
-    return "已自动恢复";
-  return isHandled(alert) ? "等待后台恢复" : "尚未恢复";
+    return "恢复待核实";
+  return isHandled(alert) ? "等待恢复验证" : "尚无恢复证据";
 }
 
 export function relationLabels(input: {

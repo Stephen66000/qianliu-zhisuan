@@ -337,6 +337,7 @@ export {
 } from "./repositories/provider-finance-types.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;
+export { OperationalFaultRepository } from "./repositories/operational-fault-repository.js";
 export {
   savePricingConfiguration,
   PricingConfigurationError,

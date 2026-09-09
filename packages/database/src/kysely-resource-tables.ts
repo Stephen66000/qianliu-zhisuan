@@ -77,6 +77,7 @@ export interface ReconciliationDiscrepancyTable {
   status: Generated<string>; resolution_note: string | null; created_at: Generated<Date>; resolved_at: Date | null;
 }
 export interface AlertEventTable {
+  recovery_evidence: Generated<Record<string, unknown> | null>;
   id: Generated<string>; enterprise_id: string; alert_key: string; domain: string; signal: string;
   severity: Generated<string>; title: string; detail: string | null; resource_id: string | null;
   principal_id: string | null; ai_request_id: string | null; status: Generated<string>;

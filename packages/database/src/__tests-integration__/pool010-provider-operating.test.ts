@@ -253,7 +253,7 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
     expect(dispatch.forecastExhaustRisk).toBe(true);
 
     const alerts = await new AlertEventRepository(db).evaluate(enterpriseId);
-    expect(alerts).toEqual(expect.arrayContaining([
+    expect(alerts).not.toEqual(expect.arrayContaining([
       expect.objectContaining({
         alertKey: `RESOURCE_UNAVAILABLE:exhaust:${resource.id}`,
       }),

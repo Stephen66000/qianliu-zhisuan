@@ -988,7 +988,7 @@ describe("W20-06/07 部门预算、唯一归属与采购记录", () => {
     })).statusCode).toBe(401);
   });
 
-  it("部门预算达到警戒线进入既有告警中心，重复评估不重复通知且恢复后自动关闭", async () => {
+  it("部门预算仍可计算，但警戒线预警不再进入异常中心", async () => {
     const monthParts = new Intl.DateTimeFormat("en", {
       timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit",
     }).formatToParts(new Date());
@@ -1028,7 +1028,7 @@ describe("W20-06/07 部门预算、唯一归属与采购记录", () => {
     const alertRepository = new AlertEventRepository(db, DEFAULT_THRESHOLDS, true);
     const alertKey = `USAGE_SPIKE:department-budget:${month}:${alertDepartmentId}`;
     const first = await alertRepository.evaluate(enterpriseId);
-    expect(first).toEqual(expect.arrayContaining([
+    expect(first).not.toEqual(expect.arrayContaining([
       expect.objectContaining({
         alertKey,
         signal: "department_budget_warning",
@@ -1039,7 +1039,7 @@ describe("W20-06/07 部门预算、唯一归属与采购记录", () => {
     await alertRepository.evaluate(enterpriseId);
     expect(await db.selectFrom("alert_event").select("status")
       .where("enterprise_id", "=", enterpriseId).where("alert_key", "=", alertKey).execute())
-      .toEqual([{ status: "OPEN" }]);
+      .toEqual([]);
 
     await db.updateTable("department_budget").set({ amount: "10.00000000", version: 2 })
       .where("id", "=", budget.id).execute();
@@ -1047,6 +1047,6 @@ describe("W20-06/07 部门预算、唯一归属与采购记录", () => {
       .not.toEqual(expect.arrayContaining([expect.objectContaining({ alertKey })]));
     expect(await db.selectFrom("alert_event").select("status")
       .where("enterprise_id", "=", enterpriseId).where("alert_key", "=", alertKey).execute())
-      .toEqual([{ status: "AUTO_RESOLVED" }]);
+      .toEqual([]);
   });
 });

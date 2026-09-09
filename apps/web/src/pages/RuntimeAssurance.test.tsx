@@ -72,6 +72,12 @@ const alerts: AlertItem[] = [
     principalId: "p2",
     aiRequestId: null,
     status: "AUTO_RESOLVED",
+    recoveryEvidence: {
+      kind: "SUCCESSFUL_REQUEST",
+      summary: "后续调用已成功",
+      verifiedAt: previousMonth,
+      referenceId: "attempt-success",
+    },
     firstSeenAt: previousMonth,
     lastSeenAt: previousMonth,
     resolvedAt: previousMonth,
@@ -91,6 +97,12 @@ const alerts: AlertItem[] = [
     principalId: null,
     aiRequestId: null,
     status: "RESOLVED",
+    recoveryEvidence: {
+      kind: "RECONCILIATION_RESOLVED",
+      summary: "对账差异已解决",
+      verifiedAt: thisMonth,
+      referenceId: "difference",
+    },
     firstSeenAt: thisMonth,
     lastSeenAt: thisMonth,
     resolvedAt: thisMonth,
@@ -144,7 +156,10 @@ describe("运行保障异常中心", () => {
     vi.clearAllMocks();
     postMock.mockResolvedValue({ ok: true });
     hookMocks.alerts.mockReturnValue({
-      data: { alerts: [alerts[0]], history: [alerts[1], alerts[2]] },
+      data: {
+        alerts: [{ ...alerts[0], firstSeenAt: thisMonth }],
+        history: [alerts[1], alerts[2]],
+      },
       isLoading: false,
       error: null,
       refetch: vi.fn(),
@@ -203,10 +218,15 @@ describe("运行保障异常中心", () => {
   });
 
   it("按月份、主体、厂商和搜索词组合筛选", async () => {
+    hookMocks.alerts.mockReturnValue({
+      data: { alerts: [alerts[0]], history: [alerts[1], alerts[2]] },
+      isLoading: false,
+      error: null,
+    });
     const user = userEvent.setup();
     renderPage();
-    // 首次发生在上月、当前月仍出现的异常必须继续显示。
-    expect(screen.getByText("资源凭证失效")).toBeInTheDocument();
+    // 首次发生在上月的异常只属于上月，更新到本月也不跨月展示。
+    expect(screen.queryByText("资源凭证失效")).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("异常使用主体"), "p2");
     expect(screen.queryByText("资源凭证失效")).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("异常使用主体"), "");
@@ -220,17 +240,23 @@ describe("运行保障异常中心", () => {
     expect(screen.getByText("当前筛选条件下没有异常")).toBeInTheDocument();
   });
 
-  it("每条异常直接通过是否处理字段保存", async () => {
+  it("每条异常选择已处理后必须填写说明才保存", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.selectOptions(
       screen.getByLabelText("资源凭证失效 是否处理"),
       "yes",
     );
+    expect(postMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "保存处理说明" })).toBeDisabled();
+    await user.type(screen.getByLabelText("处理说明"), "核对凭证并验证调用");
+    await user.click(screen.getByRole("button", { name: "保存处理说明" }));
     await waitFor(() =>
       expect(postMock).toHaveBeenCalledWith("/alerts/disposition", {
         alert_key: "CREDENTIAL_INVALID:resource:r1",
+        alert_id: "alert-kimi",
         status: "RESOLVED",
+        resolution_note: "核对凭证并验证调用",
       }),
     );
     await waitFor(() =>
@@ -257,6 +283,10 @@ describe("运行保障异常中心", () => {
       within(dialog).getByLabelText("详情是否处理"),
       "yes",
     );
+    await user.type(within(dialog).getByLabelText("处理说明"), "已核对问题");
+    await user.click(
+      within(dialog).getByRole("button", { name: "保存处理说明" }),
+    );
     await waitFor(() => expect(postMock).toHaveBeenCalled());
     await user.click(
       within(dialog).getByRole("button", { name: "关闭异常详情" }),
@@ -282,7 +312,7 @@ describe("运行保障异常中心", () => {
     await user.click(within(row).getByRole("button", { name: /查看/ }));
     const dialog = screen.getByRole("dialog", { name: "异常详情" });
     expect(
-      within(dialog).getByText("后台已恢复", { exact: false }),
+      within(dialog).getByText("后续调用已成功", { exact: false }),
     ).toBeInTheDocument();
     expect(
       within(dialog).queryByTestId("request-detail"),
@@ -367,8 +397,11 @@ describe("运行保障异常中心", () => {
       screen.getByLabelText("资源凭证失效 是否处理"),
       "yes",
     );
+    await user.type(screen.getByLabelText("处理说明"), "已核对但保存失败");
+    await user.click(screen.getByRole("button", { name: "保存处理说明" }));
     expect(
       await screen.findByText("处理状态保存失败，请重试。"),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("处理说明")).toHaveValue("已核对但保存失败");
   });
 });

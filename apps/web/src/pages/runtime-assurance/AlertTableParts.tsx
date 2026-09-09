@@ -9,6 +9,7 @@ import {
   isActionable,
   isHandled,
   recoveryText,
+  hasVerifiedRecovery,
 } from "./alert-presenters";
 
 export function AlertFilters({
@@ -41,7 +42,7 @@ export function AlertFilters({
   return (
     <div className="mb-4 grid gap-3 rounded-xl border border-ql-border bg-ql-surface p-4 sm:grid-cols-2 xl:grid-cols-[160px_220px_190px_minmax(240px,1fr)]">
       <label className="text-[11px] text-ql-fg-tertiary">
-        月份
+        发生月份
         <input
           aria-label="异常月份"
           className={`${INPUT_CLASS} mt-1 w-full`}
@@ -120,8 +121,7 @@ export function AlertRow({
   onView: () => void;
 }) {
   const handled = isHandled(alert);
-  const recovered =
-    alert.status === "AUTO_RESOLVED" || Boolean(alert.sourceClearedAt);
+  const recovered = hasVerifiedRecovery(alert);
   return (
     <tr className="border-b border-ql-border-zone last:border-0 hover:bg-ql-surface-subtle">
       <td className="p-3 text-ql-fg-secondary">
@@ -165,7 +165,7 @@ export function AlertRow({
         >
           {recoveryText(alert)}
         </StatusTag>
-        {alert.sourceClearedAt ? (
+        {recovered && alert.sourceClearedAt ? (
           <span className="mt-1 block text-[10px] text-ql-fg-tertiary">
             {formatTime(alert.sourceClearedAt)}
           </span>

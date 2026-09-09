@@ -503,7 +503,11 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
     const alerts = res.json().alerts;
     const domains = new Set(alerts.map((a: { domain: string }) => a.domain));
     expect(domains.has("CREDENTIAL_INVALID")).toBe(true);
-    expect(domains.has("RESOURCE_UNAVAILABLE")).toBe(true);
+    expect(
+      alerts.some(
+        (alert: { signal: string }) => alert.signal === "supply_anomaly",
+      ),
+    ).toBe(false);
 
     // 已落 alert_event（持久化事实）
     const rows = await db
@@ -740,17 +744,17 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
     const signals = new Set(responseAlerts.map((alert) => alert.signal));
     for (const signal of [
       "resource_unavailable",
-      "principal_usage_anomaly",
       "call_deduction_anomaly",
       "credential_security_anomaly",
       "routing_anomaly",
       "streaming_anomaly",
-      "supply_anomaly",
       "dispatch_anomaly",
     ]) {
       expect(signals.has(signal), signal).toBe(true);
     }
-    expect(signals.size).toBeGreaterThanOrEqual(8);
+    expect(signals.size).toBeGreaterThanOrEqual(6);
+    expect(signals.has("principal_usage_anomaly")).toBe(false);
+    expect(signals.has("supply_anomaly")).toBe(false);
     expect(
       responseAlerts.find((alert) => alert.signal === "streaming_anomaly")
         ?.resourceId,
@@ -849,6 +853,21 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       );
     expect(open).toBeDefined();
 
+    for (const resolution_note of [undefined, "", "   "]) {
+      const invalid = await app.inject({
+        method: "POST",
+        url: "/alerts/disposition",
+        headers: { cookie: adminCookie },
+        payload: {
+          alert_key: open.alertKey,
+          alert_id: open.id,
+          status: "RESOLVED",
+          resolution_note,
+        },
+      });
+      expect(invalid.statusCode).toBe(400);
+    }
+
     const res = await app.inject({
       method: "POST",
       url: "/alerts/disposition",
@@ -894,7 +913,7 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
     expect(logs.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("源恢复后 AUTO_RESOLVED 并保留历史", async () => {
+  it("仅把资源改为ACTIVE而无成功调用证据时不自动恢复", async () => {
     const provider = await ensureProvider("deepseek");
     const res = await db
       .insertInto("provider_resource")
@@ -932,11 +951,36 @@ describe("W20 异常告警（alert_event 生命周期）", () => {
       .where("enterprise_id", "=", ENT_ID)
       .where("resource_id", "=", res.id)
       .executeTakeFirstOrThrow();
-    expect(row.status).toBe("AUTO_RESOLVED");
+    expect(row.status).toBe("OPEN");
   });
 
   it("未认证 401", async () => {
     const res = await app.inject({ method: "GET", url: "/alerts" });
     expect(res.statusCode).toBe(401);
+  });
+  it("非法历史参数与不存在的处置目标不报成功", async () => {
+    const invalid = await app.inject({
+      method: "GET",
+      url: "/alerts?history=1",
+      headers: { cookie: adminCookie },
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json().error).toBe("invalid_request");
+    const missing = await app.inject({
+      method: "POST",
+      url: "/alerts/disposition",
+      headers: { cookie: adminCookie },
+      payload: {
+        alert_key: "not-found",
+        alert_id: randomUUID(),
+        status: "RESOLVED",
+        resolution_note: "已核对",
+      },
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toEqual({
+      error: "not_found",
+      message: "告警不存在或已处理",
+    });
   });
 });

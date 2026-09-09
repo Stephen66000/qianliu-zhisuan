@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { StubUpstream } from "@qianliu/provider-adapters";
 import { db, stub, dispatchRepo, ENT_ID, authHeader, buildApp, setStub } from "./w16-dispatch-fixture.js";
 
 describe("W16 高峰边界", () => {
   it("智谱 14:00–18:00 REJECT 边界：峰内不访问上游、不扣额度，18:00 恢复", async () => {
+    await db.updateTable("principal_grant").set({ valid_from: new Date(0) }).where("enterprise_id", "=", ENT_ID).execute();
     const policyId = await dispatchRepo.createPolicy({
       enterpriseId: ENT_ID,
       status: "PUBLISHED",
@@ -63,7 +64,11 @@ describe("W16 高峰边界", () => {
       payload: { model: "ql-glm-5.2", input: "boundary" },
     });
 
-    expect((await send()).statusCode).toBe(200);
+    try {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now));
+    const beforePeak = await send();
+    expect(beforePeak.statusCode, beforePeak.body).toBe(200);
     expect(stub.calls).toHaveLength(1);
     const quotaBeforePeak = await db
       .selectFrom("quota_counter")
@@ -71,6 +76,7 @@ describe("W16 高峰边界", () => {
       .executeTakeFirstOrThrow();
 
     now = Date.parse("2026-07-30T06:00:00.000Z");
+    vi.setSystemTime(new Date(now));
     const atStart = await send();
     expect(atStart.statusCode).toBe(403);
     expect(atStart.json().error).toEqual(expect.objectContaining({
@@ -162,15 +168,17 @@ describe("W16 高峰边界", () => {
     }));
 
     now = Date.parse("2026-07-30T10:00:00.000Z");
+    vi.setSystemTime(new Date(now));
     expect((await send()).statusCode).toBe(200);
     expect(stub.calls).toHaveLength(2);
 
     now = Date.parse("2026-08-01T06:00:00.000Z"); // 周六 14:00（Asia/Shanghai）
+    vi.setSystemTime(new Date(now));
     expect((await send()).statusCode).toBe(200);
     expect(stub.calls).toHaveLength(3);
     expect(
       await dispatchRepo.transitionStatus(ENT_ID, policyId, "PUBLISHED", "RETIRED"),
     ).toBe(true);
-    await app.close();
+    } finally { vi.useRealTimers(); await app.close(); }
   });
 });

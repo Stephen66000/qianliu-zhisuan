@@ -345,6 +345,8 @@ export function useAlerts(history = false) {
       get<AlertsResult>(history ? "/alerts?history=true" : "/alerts", signal),
     retry: 1,
     staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 

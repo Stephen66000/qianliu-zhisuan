@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import {
   createKysely, GatewayLedgerRepository, migrateToLatest, QuotaGateRepository,
-  ResourcePoolRepository, RuntimeAssuranceRepository, type Database,
+  ResourcePoolRepository, RuntimeAssuranceRepository, AlertEventRepository, type Database,
 } from "@qianliu/database";
 import { generateApiKey, digestApiKey, apiKeyPrefix, type UpstreamCaller } from "@qianliu/provider-adapters";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -192,5 +192,60 @@ describe("RA-W04 Gateway 运行保障纵向链路", () => {
     expect(open).toHaveLength(0);
     const warning = await db.selectFrom("alert_event").selectAll().where("signal", "=", "TECHNICAL_FAILURE").executeTakeFirst();
     expect(warning).toBeDefined();
+  });
+  it("ENFORCE计划停用真实入口仍拒绝请求，但不进入故障异常中心", async () => {
+    await db
+      .updateTable("availability_event")
+      .set({ status: "CANCELLED" })
+      .where("status", "=", "OPEN")
+      .execute();
+    await new ResourcePoolRepository(db).adminRecover(resourceId);
+    await new ResourcePoolRepository(db).recordSuccess(resourceId);
+    const actor = await db
+      .selectFrom("admin_user")
+      .select("id")
+      .where("enterprise_id", "=", enterpriseId)
+      .executeTakeFirstOrThrow();
+    const repo = new RuntimeAssuranceRepository(db);
+    const rule = await repo.createRule({
+      name: "计划停用",
+      ruleType: "SCHEDULE_BLOCK",
+      actorId: actor.id,
+      version: {
+        provider_resource_id: resourceId,
+        action: "BLOCK",
+        recovery_method: "SCHEDULE_END",
+        schedule_timezone: "UTC",
+        schedule_days_of_week: JSON.stringify([1, 2, 3, 4, 5, 6, 7]),
+        schedule_start_time: "00:00:00",
+        schedule_end_time: "23:59:59",
+      },
+    });
+    await repo.publishRule(
+      rule.rule.id,
+      rule.current_version.version,
+      actor.id,
+    );
+    const response = await request("/v1/chat/completions");
+    expect(response.statusCode).toBe(503);
+    expect(response.json().error.code).toBe("upstream_scheduled_block");
+    const blocked = await db
+      .selectFrom("ai_request")
+      .selectAll()
+      .where("error_code", "=", response.json().error.event_id)
+      .executeTakeFirstOrThrow();
+    expect(blocked.error_classification).toBe("RUNTIME_ASSURANCE_BLOCKED");
+    expect(
+      await db
+        .selectFrom("upstream_attempt")
+        .select("id")
+        .where("ai_request_id", "=", blocked.id)
+        .execute(),
+    ).toHaveLength(0);
+    expect(
+      (await new AlertEventRepository(db).evaluate(enterpriseId)).some(
+        (alert) => alert.aiRequestId === blocked.id,
+      ),
+    ).toBe(false);
   });
 });

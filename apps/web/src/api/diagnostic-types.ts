@@ -141,6 +141,9 @@ export type AlertDomain =
   | "CREDENTIAL_INVALID";
 
 export interface AlertItem {
+  recoveryEvidence?: Record<string, unknown> | null;
+  model?: string | null;
+  handledBy?: string | null;
   id: string;
   alertKey: string;
   domain: AlertDomain;

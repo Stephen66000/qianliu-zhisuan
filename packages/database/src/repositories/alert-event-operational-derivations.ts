@@ -16,6 +16,7 @@ export async function deriveCallDeductionAlerts(
       "discrepancy_type",
       "severity",
       "ai_request_id",
+      "created_at",
       sql<string | null>`(
         SELECT attempt.provider_resource_id
           FROM upstream_attempt AS attempt
@@ -38,6 +39,8 @@ export async function deriveCallDeductionAlerts(
     resourceId: row.provider_resource_id,
     principalId: null,
     aiRequestId: row.ai_request_id,
+    occurredAt: row.created_at,
+    observedAt: row.created_at,
   }));
 }
 
@@ -56,6 +59,7 @@ export async function deriveCredentialAlerts(
       "refresh_error_classification",
     ])
     .where("enterprise_id", "=", enterpriseId)
+    .where("status", "not in", ["DELETED", "DISABLED"])
     .execute();
   const out: DerivedAlert[] = [];
   for (const resource of resources) {
