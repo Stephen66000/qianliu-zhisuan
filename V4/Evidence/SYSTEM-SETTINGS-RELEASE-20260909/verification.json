@@ -1,0 +1,22 @@
+{
+  "scope": "Local deployment preparation only; production preflight and deployment pending",
+  "applicationCommit": "72456694118f42c51f199c95a24e665bc7d25fca",
+  "applicationTree": "7b6f1e690bfdf305defbf15ae60cbe5625807cb4",
+  "expectedProductionCommit": "eb1ed123ec8e919cad0e78947c9cd9c441dee352",
+  "productionEvidence": "User-supplied COMPLETE receipt; not a current SSH inspection",
+  "migrationFrom": "0070_alert_recovery_evidence",
+  "migrationTo": [
+    "0071_enterprise_contact_details",
+    "0072_admin_roles_security"
+  ],
+  "shellSyntax": "PASS",
+  "commandDoubleScenarios": 21,
+  "commandDoubleResult": "PASS",
+  "postgresBackupRestoreUpgradeAndRollbackGuard": "PASS (1 focused integration test)",
+  "applicationCodeChanged": false,
+  "files": {
+    "deploy/scripts/release-system-settings-20260909-mac-mini.sh": "25956d464d95a23743b78378bc2629f9620f63909f6ac145286600463b58c612",
+    "scripts/rehearse-system-settings-release.mjs": "6a53959bdcb3023345c46b0cea1a7cea4a6df2f3566e6445b3fa31cb9cf17f8b",
+    "packages/database/src/__tests-integration__/settings-release-rehearsal.integration.test.ts": "26c18a70aa9956ec6b056ec60517b4b39f872723cfbf5ae0dcc50581a2d3d4af"
+  }
+}

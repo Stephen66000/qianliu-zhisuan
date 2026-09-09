@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/system-settings-v1-20260909/packages/database
+
+ ✓ src/__tests-integration__/settings-release-rehearsal.integration.test.ts (1 test) 9097ms
+   ✓ 0070 备份可恢复，0071/0072 保留账号和审计引用，新权限或安全策略阻止旧版回退  9096ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  22:41:06
+   Duration  9.78s (transform 43ms, setup 0ms, collect 517ms, tests 9.10s, environment 0ms, prepare 52ms)

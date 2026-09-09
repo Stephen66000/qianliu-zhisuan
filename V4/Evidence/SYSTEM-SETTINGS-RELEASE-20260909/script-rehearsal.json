@@ -1,0 +1,375 @@
+{
+  "mode": "isolated command doubles; not a real Docker or server deployment",
+  "suiteRoot": "/private/var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/qianliu-settings-release-rehearsal-SkJ1KS",
+  "results": [
+    {
+      "scenario": "preflight",
+      "exit": 0,
+      "result": "PASS",
+      "events": []
+    },
+    {
+      "scenario": "source-mismatch",
+      "exit": 2,
+      "result": "PASS",
+      "events": []
+    },
+    {
+      "scenario": "dirty-source",
+      "exit": 1,
+      "result": "PASS",
+      "events": []
+    },
+    {
+      "scenario": "lock-held",
+      "exit": 2,
+      "result": "PASS",
+      "events": []
+    },
+    {
+      "scenario": "migration-history-mismatch",
+      "exit": 2,
+      "result": "PASS",
+      "events": []
+    },
+    {
+      "scenario": "history-query-fail",
+      "exit": 2,
+      "result": "PASS",
+      "events": []
+    },
+    {
+      "scenario": "post-migration-query-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "stop",
+        "stop"
+      ]
+    },
+    {
+      "scenario": "tree-mismatch",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout"
+      ]
+    },
+    {
+      "scenario": "migration-scope-mismatch",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout"
+      ]
+    },
+    {
+      "scenario": "build-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "tag",
+        "tag",
+        "tag",
+        "tag"
+      ]
+    },
+    {
+      "scenario": "backup-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "stop",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "restore-old"
+      ]
+    },
+    {
+      "scenario": "stop-partial",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "stop",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "restore-old"
+      ]
+    },
+    {
+      "scenario": "migration-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "stop",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "restore-old"
+      ]
+    },
+    {
+      "scenario": "intermediate-migration-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "stop",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "restore-old"
+      ]
+    },
+    {
+      "scenario": "migration-committed-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "stop",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "restore-old"
+      ]
+    },
+    {
+      "scenario": "unknown-migration",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "stop",
+        "stop"
+      ]
+    },
+    {
+      "scenario": "start-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "start-new",
+        "stop",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "restore-old"
+      ]
+    },
+    {
+      "scenario": "health-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "start-new",
+        "stop",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "restore-old"
+      ]
+    },
+    {
+      "scenario": "settings-written-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "start-new",
+        "stop",
+        "stop"
+      ]
+    },
+    {
+      "scenario": "settings-query-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "start-new",
+        "stop",
+        "stop"
+      ]
+    },
+    {
+      "scenario": "success",
+      "exit": 0,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write",
+        "checkout",
+        "tag",
+        "tag",
+        "tag",
+        "tag",
+        "build",
+        "stop",
+        "backup",
+        "backup-validate",
+        "migrate",
+        "start-new"
+      ]
+    }
+  ]
+}
