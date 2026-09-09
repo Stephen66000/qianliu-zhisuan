@@ -273,6 +273,7 @@ export {
 } from "./repositories/operating-bill-account-repository.js";
 export {
   AdminWriteRepository,
+  AdminCredentialRotationRequiredError,
   AdminRecoverNotFoundError,
   CurrentSubscriptionPeriodRequiredError,
 } from "./repositories/admin-write-repository.js";

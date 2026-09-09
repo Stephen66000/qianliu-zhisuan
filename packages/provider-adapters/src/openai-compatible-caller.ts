@@ -107,7 +107,7 @@ export function createOpenAiCompatibleCaller(
 
     if (!response.ok) {
       timeout.markFirstByte();
-      const requestShapeSummary = response.status === 400
+      const requestShapeSummary = new Set([400, 401, 403]).has(response.status)
         ? buildRequestShapeSummary(chatBody)
         : null;
       const failure = await upstreamFailure(

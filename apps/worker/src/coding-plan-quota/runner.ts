@@ -3,7 +3,8 @@
  *
  * 只处理到期的 CODING_PLAN 资源（kimi/zhipu），解密凭证 → 调厂商额度接口 → 写窗口快照。
  * 健康资源按分钟节流；隔离资源按 cooldown_until 定点检查。厂商当次响应确认所有窗口
- * 有余量时自动恢复到 DEGRADED，下一次真实请求成功后再进入 ACTIVE。
+ * 有余量时只自动解除额度类隔离。CREDENTIAL_INVALID 保持隔离，因为额度接口成功
+ * 不能证明 Chat 接口鉴权成功。
  */
 import { type Kysely } from "kysely";
 import {
@@ -158,7 +159,15 @@ export async function runCodingPlanQuotaTick(input: {
         windowsUpserted += 1;
       }
       if (quotaWindowsConfirmRecovery(resource.provider_code, result.windows)) {
-        if (await poolRepo.recordQuotaSyncRecovery(resource.id)) resourcesRecovered += 1;
+        const recovered = await poolRepo.recordQuotaSyncRecovery(resource.id);
+        if (recovered) resourcesRecovered += 1;
+        else if (resource.status === "CREDENTIAL_INVALID") {
+          await poolRepo.scheduleQuotaSync(
+            resource.id,
+            new Date(now.getTime() + retryIntervalMs),
+            now,
+          );
+        }
       } else if (!["ACTIVE", "DEGRADED"].includes(resource.status)) {
         const nextResetAt = result.windows
           .filter((window) => !window.unsupported

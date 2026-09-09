@@ -5,7 +5,7 @@ import {
   type PostgresTestInstance,
 } from "@qianliu/testing";
 import { createKysely } from "../kysely.js";
-import { migrateDown, migrateToLatest } from "../migrator.js";
+import { createMigrator, migrateDown, migrateToLatest } from "../migrator.js";
 import { verifyAlertRecoveries } from "../repositories/alert-event-recovery.js";
 import { deriveBackgroundFaults } from "../repositories/alert-event-background.js";
 import {
@@ -22,7 +22,9 @@ let db: ReturnType<typeof createKysely>;
 beforeAll(async () => {
   pg = await startPostgresContainer();
   db = createKysely(pg.connectionString);
-  await migrateToLatest(db);
+  const source = await createMigrator(db).migrateTo("0069_auth_error_evidence");
+  expect(source.error).toBeUndefined();
+  expect(await migrateToLatest(db)).toEqual(["0070_alert_recovery_evidence"]);
 }, 120_000);
 afterAll(async () => {
   await db?.destroy();
@@ -1407,7 +1409,7 @@ it("reconciliation requires resolved status and timestamp before recording objec
     referenceId: discrepancy.id,
   });
 });
-it("migration 0069 refuses rollback once any real recovery evidence exists", async () => {
+it("migration 0070 refuses rollback once any real recovery evidence exists", async () => {
   const t = await fixture(),
     jobs = new OperationalFaultRepository(db);
   await jobs.record(
@@ -1425,7 +1427,7 @@ it("migration 0069 refuses rollback once any real recovery evidence exists", asy
     t.enterpriseId,
   );
   await expect(migrateDown(db)).rejects.toThrow(
-    "0069 rollback blocked: recovery evidence exists",
+    "0070 rollback blocked: recovery evidence exists",
   );
   expect(
     (await t.repo.listHistory(t.enterpriseId))[0]?.recoveryEvidence,

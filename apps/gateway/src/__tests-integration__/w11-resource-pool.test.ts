@@ -95,6 +95,10 @@ describe("W11 凭证生命周期与账号池", () => {
     const again = await poolRepo.recordFailure(resA, "UPSTREAM_CREDENTIAL_INVALID", new Date());
     expect(again).toBeNull();
     expect(await poolRepo.listStatusEvents(resA)).toHaveLength(1);
+
+    // 人工只改状态也不能解除 401 隔离，必须先产生递增的凭证版本。
+    expect(await poolRepo.adminRecover(resA)).toBeNull();
+    expect((await poolRepo.getResource(resA))?.status).toBe("CREDENTIAL_INVALID");
   });
 
   it("WT-19：B 刷新失败仅隔离 B；adminRecover 受控恢复（新凭证版本+过期时间）后可服务", async () => {
@@ -270,7 +274,7 @@ describe("W11 凭证生命周期与账号池", () => {
     await poolRepo.recordSuccess(resB); // 回 ACTIVE
   });
 
-  it("厂商额度同步成功可自动解除 Coding Plan 终态隔离", async () => {
+  it("厂商额度同步成功只解除 Coding Plan 额度隔离", async () => {
     const resourceId = (await db.insertInto("provider_resource").values({
       enterprise_id: ENT_ID,
       provider_id: providerId,
@@ -280,7 +284,7 @@ describe("W11 凭证生命周期与账号池", () => {
       resource_pool_id: "pool-kimi-sync",
       credential_fingerprint: "quota-sync-recovery-fp",
       credential_version: 1,
-      status: "CREDENTIAL_INVALID",
+      status: "EXHAUSTED",
       cooldown_until: new Date(Date.now() - 1_000),
     }).returning("id").executeTakeFirstOrThrow()).id;
 
@@ -295,12 +299,27 @@ describe("W11 凭证生命周期与账号池", () => {
       cooldownUntil: null,
     });
     expect((await poolRepo.listStatusEvents(resourceId)).at(-1)).toMatchObject({
-      from_status: "CREDENTIAL_INVALID",
+      from_status: "EXHAUSTED",
       to_status: "DEGRADED",
       reason: "QUOTA_SYNC_RECOVERED",
       actor: "system",
     });
     await expect(poolRepo.recordSuccess(resourceId)).resolves.toMatchObject({ toStatus: "ACTIVE" });
+  });
+
+  it("厂商额度同步成功不能解除 CREDENTIAL_INVALID", async () => {
+    const resourceId = (await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID,
+      provider_id: providerId,
+      name: "kimi-credential-invalid-sync",
+      mode: "CODING_PLAN",
+      credential_type: "SUBSCRIPTION_SESSION",
+      status: "CREDENTIAL_INVALID",
+    }).returning("id").executeTakeFirstOrThrow()).id;
+
+    await expect(poolRepo.recordQuotaSyncRecovery(resourceId)).resolves.toBeNull();
+    expect((await poolRepo.getResource(resourceId))?.status).toBe("CREDENTIAL_INVALID");
+    expect(await poolRepo.listStatusEvents(resourceId)).toEqual([]);
   });
 
   it("canary：凭证明文/请求正文在 resource_status_event 0 命中", async () => {

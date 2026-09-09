@@ -80,7 +80,8 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0066_subscription_auto_renewal", "Success"],
         ["0067_admin_cleanup", "Success"],
         ["0068_alert_resource_context", "Success"],
-        ["0069_alert_recovery_evidence", "Success"],
+        ["0069_auth_error_evidence", "Success"],
+        ["0070_alert_recovery_evidence", "Success"],
       ]);
       const rows = await db.selectFrom("ai_request")
         .select(["id", "unified_model", "unified_model_id"]).orderBy("id").execute();
@@ -118,7 +119,8 @@ describe("POOL-043 稳定模型身份迁移", () => {
         unified_model: "ql-deepseek-v4-flash", unified_model_id: modelA,
       });
 
-      expect(await migrateDown(db)).toBe("0069_alert_recovery_evidence");
+      expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
+      expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");
       expect(await migrateDown(db)).toBe("0067_admin_cleanup");
       expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
@@ -194,7 +196,8 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0066_subscription_auto_renewal", "Success"],
         ["0067_admin_cleanup", "Success"],
         ["0068_alert_resource_context", "Success"],
-        ["0069_alert_recovery_evidence", "Success"],
+        ["0069_auth_error_evidence", "Success"],
+        ["0070_alert_recovery_evidence", "Success"],
       ]);
       const rebound = await db.selectFrom("ai_request")
         .select(["unified_model", "unified_model_id"])

@@ -107,7 +107,8 @@ it("0066 备份可恢复，0067/0068 保留管理员历史引用且归档后禁�
     expect(await migrateToLatest(db)).toEqual([
       "0067_admin_cleanup",
       "0068_alert_resource_context",
-      "0069_alert_recovery_evidence",
+      "0069_auth_error_evidence",
+      "0070_alert_recovery_evidence",
     ]);
     expect(
       await db

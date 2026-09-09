@@ -283,7 +283,8 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0066_subscription_auto_renewal", "Success"],
         ["0067_admin_cleanup", "Success"],
         ["0068_alert_resource_context", "Success"],
-        ["0069_alert_recovery_evidence", "Success"],
+        ["0069_auth_error_evidence", "Success"],
+        ["0070_alert_recovery_evidence", "Success"],
       ]);
 
       expect(await db.selectFrom("dispatch_policy")
@@ -326,7 +327,8 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow();
       expect(afterSecondUp).toEqual(migratedTarget);
 
-      expect(await migrateDown(db)).toBe("0069_alert_recovery_evidence");
+      expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
+      expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");
       expect(await migrateDown(db)).toBe("0067_admin_cleanup");
       expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
@@ -411,7 +413,8 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0066_subscription_auto_renewal", "Success"],
         ["0067_admin_cleanup", "Success"],
         ["0068_alert_resource_context", "Success"],
-        ["0069_alert_recovery_evidence", "Success"],
+        ["0069_auth_error_evidence", "Success"],
+        ["0070_alert_recovery_evidence", "Success"],
       ]);
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows"])

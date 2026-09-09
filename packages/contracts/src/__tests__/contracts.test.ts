@@ -72,6 +72,10 @@ describe("@qianliu/contracts baseline", () => {
       httpStatus: 429, type: "rate_limit_error", code: "rate_limit_exceeded",
       param: null, messageCategory: "UNCLASSIFIED", diagnosticHash: "0".repeat(64),
     })).toBeNull();
+    expect(parseUpstreamErrorEvidence({
+      httpStatus: 401, type: "authentication_error", code: "expired_token",
+      param: null, messageCategory: "CREDENTIAL_EXPIRED", diagnosticHash: "1".repeat(64),
+    })).toMatchObject({ httpStatus: 401, code: "expired_token" });
   });
 
   it("OpenAI-compatible Chat 合同覆盖推理字段、工具调用及顶层控制字段", () => {

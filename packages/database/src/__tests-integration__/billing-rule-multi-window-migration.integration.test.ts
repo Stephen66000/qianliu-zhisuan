@@ -87,7 +87,8 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
-      expect(await migrateDown(db)).toBe("0069_alert_recovery_evidence");
+      expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
+      expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");
       expect(await migrateDown(db)).toBe("0067_admin_cleanup");
       expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");

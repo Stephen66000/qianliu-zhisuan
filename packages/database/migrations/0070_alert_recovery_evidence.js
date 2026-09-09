@@ -12,7 +12,7 @@ export async function down(db) {
     .where("recovery_evidence", "is not", null)
     .limit(1)
     .executeTakeFirst();
-  if (found) throw new Error("0069 rollback blocked: recovery evidence exists");
+  if (found) throw new Error("0070 rollback blocked: recovery evidence exists");
   await db.schema
     .alterTable("alert_event")
     .dropColumn("recovery_evidence")
