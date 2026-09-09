@@ -14,8 +14,8 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 const repo = process.cwd();
-const source = "0bf4c1c0a17afc3a4a380f92958297efd46026b6";
-const sourceTree = "468182ad84d860aa73b0b71968bfe0453410c4c2";
+const source = "1dc468369c56fb59f3a64d40b6136d102b5a1a41";
+const sourceTree = "3beaa4deb0d0da808b6ed4592d08baeb5ca9ef69";
 const scriptPath = "deploy/scripts/release-runtime-admin-20260908-mac-mini.sh";
 const original = readFileSync(scriptPath, "utf8");
 const candidate =
@@ -56,11 +56,11 @@ if (cmd === 'git') {
   } else if (args.includes('status')) { if (scenario === 'dirty-source') out(' M source.ts'); }
   else if (args.includes('ls-tree')) out(s.sourcePaths.join('\\n'));
   else if (args.includes('diff')) {
-    if (args.includes('--name-status')) out(scenario === 'migration-scope-mismatch' ? 'M\\told-migration.js' : 'A\\tpackages/database/migrations/0069_alert_recovery_evidence.js');
+    if (args.includes('--name-status')) out(scenario === 'migration-scope-mismatch' ? 'M\\told-migration.js' : 'A\\tpackages/database/migrations/0070_alert_recovery_evidence.js');
   } else if (args.includes('checkout')) {
     event('checkout'); fs.mkdirSync(dir + '/deploy', { recursive: true });
     fs.mkdirSync(dir + '/packages/database/migrations', { recursive: true });
-    for (const name of ['0069_alert_recovery_evidence.js']) fs.copyFileSync(s.repo + '/packages/database/migrations/' + name, dir + '/packages/database/migrations/' + name);
+    for (const name of ['0070_alert_recovery_evidence.js']) fs.copyFileSync(s.repo + '/packages/database/migrations/' + name, dir + '/packages/database/migrations/' + name);
   } else if (args.includes('init') || args.includes('fetch') || args.includes('remote')) event('git-write');
   save(); process.exit(0);
 }
@@ -98,7 +98,7 @@ else if (args[0] === 'image' && args[1] === 'tag') {
   } else if (args.includes('run')) {
     event('migrate'); assertStopped();
     if (scenario === 'migration-fail') fail();
-    s.names = [...s.sourceNames, '0069_alert_recovery_evidence'];
+    s.names = [...s.sourceNames, '0070_alert_recovery_evidence'];
     if (scenario === 'migration-committed-fail') fail();
     if (scenario === 'unknown-migration') { s.names.push('9999_unknown'); fail(); }
   } else if (args.includes('up')) {
@@ -273,7 +273,7 @@ for (const scenario of [
     );
   }
   if (scenario === "success") {
-    assert.equal(state.names.at(-1), "0069_alert_recovery_evidence");
+    assert.equal(state.names.at(-1), "0070_alert_recovery_evidence");
     assert.equal(
       readFileSync(root + "/qianliu-current-release.txt", "utf8").trim(),
       state.current,

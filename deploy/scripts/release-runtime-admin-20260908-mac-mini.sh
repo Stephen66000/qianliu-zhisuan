@@ -3,12 +3,12 @@
 set -Eeuo pipefail
 umask 077
 export PATH="${PATH}:/usr/local/bin:/opt/homebrew/bin:/Applications/Docker.app/Contents/Resources/bin"
-candidate=fbcfcd89c1f1b3275b7cb4f28c3e1daba7be132c
-tree=ef8b2cfb9d8ccf4989b95849de9cf2c2bdce2b3d
-expected_source=0bf4c1c0a17afc3a4a380f92958297efd46026b6
-source_tree=468182ad84d860aa73b0b71968bfe0453410c4c2
-migration=0068_alert_resource_context
-target_migration=0069_alert_recovery_evidence
+candidate=eb1ed123ec8e919cad0e78947c9cd9c441dee352
+tree=bb364298d362c22c7628b7f0d36e160563b0deaf
+expected_source=1dc468369c56fb59f3a64d40b6136d102b5a1a41
+source_tree=3beaa4deb0d0da808b6ed4592d08baeb5ca9ef69
+migration=0069_auth_error_evidence
+target_migration=0070_alert_recovery_evidence
 root=/Users/stephen
 pointer="$root/qianliu-current-release.txt"
 lock="$root/.qianliu-quota-pricing-release.lock"
@@ -159,9 +159,9 @@ git -C "$release" checkout -q --detach "$candidate"
 test "$(git -C "$release" rev-parse HEAD)" = "$candidate"
 test "$(git -C "$release" rev-parse 'HEAD^{tree}')" = "$tree"
 git -C "$release" merge-base --is-ancestor "$expected_source" "$candidate"
-test "$(git -C "$release" -c diff.renames=false diff --name-status "$expected_source..$candidate" -- packages/database/migrations)" = $'A\tpackages/database/migrations/0069_alert_recovery_evidence.js'
+test "$(git -C "$release" -c diff.renames=false diff --name-status "$expected_source..$candidate" -- packages/database/migrations)" = $'A\tpackages/database/migrations/0070_alert_recovery_evidence.js'
 git -C "$release" diff --quiet "$expected_source..$candidate" -- deploy/compose.yaml deploy/compose.target.yaml deploy/caddy deploy/postgres-init package.json pnpm-lock.yaml pnpm-workspace.yaml
-test "$(shasum -a 256 "$release/packages/database/migrations/0069_alert_recovery_evidence.js" | awk '{print $1}')" = bed3231c5fb958837feddbce321a8d781a90e7fc9ab5307c196f5083cf655211
+test "$(shasum -a 256 "$release/packages/database/migrations/0070_alert_recovery_evidence.js" | awk '{print $1}')" = 8847f1898128d4a4cc004e747611d20134015e9d4d9f744048f09b198537ac51
 cp -p "$previous/deploy/.env" "$release/deploy/.env"
 chmod 600 "$release/deploy/.env"
 test "$(shasum -a 256 "$release/deploy/.env" | awk '{print $1}')" = "$env_sha"

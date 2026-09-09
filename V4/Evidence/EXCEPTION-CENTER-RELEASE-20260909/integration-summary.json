@@ -1,0 +1,34 @@
+{
+  "source": "1dc468369c56fb59f3a64d40b6136d102b5a1a41",
+  "candidate": "eb1ed123ec8e919cad0e78947c9cd9c441dee352",
+  "tree": "bb364298d362c22c7628b7f0d36e160563b0deaf",
+  "sourceMigration": "0069_auth_error_evidence",
+  "targetMigration": "0070_alert_recovery_evidence",
+  "productionCredentialFilesUnchanged": 12,
+  "conflictsResolved": "Two migration rollback-order test conflicts; no product-code conflict",
+  "node": {
+    "files": 27,
+    "tests": 242,
+    "passed": 242,
+    "failed": 0,
+    "skipped": 0
+  },
+  "web": {
+    "files": 2,
+    "tests": 3,
+    "passed": 3
+  },
+  "typecheck": "PASS",
+  "build": "PASS",
+  "changedFileLint": "PASS",
+  "releaseRehearsal": {
+    "scenarios": 20,
+    "result": "PASS",
+    "mode": "isolated command doubles; not production deployment"
+  },
+  "notes": [
+    "Initial integration run could not use Docker; preserved locally in integration-result.json. Docker Desktop started and same tests passed in integration-result-retry.json.",
+    "pnpm was invoked with enableGlobalVirtualStore=false to match existing .pnpm layout; verifyDepsBeforeRun=error remained enabled, no install or global config change.",
+    "No deployment executed. Existing 0069 auth migration remains unchanged; only new 0070 is applied to supplied source."
+  ]
+}
