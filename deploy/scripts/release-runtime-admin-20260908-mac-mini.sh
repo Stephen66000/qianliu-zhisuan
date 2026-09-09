@@ -3,13 +3,12 @@
 set -Eeuo pipefail
 umask 077
 export PATH="${PATH}:/usr/local/bin:/opt/homebrew/bin:/Applications/Docker.app/Contents/Resources/bin"
-candidate=0bf4c1c0a17afc3a4a380f92958297efd46026b6
-tree=468182ad84d860aa73b0b71968bfe0453410c4c2
-expected_source=feca8603210bcc109346faf03860bfea50d61742
-source_tree=82d1a4f1553fc362eecaaf18dfbf4c38348687c6
-migration=0066_subscription_auto_renewal
-target_migration=0068_alert_resource_context
-admin_migration=0067_admin_cleanup
+candidate=fbcfcd89c1f1b3275b7cb4f28c3e1daba7be132c
+tree=ef8b2cfb9d8ccf4989b95849de9cf2c2bdce2b3d
+expected_source=0bf4c1c0a17afc3a4a380f92958297efd46026b6
+source_tree=468182ad84d860aa73b0b71968bfe0453410c4c2
+migration=0068_alert_resource_context
+target_migration=0069_alert_recovery_evidence
 root=/Users/stephen
 pointer="$root/qianliu-current-release.txt"
 lock="$root/.qianliu-quota-pricing-release.lock"
@@ -36,7 +35,7 @@ test -f "$previous/deploy/.env"
 (cd "$previous/deploy" && docker compose config --quiet)
 source_names="$(git -C "$previous" ls-tree -r --name-only HEAD packages/database/migrations | sed -n 's|^packages/database/migrations/\(.*\)\.js$|\1|p' | LC_ALL=C sort)"
 test "$(printf '%s\n' "$source_names" | tail -1)" = "$migration"
-target_names="$(printf '%s\n%s\n%s' "$source_names" "$admin_migration" "$target_migration")"
+target_names="$(printf '%s\n%s' "$source_names" "$target_migration")"
 db_sql() {
   # SQL is fixed by this script; no environment contents or passwords are printed.
   printf '%s\n' "$1" | docker compose --project-directory "$previous/deploy" exec -T postgres \
@@ -82,13 +81,14 @@ stop_and_verify() {
   done
 }
 safe_previous() {
-  local names archived_count
+  local names evidence_count
   names="$(db_names)" || return 1
   if test "$names" = "$source_names"; then return 0; fi
-  if test "$names" != "$target_names" && test "$names" != "$(printf '%s\n%s' "$source_names" "$admin_migration")"; then return 1; fi
-  # Old code ignores archived_at. It may run only if no archived identity exists.
-  archived_count="$(db_sql 'SELECT COUNT(*) FROM admin_user WHERE archived_at IS NOT NULL;')" || return 1
-  test "$archived_count" = 0
+  test "$names" = "$target_names" || return 1
+  # Source code already understands archived admins, but not recovery_evidence.
+  # Do not let old writers invalidate newly recorded proof. Keep the additive column.
+  evidence_count="$(db_sql 'SELECT COUNT(*) FROM alert_event WHERE recovery_evidence IS NOT NULL;')" || return 1
+  test "$evidence_count" = 0
 }
 require_db_names "$source_names" || { echo 'STOP: database migration history query failed or differs from source' >&2; exit 2; }
 verify_containers "$previous"
@@ -127,7 +127,7 @@ on_exit() {
     fi
     if test "$rollback_ok" != 1; then
       if test "$started" = 1; then stop_and_verify || true; fi
-      echo "STOP: recovery cannot be verified or archived admins exist. Database/backup preserved; lock retained at $lock. Forward repair required." >&2
+      echo "STOP: recovery cannot be verified or recovery evidence exists. Database/backup preserved; lock retained at $lock. Forward repair required." >&2
       exit "$status"
     fi
     echo 'FAILED: previous applications retained/restored; database preserved (additive migrations may remain). No automatic down/restore was executed.' >&2
@@ -159,10 +159,9 @@ git -C "$release" checkout -q --detach "$candidate"
 test "$(git -C "$release" rev-parse HEAD)" = "$candidate"
 test "$(git -C "$release" rev-parse 'HEAD^{tree}')" = "$tree"
 git -C "$release" merge-base --is-ancestor "$expected_source" "$candidate"
-test "$(git -C "$release" -c diff.renames=false diff --name-status "$expected_source..$candidate" -- packages/database/migrations)" = $'A\tpackages/database/migrations/0067_admin_cleanup.js\nA\tpackages/database/migrations/0068_alert_resource_context.js'
+test "$(git -C "$release" -c diff.renames=false diff --name-status "$expected_source..$candidate" -- packages/database/migrations)" = $'A\tpackages/database/migrations/0069_alert_recovery_evidence.js'
 git -C "$release" diff --quiet "$expected_source..$candidate" -- deploy/compose.yaml deploy/compose.target.yaml deploy/caddy deploy/postgres-init package.json pnpm-lock.yaml pnpm-workspace.yaml
-test "$(shasum -a 256 "$release/packages/database/migrations/0067_admin_cleanup.js" | awk '{print $1}')" = 3bcb5061f57be11fe9a3817789863ba9894ea8b6f60ddd582d5c13499cca6a78
-test "$(shasum -a 256 "$release/packages/database/migrations/0068_alert_resource_context.js" | awk '{print $1}')" = 43359791f7b6473eb49655d99abeb83b8c9c2e99e7345f75dc7a9046f6920e80
+test "$(shasum -a 256 "$release/packages/database/migrations/0069_alert_recovery_evidence.js" | awk '{print $1}')" = bed3231c5fb958837feddbce321a8d781a90e7fc9ab5307c196f5083cf655211
 cp -p "$previous/deploy/.env" "$release/deploy/.env"
 chmod 600 "$release/deploy/.env"
 test "$(shasum -a 256 "$release/deploy/.env" | awk '{print $1}')" = "$env_sha"

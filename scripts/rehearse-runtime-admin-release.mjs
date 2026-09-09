@@ -14,8 +14,8 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 const repo = process.cwd();
-const source = "feca8603210bcc109346faf03860bfea50d61742";
-const sourceTree = "82d1a4f1553fc362eecaaf18dfbf4c38348687c6";
+const source = "0bf4c1c0a17afc3a4a380f92958297efd46026b6";
+const sourceTree = "468182ad84d860aa73b0b71968bfe0453410c4c2";
 const scriptPath = "deploy/scripts/release-runtime-admin-20260908-mac-mini.sh";
 const original = readFileSync(scriptPath, "utf8");
 const candidate =
@@ -56,11 +56,11 @@ if (cmd === 'git') {
   } else if (args.includes('status')) { if (scenario === 'dirty-source') out(' M source.ts'); }
   else if (args.includes('ls-tree')) out(s.sourcePaths.join('\\n'));
   else if (args.includes('diff')) {
-    if (args.includes('--name-status')) out(scenario === 'migration-scope-mismatch' ? 'M\\told-migration.js' : 'A\\tpackages/database/migrations/0067_admin_cleanup.js\\nA\\tpackages/database/migrations/0068_alert_resource_context.js');
+    if (args.includes('--name-status')) out(scenario === 'migration-scope-mismatch' ? 'M\\told-migration.js' : 'A\\tpackages/database/migrations/0069_alert_recovery_evidence.js');
   } else if (args.includes('checkout')) {
     event('checkout'); fs.mkdirSync(dir + '/deploy', { recursive: true });
     fs.mkdirSync(dir + '/packages/database/migrations', { recursive: true });
-    for (const name of ['0067_admin_cleanup.js','0068_alert_resource_context.js']) fs.copyFileSync(s.repo + '/packages/database/migrations/' + name, dir + '/packages/database/migrations/' + name);
+    for (const name of ['0069_alert_recovery_evidence.js']) fs.copyFileSync(s.repo + '/packages/database/migrations/' + name, dir + '/packages/database/migrations/' + name);
   } else if (args.includes('init') || args.includes('fetch') || args.includes('remote')) event('git-write');
   save(); process.exit(0);
 }
@@ -85,7 +85,7 @@ else if (args[0] === 'image' && args[1] === 'tag') {
     else {
       const sql = fs.readFileSync(0, 'utf8');
       if (sql.includes('kysely_migration')) { out(s.names.join('\\n')); if (scenario === 'history-query-fail' || (scenario === 'post-migration-query-fail' && s.events.includes('migrate'))) fail(); }
-      else if (sql.includes('archived_at')) { out(s.archived); if (scenario === 'archive-query-fail') fail(); }
+      else if (sql.includes('recovery_evidence')) { out(s.evidence); if (scenario === 'evidence-query-fail') fail(); }
       else throw Error('unexpected SQL');
     }
   } else if (args.includes('config')) { /* read-only */ }
@@ -98,16 +98,15 @@ else if (args[0] === 'image' && args[1] === 'tag') {
   } else if (args.includes('run')) {
     event('migrate'); assertStopped();
     if (scenario === 'migration-fail') fail();
-    s.names = [...s.sourceNames, '0067_admin_cleanup'];
-    if (scenario === 'partial-migration') fail();
-    s.names.push('0068_alert_resource_context');
+    s.names = [...s.sourceNames, '0069_alert_recovery_evidence'];
+    if (scenario === 'migration-committed-fail') fail();
     if (scenario === 'unknown-migration') { s.names.push('9999_unknown'); fail(); }
   } else if (args.includes('up')) {
     const directory = process.cwd().replace(/\\/deploy$/, '');
     event(directory === previous ? 'restore-old' : 'start-new'); s.current = directory; s.running = true;
     for (const service of Object.keys(s.images)) s.images[service] = s.tags['qianliu-zhisuan-' + service];
-    if (directory !== previous && scenario === 'archived-fail') { s.archived = 1; fail(); }
-    if (directory !== previous && scenario === 'archive-query-fail') fail();
+    if (directory !== previous && scenario === 'evidence-written-fail') { s.evidence = 1; fail(); }
+    if (directory !== previous && scenario === 'evidence-query-fail') fail();
     if (directory !== previous && scenario === 'start-fail') fail();
   } else throw Error('unexpected compose ' + args);
 } else throw Error('unexpected docker ' + args);
@@ -129,12 +128,12 @@ for (const scenario of [
   "backup-fail",
   "stop-partial",
   "migration-fail",
-  "partial-migration",
+  "migration-committed-fail",
   "unknown-migration",
   "start-fail",
   "health-fail",
-  "archived-fail",
-  "archive-query-fail",
+  "evidence-written-fail",
+  "evidence-query-fail",
   "success",
 ]) {
   const root = path.join(suiteRoot, scenario),
@@ -167,7 +166,7 @@ for (const scenario of [
         Object.entries(images).map(([k, v]) => ["qianliu-zhisuan-" + k, v]),
       ),
       running: true,
-      archived: 0,
+      evidence: 0,
       events: [],
     }),
   );
@@ -247,8 +246,8 @@ for (const scenario of [
     assert(!events.includes("migrate"));
   if (
     [
-      "archived-fail",
-      "archive-query-fail",
+      "evidence-written-fail",
+      "evidence-query-fail",
       "unknown-migration",
       "post-migration-query-fail",
     ].includes(scenario)
@@ -261,8 +260,8 @@ for (const scenario of [
   if (
     ![
       "success",
-      "archived-fail",
-      "archive-query-fail",
+      "evidence-written-fail",
+      "evidence-query-fail",
       "unknown-migration",
       "post-migration-query-fail",
     ].includes(scenario)
@@ -274,7 +273,7 @@ for (const scenario of [
     );
   }
   if (scenario === "success") {
-    assert.equal(state.names.at(-1), "0068_alert_resource_context");
+    assert.equal(state.names.at(-1), "0069_alert_recovery_evidence");
     assert.equal(
       readFileSync(root + "/qianliu-current-release.txt", "utf8").trim(),
       state.current,
