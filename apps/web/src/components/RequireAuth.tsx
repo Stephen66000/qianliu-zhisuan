@@ -8,6 +8,7 @@ import { UnauthorizedError } from "../api/client";
 import { AppLayout } from "./layout/AppLayout";
 import { ErrorState } from "./states/ErrorState";
 import { LoadingState } from "./states/LoadingState";
+import { AccessContext } from "../permissions";
 import {
   DISABLED_FEATURE_FLAGS,
   FeatureFlagsProvider,
@@ -26,7 +27,7 @@ export function RequireAuth() {
     );
   }
 
-  if (session.error instanceof UnauthorizedError) {
+  if (session.error instanceof UnauthorizedError || session.data === null) {
     return <Navigate replace state={{ from: location.pathname }} to="/login" />;
   }
 
@@ -46,10 +47,12 @@ export function RequireAuth() {
   }
 
   return (
+    <AccessContext.Provider value={session.data.admin}>
     <FeatureFlagsProvider value={session.data.featureFlags ?? DISABLED_FEATURE_FLAGS}>
       <ProviderFinanceModeProvider value={session.data.providerFinanceMode ?? "OFF"}>
         <AppLayout admin={session.data.admin} />
       </ProviderFinanceModeProvider>
     </FeatureFlagsProvider>
+    </AccessContext.Provider>
   );
 }

@@ -7,6 +7,8 @@
  * 安全：HttpOnly+Secure+SameSite Cookie；严格 CORS（TRD §14.2）。
  */
 import Fastify, { type FastifyInstance } from "fastify";
+import type { AdminPermissions, AdminRoleCode } from "@qianliu/contracts";
+import { registerAccountSettingsRoutes } from "./admins/settings-routes.js";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import type { Kysely } from "kysely";
@@ -45,7 +47,7 @@ import {
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerPrincipalRoutes } from "./principals/routes.js";
 import { registerPrincipalAccessConfigRoutes } from "./principals/access-configuration.js";
-import { registerAuditRoutes } from "./plugins/audit-routes.js";
+import { registerAuditQuery as registerAuditRoutes } from "./plugins/audit-query.js";
 import { registerKeyRoutes } from "./keys/routes.js";
 import { registerGrantRoutes } from "./grants/routes.js";
 import { registerProviderRoutes } from "./providers/routes.js";
@@ -77,6 +79,10 @@ import {
 
 /** 已认证管理员的请求上下文（auth-guard 注入）。 */
 export interface AdminContext {
+  roleCode?: AdminRoleCode;
+  roleName?: string;
+  permissions?: AdminPermissions;
+  sessionId?: string;
   adminUserId: string;
   enterpriseId: string;
   username: string;
@@ -263,6 +269,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     });
     registerAuthRoutes(child);
     registerAdminRoutes(child);
+    registerAccountSettingsRoutes(child);
     registerPrincipalRoutes(child, {
       departmentCost: featureFlags.FEATURE_DEPARTMENT_COST,
     });

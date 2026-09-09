@@ -366,7 +366,7 @@ export class EmployeeModelRuleRepository {
         publish_idempotency_key: input.idempotencyKey, publish_request_hash: requestHash, published_at: new Date(),
         lock_version: sql`lock_version + 1`, updated_at: new Date(),
       }).where("id", "=", version.id).returningAll().executeTakeFirstOrThrow();
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
         enterprise_id: input.enterpriseId, admin_user_id: input.adminUserId,
         action: "employee_model_rule.publish", target_type: "employee_model_rule",
         target_id: version.rule_id, result: "SUCCESS", failure_reason: null,
@@ -395,7 +395,7 @@ export class EmployeeModelRuleRepository {
       );
       await lockActiveProviderPools(trx, enterpriseId, principals, providerCodes);
       const affected = await disableEmployeeRuleVersion(trx, enterpriseId, version.id);
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
         enterprise_id: enterpriseId, admin_user_id: adminUserId,
         action: "employee_model_rule.disable", target_type: "employee_model_rule",
         target_id: version.rule_id, result: "SUCCESS", failure_reason: null,

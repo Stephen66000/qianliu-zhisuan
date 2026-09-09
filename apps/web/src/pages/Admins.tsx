@@ -9,28 +9,22 @@ import {
   useResetAdminPassword,
   useSetAdminStatus,
 } from "../api/admins";
-import { ApiError } from "../api/client";
+import { INPUT_CLASS, BUTTON_CLASS, errorText } from "../components/settings/admin-display";
 import { useAdminSession } from "../api/auth";
 import { PageShell } from "../components/layout/PageShell";
 import { QueryGate } from "../components/states/QueryGate";
 import { StatusTag } from "../components/dashboard/StatusTag";
+import { AdminRoleField } from "../components/settings/AdminRoleField";
 
-const INPUT_CLASS =
-  "h-10 rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-sm text-ql-fg focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-ql-action";
-const BUTTON_CLASS =
-  "h-9 rounded-lg bg-ql-action px-3 text-sm font-medium text-white hover:bg-ql-action-hover disabled:cursor-not-allowed disabled:opacity-50";
-
-function errorText(error: unknown): string | null {
-  return error instanceof ApiError
-    ? error.message
-    : error instanceof Error
-      ? error.message
-      : null;
-}
-
-export function AdminsPage() {
+export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
   const session = useAdminSession();
-  const query = useAdmins();
+  const [archived, setArchived] = useState(false);
+  const [search, setSearch] = useState("");
+  const [roleCode, setRoleCode] = useState<"SUPER_ADMIN" | "CUSTOM">("CUSTOM");
+  const [roles, setRoles] = useState<Record<string, "SUPER_ADMIN" | "CUSTOM">>({});
+  const query = useAdmins(archived);
+  const canEdit = session.data?.admin.roleCode === "SUPER_ADMIN";
+  const Container = embedded ? "div" : PageShell;
   const createAdmin = useCreateAdmin();
   const renameAdmin = useRenameAdmin();
   const resetPassword = useResetAdminPassword();
@@ -48,7 +42,7 @@ export function AdminsPage() {
   } | null>(null);
   const [cleanupTarget, setCleanupTarget] = useState<string | null>(null);
 
-  const admins = query.data?.admins ?? [];
+  const admins = (query.data?.admins ?? []).filter(a => (a.username + a.display_name).toLowerCase().includes(search.toLowerCase()));
   const currentId = session.data?.admin.adminUserId;
   const mutationError =
     errorText(createAdmin.error) ??
@@ -59,7 +53,7 @@ export function AdminsPage() {
 
   const submitCreate = (event: FormEvent) => {
     event.preventDefault();
-    const submitted = { username, display_name: displayName, password };
+    const submitted = { username, display_name: displayName, password, role_code: roleCode };
     createAdmin.mutate(submitted, {
       onSuccess: () => {
         setOneTimePassword({
@@ -94,10 +88,7 @@ export function AdminsPage() {
   };
 
   return (
-    <PageShell
-      description="同企业管理员账号、显示名称、状态与密码生命周期"
-      title="管理员管理"
-    >
+    <Container title="管理员">
       <div className="mb-4 flex justify-end">
         <Link
           className="rounded-lg border border-ql-border-strong px-3 py-2 text-sm text-ql-fg-secondary hover:bg-ql-surface-subtle"
@@ -129,12 +120,13 @@ export function AdminsPage() {
         </section>
       ) : null}
 
-      <section className="mb-6 rounded-xl border border-ql-border bg-ql-surface p-5">
+      {canEdit && <section className="mb-6 rounded-xl border border-ql-border bg-ql-surface p-5">
         <div className="mb-4 flex items-center gap-2">
           <UserPlus className="h-5 w-5" />
           <h2 className="font-semibold">新增管理员</h2>
         </div>
-        <form className="grid gap-3 md:grid-cols-4" onSubmit={submitCreate}>
+        <form className="grid gap-3 md:grid-cols-5" onSubmit={submitCreate}>
+          <AdminRoleField value={roleCode} onChange={setRoleCode}/>
           <input
             aria-label="管理员用户名"
             className={INPUT_CLASS}
@@ -169,7 +161,9 @@ export function AdminsPage() {
             创建管理员
           </button>
         </form>
-      </section>
+      </section>}
+
+      <div className="mb-4 flex gap-3"><input aria-label="搜索管理员" className="ql-input" placeholder="搜索姓名或账号" value={search} onChange={e => setSearch(e.target.value)}/><select className="ql-input" aria-label="存档状态" value={String(archived)} onChange={e => setArchived(e.target.value === "true")}><option value="false">在用账号</option><option value="true">已存档账号</option></select></div>
 
       {mutationError ? (
         <p
@@ -197,6 +191,8 @@ export function AdminsPage() {
                 <th className="p-3">显示名称</th>
                 <th className="p-3">状态</th>
                 <th className="p-3">首次改密</th>
+                <th className="p-3">角色</th>
+                <th className="p-3">最近登录</th>
                 <th className="p-3">操作</th>
               </tr>
             </thead>
@@ -213,6 +209,7 @@ export function AdminsPage() {
                   <td className="p-3">
                     <div className="flex min-w-52 gap-2">
                       <input
+                        disabled={!canEdit || archived}
                         aria-label={`${admin.username} 显示名称`}
                         className={INPUT_CLASS}
                         onChange={(e) =>
@@ -224,10 +221,13 @@ export function AdminsPage() {
                         value={renames[admin.id] ?? admin.display_name}
                       />
                       <button
+                        disabled={!canEdit || archived}
                         className="text-ql-action"
                         onClick={() =>
                           renameAdmin.mutate({
                             id: admin.id,
+                            expected_version: admin.version,
+                            role_code: roles[admin.id] ?? admin.role_code,
                             display_name:
                               renames[admin.id] ?? admin.display_name,
                           })
@@ -248,9 +248,11 @@ export function AdminsPage() {
                   <td className="p-3">
                     {admin.must_change_password ? "是" : "否"}
                   </td>
+                  <td className="p-3"><AdminRoleField value={roles[admin.id] ?? admin.role_code ?? "SUPER_ADMIN"} disabled={!canEdit || archived} onChange={v => setRoles(old => ({ ...old, [admin.id]: v }))}/></td>
+                  <td className="p-3">{admin.last_login_at ? new Date(admin.last_login_at).toLocaleString("zh-CN") : "尚未记录"}</td>
                   <td className="p-3">
                     <div className="flex gap-3 whitespace-nowrap">
-                      {admin.id !== currentId ? (
+                      {canEdit && !archived && admin.id !== currentId ? (
                         <>
                           <button
                             className="text-ql-action"
@@ -294,7 +296,7 @@ export function AdminsPage() {
                         </>
                       ) : (
                         <span className="text-ql-fg-tertiary">
-                          请使用修改密码
+                          {admin.id === currentId ? "请使用修改密码" : "—"}
                         </span>
                       )}
                     </div>
@@ -405,6 +407,6 @@ export function AdminsPage() {
           </section>
         </div>
       ) : null}
-    </PageShell>
+    </Container>
   );
 }

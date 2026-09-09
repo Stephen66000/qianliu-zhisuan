@@ -2,16 +2,32 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SettingsPage } from "./Settings";
+import { EnterpriseSettingsPanel as SettingsPage } from "../components/settings/EnterpriseSettingsPanel";
 
 const useOperationLogsMock = vi.fn();
 const useDeploymentLogsMock = vi.fn();
 const useDeploymentLogMock = vi.fn();
+const updateSettingsMock = vi.hoisted(() => vi.fn());
+const enterpriseSettingsQuery = vi.hoisted(() => ({
+  data: { settings: {
+    id: "enterprise-1", name: "仟流智算", management_contact: "管理员",
+    contact_email: "admin@example.com", timezone: "Asia/Shanghai",
+    default_currency: "CNY", version: 3, updated_at: "2026-09-09T00:00:00.000Z",
+  } },
+  isLoading: false, error: null, refetch: vi.fn(),
+}));
 
 vi.mock("../api/hooks", () => ({
   useOperationLogs: () => useOperationLogsMock(),
   useDeploymentLogs: (params: unknown) => useDeploymentLogsMock(params),
   useDeploymentLog: (id: string | null) => useDeploymentLogMock(id),
+}));
+
+vi.mock("../api/v2-hooks", () => ({
+  useEnterpriseSettings: () => enterpriseSettingsQuery,
+  useUpdateEnterpriseSettings: () => ({
+    mutate: updateSettingsMock, isPending: false, isSuccess: false, error: null,
+  }),
 }));
 
 const query = (data: unknown) => ({
@@ -23,6 +39,7 @@ describe("POOL-026 系统升级日志", () => {
     useOperationLogsMock.mockReset();
     useDeploymentLogsMock.mockReset();
     useDeploymentLogMock.mockReset();
+    updateSettingsMock.mockReset();
     useOperationLogsMock.mockReturnValue(query({ logs: [] }));
     useDeploymentLogsMock.mockReturnValue(query({
       total: 1,
@@ -48,21 +65,24 @@ describe("POOL-026 系统升级日志", () => {
     } : undefined));
   });
 
-  it("支持状态、版本和问题编号筛选，并展示回滚详情时间线", () => {
+  it("默认展示企业信息并保存联系人、邮箱和统计口径", () => {
     render(<MemoryRouter><SettingsPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "升级日志" }));
-
-    fireEvent.change(screen.getByLabelText("升级状态"), { target: { value: "ROLLED_BACK" } });
-    fireEvent.change(screen.getByLabelText("版本或 Commit"), { target: { value: "def5678" } });
-    fireEvent.change(screen.getByLabelText("问题编号"), { target: { value: "POOL-026" } });
-    expect(useDeploymentLogsMock).toHaveBeenLastCalledWith({
-      status: "ROLLED_BACK", version: "def5678", poolRef: "POOL-026",
+    expect(screen.getByRole("heading", { name: "企业信息" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("管理联系人"), { target: { value: "新联系人" } });
+    fireEvent.change(screen.getByLabelText("联系邮箱"), { target: { value: "new@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存企业信息" }));
+    expect(updateSettingsMock).toHaveBeenCalledWith({
+      expected_version: 3, name: "仟流智算", management_contact: "新联系人",
+      contact_email: "new@example.com", timezone: "Asia/Shanghai", default_currency: "CNY",
     });
+    expect(screen.queryByRole("button", { name: /Logo/i })).not.toBeInTheDocument();
+  });
 
-    expect(screen.getAllByText("已回滚").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /abc1234.*def5678/ }));
-    expect(screen.getByText("升级详情 · release-001")).toBeInTheDocument();
-    expect(screen.getByText("HEALTH_CHECK_FAILED")).toBeInTheDocument();
-    expect(screen.getByText(/ROLLED_BACK · 已回滚/)).toBeInTheDocument();
+  it("取消修改恢复已保存企业资料", () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText("管理联系人"), { target: { value: "未保存" } });
+    fireEvent.click(screen.getByRole("button", { name: "取消修改" }));
+    expect(screen.getByLabelText("管理联系人")).toHaveValue("管理员");
+    expect(updateSettingsMock).not.toHaveBeenCalled();
   });
 });

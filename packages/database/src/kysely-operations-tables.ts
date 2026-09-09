@@ -1,6 +1,7 @@
 import type { Generated } from "kysely";
 
 export interface OperationLogTable {
+  actor_source: Generated<"ADMIN" | "SYSTEM" | "UNKNOWN">;
   id: Generated<string>;
   enterprise_id: string;
   admin_user_id: string;

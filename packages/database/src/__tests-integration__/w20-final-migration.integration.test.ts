@@ -183,6 +183,8 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0068_alert_resource_context", "Success"],
         ["0069_auth_error_evidence", "Success"],
         ["0070_alert_recovery_evidence", "Success"],
+        ["0071_enterprise_contact_details", "Success"],
+        ["0072_admin_roles_security", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -243,6 +245,8 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       expect(qualityConstraint.rows[0]?.definition).toContain("MIXED");
       await db.updateTable("usage_event").set({ usage_quality: "MIXED" })
         .where("enterprise_id", "=", enterpriseId).execute();
+      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");
@@ -336,6 +340,8 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0068_alert_resource_context", "Success"],
         ["0069_auth_error_evidence", "Success"],
         ["0070_alert_recovery_evidence", "Success"],
+        ["0071_enterprise_contact_details", "Success"],
+        ["0072_admin_roles_security", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
@@ -408,6 +414,8 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         .execute()).rejects.toThrow(/append-only/i);
       await expect(db.deleteFrom("operating_bill_opening_balance")
         .where("provider_resource_id", "=", resourceId).execute()).rejects.toThrow(/append-only/i);
+      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");

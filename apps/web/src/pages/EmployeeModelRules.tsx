@@ -236,10 +236,10 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
   const content = (
     <>
       {mutationError ? <p className="mb-4 rounded-lg bg-ql-danger-soft px-3 py-2 text-sm text-ql-danger" role="alert">{mutationError}</p> : null}
-      <form className="mb-6 rounded-xl border border-ql-border p-5" onSubmit={submit}>
+      <form data-write-action className="mb-6 rounded-xl border border-ql-border p-5" onSubmit={submit}>
         <div className="mb-4 flex items-center justify-between">
           <div><h2 className="font-semibold">{editing ? `编辑 ${editing.name} v${editing.version}` : "新建批量授权规则"}</h2><p className="mt-1 text-xs text-ql-fg-tertiary">保存只形成草稿，不会扩大任何员工权限。</p></div>
-          {editing ? <button className="text-sm text-ql-action" onClick={() => { setEditing(null); setForm(initialForm()); }} type="button">取消编辑</button> : null}
+          {editing ? <button data-write-action className="text-sm text-ql-action" onClick={() => { setEditing(null); setForm(initialForm()); }} type="button">取消编辑</button> : null}
         </div>
         <div className="grid gap-4 md:grid-cols-4">
           <label className="text-sm">规则名称<input className={`${INPUT} mt-1`} onChange={(event) => setForm((old) => ({ ...old, name: event.target.value }))} required value={form.name} /></label>
@@ -298,7 +298,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
             </div>
           </fieldset>
         </div>
-        <div className="mt-4 flex justify-end"><button className={BUTTON} disabled={createRule.isPending || updateRule.isPending} type="submit">{editing ? "保存草稿" : "创建草稿"}</button></div>
+        <div className="mt-4 flex justify-end"><button data-write-action className={BUTTON} disabled={createRule.isPending || updateRule.isPending} type="submit">{editing ? "保存草稿" : "创建草稿"}</button></div>
       </form>
 
       <QueryGate emptyDescription="先创建草稿，校验就绪后再发布。" emptyIcon={ShieldCheck} emptyTitle="暂无批量授权规则" error={rules.error ?? catalog.error} isEmpty={latestRules.length === 0} isLoading={rules.isLoading || catalog.isLoading} onRetry={() => { void rules.refetch(); void catalog.refetch(); }}>
@@ -312,7 +312,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
               <td className="p-3">{rule.validation_snapshot ? rule.validation_snapshot.ready ? <PermissionChangeSummary validation={rule.validation_snapshot} providerNameOfResource={providerNameOfResource} /> : rule.validation_snapshot.issues.map((issue) => issue.message).join("；") : "尚未校验"}</td>
               <td className="p-3"><div className="flex flex-wrap gap-3 whitespace-nowrap">
                 <button className="text-ql-action" onClick={() => setHistoryRuleId(rule.rule_id)} type="button">历史</button>
-                {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <button className="text-ql-action" onClick={() => edit(rule)} type="button">编辑</button> : null}
+                {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <button data-write-action className="text-ql-action" onClick={() => edit(rule)} type="button">编辑</button> : null}
                 {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <button className="text-ql-action" onClick={() => validateRule.mutate(rule.id)} type="button">校验</button> : null}
                 {rule.status === "VALIDATED" ? <span className="inline-flex items-center gap-2">
                   <select
@@ -324,9 +324,9 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
                     <option value="ADD">追加额度（默认）</option>
                     <option value="SET">设置总额度</option>
                   </select>
-                  <button className="text-ql-action" onClick={() => publishRule.mutate({ versionId: rule.id, expectedLockVersion: rule.lock_version, idempotencyKey: crypto.randomUUID(), quotaMode })} type="button">发布</button>
+                  <button data-write-action className="text-ql-action" onClick={() => publishRule.mutate({ versionId: rule.id, expectedLockVersion: rule.lock_version, idempotencyKey: crypto.randomUUID(), quotaMode })} type="button">发布</button>
                 </span> : null}
-                {rule.status === "PUBLISHED" ? <><button className="text-ql-action" onClick={() => createVersion.mutate(rule.rule_id)} type="button">新建版本</button><button className="text-ql-danger" onClick={() => disableRule.mutate(rule.id)} type="button">停用</button></> : null}
+                {rule.status === "PUBLISHED" ? <><button className="text-ql-action" onClick={() => createVersion.mutate(rule.rule_id)} type="button">新建版本</button><button data-write-action className="text-ql-danger" onClick={() => disableRule.mutate(rule.id)} type="button">停用</button></> : null}
               </div></td>
             </tr>)}</tbody>
           </table>

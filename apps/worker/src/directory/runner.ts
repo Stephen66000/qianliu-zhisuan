@@ -141,6 +141,7 @@ async function deferRun(
       enterprise_id: run.enterprise_id,
       admin_user_id: run.created_by_admin_user_id,
       action: "directory_import_run.retry_scheduled",
+      actor_source: "SYSTEM",
       target_type: "directory_import_run",
       target_id: run.id,
       change_summary: json({ reason_code: code, attempt: run.attempt }),

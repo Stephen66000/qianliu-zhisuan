@@ -177,7 +177,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><h2 className="text-[14px] font-semibold">同步「{target.name}」可用模型</h2>
         <p className="mt-1 text-[12px] text-ql-fg-tertiary">新模型只有确认后才创建待配置路由；不会自动加入员工 Key 或额度授权。</p></div>
-      <button className="h-9 rounded-lg border border-ql-action px-3 text-[13px] text-ql-action disabled:opacity-60"
+      <button data-write-action className="h-9 rounded-lg border border-ql-action px-3 text-[13px] text-ql-action disabled:opacity-60"
         disabled={sync.isPending} onClick={() => sync.mutate()} type="button">
         {sync.isPending ? "同步中…" : "立即同步"}
       </button>
@@ -206,7 +206,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
         selected={selectedIds.includes(model.id)} />)}
       <div className="flex justify-end gap-2">
         <button className="h-9 rounded-lg border border-ql-border px-3 text-[13px]" onClick={onClose} type="button">取消</button>
-        <button className="h-9 rounded-lg bg-ql-action px-3 text-[13px] text-white disabled:opacity-60"
+        <button data-write-action className="h-9 rounded-lg bg-ql-action px-3 text-[13px] text-white disabled:opacity-60"
           disabled={selectedIds.length === 0 || confirm.isPending} onClick={() => confirm.mutate()} type="button">
           {confirm.isPending ? "加入中…" : "确认加入所选模型"}
         </button>

@@ -156,7 +156,7 @@ export function HistoricalAttributionPanel({
                 {preview.principalName} · {from} 至 {to} ·{" "}
                 {preview.departmentName}：待补齐 {preview.requestCount} 条请求
               </p>
-              <button
+              <button data-write-action
                 type="button"
                 className="mt-2 text-ql-action disabled:opacity-50"
                 disabled={busy || preview.requestCount === 0}

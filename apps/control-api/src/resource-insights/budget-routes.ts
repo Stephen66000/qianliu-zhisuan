@@ -107,7 +107,7 @@ export function registerResourceMonthlyBudgetRoutes(app: FastifyInstance): void 
           created_at: createdAt, idempotency_key: body.data.idempotency_key,
           request_hash: requestHash, response_snapshot: value,
         }).execute();
-        await trx.insertInto("operation_log").values({
+        await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
           enterprise_id: enterpriseId,
           admin_user_id: req.admin!.adminUserId,
           action: body.data.amount === null

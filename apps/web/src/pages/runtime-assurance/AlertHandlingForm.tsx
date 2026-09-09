@@ -62,7 +62,7 @@ export function AlertHandlingForm({
         </p>
       ) : null}
       {editing && isActionable(alert) ? (
-        <form
+        <form data-write-action
           className="mt-3 space-y-3"
           onSubmit={(event) => {
             event.preventDefault();
@@ -88,7 +88,7 @@ export function AlertHandlingForm({
             </p>
           ) : null}
           <div className="flex justify-end gap-2">
-            <button
+            <button data-write-action
               type="button"
               className="rounded-lg border px-3 py-2 text-xs"
               onClick={() => setEditing(false)}

@@ -1,0 +1,8 @@
+{
+  "at": "2026-09-09T14:11:55.496141+00:00",
+  "status": "STABLE",
+  "files": 122,
+  "manifest_declared_sha256": "7706ef249c32400ca6a0d34fe808e2f8a256f4ffad927f97f396c0d47d06624f",
+  "manifest_file_sha256": "627b6e76a9fd25719b44005eec9023b58eea248af830ffc9e25d448b603c72e2",
+  "drift": []
+}

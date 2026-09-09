@@ -24,3 +24,8 @@
     grid-template-columns: 1fr;
   }
 }
+/* Read-only module pages retain filters and tables; annotated mutation controls are hidden. */
+.ql-readonly [data-write-action] { display: none !important; }
+.settings-surface .ql-input { min-height: 38px; border: 1px solid rgb(var(--ql-border)); border-radius: 7px; padding: 6px 10px; background: rgb(var(--ql-surface)); color: rgb(var(--ql-text-primary)); }
+.settings-surface .ql-input:focus { outline: 2px solid rgb(var(--ql-action-primary)); outline-offset: 1px; }
+.settings-surface .ql-input:disabled { background: rgb(var(--ql-surface-muted)); }

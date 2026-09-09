@@ -121,7 +121,7 @@ export function ClosingManagementTab({
 
             <div className="mt-4 flex justify-end">
               {status === "待结账" ? (
-                <button
+                <button data-write-action
                   className={buttonPrimary}
                   onClick={() => setDialog("close")}
                   type="button"
@@ -130,7 +130,7 @@ export function ClosingManagementTab({
                   确认结账
                 </button>
               ) : (
-                <button
+                <button data-write-action
                   className={buttonSecondary}
                   onClick={() => setDialog("reopen")}
                   type="button"

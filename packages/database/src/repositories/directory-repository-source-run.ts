@@ -66,7 +66,7 @@ export async function upsertDirectorySource(
       }).where("enterprise_id", "=", input.enterpriseId).where("id", "=", current.id)
         .where("version", "=", current.version).returningAll().executeTakeFirstOrThrow();
     }
-    await trx.insertInto("operation_log").values({
+    await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
       enterprise_id: input.enterpriseId, admin_user_id: input.actorAdminUserId,
       action: current ? "directory_source.update" : "directory_source.create",
       target_type: "directory_source", target_id: source.id,
@@ -121,7 +121,7 @@ export async function createDirectoryRun(
         request_hash: input.requestHash, idempotency_key: input.idempotencyKey,
         created_by_admin_user_id: input.createdByAdminUserId, source_data_at: input.sourceDataAt ?? null,
       }).returningAll().executeTakeFirstOrThrow();
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
         enterprise_id: input.enterpriseId, admin_user_id: input.createdByAdminUserId,
         action: input.mode === "SYNC" ? "directory_sync_run.create" : "directory_excel_run.create",
         target_type: "directory_import_run", target_id: run.id,

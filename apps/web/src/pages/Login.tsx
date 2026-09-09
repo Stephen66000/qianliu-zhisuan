@@ -29,10 +29,10 @@ export function LoginPage() {
 
   // 已登录直接进后台
   useEffect(() => {
-    if (session.data) {
+    if (session.data && !session.error) {
       navigate(from, { replace: true });
     }
-  }, [session.data, navigate, from]);
+  }, [session.data, session.error, navigate, from]);
 
   if (session.isLoading) {
     return (

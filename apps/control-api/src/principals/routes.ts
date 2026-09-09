@@ -180,7 +180,7 @@ export function registerPrincipalRoutes(
         await trx.updateTable("principal").set({
           department_label: department.name, version: sql`version + 1`, updated_at: now,
         }).where("enterprise_id", "=", req.admin!.enterpriseId).where("id", "=", project.id).execute();
-        await trx.insertInto("operation_log").values({
+        await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
           enterprise_id: req.admin!.enterpriseId,
           admin_user_id: req.admin!.adminUserId,
           action: "project.department_assignment.update",
@@ -241,7 +241,7 @@ export function registerPrincipalRoutes(
           });
         await trx
           .insertInto("operation_log")
-          .values({
+          .values({ actor_source: "ADMIN",
             enterprise_id: req.admin!.enterpriseId,
             admin_user_id: req.admin!.adminUserId,
             action: "principal.create",

@@ -57,6 +57,8 @@ describe("0063 operating snapshot subscription period binding", () => {
         collected_at: new Date(), total_quota: "1", quota_unit: "TOKEN",
       }).execute()).rejects.toThrow();
 
+      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");

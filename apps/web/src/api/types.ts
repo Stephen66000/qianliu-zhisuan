@@ -61,7 +61,11 @@ export type FeatureFlagName =
 export type FeatureFlags = Record<FeatureFlagName, boolean>;
 export type ProviderFinanceMode = "OFF" | "DARK" | "ACTIVE";
 
+import type { AdminRoleCode, AdminPermissions } from "@qianliu/contracts";
 export interface AdminSession {
+  roleCode?: AdminRoleCode;
+  roleName?: string;
+  permissions?: AdminPermissions;
   adminUserId: string;
   enterpriseId: string;
   username: string;
@@ -82,6 +86,9 @@ export interface LoginResponse {
 }
 
 export interface AdminAccount {
+  last_login_at?: string | null;
+  role_code?: "SUPER_ADMIN" | "CUSTOM";
+  archived_at?: string | null;
   id: string;
   enterprise_id: string;
   username: string;

@@ -181,7 +181,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                   {activeKey.key_prefix}••••••••
                 </code>
                 <StatusTag tone="neutral">有效</StatusTag>
-                <button
+                <button data-write-action
                   className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-warning hover:bg-ql-warning-soft"
                   onClick={() => setResetConfirm(true)}
                   type="button"

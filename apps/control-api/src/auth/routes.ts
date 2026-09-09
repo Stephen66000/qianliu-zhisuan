@@ -14,19 +14,16 @@ import {
 } from "@qianliu/provider-adapters";
 import { requireAuth, SESSION_COOKIE_NAME, SESSION_TTL } from "../plugins/auth-guard.js";
 import { LoginRateLimiter } from "./login-rate-limiter.js";
+import { loadAdminAccess } from "../admins/access.js";
 
 const LoginSchema = z.object({
   username: z.string().min(1).max(128),
   password: z.string().min(1).max(256),
 });
 
-const loginRateLimiter = new LoginRateLimiter({
-  maxAttempts: 5,
-  windowMs: 5 * 60 * 1000,
-  maxBuckets: 10_000,
-});
-
 export function registerAuthRoutes(app: FastifyInstance): void {
+  let limiterPolicy = "";
+  let loginRateLimiter = new LoginRateLimiter({ maxAttempts: 5, windowMs: 5 * 60_000, maxBuckets: 10_000 });
   app.post("/auth/login", async (req, reply) => {
     const parsed = LoginSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -36,16 +33,20 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const now = Date.now();
     const rateLimitKey = `${req.ip}\0${username.trim().toLowerCase()}`;
 
-    // 限速
-    if (loginRateLimiter.isBlocked(rateLimitKey, now)) {
-      return reply.code(429).send({ error: "rate_limited", message: "尝试过于频繁，请稍后再试" });
-    }
-
     // 一期单企业：取第一条 enterprise（部署初始化或测试种子创建）
-    const enterprises = await app.db.selectFrom("enterprise").selectAll().limit(1).execute();
+    const enterprises = await app.db.selectFrom("enterprise").selectAll().orderBy("created_at", "asc").orderBy("id", "asc").limit(1).execute();
     const enterprise = enterprises[0];
     if (!enterprise) {
       return reply.code(500).send({ error: "server_error", message: "企业未初始化" });
+    }
+    const policy = `${enterprise.id}:${enterprise.security_version}`;
+    if (policy !== limiterPolicy) {
+      limiterPolicy = policy;
+      loginRateLimiter = new LoginRateLimiter({ maxAttempts: enterprise.login_max_failures,
+        windowMs: enterprise.login_lock_minutes * 60_000, maxBuckets: 10_000 });
+    }
+    if (loginRateLimiter.isBlocked(rateLimitKey, now)) {
+      return reply.code(429).send({ error: "rate_limited", message: "尝试过于频繁，请稍后再试" });
     }
 
     const admin = await app.adminRepo.findByUsername(enterprise.id, username);
@@ -64,8 +65,10 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
     const token = generateSessionToken();
     const tokenHash = digestSessionToken(token);
-    const expiresAt = new Date(now + SESSION_TTL);
-    await app.adminRepo.createSession(admin.id, tokenHash, expiresAt);
+    const expiresAt = new Date(now + (enterprise.session_minutes * 60_000 || SESSION_TTL));
+    const session = await app.adminRepo.createSession(admin.id, tokenHash, expiresAt);
+    await app.db.updateTable("admin_session").set({ user_agent: req.headers["user-agent"]?.slice(0, 512) ?? null,
+      ip_address: req.ip.slice(0, 64), last_seen_at: new Date(now) }).where("id", "=", session.id).execute();
 
     await app.auditRepo.write({
       enterprise_id: admin.enterprise_id,
@@ -87,6 +90,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       .code(200)
       .send({
         admin: {
+          ...await loadAdminAccess(app, admin.id, admin.enterprise_id),
           id: admin.id,
           username: admin.username,
           display_name: admin.display_name,

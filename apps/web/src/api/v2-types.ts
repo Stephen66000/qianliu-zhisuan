@@ -1,6 +1,8 @@
 export interface EnterpriseSettings {
   id: string;
   name: string;
+  management_contact: string | null;
+  contact_email: string | null;
   timezone: string;
   default_currency: string;
   version: number;

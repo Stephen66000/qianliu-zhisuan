@@ -66,8 +66,8 @@ export function DirectoryPanel() {
         </select>
         <input aria-label={sourceType === "WECOM" ? "企业 ID" : "应用 ID"} className={INPUT_CLASS} onChange={(event) => setIdentity(event.target.value)} placeholder={sourceType === "WECOM" ? "Corp ID" : "App ID"} value={identity}/>
         <input aria-label="应用 Secret" autoComplete="new-password" className={INPUT_CLASS} onChange={(event) => setSecret(event.target.value)} placeholder="Secret 只写不回显" type="password" value={secret}/>
-        <div className="flex gap-2"><button className="h-9 rounded-lg border border-ql-border px-3 text-[13px] text-ql-action disabled:opacity-50" disabled={!identity.trim() || !secret || saveSource.isPending} onClick={() => void save()} type="button">保存连接</button>
-          <button className="flex h-9 items-center gap-1 rounded-lg bg-ql-action px-3 text-[13px] text-white disabled:opacity-50" disabled={!currentSource || startSync.isPending} onClick={() => void sync()} type="button"><RefreshCw className="h-4 w-4"/>同步</button></div>
+        <div className="flex gap-2"><button data-write-action className="h-9 rounded-lg border border-ql-border px-3 text-[13px] text-ql-action disabled:opacity-50" disabled={!identity.trim() || !secret || saveSource.isPending} onClick={() => void save()} type="button">保存连接</button>
+          <button data-write-action className="flex h-9 items-center gap-1 rounded-lg bg-ql-action px-3 text-[13px] text-white disabled:opacity-50" disabled={!currentSource || startSync.isPending} onClick={() => void sync()} type="button"><RefreshCw className="h-4 w-4"/>同步</button></div>
       </div>
       {saveSource.error || startSync.error ? <p className="mt-2 text-[12px] text-ql-danger" role="alert">{(saveSource.error ?? startSync.error)?.message}</p> : null}
     </section>

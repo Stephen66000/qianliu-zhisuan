@@ -48,12 +48,12 @@ export class AdminRepository {
       .executeTakeFirst();
   }
 
-  async listByEnterprise(enterpriseId: string): Promise<AdminUser[]> {
+  async listByEnterprise(enterpriseId: string, archived = false): Promise<AdminUser[]> {
     return this.db
       .selectFrom("admin_user")
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
-      .where("archived_at", "is", null)
+      .where("archived_at", archived ? "is not" : "is", null)
       .orderBy("created_at", "asc")
       .execute();
   }
@@ -80,7 +80,10 @@ export class AdminRepository {
     username: string;
     displayName: string;
     passwordHash: string;
+    roleCode?: "SUPER_ADMIN" | "CUSTOM";
   }): Promise<AdminUser> {
+    const enterprise = await this.db.selectFrom("enterprise").select("force_initial_password_change")
+      .where("id", "=", input.enterpriseId).executeTakeFirstOrThrow();
     return this.db
       .insertInto("admin_user")
       .values({
@@ -88,7 +91,8 @@ export class AdminRepository {
         username: input.username,
         display_name: input.displayName,
         password_hash: input.passwordHash,
-        must_change_password: true,
+        must_change_password: enterprise.force_initial_password_change,
+        role_code: input.roleCode ?? "SUPER_ADMIN",
         status: "ACTIVE",
       })
       .returningAll()
@@ -151,11 +155,13 @@ export class AdminRepository {
     newPasswordHash: string;
   }): Promise<AdminUser | undefined> {
     return this.db.transaction().execute(async (trx) => {
+      const enterprise = await trx.selectFrom("enterprise").select("force_initial_password_change")
+        .where("id", "=", input.enterpriseId).executeTakeFirstOrThrow();
       const updated = await trx
         .updateTable("admin_user")
         .set({
           password_hash: input.newPasswordHash,
-          must_change_password: true,
+          must_change_password: enterprise.force_initial_password_change,
           updated_at: new Date(),
           version: sql<number>`version + 1`,
         })
@@ -182,6 +188,7 @@ export class AdminRepository {
     status: "ACTIVE" | "DISABLED";
   }): Promise<AdminUser> {
     return this.db.transaction().execute(async (trx) => {
+      await trx.selectFrom("enterprise").select("id").where("id", "=", input.enterpriseId).forUpdate().execute();
       const target = await trx
         .selectFrom("admin_user")
         .selectAll()
@@ -199,10 +206,11 @@ export class AdminRepository {
           .select("id")
           .where("enterprise_id", "=", input.enterpriseId)
           .where("status", "=", "ACTIVE")
+          .where("role_code", "=", "SUPER_ADMIN")
           .where("archived_at", "is", null)
           .forUpdate()
           .execute();
-        if (activeAdmins.length <= 1) throw new LastActiveAdminError();
+        if (target.role_code === "SUPER_ADMIN" && activeAdmins.length <= 1) throw new LastActiveAdminError();
       }
       if (target.status === input.status) return target;
       const updated = await trx
@@ -274,6 +282,7 @@ export class AdminRepository {
           enterprise_id: input.enterpriseId,
           admin_user_id: input.actorAdminId,
           action: "admin.cleanup",
+          actor_source: "ADMIN",
           target_type: "admin_user",
           target_id: target.id,
           change_summary: {

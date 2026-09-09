@@ -8,10 +8,11 @@ import { AdminsPage } from "./Admins";
 const createMock = vi.fn();
 const statusMock = vi.fn();
 const cleanupMock = vi.fn();
+vi.mock("../api/settings", () => ({ useRole: () => ({ data: { role: { name: "查看岗" } } }) }));
 
 vi.mock("../api/auth", () => ({
   useAdminSession: () => ({
-    data: { admin: { adminUserId: "admin-current" } },
+    data: { admin: { adminUserId: "admin-current", roleCode: "SUPER_ADMIN" } },
   }),
 }));
 
@@ -98,6 +99,7 @@ describe("POOL-015 管理员管理", () => {
           username: "new-admin",
           display_name: "新管理员",
           password: "StrongPass!2026",
+          role_code: "CUSTOM",
         },
         expect.any(Object),
       ),

@@ -22,7 +22,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
         title="调度策略"
       >
         {showPolicyForm ? (
-          <form
+          <form data-write-action
             className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 md:grid-cols-4"
             onSubmit={policyForm.handleSubmit((values) => createPolicy.mutate(values))}
           >
@@ -196,7 +196,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                   setShowPolicyForm(false); setEditingPolicy(null); policyForm.reset();
                   setPrincipalSearch(""); createPolicy.reset();
                 }}>取消</button>
-              <button
+              <button data-write-action
                 className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
                 disabled={createPolicy.isPending}
                 type="submit"
@@ -270,7 +270,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                     <td className="p-2 text-right">
                       {policy.status === "DRAFT" ? (
                         <>
-                          <button
+                          <button data-write-action
                             className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                             onClick={() => editPolicy(policy)}
                             type="button"
@@ -287,7 +287,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                         </>
                       ) : null}
                       {policy.status === "VALIDATED" ? (
-                        <button
+                        <button data-write-action
                           className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                           onClick={() => setPolicyActionTarget({ policy, action: "publish" })}
                           type="button"
@@ -296,7 +296,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                         </button>
                       ) : null}
                       {policy.status === "PUBLISHED" ? (
-                        <button
+                        <button data-write-action
                           className="rounded px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
                           onClick={() => setPolicyActionTarget({ policy, action: "retire" })}
                           type="button"
@@ -306,9 +306,9 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                       ) : null}
                       {policy.status === "RETIRED" ? (
                         <>
-                          {!policy.archivedAt ? <button type="button" className="rounded px-2 py-1 text-ql-action"
+                          {!policy.archivedAt ? <button data-write-action type="button" className="rounded px-2 py-1 text-ql-action"
                             onClick={() => setPolicyActionTarget({ policy, action: "archive" })}>存档</button> : null}
-                          <button
+                          <button data-write-action
                             className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                             onClick={() => setPolicyActionTarget({ policy, action: "restore" })}
                             type="button"

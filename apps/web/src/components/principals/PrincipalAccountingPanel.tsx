@@ -128,7 +128,7 @@ export function PrincipalAccountingPanel({
             <button type="button" onClick={onClose}>
               取消
             </button>
-            <button
+            <button data-write-action
               type="button"
               className="text-ql-action"
               disabled={

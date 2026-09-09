@@ -45,7 +45,7 @@ export function QuotaRouteSection({ model, managementOnly = false }: { model: Qu
           </FormField>
         </div>
         {showRouteForm ? (
-          <form
+          <form data-write-action
             className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 md:grid-cols-5"
             onSubmit={routeForm.handleSubmit((values) => createRoute.mutate(values))}
           >
@@ -91,7 +91,7 @@ export function QuotaRouteSection({ model, managementOnly = false }: { model: Qu
               <input className={INPUT_CLASS} id="route-weight" type="number" {...routeForm.register("weight")} />
             </FormField>
             <div className="md:col-span-5 flex justify-end">
-              <button className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white" type="submit">
+              <button data-write-action className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white" type="submit">
                 创建路由
               </button>
             </div>
@@ -122,7 +122,7 @@ export function QuotaRouteSection({ model, managementOnly = false }: { model: Qu
                   <td className="p-2">{route.archived_at ? "已归档" : route.enabled ? "启用" : "停用"}</td>
                   <td className="p-2 text-right">
                     {route.archived_at ? (
-                      <button
+                      <button data-write-action
                         className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                         onClick={() => archiveConfig.mutate({ kind: "route", item: route, archive: false })}
                         type="button"
@@ -138,7 +138,7 @@ export function QuotaRouteSection({ model, managementOnly = false }: { model: Qu
                         停用
                       </button>
                     ) : <>
-                      <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                      <button data-write-action className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                         onClick={() => updateRoute.mutate({ route, enabled: true })} type="button">启用</button>
                       <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
                         onClick={() => setArchiveTarget({ kind: "route", item: route })} type="button">归档</button>

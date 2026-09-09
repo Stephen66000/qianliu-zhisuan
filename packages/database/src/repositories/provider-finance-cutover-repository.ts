@@ -284,7 +284,7 @@ export class ProviderFinanceCutoverRepository {
           activated_by_admin_user_id=EXCLUDED.activated_by_admin_user_id,
           updated_at=EXCLUDED.updated_at
       `.execute(trx);
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
         enterprise_id: enterpriseId, admin_user_id: adminId,
         action: "provider_finance.strict_writes.activate",
         target_type: "provider_finance_runtime_state", target_id: enterpriseId,

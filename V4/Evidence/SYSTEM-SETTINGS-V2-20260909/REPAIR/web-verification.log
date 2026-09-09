@@ -1,0 +1,31 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/system-settings-v1-20260909/apps/web
+
+ ✓ src/api/admins.test.tsx (1 test) 12ms
+ ✓ src/api/auth.test.tsx (1 test) 64ms
+ ✓ src/components/layout/Sidebar.test.tsx (2 tests) 184ms
+ ✓ src/pages/Settings.test.tsx (2 tests) 187ms
+ ✓ src/pages/SystemSettings.test.tsx (4 tests) 174ms
+ ✓ src/pages/Admins.test.tsx (3 tests) 429ms
+   ✓ POOL-015 管理员管理 > 创建管理员后仅在一次性窗口展示初始密码  357ms
+
+ Test Files  6 passed (6)
+      Tests  13 passed (13)
+   Start at  21:30:35
+   Duration  2.02s (transform 500ms, setup 1.43s, collect 1.40s, tests 1.05s, environment 3.10s, prepare 1.59s)
+
+vite v7.1.7 building for production...
+transforming...
+✓ 1843 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                  1.44 kB │ gzip:   0.80 kB
+dist/assets/qianliu-logo-primary-By9IDn8v.png  789.27 kB
+dist/assets/index-ruTWzdhf.css                  31.28 kB │ gzip:   6.88 kB
+dist/assets/index-ZnCJd5Kr.js                  760.51 kB │ gzip: 216.84 kB
+✓ built in 3.26s
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

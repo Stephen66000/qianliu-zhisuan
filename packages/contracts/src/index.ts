@@ -208,3 +208,4 @@ export type PrincipalType = "EMPLOYEE" | "PROJECT";
 
 /** W01 出口标记——防止空包导入失败。 */
 export const CONTRACTS_VERSION = "0.3.0" as const;
+export * from "./admin-permissions.js";

@@ -61,7 +61,7 @@ export async function cancelSubscriptionAutoRenewal(db: Kysely<Database>, enterp
     if (resource.subscription_auto_renew_enabled) {
       await trx.updateTable("provider_resource").set({ subscription_auto_renew_enabled: false })
         .where("enterprise_id", "=", enterpriseId).where("id", "=", resourceId).execute();
-      await trx.insertInto("operation_log").values({ enterprise_id: enterpriseId, admin_user_id: adminId,
+      await trx.insertInto("operation_log").values({ actor_source: "ADMIN", enterprise_id: enterpriseId, admin_user_id: adminId,
         action: "subscription.auto_renew.cancel", target_type: "provider_resource", target_id: resourceId,
         result: "SUCCESS", failure_reason: null, change_summary: { enabled: false } }).execute();
     }

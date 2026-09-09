@@ -372,7 +372,7 @@ export class PrincipalRepository {
   ): Promise<void> {
     await db
       .insertInto("operation_log")
-      .values({
+      .values({ actor_source: "ADMIN",
         enterprise_id: enterpriseId,
         admin_user_id: adminUserId,
         action: input.action,

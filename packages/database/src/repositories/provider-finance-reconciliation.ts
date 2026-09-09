@@ -33,7 +33,7 @@ export class ProviderFinanceReconciliationRepository extends ProviderFinanceBala
         decided_by_admin_user_id: null, adjustment_event_id: null, decision_note: null,
         decision_idempotency_key: null, decided_at: null, resolved_at: null,
       }).returningAll().executeTakeFirstOrThrow();
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
         enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
         action: "provider_finance_reconciliation_case.create",
         target_type: "provider_finance_reconciliation_case", target_id: row.id,
@@ -75,7 +75,7 @@ export class ProviderFinanceReconciliationRepository extends ProviderFinanceBala
         decision_note: input.note, decided_at: new Date(), version: input.expectedVersion + 1,
         decision_idempotency_key: input.idempotencyKey, updated_at: new Date(),
       }).where("id", "=", financeCase.id).returningAll().executeTakeFirstOrThrow();
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
         enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
         action: "provider_finance_reconciliation_case.reject",
         target_type: "provider_finance_reconciliation_case", target_id: row.id,

@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/system-settings-v1-20260909/apps/web
+
+ ✓ src/api/admins.test.tsx (1 test) 16ms
+ ✓ src/pages/Settings.test.tsx (2 tests) 103ms
+ ✓ src/components/layout/Sidebar.test.tsx (2 tests) 95ms
+ ✓ src/pages/SystemSettings.test.tsx (4 tests) 167ms
+ ✓ src/pages/Admins.test.tsx (3 tests) 370ms
+
+ Test Files  5 passed (5)
+      Tests  12 passed (12)
+   Start at  18:55:58
+   Duration  2.00s (transform 480ms, setup 1.22s, collect 1.14s, tests 751ms, environment 2.46s, prepare 575ms)

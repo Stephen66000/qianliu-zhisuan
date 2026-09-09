@@ -15,6 +15,7 @@ import {
   verifyPassword,
 } from "../auth/password.js";
 import { registerAdminCleanupRoute } from "./cleanup-route.js";
+import { updateAdminIdentity } from "./update-identity.js";
 
 const UsernameSchema = z
   .string()
@@ -35,8 +36,9 @@ const CreateAdminSchema = z.object({
   username: UsernameSchema,
   display_name: DisplayNameSchema,
   password: PasswordSchema,
+  role_code: z.enum(["SUPER_ADMIN", "CUSTOM"]).optional(),
 });
-const RenameSchema = z.object({ display_name: DisplayNameSchema });
+const RenameSchema = z.object({ display_name: DisplayNameSchema, role_code: z.enum(["SUPER_ADMIN", "CUSTOM"]).optional(), expected_version: z.number().int().positive().optional() });
 const PasswordResetSchema = z.object({ new_password: PasswordSchema });
 const ChangePasswordSchema = z.object({
   current_password: z.string().min(1).max(256),
@@ -50,6 +52,8 @@ function publicAdmin(admin: AdminUser) {
     username: admin.username,
     display_name: admin.display_name,
     status: admin.status,
+    role_code: admin.role_code,
+    archived_at: admin.archived_at,
     must_change_password: admin.must_change_password,
     version: admin.version,
     created_at: admin.created_at,
@@ -87,9 +91,12 @@ function isUniqueViolation(error: unknown): boolean {
 export function registerAdminRoutes(app: FastifyInstance): void {
   app.get("/admins", { preHandler: [requireAuth] }, async (req) => {
     const admins = await app.adminRepo.listByEnterprise(
-      req.admin!.enterpriseId,
+      req.admin!.enterpriseId, (req.query as { archived?: string }).archived === "true",
     );
-    return { admins: admins.map(publicAdmin) };
+    const sessions = await app.db.selectFrom("admin_session as s").innerJoin("admin_user as a", "a.id", "s.admin_user_id")
+      .select(eb => ["a.id", eb.fn.max("s.created_at").as("last_login_at")]).where("a.enterprise_id", "=", req.admin!.enterpriseId)
+      .groupBy("a.id").execute();
+    return { admins: admins.map(admin => ({ ...publicAdmin(admin), last_login_at: sessions.find(s => s.id === admin.id)?.last_login_at ?? null })) };
   });
 
   app.post("/admins", { preHandler: [requireAuth] }, async (req, reply) => {
@@ -102,11 +109,16 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       });
     }
     try {
+      if (parsed.data.role_code === "CUSTOM" && !await app.db.selectFrom("admin_role").select("enterprise_id")
+        .where("enterprise_id", "=", req.admin!.enterpriseId).executeTakeFirst()) {
+        return reply.code(400).send({ error: "role_missing", message: "请先保存自定义岗位名称和权限" });
+      }
       const admin = await app.adminRepo.createManaged({
         enterpriseId: req.admin!.enterpriseId,
         username: parsed.data.username,
         displayName: parsed.data.display_name,
         passwordHash: await hashPassword(parsed.data.password),
+        roleCode: parsed.data.role_code,
       });
       await app.auditRepo.write({
         enterprise_id: req.admin!.enterpriseId,
@@ -118,7 +130,8 @@ export function registerAdminRoutes(app: FastifyInstance): void {
           username: admin.username,
           display_name: admin.display_name,
           status: admin.status,
-          must_change_password: true,
+          must_change_password: admin.must_change_password,
+          role_code: admin.role_code,
         },
         result: "SUCCESS",
       });
@@ -153,26 +166,15 @@ export function registerAdminRoutes(app: FastifyInstance): void {
           .code(400)
           .send({ error: "invalid_request", message: "请求参数不合法" });
       }
-      const admin = await app.adminRepo.updateDisplayName(
-        req.admin!.enterpriseId,
-        id.data,
-        body.data.display_name,
-      );
+      const result = await updateAdminIdentity(app, req.admin!, id.data, body.data);
+      if (result.error) return reply.code(409).send({ error: "conflict", message: result.error });
+      const admin = result.admin;
       if (!admin) {
         await auditFailure(app, req, "admin.rename", id.data, "not_found");
         return reply
           .code(404)
           .send({ error: "not_found", message: "管理员不存在" });
       }
-      await app.auditRepo.write({
-        enterprise_id: req.admin!.enterpriseId,
-        admin_user_id: req.admin!.adminUserId,
-        action: "admin.rename",
-        target_type: "admin_user",
-        target_id: admin.id,
-        change_summary: { display_name: admin.display_name },
-        result: "SUCCESS",
-      });
       return { admin: publicAdmin(admin) };
     },
   );

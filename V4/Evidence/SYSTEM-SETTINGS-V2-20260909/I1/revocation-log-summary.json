@@ -1,0 +1,11 @@
+{
+  "revoke_time_ms": 1788951553572,
+  "first_401_time_ms": 1788951583526,
+  "last_401_time_ms": 1788951653985,
+  "first_401_delay_seconds": 29.954,
+  "completed_auth_me_401_count": 26189,
+  "duration_seconds": 70.459,
+  "401s_first_1500ms": 1842,
+  "screenshot": "Timeout 30000ms; no screenshot claimed",
+  "cleanup": "Isolated Chrome process 32538 terminated to stop the reproduction loop; script finally closed Vite/API and destroyed temporary database/container. Exit 1 from screenshot timeout is recorded, not a passing test."
+}

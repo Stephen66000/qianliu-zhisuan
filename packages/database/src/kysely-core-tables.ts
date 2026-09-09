@@ -7,8 +7,15 @@ export interface KyselyMigrationLockTable {
   id: number;
 }
 export interface EnterpriseTable {
+  session_minutes: Generated<number>;
+  login_max_failures: Generated<number>;
+  login_lock_minutes: Generated<number>;
+  force_initial_password_change: Generated<boolean>;
+  security_version: Generated<number>;
   id: Generated<string>;
   name: string;
+  management_contact: string | null;
+  contact_email: string | null;
   status: Generated<string>;
   timezone: Generated<string>;
   default_currency: Generated<string>;
@@ -17,6 +24,7 @@ export interface EnterpriseTable {
   updated_at: Generated<Date>;
 }
 export interface AdminUserTable {
+  role_code: Generated<"SUPER_ADMIN" | "CUSTOM">;
   id: Generated<string>;
   enterprise_id: string;
   username: string;
@@ -30,6 +38,9 @@ export interface AdminUserTable {
   updated_at: Generated<Date>;
 }
 export interface AdminSessionTable {
+  user_agent: string | null;
+  ip_address: string | null;
+  last_seen_at: Date | null;
   id: Generated<string>;
   admin_user_id: string;
   token_hash: string;

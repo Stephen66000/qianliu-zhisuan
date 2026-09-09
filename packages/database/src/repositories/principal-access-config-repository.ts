@@ -352,7 +352,7 @@ export class PrincipalAccessConfigRepository {
         changes,
         takeover: { cleared_manual: Number(manualCleared.numDeletedRows ?? 0) },
       };
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
         enterprise_id: input.enterpriseId, admin_user_id: input.adminUserId,
         action: "principal_access_config.save", target_type: "principal",
         target_id: input.principalId, result: "SUCCESS", failure_reason: null,

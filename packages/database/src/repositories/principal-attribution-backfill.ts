@@ -173,7 +173,7 @@ export async function confirmPrincipalAttributionBackfill(
     await markUsageAggregateDirtyForRequests(trx, input.enterpriseId, ids);
     await trx
       .insertInto("operation_log")
-      .values({
+      .values({ actor_source: "ADMIN",
         enterprise_id: input.enterpriseId,
         admin_user_id: input.adminId,
         action: "principal.attribution.backfill",

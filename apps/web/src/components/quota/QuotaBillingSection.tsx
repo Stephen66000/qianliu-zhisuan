@@ -24,7 +24,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
         title="计价"
       >
         {showRuleForm ? (
-          <form
+          <form data-write-action
             className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 md:grid-cols-4"
             onSubmit={ruleForm.handleSubmit((values) => createRule.mutate(values))}
           >
@@ -161,7 +161,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                         />
                       </FormField>
                       <div className="flex items-end">
-                        <button
+                        <button data-write-action
                           className="h-9 rounded px-2 text-[12px] text-ql-danger hover:bg-ql-danger-soft"
                           onClick={() => removeRuleWindow(index)}
                           type="button"
@@ -214,7 +214,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               {model.queuedRules.map((rule, index) => <div key={index} className="mb-2 rounded border p-2 text-xs">
                 {rule.rule_version} · {rule.upstream_model} · {rule.currency} · 命中 {rule.cache_hit_price || "—"} / 未命中 {rule.cache_miss_price || "—"} / 输出 {rule.output_price || "—"} · 倍率 {rule.multiplier || "—"}
                 <span className="block">{rule.windows.length ? rule.windows.map((window) => `${window.timezone} ${window.days_of_week || "每天"} ${window.start_time}–${window.end_time}`).join("；") : "全天"} · {rule.effective_from}</span>
-                <button type="button" className="ml-3 text-ql-action" onClick={() => {
+                <button data-write-action type="button" className="ml-3 text-ql-action" onClick={() => {
                   const parsed = BillingRuleSchema.safeParse(ruleForm.getValues());
                   if (!parsed.success) { void ruleForm.trigger(); return; }
                   const current = parsed.data; ruleForm.reset(rule);
@@ -240,7 +240,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                   model.setSelectedRuleRouteId(""); model.setQueuedRules([]); model.setSourceRuleIds([]);
                   model.setReplaceExisting(false); model.setSubmissionId(crypto.randomUUID()); createRule.reset();
                 }}>取消</button>
-              <button
+              <button data-write-action
                 className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
                 disabled={createRule.isPending}
                 type="submit"
@@ -308,7 +308,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                         onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: false })}
                         type="button">取消归档</button>
                     ) : <>
-                      <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                      <button data-write-action className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
                         onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
                         type="button">{rule.enabled ? "停用" : "启用"}</button>
                       {!rule.enabled ? <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"

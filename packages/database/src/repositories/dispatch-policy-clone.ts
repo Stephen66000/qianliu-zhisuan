@@ -138,7 +138,7 @@ export async function copyRetiredPolicyAsDraft(
     const created = await trx.insertInto("dispatch_policy").values({
       ...cloneValues(source, enterpriseId, actorAdminId, version), status: "DRAFT",
     }).returningAll().executeTakeFirstOrThrow();
-    await trx.insertInto("operation_log").values({
+    await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
       enterprise_id: enterpriseId, admin_user_id: actorAdminId,
       action: "dispatch_policy.copy", target_type: "dispatch_policy", target_id: created.id,
       change_summary: { copied_from_policy_id: source.id, before_version: source.policy_version, new_version: version, status: "DRAFT" },
@@ -175,7 +175,7 @@ export async function restoreRetiredPolicyAsPublished(
       status: "PUBLISHED", validated_at: now, validated_by_admin_id: actorAdminId,
       published_at: now, published_by_admin_id: actorAdminId, effective_at: now,
     }).returningAll().executeTakeFirstOrThrow();
-    await trx.insertInto("operation_log").values({
+    await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
       enterprise_id: enterpriseId, admin_user_id: actorAdminId,
       action: "dispatch_policy.restore", target_type: "dispatch_policy", target_id: created.id,
       change_summary: { restored_from_policy_id: source.id, before_version: source.policy_version, new_version: version, status: "PUBLISHED" },

@@ -1,0 +1,23 @@
+{
+  "count": 17,
+  "files": [
+    "apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts",
+    "apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts",
+    "packages/database/src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts",
+    "packages/database/src/__tests-integration__/exception-center-contract.integration.test.ts",
+    "packages/database/src/__tests-integration__/operating-snapshot-subscription-period-migration.integration.test.ts",
+    "packages/database/src/__tests-integration__/pool043-model-identity-migration.test.ts",
+    "packages/database/src/__tests-integration__/pool046-zhipu-window-alias-migration.test.ts",
+    "packages/database/src/__tests-integration__/pool047-resource-monthly-budget-migration.integration.test.ts",
+    "packages/database/src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts",
+    "packages/database/src/__tests-integration__/principal-key-single-active-migration.integration.test.ts",
+    "packages/database/src/__tests-integration__/provider-finance-cutover.integration.test.ts",
+    "packages/database/src/__tests-integration__/provider-finance-ledger.integration.test.ts",
+    "packages/database/src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts",
+    "packages/database/src/__tests-integration__/runtime-admin-migrations.integration.test.ts",
+    "packages/database/src/__tests-integration__/runtime-admin-release-rehearsal.integration.test.ts",
+    "packages/database/src/__tests-integration__/runtime-assurance-foundation.integration.test.ts",
+    "packages/database/src/__tests-integration__/w20-final-migration.integration.test.ts"
+  ],
+  "scope": "I1-01 changed migration head assertions and direct rollback dependencies; runtime regression is separately recorded"
+}

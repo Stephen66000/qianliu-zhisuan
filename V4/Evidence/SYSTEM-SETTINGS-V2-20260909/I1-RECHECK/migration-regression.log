@@ -1,0 +1,14 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/system-settings-v1-20260909/packages/database
+
+ ✓ src/__tests-integration__/w20-final-migration.integration.test.ts (2 tests) 9836ms
+   ✓ W20-10 0045 到 0051 升级、回退与读模型重建 > 同一 1.0 数据可升级、重建派生聚合、允许条件下 down 并再次升级  2598ms
+   ✓ W20-10 0045 到 0051 升级、回退与读模型重建 > 0053 已有期初余额事实时拒绝破坏性回退  1157ms
+ ✓ src/__tests-integration__/exception-center-contract.integration.test.ts (55 tests) 3803ms
+ ✓ src/__tests-integration__/runtime-admin-migrations.integration.test.ts (1 test) 2376ms
+   ✓ 0067/0068 运行保障与管理员迁移 > 补齐历史异常资源，并阻止存在已清理管理员时回退  2375ms
+
+ Test Files  3 passed (3)
+      Tests  58 passed (58)
+   Start at  22:11:34
+   Duration  18.03s (transform 194ms, setup 0ms, collect 1.33s, tests 16.01s, environment 0ms, prepare 180ms)

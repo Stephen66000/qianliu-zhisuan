@@ -184,7 +184,7 @@ export class ProviderFinanceEventRepository {
     trx: Transaction<Database>, input: FinanceEventInput, eventType: FinanceEventType,
     eventId: string, requestHash: string, response: unknown,
   ) {
-    await trx.insertInto("operation_log").values({
+    await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
       enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
       action: "provider_finance_event.create", target_type: "provider_finance_event",
       target_id: eventId, result: "SUCCESS", failure_reason: null,

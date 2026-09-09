@@ -7,6 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { get, post } from "./client";
+import { useCatalogPath } from "./catalog-access";
 import type {
   AccessConfiguration,
   AlertsResult,
@@ -149,19 +150,21 @@ export function usePrincipals(
 ) {
   const query = new URLSearchParams({ archived });
   if (status) query.set("status", status);
+  const path = useCatalogPath("principals", `/principals?${query}`);
   return useQuery({
-    queryKey: [...QUERY_KEYS.principals, archived, status ?? "all-statuses"],
+    queryKey: [...QUERY_KEYS.principals, archived, status ?? "all-statuses", path],
     queryFn: ({ signal }) =>
-      get<PrincipalsResult>(`/principals?${query}`, signal),
+      get<PrincipalsResult>(path, signal),
     retry: 1,
     staleTime: 30_000,
   });
 }
 
 export function useProviderResources() {
+  const path = useCatalogPath("resources", "/provider-resources");
   return useQuery({
-    queryKey: QUERY_KEYS.providerResources,
-    queryFn: ({ signal }) => get<ProviderResourcesResult>("/provider-resources", signal),
+    queryKey: [...QUERY_KEYS.providerResources, path],
+    queryFn: ({ signal }) => get<ProviderResourcesResult>(path, signal),
     retry: 1,
     staleTime: 30_000,
   });
@@ -178,9 +181,10 @@ export function useResourceUsageOverview() {
 }
 
 export function useProviders() {
+  const path = useCatalogPath("providers", "/providers");
   return useQuery({
-    queryKey: QUERY_KEYS.providers,
-    queryFn: ({ signal }) => get<ProvidersResult>("/providers", signal),
+    queryKey: [...QUERY_KEYS.providers, path],
+    queryFn: ({ signal }) => get<ProvidersResult>(path, signal),
     retry: 1,
     staleTime: 30_000,
   });
@@ -224,9 +228,10 @@ export function useResourceHealth(resourceId: string | null) {
 }
 
 export function useUnifiedModels(archived: "exclude" | "only" | "all" = "exclude") {
+  const path = useCatalogPath("models", `/unified-models?archived=${archived}`);
   return useQuery({
-    queryKey: [...QUERY_KEYS.unifiedModels, archived],
-    queryFn: ({ signal }) => get<UnifiedModelsResult>(`/unified-models?archived=${archived}`, signal),
+    queryKey: [...QUERY_KEYS.unifiedModels, archived, path],
+    queryFn: ({ signal }) => get<UnifiedModelsResult>(path, signal),
     retry: 1,
     staleTime: 30_000,
   });

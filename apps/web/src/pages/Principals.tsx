@@ -141,7 +141,7 @@ export function PrincipalsPage() {
         {featureFlags.FEATURE_DIRECTORY_IMPORT ? (
           <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "directory" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("directory")} type="button">组织通讯录</button>
         ) : null}
-        <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "batch-authorization" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("batch-authorization")} type="button">批量模型授权</button>
+        <button data-write-action className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "batch-authorization" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("batch-authorization")} type="button">批量模型授权</button>
       </div>
       {activeTab === "batch-authorization" ? (
         <EmployeeModelRulesPage embedded />
@@ -231,7 +231,7 @@ export function PrincipalsPage() {
                         <div className="flex justify-end gap-1">
                           {!p.archived_at &&
                           featureFlags.FEATURE_DEPARTMENT_COST ? (
-                            <button
+                            <button data-write-action
                               className="rounded-md px-2 py-1 text-[12px] text-ql-action"
                               onClick={() => setAccountingTarget(p)}
                               type="button"
@@ -261,7 +261,7 @@ export function PrincipalsPage() {
                             </button>
                           ) : null}
                           {!p.archived_at && p.status !== "DISABLED" ? (
-                        <button
+                        <button data-write-action
                           className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-danger"
                           onClick={() => setDisableTarget(p)}
                           type="button"
@@ -270,7 +270,7 @@ export function PrincipalsPage() {
                         </button>
                       ) : null}
                           {!p.archived_at && p.status === "DISABLED" ? (
-                        <button
+                        <button data-write-action
                           className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                           disabled={reactivateMutation.isPending}
                           onClick={() => reactivateMutation.mutate(p)}
@@ -280,7 +280,7 @@ export function PrincipalsPage() {
                         </button>
                       ) : null}
                           {!p.archived_at ? (
-                        <button
+                        <button data-write-action
                           className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
                           disabled={previewMutation.isPending}
                           onClick={() => previewMutation.mutate(p)}

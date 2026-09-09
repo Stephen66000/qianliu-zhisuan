@@ -162,7 +162,7 @@ export function ProviderFinancePanel({
           </div>
           <div className="flex items-center gap-2">
             <input aria-label="资金历史月份" className={INPUT_CLASS} onChange={(event) => setMonth(event.target.value)} type="month" value={month} />
-            <button className="flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover" onClick={() => setEntryOpen((open) => { if (!open && selected) setKind(selected.mode); return !open; })} type="button">
+            <button data-write-action className="flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover" onClick={() => setEntryOpen((open) => { if (!open && selected) setKind(selected.mode); return !open; })} type="button">
               <Plus aria-hidden className="h-4 w-4" />充值／订阅
             </button>
           </div>
@@ -216,7 +216,7 @@ export function ProviderFinancePanel({
         {kind === "CODING_PLAN" ? <p className="mt-3 text-[12px] text-ql-fg-secondary">勾选后按登记金额和周期自动续订，可在当前服务周期旁取消。</p> : null}
         {validationError || mutation.error || confirmDuplicate.error ? <p className="mt-3 text-[12px] text-ql-danger" role="alert">{validationError || mutation.error?.message || confirmDuplicate.error?.message}</p> : null}
         {kind === "CODING_PLAN" ? <label className="mt-3 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={autoRenew} onChange={(event) => setAutoRenew(event.target.checked)} />自动续订</label> : null}
-        <div className="mt-4 flex justify-end gap-2"><button className="rounded-lg border border-ql-border px-4 py-2 text-[13px]" onClick={() => { resetEntry(); setEntryOpen(false); }} type="button">取消</button>{duplicate ? <button className="rounded-lg bg-ql-warning px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50" disabled={confirmDuplicate.isPending} onClick={() => confirmDuplicate.mutate({ ...duplicate, idempotencyKey: crypto.randomUUID() }, { onSuccess: () => { resetEntry(); setEntryOpen(false); } })} type="button">{confirmDuplicate.isPending ? "确认中…" : "确认重复入账"}</button> : <button className="rounded-lg bg-ql-action px-4 py-2 text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={mode !== "ACTIVE" || mutation.isPending} onClick={submit} type="button">{mutation.isPending ? "入账中…" : "入账确认"}</button>}</div>
+        <div className="mt-4 flex justify-end gap-2"><button className="rounded-lg border border-ql-border px-4 py-2 text-[13px]" onClick={() => { resetEntry(); setEntryOpen(false); }} type="button">取消</button>{duplicate ? <button data-write-action className="rounded-lg bg-ql-warning px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50" disabled={confirmDuplicate.isPending} onClick={() => confirmDuplicate.mutate({ ...duplicate, idempotencyKey: crypto.randomUUID() }, { onSuccess: () => { resetEntry(); setEntryOpen(false); } })} type="button">{confirmDuplicate.isPending ? "确认中…" : "确认重复入账"}</button> : <button data-write-action className="rounded-lg bg-ql-action px-4 py-2 text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={mode !== "ACTIVE" || mutation.isPending} onClick={submit} type="button">{mutation.isPending ? "入账中…" : "入账确认"}</button>}</div>
       </section> : null}
 
       <section className="mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4">

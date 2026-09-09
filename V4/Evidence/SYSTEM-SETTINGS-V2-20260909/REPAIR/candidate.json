@@ -1,0 +1,527 @@
+{
+  "base": "eb1ed123ec8e919cad0e78947c9cd9c441dee352",
+  "previous_reviewed_candidate": "5fa0d1fe4d33e75b4afedf7c7d3abe3cb9746d8fc630ab8d2df79e79a4419f1c",
+  "scope": "F01-F03 repair; not an independent re-review",
+  "files": [
+    {
+      "path": "apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts",
+      "sha256": "2dd36d436c2a499f1f04f6cb79a958ca3e00ed195b554ed7ec6b4acaf1033ea1"
+    },
+    {
+      "path": "apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts",
+      "sha256": "c677514f3edb078b4c363554778e304c600830816213786faf07e54f85bb01a8"
+    },
+    {
+      "path": "apps/control-api/src/__tests-integration__/settings-audit-source.test.ts",
+      "sha256": "88378b2474f41a625a0b7a225cb6b718bb9756ee36c22655b21b200892e1e4ff"
+    },
+    {
+      "path": "apps/control-api/src/__tests-integration__/settings-directory-permissions.test.ts",
+      "sha256": "98ee09c6fc600e346f2615c3b0ed426193b5355d83b0664af2a09cd1602f4d7c"
+    },
+    {
+      "path": "apps/control-api/src/__tests-integration__/system-settings-v1.test.ts",
+      "sha256": "3c49d61c6cf9e73628935a3e110ddc023c00584a843e03030cee03d0b8f32254"
+    },
+    {
+      "path": "apps/control-api/src/__tests-integration__/system-settings-v2.test.ts",
+      "sha256": "d52deb9f8cedaef1bc66761d874caf386f0e39661145204de5566d1de60f1aec"
+    },
+    {
+      "path": "apps/control-api/src/admins/access.ts",
+      "sha256": "c8a60a034b7866f9a5a80dbd3b29bd708803c9ae50db9b68917bc35402c1026f"
+    },
+    {
+      "path": "apps/control-api/src/admins/reference-routes.ts",
+      "sha256": "70c18e3ce0914e31e7d65a3d758a8f56ddaab065f6c89d7d3f9988f2d89d5496"
+    },
+    {
+      "path": "apps/control-api/src/admins/routes.ts",
+      "sha256": "38ba0cbe931c9a741509865e65a6724fd08e1fdb2bd941b5b687e726586ab144"
+    },
+    {
+      "path": "apps/control-api/src/admins/settings-routes.ts",
+      "sha256": "26809bd01a1d381cd217978af2399ef93eaafce57630270b65d03c55a03a64b2"
+    },
+    {
+      "path": "apps/control-api/src/admins/update-identity.ts",
+      "sha256": "8bd165157687afbe1fcb03cde5fa6dc80bd80164b020c19c1d9d3435ddad7723"
+    },
+    {
+      "path": "apps/control-api/src/admins/version-route.ts",
+      "sha256": "0da7215daa8a92fae31f2f3119dd8e1710015e6615991fb5d89c7463443b241e"
+    },
+    {
+      "path": "apps/control-api/src/auth/routes.ts",
+      "sha256": "0686a46468eb852eeca775ed6069a0637caa7f347d922cb7b38261b7be3925e9"
+    },
+    {
+      "path": "apps/control-api/src/department-costs/writes.ts",
+      "sha256": "9542acf68c04a4e1fcd69aa3537790ac55d8e3182d1c1bd80c00ee9981756781"
+    },
+    {
+      "path": "apps/control-api/src/enterprise-settings/routes.ts",
+      "sha256": "23a942485fab91ffea301d0eefc5f55f6cad189d95638b1b1b99e642a27add4a"
+    },
+    {
+      "path": "apps/control-api/src/plugins/audit-query.ts",
+      "sha256": "e7bfacb7778865d817b2b6b0c7429ee3480af79cafb33422d511e429e78e7bab"
+    },
+    {
+      "path": "apps/control-api/src/plugins/audit-routes.ts",
+      "sha256": "a302d9353363a8e5d48f50b27aa6560d576efb90d2a2b1b84dc19aeab86440c3"
+    },
+    {
+      "path": "apps/control-api/src/plugins/auth-guard.ts",
+      "sha256": "001e3512c5e5f86e54389003444bb9aef1dd432632aa4e69d58004e1382d080d"
+    },
+    {
+      "path": "apps/control-api/src/principals/routes.ts",
+      "sha256": "7eb3c1c4f70a6403447271051c3b3803fc7181a8bb45c51ad8e5f4d0628ba04b"
+    },
+    {
+      "path": "apps/control-api/src/resource-insights/budget-routes.ts",
+      "sha256": "0b87bf31ac696ebed173cf7cfb7f5be2c0fad3f9afd3f94ea3bc92a9800dc43f"
+    },
+    {
+      "path": "apps/control-api/src/server.ts",
+      "sha256": "e2c1df129e6cfc662ff4027e6b02e86d29d0a03717549cef6510f0e28d48dc47"
+    },
+    {
+      "path": "apps/web/src/App.tsx",
+      "sha256": "5a951b0095b8acc5a56bc0f09eaabc3ded608c29d164d228bb2f2a583cfe84af"
+    },
+    {
+      "path": "apps/web/src/api/admins.ts",
+      "sha256": "42c231155d5d6c2898eab10d65ebc9346ad335efcde4559ed8cd7a6093a90605"
+    },
+    {
+      "path": "apps/web/src/api/auth.test.tsx",
+      "sha256": "7d23106c5d67e82b9d3fed1fb86e229e9be9c929fd1cda901dc5979d115f0657"
+    },
+    {
+      "path": "apps/web/src/api/auth.ts",
+      "sha256": "9b746b3cdca64fbbc6839910654e7354561d5f3da10fe13454f3a75e6fd72b04"
+    },
+    {
+      "path": "apps/web/src/api/catalog-access.ts",
+      "sha256": "29826dca7fa54ad9fa79dc77c102eb1475cab396205e2afed265377218a16da7"
+    },
+    {
+      "path": "apps/web/src/api/hooks.ts",
+      "sha256": "1f74e5ca7b7f7692be519241712f4c0e92e6c3ed6e9ee7f4434c557d092f0e4a"
+    },
+    {
+      "path": "apps/web/src/api/settings.ts",
+      "sha256": "6028fe991b882c336cf962a8819eda27a199bca3c7fa59cc91002cf06cf4eea0"
+    },
+    {
+      "path": "apps/web/src/api/types.ts",
+      "sha256": "e3b64a85b9fd2d009f8c2a9881be2bd361a6d5688c38fbe035b75c88326a0774"
+    },
+    {
+      "path": "apps/web/src/api/v2-hooks.ts",
+      "sha256": "93bb4b2fb3a62620acc1b350252dc524b9fe3b4e9c87853b463ef47c6d989a3d"
+    },
+    {
+      "path": "apps/web/src/api/v2-types.ts",
+      "sha256": "ef5c76ae18993c57f4f373bf9db7e696de8ca695d33db745468c8ca610c89c46"
+    },
+    {
+      "path": "apps/web/src/components/RequireAuth.tsx",
+      "sha256": "7b91672968268ba9ce6257062282562b9b4df78084de1d03dec865bc71eda746"
+    },
+    {
+      "path": "apps/web/src/components/layout/AppLayout.tsx",
+      "sha256": "574843c12ba86bbbf66879e9c57fa25fcbd8f4049365b99cd8ba70bdce195296"
+    },
+    {
+      "path": "apps/web/src/components/layout/Sidebar.test.tsx",
+      "sha256": "dcda42a0a786246c532b14f28e5a339d6a2ded5d9522a9afb58f14645920fd62"
+    },
+    {
+      "path": "apps/web/src/components/layout/Sidebar.tsx",
+      "sha256": "7da4e530eaba32935eb7babc1f1b242e92b0ebd227fd652523fc8592872cd659"
+    },
+    {
+      "path": "apps/web/src/components/layout/Topbar.tsx",
+      "sha256": "9c5f5e7d84266f0c3a908af3bf1c15296c59a7572c5b3ac1afddcfcb4057b729"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/ClosingManagementTab.tsx",
+      "sha256": "a282c7b15ef8c7338422266dbd89b69edabc9ef3d61f32071cdda38905328f4a"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/ValueConfirmationTab.tsx",
+      "sha256": "e62e59b3d66d537348cd6169fd38ab490cb375d3b82c8b69f843c09a5342a9ac"
+    },
+    {
+      "path": "apps/web/src/components/principals/DirectoryPanel.tsx",
+      "sha256": "525d14e0d2c026f3a92a4d3c5057853bc68e5f4e13c23d3ac94a7e66de21d3c1"
+    },
+    {
+      "path": "apps/web/src/components/principals/HistoricalAttributionPanel.tsx",
+      "sha256": "e1bcecd0c1d34c25d5a52d3058b37c49dc9136e0cf009138eddf95285865b365"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalAccessConfigPanel.tsx",
+      "sha256": "21c46a48261d40cde680a7a1d609c08f6c5de88f9c1664e0735cf4f5fd4ef6f2"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalAccessPanel.tsx",
+      "sha256": "13ca78a09db005586bb57819caa575130ac12260a7cd3f41a9be00759b26b78c"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalAccountingPanel.tsx",
+      "sha256": "342d5fcc9126e3c0771345f685671fe6d843bdb9efc97f7371c827fe61cfaccd"
+    },
+    {
+      "path": "apps/web/src/components/principals/PrincipalCreateForm.tsx",
+      "sha256": "b54faa6a8000701b25e3745e9cb6707952b8b46736d3a9985ffa2eb3ae9abbfa"
+    },
+    {
+      "path": "apps/web/src/components/quota/DepartmentBudgetPanel.tsx",
+      "sha256": "bc7921274fc580c1ba7d74441f57b8565131f2287323f77351b357924474aeb6"
+    },
+    {
+      "path": "apps/web/src/components/quota/QuotaBillingSection.tsx",
+      "sha256": "a4cccfa85847f70e8614e63fb45714b2a4d60b1ba5b74757a6bf3bda8399b5bb"
+    },
+    {
+      "path": "apps/web/src/components/quota/QuotaModelSection.tsx",
+      "sha256": "ca8462c1d467baa9f750e59e0c00fa95caa9eeb0fea35a86caaf2d6990a82b78"
+    },
+    {
+      "path": "apps/web/src/components/quota/QuotaPolicySection.tsx",
+      "sha256": "977903cde8f1b03aa06c520a5522a4845ef2eba482bcebcdf1fe7ad1ec9e8ad3"
+    },
+    {
+      "path": "apps/web/src/components/quota/QuotaRouteSection.tsx",
+      "sha256": "36b2b59962ca4a0502690759e952ffef8e71907c2820aa95f7c1feccf87039a7"
+    },
+    {
+      "path": "apps/web/src/components/resources/ProviderFinancePanel.tsx",
+      "sha256": "5f24f145e91b80eecd102b716216f5f065458a40562ed0c5970ca63c45e892ca"
+    },
+    {
+      "path": "apps/web/src/components/resources/QuotaWindowPanel.tsx",
+      "sha256": "57cb3133aa6260adbcb612ac5e48f9de2bb753e5fe96ce086114d2fe4038be7a"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceDialogs.tsx",
+      "sha256": "1c6bd46491de23cb763c274004c1405c3259c2bc639094a42fd8e50d21098936"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceModelDiscovery.tsx",
+      "sha256": "9581fed17164c0255c485767d785a3ffd253427dc5bff6a5007e7e5bbf987930"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceOnboardingSection.tsx",
+      "sha256": "13be64ca4ae691e402f2444d18ef9ee93339d861ce261788076bf885db76e88d"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceTable.tsx",
+      "sha256": "381649406ac7e0a1393508ebb717a5536f74c8ccf0da3426cf14919341072075"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceUtilizationPanel.tsx",
+      "sha256": "9414416e128e8d85bca294ea96a46f04452cbe6351d1bdd60ebfe4ee90070de7"
+    },
+    {
+      "path": "apps/web/src/components/resources/SubscriptionAutoRenewal.tsx",
+      "sha256": "7dc9f61a84934fc84b952e0782c1f9fa0b1e6dcf993196e2fd0c9e5eb182dd5b"
+    },
+    {
+      "path": "apps/web/src/components/settings/AdminRoleField.tsx",
+      "sha256": "83bf28fa58b7f6a9cef18571427efc873fc5fcecb1c70ee8e7ce49b820030ef2"
+    },
+    {
+      "path": "apps/web/src/components/settings/AuditPanel.tsx",
+      "sha256": "e9b5593d636f817c24522ca93178426b4751da65ba67e87be66643d294e09f79"
+    },
+    {
+      "path": "apps/web/src/components/settings/EnterpriseSettingsPanel.tsx",
+      "sha256": "ab33589bbb98259dcc15eae8fe55fba90ca401d4aa4775d6587921b9fcad2df0"
+    },
+    {
+      "path": "apps/web/src/components/settings/RolePanel.tsx",
+      "sha256": "928fecfe8071726a8f0d7aa37725d7c1bcb94751c0c103a41b0334d419e587c3"
+    },
+    {
+      "path": "apps/web/src/components/settings/SecurityPanel.tsx",
+      "sha256": "cfd743312bdbe8d43794d4d8971fb00501bf8bb373f9e564b297a1a58a45ff66"
+    },
+    {
+      "path": "apps/web/src/components/settings/VersionPanel.tsx",
+      "sha256": "41b10ffc0b8e4b539557361cf5532bebb9292e7e2083648d33924e39bcfc989c"
+    },
+    {
+      "path": "apps/web/src/components/settings/admin-display.ts",
+      "sha256": "7e27ad920ae38b76ecece658b28fc7a05fbb7f6d0a8aae65e71bb1e63425b073"
+    },
+    {
+      "path": "apps/web/src/pages/Admins.test.tsx",
+      "sha256": "6d8ea69243410f094c798303ea492f0ef1660a4bc4e37a794b46afe4af70b32c"
+    },
+    {
+      "path": "apps/web/src/pages/Admins.tsx",
+      "sha256": "bb7ede736f3a62c7539f9340d60ce66f905f125cc04485b1b75168cde5b0533d"
+    },
+    {
+      "path": "apps/web/src/pages/EmployeeModelRules.tsx",
+      "sha256": "88845b687cc4052c4a487c1cd9ed1c649d3489ca2925f2844613988b25057df5"
+    },
+    {
+      "path": "apps/web/src/pages/Login.tsx",
+      "sha256": "c6b1912f6cceecd5e61f4af1fbc0495d40245d70834fa802e3e3a3fcef8818fc"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillRechargeEntry.tsx",
+      "sha256": "73cdda144cf8c091fb435ba88cba5cd91ce40787f26674ff2a69ab6b42e653bc"
+    },
+    {
+      "path": "apps/web/src/pages/Principals.tsx",
+      "sha256": "8958a8efa34e595e641422aaa0eda12064ee1541fb02ba4284dbce46257fc9f3"
+    },
+    {
+      "path": "apps/web/src/pages/Settings.test.tsx",
+      "sha256": "7448e9ba6079335aed48bb8b954ef0f87076efac32049ddfb85a4e1605b26a6b"
+    },
+    {
+      "path": "apps/web/src/pages/Settings.tsx",
+      "sha256": "87489d535dfb9c1511ced556a921e70455d13c0ef9353bc2af8ebc229060b9ff"
+    },
+    {
+      "path": "apps/web/src/pages/SystemSettings.test.tsx",
+      "sha256": "5da47fb264b3c2afc652cbd15e421bd9450285553e7a2aff67435228cd0e0199"
+    },
+    {
+      "path": "apps/web/src/pages/SystemSettings.tsx",
+      "sha256": "7a43ca5848ef66da1fc7b0ab4c50fa15cddedf95c6580aefee645f35afbfc802"
+    },
+    {
+      "path": "apps/web/src/pages/runtime-assurance/AlertHandlingForm.tsx",
+      "sha256": "d41d47ac3219fb721212a8c879a47b296d7b0233cb4a75c55842099cb4d8fb7b"
+    },
+    {
+      "path": "apps/web/src/permissions.tsx",
+      "sha256": "a182c600cf9839bb4b559402bf0fb6b4bd1c4f2fd185a0554f2791496d0c88a3"
+    },
+    {
+      "path": "apps/web/src/styles/index.css",
+      "sha256": "86a9badf55eaa08e144c197031d40c0791bb53fc87e99a2cec7ba250122dd157"
+    },
+    {
+      "path": "apps/worker/src/directory/runner.ts",
+      "sha256": "da8e62fa1d890b1014709929a3ad4b58d8246c199b121f620c9eb9589f5c0bf1"
+    },
+    {
+      "path": "packages/contracts/src/admin-permissions.ts",
+      "sha256": "56e41e673b1845df7dd221fcb847f0ade9ffad8b0551015ad2dc6b8af5bbbef2"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "sha256": "6e1b9e7c114aa6b4c3595e241eb43b6df177f4e39b0bf4bc844a2a78d48084f9"
+    },
+    {
+      "path": "packages/database/migrations/0071_enterprise_contact_details.js",
+      "sha256": "df71891f6c6aaad30334392fd0ebf851bbec4a3ebc7955087798e781ae655f9f"
+    },
+    {
+      "path": "packages/database/migrations/0072_admin_roles_security.js",
+      "sha256": "74c599fc8180c93f8dc9678f274dae077b0669a907db5125c6abd6250be7b90a"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts",
+      "sha256": "fbef14decf22ce1d15f2144972e9ef8aa89d18abf11c7381ba414a90cdc53eb2"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/exception-center-contract.integration.test.ts",
+      "sha256": "f1083eb1111fd2bec9139b7da69bb9d850480b1125a7f49174441b466505a573"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/operating-snapshot-subscription-period-migration.integration.test.ts",
+      "sha256": "0f1a7ca239defd33b4a5aec566a213168849074ca2ed5b225bf2720bb5a78f08"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool043-model-identity-migration.test.ts",
+      "sha256": "4057f07aba9a74b2c20da9ec4beeac2d7c6ab0704d3e3ed47cf37d0269b9ba91"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool046-zhipu-window-alias-migration.test.ts",
+      "sha256": "f71a4922e5994b75852ef529b853c1c654d419fef09e7cbcc5ba47f2354afe7e"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool047-resource-monthly-budget-migration.integration.test.ts",
+      "sha256": "58a5bceace050ab20ee75da0c4fb258a40bbcec1d86283a9ff71c03c8ff8d8d8"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts",
+      "sha256": "2969841dd6365362459fb28a7028cee252d79306525cd4d4942fa61f3be1cf92"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/principal-key-single-active-migration.integration.test.ts",
+      "sha256": "4a29e86943103ec9a0b845c18b173f87d498aeceb54e99eb7124e72ccc84fde1"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/provider-finance-cutover.integration.test.ts",
+      "sha256": "76dc6f86177558edc8efdda7fa19f9076718fe700ec2a1daa518bdd82e7616fd"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/provider-finance-ledger.integration.test.ts",
+      "sha256": "ffe405263f0541a8726b2a3bf09715cb77cc5c97ff96c41547d6644e4305cde4"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts",
+      "sha256": "3ec057c1318d0556472af539774dafc1d2070321e5d3f4050cece65ed749e94d"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/runtime-admin-migrations.integration.test.ts",
+      "sha256": "e5c3d8f3145d1f1db8b95c22b8bfa206287e3f0770b0c9f44ea685149ee93bf8"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/runtime-admin-release-rehearsal.integration.test.ts",
+      "sha256": "5b01432dcdefe9dd0c86e09a280d9af4ecf193e754be85dfedc71a6193f03679"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/runtime-assurance-foundation.integration.test.ts",
+      "sha256": "bed3281decc39e5ae916e7bb1c6c1b46a77d61e835fd8b7af03b59dc92f06e98"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/w20-final-migration.integration.test.ts",
+      "sha256": "837cfed790ed61979fb36fcac340dd9cdd335f5ccb6f7886d63e5f82d7d6002a"
+    },
+    {
+      "path": "packages/database/src/kysely-admin-tables.ts",
+      "sha256": "2c91ec13cb03f06171ce2bff8c1e3b8125d53b33fbcab8c06748c0a939979fab"
+    },
+    {
+      "path": "packages/database/src/kysely-core-tables.ts",
+      "sha256": "73c456c2b5850c08b31f6738745cb19e78636e4bfd735bc44d402282e40e918d"
+    },
+    {
+      "path": "packages/database/src/kysely-operations-tables.ts",
+      "sha256": "c252341d356f6292bb153bbba97f1eb5c5422dd6f80ec2961e190c0fa5504617"
+    },
+    {
+      "path": "packages/database/src/kysely.ts",
+      "sha256": "e6f53201981d1ac84c56df4eaff6a4cde3d55202f0f91f5cf0a375e557493d19"
+    },
+    {
+      "path": "packages/database/src/repositories/admin-repository.ts",
+      "sha256": "f82a6406f90d1598684d526b19c4a98bac94c8f1efdeeaae4dd60ab58d523eb1"
+    },
+    {
+      "path": "packages/database/src/repositories/audit-repository.ts",
+      "sha256": "d33f3e8b6383b3ea772e3d89204df6680470dcf20cb2299e6930720ca62b274d"
+    },
+    {
+      "path": "packages/database/src/repositories/directory-import-apply.ts",
+      "sha256": "8e89848adb360773fad6905e47483372e61dac0c5f5a2729a0dadbed2bf84dcd"
+    },
+    {
+      "path": "packages/database/src/repositories/directory-repository-source-run.ts",
+      "sha256": "95c08ec9e8ffe7c06256188773886ce780cc3fdfdcca733cfd54edceb39e90bc"
+    },
+    {
+      "path": "packages/database/src/repositories/directory-repository.ts",
+      "sha256": "42788906f063909e4d8b28a5041d76183a420466af210a9053b35c7773649c93"
+    },
+    {
+      "path": "packages/database/src/repositories/dispatch-policy-archive.ts",
+      "sha256": "6a8e4c1e03fd107d3a9ee04b1dada270a65be858247304e7531e21aab14596a0"
+    },
+    {
+      "path": "packages/database/src/repositories/dispatch-policy-clone.ts",
+      "sha256": "e2963d91c238e9d2b45e6e4468274d3b2ef5d593d224f25e13ce5aa39c28988f"
+    },
+    {
+      "path": "packages/database/src/repositories/employee-model-rule-repository.ts",
+      "sha256": "dc70358f4b470fd8445da27ba55491fcbd96bc989001cb4225aeae46f58a966b"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-opening-balance.ts",
+      "sha256": "7fe9a74058cf4913dcfcd8867dacae85e00dfd64e265534622d77686854a49a6"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-access-config-repository.ts",
+      "sha256": "90a724dd70328822b0becad19eee6f7c2152e50110c0a484ee4d9518a04e215d"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-accounting.ts",
+      "sha256": "298f63ed404e01086fbe324b23951030027ef5d8d8c9c1a8b75f118f597f2259"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-attribution-backfill.ts",
+      "sha256": "3a1ddf8d10bc473b8a32d88d9ea2074c341df10b151c5b313596dc5a7bd34438"
+    },
+    {
+      "path": "packages/database/src/repositories/principal-repository.ts",
+      "sha256": "a61eb9257bcb90c70700295bbbe92f3a39b173427b1fc8afced3cbee31c00efb"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-cutover-repository.ts",
+      "sha256": "40aab8f9b473d50998991fb704930183940c0987c72c17a0261e58f897476a89"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-events.ts",
+      "sha256": "ba2231ae2863c32d80e16115cd8c33435207b93188d1c09810fba8da1a9c3cc8"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-legacy-resolution.ts",
+      "sha256": "3adb3eb4c774fffa7c8285c2e93a91a98db55120f786b50f64140313ca267f24"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-reconciliation.ts",
+      "sha256": "c7a4784fe6147d8257a21c3814382babed37988e677516bb6ef8d7588e4302ea"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-renewal.ts",
+      "sha256": "61fb8d32046cd5c67aefba817a3f5eea0216570649aded0482778cda706f17bd"
+    },
+    {
+      "path": "packages/database/src/repositories/quota-pricing-configuration.ts",
+      "sha256": "62a834cdc4154cf142a25ae2b8c7e27dfbe8803c0d148202b59ff87edaa5fc94"
+    },
+    {
+      "path": "scripts/verify-session-revocation.ts",
+      "sha256": "f0d9cbb7c07956beabc85d22ac376cd3c8f7eb5816ddbee936280787645aab10"
+    },
+    {
+      "path": "scripts/verify-settings-v2.ts",
+      "sha256": "99a015058c6addc58c3f9737969c8c0cc61da2862cb432e50c091b06494d67b9"
+    }
+  ],
+  "repair_paths": [
+    "apps/control-api/src/__tests-integration__/settings-audit-source.test.ts",
+    "apps/control-api/src/__tests-integration__/settings-directory-permissions.test.ts",
+    "apps/control-api/src/department-costs/writes.ts",
+    "apps/control-api/src/principals/routes.ts",
+    "apps/control-api/src/resource-insights/budget-routes.ts",
+    "apps/web/src/api/auth.test.tsx",
+    "apps/web/src/api/auth.ts",
+    "apps/web/src/components/RequireAuth.tsx",
+    "apps/web/src/components/settings/AuditPanel.tsx",
+    "apps/web/src/pages/Login.tsx",
+    "packages/contracts/src/admin-permissions.ts",
+    "packages/database/src/repositories/directory-import-apply.ts",
+    "packages/database/src/repositories/directory-repository-source-run.ts",
+    "packages/database/src/repositories/directory-repository.ts",
+    "packages/database/src/repositories/dispatch-policy-archive.ts",
+    "packages/database/src/repositories/dispatch-policy-clone.ts",
+    "packages/database/src/repositories/employee-model-rule-repository.ts",
+    "packages/database/src/repositories/operating-bill-opening-balance.ts",
+    "packages/database/src/repositories/principal-access-config-repository.ts",
+    "packages/database/src/repositories/principal-accounting.ts",
+    "packages/database/src/repositories/principal-attribution-backfill.ts",
+    "packages/database/src/repositories/principal-repository.ts",
+    "packages/database/src/repositories/provider-finance-cutover-repository.ts",
+    "packages/database/src/repositories/provider-finance-events.ts",
+    "packages/database/src/repositories/provider-finance-legacy-resolution.ts",
+    "packages/database/src/repositories/provider-finance-reconciliation.ts",
+    "packages/database/src/repositories/provider-finance-renewal.ts",
+    "packages/database/src/repositories/quota-pricing-configuration.ts",
+    "scripts/verify-session-revocation.ts"
+  ],
+  "sha256": "7706ef249c32400ca6a0d34fe808e2f8a256f4ffad927f97f396c0d47d06624f"
+}

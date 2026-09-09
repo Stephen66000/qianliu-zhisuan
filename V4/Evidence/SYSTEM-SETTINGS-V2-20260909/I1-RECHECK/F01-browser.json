@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "revoked": 204,
+  "observed401": 1,
+  "stableLoginPage": true,
+  "anonymousObservationMs": 32000,
+  "relogin": true,
+  "database": "isolated"
+}

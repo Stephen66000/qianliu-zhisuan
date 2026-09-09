@@ -111,7 +111,7 @@ export function ResourceUtilizationPanel({ resources: _resources }: { resources:
       </div>
       <div className="mt-4 flex flex-wrap justify-end gap-3">
         {budgetQuery.data?.current?.status === "ACTIVE" ? <button className="text-[12px] text-ql-danger" disabled={saveBudget.isPending} onClick={() => submitBudget(true)} type="button">清除本月预算</button> : null}
-        <button className="rounded-lg bg-ql-action px-4 py-2 text-[12px] font-medium text-white disabled:opacity-50" disabled={!budget || saveBudget.isPending || budgetQuery.isLoading} onClick={() => submitBudget(false)} type="button">{saveBudget.isPending ? "保存中…" : "保存月预算"}</button>
+        <button data-write-action className="rounded-lg bg-ql-action px-4 py-2 text-[12px] font-medium text-white disabled:opacity-50" disabled={!budget || saveBudget.isPending || budgetQuery.isLoading} onClick={() => submitBudget(false)} type="button">{saveBudget.isPending ? "保存中…" : "保存月预算"}</button>
       </div>
       {saveBudget.error || budgetQuery.error ? <p className="mt-2 text-[12px] text-ql-danger">{(saveBudget.error ?? budgetQuery.error)?.message}</p> : null}
       {budgetQuery.data?.history.length ? <details className="mt-4 text-[12px]"><summary className="cursor-pointer text-ql-action">查看历史版本</summary><ul className="mt-2 space-y-1 text-ql-fg-secondary">{budgetQuery.data.history.map((item) => <li key={item.id}>v{item.version} · {item.status === "CLEARED" ? "已清除" : `${item.currency} ${formatMoney(item.amount ?? "0")}`} · {item.createdBy} · {new Date(item.createdAt).toLocaleString("zh-CN")}</li>)}</ul></details> : null}

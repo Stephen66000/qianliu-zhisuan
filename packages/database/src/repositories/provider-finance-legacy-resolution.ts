@@ -153,7 +153,7 @@ export async function resolveLegacyApiCostGap(
       missingApiCost: fixed(missingCost), unknownLineCount: String(unknownResult.length),
       replayed: false,
     };
-    await trx.insertInto("operation_log").values({
+    await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
       enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
       action: "provider_finance_legacy_cost.resolve",
       target_type: "provider_finance_legacy_cost_resolution", target_id: resolution.id,

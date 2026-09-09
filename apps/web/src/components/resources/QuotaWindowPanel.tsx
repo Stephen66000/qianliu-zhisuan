@@ -106,7 +106,7 @@ function QuotaWindowResourceCard({
           <span className="rounded-md bg-ql-surface-brand-soft px-2 py-0.5 text-[11px] font-medium text-ql-action">
             Coding Plan
           </span>
-          <button
+          <button data-write-action
             className="h-8 rounded-lg border border-ql-action px-3 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50"
             disabled={sync.isPending}
             onClick={() => sync.mutate()}

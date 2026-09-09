@@ -10,6 +10,7 @@ import type { Database, OperationLogTable } from "../kysely.js";
 export type OperationLog = Selectable<OperationLogTable>;
 
 export interface WriteAuditInput {
+  actor_source?: "ADMIN" | "SYSTEM" | "UNKNOWN";
   enterprise_id: string;
   admin_user_id: string;
   action: string;
@@ -30,6 +31,7 @@ export class AuditRepository {
       .values({
         enterprise_id: input.enterprise_id,
         admin_user_id: input.admin_user_id,
+        actor_source: input.actor_source ?? "ADMIN",
         action: input.action,
         target_type: input.target_type,
         target_id: input.target_id ?? null,

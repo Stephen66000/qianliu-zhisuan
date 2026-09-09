@@ -7,6 +7,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { digestSessionToken } from "@qianliu/provider-adapters";
 import type { AdminContext } from "../server.js";
+import { allowsRoute, loadAdminAccess } from "../admins/access.js";
 
 const SESSION_COOKIE = "qianliu_admin_session";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 小时
@@ -32,6 +33,8 @@ export async function requireAuth(
     return;
   }
   req.admin = {
+    ...await loadAdminAccess(this, session.admin_id, session.admin_enterprise_id),
+    sessionId: session.session_id,
     adminUserId: session.admin_id,
     enterpriseId: session.admin_enterprise_id,
     username: session.admin_username,
@@ -48,6 +51,12 @@ export async function requireAuth(
     });
     return;
   }
+  if (!allowsRoute(req.admin, req.routeOptions.url ?? "", req.method)) {
+    await reply.code(403).send({ error: "permission_denied", message: "没有此模块的访问或操作权限" });
+    return;
+  }
+  await this.db.updateTable("admin_session").set({ last_seen_at: new Date() })
+    .where("id", "=", session.session_id).execute();
 }
 
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;

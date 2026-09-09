@@ -101,7 +101,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                   </td>
                   <td className="py-2.5 text-right">
                     <div className="flex flex-wrap justify-end gap-1">
-                      <button
+                      <button data-write-action
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={() => {
                           setEditTarget(r);
@@ -114,14 +114,14 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                       >
                         编辑
                       </button>
-                      <button
+                      <button data-write-action
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={() => {
                           setSyncTarget(r);
                         }}
                         type="button"
                       >同步模型</button>
-                      {r.mode === "CODING_PLAN" ? <button
+                      {r.mode === "CODING_PLAN" ? <button data-write-action
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={async () => {
                           setOperatingTarget(r);
@@ -137,7 +137,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                         更新额度配置
                       </button> : null}
                       {ISOLATED.has(r.status) ? (
-                      <button
+                      <button data-write-action
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-warning hover:bg-ql-warning-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-warning"
                         onClick={() => setRecoverTarget(r)}
                         type="button"

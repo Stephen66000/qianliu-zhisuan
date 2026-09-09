@@ -185,14 +185,14 @@ export async function saveDepartmentBudget(
     await sql`
       INSERT INTO operation_log
         (enterprise_id, admin_user_id, action, target_type, target_id,
-         change_summary, result)
+         change_summary, result, actor_source)
       VALUES (${input.enterpriseId}::uuid, ${input.adminId}::uuid,
               'department_budget.upsert', 'department_budget', ${row.id}::uuid,
               ${JSON.stringify({
                 department_id: input.departmentId, month: input.month,
                 amount: budget.amount, currency: budget.currency,
                 warning_threshold: budget.warningThreshold, version: budget.version,
-              })}::jsonb, 'SUCCESS')
+              })}::jsonb, 'SUCCESS', 'ADMIN')
     `.execute(trx);
     await sql`
       INSERT INTO department_budget_idempotency
@@ -298,14 +298,14 @@ export async function createResourcePurchase(
     await sql`
       INSERT INTO operation_log
         (enterprise_id, admin_user_id, action, target_type, target_id,
-         change_summary, result)
+         change_summary, result, actor_source)
       VALUES (${input.enterpriseId}::uuid, ${input.adminId}::uuid,
               'resource_purchase.create', 'resource_purchase_record', ${row.id}::uuid,
               ${JSON.stringify({
                 provider_resource_id: input.resourceId, purchase_type: input.purchaseType,
                 amount: purchase.amount, currency: purchase.currency,
                 purchased_at: purchase.purchasedAt,
-              })}::jsonb, 'SUCCESS')
+              })}::jsonb, 'SUCCESS', 'ADMIN')
     `.execute(trx);
     await sql`
       INSERT INTO resource_purchase_idempotency

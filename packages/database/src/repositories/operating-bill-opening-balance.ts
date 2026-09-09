@@ -76,7 +76,7 @@ export async function recordOperatingBillOpeningBalance(
       amount: input.amount, currency: input.currency, source: "MANUAL",
       reason: input.reason, created_by: input.adminId,
     }).execute();
-    await trx.insertInto("operation_log").values({
+    await trx.insertInto("operation_log").values({ actor_source: "ADMIN",
       enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
       action: "operating_bill.opening_balance.create", target_type: "provider_resource",
       target_id: resource.id,

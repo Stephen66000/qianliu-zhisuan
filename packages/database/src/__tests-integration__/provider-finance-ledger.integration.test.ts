@@ -206,6 +206,8 @@ describe("0059 provider finance ledger contract", () => {
   it("blocks destructive rollback after provider finance facts exist", async () => {
     const db = createKysely(pg.connectionString);
     try {
+      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
       expect(await migrateDown(db)).toBe("0068_alert_resource_context");

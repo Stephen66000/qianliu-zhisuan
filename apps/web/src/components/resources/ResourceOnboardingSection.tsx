@@ -26,7 +26,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
         : null}
 
       {showCreate ? (
-        <form
+        <form data-write-action
           className="mb-5 flex flex-col gap-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4"
           onSubmit={handleSubmit((values) => {
             if (!discovery || selectedModelIds.length === 0) {
@@ -54,7 +54,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                     </option>
                   ))}
                 </select>
-                <button
+                <button data-write-action
                   className="h-10 shrink-0 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                   onClick={() => setShowNewProvider((v) => !v)}
                   type="button"
@@ -258,7 +258,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
             </p>
           ) : null}
           <div className="flex justify-end gap-2">
-            <button
+            <button data-write-action
               className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[14px] font-medium text-ql-fg hover:border-ql-border-strong"
               onClick={() => {
                 setShowCreate(false);

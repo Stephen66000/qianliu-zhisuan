@@ -27,7 +27,7 @@ export function useEnterpriseSettings() {
 }
 export function useUpdateEnterpriseSettings() {
   const client = useQueryClient();
-  return useMutation({ mutationFn: (body: { expected_version: number; name?: string; timezone?: string; default_currency?: string }) => patch<{ settings: EnterpriseSettings }>("/enterprise-settings", body), onSuccess: () => void client.invalidateQueries({ queryKey: V2_KEYS.enterpriseSettings }) });
+  return useMutation({ mutationFn: (body: { expected_version: number; name?: string; management_contact?: string | null; contact_email?: string | null; timezone?: string; default_currency?: string }) => patch<{ settings: EnterpriseSettings }>("/enterprise-settings", body), onSuccess: () => void client.invalidateQueries({ queryKey: V2_KEYS.enterpriseSettings }) });
 }
 export function useDirectoryMembers(search = "") {
   const query = new URLSearchParams({ limit: "100" }); if (search) query.set("search", search);

@@ -13,7 +13,7 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
         title="统一模型"
       >
         {showModelForm ? (
-          <form
+          <form data-write-action
             className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 sm:grid-cols-2"
             onSubmit={modelForm.handleSubmit((values) => createModel.mutate(values))}
           >
@@ -28,7 +28,7 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
               <input className={INPUT_CLASS} id="model-display-name" {...modelForm.register("display_name")} />
             </FormField>
             <div className="sm:col-span-2 flex justify-end">
-              <button className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white" type="submit">
+              <button data-write-action className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white" type="submit">
                 创建模型
               </button>
             </div>
@@ -59,7 +59,7 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
                       管理路由
                     </button>
                     {model.archived_at ? (
-                      <button
+                      <button data-write-action
                         className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                         onClick={() => archiveConfig.mutate({ kind: "model", item: model, archive: false })}
                         type="button"
@@ -75,7 +75,7 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
                         停用
                       </button>
                     ) : model.status === "PENDING_CONFIG" ? (
-                      <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft" onClick={() => updateModel.mutate({ model, status: "ACTIVE" })} type="button">启用</button>
+                      <button data-write-action className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft" onClick={() => updateModel.mutate({ model, status: "ACTIVE" })} type="button">启用</button>
                     ) : (
                       <button
                         className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"

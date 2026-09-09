@@ -10,10 +10,9 @@ import { LoginPage } from "./pages/Login";
 import { PrincipalsPage } from "./pages/Principals";
 import { QuotaRulesPage } from "./pages/QuotaRules";
 import { ResourcesPage } from "./pages/Resources";
-import { SettingsPage } from "./pages/Settings";
+import { SystemSettingsPage as SettingsPage } from "./pages/SystemSettings";
 import { UsagePage } from "./pages/Usage";
 import { RuntimeAssurancePage } from "./pages/RuntimeAssurance";
-import { AdminsPage } from "./pages/Admins";
 import { ChangePasswordPage } from "./pages/ChangePassword";
 import { OperatingBillPage } from "./pages/OperatingBill";
 import { OperatingBillEmployeeDetailPage } from "./pages/OperatingBillEmployeeDetail";
@@ -59,7 +58,7 @@ export function App() {
             path="/alerts"
           />
           <Route element={<SettingsPage />} path="/settings" />
-          <Route element={<AdminsPage />} path="/admins" />
+          <Route element={<Navigate replace to="/settings?tab=accounts" />} path="/admins" />
           <Route element={<ChangePasswordPage />} path="/change-password" />
         </Route>
         <Route element={<Navigate replace to="/dashboard" />} path="*" />

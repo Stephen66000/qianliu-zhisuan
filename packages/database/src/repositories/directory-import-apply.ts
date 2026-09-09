@@ -348,7 +348,7 @@ async function applyItemTransaction(
     lease_until: null,
     updated_at: new Date(),
   }).where("id", "=", item.id).execute();
-  await trx.insertInto("operation_log").values({
+  await trx.insertInto("operation_log").values({ actor_source: "SYSTEM",
     enterprise_id: enterpriseId,
     admin_user_id: run.created_by_admin_user_id,
     action: `directory_import_item.${outcome.toLowerCase()}`,
@@ -379,7 +379,7 @@ async function recordFailure(
     await trx.updateTable("directory_import_item").set({
       status, reason_code: reasonCode, processed_at: new Date(), lease_until: null, updated_at: new Date(),
     }).where("id", "=", item.id).execute();
-    await trx.insertInto("operation_log").values({
+    await trx.insertInto("operation_log").values({ actor_source: "SYSTEM",
       enterprise_id: enterpriseId,
       admin_user_id: run.created_by_admin_user_id,
       action: "directory_import_item.conflict",

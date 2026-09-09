@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/system-settings-v1-20260909/apps/control-api
+
+ ✓ src/__tests-integration__/system-settings-v1.test.ts (1 test) 6819ms
+ ✓ src/__tests-integration__/settings-directory-permissions.test.ts (2 tests) 2224ms
+ ✓ src/__tests-integration__/settings-audit-source.test.ts (2 tests) 2122ms
+
+ Test Files  3 passed (3)
+      Tests  5 passed (5)
+   Start at  22:11:34
+   Duration  14.87s (transform 1.10s, setup 0ms, collect 3.00s, tests 11.16s, environment 0ms, prepare 153ms)

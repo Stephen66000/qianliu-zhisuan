@@ -5,10 +5,10 @@ import { AUTH_QUERY_KEY } from "./auth";
 
 export const ADMINS_QUERY_KEY = ["admins"] as const;
 
-export function useAdmins() {
+export function useAdmins(archived = false) {
   return useQuery({
-    queryKey: ADMINS_QUERY_KEY,
-    queryFn: ({ signal }) => get<{ admins: AdminAccount[] }>("/admins", signal),
+    queryKey: [...ADMINS_QUERY_KEY, archived],
+    queryFn: ({ signal }) => get<{ admins: AdminAccount[] }>("/admins" + (archived ? "?archived=true" : ""), signal),
   });
 }
 
@@ -25,14 +25,14 @@ function useAdminMutation<TInput>(
 
 export function useCreateAdmin() {
   return useAdminMutation(
-    (input: { username: string; display_name: string; password: string }) =>
+    (input: { username: string; display_name: string; password: string; role_code?: "SUPER_ADMIN" | "CUSTOM" }) =>
       post("/admins", input),
   );
 }
 
 export function useRenameAdmin() {
-  return useAdminMutation((input: { id: string; display_name: string }) =>
-    patch(`/admins/${input.id}`, { display_name: input.display_name }),
+  return useAdminMutation((input: { id: string; display_name: string; role_code?: "SUPER_ADMIN" | "CUSTOM"; expected_version?: number }) =>
+    patch(`/admins/${input.id}`, { display_name: input.display_name, role_code: input.role_code, expected_version: input.expected_version }),
   );
 }
 

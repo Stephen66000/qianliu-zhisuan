@@ -19,7 +19,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
   const { editTarget, setEditTarget, syncTarget, setSyncTarget, operatingTarget, setOperatingTarget, operatingDraft, setOperatingDraft, operatingValidationError, setOperatingValidationError, operatingHistory, operatingMutation, editMutation, editRegister, handleEditSubmit, editReset, editErrors } = model;
   return <>
       {editTarget ? (
-        <form
+        <form data-write-action
           className="mb-5 rounded-xl border border-ql-border bg-ql-surface-subtle p-4"
           onSubmit={handleEditSubmit((values) =>
             editMutation.mutate({ target: editTarget, values })
@@ -55,7 +55,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
             </p>
           ) : null}
           <div className="mt-4 flex justify-end gap-2">
-            <button
+            <button data-write-action
               className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px]"
               onClick={() => {
                 setEditTarget(null);
@@ -79,7 +79,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
       {syncTarget ? <SyncModelsPanel onClose={() => setSyncTarget(null)} target={syncTarget} /> : null}
 
       {operatingTarget ? (
-        <form
+        <form data-write-action
           className="mb-5 rounded-xl border border-ql-border bg-ql-surface-subtle p-4"
           onSubmit={(event) => {
             event.preventDefault();
@@ -216,7 +216,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
             </p>
           ) : null}
           <div className="mt-4 flex justify-end gap-2">
-            <button
+            <button data-write-action
               className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px]"
               onClick={() => setOperatingTarget(null)}
               type="button"

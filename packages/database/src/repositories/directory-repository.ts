@@ -234,7 +234,7 @@ export class DirectoryRepository {
       }).where("enterprise_id", "=", enterpriseId).where("id", "=", runId)
         .where("status", "in", ["QUEUED", "RUNNING"]).returningAll().executeTakeFirst();
       if (!run) throw new DirectoryRepositoryError("INVALID_STATE", "导入批次不存在或已结束");
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "SYSTEM",
         enterprise_id: enterpriseId, admin_user_id: run.created_by_admin_user_id,
         action: "directory_import_run.failed", target_type: "directory_import_run", target_id: run.id,
         change_summary: json({ reason_code: reasonCode }), result: "FAILURE", failure_reason: reasonCode,
@@ -343,7 +343,7 @@ export class DirectoryRepository {
         lease_until: null, completed_at: new Date(), updated_at: new Date(),
       }).where("enterprise_id", "=", enterpriseId).where("id", "=", runId)
         .where("status", "=", "RUNNING").returningAll().executeTakeFirstOrThrow();
-      await trx.insertInto("operation_log").values({
+      await trx.insertInto("operation_log").values({ actor_source: "SYSTEM",
         enterprise_id: enterpriseId, admin_user_id: run.created_by_admin_user_id,
         action: "directory_import_run.complete", target_type: "directory_import_run", target_id: run.id,
         change_summary: json({

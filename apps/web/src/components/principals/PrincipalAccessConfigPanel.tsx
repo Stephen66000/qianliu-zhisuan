@@ -339,7 +339,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
               <CheckCircle2 className="h-4 w-4" /> 已保存
             </span>
           )}
-          <button
+          <button data-write-action
             type="button"
             className="rounded-md border border-primary/30 bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:border-primary/20 disabled:bg-primary/5 disabled:opacity-50"
             onClick={handleSave}

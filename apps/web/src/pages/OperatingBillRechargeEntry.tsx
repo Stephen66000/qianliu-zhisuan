@@ -134,7 +134,7 @@ export function RechargeEntry({ bill }: { bill: OperatingBill }) {
           {mutation.error ? (
             <span className="text-[12px] text-ql-danger">{mutation.error.message}</span>
           ) : null}
-          <button
+          <button data-write-action
             className={buttonPrimary}
             disabled={mutation.isPending}
             onClick={save}

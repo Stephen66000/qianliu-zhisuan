@@ -1,0 +1,45 @@
+{
+  "scope": "I1 direct negative reproduction; ephemeral PostgreSQL only",
+  "at": "2026-09-09T10:59:09.465Z",
+  "directory": [
+    {
+      "url": "/directory-members",
+      "customStatus": 200,
+      "superStatus": 200,
+      "customError": null
+    },
+    {
+      "url": "/directory-sources/WECOM",
+      "customStatus": 403,
+      "superStatus": 200,
+      "customError": {
+        "error": "permission_denied",
+        "message": "没有此模块的访问或操作权限"
+      }
+    },
+    {
+      "url": "/directory-excel-template",
+      "customStatus": 403,
+      "superStatus": 200,
+      "customError": {
+        "error": "permission_denied",
+        "message": "没有此模块的访问或操作权限"
+      }
+    }
+  ],
+  "audit": [
+    {
+      "action": "principal.disable",
+      "actor_source": "UNKNOWN",
+      "actor_name": "I1 owner",
+      "created_at": "2026-09-09T10:59:09.495Z"
+    }
+  ],
+  "revocation": {
+    "revokedStatus": 204,
+    "nextPollStatus": 401,
+    "url": "http://127.0.0.1:5173/login",
+    "body": "仟流智算\n\n管理后台\n\n用户名\n密码\n登录",
+    "pageErrors": []
+  }
+}

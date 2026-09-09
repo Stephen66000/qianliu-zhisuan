@@ -1,0 +1,57 @@
+import { createRequire } from "node:module";
+import { mkdir, writeFile } from "node:fs/promises";
+import { startPostgresContainer } from "../../../../packages/testing/src/postgres-container.js";
+import { createKysely, migrateToLatest } from "../../../../packages/database/src/index.js";
+import { buildControlApi } from "../../../../apps/control-api/src/server.js";
+import { hashPassword } from "../../../../apps/control-api/src/auth/password.js";
+const root = process.cwd(), requireWeb = createRequire(new URL("../../../../apps/web/package.json", import.meta.url));
+const { chromium, expect } = requireWeb("@playwright/test");
+const { createServer } = await import(requireWeb.resolve("vite"));
+const pg = await startPostgresContainer("i1_recheck_revoke_e2e"), db = createKysely(pg.connectionString), app = buildControlApi(db);
+let vite: Awaited<ReturnType<typeof createServer>> | undefined;
+let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+try {
+  await migrateToLatest(db);
+  const ent = await db.insertInto("enterprise").values({ name: "F01 isolated test" }).returning("id").executeTakeFirstOrThrow();
+  await db.insertInto("admin_user").values({ enterprise_id: ent.id, username: "owner", password_hash: await hashPassword("Session-Test-2026!") }).execute();
+  await app.ready();
+  const login = await app.inject({ method: "POST", url: "/auth/login", payload: { username: "owner", password: "Session-Test-2026!" } });
+  const controlCookie = String(login.headers["set-cookie"]).split(";")[0]!;
+  const api = await app.listen({ host: "127.0.0.1", port: 0 });
+  process.chdir(root + "/apps/web");
+  vite = await createServer({ configFile: false, root: process.cwd(), plugins: [(await import(requireWeb.resolve("@vitejs/plugin-react"))).default()],
+    server: { host: "127.0.0.1", port: 0, proxy: { "/api": { target: api, changeOrigin: true, rewrite: (p: string) => p.replace(/^\/api/, "") } } } });
+  await vite.listen(); const addr = vite.httpServer?.address();
+  if (!addr || typeof addr === "string") throw new Error("port unavailable");
+  const url = `http://127.0.0.1:${addr.port}`;
+  browser = await chromium.launch({ headless: true, channel: "chrome" });
+  const page = await browser.newPage();
+  await page.goto(url + "/login");
+  const signIn = async () => {
+    await page.getByLabel("用户名", { exact: true }).fill("owner");
+    await page.getByLabel("密码", { exact: true }).fill("Session-Test-2026!");
+    await page.getByRole("button", { name: "登录", exact: true }).click();
+    await expect(page.getByRole("navigation", { name: "主导航" })).toBeVisible();
+  };
+  await signIn();
+  const cookies = await page.context().cookies();
+  const sessionCookie = cookies.filter((c: { name: string }) => c.name === "qianliu_admin_session").map((c: { name: string; value: string }) => c.name + "=" + c.value).join("; ");
+  const me = await app.inject({ url: "/auth/me", headers: { cookie: sessionCookie } });
+  let unauthorized = 0;
+  page.on("response", (r: { url: () => string; status: () => number }) => { if (r.url().endsWith("/api/auth/me") && r.status() === 401) unauthorized++; });
+  const revoke = await app.inject({ method: "DELETE", url: "/admin-sessions/" + me.json().admin.sessionId, headers: { cookie: controlCookie } });
+  expect(revoke.statusCode).toBe(204);
+  await page.waitForURL("**/login", { timeout: 40_000 });
+  await page.waitForTimeout(32_000);
+  await expect(page.getByRole("button", { name: "登录", exact: true })).toBeVisible();
+  expect(unauthorized).toBeGreaterThanOrEqual(1); expect(unauthorized).toBe(1);
+  expect(new URL(page.url()).pathname).toBe("/login");
+  const dir = root + "/V4/Evidence/SYSTEM-SETTINGS-V2-20260909/I1-RECHECK";
+  await mkdir(dir, { recursive: true });
+  await page.screenshot({ path: dir + "/F01-login-after-revoke.png" });
+  const observed401 = unauthorized;
+  await signIn();
+  const result = { status: "PASS", revoked: revoke.statusCode, observed401, stableLoginPage: true, anonymousObservationMs: 32000, relogin: true, database: "isolated" };
+  await writeFile(dir + "/F01-browser.json", JSON.stringify(result, null, 2));
+  console.log(JSON.stringify(result));
+} finally { await browser?.close(); await vite?.close(); await app.close(); await db.destroy(); await pg.stop(); }

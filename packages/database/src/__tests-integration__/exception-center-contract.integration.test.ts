@@ -24,7 +24,11 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   const source = await createMigrator(db).migrateTo("0069_auth_error_evidence");
   expect(source.error).toBeUndefined();
-  expect(await migrateToLatest(db)).toEqual(["0070_alert_recovery_evidence"]);
+  expect(await migrateToLatest(db)).toEqual([
+    "0070_alert_recovery_evidence",
+    "0071_enterprise_contact_details",
+    "0072_admin_roles_security",
+  ]);
 }, 120_000);
 afterAll(async () => {
   await db?.destroy();
@@ -1426,12 +1430,15 @@ it("migration 0070 refuses rollback once any real recovery evidence exists", asy
     new Date("2026-08-20"),
     t.enterpriseId,
   );
+  expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+  expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
   await expect(migrateDown(db)).rejects.toThrow(
     "0070 rollback blocked: recovery evidence exists",
   );
   expect(
     (await t.repo.listHistory(t.enterpriseId))[0]?.recoveryEvidence,
   ).toMatchObject({ kind: "SERVICE_HEALTHY" });
+  await migrateToLatest(db);
 });
 it("cross-tenant attempt metadata cannot prove another tenant's recovery", async () => {
   const t = await fixture(),

@@ -45,7 +45,7 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
     },
   });
   return (
-    <form
+    <form data-write-action
       noValidate
       className="space-y-3 rounded-xl border border-ql-border bg-ql-surface p-4"
       onSubmit={(event) => {
@@ -135,7 +135,7 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
         <button type="button" onClick={onClose}>
           取消
         </button>
-        <button
+        <button data-write-action
           type="submit"
           className="text-ql-action"
           disabled={create.isPending}

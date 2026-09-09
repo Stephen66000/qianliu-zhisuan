@@ -85,7 +85,7 @@ export function ValueConfirmationTab() {
       <BillCard className="overflow-hidden">
         <SectionHeading
           action={
-            <button
+            <button data-write-action
               className={buttonPrimary}
               onClick={() => setOpen(true)}
               type="button"
@@ -140,7 +140,7 @@ export function ValueConfirmationTab() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {item.status === "待确认" ? (
-                      <button
+                      <button data-write-action
                         className="font-medium text-ql-action hover:text-ql-action-hover"
                         onClick={() => confirmItem(item.id)}
                         type="button"
@@ -174,7 +174,7 @@ export function ValueConfirmationTab() {
                   先记录事实与依据，再由确认人完成判断。
                 </p>
               </div>
-              <button
+              <button data-write-action
                 aria-label="关闭"
                 className="rounded-lg p-1.5 text-ql-fg-tertiary hover:bg-ql-surface-subtle"
                 onClick={() => setOpen(false)}

@@ -14,11 +14,12 @@ import {
   Settings,
   Server,
   Users,
-  UserCog,
 } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 
 import qianliuLogo from "../../assets/qianliu-logo-primary.png";
+import { pageModule, useAccess } from "../../permissions";
+import type { AdminModule } from "@qianliu/contracts";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "首页看板", icon: LayoutDashboard },
@@ -28,11 +29,12 @@ const NAV_ITEMS = [
   { to: "/usage", label: "用量账本", icon: BookOpenText },
   { to: "/operating-bill", label: "经营账单", icon: ReceiptText },
   { to: "/runtime-assurance", label: "运行保障", icon: Bell },
-  { to: "/admins", label: "管理员", icon: UserCog },
   { to: "/settings", label: "系统设置", icon: Settings },
 ] as const;
 
 export function Sidebar() {
+  const access = useAccess();
+  const items = NAV_ITEMS.filter(i => i.to === "/settings" ? ["enterprise", "admins", "security", "audit", "version"].some(m => access.can(m as AdminModule)) : access.can(pageModule(i.to)!));
   return (
     <aside className="flex w-full shrink-0 flex-col border-b border-ql-border bg-ql-surface md:h-screen md:w-64 md:border-b-0 md:border-r">
       <Link
@@ -52,7 +54,7 @@ export function Sidebar() {
         </span>
       </Link>
       <nav aria-label="主导航" className="flex gap-1 overflow-x-auto px-2 py-2 md:flex-col md:overflow-y-auto md:px-3 md:py-4">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+        {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             className={({ isActive }) =>
               [

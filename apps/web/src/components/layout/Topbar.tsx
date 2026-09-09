@@ -4,7 +4,7 @@
  * 主题切换：规范 §4 三态（跟随系统/浅色/深色），不做循环切换按钮。
  */
 import { LogOut, Monitor, Moon, Sun } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useLogout } from "../../api/auth";
 import type { AdminSession } from "../../api/types";
@@ -62,6 +62,7 @@ export function Topbar({ admin, theme }: TopbarProps) {
         })}
       </div>
       <div className="flex items-center gap-3">
+        <Link to="/change-password" className="text-[13px] text-ql-action">修改密码</Link>
         <span className="hidden text-[13px] leading-5 text-ql-fg-secondary sm:inline">{admin.displayName || admin.username}</span>
         <button
           className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-ql-fg-tertiary hover:bg-ql-surface-subtle hover:text-ql-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"

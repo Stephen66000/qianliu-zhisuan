@@ -93,7 +93,7 @@ export async function savePricingConfiguration(db: Kysely<Database>, input: Pric
       version: sql`version + 1`, updated_at: new Date() }).where("id", "=", route.id).execute();
     await trx.updateTable("unified_model").set({ status: "ACTIVE", version: sql`version + 1`, updated_at: new Date() })
       .where("id", "=", model.id).execute();
-    await trx.insertInto("operation_log").values({ enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
+    await trx.insertInto("operation_log").values({ actor_source: "ADMIN", enterprise_id: input.enterpriseId, admin_user_id: input.adminId,
       action: "pricing_configuration.save", target_type: "model_route", target_id: route.id, result: "SUCCESS", failure_reason: null,
       change_summary: { submission_id: input.submissionId, request_hash: input.requestHash, rule_ids: ruleIds,
         source_rule_ids: input.sourceRuleIds, replaced_rule_ids: input.replaceExisting ? existing.map((rule) => rule.id) : [],
