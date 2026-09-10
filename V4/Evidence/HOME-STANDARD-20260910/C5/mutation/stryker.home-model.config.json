@@ -1,0 +1,33 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "reporters": [
+    "clear-text",
+    "json"
+  ],
+  "jsonReporter": {
+    "fileName": "../../V4/Evidence/HOME-STANDARD-20260910/C5/mutation/reports/home-model.json"
+  },
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.home-model-mutation.config.ts"
+  },
+  "coverageAnalysis": "all",
+  "mutate": [
+    "src/components/dashboard/standard-home-model.ts:37-95",
+    "src/components/dashboard/standard-home-model.ts:133-168",
+    "src/components/dashboard/standard-home-model.ts:170-260"
+  ],
+  "thresholds": {
+    "high": 100,
+    "low": 90,
+    "break": 80
+  },
+  "timeoutMS": 60000,
+  "concurrency": 2,
+  "disableTypeChecks": true,
+  "cleanTempDir": true
+}

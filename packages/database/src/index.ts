@@ -180,6 +180,31 @@ export {
   type OverageItem,
 } from "./repositories/dashboard-repository.js";
 export {
+  getStandardHomeSummary,
+} from "./repositories/dashboard-home.js";
+export {
+  previousShanghaiMonthWindow,
+  previousEmployeeWindow,
+} from "./repositories/dashboard-home-metrics.js";
+export { loadStandardHomeResources } from "./repositories/dashboard-home-providers.js";
+export {
+  loadWindowOperatingFinance,
+  loadWindowBridgeCosts,
+} from "./repositories/dashboard-home-costs.js";
+export { countFinanceGaps } from "./repositories/provider-finance-gaps.js";
+export {
+  type StandardHomeSummary,
+  type StandardHomeOptions,
+  type StandardHomeTokenUsage,
+  type StandardHomeMonthlyCost,
+  type StandardHomeActiveEmployees,
+  type StandardHomeActiveProjects,
+  type StandardHomeResources,
+  type StandardHomeProviderRow,
+  type StandardHomeWindow,
+  type ProviderStatusCategory,
+} from "./repositories/dashboard-home-types.js";
+export {
   SupplyForecastRepository,
   type SupplyForecastTickResult,
 } from "./repositories/supply-forecast-repository.js";

@@ -1,0 +1,20 @@
+== HEAD 核验
+4898df546fbcbc9ca292ee892cd7ae412766185a
+== tracked patch hash（当前 diff vs C2 冻结值）
+c1f9bd3ad326f909a05e31fa87a465d1ac9d6cae0d7ee800da199d02a523b5a2  /tmp/v14-c2-current.patch
+C2 冻结值: c1f9bd3ad326f909a05e31fa87a465d1ac9d6cae0d7ee800da199d02a523b5a2
+PATCH_IDENTICAL=YES
+== 新增文件 hash 核验
+OK  apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts
+OK  apps/web/src/components/dashboard/OverviewMetricCard.tsx
+OK  apps/web/src/components/dashboard/ProviderResourcesPanel.tsx
+OK  apps/web/src/components/dashboard/standard-home-model.ts
+OK  packages/database/src/__tests-integration__/standard-home.integration.test.ts
+OK  packages/database/src/repositories/dashboard-home-costs.ts
+OK  packages/database/src/repositories/dashboard-home-metrics.ts
+OK  packages/database/src/repositories/dashboard-home-providers.ts
+OK  packages/database/src/repositories/dashboard-home-types.ts
+OK  packages/database/src/repositories/dashboard-home.test.ts
+OK  packages/database/src/repositories/dashboard-home.ts
+OK  packages/database/src/repositories/provider-finance-gaps.ts
+OK  文档/仟流智算各模块功能与计算口径说明.md

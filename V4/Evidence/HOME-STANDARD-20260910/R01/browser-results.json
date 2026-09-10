@@ -1,0 +1,14 @@
+{
+  "mode": "real frontend with intercepted audit fixture, no backend acceptance",
+  "layout": {
+    "viewport": 1440,
+    "scrollWidth": 1440,
+    "cardWidth": 259.5,
+    "numberWidth": 404.75,
+    "text": "¥12,800.00 / USD 5,000.00"
+  },
+  "colors": {
+    "foreground": "rgb(86, 193, 111)",
+    "background": "rgb(52, 168, 83)"
+  }
+}

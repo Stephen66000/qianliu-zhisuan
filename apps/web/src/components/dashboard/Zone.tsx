@@ -14,10 +14,12 @@ interface ZoneProps {
   description?: string;
   /** 核心区：一页最多一个。 */
   focus?: boolean;
+  /** 标题行右侧动作（如“查看经营账单”链接）。 */
+  action?: ReactNode;
   children: ReactNode;
 }
 
-export function Zone({ title, description, focus = false, children }: ZoneProps) {
+export function Zone({ title, description, focus = false, action, children }: ZoneProps) {
   return (
     <section
       className={[
@@ -25,11 +27,14 @@ export function Zone({ title, description, focus = false, children }: ZoneProps)
         focus ? "border-ql-border p-5 shadow-ql-zone-focus" : "border-ql-border-zone p-4",
       ].join(" ")}
     >
-      <header className="mb-3">
-        <h2 className="text-[16px] font-semibold leading-6 text-ql-fg">{title}</h2>
-        {description ? (
-          <p className="mt-0.5 text-[12px] leading-[18px] text-ql-fg-tertiary">{description}</p>
-        ) : null}
+      <header className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[16px] font-semibold leading-6 text-ql-fg">{title}</h2>
+          {description ? (
+            <p className="mt-0.5 text-[12px] leading-[18px] text-ql-fg-tertiary">{description}</p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </header>
       {children}
     </section>

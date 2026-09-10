@@ -1,4 +1,3 @@
-import { operatingConsumptionFilter } from "./operating-consumption-filter.js";
 import { historicalMonthlyFinance, summarizeFinanceOrders, resourcePlanCostsWithHistory } from "./provider-finance-registered-history.js";
 import { sql, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
@@ -8,6 +7,7 @@ import { ProviderFinanceReconciliationRepository } from "./provider-finance-reco
 import { loadFinanceMonthOpening } from "./provider-finance-month-opening.js";
 import { loadLegacySubscriptionFee, loadSubscriptionPeriodUsage } from "./provider-finance-period-facts.js";
 import type { FinanceCurrency, MonthlyFinanceSummary, ResourceFinanceView } from "./provider-finance-types.js";
+import { countFinanceGaps } from "./provider-finance-gaps.js";
 
 export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepository {
   async getMonthlyFinanceSummary(
@@ -200,7 +200,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
     trx: Transaction<Database>, enterpriseId: string, month: string,
   ): Promise<MonthlyFinanceSummary> {
     const { start, end } = operatingBillMonthRange(month);
-    const [cash, eventAmounts, apiCosts, gapResult] = await Promise.all([
+    const [cash, eventAmounts, apiCosts, gapRows] = await Promise.all([
       sql<{ amount: string }>`SELECT COALESCE(SUM(cash_paid_cny),0)::text AS amount
         FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
           AND occurred_at>=${start} AND occurred_at<${end}`.execute(trx),
@@ -230,59 +230,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
              AND occurred_at>=${start} AND occurred_at<${end}
         ) cost
         GROUP BY currency ORDER BY currency`.execute(trx),
-      sql<{ code: string; count: string }>`
-        SELECT 'API_USAGE_COST_UNKNOWN' AS code, COUNT(*)::text AS count
-          FROM ledger_line line
-          LEFT JOIN provider_finance_legacy_cost_resolution resolution
-            ON resolution.enterprise_id=line.enterprise_id
-           AND resolution.id=line.legacy_cost_resolution_id
-         WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='API'
-           AND (line.api_cost_status='UNKNOWN_COST' OR line.api_cost_status IS NULL)
-           AND ${operatingConsumptionFilter("line")}
-           AND COALESCE(line.settled_at, line.created_at)>=${start}
-           AND COALESCE(line.settled_at, line.created_at)<${end}
-           AND (resolution.id IS NULL OR resolution.status<>'RESOLVED')
-        UNION ALL
-        SELECT 'API_COST_CURRENCY_MISSING', COUNT(*)::text
-          FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
-           AND api_cost IS NOT NULL AND api_cost_currency IS NULL
-           AND COALESCE(settled_at, created_at)>=${start}
-           AND COALESCE(settled_at, created_at)<${end}
-        UNION ALL
-        SELECT 'API_COST_CURRENCY_CONFLICT', COUNT(*)::text
-          FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
-           AND api_cost_currency IS NOT NULL
-           AND billing_rule_snapshot->>'currency' IS NOT NULL
-           AND billing_rule_snapshot->>'currency' <> api_cost_currency
-           AND COALESCE(settled_at, created_at)>=${start}
-           AND COALESCE(settled_at, created_at)<${end}
-        UNION ALL
-        SELECT 'OPENING_BALANCE_MISSING', COUNT(*)::text FROM (
-          SELECT DISTINCT line.provider_resource_id, line.api_cost_currency
-            FROM ledger_line line
-           WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='API'
-             AND line.api_cost_status='PRICED_USAGE' AND line.api_cost_currency IS NOT NULL
-             AND line.settled_at>=${start} AND line.settled_at<${end}
-             AND NOT EXISTS (
-               SELECT 1 FROM provider_finance_event opening
-                WHERE opening.enterprise_id=line.enterprise_id
-                  AND opening.provider_resource_id=line.provider_resource_id
-                  AND opening.account_currency=line.api_cost_currency
-                  AND opening.event_type='API_OPENING_BALANCE'
-             )
-        ) missing_opening
-        UNION ALL
-        SELECT 'SUBSCRIPTION_PERIOD_MISSING', COUNT(*)::text
-          FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
-           AND resource_mode='CODING_PLAN' AND subscription_period_id IS NULL
-           AND COALESCE(settled_at, created_at)>=${start}
-           AND COALESCE(settled_at, created_at)<${end}
-        UNION ALL
-        SELECT 'CASH_PAID_CNY_MISSING', COUNT(*)::text
-          FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
-           AND event_type IN ('API_RECHARGE','CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL')
-           AND cash_paid_cny IS NULL AND occurred_at>=${start} AND occurred_at<${end}
-      `.execute(trx),
+      countFinanceGaps(trx, enterpriseId, start, end),
     ]);
     const historical = await historicalMonthlyFinance(trx, enterpriseId, start, end);
     eventAmounts.rows.push(...historical.amounts);
@@ -305,7 +253,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
       .map(([currency, amount]) => ({ currency, amount: money(amount) }));
     const { apiRecharges, codingPlanOrders, planCash } = summarizeFinanceOrders(eventAmounts.rows);
     const cnyApi = apiCosts.rows.find((row) => row.currency === "CNY")?.amount ?? "0";
-    const summaryGaps = gapResult.rows.filter((row) => Number(row.count) > 0)
+    const summaryGaps = gapRows.filter((row) => Number(row.count) > 0)
       .map((row) => ({ code: row.code, count: Number(row.count) }));
     return {
       month, timezone: "Asia/Shanghai", cashOutflowCny: money(new Money(cash.rows[0]?.amount ?? "0").plus(historical.cash)),

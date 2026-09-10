@@ -6,7 +6,7 @@
  * 所有查询带 enterprise_id 边界（多租户隔离）。
  */
 import type { FastifyInstance } from "fastify";
-import { UsageOverviewRepository } from "@qianliu/database";
+import { getStandardHomeSummary, UsageOverviewRepository } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   financeReadModelEnabled,
@@ -40,5 +40,23 @@ export function registerDashboardRoutes(
       anchor,
     });
     return { ...summary, employeeUsageOverview };
+  });
+
+  // GET /dashboard/home —— 标准版首页两分区聚合（HOME-STANDARD-20260910 WP02）。
+  // 四指标与目的页同源：费用直接取经营账单 getBill 快照；其余口径见
+  // V4/Evidence/HOME-STANDARD-20260910/C1/contract.md。
+  app.get("/dashboard/home", { preHandler: [requireAuth] }, async (req) => {
+    const enterpriseId = req.admin!.enterpriseId;
+    const asOf = new Date();
+    const [bill, financeRead] = await Promise.all([
+      app.operatingBillRepo.getBill(enterpriseId, shanghaiMonthAt(asOf)),
+      financeReadModelEnabled(app.providerFinanceMode, app.providerFinanceRepo, enterpriseId),
+    ]);
+    return getStandardHomeSummary(app.db, {
+      enterpriseId,
+      asOf,
+      bill,
+      financeRead,
+    });
   });
 }

@@ -1,418 +1,464 @@
 /**
- * 首页看板单测 —— 2.0 六项主概览 / 1.0 稳定迁位 / 三态 / 空企业。
+ * 标准版首页单测（HOME-STANDARD-20260910 WP03）—— 两分区 / 四卡真实字段 / 五跳转 / 三态。
  *
- * 只 mock useDashboard hook；组件渲染断言。
+ * 只 mock useStandardHome hook；口径断言以后端契约字段为准，不复制聚合逻辑。
  */
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { DashboardSummary } from "../api/types";
-import type { UsageOverview } from "../api/v2-types";
+import type { StandardHomeSummary } from "../api/types";
+import { DISABLED_FEATURE_FLAGS, FeatureFlagsProvider } from "../feature-flags";
 import { DashboardPage } from "./Dashboard";
 
-const useDashboardMock = vi.fn();
-const useUsageOverviewMock = vi.fn();
-const usePrincipalOptionsMock = vi.fn();
-const usePrincipalOptionMock = vi.fn();
-const resolvePrincipalExactMatchMock = vi.fn();
+const useStandardHomeMock = vi.fn();
 
 vi.mock("../api/hooks", () => ({
-  useDashboard: () => useDashboardMock(),
-}));
-vi.mock("../api/v2-hooks", () => ({
-  useUsageOverview: (query: string) => useUsageOverviewMock(query),
-  usePrincipalOptions: (type: string, search: string, offset: number, limit: number) => usePrincipalOptionsMock(type, search, offset, limit),
-  usePrincipalOption: (id: string | null) => usePrincipalOptionMock(id),
-  resolvePrincipalExactMatch: (type: string, name: string) => resolvePrincipalExactMatchMock(type, name),
+  useStandardHome: () => useStandardHomeMock(),
 }));
 
-const overviewEmployeeId = "10000000-0000-4000-8000-000000000001";
-function employeeOverview(): UsageOverview {
+type HomeWindow = StandardHomeSummary["tokenUsage"]["previous"]["window"];
+
+function windowFixture(overrides: Partial<HomeWindow> = {}): HomeWindow {
   return {
-    subjectType: "EMPLOYEE", subjectId: null, period: "TODAY", anchor: "2026-08-12T04:00:00.000Z", timezone: "Asia/Shanghai",
-    range: { from: "2026-08-11T16:00:00.000Z", to: "2026-08-12T16:00:00.000Z" },
-    metrics: { activeSubjects: 1, requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000", usageQuality: "PROVIDER_REPORTED", providerReportedCount: 3, estimatedCount: 0, accountAggregatedCount: 0, mixedCount: 0, unknownCount: 0 },
-    trend: [
-      { bucketStart: "2026-08-11T16:00:00.000Z", bucketEnd: "2026-08-11T17:00:00.000Z", label: "00:00", collectionStatus: "COMPLETE", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000" },
-      { bucketStart: "2026-08-11T17:00:00.000Z", bucketEnd: "2026-08-11T18:00:00.000Z", label: "01:00", collectionStatus: "COMPLETE", requestCount: "0", inputTokens: "0", outputTokens: "0", cacheTokens: "0", reasoningTokens: "0", realTokens: "0", apiCost: "0", deductedQuota: "0" },
-      { bucketStart: "2026-08-11T18:00:00.000Z", bucketEnd: "2026-08-11T19:00:00.000Z", label: "02:00", collectionStatus: "MISSING", requestCount: "0", inputTokens: "0", outputTokens: "0", cacheTokens: "0", reasoningTokens: "0", realTokens: "0", apiCost: "0", deductedQuota: "0" },
-    ],
-    ranking: [{ subjectId: overviewEmployeeId, subjectName: "李雷", departmentLabel: "研发", requestCount: "3", inputTokens: "8000", outputTokens: "2000", cacheTokens: "1000", reasoningTokens: "300", realTokens: "10000", apiCost: "2", deductedQuota: "10000", share: "1" }],
-    factWatermark: "2026-08-10T00:00:00.000Z", generatedAt: "2026-08-12T04:00:00.000Z",
-    detailQuery: { principalId: null, projectId: null, subjectType: "EMPLOYEE", settledOnly: true, from: "2026-08-11T16:00:00.000Z", toExclusive: "2026-08-12T16:00:00.000Z" },
-    stale: false, source: "LIVE_LEDGER",
+    rangeStart: "2026-08-31T16:00:00.000Z",
+    rangeEndExclusive: "2026-09-10T06:00:00.000Z",
+    truncated: false,
+    ...overrides,
   };
 }
 
-function emptySummary(): DashboardSummary {
+function seededHome(): StandardHomeSummary {
+  const window = windowFixture();
   return {
-    resourceAccountCount: 0,
-    activeEmployeeCount: 0,
-    currentInUseCount: 0,
-    monthlyPackagePayment: null,
-    monthlyPackagePayments: [],
-    monthlyApiCost: "0",
-    monthlyApiCosts: [],
-    monthlyApiSpendReason: null,
-    monthlyTotalSpend: null,
-    monthlyTotalSpends: [],
-    monthlyRechargeAmount: null,
-    monthlyRechargeAmounts: [],
-    earliestExhaustion: null,
-    monthlyDispatchSaving: "0",
-    dispatchSavingBreakdown: {
-      realizedAmount: "0", realizedSwitchCount: 0, actualSwitchCount: 0, realizedReason: "本月无可计算的实际切换",
-      potentialPeakSavingAmount: null, potentialReason: "缺少同一任务的峰值/低谷等价执行关联，暂不估算金额",
-      avoidedPeakDeduction: "0", avoidedDeductionCount: 0,
-      avoidedReason: "本月无具备双端倍率快照的已执行切换", rejectedRequestCount: 0,
-    },
-    resourceStatus: { total: 0, status: "EMPTY", statusCounts: {}, abnormalResources: [] },
-    overageList: [],
-    monthlyTokenUsage: {
-      totalInputTokens: "0", totalOutputTokens: "0", totalCacheTokens: "0",
-      totalReasoningTokens: "0", totalTokens: "0", usageQuality: "NO_DATA",
-      settledTransactionCount: 0, providerReportedTransactionCount: 0,
-      estimatedTransactionCount: 0, accountAggregatedTransactionCount: 0,
-      mixedTransactionCount: 0, unknownTransactionCount: 0,
-      attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
-      rangeStart: "2026-07-31T16:00:00.000Z", rangeEndExclusive: "2026-08-31T16:00:00.000Z",
-      employeeRanking: [],
-    },
-  };
-}
-
-function seededSummary(): DashboardSummary {
-  return {
-    ...emptySummary(),
-    resourceAccountCount: 2,
-    activeEmployeeCount: 5,
-    currentInUseCount: 3,
-    monthlyPackagePayment: "299",
-    monthlyPackagePayments: [{ currency: "CNY", amount: "299" }],
-    monthlyApiCost: "12.50000000",
-    monthlyApiCosts: [{ currency: "CNY", amount: "12.50000000" }],
-    monthlyTotalSpend: "311.50000000",
-    monthlyTotalSpends: [{ currency: "CNY", amount: "311.50000000" }],
-    monthlyRechargeAmount: "100",
-    monthlyRechargeAmounts: [{ currency: "CNY", amount: "100" }],
-    monthlyDispatchSaving: "1.50000000",
-    dispatchSavingBreakdown: {
-      realizedAmount: "1.50000000", realizedSwitchCount: 1, actualSwitchCount: 1, realizedReason: null,
-      potentialPeakSavingAmount: null, potentialReason: "缺少同一任务的峰值/低谷等价执行关联，暂不估算金额",
-      avoidedPeakDeduction: "1200", avoidedDeductionCount: 1,
-      avoidedReason: null, rejectedRequestCount: 2,
-    },
-    earliestExhaustion: {
-      resourceId: "r1",
-      resourceName: "智谱 GLM 套餐",
-      providerCode: "zhipu",
-      forecastExhaustAt: "2026-07-30T12:00:00.000Z",
-      nextRecoverAt: "2026-08-01T00:00:00.000Z",
-      confidence: "MEDIUM",
-      notCalculableReason: null,
-    },
-    resourceStatus: { total: 2, status: "HEALTHY", statusCounts: { ACTIVE: 2 }, abnormalResources: [] },
-    overageList: [
-      {
-        principalId: "p1",
-        principalName: "张三",
-        principalType: "EMPLOYEE",
-        provider: "zhipu",
-        modelAlias: "glm-4.6",
-        quotaValue: "100000",
-        usedValue: "105000",
-        overageValue: "5000",
-        overageRatio: "0.0500",
+    asOf: "2026-09-10T06:00:00.000Z",
+    month: "2026-09",
+    tokenUsage: {
+      rangeStart: "2026-08-31T16:00:00.000Z",
+      rangeEndExclusive: "2026-09-30T16:00:00.000Z",
+      current: {
+        totalTokens: "1000000000", inputTokens: "600000000", outputTokens: "400000000",
+        usageQuality: "EXACT", unknownCount: 0,
       },
-    ],
-    monthlyTokenUsage: {
-      totalInputTokens: "9007199254740993000",
-      totalOutputTokens: "2000",
-      totalCacheTokens: "3000",
-      totalReasoningTokens: "400",
-      totalTokens: "9007199254740995000",
-      usageQuality: "PROVIDER_REPORTED", settledTransactionCount: 1,
-      providerReportedTransactionCount: 1, estimatedTransactionCount: 0,
-      accountAggregatedTransactionCount: 0, mixedTransactionCount: 0,
-      unknownTransactionCount: 0,
-      attributionBasis: "LEDGER_TRANSACTION_SETTLED_AT",
-      rangeStart: "2026-07-31T16:00:00.000Z", rangeEndExclusive: "2026-08-31T16:00:00.000Z",
-      employeeRanking: [{
-        principalId: "p1", principalName: "张三", inputTokens: "6000",
-        outputTokens: "4000", cacheTokens: "3000", reasoningTokens: "400",
-        totalTokens: "10000", share: "0.25",
-      }],
+      previous: { totalTokens: "833000000", usageQuality: "EXACT", unknownCount: 0, window },
+    },
+    monthlyCost: {
+      month: "2026-09",
+      billStatus: "DRAFT",
+      current: {
+        totalSpends: [{ currency: "CNY", amount: "12800.00000000" }],
+        apiSpends: [{ currency: "CNY", amount: "9800.00000000" }],
+        packageCosts: [{ currency: "CNY", amount: "3000.00000000" }],
+        incompleteReason: null,
+      },
+      previous: {
+        totalSpends: [{ currency: "CNY", amount: "11851.85000000" }],
+        incompleteReason: null,
+        basis: "BALANCE_BRIDGE",
+        window,
+      },
+    },
+    activeEmployees: {
+      timezone: "Asia/Shanghai",
+      rangeStart: "2026-08-31T16:00:00.000Z",
+      rangeEndExclusive: "2026-09-30T16:00:00.000Z",
+      current: 28,
+      previous: { count: 25, window },
+    },
+    activeProjects: {
+      rangeStart: "2026-08-31T16:00:00.000Z",
+      rangeEndExclusive: "2026-09-30T16:00:00.000Z",
+      current: 6,
+      previous: { count: 5, window },
+    },
+    resources: {
+      providerCount: 2,
+      resourceCount: 3,
+      attentionProviderCount: 1,
+      updatedAt: "2026-09-10T05:05:00.000Z",
+      providers: [
+        {
+          providerCode: "zhipu", providerName: "智谱", resourceCount: 1,
+          modes: [{ mode: "CODING_PLAN", count: 1 }],
+          worstStatus: "ACTIVE", statusLabel: "正常", statusCategory: "NORMAL",
+          abnormalResourceCount: 0, attention: null, syncFailed: false, syncStale: false,
+          lastSyncAt: "2026-09-10T05:05:00.000Z",
+        },
+        {
+          providerCode: "openai", providerName: "OpenAI", resourceCount: 2,
+          modes: [{ mode: "API", count: 2 }],
+          worstStatus: "CREDENTIAL_INVALID", statusLabel: "凭证失效",
+          statusCategory: "PARTIAL_ABNORMAL",
+          abnormalResourceCount: 1,
+          attention: "OpenAI API 备：凭证失效，需要更新凭证",
+          syncFailed: false, syncStale: false,
+          lastSyncAt: "2026-09-10T05:05:00.000Z",
+        },
+      ],
     },
   };
 }
 
-function renderDashboard() {
+function emptyHome(): StandardHomeSummary {
+  const window = windowFixture();
+  return {
+    ...seededHome(),
+    tokenUsage: {
+      rangeStart: "2026-08-31T16:00:00.000Z",
+      rangeEndExclusive: "2026-09-30T16:00:00.000Z",
+      current: {
+        totalTokens: "0", inputTokens: "0", outputTokens: "0",
+        usageQuality: "EXACT", unknownCount: 0,
+      },
+      previous: { totalTokens: "0", usageQuality: "EXACT", unknownCount: 0, window },
+    },
+    monthlyCost: {
+      month: "2026-09",
+      billStatus: "DRAFT",
+      current: {
+        totalSpends: [], apiSpends: [], packageCosts: [],
+        incompleteReason: "期初余额待补",
+      },
+      previous: null,
+    },
+    activeEmployees: {
+      timezone: "Asia/Shanghai",
+      rangeStart: "2026-08-31T16:00:00.000Z",
+      rangeEndExclusive: "2026-09-30T16:00:00.000Z",
+      current: 0,
+      previous: { count: 0, window },
+    },
+    activeProjects: {
+      rangeStart: "2026-08-31T16:00:00.000Z",
+      rangeEndExclusive: "2026-09-30T16:00:00.000Z",
+      current: 0,
+      previous: { count: 0, window },
+    },
+    resources: {
+      providerCount: 0, resourceCount: 0, attentionProviderCount: 0, updatedAt: null, providers: [],
+    },
+  };
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="probe-location">{`${location.pathname}${location.search}`}</output>;
+}
+
+function renderPage(withProbe = false) {
   return render(
     <MemoryRouter>
       <DashboardPage />
+      {withProbe ? <LocationProbe /> : null}
     </MemoryRouter>,
   );
 }
 
-describe("W18 首页看板", () => {
-  beforeEach(() => {
-    useDashboardMock.mockReset();
-    useUsageOverviewMock.mockReset();
-    usePrincipalOptionsMock.mockReset();
-    usePrincipalOptionMock.mockReset();
-    useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: employeeOverview(), refetch: vi.fn() });
-    usePrincipalOptionsMock.mockReturnValue({ isLoading: false, error: null, data: { principals: [{ id: overviewEmployeeId, type: "EMPLOYEE", name: "李雷" }], total: 1, limit: 20, offset: 0 } });
-    usePrincipalOptionMock.mockReturnValue({ data: undefined });
-  });
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
-  it("加载中渲染骨架屏", () => {
-    useDashboardMock.mockReturnValue({
-      isLoading: true,
-      error: null,
-      data: undefined,
-      refetch: vi.fn(),
-    });
-    const { container } = renderDashboard();
+describe("标准版首页（两分区）", () => {
+  it("加载中显示骨架屏", () => {
+    useStandardHomeMock.mockReturnValue({ isLoading: true, error: null, data: undefined });
+    const { container } = renderPage();
     expect(container.querySelectorAll(".ql-skeleton").length).toBeGreaterThan(0);
   });
 
-  it("错误态展示原因与重试", () => {
+  it("加载失败显示错误与重试", async () => {
     const refetch = vi.fn();
-    useDashboardMock.mockReturnValue({
-      isLoading: false,
-      error: new Error("无法连接到服务，请检查网络后重试"),
-      data: undefined,
-      refetch,
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: new Error("网关超时"), data: undefined, refetch,
     });
-    renderDashboard();
-    expect(screen.getByRole("alert")).toHaveTextContent("无法连接到服务");
-    screen.getByRole("button", { name: /重试/ }).click();
-    expect(refetch).toHaveBeenCalledTimes(1);
+    renderPage();
+    expect(screen.getByText("网关超时")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(refetch).toHaveBeenCalled());
   });
 
-  it("空企业：计数为 0、费用 0.00、无资源空状态（PRD §10.4）", () => {
-    useDashboardMock.mockReturnValue({
-      isLoading: false,
-      error: null,
-      data: emptySummary(),
-      refetch: vi.fn(),
+  it("分区顺序：本月概览在前，接入资源在后，页头展示账期与截止时点", () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
     });
-    renderDashboard();
-    expect(screen.getByText("厂商接入账号")).toBeInTheDocument();
-    expect(screen.getByText("尚未登记厂商资源")).toBeInTheDocument();
-    expect(screen.getByText("暂无员工消耗")).toBeInTheDocument();
-    expect(screen.getByText(/无法产生模型和路由候选/)).toBeInTheDocument();
-    expect(screen.getByTestId("dashboard-earliest-exhaustion")).toHaveTextContent("暂无预测快照");
-    expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("资源状态：无资源");
-    expect(screen.queryByText("需要处理")).not.toBeInTheDocument();
-    // 调度节省为 "0" → 展示 0.00，不伪造（API 费用同为 0.00，允许出现多处）
-    expect(screen.getByText("本月调度节省")).toBeInTheDocument();
-    expect(screen.getAllByText("0.00").length).toBeGreaterThan(0);
-    expect(screen.getByText("本月无可计算的实际切换")).toBeInTheDocument();
-    expect(screen.queryByText(/潜在峰值：/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/避免高峰扣减：/)).not.toBeInTheDocument();
+    renderPage();
+    const zones = screen.getAllByRole("heading", { level: 2 }).map((node) => node.textContent);
+    expect(zones).toEqual(["本月概览", "接入资源"]);
+    expect(screen.getByRole("heading", { name: "首页看板" })).toBeInTheDocument();
   });
 
-  it("数据源 gap：已知项保留，缺失项展示同源具体原因", () => {
-    useDashboardMock.mockReturnValue({
-      isLoading: false,
-      error: null,
-      data: emptySummary(),
-      refetch: vi.fn(),
+  it("四张卡片展示真实字段与同期参照", () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
     });
-    renderDashboard();
-    expect(screen.getAllByText("待补套餐费用")).toHaveLength(2);
-    expect(screen.getByText("本月充值待补")).toBeInTheDocument();
-    expect(screen.queryByText("数据源待接入")).not.toBeInTheDocument();
+    renderPage();
+    const tokenCard = screen.getByTestId("home-token-card");
+    expect(within(tokenCard).getByText("10.00")).toBeInTheDocument();
+    expect(within(tokenCard).getByText("亿 Token")).toBeInTheDocument();
+    expect(within(tokenCard).getByText(/较上月同期 \+20\.0%/)).toBeInTheDocument();
+    expect(within(tokenCard).getByText("上月同期 8.33 亿 Token")).toBeInTheDocument();
+    expect(within(tokenCard).getByText(/上游实报/)).toBeInTheDocument();
+
+    const costCard = screen.getByTestId("home-cost-card");
+    expect(within(costCard).getByText("¥12,800.00")).toBeInTheDocument();
+    expect(within(costCard).getByText(/较上月同期 \+8\.0%/)).toBeInTheDocument();
+    expect(within(costCard).getByText("上月同期 ¥11,851.85")).toBeInTheDocument();
+    expect(within(costCard).getByText("同期按余额桥接口径聚合")).toBeInTheDocument();
+
+    const employeeCard = screen.getByTestId("home-employee-card");
+    expect(within(employeeCard).getByText("28")).toBeInTheDocument();
+    expect(within(employeeCard).getByText("较上月同期 增加 3 人")).toBeInTheDocument();
+    expect(within(employeeCard).getByText("上月同期 25 人")).toBeInTheDocument();
+
+    const projectCard = screen.getByTestId("home-project-card");
+    expect(within(projectCard).getByText("6")).toBeInTheDocument();
+    expect(within(projectCard).getByText("较上月同期 增加 1 个")).toBeInTheDocument();
+    expect(within(projectCard).getByText(/未归属请求在项目账单独列示/)).toBeInTheDocument();
   });
 
-  it("有数据：八项本月概览合并展示，调度节省三层口径可见", () => {
-    useDashboardMock.mockReturnValue({
-      isLoading: false,
-      error: null,
-      data: seededSummary(),
-      refetch: vi.fn(),
+  it("五个跳转指向计划第 3 节的目标路由", () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
     });
-    renderDashboard();
-    const monthSummary = screen.getByRole("heading", { name: "本月概览" }).closest("section")!;
-    const resourceSummary = screen.getByRole("heading", { name: "资源摘要" }).closest("section")!;
-    const employeeUsage = screen.getByRole("heading", { name: "员工消耗 Token" }).closest("section")!;
-    for (const label of ["真实 Token 消耗", "本月总支出", "套餐支出", "API 花费", "活跃人数", "厂商接入账号", "本月充值", "本月调度节省"]) {
-      expect(within(monthSummary).getByText(label)).toBeInTheDocument();
-    }
-    expect(screen.queryByRole("heading", { name: "1.0 经营补充" })).not.toBeInTheDocument();
-    expect(monthSummary.compareDocumentPosition(resourceSummary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(resourceSummary.compareDocumentPosition(employeeUsage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-    expect(screen.getByText("¥311.50")).toBeInTheDocument();
-    expect(screen.getByText("当前正在使用 3 人")).toBeInTheDocument();
-    expect(screen.getAllByText("¥12.50").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("1.50").length).toBeGreaterThan(0);
-    expect(screen.getByText("潜在峰值：缺少同一任务的峰值/低谷等价执行关联，暂不估算金额")).toBeInTheDocument();
-    expect(screen.getByText("避免高峰扣减：1,200 额度点")).toBeInTheDocument();
-    expect(screen.getByText("拒绝 2 次，不计入已实现节省")).toBeInTheDocument();
-    expect(screen.getByTestId("dashboard-earliest-exhaustion")).toHaveTextContent("最早耗尽资源：智谱 GLM 套餐");
-    expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("资源状态：全部正常");
-    // “需要处理”保留在资源摘要内，不再抢在本月概览之前。
-    expect(screen.getByText("需要处理")).toBeInTheDocument();
-    expect(resourceSummary).toContainElement(screen.getByRole("heading", { name: "需要处理" }));
-    expect(screen.getByText(/正常主体不会出现在这里/)).toBeInTheDocument();
-    expect(screen.getAllByText("智谱 GLM 套餐").length).toBeGreaterThan(0);
-    expect(screen.getByText(/预计 .* 耗尽/)).toBeInTheDocument();
-    expect(screen.getAllByText(/可信度中/).length).toBeGreaterThan(0);
-    // 超额列表：比例 "0.0500" → "5.00%"
-    expect(screen.getAllByText("张三").length).toBe(2);
-    expect(screen.getByText("5.00%")).toBeInTheDocument();
-    expect(screen.getByText(/完整厂商与模型用量请前往/)).toBeInTheDocument();
-    expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
-    expect(screen.getByText("员工消耗 Token")).toBeInTheDocument();
-    expect(screen.getAllByText("9,007,199,254,740,995,000")).toHaveLength(2);
-    expect(screen.getByText("25.00%")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "查看完整用量账本" })).toHaveAttribute("href", "/usage");
-    expect(screen.queryByRole("button", { name: "保存并重算" })).not.toBeInTheDocument();
+    renderPage();
+    expect(screen.getByTestId("home-token-card").getAttribute("href"))
+      .toBe("/resources?tab=usage-overview");
+    expect(screen.getByTestId("home-cost-card").getAttribute("href"))
+      .toBe("/operating-bill?month=2026-09");
+    expect(screen.getByTestId("home-employee-card").getAttribute("href"))
+      .toBe("/usage?tab=overview&subject_type=EMPLOYEE&period=MONTH");
+    expect(screen.getByTestId("home-project-card").getAttribute("href"))
+      .toBe("/operating-bill/projects?month=2026-09");
+    expect(screen.getByRole("link", { name: "管理资源" }).getAttribute("href"))
+      .toBe("/resources?tab=supply-health");
+    expect(screen.getByRole("link", { name: "查看经营账单" }).getAttribute("href"))
+      .toBe("/operating-bill?month=2026-09");
   });
 
-  it("POOL20-039/047：Dashboard 单 USD 与多币种按代码展示，不伪装元或待补", () => {
-    useDashboardMock.mockReturnValue({
-      isLoading: false, error: null, refetch: vi.fn(),
-      data: {
-        ...seededSummary(),
-        monthlyApiCost: null,
-        monthlyApiCosts: [
-          { currency: "CNY", amount: "12.5" },
-          { currency: "USD", amount: "3.25" },
-        ],
-        monthlyApiSpendReason: "币种不一致：按币种独立展示",
-        monthlyPackagePayment: "8",
-        monthlyPackagePayments: [{ currency: "USD", amount: "8" }],
-        monthlyTotalSpend: null,
-        monthlyTotalSpends: [
-          { currency: "CNY", amount: "12.5" },
-          { currency: "USD", amount: "11.25" },
-        ],
-        monthlyRechargeAmount: "5",
-        monthlyRechargeAmounts: [{ currency: "USD", amount: "5" }],
-      },
+  it("点击 Token 卡在应用内路由导航到厂商资源用量总览", async () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
     });
-    renderDashboard();
-    expect(screen.getByText("¥12.50 / USD 3.25")).toBeInTheDocument();
-    expect(screen.getByText("USD 8.00")).toBeInTheDocument();
-    expect(screen.getByText("¥12.50 / USD 11.25")).toBeInTheDocument();
-    expect(screen.getByText("USD 5.00")).toBeInTheDocument();
-    expect(screen.queryByText("待补套餐费用")).not.toBeInTheDocument();
+    renderPage(true);
+    await userEvent.click(screen.getByTestId("home-token-card"));
+    expect(screen.getByTestId("probe-location").textContent)
+      .toBe("/resources?tab=usage-overview");
   });
 
-  it("实际切换存在但节省为零时不误报为无实际切换", () => {
-    useDashboardMock.mockReturnValue({
-      isLoading: false, error: null, refetch: vi.fn(),
-      data: {
-        ...emptySummary(),
-        dispatchSavingBreakdown: {
-          ...emptySummary().dispatchSavingBreakdown,
-          actualSwitchCount: 1,
-          realizedSwitchCount: 0,
-          realizedReason: "实际切换缺少双端不可变价格快照",
-        },
-      },
+  it("同期窗口脚注写明区间与分别统计", () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
     });
-    renderDashboard();
-    expect(screen.getByText("实际切换缺少双端不可变价格快照")).toBeInTheDocument();
-    expect(screen.queryByText("本月无可计算的实际切换")).not.toBeInTheDocument();
+    renderPage();
+    const footnote = screen.getByText(/同期比较：/);
+    expect(footnote.textContent).toContain("09-01");
+    expect(footnote.textContent).toContain("09-10 14:00");
+    expect(footnote.textContent).toContain("员工与项目分别去重统计，不可相加");
   });
 
-  it("真实 Token 明示未知计量笔数且缓存推理不重复累计", () => {
-    useDashboardMock.mockReturnValue({
-      isLoading: false, error: null, refetch: vi.fn(),
-      data: {
-        ...emptySummary(),
-        monthlyTokenUsage: {
-          ...emptySummary().monthlyTokenUsage,
-          totalInputTokens: "100", totalOutputTokens: "20", totalCacheTokens: "40",
-          totalReasoningTokens: "5", totalTokens: "120", usageQuality: "UNKNOWN",
-          settledTransactionCount: 2, unknownTransactionCount: 1,
-        },
-      },
+  it("上月无对应日（截断）时脚注说明截止上月月末", () => {
+    const data = seededHome();
+    data.tokenUsage.previous.window = windowFixture({
+      rangeStart: "2026-01-31T16:00:00.000Z",
+      rangeEndExclusive: "2026-02-28T16:00:00.000Z",
+      truncated: true,
     });
-    renderDashboard();
-    expect(screen.getAllByText("120").length).toBeGreaterThan(0);
-    expect(screen.getByText(/含 1 笔计量未知，数值只代表已记录 Token/)).toBeInTheDocument();
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    expect(screen.getByText(/同期比较：/).textContent).toContain("已截止月末");
   });
 
-  it.each([
-    ["NO_DATA", { settledTransactionCount: 0 }, "本周期暂无已结算计量"],
-    ["ACCOUNT_AGGREGATED", { settledTransactionCount: 2, accountAggregatedTransactionCount: 2 }, "2 笔账户聚合计量"],
-    ["MIXED", { settledTransactionCount: 2, providerReportedTransactionCount: 1, mixedTransactionCount: 1 }, "混合计量"],
-  ] as const)("POOL20-045：首页解释 %s 质量而不冒充精确", (quality, counts, expected) => {
-    useDashboardMock.mockReturnValue({
-      isLoading: false, error: null, refetch: vi.fn(),
-      data: {
-        ...emptySummary(),
-        monthlyTokenUsage: {
-          ...emptySummary().monthlyTokenUsage,
-          usageQuality: quality,
-          ...counts,
-        },
-      },
+  it("上期为 0 或缺失时不输出正常增长百分比", () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: emptyHome(), isFetching: false, refetch: vi.fn(),
     });
-    renderDashboard();
-    expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
+    renderPage();
+    const tokenCard = screen.getByTestId("home-token-card");
+    expect(within(tokenCard).getByText(/不计算百分比/)).toBeInTheDocument();
+    expect(within(tokenCard).queryByText(/较上月同期 \+\d/)).not.toBeInTheDocument();
+    const costCard = screen.getByTestId("home-cost-card");
+    expect(within(costCard).getByText("期初余额待补")).toBeInTheDocument();
+    expect(within(costCard).getByText("上月同期 暂无可比数据")).toBeInTheDocument();
   });
 
-  it("员工趋势默认今日：有消耗显示数字和蓝柱，完整零值无柱，缺口显示未采集", async () => {
-    const user = userEvent.setup();
-    const data = seededSummary();
-    data.employeeUsageOverview = employeeOverview();
-    useDashboardMock.mockReturnValue({ isLoading: false, error: null, data, refetch: vi.fn() });
-    renderDashboard();
-
-    expect(screen.getByText("本月消耗 Token 总数")).toBeInTheDocument();
-    const chart = screen.getByLabelText("首页员工用量趋势图");
-    expect(screen.getByRole("combobox", { name: "首页员工用量周期" })).toHaveValue("TODAY");
-    expect(within(chart).getByText("10,000")).toBeInTheDocument();
-    expect(within(chart).getByText("0")).toBeInTheDocument();
-    expect(within(chart).getByText("未采集")).toBeInTheDocument();
-    expect(within(chart).getAllByLabelText(/消耗/)).toHaveLength(1);
-    await user.selectOptions(screen.getByRole("combobox", { name: "首页员工用量周期" }), "WEEK");
-    await waitFor(() => {
-      const query = new URLSearchParams(useUsageOverviewMock.mock.calls.at(-1)?.[0]);
-      expect(query.get("period")).toBe("WEEK");
+  it("多币种费用分行展示（主币种大字 + 其余币种独立行）且不计算百分比", () => {
+    const data = seededHome();
+    data.monthlyCost.current.totalSpends = [
+      { currency: "CNY", amount: "1200.00000000" },
+      { currency: "USD", amount: "30.00000000" },
+    ];
+    data.monthlyCost.previous = null;
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
     });
-    await user.selectOptions(screen.getByRole("combobox", { name: "首页指定员工" }), overviewEmployeeId);
-    await waitFor(() => {
-      const query = new URLSearchParams(useUsageOverviewMock.mock.calls.at(-1)?.[0]);
-      expect(query.get("subject_id")).toBe(overviewEmployeeId);
-      expect(query.get("subject_type")).toBe("EMPLOYEE");
-    });
+    renderPage();
+    const costCard = screen.getByTestId("home-cost-card");
+    expect(within(costCard).getByText("¥1,200.00")).toBeInTheDocument();
+    expect(within(costCard).getByText("USD 30.00")).toBeInTheDocument();
+    // R01-F04：多币种金额不得拼成一行越出卡片
+    expect(costCard.textContent).not.toContain("¥1,200.00 / USD 30.00");
+    expect(within(costCard).getAllByTestId("home-cost-card-additional-value")).toHaveLength(1);
+    expect(within(costCard).getByText(/不计算百分比/)).toBeInTheDocument();
   });
 
-  it("POOL-023：降级资源不再显示全部正常", () => {
-    const data = seededSummary();
-    data.resourceStatus = {
-      total: 2,
-      status: "DEGRADED",
-      statusCounts: { ACTIVE: 1, DEGRADED: 1 },
-      abnormalResources: [{
-        resourceId: "r2", resourceName: "智谱备用账号", providerName: "智谱",
-        mode: "CODING_PLAN", status: "DEGRADED",
-      }],
+  it("R01-F01：本期费用存在缺口时保留已知金额、明示缺口且不输出百分比", () => {
+    const data = seededHome();
+    data.monthlyCost.current.incompleteReason = "API_USAGE_COST_UNKNOWN:1";
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    const costCard = screen.getByTestId("home-cost-card");
+    const text = costCard.textContent ?? "";
+    expect(text).not.toContain("+8.0%");
+    expect(text).toContain("¥12,800.00");
+    expect(text).toContain("金额不完整");
+    expect(text).toContain("存在未知 API 费用");
+    expect(within(costCard).getByText("金额存在缺口，不计算百分比")).toBeInTheDocument();
+  });
+
+  it("R01-F01：同期费用存在缺口时不输出百分比并说明缺口", () => {
+    const data = seededHome();
+    data.monthlyCost.previous!.incompleteReason = "CASH_PAID_CNY_MISSING:1";
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    const costCard = screen.getByTestId("home-cost-card");
+    const text = costCard.textContent ?? "";
+    expect(text).not.toContain("+8.0%");
+    expect(within(costCard).getByText("金额存在缺口，不计算百分比")).toBeInTheDocument();
+  });
+
+  it("R01-F02：本期 Token 含未知记录（即使质量为 EXACT）不输出百分比", () => {
+    const data = seededHome();
+    data.tokenUsage.current.unknownCount = 1;
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    const tokenCard = screen.getByTestId("home-token-card");
+    const text = tokenCard.textContent ?? "";
+    expect(text).not.toContain("+20.0%");
+    expect(text).toContain("10.00");
+    expect(within(tokenCard).getByText("本期或同期用量不完整，不计算百分比")).toBeInTheDocument();
+  });
+
+  it("R01-F02：同期 Token 质量为 UNKNOWN 时不输出百分比并注明分母不完整", () => {
+    const data = seededHome();
+    data.tokenUsage.previous.usageQuality = "UNKNOWN";
+    data.tokenUsage.previous.unknownCount = 2;
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    const tokenCard = screen.getByTestId("home-token-card");
+    const text = tokenCard.textContent ?? "";
+    expect(text).not.toContain("+20.0%");
+    expect(within(tokenCard).getByText("本期或同期用量不完整，不计算百分比")).toBeInTheDocument();
+    expect(within(tokenCard).getByText(/上月同期 8\.33 亿 Token（上月同期含未知用量）/)).toBeInTheDocument();
+  });
+
+  it("R01 开关边界：用量概览开关关闭时员工卡降级到 /usage 默认页", () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
+    });
+    render(
+      <FeatureFlagsProvider value={DISABLED_FEATURE_FLAGS}>
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      </FeatureFlagsProvider>,
+    );
+    expect(screen.getByTestId("home-employee-card").getAttribute("href")).toBe("/usage");
+  });
+
+  it("R01-F03：同厂商部分资源同步过期时关注信息给出资源范围", () => {
+    const data = seededHome();
+    data.resources.providers[1]!.syncStale = true;
+    data.resources.providers[1]!.attention
+      = "其中 1 项资源经营数据同步超过 36 小时未成功；额度与余额情况需分别确认";
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    expect(screen.getByText(/其中 1 项资源经营数据同步超过 36 小时未成功/)).toBeInTheDocument();
+    expect(screen.getByText(/额度与余额情况需分别确认/)).toBeInTheDocument();
+  });
+
+  it("R01-F04：大金额主数值按长度自适应更小字号档位", () => {
+    const data = seededHome();
+    data.monthlyCost.current.totalSpends = [{ currency: "CNY", amount: "128000000.00000000" }];
+    data.monthlyCost.previous = null;
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
+    });
+    const { container } = renderPage();
+    const strong = container.querySelector('[data-testid="home-cost-card"] strong');
+    expect(strong?.textContent).toBe("¥128,000,000.00");
+    expect(strong?.className).toContain("text-[18px]");
+    expect(strong?.className).not.toContain("xl:text-[32px]");
+  });
+
+  it("V14-C2 F-D：上期多币种全为 0 时明确显示上月同期为 0", () => {
+    const data = seededHome();
+    data.monthlyCost.previous = {
+      totalSpends: [
+        { currency: "CNY", amount: "0.00000000" },
+        { currency: "USD", amount: "0.00" },
+      ],
+      incompleteReason: null,
+      basis: "BALANCE_BRIDGE",
+      window: windowFixture(),
     };
-    useDashboardMock.mockReturnValue({
-      isLoading: false, error: null, data, refetch: vi.fn(),
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
     });
-    renderDashboard();
-    expect(screen.getByTestId("dashboard-resource-status")).toHaveTextContent("1 个资源需关注 · 可用（降权）");
-    expect(screen.getAllByText("可用（降权）").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("智谱备用账号").length).toBeGreaterThan(0);
-    expect(screen.getByTestId("dashboard-resource-status")).not.toHaveTextContent("全部正常");
+    renderPage();
+    const costCard = screen.getByTestId("home-cost-card");
+    expect(within(costCard).getByText("上月同期为 0，不计算百分比")).toBeInTheDocument();
+    expect(costCard.textContent).not.toContain("+");
+    expect(within(costCard).getByText(/¥0\.00 \/ USD 0\.00/)).toBeInTheDocument();
   });
 
-  it("首页不再承载厂商与模型用量大表", () => {
-    useDashboardMock.mockReturnValue({ isLoading: false, error: null, data: seededSummary(), refetch: vi.fn() });
-    renderDashboard();
-    expect(screen.queryByRole("columnheader", { name: "厂商总额度" })).not.toBeInTheDocument();
-    expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
-    expect(screen.getByText(/厂商资源 → 用量总览/)).toBeInTheDocument();
+  it("资源区完整展示厂商、形态数量、状态与关注信息", () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    expect(screen.getByTestId("home-provider-meta").textContent).toBe("2 家厂商 · 3 项资源");
+    expect(screen.getByTestId("home-provider-attention-count").textContent).toBe("1 家需关注");
+    const rows = screen.getAllByTestId("home-provider-row");
+    expect(rows).toHaveLength(2);
+    expect(within(rows[1]!).getByText("OpenAI")).toBeInTheDocument();
+    expect(within(rows[1]!).getByText(/API · 2 项资源/)).toBeInTheDocument();
+    expect(within(rows[1]!).getByText("局部异常")).toBeInTheDocument();
+    expect(within(rows[1]!).getByText(/凭证失效，需要更新凭证/)).toBeInTheDocument();
+    expect(within(rows[0]!).getByText("正常")).toBeInTheDocument();
+    expect(within(rows[0]!).getByText("—")).toBeInTheDocument();
+    expect(screen.getByText(/资源状态更新于/).textContent)
+      .toContain("调用状态与额度/余额同步状态分别判断");
+    expect(screen.getByRole("link", { name: "查看OpenAI资源状态与处理入口" }))
+      .toHaveAttribute("href", "/resources?tab=supply-health");
+  });
+
+  it("无资源时显示空状态引导", () => {
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: emptyHome(), isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    expect(screen.getByText("尚未接入厂商资源")).toBeInTheDocument();
+  });
+
+  it("刷新按钮触发重新拉取", async () => {
+    const refetch = vi.fn();
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data: seededHome(), isFetching: false, refetch,
+    });
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "刷新" }));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });

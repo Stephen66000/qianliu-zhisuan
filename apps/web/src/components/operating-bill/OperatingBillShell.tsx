@@ -33,7 +33,7 @@ const sections = [
   { id: "value", label: "价值确认", icon: BadgeCheck },
 ] as const;
 
-function sectionUrl(
+export function sectionUrl(
   section: OperatingBillSection,
   month: string,
   providerCode: string | null,
