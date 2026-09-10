@@ -263,6 +263,7 @@ export function useQuotaRulesPageModel() {
       setArchiveTarget(null);
       void refreshModels();
       void refreshRules();
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
       if (selectedModelId) void refreshRoutes(selectedModelId);
     },
   });
