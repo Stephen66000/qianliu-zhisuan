@@ -6,14 +6,14 @@ export function QuotaDialogs({ model }: { model: QuotaRulesPageModel }) {
   const { archiveConfig, setDisableModelTarget, updateModel, updateRoute, setDisableRouteTarget, setArchiveTarget, setPolicyActionTarget, transitionPolicy, archiveTarget, policyActionTarget, principalById, disableModelTarget, disableRouteTarget } = model;
   return <>
       <ConfigurationActionDialogs archiveLoading={archiveConfig.isPending} archiveTarget={archiveTarget}
-        onArchiveCancel={() => setArchiveTarget(null)} onArchiveConfirm={target => archiveConfig.mutate({ ...target, archive: true } as Parameters<typeof archiveConfig.mutate>[0])}
+        onArchiveCancel={() => { if (!archiveConfig.isPending) setArchiveTarget(null); }} onArchiveConfirm={target => archiveConfig.mutate({ ...target, archive: true } as Parameters<typeof archiveConfig.mutate>[0])}
         onPolicyCancel={() => setPolicyActionTarget(null)} onPolicyConfirm={target => transitionPolicy.mutate(target)} policyLoading={transitionPolicy.isPending} policyTarget={policyActionTarget} principalById={principalById} />
       <ConfirmDialog
         danger
         confirmLabel="确认停用"
-        impact={`停用统一模型「${disableModelTarget?.display_name ?? ""}」后，新请求不能再选择该模型。`}
+        impact={`停用统一模型「${disableModelTarget?.display_name ?? ""}」（${disableModelTarget?.alias ?? ""}）后，所有主体对该模型的新调用将被阻止。其他模型不受影响；历史用量、账本和价格记录保留。已发出的上游请求不保证中止。`}
         loading={updateModel.isPending}
-        onCancel={() => setDisableModelTarget(null)}
+        onCancel={() => { if (!updateModel.isPending) setDisableModelTarget(null); }}
         onConfirm={() =>
           disableModelTarget &&
           updateModel.mutate({ model: disableModelTarget, status: "DISABLED" })

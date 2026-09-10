@@ -8,6 +8,7 @@ import { BillingRuleSchema, editableWindows, localDateTimeValue } from "../../pa
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
 import { PricingRouteFields } from "./PricingRouteFields";
 import { PricingPreview } from "./PricingPreview";
+import { ModelDisableAction } from "./ModelDisableAction";
 
 export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
   const { archiveConfig, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, rules, updateRule, setArchiveTarget, createRule, rulesQuery } = model;
@@ -23,6 +24,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
         onAction={() => setShowRuleForm((value) => !value)}
         title="计价"
       >
+        <ModelDisableAction model={model} />
         {showRuleForm ? (
           <form data-write-action
             className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 md:grid-cols-4"

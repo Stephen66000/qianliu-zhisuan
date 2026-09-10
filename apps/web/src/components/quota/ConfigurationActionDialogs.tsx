@@ -50,7 +50,9 @@ export function ConfigurationActionDialogs(props: {
     : policyTransitionImpact(props.policyTarget, props.principalById);
   return <>
     <ConfirmDialog cancelLabel="取消" confirmLabel="确认归档" danger
-      impact="归档后，该模型将从默认列表和新配置入口中隐藏。可通过‘查看已归档配置’恢复。是否继续？"
+      impact={props.archiveTarget?.kind === "model"
+        ? `存档模型「${props.archiveTarget.item.display_name}」（${props.archiveTarget.item.alias}）后，将从默认模型列表和新配置入口隐藏；历史用量、账本和价格记录保留。勾选“查看存档”可取消存档，取消存档不会自动启用。`
+        : "归档后，该模型将从默认列表和新配置入口中隐藏。可通过‘查看已归档配置’恢复。是否继续？"}
       loading={props.archiveLoading} onCancel={props.onArchiveCancel}
       onConfirm={() => props.archiveTarget && props.onArchiveConfirm(props.archiveTarget)}
       open={props.archiveTarget !== null} title={archiveTitle(props.archiveTarget)} />

@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { BillingRule, ModelRouteItem, ProviderResourceItem, UnifiedModel } from "../api/types";
 import { QuotaRulesPage } from "./QuotaRules";
+import { AccessContext } from "../permissions";
 
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const dates = { created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
@@ -58,7 +59,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); });
 async function open(target = uuid(21)) {
   const user = userEvent.setup();
-  render(<QueryClientProvider client={client}><MemoryRouter><QuotaRulesPage /></MemoryRouter></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><AccessContext.Provider value={{ roleCode: "SUPER_ADMIN" }}>
+    <MemoryRouter><QuotaRulesPage /></MemoryRouter></AccessContext.Provider></QueryClientProvider>);
   await waitFor(() => expect(screen.getByRole("button", { name: "新建规则" })).toBeEnabled());
   await user.click(screen.getByRole("button", { name: "新建规则" }));
   await screen.findByRole("option", { name: /DeepSeek资源11.*upstream/ });

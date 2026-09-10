@@ -221,6 +221,7 @@ export function useQuotaRulesPageModel() {
     onSuccess: () => {
       setDisableModelTarget(null);
       void refreshModels();
+      void queryClient.invalidateQueries({ queryKey: ["pricing-ready-routes"] });
     },
   });
   const createRoute = useMutation({

@@ -80,7 +80,7 @@ describe("POOL20-036～037 配置归档与调度恢复", () => {
     const row = screen.getAllByText("待归档模型").find((node) => node.tagName === "TD")!.closest("tr")!;
     await user.click(within(row).getByRole("button", { name: "归档" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("确认归档统一模型？");
-    expect(screen.getByRole("dialog")).toHaveTextContent("归档后，该模型将从默认列表和新配置入口中隐藏。可通过‘查看已归档配置’恢复。是否继续？");
+    expect(screen.getByRole("dialog")).toHaveTextContent("存档模型「待归档模型」（ql-disabled）后，将从默认模型列表和新配置入口隐藏；历史用量、账本和价格记录保留。勾选“查看存档”可取消存档，取消存档不会自动启用。");
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(postMock).not.toHaveBeenCalled();
     await user.click(within(row).getByRole("button", { name: "归档" }));
