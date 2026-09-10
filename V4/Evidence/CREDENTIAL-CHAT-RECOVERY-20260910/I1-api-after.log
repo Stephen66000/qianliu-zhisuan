@@ -1,0 +1,37 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/credential-chat-recovery-20260910/apps/control-api
+
+{"level":30,"time":1789012753033,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753075,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":42.452832996845245,"msg":"request completed"}
+{"level":30,"time":1789012753120,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"POST","url":"/provider-resources/5aea5858-2a04-45af-8556-4df907fb6ea1/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753143,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":22.097375005483627,"msg":"request completed"}
+{"level":30,"time":1789012753144,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"POST","url":"/provider-resources/5aea5858-2a04-45af-8556-4df907fb6ea1/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753148,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":4.36362498998642,"msg":"request completed"}
+{"level":30,"time":1789012753154,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"POST","url":"/provider-resources/f96beddc-be02-4a79-83ee-81c8e914495e/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753164,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":200},"responseTime":9.967916011810303,"msg":"request completed"}
+{"level":30,"time":1789012753165,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"POST","url":"/provider-resources/f96beddc-be02-4a79-83ee-81c8e914495e/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753169,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":409},"responseTime":3.8755000084638596,"msg":"request completed"}
+{"level":30,"time":1789012753266,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"POST","url":"/provider-resources/c2519223-8905-41b8-9679-0a4076118b34/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753267,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":401},"responseTime":0.30695800483226776,"msg":"request completed"}
+{"level":30,"time":1789012753267,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"POST","url":"/provider-resources/c2519223-8905-41b8-9679-0a4076118b34/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753270,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":400},"responseTime":3.2445410043001175,"msg":"request completed"}
+{"level":30,"time":1789012753271,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"POST","url":"/provider-resources/c2519223-8905-41b8-9679-0a4076118b34/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753273,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":400},"responseTime":2.6786659955978394,"msg":"request completed"}
+{"level":30,"time":1789012753274,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"POST","url":"/provider-resources/0154eff9-7645-4c19-bc34-3cbcd19f43a9/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753279,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":404},"responseTime":4.973875001072884,"msg":"request completed"}
+{"level":30,"time":1789012753281,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"POST","url":"/provider-resources/c2519223-8905-41b8-9679-0a4076118b34/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753283,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":403},"responseTime":2.3412079960107803,"msg":"request completed"}
+{"level":30,"time":1789012753288,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-b","req":{"method":"POST","url":"/provider-resources/cc05ae20-e09a-400a-a5c7-112624f14769/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753297,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-b","res":{"statusCode":200},"responseTime":8.499208003282547,"msg":"request completed"}
+{"level":30,"time":1789012753302,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-c","req":{"method":"POST","url":"/provider-resources/095a7b12-8e45-4dbd-9010-144ba6923b41/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753310,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-c","res":{"statusCode":200},"responseTime":8.777916997671127,"msg":"request completed"}
+{"level":30,"time":1789012753342,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-d","req":{"method":"POST","url":"/provider-resources/591c11d2-d717-4efb-9eed-d2198b58e000/credential-probes","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753347,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-d","res":{"statusCode":409},"responseTime":5.361040994524956,"msg":"request completed"}
+{"level":30,"time":1789012753347,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-e","req":{"method":"POST","url":"/provider-resources/591c11d2-d717-4efb-9eed-d2198b58e000/quota-sync","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012753352,"pid":72592,"hostname":"Stephen-macbook.local","reqId":"req-e","res":{"statusCode":409},"responseTime":4.233666002750397,"msg":"request completed"}
+ ✓ src/__tests-integration__/credential-chat-probe.test.ts (13 tests) 3756ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  11:59:08
+   Duration  5.44s (transform 918ms, setup 0ms, collect 1.50s, tests 3.76s, environment 0ms, prepare 50ms)

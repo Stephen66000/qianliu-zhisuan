@@ -1,4 +1,5 @@
 import { hasImageInput, modelSupportsImages, preservesImageInputs, MODEL_IMAGE_UNSUPPORTED, IMAGE_INPUT_UNSUPPORTED } from "./model-image-capability.js";
+import { createHash } from "node:crypto";
 /**
  * OpenAI-compatible Provider HTTP caller.
  *
@@ -28,6 +29,17 @@ export { responsesToChatCompletions } from "./openai-compatible-request.js";
 export type { HttpFetch, HttpResponseLike, OpenAiCompatibleCallerOptions } from "./openai-compatible-types.js";
 
 type ProviderCode = AdapterResource["providerCode"];
+
+/** Shared endpoint selection for business calls and credential probes. */
+export function providerChatBaseUrl(provider: ProviderCode, env: NodeJS.ProcessEnv = process.env): string {
+  return env[BASE_URL_ENV[provider]] ?? DEFAULT_BASE_URL[provider];
+}
+
+export function providerChatConfigHash(provider: ProviderCode, mode: string, model: string,
+  env: NodeJS.ProcessEnv = process.env): string {
+  return createHash("sha256").update(JSON.stringify({ provider, mode, model,
+    baseUrl: providerChatBaseUrl(provider, env), protocol: "chat", version: 1 })).digest("hex");
+}
 
 const BASE_URL_ENV: Record<ProviderCode, string> = {
   deepseek: "DEEPSEEK_BASE_URL",
@@ -63,8 +75,7 @@ export function createOpenAiCompatibleCaller(
       return failedOutcome(401, "upstream_credential_missing");
     }
 
-    const baseUrl = env[BASE_URL_ENV[resource.providerCode]]
-      ?? DEFAULT_BASE_URL[resource.providerCode];
+    const baseUrl = providerChatBaseUrl(resource.providerCode, env);
     if (!baseUrl) {
       return failedOutcome(500, "upstream_base_url_missing");
     }
@@ -118,6 +129,7 @@ export function createOpenAiCompatibleCaller(
       timeout.dispose();
       return {
         ...failedOutcome(response.status, failure.code),
+        upstreamConfigHash: providerChatConfigHash(resource.providerCode, resource.mode, resource.upstreamModel, env),
         upstreamErrorKind: failure.kind,
         upstreamCode: failure.code,
         ...(failure.evidence && requestShapeSummary ? {

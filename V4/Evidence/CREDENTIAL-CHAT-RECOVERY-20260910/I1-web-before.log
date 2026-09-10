@@ -1,0 +1,125 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/credential-chat-recovery-20260910/apps/web
+
+ ❯ src/components/resources/CredentialProbeAction.test.tsx (3 tests | 1 failed | 2 skipped) 1024ms
+   × credential probe action > I1: a previous recovery must not claim the newly isolated resource is available 1023ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  历史验证通过；当前资源已再次隔离
+Received:
+  验证通过，已解除隔离 · 模型 k3-256k · 凭证版本 1 · 2026-09-09 09:00:00 · HTTP 200
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mt-3 space-y-2 text-[12px]"[39m
+      [36m>[39m
+        [36m<p>[39m
+          [0m验证会使用导致隔离的模型与当前凭证，只发送一个小请求；通过后恢复服务。[0m
+        [36m</p>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<input[39m
+            [33mtype[39m=[32m"checkbox"[39m
+          [36m/>[39m
+          [0m允许本次验证消耗少量厂商额度[0m
+        [36m</label>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"rounded border border-ql-action px-3 py-1.5 text-ql-action disabled:opacity-50"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m验证当前凭证并恢复[0m
+        [36m</button>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m验证通过，已解除隔离[0m
+          [0m · 模型 [0m
+          [0mk3-256k[0m
+          [0m · 凭证版本 1 · 2026-09-09 09:00:00[0m
+          [0m · HTTP 200[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+   ↓ credential probe action > requires quota consent and displays failed verification without claiming recovery
+   ↓ credential probe action > view-only roles cannot invoke recovery
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/resources/CredentialProbeAction.test.tsx > credential probe action > I1: a previous recovery must not claim the newly isolated resource is available
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  历史验证通过；当前资源已再次隔离
+Received:
+  验证通过，已解除隔离 · 模型 k3-256k · 凭证版本 1 · 2026-09-09 09:00:00 · HTTP 200
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mt-3 space-y-2 text-[12px]"[39m
+      [36m>[39m
+        [36m<p>[39m
+          [0m验证会使用导致隔离的模型与当前凭证，只发送一个小请求；通过后恢复服务。[0m
+        [36m</p>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<input[39m
+            [33mtype[39m=[32m"checkbox"[39m
+          [36m/>[39m
+          [0m允许本次验证消耗少量厂商额度[0m
+        [36m</label>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"rounded border border-ql-action px-3 py-1.5 text-ql-action disabled:opacity-50"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m验证当前凭证并恢复[0m
+        [36m</button>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m验证通过，已解除隔离[0m
+          [0m · 模型 [0m
+          [0mk3-256k[0m
+          [0m · 凭证版本 1 · 2026-09-09 09:00:00[0m
+          [0m · HTTP 200[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ src/components/resources/CredentialProbeAction.test.tsx:21:60
+     19|       credentialVersion: 1, httpStatus: 200, startedAt: "2026-09-09T01…
+     20|     view();
+     21|     await waitFor(() => expect(screen.getByRole("status")).toHaveTextC…
+       |                                                            ^
+     22|     expect(screen.getByRole("status")).not.toHaveTextContent("已解除隔离");
+     23|   });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  11:58:24
+   Duration  2.08s (transform 66ms, setup 161ms, collect 93ms, tests 1.02s, environment 360ms, prepare 196ms)
+
+undefined
+/Users/mac/.codex/worktrees/credential-chat-recovery-20260910/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run --config vitest.config.ts src/components/resources/CredentialProbeAction.test.tsx -t 'I1:'

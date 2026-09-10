@@ -1,5 +1,6 @@
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
+import type { CredentialChatProbeTable } from "./repositories/credential-chat-probe.js";
 import type { AdminRoleTable } from "./kysely-admin-tables.js";
 import type {
   DeploymentLogEventTable, DeploymentLogTable, OperatingBillEventTable,
@@ -60,6 +61,7 @@ export type * from "./kysely-resource-tables.js";
 export type * from "./kysely-ledger-tables.js";
 
 export interface Database {
+  credential_chat_probe: CredentialChatProbeTable;
   admin_role: AdminRoleTable;
   kysely_migration: KyselyMigrationTable; kysely_migration_lock: KyselyMigrationLockTable;
   _w01_baseline_probe: { id: number; note: string | null; created_at: Date };

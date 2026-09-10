@@ -11,6 +11,7 @@
  *   - 恢复边界：凭证隔离只能由 Chat 探测或管理员轮换凭证恢复；Coding Plan 额度接口
  *     只能解除 RATE_LIMITED/EXHAUSTED，不能证明 Chat 鉴权有效。
  */
+import { randomUUID } from "node:crypto";
 import type { Kysely, Selectable } from "kysely";
 import type { Database, ProviderResourceTable, ResourceStatusEventTable } from "../kysely.js";
 import {
@@ -78,7 +79,7 @@ export class ResourcePoolRepository {
     resourceId: string,
     classification: ErrorClassification,
     now: Date = new Date(),
-    options: { retryAfterMs?: number; cooldownUntil?: number } = {},
+    options: { retryAfterMs?: number; cooldownUntil?: number; upstreamModel?: string; upstreamConfigHash?: string } = {},
   ): Promise<StateTransition | null> {
     return this.db.transaction().execute(async (trx) => {
       const row = await trx
@@ -87,6 +88,13 @@ export class ResourcePoolRepository {
         .where("id", "=", resourceId)
         .forUpdate()
         .executeTakeFirstOrThrow();
+      // Even a repeated 401 invalidates a running probe, although the visible state is unchanged.
+      if (classification === "UPSTREAM_CREDENTIAL_INVALID") {
+        await trx.updateTable("provider_resource").set({
+          auth_failure_id: randomUUID(), auth_failure_model: options.upstreamModel ?? null,
+          auth_failure_config_hash: options.upstreamConfigHash ?? null,
+        }).where("id", "=", resourceId).execute();
+      }
       const transition = deriveResourceTransition(
         toRuntimeState(row),
         classification,
@@ -296,6 +304,8 @@ export class ResourcePoolRepository {
         .updateTable("provider_resource")
         .set({
           credential_refresh_status: "FAILED",
+          auth_failure_id: randomUUID(), auth_failure_model: null,
+          auth_failure_config_hash: null,
           refresh_error_classification: errorClassification,
           last_refresh_at: now,
           updated_at: now,
@@ -310,7 +320,7 @@ export class ResourcePoolRepository {
 
   /**
    * 人工受控恢复（WT-19：重新授权/充值后）。
-   * 仅隔离态可恢复；CREDENTIAL_INVALID 必须携带递增后的凭证版本，证明新凭证已就位。
+   * 该入口只恢复非鉴权隔离；鉴权恢复必须走实际轮换事务或 Chat 探测事务。
    * 其他隔离原因可选更新凭证版本/过期时间。
    */
   async adminRecover(
@@ -325,9 +335,7 @@ export class ResourcePoolRepository {
         .where("id", "=", resourceId)
         .forUpdate()
         .executeTakeFirstOrThrow();
-      const credentialVersionAdvanced = opts?.credentialVersion !== undefined
-        && opts.credentialVersion > (row.credential_version ?? 0);
-      if (row.status === RESOURCE_STATUS.CREDENTIAL_INVALID && !credentialVersionAdvanced) {
+      if (row.status === RESOURCE_STATUS.CREDENTIAL_INVALID) {
         return null;
       }
       const transition = deriveAdminRecovery(toRuntimeState(row));

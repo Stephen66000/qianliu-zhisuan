@@ -10,6 +10,7 @@ import type { Provider, ProviderResourceItem } from "../../api/types";
 import { useResourceHealth } from "../../api/hooks";
 import { formatDateTimeFull } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
+import { CredentialProbeAction } from "./CredentialProbeAction";
 
 interface ResourceHealthPanelProps {
   resources: ProviderResourceItem[];
@@ -104,7 +105,7 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
           {health.last_occurred_at ? <span>最近：{formatDateTimeFull(health.last_occurred_at)}</span> : null}
           {health.last_success_at ? <span>最近成功：{formatDateTimeFull(health.last_success_at)}</span> : null}
           {health.last_quota_sync_at ? <span>额度同步：{formatDateTimeFull(health.last_quota_sync_at)}</span> : null}
-          {health.cooldown_until ? <span>冷却至：{formatDateTimeFull(health.cooldown_until)}</span> : null}
+          {health.cooldown_until ? <span>{health.status === "CREDENTIAL_INVALID" ? "额度下次同步" : "冷却至"}：{formatDateTimeFull(health.cooldown_until)}</span> : null}
           {health.credential_refresh_status && health.credential_refresh_status !== "OK" ? (
             <span className="text-ql-warning">凭证刷新：{health.credential_refresh_status}</span>
           ) : null}
@@ -121,6 +122,7 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
       <p className="text-[12px] text-ql-fg-secondary">
         <span className="text-ql-fg-tertiary">恢复：</span>{health.recovery_guide}
       </p>
+      <CredentialProbeAction resourceId={resource.id} isolated={health.status === "CREDENTIAL_INVALID"} />
     </div>
   );
 }

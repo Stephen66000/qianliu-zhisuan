@@ -24,6 +24,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 /** 稳定原因码中文。 */
 const REASON_LABEL: Record<string, string> = {
+  CHAT_AUTH_PROBE_RECOVERED: "Chat 鉴权验证通过",
   [STATE_REASON.PASSIVE_SUCCESS]: "恢复正常",
   [STATE_REASON.PASSIVE_FAILURE]: "技术失败累计",
   [STATE_REASON.CREDENTIAL_REJECTED]: "厂商拒绝凭证",
@@ -76,6 +77,7 @@ function recoveryGuide(
     case RESOURCE_STATUS.ACTIVE:
       return "资源健康，无需处置。";
     case RESOURCE_STATUS.DEGRADED:
+      if (reason === "CHAT_AUTH_PROBE_RECOVERED") return "当前凭证已通过原故障模型的 Chat 验证，后续成功请求会恢复为正常。";
       if (reason === STATE_REASON.QUOTA_SYNC_RECOVERED) {
         return "厂商额度已确认恢复，下一次成功请求后自动恢复为正常。";
       }
@@ -90,12 +92,9 @@ function recoveryGuide(
     case RESOURCE_STATUS.UNAVAILABLE:
       return "连续失败已隔离，冷却到期后自动半开探测；持续失败请检查上游。";
     case RESOURCE_STATUS.CREDENTIAL_INVALID:
-      if (mode === "CODING_PLAN" && cooldownUntil) {
-        return `等待厂商额度与凭证复核，系统将在 ${cooldownUntil} 自动重试同步。`;
-      }
       return reason === STATE_REASON.REFRESH_FAILED
         ? "凭证自动刷新失败，请更新凭证后人工恢复。"
-        : "厂商拒绝凭证，请更新凭证后人工恢复。";
+        : "Chat 鉴权失败，资源已隔离。额度同步不会解封；请验证当前凭证，或更新凭证后恢复。";
     case RESOURCE_STATUS.EXPIRED:
       return "凭证已到期，请更新凭证后人工恢复。";
     case RESOURCE_STATUS.EXHAUSTED:

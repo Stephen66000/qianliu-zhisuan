@@ -284,6 +284,11 @@ async function syncResourceModels(
 ): Promise<Record<string, unknown>> {
   const resource = await app.providerRepo.getResourceForModelDiscovery(enterpriseId, resourceId);
   if (!resource || !isProviderCode(resource.provider_code) || !resource.credential_ciphertext) {
+    const isolated = await app.db.selectFrom("provider_resource").select("id")
+      .where("id", "=", resourceId).where("enterprise_id", "=", enterpriseId)
+      .where("status", "=", "CREDENTIAL_INVALID").executeTakeFirst();
+    if (isolated) return reply.code(409).send({ error: "credential_isolated",
+      message: "资源因 Chat 鉴权失败已隔离，请先在供给与健康中验证当前凭证" }) as Record<string, unknown>;
     return reply.code(404).send({ error: "not_found", message: "资源不存在或没有可用凭证" }) as Record<string, unknown>;
   }
   const latest = await app.providerRepo.latestModelDiscovery(enterpriseId, resource.id);

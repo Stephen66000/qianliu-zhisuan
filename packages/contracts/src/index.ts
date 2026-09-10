@@ -46,6 +46,8 @@ export interface Usage {
  * Adapter 必须实现 (resource, request, attemptNo) => Promise<Outcome> 签名（TRD §7）。
  */
 export interface Outcome {
+  /** Digest of the provider/model/endpoint configuration used for an auth failure. No secrets. */
+  upstreamConfigHash?: string;
   /** HTTP 状态码；0 表示传输层失败（transport_error / client_cancelled）。 */
   status: number;
   /** 是否已向下游提交首个有效输出（TRD §8.3 committed 边界）。提交后禁止切换上游。 */

@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import {
   createKysely,
   migrateToLatest,
+  AdminWriteRepository,
   type Database,
 } from "@qianliu/database";
 import { ResourcePoolRepository } from
@@ -23,6 +24,7 @@ import { ResourcePoolRepository } from
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createPgCanarySink, scanCanary } from "@qianliu/observability";
 import { RESOURCE_STATUS, STATE_REASON } from "@qianliu/domain";
+import { encryptCredential, credentialFingerprint } from "@qianliu/provider-adapters";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -120,9 +122,12 @@ describe("W11 凭证生命周期与账号池", () => {
 
     // 重新授权后受控恢复：新凭证版本 + 新过期时间 → DEGRADED（需探测确认）
     const newExpiry = new Date(Date.now() + 30 * 24 * 3600 * 1000);
-    const rec = await poolRepo.adminRecover(resB, { credentialVersion: 2, credentialExpiresAt: newExpiry });
-    expect(rec!.toStatus).toBe(RESOURCE_STATUS.DEGRADED);
-    expect(rec!.reason).toBe(STATE_REASON.ADMIN_RECOVER);
+    expect(await poolRepo.adminRecover(resB, { credentialVersion: 2, credentialExpiresAt: newExpiry })).toBeNull();
+    const rec = await new AdminWriteRepository(db).adminRecoverResource(ENT_ID, resB, {
+      credential_encrypted: encryptCredential("new-b-key", Buffer.alloc(32, 8)),
+      credential_fingerprint: credentialFingerprint("new-b-key"),
+    });
+    expect(rec!.status).toBe(RESOURCE_STATUS.DEGRADED);
 
     const rowB2 = await poolRepo.getResource(resB);
     expect(rowB2!.credential_version).toBe(2);
@@ -135,7 +140,7 @@ describe("W11 凭证生命周期与账号池", () => {
 
     // 审计轨迹完整：REFRESH_FAILED → ADMIN_RECOVER（actor=admin）
     const reasons = (await poolRepo.listStatusEvents(resB)).map((e) => e.reason);
-    expect(reasons).toEqual([STATE_REASON.REFRESH_FAILED, STATE_REASON.ADMIN_RECOVER]);
+    expect(reasons).toEqual([STATE_REASON.REFRESH_FAILED, "admin_recover"]);
   });
 
   it("故障注入：429 短时冷却且同波去重 → 到期半开探测 → 成功降级恢复", async () => {

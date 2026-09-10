@@ -5,6 +5,7 @@
  * TRD §4：Kysely 0.28.7 + pg 8.16.3；金额字段使用 PostgreSQL numeric + decimal.js。
  */
 export { createKysely, type Database } from "./kysely.js";
+export { CredentialChatProbeRepository, CredentialProbeConflict, credentialProbeView } from "./repositories/credential-chat-probe.js";
 export type {
   DirectoryImportItemStatus,
   DirectoryImportItemTable,

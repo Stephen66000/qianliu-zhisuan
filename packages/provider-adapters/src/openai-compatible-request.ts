@@ -126,6 +126,7 @@ export function toChatCompletionsRequest(
     model: resource.upstreamModel,
     messages: upstreamMessages,
     stream: request.stream,
+    ...(request.maxOutputTokens !== undefined ? { max_tokens: request.maxOutputTokens } : {}),
     ...(request.stream ? { stream_options: { include_usage: true as const } } : {}),
     ...(tools && tools.length > 0 ? { tools } : {}),
     ...(toolChoice !== undefined ? { tool_choice: toolChoice } : {}),

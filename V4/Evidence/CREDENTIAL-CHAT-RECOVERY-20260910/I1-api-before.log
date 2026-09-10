@@ -1,0 +1,48 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/credential-chat-recovery-20260910/apps/control-api
+
+{"level":30,"time":1789012702967,"pid":71992,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789012703010,"pid":71992,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":41.93116699159145,"msg":"request completed"}
+ ❯ src/__tests-integration__/credential-chat-probe.test.ts (13 tests | 1 failed | 12 skipped) 7257ms
+   × credential Chat recovery > I1: expiry during recovery rolls back the resource and records an expired outcome 31ms
+     → expected 'RECOVERED' to be 'EXPIRED' // Object.is equality
+   ↓ credential Chat recovery > uses same credential, original model and endpoint; success restores isolation and records safe evidence
+   ↓ credential Chat recovery > 401 stays isolated, does not retry, retains sanitized evidence and imposes cooldown
+   ↓ credential Chat recovery > stale credential result cannot restore resource
+   ↓ credential Chat recovery > stale failure result cannot restore resource
+   ↓ credential Chat recovery > stale model result cannot restore resource
+   ↓ credential Chat recovery > stale configuration result cannot restore resource
+   ↓ credential Chat recovery > stale disabled result cannot restore resource
+   ↓ credential Chat recovery > concurrent clicks acquire one lease; cancelled and expired probes cannot restore
+   ↓ credential Chat recovery > requires operation permission and explicit quota consent; cannot select a different model
+   ↓ credential Chat recovery > network failures and invalid HTTP 200 are not recovery evidence
+   ↓ credential Chat recovery > cancel during the recovery transaction rolls back all resource changes
+   ↓ credential Chat recovery > missing original model refuses probes and isolated quota-sync explains the real reason
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/credential-chat-probe.test.ts > credential Chat recovery > I1: expiry during recovery rolls back the resource and records an expired outcome
+AssertionError: expected 'RECOVERED' to be 'EXPIRED' // Object.is equality
+
+Expected: "EXPIRED"
+Received: "RECOVERED"
+
+ ❯ src/__tests-integration__/credential-chat-probe.test.ts:50:29
+     48|           return false;
+     49|         } });
+     50|       expect(result.status).toBe("EXPIRED");
+       |                             ^
+     51|       expect((await new ResourcePoolRepository(db).getResource(id))?.s…
+     52|       expect(await db.selectFrom("operation_log").select("result").whe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 skipped (13)
+   Start at  11:58:14
+   Duration  9.10s (transform 951ms, setup 0ms, collect 1.51s, tests 7.26s, environment 0ms, prepare 69ms)
+
+undefined
+/Users/mac/.codex/worktrees/credential-chat-recovery-20260910/apps/control-api:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run --config ../../vitest.config.ts src/__tests-integration__/credential-chat-probe.test.ts -t 'I1:'

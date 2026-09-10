@@ -8,6 +8,7 @@
  * 期间被他人修改则 409 conflict（W19 DoD「并发修改测试」的落点）。
  */
 import type { FastifyInstance } from "fastify";
+import { registerCredentialProbeRoutes } from "../providers/credential-probe-routes.js";
 import { encryptCredential, credentialFingerprint } from "@qianliu/provider-adapters";
 import {
   AdminCredentialRotationRequiredError,
@@ -23,6 +24,7 @@ import { registerAdminArchiveRoutes } from "./archive-routes.js";
 import { registerAdminResourceUpdateRoute } from "./resource-route.js";
 
 export function registerAdminWriteRoutes(app: FastifyInstance): void {
+  registerCredentialProbeRoutes(app);
   registerAdminArchiveRoutes(app);
   registerAdminResourceUpdateRoute(app);
 

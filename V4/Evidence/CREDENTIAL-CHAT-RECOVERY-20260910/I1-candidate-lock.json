@@ -1,0 +1,115 @@
+{
+  "base": "60b737abc9b01e8d58c31348252be6c5ba1183dd",
+  "scope": "credential Chat recovery only",
+  "sha256": "9a9838e26626ee3d0c63bdc0b8c67a1528cb154dd38f2bc6cd555f9654ff4fde",
+  "files": [
+    {
+      "path": "apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts",
+      "sha256": "f5725c93149d3fb866be492c8ff271c36d80fc667138ca3ff39f541653f7b553"
+    },
+    {
+      "path": "apps/control-api/src/admin-writes/routes.ts",
+      "sha256": "03613efdef1aeb8acaef37dcb6962b5392dd1db43c17c096bdf816376187dce4"
+    },
+    {
+      "path": "apps/control-api/src/providers/credential-probe-routes.ts",
+      "sha256": "dbef833c2b6387cdd516109efa00fa42151f22567bc04ce2e7f804c4ca69e0f6"
+    },
+    {
+      "path": "apps/control-api/src/providers/health-routes.ts",
+      "sha256": "eb32803d712894f01813859a1c6d3680cf1b98975d0efd092cc1848c0e261968"
+    },
+    {
+      "path": "apps/control-api/src/providers/model-discovery-routes.ts",
+      "sha256": "e2f4072394a51a67adef05c2752b5ec56e53f7965844f3e12bbe2eb9339de35a"
+    },
+    {
+      "path": "apps/control-api/src/providers/quota-window-routes.ts",
+      "sha256": "2048accfc1d8e6e8f76872ac419e0a23e7a0cb5a26464830660ae7c8bbd79417"
+    },
+    {
+      "path": "apps/gateway/src/__tests-integration__/w11-resource-pool.test.ts",
+      "sha256": "e61e22d029c2c1329df34a9df9dbc1ffd10407fdea5fb3f3727b6509af398808"
+    },
+    {
+      "path": "apps/gateway/src/__tests-integration__/w12-routing.test.ts",
+      "sha256": "ffdfe75cc5504fdc9cc11a948050e16a3e983c8abe0390b1fc029c3a6083951d"
+    },
+    {
+      "path": "apps/gateway/src/pipeline/pipeline-settlement.ts",
+      "sha256": "7e1d58ffdbff10b53c36c9fbc843da8c48a4ca53025e99178a41bbf17982a312"
+    },
+    {
+      "path": "apps/web/src/components/resources/CredentialProbeAction.test.tsx",
+      "sha256": "0edf56d19bb33476113f5bdf554df2bfb691b67929d652a919916454951a0ca7"
+    },
+    {
+      "path": "apps/web/src/components/resources/CredentialProbeAction.tsx",
+      "sha256": "7f5753c2f2172c7cdaf6d9e2ff56037546d27b88ca93ea14f807c36a2b542981"
+    },
+    {
+      "path": "apps/web/src/components/resources/ResourceHealthPanel.tsx",
+      "sha256": "ac5566205063eacb515c6a67ee7ecbf182611b7229fd5f2f9a9f0923506e3685"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "sha256": "3ce5eaa956c45b6fb7854a232f1c2ec7b19a66a801aa091bc1ab7b61f81ce1b2"
+    },
+    {
+      "path": "packages/database/migrations/0073_credential_chat_probe.js",
+      "sha256": "04fb892e6bcfaab723b28fe8029e9e14d7acd7dbf0382bc58fa560847dc78273"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/credential-probe-migration.test.ts",
+      "sha256": "4ca7dc56c26a4aef35a4dd1937aa2bf9dbf35065943e3bbe18e93eaa98c6875d"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts",
+      "sha256": "0ae1d66dbbd5e3852cfc4f1d0b6e2b0133607440172b34b9ffefef38917dfb31"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/runtime-admin-migrations.integration.test.ts",
+      "sha256": "47adb0c79d062ec6afa3e3cd4af2f27d5793f2b9d5cdff3cabefdcc3e1b4d072"
+    },
+    {
+      "path": "packages/database/src/index.ts",
+      "sha256": "1870fad383b638f10d6a27fadd8d7bf286749d60b96ec8e3edb18347c4a98b72"
+    },
+    {
+      "path": "packages/database/src/kysely-resource-tables.ts",
+      "sha256": "c6ad5d43fea458edab1f8b1864dcd5d3a937db7d2fabc987bdbffd2e6622d778"
+    },
+    {
+      "path": "packages/database/src/kysely.ts",
+      "sha256": "2c5f4162791671f42b19ca468816df36404637de51a5ba20649d9315b3f6639c"
+    },
+    {
+      "path": "packages/database/src/repositories/credential-chat-probe.ts",
+      "sha256": "11069f5afda253b2aa34ce2dc20e03677afe1d2a7a2d434ec3aa4f0358b77217"
+    },
+    {
+      "path": "packages/database/src/repositories/credential-probe-models.ts",
+      "sha256": "023efd5c035611fc56f6a91c5f9d8455c7a226e063d48665090ce9e5ae34f5e2"
+    },
+    {
+      "path": "packages/database/src/repositories/resource-pool-repository.ts",
+      "sha256": "39d60040e6f3c8c4e5ffb08e2b8ad1becb4c0b772eb05d5b3643892587ba1381"
+    },
+    {
+      "path": "packages/domain/src/resource-lifecycle.ts",
+      "sha256": "0628fbda9c83cf12e0559a7b1e09ecc81fe32ba1510a25b60db475b94daa7f4e"
+    },
+    {
+      "path": "packages/provider-adapters/src/index.ts",
+      "sha256": "a3195e80ac963f9e6ed47ffde3d2f70945552bf1fee7bd38f7b62aa29aae3291"
+    },
+    {
+      "path": "packages/provider-adapters/src/openai-compatible-caller.ts",
+      "sha256": "a681ca4852e951ba79ea0c7cbac121a2e923dfbacd8a5f5866fe86ea69ae153d"
+    },
+    {
+      "path": "packages/provider-adapters/src/openai-compatible-request.ts",
+      "sha256": "763fdddf560bea0f64babc707e09acc068f424ceb59f290d98dcc414239824f6"
+    }
+  ]
+}

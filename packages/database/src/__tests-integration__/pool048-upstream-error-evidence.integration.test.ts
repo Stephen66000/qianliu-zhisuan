@@ -166,6 +166,7 @@ describe("POOL20-048 0055 上游错误证据", () => {
       await expect(db.updateTable("upstream_attempt").set({
         request_shape_summary: { oversized: "x".repeat(5_000) },
       }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow();
+      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
