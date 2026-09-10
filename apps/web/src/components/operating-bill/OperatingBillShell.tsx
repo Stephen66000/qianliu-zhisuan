@@ -36,7 +36,7 @@ const sections = [
   { id: "closing", label: "结账管理", icon: FileLock2 },
 ] as const;
 
-function sectionUrl(
+export function sectionUrl(
   section: OperatingBillSection,
   month: string,
   providerCode: string | null,

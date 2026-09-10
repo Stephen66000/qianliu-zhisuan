@@ -177,6 +177,89 @@ export interface DashboardSummary {
   employeeUsageOverview?: UsageOverview;
 }
 
+/** 标准版首页两分区聚合（GET /dashboard/home，HOME-STANDARD-20260910）。镜像 database 包 dashboard-home.ts。 */
+export interface StandardHomeWindow {
+  rangeStart: string;
+  rangeEndExclusive: string;
+  truncated: boolean;
+}
+
+export type ProviderStatusCategory = "NORMAL" | "PARTIAL_ABNORMAL" | "ABNORMAL" | "PENDING_CONFIRM";
+
+export interface StandardHomeProviderRow {
+  providerCode: string;
+  providerName: string;
+  resourceCount: number;
+  modes: Array<{ mode: "API" | "CODING_PLAN"; count: number }>;
+  worstStatus: string;
+  statusLabel: string;
+  statusCategory: ProviderStatusCategory;
+  abnormalResourceCount: number;
+  attention: string | null;
+  syncFailed: boolean;
+  syncStale: boolean;
+  lastSyncAt: string | null;
+}
+
+export interface StandardHomeSummary {
+  asOf: string;
+  month: string;
+  tokenUsage: {
+    rangeStart: string;
+    rangeEndExclusive: string;
+    current: {
+      totalTokens: string;
+      inputTokens: string;
+      outputTokens: string;
+      usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+      unknownCount: number;
+    };
+    /** 同期也携带质量/完整性（R01-F02）：分母不完整时禁止正常百分比。 */
+    previous: {
+      totalTokens: string;
+      usageQuality: "EXACT" | "ESTIMATED" | "UNKNOWN";
+      unknownCount: number;
+      window: StandardHomeWindow;
+    };
+  };
+  monthlyCost: {
+    month: string;
+    billStatus: "DRAFT" | "CLOSED";
+    current: {
+      totalSpends: Array<{ currency: string; amount: string }>;
+      apiSpends: Array<{ currency: string; amount: string }>;
+      packageCosts: Array<{ currency: string; amount: string }>;
+      incompleteReason: string | null;
+    };
+    previous: {
+      totalSpends: Array<{ currency: string; amount: string }>;
+      incompleteReason: string | null;
+      basis: "FINANCE_READ_MODEL" | "BALANCE_BRIDGE";
+      window: StandardHomeWindow;
+    } | null;
+  };
+  activeEmployees: {
+    timezone: string;
+    rangeStart: string;
+    rangeEndExclusive: string;
+    current: number;
+    previous: { count: number; window: StandardHomeWindow };
+  };
+  activeProjects: {
+    rangeStart: string;
+    rangeEndExclusive: string;
+    current: number;
+    previous: { count: number; window: StandardHomeWindow };
+  };
+  resources: {
+    providerCount: number;
+    resourceCount: number;
+    attentionProviderCount: number;
+    updatedAt: string | null;
+    providers: StandardHomeProviderRow[];
+  };
+}
+
 export interface UsageRecord {
   requestId: string;
   principalId: string;

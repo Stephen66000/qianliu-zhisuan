@@ -1,0 +1,19 @@
+{
+  "mode": "real frontend with intercepted audit fixture, no backend acceptance",
+  "layout": {
+    "viewport": 1440,
+    "scrollWidth": 1440,
+    "cardWidth": 259.5,
+    "numberWidth": 143.765625,
+    "text": "\u00a512,800.00"
+  },
+  "colors": {
+    "foreground": "rgb(92, 203, 118)",
+    "background": "rgba(52, 168, 83, 0.16)"
+  },
+  "narrow": {
+    "viewport": 1024,
+    "scroll": 1024
+  },
+  "successContrastRatio": 6.038893680444175
+}

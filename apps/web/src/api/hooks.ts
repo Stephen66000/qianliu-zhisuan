@@ -31,6 +31,7 @@ import type {
   ResourceHealth,
   ResourceUsageOverview,
   RouteCandidateItem,
+  StandardHomeSummary,
   SupplyForecastsResult,
   UnifiedModelsResult,
   UsageQueryParams,
@@ -39,6 +40,7 @@ import type {
 
 export const QUERY_KEYS = {
   dashboard: ["dashboard"] as const,
+  standardHome: ["dashboard", "home"] as const,
   usage: (params: UsageQueryParams) => ["usage", params] as const,
   billingRules: ["billing-rules"] as const,
   dispatchPolicies: ["dispatch-policies"] as const,
@@ -67,6 +69,16 @@ export function useDashboard() {
   return useQuery({
     queryKey: QUERY_KEYS.dashboard,
     queryFn: ({ signal }) => get<DashboardSummary>("/dashboard", signal),
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+/** 标准版首页两分区聚合（HOME-STANDARD-20260910）。 */
+export function useStandardHome() {
+  return useQuery({
+    queryKey: QUERY_KEYS.standardHome,
+    queryFn: ({ signal }) => get<StandardHomeSummary>("/dashboard/home", signal),
     retry: 1,
     staleTime: 30_000,
   });

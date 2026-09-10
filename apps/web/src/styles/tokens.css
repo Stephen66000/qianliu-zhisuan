@@ -128,3 +128,34 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 状态标签底（HOME-STANDARD R01-F05）：浅色用 soft 实色值，深色按规范 §3.3 用原色 16% 透明度。
+ * 深色 --ql-*-soft 令牌是需配合透明度使用的原始 RGB 通道，直接 bg-ql-*-soft 会得到饱和实色底。 */
+.ql-status-success {
+  color: rgb(var(--ql-success));
+  background-color: rgb(var(--ql-success-soft));
+}
+.ql-status-warning {
+  color: rgb(var(--ql-warning));
+  background-color: rgb(var(--ql-warning-soft));
+}
+.ql-status-danger {
+  color: rgb(var(--ql-danger));
+  background-color: rgb(var(--ql-danger-soft));
+}
+.ql-status-neutral {
+  color: rgb(var(--ql-text-secondary));
+  background-color: rgb(var(--ql-surface-muted));
+}
+[data-theme="dark"] .ql-status-success {
+  background-color: rgb(var(--ql-success-soft) / 0.16);
+}
+[data-theme="dark"] .ql-status-warning {
+  background-color: rgb(var(--ql-warning-soft) / 0.16);
+}
+[data-theme="dark"] .ql-status-danger {
+  background-color: rgb(var(--ql-danger-soft) / 0.16);
+}
+[data-theme="dark"] .ql-status-neutral {
+  background-color: rgb(var(--ql-surface-muted) / 0.6);
+}

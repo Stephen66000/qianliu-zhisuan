@@ -1,0 +1,22 @@
+{
+  "scenario": "same provider: fresh resource plus 9-day stale resource",
+  "result": {
+    "providerCode": "p",
+    "providerName": "P",
+    "resourceCount": 2,
+    "modes": [
+      {
+        "mode": "API",
+        "count": 2
+      }
+    ],
+    "worstStatus": "ACTIVE",
+    "statusLabel": "正常",
+    "statusCategory": "NORMAL",
+    "abnormalResourceCount": 0,
+    "attention": null,
+    "syncFailed": false,
+    "syncStale": false,
+    "lastSyncAt": "2026-09-10T05:00:00.000Z"
+  }
+}

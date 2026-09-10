@@ -1,0 +1,14 @@
+[
+  {
+    "mutant": "132",
+    "scenario": "current CNY 200 vs previous USD 100",
+    "expected": null,
+    "mutated": "+100.0%"
+  },
+  {
+    "mutant": "127",
+    "scenario": "current CNY200+USD50 vs previous CNY100",
+    "expected": null,
+    "mutated": "+100.0%"
+  }
+]
