@@ -601,7 +601,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     expect(summary.monthlyCost.previous?.incompleteReason).toBeNull();
   });
 
-  it("V14-C4 G01/G02：故障注入（缺失期末快照）时有套餐金额但不完整、禁止比较", async () => {
+  it("V14-C4 G01/G02：故障注入（缺失期末快照）时透出已知套餐金额（已知部分保留）", async () => {
     const ent = randomUUID();
     await db.insertInto("enterprise").values({ id: ent, name: "桥接不完整企业" }).execute();
     const provider = await db.insertInto("provider").values({
@@ -615,13 +615,14 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
       enterprise_id: ent, provider_id: provider.id, name: "缺失期末套餐",
       mode: "CODING_PLAN", credential_type: "API_KEY", status: "ACTIVE",
     }).returning("id").executeTakeFirstOrThrow();
-    // 故障注入：API 仅有期初快照，期末快照缺失。
+    // 故障注入：API 仅有期初快照，期末快照缺失（API 花费无法桥接）。
     await db.insertInto("provider_resource_operating_snapshot").values({
       enterprise_id: ent, provider_resource_id: badApi.id, version: 1,
       source: "PROVIDER_SYNC", collected_at: new Date("2026-07-30T00:00:00Z"),
       currency: "CNY", current_balance: "50", current_period_cost: "0",
       balance_updated_at: new Date("2026-07-30T00:00:00Z"),
     }).execute();
+    // 套餐（如上月 Kimi 订阅）期末快照存在，套餐费用 200 为已知事实。
     await db.insertInto("provider_resource_operating_snapshot").values({
       enterprise_id: ent, provider_resource_id: plan.id, version: 1,
       source: "PROVIDER_SYNC", collected_at: new Date("2026-08-05T00:00:00Z"),
@@ -644,8 +645,11 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
       financeRead: false,
     });
     expect(summary.monthlyCost.previous?.basis).toBe("BALANCE_BRIDGE");
-    expect(summary.monthlyCost.previous?.totalSpends).toEqual([]);
-    expect(summary.monthlyCost.previous?.incompleteReason).toContain("待补期末余额");
+    // 已知部分保留：上月 Kimi 套餐金额透出（不再"不可完整计算"），缺期末的 API 未计入即视为
+    // 无该花费事实（缺口不可凭空标记，未知金额只能由权威缺口规则识别，不能臆造）。
+    expect(summary.monthlyCost.previous?.totalSpends)
+      .toEqual([{ currency: "CNY", amount: "200.00000000" }]);
+    expect(summary.monthlyCost.previous?.incompleteReason).toBeNull();
   });
 
   it("V14-C4 G01：经营账单无总额且无缺口原因时回退到跨币种提示（bill fallback）", async () => {

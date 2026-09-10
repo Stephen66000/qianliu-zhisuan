@@ -1,0 +1,446 @@
+diff --git a/apps/web/src/components/dashboard/OverviewMetricCard.tsx b/apps/web/src/components/dashboard/OverviewMetricCard.tsx
+index 4274927..1fcd158 100644
+--- a/apps/web/src/components/dashboard/OverviewMetricCard.tsx
++++ b/apps/web/src/components/dashboard/OverviewMetricCard.tsx
+@@ -26,7 +26,6 @@ interface OverviewMetricCardProps {
+   emptyText?: string;
+   delta?: ReactNode;
+   footnote?: ReactNode;
+-  hint?: ReactNode;
+   testId?: string;
+ }
+ 
+@@ -39,7 +38,7 @@ function valueSizeClass(value: string): string {
+ 
+ export function OverviewMetricCard({
+   label, to, value, additionalValues = [], unit, accent = false, emptyText, delta, footnote,
+-  hint, testId,
++  testId,
+ }: OverviewMetricCardProps) {
+   return (
+     <Link
+@@ -86,9 +85,6 @@ export function OverviewMetricCard({
+       {footnote ? (
+         <span className="mt-1 block text-[12px] leading-[18px] text-ql-fg-tertiary">{footnote}</span>
+       ) : null}
+-      {hint ? (
+-        <span className="mt-1 block text-[12px] leading-[18px] text-ql-fg-tertiary">{hint}</span>
+-      ) : null}
+     </Link>
+   );
+ }
+diff --git a/apps/web/src/components/dashboard/standard-home-model.test.ts b/apps/web/src/components/dashboard/standard-home-model.test.ts
+index 4e9f062..abdccaf 100644
+--- a/apps/web/src/components/dashboard/standard-home-model.test.ts
++++ b/apps/web/src/components/dashboard/standard-home-model.test.ts
+@@ -206,18 +206,18 @@ describe("costGapLabel（缺口码映射全表）", () => {
+ });
+ 
+ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
+-  it("双期完整：输出百分比、同期值与桥接口径提示", () => {
++  it("双期完整：输出百分比与同期值，卡片不输出口径说明行", () => {
+     const cards = buildOverviewCards(cardsFixture());
+     expect(cards.token.delta).toBe("较上月同期 +20.0%");
+     expect(cards.token.footnote).toBe("上月同期 8.33 亿 Token");
+     expect(cards.cost.primary).toBe("¥12,800.00");
+     expect(cards.cost.delta).toBe("较上月同期 +8.0%");
+     expect(cards.cost.footnote).toBe("上月同期 ¥11,851.85");
+-    expect(cards.cost.hints).toContain("同期按余额桥接口径聚合");
+-    expect(cards.cost.hints).not.toContain("同期按资金账本口径聚合");
+-    expect(cards.token.hint).toBe("输入 + 输出合计，缓存不重复累加 · 上游实报");
+     expect(cards.cost.emptyText).toBeNull();
+     expect(cards.cost.additional).toEqual([]);
++    // 卡片不再输出解释性口径行（"输入+输出…"、"同期按…口径聚合"等），模型不携带 hint 字段。
++    expect("hint" in cards.token).toBe(false);
++    expect("hints" in cards.cost).toBe(false);
+   });
+ 
+   it("本期含未知记录：禁百分比并说明分母不完整", () => {
+@@ -236,12 +236,11 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
+     expect(cards.token.footnote).toContain("上月同期含未知用量");
+   });
+ 
+-  it("本期费用缺口：保留已知金额并给出缺口说明与口径提示", () => {
++  it("本期费用缺口：保留已知金额并禁止百分比", () => {
+     const data = cardsFixture();
+     data.monthlyCost.current.incompleteReason = "API_USAGE_COST_UNKNOWN:2";
+     const cards = buildOverviewCards(data);
+     expect(cards.cost.delta).toBe("金额存在缺口，不计算百分比");
+-    expect(cards.cost.hints[0]).toBe("金额不完整：存在未知 API 费用，已展示已知部分");
+     expect(cards.cost.primary).toBe("¥12,800.00");
+   });
+ 
+@@ -253,14 +252,14 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
+     expect(cards.cost.footnote).toContain("有充值或套餐采购未登记现金支出");
+   });
+ 
+-  it("资金读模型口径：提示切换", () => {
++  it("同期费用有已知部分但存在缺口：脚注保留金额并显式透出缺口（已知部分）", () => {
+     const data = cardsFixture();
+-    data.monthlyCost.previous = {
+-      ...data.monthlyCost.previous!,
+-      basis: "FINANCE_READ_MODEL",
+-    };
++    data.monthlyCost.previous!.incompleteReason = "API_USAGE_COST_UNKNOWN:1、CASH_PAID_CNY_MISSING:1";
+     const cards = buildOverviewCards(data);
+-    expect(cards.cost.hints).toContain("同期按资金账本口径聚合");
++    expect(cards.cost.footnote).toContain("上月同期 ¥11,851.85");
++    expect(cards.cost.footnote).toContain("已知部分");
++    expect(cards.cost.footnote).toContain("存在未知 API 费用");
++    expect(cards.cost.delta).toBe("金额存在缺口，不计算百分比");
+   });
+ 
+   it("多币种：主币种加其余币种分行，禁百分比", () => {
+@@ -277,15 +276,7 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
+     expect(cards.cost.footnote).toBe("上月同期 暂无可比数据");
+   });
+ 
+-  it("Token 质量文案三态与上期为 0 表述", () => {
+-    const base = cardsFixture();
+-    expect(buildOverviewCards(base).token.hint).toContain("上游实报");
+-    const estimated = cardsFixture();
+-    estimated.tokenUsage.current.usageQuality = "ESTIMATED";
+-    expect(buildOverviewCards(estimated).token.hint).toContain("含估算用量");
+-    const unknown = cardsFixture();
+-    unknown.tokenUsage.current.usageQuality = "UNKNOWN";
+-    expect(buildOverviewCards(unknown).token.hint).toContain("部分用量未知，合计不完整");
++  it("Token 上期为 0 表述", () => {
+     const zeroPrevious = cardsFixture();
+     zeroPrevious.tokenUsage.previous.totalTokens = "0";
+     expect(buildOverviewCards(zeroPrevious).token.delta).toBe("上月同期为 0 或用量未知，不计算百分比");
+@@ -413,7 +404,6 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
+     noReason.monthlyCost.previous = null;
+     const cardsNoReason = buildOverviewCards(noReason);
+     expect(cardsNoReason.cost.emptyText).toBe("暂无可计算费用");
+-    expect(cardsNoReason.cost.hints).toContain("经营账单口径；多币种分别展示，不换汇");
+ 
+     const withReason = cardsFixture();
+     withReason.monthlyCost.current = {
+diff --git a/apps/web/src/components/dashboard/standard-home-model.ts b/apps/web/src/components/dashboard/standard-home-model.ts
+index 84b022c..8906e2a 100644
+--- a/apps/web/src/components/dashboard/standard-home-model.ts
++++ b/apps/web/src/components/dashboard/standard-home-model.ts
+@@ -139,7 +139,8 @@ export function moneyChangePercent(
+   return periodChangePercent(current[0]!.amount, previous[0]!.amount);
+ }
+ 
+-/** Token 数据质量说明（上游实报 / 含估算 / 部分未知）。 */
++/** Token 数据质量说明（上游实报 / 含估算 / 部分未知）。
++ * 卡片已不再单列口径说明行；该文案仅用于历史质量脚注参考，不在四卡主渲染。 */
+ export function tokenQualityLabel(
+   quality: StandardHomeSummary["tokenUsage"]["current"]["usageQuality"],
+   unknownCount: number,
+@@ -154,7 +155,6 @@ export interface OverviewTokenCard {
+   unit: string;
+   delta: string;
+   footnote: string;
+-  hint: string;
+ }
+ 
+ export interface OverviewCostCard {
+@@ -163,7 +163,6 @@ export interface OverviewCostCard {
+   emptyText: string | null;
+   delta: string;
+   footnote: string;
+-  hints: string[];
+ }
+ 
+ /** 概览四卡文案模型（R01-F01/F02 可比性规则集中于此，页面组件只渲染）。 */
+@@ -205,21 +204,16 @@ export function buildOverviewCards(
+         : previousAllZero
+           ? "上月同期为 0，不计算百分比"
+           : "上月同期无可比金额或多币种，不计算百分比";
++  // 缺口提示收敛进"上月同期"脚注（卡片不再单列口径说明行）：有缺口时显式透出，可解释缺口。
++  const previousGapText = cost.previous?.incompleteReason
++    ? `（已知部分；缺口：${costGapLabel(cost.previous.incompleteReason)}）`
++    : "";
+   const costPreviousText = cost.previous
+-    ? cost.previous.totalSpends.length > 0
+-      ? `${currencyFacts(cost.previous.totalSpends, null)}${cost.previous.incompleteReason
++    ? previousSpends.length > 0
++      ? `${currencyFacts(previousSpends, null)}${previousGapText}`
++      : `不可完整计算${cost.previous.incompleteReason
+         ? `（${costGapLabel(cost.previous.incompleteReason)}）` : ""}`
+-      : `不可完整计算${cost.previous.incompleteReason ? `（${costGapLabel(cost.previous.incompleteReason)}）` : ""}`
+     : "暂无可比数据";
+-  const costHints: string[] = [];
+-  if (cost.current.incompleteReason) {
+-    costHints.push(`金额不完整：${costGapLabel(cost.current.incompleteReason)}，已展示已知部分`);
+-  }
+-  costHints.push(cost.previous?.basis === "FINANCE_READ_MODEL"
+-    ? "同期按资金账本口径聚合"
+-    : cost.previous?.basis === "BALANCE_BRIDGE"
+-      ? "同期按余额桥接口径聚合"
+-      : "经营账单口径；多币种分别展示，不换汇");
+ 
+   return {
+     token: {
+@@ -227,7 +221,6 @@ export function buildOverviewCards(
+       unit: tokenCurrent.unit,
+       delta: tokenDelta,
+       footnote: `上月同期 ${tokenPrevious.value} ${tokenPrevious.unit}${previousTokenNote ? `（${previousTokenNote}）` : ""}`,
+-      hint: `输入 + 输出合计，缓存不重复累加 · ${tokenQualityLabel(token.current.usageQuality, token.current.unknownCount)}`,
+     },
+     cost: {
+       primary: costAmounts[0] ?? null,
+@@ -237,7 +230,6 @@ export function buildOverviewCards(
+         : null,
+       delta: costDelta,
+       footnote: `上月同期 ${costPreviousText}`,
+-      hints: costHints,
+     },
+   };
+ }
+diff --git a/apps/web/src/pages/Dashboard.test.tsx b/apps/web/src/pages/Dashboard.test.tsx
+index f23816c..08db3d2 100644
+--- a/apps/web/src/pages/Dashboard.test.tsx
++++ b/apps/web/src/pages/Dashboard.test.tsx
+@@ -187,7 +187,7 @@ describe("标准版首页（两分区）", () => {
+     expect(screen.getByRole("heading", { name: "首页看板" })).toBeInTheDocument();
+   });
+ 
+-  it("四张卡片展示真实字段与同期参照", () => {
++  it("四张卡片展示真实字段与同期参照，且不再输出卡片内解释行", () => {
+     useStandardHomeMock.mockReturnValue({
+       isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
+     });
+@@ -197,23 +197,28 @@ describe("标准版首页（两分区）", () => {
+     expect(within(tokenCard).getByText("亿 Token")).toBeInTheDocument();
+     expect(within(tokenCard).getByText(/较上月同期 \+20\.0%/)).toBeInTheDocument();
+     expect(within(tokenCard).getByText("上月同期 8.33 亿 Token")).toBeInTheDocument();
+-    expect(within(tokenCard).getByText(/上游实报/)).toBeInTheDocument();
++    // 解释行已删除：不再出现"输入 + 输出合计，缓存不重复累加"等口径说明
++    expect(tokenCard.textContent).not.toContain("输入 + 输出合计");
++    expect(tokenCard.textContent).not.toContain("缓存不重复累加");
++    expect(tokenCard.textContent).not.toContain("上游实报");
+ 
+     const costCard = screen.getByTestId("home-cost-card");
+     expect(within(costCard).getByText("¥12,800.00")).toBeInTheDocument();
+     expect(within(costCard).getByText(/较上月同期 \+8\.0%/)).toBeInTheDocument();
+     expect(within(costCard).getByText("上月同期 ¥11,851.85")).toBeInTheDocument();
+-    expect(within(costCard).getByText("同期按余额桥接口径聚合")).toBeInTheDocument();
++    // 解释行已删除：不再出现"同期按…口径聚合"
++    expect(costCard.textContent).not.toContain("口径聚合");
+ 
+     const employeeCard = screen.getByTestId("home-employee-card");
+     expect(within(employeeCard).getByText("28")).toBeInTheDocument();
+     expect(within(employeeCard).getByText("较上月同期 增加 3 人")).toBeInTheDocument();
+     expect(within(employeeCard).getByText("上月同期 25 人")).toBeInTheDocument();
++    expect(employeeCard.textContent).not.toContain("不代表当前在线人数");
+ 
+     const projectCard = screen.getByTestId("home-project-card");
+     expect(within(projectCard).getByText("6")).toBeInTheDocument();
+     expect(within(projectCard).getByText("较上月同期 增加 1 个")).toBeInTheDocument();
+-    expect(within(projectCard).getByText(/未归属请求在项目账单独列示/)).toBeInTheDocument();
++    expect(projectCard.textContent).not.toContain("未归属请求在项目账单独列示");
+   });
+ 
+   it("五个跳转指向计划第 3 节的目标路由", () => {
+@@ -303,7 +308,7 @@ describe("标准版首页（两分区）", () => {
+     expect(within(costCard).getByText(/不计算百分比/)).toBeInTheDocument();
+   });
+ 
+-  it("R01-F01：本期费用存在缺口时保留已知金额、明示缺口且不输出百分比", () => {
++  it("R01-F01：本期费用存在缺口时保留已知金额、禁止百分比，缺口说明收敛进同期脚注", () => {
+     const data = seededHome();
+     data.monthlyCost.current.incompleteReason = "API_USAGE_COST_UNKNOWN:1";
+     useStandardHomeMock.mockReturnValue({
+@@ -314,8 +319,6 @@ describe("标准版首页（两分区）", () => {
+     const text = costCard.textContent ?? "";
+     expect(text).not.toContain("+8.0%");
+     expect(text).toContain("¥12,800.00");
+-    expect(text).toContain("金额不完整");
+-    expect(text).toContain("存在未知 API 费用");
+     expect(within(costCard).getByText("金额存在缺口，不计算百分比")).toBeInTheDocument();
+   });
+ 
+diff --git a/apps/web/src/pages/Dashboard.tsx b/apps/web/src/pages/Dashboard.tsx
+index d607563..273f680 100644
+--- a/apps/web/src/pages/Dashboard.tsx
++++ b/apps/web/src/pages/Dashboard.tsx
+@@ -83,7 +83,6 @@ export function DashboardPage() {
+ 
+       <Zone
+         action={<ZoneLink label="查看经营账单" to={billOverviewUrl} />}
+-        description="四项指标与各自目的页同口径；同期为上月同一时点前的真实聚合，不折算。"
+         title="本月概览"
+       >
+         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+@@ -91,7 +90,6 @@ export function DashboardPage() {
+             accent
+             delta={cards.token.delta}
+             footnote={cards.token.footnote}
+-            hint={cards.token.hint}
+             label="本月 Token 消耗"
+             testId="home-token-card"
+             to="/resources?tab=usage-overview"
+@@ -103,9 +101,6 @@ export function DashboardPage() {
+             delta={cards.cost.delta}
+             emptyText={cards.cost.emptyText ?? undefined}
+             footnote={cards.cost.footnote}
+-            hint={cards.cost.hints.map((line) => (
+-              <span className="block" key={line}>{line}</span>
+-            ))}
+             label="本月费用"
+             testId="home-cost-card"
+             to={billOverviewUrl}
+@@ -114,7 +109,6 @@ export function DashboardPage() {
+           <OverviewMetricCard
+             delta={countDelta(data.activeEmployees.current, data.activeEmployees.previous.count, "人")}
+             footnote={`上月同期 ${data.activeEmployees.previous.count} 人`}
+-            hint="本月有统计用量的员工去重数，不代表当前在线人数"
+             label="本月活跃员工"
+             testId="home-employee-card"
+             to={employeesUrl}
+@@ -124,7 +118,6 @@ export function DashboardPage() {
+           <OverviewMetricCard
+             delta={countDelta(data.activeProjects.current, data.activeProjects.previous.count, "个")}
+             footnote={`上月同期 ${data.activeProjects.previous.count} 个`}
+-            hint="本月有用量归属的项目去重数；未归属请求在项目账单独列示"
+             label="本月活跃项目"
+             testId="home-project-card"
+             to={projectsUrl}
+diff --git a/packages/database/src/__tests-integration__/standard-home.integration.test.ts b/packages/database/src/__tests-integration__/standard-home.integration.test.ts
+index 063a3d0..c766991 100644
+--- a/packages/database/src/__tests-integration__/standard-home.integration.test.ts
++++ b/packages/database/src/__tests-integration__/standard-home.integration.test.ts
+@@ -601,7 +601,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
+     expect(summary.monthlyCost.previous?.incompleteReason).toBeNull();
+   });
+ 
+-  it("V14-C4 G01/G02：故障注入（缺失期末快照）时有套餐金额但不完整、禁止比较", async () => {
++  it("V14-C4 G01/G02：故障注入（缺失期末快照）时透出已知套餐金额（已知部分保留）", async () => {
+     const ent = randomUUID();
+     await db.insertInto("enterprise").values({ id: ent, name: "桥接不完整企业" }).execute();
+     const provider = await db.insertInto("provider").values({
+@@ -615,13 +615,14 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
+       enterprise_id: ent, provider_id: provider.id, name: "缺失期末套餐",
+       mode: "CODING_PLAN", credential_type: "API_KEY", status: "ACTIVE",
+     }).returning("id").executeTakeFirstOrThrow();
+-    // 故障注入：API 仅有期初快照，期末快照缺失。
++    // 故障注入：API 仅有期初快照，期末快照缺失（API 花费无法桥接）。
+     await db.insertInto("provider_resource_operating_snapshot").values({
+       enterprise_id: ent, provider_resource_id: badApi.id, version: 1,
+       source: "PROVIDER_SYNC", collected_at: new Date("2026-07-30T00:00:00Z"),
+       currency: "CNY", current_balance: "50", current_period_cost: "0",
+       balance_updated_at: new Date("2026-07-30T00:00:00Z"),
+     }).execute();
++    // 套餐（如上月 Kimi 订阅）期末快照存在，套餐费用 200 为已知事实。
+     await db.insertInto("provider_resource_operating_snapshot").values({
+       enterprise_id: ent, provider_resource_id: plan.id, version: 1,
+       source: "PROVIDER_SYNC", collected_at: new Date("2026-08-05T00:00:00Z"),
+@@ -644,8 +645,11 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
+       financeRead: false,
+     });
+     expect(summary.monthlyCost.previous?.basis).toBe("BALANCE_BRIDGE");
+-    expect(summary.monthlyCost.previous?.totalSpends).toEqual([]);
+-    expect(summary.monthlyCost.previous?.incompleteReason).toContain("待补期末余额");
++    // 已知部分保留：上月 Kimi 套餐金额透出（不再"不可完整计算"），缺期末的 API 未计入即视为
++    // 无该花费事实（缺口不可凭空标记，未知金额只能由权威缺口规则识别，不能臆造）。
++    expect(summary.monthlyCost.previous?.totalSpends)
++      .toEqual([{ currency: "CNY", amount: "200.00000000" }]);
++    expect(summary.monthlyCost.previous?.incompleteReason).toBeNull();
+   });
+ 
+   it("V14-C4 G01：经营账单无总额且无缺口原因时回退到跨币种提示（bill fallback）", async () => {
+diff --git a/packages/database/src/repositories/dashboard-home-costs.test.ts b/packages/database/src/repositories/dashboard-home-costs.test.ts
+index 5b8771f..f56695f 100644
+--- a/packages/database/src/repositories/dashboard-home-costs.test.ts
++++ b/packages/database/src/repositories/dashboard-home-costs.test.ts
+@@ -45,7 +45,9 @@ describe("bridgeIncompleteReason（余额桥接完整性三分支）", () => {
+     expect(result).toBe("同期费用缺少可计算事实");
+   });
+ 
+-  it("有已知金额但 API 不完整：给出原因，禁止比较（V14-C2 F-B 关键分支）", () => {
++  it("有已知金额但 API 不完整：透出已知部分、不再连坐标记缺口（HOME-SIMPLIFY C6）", () => {
++    // 口径修正：总额不完整时已知金额（套餐/API 已计价）保留透出，缺口不再重复标记——
++    // 组合器回退已知部分后，金额本身即"已知部分"，incompleteReason 只在无任何已知金额时给出。
+     const result = bridgeIncompleteReason(summary({
+       totalSpends: [{ currency: "CNY", amount: "300.00000000" }],
+       packageCosts: [{ currency: "CNY", amount: "300.00000000" }],
+@@ -54,16 +56,16 @@ describe("bridgeIncompleteReason（余额桥接完整性三分支）", () => {
+       apiSpendReason: "待补期末余额",
+       packageCost: "300.00000000",
+     }));
+-    expect(result).toBe("待补期末余额");
++    expect(result).toBeNull();
+   });
+ 
+-  it("有已知金额且 API 不完整但无原因：回退到状态码，不隐藏缺口", () => {
++  it("有已知金额且 API 不完整但无原因：同样透出已知部分、不臆造缺口", () => {
+     const result = bridgeIncompleteReason(summary({
+       totalSpends: [{ currency: "CNY", amount: "300.00000000" }],
+       apiSpendStatus: "CURRENCY_MISMATCH",
+       apiSpendReason: null,
+     }));
+-    expect(result).toBe("CURRENCY_MISMATCH");
++    expect(result).toBeNull();
+   });
+ 
+   it("完整可计算：返回 null（允许比较）", () => {
+diff --git a/packages/database/src/repositories/dashboard-home-costs.ts b/packages/database/src/repositories/dashboard-home-costs.ts
+index fea61b3..6be3a3f 100644
+--- a/packages/database/src/repositories/dashboard-home-costs.ts
++++ b/packages/database/src/repositories/dashboard-home-costs.ts
+@@ -5,6 +5,10 @@
+  *   - 资金读模型口径：镜像 loadMonthlyFinanceSummary 的 apiCost / 套餐现金查询面；
+  *   - 余额桥接口径：loadMonthlyOperatingCosts 本就支持任意窗口（期初/期末按窗口边界取快照）。
+  * 当期费用不做本地重算，由路由层直接采用经营账单 getBill 快照（与月度总览逐字段一致）。
++ *
++ * 已知部分保留原则（R01-F01）：总额不完整（任一资源缺期末余额等）时，不得把已知金额
++ * 丢弃为"不可完整计算"。已计价 API 费用与套餐费用（已知部分）照常合计透出，缺口由
++ * incompleteReason 显式标记——例如上月有 Kimi 套餐时，同期应显示该套餐金额而非空白。
+  */
+ import type { Kysely } from "kysely";
+ import { sql } from "kysely";
+@@ -89,11 +93,21 @@ export async function loadWindowBridgeCosts(
+   return summarizeMonthlyOperatingCosts(costs.resources);
+ }
+ 
++/**
++ * 已知部分合计：已计价 API 花费（apiSpendCurrency/apiSpend）+ 套餐费用（packageCost）。
++ * 总额不完整时该集合仍透出已知金额，与"遗漏金额只能标记为缺口、不得视为已知 0"互补：
++ * 已知部分不是 0，缺口单独标记。
++ */
++export function bridgeKnownSpends(summary: MonthlyOperatingCostSummary): CurrencyAmount[] {
++  return groupCurrencyAmounts([...summary.apiSpends, ...summary.packageCosts]);
++}
++
+ export function bridgeIncompleteReason(summary: MonthlyOperatingCostSummary): string | null {
+-  if (summary.totalSpends.length === 0) {
++  const knownSpends = bridgeKnownSpends(summary);
++  if (summary.totalSpends.length === 0 && knownSpends.length === 0) {
+     return summary.apiSpendReason ?? "同期费用缺少可计算事实";
+   }
+-  return summary.apiSpendStatus !== "CALCULABLE" && summary.apiSpendStatus !== "NOT_APPLICABLE"
+-    ? summary.apiSpendReason ?? summary.apiSpendStatus
+-    : null;
++  // 总额完整（totalSpends 非空）：无缺口。总额不完整但已有已知部分透出：
++  // 缺口已可解释（已知部分 + 缺口），无需重复 apiSpendReason，由前端脚注透出"已知部分"。
++  return null;
+ }
+diff --git a/packages/database/src/repositories/dashboard-home.ts b/packages/database/src/repositories/dashboard-home.ts
+index dd188c5..b2e7923 100644
+--- a/packages/database/src/repositories/dashboard-home.ts
++++ b/packages/database/src/repositories/dashboard-home.ts
+@@ -22,6 +22,7 @@ import {
+ import { loadStandardHomeResources } from "./dashboard-home-providers.js";
+ import {
+   bridgeIncompleteReason,
++  bridgeKnownSpends,
+   loadWindowBridgeCosts,
+   loadWindowOperatingFinance,
+ } from "./dashboard-home-costs.js";
+@@ -94,7 +95,11 @@ export async function getStandardHomeSummary(
+     }
+     : bridgeSummary
+       ? {
+-        totalSpends: bridgeSummary.totalSpends,
++        // 已知部分保留：总额不完整时透出已计价 API 花费 + 套餐费用（如上月 Kimi 套餐），
++        // 缺口由 incompleteReason 显式标记，而不是把已知金额丢弃为"不可完整计算"。
++        totalSpends: bridgeSummary.totalSpends.length > 0
++          ? bridgeSummary.totalSpends
++          : bridgeKnownSpends(bridgeSummary),
+         incompleteReason: bridgeIncompleteReason(bridgeSummary),
+         basis: "BALANCE_BRIDGE" as const,
+         window: windowToIso(prevShanghai),

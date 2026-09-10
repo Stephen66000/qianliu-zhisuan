@@ -187,7 +187,7 @@ describe("标准版首页（两分区）", () => {
     expect(screen.getByRole("heading", { name: "首页看板" })).toBeInTheDocument();
   });
 
-  it("四张卡片展示真实字段与同期参照", () => {
+  it("四张卡片展示真实字段与同期参照，且不再输出卡片内解释行", () => {
     useStandardHomeMock.mockReturnValue({
       isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),
     });
@@ -197,23 +197,28 @@ describe("标准版首页（两分区）", () => {
     expect(within(tokenCard).getByText("亿 Token")).toBeInTheDocument();
     expect(within(tokenCard).getByText(/较上月同期 \+20\.0%/)).toBeInTheDocument();
     expect(within(tokenCard).getByText("上月同期 8.33 亿 Token")).toBeInTheDocument();
-    expect(within(tokenCard).getByText(/上游实报/)).toBeInTheDocument();
+    // 解释行已删除：不再出现"输入 + 输出合计，缓存不重复累加"等口径说明
+    expect(tokenCard.textContent).not.toContain("输入 + 输出合计");
+    expect(tokenCard.textContent).not.toContain("缓存不重复累加");
+    expect(tokenCard.textContent).not.toContain("上游实报");
 
     const costCard = screen.getByTestId("home-cost-card");
     expect(within(costCard).getByText("¥12,800.00")).toBeInTheDocument();
     expect(within(costCard).getByText(/较上月同期 \+8\.0%/)).toBeInTheDocument();
     expect(within(costCard).getByText("上月同期 ¥11,851.85")).toBeInTheDocument();
-    expect(within(costCard).getByText("同期按余额桥接口径聚合")).toBeInTheDocument();
+    // 解释行已删除：不再出现"同期按…口径聚合"
+    expect(costCard.textContent).not.toContain("口径聚合");
 
     const employeeCard = screen.getByTestId("home-employee-card");
     expect(within(employeeCard).getByText("28")).toBeInTheDocument();
     expect(within(employeeCard).getByText("较上月同期 增加 3 人")).toBeInTheDocument();
     expect(within(employeeCard).getByText("上月同期 25 人")).toBeInTheDocument();
+    expect(employeeCard.textContent).not.toContain("不代表当前在线人数");
 
     const projectCard = screen.getByTestId("home-project-card");
     expect(within(projectCard).getByText("6")).toBeInTheDocument();
     expect(within(projectCard).getByText("较上月同期 增加 1 个")).toBeInTheDocument();
-    expect(within(projectCard).getByText(/未归属请求在项目账单独列示/)).toBeInTheDocument();
+    expect(projectCard.textContent).not.toContain("未归属请求在项目账单独列示");
   });
 
   it("五个跳转指向计划第 3 节的目标路由", () => {
@@ -303,7 +308,7 @@ describe("标准版首页（两分区）", () => {
     expect(within(costCard).getByText(/不计算百分比/)).toBeInTheDocument();
   });
 
-  it("R01-F01：本期费用存在缺口时保留已知金额、明示缺口且不输出百分比", () => {
+  it("R01-F01：本期费用存在缺口时保留已知金额、禁止百分比，缺口说明收敛进同期脚注", () => {
     const data = seededHome();
     data.monthlyCost.current.incompleteReason = "API_USAGE_COST_UNKNOWN:1";
     useStandardHomeMock.mockReturnValue({
@@ -314,8 +319,6 @@ describe("标准版首页（两分区）", () => {
     const text = costCard.textContent ?? "";
     expect(text).not.toContain("+8.0%");
     expect(text).toContain("¥12,800.00");
-    expect(text).toContain("金额不完整");
-    expect(text).toContain("存在未知 API 费用");
     expect(within(costCard).getByText("金额存在缺口，不计算百分比")).toBeInTheDocument();
   });
 

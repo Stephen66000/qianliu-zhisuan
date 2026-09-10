@@ -45,7 +45,9 @@ describe("bridgeIncompleteReason（余额桥接完整性三分支）", () => {
     expect(result).toBe("同期费用缺少可计算事实");
   });
 
-  it("有已知金额但 API 不完整：给出原因，禁止比较（V14-C2 F-B 关键分支）", () => {
+  it("有已知金额但 API 不完整：透出已知部分、不再连坐标记缺口（HOME-SIMPLIFY C6）", () => {
+    // 口径修正：总额不完整时已知金额（套餐/API 已计价）保留透出，缺口不再重复标记——
+    // 组合器回退已知部分后，金额本身即"已知部分"，incompleteReason 只在无任何已知金额时给出。
     const result = bridgeIncompleteReason(summary({
       totalSpends: [{ currency: "CNY", amount: "300.00000000" }],
       packageCosts: [{ currency: "CNY", amount: "300.00000000" }],
@@ -54,16 +56,16 @@ describe("bridgeIncompleteReason（余额桥接完整性三分支）", () => {
       apiSpendReason: "待补期末余额",
       packageCost: "300.00000000",
     }));
-    expect(result).toBe("待补期末余额");
+    expect(result).toBeNull();
   });
 
-  it("有已知金额且 API 不完整但无原因：回退到状态码，不隐藏缺口", () => {
+  it("有已知金额且 API 不完整但无原因：同样透出已知部分、不臆造缺口", () => {
     const result = bridgeIncompleteReason(summary({
       totalSpends: [{ currency: "CNY", amount: "300.00000000" }],
       apiSpendStatus: "CURRENCY_MISMATCH",
       apiSpendReason: null,
     }));
-    expect(result).toBe("CURRENCY_MISMATCH");
+    expect(result).toBeNull();
   });
 
   it("完整可计算：返回 null（允许比较）", () => {

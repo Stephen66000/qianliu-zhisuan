@@ -26,7 +26,6 @@ interface OverviewMetricCardProps {
   emptyText?: string;
   delta?: ReactNode;
   footnote?: ReactNode;
-  hint?: ReactNode;
   testId?: string;
 }
 
@@ -39,7 +38,7 @@ function valueSizeClass(value: string): string {
 
 export function OverviewMetricCard({
   label, to, value, additionalValues = [], unit, accent = false, emptyText, delta, footnote,
-  hint, testId,
+  testId,
 }: OverviewMetricCardProps) {
   return (
     <Link
@@ -85,9 +84,6 @@ export function OverviewMetricCard({
       ) : null}
       {footnote ? (
         <span className="mt-1 block text-[12px] leading-[18px] text-ql-fg-tertiary">{footnote}</span>
-      ) : null}
-      {hint ? (
-        <span className="mt-1 block text-[12px] leading-[18px] text-ql-fg-tertiary">{hint}</span>
       ) : null}
     </Link>
   );

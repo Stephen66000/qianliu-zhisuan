@@ -5,6 +5,10 @@
  *   - 资金读模型口径：镜像 loadMonthlyFinanceSummary 的 apiCost / 套餐现金查询面；
  *   - 余额桥接口径：loadMonthlyOperatingCosts 本就支持任意窗口（期初/期末按窗口边界取快照）。
  * 当期费用不做本地重算，由路由层直接采用经营账单 getBill 快照（与月度总览逐字段一致）。
+ *
+ * 已知部分保留原则（R01-F01）：总额不完整（任一资源缺期末余额等）时，不得把已知金额
+ * 丢弃为"不可完整计算"。已计价 API 费用与套餐费用（已知部分）照常合计透出，缺口由
+ * incompleteReason 显式标记——例如上月有 Kimi 套餐时，同期应显示该套餐金额而非空白。
  */
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
@@ -89,11 +93,21 @@ export async function loadWindowBridgeCosts(
   return summarizeMonthlyOperatingCosts(costs.resources);
 }
 
+/**
+ * 已知部分合计：已计价 API 花费（apiSpendCurrency/apiSpend）+ 套餐费用（packageCost）。
+ * 总额不完整时该集合仍透出已知金额，与"遗漏金额只能标记为缺口、不得视为已知 0"互补：
+ * 已知部分不是 0，缺口单独标记。
+ */
+export function bridgeKnownSpends(summary: MonthlyOperatingCostSummary): CurrencyAmount[] {
+  return groupCurrencyAmounts([...summary.apiSpends, ...summary.packageCosts]);
+}
+
 export function bridgeIncompleteReason(summary: MonthlyOperatingCostSummary): string | null {
-  if (summary.totalSpends.length === 0) {
+  const knownSpends = bridgeKnownSpends(summary);
+  if (summary.totalSpends.length === 0 && knownSpends.length === 0) {
     return summary.apiSpendReason ?? "同期费用缺少可计算事实";
   }
-  return summary.apiSpendStatus !== "CALCULABLE" && summary.apiSpendStatus !== "NOT_APPLICABLE"
-    ? summary.apiSpendReason ?? summary.apiSpendStatus
-    : null;
+  // 总额完整（totalSpends 非空）：无缺口。总额不完整但已有已知部分透出：
+  // 缺口已可解释（已知部分 + 缺口），无需重复 apiSpendReason，由前端脚注透出"已知部分"。
+  return null;
 }

@@ -1,0 +1,7 @@
+HEAD: 934b372ea50dc11de0cd2f2fe9ae362532e1c398
+branch: codex/quota-pricing-review-20260905
+patch_sha256: 9ce21040b133f52e4ac360366d19be79514b7f62791d48b46604761d295dc34f  candidate-tracked.patch
+time: 2026-09-10T12:34:03Z
+start_patch_sha256: 5020bdfe9e2ab63457d68a3991879406eaa2ed2d3af6ea488c936b0ec6d50115
+note: start/end patch drift = +dashboard-home-costs.test.ts (2 assertion updates after DB unit gate failure; tests-only, no production code change)
+note: apps/web/stryker.home-model.config.json + vitest.home-model-mutation.config.ts left as untracked (sandbox delete denied); DO NOT COMMIT
