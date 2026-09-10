@@ -152,7 +152,11 @@ on_exit() {
       echo "STOP: 回退验收失败；数据库和备份保留，发布锁未删除，请人工处理" >&2
       exit "$status"
     fi
-    echo "FAILED: 已恢复上一版应用；0073 为兼容性增量迁移，可能保留" >&2
+    if test "$started" = 1; then
+      echo "FAILED: 已恢复上一版应用；0073 为兼容性增量迁移，可能保留" >&2
+    else
+      echo "FAILED: 尚未进入停服和迁移阶段，原服务未切换" >&2
+    fi
   fi
   rmdir "$lock" || { echo "STOP: 无法删除发布锁 $lock" >&2; exit 1; }
   exit "$status"
@@ -178,8 +182,10 @@ printf 'START candidate=%s tree=%s previous=%s\n' "$candidate" "$candidate_tree"
 
 git -C "$release" init -q
 git -C "$release" remote add origin ssh://git@ssh.github.com:443/Stephen66000/qianliu-zhisuan.git
-GIT_SSH_COMMAND='ssh -o BatchMode=yes' GIT_TERMINAL_PROMPT=0 \
-  git -C "$release" fetch --depth 64 origin "$candidate"
+# Candidate is one commit above the pinned production source; two commits suffice for ancestry checks.
+# Keep progress visible and detect a dead SSH peer instead of waiting indefinitely.
+GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4' GIT_TERMINAL_PROMPT=0 \
+  git -C "$release" fetch --progress --depth 2 origin "$candidate"
 git -C "$release" checkout -q --detach "$candidate"
 test "$(git -C "$release" rev-parse HEAD)" = "$candidate"
 test "$(git -C "$release" rev-parse 'HEAD^{tree}')" = "$candidate_tree"

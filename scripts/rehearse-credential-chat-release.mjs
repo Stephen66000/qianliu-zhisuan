@@ -62,6 +62,7 @@ if (cmd === 'git') {
     fs.mkdirSync(dir + '/packages/database/migrations', { recursive: true });
     for (const name of ['0073_credential_chat_probe.js']) fs.copyFileSync(s.repo + '/packages/database/migrations/' + name, dir + '/packages/database/migrations/' + name);
   } else if (args.includes('init') || args.includes('fetch') || args.includes('remote')) event('git-write');
+  if (scenario === 'fetch-fail' && args.includes('fetch')) fail();
   save(); process.exit(0);
 }
 if (cmd === 'curl') { out(scenario === 'health-fail' && s.current !== previous ? 503 : 200); process.exit(0); }
@@ -123,6 +124,7 @@ for (const scenario of [
   "history-query-fail",
   "post-migration-query-fail",
   "tree-mismatch",
+  "fetch-fail",
   "migration-scope-mismatch",
   "build-fail",
   "backup-fail",
@@ -133,7 +135,7 @@ for (const scenario of [
   "start-fail",
   "health-fail",
   "success",
-]) {
+].filter(name => process.argv.length < 3 || process.argv.slice(2).includes(name))) {
   const root = path.join(suiteRoot, scenario),
     previous = root + "/releases/previous";
   mkdirSync(previous + "/deploy", { recursive: true });
@@ -200,6 +202,11 @@ for (const scenario of [
   assert.ifError(run.error);
   const state = JSON.parse(readFileSync(root + "/state.json", "utf8"));
   const events = state.events;
+  if (scenario === "fetch-fail") {
+    assert(!events.includes("stop"));
+    assert(!events.includes("migrate"));
+    assert((run.stdout + run.stderr).includes("尚未进入停服和迁移阶段"));
+  }
   if (["preflight", "success"].includes(scenario))
     assert.equal(
       run.status,

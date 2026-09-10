@@ -1,0 +1,16 @@
+{
+  "mode": "isolated command doubles; not a real Docker or server deployment",
+  "suiteRoot": "/private/var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/qianliu-release-rehearsal-o37v5d",
+  "results": [
+    {
+      "scenario": "fetch-fail",
+      "exit": 1,
+      "result": "PASS",
+      "events": [
+        "git-write",
+        "git-write",
+        "git-write"
+      ]
+    }
+  ]
+}
