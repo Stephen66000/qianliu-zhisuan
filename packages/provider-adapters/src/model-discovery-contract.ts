@@ -5,6 +5,7 @@ export type DiscoverySource = "PROVIDER_API" | "OFFICIAL_DOCUMENTATION"
 
 export interface ModelFieldEvidence { url: string; checkedAt: string; extractedValue: string }
 export interface DiscoveredModelFacts {
+  officialVersion?: string | null;
   modalities: string[]; protocols: string[]; contextWindow: number | null; maxOutputTokens: number | null;
   reasoning: { required: boolean | null; levels: string[]; default: string | null } | null;
   clientVariants: Array<{ protocol: string; model: string; purpose: string; canonicalModel: string }>;
