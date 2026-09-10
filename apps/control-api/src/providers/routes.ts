@@ -29,6 +29,7 @@ import { registerProviderQuotaWindowRoutes } from "./quota-window-routes.js";
 import { registerProviderHealthRoutes } from "./health-routes.js";
 import { registerProviderUsageOverviewRoutes } from "./usage-overview-routes.js";
 import { financeReadModelEnabled, shanghaiMonthAt } from "../provider-finance/dashboard-projection.js";
+import { archivedResourceModels } from "./resource-model-visibility.js";
 
 export function registerProviderRoutes(app: FastifyInstance): void {
   registerProviderModelDiscoveryRoutes(app);
@@ -68,12 +69,13 @@ export function registerProviderRoutes(app: FastifyInstance): void {
     const financeRead = await financeReadModelEnabled(
       app.providerFinanceMode, app.providerFinanceRepo, enterpriseId,
     );
-    const [resources, snapshots, syncStates, financeViews] = await Promise.all([
+    const [resources, snapshots, syncStates, financeViews, archivedModels] = await Promise.all([
       app.providerRepo.listResources(enterpriseId),
       app.providerRepo.listCurrentOperatingSnapshots(enterpriseId),
       app.providerRepo.listLatestOperatingSyncStates(enterpriseId),
       !financeRead ? []
         : app.providerFinanceRepo.listResourceFinanceViews(enterpriseId, shanghaiMonthAt(now), now),
+      archivedResourceModels(app.db, enterpriseId),
     ]);
     const byResource = new Map(snapshots.map((snapshot) => [
       snapshot.provider_resource_id,
@@ -105,6 +107,7 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         credential_expires_at: r.credential_expires_at?.toISOString() ?? null,
         resource_pool_id: r.resource_pool_id ?? null,
         upstream_models: r.upstream_models,
+        display_upstream_models: r.upstream_models?.filter((name) => !archivedModels.get(r.id)?.has(name)) ?? null,
         concurrency_limit: r.concurrency_limit,
         version: r.version,
         monthly_budget_amount: r.monthly_budget_amount,

@@ -138,6 +138,8 @@ it("仅查看或缺少厂商操作权限时不能停用模型", async () => {
 
 it("停用后可存档：取消不写入；存档默认隐藏；取消存档仍保持停用", async () => {
   const user = await open();
+  const resourceReads = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url) === "/api/provider-resources").length;
+  const readsBefore = resourceReads();
   await user.selectOptions(screen.getByLabelText("模型管理"), pro);
   expect(screen.getByRole("button", { name: "存档模型" })).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "停用模型" }));
@@ -169,6 +171,7 @@ it("停用后可存档：取消不写入；存档默认隐藏；取消存档仍�
     { path: `/api/unified-models/${pro}/unarchive`, body: { expected_version: 11 } },
   ]);
   expect(models[0]!.status).toBe("ACTIVE"); expect(models[0]!.archived_at).toBeNull();
+  await waitFor(() => expect(resourceReads()).toBeGreaterThanOrEqual(readsBefore + 2));
 });
 
 it("存档失败保留模型和对话框，不伪装为已隐藏", async () => {

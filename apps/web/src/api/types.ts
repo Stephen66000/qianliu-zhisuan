@@ -156,6 +156,8 @@ export interface ProviderResourceItem {
   credential_expires_at: string | null;
   resource_pool_id: string | null;
   upstream_models: string[] | null;
+  /** Display projection only; upstream_models retains the original resource declaration. */
+  display_upstream_models?: string[] | null;
   concurrency_limit: number | null;
   version: number;
   monthly_budget_amount?: string | null;

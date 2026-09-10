@@ -1,6 +1,6 @@
 import { Server } from "lucide-react";
 import { get } from "../../api/client";
-import type { ProviderResourceOperatingSnapshot } from "../../api/types";
+import type { ProviderResourceItem, ProviderResourceOperatingSnapshot } from "../../api/types";
 import { StatusTag } from "../dashboard/StatusTag";
 import { QueryGate } from "../states/QueryGate";
 import { formatDateTimeFull } from "../../lib/format";
@@ -8,6 +8,11 @@ import { resourceStatusLabel } from "../../lib/resource-status";
 import { operatingDraftFromResource } from "./resource-form-contract";
 import { ISOLATED, MODE_LABEL, ResourceFinanceDisplay } from "./resource-page-display";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
+
+export function resourceModelNames(resource: Pick<ProviderResourceItem, "upstream_models" | "display_upstream_models">) {
+  const models = resource.display_upstream_models ?? resource.upstream_models;
+  return models?.length ? models.join("、") : resource.upstream_models?.length ? "暂无未存档型号" : "未声明模型";
+}
 
 export function ResourceTable({ model }: { model: ResourcesPageModel }) {
   const { query, setRecoverTarget, setEditTarget, setSyncTarget, setOperatingTarget, setOperatingDraft, setOperatingValidationError, setOperatingHistory, editReset, resources, providerOptions } = model;
@@ -53,7 +58,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                       {providerOptions.find((provider) => provider.id === r.provider_id)?.name ?? "—"}
                     </span>
                     <span className="font-mono text-[11px] text-ql-fg-tertiary">
-                      {r.upstream_models?.join("、") ?? "未声明模型"}
+                      {resourceModelNames(r)}
                     </span>
                   </td>
                   <td className="py-2.5 pr-4 text-ql-fg-secondary">{MODE_LABEL[r.mode]}</td>
