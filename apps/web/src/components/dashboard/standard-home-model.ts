@@ -139,7 +139,8 @@ export function moneyChangePercent(
   return periodChangePercent(current[0]!.amount, previous[0]!.amount);
 }
 
-/** Token 数据质量说明（上游实报 / 含估算 / 部分未知）。 */
+/** Token 数据质量说明（上游实报 / 含估算 / 部分未知）。
+ * 卡片已不再单列口径说明行；该文案仅用于历史质量脚注参考，不在四卡主渲染。 */
 export function tokenQualityLabel(
   quality: StandardHomeSummary["tokenUsage"]["current"]["usageQuality"],
   unknownCount: number,
@@ -154,7 +155,6 @@ export interface OverviewTokenCard {
   unit: string;
   delta: string;
   footnote: string;
-  hint: string;
 }
 
 export interface OverviewCostCard {
@@ -163,7 +163,6 @@ export interface OverviewCostCard {
   emptyText: string | null;
   delta: string;
   footnote: string;
-  hints: string[];
 }
 
 /** 概览四卡文案模型（R01-F01/F02 可比性规则集中于此，页面组件只渲染）。 */
@@ -205,21 +204,16 @@ export function buildOverviewCards(
         : previousAllZero
           ? "上月同期为 0，不计算百分比"
           : "上月同期无可比金额或多币种，不计算百分比";
+  // 缺口提示收敛进"上月同期"脚注（卡片不再单列口径说明行）：有缺口时显式透出，可解释缺口。
+  const previousGapText = cost.previous?.incompleteReason
+    ? `（已知部分；缺口：${costGapLabel(cost.previous.incompleteReason)}）`
+    : "";
   const costPreviousText = cost.previous
-    ? cost.previous.totalSpends.length > 0
-      ? `${currencyFacts(cost.previous.totalSpends, null)}${cost.previous.incompleteReason
+    ? previousSpends.length > 0
+      ? `${currencyFacts(previousSpends, null)}${previousGapText}`
+      : `不可完整计算${cost.previous.incompleteReason
         ? `（${costGapLabel(cost.previous.incompleteReason)}）` : ""}`
-      : `不可完整计算${cost.previous.incompleteReason ? `（${costGapLabel(cost.previous.incompleteReason)}）` : ""}`
     : "暂无可比数据";
-  const costHints: string[] = [];
-  if (cost.current.incompleteReason) {
-    costHints.push(`金额不完整：${costGapLabel(cost.current.incompleteReason)}，已展示已知部分`);
-  }
-  costHints.push(cost.previous?.basis === "FINANCE_READ_MODEL"
-    ? "同期按资金账本口径聚合"
-    : cost.previous?.basis === "BALANCE_BRIDGE"
-      ? "同期按余额桥接口径聚合"
-      : "经营账单口径；多币种分别展示，不换汇");
 
   return {
     token: {
@@ -227,7 +221,6 @@ export function buildOverviewCards(
       unit: tokenCurrent.unit,
       delta: tokenDelta,
       footnote: `上月同期 ${tokenPrevious.value} ${tokenPrevious.unit}${previousTokenNote ? `（${previousTokenNote}）` : ""}`,
-      hint: `输入 + 输出合计，缓存不重复累加 · ${tokenQualityLabel(token.current.usageQuality, token.current.unknownCount)}`,
     },
     cost: {
       primary: costAmounts[0] ?? null,
@@ -237,7 +230,6 @@ export function buildOverviewCards(
         : null,
       delta: costDelta,
       footnote: `上月同期 ${costPreviousText}`,
-      hints: costHints,
     },
   };
 }

@@ -83,7 +83,6 @@ export function DashboardPage() {
 
       <Zone
         action={<ZoneLink label="查看经营账单" to={billOverviewUrl} />}
-        description="四项指标与各自目的页同口径；同期为上月同一时点前的真实聚合，不折算。"
         title="本月概览"
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -91,7 +90,6 @@ export function DashboardPage() {
             accent
             delta={cards.token.delta}
             footnote={cards.token.footnote}
-            hint={cards.token.hint}
             label="本月 Token 消耗"
             testId="home-token-card"
             to="/resources?tab=usage-overview"
@@ -103,9 +101,6 @@ export function DashboardPage() {
             delta={cards.cost.delta}
             emptyText={cards.cost.emptyText ?? undefined}
             footnote={cards.cost.footnote}
-            hint={cards.cost.hints.map((line) => (
-              <span className="block" key={line}>{line}</span>
-            ))}
             label="本月费用"
             testId="home-cost-card"
             to={billOverviewUrl}
@@ -114,7 +109,6 @@ export function DashboardPage() {
           <OverviewMetricCard
             delta={countDelta(data.activeEmployees.current, data.activeEmployees.previous.count, "人")}
             footnote={`上月同期 ${data.activeEmployees.previous.count} 人`}
-            hint="本月有统计用量的员工去重数，不代表当前在线人数"
             label="本月活跃员工"
             testId="home-employee-card"
             to={employeesUrl}
@@ -124,7 +118,6 @@ export function DashboardPage() {
           <OverviewMetricCard
             delta={countDelta(data.activeProjects.current, data.activeProjects.previous.count, "个")}
             footnote={`上月同期 ${data.activeProjects.previous.count} 个`}
-            hint="本月有用量归属的项目去重数；未归属请求在项目账单独列示"
             label="本月活跃项目"
             testId="home-project-card"
             to={projectsUrl}

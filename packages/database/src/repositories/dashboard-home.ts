@@ -22,6 +22,7 @@ import {
 import { loadStandardHomeResources } from "./dashboard-home-providers.js";
 import {
   bridgeIncompleteReason,
+  bridgeKnownSpends,
   loadWindowBridgeCosts,
   loadWindowOperatingFinance,
 } from "./dashboard-home-costs.js";
@@ -94,7 +95,11 @@ export async function getStandardHomeSummary(
     }
     : bridgeSummary
       ? {
-        totalSpends: bridgeSummary.totalSpends,
+        // 已知部分保留：总额不完整时透出已计价 API 花费 + 套餐费用（如上月 Kimi 套餐），
+        // 缺口由 incompleteReason 显式标记，而不是把已知金额丢弃为"不可完整计算"。
+        totalSpends: bridgeSummary.totalSpends.length > 0
+          ? bridgeSummary.totalSpends
+          : bridgeKnownSpends(bridgeSummary),
         incompleteReason: bridgeIncompleteReason(bridgeSummary),
         basis: "BALANCE_BRIDGE" as const,
         window: windowToIso(prevShanghai),
