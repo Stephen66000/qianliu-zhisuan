@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { DEEPSEEK_VERSION_URL, enrichDeepSeekVersions } from "./deepseek-model-version.js";
 import {
   ProviderModelDiscoveryError,
   type DiscoveryFetch, type DiscoveryResponse, type ModelDiscoveryResult,
@@ -43,7 +44,7 @@ const DEFAULT_OFFICIAL_SOURCES: Record<"zhipu" | "kimi", Record<ResourceMode, Of
 };
 
 const OFFICIAL_HOSTS: Record<ProviderCode, ReadonlySet<string>> = {
-  deepseek: new Set(["api.deepseek.com"]),
+  deepseek: new Set(["api.deepseek.com", "api-docs.deepseek.com"]),
   zhipu: new Set(["docs.bigmodel.cn"]),
   kimi: new Set(["www.kimi.com"]),
 };
@@ -77,7 +78,7 @@ export function providerModelDiscoveryDescriptor(
     const parserVersion = PARSER_VERSIONS[providerCode];
     return { source: "OFFICIAL_DOCUMENTATION", sourceVersion: parserVersion, parserVersion };
   }
-  return { source: "PROVIDER_API", sourceVersion: `${providerCode}-list-models-v1`, parserVersion: null };
+  return { source: "PROVIDER_API", sourceVersion: `${providerCode}-list-models-${providerCode === "deepseek" ? "v2" : "v1"}`, parserVersion: null };
 }
 
 export function builtinProviderModelDiscovery(input: {
@@ -226,6 +227,12 @@ async function discoverFromProviderApi(
   }
   const contentHash = hashContent(serializedPayload);
   const descriptor = providerModelDiscoveryDescriptor(input.providerCode, input.mode);
+  const models = ids.map((id) => normalizeModel(id, "PROVIDER_API", null, now));
+  if (input.providerCode === "deepseek") {
+    const versionTimeout = Math.min(input.timeoutMs ?? DEFAULT_TIMEOUT_MS, 3_000);
+    await enrichDeepSeekVersions(models, (signal) => fetchDocument(fetcher, "deepseek", DEEPSEEK_VERSION_URL,
+      versionTimeout, signal), now, versionTimeout);
+  }
   return {
     ...descriptor,
     sourceUrl,
@@ -236,7 +243,7 @@ async function discoverFromProviderApi(
     discoveredAt: now,
     stale: false,
     reused: false,
-    models: ids.map((id) => normalizeModel(id, "PROVIDER_API", null, now)),
+    models,
     catalogDiff: null,
     integrationStates: [],
   };
@@ -299,10 +306,10 @@ async function discoverFromOfficialDocumentation(
   };
 }
 
-async function fetchDocument(fetcher: DiscoveryFetch, providerCode: ProviderCode, url: string, timeoutMs: number): Promise<FetchedDocument> {
+async function fetchDocument(fetcher: DiscoveryFetch, providerCode: ProviderCode, url: string, timeoutMs: number, signal?: AbortSignal): Promise<FetchedDocument> {
   const response = await fetchWithTimeout(fetcher, url, {
     accept: "text/html, text/markdown, text/plain, application/json",
-  }, timeoutMs, "OFFICIAL_SOURCE_UNAVAILABLE");
+  }, timeoutMs, "OFFICIAL_SOURCE_UNAVAILABLE", signal);
   if (!response.ok) {
     if (response.status === 429) throw new ProviderModelDiscoveryError("RATE_LIMITED", "厂商官方来源请求过于频繁");
     if (response.status === 401 || response.status === 403) throw new ProviderModelDiscoveryError("UNAUTHORIZED", "厂商官方来源拒绝访问");
@@ -339,11 +346,13 @@ async function fetchWithTimeout(
   headers: Record<string, string>,
   timeoutMs: number,
   failureCode: "UPSTREAM_UNAVAILABLE" | "OFFICIAL_SOURCE_UNAVAILABLE",
+  parentSignal?: AbortSignal,
 ): Promise<DiscoveryResponse> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetcher(url, { method: "GET", headers, signal: controller.signal, redirect: "error" });
+    const signal = parentSignal ? AbortSignal.any([controller.signal, parentSignal]) : controller.signal;
+    return await fetcher(url, { method: "GET", headers, signal, redirect: "error" });
   } catch {
     throw new ProviderModelDiscoveryError(failureCode, "官方来源超时或网络不可用");
   } finally {

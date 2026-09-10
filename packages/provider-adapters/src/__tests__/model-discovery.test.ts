@@ -124,9 +124,9 @@ describe("W-MD 官方来源模型发现", () => {
     })).rejects.toEqual(expect.objectContaining<Partial<ProviderModelDiscoveryError>>({ code }));
   });
 
-  it("60 秒缓存/singleflight 只执行一次读取，且响应标记 reused", async () => {
+  it("60 秒缓存/singleflight 只执行一轮目录和版本读取，且响应标记 reused", async () => {
     let calls = 0;
-    const fetch = vi.fn(async () => {
+    const fetch = vi.fn(async (_url: string) => {
       calls += 1;
       await new Promise((resolve) => setTimeout(resolve, 10));
       return apiResponse({ data: [{ id: "deepseek-chat" }] });
@@ -135,7 +135,9 @@ describe("W-MD 官方来源模型发现", () => {
       discoverProviderModels({ providerCode: "deepseek", mode: "API", credential: "secret", fetch, cacheKey: "enterprise:resource" }),
       discoverProviderModels({ providerCode: "deepseek", mode: "API", credential: "secret", fetch, cacheKey: "enterprise:resource" }),
     ]);
-    expect(calls).toBe(1);
+    expect(calls).toBe(2);
+    expect(fetch.mock.calls.filter(([url]) => url === "https://api.deepseek.com/models")).toHaveLength(1);
+    expect(fetch.mock.calls.filter(([url]) => url === "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/")).toHaveLength(1);
     expect(first.reused).toBe(false);
     expect(second.reused).toBe(true);
   });

@@ -17,6 +17,7 @@ export interface DiscoveredModelItem {
   compatible: boolean;
   unavailableReason: string | null;
   facts?: {
+    officialVersion?: string | null;
     modalities?: string[];
     protocols?: string[];
     contextWindow?: number | null;
@@ -118,6 +119,8 @@ function ModelChoice(props: {
   selected: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const version = props.model.facts?.officialVersion;
+  const versionSource = props.model.facts?.fieldEvidence?.official_version?.[0];
   return <label className="flex items-start gap-2 rounded-md border border-ql-border-zone px-3 py-2 text-[12px]">
     <input checked={props.selected} disabled={!props.model.compatible || props.model.availabilityStatus === "REMOVED"}
       onChange={(event) => props.onChange(event.target.checked)} type="checkbox" />
@@ -129,6 +132,10 @@ function ModelChoice(props: {
             ? `${props.compatibleText ?? props.model.capabilities.join("、")}${formatFacts(props.model)}`
             : props.model.unavailableReason}
       </span>
+      {version !== undefined ? <span className="mt-1 block text-ql-fg-tertiary"
+        title={versionSource ? `官方来源：${versionSource.url}；检查：${formatDateTimeFull(versionSource.checkedAt)}` : undefined}>
+        官方模型版本：{version ?? "未获取"}
+      </span> : null}
     </span>
   </label>;
 }
