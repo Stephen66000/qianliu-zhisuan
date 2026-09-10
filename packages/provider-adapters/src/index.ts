@@ -10,11 +10,13 @@
  */
 
 import type { Outcome } from "@qianliu/contracts";
+export { providerChatBaseUrl, providerChatConfigHash } from "./openai-compatible-caller.js";
 import type { SecretValue } from "./secret-value.js";
 
 export {
   parseRequestShapeSummary,
   parseUpstreamErrorEvidence,
+  sanitizeUpstreamErrorCode,
 } from "@qianliu/contracts";
 
 export { SecretValue } from "./secret-value.js";
@@ -39,6 +41,8 @@ export interface AdapterResource {
  * 不得进入本对象的持久化字段（content_retention_mode=METADATA_ONLY）。
  */
 export interface AdapterRequest {
+  /** Internal diagnostic requests can cap generated tokens independently of client input. */
+  maxOutputTokens?: number;
   /** 内部规范化请求 ID（贯穿响应头、日志、Trace、Attempt、账本）。 */
   requestId: string;
   /** 统一模型别名（客户端看到的 qianliu-* 别名）。 */

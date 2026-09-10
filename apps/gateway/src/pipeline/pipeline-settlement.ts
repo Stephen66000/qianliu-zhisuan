@@ -157,6 +157,8 @@ export async function settlePipelineRequest(
           classification as ErrorClassification,
           new Date(),
           {
+            upstreamModel: resource.upstreamModel,
+            upstreamConfigHash: outcome.upstreamConfigHash,
             retryAfterMs: outcome.retryAfterMs,
             cooldownUntil: outcome.upstreamErrorKind === "WINDOW_EXHAUSTED" && outcome.recoverAt
               ? new Date(outcome.recoverAt).getTime()

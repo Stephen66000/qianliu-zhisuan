@@ -22,8 +22,8 @@ import type { ErrorClassification } from "./index.js";
  *   - 客户端/能力/账本类错误       → 不计入资源健康
  *
  * 恢复边界：
- *   - CREDENTIAL_INVALID / EXHAUSTED：默认只能 adminRecover；Coding Plan 厂商额度接口
- *     当次确认凭证有效且所有窗口有余量时，可由 deriveQuotaSyncRecovery 恢复
+ *   - CREDENTIAL_INVALID：管理员实际轮换凭证，或原故障模型的 Chat 探测通过后受控恢复
+ *   - EXHAUSTED / RATE_LIMITED：额度接口确认窗口恢复后可由 deriveQuotaSyncRecovery 恢复
  *   - UNAVAILABLE：冷却到期 → 半开探测（evaluateAdmission）；探测成功 → DEGRADED
  *   - EXPIRED：凭证过期时间到达由 deriveCredentialExpiry 标记
  */
@@ -74,7 +74,7 @@ export const STATE_REASON = {
   CREDENTIAL_EXPIRED: "CREDENTIAL_EXPIRED", // 凭证到期
   REFRESH_FAILED: "REFRESH_FAILED", // 刷新失败（WT-19 隔离）
   ADMIN_RECOVER: "ADMIN_RECOVER", // 人工受控恢复（重新授权/充值后）
-  QUOTA_SYNC_RECOVERED: "QUOTA_SYNC_RECOVERED", // 厂商额度接口确认凭证有效且窗口已恢复
+  QUOTA_SYNC_RECOVERED: "QUOTA_SYNC_RECOVERED", // 仅额度窗口已恢复，不证明 Chat 鉴权有效
   BALANCE_SYNC_RECOVERED: "BALANCE_SYNC_RECOVERED", // API 厂商余额接口确认已有可用余额
   HALF_OPEN_PROBE_OK: "HALF_OPEN_PROBE_OK", // 半开探测成功
 } as const;

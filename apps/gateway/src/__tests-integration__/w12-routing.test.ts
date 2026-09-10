@@ -19,12 +19,15 @@ import {
   migrateToLatest,
   GatewayLedgerRepository,
   ResourcePoolRepository,
+  AdminWriteRepository,
   QuotaGateRepository,
   type Database,
 } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import {
   generateApiKey,
+  encryptCredential,
+  credentialFingerprint,
   digestApiKey,
   apiKeyPrefix,
   StubUpstream,
@@ -55,6 +58,14 @@ function authHeader(): Record<string, string> {
 
 async function recoverResource(resourceId: string): Promise<void> {
   const resource = await poolRepo.getResource(resourceId);
+  if (resource?.status === "CREDENTIAL_INVALID") {
+    const secret = randomUUID();
+    await new AdminWriteRepository(db).adminRecoverResource(ENT_ID, resourceId, {
+      credential_encrypted: encryptCredential(secret, Buffer.alloc(32, 8)),
+      credential_fingerprint: credentialFingerprint(secret),
+    });
+    return;
+  }
   await poolRepo.adminRecover(resourceId, {
     credentialVersion: (resource?.credential_version ?? 0) + 1,
   });

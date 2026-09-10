@@ -1,0 +1,9 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/credential-chat-recovery-20260910/apps/web
+
+ ✓ src/components/resources/CredentialProbeAction.test.tsx (3 tests) 76ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  11:59:14
+   Duration  1.16s (transform 68ms, setup 154ms, collect 91ms, tests 76ms, environment 402ms, prepare 40ms)
