@@ -78,12 +78,17 @@ function resourceSeverity(status: string): number {
   return index === -1 ? -1 : index;
 }
 
-function syncStateOf(
+export function syncStateOf(
+  mode: string,
   sync: ProviderOperatingSyncState | undefined,
   now: Date,
-): "FAILED" | "NOT_RUN" | "STALE" | "OK" {
+): "FAILED" | "NOT_RUN" | "STALE" | "OK" | "NOT_SUPPORTED" {
+  if (mode === "CODING_PLAN") return "NOT_SUPPORTED";
   if (!sync) return "NOT_RUN";
   if (sync.balance_status === "FAILED" || sync.cost_status === "FAILED") return "FAILED";
+  if (sync.balance_status === "NOT_SUPPORTED" && sync.cost_status === "NOT_SUPPORTED") {
+    return "NOT_SUPPORTED";
+  }
   const lastSuccess = sync.last_success_data_at;
   if (!lastSuccess || now.getTime() - lastSuccess.getTime() > SYNC_STALE_MS) return "STALE";
   return "OK";
@@ -159,7 +164,7 @@ function providerRow(
   // R01-F03：逐资源判定同步状态后聚合，任一项失败/缺失/过期都会暴露并给出范围。
   const perResource = rows.map((row) => {
     const sync = syncByResource.get(row.resource_id);
-    return { state: syncStateOf(sync, now), sync };
+    return { state: syncStateOf(row.mode, sync, now), sync };
   });
   const failedCodes = new Set<string>();
   for (const item of perResource) {
@@ -253,9 +258,8 @@ export async function loadStandardHomeResources(
   return {
     providerCount: providers.length,
     resourceCount: resourceRows.rows.length,
-    // 语义决策（V14-C2 F-F，待产品复核）：未执行/过期/失败的同步均按既有 STALE 语义计入
-    // "需关注"，与 apps/control-api providers/routes.ts 的 SYNC_NOT_RUN→STALE 判定一致；
-    // 是否过滤明确不支持同步（NOT_SUPPORTED）的资源属产品规则，裁决前保持现状。
+    // 语义决策（V14-C2 F-F 已裁决）：不支持经营同步的资源（Coding Plan 或明确 NOT_SUPPORTED）
+    // 不计入经营数据超时/缺失报警，避免正常包月/无余额接口资源误报“需关注”。
     attentionProviderCount: providers.filter((provider) => provider.attention !== null).length,
     updatedAt: resourceUpdatedAt?.toISOString() ?? null,
     providers,
