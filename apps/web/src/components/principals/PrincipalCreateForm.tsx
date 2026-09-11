@@ -166,12 +166,14 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
                   >
                     <span className="block text-[13px] font-medium text-ql-fg">
                       {member.name}
+                      {member.employee_number ? ` · 工号: ${member.employee_number}` : ""}
                     </span>
                     <span className="block text-[12px] text-ql-fg-tertiary">
                       {member.department_name ?? "待归属"}
                       {member.external_member_id
                         ? ` · 企微账号: ${member.external_member_id}`
                         : ""}
+                      {member.mobile ? ` · 手机: ${member.mobile}` : ""}
                     </span>
                   </button>
                 </li>
@@ -213,7 +215,9 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
       {type === "EMPLOYEE" && selectedPerson ? (
         <p className="text-[12px] text-ql-fg-secondary" role="status">
           已绑定企微候选人「{selectedPerson.name}」
-          {selectedPerson.external_member_id ? `（${selectedPerson.external_member_id}）` : ""}；
+          {selectedPerson.external_member_id ? `（企微ID: ${selectedPerson.external_member_id}）` : ""}
+          {selectedPerson.employee_number ? `（工号: ${selectedPerson.employee_number}）` : ""}
+          {selectedPerson.mobile ? `（手机: ${selectedPerson.mobile}）` : ""}；
           手动修改名称将解除绑定。
         </p>
       ) : null}

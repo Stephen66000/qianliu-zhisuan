@@ -55,8 +55,8 @@ export function registerDirectoryRoutes(app: FastifyInstance): void {
     const parsed = MemberQuery.safeParse(req.query);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_request" });
     const q = parsed.data; const pattern = `%${q.search ?? ""}%`;
-    const result = await sql<{ person_id: string; principal_id: string | null; name: string; employee_number: string | null; department_id: string | null; department_name: string | null; source_type: "WECOM" | "FEISHU" | "EXCEL" | null; external_member_id: string | null; person_status: string; principal_status: string | null; access_config_status: "CONFIGURED" | "PENDING" | "MISSING"; total_count: string }>`
-      SELECT p.id AS person_id, pr.id AS principal_id, p.name, p.employee_number,
+    const result = await sql<{ person_id: string; principal_id: string | null; name: string; employee_number: string | null; mobile: string | null; department_id: string | null; department_name: string | null; source_type: "WECOM" | "FEISHU" | "EXCEL" | null; external_member_id: string | null; person_status: string; principal_status: string | null; access_config_status: "CONFIGURED" | "PENDING" | "MISSING"; total_count: string }>`
+      SELECT p.id AS person_id, pr.id AS principal_id, p.name, p.employee_number, p.mobile,
              ou.id AS department_id, ou.name AS department_name,
              coalesce(latest_identity.type, m.source) AS source_type,
              latest_identity.provider_user_id AS external_member_id,
@@ -80,7 +80,7 @@ export function registerDirectoryRoutes(app: FastifyInstance): void {
         ) latest_identity ON TRUE
         LEFT JOIN principal_access_config_state ac ON ac.enterprise_id = p.enterprise_id AND ac.principal_id = pr.id
        WHERE p.enterprise_id = ${req.admin!.enterpriseId}::uuid
-         AND (${q.search ?? ""} = '' OR p.name ILIKE ${pattern} OR coalesce(p.employee_number, '') ILIKE ${pattern})
+         AND (${q.search ?? ""} = '' OR p.name ILIKE ${pattern} OR coalesce(p.employee_number, '') ILIKE ${pattern} OR coalesce(p.mobile, '') ILIKE ${pattern} OR coalesce(latest_identity.provider_user_id, '') ILIKE ${pattern})
          AND (${q.department_id ?? null}::uuid IS NULL OR ou.id = ${q.department_id ?? null}::uuid)
          AND (${q.status ?? null}::text IS NULL OR p.status = ${q.status ?? null})
        ORDER BY p.name, p.id LIMIT ${q.limit} OFFSET ${q.offset}

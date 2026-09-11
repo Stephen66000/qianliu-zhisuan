@@ -316,7 +316,8 @@ async function applyItemTransaction(
     }).execute();
     changed = true;
   }
-  if (principal && principal.department_label !== unit.name) {
+  // 保护已有主体：仅当主体原本未分配部门时才以通讯录部门回填；绝不覆盖管理员已分配的自定义部门
+  if (principal && !principal.department_label && unit.name) {
     await trx.updateTable("principal").set({
       department_label: unit.name, version: sql`version + 1`, updated_at: new Date(),
     }).where("enterprise_id", "=", enterpriseId).where("id", "=", principal.id).execute();

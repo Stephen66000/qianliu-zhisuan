@@ -42,6 +42,7 @@ export interface DirectoryMember {
   principal_id: string | null;
   name: string;
   employee_number: string | null;
+  mobile?: string | null;
   department_id: string | null;
   department_name: string | null;
   source_type: DirectorySourceType | "EXCEL" | null;
