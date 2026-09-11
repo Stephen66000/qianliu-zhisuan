@@ -19,6 +19,8 @@ import {
 } from "./monthly-operating-cost.js";
 import { summarizeMonthlyOperatingCosts } from "./monthly-operating-summary.js";
 import { countFinanceGaps } from "./provider-finance-gaps.js";
+import { historicalMonthlyFinance } from "./provider-finance-registered-history.js";
+import { Money, money } from "./provider-finance-core.js";
 import type { CurrencyAmount } from "./dashboard-home-types.js";
 
 function groupCurrencyAmounts(values: CurrencyAmount[]): CurrencyAmount[] {
@@ -37,7 +39,7 @@ export async function loadWindowOperatingFinance(
   start: Date,
   end: Date,
 ): Promise<{ totalSpends: CurrencyAmount[]; incompleteReason: string | null }> {
-  const [apiCosts, planCash, gapRows] = await Promise.all([
+  const [apiCosts, planCash, gapRows, historical] = await Promise.all([
     sql<{ currency: string; amount: string }>`
       SELECT currency, COALESCE(SUM(amount),0)::text AS amount FROM (
         SELECT api_cost_currency AS currency, api_cost AS amount
@@ -63,8 +65,13 @@ export async function loadWindowOperatingFinance(
          AND event.occurred_at >= ${start} AND event.occurred_at < ${end}
     `.execute(db),
     countFinanceGaps(db, enterpriseId, start, end),
+    historicalMonthlyFinance(db, enterpriseId, start, end),
   ]);
-  const planCashCny = planCash.rows[0]?.cash_cny ?? "0";
+  const historicalPlanCash = historical.amounts
+    .filter((row) => row.mode === "CODING_PLAN")
+    .reduce((sum, row) => sum.plus(row.cash_cny), new Money(0));
+  const totalPlanCash = new Money(planCash.rows[0]?.cash_cny ?? "0").plus(historicalPlanCash);
+  const planCashCny = money(totalPlanCash);
   // 缺币种的遗留已计价行（API_COST_CURRENCY_MISSING 缺口）不计入币种合计，
   // 与权威月度汇总"跳过 null 币种、以缺口呈现"的口径一致。
   const spends = groupCurrencyAmounts([
