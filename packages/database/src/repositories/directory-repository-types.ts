@@ -121,3 +121,26 @@ export interface DirectoryMemberPage {
   offset: number;
 }
 
+export interface DirectoryMemberActivationInput {
+  enterpriseId: string;
+  personIds: string[];
+  actorAdminUserId: string;
+}
+
+export interface DirectoryMemberActivationItem {
+  personId: string;
+  principalId: string;
+  status: "ACTIVATED" | "ALREADY_ACTIVE";
+}
+
+export interface DirectoryMemberActivationResult {
+  activatedCount: number;
+  alreadyActiveCount: number;
+  results: DirectoryMemberActivationItem[];
+}
+
+export interface DirectoryMemberActivationByListResult extends DirectoryMemberActivationResult {
+  /** 0 个或多个匹配（含同名歧义）的标识，调用方需向管理员展示核实。 */
+  notFound: string[];
+}
+

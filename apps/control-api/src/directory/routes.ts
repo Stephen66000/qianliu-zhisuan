@@ -7,7 +7,17 @@ import { credentialFingerprint, encryptCredential } from "@qianliu/provider-adap
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 import { MemberQuery, RunItemsQuery, SaveSourceBody, SourceType, TEMPLATE_VERSION } from "./contracts.js";
-import { buildDirectoryTemplate, DirectoryExcelError, MAX_EXCEL_BYTES, parseDirectoryExcel } from "./excel.js";
+import {
+  buildDirectoryTemplate, DirectoryExcelError, MAX_EXCEL_BYTES, parseActivationListExcel, parseDirectoryExcel,
+} from "./excel.js";
+
+const ActivateMembersSchema = z.object({
+  person_ids: z.array(z.string().uuid()).min(1).max(1000),
+});
+
+const ActivateByListSchema = z.object({
+  identifiers: z.array(z.string().trim().max(128)).min(1).max(1000),
+});
 
 interface DirectorySourceRow { id: string; type: "WECOM" | "FEISHU"; config_fingerprint: string; cursor: string | null; status: string; version: number; last_successful_sync_at: Date | null; last_error_code: string | null; updated_at: Date }
 
@@ -76,6 +86,91 @@ export function registerDirectoryRoutes(app: FastifyInstance): void {
        ORDER BY p.name, p.id LIMIT ${q.limit} OFFSET ${q.offset}
     `.execute(app.db);
     return { items: result.rows.map(({ total_count: _, ...row }) => row), total: Number(result.rows[0]?.total_count ?? 0), limit: q.limit, offset: q.offset };
+  });
+
+  app.post("/directory-members/activate", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = ActivateMembersSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+    try {
+      const result = await repository.activateMembers(
+        req.admin!.enterpriseId, parsed.data.person_ids, req.admin!.adminUserId,
+      );
+      await app.auditRepo.write({
+        enterprise_id: req.admin!.enterpriseId,
+        admin_user_id: req.admin!.adminUserId,
+        action: "directory_members.activate",
+        target_type: "person",
+        target_id: null,
+        change_summary: {
+          requested_count: parsed.data.person_ids.length,
+          activated_count: result.activatedCount,
+          already_active_count: result.alreadyActiveCount,
+        },
+        result: "SUCCESS",
+      });
+      return {
+        activated_count: result.activatedCount,
+        already_active_count: result.alreadyActiveCount,
+        items: result.results.map((item) => ({
+          person_id: item.personId, principal_id: item.principalId, status: item.status,
+        })),
+      };
+    } catch (error) {
+      if (error instanceof DirectoryRepositoryError) {
+        if (error.code === "NOT_FOUND") {
+          return reply.code(404).send({ error: "person_not_found", message: "名单中包含不存在或无权限开通的人员" });
+        }
+        return reply.code(400).send({ error: error.code.toLowerCase(), message: error.message });
+      }
+      throw error;
+    }
+  });
+
+  app.post("/directory-members/activate-by-list", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = ActivateByListSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+    try {
+      const result = await repository.activateMembersByIdentifiers(
+        req.admin!.enterpriseId, parsed.data.identifiers, req.admin!.adminUserId,
+      );
+      await app.auditRepo.write({
+        enterprise_id: req.admin!.enterpriseId,
+        admin_user_id: req.admin!.adminUserId,
+        action: "directory_members.activate_by_list",
+        target_type: "person",
+        target_id: null,
+        change_summary: {
+          identifier_count: parsed.data.identifiers.length,
+          activated_count: result.activatedCount,
+          already_active_count: result.alreadyActiveCount,
+          not_found_count: result.notFound.length,
+        },
+        result: "SUCCESS",
+      });
+      return {
+        activated_count: result.activatedCount,
+        already_active_count: result.alreadyActiveCount,
+        not_found: result.notFound,
+      };
+    } catch (error) {
+      if (error instanceof DirectoryRepositoryError) {
+        return reply.code(400).send({ error: error.code.toLowerCase(), message: error.message });
+      }
+      throw error;
+    }
+  });
+
+  app.post("/directory-members/activate-list-preview", { preHandler: [requireAuth] }, async (req, reply) => {
+    try {
+      const data = await req.file({ limits: { fileSize: MAX_EXCEL_BYTES, files: 1 } });
+      if (!data || !data.filename.toLowerCase().endsWith(".xlsx")) return reply.code(400).send({ error: "invalid_file_type" });
+      const identifiers = await parseActivationListExcel(await data.toBuffer());
+      return { identifiers };
+    } catch (error) {
+      if (error instanceof DirectoryExcelError) return reply.code(400).send({ error: error.code, message: error.message });
+      if ((error as { code?: string }).code === "FST_REQ_FILE_TOO_LARGE") return reply.code(413).send({ error: "FILE_TOO_LARGE" });
+      throw error;
+    }
   });
 
   app.get<{ Params: { type: string } }>("/directory-sources/:type", { preHandler: [requireAuth] }, async (req, reply) => {

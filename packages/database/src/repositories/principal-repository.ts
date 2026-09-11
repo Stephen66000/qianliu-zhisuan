@@ -22,6 +22,8 @@ export interface CreatePrincipalInput {
   type: "EMPLOYEE" | "PROJECT";
   name: string;
   department_label?: string | null;
+  /** 绑定通讯录自然人（B 方式点选）；为空时保持独立手工主体。 */
+  person_id?: string | null;
 }
 
 export interface UpdatePrincipalInput {
@@ -138,6 +140,7 @@ export class PrincipalRepository {
         type: input.type,
         name: input.name,
         department_label: input.department_label ?? null,
+        person_id: input.person_id ?? null,
         status: "ACTIVE",
       })
       .returningAll()

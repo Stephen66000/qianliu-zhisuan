@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get, patch, post, put, upload } from "./client";
 import type { Principal } from "./types";
 import type {
-  DepartmentBill, DirectoryImportItem, DirectoryImportRun, DirectoryMember,
-  DirectorySource, DirectorySourceType, EnterpriseSettings, OrganizationUnit,
+  DepartmentBill, DirectoryActivationResult, DirectoryImportItem, DirectoryImportRun,
+  DirectoryMember, DirectorySource, DirectorySourceType, EnterpriseSettings, OrganizationUnit,
   ProcurementReview, ResourceMonthlyBudgetHistory, ResourceUtilization, UsageOverview,
   ProjectDepartmentAssignment,
 } from "./v2-types";
@@ -32,6 +32,34 @@ export function useUpdateEnterpriseSettings() {
 export function useDirectoryMembers(search = "") {
   const query = new URLSearchParams({ limit: "100" }); if (search) query.set("search", search);
   return useQuery({ queryKey: [...V2_KEYS.directory, search], queryFn: ({ signal }) => get<{ items: DirectoryMember[]; total: number }>(`/directory-members?${query}`, signal), retry: 1 });
+}
+/** A 方式：通讯录列表勾选批量开通 AI 员工主体。 */
+export function useActivateDirectoryMembers() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (personIds: string[]) =>
+      post<DirectoryActivationResult>("/directory-members/activate", { person_ids: personIds }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: V2_KEYS.directory }),
+  });
+}
+/** C 方式：按姓名/工号/企微账号名单匹配批量开通。 */
+export function useActivateDirectoryMembersByList() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (identifiers: string[]) =>
+      post<DirectoryActivationResult>("/directory-members/activate-by-list", { identifiers }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: V2_KEYS.directory }),
+  });
+}
+/** C 方式：上传 .xlsx 名单，后台解析首列标识供确认。 */
+export function useActivateDirectoryListPreview() {
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.set("file", file);
+      return upload<{ identifiers: string[] }>("/directory-members/activate-list-preview", form);
+    },
+  });
 }
 export function useOrganizationUnits() {
   return useQuery({ queryKey: V2_KEYS.organizationUnits, queryFn: ({ signal }) => get<{ units: OrganizationUnit[] }>("/organization-units?status=ACTIVE", signal), retry: 1 });

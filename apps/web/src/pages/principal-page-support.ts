@@ -5,6 +5,8 @@ export const CreatePrincipalSchema = z.object({
   type: z.enum(["EMPLOYEE", "PROJECT"]),
   name: z.string().min(1, "名称不能为空").max(255),
   department_label: z.string().max(255).optional(),
+  /** B 方式：点选企微候选人后绑定的自然人 ID；手工输入时为空。 */
+  person_id: z.string().uuid().nullable().optional(),
 });
 
 export type CreatePrincipalValues = z.infer<typeof CreatePrincipalSchema>;

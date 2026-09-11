@@ -1,6 +1,7 @@
 import { sql, type Kysely, type Transaction } from "kysely";
 import type { Database, DirectoryImportItemStatus } from "../kysely.js";
 import { resolvePoolQuota } from "./employee-model-rule-quota.js";
+import { DirectoryRepositoryError } from "./directory-repository-types.js";
 
 const TERMINAL = new Set<DirectoryImportItemStatus>([
   "MATCHED", "CREATED", "UPDATED", "CONFLICT", "SKIPPED", "FAILED",
@@ -84,8 +85,9 @@ async function ensureOrganizationPath(
 /**
  * 新导入员工继承当前生效的 ALL 员工批量规则。规则只生成可配置的厂商池和
  * assignment；Key 仍保持待首次领取，不在后台生成明文。
+ * 两层解耦后仅在开通主体（activateEmployeePrincipal / 手工绑定自然人）时调用。
  */
-async function applyPublishedEmployeeRules(
+export async function applyPublishedEmployeeRules(
   trx: Transaction<Database>, enterpriseId: string, principalId: string, now: Date,
 ): Promise<number> {
   const versions = await trx.selectFrom("employee_model_rule_version").selectAll()
@@ -254,6 +256,7 @@ async function applyItemTransaction(
     }
   }
 
+  // 两层解耦：导入/同步只维护自然人档案；已开通主体仅做显式绑定回填，不再自动创建。
   const currentPrincipal = await trx.selectFrom("principal").selectAll()
     .where("enterprise_id", "=", enterpriseId).where("type", "=", "EMPLOYEE")
     .where("person_id", "=", person.id).forUpdate().executeTakeFirst();
@@ -261,6 +264,7 @@ async function applyItemTransaction(
     throw new ItemConflict("STABLE_ID_CONFLICT");
   }
   let principal = explicit ?? currentPrincipal;
+  if (principal && principal.archived_at) throw new ItemConflict("PRINCIPAL_ARCHIVED");
   if (principal && principal.person_id === null) {
     principal = await trx.updateTable("principal").set({
       person_id: person.id, version: sql`version + 1`, updated_at: new Date(),
@@ -268,18 +272,6 @@ async function applyItemTransaction(
       .returningAll().executeTakeFirstOrThrow();
     changed = true;
   }
-  if (!principal) {
-    principal = await trx.insertInto("principal").values({
-      enterprise_id: enterpriseId,
-      type: "EMPLOYEE",
-      name: item.normalized_name,
-      department_label: null,
-      person_id: person.id,
-      status: "ACTIVE",
-    }).returningAll().executeTakeFirstOrThrow();
-    created = true;
-  }
-  if (principal.archived_at) throw new ItemConflict("PRINCIPAL_ARCHIVED");
 
   if (run.directory_source_id && item.external_member_id && !identity) {
     const source = await trx.selectFrom("directory_source").select("type")
@@ -324,25 +316,24 @@ async function applyItemTransaction(
     }).execute();
     changed = true;
   }
-  if (principal.department_label !== unit.name) {
+  if (principal && principal.department_label !== unit.name) {
     await trx.updateTable("principal").set({
       department_label: unit.name, version: sql`version + 1`, updated_at: new Date(),
     }).where("enterprise_id", "=", enterpriseId).where("id", "=", principal.id).execute();
     changed = true;
   }
-  await trx.insertInto("principal_access_config_state").values({
-    enterprise_id: enterpriseId, principal_id: principal.id, config_version: 1,
-  }).onConflict((oc) => oc.doNothing()).execute();
-  const ruleAssignmentCount = created
-    ? await applyPublishedEmployeeRules(trx, enterpriseId, principal.id, new Date())
-    : 0;
+  if (principal) {
+    await trx.insertInto("principal_access_config_state").values({
+      enterprise_id: enterpriseId, principal_id: principal.id, config_version: 1,
+    }).onConflict((oc) => oc.doNothing()).execute();
+  }
 
   const outcome: DirectoryImportItemStatus = created ? "CREATED" : changed ? "UPDATED" : "MATCHED";
   await trx.updateTable("directory_import_item").set({
     status: outcome,
     reason_code: null,
     person_id: person.id,
-    principal_id: principal.id,
+    principal_id: principal?.id ?? null,
     organization_unit_id: unit.id,
     processed_at: new Date(),
     lease_until: null,
@@ -355,13 +346,69 @@ async function applyItemTransaction(
     target_type: "directory_import_item",
     target_id: item.id,
     change_summary: json({
-      run_id: run.id, person_id: person.id, principal_id: principal.id,
-      organization_unit_id: unit.id, outcome, rule_assignment_count: ruleAssignmentCount,
+      run_id: run.id, person_id: person.id, principal_id: principal?.id ?? null,
+      organization_unit_id: unit.id, outcome,
     }),
     result: "SUCCESS",
     failure_reason: null,
   }).execute();
   return outcome;
+}
+
+/**
+ * 统一开通事务：为已存在的自然人创建 EMPLOYEE 主体并继承当前生效的全员规则。
+ * 幂等：Person 行锁 + 未归档主体检查，重复调用返回现有主体且不重复授权。
+ */
+export async function activateEmployeePrincipal(
+  trx: Transaction<Database>,
+  enterpriseId: string,
+  personId: string,
+  actorAdminUserId: string,
+  now: Date = new Date(),
+): Promise<{ principalId: string; created: boolean; rulesApplied: number }> {
+  const person = await trx.selectFrom("person").selectAll()
+    .where("enterprise_id", "=", enterpriseId).where("id", "=", personId)
+    .forUpdate().executeTakeFirst();
+  if (!person) throw new DirectoryRepositoryError("NOT_FOUND", "通讯录人员不存在");
+  const existing = await trx.selectFrom("principal").selectAll()
+    .where("enterprise_id", "=", enterpriseId).where("type", "=", "EMPLOYEE")
+    .where("person_id", "=", person.id).where("archived_at", "is", null)
+    .forUpdate().executeTakeFirst();
+  if (existing) return { principalId: existing.id, created: false, rulesApplied: 0 };
+  const membership = await trx.selectFrom("organization_membership")
+    .innerJoin("organization_unit", (join) => join
+      .onRef("organization_unit.enterprise_id", "=", "organization_membership.enterprise_id")
+      .onRef("organization_unit.id", "=", "organization_membership.organization_unit_id"))
+    .select("organization_unit.name")
+    .where("organization_membership.enterprise_id", "=", enterpriseId)
+    .where("organization_membership.person_id", "=", person.id)
+    .where("organization_membership.is_primary", "=", true)
+    .where("organization_membership.valid_until", "is", null)
+    .orderBy("organization_membership.valid_from", "desc")
+    .executeTakeFirst();
+  const principal = await trx.insertInto("principal").values({
+    enterprise_id: enterpriseId,
+    type: "EMPLOYEE",
+    name: person.name,
+    department_label: membership?.name ?? person.department_label ?? null,
+    person_id: person.id,
+    status: "ACTIVE",
+  }).returningAll().executeTakeFirstOrThrow();
+  await trx.insertInto("principal_access_config_state").values({
+    enterprise_id: enterpriseId, principal_id: principal.id, config_version: 1,
+  }).onConflict((oc) => oc.doNothing()).execute();
+  const rulesApplied = await applyPublishedEmployeeRules(trx, enterpriseId, principal.id, now);
+  await trx.insertInto("operation_log").values({
+    enterprise_id: enterpriseId,
+    admin_user_id: actorAdminUserId,
+    action: "principal.activate_employee",
+    target_type: "principal",
+    target_id: principal.id,
+    change_summary: json({ person_id: person.id, rule_assignment_count: rulesApplied }),
+    result: "SUCCESS",
+    failure_reason: null,
+  }).execute();
+  return { principalId: principal.id, created: true, rulesApplied };
 }
 
 async function recordFailure(

@@ -258,6 +258,100 @@ describe("W19 使用主体", () => {
     });
   });
 
+  it("B 方式：员工主体联想点选企微候选人，自动带出部门并绑定 person_id 提交（Scenario 3.1/3.2）", async () => {
+    const candidate = {
+      person_id: "20000000-0000-4000-8000-000000000002",
+      principal_id: null,
+      name: "李四",
+      employee_number: "E-004",
+      department_id: null,
+      department_name: "技术部/架构组",
+      source_type: "WECOM" as const,
+      external_member_id: "lisi",
+      person_status: "ACTIVE",
+      principal_status: null,
+      access_config_status: "MISSING" as const,
+    };
+    getMock.mockImplementation((path: string) => {
+      if (typeof path === "string" && path.startsWith("/directory-members")) {
+        return Promise.resolve({ items: [candidate] });
+      }
+      return Promise.resolve({
+        preview: { keyCount: 0, activeKeyCount: 0, grantCount: 0, activeGrantCount: 0, requestCount: 0, usageCount: 0, ledgerCount: 0, employeeLoginCount: 0, canDelete: true },
+      });
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /新建主体/ }));
+    const nameInput = screen.getByLabelText(/名称/);
+    await user.type(nameInput, "李");
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith(expect.stringContaining("/directory-members?search="));
+    }, { timeout: 3000 });
+    const listbox = await screen.findByRole("listbox", undefined, { timeout: 3000 });
+    const option = within(listbox).getAllByRole("option")[0]!;
+    expect(option).toHaveTextContent("李四");
+    expect(option).toHaveTextContent("技术部/架构组");
+    expect(option).toHaveTextContent("企微账号: lisi");
+
+    await user.click(within(option).getByRole("button"));
+    expect(nameInput).toHaveValue("李四");
+    expect(screen.getByLabelText("所属部门")).toHaveValue("技术部/架构组");
+    expect(screen.getByText(/已绑定企微候选人「李四」/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "创建" }));
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/principals", expect.objectContaining({
+        type: "EMPLOYEE",
+        name: "李四",
+        department_label: "技术部/架构组",
+        person_id: candidate.person_id,
+      }));
+    });
+  });
+
+  it("B 方式：点选后手动修改名称会解除自然人绑定", async () => {
+    const candidate = {
+      person_id: "20000000-0000-4000-8000-000000000003",
+      principal_id: null,
+      name: "王五",
+      employee_number: null,
+      department_id: null,
+      department_name: "市场部",
+      source_type: "WECOM" as const,
+      external_member_id: "wangwu",
+      person_status: "ACTIVE",
+      principal_status: null,
+      access_config_status: "MISSING" as const,
+    };
+    getMock.mockImplementation((path: string) => {
+      if (typeof path === "string" && path.startsWith("/directory-members")) {
+        return Promise.resolve({ items: [candidate] });
+      }
+      return Promise.resolve({
+        preview: { keyCount: 0, activeKeyCount: 0, grantCount: 0, activeGrantCount: 0, requestCount: 0, usageCount: 0, ledgerCount: 0, employeeLoginCount: 0, canDelete: true },
+      });
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /新建主体/ }));
+    const nameInput = screen.getByLabelText(/名称/);
+    await user.type(nameInput, "王");
+    const listbox = await screen.findByRole("listbox", undefined, { timeout: 3000 });
+    await user.click(within(within(listbox).getAllByRole("option")[0]!).getByRole("button"));
+    expect(screen.getByText(/已绑定企微候选人「王五」/)).toBeInTheDocument();
+    await user.type(nameInput, "五2");
+    await waitFor(() => expect(screen.queryByText(/已绑定企微候选人/)).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "创建" }));
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/principals", expect.objectContaining({
+        name: "王五五2",
+        department_label: "市场部",
+        person_id: null,
+      }));
+    });
+  });
+
   it("停用主体：二次确认 → PATCH DISABLED → 说明级联撤销 Key", async () => {
     const user = userEvent.setup();
     renderPage();

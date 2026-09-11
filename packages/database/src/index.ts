@@ -35,11 +35,17 @@ export {
   type PrincipalLifecycleAudit,
 } from "./repositories/principal-repository.js";
 export {
+  activateEmployeePrincipal,
+  applyPublishedEmployeeRules,
+} from "./repositories/directory-import-apply.js";
+export {
   DirectoryRepository,
   DirectoryRepositoryError,
   type CreateDirectoryRunInput,
   type DirectoryImportItem,
   type DirectoryImportRun,
+  type DirectoryMemberActivationInput,
+  type DirectoryMemberActivationResult,
   type DirectoryMemberPage,
   type DirectoryMemberQuery,
   type DirectoryMemberView,

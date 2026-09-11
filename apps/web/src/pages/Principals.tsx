@@ -4,7 +4,7 @@
  * PRD §6：创建四步一期只落第一步（建主体）；Key/grant 在详情展开。
  * 停用 = PATCH status=DISABLED（后端级联撤销全部 Key，TRD §5.3），破坏性 → 二次确认。
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react";
@@ -69,6 +69,7 @@ export function PrincipalsPage() {
     preview: PrincipalCleanupPreview;
   } | null>(null);
 
+
   const disableMutation = useMutation({
     mutationFn: (target: Principal) =>
       patch<{ principal: Principal }>(`/principals/${target.id}`, { status: "DISABLED" }),
@@ -128,6 +129,7 @@ export function PrincipalsPage() {
       setCleanupTarget(null);
     },
   });
+
 
   const principals = query.data?.principals ?? [];
 

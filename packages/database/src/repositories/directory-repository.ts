@@ -1,9 +1,9 @@
-import { sql, type Kysely } from "kysely";
+import { sql, type Kysely, type Transaction } from "kysely";
 import type {
   Database,
   DirectoryImportItemStatus,
 } from "../kysely.js";
-import { applyDirectoryItem } from "./directory-import-apply.js";
+import { activateEmployeePrincipal, applyDirectoryItem } from "./directory-import-apply.js";
 import {
   createDirectoryRun,
   directorySourceView,
@@ -20,6 +20,8 @@ import {
   type CreateDirectoryRunInput,
   type DirectoryImportItem,
   type DirectoryImportRun,
+  type DirectoryMemberActivationByListResult,
+  type DirectoryMemberActivationResult,
   type DirectoryMemberPage,
   type DirectoryMemberQuery,
   type DirectoryMemberView,
@@ -32,6 +34,7 @@ import {
 
 const TERMINAL_RUN = new Set(["SUCCEEDED", "PARTIAL", "FAILED"]);
 const ITEM_LIMIT = 1_000;
+const ACTIVATION_LIMIT = 1_000;
 
 function json(value: Record<string, unknown>): Record<string, unknown> {
   return JSON.stringify(value) as unknown as Record<string, unknown>;
@@ -113,6 +116,71 @@ export class DirectoryRepository {
       department_path: row.department_path ?? row.department_name,
     }));
     return { members, total: rows[0]?.total_count ?? 0, limit, offset };
+  }
+
+  /** A 方式：按 Person ID 批量开通 AI 员工主体；已开通人员幂等跳过。 */
+  async activateMembers(
+    enterpriseId: string, personIds: string[], actorAdminUserId: string,
+  ): Promise<DirectoryMemberActivationResult> {
+    const uniqueIds = [...new Set(personIds)];
+    if (uniqueIds.length === 0) {
+      throw new DirectoryRepositoryError("INVALID_REQUEST", "至少选择一名人员");
+    }
+    if (uniqueIds.length > ACTIVATION_LIMIT) {
+      throw new DirectoryRepositoryError("INVALID_REQUEST", `单次最多开通 ${ACTIVATION_LIMIT} 人`);
+    }
+    return this.db.transaction().execute(async (trx) => {
+      const results = [];
+      for (const personId of uniqueIds) {
+        const outcome = await activateEmployeePrincipal(trx, enterpriseId, personId, actorAdminUserId);
+        results.push({
+          personId,
+          principalId: outcome.principalId,
+          status: outcome.created ? "ACTIVATED" as const : "ALREADY_ACTIVE" as const,
+        });
+      }
+      return {
+        activatedCount: results.filter((item) => item.status === "ACTIVATED").length,
+        alreadyActiveCount: results.filter((item) => item.status === "ALREADY_ACTIVE").length,
+        results,
+      };
+    });
+  }
+
+  /** C 方式：按姓名/工号/企微账号匹配候选库后批量开通；未匹配（含同名歧义）原样返回。 */
+  async activateMembersByIdentifiers(
+    enterpriseId: string, identifiers: string[], actorAdminUserId: string,
+  ): Promise<DirectoryMemberActivationByListResult> {
+    const cleaned = [...new Set(identifiers.map((value) => value.trim()).filter(Boolean))];
+    if (cleaned.length === 0) {
+      throw new DirectoryRepositoryError("INVALID_REQUEST", "名单不能为空");
+    }
+    if (cleaned.length > ACTIVATION_LIMIT) {
+      throw new DirectoryRepositoryError("INVALID_REQUEST", `单次最多开通 ${ACTIVATION_LIMIT} 人`);
+    }
+    return this.db.transaction().execute(async (trx) => {
+      const results = [];
+      const notFound: string[] = [];
+      for (const identifier of cleaned) {
+        const personIds = await matchDirectoryIdentifier(trx, enterpriseId, identifier);
+        if (personIds.length !== 1) {
+          notFound.push(identifier);
+          continue;
+        }
+        const outcome = await activateEmployeePrincipal(trx, enterpriseId, personIds[0]!, actorAdminUserId);
+        results.push({
+          personId: personIds[0]!,
+          principalId: outcome.principalId,
+          status: outcome.created ? "ACTIVATED" as const : "ALREADY_ACTIVE" as const,
+        });
+      }
+      return {
+        activatedCount: results.filter((item) => item.status === "ACTIVATED").length,
+        alreadyActiveCount: results.filter((item) => item.status === "ALREADY_ACTIVE").length,
+        results,
+        notFound,
+      };
+    });
   }
 
   async listSources(enterpriseId: string): Promise<DirectorySourceView[]> {
@@ -361,6 +429,10 @@ export type {
   CreateDirectoryRunInput,
   DirectoryImportItem,
   DirectoryImportRun,
+  DirectoryMemberActivationByListResult,
+  DirectoryMemberActivationInput,
+  DirectoryMemberActivationItem,
+  DirectoryMemberActivationResult,
   DirectoryMemberPage,
   DirectoryMemberQuery,
   DirectoryMemberView,
@@ -372,3 +444,22 @@ export type {
   UpsertDirectorySourceInput,
 } from "./directory-repository-types.js";
 export { DirectoryRepositoryError } from "./directory-repository-types.js";
+
+/** 精确（忽略大小写）匹配工号 / 企微账号 / 姓名；多条同名视为歧义不开通。 */
+async function matchDirectoryIdentifier(
+  trx: Transaction<Database>, enterpriseId: string, identifier: string,
+): Promise<string[]> {
+  const rows = await trx.selectFrom("person").select("person.id")
+    .leftJoin("person_external_identity", (join) => join
+      .onRef("person_external_identity.enterprise_id", "=", "person.enterprise_id")
+      .onRef("person_external_identity.person_id", "=", "person.id")
+      .on("person_external_identity.status", "=", "ACTIVE"))
+    .where("person.enterprise_id", "=", enterpriseId)
+    .where(sql<boolean>`(
+      lower(coalesce(person.employee_number, '')) = lower(${identifier})
+      OR lower(coalesce(person_external_identity.provider_user_id, '')) = lower(${identifier})
+      OR lower(btrim(person.name)) = lower(btrim(${identifier}))
+    )`)
+    .distinct().execute();
+  return rows.map((row) => row.id);
+}
