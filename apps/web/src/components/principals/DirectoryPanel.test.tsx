@@ -14,6 +14,8 @@ const uploadExcel = vi.fn();
 const activateMembers = vi.fn();
 const activateByList = vi.fn();
 const listPreview = vi.fn();
+const deleteMember = vi.fn();
+const batchDeleteMembers = vi.fn();
 
 vi.mock("../../api/client", () => ({ download: vi.fn() }));
 vi.mock("../../api/v2-hooks", () => ({
@@ -27,6 +29,8 @@ vi.mock("../../api/v2-hooks", () => ({
   useActivateDirectoryMembers: () => ({ mutateAsync: activateMembers, isPending: false, error: null }),
   useActivateDirectoryMembersByList: () => ({ mutateAsync: activateByList, isPending: false, error: null }),
   useActivateDirectoryListPreview: () => ({ mutateAsync: listPreview, isPending: false, error: null }),
+  useDeleteDirectoryMember: () => ({ mutateAsync: deleteMember, isPending: false, error: null }),
+  useBatchDeleteDirectoryMembers: () => ({ mutateAsync: batchDeleteMembers, isPending: false, error: null }),
 }));
 
 const source = {
@@ -131,10 +135,12 @@ describe("W20-02/03 组织通讯录 Web", () => {
     uploadExcel.mockResolvedValue({ runId: "60000000-0000-4000-8000-000000000001", status: "QUEUED" });
   });
 
-  it("来源只显示指纹，Secret 只写且保存成功后清空", async () => {
+  it("来源显示已配置状态，Secret 只写且保存成功后清空", async () => {
     const user = userEvent.setup();
     render(<DirectoryPanel />);
-    expect(screen.getByText("已配置 · abc123fingerprint")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "接口同步" })).toBeInTheDocument();
+    expect(screen.getByText("已配置")).toBeInTheDocument();
+    expect(screen.queryByText(/abc123fingerprint/)).not.toBeInTheDocument();
     const identity = screen.getByRole("textbox", { name: "企业 ID" });
     const secret = screen.getByLabelText("应用 Secret");
     expect(secret).toHaveAttribute("type", "password");
@@ -151,6 +157,18 @@ describe("W20-02/03 组织通讯录 Web", () => {
     await waitFor(() => expect(secret).toHaveValue(""));
     expect(identity).toHaveValue("");
     expect(screen.queryByText("secret-only-on-write")).not.toBeInTheDocument();
+  });
+
+  it("来源未配置时显示「未配置」状态标签", () => {
+    useDirectorySourceMock.mockReturnValue({
+      data: { source: null },
+      isLoading: false,
+      error: null,
+    });
+    render(<DirectoryPanel />);
+    expect(screen.getByRole("heading", { name: "接口同步" })).toBeInTheDocument();
+    expect(screen.getByText("未配置")).toBeInTheDocument();
+    expect(screen.queryByText("已配置")).not.toBeInTheDocument();
   });
 
   it("部分失败数量和稳定 reason code 可见，成员缺部门明确显示待归属", async () => {

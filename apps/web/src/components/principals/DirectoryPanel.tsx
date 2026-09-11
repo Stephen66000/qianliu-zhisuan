@@ -15,6 +15,52 @@ import { DirectoryMembersTable, isActivated } from "./DirectoryMembersTable";
 
 type ActivationFilter = "all" | "inactive" | "active";
 
+function RunResultSection({ runId }: { runId: string }) {
+  const run = useDirectoryImportRun(runId);
+  const items = useDirectoryImportItems(runId);
+  return (
+    <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold">最近处理结果</h2>
+        <StatusTag tone={run.data?.run.status === "SUCCEEDED" ? "success" : run.data?.run.status === "FAILED" ? "danger" : "warning"}>
+          {run.data?.run.status ?? "读取中"}
+        </StatusTag>
+      </div>
+      {run.data ? (
+        <p className="mt-2 text-[12px] text-ql-fg-secondary">
+          共 {run.data.run.total_count} · 成功 {run.data.run.success_count} · 冲突 {run.data.run.conflict_count} · 失败 {run.data.run.failed_count}
+        </p>
+      ) : null}
+      {(items.data?.items ?? []).length ? (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-[12px]">
+            <thead>
+              <tr className="border-b border-ql-border text-ql-fg-tertiary">
+                <th className="py-2">行</th>
+                <th>姓名</th>
+                <th>部门</th>
+                <th>结果</th>
+                <th>原因</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.data!.items.map((item) => (
+                <tr className="border-b border-ql-border-zone" key={item.id}>
+                  <td className="py-2">{item.row_number ?? "—"}</td>
+                  <td>{item.normalized_name}</td>
+                  <td>{item.normalized_department ?? "—"}</td>
+                  <td>{item.status}</td>
+                  <td>{item.reason_code ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function DirectoryPanel() {
   const [search, setSearch] = useState("");
   const [sourceType, setSourceType] = useState<"WECOM" | "FEISHU">("WECOM");
@@ -35,8 +81,6 @@ export function DirectoryPanel() {
   const saveSource = useSaveDirectorySource(sourceType);
   const startSync = useStartDirectorySync();
   const excel = useUploadDirectoryExcel();
-  const run = useDirectoryImportRun(runId);
-  const items = useDirectoryImportItems(runId);
   const activate = useActivateDirectoryMembers();
   const deleteMember = useDeleteDirectoryMember();
   const batchDeleteMembers = useBatchDeleteDirectoryMembers();
@@ -130,9 +174,15 @@ export function DirectoryPanel() {
   return <div className="space-y-4">
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h2 className="text-[15px] font-semibold text-ql-fg">接口单向同步</h2>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">只从企业微信或飞书读取，不向外部通讯录回写。</p></div>
-        {currentSource ? <StatusTag tone={currentSource.status === "ACTIVE" ? "success" : "warning"}>已配置 · {currentSource.config_fingerprint}</StatusTag> : null}
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[15px] font-semibold text-ql-fg">接口同步</h2>
+            <StatusTag tone={currentSource?.status === "ACTIVE" ? "success" : "neutral"}>
+              {currentSource?.status === "ACTIVE" ? "已配置" : "未配置"}
+            </StatusTag>
+          </div>
+          <p className="mt-1 text-[12px] text-ql-fg-tertiary">只从企业微信或飞书读取，不向外部通讯录回写。</p>
+        </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-[10rem_1fr_1fr_auto]">
         <select aria-label="通讯录来源" className={INPUT_CLASS} onChange={(event) => { setSourceType(event.target.value as "WECOM" | "FEISHU"); setIdentity(""); setSecret(""); }} value={sourceType}>
@@ -154,11 +204,7 @@ export function DirectoryPanel() {
       </div>{excel.error ? <p className="mt-2 text-[12px] text-ql-danger">{excel.error.message}</p> : null}
     </section>
 
-    {runId ? <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
-      <div className="flex items-center justify-between"><h2 className="text-[15px] font-semibold">最近处理结果</h2><StatusTag tone={run.data?.run.status === "SUCCEEDED" ? "success" : run.data?.run.status === "FAILED" ? "danger" : "warning"}>{run.data?.run.status ?? "读取中"}</StatusTag></div>
-      {run.data ? <p className="mt-2 text-[12px] text-ql-fg-secondary">共 {run.data.run.total_count} · 成功 {run.data.run.success_count} · 冲突 {run.data.run.conflict_count} · 失败 {run.data.run.failed_count}</p> : null}
-      {(items.data?.items ?? []).length ? <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-[12px]"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th className="py-2">行</th><th>姓名</th><th>部门</th><th>结果</th><th>原因</th></tr></thead><tbody>{items.data!.items.map((item) => <tr className="border-b border-ql-border-zone" key={item.id}><td className="py-2">{item.row_number ?? "—"}</td><td>{item.normalized_name}</td><td>{item.normalized_department ?? "—"}</td><td>{item.status}</td><td>{item.reason_code ?? "—"}</td></tr>)}</tbody></table></div> : null}
-    </section> : null}
+    {runId ? <RunResultSection runId={runId} /> : null}
 
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

@@ -4,7 +4,7 @@
  * PRD §6：创建四步一期只落第一步（建主体）；Key/grant 在详情展开。
  * 停用 = PATCH status=DISABLED（后端级联撤销全部 Key，TRD §5.3），破坏性 → 二次确认。
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react";
@@ -135,7 +135,6 @@ export function PrincipalsPage() {
 
   return (
     <PageShell
-      description="员工与项目的统一主体管理；停用主体将同步撤销其全部 Key"
       title="使用主体"
     >
       <div className="mb-4 flex gap-2 border-b border-ql-border">

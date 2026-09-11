@@ -1166,7 +1166,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   test("W20-02~09 七项 2.0 增量从真实页面与 API 可达", async ({ page }) => {
     await page.goto("/principals");
     await page.getByRole("button", { name: "组织通讯录" }).click();
-    await expect(page.getByRole("heading", { name: "接口单向同步" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "接口同步" })).toBeVisible();
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "下载模板" }).click();
     const template = await downloadPromise;
