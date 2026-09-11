@@ -39,8 +39,10 @@ interface ResourceForecastRow {
 function matchesModel(row: UsageRow, model: RegisteredModelRow): boolean {
   if (model.historical_unattributed) {
     return row.resource_id === model.resource_id
-      && row.unified_model_id === null
-      && row.model_alias === model.model_alias;
+      && (
+        (model.unified_model_id !== null && row.unified_model_id === model.unified_model_id) ||
+        row.model_alias === model.model_alias
+      );
   }
   return row.resource_id === model.resource_id && (
     row.unified_model_id === model.unified_model_id ||
@@ -101,7 +103,7 @@ export async function loadResourceModelUsageDetails(
   const legacyModels = new Map<string, RegisteredModelRow>();
   for (const row of [...monthlyRows, ...recentRows]) {
     if (currentModels.some((model) => matchesModel(row, model))) continue;
-    const key = `${row.resource_id}:${row.model_alias}`;
+    const key = `${row.resource_id}:${row.unified_model_id ?? row.model_alias}`;
     legacyModels.set(key, {
       resource_id: row.resource_id,
       resource_name: row.resource_name,
@@ -109,7 +111,7 @@ export async function loadResourceModelUsageDetails(
       provider_name: row.provider_name,
       mode: row.mode,
       resource_status: row.resource_status,
-      unified_model_id: null,
+      unified_model_id: row.unified_model_id,
       model_alias: row.model_alias,
       historical_unattributed: true,
     });
