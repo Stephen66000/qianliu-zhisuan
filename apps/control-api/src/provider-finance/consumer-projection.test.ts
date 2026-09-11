@@ -93,3 +93,34 @@ it("does not mix current-period usage with another snapshot or mislabel CNY cash
     notCalculableReason: "SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE",
   });
 });
+
+it("projects monthlyCost even when API opening balance is missing but usage costs are known", () => {
+  const missingOpeningFinance: ResourceFinanceView = {
+    resourceId: "resource-1",
+    providerCode: "deepseek",
+    mode: "API",
+    accounts: [{
+      currency: "CNY",
+      balanceState: "MISSING_OPENING_BALANCE",
+      balance: null,
+      monthOpeningState: "MISSING_OPENING_BALANCE",
+      monthOpeningBalance: null,
+      monthlyRecharge: "0",
+      monthlyApiCost: "0.07",
+    }],
+    monthlyPlanCashCny: "0",
+    currentPeriod: null,
+  };
+  const overview = {
+    providerSummaries: [{ providerCode: "deepseek", mode: "API" }],
+    modelDetails: [{ resourceId: "resource-1", providerCode: "deepseek", mode: "API", remainingQuota: "old", currency: "USD" }],
+  } as unknown as ResourceUsageOverview;
+  const projected = projectFinanceUsageOverview(overview, [missingOpeningFinance]);
+  expect(projected.providerSummaries[0]).toMatchObject({
+    currentBalance: null,
+    monthlyCost: "0.07000000",
+    monthlyCostReason: null,
+    currency: "CNY",
+  });
+  expect(projected.modelDetails[0]).toMatchObject({ remainingQuota: null, currency: "CNY" });
+});

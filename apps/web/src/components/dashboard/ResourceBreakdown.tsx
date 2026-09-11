@@ -81,7 +81,16 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.monthlyCost === null
                   ? item.monthlyCostReason ?? (item.mode === "API" ? "API 花费不可计算" : "套餐费用待补")
-                  : `${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
+                  : (
+                    <>
+                      {`${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
+                      {item.mode === "CODING_PLAN" && Number(item.monthlyCost) === 0 && Number(item.packageCost ?? 0) > 0 ? (
+                        <span className="block text-[11px] text-ql-fg-tertiary">
+                          本期尚未到续费扣款日
+                        </span>
+                      ) : null}
+                    </>
+                  )}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {monthlyTokenText(item)}

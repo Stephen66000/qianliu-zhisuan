@@ -63,18 +63,21 @@ export function projectFinanceUsageOverview(
     }
     const accounts = views.flatMap((view) => view.accounts);
     const currencies = new Set(accounts.map((account) => account.currency));
-    const complete = accounts.length === views.length
+    const balanceComplete = accounts.length === views.length
       && accounts.every((account) => account.balanceState === "NORMAL" && account.balance !== null)
+      && currencies.size === 1;
+    const costCalculable = accounts.length === views.length
+      && accounts.every((account) => account.balanceState !== "INCOMPLETE_USAGE_COST")
       && currencies.size === 1;
     return { ...summary,
       currency: currencies.size === 1 ? [...currencies][0]! : null,
       rechargeAmount: currencies.size === 1
         ? fixed(accounts.reduce((sum, account) => sum.plus(account.monthlyRecharge), new Money(0))) : null,
-      currentBalance: complete
+      currentBalance: balanceComplete
         ? fixed(accounts.reduce((sum, account) => sum.plus(account.balance!), new Money(0))) : null,
-      monthlyCost: complete
+      monthlyCost: costCalculable
         ? fixed(accounts.reduce((sum, account) => sum.plus(account.monthlyApiCost), new Money(0))) : null,
-      monthlyCostReason: complete ? null : "API 资金账户不完整或币种不唯一" };
+      monthlyCostReason: costCalculable ? null : (currencies.size > 1 ? "币种不唯一" : "API 资金账户不完整或币种不唯一") };
   });
   return { ...overview, providerSummaries, modelDetails };
 }

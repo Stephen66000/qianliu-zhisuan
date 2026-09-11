@@ -27,15 +27,21 @@ export function ResourceUsageOverviewPanel() {
       {data ? (
         <div className="space-y-5">
           <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
-            <div className="mb-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[15px] font-semibold text-ql-fg">厂商总体使用情况</h2>
+              <span className="rounded-md bg-ql-surface-subtle px-2.5 py-1 text-[11px] text-ql-fg-secondary">
+                统计周期：{data.generatedAt ? `${data.generatedAt.slice(0, 4)}年${data.generatedAt.slice(5, 7)}月（当月自然月）` : "当月自然月"}
+              </span>
             </div>
             <ResourceBreakdown items={data.providerSummaries} />
           </section>
 
           <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
-            <div className="mb-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[15px] font-semibold text-ql-fg">模型使用明细</h2>
+              <span className="text-[11px] text-ql-fg-tertiary">
+                包含当月已上架模型及产生过调用的历史模型
+              </span>
             </div>
             {data.modelDetails.length === 0 ? (
               <p className="py-5 text-center text-[13px] text-ql-fg-tertiary">暂无已登记模型</p>
@@ -70,10 +76,14 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
   return (
     <tr className="border-b border-ql-border-zone align-top text-ql-fg last:border-b-0 hover:bg-ql-surface-subtle">
       <td className="py-2.5 pr-4 font-medium">
-        {item.modelAlias}
-        {item.historicalUnattributed ? (
-          <span className="block text-[10px] font-normal text-ql-fg-tertiary">历史旧标识 / 未归属具体模型</span>
-        ) : null}
+        <div className="flex items-center gap-1.5">
+          <span>{item.modelAlias}</span>
+          {item.historicalUnattributed ? (
+            <span className="rounded bg-ql-surface-subtle px-1.5 py-0.5 text-[10px] font-normal text-ql-fg-tertiary">
+              已下架
+            </span>
+          ) : null}
+        </div>
       </td>
       <td className="py-2.5 pr-4">
         {item.providerName} · {item.resourceName}

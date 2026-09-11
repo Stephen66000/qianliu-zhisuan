@@ -102,7 +102,7 @@ describe("厂商资源用量总览", () => {
     expect(within(planRow).queryByText("共享资源")).not.toBeInTheDocument();
     expect(within(planRow).getByText("2.5 POINT/小时")).toBeInTheDocument();
     const legacyRow = screen.getByText("qianliu-deepseek").closest("tr")!;
-    expect(within(legacyRow).getByText("历史旧标识 / 未归属具体模型")).toBeInTheDocument();
+    expect(within(legacyRow).getByText("已下架")).toBeInTheDocument();
   });
 
   it("只有失败计量的模型不伪造精确 0", () => {
