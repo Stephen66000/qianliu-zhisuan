@@ -228,6 +228,23 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             failed: quota.failed,
           }));
           console.log(JSON.stringify({ event: "provider_operating_sync_tick_completed", ...operating }));
+          if (readFeatureFlags(process.env).FEATURE_DIRECTORY_IMPORT) {
+            try {
+              const dirSync = await runDirectorySyncTick({
+                db,
+                kekBase64: requiredEnv("CREDENTIAL_KEK"),
+              });
+              if (dirSync.runsScanned > 0) {
+                console.log(JSON.stringify({ event: "directory_sync_tick_completed", ...dirSync }));
+              }
+            } catch (error) {
+              console.error(JSON.stringify({
+                event: "directory_sync_tick_failed",
+                error_type: error instanceof Error ? error.name : typeof error,
+                message: error instanceof Error ? error.message : String(error),
+              }));
+            }
+          }
           return { runtime, forecast, quota, operating };
         },
         aggregate: () => observe("usage_aggregate", "用量聚合重建", async () => {
