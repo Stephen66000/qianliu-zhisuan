@@ -190,19 +190,26 @@ export interface ResourceRouteItem {
   id: string;
   enterprise_id: string;
   unified_model_id: string;
-  unified_model_name: string;
-  model_alias: string;
+  provider_resource_id: string;
   upstream_model: string;
-  model_type: string;
-  capabilities: string[];
-  protocol_type: string;
   priority: number;
   weight: number;
-  status: "ACTIVE" | "DISABLED" | "ARCHIVED";
+  enabled: boolean;
+  version: number;
   archived_at: string | null;
-  created_at: string;
-  updated_at: string;
+  model_alias: string;
+  status: "ACTIVE" | "DISABLED" | "ARCHIVED";
+  unified_model_alias?: string;
+  unified_model_display_name?: string;
+  unified_model_status?: string;
+  unified_model_archived_at?: string | null;
   has_active_billing_rule: boolean;
+  unified_model_name?: string;
+  model_type?: string;
+  capabilities?: string[];
+  protocol_type?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ResourceRoutesResult {

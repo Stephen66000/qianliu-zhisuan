@@ -190,7 +190,8 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
   });
 
   const allRoutes = routesQuery.data?.routes ?? [];
-  const activeRoutes = allRoutes.filter((r) => r.status !== "ARCHIVED");
+  const servingRoutes = allRoutes.filter((r) => r.status === "ACTIVE" && r.has_active_billing_rule);
+  const inactiveRoutes = allRoutes.filter((r) => r.status !== "ARCHIVED" && !(r.status === "ACTIVE" && r.has_active_billing_rule));
   const archivedRoutes = allRoutes.filter((r) => r.status === "ARCHIVED");
   const notAdvertised = discovery?.catalog_diff?.not_advertised ?? [];
 
@@ -222,13 +223,14 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     {retireTarget ? (
       <div className="mt-3 rounded-lg border border-ql-danger bg-ql-danger-soft p-3 text-[12px] text-ql-fg" role="alert">
         <p className="font-semibold text-ql-danger">
-          确认下架模型「{retireTarget.model_alias}」？
+          确认下架模型「{retireTarget.model_alias || retireTarget.upstream_model}」？
         </p>
         <p className="mt-1 text-ql-fg-secondary">
           系统将原子化执行以下清理操作：
         </p>
         <ul className="mt-1 list-disc pl-5 text-ql-fg-tertiary">
           <li>停用并归档该厂商模型路由（{retireTarget.upstream_model}）</li>
+          <li>从厂商已挂载模型列表中移除</li>
           <li>自动下架所有生效的关联计价与扣减规则</li>
           <li>自动停用所有员工对此模型的规则授权</li>
           <li>若全系统无其他可用厂商路由，将同步归档统一模型</li>
@@ -243,7 +245,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
               retire.mutate(retireTarget.id, {
                 onSuccess: (res) => {
                   setRetireMessage(
-                    `模型「${retireTarget.model_alias}」已成功下架！已归档 ${res.archived_billing_rules} 条计价规则，停用 ${res.disabled_assignments} 个员工授权${res.unified_model_archived ? "，统一模型已同步归档" : ""}。`
+                    `模型「${retireTarget.model_alias || retireTarget.upstream_model}」已成功下架！已归档 ${res.archived_billing_rules} 条计价规则，停用 ${res.disabled_assignments} 个员工授权${res.unified_model_archived ? "，统一模型已同步归档" : ""}。`
                   );
                   setRetireTarget(null);
                 },
@@ -269,7 +271,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     <div className="mt-3 rounded-lg border border-ql-border-zone bg-ql-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[13px] font-semibold text-ql-fg">
-          当前已接入模型（{activeRoutes.length} 个生效中）
+          正在服务模型（{servingRoutes.length} 个生效中）
         </h3>
         {archivedRoutes.length > 0 ? (
           <button
@@ -277,52 +279,41 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
             className="text-[12px] text-ql-action hover:underline"
             onClick={() => setShowArchived((v) => !v)}
           >
-            {showArchived ? "隐藏已下架模型" : `查看已下架模型 (${archivedRoutes.length})`}
+            {showArchived ? "隐藏已下架归档模型" : `查看已下架归档模型 (${archivedRoutes.length})`}
           </button>
         ) : null}
       </div>
 
       {routesQuery.isLoading ? (
         <p className="mt-2 text-[12px] text-ql-fg-tertiary">正在加载挂载模型…</p>
-      ) : activeRoutes.length === 0 ? (
+      ) : servingRoutes.length === 0 ? (
         <p className="mt-2 text-[12px] text-ql-fg-tertiary">
-          当前资源暂无接入模型。请点击右上角「立即同步」检测并添加模型。
+          暂无正在对外服务的模型（需同时启用模型路由且配置生效计价规则）。
         </p>
       ) : (
         <div className="mt-2 space-y-2">
-          {activeRoutes.map((route) => {
+          {servingRoutes.map((route) => {
             const isUpstreamRemoved = notAdvertised.includes(route.upstream_model);
+            const displayName = route.model_alias || route.upstream_model;
+            const showUpstream = Boolean(route.upstream_model && route.upstream_model !== displayName);
             return (
               <div
                 key={route.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ql-border-zone bg-ql-surface-subtle px-3 py-2 text-[12px]"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <strong className="font-mono text-[13px] text-ql-fg">{route.model_alias}</strong>
-                  <span className="font-mono text-[11px] text-ql-fg-tertiary">
-                    ({route.upstream_model})
-                  </span>
-                  {route.status === "ACTIVE" ? (
-                    route.has_active_billing_rule ? (
-                      <span className="rounded bg-ql-success-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-success">
-                        正常服务
-                      </span>
-                    ) : (
-                      <span
-                        className="rounded bg-ql-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-warning"
-                        title="缺少生效计价规则，使用主体暂不可用"
-                      >
-                        待配计价
-                      </span>
-                    )
-                  ) : (
-                    <span className="rounded bg-ql-surface px-1.5 py-0.5 text-[11px] font-medium text-ql-fg-tertiary">
-                      已停用
+                  <strong className="font-mono text-[13px] text-ql-fg">{displayName}</strong>
+                  {showUpstream ? (
+                    <span className="font-mono text-[11px] text-ql-fg-tertiary">
+                      ({route.upstream_model})
                     </span>
-                  )}
+                  ) : null}
+                  <span className="rounded bg-ql-success-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-success">
+                    正常服务
+                  </span>
                   {isUpstreamRemoved ? (
                     <span className="rounded bg-ql-danger-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-danger">
-                      官方已不提供
+                      官方已下架
                     </span>
                   ) : null}
                 </div>
@@ -344,26 +335,95 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
         </div>
       )}
 
+      {inactiveRoutes.length > 0 ? (
+        <div className="mt-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 className="text-[13px] font-semibold text-ql-fg-secondary">
+                待配置 / 历史同步模型（{inactiveRoutes.length} 个未在服务）
+              </h4>
+              <p className="mt-0.5 text-[11px] text-ql-fg-tertiary">
+                以下模型存在于该厂商历史记录中，但未启用或缺少计价规则，当前未对外提供服务。如您不需要，可点击【下架清理】彻底移除：
+              </p>
+            </div>
+          </div>
+          <div className="mt-2 space-y-2">
+            {inactiveRoutes.map((route) => {
+              const isUpstreamRemoved = notAdvertised.includes(route.upstream_model);
+              const displayName = route.model_alias || route.upstream_model;
+              const showUpstream = Boolean(route.upstream_model && route.upstream_model !== displayName);
+              return (
+                <div
+                  key={route.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ql-border-zone bg-ql-surface px-3 py-2 text-[12px]"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong className="font-mono text-[13px] text-ql-fg-secondary">{displayName}</strong>
+                    {showUpstream ? (
+                      <span className="font-mono text-[11px] text-ql-fg-tertiary">
+                        ({route.upstream_model})
+                      </span>
+                    ) : null}
+                    {route.status === "ACTIVE" ? (
+                      <span
+                        className="rounded bg-ql-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-warning"
+                        title="已启用路由，但缺少生效计价规则，无法被使用主体调用"
+                      >
+                        待配计价
+                      </span>
+                    ) : (
+                      <span className="rounded border border-ql-border bg-ql-surface-subtle px-1.5 py-0.5 text-[11px] font-medium text-ql-fg-tertiary">
+                        未启用
+                      </span>
+                    )}
+                    {isUpstreamRemoved ? (
+                      <span className="rounded bg-ql-danger-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-danger">
+                        官方已下架
+                      </span>
+                    ) : null}
+                  </div>
+                  <button
+                    data-write-action
+                    className="rounded-md border border-ql-border px-2.5 py-1 text-[12px] font-medium text-ql-fg-secondary hover:border-ql-danger hover:text-ql-danger hover:bg-ql-danger-soft disabled:opacity-60"
+                    disabled={retire.isPending}
+                    onClick={() => {
+                      setRetireTarget(route);
+                      setRetireMessage(null);
+                    }}
+                    type="button"
+                  >
+                    下架清理
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {showArchived && archivedRoutes.length > 0 ? (
         <div className="mt-3 border-t border-ql-border-zone pt-3">
           <h4 className="text-[12px] font-medium text-ql-fg-tertiary mb-2">已下架归档模型</h4>
           <div className="space-y-1.5">
-            {archivedRoutes.map((route) => (
-              <div
-                key={route.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-ql-surface px-3 py-1.5 text-[12px] opacity-75"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-ql-fg-tertiary line-through">{route.model_alias}</span>
-                  <span className="rounded bg-ql-border-zone px-1.5 py-0.5 text-[10px] text-ql-fg-tertiary">已下架</span>
+            {archivedRoutes.map((route) => {
+              const displayName = route.model_alias || route.upstream_model;
+              return (
+                <div
+                  key={route.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-ql-surface px-3 py-1.5 text-[12px] opacity-75"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-ql-fg-tertiary line-through">{displayName}</span>
+                    <span className="rounded bg-ql-border-zone px-1.5 py-0.5 text-[10px] text-ql-fg-tertiary">已下架</span>
+                  </div>
+                  {route.archived_at ? (
+                    <span className="text-[11px] text-ql-fg-tertiary">
+                      下架于 {formatDateTimeFull(route.archived_at)}
+                    </span>
+                  ) : null}
                 </div>
-                {route.archived_at ? (
-                  <span className="text-[11px] text-ql-fg-tertiary">
-                    下架于 {formatDateTimeFull(route.archived_at)}
-                  </span>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ) : null}

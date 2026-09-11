@@ -447,9 +447,12 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
     const routes = await query.execute();
     const now = new Date();
     const billingRules = await this.db.selectFrom("billing_rule")
-      .select(["upstream_model"])
+      .select(["provider_resource_id", "upstream_model"])
       .where("enterprise_id", "=", enterpriseId)
-      .where("provider_resource_id", "=", providerResourceId)
+      .where((eb) => eb.or([
+        eb("provider_resource_id", "=", providerResourceId),
+        eb("provider_resource_id", "is", null),
+      ]))
       .where("enabled", "=", true)
       .where("archived_at", "is", null)
       .where("effective_from", "<=", now)
@@ -459,12 +462,30 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       ]))
       .execute();
 
-    const activeModelsWithBilling = new Set(billingRules.map((b) => b.upstream_model));
+    return routes.map((r) => {
+      const isArchived = r.archived_at !== null || r.unified_model_archived_at !== null;
+      let status: "ACTIVE" | "DISABLED" | "ARCHIVED" = "ACTIVE";
+      if (isArchived) {
+        status = "ARCHIVED";
+      } else if (!r.enabled) {
+        status = "DISABLED";
+      } else {
+        status = "ACTIVE";
+      }
 
-    return routes.map((r) => ({
-      ...r,
-      has_active_billing_rule: activeModelsWithBilling.has(r.upstream_model),
-    }));
+      const hasBilling = billingRules.some(
+        (b) =>
+          (!b.provider_resource_id || b.provider_resource_id === providerResourceId) &&
+          (!b.upstream_model || b.upstream_model === r.upstream_model),
+      );
+
+      return {
+        ...r,
+        model_alias: r.unified_model_alias || r.upstream_model,
+        status,
+        has_active_billing_rule: hasBilling,
+      };
+    });
   }
 
   /** 一键下架指定厂商资源下的模型：
@@ -523,6 +544,25 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
 
       const billingRulesArchivedCount = Number(billingUpdateResult.numUpdatedRows ?? 0n);
 
+      // 从 provider_resource.upstream_models 中移除已下架模型
+      const currentResource = await trx.selectFrom("provider_resource")
+        .select(["id", "upstream_models"])
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", providerResourceId)
+        .executeTakeFirst();
+      if (currentResource && Array.isArray(currentResource.upstream_models)) {
+        const remaining = (currentResource.upstream_models as string[]).filter((m) => m !== route.upstream_model);
+        await trx.updateTable("provider_resource")
+          .set({
+            upstream_models: JSON.stringify(remaining) as unknown as string[],
+            version: sql`version + 1`,
+            updated_at: now,
+          })
+          .where("id", "=", providerResourceId)
+          .where("enterprise_id", "=", enterpriseId)
+          .execute();
+      }
+
       // 3. 检查该统一模型是否还有其他生效且未归档的路由
       const otherRoutes = await trx.selectFrom("model_route")
         .select("id")
@@ -578,6 +618,8 @@ export interface ResourceRouteItem {
   enabled: boolean;
   version: number;
   archived_at: Date | null;
+  model_alias: string;
+  status: "ACTIVE" | "DISABLED" | "ARCHIVED";
   unified_model_alias: string;
   unified_model_display_name: string;
   unified_model_status: string;
