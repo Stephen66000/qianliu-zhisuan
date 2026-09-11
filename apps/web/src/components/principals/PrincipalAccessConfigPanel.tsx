@@ -43,11 +43,25 @@ interface ProviderDraft {
   enabled_model_ids: Set<string>;
 }
 
+/** 判断未就绪型号是否属于“策略上已下架/未配置”的幽灵模型。
+ * 缺少计价规则、Model Route 未启用或统一模型未启用，均属于实质不可授权模型，在员工接入配置中予以静默过滤。
+ */
+function isRetiredOrUnconfigured(model: { unavailable_reasons?: string[] }): boolean {
+  return (model.unavailable_reasons ?? []).some(
+    (r) => r === "缺少当前生效的计价或扣减规则"
+      || r === "Model Route 未启用"
+      || r === "统一模型未启用"
+      || r === "厂商未启用",
+  );
+}
+
 function draftFromConfig(config: AccessConfiguration): Map<string, ProviderDraft> {
   const map = new Map<string, ProviderDraft>();
   for (const provider of config.providers) {
     const enabledModelIds = new Set(
-      provider.models.filter((m) => m.enabled).map((m) => m.unified_model_id),
+      provider.models
+        .filter((m) => m.enabled && !isRetiredOrUnconfigured(m))
+        .map((m) => m.unified_model_id),
     );
     map.set(provider.provider_code, {
       provider_code: provider.provider_code,
@@ -185,7 +199,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
           if (!draft) return null;
           const isExpanded = expanded.has(provider.provider_code);
           const readyModels = provider.models.filter((m) => m.ready);
-          const notReadyModels = provider.models.filter((m) => !m.ready);
+          const notReadyModels = provider.models.filter((m) => !m.ready && !isRetiredOrUnconfigured(m));
 
           return (
             <div key={provider.provider_code} className="rounded-lg border">

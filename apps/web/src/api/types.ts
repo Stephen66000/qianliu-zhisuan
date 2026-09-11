@@ -186,6 +186,37 @@ export interface ProviderResourcesResult {
   resources: ProviderResourceItem[];
 }
 
+export interface ResourceRouteItem {
+  id: string;
+  enterprise_id: string;
+  unified_model_id: string;
+  unified_model_name: string;
+  model_alias: string;
+  upstream_model: string;
+  model_type: string;
+  capabilities: string[];
+  protocol_type: string;
+  priority: number;
+  weight: number;
+  status: "ACTIVE" | "DISABLED" | "ARCHIVED";
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  has_active_billing_rule: boolean;
+}
+
+export interface ResourceRoutesResult {
+  routes: ResourceRouteItem[];
+}
+
+export interface RetireResourceRouteResult {
+  route_id: string;
+  unified_model_id: string;
+  unified_model_archived: boolean;
+  archived_billing_rules: number;
+  disabled_assignments: number;
+}
+
 export interface ProviderResourceOperatingSnapshot {
   id: string;
   provider_resource_id: string;

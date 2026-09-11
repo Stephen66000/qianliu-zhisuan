@@ -181,7 +181,7 @@ export async function handleWecomMessage(
       "━━━━━━━━━━━━━━━━━━",
       "💡 提示：您可以随时向我发送“昨天”、“本周”、“上一周”、“本月”快速查询。",
     ].join("\n");
-  } catch (err) {
+  } catch {
     return [
       "⚠️ 【用量统计查询遇到问题】",
       `抱歉，在获取${intent.periodLabel}用量数据时出现异常，请稍后重试或联系系统管理员。`,

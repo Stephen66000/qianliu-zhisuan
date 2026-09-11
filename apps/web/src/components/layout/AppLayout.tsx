@@ -4,7 +4,7 @@
  * 会话：useAdminSession 探测 /auth/me；未认证由 RequireAuth 拦截跳 /login。
  */
 import { Outlet, useLocation } from "react-router-dom";
-import { useAccess, pageModule } from "../../permissions";
+import { useAccess, pageModule, AccessContext } from "../../permissions";
 
 import type { AdminSession } from "../../api/types";
 import { useTheme } from "../../theme/useTheme";
@@ -15,7 +15,7 @@ interface AppLayoutProps {
   admin: AdminSession;
 }
 
-export function AppLayout({ admin }: AppLayoutProps) {
+function AppLayoutContent({ admin }: AppLayoutProps) {
   const theme = useTheme();
   const access = useAccess();
   const module = pageModule(useLocation().pathname);
@@ -31,4 +31,16 @@ export function AppLayout({ admin }: AppLayoutProps) {
       </div>
     </div>
   );
+}
+
+export function AppLayout({ admin }: AppLayoutProps) {
+  const contextAccess = useAccess();
+  if (!contextAccess.roleCode && !contextAccess.permissions) {
+    return (
+      <AccessContext.Provider value={{ roleCode: admin.roleCode ?? "SUPER_ADMIN", permissions: admin.permissions }}>
+        <AppLayoutContent admin={admin} />
+      </AccessContext.Provider>
+    );
+  }
+  return <AppLayoutContent admin={admin} />;
 }

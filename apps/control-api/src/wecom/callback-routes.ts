@@ -4,7 +4,6 @@ import {
   decryptWecomMessage,
   encryptWecomMessage,
   verifyWecomSignature,
-  WecomCryptoError,
 } from "@qianliu/provider-adapters";
 import { handleWecomMessage } from "./message-handler.js";
 

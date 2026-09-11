@@ -409,4 +409,178 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       Array<ModelRoute & { resource_name: string; resource_status: string }>
     >;
   }
+
+  /** 查询指定厂商资源下挂载的全部模型路由及其统一模型信息。 */
+  async listRoutesByResource(
+    enterpriseId: string,
+    providerResourceId: string,
+    archived: ArchiveFilter = "all",
+  ): Promise<ResourceRouteItem[]> {
+    let query = this.db
+      .selectFrom("model_route")
+      .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
+      .select([
+        "model_route.id",
+        "model_route.enterprise_id",
+        "model_route.unified_model_id",
+        "model_route.provider_resource_id",
+        "model_route.upstream_model",
+        "model_route.priority",
+        "model_route.weight",
+        "model_route.enabled",
+        "model_route.version",
+        "model_route.archived_at",
+        "unified_model.alias as unified_model_alias",
+        "unified_model.display_name as unified_model_display_name",
+        "unified_model.status as unified_model_status",
+        "unified_model.archived_at as unified_model_archived_at",
+      ])
+      .where("model_route.enterprise_id", "=", enterpriseId)
+      .where("model_route.provider_resource_id", "=", providerResourceId)
+      .orderBy("model_route.archived_at", "asc")
+      .orderBy("model_route.enabled", "desc")
+      .orderBy("model_route.upstream_model", "asc");
+
+    if (archived === "only") query = query.where("model_route.archived_at", "is not", null);
+    if (archived === "exclude") query = query.where("model_route.archived_at", "is", null);
+
+    const routes = await query.execute();
+    const now = new Date();
+    const billingRules = await this.db.selectFrom("billing_rule")
+      .select(["upstream_model"])
+      .where("enterprise_id", "=", enterpriseId)
+      .where("provider_resource_id", "=", providerResourceId)
+      .where("enabled", "=", true)
+      .where("archived_at", "is", null)
+      .where("effective_from", "<=", now)
+      .where((eb) => eb.or([
+        eb("effective_to", "is", null),
+        eb("effective_to", ">", now),
+      ]))
+      .execute();
+
+    const activeModelsWithBilling = new Set(billingRules.map((b) => b.upstream_model));
+
+    return routes.map((r) => ({
+      ...r,
+      has_active_billing_rule: activeModelsWithBilling.has(r.upstream_model),
+    }));
+  }
+
+  /** 一键下架指定厂商资源下的模型：
+   * 单事务完成：停用并归档路由 + 停用并归档关联计价规则 +（若无其他路由）停用并归档统一模型 + 撤销员工规则分配。
+   */
+  async retireResourceModelRoute(
+    enterpriseId: string,
+    providerResourceId: string,
+    routeId: string,
+    actorAdminId: string,
+  ): Promise<{
+    routeId: string;
+    upstreamModel: string;
+    unifiedModelId: string;
+    unifiedModelArchived: boolean;
+    billingRulesArchivedCount: number;
+  }> {
+    return this.db.transaction().execute(async (trx) => {
+      const route = await trx.selectFrom("model_route")
+        .selectAll()
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", providerResourceId)
+        .where("id", "=", routeId)
+        .executeTakeFirst();
+      if (!route) throw new Error("路由不存在或不属于当前厂商资源");
+
+      const now = new Date();
+
+      // 1. 停用并归档 model_route
+      await trx.updateTable("model_route")
+        .set({
+          enabled: false,
+          archived_at: now,
+          archived_by_admin_id: actorAdminId,
+          version: sql`version + 1`,
+          updated_at: now,
+        })
+        .where("id", "=", route.id)
+        .where("enterprise_id", "=", enterpriseId)
+        .execute();
+
+      // 2. 停用并归档该资源和上游模型关联的所有计价规则
+      const billingUpdateResult = await trx.updateTable("billing_rule")
+        .set({
+          enabled: false,
+          archived_at: now,
+          archived_by_admin_id: actorAdminId,
+          version: sql`version + 1`,
+          updated_at: now,
+        })
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", providerResourceId)
+        .where("upstream_model", "=", route.upstream_model)
+        .where("archived_at", "is", null)
+        .executeTakeFirst();
+
+      const billingRulesArchivedCount = Number(billingUpdateResult.numUpdatedRows ?? 0n);
+
+      // 3. 检查该统一模型是否还有其他生效且未归档的路由
+      const otherRoutes = await trx.selectFrom("model_route")
+        .select("id")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("unified_model_id", "=", route.unified_model_id)
+        .where("archived_at", "is", null)
+        .execute();
+
+      let unifiedModelArchived = false;
+      if (otherRoutes.length === 0) {
+        // 无其他活跃路由，自动将统一模型停用并归档
+        await trx.updateTable("unified_model")
+          .set({
+            status: "DISABLED",
+            archived_at: now,
+            archived_by_admin_id: actorAdminId,
+            version: sql`version + 1`,
+            updated_at: now,
+          })
+          .where("id", "=", route.unified_model_id)
+          .where("enterprise_id", "=", enterpriseId)
+          .execute();
+        unifiedModelArchived = true;
+
+        // 撤销对该统一模型的员工规则分配
+        await trx.updateTable("employee_model_rule_assignment")
+          .set({ status: "DISABLED", disabled_at: now })
+          .where("enterprise_id", "=", enterpriseId)
+          .where("unified_model_id", "=", route.unified_model_id)
+          .where("status", "=", "ACTIVE")
+          .execute();
+      }
+
+      return {
+        routeId: route.id,
+        upstreamModel: route.upstream_model,
+        unifiedModelId: route.unified_model_id,
+        unifiedModelArchived,
+        billingRulesArchivedCount,
+      };
+    });
+  }
+}
+
+export interface ResourceRouteItem {
+  id: string;
+  enterprise_id: string;
+  unified_model_id: string;
+  provider_resource_id: string;
+  upstream_model: string;
+  priority: number;
+  weight: number;
+  enabled: boolean;
+  version: number;
+  archived_at: Date | null;
+  unified_model_alias: string;
+  unified_model_display_name: string;
+  unified_model_status: string;
+  unified_model_archived_at: Date | null;
+  has_active_billing_rule: boolean;
 }

@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, beforeEach } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import {
   encryptWecomMessage,
   decryptWecomMessage,
-  calculateWecomSignature,
 } from "@qianliu/provider-adapters";
 import { wecomCallbackRoutes } from "../callback-routes.js";
 

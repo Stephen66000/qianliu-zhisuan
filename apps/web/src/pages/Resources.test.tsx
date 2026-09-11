@@ -18,6 +18,8 @@ const useQuotaWindowsMock = vi.fn();
 const useSyncQuotaWindowMock = vi.fn();
 const useSupplyForecastsMock = vi.fn();
 const useResourceUsageOverviewMock = vi.fn();
+const useResourceRoutesMock = vi.fn();
+const useRetireResourceRouteMock = vi.fn();
 
 vi.mock("../api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClient>();
@@ -32,6 +34,7 @@ vi.mock("../api/client", async (importOriginal) => {
 vi.mock("../api/hooks", () => ({
   QUERY_KEYS: {
     providerResources: ["provider-resources"],
+    resourceRoutes: (id: string) => ["provider-resources", id, "routes"] as const,
     resourceUsageOverview: ["provider-resources", "usage-overview"],
     providers: ["providers"],
     supplyForecasts: ["supply-forecasts"],
@@ -48,6 +51,10 @@ vi.mock("../api/hooks", () => ({
   useSyncQuotaWindow: () =>
     useSyncQuotaWindowMock() ?? { isPending: false, mutate: vi.fn(), isError: false },
   useResourceHealth: () => ({ data: null, isLoading: false, isError: false }),
+  useResourceRoutes: (resourceId: string | null) =>
+    useResourceRoutesMock(resourceId) ?? { data: { routes: [] }, isLoading: false },
+  useRetireResourceRoute: (resourceId: string) =>
+    useRetireResourceRouteMock(resourceId) ?? { isPending: false, mutate: vi.fn(), isError: false },
 }));
 
 vi.mock("../api/v2-hooks", () => ({
@@ -512,6 +519,62 @@ describe("POOL-027 模型发现向导", () => {
     expect(await screen.findByText("已确认加入 1 个模型")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "继续配置" })).toHaveAttribute("href", "/quota-rules");
     expect(screen.queryByText("多个模型用英文逗号分隔")).not.toBeInTheDocument();
+  });
+
+  it("已有模型支持在厂商资源内直接一键下架，完成路由归档与规则联动清理", async () => {
+    const user = userEvent.setup();
+    const routeItem = {
+      id: "route-111",
+      enterprise_id: "enterprise-1",
+      unified_model_id: "model-111",
+      unified_model_name: "kimi-k2",
+      model_alias: "kimi-k2-alias",
+      upstream_model: "kimi-k2",
+      model_type: "CHAT",
+      capabilities: ["chat"],
+      protocol_type: "OPENAI",
+      priority: 100,
+      weight: 100,
+      status: "ACTIVE" as const,
+      archived_at: null,
+      created_at: "2026-08-01T00:00:00Z",
+      updated_at: "2026-08-01T00:00:00Z",
+      has_active_billing_rule: true,
+    };
+    useResourceRoutesMock.mockReturnValue({
+      data: { routes: [routeItem] },
+      isLoading: false,
+    });
+    const mutateRetireMock = vi.fn((_routeId: string, options?: { onSuccess?: (res: unknown) => void }) => {
+      options?.onSuccess?.({
+        route_id: "route-111",
+        unified_model_id: "model-111",
+        unified_model_archived: true,
+        archived_billing_rules: 1,
+        disabled_assignments: 2,
+      });
+    });
+    useRetireResourceRouteMock.mockReturnValue({
+      isPending: false,
+      mutate: mutateRetireMock,
+      error: null,
+    });
+
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "同步模型" }));
+
+    // 看到已接入模型及正常服务标签
+    expect(screen.getByText("kimi-k2-alias")).toBeInTheDocument();
+    expect(screen.getByText("正常服务")).toBeInTheDocument();
+
+    // 点击下架模型
+    await user.click(screen.getByRole("button", { name: "下架模型" }));
+    expect(screen.getByText(/确认下架模型「kimi-k2-alias」？/)).toBeInTheDocument();
+
+    // 点击确认下架
+    await user.click(screen.getByRole("button", { name: "确认下架" }));
+    expect(mutateRetireMock).toHaveBeenCalledWith("route-111", expect.any(Object));
+    expect(await screen.findByText(/模型「kimi-k2-alias」已成功下架！/)).toBeInTheDocument();
   });
 });
 

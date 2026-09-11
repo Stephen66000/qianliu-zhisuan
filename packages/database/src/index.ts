@@ -123,6 +123,7 @@ export {
   type CreateProviderInput,
   type CreateProviderResourceInput,
   type ModelValidationResult,
+  type ResourceRouteItem,
 } from "./repositories/provider-repository.js";
 export {
   DEFAULT_RESET_TIMEZONE,

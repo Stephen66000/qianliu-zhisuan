@@ -30,7 +30,9 @@ import type {
   ProviderResourcesResult,
   ProvidersResult,
   ResourceHealth,
+  ResourceRoutesResult,
   ResourceUsageOverview,
+  RetireResourceRouteResult,
   RouteCandidateItem,
   StandardHomeSummary,
   SupplyForecastsResult,
@@ -49,6 +51,8 @@ export const QUERY_KEYS = {
   principals: ["principals"] as const,
   accessConfiguration: (principalId: string) => ["principals", principalId, "access-configuration"] as const,
   providerResources: ["provider-resources"] as const,
+  resourceRoutes: (resourceId: string) =>
+    ["provider-resources", resourceId, "routes"] as const,
   quotaWindows: (resourceId: string) =>
     ["provider-resources", resourceId, "quota-windows"] as const,
   resourceHealth: (resourceId: string) =>
@@ -236,6 +240,42 @@ export function useResourceHealth(resourceId: string | null) {
     enabled: resourceId !== null,
     retry: 1,
     staleTime: 30_000,
+  });
+}
+
+/** 查询指定资源挂载的模型路由列表。 */
+export function useResourceRoutes(
+  resourceId: string | null,
+  archived: "exclude" | "only" | "all" = "exclude",
+) {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.resourceRoutes(resourceId ?? ""), archived],
+    queryFn: ({ signal }) =>
+      get<ResourceRoutesResult>(
+        `/provider-resources/${resourceId}/routes?archived=${archived}`,
+        signal,
+      ),
+    enabled: resourceId !== null,
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+/** 一键下架指定资源的模型路由（原子归档路由、关联计价规则、撤销员工授权及孤儿统一模型）。 */
+export function useRetireResourceRoute(resourceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (routeId: string) =>
+      post<RetireResourceRouteResult>(
+        `/provider-resources/${resourceId}/routes/${routeId}/retire`,
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceRoutes(resourceId) });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unifiedModels });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.billingRules });
+      void queryClient.invalidateQueries({ queryKey: ["principals"] });
+    },
   });
 }
 

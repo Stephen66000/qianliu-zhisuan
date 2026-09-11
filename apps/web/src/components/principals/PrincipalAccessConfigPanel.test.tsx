@@ -154,4 +154,92 @@ describe("接入配置暂不可用存量授权", () => {
     expect(screen.getByRole("checkbox", { name: "Kimi开通" })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: "DeepSeek开通" })).toBeChecked();
   });
+
+  it("缺少计价规则或路由未启用的模型被静默过滤，不进入未就绪列表也不锁定勾选", async () => {
+    const customConfig: AccessConfiguration = {
+      ...configuration(),
+      providers: [{
+        provider_code: "deepseek",
+        provider_name: "DeepSeek",
+        pool: {
+          grant_id: "grant-deepseek",
+          quota_value: "1000000000",
+          quota_used: "0",
+          allow_overage: false,
+          valid_until: null,
+          source: "MANAGED_SINGLE",
+          over_limit: false,
+        },
+        models: [
+          {
+            unified_model_id: "model-flash",
+            display_name: "deepseek-flash",
+            alias: "ql-deepseek-flash",
+            provider_resource_id: "resource-deepseek",
+            resource_name: "DeepSeek API",
+            resource_mode: "API",
+            ready: true,
+            unavailable_reasons: [],
+            enabled: true,
+          },
+          {
+            unified_model_id: "model-v4-flash",
+            display_name: "deepseek-v4-flash",
+            alias: "ql-deepseek-v4-flash",
+            provider_resource_id: "resource-deepseek",
+            resource_name: "DeepSeek API",
+            resource_mode: "API",
+            ready: false,
+            unavailable_reasons: ["缺少当前生效的计价或扣减规则"],
+            enabled: true,
+          },
+          {
+            unified_model_id: "model-v4-vision",
+            display_name: "deepseek-v4-flash-vision-exp",
+            alias: "ql-deepseek-v4-flash-vision-exp",
+            provider_resource_id: "resource-deepseek",
+            resource_mode: "API",
+            resource_name: "DeepSeek API",
+            ready: false,
+            unavailable_reasons: ["缺少当前生效的计价或扣减规则"],
+            enabled: true,
+          },
+        ],
+      }],
+    };
+    useAccessConfigurationMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      error: null,
+      data: customConfig,
+    });
+
+    const user = userEvent.setup();
+    render(<PrincipalAccessConfigPanel principalId="compass" />);
+
+    // 展开 DeepSeek
+    await user.click(screen.getByText("DeepSeek"));
+
+    // 只有就绪的 deepseek-flash 正常显示
+    expect(screen.getByText("deepseek-flash")).toBeInTheDocument();
+
+    // 缺少计价规则的 2 个模型彻底被隐藏，不作为未就绪型号展示
+    expect(screen.queryByText("deepseek-v4-flash")).not.toBeInTheDocument();
+    expect(screen.queryByText("deepseek-v4-flash-vision-exp")).not.toBeInTheDocument();
+    expect(screen.queryByText(/另有.*个未就绪型号/)).not.toBeInTheDocument();
+
+    // 保存时，enabled_model_ids 仅包含有效就绪的 model-flash，彻底清除 model-v4 残留
+    await user.click(screen.getByRole("button", { name: "保存并生效" }));
+    await waitFor(() => expect(putMock).toHaveBeenCalledWith(
+      "/principals/compass/access-configuration",
+      expect.objectContaining({
+        providers: [
+          expect.objectContaining({
+            provider_code: "deepseek",
+            enabled_model_ids: ["model-flash"],
+          }),
+        ],
+      }),
+    ));
+  });
 });

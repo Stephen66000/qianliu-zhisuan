@@ -338,4 +338,59 @@ export function registerProviderRoutes(app: FastifyInstance): void {
       return { routes };
     },
   );
+
+  // 资源下模型路由列表（含统一模型与生效计价状态，供厂商资源管理模型）
+  app.get<{ Params: { id: string }; Querystring: { archived?: string } }>(
+    "/provider-resources/:id/routes",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const archived = z.enum(["exclude", "only", "all"]).default("all").safeParse(req.query.archived);
+      if (!archived.success) {
+        return reply.code(400).send({ error: "invalid_request", message: "归档筛选无效" });
+      }
+      const routes = await app.providerRepo.listRoutesByResource(
+        req.admin!.enterpriseId,
+        req.params.id,
+        archived.data,
+      );
+      return { routes };
+    },
+  );
+
+  // 一键下架指定厂商资源下的模型路由：单事务完成停用路由+归档计价规则+（若无其他路由）归档统一模型+撤销员工规则
+  app.post<{ Params: { id: string; routeId: string } }>(
+    "/provider-resources/:id/routes/:routeId/retire",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      try {
+        const result = await app.providerRepo.retireResourceModelRoute(
+          req.admin!.enterpriseId,
+          req.params.id,
+          req.params.routeId,
+          req.admin!.adminUserId,
+        );
+        await app.auditRepo.write({
+          enterprise_id: req.admin!.enterpriseId,
+          admin_user_id: req.admin!.adminUserId,
+          action: "provider_resource.retire_model",
+          target_type: "model_route",
+          target_id: result.routeId,
+          change_summary: {
+            resource_id: req.params.id,
+            upstream_model: result.upstreamModel,
+            unified_model_id: result.unifiedModelId,
+            unified_model_archived: result.unifiedModelArchived,
+            billing_rules_archived_count: result.billingRulesArchivedCount,
+          },
+          result: "SUCCESS",
+        });
+        return reply.code(200).send({ result });
+      } catch (error) {
+        return reply.code(400).send({
+          error: "retire_failed",
+          message: error instanceof Error ? error.message : "模型下架失败",
+        });
+      }
+    },
+  );
 }

@@ -3,8 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { post } from "../../api/client";
-import { QUERY_KEYS } from "../../api/hooks";
-import type { ProviderResourceItem } from "../../api/types";
+import { QUERY_KEYS, useResourceRoutes, useRetireResourceRoute } from "../../api/hooks";
+import type { ProviderResourceItem, ResourceRouteItem } from "../../api/types";
 import { formatDateTimeFull } from "../../lib/format";
 import { INPUT_CLASS } from "../writes/FormField";
 
@@ -142,6 +142,12 @@ function ModelChoice(props: {
 
 export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceItem; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const routesQuery = useResourceRoutes(target.id, "all");
+  const retire = useRetireResourceRoute(target.id);
+  const [retireTarget, setRetireTarget] = useState<ResourceRouteItem | null>(null);
+  const [retireMessage, setRetireMessage] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+
   const [discovery, setDiscovery] = useState<ModelDiscoveryResponse | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmedModels, setConfirmedModels] = useState<Array<{
@@ -151,6 +157,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     status: "ACTIVE" | "PENDING_CONFIG";
   }>>([]);
   const [validationResults, setValidationResults] = useState<Record<string, { status: string; errorCode: string | null }>>({});
+
   const sync = useMutation({
     mutationFn: () => post<ModelDiscoveryResponse>(`/provider-resources/${target.id}/models/sync`, {}),
     onSuccess: (result) => {
@@ -168,6 +175,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     }> }>(`/provider-resources/${target.id}/models/confirm`, { selected_model_ids: selectedIds }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceRoutes(target.id) });
       setConfirmedModels(result.models);
     },
   });
@@ -180,15 +188,198 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
       setValidationResults((current) => ({ ...current, [upstreamModel]: result.validation }));
     },
   });
+
+  const allRoutes = routesQuery.data?.routes ?? [];
+  const activeRoutes = allRoutes.filter((r) => r.status !== "ARCHIVED");
+  const archivedRoutes = allRoutes.filter((r) => r.status === "ARCHIVED");
+  const notAdvertised = discovery?.catalog_diff?.not_advertised ?? [];
+
   return <section className="mb-5 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div><h2 className="text-[14px] font-semibold">同步「{target.name}」可用模型</h2>
-        <p className="mt-1 text-[12px] text-ql-fg-tertiary">新模型只有确认后才创建待配置路由；不会自动加入员工 Key 或额度授权。</p></div>
-      <button data-write-action className="h-9 rounded-lg border border-ql-action px-3 text-[13px] text-ql-action disabled:opacity-60"
-        disabled={sync.isPending} onClick={() => sync.mutate()} type="button">
-        {sync.isPending ? "同步中…" : "立即同步"}
-      </button>
+      <div>
+        <h2 className="text-[14px] font-semibold">同步「{target.name}」可用模型</h2>
+        <p className="mt-1 text-[12px] text-ql-fg-tertiary">查看并管理已接入模型（支持一键下架），或从厂商凭证检测同步新模型。</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button data-write-action className="h-9 rounded-lg border border-ql-action px-3 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-60"
+          disabled={sync.isPending} onClick={() => sync.mutate()} type="button">
+          {sync.isPending ? "同步中…" : "立即同步"}
+        </button>
+        <button className="h-9 rounded-lg border border-ql-border px-3 text-[13px] text-ql-fg-secondary hover:bg-ql-surface"
+          onClick={onClose} type="button">
+          关闭
+        </button>
+      </div>
     </div>
+
+    {retireMessage ? (
+      <div className="mt-3 flex items-center justify-between rounded-lg border border-ql-success bg-ql-success-soft px-3 py-2 text-[12px] text-ql-success">
+        <span>{retireMessage}</span>
+        <button type="button" className="text-ql-fg-tertiary hover:text-ql-fg text-[13px]" onClick={() => setRetireMessage(null)}>✕</button>
+      </div>
+    ) : null}
+
+    {retireTarget ? (
+      <div className="mt-3 rounded-lg border border-ql-danger bg-ql-danger-soft p-3 text-[12px] text-ql-fg" role="alert">
+        <p className="font-semibold text-ql-danger">
+          确认下架模型「{retireTarget.model_alias}」？
+        </p>
+        <p className="mt-1 text-ql-fg-secondary">
+          系统将原子化执行以下清理操作：
+        </p>
+        <ul className="mt-1 list-disc pl-5 text-ql-fg-tertiary">
+          <li>停用并归档该厂商模型路由（{retireTarget.upstream_model}）</li>
+          <li>自动下架所有生效的关联计价与扣减规则</li>
+          <li>自动停用所有员工对此模型的规则授权</li>
+          <li>若全系统无其他可用厂商路由，将同步归档统一模型</li>
+        </ul>
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            data-write-action
+            disabled={retire.isPending}
+            className="rounded-md bg-ql-danger px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-60"
+            onClick={() => {
+              retire.mutate(retireTarget.id, {
+                onSuccess: (res) => {
+                  setRetireMessage(
+                    `模型「${retireTarget.model_alias}」已成功下架！已归档 ${res.archived_billing_rules} 条计价规则，停用 ${res.disabled_assignments} 个员工授权${res.unified_model_archived ? "，统一模型已同步归档" : ""}。`
+                  );
+                  setRetireTarget(null);
+                },
+              });
+            }}
+          >
+            {retire.isPending ? "下架中…" : "确认下架"}
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-ql-border px-3 py-1.5 text-[12px]"
+            onClick={() => setRetireTarget(null)}
+          >
+            取消
+          </button>
+        </div>
+        {retire.error ? (
+          <p className="mt-2 text-[12px] text-ql-danger">{retire.error.message}</p>
+        ) : null}
+      </div>
+    ) : null}
+
+    <div className="mt-3 rounded-lg border border-ql-border-zone bg-ql-surface p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[13px] font-semibold text-ql-fg">
+          当前已接入模型（{activeRoutes.length} 个生效中）
+        </h3>
+        {archivedRoutes.length > 0 ? (
+          <button
+            type="button"
+            className="text-[12px] text-ql-action hover:underline"
+            onClick={() => setShowArchived((v) => !v)}
+          >
+            {showArchived ? "隐藏已下架模型" : `查看已下架模型 (${archivedRoutes.length})`}
+          </button>
+        ) : null}
+      </div>
+
+      {routesQuery.isLoading ? (
+        <p className="mt-2 text-[12px] text-ql-fg-tertiary">正在加载挂载模型…</p>
+      ) : activeRoutes.length === 0 ? (
+        <p className="mt-2 text-[12px] text-ql-fg-tertiary">
+          当前资源暂无接入模型。请点击右上角「立即同步」检测并添加模型。
+        </p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {activeRoutes.map((route) => {
+            const isUpstreamRemoved = notAdvertised.includes(route.upstream_model);
+            return (
+              <div
+                key={route.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ql-border-zone bg-ql-surface-subtle px-3 py-2 text-[12px]"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong className="font-mono text-[13px] text-ql-fg">{route.model_alias}</strong>
+                  <span className="font-mono text-[11px] text-ql-fg-tertiary">
+                    ({route.upstream_model})
+                  </span>
+                  {route.status === "ACTIVE" ? (
+                    route.has_active_billing_rule ? (
+                      <span className="rounded bg-ql-success-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-success">
+                        正常服务
+                      </span>
+                    ) : (
+                      <span
+                        className="rounded bg-ql-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-warning"
+                        title="缺少生效计价规则，使用主体暂不可用"
+                      >
+                        待配计价
+                      </span>
+                    )
+                  ) : (
+                    <span className="rounded bg-ql-surface px-1.5 py-0.5 text-[11px] font-medium text-ql-fg-tertiary">
+                      已停用
+                    </span>
+                  )}
+                  {isUpstreamRemoved ? (
+                    <span className="rounded bg-ql-danger-soft px-1.5 py-0.5 text-[11px] font-medium text-ql-danger">
+                      官方已不提供
+                    </span>
+                  ) : null}
+                </div>
+                <button
+                  data-write-action
+                  className="rounded-md border border-ql-danger px-2.5 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-60"
+                  disabled={retire.isPending}
+                  onClick={() => {
+                    setRetireTarget(route);
+                    setRetireMessage(null);
+                  }}
+                  type="button"
+                >
+                  下架模型
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showArchived && archivedRoutes.length > 0 ? (
+        <div className="mt-3 border-t border-ql-border-zone pt-3">
+          <h4 className="text-[12px] font-medium text-ql-fg-tertiary mb-2">已下架归档模型</h4>
+          <div className="space-y-1.5">
+            {archivedRoutes.map((route) => (
+              <div
+                key={route.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-ql-surface px-3 py-1.5 text-[12px] opacity-75"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-ql-fg-tertiary line-through">{route.model_alias}</span>
+                  <span className="rounded bg-ql-border-zone px-1.5 py-0.5 text-[10px] text-ql-fg-tertiary">已下架</span>
+                </div>
+                {route.archived_at ? (
+                  <span className="text-[11px] text-ql-fg-tertiary">
+                    下架于 {formatDateTimeFull(route.archived_at)}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+
+    {notAdvertised.length > 0 ? (
+      <div className="mt-3 rounded-lg border border-ql-warning bg-ql-warning-soft p-3 text-[12px] text-ql-fg">
+        <p className="font-semibold text-ql-warning">
+          ⚠️ 厂商官方当前已不再列出以下模型：{notAdvertised.join("、")}
+        </p>
+        <p className="mt-1 text-ql-fg-secondary">
+          若上方列表中包含这些模型，建议点击【下架模型】进行下架，防止员工调用失败。
+        </p>
+      </div>
+    ) : null}
+
     {confirmedModels.length > 0 ? <div className="mt-3 rounded-lg border border-ql-success bg-ql-success-soft p-3 text-[12px]">
       <p className="font-medium text-ql-success">已确认加入 {confirmedModels.length} 个模型</p>
       <p className="mt-1 text-ql-fg-secondary">请先逐个执行真实验证（会消耗少量厂商额度）；验证通过后才能启用 Model Route。主体授权仍需另行配置。</p>
