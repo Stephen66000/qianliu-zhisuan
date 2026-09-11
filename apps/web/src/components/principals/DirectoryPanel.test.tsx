@@ -11,6 +11,9 @@ const useDirectoryImportItemsMock = vi.fn();
 const saveSource = vi.fn();
 const startSync = vi.fn();
 const uploadExcel = vi.fn();
+const activateMembers = vi.fn();
+const activateByList = vi.fn();
+const listPreview = vi.fn();
 
 vi.mock("../../api/client", () => ({ download: vi.fn() }));
 vi.mock("../../api/v2-hooks", () => ({
@@ -21,6 +24,9 @@ vi.mock("../../api/v2-hooks", () => ({
   useUploadDirectoryExcel: () => ({ mutateAsync: uploadExcel, isPending: false, error: null }),
   useDirectoryImportRun: (id: string | null) => useDirectoryImportRunMock(id),
   useDirectoryImportItems: (id: string | null) => useDirectoryImportItemsMock(id),
+  useActivateDirectoryMembers: () => ({ mutateAsync: activateMembers, isPending: false, error: null }),
+  useActivateDirectoryMembersByList: () => ({ mutateAsync: activateByList, isPending: false, error: null }),
+  useActivateDirectoryListPreview: () => ({ mutateAsync: listPreview, isPending: false, error: null }),
 }));
 
 const source = {
@@ -33,6 +39,33 @@ const source = {
   updated_at: "2026-08-13T00:00:00.000Z",
 };
 
+const activatedMember = {
+  person_id: "20000000-0000-4000-8000-000000000001",
+  principal_id: "30000000-0000-4000-8000-000000000001",
+  name: "张三",
+  employee_number: "E-001",
+  department_id: null,
+  department_name: null,
+  source_type: "WECOM",
+  external_member_id: "wx-1",
+  person_status: "ACTIVE",
+  principal_status: "ACTIVE",
+  access_config_status: "PENDING",
+};
+const inactiveMember = {
+  person_id: "20000000-0000-4000-8000-000000000002",
+  principal_id: null,
+  name: "李四",
+  employee_number: "E-002",
+  department_id: null,
+  department_name: "技术部/架构组",
+  source_type: "WECOM",
+  external_member_id: "wx-2",
+  person_status: "ACTIVE",
+  principal_status: null,
+  access_config_status: "MISSING",
+};
+
 describe("W20-02/03 组织通讯录 Web", () => {
   beforeEach(() => {
     useDirectoryMembersMock.mockReset();
@@ -42,23 +75,11 @@ describe("W20-02/03 组织通讯录 Web", () => {
     saveSource.mockReset();
     startSync.mockReset();
     uploadExcel.mockReset();
+    activateMembers.mockReset();
+    activateByList.mockReset();
+    listPreview.mockReset();
     useDirectoryMembersMock.mockReturnValue({
-      data: {
-        items: [{
-          person_id: "20000000-0000-4000-8000-000000000001",
-          principal_id: "30000000-0000-4000-8000-000000000001",
-          name: "张三",
-          employee_number: "E-001",
-          department_id: null,
-          department_name: null,
-          source_type: "WECOM",
-          external_member_id: "wx-1",
-          person_status: "ACTIVE",
-          principal_status: "ACTIVE",
-          access_config_status: "PENDING",
-        }],
-        total: 1,
-      },
+      data: { items: [activatedMember, inactiveMember], total: 2 },
       isLoading: false,
       error: null,
       refetch: vi.fn(),
@@ -160,5 +181,74 @@ describe("W20-02/03 组织通讯录 Web", () => {
     await user.upload(input, file);
     await waitFor(() => expect(uploadExcel).toHaveBeenCalledWith(file));
     await waitFor(() => expect(useDirectoryImportRunMock).toHaveBeenLastCalledWith("60000000-0000-4000-8000-000000000001"));
+  });
+
+  it("A 方式：未开通显示开通按钮、已开通显示标签；勾选后批量开通并确认（Scenario 2.1/2.2）", async () => {
+    activateMembers.mockResolvedValue({ activated_count: 1, already_active_count: 1 });
+    const user = userEvent.setup();
+    render(<DirectoryPanel />);
+    expect(screen.getByRole("button", { name: "开通 AI" })).toBeInTheDocument();
+    expect(screen.getByText("已开通", { selector: "span" })).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("选择 李四"));
+    await user.click(screen.getByLabelText("选择 张三"));
+    expect(screen.getByText(/已选择 2 人（其中未开通 1 人）/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "批量开通 AI" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/将为已选 2 名人员建立 AI 员工主体/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "确认开通" }));
+    await waitFor(() => expect(activateMembers).toHaveBeenCalledTimes(1));
+    expect(activateMembers).toHaveBeenCalledWith(expect.arrayContaining([
+      inactiveMember.person_id, activatedMember.person_id,
+    ]));
+  });
+
+  it("A 方式：全选当前页与状态筛选联动", async () => {
+    const user = userEvent.setup();
+    render(<DirectoryPanel />);
+    await user.click(screen.getByLabelText("全选当前页"));
+    expect(screen.getByText(/已选择 2 人/)).toBeInTheDocument();
+    await user.click(screen.getByLabelText("全选当前页"));
+    expect(screen.queryByText(/已选择/)).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("开通状态筛选"), "inactive");
+    expect(screen.getByRole("button", { name: "开通 AI" })).toBeInTheDocument();
+    expect(screen.queryByText("已开通", { selector: "span" })).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText("全选当前页"));
+    expect(screen.getByText(/已选择 1 人（其中未开通 1 人）/)).toBeInTheDocument();
+  });
+
+  it("单行【开通 AI】直接发起单人开通", async () => {
+    activateMembers.mockResolvedValue({ activated_count: 1, already_active_count: 0 });
+    const user = userEvent.setup();
+    render(<DirectoryPanel />);
+    await user.click(screen.getByRole("button", { name: "开通 AI" }));
+    await waitFor(() => expect(activateMembers).toHaveBeenCalledWith([inactiveMember.person_id]));
+  });
+
+  it("C 方式：上传名单解析展示识别结果，确认开通后未匹配条目明确可见（Scenario 4.1/4.2）", async () => {
+    listPreview.mockResolvedValueOnce({ identifiers: ["E-002", "E-404"] });
+    activateByList.mockResolvedValueOnce({ activated_count: 1, already_active_count: 0, not_found: ["E-404"] });
+    const user = userEvent.setup();
+    render(<DirectoryPanel />);
+    await user.click(screen.getByRole("button", { name: "上传名单开通 AI" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    const input = screen.getByLabelText(/选择名单文件/);
+    expect(input).toHaveAttribute("accept", ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    const file = new File(["xlsx"], "activation-list.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    await user.upload(input, file);
+    await waitFor(() => expect(listPreview).toHaveBeenCalledWith(file));
+    await waitFor(() => expect(screen.getByText(/识别到 2 个标识/)).toBeInTheDocument());
+    expect(screen.getByText(/E-002、E-404/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "确认开通 2 项" }));
+    await waitFor(() => expect(activateByList).toHaveBeenCalledWith(["E-002", "E-404"]));
+    await waitFor(() => expect(screen.getByText(/新开通 1 人/)).toBeInTheDocument());
+    expect(screen.getByText(/E-404/)).toBeInTheDocument();
+    expect(screen.getByText(/以下 1 项在通讯录候选库中未找到/)).toBeInTheDocument();
   });
 });

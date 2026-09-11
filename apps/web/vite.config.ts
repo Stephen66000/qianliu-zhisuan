@@ -24,6 +24,18 @@ export default defineConfig({
         target: CONTROL_API_ORIGIN,
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api/, ""),
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq) => {
+            try {
+              const origin = new URL(CONTROL_API_ORIGIN).origin;
+              proxyReq.setHeader("origin", origin);
+              proxyReq.setHeader("referer", `${origin}/`);
+              proxyReq.setHeader("sec-fetch-site", "same-origin");
+            } catch {
+              // ignore invalid url
+            }
+          });
+        },
       },
     },
   },

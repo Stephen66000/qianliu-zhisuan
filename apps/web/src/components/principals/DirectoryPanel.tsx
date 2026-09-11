@@ -1,22 +1,30 @@
-import { useState } from "react";
-import { Download, RefreshCw, Search, Upload, Users } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Download, RefreshCw, Search, Upload } from "lucide-react";
 import { download } from "../../api/client";
 import {
-  useDirectoryImportItems, useDirectoryImportRun, useDirectoryMembers,
-  useDirectorySource, useSaveDirectorySource, useStartDirectorySync,
+  useActivateDirectoryMembers, useDirectoryImportItems, useDirectoryImportRun,
+  useDirectoryMembers, useDirectorySource, useSaveDirectorySource, useStartDirectorySync,
   useUploadDirectoryExcel,
 } from "../../api/v2-hooks";
-import type { DirectorySourceType } from "../../api/v2-types";
 import { StatusTag } from "../dashboard/StatusTag";
-import { QueryGate } from "../states/QueryGate";
+import { ConfirmDialog } from "../writes/ConfirmDialog";
 import { INPUT_CLASS } from "../writes/FormField";
+import { ActivationListDialog } from "./ActivationListDialog";
+import { DirectoryMembersTable, isActivated } from "./DirectoryMembersTable";
+
+type ActivationFilter = "all" | "inactive" | "active";
 
 export function DirectoryPanel() {
   const [search, setSearch] = useState("");
-  const [sourceType, setSourceType] = useState<DirectorySourceType>("WECOM");
+  const [sourceType, setSourceType] = useState<"WECOM" | "FEISHU">("WECOM");
   const [identity, setIdentity] = useState("");
   const [secret, setSecret] = useState("");
   const [runId, setRunId] = useState<string | null>(null);
+  const [activationFilter, setActivationFilter] = useState<ActivationFilter>("all");
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set());
+  const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+  const [batchNotice, setBatchNotice] = useState<string | null>(null);
+  const [listUploadOpen, setListUploadOpen] = useState(false);
   const members = useDirectoryMembers(search);
   const source = useDirectorySource(sourceType);
   const saveSource = useSaveDirectorySource(sourceType);
@@ -24,6 +32,7 @@ export function DirectoryPanel() {
   const excel = useUploadDirectoryExcel();
   const run = useDirectoryImportRun(runId);
   const items = useDirectoryImportItems(runId);
+  const activate = useActivateDirectoryMembers();
 
   const save = async () => {
     const result = await saveSource.mutateAsync({
@@ -51,7 +60,36 @@ export function DirectoryPanel() {
     URL.revokeObjectURL(url);
   };
 
-  const memberRows = members.data?.items ?? [];
+  const filteredRows = useMemo(() => (members.data?.items ?? []).filter((member) => {
+    if (activationFilter === "inactive") return !isActivated(member);
+    if (activationFilter === "active") return isActivated(member);
+    return true;
+  }), [members.data, activationFilter]);
+  const selectedRows = filteredRows.filter((member) => selectedPersonIds.has(member.person_id));
+  const pageAllSelected = filteredRows.length > 0
+    && filteredRows.every((member) => selectedPersonIds.has(member.person_id));
+  const togglePerson = (personId: string) => {
+    setSelectedPersonIds((current) => {
+      const next = new Set(current);
+      if (next.has(personId)) next.delete(personId); else next.add(personId);
+      return next;
+    });
+  };
+  const togglePage = () => {
+    setSelectedPersonIds((current) => {
+      const next = new Set(current);
+      if (pageAllSelected) filteredRows.forEach((member) => next.delete(member.person_id));
+      else filteredRows.forEach((member) => next.add(member.person_id));
+      return next;
+    });
+  };
+  const runActivation = async (personIds: string[]) => {
+    const result = await activate.mutateAsync(personIds);
+    setSelectedPersonIds(new Set());
+    setBatchConfirmOpen(false);
+    setBatchNotice(`开通完成：新开通 ${result.activated_count} 人，已开通跳过 ${result.already_active_count} 人。`);
+  };
+
   const currentSource = source.data?.source;
   return <div className="space-y-4">
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
@@ -61,7 +99,7 @@ export function DirectoryPanel() {
         {currentSource ? <StatusTag tone={currentSource.status === "ACTIVE" ? "success" : "warning"}>已配置 · {currentSource.config_fingerprint}</StatusTag> : null}
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-[10rem_1fr_1fr_auto]">
-        <select aria-label="通讯录来源" className={INPUT_CLASS} onChange={(event) => { setSourceType(event.target.value as DirectorySourceType); setIdentity(""); setSecret(""); }} value={sourceType}>
+        <select aria-label="通讯录来源" className={INPUT_CLASS} onChange={(event) => { setSourceType(event.target.value as "WECOM" | "FEISHU"); setIdentity(""); setSecret(""); }} value={sourceType}>
           <option value="WECOM">企业微信</option><option value="FEISHU">飞书</option>
         </select>
         <input aria-label={sourceType === "WECOM" ? "企业 ID" : "应用 ID"} className={INPUT_CLASS} onChange={(event) => setIdentity(event.target.value)} placeholder={sourceType === "WECOM" ? "Corp ID" : "App ID"} value={identity}/>
@@ -73,8 +111,9 @@ export function DirectoryPanel() {
     </section>
 
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">Excel 导入</h2><p className="mt-1 text-[12px] text-ql-fg-tertiary">固定 .xlsx 模板，最多 5 MiB / 1,000 行；逐行返回冲突原因。</p></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">Excel 导入</h2><p className="mt-1 text-[12px] text-ql-fg-tertiary">固定 .xlsx 模板，最多 5 MiB / 1,000 行；导入只建立候选档案，不自动开通。</p></div>
         <div className="flex gap-2"><button className="flex h-9 items-center gap-1 rounded-lg border border-ql-border px-3 text-[13px]" onClick={() => void downloadTemplate()} type="button"><Download className="h-4 w-4"/>下载模板</button>
+          <button className="flex h-9 items-center gap-1 rounded-lg border border-ql-border px-3 text-[13px] text-ql-action" onClick={() => setListUploadOpen(true)} type="button"><Upload className="h-4 w-4"/>上传名单开通 AI</button>
           <label className="flex h-9 cursor-pointer items-center gap-1 rounded-lg bg-ql-action px-3 text-[13px] text-white"><Upload className="h-4 w-4"/>上传文件<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadExcel(file); event.target.value = ""; }} type="file"/></label></div>
       </div>{excel.error ? <p className="mt-2 text-[12px] text-ql-danger">{excel.error.message}</p> : null}
     </section>
@@ -86,10 +125,50 @@ export function DirectoryPanel() {
     </section> : null}
 
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">通讯录成员</h2><p className="mt-1 text-[12px] text-ql-fg-tertiary">稳定身份匹配后自动建立员工主体；既有 Key 和授权不会被重置。</p></div><label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-ql-fg-tertiary"/><input aria-label="搜索通讯录成员" className={`${INPUT_CLASS} pl-9`} onChange={(event) => setSearch(event.target.value)} placeholder="姓名 / 员工编号" value={search}/></label></div>
-      <QueryGate emptyDescription="配置通讯录来源并执行同步，或上传标准模板。" emptyIcon={Users} emptyTitle="暂无通讯录成员" error={members.error} isEmpty={memberRows.length === 0} isLoading={members.isLoading} onRetry={() => void members.refetch()}>
-        <div className="overflow-x-auto"><table className="w-full text-left text-[12px]"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th className="py-2">成员</th><th>员工编号</th><th>部门</th><th>来源</th><th>主体</th><th>接入配置</th></tr></thead><tbody>{memberRows.map((member) => <tr className="border-b border-ql-border-zone" key={member.person_id}><td className="py-2 font-medium">{member.name}</td><td>{member.employee_number ?? "—"}</td><td>{member.department_name ?? "待归属"}</td><td>{member.source_type ?? "手工"}</td><td>{member.principal_status ?? "未建立"}</td><td>{member.access_config_status}</td></tr>)}</tbody></table></div>
-      </QueryGate>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div><h2 className="text-[15px] font-semibold">通讯录成员</h2><p className="mt-1 text-[12px] text-ql-fg-tertiary">导入先入候选库；按需勾选开通 AI 员工主体，既有 Key 和授权不会被重置。</p></div>
+        <div className="flex items-center gap-2">
+          <select aria-label="开通状态筛选" className={`${INPUT_CLASS} h-9 w-auto`} onChange={(event) => setActivationFilter(event.target.value as ActivationFilter)} value={activationFilter}>
+            <option value="all">全部人员</option>
+            <option value="inactive">仅未开通</option>
+            <option value="active">已开通</option>
+          </select>
+          <label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-ql-fg-tertiary"/><input aria-label="搜索通讯录成员" className={`${INPUT_CLASS} pl-9`} onChange={(event) => setSearch(event.target.value)} placeholder="姓名 / 员工编号" value={search}/></label>
+        </div>
+      </div>
+      {selectedRows.length > 0 ? <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ql-action-soft bg-ql-action-soft/40 px-3 py-2">
+        <p className="text-[13px] text-ql-fg-secondary">已选择 {selectedRows.length} 人（其中未开通 {selectedRows.filter((member) => !isActivated(member)).length} 人）</p>
+        <div className="flex gap-2">
+          <button className="h-8 rounded-lg border border-ql-border bg-ql-surface px-3 text-[12px] text-ql-fg-secondary" onClick={() => setSelectedPersonIds(new Set())} type="button">清空选择</button>
+          <button className="h-8 rounded-lg bg-ql-action px-3 text-[12px] font-medium text-white disabled:opacity-50" disabled={activate.isPending} onClick={() => setBatchConfirmOpen(true)} type="button">批量开通 AI</button>
+        </div>
+      </div> : null}
+      {batchNotice ? <p className="mb-3 text-[12px] text-ql-fg-secondary" role="status">{batchNotice}</p> : null}
+      <DirectoryMembersTable
+        activating={activate.isPending}
+        error={members.error ?? activate.error}
+        filteredRows={filteredRows}
+        isLoading={members.isLoading}
+        onActivate={(personId) => void runActivation([personId])}
+        onRetry={() => void members.refetch()}
+        onTogglePage={togglePage}
+        onTogglePerson={togglePerson}
+        pageAllSelected={pageAllSelected}
+        selectedPersonIds={selectedPersonIds}
+      />
     </section>
+
+    <ConfirmDialog
+      cancelLabel="取消"
+      confirmLabel="确认开通"
+      impact={`将为已选 ${selectedRows.length} 名人员建立 AI 员工主体（含全员模型授权与配额池）；已开通人员自动跳过，不会重复授权。`}
+      loading={activate.isPending}
+      onCancel={() => setBatchConfirmOpen(false)}
+      onConfirm={() => void runActivation([...selectedPersonIds])}
+      open={batchConfirmOpen}
+      title="批量开通 AI 员工"
+    />
+
+    <ActivationListDialog onClose={() => setListUploadOpen(false)} open={listUploadOpen} />
   </div>;
 }

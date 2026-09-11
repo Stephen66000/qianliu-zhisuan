@@ -66,6 +66,30 @@ export async function parseDirectoryExcel(bytes: Buffer): Promise<StagedDirector
   return rows;
 }
 
+/**
+ * C 方式开通名单：任意工作表名，读取首列非空单元格作为标识（工号/企微账号/姓名）。
+ * 与模板解析共用压缩包安全检查；不允许公式与富文本单元格。
+ */
+export async function parseActivationListExcel(bytes: Buffer): Promise<string[]> {
+  if (bytes.length > MAX_EXCEL_BYTES) throw new DirectoryExcelError("FILE_TOO_LARGE", "Excel 文件不得超过 5 MiB");
+  if (!bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) throw new DirectoryExcelError("INVALID_XLSX", "只接受标准 .xlsx 文件");
+  inspectArchive(bytes);
+  const workbook = new ExcelJS.Workbook();
+  try { await workbook.xlsx.load(bytes as unknown as ExcelJS.Buffer); } catch { throw new DirectoryExcelError("INVALID_XLSX", "Excel 文件无法解析"); }
+  const externalLinks = (workbook.model as unknown as { externalLinks?: unknown[] }).externalLinks;
+  if (externalLinks?.length) throw new DirectoryExcelError("EXTERNAL_LINK", "名单不允许外部链接");
+  const sheet = workbook.worksheets[0];
+  if (!sheet) throw new DirectoryExcelError("INVALID_WORKBOOK", "名单文件没有工作表");
+  if (sheet.state !== "visible") throw new DirectoryExcelError("HIDDEN_CONTENT", "名单工作表必须可见");
+  const identifiers: string[] = [];
+  sheet.eachRow((row, number) => {
+    const value = safeText(cellText(row.getCell(1)), 128, "名单标识", number);
+    if (value && !identifiers.includes(value)) identifiers.push(value);
+    if (identifiers.length > MAX_EXCEL_ROWS) throw new DirectoryExcelError("TOO_MANY_ROWS", "名单最多 1,000 个标识");
+  });
+  return identifiers;
+}
+
 /** 在 ExcelJS 解压前限制 ZIP 容量，并拒绝 .xlsx 不应出现的可执行／外链部件。 */
 function inspectArchive(bytes: Buffer): void {
   try {

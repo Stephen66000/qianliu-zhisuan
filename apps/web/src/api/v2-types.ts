@@ -48,6 +48,17 @@ export interface DirectoryMember {
   principal_status: string | null;
   access_config_status: "CONFIGURED" | "PENDING" | "MISSING";
 }
+export interface DirectoryActivationItem {
+  person_id: string;
+  principal_id: string;
+  status: "ACTIVATED" | "ALREADY_ACTIVE";
+}
+export interface DirectoryActivationResult {
+  activated_count: number;
+  already_active_count: number;
+  items?: DirectoryActivationItem[];
+  not_found?: string[];
+}
 export interface DirectoryImportRun {
   id: string;
   source_type: DirectorySourceType | "EXCEL";

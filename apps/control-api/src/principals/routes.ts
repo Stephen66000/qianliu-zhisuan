@@ -7,6 +7,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { sql } from "kysely";
+import { applyPublishedEmployeeRules } from "@qianliu/database";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 
@@ -14,6 +15,7 @@ const CreatePrincipalSchema = z.object({
   type: z.enum(["EMPLOYEE", "PROJECT"]),
   name: z.string().min(1).max(255),
   department_label: z.string().max(255).optional(),
+  person_id: z.string().uuid().nullable().optional(),
 });
 
 const UpdatePrincipalSchema = z.object({
@@ -205,13 +207,71 @@ export function registerPrincipalRoutes(
     },
   );
 
-  // 创建
+  // 创建（B 方式：可携带 person_id 绑定企微自然人并继承全员规则）
   app.post("/principals", { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = CreatePrincipalSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
     }
-    const created = await app.principalRepo.create({
+    const personId = parsed.data.person_id ?? null;
+    if (personId && parsed.data.type !== "EMPLOYEE") {
+      return reply.code(400).send({ error: "invalid_request", message: "只有员工主体可以绑定通讯录自然人" });
+    }
+    let created;
+    if (personId) {
+      const outcome = await app.db.transaction().execute(async (trx) => {
+        const person = await trx.selectFrom("person").select(["id"])
+          .where("enterprise_id", "=", req.admin!.enterpriseId)
+          .where("id", "=", personId).forUpdate().executeTakeFirst();
+        if (!person) return { kind: "person_not_found" as const };
+        const existing = await trx.selectFrom("principal").select("id")
+          .where("enterprise_id", "=", req.admin!.enterpriseId)
+          .where("type", "=", "EMPLOYEE").where("person_id", "=", person.id)
+          .where("archived_at", "is", null).forUpdate().executeTakeFirst();
+        if (existing) return { kind: "already_active" as const, principalId: existing.id };
+        const principal = await trx.insertInto("principal").values({
+          enterprise_id: req.admin!.enterpriseId,
+          type: parsed.data.type,
+          name: parsed.data.name,
+          department_label: parsed.data.department_label ?? null,
+          person_id: person.id,
+          status: "ACTIVE",
+        }).returningAll().executeTakeFirstOrThrow();
+        await trx.insertInto("principal_access_config_state").values({
+          enterprise_id: req.admin!.enterpriseId, principal_id: principal.id, config_version: 1,
+        }).onConflict((oc) => oc.doNothing()).execute();
+        const rulesApplied = await applyPublishedEmployeeRules(
+          trx, req.admin!.enterpriseId, principal.id, new Date(),
+        );
+        return { kind: "ok" as const, principal, rulesApplied };
+      });
+      if (outcome.kind === "person_not_found") {
+        return reply.code(404).send({ error: "person_not_found", message: "关联的通讯录人员不存在" });
+      }
+      if (outcome.kind === "already_active") {
+        return reply.code(409).send({
+          error: "person_already_active",
+          message: "该通讯录人员已开通 AI 员工主体",
+          principal_id: outcome.principalId,
+        });
+      }
+      created = outcome.principal;
+      await app.auditRepo.write({
+        enterprise_id: req.admin!.enterpriseId,
+        admin_user_id: req.admin!.adminUserId,
+        action: "principal.create",
+        target_type: "principal",
+        target_id: created.id,
+        change_summary: {
+          type: created.type, name: created.name,
+          person_id: personId, directory_bound: true,
+          rule_assignment_count: outcome.rulesApplied,
+        },
+        result: "SUCCESS",
+      });
+      return reply.code(201).send({ principal: created });
+    }
+    created = await app.principalRepo.create({
       enterprise_id: req.admin!.enterpriseId,
       ...parsed.data,
     });

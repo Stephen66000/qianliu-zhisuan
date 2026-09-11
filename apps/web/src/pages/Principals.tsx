@@ -4,7 +4,7 @@
  * PRD §6：创建四步一期只落第一步（建主体）；Key/grant 在详情展开。
  * 停用 = PATCH status=DISABLED（后端级联撤销全部 Key，TRD §5.3），破坏性 → 二次确认。
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ import type {
   Principal,
   PrincipalCleanupPreview,
 } from "../api/types";
+import type { DirectoryMember } from "../api/v2-types";
 import { PageShell } from "../components/layout/PageShell";
 import { DirectoryPanel } from "../components/principals/DirectoryPanel";
 import { StatusTag } from "../components/dashboard/StatusTag";
@@ -76,7 +77,7 @@ export function PrincipalsPage() {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.principals });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       setShowCreate(false);
-      resetCreate();
+      resetCreateForm();
     },
   });
 
@@ -143,11 +144,58 @@ export function PrincipalsPage() {
     register,
     handleSubmit,
     reset: resetCreate,
+    setValue: setCreateValue,
+    watch: watchCreate,
     formState: { errors },
   } = useForm<CreatePrincipalValues, unknown, CreatePrincipalValues>({
     resolver: zodResolver(CreatePrincipalSchema),
     defaultValues: { type: "EMPLOYEE", name: "", department_label: "" },
   });
+  const createType = watchCreate("type");
+  const createName = watchCreate("name");
+
+  // B 方式：员工主体名称联想企微候选人，点选后绑定 person_id 并带出部门。
+  const [personSuggestions, setPersonSuggestions] = useState<DirectoryMember[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [selectedPerson, setSelectedPerson] = useState<DirectoryMember | null>(null);
+  const suggestBoxRef = useRef<HTMLDivElement | null>(null);
+  const resetCreateForm = () => {
+    resetCreate();
+    setSelectedPerson(null);
+    setPersonSuggestions([]);
+    setSuggestionsOpen(false);
+  };
+  useEffect(() => {
+    if (createType !== "EMPLOYEE") return;
+    if (selectedPerson && createName === selectedPerson.name) return;
+    setSelectedPerson(null);
+    const keyword = createName.trim();
+    if (!keyword) { setPersonSuggestions([]); setSuggestionsOpen(false); return; }
+    const timer = setTimeout(() => {
+      void get<{ items?: DirectoryMember[] }>(`/directory-members?search=${encodeURIComponent(keyword)}&limit=20`)
+        .then((result) => {
+          setPersonSuggestions(Array.isArray(result?.items) ? result.items : []);
+          setSuggestionsOpen(true);
+        })
+        .catch(() => { setPersonSuggestions([]); setSuggestionsOpen(false); });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [createType, createName, selectedPerson]);
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      if (suggestBoxRef.current && !suggestBoxRef.current.contains(event.target as Node)) {
+        setSuggestionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+  const choosePerson = (member: DirectoryMember) => {
+    setSelectedPerson(member);
+    setCreateValue("name", member.name);
+    setCreateValue("department_label", member.department_name ?? "");
+    setSuggestionsOpen(false);
+  };
 
   const principals = query.data?.principals ?? [];
 
@@ -191,7 +239,8 @@ export function PrincipalsPage() {
       {showCreate ? (
         <form
           className="mb-5 flex flex-col gap-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4"
-          onSubmit={handleSubmit((values) => createMutation.mutate(values))}
+          onSubmit={handleSubmit((values) =>
+            createMutation.mutate({ ...values, person_id: selectedPerson?.person_id ?? null }))}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <FormField error={errors.type?.message} htmlFor="principal-type" label="类型">
@@ -201,12 +250,35 @@ export function PrincipalsPage() {
               </select>
             </FormField>
             <FormField error={errors.name?.message} htmlFor="principal-name" label="名称">
-              <input
-                className={INPUT_CLASS}
-                id="principal-name"
-                placeholder="如：张三 / 数据平台项目组"
-                {...register("name")}
-              />
+              <div className="relative" ref={suggestBoxRef}>
+                <input
+                  aria-autocomplete="list"
+                  autoComplete="off"
+                  className={INPUT_CLASS}
+                  id="principal-name"
+                  placeholder={createType === "EMPLOYEE" ? "如：张三（输入可联想企微候选人）" : "如：数据平台项目组"}
+                  {...register("name")}
+                />
+                {createType === "EMPLOYEE" && suggestionsOpen && personSuggestions.length > 0 ? (
+                  <ul aria-label="企微候选人" className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-ql-border bg-ql-surface-raised py-1 shadow-ql-raised" role="listbox">
+                    {personSuggestions.map((member) => (
+                      <li key={member.person_id} role="option" aria-selected={selectedPerson?.person_id === member.person_id}>
+                        <button
+                          className="w-full px-3 py-2 text-left hover:bg-ql-surface-subtle"
+                          onClick={() => choosePerson(member)}
+                          type="button"
+                        >
+                          <span className="block text-[13px] font-medium text-ql-fg">{member.name}</span>
+                          <span className="block text-[12px] text-ql-fg-tertiary">
+                            {member.department_name ?? "待归属"}
+                            {member.external_member_id ? ` · 企微账号: ${member.external_member_id}` : ""}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             </FormField>
             <FormField
               error={errors.department_label?.message}
@@ -221,6 +293,13 @@ export function PrincipalsPage() {
               />
             </FormField>
           </div>
+          {createType === "EMPLOYEE" && selectedPerson ? (
+            <p className="text-[12px] text-ql-fg-secondary" role="status">
+              已绑定企微候选人「{selectedPerson.name}」
+              {selectedPerson.external_member_id ? `（${selectedPerson.external_member_id}）` : ""}；
+              手动修改名称将解除绑定。
+            </p>
+          ) : null}
           {createMutation.error ? (
             <p className="text-[13px] leading-5 text-ql-danger" role="alert">
               {createMutation.error.message}
@@ -231,7 +310,7 @@ export function PrincipalsPage() {
               className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[14px] font-medium text-ql-fg hover:border-ql-border-strong"
               onClick={() => {
                 setShowCreate(false);
-                resetCreate();
+                resetCreateForm();
               }}
               type="button"
             >

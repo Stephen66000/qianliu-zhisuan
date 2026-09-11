@@ -165,12 +165,13 @@ describe("directory sync worker", () => {
       });
       expect(await db.selectFrom("person").select("id")
         .where("enterprise_id", "=", enterprise.id).execute()).toHaveLength(1);
+      // 两层解耦：同步只维护自然人档案，不自动建立使用主体。
       expect(await db.selectFrom("principal").select("id")
-        .where("enterprise_id", "=", enterprise.id).execute()).toHaveLength(1);
+        .where("enterprise_id", "=", enterprise.id).execute()).toHaveLength(0);
       expect(await db.selectFrom("organization_membership").select("id")
         .where("enterprise_id", "=", enterprise.id).execute()).toHaveLength(1);
       expect(await db.selectFrom("principal_access_config_state").select("principal_id")
-        .where("enterprise_id", "=", enterprise.id).execute()).toHaveLength(1);
+        .where("enterprise_id", "=", enterprise.id).execute()).toHaveLength(0);
       expect(await db.selectFrom("principal_key").select("id")
         .where("enterprise_id", "=", enterprise.id).execute()).toHaveLength(0);
       expect(await db.selectFrom("principal_grant").select("id")

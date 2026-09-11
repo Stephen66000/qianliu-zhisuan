@@ -243,20 +243,39 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
 
     const person = await db.selectFrom("person").selectAll()
       .where("enterprise_id", "=", enterpriseId).where("employee_number", "=", "E-100").executeTakeFirstOrThrow();
-    const principal = await db.selectFrom("principal").selectAll()
-      .where("enterprise_id", "=", enterpriseId).where("person_id", "=", person.id).executeTakeFirstOrThrow();
+    // 两层解耦：导入完成只有自然人候选档案，还没有任何使用主体。
+    expect(await db.selectFrom("principal").select("id")
+      .where("enterprise_id", "=", enterpriseId).where("person_id", "=", person.id).execute()).toHaveLength(0);
+    // A 方式：通讯录列表勾选批量开通。
+    const activation = await app.inject({
+      method: "POST", url: "/directory-members/activate", headers: { cookie: adminCookie },
+      payload: { person_ids: [person.id] },
+    });
+    expect(activation.statusCode, activation.body).toBe(200);
+    expect(activation.json()).toMatchObject({ activated_count: 1, already_active_count: 0 });
+    const principalId = activation.json().items[0].principal_id as string;
+    expect(activation.json().items[0]).toMatchObject({ person_id: person.id, status: "ACTIVATED" });
     expect(await db.selectFrom("principal_access_config_state").select("principal_id")
-      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principal.id).executeTakeFirstOrThrow())
-      .toEqual({ principal_id: principal.id });
-    expect(await db.selectFrom("principal_key").select("id").where("principal_id", "=", principal.id).execute()).toHaveLength(0);
-    expect(await db.selectFrom("principal_grant").select("id").where("principal_id", "=", principal.id).execute()).toHaveLength(0);
+      .where("enterprise_id", "=", enterpriseId).where("principal_id", "=", principalId).executeTakeFirstOrThrow())
+      .toEqual({ principal_id: principalId });
+    expect(await db.selectFrom("principal_key").select("id").where("principal_id", "=", principalId).execute()).toHaveLength(0);
+    expect(await db.selectFrom("principal_grant").select("id").where("principal_id", "=", principalId).execute()).toHaveLength(0);
+    // 重复开通幂等：只为未开通者建主体，已开通者安全跳过。
+    const repeatActivation = await app.inject({
+      method: "POST", url: "/directory-members/activate", headers: { cookie: adminCookie },
+      payload: { person_ids: [person.id] },
+    });
+    expect(repeatActivation.statusCode).toBe(200);
+    expect(repeatActivation.json()).toMatchObject({ activated_count: 0, already_active_count: 1 });
+    expect(await db.selectFrom("principal").select("id")
+      .where("enterprise_id", "=", enterpriseId).where("person_id", "=", person.id).execute()).toHaveLength(1);
 
     await db.insertInto("principal_key").values({
-      enterprise_id: enterpriseId, principal_id: principal.id,
+      enterprise_id: enterpriseId, principal_id: principalId,
       key_prefix: "ql_w20_directory", key_digest: randomUUID(), status: "ACTIVE",
     }).execute();
     await db.insertInto("principal_grant").values({
-      enterprise_id: enterpriseId, principal_id: principal.id, provider: "deepseek",
+      enterprise_id: enterpriseId, principal_id: principalId, provider: "deepseek",
       model_alias: "qianliu-deepseek", quota_value: 1_000n, status: "ACTIVE",
     }).execute();
     const secondWorkbook = new ExcelJS.Workbook();
@@ -276,10 +295,10 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
       status: "SUCCEEDED", updated_count: 1, created_count: 1,
     });
     expect(await db.selectFrom("person").select("id").where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(2);
-    expect(await db.selectFrom("principal").select("id").where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(2);
-    expect(await db.selectFrom("principal_key").select(["key_prefix", "status"]).where("principal_id", "=", principal.id).execute())
+    expect(await db.selectFrom("principal").select("id").where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(1);
+    expect(await db.selectFrom("principal_key").select(["key_prefix", "status"]).where("principal_id", "=", principalId).execute())
       .toEqual([{ key_prefix: "ql_w20_directory", status: "ACTIVE" }]);
-    expect(await db.selectFrom("principal_grant").select(["provider", "status"]).where("principal_id", "=", principal.id).execute())
+    expect(await db.selectFrom("principal_grant").select(["provider", "status"]).where("principal_id", "=", principalId).execute())
       .toEqual([{ provider: "deepseek", status: "ACTIVE" }]);
 
     await db.insertInto("person_external_identity").values([
@@ -298,7 +317,7 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
     expect(members.statusCode).toBe(200);
     expect(members.json().total).toBe(2);
     expect(members.json().items).toEqual(expect.arrayContaining([expect.objectContaining({
-      employee_number: "E-100", principal_id: principal.id,
+      employee_number: "E-100", principal_id: principalId,
       source_type: "FEISHU", external_member_id: "fs-e100",
     })]));
     const isolatedMembers = await app.inject({ method: "GET", url: "/directory-members", headers: { cookie: otherCookie } });
@@ -319,12 +338,12 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
     expect((await repository.listRunItems(enterpriseId, inactiveRun.run.id)).items).toEqual([
       expect.objectContaining({
         external_member_id: "wx-e100", status: "SKIPPED", reason_code: "SOURCE_INACTIVE",
-        person_id: person.id, principal_id: principal.id,
+        person_id: person.id, principal_id: principalId,
       }),
     ]);
-    expect(await db.selectFrom("principal_key").select("status").where("principal_id", "=", principal.id).execute())
+    expect(await db.selectFrom("principal_key").select("status").where("principal_id", "=", principalId).execute())
       .toEqual([{ status: "ACTIVE" }]);
-    expect(await db.selectFrom("principal_grant").select("status").where("principal_id", "=", principal.id).execute())
+    expect(await db.selectFrom("principal_grant").select("status").where("principal_id", "=", principalId).execute())
       .toEqual([{ status: "ACTIVE" }]);
   });
 
@@ -390,6 +409,117 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
       .toEqual({ principal_id: manualPrincipal.id });
   });
 
+  it("A/C/B 方式开通：名单匹配、未匹配反馈、跨企业与重复绑定防护", async () => {
+    const repository = new DirectoryRepository(db);
+    const e300 = await db.selectFrom("person").select("id")
+      .where("enterprise_id", "=", enterpriseId).where("employee_number", "=", "E-300").executeTakeFirstOrThrow();
+    const unauthorized = await app.inject({
+      method: "POST", url: "/directory-members/activate", payload: { person_ids: [e300.id] },
+    });
+    expect(unauthorized.statusCode).toBe(401);
+
+    // C 方式：按名单（工号）匹配开通，未匹配条目原样返回（Scenario 4.1/4.2）。
+    const list = await app.inject({
+      method: "POST", url: "/directory-members/activate-by-list", headers: { cookie: adminCookie },
+      payload: { identifiers: ["EX-3", " e-300 ", "NO-SUCH-ID", ""] },
+    });
+    expect(list.statusCode, list.body).toBe(200);
+    expect(list.json()).toMatchObject({ activated_count: 2, already_active_count: 0, not_found: ["NO-SUCH-ID"] });
+    expect(await db.selectFrom("principal").select("id")
+      .where("enterprise_id", "=", enterpriseId).where("person_id", "=", e300.id).execute()).toHaveLength(1);
+
+    // A 方式跨租户：其他企业管理员不能开通本企业人员。
+    const crossTenant = await app.inject({
+      method: "POST", url: "/directory-members/activate", headers: { cookie: otherCookie },
+      payload: { person_ids: [e300.id] },
+    });
+    expect(crossTenant.statusCode).toBe(404);
+    const crossTenantList = await app.inject({
+      method: "POST", url: "/directory-members/activate-by-list", headers: { cookie: otherCookie },
+      payload: { identifiers: ["E-300"] },
+    });
+    expect(crossTenantList.statusCode).toBe(200);
+    expect(crossTenantList.json()).toMatchObject({ activated_count: 0, not_found: ["E-300"] });
+    expect(await db.selectFrom("principal").select("id")
+      .where("enterprise_id", "=", enterpriseId).where("person_id", "=", e300.id).execute()).toHaveLength(1);
+
+    // 参数校验：空数组和非法 UUID 拒绝。
+    expect((await app.inject({
+      method: "POST", url: "/directory-members/activate", headers: { cookie: adminCookie },
+      payload: { person_ids: [] },
+    })).statusCode).toBe(400);
+    expect((await app.inject({
+      method: "POST", url: "/directory-members/activate", headers: { cookie: adminCookie },
+      payload: { person_ids: ["not-a-uuid"] },
+    })).statusCode).toBe(400);
+
+    // B 方式：POST /principals 绑定自然人；已开通人员返回 409，跨企业人员 404。
+    const conflict = await app.inject({
+      method: "POST", url: "/principals", headers: { cookie: adminCookie },
+      payload: { type: "EMPLOYEE", name: "正常员工", department_label: "研发部", person_id: e300.id },
+    });
+    expect(conflict.statusCode).toBe(409);
+    expect(conflict.json()).toMatchObject({ error: "person_already_active" });
+    const otherTenantPerson = await db.insertInto("person").values({
+      enterprise_id: otherEnterpriseId, name: "外企业人员",
+    }).returning("id").executeTakeFirstOrThrow();
+    const foreign = await app.inject({
+      method: "POST", url: "/principals", headers: { cookie: adminCookie },
+      payload: { type: "EMPLOYEE", name: "外企业人员", person_id: otherTenantPerson.id },
+    });
+    expect(foreign.statusCode).toBe(404);
+    expect((await app.inject({
+      method: "POST", url: "/principals", headers: { cookie: adminCookie },
+      payload: { type: "PROJECT", name: "项目主体", person_id: e300.id },
+    })).statusCode).toBe(400);
+
+    const fresh = await db.insertInto("person").values({
+      enterprise_id: enterpriseId, employee_number: "B-NEW-1", name: "B方式新员工",
+    }).returning("id").executeTakeFirstOrThrow();
+    const created = await app.inject({
+      method: "POST", url: "/principals", headers: { cookie: adminCookie },
+      payload: { type: "EMPLOYEE", name: "B方式新员工", department_label: "技术部", person_id: fresh.id },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    expect(created.json().principal).toMatchObject({ type: "EMPLOYEE", person_id: fresh.id, status: "ACTIVE" });
+    const audits = await db.selectFrom("operation_log").select(["action", "change_summary"])
+      .where("enterprise_id", "=", enterpriseId).where("target_id", "=", created.json().principal.id).execute();
+    expect(JSON.stringify(audits)).toContain("person_id");
+    expect(await db.selectFrom("principal_access_config_state").select("principal_id")
+      .where("enterprise_id", "=", enterpriseId)
+      .where("principal_id", "=", created.json().principal.id).execute()).toHaveLength(1);
+
+    // C 方式名单预览：.xlsx 首列非空标识原样返回。
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("名单");
+    sheet.addRow(["工号"]);
+    sheet.addRow(["B-NEW-1"]);
+    sheet.addRow(["EX-3"]);
+    sheet.addRow([""]);
+    sheet.addRow(["NO-SUCH-ID"]);
+    const previewRequest = multipart(Buffer.from(await workbook.xlsx.writeBuffer()), "activation-list.xlsx");
+    const preview = await app.inject({
+      method: "POST", url: "/directory-members/activate-list-preview",
+      headers: { cookie: adminCookie, ...previewRequest.headers }, payload: previewRequest.payload,
+    });
+    expect(preview.statusCode, preview.body).toBe(200);
+    expect(preview.json()).toEqual({ identifiers: ["工号", "B-NEW-1", "EX-3", "NO-SUCH-ID"] });
+    const rejectedPreview = await app.inject({
+      method: "POST", url: "/directory-members/activate-list-preview",
+      headers: { cookie: adminCookie }, payload: {},
+    });
+    // 非 multipart 请求由 @fastify/multipart 直接拒绝（406），不进入业务逻辑。
+    expect(rejectedPreview.statusCode).toBe(406);
+
+    // 名单开通幂等：重复执行只返回已开通数量。
+    const replayList = await app.inject({
+      method: "POST", url: "/directory-members/activate-by-list", headers: { cookie: adminCookie },
+      payload: { identifiers: ["EX-3"] },
+    });
+    expect(replayList.json()).toMatchObject({ activated_count: 0, already_active_count: 1, not_found: [] });
+    expect((await repository.listMembers(enterpriseId)).total).toBe(5);
+  });
+
   it("1,000 行标准 Excel 经真实上传、解析与 apply 全链在冻结时限内完成", async () => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(TEMPLATE_SHEET);
@@ -408,6 +538,8 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
     }
     const bytes = Buffer.from(await workbook.xlsx.writeBuffer());
     const request = multipart(bytes, "directory-capacity-1000.xlsx");
+    const principalsBeforeImport = await db.selectFrom("principal").select("id")
+      .where("enterprise_id", "=", enterpriseId).execute();
     const startedAt = performance.now();
     const uploaded = await app.inject({
       method: "POST",
@@ -426,6 +558,12 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
       failed_count: 0,
       conflict_count: 0,
     });
+    // Scenario 1.1：1,000 行导入只入候选库，主体表零新增。
+    expect(await db.selectFrom("person").select("id")
+      .where("enterprise_id", "=", enterpriseId)
+      .where("employee_number", "like", "CAPACITY-%").execute()).toHaveLength(1_000);
+    expect(await db.selectFrom("principal").select("id")
+      .where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(principalsBeforeImport.length);
     expect(elapsedMs).toBeLessThanOrEqual(10 * 60_000);
 
     const firstPage = await app.inject({

@@ -206,18 +206,18 @@ describe("costGapLabel（缺口码映射全表）", () => {
 });
 
 describe("buildOverviewCards（双期可比性与费用完整性）", () => {
-  it("双期完整：输出百分比、同期值与桥接口径提示", () => {
+  it("双期完整：输出百分比与同期值，卡片不输出口径说明行", () => {
     const cards = buildOverviewCards(cardsFixture());
     expect(cards.token.delta).toBe("较上月同期 +20.0%");
     expect(cards.token.footnote).toBe("上月同期 8.33 亿 Token");
     expect(cards.cost.primary).toBe("¥12,800.00");
     expect(cards.cost.delta).toBe("较上月同期 +8.0%");
     expect(cards.cost.footnote).toBe("上月同期 ¥11,851.85");
-    expect(cards.cost.hints).toContain("同期按余额桥接口径聚合");
-    expect(cards.cost.hints).not.toContain("同期按资金账本口径聚合");
-    expect(cards.token.hint).toBe("输入 + 输出合计，缓存不重复累加 · 上游实报");
     expect(cards.cost.emptyText).toBeNull();
     expect(cards.cost.additional).toEqual([]);
+    // 卡片不再输出解释性口径行（"输入+输出…"、"同期按…口径聚合"等），模型不携带 hint 字段。
+    expect("hint" in cards.token).toBe(false);
+    expect("hints" in cards.cost).toBe(false);
   });
 
   it("本期含未知记录：禁百分比并说明分母不完整", () => {
@@ -236,12 +236,11 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
     expect(cards.token.footnote).toContain("上月同期含未知用量");
   });
 
-  it("本期费用缺口：保留已知金额并给出缺口说明与口径提示", () => {
+  it("本期费用缺口：保留已知金额并禁止百分比", () => {
     const data = cardsFixture();
     data.monthlyCost.current.incompleteReason = "API_USAGE_COST_UNKNOWN:2";
     const cards = buildOverviewCards(data);
     expect(cards.cost.delta).toBe("金额存在缺口，不计算百分比");
-    expect(cards.cost.hints[0]).toBe("金额不完整：存在未知 API 费用，已展示已知部分");
     expect(cards.cost.primary).toBe("¥12,800.00");
   });
 
@@ -253,14 +252,14 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
     expect(cards.cost.footnote).toContain("有充值或套餐采购未登记现金支出");
   });
 
-  it("资金读模型口径：提示切换", () => {
+  it("同期费用有已知部分但存在缺口：脚注保留金额并显式透出缺口（已知部分）", () => {
     const data = cardsFixture();
-    data.monthlyCost.previous = {
-      ...data.monthlyCost.previous!,
-      basis: "FINANCE_READ_MODEL",
-    };
+    data.monthlyCost.previous!.incompleteReason = "API_USAGE_COST_UNKNOWN:1、CASH_PAID_CNY_MISSING:1";
     const cards = buildOverviewCards(data);
-    expect(cards.cost.hints).toContain("同期按资金账本口径聚合");
+    expect(cards.cost.footnote).toContain("上月同期 ¥11,851.85");
+    expect(cards.cost.footnote).toContain("已知部分");
+    expect(cards.cost.footnote).toContain("存在未知 API 费用");
+    expect(cards.cost.delta).toBe("金额存在缺口，不计算百分比");
   });
 
   it("多币种：主币种加其余币种分行，禁百分比", () => {
@@ -277,15 +276,7 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
     expect(cards.cost.footnote).toBe("上月同期 暂无可比数据");
   });
 
-  it("Token 质量文案三态与上期为 0 表述", () => {
-    const base = cardsFixture();
-    expect(buildOverviewCards(base).token.hint).toContain("上游实报");
-    const estimated = cardsFixture();
-    estimated.tokenUsage.current.usageQuality = "ESTIMATED";
-    expect(buildOverviewCards(estimated).token.hint).toContain("含估算用量");
-    const unknown = cardsFixture();
-    unknown.tokenUsage.current.usageQuality = "UNKNOWN";
-    expect(buildOverviewCards(unknown).token.hint).toContain("部分用量未知，合计不完整");
+  it("Token 上期为 0 表述", () => {
     const zeroPrevious = cardsFixture();
     zeroPrevious.tokenUsage.previous.totalTokens = "0";
     expect(buildOverviewCards(zeroPrevious).token.delta).toBe("上月同期为 0 或用量未知，不计算百分比");
@@ -413,7 +404,6 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
     noReason.monthlyCost.previous = null;
     const cardsNoReason = buildOverviewCards(noReason);
     expect(cardsNoReason.cost.emptyText).toBe("暂无可计算费用");
-    expect(cardsNoReason.cost.hints).toContain("经营账单口径；多币种分别展示，不换汇");
 
     const withReason = cardsFixture();
     withReason.monthlyCost.current = {
