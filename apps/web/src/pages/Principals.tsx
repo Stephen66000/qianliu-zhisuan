@@ -214,7 +214,7 @@ export function PrincipalsPage() {
                           <div className="text-[11px] font-normal text-ql-fg-tertiary">
                             {p.employee_number ? `工号: ${p.employee_number}` : ""}
                             {p.employee_number && p.mobile ? " · " : ""}
-                            {p.mobile ? `手机: ${maskMobile(p.mobile)}` : ""}
+                            {p.mobile ? (p.employee_number ? `手机: ${maskMobile(p.mobile)}` : `账号/手机: ${maskMobile(p.mobile)}`) : ""}
                           </div>
                         ) : null}
                       </td>

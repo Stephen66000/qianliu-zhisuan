@@ -210,8 +210,14 @@ async function applyItemTransaction(
       .where(sql<boolean>`lower(employee_number) = lower(${item.employee_number})`)
       .executeTakeFirst()
     : undefined;
+  const mobilePerson = (!employeePerson && item.normalized_mobile)
+    ? await trx.selectFrom("person").selectAll()
+      .where("enterprise_id", "=", enterpriseId)
+      .where("mobile", "=", item.normalized_mobile)
+      .executeTakeFirst()
+    : undefined;
   const candidatePersonIds = new Set(
-    [identity?.person_id, explicit?.person_id, employeePerson?.id].filter((id): id is string => Boolean(id)),
+    [identity?.person_id, explicit?.person_id, employeePerson?.id, mobilePerson?.id].filter((id): id is string => Boolean(id)),
   );
   if (candidatePersonIds.size > 1) throw new ItemConflict("STABLE_ID_CONFLICT");
 
@@ -224,7 +230,10 @@ async function applyItemTransaction(
       : employeePerson
         ? await trx.selectFrom("person").selectAll().where("enterprise_id", "=", enterpriseId)
           .where("id", "=", employeePerson.id).forUpdate().executeTakeFirstOrThrow()
-        : undefined;
+        : mobilePerson
+          ? await trx.selectFrom("person").selectAll().where("enterprise_id", "=", enterpriseId)
+            .where("id", "=", mobilePerson.id).forUpdate().executeTakeFirstOrThrow()
+          : undefined;
   let created = false;
   let changed = false;
   if (person && item.employee_number && person.employee_number && !sameText(person.employee_number, item.employee_number)) {

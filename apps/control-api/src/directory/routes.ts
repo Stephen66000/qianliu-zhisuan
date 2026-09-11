@@ -58,8 +58,8 @@ export function registerDirectoryRoutes(app: FastifyInstance): void {
     const result = await sql<{ person_id: string; principal_id: string | null; name: string; employee_number: string | null; mobile: string | null; department_id: string | null; department_name: string | null; source_type: "WECOM" | "FEISHU" | "EXCEL" | null; external_member_id: string | null; person_status: string; principal_status: string | null; access_config_status: "CONFIGURED" | "PENDING" | "MISSING"; total_count: string }>`
       SELECT p.id AS person_id, pr.id AS principal_id, p.name, p.employee_number, p.mobile,
              ou.id AS department_id, ou.name AS department_name,
-             coalesce(latest_identity.type, m.source) AS source_type,
-             latest_identity.provider_user_id AS external_member_id,
+             coalesce(latest_identity.type, latest_item.source_type, m.source) AS source_type,
+             coalesce(latest_identity.provider_user_id, latest_item.external_member_id) AS external_member_id,
              p.status AS person_status, pr.status AS principal_status,
              CASE WHEN ac.principal_id IS NOT NULL THEN 'CONFIGURED'
                   WHEN pr.id IS NOT NULL THEN 'PENDING' ELSE 'MISSING' END AS access_config_status,
@@ -69,23 +69,193 @@ export function registerDirectoryRoutes(app: FastifyInstance): void {
         LEFT JOIN organization_membership m ON m.enterprise_id = p.enterprise_id AND m.person_id = p.id AND m.is_primary AND m.valid_until IS NULL
         LEFT JOIN organization_unit ou ON ou.enterprise_id = p.enterprise_id AND ou.id = m.organization_unit_id
         LEFT JOIN LATERAL (
-          SELECT identity.provider_user_id, ds.type
+          SELECT identity.provider_user_id, coalesce(ds.type, identity.provider) AS type
             FROM person_external_identity identity
-            JOIN directory_source ds
+            LEFT JOIN directory_source ds
               ON ds.enterprise_id = identity.enterprise_id AND ds.id = identity.directory_source_id
            WHERE identity.enterprise_id = p.enterprise_id AND identity.person_id = p.id
-             AND identity.status = 'ACTIVE' AND identity.directory_source_id IS NOT NULL
+             AND identity.status = 'ACTIVE'
            ORDER BY identity.updated_at DESC, identity.id DESC
            LIMIT 1
         ) latest_identity ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT item.external_member_id, ds.type AS source_type
+            FROM directory_import_item item
+            JOIN directory_import_run r ON r.id = item.run_id AND r.enterprise_id = item.enterprise_id
+            LEFT JOIN directory_source ds ON ds.id = r.directory_source_id AND ds.enterprise_id = r.enterprise_id
+           WHERE item.enterprise_id = p.enterprise_id AND item.person_id = p.id
+           ORDER BY item.updated_at DESC, item.id DESC
+           LIMIT 1
+        ) latest_item ON TRUE
         LEFT JOIN principal_access_config_state ac ON ac.enterprise_id = p.enterprise_id AND ac.principal_id = pr.id
        WHERE p.enterprise_id = ${req.admin!.enterpriseId}::uuid
-         AND (${q.search ?? ""} = '' OR p.name ILIKE ${pattern} OR coalesce(p.employee_number, '') ILIKE ${pattern} OR coalesce(p.mobile, '') ILIKE ${pattern} OR coalesce(latest_identity.provider_user_id, '') ILIKE ${pattern})
+         AND (${q.search ?? ""} = '' OR p.name ILIKE ${pattern} OR coalesce(p.employee_number, '') ILIKE ${pattern} OR coalesce(p.mobile, '') ILIKE ${pattern} OR coalesce(latest_identity.provider_user_id, '') ILIKE ${pattern} OR coalesce(latest_item.external_member_id, '') ILIKE ${pattern})
          AND (${q.department_id ?? null}::uuid IS NULL OR ou.id = ${q.department_id ?? null}::uuid)
          AND (${q.status ?? null}::text IS NULL OR p.status = ${q.status ?? null})
        ORDER BY p.name, p.id LIMIT ${q.limit} OFFSET ${q.offset}
     `.execute(app.db);
     return { items: result.rows.map(({ total_count: _, ...row }) => row), total: Number(result.rows[0]?.total_count ?? 0), limit: q.limit, offset: q.offset };
+  });
+
+  app.delete<{ Params: { personId: string } }>(
+    "/directory-members/:personId",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const personId = req.params.personId;
+      const enterpriseId = req.admin!.enterpriseId;
+
+      const activePrincipal = await sql<{ id: string; name: string }>`
+        SELECT id, name FROM principal
+        WHERE enterprise_id = ${enterpriseId}::uuid
+          AND person_id = ${personId}::uuid
+          AND archived_at IS NULL
+          AND status = 'ACTIVE'
+        LIMIT 1
+      `.execute(app.db);
+
+      if (activePrincipal.rows.length > 0) {
+        return reply.code(409).send({
+          error: "active_principal_exists",
+          message: `该人员已开通 AI 员工主体「${activePrincipal.rows[0]?.name ?? ""}」，请先停用或归档主体后再清理通讯录`,
+        });
+      }
+
+      const person = await sql<{ id: string; name: string }>`
+        SELECT id, name FROM person
+        WHERE enterprise_id = ${enterpriseId}::uuid AND id = ${personId}::uuid
+      `.execute(app.db);
+
+      if (!person.rows.length) {
+        return reply.code(404).send({ error: "not_found", message: "未找到指定通讯录人员" });
+      }
+
+      await app.db.transaction().execute(async (trx) => {
+        await sql`
+          UPDATE directory_import_item SET person_id = NULL
+          WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ${personId}::uuid
+        `.execute(trx);
+        await sql`
+          DELETE FROM notification_delivery
+          WHERE recipient_person_id = ${personId}::uuid
+        `.execute(trx);
+        await sql`
+          DELETE FROM person_external_identity
+          WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ${personId}::uuid
+        `.execute(trx);
+        await sql`
+          DELETE FROM organization_membership
+          WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ${personId}::uuid
+        `.execute(trx);
+        await sql`
+          DELETE FROM employee_department_assignment
+          WHERE enterprise_id = ${enterpriseId}::uuid AND employee_person_id = ${personId}::uuid
+        `.execute(trx);
+        await sql`
+          UPDATE project_department_assignment SET owner_person_id_at_assignment = NULL
+          WHERE enterprise_id = ${enterpriseId}::uuid AND owner_person_id_at_assignment = ${personId}::uuid
+        `.execute(trx);
+        await sql`
+          UPDATE principal SET person_id = NULL
+          WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ${personId}::uuid
+        `.execute(trx);
+        await sql`
+          UPDATE principal SET owner_person_id = NULL
+          WHERE enterprise_id = ${enterpriseId}::uuid AND owner_person_id = ${personId}::uuid
+        `.execute(trx);
+        await sql`
+          DELETE FROM person
+          WHERE enterprise_id = ${enterpriseId}::uuid AND id = ${personId}::uuid
+        `.execute(trx);
+      });
+
+      await app.auditRepo.write({
+        enterprise_id: enterpriseId,
+        admin_user_id: req.admin!.adminUserId,
+        action: "directory_members.delete",
+        target_type: "person",
+        target_id: personId,
+        change_summary: { name: person.rows[0]?.name ?? "" },
+        result: "SUCCESS",
+      });
+
+      return { ok: true, person_id: personId };
+    },
+  );
+
+  app.post("/directory-members/batch-delete", { preHandler: [requireAuth] }, async (req, reply) => {
+    const body = z.object({ person_ids: z.array(z.string().uuid()).min(1).max(200) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_request", message: body.error.message });
+    const enterpriseId = req.admin!.enterpriseId;
+    const ids = body.data.person_ids;
+
+    const activePrincipals = await sql<{ person_id: string }>`
+      SELECT person_id FROM principal
+      WHERE enterprise_id = ${enterpriseId}::uuid
+        AND person_id = ANY(${ids}::uuid[])
+        AND archived_at IS NULL
+        AND status = 'ACTIVE'
+    `.execute(app.db);
+
+    const activeSet = new Set(activePrincipals.rows.map((r) => r.person_id));
+    const deletableIds = ids.filter((id) => !activeSet.has(id));
+
+    if (deletableIds.length === 0) {
+      return reply.code(409).send({
+        error: "all_members_active",
+        message: "所选人员均已开通活跃 AI 员工主体，无法直接清理",
+      });
+    }
+
+    await app.db.transaction().execute(async (trx) => {
+      await sql`
+        UPDATE directory_import_item SET person_id = NULL
+        WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+      await sql`
+        DELETE FROM notification_delivery
+        WHERE recipient_person_id = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+      await sql`
+        DELETE FROM person_external_identity
+        WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+      await sql`
+        DELETE FROM organization_membership
+        WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+      await sql`
+        DELETE FROM employee_department_assignment
+        WHERE enterprise_id = ${enterpriseId}::uuid AND employee_person_id = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+      await sql`
+        UPDATE project_department_assignment SET owner_person_id_at_assignment = NULL
+        WHERE enterprise_id = ${enterpriseId}::uuid AND owner_person_id_at_assignment = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+      await sql`
+        UPDATE principal SET person_id = NULL
+        WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+      await sql`
+        UPDATE principal SET owner_person_id = NULL
+        WHERE enterprise_id = ${enterpriseId}::uuid AND owner_person_id = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+      await sql`
+        DELETE FROM person
+        WHERE enterprise_id = ${enterpriseId}::uuid AND id = ANY(${deletableIds}::uuid[])
+      `.execute(trx);
+    });
+
+    await app.auditRepo.write({
+      enterprise_id: enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "directory_members.batch_delete",
+      target_type: "person",
+      target_id: null,
+      change_summary: { requested_count: ids.length, deleted_count: deletableIds.length, skipped_active_count: activeSet.size },
+      result: "SUCCESS",
+    });
+
+    return { deleted_count: deletableIds.length, skipped_active_count: activeSet.size };
   });
 
   app.post("/directory-members/activate", { preHandler: [requireAuth] }, async (req, reply) => {

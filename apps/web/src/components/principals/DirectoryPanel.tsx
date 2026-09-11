@@ -2,8 +2,9 @@ import { useMemo, useState } from "react";
 import { Download, RefreshCw, Search, Upload } from "lucide-react";
 import { download } from "../../api/client";
 import {
-  useActivateDirectoryMembers, useDirectoryImportItems, useDirectoryImportRun,
-  useDirectoryMembers, useDirectorySource, useSaveDirectorySource, useStartDirectorySync,
+  useActivateDirectoryMembers, useBatchDeleteDirectoryMembers, useDeleteDirectoryMember,
+  useDirectoryImportItems, useDirectoryImportRun, useDirectoryMembers,
+  useDirectorySource, useSaveDirectorySource, useStartDirectorySync,
   useUploadDirectoryExcel,
 } from "../../api/v2-hooks";
 import { StatusTag } from "../dashboard/StatusTag";
@@ -23,6 +24,8 @@ export function DirectoryPanel() {
   const [activationFilter, setActivationFilter] = useState<ActivationFilter>("all");
   const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set());
   const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+  const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [batchNotice, setBatchNotice] = useState<string | null>(null);
   const [listUploadOpen, setListUploadOpen] = useState(false);
   const members = useDirectoryMembers(search);
@@ -33,6 +36,35 @@ export function DirectoryPanel() {
   const run = useDirectoryImportRun(runId);
   const items = useDirectoryImportItems(runId);
   const activate = useActivateDirectoryMembers();
+  const deleteMember = useDeleteDirectoryMember();
+  const batchDeleteMembers = useBatchDeleteDirectoryMembers();
+
+  const confirmDeleteSingle = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteMember.mutateAsync(deleteTarget.id);
+      selectedPersonIds.delete(deleteTarget.id);
+      setSelectedPersonIds(new Set(selectedPersonIds));
+      setBatchNotice(`已成功清理候选人员档案「${deleteTarget.name}」`);
+      setDeleteTarget(null);
+    } catch (err) {
+      setBatchNotice((err as Error)?.message ?? "清理失败");
+    }
+  };
+
+  const confirmBatchDelete = async () => {
+    const unactivatedIds = selectedRows.filter((m) => !isActivated(m)).map((m) => m.person_id);
+    if (!unactivatedIds.length) return;
+    try {
+      const res = await batchDeleteMembers.mutateAsync(unactivatedIds);
+      for (const id of unactivatedIds) selectedPersonIds.delete(id);
+      setSelectedPersonIds(new Set(selectedPersonIds));
+      setBatchNotice(`已清理 ${res.deleted_count} 名候选人员档案${res.skipped_active_count ? `（跳过 ${res.skipped_active_count} 名已开通主体的人员）` : ""}`);
+      setBatchDeleteConfirmOpen(false);
+    } catch (err) {
+      setBatchNotice((err as Error)?.message ?? "批量清理失败");
+    }
+  };
 
   const save = async () => {
     const result = await saveSource.mutateAsync({
@@ -140,16 +172,21 @@ export function DirectoryPanel() {
         <p className="text-[13px] text-ql-fg-secondary">已选择 {selectedRows.length} 人（其中未开通 {selectedRows.filter((member) => !isActivated(member)).length} 人）</p>
         <div className="flex gap-2">
           <button className="h-8 rounded-lg border border-ql-border bg-ql-surface px-3 text-[12px] text-ql-fg-secondary" onClick={() => setSelectedPersonIds(new Set())} type="button">清空选择</button>
+          {selectedRows.some((member) => !isActivated(member)) ? (
+            <button className="h-8 rounded-lg border border-ql-danger/40 px-3 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-50" disabled={batchDeleteMembers.isPending} onClick={() => setBatchDeleteConfirmOpen(true)} type="button">批量清理档案</button>
+          ) : null}
           <button className="h-8 rounded-lg bg-ql-action px-3 text-[12px] font-medium text-white disabled:opacity-50" disabled={activate.isPending} onClick={() => setBatchConfirmOpen(true)} type="button">批量开通 AI</button>
         </div>
       </div> : null}
       {batchNotice ? <p className="mb-3 text-[12px] text-ql-fg-secondary" role="status">{batchNotice}</p> : null}
       <DirectoryMembersTable
         activating={activate.isPending}
+        deleting={deleteMember.isPending || batchDeleteMembers.isPending}
         error={members.error ?? activate.error}
         filteredRows={filteredRows}
         isLoading={members.isLoading}
         onActivate={(personId) => void runActivation([personId])}
+        onDelete={(personId, personName) => setDeleteTarget({ id: personId, name: personName })}
         onRetry={() => void members.refetch()}
         onTogglePage={togglePage}
         onTogglePerson={togglePerson}
@@ -167,6 +204,30 @@ export function DirectoryPanel() {
       onConfirm={() => void runActivation([...selectedPersonIds])}
       open={batchConfirmOpen}
       title="批量开通 AI 员工"
+    />
+
+    <ConfirmDialog
+      cancelLabel="取消"
+      confirmLabel="确认清理"
+      danger
+      impact={`清理后「${deleteTarget?.name}」将从候选库中移除；后续若通过企业微信或 Excel 重新同步，可重新拉取该人员。`}
+      loading={deleteMember.isPending}
+      onCancel={() => setDeleteTarget(null)}
+      onConfirm={() => void confirmDeleteSingle()}
+      open={deleteTarget !== null}
+      title="清理候选人员档案"
+    />
+
+    <ConfirmDialog
+      cancelLabel="取消"
+      confirmLabel="确认批量清理"
+      danger
+      impact={`将清理所选 ${selectedRows.filter((m) => !isActivated(m)).length} 名未开通候选人的档案（已开通主体的人员会自动跳过）。后续可通过重新同步再次导入。`}
+      loading={batchDeleteMembers.isPending}
+      onCancel={() => setBatchDeleteConfirmOpen(false)}
+      onConfirm={() => void confirmBatchDelete()}
+      open={batchDeleteConfirmOpen}
+      title="批量清理候选人员档案"
     />
 
     <ActivationListDialog onClose={() => setListUploadOpen(false)} open={listUploadOpen} />

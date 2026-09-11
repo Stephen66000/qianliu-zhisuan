@@ -17,17 +17,19 @@ interface DirectoryMembersTableProps {
   selectedPersonIds: Set<string>;
   pageAllSelected: boolean;
   activating: boolean;
+  deleting?: boolean;
   isLoading: boolean;
   error: Error | null;
   onTogglePerson: (personId: string) => void;
   onTogglePage: () => void;
   onActivate: (personId: string) => void;
+  onDelete?: (personId: string, personName: string) => void;
   onRetry: () => void;
 }
 
 export function DirectoryMembersTable({
-  filteredRows, selectedPersonIds, pageAllSelected, activating, isLoading, error,
-  onTogglePerson, onTogglePage, onActivate, onRetry,
+  filteredRows, selectedPersonIds, pageAllSelected, activating, deleting, isLoading, error,
+  onTogglePerson, onTogglePage, onActivate, onDelete, onRetry,
 }: DirectoryMembersTableProps) {
   return (
     <QueryGate emptyDescription="配置通讯录来源并执行同步，或上传标准模板。" emptyIcon={Users} emptyTitle="暂无通讯录成员" error={error} isEmpty={filteredRows.length === 0} isLoading={isLoading} onRetry={onRetry}>
@@ -38,14 +40,31 @@ export function DirectoryMembersTable({
           <td className="py-2">
             <div className="font-medium text-ql-fg">{member.name}</div>
             <div className="text-[11px] text-ql-fg-tertiary">
-              {member.external_member_id ? `ID: ${maskUserId(member.external_member_id)}` : ""}
-              {member.mobile ? ` · 手机: ${maskMobile(member.mobile)}` : ""}
+              {member.external_member_id ? (
+                <>
+                  <span>{member.source_type === "WECOM" ? "企微ID" : member.source_type === "FEISHU" ? "飞书ID" : "外部ID"}: {maskUserId(member.external_member_id)}</span>
+                  {member.mobile ? <span> · 手机: {maskMobile(member.mobile)}</span> : null}
+                </>
+              ) : member.mobile ? (
+                <span>账号/ID: {maskMobile(member.mobile)}</span>
+              ) : member.employee_number ? (
+                <span>工号: {member.employee_number}</span>
+              ) : (
+                <span>ID: —</span>
+              )}
             </div>
           </td>
           <td>{member.employee_number ?? "—"}</td><td>{member.department_name ?? "待归属"}</td><td>{member.source_type ?? "手工"}</td><td>{member.principal_status ?? "未建立"}</td><td>{member.access_config_status}</td>
           <td className="text-right">{isActivated(member)
             ? <StatusTag tone="success">已开通</StatusTag>
-            : <button className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50" disabled={activating} onClick={() => onActivate(member.person_id)} type="button">开通 AI</button>}</td>
+            : (
+              <div className="flex justify-end items-center gap-1">
+                <button className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50" disabled={activating || deleting} onClick={() => onActivate(member.person_id)} type="button">开通 AI</button>
+                {onDelete ? (
+                  <button className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-50" disabled={activating || deleting} onClick={() => onDelete(member.person_id, member.name)} type="button">清理</button>
+                ) : null}
+              </div>
+            )}</td>
         </tr>)}</tbody></table></div>
     </QueryGate>
   );

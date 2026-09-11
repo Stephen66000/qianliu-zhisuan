@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { get, patch, post, put, upload } from "./client";
+import { del, get, patch, post, put, upload } from "./client";
 import type { Principal } from "./types";
 import type {
   DepartmentBill, DirectoryActivationResult, DirectoryImportItem, DirectoryImportRun,
@@ -40,6 +40,32 @@ export function useActivateDirectoryMembers() {
     mutationFn: (personIds: string[]) =>
       post<DirectoryActivationResult>("/directory-members/activate", { person_ids: personIds }),
     onSuccess: () => void client.invalidateQueries({ queryKey: V2_KEYS.directory }),
+  });
+}
+/** 通讯录：清理/移除单条候选人员档案。 */
+export function useDeleteDirectoryMember() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (personId: string) =>
+      del<{ ok: boolean; person_id: string }>(`/directory-members/${personId}`),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: V2_KEYS.directory });
+      void client.invalidateQueries({ queryKey: ["principals"] });
+    },
+  });
+}
+/** 通讯录：批量清理未激活的候选人员档案。 */
+export function useBatchDeleteDirectoryMembers() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (personIds: string[]) =>
+      post<{ deleted_count: number; skipped_active_count: number }>("/directory-members/batch-delete", {
+        person_ids: personIds,
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: V2_KEYS.directory });
+      void client.invalidateQueries({ queryKey: ["principals"] });
+    },
   });
 }
 /** C 方式：按姓名/工号/企微账号名单匹配批量开通。 */
