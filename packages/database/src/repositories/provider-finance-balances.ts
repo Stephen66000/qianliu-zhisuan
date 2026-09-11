@@ -86,6 +86,8 @@ export class ProviderFinanceBalanceRepository extends ProviderFinanceEventReposi
             AND line.provider_resource_id=${resourceId}::uuid
             AND line.resource_mode='API'
             AND (line.api_cost_status='UNKNOWN_COST' OR line.api_cost_status IS NULL)
+            AND (line.raw_input_tokens > 0 OR line.raw_output_tokens > 0
+              OR COALESCE(line.raw_cache_tokens, 0) > 0 OR COALESCE(line.raw_reasoning_tokens, 0) > 0)
            AND ${operatingConsumptionFilter("line")}
             AND COALESCE(line.settled_at, line.created_at) >= ${PROVIDER_FINANCE_CUTOVER}
             AND COALESCE(line.settled_at, line.created_at) <= ${asOf}

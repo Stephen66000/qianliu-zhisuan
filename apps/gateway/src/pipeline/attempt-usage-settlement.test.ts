@@ -66,6 +66,36 @@ describe("POOL-043 上游前撤权结算", () => {
     }));
   });
 
+  it("API零Token失败Attempt标记为CONFIRMED_ZERO_NO_UPSTREAM且成本为0", async () => {
+    const createUsageAndLedgerLineIfAbsent = vi.fn().mockResolvedValue({
+      line: { deducted_quota: null }, created: true,
+    });
+    await persistAttemptUsageEvidence({
+      ledgerRepo: { createUsageAndLedgerLineIfAbsent } as unknown as GatewayLedgerRepository,
+      requestId: "request-api-zero", enterpriseId: "enterprise-1", principalId: "principal-1",
+      attemptId: "attempt-api-zero", attemptNo: 1,
+      attemptStartedAt: Date.parse("2026-09-03T00:00:00Z"), resourceId: "resource-api",
+      resourceMode: "API", upstreamModel: "deepseek-chat",
+      outcome: { status: 500, committed: true,
+        usage: { input: 0, output: 0, cache: 0, reasoning: 0, quality: "UNKNOWN" } },
+      billingRule: {
+        id: "rule-cny", ruleType: "API_PRICE", ruleVersion: "v1",
+        providerResourceId: "resource-api", upstreamModel: "deepseek-chat",
+        effectiveFrom: Date.parse("2026-09-01T00:00:00Z"), effectiveTo: null,
+        timezone: null, daysOfWeek: null, startTime: null, endTime: null,
+        timeWindows: null, multiplier: null, cacheHitPrice: "0.001",
+        cacheMissPrice: "0.002", outputPrice: "0.008", currency: "CNY", priority: 1,
+      },
+    });
+    expect(createUsageAndLedgerLineIfAbsent).toHaveBeenCalledWith(expect.objectContaining({
+      ledger_line: expect.objectContaining({
+        api_cost: "0.00000000",
+        api_cost_currency: null,
+        api_cost_status: "CONFIRMED_ZERO_NO_UPSTREAM",
+      }),
+    }));
+  });
+
   it("把 Attempt、零消费事实、资源结算和失败终态交给单一原子入口", async () => {
     const finalizeRejectedAttemptSettlementIfAbsent = vi.fn().mockResolvedValue(undefined);
     const ledgerRepo = {

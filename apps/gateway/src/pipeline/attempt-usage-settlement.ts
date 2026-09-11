@@ -73,6 +73,9 @@ export async function persistAttemptUsageEvidence(
   const billing = await resolveBilling(input, usage);
   const pricedApi = input.resourceMode === "API" && billing.apiCost !== null
     && (billing.currency === "CNY" || billing.currency === "USD");
+  const zeroConsumptionApi = input.resourceMode === "API" && !pricedApi
+    && usage.input === 0 && usage.output === 0
+    && (usage.cache ?? 0) === 0 && (usage.reasoning ?? 0) === 0;
   const settlement = await input.ledgerRepo.createUsageAndLedgerLineIfAbsent({
     usage: {
       ai_request_id: input.requestId,
@@ -98,9 +101,10 @@ export async function persistAttemptUsageEvidence(
       raw_cache_tokens: BigInt(usage.cache),
       raw_reasoning_tokens: BigInt(usage.reasoning ?? 0),
       deducted_quota: billing.deductedQuota === null ? null : BigInt(billing.deductedQuota),
-      api_cost: pricedApi ? billing.apiCost : null,
+      api_cost: zeroConsumptionApi ? "0.00000000" : pricedApi ? billing.apiCost : null,
       api_cost_currency: pricedApi ? billing.currency as "CNY" | "USD" : null,
       api_cost_status: input.resourceMode === "CODING_PLAN" ? "NOT_APPLICABLE"
+        : zeroConsumptionApi ? "CONFIRMED_ZERO_NO_UPSTREAM"
         : pricedApi ? "PRICED_USAGE" : "UNKNOWN_COST",
       settled_at: new Date(),
       usage_quality: usage.quality,
