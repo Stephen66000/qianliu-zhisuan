@@ -116,7 +116,9 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
         ) : null}
       </td>
       <td className="py-2.5">
-        <StatusTag tone={statusTone(item.status)}>{resourceStatusLabel(item.status, item.mode)}</StatusTag>
+        <StatusTag tone={item.historicalUnattributed ? "neutral" : statusTone(item.status)}>
+          {item.historicalUnattributed ? "已下架" : resourceStatusLabel(item.status, item.mode)}
+        </StatusTag>
       </td>
     </tr>
   );

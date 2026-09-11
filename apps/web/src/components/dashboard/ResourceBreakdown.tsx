@@ -28,10 +28,9 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
             <th className="py-2 pr-4 font-medium">厂商</th>
             <th className="py-2 pr-4 font-medium">模式</th>
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
-            <th className="py-2 pr-4 text-right font-medium">总额度 / 计费方式</th>
+            <th className="py-2 pr-4 text-right font-medium">分配额度</th>
             <th className="py-2 pr-4 text-right font-medium">已用额度</th>
             <th className="py-2 pr-4 text-right font-medium">剩余额度 / 当前余额</th>
-            <th className="py-2 pr-4 text-right font-medium">已分配主体额度</th>
             <th className="py-2 pr-4 text-right font-medium">当前订阅金额</th>
             <th className="py-2 pr-4 text-right font-medium">本月花费</th>
             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
@@ -52,9 +51,7 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                 {item.accountCount}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.mode === "API"
-                  ? "不适用（按量计费）"
-                  : item.totalQuota === null ? "未录入/未同步" : `${formatCount(item.totalQuota)} ${item.quotaUnit ?? ""}`}
+                {item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.mode === "API" ? "—" : item.usedQuota === null ? "—" : formatCount(item.usedQuota)}
@@ -64,9 +61,6 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                   ? item.currentBalance === null ? "余额待补"
                     : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`
                   : item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
-              </td>
-              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.mode === "API" ? "—" : (

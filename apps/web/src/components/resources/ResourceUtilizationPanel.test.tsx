@@ -172,11 +172,11 @@ describe("W20-08 资源利用事实 Web", () => {
     });
   });
 
-  it("API 显示 Token 利用率，无预算仍可计算，费用与余额保留", () => {
+  it("API 显示 Token 利用率，无预算仍可计算，费用保留且不混入余额", () => {
     renderPanel();
     const row = screen.getByText("DeepSeek · API 账户").closest("tr")!;
     expect(within(row).getByText("CNY 12.50")).toBeInTheDocument();
-    expect(within(row).getByText("余额 CNY 87.50")).toBeInTheDocument();
+    expect(within(row).queryByText(/余额/)).not.toBeInTheDocument();
     expect(within(row).queryByText("0.0%")).not.toBeInTheDocument();
     expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("近 3 个完整月月均 Token 10,000,000"));
     expect(within(row).getByText("1 / 9,000,000")).toBeInTheDocument();
