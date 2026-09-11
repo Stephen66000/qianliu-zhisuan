@@ -4,6 +4,7 @@ import { get, post } from "../../api/client";
 import type { Principal } from "../../api/types";
 import type { DirectoryMember } from "../../api/v2-types";
 import { useFeatureFlags } from "../../feature-flags";
+import { maskMobile } from "../../lib/format";
 import { INPUT_CLASS } from "../writes/FormField";
 
 export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
@@ -173,7 +174,7 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
                       {member.external_member_id
                         ? ` · 企微账号: ${member.external_member_id}`
                         : ""}
-                      {member.mobile ? ` · 手机: ${member.mobile}` : ""}
+                      {member.mobile ? ` · 手机: ${maskMobile(member.mobile)}` : ""}
                     </span>
                   </button>
                 </li>
@@ -217,7 +218,7 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
           已绑定企微候选人「{selectedPerson.name}」
           {selectedPerson.external_member_id ? `（企微ID: ${selectedPerson.external_member_id}）` : ""}
           {selectedPerson.employee_number ? `（工号: ${selectedPerson.employee_number}）` : ""}
-          {selectedPerson.mobile ? `（手机: ${selectedPerson.mobile}）` : ""}；
+          {selectedPerson.mobile ? `（手机: ${maskMobile(selectedPerson.mobile)}）` : ""}；
           手动修改名称将解除绑定。
         </p>
       ) : null}

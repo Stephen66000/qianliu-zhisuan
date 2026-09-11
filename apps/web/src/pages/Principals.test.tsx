@@ -587,6 +587,31 @@ describe("W19 使用主体", () => {
     expect(screen.queryByText("sk-qianliu-a-sensitive-once")).not.toBeInTheDocument();
     expect(screen.getByText("主体 B · 接入配置")).toBeInTheDocument();
   });
+
+  it("使用主体列表仅展示工号与脱敏手机号，不展示企微 UserID", () => {
+    usePrincipalsMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        principals: [
+          principal({
+            id: "p1",
+            name: "李佳",
+            type: "EMPLOYEE",
+            employee_number: "EMP001",
+            mobile: "13800138000",
+          }),
+        ],
+      },
+      refetch: vi.fn(),
+    });
+    renderPage();
+    expect(screen.getByText("李佳")).toBeInTheDocument();
+    expect(screen.getByText(/工号: EMP001/)).toBeInTheDocument();
+    expect(screen.getByText(/手机: 138\*\*\*\*8000/)).toBeInTheDocument();
+    expect(screen.queryByText(/企微ID/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ID:/)).not.toBeInTheDocument();
+  });
 });
 
 function pageRow(name: string) {

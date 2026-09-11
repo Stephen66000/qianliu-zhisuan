@@ -133,7 +133,7 @@ export function DirectoryPanel() {
             <option value="inactive">仅未开通</option>
             <option value="active">已开通</option>
           </select>
-          <label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-ql-fg-tertiary"/><input aria-label="搜索通讯录成员" className={`${INPUT_CLASS} pl-9`} onChange={(event) => setSearch(event.target.value)} placeholder="姓名 / 员工编号" value={search}/></label>
+          <label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-ql-fg-tertiary"/><input aria-label="搜索通讯录成员" className={`${INPUT_CLASS} pl-9`} onChange={(event) => setSearch(event.target.value)} placeholder="姓名 / 工号 / 手机 / ID" value={search}/></label>
         </div>
       </div>
       {selectedRows.length > 0 ? <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ql-action-soft bg-ql-action-soft/40 px-3 py-2">

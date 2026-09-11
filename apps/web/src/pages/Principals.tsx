@@ -19,7 +19,7 @@ import { QueryGate } from "../components/states/QueryGate";
 import { ConfirmDialog } from "../components/writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../components/writes/FormField";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
-import { formatDateTimeFull } from "../lib/format";
+import { formatDateTimeFull, maskMobile } from "../lib/format";
 import { useFeatureFlags } from "../feature-flags";
 import { EmployeeModelRulesPage } from "./EmployeeModelRules";
 import { PrincipalCreateForm } from "../components/principals/PrincipalCreateForm";
@@ -208,7 +208,16 @@ export function PrincipalsPage() {
                   className="border-b border-ql-border-zone text-[13px] leading-5 text-ql-fg last:border-b-0 hover:bg-ql-surface-subtle"
                   key={p.id}
                 >
-                      <td className="py-2.5 pr-4 font-medium">{p.name}</td>
+                      <td className="py-2.5 pr-4 font-medium">
+                        <div>{p.name}</div>
+                        {p.type === "EMPLOYEE" && (p.employee_number || p.mobile) ? (
+                          <div className="text-[11px] font-normal text-ql-fg-tertiary">
+                            {p.employee_number ? `工号: ${p.employee_number}` : ""}
+                            {p.employee_number && p.mobile ? " · " : ""}
+                            {p.mobile ? `手机: ${maskMobile(p.mobile)}` : ""}
+                          </div>
+                        ) : null}
+                      </td>
                       <td className="py-2.5 pr-4 text-ql-fg-secondary">
                         {TYPE_LABEL[p.type]}
                       </td>

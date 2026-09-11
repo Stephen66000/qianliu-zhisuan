@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDecimal, formatMoney, formatRatePerHour, formatShanghaiDate } from "./format";
+import {
+  formatDecimal,
+  formatMoney,
+  formatRatePerHour,
+  formatShanghaiDate,
+  maskMobile,
+  maskUserId,
+} from "./format";
 
 describe("POOL-019 金额展示", () => {
   it("固定两位、千分位并以十进制半入舍入", () => {
@@ -26,5 +33,17 @@ describe("POOL-019 金额展示", () => {
     expect(formatDecimal("9007199254740993.995")).toBe("9,007,199,254,740,994");
     expect(formatDecimal("未知")).toBe("未知");
     expect(formatRatePerHour("0.08795916")).toBe("0.09/h");
+  });
+
+  it("手机号与企微 UserID 规范脱敏", () => {
+    expect(maskMobile("13812345678")).toBe("138****5678");
+    expect(maskMobile("")).toBe("");
+    expect(maskMobile(null)).toBe("");
+    expect(maskMobile(undefined)).toBe("");
+    expect(maskUserId("stephen6600")).toBe("st****00");
+    expect(maskUserId("ab")).toBe("ab");
+    expect(maskUserId("abc")).toBe("a**c");
+    expect(maskUserId("")).toBe("");
+    expect(maskUserId(null)).toBe("");
   });
 });

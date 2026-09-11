@@ -98,3 +98,28 @@ export function formatDuration(ms: number): string {
 export function formatRatePerHour(rate: string): string {
   return `${formatDecimal(rate)}/h`;
 }
+
+/** 手机号脱敏：13812345678 → 138****5678 */
+export function maskMobile(mobile: string | null | undefined): string {
+  if (!mobile) return "";
+  const cleaned = mobile.trim();
+  if (cleaned.length === 11) {
+    return `${cleaned.slice(0, 3)}****${cleaned.slice(7)}`;
+  }
+  if (cleaned.length > 7) {
+    return `${cleaned.slice(0, 3)}****${cleaned.slice(-4)}`;
+  }
+  if (cleaned.length > 3) {
+    return `${cleaned.slice(0, 2)}***${cleaned.slice(-1)}`;
+  }
+  return cleaned;
+}
+
+/** 企微 UserID 脱敏：stephen6600 → st****00，短字符保留首尾 */
+export function maskUserId(userId: string | null | undefined): string {
+  if (!userId) return "";
+  const cleaned = userId.trim();
+  if (cleaned.length <= 2) return cleaned;
+  if (cleaned.length <= 4) return `${cleaned[0]}**${cleaned.slice(-1)}`;
+  return `${cleaned.slice(0, 2)}****${cleaned.slice(-2)}`;
+}

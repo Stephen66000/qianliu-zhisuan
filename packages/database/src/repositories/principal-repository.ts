@@ -8,7 +8,10 @@ import { readPrincipalCleanupPreview } from "./principal-cleanup-preview.js";
 import { sql, type Kysely, type Selectable } from "kysely";
 import type { Database, PrincipalTable } from "../kysely.js";
 
-export type Principal = Selectable<PrincipalTable>;
+export type Principal = Selectable<PrincipalTable> & {
+  employee_number?: string | null;
+  mobile?: string | null;
+};
 
 export class PrincipalNotActiveError extends Error {
   constructor() {
@@ -83,19 +86,31 @@ export class PrincipalRepository {
     enterpriseId: string,
     opts?: PrincipalQueryOptions,
   ): Promise<Principal[]> {
-    let q = this.db.selectFrom("principal").selectAll().where("enterprise_id", "=", enterpriseId);
-    if (opts?.type) q = q.where("type", "=", opts.type); if (opts?.status) q = q.where("status", "=", opts.status);
-    if (opts?.archived === "only") q = q.where("archived_at", "is not", null);
-    else if (opts?.archived !== "all") q = q.where("archived_at", "is", null);
+    let q = this.db
+      .selectFrom("principal")
+      .leftJoin("person", (join) =>
+        join
+          .onRef("person.enterprise_id", "=", "principal.enterprise_id")
+          .onRef("person.id", "=", "principal.person_id"),
+      )
+      .selectAll("principal")
+      .select(["person.employee_number as employee_number", "person.mobile as mobile"])
+      .where("principal.enterprise_id", "=", enterpriseId);
+    if (opts?.type) q = q.where("principal.type", "=", opts.type);
+    if (opts?.status) q = q.where("principal.status", "=", opts.status);
+    if (opts?.archived === "only") q = q.where("principal.archived_at", "is not", null);
+    else if (opts?.archived !== "all") q = q.where("principal.archived_at", "is", null);
     const search = opts?.search?.trim();
     if (search) {
       const pattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
       q = q.where(sql<boolean>`(
-        name ILIKE ${pattern} ESCAPE '\\'
-        OR coalesce(department_label, '') ILIKE ${pattern} ESCAPE '\\'
+        principal.name ILIKE ${pattern} ESCAPE '\\'
+        OR coalesce(principal.department_label, '') ILIKE ${pattern} ESCAPE '\\'
+        OR coalesce(person.employee_number, '') ILIKE ${pattern} ESCAPE '\\'
+        OR coalesce(person.mobile, '') ILIKE ${pattern} ESCAPE '\\'
       )`);
     }
-    q = q.orderBy("created_at", "desc").orderBy("id", "desc");
+    q = q.orderBy("principal.created_at", "desc").orderBy("principal.id", "desc");
     if (opts?.limit !== undefined) q = q.limit(opts.limit);
     if (opts?.offset !== undefined) q = q.offset(opts.offset);
     return q.execute();
@@ -105,18 +120,27 @@ export class PrincipalRepository {
     enterpriseId: string,
     opts?: Omit<PrincipalQueryOptions, "limit" | "offset">,
   ): Promise<number> {
-    let q = this.db.selectFrom("principal")
+    let q = this.db
+      .selectFrom("principal")
+      .leftJoin("person", (join) =>
+        join
+          .onRef("person.enterprise_id", "=", "principal.enterprise_id")
+          .onRef("person.id", "=", "principal.person_id"),
+      )
       .select(({ fn }) => fn.countAll<string>().as("count"))
-      .where("enterprise_id", "=", enterpriseId);
-    if (opts?.type) q = q.where("type", "=", opts.type); if (opts?.status) q = q.where("status", "=", opts.status);
-    if (opts?.archived === "only") q = q.where("archived_at", "is not", null);
-    else if (opts?.archived !== "all") q = q.where("archived_at", "is", null);
+      .where("principal.enterprise_id", "=", enterpriseId);
+    if (opts?.type) q = q.where("principal.type", "=", opts.type);
+    if (opts?.status) q = q.where("principal.status", "=", opts.status);
+    if (opts?.archived === "only") q = q.where("principal.archived_at", "is not", null);
+    else if (opts?.archived !== "all") q = q.where("principal.archived_at", "is", null);
     const search = opts?.search?.trim();
     if (search) {
       const pattern = `%${search.replace(/[\\%_]/g, "\\$&")}%`;
       q = q.where(sql<boolean>`(
-        name ILIKE ${pattern} ESCAPE '\\'
-        OR coalesce(department_label, '') ILIKE ${pattern} ESCAPE '\\'
+        principal.name ILIKE ${pattern} ESCAPE '\\'
+        OR coalesce(principal.department_label, '') ILIKE ${pattern} ESCAPE '\\'
+        OR coalesce(person.employee_number, '') ILIKE ${pattern} ESCAPE '\\'
+        OR coalesce(person.mobile, '') ILIKE ${pattern} ESCAPE '\\'
       )`);
     }
     const result = await q.executeTakeFirstOrThrow();
@@ -126,9 +150,15 @@ export class PrincipalRepository {
   async findById(enterpriseId: string, id: string): Promise<Principal | undefined> {
     return this.db
       .selectFrom("principal")
-      .selectAll()
-      .where("enterprise_id", "=", enterpriseId)
-      .where("id", "=", id)
+      .leftJoin("person", (join) =>
+        join
+          .onRef("person.enterprise_id", "=", "principal.enterprise_id")
+          .onRef("person.id", "=", "principal.person_id"),
+      )
+      .selectAll("principal")
+      .select(["person.employee_number as employee_number", "person.mobile as mobile"])
+      .where("principal.enterprise_id", "=", enterpriseId)
+      .where("principal.id", "=", id)
       .executeTakeFirst();
   }
 
