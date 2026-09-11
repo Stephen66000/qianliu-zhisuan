@@ -68,6 +68,7 @@ import { registerEnterpriseSettingsRoutes } from "./enterprise-settings/routes.j
 import { registerDepartmentCostRoutes } from "./department-costs/routes.js";
 import { registerDirectoryRoutes } from "./directory/routes.js";
 import { registerProviderFinanceRoutes } from "./provider-finance/routes.js";
+import { wecomCallbackRoutes } from "./wecom/callback-routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
 import {
   readFeatureFlags,
@@ -191,6 +192,14 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     bodyLimit: readRequestBodyLimit(process.env),
   });
 
+  app.addContentTypeParser(
+    ["text/xml", "application/xml"],
+    { parseAs: "string" },
+    (_req, body, done) => {
+      done(null, body);
+    },
+  );
+
   app.decorate("db", db);
   app.decorate("principalRepo", new PrincipalRepository(db));
   app.decorate("auditRepo", new AuditRepository(db));
@@ -303,6 +312,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerEnterpriseSettingsRoutes(child);
     if (featureFlags.FEATURE_DEPARTMENT_COST) registerDepartmentCostRoutes(child);
     if (featureFlags.FEATURE_DIRECTORY_IMPORT) registerDirectoryRoutes(child);
+    await child.register(wecomCallbackRoutes);
   });
 
   return app;

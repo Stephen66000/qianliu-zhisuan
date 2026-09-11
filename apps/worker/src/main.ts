@@ -23,6 +23,7 @@ import { runCodingPlanQuotaTick } from "./coding-plan-quota/runner.js";
 import { runDirectorySyncTick } from "./directory/runner.js";
 import { runProviderOperatingSyncTick } from "./provider-operating-sync/runner.js";
 import { runUsageAggregateTick } from "./usage-aggregate/runner.js";
+import { runDailyTokenReport } from "./reporting/daily-token-report.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -73,6 +74,11 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "daily-token-report") {
+    await runDailyTokenReportCommand(args.slice(1));
+    return;
+  }
+
   console.log("[worker] 用法：worker reconciliation --enterprise <id> [--from <iso>] [--to <iso>]");
   console.log("[worker]       worker runtime-assurance-once");
   console.log("[worker]       worker runtime-assurance-scheduler");
@@ -82,6 +88,7 @@ async function main(): Promise<void> {
   console.log("[worker]       worker provider-operating-sync-once");
   console.log("[worker]       worker directory-sync-once [--run <run-id>] [--max-runs <1-100>]");
   console.log("[worker]       worker usage-aggregate-rebuild --enterprise <id> --from <iso> --to <iso>");
+  console.log("[worker]       worker daily-token-report [--enterprise <id>] [--date <YYYY-MM-DD>] [--recipients <u1,u2>] [--dry-run]");
 }
 
 function arg(args: string[], name: string): string | undefined {
@@ -190,6 +197,7 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   const supplyForecastRepository = new SupplyForecastRepository(db);
   const usageAggregateRepository = new UsageAggregateRepository(db);
   let lastDailyAggregateDate: string | null = null;
+  let lastDailyReportDate: string | null = null;
   const wecom = new WecomAppClient(
     requiredEnv("CREDENTIAL_KEK"), fetch, Date.now, process.env.RUNTIME_ASSURANCE_ADMIN_URL,
   );
@@ -262,6 +270,46 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             event: "usage_aggregate_tick_completed", dirty_limit: aggregateDirtyLimit,
             include_daily: includeDaily, ...aggregate,
           }));
+
+          // 每日上午 09:00（上海时间）自动生成昨日全员 Token 消费长图并推送指定人
+          const shanghaiHour = Number(
+            new Intl.DateTimeFormat("en-US", {
+              timeZone: "Asia/Shanghai",
+              hour: "numeric",
+              hour12: false,
+            }).format(now),
+          );
+          if (shanghaiHour >= 9 && lastDailyReportDate !== shanghaiDate) {
+            try {
+              const enterprises = await db
+                .selectFrom("enterprise")
+                .select("id")
+                .where("status", "=", "ACTIVE")
+                .execute();
+              for (const ent of enterprises) {
+                const reportResult = await runDailyTokenReport({
+                  db,
+                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
+                  enterpriseId: ent.id,
+                });
+                console.log(JSON.stringify({
+                  event: "daily_token_report_scheduler_completed",
+                  enterprise_id: ent.id,
+                  status: reportResult.status,
+                  recipients: reportResult.recipients,
+                  media_id: reportResult.mediaId,
+                }));
+              }
+              lastDailyReportDate = shanghaiDate;
+            } catch (error) {
+              console.error(JSON.stringify({
+                event: "daily_token_report_scheduler_failed",
+                error_type: error instanceof Error ? error.name : typeof error,
+                message: error instanceof Error ? error.message : String(error),
+              }));
+            }
+          }
+
           return aggregate;
         }),
         onAggregateError: (cause) => console.error(JSON.stringify({
@@ -376,6 +424,40 @@ async function migrateLegacyUnavailable(): Promise<void> {
     const review = assessment.filter((item) => item.disposition === "MANUAL_REVIEW");
     console.log(`[worker] 六态迁移完成：safe_migrated=${migrated.length} manual_review=${review.length}`);
     if (review.length > 0) console.warn("[worker] 存在需人工复核的旧 UNAVAILABLE 资源，未修改。");
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runDailyTokenReportCommand(args: string[]): Promise<void> {
+  const db = createKysely();
+  try {
+    let enterpriseId = arg(args, "--enterprise");
+    if (!enterpriseId) {
+      const ent = await db.selectFrom("enterprise").select("id").limit(1).executeTakeFirst();
+      enterpriseId = ent?.id;
+    }
+    if (!enterpriseId) {
+      console.error("[worker] 缺少 --enterprise 参数且系统中未找到企业");
+      process.exit(1);
+    }
+
+    const dateStr = arg(args, "--date");
+    const targetDate = dateStr ? new Date(`${dateStr}T00:00:00+08:00`) : undefined;
+    const recipientsRaw = arg(args, "--recipients");
+    const recipients = recipientsRaw ? recipientsRaw.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+    const dryRun = args.includes("--dry-run");
+
+    const result = await runDailyTokenReport({
+      db,
+      kekBase64: requiredEnv("CREDENTIAL_KEK"),
+      enterpriseId,
+      targetDate,
+      recipients,
+      dryRun,
+    });
+
+    console.log("[worker] 每日 Token 消费日报执行完成:", JSON.stringify(result, null, 2));
   } finally {
     await db.destroy();
   }

@@ -15,6 +15,7 @@ interface WecomResponse {
   access_token?: string;
   expires_in?: number;
   msgid?: string;
+  media_id?: string;
 }
 
 export interface WecomSendResult {
@@ -74,6 +75,14 @@ function classify(code: number): WecomSendResult {
   return { status: "PERMANENT_FAILED", providerErrorCode: String(code), classification: "WECOM_REJECTED" };
 }
 
+export interface EndpointConfig {
+  id?: string;
+  corp_id: string;
+  agent_id: string;
+  secret_ciphertext: string;
+  secret_fingerprint: string;
+}
+
 export class WecomAppClient {
   private readonly tokens = new Map<string, { token: string; expiresAt: number }>();
 
@@ -92,10 +101,10 @@ export class WecomAppClient {
       return { status: "SKIPPED", classification: "WECOM_ENDPOINT_DISABLED" };
     }
     try {
-      let token = await this.accessToken(context, false);
+      let token = await this.getEndpointAccessToken(context.endpoint, false);
       let response = await this.postMessage(context, token);
       if (response.errcode === 40014 || response.errcode === 42001) {
-        token = await this.accessToken(context, true);
+        token = await this.getEndpointAccessToken(context.endpoint, true);
         response = await this.postMessage(context, token);
       }
       const result = classify(response.errcode ?? -1);
@@ -105,20 +114,116 @@ export class WecomAppClient {
     }
   }
 
-  private async accessToken(context: DeliveryContext, forceRefresh: boolean): Promise<string> {
-    const key = `${context.endpoint.id}:${context.endpoint.secret_fingerprint}`;
+  async getEndpointAccessToken(endpoint: EndpointConfig, forceRefresh = false): Promise<string> {
+    const key = `${endpoint.id ?? endpoint.corp_id}:${endpoint.secret_fingerprint}`;
     const cached = this.tokens.get(key);
     if (!forceRefresh && cached && cached.expiresAt > this.now() + 60_000) return cached.token;
-    const encrypted = JSON.parse(context.endpoint.secret_ciphertext) as EncryptedCredential;
+    const encrypted = JSON.parse(endpoint.secret_ciphertext) as EncryptedCredential;
     const secret = decryptCredential(encrypted, decodeKek(this.kekBase64));
     const url = new URL("/cgi-bin/gettoken", WECOM_API_ORIGIN);
-    url.searchParams.set("corpid", context.endpoint.corp_id);
+    url.searchParams.set("corpid", endpoint.corp_id);
     url.searchParams.set("corpsecret", secret);
     const response = await this.fetchJson(url, { method: "GET" });
     if (response.errcode !== 0 || !response.access_token) throw new Error("WECOM_TOKEN_REJECTED");
     const expiresMs = Math.max(300_000, (response.expires_in ?? 7200) * 1000);
     this.tokens.set(key, { token: response.access_token, expiresAt: this.now() + expiresMs });
     return response.access_token;
+  }
+
+  async uploadMedia(
+    endpoint: EndpointConfig,
+    imageBuffer: Buffer,
+    filename = "daily_report.png",
+  ): Promise<string> {
+    let token = await this.getEndpointAccessToken(endpoint, false);
+    const doUpload = async (tok: string): Promise<WecomResponse> => {
+      const url = new URL("/cgi-bin/media/upload", WECOM_API_ORIGIN);
+      url.searchParams.set("access_token", tok);
+      url.searchParams.set("type", "image");
+
+      const formData = new FormData();
+      formData.append("media", new Blob([imageBuffer], { type: "image/png" }), filename);
+
+      const res = await this.fetchImpl(url, {
+        method: "POST",
+        body: formData,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      return (await res.json()) as WecomResponse & { media_id?: string };
+    };
+
+    let response = await doUpload(token);
+    if (response.errcode === 40014 || response.errcode === 42001) {
+      token = await this.getEndpointAccessToken(endpoint, true);
+      response = await doUpload(token);
+    }
+
+    if (response.errcode !== 0 || !response.media_id) {
+      throw new Error(`WECOM_MEDIA_UPLOAD_FAILED: ${response.errmsg ?? response.errcode}`);
+    }
+    return response.media_id;
+  }
+
+  async sendImageMessage(
+    endpoint: EndpointConfig,
+    toUsers: string[],
+    mediaId: string,
+  ): Promise<WecomSendResult> {
+    let token = await this.getEndpointAccessToken(endpoint, false);
+    const doPost = async (tok: string): Promise<WecomResponse> => {
+      const url = new URL("/cgi-bin/message/send", WECOM_API_ORIGIN);
+      url.searchParams.set("access_token", tok);
+      return this.fetchJson(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          touser: toUsers.join("|"),
+          msgtype: "image",
+          agentid: Number(endpoint.agent_id),
+          image: { media_id: mediaId },
+          safe: 0,
+        }),
+      });
+    };
+
+    let response = await doPost(token);
+    if (response.errcode === 40014 || response.errcode === 42001) {
+      token = await this.getEndpointAccessToken(endpoint, true);
+      response = await doPost(token);
+    }
+    const result = classify(response.errcode ?? -1);
+    return response.errcode === 0 ? { ...result, providerMessageId: response.msgid } : result;
+  }
+
+  async sendTextMessage(
+    endpoint: EndpointConfig,
+    toUsers: string[],
+    content: string,
+  ): Promise<WecomSendResult> {
+    let token = await this.getEndpointAccessToken(endpoint, false);
+    const doPost = async (tok: string): Promise<WecomResponse> => {
+      const url = new URL("/cgi-bin/message/send", WECOM_API_ORIGIN);
+      url.searchParams.set("access_token", tok);
+      return this.fetchJson(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          touser: toUsers.join("|"),
+          msgtype: "text",
+          agentid: Number(endpoint.agent_id),
+          text: { content },
+          safe: 0,
+        }),
+      });
+    };
+
+    let response = await doPost(token);
+    if (response.errcode === 40014 || response.errcode === 42001) {
+      token = await this.getEndpointAccessToken(endpoint, true);
+      response = await doPost(token);
+    }
+    const result = classify(response.errcode ?? -1);
+    return response.errcode === 0 ? { ...result, providerMessageId: response.msgid } : result;
   }
 
   private async postMessage(context: DeliveryContext, token: string): Promise<WecomResponse> {

@@ -158,3 +158,13 @@ export {
 } from "./openai-compatible-caller.js";
 
 export { hasImageInput, modelSupportsImages, MODEL_IMAGE_UNSUPPORTED, IMAGE_INPUT_UNSUPPORTED } from "./model-image-capability.js";
+
+export {
+  verifyWecomSignature,
+  calculateWecomSignature,
+  decryptWecomMessage,
+  encryptWecomMessage,
+  WecomCryptoError,
+  type DecryptedWecomPayload,
+  type EncryptedWecomReply,
+} from "./wecom-crypto.js";
