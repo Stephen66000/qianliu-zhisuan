@@ -26,6 +26,8 @@ export function DirectoryPanel() {
   const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
   const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [batchDeleteError, setBatchDeleteError] = useState<string | null>(null);
   const [batchNotice, setBatchNotice] = useState<string | null>(null);
   const [listUploadOpen, setListUploadOpen] = useState(false);
   const members = useDirectoryMembers(search);
@@ -41,6 +43,7 @@ export function DirectoryPanel() {
 
   const confirmDeleteSingle = async () => {
     if (!deleteTarget) return;
+    setDeleteError(null);
     try {
       await deleteMember.mutateAsync(deleteTarget.id);
       selectedPersonIds.delete(deleteTarget.id);
@@ -48,13 +51,14 @@ export function DirectoryPanel() {
       setBatchNotice(`已成功清理候选人员档案「${deleteTarget.name}」`);
       setDeleteTarget(null);
     } catch (err) {
-      setBatchNotice((err as Error)?.message ?? "清理失败");
+      setDeleteError((err as Error)?.message ?? "清理失败");
     }
   };
 
   const confirmBatchDelete = async () => {
     const unactivatedIds = selectedRows.filter((m) => !isActivated(m)).map((m) => m.person_id);
     if (!unactivatedIds.length) return;
+    setBatchDeleteError(null);
     try {
       const res = await batchDeleteMembers.mutateAsync(unactivatedIds);
       for (const id of unactivatedIds) selectedPersonIds.delete(id);
@@ -62,7 +66,7 @@ export function DirectoryPanel() {
       setBatchNotice(`已清理 ${res.deleted_count} 名候选人员档案${res.skipped_active_count ? `（跳过 ${res.skipped_active_count} 名已开通主体的人员）` : ""}`);
       setBatchDeleteConfirmOpen(false);
     } catch (err) {
-      setBatchNotice((err as Error)?.message ?? "批量清理失败");
+      setBatchDeleteError((err as Error)?.message ?? "批量清理失败");
     }
   };
 
@@ -212,11 +216,13 @@ export function DirectoryPanel() {
       danger
       impact={`清理后「${deleteTarget?.name}」将从候选库中移除；后续若通过企业微信或 Excel 重新同步，可重新拉取该人员。`}
       loading={deleteMember.isPending}
-      onCancel={() => setDeleteTarget(null)}
+      onCancel={() => { setDeleteTarget(null); setDeleteError(null); }}
       onConfirm={() => void confirmDeleteSingle()}
       open={deleteTarget !== null}
       title="清理候选人员档案"
-    />
+    >
+      {deleteError ? <p className="mt-2 text-[12px] text-ql-danger" role="alert">{deleteError}</p> : null}
+    </ConfirmDialog>
 
     <ConfirmDialog
       cancelLabel="取消"
@@ -224,11 +230,13 @@ export function DirectoryPanel() {
       danger
       impact={`将清理所选 ${selectedRows.filter((m) => !isActivated(m)).length} 名未开通候选人的档案（已开通主体的人员会自动跳过）。后续可通过重新同步再次导入。`}
       loading={batchDeleteMembers.isPending}
-      onCancel={() => setBatchDeleteConfirmOpen(false)}
+      onCancel={() => { setBatchDeleteConfirmOpen(false); setBatchDeleteError(null); }}
       onConfirm={() => void confirmBatchDelete()}
       open={batchDeleteConfirmOpen}
       title="批量清理候选人员档案"
-    />
+    >
+      {batchDeleteError ? <p className="mt-2 text-[12px] text-ql-danger" role="alert">{batchDeleteError}</p> : null}
+    </ConfirmDialog>
 
     <ActivationListDialog onClose={() => setListUploadOpen(false)} open={listUploadOpen} />
   </div>;

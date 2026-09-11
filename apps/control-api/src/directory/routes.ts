@@ -147,10 +147,6 @@ export function registerDirectoryRoutes(app: FastifyInstance): void {
           WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ${personId}::uuid
         `.execute(trx);
         await sql`
-          DELETE FROM employee_department_assignment
-          WHERE enterprise_id = ${enterpriseId}::uuid AND employee_person_id = ${personId}::uuid
-        `.execute(trx);
-        await sql`
           UPDATE project_department_assignment SET owner_person_id_at_assignment = NULL
           WHERE enterprise_id = ${enterpriseId}::uuid AND owner_person_id_at_assignment = ${personId}::uuid
         `.execute(trx);
@@ -222,10 +218,6 @@ export function registerDirectoryRoutes(app: FastifyInstance): void {
       await sql`
         DELETE FROM organization_membership
         WHERE enterprise_id = ${enterpriseId}::uuid AND person_id = ANY(${deletableIds}::uuid[])
-      `.execute(trx);
-      await sql`
-        DELETE FROM employee_department_assignment
-        WHERE enterprise_id = ${enterpriseId}::uuid AND employee_person_id = ANY(${deletableIds}::uuid[])
       `.execute(trx);
       await sql`
         UPDATE project_department_assignment SET owner_person_id_at_assignment = NULL
