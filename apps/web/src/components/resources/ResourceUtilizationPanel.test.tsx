@@ -193,7 +193,7 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).getByText("0 / 0")).toBeInTheDocument();
     expect(within(row).getByText("0.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 0"));
     expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
-    expect(within(row).getByText("订阅额度 100 POINT")).toBeInTheDocument();
+    expect(within(row).getByText("分配额度 100 POINT")).toBeInTheDocument();
     expect(within(row).getByText("2026-08-01～2026-09-01")).toBeInTheDocument();
     expect(within(row).queryByText(/2099/)).not.toBeInTheDocument();
     expect(within(row).getByText("暂无结算用量")).toBeInTheDocument();
@@ -226,10 +226,33 @@ describe("W20-08 资源利用事实 Web", () => {
     });
     renderPanel();
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
-    expect(within(row).getByText("订阅额度 300,000,000 TOKEN")).toBeInTheDocument();
+    expect(within(row).getByText("分配额度 300,000,000 TOKEN")).toBeInTheDocument();
     expect(within(row).getByText("90.0%")).toBeInTheDocument();
     expect(within(row).queryByText("部分调用缺少扣减额度，利用率暂不可算")).not.toBeInTheDocument();
     expect(within(row).queryByText("缺少订阅额度事实")).not.toBeInTheDocument();
+  });
+
+  it("优先显示从后端同步的分配额度事实", () => {
+    useResourceUtilizationMock.mockReturnValue({
+      data: {
+        month: "2026-09",
+        generatedAt: "2026-09-04T11:00:00.000Z",
+        resources: [resource({
+          resourceId: "kimi-allocated",
+          providerName: "Kimi",
+          resourceName: "Coding Plan",
+          mode: "CODING_PLAN",
+          packageCost: "199",
+          totalQuota: "3000000000",
+          allocatedQuota: "3530100000",
+          quotaUnit: "TOKEN",
+        })],
+      },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
+    renderPanel();
+    const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
+    expect(within(row).getByText("分配额度 3,530,100,000 TOKEN")).toBeInTheDocument();
   });
 
   it("POOL20-041：缺订阅结束日期时不把额度比例包装为周期累计", () => {

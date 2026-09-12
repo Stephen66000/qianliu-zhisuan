@@ -11,6 +11,8 @@ export interface ResourceUtilizationRow {
   resourceId: string;
   providerId: string;
   providerName: string;
+  providerCode?: string;
+  allocatedQuota?: string | null;
   resourceName: string;
   mode: "API" | "CODING_PLAN";
   resourceStatus: string;
@@ -69,7 +71,7 @@ export interface QuotaWindowFact {
 
 interface RawUtilizationRow {
   resource_id: string;
-  provider_id: string; provider_name: string; resource_name: string;
+  provider_id: string; provider_name: string; provider_code: string; resource_name: string;
   mode: "API" | "CODING_PLAN";
   resource_status: string;
   request_count: string | number; real_tokens: string;
@@ -153,6 +155,7 @@ export async function listResourceUtilization(
     SELECT pr.id AS resource_id,
            pr.provider_id,
            p.name AS provider_name,
+           p.code AS provider_code,
            pr.name AS resource_name,
            pr.mode,
            pr.status AS resource_status,
@@ -365,7 +368,7 @@ export async function listResourceUtilization(
 function mapRow(row: RawUtilizationRow): Omit<ResourceUtilizationRow, "quotaWindows"> {
   return {
     resourceId: row.resource_id, providerId: row.provider_id,
-    providerName: row.provider_name, resourceName: row.resource_name,
+    providerName: row.provider_name, providerCode: row.provider_code, resourceName: row.resource_name,
     mode: row.mode, resourceStatus: row.resource_status,
     requestCount: Number(row.request_count), realTokens: row.real_tokens,
     apiCost: row.api_cost, deductedQuota: row.deducted_quota,

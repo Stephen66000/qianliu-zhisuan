@@ -14,7 +14,7 @@ function hasCompleteSnapshots(resourceCount: number, snapshotCount: number): boo
   return resourceCount > 0 && snapshotCount === resourceCount;
 }
 
-async function sumAllocatedQuota(
+export async function sumAllocatedQuota(
   db: Kysely<Database>,
   enterpriseId: string,
   providerCode: string,

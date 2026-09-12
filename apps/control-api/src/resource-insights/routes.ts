@@ -4,7 +4,7 @@ import { Decimal } from "decimal.js";
 import { sql } from "kysely";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
-import type { ResourceFinanceView } from "@qianliu/database";
+import { type ResourceFinanceView, sumAllocatedQuota } from "@qianliu/database";
 import { listResourceUtilization, type ResourceUtilizationRow } from "./query.js";
 import { registerResourceMonthlyBudgetRoutes } from "./budget-routes.js";
 import { loadResourceUtilizationSnapshot } from "./token-utilization.js";
@@ -43,12 +43,30 @@ export function registerResourceInsightRoutes(
         req.admin!.enterpriseId, parsed.data.month,
       );
     const financeByResource = new Map(finance.map((item) => [item.resourceId, item]));
+    const allocatedQuotas = new Map<string, string>();
+    for (const resource of resources) {
+      if (resource.providerCode) {
+        const key = `${resource.providerCode}:${resource.mode}`;
+        if (!allocatedQuotas.has(key)) {
+          const quota = await sumAllocatedQuota(
+            app.db, req.admin!.enterpriseId, resource.providerCode, resource.mode, new Date(),
+          );
+          allocatedQuotas.set(key, quota);
+        }
+      }
+    }
     return {
       month: parsed.data.month,
-      resources: resources.map((resource) => ({
-        ...projectFinanceUtilization(resource, financeByResource.get(resource.resourceId)),
-        tokenUtilization: resource.tokenUtilization,
-      })),
+      resources: resources.map((resource) => {
+        const projected = projectFinanceUtilization(resource, financeByResource.get(resource.resourceId));
+        const key = resource.providerCode ? `${resource.providerCode}:${resource.mode}` : null;
+        const allocatedQuota = key ? (allocatedQuotas.get(key) ?? null) : null;
+        return {
+          ...projected,
+          allocatedQuota: allocatedQuota && allocatedQuota !== "0" ? allocatedQuota : null,
+          tokenUtilization: resource.tokenUtilization,
+        };
+      }),
       generatedAt,
     };
   });
@@ -201,7 +219,7 @@ export function projectFinanceUtilization(
   }
   const account = finance.accounts.length === 1 ? finance.accounts[0] : null;
   const next = { ...resource,
-    apiCost: account?.monthlyApiCost ?? null,
+    apiCost: resource.apiCost ?? account?.monthlyApiCost ?? null,
     currentBalance: account?.balanceState === "NORMAL" ? account.balance : null,
     purchaseCashAmount: account?.monthlyRecharge ?? "0.00000000",
     currency: account?.currency ?? null };
@@ -215,7 +233,7 @@ export function projectFinanceUtilization(
   if (account.currency !== next.budgetCurrency) return { ...next, utilizationRate: null,
     utilizationBasis: null, utilizationStatus: "UNKNOWN",
     notCalculableReason: "BUDGET_CURRENCY_MISMATCH" };
-  const spend = new MoneyDecimal(account.monthlyApiCost);
+  const spend = new MoneyDecimal(resource.apiCost ?? account.monthlyApiCost);
   const budget = new MoneyDecimal(next.budgetAmount);
   return { ...next, utilizationRate: spend.div(budget).toDecimalPlaces(8).toFixed(8),
     budgetDifference: budget.minus(spend).toDecimalPlaces(8).toFixed(8),

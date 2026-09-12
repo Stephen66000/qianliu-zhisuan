@@ -396,3 +396,4 @@ export { loadOperatingDepartmentAccounts } from "./repositories/operating-depart
 export { previewPrincipalAttributionBackfill, confirmPrincipalAttributionBackfill } from "./repositories/principal-attribution-backfill.js";
 
 export { getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal, renewDueSubscription, runSubscriptionAutoRenewals } from "./repositories/provider-finance-renewal.js";
+export { sumAllocatedQuota } from "./repositories/dashboard-breakdown.js";

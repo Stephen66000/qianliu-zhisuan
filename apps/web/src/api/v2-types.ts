@@ -140,7 +140,7 @@ export interface ResourceUtilization {
   currency: string | null; budgetAmount: string | null; budgetCurrency: string | null;
   budgetVersion: number; budgetStatus: "ACTIVE" | "CLEARED" | "NOT_CONFIGURED";
   budgetUpdatedAt: string | null; budgetDifference: string | null; currentBalance: string | null;
-  packageCost: string | null; totalQuota: string | null; usedQuota: string | null;
+  packageCost: string | null; totalQuota: string | null; allocatedQuota?: string | null; usedQuota: string | null;
   remainingQuota: string | null; quotaUnit: string | null;
   servicePeriodStart?: string | null; servicePeriodEnd?: string | null;
   utilizationRate: string | null;
