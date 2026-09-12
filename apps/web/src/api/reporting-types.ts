@@ -290,6 +290,7 @@ export interface UsageRecord {
   totalReasoningTokens: string;
   totalDeductedQuota: string;
   totalApiCost: string;
+  costCurrency?: string | null;
   usageQuality: string;
   attemptCount: number;
   hasSettlement: boolean;

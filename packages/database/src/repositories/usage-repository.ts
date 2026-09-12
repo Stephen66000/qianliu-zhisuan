@@ -65,6 +65,7 @@ export interface UsageRecord {
   totalReasoningTokens: string;
   totalDeductedQuota: string;
   totalApiCost: string;
+  costCurrency: string | null;
   usageQuality: string;
   attemptCount: number;
   hasSettlement: boolean;
@@ -99,6 +100,7 @@ interface UsageSqlRow {
   final_provider_name: string | null;
   final_resource_id: string | null;
   final_resource_name: string | null;
+  cost_currency: string | null;
   overage: boolean | null;
   total_input_tokens: bigint;
   total_output_tokens: bigint;
@@ -118,7 +120,7 @@ export class UsageRepository {
     const requestedLimit = Number.isFinite(query.limit) ? Math.trunc(query.limit!) : 50;
     const requestedOffset = Number.isFinite(query.offset) ? Math.trunc(query.offset!) : 0;
     const limit = Math.max(1, Math.min(requestedLimit, 500));
-    const offset = Math.max(0, requestedOffset);
+    const offset = Math.max(0, Math.min(requestedOffset, 10_000));
     const conditions: RawBuilder<unknown>[] = [
       sql`ar.enterprise_id = ${query.enterpriseId}`,
       sql`p.enterprise_id = ${query.enterpriseId}`,
@@ -172,7 +174,9 @@ export class UsageRepository {
     if (query.unifiedModel) conditions.push(sql`ar.unified_model = ${query.unifiedModel}`);
     if (query.status) conditions.push(sql`ar.status = ${query.status}`);
     if (query.settledOnly) conditions.push(sql`lt.status = 'SETTLED'`);
-    const usageTime = sql`COALESCE(lt.created_at, ar.started_at)`;
+    const usageTime = query.settledOnly
+      ? sql`COALESCE(lt.created_at, ar.started_at)`
+      : sql`ar.started_at`;
     if (query.from) conditions.push(sql`${usageTime} >= ${query.from}`);
     if (query.to) conditions.push(sql`${usageTime} <= ${query.to}`);
     if (query.toExclusive) conditions.push(sql`${usageTime} < ${query.toExclusive}`);
@@ -242,6 +246,7 @@ export class UsageRepository {
         final_resource.provider_name AS final_provider_name,
         final_resource.resource_id AS final_resource_id,
         final_resource.resource_name AS final_resource_name,
+        final_resource.cost_currency AS cost_currency,
         lt.overage,
         COALESCE(lt.total_input_tokens, 0) AS total_input_tokens,
         COALESCE(lt.total_output_tokens, 0) AS total_output_tokens,
@@ -263,7 +268,8 @@ export class UsageRepository {
           pv.code AS provider_code,
           pv.name AS provider_name,
           pr.id AS resource_id,
-          pr.name AS resource_name
+          pr.name AS resource_name,
+          ll.api_cost_currency AS cost_currency
         FROM ledger_line ll
         INNER JOIN upstream_attempt ua
           ON ua.id = ll.upstream_attempt_id
@@ -310,6 +316,7 @@ export class UsageRepository {
       finalProviderName: row.final_provider_name,
       finalProviderResourceId: row.final_resource_id,
       finalProviderResourceName: row.final_resource_name,
+      costCurrency: row.cost_currency ?? (Number(row.total_api_cost) > 0 ? "CNY" : null),
       overage: row.overage,
       totalInputTokens: row.total_input_tokens.toString(),
       totalOutputTokens: row.total_output_tokens.toString(),

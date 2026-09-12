@@ -254,4 +254,43 @@ describe("W18 用量账本", () => {
     expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({ search: undefined }));
   });
 
+  it("下钻携带 to_exclusive 时回显结束时间，修改结束时间主动清理 to_exclusive 避免冲突", async () => {
+    const user = userEvent.setup();
+    useUsageMock.mockReturnValue({ isLoading: false, error: null, data: usageResult([sampleRecord()], 1), refetch: vi.fn() });
+    renderUsage("/usage?tab=details&to_exclusive=2026-09-12T16:00:00.000Z");
+    const toInput = screen.getByLabelText("结束时间");
+    expect(toInput).not.toHaveValue("");
+
+    await user.clear(toInput);
+    await user.type(toInput, "2026-09-13T18:00");
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      to: expect.any(String),
+      to_exclusive: undefined,
+    }));
+  });
+
+  it("点击快捷时间（今天）快速设置开始与结束时间", async () => {
+    const user = userEvent.setup();
+    useUsageMock.mockReturnValue({ isLoading: false, error: null, data: usageResult([sampleRecord()], 1), refetch: vi.fn() });
+    renderUsage("/usage?tab=details");
+    const todayBtn = screen.getByRole("button", { name: "今天" });
+    await user.click(todayBtn);
+    expect(useUsageMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      from: expect.any(String),
+      to: expect.any(String),
+      to_exclusive: undefined,
+    }));
+  });
+
+  it("导出明细按钮在有数据时可点击并调用 window.open", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    useUsageMock.mockReturnValue({ isLoading: false, error: null, data: usageResult([sampleRecord()], 1), refetch: vi.fn() });
+    renderUsage("/usage?tab=details&search=req-123");
+    const exportBtn = screen.getByRole("button", { name: "导出明细" });
+    expect(exportBtn).toBeEnabled();
+    await user.click(exportBtn);
+    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining("/api/usage/export?search=req-123"), "_blank");
+    openSpy.mockRestore();
+  });
 });

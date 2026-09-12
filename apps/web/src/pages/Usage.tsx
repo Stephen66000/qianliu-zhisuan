@@ -1,6 +1,6 @@
 /** 用量账本：请求级事实、企业内组合筛选、URL 可复现和路由下钻。 */
 import { useState } from "react";
-import { Inbox, X } from "lucide-react";
+import { Download, Inbox, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import {
@@ -35,6 +35,19 @@ function toApiDate(value: string | null): string | undefined {
   if (!value) return undefined;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+function formatForDateTimeLocal(isoString: string | null): string {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return isoString;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const MM = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
 }
 
 function optionalSearchParam(params: URLSearchParams, name: string): string | undefined {
@@ -94,6 +107,9 @@ function UsageDetailsPage() {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(name, value);
     else next.delete(name);
+    if (name === "to" || name === "from") {
+      next.delete("to_exclusive");
+    }
     next.delete("page");
     setExpandedId(null);
     setSearchParams(next, { replace: true });
@@ -103,6 +119,35 @@ function UsageDetailsPage() {
     if (nextPage <= 0) next.delete("page");
     else next.set("page", String(nextPage + 1));
     setSearchParams(next, { replace: true });
+  };
+
+  const applyQuickRange = (preset: "today" | "24h" | "7d" | "30d") => {
+    const now = new Date();
+    const next = new URLSearchParams(searchParams);
+    let fromDate: Date;
+    if (preset === "today") {
+      fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    } else if (preset === "24h") {
+      fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    } else if (preset === "7d") {
+      fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else {
+      fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+    next.set("from", fromDate.toISOString());
+    next.set("to", now.toISOString());
+    next.delete("to_exclusive");
+    next.delete("page");
+    setExpandedId(null);
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleExport = () => {
+    const exportParams = new URLSearchParams();
+    for (const [k, v] of searchParams.entries()) {
+      if (k !== "tab" && k !== "page" && v) exportParams.set(k, v);
+    }
+    window.open(`/api/usage/export?${exportParams.toString()}`, "_blank");
   };
 
   const usageParams: UsageQueryParams = {
@@ -240,7 +285,7 @@ function UsageDetailsPage() {
               className={`${inputClass} w-full`}
               onChange={(event) => setFilter("from", event.target.value)}
               type="datetime-local"
-              value={searchParams.get("from") ?? ""}
+              value={formatForDateTimeLocal(searchParams.get("from"))}
             />
           </label>
           <label>
@@ -250,7 +295,7 @@ function UsageDetailsPage() {
               className={`${inputClass} w-full`}
               onChange={(event) => setFilter("to", event.target.value)}
               type="datetime-local"
-              value={searchParams.get("to") ?? ""}
+              value={formatForDateTimeLocal(searchParams.get("to") || searchParams.get("to_exclusive"))}
             />
           </label>
           <label className="flex h-9 items-center gap-2 self-end text-[13px] text-ql-fg">
@@ -262,18 +307,61 @@ function UsageDetailsPage() {
             />
             只看超额
           </label>
-          <button
-            className="flex h-9 items-center justify-center gap-1 self-end rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg hover:border-ql-border-strong disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!hasFilters}
-            onClick={() => {
-              setExpandedId(null);
-              setSearchParams({ tab: "details" }, { replace: true });
-            }}
-            type="button"
-          >
-            <X aria-hidden className="h-4 w-4" />
-            清除筛选
-          </button>
+          <div className="flex items-center gap-2 self-end">
+            <button
+              className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg hover:border-ql-border-strong disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={query.isLoading || total === 0}
+              onClick={handleExport}
+              title="导出当前筛选条件的 CSV 明细"
+              type="button"
+            >
+              <Download aria-hidden className="h-4 w-4" />
+              导出明细
+            </button>
+            <button
+              className="flex h-9 items-center justify-center gap-1 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg hover:border-ql-border-strong disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!hasFilters}
+              onClick={() => {
+                setExpandedId(null);
+                setSearchParams({ tab: "details" }, { replace: true });
+              }}
+              type="button"
+            >
+              <X aria-hidden className="h-4 w-4" />
+              清除筛选
+            </button>
+          </div>
+          <div className="col-span-full flex flex-wrap items-center gap-1.5 border-t border-ql-border-zone pt-2.5">
+            <span className="text-[12px] text-ql-fg-tertiary">快捷时间：</span>
+            <button
+              className="h-6 rounded border border-ql-border bg-ql-surface px-2 text-[11px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
+              onClick={() => applyQuickRange("today")}
+              type="button"
+            >
+              今天
+            </button>
+            <button
+              className="h-6 rounded border border-ql-border bg-ql-surface px-2 text-[11px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
+              onClick={() => applyQuickRange("24h")}
+              type="button"
+            >
+              近 24 小时
+            </button>
+            <button
+              className="h-6 rounded border border-ql-border bg-ql-surface px-2 text-[11px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
+              onClick={() => applyQuickRange("7d")}
+              type="button"
+            >
+              近 7 天
+            </button>
+            <button
+              className="h-6 rounded border border-ql-border bg-ql-surface px-2 text-[11px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
+              onClick={() => applyQuickRange("30d")}
+              type="button"
+            >
+              近 30 天
+            </button>
+          </div>
         </div>
       </div>
       {query.isLoading ? (
@@ -306,7 +394,7 @@ function UsageDetailsPage() {
                   <th className="py-2 pr-4 text-right font-medium">输出 Token</th>
                   <th className="py-2 pr-4 text-right font-medium">缓存 Token</th>
                   <th className="py-2 pr-4 text-right font-medium">扣减额度</th>
-                  <th className="py-2 pr-4 text-right font-medium">API 费用（元）</th>
+                  <th className="py-2 pr-4 text-right font-medium">API 费用</th>
                   <th className="py-2 pr-4 font-medium">状态</th>
                   <th className="py-2 pr-4 font-medium">开始时间</th>
                   <th className="py-2 text-right font-medium">耗时</th>

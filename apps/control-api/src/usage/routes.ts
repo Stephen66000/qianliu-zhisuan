@@ -36,12 +36,9 @@ const UsageListQuerySchema = z
     settled_only: z.enum(["true", "false"]).optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.to && value.to_exclusive) {
-      ctx.addIssue({ code: "custom", path: ["to_exclusive"], message: "to 与 to_exclusive 不能同时使用" });
-    }
-    const upper = value.to_exclusive ?? value.to;
+    const upper = value.to ?? value.to_exclusive;
     if (value.from && upper && new Date(value.from) > new Date(upper)) {
-      ctx.addIssue({ code: "custom", path: [value.to_exclusive ? "to_exclusive" : "to"], message: "结束时间不能早于 from" });
+      ctx.addIssue({ code: "custom", path: [value.to ? "to" : "to_exclusive"], message: "结束时间不能早于 from" });
     }
   });
 
@@ -100,13 +97,83 @@ export function registerUsageRoutes(
       status: q.status,
       from: q.from ? new Date(q.from) : undefined,
       to: q.to ? new Date(q.to) : undefined,
-      toExclusive: q.to_exclusive ? new Date(q.to_exclusive) : undefined,
+      toExclusive: (!q.to && q.to_exclusive) ? new Date(q.to_exclusive) : undefined,
       overageOnly: q.overage_only === "true",
       settledOnly: q.settled_only === "true",
       limit: q.limit,
       offset: q.offset,
     };
     return app.usageRepo.list(query);
+  });
+
+  // GET /usage/export —— 导出用量账本（CSV 格式）
+  app.get("/usage/export", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = UsageListQuerySchema.safeParse(req.query ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+    }
+    const q = parsed.data;
+    const query: UsageQuery = {
+      enterpriseId: req.admin!.enterpriseId,
+      search: q.search,
+      principalId: q.principal_id,
+      projectId: q.project_id,
+      subjectType: q.subject_type?.toUpperCase() as UsageQuery["subjectType"],
+      clientId: q.client_id,
+      agentFamily: q.agent_family,
+      providerId: q.provider_id,
+      providerResourceId: q.provider_resource_id,
+      unifiedModel: q.unified_model,
+      status: q.status,
+      from: q.from ? new Date(q.from) : undefined,
+      to: q.to ? new Date(q.to) : undefined,
+      toExclusive: (!q.to && q.to_exclusive) ? new Date(q.to_exclusive) : undefined,
+      overageOnly: q.overage_only === "true",
+      settledOnly: q.settled_only === "true",
+      limit: 5000,
+      offset: 0,
+    };
+    const result = await app.usageRepo.list(query);
+
+    const escapeCsv = (val: unknown) => {
+      const str = val === null || val === undefined ? "" : String(val);
+      if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const headers = [
+      "请求ID", "发起主体", "主体类型", "Agent/工具", "统一模型",
+      "最终厂商", "最终资源", "输入Token", "输出Token", "缓存Token",
+      "扣减额度", "API费用", "币种", "状态", "开始时间", "耗时(毫秒)"
+    ];
+    const rows = result.records.map((r) => [
+      escapeCsv(r.requestId),
+      escapeCsv(r.principalName),
+      escapeCsv(r.principalType),
+      escapeCsv(r.agentFamily),
+      escapeCsv(r.unifiedModel),
+      escapeCsv(r.finalProviderName ?? r.finalProviderCode ?? ""),
+      escapeCsv(r.finalProviderResourceName ?? ""),
+      escapeCsv(r.totalInputTokens),
+      escapeCsv(r.totalOutputTokens),
+      escapeCsv(r.totalCacheTokens),
+      escapeCsv(r.totalDeductedQuota),
+      escapeCsv(r.totalApiCost),
+      escapeCsv(r.costCurrency ?? "CNY"),
+      escapeCsv(r.status),
+      escapeCsv(r.startedAt),
+      escapeCsv(r.durationMs ?? ""),
+    ].join(","));
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const filename = `usage-records-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    return reply
+      .header("Content-Type", "text/csv; charset=utf-8")
+      .header("Content-Disposition", `attachment; filename="${filename}"`)
+      .send(csvContent);
   });
 
   app.get("/principals/:id/agent-usage", { preHandler: [requireAuth] }, async (req, reply) => {

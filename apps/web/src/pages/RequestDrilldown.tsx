@@ -47,6 +47,18 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
+      {request.status === "FAILED" || settlement?.status === "FAILED" ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ql-danger/20 bg-ql-danger-soft px-3 py-2 text-[12px] text-ql-danger">
+          <span>本次请求未成功完成。实际消耗已如实入账；技术诊断、错误堆栈与重试轨迹请前往异常中心查看。</span>
+          <a
+            className="font-medium text-ql-action hover:underline"
+            href={`/runtime-assurance?tab=exceptions&search=${encodeURIComponent(request.id)}`}
+          >
+            前往异常中心排查故障 →
+          </a>
+        </div>
+      ) : null}
+
       {/* 结算汇总 */}
       <section>
         <h3 className="text-[13px] font-semibold leading-5 text-ql-fg">结算汇总</h3>
@@ -57,14 +69,13 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
             <Field label="缓存 Token" value={formatCount(settlement.totalCacheTokens)} />
             <Field label="扣减额度" value={formatCount(settlement.totalDeductedQuota)} />
             <Field
-              label="API 费用（元）"
+              label="API 费用"
               value={
                 settlement.totalApiCost === "0" || settlement.totalApiCost === "0.00000000"
                   ? "套餐内"
-                  : formatMoney(settlement.totalApiCost)
+                  : `¥${formatMoney(settlement.totalApiCost)}`
               }
             />
-            <Field label="计量质量" value={settlement.usageQuality} />
             <Field label="Attempt 数" value={String(settlement.attemptCount)} />
             <Field label="结算状态" value={settlement.status} />
           </div>
@@ -206,7 +217,6 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                         {m.billingRuleSnapshot?.cacheMissPrice || m.billingRuleSnapshot?.outputPrice
                           ? ` · 单价 命中/输入/输出 ${m.billingRuleSnapshot.cacheHitPrice ?? "—"}/${m.billingRuleSnapshot.cacheMissPrice ?? "—"}/${m.billingRuleSnapshot.outputPrice ?? "—"}`
                           : ""}
-                        {m.usageQuality ? ` · ${m.usageQuality}` : ""}
                       </span>
                     ))}
                   </div>
@@ -245,8 +255,7 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                       <Field label="生效时间" value={snapshot?.effectiveFrom ? formatDateTimeFull(snapshot.effectiveFrom) : "—"} />
                       <Field label="单价（缓存/输入/输出）" value={prices} />
                       <Field label="倍率" value={metering.multiplier ? `×${metering.multiplier}` : "—"} />
-                      <Field label="计量质量" value={metering.usageQuality} />
-                      <Field label="最终费用" value={metering.apiCost === null ? "套餐内" : `${formatMoney(metering.apiCost)} 元`} />
+                      <Field label="最终费用" value={metering.apiCost === null ? "套餐内" : `¥${formatMoney(metering.apiCost)}`} />
                     </div>
                   </div>
                 );

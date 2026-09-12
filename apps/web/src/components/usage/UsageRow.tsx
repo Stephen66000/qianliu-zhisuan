@@ -30,7 +30,8 @@ function ApiCostCell({ record }: { record: UsageRecord }) {
   if (record.totalApiCost === "0" || record.totalApiCost === "0.00000000") {
     return <span className="text-ql-fg-secondary">套餐内</span>;
   }
-  return <span>{formatMoney(record.totalApiCost)}</span>;
+  const symbol = record.costCurrency === "USD" ? "$" : "¥";
+  return <span>{symbol}{formatMoney(record.totalApiCost)}</span>;
 }
 
 export function UsageRow({ record, expanded, onToggle }: {
