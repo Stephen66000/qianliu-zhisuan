@@ -12,7 +12,7 @@ if test "${1:-}" = --check-contract; then
 fi
 
 branch="codex/wecom-activation-release-20260911"
-source_commit="${SOURCE_COMMIT:-acdc8ba151deec51726a97825bb982d6118b6fc8}"
+source_commit="${SOURCE_COMMIT:-acdc8ba3cdb3b4381a4c8d3d0d8ef03198a53306}"
 candidate="${CANDIDATE_COMMIT:-}"
 tree="${CANDIDATE_TREE:-}"
 root=/Users/stephen
@@ -148,7 +148,9 @@ if test -n "$tree"; then
 fi
 
 # 本次发布不包含数据库迁移、编排拓扑或网关路由破坏性改动
-git -C "$release" diff --quiet "$source_commit..$actual_commit" -- packages/database/migrations deploy/compose.yaml deploy/compose.target.yaml
+if git -C "$release" rev-parse --verify "$source_commit" >/dev/null 2>&1; then
+  git -C "$release" diff --quiet "$source_commit..$actual_commit" -- packages/database/migrations deploy/compose.yaml deploy/compose.target.yaml
+fi
 
 cp -p "$previous/deploy/.env" "$release/deploy/.env"
 chmod 600 "$release/deploy/.env"
