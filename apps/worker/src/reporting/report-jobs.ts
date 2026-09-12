@@ -229,8 +229,8 @@ export async function runCompanyWeeklyReport(
     };
   });
 
-  // 2. 组装成员排名 Top 5
-  const topUsers = overview.ranking.slice(0, 5).map((u, idx) => {
+  // 2. 组装成员排名 Top 7
+  const topUsers = overview.ranking.slice(0, 7).map((u, idx) => {
     const uTokens = Number(u.realTokens);
     return {
       rank: idx + 1,
@@ -249,6 +249,7 @@ export async function runCompanyWeeklyReport(
     totalRequests: `${formatNumber(requestCount)} 次`,
     totalTokens: formatTokenVolume(totalTokens),
     dailyAvgTokens: formatTokenVolume(totalTokens / 7, { isDailyAvg: true }),
+    totalEmployees: activeEmployees,
     topUsers,
     topModels,
   };

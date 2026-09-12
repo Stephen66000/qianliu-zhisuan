@@ -49,10 +49,10 @@ export function generateIncentiveTop1Svg(data: IncentiveTop1ReportData): string 
       sub: `(${exceededText})`,
     },
     {
-      label: "主力协同模型",
+      label: "使用模型",
       value: data.topModel,
       isGold: false,
-      sub: `(${modelSub})`,
+      sub: undefined,
     },
   ];
 

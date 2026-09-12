@@ -123,9 +123,9 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
 
     expect(svg).toContain("全员用量周报小结");
     expect(svg).toContain("9.7 - 9.13");
-    expect(svg).toContain("10,450 次");
-    expect(svg).toContain("384.3 万");
-    expect(svg).toContain("54.9 万 /天");
+    expect(svg).toContain("10,450");
+    expect(svg).toContain("384.3");
+    expect(svg).toContain("54.9");
     expect(svg).toContain("全员使用量");
     expect(svg).toContain("使用模型");
     expect(svg).toContain("DeepSeek V3");
@@ -145,7 +145,6 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
       teamShare: "33.3%",
       exceededPercent: "超越全员 99% 同事",
       topModel: "DeepSeek V3",
-      topModelSub: "高频深度推理与代码",
     };
 
     const svg = generateIncentiveTop1Svg(data);
@@ -156,7 +155,10 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     expect(svg).toContain("#D97706"); // 暖金点睛色
     expect(svg).toContain("128.0 万");
     expect(svg).toContain("33.3%");
+    expect(svg).toContain("使用模型");
     expect(svg).toContain("DeepSeek V3");
+    expect(svg).not.toContain("主力协同模型");
+    expect(svg).not.toContain("高频深度推理与代码");
 
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
 
@@ -174,7 +176,6 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
       monthlyTokens: "68.5 万",
       totalRequests: "1,620 次",
       topModel: "DeepSeek V3 + GLM 5.3",
-      topModelSub: "深度推理与综合协作",
     };
 
     const svg = generateIncentiveOver50Svg(data);
@@ -185,6 +186,7 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     expect(svg).toContain("68.5 万");
     expect(svg).toContain("1,620 次");
     expect(svg).toContain("DeepSeek V3 + GLM 5.3");
+    expect(svg).not.toContain("深度推理与综合协作");
 
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
 

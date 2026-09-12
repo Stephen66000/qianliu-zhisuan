@@ -50,7 +50,7 @@ export function generateIncentiveOver50Svg(data: IncentiveOver50ReportData): str
     {
       label: "主力模型",
       value: data.topModel,
-      sub: `(${modelSub})`,
+      sub: undefined,
     },
   ];
 

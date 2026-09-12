@@ -150,7 +150,6 @@ export async function checkAndDispatchTop1Milestone(
     teamShare: formatPercentage(topUser.share),
     exceededPercent: "超越全员 99% 同事",
     topModel: topModelName,
-    topModelSub: "高频深度推理与代码",
   };
 
   const svg = generateIncentiveTop1Svg(top1Data);
@@ -333,7 +332,6 @@ export async function checkAndDispatchOver50Milestone(
       monthlyTokens: formatTokenVolume(userTokens),
       totalRequests: `${formatNumber(item.requestCount)} 次`,
       topModel: topModelStr,
-      topModelSub: "深度推理与综合协作",
     };
 
     const svg = generateIncentiveOver50Svg(cardData);
