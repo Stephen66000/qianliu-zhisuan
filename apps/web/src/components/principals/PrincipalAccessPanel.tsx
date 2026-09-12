@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Settings2 } from "lucide-react";
+import { Copy, KeyRound, Settings2 } from "lucide-react";
 
 import { post } from "../../api/client";
 import { QUERY_KEYS, useAccessConfiguration, useGrants, usePrincipalKeys, useUnifiedModels } from "../../api/hooks";
@@ -39,7 +39,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
   const modelsQuery = useUnifiedModels();
   const [plaintextKey, setPlaintextKey] = useState<string | null>(null);
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "success-key" | "success-info" | "error">("idle");
   const [resetConfirm, setResetConfirm] = useState(false);
   const [archiveGrantTarget, setArchiveGrantTarget] = useState<PrincipalGrantItem | null>(null);
   // POOL-033（GLM 评审 P0-1）：池化后额度只读展示——调额/超额/停用统一走上方
@@ -139,6 +139,16 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
       )
     )
     .map((model) => model.alias);
+  const copyJustKey = async () => {
+    if (!plaintextKey) return;
+    try {
+      await navigator.clipboard.writeText(plaintextKey);
+      setCopyStatus("success-key");
+    } catch {
+      setCopyStatus("error");
+    }
+  };
+
   const copyConnectionInfo = async () => {
     if (!plaintextKey) return;
     const content = [
@@ -149,7 +159,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
     ].join("\n");
     try {
       await navigator.clipboard.writeText(content);
-      setCopyStatus("success");
+      setCopyStatus("success-info");
     } catch {
       setCopyStatus("error");
     }
@@ -178,8 +188,18 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
             <div className="mt-2">
               <div className="flex flex-wrap items-center gap-2">
                 <code className="rounded bg-ql-surface-muted px-2 py-1 text-[12px]">
-                  {activeKey.key_prefix}••••••••
+                  {plaintextKey ? plaintextKey : `${activeKey.key_prefix}••••••••`}
                 </code>
+                {plaintextKey ? (
+                  <button
+                    className="flex items-center gap-1 rounded-md border border-ql-border bg-ql-surface px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                    onClick={() => void copyJustKey()}
+                    type="button"
+                  >
+                    <Copy aria-hidden className="h-3.5 w-3.5" />
+                    复制 Key
+                  </button>
+                ) : null}
                 <StatusTag tone="neutral">有效</StatusTag>
                 <button data-write-action
                   className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-warning hover:bg-ql-warning-soft"
@@ -188,6 +208,9 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                 >
                   重置 Key
                 </button>
+                {copyStatus === "success-key" ? (
+                  <span className="text-[11px] text-ql-success" role="status">Key 已复制</span>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -239,6 +262,14 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
               >
                 复制接入信息
               </button>
+              <button
+                className="h-8 rounded-md border border-ql-border bg-ql-surface px-3 text-[12px] font-medium text-ql-fg disabled:cursor-not-allowed disabled:opacity-50 hover:bg-ql-surface-subtle"
+                disabled={!plaintextKey}
+                onClick={() => void copyJustKey()}
+                type="button"
+              >
+                复制 Key
+              </button>
               {plaintextKey ? (
                 <button
                   className="h-8 rounded-md border border-ql-border px-3 text-[12px] text-ql-fg-secondary"
@@ -255,8 +286,11 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                   完整 Key 已不可恢复；如未保存，请重置 Key。
                 </span>
               )}
-              {copyStatus === "success" ? (
-                <span className="text-[11px] text-ql-success" role="status">复制成功</span>
+              {copyStatus === "success-key" ? (
+                <span className="text-[11px] text-ql-success" role="status">Key 复制成功</span>
+              ) : null}
+              {copyStatus === "success-info" || copyStatus === "success" ? (
+                <span className="text-[11px] text-ql-success" role="status">接入信息复制成功</span>
               ) : null}
               {copyStatus === "error" ? (
                 <span className="text-[11px] text-ql-danger" role="alert">复制失败，请检查剪贴板权限</span>
@@ -360,6 +394,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
         copyStatus={copyStatus}
         onClose={() => setKeyDialogOpen(false)}
         onCopy={() => void copyConnectionInfo()}
+        onCopyKey={() => void copyJustKey()}
         open={keyDialogOpen}
         plaintextKey={plaintextKey}
       />

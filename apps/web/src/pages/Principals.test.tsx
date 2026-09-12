@@ -484,6 +484,71 @@ describe("W19 使用主体", () => {
     expect(copied).not.toContain("••••");
   });
 
+  it("生成 Key 弹窗与页面提供单独「复制 Key」按钮，只复制纯 Key 字符串", async () => {
+    postMock.mockResolvedValue({ key: "sk-qianliu-pure-key-12345" });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "接入配置" }));
+    await user.click(screen.getByRole("button", { name: "生成 Key" }));
+
+    // 1. 弹窗内点击「复制 Key」
+    const dialog = screen.getByRole("dialog");
+    const copyKeyBtnInDialog = within(dialog).getByRole("button", { name: "复制 Key" });
+    await user.click(copyKeyBtnInDialog);
+    expect(await navigator.clipboard.readText()).toBe("sk-qianliu-pure-key-12345");
+    expect(within(dialog).getByText("Key 复制成功")).toBeInTheDocument();
+
+    // 2. 关闭弹窗后，页面底部「接入信息」区域同样有「复制 Key」
+    await user.click(within(dialog).getByRole("button", { name: "继续配置" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    const bottomCopyKeyBtn = screen.getByRole("button", { name: "复制 Key" });
+    await user.click(bottomCopyKeyBtn);
+    expect(await navigator.clipboard.readText()).toBe("sk-qianliu-pure-key-12345");
+    expect(screen.getByText("Key 复制成功")).toBeInTheDocument();
+  });
+
+  it("当主体已有有效 Key 且存在内存明文时，顶部「主体 Key」显示明文并支持复制", async () => {
+    usePrincipalKeysMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        keys: [{
+          id: "k1",
+          enterprise_id: "e1",
+          principal_id: "p1",
+          key_prefix: "sk-qianliu-x",
+          allowed_model_ids: [],
+          status: "ACTIVE",
+          created_at: "2026-07-28T02:00:00.000Z",
+        }],
+      },
+      refetch: vi.fn(),
+    });
+    postMock.mockResolvedValue({ key: "sk-qianliu-reset-new-key" });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "接入配置" }));
+
+    // 点击重置 Key 打开确认对话框
+    await user.click(screen.getByRole("button", { name: "重置 Key" }));
+    await user.click(screen.getByRole("button", { name: "确认重置" }));
+
+    // 弹窗关闭后，主体 Key 卡片中联动显示明文及「复制 Key」
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "继续配置" }));
+
+    const keyCard = screen.getByText("主体 Key").closest("div")!;
+    expect(within(keyCard).getAllByText("sk-qianliu-reset-new-key")).toHaveLength(2);
+
+    const copyButtons = within(keyCard).getAllByRole("button", { name: "复制 Key" });
+    expect(copyButtons).toHaveLength(2);
+    expect(copyButtons[0]).toBeDefined();
+    await user.click(copyButtons[0]!);
+    expect(await navigator.clipboard.readText()).toBe("sk-qianliu-reset-new-key");
+    expect(within(keyCard).getByText("Key 已复制")).toBeInTheDocument();
+  });
+
   it("共享额度展示业务语义和真实型号，已停用授权可手工归档", async () => {
     useGrantsMock.mockReturnValue({
       isLoading: false,
