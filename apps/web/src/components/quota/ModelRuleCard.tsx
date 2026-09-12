@@ -127,10 +127,10 @@ export function ModelRuleCard({
   return (
     <div
       data-testid={`model-rule-card-${group.id}`}
-      className="mb-4 overflow-hidden rounded-xl border border-ql-border bg-ql-surface shadow-sm transition-all hover:border-ql-border-zone"
+      className="mb-4 overflow-hidden rounded-xl border border-ql-border bg-ql-surface"
     >
       {/* Card Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ql-border-zone bg-ql-surface-subtle px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ql-border bg-ql-surface-subtle px-4 py-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-ql-fg text-[14px]">
@@ -145,7 +145,7 @@ export function ModelRuleCard({
           <span className="rounded bg-ql-surface-muted px-2 py-0.5 text-[11px] font-medium text-ql-fg-secondary border border-ql-border">
             {group.providerName} · {group.resourceName}
           </span>
-          <span className="rounded bg-ql-action-soft px-2 py-0.5 text-[11px] font-medium text-ql-action border border-ql-action/20">
+          <span className="rounded bg-ql-surface-brand-soft px-2 py-0.5 text-[11px] font-medium text-ql-action border border-ql-border">
             {group.resourceMode === "CODING_PLAN" ? "Coding Plan 额度" : "API 计费"}
           </span>
         </div>
@@ -155,27 +155,27 @@ export function ModelRuleCard({
           {onAdjustPricing ? (
             <button
               type="button"
-              className="rounded-md border border-ql-border bg-ql-surface px-2 py-1 text-[12px] font-medium text-ql-fg hover:border-ql-action hover:text-ql-action transition-colors"
+              className="rounded-md border border-ql-border bg-ql-surface px-2.5 py-1 text-[12px] font-medium text-ql-fg hover:border-ql-action hover:text-ql-action transition-colors"
               onClick={() => onAdjustPricing(group)}
             >
               调整价格
             </button>
           ) : null}
-          <span className="text-[11px] text-ql-fg-tertiary">
+          <span className="text-[11px] text-ql-fg-tertiary tabular-nums">
             共 {group.allRules.length} 条规则版本
           </span>
         </div>
       </div>
 
       {/* Card Body: Base Rule vs Peak Rule */}
-      <div className="grid grid-cols-1 divide-y lg:divide-y-0 lg:divide-x divide-ql-border-zone lg:grid-cols-2 p-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 divide-y lg:divide-y-0 lg:divide-x divide-ql-border lg:grid-cols-2 p-4 gap-4 lg:gap-6">
         {/* Left Column: Base Rule (All-day) */}
         <div className="flex flex-col justify-between">
           <div>
             <div className="mb-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium text-[13px]">
-                <Sun className="h-4 w-4" />
-                <span>☀️ 基础规则（全天）</span>
+              <div className="flex items-center gap-1.5 font-medium text-[13px] text-ql-fg">
+                <Sun className="h-4 w-4 text-ql-fg-secondary shrink-0" />
+                <span>基础规则（全天）</span>
               </div>
               {group.baseRule ? (
                 <div className="flex items-center gap-2">
@@ -186,7 +186,7 @@ export function ModelRuleCard({
             </div>
 
             {group.baseRule ? (
-              <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 p-3.5 dark:border-amber-900/30 dark:bg-amber-950/10">
+              <div className="rounded-lg border border-ql-border bg-ql-surface-subtle p-3.5">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-mono text-[12px] font-semibold text-ql-fg">
                     {group.baseRule.rule_version}
@@ -198,7 +198,7 @@ export function ModelRuleCard({
 
                 <div className="mb-2.5 text-[13px] font-mono text-ql-fg">
                   {group.baseRule.rule_type === "API_PRICE" ? (
-                    <div className="grid grid-cols-3 gap-2 rounded bg-ql-surface/80 p-2 text-center text-[12px] border border-ql-border">
+                    <div className="grid grid-cols-3 gap-2 rounded border border-ql-border bg-ql-surface p-2 text-center text-[12px]">
                       <div>
                         <div className="text-[10px] text-ql-fg-tertiary">缓存命中</div>
                         <div className="font-semibold text-ql-fg">
@@ -219,8 +219,8 @@ export function ModelRuleCard({
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded bg-ql-surface/80 p-2 text-[12px] border border-ql-border">
-                      基础额度倍率：
+                    <div className="rounded border border-ql-border bg-ql-surface p-2 text-[12px] flex items-center justify-between">
+                      <span className="text-ql-fg-secondary text-[11px]">基础额度倍率：</span>
                       <strong className="font-semibold text-ql-fg">
                         ×{group.baseRule.multiplier ?? "1.0"}
                       </strong>
@@ -239,13 +239,13 @@ export function ModelRuleCard({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ql-border p-6 text-center">
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ql-border bg-ql-surface-subtle/50 p-6 text-center">
                 <p className="text-[12px] text-ql-fg-tertiary mb-2">未配置全天基础计费规则</p>
                 {onConfigureBaseRule ? (
                   <button
                     type="button"
                     onClick={() => onConfigureBaseRule(group)}
-                    className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                    className="inline-flex items-center gap-1 rounded-md border border-ql-border bg-ql-surface px-2.5 py-1 text-[12px] font-medium text-ql-action hover:border-ql-action hover:bg-ql-action-soft transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     配置基础规则
@@ -266,7 +266,7 @@ export function ModelRuleCard({
                 {showHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </button>
               {showHistory ? (
-                <div className="mt-2 space-y-1 rounded bg-ql-surface-subtle p-2 border border-ql-border">
+                <div className="mt-2 space-y-1 rounded border border-ql-border bg-ql-surface-subtle p-2">
                   {group.allBaseRules.slice(1).map((r) => (
                     <div key={r.id} className="flex items-center justify-between text-[11px]">
                       <span className="font-mono text-ql-fg-secondary">{r.rule_version}</span>
@@ -285,9 +285,9 @@ export function ModelRuleCard({
         <div className="flex flex-col justify-between pt-4 lg:pt-0">
           <div>
             <div className="mb-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-medium text-[13px]">
-                <Zap className="h-4 w-4" />
-                <span>⚡️ 高峰期规则（时段浮动）</span>
+              <div className="flex items-center gap-1.5 font-medium text-[13px] text-ql-fg">
+                <Zap className="h-4 w-4 text-ql-fg-secondary shrink-0" />
+                <span>高峰期规则（时段浮动）</span>
               </div>
               {onAddPeakWindow ? (
                 <button
@@ -306,7 +306,7 @@ export function ModelRuleCard({
                 {group.peakRules.map((peakRule) => (
                   <div
                     key={peakRule.id}
-                    className="rounded-lg border border-purple-200/60 bg-purple-50/40 p-3.5 dark:border-purple-900/30 dark:bg-purple-950/10"
+                    className="rounded-lg border border-ql-border bg-ql-surface-subtle p-3.5"
                   >
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -318,9 +318,9 @@ export function ModelRuleCard({
                       {renderRuleActions(peakRule)}
                     </div>
 
-                    <div className="mb-2 rounded bg-ql-surface/80 p-2 text-[12px] border border-ql-border flex items-center justify-between">
+                    <div className="mb-2 rounded border border-ql-border bg-ql-surface p-2 text-[12px] flex items-center justify-between">
                       <span className="text-ql-fg-secondary text-[11px]">时段执行计价：</span>
-                      <strong className="font-mono text-purple-700 dark:text-purple-300">
+                      <strong className="font-mono font-semibold text-ql-fg">
                         {formatRulePricing(peakRule)}
                       </strong>
                     </div>
@@ -328,7 +328,7 @@ export function ModelRuleCard({
                     <div className="space-y-1 text-[11px] text-ql-fg-secondary">
                       <div className="flex items-start gap-1.5">
                         <Clock className="h-3.5 w-3.5 text-ql-fg-tertiary shrink-0 mt-0.5" />
-                        <span className="font-mono text-purple-900 dark:text-purple-200">
+                        <span className="font-mono text-ql-fg">
                           {formatRuleTimeWindows(peakRule)}
                         </span>
                       </div>
@@ -340,7 +340,7 @@ export function ModelRuleCard({
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ql-border p-6 text-center">
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ql-border bg-ql-surface-subtle/50 p-6 text-center">
                 <p className="text-[12px] text-ql-fg-tertiary mb-2">
                   未配置高峰期时段规则（全天执行基础单价）
                 </p>
@@ -348,7 +348,7 @@ export function ModelRuleCard({
                   <button
                     type="button"
                     onClick={() => onAddPeakWindow(group)}
-                    className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[12px] font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/30"
+                    className="inline-flex items-center gap-1 rounded-md border border-ql-border bg-ql-surface px-2.5 py-1 text-[12px] font-medium text-ql-action hover:border-ql-action hover:bg-ql-action-soft transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     配置高峰期规则

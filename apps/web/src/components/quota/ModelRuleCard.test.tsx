@@ -81,14 +81,14 @@ describe("ModelRuleCard 组件", () => {
     expect(screen.getAllByText("生效中").length).toBeGreaterThan(0);
 
     // Base Rule section checks
-    expect(screen.getByText("☀️ 基础规则（全天）")).toBeInTheDocument();
+    expect(screen.getByText("基础规则（全天）")).toBeInTheDocument();
     expect(screen.getByText("v-base-1")).toBeInTheDocument();
     expect(screen.getByText("0.000001")).toBeInTheDocument();
     expect(screen.getByText("0.000002")).toBeInTheDocument();
     expect(screen.getByText("0.000004")).toBeInTheDocument();
 
     // Peak Rule section checks
-    expect(screen.getByText("⚡️ 高峰期规则（时段浮动）")).toBeInTheDocument();
+    expect(screen.getByText("高峰期规则（时段浮动）")).toBeInTheDocument();
     expect(screen.getByText("v-peak-1")).toBeInTheDocument();
     expect(screen.getByText(/14:00–18:00/)).toBeInTheDocument();
   });

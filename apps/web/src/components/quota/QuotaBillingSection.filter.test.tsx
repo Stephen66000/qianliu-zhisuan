@@ -287,8 +287,8 @@ describe("QuotaBillingSection 多维筛选栏", () => {
     // 默认是卡片聚合视图：包含模型卡片，GLM-5.3 卡片中同时包含基础与高峰规则
     const glmCard = screen.getByTestId("model-rule-card-res-zhipu-1::glm-5.3");
     expect(glmCard).toBeInTheDocument();
-    expect(glmCard).toHaveTextContent("☀️ 基础规则（全天）");
-    expect(glmCard).toHaveTextContent("⚡️ 高峰期规则（时段浮动）");
+    expect(glmCard).toHaveTextContent("基础规则（全天）");
+    expect(glmCard).toHaveTextContent("高峰期规则（时段浮动）");
 
     // 切换到明细表格视图
     const tableViewBtn = screen.getByRole("button", { name: "明细表格视图" });
