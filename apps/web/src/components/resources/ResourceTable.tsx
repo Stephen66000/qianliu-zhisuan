@@ -6,7 +6,7 @@ import { QueryGate } from "../states/QueryGate";
 import { formatDateTimeFull } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
 import { operatingDraftFromResource } from "./resource-form-contract";
-import { ISOLATED, MODE_LABEL, ResourceFinanceDisplay } from "./resource-page-display";
+import { ISOLATED, MODE_LABEL, ResourceFinanceColumn, ResourceQuotaColumn } from "./resource-page-display";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
 export function resourceModelNames(resource: Pick<ProviderResourceItem, "upstream_models" | "display_upstream_models">) {
@@ -28,18 +28,19 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
         onRetry={() => void query.refetch()}
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] table-fixed border-collapse text-left">
+          <table className="w-full min-w-[1240px] table-fixed border-collapse text-left">
             <colgroup>
-              <col className="w-[10%]" /><col className="w-[15%]" /><col className="w-[6%]" />
-              <col className="w-[19%]" /><col className="w-[14%]" />
-              <col className="w-[9%]" /><col className="w-[12%]" /><col className="w-[15%]" />
+              <col className="w-[10%]" /><col className="w-[14%]" /><col className="w-[5%]" />
+              <col className="w-[12%]" /><col className="w-[14%]" /><col className="w-[13%]" />
+              <col className="w-[8%]" /><col className="w-[10%]" /><col className="w-[14%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
                 <th className="py-2 pr-4 font-medium">名称</th>
                 <th className="py-2 pr-4 font-medium">厂商/模型</th>
                 <th className="py-2 pr-4 font-medium">模式</th>
-                <th className="py-2 pr-4 font-medium">资金 / 额度数据</th>
+                <th className="py-2 pr-4 font-medium">资金</th>
+                <th className="py-2 pr-4 font-medium">额度数据</th>
                 <th className="py-2 pr-4 font-medium">数据时间</th>
                 <th className="py-2 pr-4 font-medium">状态</th>
                 <th className="py-2 pr-4 font-medium">创建时间</th>
@@ -63,7 +64,10 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                   </td>
                   <td className="py-2.5 pr-4 text-ql-fg-secondary">{MODE_LABEL[r.mode]}</td>
                   <td className="break-words py-2.5 pr-4 text-ql-fg-secondary">
-                    <ResourceFinanceDisplay resource={r} />
+                    <ResourceFinanceColumn resource={r} />
+                  </td>
+                  <td className="break-words py-2.5 pr-4 text-ql-fg-secondary">
+                    <ResourceQuotaColumn resource={r} />
                   </td>
                   <td
                     className="break-words py-2.5 pr-4 align-top text-ql-fg-secondary"

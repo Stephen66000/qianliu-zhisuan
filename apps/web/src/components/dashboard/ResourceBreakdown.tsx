@@ -30,7 +30,7 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
             <th className="py-2 pr-4 text-right font-medium">分配额度</th>
             <th className="py-2 pr-4 text-right font-medium">已用额度</th>
-            <th className="py-2 pr-4 text-right font-medium">剩余额度 / 当前余额</th>
+            <th className="py-2 pr-4 text-right font-medium">当前余额</th>
             <th className="py-2 pr-4 text-right font-medium">当前订阅金额</th>
             <th className="py-2 pr-4 text-right font-medium">本月花费</th>
             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
@@ -129,17 +129,13 @@ function monthlyTokenText(item: ResourceBreakdownItem): ReactNode {
   return (
     <span title={`输入 ${item.monthlyInputTokens ?? "—"}；输出 ${item.monthlyOutputTokens ?? "—"}；缓存 ${item.monthlyCacheTokens ?? "—"}；推理 ${item.monthlyReasoningTokens ?? "—"}`}>
       {formatCount(item.monthlyTotalTokens)}
-      <span className="block text-[11px] text-ql-fg-tertiary">
-        {unknown > 0 ? `已记录；另有 ${unknown} 笔计量未知` : qualityLabel(item.monthlyUsageQuality)}
-      </span>
+      {unknown > 0 ? (
+        <span className="block text-[11px] text-ql-fg-tertiary">
+          已记录；另有 {unknown} 笔计量未知
+        </span>
+      ) : null}
     </span>
   );
-}
-
-function qualityLabel(quality: ResourceBreakdownItem["monthlyUsageQuality"]): string {
-  if (quality === "EXACT") return "精确计量";
-  if (quality === "ESTIMATED") return "估算计量";
-  return "计量未知";
 }
 
 function usageRateText(item: ResourceBreakdownItem): ReactNode {

@@ -135,16 +135,12 @@ function modelTokenText(item: ResourceModelUsageDetail) {
   }
   return <>
     {formatCount(item.monthlyTotalTokens)}
-    <span className="block font-sans text-[10px] text-ql-fg-tertiary">
-      {unknown > 0 ? `已记录；另有 ${unknown} 笔计量未知` : qualityLabel(item.usageQuality)}
-    </span>
+    {unknown > 0 ? (
+      <span className="block font-sans text-[10px] text-ql-fg-tertiary">
+        已记录；另有 {unknown} 笔计量未知
+      </span>
+    ) : null}
   </>;
-}
-
-function qualityLabel(quality: ResourceModelUsageDetail["usageQuality"]): string {
-  if (quality === "EXACT") return "精确计量";
-  if (quality === "ESTIMATED") return "估算计量";
-  return "计量未知";
 }
 
 function statusTone(status: string): "neutral" | "warning" | "danger" {

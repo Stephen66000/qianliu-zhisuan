@@ -85,7 +85,10 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
       }),
     ]} />);
 
-    expect(screen.getAllByText("估算计量").length).toBeGreaterThan(0);
+    expect(screen.queryByText("估算计量")).not.toBeInTheDocument();
+    expect(screen.queryByText("精确计量")).not.toBeInTheDocument();
+    expect(screen.getByText("当前余额")).toBeInTheDocument();
+    expect(screen.queryByText("剩余额度 / 当前余额")).not.toBeInTheDocument();
     expect(screen.queryByText("ql-unknown-model")).not.toBeInTheDocument();
     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.getByText("不可计算（计量未知）")).toBeInTheDocument();
