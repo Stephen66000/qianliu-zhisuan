@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Gauge } from "lucide-react";
+import { Gauge, LayoutGrid, List } from "lucide-react";
 import { ManagementSection } from "./ManagementSection";
 import { QueryGate } from "../states/QueryGate";
 import { StatusTag } from "../dashboard/StatusTag";
@@ -11,6 +11,9 @@ import type { BillingRule } from "../../api/types";
 import { PricingRouteFields } from "./PricingRouteFields";
 import { PricingPreview } from "./PricingPreview";
 import { ModelDisableAction } from "./ModelDisableAction";
+import { ModelRuleCard } from "./ModelRuleCard";
+import { groupRulesByModel, type ModelRuleGroup } from "./model-rule-grouping";
+import { copyPrice, pricingCopyCandidates, currentPricingSet } from "./pricing-copy";
 
 export function getRuleStatusCategory(
   rule: Pick<BillingRule, "enabled" | "effective_from" | "effective_to" | "archived_at">,
@@ -28,6 +31,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
   const [filterProvider, setFilterProvider] = useState<string>("all");
   const [filterModel, setFilterModel] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   const resourceMap = useMemo(() => {
     return new Map(model.resources.map((r) => [r.id, r]));
@@ -85,6 +89,141 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
       return true;
     });
   }, [rules, filterProvider, filterModel, filterStatus, resourceMap]);
+
+  const filteredGroups = useMemo(() => {
+    return groupRulesByModel(
+      filteredRules,
+      model.resources,
+      model.providers,
+      model.models,
+      model.allRoutes
+    );
+  }, [filteredRules, model.resources, model.providers, model.models, model.allRoutes]);
+
+  const handleAddPeakWindow = (group: ModelRuleGroup) => {
+    const route = model.allRoutes.find(
+      (rt) => rt.provider_resource_id === group.providerResourceId && rt.upstream_model === group.upstreamModel
+    );
+    model.setShowRuleForm(true);
+    if (route) {
+      model.setSelectedModelId(route.unified_model_id);
+      model.setSelectedRuleRouteId(route.id);
+      model.routeForm.setValue("priority", route.priority);
+      model.routeForm.setValue("weight", route.weight);
+    }
+    if (group.providerResourceId) {
+      model.ruleForm.setValue("provider_resource_id", group.providerResourceId);
+    }
+    if (group.upstreamModel) {
+      model.ruleForm.setValue("upstream_model", group.upstreamModel);
+    }
+    const resource = model.resources.find((item) => item.id === group.providerResourceId);
+    const isCodingPlan = resource?.mode === "CODING_PLAN";
+    model.ruleForm.setValue("rule_type", isCodingPlan ? "TIME_WINDOW" : "API_PRICE");
+    model.ruleForm.setValue("pricing_mode", isCodingPlan ? "ABSOLUTE" : "MULTIPLIER");
+    model.ruleForm.setValue("rule_version", `${group.upstreamModel ?? "model"}-peak-v1`);
+    if (!isCodingPlan && group.baseRule) {
+      model.ruleForm.setValue("cache_hit_price", group.baseRule.cache_hit_price ?? "");
+      model.ruleForm.setValue("cache_miss_price", group.baseRule.cache_miss_price ?? "");
+      model.ruleForm.setValue("output_price", group.baseRule.output_price ?? "");
+      model.ruleForm.setValue("multiplier", "1.5");
+    } else if (isCodingPlan && group.baseRule) {
+      model.ruleForm.setValue("multiplier", group.baseRule.multiplier ?? "1.5");
+    }
+    model.appendRuleWindow({
+      timezone: "Asia/Shanghai",
+      days_of_week: "1,2,3,4,5",
+      start_time: "14:00",
+      end_time: "18:00",
+    });
+  };
+
+  const handleConfigureBaseRule = (group: ModelRuleGroup) => {
+    const route = model.allRoutes.find(
+      (rt) => rt.provider_resource_id === group.providerResourceId && rt.upstream_model === group.upstreamModel
+    );
+    model.setShowRuleForm(true);
+    if (route) {
+      model.setSelectedModelId(route.unified_model_id);
+      model.setSelectedRuleRouteId(route.id);
+      model.routeForm.setValue("priority", route.priority);
+      model.routeForm.setValue("weight", route.weight);
+    }
+    if (group.providerResourceId) {
+      model.ruleForm.setValue("provider_resource_id", group.providerResourceId);
+    }
+    if (group.upstreamModel) {
+      model.ruleForm.setValue("upstream_model", group.upstreamModel);
+    }
+    const resource = model.resources.find((item) => item.id === group.providerResourceId);
+    const isCodingPlan = resource?.mode === "CODING_PLAN";
+    model.ruleForm.setValue("rule_type", isCodingPlan ? "MODEL_TIER" : "API_PRICE");
+    model.ruleForm.setValue("pricing_mode", "ABSOLUTE");
+    model.ruleForm.setValue("rule_version", `${group.upstreamModel ?? "model"}-base-v1`);
+    model.ruleForm.setValue("windows", []);
+  };
+
+  const handleAdjustPricing = (group: ModelRuleGroup) => {
+    const route = model.allRoutes.find(
+      (rt) => rt.provider_resource_id === group.providerResourceId && rt.upstream_model === group.upstreamModel
+    );
+    model.setShowRuleForm(true);
+    if (route) {
+      model.setSelectedModelId(route.unified_model_id);
+      model.setSelectedRuleRouteId(route.id);
+      model.routeForm.setValue("priority", route.priority);
+      model.routeForm.setValue("weight", route.weight);
+    }
+    if (group.providerResourceId) {
+      model.ruleForm.setValue("provider_resource_id", group.providerResourceId);
+    }
+    if (group.upstreamModel) {
+      model.ruleForm.setValue("upstream_model", group.upstreamModel);
+    }
+    if (group.providerResourceId && group.upstreamModel) {
+      const candidates = pricingCopyCandidates(
+        model.allRules,
+        model.resources,
+        group.providerResourceId,
+        group.upstreamModel
+      );
+      const source = candidates.find(
+        (r) => r.provider_resource_id === group.providerResourceId && r.upstream_model === group.upstreamModel
+      ) ?? candidates[0];
+
+      if (source && route) {
+        const set = currentPricingSet(candidates, source);
+        const suffix = Date.now().toString(36);
+        const values = set.map((r, index) =>
+          copyPrice(r, route.provider_resource_id, route.upstream_model, `${suffix}-${index}`)
+        );
+        model.ruleForm.reset(values[0]);
+        model.setQueuedRules(values.slice(1));
+        model.setSourceRuleIds(set.map((r) => r.id));
+        model.setSubmissionId(crypto.randomUUID());
+        model.setReplaceExisting(true);
+        return;
+      }
+    }
+    if (group.baseRule) {
+      const suffix = Date.now().toString(36);
+      const val = copyPrice(
+        group.baseRule,
+        group.providerResourceId ?? "",
+        group.upstreamModel ?? "",
+        suffix
+      );
+      model.ruleForm.reset(val);
+      if (group.peakRules.length > 0) {
+        const queued = group.peakRules.map((pr, idx) =>
+          copyPrice(pr, group.providerResourceId ?? "", group.upstreamModel ?? "", `${suffix}-peak-${idx}`)
+        );
+        model.setQueuedRules(queued);
+        model.setSourceRuleIds([group.baseRule.id, ...group.peakRules.map((pr) => pr.id)]);
+      }
+      model.setReplaceExisting(true);
+    }
+  };
 
   const isFiltered = filterProvider !== "all" || filterModel !== "all" || filterStatus !== "all";
   const resetFilters = () => {
@@ -398,12 +537,43 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             <ModelDisableAction model={model} inline />
           </div>
 
-          <div data-testid="rule-count-summary" className="text-[12px] text-ql-fg-tertiary shrink-0">
-            {isFiltered ? (
-              <span>显示 <strong className="font-mono text-ql-fg">{filteredRules.length}</strong> / 共 {rules.length} 条规则</span>
-            ) : (
-              <span>共 <strong className="font-mono text-ql-fg">{rules.length}</strong> 条规则</span>
-            )}
+          <div className="flex items-center gap-3 shrink-0">
+            <div data-testid="rule-count-summary" className="text-[12px] text-ql-fg-tertiary">
+              {isFiltered ? (
+                <span>显示 <strong className="font-mono text-ql-fg">{filteredRules.length}</strong> / 共 {rules.length} 条规则</span>
+              ) : (
+                <span>共 <strong className="font-mono text-ql-fg">{rules.length}</strong> 条规则</span>
+              )}
+            </div>
+
+            <div className="flex items-center rounded-md border border-ql-border bg-ql-surface p-0.5 text-[12px]">
+              <button
+                type="button"
+                aria-label="卡片聚合视图"
+                className={`flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+                  viewMode === "card"
+                    ? "bg-ql-action text-white"
+                    : "text-ql-fg-secondary hover:text-ql-fg"
+                }`}
+                onClick={() => setViewMode("card")}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>卡片聚合</span>
+              </button>
+              <button
+                type="button"
+                aria-label="明细表格视图"
+                className={`flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+                  viewMode === "table"
+                    ? "bg-ql-action text-white"
+                    : "text-ql-fg-secondary hover:text-ql-fg"
+                }`}
+                onClick={() => setViewMode("table")}
+              >
+                <List className="h-3.5 w-3.5" />
+                <span>明细列表</span>
+              </button>
+            </div>
           </div>
         </div>
         <p className="mb-3 text-[11px] text-ql-fg-tertiary">
@@ -419,36 +589,52 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
           isLoading={rulesQuery.isLoading}
           onRetry={() => void rulesQuery.refetch()}
         >
-          <table className="w-full border-collapse text-left text-[12px]">
-            <thead>
-              <tr className="border-b border-ql-border text-ql-fg-tertiary">
-                <th className="p-2 font-medium">版本</th>
-                <th className="p-2 font-medium">类型</th>
-                <th className="p-2 font-medium">上游模型</th>
-                <th className="p-2 font-medium">时段 [开始,结束)</th>
-                <th className="p-2 text-right font-medium">单价 / 倍率</th>
-                <th className="p-2 font-medium">状态</th>
-                <th className="p-2 text-right font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRules.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-[13px] text-ql-fg-tertiary">
-                    未找到符合筛选条件的计价规则
-                    {isFiltered ? (
-                      <button
-                        type="button"
-                        onClick={resetFilters}
-                        className="ml-2 text-ql-action underline hover:no-underline"
-                      >
-                        清除筛选
-                      </button>
-                    ) : null}
-                  </td>
+          {filteredRules.length === 0 ? (
+            <div className="py-12 text-center text-[13px] text-ql-fg-tertiary">
+              未找到符合筛选条件的计价规则
+              {isFiltered ? (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="ml-2 text-ql-action underline hover:no-underline"
+                >
+                  清除筛选
+                </button>
+              ) : null}
+            </div>
+          ) : viewMode === "card" ? (
+            <div className="space-y-4">
+              {filteredGroups.map((group) => (
+                <ModelRuleCard
+                  key={group.id}
+                  group={group}
+                  onUpdateRule={(rule, patch) => updateRule.mutate({ rule, patch })}
+                  onArchiveRule={(rule, archive) =>
+                    archiveConfig.mutate({ kind: "rule", item: rule, archive })
+                  }
+                  onSetArchiveTarget={(target) => setArchiveTarget(target)}
+                  onAddPeakWindow={handleAddPeakWindow}
+                  onConfigureBaseRule={handleConfigureBaseRule}
+                  onAdjustPricing={handleAdjustPricing}
+                  isUpdating={updateRule.isPending || archiveConfig.isPending}
+                />
+              ))}
+            </div>
+          ) : (
+            <table className="w-full border-collapse text-left text-[12px]">
+              <thead>
+                <tr className="border-b border-ql-border text-ql-fg-tertiary">
+                  <th className="p-2 font-medium">版本</th>
+                  <th className="p-2 font-medium">类型</th>
+                  <th className="p-2 font-medium">上游模型</th>
+                  <th className="p-2 font-medium">时段 [开始,结束)</th>
+                  <th className="p-2 text-right font-medium">单价 / 倍率</th>
+                  <th className="p-2 font-medium">状态</th>
+                  <th className="p-2 text-right font-medium">操作</th>
                 </tr>
-              ) : (
-                filteredRules.map((rule) => (
+              </thead>
+              <tbody>
+                {filteredRules.map((rule) => (
                   <tr className="border-b border-ql-border-zone last:border-b-0 hover:bg-ql-surface-subtle" key={rule.id}>
                     <td className="p-2 font-mono">{rule.rule_version}<span className="block text-ql-fg-tertiary">
                       {new Date(rule.effective_from).toLocaleString("zh-CN")} ～ {rule.effective_to ? new Date(rule.effective_to).toLocaleString("zh-CN") : "长期"}
@@ -496,10 +682,10 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                       </>}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </QueryGate>
       </ManagementSection>
 

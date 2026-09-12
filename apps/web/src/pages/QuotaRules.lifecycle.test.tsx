@@ -138,6 +138,7 @@ describe("POOL20-036～037 配置归档与调度恢复", () => {
     const user = userEvent.setup();
     render(<MemoryRouter><QuotaRulesPage /></MemoryRouter>);
 
+    await user.click(screen.getByRole("button", { name: "明细表格视图" }));
     const ruleRow = screen.getByText("archive-rule-v1").closest("tr")!;
     await user.click(within(ruleRow).getByRole("button", { name: "归档" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("确认归档计价规则？");

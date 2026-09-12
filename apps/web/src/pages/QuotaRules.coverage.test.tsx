@@ -106,6 +106,7 @@ it("表格区分待生效、已过期、停用、套餐和缺价，不把缺价�
     rule("archived", { enabled: false, archived_at: "2026-01-01T00:00:00Z" }),
   ] }));
   const user = userEvent.setup(); render(view());
+  await user.click(screen.getByRole("button", { name: "明细表格视图" }));
   const row = (id: string) => screen.getByText(id).closest("tr")!;
   expect(row("future")).toHaveTextContent("待生效");
   expect(row("expired")).toHaveTextContent("已到期");

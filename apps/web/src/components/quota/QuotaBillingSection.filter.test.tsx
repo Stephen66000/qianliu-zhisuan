@@ -278,4 +278,51 @@ describe("QuotaBillingSection 多维筛选栏", () => {
     expect(screen.getByTestId("rule-count-summary")).toHaveTextContent("共 3 条规则");
     expect(screen.getByText("v-zhipu-base")).toBeInTheDocument();
   });
+
+  it("支持在卡片聚合视图与明细表格视图之间自由切换", async () => {
+    const user = userEvent.setup();
+    const model = buildMockModel();
+    render(<QuotaBillingSection model={model} />);
+
+    // 默认是卡片聚合视图：包含模型卡片，GLM-5.3 卡片中同时包含基础与高峰规则
+    const glmCard = screen.getByTestId("model-rule-card-res-zhipu-1::glm-5.3");
+    expect(glmCard).toBeInTheDocument();
+    expect(glmCard).toHaveTextContent("☀️ 基础规则（全天）");
+    expect(glmCard).toHaveTextContent("⚡️ 高峰期规则（时段浮动）");
+
+    // 切换到明细表格视图
+    const tableViewBtn = screen.getByRole("button", { name: "明细表格视图" });
+    await user.click(tableViewBtn);
+
+    // 应当渲染 table
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("时段 [开始,结束)")).toBeInTheDocument();
+
+    // 切换回卡片聚合视图
+    const cardViewBtn = screen.getByRole("button", { name: "卡片聚合视图" });
+    await user.click(cardViewBtn);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByTestId("model-rule-card-res-zhipu-1::glm-5.3")).toBeInTheDocument();
+  });
+
+  it("点击卡片上的调整价格自动打开表单并载入模型与规则配置", async () => {
+    const user = userEvent.setup();
+    const model = buildMockModel();
+    render(<QuotaBillingSection model={model} />);
+
+    const glmCard = screen.getByTestId("model-rule-card-res-zhipu-1::glm-5.3");
+    const adjustBtn = glmCard.querySelector("button")!;
+    expect(glmCard).toHaveTextContent("调整价格");
+
+    const adjustPriceBtn = Array.from(glmCard.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "调整价格"
+    );
+    expect(adjustPriceBtn).toBeDefined();
+    await user.click(adjustPriceBtn!);
+
+    expect(model.setShowRuleForm).toHaveBeenCalledWith(true);
+    expect(model.ruleForm.setValue).toHaveBeenCalledWith("provider_resource_id", "res-zhipu-1");
+    expect(model.ruleForm.setValue).toHaveBeenCalledWith("upstream_model", "glm-5.3");
+  });
 });
+
