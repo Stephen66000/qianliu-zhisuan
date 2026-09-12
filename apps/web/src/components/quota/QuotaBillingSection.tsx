@@ -40,13 +40,14 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
   const providerOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const r of model.resources) {
+      if (!r.provider_id) continue;
       const p = providerMap.get(r.provider_id);
       map.set(r.provider_id, p?.name ?? r.name);
     }
     for (const r of rules) {
       if (!r.provider_resource_id) continue;
       const res = resourceMap.get(r.provider_resource_id);
-      if (res) {
+      if (res && res.provider_id) {
         const p = providerMap.get(res.provider_id);
         map.set(res.provider_id, p?.name ?? res.name);
       }
@@ -103,7 +104,6 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
         onAction={() => setShowRuleForm((value) => !value)}
         title="计价"
       >
-        <ModelDisableAction model={model} />
         {showRuleForm ? (
           <form data-write-action
             className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4 md:grid-cols-4"
@@ -331,83 +331,85 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             </div>
           </form>
         ) : null}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-medium text-ql-fg-secondary">厂商：</span>
+              <select
+                aria-label="筛选厂商"
+                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                value={filterProvider}
+                onChange={(e) => {
+                  setFilterProvider(e.target.value);
+                  setFilterModel("all");
+                }}
+              >
+                <option key="all" value="all">全部厂商</option>
+                {providerOptions.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-medium text-ql-fg-secondary">模型：</span>
+              <select
+                aria-label="筛选模型"
+                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                value={filterModel}
+                onChange={(e) => setFilterModel(e.target.value)}
+              >
+                <option key="all" value="all">全部模型</option>
+                {modelOptions.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-medium text-ql-fg-secondary">状态：</span>
+              <select
+                aria-label="筛选状态"
+                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option key="all" value="all">全部状态</option>
+                <option value="ACTIVE">生效中</option>
+                <option value="PENDING">待生效</option>
+                <option value="DISABLED">停用</option>
+                <option value="EXPIRED">已到期</option>
+                {model.showArchived ? <option value="ARCHIVED">已归档</option> : null}
+              </select>
+            </div>
+
+            {isFiltered ? (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="h-8 rounded-md px-2.5 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+              >
+                重置筛选
+              </button>
+            ) : null}
+
+            <div className="hidden h-5 w-px bg-ql-border-zone xl:block" />
+
+            <ModelDisableAction model={model} inline />
+          </div>
+
+          <div data-testid="rule-count-summary" className="text-[12px] text-ql-fg-tertiary shrink-0">
+            {isFiltered ? (
+              <span>显示 <strong className="font-mono text-ql-fg">{filteredRules.length}</strong> / 共 {rules.length} 条规则</span>
+            ) : (
+              <span>共 <strong className="font-mono text-ql-fg">{rules.length}</strong> 条规则</span>
+            )}
+          </div>
+        </div>
         <p className="mb-3 text-[11px] text-ql-fg-tertiary">
           价格、倍率、时间窗和优先级属于规则版本，不可原地改写；变更时请新建
           rule_version，并用生效/失效时间完成切换。
         </p>
-        {rules.length > 0 ? (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12px] font-medium text-ql-fg-secondary">厂商：</span>
-                <select
-                  aria-label="筛选厂商"
-                  className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
-                  value={filterProvider}
-                  onChange={(e) => {
-                    setFilterProvider(e.target.value);
-                    setFilterModel("all");
-                  }}
-                >
-                  <option value="all">全部厂商</option>
-                  {providerOptions.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12px] font-medium text-ql-fg-secondary">模型：</span>
-                <select
-                  aria-label="筛选模型"
-                  className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
-                  value={filterModel}
-                  onChange={(e) => setFilterModel(e.target.value)}
-                >
-                  <option value="all">全部模型</option>
-                  {modelOptions.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12px] font-medium text-ql-fg-secondary">状态：</span>
-                <select
-                  aria-label="筛选状态"
-                  className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                >
-                  <option value="all">全部状态</option>
-                  <option value="ACTIVE">生效中</option>
-                  <option value="PENDING">待生效</option>
-                  <option value="DISABLED">停用</option>
-                  <option value="EXPIRED">已到期</option>
-                  {model.showArchived ? <option value="ARCHIVED">已归档</option> : null}
-                </select>
-              </div>
-
-              {isFiltered ? (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="h-8 rounded-md px-2.5 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
-                >
-                  重置筛选
-                </button>
-              ) : null}
-            </div>
-
-            <div data-testid="rule-count-summary" className="text-[12px] text-ql-fg-tertiary">
-              {isFiltered ? (
-                <span>显示 <strong className="font-mono text-ql-fg">{filteredRules.length}</strong> / 共 {rules.length} 条规则</span>
-              ) : (
-                <span>共 <strong className="font-mono text-ql-fg">{rules.length}</strong> 条规则</span>
-              )}
-            </div>
-          </div>
-        ) : null}
         <QueryGate
           emptyDescription="先登记厂商资源，再创建用于账本结算的计价规则模板。"
           emptyIcon={Gauge}
