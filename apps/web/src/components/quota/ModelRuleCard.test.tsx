@@ -91,6 +91,31 @@ describe("ModelRuleCard 组件", () => {
     expect(screen.getByText("高峰期规则（时段浮动）")).toBeInTheDocument();
     expect(screen.getByText("v-peak-1")).toBeInTheDocument();
     expect(screen.getByText(/14:00–18:00/)).toBeInTheDocument();
+    expect(screen.getByText(/基础单价 × 1.5/)).toBeInTheDocument();
+  });
+
+  it("高峰期规则为 API 绝对单价模式时，同样展示规范价格小方块", () => {
+    const absolutePeakRule = mockRule({
+      id: "peak-abs",
+      rule_version: "v-peak-abs",
+      pricing_mode: "ABSOLUTE",
+      multiplier: null,
+      cache_hit_price: "0.00000004",
+      cache_miss_price: "0.000002",
+      output_price: "0.000008",
+      time_windows: [
+        { timezone: "Asia/Shanghai", days_of_week: [1, 2, 3, 4, 5], start_time: "09:00", end_time: "12:00" },
+      ],
+      enabled: true,
+    });
+    const absGroup: ModelRuleGroup = {
+      ...sampleGroup,
+      peakRules: [absolutePeakRule],
+      allRules: [baseRule, absolutePeakRule],
+    };
+    render(<ModelRuleCard group={absGroup} />);
+    expect(screen.getByText("¥0.04")).toBeInTheDocument();
+    expect(screen.getByText("¥8.00")).toBeInTheDocument();
   });
 
   it("当未配置高峰期规则时显示友好空状态及添加按钮", async () => {

@@ -23,6 +23,52 @@ export interface ModelRuleCardProps {
   isUpdating?: boolean;
 }
 
+function ApiPriceBoxes({
+  rule,
+  title = "按量计价",
+}: {
+  rule: BillingRule;
+  title?: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[10px] text-ql-fg-tertiary">
+        <span>{title}</span>
+        <span>单位：{rule.currency ?? "CNY"} / 百万 Token</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2 rounded border border-ql-border bg-ql-surface p-2 text-center text-[12px]">
+        <div>
+          <div className="text-[10px] text-ql-fg-tertiary">缓存命中</div>
+          <div
+            className="font-semibold text-ql-fg"
+            title={rule.cache_hit_price ? `${rule.cache_hit_price}/Token` : undefined}
+          >
+            {formatPricePerMillion(rule.cache_hit_price, rule.currency, { showUnit: false })}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] text-ql-fg-tertiary">未命中输入</div>
+          <div
+            className="font-semibold text-ql-fg"
+            title={rule.cache_miss_price ? `${rule.cache_miss_price}/Token` : undefined}
+          >
+            {formatPricePerMillion(rule.cache_miss_price, rule.currency, { showUnit: false })}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] text-ql-fg-tertiary">输出单价</div>
+          <div
+            className="font-semibold text-ql-fg"
+            title={rule.output_price ? `${rule.output_price}/Token` : undefined}
+          >
+            {formatPricePerMillion(rule.output_price, rule.currency, { showUnit: false })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ModelRuleCard({
   group,
   now = Date.now(),
@@ -199,32 +245,7 @@ export function ModelRuleCard({
 
                 <div className="mb-2.5 text-[13px] font-mono text-ql-fg">
                   {group.baseRule.rule_type === "API_PRICE" ? (
-                    <div>
-                      <div className="mb-1 flex items-center justify-between text-[10px] text-ql-fg-tertiary">
-                        <span>按量计价</span>
-                        <span>单位：{group.baseRule.currency ?? "CNY"} / 百万 Token</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 rounded border border-ql-border bg-ql-surface p-2 text-center text-[12px]">
-                        <div>
-                          <div className="text-[10px] text-ql-fg-tertiary">缓存命中</div>
-                          <div className="font-semibold text-ql-fg" title={group.baseRule.cache_hit_price ? `${group.baseRule.cache_hit_price}/Token` : undefined}>
-                            {formatPricePerMillion(group.baseRule.cache_hit_price, group.baseRule.currency, { showUnit: false })}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-ql-fg-tertiary">未命中输入</div>
-                          <div className="font-semibold text-ql-fg" title={group.baseRule.cache_miss_price ? `${group.baseRule.cache_miss_price}/Token` : undefined}>
-                            {formatPricePerMillion(group.baseRule.cache_miss_price, group.baseRule.currency, { showUnit: false })}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-ql-fg-tertiary">输出单价</div>
-                          <div className="font-semibold text-ql-fg" title={group.baseRule.output_price ? `${group.baseRule.output_price}/Token` : undefined}>
-                            {formatPricePerMillion(group.baseRule.output_price, group.baseRule.currency, { showUnit: false })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <ApiPriceBoxes rule={group.baseRule} title="按量计价" />
                   ) : (
                     <div className="rounded border border-ql-border bg-ql-surface p-2 text-[12px] flex items-center justify-between">
                       <span className="text-ql-fg-secondary text-[11px]">基础额度倍率：</span>
@@ -325,11 +346,28 @@ export function ModelRuleCard({
                       {renderRuleActions(peakRule)}
                     </div>
 
-                    <div className="mb-2 rounded border border-ql-border bg-ql-surface p-2 text-[12px] flex items-center justify-between">
-                      <span className="text-ql-fg-secondary text-[11px]">时段执行计价：</span>
-                      <strong className="font-mono font-semibold text-ql-fg">
-                        {formatRulePricing(peakRule)}
-                      </strong>
+                    <div className="mb-2.5 text-[13px] font-mono text-ql-fg">
+                      {peakRule.rule_type === "API_PRICE" && peakRule.pricing_mode !== "MULTIPLIER" ? (
+                        <ApiPriceBoxes rule={peakRule} title="时段执行计价" />
+                      ) : (
+                        <div className="rounded border border-ql-border bg-ql-surface p-2 text-[12px] flex items-center justify-between">
+                          <span className="text-ql-fg-secondary text-[11px]">
+                            {peakRule.rule_type === "API_PRICE" ? "时段浮动倍率：" : "高峰额度倍率："}
+                          </span>
+                          <strong className="font-semibold text-ql-fg">
+                            {peakRule.pricing_mode === "MULTIPLIER" && peakRule.multiplier ? (
+                              <span>
+                                ×{peakRule.multiplier}
+                                <span className="ml-1 text-[11px] font-normal text-ql-fg-tertiary">
+                                  （基础单价 × {peakRule.multiplier}）
+                                </span>
+                              </span>
+                            ) : (
+                              formatRulePricing(peakRule)
+                            )}
+                          </strong>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1 text-[11px] text-ql-fg-secondary">
