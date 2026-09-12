@@ -6,11 +6,15 @@
  * apps/control-api/src/providers/health-routes.ts（判定语义源在 control-api）。
  */
 import { worstResourceStatus, type ResourceStatus } from "@qianliu/domain";
+import { Decimal } from "decimal.js";
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 import { ProviderRepository } from "./provider-repository.js";
-import type { ProviderOperatingSyncState } from "./provider-operating-repository.js";
+import type {
+  ProviderOperatingSyncState,
+  ProviderResourceOperatingSnapshot,
+} from "./provider-operating-repository.js";
 import type {
   ProviderStatusCategory,
   StandardHomeProviderRow,
@@ -19,6 +23,9 @@ import type {
 
 /** 与 providers/routes.ts 一致的经营数据过期阈值。 */
 const SYNC_STALE_MS = 36 * 3_600_000;
+
+/** 余额偏低预警默认阈值（20 元）。 */
+export const DEFAULT_LOW_BALANCE_THRESHOLD = new Decimal(20);
 
 /** 状态中文标签；镜像 apps/control-api/src/providers/health-routes.ts STATUS_LABEL。 */
 const RESOURCE_STATUS_LABEL: Record<string, string> = {
@@ -94,10 +101,28 @@ export function syncStateOf(
   return "OK";
 }
 
+export interface LowBalanceResourceView {
+  resourceName: string;
+  balance: string;
+  currency: string | null;
+  formattedBalance: string;
+  isExhausted: boolean;
+}
+
+export function formatBalanceAmount(balance: string, currency: string | null): string {
+  const num = Number(balance);
+  const formatted = isNaN(num)
+    ? balance
+    : num.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (currency === "CNY" || !currency) return `¥${formatted}`;
+  return `${currency} ${formatted}`;
+}
+
 /** 一句话关注信息：固定模板从既有事实生成，不引入大模型，不含凭证或原始上游内容。 */
-function attentionText(
+export function attentionText(
   abnormal: AbnormalResourceView[],
   sync: ResourceSyncFacts,
+  lowBalance: LowBalanceResourceView[] = [],
 ): string | null {
   const parts: string[] = [];
   if (abnormal.length > 0) {
@@ -120,6 +145,15 @@ function attentionText(
           : "";
     parts.push(`${scope}：${summary}${hint}`);
   }
+  if (lowBalance.length > 0) {
+    if (lowBalance.length === 1) {
+      const item = lowBalance[0]!;
+      const desc = item.isExhausted ? "当前余额已耗尽" : `当前余额偏低（${item.formattedBalance}）`;
+      parts.push(`${item.resourceName}：${desc}，建议及时充值`);
+    } else {
+      parts.push(`其中 ${lowBalance.length} 项资源当前余额偏低，建议及时充值`);
+    }
+  }
   if (sync.failedCount > 0) {
     const codes = sync.failedErrorCodes.length > 0 ? `（${sync.failedErrorCodes.join("、")}）` : "";
     parts.push(`其中 ${sync.failedCount} 项资源经营数据同步失败${codes}`);
@@ -136,11 +170,13 @@ function attentionText(
   return `${parts.join("；")}${suffix}`;
 }
 
-function providerRow(
+export function providerRow(
   rows: ProviderResourceStatusRow[],
   reasonByResource: Map<string, LatestStatusEventRow>,
   syncByResource: Map<string, ProviderOperatingSyncState>,
+  snapshotByResource: Map<string, ProviderResourceOperatingSnapshot>,
   now: Date,
+  lowBalanceThreshold: Decimal = DEFAULT_LOW_BALANCE_THRESHOLD,
 ): StandardHomeProviderRow {
   // 不变量：providerRow 仅被按厂商非空分组调用（byProvider 构造保证 rows.length ≥ 1，
   // 见 loadStandardHomeResources 的分组循环），首元素非空断言安全（V14-C2 F-E）。
@@ -157,6 +193,28 @@ function providerRow(
           row.status, row.mode, event && event.time_reliable ? event.reason : null),
       };
     });
+  const lowBalance: LowBalanceResourceView[] = [];
+  for (const row of rows) {
+    if (row.mode === "API" && row.status === "ACTIVE") {
+      const snapshot = snapshotByResource.get(row.resource_id);
+      if (snapshot && snapshot.current_balance !== null && snapshot.current_balance !== undefined) {
+        try {
+          const bal = new Decimal(snapshot.current_balance);
+          if (bal.lte(lowBalanceThreshold)) {
+            lowBalance.push({
+              resourceName: row.resource_name,
+              balance: snapshot.current_balance,
+              currency: snapshot.currency,
+              formattedBalance: formatBalanceAmount(snapshot.current_balance, snapshot.currency),
+              isExhausted: bal.lte(0),
+            });
+          }
+        } catch {
+          // ignore unparseable balance
+        }
+      }
+    }
+  }
   const worstRow = rows.reduce((left, right) =>
     resourceSeverity(right.status) > resourceSeverity(left.status) ? right : left);
   const worstEvent = reasonByResource.get(worstRow.resource_id);
@@ -204,7 +262,7 @@ function providerRow(
       : resourceStatusLabel(worst, worstRow.mode, worstReason),
     statusCategory,
     abnormalResourceCount: abnormal.length,
-    attention: attentionText(abnormal, syncFacts),
+    attention: attentionText(abnormal, syncFacts, lowBalance),
     syncFailed: syncFacts.failedCount > 0,
     syncStale: syncFacts.staleCount > 0 || syncFacts.notRunCount > 0,
     lastSyncAt: lastSyncAt?.toISOString() ?? null,
@@ -217,7 +275,7 @@ export async function loadStandardHomeResources(
   enterpriseId: string,
   now: Date,
 ): Promise<StandardHomeResources> {
-  const [resourceRows, syncStates] = await Promise.all([
+  const [resourceRows, syncStates, latestSnapshots] = await Promise.all([
     sql<ProviderResourceStatusRow>`
       SELECT p.code AS provider_code, p.name AS provider_name,
              pr.id AS resource_id, pr.name AS resource_name, pr.mode, pr.status,
@@ -228,6 +286,7 @@ export async function loadStandardHomeResources(
        ORDER BY p.name ASC, pr.name ASC
     `.execute(db),
     new ProviderRepository(db).listLatestOperatingSyncStates(enterpriseId),
+    new ProviderRepository(db).listLatestOperatingSnapshots(enterpriseId),
   ]);
   const abnormalIds = resourceRows.rows
     .filter((row) => row.status !== "ACTIVE")
@@ -241,6 +300,7 @@ export async function loadStandardHomeResources(
     `.execute(db)).rows;
   const reasonByResource = new Map(eventRows.map((row) => [row.provider_resource_id, row]));
   const syncByResource = new Map(syncStates.map((state) => [state.provider_resource_id, state]));
+  const snapshotByResource = new Map(latestSnapshots.map((s) => [s.provider_resource_id, s]));
 
   const byProvider = new Map<string, ProviderResourceStatusRow[]>();
   for (const row of resourceRows.rows) {
@@ -248,13 +308,14 @@ export async function loadStandardHomeResources(
     byProvider.set(key, [...(byProvider.get(key) ?? []), row]);
   }
   const providers = [...byProvider.values()]
-    .map((rows) => providerRow(rows, reasonByResource, syncByResource, now))
+    .map((rows) => providerRow(rows, reasonByResource, syncByResource, snapshotByResource, now))
     .sort((left, right) => left.providerName.localeCompare(right.providerName, "zh-Hans-CN"));
 
   const resourceUpdatedAt = [
     ...resourceRows.rows.map((row) => row.updated_at),
     ...syncStates.map((state) => state.completed_at),
-  ].reduce<Date | null>((latest, value) => !latest || value > latest ? value : latest, null);
+    ...latestSnapshots.map((s) => s.collected_at),
+  ].reduce<Date | null>((latest, value) => !latest || (value && value > latest) ? value : latest, null);
   return {
     providerCount: providers.length,
     resourceCount: resourceRows.rows.length,
