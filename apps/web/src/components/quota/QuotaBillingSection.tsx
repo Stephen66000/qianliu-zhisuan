@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { Gauge } from "lucide-react";
 import { ManagementSection } from "./ManagementSection";
 import { QueryGate } from "../states/QueryGate";
@@ -6,12 +7,90 @@ import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { WeekdayPicker, formatDaysOfWeek, parseDaysOfWeek } from "./WeekdayPicker";
 import { BillingRuleSchema, editableWindows, localDateTimeValue } from "../../pages/quota-rule-contract";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
+import type { BillingRule } from "../../api/types";
 import { PricingRouteFields } from "./PricingRouteFields";
 import { PricingPreview } from "./PricingPreview";
 import { ModelDisableAction } from "./ModelDisableAction";
 
+export function getRuleStatusCategory(
+  rule: Pick<BillingRule, "enabled" | "effective_from" | "effective_to" | "archived_at">,
+  now: number = Date.now()
+): "ARCHIVED" | "DISABLED" | "PENDING" | "EXPIRED" | "ACTIVE" {
+  if (rule.archived_at) return "ARCHIVED";
+  if (!rule.enabled) return "DISABLED";
+  if (new Date(rule.effective_from).getTime() > now) return "PENDING";
+  if (rule.effective_to && new Date(rule.effective_to).getTime() <= now) return "EXPIRED";
+  return "ACTIVE";
+}
+
 export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
   const { archiveConfig, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, rules, updateRule, setArchiveTarget, createRule, rulesQuery } = model;
+  const [filterProvider, setFilterProvider] = useState<string>("all");
+  const [filterModel, setFilterModel] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const resourceMap = useMemo(() => {
+    return new Map(model.resources.map((r) => [r.id, r]));
+  }, [model.resources]);
+
+  const providerMap = useMemo(() => {
+    return new Map((model.providers ?? []).map((p) => [p.id, p]));
+  }, [model.providers]);
+
+  const providerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of model.resources) {
+      const p = providerMap.get(r.provider_id);
+      map.set(r.provider_id, p?.name ?? r.name);
+    }
+    for (const r of rules) {
+      if (!r.provider_resource_id) continue;
+      const res = resourceMap.get(r.provider_resource_id);
+      if (res) {
+        const p = providerMap.get(res.provider_id);
+        map.set(res.provider_id, p?.name ?? res.name);
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [model.resources, rules, resourceMap, providerMap]);
+
+  const modelOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rules) {
+      if (!r.upstream_model) continue;
+      if (filterProvider !== "all") {
+        const res = r.provider_resource_id ? resourceMap.get(r.provider_resource_id) : undefined;
+        if (!res || res.provider_id !== filterProvider) continue;
+      }
+      set.add(r.upstream_model);
+    }
+    return Array.from(set).sort();
+  }, [rules, filterProvider, resourceMap]);
+
+  const filteredRules = useMemo(() => {
+    const now = Date.now();
+    return rules.filter((rule) => {
+      if (filterProvider !== "all") {
+        const res = rule.provider_resource_id ? resourceMap.get(rule.provider_resource_id) : undefined;
+        if (!res || res.provider_id !== filterProvider) return false;
+      }
+      if (filterModel !== "all") {
+        if (rule.upstream_model !== filterModel) return false;
+      }
+      if (filterStatus !== "all") {
+        const cat = getRuleStatusCategory(rule, now);
+        if (cat !== filterStatus) return false;
+      }
+      return true;
+    });
+  }, [rules, filterProvider, filterModel, filterStatus, resourceMap]);
+
+  const isFiltered = filterProvider !== "all" || filterModel !== "all" || filterStatus !== "all";
+  const resetFilters = () => {
+    setFilterProvider("all");
+    setFilterModel("all");
+    setFilterStatus("all");
+  };
   return <>
       <ManagementSection
         actionLabel="新建规则"
@@ -256,6 +335,79 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
           价格、倍率、时间窗和优先级属于规则版本，不可原地改写；变更时请新建
           rule_version，并用生效/失效时间完成切换。
         </p>
+        {rules.length > 0 ? (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] font-medium text-ql-fg-secondary">厂商：</span>
+                <select
+                  aria-label="筛选厂商"
+                  className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                  value={filterProvider}
+                  onChange={(e) => {
+                    setFilterProvider(e.target.value);
+                    setFilterModel("all");
+                  }}
+                >
+                  <option value="all">全部厂商</option>
+                  {providerOptions.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] font-medium text-ql-fg-secondary">模型：</span>
+                <select
+                  aria-label="筛选模型"
+                  className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                  value={filterModel}
+                  onChange={(e) => setFilterModel(e.target.value)}
+                >
+                  <option value="all">全部模型</option>
+                  {modelOptions.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] font-medium text-ql-fg-secondary">状态：</span>
+                <select
+                  aria-label="筛选状态"
+                  className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                >
+                  <option value="all">全部状态</option>
+                  <option value="ACTIVE">生效中</option>
+                  <option value="PENDING">待生效</option>
+                  <option value="DISABLED">停用</option>
+                  <option value="EXPIRED">已到期</option>
+                  {model.showArchived ? <option value="ARCHIVED">已归档</option> : null}
+                </select>
+              </div>
+
+              {isFiltered ? (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="h-8 rounded-md px-2.5 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                >
+                  重置筛选
+                </button>
+              ) : null}
+            </div>
+
+            <div data-testid="rule-count-summary" className="text-[12px] text-ql-fg-tertiary">
+              {isFiltered ? (
+                <span>显示 <strong className="font-mono text-ql-fg">{filteredRules.length}</strong> / 共 {rules.length} 条规则</span>
+              ) : (
+                <span>共 <strong className="font-mono text-ql-fg">{rules.length}</strong> 条规则</span>
+              )}
+            </div>
+          </div>
+        ) : null}
         <QueryGate
           emptyDescription="先登记厂商资源，再创建用于账本结算的计价规则模板。"
           emptyIcon={Gauge}
@@ -278,48 +430,72 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               </tr>
             </thead>
             <tbody>
-              {rules.map((rule) => (
-                <tr className="border-b border-ql-border-zone last:border-b-0" key={rule.id}>
-                  <td className="p-2 font-mono">{rule.rule_version}<span className="block text-ql-fg-tertiary">
-                    {new Date(rule.effective_from).toLocaleString("zh-CN")} ～ {rule.effective_to ? new Date(rule.effective_to).toLocaleString("zh-CN") : "长期"}
-                  </span></td>
-                  <td className="p-2">{rule.rule_type}</td>
-                  <td className="p-2">{rule.upstream_model ?? "全部"}</td>
-                  <td className="p-2 font-mono">
-                    {editableWindows(rule).length > 0
-                      ? editableWindows(rule)
-                          .map((window) =>
-                            `${formatDaysOfWeek(parseDaysOfWeek(window.days_of_week))} ${window.timezone} ${window.start_time}–${window.end_time}`)
-                          .join("；")
-                      : "基础规则（全天）"}
-                  </td>
-                  <td className="p-2 text-right font-mono">
-                    {rule.rule_type === "API_PRICE"
-                      ? `${rule.currency}/Token：命中 ${rule.cache_hit_price ?? "—"} / 未命中 ${rule.cache_miss_price ?? "—"} / 输出 ${rule.output_price ?? "—"}${rule.pricing_mode === "MULTIPLIER" ? ` × ${rule.multiplier}` : "（绝对价）"}`
-                      : `×${rule.multiplier ?? "—"}`}
-                  </td>
-                  <td className="p-2">
-                    <StatusTag tone={rule.enabled ? "neutral" : "warning"}>
-                      {rule.archived_at ? "已归档" : !rule.enabled ? "停用" : new Date(rule.effective_from).getTime() > Date.now()
-                        ? "待生效" : rule.effective_to && new Date(rule.effective_to).getTime() <= Date.now() ? "已到期" : "生效中"}
-                    </StatusTag>
-                  </td>
-                  <td className="p-2 text-right whitespace-nowrap">
-                    {rule.archived_at ? (
-                      <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
-                        onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: false })}
-                        type="button">取消归档</button>
-                    ) : <>
-                      <button data-write-action className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                        onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
-                        type="button">{rule.enabled ? "停用" : "启用"}</button>
-                      {!rule.enabled ? <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                        onClick={() => setArchiveTarget({ kind: "rule", item: rule })}
-                        type="button">归档</button> : null}
-                    </>}
+              {filteredRules.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-[13px] text-ql-fg-tertiary">
+                    未找到符合筛选条件的计价规则
+                    {isFiltered ? (
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="ml-2 text-ql-action underline hover:no-underline"
+                      >
+                        清除筛选
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredRules.map((rule) => (
+                  <tr className="border-b border-ql-border-zone last:border-b-0 hover:bg-ql-surface-subtle" key={rule.id}>
+                    <td className="p-2 font-mono">{rule.rule_version}<span className="block text-ql-fg-tertiary">
+                      {new Date(rule.effective_from).toLocaleString("zh-CN")} ～ {rule.effective_to ? new Date(rule.effective_to).toLocaleString("zh-CN") : "长期"}
+                    </span></td>
+                    <td className="p-2">{rule.rule_type}</td>
+                    <td className="p-2">
+                      <span className="font-medium text-ql-fg">{rule.upstream_model ?? "全部"}</span>
+                      {rule.provider_resource_id && resourceMap.get(rule.provider_resource_id) ? (
+                        <span className="block text-[11px] text-ql-fg-tertiary">
+                          {resourceMap.get(rule.provider_resource_id)?.name}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="p-2 font-mono">
+                      {editableWindows(rule).length > 0
+                        ? editableWindows(rule)
+                            .map((window) =>
+                              `${formatDaysOfWeek(parseDaysOfWeek(window.days_of_week))} ${window.timezone} ${window.start_time}–${window.end_time}`)
+                            .join("；")
+                        : "基础规则（全天）"}
+                    </td>
+                    <td className="p-2 text-right font-mono">
+                      {rule.rule_type === "API_PRICE"
+                        ? `${rule.currency}/Token：命中 ${rule.cache_hit_price ?? "—"} / 未命中 ${rule.cache_miss_price ?? "—"} / 输出 ${rule.output_price ?? "—"}${rule.pricing_mode === "MULTIPLIER" ? ` × ${rule.multiplier}` : "（绝对价）"}`
+                        : `×${rule.multiplier ?? "—"}`}
+                    </td>
+                    <td className="p-2">
+                      <StatusTag tone={rule.enabled ? "neutral" : "warning"}>
+                        {rule.archived_at ? "已归档" : !rule.enabled ? "停用" : new Date(rule.effective_from).getTime() > Date.now()
+                          ? "待生效" : rule.effective_to && new Date(rule.effective_to).getTime() <= Date.now() ? "已到期" : "生效中"}
+                      </StatusTag>
+                    </td>
+                    <td className="p-2 text-right whitespace-nowrap">
+                      {rule.archived_at ? (
+                        <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                          onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: false })}
+                          type="button">取消归档</button>
+                      ) : <>
+                        <button data-write-action className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                          onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
+                          type="button">{rule.enabled ? "停用" : "启用"}</button>
+                        {!rule.enabled ? <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                          onClick={() => setArchiveTarget({ kind: "rule", item: rule })}
+                          type="button">归档</button> : null}
+                      </>}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </QueryGate>

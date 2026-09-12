@@ -7,6 +7,7 @@ export const routesMock = vi.fn();
 export const principalsMock = vi.fn();
 export const policiesMock = vi.fn();
 export const readyRoutesMock = vi.fn();
+export const providersMock = vi.fn();
 export const postMock = vi.fn();
 export const patchMock = vi.fn();
 export const invalidateMock = vi.fn();
@@ -19,11 +20,13 @@ vi.mock("../api/hooks", () => ({
   useProviderResources: () => resourcesMock(),
   useModelRoutes: () => routesMock(),
   usePrincipals: () => principalsMock(),
+  useProviders: () => providersMock() ?? query({ providers: [] }),
   QUERY_KEYS: {
     billingRules: ["billing-rules"],
     dispatchPolicies: ["dispatch-policies"],
     unifiedModels: ["unified-models"],
     modelRoutes: (id: string) => ["model-routes", id],
+    providers: ["providers"],
   },
 }));
 

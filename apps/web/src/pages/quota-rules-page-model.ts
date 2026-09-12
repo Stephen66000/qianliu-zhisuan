@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { patch, post } from "../api/client";
-import { QUERY_KEYS, useBillingRules, useDispatchPolicies, useModelRoutes, usePrincipals, useProviderResources, useUnifiedModels, usePricingReadyRoutes } from "../api/hooks";
+import { QUERY_KEYS, useBillingRules, useDispatchPolicies, useModelRoutes, usePrincipals, useProviderResources, useUnifiedModels, usePricingReadyRoutes, useProviders } from "../api/hooks";
 import type { BillingRule, DispatchPolicy, ModelRouteItem, UnifiedModel } from "../api/types";
 import type { ArchiveTarget, PolicyActionTarget } from "../components/quota/ConfigurationActionDialogs";
 import { DispatchPolicyFormSchema, buildDispatchPolicyPayload, type DispatchPolicyInput, type DispatchPolicyValues } from "../components/quota/dispatch-policy-form";
@@ -18,16 +18,19 @@ export function useQuotaRulesPageModel() {
   const modelsQuery = useUnifiedModels("all");
   const resourcesQuery = useProviderResources();
   const principalsQuery = usePrincipals("all");
+  const providersQuery = useProviders();
   useRedirectOnUnauthorized(firstQueryError([
     rulesQuery.error,
     policiesQuery.error,
     modelsQuery.error,
     resourcesQuery.error,
     principalsQuery.error,
+    providersQuery.error,
   ]));
 
   const models = useMemo(() => modelsQuery.data?.models ?? [], [modelsQuery.data?.models]);
   const resources = resourcesQuery.data?.resources ?? [];
+  const providers = useMemo(() => providersQuery.data?.providers ?? [], [providersQuery.data?.providers]);
   const principals = useMemo(() => principalList(principalsQuery.data), [principalsQuery.data]);
   const [showRuleForm, setShowRuleForm] = useState(false);
   const [showPolicyForm, setShowPolicyForm] = useState(false);
@@ -319,7 +322,7 @@ export function useQuotaRulesPageModel() {
   return {
     readyRoutes: readyQuery.data?.routes ?? [],
     queuedRules, setQueuedRules, sourceRuleIds, setSourceRuleIds, setSubmissionId, allRules, allRoutes, replaceExisting, setReplaceExisting,
-    error, showArchived, setShowArchived, showModelForm, setShowModelForm, modelForm, visibleModels, setSelectedModelId, archiveConfig, setDisableModelTarget, updateModel, canCreateRoute, hasActiveModels, showRouteForm, setShowRouteForm, routeForm, selectedModelId, selectedRuleRouteId, setSelectedRuleRouteId, models, resources, routes, setDisableRouteTarget, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, enabledRoutes, rules, updateRule, setArchiveTarget, showPolicyForm, setShowPolicyForm, editingPolicy, setEditingPolicy, policyForm, selectedPolicyAction, principalScopeMode, selectedPrincipalIds, principals, principalSearch, setPrincipalSearch, createPolicy, policies, editPolicy, setPolicyActionTarget, transitionPolicy, archiveTarget, policyActionTarget, principalById, disableModelTarget, disableRouteTarget, createModel, createRoute, updateRoute, createRule, rulesQuery, policiesQuery, modelsQuery, resourcesQuery, routesQuery
+    error, showArchived, setShowArchived, showModelForm, setShowModelForm, modelForm, visibleModels, setSelectedModelId, archiveConfig, setDisableModelTarget, updateModel, canCreateRoute, hasActiveModels, showRouteForm, setShowRouteForm, routeForm, selectedModelId, selectedRuleRouteId, setSelectedRuleRouteId, models, resources, routes, setDisableRouteTarget, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, enabledRoutes, rules, updateRule, setArchiveTarget, showPolicyForm, setShowPolicyForm, editingPolicy, setEditingPolicy, policyForm, selectedPolicyAction, principalScopeMode, selectedPrincipalIds, principals, principalSearch, setPrincipalSearch, createPolicy, policies, editPolicy, setPolicyActionTarget, transitionPolicy, archiveTarget, policyActionTarget, principalById, disableModelTarget, disableRouteTarget, createModel, createRoute, updateRoute, createRule, rulesQuery, policiesQuery, modelsQuery, resourcesQuery, routesQuery, providers, providersQuery
   };
 }
 
