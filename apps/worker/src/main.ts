@@ -23,7 +23,12 @@ import { runCodingPlanQuotaTick } from "./coding-plan-quota/runner.js";
 import { runDirectorySyncTick } from "./directory/runner.js";
 import { runProviderOperatingSyncTick } from "./provider-operating-sync/runner.js";
 import { runUsageAggregateTick } from "./usage-aggregate/runner.js";
-import { runDailyTokenReport } from "./reporting/daily-token-report.js";
+import {
+  runDailyTokenReport,
+  runCompanyWeeklyReport,
+  runPersonalWeeklyReports,
+  runIncentiveChecks,
+} from "./reporting/index.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -79,6 +84,21 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "report-company-weekly") {
+    await runReportCompanyWeeklyCommand(args.slice(1));
+    return;
+  }
+
+  if (command === "report-personal-weekly") {
+    await runReportPersonalWeeklyCommand(args.slice(1));
+    return;
+  }
+
+  if (command === "check-incentives") {
+    await runCheckIncentivesCommand(args.slice(1));
+    return;
+  }
+
   console.log("[worker] 用法：worker reconciliation --enterprise <id> [--from <iso>] [--to <iso>]");
   console.log("[worker]       worker runtime-assurance-once");
   console.log("[worker]       worker runtime-assurance-scheduler");
@@ -89,6 +109,9 @@ async function main(): Promise<void> {
   console.log("[worker]       worker directory-sync-once [--run <run-id>] [--max-runs <1-100>]");
   console.log("[worker]       worker usage-aggregate-rebuild --enterprise <id> --from <iso> --to <iso>");
   console.log("[worker]       worker daily-token-report [--enterprise <id>] [--date <YYYY-MM-DD>] [--recipients <u1,u2>] [--dry-run]");
+  console.log("[worker]       worker report-company-weekly --enterprise <id> [--week <YYYY-Www>] [--dry-run]");
+  console.log("[worker]       worker report-personal-weekly --enterprise <id> [--user <person-id>] [--dry-run]");
+  console.log("[worker]       worker check-incentives --enterprise <id> [--dry-run]");
 }
 
 function arg(args: string[], name: string): string | undefined {
@@ -198,6 +221,8 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   const usageAggregateRepository = new UsageAggregateRepository(db);
   let lastDailyAggregateDate: string | null = null;
   let lastDailyReportDate: string | null = null;
+  let lastWeeklyReportDate: string | null = null;
+  let lastIncentiveCheckDate: string | null = null;
   const wecom = new WecomAppClient(
     requiredEnv("CREDENTIAL_KEK"), fetch, Date.now, process.env.RUNTIME_ASSURANCE_ADMIN_URL,
   );
@@ -271,7 +296,6 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             include_daily: includeDaily, ...aggregate,
           }));
 
-          // 每日上午 09:00（上海时间）自动生成昨日全员 Token 消费长图并推送指定人
           const shanghaiHour = Number(
             new Intl.DateTimeFormat("en-US", {
               timeZone: "Asia/Shanghai",
@@ -279,6 +303,15 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
               hour12: false,
             }).format(now),
           );
+          const shanghaiMinute = Number(
+            new Intl.DateTimeFormat("en-US", {
+              timeZone: "Asia/Shanghai",
+              minute: "numeric",
+            }).format(now),
+          );
+          const shanghaiDay = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" })).getDay();
+
+          // 每日上午 09:00（上海时间）自动生成昨日全员 Token 消费长图并推送指定人
           if (shanghaiHour >= 9 && lastDailyReportDate !== shanghaiDate) {
             try {
               const enterprises = await db
@@ -304,6 +337,79 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             } catch (error) {
               console.error(JSON.stringify({
                 event: "daily_token_report_scheduler_failed",
+                error_type: error instanceof Error ? error.name : typeof error,
+                message: error instanceof Error ? error.message : String(error),
+              }));
+            }
+          }
+
+          // 每周一上午 09:00（上海时间）推送团队全员周报与员工个人周报
+          if (shanghaiDay === 1 && shanghaiHour >= 9 && lastWeeklyReportDate !== shanghaiDate) {
+            try {
+              const enterprises = await db
+                .selectFrom("enterprise")
+                .select("id")
+                .where("status", "=", "ACTIVE")
+                .execute();
+              for (const ent of enterprises) {
+                const companyResult = await runCompanyWeeklyReport({
+                  db,
+                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
+                  enterpriseId: ent.id,
+                });
+                console.log(JSON.stringify({
+                  event: "company_weekly_report_scheduler_completed",
+                  enterprise_id: ent.id,
+                  status: companyResult.status,
+                }));
+                const personalResults = await runPersonalWeeklyReports({
+                  db,
+                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
+                  enterpriseId: ent.id,
+                });
+                console.log(JSON.stringify({
+                  event: "personal_weekly_report_scheduler_completed",
+                  enterprise_id: ent.id,
+                  count: personalResults.length,
+                }));
+              }
+              lastWeeklyReportDate = shanghaiDate;
+            } catch (error) {
+              console.error(JSON.stringify({
+                event: "weekly_token_report_scheduler_failed",
+                error_type: error instanceof Error ? error.name : typeof error,
+                message: error instanceof Error ? error.message : String(error),
+              }));
+            }
+          }
+
+          // 周三至周日上午 09:30（上海时间）执行激励巡检（登顶流动红旗与超越50%员工成长卡）
+          const isWedToSun = shanghaiDay === 0 || shanghaiDay >= 3;
+          const isAfter930 = shanghaiHour > 9 || (shanghaiHour === 9 && shanghaiMinute >= 30);
+          if (isWedToSun && isAfter930 && lastIncentiveCheckDate !== shanghaiDate) {
+            try {
+              const enterprises = await db
+                .selectFrom("enterprise")
+                .select("id")
+                .where("status", "=", "ACTIVE")
+                .execute();
+              for (const ent of enterprises) {
+                const incentiveResult = await runIncentiveChecks({
+                  db,
+                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
+                  enterpriseId: ent.id,
+                });
+                console.log(JSON.stringify({
+                  event: "incentive_check_scheduler_completed",
+                  enterprise_id: ent.id,
+                  top1_triggered: incentiveResult.top1Result?.triggered,
+                  over50_count: incentiveResult.over50Results?.filter((r) => r.triggered).length ?? 0,
+                }));
+              }
+              lastIncentiveCheckDate = shanghaiDate;
+            } catch (error) {
+              console.error(JSON.stringify({
+                event: "incentive_check_scheduler_failed",
                 error_type: error instanceof Error ? error.name : typeof error,
                 message: error instanceof Error ? error.message : String(error),
               }));
@@ -458,6 +564,120 @@ async function runDailyTokenReportCommand(args: string[]): Promise<void> {
     });
 
     console.log("[worker] 每日 Token 消费日报执行完成:", JSON.stringify(result, null, 2));
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runReportCompanyWeeklyCommand(args: string[]): Promise<void> {
+  const db = createKysely();
+  try {
+    let enterpriseId = arg(args, "--enterprise");
+    if (!enterpriseId) {
+      const ent = await db.selectFrom("enterprise").select("id").limit(1).executeTakeFirst();
+      enterpriseId = ent?.id;
+    }
+    if (!enterpriseId) {
+      console.error("[worker] 缺少 --enterprise 参数且系统中未找到企业");
+      process.exit(1);
+    }
+
+    const weekStr = arg(args, "--week");
+    const targetDate = weekStr ? new Date(weekStr) : undefined;
+    const dryRun = args.includes("--dry-run");
+
+    const result = await runCompanyWeeklyReport({
+      db,
+      kekBase64: requiredEnv("CREDENTIAL_KEK"),
+      enterpriseId,
+      targetDate,
+      dryRun,
+    });
+
+    console.log("[worker] 团队全员用量周报执行完成:", JSON.stringify({
+      enterpriseName: result.enterpriseName,
+      dateRange: result.dateRange,
+      totalTokens: result.totalTokens,
+      requestCount: result.requestCount,
+      activeEmployees: result.activeEmployees,
+      recipients: result.recipients,
+      status: result.status,
+      mediaId: result.mediaId,
+    }, null, 2));
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runReportPersonalWeeklyCommand(args: string[]): Promise<void> {
+  const db = createKysely();
+  try {
+    let enterpriseId = arg(args, "--enterprise");
+    if (!enterpriseId) {
+      const ent = await db.selectFrom("enterprise").select("id").limit(1).executeTakeFirst();
+      enterpriseId = ent?.id;
+    }
+    if (!enterpriseId) {
+      console.error("[worker] 缺少 --enterprise 参数且系统中未找到企业");
+      process.exit(1);
+    }
+
+    const userPersonId = arg(args, "--user");
+    const dryRun = args.includes("--dry-run");
+
+    const results = await runPersonalWeeklyReports({
+      db,
+      kekBase64: requiredEnv("CREDENTIAL_KEK"),
+      enterpriseId,
+      userPersonId,
+      dryRun,
+    });
+
+    console.log(`[worker] 员工个人周报执行完成 (共 ${results.length} 人):`, JSON.stringify(results.map((r) => ({
+      userName: r.userName,
+      tokens: r.totalTokens,
+      requests: r.requestCount,
+      status: r.status,
+      mediaId: r.mediaId,
+    })), null, 2));
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runCheckIncentivesCommand(args: string[]): Promise<void> {
+  const db = createKysely();
+  try {
+    let enterpriseId = arg(args, "--enterprise");
+    if (!enterpriseId) {
+      const ent = await db.selectFrom("enterprise").select("id").limit(1).executeTakeFirst();
+      enterpriseId = ent?.id;
+    }
+    if (!enterpriseId) {
+      console.error("[worker] 缺少 --enterprise 参数且系统中未找到企业");
+      process.exit(1);
+    }
+
+    const dryRun = args.includes("--dry-run");
+
+    const result = await runIncentiveChecks({
+      db,
+      kekBase64: requiredEnv("CREDENTIAL_KEK"),
+      enterpriseId,
+      dryRun,
+    });
+
+    console.log("[worker] 激励巡检执行完成:", JSON.stringify({
+      enterpriseId: result.enterpriseId,
+      top1Result: result.top1Result,
+      over50Count: result.over50Results?.length ?? 0,
+      over50Results: result.over50Results?.map((r) => ({
+        userName: r.userName,
+        tokens: r.tokens,
+        triggered: r.triggered,
+        reason: r.reason,
+      })),
+    }, null, 2));
   } finally {
     await db.destroy();
   }
