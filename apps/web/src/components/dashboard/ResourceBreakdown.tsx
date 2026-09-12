@@ -29,7 +29,6 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
             <th className="py-2 pr-4 font-medium">模式</th>
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
             <th className="py-2 pr-4 text-right font-medium">分配额度</th>
-            <th className="py-2 pr-4 text-right font-medium">已用额度</th>
             <th className="py-2 pr-4 text-right font-medium">当前余额</th>
             <th className="py-2 pr-4 text-right font-medium">当前订阅金额</th>
             <th className="py-2 pr-4 text-right font-medium">本月花费</th>
@@ -52,9 +51,6 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}
-              </td>
-              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.mode === "API" ? "—" : item.usedQuota === null ? "—" : formatCount(item.usedQuota)}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.mode === "API"

@@ -85,7 +85,8 @@ describe("厂商资源用量总览", () => {
     expect(screen.getByRole("heading", { name: "模型使用明细" })).toBeInTheDocument();
     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "余额可承载 Token" })).not.toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "已用额度" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "已用额度" })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "当前余额" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "所属资源余额 / 剩余额度" })).not.toBeInTheDocument();
     const providerRow = screen.getAllByText("DeepSeek").find((node) => node.tagName === "TD")!.closest("tr")!;
     expect(within(providerRow).getByText("1,000")).toBeInTheDocument();
