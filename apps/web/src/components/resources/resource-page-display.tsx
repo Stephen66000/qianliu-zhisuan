@@ -28,29 +28,31 @@ export function ResourceFinanceColumn({ resource }: { resource: ProviderResource
 }
 
 export function ResourceQuotaColumn({ resource }: { resource: ProviderResourceItem }) {
+  if (resource.mode === "API") {
+    return <span>—</span>;
+  }
   const finance = resource.finance;
+  const allocated = resource.allocated_quota ?? finance?.currentPeriod?.totalQuota ?? resource.operating_snapshot?.total_quota;
+  const quotaUnit = finance?.currentPeriod?.quotaUnit ?? resource.operating_snapshot?.quota_unit ?? "TOKEN";
   if (finance) {
-    if (resource.mode === "API") {
-      return <span>—</span>;
-    }
     return (
       <span className="block leading-5">
-        <span className="block">当前订阅额度 {finance.currentPeriod?.totalQuota
-          ? `${formatCount(finance.currentPeriod.totalQuota)} ${finance.currentPeriod.quotaUnit ?? ""}`
+        <span className="block">分配额度 {allocated
+          ? `${formatCount(allocated)} ${quotaUnit}`
           : "待补"}</span>
         <span className="block">周期真实 Token {finance.currentPeriod ? formatCount(finance.currentPeriod.trueTokens) : "无有效周期"}</span>
         <span className="block">{finance.currentPeriod ? `${formatShanghaiDate(finance.currentPeriod.periodStart)} ～ ${formatShanghaiDate(finance.currentPeriod.periodEndExclusive)}` : "—"}</span>
       </span>
     );
   }
-  if (!resource.operating_snapshot) return <span>{resource.mode === "CODING_PLAN" ? "未录入/未同步" : "—"}</span>;
-  return resource.mode === "CODING_PLAN" ? (
+  if (!resource.operating_snapshot) return <span>{allocated ? `分配额度 ${formatCount(allocated)} ${quotaUnit}` : "未录入/未同步"}</span>;
+  return (
     <span className="block leading-5">
-      <span className="block">总额度 {resource.operating_snapshot.total_quota ? formatCount(resource.operating_snapshot.total_quota) : "未知"}</span>
+      <span className="block">分配额度 {allocated ? `${formatCount(allocated)} ${quotaUnit}` : "未知"}</span>
       <span className="block">系统已用 {resource.operating_snapshot.used_quota ? formatCount(resource.operating_snapshot.used_quota) : "未知"}</span>
       <span className="block">剩余 {resource.operating_snapshot.remaining_quota ? formatCount(resource.operating_snapshot.remaining_quota) : "未知"} {resource.operating_snapshot.quota_unit ?? ""}</span>
     </span>
-  ) : <span>—</span>;
+  );
 }
 
 export function ResourceFinanceDisplay({ resource }: { resource: ProviderResourceItem }) {

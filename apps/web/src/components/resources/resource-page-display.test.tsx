@@ -47,14 +47,21 @@ describe("ResourceFinanceColumn & ResourceQuotaColumn 列拆分测试", () => {
     const { unmount: unmountFinance } = render(<ResourceFinanceColumn resource={resource} />);
     expect(screen.getByText("当前订阅金额 CNY 199.00")).toBeInTheDocument();
     expect(screen.getByText("本月订阅实付 ¥0.00")).toBeInTheDocument();
-    expect(screen.queryByText(/当前订阅额度/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/分配额度/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/订阅额度/)).not.toBeInTheDocument();
     unmountFinance();
 
-    render(<ResourceQuotaColumn resource={resource} />);
-    expect(screen.getByText("当前订阅额度 3,000,000,000 TOKEN")).toBeInTheDocument();
+    const { unmount: unmountQuota } = render(<ResourceQuotaColumn resource={resource} />);
+    expect(screen.getByText("分配额度 3,000,000,000 TOKEN")).toBeInTheDocument();
+    expect(screen.queryByText(/订阅额度/)).not.toBeInTheDocument();
     expect(screen.getByText("周期真实 Token 223,157,358")).toBeInTheDocument();
     expect(screen.getByText("2026-08-19 ～ 2026-09-19")).toBeInTheDocument();
     expect(screen.queryByText(/当前订阅金额/)).not.toBeInTheDocument();
+    unmountQuota();
+
+    // 优先显示主体分配额度（跟随接受主体调整实时变化）
+    render(<ResourceQuotaColumn resource={{ ...resource, allocated_quota: "3530100000" }} />);
+    expect(screen.getByText("分配额度 3,530,100,000 TOKEN")).toBeInTheDocument();
   });
 
   it("API 资源资金列展示充值、余额、成本，额度列展示破折号", () => {

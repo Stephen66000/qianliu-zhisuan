@@ -168,6 +168,7 @@ export interface ProviderResourceItem {
   updated_at: string;
   operating_snapshot: ProviderResourceOperatingSnapshot | null;
   finance?: ResourceFinanceView | null;
+  allocated_quota?: string | null;
   operating_sync?: {
     balance_status: "SUCCESS" | "FAILED" | "NOT_SUPPORTED";
     cost_status: "SUCCESS" | "FAILED" | "NOT_SUPPORTED";

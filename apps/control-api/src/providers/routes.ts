@@ -13,7 +13,7 @@ import {
   credentialFingerprint,
   encryptCredential,
 } from "@qianliu/provider-adapters";
-import { EnterpriseReferenceError } from "@qianliu/database";
+import { EnterpriseReferenceError, sumAllocatedQuota } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   CreateProviderSchema,
@@ -69,14 +69,27 @@ export function registerProviderRoutes(app: FastifyInstance): void {
     const financeRead = await financeReadModelEnabled(
       app.providerFinanceMode, app.providerFinanceRepo, enterpriseId,
     );
-    const [resources, snapshots, syncStates, financeViews, archivedModels] = await Promise.all([
+    const [resources, snapshots, syncStates, financeViews, archivedModels, providers] = await Promise.all([
       app.providerRepo.listResources(enterpriseId),
       app.providerRepo.listCurrentOperatingSnapshots(enterpriseId),
       app.providerRepo.listLatestOperatingSyncStates(enterpriseId),
       !financeRead ? []
         : app.providerFinanceRepo.listResourceFinanceViews(enterpriseId, shanghaiMonthAt(now), now),
       archivedResourceModels(app.db, enterpriseId),
+      app.providerRepo.listProviders(enterpriseId),
     ]);
+    const providerById = new Map(providers.map((p) => [p.id, p]));
+    const allocatedQuotas = new Map<string, string>();
+    for (const r of resources) {
+      const provider = providerById.get(r.provider_id);
+      if (provider?.code) {
+        const key = `${provider.code}:${r.mode}`;
+        if (!allocatedQuotas.has(key)) {
+          const quota = await sumAllocatedQuota(app.db, enterpriseId, provider.code, r.mode, now);
+          allocatedQuotas.set(key, quota);
+        }
+      }
+    }
     const byResource = new Map(snapshots.map((snapshot) => [
       snapshot.provider_resource_id,
       snapshot,
@@ -89,11 +102,14 @@ export function registerProviderRoutes(app: FastifyInstance): void {
       resources: resources.map((r) => {
         const sync = syncByResource.get(r.id);
         const lastSuccessAt = sync?.last_success_data_at ?? null;
+        const provider = providerById.get(r.provider_id);
+        const allocatedQuota = provider?.code ? (allocatedQuotas.get(`${provider.code}:${r.mode}`) ?? null) : null;
         return ({
         id: r.id,
         provider_id: r.provider_id,
         name: r.name,
         mode: r.mode,
+        allocated_quota: allocatedQuota && allocatedQuota !== "0" ? allocatedQuota : null,
         credential_type: r.credential_type,
         credential_fingerprint: r.credential_fingerprint,
         credential_version: r.credential_version,
