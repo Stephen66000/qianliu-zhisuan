@@ -12,7 +12,7 @@ if test "${1:-}" = --check-contract; then
 fi
 
 branch="codex/wecom-activation-release-20260911"
-source_commit="${SOURCE_COMMIT:-93f5ae8f70f9c7ac1b916af443663d738f6e8219}"
+source_commit="${SOURCE_COMMIT:-acdc8ba151deec51726a97825bb982d6118b6fc8}"
 candidate="${CANDIDATE_COMMIT:-}"
 tree="${CANDIDATE_TREE:-}"
 root=/Users/stephen
@@ -130,10 +130,10 @@ echo "检查当前数据库迁移基线: $(db_head)"
 test "$(db_head)" = 0073_credential_chat_probe
 
 echo 'step 1: 拉取并验证发布分支代码'
-if ! GIT_SSH_COMMAND='ssh -o BatchMode=yes' GIT_TERMINAL_PROMPT=0 git clone --depth 16 \
+if ! GIT_SSH_COMMAND='ssh -o BatchMode=yes' GIT_TERMINAL_PROMPT=0 git clone --depth 64 \
   --branch "$branch" git@github.com:Stephen66000/qianliu-zhisuan.git "$release" 2>/dev/null; then
   echo "SSH clone 失败，尝试 HTTPS clone..."
-  git clone --depth 16 --branch "$branch" https://github.com/Stephen66000/qianliu-zhisuan.git "$release"
+  git clone --depth 64 --branch "$branch" https://github.com/Stephen66000/qianliu-zhisuan.git "$release"
 fi
 
 actual_commit="$(git -C "$release" rev-parse HEAD)"
