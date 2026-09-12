@@ -1,4 +1,5 @@
 import type { BillingRule, ProviderResourceItem } from "../../api/types";
+import { toPerMillion } from "../../lib/price-unit";
 import { editableWindows, localDateTimeValue, type BillingRuleValues } from "../../pages/quota-rule-contract";
 
 export function pricingCopyCandidates(rules: BillingRule[], resources: ProviderResourceItem[], targetId: string, model: string) {
@@ -20,8 +21,11 @@ export function copyPrice(rule: BillingRule, resourceId: string, upstreamModel: 
     provider_resource_id: resourceId, upstream_model: upstreamModel,
     effective_from: localDateTimeValue(), effective_to: "", windows: editableWindows(rule),
     pricing_mode: rule.pricing_mode ?? "ABSOLUTE", currency: rule.currency as "CNY" | "USD",
-    multiplier: rule.multiplier ?? "", cache_hit_price: rule.cache_hit_price ?? "",
-    cache_miss_price: rule.cache_miss_price ?? "", output_price: rule.output_price ?? "", priority: rule.priority,
+    multiplier: rule.multiplier ?? "",
+    cache_hit_price: toPerMillion(rule.cache_hit_price),
+    cache_miss_price: toPerMillion(rule.cache_miss_price),
+    output_price: toPerMillion(rule.output_price),
+    priority: rule.priority,
   };
 }
 

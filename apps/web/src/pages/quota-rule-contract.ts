@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { BillingRule, Principal } from "../api/types";
+import { normalizeToPerToken } from "../lib/price-unit";
 
 const OptionalDecimal = z.string().refine(
   (value) => value === "" || /^\d+(?:\.\d+)?$/.test(value),
@@ -162,9 +163,9 @@ export function buildBillingRulePayload(values: BillingRuleValues) {
     effective_to: values.effective_to ? new Date(values.effective_to).toISOString() : null,
     windows: values.windows.length > 0 ? serializeWindows(values.windows) : null,
     multiplier: values.multiplier || null,
-    cache_hit_price: values.cache_hit_price || null,
-    cache_miss_price: values.cache_miss_price || null,
-    output_price: values.output_price || null,
+    cache_hit_price: normalizeToPerToken(values.cache_hit_price),
+    cache_miss_price: normalizeToPerToken(values.cache_miss_price),
+    output_price: normalizeToPerToken(values.output_price),
     priority: values.priority,
     currency: values.currency ?? "CNY",
     source: "WEB_ADMIN",

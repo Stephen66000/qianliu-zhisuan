@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Sun, Zap, Clock, ChevronDown, ChevronUp, Plus, ArrowRight, ShieldAlert } from "lucide-react";
 import { StatusTag } from "../dashboard/StatusTag";
 import type { BillingRule } from "../../api/types";
+import { formatPricePerMillion } from "../../lib/price-unit";
 import {
   type ModelRuleGroup,
   formatRulePricing,
@@ -192,29 +193,35 @@ export function ModelRuleCard({
                     {group.baseRule.rule_version}
                   </span>
                   <span className="text-[11px] text-ql-fg-tertiary">
-                    {group.baseRule.rule_type === "API_PRICE" ? "Token 绝对单价" : "基础倍率"}
+                    {group.baseRule.rule_type === "API_PRICE" ? "API 刊例单价" : "基础倍率"}
                   </span>
                 </div>
 
                 <div className="mb-2.5 text-[13px] font-mono text-ql-fg">
                   {group.baseRule.rule_type === "API_PRICE" ? (
-                    <div className="grid grid-cols-3 gap-2 rounded border border-ql-border bg-ql-surface p-2 text-center text-[12px]">
-                      <div>
-                        <div className="text-[10px] text-ql-fg-tertiary">缓存命中</div>
-                        <div className="font-semibold text-ql-fg">
-                          {group.baseRule.cache_hit_price ?? "—"}
-                        </div>
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-ql-fg-tertiary">
+                        <span>按量计价</span>
+                        <span>单位：{group.baseRule.currency ?? "CNY"} / 百万 Token</span>
                       </div>
-                      <div>
-                        <div className="text-[10px] text-ql-fg-tertiary">未命中输入</div>
-                        <div className="font-semibold text-ql-fg">
-                          {group.baseRule.cache_miss_price ?? "—"}
+                      <div className="grid grid-cols-3 gap-2 rounded border border-ql-border bg-ql-surface p-2 text-center text-[12px]">
+                        <div>
+                          <div className="text-[10px] text-ql-fg-tertiary">缓存命中</div>
+                          <div className="font-semibold text-ql-fg" title={group.baseRule.cache_hit_price ? `${group.baseRule.cache_hit_price}/Token` : undefined}>
+                            {formatPricePerMillion(group.baseRule.cache_hit_price, group.baseRule.currency, { showUnit: false })}
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-ql-fg-tertiary">输出单价</div>
-                        <div className="font-semibold text-ql-fg">
-                          {group.baseRule.output_price ?? "—"}
+                        <div>
+                          <div className="text-[10px] text-ql-fg-tertiary">未命中输入</div>
+                          <div className="font-semibold text-ql-fg" title={group.baseRule.cache_miss_price ? `${group.baseRule.cache_miss_price}/Token` : undefined}>
+                            {formatPricePerMillion(group.baseRule.cache_miss_price, group.baseRule.currency, { showUnit: false })}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-ql-fg-tertiary">输出单价</div>
+                          <div className="font-semibold text-ql-fg" title={group.baseRule.output_price ? `${group.baseRule.output_price}/Token` : undefined}>
+                            {formatPricePerMillion(group.baseRule.output_price, group.baseRule.currency, { showUnit: false })}
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -1,4 +1,5 @@
 import type { BillingRuleValues } from "../../pages/quota-rule-contract";
+import { toPerMillion } from "../../lib/price-unit";
 
 /** Exact decimal product for display only; prices remain decimal strings in the payload. */
 export function decimalProduct(a: string, b: string): string {
@@ -12,7 +13,18 @@ export function decimalProduct(a: string, b: string): string {
 export function PricingPreview({ values }: { values: Pick<Partial<BillingRuleValues>, "rule_type" | "pricing_mode" | "currency" | "multiplier" | "cache_hit_price" | "cache_miss_price" | "output_price"> }) {
   if (values.rule_type !== "API_PRICE") return null;
   const multiplier = values.pricing_mode === "MULTIPLIER" ? values.multiplier ?? "" : "1";
-  const price = (value: string | undefined) => value ? decimalProduct(decimalProduct(value, multiplier), "1000000") : "未配置";
+  const rawPrice = (value: string | undefined) => {
+    if (!value) return null;
+    return /^0\.0000\d+$/.test(value) ? toPerMillion(value) : value;
+  };
+  const price = (value: string | undefined) => {
+    const raw = rawPrice(value);
+    if (!raw) return "未配置";
+    if (values.pricing_mode === "MULTIPLIER" && multiplier) {
+      return decimalProduct(raw, multiplier);
+    }
+    return raw;
+  };
   return <div className="md:col-span-4 rounded border border-ql-border p-3 text-xs" aria-label="有效单价预览">
     此规则生效时的最终单价（{values.currency ?? "CNY"}/百万 Token）：
     缓存命中输入 {price(values.cache_hit_price)}；未命中输入 {price(values.cache_miss_price)}；输出 {price(values.output_price)}。

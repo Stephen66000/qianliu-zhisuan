@@ -83,9 +83,9 @@ describe("ModelRuleCard 组件", () => {
     // Base Rule section checks
     expect(screen.getByText("基础规则（全天）")).toBeInTheDocument();
     expect(screen.getByText("v-base-1")).toBeInTheDocument();
-    expect(screen.getByText("0.000001")).toBeInTheDocument();
-    expect(screen.getByText("0.000002")).toBeInTheDocument();
-    expect(screen.getByText("0.000004")).toBeInTheDocument();
+    expect(screen.getByText("¥1.00")).toBeInTheDocument();
+    expect(screen.getByText("¥2.00")).toBeInTheDocument();
+    expect(screen.getByText("¥4.00")).toBeInTheDocument();
 
     // Peak Rule section checks
     expect(screen.getByText("高峰期规则（时段浮动）")).toBeInTheDocument();

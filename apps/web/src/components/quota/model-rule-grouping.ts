@@ -1,4 +1,5 @@
 import type { BillingRule, ModelRouteItem, Provider, ProviderResourceItem, UnifiedModel } from "../../api/types";
+import { toPerMillion } from "../../lib/price-unit";
 import { editableWindows } from "../../pages/quota-rule-contract";
 import { formatDaysOfWeek, parseDaysOfWeek } from "./WeekdayPicker";
 import { getRuleStatusCategory } from "./QuotaBillingSection";
@@ -143,16 +144,16 @@ export function formatRulePricing(rule: BillingRule): string {
   if (rule.rule_type === "API_PRICE") {
     const parts: string[] = [];
     if (rule.cache_hit_price !== null && rule.cache_hit_price !== undefined) {
-      parts.push(`命中 ${rule.cache_hit_price}`);
+      parts.push(`命中 ${toPerMillion(rule.cache_hit_price)}`);
     }
     if (rule.cache_miss_price !== null && rule.cache_miss_price !== undefined) {
-      parts.push(`未命中 ${rule.cache_miss_price}`);
+      parts.push(`未命中 ${toPerMillion(rule.cache_miss_price)}`);
     }
     if (rule.output_price !== null && rule.output_price !== undefined) {
-      parts.push(`输出 ${rule.output_price}`);
+      parts.push(`输出 ${toPerMillion(rule.output_price)}`);
     }
     const modeSuffix = rule.pricing_mode === "MULTIPLIER" && rule.multiplier ? ` × ${rule.multiplier}` : "";
-    return `${rule.currency}/Token: ${parts.join(" / ")}${modeSuffix}`;
+    return `${rule.currency}/百万 Token: ${parts.join(" / ")}${modeSuffix}`;
   }
   return `×${rule.multiplier ?? "1.0"}`;
 }

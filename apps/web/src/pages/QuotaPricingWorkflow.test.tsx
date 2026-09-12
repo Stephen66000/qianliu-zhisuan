@@ -68,9 +68,9 @@ async function open(target = uuid(21)) {
   return user;
 }
 async function fillPrices(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("缓存命中输入单价（币种/Token）"), "0.000001");
-  await user.type(screen.getByLabelText("未命中输入单价（币种/Token）"), "0.000002");
-  await user.type(screen.getByLabelText("输出单价（币种/Token）"), "0.000004");
+  await user.type(screen.getByLabelText(/缓存命中输入单价/), "1");
+  await user.type(screen.getByLabelText(/未命中输入单价/), "2");
+  await user.type(screen.getByLabelText(/输出单价/), "4");
 }
 
 it("saves pending model/route and explicit multiplier prices in one request", async () => {
@@ -99,7 +99,7 @@ it("refuses missing prices and retains the draft and idempotency key after a con
   await fillPrices(user); rejectSave = true;
   await user.click(screen.getByRole("button", { name: "保存并启用" }));
   await screen.findByText("配置版本已变化，请刷新");
-  expect(screen.getByLabelText("输出单价（币种/Token）")).toHaveValue("0.000004");
+  expect(screen.getByLabelText(/输出单价/)).toHaveValue("4");
   rejectSave = false;
   await user.click(screen.getByRole("button", { name: "保存并启用" }));
   await waitFor(() => expect(saved).toHaveLength(2));
@@ -132,7 +132,7 @@ it("clears copied prices and queued rules when switching resource or model", asy
   await user.click(screen.getByRole("button", { name: "加入规则集并配置下一时段" }));
   await user.selectOptions(screen.getByLabelText("厂商资源", { exact: true }), uuid(22));
   expect(screen.getByLabelText("规则类型")).toHaveValue("MODEL_TIER");
-  expect(screen.getByLabelText("输出单价（币种/Token）")).toHaveValue("");
+  expect(screen.getByLabelText(/输出单价/)).toHaveValue("");
   expect(screen.queryByText(/已沿用/)).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "移除" })).not.toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText("模型", { exact: true }), uuid(2));
@@ -160,7 +160,7 @@ it("clearing the resource resets route defaults and prevents a stale-resource su
   await user.selectOptions(screen.getByLabelText("厂商资源", { exact: true }), "");
   expect(screen.getByLabelText("路由优先级")).toHaveValue(100);
   expect(screen.getByLabelText("路由权重")).toHaveValue(1);
-  expect(screen.getByLabelText("输出单价（币种/Token）")).toHaveValue("");
+  expect(screen.getByLabelText(/输出单价/)).toHaveValue("");
   await user.click(screen.getByRole("button", { name: "保存并启用" }));
   await screen.findByText("请选择资源", { selector: "[role=alert]" });
   expect(saved).toHaveLength(0);
@@ -179,7 +179,7 @@ it("取消新建规则丢弃整套草稿、沿用来源及错误，重新打开�
   await user.click(screen.getByRole("button", { name: "新建规则" }));
   expect(screen.getByLabelText("厂商资源", { exact: true })).toHaveValue("");
   expect(screen.getByLabelText("规则版本")).toHaveValue("v1");
-  expect(screen.getByLabelText("输出单价（币种/Token）")).toHaveValue("");
+  expect(screen.getByLabelText(/输出单价/)).toHaveValue("");
   expect(screen.queryByRole("button", { name: "移除" })).not.toBeInTheDocument();
   expect(screen.queryByText(/已沿用/)).not.toBeInTheDocument();
   expect(screen.getByLabelText(/从新生效时间起替换/)).not.toBeChecked();

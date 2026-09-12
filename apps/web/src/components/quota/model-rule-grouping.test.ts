@@ -163,7 +163,7 @@ describe("model-rule-grouping 聚合逻辑", () => {
       output_price: "0.000004",
       time_windows: [],
     });
-    expect(formatRulePricing(apiRule)).toBe("CNY/Token: 命中 0.000001 / 未命中 0.000002 / 输出 0.000004");
+    expect(formatRulePricing(apiRule)).toBe("CNY/百万 Token: 命中 1 / 未命中 2 / 输出 4");
     expect(formatRuleTimeWindows(apiRule)).toBe("全天 24 小时生效");
 
     const peakRule = mockRule({
@@ -180,7 +180,7 @@ describe("model-rule-grouping 聚合逻辑", () => {
       ],
     });
     expect(formatRulePricing(peakRule)).toBe(
-      "CNY/Token: 命中 0.000001 / 未命中 0.000002 / 输出 0.000004 × 1.5"
+      "CNY/百万 Token: 命中 1 / 未命中 2 / 输出 4 × 1.5"
     );
     expect(formatRuleTimeWindows(peakRule)).toContain("14:00–18:00 (Asia/Shanghai)");
 

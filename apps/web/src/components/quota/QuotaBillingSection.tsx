@@ -14,6 +14,7 @@ import { ModelDisableAction } from "./ModelDisableAction";
 import { ModelRuleCard } from "./ModelRuleCard";
 import { groupRulesByModel, type ModelRuleGroup } from "./model-rule-grouping";
 import { copyPrice, pricingCopyCandidates, currentPricingSet } from "./pricing-copy";
+import { toPerMillion, toPerToken } from "../../lib/price-unit";
 
 export function getRuleStatusCategory(
   rule: Pick<BillingRule, "enabled" | "effective_from" | "effective_to" | "archived_at">,
@@ -123,9 +124,9 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
     model.ruleForm.setValue("pricing_mode", isCodingPlan ? "ABSOLUTE" : "MULTIPLIER");
     model.ruleForm.setValue("rule_version", `${group.upstreamModel ?? "model"}-peak-v1`);
     if (!isCodingPlan && group.baseRule) {
-      model.ruleForm.setValue("cache_hit_price", group.baseRule.cache_hit_price ?? "");
-      model.ruleForm.setValue("cache_miss_price", group.baseRule.cache_miss_price ?? "");
-      model.ruleForm.setValue("output_price", group.baseRule.output_price ?? "");
+      model.ruleForm.setValue("cache_hit_price", toPerMillion(group.baseRule.cache_hit_price) ?? "");
+      model.ruleForm.setValue("cache_miss_price", toPerMillion(group.baseRule.cache_miss_price) ?? "");
+      model.ruleForm.setValue("output_price", toPerMillion(group.baseRule.output_price) ?? "");
       model.ruleForm.setValue("multiplier", "1.5");
     } else if (isCodingPlan && group.baseRule) {
       model.ruleForm.setValue("multiplier", group.baseRule.multiplier ?? "1.5");
@@ -404,23 +405,38 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             <FormField
               error={ruleForm.formState.errors.cache_hit_price?.message}
               htmlFor="rule-cache-hit"
-              label="缓存命中输入单价（币种/Token）"
+              label={`缓存命中输入单价（${ruleForm.watch("currency") ?? "CNY"}/百万 Token）`}
             >
-              <input className={INPUT_CLASS} id="rule-cache-hit" {...ruleForm.register("cache_hit_price")} />
+              <input className={INPUT_CLASS} id="rule-cache-hit" placeholder="例如: 0.5" {...ruleForm.register("cache_hit_price")} />
+              {ruleForm.watch("cache_hit_price") ? (
+                <span className="mt-1 block text-[11px] font-mono text-ql-fg-tertiary">
+                  换算单价：{toPerToken(ruleForm.watch("cache_hit_price"))} {ruleForm.watch("currency") ?? "CNY"}/Token
+                </span>
+              ) : null}
             </FormField>
             <FormField
               error={ruleForm.formState.errors.cache_miss_price?.message}
               htmlFor="rule-cache-miss"
-              label="未命中输入单价（币种/Token）"
+              label={`未命中输入单价（${ruleForm.watch("currency") ?? "CNY"}/百万 Token）`}
             >
-              <input className={INPUT_CLASS} id="rule-cache-miss" {...ruleForm.register("cache_miss_price")} />
+              <input className={INPUT_CLASS} id="rule-cache-miss" placeholder="例如: 1.0" {...ruleForm.register("cache_miss_price")} />
+              {ruleForm.watch("cache_miss_price") ? (
+                <span className="mt-1 block text-[11px] font-mono text-ql-fg-tertiary">
+                  换算单价：{toPerToken(ruleForm.watch("cache_miss_price"))} {ruleForm.watch("currency") ?? "CNY"}/Token
+                </span>
+              ) : null}
             </FormField>
             <FormField
               error={ruleForm.formState.errors.output_price?.message}
               htmlFor="rule-output"
-              label="输出单价（币种/Token）"
+              label={`输出单价（${ruleForm.watch("currency") ?? "CNY"}/百万 Token）`}
             >
-              <input className={INPUT_CLASS} id="rule-output" {...ruleForm.register("output_price")} />
+              <input className={INPUT_CLASS} id="rule-output" placeholder="例如: 2.0" {...ruleForm.register("output_price")} />
+              {ruleForm.watch("output_price") ? (
+                <span className="mt-1 block text-[11px] font-mono text-ql-fg-tertiary">
+                  换算单价：{toPerToken(ruleForm.watch("output_price"))} {ruleForm.watch("currency") ?? "CNY"}/Token
+                </span>
+              ) : null}
             </FormField>
             <FormField
               error={ruleForm.formState.errors.priority?.message}
@@ -432,7 +448,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             <PricingPreview values={ruleForm.watch()} />
             <div className="md:col-span-4">
               {model.queuedRules.map((rule, index) => <div key={index} className="mb-2 rounded border p-2 text-xs">
-                {rule.rule_version} · {rule.upstream_model} · {rule.currency} · 命中 {rule.cache_hit_price || "—"} / 未命中 {rule.cache_miss_price || "—"} / 输出 {rule.output_price || "—"} · 倍率 {rule.multiplier || "—"}
+                {rule.rule_version} · {rule.upstream_model} · {rule.currency} · 命中 {rule.cache_hit_price || "—"} / 未命中 {rule.cache_miss_price || "—"} / 输出 {rule.output_price || "—"} ({rule.currency}/百万 Token) · 倍率 {rule.multiplier || "—"}
                 <span className="block">{rule.windows.length ? rule.windows.map((window) => `${window.timezone} ${window.days_of_week || "每天"} ${window.start_time}–${window.end_time}`).join("；") : "全天"} · {rule.effective_from}</span>
                 <button data-write-action type="button" className="ml-3 text-ql-action" onClick={() => {
                   const parsed = BillingRuleSchema.safeParse(ruleForm.getValues());
@@ -658,7 +674,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                     </td>
                     <td className="p-2 text-right font-mono">
                       {rule.rule_type === "API_PRICE"
-                        ? `${rule.currency}/Token：命中 ${rule.cache_hit_price ?? "—"} / 未命中 ${rule.cache_miss_price ?? "—"} / 输出 ${rule.output_price ?? "—"}${rule.pricing_mode === "MULTIPLIER" ? ` × ${rule.multiplier}` : "（绝对价）"}`
+                        ? `${rule.currency}/百万 Token：命中 ${toPerMillion(rule.cache_hit_price) || "—"} / 未命中 ${toPerMillion(rule.cache_miss_price) || "—"} / 输出 ${toPerMillion(rule.output_price) || "—"}${rule.pricing_mode === "MULTIPLIER" ? ` × ${rule.multiplier}` : "（绝对价）"}`
                         : `×${rule.multiplier ?? "—"}`}
                     </td>
                     <td className="p-2">

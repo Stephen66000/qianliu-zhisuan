@@ -111,7 +111,7 @@ it("表格区分待生效、已过期、停用、套餐和缺价，不把缺价�
   expect(row("future")).toHaveTextContent("待生效");
   expect(row("expired")).toHaveTextContent("已到期");
   expect(row("disabled")).toHaveTextContent("停用");
-  expect(row("absolute")).toHaveTextContent("USD/Token：命中 — / 未命中 — / 输出 —（绝对价）");
+  expect(row("absolute")).toHaveTextContent("USD/百万 Token：命中 — / 未命中 — / 输出 —（绝对价）");
   expect(row("multiplier")).toHaveTextContent("× 3");
   expect(row("plan")).toHaveTextContent("×2");
   expect(screen.queryByText("archived")).not.toBeInTheDocument();
