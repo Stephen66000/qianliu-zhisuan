@@ -11,6 +11,7 @@ import {
 } from "../api/admins";
 import { INPUT_CLASS, BUTTON_CLASS, errorText } from "../components/settings/admin-display";
 import { useAdminSession } from "../api/auth";
+import { useRole } from "../api/settings";
 import { PageShell } from "../components/layout/PageShell";
 import { QueryGate } from "../components/states/QueryGate";
 import { StatusTag } from "../components/dashboard/StatusTag";
@@ -18,6 +19,8 @@ import { AdminRoleField } from "../components/settings/AdminRoleField";
 
 export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
   const session = useAdminSession();
+  const roleQuery = useRole();
+  const customRole = roleQuery.data?.role;
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [roleCode, setRoleCode] = useState<"SUPER_ADMIN" | "CUSTOM">("CUSTOM");
@@ -121,9 +124,26 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
       ) : null}
 
       {canEdit && <section className="mb-6 rounded-xl border border-ql-border bg-ql-surface p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <UserPlus className="h-5 w-5" />
-          <h2 className="font-semibold">新增管理员</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            <h2 className="font-semibold">新增管理员</h2>
+          </div>
+          {customRole ? (
+            <Link
+              className="text-xs text-ql-action hover:underline"
+              to="/settings?tab=accounts&section=roles"
+            >
+              配置「{customRole.name}」权限 →
+            </Link>
+          ) : (
+            <Link
+              className="inline-flex items-center gap-1 rounded-md bg-ql-surface-subtle px-2.5 py-1 text-xs text-ql-action hover:underline"
+              to="/settings?tab=accounts&section=roles"
+            >
+              <span className="font-medium text-ql-action">尚未配置自定义岗位？</span>前往配置岗位与权限 →
+            </Link>
+          )}
         </div>
         <form className="grid gap-3 md:grid-cols-5" onSubmit={submitCreate}>
           <AdminRoleField value={roleCode} onChange={setRoleCode}/>
@@ -248,7 +268,33 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
                   <td className="p-3">
                     {admin.must_change_password ? "是" : "否"}
                   </td>
-                  <td className="p-3"><AdminRoleField value={roles[admin.id] ?? admin.role_code ?? "SUPER_ADMIN"} disabled={!canEdit || archived} onChange={v => setRoles(old => ({ ...old, [admin.id]: v }))}/></td>
+                  <td className="p-3">
+                    <AdminRoleField
+                      value={roles[admin.id] ?? admin.role_code ?? "SUPER_ADMIN"}
+                      disabled={!canEdit || archived || renameAdmin.isPending}
+                      onChange={(newRole) => {
+                        setRoles((old) => ({ ...old, [admin.id]: newRole }));
+                        renameAdmin.mutate(
+                          {
+                            id: admin.id,
+                            expected_version: admin.version,
+                            role_code: newRole,
+                            display_name:
+                              renames[admin.id] ?? admin.display_name,
+                          },
+                          {
+                            onError: () => {
+                              setRoles((old) => {
+                                const next = { ...old };
+                                delete next[admin.id];
+                                return next;
+                              });
+                            },
+                          },
+                        );
+                      }}
+                    />
+                  </td>
                   <td className="p-3">{admin.last_login_at ? new Date(admin.last_login_at).toLocaleString("zh-CN") : "尚未记录"}</td>
                   <td className="p-3">
                     <div className="flex gap-3 whitespace-nowrap">

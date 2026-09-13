@@ -8,7 +8,9 @@ import { AdminsPage } from "./Admins";
 const createMock = vi.fn();
 const statusMock = vi.fn();
 const cleanupMock = vi.fn();
-vi.mock("../api/settings", () => ({ useRole: () => ({ data: { role: { name: "查看岗" } } }) }));
+const renameMock = vi.fn();
+const roleMock = vi.fn().mockReturnValue({ data: { role: { name: "查看岗" } } });
+vi.mock("../api/settings", () => ({ useRole: () => roleMock() }));
 
 vi.mock("../api/auth", () => ({
   useAdminSession: () => ({
@@ -60,7 +62,7 @@ vi.mock("../api/admins", () => ({
     refetch: vi.fn(),
   }),
   useCreateAdmin: () => ({ mutate: createMock, error: null, isPending: false }),
-  useRenameAdmin: () => ({ mutate: vi.fn(), error: null, isPending: false }),
+  useRenameAdmin: () => ({ mutate: renameMock, error: null, isPending: false }),
   useResetAdminPassword: () => ({
     mutate: vi.fn(),
     error: null,
@@ -142,5 +144,41 @@ describe("POOL-015 管理员管理", () => {
         expect.any(Object),
       ),
     );
+  });
+
+  it("修改管理员角色下拉框时立即触发自动保存", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AdminsPage />
+      </MemoryRouter>,
+    );
+    const roleSelects = screen.getAllByLabelText("角色");
+    // Change role for second active admin (ops, id: admin-second, version: 1)
+    await user.selectOptions(roleSelects[3]!, "CUSTOM");
+    expect(renameMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "admin-second",
+        expected_version: 1,
+        role_code: "CUSTOM",
+        display_name: "运维管理员",
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("未配置自定义岗位时展示前往配置岗位的提示与链接", () => {
+    roleMock.mockReturnValueOnce({ data: { role: null } });
+    render(
+      <MemoryRouter>
+        <AdminsPage />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByText("尚未配置自定义岗位？"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /前往配置岗位与权限/ }),
+    ).toHaveAttribute("href", "/settings?tab=accounts&section=roles");
   });
 });
