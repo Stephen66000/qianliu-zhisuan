@@ -20,7 +20,7 @@ import type {
 } from "./employee-model-rule-types.js";
 import type {
   AvailabilityEventTable, AvailabilityRuleTable, AvailabilityRuleVersionTable,
-  NotificationDeliveryTable, NotificationEndpointTable,
+  NotificationDeliveryTable, NotificationEndpointTable, RuntimeNotificationRecipientTable,
 } from "./kysely-availability-tables.js";
 import type {
   DirectoryImportItemTable, DirectoryImportRunTable, DirectoryPersonExternalIdentityTable,
@@ -84,7 +84,7 @@ export interface Database {
   reconciliation_discrepancy: ReconciliationDiscrepancyTable; alert_event: AlertEventTable;
   availability_rule: AvailabilityRuleTable; availability_rule_version: AvailabilityRuleVersionTable;
   availability_event: AvailabilityEventTable; notification_endpoint: NotificationEndpointTable;
-  notification_delivery: NotificationDeliveryTable; provider: ProviderTable;
+  notification_delivery: NotificationDeliveryTable; runtime_notification_recipient: RuntimeNotificationRecipientTable; provider: ProviderTable;
   provider_resource: ProviderResourceTable; provider_resource_monthly_budget: ProviderResourceMonthlyBudgetTable;
   provider_resource_operating_snapshot: ProviderResourceOperatingSnapshotTable;
   provider_resource_operating_sync_attempt: ProviderResourceOperatingSyncAttemptTable;

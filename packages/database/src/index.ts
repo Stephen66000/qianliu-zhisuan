@@ -334,6 +334,10 @@ export {
   type DeliveryContext,
   type LegacyUnavailableAssessment,
 } from "./repositories/runtime-assurance-repository.js";
+export type {
+  NotificationCategory,
+  RuntimeNotificationRecipientTable,
+} from "./kysely-availability-tables.js";
 
 export {
   ProviderQuotaWindowRepository,

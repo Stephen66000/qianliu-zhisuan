@@ -138,6 +138,45 @@ vi.mock("./RequestDrilldown", () => ({
   ),
 }));
 
+const mockRecipients = {
+  SYSTEM_FAILURE: [],
+  UPSTREAM_RESOURCE: [],
+  FINANCE_SECURITY: [],
+  PERSONNEL_ACCOUNT: [],
+};
+const mockPeople = [
+  { id: "p1", name: "张三", department_label: "研发部", wecom_identity: { provider_user_id: "zhangsan" } },
+  { id: "p2", name: "李四", department_label: "运营部", wecom_identity: null },
+];
+
+vi.mock("../api/runtime-assurance", () => ({
+  useNotificationRecipients: () => ({
+    data: mockRecipients,
+    isLoading: false,
+    isError: false,
+    dataUpdatedAt: 1,
+  }),
+  usePeopleList: () => ({
+    data: mockPeople,
+    isLoading: false,
+  }),
+  useSaveNotificationRecipients: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    isError: false,
+  }),
+  useTestNotification: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+  NOTIFICATION_CATEGORY_META: {
+    SYSTEM_FAILURE: { title: "系统级故障", description: "API 网关崩溃", badge: "P0 致命级", examples: "网关 502", badgeColor: "" },
+    UPSTREAM_RESOURCE: { title: "上游资源故障", description: "凭证失效", badge: "P1 严重级", examples: "401", badgeColor: "" },
+    FINANCE_SECURITY: { title: "资金与财务异常", description: "欠费停机", badge: "P1/P2 财务级", examples: "402", badgeColor: "" },
+    PERSONNEL_ACCOUNT: { title: "人员、账号与安全", description: "离职注销", badge: "P3 安全审计", examples: "注销", badgeColor: "" },
+  },
+}));
+
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -199,13 +238,24 @@ describe("运行保障异常中心", () => {
     });
   });
 
-  it("只展示异常中心，并将通知与人员标记为暂缓", () => {
+  it("支持异常中心与通知人员 Tab 切换", async () => {
+    const user = userEvent.setup();
     renderPage();
     expect(screen.getByRole("tab", { name: "异常中心" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    expect(screen.getByRole("tab", { name: /通知与人员/ })).toBeDisabled();
+    const notifTab = screen.getByRole("tab", { name: "通知人员" });
+    expect(notifTab).toBeEnabled();
+    expect(notifTab).toHaveAttribute("aria-selected", "false");
+
+    await user.click(notifTab);
+    expect(notifTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("系统级故障")).toBeInTheDocument();
+    expect(screen.getByText("上游资源故障")).toBeInTheDocument();
+    expect(screen.getByText("资金与财务异常")).toBeInTheDocument();
+    expect(screen.getByText("人员、账号与安全")).toBeInTheDocument();
+
     expect(
       screen.queryByRole("tab", { name: "运行态势" }),
     ).not.toBeInTheDocument();

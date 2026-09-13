@@ -138,3 +138,16 @@ export interface NotificationDeliveryTable {
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
+
+export type NotificationCategory =
+  | "SYSTEM_FAILURE"
+  | "UPSTREAM_RESOURCE"
+  | "FINANCE_SECURITY"
+  | "PERSONNEL_ACCOUNT";
+
+export interface RuntimeNotificationRecipientTable {
+  id: Generated<string>;
+  category: NotificationCategory;
+  person_id: string;
+  created_at: Generated<Date>;
+}

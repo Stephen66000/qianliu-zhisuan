@@ -65,6 +65,14 @@ const EndpointSchema = z.object({
   status: z.enum(["ACTIVE", "DISABLED"]),
   expected_version: z.number().int().positive().optional(),
 });
+const NotificationRecipientsSchema = z.object({
+  recipients: z.object({
+    SYSTEM_FAILURE: z.array(z.string().uuid()),
+    UPSTREAM_RESOURCE: z.array(z.string().uuid()),
+    FINANCE_SECURITY: z.array(z.string().uuid()),
+    PERSONNEL_ACCOUNT: z.array(z.string().uuid()),
+  }),
+});
 
 function invalid(reply: FastifyReply, error: z.ZodError) {
   return reply.code(400).send({ error: "invalid_request", message: error.issues[0]?.message ?? "参数错误" });
@@ -284,4 +292,51 @@ export function registerRuntimeAssuranceRoutes(app: FastifyInstance): void {
   app.get("/notification-deliveries", { preHandler: [requireAuth] }, async (req) => ({
     deliveries: await app.runtimeAssuranceRepo.listDeliveries(Math.min(Number((req.query as { limit?: string }).limit ?? 100), 500)),
   }));
+
+  app.get("/runtime-assurance/notification-recipients", { preHandler: [requireAuth] }, async () => {
+    return {
+      recipients: await app.runtimeAssuranceRepo.getNotificationRecipients(),
+    };
+  });
+
+  app.put("/runtime-assurance/notification-recipients", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = NotificationRecipientsSchema.safeParse(req.body);
+    if (!parsed.success) return invalid(reply, parsed.error);
+    const recipients = await app.runtimeAssuranceRepo.saveNotificationRecipients(parsed.data.recipients);
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "runtime_notification.update",
+      target_type: "notification_recipient",
+      target_id: "global",
+      change_summary: {
+        system_failure_count: parsed.data.recipients.SYSTEM_FAILURE.length,
+        upstream_resource_count: parsed.data.recipients.UPSTREAM_RESOURCE.length,
+        finance_security_count: parsed.data.recipients.FINANCE_SECURITY.length,
+        personnel_account_count: parsed.data.recipients.PERSONNEL_ACCOUNT.length,
+      },
+      result: "SUCCESS",
+    });
+    return { recipients };
+  });
+
+  app.post("/runtime-assurance/notification-recipients/test", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = z.object({ person_id: z.string().uuid() }).safeParse(req.body);
+    if (!parsed.success) return invalid(reply, parsed.error);
+    try {
+      const delivery = await app.runtimeAssuranceRepo.enqueueTestDelivery(parsed.data.person_id);
+      await app.auditRepo.write({
+        enterprise_id: req.admin!.enterpriseId,
+        admin_user_id: req.admin!.adminUserId,
+        action: "runtime_notification.test",
+        target_type: "notification_delivery",
+        target_id: delivery.id,
+        change_summary: { person_id: parsed.data.person_id, queued: true },
+        result: "SUCCESS",
+      });
+      return reply.code(202).send({ delivery });
+    } catch (error) {
+      return conflict(reply, error);
+    }
+  });
 }

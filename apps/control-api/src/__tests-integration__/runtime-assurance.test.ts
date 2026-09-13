@@ -167,3 +167,48 @@ describe("RA-W06 企微配置安全边界", () => {
     expect(canary.rows[0]!.count).toBe(0);
   });
 });
+
+describe("RA-通知人员配置（4大异常类型选人与测试）", () => {
+  it("支持查询、更新4大类型通知人员并在audit中记录", async () => {
+    // 1. 创建测试人员
+    const p1 = await inject({ method: "POST", url: "/people", payload: { name: "通知测试人员1", department_label: "运维部" } });
+    expect(p1.statusCode).toBe(201);
+    const p1Id = p1.json().person.id;
+    const p2 = await inject({ method: "POST", url: "/people", payload: { name: "通知测试人员2", department_label: "财务部" } });
+    expect(p2.statusCode).toBe(201);
+    const p2Id = p2.json().person.id;
+
+    // 2. 初始 GET 4 大分类
+    const initial = await inject({ method: "GET", url: "/runtime-assurance/notification-recipients" });
+    expect(initial.statusCode).toBe(200);
+    expect(initial.json().recipients).toHaveProperty("SYSTEM_FAILURE");
+    expect(initial.json().recipients).toHaveProperty("UPSTREAM_RESOURCE");
+    expect(initial.json().recipients).toHaveProperty("FINANCE_SECURITY");
+    expect(initial.json().recipients).toHaveProperty("PERSONNEL_ACCOUNT");
+
+    // 3. 保存配置
+    const saved = await inject({
+      method: "PUT",
+      url: "/runtime-assurance/notification-recipients",
+      payload: {
+        recipients: {
+          SYSTEM_FAILURE: [p1Id],
+          UPSTREAM_RESOURCE: [p1Id, p2Id],
+          FINANCE_SECURITY: [p2Id],
+          PERSONNEL_ACCOUNT: [p1Id],
+        },
+      },
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().recipients.SYSTEM_FAILURE.map((p: { id: string }) => p.id)).toEqual([p1Id]);
+    expect(saved.json().recipients.UPSTREAM_RESOURCE.map((p: { id: string }) => p.id)).toContain(p1Id);
+    expect(saved.json().recipients.UPSTREAM_RESOURCE.map((p: { id: string }) => p.id)).toContain(p2Id);
+    expect(saved.json().recipients.FINANCE_SECURITY.map((p: { id: string }) => p.id)).toEqual([p2Id]);
+
+    // 4. 再次 GET 验证持久化和人员信息
+    const updated = await inject({ method: "GET", url: "/runtime-assurance/notification-recipients" });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().recipients.FINANCE_SECURITY[0].name).toBe("通知测试人员2");
+    expect(updated.json().recipients.FINANCE_SECURITY[0].department_label).toBe("财务部");
+  });
+});

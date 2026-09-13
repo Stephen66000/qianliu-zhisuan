@@ -3,8 +3,9 @@ import { sql } from "kysely";
 import { RuntimeAssuranceEventsRepository } from "./runtime-assurance-events.js";
 import {
   RuntimeAssuranceConflictError, type DeliveryContext, type NotificationDelivery,
-  type NotificationEndpoint, type PersonExternalIdentity,
+  type NotificationEndpoint, type PersonExternalIdentity, type PersonView,
 } from "./runtime-assurance-core.js";
+import type { NotificationCategory } from "../kysely-availability-tables.js";
 
 export * from "./runtime-assurance-core.js";
 
@@ -145,4 +146,54 @@ export class RuntimeAssuranceRepository extends RuntimeAssuranceEventsRepository
     }).where("id", "=", input.id).execute();
   }
 
+  async getNotificationRecipients(): Promise<Record<NotificationCategory, PersonView[]>> {
+    const rows = await this.db
+      .selectFrom("runtime_notification_recipient")
+      .selectAll()
+      .orderBy("created_at", "asc")
+      .execute();
+    const allPeople = await this.listPeople();
+    const peopleMap = new Map(allPeople.map((p) => [p.id, p]));
+
+    const result: Record<NotificationCategory, PersonView[]> = {
+      SYSTEM_FAILURE: [],
+      UPSTREAM_RESOURCE: [],
+      FINANCE_SECURITY: [],
+      PERSONNEL_ACCOUNT: [],
+    };
+
+    for (const row of rows) {
+      const person = peopleMap.get(row.person_id);
+      if (person && result[row.category as NotificationCategory]) {
+        result[row.category as NotificationCategory].push(person);
+      }
+    }
+
+    return result;
+  }
+
+  async saveNotificationRecipients(
+    input: Record<NotificationCategory, string[]>,
+  ): Promise<Record<NotificationCategory, PersonView[]>> {
+    await this.db.transaction().execute(async (trx) => {
+      await trx.deleteFrom("runtime_notification_recipient").execute();
+      const validCategories: NotificationCategory[] = [
+        "SYSTEM_FAILURE",
+        "UPSTREAM_RESOURCE",
+        "FINANCE_SECURITY",
+        "PERSONNEL_ACCOUNT",
+      ];
+      const inserts: Array<{ category: NotificationCategory; person_id: string }> = [];
+      for (const cat of validCategories) {
+        const ids = Array.from(new Set(input[cat] ?? []));
+        for (const pid of ids) {
+          inserts.push({ category: cat, person_id: pid });
+        }
+      }
+      if (inserts.length > 0) {
+        await trx.insertInto("runtime_notification_recipient").values(inserts).execute();
+      }
+    });
+    return this.getNotificationRecipients();
+  }
 }
