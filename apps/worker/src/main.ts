@@ -30,11 +30,15 @@ import { runCodingPlanQuotaTick } from "./coding-plan-quota/runner.js";
 import { runDirectorySyncTick } from "./directory/runner.js";
 import { runProviderOperatingSyncTick } from "./provider-operating-sync/runner.js";
 import { runUsageAggregateTick } from "./usage-aggregate/runner.js";
+import { createClient } from "redis";
 import {
   runDailyTokenReport,
   runCompanyWeeklyReport,
   runPersonalWeeklyReports,
   runIncentiveChecks,
+  RedisMilestoneStore,
+  MemoryMilestoneStore,
+  type MilestoneStore,
 } from "./reporting/index.js";
 
 async function main(): Promise<void> {
@@ -208,6 +212,24 @@ async function runRuntimeAssuranceOnce(): Promise<void> {
   }
 }
 
+async function redisSafeGet(client: ReturnType<typeof createClient> | null, key: string): Promise<string | null> {
+  if (!client || !client.isOpen) return null;
+  try {
+    return await client.get(key);
+  } catch {
+    return null;
+  }
+}
+
+async function redisSafeSet(client: ReturnType<typeof createClient> | null, key: string, val: string, ttlSeconds: number): Promise<void> {
+  if (!client || !client.isOpen) return;
+  try {
+    await client.set(key, val, { EX: ttlSeconds });
+  } catch {
+    // ignore
+  }
+}
+
 async function runRuntimeAssuranceScheduler(): Promise<void> {
   const db = createKysely();
   const observe = createTaskObserver(db);
@@ -239,6 +261,35 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   const wecom = new WecomAppClient(
     requiredEnv("CREDENTIAL_KEK"), fetch, Date.now, process.env.RUNTIME_ASSURANCE_ADMIN_URL,
   );
+
+  let redisClient: ReturnType<typeof createClient> | null = null;
+  const redisUrl = process.env.REDIS_URL;
+  if (redisUrl) {
+    try {
+      const client = createClient({
+        url: redisUrl,
+        socket: { connectTimeout: 3000, reconnectStrategy: (retries) => Math.min(retries * 50, 1000) },
+      });
+      client.on("error", (err) => {
+        console.warn(JSON.stringify({
+          event: "redis_scheduler_client_error",
+          message: err instanceof Error ? err.message : String(err),
+        }));
+      });
+      await client.connect();
+      redisClient = client;
+      console.log(JSON.stringify({ event: "redis_scheduler_client_connected", url: redisUrl }));
+    } catch (err) {
+      console.warn(JSON.stringify({
+        event: "redis_scheduler_client_init_failed",
+        message: err instanceof Error ? err.message : String(err),
+      }));
+    }
+  }
+
+  const milestoneStore: MilestoneStore = redisClient
+    ? new RedisMilestoneStore(redisClient)
+    : new MemoryMilestoneStore();
   try {
     await runSchedulerLoop({
       db, intervalMs, signal: controller.signal, health,
@@ -324,8 +375,9 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
           );
           const shanghaiDay = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" })).getDay();
 
-          // 每日上午 09:00（上海时间）自动生成昨日全员 Token 消费长图并推送指定人
-          if (shanghaiHour >= 9 && lastDailyReportDate !== shanghaiDate) {
+          // 每日上午 09:00 ~ 09:30（上海时间）自动生成昨日全员 Token 消费长图并推送指定人
+          const isDailyReportWindow = shanghaiHour === 9 && shanghaiMinute < 30;
+          if (isDailyReportWindow && lastDailyReportDate !== shanghaiDate) {
             try {
               const enterprises = await db
                 .selectFrom("enterprise")
@@ -333,11 +385,16 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
                 .where("status", "=", "ACTIVE")
                 .execute();
               for (const ent of enterprises) {
+                const redisDailyKey = `scheduler:daily_report:${ent.id}:${shanghaiDate}`;
+                const alreadyDone = await redisSafeGet(redisClient, redisDailyKey);
+                if (alreadyDone) continue;
+
                 const reportResult = await runDailyTokenReport({
                   db,
                   kekBase64: requiredEnv("CREDENTIAL_KEK"),
                   enterpriseId: ent.id,
                 });
+                await redisSafeSet(redisClient, redisDailyKey, "1", 86400 * 2);
                 console.log(JSON.stringify({
                   event: "daily_token_report_scheduler_completed",
                   enterprise_id: ent.id,
@@ -356,8 +413,10 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             }
           }
 
-          // 每周一上午 09:00（上海时间）推送团队全员周报与员工个人周报
-          if (shanghaiDay === 1 && shanghaiHour >= 9 && lastWeeklyReportDate !== shanghaiDate) {
+          // 每周一上午 09:00 ~ 09:30（上海时间）推送团队全员周报与员工个人周报
+          // 严格限定在周一早 09:00~09:30，超过时间段即使重启也绝不补发打扰
+          const isWeeklyReportWindow = shanghaiDay === 1 && shanghaiHour === 9 && shanghaiMinute < 30;
+          if (isWeeklyReportWindow && lastWeeklyReportDate !== shanghaiDate) {
             try {
               const enterprises = await db
                 .selectFrom("enterprise")
@@ -365,6 +424,10 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
                 .where("status", "=", "ACTIVE")
                 .execute();
               for (const ent of enterprises) {
+                const redisWeeklyKey = `scheduler:weekly_report:${ent.id}:${shanghaiDate}`;
+                const alreadyDone = await redisSafeGet(redisClient, redisWeeklyKey);
+                if (alreadyDone) continue;
+
                 const companyResult = await runCompanyWeeklyReport({
                   db,
                   kekBase64: requiredEnv("CREDENTIAL_KEK"),
@@ -385,6 +448,7 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
                   enterprise_id: ent.id,
                   count: personalResults.length,
                 }));
+                await redisSafeSet(redisClient, redisWeeklyKey, "1", 86400 * 7);
               }
               lastWeeklyReportDate = shanghaiDate;
             } catch (error) {
@@ -396,10 +460,11 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             }
           }
 
-          // 周三至周日上午 09:30（上海时间）执行激励巡检（登顶流动红旗与超越50%员工成长卡）
+          // 周三至周日上午 09:30 ~ 09:59（上海时间）执行激励巡检（登顶流动红旗与超越50%员工成长卡）
+          // 严格限定在上午 09:30~09:59 触发，下午或晚上即使服务重启也绝对不触发
           const isWedToSun = shanghaiDay === 0 || shanghaiDay >= 3;
-          const isAfter930 = shanghaiHour > 9 || (shanghaiHour === 9 && shanghaiMinute >= 30);
-          if (isWedToSun && isAfter930 && lastIncentiveCheckDate !== shanghaiDate) {
+          const isIncentiveWindow = shanghaiHour === 9 && shanghaiMinute >= 30;
+          if (isWedToSun && isIncentiveWindow && lastIncentiveCheckDate !== shanghaiDate) {
             try {
               const enterprises = await db
                 .selectFrom("enterprise")
@@ -407,11 +472,17 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
                 .where("status", "=", "ACTIVE")
                 .execute();
               for (const ent of enterprises) {
+                const redisIncentiveKey = `scheduler:incentive_check:${ent.id}:${shanghaiDate}`;
+                const alreadyDone = await redisSafeGet(redisClient, redisIncentiveKey);
+                if (alreadyDone) continue;
+
                 const incentiveResult = await runIncentiveChecks({
                   db,
                   kekBase64: requiredEnv("CREDENTIAL_KEK"),
                   enterpriseId: ent.id,
+                  milestoneStore,
                 });
+                await redisSafeSet(redisClient, redisIncentiveKey, "1", 86400 * 2);
                 console.log(JSON.stringify({
                   event: "incentive_check_scheduler_completed",
                   enterprise_id: ent.id,
@@ -440,6 +511,9 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
     });
   } finally {
     await new Promise<void>((resolve) => healthServer.close(() => resolve()));
+    if (redisClient?.isOpen) {
+      await redisClient.quit().catch(() => undefined);
+    }
     await db.destroy();
   }
 }
