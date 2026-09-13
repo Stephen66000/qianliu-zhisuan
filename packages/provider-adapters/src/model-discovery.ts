@@ -1,7 +1,8 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { DEEPSEEK_VERSION_URL, enrichDeepSeekVersions } from "./deepseek-model-version.js";
 import {
   ProviderModelDiscoveryError,
+  type DiscoveredProviderModel,
   type DiscoveryFetch, type DiscoveryResponse, type ModelDiscoveryResult,
   type OfficialSourceConfig, type OfficialSourceOverrides, type ProviderCode, type ResourceMode,
 } from "./model-discovery-contract.js";
@@ -9,6 +10,9 @@ import {
   cloneDiscoveryResult, discoverOfficialModelPageUrls, normalizeModel, parseOfficialDocuments,
   type FetchedDocument,
 } from "./model-discovery-parser.js";
+import { SecretValue } from "./secret-value.js";
+import { createOpenAiCompatibleCaller } from "./openai-compatible-caller.js";
+import type { HttpFetch } from "./openai-compatible-types.js";
 
 export * from "./model-discovery-contract.js";
 
@@ -146,6 +150,7 @@ export async function discoverProviderModels(input: {
   forceRefresh?: boolean;
   officialSourceOverrides?: OfficialSourceOverrides;
   env?: NodeJS.ProcessEnv;
+  probePermissions?: boolean;
 }): Promise<ModelDiscoveryResult> {
   const cacheKey = input.cacheKey;
   if (cacheKey && !input.forceRefresh) {
@@ -168,6 +173,56 @@ export async function discoverProviderModels(input: {
   }
 }
 
+async function probeModelPermissions(
+  providerCode: ProviderCode,
+  mode: ResourceMode,
+  credential: string,
+  models: DiscoveredProviderModel[],
+  fetcher: HttpFetch,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  const caller = createOpenAiCompatibleCaller({
+    fetch: fetcher,
+    env,
+    requestTimeoutMs: 5_000,
+    firstByteTimeoutMs: 4_000,
+    streamIdleTimeoutMs: 4_000,
+  });
+  await Promise.all(
+    models.filter((m) => m.compatible && m.modelType === "CHAT").map(async (model) => {
+      try {
+        const outcome = await caller({
+          providerCode,
+          resourceId: "probe",
+          mode,
+          upstreamModel: model.id,
+          concurrencyLimit: 1,
+          secret: new SecretValue(credential),
+        }, {
+          requestId: `probe-${randomUUID()}`,
+          unifiedModel: model.id,
+          stream: false,
+          capability: "chat",
+          body: {
+            model: model.id,
+            messages: [{ role: "user", content: "hi" }],
+            max_tokens: 1,
+          },
+        }, 1);
+        if (outcome.status === 403) {
+          model.compatible = false;
+          model.unavailableReason = "当前套餐/凭证未开通此模型权限 (HTTP 403)";
+        } else if (outcome.status === 401) {
+          model.compatible = false;
+          model.unavailableReason = "凭证鉴权失败 (HTTP 401)";
+        }
+      } catch {
+        // 网络超时/异常不强行标记不兼容
+      }
+    }),
+  );
+}
+
 async function discoverProviderModelsUncached(input: {
   providerCode: ProviderCode;
   mode: ResourceMode;
@@ -177,14 +232,28 @@ async function discoverProviderModelsUncached(input: {
   now?: Date;
   officialSourceOverrides?: OfficialSourceOverrides;
   env?: NodeJS.ProcessEnv;
+  probePermissions?: boolean;
 }): Promise<ModelDiscoveryResult> {
   const now = input.now ?? new Date();
   const fetcher = input.fetch ?? (globalThis.fetch as unknown as DiscoveryFetch);
   const descriptor = providerModelDiscoveryDescriptor(input.providerCode, input.mode);
+  let result: ModelDiscoveryResult;
   if (descriptor.source === "OFFICIAL_DOCUMENTATION") {
-    return discoverFromOfficialDocumentation(input, fetcher, now);
+    result = await discoverFromOfficialDocumentation(input, fetcher, now);
+  } else {
+    result = await discoverFromProviderApi(input, fetcher, now);
   }
-  return discoverFromProviderApi(input, fetcher, now);
+  if (input.probePermissions && input.credential && result.models.length > 0) {
+    await probeModelPermissions(
+      input.providerCode,
+      input.mode,
+      input.credential,
+      result.models,
+      (input.fetch as unknown as HttpFetch) ?? (globalThis.fetch as unknown as HttpFetch),
+      input.env,
+    );
+  }
+  return result;
 }
 
 async function discoverFromProviderApi(

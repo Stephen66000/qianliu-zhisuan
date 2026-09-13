@@ -104,6 +104,19 @@ function classifyAvailabilitySignal(
     return "QUOTA_EXHAUSTED";
   }
   if (kind === "WINDOW_EXHAUSTED") return "RATE_LIMIT_RETRY_AFTER";
+  if (status === 403) {
+    const norm = (code || "").toLowerCase();
+    if (
+      norm.includes("model") ||
+      norm.includes("permission") ||
+      norm.includes("unauthorized") ||
+      norm.includes("not_accessible") ||
+      norm.includes("forbidden") ||
+      norm.includes("access_denied")
+    ) {
+      return "MODEL_UNAUTHORIZED";
+    }
+  }
   if (status === 429) {
     if (kind === "QUOTA_EXHAUSTED" && recoverAt) {
       return "QUOTA_EXHAUSTED";

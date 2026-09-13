@@ -88,13 +88,27 @@ async function boundedDelay(delayMs: number, cancelled: () => boolean): Promise<
 
 /** 由 Outcome 反推错误分类（Stub 的 error_code → TRD §9 分类）。 */
 export function mapToClassification(
-  outcome: Pick<Outcome, "status" | "error" | "committed" | "upstreamErrorKind">,
+  outcome: Pick<Outcome, "status" | "error" | "committed" | "upstreamErrorKind"> & {
+    unifiedAvailabilitySignal?: string | null;
+    upstreamCode?: string | null;
+  },
 ): string | null {
   if (!outcome.error) return null;
   if (outcome.committed) return "STREAM_INTERRUPTED_AFTER_COMMIT";
   if (outcome.upstreamErrorKind === "WINDOW_EXHAUSTED") return "UPSTREAM_RATE_LIMITED";
   if (outcome.upstreamErrorKind === "QUOTA_EXHAUSTED") return "UPSTREAM_BILLING_BLOCKED";
-  if (outcome.status === 401 || outcome.status === 403) return "UPSTREAM_CREDENTIAL_INVALID";
+  if (outcome.status === 401) return "UPSTREAM_CREDENTIAL_INVALID";
+  if (outcome.status === 403) {
+    if (
+      outcome.unifiedAvailabilitySignal === "MODEL_UNAUTHORIZED" ||
+      outcome.error?.includes("model") ||
+      outcome.upstreamCode?.includes("model") ||
+      outcome.upstreamCode?.includes("permission")
+    ) {
+      return "CLIENT_INVALID";
+    }
+    return "UPSTREAM_CREDENTIAL_INVALID";
+  }
   if (outcome.status === 429) return "UPSTREAM_RATE_LIMITED";
   if (outcome.status === 402) return "UPSTREAM_BILLING_BLOCKED";
   if (outcome.status >= 500) return "UPSTREAM_TEMPORARY";

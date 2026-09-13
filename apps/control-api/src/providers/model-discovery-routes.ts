@@ -312,6 +312,7 @@ async function syncResourceModels(
       cacheKey: `${enterpriseId}:${resource.id}`,
       forceRefresh: true,
       officialSourceOverrides: officialSourceOverridesFromEnv(),
+      probePermissions: true,
     });
     const saved = await app.providerRepo.recordModelDiscovery(enterpriseId, resource.id, discovery);
     const states = await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, discovery.models.map((model) => model.id));

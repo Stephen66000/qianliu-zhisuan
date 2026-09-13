@@ -97,6 +97,47 @@ describe("W-MD 官方来源模型发现", () => {
     expect(result.models.map((model) => model.id)).toEqual(["k3", "k3-256k", "kimi-for-coding", "kimi-for-coding-highspeed"]);
   });
 
+  it("开启 probePermissions 时自动向候选模型发探针，403 超纲模型被自动置为不可用", async () => {
+    const fetch = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
+      if (init?.method === "POST") {
+        const body = JSON.parse(init.body ?? "{}");
+        if (body.model === "k3-256k") {
+          return {
+            ok: false,
+            status: 403,
+            headers: new Headers({ "content-type": "application/json" }),
+            json: async () => ({ error: { code: "permission_denied", message: "Model not accessible" } }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            id: "chat-1",
+            object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+          }),
+        };
+      }
+      return docResponse(`
+        Model ID | \`k3\` | \`k3-256k\`
+        上下文窗口 | 1M | 256k
+      `, url);
+    });
+    const result = await discoverProviderModels({
+      providerCode: "kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as any,
+      officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      probePermissions: true,
+    });
+    const k3 = result.models.find((m) => m.id === "k3");
+    const k3256k = result.models.find((m) => m.id === "k3-256k");
+    expect(k3?.compatible).toBe(true);
+    expect(k3?.unavailableReason).toBeNull();
+    expect(k3256k?.compatible).toBe(false);
+    expect(k3256k?.unavailableReason).toContain("HTTP 403");
+  });
+
   it("普通正文、实验语境和冲突语境拒绝，不静默采用", async () => {
     const fetch = vi.fn(async (url: string) => docResponse("The next model glm-5.3 may be experimental only.", url));
     await expect(discoverProviderModels({
