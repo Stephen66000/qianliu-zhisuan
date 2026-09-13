@@ -1,4 +1,5 @@
 export * from "./format-utils.js";
+export * from "./quote-library.js";
 export * from "./render-png.js";
 export * from "./milestone-store.js";
 export * from "./templates/logo-base64.js";

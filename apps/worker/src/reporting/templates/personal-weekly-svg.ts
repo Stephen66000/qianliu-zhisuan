@@ -26,6 +26,7 @@ export interface PersonalWeeklyReportData {
  */
 export function generatePersonalWeeklySvg(data: PersonalWeeklyReportData): string {
   const quote = data.quote || "功不求疾，但求有恒";
+  const quoteFontSize = quote.length > 11 ? 22 : quote.length > 9 ? 24 : 26;
   const metricsCount = data.metrics.length;
   const isFiveMetrics = metricsCount >= 5;
   const slotHeight = isFiveMetrics ? 56 : 68;
@@ -76,7 +77,7 @@ export function generatePersonalWeeklySvg(data: PersonalWeeklyReportData): strin
     <!-- Hanging Opening Quote at X=94 -->
     <text x="94" y="237" font-family="Georgia, serif" font-size="28" font-weight="700" fill="#D97706">“</text>
     <!-- Quote Text at X=118 -->
-    <text x="118" y="237" font-size="26" font-weight="700" fill="#D97706">${escapeXml(quote)}<tspan font-family="Georgia, serif" font-size="28" font-weight="700" fill="#D97706"> ”</tspan></text>
+    <text x="118" y="237" font-size="${quoteFontSize}" font-weight="700" fill="#D97706">${escapeXml(quote)}<tspan font-family="Georgia, serif" font-size="28" font-weight="700" fill="#D97706"> ”</tspan></text>
 
     <!-- Ruled Lines -->
     ${linesSvg}

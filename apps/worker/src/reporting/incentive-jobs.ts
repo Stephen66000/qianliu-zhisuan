@@ -25,6 +25,7 @@ import {
   type RedisClientType,
 } from "./milestone-store.js";
 import { queryTopModelsForRange } from "./report-jobs.js";
+import { pickTop1IncentiveQuote } from "./quote-library.js";
 
 export interface IncentiveCheckOptions {
   db: Kysely<Database>;
@@ -147,6 +148,7 @@ export async function checkAndDispatchTop1Milestone(
   const top1Data: IncentiveTop1ReportData = {
     userName: topUser.subjectName,
     periodLabel,
+    quote: pickTop1IncentiveQuote(`${topUser.subjectName}:${weekStr}`),
     weeklyTokens: formatTokenVolume(winnerTokens),
     teamShare: formatPercentage(topUser.share),
     exceededPercent: "超越全员 99% 同事",

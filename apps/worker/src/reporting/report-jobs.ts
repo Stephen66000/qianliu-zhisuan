@@ -20,26 +20,7 @@ import {
   type PersonalWeeklyReportData,
 } from "./templates/personal-weekly-svg.js";
 
-const INSPIRATIONAL_QUOTES = [
-  "功不求疾，但求有恒",
-  "行而不辍，履践致远",
-  "日拱一卒，功不唐捐",
-  "博观而约取，厚积而薄发",
-  "积跬步以至千里",
-  "深耕细作，笃行致远",
-  "独行快，众行远",
-  "志之所趋，无远弗届",
-];
-
-function pickQuote(key: string): string {
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash << 5) - hash + key.charCodeAt(i);
-    hash |= 0;
-  }
-  const idx = Math.abs(hash) % INSPIRATIONAL_QUOTES.length;
-  return INSPIRATIONAL_QUOTES[idx] ?? "功不求疾，但求有恒";
-}
+import { pickPersonalWeeklyQuote } from "./quote-library.js";
 
 export interface ModelUsageSummary {
   model: string;
@@ -519,7 +500,7 @@ export async function runPersonalWeeklyReports(
     const cardData: PersonalWeeklyReportData = {
       userName: item.subjectName,
       dateRange: weekLabel,
-      quote: pickQuote(`${item.subjectName}:${weekLabel}`),
+      quote: pickPersonalWeeklyQuote(`${item.subjectName}:${weekLabel}`),
       metrics,
     };
 
