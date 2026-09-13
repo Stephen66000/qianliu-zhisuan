@@ -308,7 +308,7 @@ export function registerRuntimeAssuranceRoutes(app: FastifyInstance): void {
       admin_user_id: req.admin!.adminUserId,
       action: "runtime_notification.update",
       target_type: "notification_recipient",
-      target_id: "global",
+      target_id: null,
       change_summary: {
         system_failure_count: parsed.data.recipients.SYSTEM_FAILURE.length,
         upstream_resource_count: parsed.data.recipients.UPSTREAM_RESOURCE.length,

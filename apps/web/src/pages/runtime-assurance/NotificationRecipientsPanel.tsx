@@ -4,7 +4,6 @@ import {
   Check,
   CheckCircle2,
   CircleAlert,
-  Info,
   Plus,
   RotateCcw,
   Save,
@@ -174,36 +173,6 @@ export function NotificationRecipientsPanel() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* 规则说明与边界提示横幅 */}
-      <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-ql-action" />
-          <div className="space-y-1.5 text-xs text-ql-fg-secondary">
-            <h3 className="text-sm font-semibold text-ql-fg">
-              企业微信通知规则与人员绑定规范
-            </h3>
-            <ul className="grid gap-1.5 pt-1 md:grid-cols-2">
-              <li className="flex items-start gap-1.5">
-                <span className="font-semibold text-ql-fg">· 灵活选人：</span>
-                针对 4 大类异常直接在通讯录选人，各类型人员可相同或不同，支持单选与多选。
-              </li>
-              <li className="flex items-start gap-1.5">
-                <span className="font-semibold text-ql-fg">· 项目专向路由：</span>
-                特定项目主体的调用异常，系统将自动直推该项目负责人，不打扰全局管理员。
-              </li>
-              <li className="flex items-start gap-1.5">
-                <span className="font-semibold text-ql-fg">· 员工使用端直推：</span>
-                员工客户端填错 Key 或无模型权限等个人问题，直接私推员工本人排查。
-              </li>
-              <li className="flex items-start gap-1.5">
-                <span className="font-semibold text-ql-fg">· 防风暴与免通知：</span>
-                上线初期额度超额免通知；相同错误 15 分钟内静默；自愈恢复后发送绿色消警通知。
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
       {/* 提示消息 */}
       {saveSuccessMsg && (
         <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-xs font-medium text-emerald-800 border border-emerald-200" role="status">

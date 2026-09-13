@@ -134,7 +134,6 @@ describe("NotificationRecipientsPanel", () => {
 
   it("渲染 4 大异常类型卡片及已配置的人员", () => {
     renderPanel();
-    expect(screen.getByText("企业微信通知规则与人员绑定规范")).toBeInTheDocument();
     expect(screen.getByText("系统级故障")).toBeInTheDocument();
     expect(screen.getByText("上游资源故障")).toBeInTheDocument();
     expect(screen.getByText("资金与财务异常")).toBeInTheDocument();
