@@ -186,7 +186,7 @@ export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverPro
     discovered_at: discovery.discoveredAt.toISOString(),
     stale: discovery.stale,
     reused: discovery.reused,
-    models: discovery.models,
+    models: discovery.models.filter((model) => model.compatible),
     catalog_diff: discovery.catalogDiff ? {
       added: discovery.catalogDiff.added,
       retained: discovery.catalogDiff.retained,

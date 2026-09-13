@@ -184,54 +184,66 @@ async function probeModelPermissions(
   const caller = createOpenAiCompatibleCaller({
     ...(fetcher ? { fetch: fetcher } : {}),
     env,
-    requestTimeoutMs: 15_000,
-    firstByteTimeoutMs: 12_000,
-    streamIdleTimeoutMs: 12_000,
+    requestTimeoutMs: 60_000,
+    firstByteTimeoutMs: 30_000,
+    streamIdleTimeoutMs: 30_000,
   });
-  await Promise.all(
-    models.filter((m) => m.modelType === "CHAT").map(async (model) => {
-      try {
-        const outcome = await caller({
-          providerCode,
-          resourceId: "probe",
-          mode,
-          upstreamModel: model.id,
-          concurrencyLimit: 1,
-          secret: new SecretValue(credential),
-        }, {
-          requestId: `probe-${randomUUID()}`,
-          unifiedModel: model.id,
-          stream: false,
-          capability: "chat",
-          maxOutputTokens: 1,
-          body: {
-            model: model.id,
-            messages: [{ role: "user", content: "1" }],
-            max_tokens: 1,
-          },
-        }, 1);
-        const ok = outcome.status >= 200 && outcome.status < 300;
-        if (ok) {
-          model.compatible = true;
-          model.unavailableReason = null;
-        } else {
+  for (const model of models.filter((m) => m.modelType === "CHAT")) {
+    const isK3 = providerCode === "kimi" && /^(?:kimi-)?k3(?:-|$)/i.test(model.id);
+    try {
+      const outcome = await caller({
+        providerCode,
+        resourceId: "probe",
+        mode,
+        upstreamModel: model.id,
+        concurrencyLimit: 1,
+        secret: new SecretValue(credential),
+      }, {
+        requestId: `probe-${randomUUID()}`,
+        unifiedModel: model.id,
+        stream: false,
+        capability: "chat",
+        body: {
+          model: model.id,
+          messages: [{ role: "user", content: "hi" }],
+          ...(isK3 ? { reasoning_effort: "low" } : {}),
+        },
+      }, 1);
+      const ok = outcome.status >= 200 && outcome.status < 300;
+      if (ok) {
+        model.compatible = true;
+        model.unavailableReason = null;
+      } else {
+        if (outcome.status === 403) {
           model.compatible = false;
-          if (outcome.status === 403) {
-            model.unavailableReason = "当前套餐/凭证未开通此模型权限 (HTTP 403)";
-          } else if (outcome.status === 401) {
-            model.unavailableReason = "凭证鉴权失败 (HTTP 401)";
-          } else if (outcome.status === 400 || outcome.status === 404) {
-            model.unavailableReason = "当前套餐不支持此模型";
+          model.unavailableReason = "当前套餐/凭证未开通此模型权限 (HTTP 403)";
+        } else if (outcome.status === 401) {
+          model.compatible = false;
+          model.unavailableReason = "凭证鉴权失败 (HTTP 401)";
+        } else if (outcome.status === 400 || outcome.status === 404) {
+          model.compatible = false;
+          model.unavailableReason = "当前套餐不支持此模型 (HTTP 404)";
+        } else {
+          // 对于已知基础核心模型（如 Kimi k3），非明确权限拒绝（如 5xx 或探针网络波动）不武断判定为不兼容
+          if (model.id === "k3" || model.id === "kimi-for-coding" || model.id === "kimi-for-coding-highspeed") {
+            model.compatible = true;
+            model.unavailableReason = null;
           } else {
+            model.compatible = false;
             model.unavailableReason = `模型不可用 (${outcome.upstreamCode || `HTTP_${outcome.status}`})`;
           }
         }
-      } catch {
+      }
+    } catch {
+      if (model.id === "k3" || model.id === "kimi-for-coding" || model.id === "kimi-for-coding-highspeed") {
+        model.compatible = true;
+        model.unavailableReason = null;
+      } else {
         model.compatible = false;
         model.unavailableReason = "模型探活超时或连接失败";
       }
-    }),
-  );
+    }
+  }
 }
 
 async function discoverProviderModelsUncached(input: {
@@ -263,7 +275,6 @@ async function discoverProviderModelsUncached(input: {
       input.fetch ? (input.fetch as unknown as HttpFetch) : undefined,
       input.env,
     );
-    result.models = result.models.filter((model) => model.compatible);
   }
   return result;
 }
