@@ -246,7 +246,7 @@ export function publicStoredDiscovery(input: {
     discovered_at: input.discovery.discovered_at.toISOString(),
     stale: input.itemsStale || input.discovery.stale,
     reused: input.reused ?? false,
-    models: input.items.map((item) => ({
+    models: input.items.filter((item) => item.compatible).map((item) => ({
       id: item.upstream_model,
       displayName: item.display_name,
       modelType: item.model_type,

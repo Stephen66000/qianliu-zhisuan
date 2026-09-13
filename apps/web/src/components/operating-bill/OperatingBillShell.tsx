@@ -117,8 +117,8 @@ export function OperatingBillShell({
       >
         <div className="flex min-w-max gap-1">
           {sections.filter(({ id }) =>
-            (id !== "departments" || featureFlags.FEATURE_DEPARTMENT_COST)
-            && (id !== "procurement" || featureFlags.FEATURE_PROCUREMENT_REVIEW)
+            (id !== "procurement" || featureFlags.FEATURE_PROCUREMENT_REVIEW)
+            && (id !== "departments" || featureFlags.FEATURE_DEPARTMENT_COST)
           ).map(({ id, label, icon: Icon }) => (
             <Link
               aria-current={active === id ? "page" : undefined}

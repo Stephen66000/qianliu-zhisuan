@@ -72,6 +72,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-qianliu}:${POSTGRES_PASSWORD:-qianliu_dev_only}@postgres:5432/${POSTGRES_DB:-qianliu}
       REDIS_URL: redis://redis:6379
       CONTROL_API_HOST: 0.0.0.0 # 容器内监听全部接口（对外由反代/端口映射控制）
+      PROVIDER_FINANCE_MODE: ${PROVIDER_FINANCE_MODE:-ACTIVE}
       NODE_ENV: production
     ports:
       - "127.0.0.1:8788:8788"
@@ -117,6 +118,7 @@ services:
       REDIS_URL: redis://redis:6379
       WORKER_HEALTH_PORT: 9191
       RUNTIME_ASSURANCE_INTERVAL_MS: 30000
+      PROVIDER_FINANCE_MODE: ${PROVIDER_FINANCE_MODE:-ACTIVE}
       NODE_ENV: production
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9191/health"]

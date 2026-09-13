@@ -34,7 +34,7 @@ export type ProviderFinanceMode = z.infer<typeof ProviderFinanceModeSchema>;
 
 export function readProviderFinanceMode(env: NodeJS.ProcessEnv = process.env): ProviderFinanceMode {
   return ProviderFinanceModeSchema.parse(
-    env.PROVIDER_FINANCE_MODE ?? (env.NODE_ENV === "test" ? "ACTIVE" : "OFF"),
+    env.PROVIDER_FINANCE_MODE ?? "ACTIVE",
   );
 }
 

@@ -28,11 +28,11 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
         onRetry={() => void query.refetch()}
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1240px] table-fixed border-collapse text-left">
+          <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
             <colgroup>
-              <col className="w-[10%]" /><col className="w-[14%]" /><col className="w-[5%]" />
-              <col className="w-[12%]" /><col className="w-[14%]" /><col className="w-[13%]" />
-              <col className="w-[8%]" /><col className="w-[10%]" /><col className="w-[14%]" />
+              <col className="w-[8%]" /><col className="w-[14%]" /><col className="w-[5%]" />
+              <col className="w-[14%]" /><col className="w-[15%]" /><col className="w-[12%]" />
+              <col className="w-[7%]" /><col className="w-[10%]" /><col className="w-[15%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">

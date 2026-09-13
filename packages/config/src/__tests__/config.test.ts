@@ -89,11 +89,13 @@ describe("@qianliu/config", () => {
     expect(() => readFeatureFlags({ FEATURE_USAGE_OVERVIEW_V2: "TRUE" })).toThrow();
   });
 
-  it("资金账本模式测试默认ACTIVE、生产默认OFF且只接受三级枚举", () => {
-    expect(readProviderFinanceMode({ NODE_ENV: "test" })).toBe("ACTIVE");
-    expect(readProviderFinanceMode({ NODE_ENV: "production" })).toBe("OFF");
+  it("资金账本模式默认ACTIVE且只接受三级枚举", () => {
+    expect(readProviderFinanceMode({})).toBe("ACTIVE");
+    expect(readProviderFinanceMode({ NODE_ENV: "production" })).toBe("ACTIVE");
     expect(readProviderFinanceMode({ NODE_ENV: "production", PROVIDER_FINANCE_MODE: "DARK" }))
       .toBe("DARK");
+    expect(readProviderFinanceMode({ NODE_ENV: "production", PROVIDER_FINANCE_MODE: "OFF" }))
+      .toBe("OFF");
     expect(() => readProviderFinanceMode({ PROVIDER_FINANCE_MODE: "active" })).toThrow();
   });
 });

@@ -52,6 +52,7 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       return publicDiscovery(await discoverProviderModels({
         providerCode: provider.code, mode: parsed.data.mode, credential: parsed.data.credential_plaintext,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
+        probePermissions: true,
       }));
     } catch (cause) {
       return sendDiscoveryError(reply, cause);
@@ -80,6 +81,7 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       const discovery = await discoverProviderModels({
         providerCode: provider.code, mode: resource.mode, credential: credential_plaintext,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
+        probePermissions: true,
       });
       const selected = selectCompatibleModels(discovery.models, selected_model_ids);
       if (!selected) {
@@ -293,7 +295,8 @@ async function syncResourceModels(
   }
   const latest = await app.providerRepo.latestModelDiscovery(enterpriseId, resource.id);
   const lastChecked = latest?.successful_discovery?.source_checked_at ?? null;
-  if (latest?.successful_discovery && !latest.successful_discovery.stale && lastChecked && Date.now() - lastChecked.getTime() < SYNC_CACHE_TTL_MS) {
+  const hasIncompatibleItems = latest?.items?.some((item) => !item.compatible);
+  if (latest?.successful_discovery && !latest.successful_discovery.stale && lastChecked && Date.now() - lastChecked.getTime() < SYNC_CACHE_TTL_MS && !hasIncompatibleItems) {
     const states = await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, latest.items.map((item) => item.upstream_model));
     return publicStoredDiscovery({
       discovery: latest.successful_discovery,

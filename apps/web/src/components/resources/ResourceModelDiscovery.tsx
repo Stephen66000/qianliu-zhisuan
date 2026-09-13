@@ -458,7 +458,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
       </div>
     </div> : discovery ? <div className="mt-3 space-y-2">
       <DiscoveryMeta discovery={discovery} />
-      {discovery.models.map((model) => <ModelChoice compatibleText="可加入" key={model.id} model={model}
+      {discovery.models.filter((model) => model.compatible).map((model) => <ModelChoice compatibleText="可加入" key={model.id} model={model}
         onChange={(checked) => setSelectedIds((current) => checked
           ? [...current, model.id] : current.filter((id) => id !== model.id))}
         selected={selectedIds.includes(model.id)} />)}
