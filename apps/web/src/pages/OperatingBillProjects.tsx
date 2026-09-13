@@ -19,15 +19,16 @@ import {
   OperatingBillShell,
 } from "../components/operating-bill/OperatingBillShell";
 import {
+  DEFAULT_PROVIDER_COLS,
+  extractProviderColumns,
+  getSubjectUsageHeaders,
   SubjectUsageCells,
-  subjectUsageHeaders,
 } from "../components/operating-bill/SubjectUsageCells";
 import { EmptyState } from "../components/states/EmptyState";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 
-const headers = ["项目", "负责人", "归属部门", ...subjectUsageHeaders];
 const PAGE_LIMIT = 25;
 
 function pageOffset(value: string | null): number {
@@ -95,46 +96,54 @@ export function OperatingBillProjectsPage() {
         ) : (
           <>
             <MetricGrid totals={query.data.totals} />
-            <BillCard className="overflow-hidden">
-              {query.data.rows.length === 0 ? (
-              <EmptyState
-                description="当前月份或筛选条件没有项目用量；未归属请求也会在此独立列示。"
-                icon={BriefcaseBusiness}
-                title="没有项目账单记录"
-              />
-            ) : (
-                <AccountTable headers={headers} leadingTextColumns={3}>
-                  {query.data.rows.map((row) => {
-                    return (
-                      <tr className="border-b border-ql-border-zone" key={row.subjectId ?? "__unassigned_project__"}>
-                        <AccountCell>
-                          <span className="font-medium text-ql-fg">
-                            {row.subjectName}
-                          </span>
-                          {row.isUnassigned ? (
-                        <span className="ml-2 text-[11px] text-ql-warning">未归属</span>
-                      ) : null}
-                        </AccountCell>
-                        <AccountCell>
-                          {row.projectOwner?.personName ?? "—"}
-                        </AccountCell>
-                        <AccountCell>
-                      {row.projectDepartments.map((department) => department.departmentName).join("、")
-                        || (row.subjectId ? "待归属" : "—")}
-                    </AccountCell>
-                        <SubjectUsageCells row={row} />
-                      </tr>
-                    );
-                  })}
-                </AccountTable>
-              )}
-              <AccountPagination
+            {(() => {
+              const dynamicProviders = extractProviderColumns(query.data.rows);
+              return (
+                <BillCard className="overflow-hidden">
+                  {query.data.rows.length === 0 ? (
+                    <EmptyState
+                      description="当前月份或筛选条件没有项目用量；未归属请求也会在此独立列示。"
+                      icon={BriefcaseBusiness}
+                      title="没有项目账单记录"
+                    />
+                  ) : (
+                    <AccountTable
+                      headers={["项目", "负责人", "归属部门", ...getSubjectUsageHeaders(dynamicProviders)]}
+                      leadingTextColumns={3}
+                    >
+                      {query.data.rows.map((row) => {
+                        return (
+                          <tr className="border-b border-ql-border-zone" key={row.subjectId ?? "__unassigned_project__"}>
+                            <AccountCell>
+                              <span className="font-medium text-ql-fg">
+                                {row.subjectName}
+                              </span>
+                              {row.isUnassigned ? (
+                                <span className="ml-2 text-[11px] text-ql-warning">未归属</span>
+                              ) : null}
+                            </AccountCell>
+                            <AccountCell>
+                              {row.projectOwner?.personName ?? "—"}
+                            </AccountCell>
+                            <AccountCell>
+                              {row.projectDepartments.map((department) => department.departmentName).join("、")
+                                || (row.subjectId ? "待归属" : "—")}
+                            </AccountCell>
+                            <SubjectUsageCells providers={dynamicProviders} row={row} />
+                          </tr>
+                        );
+                      })}
+                    </AccountTable>
+                  )}
+                </BillCard>
+              );
+            })()}
+            <AccountPagination
               limit={query.data.limit}
               offset={query.data.offset}
               onOffsetChange={setOffset}
               total={query.data.total}
             />
-            </BillCard>
           </>
         )}
       </div>

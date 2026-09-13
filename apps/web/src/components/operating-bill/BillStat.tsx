@@ -13,11 +13,13 @@ export function BillStat({
   value,
   tokens = false,
   missing = "—",
+  highlight = false,
 }: {
   label: string;
   value: string | null;
   tokens?: boolean;
   missing?: string;
+  highlight?: boolean;
 }) {
   const root = useRef<HTMLElement>(null);
   const display =
@@ -54,11 +56,17 @@ export function BillStat({
   return (
     <article
       ref={root}
-      className="min-w-0 rounded-xl border border-ql-border-zone bg-ql-surface px-2 py-4"
+      className={`min-w-0 rounded-xl px-2 py-4 ${
+        highlight
+          ? "border-2 border-ql-action bg-ql-surface-brand-soft/20"
+          : "border border-ql-border-zone bg-ql-surface"
+      }`}
     >
       <span
         data-fit="label"
-        className="block whitespace-nowrap text-[12px] text-ql-fg-secondary"
+        className={`block whitespace-nowrap text-[12px] ${
+          highlight ? "font-semibold text-ql-action" : "text-ql-fg-secondary"
+        }`}
       >
         {label}
       </span>
@@ -67,7 +75,9 @@ export function BillStat({
         aria-label={
           value === null ? "数据缺失" : tokens ? `${value} Token` : value
         }
-        className="mt-2 block whitespace-nowrap text-[24px] font-semibold tabular-nums text-ql-fg"
+        className={`mt-2 block whitespace-nowrap text-[24px] font-semibold tabular-nums ${
+          highlight ? "text-ql-action" : "text-ql-fg"
+        }`}
       >
         {display.text}
         {display.unit ? (

@@ -12,7 +12,9 @@ import {
   MetricGrid,
 } from "../components/operating-bill/AccountShared";
 import {
-  subjectUsageHeaders,
+  DEFAULT_PROVIDER_COLS,
+  extractProviderColumns,
+  getSubjectUsageHeaders,
   SubjectUsageCells,
 } from "../components/operating-bill/SubjectUsageCells";
 import {
@@ -69,26 +71,31 @@ export function OperatingBillDepartmentsPage() {
             <div className="flex justify-end"><Link className="text-[13px] text-ql-action underline" to="/principals">补齐历史归属</Link></div>
           ) : null}
           <MetricGrid totals={query.data.totals} />
-          <BillCard>
-            <SectionHeading title="部门账" />
-            <AccountTable
-              headers={["部门", ...subjectUsageHeaders]}
-              leadingTextColumns={1}
-            >
-              {query.data.rows.map((row) => (
-                <tr
-                  className="border-b border-ql-border-zone"
-                  key={row.subjectId ?? "unassigned"}
+          {(() => {
+            const dynamicProviders = extractProviderColumns(query.data.rows);
+            return (
+              <BillCard>
+                <SectionHeading title="部门账" />
+                <AccountTable
+                  headers={["部门", ...getSubjectUsageHeaders(dynamicProviders)]}
+                  leadingTextColumns={1}
                 >
-                  <AccountCell>{row.subjectName}</AccountCell>
-                  <SubjectUsageCells row={row} />
-                </tr>
-              ))}
-            </AccountTable>
-            {query.data.rows.length === 0 ? (
-              <p className="p-6 text-center">本月暂无部门用量</p>
-            ) : null}
-          </BillCard>
+                  {query.data.rows.map((row) => (
+                    <tr
+                      className="border-b border-ql-border-zone"
+                      key={row.subjectId ?? "unassigned"}
+                    >
+                      <AccountCell>{row.subjectName}</AccountCell>
+                      <SubjectUsageCells providers={dynamicProviders} row={row} />
+                    </tr>
+                  ))}
+                </AccountTable>
+                {query.data.rows.length === 0 ? (
+                  <p className="p-6 text-center">本月暂无部门用量</p>
+                ) : null}
+              </BillCard>
+            );
+          })()}
         </div>
       )}
     </OperatingBillShell>

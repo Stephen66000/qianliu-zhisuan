@@ -16,15 +16,16 @@ import {
   OperatingBillShell,
 } from "../components/operating-bill/OperatingBillShell";
 import {
+  DEFAULT_PROVIDER_COLS,
+  extractProviderColumns,
+  getSubjectUsageHeaders,
   SubjectUsageCells,
-  subjectUsageHeaders,
 } from "../components/operating-bill/SubjectUsageCells";
 import { EmptyState } from "../components/states/EmptyState";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 
-const headers = ["员工", ...subjectUsageHeaders];
 const PAGE_LIMIT = 25;
 
 function pageOffset(value: string | null): number {
@@ -92,48 +93,56 @@ export function OperatingBillEmployeesPage() {
         ) : (
           <>
             <MetricGrid totals={query.data.totals} />
-            <BillCard className="overflow-hidden">
-              {query.data.rows.length === 0 ? (
-              <EmptyState
-                description="当前月份或筛选条件没有员工用量；可切换月份或清除筛选。"
-                icon={UsersRound}
-                title="没有员工账单记录"
-              />
-            ) : (
-                <AccountTable headers={headers} leadingTextColumns={1}>
-                  {query.data.rows.map((row) => {
-                    const detail = new URLSearchParams({ month });
-                    if (providerCode) detail.set("provider_code", providerCode);
-                    if (search) detail.set("search", search);
-                    return (
-                      <tr className="border-b border-ql-border-zone" key={row.subjectId ?? row.subjectName}>
-                        <AccountCell>
-                          {row.subjectId ? (
-                          <Link
-                            className="font-medium text-ql-action hover:underline"
-                            to={`/operating-bill/employees/${encodeURIComponent(row.subjectId)}?${detail}`}
-                          >
-                            {row.subjectName}
-                          </Link>
-                        ) : (
-                            <span className="font-medium text-ql-fg">
-                              {row.subjectName}
-                            </span>
-                          )}
-                        </AccountCell>
-                        <SubjectUsageCells row={row} />
-                      </tr>
-                    );
-                  })}
-                </AccountTable>
-              )}
-              <AccountPagination
+            {(() => {
+              const dynamicProviders = extractProviderColumns(query.data.rows);
+              return (
+                <BillCard className="overflow-hidden">
+                  {query.data.rows.length === 0 ? (
+                    <EmptyState
+                      description="当前月份或筛选条件没有员工用量；可切换月份或清除筛选。"
+                      icon={UsersRound}
+                      title="没有员工账单记录"
+                    />
+                  ) : (
+                    <AccountTable
+                      headers={["员工", ...getSubjectUsageHeaders(dynamicProviders)]}
+                      leadingTextColumns={1}
+                    >
+                      {query.data.rows.map((row) => {
+                        const detail = new URLSearchParams({ month });
+                        if (providerCode) detail.set("provider_code", providerCode);
+                        if (search) detail.set("search", search);
+                        return (
+                          <tr className="border-b border-ql-border-zone" key={row.subjectId ?? row.subjectName}>
+                            <AccountCell>
+                              {row.subjectId ? (
+                                <Link
+                                  className="font-medium text-ql-action hover:underline"
+                                  to={`/operating-bill/employees/${encodeURIComponent(row.subjectId)}?${detail}`}
+                                >
+                                  {row.subjectName}
+                                </Link>
+                              ) : (
+                                <span className="font-medium text-ql-fg">
+                                  {row.subjectName}
+                                </span>
+                              )}
+                            </AccountCell>
+                            <SubjectUsageCells providers={dynamicProviders} row={row} />
+                          </tr>
+                        );
+                      })}
+                    </AccountTable>
+                  )}
+                </BillCard>
+              );
+            })()}
+            <AccountPagination
               limit={query.data.limit}
               offset={query.data.offset}
               onOffsetChange={setOffset}
               total={query.data.total}
             />
-            </BillCard>
           </>
         )}
       </div>

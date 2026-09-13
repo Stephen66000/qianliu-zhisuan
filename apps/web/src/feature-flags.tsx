@@ -4,7 +4,7 @@ import type { FeatureFlags, ProviderFinanceMode } from "./api/types";
 export const DISABLED_FEATURE_FLAGS: FeatureFlags = {
   FEATURE_DIRECTORY_IMPORT: false,
   FEATURE_USAGE_OVERVIEW_V2: false,
-  FEATURE_DEPARTMENT_COST: false,
+  FEATURE_DEPARTMENT_COST: true,
   FEATURE_RESOURCE_UTILIZATION_V2: false,
   FEATURE_PROCUREMENT_REVIEW: false,
 };

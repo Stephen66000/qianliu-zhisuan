@@ -5,6 +5,8 @@ import {
   FileLock2,
   Gauge,
   LayoutDashboard,
+  Receipt,
+  Sparkles,
   UsersRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -13,24 +15,26 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useFeatureFlags } from "../../feature-flags";
 
 export type OperatingBillSection =
-  | "overview"
+  | "value"
+  | "finance"
+  | "departments"
   | "employees"
   | "projects"
-  | "departments"
   | "plans"
+  | "overview"
   | "procurement"
-  | "reconciliation"
-  | "value";
+  | "reconciliation";
 
 const sections = [
-  { id: "overview", label: "月度总览", icon: LayoutDashboard },
+  { id: "value", label: "价值体现", icon: Sparkles },
+  { id: "finance", label: "财务账", icon: Receipt },
+  { id: "departments", label: "部门账", icon: UsersRound },
   { id: "employees", label: "员工账", icon: UsersRound },
   { id: "projects", label: "项目账", icon: BriefcaseBusiness },
-  { id: "departments", label: "部门账", icon: UsersRound },
   { id: "plans", label: "套餐利用率", icon: Gauge },
+  { id: "overview", label: "月度总览", icon: LayoutDashboard },
   { id: "procurement", label: "采购复盘", icon: Gauge },
   { id: "reconciliation", label: "对账与导出", icon: FileLock2 },
-  { id: "value", label: "价值确认", icon: BadgeCheck },
 ] as const;
 
 export function sectionUrl(

@@ -76,6 +76,7 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
     label: string;
     value: string | null;
     tokens?: boolean;
+    highlight?: boolean;
   }> = [
     {
       label: "本月总 Token",
@@ -83,16 +84,27 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
       tokens: true,
     },
     {
-      label: "输入 Token",
-      value: tokenValue(totals.inputTokens),
-      tokens: true,
-    },
-    {
-      label: "输出 Token",
-      value: tokenValue(totals.outputTokens),
-      tokens: true,
+      label: "月度总花费",
+      value:
+        totals.totalAllocatedCost !== null && totals.totalAllocatedCost !== undefined
+          ? accountMoney(totals.totalAllocatedCost)
+          : totals.apiCost !== null
+            ? accountMoney(totals.apiCost)
+            : totals.usageQuality === "UNKNOWN"
+              ? null
+              : "¥0.00",
+      highlight: true,
     },
     { label: "API 消费", value: accountApiMoney(totals) },
+    {
+      label: "套餐分摊",
+      value:
+        totals.packageAllocatedCost !== null && totals.packageAllocatedCost !== undefined
+          ? accountMoney(totals.packageAllocatedCost)
+          : totals.usageQuality === "UNKNOWN"
+            ? null
+            : "¥0.00",
+    },
     {
       label: "活跃天数",
       value: totals.activeDays === null ? null : String(totals.activeDays),
@@ -102,9 +114,8 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
   return (
     <section
       aria-label="账单指标"
-      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"
     >
-
       {metrics.map((metric) => (
         <BillStat
           key={metric.label}

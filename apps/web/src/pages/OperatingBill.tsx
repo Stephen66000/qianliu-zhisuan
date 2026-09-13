@@ -6,6 +6,8 @@ import { operatingBillMonth, OperatingBillShell, type OperatingBillSection } fro
 import { OperatingPlans } from "../components/operating-bill/OperatingPlans";
 import { OperatingProcurement } from "../components/operating-bill/OperatingProcurement";
 import { OperatingTrends } from "../components/operating-bill/OperatingTrends";
+import { ValueRealizationSection } from "../components/operating-bill/ValueRealizationSection";
+import { FinancialLedgerSection } from "../components/operating-bill/FinancialLedgerSection";
 import { accountTime } from "../components/operating-bill/AccountShared";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
@@ -20,7 +22,12 @@ type TabId = Exclude<
 >;
 function isTabId(value: string | null): value is TabId {
   return (
-    value === "overview" || value === "plans" || value === "procurement" || value === "reconciliation" || value === "value"
+    value === "value" ||
+    value === "finance" ||
+    value === "overview" ||
+    value === "plans" ||
+    value === "procurement" ||
+    value === "reconciliation"
   );
 }
 export function OperatingBillPage() {
@@ -32,6 +39,8 @@ export function OperatingBillPage() {
   const reporting =
     tab === "overview" ||
     tab === "plans" ||
+    tab === "value" ||
+    tab === "finance" ||
     (tab === "procurement" && flags.FEATURE_PROCUREMENT_REVIEW);
   const bill = useOperatingBill(month, tab === "overview");
   const analysis = useOperatingAnalysis(month, reporting);
@@ -50,7 +59,7 @@ export function OperatingBillPage() {
       {!reporting ? (
         <div
           role="region"
-          aria-label={tab === "value" ? "价值确认" : "对账与导出"}
+          aria-label="对账与导出"
         />
       ) : analysis.isLoading || (tab === "overview" && bill.isLoading) ? (
         <LoadingState label="正在汇总经营账单…" rows={5} />
@@ -98,6 +107,10 @@ export function OperatingBillPage() {
             </>
           ) : tab === "plans" ? (
             <OperatingPlans data={analysis.data} />
+          ) : tab === "value" ? (
+            <ValueRealizationSection analysis={analysis.data} month={month} />
+          ) : tab === "finance" ? (
+            <FinancialLedgerSection analysis={analysis.data} />
           ) : (
             <OperatingProcurement data={analysis.data} />
           )}
