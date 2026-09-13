@@ -210,7 +210,7 @@ export async function checkAndDispatchTop1Milestone(
     `⚡ 本周累计消耗：${formatTokenVolume(winnerTokens)}`,
     `🏅 团队贡献占比：${formatPercentage(topUser.share)}`,
     "━━━━━━━━━━━━━━━━━━",
-    "专属流动红旗信笺荣誉已送达上方 👆，领跑全员，继续保持卓越节奏！",
+    "专属记录荣誉已送达上方",
   ].join("\n");
 
   await client.sendTextMessage(endpoint as EndpointConfig, [identity.provider_user_id], textMsg);
@@ -376,7 +376,7 @@ export async function checkAndDispatchOver50Milestone(
       `⚡ 月累计消耗：${formatTokenVolume(userTokens)}`,
       `📈 累计调用量：${formatNumber(item.requestCount)} 次`,
       "━━━━━━━━━━━━━━━━━━",
-      "专属进阶成长信笺已送达上方 👆，快来看看吧！",
+      "专属进阶成长记录已送到上方",
     ].join("\n");
 
     await client.sendTextMessage(endpoint as EndpointConfig, [identity.provider_user_id], textMsg);

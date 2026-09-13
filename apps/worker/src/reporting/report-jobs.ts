@@ -622,7 +622,7 @@ export async function runPersonalWeeklyReports(
       `📈 日均用量：${formatTokenVolume(tokens / 7, { isDailyAvg: true })}`,
       `⏱ 最晚请求：${latestTime}`,
       "━━━━━━━━━━━━━━━━━━",
-      "专属信笺白卡已送达上方 👆，新的一周继续加油！",
+      "专属记录已送达上方",
     ].join("\n");
 
     await client.sendTextMessage(endpoint as EndpointConfig, [identity.provider_user_id], personalSummary);
