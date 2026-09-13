@@ -32,7 +32,7 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     const svg = generatePersonalWeeklySvg(data);
 
     // 校验画布与卡片
-    expect(svg).toContain('viewBox="0 0 540 800"');
+    expect(svg).toContain('viewBox="47 65 446 635"');
     expect(svg).toContain('width="540"');
     expect(svg).toContain('fill="#FFFFFF"'); // 纯白底色
     expect(svg).not.toContain('fill="#EEF2F6"');

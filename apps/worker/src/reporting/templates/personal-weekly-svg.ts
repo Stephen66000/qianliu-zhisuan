@@ -64,9 +64,9 @@ export function generatePersonalWeeklySvg(data: PersonalWeeklyReportData): strin
   }
 
   return `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 800" width="540" height="800">
-  <!-- Pure White Background -->
-  <rect width="540" height="800" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="47 65 446 635" width="540" height="769">
+  <!-- Pure White Background (Margins reduced by 50%) -->
+  <rect x="47" y="65" width="446" height="635" fill="#FFFFFF"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Header: User Name (26px Bold, #172033) & Date Range (13px Semibold, #417EE0) -->

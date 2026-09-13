@@ -116,9 +116,9 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   const dailyTokensUnit = data.dailyAvgTokens.includes("亿") ? "亿 /天" : "万 /天";
 
   return `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 800" width="540" height="800">
-  <!-- Pure White Background -->
-  <rect width="540" height="800" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="44 60 452 680" width="540" height="812">
+  <!-- Pure White Background (Margins reduced by 50%) -->
+  <rect x="44" y="60" width="452" height="680" fill="#FFFFFF"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Header: 全员用量周报小结 + 9.7 - 9.13 (第37周) -->

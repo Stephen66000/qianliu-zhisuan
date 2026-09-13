@@ -79,9 +79,9 @@ export function generateIncentiveOver50Svg(data: IncentiveOver50ReportData): str
   linesSvg += `<!-- 预留 1 行手账线 -->\n<line x1="94" y1="${reservedLineY}" x2="445" y2="${reservedLineY}" stroke="#F2F5F8" stroke-width="1.1" />\n`;
 
   return `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 800" width="540" height="800">
-  <!-- Pure White Background -->
-  <rect width="540" height="800" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="47 65 446 635" width="540" height="769">
+  <!-- Pure White Background (Margins reduced by 50%) -->
+  <rect x="47" y="65" width="446" height="635" fill="#FFFFFF"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Header: User Name (24px Bold, #172033) & Month Title (13px Semibold, #417EE0) -->
