@@ -267,6 +267,22 @@ export async function runCompanyWeeklyReport(
     }
   }
 
+  // 兜底：若系统管理员未关联企微身份，自动将全员周报默认指定发送给李佳
+  if (!recipients || recipients.length === 0) {
+    const defaultIdentity = await db
+      .selectFrom("person_external_identity as pei")
+      .innerJoin("person as p", "p.id", "pei.person_id")
+      .select("pei.provider_user_id")
+      .where("pei.enterprise_id", "=", enterpriseId)
+      .where("pei.provider", "=", "WECOM")
+      .where("pei.status", "=", "ACTIVE")
+      .where((eb) => eb.or([eb("p.name", "=", "李佳"), eb("p.name", "like", "%李佳%")]))
+      .executeTakeFirst();
+    if (defaultIdentity?.provider_user_id) {
+      recipients = [defaultIdentity.provider_user_id];
+    }
+  }
+
   // 4. 解析接收人：支持企微 UserID、员工姓名、邮箱自动匹配转换
   if (recipients && recipients.length > 0) {
     const resolvedRecipients: string[] = [];
