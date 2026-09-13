@@ -4,7 +4,12 @@ import { CreateModelDiscoveryPanel } from "./ResourceModelDiscovery";
 import { ResourceUtilizationPanel } from "./ResourceUtilizationPanel";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { IntegerAmountInput } from "../writes/IntegerAmountInput";
-import { API_OPERATING_KEYS, PLAN_OPERATING_KEYS, type CreateResourceValues } from "./resource-form-contract";
+import {
+  API_OPERATING_KEYS,
+  PLAN_OPERATING_KEYS,
+  formatResourceNameWithDate,
+  type CreateResourceValues,
+} from "./resource-form-contract";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
 export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel }) {
@@ -34,7 +39,11 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
               return;
             }
             setCreateValidationError("");
-            createMutation.mutate(values);
+            const finalValues = {
+              ...values,
+              name: formatResourceNameWithDate(values.name),
+            };
+            createMutation.mutate(finalValues);
           })}
         >
           <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[12px] text-ql-fg-secondary">
@@ -45,7 +54,17 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
             <FormField error={errors.provider_id?.message} htmlFor="res-provider" label="厂商">
               <div className="flex gap-2">
                 <select className={`${INPUT_CLASS} flex-1`} id="res-provider" {...register("provider_id", {
-                  onChange: clearCreateDiscovery,
+                  onChange: (e) => {
+                    clearCreateDiscovery();
+                    const selectedId = e.target.value;
+                    const provider = providerOptions.find((p) => p.id === selectedId);
+                    if (provider) {
+                      const currentName = getValues("name")?.trim() ?? "";
+                      if (!currentName || providerOptions.some((p) => currentName.startsWith(p.name))) {
+                        setValue("name", formatResourceNameWithDate(provider.name));
+                      }
+                    }
+                  },
                 })}>
                   <option value="">请选择厂商</option>
                   {providerOptions.map((p) => (
@@ -105,7 +124,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
               <input
                 className={INPUT_CLASS}
                 id="res-name"
-                placeholder="如：智谱 GLM 主账号"
+                placeholder="如：智谱-260913 或 智谱 GLM 主账号-260913"
                 {...register("name")}
               />
             </FormField>

@@ -694,4 +694,44 @@ describe("POOL-032 厂商额度窗口", () => {
     expect(screen.getByText("不适用 — 非 Coding Plan 套餐资源，无厂商窗口额度。")).toBeInTheDocument();
     expect(screen.queryByText("周额度")).not.toBeInTheDocument();
   });
+
+  it("方式 A + 方式 B：选择厂商自动预填 [厂商名]-[YYMMDD]，提交时确保末尾带有日期后缀", async () => {
+    const user = userEvent.setup();
+    useProviderResourcesMock.mockReturnValue({
+      data: { resources: [] },
+      error: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+    postMock.mockResolvedValueOnce(discovery);
+    postMock.mockResolvedValueOnce({ result: { resourceId: "res-new" } });
+
+    renderPage("/resources?tab=utilization");
+    await user.click(screen.getByRole("button", { name: "登记资源" }));
+
+    // 方式 A 验证：选择厂商后，输入框应自动预填 "Kimi-YYMMDD"
+    const providerSelect = screen.getByLabelText("厂商");
+    await user.selectOptions(providerSelect, "11111111-1111-4111-8111-111111111111");
+    const nameInput = screen.getByLabelText("资源名称") as HTMLInputElement;
+    expect(nameInput.value).toMatch(/^Kimi-\d{6}$/);
+
+    // 方式 B 验证：若用户将名称删改为纯文本（如 "Kimi专用"），提交时自动补全 "-YYMMDD"
+    await user.clear(nameInput);
+    await user.type(nameInput, "Kimi专用");
+
+    await user.type(screen.getByLabelText("上游凭证"), "sk-secret-token");
+    await detectModels(user);
+
+    await user.click(screen.getByRole("button", { name: "确认接入" }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        "/provider-resources/onboard",
+        expect.objectContaining({
+          name: expect.stringMatching(/^Kimi专用-\d{6}$/),
+        }),
+      );
+    });
+  });
 });
+

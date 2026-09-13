@@ -164,3 +164,20 @@ export function operatingMoneyError(draft: Record<string, string>): string | nul
   }
   return null;
 }
+
+/**
+ * 厂商资源命名格式化：在基础名称后追加 6 位年月日数字后缀（如 -260913）。
+ * 若已有 6 位或 8 位日期标识（如 -260913 或 -260913-01），则不重复追加。
+ */
+export function formatResourceNameWithDate(baseName: string, date = new Date()): string {
+  const trimmed = baseName.trim();
+  if (!trimmed) return "";
+  if (/(?:^|[^\d])(?:\d{6}|\d{8})(?:-\d+)?$/.test(trimmed)) {
+    return trimmed;
+  }
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${trimmed}-${yy}${mm}${dd}`;
+}
+

@@ -12,6 +12,7 @@ import { useResourceTab } from "../components/resources/ResourceTabs";
 import type { ModelDiscoveryResponse } from "../components/resources/ResourceModelDiscovery";
 import {
   CreateResourceSchema, EMPTY_OPERATING_DRAFT, EditResourceSchema, operatingPayload,
+  formatResourceNameWithDate,
   type CreateResourceValues, type EditResourceValues,
 } from "../components/resources/resource-form-contract";
 
@@ -83,11 +84,12 @@ export function useResourcesPageModel() {
         name: values.name,
         adapter_type: values.code,
       }),
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providers });
       setShowNewProvider(false);
-      // 新建后自动选中
+      // 新建后自动选中并预填资源名称
       setValue("provider_id", data.provider.id);
+      setValue("name", formatResourceNameWithDate(variables.name));
     },
   });
 

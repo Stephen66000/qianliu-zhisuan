@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { ProviderResourceItem } from "../../api/types";
 import { ResourceFinanceColumn, ResourceFinanceDisplay, ResourceQuotaColumn } from "./resource-page-display";
+import { formatResourceNameWithDate } from "./resource-form-contract";
 
 it.each(["kimi", "zhipu"])("%s 扣减缺失仍保留周期真实 Token", (providerCode) => {
   const resource: ProviderResourceItem = {
@@ -91,3 +92,24 @@ describe("ResourceFinanceColumn & ResourceQuotaColumn 列拆分测试", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 });
+
+describe("formatResourceNameWithDate", () => {
+  it("无日期后缀时自动追加 YYMMDD 格式数字", () => {
+    const fixedDate = new Date(2026, 8, 13); // 2026-09-13
+    expect(formatResourceNameWithDate("Kimi", fixedDate)).toBe("Kimi-260913");
+    expect(formatResourceNameWithDate("智谱主账号", fixedDate)).toBe("智谱主账号-260913");
+  });
+
+  it("已含有 6 位或 8 位日期后缀时，不重复拼接", () => {
+    const fixedDate = new Date(2026, 8, 13);
+    expect(formatResourceNameWithDate("Kimi-260913", fixedDate)).toBe("Kimi-260913");
+    expect(formatResourceNameWithDate("Kimi-20260913", fixedDate)).toBe("Kimi-20260913");
+    expect(formatResourceNameWithDate("Kimi-260913-01", fixedDate)).toBe("Kimi-260913-01");
+  });
+
+  it("空文本原样返回空字符串", () => {
+    expect(formatResourceNameWithDate("")).toBe("");
+    expect(formatResourceNameWithDate("   ")).toBe("");
+  });
+});
+
