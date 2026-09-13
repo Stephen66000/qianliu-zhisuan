@@ -121,7 +121,7 @@ async function main(): Promise<void> {
   console.log("[worker]       worker directory-sync-once [--run <run-id>] [--max-runs <1-100>]");
   console.log("[worker]       worker usage-aggregate-rebuild --enterprise <id> --from <iso> --to <iso>");
   console.log("[worker]       worker daily-token-report [--enterprise <id>] [--date <YYYY-MM-DD>] [--recipients <u1,u2>] [--dry-run]");
-  console.log("[worker]       worker report-company-weekly --enterprise <id> [--week <YYYY-Www>] [--recipients <u1,u2>] [--dry-run]");
+  console.log("[worker]       worker report-company-weekly [--enterprise <id>] [--week <YYYY-Www>] [--recipients <u1,u2> | --user <name>] [--dry-run]");
   console.log("[worker]       worker report-personal-weekly --enterprise <id> [--user <person-id|name|wecom-id>] [--dry-run]");
   console.log("[worker]       worker check-incentives --enterprise <id> [--dry-run] [--force]");
   console.log("[worker]       worker activate-wecom-endpoint --agent-id <agent-id> [--secret <secret>] [--corp-id <corp-id>]");
@@ -597,7 +597,7 @@ async function runReportCompanyWeeklyCommand(args: string[]): Promise<void> {
 
     const weekStr = arg(args, "--week");
     const targetDate = weekStr ? new Date(weekStr) : undefined;
-    const recipientsRaw = arg(args, "--recipients");
+    const recipientsRaw = arg(args, "--recipients") ?? arg(args, "--user");
     const recipients = recipientsRaw ? recipientsRaw.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
     const dryRun = args.includes("--dry-run");
 

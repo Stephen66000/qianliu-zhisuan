@@ -267,6 +267,54 @@ export async function runCompanyWeeklyReport(
     }
   }
 
+  // 4. 解析接收人：支持企微 UserID、员工姓名、邮箱自动匹配转换
+  if (recipients && recipients.length > 0) {
+    const resolvedRecipients: string[] = [];
+    for (const rawItem of recipients) {
+      const item = rawItem.trim();
+      if (!item) continue;
+
+      // a. 优先精确匹配已有企微 provider_user_id
+      const byUserId = await db
+        .selectFrom("person_external_identity")
+        .select("provider_user_id")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider", "=", "WECOM")
+        .where("status", "=", "ACTIVE")
+        .where("provider_user_id", "=", item)
+        .executeTakeFirst();
+      if (byUserId) {
+        resolvedRecipients.push(byUserId.provider_user_id);
+        continue;
+      }
+
+      // b. 匹配员工姓名、邮箱或 person_id
+      const byPerson = await db
+        .selectFrom("person_external_identity as pei")
+        .innerJoin("person as p", "p.id", "pei.person_id")
+        .select("pei.provider_user_id")
+        .where("pei.enterprise_id", "=", enterpriseId)
+        .where("pei.provider", "=", "WECOM")
+        .where("pei.status", "=", "ACTIVE")
+        .where((eb) =>
+          eb.or([
+            eb("p.name", "=", item),
+            eb("p.email", "=", item),
+            eb("p.id", "=", item),
+          ]),
+        )
+        .executeTakeFirst();
+      if (byPerson) {
+        resolvedRecipients.push(byPerson.provider_user_id);
+        continue;
+      }
+
+      // c. 兜底保留原值（直接作为企业微信账号）
+      resolvedRecipients.push(item);
+    }
+    recipients = Array.from(new Set(resolvedRecipients));
+  }
+
   if (dryRun) {
     return {
       enterpriseName: enterprise.name,
