@@ -210,7 +210,7 @@ export async function checkAndDispatchTop1Milestone(
     `⚡ 本周累计消耗：${formatTokenVolume(winnerTokens)}`,
     `🏅 团队贡献占比：${formatPercentage(topUser.share)}`,
     "━━━━━━━━━━━━━━━━━━",
-    "专属记录荣誉已送达上方",
+    "专属荣誉记录已送达上方",
   ].join("\n");
 
   await client.sendTextMessage(endpoint as EndpointConfig, [identity.provider_user_id], textMsg);
