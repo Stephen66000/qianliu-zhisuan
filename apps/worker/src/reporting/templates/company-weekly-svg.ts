@@ -52,8 +52,8 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   const totalEmpCount = data.totalEmployees ?? data.topUsers.length;
 
   // 测量 4 大主区块的固有高度：
-  // Block 1: 顶栏组合（标题 20px + 间距 24px + 3大数字 38px）= 82px
-  const hBlock1 = 82;
+  // Block 1: 顶栏组合（标题 20px + 间距 40px + 3大数字 38px）= 98px
+  const hBlock1 = 98;
   // Block 2: 全员使用量表格（区块标题 20px + 表头 16px + 用户数据行）
   const userRowStep = 24;
   const userRowCount = Math.min(data.topUsers.length, 7);
@@ -72,7 +72,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   // 1. Block 1: 顶栏组合
   const b1Top = topSafe;
   const headerY = b1Top + 20;
-  const kpiTopY = headerY + 24;
+  const kpiTopY = headerY + 40; // 往下移 16px，与标题拉开呼吸感，与全员使用量距离对称平衡
 
   // 分割线 1
   const div1Y = b1Top + hBlock1 + majorGap / 2;
