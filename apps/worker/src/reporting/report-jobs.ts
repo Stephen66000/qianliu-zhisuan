@@ -500,7 +500,7 @@ export async function runPersonalWeeklyReports(
     const cardData: PersonalWeeklyReportData = {
       userName: item.subjectName,
       dateRange: weekLabel,
-      quote: pickPersonalWeeklyQuote(`${item.subjectName}:${weekLabel}`),
+      quote: pickPersonalWeeklyQuote(item.subjectName, rangeStart),
       metrics,
     };
 

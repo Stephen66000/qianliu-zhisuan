@@ -7,6 +7,7 @@ export interface MilestoneStore {
   recordTop1IssuedToday(enterpriseId: string, dateStr: string): Promise<void>;
   hasUserAwardedTop1ThisWeek(enterpriseId: string, weekStr: string, userId: string): Promise<boolean>;
   recordUserAwardedTop1ThisWeek(enterpriseId: string, weekStr: string, userId: string): Promise<void>;
+  getUserTop1WinCount(enterpriseId: string, userId: string): Promise<number>;
   hasUserAwardedOver50ThisMonth(enterpriseId: string, monthStr: string, userId: string): Promise<boolean>;
   recordUserAwardedOver50ThisMonth(enterpriseId: string, monthStr: string, userId: string): Promise<void>;
 }
@@ -17,6 +18,7 @@ export interface MilestoneStore {
 export class MemoryMilestoneStore implements MilestoneStore {
   private dailyTop1Issued = new Set<string>();
   private weeklyTop1Users = new Map<string, Set<string>>();
+  private userTop1WinCounts = new Map<string, number>();
   private monthlyOver50Users = new Map<string, Set<string>>();
 
   async hasTop1IssuedToday(enterpriseId: string, dateStr: string): Promise<boolean> {
@@ -38,6 +40,15 @@ export class MemoryMilestoneStore implements MilestoneStore {
       this.weeklyTop1Users.set(key, new Set());
     }
     this.weeklyTop1Users.get(key)!.add(userId);
+
+    const countKey = `${enterpriseId}:${userId}`;
+    const cur = this.userTop1WinCounts.get(countKey) ?? 0;
+    this.userTop1WinCounts.set(countKey, cur + 1);
+  }
+
+  async getUserTop1WinCount(enterpriseId: string, userId: string): Promise<number> {
+    const countKey = `${enterpriseId}:${userId}`;
+    return this.userTop1WinCounts.get(countKey) ?? 0;
   }
 
   async hasUserAwardedOver50ThisMonth(enterpriseId: string, monthStr: string, userId: string): Promise<boolean> {
@@ -80,6 +91,16 @@ export class RedisMilestoneStore implements MilestoneStore {
     const key = `milestone:top1:users:${enterpriseId}:${weekStr}`;
     await this.redis.sAdd(key, userId);
     await this.redis.expire(key, 86400 * 14); // 保留14天
+
+    const countKey = `milestone:top1:wincount:${enterpriseId}:${userId}`;
+    await this.redis.incr(countKey);
+    await this.redis.expire(countKey, 86400 * 365); // 登顶次数统计保留365天
+  }
+
+  async getUserTop1WinCount(enterpriseId: string, userId: string): Promise<number> {
+    const countKey = `milestone:top1:wincount:${enterpriseId}:${userId}`;
+    const val = await this.redis.get(countKey);
+    return val ? parseInt(val, 10) : 0;
   }
 
   async hasUserAwardedOver50ThisMonth(enterpriseId: string, monthStr: string, userId: string): Promise<boolean> {

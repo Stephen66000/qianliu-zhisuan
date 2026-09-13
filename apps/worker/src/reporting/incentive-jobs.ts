@@ -145,10 +145,12 @@ export async function checkAndDispatchTop1Milestone(
   const topModels = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, winnerPrincipalId, 1);
   const topModelName = topModels[0]?.model ? formatModelName(topModels[0].model) : "多模型深度协同";
 
+  const winCount = await store.getUserTop1WinCount(enterpriseId, winnerPrincipalId);
+
   const top1Data: IncentiveTop1ReportData = {
     userName: topUser.subjectName,
     periodLabel,
-    quote: pickTop1IncentiveQuote(`${topUser.subjectName}:${weekStr}`),
+    quote: pickTop1IncentiveQuote(topUser.subjectName, winCount),
     weeklyTokens: formatTokenVolume(winnerTokens),
     teamShare: formatPercentage(topUser.share),
     exceededPercent: "超越全员 99% 同事",

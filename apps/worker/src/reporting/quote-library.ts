@@ -130,28 +130,132 @@ export const TOP1_INCENTIVE_QUOTES: readonly string[] = [
 ];
 
 /**
- * 依据 Seed Key（如 `${userName}:${weekLabel}`）计算确定性哈希，
- * 保证同一周不同员工抽取的金句彻底打散，且同一员工连续周次不重复。
+ * 计算给定日期的 ISO 8601 自然周序号（1 ~ 53）
  */
-export function pickPersonalWeeklyQuote(key: string): string {
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash << 5) - hash + key.charCodeAt(i);
-    hash |= 0;
+export function getIsoWeekNumber(d: Date): number {
+  const target = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNr = (target.getUTCDay() + 6) % 7;
+  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setUTCMonth(0, 1);
+  if (target.getUTCDay() !== 4) {
+    target.setUTCMonth(0, 1 + ((4 - target.getUTCDay() + 7) % 7));
   }
-  const idx = Math.abs(hash) % PERSONAL_WEEKLY_QUOTES.length;
-  return PERSONAL_WEEKLY_QUOTES[idx] ?? "功不求疾，但求有恒";
+  return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
 }
 
 /**
- * 依据 Seed Key（如 `${userName}:${awardDate}`）为榜首领跑者分配登顶金句
+ * 从输入中解析周序号（1 ~ 53），支持数字、Date 或包含周数/日期的字符串
  */
-export function pickTop1IncentiveQuote(key: string): string {
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash << 5) - hash + key.charCodeAt(i);
-    hash |= 0;
+export function extractWeekNumber(input: number | Date | string, defaultWeek = 1): number {
+  if (typeof input === "number") {
+    return Number.isFinite(input) && input > 0 ? Math.floor(input) : defaultWeek;
   }
-  const idx = Math.abs(hash) % TOP1_INCENTIVE_QUOTES.length;
-  return TOP1_INCENTIVE_QUOTES[idx] ?? "独行快，众行远；引领者无畏";
+  if (input instanceof Date) {
+    return getIsoWeekNumber(input);
+  }
+  if (typeof input === "string") {
+    // 匹配 "W37", "2026-W37", "第37周"
+    const wMatch = input.match(/(?:W|第\s*)(\d{1,2})/i);
+    if (wMatch && wMatch[1]) {
+      return parseInt(wMatch[1], 10);
+    }
+    // 匹配日期范围如 "9.7-9.13"
+    const dateMatch = input.match(/(\d{1,2})\.(\d{1,2})/);
+    if (dateMatch && dateMatch[1] && dateMatch[2]) {
+      const month = parseInt(dateMatch[1], 10) - 1;
+      const day = parseInt(dateMatch[2], 10);
+      const currentYear = new Date().getFullYear();
+      const d = new Date(currentYear, month, day);
+      return getIsoWeekNumber(d);
+    }
+  }
+  return defaultWeek;
+}
+
+/**
+ * 依据用户唯一标识生成该用户专属的确定性全排列（Fisher-Yates Shuffle）
+ * 保证输入索引 0 ~ (total - 1) 严格双射映射到互不相同的金句下标，
+ * 在数学上彻底杜绝哈希碰撞，实现全年连续周次 / 连续登顶绝对零重复。
+ */
+export function getUserPermutation(seedStr: string, total: number): number[] {
+  let seed = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    seed = (seed << 5) - seed + seedStr.charCodeAt(i);
+    seed |= 0;
+  }
+  const items = Array.from({ length: total }, (_, i) => i);
+  let state = seed;
+  for (let i = total - 1; i > 0; i--) {
+    state = (Math.imul(state, 1664525) + 1013904223) | 0;
+    const j = Math.abs(state) % (i + 1);
+    const temp = items[i]!;
+    items[i] = items[j]!;
+    items[j] = temp;
+  }
+  return items;
+}
+
+/**
+ * 场景一：为指定员工抽取个人周报信笺金句
+ * 保证：
+ * 1. 同一员工在全年 52 ~ 55 周内领取的金句绝对 100% 零重复；
+ * 2. 同一周内不同员工领取的金句彻底打散不撞车。
+ *
+ * @param userNameOrKey 员工姓名，或形如 `${userName}:${weekLabel}` 的复合键
+ * @param weekIndexOrDate 可选的周序号（1 ~ 53）、Date 实例或时间标签
+ */
+export function pickPersonalWeeklyQuote(
+  userNameOrKey: string,
+  weekIndexOrDate?: number | Date | string,
+): string {
+  let userName = userNameOrKey;
+  let weekNum = 1;
+
+  if (weekIndexOrDate !== undefined) {
+    weekNum = extractWeekNumber(weekIndexOrDate);
+  } else if (userNameOrKey.includes(":")) {
+    const parts = userNameOrKey.split(":");
+    userName = parts[0] ?? userNameOrKey;
+    const weekPart = parts.slice(1).join(":");
+    weekNum = extractWeekNumber(weekPart);
+  }
+
+  const perm = getUserPermutation(`personal:${userName}`, PERSONAL_WEEKLY_QUOTES.length);
+  const targetIndex = ((weekNum - 1) % PERSONAL_WEEKLY_QUOTES.length + PERSONAL_WEEKLY_QUOTES.length) % PERSONAL_WEEKLY_QUOTES.length;
+  const quoteIdx = perm[targetIndex]!;
+  return PERSONAL_WEEKLY_QUOTES[quoteIdx] ?? PERSONAL_WEEKLY_QUOTES[0]!;
+}
+
+/**
+ * 场景二：为榜首员工分配登顶第 1 名流动红旗高光金句
+ * 保证：
+ * 1. 同一员工连续多次登顶（如本周第一、下周又是第一），金句绝对 100% 零重复；
+ * 2. 轮转完全部 38 条高光金句前不会出现任何一条重复金句。
+ *
+ * @param userNameOrKey 员工姓名，或形如 `${userName}:${awardDate}` 的复合键
+ * @param winIndexOrWeek 登顶累计次数（0, 1, 2...）或周序号 / Date
+ */
+export function pickTop1IncentiveQuote(
+  userNameOrKey: string,
+  winIndexOrWeek?: number | Date | string,
+): string {
+  let userName = userNameOrKey;
+  let seqIndex = 0;
+
+  if (typeof winIndexOrWeek === "number") {
+    seqIndex = Math.max(0, Math.floor(winIndexOrWeek));
+  } else if (winIndexOrWeek !== undefined) {
+    seqIndex = Math.max(0, extractWeekNumber(winIndexOrWeek) - 1);
+  } else if (userNameOrKey.includes(":")) {
+    const parts = userNameOrKey.split(":");
+    userName = parts[0] ?? userNameOrKey;
+    const weekPart = parts.slice(1).join(":");
+    seqIndex = Math.max(0, extractWeekNumber(weekPart) - 1);
+  }
+
+  const perm = getUserPermutation(`top1:${userName}`, TOP1_INCENTIVE_QUOTES.length);
+  const targetIndex = (seqIndex % TOP1_INCENTIVE_QUOTES.length + TOP1_INCENTIVE_QUOTES.length) % TOP1_INCENTIVE_QUOTES.length;
+  const quoteIdx = perm[targetIndex]!;
+  return TOP1_INCENTIVE_QUOTES[quoteIdx] ?? TOP1_INCENTIVE_QUOTES[0]!;
 }

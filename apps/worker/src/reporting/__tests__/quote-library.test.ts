@@ -38,9 +38,32 @@ describe("Quote Library for Reporting & Incentives", () => {
     expect(set.size).toBeGreaterThan(1);
   });
 
-  it("pickTop1IncentiveQuote 能够有效分配登顶金句", () => {
-    const quote = pickTop1IncentiveQuote("李佳:2026-W37");
-    expect(typeof quote).toBe("string");
-    expect(TOP1_INCENTIVE_QUOTES).toContain(quote);
+  it("场景一：同一员工在全年 52 周内领取的个人周报金句 100% 绝对无任何重复", () => {
+    const quotes = [];
+    for (let w = 1; w <= 52; w++) {
+      const q = pickPersonalWeeklyQuote("李佳", w);
+      quotes.push(q);
+      expect(PERSONAL_WEEKLY_QUOTES).toContain(q);
+    }
+    const uniqueQuotes = new Set(quotes);
+    expect(uniqueQuotes.size).toBe(52); // 全年 52 周无任何一条碰撞重复
+  });
+
+  it("场景二：同一员工连续多次登顶第 1 名（本周第一、下周又是第一），金句 100% 绝对无任何重复", () => {
+    const quotes = [];
+    // 连续 38 次登顶测试
+    for (let winCount = 0; winCount < 38; winCount++) {
+      const q = pickTop1IncentiveQuote("李佳", winCount);
+      quotes.push(q);
+      expect(TOP1_INCENTIVE_QUOTES).toContain(q);
+    }
+    const uniqueQuotes = new Set(quotes);
+    expect(uniqueQuotes.size).toBe(38); // 轮转完全部 38 条高光金句，0 碰撞
+  });
+
+  it("场景二：登顶金句亦支持按自然周输入保证相邻周次不重复", () => {
+    const qWeek37 = pickTop1IncentiveQuote("李佳", "2026-W37");
+    const qWeek38 = pickTop1IncentiveQuote("李佳", "2026-W38");
+    expect(qWeek37).not.toBe(qWeek38);
   });
 });
