@@ -289,7 +289,11 @@ describe("W18 用量账本", () => {
     renderUsage("/usage?tab=details&search=req-123");
     const exportBtn = screen.getByRole("button", { name: "导出明细" });
     expect(exportBtn).toBeEnabled();
+    // 点击导出按钮 → 弹出确认弹窗
     await user.click(exportBtn);
+    // 确认弹窗出现，点击「确认导出」才真正触发 window.open
+    const confirmBtn = screen.getByRole("button", { name: "确认导出" });
+    await user.click(confirmBtn);
     expect(openSpy).toHaveBeenCalledWith(expect.stringContaining("/api/usage/export?search=req-123"), "_blank");
     openSpy.mockRestore();
   });

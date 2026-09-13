@@ -100,6 +100,7 @@ function UsageDetailsPage() {
   const featureFlags = useFeatureFlags();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
   const parsedPage = Number(searchParams.get("page") ?? "1");
   const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage - 1 : 0;
 
@@ -142,12 +143,17 @@ function UsageDetailsPage() {
     setSearchParams(next, { replace: true });
   };
 
-  const handleExport = () => {
+  const openExportConfirm = () => {
+    setExportConfirmOpen(true);
+  };
+
+  const doExport = () => {
     const exportParams = new URLSearchParams();
     for (const [k, v] of searchParams.entries()) {
       if (k !== "tab" && k !== "page" && v) exportParams.set(k, v);
     }
     window.open(`/api/usage/export?${exportParams.toString()}`, "_blank");
+    setExportConfirmOpen(false);
   };
 
   const usageParams: UsageQueryParams = {
@@ -185,9 +191,64 @@ function UsageDetailsPage() {
   );
   const hasFilters = [...searchParams.keys()].some((key) => key !== "page" && key !== "tab");
 
+  /** 构建导出确认弹窗展示的筛选摘要行 */
+  const exportSummaryRows: { label: string; value: string }[] = [];
+  {
+    const kw = searchParams.get("search");
+    if (kw) exportSummaryRows.push({ label: "关键词", value: kw });
+
+    const principalId = searchParams.get("principal_id");
+    if (principalId) {
+      const found = principalItems.find((p) => p.id === principalId);
+      exportSummaryRows.push({ label: "主体", value: found?.name ?? principalId });
+    }
+
+    const projectId = searchParams.get("project_id");
+    if (projectId) {
+      const found = principalItems.find((p) => p.id === projectId);
+      exportSummaryRows.push({ label: "项目", value: found?.name ?? projectId });
+    }
+
+    const agentFamily = searchParams.get("agent_family");
+    if (agentFamily) exportSummaryRows.push({ label: "Agent", value: AGENT_LABEL[agentFamily] ?? agentFamily });
+
+    const providerId = searchParams.get("provider_id");
+    if (providerId) {
+      const found = (providersQuery.data?.providers ?? []).find((p) => p.id === providerId);
+      exportSummaryRows.push({ label: "厂商", value: found?.name ?? providerId });
+    }
+
+    const resourceId = searchParams.get("provider_resource_id");
+    if (resourceId) {
+      const found = (resourcesQuery.data?.resources ?? []).find((r) => r.id === resourceId);
+      exportSummaryRows.push({ label: "厂商资源", value: found?.name ?? resourceId });
+    }
+
+    const unifiedModel = searchParams.get("unified_model");
+    if (unifiedModel) {
+      const found = (modelsQuery.data?.models ?? []).find((m) => m.alias === unifiedModel);
+      exportSummaryRows.push({ label: "统一模型", value: found?.display_name ?? unifiedModel });
+    }
+
+    const status = searchParams.get("status");
+    const STATUS_LABEL: Record<string, string> = {
+      SUCCEEDED: "成功", FAILED: "失败 / 拒绝", IN_PROGRESS: "进行中", CANCELLED: "已取消",
+    };
+    if (status) exportSummaryRows.push({ label: "状态", value: STATUS_LABEL[status] ?? status });
+
+    const from = searchParams.get("from");
+    if (from) exportSummaryRows.push({ label: "开始时间", value: new Date(from).toLocaleString("zh-CN") });
+
+    const to = searchParams.get("to") ?? searchParams.get("to_exclusive");
+    if (to) exportSummaryRows.push({ label: "结束时间", value: new Date(to).toLocaleString("zh-CN") });
+
+    if (searchParams.get("overage_only") === "true") exportSummaryRows.push({ label: "仅超额", value: "是" });
+    if (searchParams.get("settled_only") === "true") exportSummaryRows.push({ label: "仅已结算", value: "是" });
+  }
 
   return (
     <PageShell description="按主体、姓名或项目查找用量，查看每次请求的消耗明细" title="用量账本">
+
       <div className="mb-4 flex gap-2 border-b border-ql-border">{featureFlags.FEATURE_USAGE_OVERVIEW_V2 ? <button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "overview")} type="button">用量概览</button> : null}<button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">请求明细</button></div>
       <div className="mb-4 rounded-xl border border-ql-border-zone bg-ql-surface-subtle p-3">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -311,7 +372,7 @@ function UsageDetailsPage() {
             <button
               className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg hover:border-ql-border-strong disabled:cursor-not-allowed disabled:opacity-50"
               disabled={query.isLoading || total === 0}
-              onClick={handleExport}
+              onClick={openExportConfirm}
               title="导出当前筛选条件的 CSV 明细"
               type="button"
             >
@@ -439,6 +500,63 @@ function UsageDetailsPage() {
             </div>
           </div>
         </>
+      )}
+      {/* 导出确认弹窗 */}
+      {exportConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="export-confirm-title"
+          onClick={(e) => { if (e.target === e.currentTarget) setExportConfirmOpen(false); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-ql-border bg-ql-surface shadow-xl">
+            <div className="border-b border-ql-border px-5 py-4">
+              <h2 id="export-confirm-title" className="text-[15px] font-semibold text-ql-fg">
+                确认导出明细
+              </h2>
+              <p className="mt-0.5 text-[12px] text-ql-fg-secondary">
+                请确认以下导出范围，文件格式为 CSV
+              </p>
+            </div>
+            <div className="px-5 py-4">
+              {exportSummaryRows.length === 0 ? (
+                <p className="text-[13px] text-ql-fg-secondary">
+                  未设置任何筛选条件，将导出<span className="font-medium text-ql-fg">全部</span>请求明细（共 {formatCount(String(total))} 条）。
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {exportSummaryRows.map((row) => (
+                    <li key={row.label} className="flex items-baseline gap-2 text-[13px]">
+                      <span className="w-20 shrink-0 text-ql-fg-secondary">{row.label}</span>
+                      <span className="font-medium text-ql-fg">{row.value}</span>
+                    </li>
+                  ))}
+                  <li className="flex items-baseline gap-2 text-[13px]">
+                    <span className="w-20 shrink-0 text-ql-fg-secondary">命中条数</span>
+                    <span className="font-medium text-ql-fg">{formatCount(String(total))} 条</span>
+                  </li>
+                </ul>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-ql-border px-5 py-3">
+              <button
+                className="h-8 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px] text-ql-fg hover:border-ql-border-strong"
+                onClick={() => setExportConfirmOpen(false)}
+                type="button"
+              >
+                取消
+              </button>
+              <button
+                className="h-8 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"
+                onClick={doExport}
+                type="button"
+              >
+                确认导出
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageShell>
   );
