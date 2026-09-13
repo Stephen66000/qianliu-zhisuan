@@ -148,6 +148,11 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
   const [retireMessage, setRetireMessage] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
+  const allRoutes = routesQuery.data?.routes ?? [];
+  const servingRoutes = allRoutes.filter((r) => r.status === "ACTIVE" && r.has_active_billing_rule);
+  const inactiveRoutes = allRoutes.filter((r) => r.status !== "ARCHIVED" && !(r.status === "ACTIVE" && r.has_active_billing_rule));
+  const archivedRoutes = allRoutes.filter((r) => r.status === "ARCHIVED");
+
   const [discovery, setDiscovery] = useState<ModelDiscoveryResponse | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmedModels, setConfirmedModels] = useState<Array<{
@@ -163,7 +168,16 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     onSuccess: (result) => {
       setConfirmedModels([]);
       setDiscovery(result);
-      setSelectedIds(result.models.filter((model) => model.compatible).map((model) => model.id));
+      const existingServing = new Set(servingRoutes.map((r) => r.upstream_model));
+      const archived = new Set(archivedRoutes.map((r) => r.upstream_model));
+      const joinable = result.models.filter(
+        (model) =>
+          model.compatible &&
+          !existingServing.has(model.id) &&
+          !archived.has(model.id) &&
+          model.id !== "k3-256k"
+      );
+      setSelectedIds(joinable.map((model) => model.id));
     },
   });
   const confirm = useMutation({
@@ -189,11 +203,10 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     },
   });
 
-  const allRoutes = routesQuery.data?.routes ?? [];
-  const servingRoutes = allRoutes.filter((r) => r.status === "ACTIVE" && r.has_active_billing_rule);
-  const inactiveRoutes = allRoutes.filter((r) => r.status !== "ARCHIVED" && !(r.status === "ACTIVE" && r.has_active_billing_rule));
-  const archivedRoutes = allRoutes.filter((r) => r.status === "ARCHIVED");
   const notAdvertised = discovery?.catalog_diff?.not_advertised ?? [];
+  const servingNotAdvertised = servingRoutes
+    .map((r) => r.upstream_model)
+    .filter((m) => notAdvertised.includes(m));
 
   return <section className="mb-5 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -429,10 +442,10 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
       ) : null}
     </div>
 
-    {notAdvertised.length > 0 ? (
+    {servingNotAdvertised.length > 0 ? (
       <div className="mt-3 rounded-lg border border-ql-warning bg-ql-warning-soft p-3 text-[12px] text-ql-fg">
         <p className="font-semibold text-ql-warning">
-          ⚠️ 厂商官方当前已不再列出以下模型：{notAdvertised.join("、")}
+          ⚠️ 厂商官方当前已不再列出以下模型：{servingNotAdvertised.join("、")}
         </p>
         <p className="mt-1 text-ql-fg-secondary">
           若上方列表中包含这些模型，建议点击【下架模型】进行下架，防止员工调用失败。
@@ -458,10 +471,37 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
       </div>
     </div> : discovery ? <div className="mt-3 space-y-2">
       <DiscoveryMeta discovery={discovery} />
-      {discovery.models.filter((model) => model.compatible).map((model) => <ModelChoice compatibleText="可加入" key={model.id} model={model}
-        onChange={(checked) => setSelectedIds((current) => checked
-          ? [...current, model.id] : current.filter((id) => id !== model.id))}
-        selected={selectedIds.includes(model.id)} />)}
+      {(() => {
+        const existingServing = new Set(servingRoutes.map((r) => r.upstream_model));
+        const archived = new Set(archivedRoutes.map((r) => r.upstream_model));
+        const joinable = discovery.models.filter(
+          (model) =>
+            model.compatible &&
+            !existingServing.has(model.id) &&
+            !archived.has(model.id) &&
+            model.id !== "k3-256k"
+        );
+        if (joinable.length === 0) {
+          return (
+            <div className="rounded-md border border-ql-border-zone bg-ql-surface p-3 text-[12px] text-ql-fg-tertiary">
+              当前所有可用模型均已接入服务中，暂无未接入的新模型。
+            </div>
+          );
+        }
+        return joinable.map((model) => (
+          <ModelChoice
+            compatibleText="可加入"
+            key={model.id}
+            model={model}
+            onChange={(checked) =>
+              setSelectedIds((current) =>
+                checked ? [...current, model.id] : current.filter((id) => id !== model.id)
+              )
+            }
+            selected={selectedIds.includes(model.id)}
+          />
+        ));
+      })()}
       <div className="flex justify-end gap-2">
         <button className="h-9 rounded-lg border border-ql-border px-3 text-[13px]" onClick={onClose} type="button">取消</button>
         <button data-write-action className="h-9 rounded-lg bg-ql-action px-3 text-[13px] text-white disabled:opacity-60"

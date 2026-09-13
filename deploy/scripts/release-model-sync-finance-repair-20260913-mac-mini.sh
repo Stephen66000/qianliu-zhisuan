@@ -124,10 +124,32 @@ echo "检查当前数据库迁移基线: $(db_head)"
 test "$(db_head)" = 0073_credential_chat_probe
 
 echo 'step 1: 拉取并验证发布分支代码'
-if ! GIT_SSH_COMMAND='ssh -o BatchMode=yes' GIT_TERMINAL_PROMPT=0 git clone --depth 64 \
-  --branch "$branch" git@github.com:Stephen66000/qianliu-zhisuan.git "$release" 2>/dev/null; then
-  echo "SSH clone 失败，尝试 HTTPS clone..."
-  git clone --depth 64 --branch "$branch" https://github.com/Stephen66000/qianliu-zhisuan.git "$release"
+cloned=0
+if test -d "$previous/.git"; then
+  echo "尝试通过本地引用加速 clone..."
+  if GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=8' GIT_TERMINAL_PROMPT=0 git clone --depth 64 \
+    --reference "$previous" --branch "$branch" git@github.com:Stephen66000/qianliu-zhisuan.git "$release" 2>/dev/null; then
+    cloned=1
+  fi
+fi
+
+if test "$cloned" = 0; then
+  if GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=8' GIT_TERMINAL_PROMPT=0 git clone --depth 64 \
+    --branch "$branch" git@github.com:Stephen66000/qianliu-zhisuan.git "$release" 2>/dev/null; then
+    cloned=1
+  fi
+fi
+
+if test "$cloned" = 0; then
+  echo "远程 clone 受限，从前序版本派生并拉取最新提交..."
+  git clone --depth 64 "$previous" "$release"
+  (
+    cd "$release"
+    git remote set-url origin git@github.com:Stephen66000/qianliu-zhisuan.git
+    GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=10' GIT_TERMINAL_PROMPT=0 git fetch --depth 64 origin "$branch" 2>/dev/null || \
+      git fetch --depth 64 https://github.com/Stephen66000/qianliu-zhisuan.git "$branch" 2>/dev/null || true
+    git checkout -B "$branch" "origin/$branch" 2>/dev/null || git checkout -B "$branch" FETCH_HEAD 2>/dev/null || true
+  )
 fi
 
 actual_commit="$(git -C "$release" rev-parse HEAD)"

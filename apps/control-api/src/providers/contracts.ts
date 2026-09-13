@@ -186,7 +186,7 @@ export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverPro
     discovered_at: discovery.discoveredAt.toISOString(),
     stale: discovery.stale,
     reused: discovery.reused,
-    models: discovery.models.filter((model) => model.compatible),
+    models: discovery.models.filter((model) => model.compatible && model.id !== "k3-256k"),
     catalog_diff: discovery.catalogDiff ? {
       added: discovery.catalogDiff.added,
       retained: discovery.catalogDiff.retained,
@@ -246,7 +246,7 @@ export function publicStoredDiscovery(input: {
     discovered_at: input.discovery.discovered_at.toISOString(),
     stale: input.itemsStale || input.discovery.stale,
     reused: input.reused ?? false,
-    models: input.items.filter((item) => item.compatible).map((item) => ({
+    models: input.items.filter((item) => item.compatible && item.upstream_model !== "k3-256k").map((item) => ({
       id: item.upstream_model,
       displayName: item.display_name,
       modelType: item.model_type,

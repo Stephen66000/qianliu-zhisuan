@@ -189,6 +189,11 @@ async function probeModelPermissions(
     streamIdleTimeoutMs: 30_000,
   });
   for (const model of models.filter((m) => m.modelType === "CHAT")) {
+    if (providerCode === "kimi" && mode === "CODING_PLAN" && model.id === "k3-256k") {
+      model.compatible = false;
+      model.unavailableReason = "当前套餐未开通此模型权限 (HTTP 403)";
+      continue;
+    }
     const isK3 = providerCode === "kimi" && /^(?:kimi-)?k3(?:-|$)/i.test(model.id);
     try {
       const outcome = await caller({
