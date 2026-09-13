@@ -423,7 +423,33 @@ export async function runPersonalWeeklyReports(
   // 筛选需要推送的员工列表
   let targetRanking = overview.ranking.filter((r) => Number(r.realTokens) > 0);
   if (userPersonId) {
-    targetRanking = targetRanking.filter((r) => r.subjectId === userPersonId);
+    const matched = targetRanking.filter(
+      (r) =>
+        r.subjectId === userPersonId ||
+        r.subjectName === userPersonId ||
+        r.subjectName.includes(userPersonId),
+    );
+    if (matched.length > 0) {
+      targetRanking = matched;
+    } else {
+      const identity = await db
+        .selectFrom("person_external_identity as pei")
+        .innerJoin("principal as pr", "pr.person_id", "pei.person_id")
+        .select("pr.id as principal_id")
+        .where("pei.enterprise_id", "=", enterpriseId)
+        .where((eb) =>
+          eb.or([
+            eb("pei.provider_user_id", "=", userPersonId),
+            eb("pei.person_id", "=", userPersonId),
+          ]),
+        )
+        .executeTakeFirst();
+      if (identity?.principal_id) {
+        targetRanking = targetRanking.filter((r) => r.subjectId === identity.principal_id);
+      } else {
+        targetRanking = [];
+      }
+    }
   }
 
   if (targetRanking.length === 0) {

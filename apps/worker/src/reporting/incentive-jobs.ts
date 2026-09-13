@@ -34,6 +34,7 @@ export interface IncentiveCheckOptions {
   redisClient?: RedisClientType;
   now?: Date;
   dryRun?: boolean;
+  force?: boolean;
 }
 
 export interface IncentiveCheckResult {
@@ -77,9 +78,9 @@ export async function checkAndDispatchTop1Milestone(
   const { db, kekBase64, enterpriseId, dryRun = false } = options;
   const now = options.now ?? new Date();
 
-  // 1. 周一(1)、周二(2)静默期一律不发
+  // 1. 周一(1)、周二(2)静默期一律不发（可通过 force 强制测试触发）
   const dayOfWeek = now.getDay(); // 0 is Sunday, 1 is Monday, 2 is Tuesday
-  if (dayOfWeek === 1 || dayOfWeek === 2) {
+  if (!options.force && (dayOfWeek === 1 || dayOfWeek === 2)) {
     return { triggered: false, reason: "SILENT_PERIOD_MON_TUE" };
   }
 
@@ -105,9 +106,9 @@ export async function checkAndDispatchTop1Milestone(
 
   const weekStr = getIsoWeekString(now);
 
-  // 2. 检查当天全团队是否已经发放过流动红旗（每天全团队限发 1 张）
+  // 2. 检查当天全团队是否已经发放过流动红旗（每天全团队限发 1 张，可通过 force 强制触发）
   const issuedToday = await store.hasTop1IssuedToday(enterpriseId, dateStr);
-  if (issuedToday && !dryRun) {
+  if (issuedToday && !dryRun && !options.force) {
     return { triggered: false, reason: "DAILY_QUOTA_EXHAUSTED" };
   }
 
@@ -128,9 +129,9 @@ export async function checkAndDispatchTop1Milestone(
   const winnerPrincipalId = topUser.subjectId;
   const winnerTokens = Number(topUser.realTokens);
 
-  // 4. 检查该榜首员工本周是否已经领过该卡片（每人每周限领 1 次）
+  // 4. 检查该榜首员工本周是否已经领过该卡片（每人每周限领 1 次，可通过 force 强制触发）
   const userAwardedThisWeek = await store.hasUserAwardedTop1ThisWeek(enterpriseId, weekStr, winnerPrincipalId);
-  if (userAwardedThisWeek && !dryRun) {
+  if (userAwardedThisWeek && !dryRun && !options.force) {
     return { triggered: false, reason: "USER_ALREADY_AWARDED_THIS_WEEK" };
   }
 
@@ -302,8 +303,8 @@ export async function checkAndDispatchOver50Milestone(
 
     const principalId = item.subjectId;
     const alreadyAwarded = await store.hasUserAwardedOver50ThisMonth(enterpriseId, monthStr, principalId);
-    if (alreadyAwarded && !dryRun) {
-      continue; // 本月已领过
+    if (alreadyAwarded && !dryRun && !options.force) {
+      continue; // 本月已领过（可通过 force 强制触发）
     }
 
     // 查询该员工企微身份

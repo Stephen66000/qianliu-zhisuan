@@ -14,6 +14,13 @@ import { createTaskObserver } from "./runtime-assurance/observed-task.js";
 import { createKysely, OperatingBillRepository, ReconciliationRepository, RuntimeAssuranceRepository, SupplyForecastRepository, UsageAggregateRepository } from "@qianliu/database";
 import { readFeatureFlags } from "@qianliu/config";
 import { generateOperatingBill } from "./operating-bill/runner.js";
+import {
+  decodeKek,
+  encryptCredential,
+  decryptCredential,
+  credentialFingerprint,
+  type EncryptedCredential,
+} from "@qianliu/provider-adapters";
 import { WecomAppClient } from "./runtime-assurance/wecom-client.js";
 import { runRuntimeAssuranceTick } from "./runtime-assurance/runner.js";
 import { runSchedulerLoop, startHealthServer, type SchedulerHealth } from "./runtime-assurance/scheduler.js";
@@ -99,6 +106,11 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "activate-wecom-endpoint") {
+    await runActivateWecomEndpointCommand(args.slice(1));
+    return;
+  }
+
   console.log("[worker] 用法：worker reconciliation --enterprise <id> [--from <iso>] [--to <iso>]");
   console.log("[worker]       worker runtime-assurance-once");
   console.log("[worker]       worker runtime-assurance-scheduler");
@@ -109,9 +121,10 @@ async function main(): Promise<void> {
   console.log("[worker]       worker directory-sync-once [--run <run-id>] [--max-runs <1-100>]");
   console.log("[worker]       worker usage-aggregate-rebuild --enterprise <id> --from <iso> --to <iso>");
   console.log("[worker]       worker daily-token-report [--enterprise <id>] [--date <YYYY-MM-DD>] [--recipients <u1,u2>] [--dry-run]");
-  console.log("[worker]       worker report-company-weekly --enterprise <id> [--week <YYYY-Www>] [--dry-run]");
-  console.log("[worker]       worker report-personal-weekly --enterprise <id> [--user <person-id>] [--dry-run]");
-  console.log("[worker]       worker check-incentives --enterprise <id> [--dry-run]");
+  console.log("[worker]       worker report-company-weekly --enterprise <id> [--week <YYYY-Www>] [--recipients <u1,u2>] [--dry-run]");
+  console.log("[worker]       worker report-personal-weekly --enterprise <id> [--user <person-id|name|wecom-id>] [--dry-run]");
+  console.log("[worker]       worker check-incentives --enterprise <id> [--dry-run] [--force]");
+  console.log("[worker]       worker activate-wecom-endpoint --agent-id <agent-id> [--secret <secret>] [--corp-id <corp-id>]");
 }
 
 function arg(args: string[], name: string): string | undefined {
@@ -584,6 +597,8 @@ async function runReportCompanyWeeklyCommand(args: string[]): Promise<void> {
 
     const weekStr = arg(args, "--week");
     const targetDate = weekStr ? new Date(weekStr) : undefined;
+    const recipientsRaw = arg(args, "--recipients");
+    const recipients = recipientsRaw ? recipientsRaw.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
     const dryRun = args.includes("--dry-run");
 
     const result = await runCompanyWeeklyReport({
@@ -591,6 +606,7 @@ async function runReportCompanyWeeklyCommand(args: string[]): Promise<void> {
       kekBase64: requiredEnv("CREDENTIAL_KEK"),
       enterpriseId,
       targetDate,
+      recipients,
       dryRun,
     });
 
@@ -659,12 +675,14 @@ async function runCheckIncentivesCommand(args: string[]): Promise<void> {
     }
 
     const dryRun = args.includes("--dry-run");
+    const force = args.includes("--force");
 
     const result = await runIncentiveChecks({
       db,
       kekBase64: requiredEnv("CREDENTIAL_KEK"),
       enterpriseId,
       dryRun,
+      force,
     });
 
     console.log("[worker] 激励巡检执行完成:", JSON.stringify({
@@ -678,6 +696,128 @@ async function runCheckIncentivesCommand(args: string[]): Promise<void> {
         reason: r.reason,
       })),
     }, null, 2));
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runActivateWecomEndpointCommand(args: string[]): Promise<void> {
+  const db = createKysely();
+  try {
+    const agentId = arg(args, "--agent-id");
+    if (!agentId) {
+      console.error("[worker] 缺少 --agent-id 参数。用法：worker activate-wecom-endpoint --agent-id <agent_id> [--secret <secret>] [--corp-id <corp_id>]");
+      process.exit(1);
+    }
+
+    const kekBase64 = process.env.CREDENTIAL_KEK || process.env.CREDENTIAL_ENCRYPTION_KEY_BASE64;
+    if (!kekBase64) {
+      console.error("[worker] 缺少 CREDENTIAL_KEK 环境变量");
+      process.exit(1);
+    }
+    const kekBuf = decodeKek(kekBase64);
+
+    let corpId = arg(args, "--corp-id");
+    let secret = arg(args, "--secret");
+
+    // 若未显式传入 corp-id 或 secret，则自动从已配置并激活的 directory_source 读取
+    if (!corpId || !secret) {
+      const source = await db
+        .selectFrom("directory_source")
+        .selectAll()
+        .where("type", "=", "WECOM")
+        .where("status", "=", "ACTIVE")
+        .orderBy("created_at", "desc")
+        .executeTakeFirst();
+
+      if (!source) {
+        console.error("[worker] 系统中未找到处于 ACTIVE 状态的企业微信通讯录配置 (directory_source)。请通过 --corp-id 和 --secret 手动指定。");
+        process.exit(1);
+      }
+
+      try {
+        const envelope = JSON.parse(source.config_ciphertext) as EncryptedCredential;
+        const decrypted = decryptCredential(envelope, kekBuf);
+        const cfg = JSON.parse(decrypted) as { corp_id?: string; corp_secret?: string; secret?: string };
+        if (!corpId) corpId = cfg.corp_id;
+        if (!secret) secret = cfg.corp_secret || cfg.secret;
+      } catch (err: any) {
+        console.error("[worker] 解密 directory_source 企业微信凭证失败:", err?.message ?? err);
+        process.exit(1);
+      }
+    }
+
+    if (!corpId || !secret) {
+      console.error("[worker] 未能获取到有效的 corp_id 或 secret。请检查输入或补充参数。");
+      process.exit(1);
+    }
+
+    console.log(`[worker] 正在校验企业微信自建应用连通性 (CorpID: ${corpId}, AgentID: ${agentId})...`);
+
+    // 调用企微 gettoken 接口做真实性与连通性校验
+    const tokenUrl = new URL("https://qyapi.weixin.qq.com/cgi-bin/gettoken");
+    tokenUrl.searchParams.set("corpid", corpId);
+    tokenUrl.searchParams.set("corpsecret", secret);
+
+    const res = await fetch(tokenUrl.toString());
+    const data = (await res.json()) as { errcode?: number; errmsg?: string; access_token?: string; expires_in?: number };
+
+    if (data.errcode !== 0 || !data.access_token) {
+      console.error(`[worker] ❌ 企微 Token 获取失败: errcode=${data.errcode}, errmsg=${data.errmsg}`);
+      if (data.errcode === 40001 || data.errcode === 40014) {
+        console.error("[worker] 提示：在企业微信中，自建应用拥有其专属的应用 Secret (在应用详情页查看)。");
+        console.error("[worker]       若与通讯录 Secret 不同，请运行：");
+        console.error(`[worker]       worker activate-wecom-endpoint --agent-id ${agentId} --secret <应用Secret>`);
+      }
+      process.exit(1);
+    }
+
+    console.log(`[worker] ✅ 企微 API 校验通过！成功取得 access_token (有效时长: ${data.expires_in ?? 7200} 秒)`);
+
+    // 对 Secret 执行 AES-256-GCM 加密，并计算 16 位安全指纹
+    const encrypted = encryptCredential(secret, kekBuf);
+    const secretFingerprint = credentialFingerprint(secret);
+
+    // 查询是否存在现有 WECOM_APP 通道记录
+    const existing = await db
+      .selectFrom("notification_endpoint")
+      .selectAll()
+      .where("provider", "=", "WECOM_APP")
+      .executeTakeFirst();
+
+    if (existing) {
+      await db
+        .updateTable("notification_endpoint")
+        .set({
+          corp_id: corpId,
+          agent_id: agentId,
+          secret_ciphertext: JSON.stringify(encrypted),
+          secret_fingerprint: secretFingerprint,
+          status: "ACTIVE",
+          version: existing.version + 1,
+          updated_at: new Date(),
+        })
+        .where("id", "=", existing.id)
+        .execute();
+      console.log(`[worker] ✅ 已成功更新现有 notification_endpoint (ID: ${existing.id}) -> 状态置为 ACTIVE`);
+    } else {
+      const inserted = await db
+        .insertInto("notification_endpoint")
+        .values({
+          provider: "WECOM_APP",
+          corp_id: corpId,
+          agent_id: agentId,
+          secret_ciphertext: JSON.stringify(encrypted),
+          secret_fingerprint: secretFingerprint,
+          status: "ACTIVE",
+          version: 1,
+        })
+        .returning("id")
+        .executeTakeFirst();
+      console.log(`[worker] ✅ 已成功新建 notification_endpoint (ID: ${inserted?.id}) -> 状态置为 ACTIVE`);
+    }
+
+    console.log("[worker] 🎉 企业微信自建应用通知通道已完全激活！即刻起支持高清看板长图与激励信笺真机下发。");
   } finally {
     await db.destroy();
   }
