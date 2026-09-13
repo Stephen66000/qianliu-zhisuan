@@ -141,13 +141,26 @@ export class WecomAppClient {
       url.searchParams.set("access_token", tok);
       url.searchParams.set("type", "image");
 
-      const formData = new FormData();
-      formData.append("media", new Blob([imageBuffer], { type: "image/png" }), filename);
+      const boundary = `----WebKitFormBoundary${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+      const headerText = [
+        `--${boundary}`,
+        `Content-Disposition: form-data; name="media"; filename="${filename}"; filelength=${imageBuffer.length}`,
+        `Content-Type: image/png`,
+        "",
+        "",
+      ].join("\r\n");
+      const header = Buffer.from(headerText, "utf-8");
+      const footer = Buffer.from(`\r\n--${boundary}--\r\n`, "utf-8");
+      const body = Buffer.concat([header, imageBuffer, footer]);
 
       const res = await this.fetchImpl(url, {
         method: "POST",
-        body: formData,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          "Content-Length": String(body.length),
+        },
+        body,
+        signal: AbortSignal.timeout(20_000),
       });
       return (await res.json()) as WecomResponse & { media_id?: string };
     };
