@@ -22,12 +22,11 @@ type TabId = Exclude<
 >;
 function isTabId(value: string | null): value is TabId {
   return (
-    value === "value" ||
-    value === "finance" ||
     value === "overview" ||
+    value === "finance" ||
+    value === "value" ||
     value === "plans" ||
-    value === "procurement" ||
-    value === "reconciliation"
+    value === "procurement"
   );
 }
 export function OperatingBillPage() {
@@ -56,12 +55,7 @@ export function OperatingBillPage() {
   const error = analysis.error ?? (tab === "overview" ? bill.error : null);
   return (
     <OperatingBillShell active={tab} month={month}>
-      {!reporting ? (
-        <div
-          role="region"
-          aria-label="对账与导出"
-        />
-      ) : analysis.isLoading || (tab === "overview" && bill.isLoading) ? (
+      {analysis.isLoading || (tab === "overview" && bill.isLoading) ? (
         <LoadingState label="正在汇总经营账单…" rows={5} />
       ) : !analysis.data || (tab === "overview" && !bill.data) ? (
         <ErrorState

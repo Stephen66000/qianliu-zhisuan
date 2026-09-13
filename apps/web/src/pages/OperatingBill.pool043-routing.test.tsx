@@ -144,13 +144,13 @@ describe("POOL-043 旧主体页分流", () => {
         <OperatingBillPage />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("link", { name: "价值确认" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "价值体现" })).toHaveAttribute(
       "aria-current",
       "page",
     );
     expect(
-      screen.getByRole("region", { name: "价值确认" }),
-    ).toBeEmptyDOMElement();
+      screen.getByRole("region", { name: "价值体现" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("已提交价值")).toBeNull();
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.confirm).not.toHaveBeenCalled();

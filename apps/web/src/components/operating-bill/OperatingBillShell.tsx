@@ -1,8 +1,6 @@
 import {
-  BadgeCheck,
   BriefcaseBusiness,
   CalendarDays,
-  FileLock2,
   Gauge,
   LayoutDashboard,
   Receipt,
@@ -15,26 +13,24 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useFeatureFlags } from "../../feature-flags";
 
 export type OperatingBillSection =
-  | "value"
-  | "finance"
-  | "departments"
+  | "overview"
   | "employees"
   | "projects"
+  | "departments"
+  | "finance"
+  | "value"
   | "plans"
-  | "overview"
-  | "procurement"
-  | "reconciliation";
+  | "procurement";
 
 const sections = [
-  { id: "value", label: "价值体现", icon: Sparkles },
-  { id: "finance", label: "财务账", icon: Receipt },
-  { id: "departments", label: "部门账", icon: UsersRound },
+  { id: "overview", label: "月度总览", icon: LayoutDashboard },
   { id: "employees", label: "员工账", icon: UsersRound },
   { id: "projects", label: "项目账", icon: BriefcaseBusiness },
+  { id: "departments", label: "部门账", icon: UsersRound },
+  { id: "finance", label: "财务账", icon: Receipt },
+  { id: "value", label: "价值体现", icon: Sparkles },
   { id: "plans", label: "套餐利用率", icon: Gauge },
-  { id: "overview", label: "月度总览", icon: LayoutDashboard },
   { id: "procurement", label: "采购复盘", icon: Gauge },
-  { id: "reconciliation", label: "对账与导出", icon: FileLock2 },
 ] as const;
 
 export function sectionUrl(

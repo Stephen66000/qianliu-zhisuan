@@ -180,8 +180,8 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
           </div>
         </div>
 
-        <div className="rounded-xl border-2 border-ql-action bg-ql-surface-brand-soft/20 p-4 shadow-sm">
-          <div className="text-xs text-ql-action font-semibold mb-1">综合每百万 Token 成本</div>
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
+          <div className="text-xs text-ql-fg-secondary mb-1">综合每百万 Token 成本</div>
           <div className="text-2xl font-bold text-ql-accent tabular-nums">
             ¥ {totals.costPerMillion.toFixed(2)}{" "}
             <span className="text-xs font-normal text-ql-fg-secondary">/ M</span>

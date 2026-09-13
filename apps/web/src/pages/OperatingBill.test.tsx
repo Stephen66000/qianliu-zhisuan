@@ -259,8 +259,7 @@ describe("POOL-025 经营账单", () => {
     expect(recordRecharge).not.toHaveBeenCalled();
   });
 
-  it("保留旧解析器，清空对账页", async () => {
-    const user = userEvent.setup();
+  it("保留旧解析器，对账与导出入口已下线", () => {
     expect(parseSnapshotCsv("provider_resource_id,collected_at,current_balance\nr1,2026-08-18T00:00:00Z,88")).toEqual([{
       provider_resource_id: "r1",
       snapshot: { collected_at: "2026-08-18T00:00:00Z", current_balance: "88" },
@@ -271,10 +270,7 @@ describe("POOL-025 经营账单", () => {
         <OperatingBillPage />
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole("link", { name: /对账与导出/ }));
-    expect(
-      screen.getByRole("region", { name: "对账与导出" }),
-    ).toBeEmptyDOMElement();
+    expect(screen.queryByRole("link", { name: /对账与导出/ })).toBeNull();
   });
 
   it("旧结账地址回到月度总览，不能触发结账写入", () => {
