@@ -183,8 +183,8 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
     <text x="87" y="636" font-size="15" font-weight="700" fill="#172033">仟流智算</text>
     <text x="87" y="654" font-size="11" font-weight="500" fill="#7D8FA4" letter-spacing="0.8">Qianliu IC</text>
 
-    <!-- Official Logo: 50x50, Right Edge X=453, Bottom Edge Y=654 -->
-    <image href="${QIANLIU_LOGO_DATA_URI}" x="401" y="606" width="52" height="52"/>
+    <!-- Official Logo: 38x38, Right Edge X=453, Blue Bottom Edge Y=654 (Aligned with Qianliu IC) -->
+    <image href="${QIANLIU_LOGO_DATA_URI}" x="415" y="616" width="38" height="38"/>
   </g>
 </svg>
 `.trim();

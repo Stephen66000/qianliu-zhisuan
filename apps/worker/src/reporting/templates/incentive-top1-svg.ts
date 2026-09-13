@@ -106,8 +106,8 @@ export function generateIncentiveTop1Svg(data: IncentiveTop1ReportData): string 
     <text x="94" y="659" font-size="16" font-weight="700" fill="#172033">仟流智算</text>
     <text x="94" y="679" font-size="12" font-weight="500" fill="#7D8FA4" letter-spacing="0.8">Qianliu IC</text>
 
-    <!-- Official Logo: 70x72, Right Edge X=445, Bottom Edge Y=679 -->
-    <image href="${QIANLIU_LOGO_DATA_URI}" x="375" y="607" width="70" height="72"/>
+    <!-- Official Logo: 38x38, Right Edge X=445, Blue Bottom Edge Y=679 (Aligned with Qianliu IC) -->
+    <image href="${QIANLIU_LOGO_DATA_URI}" x="407" y="641" width="38" height="38"/>
   </g>
 </svg>
 `.trim();
