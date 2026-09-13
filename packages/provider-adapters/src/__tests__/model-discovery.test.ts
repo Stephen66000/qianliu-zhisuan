@@ -117,6 +117,7 @@ describe("W-MD 官方来源模型发现", () => {
             id: "chat-1",
             object: "chat.completion",
             choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
           }),
         };
       }
@@ -134,8 +135,8 @@ describe("W-MD 官方来源模型发现", () => {
     const k3256k = result.models.find((m) => m.id === "k3-256k");
     expect(k3?.compatible).toBe(true);
     expect(k3?.unavailableReason).toBeNull();
-    expect(k3256k?.compatible).toBe(false);
-    expect(k3256k?.unavailableReason).toContain("HTTP 403");
+    expect(k3256k).toBeUndefined();
+    expect(result.models.map((m) => m.id)).toEqual(["k3"]);
   });
 
   it("普通正文、实验语境和冲突语境拒绝，不静默采用", async () => {

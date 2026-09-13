@@ -178,18 +178,18 @@ async function probeModelPermissions(
   mode: ResourceMode,
   credential: string,
   models: DiscoveredProviderModel[],
-  fetcher: HttpFetch,
+  fetcher?: HttpFetch,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<void> {
   const caller = createOpenAiCompatibleCaller({
-    fetch: fetcher,
+    ...(fetcher ? { fetch: fetcher } : {}),
     env,
-    requestTimeoutMs: 5_000,
-    firstByteTimeoutMs: 4_000,
-    streamIdleTimeoutMs: 4_000,
+    requestTimeoutMs: 15_000,
+    firstByteTimeoutMs: 12_000,
+    streamIdleTimeoutMs: 12_000,
   });
   await Promise.all(
-    models.filter((m) => m.compatible && m.modelType === "CHAT").map(async (model) => {
+    models.filter((m) => m.modelType === "CHAT").map(async (model) => {
       try {
         const outcome = await caller({
           providerCode,
@@ -203,21 +203,32 @@ async function probeModelPermissions(
           unifiedModel: model.id,
           stream: false,
           capability: "chat",
+          maxOutputTokens: 1,
           body: {
             model: model.id,
-            messages: [{ role: "user", content: "hi" }],
+            messages: [{ role: "user", content: "1" }],
             max_tokens: 1,
           },
         }, 1);
-        if (outcome.status === 403) {
+        const ok = outcome.status >= 200 && outcome.status < 300;
+        if (ok) {
+          model.compatible = true;
+          model.unavailableReason = null;
+        } else {
           model.compatible = false;
-          model.unavailableReason = "当前套餐/凭证未开通此模型权限 (HTTP 403)";
-        } else if (outcome.status === 401) {
-          model.compatible = false;
-          model.unavailableReason = "凭证鉴权失败 (HTTP 401)";
+          if (outcome.status === 403) {
+            model.unavailableReason = "当前套餐/凭证未开通此模型权限 (HTTP 403)";
+          } else if (outcome.status === 401) {
+            model.unavailableReason = "凭证鉴权失败 (HTTP 401)";
+          } else if (outcome.status === 400 || outcome.status === 404) {
+            model.unavailableReason = "当前套餐不支持此模型";
+          } else {
+            model.unavailableReason = `模型不可用 (${outcome.upstreamCode || `HTTP_${outcome.status}`})`;
+          }
         }
       } catch {
-        // 网络超时/异常不强行标记不兼容
+        model.compatible = false;
+        model.unavailableReason = "模型探活超时或连接失败";
       }
     }),
   );
@@ -249,9 +260,10 @@ async function discoverProviderModelsUncached(input: {
       input.mode,
       input.credential,
       result.models,
-      (input.fetch as unknown as HttpFetch) ?? (globalThis.fetch as unknown as HttpFetch),
+      input.fetch ? (input.fetch as unknown as HttpFetch) : undefined,
       input.env,
     );
+    result.models = result.models.filter((model) => model.compatible);
   }
   return result;
 }
