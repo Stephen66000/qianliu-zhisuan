@@ -142,7 +142,7 @@ export async function checkAndDispatchTop1Milestone(
   const periodLabel = `登顶周榜首 · ${dateRangeStr} (${weekStr.split("-")[1]}周)`;
 
   const topModels = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, winnerPrincipalId, 1);
-  const topModelName = topModels[0]?.model ?? "多模型深度协同";
+  const topModelName = topModels[0]?.model ? formatModelName(topModels[0].model) : "多模型深度协同";
 
   const top1Data: IncentiveTop1ReportData = {
     userName: topUser.subjectName,
@@ -321,8 +321,8 @@ export async function checkAndDispatchOver50Milestone(
     // 查询该员工当月主力模型
     const userModels = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, principalId, 2);
     const topModelStr = userModels.length > 0
-      ? userModels.map((m) => m.model).join(" + ")
-      : "深度推理与综合协作";
+      ? userModels.map((m) => formatModelName(m.model)).join(" + ")
+      : "多模型深度协同";
 
     const cardData: IncentiveOver50ReportData = {
       userName: item.subjectName,

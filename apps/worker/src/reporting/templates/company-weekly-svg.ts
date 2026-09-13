@@ -117,18 +117,8 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 800" width="540" height="800">
-  <defs>
-    <filter id="companyCardShadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0F1B2E" flood-opacity="0.06"/>
-      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0F1B2E" flood-opacity="0.03"/>
-    </filter>
-  </defs>
-
-  <!-- Canvas Background -->
-  <rect width="540" height="800" fill="#EEF2F6"/>
-
-  <!-- White Floating Card (416x658 px, x=62, y=71, rx=18) -->
-  <rect x="62" y="71" width="416" height="658" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" filter="url(#companyCardShadow)"/>
+  <!-- Pure White Background -->
+  <rect width="540" height="800" fill="#FFFFFF"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Header: 全员用量周报小结 + 9.7 - 9.13 (第37周) -->

@@ -65,18 +65,8 @@ export function generatePersonalWeeklySvg(data: PersonalWeeklyReportData): strin
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 800" width="540" height="800">
-  <defs>
-    <filter id="cardShadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0F1B2E" flood-opacity="0.06"/>
-      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0F1B2E" flood-opacity="0.03"/>
-    </filter>
-  </defs>
-
-  <!-- Canvas Background -->
-  <rect width="540" height="800" fill="#EEF2F6"/>
-
-  <!-- White Floating Card (460x700, radius 18) -->
-  <rect x="40" y="50" width="460" height="700" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" filter="url(#cardShadow)"/>
+  <!-- Pure White Background -->
+  <rect width="540" height="800" fill="#FFFFFF"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Header: User Name (26px Bold, #172033) & Date Range (13px Semibold, #417EE0) -->

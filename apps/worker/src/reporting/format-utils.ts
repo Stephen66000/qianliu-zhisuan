@@ -58,10 +58,14 @@ export function formatPercentage(share: string | number): string {
  * 格式化常见的大模型名称为官方标准展示名称
  */
 export function formatModelName(rawName: string): string {
-  const clean = rawName.trim();
+  let clean = rawName.trim();
+  if (clean.toLowerCase().startsWith("ql-")) {
+    clean = clean.slice(3).trim();
+  }
   const lower = clean.toLowerCase();
   if (lower.includes("deepseek-v3") || lower === "deepseek-chat") return "DeepSeek V3";
   if (lower.includes("deepseek-r1") || lower.includes("deepseek-reasoner")) return "DeepSeek R1";
+  if (lower.includes("deepseek")) return "DeepSeek V3";
   if (lower.includes("claude-3-5-sonnet") || lower.includes("claude-3.5-sonnet")) return "Claude 3.5 Sonnet";
   if (lower.includes("claude-3-7-sonnet") || lower.includes("claude-3.7-sonnet")) return "Claude 3.7 Sonnet";
   if (lower.includes("gpt-4o-mini")) return "GPT-4o mini";
@@ -70,6 +74,7 @@ export function formatModelName(rawName: string): string {
   if (lower.includes("glm-4") || lower.includes("glm 4")) return "GLM-4";
   if (lower.includes("qwen-max")) return "Qwen Max";
   if (lower.includes("qwen-plus")) return "Qwen Plus";
+  if (lower === "k3" || lower.startsWith("k3")) return "K3";
   if (lower.includes("kimi") || lower.includes("moonshot")) return "Kimi Chat";
   return clean;
 }

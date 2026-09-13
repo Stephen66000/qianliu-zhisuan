@@ -34,9 +34,8 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     // 校验画布与卡片
     expect(svg).toContain('viewBox="0 0 540 800"');
     expect(svg).toContain('width="540"');
-    expect(svg).toContain('height="800"');
-    expect(svg).toContain('fill="#EEF2F6"'); // 画布底色
-    expect(svg).toContain('fill="#FFFFFF"'); // 白卡
+    expect(svg).toContain('fill="#FFFFFF"'); // 纯白底色
+    expect(svg).not.toContain('fill="#EEF2F6"');
     expect(svg).toContain("张三");
     expect(svg).toContain("一周小结 9.7-9.11");
     expect(svg).toContain("功不求疾，但求有恒");

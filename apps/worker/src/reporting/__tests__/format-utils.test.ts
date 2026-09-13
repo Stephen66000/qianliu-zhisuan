@@ -77,6 +77,9 @@ describe("Format Utilities for Reporting", () => {
       expect(formatModelName("glm-4-flash")).toBe("GLM-4");
       expect(formatModelName("qwen-max")).toBe("Qwen Max");
       expect(formatModelName("moonshot-v1-8k")).toBe("Kimi Chat");
+      expect(formatModelName("ql-deepseek-v4-pro")).toBe("DeepSeek V3");
+      expect(formatModelName("ql-k3")).toBe("K3");
+      expect(formatModelName("k3")).toBe("K3");
     });
   });
 
