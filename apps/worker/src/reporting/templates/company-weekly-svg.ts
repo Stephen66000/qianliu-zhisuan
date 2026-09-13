@@ -52,8 +52,8 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   const totalEmpCount = data.totalEmployees ?? data.topUsers.length;
 
   // 测量 4 大主区块的固有高度：
-  // Block 1: 顶栏组合（标题 20px + 间距 40px + 3大数字 38px）= 98px
-  const hBlock1 = 98;
+  // Block 1: 顶栏组合（标题 20px + 间距 48px + 3大数字 46px）= 114px
+  const hBlock1 = 114;
   // Block 2: 全员使用量表格（区块标题 20px + 表头 16px + 用户数据行）
   const userRowStep = 24;
   const userRowCount = Math.min(data.topUsers.length, 7);
@@ -72,7 +72,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   // 1. Block 1: 顶栏组合
   const b1Top = topSafe;
   const headerY = b1Top + 20;
-  const kpiTopY = headerY + 40; // 往下移 16px，与标题拉开呼吸感，与全员使用量距离对称平衡
+  const kpiTopY = headerY + 48; // 往下移至 48px，留足舒适开阔空间
 
   // 分割线 1
   const div1Y = b1Top + hBlock1 + majorGap / 2;
@@ -179,20 +179,20 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
     <!-- Block 1: 顶栏小结 (标题 + 3大数字) -->
     <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">全员用量周报小结<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.dateRange)}</tspan></text>
 
-    <!-- 3 大数字水平排列 -->
+    <!-- 3 大数字水平排列 (同比放大 50%: 14px->21px, 11px->15px, 垂直起点下移) -->
     <g transform="translate(87, ${kpiTopY})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">全周总请求次数</text>
-      <text x="0" y="24" font-size="14" font-weight="700" fill="#172033">${escapeXml(totalReqClean)} <tspan font-size="11" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(totalReqClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">次</tspan></text>
     </g>
 
-    <g transform="translate(210, ${kpiTopY})">
+    <g transform="translate(202, ${kpiTopY})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">全周 Token 消耗总量</text>
-      <text x="0" y="24" font-size="14" font-weight="700" fill="#172033">${escapeXml(totalTokensClean)} <tspan font-size="11" font-weight="500" fill="#7D8FA4">${totalTokensUnit}</tspan></text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(totalTokensClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${totalTokensUnit}</tspan></text>
     </g>
 
-    <g transform="translate(340, ${kpiTopY})">
+    <g transform="translate(320, ${kpiTopY})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">团队日均使用量</text>
-      <text x="0" y="24" font-size="14" font-weight="700" fill="#172033">${escapeXml(dailyTokensClean)} <tspan font-size="11" font-weight="500" fill="#7D8FA4">${dailyTokensUnit}</tspan></text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(dailyTokensClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${dailyTokensUnit}</tspan></text>
     </g>
 
     <!-- 分割线 1 -->
