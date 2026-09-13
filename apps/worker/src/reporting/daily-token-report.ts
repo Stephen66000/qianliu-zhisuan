@@ -2,6 +2,7 @@ import { sql, type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { UsageOverviewRepository } from "@qianliu/database";
 import { Resvg } from "@resvg/resvg-js";
+import { renderSvgToPng as renderSharedSvgToPng } from "./render-png.js";
 import { WecomAppClient, type EndpointConfig } from "../runtime-assurance/wecom-client.js";
 
 export interface DailyReportData {
@@ -223,11 +224,7 @@ export function generateDailyReportSvg(data: DailyReportData): string {
  * 转换 SVG 为高清 PNG 图像 Buffer
  */
 export function renderSvgToPng(svgString: string): Buffer {
-  const resvg = new Resvg(svgString, {
-    fitTo: { mode: "width", value: 800 },
-  });
-  const pngData = resvg.render();
-  return Buffer.from(pngData.asPng());
+  return renderSharedSvgToPng(svgString, { fitWidth: 800 });
 }
 
 export interface RunDailyReportOptions {

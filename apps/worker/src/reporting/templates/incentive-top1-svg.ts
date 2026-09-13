@@ -96,7 +96,7 @@ export function generateIncentiveTop1Svg(data: IncentiveTop1ReportData): string 
   <!-- White Floating Card (460x700, radius 18) -->
   <rect x="40" y="50" width="460" height="700" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" filter="url(#top1CardShadow)"/>
 
-  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif">
+  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Header: User Name (24px Bold, #172033) & Honor Subtitle (12px Semibold, #417EE0) -->
     <text x="94" y="143" font-size="24" font-weight="700" fill="#172033">${escapeXml(data.userName)}<tspan dx="14" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.periodLabel)}</tspan></text>
 

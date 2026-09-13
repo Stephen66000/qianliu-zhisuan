@@ -78,7 +78,7 @@ export function generatePersonalWeeklySvg(data: PersonalWeeklyReportData): strin
   <!-- White Floating Card (460x700, radius 18) -->
   <rect x="40" y="50" width="460" height="700" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" filter="url(#cardShadow)"/>
 
-  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif">
+  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Header: User Name (26px Bold, #172033) & Date Range (13px Semibold, #417EE0) -->
     <text x="94" y="143" font-size="26" font-weight="700" fill="#172033">${escapeXml(data.userName)}<tspan dx="16" font-size="13" font-weight="600" fill="#417EE0">${escapeXml(data.dateRange)}</tspan></text>
 

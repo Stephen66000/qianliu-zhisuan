@@ -130,7 +130,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   <!-- White Floating Card (416x658 px, x=62, y=71, rx=18) -->
   <rect x="62" y="71" width="416" height="658" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" filter="url(#companyCardShadow)"/>
 
-  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif">
+  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Header: 全员用量周报小结 + 9.7 - 9.13 (第37周) -->
     <text x="87" y="125" font-size="20" font-weight="700" fill="#172033">全员用量周报小结<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.dateRange)}</tspan></text>
 
