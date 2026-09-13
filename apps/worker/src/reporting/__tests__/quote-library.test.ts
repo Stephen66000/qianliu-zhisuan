@@ -15,11 +15,11 @@ describe("Quote Library for Reporting & Incentives", () => {
     }
   });
 
-  it("登顶第 1 名金句库包含 9 条高光金句，且每条长度不超过 13 字符", () => {
-    expect(TOP1_INCENTIVE_QUOTES.length).toBe(9);
+  it("登顶第 1 名金句库包含 38 条高光金句，且每条长度不超过 14 字符", () => {
+    expect(TOP1_INCENTIVE_QUOTES.length).toBe(38);
     for (const q of TOP1_INCENTIVE_QUOTES) {
       expect(q.length).toBeGreaterThanOrEqual(6);
-      expect(q.length).toBeLessThanOrEqual(13);
+      expect(q.length).toBeLessThanOrEqual(14);
     }
   });
 

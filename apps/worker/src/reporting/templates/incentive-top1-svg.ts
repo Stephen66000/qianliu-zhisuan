@@ -23,6 +23,7 @@ export interface IncentiveTop1ReportData {
  */
 export function generateIncentiveTop1Svg(data: IncentiveTop1ReportData): string {
   const quote = data.quote || "独行快，众行远；引领者无畏";
+  const quoteFontSize = quote.length > 13 ? 20 : quote.length > 11 ? 22 : quote.length > 9 ? 24 : 26;
   const firstLineY = 262;
   const slotHeight = 68;
 
@@ -94,7 +95,7 @@ export function generateIncentiveTop1Svg(data: IncentiveTop1ReportData): string 
     <!-- Hanging Opening Quote at X=94 -->
     <text x="94" y="237" font-family="Georgia, serif" font-size="28" font-weight="700" fill="#D97706">“</text>
     <!-- Honor Quote Text at X=118 -->
-    <text x="118" y="237" font-size="24" font-weight="700" fill="#D97706">${escapeXml(quote)}<tspan font-family="Georgia, serif" font-size="28" font-weight="700" fill="#D97706"> ”</tspan></text>
+    <text x="118" y="237" font-size="${quoteFontSize}" font-weight="700" fill="#D97706">${escapeXml(quote)}<tspan font-family="Georgia, serif" font-size="28" font-weight="700" fill="#D97706"> ”</tspan></text>
 
     <!-- Ruled Lines -->
     ${linesSvg}
