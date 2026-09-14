@@ -212,7 +212,7 @@ docker cp "$manifest" qianliu-zhisuan-control-api-1:/tmp/deployment-manifest.jso
 if docker exec qianliu-zhisuan-control-api-1 node --import tsx \
   apps/control-api/src/cli/import-deployment-manifest.ts \
   --enterprise "$enterprise_id" --file /tmp/deployment-manifest.json; then
-  echo "部署清单已写入（deploymentId: i1-audit-remediation-$stamp）"
+  echo "部署清单已写入（deploymentId: i1-audit-remediation-${stamp}）"
 else
   echo "WARN: 部署清单写入失败，不影响服务运行；关于版本页更新说明将缺失本次记录"
 fi
