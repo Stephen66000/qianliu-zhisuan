@@ -189,7 +189,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Block 1: 顶栏小结 (标题 + 6大数字 2×3) -->
-    <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">全员用量周报小结<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.dateRange)}</tspan></text>
+    <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">${escapeXml(data.enterpriseName)} · 全员用量周报<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.dateRange)}</tspan></text>
 
     <!-- 第 1 行：月度额度视角（本月总 Token / Token 消耗总量 / 剩余 Token 总量） -->
     <g transform="translate(87, ${kpiTopY})">

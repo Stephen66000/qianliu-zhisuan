@@ -124,7 +124,7 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
 
     const svg = generateCompanyWeeklySvg(data);
 
-    expect(svg).toContain("全员用量周报小结");
+    expect(svg).toContain("仟流智算创新科技 · 全员用量周报");
     expect(svg).toContain("9.7 - 9.13");
     expect(svg).toContain("本月总 Token");
     expect(svg).toContain("Token 消耗总量");
