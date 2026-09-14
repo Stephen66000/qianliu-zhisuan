@@ -154,6 +154,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
 export const CONFIG_VERSION = "0.3.0" as const;
 
+/** 企业微信 OpenAPI 基础域名统一权威常量 */
+export const WECOM_API_ORIGIN = "https://qyapi.weixin.qq.com";
+
 /**
  * 读取正整数环境变量（H-1：gateway/control-api 共享，避免两份同构逻辑漂移）。
  *

@@ -9,8 +9,9 @@ import {
   type ExternalDirectoryDepartment,
   type ExternalDirectoryMember,
 } from "./connector.js";
+import { WECOM_API_ORIGIN } from "@qianliu/config";
 
-const WECOM_ORIGIN = "https://qyapi.weixin.qq.com";
+const WECOM_ORIGIN = WECOM_API_ORIGIN;
 const REQUEST_TIMEOUT_MS = 10_000;
 
 const WecomConfig = z.object({

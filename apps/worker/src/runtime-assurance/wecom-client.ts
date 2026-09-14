@@ -5,8 +5,8 @@ import {
 } from "@qianliu/provider-adapters";
 import type { DeliveryContext } from "@qianliu/database";
 import { availabilitySignalSummary, type UnifiedAvailabilitySignal } from "@qianliu/domain";
+import { WECOM_API_ORIGIN } from "@qianliu/config";
 
-const WECOM_API_ORIGIN = "https://qyapi.weixin.qq.com";
 const REQUEST_TIMEOUT_MS = 8_000;
 
 interface WecomResponse {

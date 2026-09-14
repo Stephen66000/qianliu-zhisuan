@@ -1,16 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle,
-  Check,
-  CheckCircle2,
-  CircleAlert,
-  Plus,
-  RotateCcw,
-  Save,
-  Search,
-  Send,
-  User,
-  X,
+  AlertTriangle, Check, CheckCircle2, CircleAlert, Plus,
+  RotateCcw, Save, Search, Send, User, X,
 } from "lucide-react";
 import {
   NOTIFICATION_CATEGORY_META,
@@ -46,6 +37,12 @@ export function NotificationRecipientsPanel() {
   // Track if user made changes compared to remote
   const [isDirty, setIsDirty] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+  }, []);
+
   const [testResult, setTestResult] = useState<{ personName: string; success: boolean; msg: string } | null>(null);
 
   // Active dropdown picker: which category is currently picking a person
@@ -120,7 +117,8 @@ export function NotificationRecipientsPanel() {
       await saveMutation.mutateAsync(selectedIds);
       setIsDirty(false);
       setSaveSuccessMsg("通知人员配置已成功保存并立即生效！");
-      setTimeout(() => setSaveSuccessMsg(null), 5000);
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => setSaveSuccessMsg(null), 5000);
     } catch {
       // handled by mutation error state
     }

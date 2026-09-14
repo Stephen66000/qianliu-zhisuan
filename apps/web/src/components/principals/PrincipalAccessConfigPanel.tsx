@@ -8,7 +8,7 @@
  *
  * 页面结构：厂商块（池额度 + 型号表）→ 底部汇总 → 保存并生效。
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 
@@ -82,6 +82,11 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+  }, []);
 
   const config = configQuery.data;
 
@@ -110,7 +115,8 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
       ]);
       setSaveSuccess(true);
       setSaveError(null);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => setSaveSuccess(false), 3000);
     },
     onError: (error) => {
       setSaveSuccess(false);
