@@ -116,6 +116,35 @@ export async function queryTopModelsForRange(
 }
 
 /**
+ * 查询企业月度 Token 额度汇总（全部有效授权 quota_value 与已扣减 used_value）
+ * 用于全员周报第 1 行大数字：本月总 Token / 剩余 Token 总量
+ */
+export async function queryEnterpriseQuotaSummary(
+  db: Kysely<Database>,
+  enterpriseId: string,
+): Promise<{ quotaTotal: number; quotaUsed: number }> {
+  try {
+    const row = await db
+      .selectFrom("principal_grant as g")
+      .leftJoin("quota_counter as c", "c.grant_id", "g.id")
+      .select([
+        sql<string>`coalesce(sum(g.quota_value), 0)`.as("quota_total"),
+        sql<string>`coalesce(sum(c.used_value), 0)`.as("quota_used"),
+      ])
+      .where("g.enterprise_id", "=", enterpriseId)
+      .where("g.status", "=", "ACTIVE")
+      .executeTakeFirst();
+
+    return {
+      quotaTotal: Number(row?.quota_total ?? 0),
+      quotaUsed: Number(row?.quota_used ?? 0),
+    };
+  } catch {
+    return { quotaTotal: 0, quotaUsed: 0 };
+  }
+}
+
+/**
  * 查询员工在统计区间内的最晚物理调用时间
  */
 export async function queryLatestRequestTime(
@@ -268,6 +297,17 @@ export async function runCompanyWeeklyReport(
   const requestCount = Number(overview.metrics.requestCount);
   const activeEmployees = overview.metrics.activeSubjects;
 
+  // 月度额度视角：本月总 Token（有效授权额度合计）、本月消耗总量（账本真实 Token）、剩余 Token 总量
+  const monthOverview = await usageRepo.getOverview({
+    enterpriseId,
+    subjectType: "EMPLOYEE",
+    period: "MONTH",
+    anchor: anchorDate,
+  });
+  const monthConsumed = Number(monthOverview.metrics.realTokens);
+  const { quotaTotal, quotaUsed } = await queryEnterpriseQuotaSummary(db, enterpriseId);
+  const quotaRemaining = Math.max(0, quotaTotal - quotaUsed);
+
   // 1. 查询模型消耗 Top 3
   const topModelsData = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, undefined, 3);
   const totalModelTokens = topModelsData.reduce((acc, m) => acc + m.tokens, 0);
@@ -300,6 +340,9 @@ export async function runCompanyWeeklyReport(
   const reportData: CompanyWeeklyReportData = {
     enterpriseName: enterprise.name,
     dateRange: dateRangeStr,
+    monthQuotaTotal: formatTokenVolume(quotaTotal),
+    monthConsumedTokens: formatTokenVolume(monthConsumed),
+    monthQuotaRemaining: formatTokenVolume(quotaRemaining),
     totalRequests: `${formatNumber(requestCount)} 次`,
     totalTokens: formatTokenVolume(totalTokens),
     dailyAvgTokens: formatTokenVolume(totalTokens / 7, { isDailyAvg: true }),
@@ -418,6 +461,9 @@ export async function runCompanyWeeklyReport(
   const summaryText = [
     `📊 【${enterprise.name}】全员用量周报小结 (${dateRangeStr})`,
     "━━━━━━━━━━━━━━━━━━",
+    `💎 本月总 Token：${formatTokenVolume(quotaTotal)}`,
+    `🔥 Token 消耗总量（本月）：${formatTokenVolume(monthConsumed)}`,
+    `🧮 剩余 Token 总量：${formatTokenVolume(quotaRemaining)}`,
     `⚡ 全周消耗总量：${formatTokenVolume(totalTokens)}`,
     `📈 日均使用水平：${formatTokenVolume(totalTokens / 7, { isDailyAvg: true })}`,
     `🚀 全周总请求数：${formatNumber(requestCount)} 次`,

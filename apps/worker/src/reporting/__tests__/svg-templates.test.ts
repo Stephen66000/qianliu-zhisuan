@@ -78,6 +78,9 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     const data: CompanyWeeklyReportData = {
       enterpriseName: "仟流智算创新科技",
       dateRange: "9.7 - 9.13",
+      monthQuotaTotal: "500.0 万",
+      monthConsumedTokens: "128.5 万",
+      monthQuotaRemaining: "371.5 万",
       totalRequests: "10,450 次",
       totalTokens: "384.3 万",
       dailyAvgTokens: "54.9 万 /天",
@@ -123,6 +126,12 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
 
     expect(svg).toContain("全员用量周报小结");
     expect(svg).toContain("9.7 - 9.13");
+    expect(svg).toContain("本月总 Token");
+    expect(svg).toContain("Token 消耗总量");
+    expect(svg).toContain("剩余 Token 总量");
+    expect(svg).toContain("500.0");
+    expect(svg).toContain("128.5");
+    expect(svg).toContain("371.5");
     expect(svg).toContain("10,450");
     expect(svg).toContain("384.3");
     expect(svg).toContain("54.9");

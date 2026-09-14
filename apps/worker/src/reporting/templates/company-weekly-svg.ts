@@ -22,6 +22,9 @@ export interface CompanyWeeklyModelRow {
 export interface CompanyWeeklyReportData {
   enterpriseName: string;
   dateRange: string;      // e.g. "9.7 - 9.13 (第37周)"
+  monthQuotaTotal: string;   // e.g. "500.0"（本月总 Token 额度，万/亿）
+  monthConsumedTokens: string; // e.g. "128.5"（本月 Token 消耗总量，万/亿）
+  monthQuotaRemaining: string; // e.g. "371.5"（剩余 Token 总量，万/亿）
   totalRequests: string;  // e.g. "10,450"
   totalTokens: string;    // e.g. "384.3"
   dailyAvgTokens: string; // e.g. "54.9"
@@ -36,7 +39,9 @@ export interface CompanyWeeklyReportData {
  * - 顶部与底部保留严格固定的安全边距（SAFE_MARGIN_Y = 56px）；
  * - 5 大内容段作为整体，在图片中间的安全区域内自适应上下弹性排列：
  *   1. 标题小结（全员用量周报小结 + 日期）
- *   2. 核心三大数字（全周请求数、Token总量、团队日均使用量）
+ *   2. 核心六大数字（2 行 × 3 列）：
+ *      第 1 行：本月总 Token、Token 消耗总量（本月）、剩余 Token 总量；
+ *      第 2 行：全周总请求次数、全周 Token 消耗总量、团队日均使用量
  *   3. 全员使用量表格（动态适应 1~7 行，所属团队与数值列按比例重排，彻底消除重叠）
  *   4. 使用模型表格（动态适应 1~3 行）
  *   5. 品牌底栏与官方矢量 Logo（右边缘与 Qianliu IC 底部基线对齐）
@@ -52,8 +57,8 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   const totalEmpCount = data.totalEmployees ?? data.topUsers.length;
 
   // 测量 4 大主区块的固有高度：
-  // Block 1: 顶栏组合（标题 20px + 间距 48px + 3大数字 46px）= 114px
-  const hBlock1 = 114;
+  // Block 1: 顶栏组合（标题 20px + 间距 40px + 2 行大数字 46px + 行距 26px + 46px）= 178px
+  const hBlock1 = 178;
   // Block 2: 全员使用量表格（区块标题 20px + 表头 16px + 用户数据行）
   const userRowStep = 24;
   const userRowCount = Math.min(data.topUsers.length, 7);
@@ -72,7 +77,8 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   // 1. Block 1: 顶栏组合
   const b1Top = topSafe;
   const headerY = b1Top + 20;
-  const kpiTopY = headerY + 48; // 往下移至 48px，留足舒适开阔空间
+  const kpiTopY = headerY + 40; // 与标题拉开舒适开间
+  const kpiRowStep = 72; // 两行大数字的行距（单行槽位 46px + 行间呼吸 26px）
 
   // 分割线 1
   const div1Y = b1Top + hBlock1 + majorGap / 2;
@@ -169,6 +175,12 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   const totalTokensUnit = data.totalTokens.includes("亿") ? "亿" : "万";
   const dailyTokensClean = data.dailyAvgTokens.replace(/\s*万\s*\/天$/, "").replace(/\s*亿\s*\/天$/, "");
   const dailyTokensUnit = data.dailyAvgTokens.includes("亿") ? "亿 /天" : "万 /天";
+  const monthTotalClean = data.monthQuotaTotal.replace(/\s*万$/, "").replace(/\s*亿$/, "");
+  const monthTotalUnit = data.monthQuotaTotal.includes("亿") ? "亿" : "万";
+  const monthConsumedClean = data.monthConsumedTokens.replace(/\s*万$/, "").replace(/\s*亿$/, "");
+  const monthConsumedUnit = data.monthConsumedTokens.includes("亿") ? "亿" : "万";
+  const monthRemainingClean = data.monthQuotaRemaining.replace(/\s*万$/, "").replace(/\s*亿$/, "");
+  const monthRemainingUnit = data.monthQuotaRemaining.includes("亿") ? "亿" : "万";
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cardWidth} ${cardHeight}" width="${cardWidth}" height="${cardHeight}">
@@ -176,21 +188,37 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   <rect x="0" y="0" width="${cardWidth}" height="${cardHeight}" fill="#FFFFFF"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
-    <!-- Block 1: 顶栏小结 (标题 + 3大数字) -->
+    <!-- Block 1: 顶栏小结 (标题 + 6大数字 2×3) -->
     <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">全员用量周报小结<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.dateRange)}</tspan></text>
 
-    <!-- 3 大数字水平排列 (同比放大 50%: 14px->21px, 11px->15px, 垂直起点下移) -->
+    <!-- 第 1 行：月度额度视角（本月总 Token / Token 消耗总量 / 剩余 Token 总量） -->
     <g transform="translate(87, ${kpiTopY})">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">本月总 Token</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(monthTotalClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthTotalUnit}</tspan></text>
+    </g>
+
+    <g transform="translate(202, ${kpiTopY})">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">Token 消耗总量</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(monthConsumedClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthConsumedUnit}</tspan></text>
+    </g>
+
+    <g transform="translate(320, ${kpiTopY})">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">剩余 Token 总量</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(monthRemainingClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthRemainingUnit}</tspan></text>
+    </g>
+
+    <!-- 第 2 行：本周用量视角（全周总请求次数 / 全周 Token 消耗总量 / 团队日均使用量） -->
+    <g transform="translate(87, ${kpiTopY + kpiRowStep})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">全周总请求次数</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(totalReqClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">次</tspan></text>
     </g>
 
-    <g transform="translate(202, ${kpiTopY})">
+    <g transform="translate(202, ${kpiTopY + kpiRowStep})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">全周 Token 消耗总量</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(totalTokensClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${totalTokensUnit}</tspan></text>
     </g>
 
-    <g transform="translate(320, ${kpiTopY})">
+    <g transform="translate(320, ${kpiTopY + kpiRowStep})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">团队日均使用量</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(dailyTokensClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${dailyTokensUnit}</tspan></text>
     </g>

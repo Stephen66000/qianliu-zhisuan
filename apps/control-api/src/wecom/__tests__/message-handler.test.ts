@@ -56,6 +56,16 @@ describe("WeCom Message Handler Units", () => {
       expect(formatModelName("gpt-4o-mini")).toBe("GPT-4o-mini");
       expect(formatModelName("glm-4")).toBe("GLM-4");
     });
+
+    it("生产在用模型：DeepSeek V4, GLM 5.2/5.3, K3 精确规整", () => {
+      expect(formatModelName("ql-deepseek-v4-flash")).toBe("DeepSeek V4 Flash");
+      expect(formatModelName("deepseek-v4-pro")).toBe("DeepSeek V4 Pro");
+      expect(formatModelName("ql-glm-5.2")).toBe("GLM 5.2");
+      expect(formatModelName("glm-5.3")).toBe("GLM 5.3");
+      expect(formatModelName("ql-k3-256k")).toBe("K3 256K");
+      expect(formatModelName("qianliu-deepseek-v4-flash")).toBe("DeepSeek V4 Flash");
+      expect(formatModelName("qianliu-kimi-k3")).toBe("K3");
+    });
   });
 
   describe("handleWecomMessage", () => {

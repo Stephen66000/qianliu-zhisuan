@@ -73,7 +73,7 @@ describe("Format Utilities for Reporting", () => {
       expect(formatModelName("claude-3-5-sonnet-20241022")).toBe("Claude 3.5 Sonnet");
       expect(formatModelName("gpt-4o-mini-2024-07-18")).toBe("GPT-4o mini");
       expect(formatModelName("gpt-4o-2024-08-06")).toBe("GPT-4o");
-      expect(formatModelName("glm-5-turbo")).toBe("GLM 5.3");
+      expect(formatModelName("glm-5-turbo")).toBe("GLM 5");
       expect(formatModelName("glm-4-flash")).toBe("GLM-4");
       expect(formatModelName("qwen-max")).toBe("Qwen Max");
       expect(formatModelName("moonshot-v1-8k")).toBe("Kimi Chat");
@@ -81,6 +81,69 @@ describe("Format Utilities for Reporting", () => {
       expect(formatModelName("ql-deepseek")).toBe("DeepSeek");
       expect(formatModelName("ql-k3")).toBe("K3");
       expect(formatModelName("k3")).toBe("K3");
+    });
+
+    it("生产在用模型：DeepSeek V4 代际精确映射", () => {
+      expect(formatModelName("ql-deepseek-v4-flash")).toBe("DeepSeek V4 Flash");
+      expect(formatModelName("ql-deepseek-v4-pro")).toBe("DeepSeek V4 Pro");
+      expect(formatModelName("deepseek-v4-flash")).toBe("DeepSeek V4 Flash");
+      expect(formatModelName("deepseek-v4-pro")).toBe("DeepSeek V4 Pro");
+      expect(formatModelName("ql-deepseek-v4-flash-vision-exp")).toBe("DeepSeek V4 Flash Vision Exp");
+      expect(formatModelName("deepseek-v4-flash-vision-exp")).toBe("DeepSeek V4 Flash Vision Exp");
+      // display_name 已是规范展示名时原样放行
+      expect(formatModelName("DeepSeek V4 Flash")).toBe("DeepSeek V4 Flash");
+      expect(formatModelName("DeepSeek V4 Pro")).toBe("DeepSeek V4 Pro");
+    });
+
+    it("生产在用模型：智谱 GLM 精确版本优先，杜绝 5.2 错标 5.3", () => {
+      expect(formatModelName("ql-glm-5.2")).toBe("GLM 5.2");
+      expect(formatModelName("glm-5.2")).toBe("GLM 5.2");
+      expect(formatModelName("ql-glm-5.3")).toBe("GLM 5.3");
+      expect(formatModelName("glm-5.3[1m]")).toBe("GLM 5.3");
+      expect(formatModelName("GLM-5.3")).toBe("GLM 5.3");
+      expect(formatModelName("glm-5")).toBe("GLM 5");
+      expect(formatModelName("ql-glm-4.6")).toBe("GLM 4.6");
+      expect(formatModelName("ql-glm-4.7")).toBe("GLM 4.7");
+      expect(formatModelName("GLM 4.6")).toBe("GLM 4.6");
+      expect(formatModelName("GLM")).toBe("GLM");
+    });
+
+    it("生产在用模型：Kimi K3 家族保留档位信息", () => {
+      expect(formatModelName("ql-k3-256k")).toBe("K3 256K");
+      expect(formatModelName("k3-256k")).toBe("K3 256K");
+      expect(formatModelName("kimi-k3")).toBe("K3");
+      expect(formatModelName("Kimi K3")).toBe("K3");
+      expect(formatModelName("K3")).toBe("K3");
+      expect(formatModelName("kimi-for-coding")).toBe("Kimi For Coding");
+      expect(formatModelName("kimi-for-coding-highspeed")).toBe("Kimi For Coding Highspeed");
+    });
+
+    it("旧制 qianliu-{vendor}- 别名与中文厂商前缀正确剥离", () => {
+      expect(formatModelName("qianliu-deepseek-deepseek-v4-flash")).toBe("DeepSeek V4 Flash");
+      expect(formatModelName("qianliu-deepseek-deepseek-v4-pro")).toBe("DeepSeek V4 Pro");
+      expect(formatModelName("qianliu-deepseek-v4-flash")).toBe("DeepSeek V4 Flash");
+      expect(formatModelName("qianliu-deepseek-v3")).toBe("DeepSeek V3");
+      expect(formatModelName("qianliu-kimi-k3")).toBe("K3");
+      expect(formatModelName("qianliu-kimi-k3-256k")).toBe("K3 256K");
+      expect(formatModelName("qianliu-kimi-for-coding")).toBe("Kimi For Coding");
+      expect(formatModelName("qianliu-zhipu-glm-5-2")).toBe("GLM 5.2");
+      expect(formatModelName("qianliu-zhipu-glm-4-6")).toBe("GLM 4.6");
+      expect(formatModelName("qianliu-zhipu-glm-4-7")).toBe("GLM 4.7");
+      expect(formatModelName("qianliu-glm")).toBe("GLM");
+      expect(formatModelName("qianliu-qwen-max")).toBe("Qwen Max");
+      expect(formatModelName("智谱 GLM-5.3")).toBe("GLM 5.3");
+      expect(formatModelName("月之暗面 Kimi K3")).toBe("K3");
+    });
+
+    it("版本号写法归一：glm-5-2 / glm 5.2 等价", () => {
+      expect(formatModelName("glm-5-2")).toBe("GLM 5.2");
+      expect(formatModelName("glm 5.2")).toBe("GLM 5.2");
+      expect(formatModelName("glm-5-3")).toBe("GLM 5.3");
+    });
+
+    it("嵌入模型与未知名称兜底", () => {
+      expect(formatModelName("embedding-3")).toBe("Embedding 3");
+      expect(formatModelName("some-future-model")).toBe("some-future-model");
     });
   });
 
