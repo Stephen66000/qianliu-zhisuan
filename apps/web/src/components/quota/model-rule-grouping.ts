@@ -2,7 +2,17 @@ import type { BillingRule, ModelRouteItem, Provider, ProviderResourceItem, Unifi
 import { toPerMillion } from "../../lib/price-unit";
 import { editableWindows } from "../../pages/quota-rule-contract";
 import { formatDaysOfWeek, parseDaysOfWeek } from "./WeekdayPicker";
-import { getRuleStatusCategory } from "./QuotaBillingSection";
+
+export function getRuleStatusCategory(
+  rule: Pick<BillingRule, "enabled" | "effective_from" | "effective_to" | "archived_at">,
+  now: number = Date.now()
+): "ARCHIVED" | "DISABLED" | "PENDING" | "EXPIRED" | "ACTIVE" {
+  if (rule.archived_at) return "ARCHIVED";
+  if (!rule.enabled) return "DISABLED";
+  if (new Date(rule.effective_from).getTime() > now) return "PENDING";
+  if (rule.effective_to && new Date(rule.effective_to).getTime() <= now) return "EXPIRED";
+  return "ACTIVE";
+}
 
 export interface ModelRuleGroup {
   id: string;
@@ -53,6 +63,7 @@ export function getGroupStatus(
   return "DISABLED";
 }
 
+// eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：分组聚合多段归并逻辑，后续按基础规则/峰值规则/路由匹配提取子函数。
 export function groupRulesByModel(
   rules: BillingRule[],
   resources: ProviderResourceItem[],

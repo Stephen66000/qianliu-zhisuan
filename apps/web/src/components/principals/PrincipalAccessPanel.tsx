@@ -32,6 +32,7 @@ function resolveGatewayBaseUrl(): string {
   );
 }
 
+// eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：访问配置面板多状态编排，后续按凭证/权限/用量子区块提取子组件。
 export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
   const queryClient = useQueryClient();
   const keysQuery = usePrincipalKeys(principal.id);

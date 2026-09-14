@@ -9,7 +9,7 @@ import {
 } from "../components/operating-bill/BillShared";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { groupCurrencyAmounts, type CurrencyAmount } from "../lib/currency";
-import { Cell, currencyFacts, currencyMoney, money, Num, Table } from "./OperatingBillShared";
+import { Cell, currencyFacts, currencyMoney, Num, Table } from "./OperatingBillShared";
 import { BillStat } from "../components/operating-bill/BillStat";
 import { MonthlyPayments } from "../components/operating-bill/MonthlyPayments";
 

@@ -19,7 +19,6 @@ import {
   OperatingBillShell,
 } from "../components/operating-bill/OperatingBillShell";
 import {
-  DEFAULT_PROVIDER_COLS,
   extractProviderColumns,
   getSubjectUsageHeaders,
   SubjectUsageCells,

@@ -28,7 +28,6 @@ export function generateIncentiveTop1Svg(data: IncentiveTop1ReportData): string 
   const slotHeight = 68;
 
   const exceededText = data.exceededPercent || "超越全员 99% 同事";
-  const modelSub = data.topModelSub || "高频深度推理与代码";
 
   const slots = [
     {

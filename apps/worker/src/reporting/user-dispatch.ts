@@ -1,4 +1,5 @@
-import { sql, type Kysely } from "kysely";
+/* eslint-disable no-console -- CLI 进度输出（2026-09-14 I1 审核登记）：本文件为命令行下发工具，stdout 即用户界面。 */
+import { type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { UsageOverviewRepository } from "@qianliu/database";
 import { WecomAppClient, type EndpointConfig } from "../runtime-assurance/wecom-client.js";
@@ -23,7 +24,6 @@ import {
   runCompanyWeeklyReport,
   runPersonalWeeklyReports,
   queryTopModelsForRange,
-  resolveWecomRecipients,
 } from "./report-jobs.js";
 import { runDailyTokenReport } from "./daily-token-report.js";
 
@@ -58,6 +58,7 @@ export interface DispatchAllCardsSummary {
  * 4. 登顶第 1 名流动红旗卡片（荣誉卡片 + 专属贺信）
  * 5. 月度超越 50% 员工成长卡片（进阶卡片 + 专属贺信）
  */
+// eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：5 款卡片顺序下发编排，后续按卡片类型提取子任务。
 export async function dispatchAllCardsToUser(
   options: DispatchAllCardsOptions,
 ): Promise<DispatchAllCardsSummary> {
@@ -152,13 +153,13 @@ export async function dispatchAllCardsToUser(
       detail: `总消耗: ${formatTokenVolume(companyRes.totalTokens)}, 活跃员工: ${companyRes.activeEmployees} 人`,
     });
     console.log(`[worker] [1/5] ✅ 团队全员用量周报下发完成 (消耗: ${formatTokenVolume(companyRes.totalTokens)})`);
-  } catch (err: any) {
-    console.error(`[worker] [1/5] ❌ 团队全员用量周报下发失败:`, err?.message || err);
+  } catch (err: unknown) {
+    console.error(`[worker] [1/5] ❌ 团队全员用量周报下发失败:`, err instanceof Error ? err.message : String(err));
     results.push({
       cardType: "COMPANY_WEEKLY",
       title: "团队全员用量周报",
       status: "FAILED",
-      detail: err?.message || String(err),
+      detail: err instanceof Error ? err.message : String(err),
     });
   }
 
@@ -183,13 +184,13 @@ export async function dispatchAllCardsToUser(
       detail: personalRes ? `周总消耗: ${formatTokenVolume(personalRes.totalTokens)}, 请求数: ${personalRes.requestCount}` : "无周报数据",
     });
     console.log(`[worker] [2/5] ✅ 员工个人周报信笺下发完成 (周消耗: ${personalRes ? formatTokenVolume(personalRes.totalTokens) : "0"})`);
-  } catch (err: any) {
-    console.error(`[worker] [2/5] ❌ 员工个人周报信笺下发失败:`, err?.message || err);
+  } catch (err: unknown) {
+    console.error(`[worker] [2/5] ❌ 员工个人周报信笺下发失败:`, err instanceof Error ? err.message : String(err));
     results.push({
       cardType: "PERSONAL_WEEKLY",
       title: "员工个人周报信笺",
       status: "FAILED",
-      detail: err?.message || String(err),
+      detail: err instanceof Error ? err.message : String(err),
     });
   }
 
@@ -213,13 +214,13 @@ export async function dispatchAllCardsToUser(
       detail: `全员日消耗: ${formatTokenVolume(dailyRes.totalTokens)}, 请求数: ${dailyRes.requestCount}`,
     });
     console.log(`[worker] [3/5] ✅ 每日 Token 消费日报下发完成 (日消耗: ${formatTokenVolume(dailyRes.totalTokens)})`);
-  } catch (err: any) {
-    console.error(`[worker] [3/5] ❌ 每日 Token 消费日报下发失败:`, err?.message || err);
+  } catch (err: unknown) {
+    console.error(`[worker] [3/5] ❌ 每日 Token 消费日报下发失败:`, err instanceof Error ? err.message : String(err));
     results.push({
       cardType: "DAILY_REPORT",
       title: "每日 Token 消费日报",
       status: "FAILED",
-      detail: err?.message || String(err),
+      detail: err instanceof Error ? err.message : String(err),
     });
   }
 
@@ -302,13 +303,13 @@ export async function dispatchAllCardsToUser(
       });
       console.log(`[worker] [4/5] ✅ 登顶第 1 名流动红旗荣誉卡下发完成`);
     }
-  } catch (err: any) {
-    console.error(`[worker] [4/5] ❌ 登顶流动红旗荣誉卡下发失败:`, err?.message || err);
+  } catch (err: unknown) {
+    console.error(`[worker] [4/5] ❌ 登顶流动红旗荣誉卡下发失败:`, err instanceof Error ? err.message : String(err));
     results.push({
       cardType: "TOP1_INCENTIVE",
       title: "登顶第 1 名流动红旗",
       status: "FAILED",
-      detail: err?.message || String(err),
+      detail: err instanceof Error ? err.message : String(err),
     });
   }
 
@@ -400,13 +401,13 @@ export async function dispatchAllCardsToUser(
       });
       console.log(`[worker] [5/5] ✅ 超越 50% 员工成长激励卡下发完成`);
     }
-  } catch (err: any) {
-    console.error(`[worker] [5/5] ❌ 超越 50% 员工成长激励卡下发失败:`, err?.message || err);
+  } catch (err: unknown) {
+    console.error(`[worker] [5/5] ❌ 超越 50% 员工成长激励卡下发失败:`, err instanceof Error ? err.message : String(err));
     results.push({
       cardType: "OVER50_INCENTIVE",
       title: "超越 50% 员工成长激励卡",
       status: "FAILED",
-      detail: err?.message || String(err),
+      detail: err instanceof Error ? err.message : String(err),
     });
   }
 

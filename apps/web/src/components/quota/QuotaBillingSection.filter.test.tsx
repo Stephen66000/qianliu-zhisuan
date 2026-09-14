@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { QuotaBillingSection, getRuleStatusCategory } from "./QuotaBillingSection";
+import { QuotaBillingSection } from "./QuotaBillingSection";
+import { getRuleStatusCategory } from "./model-rule-grouping";
 import type { BillingRule, Provider, ProviderResourceItem } from "../../api/types";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
 
@@ -311,7 +312,6 @@ describe("QuotaBillingSection 多维筛选栏", () => {
     render(<QuotaBillingSection model={model} />);
 
     const glmCard = screen.getByTestId("model-rule-card-res-zhipu-1::glm-5.3");
-    const adjustBtn = glmCard.querySelector("button")!;
     expect(glmCard).toHaveTextContent("调整价格");
 
     const adjustPriceBtn = Array.from(glmCard.querySelectorAll("button")).find(

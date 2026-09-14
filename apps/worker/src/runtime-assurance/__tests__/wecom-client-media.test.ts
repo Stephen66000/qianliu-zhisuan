@@ -18,7 +18,7 @@ describe("WecomAppClient Media & Message Extension", () => {
   };
 
   it("uploadMedia: 成功上传图片临时素材并返回 media_id", async () => {
-    const mockFetch = async (url: URL | RequestInfo, init?: RequestInit): Promise<Response> => {
+    const mockFetch = async (url: URL | RequestInfo, _init?: RequestInit): Promise<Response> => {
       const urlStr = url.toString();
       if (urlStr.includes("/cgi-bin/gettoken")) {
         return new Response(JSON.stringify({ errcode: 0, access_token: "mock_tok_1", expires_in: 7200 }));
@@ -37,7 +37,7 @@ describe("WecomAppClient Media & Message Extension", () => {
       throw new Error(`Unexpected url: ${urlStr}`);
     };
 
-    const client = new WecomAppClient(kekBase64, mockFetch as any);
+    const client = new WecomAppClient(kekBase64, mockFetch as unknown as typeof fetch);
     const dummyImage = Buffer.from("fake_png_data");
     const mediaId = await client.uploadMedia(endpoint, dummyImage, "report.png");
 
@@ -45,7 +45,7 @@ describe("WecomAppClient Media & Message Extension", () => {
   });
 
   it("sendImageMessage: 成功发送图片消息", async () => {
-    let messageBody: any = null;
+    let messageBody: { text?: { content?: string } } | null = null;
     const mockFetch = async (url: URL | RequestInfo, init?: RequestInit): Promise<Response> => {
       const urlStr = url.toString();
       if (urlStr.includes("/cgi-bin/gettoken")) {
@@ -58,7 +58,7 @@ describe("WecomAppClient Media & Message Extension", () => {
       throw new Error(`Unexpected url: ${urlStr}`);
     };
 
-    const client = new WecomAppClient(kekBase64, mockFetch as any);
+    const client = new WecomAppClient(kekBase64, mockFetch as unknown as typeof fetch);
     const result = await client.sendImageMessage(endpoint, ["user1", "user2"], "media_test_abc_123");
 
     expect(result.status).toBe("SENT");
@@ -73,7 +73,7 @@ describe("WecomAppClient Media & Message Extension", () => {
   });
 
   it("sendTextMessage: 成功发送文字消息", async () => {
-    let messageBody: any = null;
+    let messageBody: { text?: { content?: string } } | null = null;
     const mockFetch = async (url: URL | RequestInfo, init?: RequestInit): Promise<Response> => {
       const urlStr = url.toString();
       if (urlStr.includes("/cgi-bin/gettoken")) {
@@ -86,7 +86,7 @@ describe("WecomAppClient Media & Message Extension", () => {
       throw new Error(`Unexpected url: ${urlStr}`);
     };
 
-    const client = new WecomAppClient(kekBase64, mockFetch as any);
+    const client = new WecomAppClient(kekBase64, mockFetch as unknown as typeof fetch);
     const result = await client.sendTextMessage(endpoint, ["admin_user"], "测试日报摘要");
 
     expect(result.status).toBe("SENT");

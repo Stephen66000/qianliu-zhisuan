@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
-import { Sun, Zap, Clock, ChevronDown, ChevronUp, Plus, ArrowRight, ShieldAlert } from "lucide-react";
+import { Sun, Zap, Clock, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { StatusTag } from "../dashboard/StatusTag";
 import type { BillingRule } from "../../api/types";
 import { formatPricePerMillion } from "../../lib/price-unit";
 import {
   type ModelRuleGroup,
+  getRuleStatusCategory,
   formatRulePricing,
   formatRuleTimeWindows,
   formatRuleEffective,
 } from "./model-rule-grouping";
-import { getRuleStatusCategory } from "./QuotaBillingSection";
 
 export interface ModelRuleCardProps {
   group: ModelRuleGroup;

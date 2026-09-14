@@ -12,7 +12,6 @@ import {
   MetricGrid,
 } from "../components/operating-bill/AccountShared";
 import {
-  DEFAULT_PROVIDER_COLS,
   extractProviderColumns,
   getSubjectUsageHeaders,
   SubjectUsageCells,

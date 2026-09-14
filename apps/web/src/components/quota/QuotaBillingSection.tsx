@@ -7,26 +7,15 @@ import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { WeekdayPicker, formatDaysOfWeek, parseDaysOfWeek } from "./WeekdayPicker";
 import { BillingRuleSchema, editableWindows, localDateTimeValue } from "../../pages/quota-rule-contract";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
-import type { BillingRule } from "../../api/types";
 import { PricingRouteFields } from "./PricingRouteFields";
 import { PricingPreview } from "./PricingPreview";
 import { ModelDisableAction } from "./ModelDisableAction";
 import { ModelRuleCard } from "./ModelRuleCard";
-import { groupRulesByModel, type ModelRuleGroup } from "./model-rule-grouping";
+import { groupRulesByModel, getRuleStatusCategory, type ModelRuleGroup } from "./model-rule-grouping";
 import { copyPrice, pricingCopyCandidates, currentPricingSet } from "./pricing-copy";
 import { toPerMillion, toPerToken } from "../../lib/price-unit";
 
-export function getRuleStatusCategory(
-  rule: Pick<BillingRule, "enabled" | "effective_from" | "effective_to" | "archived_at">,
-  now: number = Date.now()
-): "ARCHIVED" | "DISABLED" | "PENDING" | "EXPIRED" | "ACTIVE" {
-  if (rule.archived_at) return "ARCHIVED";
-  if (!rule.enabled) return "DISABLED";
-  if (new Date(rule.effective_from).getTime() > now) return "PENDING";
-  if (rule.effective_to && new Date(rule.effective_to).getTime() <= now) return "EXPIRED";
-  return "ACTIVE";
-}
-
+// eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：规则卡片区编排组件，条件渲染密集，拆分计划见审核报告 F-P2-3。
 export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
   const { archiveConfig, canCreateRule, showRuleForm, setShowRuleForm, ruleForm, selectedRuleType, ruleWindowFields, appendRuleWindow, removeRuleWindow, rules, updateRule, setArchiveTarget, createRule, rulesQuery } = model;
   const [filterProvider, setFilterProvider] = useState<string>("all");

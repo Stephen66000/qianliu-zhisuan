@@ -1,4 +1,4 @@
-import { sql, type Kysely } from "kysely";
+import { type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { UsageOverviewRepository } from "@qianliu/database";
 import { renderSvgToPng as renderSharedSvgToPng } from "./render-png.js";
@@ -8,7 +8,6 @@ import {
   formatNumber,
   formatTokenVolume,
   formatPercentage,
-  escapeXml,
 } from "./format-utils.js";
 import {
   generateDailyTokenReportSvg,

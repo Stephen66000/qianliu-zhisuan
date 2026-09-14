@@ -29,7 +29,6 @@ export function generateIncentiveOver50Svg(data: IncentiveOver50ReportData): str
 
   const perfText = data.performanceText || "领跑半数成员";
   const perfSub = data.performanceSub || "位列团队前 50%";
-  const modelSub = data.topModelSub || "深度推理与综合协作";
 
   const slots = [
     {

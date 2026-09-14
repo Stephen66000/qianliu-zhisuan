@@ -25,7 +25,7 @@ interface MonthlyLedgerRow {
   endingBalance: number;
 }
 
-export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps) {
+export function FinancialLedgerSection({ analysis: _analysis }: FinancialLedgerSectionProps) {
   // 基于上线至今数据及 analysis 聚合逐月台账
   const ledgerRows: MonthlyLedgerRow[] = useMemo(() => {
     // 8月上线首月真实流水
@@ -75,7 +75,7 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
     };
 
     return [augRow, sepRow, octRow];
-  }, [analysis]);
+  }, []);
 
   const totals = useMemo(() => {
     const executed = ledgerRows.filter((r) => !r.isProjected);

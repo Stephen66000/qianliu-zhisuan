@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SyncModelsPanel } from "./ResourceModelDiscovery";
+import type { ProviderResourceItem } from "../../api/types";
 import * as clientModule from "../../api/client";
 
 vi.mock("../../api/hooks", () => ({
@@ -79,7 +80,7 @@ describe("SyncModelsPanel 模型同步过滤与状态呈现", () => {
     render(
       <QueryClientProvider client={queryClient}>
         <SyncModelsPanel
-          target={{ id: "res-1", name: "Kimi", provider_id: "kimi", mode: "CODING_PLAN", status: "ACTIVE" } as any}
+          target={{ id: "res-1", name: "Kimi", provider_id: "kimi", mode: "CODING_PLAN", status: "ACTIVE" } as unknown as ProviderResourceItem}
           onClose={vi.fn()}
         />
       </QueryClientProvider>
@@ -129,7 +130,7 @@ describe("SyncModelsPanel 模型同步过滤与状态呈现", () => {
     render(
       <QueryClientProvider client={queryClient}>
         <SyncModelsPanel
-          target={{ id: "res-1", name: "Kimi", provider_id: "kimi", mode: "CODING_PLAN", status: "ACTIVE" } as any}
+          target={{ id: "res-1", name: "Kimi", provider_id: "kimi", mode: "CODING_PLAN", status: "ACTIVE" } as unknown as ProviderResourceItem}
           onClose={vi.fn()}
         />
       </QueryClientProvider>

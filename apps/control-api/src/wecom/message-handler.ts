@@ -2,6 +2,7 @@ import { sql, type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { UsageOverviewRepository } from "@qianliu/database";
 import { parseQueryIntent, type ParsedIntent } from "./intent-parser.js";
+import { formatModelName } from "@qianliu/domain";
 
 /**
  * 格式化普通计数值（如请求次数、人次），采用千分位隔开。
@@ -51,68 +52,6 @@ export function formatPercentage(share: string | number): string {
   const num = typeof share === "string" ? parseFloat(share) : share;
   if (!Number.isFinite(num) || num <= 0) return "0.0%";
   return `${(num * 100).toFixed(1)}%`;
-}
-
-/**
- * 格式化常见的大模型名称为官方正规大小写
- */
-export function formatModelName(rawName: string): string {
-  let clean = rawName.trim();
-
-  // 1. 剥离网关别名前缀（新制 ql- 与旧制 qianliu-{vendor}-）
-  if (clean.toLowerCase().startsWith("ql-")) {
-    clean = clean.slice(3).trim();
-  } else if (clean.toLowerCase().startsWith("qianliu-")) {
-    clean = clean.replace(/^qianliu-/i, "").trim();
-    clean = clean
-      .replace(/^(zhipu|moonshot|openai|anthropic)-/i, "")
-      .replace(/^deepseek-deepseek-/i, "deepseek-")
-      .replace(/^qwen-qwen-/i, "qwen-")
-      .trim();
-  }
-  clean = clean.replace(/^(智谱|月之暗面)\s*/, "").trim();
-
-  // 2. 版本号归一：glm-5-2 / glm 5 2 / GLM-5.2 → glm-5.2
-  const lower = clean.toLowerCase().replace(/glm[- ](\d)[- .](\d)/g, "glm-$1.$2");
-
-  // 3. 精确版本优先匹配
-  // DeepSeek
-  if (lower.includes("deepseek-v4-flash-vision-exp")) return "DeepSeek V4 Flash Vision Exp";
-  if (lower.includes("deepseek-v4-flash")) return "DeepSeek V4 Flash";
-  if (lower.includes("deepseek-v4-pro")) return "DeepSeek V4 Pro";
-  if (lower.includes("deepseek-v3") || lower === "deepseek-chat") return "DeepSeek-V3";
-  if (lower.includes("deepseek-r1") || lower.includes("deepseek-reasoner")) return "DeepSeek-R1";
-  if (lower === "deepseek") return "DeepSeek";
-
-  // 智谱 GLM
-  if (lower.includes("glm-5.3")) return "GLM 5.3";
-  if (lower.includes("glm-5.2")) return "GLM 5.2";
-  if (/glm[- ]5(?![.\d])/.test(lower)) return "GLM 5";
-  if (lower.includes("glm-4.7")) return "GLM 4.7";
-  if (lower.includes("glm-4.6")) return "GLM 4.6";
-  if (lower.includes("glm-4.5")) return "GLM 4.5";
-  if (lower.includes("glm-4") || lower.includes("glm 4")) return "GLM-4";
-  if (lower === "glm") return "GLM";
-
-  // Kimi / K3
-  if (lower.includes("k3-256k") || lower.includes("k3 256k")) return "K3 256K";
-  if (lower.includes("kimi-for-coding-highspeed")) return "Kimi For Coding Highspeed";
-  if (lower.includes("kimi-for-coding")) return "Kimi For Coding";
-  if (lower.includes("k3")) return "K3";
-  if (lower.includes("kimi") || lower.includes("moonshot")) return "Kimi Chat";
-
-  // Claude / GPT / Qwen
-  if (lower.includes("claude-3-5-sonnet") || lower.includes("claude-3.5-sonnet")) return "Claude 3.5 Sonnet";
-  if (lower.includes("claude-3-7-sonnet") || lower.includes("claude-3.7-sonnet")) return "Claude 3.7 Sonnet";
-  if (lower.includes("gpt-4o-mini")) return "GPT-4o-mini";
-  if (lower.includes("gpt-4o")) return "GPT-4o";
-  if (lower.includes("qwen-max")) return "Qwen Max";
-  if (lower.includes("qwen-plus")) return "Qwen Plus";
-
-  // 嵌入模型
-  if (lower.includes("embedding-3")) return "Embedding 3";
-
-  return clean;
 }
 
 /**
@@ -204,6 +143,7 @@ export async function queryTopModels(
  * 微信自建应用交互消息处理器。
  * 返回需要给用户回复的纯文本消息内容。
  */
+// eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：企微消息意图分发入口，后续按意图类型提取 handler。
 export async function handleWecomMessage(
   db: Kysely<Database>,
   fromUserName: string,
@@ -371,8 +311,9 @@ export async function handleWecomMessage(
           share: "0",
           allocatedQuota: "0",
         };
-      } catch {
-        // 使用默认空数据
+      } catch (err: unknown) {
+        console.warn("[wecom-message] 获取个人用量概览异常，降级为空数据:",
+          err instanceof Error ? err.message : String(err));
       }
     }
 
@@ -424,7 +365,9 @@ export async function handleWecomMessage(
       performanceTip,
       "💬 您可随时发送“今天”、“昨天”、“本周”、“上一周”、“本月”快速查询。",
     ].join("\n");
-  } catch {
+  } catch (err: unknown) {
+    console.error("[wecom-message] 处理企微消息异常:",
+      err instanceof Error ? err.message : String(err));
     return [
       "⚠️ 【用量统计查询遇到问题】",
       `抱歉，在获取${intent.periodLabel}用量数据时出现异常，请稍后重试或联系系统管理员。`,

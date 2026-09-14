@@ -5,6 +5,7 @@ import {
   discoverProviderModels,
 } from "../model-discovery.js";
 import type { ProviderModelDiscoveryError } from "../model-discovery.js";
+import type { DiscoveryFetch } from "../model-discovery-contract.js";
 
 function apiResponse(payload: unknown, headers: Record<string, string> = {}) {
   return { ok: true, status: 200, headers, json: async () => payload };
@@ -127,7 +128,7 @@ describe("W-MD 官方来源模型发现", () => {
       `, url);
     });
     const result = await discoverProviderModels({
-      providerCode: "kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as any,
+      providerCode: "kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as unknown as DiscoveryFetch,
       officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
       probePermissions: true,
     });

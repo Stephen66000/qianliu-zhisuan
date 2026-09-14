@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { Kysely } from "kysely";
+import type { Database } from "@qianliu/database";
 import { MemoryMilestoneStore } from "../milestone-store.js";
 import { checkAndDispatchTop1Milestone } from "../incentive-jobs.js";
 
@@ -54,7 +56,7 @@ describe("Report and Incentive Jobs Logic", () => {
       const tuesday = new Date("2026-09-08T10:00:00+08:00"); // Tuesday
 
       // Mock DB (不被调用，直接在星期校验时返回)
-      const mockDb = {} as any;
+      const mockDb = {} as unknown as Kysely<Database>;
 
       const resMon = await checkAndDispatchTop1Milestone({
         db: mockDb,

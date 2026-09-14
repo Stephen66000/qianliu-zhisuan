@@ -5,7 +5,6 @@ import {
   formatRulePricing,
   formatRuleTimeWindows,
   formatRuleEffective,
-  getGroupStatus,
 } from "./model-rule-grouping";
 
 function mockRule(partial: Partial<BillingRule> & { id: string }): BillingRule {

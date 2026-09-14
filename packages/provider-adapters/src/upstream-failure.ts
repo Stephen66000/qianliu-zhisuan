@@ -86,44 +86,64 @@ export async function upstreamFailure(
   };
 }
 
+type AvailabilitySignal = NonNullable<Outcome["unifiedAvailabilitySignal"]>;
+
+/** 智谱错误码 → 统一可用性信号的冻结映射（TRD 错误语义表）。 */
+const ZHIPU_SIGNAL_BY_CODE: Readonly<Record<string, AvailabilitySignal>> = {
+  "1211": "CONFIGURATION_ERROR",
+  "1308": "QUOTA_EXHAUSTED",
+  "1310": "QUOTA_EXHAUSTED",
+  "1309": "PLAN_EXPIRED",
+  "1311": "MODEL_UNAUTHORIZED",
+  "1302": "TECHNICAL_FAILURE",
+  "1305": "TECHNICAL_FAILURE",
+};
+
+const MODEL_UNAUTHORIZED_KEYWORDS = [
+  "model",
+  "permission",
+  "unauthorized",
+  "not_accessible",
+  "forbidden",
+  "access_denied",
+] as const;
+
+function classifyForbiddenSignal(code: string): AvailabilitySignal | null {
+  const normalized = code.toLowerCase();
+  return MODEL_UNAUTHORIZED_KEYWORDS.some((keyword) => normalized.includes(keyword))
+    ? "MODEL_UNAUTHORIZED"
+    : null;
+}
+
+function classifyRateLimitedSignal(
+  kind: NonNullable<Outcome["upstreamErrorKind"]>,
+  recoverAt?: string,
+): AvailabilitySignal {
+  if (kind === "QUOTA_EXHAUSTED" && recoverAt) return "QUOTA_EXHAUSTED";
+  if (kind === "ENGINE_OVERLOADED" || kind === "CONCURRENCY_LIMITED") return "TECHNICAL_FAILURE";
+  return recoverAt ? "RATE_LIMIT_RETRY_AFTER" : "TECHNICAL_FAILURE";
+}
+
 function classifyAvailabilitySignal(
   providerCode: ProviderCode,
   status: number,
   code: string,
   kind: NonNullable<Outcome["upstreamErrorKind"]>,
   recoverAt?: string,
-): NonNullable<Outcome["unifiedAvailabilitySignal"]> {
+): AvailabilitySignal {
   if (providerCode === "zhipu") {
-    if (code === "1211") return "CONFIGURATION_ERROR";
-    if (code === "1308" || code === "1310") return "QUOTA_EXHAUSTED";
-    if (code === "1309") return "PLAN_EXPIRED";
-    if (code === "1311") return "MODEL_UNAUTHORIZED";
-    if (code === "1302" || code === "1305") return "TECHNICAL_FAILURE";
+    const mapped = ZHIPU_SIGNAL_BY_CODE[code];
+    if (mapped) return mapped;
   }
   if (kind === "QUOTA_EXHAUSTED" && (status === 402 || status === 403)) {
     return "QUOTA_EXHAUSTED";
   }
   if (kind === "WINDOW_EXHAUSTED") return "RATE_LIMIT_RETRY_AFTER";
   if (status === 403) {
-    const norm = (code || "").toLowerCase();
-    if (
-      norm.includes("model") ||
-      norm.includes("permission") ||
-      norm.includes("unauthorized") ||
-      norm.includes("not_accessible") ||
-      norm.includes("forbidden") ||
-      norm.includes("access_denied")
-    ) {
-      return "MODEL_UNAUTHORIZED";
-    }
+    const forbidden = classifyForbiddenSignal(code);
+    if (forbidden) return forbidden;
   }
-  if (status === 429) {
-    if (kind === "QUOTA_EXHAUSTED" && recoverAt) {
-      return "QUOTA_EXHAUSTED";
-    }
-    if (kind === "ENGINE_OVERLOADED" || kind === "CONCURRENCY_LIMITED") return "TECHNICAL_FAILURE";
-    return recoverAt ? "RATE_LIMIT_RETRY_AFTER" : "TECHNICAL_FAILURE";
-  }
+  if (status === 429) return classifyRateLimitedSignal(kind, recoverAt);
   if (status >= 500 || status === 0) return "TECHNICAL_FAILURE";
   if (status >= 400 && status < 500) return "CONFIGURATION_ERROR";
   return "TECHNICAL_FAILURE";

@@ -12,7 +12,7 @@ import { createTaskObserver } from "./runtime-assurance/observed-task.js";
  * 预测快照、周期重置、恢复任务、备份在后续工作包（W25）。
  */
 import { createKysely, OperatingBillRepository, ReconciliationRepository, RuntimeAssuranceRepository, SupplyForecastRepository, UsageAggregateRepository } from "@qianliu/database";
-import { readFeatureFlags } from "@qianliu/config";
+import { readFeatureFlags, WECOM_API_ORIGIN } from "@qianliu/config";
 import { generateOperatingBill } from "./operating-bill/runner.js";
 import {
   decodeKek,
@@ -351,6 +351,7 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
           }
           return { runtime, forecast, quota, operating };
         },
+        // eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：用量聚合编排分支密集，随 main.ts 859 行体量拆分（F-P2-3）一并处理。
         aggregate: () => observe("usage_aggregate", "用量聚合重建", async () => {
           const now = new Date();
           const shanghaiDate = new Intl.DateTimeFormat("en-CA", {
@@ -822,8 +823,9 @@ async function runActivateWecomEndpointCommand(args: string[]): Promise<void> {
         const cfg = JSON.parse(decrypted) as { corp_id?: string; corp_secret?: string; secret?: string };
         if (!corpId) corpId = cfg.corp_id;
         if (!secret) secret = cfg.corp_secret || cfg.secret;
-      } catch (err: any) {
-        console.error("[worker] 解密 directory_source 企业微信凭证失败:", err?.message ?? err);
+      } catch (err: unknown) {
+        console.error("[worker] 解密 directory_source 企业微信凭证失败:",
+          err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
     }
@@ -836,7 +838,7 @@ async function runActivateWecomEndpointCommand(args: string[]): Promise<void> {
     console.log(`[worker] 正在校验企业微信自建应用连通性 (CorpID: ${corpId}, AgentID: ${agentId})...`);
 
     // 调用企微 gettoken 接口做真实性与连通性校验
-    const tokenUrl = new URL("https://qyapi.weixin.qq.com/cgi-bin/gettoken");
+    const tokenUrl = new URL(`${WECOM_API_ORIGIN}/cgi-bin/gettoken`);
     tokenUrl.searchParams.set("corpid", corpId);
     tokenUrl.searchParams.set("corpsecret", secret);
 

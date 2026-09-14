@@ -509,6 +509,7 @@ export interface PersonalWeeklyItemResult {
 /**
  * 运行员工个人周报信笺推送作业（每周一 09:00 或 CLI 触发）
  */
+// eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：周报编排分支密集，随 report-jobs.ts 711 行体量拆分（F-P2-3）一并处理。
 export async function runPersonalWeeklyReports(
   options: RunPersonalWeeklyReportsOptions,
 ): Promise<PersonalWeeklyItemResult[]> {

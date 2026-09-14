@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   formatTokenVolume,
   formatPercentage,
-  formatModelName,
   handleWecomMessage,
 } from "../message-handler.js";
+import { formatModelName } from "@qianliu/domain";
 
 describe("WeCom Message Handler Units", () => {
   describe("formatTokenVolume (万/亿自适应进位与四舍五入)", () => {
@@ -48,12 +48,12 @@ describe("WeCom Message Handler Units", () => {
 
   describe("formatModelName", () => {
     it("正确规整常见大模型名称", () => {
-      expect(formatModelName("deepseek-v3")).toBe("DeepSeek-V3");
-      expect(formatModelName("deepseek-chat")).toBe("DeepSeek-V3");
-      expect(formatModelName("deepseek-r1")).toBe("DeepSeek-R1");
+      expect(formatModelName("deepseek-v3")).toBe("DeepSeek V3");
+      expect(formatModelName("deepseek-chat")).toBe("DeepSeek V3");
+      expect(formatModelName("deepseek-r1")).toBe("DeepSeek R1");
       expect(formatModelName("claude-3-5-sonnet-20241022")).toBe("Claude 3.5 Sonnet");
       expect(formatModelName("gpt-4o")).toBe("GPT-4o");
-      expect(formatModelName("gpt-4o-mini")).toBe("GPT-4o-mini");
+      expect(formatModelName("gpt-4o-mini")).toBe("GPT-4o mini");
       expect(formatModelName("glm-4")).toBe("GLM-4");
     });
 
