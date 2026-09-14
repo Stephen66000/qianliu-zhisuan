@@ -20,6 +20,7 @@ COPY packages/database/package.json packages/database/
 RUN pnpm install --frozen-lockfile
 
 COPY tsconfig.base.json ./
+COPY VERSION ./
 COPY packages/ packages/
 COPY apps/control-api/ apps/control-api/
 
