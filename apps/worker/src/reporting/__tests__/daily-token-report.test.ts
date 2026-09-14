@@ -29,17 +29,26 @@ describe("Daily Token Report Image Generator", () => {
     ],
   };
 
-  it("generateDailyReportSvg: 正确生成包含标题、KPI、排行榜与模型分布的 SVG 字符串", () => {
+  it("generateDailyReportSvg: 正确生成符合仟流规范的纯白竖版 SVG 字符串", () => {
     const svg = generateDailyReportSvg(mockReportData);
 
     expect(svg).toContain("<svg");
     expect(svg).toContain("</svg>");
+    expect(svg).toContain('viewBox="0 0 540 760"');
+    expect(svg).toContain('fill="#FFFFFF"');
+    expect(svg).toContain("全员 Token 消费日报小结");
     expect(svg).toContain("仟流智算创新科技");
     expect(svg).toContain("2026-09-10");
     expect(svg).toContain("张三");
     expect(svg).toContain("算法研发部");
     expect(svg).toContain("deepseek-coder");
-    expect(svg).toContain("1,250,800");
+    expect(svg).toContain("125.1");
+    expect(svg).toContain("万");
+    expect(svg).toContain("仟流智算");
+    expect(svg).toContain("Qianliu IC");
+
+    // 严禁包含 Emoji
+    expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
   });
 
   it("renderSvgToPng: 将 SVG 转换为有效的 PNG 格式 Buffer", () => {

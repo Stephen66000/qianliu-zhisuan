@@ -4,6 +4,7 @@ import { generatePersonalWeeklySvg, type PersonalWeeklyReportData } from "../tem
 import { generateCompanyWeeklySvg, type CompanyWeeklyReportData } from "../templates/company-weekly-svg.js";
 import { generateIncentiveTop1Svg, type IncentiveTop1ReportData } from "../templates/incentive-top1-svg.js";
 import { generateIncentiveOver50Svg, type IncentiveOver50ReportData } from "../templates/incentive-over50-svg.js";
+import { generateDailyTokenReportSvg, type DailyTokenReportData } from "../templates/daily-token-report-svg.js";
 
 function assertValidPng(pngBuffer: Buffer): void {
   expect(pngBuffer).toBeInstanceOf(Buffer);
@@ -187,6 +188,63 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     expect(svg).toContain("DeepSeek V3 + GLM 5.3");
     expect(svg).not.toContain("深度推理与综合协作");
 
+    expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+
+    const png = renderSvgToPng(svg);
+    assertValidPng(png);
+  });
+
+  it("场景四：generateDailyTokenReportSvg (全员 Token 消费日报纯白竖版)", () => {
+    const data: DailyTokenReportData = {
+      enterpriseName: "河南仟流科技",
+      reportDate: "9.13 (昨日全天)",
+      totalRequests: "245",
+      totalTokens: "4,207.8 万",
+      activeEmployees: 1,
+      totalEmployees: 4,
+      topUsers: [
+        {
+          rank: 1,
+          name: "李佳",
+          department: "总经理办公室",
+          requests: "245",
+          tokens: "4,207.8 万",
+          share: "100.0%",
+        },
+      ],
+      topModels: [
+        {
+          model: "智谱 GLM-5.3",
+          tokens: "2,131.2 万",
+          requests: "79",
+          share: "50.6%",
+        },
+        {
+          model: "月之暗面 Kimi K3",
+          tokens: "2,076.6 万",
+          requests: "166",
+          share: "49.4%",
+        },
+      ],
+    };
+
+    const svg = generateDailyTokenReportSvg(data);
+
+    expect(svg).toContain("全员 Token 消费日报小结");
+    expect(svg).toContain("9.13 (昨日全天)");
+    expect(svg).toContain("河南仟流科技");
+    expect(svg).toContain("4,207.8");
+    expect(svg).toContain("万");
+    expect(svg).toContain("245");
+    expect(svg).toContain("李佳");
+    expect(svg).toContain("总经理办公室");
+    expect(svg).toContain("100.0%");
+    expect(svg).toContain("智谱 GLM-5.3");
+    expect(svg).toContain("50.6%");
+    expect(svg).toContain("仟流智算");
+    expect(svg).toContain("Qianliu IC");
+
+    // 严禁包含 Emoji
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
 
     const png = renderSvgToPng(svg);

@@ -7,6 +7,7 @@ export * from "./templates/personal-weekly-svg.js";
 export * from "./templates/company-weekly-svg.js";
 export * from "./templates/incentive-top1-svg.js";
 export * from "./templates/incentive-over50-svg.js";
+export * from "./templates/daily-token-report-svg.js";
 export * from "./report-jobs.js";
 export * from "./incentive-jobs.js";
 export * from "./user-dispatch.js";
