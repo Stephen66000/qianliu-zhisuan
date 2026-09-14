@@ -36,8 +36,7 @@ describe("Daily Token Report Image Generator", () => {
     expect(svg).toContain("</svg>");
     expect(svg).toContain('viewBox="0 0 540 760"');
     expect(svg).toContain('fill="#FFFFFF"');
-    expect(svg).toContain("全员 Token 消费日报小结");
-    expect(svg).toContain("仟流智算创新科技");
+    expect(svg).toContain("仟流智算创新科技 · Token日报");
     expect(svg).toContain("2026-09-10");
     expect(svg).toContain("张三");
     expect(svg).toContain("算法研发部");

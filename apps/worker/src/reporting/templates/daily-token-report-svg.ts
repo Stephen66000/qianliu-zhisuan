@@ -32,9 +32,10 @@ export interface DailyTokenReportData {
  * 场景：每日全员 Token 消费日报（管理看板）
  * - 纯白背景 #FFFFFF，移动端竖版设计规范；
  * - 画布 540x760，顶部与底部固定安全边距（SAFE_MARGIN_Y = 56px）；
+ * - 左右安全边距 52px（内容宽度 436px），画面饱满对称；
  * - 4 大内容段在中间安全区域内自适应垂直弹性排列：
- *   1. 标题小结（全员 Token 消费日报小结 + 日期）
- *   2. 核心三大数字（昨日总请求数、Token消耗总量、活跃员工数）
+ *   1. 标题（公司名 · Token日报 + 日期小结）
+ *   2. 核心三大数字（昨日总请求数、Token消耗总量、活跃员工数，宽列距展开）
  *   3. 全员使用量表格（动态适应 1~7 行，成员与指标列精细排布，彻底杜绝重合）
  *   4. 使用模型表格（动态适应 1~3 行，直连官方模型显示名）
  *   5. 品牌底栏与官方矢量 Logo（右侧对齐）
@@ -44,13 +45,15 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
   const cardWidth = 540;
   const cardHeight = 760;
   const SAFE_MARGIN_Y = 56;
+  const X_LEFT = 52;
+  const X_RIGHT = 488;
 
   const topSafe = SAFE_MARGIN_Y;
   const bottomSafe = cardHeight - SAFE_MARGIN_Y;
 
   // 测量 4 大主区块固有高度
-  // Block 1: 顶栏组合（标题 20px + 间距 48px + 3大数字 46px）= 114px
-  const hBlock1 = 114;
+  // Block 1: 顶栏组合（标题 20px + 间距 44px + 3大数字 46px）= 110px
+  const hBlock1 = 110;
   // Block 2: 全员使用量表格（区块标题 20px + 表头 16px + 用户数据行）
   const userRowStep = 24;
   const userRowCount = Math.min(data.topUsers.length, 7);
@@ -68,8 +71,8 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
 
   // 1. Block 1: 顶栏组合
   const b1Top = topSafe;
-  const headerY = b1Top + 20;
-  const kpiTopY = headerY + 48;
+  const headerY = b1Top + 22;
+  const kpiTopY = headerY + 44;
 
   // 分割线 1
   const div1Y = b1Top + hBlock1 + majorGap / 2;
@@ -105,22 +108,22 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
     let rankBadgeSvg = "";
     if (u.rank === 1) {
       rankBadgeSvg = `
-        <circle cx="96" cy="${y - 4}" r="7.5" fill="#FEF3C7" />
-        <text x="96" y="${y}" font-size="9.5" font-weight="700" fill="#D97706" text-anchor="middle">1</text>
+        <circle cx="62" cy="${y - 4}" r="7.5" fill="#FEF3C7" />
+        <text x="62" y="${y}" font-size="9.5" font-weight="700" fill="#D97706" text-anchor="middle">1</text>
       `;
     } else if (u.rank === 2) {
       rankBadgeSvg = `
-        <circle cx="96" cy="${y - 4}" r="7.5" fill="#E2E8F0" />
-        <text x="96" y="${y}" font-size="9.5" font-weight="700" fill="#64748B" text-anchor="middle">2</text>
+        <circle cx="62" cy="${y - 4}" r="7.5" fill="#E2E8F0" />
+        <text x="62" y="${y}" font-size="9.5" font-weight="700" fill="#64748B" text-anchor="middle">2</text>
       `;
     } else if (u.rank === 3) {
       rankBadgeSvg = `
-        <circle cx="96" cy="${y - 4}" r="7.5" fill="#FFEDD5" />
-        <text x="96" y="${y}" font-size="9.5" font-weight="700" fill="#EA580C" text-anchor="middle">3</text>
+        <circle cx="62" cy="${y - 4}" r="7.5" fill="#FFEDD5" />
+        <text x="62" y="${y}" font-size="9.5" font-weight="700" fill="#EA580C" text-anchor="middle">3</text>
       `;
     } else {
       rankBadgeSvg = `
-        <text x="96" y="${y}" font-size="10" font-weight="500" fill="#94A3B8" text-anchor="middle">${u.rank}</text>
+        <text x="62" y="${y}" font-size="10" font-weight="500" fill="#94A3B8" text-anchor="middle">${u.rank}</text>
       `;
     }
 
@@ -131,11 +134,11 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
     return `
       <!-- Row ${i + 1}: ${escapeXml(u.name)} -->
       ${rankBadgeSvg}
-      <text x="112" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${escapeXml(u.name)}</text>
-      <text x="156" y="${y}" font-size="9.5" font-weight="500" fill="#7D8FA4">${escapeXml(u.department || "-")}</text>
-      <text x="280" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(reqClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
-      <text x="380" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(tokensClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${tokensUnit}</tspan></text>
-      <text x="453" y="${y}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(u.share)}</text>
+      <text x="80" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${escapeXml(u.name)}</text>
+      <text x="134" y="${y}" font-size="9.5" font-weight="500" fill="#7D8FA4">${escapeXml(u.department || "-")}</text>
+      <text x="285" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(reqClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="405" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(tokensClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${tokensUnit}</tspan></text>
+      <text x="${X_RIGHT}" y="${y}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(u.share)}</text>
     `;
   }).join("\n");
 
@@ -148,10 +151,10 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
 
     return `
       <!-- Model Row ${i + 1}: ${escapeXml(m.model)} -->
-      <text x="87" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${escapeXml(m.model)}</text>
-      <text x="260" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mTokensClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${mTokensUnit}</tspan></text>
-      <text x="370" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mReqClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
-      <text x="453" y="${y}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(m.share)}</text>
+      <text x="${X_LEFT}" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${escapeXml(m.model)}</text>
+      <text x="265" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mTokensClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${mTokensUnit}</tspan></text>
+      <text x="390" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mReqClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="${X_RIGHT}" y="${y}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(m.share)}</text>
     `;
   }).join("\n");
 
@@ -165,68 +168,67 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
   <rect x="0" y="0" width="${cardWidth}" height="${cardHeight}" fill="#FFFFFF"/>
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
-    <!-- Block 1: 顶栏小结 (标题 + 企业名称 + 3大数字) -->
-    <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">全员 Token 消费日报小结<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.reportDate)}</tspan></text>
-    <text x="87" y="${headerY + 22}" font-size="10" font-weight="500" fill="#7D8FA4">${escapeXml(data.enterpriseName)}</text>
+    <!-- Block 1: 顶栏小结 (公司名 · Token日报 + 日期 + 3大数字) -->
+    <text x="${X_LEFT}" y="${headerY}" font-size="20" font-weight="700" fill="#172033">${escapeXml(data.enterpriseName)} · Token日报<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.reportDate)}</tspan></text>
 
-    <!-- 3 大核心数字水平排列 -->
-    <g transform="translate(87, ${kpiTopY})">
+    <!-- 3 大核心数字水平排列 (加大列距，充盈空间) -->
+    <g transform="translate(${X_LEFT}, ${kpiTopY})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">昨日总请求次数</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(totalReqClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">次</tspan></text>
     </g>
 
-    <g transform="translate(202, ${kpiTopY})">
+    <g transform="translate(216, ${kpiTopY})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">昨日 Token 消耗总量</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(totalTokensClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${totalTokensUnit}</tspan></text>
     </g>
 
-    <g transform="translate(320, ${kpiTopY})">
+    <g transform="translate(380, ${kpiTopY})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">活跃员工数</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${data.activeEmployees} <tspan font-size="15" font-weight="500" fill="#7D8FA4">人</tspan></text>
     </g>
 
     <!-- 分割线 1 -->
-    <line x1="87" y1="${div1Y}" x2="453" y2="${div1Y}" stroke="#F1F5F9" stroke-width="1" />
+    <line x1="${X_LEFT}" y1="${div1Y}" x2="${X_RIGHT}" y2="${div1Y}" stroke="#F1F5F9" stroke-width="1" />
 
     <!-- Block 2: 全员使用量表格 -->
-    <text x="87" y="${table1TitleY}" font-size="13" font-weight="700" fill="#172033">全员昨日使用量</text>
-    <text x="453" y="${table1TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日活跃 ${data.activeEmployees} 人</text>
+    <text x="${X_LEFT}" y="${table1TitleY}" font-size="13" font-weight="700" fill="#172033">全员昨日使用量</text>
+    <text x="${X_RIGHT}" y="${table1TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日活跃 ${data.activeEmployees} 人</text>
 
     <!-- 列标题：精密排布，彻底消除重叠 -->
-    <text x="96" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="middle">排名</text>
-    <text x="112" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">成员</text>
-    <text x="156" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">所属团队</text>
-    <text x="280" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">请求数</text>
-    <text x="380" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日消耗</text>
-    <text x="453" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">占比</text>
+    <text x="62" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="middle">排名</text>
+    <text x="80" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">成员</text>
+    <text x="134" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">所属团队</text>
+    <text x="285" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">请求数</text>
+    <text x="405" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日消耗</text>
+    <text x="${X_RIGHT}" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">占比</text>
 
     <!-- 用户数据行 -->
     ${userRowsSvg}
 
     <!-- 分割线 2 -->
-    <line x1="87" y1="${div2Y}" x2="453" y2="${div2Y}" stroke="#F1F5F9" stroke-width="1" />
+    <line x1="${X_LEFT}" y1="${div2Y}" x2="${X_RIGHT}" y2="${div2Y}" stroke="#F1F5F9" stroke-width="1" />
 
     <!-- Block 3: 使用模型表格 -->
-    <text x="87" y="${table2TitleY}" font-size="13" font-weight="700" fill="#172033">使用模型</text>
-    <text x="453" y="${table2TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日调用 ${data.topModels.length} 个模型</text>
+    <text x="${X_LEFT}" y="${table2TitleY}" font-size="13" font-weight="700" fill="#172033">使用模型</text>
+    <text x="${X_RIGHT}" y="${table2TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日调用 ${data.topModels.length} 个模型</text>
 
-    <text x="87" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">模型</text>
-    <text x="260" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日消耗</text>
-    <text x="370" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">请求数</text>
-    <text x="453" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">占比</text>
+    <text x="${X_LEFT}" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">模型</text>
+    <text x="265" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日消耗</text>
+    <text x="390" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">请求数</text>
+    <text x="${X_RIGHT}" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">占比</text>
 
     <!-- 模型数据行 -->
     ${modelRowsSvg}
 
     <!-- 分割线 3 -->
-    <line x1="87" y1="${div3Y}" x2="453" y2="${div3Y}" stroke="#F1F5F9" stroke-width="1" />
+    <line x1="${X_LEFT}" y1="${div3Y}" x2="${X_RIGHT}" y2="${div3Y}" stroke="#F1F5F9" stroke-width="1" />
 
     <!-- Block 4: 品牌底栏 -->
-    <text x="87" y="${brandTitleY}" font-size="15" font-weight="700" fill="#172033">仟流智算</text>
-    <text x="87" y="${brandSubY}" font-size="11" font-weight="500" fill="#7D8FA4" letter-spacing="0.8">Qianliu IC</text>
+    <text x="${X_LEFT}" y="${brandTitleY}" font-size="15" font-weight="700" fill="#172033">仟流智算</text>
+    <text x="${X_LEFT}" y="${brandSubY}" font-size="11" font-weight="500" fill="#7D8FA4" letter-spacing="0.8">Qianliu IC</text>
 
-    <!-- 官方矢量 Logo：38x38，右边缘 X=453，蓝色拐角底部与 Qianliu IC 底线 Y 对齐 -->
-    <image href="${QIANLIU_LOGO_DATA_URI}" x="415" y="${logoTopY}" width="38" height="38"/>
+    <!-- 官方矢量 Logo：38x38，右边缘对齐 X_RIGHT -->
+    <image href="${QIANLIU_LOGO_DATA_URI}" x="450" y="${logoTopY}" width="38" height="38"/>
   </g>
 </svg>
 `.trim();

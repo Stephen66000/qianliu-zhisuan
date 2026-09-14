@@ -230,7 +230,7 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
 
     const svg = generateDailyTokenReportSvg(data);
 
-    expect(svg).toContain("全员 Token 消费日报小结");
+    expect(svg).toContain("河南仟流科技 · Token日报");
     expect(svg).toContain("9.13 (昨日全天)");
     expect(svg).toContain("河南仟流科技");
     expect(svg).toContain("4,207.8");
