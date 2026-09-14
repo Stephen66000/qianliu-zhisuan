@@ -135,6 +135,7 @@ async function main(): Promise<void> {
   console.log("[worker]       worker report-personal-weekly --enterprise <id> [--user <person-id|name|wecom-id>] [--dry-run]");
   console.log("[worker]       worker check-incentives --enterprise <id> [--dry-run] [--force]");
   console.log("[worker]       worker activate-wecom-endpoint --agent-id <agent-id> [--secret <secret>] [--corp-id <corp-id>]");
+  console.log("[worker]       worker dispatch-user-cards <员工姓名|企微账号> [--dry-run]");
 }
 
 function arg(args: string[], name: string): string | undefined {
@@ -904,6 +905,20 @@ async function runActivateWecomEndpointCommand(args: string[]): Promise<void> {
 }
 
 async function runDispatchUserCardsCommand(args: string[]): Promise<void> {
+  const targetUser =
+    arg(args, "--recipient") ??
+    arg(args, "--name") ??
+    arg(args, "--target") ??
+    arg(args, "--user") ??
+    args.find((a) => !a.startsWith("-"));
+
+  console.log(`[worker] 🚀 收到全套卡片定向下发指令 (目标: ${targetUser ?? "未指定"})`);
+
+  if (!targetUser) {
+    console.error("[worker] ❌ 缺少目标员工参数。用法：worker dispatch-user-cards <员工姓名|企微账号> 或 --recipient <姓名>");
+    process.exit(1);
+  }
+
   const db = createKysely();
   try {
     let enterpriseId = arg(args, "--enterprise");
@@ -912,19 +927,11 @@ async function runDispatchUserCardsCommand(args: string[]): Promise<void> {
       enterpriseId = ent?.id;
     }
     if (!enterpriseId) {
-      console.error("[worker] 缺少 --enterprise 参数且系统中未找到企业");
-      process.exit(1);
-    }
-
-    const targetUser = arg(args, "--user") ?? arg(args, "--recipient");
-    if (!targetUser) {
-      console.error("[worker] 缺少 --user <员工姓名|企微账号> 参数，例如: --user 李佳");
+      console.error("[worker] ❌ 缺少 --enterprise 参数且系统中未找到企业");
       process.exit(1);
     }
 
     const dryRun = args.includes("--dry-run");
-
-    console.log(`[worker] 开始为员工 [${targetUser}] 单独下发全套报表与激励卡片 (模式: ${dryRun ? "DRY_RUN (演练)" : "真实推送"})...`);
 
     const result = await dispatchAllCardsToUser({
       db,
@@ -934,7 +941,7 @@ async function runDispatchUserCardsCommand(args: string[]): Promise<void> {
       dryRun,
     });
 
-    console.log(`[worker] 🎉 员工 [${result.targetUser}] 全套卡片下发流程执行完成:`);
+    console.log(`\n[worker] 🎉 员工 [${result.targetUser}] 全套 5 款卡片下发完成:`);
     console.log(JSON.stringify({
       targetUser: result.targetUser,
       providerUserId: result.providerUserId,

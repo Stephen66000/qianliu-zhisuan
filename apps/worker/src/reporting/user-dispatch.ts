@@ -76,26 +76,44 @@ export async function dispatchAllCardsToUser(
   const timezone = enterprise.timezone || "Asia/Shanghai";
   const now = new Date();
 
+  console.log(`[worker] 🔍 正在检索员工 [${targetUser}] 的企微身份绑定...`);
+
   // 1. 查询员工企微身份绑定
-  const resolvedRecipients = await resolveWecomRecipients(db, enterpriseId, [targetUser]);
-  const providerUserId = resolvedRecipients[0];
-
-  if (!providerUserId) {
-    throw new Error(`未找到员工 [${targetUser}] 对应的企微账号 (provider_user_id)，请先确认通讯录已同步或姓名准确。`);
-  }
-
-  // 查询主体信息
   const personRow = await db
     .selectFrom("person as p")
     .innerJoin("person_external_identity as pei", "pei.person_id", "p.id")
     .leftJoin("principal as pr", "pr.person_id", "p.id")
     .select(["p.id as person_id", "p.name as person_name", "pr.id as principal_id", "pei.provider_user_id"])
     .where("pei.enterprise_id", "=", enterpriseId)
-    .where("pei.provider_user_id", "=", providerUserId)
+    .where("pei.provider", "=", "WECOM")
+    .where("pei.status", "=", "ACTIVE")
+    .where((eb) =>
+      eb.or([
+        eb("p.name", "=", targetUser),
+        eb("p.name", "like", `%${targetUser}%`),
+        eb("pei.provider_user_id", "=", targetUser),
+      ]),
+    )
     .executeTakeFirst();
 
-  const realName = personRow?.person_name || targetUser;
-  const principalId = personRow?.principal_id;
+  if (!personRow) {
+    const allMembers = await db
+      .selectFrom("person as p")
+      .innerJoin("person_external_identity as pei", "pei.person_id", "p.id")
+      .select(["p.name", "pei.provider_user_id"])
+      .where("pei.enterprise_id", "=", enterpriseId)
+      .where("pei.provider", "=", "WECOM")
+      .execute();
+    console.error(`[worker] ❌ 未找到匹配 [${targetUser}] 的企微员工。系统中现有企微成员如下:`);
+    allMembers.forEach((m) => console.error(`  - ${m.name} (企微 UserID: ${m.provider_user_id})`));
+    throw new Error(`未找到员工 [${targetUser}] 对应的企微账号，请确认姓名是否匹配通讯录。`);
+  }
+
+  const realName = personRow.person_name;
+  const providerUserId = personRow.provider_user_id;
+  const principalId = personRow.principal_id;
+
+  console.log(`[worker] ✅ 成功定位员工: ${realName} (企微 UserID: ${providerUserId})`);
 
   const endpoint = dryRun
     ? null
@@ -110,12 +128,14 @@ export async function dispatchAllCardsToUser(
     throw new Error("系统中未找到处于 ACTIVE 状态的企业微信通知通道 (notification_endpoint)。");
   }
 
+  console.log(`[worker] 📡 企业微信通道已连接 (AgentID: ${endpoint?.agent_id ?? "DRY_RUN"})，开始依次生成并下发 5 款卡片...`);
   const client = dryRun ? null : new WecomAppClient(kekBase64);
   const results: CardDispatchResult[] = [];
 
   // ─────────────────────────────────────────────────────────────
   // 卡片 1：团队全员用量周报
   // ─────────────────────────────────────────────────────────────
+  console.log(`[worker] [1/5] 正在生成并推送【团队全员用量周报】...`);
   try {
     const companyRes = await runCompanyWeeklyReport({
       db,
@@ -131,7 +151,9 @@ export async function dispatchAllCardsToUser(
       mediaId: companyRes.mediaId,
       detail: `总消耗: ${formatTokenVolume(companyRes.totalTokens)}, 活跃员工: ${companyRes.activeEmployees} 人`,
     });
+    console.log(`[worker] [1/5] ✅ 团队全员用量周报下发完成 (消耗: ${formatTokenVolume(companyRes.totalTokens)})`);
   } catch (err: any) {
+    console.error(`[worker] [1/5] ❌ 团队全员用量周报下发失败:`, err?.message || err);
     results.push({
       cardType: "COMPANY_WEEKLY",
       title: "团队全员用量周报",
@@ -143,6 +165,7 @@ export async function dispatchAllCardsToUser(
   // ─────────────────────────────────────────────────────────────
   // 卡片 2：员工个人周报信笺
   // ─────────────────────────────────────────────────────────────
+  console.log(`[worker] [2/5] 正在生成并推送【员工个人周报信笺】(针对: ${realName})...`);
   try {
     const personalResList = await runPersonalWeeklyReports({
       db,
@@ -159,7 +182,9 @@ export async function dispatchAllCardsToUser(
       mediaId: personalRes?.mediaId,
       detail: personalRes ? `周总消耗: ${formatTokenVolume(personalRes.totalTokens)}, 请求数: ${personalRes.requestCount}` : "无周报数据",
     });
+    console.log(`[worker] [2/5] ✅ 员工个人周报信笺下发完成 (周消耗: ${personalRes ? formatTokenVolume(personalRes.totalTokens) : "0"})`);
   } catch (err: any) {
+    console.error(`[worker] [2/5] ❌ 员工个人周报信笺下发失败:`, err?.message || err);
     results.push({
       cardType: "PERSONAL_WEEKLY",
       title: "员工个人周报信笺",
@@ -171,6 +196,7 @@ export async function dispatchAllCardsToUser(
   // ─────────────────────────────────────────────────────────────
   // 卡片 3：每日用量消费日报
   // ─────────────────────────────────────────────────────────────
+  console.log(`[worker] [3/5] 正在生成并推送【每日 Token 消费日报】...`);
   try {
     const dailyRes = await runDailyTokenReport({
       db,
@@ -186,7 +212,9 @@ export async function dispatchAllCardsToUser(
       mediaId: dailyRes.mediaId,
       detail: `全员日消耗: ${formatTokenVolume(dailyRes.totalTokens)}, 请求数: ${dailyRes.requestCount}`,
     });
+    console.log(`[worker] [3/5] ✅ 每日 Token 消费日报下发完成 (日消耗: ${formatTokenVolume(dailyRes.totalTokens)})`);
   } catch (err: any) {
+    console.error(`[worker] [3/5] ❌ 每日 Token 消费日报下发失败:`, err?.message || err);
     results.push({
       cardType: "DAILY_REPORT",
       title: "每日 Token 消费日报",
@@ -198,6 +226,7 @@ export async function dispatchAllCardsToUser(
   // ─────────────────────────────────────────────────────────────
   // 卡片 4：登顶第 1 名流动红旗卡片
   // ─────────────────────────────────────────────────────────────
+  console.log(`[worker] [4/5] 正在生成并推送【登顶第 1 名流动红旗】...`);
   try {
     const usageRepo = new UsageOverviewRepository(db, () => now);
     const weekOverview = await usageRepo.getOverview({
@@ -243,6 +272,7 @@ export async function dispatchAllCardsToUser(
         title: "登顶第 1 名流动红旗",
         status: "DRY_RUN",
       });
+      console.log(`[worker] [4/5] 演练模式：已生成登顶流动红旗卡片`);
     } else if (endpoint && client) {
       const pngBuffer = renderSvgToPng(top1Svg);
       const mediaId = await client.uploadMedia(
@@ -270,8 +300,10 @@ export async function dispatchAllCardsToUser(
         mediaId,
         detail: `周消耗: ${displayTokens}, 贡献率: ${displayShare}`,
       });
+      console.log(`[worker] [4/5] ✅ 登顶第 1 名流动红旗荣誉卡下发完成`);
     }
   } catch (err: any) {
+    console.error(`[worker] [4/5] ❌ 登顶流动红旗荣誉卡下发失败:`, err?.message || err);
     results.push({
       cardType: "TOP1_INCENTIVE",
       title: "登顶第 1 名流动红旗",
@@ -283,6 +315,7 @@ export async function dispatchAllCardsToUser(
   // ─────────────────────────────────────────────────────────────
   // 卡片 5：月度超越 50% 员工成长卡片
   // ─────────────────────────────────────────────────────────────
+  console.log(`[worker] [5/5] 正在生成并推送【超越 50% 员工成长激励卡】...`);
   try {
     const monthStr = new Intl.DateTimeFormat("en-CA", {
       timeZone: timezone,
@@ -337,6 +370,7 @@ export async function dispatchAllCardsToUser(
         title: "超越 50% 员工成长激励卡",
         status: "DRY_RUN",
       });
+      console.log(`[worker] [5/5] 演练模式：已生成超越 50% 员工成长激励卡`);
     } else if (endpoint && client) {
       const pngBuffer = renderSvgToPng(over50Svg);
       const mediaId = await client.uploadMedia(
@@ -364,8 +398,10 @@ export async function dispatchAllCardsToUser(
         mediaId,
         detail: `当月消耗: ${displayTokens}, 请求数: ${displayRequests}`,
       });
+      console.log(`[worker] [5/5] ✅ 超越 50% 员工成长激励卡下发完成`);
     }
   } catch (err: any) {
+    console.error(`[worker] [5/5] ❌ 超越 50% 员工成长激励卡下发失败:`, err?.message || err);
     results.push({
       cardType: "OVER50_INCENTIVE",
       title: "超越 50% 员工成长激励卡",

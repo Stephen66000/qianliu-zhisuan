@@ -186,6 +186,7 @@ export async function resolveWecomRecipients(
       .where((eb) =>
         eb.or([
           eb("p.name", "=", item),
+          eb("p.name", "like", `%${item}%`),
           eb("p.email", "=", item),
           eb("p.id", "=", item),
         ]),
