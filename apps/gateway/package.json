@@ -21,7 +21,7 @@
     "@qianliu/domain": "workspace:*",
     "@qianliu/observability": "workspace:*",
     "@qianliu/provider-adapters": "workspace:*",
-    "fastify": "5.8.5",
+    "fastify": "5.12.4",
     "undici": "7.29.0",
     "zod": "4.1.11"
   },
