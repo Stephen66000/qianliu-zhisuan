@@ -33,8 +33,21 @@ export function OperatingBillOverview({
     "packageCostCurrency", bill.summary.packageCost, null,
   );
   const totalSpends = compatibleTotalAmounts(bill);
+  const allocatedQuota = bill.summary.totalAllocatedQuota;
+  const allocatedQuotaNum = allocatedQuota ? Number(allocatedQuota) : 0;
+  const usedTokensNum = monthTokens ? Number(monthTokens) : 0;
+  const usageRate = allocatedQuotaNum > 0 && monthTokens !== null && monthTokens !== undefined
+    ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%`
+    : "—";
+  const remainingQuota = allocatedQuotaNum > 0 && monthTokens !== null && monthTokens !== undefined
+    ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
+    : "不限";
+
   const metrics = [
-    ["本月总 Token", monthTokens === null || monthTokens === undefined ? "—" : formatCount(monthTokens)],
+    ["本月分配额度", allocatedQuotaNum > 0 ? formatCount(allocatedQuota!) : "不限"],
+    ["本月token使用量", monthTokens === null || monthTokens === undefined ? "—" : formatCount(monthTokens)],
+    ["token使用率", usageRate],
+    ["本月剩余额度", remainingQuota],
     [
       "期初余额",
       currencyFacts(bill.summary.openingBalances, bill.summary.openingBalance ?? null, bill.summary.endingBalanceCurrency),

@@ -15,6 +15,7 @@ export interface OperatingBillMetricTotals {
   cacheTokens: string | null;
   reasoningTokens: string | null;
   totalTokens: string | null;
+  allocatedQuota?: string | null;
   deductedQuota: string | null;
   apiCost: string | null;
   knownApiCost?: string | null;
@@ -46,6 +47,7 @@ export interface OperatingBillEmployeeRow {
   subjectId: string | null;
   subjectName: string;
   isUnassigned: boolean;
+  allocatedQuota?: string | null;
   projectOwner: OperatingBillProjectOwnerRef | null;
   projectDepartments: OperatingBillProjectDepartmentRef[];
   providers: OperatingBillProviderRef[];

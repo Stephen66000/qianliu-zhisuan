@@ -229,7 +229,8 @@ export async function loadLiveOperatingBillAccountSummary(
   const provider = query.providerCode ? sql` AND provider_code = ${query.providerCode}` : sql``;
   const needle = query.search?.trim();
   const search = needle ? sql` AND POSITION(lower(${needle}) IN lower(subject_name)) > 0` : sql``;
-  const result = await sql<RawSummary>`
+  const [result, quotaRows, totalQuotaRow] = await Promise.all([
+    sql<RawSummary>`
     WITH ${liveLineFactCtes(enterpriseId, month)}, dimension_lines AS (
       SELECT line_facts.*,
              CASE WHEN ${dimension} = 'EMPLOYEE' THEN source_principal_id
@@ -296,17 +297,46 @@ export async function loadLiveOperatingBillAccountSummary(
           AND page.subject_name IS NOT DISTINCT FROM summaries.subject_name
           AND page.is_unassigned IS NOT DISTINCT FROM summaries.is_unassigned
      )
-  `.execute(db);
+  `.execute(db),
+    sql<{ principal_id: string; allocated_quota: string }>`
+      SELECT pg.principal_id, COALESCE(SUM(pg.quota_value), 0)::text AS allocated_quota
+        FROM principal_grant pg
+        JOIN principal pr ON pr.id = pg.principal_id AND pr.enterprise_id = ${enterpriseId}::uuid AND pr.type = ${dimension}
+       WHERE pg.enterprise_id = ${enterpriseId}::uuid
+         AND pg.status = 'ACTIVE'
+         AND (pg.valid_until IS NULL OR pg.valid_until > (${`${month}-01`}::date + interval '1 month'))
+       GROUP BY pg.principal_id
+    `.execute(db),
+    sql<{ total_allocated_quota: string }>`
+      SELECT COALESCE(SUM(pg.quota_value), 0)::text AS total_allocated_quota
+        FROM principal_grant pg
+        JOIN principal pr ON pr.id = pg.principal_id AND pr.enterprise_id = ${enterpriseId}::uuid AND pr.type = ${dimension}
+       WHERE pg.enterprise_id = ${enterpriseId}::uuid
+         AND pg.status = 'ACTIVE'
+         AND (pg.valid_until IS NULL OR pg.valid_until > (${`${month}-01`}::date + interval '1 month'))
+    `.execute(db),
+  ]);
+  const quotaByPrincipal = new Map<string, string>();
+  for (const q of quotaRows.rows) {
+    quotaByPrincipal.set(q.principal_id, q.allocated_quota);
+  }
+  const totalAllocatedQuota = totalQuotaRow.rows[0]?.total_allocated_quota ?? "0";
+
   const subjects = new Map<string, OperatingBillAccountSubjectRow>();
   for (const row of result.rows.filter((item) => item.level === "SUBJECT")) {
     const key = row.subject_id ?? "__unassigned_project__";
+    const allocatedQuota = row.subject_id ? quotaByPrincipal.get(row.subject_id) ?? "0" : "0";
     subjects.set(key, {
       subjectId: row.subject_id,
       subjectName: row.subject_name!,
       isUnassigned: row.is_unassigned ?? false,
+      allocatedQuota,
       ...projectSummaryMetadata(row, dimension),
       providers: [],
-      totals: summaryTotals(row),
+      totals: {
+        ...summaryTotals(row),
+        allocatedQuota,
+      },
     });
   }
   for (const row of result.rows.filter((item) => item.level === "PROVIDER")) {
@@ -319,8 +349,12 @@ export async function loadLiveOperatingBillAccountSummary(
       });
     }
   }
+  const totalRow = result.rows.find((row) => row.level === "TOTAL");
   return {
-    totals: summaryTotals(result.rows.find((row) => row.level === "TOTAL")),
+    totals: {
+      ...summaryTotals(totalRow),
+      allocatedQuota: totalAllocatedQuota,
+    },
     rows: [...subjects.values()],
     total: Number(result.rows[0]?.total_count ?? 0),
   };

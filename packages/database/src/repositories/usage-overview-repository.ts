@@ -51,6 +51,7 @@ export interface UsageOverviewRankingItem extends Omit<UsageOverviewMetrics, "ac
   subjectName: string;
   departmentLabel: string | null;
   share: string;
+  allocatedQuota: string;
 }
 
 export interface UsageOverviewResult {
@@ -122,6 +123,7 @@ interface RankingRow extends Omit<AggregateRow, "active_subjects" | "fact_waterm
   subject_name: string;
   department_label: string | null;
   share: string;
+  allocated_quota: string;
 }
 
 /**
@@ -154,7 +156,7 @@ export class UsageOverviewRepository {
     const aggregate = await this.loadMetrics(facts);
     const [trend, ranking] = await Promise.all([
       this.loadTrend(input, range, facts, currentTime),
-      this.loadRanking(facts, aggregate.metrics.realTokens),
+      this.loadRanking(facts, aggregate.metrics.realTokens, input.enterpriseId, range.range_end),
     ]);
     return {
       subjectType: input.subjectType,
@@ -305,29 +307,39 @@ export class UsageOverviewRepository {
   private async loadRanking(
     facts: RawBuilder<unknown>,
     totalRealTokens: string,
+    enterpriseId: string,
+    rangeEnd: Date,
   ): Promise<UsageOverviewRankingItem[]> {
     const result = await sql<RankingRow>`
       WITH facts AS (${facts})
-      SELECT subject_id, subject_name, department_label,
-             SUM(request_count) AS request_count,
-             SUM(total_input_tokens)::text AS input_tokens,
-             SUM(total_output_tokens)::text AS output_tokens,
-             SUM(total_cache_tokens)::text AS cache_tokens,
-             SUM(total_reasoning_tokens)::text AS reasoning_tokens,
-             SUM(total_input_tokens + total_output_tokens)::text AS real_tokens,
-             SUM(total_api_cost)::text AS api_cost,
-             SUM(total_deducted_quota)::text AS deducted_quota,
-             SUM(provider_reported_count) AS provider_reported_count,
-             SUM(estimated_count) AS estimated_count,
-             SUM(account_aggregated_count) AS account_aggregated_count,
-             SUM(mixed_count) AS mixed_count,
-             SUM(unknown_count) AS unknown_count,
+      SELECT f.subject_id, f.subject_name, f.department_label,
+             SUM(f.request_count) AS request_count,
+             SUM(f.total_input_tokens)::text AS input_tokens,
+             SUM(f.total_output_tokens)::text AS output_tokens,
+             SUM(f.total_cache_tokens)::text AS cache_tokens,
+             SUM(f.total_reasoning_tokens)::text AS reasoning_tokens,
+             SUM(f.total_input_tokens + f.total_output_tokens)::text AS real_tokens,
+             COALESCE((
+               SELECT SUM(pg.quota_value)::text
+                 FROM principal_grant pg
+                WHERE pg.enterprise_id = ${enterpriseId}
+                  AND pg.principal_id = f.subject_id
+                  AND pg.status = 'ACTIVE'
+                  AND (pg.valid_until IS NULL OR pg.valid_until > ${rangeEnd})
+             ), '0') AS allocated_quota,
+             SUM(f.total_api_cost)::text AS api_cost,
+             SUM(f.total_deducted_quota)::text AS deducted_quota,
+             SUM(f.provider_reported_count) AS provider_reported_count,
+             SUM(f.estimated_count) AS estimated_count,
+             SUM(f.account_aggregated_count) AS account_aggregated_count,
+             SUM(f.mixed_count) AS mixed_count,
+             SUM(f.unknown_count) AS unknown_count,
              CASE WHEN ${totalRealTokens}::numeric = 0 THEN '0'
-                  ELSE (SUM(total_input_tokens + total_output_tokens)::numeric /
+                  ELSE (SUM(f.total_input_tokens + f.total_output_tokens)::numeric /
                         ${totalRealTokens}::numeric)::text END AS share
-        FROM facts
-       GROUP BY subject_id, subject_name, department_label
-       ORDER BY SUM(total_input_tokens + total_output_tokens) DESC, subject_name, subject_id
+        FROM facts f
+       GROUP BY f.subject_id, f.subject_name, f.department_label
+       ORDER BY SUM(f.total_input_tokens + f.total_output_tokens) DESC, f.subject_name, f.subject_id
        LIMIT 100
     `.execute(this.db);
     return result.rows.map((row) => ({
@@ -336,6 +348,7 @@ export class UsageOverviewRepository {
       departmentLabel: row.department_label,
       ...mapCountMetrics(row),
       share: row.share,
+      allocatedQuota: row.allocated_quota ?? "0",
     }));
   }
 }

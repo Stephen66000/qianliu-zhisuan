@@ -12,6 +12,7 @@ export interface OperatingBillAccountTotals {
   reasoningTokens: string | null;
   /** 总 Token = 输入 + 输出；缓存与推理 Token 是子集，不重复相加。 */
   totalTokens: string | null;
+  allocatedQuota?: string | null;
   deductedQuota: string | null;
   apiCost: string | null;
   knownApiCost?: string | null;
@@ -43,6 +44,7 @@ export interface OperatingBillAccountSubjectRow {
   subjectId: string | null;
   subjectName: string;
   isUnassigned: boolean;
+  allocatedQuota?: string | null;
   /** 项目维度才有值；CLOSED 月份来自结账时冻结的账户事实。 */
   projectOwner: OperatingBillProjectOwnerRef | null;
   /** 请求发生时点的项目部门集合；不从当前负责人部门反推。 */

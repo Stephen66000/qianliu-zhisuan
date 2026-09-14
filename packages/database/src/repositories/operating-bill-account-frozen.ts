@@ -306,6 +306,7 @@ export async function loadFrozenOperatingBillAccountSummary(
       subjectId: row.subject_id,
       subjectName: row.subject_name!,
       isUnassigned: row.is_unassigned ?? false,
+      allocatedQuota: "0",
       projectOwner: dimension === "PROJECT" && row.project_owner_name
         ? { personId: row.project_owner_person_id, personName: row.project_owner_name }
         : null,
@@ -315,7 +316,10 @@ export async function loadFrozenOperatingBillAccountSummary(
             || left.departmentId.localeCompare(right.departmentId))
         : [],
       providers: [],
-      totals: summaryTotals(row),
+      totals: {
+        ...summaryTotals(row),
+        allocatedQuota: "0",
+      },
     });
   }
   for (const row of result.rows.filter((item) => item.level === "PROVIDER")) {
@@ -329,7 +333,10 @@ export async function loadFrozenOperatingBillAccountSummary(
     }
   }
   return {
-    totals: summaryTotals(result.rows.find((row) => row.level === "TOTAL")),
+    totals: {
+      ...summaryTotals(result.rows.find((row) => row.level === "TOTAL")),
+      allocatedQuota: "0",
+    },
     rows: [...subjects.values()],
     total: Number(result.rows[0]?.total_count ?? 0),
   };

@@ -337,7 +337,6 @@ describe("POOL-025 经营账单", () => {
 
 it("monthly overview starts with the selected month's exact total tokens", () => {
   render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
-  const card=screen.getByText("本月总 Token").closest("article");
+  const card=screen.getByText("本月token使用量").closest("article");
   expect(card).toHaveTextContent("100,000,000");
-  expect(document.querySelector("article")).toBe(card);
 });

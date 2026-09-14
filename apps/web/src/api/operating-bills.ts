@@ -124,6 +124,7 @@ export interface OperatingBill {
     confirmedValueAmount: string;
     confirmedNonMonetaryCount: number;
     unallocatedCost: string;
+    totalAllocatedQuota?: string | null;
   };
   providers: OperatingBillProvider[];
   subjects: OperatingBillSubject[];

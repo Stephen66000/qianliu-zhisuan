@@ -324,6 +324,7 @@ export async function handleWecomMessage(
           subjectName: identity.person_name,
           departmentLabel: identity.department_label,
           share: "0",
+          allocatedQuota: "0",
         };
       } catch {
         // 使用默认空数据

@@ -53,6 +53,7 @@ export async function buildOperatingBillDraft(
       resourceRangesResult,
       confirmationsResult,
       values,
+      totalQuotaResult,
     ] = await Promise.all([
       sql<ResourceFactRow>`
         WITH resources AS (
@@ -193,6 +194,14 @@ export async function buildOperatingBillDraft(
          WHERE c.enterprise_id = ${enterpriseId} AND c.period_id = ${period.id}
       `.execute(db) : Promise.resolve({ rows: [] as ResourceConfirmationRow[] }),
       Promise.resolve(valueItems),
+      sql<{ total_allocated_quota: string }>`
+        SELECT COALESCE(SUM(pg.quota_value), 0)::text AS total_allocated_quota
+          FROM principal_grant pg
+          JOIN principal pr ON pr.id = pg.principal_id AND pr.enterprise_id = ${enterpriseId}
+         WHERE pg.enterprise_id = ${enterpriseId}
+           AND pg.status = 'ACTIVE'
+           AND (pg.valid_until IS NULL OR pg.valid_until > ${end})
+      `.execute(db),
     ]);
     const resources = resourceResult.rows;
     const purchasesByResource = new Map<string, PurchaseFactRow[]>();
@@ -356,6 +365,7 @@ export async function buildOperatingBillDraft(
         confirmedValueAmount: amount(confirmedValueAmount),
         confirmedNonMonetaryCount: values.filter((item) => item.status === "CONFIRMED" && item.value_type === "NON_MONETARY").length,
         unallocatedCost: amount(unallocatedCost),
+        totalAllocatedQuota: totalQuotaResult.rows[0]?.total_allocated_quota ?? "0",
       },
       providers, subjects, values, gaps,
       sourceFacts: {

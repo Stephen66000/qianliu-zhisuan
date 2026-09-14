@@ -58,6 +58,7 @@ export interface OperatingBillAccountSummaryInput {
   outputTokens: string;
   cacheTokens: string;
   reasoningTokens: string;
+  allocatedQuota?: string | null;
   deductedQuota: string | null;
   apiCost: string | null;
   knownApiCost?: string | null;
@@ -163,6 +164,7 @@ export function finishAccountSummary(input: OperatingBillAccountSummaryInput): O
     cacheTokens: tokensKnown ? integer(decimal(input.cacheTokens)) : null,
     reasoningTokens: tokensKnown ? integer(decimal(input.reasoningTokens)) : null,
     totalTokens: tokensKnown ? integer(inputTokens.plus(outputTokens)) : null,
+    allocatedQuota: input.allocatedQuota ?? null,
     deductedQuota: input.deductedQuota === null ? null : integer(decimal(input.deductedQuota)),
     apiCost,
     knownApiCost: input.knownApiCost === null || input.knownApiCost === undefined ? apiCost : money(decimal(input.knownApiCost)),

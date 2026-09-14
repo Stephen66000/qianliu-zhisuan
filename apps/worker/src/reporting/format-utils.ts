@@ -65,7 +65,7 @@ export function formatModelName(rawName: string): string {
   const lower = clean.toLowerCase();
   if (lower.includes("deepseek-v3") || lower === "deepseek-chat") return "DeepSeek V3";
   if (lower.includes("deepseek-r1") || lower.includes("deepseek-reasoner")) return "DeepSeek R1";
-  if (lower.includes("deepseek")) return "DeepSeek V3";
+  if (lower === "deepseek") return "DeepSeek";
   if (lower.includes("claude-3-5-sonnet") || lower.includes("claude-3.5-sonnet")) return "Claude 3.5 Sonnet";
   if (lower.includes("claude-3-7-sonnet") || lower.includes("claude-3.7-sonnet")) return "Claude 3.7 Sonnet";
   if (lower.includes("gpt-4o-mini")) return "GPT-4o mini";

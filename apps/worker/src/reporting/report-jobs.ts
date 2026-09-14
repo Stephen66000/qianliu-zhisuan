@@ -46,19 +46,22 @@ export async function queryTopModelsForRange(
       request_count: string | number | bigint;
       total_tokens: string | number | bigint;
     }>`
-      SELECT ar.unified_model AS model_name,
+      SELECT COALESCE(um.display_name, ar.unified_model) AS model_name,
              COUNT(ar.id) AS request_count,
              COALESCE(SUM(lt.total_input_tokens + lt.total_output_tokens), 0) AS total_tokens
         FROM ledger_transaction lt
         JOIN ai_request ar
           ON ar.id = lt.ai_request_id AND ar.enterprise_id = lt.enterprise_id
+        LEFT JOIN unified_model um
+          ON (um.id = ar.unified_model_id OR um.alias = ar.unified_model)
+         AND um.enterprise_id = ar.enterprise_id
        WHERE lt.enterprise_id = ${enterpriseId}
          AND lt.status = 'SETTLED'
          AND ar.status = 'SUCCEEDED'
          AND lt.created_at >= ${rangeStart}
          AND lt.created_at < ${rangeEnd}
          ${principalFilter}
-       GROUP BY ar.unified_model
+       GROUP BY COALESCE(um.display_name, ar.unified_model)
        ORDER BY total_tokens DESC, request_count DESC
        LIMIT ${limit}
     `.execute(db);
@@ -76,8 +79,19 @@ export async function queryTopModelsForRange(
     const fallbackRows = await db
       .selectFrom("ai_request as r")
       .innerJoin("usage_event as u", "u.ai_request_id", "r.id")
+      .leftJoin("unified_model as um", (join) =>
+        join.on((eb) =>
+          eb.and([
+            eb("um.enterprise_id", "=", eb.ref("r.enterprise_id")),
+            eb.or([
+              eb("um.id", "=", eb.ref("r.unified_model_id")),
+              eb("um.alias", "=", eb.ref("r.unified_model")),
+            ]),
+          ]),
+        ),
+      )
       .select([
-        "r.unified_model",
+        sql<string>`COALESCE(um.display_name, r.unified_model)`.as("unified_model"),
         sql<string>`coalesce(sum(u.input_tokens + u.output_tokens), 0)`.as("total_tokens"),
         sql<string>`count(r.id)`.as("req_count"),
       ])
@@ -86,7 +100,7 @@ export async function queryTopModelsForRange(
       .where("r.started_at", ">=", rangeStart)
       .where("r.started_at", "<", rangeEnd)
       .$if(Boolean(principalId), (qb) => qb.where("r.principal_id", "=", principalId!))
-      .groupBy("r.unified_model")
+      .groupBy(sql`COALESCE(um.display_name, r.unified_model)`)
       .orderBy(sql`sum(u.input_tokens + u.output_tokens)`, "desc")
       .limit(limit)
       .execute();
@@ -535,6 +549,39 @@ export async function runPersonalWeeklyReports(
     const userModels = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, principalId, 1);
     const topModelName = userModels[0]?.model;
 
+    // 计算当月剩余额度（本月分配额度 - 本月使用额度）
+    const currentYear = rangeStart.getFullYear();
+    const currentMonth = rangeStart.getMonth();
+    const monthStart = new Date(Date.UTC(currentYear, currentMonth, 1));
+    const nextMonthStart = new Date(Date.UTC(currentYear, currentMonth + 1, 1));
+
+    const grantRow = await sql<{ allocated_quota: string }>`
+      SELECT COALESCE(SUM(quota_value), 0)::text AS allocated_quota
+        FROM principal_grant
+       WHERE enterprise_id = ${enterpriseId}
+         AND principal_id = ${principalId}
+         AND status = 'ACTIVE'
+         AND (valid_until IS NULL OR valid_until > ${rangeEnd})
+    `.execute(db);
+    const allocatedQuotaNum = Number(grantRow.rows[0]?.allocated_quota ?? 0);
+
+    const monthUsageRow = await sql<{ month_tokens: string }>`
+      SELECT COALESCE(SUM(lt.total_input_tokens + lt.total_output_tokens), 0)::text AS month_tokens
+        FROM ledger_transaction lt
+       WHERE lt.enterprise_id = ${enterpriseId}
+         AND lt.principal_id = ${principalId}
+         AND lt.status = 'SETTLED'
+         AND lt.created_at >= ${monthStart}
+         AND lt.created_at < ${nextMonthStart}
+    `.execute(db);
+    const monthTokensNum = Number(monthUsageRow.rows[0]?.month_tokens ?? 0);
+
+    let remainingQuotaValue = "不限";
+    if (allocatedQuotaNum > 0) {
+      const remaining = allocatedQuotaNum - monthTokensNum;
+      remainingQuotaValue = remaining > 0 ? formatTokenVolume(remaining) : "0 (已超额)";
+    }
+
     const metrics = [
       {
         label: "总请求次数",
@@ -551,6 +598,10 @@ export async function runPersonalWeeklyReports(
       {
         label: "最晚请求时间",
         value: latestTime,
+      },
+      {
+        label: "本月剩余额度",
+        value: remainingQuotaValue,
       },
     ];
 

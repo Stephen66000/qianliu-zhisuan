@@ -70,7 +70,10 @@ describe("POOL-043 账单展示口径", () => {
     expect(screen.getAllByText("未知")).toHaveLength(4);
     expect(screen.queryByText("最近 —")).toBeNull();
     for (const label of [
-      "本月总 Token",
+      "本月分配额度",
+      "本月token使用量",
+      "token使用率",
+      "本月剩余额度",
       "月度总花费",
       "API 消费",
       "套餐分摊",

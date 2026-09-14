@@ -150,6 +150,7 @@ export interface OperatingBillSnapshot {
     confirmedValueAmount: string;
     confirmedNonMonetaryCount: number;
     unallocatedCost: string;
+    totalAllocatedQuota?: string | null;
   };
   providers: OperatingBillProviderRow[];
   subjects: OperatingBillSubjectRow[];

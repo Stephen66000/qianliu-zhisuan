@@ -28,9 +28,10 @@ export function generatePersonalWeeklySvg(data: PersonalWeeklyReportData): strin
   const quote = data.quote || "功不求疾，但求有恒";
   const quoteFontSize = quote.length > 11 ? 22 : quote.length > 9 ? 24 : 26;
   const metricsCount = data.metrics.length;
-  const isFiveMetrics = metricsCount >= 5;
-  const slotHeight = isFiveMetrics ? 56 : 68;
-  const firstLineY = isFiveMetrics ? 254 : 262;
+  const isSixOrMore = metricsCount >= 6;
+  const isFiveMetrics = metricsCount === 5;
+  const slotHeight = isSixOrMore ? 50 : isFiveMetrics ? 56 : 68;
+  const firstLineY = isSixOrMore ? 244 : isFiveMetrics ? 254 : 262;
 
   // 生成各项指标与分割横线
   let linesSvg = "";
@@ -42,8 +43,8 @@ export function generatePersonalWeeklySvg(data: PersonalWeeklyReportData): strin
   data.metrics.forEach((m, idx) => {
     const slotTop = firstLineY + idx * slotHeight;
     const nextLineY = slotTop + slotHeight;
-    const labelY = isFiveMetrics ? slotTop + 22 : slotTop + 26;
-    const valueY = isFiveMetrics ? labelY + 20 : labelY + 24;
+    const labelY = isSixOrMore ? slotTop + 19 : isFiveMetrics ? slotTop + 22 : slotTop + 26;
+    const valueY = isSixOrMore ? labelY + 18 : isFiveMetrics ? labelY + 20 : labelY + 24;
 
     const unitText = m.unit ? ` ${escapeXml(m.unit)}` : "";
     const subText = m.sub ? ` <tspan font-size="12" font-weight="500" fill="#7D8FA4">${escapeXml(m.sub)}</tspan>` : "";
@@ -60,7 +61,7 @@ export function generatePersonalWeeklySvg(data: PersonalWeeklyReportData): strin
 
   // 仅预留 1 行手账线（最后一项指标下方的横线已经在循环中添加，再预留 1 行空白手账线）
   const reservedLineY = firstLineY + (metricsCount + 1) * slotHeight;
-  if (reservedLineY <= 600) {
+  if (reservedLineY <= 610) {
     linesSvg += `<!-- 预留 1 行手账线 -->\n<line x1="94" y1="${reservedLineY}" x2="445" y2="${reservedLineY}" stroke="#F2F5F8" stroke-width="1.1" />\n`;
   }
 

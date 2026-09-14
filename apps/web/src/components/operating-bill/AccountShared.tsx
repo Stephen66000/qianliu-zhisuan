@@ -72,6 +72,15 @@ export function accountTime(value: string | null): string {
 export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
   const tokenValue = (value: string | null) =>
     totals.usageQuality === "UNKNOWN" ? null : value;
+  const allocatedQuotaNum = totals.allocatedQuota ? Number(totals.allocatedQuota) : 0;
+  const usedTokensNum = totals.totalTokens ? Number(totals.totalTokens) : 0;
+  const usageRate = allocatedQuotaNum > 0 && totals.totalTokens !== null
+    ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%`
+    : "—";
+  const remainingQuota = allocatedQuotaNum > 0 && totals.totalTokens !== null
+    ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
+    : "不限";
+
   const metrics: Array<{
     label: string;
     value: string | null;
@@ -79,8 +88,22 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
     highlight?: boolean;
   }> = [
     {
-      label: "本月总 Token",
+      label: "本月分配额度",
+      value: allocatedQuotaNum > 0 ? formatCount(totals.allocatedQuota!) : "不限",
+      tokens: true,
+    },
+    {
+      label: "本月token使用量",
       value: tokenValue(totals.totalTokens),
+      tokens: true,
+    },
+    {
+      label: "token使用率",
+      value: usageRate,
+    },
+    {
+      label: "本月剩余额度",
+      value: remainingQuota,
       tokens: true,
     },
     {
@@ -114,7 +137,7 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
   return (
     <section
       aria-label="账单指标"
-      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
     >
       {metrics.map((metric) => (
         <BillStat

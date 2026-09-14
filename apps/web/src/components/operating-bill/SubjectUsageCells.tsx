@@ -9,6 +9,8 @@ import {
   accountTime,
 } from "./AccountShared";
 
+import { formatCount } from "../../lib/format";
+
 export interface DynamicProviderCol {
   code: string;
   name: string;
@@ -49,7 +51,10 @@ export function getSubjectUsageHeaders(
         : `${p.name} 订阅金额`,
   ]);
   return [
-    "本月总 Token",
+    "本月分配额度",
+    "本月token使用量",
+    "token使用率",
+    "本月剩余额度",
     "输入 Token",
     "输出 Token",
     "缓存命中 Token",
@@ -71,10 +76,31 @@ export function SubjectUsageCells({
   providers?: DynamicProviderCol[];
 }) {
   const { totals } = row;
+  const allocatedQuota = row.allocatedQuota ?? totals.allocatedQuota;
+  const allocatedQuotaNum = allocatedQuota ? Number(allocatedQuota) : 0;
+  const usedTokensNum = totals.totalTokens ? Number(totals.totalTokens) : 0;
+  const usageRate = allocatedQuotaNum > 0 && totals.totalTokens !== null
+    ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%`
+    : "—";
+  const remainingQuota = allocatedQuotaNum > 0 && totals.totalTokens !== null
+    ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
+    : "不限";
+
   return (
     <>
+      <AccountCell numeric>
+        {allocatedQuotaNum > 0 ? formatCount(allocatedQuota!) : "不限"}
+      </AccountCell>
+      <AccountCell numeric>
+        {accountCount(totals.totalTokens, totals.usageQuality)}
+      </AccountCell>
+      <AccountCell numeric>
+        {usageRate}
+      </AccountCell>
+      <AccountCell numeric>
+        {remainingQuota}
+      </AccountCell>
       {[
-        totals.totalTokens,
         totals.inputTokens,
         totals.outputTokens,
         totals.cacheTokens,
