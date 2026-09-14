@@ -12,7 +12,7 @@ if test "${1:-}" = --check-contract; then
 fi
 
 branch="codex/wecom-activation-release-20260911"
-expected_commit="6f0e3e740955d07f4e271dc5280fa05c288bda83"
+required_ancestor="f58713e8d4034b5aaa006089d26efe49ab127863"
 expected_version="2.5.1"
 root=/Users/stephen
 pointer="$root/qianliu-current-release.txt"
@@ -157,8 +157,8 @@ fi
 actual_commit="$(git -C "$release" rev-parse HEAD)"
 actual_tree="$(git -C "$release" rev-parse 'HEAD^{tree}')"
 echo "拉取完成: Commit $actual_commit (Tree $actual_tree)"
-test "$actual_commit" = "$expected_commit" || {
-  echo "WARN: 实际提交与预期 $expected_commit 不一致，请确认分支最新状态后再发布"
+git -C "$release" merge-base --is-ancestor "$required_ancestor" HEAD || {
+  echo "发布分支不包含本次整改提交 $required_ancestor，请确认分支状态后再发布"
   exit 3
 }
 test "$(cat "$release/VERSION")" = "$expected_version" || { echo "VERSION 文件内容与预期 $expected_version 不符"; exit 3; }
