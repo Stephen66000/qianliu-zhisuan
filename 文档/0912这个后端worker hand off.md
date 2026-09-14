@@ -222,4 +222,6 @@ corepack pnpm --filter @qianliu/worker exec tsc -p tsconfig.json --noEmit
 - [x] 4. 图片中所有 Token 均符合“万 / 亿保留 1 位小数四舍五入”，模型名称规范清洗（去除 `ql-`）；
 - [x] 5. Resvg 渲染出的 PNG 无任何文字乱码或方框问号（无彩色 Emoji 依赖，Docker 容器内已配置 CJK 中文字体）；
 - [x] 6. 运行 `corepack pnpm --filter @qianliu/worker exec tsc -p tsconfig.json --noEmit` 0 报错；
-- [x] 7. CLI 命令 `--dry-run` 能够稳定输出报告数据并在本地保存预览图片。
+- [x] 7. CLI 命令 `--dry-run` 能够稳定输出报告数据并在本地保存预览图片；
+- [x] 8. **生产环境正式上线**（Release: `qianliu-wecom-reporting-20260913-195111`，Commit: `403b1e6`）：已完成全员周报五段自适应排版、三大数放大50%、文案精准逐字定制、晨间严格窗口与 Redis 持久化防重。
+
