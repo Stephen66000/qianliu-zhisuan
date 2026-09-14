@@ -63,11 +63,17 @@ describe("POOL-043 账户聚合纯函数", () => {
       activeDays: 2, requestCount: 3, lastUsedAt: new Date("2026-08-02T00:00:00Z"),
     })).toEqual({
       inputTokens: "9007199254740993", outputTokens: "7", cacheTokens: "2",
-      reasoningTokens: "1", totalTokens: "9007199254741000", deductedQuota: "5",
+      reasoningTokens: "1", totalTokens: "9007199254741000", allocatedQuota: null, deductedQuota: "5",
       apiCost: "1.20000000", knownApiCost: "1.20000000", packageAllocatedCost: "2.30000000",
       totalAllocatedCost: "3.50000000", usageQuality: "EXACT",
       activeDays: 2, requestCount: 3, lastUsedAt: "2026-08-02T00:00:00.000Z",
     });
+    expect(finishAccountSummary({
+      inputTokens: "100", outputTokens: "20", cacheTokens: "0",
+      reasoningTokens: "0", allocatedQuota: "1000", deductedQuota: "5", apiCost: "1.2",
+      packageAllocatedCost: "2.3", qualities: ["PROVIDER_REPORTED"],
+      activeDays: 1, requestCount: 1, lastUsedAt: null,
+    })).toMatchObject({ allocatedQuota: "1000" });
     expect(finishAccountSummary({
       inputTokens: "0", outputTokens: "0", cacheTokens: "0", reasoningTokens: "0",
       deductedQuota: null, apiCost: null, packageAllocatedCost: null, qualities: ["UNKNOWN"],
