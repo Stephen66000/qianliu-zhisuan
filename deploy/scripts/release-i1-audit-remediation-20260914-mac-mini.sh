@@ -12,7 +12,7 @@ if test "${1:-}" = --check-contract; then
 fi
 
 branch="codex/wecom-activation-release-20260911"
-expected_commit="f58713e8d4034b5aaa006089d26efe49ab127863"
+expected_commit="6f0e3e740955d07f4e271dc5280fa05c288bda83"
 expected_version="2.5.1"
 root=/Users/stephen
 pointer="$root/qianliu-current-release.txt"
