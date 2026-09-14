@@ -126,8 +126,12 @@ db_head() {
   docker compose --project-directory "$previous/deploy" exec -T postgres sh -lc \
     'psql -X -v ON_ERROR_STOP=1 -Atq -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT name FROM kysely_migration ORDER BY timestamp DESC LIMIT 1;"'
 }
-echo "检查当前数据库迁移基线: $(db_head)"
-test "$(db_head)" = 0073_credential_chat_probe
+db_baseline="$(db_head)"
+echo "检查当前数据库迁移基线: $db_baseline"
+case "$db_baseline" in
+  0073_credential_chat_probe|0074_runtime_notification_recipients) ;;
+  *) echo "未知的数据库迁移版本: $db_baseline"; exit 2;;
+esac
 
 echo 'step 1: 拉取并验证发布分支代码'
 if ! GIT_SSH_COMMAND='ssh -o BatchMode=yes' GIT_TERMINAL_PROMPT=0 git clone --depth 64 \
@@ -173,7 +177,7 @@ started=1
 echo 'step 5: 验证容器拓扑与健康检查'
 verify_containers "$release"
 health
-test "$(db_head)" = 0073_credential_chat_probe
+test "$(db_head)" = "$db_baseline"
 
 echo 'step 6: 更新线上当前版本指针'
 pointer_changed=1
@@ -186,7 +190,7 @@ echo "=========================================="
 echo "COMPLETE 部署成功!"
 echo "Release 目录: $release"
 echo "Commit: $actual_commit"
-echo "数据库版本: 0073_credential_chat_probe (未变更)"
+echo "数据库版本: $db_baseline (未变更)"
 echo "服务状态: control=200 gateway=200 web=200 caddy=200 worker=healthy"
 echo "回滚镜像备份: $backup_image"
 echo "=========================================="
