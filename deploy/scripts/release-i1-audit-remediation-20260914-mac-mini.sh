@@ -27,6 +27,7 @@ echo "当前线上版本目录: $previous (HEAD: $prev_head)"
 test -f "$previous/deploy/.env" || { echo "缺少配置文件 $previous/deploy/.env"; exit 2; }
 
 stamp="$(date '+%Y%m%d-%H%M%S')"
+started_at_iso="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 release="$root/releases/qianliu-i1-audit-remediation-$stamp"
 backup_image="qianliu-i1-audit-rollback-$stamp"
 lock="$root/.qianliu-release.lock"
@@ -186,7 +187,39 @@ verify_containers "$release"
 health
 test "$(db_head)" = 0074_runtime_notification_recipients
 
-echo 'step 6: 更新线上当前版本指针'
+echo 'step 6: 写入部署清单（关于版本页更新说明与升级历史）'
+enterprise_id="$(docker compose --project-directory "$release/deploy" exec -T postgres sh -lc \
+  'psql -X -v ON_ERROR_STOP=1 -Atq -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id FROM enterprise ORDER BY created_at ASC LIMIT 1;"')"
+manifest="$release/deploy/.deployment-manifest.json"
+cat > "$manifest" <<JSON
+{
+  "deploymentId": "i1-audit-remediation-$stamp",
+  "startedAt": "$started_at_iso",
+  "finishedAt": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "status": "SUCCEEDED",
+  "fromVersion": "$(basename "$previous")",
+  "toVersion": "$expected_version",
+  "gitCommit": "$actual_commit",
+  "actor": "release-script-mac-mini",
+  "summary": "I1 审核整改发布：修复失败单测与 fail-closed 旗标、清零 lint 债务、fastify 升级修复 10 个漏洞、formatModelName 收敛至 domain、VERSION 2.5.1 口径对齐并接入系统版本接口。",
+  "poolRefs": [],
+  "healthSummary": {"control": 200, "gateway": 200, "web": 200, "caddy": 200, "worker": "healthy"},
+  "evidenceRefs": ["仟流智算-I1代码质量审核报告-20260914.md"]
+}
+JSON
+chmod 600 "$manifest"
+docker cp "$manifest" qianliu-zhisuan-control-api-1:/tmp/deployment-manifest.json
+if docker exec qianliu-zhisuan-control-api-1 node --import tsx \
+  apps/control-api/src/cli/import-deployment-manifest.ts \
+  --enterprise "$enterprise_id" --file /tmp/deployment-manifest.json; then
+  echo "部署清单已写入（deploymentId: i1-audit-remediation-$stamp）"
+else
+  echo "WARN: 部署清单写入失败，不影响服务运行；关于版本页更新说明将缺失本次记录"
+fi
+docker exec qianliu-zhisuan-control-api-1 rm -f /tmp/deployment-manifest.json || true
+rm -f "$manifest"
+
+echo 'step 7: 更新线上当前版本指针'
 pointer_changed=1
 printf '%s\n' "$release" > "$pointer.next"
 mv "$pointer.next" "$pointer"
