@@ -4,6 +4,7 @@ import { UsageOverviewRepository } from "@qianliu/database";
 import { Resvg } from "@resvg/resvg-js";
 import { renderSvgToPng as renderSharedSvgToPng } from "./render-png.js";
 import { WecomAppClient, type EndpointConfig } from "../runtime-assurance/wecom-client.js";
+import { resolveWecomRecipients } from "./report-jobs.js";
 
 export interface DailyReportData {
   enterpriseName: string;
@@ -380,6 +381,10 @@ export async function runDailyTokenReport(
 
       recipients = adminIdentities.map((row) => row.provider_user_id);
     }
+  }
+
+  if (recipients && recipients.length > 0) {
+    recipients = await resolveWecomRecipients(db, enterpriseId, recipients);
   }
 
   if (dryRun) {

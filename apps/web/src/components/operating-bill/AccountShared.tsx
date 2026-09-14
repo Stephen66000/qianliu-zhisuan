@@ -116,7 +116,6 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
             : totals.usageQuality === "UNKNOWN"
               ? null
               : "¥0.00",
-      highlight: true,
     },
     { label: "API 消费", value: accountApiMoney(totals) },
     {

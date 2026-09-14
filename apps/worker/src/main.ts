@@ -36,6 +36,7 @@ import {
   runCompanyWeeklyReport,
   runPersonalWeeklyReports,
   runIncentiveChecks,
+  dispatchAllCardsToUser,
   RedisMilestoneStore,
   MemoryMilestoneStore,
   type MilestoneStore,
@@ -112,6 +113,11 @@ async function main(): Promise<void> {
 
   if (command === "activate-wecom-endpoint") {
     await runActivateWecomEndpointCommand(args.slice(1));
+    return;
+  }
+
+  if (command === "dispatch-user-cards" || command === "send-user-cards") {
+    await runDispatchUserCardsCommand(args.slice(1));
     return;
   }
 
@@ -892,6 +898,53 @@ async function runActivateWecomEndpointCommand(args: string[]): Promise<void> {
     }
 
     console.log("[worker] 🎉 企业微信自建应用通知通道已完全激活！即刻起支持高清看板长图与激励信笺真机下发。");
+  } finally {
+    await db.destroy();
+  }
+}
+
+async function runDispatchUserCardsCommand(args: string[]): Promise<void> {
+  const db = createKysely();
+  try {
+    let enterpriseId = arg(args, "--enterprise");
+    if (!enterpriseId) {
+      const ent = await db.selectFrom("enterprise").select("id").limit(1).executeTakeFirst();
+      enterpriseId = ent?.id;
+    }
+    if (!enterpriseId) {
+      console.error("[worker] 缺少 --enterprise 参数且系统中未找到企业");
+      process.exit(1);
+    }
+
+    const targetUser = arg(args, "--user") ?? arg(args, "--recipient");
+    if (!targetUser) {
+      console.error("[worker] 缺少 --user <员工姓名|企微账号> 参数，例如: --user 李佳");
+      process.exit(1);
+    }
+
+    const dryRun = args.includes("--dry-run");
+
+    console.log(`[worker] 开始为员工 [${targetUser}] 单独下发全套报表与激励卡片 (模式: ${dryRun ? "DRY_RUN (演练)" : "真实推送"})...`);
+
+    const result = await dispatchAllCardsToUser({
+      db,
+      kekBase64: requiredEnv("CREDENTIAL_KEK"),
+      enterpriseId,
+      targetUser,
+      dryRun,
+    });
+
+    console.log(`[worker] 🎉 员工 [${result.targetUser}] 全套卡片下发流程执行完成:`);
+    console.log(JSON.stringify({
+      targetUser: result.targetUser,
+      providerUserId: result.providerUserId,
+      enterpriseName: result.enterpriseName,
+      summary: result.results.map((c) => ({
+        卡片: c.title,
+        状态: c.status,
+        详情: c.detail ?? (c.status === "SENT" ? "已送达企微" : "—"),
+      })),
+    }, null, 2));
   } finally {
     await db.destroy();
   }

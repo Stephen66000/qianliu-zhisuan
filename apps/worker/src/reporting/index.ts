@@ -9,6 +9,7 @@ export * from "./templates/incentive-top1-svg.js";
 export * from "./templates/incentive-over50-svg.js";
 export * from "./report-jobs.js";
 export * from "./incentive-jobs.js";
+export * from "./user-dispatch.js";
 export {
   runDailyTokenReport,
   generateDailyReportSvg,

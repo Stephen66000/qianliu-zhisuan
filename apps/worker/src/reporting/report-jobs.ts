@@ -148,6 +148,60 @@ export async function queryLatestRequestTime(
   return "周内深度协同";
 }
 
+/**
+ * 解析企微接收人：支持企微 provider_user_id、员工姓名、员工邮箱或 person_id 自动映射
+ */
+export async function resolveWecomRecipients(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  rawRecipients: string[],
+): Promise<string[]> {
+  const resolvedRecipients: string[] = [];
+  for (const rawItem of rawRecipients) {
+    const item = rawItem.trim();
+    if (!item) continue;
+
+    // a. 优先精确匹配已有企微 provider_user_id
+    const byUserId = await db
+      .selectFrom("person_external_identity")
+      .select("provider_user_id")
+      .where("enterprise_id", "=", enterpriseId)
+      .where("provider", "=", "WECOM")
+      .where("status", "=", "ACTIVE")
+      .where("provider_user_id", "=", item)
+      .executeTakeFirst();
+    if (byUserId) {
+      resolvedRecipients.push(byUserId.provider_user_id);
+      continue;
+    }
+
+    // b. 匹配员工姓名、邮箱或 person_id
+    const byPerson = await db
+      .selectFrom("person_external_identity as pei")
+      .innerJoin("person as p", "p.id", "pei.person_id")
+      .select("pei.provider_user_id")
+      .where("pei.enterprise_id", "=", enterpriseId)
+      .where("pei.provider", "=", "WECOM")
+      .where("pei.status", "=", "ACTIVE")
+      .where((eb) =>
+        eb.or([
+          eb("p.name", "=", item),
+          eb("p.email", "=", item),
+          eb("p.id", "=", item),
+        ]),
+      )
+      .executeTakeFirst();
+    if (byPerson) {
+      resolvedRecipients.push(byPerson.provider_user_id);
+      continue;
+    }
+
+    // c. 兜底保留原值（直接作为企业微信账号）
+    resolvedRecipients.push(item);
+  }
+  return Array.from(new Set(resolvedRecipients));
+}
+
 export interface RunCompanyWeeklyReportOptions {
   db: Kysely<Database>;
   kekBase64: string;
@@ -299,50 +353,7 @@ export async function runCompanyWeeklyReport(
 
   // 4. 解析接收人：支持企微 UserID、员工姓名、邮箱自动匹配转换
   if (recipients && recipients.length > 0) {
-    const resolvedRecipients: string[] = [];
-    for (const rawItem of recipients) {
-      const item = rawItem.trim();
-      if (!item) continue;
-
-      // a. 优先精确匹配已有企微 provider_user_id
-      const byUserId = await db
-        .selectFrom("person_external_identity")
-        .select("provider_user_id")
-        .where("enterprise_id", "=", enterpriseId)
-        .where("provider", "=", "WECOM")
-        .where("status", "=", "ACTIVE")
-        .where("provider_user_id", "=", item)
-        .executeTakeFirst();
-      if (byUserId) {
-        resolvedRecipients.push(byUserId.provider_user_id);
-        continue;
-      }
-
-      // b. 匹配员工姓名、邮箱或 person_id
-      const byPerson = await db
-        .selectFrom("person_external_identity as pei")
-        .innerJoin("person as p", "p.id", "pei.person_id")
-        .select("pei.provider_user_id")
-        .where("pei.enterprise_id", "=", enterpriseId)
-        .where("pei.provider", "=", "WECOM")
-        .where("pei.status", "=", "ACTIVE")
-        .where((eb) =>
-          eb.or([
-            eb("p.name", "=", item),
-            eb("p.email", "=", item),
-            eb("p.id", "=", item),
-          ]),
-        )
-        .executeTakeFirst();
-      if (byPerson) {
-        resolvedRecipients.push(byPerson.provider_user_id);
-        continue;
-      }
-
-      // c. 兜底保留原值（直接作为企业微信账号）
-      resolvedRecipients.push(item);
-    }
-    recipients = Array.from(new Set(resolvedRecipients));
+    recipients = await resolveWecomRecipients(db, enterpriseId, recipients);
   }
 
   if (dryRun) {
@@ -480,9 +491,9 @@ export async function runPersonalWeeklyReports(
   const weekLabel = `一周小结 ${dateRangeStr}`;
 
   // 筛选需要推送的员工列表
-  let targetRanking = overview.ranking.filter((r) => Number(r.realTokens) > 0);
+  let targetRanking: typeof overview.ranking = [];
   if (userPersonId) {
-    const matched = targetRanking.filter(
+    const matched = overview.ranking.filter(
       (r) =>
         r.subjectId === userPersonId ||
         r.subjectName === userPersonId ||
@@ -503,12 +514,78 @@ export async function runPersonalWeeklyReports(
           ]),
         )
         .executeTakeFirst();
-      if (identity?.principal_id) {
-        targetRanking = targetRanking.filter((r) => r.subjectId === identity.principal_id);
+      const principalId = identity?.principal_id;
+      if (principalId) {
+        const found = overview.ranking.find((r) => r.subjectId === principalId);
+        if (found) {
+          targetRanking = [found];
+        } else {
+          const personRow = await db
+            .selectFrom("person as p")
+            .innerJoin("principal as pr", "pr.person_id", "p.id")
+            .select(["pr.id as principal_id", "p.name as person_name"])
+            .where("pr.enterprise_id", "=", enterpriseId)
+            .where("pr.id", "=", principalId)
+            .executeTakeFirst();
+          if (personRow) {
+            targetRanking = [{
+              subjectId: personRow.principal_id,
+              subjectName: personRow.person_name,
+              departmentLabel: "—",
+              requestCount: "0",
+              inputTokens: "0",
+              outputTokens: "0",
+              cacheTokens: "0",
+              reasoningTokens: "0",
+              realTokens: "0",
+              share: "0",
+              apiCost: "0",
+              deductedQuota: "0",
+              allocatedQuota: "0",
+              usageQuality: "NO_DATA",
+              providerReportedCount: 0,
+              estimatedCount: 0,
+              accountAggregatedCount: 0,
+              mixedCount: 0,
+              unknownCount: 0,
+            }];
+          }
+        }
       } else {
-        targetRanking = [];
+        const personRow = await db
+          .selectFrom("person as p")
+          .innerJoin("principal as pr", "pr.person_id", "p.id")
+          .select(["pr.id as principal_id", "p.name as person_name"])
+          .where("pr.enterprise_id", "=", enterpriseId)
+          .where("p.name", "=", userPersonId)
+          .executeTakeFirst();
+        if (personRow) {
+          targetRanking = [{
+            subjectId: personRow.principal_id,
+            subjectName: personRow.person_name,
+            departmentLabel: "—",
+            requestCount: "0",
+            inputTokens: "0",
+            outputTokens: "0",
+            cacheTokens: "0",
+            reasoningTokens: "0",
+            realTokens: "0",
+            share: "0",
+            apiCost: "0",
+            deductedQuota: "0",
+            allocatedQuota: "0",
+            usageQuality: "NO_DATA",
+            providerReportedCount: 0,
+            estimatedCount: 0,
+            accountAggregatedCount: 0,
+            mixedCount: 0,
+            unknownCount: 0,
+          }];
+        }
       }
     }
+  } else {
+    targetRanking = overview.ranking.filter((r) => Number(r.realTokens) > 0);
   }
 
   if (targetRanking.length === 0) {

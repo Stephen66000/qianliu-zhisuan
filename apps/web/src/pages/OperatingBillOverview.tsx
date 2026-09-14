@@ -86,7 +86,6 @@ export function OperatingBillOverview({
         : "—",
     ],
     ["活跃主体", String(bill.summary.activePrincipalCount)],
-    ["已确认金额价值", money(bill.summary.confirmedValueAmount)],
   ];
   return (
     <div className="space-y-4">
