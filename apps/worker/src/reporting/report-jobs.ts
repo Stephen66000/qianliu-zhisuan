@@ -176,6 +176,7 @@ export async function resolveWecomRecipients(
     }
 
     // b. 匹配员工姓名、邮箱或 person_id
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item);
     const byPerson = await db
       .selectFrom("person_external_identity as pei")
       .innerJoin("person as p", "p.id", "pei.person_id")
@@ -183,14 +184,17 @@ export async function resolveWecomRecipients(
       .where("pei.enterprise_id", "=", enterpriseId)
       .where("pei.provider", "=", "WECOM")
       .where("pei.status", "=", "ACTIVE")
-      .where((eb) =>
-        eb.or([
+      .where((eb) => {
+        const conds = [
           eb("p.name", "=", item),
           eb("p.name", "like", `%${item}%`),
           eb("p.email", "=", item),
-          eb("p.id", "=", item),
-        ]),
-      )
+        ];
+        if (isUuid) {
+          conds.push(eb("p.id", "=", item));
+        }
+        return eb.or(conds);
+      })
       .executeTakeFirst();
     if (byPerson) {
       resolvedRecipients.push(byPerson.provider_user_id);
