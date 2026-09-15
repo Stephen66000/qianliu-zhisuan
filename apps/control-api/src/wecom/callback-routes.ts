@@ -27,8 +27,10 @@ const WecomPostQuerySchema = z.object({
 });
 
 export const wecomCallbackRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
-  // 1. GET /api/wecom/callback: 企业微信后台“设置 API 接收” URL 验签
-  app.get("/api/wecom/callback", async (req, reply) => {
+  // 1. GET /wecom/callback: 企业微信后台“设置 API 接收” URL 验签
+  // 注意：caddy 的 handle_path /api/* 会剥离 /api 前缀，内部路由不含 /api；
+  // 对外 URL 仍为 https://<host>/api/wecom/callback
+  app.get("/wecom/callback", async (req, reply) => {
     const token = process.env.WECOM_CALLBACK_TOKEN;
     const encodingAesKey = process.env.WECOM_CALLBACK_AES_KEY;
 
@@ -59,8 +61,8 @@ export const wecomCallbackRoutes: FastifyPluginAsync = async (app: FastifyInstan
     }
   });
 
-  // 2. POST /api/wecom/callback: 接收用户消息并被动回复
-  app.post("/api/wecom/callback", async (req, reply) => {
+  // 2. POST /wecom/callback: 接收用户消息并被动回复（对外经 caddy /api 前缀暴露）
+  app.post("/wecom/callback", async (req, reply) => {
     const token = process.env.WECOM_CALLBACK_TOKEN;
     const encodingAesKey = process.env.WECOM_CALLBACK_AES_KEY;
 

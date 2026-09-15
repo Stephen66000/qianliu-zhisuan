@@ -79,14 +79,14 @@ describe("WeCom Callback Routes", () => {
     await app.ready();
   });
 
-  describe("GET /api/wecom/callback (URL 验签)", () => {
+  describe("GET /wecom/callback (URL 验签)", () => {
     it("合法签名与 echostr 返回解密后的明文", async () => {
       const echostrRaw = "test_echostr_verification_123456";
       const encrypted = encryptWecomMessage(TEST_TOKEN, TEST_AES_KEY, TEST_CORP_ID, echostrRaw);
 
       const res = await app.inject({
         method: "GET",
-        url: `/api/wecom/callback?msg_signature=${encrypted.signature}&timestamp=${encrypted.timestamp}&nonce=${encrypted.nonce}&echostr=${encodeURIComponent(encrypted.encrypt)}`,
+        url: `/wecom/callback?msg_signature=${encrypted.signature}&timestamp=${encrypted.timestamp}&nonce=${encrypted.nonce}&echostr=${encodeURIComponent(encrypted.encrypt)}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -96,7 +96,7 @@ describe("WeCom Callback Routes", () => {
     it("非法签名请求返回 401", async () => {
       const res = await app.inject({
         method: "GET",
-        url: "/api/wecom/callback?msg_signature=invalid_sign&timestamp=12345&nonce=67890&echostr=dummy",
+        url: "/wecom/callback?msg_signature=invalid_sign&timestamp=12345&nonce=67890&echostr=dummy",
       });
       expect(res.statusCode).toBe(401);
     });
@@ -104,17 +104,17 @@ describe("WeCom Callback Routes", () => {
     it("缺少参数时返回 400", async () => {
       const res = await app.inject({
         method: "GET",
-        url: "/api/wecom/callback?timestamp=12345",
+        url: "/wecom/callback?timestamp=12345",
       });
       expect(res.statusCode).toBe(400);
     });
   });
 
-  describe("POST /api/wecom/callback (消息接收与被动回复)", () => {
+  describe("POST /wecom/callback (消息接收与被动回复)", () => {
     it("非法签名请求返回 401", async () => {
       const res = await app.inject({
         method: "POST",
-        url: "/api/wecom/callback?msg_signature=invalid_sign&timestamp=12345&nonce=67890",
+        url: "/wecom/callback?msg_signature=invalid_sign&timestamp=12345&nonce=67890",
         headers: { "content-type": "application/xml" },
         payload: "<xml><Encrypt>dummy</Encrypt></xml>",
       });
@@ -138,7 +138,7 @@ describe("WeCom Callback Routes", () => {
 
       const res = await app.inject({
         method: "POST",
-        url: `/api/wecom/callback?msg_signature=${encrypted.signature}&timestamp=${encrypted.timestamp}&nonce=${encrypted.nonce}`,
+        url: `/wecom/callback?msg_signature=${encrypted.signature}&timestamp=${encrypted.timestamp}&nonce=${encrypted.nonce}`,
         headers: { "content-type": "application/xml" },
         payload: postBody,
       });
@@ -179,7 +179,7 @@ describe("WeCom Callback Routes", () => {
 
       const res = await app.inject({
         method: "POST",
-        url: `/api/wecom/callback?msg_signature=${encrypted.signature}&timestamp=${encrypted.timestamp}&nonce=${encrypted.nonce}`,
+        url: `/wecom/callback?msg_signature=${encrypted.signature}&timestamp=${encrypted.timestamp}&nonce=${encrypted.nonce}`,
         headers: { "content-type": "application/xml" },
         payload: postBody,
       });
