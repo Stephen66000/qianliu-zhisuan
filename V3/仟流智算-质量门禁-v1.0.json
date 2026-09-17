@@ -420,7 +420,7 @@
       },
       {
         "file": "apps/control-api/src/providers/routes.ts",
-        "baseline": 472
+        "baseline": 542
       },
       {
         "file": "apps/control-api/src/resource-insights/query.ts",
@@ -436,7 +436,7 @@
       },
       {
         "file": "apps/web/src/components/resources/ProviderManagementDialog.tsx",
-        "baseline": 412
+        "baseline": 439
       },
       {
         "file": "apps/web/src/components/resources/ResourceModelDiscovery.tsx",
@@ -472,7 +472,7 @@
       },
       {
         "file": "packages/database/src/repositories/provider-repository.ts",
-        "baseline": 612
+        "baseline": 692
       },
       {
         "file": "packages/provider-adapters/src/model-discovery.ts",

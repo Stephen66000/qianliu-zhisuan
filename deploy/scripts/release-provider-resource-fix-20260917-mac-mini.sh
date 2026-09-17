@@ -41,9 +41,9 @@ db_head() {
 current_db="$(db_head)"
 echo "检查当前数据库迁移基线: $current_db"
 case "$current_db" in
-  0073_credential_chat_probe|0074_runtime_notification_recipients) ;;
+  0073_credential_chat_probe|0074_runtime_notification_recipients|0075_provider_resource_archive) ;;
   *)
-    echo "数据库基线不符合预期 (预期: 0073_credential_chat_probe 或 0074_runtime_notification_recipients, 实际: $current_db)" >&2
+    echo "数据库基线不符合预期 (预期: 0073/0074/0075 之一, 实际: $current_db)" >&2
     exit 2
     ;;
 esac

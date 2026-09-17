@@ -15,8 +15,19 @@ export function resourceModelNames(resource: Pick<ProviderResourceItem, "upstrea
 }
 
 export function ResourceTable({ model }: { model: ResourcesPageModel }) {
-  const { query, setRecoverTarget, setEditTarget, setSyncTarget, setDeleteResourceTarget, setOperatingTarget, setOperatingDraft, setOperatingValidationError, setOperatingHistory, editReset, resources, providerOptions } = model;
+  const { query, setRecoverTarget, setEditTarget, setSyncTarget, setDeleteResourceTarget, setOperatingTarget, setOperatingDraft, setOperatingValidationError, setOperatingHistory, editReset, resources, providerOptions, showArchived, setShowArchived, archiveResourceMutation, unarchiveResourceMutation } = model;
   return <>
+      <div className="mb-2 flex justify-end">
+        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-ql-fg-muted select-none">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-ql-border text-ql-action focus:ring-ql-action"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          显示已归档资源
+        </label>
+      </div>
       <QueryGate
         emptyDescription="尚未登记可用 AI 资源，无法产生模型和路由候选。点击右上角「登记资源」登记 DeepSeek API、智谱或 Kimi 资源。"
         emptyIcon={Server}
@@ -53,7 +64,12 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                   className="border-b border-ql-border-zone text-[13px] leading-5 text-ql-fg last:border-b-0 hover:bg-ql-surface-subtle"
                   key={r.id}
                 >
-                  <td className="py-2.5 pr-4 font-medium">{r.name}</td>
+                  <td className="py-2.5 pr-4 font-medium">
+                    {r.name}
+                    {r.archived_at ? (
+                      <span className="ml-1.5 rounded bg-ql-surface-subtle border border-ql-border px-1.5 py-0.5 text-[10px] font-normal text-ql-fg-muted">已归档</span>
+                    ) : null}
+                  </td>
                   <td className="py-2.5 pr-4 text-ql-fg-secondary">
                     <span className="block">
                       {providerOptions.find((provider) => provider.id === r.provider_id)?.name ?? "—"}
@@ -154,13 +170,34 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                         恢复
                       </button>
                       ) : null}
-                      <button data-write-action
-                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
-                        onClick={() => setDeleteResourceTarget(r)}
-                        type="button"
-                      >
-                        删除
-                      </button>
+                      {r.archived_at ? (
+                        <button data-write-action
+                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                          disabled={unarchiveResourceMutation.isPending}
+                          onClick={() => unarchiveResourceMutation.mutate(r.id)}
+                          type="button"
+                        >
+                          {unarchiveResourceMutation.isPending ? "恢复中…" : "取消归档"}
+                        </button>
+                      ) : (
+                        <>
+                          <button data-write-action
+                            className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-fg-secondary hover:bg-ql-surface-subtle"
+                            disabled={archiveResourceMutation.isPending}
+                            onClick={() => archiveResourceMutation.mutate(r.id)}
+                            type="button"
+                          >
+                            {archiveResourceMutation.isPending ? "归档中…" : "归档"}
+                          </button>
+                          <button data-write-action
+                            className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
+                            onClick={() => setDeleteResourceTarget(r)}
+                            type="button"
+                          >
+                            删除
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

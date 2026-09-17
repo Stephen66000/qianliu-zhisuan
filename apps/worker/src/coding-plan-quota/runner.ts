@@ -102,6 +102,8 @@ export async function runCodingPlanQuotaTick(input: {
       "ACTIVE", "DEGRADED", "RATE_LIMITED", "EXHAUSTED", "CREDENTIAL_INVALID",
     ])
     .where("provider.status", "=", "ACTIVE")
+    .where("provider.archived_at", "is", null)
+    .where("provider_resource.archived_at", "is", null)
     .where("provider_resource.credential_ciphertext", "is not", null)
     .execute() as CodingPlanResourceRow[];
 

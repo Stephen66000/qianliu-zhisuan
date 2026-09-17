@@ -64,6 +64,8 @@ async function start(): Promise<void> {
       .where("unified_model.alias", "=", model)
       .where("model_route.enabled", "=", true)
       .where("provider.status", "=", "ACTIVE")
+      .where("provider.archived_at", "is", null)
+      .where("provider_resource.archived_at", "is", null)
       .execute();
     return routes.map((r) => {
       const capSet = r.provider_capability_set as Record<string, unknown> | null;

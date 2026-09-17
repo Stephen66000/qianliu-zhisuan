@@ -176,8 +176,9 @@ export function usePrincipals(
   });
 }
 
-export function useProviderResources() {
-  const path = useCatalogPath("resources", "/provider-resources");
+export function useProviderResources(archived?: "exclude" | "only" | "all") {
+  const base = useCatalogPath("resources", "/provider-resources");
+  const path = archived && archived !== "exclude" ? `${base}?archived=${archived}` : base;
   return useQuery({
     queryKey: [...QUERY_KEYS.providerResources, path],
     queryFn: ({ signal }) => get<ProviderResourcesResult>(path, signal),
@@ -196,8 +197,9 @@ export function useResourceUsageOverview() {
   });
 }
 
-export function useProviders() {
-  const path = useCatalogPath("providers", "/providers");
+export function useProviders(archived?: "exclude" | "only" | "all") {
+  const base = useCatalogPath("providers", "/providers");
+  const path = archived && archived !== "exclude" ? `${base}?archived=${archived}` : base;
   return useQuery({
     queryKey: [...QUERY_KEYS.providers, path],
     queryFn: ({ signal }) => get<ProvidersResult>(path, signal),

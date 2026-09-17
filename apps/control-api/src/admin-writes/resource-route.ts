@@ -18,7 +18,7 @@ export function registerAdminResourceUpdateRoute(app: FastifyInstance): void {
         return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
       }
       const enterpriseId = req.admin!.enterpriseId;
-      const before = (await app.providerRepo.listResources(enterpriseId)).find(
+      const before = (await app.providerRepo.listResources(enterpriseId, "all")).find(
         (resource) => resource.id === req.params.id,
       );
       if (!before) return reply.code(404).send({ error: "not_found", message: "资源不存在" });

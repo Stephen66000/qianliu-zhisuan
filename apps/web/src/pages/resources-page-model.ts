@@ -20,8 +20,9 @@ export function useResourcesPageModel() {
   const featureFlags = useFeatureFlags();
   const providerFinanceMode = useProviderFinanceMode();
   const { activeTab, selectTab } = useResourceTab(providerFinanceMode !== "OFF");
-  const query = useProviderResources();
-  const providersQuery = useProviders();
+  const [showArchived, setShowArchived] = useState(false);
+  const query = useProviderResources(showArchived ? "all" : "exclude");
+  const providersQuery = useProviders(showArchived ? "all" : "exclude");
   const forecastsQuery = useSupplyForecasts(activeTab === "supply-health");
   useRedirectOnUnauthorized(query.error ?? providersQuery.error ?? forecastsQuery.error);
   const queryClient = useQueryClient();
@@ -132,6 +133,40 @@ export function useResourcesPageModel() {
       ]);
       setDeleteResourceTarget(null);
     },
+  });
+
+  const invalidateResourceQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providers }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceUsageOverview }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.supplyForecasts }),
+      queryClient.invalidateQueries({ queryKey: ["resource-utilization"] }),
+      queryClient.invalidateQueries({ queryKey: ["provider-finance"] }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unifiedModels }),
+    ]);
+  };
+
+  const archiveResourceMutation = useMutation({
+    mutationFn: (resourceId: string) =>
+      post<{ archived: boolean }>(`/provider-resources/${resourceId}/archive`, {}),
+    onSuccess: invalidateResourceQueries,
+  });
+  const unarchiveResourceMutation = useMutation({
+    mutationFn: (resourceId: string) =>
+      post<{ archived: boolean }>(`/provider-resources/${resourceId}/unarchive`, {}),
+    onSuccess: invalidateResourceQueries,
+  });
+  const archiveProviderMutation = useMutation({
+    mutationFn: (providerId: string) =>
+      post<{ archived: boolean }>(`/providers/${providerId}/archive`, {}),
+    onSuccess: invalidateResourceQueries,
+  });
+  const unarchiveProviderMutation = useMutation({
+    mutationFn: (providerId: string) =>
+      post<{ archived: boolean }>(`/providers/${providerId}/unarchive`, {}),
+    onSuccess: invalidateResourceQueries,
   });
 
   const [newProviderName, setNewProviderName] = useState("");
@@ -267,7 +302,10 @@ export function useResourcesPageModel() {
     createTotalQuota, editRegister, handleEditSubmit, editReset, editErrors, resources, forecasts,
     providerOptions, clearCreateDiscovery,
     showManageProviders, setShowManageProviders, deleteProviderMutation, updateProviderMutation,
-    deleteResourceTarget, setDeleteResourceTarget, deleteResourceMutation
+    deleteResourceTarget, setDeleteResourceTarget, deleteResourceMutation,
+    showArchived, setShowArchived,
+    archiveResourceMutation, unarchiveResourceMutation,
+    archiveProviderMutation, unarchiveProviderMutation
   };
 }
 

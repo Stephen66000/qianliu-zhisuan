@@ -39,8 +39,9 @@ export function registerProviderRoutes(app: FastifyInstance): void {
   registerProviderHealthRoutes(app);
   registerProviderUsageOverviewRoutes(app);
   // ===== Provider =====
-  app.get("/providers", { preHandler: [requireAuth] }, async (req) => {
-    return { providers: await app.providerRepo.listProviders(req.admin!.enterpriseId) };
+  app.get<{ Querystring: { archived?: string } }>("/providers", { preHandler: [requireAuth] }, async (req) => {
+    const archiveFilter = req.query.archived === "only" ? "only" : req.query.archived === "all" ? "all" : "exclude";
+    return { providers: await app.providerRepo.listProviders(req.admin!.enterpriseId, archiveFilter) };
   });
 
   app.post("/providers", { preHandler: [requireAuth] }, async (req, reply) => {
@@ -165,15 +166,87 @@ export function registerProviderRoutes(app: FastifyInstance): void {
     return reply.code(200).send({ deleted: true, resource: result.resource });
   });
 
+  app.post<{ Params: { id: string } }>("/providers/:id/archive", { preHandler: [requireAuth] }, async (req, reply) => {
+    const result = await app.providerRepo.archiveProvider(req.admin!.enterpriseId, req.params.id);
+    if (!result.found) {
+      return reply.code(404).send({ error: "not_found", message: "厂商不存在" });
+    }
+    if (!result.archived) {
+      return reply.code(409).send({ error: "provider_archive_blocked", message: result.reason ?? "厂商已归档或不可归档" });
+    }
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "provider.archive",
+      target_type: "provider",
+      target_id: req.params.id,
+      change_summary: { code: result.provider?.code, name: result.provider?.name },
+      result: "SUCCESS",
+    });
+    return reply.code(200).send({ archived: true, provider: result.provider });
+  });
+
+  app.post<{ Params: { id: string } }>("/providers/:id/unarchive", { preHandler: [requireAuth] }, async (req, reply) => {
+    const restored = await app.providerRepo.unarchiveProvider(req.admin!.enterpriseId, req.params.id);
+    if (!restored) {
+      return reply.code(404).send({ error: "not_found", message: "厂商不存在或未归档" });
+    }
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "provider.unarchive",
+      target_type: "provider",
+      target_id: req.params.id,
+      change_summary: { code: restored.code, name: restored.name },
+      result: "SUCCESS",
+    });
+    return reply.code(200).send({ archived: false, provider: restored });
+  });
+
+  app.post<{ Params: { id: string } }>("/provider-resources/:id/archive", { preHandler: [requireAuth] }, async (req, reply) => {
+    const archived = await app.providerRepo.archiveResource(req.admin!.enterpriseId, req.params.id);
+    if (!archived) {
+      return reply.code(404).send({ error: "not_found", message: "资源不存在或已归档" });
+    }
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "provider_resource.archive",
+      target_type: "provider_resource",
+      target_id: req.params.id,
+      change_summary: { name: archived.name, mode: archived.mode },
+      result: "SUCCESS",
+    });
+    return reply.code(200).send({ archived: true, resource: { id: archived.id, name: archived.name, mode: archived.mode } });
+  });
+
+  app.post<{ Params: { id: string } }>("/provider-resources/:id/unarchive", { preHandler: [requireAuth] }, async (req, reply) => {
+    const restored = await app.providerRepo.unarchiveResource(req.admin!.enterpriseId, req.params.id);
+    if (!restored) {
+      return reply.code(404).send({ error: "not_found", message: "资源不存在或未归档" });
+    }
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "provider_resource.unarchive",
+      target_type: "provider_resource",
+      target_id: req.params.id,
+      change_summary: { name: restored.name, mode: restored.mode },
+      result: "SUCCESS",
+    });
+    return reply.code(200).send({ archived: false, resource: { id: restored.id, name: restored.name, mode: restored.mode } });
+  });
+
   // ===== Provider Resource（凭证加密存储）=====
-  app.get("/provider-resources", { preHandler: [requireAuth] }, async (req) => {
+  app.get<{ Querystring: { archived?: string } }>("/provider-resources", { preHandler: [requireAuth] }, async (req) => {
     const enterpriseId = req.admin!.enterpriseId;
     const now = new Date();
+    const archiveFilter = req.query.archived === "only" ? "only" : req.query.archived === "all" ? "all" : "exclude";
     const financeRead = await financeReadModelEnabled(
       app.providerFinanceMode, app.providerFinanceRepo, enterpriseId,
     );
     const [resources, snapshots, syncStates, financeViews, archivedModels, providers] = await Promise.all([
-      app.providerRepo.listResources(enterpriseId),
+      app.providerRepo.listResources(enterpriseId, archiveFilter),
       app.providerRepo.listCurrentOperatingSnapshots(enterpriseId),
       app.providerRepo.listLatestOperatingSyncStates(enterpriseId),
       !financeRead ? []
@@ -231,6 +304,7 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         version: r.version,
         monthly_budget_amount: r.monthly_budget_amount,
         monthly_budget_currency: r.monthly_budget_currency,
+        archived_at: r.archived_at?.toISOString() ?? null,
         created_at: r.created_at,
         updated_at: r.updated_at,
         operating_snapshot: byResource.get(r.id) ?? null,
@@ -270,7 +344,7 @@ export function registerProviderRoutes(app: FastifyInstance): void {
       if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
         return reply.code(400).send({ error: "invalid_request", message: "limit 必须为 1-100" });
       }
-      const resource = (await app.providerRepo.listResources(req.admin!.enterpriseId))
+      const resource = (await app.providerRepo.listResources(req.admin!.enterpriseId, "all"))
         .find((item) => item.id === req.params.id);
       if (!resource) {
         return reply.code(404).send({ error: "not_found", message: "资源不存在" });

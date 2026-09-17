@@ -113,6 +113,8 @@ export async function runProviderOperatingSyncTick(input: {
     ])
     .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED", "EXHAUSTED"])
     .where("provider.status", "=", "ACTIVE")
+    .where("provider.archived_at", "is", null)
+    .where("provider_resource.archived_at", "is", null)
     .execute() as SyncResource[];
   let snapshotsCreated = 0;
   let failed = 0;

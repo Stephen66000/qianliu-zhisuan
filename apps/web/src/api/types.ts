@@ -143,6 +143,7 @@ export interface PrincipalCleanupPreview {
 export interface ProviderResourceItem {
   id: string;
   provider_id: string;
+  archived_at?: string | null;
   name: string;
   mode: "API" | "CODING_PLAN";
   credential_type: "API_KEY" | "OAUTH" | "SUBSCRIPTION_SESSION";
@@ -327,6 +328,7 @@ export interface Provider {
   supported_protocols: string[] | null;
   capability_set: Record<string, unknown> | null;
   status: string;
+  archived_at?: string | null;
   created_at: string;
   updated_at: string;
 }

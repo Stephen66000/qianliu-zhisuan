@@ -113,7 +113,7 @@ export function registerOperatingBillRoutes(app: FastifyInstance): void {
   app.post("/operating-bill-snapshot-imports", { preHandler: [requireAuth] }, async (req, reply) => {
     const body = SnapshotImportSchema.safeParse(req.body);
     if (!body.success) return invalid(reply);
-    const resources = await app.providerRepo.listResources(req.admin!.enterpriseId);
+    const resources = await app.providerRepo.listResources(req.admin!.enterpriseId, "all");
     const resourceById = new Map(resources.map((resource) => [resource.id, resource]));
     const parsedRows = [];
     for (const [index, row] of body.data.rows.entries()) {

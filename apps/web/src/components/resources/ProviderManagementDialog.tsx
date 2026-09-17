@@ -18,6 +18,8 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
     updateProviderMutation,
     deleteProviderMutation,
     createProviderMutation,
+    archiveProviderMutation,
+    unarchiveProviderMutation,
     setValue,
     getValues,
   } = model;
@@ -170,6 +172,9 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                           <span className="text-[14px] font-medium text-ql-fg">
                             {provider.name}
                           </span>
+                          {provider.archived_at ? (
+                            <span className="rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[10px] text-ql-fg-muted">已归档</span>
+                          ) : null}
                           <span className="rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[11px] font-mono text-ql-fg-secondary">
                             {provider.code}
                           </span>
@@ -207,6 +212,15 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                               取消
                             </button>
                           </div>
+                        ) : provider.archived_at ? (
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-ql-action hover:bg-ql-action-soft transition-colors"
+                            disabled={unarchiveProviderMutation.isPending}
+                            onClick={() => unarchiveProviderMutation.mutate(provider.id)}
+                          >
+                            {unarchiveProviderMutation.isPending ? "恢复中…" : "取消归档"}
+                          </button>
                         ) : (
                           <>
                             <button
@@ -216,6 +230,14 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                             >
                               <Edit2 className="h-3 w-3" />
                               编辑
+                            </button>
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-ql-fg-secondary hover:bg-ql-surface-subtle transition-colors"
+                              disabled={archiveProviderMutation.isPending}
+                              onClick={() => archiveProviderMutation.mutate(provider.id)}
+                            >
+                              {archiveProviderMutation.isPending ? "归档中…" : "归档"}
                             </button>
                             <button
                               type="button"
@@ -307,6 +329,11 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
         {updateProviderMutation.error && (
           <p className="mt-3 text-[12px] text-ql-danger" role="alert">
             {updateProviderMutation.error.message}
+          </p>
+        )}
+        {archiveProviderMutation.error && (
+          <p className="mt-3 text-[12px] text-ql-danger" role="alert">
+            {archiveProviderMutation.error.message}
           </p>
         )}
 

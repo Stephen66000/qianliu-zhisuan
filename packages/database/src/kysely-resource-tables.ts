@@ -4,6 +4,7 @@ export interface ProviderTable {
   id: Generated<string>; enterprise_id: string; code: string; name: string; adapter_type: string;
   supported_protocols: string[] | null; capability_set: Record<string, unknown> | null;
   status: Generated<string>; config_schema_version: string | null; created_at: Generated<Date>; updated_at: Generated<Date>;
+  archived_at: Generated<Date | null>;
 }
 export interface ProviderResourceTable {
   auth_failure_id: Generated<string | null>;
@@ -18,6 +19,7 @@ export interface ProviderResourceTable {
   last_refresh_at: Date | null; refresh_error_classification: string | null; consecutive_failures: Generated<number>;
   cooldown_until: Date | null; last_probe_at: Date | null; version: Generated<number>;
   monthly_budget_amount: Generated<string | null>; monthly_budget_currency: Generated<string | null>;
+  archived_at: Generated<Date | null>;
   created_at: Generated<Date>; updated_at: Generated<Date>;
 }
 export interface ProviderResourceMonthlyBudgetTable {

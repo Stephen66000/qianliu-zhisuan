@@ -78,13 +78,67 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       .executeTakeFirstOrThrow();
   }
 
-  async listProviders(enterpriseId: string): Promise<Provider[]> {
+  async listProviders(enterpriseId: string, archived: ArchiveFilter = "exclude"): Promise<Provider[]> {
     return this.db
       .selectFrom("provider")
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
+      .$if(archived === "exclude", (qb) => qb.where("archived_at", "is", null))
+      .$if(archived === "only", (qb) => qb.where("archived_at", "is not", null))
       .orderBy("created_at", "desc")
       .execute();
+  }
+
+  async archiveProvider(
+    enterpriseId: string,
+    providerId: string,
+  ): Promise<{ found: boolean; archived: boolean; reason?: string; provider?: Provider }> {
+    const provider = await this.db
+      .selectFrom("provider")
+      .selectAll()
+      .where("enterprise_id", "=", enterpriseId)
+      .where("id", "=", providerId)
+      .executeTakeFirst();
+    if (!provider || provider.archived_at !== null) {
+      return { found: provider !== undefined, archived: false };
+    }
+    const activeResources = await this.db
+      .selectFrom("provider_resource")
+      .select((eb) => eb.fn.count<string>("id").as("count"))
+      .where("enterprise_id", "=", enterpriseId)
+      .where("provider_id", "=", providerId)
+      .where("archived_at", "is", null)
+      .executeTakeFirst();
+    const activeCount = Number(activeResources?.count ?? 0);
+    if (activeCount > 0) {
+      return {
+        found: true,
+        archived: false,
+        reason: `该厂商名下仍有 ${activeCount} 个未归档的厂商资源，请先归档相关资源后再归档厂商`,
+      };
+    }
+    const updated = await this.db
+      .updateTable("provider")
+      .set({ archived_at: new Date(), updated_at: new Date() })
+      .where("enterprise_id", "=", enterpriseId)
+      .where("id", "=", providerId)
+      .returningAll()
+      .executeTakeFirst();
+    return { found: true, archived: true, provider: updated };
+  }
+
+  async unarchiveProvider(
+    enterpriseId: string,
+    providerId: string,
+  ): Promise<Provider | undefined> {
+    return this.db
+      .updateTable("provider")
+      .set({ archived_at: null, updated_at: new Date() })
+      .where("enterprise_id", "=", enterpriseId)
+      .where("id", "=", providerId)
+      .where("archived_at", "is not", null)
+      .returningAll()
+      .executeTakeFirst();
   }
 
   async updateProvider(
@@ -167,13 +221,43 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
     });
   }
 
-  async listResources(enterpriseId: string): Promise<ProviderResource[]> {
+  async listResources(enterpriseId: string, archived: ArchiveFilter = "exclude"): Promise<ProviderResource[]> {
     return this.db
       .selectFrom("provider_resource")
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
+      .$if(archived === "exclude", (qb) => qb.where("archived_at", "is", null))
+      .$if(archived === "only", (qb) => qb.where("archived_at", "is not", null))
       .orderBy("created_at", "desc")
       .execute();
+  }
+
+  async archiveResource(
+    enterpriseId: string,
+    resourceId: string,
+  ): Promise<ProviderResource | undefined> {
+    return this.db
+      .updateTable("provider_resource")
+      .set({ archived_at: new Date(), updated_at: new Date() })
+      .where("enterprise_id", "=", enterpriseId)
+      .where("id", "=", resourceId)
+      .where("archived_at", "is", null)
+      .returningAll()
+      .executeTakeFirst();
+  }
+
+  async unarchiveResource(
+    enterpriseId: string,
+    resourceId: string,
+  ): Promise<ProviderResource | undefined> {
+    return this.db
+      .updateTable("provider_resource")
+      .set({ archived_at: null, updated_at: new Date() })
+      .where("enterprise_id", "=", enterpriseId)
+      .where("id", "=", resourceId)
+      .where("archived_at", "is not", null)
+      .returningAll()
+      .executeTakeFirst();
   }
 
   async onboardResourceModels(

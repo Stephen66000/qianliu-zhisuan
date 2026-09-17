@@ -535,6 +535,70 @@ describe("W04 Provider/Resource/Model/Route", () => {
     expect(Number(attemptCount.count)).toBe(1);
   });
 
+  it("归档：资源与厂商可归档/恢复，列表默认排除归档项，厂商须资源先归档", async () => {
+    const archProvider = await db.insertInto("provider").values({
+      enterprise_id: ENT_ID,
+      code: "ArchTest",
+      name: "归档测试厂商",
+      adapter_type: "deepseek",
+    }).returningAll().executeTakeFirstOrThrow();
+    const archResource = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID,
+      provider_id: archProvider.id,
+      name: "归档测试资源",
+      mode: "API",
+      credential_type: "API_KEY",
+    }).returningAll().executeTakeFirstOrThrow();
+
+    // 厂商名下有未归档资源时不可归档
+    const blockedRes = await app.inject({
+      method: "POST",
+      url: `/providers/${archProvider.id}/archive`,
+      headers: { cookie: adminCookie },
+    });
+    expect(blockedRes.statusCode).toBe(409);
+    expect(blockedRes.json().message).toContain("未归档");
+
+    // 归档资源 → 默认列表排除，archived=only 可见
+    const archRes = await app.inject({
+      method: "POST",
+      url: `/provider-resources/${archResource.id}/archive`,
+      headers: { cookie: adminCookie },
+    });
+    expect(archRes.statusCode).toBe(200);
+
+    const listDefault = await app.inject({ method: "GET", url: "/provider-resources", headers: { cookie: adminCookie } });
+    expect(listDefault.json().resources.some((r: { id: string }) => r.id === archResource.id)).toBe(false);
+    const listOnly = await app.inject({ method: "GET", url: "/provider-resources?archived=only", headers: { cookie: adminCookie } });
+    expect(listOnly.json().resources.some((r: { id: string }) => r.id === archResource.id)).toBe(true);
+
+    // 资源归档后厂商可归档；厂商默认列表排除
+    const archProvRes = await app.inject({
+      method: "POST",
+      url: `/providers/${archProvider.id}/archive`,
+      headers: { cookie: adminCookie },
+    });
+    expect(archProvRes.statusCode).toBe(200);
+    const provDefault = await app.inject({ method: "GET", url: "/providers", headers: { cookie: adminCookie } });
+    expect(provDefault.json().providers.some((p: { id: string }) => p.id === archProvider.id)).toBe(false);
+
+    // 恢复：厂商先恢复，资源再恢复，均回到默认列表
+    const unarchProv = await app.inject({
+      method: "POST",
+      url: `/providers/${archProvider.id}/unarchive`,
+      headers: { cookie: adminCookie },
+    });
+    expect(unarchProv.statusCode).toBe(200);
+    const unarchRes = await app.inject({
+      method: "POST",
+      url: `/provider-resources/${archResource.id}/unarchive`,
+      headers: { cookie: adminCookie },
+    });
+    expect(unarchRes.statusCode).toBe(200);
+    const listRestored = await app.inject({ method: "GET", url: "/provider-resources", headers: { cookie: adminCookie } });
+    expect(listRestored.json().resources.some((r: { id: string }) => r.id === archResource.id)).toBe(true);
+  });
+
   // ===== M1 DoD canary：上游凭证明文绝不进 DB =====
   it("canary：上游凭证明文在 provider_resource 表 0 命中（M1 DoD 硬门禁）", async () => {
     const canarySecret = "sk-deepseek-CANARY-SECRET-FOR-SCAN-12345";
