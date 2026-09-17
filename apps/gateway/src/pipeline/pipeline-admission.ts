@@ -190,6 +190,7 @@ export async function preparePipelineContext(
       probe: admission.probe,
       mode: candidate.mode,
       providerCode: candidate.providerCode,
+      adapterType: candidate.adapterType,
     };
   });
 

@@ -56,6 +56,8 @@ export interface RoutingCandidateInput {
   mode: "API" | "CODING_PLAN";
   /** provider.code（deepseek/zhipu/kimi，Adapter 解析用）。 */
   providerCode: string;
+  /** provider.adapter_type（Adapter 判定权威来源；缺省时回退 providerCode）。 */
+  adapterType?: string;
 }
 
 /** 单个因子的归一化分数（0..1）与在场标记。 */

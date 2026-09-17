@@ -30,7 +30,7 @@ export async function executeSelectedAttempt(
     reservedProjectedRemaining,
   } = prepared.value;
   const { deps, body, principal, requestId } = context;
-  const adapter = resolveAdapter(candidate.providerCode, deps.caller);
+  const adapter = resolveAdapter(candidate.adapterType ?? candidate.providerCode, deps.caller);
   state.invokedResourceIds.add(candidate.resourceId);
   const outcome = await adapter.invoke({
     providerCode: candidate.providerCode as "deepseek" | "zhipu" | "kimi",

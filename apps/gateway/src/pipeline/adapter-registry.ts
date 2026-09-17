@@ -21,19 +21,25 @@ import {
 export type ProviderCode = "deepseek" | "zhipu" | "kimi";
 
 /**
- * 按厂商 code 解析 Adapter。未注册的 code 抛错（避免静默选错 Adapter）。
- * Kimi 于 W10 落地并注册。
+ * 按持久化的 adapter_type 解析 Adapter（与 control-api 创建厂商时写入的
+ * provider.adapter_type 保持同一判定来源，不再各自按 code 猜测）。
+ * 未知 adapter_type 回退 OpenAI 兼容（DeepSeekAdapter）并打 warn，
+ * 避免静默选错 Adapter。
  */
 export function resolveAdapter(
-  providerCode: string,
+  adapterType: string,
   caller: UpstreamCaller,
 ): ProviderAdapter {
-  const normalized = (providerCode || "").toLowerCase().trim();
-  if (normalized === "zhipu" || normalized.includes("zhipu") || normalized.includes("glm")) {
-    return new ZhipuAdapter(caller);
+  const normalized = (adapterType || "").toLowerCase().trim();
+  switch (normalized) {
+    case "zhipu":
+      return new ZhipuAdapter(caller);
+    case "kimi":
+      return new KimiAdapter(caller);
+    case "deepseek":
+      return new DeepSeekAdapter(caller);
+    default:
+      console.warn(`[adapter-registry] unknown adapter_type "${adapterType}", fallback to openai-compatible (deepseek) adapter`);
+      return new DeepSeekAdapter(caller);
   }
-  if (normalized === "kimi" || normalized.includes("kimi") || normalized.includes("moonshot")) {
-    return new KimiAdapter(caller);
-  }
-  return new DeepSeekAdapter(caller);
 }

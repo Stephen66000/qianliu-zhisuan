@@ -32,6 +32,8 @@ export interface RouteCandidateRow {
   routeId?: string;
   resourceId: string;
   providerCode: string;
+  /** provider.adapter_type（Adapter 判定的唯一权威来源；缺省时回退 providerCode） */
+  adapterType?: string;
   upstreamModel: string;
   priority: number;
   weight: number;
