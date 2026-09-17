@@ -277,7 +277,13 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
               }}
               onDiscovery={(result) => {
                 setDiscovery(result);
-                setSelectedModelIds(result.models.filter((model) => model.compatible).map((model) => model.id));
+                const compatible = result.models.filter((model) => model.compatible);
+                if (compatible.length > 6) {
+                  const core = compatible.filter((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id));
+                  setSelectedModelIds(core.length > 0 ? core.map((m) => m.id) : compatible.slice(0, 5).map((m) => m.id));
+                } else {
+                  setSelectedModelIds(compatible.map((model) => model.id));
+                }
                 setCreateValidationError("");
               }}
               onSelectedModelIdsChange={setSelectedModelIds}

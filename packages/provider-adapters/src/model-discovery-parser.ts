@@ -95,7 +95,7 @@ function classifyModel(id: string): Pick<DiscoveredProviderModel, "modelType" | 
   const normalized = id.toLowerCase();
   if (/embed/.test(normalized)) return { modelType: "EMBEDDING", capabilities: ["embedding"], compatible: false, unavailableReason: "Gateway 暂不承载向量模型" };
   if (/(^|[-_])(image|vision-gen|tts|audio)([-_]|$)/.test(normalized)) return { modelType: "IMAGE", capabilities: [], compatible: false, unavailableReason: "Gateway 暂不承载该模型类型" };
-  if (/(^|[-_])vision([-_]|$)/.test(normalized)) return { modelType: "CHAT", capabilities: ["chat", "stream", "vision"], compatible: true, unavailableReason: null };
+  if (/(^|[-_])(vision|vl)([-_]|$)/.test(normalized)) return { modelType: "CHAT", capabilities: ["chat", "stream", "vision"], compatible: true, unavailableReason: null };
   return { modelType: "CHAT", capabilities: ["chat", "stream"], compatible: true, unavailableReason: null };
 }
 

@@ -42,8 +42,13 @@ describe("W-MD 官方来源模型发现", () => {
     expect(result.sourceContentHash).toMatch(/^sha256:/);
   });
 
-  it("Qwen 官方预设自动匹配 DashScope 兼容接口并成功发现模型", async () => {
-    const fetch = vi.fn(async () => apiResponse({ data: [{ id: "qwen-plus" }, { id: "text-embedding-v3" }] }));
+  it("Qwen 官方预设自动匹配 DashScope 兼容接口并自动过滤非千问模型", async () => {
+    const fetch = vi.fn(async () => apiResponse({ data: [
+      { id: "qwen-plus" },
+      { id: "qwen-max" },
+      { id: "llama-3-70b-instruct" },
+      { id: "text-embedding-v3" },
+    ] }));
     const result = await discoverProviderModels({
       providerCode: "Qwen", mode: "API", credential: "qwen-secret", fetch,
       now: new Date("2026-08-25T00:00:00.000Z"),
@@ -52,10 +57,8 @@ describe("W-MD 官方来源模型发现", () => {
       headers: expect.objectContaining({ authorization: "Bearer qwen-secret" }), redirect: "error",
     }));
     expect(result.source).toBe("PROVIDER_API");
-    expect(result.models).toEqual([
-      expect.objectContaining({ id: "qwen-plus", compatible: true }),
-      expect.objectContaining({ id: "text-embedding-v3", compatible: false }),
-    ]);
+    expect(result.models.map((m) => m.id)).toEqual(["qwen-max", "qwen-plus"]);
+    expect(result.models.every((m) => m.compatible)).toBe(true);
   });
 
   it("自定义 Base URL 能够动态解析 models 端点", async () => {

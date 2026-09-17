@@ -14,7 +14,7 @@ import { SecretValue } from "./secret-value.js";
 import { createOpenAiCompatibleCaller } from "./openai-compatible-caller.js";
 import type { HttpFetch } from "./openai-compatible-types.js";
 
-import { resolveProviderModelsUrl } from "./known-providers.js";
+import { findKnownProvider, resolveProviderModelsUrl } from "./known-providers.js";
 
 export * from "./model-discovery-contract.js";
 
@@ -325,8 +325,17 @@ async function discoverFromProviderApi(
     ? (payload as { data: unknown[] }).data
     : null;
   if (!data) throw new ProviderModelDiscoveryError("INVALID_RESPONSE", "厂商返回了无法识别的模型列表");
-  const ids = [...new Set(data.map((item) => item && typeof item === "object" &&
+  let ids = [...new Set(data.map((item) => item && typeof item === "object" &&
     typeof (item as { id?: unknown }).id === "string" ? (item as { id: string }).id.trim() : "").filter(Boolean))].sort();
+
+  const p = (input.providerCode || "").toLowerCase();
+  if (p === "qwen" || findKnownProvider(p)?.code === "Qwen") {
+    const qwenIds = ids.filter((id) => /^(qwen|qwq)/i.test(id));
+    if (qwenIds.length > 0) {
+      ids = qwenIds;
+    }
+  }
+
   if (ids.length === 0 || ids.length > MAX_MODEL_COUNT) {
     throw new ProviderModelDiscoveryError(ids.length > MAX_MODEL_COUNT ? "OFFICIAL_SOURCE_TOO_LARGE" : "INVALID_RESPONSE",
       "厂商返回的模型目录无法安全采用");

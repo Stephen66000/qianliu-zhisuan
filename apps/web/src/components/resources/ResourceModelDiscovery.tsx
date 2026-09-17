@@ -81,6 +81,11 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
     }
     mutation.mutate(values);
   };
+  const compatibleModels = props.discovery?.models.filter((model) => model.compatible && model.availabilityStatus !== "REMOVED") ?? [];
+  const selectedCount = props.selectedModelIds.filter((id) => compatibleModels.some((m) => m.id === id)).length;
+  const isAllCompatibleSelected = compatibleModels.length > 0 && selectedCount === compatibleModels.length;
+  const isIndeterminate = selectedCount > 0 && !isAllCompatibleSelected;
+
   return <div className="sm:col-span-2 rounded-lg border border-ql-border bg-ql-surface p-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><h3 className="text-[13px] font-semibold text-ql-fg">检测当前凭证可用模型</h3>
@@ -92,17 +97,72 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
     </div>
       {props.discovery ? <div className="mt-3 space-y-2">
         <DiscoveryMeta discovery={props.discovery} />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <input aria-label="搜索发现模型" className={`${INPUT_CLASS} max-w-xs`}
           onChange={(event) => setSearch(event.target.value)} placeholder="搜索模型" value={search} />
-        <button className="rounded-md px-3 text-[12px] text-ql-action"
-          onClick={() => props.onSelectedModelIdsChange(
-            props.discovery?.models.filter((model) => model.compatible).map((model) => model.id) ?? [],
-          )} type="button">全选兼容模型</button>
         <span className="self-center text-[11px] text-ql-fg-tertiary">
           {props.discovery.source} · {formatDateTimeFull(props.discovery.discovered_at)}
         </span>
       </div>
+
+      {/* 批量选择工具条 */}
+      <div className="flex flex-wrap items-center justify-between gap-2 py-2 px-3 rounded-lg border border-ql-border bg-ql-surface-subtle">
+        <div className="flex items-center gap-3">
+          {compatibleModels.length > 1 && (
+            <label className="flex items-center gap-2 cursor-pointer text-[13px] font-medium text-ql-fg select-none hover:text-ql-action transition-colors">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-ql-border text-ql-action focus:ring-ql-action cursor-pointer"
+                checked={isAllCompatibleSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = isIndeterminate;
+                }}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    props.onSelectedModelIdsChange(compatibleModels.map((m) => m.id));
+                  } else {
+                    props.onSelectedModelIdsChange([]);
+                  }
+                }}
+              />
+              <span>全选</span>
+            </label>
+          )}
+          <span className="text-[12px] text-ql-fg-muted">
+            已选 <strong className="text-ql-action font-semibold">{selectedCount}</strong> / {compatibleModels.length} 个兼容模型
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            className="px-2.5 py-1 rounded border border-ql-border bg-ql-surface text-[12px] font-medium text-ql-action hover:bg-ql-action-soft transition-colors"
+            onClick={() => props.onSelectedModelIdsChange(compatibleModels.map((m) => m.id))}
+          >
+            全选兼容模型
+          </button>
+          <button
+            type="button"
+            className="px-2.5 py-1 rounded border border-ql-border bg-ql-surface text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft transition-colors"
+            onClick={() => props.onSelectedModelIdsChange([])}
+          >
+            清空选择
+          </button>
+          {compatibleModels.some((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id)) && (
+            <button
+              type="button"
+              className="px-2.5 py-1 rounded border border-ql-border bg-ql-surface text-[12px] font-medium text-ql-fg hover:bg-ql-surface-subtle transition-colors"
+              onClick={() => {
+                const core = compatibleModels.filter((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id));
+                props.onSelectedModelIdsChange(core.map((m) => m.id));
+              }}
+            >
+              仅选推荐
+            </button>
+          )}
+        </div>
+      </div>
+
       {visible.map((model) => <ModelChoice key={model.id} model={model}
         onChange={(checked) => props.onSelectedModelIdsChange(checked
           ? [...props.selectedModelIds, model.id]
@@ -488,19 +548,48 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
             </div>
           );
         }
-        return joinable.map((model) => (
-          <ModelChoice
-            compatibleText="可加入"
-            key={model.id}
-            model={model}
-            onChange={(checked) =>
-              setSelectedIds((current) =>
-                checked ? [...current, model.id] : current.filter((id) => id !== model.id)
-              )
-            }
-            selected={selectedIds.includes(model.id)}
-          />
-        ));
+        const isAllJoinableSelected = joinable.length > 0 && joinable.every((m) => selectedIds.includes(m.id));
+        const selectedJoinableCount = selectedIds.filter((id) => joinable.some((m) => m.id === id)).length;
+        const isJoinableIndeterminate = selectedJoinableCount > 0 && !isAllJoinableSelected;
+
+        return (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2 px-3 rounded-lg bg-ql-surface border border-ql-border-zone">
+              <span className="text-[12px] text-ql-fg-muted">
+                已选 <strong className="text-ql-action font-semibold">{selectedJoinableCount}</strong> / {joinable.length} 个待加入模型
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className="px-2.5 py-1 rounded border border-ql-border bg-ql-surface text-[12px] font-medium text-ql-fg hover:bg-ql-surface-subtle"
+                  onClick={() => setSelectedIds(joinable.map((m) => m.id))}
+                >
+                  全选
+                </button>
+                <button
+                  type="button"
+                  className="px-2.5 py-1 rounded border border-ql-border bg-ql-surface text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
+                  onClick={() => setSelectedIds([])}
+                >
+                  清空选择
+                </button>
+              </div>
+            </div>
+            {joinable.map((model) => (
+              <ModelChoice
+                compatibleText="可加入"
+                key={model.id}
+                model={model}
+                onChange={(checked) =>
+                  setSelectedIds((current) =>
+                    checked ? [...current, model.id] : current.filter((id) => id !== model.id)
+                  )
+                }
+                selected={selectedIds.includes(model.id)}
+              />
+            ))}
+          </div>
+        );
       })()}
       <div className="flex justify-end gap-2">
         <button className="h-9 rounded-lg border border-ql-border px-3 text-[13px]" onClick={onClose} type="button">取消</button>
