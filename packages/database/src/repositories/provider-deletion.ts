@@ -109,7 +109,7 @@ export async function deleteProviderResourceSafely(
       return {
         found: true,
         deleted: false,
-        reason: "该资源已有实际调用或财务账本事实，为保证法定审计与资金真账一致性不可物理删除，请通过模型下架或停用进行管理",
+        reason: "该资源已有实际调用、经营同步或财务账本事实，为保证法定审计与资金真账一致性不可物理删除，请通过模型下架或停用进行管理",
         resource: { id: resource.id, name: resource.name, mode: resource.mode },
       };
     }
@@ -213,11 +213,9 @@ export async function deleteProviderResourceSafely(
       .where("provider_resource_id", "=", resourceId)
       .execute();
 
-    await trx
-      .deleteFrom("provider_resource_operating_sync_attempt")
-      .where("enterprise_id", "=", enterpriseId)
-      .where("provider_resource_id", "=", resourceId)
-      .execute();
+    // provider_resource_operating_sync_attempt 是 append-only（不可变触发器），
+    // 存在即由 hasResourceFacts 拦截，绝不级联删除。
+    // snapshot 仅在无任何 attempt（attempt.snapshot_id 外键）时可安全删除。
     await trx
       .deleteFrom("provider_resource_operating_snapshot")
       .where("enterprise_id", "=", enterpriseId)
@@ -254,7 +252,7 @@ export async function deleteProviderResourceSafely(
 
 type Trx = Kysely<Database>;
 
-/** 资源是否已有真实调用或资金/账本事实（有则禁止物理删除）。 */
+/** 资源是否已有真实调用、经营同步或资金/账本事实（有则禁止物理删除）。 */
 async function hasResourceFacts(
   trx: Trx,
   enterpriseId: string,
@@ -267,6 +265,9 @@ async function hasResourceFacts(
     "provider_finance_event",
     "provider_subscription_period",
     "operating_bill_resource_confirmation",
+    // append-only（不可变触发器）且 snapshot_id 外键回指快照：
+    // 存在同步历史即永远禁止物理删除该资源。
+    "provider_resource_operating_sync_attempt",
   ] as const;
   const counts = await Promise.all(
     tables.map((table) =>

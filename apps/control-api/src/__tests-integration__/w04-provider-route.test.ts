@@ -482,6 +482,59 @@ describe("W04 Provider/Resource/Model/Route", () => {
     expect(delRes.json().provider.id).toBe(testProviderId);
   });
 
+  it("删除资源：存在 append-only 经营同步历史时友好 409 拦截，不冒泡触发器异常", async () => {
+    const syncProvider = await db.insertInto("provider").values({
+      enterprise_id: ENT_ID,
+      code: "SyncTest",
+      name: "同步历史测试厂商",
+      adapter_type: "deepseek",
+    }).returningAll().executeTakeFirstOrThrow();
+    const syncResource = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID,
+      provider_id: syncProvider.id,
+      name: "有同步历史的资源",
+      mode: "API",
+      credential_type: "API_KEY",
+    }).returningAll().executeTakeFirstOrThrow();
+    const now = new Date();
+    const later = new Date(now.getTime() + 60_000);
+    await db.insertInto("provider_resource_operating_sync_attempt").values({
+      enterprise_id: ENT_ID,
+      provider_resource_id: syncResource.id,
+      sync_day: "2026-09-17",
+      balance_status: "NOT_SUPPORTED",
+      cost_status: "NOT_SUPPORTED",
+      started_at: now,
+      completed_at: now,
+      next_sync_at: later,
+      adapter_version: "test",
+    }).execute();
+
+    const delRes = await app.inject({
+      method: "DELETE",
+      url: `/provider-resources/${syncResource.id}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(delRes.statusCode).toBe(409);
+    expect(delRes.json().error).toBe("resource_has_history");
+    expect(delRes.json().message).toContain("不可物理删除");
+    expect(delRes.json().message).not.toContain("append-only");
+
+    // 资源与同步历史均完好
+    const stillThere = await db
+      .selectFrom("provider_resource")
+      .select("id")
+      .where("id", "=", syncResource.id)
+      .executeTakeFirst();
+    expect(stillThere).toBeDefined();
+    const attemptCount = await db
+      .selectFrom("provider_resource_operating_sync_attempt")
+      .select((eb) => eb.fn.countAll<string>().as("count"))
+      .where("provider_resource_id", "=", syncResource.id)
+      .executeTakeFirstOrThrow();
+    expect(Number(attemptCount.count)).toBe(1);
+  });
+
   // ===== M1 DoD canary：上游凭证明文绝不进 DB =====
   it("canary：上游凭证明文在 provider_resource 表 0 命中（M1 DoD 硬门禁）", async () => {
     const canarySecret = "sk-deepseek-CANARY-SECRET-FOR-SCAN-12345";
