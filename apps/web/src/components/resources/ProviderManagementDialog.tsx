@@ -110,7 +110,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
         </div>
 
         {/* 厂商列表 */}
-        <div className="mt-4 max-h-[360px] overflow-y-auto space-y-2.5 pr-1">
+        <div className="mt-4 max-h-[60vh] overflow-y-auto space-y-2.5 pr-1">
           {providerOptions.length === 0 ? (
             <div className="py-8 text-center text-[13px] text-ql-fg-muted">
               暂无已添加的厂商
@@ -181,28 +181,50 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
 
                     {!isEditing && (
                       <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-ql-action hover:bg-ql-action-soft transition-colors"
-                          onClick={() => startEdit(provider.id, provider.name)}
-                          disabled={isConfirmingDelete}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                          编辑
-                        </button>
-                        <button
-                          type="button"
-                          className={`flex items-center gap-1 px-2 py-1 rounded text-[12px] transition-colors ${
-                            resourceCount > 0
-                              ? "text-ql-fg-muted/60 hover:text-ql-danger hover:bg-ql-danger-soft"
-                              : "text-ql-danger hover:bg-ql-danger-soft"
-                          }`}
-                          onClick={() => setConfirmDeleteId(provider.id)}
-                          disabled={isConfirmingDelete}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          删除
-                        </button>
+                        {isConfirmingDelete ? (
+                          <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                            <span className="text-[12px] text-ql-danger font-medium">确定删除？</span>
+                            <button
+                              type="button"
+                              className="px-2 py-1 rounded bg-ql-danger text-white text-[11px] font-medium hover:bg-ql-danger-hover disabled:opacity-60 shadow-sm"
+                              onClick={() => handleDelete(provider.id)}
+                              disabled={deleteProviderMutation.isPending}
+                            >
+                              {deleteProviderMutation.isPending ? "删除中…" : "确定"}
+                            </button>
+                            <button
+                              type="button"
+                              className="px-2 py-1 rounded bg-ql-surface border border-ql-border text-[11px] text-ql-fg hover:bg-ql-surface-subtle"
+                              onClick={() => setConfirmDeleteId(null)}
+                              disabled={deleteProviderMutation.isPending}
+                            >
+                              取消
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-ql-action hover:bg-ql-action-soft transition-colors"
+                              onClick={() => startEdit(provider.id, provider.name)}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              编辑
+                            </button>
+                            <button
+                              type="button"
+                              className={`flex items-center gap-1 px-2 py-1 rounded text-[12px] transition-colors ${
+                                resourceCount > 0
+                                  ? "text-ql-fg-muted/60 hover:text-ql-danger hover:bg-ql-danger-soft"
+                                  : "text-ql-danger hover:bg-ql-danger-soft"
+                              }`}
+                              onClick={() => setConfirmDeleteId(provider.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              删除
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
