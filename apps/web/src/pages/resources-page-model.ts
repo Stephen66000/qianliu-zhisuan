@@ -78,12 +78,15 @@ export function useResourcesPageModel() {
   });
 
   const createProviderMutation = useMutation({
-    mutationFn: (values: { code: string; name: string; adapter_type?: string }) =>
-      post<{ provider: { id: string } }>("/providers", {
-        code: values.code.trim().toLowerCase(),
+    mutationFn: (values: { code: string; name: string; adapter_type?: string }) => {
+      const trimmed = values.code.trim();
+      const capitalizedCode = trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1) : "";
+      return post<{ provider: { id: string } }>("/providers", {
+        code: capitalizedCode,
         name: values.name.trim(),
         adapter_type: values.adapter_type || "deepseek",
-      }),
+      });
+    },
     onSuccess: async (data, variables) => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providers });
       setShowNewProvider(false);

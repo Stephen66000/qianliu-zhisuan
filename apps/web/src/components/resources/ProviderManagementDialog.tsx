@@ -64,9 +64,11 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
 
   const handleCreate = () => {
     if (!newCode.trim() || !newName.trim()) return;
+    const clean = newCode.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+    const formattedCode = clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "";
     createProviderMutation.mutate(
       {
-        code: newCode.trim().toLowerCase(),
+        code: formattedCode,
         name: newName.trim(),
         adapter_type: newAdapter,
       },
@@ -275,13 +277,16 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
           <div className="mt-4 rounded-lg border border-ql-border bg-ql-surface-subtle p-3">
             <div className="text-[13px] font-medium text-ql-fg mb-2">新建厂商</div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
-              <FormField htmlFor="inline-provider-code" label="厂商代码 (唯一英文)">
+              <FormField htmlFor="inline-provider-code" label="厂商代码 (首字母大写)">
                 <input
                   className={INPUT_CLASS}
                   id="inline-provider-code"
-                  placeholder="如：qwen 或 test-01"
+                  placeholder="如：Qwen 或 Minimax"
                   value={newCode}
-                  onChange={(e) => setNewCode(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/[^a-zA-Z0-9_-]/g, "");
+                    setNewCode(clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "");
+                  }}
                 />
               </FormField>
               <FormField htmlFor="inline-provider-name" label="显示名称">

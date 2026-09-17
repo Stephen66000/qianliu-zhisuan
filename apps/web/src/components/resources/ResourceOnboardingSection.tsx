@@ -105,13 +105,16 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                   <span className="text-[12px] text-ql-fg-muted">直接输入厂商代码与名称，支持接入任意兼容厂商</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <FormField htmlFor="new-provider-code" label="厂商代码 (唯一标识)">
+                  <FormField htmlFor="new-provider-code" label="厂商代码 (首字母大写)">
                     <input
                       className={INPUT_CLASS}
                       id="new-provider-code"
-                      placeholder="如：qwen, minimax 或 test-01"
+                      placeholder="如：Qwen, Minimax 或 Test-01"
                       value={newProviderCode}
-                      onChange={(e) => setNewProviderCode(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                      onChange={(e) => {
+                        const clean = e.target.value.replace(/[^a-zA-Z0-9_-]/g, "");
+                        setNewProviderCode(clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "");
+                      }}
                     />
                   </FormField>
                   <FormField htmlFor="new-provider-name" label="显示名称">

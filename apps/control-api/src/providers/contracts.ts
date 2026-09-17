@@ -13,8 +13,15 @@ export const CreateProviderSchema = z.object({
     .string()
     .min(1, "厂商代码不能为空")
     .max(32, "厂商代码最多 32 个字符")
-    .transform((s) => s.trim().toLowerCase())
-    .refine((s) => /^[a-z0-9_-]+$/.test(s), "厂商代码只能包含小写字母、数字、下划线和连字符"),
+    .transform((s) => {
+      const trimmed = s.trim();
+      if (!trimmed) return "";
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    })
+    .refine(
+      (s) => /^[A-Z][a-zA-Z0-9_-]*$/.test(s),
+      "厂商代码首字母必须为大写英文字母（如 Qwen、Deepseek），且只能包含英文字母、数字、下划线和连字符",
+    ),
   name: z
     .string()
     .min(1, "显示名称不能为空")
@@ -182,7 +189,8 @@ export const CreateRouteSchema = z.object({
 });
 
 export function isProviderCode(value: string): value is ProviderCode {
-  return value === "deepseek" || value === "zhipu" || value === "kimi";
+  const lower = (value || "").toLowerCase();
+  return lower === "deepseek" || lower === "zhipu" || lower === "kimi";
 }
 
 export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverProviderModels>>) {

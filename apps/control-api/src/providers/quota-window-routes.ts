@@ -10,7 +10,8 @@ import {
 import { requireAuth } from "../plugins/auth-guard.js";
 
 function isProviderCode(code: string): code is ProviderCode {
-  return code === "deepseek" || code === "kimi" || code === "zhipu";
+  const lower = (code || "").toLowerCase();
+  return lower === "deepseek" || lower === "kimi" || lower === "zhipu";
 }
 
 export function registerProviderQuotaWindowRoutes(app: FastifyInstance): void {
