@@ -82,8 +82,9 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         result: "SUCCESS",
       });
       return reply.code(201).send({ provider });
-    } catch (err: any) {
-      if (err?.code === "23505" || err?.message?.includes("provider_enterprise_code_idx")) {
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string; message?: string } | null;
+      if (pgErr?.code === "23505" || pgErr?.message?.includes("provider_enterprise_code_idx")) {
         return reply.code(409).send({
           error: "provider_code_exists",
           message: `厂商代码 “${parsed.data.code}” 已存在，每个企业内每种厂商只能创建一次。请直接选择已有厂商。`,
@@ -145,7 +146,6 @@ export function registerProviderRoutes(app: FastifyInstance): void {
     const result = await app.providerRepo.deleteResourceSafely(
       req.admin!.enterpriseId,
       req.params.id,
-      req.admin!.adminUserId,
     );
     if (!result.found) {
       return reply.code(404).send({ error: "not_found", message: "资源不存在" });

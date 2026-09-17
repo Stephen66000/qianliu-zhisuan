@@ -548,9 +548,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
             </div>
           );
         }
-        const isAllJoinableSelected = joinable.length > 0 && joinable.every((m) => selectedIds.includes(m.id));
         const selectedJoinableCount = selectedIds.filter((id) => joinable.some((m) => m.id === id)).length;
-        const isJoinableIndeterminate = selectedJoinableCount > 0 && !isAllJoinableSelected;
 
         return (
           <div className="space-y-2">

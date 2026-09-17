@@ -4,6 +4,11 @@ import { FormField, INPUT_CLASS } from "../writes/FormField";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 import { COMMON_PROVIDER_PRESETS, findKnownProvider } from "./known-providers";
 
+function providerBaseUrl(capabilitySet: Record<string, unknown> | null | undefined): string | undefined {
+  const value = capabilitySet?.base_url;
+  return typeof value === "string" ? value : undefined;
+}
+
 export function ProviderManagementDialog({ model }: { model: ResourcesPageModel }) {
   const {
     showManageProviders,
@@ -120,6 +125,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               const resourceCount = resources.filter((r) => r.provider_id === provider.id).length;
               const isEditing = editingId === provider.id;
               const isConfirmingDelete = confirmDeleteId === provider.id;
+              const baseUrl = providerBaseUrl(provider.capability_set);
 
               return (
                 <div
@@ -167,12 +173,12 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                           <span className="rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[11px] font-mono text-ql-fg-secondary">
                             {provider.code}
                           </span>
-                          {provider.capability_set && typeof (provider.capability_set as any).base_url === "string" ? (
+                          {baseUrl ? (
                             <span
                               className="max-w-[160px] truncate rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[10px] text-ql-fg-muted font-mono"
-                              title={(provider.capability_set as any).base_url}
+                              title={baseUrl}
                             >
-                              {(provider.capability_set as any).base_url}
+                              {baseUrl}
                             </span>
                           ) : null}
                         </div>
