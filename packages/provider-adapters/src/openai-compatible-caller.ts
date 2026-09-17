@@ -32,8 +32,9 @@ type ProviderCode = AdapterResource["providerCode"];
 
 /** Shared endpoint selection for business calls and credential probes. */
 export function providerChatBaseUrl(provider: ProviderCode, env: NodeJS.ProcessEnv = process.env): string {
-  const p = String(provider).toLowerCase() as ProviderCode;
-  return env[BASE_URL_ENV[p]] ?? DEFAULT_BASE_URL[p] ?? env[`${String(provider).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_BASE_URL`];
+  const p = String(provider).toLowerCase();
+  const envKey = BASE_URL_ENV[p];
+  return (envKey ? env[envKey] : undefined) ?? DEFAULT_BASE_URL[p] ?? env[`${String(provider).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_BASE_URL`] ?? "";
 }
 
 export function providerChatConfigHash(provider: ProviderCode, mode: string, model: string,
@@ -42,22 +43,34 @@ export function providerChatConfigHash(provider: ProviderCode, mode: string, mod
     baseUrl: providerChatBaseUrl(provider, env), protocol: "chat", version: 1 })).digest("hex");
 }
 
-const BASE_URL_ENV: Record<ProviderCode, string> = {
+const BASE_URL_ENV: Record<string, string> = {
   deepseek: "DEEPSEEK_BASE_URL",
   zhipu: "ZHIPU_CODING_BASE_URL",
   kimi: "KIMI_CODING_BASE_URL",
+  qwen: "QWEN_BASE_URL",
+  minimax: "MINIMAX_BASE_URL",
+  openai: "OPENAI_BASE_URL",
+  siliconflow: "SILICONFLOW_BASE_URL",
 };
 
-const SECRET_ENV: Record<ProviderCode, string> = {
+const SECRET_ENV: Record<string, string> = {
   deepseek: "DEEPSEEK_API_KEY",
   zhipu: "ZHIPU_CODING_TOKEN",
   kimi: "KIMI_CODING_TOKEN",
+  qwen: "DASHSCOPE_API_KEY",
+  minimax: "MINIMAX_API_KEY",
+  openai: "OPENAI_API_KEY",
+  siliconflow: "SILICONFLOW_API_KEY",
 };
 
-const DEFAULT_BASE_URL: Record<ProviderCode, string> = {
+const DEFAULT_BASE_URL: Record<string, string> = {
   deepseek: "https://api.deepseek.com",
   zhipu: "https://open.bigmodel.cn/api/coding/paas/v4",
   kimi: "https://api.kimi.com/coding/v1",
+  qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  minimax: "https://api.minimax.chat/v1",
+  openai: "https://api.openai.com/v1",
+  siliconflow: "https://api.siliconflow.cn/v1",
 };
 
 /**
@@ -76,7 +89,7 @@ export function createOpenAiCompatibleCaller(
       return failedOutcome(401, "upstream_credential_missing");
     }
 
-    const baseUrl = providerChatBaseUrl(resource.providerCode, env);
+    const baseUrl = resource.baseUrl || providerChatBaseUrl(resource.providerCode, env);
     if (!baseUrl) {
       return failedOutcome(500, "upstream_base_url_missing");
     }
@@ -187,8 +200,9 @@ export function resolveProviderSecret(input: {
   }
 
   const env = input.env ?? process.env;
-  const p = String(input.providerCode).toLowerCase() as ProviderCode;
-  return new SecretValue(env[SECRET_ENV[p]] ?? env[`${String(input.providerCode).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`] ?? "");
+  const p = String(input.providerCode).toLowerCase();
+  const secretKey = SECRET_ENV[p];
+  return new SecretValue((secretKey ? env[secretKey] : undefined) ?? env[`${String(input.providerCode).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`] ?? "");
 }
 
 /** Responses / Chat / Messages 北向载荷统一转换为上游 Chat Completions。 */

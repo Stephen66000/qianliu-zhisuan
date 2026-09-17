@@ -13,13 +13,15 @@ import {
 } from "./resource-form-contract";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
+import { COMMON_PROVIDER_PRESETS, findKnownProvider } from "./known-providers";
+
 export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel }) {
   const {
     featureFlags, showCreate, setShowCreate, showNewProvider, setShowNewProvider,
     showManageProviders, setShowManageProviders, discovery, setDiscovery,
     selectedModelIds, setSelectedModelIds, createValidationError, setCreateValidationError,
     createMutation, createProviderMutation, newProviderName, setNewProviderName,
-    newProviderCode, setNewProviderCode, newProviderAdapter, setNewProviderAdapter,
+    newProviderCode, setNewProviderCode, newProviderBaseUrl, setNewProviderBaseUrl,
     register, handleSubmit, getValues, reset, setValue, errors,
     createMode, createResetCycle, createTotalQuota, resources, providerOptions, clearCreateDiscovery,
   } = model;
@@ -102,18 +104,41 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
               <div className="sm:col-span-2 flex flex-col gap-3 rounded-lg border border-ql-border-zone bg-ql-surface p-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-semibold text-ql-fg">新建上游厂商</span>
-                  <span className="text-[12px] text-ql-fg-muted">直接输入厂商代码与名称，支持接入任意兼容厂商</span>
+                  <span className="text-[12px] text-ql-fg-muted">主流厂商已内置官方协议与接口，可直接快捷点选</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 pb-1 border-b border-ql-border/50">
+                  <span className="text-[12px] text-ql-fg-muted mr-1">快捷选择：</span>
+                  {COMMON_PROVIDER_PRESETS.map((preset) => (
+                    <button
+                      key={preset.code}
+                      type="button"
+                      className="inline-flex items-center rounded-md border border-ql-border bg-ql-surface-subtle px-2 py-0.5 text-[12px] text-ql-fg-secondary hover:border-ql-action hover:text-ql-action hover:bg-ql-action-soft/40 transition-colors"
+                      onClick={() => {
+                        setNewProviderCode(preset.code);
+                        setNewProviderName(preset.name);
+                        setNewProviderBaseUrl(preset.defaultBaseUrl);
+                      }}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <FormField htmlFor="new-provider-code" label="厂商代码 (首字母大写)">
                     <input
                       className={INPUT_CLASS}
                       id="new-provider-code"
-                      placeholder="如：Qwen, Minimax 或 Test-01"
+                      placeholder="如：Qwen, Minimax 或 Custom-01"
                       value={newProviderCode}
                       onChange={(e) => {
                         const clean = e.target.value.replace(/[^a-zA-Z0-9_-]/g, "");
-                        setNewProviderCode(clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "");
+                        const formatted = clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "";
+                        setNewProviderCode(formatted);
+                        const matched = findKnownProvider(formatted);
+                        if (matched) {
+                          if (!newProviderName) setNewProviderName(matched.name);
+                          if (!newProviderBaseUrl) setNewProviderBaseUrl(matched.defaultBaseUrl);
+                        }
                       }}
                     />
                   </FormField>
@@ -126,17 +151,14 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                       onChange={(e) => setNewProviderName(e.target.value)}
                     />
                   </FormField>
-                  <FormField htmlFor="new-provider-adapter" label="适配协议">
-                    <select
+                  <FormField htmlFor="new-provider-base-url" label="接口地址 (Base URL，选填)">
+                    <input
                       className={INPUT_CLASS}
-                      id="new-provider-adapter"
-                      value={newProviderAdapter}
-                      onChange={(e) => setNewProviderAdapter(e.target.value)}
-                    >
-                      <option value="deepseek">OpenAI / DeepSeek 兼容协议（默认）</option>
-                      <option value="zhipu">智谱 GLM 协议</option>
-                      <option value="kimi">Kimi / Moonshot 协议</option>
-                    </select>
+                      id="new-provider-base-url"
+                      placeholder="官方预设默认内置，自定义填写如 https://api.openai.com/v1"
+                      value={newProviderBaseUrl}
+                      onChange={(e) => setNewProviderBaseUrl(e.target.value)}
+                    />
                   </FormField>
                 </div>
                 {createProviderMutation.error ? (
@@ -157,7 +179,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                       createProviderMutation.mutate({
                         code: newProviderCode,
                         name: newProviderName,
-                        adapter_type: newProviderAdapter,
+                        base_url: newProviderBaseUrl,
                       })
                     }
                     type="button"

@@ -21,16 +21,20 @@ export {
 
 export { SecretValue } from "./secret-value.js";
 
+export * from "./known-providers.js";
+
 /**
  * Adapter 调用时的资源上下文（W06 起填充真实字段）。
  * 字段集预留 TRD §5.4 provider_resource 的关键属性。
  */
 export interface AdapterResource {
-  providerCode: "deepseek" | "zhipu" | "kimi";
+  providerCode: "deepseek" | "zhipu" | "kimi" | (string & {});
   resourceId: string;
   mode: "API" | "CODING_PLAN";
   upstreamModel: string;
   concurrencyLimit: number;
+  /** 自定义或预设厂商 Base URL（如 https://dashscope.aliyuncs.com/compatible-mode/v1） */
+  baseUrl?: string;
   /** 凭证（SecretValue 包装，脱敏安全）。 */
   secret: SecretValue;
 }

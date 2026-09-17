@@ -17,7 +17,11 @@ export abstract class ProviderModelDiscoveryRepository extends ProviderOperating
     return this.db.selectFrom("provider_resource")
       .innerJoin("provider", "provider.id", "provider_resource.provider_id")
       .selectAll("provider_resource")
-      .select(["provider.code as provider_code", "provider.name as provider_name"])
+      .select([
+        "provider.code as provider_code",
+        "provider.name as provider_name",
+        "provider.capability_set as provider_capability_set",
+      ])
       .where("provider_resource.enterprise_id", "=", enterpriseId)
       .where("provider.enterprise_id", "=", enterpriseId)
       .where("provider_resource.id", "=", resourceId)
@@ -204,6 +208,7 @@ export abstract class ProviderModelDiscoveryRepository extends ProviderOperating
       .select([
         "model_route.id as route_id", "model_route.unified_model_id", "model_route.provider_resource_id",
         "model_route.upstream_model", "unified_model.status as unified_model_status", "provider.code as provider_code",
+        "provider.capability_set as provider_capability_set",
         "provider_resource.mode", "provider_resource.credential_ciphertext",
       ])
       .where("model_route.enterprise_id", "=", enterpriseId)

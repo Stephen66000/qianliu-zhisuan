@@ -1,4 +1,4 @@
-export type ProviderCode = "deepseek" | "zhipu" | "kimi";
+export type ProviderCode = "deepseek" | "zhipu" | "kimi" | (string & {});
 export type ResourceMode = "API" | "CODING_PLAN";
 export type DiscoverySource = "PROVIDER_API" | "OFFICIAL_DOCUMENTATION"
   | "LAST_SUCCESSFUL_SNAPSHOT" | "BUILTIN_FALLBACK" | "VERSIONED_CATALOG";

@@ -30,6 +30,7 @@ export async function validateProviderModel(input: {
   resourceId: string;
   upstreamModel: string;
   credential: string;
+  baseUrl?: string;
   reasoningEffort?: "low" | "high" | "max";
   runToolCheck: boolean;
   fetch?: HttpFetch;
@@ -51,6 +52,7 @@ export async function validateProviderModel(input: {
     mode: input.mode,
     upstreamModel: input.upstreamModel,
     concurrencyLimit: 1,
+    baseUrl: input.baseUrl,
     secret: new SecretValue(input.credential),
   };
   const checks: ModelValidationCheck[] = [];

@@ -47,6 +47,7 @@ async function start(): Promise<void> {
         "provider_resource.provider_id",
         "unified_model.id as unified_model_id",
         "provider.code as provider_code",
+        "provider.capability_set as provider_capability_set",
         "model_route.upstream_model",
         "model_route.priority",
         "model_route.weight",
@@ -63,27 +64,32 @@ async function start(): Promise<void> {
       .where("model_route.enabled", "=", true)
       .where("provider.status", "=", "ACTIVE")
       .execute();
-    return routes.map((r) => ({
-      routeId: r.route_id,
-      resourceId: r.resource_id,
-      providerCode: r.provider_code,
-      upstreamModel: r.upstream_model,
-      priority: r.priority,
-      weight: r.weight,
-      mode: r.mode as "API" | "CODING_PLAN",
-      status: r.status,
-      probe: false,
-      principalId: "", // 路由候选不携带主体；pipeline 用已认证的 principal.principalId 做额度/账本归因（R2-N1）
-      providerId: r.provider_id,
-      unifiedModelId: r.unified_model_id,
-      secret: resolveProviderSecret({
-        providerCode: r.provider_code as "deepseek" | "zhipu" | "kimi",
-        credentialCiphertext: r.credential_ciphertext,
-        credentialKek,
-      }),
-      // 0 表示数据库未配置本地上限；不得用臆造的 100 放大套餐并发。
-      concurrencyLimit: r.concurrency_limit ?? 0,
-    }));
+    return routes.map((r) => {
+      const capSet = r.provider_capability_set as Record<string, unknown> | null;
+      const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+      return {
+        routeId: r.route_id,
+        resourceId: r.resource_id,
+        providerCode: r.provider_code,
+        upstreamModel: r.upstream_model,
+        priority: r.priority,
+        weight: r.weight,
+        mode: r.mode as "API" | "CODING_PLAN",
+        status: r.status,
+        probe: false,
+        principalId: "", // 路由候选不携带主体；pipeline 用已认证的 principal.principalId 做额度/账本归因（R2-N1）
+        providerId: r.provider_id,
+        unifiedModelId: r.unified_model_id,
+        baseUrl,
+        secret: resolveProviderSecret({
+          providerCode: r.provider_code as "deepseek" | "zhipu" | "kimi",
+          credentialCiphertext: r.credential_ciphertext,
+          credentialKek,
+        }),
+        // 0 表示数据库未配置本地上限；不得用臆造的 100 放大套餐并发。
+        concurrencyLimit: r.concurrency_limit ?? 0,
+      };
+    });
   };
 
   const pipeline = createRealPipeline({

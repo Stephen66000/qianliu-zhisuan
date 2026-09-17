@@ -12,6 +12,7 @@ import { z } from "zod";
 import {
   credentialFingerprint,
   encryptCredential,
+  findKnownProvider,
 } from "@qianliu/provider-adapters";
 import { EnterpriseReferenceError, sumAllocatedQuota } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
@@ -47,10 +48,29 @@ export function registerProviderRoutes(app: FastifyInstance): void {
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
     }
+    const lowerCode = parsed.data.code.toLowerCase();
+    const preset = findKnownProvider(lowerCode);
+
+    let capabilitySet = (parsed.data.capability_set as Record<string, unknown> | undefined) ?? {};
+    if (preset && !capabilitySet.base_url) {
+      capabilitySet = {
+        ...capabilitySet,
+        base_url: preset.defaultBaseUrl,
+      };
+    }
+
+    let adapterType = parsed.data.adapter_type;
+    if (adapterType === "deepseek") {
+      if (lowerCode === "zhipu") adapterType = "zhipu";
+      else if (lowerCode === "kimi") adapterType = "kimi";
+    }
+
     try {
       const provider = await app.providerRepo.createProvider({
         enterprise_id: req.admin!.enterpriseId,
         ...parsed.data,
+        adapter_type: adapterType,
+        capability_set: Object.keys(capabilitySet).length > 0 ? capabilitySet : undefined,
       });
       await app.auditRepo.write({
         enterprise_id: req.admin!.enterpriseId,

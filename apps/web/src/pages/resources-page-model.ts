@@ -78,13 +78,14 @@ export function useResourcesPageModel() {
   });
 
   const createProviderMutation = useMutation({
-    mutationFn: (values: { code: string; name: string; adapter_type?: string }) => {
+    mutationFn: (values: { code: string; name: string; adapter_type?: string; base_url?: string }) => {
       const trimmed = values.code.trim();
       const capitalizedCode = trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1) : "";
       return post<{ provider: { id: string } }>("/providers", {
         code: capitalizedCode,
         name: values.name.trim(),
         adapter_type: values.adapter_type || "deepseek",
+        capability_set: values.base_url?.trim() ? { base_url: values.base_url.trim() } : undefined,
       });
     },
     onSuccess: async (data, variables) => {
@@ -92,6 +93,7 @@ export function useResourcesPageModel() {
       setShowNewProvider(false);
       setNewProviderCode("");
       setNewProviderName("");
+      setNewProviderBaseUrl("");
       // 新建后自动选中并预填资源名称
       setValue("provider_id", data.provider.id);
       setValue("name", formatResourceNameWithDate(variables.name));
@@ -134,6 +136,7 @@ export function useResourcesPageModel() {
 
   const [newProviderName, setNewProviderName] = useState("");
   const [newProviderCode, setNewProviderCode] = useState("");
+  const [newProviderBaseUrl, setNewProviderBaseUrl] = useState("");
   const [newProviderAdapter, setNewProviderAdapter] = useState("deepseek");
   const [operatingTarget, setOperatingTarget] = useState<ProviderResourceItem | null>(null);
   const [operatingDraft, setOperatingDraft] =
@@ -256,7 +259,8 @@ export function useResourcesPageModel() {
     rotateCredential, setRotateCredential, newCredential, setNewCredential, discovery, setDiscovery,
     selectedModelIds, setSelectedModelIds, createValidationError, setCreateValidationError,
     syncTarget, setSyncTarget, createMutation, createProviderMutation, newProviderName,
-    setNewProviderName, newProviderCode, setNewProviderCode, newProviderAdapter, setNewProviderAdapter, operatingTarget, setOperatingTarget,
+    setNewProviderName, newProviderCode, setNewProviderCode, newProviderBaseUrl, setNewProviderBaseUrl,
+    newProviderAdapter, setNewProviderAdapter, operatingTarget, setOperatingTarget,
     operatingDraft, setOperatingDraft, operatingValidationError, setOperatingValidationError,
     operatingHistory, setOperatingHistory, operatingMutation, recoverMutation, editMutation,
     register, handleSubmit, getValues, reset, setValue, errors, createMode, createResetCycle,

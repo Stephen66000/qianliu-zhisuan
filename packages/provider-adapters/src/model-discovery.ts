@@ -14,6 +14,8 @@ import { SecretValue } from "./secret-value.js";
 import { createOpenAiCompatibleCaller } from "./openai-compatible-caller.js";
 import type { HttpFetch } from "./openai-compatible-types.js";
 
+import { resolveProviderModelsUrl } from "./known-providers.js";
+
 export * from "./model-discovery-contract.js";
 
 const ENDPOINTS: Record<"deepseek" | "kimi", string> = {
@@ -53,9 +55,9 @@ const OFFICIAL_HOSTS: Record<ProviderCode, ReadonlySet<string>> = {
   kimi: new Set(["www.kimi.com"]),
 };
 
-const MAX_RESPONSE_BYTES = 512 * 1024;
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_HTML_DOCUMENT_BYTES = 4 * 1024 * 1024;
-const MAX_MODEL_COUNT = 200;
+const MAX_MODEL_COUNT = 1000;
 const DEFAULT_TIMEOUT_MS = 10_000;
 const CACHE_TTL_MS = 60_000;
 
@@ -77,12 +79,13 @@ export function providerModelDiscoveryDescriptor(
   providerCode: ProviderCode,
   mode: ResourceMode,
 ): Pick<ModelDiscoveryResult, "source" | "sourceVersion" | "parserVersion"> {
-  if ((providerCode === "zhipu" || providerCode === "kimi") &&
-      (providerCode === "zhipu" || mode === "CODING_PLAN")) {
-    const parserVersion = PARSER_VERSIONS[providerCode];
+  const p = (providerCode || "").toLowerCase();
+  if ((p === "zhipu" || p === "kimi") &&
+      (p === "zhipu" || mode === "CODING_PLAN")) {
+    const parserVersion = PARSER_VERSIONS[p as "zhipu" | "kimi"];
     return { source: "OFFICIAL_DOCUMENTATION", sourceVersion: parserVersion, parserVersion };
   }
-  return { source: "PROVIDER_API", sourceVersion: `${providerCode}-list-models-${providerCode === "deepseek" ? "v2" : "v1"}`, parserVersion: null };
+  return { source: "PROVIDER_API", sourceVersion: `${p}-list-models-${p === "deepseek" ? "v2" : "v1"}`, parserVersion: null };
 }
 
 export function builtinProviderModelDiscovery(input: {
@@ -122,10 +125,11 @@ export function officialSourceConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): OfficialSourceConfig {
   const key = `${providerCode}:${mode}` as const;
-  const defaults = providerCode === "zhipu" || providerCode === "kimi"
-    ? DEFAULT_OFFICIAL_SOURCES[providerCode][mode]
+  const p = (providerCode || "").toLowerCase();
+  const defaults = (p === "zhipu" || p === "kimi")
+    ? DEFAULT_OFFICIAL_SOURCES[p as "zhipu" | "kimi"][mode]
     : undefined;
-  if (!defaults) return { coreUrl: ENDPOINTS[providerCode as "deepseek" | "kimi"] };
+  if (!defaults) return { coreUrl: ENDPOINTS[p as "deepseek" | "kimi"] ?? resolveProviderModelsUrl(providerCode) };
   const envPrefix = providerCode === "zhipu"
     ? `QIANLIU_ZHIPU_${mode === "CODING_PLAN" ? "CODING_PLAN" : "API"}`
     : "QIANLIU_KIMI_CODING_PLAN";
@@ -143,6 +147,7 @@ export async function discoverProviderModels(input: {
   providerCode: ProviderCode;
   mode: ResourceMode;
   credential: string;
+  baseUrl?: string;
   fetch?: DiscoveryFetch;
   timeoutMs?: number;
   now?: Date;
@@ -180,6 +185,7 @@ async function probeModelPermissions(
   models: DiscoveredProviderModel[],
   fetcher?: HttpFetch,
   env: NodeJS.ProcessEnv = process.env,
+  baseUrl?: string,
 ): Promise<void> {
   const caller = createOpenAiCompatibleCaller({
     ...(fetcher ? { fetch: fetcher } : {}),
@@ -188,7 +194,11 @@ async function probeModelPermissions(
     firstByteTimeoutMs: 30_000,
     streamIdleTimeoutMs: 30_000,
   });
-  for (const model of models.filter((m) => m.modelType === "CHAT")) {
+  const chatModels = models.filter((m) => m.modelType === "CHAT");
+  // 若厂商模型数量较多（如 Qwen/OpenAI/SiliconFlow 包含数十甚至数百模型），
+  // 全量串行探活会导致严重耗时或上游频控。探查前 5 个典型模型即可确认接口与 Key 健康度。
+  const modelsToProbe = chatModels.length > 5 ? chatModels.slice(0, 5) : chatModels;
+  for (const model of modelsToProbe) {
     if (providerCode === "kimi" && mode === "CODING_PLAN" && model.id === "k3-256k") {
       model.compatible = false;
       model.unavailableReason = "当前套餐未开通此模型权限 (HTTP 403)";
@@ -202,6 +212,7 @@ async function probeModelPermissions(
         mode,
         upstreamModel: model.id,
         concurrencyLimit: 1,
+        baseUrl,
         secret: new SecretValue(credential),
       }, {
         requestId: `probe-${randomUUID()}`,
@@ -255,6 +266,7 @@ async function discoverProviderModelsUncached(input: {
   providerCode: ProviderCode;
   mode: ResourceMode;
   credential: string;
+  baseUrl?: string;
   fetch?: DiscoveryFetch;
   timeoutMs?: number;
   now?: Date;
@@ -279,17 +291,18 @@ async function discoverProviderModelsUncached(input: {
       result.models,
       input.fetch ? (input.fetch as unknown as HttpFetch) : undefined,
       input.env,
+      input.baseUrl,
     );
   }
   return result;
 }
 
 async function discoverFromProviderApi(
-  input: { providerCode: ProviderCode; mode: ResourceMode; credential: string; timeoutMs?: number },
+  input: { providerCode: ProviderCode; mode: ResourceMode; credential: string; timeoutMs?: number; baseUrl?: string },
   fetcher: DiscoveryFetch,
   now: Date,
 ): Promise<ModelDiscoveryResult> {
-  const sourceUrl = ENDPOINTS[input.providerCode as "deepseek" | "kimi"];
+  const sourceUrl = resolveProviderModelsUrl(input.providerCode, input.baseUrl);
   const response = await fetchWithTimeout(fetcher, sourceUrl, {
     authorization: `Bearer ${input.credential}`,
     accept: "application/json",
@@ -472,7 +485,9 @@ function assertOfficialUrl(providerCode: ProviderCode, rawUrl: string): void {
   } catch {
     throw new ProviderModelDiscoveryError("OFFICIAL_SOURCE_UNAVAILABLE", "官方来源 URL 无效");
   }
-  if (parsed.protocol !== "https:" || !OFFICIAL_HOSTS[providerCode].has(parsed.hostname)) {
+  const p = (providerCode || "").toLowerCase() as keyof typeof OFFICIAL_HOSTS;
+  const allowed = OFFICIAL_HOSTS[p];
+  if (parsed.protocol !== "https:" || !allowed?.has(parsed.hostname)) {
     throw new ProviderModelDiscoveryError("OFFICIAL_SOURCE_UNAVAILABLE", "官方来源 URL 不在厂商 HTTPS 白名单内");
   }
 }

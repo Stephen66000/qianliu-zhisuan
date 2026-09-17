@@ -33,7 +33,8 @@ export function createFirstByteTimeoutPolicy(
   }
 
   return (resource) => modeMs.get(policyKey(resource.providerCode, resource.mode))
-    ?? providerMs[resource.providerCode];
+    ?? (providerMs as Record<string, number | undefined>)[resource.providerCode]
+    ?? globalMs;
 }
 
 const STREAM_IDLE_GLOBAL_MS = 45_000;
@@ -75,7 +76,8 @@ export function createStreamIdleTimeoutPolicy(
   return (resource) => {
     const key = policyKey(resource.providerCode, resource.mode);
     return modeMs.get(key)
-      ?? providerMs[resource.providerCode];
+      ?? (providerMs as Record<string, number | undefined>)[resource.providerCode]
+      ?? globalMs;
   };
 }
 

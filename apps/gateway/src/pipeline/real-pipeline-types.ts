@@ -43,6 +43,7 @@ export interface RouteCandidateRow {
   unifiedModelId?: string;
   secret?: SecretValue;
   concurrencyLimit?: number;
+  baseUrl?: string;
 }
 
 export interface RealPipelineDeps {

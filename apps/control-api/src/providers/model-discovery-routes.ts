@@ -48,9 +48,14 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     if (!provider || !isProviderCode(provider.code)) {
       return reply.code(404).send({ error: "provider_not_found", message: "厂商不存在或不受支持" });
     }
+    const capSet = provider.capability_set as Record<string, unknown> | null;
+    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
     try {
       return publicDiscovery(await discoverProviderModels({
-        providerCode: provider.code, mode: parsed.data.mode, credential: parsed.data.credential_plaintext,
+        providerCode: provider.code,
+        mode: parsed.data.mode,
+        credential: parsed.data.credential_plaintext,
+        baseUrl,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
         probePermissions: true,
       }));
@@ -67,6 +72,8 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     if (!provider || !isProviderCode(provider.code)) {
       return reply.code(404).send({ error: "provider_not_found", message: "厂商不存在或不受支持" });
     }
+    const capSet = provider.capability_set as Record<string, unknown> | null;
+    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
     const { credential_plaintext, operating_snapshot, selected_model_ids, idempotency_key, ...resource } = parsed.data;
     if (operating_snapshot) {
       const financeError = app.providerFinanceMode === "OFF" ? null
@@ -79,7 +86,10 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     }
     try {
       const discovery = await discoverProviderModels({
-        providerCode: provider.code, mode: resource.mode, credential: credential_plaintext,
+        providerCode: provider.code,
+        mode: resource.mode,
+        credential: credential_plaintext,
+        baseUrl,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
         probePermissions: true,
       });
@@ -232,6 +242,8 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       const requestId = `mdv-${randomUUID()}`;
       let evidence;
       try {
+        const capSet = (target as { provider_capability_set?: unknown }).provider_capability_set as Record<string, unknown> | null;
+        const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
         const credential = decryptResourceCredential(target.credential_ciphertext, app.credentialKek);
         evidence = await validateProviderModel({
           providerCode: target.provider_code,
@@ -239,6 +251,7 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
           resourceId: req.params.resourceId,
           upstreamModel: req.params.upstreamModel,
           credential,
+          baseUrl,
           reasoningEffort: target.provider_code === "zhipu" && req.params.upstreamModel === "glm-5.3" ? "max" : undefined,
           runToolCheck: target.provider_code === "zhipu" && req.params.upstreamModel === "glm-5.3",
           fetch: globalThis.fetch as unknown as HttpFetch,
@@ -307,11 +320,14 @@ async function syncResourceModels(
     });
   }
   try {
+    const capSet = (resource as { provider_capability_set?: unknown }).provider_capability_set as Record<string, unknown> | null;
+    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
     const credential = decryptResourceCredential(resource.credential_ciphertext, app.credentialKek);
     const discovery = await discoverProviderModels({
       providerCode: resource.provider_code,
       mode: resource.mode,
       credential,
+      baseUrl,
       cacheKey: `${enterpriseId}:${resource.id}`,
       forceRefresh: true,
       officialSourceOverrides: officialSourceOverridesFromEnv(),

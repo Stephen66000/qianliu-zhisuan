@@ -189,8 +189,7 @@ export const CreateRouteSchema = z.object({
 });
 
 export function isProviderCode(value: string): value is ProviderCode {
-  const lower = (value || "").toLowerCase();
-  return lower === "deepseek" || lower === "zhipu" || lower === "kimi";
+  return typeof value === "string" && /^[a-zA-Z0-9_-]+$/.test(value.trim());
 }
 
 export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverProviderModels>>) {

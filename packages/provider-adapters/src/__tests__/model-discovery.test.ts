@@ -42,6 +42,38 @@ describe("W-MD 官方来源模型发现", () => {
     expect(result.sourceContentHash).toMatch(/^sha256:/);
   });
 
+  it("Qwen 官方预设自动匹配 DashScope 兼容接口并成功发现模型", async () => {
+    const fetch = vi.fn(async () => apiResponse({ data: [{ id: "qwen-plus" }, { id: "text-embedding-v3" }] }));
+    const result = await discoverProviderModels({
+      providerCode: "Qwen", mode: "API", credential: "qwen-secret", fetch,
+      now: new Date("2026-08-25T00:00:00.000Z"),
+    });
+    expect(fetch).toHaveBeenCalledWith("https://dashscope.aliyuncs.com/compatible-mode/v1/models", expect.objectContaining({
+      headers: expect.objectContaining({ authorization: "Bearer qwen-secret" }), redirect: "error",
+    }));
+    expect(result.source).toBe("PROVIDER_API");
+    expect(result.models).toEqual([
+      expect.objectContaining({ id: "qwen-plus", compatible: true }),
+      expect.objectContaining({ id: "text-embedding-v3", compatible: false }),
+    ]);
+  });
+
+  it("自定义 Base URL 能够动态解析 models 端点", async () => {
+    const fetch = vi.fn(async () => apiResponse({ data: [{ id: "custom-chat" }] }));
+    const result = await discoverProviderModels({
+      providerCode: "MyCustom", mode: "API", credential: "custom-secret",
+      baseUrl: "https://my-gateway.internal/v1",
+      fetch,
+      now: new Date("2026-08-25T00:00:00.000Z"),
+    });
+    expect(fetch).toHaveBeenCalledWith("https://my-gateway.internal/v1/models", expect.objectContaining({
+      headers: expect.objectContaining({ authorization: "Bearer custom-secret" }), redirect: "error",
+    }));
+    expect(result.models).toEqual([
+      expect.objectContaining({ id: "custom-chat", compatible: true }),
+    ]);
+  });
+
   it("智谱核心官方页发现 GLM-5.3，保存字段 Evidence 和 [1m] 客户端变体", async () => {
     const fetch = vi.fn(async (url: string) => docResponse(zhipuCore, url, { etag: "zhipu-v1" }));
     const result = await discoverProviderModels({

@@ -4,7 +4,7 @@ import { sanitizeUpstreamErrorCode, sanitizeUpstreamErrorType } from "@qianliu/c
 import type { HttpResponseLike } from "./openai-compatible-types.js";
 import { buildUpstreamErrorEvidence } from "./upstream-error-evidence.js";
 
-type ProviderCode = "deepseek" | "zhipu" | "kimi";
+type ProviderCode = "deepseek" | "zhipu" | "kimi" | (string & {});
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

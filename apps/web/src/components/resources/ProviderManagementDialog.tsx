@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Edit2, Trash2, X, Plus } from "lucide-react";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
+import { COMMON_PROVIDER_PRESETS, findKnownProvider } from "./known-providers";
 
 export function ProviderManagementDialog({ model }: { model: ResourcesPageModel }) {
   const {
@@ -23,7 +24,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
   const [showAddInline, setShowAddInline] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
-  const [newAdapter, setNewAdapter] = useState("deepseek");
+  const [newBaseUrl, setNewBaseUrl] = useState("");
 
   if (!showManageProviders) return null;
 
@@ -70,13 +71,14 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
       {
         code: formattedCode,
         name: newName.trim(),
-        adapter_type: newAdapter,
+        base_url: newBaseUrl.trim() || undefined,
       },
       {
         onSuccess: (data) => {
           setShowAddInline(false);
           setNewCode("");
           setNewName("");
+          setNewBaseUrl("");
           setValue("provider_id", data.provider.id);
         },
       },
@@ -165,6 +167,14 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                           <span className="rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[11px] font-mono text-ql-fg-secondary">
                             {provider.code}
                           </span>
+                          {provider.capability_set && typeof (provider.capability_set as any).base_url === "string" ? (
+                            <span
+                              className="max-w-[160px] truncate rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[10px] text-ql-fg-muted font-mono"
+                              title={(provider.capability_set as any).base_url}
+                            >
+                              {(provider.capability_set as any).base_url}
+                            </span>
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -275,7 +285,27 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
         {/* 快捷新建厂商表单 */}
         {showAddInline ? (
           <div className="mt-4 rounded-lg border border-ql-border bg-ql-surface-subtle p-3">
-            <div className="text-[13px] font-medium text-ql-fg mb-2">新建厂商</div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[13px] font-medium text-ql-fg">新建厂商</span>
+              <span className="text-[11px] text-ql-fg-muted">主流厂商已内置官方协议与接口</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 pb-2 mb-2 border-b border-ql-border/50">
+              <span className="text-[11px] text-ql-fg-muted mr-1">快捷填入：</span>
+              {COMMON_PROVIDER_PRESETS.map((preset) => (
+                <button
+                  key={preset.code}
+                  type="button"
+                  className="inline-flex items-center rounded-md border border-ql-border bg-ql-surface px-2 py-0.5 text-[11px] text-ql-fg-secondary hover:border-ql-action hover:text-ql-action hover:bg-ql-action-soft/40 transition-colors"
+                  onClick={() => {
+                    setNewCode(preset.code);
+                    setNewName(preset.name);
+                    setNewBaseUrl(preset.defaultBaseUrl);
+                  }}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
               <FormField htmlFor="inline-provider-code" label="厂商代码 (首字母大写)">
                 <input
@@ -285,7 +315,13 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                   value={newCode}
                   onChange={(e) => {
                     const clean = e.target.value.replace(/[^a-zA-Z0-9_-]/g, "");
-                    setNewCode(clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "");
+                    const formatted = clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "";
+                    setNewCode(formatted);
+                    const matched = findKnownProvider(formatted);
+                    if (matched) {
+                      if (!newName) setNewName(matched.name);
+                      if (!newBaseUrl) setNewBaseUrl(matched.defaultBaseUrl);
+                    }
                   }}
                 />
               </FormField>
@@ -298,17 +334,14 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                   onChange={(e) => setNewName(e.target.value)}
                 />
               </FormField>
-              <FormField htmlFor="inline-provider-adapter" label="适配协议">
-                <select
+              <FormField htmlFor="inline-provider-base-url" label="接口地址 (Base URL，选填)">
+                <input
                   className={INPUT_CLASS}
-                  id="inline-provider-adapter"
-                  value={newAdapter}
-                  onChange={(e) => setNewAdapter(e.target.value)}
-                >
-                  <option value="deepseek">OpenAI / DeepSeek 兼容协议（默认）</option>
-                  <option value="zhipu">智谱 GLM 协议</option>
-                  <option value="kimi">Kimi / Moonshot 协议</option>
-                </select>
+                  id="inline-provider-base-url"
+                  placeholder="官方默认内置，自定义填写如 https://api.openai.com/v1"
+                  value={newBaseUrl}
+                  onChange={(e) => setNewBaseUrl(e.target.value)}
+                />
               </FormField>
             </div>
             {createProviderMutation.error && (
@@ -322,6 +355,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                   setShowAddInline(false);
                   setNewCode("");
                   setNewName("");
+                  setNewBaseUrl("");
                 }}
               >
                 取消
