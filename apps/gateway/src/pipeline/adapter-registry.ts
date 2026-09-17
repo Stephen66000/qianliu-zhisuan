@@ -28,14 +28,12 @@ export function resolveAdapter(
   providerCode: string,
   caller: UpstreamCaller,
 ): ProviderAdapter {
-  switch (providerCode) {
-    case "deepseek":
-      return new DeepSeekAdapter(caller);
-    case "zhipu":
-      return new ZhipuAdapter(caller);
-    case "kimi":
-      return new KimiAdapter(caller);
-    default:
-      throw new Error(`unsupported_provider_code: ${providerCode}`);
+  const normalized = (providerCode || "").toLowerCase().trim();
+  if (normalized === "zhipu" || normalized.includes("zhipu") || normalized.includes("glm")) {
+    return new ZhipuAdapter(caller);
   }
+  if (normalized === "kimi" || normalized.includes("kimi") || normalized.includes("moonshot")) {
+    return new KimiAdapter(caller);
+  }
+  return new DeepSeekAdapter(caller);
 }

@@ -32,7 +32,7 @@ type ProviderCode = AdapterResource["providerCode"];
 
 /** Shared endpoint selection for business calls and credential probes. */
 export function providerChatBaseUrl(provider: ProviderCode, env: NodeJS.ProcessEnv = process.env): string {
-  return env[BASE_URL_ENV[provider]] ?? DEFAULT_BASE_URL[provider];
+  return env[BASE_URL_ENV[provider]] ?? DEFAULT_BASE_URL[provider] ?? env[`${String(provider).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_BASE_URL`];
 }
 
 export function providerChatConfigHash(provider: ProviderCode, mode: string, model: string,
@@ -186,7 +186,7 @@ export function resolveProviderSecret(input: {
   }
 
   const env = input.env ?? process.env;
-  return new SecretValue(env[SECRET_ENV[input.providerCode]] ?? "");
+  return new SecretValue(env[SECRET_ENV[input.providerCode]] ?? env[`${String(input.providerCode).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`] ?? "");
 }
 
 /** Responses / Chat / Messages 北向载荷统一转换为上游 Chat Completions。 */

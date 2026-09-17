@@ -21,20 +21,11 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const [showAddInline, setShowAddInline] = useState(false);
-  const [newCode, setNewCode] = useState("deepseek");
+  const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
+  const [newAdapter, setNewAdapter] = useState("deepseek");
 
   if (!showManageProviders) return null;
-
-  const ALL_SUPPORTED_CODES = [
-    { code: "deepseek", defaultName: "DeepSeek" },
-    { code: "zhipu", defaultName: "智谱" },
-    { code: "kimi", defaultName: "Kimi" },
-  ] as const;
-
-  const availableCodes = ALL_SUPPORTED_CODES.filter(
-    (item) => !providerOptions.some((p) => p.code === item.code),
-  );
 
   const startEdit = (id: string, currentName: string) => {
     setEditingId(id);
@@ -72,12 +63,17 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
   };
 
   const handleCreate = () => {
-    if (!newName.trim()) return;
+    if (!newCode.trim() || !newName.trim()) return;
     createProviderMutation.mutate(
-      { code: newCode, name: newName.trim() },
+      {
+        code: newCode.trim().toLowerCase(),
+        name: newName.trim(),
+        adapter_type: newAdapter,
+      },
       {
         onSuccess: (data) => {
           setShowAddInline(false);
+          setNewCode("");
           setNewName("");
           setValue("provider_id", data.provider.id);
         },
@@ -278,34 +274,36 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
         {showAddInline ? (
           <div className="mt-4 rounded-lg border border-ql-border bg-ql-surface-subtle p-3">
             <div className="text-[13px] font-medium text-ql-fg mb-2">新建厂商</div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <FormField htmlFor="inline-provider-code" label="厂商代码">
-                <select
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
+              <FormField htmlFor="inline-provider-code" label="厂商代码 (唯一英文)">
+                <input
                   className={INPUT_CLASS}
                   id="inline-provider-code"
+                  placeholder="如：qwen 或 test-01"
                   value={newCode}
-                  onChange={(e) => {
-                    const code = e.target.value;
-                    setNewCode(code);
-                    const match = availableCodes.find((c) => c.code === code);
-                    if (match) setNewName(match.defaultName);
-                  }}
-                >
-                  {availableCodes.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}（{c.defaultName}）
-                    </option>
-                  ))}
-                </select>
+                  onChange={(e) => setNewCode(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                />
               </FormField>
               <FormField htmlFor="inline-provider-name" label="显示名称">
                 <input
                   className={INPUT_CLASS}
                   id="inline-provider-name"
-                  placeholder="如：DeepSeek"
+                  placeholder="如：通义千问"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                 />
+              </FormField>
+              <FormField htmlFor="inline-provider-adapter" label="适配协议">
+                <select
+                  className={INPUT_CLASS}
+                  id="inline-provider-adapter"
+                  value={newAdapter}
+                  onChange={(e) => setNewAdapter(e.target.value)}
+                >
+                  <option value="deepseek">OpenAI / DeepSeek 兼容协议（默认）</option>
+                  <option value="zhipu">智谱 GLM 协议</option>
+                  <option value="kimi">Kimi / Moonshot 协议</option>
+                </select>
               </FormField>
             </div>
             {createProviderMutation.error && (
@@ -317,6 +315,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                 className="h-8 rounded-md border border-ql-border px-3 text-[12px] text-ql-fg-secondary hover:bg-ql-surface"
                 onClick={() => {
                   setShowAddInline(false);
+                  setNewCode("");
                   setNewName("");
                 }}
               >
@@ -325,7 +324,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               <button
                 type="button"
                 className="h-8 rounded-md bg-ql-action px-3 text-[12px] font-medium text-white hover:bg-ql-action-hover disabled:opacity-60"
-                disabled={createProviderMutation.isPending || !newName.trim()}
+                disabled={createProviderMutation.isPending || !newCode.trim() || !newName.trim()}
                 onClick={handleCreate}
               >
                 {createProviderMutation.isPending ? "创建中…" : "确认创建"}
@@ -334,26 +333,16 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
           </div>
         ) : (
           <div className="mt-4 flex justify-between items-center border-t border-ql-border pt-3">
-            {availableCodes.length > 0 ? (
-              <button
-                type="button"
-                className="flex items-center gap-1 text-[13px] font-medium text-ql-action hover:underline"
-                onClick={() => {
-                  setShowAddInline(true);
-                  if (availableCodes[0]) {
-                    setNewCode(availableCodes[0].code);
-                    setNewName(availableCodes[0].defaultName);
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                新建厂商
-              </button>
-            ) : (
-              <span className="text-[12px] text-ql-fg-muted">
-                当前支持的厂商（DeepSeek、智谱、Kimi）均已添加
-              </span>
-            )}
+            <button
+              type="button"
+              className="flex items-center gap-1 text-[13px] font-medium text-ql-action hover:underline"
+              onClick={() => {
+                setShowAddInline(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              新建厂商
+            </button>
             <button
               type="button"
               className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px] font-medium text-ql-fg hover:bg-ql-surface-subtle"

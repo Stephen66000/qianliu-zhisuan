@@ -9,9 +9,18 @@ import {
 } from "@qianliu/provider-adapters";
 
 export const CreateProviderSchema = z.object({
-  code: z.enum(["deepseek", "zhipu", "kimi"]),
-  name: z.string().min(1).max(128),
-  adapter_type: z.string().min(1).max(32),
+  code: z
+    .string()
+    .min(1, "厂商代码不能为空")
+    .max(32, "厂商代码最多 32 个字符")
+    .transform((s) => s.trim().toLowerCase())
+    .refine((s) => /^[a-z0-9_-]+$/.test(s), "厂商代码只能包含小写字母、数字、下划线和连字符"),
+  name: z
+    .string()
+    .min(1, "显示名称不能为空")
+    .max(128, "显示名称最多 128 个字符")
+    .transform((s) => s.trim()),
+  adapter_type: z.string().min(1).max(32).default("deepseek"),
   supported_protocols: z.array(z.string()).optional(),
   capability_set: z.record(z.string(), z.unknown()).optional(),
 });

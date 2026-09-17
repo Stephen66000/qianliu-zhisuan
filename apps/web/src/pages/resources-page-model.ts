@@ -78,15 +78,17 @@ export function useResourcesPageModel() {
   });
 
   const createProviderMutation = useMutation({
-    mutationFn: (values: { code: string; name: string }) =>
+    mutationFn: (values: { code: string; name: string; adapter_type?: string }) =>
       post<{ provider: { id: string } }>("/providers", {
-        code: values.code,
-        name: values.name,
-        adapter_type: values.code,
+        code: values.code.trim().toLowerCase(),
+        name: values.name.trim(),
+        adapter_type: values.adapter_type || "deepseek",
       }),
     onSuccess: async (data, variables) => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providers });
       setShowNewProvider(false);
+      setNewProviderCode("");
+      setNewProviderName("");
       // 新建后自动选中并预填资源名称
       setValue("provider_id", data.provider.id);
       setValue("name", formatResourceNameWithDate(variables.name));
@@ -128,7 +130,8 @@ export function useResourcesPageModel() {
   });
 
   const [newProviderName, setNewProviderName] = useState("");
-  const [newProviderCode, setNewProviderCode] = useState("zhipu");
+  const [newProviderCode, setNewProviderCode] = useState("");
+  const [newProviderAdapter, setNewProviderAdapter] = useState("deepseek");
   const [operatingTarget, setOperatingTarget] = useState<ProviderResourceItem | null>(null);
   const [operatingDraft, setOperatingDraft] =
     useState<Record<string, string>>(EMPTY_OPERATING_DRAFT);
@@ -250,7 +253,7 @@ export function useResourcesPageModel() {
     rotateCredential, setRotateCredential, newCredential, setNewCredential, discovery, setDiscovery,
     selectedModelIds, setSelectedModelIds, createValidationError, setCreateValidationError,
     syncTarget, setSyncTarget, createMutation, createProviderMutation, newProviderName,
-    setNewProviderName, newProviderCode, setNewProviderCode, operatingTarget, setOperatingTarget,
+    setNewProviderName, newProviderCode, setNewProviderCode, newProviderAdapter, setNewProviderAdapter, operatingTarget, setOperatingTarget,
     operatingDraft, setOperatingDraft, operatingValidationError, setOperatingValidationError,
     operatingHistory, setOperatingHistory, operatingMutation, recoverMutation, editMutation,
     register, handleSubmit, getValues, reset, setValue, errors, createMode, createResetCycle,
