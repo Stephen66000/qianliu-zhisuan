@@ -26,6 +26,16 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
 
   if (!showManageProviders) return null;
 
+  const ALL_SUPPORTED_CODES = [
+    { code: "deepseek", defaultName: "DeepSeek" },
+    { code: "zhipu", defaultName: "智谱" },
+    { code: "kimi", defaultName: "Kimi" },
+  ] as const;
+
+  const availableCodes = ALL_SUPPORTED_CODES.filter(
+    (item) => !providerOptions.some((p) => p.code === item.code),
+  );
+
   const startEdit = (id: string, currentName: string) => {
     setEditingId(id);
     setEditingName(currentName);
@@ -76,25 +86,18 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div
-        className="w-full max-w-lg rounded-xl border border-ql-border bg-ql-surface p-5 shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="manage-providers-title"
-      >
-        <div className="flex items-center justify-between border-b border-ql-border pb-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg rounded-xl border border-ql-border bg-ql-surface p-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between pb-3 border-b border-ql-border">
           <div>
-            <h2 id="manage-providers-title" className="text-[16px] font-semibold text-ql-fg">
-              厂商管理
-            </h2>
-            <p className="mt-0.5 text-[12px] text-ql-fg-tertiary">
+            <h3 className="text-[16px] font-semibold text-ql-fg">厂商管理</h3>
+            <p className="text-[12px] text-ql-fg-muted mt-0.5">
               管理已添加的上游厂商。无关联资源的厂商可安全删除并释放厂商代码。
             </p>
           </div>
           <button
             type="button"
-            className="rounded-lg p-1.5 text-ql-fg-tertiary hover:bg-ql-surface-subtle hover:text-ql-fg"
+            className="rounded-md p-1.5 text-ql-fg-muted hover:bg-ql-surface-subtle hover:text-ql-fg"
             onClick={() => {
               setShowManageProviders(false);
               setEditingId(null);
@@ -102,14 +105,16 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               setShowAddInline(false);
             }}
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* 厂商列表 */}
-        <div className="mt-4 max-h-[360px] overflow-y-auto divide-y divide-ql-border-zone">
+        <div className="mt-4 max-h-[360px] overflow-y-auto space-y-2.5 pr-1">
           {providerOptions.length === 0 ? (
-            <p className="py-6 text-center text-[13px] text-ql-fg-tertiary">暂无厂商数据</p>
+            <div className="py-8 text-center text-[13px] text-ql-fg-muted">
+              暂无已添加的厂商
+            </div>
           ) : (
             providerOptions.map((provider) => {
               const resourceCount = resources.filter((r) => r.provider_id === provider.id).length;
@@ -117,92 +122,137 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               const isConfirmingDelete = confirmDeleteId === provider.id;
 
               return (
-                <div key={provider.id} className="flex items-center justify-between py-3 gap-3">
-                  <div className="min-w-0 flex-1">
-                    {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          className={`${INPUT_CLASS} h-8 text-[13px]`}
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEdit(provider.id);
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="rounded-md bg-ql-action p-1.5 text-white hover:bg-ql-action-hover disabled:opacity-60"
-                          disabled={updateProviderMutation.isPending || !editingName.trim()}
-                          onClick={() => saveEdit(provider.id)}
-                          title="保存"
-                        >
-                          <Check className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-md border border-ql-border p-1.5 text-ql-fg-secondary hover:bg-ql-surface-subtle"
-                          onClick={cancelEdit}
-                          title="取消"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
+                <div
+                  key={provider.id}
+                  className="flex flex-col gap-2 rounded-lg border border-ql-border bg-ql-surface-subtle p-3 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1 mr-2">
+                      {isEditing ? (
+                        <div className="flex items-center gap-1.5 flex-1 max-w-[240px]">
+                          <input
+                            type="text"
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            className="w-full px-2 py-1 border border-ql-action rounded text-[13px] bg-ql-surface text-ql-fg focus:outline-none"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEdit(provider.id);
+                              if (e.key === "Escape") cancelEdit();
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="p-1 rounded text-ql-action hover:bg-ql-action-soft"
+                            onClick={() => saveEdit(provider.id)}
+                            disabled={updateProviderMutation.isPending || !editingName.trim()}
+                            title="保存"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-1 rounded text-ql-fg-muted hover:bg-ql-surface"
+                            onClick={cancelEdit}
+                            title="取消"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-[13px] text-ql-fg">{provider.name}</span>
-                          <span className="rounded bg-ql-surface-subtle px-1.5 py-0.5 text-[11px] font-mono text-ql-fg-secondary">
+                          <span className="text-[14px] font-medium text-ql-fg">
+                            {provider.name}
+                          </span>
+                          <span className="rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[11px] font-mono text-ql-fg-secondary">
                             {provider.code}
                           </span>
                         </div>
-                        <p className="mt-0.5 text-[11px] text-ql-fg-tertiary">
-                          {resourceCount > 0 ? `已关联 ${resourceCount} 个资源账号` : "暂无关联资源"}
-                        </p>
+                      )}
+                    </div>
+
+                    {!isEditing && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-ql-action hover:bg-ql-action-soft transition-colors"
+                          onClick={() => startEdit(provider.id, provider.name)}
+                          disabled={isConfirmingDelete}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          编辑
+                        </button>
+                        <button
+                          type="button"
+                          className={`flex items-center gap-1 px-2 py-1 rounded text-[12px] transition-colors ${
+                            resourceCount > 0
+                              ? "text-ql-fg-muted/60 hover:text-ql-danger hover:bg-ql-danger-soft"
+                              : "text-ql-danger hover:bg-ql-danger-soft"
+                          }`}
+                          onClick={() => setConfirmDeleteId(provider.id)}
+                          disabled={isConfirmingDelete}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          删除
+                        </button>
                       </div>
                     )}
                   </div>
 
-                  {!isEditing && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
-                        onClick={() => startEdit(provider.id, provider.name)}
-                      >
-                        编辑
-                      </button>
+                  <div className="flex items-center justify-between text-[12px] text-ql-fg-muted pt-1 border-t border-ql-border/50">
+                    <span>
+                      已关联 <strong className="text-ql-fg">{resourceCount}</strong> 个资源账号
+                    </span>
+                  </div>
 
-                      {isConfirmingDelete ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-[12px] text-ql-danger">确认删除？</span>
-                          <button
-                            type="button"
-                            className="rounded-md bg-ql-danger px-2 py-1 text-[12px] font-medium text-white hover:bg-ql-danger-hover disabled:opacity-60"
-                            disabled={deleteProviderMutation.isPending}
-                            onClick={() => handleDelete(provider.id)}
-                          >
-                            {deleteProviderMutation.isPending ? "删除中…" : "确定"}
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-md border border-ql-border px-2 py-1 text-[12px] text-ql-fg-secondary hover:bg-ql-surface-subtle"
-                            onClick={() => setConfirmDeleteId(null)}
-                          >
-                            取消
-                          </button>
+                  {/* 删除二次确认提示 */}
+                  {isConfirmingDelete && (
+                    <div className="mt-2 rounded border border-ql-danger/30 bg-ql-danger-soft p-2 text-[12px]">
+                      {resourceCount > 0 ? (
+                        <div>
+                          <p className="text-ql-danger font-medium">
+                            该厂商名下仍有 {resourceCount} 个绑定的资源账号。
+                          </p>
+                          <p className="text-ql-fg-muted mt-0.5">
+                            为保证路由与审计完整，无法直接删除。请先在资源列表中删除或迁移关联账号。
+                          </p>
+                          <div className="mt-2 flex justify-end">
+                            <button
+                              type="button"
+                              className="px-2.5 py-1 rounded bg-ql-surface border border-ql-border text-[11px] text-ql-fg hover:bg-ql-surface-subtle"
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              我知道了
+                            </button>
+                          </div>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:cursor-not-allowed disabled:opacity-40"
-                          disabled={resourceCount > 0 || deleteProviderMutation.isPending}
-                          title={resourceCount > 0 ? "名下已有关联资源，需先删除或迁移资源" : "删除厂商"}
-                          onClick={() => setConfirmDeleteId(provider.id)}
-                        >
-                          删除
-                        </button>
+                        <div>
+                          <p className="text-ql-danger font-medium">
+                            确定要删除厂商 “{provider.name} ({provider.code})” 吗？
+                          </p>
+                          <p className="text-ql-fg-muted mt-0.5">
+                            该厂商无关联资源，删除后将释放厂商代码，此操作不可撤销。
+                          </p>
+                          <div className="mt-2 flex justify-end gap-2">
+                            <button
+                              type="button"
+                              className="px-2.5 py-1 rounded bg-ql-surface border border-ql-border text-[11px] text-ql-fg hover:bg-ql-surface-subtle"
+                              onClick={() => setConfirmDeleteId(null)}
+                              disabled={deleteProviderMutation.isPending}
+                            >
+                              取消
+                            </button>
+                            <button
+                              type="button"
+                              className="px-2.5 py-1 rounded bg-ql-danger text-white text-[11px] font-medium hover:bg-ql-danger-hover disabled:opacity-60"
+                              onClick={() => handleDelete(provider.id)}
+                              disabled={deleteProviderMutation.isPending}
+                            >
+                              {deleteProviderMutation.isPending ? "删除中…" : "确认删除"}
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
@@ -234,11 +284,18 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                   className={INPUT_CLASS}
                   id="inline-provider-code"
                   value={newCode}
-                  onChange={(e) => setNewCode(e.target.value)}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    setNewCode(code);
+                    const match = availableCodes.find((c) => c.code === code);
+                    if (match) setNewName(match.defaultName);
+                  }}
                 >
-                  <option value="deepseek">deepseek</option>
-                  <option value="zhipu">zhipu</option>
-                  <option value="kimi">kimi</option>
+                  {availableCodes.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code}（{c.defaultName}）
+                    </option>
+                  ))}
                 </select>
               </FormField>
               <FormField htmlFor="inline-provider-name" label="显示名称">
@@ -277,14 +334,26 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
           </div>
         ) : (
           <div className="mt-4 flex justify-between items-center border-t border-ql-border pt-3">
-            <button
-              type="button"
-              className="flex items-center gap-1 text-[13px] font-medium text-ql-action hover:underline"
-              onClick={() => setShowAddInline(true)}
-            >
-              <Plus className="h-4 w-4" />
-              新建厂商
-            </button>
+            {availableCodes.length > 0 ? (
+              <button
+                type="button"
+                className="flex items-center gap-1 text-[13px] font-medium text-ql-action hover:underline"
+                onClick={() => {
+                  setShowAddInline(true);
+                  if (availableCodes[0]) {
+                    setNewCode(availableCodes[0].code);
+                    setNewName(availableCodes[0].defaultName);
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                新建厂商
+              </button>
+            ) : (
+              <span className="text-[12px] text-ql-fg-muted">
+                当前支持的厂商（DeepSeek、智谱、Kimi）均已添加
+              </span>
+            )}
             <button
               type="button"
               className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px] font-medium text-ql-fg hover:bg-ql-surface-subtle"

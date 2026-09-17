@@ -90,44 +90,68 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                 </button>
               </div>
             </FormField>
-            {showNewProvider ? (
-              <div className="sm:col-span-2 flex items-end gap-2 rounded-lg border border-ql-border-zone bg-ql-surface p-3">
-                <FormField htmlFor="new-provider-code" label="厂商代码">
-                  <select
-                    className={INPUT_CLASS}
-                    id="new-provider-code"
-                    onChange={(e) => setNewProviderCode(e.target.value)}
-                    value={newProviderCode}
+            {showNewProvider ? (() => {
+              const ALL_SUPPORTED = [
+                { code: "deepseek", defaultName: "DeepSeek" },
+                { code: "zhipu", defaultName: "智谱" },
+                { code: "kimi", defaultName: "Kimi" },
+              ] as const;
+              const availableCodes = ALL_SUPPORTED.filter(
+                (c) => !providerOptions.some((p) => p.code === c.code),
+              );
+              if (availableCodes.length === 0) {
+                return (
+                  <div className="sm:col-span-2 rounded-lg border border-ql-border-zone bg-ql-surface p-3 text-[13px] text-ql-fg-secondary">
+                    当前支持的上游厂商（DeepSeek、智谱、Kimi）均已添加就绪。您可直接在上方“请选择厂商”下拉列表中选择对应厂商，然后在下方登记新的资源账号。
+                  </div>
+                );
+              }
+              return (
+                <div className="sm:col-span-2 flex items-end gap-2 rounded-lg border border-ql-border-zone bg-ql-surface p-3">
+                  <FormField htmlFor="new-provider-code" label="厂商代码">
+                    <select
+                      className={INPUT_CLASS}
+                      id="new-provider-code"
+                      onChange={(e) => {
+                        const selectedCode = e.target.value;
+                        setNewProviderCode(selectedCode);
+                        const match = availableCodes.find((c) => c.code === selectedCode);
+                        if (match) setNewProviderName(match.defaultName);
+                      }}
+                      value={newProviderCode}
+                    >
+                      {availableCodes.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code}（{c.defaultName}）
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <FormField htmlFor="new-provider-name" label="显示名称">
+                    <input
+                      className={INPUT_CLASS}
+                      id="new-provider-name"
+                      onChange={(e) => setNewProviderName(e.target.value)}
+                      placeholder="如：智谱"
+                      value={newProviderName}
+                    />
+                  </FormField>
+                  <button
+                    className="h-10 shrink-0 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover disabled:opacity-60"
+                    disabled={createProviderMutation.isPending || !newProviderName}
+                    onClick={() =>
+                      createProviderMutation.mutate({ code: newProviderCode, name: newProviderName })
+                    }
+                    type="button"
                   >
-                    <option value="deepseek">deepseek</option>
-                    <option value="zhipu">zhipu</option>
-                    <option value="kimi">kimi</option>
-                  </select>
-                </FormField>
-                <FormField htmlFor="new-provider-name" label="显示名称">
-                  <input
-                    className={INPUT_CLASS}
-                    id="new-provider-name"
-                    onChange={(e) => setNewProviderName(e.target.value)}
-                    placeholder="如：智谱"
-                    value={newProviderName}
-                  />
-                </FormField>
-                <button
-                  className="h-10 shrink-0 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover disabled:opacity-60"
-                  disabled={createProviderMutation.isPending || !newProviderName}
-                  onClick={() =>
-                    createProviderMutation.mutate({ code: newProviderCode, name: newProviderName })
-                  }
-                  type="button"
-                >
-                  {createProviderMutation.isPending ? "创建中…" : "确认"}
-                </button>
-                {createProviderMutation.error ? (
-                  <p className="text-[12px] text-ql-danger">{createProviderMutation.error.message}</p>
-                ) : null}
-              </div>
-            ) : null}
+                    {createProviderMutation.isPending ? "创建中…" : "确认"}
+                  </button>
+                  {createProviderMutation.error ? (
+                    <p className="text-[12px] text-ql-danger">{createProviderMutation.error.message}</p>
+                  ) : null}
+                </div>
+              );
+            })() : null}
             <FormField error={errors.name?.message} htmlFor="res-name" label="资源名称">
               <input
                 className={INPUT_CLASS}

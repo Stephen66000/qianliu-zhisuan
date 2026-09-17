@@ -47,20 +47,30 @@ export function registerProviderRoutes(app: FastifyInstance): void {
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
     }
-    const provider = await app.providerRepo.createProvider({
-      enterprise_id: req.admin!.enterpriseId,
-      ...parsed.data,
-    });
-    await app.auditRepo.write({
-      enterprise_id: req.admin!.enterpriseId,
-      admin_user_id: req.admin!.adminUserId,
-      action: "provider.create",
-      target_type: "provider",
-      target_id: provider.id,
-      change_summary: { code: provider.code, name: provider.name },
-      result: "SUCCESS",
-    });
-    return reply.code(201).send({ provider });
+    try {
+      const provider = await app.providerRepo.createProvider({
+        enterprise_id: req.admin!.enterpriseId,
+        ...parsed.data,
+      });
+      await app.auditRepo.write({
+        enterprise_id: req.admin!.enterpriseId,
+        admin_user_id: req.admin!.adminUserId,
+        action: "provider.create",
+        target_type: "provider",
+        target_id: provider.id,
+        change_summary: { code: provider.code, name: provider.name },
+        result: "SUCCESS",
+      });
+      return reply.code(201).send({ provider });
+    } catch (err: any) {
+      if (err?.code === "23505" || err?.message?.includes("provider_enterprise_code_idx")) {
+        return reply.code(409).send({
+          error: "provider_code_exists",
+          message: `厂商代码 “${parsed.data.code}” 已存在，每个企业内每种厂商只能创建一次。请直接选择已有厂商。`,
+        });
+      }
+      throw err;
+    }
   });
 
   app.patch<{ Params: { id: string } }>("/providers/:id", { preHandler: [requireAuth] }, async (req, reply) => {
