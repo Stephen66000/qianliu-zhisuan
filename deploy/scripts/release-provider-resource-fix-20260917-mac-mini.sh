@@ -190,8 +190,8 @@ frozen=1
 echo 'step 3: 构建新版本容器镜像 (control-api, gateway, worker, web)'
 (cd "$release/deploy" && docker compose build control-api gateway worker web)
 
-echo 'step 3.5: 显式执行数据库迁移（migrate 为一次性服务，up --no-deps 不会重跑已退出的旧迁移容器）'
-(cd "$release/deploy" && docker compose run --rm migrate)
+echo 'step 3.5: 重建 migrate 镜像并显式执行数据库迁移（migrate 为一次性服务：up --no-deps 不会重跑已退出的旧迁移容器；run 复用旧镜像时必须 --build 重建，否则新迁移文件不在镜像内）'
+(cd "$release/deploy" && docker compose run --rm --build migrate)
 
 echo 'step 4: 切换并拉起新版本容器'
 test "$(<"$pointer")" = "$previous"
