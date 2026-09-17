@@ -23,6 +23,9 @@ import {
   type CreateProviderResourceInput,
   type OnboardResourceModelsInput,
   type ProviderModelOnboardingResult,
+  type DeleteProviderResult,
+  type UpdateProviderInput,
+  type DeleteResourceSafelyResult,
 } from "./provider-types.js";
 
 export {
@@ -35,6 +38,9 @@ export {
   type OperatingSnapshotInput,
   type ProviderModelOnboardingResult,
   type ModelValidationResult,
+  type DeleteProviderResult,
+  type UpdateProviderInput,
+  type DeleteResourceSafelyResult,
 } from "./provider-types.js";
 export type { ProviderOperatingSyncState, ProviderResourceOperatingSnapshot } from "./provider-operating-repository.js";
 
@@ -75,6 +81,302 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       .where("enterprise_id", "=", enterpriseId)
       .orderBy("created_at", "desc")
       .execute();
+  }
+
+  async updateProvider(
+    enterpriseId: string,
+    providerId: string,
+    input: UpdateProviderInput,
+  ): Promise<Provider | undefined> {
+    return this.db
+      .updateTable("provider")
+      .set({
+        name: input.name,
+        updated_at: new Date(),
+      })
+      .where("enterprise_id", "=", enterpriseId)
+      .where("id", "=", providerId)
+      .returningAll()
+      .executeTakeFirst();
+  }
+
+  async deleteProvider(
+    enterpriseId: string,
+    providerId: string,
+  ): Promise<DeleteProviderResult> {
+    return this.db.transaction().execute(async (trx) => {
+      const provider = await trx
+        .selectFrom("provider")
+        .select(["id", "code", "name"])
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", providerId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!provider) {
+        return { found: false, deleted: false };
+      }
+
+      const resourceCountRes = await trx
+        .selectFrom("provider_resource")
+        .select((eb) => eb.fn.count<string>("id").as("count"))
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_id", "=", providerId)
+        .executeTakeFirst();
+      const resourceCount = Number(resourceCountRes?.count ?? 0);
+      if (resourceCount > 0) {
+        return {
+          found: true,
+          deleted: false,
+          reason: `该厂商名下存在 ${resourceCount} 个厂商资源，请先删除或迁移相关资源后再删除厂商`,
+          provider,
+        };
+      }
+
+      const ruleCountRes = await trx
+        .selectFrom("availability_rule_version")
+        .select((eb) => eb.fn.count<string>("id").as("count"))
+        .where("provider_id", "=", providerId)
+        .executeTakeFirst();
+      const ruleCount = Number(ruleCountRes?.count ?? 0);
+      if (ruleCount > 0) {
+        return {
+          found: true,
+          deleted: false,
+          reason: "该厂商已被运行保障规则引用，无法直接删除",
+          provider,
+        };
+      }
+
+      const eventCountRes = await trx
+        .selectFrom("availability_event")
+        .select((eb) => eb.fn.count<string>("id").as("count"))
+        .where("provider_id", "=", providerId)
+        .executeTakeFirst();
+      const eventCount = Number(eventCountRes?.count ?? 0);
+      if (eventCount > 0) {
+        return {
+          found: true,
+          deleted: false,
+          reason: "该厂商存在运行保障事件历史，无法直接删除",
+          provider,
+        };
+      }
+
+      await trx
+        .deleteFrom("provider")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", providerId)
+        .execute();
+
+      return {
+        found: true,
+        deleted: true,
+        provider,
+      };
+    });
+  }
+
+  async deleteResourceSafely(
+    enterpriseId: string,
+    resourceId: string,
+    actorAdminId?: string,
+  ): Promise<DeleteResourceSafelyResult> {
+    return this.db.transaction().execute(async (trx) => {
+      const resource = await trx
+        .selectFrom("provider_resource")
+        .select(["id", "name", "mode", "provider_id"])
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", resourceId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!resource) return { found: false, deleted: false };
+
+      const [attemptRes, usageRes, ledgerRes, financeRes, subPeriodRes, billConfirmRes] = await Promise.all([
+        trx
+          .selectFrom("upstream_attempt")
+          .select((eb) => eb.fn.count<string>("id").as("count"))
+          .where("enterprise_id", "=", enterpriseId)
+          .where("provider_resource_id", "=", resourceId)
+          .executeTakeFirst(),
+        trx
+          .selectFrom("usage_event")
+          .select((eb) => eb.fn.count<string>("id").as("count"))
+          .where("enterprise_id", "=", enterpriseId)
+          .where("provider_resource_id", "=", resourceId)
+          .executeTakeFirst(),
+        trx
+          .selectFrom("ledger_line")
+          .select((eb) => eb.fn.count<string>("id").as("count"))
+          .where("enterprise_id", "=", enterpriseId)
+          .where("provider_resource_id", "=", resourceId)
+          .executeTakeFirst(),
+        trx
+          .selectFrom("provider_finance_event")
+          .select((eb) => eb.fn.count<string>("id").as("count"))
+          .where("enterprise_id", "=", enterpriseId)
+          .where("provider_resource_id", "=", resourceId)
+          .executeTakeFirst(),
+        trx
+          .selectFrom("provider_subscription_period")
+          .select((eb) => eb.fn.count<string>("id").as("count"))
+          .where("enterprise_id", "=", enterpriseId)
+          .where("provider_resource_id", "=", resourceId)
+          .executeTakeFirst(),
+        trx
+          .selectFrom("operating_bill_resource_confirmation")
+          .select((eb) => eb.fn.count<string>("id").as("count"))
+          .where("enterprise_id", "=", enterpriseId)
+          .where("provider_resource_id", "=", resourceId)
+          .executeTakeFirst(),
+      ]);
+
+      const attemptCount = Number(attemptRes?.count ?? 0);
+      const usageCount = Number(usageRes?.count ?? 0);
+      const ledgerCount = Number(ledgerRes?.count ?? 0);
+      const financeCount = Number(financeRes?.count ?? 0);
+      const subPeriodCount = Number(subPeriodRes?.count ?? 0);
+      const billConfirmCount = Number(billConfirmRes?.count ?? 0);
+
+      if (attemptCount > 0 || usageCount > 0 || ledgerCount > 0 || financeCount > 0 || subPeriodCount > 0 || billConfirmCount > 0) {
+        return {
+          found: true,
+          deleted: false,
+          reason: "该资源已有实际调用或财务账本事实，为保证法定审计与资金真账一致性不可物理删除，请通过模型下架或停用进行管理",
+          resource: { id: resource.id, name: resource.name, mode: resource.mode },
+        };
+      }
+
+      const routes = await trx
+        .selectFrom("model_route")
+        .select(["id", "unified_model_id"])
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      const routeIds = routes.map((r) => r.id);
+      const candidateUnifiedModelIds = [...new Set(routes.map((r) => r.unified_model_id))];
+
+      await trx
+        .deleteFrom("employee_model_rule_assignment")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+
+      await trx
+        .deleteFrom("route_candidate")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+
+      await trx
+        .deleteFrom("billing_rule")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+
+      if (routeIds.length > 0) {
+        await trx
+          .deleteFrom("model_route")
+          .where("id", "in", routeIds)
+          .execute();
+      }
+
+      for (const uModelId of candidateUnifiedModelIds) {
+        const remainingRoutesRes = await trx
+          .selectFrom("model_route")
+          .select((eb) => eb.fn.count<string>("id").as("count"))
+          .where("enterprise_id", "=", enterpriseId)
+          .where("unified_model_id", "=", uModelId)
+          .executeTakeFirst();
+        if (Number(remainingRoutesRes?.count ?? 0) === 0) {
+          const uModelReqRes = await trx
+            .selectFrom("ai_request")
+            .select((eb) => eb.fn.count<string>("id").as("count"))
+            .where("enterprise_id", "=", enterpriseId)
+            .where("unified_model_id", "=", uModelId)
+            .executeTakeFirst();
+          if (Number(uModelReqRes?.count ?? 0) === 0) {
+            await trx
+              .deleteFrom("unified_model")
+              .where("enterprise_id", "=", enterpriseId)
+              .where("id", "=", uModelId)
+              .execute();
+          }
+        }
+      }
+
+      await trx
+        .deleteFrom("availability_event")
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("availability_rule_version")
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("concurrency_lease")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("supply_forecast")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("provider_quota_window")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+
+      await trx
+        .deleteFrom("provider_model_discovery_item")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("provider_model_discovery")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("provider_model_onboarding")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+
+      await trx
+        .deleteFrom("provider_resource_operating_sync_attempt")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("provider_resource_operating_snapshot")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("provider_resource_monthly_budget")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+      await trx
+        .deleteFrom("resource_status_event")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", resourceId)
+        .execute();
+
+      await trx
+        .deleteFrom("provider_resource")
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", resourceId)
+        .execute();
+
+      return {
+        found: true,
+        deleted: true,
+        resource: { id: resource.id, name: resource.name, mode: resource.mode },
+      };
+    });
   }
 
   // ===== Provider Resource =====

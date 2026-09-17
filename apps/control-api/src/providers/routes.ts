@@ -17,6 +17,7 @@ import { EnterpriseReferenceError, sumAllocatedQuota } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   CreateProviderSchema,
+  UpdateProviderSchema,
   CreateResourceSchema,
   CreateRouteSchema,
   CreateUnifiedModelSchema,
@@ -60,6 +61,78 @@ export function registerProviderRoutes(app: FastifyInstance): void {
       result: "SUCCESS",
     });
     return reply.code(201).send({ provider });
+  });
+
+  app.patch<{ Params: { id: string } }>("/providers/:id", { preHandler: [requireAuth] }, async (req, reply) => {
+    const parsed = UpdateProviderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_request", message: parsed.error.message });
+    }
+    const updated = await app.providerRepo.updateProvider(
+      req.admin!.enterpriseId,
+      req.params.id,
+      parsed.data,
+    );
+    if (!updated) {
+      return reply.code(404).send({ error: "not_found", message: "厂商不存在" });
+    }
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "provider.update",
+      target_type: "provider",
+      target_id: updated.id,
+      change_summary: { code: updated.code, name: updated.name },
+      result: "SUCCESS",
+    });
+    return reply.code(200).send({ provider: updated });
+  });
+
+  app.delete<{ Params: { id: string } }>("/providers/:id", { preHandler: [requireAuth] }, async (req, reply) => {
+    const result = await app.providerRepo.deleteProvider(
+      req.admin!.enterpriseId,
+      req.params.id,
+    );
+    if (!result.found) {
+      return reply.code(404).send({ error: "not_found", message: "厂商不存在" });
+    }
+    if (!result.deleted) {
+      return reply.code(409).send({ error: "provider_in_use", message: result.reason });
+    }
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "provider.delete",
+      target_type: "provider",
+      target_id: req.params.id,
+      change_summary: { code: result.provider?.code, name: result.provider?.name },
+      result: "SUCCESS",
+    });
+    return reply.code(200).send({ deleted: true, provider: result.provider });
+  });
+
+  app.delete<{ Params: { id: string } }>("/provider-resources/:id", { preHandler: [requireAuth] }, async (req, reply) => {
+    const result = await app.providerRepo.deleteResourceSafely(
+      req.admin!.enterpriseId,
+      req.params.id,
+      req.admin!.adminUserId,
+    );
+    if (!result.found) {
+      return reply.code(404).send({ error: "not_found", message: "资源不存在" });
+    }
+    if (!result.deleted) {
+      return reply.code(409).send({ error: "resource_has_history", message: result.reason });
+    }
+    await app.auditRepo.write({
+      enterprise_id: req.admin!.enterpriseId,
+      admin_user_id: req.admin!.adminUserId,
+      action: "provider_resource.delete",
+      target_type: "provider_resource",
+      target_id: req.params.id,
+      change_summary: { name: result.resource?.name, mode: result.resource?.mode },
+      result: "SUCCESS",
+    });
+    return reply.code(200).send({ deleted: true, resource: result.resource });
   });
 
   // ===== Provider Resource（凭证加密存储）=====

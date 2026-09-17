@@ -1,4 +1,5 @@
 import { SyncModelsPanel } from "./ResourceModelDiscovery";
+import { ConfirmDialog } from "../writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { IntegerAmountInput } from "../writes/IntegerAmountInput";
 import { MoneyAmountInput } from "../writes/MoneyAmountInput";
@@ -16,7 +17,7 @@ function ReadOnlyMetric({ label, value }: { label: string; value: string }) {
 }
 
 export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
-  const { editTarget, setEditTarget, syncTarget, setSyncTarget, operatingTarget, setOperatingTarget, operatingDraft, setOperatingDraft, operatingValidationError, setOperatingValidationError, operatingHistory, operatingMutation, editMutation, editRegister, handleEditSubmit, editReset, editErrors } = model;
+  const { editTarget, setEditTarget, syncTarget, setSyncTarget, operatingTarget, setOperatingTarget, operatingDraft, setOperatingDraft, operatingValidationError, setOperatingValidationError, operatingHistory, operatingMutation, editMutation, editRegister, handleEditSubmit, editReset, editErrors, deleteResourceTarget, setDeleteResourceTarget, deleteResourceMutation } = model;
   return <>
       {editTarget ? (
         <form data-write-action
@@ -234,5 +235,23 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
         </form>
       ) : null}
 
+      {deleteResourceTarget ? (
+        <ConfirmDialog
+          confirmLabel="确认删除"
+          danger
+          impact={`删除「${deleteResourceTarget.name}」（${deleteResourceTarget.mode}）将级联清理其初始模型路由与衍生配置。若该资源已有真实调用或资金账本记录，系统将予以安全拦截。`}
+          loading={deleteResourceMutation.isPending}
+          onCancel={() => setDeleteResourceTarget(null)}
+          onConfirm={() => deleteResourceMutation.mutate(deleteResourceTarget.id)}
+          open={deleteResourceTarget !== null}
+          title="删除厂商资源"
+        >
+          {deleteResourceMutation.error ? (
+            <p className="mt-2 text-[13px] text-ql-danger" role="alert">
+              {deleteResourceMutation.error.message}
+            </p>
+          ) : null}
+        </ConfirmDialog>
+      ) : null}
   </>;
 }

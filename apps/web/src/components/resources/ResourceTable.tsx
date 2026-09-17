@@ -15,7 +15,7 @@ export function resourceModelNames(resource: Pick<ProviderResourceItem, "upstrea
 }
 
 export function ResourceTable({ model }: { model: ResourcesPageModel }) {
-  const { query, setRecoverTarget, setEditTarget, setSyncTarget, setOperatingTarget, setOperatingDraft, setOperatingValidationError, setOperatingHistory, editReset, resources, providerOptions } = model;
+  const { query, setRecoverTarget, setEditTarget, setSyncTarget, setDeleteResourceTarget, setOperatingTarget, setOperatingDraft, setOperatingValidationError, setOperatingHistory, editReset, resources, providerOptions } = model;
   return <>
       <QueryGate
         emptyDescription="尚未登记可用 AI 资源，无法产生模型和路由候选。点击右上角「登记资源」登记 DeepSeek API、智谱或 Kimi 资源。"
@@ -154,6 +154,13 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                         恢复
                       </button>
                       ) : null}
+                      <button data-write-action
+                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
+                        onClick={() => setDeleteResourceTarget(r)}
+                        type="button"
+                      >
+                        删除
+                      </button>
                     </div>
                   </td>
                 </tr>

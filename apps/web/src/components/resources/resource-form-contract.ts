@@ -45,9 +45,6 @@ export const CreateResourceSchema = z.object({
   reset_cycle: z.enum(["NONE", "DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"]),
   reset_anchor_at: z.string(),
 }).superRefine((value, ctx) => {
-  if (value.mode === "CODING_PLAN" && !value.total_quota) {
-    ctx.addIssue({ code: "custom", path: ["total_quota"], message: "套餐资源必须填写总额度" });
-  }
   if (value.mode === "CODING_PLAN" && value.reset_cycle !== "NONE" && !value.reset_anchor_at) {
     ctx.addIssue({ code: "custom", path: ["reset_anchor_at"], message: "请选择重置日期" });
   }

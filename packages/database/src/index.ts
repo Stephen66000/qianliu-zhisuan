@@ -124,6 +124,9 @@ export {
   type CreateProviderResourceInput,
   type ModelValidationResult,
   type ResourceRouteItem,
+  type DeleteProviderResult,
+  type UpdateProviderInput,
+  type DeleteResourceSafelyResult,
 } from "./repositories/provider-repository.js";
 export {
   DEFAULT_RESET_TIMEZONE,

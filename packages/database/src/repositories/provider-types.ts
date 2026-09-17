@@ -124,3 +124,22 @@ export interface OnboardResourceModelsInput {
   discovery: ModelDiscoveryResult;
   selectedModels: DiscoveredProviderModel[];
 }
+
+export interface DeleteProviderResult {
+  found: boolean;
+  deleted: boolean;
+  reason?: string;
+  provider?: { id: string; code: string; name: string };
+}
+
+export interface UpdateProviderInput {
+  name: string;
+}
+
+export interface DeleteResourceSafelyResult {
+  found: boolean;
+  deleted: boolean;
+  reason?: string;
+  resource?: { id: string; name: string; mode: string };
+}
+

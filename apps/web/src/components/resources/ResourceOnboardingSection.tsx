@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import type { ProviderResourceItem } from "../../api/types";
 import { CreateModelDiscoveryPanel } from "./ResourceModelDiscovery";
 import { ResourceUtilizationPanel } from "./ResourceUtilizationPanel";
+import { ProviderManagementDialog } from "./ProviderManagementDialog";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { IntegerAmountInput } from "../writes/IntegerAmountInput";
 import {
@@ -13,7 +14,7 @@ import {
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
 export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel }) {
-  const { featureFlags, showCreate, setShowCreate, showNewProvider, setShowNewProvider, discovery, setDiscovery, selectedModelIds, setSelectedModelIds, createValidationError, setCreateValidationError, createMutation, createProviderMutation, newProviderName, setNewProviderName, newProviderCode, setNewProviderCode, register, handleSubmit, getValues, reset, setValue, errors, createMode, createResetCycle, createTotalQuota, resources, providerOptions, clearCreateDiscovery } = model;
+  const { featureFlags, showCreate, setShowCreate, showNewProvider, setShowNewProvider, showManageProviders, setShowManageProviders, discovery, setDiscovery, selectedModelIds, setSelectedModelIds, createValidationError, setCreateValidationError, createMutation, createProviderMutation, newProviderName, setNewProviderName, newProviderCode, setNewProviderCode, register, handleSubmit, getValues, reset, setValue, errors, createMode, createResetCycle, createTotalQuota, resources, providerOptions, clearCreateDiscovery } = model;
   return <>
       <div className="mb-4 flex justify-end">
         <button
@@ -79,6 +80,13 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                   type="button"
                 >
                   新建厂商
+                </button>
+                <button data-write-action
+                  className="h-10 shrink-0 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] font-medium text-ql-fg-secondary hover:bg-ql-surface-subtle"
+                  onClick={() => setShowManageProviders(true)}
+                  type="button"
+                >
+                  管理厂商
                 </button>
               </div>
             </FormField>
@@ -298,5 +306,6 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
         </form>
       ) : null}
 
+      {showManageProviders ? <ProviderManagementDialog model={model} /> : null}
   </>;
 }

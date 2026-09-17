@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { patch, post } from "../api/client";
+import { del, patch, post } from "../api/client";
 import { QUERY_KEYS, useProviderResources, useProviders, useSupplyForecasts } from "../api/hooks";
 import type { ProviderResourceItem, ProviderResourceOperatingSnapshot } from "../api/types";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
@@ -90,6 +90,40 @@ export function useResourcesPageModel() {
       // 新建后自动选中并预填资源名称
       setValue("provider_id", data.provider.id);
       setValue("name", formatResourceNameWithDate(variables.name));
+    },
+  });
+
+  const [showManageProviders, setShowManageProviders] = useState(false);
+
+  const deleteProviderMutation = useMutation({
+    mutationFn: (providerId: string) => del<{ deleted: boolean }>(`/providers/${providerId}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providers });
+    },
+  });
+
+  const updateProviderMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      patch<{ provider: { id: string; name: string; code: string } }>(`/providers/${id}`, { name }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providers });
+    },
+  });
+
+  const [deleteResourceTarget, setDeleteResourceTarget] = useState<ProviderResourceItem | null>(null);
+  const deleteResourceMutation = useMutation({
+    mutationFn: (resourceId: string) => del<{ deleted: boolean }>(`/provider-resources/${resourceId}`),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceUsageOverview }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.supplyForecasts }),
+        queryClient.invalidateQueries({ queryKey: ["resource-utilization"] }),
+        queryClient.invalidateQueries({ queryKey: ["provider-finance"] }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unifiedModels }),
+      ]);
+      setDeleteResourceTarget(null);
     },
   });
 
@@ -221,7 +255,9 @@ export function useResourcesPageModel() {
     operatingHistory, setOperatingHistory, operatingMutation, recoverMutation, editMutation,
     register, handleSubmit, getValues, reset, setValue, errors, createMode, createResetCycle,
     createTotalQuota, editRegister, handleEditSubmit, editReset, editErrors, resources, forecasts,
-    providerOptions, clearCreateDiscovery
+    providerOptions, clearCreateDiscovery,
+    showManageProviders, setShowManageProviders, deleteProviderMutation, updateProviderMutation,
+    deleteResourceTarget, setDeleteResourceTarget, deleteResourceMutation
   };
 }
 

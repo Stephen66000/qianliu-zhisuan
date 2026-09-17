@@ -403,6 +403,85 @@ describe("W04 Provider/Resource/Model/Route", () => {
     expect(routes[0].upstream_model).toBe("deepseek-chat");
   });
 
+  it("CODING_PLAN 资源登记允许不填 total_quota，且支持安全删除无事实的测试资源", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+      payload: {
+        provider_id: providerId,
+        name: "MiniMax Coding Plan 账号",
+        mode: "CODING_PLAN",
+        credential_type: "SUBSCRIPTION_SESSION",
+        credential_plaintext: "sk-coding-plan-test",
+        upstream_models: ["abab6.5s-chat"],
+        operating_snapshot: {
+          source: "ADMIN",
+          collected_at: new Date().toISOString(),
+          currency: "CNY",
+          package_name: "Pro 5h/7d 周期卡",
+          package_cost: "50",
+          quota_unit: "PERCENT",
+          // total_quota 省略，不应被拦截报错
+        },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const codingResId = res.json().resource.id;
+
+    // 安全删除该资源
+    const delRes = await app.inject({
+      method: "DELETE",
+      url: `/provider-resources/${codingResId}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(delRes.statusCode).toBe(200);
+    expect(delRes.json().deleted).toBe(true);
+    expect(delRes.json().resource.id).toBe(codingResId);
+
+    // 再次查询已不存在
+    const getRes = await app.inject({
+      method: "GET",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+    });
+    const found = getRes.json().resources.find((item: { id: string }) => item.id === codingResId);
+    expect(found).toBeUndefined();
+  });
+
+  it("厂商管理：PATCH /providers/:id 更新名称与 DELETE /providers/:id 安全删除", async () => {
+    const testProviderId = await createProvider("kimi");
+
+    // 修改名称
+    const patchRes = await app.inject({
+      method: "PATCH",
+      url: `/providers/${testProviderId}`,
+      headers: { cookie: adminCookie },
+      payload: { name: "Kimi 月之暗面" },
+    });
+    expect(patchRes.statusCode).toBe(200);
+    expect(patchRes.json().provider.name).toBe("Kimi 月之暗面");
+
+    // 存在绑定的资源时拒绝删除原 providerId
+    const conflictRes = await app.inject({
+      method: "DELETE",
+      url: `/providers/${providerId}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(conflictRes.statusCode).toBe(409);
+    expect(conflictRes.json().message).toContain("请先删除或迁移相关资源后再删除厂商");
+
+    // 无绑定的 testProviderId 可以安全删除
+    const delRes = await app.inject({
+      method: "DELETE",
+      url: `/providers/${testProviderId}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(delRes.statusCode).toBe(200);
+    expect(delRes.json().deleted).toBe(true);
+    expect(delRes.json().provider.id).toBe(testProviderId);
+  });
+
   // ===== M1 DoD canary：上游凭证明文绝不进 DB =====
   it("canary：上游凭证明文在 provider_resource 表 0 命中（M1 DoD 硬门禁）", async () => {
     const canarySecret = "sk-deepseek-CANARY-SECRET-FOR-SCAN-12345";
@@ -444,3 +523,4 @@ describe("W04 Provider/Resource/Model/Route", () => {
     }
   });
 });
+

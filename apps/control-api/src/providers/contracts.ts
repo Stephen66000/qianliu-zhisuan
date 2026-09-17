@@ -16,6 +16,10 @@ export const CreateProviderSchema = z.object({
   capability_set: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const UpdateProviderSchema = z.object({
+  name: z.string().min(1, "厂商名称不能为空").max(128),
+});
+
 const DecimalText = z.union([z.string(), z.number()]).transform(String)
   .refine((value) => /^\d+(?:\.\d+)?$/.test(value), "必须是非负十进制数");
 
@@ -96,7 +100,6 @@ export function operatingSnapshotModeError(
       : `套餐资源不能写入 API 充值/余额字段：${populated.join(", ")}`;
   }
   if (mode === "CODING_PLAN" && snapshot.source === "ADMIN") {
-    if (!snapshot.total_quota) return "套餐资源必须填写总额度";
     const resetCycle = snapshot.reset_cycle?.toUpperCase() ?? "NONE";
     if (!["NONE", "DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"].includes(resetCycle)) {
       return "重置周期必须是不重置、每日、每周、每月、每季或每年";
