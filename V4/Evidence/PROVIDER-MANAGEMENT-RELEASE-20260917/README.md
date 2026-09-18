@@ -57,6 +57,16 @@ Tag：`v2.5.5`。提交：`8cac154`。
 - 验证：w04 集成 15/15（新增「下架→恢复→重复恢复拦截→审计留痕」全流程用例）、web 471、database 仓储 187、worker 94、gateway pipeline 73；全仓 typecheck / lint / build / 架构 / 体量 / audit / duplication 全绿；体量基线登记（routes.ts 576、hooks.ts 413、ResourceModelDiscovery 684、provider-repository 774）。
 - 发布：`/Users/stephen/releases/qianliu-provider-resource-fix-20260918-132222`，Commit `8cac154`，五服务健康，回滚镜像备份 `qianliu-provider-resource-rollback-20260918-132222`。
 
+## 路由启用入口补全（2.5.6）
+
+Tag：`v2.5.6`。提交：`686c097`。
+
+- 背景：生产验证恢复上架时发现「未启用」模型无启用入口——旧管理区（QuotaModelSection/QuotaRouteSection）在额度规则页改版中下线，启用统一模型/路由的 UI 路径整体缺失，属历史改版遗留缺口。
+- 方案：同步面板「待配置 / 历史同步模型」区新增 `EnableRouteButton`，一键联动激活统一模型 + 启用路由，复用受审计 PATCH 接口（乐观锁 + 验证闸门）。纯前端变更。
+- 验证：web 471 全过，typecheck / lint / build / 架构 / 体量 / audit 全绿；体量基线登记（hooks.ts 440、ResourceModelDiscovery 723）。
+- 发布：`/Users/stephen/releases/qianliu-provider-resource-fix-20260918-135907`，Commit `686c097`，五服务健康，回滚镜像备份 `qianliu-provider-resource-rollback-20260918-135907`。
+- 教训：UI 改版下线旧区块时，需盘点其中唯一操作入口是否有新落点，避免静默死路。
+
 ## 遗留事项
 
 - P2-3：探活仅前 5 模型，UI 未区分「实测可用/推断可用」，列入后续迭代。
