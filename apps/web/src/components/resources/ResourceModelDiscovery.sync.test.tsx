@@ -42,6 +42,10 @@ vi.mock("../../api/hooks", () => ({
     mutate: vi.fn(),
     isPending: false,
   }),
+  useEnableResourceRoute: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
   QUERY_KEYS: {
     providerResources: ["provider-resources"],
     resourceRoutes: (id: string) => ["resource-routes", id],

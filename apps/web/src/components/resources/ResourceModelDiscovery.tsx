@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { post } from "../../api/client";
-import { QUERY_KEYS, useResourceRoutes, useRetireResourceRoute, useRestoreResourceRoute } from "../../api/hooks";
+import { QUERY_KEYS, useResourceRoutes, useRetireResourceRoute, useRestoreResourceRoute, useEnableResourceRoute } from "../../api/hooks";
 import type { ProviderResourceItem, ResourceRouteItem } from "../../api/types";
 import { formatDateTimeFull } from "../../lib/format";
 import { INPUT_CLASS } from "../writes/FormField";
@@ -469,18 +469,21 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                       </span>
                     ) : null}
                   </div>
-                  <button
-                    data-write-action
-                    className="rounded-md border border-ql-border px-2.5 py-1 text-[12px] font-medium text-ql-fg-secondary hover:border-ql-danger hover:text-ql-danger hover:bg-ql-danger-soft disabled:opacity-60"
-                    disabled={retire.isPending}
-                    onClick={() => {
-                      setRetireTarget(route);
-                      setRetireMessage(null);
-                    }}
-                    type="button"
-                  >
-                    下架清理
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <EnableRouteButton route={route} resourceId={target.id} onDone={setRetireMessage} />
+                    <button
+                      data-write-action
+                      className="rounded-md border border-ql-border px-2.5 py-1 text-[12px] font-medium text-ql-fg-secondary hover:border-ql-danger hover:text-ql-danger hover:bg-ql-danger-soft disabled:opacity-60"
+                      disabled={retire.isPending}
+                      onClick={() => {
+                        setRetireTarget(route);
+                        setRetireMessage(null);
+                      }}
+                      type="button"
+                    >
+                      下架清理
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -645,6 +648,43 @@ function DiscoveryMeta({ discovery }: { discovery: ModelDiscoveryResponse }) {
     {discovery.failure_code ? <p className="mt-1 text-ql-danger">本次同步：{discovery.failure_code}；未采用不完整结果。</p> : null}
     {diff ? <p className="mt-1">目录变化：新增 {diff.added.length} · 保留 {diff.retained.length} · 官方未再列出 {diff.not_advertised.length}</p> : null}
   </div>;
+}
+
+function EnableRouteButton({
+  route,
+  resourceId,
+  onDone,
+}: {
+  route: ResourceRouteItem;
+  resourceId: string;
+  onDone: (message: string) => void;
+}) {
+  const enable = useEnableResourceRoute(resourceId);
+  const displayName = route.model_alias || route.upstream_model;
+  if (route.enabled) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <button
+        data-write-action
+        className="rounded-md border border-ql-action px-2.5 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-60"
+        disabled={enable.isPending}
+        title="启用统一模型与模型路由；配置生效计价规则后即可对外服务"
+        onClick={() => {
+          enable.mutate(route, {
+            onSuccess: () => {
+              onDone(`模型「${displayName}」已启用，配置生效计价规则后即可对外服务。`);
+            },
+          });
+        }}
+        type="button"
+      >
+        {enable.isPending ? "启用中…" : "启用"}
+      </button>
+      {enable.error ? (
+        <span className="text-[11px] text-ql-danger">{enable.error.message}</span>
+      ) : null}
+    </span>
+  );
 }
 
 function RestoreRouteConfirm({

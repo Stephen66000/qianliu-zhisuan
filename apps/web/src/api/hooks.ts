@@ -6,7 +6,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { get, post } from "./client";
+import { get, patch, post } from "./client";
 import { useCatalogPath } from "./catalog-access";
 import type {
   AccessConfiguration,
@@ -30,6 +30,7 @@ import type {
   ProviderResourcesResult,
   ProvidersResult,
   ResourceHealth,
+  ResourceRouteItem,
   ResourceRoutesResult,
   ResourceUsageOverview,
   RetireResourceRouteResult,
@@ -290,6 +291,34 @@ export function useRestoreResourceRoute(resourceId: string) {
       post<RestoreResourceRouteResult>(
         `/provider-resources/${resourceId}/routes/${routeId}/restore`,
       ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceRoutes(resourceId) });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unifiedModels });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.billingRules });
+    },
+  });
+}
+
+/** 启用未在服务的模型路由：必要时先把统一模型置为 ACTIVE，再启用路由（乐观锁取自实时数据）。 */
+export function useEnableResourceRoute(resourceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (route: ResourceRouteItem) => {
+      const models = await get<UnifiedModelsResult>("/unified-models?archived=all");
+      const unified = models.models.find((m) => m.id === route.unified_model_id);
+      if (!unified) throw new Error("统一模型不存在，请刷新后重试");
+      if (unified.status !== "ACTIVE") {
+        await patch(`/unified-models/${unified.id}`, {
+          expected_version: unified.version,
+          status: "ACTIVE",
+        });
+      }
+      await patch(`/model-routes/${route.id}`, {
+        expected_version: route.version,
+        enabled: true,
+      });
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceRoutes(resourceId) });
