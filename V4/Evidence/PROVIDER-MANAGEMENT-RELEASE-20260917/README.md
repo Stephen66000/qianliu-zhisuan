@@ -48,6 +48,15 @@ Tag：`v2.5.4`。功能提交：`712ee91`；发布脚本最终修复：`db6601e`
 2. 第二次（~18:22）：仍 worker=unhealthy 回滚。日志显示迁移清单只有 75 个文件（止于 0074）。根因：migrate 使用独立镜像 `qianliu-zhisuan-migrate`，step 3 只构建 control-api/gateway/worker/web，migrate 镜像从未重建，`compose run` 复用旧镜像仍无 0075。修复（`db6601e`）：step 3.5 改为 `docker compose run --rm --build migrate`。
 3. 第三次（18:25）：COMPLETE 部署成功。Release：`/Users/stephen/releases/qianliu-provider-resource-fix-20260917-182516`，Commit `db6601e`，五服务健康，回滚镜像备份 `qianliu-provider-resource-rollback-20260917-182516`。
 
+## 模型恢复上架功能发布（2.5.5）
+
+Tag：`v2.5.5`。提交：`8cac154`。
+
+- 背景：2.5.3 的「一键下架清理」为单向操作——前端同步面板排除已下架模型，后端 `attachDiscoveredModels` 遇归档统一模型直接报错，已下架模型无任何恢复路径（生产验证中发现）。
+- 方案：新增 `restoreResourceModelRoute` 仓储事务（恢复路由保持停用、统一模型恢复为 PENDING_CONFIG、模型回填资源 upstream_models）+ `POST /provider-resources/:id/routes/:routeId/restore` 接口带审计（重复恢复拦截 400）+ 前端已下架模型行「恢复上架」按钮与确认面板。**计价规则与员工授权不自动恢复**，恢复后模型处于「待配计价」，需重新配置后方可服务——符合「配置可重建、事实要留痕」原则。
+- 验证：w04 集成 15/15（新增「下架→恢复→重复恢复拦截→审计留痕」全流程用例）、web 471、database 仓储 187、worker 94、gateway pipeline 73；全仓 typecheck / lint / build / 架构 / 体量 / audit / duplication 全绿；体量基线登记（routes.ts 576、hooks.ts 413、ResourceModelDiscovery 684、provider-repository 774）。
+- 发布：`/Users/stephen/releases/qianliu-provider-resource-fix-20260918-132222`，Commit `8cac154`，五服务健康，回滚镜像备份 `qianliu-provider-resource-rollback-20260918-132222`。
+
 ## 遗留事项
 
 - P2-3：探活仅前 5 模型，UI 未区分「实测可用/推断可用」，列入后续迭代。
