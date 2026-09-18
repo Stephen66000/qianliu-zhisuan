@@ -731,6 +731,102 @@ export class ProviderRepository extends ProviderModelDiscoveryRepository {
       };
     });
   }
+
+  /** 恢复上架已下架的模型路由（retireResourceModelRoute 的逆操作）：
+   * 单事务完成：恢复路由（保持 enabled=false，待重新启用）+ 若统一模型因下架被归档则恢复为 PENDING_CONFIG + 将模型加回资源 upstream_models。
+   * 注意：计价规则与员工规则分配不自动恢复——恢复后模型处于「待配计价」，需重新配置计价规则与授权后才能对外服务。
+   */
+  async restoreResourceModelRoute(
+    enterpriseId: string,
+    providerResourceId: string,
+    routeId: string,
+    // 操作人由路由层写入审计（operation_log），恢复本身无 restored_by 列可用
+    _actorAdminId: string,
+  ): Promise<{
+    routeId: string;
+    upstreamModel: string;
+    unifiedModelId: string;
+    unifiedModelRestored: boolean;
+  }> {
+    return this.db.transaction().execute(async (trx) => {
+      const route = await trx.selectFrom("model_route")
+        .selectAll()
+        .where("enterprise_id", "=", enterpriseId)
+        .where("provider_resource_id", "=", providerResourceId)
+        .where("id", "=", routeId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!route) throw new Error("路由不存在或不属于当前厂商资源");
+      if (!route.archived_at) throw new Error("该模型未处于已下架状态，无需恢复");
+
+      const now = new Date();
+
+      // 1. 恢复 model_route（保持停用，待重新配置计价后启用）
+      await trx.updateTable("model_route")
+        .set({
+          enabled: false,
+          archived_at: null,
+          archived_by_admin_id: null,
+          version: sql`version + 1`,
+          updated_at: now,
+        })
+        .where("id", "=", route.id)
+        .where("enterprise_id", "=", enterpriseId)
+        .execute();
+
+      // 2. 若统一模型因下架被归档，恢复为 PENDING_CONFIG（计价规则已归档，需重新配置）
+      let unifiedModelRestored = false;
+      const unified = await trx.selectFrom("unified_model")
+        .select(["id", "archived_at"])
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", route.unified_model_id)
+        .executeTakeFirst();
+      if (unified?.archived_at) {
+        await trx.updateTable("unified_model")
+          .set({
+            status: "PENDING_CONFIG",
+            archived_at: null,
+            archived_by_admin_id: null,
+            version: sql`version + 1`,
+            updated_at: now,
+          })
+          .where("id", "=", unified.id)
+          .where("enterprise_id", "=", enterpriseId)
+          .execute();
+        unifiedModelRestored = true;
+      }
+
+      // 3. 将模型加回 provider_resource.upstream_models
+      const currentResource = await trx.selectFrom("provider_resource")
+        .select(["id", "upstream_models"])
+        .where("enterprise_id", "=", enterpriseId)
+        .where("id", "=", providerResourceId)
+        .executeTakeFirst();
+      if (currentResource) {
+        const models = Array.isArray(currentResource.upstream_models)
+          ? (currentResource.upstream_models as string[])
+          : [];
+        if (!models.includes(route.upstream_model)) {
+          await trx.updateTable("provider_resource")
+            .set({
+              upstream_models: JSON.stringify([...models, route.upstream_model].sort()) as unknown as string[],
+              version: sql`version + 1`,
+              updated_at: now,
+            })
+            .where("id", "=", providerResourceId)
+            .where("enterprise_id", "=", enterpriseId)
+            .execute();
+        }
+      }
+
+      return {
+        routeId: route.id,
+        upstreamModel: route.upstream_model,
+        unifiedModelId: route.unified_model_id,
+        unifiedModelRestored,
+      };
+    });
+  }
 }
 
 export interface ResourceRouteItem {

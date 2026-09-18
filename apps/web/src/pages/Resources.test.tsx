@@ -55,6 +55,7 @@ vi.mock("../api/hooks", () => ({
     useResourceRoutesMock(resourceId) ?? { data: { routes: [] }, isLoading: false },
   useRetireResourceRoute: (resourceId: string) =>
     useRetireResourceRouteMock(resourceId) ?? { isPending: false, mutate: vi.fn(), isError: false },
+  useRestoreResourceRoute: () => ({ isPending: false, mutate: vi.fn(), isError: false }),
 }));
 
 vi.mock("../api/v2-hooks", () => ({

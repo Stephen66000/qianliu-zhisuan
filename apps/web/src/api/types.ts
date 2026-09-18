@@ -226,6 +226,15 @@ export interface RetireResourceRouteResult {
   disabled_assignments: number;
 }
 
+export interface RestoreResourceRouteResult {
+  result: {
+    routeId: string;
+    upstreamModel: string;
+    unifiedModelId: string;
+    unifiedModelRestored: boolean;
+  };
+}
+
 export interface ProviderResourceOperatingSnapshot {
   id: string;
   provider_resource_id: string;

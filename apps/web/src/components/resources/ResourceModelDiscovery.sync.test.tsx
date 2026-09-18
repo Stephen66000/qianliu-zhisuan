@@ -38,6 +38,10 @@ vi.mock("../../api/hooks", () => ({
     mutate: vi.fn(),
     isPending: false,
   }),
+  useRestoreResourceRoute: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
   QUERY_KEYS: {
     providerResources: ["provider-resources"],
     resourceRoutes: (id: string) => ["resource-routes", id],

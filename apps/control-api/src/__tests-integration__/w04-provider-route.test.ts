@@ -599,6 +599,108 @@ describe("W04 Provider/Resource/Model/Route", () => {
     expect(listRestored.json().resources.some((r: { id: string }) => r.id === archResource.id)).toBe(true);
   });
 
+  it("恢复上架：下架模型可恢复，计价规则不自动恢复，资源模型清单回填", async () => {
+    const provider = await db.insertInto("provider").values({
+      enterprise_id: ENT_ID,
+      code: "RestoreTest",
+      name: "恢复测试厂商",
+      adapter_type: "deepseek",
+    }).returningAll().executeTakeFirstOrThrow();
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID,
+      provider_id: provider.id,
+      name: "恢复测试资源",
+      mode: "API",
+      credential_type: "API_KEY",
+    }).returningAll().executeTakeFirstOrThrow();
+    const model = await db.insertInto("unified_model").values({
+      enterprise_id: ENT_ID,
+      alias: "restore-test-model",
+      display_name: "恢复测试模型",
+    }).returningAll().executeTakeFirstOrThrow();
+    const route = await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID,
+      unified_model_id: model.id,
+      provider_resource_id: resource.id,
+      upstream_model: "restore-upstream-1",
+    }).returningAll().executeTakeFirstOrThrow();
+    const billingRes = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: {
+        rule_type: "API_PRICE",
+        rule_version: "restore-test",
+        provider_resource_id: resource.id,
+        upstream_model: "restore-upstream-1",
+        effective_from: new Date().toISOString(),
+        output_price: "0.000001",
+      },
+    });
+    expect(billingRes.statusCode).toBe(201);
+
+    // 下架：路由/计价规则/统一模型均归档
+    const retireRes = await app.inject({
+      method: "POST",
+      url: `/provider-resources/${resource.id}/routes/${route.id}/retire`,
+      headers: { cookie: adminCookie },
+    });
+    expect(retireRes.statusCode).toBe(200);
+    const retiredRoute = await db.selectFrom("model_route").selectAll()
+      .where("id", "=", route.id).executeTakeFirstOrThrow();
+    expect(retiredRoute.archived_at).not.toBeNull();
+    expect(retiredRoute.enabled).toBe(false);
+    const retiredModel = await db.selectFrom("unified_model").selectAll()
+      .where("id", "=", model.id).executeTakeFirstOrThrow();
+    expect(retiredModel.archived_at).not.toBeNull();
+    const retiredBilling = await db.selectFrom("billing_rule").selectAll()
+      .where("enterprise_id", "=", ENT_ID)
+      .where("provider_resource_id", "=", resource.id)
+      .where("upstream_model", "=", "restore-upstream-1")
+      .executeTakeFirstOrThrow();
+    expect(retiredBilling.archived_at).not.toBeNull();
+
+    // 恢复上架：路由与统一模型恢复，计价规则保持归档，模型加回资源清单
+    const restoreRes = await app.inject({
+      method: "POST",
+      url: `/provider-resources/${resource.id}/routes/${route.id}/restore`,
+      headers: { cookie: adminCookie },
+    });
+    expect(restoreRes.statusCode).toBe(200);
+    expect(restoreRes.json().result.unifiedModelRestored).toBe(true);
+
+    const restoredRoute = await db.selectFrom("model_route").selectAll()
+      .where("id", "=", route.id).executeTakeFirstOrThrow();
+    expect(restoredRoute.archived_at).toBeNull();
+    expect(restoredRoute.enabled).toBe(false); // 保持停用，待重新配计价后启用
+    const restoredModel = await db.selectFrom("unified_model").selectAll()
+      .where("id", "=", model.id).executeTakeFirstOrThrow();
+    expect(restoredModel.archived_at).toBeNull();
+    expect(restoredModel.status).toBe("PENDING_CONFIG");
+    const stillArchivedBilling = await db.selectFrom("billing_rule").selectAll()
+      .where("id", "=", retiredBilling.id).executeTakeFirstOrThrow();
+    expect(stillArchivedBilling.archived_at).not.toBeNull(); // 计价规则不自动恢复
+    const restoredResource = await db.selectFrom("provider_resource").select("upstream_models")
+      .where("id", "=", resource.id).executeTakeFirstOrThrow();
+    expect(restoredResource.upstream_models).toContain("restore-upstream-1");
+
+    // 幂等保护：未下架的模型不可重复恢复
+    const repeatRes = await app.inject({
+      method: "POST",
+      url: `/provider-resources/${resource.id}/routes/${route.id}/restore`,
+      headers: { cookie: adminCookie },
+    });
+    expect(repeatRes.statusCode).toBe(400);
+
+    // 审计留痕
+    const audit = await db.selectFrom("operation_log").select("id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("action", "=", "provider_resource.restore_model")
+      .where("target_id", "=", route.id)
+      .execute();
+    expect(audit.length).toBe(1);
+  });
+
   // ===== M1 DoD canary：上游凭证明文绝不进 DB =====
   it("canary：上游凭证明文在 provider_resource 表 0 命中（M1 DoD 硬门禁）", async () => {
     const canarySecret = "sk-deepseek-CANARY-SECRET-FOR-SCAN-12345";

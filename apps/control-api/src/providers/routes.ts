@@ -586,4 +586,40 @@ export function registerProviderRoutes(app: FastifyInstance): void {
       }
     },
   );
+
+  // 恢复上架已下架的模型路由：恢复路由（保持停用待配计价）+ 恢复统一模型（若因下架被归档）+ 加回资源模型清单
+  app.post<{ Params: { id: string; routeId: string } }>(
+    "/provider-resources/:id/routes/:routeId/restore",
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      try {
+        const result = await app.providerRepo.restoreResourceModelRoute(
+          req.admin!.enterpriseId,
+          req.params.id,
+          req.params.routeId,
+          req.admin!.adminUserId,
+        );
+        await app.auditRepo.write({
+          enterprise_id: req.admin!.enterpriseId,
+          admin_user_id: req.admin!.adminUserId,
+          action: "provider_resource.restore_model",
+          target_type: "model_route",
+          target_id: result.routeId,
+          change_summary: {
+            resource_id: req.params.id,
+            upstream_model: result.upstreamModel,
+            unified_model_id: result.unifiedModelId,
+            unified_model_restored: result.unifiedModelRestored,
+          },
+          result: "SUCCESS",
+        });
+        return reply.code(200).send({ result });
+      } catch (error) {
+        return reply.code(400).send({
+          error: "restore_failed",
+          message: error instanceof Error ? error.message : "模型恢复上架失败",
+        });
+      }
+    },
+  );
 }

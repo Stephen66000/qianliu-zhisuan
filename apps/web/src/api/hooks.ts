@@ -33,6 +33,7 @@ import type {
   ResourceRoutesResult,
   ResourceUsageOverview,
   RetireResourceRouteResult,
+  RestoreResourceRouteResult,
   RouteCandidateItem,
   StandardHomeSummary,
   SupplyForecastsResult,
@@ -277,6 +278,23 @@ export function useRetireResourceRoute(resourceId: string) {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unifiedModels });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.billingRules });
       void queryClient.invalidateQueries({ queryKey: ["principals"] });
+    },
+  });
+}
+
+/** 恢复上架已下架的模型路由（恢复路由与统一模型；计价规则需重新配置）。 */
+export function useRestoreResourceRoute(resourceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (routeId: string) =>
+      post<RestoreResourceRouteResult>(
+        `/provider-resources/${resourceId}/routes/${routeId}/restore`,
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceRoutes(resourceId) });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unifiedModels });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.billingRules });
     },
   });
 }

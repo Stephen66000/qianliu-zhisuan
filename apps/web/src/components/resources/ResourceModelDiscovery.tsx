@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { post } from "../../api/client";
-import { QUERY_KEYS, useResourceRoutes, useRetireResourceRoute } from "../../api/hooks";
+import { QUERY_KEYS, useResourceRoutes, useRetireResourceRoute, useRestoreResourceRoute } from "../../api/hooks";
 import type { ProviderResourceItem, ResourceRouteItem } from "../../api/types";
 import { formatDateTimeFull } from "../../lib/format";
 import { INPUT_CLASS } from "../writes/FormField";
@@ -204,7 +204,9 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
   const queryClient = useQueryClient();
   const routesQuery = useResourceRoutes(target.id, "all");
   const retire = useRetireResourceRoute(target.id);
+  const restore = useRestoreResourceRoute(target.id);
   const [retireTarget, setRetireTarget] = useState<ResourceRouteItem | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<ResourceRouteItem | null>(null);
   const [retireMessage, setRetireMessage] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
@@ -339,6 +341,18 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
           <p className="mt-2 text-[12px] text-ql-danger">{retire.error.message}</p>
         ) : null}
       </div>
+    ) : null}
+
+    {restoreTarget ? (
+      <RestoreRouteConfirm
+        target={restoreTarget}
+        restore={restore}
+        onDone={(message) => {
+          setRetireMessage(message);
+          setRestoreTarget(null);
+        }}
+        onCancel={() => setRestoreTarget(null)}
+      />
     ) : null}
 
     <div className="mt-3 rounded-lg border border-ql-border-zone bg-ql-surface p-3">
@@ -489,11 +503,25 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                     <span className="font-mono text-ql-fg-tertiary line-through">{displayName}</span>
                     <span className="rounded bg-ql-border-zone px-1.5 py-0.5 text-[10px] text-ql-fg-tertiary">已下架</span>
                   </div>
-                  {route.archived_at ? (
-                    <span className="text-[11px] text-ql-fg-tertiary">
-                      下架于 {formatDateTimeFull(route.archived_at)}
-                    </span>
-                  ) : null}
+                  <div className="flex items-center gap-2">
+                    {route.archived_at ? (
+                      <span className="text-[11px] text-ql-fg-tertiary">
+                        下架于 {formatDateTimeFull(route.archived_at)}
+                      </span>
+                    ) : null}
+                    <button
+                      data-write-action
+                      className="rounded-md border border-ql-border px-2.5 py-1 text-[12px] font-medium text-ql-fg-secondary hover:border-ql-action hover:text-ql-action hover:bg-ql-action-soft disabled:opacity-60"
+                      disabled={restore.isPending}
+                      onClick={() => {
+                        setRestoreTarget(route);
+                        setRetireMessage(null);
+                      }}
+                      type="button"
+                    >
+                      恢复上架
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -617,6 +645,61 @@ function DiscoveryMeta({ discovery }: { discovery: ModelDiscoveryResponse }) {
     {discovery.failure_code ? <p className="mt-1 text-ql-danger">本次同步：{discovery.failure_code}；未采用不完整结果。</p> : null}
     {diff ? <p className="mt-1">目录变化：新增 {diff.added.length} · 保留 {diff.retained.length} · 官方未再列出 {diff.not_advertised.length}</p> : null}
   </div>;
+}
+
+function RestoreRouteConfirm({
+  target,
+  restore,
+  onDone,
+  onCancel,
+}: {
+  target: ResourceRouteItem;
+  restore: ReturnType<typeof useRestoreResourceRoute>;
+  onDone: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const displayName = target.model_alias || target.upstream_model;
+  return (
+    <div className="mt-3 rounded-lg border border-ql-action bg-ql-action-soft p-3 text-[12px] text-ql-fg" role="alert">
+      <p className="font-semibold text-ql-action">
+        确认恢复上架模型「{displayName}」？
+      </p>
+      <p className="mt-1 text-ql-fg-secondary">
+        系统将恢复该模型路由与统一模型（若已归档），并将模型加回厂商模型清单。
+      </p>
+      <ul className="mt-1 list-disc pl-5 text-ql-fg-tertiary">
+        <li>恢复后路由保持停用状态，需重新配置计价规则并启用后才能对外服务</li>
+        <li>下架时归档的计价规则与员工授权不会自动恢复，需重新配置</li>
+      </ul>
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          data-write-action
+          disabled={restore.isPending}
+          className="rounded-md bg-ql-action px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-60"
+          onClick={() => {
+            restore.mutate(target.id, {
+              onSuccess: () => {
+                onDone(`模型「${displayName}」已恢复上架，请重新配置计价规则后启用。`);
+              },
+            });
+          }}
+        >
+          {restore.isPending ? "恢复中…" : "确认恢复上架"}
+        </button>
+        <button
+          type="button"
+          className="rounded-md border border-ql-border px-3 py-1.5 text-[12px]"
+          onClick={onCancel}
+        >
+          取消
+        </button>
+      </div>
+      {restore.error ? (
+        <p className="mt-2 text-[12px] text-ql-danger">{restore.error.message}</p>
+      ) : null}
+    </div>
+  );
 }
 
 function formatFacts(model: DiscoveredModelItem): string {
