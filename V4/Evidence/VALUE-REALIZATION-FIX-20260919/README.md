@@ -29,3 +29,8 @@ web 473 全过（含 2 个新增用例）；typecheck / lint / build / 架构 / 
 ## 说明
 
 截图为组件级渲染（真实组件 + S1 数据 + 生产 CSS），非生产页面截图；生产数据口径一致时显示相同。
+
+## 发布记录（2.5.7）
+
+- 修复提交：`5460df0`；发布提交：`cc8fad4`，tag `v2.5.7`。
+- 生产部署：`/Users/stephen/releases/qianliu-provider-resource-fix-20260919-153256`，五服务健康，回滚镜像备份 `qianliu-provider-resource-rollback-20260919-153256`。
