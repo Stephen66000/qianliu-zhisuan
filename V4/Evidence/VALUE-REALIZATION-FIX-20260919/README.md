@@ -45,3 +45,5 @@ web 473 全过（含 2 个新增用例）；typecheck / lint / build / 架构 / 
   3. `subscriptionFeeForMonth` 导出可测：仅取覆盖当月（含部分覆盖）且未 REVERSED 的订阅，优先 ACTIVE。
 - **验证**：web 476 全过（新增「月费缺失 Token 不连坐」「订阅兑底+标注」「subscriptionFeeForMonth 边界」3 用例）；typecheck / lint / build / 架构 / 体量 / audit 全绿；体量基线 527。
 - **证据**：同目录《价值体现页-修复后-订阅兑底口径-20260919.png》（生产 2026-09-19 口径渲染：智谱 ¥422.10*、444.62M、汇总 0.7 折 / ¥14.20、少购 ¥1,863.30 与工单对外口径一致）。
+
+- **发布**：`4a3d139`（tag `v2.5.8`），生产 `/Users/stephen/releases/qianliu-provider-resource-fix-20260919-163038`，五服务健康，回滚镜像备份 `qianliu-provider-resource-rollback-20260919-163038`。
