@@ -481,6 +481,10 @@
    {
     "file": "apps/web/src/api/hooks.ts",
     "baseline": 440
+   },
+   {
+    "file": "apps/web/src/components/operating-bill/ValueRealizationSection.tsx",
+    "baseline": 444
    }
   ]
  },
