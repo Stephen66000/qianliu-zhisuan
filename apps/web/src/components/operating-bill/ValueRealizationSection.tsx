@@ -1,5 +1,11 @@
 import { useMemo } from "react";
 import type { OperatingAnalysis } from "../../api/operating-analysis";
+import { useProviders, useProviderResources } from "../../api/hooks";
+import {
+  shanghaiMonthBounds,
+  useProviderSubscriptionPeriods,
+} from "../../api/provider-finance";
+import type { ProviderSubscriptionPeriod } from "../../api/provider-finance-types";
 import { BillCard, SectionHeading } from "./BillShared";
 import { formatMoney } from "../../lib/format";
 
@@ -82,6 +88,15 @@ export function computePlanValueSummary(
   };
 }
 
+interface PlanRowView {
+  price: number | null;
+  /** true = 当月无付款流水，取覆盖当月的生效订阅固定费 */
+  priceFromSubscription: boolean;
+  tokensM: number | null;
+  officialRate: number;
+  value: PlanValueRow | null;
+}
+
 interface AccountReuse {
   users: number;
   savedAccounts: number;
@@ -90,8 +105,8 @@ interface AccountReuse {
 
 interface ValueView {
   activeCount: number | null;
-  kimi: PlanValueRow | null;
-  zhipu: PlanValueRow | null;
+  kimi: PlanRowView;
+  zhipu: PlanRowView;
   summary: PlanValueSummary | null;
   kimiReuse: AccountReuse | null;
   zhipuReuse: AccountReuse | null;
@@ -111,12 +126,56 @@ function positiveNumber(raw: string | null | undefined, divisor = 1): number | n
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function buildValueView(analysis: OperatingAnalysis | undefined, month: string): ValueView {
+function buildPlanRow(
+  price: number | null,
+  priceFromSubscription: boolean,
+  tokensM: number | null,
+  officialRate: number,
+): PlanRowView {
+  return {
+    price,
+    priceFromSubscription,
+    tokensM,
+    officialRate,
+    value:
+      price !== null && tokensM !== null
+        ? computePlanValueRow(price, tokensM, officialRate)
+        : null,
+  };
+}
+
+/** 覆盖所选月份（含部分覆盖）且未冲销的订阅固定费（CNY），用于「当月无付款流水但套餐仍在服务」的月费口径。 */
+export function subscriptionFeeForMonth(
+  periods: ProviderSubscriptionPeriod[] | undefined,
+  month: string,
+): number | null {
+  if (!periods) return null;
+  const { from, to } = shanghaiMonthBounds(month);
+  const covering = periods.filter(
+    (p) =>
+      p.current_status !== "REVERSED" &&
+      p.period_start < to &&
+      p.period_end_exclusive > from,
+  );
+  const active = covering.find((p) => p.current_status === "ACTIVE") ?? covering[0];
+  return positiveNumber(active?.fixed_fee_amount);
+}
+
+interface SubscriptionFees {
+  kimi: number | null;
+  zhipu: number | null;
+}
+
+function buildValueView(
+  analysis: OperatingAnalysis | undefined,
+  month: string,
+  subscriptionFees: SubscriptionFees,
+): ValueView {
   const current = analysis?.months.find((m) => m.month === month);
   const activeCount = current?.activeEmployees ?? null;
   const monthIndex = analysis?.months.findIndex((m) => m.month === month) ?? -1;
 
-  // 套餐月费取自经营账单当月套餐付款净额（purchases.monthlyCash 与 months 对齐）
+  // 套餐月费口径：当月套餐付款净额优先；当月无付款时取覆盖当月的生效订阅固定费
   const planCash = (code: string): number | null => {
     if (monthIndex < 0) return null;
     const row = analysis?.purchases.find(
@@ -131,33 +190,44 @@ function buildValueView(analysis: OperatingAnalysis | undefined, month: string):
         ?.months.find((m) => m.month === month)?.totalTokens,
       1_000_000,
     );
+  const planPrice = (code: "kimi" | "zhipu"): { price: number | null; fromSubscription: boolean } => {
+    const cash = planCash(code);
+    if (cash !== null) return { price: cash, fromSubscription: false };
+    const fee = subscriptionFees[code];
+    return { price: fee, fromSubscription: fee !== null };
+  };
 
-  const kimiPrice = planCash("kimi");
-  const zhipuPrice = planCash("zhipu");
-  const kimi =
-    kimiPrice !== null && planTokensM("kimi") !== null
-      ? computePlanValueRow(kimiPrice, planTokensM("kimi")!, OFFICIAL_RATE_REFERENCE.kimi)
-      : null;
-  const zhipu =
-    zhipuPrice !== null && planTokensM("zhipu") !== null
-      ? computePlanValueRow(zhipuPrice, planTokensM("zhipu")!, OFFICIAL_RATE_REFERENCE.zhipu)
-      : null;
-  const summary = kimi && zhipu ? computePlanValueSummary(kimi, zhipu) : null;
+  const kimiPrice = planPrice("kimi");
+  const zhipuPrice = planPrice("zhipu");
+  const kimi = buildPlanRow(
+    kimiPrice.price,
+    kimiPrice.fromSubscription,
+    planTokensM("kimi"),
+    OFFICIAL_RATE_REFERENCE.kimi,
+  );
+  const zhipu = buildPlanRow(
+    zhipuPrice.price,
+    zhipuPrice.fromSubscription,
+    planTokensM("zhipu"),
+    OFFICIAL_RATE_REFERENCE.zhipu,
+  );
+  const summary =
+    kimi.value && zhipu.value ? computePlanValueSummary(kimi.value, zhipu.value) : null;
 
   const kimiReuse: AccountReuse | null =
-    activeCount !== null && kimiPrice !== null
+    activeCount !== null && kimi.price !== null
       ? {
           users: Math.max(1, activeCount),
           savedAccounts: Math.max(0, Math.max(1, activeCount) - 1),
-          savedMoney: Math.max(0, Math.max(1, activeCount) - 1) * kimiPrice,
+          savedMoney: Math.max(0, Math.max(1, activeCount) - 1) * kimi.price,
         }
       : null;
   const zhipuReuse: AccountReuse | null =
-    activeCount !== null && zhipuPrice !== null
+    activeCount !== null && zhipu.price !== null
       ? {
           users: Math.max(1, Math.min(activeCount, 5)),
           savedAccounts: Math.max(0, Math.max(1, Math.min(activeCount, 5)) - 1),
-          savedMoney: Math.max(0, Math.max(1, Math.min(activeCount, 5)) - 1) * zhipuPrice,
+          savedMoney: Math.max(0, Math.max(1, Math.min(activeCount, 5)) - 1) * zhipu.price,
         }
       : null;
 
@@ -182,6 +252,11 @@ function buildValueView(analysis: OperatingAnalysis | undefined, month: string):
     (s) => `实际 Token 摊薄单价低至 ${s.weightedDiscount.toFixed(1)} 折`,
   );
 
+  const subscriptionNote =
+    kimi.priceFromSubscription || zhipu.priceFromSubscription
+      ? "「*」当月无付款流水，月费取覆盖当月的生效订阅固定费；"
+      : "";
+
   return {
     activeCount,
     kimi,
@@ -196,7 +271,7 @@ function buildValueView(analysis: OperatingAnalysis | undefined, month: string):
     card2Sub,
     badge1,
     badge2,
-    referenceNote: `官方市价为参考基准（手工维护，更新于 ${OFFICIAL_RATE_REFERENCE.updatedAt}）；套餐月费取自当月经营账单套餐付款净额，数据缺失时显示「${NA}」。`,
+    referenceNote: `官方市价为参考基准（手工维护，更新于 ${OFFICIAL_RATE_REFERENCE.updatedAt}）；${subscriptionNote}套餐月费取自当月经营账单套餐付款净额，数据缺失时显示「${NA}」。`,
   };
 }
 
@@ -211,8 +286,33 @@ const discountText = (discount: number) =>
 const tokensText = (tokensM: number) =>
   `${tokensM.toFixed(2)} M (${(tokensM * 100).toFixed(0)}万)`;
 
+const priceText = (row: PlanRowView) =>
+  show(row.price, (v) => `¥ ${fmt(v)}${row.priceFromSubscription ? "*" : ""}`);
+
 export function ValueRealizationSection({ analysis, month }: ValueRealizationSectionProps) {
-  const view = useMemo(() => buildValueView(analysis, month), [analysis, month]);
+  const providersQuery = useProviders();
+  const resourcesQuery = useProviderResources();
+  const planResourceId = (code: string): string | null => {
+    const providers = providersQuery.data?.providers ?? [];
+    const resources = resourcesQuery.data?.resources ?? [];
+    const id = providers.find((p) => p.code === code)?.id;
+    return (
+      resources.find((r) => r.provider_id === id && r.mode === "CODING_PLAN")?.id ?? null
+    );
+  };
+  const kimiResourceId = planResourceId("kimi");
+  const zhipuResourceId = planResourceId("zhipu");
+  const kimiPeriods = useProviderSubscriptionPeriods(kimiResourceId);
+  const zhipuPeriods = useProviderSubscriptionPeriods(zhipuResourceId);
+
+  const view = useMemo(
+    () =>
+      buildValueView(analysis, month, {
+        kimi: subscriptionFeeForMonth(kimiPeriods.data?.periods, month),
+        zhipu: subscriptionFeeForMonth(zhipuPeriods.data?.periods, month),
+      }),
+    [analysis, month, kimiPeriods.data, zhipuPeriods.data],
+  );
 
   return (
     <div className="space-y-5" role="region" aria-label="价值体现">
@@ -300,9 +400,7 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                 <td className="p-3 text-right tabular-nums text-ql-success">
                   {show(view.kimiReuse, (r) => `${r.savedAccounts} 个`)}
                 </td>
-                <td className="p-3 text-right tabular-nums">
-                  {show(view.kimi, (p) => `¥ ${fmt(p.price)}`)}
-                </td>
+                <td className="p-3 text-right tabular-nums">{priceText(view.kimi)}</td>
                 <td className="p-3 text-right tabular-nums font-bold text-ql-success">
                   {show(view.kimiReuse, (r) => `¥ ${fmt(r.savedMoney)}`)}
                 </td>
@@ -320,9 +418,7 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                 <td className="p-3 text-right tabular-nums text-ql-success">
                   {show(view.zhipuReuse, (r) => `${r.savedAccounts} 个`)}
                 </td>
-                <td className="p-3 text-right tabular-nums">
-                  {show(view.zhipu, (p) => `¥ ${fmt(p.price)}`)}
-                </td>
+                <td className="p-3 text-right tabular-nums">{priceText(view.zhipu)}</td>
                 <td className="p-3 text-right tabular-nums font-bold text-ql-success">
                   {show(view.zhipuReuse, (r) => `¥ ${fmt(r.savedMoney)}`)}
                 </td>
@@ -392,50 +488,46 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
             <tbody className="divide-y divide-ql-border-zone">
               <tr className="hover:bg-ql-surface-subtle">
                 <td className="p-3 font-semibold text-ql-fg">Kimi Coding Plan</td>
-                <td className="p-3 text-right tabular-nums">
-                  {show(view.kimi, (p) => `¥ ${fmt(p.price)}`)}
-                </td>
+                <td className="p-3 text-right tabular-nums">{priceText(view.kimi)}</td>
                 <td className="p-3 text-right tabular-nums font-medium">
-                  {show(view.kimi, (p) => tokensText(p.tokensM))}
+                  {show(view.kimi.tokensM, tokensText)}
                 </td>
                 <td className="p-3 text-right tabular-nums font-bold text-ql-accent">
-                  {show(view.kimi, (p) => `¥ ${p.unitCost.toFixed(2)} / M`)}
+                  {show(view.kimi.value, (p) => `¥ ${p.unitCost.toFixed(2)} / M`)}
                 </td>
                 <td className="p-3 text-right tabular-nums text-ql-fg-secondary">
                   ¥ {OFFICIAL_RATE_REFERENCE.kimi.toFixed(2)} / M
                 </td>
                 <td className="p-3 text-right tabular-nums">
-                  {show(view.kimi, (p) => `¥ ${fmt(p.officialCost)}`)}
+                  {show(view.kimi.tokensM, (t) => `¥ ${fmt(t * OFFICIAL_RATE_REFERENCE.kimi)}`)}
                 </td>
                 <td className="p-3 text-right tabular-nums font-bold text-ql-success">
-                  {show(view.kimi, (p) => `¥ ${fmt(p.savings)}`)}
+                  {show(view.kimi.value, (p) => `¥ ${fmt(p.savings)}`)}
                 </td>
                 <td className="p-3 text-right tabular-nums font-semibold text-ql-success">
-                  {show(view.kimi, (p) => discountText(p.discount))}
+                  {show(view.kimi.value, (p) => discountText(p.discount))}
                 </td>
               </tr>
               <tr className="hover:bg-ql-surface-subtle">
                 <td className="p-3 font-semibold text-ql-fg">智谱 Coding Plan</td>
-                <td className="p-3 text-right tabular-nums">
-                  {show(view.zhipu, (p) => `¥ ${fmt(p.price)}`)}
-                </td>
+                <td className="p-3 text-right tabular-nums">{priceText(view.zhipu)}</td>
                 <td className="p-3 text-right tabular-nums font-medium">
-                  {show(view.zhipu, (p) => tokensText(p.tokensM))}
+                  {show(view.zhipu.tokensM, tokensText)}
                 </td>
                 <td className="p-3 text-right tabular-nums font-bold text-ql-accent">
-                  {show(view.zhipu, (p) => `¥ ${p.unitCost.toFixed(2)} / M`)}
+                  {show(view.zhipu.value, (p) => `¥ ${p.unitCost.toFixed(2)} / M`)}
                 </td>
                 <td className="p-3 text-right tabular-nums text-ql-fg-secondary">
                   ¥ {OFFICIAL_RATE_REFERENCE.zhipu.toFixed(2)} / M
                 </td>
                 <td className="p-3 text-right tabular-nums">
-                  {show(view.zhipu, (p) => `¥ ${fmt(p.officialCost)}`)}
+                  {show(view.zhipu.tokensM, (t) => `¥ ${fmt(t * OFFICIAL_RATE_REFERENCE.zhipu)}`)}
                 </td>
                 <td className="p-3 text-right tabular-nums font-bold text-ql-success">
-                  {show(view.zhipu, (p) => `¥ ${fmt(p.savings)}`)}
+                  {show(view.zhipu.value, (p) => `¥ ${fmt(p.savings)}`)}
                 </td>
                 <td className="p-3 text-right tabular-nums font-semibold text-ql-success">
-                  {show(view.zhipu, (p) => discountText(p.discount))}
+                  {show(view.zhipu.value, (p) => discountText(p.discount))}
                 </td>
               </tr>
             </tbody>

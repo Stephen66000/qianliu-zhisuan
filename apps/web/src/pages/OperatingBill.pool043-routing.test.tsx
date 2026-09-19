@@ -84,6 +84,17 @@ vi.mock("../api/v2-hooks", () => ({
   useSaveProcurementNote: vi.fn(),
 }));
 
+vi.mock("../api/hooks", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useProviders: () => ({ data: { providers: [] } }),
+  useProviderResources: () => ({ data: { resources: [] } }),
+}));
+
+vi.mock("../api/provider-finance", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useProviderSubscriptionPeriods: () => ({ data: { periods: [] } }),
+}));
+
 function LocationProbe() {
   const location = useLocation();
   return <output>{`${location.pathname}${location.search}`}</output>;
