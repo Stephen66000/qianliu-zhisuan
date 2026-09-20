@@ -107,6 +107,11 @@
   - 验证 Scenario 2.1：A 方式勾选 5 人批量开通，确认生成 5 个主体且模型配额规则已配置。
   - 验证 Scenario 3.1：B 方式在新建主体弹窗搜索点选 1 人，确认自动填充并成功开通。
   - 验证 Scenario 4.1：C 方式上传一份包含工号的名单，确认秒级匹配开通。
-- [x] **4.2 审查与归档**
+  - 状态（2026-09-20 独立验收）：Scenario 4.1/4.2 曾 FAIL——`parseActivationListExcel` 把首行表头（如「工号」）当作成员标识，违反 Scenario 4.1 的 not_found 语义，且 1,000 工号+表头文件会以 1,001 个标识触发容量拒绝。已在隔离 worktree（基线 3407093，分支 codex/wecom-c-header-fix-20260920）修复：首行命中常见表头词（工号/姓名/企微账号等，忽略大小写与空白）时跳过，不计入标识与容量。复测通过后本项勾选。
+- [ ] **4.2 审查与归档**
   - 确认所有自动化测试全部通过（`pnpm test`）。
   - 执行规范审查，准备合并入主代码库。
+  - 真实状态（2026-09-20）：
+    - 定向范围测试通过（隔离 worktree，基线 3407093 + 表头修复 + w20 种子 created_at 错开修复）：control-api w20-directory 5/5、database directory-repository 集成 5/5、worker 目录同步 2/2、web Principals+DirectoryPanel 组件 28/28、control-api typecheck/lint 零告警。
+    - 全仓 `pnpm test` 未全绿：存在 14 项迁移链断言类基线失败（期望 0064/0066，实际最新迁移 0067_auth_error_evidence，来自历史提交 72a69f7），已完成候选/基线差分归因，属本方案范围外。
+    - 独立验收曾判 FAIL（C 方式表头缺陷）；修复复测通过前，本项不得视为完成。

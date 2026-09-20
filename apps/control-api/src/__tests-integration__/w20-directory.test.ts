@@ -60,9 +60,11 @@ beforeAll(async () => {
   pg = await startPostgresContainer("qianliu_w20_directory_api");
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
+  // 登录按 created_at,id 取第一个企业；显式错开时间戳，避免同事务随机 UUID 字典序
+  // 决定登录落在本企业还是隔离企业（曾导致 50% 概率的 invalid_credentials）。
   await db.insertInto("enterprise").values([
-    { id: enterpriseId, name: "W20 通讯录企业" },
-    { id: otherEnterpriseId, name: "W20 通讯录隔离企业" },
+    { id: enterpriseId, name: "W20 通讯录企业", created_at: new Date("2026-09-01T00:00:00.000Z") },
+    { id: otherEnterpriseId, name: "W20 通讯录隔离企业", created_at: new Date("2026-09-02T00:00:00.000Z") },
   ]).execute();
   await db.insertInto("admin_user").values([
     {
@@ -489,7 +491,7 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
       .where("enterprise_id", "=", enterpriseId)
       .where("principal_id", "=", created.json().principal.id).execute()).toHaveLength(1);
 
-    // C 方式名单预览：.xlsx 首列非空标识原样返回。
+    // C 方式名单预览：首行常见表头（工号）被识别跳过，只返回数据行标识。
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("名单");
     sheet.addRow(["工号"]);
@@ -503,13 +505,35 @@ describe("W20-02 通讯录来源与导入 Control API", () => {
       headers: { cookie: adminCookie, ...previewRequest.headers }, payload: previewRequest.payload,
     });
     expect(preview.statusCode, preview.body).toBe(200);
-    expect(preview.json()).toEqual({ identifiers: ["工号", "B-NEW-1", "EX-3", "NO-SUCH-ID"] });
+    expect(preview.json()).toEqual({ identifiers: ["B-NEW-1", "EX-3", "NO-SUCH-ID"] });
+    // 无表头纯数据文件不误跳首行。
+    const plainWorkbook = new ExcelJS.Workbook();
+    const plainSheet = plainWorkbook.addWorksheet("名单");
+    plainSheet.addRow(["EX-3"]);
+    plainSheet.addRow(["NO-SUCH-ID"]);
+    const plainRequest = multipart(Buffer.from(await plainWorkbook.xlsx.writeBuffer()), "activation-list-plain.xlsx");
+    const plainPreview = await app.inject({
+      method: "POST", url: "/directory-members/activate-list-preview",
+      headers: { cookie: adminCookie, ...plainRequest.headers }, payload: plainRequest.payload,
+    });
+    expect(plainPreview.statusCode, plainPreview.body).toBe(200);
+    expect(plainPreview.json()).toEqual({ identifiers: ["EX-3", "NO-SUCH-ID"] });
     const rejectedPreview = await app.inject({
       method: "POST", url: "/directory-members/activate-list-preview",
       headers: { cookie: adminCookie }, payload: {},
     });
     // 非 multipart 请求由 @fastify/multipart 直接拒绝（406），不进入业务逻辑。
     expect(rejectedPreview.statusCode).toBe(406);
+
+    // Scenario 4.1/4.2 闭环：预览结果原样提交开通，not_found 只含真实缺失标识。
+    const listByPreview = await app.inject({
+      method: "POST", url: "/directory-members/activate-by-list", headers: { cookie: adminCookie },
+      payload: { identifiers: preview.json().identifiers },
+    });
+    expect(listByPreview.statusCode, listByPreview.body).toBe(200);
+    expect(listByPreview.json()).toMatchObject({
+      activated_count: 0, already_active_count: 2, not_found: ["NO-SUCH-ID"],
+    });
 
     // 名单开通幂等：重复执行只返回已开通数量。
     const replayList = await app.inject({

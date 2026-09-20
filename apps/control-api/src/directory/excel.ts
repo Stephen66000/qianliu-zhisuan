@@ -69,7 +69,19 @@ export async function parseDirectoryExcel(bytes: Buffer): Promise<StagedDirector
 /**
  * C 方式开通名单：任意工作表名，读取首列非空单元格作为标识（工号/企微账号/姓名）。
  * 与模板解析共用压缩包安全检查；不允许公式与富文本单元格。
+ * 首行为常见表头词（工号/姓名/企微账号等）时视为表头跳过，不计入标识与容量。
  */
+const ACTIVATION_LIST_HEADER_VALUES = new Set([
+  "工号", "员工编号", "员工号", "编号", "序号", "姓名", "名字", "名称",
+  "企微账号", "企业微信账号", "企微id", "企微userid", "wecomid", "wecomuserid",
+  "userid", "user_id", "user", "account", "账号", "id", "no",
+  "手机号", "手机", "电话", "mobile", "email", "邮箱",
+]);
+
+function isActivationListHeader(value: string): boolean {
+  return ACTIVATION_LIST_HEADER_VALUES.has(value.trim().toLowerCase().replaceAll(/\s+/g, ""));
+}
+
 export async function parseActivationListExcel(bytes: Buffer): Promise<string[]> {
   if (bytes.length > MAX_EXCEL_BYTES) throw new DirectoryExcelError("FILE_TOO_LARGE", "Excel 文件不得超过 5 MiB");
   if (!bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) throw new DirectoryExcelError("INVALID_XLSX", "只接受标准 .xlsx 文件");
@@ -84,7 +96,9 @@ export async function parseActivationListExcel(bytes: Buffer): Promise<string[]>
   const identifiers: string[] = [];
   sheet.eachRow((row, number) => {
     const value = safeText(cellText(row.getCell(1)), 128, "名单标识", number);
-    if (value && !identifiers.includes(value)) identifiers.push(value);
+    if (!value) return;
+    if (number === 1 && isActivationListHeader(value)) return;
+    if (!identifiers.includes(value)) identifiers.push(value);
     if (identifiers.length > MAX_EXCEL_ROWS) throw new DirectoryExcelError("TOO_MANY_ROWS", "名单最多 1,000 个标识");
   });
   return identifiers;
