@@ -1,0 +1,9 @@
+-- project-allocation-foundation.integration.test.ts
+      Tests  19 passed (19)
+-- project-allocation-compute.integration.test.ts
+      Tests  4 passed (4)
+-- project-allocation-close.integration.test.ts
+      Tests  4 passed (4)
+-- project-allocation-invariance.integration.test.ts
+      Tests  1 passed (1)
+      Tests  23 passed (23)

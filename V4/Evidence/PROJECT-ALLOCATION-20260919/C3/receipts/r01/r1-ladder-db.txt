@@ -1,0 +1,32 @@
+      Tests  1 passed (1)
+-- billing-rule-multi-window-migration.integration.test.ts
+      Tests  1 passed (1)
+-- credential-probe-migration.test.ts
+      Tests  55 skipped (55)
+-- exception-center-contract.integration.test.ts
+      Tests  1 passed (1)
+-- operating-snapshot-subscription-period-migration.integration.test.ts
+      Tests  1 passed (1)
+-- pool043-model-identity-migration.test.ts
+      Tests  1 passed (1)
+-- pool046-zhipu-window-alias-migration.test.ts
+      Tests  1 passed (1)
+-- pool047-resource-monthly-budget-migration.integration.test.ts
+      Tests  1 passed (1)
+-- pool048-upstream-error-evidence.integration.test.ts
+      Tests  1 passed (1)
+-- principal-key-single-active-migration.integration.test.ts
+      Tests  3 passed (3)
+-- provider-finance-ledger.integration.test.ts
+      Tests  2 passed (2)
+-- provider-finance-cutover.integration.test.ts
+      Tests  1 passed (1)
+-- resource-fact-reconciliation-migration.integration.test.ts
+      Tests  1 passed (1)
+-- runtime-admin-migrations.integration.test.ts
+      Tests  1 passed (1)
+-- runtime-admin-release-rehearsal.integration.test.ts
+      Tests  1 passed (1)
+-- runtime-assurance-foundation.integration.test.ts
+      Tests  2 passed (2)
+-- w20-final-migration.integration.test.ts
