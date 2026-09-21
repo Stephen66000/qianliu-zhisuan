@@ -1,0 +1,99 @@
+
+ RUN  v3.2.4 /private/tmp/c3-baseline-wt/apps/gateway
+
+{"level":30,"time":1789970561555,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"2d4e5a63-0ac0-411e-806f-f48aae50001f","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970561675,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"2d4e5a63-0ac0-411e-806f-f48aae50001f","res":{"statusCode":200},"responseTime":119.91391699999986,"msg":"request completed"}
+{"level":30,"time":1789970561754,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"703ab1a3-9a52-44f2-827b-3d04417953b4","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":50,"time":1789970561815,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"703ab1a3-9a52-44f2-827b-3d04417953b4","err":{"type":"Error","message":"pool043_record_success_failure","stack":"Error: pool043_record_success_failure\n    at FailingSuccessResourcePoolRepository.recordSuccess (/private/tmp/c3-baseline-wt/apps/gateway/src/__tests-integration__/pool043-operating-bill-settlement.test.ts:57:11)\n    at /private/tmp/c3-baseline-wt/apps/gateway/src/pipeline/pipeline-settlement.ts:152:23\n    at runBestEffort (/private/tmp/c3-baseline-wt/apps/gateway/src/pipeline/runtime-controls.ts:166:18)\n    at settlePipelineRequest (/private/tmp/c3-baseline-wt/apps/gateway/src/pipeline/pipeline-settlement.ts:151:13)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /private/tmp/c3-baseline-wt/apps/gateway/src/pipeline/real-pipeline.ts:32:5\n    at Object.<anonymous> (/private/tmp/c3-baseline-wt/apps/gateway/src/routes/chat.ts:71:7)"},"action":"record post-settlement resource success","msg":"post-settlement side effect failed"}
+{"level":30,"time":1789970561820,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"703ab1a3-9a52-44f2-827b-3d04417953b4","res":{"statusCode":200},"responseTime":65.34158399999978,"msg":"request completed"}
+{"level":30,"time":1789970561901,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"eba48fab-e5c9-4244-b95e-7e555f785246","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970561982,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"eba48fab-e5c9-4244-b95e-7e555f785246","res":{"statusCode":503},"responseTime":81.2855410000002,"msg":"request completed"}
+{"level":30,"time":1789970562018,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"01a600b6-f660-4a4e-8149-bcb8353b7f84","req":{"method":"GET","url":"/v1/models","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970562026,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"01a600b6-f660-4a4e-8149-bcb8353b7f84","res":{"statusCode":200},"responseTime":7.1692910000001575,"msg":"request completed"}
+{"level":30,"time":1789970562026,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"2acd62f9-8bd2-4232-9371-84bbe3ee5752","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970562071,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"2acd62f9-8bd2-4232-9371-84bbe3ee5752","res":{"statusCode":503},"responseTime":45.05983399999968,"msg":"request completed"}
+{"level":30,"time":1789970562087,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"52e2ac30-f65d-4bee-a40c-ab7dff0ac025","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970562129,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"52e2ac30-f65d-4bee-a40c-ab7dff0ac025","res":{"statusCode":200},"responseTime":41.78691700000036,"msg":"request completed"}
+{"level":30,"time":1789970562143,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"7ed63a78-a781-4569-990e-e20d9e60ac1b","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970562178,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"7ed63a78-a781-4569-990e-e20d9e60ac1b","res":{"statusCode":200},"responseTime":35.44783300000017,"msg":"request completed"}
+{"level":30,"time":1789970562197,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"f9810c2d-ee6b-4e8b-96fb-60378f0126c1","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970562262,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"f9810c2d-ee6b-4e8b-96fb-60378f0126c1","res":{"statusCode":200},"responseTime":64.76458300000013,"msg":"request completed"}
+{"level":30,"time":1789970562309,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"a21e997e-e908-4b5e-884d-fbfb8cb82653","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970562336,"pid":65191,"hostname":"Stephen-macbook.local","reqId":"a21e997e-e908-4b5e-884d-fbfb8cb82653","res":{"statusCode":409},"responseTime":27.054000000000087,"msg":"request completed"}
+ ❯ src/__tests-integration__/pool043-operating-bill-settlement.test.ts (9 tests | 2 failed) 3190ms
+   ✓ POOL-043 真实 pipeline 结算与关账 completion barrier > 双 Attempt 第一笔已落账时拒绝冻结，transaction/status 完整后才可关账 195ms
+   ✓ POOL-043 真实 pipeline 结算与关账 completion barrier > Adapter 已返回 usage 后健康副作用失败，仍完成核心结算并允许关账 139ms
+   ✓ POOL-043 真实 pipeline 结算与关账 completion barrier > 首次 Attempt 已产生用量后，第二个同厂商资源在上游前撤权，立即终结且不以兄弟 route 放行 104ms
+   ✓ POOL-043 真实 pipeline 结算与关账 completion barrier > 已完成 Attempt 缺少 usage/ledger 事实时，PostgreSQL 终态栅栏 fail-closed 21ms
+   ✓ POOL-043 真实 pipeline 结算与关账 completion barrier > CODING_PLAN 计费规则在精确边界过期，目录隐藏且 reserve 后、上游前撤销预占 67ms
+   ✓ POOL-043 真实 pipeline 结算与关账 completion barrier > 上游在途停用计费规则时仍按 Adapter 前冻结版本结算 57ms
+   × POOL-043 真实 pipeline 结算与关账 completion barrier > 流已提交后中断且最终 usage 为零，仍冻结 ESTIMATED 零用量证据并可下钻 53ms
+     → expected { …(25) } to match object { raw_input_tokens: '0', …(7) }
+(17 matching properties omitted from actual)
+   × POOL-043 真实 pipeline 结算与关账 completion barrier > 前置 UNKNOWN 零用量后 failover 精确成功，以未知费用占位结算且不冒充精确 80ms
+     → expected { …(25) } to match object { raw_input_tokens: '0', …(5) }
+(19 matching properties omitted from actual)
+   ✓ POOL-043 真实 pipeline 结算与关账 completion barrier > 当前账期已 CLOSED 时 Attempt 在上游前失败并释放额度、租约与半开探针 76ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-settlement.test.ts > POOL-043 真实 pipeline 结算与关账 completion barrier > 流已提交后中断且最终 usage 为零，仍冻结 ESTIMATED 零用量证据并可下钻
+AssertionError: expected { …(25) } to match object { raw_input_tokens: '0', …(7) }
+(17 matching properties omitted from actual)
+
+- Expected
++ Received
+
+@@ -1,7 +1,7 @@
+  {
+-   "api_cost": null,
++   "api_cost": "0.00000000",
+    "billing_rule_id": null,
+    "raw_cache_tokens": "0",
+    "raw_input_tokens": "0",
+    "raw_output_tokens": "0",
+    "raw_reasoning_tokens": "0",
+
+ ❯ src/__tests-integration__/pool043-operating-bill-settlement.test.ts:840:24
+    838|       const lines = await scenarioLedgerRepo.listLedgerLines(requestId…
+    839|       expect(lines).toHaveLength(1);
+    840|       expect(lines[0]).toMatchObject({
+       |                        ^
+    841|         raw_input_tokens: "0",
+    842|         raw_output_tokens: "0",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests-integration__/pool043-operating-bill-settlement.test.ts > POOL-043 真实 pipeline 结算与关账 completion barrier > 前置 UNKNOWN 零用量后 failover 精确成功，以未知费用占位结算且不冒充精确
+AssertionError: expected { …(25) } to match object { raw_input_tokens: '0', …(5) }
+(19 matching properties omitted from actual)
+
+- Expected
++ Received
+
+@@ -1,7 +1,7 @@
+  {
+-   "api_cost": null,
++   "api_cost": "0.00000000",
+    "billing_rule_id": null,
+    "raw_cache_tokens": "0",
+    "raw_input_tokens": "0",
+    "raw_output_tokens": "0",
+    "rule_version": null,
+
+ ❯ src/__tests-integration__/pool043-operating-bill-settlement.test.ts:1047:70
+    1045|       const lines = await scenarioLedgerRepo.listLedgerLines(requestId…
+    1046|       expect(lines).toHaveLength(2);
+    1047|       expect(lines.find((line) => line.usage_quality === "UNKNOWN")).t…
+       |                                                                      ^
+    1048|         raw_input_tokens: "0",
+    1049|         raw_output_tokens: "0",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 passed (9)
+   Start at  14:02:37
+   Duration  4.99s (transform 780ms, setup 0ms, collect 1.52s, tests 3.19s, environment 0ms, prepare 41ms)
+

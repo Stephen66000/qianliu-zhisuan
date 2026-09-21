@@ -1,0 +1,35 @@
+
+ RUN  v3.2.4 /private/tmp/c3-baseline-wt/apps/control-api
+
+{"level":30,"time":1789970567475,"pid":65242,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789970567490,"pid":65242,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":401},"responseTime":14.884749999999258,"msg":"request completed"}
+ ❯ src/__tests-integration__/pool027-provider-model-discovery.test.ts (8 tests | 8 skipped) 2847ms
+   ↓ POOL-027 厂商模型自动发现与接入 > 检测只返回 Coding Plan 目录，创建资源/模型/禁用路由且不扩大 Key 权限
+   ↓ POOL-027 厂商模型自动发现与接入 > Kimi Coding Plan 返回官方版本化目录且不调用开放平台 List Models
+   ↓ POOL-027 厂商模型自动发现与接入 > 相同幂等键不重复创建；第二资源复用统一模型只增加路由
+   ↓ POOL-027 厂商模型自动发现与接入 > 同步快照按企业隔离，确认已存在模型保持幂等
+   ↓ POOL-027 厂商模型自动发现与接入 > 不可服务资源不能同步或确认模型
+   ↓ POOL-027 厂商模型自动发现与接入 > 真实验证持久化 Evidence，验证前不能启用，成功后允许启用且不新增授权
+   ↓ POOL-027 厂商模型自动发现与接入 > 验证互斥是持久化门禁，不同幂等键并发只允许一个真实调用
+   ↓ POOL-027 厂商模型自动发现与接入 > 同步失败记录失败尝试、保留上次成功快照并阻止从过期结果确认
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts [ src/__tests-integration__/pool027-provider-model-discovery.test.ts ]
+TypeError: Cannot read properties of undefined (reading 'split')
+ ❯ src/__tests-integration__/pool027-provider-model-discovery.test.ts:47:58
+     45|   });
+     46|   const header = login.headers["set-cookie"];
+     47|   cookie = (Array.isArray(header) ? header[0] : header)!.split(";")[0]…
+       |                                                          ^
+     48| }, 120_000);
+     49| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 skipped (8)
+   Start at  14:02:43
+   Duration  4.44s (transform 962ms, setup 0ms, collect 1.33s, tests 2.85s, environment 0ms, prepare 66ms)
+

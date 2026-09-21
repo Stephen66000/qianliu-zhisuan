@@ -1,0 +1,24 @@
+$ vitest run --config ../../vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-project-allocation-v12-20260921/packages/domain
+
+ ✓ src/__tests__/project-allocation.test.ts (10 tests) 17ms
+ ✓ src/__tests__/api-multiplier.test.ts (11 tests) 40ms
+ ✓ src/__tests__/resource-lifecycle.test.ts (30 tests) 5ms
+ ✓ src/__tests__/runtime-assurance.test.ts (9 tests) 20ms
+ ✓ src/__tests__/routing-policy.test.ts (11 tests) 21ms
+ ✓ src/__tests__/billing-rule.test.ts (31 tests) 39ms
+ ✓ src/__tests__/dispatch-policy.test.ts (38 tests) 32ms
+ ✓ src/__tests__/project-allocation-policy.test.ts (13 tests) 7ms
+ ✓ src/__tests__/client-identity.test.ts (10 tests) 5ms
+ ✓ src/__tests__/quota-gate.test.ts (11 tests) 3ms
+ ✓ src/__tests__/domain.test.ts (5 tests) 3ms
+ ✓ src/__tests__/reconciliation.test.ts (10 tests) 5ms
+ ✓ src/__tests__/supply-forecast.test.ts (14 tests) 4ms
+
+ Test Files  13 passed (13)
+      Tests  203 passed (203)
+   Start at  13:57:18
+   Duration  1.09s (transform 413ms, setup 0ms, collect 1.27s, tests 200ms, environment 2ms, prepare 2.35s)
+
+exit:0

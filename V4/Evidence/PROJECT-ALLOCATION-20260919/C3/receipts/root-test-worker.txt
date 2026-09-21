@@ -1,0 +1,88 @@
+$ vitest run --config ../../vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-project-allocation-v12-20260921/apps/worker
+
+ ✓ src/directory/connector.test.ts (11 tests) 28ms
+ ✓ src/reporting/__tests__/format-utils.test.ts (20 tests) 21ms
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:control-api"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-probes.test.ts (6 tests) 17ms
+ ✓ src/runtime-assurance/scheduler-loop.test.ts (6 tests) 9ms
+ ✓ src/runtime-assurance/__tests__/wecom-client-media.test.ts (3 tests) 5ms
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles PONG and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/reporting/__tests__/report-jobs.test.ts (4 tests) 23ms
+stderr | src/runtime-assurance/observed-task.test.ts > database failure does not replace the original error; recovery flushes the pending failure first
+{"event":"task_fault_record_unavailable","task":"task"}
+
+ ✓ src/runtime-assurance/observed-task.test.ts (3 tests) 36ms
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-redis.test.ts (3 tests) 2640ms
+   ✓ real Redis connection handles SILENT and closes every socket  2538ms
+ ✓ src/usage-aggregate/runner.test.ts (2 tests) 11ms
+ ✓ src/runtime-assurance/scheduler.test.ts (4 tests) 101ms
+ ✓ src/reporting/__tests__/quote-library.test.ts (6 tests) 34ms
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+ ✓ src/runtime-assurance/infrastructure-checks.test.ts (2 tests) 13ms
+ ✓ src/runtime-assurance/scheduled-tasks.test.ts (2 tests) 5ms
+ ✓ src/subscription-renewal/runner.test.ts (3 tests) 17ms
+ ✓ src/operating-bill/runner.test.ts (1 test) 12ms
+ ✓ src/reporting/__tests__/daily-token-report.test.ts (2 tests) 2971ms
+   ✓ Daily Token Report Image Generator > renderSvgToPng: 将 SVG 转换为有效的 PNG 格式 Buffer  2936ms
+ ✓ src/provider-operating-sync/runner.test.ts (1 test) 13433ms
+   ✓ POOL20-025 每日经营同步 > 成功追加不可变快照；同日幂等；失败只留原因并保鲜最后成功值  3798ms
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"82180bf9-b4f1-48c1-bf08-6316532ff36c","provider":"kimi","windows":2}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"82180bf9-b4f1-48c1-bf08-6316532ff36c","provider":"kimi","windows":2}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 智谱周窗口不支持时，以可知的 5 小时窗口自动恢复
+{"event":"quota_sync_success","resource_id":"97569dc3-3083-49e3-b79d-aae4898bc40e","provider":"zhipu","windows":2}
+
+stderr | src/__tests-integration__/runtime-assurance-worker.test.ts > RA-W05A/W05B/W06 Worker 闭环 > 调度循环成功和失败均更新健康状态并响应停止信号
+{"event":"runtime_assurance_tick_failed","error_type":"TypeError"}
+
+ ✓ src/__tests-integration__/directory-sync-worker.test.ts (2 tests) 14354ms
+   ✓ directory sync worker > 凭证只在内存解密，通过统一 staging/apply 完成部分成功且重复快照不重复建人  3093ms
+ ✓ src/coding-plan-quota/runner.test.ts (2 tests) 14280ms
+   ✓ Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实  2816ms
+ ✓ src/__tests-integration__/runtime-assurance-worker.test.ts (5 tests) 14801ms
+ ✓ src/reporting/__tests__/svg-templates.test.ts (6 tests) 18503ms
+   ✓ SVG Templates & PNG Rendering Pipeline > 场景一：generatePersonalWeeklySvg (个人周报小结)  3593ms
+   ✓ SVG Templates & PNG Rendering Pipeline > 场景一：generatePersonalWeeklySvg 支持 5 项指标自适应收缩  3095ms
+   ✓ SVG Templates & PNG Rendering Pipeline > 场景二：generateCompanyWeeklySvg (全员用量看板)  3868ms
+   ✓ SVG Templates & PNG Rendering Pipeline > 场景三(a)：generateIncentiveTop1Svg (登顶第 1 名流动红旗)  2477ms
+   ✓ SVG Templates & PNG Rendering Pipeline > 场景三(b)：generateIncentiveOver50Svg (超越 50% 员工成长卡)  2677ms
+   ✓ SVG Templates & PNG Rendering Pipeline > 场景四：generateDailyTokenReportSvg (全员 Token 消费日报纯白竖版)  2784ms
+
+ Test Files  21 passed (21)
+      Tests  94 passed (94)
+   Start at  14:00:13
+   Duration  21.30s (transform 1.92s, setup 0ms, collect 16.83s, tests 81.32s, environment 7ms, prepare 3.47s)
+
+exit:0

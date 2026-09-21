@@ -1,0 +1,228 @@
+
+ RUN  v3.2.4 /private/tmp/c3-baseline-wt/packages/database
+
+ ❯ src/__tests-integration__/exception-center-contract.integration.test.ts (55 tests | 55 skipped) 3640ms
+   ↓ F01 retains failed sync history before the first visit and separates recurrence
+   ↓ F02 splits a recovered episode before a new failure without a page visit
+   ↓ F03 uses the triggering request month and keeps the observation clock separate
+   ↓ F02 cannot split an episode on another model's success or on a success after the incoming failure
+   ↓ usage/fee/forecast warnings are excluded from active and historical lists without deleting facts
+   ↓ real failed requests use occurrence dates, include missing routing/stream classes and skip ordinary quota/policy/cancel outcomes
+   ↓ absence, normal resource state and unrelated model successes cannot turn observations green; matching success can
+   ↓ recovery follows stable model identity across renames and never accepts a recycled alias
+   ↓ manual handling needs a note and commits it together with audit; failed audit rolls back
+   ↓ background failure is recovered only by a later completed task, not by opening the page
+   ↓ late failures cannot lower the recovery barrier, and request completion orders long requests
+   ↓ planned runtime blocks are excluded from new and historical faults without hiding upstream blocks or cross-tenant uncertainty
+   ↓ refuses successful-looking recovery when resource evidence is invalid
+   ↓ refuses successful-looking recovery when request-status evidence is invalid
+   ↓ refuses successful-looking recovery when request-error evidence is invalid
+   ↓ refuses successful-looking recovery when http evidence is invalid
+   ↓ refuses successful-looking recovery when attempt-error evidence is invalid
+   ↓ refuses successful-looking recovery when observed-time evidence is invalid
+   ↓ refuses successful-looking recovery when trigger-time evidence is invalid
+   ↓ refuses successful-looking recovery when future evidence is invalid
+   ↓ refuses successful-looking recovery when resource-state evidence is invalid
+   ↓ refuses successful-looking recovery when failures evidence is invalid
+   ↓ refuses successful-looking recovery when credential evidence is invalid
+   ↓ refuses successful-looking recovery when block evidence is invalid
+   ↓ refuses successful-looking recovery when legacy-key evidence is invalid
+   ↓ positive recovery preserves prior human RESOLVED and its audit/time
+   ↓ positive recovery preserves prior human IGNORED and its audit/time
+   ↓ concurrent observation writers retain the earliest occurrence and latest completion
+   ↓ quota sync fault uses current failed evidence (SUCCESS/true/null), not usage ratio
+   ↓ quota sync fault uses current failed evidence (UNSUPPORTED/true/null), not usage ratio
+   ↓ quota sync fault uses current failed evidence (STALE/true/null), not usage ratio
+   ↓ quota sync fault uses current failed evidence (STALE/true/failed), not usage ratio
+   ↓ quota sync fault uses current failed evidence (FAILED/true/null), not usage ratio
+   ↓ quota sync fault uses current failed evidence (FAILED/false/null), not usage ratio
+   ↓ background sources and quota-window queries remain tenant isolated
+   ↓ operating sync surfaces either failed component (FAILED/SUCCESS)
+   ↓ operating sync surfaces either failed component (SUCCESS/FAILED)
+   ↓ operating sync surfaces either failed component (FAILED/FAILED)
+   ↓ operating sync surfaces either failed component (SUCCESS/NOT_SUPPORTED)
+   ↓ operating sync surfaces either failed component (SUCCESS/SUCCESS)
+   ↓ directory faults require failure, or a partial outcome with failed rows (FAILED/0)
+   ↓ directory faults require failure, or a partial outcome with failed rows (PARTIAL/1)
+   ↓ directory faults require failure, or a partial outcome with failed rows (PARTIAL/0)
+   ↓ directory faults require failure, or a partial outcome with failed rows (SUCCEEDED/1)
+   ↓ directory faults require failure, or a partial outcome with failed rows (QUEUED/0)
+   ↓ only open upstream blocks, not planned or completed blocks, generate availability faults
+   ↓ quota recovery requires all current windows to complete after the fault and at least one real success
+   ↓ operating recovery requires a later successful balance and nonfailed cost after the fault
+   ↓ reconciliation requires resolved status and timestamp before recording objective proof
+   ↓ migration 0070 refuses rollback once any real recovery evidence exists
+   ↓ cross-tenant attempt metadata cannot prove another tenant's recovery
+   ↓ dispatch anomalies preserve mismatch and unexplained-baseline details, timestamps and resource fallback
+   ↓ operational faults isolate tenants, preserve human handling and reject stale failures or successes
+   ↓ late observations correct a recovered occurrence date without reopening it and recheck unsupported legacy recovery
+   ↓ legacy request records are refreshed without duplicate facts, while note length and handler identity remain enforced
+ ❯ src/__tests-integration__/standard-home.integration.test.ts (13 tests | 4 failed) 3614ms
+   × 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回 136ms
+     → expected '280' to be '200' // Object.is equality
+   ✓ 标准版首页聚合（getStandardHomeSummary） > 上月无对应日（asOf=3 月 30 日）时同期窗口截止上月月末并标记截断 41ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > R01-F03：同厂商资源同步混合新鲜度/缺失/失败不被最新同步掩盖，并给出范围 20ms
+   × 标准版首页聚合（getStandardHomeSummary） > R01-F01：资金读模型同期窗口复用权威缺口规则（已知部分保留、缺口显式） 28ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × 标准版首页聚合（getStandardHomeSummary） > V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口 26ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   ✓ 标准版首页聚合（getStandardHomeSummary） > R01-F02：同期 Token 质量与未知数进入契约（分母不完整可见） 37ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > R01：企业时区非上海时，员工同期窗口按企业时区计算 40ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：恢复待确认、额度耗尽与限流文案按状态证据呈现（状态恢复分支） 17ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01/G02：余额桥接完整时有已知金额且允许比较 32ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01/G02：故障注入（缺失期末快照）时透出已知套餐金额（已知部分保留） 25ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：经营账单无总额且无缺口原因时回退到跨币种提示（bill fallback） 13ms
+   × 标准版首页聚合（getStandardHomeSummary） > V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入） 70ms
+     → expected '' to contain 'API_USAGE_COST_UNKNOWN:1'
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：员工同期窗口在企业不存在时传播明确错误 2ms
+ ❯ src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts (6 tests | 1 failed) 4176ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 聚合真实账本、多模型当前 alias，并按当前价格版本估算余额 Token 95ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 同厂商多账号按各账号余额与价格分别估算，缺价或混合币种明确拒绝 225ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 未知 usage 与零用量不伪造精确 Token 或余额估算 65ms
+   × POOL-042 首页 API 资源 Token 摘要 > POOL20-045：用量总览只统计成功消耗，失败诊断行不污染任何指标 57ms
+     → expected { providerCode: 'pool20-045', …(41) } to match object { monthlyTotalTokens: '120', …(5) }
+(46 matching properties omitted from actual)
+   ✓ POOL-042 首页 API 资源 Token 摘要 > POOL20-051：独立展示 API Grant、已记录 Token、余额和历史未归属守恒 116ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 覆盖套餐、缺余额、零价格与 HIGH/MEDIUM 估算可信度 289ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/exception-center-contract.integration.test.ts [ src/__tests-integration__/exception-center-contract.integration.test.ts ]
+AssertionError: expected [ Array(6) ] to deeply equal [ Array(3) ]
+
+- Expected
++ Received
+
+  [
+    "0070_alert_recovery_evidence",
+    "0071_enterprise_contact_details",
+    "0072_admin_roles_security",
++   "0073_credential_chat_probe",
++   "0074_runtime_notification_recipients",
++   "0075_provider_resource_archive",
+  ]
+
+ ❯ src/__tests-integration__/exception-center-contract.integration.test.ts:27:37
+     25|   const source = await createMigrator(db).migrateTo("0069_auth_error_e…
+     26|   expect(source.error).toBeUndefined();
+     27|   expect(await migrateToLatest(db)).toEqual([
+       |                                     ^
+     28|     "0070_alert_recovery_evidence",
+     29|     "0071_enterprise_contact_details",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts > POOL-042 首页 API 资源 Token 摘要 > POOL20-045：用量总览只统计成功消耗，失败诊断行不污染任何指标
+AssertionError: expected { providerCode: 'pool20-045', …(41) } to match object { monthlyTotalTokens: '120', …(5) }
+(46 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "costRate24h": "0.00416667",
++   "costRate24h": "0.37916667",
+    "modelTokenBreakdown": [
+-     ObjectContaining {
++     {
++       "cacheTokens": "110",
++       "inputTokens": "1099",
+        "modelAlias": "ql-k3-256k",
+-       "totalTokens": "120",
+-       "unknownCount": 0,
+-       "usageQuality": "EXACT",
++       "outputTokens": "21",
++       "reasoningTokens": "10",
++       "totalTokens": "1120",
++       "unifiedModelId": "9b41f8d0-911c-4a20-9cbf-9a6868649162",
++       "unknownCount": 1,
++       "usageQuality": "UNKNOWN",
+      },
+    ],
+-   "monthlyTotalTokens": "120",
+-   "monthlyUnknownCount": 0,
+-   "monthlyUsageQuality": "EXACT",
+-   "tokenRate24h": "5.00",
++   "monthlyTotalTokens": "1120",
++   "monthlyUnknownCount": 1,
++   "monthlyUsageQuality": "UNKNOWN",
++   "tokenRate24h": null,
+  }
+
+ ❯ src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts:360:18
+    358|     );
+    359|     const item = overview.providerSummaries.find((row) => row.provider…
+    360|     expect(item).toMatchObject({
+       |                  ^
+    361|       monthlyTotalTokens: "120",
+    362|       monthlyUsageQuality: "EXACT",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回
+AssertionError: expected '280' to be '200' // Object.is equality
+
+Expected: "200"
+Received: "280"
+
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:263:52
+    261| 
+    262|     // Token：当月 SUCCEEDED 合计 = (100+50) + (30+20) = 200；失败行 80 不计入。
+    263|     expect(summary.tokenUsage.current.totalTokens).toBe("200");
+       |                                                    ^
+    264|     expect(summary.tokenUsage.current.inputTokens).toBe("130");
+    265|     expect(summary.tokenUsage.current.outputTokens).toBe("70");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > R01-F01：资金读模型同期窗口复用权威缺口规则（已知部分保留、缺口显式）
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:412:37
+    410|     const window = await loadWindowOperatingFinance(db, enterpriseId, …
+    411|     expect(window.totalSpends).toEqual([{ currency: "CNY", amount: "12…
+    412|     expect(window.incompleteReason).toContain("API_USAGE_COST_UNKNOWN"…
+       |                                     ^
+    413|     expect(window.incompleteReason).toContain("CASH_PAID_CNY_MISSING");
+    414|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:427:60
+    425|     expect(summary.monthlyCost.previous?.totalSpends)
+    426|       .toEqual([{ currency: "CNY", amount: "12.50000000" }]);
+    427|     expect(summary.monthlyCost.previous?.incompleteReason).toContain("…
+       |                                                            ^
+    428|     expect(summary.monthlyCost.previous?.incompleteReason).toContain("…
+    429|     expect(summary.monthlyCost.previous?.window.rangeStart).toBe("2026…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入）
+AssertionError: expected '' to contain 'API_USAGE_COST_UNKNOWN:1'
+
+- Expected
++ Received
+
+- API_USAGE_COST_UNKNOWN:1
+
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:898:20
+    896|     const reason = window.incompleteReason ?? "";
+    897|     // 正控制逐码命中
+    898|     expect(reason).toContain("API_USAGE_COST_UNKNOWN:1");
+       |                    ^
+    899|     expect(reason).toContain("API_COST_CURRENCY_MISSING:1");
+    900|     expect(reason).toContain("API_COST_CURRENCY_CONFLICT:1");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  5 failed | 14 passed | 55 skipped (74)
+   Start at  14:02:30
+   Duration  6.31s (transform 1.08s, setup 0ms, collect 4.35s, tests 11.43s, environment 0ms, prepare 224ms)
+
