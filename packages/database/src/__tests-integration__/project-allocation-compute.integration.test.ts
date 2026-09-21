@@ -11,6 +11,7 @@ import type { Database } from "../kysely.js";
 import {
   createProjectMembership, publishEmployeeRules,
   enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns,
+  markAllocationDirty, getUnallocatedSummary,
 } from "../index.js";
 
 let pg: PostgresTestInstance;
@@ -289,5 +290,143 @@ describe("归集计算端到端", () => {
     // 模拟只读路径：再次执行 worker 但无脏数据，应无事发生。
     const results = await runDueAllocationRuns(db, "test-worker");
     expect(results).toHaveLength(0);
+  });
+});
+
+describe("P1 修复专项", () => {
+  it("P1-1/GS-5：无 Token 行的 CODING_PLAN 资源套餐成本进入资源余量，不伪造 Token（C08）", async () => {
+    const entPlan = randomUUID();
+    const adminPlan = randomUUID();
+    const planResource = randomUUID();
+    const planResourceSnap = randomUUID();
+    await db.insertInto("enterprise").values({ id: entPlan, name: "残量企业", timezone: "Asia/Shanghai" }).execute();
+    await db.insertInto("admin_user").values({ id: adminPlan, enterprise_id: entPlan, username: "p1", password_hash: "x" }).execute();
+    await db.insertInto("provider").values({
+      id: randomUUID(), enterprise_id: entPlan, code: "plan-prov", name: "套餐厂商", adapter_type: "zhipu",
+    }).execute();
+    await db.insertInto("provider_resource").values([
+      { id: planResource, enterprise_id: entPlan, provider_id: (await sql<{ id: string }>`
+        SELECT id FROM provider WHERE enterprise_id = ${entPlan} LIMIT 1`.execute(db)).rows[0]!.id,
+        name: "套餐资源（有现金事件）", mode: "CODING_PLAN", credential_type: "API_KEY" },
+    ]).execute();
+    // finance 运行态开启：authority = 当月 cash_paid_cny。
+    // shape 约束要求激活态带激活人与时间（0061）。
+    await sql`INSERT INTO provider_finance_runtime_state
+      (enterprise_id, strict_writes_enabled, activated_at, activated_by_admin_user_id)
+      VALUES (${entPlan}::uuid, true, now(), ${adminPlan}::uuid)`.execute(db);
+    await db.transaction().execute(async (trx) => {
+      const event = await trx.insertInto("provider_finance_event").values({
+        enterprise_id: entPlan, provider_resource_id: planResource,
+        event_type: "CODING_PLAN_PURCHASE", account_amount: "100", account_currency: "CNY",
+        cash_paid_cny: "100", occurred_at: new Date("2026-08-05T00:00:00+08:00"),
+        external_reference: null, reversal_of_event_id: null, correction_of_event_id: null,
+        reconciliation_case_id: null, description: "套餐采购", evidence_ref: null,
+        source: "MIGRATION", idempotency_key: `p11-${randomUUID()}`, created_by_admin_user_id: adminPlan,
+      }).returning("id").executeTakeFirstOrThrow();
+      await trx.insertInto("provider_subscription_period").values({
+        enterprise_id: entPlan, provider_resource_id: planResource, finance_event_id: event.id,
+        product_name: "套餐", period_start: new Date("2026-08-05T00:00:00+08:00"),
+        period_end_exclusive: new Date("2026-09-05T00:00:00+08:00"),
+        source: "PURCHASE", created_by_admin_user_id: adminPlan,
+      }).execute();
+    });
+
+    await enableProjectAllocation(db, { enterpriseId: entPlan, startMonth: "2026-08", actorAdminId: adminPlan });
+    const results = await runDueAllocationRuns(db, "p11-worker");
+    expect(results[0]?.status).toBe("SUCCEEDED");
+
+    // 无任何源行：份额行为 0，套餐成本 100 全额进入资源余量。
+    const shareCount = await sql<{ n: number }>`
+      SELECT COUNT(*)::int AS n FROM project_allocation_line WHERE enterprise_id = ${entPlan}`.execute(db);
+    expect(shareCount.rows[0]?.n).toBe(0);
+    const residual = await sql<{ amount: string; currency: string; note: string }>`
+      SELECT amount::text, currency, note FROM project_allocation_resource_residual
+      WHERE enterprise_id = ${entPlan}`.execute(db);
+    expect(residual.rows).toHaveLength(1);
+    expect(residual.rows[0]?.amount).toBe("100.00000000");
+    expect(residual.rows[0]?.note).toBe("PLAN_CASH_RESIDUAL");
+
+    // 读取模型透出资源余量（C08 展示口径）。
+    const view = await getUnallocatedSummary(db, entPlan, "2026-08");
+    expect(view.resourceResidual).toHaveLength(1);
+    expect(view.resourceResidual[0]?.amount).toBe("100.00000000");
+
+    // 快照口径变体：非 finance 企业，快照 package_cost=40 且无源行 → 余量 40。
+    const entSnap = randomUUID();
+    const adminSnap = randomUUID();
+    await db.insertInto("enterprise").values({ id: entSnap, name: "快照残量企业" }).execute();
+    await db.insertInto("admin_user").values({ id: adminSnap, enterprise_id: entSnap, username: "p2", password_hash: "x" }).execute();
+    await db.insertInto("provider").values({
+      id: randomUUID(), enterprise_id: entSnap, code: "snap-prov", name: "快照厂商", adapter_type: "openai",
+    }).execute();
+    const snapRes = randomUUID();
+    await db.insertInto("provider_resource").values({
+      id: snapRes, enterprise_id: entSnap,
+      provider_id: (await sql<{ id: string }>`
+        SELECT id FROM provider WHERE enterprise_id = ${entSnap} LIMIT 1`.execute(db)).rows[0]!.id,
+      name: "快照套餐资源", mode: "CODING_PLAN", credential_type: "API_KEY",
+    }).execute();
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: entSnap, provider_resource_id: snapRes, version: 1,
+      package_cost: "40", effective_from: new Date("2026-08-01T00:00:00+08:00"),
+      effective_until: null, collected_at: new Date("2026-08-20T00:00:00+08:00"),
+      source: "ADMIN",
+    }).execute();
+    await enableProjectAllocation(db, { enterpriseId: entSnap, startMonth: "2026-08", actorAdminId: adminSnap });
+    await runDueAllocationRuns(db, "p11-worker");
+    const snapResidual = await sql<{ amount: string; note: string }>`
+      SELECT amount::text, note FROM project_allocation_resource_residual
+      WHERE enterprise_id = ${entSnap}`.execute(db);
+    expect(snapResidual.rows).toHaveLength(1);
+    expect(snapResidual.rows[0]?.amount).toBe("40.00000000");
+    expect(snapResidual.rows[0]?.note).toBe("SNAPSHOT_RESIDUAL");
+    void planResourceSnap;
+  });
+
+  it("P1-3：finance 原地 UPDATE 改变行内容 → digest 变化强制重算，dirty 不被错误清除", async () => {
+    // 第一轮：正常行 → 计算成功。
+    const request = await seedLedgerLine(employee1, new Date("2026-08-20T12:00:00+08:00"), 10_000n, "1.0000");
+    await markAllocationDirty(db, ent, ["2026-08"]);
+    await enqueueAllocationRun(db, {
+      enterpriseId: ent, month: "2026-08", actorType: "SYSTEM", actorAdminId: null,
+    });
+    const first = await runDueAllocationRuns(db, "p13-worker");
+    expect(first[0]?.status).toBe("SUCCEEDED");
+    const firstRun = first[0]!.runId;
+
+    // 原地 UPDATE（模拟 finance 回填）：行数不变、内容变化。
+    await sql`UPDATE ledger_line SET api_cost_status = 'UNKNOWN_COST', api_cost = NULL
+      WHERE ai_request_id = ${request}`.execute(db);
+    await markAllocationDirty(db, ent, ["2026-08"]);
+
+    const enqueued = await enqueueAllocationRun(db, {
+      enterpriseId: ent, month: "2026-08", actorType: "SYSTEM", actorAdminId: null,
+    });
+    expect(enqueued.created).toBe(true);
+
+    const second = await runDueAllocationRuns(db, "p13-worker");
+    expect(second[0]?.status).toBe("SUCCEEDED");
+    const secondRun = second[0]!.runId;
+    expect(secondRun).not.toBe(firstRun);
+
+    // 新 current 的明细反映新内容：UNKNOWN 行 share_api_cost 为 NULL。
+    const updated = await sql<{ null_cost_lines: number }>`
+      SELECT COUNT(*)::int AS null_cost_lines
+      FROM project_allocation_line l
+      JOIN project_allocation_run r ON r.id = l.run_id
+      WHERE r.enterprise_id = ${ent} AND r.is_current AND l.ai_request_id = ${request}
+        AND l.share_api_cost IS NULL`.execute(db);
+    expect(Number(updated.rows[0]?.null_cost_lines)).toBeGreaterThan(0);
+
+    // 旧批次不再是 current；dirty 已被成功发布消费。
+    const runs = await sql<{ n: number; current: number }>`
+      SELECT COUNT(*)::int AS n, COUNT(*) FILTER (WHERE is_current)::int AS current
+      FROM project_allocation_run WHERE enterprise_id = ${ent} AND period_month = '2026-08-01'`.execute(db);
+    expect(runs.rows[0]?.n).toBe(2);
+    expect(runs.rows[0]?.current).toBe(1);
+    const dirty = await sql<{ dirty: boolean }>`
+      SELECT dirty FROM project_allocation_dirty
+      WHERE enterprise_id = ${ent} AND period_month = '2026-08-01'`.execute(db);
+    expect(dirty.rows[0]?.dirty).toBe(false);
   });
 });

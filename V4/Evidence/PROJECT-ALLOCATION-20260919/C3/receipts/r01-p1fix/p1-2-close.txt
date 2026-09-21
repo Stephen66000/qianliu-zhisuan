@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-project-allocation-feature-20260921/packages/database
+
+ ✓ src/__tests-integration__/project-allocation-close.integration.test.ts (5 tests) 4707ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  22:58:03
+   Duration  7.18s (transform 922ms, setup 0ms, collect 1.95s, tests 4.71s, environment 0ms, prepare 73ms)
+

@@ -124,7 +124,7 @@ export async function reviseProjectAccountingLifecycle(
       ? await clipRulesAtAccountingEnd(tx, {
         enterpriseId: input.enterpriseId,
         projectId: input.projectId,
-        effectiveAt: input.effectiveAt,
+        clipBoundary: endedAt ?? startedAt,
         reason: input.reason,
         actorAdminId: input.actorAdminId,
       })
@@ -140,7 +140,8 @@ async function clipRulesAtAccountingEnd(
   params: {
     enterpriseId: string;
     projectId: string;
-    effectiveAt: Date;
+    /** 与 profile.accounting_ended_at 完全一致的排他边界（date-only 输入已含 +1 天）。 */
+    clipBoundary: Date;
     reason: string;
     actorAdminId: string;
   },
@@ -152,7 +153,7 @@ async function clipRulesAtAccountingEnd(
     WHERE pol.enterprise_id = ${params.enterpriseId}
       AND pol.is_current
       AND ru.project_principal_id = ${params.projectId}
-      AND (ru.valid_until IS NULL OR ru.valid_until > ${params.effectiveAt})
+      AND (ru.valid_until IS NULL OR ru.valid_until > ${params.clipBoundary})
     ORDER BY ru.employee_principal_id`.execute(tx);
   if (affected.length === 0) return 0;
 
@@ -176,9 +177,9 @@ async function clipRulesAtAccountingEnd(
       const isThisProject = rule.project_principal_id === params.projectId;
       if (isThisProject) {
         // 超出核算结束时点的段裁剪到结束点；整段落在结束点之前的直接终止。
-        const until = rule.valid_until !== null && rule.valid_until.getTime() < params.effectiveAt.getTime()
+        const until = rule.valid_until !== null && rule.valid_until.getTime() < params.clipBoundary.getTime()
           ? rule.valid_until
-          : params.effectiveAt;
+          : params.clipBoundary;
         if (until.getTime() <= rule.valid_from.getTime()) continue;
         desired.push({
           projectPrincipalId: rule.project_principal_id,

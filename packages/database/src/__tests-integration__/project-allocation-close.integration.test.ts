@@ -11,6 +11,7 @@ import type { Database } from "../kysely.js";
 import {
   createProjectMembership, publishEmployeeRules,
   enableProjectAllocation, runDueAllocationRuns, projectAllocationTick,
+  reviseProjectAccountingLifecycle,
   OperatingBillRepository, AllocationNotReadyError,
 } from "../index.js";
 
@@ -200,5 +201,66 @@ describe("补偿扫描 tick（A03 阶段一）", () => {
     const idle = await projectAllocationTick(db, "wp06-worker");
     expect(idle.runsCreated).toBe(0);
     expect(idle.runsExecuted).toBe(0);
+  });
+});
+
+describe("P1-2：date-only 结束核算统一排他边界", () => {
+  it("结束日期当天全天请求仍按权重归集；规则段与 profile 边界一致", async () => {
+    // 生命线：P 开始核算（date-only）→ 员工最后一天请求 → date-only 结束 9-20
+    // → 边界 9-21T00:00+08；重算后最后一天请求仍为 MEMBERSHIP_RULE。
+    const started = await reviseProjectAccountingLifecycle(db, {
+      enterpriseId: ent, projectId: projectA,
+      effectiveAt: T("2026-09-01T00:00:00+08:00"), effectiveAtIsDateOnly: true,
+      reason: "P1-2 开始核算", expectedVersion: 0, actorAdminId: admin,
+    });
+    expect(started.mode).toBe("STARTED");
+
+    // 9-20（结束日当天）的请求。
+    const lastDayRequest = await seedLedgerLine(employee1, T("2026-09-20T20:00:00+08:00"), 100_000n, "1.0000");
+
+    const ended = await reviseProjectAccountingLifecycle(db, {
+      enterpriseId: ent, projectId: projectA,
+      effectiveAt: T("2026-09-20T00:00:00+08:00"), effectiveAtIsDateOnly: true,
+      reason: "P1-2 date-only 结束", expectedVersion: started.version, actorAdminId: admin,
+    });
+    expect(ended.mode).toBe("ENDED");
+
+    // profile 边界 = 次日零点（+08）。
+    const profile = await sql<{ ended: Date }>`
+      SELECT accounting_ended_at AS ended FROM project_accounting_profile_version
+      WHERE enterprise_id = ${ent} AND project_principal_id = ${projectA} AND is_current`.execute(db);
+    expect((profile.rows[0]!.ended as Date).toISOString()).toBe("2026-09-20T16:00:00.000Z");
+
+    // 规则段裁剪到同一边界。
+    const ruleEdge = await sql<{ max_until: Date }>`
+      SELECT MAX(ru.valid_until) AS max_until
+      FROM employee_project_allocation_rule ru
+      JOIN employee_project_allocation_policy pol ON pol.id = ru.policy_id
+      WHERE pol.enterprise_id = ${ent} AND pol.is_current
+        AND ru.project_principal_id = ${projectA}`.execute(db);
+    expect((ruleEdge.rows[0]!.max_until as Date).toISOString()).toBe("2026-09-20T16:00:00.000Z");
+
+    // 重算：结束日当天的请求按权重归集（不落入 NO_EFFECTIVE_RULE）。
+    await enableProjectAllocation(db, { enterpriseId: ent, startMonth: "2026-09", actorAdminId: admin });
+    const results = await runDueAllocationRuns(db, "p12-worker");
+    expect(results[0]?.status).toBe("SUCCEEDED");
+
+    // P1-2 修复验证：结束日当天的请求按权重归集（修复前会全部
+    // NO_EFFECTIVE_RULE 未分配）。5000bps 段 → 50% 归集 + 50% 余量。
+    const currentSources = await sql<{ sources: string }>`
+      SELECT string_agg(DISTINCT allocation_source, ',') AS sources
+      FROM project_allocation_line l
+      JOIN project_allocation_run r ON r.id = l.run_id
+      WHERE r.enterprise_id = ${ent} AND r.is_current
+        AND l.ai_request_id = ${lastDayRequest}`.execute(db);
+    expect(currentSources.rows[0]?.sources).toBe("MEMBERSHIP_RULE,UNALLOCATED");
+    const noRuleRows = await sql<{ n: number }>`
+      SELECT COUNT(*)::int AS n
+      FROM project_allocation_line l
+      JOIN project_allocation_run r ON r.id = l.run_id
+      WHERE r.enterprise_id = ${ent} AND r.is_current
+        AND l.ai_request_id = ${lastDayRequest}
+        AND l.unallocated_reason = 'NO_EFFECTIVE_RULE'`.execute(db);
+    expect(noRuleRows.rows[0]?.n).toBe(0);
   });
 });

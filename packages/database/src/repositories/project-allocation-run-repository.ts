@@ -376,6 +376,29 @@ function lineInsertValues(
   } as const;
 }
 
+/**
+ * P1-3：源行内容摘要——按 ledger_line_id 排序后串接全部影响归集的列，
+ * sha256 输出。同一行数下任何列的原地修改都会改变摘要（区别于仅计行数）。
+ */
+function contentXor(lines: AllocationSourceLine[]): string {
+  const hash = createHash("sha256");
+  const sorted = [...lines].sort((left, right) => left.ledgerLineId.localeCompare(right.ledgerLineId));
+  for (const line of sorted) {
+    hash.update([
+      line.ledgerLineId, line.aiRequestId, line.upstreamAttemptId,
+      line.providerResourceId ?? "", line.unifiedModelId ?? "",
+      line.inputTokens.toString(), line.outputTokens.toString(),
+      line.cacheTokens?.toString() ?? "", line.reasoningTokens?.toString() ?? "",
+      line.apiCost ?? "", line.apiCostCurrency ?? "", line.packageCost ?? "",
+      line.requestStartedAt.toISOString(), line.accountedAt.toISOString(),
+      line.sourcePrincipalId, line.sourcePrincipalType, line.manualProjectId ?? "",
+      line.usageQuality, line.resourceMode,
+    ].join("|"));
+    hash.update("\u0000");
+  }
+  return hash.digest("hex").slice(0, 32);
+}
+
 type LineShareView = MonthAllocationResult["shares"][number];
 
 export interface ExecuteRunResult {
@@ -395,6 +418,11 @@ export async function executeAllocationRun(
 ): Promise<ExecuteRunResult> {
   try {
     const month = run.period_month.slice(0, 7);
+    const monthRange = operatingBillMonthRange(month);
+    const { rows: financeRows } = await sql<{ enabled: boolean }>`
+      SELECT COALESCE((SELECT strict_writes_enabled FROM provider_finance_runtime_state
+        WHERE enterprise_id = ${run.enterprise_id}::uuid), false) AS enabled`.execute(db);
+    const financeEnabled = financeRows[0]?.enabled ?? false;
     const started = Date.now();
     const [lines, { contextsByEmployee, ruleDigest, membershipDigest }] = await Promise.all([
       loadAllocationSourceLines(db, run.enterprise_id, month),
@@ -405,8 +433,12 @@ export async function executeAllocationRun(
       FROM operating_bill_request_project_assignment
       WHERE enterprise_id = ${run.enterprise_id}`.execute(db);
     const manualDigest = assignmentRows[0]?.digest ?? "none";
+    // P1-3：事实内容摘要——行数 + 逐行内容（覆盖 token/费用/币种/状态/结算时间/
+    // 资源/主体/attempt 等影响归集的列）。行数相同、内容被原地修改（如 finance
+    // 回填 UPDATE）时 digest 仍变化，确保重算不被幂等跳过。
+    const factXor = contentXor(lines);
     const inputDigest = createHash("sha256")
-      .update(JSON.stringify([run.period_month, lines.length, ruleDigest, membershipDigest, manualDigest]))
+      .update(JSON.stringify([run.period_month, lines.length, factXor, ruleDigest, membershipDigest, manualDigest]))
       .digest("hex");
 
     const { rows: enablement } = await sql<{ earliest: string | null }>`
@@ -449,6 +481,59 @@ export async function executeAllocationRun(
           const source = lineById.get(share.ledgerLineId);
           await tx.insertInto("project_allocation_line")
             .values(lineInsertValues(run, share, source))
+            .execute();
+        }
+        // P1-1：资源级套餐余量（C08/GS-5）——authority（当月套餐成本口径，
+        // 与行级 package_line_cost 同源）减去已分摊到源行的部分，仅正差入
+        // 余量表；无源行的资源全额进入余量，不伪造 Token、不入源行守恒公式。
+        const { rows: residualRows } = await sql<{ provider_resource_id: string; amount: string }>`
+          WITH plan_cash_authority AS (
+            SELECT event.provider_resource_id, SUM(event.cash_paid_cny)::numeric(24,8) AS amount
+              FROM provider_finance_event event
+              JOIN provider_resource resource
+                ON resource.enterprise_id = event.enterprise_id
+               AND resource.id = event.provider_resource_id AND resource.mode = 'CODING_PLAN'
+             WHERE event.enterprise_id = ${run.enterprise_id}::uuid
+               AND event.event_type IN ('CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL','REVERSAL')
+               AND event.occurred_at >= ${monthRange.start} AND event.occurred_at < ${monthRange.end}
+             GROUP BY event.provider_resource_id
+          ), snapshot_authority AS (
+            SELECT DISTINCT ON (s.provider_resource_id)
+                   s.provider_resource_id, s.package_cost::numeric(24,8) AS amount
+              FROM provider_resource_operating_snapshot s
+              JOIN provider_resource resource
+                ON resource.enterprise_id = s.enterprise_id
+               AND resource.id = s.provider_resource_id AND resource.mode = 'CODING_PLAN'
+             WHERE s.enterprise_id = ${run.enterprise_id}::uuid AND s.collected_at < ${monthRange.end}
+             ORDER BY s.provider_resource_id, s.collected_at DESC, s.version DESC
+          ), authority AS (
+            SELECT COALESCE(plan.provider_resource_id, snap.provider_resource_id) AS provider_resource_id,
+                   COALESCE(plan.amount, snap.amount, 0)::numeric(24,8) AS amount
+              FROM plan_cash_authority plan
+              FULL OUTER JOIN snapshot_authority snap
+                ON snap.provider_resource_id = plan.provider_resource_id
+          ), line_allocated AS (
+            SELECT provider_resource_id, SUM(source_package_cost)::numeric(24,8) AS amount
+              FROM project_allocation_line
+             WHERE run_id = ${run.id}::uuid AND resource_mode = 'CODING_PLAN'
+               AND source_package_cost IS NOT NULL
+             GROUP BY provider_resource_id
+          )
+          SELECT authority.provider_resource_id,
+                 (authority.amount - COALESCE(line_allocated.amount, 0))::text AS amount
+            FROM authority
+            LEFT JOIN line_allocated ON line_allocated.provider_resource_id = authority.provider_resource_id
+           WHERE authority.amount > 0
+             AND authority.amount - COALESCE(line_allocated.amount, 0) > 0`.execute(tx);
+        if (residualRows.length > 0) {
+          await tx.insertInto("project_allocation_resource_residual")
+            .values(residualRows.map((row) => ({
+              run_id: run.id,
+              provider_resource_id: row.provider_resource_id,
+              enterprise_id: run.enterprise_id,
+              amount: row.amount,
+              note: financeEnabled ? "PLAN_CASH_RESIDUAL" : "SNAPSHOT_RESIDUAL",
+            })))
             .execute();
         }
         // 先关旧 current，再发布新批次（部分唯一索引窗口要求）。
