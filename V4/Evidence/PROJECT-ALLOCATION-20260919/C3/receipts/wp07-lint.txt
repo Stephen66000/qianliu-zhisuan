@@ -1,0 +1,25 @@
+$ corepack pnpm@11.11.0 -r run lint
+Scope: 11 of 12 workspace projects
+packages/config lint$ eslint src --max-warnings=0
+packages/contracts lint$ eslint src --max-warnings=0
+packages/domain lint$ eslint src --max-warnings=0
+packages/testing lint$ eslint src --max-warnings=0
+packages/testing lint: Done
+packages/config lint: Done
+packages/contracts lint: Done
+packages/domain lint: Done
+apps/web lint$ eslint src --max-warnings=0
+packages/observability lint$ eslint src --max-warnings=0
+packages/provider-adapters lint$ eslint src --max-warnings=0
+packages/observability lint: Done
+packages/provider-adapters lint: Done
+apps/web lint: Done
+packages/database lint$ eslint src --max-warnings=0
+packages/database lint: Done
+apps/control-api lint$ eslint src --max-warnings=0
+apps/gateway lint$ eslint src --max-warnings=0
+apps/worker lint$ eslint src --max-warnings=0
+apps/worker lint: Done
+apps/gateway lint: Done
+apps/control-api lint: Done
+exit:0
