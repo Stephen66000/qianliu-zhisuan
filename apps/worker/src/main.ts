@@ -11,7 +11,7 @@ import { createTaskObserver } from "./runtime-assurance/observed-task.js";
  *
  * 预测快照、周期重置、恢复任务、备份在后续工作包（W25）。
  */
-import { createKysely, OperatingBillRepository, ReconciliationRepository, RuntimeAssuranceRepository, SupplyForecastRepository, UsageAggregateRepository } from "@qianliu/database";
+import { createKysely, OperatingBillRepository, ReconciliationRepository, RuntimeAssuranceRepository, SupplyForecastRepository, UsageAggregateRepository, projectAllocationTick } from "@qianliu/database";
 import { readFeatureFlags, WECOM_API_ORIGIN } from "@qianliu/config";
 import { generateOperatingBill } from "./operating-bill/runner.js";
 import {
@@ -367,6 +367,17 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             event: "usage_aggregate_tick_completed", dirty_limit: aggregateDirtyLimit,
             include_daily: includeDaily, ...aggregate,
           }));
+
+          try {
+            const allocation = await projectAllocationTick(db, `worker-${process.pid}`);
+            console.log(JSON.stringify({ event: "project_allocation_tick_completed", ...allocation }));
+          } catch (error) {
+            console.error(JSON.stringify({
+              event: "project_allocation_tick_failed",
+              error_type: error instanceof Error ? error.name : typeof error,
+              message: error instanceof Error ? error.message : String(error),
+            }));
+          }
 
           const shanghaiHour = Number(
             new Intl.DateTimeFormat("en-US", {

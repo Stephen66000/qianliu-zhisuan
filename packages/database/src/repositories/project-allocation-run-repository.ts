@@ -523,6 +523,8 @@ export async function executeAllocationRun(
     return { runId: run.id, status: "SUCCEEDED", conservation: result.conservation, error: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    // 状态只进不退（触发器约束）：可重试失败保留 RUNNING 并把租约设为退避到期，
+    // 由 claim 的"租约过期回收"路径重新认领；达到上限才转终态 FAILED。
     await db.transaction().execute(async (tx) => {
       const row = await tx.selectFrom("project_allocation_run")
         .select(["attempt"])
@@ -535,12 +537,11 @@ export async function executeAllocationRun(
           .where("id", "=", run.id)
           .execute();
       } else {
+        const backoffMs = Math.min(60_000 * 2 ** Math.max(attempt - 1, 0), 3600_000);
         await tx.updateTable("project_allocation_run")
           .set({
-            status: "QUEUED",
             last_error: message.slice(0, 2000),
-            lease_owner: null,
-            lease_expires_at: null,
+            lease_expires_at: new Date(Date.now() - backoffMs),
             updated_at: new Date(),
           })
           .where("id", "=", run.id)

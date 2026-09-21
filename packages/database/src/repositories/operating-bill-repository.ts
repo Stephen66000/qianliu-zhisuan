@@ -22,6 +22,7 @@ import {
   OperatingBillReferenceError,
 } from "./operating-bill-errors.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
+import { freezeProjectAllocationForClose } from "./project-allocation-freeze.js";
 import {
   recordOperatingBillOpeningBalance,
   type RecordOpeningBalanceInput,
@@ -362,6 +363,15 @@ export class OperatingBillRepository {
           exceptions: sql`${JSON.stringify(draft.gaps)}::jsonb`, closed_by: input.adminId,
           closed_at: closedAt,
         }).execute();
+        // 项目归集冻结（v1.2 §8.3）：启用账期在 close 事务内校验当前批次一致并写
+        // 不可变 run 引用；未启用账期维持原路径（无 ref，读取显示历史口径）。
+        await freezeProjectAllocationForClose(trx, {
+          enterpriseId: input.enterpriseId,
+          periodId: period.id,
+          month: input.month,
+          version: nextVersion,
+          requireConsistency: true,
+        });
         await trx.updateTable("operating_bill_period").set({
           status: "CLOSED", current_version: nextVersion, updated_at: closedAt,
         }).where("id", "=", period.id).execute();

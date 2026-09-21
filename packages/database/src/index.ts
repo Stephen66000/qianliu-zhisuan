@@ -440,3 +440,10 @@ export {
   getAllocationRunStatus, listProjectAllocationSummaries, getUnallocatedSummary, listAllocationLines,
   type AllocationRunStatus, type ProjectAllocationSummary, type UnallocatedSummary, type AllocationLineRow,
 } from "./repositories/project-allocation-read-repository.js";
+export {
+  freezeProjectAllocationForClose, AllocationNotReadyError,
+} from "./repositories/project-allocation-freeze.js";
+export {
+  projectAllocationTick,
+  type AllocationScanResult,
+} from "./repositories/project-allocation-scan.js";

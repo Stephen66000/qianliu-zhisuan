@@ -13,6 +13,7 @@ import {
   OperatingBillReferenceError,
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
+import { AllocationNotReadyError } from "@qianliu/database";
 import { OperatingSnapshotSchema, operatingSnapshotModeError, toOperatingSnapshotInput } from "../providers/contracts.js";
 import { registerOpeningBalanceRoute } from "./opening-balance-route.js";
 
@@ -95,6 +96,12 @@ function handleOperatingBillError(error: unknown, reply: FastifyReply) {
   if (error instanceof OperatingBillConcurrentModificationError) return reply.code(409).send({
     error: "bill_concurrent_modification", message: "账单正在被并发修改，请稍后重试结账", retryable: true,
   });
+  if (error instanceof AllocationNotReadyError) {
+    const message = error.reason === "no_current_run"
+      ? "该账期已启用项目归集，但还没有可用的计算批次，不能结账"
+      : "项目归集批次落后于最新输入，需重算后才能结账";
+    return reply.code(409).send({ error: "allocation_not_ready", message, reason: error.reason });
+  }
   if (error instanceof OperatingBillClosedError || error instanceof OperatingBillAlreadyClosedError) {
     return reply.code(409).send({ error: "bill_closed", message: "账期已结账，重开后才能修改" });
   }
