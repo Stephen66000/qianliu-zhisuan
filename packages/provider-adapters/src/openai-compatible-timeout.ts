@@ -104,6 +104,9 @@ export function chatCompletionsUrl(baseUrl: string): string {
 }
 
 export const defaultFetch: HttpFetch = async (url, init) => {
-  const response = await undiciFetch(url, init);
+  // Node 22 的 globalThis.fetch 即 undici fetch；优先走全局实现，
+  // 使集成测试可通过标准 fetch mock 注入，行为与生产一致。
+  const impl = globalThis.fetch ?? undiciFetch;
+  const response = await impl(url, init as RequestInit);
   return response as unknown as HttpResponseLike;
 };

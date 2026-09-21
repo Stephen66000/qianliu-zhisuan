@@ -35,7 +35,7 @@ it("勾选或全选依然提交原API模型ID，不提交官方版本字符串",
   const user = userEvent.setup(), { selected, getCredentials } = view(discovery("DeepSeek-V4-Flash-0731"));
   await user.click(screen.getByRole("checkbox"));
   expect(selected).toHaveBeenLastCalledWith(["deepseek-v4-flash"]);
-  await user.click(screen.getByRole("button", { name: "全选兼容模型" }));
+  await user.click(screen.getByRole("button", { name: "全选就绪模型" }));
   expect(selected).toHaveBeenLastCalledWith(["deepseek-v4-flash"]);
   expect(getCredentials).not.toHaveBeenCalled();
 });

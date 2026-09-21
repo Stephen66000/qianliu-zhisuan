@@ -21,6 +21,8 @@ import { upstreamFailure } from "./upstream-failure.js";
 import { toChatCompletionsRequest } from "./openai-compatible-request.js";
 import { failedOutcome, parseJsonResponse, parseStreamingResponse } from "./openai-compatible-response.js";
 import { chatCompletionsUrl, createLayeredTimeout, defaultFetch } from "./openai-compatible-timeout.js";
+import { resolveProviderEndpoint } from "./endpoint-policy.js";
+import { canonicalProviderCode } from "./provider-code.js";
 
 export { toChatCompletionsRequest } from "./openai-compatible-request.js";
 export { chatAssistantToResponsesOutput } from "./openai-compatible-conversion.js";
@@ -89,7 +91,24 @@ export function createOpenAiCompatibleCaller(
       return failedOutcome(401, "upstream_credential_missing");
     }
 
-    const baseUrl = resource.baseUrl || providerChatBaseUrl(resource.providerCode, env);
+    // WP02：进入请求转换/错误映射/镜像能力分支前统一规范化 providerCode，
+    // 生产 code=Kimi 与预置 code=kimi 走同一策略。
+    resource = { ...resource, providerCode: canonicalProviderCode(resource.providerCode) };
+
+    // WP01/RC-0：模式化端点解析。业务调用、权限探针、真实验证、凭证恢复
+    // 共用 resolveProviderEndpoint，历史无 scope 的 Moonshot base_url
+    // 不再覆盖 Kimi Coding Plan 端点。
+    const endpoint = resolveProviderEndpoint({
+      providerCode: resource.providerCode,
+      resourceMode: resource.mode,
+      operation: "CHAT_COMPLETIONS",
+      configuredEndpoints: { base_url: resource.baseUrl },
+      env,
+    });
+    if (!endpoint.ok) {
+      return failedOutcome(500, "upstream_endpoint_ambiguous");
+    }
+    const baseUrl = endpoint.url;
     if (!baseUrl) {
       return failedOutcome(500, "upstream_base_url_missing");
     }

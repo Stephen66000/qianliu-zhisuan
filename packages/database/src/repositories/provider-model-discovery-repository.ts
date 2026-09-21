@@ -11,6 +11,33 @@ import {
 
 type ProviderModelValidation = Selectable<ProviderModelValidationTable>;
 
+/** WP04：一次权限探针运行的持久化输入（全部为脱敏证据，不含 Key/正文）。 */
+export interface ModelProbeRunInput {
+  enterpriseId: string;
+  providerId?: string | null;
+  providerResourceId?: string | null;
+  providerCode: string;
+  resourceMode: "API" | "CODING_PLAN";
+  credentialFingerprint: string;
+  endpointScope: string;
+  endpointHost: string;
+  discoverySource?: string | null;
+  discoverySourceHash?: string | null;
+  parserVersion?: string | null;
+  idempotencyKey: string;
+  requestHash: string;
+  items: Array<{
+    upstreamModel: string;
+    validationStatus: string;
+    httpStatus: number | null;
+    errorCode: string | null;
+    errorCategory: string | null;
+    retryable: boolean;
+    diagnosticHash: string | null;
+    checkedAt: Date | null;
+  }>;
+}
+
 /** 模型发现快照、字段 Evidence、双层状态与验证互斥。 */
 export abstract class ProviderModelDiscoveryRepository extends ProviderOperatingRepository {
   async getResourceForModelDiscovery(enterpriseId: string, resourceId: string) {
@@ -28,6 +55,73 @@ export abstract class ProviderModelDiscoveryRepository extends ProviderOperating
       .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED"])
       .where("provider.status", "=", "ACTIVE")
       .executeTakeFirst();
+  }
+
+  /**
+   * WP04：持久化一次权限探针运行与模型级明细（加法写入，不影响历史快照）。
+   * request_hash 已包含凭证 fingerprint、endpoint scope/host 与官方目录哈希，
+   * Key/端点/目录任一变化都会生成新的 request_hash，旧探针结果随之失效。
+   * 写入失败由调用方兜底：不回滚已成功的发现快照。
+   */
+  async recordModelProbeRun(input: ModelProbeRunInput): Promise<string | null> {
+    return this.db.transaction().execute(async (trx) => {
+      // 幂等：相同 idempotency_key 直接复用已有 run，不重复写入明细。
+      const existing = await trx.selectFrom("provider_model_probe_run")
+        .select("id")
+        .where("enterprise_id", "=", input.enterpriseId)
+        .where("idempotency_key", "=", input.idempotencyKey)
+        .executeTakeFirst();
+      if (existing) return existing.id;
+      const run = await trx.insertInto("provider_model_probe_run").values({
+        enterprise_id: input.enterpriseId,
+        provider_id: input.providerId ?? null,
+        provider_resource_id: input.providerResourceId ?? null,
+        provider_code: input.providerCode,
+        resource_mode: input.resourceMode,
+        credential_fingerprint: input.credentialFingerprint,
+        endpoint_scope: input.endpointScope as "MODE_SCOPED_CONFIG" | "ENV" | "LEGACY_BASE_URL" | "MODE_DEFAULT",
+        endpoint_host: input.endpointHost,
+        discovery_source: input.discoverySource ?? null,
+        discovery_source_hash: input.discoverySourceHash ?? null,
+        parser_version: input.parserVersion ?? null,
+        status: "COMPLETED",
+        idempotency_key: input.idempotencyKey,
+        request_hash: input.requestHash,
+        finished_at: new Date(),
+      }).returning("id").executeTakeFirstOrThrow();
+      if (input.items.length > 0) {
+        await trx.insertInto("provider_model_probe_item").values(input.items.map((item) => ({
+          probe_run_id: run.id,
+          upstream_model: item.upstreamModel,
+          validation_status: item.validationStatus as
+            "NOT_RUN" | "READY" | "AUTH_FAILED" | "PLAN_NOT_ENTITLED"
+            | "REQUEST_REJECTED" | "RATE_LIMITED" | "UPSTREAM_UNAVAILABLE" | "NETWORK_FAILED",
+          http_status: item.httpStatus,
+          error_code: item.errorCode,
+          error_category: item.errorCategory,
+          retryable: item.retryable,
+          diagnostic_hash: item.diagnosticHash,
+          checked_at: item.checkedAt,
+        }))).execute();
+      }
+      return run.id;
+    }).catch(() => null);
+  }
+
+  /** WP04：最近一次探针运行及其明细（按资源维度；接入前 run 无资源维度返回 null）。 */
+  async latestModelProbeRun(enterpriseId: string, resourceId: string) {
+    const run = await this.db.selectFrom("provider_model_probe_run")
+      .selectAll()
+      .where("enterprise_id", "=", enterpriseId)
+      .where("provider_resource_id", "=", resourceId)
+      .orderBy("started_at", "desc")
+      .executeTakeFirst();
+    if (!run) return null;
+    const items = await this.db.selectFrom("provider_model_probe_item")
+      .selectAll()
+      .where("probe_run_id", "=", run.id)
+      .execute();
+    return { run, items };
   }
 
   async recordModelDiscoveryFailure(

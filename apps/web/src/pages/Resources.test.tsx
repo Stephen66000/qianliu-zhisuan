@@ -499,7 +499,7 @@ describe("POOL-027 模型发现向导", () => {
     await user.type(screen.getByLabelText("资源名称"), "Kimi API");
     await user.type(screen.getByLabelText("上游凭证"), "secret");
     await detectModels(user);
-    expect(screen.getByRole("checkbox", { name: /kimi-k2 chat、stream/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /kimi-k2\s*兼容\s*chat、stream/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /kimi-embedding/ })).toBeDisabled();
     expect(screen.getByText("Gateway 暂不承载向量模型")).toBeInTheDocument();
   });

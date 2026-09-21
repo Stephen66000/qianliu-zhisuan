@@ -1,5 +1,6 @@
 import { ProviderModelDiscoveryError, type DiscoveredModelFacts, type DiscoveredProviderModel,
   type DiscoverySource, type ModelDiscoveryResult, type ModelFieldEvidence, type ProviderCode } from "./model-discovery-contract.js";
+import { canonicalProviderCode } from "./provider-code.js";
 
 export interface FetchedDocument {
   url: string; text: string; contentHash: string; etag: string | null; lastModified: string | null;
@@ -37,8 +38,9 @@ export function parseOfficialDocuments(
 export function discoverOfficialModelPageUrls(
   providerCode: ProviderCode, core: FetchedDocument, supplements: FetchedDocument[],
 ): string[] {
-  if (providerCode !== "zhipu") return [];
-  const advertised = new Set([...sanitizeDocument(core.text).matchAll(modelIdRegex(providerCode))]
+  const code = canonicalProviderCode(providerCode);
+  if (code !== "zhipu") return [];
+  const advertised = new Set([...sanitizeDocument(core.text).matchAll(modelIdRegex(code))]
     .map((match) => match[0].toLowerCase()));
   const urls = new Set<string>();
   for (const supplement of supplements) {

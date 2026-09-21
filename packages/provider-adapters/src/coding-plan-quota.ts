@@ -9,6 +9,7 @@
  * - 严格超时 + 有限重试 + 指数退避，异常不影响 Gateway。
  */
 import type { ProviderCode, ResourceMode } from "./model-discovery.js";
+import { canonicalProviderCode } from "./provider-code.js";
 
 /** 窗口类型。 */
 export type QuotaWindowType = "FIVE_HOUR" | "WEEKLY";
@@ -71,10 +72,12 @@ export async function queryCodingPlanQuota(input: {
   timeoutMs?: number;
   now?: Date;
 }): Promise<CodingPlanQuotaResult> {
-  if (input.mode !== "CODING_PLAN" || (input.providerCode !== "kimi" && input.providerCode !== "zhipu")) {
+  // WP02：canonical code 命中，Kimi/Zhipu 大小写不再掉出额度同步分支。
+  const code = canonicalProviderCode(input.providerCode);
+  if (input.mode !== "CODING_PLAN" || (code !== "kimi" && code !== "zhipu")) {
     return { adapterVersion: CODING_PLAN_QUOTA_ADAPTER_VERSION, providerDataAt: input.now ?? new Date(), windows: [] };
   }
-  if (input.providerCode === "kimi") {
+  if (code === "kimi") {
     return queryKimiQuota(input);
   }
   return queryZhipuQuota(input);

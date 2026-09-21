@@ -111,6 +111,24 @@ export {
 } from "./model-validation.js";
 
 export {
+  canonicalProviderCode,
+  isKnownCanonicalProviderCode,
+  type CanonicalProviderCode,
+} from "./provider-code.js";
+
+export {
+  resolveProviderEndpoint,
+  KIMI_API_MODE_DEFAULT_URL,
+  KIMI_CODING_PLAN_DEFAULT_URL,
+  KIMI_CODING_PLAN_QUOTA_URL,
+  ZHIPU_CODING_PLAN_QUOTA_URL,
+  type EndpointOperation,
+  type EndpointScope,
+  type ConfiguredEndpoints,
+  type ResolvedEndpoint,
+} from "./endpoint-policy.js";
+
+export {
   queryCodingPlanQuota,
   ProviderCodingPlanQuotaError,
   CODING_PLAN_QUOTA_ADAPTER_VERSION,

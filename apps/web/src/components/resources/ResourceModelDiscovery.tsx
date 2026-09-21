@@ -16,6 +16,16 @@ export interface DiscoveredModelItem {
   source: string;
   compatible: boolean;
   unavailableReason: string | null;
+  /** WP03：模型级凭证验证脱敏证据（状态/HTTP/原因/是否可重试）。 */
+  credential_validation?: {
+    status: string;
+    http_status: number | null;
+    error_code: string | null;
+    retryable: boolean;
+    checked_at: string;
+  } | null;
+  /** 只有真实就绪（READY）的模型允许确认接入。 */
+  selectable?: boolean;
   facts?: {
     officialVersion?: string | null;
     modalities?: string[];
@@ -43,6 +53,7 @@ export interface ModelDiscoveryResponse {
   reused?: boolean;
   failure_code?: string;
   catalog_diff?: { added: string[]; retained: string[]; not_advertised: string[] } | null;
+  summary?: { discovered: number; gateway_supported: number; credential_ready: number; credential_failed: number };
   integration_states?: Array<{ upstream_model: string; unified_model_exists: boolean; current_resource_route: string }>;
   models: DiscoveredModelItem[];
 }
@@ -81,9 +92,14 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
     }
     mutation.mutate(values);
   };
-  const compatibleModels = props.discovery?.models.filter((model) => model.compatible && model.availabilityStatus !== "REMOVED") ?? [];
-  const selectedCount = props.selectedModelIds.filter((id) => compatibleModels.some((m) => m.id === id)).length;
-  const isAllCompatibleSelected = compatibleModels.length > 0 && selectedCount === compatibleModels.length;
+  const isSelectable = (model: DiscoveredModelItem): boolean =>
+    model.selectable ?? (model.compatible && model.availabilityStatus !== "REMOVED");
+  const selectableModels = props.discovery?.models.filter(isSelectable) ?? [];
+  const failureCount = props.discovery?.summary?.credential_failed
+    ?? props.discovery?.models.filter((m) => m.credential_validation && m.credential_validation.status !== "READY").length
+    ?? 0;
+  const selectedCount = props.selectedModelIds.filter((id) => selectableModels.some((m) => m.id === id)).length;
+  const isAllCompatibleSelected = selectableModels.length > 0 && selectedCount === selectableModels.length;
   const isIndeterminate = selectedCount > 0 && !isAllCompatibleSelected;
 
   return <div className="sm:col-span-2 rounded-lg border border-ql-border bg-ql-surface p-3">
@@ -108,7 +124,7 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
       {/* 批量选择工具条 */}
       <div className="flex flex-wrap items-center justify-between gap-2 py-2 px-3 rounded-lg border border-ql-border bg-ql-surface-subtle">
         <div className="flex items-center gap-3">
-          {compatibleModels.length > 1 && (
+          {selectableModels.length > 1 && (
             <label className="flex items-center gap-2 cursor-pointer text-[13px] font-medium text-ql-fg select-none hover:text-ql-action transition-colors">
               <input
                 type="checkbox"
@@ -119,7 +135,7 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
                 }}
                 onChange={(e) => {
                   if (e.target.checked) {
-                    props.onSelectedModelIdsChange(compatibleModels.map((m) => m.id));
+                    props.onSelectedModelIdsChange(selectableModels.map((m) => m.id));
                   } else {
                     props.onSelectedModelIdsChange([]);
                   }
@@ -128,8 +144,12 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
               <span>全选</span>
             </label>
           )}
+          {/* WP06：官方发现数与验证通过数分栏展示；只有 READY 可确认，避免 0 / 0 误导。 */}
           <span className="text-[12px] text-ql-fg-muted">
-            已选 <strong className="text-ql-action font-semibold">{selectedCount}</strong> / {compatibleModels.length} 个兼容模型
+            官方发现 <strong className="text-ql-fg font-semibold">{props.discovery.summary?.discovered ?? props.discovery.models.length}</strong> 个
+            · 验证通过 <strong className="text-ql-action font-semibold">{props.discovery.summary?.credential_ready ?? selectableModels.length}</strong> 个
+            {failureCount > 0 ? <> · 验证失败 <strong className="text-ql-danger font-semibold">{failureCount}</strong> 个</> : null}
+            · 已选 <strong className="text-ql-action font-semibold">{selectedCount}</strong>
           </span>
         </div>
 
@@ -137,9 +157,9 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
           <button
             type="button"
             className="px-2.5 py-1 rounded border border-ql-border bg-ql-surface text-[12px] font-medium text-ql-action hover:bg-ql-action-soft transition-colors"
-            onClick={() => props.onSelectedModelIdsChange(compatibleModels.map((m) => m.id))}
+            onClick={() => props.onSelectedModelIdsChange(selectableModels.map((m) => m.id))}
           >
-            全选兼容模型
+            全选就绪模型
           </button>
           <button
             type="button"
@@ -148,12 +168,12 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
           >
             清空选择
           </button>
-          {compatibleModels.some((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id)) && (
+          {selectableModels.some((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id)) && (
             <button
               type="button"
               className="px-2.5 py-1 rounded border border-ql-border bg-ql-surface text-[12px] font-medium text-ql-fg hover:bg-ql-surface-subtle transition-colors"
               onClick={() => {
-                const core = compatibleModels.filter((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id));
+                const core = selectableModels.filter((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id));
                 props.onSelectedModelIdsChange(core.map((m) => m.id));
               }}
             >
@@ -173,6 +193,37 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
   </div>;
 }
 
+function isModelSelectable(model: DiscoveredModelItem): boolean {
+  return model.selectable ?? (model.compatible && model.availabilityStatus !== "REMOVED");
+}
+
+/** WP06：模型行状态徽标与脱敏原因（状态/HTTP/是否可重试），失败模型展示但不允许勾选。 */
+function modelStatusLine(model: DiscoveredModelItem): { text: string; tone: "ok" | "warn" | "danger" } {
+  if (model.availabilityStatus === "REMOVED") {
+    return { text: "官方本次未再列出，保留现有路由供人工复核", tone: "warn" };
+  }
+  const validation = model.credential_validation;
+  if (validation) {
+    const http = validation.http_status !== null ? ` · HTTP ${validation.http_status}` : "";
+    const suffix = validation.retryable ? "（可重试）" : "";
+    if (validation.status === "READY") {
+      return { text: `凭证验证通过${http}`, tone: "ok" };
+    }
+    const reason = model.unavailableReason ?? validation.error_code ?? "探针未通过";
+    return { text: `${reason}${http}${suffix}`, tone: validation.retryable ? "warn" : "danger" };
+  }
+  if (model.compatible) {
+    return { text: "兼容", tone: "ok" };
+  }
+  return { text: model.unavailableReason ?? "不可用", tone: "danger" };
+}
+
+const STATUS_TONE_CLASS: Record<"ok" | "warn" | "danger", string> = {
+  ok: "text-ql-success",
+  warn: "text-ql-warning",
+  danger: "text-ql-danger",
+};
+
 function ModelChoice(props: {
   compatibleText?: string;
   model: DiscoveredModelItem;
@@ -181,16 +232,17 @@ function ModelChoice(props: {
 }) {
   const version = props.model.facts?.officialVersion;
   const versionSource = props.model.facts?.fieldEvidence?.official_version?.[0];
+  const selectable = isModelSelectable(props.model);
+  const status = modelStatusLine(props.model);
   return <label className="flex items-start gap-2 rounded-md border border-ql-border-zone px-3 py-2 text-[12px]">
-    <input checked={props.selected} disabled={!props.model.compatible || props.model.availabilityStatus === "REMOVED"}
+    <input checked={props.selected} disabled={!selectable}
       onChange={(event) => props.onChange(event.target.checked)} type="checkbox" />
     <span><strong className="font-mono">{props.model.id}</strong>
+      <span className={`ml-2 ${STATUS_TONE_CLASS[status.tone]}`}>{status.text}</span>
       <span className="ml-2 text-ql-fg-tertiary">
-        {props.model.availabilityStatus === "REMOVED"
-          ? "官方本次未再列出，保留现有路由供人工复核"
-          : props.model.compatible
-            ? `${props.compatibleText ?? props.model.capabilities.join("、")}${formatFacts(props.model)}`
-            : props.model.unavailableReason}
+        {selectable
+          ? `${props.compatibleText ?? props.model.capabilities.join("、")}${formatFacts(props.model)}`
+          : null}
       </span>
       {version !== undefined ? <span className="mt-1 block text-ql-fg-tertiary"
         title={versionSource ? `官方来源：${versionSource.url}；检查：${formatDateTimeFull(versionSource.checkedAt)}` : undefined}>
@@ -567,10 +619,9 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
         const archived = new Set(archivedRoutes.map((r) => r.upstream_model));
         const joinable = discovery.models.filter(
           (model) =>
-            model.compatible &&
+            isModelSelectable(model) &&
             !existingServing.has(model.id) &&
-            !archived.has(model.id) &&
-            model.id !== "k3-256k"
+            !archived.has(model.id)
         );
         if (joinable.length === 0) {
           return (

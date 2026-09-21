@@ -4,6 +4,7 @@ import {
   EnterpriseReferenceError,
   IdempotencyConflictError,
   ModelValidationInProgressError,
+  type ModelProbeRunInput,
 } from "@qianliu/database";
 import {
   builtinProviderModelDiscovery,
@@ -14,10 +15,12 @@ import {
   officialSourceConfig,
   providerModelDiscoveryDescriptor,
   ProviderModelDiscoveryError,
+  resolveProviderEndpoint,
   validateProviderModel,
   type DiscoveredProviderModel,
   type EncryptedCredential,
   type HttpFetch,
+  type ModelDiscoveryResult,
 } from "@qianliu/provider-adapters";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
@@ -38,6 +41,73 @@ import {
 
 const SYNC_CACHE_TTL_MS = 60_000;
 const syncFlights = new Map<string, Promise<Record<string, unknown>>>();
+
+/**
+ * WP04：将本次权限探针的脱敏证据持久化到 provider_model_probe_run/item。
+ * - request_hash 覆盖 凭证 fingerprint + endpoint scope/host + 官方目录哈希 + 模型集，
+ *   Key、模式化端点或官方目录任一变化都会使旧探针结果失效；
+ * - reused（缓存/singleflight 复用）的发现结果按 discovered_at 幂等，不重复落库；
+ * - 写入失败不影响发现快照（仓储层已兜底返回 null）。
+ */
+async function persistProbeRun(
+  app: { providerRepo: { recordModelProbeRun(input: ModelProbeRunInput): Promise<string | null> } },
+  input: {
+    enterpriseId: string;
+    providerId?: string | null;
+    providerResourceId?: string | null;
+    providerCode: string;
+    mode: "API" | "CODING_PLAN";
+    capabilitySet: unknown;
+    credential: string;
+    discovery: ModelDiscoveryResult;
+  },
+): Promise<void> {
+  const probed = input.discovery.models.filter((model) => model.credentialValidation);
+  if (probed.length === 0) return;
+  const capSet = input.capabilitySet as Record<string, unknown> | null;
+  const endpoint = resolveProviderEndpoint({
+    providerCode: input.providerCode,
+    resourceMode: input.mode,
+    operation: "MODEL_PERMISSION_PROBE",
+    configuredEndpoints: { base_url: typeof capSet?.base_url === "string" ? capSet.base_url : null },
+    env: process.env,
+  });
+  const endpointScope = endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS";
+  const endpointHost = endpoint.ok ? endpoint.host : (endpoint.host ?? "unresolved");
+  const fingerprint = credentialFingerprint(input.credential);
+  const modelIds = input.discovery.models.map((model) => model.id).sort().join(",");
+  const requestHash = createHash("sha256").update([
+    input.providerCode, input.mode, fingerprint, endpointScope, endpointHost,
+    input.discovery.sourceContentHash ?? "", modelIds,
+  ].join("|")).digest("hex");
+  // 复用缓存的发现结果时 discoveredAt 相同 → 同一 idempotency_key 不重复落库。
+  const idempotencyKey = `${requestHash}:${input.discovery.discoveredAt.toISOString()}`;
+  await app.providerRepo.recordModelProbeRun({
+    enterpriseId: input.enterpriseId,
+    providerId: input.providerId ?? null,
+    providerResourceId: input.providerResourceId ?? null,
+    providerCode: input.providerCode,
+    resourceMode: input.mode,
+    credentialFingerprint: fingerprint,
+    endpointScope,
+    endpointHost,
+    discoverySource: input.discovery.source,
+    discoverySourceHash: input.discovery.sourceContentHash,
+    parserVersion: input.discovery.parserVersion,
+    idempotencyKey,
+    requestHash,
+    items: probed.map((model) => ({
+      upstreamModel: model.id,
+      validationStatus: model.credentialValidation!.status,
+      httpStatus: model.credentialValidation!.httpStatus,
+      errorCode: model.credentialValidation!.errorCode,
+      errorCategory: model.credentialValidation!.status,
+      retryable: model.credentialValidation!.retryable,
+      diagnosticHash: createHash("sha256").update(`${model.id}:${model.credentialValidation!.status}:${model.credentialValidation!.httpStatus ?? ""}`).digest("hex"),
+      checkedAt: new Date(model.credentialValidation!.checkedAt),
+    })),
+  } as never);
+}
 
 export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void {
   app.post("/provider-resources/model-discovery", { preHandler: [requireAuth] }, async (req, reply) => {
@@ -126,6 +196,17 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         discovery,
         selectedModels: selected,
       });
+      // WP04：接入后绑定 resource 的探针证据落库。
+      await persistProbeRun(app, {
+        enterpriseId: req.admin!.enterpriseId,
+        providerId: provider.id,
+        providerResourceId: result.resourceId,
+        providerCode: provider.code,
+        mode: resource.mode,
+        capabilitySet: capSet,
+        credential: credential_plaintext,
+        discovery,
+      });
       await app.auditRepo.write({
         enterprise_id: req.admin!.enterpriseId, admin_user_id: req.admin!.adminUserId,
         action: "provider_resource.model_onboard", target_type: "provider_resource",
@@ -156,6 +237,31 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         integrationStates: states,
         failureCode: latest.discovery.failure_code,
       });
+      // WP04：回填最近一次探针运行的模型级脱敏证据（如有）。
+      const probeRun = await app.providerRepo.latestModelProbeRun(req.admin!.enterpriseId, req.params.id);
+      if (probeRun) {
+        const byModel = new Map(probeRun.items.map((item) => [item.upstream_model, item]));
+        publicResult.models = publicResult.models.map((model) => {
+          const item = byModel.get(model.id);
+          if (!item) return model;
+          return {
+            ...model,
+            credential_validation: {
+              status: item.validation_status,
+              http_status: item.http_status,
+              error_code: item.error_code,
+              retryable: item.retryable,
+              checked_at: (item.checked_at ?? probeRun.run.finished_at ?? probeRun.run.started_at).toISOString(),
+            },
+            selectable: item.validation_status === "READY",
+          };
+        });
+        publicResult.summary = {
+          ...publicResult.summary,
+          credential_ready: publicResult.models.filter((model) => model.credential_validation?.status === "READY").length,
+          credential_failed: publicResult.models.filter((model) => model.credential_validation !== null && model.credential_validation.status !== "READY").length,
+        };
+      }
       return { ...publicResult, discovery: latest.discovery, items: latest.items, items_stale: latest.items_stale };
     },
   );
@@ -334,6 +440,17 @@ async function syncResourceModels(
       probePermissions: true,
     });
     const saved = await app.providerRepo.recordModelDiscovery(enterpriseId, resource.id, discovery);
+    // WP04：资源同步探针证据落库（脱敏）。
+    await persistProbeRun(app, {
+      enterpriseId,
+      providerId: resource.provider_id,
+      providerResourceId: resource.id,
+      providerCode: resource.provider_code,
+      mode: resource.mode,
+      capabilitySet: (resource as { provider_capability_set?: unknown }).provider_capability_set,
+      credential,
+      discovery,
+    });
     const states = await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, discovery.models.map((model) => model.id));
     const catalogDiff = saved.catalogDiff ?? { added: [], retained: [], notAdvertised: [] };
     await app.auditRepo.write({

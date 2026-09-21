@@ -7,7 +7,8 @@ import type {
   OperatingBillOpeningBalanceTable, OperatingBillPeriodTable,
   OperatingBillRequestProjectAssignmentTable, OperatingBillValueItemTable,
   OperatingBillVersionTable, OperationLogTable, ProviderModelDiscoveryItemTable,
-  ProviderModelDiscoveryTable, ProviderModelOnboardingTable, ProviderModelValidationTable,
+  ProviderModelDiscoveryTable, ProviderModelOnboardingTable, ProviderModelProbeItemTable,
+  ProviderModelProbeRunTable, ProviderModelValidationTable,
   ProviderResourceOperatingSnapshotTable,
 } from "./kysely-operations-tables.js";
 import type {
@@ -96,6 +97,8 @@ export interface Database {
   provider_quota_window: ProviderQuotaWindowTable; provider_model_discovery: ProviderModelDiscoveryTable;
   provider_model_discovery_item: ProviderModelDiscoveryItemTable;
   provider_model_onboarding: ProviderModelOnboardingTable; provider_model_validation: ProviderModelValidationTable;
+  provider_model_probe_run: ProviderModelProbeRunTable;
+  provider_model_probe_item: ProviderModelProbeItemTable;
   resource_status_event: ResourceStatusEventTable; unified_model: UnifiedModelTable; model_route: ModelRouteTable;
   ai_request: AiRequestTable; route_candidate: RouteCandidateTable; upstream_attempt: UpstreamAttemptTable;
   usage_event: UsageEventTable; ledger_line: LedgerLineTable; billing_rule: BillingRuleTable;

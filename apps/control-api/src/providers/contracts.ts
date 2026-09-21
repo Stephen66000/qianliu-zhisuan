@@ -192,7 +192,53 @@ export function isProviderCode(value: string): value is ProviderCode {
   return typeof value === "string" && /^[a-zA-Z0-9_-]+$/.test(value.trim());
 }
 
+/** 模型级凭证验证公开结构（脱敏：不含 Key/Authorization/正文）。 */
+export interface PublicCredentialValidation {
+  status: string;
+  http_status: number | null;
+  error_code: string | null;
+  retryable: boolean;
+  checked_at: string;
+}
+
+function toPublicModel(model: DiscoveredProviderModel) {
+  const validation = model.credentialValidation ?? null;
+  return {
+    id: model.id,
+    displayName: model.displayName,
+    modelType: model.modelType,
+    capabilities: model.capabilities,
+    source: model.source,
+    // 兼容字段（废弃）：等价于 credential_validation.status === "READY"；
+    // 仅旧客户端继续读取，新前端应使用 credential_validation/selectable。
+    compatible: model.compatible,
+    unavailableReason: model.unavailableReason,
+    facts: model.facts,
+    credential_validation: validation ? {
+      status: validation.status,
+      http_status: validation.httpStatus,
+      error_code: validation.errorCode,
+      retryable: validation.retryable,
+      checked_at: validation.checkedAt,
+    } satisfies PublicCredentialValidation : null,
+    selectable: model.compatible,
+  };
+}
+
+/** WP03：官方发现、Gateway 兼容与凭证验证三层计数，供页面顶部展示。 */
+export function discoverySummary(models: Array<{ modelType: string; compatible: boolean; credential_validation: PublicCredentialValidation | null }>) {
+  return {
+    discovered: models.length,
+    gateway_supported: models.filter((model) => model.modelType === "CHAT").length,
+    credential_ready: models.filter((model) => model.credential_validation?.status === "READY").length,
+    credential_failed: models.filter((model) => model.credential_validation !== null && model.credential_validation.status !== "READY").length,
+  };
+}
+
 export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverProviderModels>>) {
+  // WP03/WP05：官方发现的模型全部返回，不再按 compatible 过滤，
+  // 也不再无条件排除 k3-256k；失败模型保留行并带状态/原因，前端禁选。
+  const models = discovery.models.map(toPublicModel);
   return {
     source: discovery.source,
     source_version: discovery.sourceVersion,
@@ -205,7 +251,8 @@ export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverPro
     discovered_at: discovery.discoveredAt.toISOString(),
     stale: discovery.stale,
     reused: discovery.reused,
-    models: discovery.models.filter((model) => model.compatible && model.id !== "k3-256k"),
+    models,
+    summary: discoverySummary(models),
     catalog_diff: discovery.catalogDiff ? {
       added: discovery.catalogDiff.added,
       retained: discovery.catalogDiff.retained,
@@ -253,6 +300,34 @@ export function publicStoredDiscovery(input: {
   failureCode?: string | null;
 }) {
   const checkedAt = input.discovery.source_checked_at ?? input.discovery.discovered_at;
+  // WP03/WP05：存储快照同样返回全部官方发现模型，不再静默过滤 compatible=false
+  // 或硬编码排除 k3-256k；历史 items 无探针证据列，credential_validation 置 null，
+  // 前端依据 compatible/selectable 展示。
+  const models: Array<{
+    id: string;
+    displayName: string;
+    modelType: "CHAT" | "EMBEDDING" | "IMAGE" | "UNKNOWN";
+    capabilities: string[];
+    source: string;
+    compatible: boolean;
+    unavailableReason: string | null;
+    facts: Record<string, unknown>;
+    credential_validation: PublicCredentialValidation | null;
+    selectable: boolean;
+    availabilityStatus: "AVAILABLE" | "REMOVED";
+  }> = input.items.map((item) => ({
+    id: item.upstream_model,
+    displayName: item.display_name,
+    modelType: item.model_type,
+    capabilities: item.capabilities,
+    source: item.source,
+    compatible: item.compatible,
+    unavailableReason: item.unavailable_reason,
+    facts: item.facts,
+    credential_validation: null,
+    selectable: item.compatible && item.availability_status !== "REMOVED",
+    availabilityStatus: item.availability_status,
+  }));
   return {
     source: input.discovery.source,
     source_version: input.discovery.source_version,
@@ -265,17 +340,8 @@ export function publicStoredDiscovery(input: {
     discovered_at: input.discovery.discovered_at.toISOString(),
     stale: input.itemsStale || input.discovery.stale,
     reused: input.reused ?? false,
-    models: input.items.filter((item) => item.compatible && item.upstream_model !== "k3-256k").map((item) => ({
-      id: item.upstream_model,
-      displayName: item.display_name,
-      modelType: item.model_type,
-      capabilities: item.capabilities,
-      source: item.source,
-      compatible: item.compatible,
-      unavailableReason: item.unavailable_reason,
-      facts: item.facts,
-      availabilityStatus: item.availability_status,
-    })),
+    models,
+    summary: discoverySummary(models),
     catalog_diff: input.catalogDiff ? {
       added: input.catalogDiff.added,
       retained: input.catalogDiff.retained,

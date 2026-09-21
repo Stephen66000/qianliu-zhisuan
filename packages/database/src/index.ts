@@ -128,6 +128,7 @@ export {
   type UpdateProviderInput,
   type DeleteResourceSafelyResult,
 } from "./repositories/provider-repository.js";
+export { type ModelProbeRunInput } from "./repositories/provider-model-discovery-repository.js";
 export {
   DEFAULT_RESET_TIMEZONE,
   calculateQuotaPeriod,

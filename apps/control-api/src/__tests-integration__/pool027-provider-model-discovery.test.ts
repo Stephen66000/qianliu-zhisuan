@@ -18,8 +18,9 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
   await db.insertInto("enterprise").values([
-    { id: enterpriseId, name: "pool027" },
-    { id: otherEnterpriseId, name: "pool027-other" },
+    // 登录路由取 created_at 最小的企业；显式时间戳消除同语句插入的排序不确定性。
+    { id: enterpriseId, name: "pool027", created_at: new Date("2026-09-21T00:00:00.000Z") },
+    { id: otherEnterpriseId, name: "pool027-other", created_at: new Date("2026-09-21T00:00:01.000Z") },
   ]).execute();
   await db.insertInto("admin_user").values({
     enterprise_id: enterpriseId, username: "pool027", display_name: "POOL-027",
@@ -74,8 +75,22 @@ function onboard(idempotencyKey: string, name: string) {
 }
 
 function mockOfficialDocs() {
-  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = String(input);
+    // WP04：权限探针为 POST chat/completions，返回最小 2xx 完成响应；
+    // 其余（GET 官方文档）返回文档正文。
+    if ((init?.method ?? "GET") === "POST") {
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "application/json" },
+        json: async () => ({
+          id: "probe-1", object: "chat.completion",
+          choices: [{ message: { role: "assistant", content: "ok" } }],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+      } as unknown as Response;
+    }
     const body = url.includes("kimi")
       ? "Model ID | `k3` | `k3-256k` | `kimi-for-coding` | `kimi-for-coding-highspeed`"
       : "| 模型 ID | `glm-5.2` | `glm-5.3` |\n| 上下文 | 256K | 1M | 最大输出 | 128K | 128K |";
@@ -176,7 +191,11 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     expect(discovery.json().models.map((model: { id: string }) => model.id)).toEqual([
       "k3", "k3-256k", "kimi-for-coding", "kimi-for-coding-highspeed",
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // 1 次官方文档 + 4 次模型权限探针；探针与文档都不得指向 Moonshot 开放平台。
+    const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(calledUrls.filter((url) => url.includes("www.kimi.com"))).toHaveLength(1);
+    expect(calledUrls.some((url) => url.includes("api.moonshot.cn"))).toBe(false);
+    expect(calledUrls.some((url) => url.endsWith("/models"))).toBe(false);
   });
 
   it("相同幂等键不重复创建；第二资源复用统一模型只增加路由", async () => {
@@ -340,11 +359,24 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
       status: "PENDING_CONFIG",
     }).returningAll().executeTakeFirstOrThrow();
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ data: [{ id: "deepseek-v4-flash-vision-exp" }] }),
-    } as Response);
+    fetchMock.mockImplementation(async (input, init) => {
+      // 第一跳：List Models；其后：权限探针 POST（WP04 合同：2xx = READY）。
+      if ((init?.method ?? "GET") === "POST") {
+        return {
+          ok: true, status: 200,
+          headers: { get: () => "application/json" },
+          json: async () => ({
+            id: "probe-1", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true, status: 200,
+        json: async () => ({ data: [{ id: "deepseek-v4-flash-vision-exp" }] }),
+      } as unknown as Response;
+    });
     const firstSync = await app.inject({
       method: "POST",
       url: `/provider-resources/${resourceId}/models/sync`,

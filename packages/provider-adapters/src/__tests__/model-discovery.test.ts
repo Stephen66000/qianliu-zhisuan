@@ -173,6 +173,142 @@ describe("W-MD 官方来源模型发现", () => {
     expect(k3?.unavailableReason).toBeNull();
     expect(k3256k?.compatible).toBe(false);
     expect(k3256k?.unavailableReason).toContain("HTTP 403");
+    expect(k3256k?.credentialValidation).toMatchObject({ status: "PLAN_NOT_ENTITLED", httpStatus: 403, retryable: false });
+  });
+
+  it("WP04：探针请求固定最小形状（max_tokens=8），K3 系列附加 reasoning_effort=low", async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    const fetch = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
+      if (init?.method === "POST") {
+        const body = JSON.parse(init.body ?? "{}") as Record<string, unknown>;
+        bodies.push(body);
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            id: "chat-1", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        };
+      }
+      return docResponse(`
+        Model ID | \`k3\` | \`kimi-for-coding\`
+        上下文窗口 | 1M | 256k
+      `, url);
+    });
+    await discoverProviderModels({
+      providerCode: "Kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as unknown as DiscoveryFetch,
+      officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      probePermissions: true,
+    });
+    expect(bodies.length).toBe(2);
+    for (const body of bodies) {
+      expect(body.max_tokens).toBe(8);
+      expect(body.stream).toBe(false);
+      expect(body.messages).toEqual([{ role: "user", content: "hi" }]);
+    }
+    expect(bodies.find((b) => b.model === "k3")?.reasoning_effort).toBe("low");
+    expect(bodies.find((b) => b.model === "kimi-for-coding")?.reasoning_effort).toBeUndefined();
+  });
+
+  it.each([
+    { status: 400, expected: "REQUEST_REJECTED" },
+    { status: 401, expected: "AUTH_FAILED" },
+    { status: 429, expected: "RATE_LIMITED" },
+    { status: 500, expected: "UPSTREAM_UNAVAILABLE" },
+    { status: 503, expected: "UPSTREAM_UNAVAILABLE" },
+  ])("WP04：探针 HTTP $status 映射为 $expected 且不原谅为兼容", async ({ status, expected }) => {
+    const fetch = vi.fn(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "POST") {
+        return {
+          ok: false, status,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ error: { code: "upstream_error", message: "must-not-leak" } }),
+        };
+      }
+      return docResponse("Model ID | `k3`\n上下文窗口 | 1M", url);
+    });
+    const result = await discoverProviderModels({
+      providerCode: "kimi", mode: "CODING_PLAN", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
+      officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      probePermissions: true,
+    });
+    const k3 = result.models.find((m) => m.id === "k3")!;
+    expect(k3.compatible).toBe(false);
+    expect(k3.credentialValidation).toMatchObject({ status: expected });
+    expect(k3.unavailableReason).toBeTruthy();
+  });
+
+  it("WP04：探针超时/网络失败标记可重试状态，不再被原谅为兼容", async () => {
+    const fetch = vi.fn(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "POST") throw new Error("network unreachable");
+      return docResponse("Model ID | `k3` | `kimi-for-coding`\n上下文窗口 | 1M | 256k", url);
+    });
+    const result = await discoverProviderModels({
+      providerCode: "kimi", mode: "CODING_PLAN", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
+      officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      probePermissions: true,
+    });
+    for (const model of result.models) {
+      expect(model.compatible).toBe(false);
+      expect(model.credentialValidation).toMatchObject({ status: "NETWORK_FAILED", retryable: true });
+    }
+  });
+
+  it("WP05：k3-256k 探针 2xx 时与其它模型一样可选，不再被无条件排除", async () => {
+    const fetch = vi.fn(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "POST") {
+        return {
+          ok: true, status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            id: "chat-1", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        };
+      }
+      return docResponse("Model ID | `k3` | `k3-256k`\n上下文窗口 | 1M | 256k", url);
+    });
+    const result = await discoverProviderModels({
+      providerCode: "kimi", mode: "CODING_PLAN", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
+      officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      probePermissions: true,
+    });
+    expect(result.models.find((m) => m.id === "k3-256k")?.credentialValidation)
+      .toMatchObject({ status: "READY", httpStatus: 200 });
+  });
+
+  it("WP01/RC-0：探针请求发往 Kimi Coding 端点，不被 Moonshot base_url 覆盖", async () => {
+    const postedUrls: string[] = [];
+    const fetch = vi.fn(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "POST") {
+        postedUrls.push(url);
+        return {
+          ok: true, status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            id: "chat-1", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        };
+      }
+      return docResponse("Model ID | `k3`\n上下文窗口 | 1M", url);
+    });
+    await discoverProviderModels({
+      providerCode: "Kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as unknown as DiscoveryFetch,
+      baseUrl: "https://api.moonshot.cn/v1",
+      officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      probePermissions: true,
+    });
+    expect(postedUrls.length).toBeGreaterThan(0);
+    for (const url of postedUrls) {
+      expect(url.startsWith("https://api.kimi.com/coding/v1")).toBe(true);
+      expect(url.startsWith("https://api.moonshot.cn")).toBe(false);
+    }
   });
 
   it("普通正文、实验语境和冲突语境拒绝，不静默采用", async () => {
