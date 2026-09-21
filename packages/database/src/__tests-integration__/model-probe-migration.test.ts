@@ -109,7 +109,66 @@ describe("0076 provider_model_probe 迁移与探针证据", () => {
       }
 
       // 有证据后拒绝回滚（与 0073 同样的防丢证据门禁）。
+      // 0077（run 身份唯一约束）为最新迁移且可回滚，先回滚一层再触发 0076 门禁。
+      await expect(migrateDown(db)).resolves.toBe("0077_provider_model_probe_run_identity");
       await expect(migrateDown(db)).rejects.toThrow("0076 contains probe evidence");
+    } finally { await db.destroy(); await pg.stop(); }
+  }, 180_000);
+
+  it("0077 run 身份原子化：同 idempotency_key 并发写入恰一条 run，item 不重复，写入错误不再静默", async () => {
+    const pg = await startPostgresContainer("model_probe_migration_identity");
+    const db: Database = createKysely(pg.connectionString);
+    try {
+      const migrator = createMigrator(db);
+      expect((await migrator.migrateToLatest()).error).toBeUndefined();
+      const ent = (await db.insertInto("enterprise").values({ name: "probe-identity" })
+        .returning("id").executeTakeFirstOrThrow()).id;
+      const repo = new ProviderRepository(db);
+      const input = {
+        enterpriseId: ent, providerId: null, providerResourceId: null,
+        providerCode: "kimi", resourceMode: "CODING_PLAN" as const,
+        credentialFingerprint: "c".repeat(16), endpointScope: "MODE_DEFAULT" as const,
+        endpointHost: "api.kimi.com", idempotencyKey: `hash-ent:${new Date("2026-09-21T00:00:00Z").toISOString()}`,
+        requestHash: "h".repeat(64),
+        items: [
+          { upstreamModel: "k3", validationStatus: "READY" as const, httpStatus: 200, errorCode: null,
+            errorCategory: "READY", retryable: false, diagnosticHash: "d1", checkedAt: new Date() },
+          { upstreamModel: "k3-256k", validationStatus: "PLAN_NOT_ENTITLED" as const, httpStatus: 403,
+            errorCode: "MODEL_PROBE_PLAN_NOT_ENTITLED", errorCategory: "PLAN_NOT_ENTITLED",
+            retryable: false, diagnosticHash: "d2", checkedAt: new Date() },
+        ],
+      };
+      // P2：并发飞行（模拟 select-then-insert 竞态窗口）同键并发写入——
+      // 恰一条 run 胜出，落败方回查复用同一 id，item 只随胜出 run 落一次。
+      const ids = await Promise.all(Array.from({ length: 6 }, () => repo.recordModelProbeRun(input)));
+      expect(new Set(ids)).not.toContain(null);
+      expect(new Set(ids).size).toBe(1);
+      const runs = await db.selectFrom("provider_model_probe_run")
+        .selectAll().where("enterprise_id", "=", ent).execute();
+      expect(runs).toHaveLength(1);
+      expect(runs[0]!.request_hash).toBe("h".repeat(64));
+      expect(await db.selectFrom("provider_model_probe_item")
+        .where("probe_run_id", "=", ids[0]!).execute()).toHaveLength(2);
+      // run 身份可由 request_hash 审计定位（0076 已建 (enterprise_id, request_hash) 索引）。
+      const byHash = await db.selectFrom("provider_model_probe_run")
+        .where("enterprise_id", "=", ent).where("request_hash", "=", "h".repeat(64)).execute();
+      expect(byHash).toHaveLength(1);
+      // 唯一约束在位：绕过仓储直接插入同 (enterprise_id, idempotency_key) 必须被拒绝。
+      await expect(db.insertInto("provider_model_probe_run").values({
+        enterprise_id: ent, provider_code: "kimi", resource_mode: "CODING_PLAN",
+        credential_fingerprint: "c".repeat(16), endpoint_scope: "MODE_DEFAULT",
+        endpoint_host: "api.kimi.com", status: "COMPLETED",
+        idempotency_key: input.idempotencyKey, request_hash: input.requestHash,
+      }).execute()).rejects.toThrow();
+      // 写入错误不再静默：items 违反唯一约束（同 run 同模型重复）应抛出而非返回 null。
+      await expect(repo.recordModelProbeRun({
+        ...input,
+        idempotencyKey: `hash-ent2:${new Date("2026-09-21T00:00:00Z").toISOString()}`,
+        items: [
+          { ...input.items[0]! },
+          { ...input.items[0]! },
+        ],
+      })).rejects.toThrow();
     } finally { await db.destroy(); await pg.stop(); }
   }, 180_000);
 });

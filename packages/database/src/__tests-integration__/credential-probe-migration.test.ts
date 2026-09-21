@@ -36,6 +36,11 @@ it("0073 backfills only correlated historical Chat failures and preserves probe 
       credential_version: 1, credential_digest: "a".repeat(64), config_hash: "b".repeat(64), status: "FAILED",
       http_status: 401, error_code: "HTTP_401", evidence: null, usage: null, finished_at: new Date(),
       expires_at: new Date(), retry_at: new Date() }).execute();
+    // 0074-0077 为其后新增且可回滚（本用例无探针 run 行），逐层回滚后触发 0073 门禁。
+    await expect(migrateDown(db)).resolves.toBe("0077_provider_model_probe_run_identity");
+    await expect(migrateDown(db)).resolves.toBe("0076_provider_model_probe");
+    await expect(migrateDown(db)).resolves.toBe("0075_provider_resource_archive");
+    await expect(migrateDown(db)).resolves.toBe("0074_runtime_notification_recipients");
     await expect(migrateDown(db)).rejects.toThrow("0073 contains probe evidence");
   } finally { await db.destroy(); await pg.stop(); }
 }, 120_000);

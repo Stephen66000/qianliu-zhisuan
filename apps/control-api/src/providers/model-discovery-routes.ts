@@ -51,7 +51,8 @@ const syncFlights = new Map<string, Promise<Record<string, unknown>>>();
  * - 写入失败不影响发现快照（仓储层已兜底返回 null）。
  */
 async function persistProbeRun(
-  app: { providerRepo: { recordModelProbeRun(input: ModelProbeRunInput): Promise<string | null> } },
+  app: { providerRepo: { recordModelProbeRun(input: ModelProbeRunInput): Promise<string | null> };
+    log?: { warn?: (obj: unknown, msg: string) => void } },
   input: {
     enterpriseId: string;
     providerId?: string | null;
@@ -82,32 +83,42 @@ async function persistProbeRun(
     input.discovery.sourceContentHash ?? "", modelIds,
   ].join("|")).digest("hex");
   // 复用缓存的发现结果时 discoveredAt 相同 → 同一 idempotency_key 不重复落库。
+  // P2：idempotency_key 内嵌 request_hash——run 身份完全由 request_hash 派生。
   const idempotencyKey = `${requestHash}:${input.discovery.discoveredAt.toISOString()}`;
-  await app.providerRepo.recordModelProbeRun({
-    enterpriseId: input.enterpriseId,
-    providerId: input.providerId ?? null,
-    providerResourceId: input.providerResourceId ?? null,
-    providerCode: input.providerCode,
-    resourceMode: input.mode,
-    credentialFingerprint: fingerprint,
-    endpointScope,
-    endpointHost,
-    discoverySource: input.discovery.source,
-    discoverySourceHash: input.discovery.sourceContentHash,
-    parserVersion: input.discovery.parserVersion,
-    idempotencyKey,
-    requestHash,
-    items: probed.map((model) => ({
-      upstreamModel: model.id,
-      validationStatus: model.credentialValidation!.status,
-      httpStatus: model.credentialValidation!.httpStatus,
-      errorCode: model.credentialValidation!.errorCode,
-      errorCategory: model.credentialValidation!.status,
-      retryable: model.credentialValidation!.retryable,
-      diagnosticHash: createHash("sha256").update(`${model.id}:${model.credentialValidation!.status}:${model.credentialValidation!.httpStatus ?? ""}`).digest("hex"),
-      checkedAt: new Date(model.credentialValidation!.checkedAt),
-    })),
-  } as never);
+  try {
+    await app.providerRepo.recordModelProbeRun({
+      enterpriseId: input.enterpriseId,
+      providerId: input.providerId ?? null,
+      providerResourceId: input.providerResourceId ?? null,
+      providerCode: input.providerCode,
+      resourceMode: input.mode,
+      credentialFingerprint: fingerprint,
+      endpointScope,
+      endpointHost,
+      discoverySource: input.discovery.source,
+      discoverySourceHash: input.discovery.sourceContentHash,
+      parserVersion: input.discovery.parserVersion,
+      idempotencyKey,
+      requestHash,
+      items: probed.map((model) => ({
+        upstreamModel: model.id,
+        validationStatus: model.credentialValidation!.status,
+        httpStatus: model.credentialValidation!.httpStatus,
+        errorCode: model.credentialValidation!.errorCode,
+        errorCategory: model.credentialValidation!.status,
+        retryable: model.credentialValidation!.retryable,
+        diagnosticHash: createHash("sha256").update(`${model.id}:${model.credentialValidation!.status}:${model.credentialValidation!.httpStatus ?? ""}`).digest("hex"),
+        checkedAt: new Date(model.credentialValidation!.checkedAt),
+      })),
+    } as never);
+  } catch (cause) {
+    // P2：写入失败不再静默吞掉（原仓储层 catch(() => null)）。发现快照不受
+    // 影响，但错误必须可观测；仅记录错误消息与 request_hash，不含凭证/正文。
+    app.log?.warn?.({
+      err: cause instanceof Error ? cause.message : String(cause),
+      request_hash: requestHash,
+    }, "model_probe_run_persist_failed");
+  }
 }
 
 export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void {
