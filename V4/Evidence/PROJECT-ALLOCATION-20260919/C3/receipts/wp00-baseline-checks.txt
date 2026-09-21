@@ -1,0 +1,29 @@
+# WP00/WP01 基线核验回执 — C3 @ 2b33719（2026-09-21）
+
+## 基线与差异
+- 代码基线：2b33719d0a89c1d634e850abb8af3bfeb886793c（分支 project-allocation/v12-restart-20260921，worktree 创建时 status 为空）
+- 计划提交：052df0b（仅计划文档，含 P2/P3 六项关闭）
+- 与 C2 核验基线 3407093 的 src 差异（packages/database|domain、apps/control-api|worker|web 的 src）：
+  - apps/control-api/src/__tests-integration__/w20-directory.test.ts
+  - apps/control-api/src/directory/excel.ts
+  （仅目录导入相关，归集承重文件全部同字节）
+
+## 迁移头
+  - 最新正式迁移：0075_provider_resource_archive.js
+
+## 阶梯测试基线状态
+  - 已含 0073 引用的阶梯文件：2（pool048、runtime-admin-migrations）
+  - 其余阶梯文件停在 0072 → 新迁移落地时需同步扩链（WP02 任务，基线既有状态）
+
+## 承重行抽查（2b33719 实测）
+  admin-permissions: 2:  ["dashboard", "首页看板"], ["principals", "使用主体"], ["resources", "厂商资源"],
+  admin-permissions: 3:  ["quota", "额度规则"], ["usage", "用量账本"], ["billing", "经营账单"],
+  month-lines account_at: 15:             CASE WHEN finance.enabled THEN ll.settled_at ELSE ll.created_at END AS account_at
+  write-barrier lock: 26:  const lockKey = `qianliu:operating-bill:${enterpriseId}:${month}`;
+  dirty hook: 4:import { markUsageAggregateDirtyForRequest } from "./usage-aggregate-repository.js";
+  dirty hook: 81:  await markUsageAggregateDirtyForRequest(trx, enterpriseId, requestId);
+  ledger cols: 40:  id: Generated<string>; ai_request_id: string; enterprise_id: string; upstream_attempt_id: string;
+  ledger cols: 47:  upstream_attempt_id: string; provider_resource_id: string; principal_id: string; resource_mode: string;
+  ledger cols: 50:  api_cost_currency: Generated<"CNY" | "USD" | null>;
+  month range: 2:export function operatingBillMonthRange(month: string): { start: Date; end: Date; monthDate: string } {
+  month range: 11:    start: new Date(`${month}-01T00:00:00+08:00`),
