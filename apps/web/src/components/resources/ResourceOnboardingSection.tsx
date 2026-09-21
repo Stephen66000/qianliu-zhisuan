@@ -277,12 +277,14 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
               }}
               onDiscovery={(result) => {
                 setDiscovery(result);
-                const compatible = result.models.filter((model) => model.compatible);
-                if (compatible.length > 6) {
-                  const core = compatible.filter((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id));
-                  setSelectedModelIds(core.length > 0 ? core.map((m) => m.id) : compatible.slice(0, 5).map((m) => m.id));
+                // P1：自动全选仅针对探针 READY 的模型（与 selectable 口径一致）。
+                const ready = result.models.filter((model) =>
+                  model.selectable ?? model.credential_validation?.status === "READY");
+                if (ready.length > 6) {
+                  const core = ready.filter((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id));
+                  setSelectedModelIds(core.length > 0 ? core.map((m) => m.id) : ready.slice(0, 5).map((m) => m.id));
                 } else {
-                  setSelectedModelIds(compatible.map((model) => model.id));
+                  setSelectedModelIds(ready.map((model) => model.id));
                 }
                 setCreateValidationError("");
               }}

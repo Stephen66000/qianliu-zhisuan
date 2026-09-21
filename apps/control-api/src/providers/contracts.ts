@@ -203,6 +203,11 @@ export interface PublicCredentialValidation {
 
 function toPublicModel(model: DiscoveredProviderModel) {
   const validation = model.credentialValidation ?? null;
+  // P1 整改：READY 是唯一可用口径。selectable 与废弃兼容字段 compatible
+  // 都严格等价于 credentialValidation.status === "READY"；
+  // 未探针（credential_validation=null，含探针上限 5 之外的 CHAT、
+  // EMBEDDING/IMAGE）一律不可选，杜绝 compatible=true 但无证据的模型被确认。
+  const ready = validation?.status === "READY";
   return {
     id: model.id,
     displayName: model.displayName,
@@ -211,7 +216,7 @@ function toPublicModel(model: DiscoveredProviderModel) {
     source: model.source,
     // 兼容字段（废弃）：等价于 credential_validation.status === "READY"；
     // 仅旧客户端继续读取，新前端应使用 credential_validation/selectable。
-    compatible: model.compatible,
+    compatible: ready,
     unavailableReason: model.unavailableReason,
     facts: model.facts,
     credential_validation: validation ? {
@@ -221,7 +226,7 @@ function toPublicModel(model: DiscoveredProviderModel) {
       retryable: validation.retryable,
       checked_at: validation.checkedAt,
     } satisfies PublicCredentialValidation : null,
-    selectable: model.compatible,
+    selectable: ready,
   };
 }
 
@@ -301,8 +306,10 @@ export function publicStoredDiscovery(input: {
 }) {
   const checkedAt = input.discovery.source_checked_at ?? input.discovery.discovered_at;
   // WP03/WP05：存储快照同样返回全部官方发现模型，不再静默过滤 compatible=false
-  // 或硬编码排除 k3-256k；历史 items 无探针证据列，credential_validation 置 null，
-  // 前端依据 compatible/selectable 展示。
+  // 或硬编码排除 k3-256k。
+  // P1 整改：快照行本身没有探针证据列，credential_validation=null，
+  // 因此 selectable 一律 false（只允许 READY 被确认）；GET /models 会用
+  // 最近一次探针运行回填 credential_validation 并把 READY 置为可选。
   const models: Array<{
     id: string;
     displayName: string;
@@ -325,7 +332,7 @@ export function publicStoredDiscovery(input: {
     unavailableReason: item.unavailable_reason,
     facts: item.facts,
     credential_validation: null,
-    selectable: item.compatible && item.availability_status !== "REMOVED",
+    selectable: false,
     availabilityStatus: item.availability_status,
   }));
   return {
@@ -356,9 +363,15 @@ export function publicStoredDiscovery(input: {
   };
 }
 
-export function selectCompatibleModels(models: DiscoveredProviderModel[], selectedIds: string[]) {
+/**
+ * P1 整改：确认接入的唯一门槛是凭证探针 READY（取代旧 compatible 过滤）。
+ * credentialValidation 缺失（未探针）或状态非 READY 的模型一律拒绝，
+ * 且所选集合必须全部命中，否则整体返回 null（409 model_selection_stale）。
+ */
+export function selectReadyModels(models: DiscoveredProviderModel[], selectedIds: string[]) {
   const selected = new Set(selectedIds);
-  const matches = models.filter((model) => selected.has(model.id) && model.compatible);
+  const matches = models.filter((model) =>
+    selected.has(model.id) && model.credentialValidation?.status === "READY");
   return matches.length === selected.size ? matches : null;
 }
 

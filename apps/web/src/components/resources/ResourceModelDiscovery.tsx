@@ -92,8 +92,10 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
     }
     mutation.mutate(values);
   };
+  // P1：selectable 缺失时的回退同样只认 READY——compatible=true 但无
+  // 探针证据的模型不可选（探针上限外/EMBEDDING 等 credential_validation=null）。
   const isSelectable = (model: DiscoveredModelItem): boolean =>
-    model.selectable ?? (model.compatible && model.availabilityStatus !== "REMOVED");
+    model.selectable ?? model.credential_validation?.status === "READY";
   const selectableModels = props.discovery?.models.filter(isSelectable) ?? [];
   const failureCount = props.discovery?.summary?.credential_failed
     ?? props.discovery?.models.filter((m) => m.credential_validation && m.credential_validation.status !== "READY").length
@@ -194,7 +196,8 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
 }
 
 function isModelSelectable(model: DiscoveredModelItem): boolean {
-  return model.selectable ?? (model.compatible && model.availabilityStatus !== "REMOVED");
+  // P1：回退口径与列表一致——仅 READY 可选。
+  return model.selectable ?? model.credential_validation?.status === "READY";
 }
 
 /** WP06：模型行状态徽标与脱敏原因（状态/HTTP/是否可重试），失败模型展示但不允许勾选。 */

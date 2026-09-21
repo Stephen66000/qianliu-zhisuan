@@ -73,10 +73,15 @@ describe("SyncModelsPanel 模型同步过滤与状态呈现", () => {
           source_version: "kimi-code-models-v1",
           discovered_at: "2026-09-13T12:00:00Z",
           models: [
-            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
-            { id: "k3-256k", displayName: "k3-256k", modelType: "CHAT", capabilities: ["chat"], compatible: false, unavailableReason: "当前套餐未开通此模型权限" },
-            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
-            { id: "kimi-for-coding-highspeed", displayName: "kimi-for-coding-highspeed", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
+            // P1 合同：sync 响应携带 selectable/credential_validation，仅 READY 可加入。
+            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
+            { id: "k3-256k", displayName: "k3-256k", modelType: "CHAT", capabilities: ["chat"], compatible: false, unavailableReason: "当前套餐未开通此模型权限",
+              selectable: false, credential_validation: { status: "PLAN_NOT_ENTITLED", http_status: 403, error_code: "MODEL_PROBE_PLAN_NOT_ENTITLED", retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
+            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
+            { id: "kimi-for-coding-highspeed", displayName: "kimi-for-coding-highspeed", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
           ],
           catalog_diff: { added: [], retained: ["k3"], not_advertised: [] },
         };
@@ -125,8 +130,10 @@ describe("SyncModelsPanel 模型同步过滤与状态呈现", () => {
           source_version: "kimi-code-models-v1",
           discovered_at: "2026-09-13T12:00:00Z",
           models: [
-            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
-            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
+            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
+            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
           ],
           catalog_diff: { added: [], retained: ["k3"], not_advertised: ["k3-256k"] },
         };

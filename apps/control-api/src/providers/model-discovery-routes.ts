@@ -34,7 +34,7 @@ import {
   operatingSnapshotModeError,
   publicDiscovery,
   publicStoredDiscovery,
-  selectCompatibleModels,
+  selectReadyModels,
   sendDiscoveryError,
   toOperatingSnapshotInput,
 } from "./contracts.js";
@@ -163,11 +163,12 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         officialSourceOverrides: officialSourceOverridesFromEnv(),
         probePermissions: true,
       });
-      const selected = selectCompatibleModels(discovery.models, selected_model_ids);
+      // P1：只有探针 READY 的模型可 onboard；fresh discovery 带 credentialValidation。
+      const selected = selectReadyModels(discovery.models, selected_model_ids);
       if (!selected) {
         return reply.code(409).send({
           error: "model_selection_stale",
-          message: "所选模型已不可用或与 Gateway 不兼容，请重新检测",
+          message: "所选模型未通过凭证探针验证（仅 READY 可确认），请重新检测后再接入",
         });
       }
       const result = await app.providerRepo.onboardResourceModels({
@@ -296,13 +297,30 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       if (latest.items_stale) {
         return reply.code(409).send({ error: "model_discovery_stale", message: "最近一次模型同步失败或来源已过期，请同步成功后再确认接入" });
       }
-      const candidates = latest.items.map((item): DiscoveredProviderModel => ({
-        id: item.upstream_model, displayName: item.display_name, modelType: item.model_type,
-        capabilities: item.capabilities, source: item.source, compatible: item.compatible,
-        unavailableReason: item.unavailable_reason, facts: item.facts as unknown as DiscoveredProviderModel["facts"],
-      }));
-      const selected = selectCompatibleModels(candidates, parsed.data.selected_model_ids);
-      if (!selected) return reply.code(409).send({ error: "model_selection_stale", message: "所选模型不可用，请先同步" });
+      // P1：用最近一次探针运行回填模型级 credentialValidation，
+      // 确认门槛与 GET /models 展示一致（仅 READY 可确认）。
+      const probeRun = await app.providerRepo.latestModelProbeRun(req.admin!.enterpriseId, req.params.id);
+      const evidenceByModel = new Map((probeRun?.items ?? []).map((item) => [item.upstream_model, item]));
+      const candidates = latest.items.map((item): DiscoveredProviderModel => {
+        const evidence = evidenceByModel.get(item.upstream_model);
+        return {
+          id: item.upstream_model, displayName: item.display_name, modelType: item.model_type,
+          capabilities: item.capabilities, source: item.source, compatible: item.compatible,
+          unavailableReason: item.unavailable_reason, facts: item.facts as unknown as DiscoveredProviderModel["facts"],
+          ...(evidence ? {
+            credentialValidation: {
+              status: evidence.validation_status,
+              httpStatus: evidence.http_status,
+              errorCode: evidence.error_code,
+              retryable: evidence.retryable,
+              checkedAt: (evidence.checked_at ?? probeRun!.run.finished_at ?? probeRun!.run.started_at ?? new Date()).toISOString(),
+            },
+          } : {}),
+        };
+      });
+      const selected = selectReadyModels(candidates, parsed.data.selected_model_ids);
+      if (!selected) return reply.code(409).send({ error: "model_selection_stale",
+        message: "所选模型未通过凭证探针验证（仅 READY 可确认），请先同步模型" });
       const models = await app.providerRepo.attachDiscoveredModels({
         enterpriseId: req.admin!.enterpriseId, providerCode: resource.provider_code,
         resourceId: resource.id, models: selected,

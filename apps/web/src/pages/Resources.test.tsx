@@ -98,8 +98,11 @@ const discovery = {
   source_version: "kimi-list-models-v1",
   discovered_at: "2026-08-03T00:00:00.000Z",
   models: [
-    { id: "kimi-k2", displayName: "Kimi K2", modelType: "CHAT", capabilities: ["chat", "stream"], source: "PROVIDER_API", compatible: true, unavailableReason: null },
-    { id: "kimi-embedding", displayName: "Kimi Embedding", modelType: "EMBEDDING", capabilities: ["embedding"], source: "PROVIDER_API", compatible: false, unavailableReason: "Gateway 暂不承载向量模型" },
+    // P1 合同：CHAT 且探针 READY 才可选；EMBEDDING 无探针证据不可选。
+    { id: "kimi-k2", displayName: "Kimi K2", modelType: "CHAT", capabilities: ["chat", "stream"], source: "PROVIDER_API", compatible: true, unavailableReason: null,
+      selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-08-03T00:00:00.000Z" } },
+    { id: "kimi-embedding", displayName: "Kimi Embedding", modelType: "EMBEDDING", capabilities: ["embedding"], source: "PROVIDER_API", compatible: false, unavailableReason: "Gateway 暂不承载向量模型",
+      selectable: false, credential_validation: null },
   ],
 };
 
@@ -491,7 +494,7 @@ describe("POOL-027 模型发现向导", () => {
         }] } : { result: { resourceId: resource.id } });
   });
 
-  it("检测后默认只全选兼容模型，向量模型不可误选", async () => {
+  it("检测后默认只全选 READY 模型，向量模型不可误选", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: "登记资源" }));
@@ -499,7 +502,7 @@ describe("POOL-027 模型发现向导", () => {
     await user.type(screen.getByLabelText("资源名称"), "Kimi API");
     await user.type(screen.getByLabelText("上游凭证"), "secret");
     await detectModels(user);
-    expect(screen.getByRole("checkbox", { name: /kimi-k2\s*兼容\s*chat、stream/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /kimi-k2\s*凭证验证通过.*chat、stream/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /kimi-embedding/ })).toBeDisabled();
     expect(screen.getByText("Gateway 暂不承载向量模型")).toBeInTheDocument();
   });
