@@ -14,7 +14,12 @@ import {
   createProjectMembership, publishEmployeeRules,
   enableProjectAllocation, runDueAllocationRuns,
   OperatingBillRepository, OperatingBillAccountRepository,
+  loadOperatingDepartmentAccounts,
+  getStandardHomeSummary,
+  UsageOverviewRepository,
 } from "../index.js";
+import { loadMonthlyOperatingCosts } from "../repositories/monthly-operating-cost.js";
+import { operatingBillMonthRange } from "../repositories/operating-bill-month.js";
 
 let pg: PostgresTestInstance;
 let db: Kysely<Database>;
@@ -49,6 +54,18 @@ async function snapshots(): Promise<Record<string, string>> {
     S8_usage_aggregate_state: await digest(`SELECT * FROM usage_aggregate_bucket_state WHERE enterprise_id='${ent}'`),
     S8_usage_buckets: await digest(`SELECT * FROM usage_bucket_aggregate WHERE enterprise_id='${ent}'`),
     S8_usage_dirty: await digest(`SELECT * FROM usage_aggregate_dirty_bucket WHERE enterprise_id='${ent}'`),
+    // S5 部门账（直接读模型，非 getBill 代理）
+    S5_department_accounts: JSON.stringify(await loadOperatingDepartmentAccounts(db, ent, "2026-09"),
+      (key, value) => (key === "generatedAt" ? "<normalized>" : value)),
+    // S6 厂商资金账（月度费用读模型：knownLedgerCosts 不传由其内部自取）
+    S6_monthly_costs: JSON.stringify(await loadMonthlyOperatingCosts(
+      db, ent, operatingBillMonthRange("2026-09").start, operatingBillMonthRange("2026-09").end)),
+    // S7 首页（标准版聚合：Token/同期费用/资源区一并覆盖；bill 与月度总览同源快照传入）
+    S7_home_summary: JSON.stringify(await getStandardHomeSummary(db, {
+      enterpriseId: ent, asOf: new Date("2026-09-15T06:00:00.000Z"),
+      bill: await new OperatingBillRepository(db).getBill(ent, "2026-09") as never,
+      financeRead: false,
+    }), (key, value) => (key === "asOf" || key === "generatedAt" ? "<time>" : value)),
   };
 }
 
@@ -130,7 +147,7 @@ afterAll(async () => {
   if (pg) await pg.stop();
 }, 60_000);
 
-describe("B01 不变性（S1–S4、S8；P2-3 含用量总览物化状态）", () => {
+describe("B01 不变性（S1–S8 直接断言：原始表/员工账/项目账/总览/部门账/资金账/首页/用量总览）", () => {
   it("配置成员/权重并完成计算后，全部不变性面保持原值", async () => {
     await createProjectMembership(db, {
       enterpriseId: ent, projectId: projectA, employeePrincipalId: employee1,
