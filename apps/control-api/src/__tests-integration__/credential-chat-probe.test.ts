@@ -10,12 +10,19 @@ const success = { status: 200, committed: true,
   usage: { input: 2, output: 1, cache: 0, quality: "ACTUAL" as const } };
 afterEach(() => vi.unstubAllGlobals());
 
-async function seed() {
+async function seed(opts: { code?: string; capabilitySet?: Record<string, unknown> } = {}) {
+  const code = opts.code ?? "kimi";
   let provider = await db.selectFrom("provider").selectAll().where("enterprise_id", "=", ENT_ID)
-    .where("code", "=", "kimi").executeTakeFirst();
+    .where("code", "=", code).executeTakeFirst();
   provider ??= await db.insertInto("provider").values({ enterprise_id: ENT_ID,
-    name: "Kimi probe", code: "kimi", adapter_type: "OPENAI_COMPATIBLE", status: "ACTIVE" })
+    name: `Kimi probe ${code}`, code, adapter_type: "OPENAI_COMPATIBLE", status: "ACTIVE",
+    ...(opts.capabilitySet ? { capability_set: opts.capabilitySet } : {}) })
     .returningAll().executeTakeFirstOrThrow();
+  // 已存在的 provider 也要保证 capability_set 与用例一致（文件内各用例共享同一数据库）。
+  if (opts.capabilitySet) {
+    provider = await db.updateTable("provider").set({ capability_set: opts.capabilitySet })
+      .where("id", "=", provider.id).returningAll().executeTakeFirstOrThrow();
+  }
   const r = await db.insertInto("provider_resource").values({ enterprise_id: ENT_ID,
     provider_id: provider.id, name: "probe", mode: "CODING_PLAN", credential_type: "API_KEY",
     credential_version: 1, credential_ciphertext: JSON.stringify(encryptCredential(secret, app.credentialKek)),
@@ -183,5 +190,41 @@ describe("credential Chat recovery", () => {
     const quota = await app.inject({ method: "POST", url: `/provider-resources/${id}/quota-sync`, headers: { cookie: adminCookie } });
     expect(quota.statusCode).toBe(409);
     expect(quota.json().error).toBe("credential_isolated");
+  });
+
+  it.each(["Kimi", "KIMI"])("P1: production code %s with legacy Moonshot base_url recovers via the Coding endpoint", async code => {
+    const id = await seed({ code, capabilitySet: { base_url: "https://api.moonshot.cn/v1" } });
+    const fetch = vi.fn(async () => response()); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.statusCode).toBe(200);
+    expect(result.json().probe).toMatchObject({ status: "RECOVERED", upstreamModel: "k3-256k" });
+    // RC-0：历史 Moonshot 平台 base_url 是 API 模式地址，不得覆盖 Coding Plan 端点。
+    expect(fetch.mock.calls[0]![0]).toBe("https://api.kimi.com/coding/v1/chat/completions");
+    expect(result.body).not.toContain(secret);
+  });
+
+  it("P1: lowercase code with Moonshot base_url also resolves to the Coding endpoint", async () => {
+    const id = await seed({ code: "kimi", capabilitySet: { base_url: "https://api.moonshot.cn/v1" } });
+    const fetch = vi.fn(async () => response()); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.statusCode).toBe(200);
+    expect(fetch.mock.calls[0]![0]).toBe("https://api.kimi.com/coding/v1/chat/completions");
+  });
+
+  it("P1: unsupported provider codes are still rejected before any upstream call", async () => {
+    const id = await seed({ code: "qwen" });
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.statusCode).toBe(409);
+    expect(result.json().error).toBe("provider_unsupported");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("P1: unknown custom base_url host fails closed instead of silently calling the Coding endpoint", async () => {
+    const id = await seed({ code: "kimi", capabilitySet: { base_url: "https://relay.example.internal/v1" } });
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.json().probe.status).toBe("FAILED");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

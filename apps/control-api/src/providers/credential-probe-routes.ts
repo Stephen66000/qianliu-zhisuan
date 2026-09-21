@@ -2,13 +2,22 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CredentialChatProbeRepository, CredentialProbeConflict, credentialProbeView } from "@qianliu/database";
-import { createOpenAiCompatibleCaller, decryptCredential, SecretValue, providerChatConfigHash, type HttpFetch } from "@qianliu/provider-adapters";
+import { canonicalProviderCode, createOpenAiCompatibleCaller, decryptCredential, SecretValue, providerChatConfigHash, type HttpFetch } from "@qianliu/provider-adapters";
 import type { Outcome } from "@qianliu/contracts";
 import { requireAuth } from "../plugins/auth-guard.js";
 
 const schema = z.object({ idempotency_key: z.string().uuid(), confirm_quota_consumption: z.literal(true) }).strict();
+/** Chat 验证恢复支持的厂商集合（canonical code）。 */
+const CHAT_PROBE_PROVIDER_CODES = new Set(["kimi", "zhipu", "deepseek"]);
+/**
+ * P1 整改：生产历史 Provider code 可能为 `Kimi`/`KIMI`/`DeepSeek` 等大小写变体，
+ * 旧实现严格比较小写字面量，直接抛 provider_unsupported，导致凭证恢复链路
+ * 在进入 caller 之前就被拒绝。统一先经 canonicalProviderCode 规范化，
+ * 网关侧 auth_failure_config_hash（WP02 后同样以 canonical code 计算）因此可对齐。
+ */
 function providerCode(value: string): "kimi" | "zhipu" | "deepseek" {
-  if (value === "kimi" || value === "zhipu" || value === "deepseek") return value;
+  const canonical = canonicalProviderCode(value);
+  if (CHAT_PROBE_PROVIDER_CODES.has(canonical)) return canonical as "kimi" | "zhipu" | "deepseek";
   throw new CredentialProbeConflict("provider_unsupported");
 }
 function configHash(provider: string, mode: string, model: string) {
@@ -50,9 +59,17 @@ export function registerCredentialProbeRoutes(app: FastifyInstance) {
         const caller = createOpenAiCompatibleCaller({ requestTimeoutMs: 60_000,
           firstByteTimeoutMs: 30_000, firstByteTimeoutMsForResource: () => 30_000,
           fetch: globalThis.fetch as unknown as HttpFetch });
+        // P1/RC-0：把 Provider capability_set.base_url 交给统一的 Mode-aware
+        // 端点策略裁决。Kimi CODING_PLAN 的历史 Moonshot 平台地址会被忽略并
+        // 命中 Coding 端点；未知自定义域名则失败关闭（upstream_endpoint_ambiguous），
+        // 不做任何静默回退。
+        const capSet = started.provider.capability_set as Record<string, unknown> | null;
+        const configuredBaseUrl = typeof capSet?.base_url === "string" && capSet.base_url.trim()
+          ? capSet.base_url.trim() : undefined;
         outcome = await caller({ providerCode: providerCode(started.provider.code),
           resourceId: started.resource.id, mode: started.resource.mode,
-          upstreamModel: started.probe.upstream_model, concurrencyLimit: 1, secret }, {
+          upstreamModel: started.probe.upstream_model, concurrencyLimit: 1,
+          ...(configuredBaseUrl ? { baseUrl: configuredBaseUrl } : {}), secret }, {
           requestId: `credential-probe-${started.probe.id}`, capability: "chat",
           unifiedModel: started.probe.upstream_model, stream: false, abort: abort.signal,
           maxOutputTokens: 32,
