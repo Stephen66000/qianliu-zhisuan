@@ -46,6 +46,7 @@ import {
 } from "@qianliu/provider-adapters";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerPrincipalRoutes } from "./principals/routes.js";
+import { registerProjectAllocationRoutes } from "./principals/project-allocation-routes.js";
 import { registerPrincipalAccessConfigRoutes } from "./principals/access-configuration.js";
 import { registerAuditQuery as registerAuditRoutes } from "./plugins/audit-query.js";
 import { registerKeyRoutes } from "./keys/routes.js";
@@ -61,6 +62,7 @@ import { registerRuntimeAssuranceRoutes } from "./runtime-assurance/routes.js";
 import { registerAdminRoutes } from "./admins/routes.js";
 import { registerOperatingBillRoutes } from "./operating-bills/routes.js";
 import { registerOperatingBillAccountRoutes } from "./operating-bills/account-routes.js";
+import { registerOperatingBillAllocationRoutes } from "./operating-bills/project-allocation-routes.js";
 import { registerDeploymentLogRoutes } from "./deployment-logs/routes.js";
 import { registerEmployeeModelRuleRoutes } from "./employee-model-rules/routes.js";
 import { registerResourceInsightRoutes } from "./resource-insights/routes.js";
@@ -282,6 +284,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerPrincipalRoutes(child, {
       departmentCost: featureFlags.FEATURE_DEPARTMENT_COST,
     });
+    registerProjectAllocationRoutes(child);
     registerAuditRoutes(child);
     registerKeyRoutes(child);
     registerGrantRoutes(child);
@@ -302,6 +305,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerRuntimeAssuranceRoutes(child);
     registerOperatingBillRoutes(child);
     registerOperatingBillAccountRoutes(child);
+    registerOperatingBillAllocationRoutes(child);
     registerDeploymentLogRoutes(child);
     registerEmployeeModelRuleRoutes(child);
     registerPrincipalAccessConfigRoutes(child);

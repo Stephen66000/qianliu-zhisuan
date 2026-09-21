@@ -418,14 +418,16 @@ export {
   type ReviseAccountingLifecycleInput, type AccountingLifecycleResult,
 } from "./repositories/project-accounting-lifecycle-repository.js";
 export {
-  publishEmployeeRules, getEmployeePolicyOverview, previewPolicyChange,
+  publishEmployeeRules, publishProjectIntent, getEmployeePolicyOverview, previewPolicyChange,
   AllocationPolicyVersionConflictError, AllocationRuleConflictError,
   type PublishRulesInput, type PublishRulesOutcome, type DesiredRuleInput,
   type EmployeePolicyOverview, type PolicyPreviewResult, type PolicyPreviewSegment,
+  type ProjectIntentSegment,
 } from "./repositories/employee-allocation-policy-repository.js";
 export {
   enumerateShanghaiMonths, markAllocationDirty, resolveAllocationPrincipal,
   lockEmployeeAllocationScope, lockProjectAccountingScope, allocationInputHash,
+  PrincipalNotAccessibleError,
   type AllocationDb, type AllocationPrincipalType, type ActiveMembershipRevision,
 } from "./repositories/project-allocation-common.js";
 export {
@@ -434,3 +436,7 @@ export {
   ALLOCATION_SCHEMA_VERSION, ALLOCATION_ALGORITHM_VERSION,
   type EnableAllocationInput, type EnqueueRunResult, type ExecuteRunResult,
 } from "./repositories/project-allocation-run-repository.js";
+export {
+  getAllocationRunStatus, listProjectAllocationSummaries, getUnallocatedSummary, listAllocationLines,
+  type AllocationRunStatus, type ProjectAllocationSummary, type UnallocatedSummary, type AllocationLineRow,
+} from "./repositories/project-allocation-read-repository.js";

@@ -18,6 +18,8 @@ import { OperatingBillPage } from "./pages/OperatingBill";
 import { OperatingBillEmployeeDetailPage } from "./pages/OperatingBillEmployeeDetail";
 import { OperatingBillEmployeesPage } from "./pages/OperatingBillEmployees";
 import { OperatingBillProjectsPage } from "./pages/OperatingBillProjects";
+import { OperatingBillProjectAllocationPage } from "./pages/OperatingBillProjectAllocation";
+import { ProjectMembersPage } from "./pages/ProjectMembers";
 import { OperatingBillDepartmentsPage } from "./pages/OperatingBillDepartments";
 import { useFeatureFlags } from "./feature-flags";
 
@@ -51,6 +53,8 @@ export function App() {
             path="/operating-bill/employees/:principalId"
           />
           <Route element={<OperatingBillProjectsPage />} path="/operating-bill/projects" />
+        <Route element={<OperatingBillProjectAllocationPage />} path="/operating-bill/projects/:principalId/allocation" />
+        <Route element={<ProjectMembersPage />} path="/principals/:projectId/project-members" />
           <Route element={<DepartmentCostRoute />} path="/operating-bill/departments" />
           <Route element={<RuntimeAssurancePage />} path="/runtime-assurance" />
           <Route

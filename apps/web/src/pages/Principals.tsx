@@ -5,7 +5,7 @@
  * 停用 = PATCH status=DISABLED（后端级联撤销全部 Key，TRD §5.3），破坏性 → 二次确认。
  */
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react";
 
@@ -250,6 +250,14 @@ export function PrincipalsPage() {
                                 ? "所属部门"
                                 : "项目负责人"}
                             </button>
+                          ) : null}
+                          {p.type === "PROJECT" ? (
+                            <Link
+                              className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                              to={`/principals/${p.id}/project-members`}
+                            >
+                              成员与归集
+                            </Link>
                           ) : null}
                           <button
                         className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"

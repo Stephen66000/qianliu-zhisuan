@@ -4,7 +4,7 @@
  * 替换当前项目段、全时间线校验后原子发布；dirty 标记与发布同一事务。
  * 版本只追加，is_current 单向关闭；幂等键重放返回原版本。
  */
-import { type Kysely, type Selectable, type Transaction } from "kysely";
+import { sql, type Kysely, type Selectable, type Transaction } from "kysely";
 import type {
   Database, EmployeeProjectAllocationPolicyTable, EmployeeProjectAllocationRuleTable,
 } from "../kysely.js";
@@ -220,6 +220,97 @@ export async function publishEmployeeRules(
   });
 }
 
+/** 项目页权重意图段（合同 11 §3.2：客户端只提交当前项目修改意图）。 */
+export interface ProjectIntentSegment {
+  weightBps: number;
+  validFrom: Date;
+  validUntil: Date | null;
+}
+
+/**
+ * 发布项目页意图：员工级锁内读取完整规则 → 原样保留其他项目 →
+ * 替换当前项目段（按段起点解析 ACTIVE 参与）→ 全时间线校验 → 原子发布；
+ * dirty 与发布同一事务。不自动覆盖（版本过期抛冲突）。
+ */
+export async function publishProjectIntent(
+  db: Kysely<Database>,
+  params: {
+    enterpriseId: string;
+    projectId: string;
+    employeePrincipalId: string;
+    segments: ProjectIntentSegment[];
+    expectedPolicyVersion: number | null;
+    reason: string;
+    idempotencyKey: string | null;
+    actorAdminId: string;
+  },
+): Promise<PublishRulesOutcome> {
+  await resolveAllocationPrincipal(db, params.enterpriseId, params.projectId, "PROJECT");
+  await resolveAllocationPrincipal(db, params.enterpriseId, params.employeePrincipalId, "EMPLOYEE");
+  return db.transaction().execute(async (tx) => {
+    const kept: DesiredRuleInput[] = [];
+    const { rows } = await sql<{ policy_id: string }>`
+      SELECT id AS policy_id FROM employee_project_allocation_policy
+      WHERE enterprise_id = ${params.enterpriseId}
+        AND employee_principal_id = ${params.employeePrincipalId}
+        AND is_current`.execute(tx);
+    const currentPolicyId = rows[0]?.policy_id;
+    if (currentPolicyId !== undefined) {
+      const { rows: keptRows } = await sql<{
+        project_principal_id: string; membership_id: string; weight_bps: number;
+        valid_from: Date; valid_until: Date | null;
+      }>`
+        SELECT project_principal_id, membership_id, weight_bps, valid_from, valid_until
+        FROM employee_project_allocation_rule
+        WHERE policy_id = ${currentPolicyId}
+          AND project_principal_id <> ${params.projectId}`.execute(tx);
+      for (const row of keptRows) {
+        kept.push({
+          projectPrincipalId: row.project_principal_id,
+          membershipId: row.membership_id,
+          weightBps: row.weight_bps,
+          validFrom: row.valid_from,
+          validUntil: row.valid_until,
+        });
+      }
+    }
+    const revisions = await listActiveMembershipRevisions(tx, params.enterpriseId, params.employeePrincipalId)
+      .then((rows) => rows.filter((revision) => revision.project_principal_id === params.projectId));
+    const rules: DesiredRuleInput[] = [...kept];
+    for (const segment of params.segments) {
+      const revision = revisions.find((candidate) =>
+        candidate.joined_at.getTime() <= segment.validFrom.getTime()
+        && (candidate.left_at === null || segment.validFrom.getTime() < candidate.left_at.getTime()));
+      if (!revision) throw new AllocationRuleConflictError([{
+        kind: "UNKNOWN_MEMBERSHIP",
+        projectPrincipalId: params.projectId,
+        interval: { from: segment.validFrom, until: segment.validUntil },
+        message: "该时段没有生效的参与关系，请先加入成员或调整时间段",
+      }]);
+      rules.push({
+        projectPrincipalId: params.projectId,
+        membershipId: revision.membership_id,
+        weightBps: segment.weightBps,
+        validFrom: segment.validFrom,
+        validUntil: segment.validUntil,
+      });
+    }
+    const outcome = await publishEmployeeRulesInTx(tx, {
+      enterpriseId: params.enterpriseId,
+      employeePrincipalId: params.employeePrincipalId,
+      actorAdminId: params.actorAdminId,
+      reason: params.reason,
+      idempotencyKey: params.idempotencyKey,
+      expectedPolicyVersion: params.expectedPolicyVersion,
+      rules,
+    });
+    if (outcome.outcome === "PUBLISHED") {
+      await markAllocationDirty(tx, params.enterpriseId, outcome.affectedMonths);
+    }
+    return outcome;
+  });
+}
+
 export interface EmployeePolicyOverview {
   employeePrincipalId: string;
   currentVersion: number;
@@ -241,6 +332,9 @@ export async function getEmployeePolicyOverview(
   enterpriseId: string,
   employeePrincipalId: string,
 ): Promise<EmployeePolicyOverview> {
+  if ("transaction" in db && typeof (db as Kysely<Database>).transaction === "function") {
+    await resolveAllocationPrincipal(db as Kysely<Database>, enterpriseId, employeePrincipalId, "EMPLOYEE");
+  }
   const current = await currentPolicy(db, enterpriseId, employeePrincipalId);
   if (!current) return { employeePrincipalId, currentVersion: 0, rules: [] };
   const rules = await rulesOfPolicies(db, [current.id]);

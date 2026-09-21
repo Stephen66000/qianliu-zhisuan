@@ -7,6 +7,9 @@ import {
   OperatingBillAccountReferenceError,
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
+import {
+  getAllocationRunStatus, listProjectAllocationSummaries, getUnallocatedSummary,
+} from "@qianliu/database";
 
 const MonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 const IdSchema = z.string().uuid();
@@ -70,13 +73,54 @@ export function registerOperatingBillAccountRoutes(app: FastifyInstance): void {
       const query = AccountQuerySchema.safeParse(req.query);
       if (!month.success || !query.success) return invalid(reply);
       try {
-        return await app.operatingBillAccountRepo.listAccounts(
+        const view = await app.operatingBillAccountRepo.listAccounts(
           req.admin!.enterpriseId, month.data, "PROJECT",
           {
             providerCode: query.data.provider_code, search: query.data.search,
             limit: query.data.limit, offset: query.data.offset,
           },
         );
+        // 原位增强（合同 11 §3.3）：旧字段不变，追加归集汇总/状态/未分配；
+        // 未启用或无批次时不返回假 0，只标记状态。
+        const [allocation, unallocated, status] = await Promise.all([
+          listProjectAllocationSummaries(app.db, req.admin!.enterpriseId, month.data),
+          getUnallocatedSummary(app.db, req.admin!.enterpriseId, month.data),
+          getAllocationRunStatus(app.db, req.admin!.enterpriseId, month.data),
+        ]);
+        return {
+          ...view,
+          rows: view.rows.map((row) => {
+            const summary = row.subjectId === null ? undefined : allocation.summaries.get(row.subjectId);
+            return {
+              ...row,
+              allocation: summary === undefined ? null : {
+                runId: summary.runId,
+                totalTokens: summary.totalTokens,
+                directTokens: summary.directTokens,
+                manualTokens: summary.manualTokens,
+                ruleTokens: summary.ruleTokens,
+                apiCostByCurrency: summary.apiCostByCurrency,
+                packageCostCny: summary.packageCostCny,
+                involvedRequestCount: summary.involvedRequestCount,
+              },
+            };
+          }),
+          allocationStatus: {
+            enabled: status.enabled,
+            runId: allocation.runId,
+            status: status.currentRun?.status ?? null,
+            stale: status.currentRun?.stale ?? false,
+            computedAt: status.currentRun?.computedAt ?? null,
+            lastError: status.lastError,
+          },
+          unallocated: allocation.runId === null ? null : {
+            tokens: unallocated.tokens,
+            byReason: unallocated.byReason,
+            apiCostByCurrency: unallocated.apiCostByCurrency,
+            packageCostCny: unallocated.packageCostCny,
+            lineCount: unallocated.lineCount,
+          },
+        };
       } catch (error) {
         return handleError(error, reply);
       }

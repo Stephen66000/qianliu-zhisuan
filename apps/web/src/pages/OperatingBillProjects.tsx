@@ -1,5 +1,5 @@
 import { BriefcaseBusiness } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { useOperatingBillProjects } from "../api/operating-bill-accounts";
 import { useProviders } from "../api/hooks";
@@ -107,7 +107,7 @@ export function OperatingBillProjectsPage() {
                     />
                   ) : (
                     <AccountTable
-                      headers={["项目", "负责人", "归属部门", ...getSubjectUsageHeaders(dynamicProviders)]}
+                      headers={["项目", "负责人", "归属部门", ...getSubjectUsageHeaders(dynamicProviders), "归集"]}
                       leadingTextColumns={3}
                     >
                       {query.data.rows.map((row) => {
@@ -129,6 +129,23 @@ export function OperatingBillProjectsPage() {
                                 || (row.subjectId ? "待归属" : "—")}
                             </AccountCell>
                             <SubjectUsageCells providers={dynamicProviders} row={row} />
+                            <AccountCell>
+                              {(query.data as { allocationStatus?: { status: string | null; stale?: boolean } }).allocationStatus === undefined ? null : (
+                                <span className="flex flex-col text-[11px] text-ql-fg-muted">
+                                  <span>
+                                    {(row as { allocation?: { totalTokens: string } | null }).allocation
+                                      ? `归集 ${Number((row as { allocation?: { totalTokens: string } | null }).allocation!.totalTokens).toLocaleString("zh-CN")} Token`
+                                      : "无归集批次"}
+                                  </span>
+                                  <Link
+                                    className="text-[11px] text-ql-accent hover:underline"
+                                    to={`/operating-bill/projects/${row.subjectId}/allocation?month=${month}`}
+                                  >
+                                    查看归集明细
+                                  </Link>
+                                </span>
+                              )}
+                            </AccountCell>
                           </tr>
                         );
                       })}

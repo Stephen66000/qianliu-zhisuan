@@ -1,0 +1,60 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-project-allocation-v12-20260921/apps/control-api
+
+{"level":30,"time":1789967965206,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/principals/14335da1-7f3e-4666-87de-9ab2d6a21429/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965234,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":201},"responseTime":27.712540999999874,"msg":"request completed"}
+{"level":30,"time":1789967965235,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"POST","url":"/principals/14335da1-7f3e-4666-87de-9ab2d6a21429/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965241,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":6.089958000000479,"msg":"request completed"}
+{"level":30,"time":1789967965242,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"POST","url":"/principals/4b341a04-4d44-4652-bb7b-f84725cdaa52/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965252,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":201},"responseTime":9.52808400000049,"msg":"request completed"}
+{"level":30,"time":1789967965252,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"GET","url":"/principals/4b341a04-4d44-4652-bb7b-f84725cdaa52/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965260,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":200},"responseTime":7.6742080000003625,"msg":"request completed"}
+{"level":30,"time":1789967965261,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"GET","url":"/principals/14335da1-7f3e-4666-87de-9ab2d6a21429/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965266,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":200},"responseTime":5.130749999999352,"msg":"request completed"}
+{"level":30,"time":1789967965266,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"POST","url":"/principals/14335da1-7f3e-4666-87de-9ab2d6a21429/project-memberships/512fff14-a746-4b4c-a716-ca3ce29660ac/revisions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965273,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":409},"responseTime":6.733624999999847,"msg":"request completed"}
+{"level":30,"time":1789967965274,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"GET","url":"/principals/df2cd8a5-8b09-4e9e-b5b8-9c6ca5bd0080/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965277,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":404},"responseTime":3.287250000000313,"msg":"request completed"}
+{"level":30,"time":1789967965277,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"GET","url":"/principals/ae2cd644-fd8f-4708-a8d9-424c4a053970/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965280,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":404},"responseTime":2.8273339999996097,"msg":"request completed"}
+{"level":30,"time":1789967965281,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"POST","url":"/principals/14335da1-7f3e-4666-87de-9ab2d6a21429/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965284,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":403},"responseTime":2.66216600000007,"msg":"request completed"}
+{"level":30,"time":1789967965284,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"POST","url":"/principals/14335da1-7f3e-4666-87de-9ab2d6a21429/accounting-lifecycle-revisions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965293,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":409},"responseTime":8.807042000000365,"msg":"request completed"}
+{"level":30,"time":1789967965293,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-b","req":{"method":"POST","url":"/principals/14335da1-7f3e-4666-87de-9ab2d6a21429/accounting-lifecycle-revisions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965301,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-b","res":{"statusCode":201},"responseTime":7.738334000000577,"msg":"request completed"}
+{"level":30,"time":1789967965302,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-c","req":{"method":"GET","url":"/principals/ae2cd644-fd8f-4708-a8d9-424c4a053970/project-allocation-policy","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965304,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-c","res":{"statusCode":403},"responseTime":2.580707999999504,"msg":"request completed"}
+{"level":30,"time":1789967965304,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-d","req":{"method":"GET","url":"/principals/9bfd439b-7590-4517-9228-d0147ca06be9/project-allocation-policy","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965308,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-d","res":{"statusCode":404},"responseTime":3.5026249999991705,"msg":"request completed"}
+{"level":30,"time":1789967965308,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-e","req":{"method":"GET","url":"/principals/ae2cd644-fd8f-4708-a8d9-424c4a053970/project-allocation-policy","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965312,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-e","res":{"statusCode":200},"responseTime":4.0613750000002256,"msg":"request completed"}
+{"level":30,"time":1789967965313,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-f","req":{"method":"POST","url":"/principals/4b341a04-4d44-4652-bb7b-f84725cdaa52/project-allocation-intents/preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965325,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-f","res":{"statusCode":200},"responseTime":11.90454200000022,"msg":"request completed"}
+{"level":30,"time":1789967965326,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-g","req":{"method":"POST","url":"/principals/4b341a04-4d44-4652-bb7b-f84725cdaa52/project-allocation-intents/versions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965347,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-g","res":{"statusCode":201},"responseTime":21.163500000000568,"msg":"request completed"}
+{"level":30,"time":1789967965348,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-h","req":{"method":"POST","url":"/principals/4b341a04-4d44-4652-bb7b-f84725cdaa52/project-allocation-intents/versions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965356,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-h","res":{"statusCode":409},"responseTime":7.992707999999766,"msg":"request completed"}
+{"level":30,"time":1789967965356,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-i","req":{"method":"POST","url":"/principals/4b341a04-4d44-4652-bb7b-f84725cdaa52/project-allocation-intents/versions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965366,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-i","res":{"statusCode":400},"responseTime":10.110125000000153,"msg":"request completed"}
+{"level":30,"time":1789967965367,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-j","req":{"method":"GET","url":"/operating-bills/2026-09/project-allocation-status","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965372,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-j","res":{"statusCode":200},"responseTime":5.79016700000011,"msg":"request completed"}
+{"level":30,"time":1789967965373,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-k","req":{"method":"POST","url":"/operating-bills/2026-09/project-allocation-enablement","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965381,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-k","res":{"statusCode":201},"responseTime":7.877542000000176,"msg":"request completed"}
+{"level":30,"time":1789967965381,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-l","req":{"method":"GET","url":"/operating-bills/2026-09/project-allocation-status","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965388,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-l","res":{"statusCode":200},"responseTime":6.893874999999753,"msg":"request completed"}
+{"level":30,"time":1789967965389,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-m","req":{"method":"GET","url":"/operating-bills/2026-09/projects","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965434,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-m","res":{"statusCode":200},"responseTime":45.15887500000008,"msg":"request completed"}
+{"level":30,"time":1789967965435,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-n","req":{"method":"GET","url":"/operating-bills/2026-09/projects/14335da1-7f3e-4666-87de-9ab2d6a21429/allocation-lines","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965441,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-n","res":{"statusCode":200},"responseTime":5.743250000000444,"msg":"request completed"}
+{"level":30,"time":1789967965441,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-o","req":{"method":"GET","url":"/operating-bills/2026-09/project-unallocated","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965445,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-o","res":{"statusCode":200},"responseTime":4.20733300000029,"msg":"request completed"}
+{"level":30,"time":1789967965446,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-p","req":{"method":"GET","url":"/principals/14335da1-7f3e-4666-87de-9ab2d6a21429/project-memberships","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1789967965456,"pid":55458,"hostname":"Stephen-macbook.local","reqId":"req-p","res":{"statusCode":200},"responseTime":10.13287500000024,"msg":"request completed"}
+ ✓ src/__tests-integration__/project-allocation-routes.test.ts (11 tests) 3983ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  13:19:19
+   Duration  5.95s (transform 1.08s, setup 0ms, collect 1.66s, tests 3.98s, environment 0ms, prepare 76ms)
+

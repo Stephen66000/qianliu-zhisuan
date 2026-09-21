@@ -35,7 +35,10 @@ export class AccountingEffectiveBeforeStartError extends Error {
 export interface ReviseAccountingLifecycleInput {
   enterpriseId: string;
   projectId: string;
+  /** 生效时点（日期输入已按 +08:00 该日零点解析）。 */
   effectiveAt: Date;
+  /** 输入是纯日期：ENDED 模式按"至该日结束"转次日零点（P3-1）。 */
+  effectiveAtIsDateOnly?: boolean;
   reason: string;
   expectedVersion: number;
   actorAdminId: string;
@@ -85,6 +88,10 @@ export async function reviseProjectAccountingLifecycle(
       mode = "ENDED";
       startedAt = current.accounting_started_at;
       endedAt = input.effectiveAt;
+      if (input.effectiveAtIsDateOnly === true) {
+        const nextDay = new Date(endedAt.getTime() + 24 * 3600_000);
+        endedAt = nextDay;
+      }
     } else {
       throw new AccountingAlreadyEndedError();
     }
