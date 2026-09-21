@@ -4,9 +4,47 @@ import {
   KIMI_CODING_PLAN_DEFAULT_URL,
   KIMI_CODING_PLAN_QUOTA_URL,
   ZHIPU_CODING_PLAN_QUOTA_URL,
+  capabilityConfiguredEndpoints,
   resolveProviderEndpoint,
 } from "../endpoint-policy.js";
 import { canonicalProviderCode } from "../provider-code.js";
+
+describe("P2 capabilityConfiguredEndpoints 抽取", () => {
+  it("生产形态：base_url(Moonshot) + endpoints[CODING_PLAN] 全量进入策略，scoped 优先", () => {
+    const capSet = {
+      base_url: "https://api.moonshot.cn/v1",
+      endpoints: { CODING_PLAN: "https://coding-gateway.corp.example/v1" },
+    };
+    const configured = capabilityConfiguredEndpoints(capSet);
+    expect(configured).toEqual({
+      base_url: "https://api.moonshot.cn/v1",
+      endpoints: { CODING_PLAN: "https://coding-gateway.corp.example/v1" },
+    });
+    const coding = resolveProviderEndpoint({
+      providerCode: "Kimi", resourceMode: "CODING_PLAN", operation: "CHAT_COMPLETIONS",
+      configuredEndpoints: configured, env: {},
+    });
+    expect(coding).toMatchObject({
+      ok: true, url: "https://coding-gateway.corp.example/v1", scope: "MODE_SCOPED_CONFIG",
+    });
+    // API 模式不受 CODING_PLAN scoped 影响：历史 Moonshot base_url 继续生效。
+    const api = resolveProviderEndpoint({
+      providerCode: "Kimi", resourceMode: "API", operation: "CHAT_COMPLETIONS",
+      configuredEndpoints: configured, env: {},
+    });
+    expect(api).toMatchObject({ ok: true, url: "https://api.moonshot.cn/v1", scope: "LEGACY_BASE_URL" });
+  });
+
+  it("空白/非字符串值被忽略；历史仅 base_url 结构不受影响；null/undefined 安全", () => {
+    expect(capabilityConfiguredEndpoints({
+      base_url: "  ", endpoints: { API: "  ", CODING_PLAN: 42 },
+    })).toEqual({ base_url: null, endpoints: null });
+    expect(capabilityConfiguredEndpoints({ base_url: "https://api.moonshot.cn/v1" }))
+      .toEqual({ base_url: "https://api.moonshot.cn/v1", endpoints: null });
+    expect(capabilityConfiguredEndpoints(null)).toEqual({ base_url: null, endpoints: null });
+    expect(capabilityConfiguredEndpoints(undefined)).toEqual({ base_url: null, endpoints: null });
+  });
+});
 
 /** 计划 13.1：模式化端点与厂商代码矩阵。 */
 describe("WP01 Mode-aware Endpoint Policy", () => {

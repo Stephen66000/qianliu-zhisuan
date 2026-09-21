@@ -1866,6 +1866,35 @@ describe("OpenAI-compatible HTTP caller", () => {
     );
     expect(calls).toBe(1);
   });
+
+  it("P2：capability_set.endpoints[mode] 模式专属地址优先于历史 Moonshot base_url", async () => {
+    let calledUrl = "";
+    const fetch: HttpFetch = async (url) => {
+      calledUrl = url;
+      return jsonResponse({
+        choices: [{ message: { content: "ok" } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+      });
+    };
+    const caller = createOpenAiCompatibleCaller({ fetch, env: {} });
+
+    // 生产 Provider 形态：base_url=历史 Moonshot 平台地址 + endpoints.CODING_PLAN 显式 Coding 地址。
+    const outcome = await caller(
+      resource({
+        providerCode: "Kimi",
+        mode: "CODING_PLAN",
+        upstreamModel: "k3",
+        baseUrl: "https://api.moonshot.cn/v1",
+        endpoints: { CODING_PLAN: "https://coding-gateway.corp.example/v1" },
+        secret: new SecretValue("kimi-real"),
+      }),
+      responsesRequest(),
+      1,
+    );
+
+    expect(outcome.error).toBeUndefined();
+    expect(calledUrl).toBe("https://coding-gateway.corp.example/v1/chat/completions");
+  });
 });
 
 describe("资源凭证解析", () => {

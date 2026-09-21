@@ -8,6 +8,7 @@ import {
 } from "@qianliu/database";
 import {
   builtinProviderModelDiscovery,
+  capabilityConfiguredEndpoints,
   credentialFingerprint,
   decryptCredential,
   discoverProviderModels,
@@ -64,12 +65,12 @@ async function persistProbeRun(
 ): Promise<void> {
   const probed = input.discovery.models.filter((model) => model.credentialValidation);
   if (probed.length === 0) return;
-  const capSet = input.capabilitySet as Record<string, unknown> | null;
+  // P2：统一抽取 base_url + endpoints[mode]，与发现/验证/恢复/Gateway 同口径。
   const endpoint = resolveProviderEndpoint({
     providerCode: input.providerCode,
     resourceMode: input.mode,
     operation: "MODEL_PERMISSION_PROBE",
-    configuredEndpoints: { base_url: typeof capSet?.base_url === "string" ? capSet.base_url : null },
+    configuredEndpoints: capabilityConfiguredEndpoints(input.capabilitySet),
     env: process.env,
   });
   const endpointScope = endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS";
@@ -118,8 +119,8 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     if (!provider || !isProviderCode(provider.code)) {
       return reply.code(404).send({ error: "provider_not_found", message: "厂商不存在或不受支持" });
     }
-    const capSet = provider.capability_set as Record<string, unknown> | null;
-    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+    const configured = capabilityConfiguredEndpoints(provider.capability_set);
+    const baseUrl = configured.base_url ?? undefined;
     // P2：cacheKey/singleflight 口径 = enterprise + provider + mode +
     // credential fingerprint + endpoint scope/host。同企业、同厂商、同模式、
     // 同凭证、同端点的并发/60s 内重复检测共享同一次发现与探针飞行，
@@ -129,7 +130,7 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       providerCode: provider.code,
       resourceMode: parsed.data.mode,
       operation: "MODEL_PERMISSION_PROBE",
-      configuredEndpoints: { base_url: baseUrl ?? null },
+      configuredEndpoints: configured,
       env: process.env,
     });
     const endpointScope = endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS";
@@ -144,6 +145,7 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         mode: parsed.data.mode,
         credential: parsed.data.credential_plaintext,
         baseUrl,
+        endpoints: configured.endpoints ?? undefined,
         cacheKey,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
         probePermissions: true,
@@ -158,7 +160,7 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         providerResourceId: null,
         providerCode: provider.code,
         mode: parsed.data.mode,
-        capabilitySet: capSet,
+        capabilitySet: provider.capability_set,
         credential: parsed.data.credential_plaintext,
         discovery,
       });
@@ -176,8 +178,8 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     if (!provider || !isProviderCode(provider.code)) {
       return reply.code(404).send({ error: "provider_not_found", message: "厂商不存在或不受支持" });
     }
-    const capSet = provider.capability_set as Record<string, unknown> | null;
-    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+    const configured = capabilityConfiguredEndpoints(provider.capability_set);
+    const baseUrl = configured.base_url ?? undefined;
     const { credential_plaintext, operating_snapshot, selected_model_ids, idempotency_key, ...resource } = parsed.data;
     if (operating_snapshot) {
       const financeError = app.providerFinanceMode === "OFF" ? null
@@ -194,6 +196,7 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         mode: resource.mode,
         credential: credential_plaintext,
         baseUrl,
+        endpoints: configured.endpoints ?? undefined,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
         probePermissions: true,
       });
@@ -238,7 +241,7 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         providerResourceId: result.resourceId,
         providerCode: provider.code,
         mode: resource.mode,
-        capabilitySet: capSet,
+        capabilitySet: provider.capability_set,
         credential: credential_plaintext,
         discovery,
       });
@@ -400,8 +403,10 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       const requestId = `mdv-${randomUUID()}`;
       let evidence;
       try {
-        const capSet = (target as { provider_capability_set?: unknown }).provider_capability_set as Record<string, unknown> | null;
-        const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+        // P2：统一抽取 base_url + endpoints[mode]，模式专属地址经同一策略生效。
+        const configured = capabilityConfiguredEndpoints(
+          (target as { provider_capability_set?: unknown }).provider_capability_set,
+        );
         const credential = decryptResourceCredential(target.credential_ciphertext, app.credentialKek);
         evidence = await validateProviderModel({
           providerCode: target.provider_code,
@@ -409,7 +414,8 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
           resourceId: req.params.resourceId,
           upstreamModel: req.params.upstreamModel,
           credential,
-          baseUrl,
+          baseUrl: configured.base_url ?? undefined,
+          endpoints: configured.endpoints ?? undefined,
           reasoningEffort: target.provider_code === "zhipu" && req.params.upstreamModel === "glm-5.3" ? "max" : undefined,
           runToolCheck: target.provider_code === "zhipu" && req.params.upstreamModel === "glm-5.3",
           fetch: globalThis.fetch as unknown as HttpFetch,
@@ -478,14 +484,18 @@ async function syncResourceModels(
     });
   }
   try {
-    const capSet = (resource as { provider_capability_set?: unknown }).provider_capability_set as Record<string, unknown> | null;
-    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+    // P2：统一抽取 base_url + endpoints[mode]。
+    const configured = capabilityConfiguredEndpoints(
+      (resource as { provider_capability_set?: unknown }).provider_capability_set,
+    );
+    const baseUrl = configured.base_url ?? undefined;
     const credential = decryptResourceCredential(resource.credential_ciphertext, app.credentialKek);
     const discovery = await discoverProviderModels({
       providerCode: resource.provider_code,
       mode: resource.mode,
       credential,
       baseUrl,
+      endpoints: configured.endpoints ?? undefined,
       cacheKey: `${enterpriseId}:${resource.id}`,
       forceRefresh: true,
       officialSourceOverrides: officialSourceOverridesFromEnv(),

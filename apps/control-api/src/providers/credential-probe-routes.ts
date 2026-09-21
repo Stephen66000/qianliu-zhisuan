@@ -2,7 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CredentialChatProbeRepository, CredentialProbeConflict, credentialProbeView } from "@qianliu/database";
-import { canonicalProviderCode, createOpenAiCompatibleCaller, decryptCredential, SecretValue, providerChatConfigHash, type HttpFetch } from "@qianliu/provider-adapters";
+import { canonicalProviderCode, capabilityConfiguredEndpoints, createOpenAiCompatibleCaller, decryptCredential, SecretValue, providerChatConfigHash, type HttpFetch } from "@qianliu/provider-adapters";
 import type { Outcome } from "@qianliu/contracts";
 import { requireAuth } from "../plugins/auth-guard.js";
 
@@ -59,17 +59,18 @@ export function registerCredentialProbeRoutes(app: FastifyInstance) {
         const caller = createOpenAiCompatibleCaller({ requestTimeoutMs: 60_000,
           firstByteTimeoutMs: 30_000, firstByteTimeoutMsForResource: () => 30_000,
           fetch: globalThis.fetch as unknown as HttpFetch });
-        // P1/RC-0：把 Provider capability_set.base_url 交给统一的 Mode-aware
-        // 端点策略裁决。Kimi CODING_PLAN 的历史 Moonshot 平台地址会被忽略并
-        // 命中 Coding 端点；未知自定义域名则失败关闭（upstream_endpoint_ambiguous），
-        // 不做任何静默回退。
-        const capSet = started.provider.capability_set as Record<string, unknown> | null;
-        const configuredBaseUrl = typeof capSet?.base_url === "string" && capSet.base_url.trim()
-          ? capSet.base_url.trim() : undefined;
+        // P1/P2/RC-0：把 Provider capability_set 的 base_url 与模式专属
+        // endpoints[mode] 一并交给统一的 Mode-aware 端点策略裁决。
+        // Kimi CODING_PLAN 的历史 Moonshot 平台地址会被忽略并命中 Coding
+        // 端点；显式配置的 endpoints.CODING_PLAN 优先命中；未知自定义域名
+        // 则失败关闭（upstream_endpoint_ambiguous），不做任何静默回退。
+        const configured = capabilityConfiguredEndpoints(started.provider.capability_set);
         outcome = await caller({ providerCode: providerCode(started.provider.code),
           resourceId: started.resource.id, mode: started.resource.mode,
           upstreamModel: started.probe.upstream_model, concurrencyLimit: 1,
-          ...(configuredBaseUrl ? { baseUrl: configuredBaseUrl } : {}), secret }, {
+          ...(configured.base_url ? { baseUrl: configured.base_url } : {}),
+          ...(configured.endpoints ? { endpoints: configured.endpoints } : {}),
+          secret }, {
           requestId: `credential-probe-${started.probe.id}`, capability: "chat",
           unifiedModel: started.probe.upstream_model, stream: false, abort: abort.signal,
           maxOutputTokens: 32,

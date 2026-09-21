@@ -39,6 +39,7 @@ export async function executeSelectedAttempt(
     upstreamModel: candidate.upstreamModel,
     concurrencyLimit: resourceConfig?.concurrencyLimit ?? 0,
     baseUrl: resourceConfig?.baseUrl,
+    endpoints: resourceConfig?.endpoints,
     secret: resourceConfig?.secret ?? new SecretValue(""),
   }, {
     requestId,

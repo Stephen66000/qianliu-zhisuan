@@ -36,6 +36,25 @@ export interface ConfiguredEndpoints {
   endpoints?: Partial<Record<ResourceMode, string>> | null;
 }
 
+/**
+ * P2：从 capability_set 统一抽取端点配置。历史结构只有 base_url；
+ * 新结构支持 endpoints[API] / endpoints[CODING_PLAN] 模式专属地址
+ * （优先级高于 base_url，由 resolveProviderEndpoint 的 MODE_SCOPED_CONFIG 承担）。
+ * 所有消费 capability_set 的链路（Control API 发现/验证/恢复、Gateway 业务调用）
+ * 一律经此函数取值，不允许各处手写 base_url 抽取造成口径漂移。
+ */
+export function capabilityConfiguredEndpoints(capabilitySet: unknown): ConfiguredEndpoints {
+  const cap = (capabilitySet ?? null) as Record<string, unknown> | null;
+  const baseUrl = typeof cap?.base_url === "string" && cap.base_url.trim() ? cap.base_url : null;
+  const raw = (cap?.endpoints ?? null) as Record<string, unknown> | null;
+  const endpoints: Partial<Record<ResourceMode, string>> = {};
+  for (const mode of ["API", "CODING_PLAN"] as const) {
+    const value = raw?.[mode];
+    if (typeof value === "string" && value.trim()) endpoints[mode] = value;
+  }
+  return { base_url: baseUrl, endpoints: Object.keys(endpoints).length > 0 ? endpoints : null };
+}
+
 export type EndpointScope =
   | "MODE_SCOPED_CONFIG"
   | "ENV"

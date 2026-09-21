@@ -102,7 +102,10 @@ export function createOpenAiCompatibleCaller(
       providerCode: resource.providerCode,
       resourceMode: resource.mode,
       operation: "CHAT_COMPLETIONS",
-      configuredEndpoints: { base_url: resource.baseUrl },
+      // P2：模式专属 endpoints[mode] 与历史 base_url 一并进入策略，
+      // Gateway / 验证 / 恢复链路 capability_set 配置的 CODING_PLAN 专属
+      // 地址在此优先命中（MODE_SCOPED_CONFIG）。
+      configuredEndpoints: { base_url: resource.baseUrl ?? null, endpoints: resource.endpoints ?? null },
       env,
     });
     if (!endpoint.ok) {

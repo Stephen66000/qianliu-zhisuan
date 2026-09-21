@@ -35,6 +35,8 @@ export interface AdapterResource {
   concurrencyLimit: number;
   /** 自定义或预设厂商 Base URL（如 https://dashscope.aliyuncs.com/compatible-mode/v1） */
   baseUrl?: string;
+  /** P2：capability_set.endpoints 模式专属地址（API / CODING_PLAN），优先级高于 baseUrl。 */
+  endpoints?: Partial<Record<"API" | "CODING_PLAN", string>>;
   /** 凭证（SecretValue 包装，脱敏安全）。 */
   secret: SecretValue;
 }
@@ -118,6 +120,7 @@ export {
 
 export {
   resolveProviderEndpoint,
+  capabilityConfiguredEndpoints,
   KIMI_API_MODE_DEFAULT_URL,
   KIMI_CODING_PLAN_DEFAULT_URL,
   KIMI_CODING_PLAN_QUOTA_URL,

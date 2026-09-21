@@ -152,6 +152,8 @@ export async function discoverProviderModels(input: {
   mode: ResourceMode;
   credential: string;
   baseUrl?: string;
+  /** P2：capability_set.endpoints 模式专属地址，与 baseUrl 一并进入端点策略。 */
+  endpoints?: Partial<Record<ResourceMode, string>>;
   fetch?: DiscoveryFetch;
   timeoutMs?: number;
   now?: Date;
@@ -237,6 +239,7 @@ async function probeModelPermissions(
   fetcher?: HttpFetch,
   env: NodeJS.ProcessEnv = process.env,
   baseUrl?: string,
+  endpoints?: Partial<Record<ResourceMode, string>>,
 ): Promise<void> {
   // WP02：探针分支一律使用 canonical code；Kimi/KIMI/kimi 进入同一策略。
   const code = canonicalProviderCode(providerCode);
@@ -263,6 +266,7 @@ async function probeModelPermissions(
         upstreamModel: model.id,
         concurrencyLimit: 1,
         baseUrl,
+        endpoints,
         secret: new SecretValue(credential),
       }, {
         requestId: `probe-${randomUUID()}`,
@@ -298,6 +302,7 @@ async function discoverProviderModelsUncached(input: {
   mode: ResourceMode;
   credential: string;
   baseUrl?: string;
+  endpoints?: Partial<Record<ResourceMode, string>>;
   fetch?: DiscoveryFetch;
   timeoutMs?: number;
   now?: Date;
@@ -325,6 +330,7 @@ async function discoverProviderModelsUncached(input: {
       input.fetch ? (input.fetch as unknown as HttpFetch) : undefined,
       input.env,
       input.baseUrl,
+      input.endpoints,
     );
   }
   return result;
