@@ -46,7 +46,7 @@ export class CredentialChatProbeRepository {
   }
 
   async begin(input: { enterpriseId: string; resourceId: string; actorId: string; key: string;
-    configHash: (provider: string, mode: string, model: string) => string; now?: Date }) {
+    configHash: (provider: string, mode: string, model: string, capabilitySet: unknown) => string; now?: Date }) {
     const now = input.now ?? new Date();
     return this.db.transaction().execute(async (trx) => {
       const resource = await trx.selectFrom("provider_resource").selectAll()
@@ -68,7 +68,9 @@ export class CredentialChatProbeRepository {
       const provider = await trx.selectFrom("provider").selectAll().where("id", "=", resource.provider_id)
         .where("enterprise_id", "=", input.enterpriseId).where("status", "=", "ACTIVE").executeTakeFirst();
       if (!provider) throw new CredentialProbeConflict("provider_unavailable");
-      const configHash = input.configHash(provider.code, resource.mode, resource.auth_failure_model);
+      // 终审整改二：配置哈希绑定 capability_set 解析出的实际端点（与 Gateway 同源）。
+      const configHash = input.configHash(provider.code, resource.mode, resource.auth_failure_model,
+        provider.capability_set);
       if (resource.auth_failure_config_hash && resource.auth_failure_config_hash !== configHash) {
         throw new CredentialProbeConflict("configuration_changed");
       }
@@ -92,7 +94,7 @@ export class CredentialChatProbeRepository {
 
   async finish(input: { enterpriseId: string; resourceId: string; probeId: string;
     outcome: Outcome; cancelled: () => boolean;
-    configHash: (provider: string, mode: string, model: string) => string; now?: Date }) {
+    configHash: (provider: string, mode: string, model: string, capabilitySet: unknown) => string; now?: Date }) {
     return this.db.transaction().execute(async (trx) => {
       // Match lock order with begin/failure writers: resource first, then probe.
       const resource = await trx.selectFrom("provider_resource").selectAll()
@@ -110,7 +112,7 @@ export class CredentialChatProbeRepository {
         && resource.auth_failure_id === probe.failure_id && resource.auth_failure_model === probe.upstream_model
         && resource.credential_version === probe.credential_version
         && digest(resource.credential_ciphertext) === probe.credential_digest
-        && input.configHash(provider.code, resource.mode, probe.upstream_model) === probe.config_hash;
+        && input.configHash(provider.code, resource.mode, probe.upstream_model, provider.capability_set) === probe.config_hash;
       const success = input.outcome.status >= 200 && input.outcome.status < 300
         && input.outcome.committed && !input.outcome.error && !input.outcome.cancelled;
       const status = input.cancelled() ? "CANCELLED" : now >= probe.expires_at ? "EXPIRED"

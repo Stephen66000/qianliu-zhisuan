@@ -171,4 +171,47 @@ describe("0076 provider_model_probe 迁移与探针证据", () => {
       })).rejects.toThrow();
     } finally { await db.destroy(); await pg.stop(); }
   }, 180_000);
+
+  it("终审整改三：0077 预检 fail-closed——存在重复 run 时拒绝执行且证据零损失", async () => {
+    const pg = await startPostgresContainer("model_probe_migration_fail_closed");
+    const db: Database = createKysely(pg.connectionString);
+    try {
+      const migrator = createMigrator(db);
+      expect((await migrator.migrateTo("0076_provider_model_probe")).error).toBeUndefined();
+      const ent = (await db.insertInto("enterprise").values({ name: "probe-fail-closed" })
+        .returning("id").executeTakeFirstOrThrow()).id;
+      // 模拟异常环境的重复历史：直接插入同 (enterprise_id, idempotency_key) 的两条 run。
+      const values = {
+        enterprise_id: ent, provider_code: "kimi", resource_mode: "CODING_PLAN" as const,
+        credential_fingerprint: "f".repeat(16), endpoint_scope: "MODE_DEFAULT" as const,
+        endpoint_host: "api.kimi.com", status: "COMPLETED",
+        idempotency_key: "dupe-run-key", request_hash: "x".repeat(64),
+      };
+      const run1 = await db.insertInto("provider_model_probe_run").values(values)
+        .returning("id").executeTakeFirstOrThrow();
+      const run2 = await db.insertInto("provider_model_probe_run").values(values)
+        .returning("id").executeTakeFirstOrThrow();
+      for (const runId of [run1.id, run2.id]) {
+        await db.insertInto("provider_model_probe_item").values({
+          probe_run_id: runId, upstream_model: "k3", validation_status: "READY",
+          http_status: 200, error_code: null, error_category: "READY",
+          retryable: false, diagnostic_hash: "d", checked_at: new Date(),
+        }).execute();
+      }
+      // 0077 必须失败关闭：预检发现重复即拒绝，绝不自动删除审计证据。
+      expect((await migrator.migrateToLatest()).error).toBeDefined();
+      // 证据零损失：重复 run 与明细原样保留。
+      expect(await db.selectFrom("provider_model_probe_run")
+        .where("enterprise_id", "=", ent).execute()).toHaveLength(2);
+      expect(await db.selectFrom("provider_model_probe_item")
+        .where("probe_run_id", "in", [run1.id, run2.id]).execute()).toHaveLength(2);
+      // 部署规则：运维人工甄别合并重复（此处模拟保留最早一条）后重试即可通过。
+      await db.deleteFrom("provider_model_probe_run").where("id", "=", run2.id).execute();
+      expect((await migrator.migrateToLatest()).error).toBeUndefined();
+      expect(await db.selectFrom("provider_model_probe_run")
+        .where("enterprise_id", "=", ent).execute()).toHaveLength(1);
+      expect(await db.selectFrom("provider_model_probe_item")
+        .where("probe_run_id", "=", run1.id).execute()).toHaveLength(1);
+    } finally { await db.destroy(); await pg.stop(); }
+  }, 180_000);
 });

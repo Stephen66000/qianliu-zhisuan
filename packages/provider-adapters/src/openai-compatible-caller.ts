@@ -21,7 +21,7 @@ import { upstreamFailure } from "./upstream-failure.js";
 import { toChatCompletionsRequest } from "./openai-compatible-request.js";
 import { failedOutcome, parseJsonResponse, parseStreamingResponse } from "./openai-compatible-response.js";
 import { chatCompletionsUrl, createLayeredTimeout, defaultFetch } from "./openai-compatible-timeout.js";
-import { resolveProviderEndpoint } from "./endpoint-policy.js";
+import { resolveProviderEndpoint, capabilityConfiguredEndpoints } from "./endpoint-policy.js";
 import { canonicalProviderCode } from "./provider-code.js";
 
 export { toChatCompletionsRequest } from "./openai-compatible-request.js";
@@ -40,9 +40,33 @@ export function providerChatBaseUrl(provider: ProviderCode, env: NodeJS.ProcessE
 }
 
 export function providerChatConfigHash(provider: ProviderCode, mode: string, model: string,
-  env: NodeJS.ProcessEnv = process.env): string {
+  opts: { env?: NodeJS.ProcessEnv; resolvedBaseUrl?: string } = {}): string {
+  // 终审整改二：哈希必须覆盖 resolveProviderEndpoint 裁决出的实际 canonical
+  // 端点（capability base_url / endpoints[mode] 参与解析），而不是只看
+  // 环境变量/内置默认地址——否则端点配置变更后故障证据身份不变，
+  // 凭证恢复会对着新端点复用旧证据。
+  const baseUrl = opts.resolvedBaseUrl ?? providerChatBaseUrl(provider, opts.env ?? process.env);
   return createHash("sha256").update(JSON.stringify({ provider, mode, model,
-    baseUrl: providerChatBaseUrl(provider, env), protocol: "chat", version: 1 })).digest("hex");
+    baseUrl, protocol: "chat", version: 1 })).digest("hex");
+}
+
+/**
+ * 终审整改二：凭证恢复与 Gateway 故障证据共用的配置哈希入口。
+ * 与 caller 内部完全同源：先经 resolveProviderEndpoint（CHAT_COMPLETIONS）
+ * 解析实际端点，再对解析结果计算 providerChatConfigHash。
+ * 端点无法解析（歧义/缺失）时抛错，由调用方失败关闭（configuration_changed）。
+ */
+export function capabilityChatConfigHash(provider: ProviderCode, mode: string, model: string,
+  capabilitySet: unknown, env: NodeJS.ProcessEnv = process.env): string {
+  const endpoint = resolveProviderEndpoint({
+    providerCode: canonicalProviderCode(provider),
+    resourceMode: mode as "API" | "CODING_PLAN",
+    operation: "CHAT_COMPLETIONS",
+    configuredEndpoints: capabilityConfiguredEndpoints(capabilitySet),
+    env,
+  });
+  if (!endpoint.ok || !endpoint.url) throw new Error("upstream_endpoint_ambiguous");
+  return providerChatConfigHash(provider, mode, model, { env, resolvedBaseUrl: endpoint.url });
 }
 
 const BASE_URL_ENV: Record<string, string> = {
@@ -165,7 +189,10 @@ export function createOpenAiCompatibleCaller(
       timeout.dispose();
       return {
         ...failedOutcome(response.status, failure.code),
-        upstreamConfigHash: providerChatConfigHash(resource.providerCode, resource.mode, resource.upstreamModel, env),
+        // 终审整改二：故障证据哈希绑定本次调用实际解析出的端点，
+        // 与凭证恢复侧 capabilityChatConfigHash 同源可对齐。
+        upstreamConfigHash: providerChatConfigHash(resource.providerCode, resource.mode, resource.upstreamModel,
+          { env, resolvedBaseUrl: baseUrl }),
         upstreamErrorKind: failure.kind,
         upstreamCode: failure.code,
         ...(failure.evidence && requestShapeSummary ? {

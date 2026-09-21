@@ -10,7 +10,7 @@
  */
 
 import type { Outcome } from "@qianliu/contracts";
-export { providerChatBaseUrl, providerChatConfigHash } from "./openai-compatible-caller.js";
+export { providerChatBaseUrl, providerChatConfigHash, capabilityChatConfigHash } from "./openai-compatible-caller.js";
 import type { SecretValue } from "./secret-value.js";
 
 export {

@@ -24,6 +24,7 @@ import {
   type ModelDiscoveryResult,
 } from "@qianliu/provider-adapters";
 import { requireAuth } from "../plugins/auth-guard.js";
+import { evaluateProbeEvidenceIdentity, probeRequestHash } from "./probe-evidence.js";
 import {
   ConfirmDiscoveredModelsSchema,
   ModelDiscoverySchema,
@@ -77,11 +78,18 @@ async function persistProbeRun(
   const endpointScope = endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS";
   const endpointHost = endpoint.ok ? endpoint.host : (endpoint.host ?? "unresolved");
   const fingerprint = credentialFingerprint(input.credential);
-  const modelIds = input.discovery.models.map((model) => model.id).sort().join(",");
-  const requestHash = createHash("sha256").update([
-    input.providerCode, input.mode, fingerprint, endpointScope, endpointHost,
-    input.discovery.sourceContentHash ?? "", modelIds,
-  ].join("|")).digest("hex");
+  const modelIds = input.discovery.models.map((model) => model.id);
+  // 终审整改一：request_hash 公式收敛到 probeRequestHash（与 GET/confirm
+  // 证据身份校验同源同式，禁止两处各自维护）。
+  const requestHash = probeRequestHash({
+    providerCode: input.providerCode,
+    mode: input.mode,
+    credentialFingerprint: fingerprint,
+    endpointScope,
+    endpointHost,
+    discoverySourceHash: input.discovery.sourceContentHash ?? null,
+    modelIds,
+  });
   // 复用缓存的发现结果时 discoveredAt 相同 → 同一 idempotency_key 不重复落库。
   // P2：idempotency_key 内嵌 request_hash——run 身份完全由 request_hash 派生。
   const idempotencyKey = `${requestHash}:${input.discovery.discoveredAt.toISOString()}`;
@@ -286,32 +294,64 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         integrationStates: states,
         failureCode: latest.discovery.failure_code,
       });
-      // WP04：回填最近一次探针运行的模型级脱敏证据（如有）。
+      // 终审整改一：READY 探针证据必须与当前资源（凭证指纹 + 解析端点）
+      // 和当前成功发现（目录哈希 + 模型集 + 新鲜度）身份一致才可回填；
+      // 不一致即 MODEL_VALIDATION_STALE——不回填任何 READY 证据，
+      // 页面模型全部不可选，要求重新同步或重新检测。
+      const resourceRow = await app.db.selectFrom("provider_resource")
+        .innerJoin("provider", "provider.id", "provider_resource.provider_id")
+        .select([
+          "provider_resource.credential_fingerprint",
+          "provider_resource.mode",
+          "provider.code as provider_code",
+          "provider.capability_set as provider_capability_set",
+        ])
+        .where("provider_resource.id", "=", req.params.id)
+        .where("provider_resource.enterprise_id", "=", req.admin!.enterpriseId)
+        .where("provider.enterprise_id", "=", req.admin!.enterpriseId)
+        .executeTakeFirst();
       const probeRun = await app.providerRepo.latestModelProbeRun(req.admin!.enterpriseId, req.params.id);
+      let probeEvidence: Record<string, unknown> | null = null;
       if (probeRun) {
-        const byModel = new Map(probeRun.items.map((item) => [item.upstream_model, item]));
-        publicResult.models = publicResult.models.map((model) => {
-          const item = byModel.get(model.id);
-          if (!item) return model;
-          return {
-            ...model,
-            credential_validation: {
-              status: item.validation_status,
-              http_status: item.http_status,
-              error_code: item.error_code,
-              retryable: item.retryable,
-              checked_at: (item.checked_at ?? probeRun.run.finished_at ?? probeRun.run.started_at).toISOString(),
-            },
-            selectable: item.validation_status === "READY",
-          };
+        const identity = evaluateProbeEvidenceIdentity({
+          providerCode: resourceRow?.provider_code ?? "",
+          mode: (resourceRow?.mode ?? "API") as "API" | "CODING_PLAN",
+          capabilitySet: resourceRow?.provider_capability_set ?? null,
+          credentialFingerprint: resourceRow?.credential_fingerprint ?? null,
+          discoverySourceHash: snapshot.source_content_hash ?? null,
+          modelIds: latest.items.map((item) => item.upstream_model),
+          probeRun,
         });
-        publicResult.summary = {
-          ...publicResult.summary,
-          credential_ready: publicResult.models.filter((model) => model.credential_validation?.status === "READY").length,
-          credential_failed: publicResult.models.filter((model) => model.credential_validation !== null && model.credential_validation.status !== "READY").length,
-        };
+        if (!identity.valid) {
+          probeEvidence = { status: "MODEL_VALIDATION_STALE", reason: identity.reason,
+            requires: "SYNC_OR_PROBE" };
+        } else {
+          probeEvidence = { status: "CURRENT" };
+          const byModel = new Map(probeRun.items.map((item) => [item.upstream_model, item]));
+          publicResult.models = publicResult.models.map((model) => {
+            const item = byModel.get(model.id);
+            if (!item) return model;
+            return {
+              ...model,
+              credential_validation: {
+                status: item.validation_status,
+                http_status: item.http_status,
+                error_code: item.error_code,
+                retryable: item.retryable,
+                checked_at: (item.checked_at ?? probeRun.run.finished_at ?? probeRun.run.started_at).toISOString(),
+              },
+              selectable: item.validation_status === "READY",
+            };
+          });
+          publicResult.summary = {
+            ...publicResult.summary,
+            credential_ready: publicResult.models.filter((model) => model.credential_validation?.status === "READY").length,
+            credential_failed: publicResult.models.filter((model) => model.credential_validation !== null && model.credential_validation.status !== "READY").length,
+          };
+        }
       }
-      return { ...publicResult, discovery: latest.discovery, items: latest.items, items_stale: latest.items_stale };
+      return { ...publicResult, probe_evidence: probeEvidence,
+        discovery: latest.discovery, items: latest.items, items_stale: latest.items_stale };
     },
   );
 
@@ -348,6 +388,23 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       // P1：用最近一次探针运行回填模型级 credentialValidation，
       // 确认门槛与 GET /models 展示一致（仅 READY 可确认）。
       const probeRun = await app.providerRepo.latestModelProbeRun(req.admin!.enterpriseId, req.params.id);
+      // 终审整改一：READY 证据身份必须与当前资源/当前成功发现一致，
+      // 否则 409 MODEL_VALIDATION_STALE，要求重新同步或重新检测。
+      if (probeRun) {
+        const identity = evaluateProbeEvidenceIdentity({
+          providerCode: resource.provider_code,
+          mode: resource.mode as "API" | "CODING_PLAN",
+          capabilitySet: resource.provider_capability_set,
+          credentialFingerprint: resource.credential_fingerprint,
+          discoverySourceHash: (latest.successful_discovery ?? latest.discovery).source_content_hash ?? null,
+          modelIds: latest.items.map((item) => item.upstream_model),
+          probeRun,
+        });
+        if (!identity.valid) {
+          return reply.code(409).send({ error: "MODEL_VALIDATION_STALE", reason: identity.reason,
+            message: "探针证据与当前凭证/端点/官方目录不一致或已过期，请重新同步模型或重新检测" });
+        }
+      }
       const evidenceByModel = new Map((probeRun?.items ?? []).map((item) => [item.upstream_model, item]));
       const candidates = latest.items.map((item): DiscoveredProviderModel => {
         const evidence = evidenceByModel.get(item.upstream_model);

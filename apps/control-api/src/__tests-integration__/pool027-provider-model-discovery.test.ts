@@ -469,4 +469,114 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     expect(confirm.statusCode).toBe(409);
     expect(confirm.json().error).toBe("model_discovery_stale");
   });
+
+  it("终审整改一：READY 证据身份不匹配或过期时 GET/confirm 拒绝并返回 MODEL_VALIDATION_STALE", async () => {
+    mockOfficialDocs();
+    // 复用既有 zhipu provider（本用例为文件末位，改动状态不影响前面的用例），
+    // 新建专属资源承载证据身份矩阵。
+    const created = await app.inject({
+      method: "POST", url: "/provider-resources", headers: { cookie },
+      payload: { provider_id: providerId, name: "智谱 Stale A", mode: "CODING_PLAN",
+        credential_type: "API_KEY", credential_plaintext: "stale-evidence-key" },
+    });
+    expect(created.statusCode).toBe(201);
+    const resourceId = created.json().resource.id as string;
+    const sync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(sync.statusCode).toBe(200);
+
+    const getPayload = async () => (await app.inject({
+      method: "GET", url: `/provider-resources/${resourceId}/models`, headers: { cookie },
+    })).json();
+    // 基线：证据身份一致 → CURRENT，READY 模型可选。
+    expect((await getPayload()).probe_evidence).toEqual({ status: "CURRENT" });
+    const readyModel = (await getPayload()).models
+      .find((model: { credential_validation?: { status?: string } }) => model.credential_validation?.status === "READY");
+    expect(readyModel).toBeTruthy();
+    expect(readyModel.selectable).toBe(true);
+
+    const expectGetStale = async (reason: string) => {
+      const payload = await getPayload();
+      expect(payload.probe_evidence).toEqual({
+        status: "MODEL_VALIDATION_STALE", reason, requires: "SYNC_OR_PROBE",
+      });
+      for (const model of payload.models) {
+        expect(model.credential_validation?.status ?? null).not.toBe("READY");
+        expect(model.selectable).toBe(false);
+      }
+    };
+    const expectConfirmStale = async () => {
+      const response = await app.inject({
+        method: "POST", url: `/provider-resources/${resourceId}/models/confirm`, headers: { cookie },
+        payload: { selected_model_ids: ["glm-5.2"] },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().error).toBe("MODEL_VALIDATION_STALE");
+    };
+
+    // 1) Key 轮换：凭证指纹变化 → 新探针 run 之前证据即失效。
+    await db.updateTable("provider_resource")
+      .set({ credential_fingerprint: "0".repeat(64) })
+      .where("id", "=", resourceId).execute();
+    await expectGetStale("CREDENTIAL_FINGERPRINT_MISMATCH");
+    await expectConfirmStale();
+    await db.updateTable("provider_resource")
+      .set({ credential_fingerprint: credentialFingerprint("stale-evidence-key") })
+      .where("id", "=", resourceId).execute();
+
+    // 2) 解析端点变更：capability_set.endpoints[mode] 改变 scope。
+    await db.updateTable("provider")
+      .set({ capability_set: { endpoints: { CODING_PLAN: "https://open.bigmodel.cn/api/coding/paas/v4" } } })
+      .where("id", "=", providerId).execute();
+    await expectGetStale("ENDPOINT_MISMATCH");
+    await expectConfirmStale();
+    await db.updateTable("provider").set({ capability_set: null })
+      .where("id", "=", providerId).execute();
+
+    // 3) 官方目录哈希变更。
+    const originalHash = (await db.selectFrom("provider_model_discovery")
+      .select("source_content_hash")
+      .where("provider_resource_id", "=", resourceId).where("status", "=", "SUCCEEDED")
+      .orderBy("discovered_at", "desc").executeTakeFirstOrThrow()).source_content_hash;
+    await db.updateTable("provider_model_discovery")
+      .set({ source_content_hash: "sha256:rotated-catalog" })
+      .where("provider_resource_id", "=", resourceId).execute();
+    await expectGetStale("DISCOVERY_SOURCE_HASH_MISMATCH");
+    await expectConfirmStale();
+    await db.updateTable("provider_model_discovery")
+      .set({ source_content_hash: originalHash })
+      .where("provider_resource_id", "=", resourceId).execute();
+
+    // 4) 模型集变化：从当前成功快照删除一个模型。
+    const successfulId = (await db.selectFrom("provider_model_discovery").select("id")
+      .where("provider_resource_id", "=", resourceId).where("status", "=", "SUCCEEDED")
+      .orderBy("discovered_at", "desc").executeTakeFirstOrThrow()).id;
+    await db.deleteFrom("provider_model_discovery_item")
+      .where("discovery_id", "=", successfulId).where("upstream_model", "=", "glm-5.3").execute();
+    await expectGetStale("MODEL_SET_MISMATCH");
+    await expectConfirmStale();
+
+    // 5) 过期证据（期间没有任何新探针 run）：把 run 开始时间拨回 25 小时前。
+    await db.updateTable("provider_model_probe_run")
+      .set({ started_at: new Date(Date.now() - 25 * 60 * 60 * 1000) })
+      .where("provider_resource_id", "=", resourceId).execute();
+    await expectGetStale("EVIDENCE_EXPIRED");
+    await expectConfirmStale();
+
+    // 恢复：重新同步生成新快照与新探针 run → 证据回到 CURRENT，可确认。
+    await db.updateTable("provider_model_discovery")
+      .set({ source_checked_at: new Date(Date.now() - 61_000), discovered_at: new Date(Date.now() - 61_000) })
+      .where("provider_resource_id", "=", resourceId).execute();
+    const resync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(resync.statusCode).toBe(200);
+    expect((await getPayload()).probe_evidence).toEqual({ status: "CURRENT" });
+    const confirmAgain = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/confirm`, headers: { cookie },
+      payload: { selected_model_ids: ["glm-5.2"] },
+    });
+    expect(confirmAgain.statusCode).toBe(200);
+  });
 });

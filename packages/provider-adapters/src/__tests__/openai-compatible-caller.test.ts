@@ -3,6 +3,7 @@ import {
   chatAssistantToResponsesOutput,
   createOpenAiCompatibleCaller,
   encryptCredential,
+  providerChatConfigHash,
   resolveProviderSecret,
   responsesToChatCompletions,
   SecretValue,
@@ -1199,6 +1200,28 @@ describe("OpenAI-compatible HTTP caller", () => {
     });
     expect(outcome.upstreamErrorEvidence?.diagnosticHash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(outcome)).not.toContain(canary);
+  });
+
+  it("终审整改二：故障证据哈希绑定 resolveProviderEndpoint 实际端点，端点配置变更即变化", async () => {
+    const env = { KIMI_CODING_BASE_URL: "https://env-kimi.example" };
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse({ error: { type: "authentication_error" } }, 401),
+      env,
+    });
+    const base = { providerCode: "kimi" as const, mode: "CODING_PLAN" as const, upstreamModel: "k3" };
+    // mode 专属端点：证据哈希必须等于对该端点的 capabilityChatConfigHash 口径。
+    const scoped = await caller(
+      resource({ ...base, endpoints: { CODING_PLAN: "https://scoped-kimi.example/v1" } }),
+      responsesRequest(), 1,
+    );
+    expect(scoped.status).toBe(401);
+    expect(scoped.upstreamConfigHash).toBe(providerChatConfigHash("kimi", "CODING_PLAN", "k3",
+      { env, resolvedBaseUrl: "https://scoped-kimi.example/v1" }));
+    // 无 mode 专属端点时解析落到 ENV（KIMI_CODING_BASE_URL），哈希随之不同。
+    const unscoped = await caller(resource(base), responsesRequest(), 1);
+    expect(unscoped.upstreamConfigHash).toBe(providerChatConfigHash("kimi", "CODING_PLAN", "k3",
+      { env, resolvedBaseUrl: "https://env-kimi.example" }));
+    expect(scoped.upstreamConfigHash).not.toBe(unscoped.upstreamConfigHash);
   });
 
   it.each([

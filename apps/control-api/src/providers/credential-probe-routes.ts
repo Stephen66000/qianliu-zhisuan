@@ -2,7 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CredentialChatProbeRepository, CredentialProbeConflict, credentialProbeView } from "@qianliu/database";
-import { canonicalProviderCode, capabilityConfiguredEndpoints, createOpenAiCompatibleCaller, decryptCredential, SecretValue, providerChatConfigHash, type HttpFetch } from "@qianliu/provider-adapters";
+import { canonicalProviderCode, capabilityChatConfigHash, capabilityConfiguredEndpoints, createOpenAiCompatibleCaller, decryptCredential, SecretValue, type HttpFetch } from "@qianliu/provider-adapters";
 import type { Outcome } from "@qianliu/contracts";
 import { requireAuth } from "../plugins/auth-guard.js";
 
@@ -20,8 +20,20 @@ function providerCode(value: string): "kimi" | "zhipu" | "deepseek" {
   if (CHAT_PROBE_PROVIDER_CODES.has(canonical)) return canonical as "kimi" | "zhipu" | "deepseek";
   throw new CredentialProbeConflict("provider_unsupported");
 }
-function configHash(provider: string, mode: string, model: string) {
-  return providerChatConfigHash(providerCode(provider), mode, model);
+/**
+ * 终审整改二：配置哈希与 Gateway 故障证据同源——对 capability_set
+ * （base_url + endpoints[mode]）经 resolveProviderEndpoint 解析出的实际
+ * canonical 端点计算 providerChatConfigHash。端点解析失败（歧义/缺失）
+ * 时失败关闭为 configuration_changed，不与任何旧证据对齐。
+ */
+function configHash(provider: string, mode: string, model: string, capabilitySet: unknown) {
+  // provider_unsupported 在规范化处抛出，不得被端点歧义的失败关闭吞掉。
+  const canonical = providerCode(provider);
+  try {
+    return capabilityChatConfigHash(canonical, mode, model, capabilitySet);
+  } catch {
+    throw new CredentialProbeConflict("configuration_changed");
+  }
 }
 const messages: Record<string, string> = {
   not_found: "资源不存在", not_isolated: "资源当前不是凭证隔离状态，请刷新页面",
