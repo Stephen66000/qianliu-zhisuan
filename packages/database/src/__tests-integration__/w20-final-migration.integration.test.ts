@@ -185,6 +185,11 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0070_alert_recovery_evidence", "Success"],
         ["0071_enterprise_contact_details", "Success"],
         ["0072_admin_roles_security", "Success"],
+        ["0073_credential_chat_probe", "Success"],
+        ["0074_runtime_notification_recipients", "Success"],
+        ["0075_provider_resource_archive", "Success"],
+        ["0076_project_allocation_relations", "Success"],
+        ["0077_project_allocation_compute", "Success"],
       ]);
 
       const aggregates = new UsageAggregateRepository(db);
@@ -245,6 +250,11 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       expect(qualityConstraint.rows[0]?.definition).toContain("MIXED");
       await db.updateTable("usage_event").set({ usage_quality: "MIXED" })
         .where("enterprise_id", "=", enterpriseId).execute();
+      expect(await migrateDown(db)).toBe("0077_project_allocation_compute");
+      expect(await migrateDown(db)).toBe("0076_project_allocation_relations");
+      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
+      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
+      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
@@ -342,6 +352,11 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0070_alert_recovery_evidence", "Success"],
         ["0071_enterprise_contact_details", "Success"],
         ["0072_admin_roles_security", "Success"],
+        ["0073_credential_chat_probe", "Success"],
+        ["0074_runtime_notification_recipients", "Success"],
+        ["0075_provider_resource_archive", "Success"],
+        ["0076_project_allocation_relations", "Success"],
+        ["0077_project_allocation_compute", "Success"],
       ]);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
@@ -414,6 +429,11 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         .execute()).rejects.toThrow(/append-only/i);
       await expect(db.deleteFrom("operating_bill_opening_balance")
         .where("provider_resource_id", "=", resourceId).execute()).rejects.toThrow(/append-only/i);
+      expect(await migrateDown(db)).toBe("0077_project_allocation_compute");
+      expect(await migrateDown(db)).toBe("0076_project_allocation_relations");
+      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
+      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
+      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");

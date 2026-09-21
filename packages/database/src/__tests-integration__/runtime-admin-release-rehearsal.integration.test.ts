@@ -111,6 +111,11 @@ it("0066 备份可恢复，0067/0068 保留管理员历史引用且归档后禁�
       "0070_alert_recovery_evidence",
       "0071_enterprise_contact_details",
       "0072_admin_roles_security",
+      "0073_credential_chat_probe",
+      "0074_runtime_notification_recipients",
+      "0075_provider_resource_archive",
+      "0076_project_allocation_relations",
+      "0077_project_allocation_compute",
     ]);
     expect(
       await db

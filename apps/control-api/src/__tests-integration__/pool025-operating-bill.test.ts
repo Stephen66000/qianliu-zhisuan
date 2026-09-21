@@ -673,6 +673,11 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
   });
 
   it("0053 已有期初事实时拒绝破坏性回退", async () => {
+      expect(await migrateDown(db)).toBe("0077_project_allocation_compute");
+      expect(await migrateDown(db)).toBe("0076_project_allocation_relations");
+      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
+      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
+      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");

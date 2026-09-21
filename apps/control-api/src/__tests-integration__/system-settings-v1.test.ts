@@ -95,6 +95,11 @@ describe("系统设置第一版：企业信息", () => {
       default_currency: "SGD",
       version: 2,
     });
+    expect(await migrateDown(db)).toBe("0077_project_allocation_compute");
+    expect(await migrateDown(db)).toBe("0076_project_allocation_relations");
+    expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
+    expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
+    expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
     expect(await migrateDown(db)).toBe("0072_admin_roles_security");
     await expect(migrateDown(db)).rejects.toThrow(
       "0071 down refused: enterprise contact details already contain data",

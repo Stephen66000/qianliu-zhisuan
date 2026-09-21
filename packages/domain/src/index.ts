@@ -287,6 +287,8 @@ export {
 
 export * from "./client-identity.js";
 
+export * from "./project-allocation/index.js";
+
 export const DOMAIN_VERSION = "0.3.0" as const;
 
 export { formatModelName } from "./model-display-name.js";

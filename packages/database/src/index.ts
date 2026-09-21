@@ -404,3 +404,27 @@ export { previewPrincipalAttributionBackfill, confirmPrincipalAttributionBackfil
 
 export { getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal, renewDueSubscription, runSubscriptionAutoRenewals } from "./repositories/provider-finance-renewal.js";
 export { sumAllocatedQuota } from "./repositories/dashboard-breakdown.js";
+
+export {
+  createProjectMembership, reviseProjectMembership, listProjectMemberships,
+  MembershipOverlapConflictError, MembershipRevisionConflictError, MembershipNotFoundError,
+  type CreateMembershipInput, type MembershipMutationResult, type MembershipWeightInput,
+  type ListMembershipsParams, type MembershipListResult, type MembershipListRow,
+  type ReviseMembershipInput,
+} from "./repositories/project-membership-repository.js";
+export {
+  reviseProjectAccountingLifecycle, AccountingVersionConflictError,
+  AccountingAlreadyEndedError, AccountingEffectiveBeforeStartError,
+  type ReviseAccountingLifecycleInput, type AccountingLifecycleResult,
+} from "./repositories/project-accounting-lifecycle-repository.js";
+export {
+  publishEmployeeRules, getEmployeePolicyOverview, previewPolicyChange,
+  AllocationPolicyVersionConflictError, AllocationRuleConflictError,
+  type PublishRulesInput, type PublishRulesOutcome, type DesiredRuleInput,
+  type EmployeePolicyOverview, type PolicyPreviewResult, type PolicyPreviewSegment,
+} from "./repositories/employee-allocation-policy-repository.js";
+export {
+  enumerateShanghaiMonths, markAllocationDirty, resolveAllocationPrincipal,
+  lockEmployeeAllocationScope, lockProjectAccountingScope, allocationInputHash,
+  type AllocationDb, type AllocationPrincipalType, type ActiveMembershipRevision,
+} from "./repositories/project-allocation-common.js";

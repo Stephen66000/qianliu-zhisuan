@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-project-allocation-v12-20260921/packages/domain
+
+ ✓ src/__tests__/project-allocation-policy.test.ts (13 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  12:46:45
+   Duration  488ms (transform 51ms, setup 0ms, collect 53ms, tests 6ms, environment 0ms, prepare 118ms)
+

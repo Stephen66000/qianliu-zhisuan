@@ -48,6 +48,13 @@ import type {
   PrincipalAgentExpectationTable, RouteCandidateTable, UnifiedModelTable, UpstreamAttemptTable,
   UsageEventTable,
 } from "./kysely-ledger-tables.js";
+import type {
+  EmployeeProjectAllocationPolicyTable, EmployeeProjectAllocationRuleTable,
+  OperatingBillProjectAllocationRefTable, ProjectAccountingProfileVersionTable,
+  ProjectAllocationDirtyTable, ProjectAllocationLineTable, ProjectAllocationPeriodTable,
+  ProjectAllocationResourceResidualTable, ProjectAllocationRunTable,
+  ProjectAllocationScanWatermarkTable, ProjectMembershipRevisionTable, ProjectMembershipTable,
+} from "./kysely-allocation-tables.js";
 
 export type * from "./kysely-operations-tables.js";
 export type * from "./employee-model-rule-types.js";
@@ -59,6 +66,7 @@ export type * from "./kysely-finance-tables.js";
 export type * from "./kysely-core-tables.js";
 export type * from "./kysely-resource-tables.js";
 export type * from "./kysely-ledger-tables.js";
+export type * from "./kysely-allocation-tables.js";
 
 export interface Database {
   credential_chat_probe: CredentialChatProbeTable;
@@ -110,6 +118,18 @@ export interface Database {
   operating_bill_request_project_assignment: OperatingBillRequestProjectAssignmentTable;
   operating_bill_opening_balance: OperatingBillOpeningBalanceTable;
   operating_bill_resource_confirmation: OperatingBillResourceConfirmationTable;
+  project_accounting_profile_version: ProjectAccountingProfileVersionTable;
+  project_membership: ProjectMembershipTable;
+  project_membership_revision: ProjectMembershipRevisionTable;
+  employee_project_allocation_policy: EmployeeProjectAllocationPolicyTable;
+  employee_project_allocation_rule: EmployeeProjectAllocationRuleTable;
+  project_allocation_run: ProjectAllocationRunTable;
+  project_allocation_line: ProjectAllocationLineTable;
+  project_allocation_period: ProjectAllocationPeriodTable;
+  project_allocation_dirty: ProjectAllocationDirtyTable;
+  project_allocation_scan_watermark: ProjectAllocationScanWatermarkTable;
+  project_allocation_resource_residual: ProjectAllocationResourceResidualTable;
+  operating_bill_project_allocation_ref: OperatingBillProjectAllocationRefTable;
 }
 
 export function createKysely(databaseUrl?: string): Kysely<Database> {

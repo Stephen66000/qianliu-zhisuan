@@ -257,6 +257,11 @@ describe("provider finance cutover rehearsal", () => {
       });
       expect(afterResolution.failures)
         .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_CLASSIFICATION_MISMATCH" }));
+      await expect(migrateDown(db)).resolves.toBe("0077_project_allocation_compute");
+      await expect(migrateDown(db)).resolves.toBe("0076_project_allocation_relations");
+      await expect(migrateDown(db)).resolves.toBe("0075_provider_resource_archive");
+      await expect(migrateDown(db)).resolves.toBe("0074_runtime_notification_recipients");
+      await expect(migrateDown(db)).resolves.toBe("0073_credential_chat_probe");
       await expect(migrateDown(db)).resolves.toBe("0072_admin_roles_security");
       await expect(migrateDown(db)).resolves.toBe("0071_enterprise_contact_details");
       await expect(migrateDown(db)).resolves.toBe("0070_alert_recovery_evidence");

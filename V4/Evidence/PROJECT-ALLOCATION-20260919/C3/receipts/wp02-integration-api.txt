@@ -1,0 +1,9 @@
+      Tests  19 passed (19)
+-- pool015-admin-lifecycle.test.ts
+      Tests  1 passed (1)
+-- pool025-operating-bill.test.ts
+      Tests  8 passed (8)
+-- system-settings-v1.test.ts
+      Tests  1 passed (1)
+-- system-settings-v2.test.ts
+      Tests  8 passed (8)
