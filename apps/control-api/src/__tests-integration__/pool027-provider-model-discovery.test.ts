@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { credentialFingerprint } from "@qianliu/provider-adapters";
 import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
@@ -196,6 +197,29 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     expect(calledUrls.filter((url) => url.includes("www.kimi.com"))).toHaveLength(1);
     expect(calledUrls.some((url) => url.includes("api.moonshot.cn"))).toBe(false);
     expect(calledUrls.some((url) => url.endsWith("/models"))).toBe(false);
+  });
+
+  it("P2 ad-hoc 检测同键 singleflight 复用、探针 run 以 provider_resource_id=null 幂等落库且脱敏", async () => {
+    mockOfficialDocs();
+    const payload = { provider_id: providerId, mode: "CODING_PLAN", credential_plaintext: "probe-flight-key" };
+    const first = await app.inject({ method: "POST", url: "/provider-resources/model-discovery", headers: { cookie }, payload });
+    expect(first.statusCode).toBe(200);
+    expect(first.json().reused).toBe(false);
+    const second = await app.inject({ method: "POST", url: "/provider-resources/model-discovery", headers: { cookie }, payload });
+    expect(second.statusCode).toBe(200);
+    // 同 enterprise+provider+mode+凭证指纹+端点 scope/host → 60s 内复用同一飞行结果。
+    expect(second.json().reused).toBe(true);
+    // 仅落一条探针 run：未绑定资源 → provider_resource_id=null；复用结果幂等去重。
+    const runs = await db.selectFrom("provider_model_probe_run").selectAll()
+      .where("credential_fingerprint", "=", credentialFingerprint("probe-flight-key")).execute();
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.provider_resource_id).toBeNull();
+    expect(runs[0]!.provider_id).toBe(providerId);
+    // 脱敏：run 行不包含 Key 明文。
+    expect(JSON.stringify(runs[0])).not.toContain("probe-flight-key");
+    const items = await db.selectFrom("provider_model_probe_item").selectAll()
+      .where("probe_run_id", "=", runs[0]!.id).execute();
+    expect(items.length).toBeGreaterThan(0);
   });
 
   it("相同幂等键不重复创建；第二资源复用统一模型只增加路由", async () => {

@@ -120,15 +120,49 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     }
     const capSet = provider.capability_set as Record<string, unknown> | null;
     const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+    // P2：cacheKey/singleflight 口径 = enterprise + provider + mode +
+    // credential fingerprint + endpoint scope/host。同企业、同厂商、同模式、
+    // 同凭证、同端点的并发/60s 内重复检测共享同一次发现与探针飞行，
+    // 不重复打上游；Key、模式化端点或端点归属任一变化即产生新飞行。
+    const fingerprint = credentialFingerprint(parsed.data.credential_plaintext);
+    const endpoint = resolveProviderEndpoint({
+      providerCode: provider.code,
+      resourceMode: parsed.data.mode,
+      operation: "MODEL_PERMISSION_PROBE",
+      configuredEndpoints: { base_url: baseUrl ?? null },
+      env: process.env,
+    });
+    const endpointScope = endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS";
+    const endpointHost = endpoint.ok ? endpoint.host : (endpoint.host ?? "unresolved");
+    const cacheKey = [
+      req.admin!.enterpriseId, provider.id, parsed.data.mode,
+      fingerprint, endpointScope, endpointHost,
+    ].join(":");
     try {
-      return publicDiscovery(await discoverProviderModels({
+      const discovery = await discoverProviderModels({
         providerCode: provider.code,
         mode: parsed.data.mode,
         credential: parsed.data.credential_plaintext,
         baseUrl,
+        cacheKey,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
         probePermissions: true,
-      }));
+      });
+      // P2：ad-hoc 检测同样落探针证据（未绑定资源 → provider_resource_id=null）。
+      // reused 结果 discoveredAt 相同 → 同一 idempotency_key 幂等去重；
+      // 落库内容仅指纹/scope/host/状态/HTTP/错误码/诊断哈希，无 Key、
+      // Authorization、Prompt 或原始错误正文。
+      await persistProbeRun(app, {
+        enterpriseId: req.admin!.enterpriseId,
+        providerId: provider.id,
+        providerResourceId: null,
+        providerCode: provider.code,
+        mode: parsed.data.mode,
+        capabilitySet: capSet,
+        credential: parsed.data.credential_plaintext,
+        discovery,
+      });
+      return publicDiscovery(discovery);
     } catch (cause) {
       return sendDiscoveryError(reply, cause);
     }
