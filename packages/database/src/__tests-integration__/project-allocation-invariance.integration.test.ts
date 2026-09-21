@@ -16,7 +16,6 @@ import {
   OperatingBillRepository, OperatingBillAccountRepository,
   loadOperatingDepartmentAccounts,
   getStandardHomeSummary,
-  UsageOverviewRepository,
 } from "../index.js";
 import { loadMonthlyOperatingCosts } from "../repositories/monthly-operating-cost.js";
 import { operatingBillMonthRange } from "../repositories/operating-bill-month.js";
