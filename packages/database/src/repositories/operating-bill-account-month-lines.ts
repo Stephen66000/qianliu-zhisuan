@@ -75,6 +75,13 @@ export function liveLineFactCtes(
        GROUP BY ll.provider_resource_id
     ), line_facts AS (
       SELECT ll.ai_request_id AS request_id,
+             ll.id AS ledger_line_id,
+             ll.upstream_attempt_id,
+             ar.started_at AS request_started_at,
+             ll.provider_resource_id AS provider_resource_id,
+             CASE WHEN source.type = 'EMPLOYEE' THEN assignment.project_principal_id END AS manual_project_id,
+             ll.account_at AS accounted_at,
+             ll.api_cost_currency,
              source.id AS source_principal_id, source.name AS source_principal_name,
              source.type AS source_principal_type,
              project.id AS project_id, project.name AS project_name,

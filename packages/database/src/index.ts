@@ -428,3 +428,9 @@ export {
   lockEmployeeAllocationScope, lockProjectAccountingScope, allocationInputHash,
   type AllocationDb, type AllocationPrincipalType, type ActiveMembershipRevision,
 } from "./repositories/project-allocation-common.js";
+export {
+  loadAllocationSourceLines, loadAllocationContexts, enableProjectAllocation,
+  enqueueAllocationRun, claimNextAllocationRun, executeAllocationRun, runDueAllocationRuns,
+  ALLOCATION_SCHEMA_VERSION, ALLOCATION_ALGORITHM_VERSION,
+  type EnableAllocationInput, type EnqueueRunResult, type ExecuteRunResult,
+} from "./repositories/project-allocation-run-repository.js";

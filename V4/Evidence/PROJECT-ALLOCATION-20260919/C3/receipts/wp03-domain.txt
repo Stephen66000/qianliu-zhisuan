@@ -1,0 +1,22 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-project-allocation-v12-20260921/packages/domain
+
+ ✓ src/__tests__/project-allocation.test.ts (10 tests) 19ms
+ ✓ src/__tests__/api-multiplier.test.ts (11 tests) 21ms
+ ✓ src/__tests__/resource-lifecycle.test.ts (30 tests) 10ms
+ ✓ src/__tests__/runtime-assurance.test.ts (9 tests) 19ms
+ ✓ src/__tests__/routing-policy.test.ts (11 tests) 20ms
+ ✓ src/__tests__/billing-rule.test.ts (31 tests) 28ms
+ ✓ src/__tests__/dispatch-policy.test.ts (38 tests) 24ms
+ ✓ src/__tests__/project-allocation-policy.test.ts (13 tests) 9ms
+ ✓ src/__tests__/client-identity.test.ts (10 tests) 8ms
+ ✓ src/__tests__/reconciliation.test.ts (10 tests) 3ms
+ ✓ src/__tests__/supply-forecast.test.ts (14 tests) 5ms
+ ✓ src/__tests__/quota-gate.test.ts (11 tests) 6ms
+ ✓ src/__tests__/domain.test.ts (5 tests) 7ms
+
+ Test Files  13 passed (13)
+      Tests  203 passed (203)
+   Start at  13:03:53
+   Duration  1.19s (transform 473ms, setup 0ms, collect 1.62s, tests 180ms, environment 1ms, prepare 1.95s)
+
