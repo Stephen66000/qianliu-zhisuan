@@ -14,6 +14,7 @@
  */
 import { createHash } from "node:crypto";
 import { capabilityConfiguredEndpoints, resolveProviderEndpoint } from "@qianliu/provider-adapters";
+import type { ProbeRunEndpointScope } from "@qianliu/database";
 
 /** 证据新鲜期：超过该时长的 run 不再作为 READY 依据（每次 sync 会生成新 run）。 */
 export const MODEL_PROBE_EVIDENCE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -71,6 +72,30 @@ export function probeRequestHash(input: {
 }
 
 /**
+ * F-P2-13：探针端点身份唯一实现——解析失败时的兜底公式（歧义 scope +
+ * unresolved/歧义 host）历史上在 probe-evidence/routes/persistProbeRun
+ * 三处复制粘贴，漂移即静默击穿身份门禁，收敛于此，禁止再复制。
+ */
+export function probeEndpointIdentity(input: {
+  providerCode: string;
+  mode: "API" | "CODING_PLAN";
+  capabilitySet: unknown;
+  env?: NodeJS.ProcessEnv;
+}): { endpointScope: ProbeRunEndpointScope; endpointHost: string } {
+  const endpoint = resolveProviderEndpoint({
+    providerCode: input.providerCode,
+    resourceMode: input.mode,
+    operation: "MODEL_PERMISSION_PROBE",
+    configuredEndpoints: capabilityConfiguredEndpoints(input.capabilitySet),
+    env: input.env ?? process.env,
+  });
+  return {
+    endpointScope: endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS",
+    endpointHost: endpoint.ok ? endpoint.host : (endpoint.host ?? "unresolved"),
+  };
+}
+
+/**
  * 校验最近一次探针 run 是否仍可代表当前资源与当前成功发现。
  * 返回 valid=false 时 reason 给出第一个不匹配的维度（诊断用）。
  */
@@ -88,16 +113,12 @@ export function evaluateProbeEvidenceIdentity(
     return { valid: false, reason: "CREDENTIAL_FINGERPRINT_MISMATCH" };
   }
   // 2. 解析端点 scope/host（与 persistProbeRun 同一 operation/策略）。
-  const endpoint = resolveProviderEndpoint({
+  const identity = probeEndpointIdentity({
     providerCode: input.providerCode,
-    resourceMode: input.mode,
-    operation: "MODEL_PERMISSION_PROBE",
-    configuredEndpoints: capabilityConfiguredEndpoints(input.capabilitySet),
-    env: process.env,
+    mode: input.mode,
+    capabilitySet: input.capabilitySet,
   });
-  const endpointScope = endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS";
-  const endpointHost = endpoint.ok ? endpoint.host : (endpoint.host ?? "unresolved");
-  if (endpointScope !== run.endpoint_scope || endpointHost !== run.endpoint_host) {
+  if (identity.endpointScope !== run.endpoint_scope || identity.endpointHost !== run.endpoint_host) {
     return { valid: false, reason: "ENDPOINT_MISMATCH" };
   }
   // 3. 官方目录内容哈希。
@@ -109,8 +130,8 @@ export function evaluateProbeEvidenceIdentity(
     providerCode: input.providerCode,
     mode: input.mode,
     credentialFingerprint: input.credentialFingerprint ?? "",
-    endpointScope,
-    endpointHost,
+    endpointScope: identity.endpointScope,
+    endpointHost: identity.endpointHost,
     discoverySourceHash: input.discoverySourceHash,
     modelIds: input.modelIds,
   });
@@ -134,7 +155,12 @@ export function currentAvailableModelIds(
 }
 
 interface OverlayProbeRun {
-  run: { finished_at: Date | string | null; started_at: Date | string };
+  run: {
+    finished_at: Date | string | null;
+    started_at: Date | string;
+    endpoint_scope: string;
+    endpoint_host: string;
+  };
   items: ReadonlyArray<{
     upstream_model: string;
     validation_status: string;
@@ -148,6 +174,7 @@ interface OverlayProbeRun {
 /**
  * GET /models 的证据回填：身份有效时把 run 的脱敏模型级证据叠加到
  * 公开快照上（仅 READY 可选），并重算 credential_ready/failed 汇总。
+ * F-P2-4：证据携带 run 冻结的端点 scope/host，回答"请求打到哪个 host"。
  * 返回 CURRENT 证据状态对象；无效身份由调用方走 STALE 分支。
  */
 export function applyProbeEvidenceOverlay(
@@ -169,6 +196,8 @@ export function applyProbeEvidenceOverlay(
         error_code: item.error_code,
         retryable: item.retryable,
         checked_at: new Date(item.checked_at ?? probeRun.run.finished_at ?? probeRun.run.started_at).toISOString(),
+        endpoint_scope: probeRun.run.endpoint_scope,
+        endpoint_host: probeRun.run.endpoint_host,
       },
       selectable: item.validation_status === "READY",
     };
@@ -176,8 +205,10 @@ export function applyProbeEvidenceOverlay(
   publicResult.summary = {
     ...publicResult.summary,
     credential_ready: publicResult.models.filter((model) => (model.credential_validation as { status: string } | null)?.status === "READY").length,
+    // F-P2-10：NOT_RUN（探针上限外未探针）不是失败，不计入 credential_failed。
     credential_failed: publicResult.models.filter((model) => model.credential_validation !== null
-      && (model.credential_validation as { status: string } | null)?.status !== "READY").length,
+      && (model.credential_validation as { status: string } | null)?.status !== "READY"
+      && (model.credential_validation as { status: string } | null)?.status !== "NOT_RUN").length,
   };
   return { status: "CURRENT" };
 }

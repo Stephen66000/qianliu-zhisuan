@@ -129,6 +129,7 @@ export {
   type DeleteResourceSafelyResult,
 } from "./repositories/provider-repository.js";
 export { type ModelProbeRunInput } from "./repositories/provider-model-discovery-repository.js";
+export { type ProbeRunEndpointScope } from "./kysely-operations-tables.js";
 export {
   DEFAULT_RESET_TIMEZONE,
   calculateQuotaPeriod,

@@ -10,16 +10,12 @@ import {
   type FetchedDocument,
 } from "./model-discovery-parser.js";
 import { findKnownProvider, resolveProviderModelsUrl } from "./known-providers.js";
+import { resolveProviderEndpoint } from "./endpoint-policy.js";
 import { probeModelPermissions } from "./model-discovery-probe.js";
 import type { HttpFetch } from "./openai-compatible-types.js";
 import { canonicalProviderCode } from "./provider-code.js";
 
 export * from "./model-discovery-contract.js";
-
-const ENDPOINTS: Record<"deepseek" | "kimi", string> = {
-  deepseek: "https://api.deepseek.com/models",
-  kimi: "https://api.moonshot.cn/v1/models",
-};
 
 const PARSER_VERSIONS = {
   zhipu: "zhipu-docs-v1",
@@ -67,6 +63,19 @@ const KIMI_CODING_PLAN_CATALOG = ["k3", "k3-256k", "kimi-for-coding", "kimi-for-
 
 const resultCache = new Map<string, { expiresAt: number; result: ModelDiscoveryResult }>();
 const inFlight = new Map<string, Promise<ModelDiscoveryResult>>();
+
+// F-P2-11：cacheKey 含凭证指纹（高基数），无淘汰机制时每次换 Key 永久新增
+// 缓存项，长跑内存单调增长。两表均做 FIFO 淘汰（TTL 60s 内 200 项远超
+// 并发检测需求，命中语义不受影响）。
+const MAX_CACHE_ENTRIES = 200;
+
+function evictOldest(map: Map<string, unknown>): void {
+  while (map.size >= MAX_CACHE_ENTRIES) {
+    const oldest = map.keys().next();
+    if (oldest.done) break;
+    map.delete(oldest.value);
+  }
+}
 
 export function clearProviderModelDiscoveryCache(): void {
   resultCache.clear();
@@ -130,7 +139,12 @@ export function officialSourceConfig(
   const defaults = (p === "zhipu" || p === "kimi")
     ? DEFAULT_OFFICIAL_SOURCES[p as "zhipu" | "kimi"][mode]
     : undefined;
-  if (!defaults) return { coreUrl: ENDPOINTS[p as "deepseek" | "kimi"] ?? resolveProviderModelsUrl(p) };
+  if (!defaults) {
+    // F-P2-5：无官方文档来源的厂商（如 DeepSeek）同样经端点策略取发现地址，
+    // 与 PROVIDER_API 链路口径一致；策略无法解析时保留既有猜测兜底。
+    const viaPolicy = resolveProviderModelsEndpoint({ providerCode: p, mode, env });
+    return { coreUrl: viaPolicy.ok ? viaPolicy.url : resolveProviderModelsUrl(p) };
+  }
   const envPrefix = p === "zhipu"
     ? `QIANLIU_ZHIPU_${mode === "CODING_PLAN" ? "CODING_PLAN" : "API"}`
     : "QIANLIU_KIMI_CODING_PLAN";
@@ -171,9 +185,11 @@ export async function discoverProviderModels(input: {
   }
   const work = discoverProviderModelsUncached(input);
   if (!cacheKey) return work;
+  evictOldest(inFlight);
   inFlight.set(cacheKey, work);
   try {
     const result = await work;
+    evictOldest(resultCache);
     resultCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, result });
     return result;
   } finally {
@@ -181,7 +197,32 @@ export async function discoverProviderModels(input: {
   }
 }
 
-async function discoverProviderModelsUncached(input: {
+/**
+ * F-P2-5：模型发现来源 URL 统一经端点策略（MODEL_DISCOVERY_SOURCE）解析，
+ * 不再各处手拼 legacy baseUrl——发现链路与探针/验证/恢复/Gateway 口径一致，
+ * 策略枚举的 MODEL_DISCOVERY_SOURCE operation 自此有真实消费者。
+ */
+export function resolveProviderModelsEndpoint(input: {
+  providerCode: string;
+  mode: ResourceMode;
+  baseUrl?: string;
+  endpoints?: Partial<Record<ResourceMode, string>>;
+  env?: NodeJS.ProcessEnv;
+}): { ok: true; url: string; scope: string; host: string } | { ok: false } {
+  const resolved = resolveProviderEndpoint({
+    providerCode: input.providerCode,
+    resourceMode: input.mode,
+    operation: "MODEL_DISCOVERY_SOURCE",
+    configuredEndpoints: { base_url: input.baseUrl ?? null, endpoints: input.endpoints ?? null },
+    env: input.env,
+  });
+  if (!resolved.ok) return { ok: false };
+  const trimmed = resolved.url.trim().replace(/\/+$/, "");
+  const url = trimmed.endsWith("/models") ? trimmed : `${trimmed}/models`;
+  return { ok: true, url, scope: resolved.scope, host: resolved.host };
+}
+
+async function discoverProviderModelsUncached(rawInput: {
   providerCode: ProviderCode;
   mode: ResourceMode;
   credential: string;
@@ -194,9 +235,11 @@ async function discoverProviderModelsUncached(input: {
   env?: NodeJS.ProcessEnv;
   probePermissions?: boolean;
 }): Promise<ModelDiscoveryResult> {
+  // P3：规范化产出新对象，不再改写调用方入参（历史直接 input.providerCode=
+  // 赋值会突变调用方对象）。
+  const input = { ...rawInput, providerCode: canonicalProviderCode(rawInput.providerCode) };
   const now = input.now ?? new Date();
   // WP02：所有下游（Parser/Descriptor/探针/端点策略）只接收 canonical code。
-  input.providerCode = canonicalProviderCode(input.providerCode);
   const fetcher = input.fetch ?? (globalThis.fetch as unknown as DiscoveryFetch);
   const descriptor = providerModelDiscoveryDescriptor(input.providerCode, input.mode);
   let result: ModelDiscoveryResult;
@@ -221,11 +264,24 @@ async function discoverProviderModelsUncached(input: {
 }
 
 async function discoverFromProviderApi(
-  input: { providerCode: ProviderCode; mode: ResourceMode; credential: string; timeoutMs?: number; baseUrl?: string },
+  input: {
+    providerCode: ProviderCode; mode: ResourceMode; credential: string; timeoutMs?: number;
+    baseUrl?: string; endpoints?: Partial<Record<ResourceMode, string>>; env?: NodeJS.ProcessEnv;
+  },
   fetcher: DiscoveryFetch,
   now: Date,
 ): Promise<ModelDiscoveryResult> {
-  const sourceUrl = resolveProviderModelsUrl(input.providerCode, input.baseUrl);
+  // F-P2-5：发现来源 URL 经端点策略解析（MODEL_DISCOVERY_SOURCE），不再直接
+  // 消费 legacy baseUrl 拼 /models；策略判歧义时失败关闭。
+  const modelsEndpoint = resolveProviderModelsEndpoint({
+    providerCode: input.providerCode, mode: input.mode,
+    baseUrl: input.baseUrl, endpoints: input.endpoints, env: input.env,
+  });
+  if (!modelsEndpoint.ok) {
+    throw new ProviderModelDiscoveryError("OFFICIAL_SOURCE_AMBIGUOUS",
+      "模型发现端点归属歧义，请在 capability 中配置模式专属地址");
+  }
+  const sourceUrl = modelsEndpoint.url;
   const response = await fetchWithTimeout(fetcher, sourceUrl, {
     authorization: `Bearer ${input.credential}`,
     accept: "application/json",
@@ -417,7 +473,7 @@ function assertOfficialUrl(providerCode: ProviderCode, rawUrl: string): void {
   } catch {
     throw new ProviderModelDiscoveryError("OFFICIAL_SOURCE_UNAVAILABLE", "官方来源 URL 无效");
   }
-  const p = (providerCode || "").toLowerCase() as keyof typeof OFFICIAL_HOSTS;
+  const p = canonicalProviderCode(providerCode) as keyof typeof OFFICIAL_HOSTS;
   const allowed = OFFICIAL_HOSTS[p];
   if (parsed.protocol !== "https:" || !allowed?.has(parsed.hostname)) {
     throw new ProviderModelDiscoveryError("OFFICIAL_SOURCE_UNAVAILABLE", "官方来源 URL 不在厂商 HTTPS 白名单内");

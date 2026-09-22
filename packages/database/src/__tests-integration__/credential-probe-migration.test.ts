@@ -36,7 +36,8 @@ it("0073 backfills only correlated historical Chat failures and preserves probe 
       credential_version: 1, credential_digest: "a".repeat(64), config_hash: "b".repeat(64), status: "FAILED",
       http_status: 401, error_code: "HTTP_401", evidence: null, usage: null, finished_at: new Date(),
       expires_at: new Date(), retry_at: new Date() }).execute();
-    // 0074-0077 为其后新增且可回滚（本用例无探针 run 行），逐层回滚后触发 0073 门禁。
+    // 0074-0078 为其后新增且可回滚（本用例无探针 run 行），逐层回滚后触发 0073 门禁。
+    await expect(migrateDown(db)).resolves.toBe("0078_provider_model_probe_enum_checks");
     await expect(migrateDown(db)).resolves.toBe("0077_provider_model_probe_run_identity");
     await expect(migrateDown(db)).resolves.toBe("0076_provider_model_probe");
     await expect(migrateDown(db)).resolves.toBe("0075_provider_resource_archive");

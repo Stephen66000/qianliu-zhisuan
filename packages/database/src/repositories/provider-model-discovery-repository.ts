@@ -1,6 +1,6 @@
 import { sql, type Selectable } from "kysely";
 import type { ModelDiscoveryResult, DiscoveredProviderModel } from "@qianliu/provider-adapters";
-import type { ProviderModelValidationTable } from "../kysely-operations-tables.js";
+import type { ProviderModelValidationTable, ProbeRunEndpointScope } from "../kysely-operations-tables.js";
 import { ProviderOperatingRepository } from "./provider-operating-repository.js";
 import {
   EnterpriseReferenceError,
@@ -19,7 +19,7 @@ export interface ModelProbeRunInput {
   providerCode: string;
   resourceMode: "API" | "CODING_PLAN";
   credentialFingerprint: string;
-  endpointScope: string;
+  endpointScope: ProbeRunEndpointScope;
   endpointHost: string;
   discoverySource?: string | null;
   discoverySourceHash?: string | null;
@@ -122,7 +122,9 @@ export abstract class ProviderModelDiscoveryRepository extends ProviderOperating
       .selectAll()
       .where("enterprise_id", "=", enterpriseId)
       .where("provider_resource_id", "=", resourceId)
+      // P3：id 决胜——同毫秒 started_at 并列时取后写入的 run，排序确定。
       .orderBy("started_at", "desc")
+      .orderBy("id", "desc")
       .executeTakeFirst();
     if (!run) return null;
     const items = await this.db.selectFrom("provider_model_probe_item")

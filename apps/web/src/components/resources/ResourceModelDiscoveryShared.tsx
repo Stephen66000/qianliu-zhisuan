@@ -65,6 +65,11 @@ export function modelStatusLine(model: DiscoveredModelItem): { text: string; ton
   }
   const validation = model.credential_validation;
   if (validation) {
+    // F-P2-10：NOT_RUN=探针上限外未探针，中性提示而非"不可用"红字——
+    // 从未探针的健康模型不再被标注为失败。
+    if (validation.status === "NOT_RUN") {
+      return { text: "未参与本轮探针（超出探针上限），确认接入前请重新检测或单独验证", tone: "warn" };
+    }
     const http = validation.http_status !== null ? ` · HTTP ${validation.http_status}` : "";
     const suffix = validation.retryable ? "（可重试）" : "";
     if (validation.status === "READY") {

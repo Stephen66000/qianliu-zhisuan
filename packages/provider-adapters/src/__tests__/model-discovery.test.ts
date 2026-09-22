@@ -29,6 +29,7 @@ describe("W-MD 官方来源模型发现", () => {
     const fetch = vi.fn(async () => apiResponse({ data: [{ id: "deepseek-v4-pro" }, { id: "embedding-3" }] }));
     const result = await discoverProviderModels({
       providerCode: "deepseek", mode: "API", credential: "secret", fetch,
+      env: {},
       now: new Date("2026-08-25T00:00:00.000Z"),
     });
     expect(fetch).toHaveBeenCalledWith("https://api.deepseek.com/models", expect.objectContaining({
@@ -51,6 +52,7 @@ describe("W-MD 官方来源模型发现", () => {
     ] }));
     const result = await discoverProviderModels({
       providerCode: "Qwen", mode: "API", credential: "qwen-secret", fetch,
+      env: {},
       now: new Date("2026-08-25T00:00:00.000Z"),
     });
     expect(fetch).toHaveBeenCalledWith("https://dashscope.aliyuncs.com/compatible-mode/v1/models", expect.objectContaining({
@@ -67,6 +69,7 @@ describe("W-MD 官方来源模型发现", () => {
       providerCode: "MyCustom", mode: "API", credential: "custom-secret",
       baseUrl: "https://my-gateway.internal/v1",
       fetch,
+      env: {},
       now: new Date("2026-08-25T00:00:00.000Z"),
     });
     expect(fetch).toHaveBeenCalledWith("https://my-gateway.internal/v1/models", expect.objectContaining({
@@ -165,6 +168,7 @@ describe("W-MD 官方来源模型发现", () => {
     const result = await discoverProviderModels({
       providerCode: "kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as unknown as DiscoveryFetch,
       officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      env: {},
       probePermissions: true,
     });
     const k3 = result.models.find((m) => m.id === "k3");
@@ -201,6 +205,7 @@ describe("W-MD 官方来源模型发现", () => {
     await discoverProviderModels({
       providerCode: "Kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as unknown as DiscoveryFetch,
       officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      env: {},
       probePermissions: true,
     });
     expect(bodies.length).toBe(2);
@@ -233,6 +238,7 @@ describe("W-MD 官方来源模型发现", () => {
     const result = await discoverProviderModels({
       providerCode: "kimi", mode: "CODING_PLAN", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
       officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      env: {},
       probePermissions: true,
     });
     const k3 = result.models.find((m) => m.id === "k3")!;
@@ -249,6 +255,7 @@ describe("W-MD 官方来源模型发现", () => {
     const result = await discoverProviderModels({
       providerCode: "kimi", mode: "CODING_PLAN", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
       officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      env: {},
       probePermissions: true,
     });
     for (const model of result.models) {
@@ -275,6 +282,7 @@ describe("W-MD 官方来源模型发现", () => {
     const result = await discoverProviderModels({
       providerCode: "kimi", mode: "CODING_PLAN", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
       officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      env: {},
       probePermissions: true,
     });
     expect(result.models.find((m) => m.id === "k3-256k")?.credentialValidation)
@@ -302,6 +310,7 @@ describe("W-MD 官方来源模型发现", () => {
       providerCode: "Kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as unknown as DiscoveryFetch,
       baseUrl: "https://api.moonshot.cn/v1",
       officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      env: {},
       probePermissions: true,
     });
     expect(postedUrls.length).toBeGreaterThan(0);
@@ -334,6 +343,7 @@ describe("W-MD 官方来源模型发现", () => {
   ])("List Models HTTP $status 稳定映射为 $code", async ({ status, code }) => {
     await expect(discoverProviderModels({
       providerCode: "deepseek", mode: "API", credential: "secret",
+      env: {},
       fetch: async () => ({ ok: false, status, json: async () => ({ raw: "must-not-leak" }) }),
     })).rejects.toEqual(expect.objectContaining<Partial<ProviderModelDiscoveryError>>({ code }));
   });
@@ -360,5 +370,129 @@ describe("W-MD 官方来源模型发现", () => {
     const fallback = builtinProviderModelDiscovery({ providerCode: "zhipu", mode: "CODING_PLAN" });
     expect(fallback).toMatchObject({ source: "BUILTIN_FALLBACK", stale: true });
     expect(fallback?.models.map((model) => model.id)).toContain("glm-5.2");
+  });
+
+  it("真实并发 singleflight：在飞 Promise 未完成前并发调用共享同一飞行，只发一轮上游请求", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const fetch = vi.fn(async (_url: string) => {
+      await gate;
+      return apiResponse({ data: [{ id: "deepseek-chat" }] });
+    });
+    const both = Promise.all([
+      discoverProviderModels({ providerCode: "deepseek", mode: "API", credential: "secret", fetch, env: {}, cacheKey: "concurrency:test" }),
+      discoverProviderModels({ providerCode: "deepseek", mode: "API", credential: "secret", fetch, env: {}, cacheKey: "concurrency:test" }),
+    ]);
+    // 两个调用都已挂到同一在飞 Promise 后再放行闸门（先 await 会死锁）。
+    const timer = setTimeout(() => release(), 5);
+    const [first, second] = await both;
+    clearTimeout(timer);
+    expect(fetch.mock.calls.filter(([url]) => url === "https://api.deepseek.com/models")).toHaveLength(1);
+    expect(first.reused).toBe(false);
+    expect(second.reused).toBe(true);
+  });
+
+  it("F-P2-10：探针上限外的健康模型产出 NOT_RUN 证据而非 null", async () => {
+    const fetch = vi.fn(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "POST") {
+        return {
+          ok: true, status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            id: "chat-1", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        };
+      }
+      return apiResponse({
+        data: [
+          { id: "deepseek-a" }, { id: "deepseek-b" }, { id: "deepseek-c" },
+          { id: "deepseek-d" }, { id: "deepseek-e" }, { id: "deepseek-f" }, { id: "deepseek-g" },
+        ],
+      });
+    });
+    const result = await discoverProviderModels({
+      providerCode: "deepseek", mode: "API", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
+      env: {},
+      probePermissions: true,
+    });
+    const validation = (id: string) => result.models.find((m) => m.id === id)?.credentialValidation;
+    expect(validation("deepseek-a")).toMatchObject({ status: "READY" });
+    expect(validation("deepseek-e")).toMatchObject({ status: "READY" });
+    expect(validation("deepseek-f")).toMatchObject({
+      status: "NOT_RUN", httpStatus: null, errorCode: "MODEL_PROBE_NOT_RUN",
+    });
+    expect(validation("deepseek-g")).toMatchObject({ status: "NOT_RUN" });
+    // POST 探针只发上限内模型。
+    expect(fetch.mock.calls.filter(([, init]) => (init as { method?: string } | undefined)?.method === "POST")).toHaveLength(5);
+  });
+
+  it("F-P2-5：发现来源 URL 经端点策略解析（Moonshot base_url 在 API 模式被采用，Discovery 请求带 /models）", async () => {
+    const fetch = vi.fn(async () => apiResponse({ data: [{ id: "kimi-latest" }] }));
+    await discoverProviderModels({
+      providerCode: "kimi", mode: "API", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
+      baseUrl: "https://api.moonshot.cn/v1",
+      env: {},
+    });
+    expect(fetch).toHaveBeenCalledWith("https://api.moonshot.cn/v1/models", expect.objectContaining({
+      headers: expect.objectContaining({ authorization: "Bearer secret" }),
+    }));
+  });
+
+  it("F-P2-5：Kimi API 模式下未知自定义 base_url 的 List Models 请求仍按 API 模式解释（待裁决口径，显式钉住）", async () => {
+    const fetch = vi.fn(async () => apiResponse({ data: [{ id: "any" }] }));
+    await discoverProviderModels({
+      providerCode: "kimi", mode: "API", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
+      baseUrl: "https://gateway.corp.example/v1",
+      env: {},
+    });
+    expect(fetch).toHaveBeenCalledWith("https://gateway.corp.example/v1/models", expect.anything());
+  });
+
+  it("探针 HTTP 404/超时（504 与 upstream_timeout）映射", async () => {
+    const fetch = vi.fn(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "POST") {
+        return {
+          ok: false, status: 404,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ error: { code: "model_not_found", message: "must-not-leak" } }),
+        };
+      }
+      return docResponse("Model ID | `k3`\n上下文窗口 | 1M", url);
+    });
+    const result = await discoverProviderModels({
+      providerCode: "kimi", mode: "CODING_PLAN", credential: "secret", fetch: fetch as unknown as DiscoveryFetch,
+      officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      env: {},
+      probePermissions: true,
+    });
+    expect(result.models.find((m) => m.id === "k3")?.credentialValidation)
+      .toMatchObject({ status: "REQUEST_REJECTED", httpStatus: 404, retryable: false });
+  });
+
+  it("F-P2-4：探针证据携带解析端点 scope/host", async () => {
+    const fetch = vi.fn(async (url: string, init?: { method?: string }) => {
+      if (init?.method === "POST") {
+        return {
+          ok: true, status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            id: "chat-1", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        };
+      }
+      return docResponse("Model ID | `k3`\n上下文窗口 | 1M", url);
+    });
+    const result = await discoverProviderModels({
+      providerCode: "Kimi", mode: "CODING_PLAN", credential: "coding-plan-secret", fetch: fetch as unknown as DiscoveryFetch,
+      officialSourceOverrides: { "kimi:CODING_PLAN": { coreUrl: "https://www.kimi.com/test", supplementalUrls: [] } },
+      env: {},
+      probePermissions: true,
+    });
+    expect(result.models.find((m) => m.id === "k3")?.credentialValidation)
+      .toMatchObject({ status: "READY", endpointScope: "MODE_DEFAULT", endpointHost: "api.kimi.com" });
   });
 });

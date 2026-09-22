@@ -34,7 +34,8 @@ type ProviderCode = AdapterResource["providerCode"];
 
 /** Shared endpoint selection for business calls and credential probes. */
 export function providerChatBaseUrl(provider: ProviderCode, env: NodeJS.ProcessEnv = process.env): string {
-  const p = String(provider).toLowerCase();
+  // P3：函数内规范化，调用方不再需要自行 toLowerCase。
+  const p = canonicalProviderCode(provider);
   const envKey = BASE_URL_ENV[p];
   return (envKey ? env[envKey] : undefined) ?? DEFAULT_BASE_URL[p] ?? env[`${String(provider).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_BASE_URL`] ?? "";
 }
@@ -263,7 +264,8 @@ export function resolveProviderSecret(input: {
   }
 
   const env = input.env ?? process.env;
-  const p = String(input.providerCode).toLowerCase();
+  // P3：canonical code 命中 SECRET_ENV，禁止零散 toLowerCase。
+  const p = canonicalProviderCode(input.providerCode);
   const secretKey = SECRET_ENV[p];
   return new SecretValue((secretKey ? env[secretKey] : undefined) ?? env[`${String(input.providerCode).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`] ?? "");
 }

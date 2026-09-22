@@ -10,6 +10,7 @@ import {
   PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
   ProviderFinanceError,
 } from "./provider-finance-types.js";
+import { canonicalProviderCode } from "@qianliu/provider-adapters";
 
 export async function resolveLegacyApiCostGap(
   db: Kysely<Database>,
@@ -50,7 +51,7 @@ export async function resolveLegacyApiCostGap(
       .where("provider_resource.id", "=", input.resourceId)
       .where("provider_resource.status", "<>", "DELETED").forUpdate().executeTakeFirst();
     if (!resource) throw new ProviderFinanceError("NOT_FOUND", "厂商资源不存在");
-    if (resource.mode !== "API" || resource.provider_code.toLowerCase() !== "deepseek") {
+    if (resource.mode !== "API" || canonicalProviderCode(resource.provider_code) !== "deepseek") {
       throw new ProviderFinanceError("INVALID_MODE", "历史动态费用封口只允许DeepSeek API资源");
     }
     const prior = await trx.selectFrom("provider_finance_idempotency")

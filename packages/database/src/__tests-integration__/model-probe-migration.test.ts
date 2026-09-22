@@ -109,7 +109,9 @@ describe("0076 provider_model_probe 迁移与探针证据", () => {
       }
 
       // 有证据后拒绝回滚（与 0073 同样的防丢证据门禁）。
-      // 0077（run 身份唯一约束）为最新迁移且可回滚，先回滚一层再触发 0076 门禁。
+      // 0078（枚举 CHECK，纯加法）与 0077（run 身份唯一约束）均可回滚，
+      // 依次回滚两层后再触发 0076 门禁。
+      await expect(migrateDown(db)).resolves.toBe("0078_provider_model_probe_enum_checks");
       await expect(migrateDown(db)).resolves.toBe("0077_provider_model_probe_run_identity");
       await expect(migrateDown(db)).rejects.toThrow("0076 contains probe evidence");
     } finally { await db.destroy(); await pg.stop(); }

@@ -199,14 +199,17 @@ export interface PublicCredentialValidation {
   error_code: string | null;
   retryable: boolean;
   checked_at: string;
+  /** F-P2-4：探针请求实际命中的解析端点（scope/host），可回答"打到哪个 host"。 */
+  endpoint_scope?: string | null;
+  endpoint_host?: string | null;
 }
 
 function toPublicModel(model: DiscoveredProviderModel) {
   const validation = model.credentialValidation ?? null;
   // P1 整改：READY 是唯一可用口径。selectable 与废弃兼容字段 compatible
   // 都严格等价于 credentialValidation.status === "READY"；
-  // 未探针（credential_validation=null，含探针上限 5 之外的 CHAT、
-  // EMBEDDING/IMAGE）一律不可选，杜绝 compatible=true 但无证据的模型被确认。
+  // 未探针（credential_validation=null，含 EMBEDDING/IMAGE）与 NOT_RUN
+  // （探针上限外）一律不可选，杜绝无 READY 证据的模型被确认。
   const ready = validation?.status === "READY";
   return {
     id: model.id,
@@ -225,6 +228,8 @@ function toPublicModel(model: DiscoveredProviderModel) {
       error_code: validation.errorCode,
       retryable: validation.retryable,
       checked_at: validation.checkedAt,
+      endpoint_scope: validation.endpointScope ?? null,
+      endpoint_host: validation.endpointHost ?? null,
     } satisfies PublicCredentialValidation : null,
     selectable: ready,
   };
@@ -236,7 +241,10 @@ export function discoverySummary(models: Array<{ modelType: string; compatible: 
     discovered: models.length,
     gateway_supported: models.filter((model) => model.modelType === "CHAT").length,
     credential_ready: models.filter((model) => model.credential_validation?.status === "READY").length,
-    credential_failed: models.filter((model) => model.credential_validation !== null && model.credential_validation.status !== "READY").length,
+    // F-P2-10：NOT_RUN（探针上限外未探针）不是失败，不计入 credential_failed。
+    credential_failed: models.filter((model) => model.credential_validation !== null
+      && model.credential_validation.status !== "READY"
+      && model.credential_validation.status !== "NOT_RUN").length,
   };
 }
 

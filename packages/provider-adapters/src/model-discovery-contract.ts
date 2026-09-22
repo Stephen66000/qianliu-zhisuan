@@ -24,6 +24,9 @@ export interface CredentialValidationEvidence {
   errorCode: string | null;
   retryable: boolean;
   checkedAt: string;
+  /** F-P2-4：探针请求实际命中的解析端点（scope/host），回答"请求打到哪个 host"。 */
+  endpointScope?: string | null;
+  endpointHost?: string | null;
 }
 export interface DiscoveredProviderModel {
   id: string; displayName: string; modelType: "CHAT" | "EMBEDDING" | "IMAGE" | "UNKNOWN";

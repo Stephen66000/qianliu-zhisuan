@@ -10,6 +10,7 @@
  */
 import type { ProviderCode, ResourceMode } from "./model-discovery.js";
 import { canonicalProviderCode } from "./provider-code.js";
+import { resolveProviderEndpoint } from "./endpoint-policy.js";
 
 /** 窗口类型。 */
 export type QuotaWindowType = "FIVE_HOUR" | "WEEKLY";
@@ -53,10 +54,8 @@ export type QuotaFetch = (
   init: { method: "GET"; headers: Record<string, string>; signal: AbortSignal },
 ) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
-/** Kimi Code 额度接口（官方 CLI 使用）。 */
-const KIMI_USAGES_ENDPOINT = "https://api.kimi.com/coding/v1/usages";
-/** 智谱 Coding Plan 5 小时额度接口（官方 glm-plan-usage 插件使用）。 */
-const ZHIPU_QUOTA_LIMIT_ENDPOINT = "https://open.bigmodel.cn/api/monitor/usage/quota/limit";
+// F-P2-6：额度端点唯一来源为 endpoint-policy 的 CODING_PLAN_QUOTA 分支
+//（KIMI/ZHIPU_CODING_PLAN_QUOTA_URL 常量），本文件不再维护硬编码副本。
 
 export const CODING_PLAN_QUOTA_ADAPTER_VERSION = "pool032-v1";
 
@@ -77,10 +76,21 @@ export async function queryCodingPlanQuota(input: {
   if (input.mode !== "CODING_PLAN" || (code !== "kimi" && code !== "zhipu")) {
     return { adapterVersion: CODING_PLAN_QUOTA_ADAPTER_VERSION, providerDataAt: input.now ?? new Date(), windows: [] };
   }
-  if (code === "kimi") {
-    return queryKimiQuota(input);
+  // F-P2-6：端点经端点策略（CODING_PLAN_QUOTA）解析，不再本地硬编码双份；
+  // 策略未覆盖（理论上不发生：kimi/zhipu 均有 MODE_DEFAULT）时按不适用处理。
+  const endpoint = resolveProviderEndpoint({
+    providerCode: code,
+    resourceMode: input.mode,
+    operation: "CODING_PLAN_QUOTA",
+    env: process.env,
+  });
+  if (!endpoint.ok) {
+    return { adapterVersion: CODING_PLAN_QUOTA_ADAPTER_VERSION, providerDataAt: input.now ?? new Date(), windows: [] };
   }
-  return queryZhipuQuota(input);
+  if (code === "kimi") {
+    return queryKimiQuota(input, endpoint.url);
+  }
+  return queryZhipuQuota(input, endpoint.url);
 }
 
 async function fetchJson(
@@ -213,9 +223,9 @@ function toWindow(
 
 async function queryKimiQuota(input: {
   credential: string; fetch?: QuotaFetch; timeoutMs?: number; now?: Date;
-}): Promise<CodingPlanQuotaResult> {
+}, endpoint: string): Promise<CodingPlanQuotaResult> {
   const fetchImpl = input.fetch ?? (globalThis.fetch as unknown as QuotaFetch);
-  const data = await fetchJson(KIMI_USAGES_ENDPOINT, input.credential, fetchImpl, input.timeoutMs ?? 10_000);
+  const data = await fetchJson(endpoint, input.credential, fetchImpl, input.timeoutMs ?? 10_000);
   const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   const windows: QuotaWindow[] = [];
   // 周额度：顶层 usage 对象（limit/used/remaining/resetTime）。
@@ -259,9 +269,9 @@ async function queryKimiQuota(input: {
 
 async function queryZhipuQuota(input: {
   credential: string; fetch?: QuotaFetch; timeoutMs?: number; now?: Date;
-}): Promise<CodingPlanQuotaResult> {
+}, endpoint: string): Promise<CodingPlanQuotaResult> {
   const fetchImpl = input.fetch ?? (globalThis.fetch as unknown as QuotaFetch);
-  const data = await fetchJson(ZHIPU_QUOTA_LIMIT_ENDPOINT, input.credential, fetchImpl, input.timeoutMs ?? 10_000);
+  const data = await fetchJson(endpoint, input.credential, fetchImpl, input.timeoutMs ?? 10_000);
   const obj = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   // 智谱真实结构：{ data: { limits: [ {type, unit, number, percentage, ...} ] } }
   // unit 语义：3=小时(number=5 → 5h窗口)，6=天(number=1 → 周窗口)。

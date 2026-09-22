@@ -52,13 +52,15 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
     }
     mutation.mutate(values);
   };
-  // P1：selectable 缺失时的回退同样只认 READY——compatible=true 但无
-  // 探针证据的模型不可选（探针上限外/EMBEDDING 等 credential_validation=null）。
-  const isSelectable = (model: DiscoveredModelItem): boolean =>
-    model.selectable ?? model.credential_validation?.status === "READY";
+  // P3：与共享模块 isModelSelectable 同公式，收敛为单一实现（原两份漂移风险）。
+  const isSelectable = isModelSelectable;
   const selectableModels = props.discovery?.models.filter(isSelectable) ?? [];
   const failureCount = props.discovery?.summary?.credential_failed
-    ?? props.discovery?.models.filter((m) => m.credential_validation && m.credential_validation.status !== "READY").length
+    ?? props.discovery?.models.filter((m) => {
+      const status = m.credential_validation?.status;
+      // F-P2-10：NOT_RUN（探针上限外未探针）不是失败。
+      return status !== undefined && status !== "READY" && status !== "NOT_RUN";
+    }).length
     ?? 0;
   const selectedCount = props.selectedModelIds.filter((id) => selectableModels.some((m) => m.id === id)).length;
   const isAllCompatibleSelected = selectableModels.length > 0 && selectedCount === selectableModels.length;

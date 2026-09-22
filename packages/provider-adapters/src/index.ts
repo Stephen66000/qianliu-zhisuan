@@ -91,6 +91,7 @@ export {
   clearProviderModelDiscoveryCache,
   officialSourceConfig,
   providerModelDiscoveryDescriptor,
+  resolveProviderModelsEndpoint,
   ProviderModelDiscoveryError,
   type DiscoveryErrorCode,
   type DiscoverySource,

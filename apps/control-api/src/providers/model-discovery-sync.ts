@@ -15,7 +15,6 @@ import {
   officialSourceConfig,
   providerModelDiscoveryDescriptor,
   ProviderModelDiscoveryError,
-  resolveProviderEndpoint,
   type EncryptedCredential,
   type ModelDiscoveryResult,
 } from "@qianliu/provider-adapters";
@@ -25,9 +24,60 @@ import {
   publicStoredDiscovery,
   sendDiscoveryError,
 } from "./contracts.js";
-import { probeRequestHash } from "./probe-evidence.js";
+import {
+  applyProbeEvidenceOverlay,
+  currentAvailableModelIds,
+  evaluateProbeEvidenceIdentity,
+  probeEndpointIdentity,
+  probeRequestHash,
+} from "./probe-evidence.js";
 
 const SYNC_CACHE_TTL_MS = 60_000;
+
+/**
+ * F-P2-12：60s 缓存命中路径与 GET /models 同口径回填探针证据（否则前端
+ * 在缓存窗口内重复同步会拿到 credential_validation=null 的"全部不可选"
+ * 闪烁）；证据身份无效时返回 STALE 标记。
+ */
+async function reusedSnapshotWithProbeEvidence(
+  app: FastifyInstance,
+  input: {
+    enterpriseId: string;
+    providerCode: string;
+    mode: "API" | "CODING_PLAN";
+    capabilitySet: unknown;
+    credentialFingerprint: string | null;
+    resourceId: string;
+    discoverySourceHash: string | null;
+    states: Awaited<ReturnType<FastifyInstance["providerRepo"]["modelIntegrationStates"]>>;
+  },
+  latest: NonNullable<Awaited<ReturnType<FastifyInstance["providerRepo"]["latestModelDiscovery"]>>>,
+): Promise<Record<string, unknown>> {
+  const publicResult = publicStoredDiscovery({
+    discovery: latest.successful_discovery!,
+    items: latest.items,
+    itemsStale: false,
+    integrationStates: input.states,
+    reused: true,
+  }) as Record<string, unknown>;
+  const probeRun = await app.providerRepo.latestModelProbeRun(input.enterpriseId, input.resourceId);
+  let probeEvidence: Record<string, unknown> | null = null;
+  if (probeRun) {
+    const identity = evaluateProbeEvidenceIdentity({
+      providerCode: input.providerCode,
+      mode: input.mode,
+      capabilitySet: input.capabilitySet,
+      credentialFingerprint: input.credentialFingerprint,
+      discoverySourceHash: input.discoverySourceHash,
+      modelIds: currentAvailableModelIds(latest.items),
+      probeRun,
+    });
+    probeEvidence = identity.valid
+      ? applyProbeEvidenceOverlay(publicResult as Parameters<typeof applyProbeEvidenceOverlay>[0], probeRun)
+      : { status: "MODEL_VALIDATION_STALE", reason: identity.reason, requires: "SYNC_OR_PROBE" };
+  }
+  return { ...publicResult, probe_evidence: probeEvidence };
+}
 
 export async function syncResourceModels(
   app: FastifyInstance,
@@ -47,16 +97,28 @@ export async function syncResourceModels(
   }
   const latest = await app.providerRepo.latestModelDiscovery(enterpriseId, resource.id);
   const lastChecked = latest?.successful_discovery?.source_checked_at ?? null;
-  const hasIncompatibleItems = latest?.items?.some((item) => !item.compatible);
-  if (latest?.successful_discovery && !latest.successful_discovery.stale && lastChecked && Date.now() - lastChecked.getTime() < SYNC_CACHE_TTL_MS && !hasIncompatibleItems) {
-    const states = await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, latest.items.map((item) => item.upstream_model));
-    return publicStoredDiscovery({
-      discovery: latest.successful_discovery,
-      items: latest.items,
-      itemsStale: false,
-      integrationStates: states,
-      reused: true,
-    });
+  // F-P2-12：缓存旁路从"任一模型 compatible=false 即永远绕过"改为"存在
+  // 可重试（瞬态）探针失败才绕过"——AUTH_FAILED/PLAN_NOT_ENTITLED/404 等
+  // 永久失败不再使 60s 缓存失效，恢复额度保护意图；瞬态失败（限流/超时/
+  // 网络）仍立即重新检测。无探针运行时不绕过（与缓存口径一致）。
+  const probeRunForCache = await app.providerRepo.latestModelProbeRun(enterpriseId, resource.id);
+  const hasRetryableFailures = (probeRunForCache?.items ?? []).some(
+    (item) => item.retryable && item.validation_status !== "READY",
+  );
+  if (latest?.successful_discovery && !latest.successful_discovery.stale && lastChecked
+    && Date.now() - lastChecked.getTime() < SYNC_CACHE_TTL_MS && !hasRetryableFailures) {
+    // F-P2-12：缓存命中路径与 GET /models 同口径回填探针证据（抽出函数，
+    // 复用证据身份门禁与 overlay，两端口径不再漂移）。
+    return reusedSnapshotWithProbeEvidence(app, {
+      enterpriseId,
+      providerCode: resource.provider_code,
+      mode: resource.mode as "API" | "CODING_PLAN",
+      capabilitySet: (resource as { provider_capability_set?: unknown }).provider_capability_set,
+      credentialFingerprint: resource.credential_fingerprint,
+      resourceId: resource.id,
+      discoverySourceHash: latest.successful_discovery.source_content_hash ?? null,
+      states: await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, latest.items.map((item) => item.upstream_model)),
+    }, latest);
   }
   try {
     // P2：统一抽取 base_url + endpoints[mode]。
@@ -177,16 +239,13 @@ export async function persistProbeRun(
 ): Promise<void> {
   const probed = input.discovery.models.filter((model) => model.credentialValidation);
   if (probed.length === 0) return;
-  // P2：统一抽取 base_url + endpoints[mode]，与发现/验证/恢复/Gateway 同口径。
-  const endpoint = resolveProviderEndpoint({
+  // F-P2-13：端点解析与失败兜底公式收敛到 probeEndpointIdentity（与 GET/confirm
+  // 证据身份校验唯一同源，禁止复制粘贴）。
+  const { endpointScope, endpointHost } = probeEndpointIdentity({
     providerCode: input.providerCode,
-    resourceMode: input.mode,
-    operation: "MODEL_PERMISSION_PROBE",
-    configuredEndpoints: capabilityConfiguredEndpoints(input.capabilitySet),
-    env: process.env,
+    mode: input.mode,
+    capabilitySet: input.capabilitySet,
   });
-  const endpointScope = endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS";
-  const endpointHost = endpoint.ok ? endpoint.host : (endpoint.host ?? "unresolved");
   const fingerprint = credentialFingerprint(input.credential);
   const modelIds = input.discovery.models.map((model) => model.id);
   // 终审整改一：request_hash 公式收敛到 probeRequestHash（与 GET/confirm

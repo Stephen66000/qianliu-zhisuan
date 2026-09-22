@@ -12,7 +12,6 @@ import {
   discoverProviderModels,
   encryptCredential,
   ProviderModelDiscoveryError,
-  resolveProviderEndpoint,
   validateProviderModel,
   type DiscoveredProviderModel,
   type HttpFetch,
@@ -28,6 +27,7 @@ import {
   applyProbeEvidenceOverlay,
   currentAvailableModelIds,
   evaluateProbeEvidenceIdentity,
+  probeEndpointIdentity,
 } from "./probe-evidence.js";import {
   ConfirmDiscoveredModelsSchema,
   ModelDiscoverySchema,
@@ -62,15 +62,13 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     // 同凭证、同端点的并发/60s 内重复检测共享同一次发现与探针飞行，
     // 不重复打上游；Key、模式化端点或端点归属任一变化即产生新飞行。
     const fingerprint = credentialFingerprint(parsed.data.credential_plaintext);
-    const endpoint = resolveProviderEndpoint({
+    // F-P2-13：端点身份公式收敛到 probeEndpointIdentity（与 persistProbeRun/
+    // 证据身份校验同源），不再本地复制兜底逻辑。
+    const { endpointScope, endpointHost } = probeEndpointIdentity({
       providerCode: provider.code,
-      resourceMode: parsed.data.mode,
-      operation: "MODEL_PERMISSION_PROBE",
-      configuredEndpoints: configured,
-      env: process.env,
+      mode: parsed.data.mode,
+      capabilitySet: provider.capability_set,
     });
-    const endpointScope = endpoint.ok ? endpoint.scope : "ENDPOINT_SCOPE_AMBIGUOUS";
-    const endpointHost = endpoint.ok ? endpoint.host : (endpoint.host ?? "unresolved");
     const cacheKey = [
       req.admin!.enterpriseId, provider.id, parsed.data.mode,
       fingerprint, endpointScope, endpointHost,
@@ -215,26 +213,21 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       // 和当前成功发现（目录哈希 + 模型集 + 新鲜度）身份一致才可回填；
       // 不一致即 MODEL_VALIDATION_STALE——不回填任何 READY 证据，
       // 页面模型全部不可选，要求重新同步或重新检测。
-      const resourceRow = await app.db.selectFrom("provider_resource")
-        .innerJoin("provider", "provider.id", "provider_resource.provider_id")
-        .select([
-          "provider_resource.credential_fingerprint",
-          "provider_resource.mode",
-          "provider.code as provider_code",
-          "provider.capability_set as provider_capability_set",
-        ])
-        .where("provider_resource.id", "=", req.params.id)
-        .where("provider_resource.enterprise_id", "=", req.admin!.enterpriseId)
-        .where("provider.enterprise_id", "=", req.admin!.enterpriseId)
-        .executeTakeFirst();
+      // F-P2-9：资源行改用仓储方法 getResourceForModelDiscovery——与
+      // confirm/sync 同一过滤口径（校验 provider/resource 状态），替换原先
+      // 内联手写 Kysely join 的胖路由查询（原实现不校验状态且逻辑重复）。
+      const resourceRow = await app.providerRepo.getResourceForModelDiscovery(
+        req.admin!.enterpriseId, req.params.id,
+      );
+      if (!resourceRow) return reply.code(404).send({ error: "not_found", message: "资源不存在或当前不可用" });
       const probeRun = await app.providerRepo.latestModelProbeRun(req.admin!.enterpriseId, req.params.id);
       let probeEvidence: Record<string, unknown> | null = null;
       if (probeRun) {
         const identity = evaluateProbeEvidenceIdentity({
-          providerCode: resourceRow?.provider_code ?? "",
-          mode: (resourceRow?.mode ?? "API") as "API" | "CODING_PLAN",
-          capabilitySet: resourceRow?.provider_capability_set ?? null,
-          credentialFingerprint: resourceRow?.credential_fingerprint ?? null,
+          providerCode: resourceRow.provider_code,
+          mode: resourceRow.mode as "API" | "CODING_PLAN",
+          capabilitySet: resourceRow.provider_capability_set,
+          credentialFingerprint: resourceRow.credential_fingerprint,
           discoverySourceHash: snapshot.source_content_hash ?? null,
           modelIds: currentAvailableModelIds(latest.items),
           probeRun,
@@ -312,6 +305,9 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
               errorCode: evidence.error_code,
               retryable: evidence.retryable,
               checkedAt: (evidence.checked_at ?? probeRun!.run.finished_at ?? probeRun!.run.started_at ?? new Date()).toISOString(),
+              // F-P2-4：证据携带 run 冻结的端点 scope/host。
+              endpointScope: probeRun!.run.endpoint_scope,
+              endpointHost: probeRun!.run.endpoint_host,
             },
           } : {}),
         };
