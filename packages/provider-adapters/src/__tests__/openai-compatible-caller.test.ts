@@ -1918,6 +1918,33 @@ describe("OpenAI-compatible HTTP caller", () => {
     expect(outcome.error).toBeUndefined();
     expect(calledUrl).toBe("https://coding-gateway.corp.example/v1/chat/completions");
   });
+
+  it("审核修复（P1）：端点歧义是本侧配置错误——不合成上游 500，返回 CONFIGURATION_ERROR 信号", async () => {
+    const fetch: HttpFetch = async () => {
+      throw new Error("端点歧义时不应发起任何上游请求");
+    };
+    const caller = createOpenAiCompatibleCaller({ fetch, env: {} });
+
+    // Kimi CODING_PLAN + 未知自定义域名 → resolveProviderEndpoint 失败关闭。
+    const outcome = await caller(
+      resource({
+        providerCode: "kimi",
+        mode: "CODING_PLAN",
+        upstreamModel: "k3",
+        baseUrl: "https://relay.example.internal/v1",
+        secret: new SecretValue("kimi-real"),
+      }),
+      responsesRequest(),
+      1,
+    );
+
+    expect(outcome.status).toBe(0);
+    expect(outcome.committed).toBe(false);
+    expect(outcome.error).toBe("upstream_endpoint_ambiguous");
+    expect(outcome.upstreamCode).toBe("upstream_endpoint_ambiguous");
+    expect(outcome.failureLayer).toBe("CLIENT");
+    expect(outcome.unifiedAvailabilitySignal).toBe("CONFIGURATION_ERROR");
+  });
 });
 
 describe("资源凭证解析", () => {

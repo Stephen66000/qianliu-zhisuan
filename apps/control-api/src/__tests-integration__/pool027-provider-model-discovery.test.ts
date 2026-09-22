@@ -579,4 +579,114 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     });
     expect(confirmAgain.statusCode).toBe(200);
   });
+
+  it("审核修复（P1）：官方下架模型（REMOVED 行）不使当次同步的新鲜证据被判 STALE", async () => {
+    mockOfficialDocs();
+    const created = await app.inject({
+      method: "POST", url: "/provider-resources", headers: { cookie },
+      payload: { provider_id: providerId, name: "智谱 Removed Row", mode: "CODING_PLAN",
+        credential_type: "API_KEY", credential_plaintext: "removed-row-key" },
+    });
+    expect(created.statusCode).toBe(201);
+    const resourceId = created.json().resource.id as string;
+    const sync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(sync.statusCode).toBe(200);
+
+    // 官方目录下架 glm-5.3（文档正文与 etag 均变化）→ 重新同步：
+    // 新发现只含 glm-5.2，新探针 run 针对新目录；glm-5.3 保留为 REMOVED 行。
+    // 先回拨检查时间越过 60s 同步缓存（与上一用例恢复步骤同法）。
+    await db.updateTable("provider_model_discovery")
+      .set({ source_checked_at: new Date(Date.now() - 61_000), discovered_at: new Date(Date.now() - 61_000) })
+      .where("provider_resource_id", "=", resourceId).execute();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return {
+          ok: true, status: 200, headers: { get: () => "application/json" },
+          json: async () => ({
+            id: "probe-2", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        } as unknown as Response;
+      }
+      const body = String(input).includes("kimi")
+        ? "Model ID | `k3` | `k3-256k` | `kimi-for-coding` | `kimi-for-coding-highspeed`"
+        : "| 模型 ID | `glm-5.2` |\n| 上下文 | 256K |";
+      return {
+        ok: true, status: 200, url: String(input),
+        headers: { get: (name: string) => name === "etag" ? "test-docs-v2" : null },
+        text: async () => body,
+      } as unknown as Response;
+    });
+    const resync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(resync.statusCode).toBe(200);
+
+    // 前提成立：glm-5.3 确实以 REMOVED 行保留在快照中。
+    const removedRows = await db.selectFrom("provider_model_discovery_item")
+      .select(["upstream_model", "availability_status"])
+      .where("availability_status", "=", "REMOVED")
+      .where("enterprise_id", "=", enterpriseId)
+      .where("upstream_model", "=", "glm-5.3").execute();
+    expect(removedRows.length).toBeGreaterThan(0);
+
+    // 修复点：证据身份只看在列模型——REMOVED 行不参与，证据保持 CURRENT。
+    const payload = await (await app.inject({
+      method: "GET", url: `/provider-resources/${resourceId}/models`, headers: { cookie },
+    })).json();
+    expect(payload.probe_evidence).toEqual({ status: "CURRENT" });
+    const readyModel = payload.models
+      .find((model: { credential_validation?: { status?: string } }) => model.credential_validation?.status === "READY");
+    expect(readyModel).toBeTruthy();
+    expect(readyModel.selectable).toBe(true);
+
+    const confirm = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/confirm`, headers: { cookie },
+      payload: { selected_model_ids: ["glm-5.2"] },
+    });
+    expect(confirm.statusCode).toBe(200);
+  });
+
+  it("审核修复（P1）：大写厂商 code（Zhipu）不丢失 glm-5.3 专属真实验证", async () => {
+    mockOfficialDocs();
+    // 生产历史形态：provider.code = "Zhipu"（大写）。
+    const upperProviderId = randomUUID();
+    await db.insertInto("provider").values({
+      id: upperProviderId, enterprise_id: enterpriseId, code: "Zhipu", name: "智谱大写",
+      adapter_type: "OPENAI_COMPATIBLE", status: "ACTIVE",
+    }).execute();
+    const created = await app.inject({
+      method: "POST", url: "/provider-resources", headers: { cookie },
+      payload: { provider_id: upperProviderId, name: "智谱大写 A", mode: "CODING_PLAN",
+        credential_type: "API_KEY", credential_plaintext: "upper-zhipu-key" },
+    });
+    expect(created.statusCode).toBe(201);
+    const resourceId = created.json().resource.id as string;
+    const sync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(sync.statusCode).toBe(200);
+    const confirm = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/confirm`, headers: { cookie },
+      payload: { selected_model_ids: ["glm-5.3"] },
+    });
+    expect(confirm.statusCode).toBe(200);
+
+    const upstream = mockValidationUpstream();
+    const validation = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/glm-5.3/validate`, headers: { cookie },
+      payload: { idempotency_key: "glm53-upper-validation-001", confirm_quota_consumption: true },
+    });
+    expect(validation.statusCode).toBe(200);
+    expect(validation.json().validation).toMatchObject({ status: "SUCCEEDED", upstreamModel: "glm-5.3" });
+    // canonicalProviderCode 后 glm-5.3 专属分支生效：reasoning_effort=max + 工具验证。
+    const bodies = upstream.mock.calls
+      .map(([, init]) => { try { return JSON.parse(String(init?.body)); } catch { return null; } })
+      .filter(Boolean) as Array<Record<string, unknown>>;
+    expect(bodies.some((body) => body.reasoning_effort === "max")).toBe(true);
+    expect(bodies.some((body) => Array.isArray(body.tools) && body.tools.length > 0)).toBe(true);
+  });
 });

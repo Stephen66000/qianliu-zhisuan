@@ -132,12 +132,26 @@ export function createOpenAiCompatibleCaller(
       configuredEndpoints: { base_url: resource.baseUrl ?? null, endpoints: resource.endpoints ?? null },
       env,
     });
+    // 审核修复（P1）：端点歧义/base_url 缺失是本侧配置错误，不是上游故障。
+    // 不再合成 HTTP 500（曾使探针显示"上游暂不可用，可重试"——RC-2 证据失真）：
+    // status=0 + failureLayer=CLIENT + 预置 CONFIGURATION_ERROR 信号，
+    // 消费方（探针映射/凭证恢复/Gateway 隔离）据此判为不可重试的配置错误。
     if (!endpoint.ok) {
-      return failedOutcome(500, "upstream_endpoint_ambiguous");
+      return {
+        ...failedOutcome(0, "upstream_endpoint_ambiguous"),
+        upstreamCode: "upstream_endpoint_ambiguous",
+        failureLayer: "CLIENT",
+        unifiedAvailabilitySignal: "CONFIGURATION_ERROR",
+      };
     }
     const baseUrl = endpoint.url;
     if (!baseUrl) {
-      return failedOutcome(500, "upstream_base_url_missing");
+      return {
+        ...failedOutcome(0, "upstream_base_url_missing"),
+        upstreamCode: "upstream_base_url_missing",
+        failureLayer: "CLIENT",
+        unifiedAvailabilitySignal: "CONFIGURATION_ERROR",
+      };
     }
 
     if (hasImageInput(request.body) && modelSupportsImages(resource.providerCode, resource.upstreamModel) === false) {

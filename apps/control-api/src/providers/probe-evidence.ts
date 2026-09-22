@@ -119,3 +119,65 @@ export function evaluateProbeEvidenceIdentity(
   }
   return { valid: true, reason: null };
 }
+
+/**
+ * 审核修复（P1）：证据身份比对只看当前官方目录仍在列的模型——
+ * 快照为官方下架保留的 REMOVED 行不参与（否则下架当次同步的新鲜
+ * 证据被立即误判 STALE）。GET 与 confirm 共用，禁止两处各自维护。
+ */
+export function currentAvailableModelIds(
+  items: ReadonlyArray<{ upstream_model: string; availability_status?: string | null }>,
+): string[] {
+  return items
+    .filter((item) => item.availability_status !== "REMOVED")
+    .map((item) => item.upstream_model);
+}
+
+interface OverlayProbeRun {
+  run: { finished_at: Date | string | null; started_at: Date | string };
+  items: ReadonlyArray<{
+    upstream_model: string;
+    validation_status: string;
+    http_status: number | null;
+    error_code: string | null;
+    retryable: boolean;
+    checked_at: Date | string | null;
+  }>;
+}
+
+/**
+ * GET /models 的证据回填：身份有效时把 run 的脱敏模型级证据叠加到
+ * 公开快照上（仅 READY 可选），并重算 credential_ready/failed 汇总。
+ * 返回 CURRENT 证据状态对象；无效身份由调用方走 STALE 分支。
+ */
+export function applyProbeEvidenceOverlay(
+  publicResult: {
+    models: Array<Record<string, unknown> & { id: string }>;
+    summary: Record<string, unknown>;
+  },
+  probeRun: OverlayProbeRun,
+): Record<string, unknown> {
+  const byModel = new Map(probeRun.items.map((item) => [item.upstream_model, item]));
+  publicResult.models = publicResult.models.map((model) => {
+    const item = byModel.get(model.id);
+    if (!item) return model;
+    return {
+      ...model,
+      credential_validation: {
+        status: item.validation_status,
+        http_status: item.http_status,
+        error_code: item.error_code,
+        retryable: item.retryable,
+        checked_at: new Date(item.checked_at ?? probeRun.run.finished_at ?? probeRun.run.started_at).toISOString(),
+      },
+      selectable: item.validation_status === "READY",
+    };
+  });
+  publicResult.summary = {
+    ...publicResult.summary,
+    credential_ready: publicResult.models.filter((model) => (model.credential_validation as { status: string } | null)?.status === "READY").length,
+    credential_failed: publicResult.models.filter((model) => model.credential_validation !== null
+      && (model.credential_validation as { status: string } | null)?.status !== "READY").length,
+  };
+  return { status: "CURRENT" };
+}
