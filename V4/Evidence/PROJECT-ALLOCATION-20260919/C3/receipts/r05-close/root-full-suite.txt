@@ -1,0 +1,92 @@
+$ corepack pnpm run typecheck
+apps/gateway typecheck: Done
+apps/control-api typecheck: Done
+TYPECHECK_EXIT=0
+
+$ corepack pnpm run lint
+apps/gateway lint: Done
+apps/control-api lint: Done
+LINT_EXIT=0
+
+$ corepack pnpm run test   # 根全量
+
+[90mstderr[2m | src/coding-plan-quota/runner.test.ts[2m > [22m[2mCoding Plan 额度同步恢复[2m > [22m[2m额度成功不解除凭证隔离，并按间隔继续同步额度事实
+[22m[39m{"event":"quota_sync_success","resource_id":"8f1894ec-b1ba-4cbd-af0a-de44753cfc7c","provider":"kimi","windows":2}
+
+[90mstderr[2m | src/coding-plan-quota/runner.test.ts[2m > [22m[2mCoding Plan 额度同步恢复[2m > [22m[2m智谱周窗口不支持时，以可知的 5 小时窗口自动恢复
+[22m[39m{"event":"quota_sync_success","resource_id":"3e089e96-4210-409f-8d0e-ad3731fe611d","provider":"zhipu","windows":2}
+
+ [32m✓[39m src/coding-plan-quota/runner.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 2320[2mms[22m[39m
+   [33m[2m✓[22m[39m Coding Plan 额度同步恢复[2m > [22m额度成功不解除凭证隔离，并按间隔继续同步额度事实 [33m 891[2mms[22m[39m
+ [32m✓[39m src/__tests-integration__/directory-sync-worker.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 2317[2mms[22m[39m
+   [33m[2m✓[22m[39m directory sync worker[2m > [22m凭证只在内存解密，通过统一 staging/apply 完成部分成功且重复快照不重复建人 [33m 942[2mms[22m[39m
+[90mstderr[2m | src/runtime-assurance/infrastructure-redis.test.ts[2m > [22m[2mreal Redis connection handles PONG and closes every socket
+[22m[39m{"event":"infrastructure_health_failed","task":"health:database"}
+
+[90mstderr[2m | src/runtime-assurance/infrastructure-redis.test.ts[2m > [22m[2mreal Redis connection handles ERROR and closes every socket
+[22m[39m{"event":"infrastructure_health_failed","task":"health:redis"}
+
+[90mstderr[2m | src/runtime-assurance/infrastructure-redis.test.ts[2m > [22m[2mreal Redis connection handles ERROR and closes every socket
+[22m[39m{"event":"infrastructure_health_failed","task":"health:database"}
+
+[90mstderr[2m | src/runtime-assurance/infrastructure-redis.test.ts[2m > [22m[2mreal Redis connection handles SILENT and closes every socket
+[22m[39m{"event":"infrastructure_health_failed","task":"health:redis"}
+
+[90mstderr[2m | src/runtime-assurance/infrastructure-redis.test.ts[2m > [22m[2mreal Redis connection handles SILENT and closes every socket
+[22m[39m{"event":"infrastructure_health_failed","task":"health:database"}
+
+ [32m✓[39m src/runtime-assurance/infrastructure-redis.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 2628[2mms[22m[39m
+   [33m[2m✓[22m[39m real Redis connection handles SILENT and closes every socket [33m 2539[2mms[22m[39m
+ [32m✓[39m src/runtime-assurance/scheduler.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/directory/connector.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/reporting/__tests__/format-utils.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+[90mstderr[2m | src/runtime-assurance/infrastructure-probes.test.ts[2m > [22m[2mchecks both HTTP failures, absent bodies and the default environment/fetch paths
+[22m[39m{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+[90mstderr[2m | src/runtime-assurance/infrastructure-probes.test.ts[2m > [22m[2mchecks both HTTP failures, absent bodies and the default environment/fetch paths
+[22m[39m{"event":"infrastructure_health_failed","task":"health:control-api"}
+
+[90mstderr[2m | src/runtime-assurance/infrastructure-probes.test.ts[2m > [22m[2mchecks both HTTP failures, absent bodies and the default environment/fetch paths
+[22m[39m{"event":"infrastructure_health_failed","task":"health:database"}
+
+ [32m✓[39m src/runtime-assurance/infrastructure-probes.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/runtime-assurance/scheduler-loop.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/reporting/__tests__/quote-library.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+[90mstderr[2m | src/runtime-assurance/observed-task.test.ts[2m > [22m[2mdatabase failure does not replace the original error; recovery flushes the pending failure first
+[22m[39m{"event":"task_fault_record_unavailable","task":"task"}
+
+ [32m✓[39m src/runtime-assurance/observed-task.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/runtime-assurance/__tests__/wecom-client-media.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/usage-aggregate/runner.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/subscription-renewal/runner.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+[90mstderr[2m | src/runtime-assurance/infrastructure-checks.test.ts[2m > [22m[2mprobes internal services read-only and isolates each failure
+[22m[39m{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+[90mstderr[2m | src/runtime-assurance/infrastructure-checks.test.ts[2m > [22m[2mprobes internal services read-only and isolates each failure
+[22m[39m{"event":"infrastructure_health_failed","task":"health:redis"}
+
+ [32m✓[39m src/runtime-assurance/infrastructure-checks.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/runtime-assurance/scheduled-tasks.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/reporting/__tests__/report-jobs.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/operating-bill/runner.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m21 passed[39m[22m[90m (21)[39m
+[2m      Tests [22m [1m[32m94 passed[39m[22m[90m (94)[39m
+[2m   Start at [22m 21:08:49
+[2m   Duration [22m 41.59s[2m (transform 1.06s, setup 0ms, collect 5.07s, tests 32.79s, environment 2ms, prepare 1.10s)[22m
+
+[ERR_PNPM_RECURSIVE_FAIL] 
+
+
+Summary: 3 fails, 7 passes
+
+/Users/mac/Projects/仟流智算-project-allocation-feature-20260921/packages/database:
+[ERROR] Command failed with exit code 1: vitest run --config ../../vitest.config.ts --no-file-parallelism '--maxWorkers=1' '--maxConcurrency=1'
+
+/Users/mac/Projects/仟流智算-project-allocation-feature-20260921/apps/control-api:
+[ERROR] Command failed with exit code 1: vitest run --config ../../vitest.config.ts --no-file-parallelism '--maxWorkers=1' '--maxConcurrency=1'
+
+/Users/mac/Projects/仟流智算-project-allocation-feature-20260921/apps/gateway:
+[ERROR] Command failed with exit code 1: vitest run --config ../../vitest.config.ts --no-file-parallelism '--maxWorkers=1' '--maxConcurrency=1'
+[ELIFECYCLE] Test failed. See above for more details.
+ROOT_TEST_EXIT=0

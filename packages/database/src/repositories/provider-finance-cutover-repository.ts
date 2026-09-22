@@ -14,6 +14,7 @@ import {
 import { ProviderFinanceRepository } from "./provider-finance-repository.js";
 import { ProviderFinanceUsageBackfill } from "./provider-finance-usage-backfill.js";
 import { resolveLegacyApiCostGap } from "./provider-finance-legacy-resolution.js";
+import { markAllocationDirty } from "./project-allocation-common.js";
 
 const numericCount = (value: string | number | bigint | undefined): number => Number(value ?? 0);
 
@@ -292,6 +293,13 @@ export class ProviderFinanceCutoverRepository {
         change_summary: JSON.stringify({ month, activated_at: activatedAt.toISOString(),
           conservation_checked_at: conservation.checkedAt }) as unknown as Record<string, unknown>,
       }).execute();
+      // 口径切换改变 account_at（settled_at/created_at）与行级套餐成本口径，属归集输入事实：
+      // 与标志位翻转**同事务**把该企业全部已启用账期一次性推脏（一次性动作、账期数有界），
+      // 否则口径会静默改变而结账冻结切换前的归集（R04 P2 / 用户定调"收口前必修"）。
+      const { rows: enabledMonths } = await sql<{ month: string }>`
+        SELECT to_char(period_month, 'YYYY-MM') AS month FROM project_allocation_period
+         WHERE enterprise_id = ${enterpriseId}::uuid`.execute(trx);
+      await markAllocationDirty(trx, enterpriseId, enabledMonths.map((row) => row.month));
       return { activatedAt: activatedAt.toISOString(), conservation, replayed: false };
     });
   }

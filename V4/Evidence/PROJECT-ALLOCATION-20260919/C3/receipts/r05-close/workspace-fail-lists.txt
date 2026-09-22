@@ -1,0 +1,42 @@
+### packages/database
+      Tests  6 failed | 474 passed | 55 skipped (535)
+ FAIL  src/__tests-integration__/exception-center-contract.integration.test.ts [ src/__tests-integration__/exception-center-contract.integration.test.ts ]
+ FAIL  src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts > POOL-042 首页 API 资源 Token 摘要 > POOL20-045：用量总览只统计成功消耗，失败诊断行不污染任何指标
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > R01-F01：资金读模型同期窗口复用权威缺口规则（已知部分保留、缺口显式）
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入）
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回
+ FAIL  src/__tests-integration__/usage-aggregate-migration-capacity.integration.test.ts > POOL20-045 0054 百万存量迁移 > 失败整体回滚；百万 ledger/usage_event 迁移受控生成 dirty 并可恢复读模型
+ Test Files  4 failed | 73 passed (77)
+### apps/control-api
+      Tests  14 failed | 339 passed | 20 skipped (373)
+ FAIL  src/__tests-integration__/pool026-deployment-logs.test.ts [ src/__tests-integration__/pool026-deployment-logs.test.ts ]
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts > POOL-027 厂商模型自动发现与接入 > Kimi Coding Plan 返回官方版本化目录且不调用开放平台 List Models
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts > POOL-027 厂商模型自动发现与接入 > 不可服务资源不能同步或确认模型
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts > POOL-027 厂商模型自动发现与接入 > 同步失败记录失败尝试、保留上次成功快照并阻止从过期结果确认
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts > POOL-027 厂商模型自动发现与接入 > 同步快照按企业隔离，确认已存在模型保持幂等
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts > POOL-027 厂商模型自动发现与接入 > 检测只返回 Coding Plan 目录，创建资源/模型/禁用路由且不扩大 Key 权限
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts > POOL-027 厂商模型自动发现与接入 > 相同幂等键不重复创建；第二资源复用统一模型只增加路由
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts > POOL-027 厂商模型自动发现与接入 > 真实验证持久化 Evidence，验证前不能启用，成功后允许启用且不新增授权
+ FAIL  src/__tests-integration__/pool027-provider-model-discovery.test.ts > POOL-027 厂商模型自动发现与接入 > 验证互斥是持久化门禁，不同幂等键并发只允许一个真实调用
+ FAIL  src/__tests-integration__/pool043-operating-bill-accounts.test.ts [ src/__tests-integration__/pool043-operating-bill-accounts.test.ts ]
+ FAIL  src/__tests-integration__/provider-finance.test.ts > provider finance routes > 历史迁移周期的新额度保存后取代无周期配置
+ FAIL  src/__tests-integration__/standard-home-route.integration.test.ts [ src/__tests-integration__/standard-home-route.integration.test.ts ]
+ FAIL  src/__tests-integration__/w02-auth-principal.test.ts > W02 认证与 Principal > /auth/me 返回当前登录管理员
+ FAIL  src/__tests-integration__/w02-auth-principal.test.ts > W02 认证与 Principal > POOL-009：无历史主体删除时同步清理 Key/Grant/Counter 并保留删除审计
+ FAIL  src/__tests-integration__/w02-auth-principal.test.ts > W02 认证与 Principal > POOL-009：有请求历史禁止删除，只能归档并撤销 Key/Grant，历史请求不丢失
+ FAIL  src/__tests-integration__/w02-auth-principal.test.ts > W02 认证与 Principal > 操作日志记录所有写操作（审计完整性）
+ FAIL  src/__tests-integration__/w02-auth-principal.test.ts > W02 认证与 Principal > 登出后 session 失效，后续请求 401
+ FAIL  src/__tests-integration__/w20-resource-insights.test.ts [ src/__tests-integration__/w20-resource-insights.test.ts ]
+ Test Files  7 failed | 49 passed (56)
+### apps/gateway
+      Tests  2 failed | 321 passed (323)
+ FAIL  src/__tests-integration__/pool043-operating-bill-settlement.test.ts > POOL-043 真实 pipeline 结算与关账 completion barrier > 前置 UNKNOWN 零用量后 failover 精确成功，以未知费用占位结算且不冒充精确
+ FAIL  src/__tests-integration__/pool043-operating-bill-settlement.test.ts > POOL-043 真实 pipeline 结算与关账 completion barrier > 流已提交后中断且最终 usage 为零，仍冻结 ESTIMATED 零用量证据并可下钻
+ Test Files  1 failed | 41 passed (42)
+### apps/worker
+      Tests  94 passed (94)
+ Test Files  21 passed (21)
+### packages/domain
+      Tests  205 passed (205)
+ Test Files  13 passed (13)

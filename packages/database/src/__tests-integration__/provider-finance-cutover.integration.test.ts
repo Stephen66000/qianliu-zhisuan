@@ -7,6 +7,7 @@ import {
   createKysely, GatewayLedgerRepository, migrateDown, migrateToLatest, ProviderFinanceCutoverRepository,
   OperatingBillRepository, ProviderFinanceRepository, PROVIDER_FINANCE_CUTOVER,
   PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
+  enableProjectAllocation, runDueAllocationRuns, projectAllocationTick,
 } from "../index.js";
 
 let pg: PostgresTestInstance;
@@ -316,7 +317,7 @@ describe("provider finance cutover rehearsal", () => {
         expect.objectContaining({ resourceId, currency: "USD",
           state: "NORMAL", balance: "5.00000000", formulaMatches: true }),
       ]);
-      const activation = await cutover.activateStrictWrites(enterpriseId, adminId, "2026-09");
+      const activation = await cutover.activateStrictWrites(enterpriseId, adminId, "2026-10");
       expect(activation).toMatchObject({ replayed: false,
         conservation: { passed: true, failures: [] } });
       await expect(cutover.activateStrictWrites(enterpriseId, adminId, "2026-09"))
@@ -352,4 +353,87 @@ describe("provider finance cutover rehearsal", () => {
       await db.destroy();
     }
   }, 120_000);
+  it("口径切换同事务推脏已启用账期 → 重算后归集口径更新（R05 收口项）", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const enterpriseId = randomUUID(); const adminId = randomUUID();
+      const providerId = randomUUID(); const resourceId = randomUUID();
+      await db.insertInto("enterprise").values({ id: enterpriseId, name: "Switch Enterprise" }).execute();
+      await db.insertInto("admin_user").values({ id: adminId, enterprise_id: enterpriseId,
+        username: "switch-admin", password_hash: "unused", status: "ACTIVE" }).execute();
+      await db.insertInto("provider").values({ id: providerId, enterprise_id: enterpriseId,
+        code: "switch", name: "Switch Provider", adapter_type: "OPENAI_COMPATIBLE" }).execute();
+      await db.insertInto("provider_resource").values({ id: resourceId, enterprise_id: enterpriseId,
+        provider_id: providerId, name: "Switch API", mode: "API", credential_type: "API_KEY" }).execute();
+      await new ProviderFinanceRepository(db).recordOpeningBalance({ enterpriseId, resourceId,
+        adminId, accountAmount: "20", accountCurrency: "CNY",
+        occurredAt: PROVIDER_FINANCE_CUTOVER, evidenceRef: "switch-owner",
+        idempotencyKey: randomUUID() });
+
+      // 归集侧：员工 + 一条 2026-09 消费行（settled_at 为空，切换口径后其 account_at 变化）。
+      const principalId = randomUUID(); const keyId = randomUUID(); const requestId = randomUUID();
+      await db.insertInto("principal").values({ id: principalId, enterprise_id: enterpriseId,
+        type: "EMPLOYEE", name: "Switch Employee" }).execute();
+      await db.insertInto("principal_key").values({ id: keyId, enterprise_id: enterpriseId,
+        principal_id: principalId, key_prefix: "ql-switch", key_digest: randomUUID() }).execute();
+      const at = new Date("2026-09-20T10:00:00+08:00");
+      await db.insertInto("ai_request").values({ id: requestId, enterprise_id: enterpriseId,
+        principal_id: principalId, principal_key_id: keyId, protocol: "openai",
+        unified_model: "deepseek-chat", status: "SUCCEEDED", started_at: at,
+        finished_at: new Date(at.getTime() + 1000) }).execute();
+      const attempt = await db.insertInto("upstream_attempt").values({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, attempt_no: 1, provider_resource_id: resourceId,
+        upstream_model: "deepseek-chat", finished_at: new Date(at.getTime() + 1000),
+        http_status: 200, response_committed: true }).returning("id").executeTakeFirstOrThrow();
+      const usage = await db.insertInto("usage_event").values({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, upstream_attempt_id: attempt.id, provider_resource_id: resourceId,
+        input_tokens: 1_000n, output_tokens: 0n, usage_quality: "PROVIDER_REPORTED",
+        dedup_key: `switch-${requestId}`, created_at: at }).returning("id").executeTakeFirstOrThrow();
+      await db.insertInto("ledger_line").values({ ai_request_id: requestId, enterprise_id: enterpriseId,
+        usage_event_id: usage.id, upstream_attempt_id: attempt.id, provider_resource_id: resourceId,
+        principal_id: principalId, resource_mode: "API", raw_input_tokens: 1_000n,
+        raw_output_tokens: 0n, raw_cache_tokens: 0n, api_cost: "1.0000",
+        api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
+        usage_quality: "PROVIDER_REPORTED", created_at: at,
+        settled_at: new Date("2026-10-03T09:00:00+08:00") }).execute();
+      await db.insertInto("ledger_transaction").values({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, principal_id: principalId, total_input_tokens: 1_000n,
+        total_output_tokens: 0n, total_cache_tokens: 0n, total_deducted_quota: 0n,
+        total_api_cost: "1.0000", usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
+        status: "SETTLED", created_at: at }).execute();
+
+      await enableProjectAllocation(db, { enterpriseId, startMonth: "2026-09", actorAdminId: adminId });
+      const before = await runDueAllocationRuns(db, "switch-worker");
+      expect(before[0]?.status).toBe("SUCCEEDED");
+      const beforeRun = await sql<{ id: string; digest: string | null; line_count: number }>`
+        SELECT id, input_digest AS digest, source_line_count AS line_count
+        FROM project_allocation_run WHERE enterprise_id = ${enterpriseId}
+          AND period_month = '2026-09-01' AND is_current`.execute(db);
+      expect(beforeRun.rows[0]?.line_count).toBe(1);
+
+      // 切换严格写合同：与标志位翻转同事务把全部已启用账期推脏。
+      const activation = await new ProviderFinanceCutoverRepository(db)
+        .activateStrictWrites(enterpriseId, adminId, "2026-10");
+      expect(activation).toMatchObject({ replayed: false, conservation: { passed: true } });
+      const dirtyAfterSwitch = await sql<{ generation: string; dirty: boolean }>`
+        SELECT generation::text, dirty FROM project_allocation_dirty
+        WHERE enterprise_id = ${enterpriseId} AND period_month = '2026-09-01'`.execute(db);
+      expect(dirtyAfterSwitch.rows[0]?.dirty).toBe(true);
+      expect(BigInt(dirtyAfterSwitch.rows[0]!.generation)).toBeGreaterThan(1n);
+
+      // 重算后口径更新：strict writes 下该行 account_at = settled_at（为空）→ 不再计入归集。
+      const tick = await projectAllocationTick(db, "switch-worker");
+      expect(tick.runsExecuted).toBeGreaterThanOrEqual(1);
+      const afterRun = await sql<{ id: string; digest: string | null; line_count: number }>`
+        SELECT id, input_digest AS digest, source_line_count AS line_count
+        FROM project_allocation_run WHERE enterprise_id = ${enterpriseId}
+          AND period_month = '2026-09-01' AND is_current`.execute(db);
+      expect(afterRun.rows[0]?.id).not.toBe(beforeRun.rows[0]!.id);
+      expect(afterRun.rows[0]?.line_count).toBe(0);
+      expect(afterRun.rows[0]?.digest).not.toBe(beforeRun.rows[0]!.digest);
+    } finally {
+      await db.destroy();
+    }
+  });
 });
