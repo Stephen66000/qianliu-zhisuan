@@ -34,8 +34,9 @@
   修订幂等重放（同键 revise 重放返回原修订、不新增修订）。
 - **Control API**：routes 分支（原 57.44%）由 P1-1 负例组 + P1-2 的
   `AllocationRunNotAccessibleError` 404/400 组覆盖。
-- **复核留证**：`receipts/v15/web-coverage`（子代理实测表）、
-  `receipts/v15/database-coverage`（本记录附带的定向覆盖率输出）。
+- **复核留证**：`receipts/v15/database-lifecycle-coverage.txt`（lifecycle 99.39/88.37 实测）；
+  Web 三文件覆盖率由 R06 复核（`84-V15-review.md`）独立复测证实（100/100/100 语句），
+  该项不再单独落盘（R06 §P2-1 已注明原回执缺口）。
 
 ## 3. P1-3：体量门禁（quality:size exit 0）
 
@@ -43,7 +44,7 @@
 
 | 原文件 | 原行数 | 拆分后 |
 | --- | --- | --- |
-| project-allocation-run-repository.ts | 623 | 271（登记/装载）+ **project-allocation-execution.ts** 355（认领/计算/发布事务）+ **project-allocation-publish.ts** 147（份额行/余量/幂等命中/关旧开新） |
+| project-allocation-run-repository.ts | 623 | 119（登记/装载，逻辑行；本表拆分行数为返修时预估，实测以 84-V15-review.md 复测为准）+ **project-allocation-execution.ts** 355（装载/认领/计算/发布事务编排）+ **project-allocation-publish.ts** 192（份额行/余量/幂等命中/关旧开新） |
 | project-membership-repository.ts | 612 | 196（创建/带权重）+ **project-membership-revise.ts** 303（修订/裁剪/共享助手）+ **project-membership-query.ts** 139（列表读模型） |
 | employee-allocation-policy-repository.ts | 490 | 341（发布/意图）+ **employee-allocation-policy-preview.ts** 157（预览/总览，只读） |
 

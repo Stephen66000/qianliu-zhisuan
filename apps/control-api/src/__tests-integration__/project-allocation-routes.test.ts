@@ -399,7 +399,12 @@ describe("项目账归集端点（WP05）", () => {
       { employeePrincipalId: employee1, segments: [{ weightBps: -1, validFrom: "2026-09-01T00:00:00+08:00" }] },
       { employeePrincipalId: employee1, segments: [{ weightBps: 4000 }] },
       { employeePrincipalId: employee1, segments: [{ weightBps: 4000, validFrom: "not-a-date" }] },
-      { employeePrincipalId: employee1, segments: [] },
+      { employeePrincipalId: employee1,
+        segments: [{ weightBps: 4000, validFrom: "2026-09-01T00:00:00+08:00", validUntil: "not-a-date" }] },
+      { employeePrincipalId: employee1,
+        segments: [{ weightBps: 4000, validFrom: "2026-09-10T00:00:00+08:00", validUntil: "2026-09-01T00:00:00+08:00" }] },
+      { employeePrincipalId: employee1, segments: "not-an-array" },
+      { employeePrincipalId: employee1, segments: [null] },
     ];
     for (const [i, payload] of badBodies.entries()) {
       const preview = await app.inject({
