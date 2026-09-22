@@ -220,6 +220,63 @@ export async function publishEmployeeRules(
   });
 }
 
+
+/** 权重段片段（80 终审 P1-3：当前项目旧段按提交区间做差集）。 */
+export interface RuleSegmentRef {
+  membershipId: string;
+  weightBps: number;
+  validFrom: Date;
+  validUntil: Date | null;
+}
+
+/**
+ * 半开区间差集：segments 减去 cuts（排序合并后不相交）。保留不相交部分、
+ * 裁剪相交边缘、丢弃空段——"修改未来权重"不得删除同项目的历史规则段，
+ * 否则历史月份重算会漂移为未分配。
+ */
+export function subtractRuleCuts(segments: RuleSegmentRef[], cuts: Array<{ from: Date; until: Date | null }>): RuleSegmentRef[] {
+  const sorted = [...cuts].sort((left, right) => left.from.getTime() - right.from.getTime());
+  const merged: Array<{ from: Date; until: Date | null }> = [];
+  for (const cut of sorted) {
+    const last = merged[merged.length - 1];
+    const overlaps = last !== undefined
+      && (last.until === null || cut.until === null || cut.from.getTime() <= last.until.getTime());
+    if (overlaps && last) {
+      if (last.until === null || cut.until === null) last.until = null;
+      else if (cut.until.getTime() > last.until.getTime()) last.until = cut.until;
+    } else {
+      merged.push({ from: cut.from, until: cut.until });
+    }
+  }
+  const result: RuleSegmentRef[] = [];
+  for (const segment of segments) {
+    let pieces: Array<{ from: Date; until: Date | null }> = [{ from: segment.validFrom, until: segment.validUntil }];
+    for (const cut of merged) {
+      const cutFrom = cut.from.getTime();
+      const cutUntil = cut.until === null ? Number.POSITIVE_INFINITY : cut.until.getTime();
+      const next: typeof pieces = [];
+      for (const piece of pieces) {
+        const pieceFrom = piece.from.getTime();
+        const pieceUntil = piece.until === null ? Number.POSITIVE_INFINITY : piece.until.getTime();
+        if (cutUntil <= pieceFrom || cutFrom >= pieceUntil) {
+          next.push(piece);
+          continue;
+        }
+        if (cutFrom > pieceFrom) next.push({ from: piece.from, until: cut.from });
+        if (cut.until !== null && cutUntil < pieceUntil) next.push({ from: cut.until, until: piece.until });
+      }
+      pieces = next;
+    }
+    for (const piece of pieces) {
+      result.push({
+        membershipId: segment.membershipId, weightBps: segment.weightBps,
+        validFrom: piece.from, validUntil: piece.until,
+      });
+    }
+  }
+  return result;
+}
+
 /** 项目页权重意图段（合同 11 §3.2：客户端只提交当前项目修改意图）。 */
 export interface ProjectIntentSegment {
   weightBps: number;
@@ -256,15 +313,35 @@ export async function publishProjectIntent(
         AND is_current`.execute(tx);
     const currentPolicyId = rows[0]?.policy_id;
     if (currentPolicyId !== undefined) {
-      const { rows: keptRows } = await sql<{
+      const { rows: currentRows } = await sql<{
         project_principal_id: string; membership_id: string; weight_bps: number;
         valid_from: Date; valid_until: Date | null;
       }>`
         SELECT project_principal_id, membership_id, weight_bps, valid_from, valid_until
         FROM employee_project_allocation_rule
-        WHERE policy_id = ${currentPolicyId}
-          AND project_principal_id <> ${params.projectId}`.execute(tx);
-      for (const row of keptRows) {
+        WHERE policy_id = ${currentPolicyId}`.execute(tx);
+      // 其他项目原样保留；当前项目旧段按提交区间做差集——只覆盖提交的部分，
+      // 不相交的历史段必须留下（80 终审 P1-3：整体丢弃会让历史月份重算漂移为未分配）。
+      const sameProject = currentRows
+        .filter((row) => row.project_principal_id === params.projectId)
+        .map((row) => ({
+          membershipId: row.membership_id, weightBps: row.weight_bps,
+          validFrom: row.valid_from, validUntil: row.valid_until,
+        }));
+      const cutSegments = subtractRuleCuts(sameProject, params.segments.map((segment) => ({
+        from: segment.validFrom, until: segment.validUntil,
+      })));
+      const mergedRows = [
+        ...currentRows.filter((row) => row.project_principal_id !== params.projectId),
+        ...cutSegments.map((segment) => ({
+          project_principal_id: params.projectId,
+          membership_id: segment.membershipId,
+          weight_bps: segment.weightBps,
+          valid_from: segment.validFrom,
+          valid_until: segment.validUntil,
+        })),
+      ];
+      for (const row of mergedRows) {
         kept.push({
           projectPrincipalId: row.project_principal_id,
           membershipId: row.membership_id,

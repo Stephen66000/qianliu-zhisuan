@@ -294,12 +294,19 @@ export class ProviderFinanceCutoverRepository {
           conservation_checked_at: conservation.checkedAt }) as unknown as Record<string, unknown>,
       }).execute();
       // 口径切换改变 account_at（settled_at/created_at）与行级套餐成本口径，属归集输入事实：
-      // 与标志位翻转**同事务**把该企业全部已启用账期一次性推脏（一次性动作、账期数有界），
-      // 否则口径会静默改变而结账冻结切换前的归集（R04 P2 / 用户定调"收口前必修"）。
-      const { rows: enabledMonths } = await sql<{ month: string }>`
-        SELECT to_char(period_month, 'YYYY-MM') AS month FROM project_allocation_period
-         WHERE enterprise_id = ${enterpriseId}::uuid`.execute(trx);
-      await markAllocationDirty(trx, enterpriseId, enabledMonths.map((row) => row.month));
+      // 与标志位翻转**同事务**推脏。启用模型是"起始月登记一次、后续月按 period_month<= 继承"，
+      // project_allocation_period 只有起始行——因此按**实际存在归集状态的账期**枚举：
+      // 已有批次（project_allocation_run）∪ 已有脏行（project_allocation_dirty）∪ 登记行，
+      // 天然有界，且不会漏掉起始月之后已发布的账期（80 终审 P1-1）。
+      const { rows: affectedMonths } = await sql<{ month: string }>`
+        SELECT to_char(period_month, 'YYYY-MM') AS month FROM (
+          SELECT period_month FROM project_allocation_run WHERE enterprise_id = ${enterpriseId}::uuid
+          UNION
+          SELECT period_month FROM project_allocation_dirty WHERE enterprise_id = ${enterpriseId}::uuid
+          UNION
+          SELECT period_month FROM project_allocation_period WHERE enterprise_id = ${enterpriseId}::uuid
+        ) months`.execute(trx);
+      await markAllocationDirty(trx, enterpriseId, affectedMonths.map((row) => row.month));
       return { activatedAt: activatedAt.toISOString(), conservation, replayed: false };
     });
   }

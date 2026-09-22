@@ -1,4 +1,5 @@
 /** 项目归集 hooks（候选 C3 WP04/WP05；合同 11-WP01-api-schema.md）。 */
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get, post } from "./client";
 
@@ -107,6 +108,10 @@ export interface AllocationStatusView {
     id: string; status: string; computedAt: string | null; stale: boolean;
   } | null;
   lastError: string | null;
+  /** 最近一个未完成/失败批次：让"计算中/失败"可见（current 恒为成功结果）。 */
+  latestRun: {
+    id: string; status: string; createdAt: string | null; lastError: string | null;
+  } | null;
 }
 
 export function useAllocationStatus(month: string) {
@@ -161,12 +166,25 @@ export interface AllocationLinesView {
   offset: number;
 }
 
+/**
+ * 分页固定批次（合同 §7.2）：首页取得 runId 后，后续页显式携带 run_id，
+ * 翻页期间发生重算也不会跨批次跳行/重复；月份或项目切换时固定解除（查询键变化）。
+ */
 export function useAllocationLines(month: string, projectId: string, offset: number) {
+  const pinnedRun = useRef<{ key: string; runId: string | null }>({ key: "", runId: null });
+  const queryKey = `${month}:${projectId}`;
+  if (pinnedRun.current.key !== queryKey) pinnedRun.current = { key: queryKey, runId: null };
   return useQuery({
     queryKey: ["project-allocation-lines", month, projectId, offset],
-    queryFn: () => get<AllocationLinesView>(
-      `/operating-bills/${month}/projects/${projectId}/allocation-lines?limit=25&offset=${offset}`,
-    ),
+    queryFn: async () => {
+      const rid = offset > 0 ? pinnedRun.current.runId : null;
+      const suffix = rid === null ? "" : `&run_id=${rid}`;
+      const data = await get<AllocationLinesView>(
+        `/operating-bills/${month}/projects/${projectId}/allocation-lines?limit=25&offset=${offset}${suffix}`,
+      );
+      if (offset === 0) pinnedRun.current = { key: queryKey, runId: data.runId };
+      return data;
+    },
     enabled: /^\d{4}-\d{2}$/.test(month) && projectId !== "",
     retry: 1,
   });

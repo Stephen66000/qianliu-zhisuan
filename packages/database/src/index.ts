@@ -429,7 +429,7 @@ export {
 export {
   enumerateShanghaiMonths, markAllocationDirty, resolveAllocationPrincipal,
   lockEmployeeAllocationScope, lockProjectAccountingScope, allocationInputHash,
-  PrincipalNotAccessibleError,
+  PrincipalNotAccessibleError, AllocationRunNotAccessibleError, resolveAllocationRunRef,
   type AllocationDb, type AllocationPrincipalType, type ActiveMembershipRevision,
 } from "./repositories/project-allocation-common.js";
 export {

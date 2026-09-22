@@ -7,7 +7,7 @@ import {
   createKysely, GatewayLedgerRepository, migrateDown, migrateToLatest, ProviderFinanceCutoverRepository,
   OperatingBillRepository, ProviderFinanceRepository, PROVIDER_FINANCE_CUTOVER,
   PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
-  enableProjectAllocation, runDueAllocationRuns, projectAllocationTick,
+  enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns, projectAllocationTick,
 } from "../index.js";
 
 let pg: PostgresTestInstance;
@@ -413,15 +413,29 @@ describe("provider finance cutover rehearsal", () => {
           AND period_month = '2026-09-01' AND is_current`.execute(db);
       expect(beforeRun.rows[0]?.line_count).toBe(1);
 
+      // 起始月之后、仅靠继承启用的账期也要有已发布批次：2026-10 没有 period 登记行，
+      // 若钩子只枚举登记行就会漏掉它（80 终审 P1-1 的反例形态）。
+      const laterEnqueue = await enqueueAllocationRun(db, {
+        enterpriseId, month: "2026-10", actorType: "SYSTEM", actorAdminId: null,
+      });
+      expect(laterEnqueue.created).toBe(true);
+      expect((await runDueAllocationRuns(db, "switch-worker"))[0]?.status).toBe("SUCCEEDED");
+      const laterRun = await sql<{ n: number }>`
+        SELECT COUNT(*)::int AS n FROM project_allocation_run
+        WHERE enterprise_id = ${enterpriseId} AND period_month = '2026-10-01' AND is_current`.execute(db);
+      expect(laterRun.rows[0]?.n).toBe(1);
+
       // 切换严格写合同：与标志位翻转同事务把全部已启用账期推脏。
       const activation = await new ProviderFinanceCutoverRepository(db)
         .activateStrictWrites(enterpriseId, adminId, "2026-10");
       expect(activation).toMatchObject({ replayed: false, conservation: { passed: true } });
-      const dirtyAfterSwitch = await sql<{ generation: string; dirty: boolean }>`
-        SELECT generation::text, dirty FROM project_allocation_dirty
-        WHERE enterprise_id = ${enterpriseId} AND period_month = '2026-09-01'`.execute(db);
-      expect(dirtyAfterSwitch.rows[0]?.dirty).toBe(true);
-      expect(BigInt(dirtyAfterSwitch.rows[0]!.generation)).toBeGreaterThan(1n);
+      const dirtyAfterSwitch = await sql<{ period_month: string; dirty: boolean }>`
+        SELECT period_month::text AS period_month, dirty FROM project_allocation_dirty
+        WHERE enterprise_id = ${enterpriseId}`.execute(db);
+      const dirtyMonths = new Map(dirtyAfterSwitch.rows.map((row) => [row.period_month.slice(0, 7), row.dirty]));
+      expect(dirtyMonths.get("2026-09")).toBe(true);
+      // 关键断言：继承启用的后续账期同样被推脏（只枚举登记行的旧实现会得到 false/缺行）。
+      expect(dirtyMonths.get("2026-10")).toBe(true);
 
       // 重算后口径更新：strict writes 下该行 account_at = settled_at（为空）→ 不再计入归集。
       const tick = await projectAllocationTick(db, "switch-worker");

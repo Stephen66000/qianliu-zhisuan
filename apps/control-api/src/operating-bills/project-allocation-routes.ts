@@ -8,7 +8,7 @@ import { requireAuth } from "../plugins/auth-guard.js";
 import {
   getAllocationRunStatus, getUnallocatedSummary, listAllocationLines, listUnallocatedLines,
   enqueueAllocationRun, enableProjectAllocation, resolveAllocationPrincipal,
-  PrincipalNotAccessibleError,
+  PrincipalNotAccessibleError, AllocationRunNotAccessibleError,
 } from "@qianliu/database";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -91,22 +91,23 @@ export function registerOperatingBillAllocationRoutes(app: FastifyInstance): voi
         return reply.code(400).send({ error: "invalid_request", message: "账期格式不合法" });
       }
       // 主体类型合同：项目明细要求本企业 PROJECT；不存在/跨企业/类型不符统一 404。
+      // 指定批次必须属于同企业同账期且 SUCCEEDED，否则一个响应可能混用两个账期/批次（80 终审 P1-2）。
       try {
         await resolveAllocationPrincipal(app.db, req.admin!.enterpriseId, req.params.projectId, "PROJECT");
+        const result = await listAllocationLines(app.db, req.admin!.enterpriseId, req.params.month, req.params.projectId, {
+          runId: query.run_id,
+          employeeId: query.employee_id,
+          source: query.source,
+          limit: Math.min(Math.max(Number(query.limit ?? 25), 1), 100),
+          offset: Math.min(Math.max(Number(query.offset ?? 0), 0), 100_000),
+        });
+        return reply.code(200).send({ month: req.params.month, projectPrincipalId: req.params.projectId, ...result });
       } catch (error) {
-        if (error instanceof PrincipalNotAccessibleError) {
+        if (error instanceof PrincipalNotAccessibleError || error instanceof AllocationRunNotAccessibleError) {
           return reply.code(404).send({ error: "not_found", message: "对象不存在或不可访问" });
         }
         throw error;
       }
-      const result = await listAllocationLines(app.db, req.admin!.enterpriseId, req.params.month, req.params.projectId, {
-        runId: query.run_id,
-        employeeId: query.employee_id,
-        source: query.source,
-        limit: Math.min(Math.max(Number(query.limit ?? 25), 1), 100),
-        offset: Math.min(Math.max(Number(query.offset ?? 0), 0), 100_000),
-      });
-      return reply.code(200).send({ month: req.params.month, projectPrincipalId: req.params.projectId, ...result });
     },
   );
 
@@ -138,16 +139,25 @@ export function registerOperatingBillAllocationRoutes(app: FastifyInstance): voi
       }
       throw error;
     }
-    const summary = await getUnallocatedSummary(app.db, req.admin!.enterpriseId, req.params.month);
-    const detail = await listUnallocatedLines(app.db, req.admin!.enterpriseId, req.params.month, {
-      runId: query.run_id,
-      reason: query.reason,
-      employeeId: query.employee_id,
-      resourceId: query.resource_id,
-      limit: Math.min(Math.max(Number(query.limit ?? 25), 1), 100),
-      offset: Math.min(Math.max(Number(query.offset ?? 0), 0), 100_000),
-    });
-    return reply.code(200).send({ month: req.params.month, ...summary, detail });
+    try {
+      // 汇总与明细必须复用同一个已解析批次：显式 run_id 经统一解析器校验
+      // （同企业/同账期/SUCCEEDED），杜绝顶层与 detail 各取一个批次的混用。
+      const summary = await getUnallocatedSummary(app.db, req.admin!.enterpriseId, req.params.month, query.run_id);
+      const detail = await listUnallocatedLines(app.db, req.admin!.enterpriseId, req.params.month, {
+        runId: query.run_id,
+        reason: query.reason,
+        employeeId: query.employee_id,
+        resourceId: query.resource_id,
+        limit: Math.min(Math.max(Number(query.limit ?? 25), 1), 100),
+        offset: Math.min(Math.max(Number(query.offset ?? 0), 0), 100_000),
+      });
+      return reply.code(200).send({ month: req.params.month, ...summary, detail });
+    } catch (error) {
+      if (error instanceof AllocationRunNotAccessibleError) {
+        return reply.code(404).send({ error: "not_found", message: "对象不存在或不可访问" });
+      }
+      throw error;
+    }
   });
 }
 

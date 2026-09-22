@@ -14,6 +14,7 @@ import {
   reviseProjectAccountingLifecycle, AccountingVersionConflictError,
   publishEmployeeRules, previewPolicyChange, reviseProjectMembership as revise,
   AllocationPolicyVersionConflictError, AllocationRuleConflictError,
+  publishProjectIntent, getEmployeePolicyOverview,
 } from "../index.js";
 import {
   enumerateShanghaiMonths, markAllocationDirty,
@@ -456,6 +457,102 @@ describe("生命周期结束裁剪（M04）", () => {
       WHERE pol.enterprise_id = ${entA} AND pol.employee_principal_id = ${employeeE3}
         AND pol.is_current AND ru.project_principal_id = ${projectQ}`.execute(db);
     expect(qAfter.rows[0]?.total).toBe(qBefore.rows[0]?.total);
+  });
+});
+
+describe("80 终审 P1-3：项目意图按区间差集保留同项目历史段", () => {
+  it("开放旧段中途改权重：8 月 40% 保留、9 月起 60%", async () => {
+    const e = randomUUID();
+    const proj = randomUUID();
+    await db.insertInto("principal").values([
+      { id: e, enterprise_id: entA, type: "EMPLOYEE", name: "差集员工A" },
+      { id: proj, enterprise_id: entA, type: "PROJECT", name: "差集项目A" },
+    ]).execute();
+    await createProjectMembership(db, {
+      enterpriseId: entA, projectId: proj, employeePrincipalId: e,
+      joinedAt: T("2026-08-01T00:00:00+08:00"), leftAt: null,
+      reason: "加入", idempotencyKey: `d1-${randomUUID()}`, actorAdminId: admin,
+    });
+    const first = await publishProjectIntent(db, {
+      enterpriseId: entA, employeePrincipalId: e, projectId: proj,
+      segments: [{ weightBps: 4000, validFrom: T("2026-08-01T00:00:00+08:00"), validUntil: null }],
+      expectedPolicyVersion: null, reason: "8月起40%", idempotencyKey: `d2-${randomUUID()}`, actorAdminId: admin,
+    });
+    expect(first.outcome).toBe("PUBLISHED");
+    const second = await publishProjectIntent(db, {
+      enterpriseId: entA, employeePrincipalId: e, projectId: proj,
+      segments: [{ weightBps: 6000, validFrom: T("2026-09-01T00:00:00+08:00"), validUntil: null }],
+      expectedPolicyVersion: 1, reason: "9月起改60%", idempotencyKey: `d3-${randomUUID()}`, actorAdminId: admin,
+    });
+    expect(second.outcome).toBe("PUBLISHED");
+    // 修复前：当前完整规则只剩 9 月 6000（8 月 40% 被整体删除）。
+    const overview = await getEmployeePolicyOverview(db, entA, e);
+    expect(overview.rules.map((rule) => `${rule.weightBps}@${rule.validFrom.toISOString()}-${rule.validUntil?.toISOString() ?? "open"}`).sort()).toEqual([
+      "4000@2026-07-31T16:00:00.000Z-2026-08-31T16:00:00.000Z",
+      "6000@2026-08-31T16:00:00.000Z-open",
+    ]);
+  });
+
+  it("有限区间局部覆盖：旧段两侧保留、中段替换", async () => {
+    const e = randomUUID();
+    const proj = randomUUID();
+    await db.insertInto("principal").values([
+      { id: e, enterprise_id: entA, type: "EMPLOYEE", name: "差集员工B" },
+      { id: proj, enterprise_id: entA, type: "PROJECT", name: "差集项目B" },
+    ]).execute();
+    await createProjectMembership(db, {
+      enterpriseId: entA, projectId: proj, employeePrincipalId: e,
+      joinedAt: T("2026-08-01T00:00:00+08:00"), leftAt: null,
+      reason: "加入", idempotencyKey: `d4-${randomUUID()}`, actorAdminId: admin,
+    });
+    await publishProjectIntent(db, {
+      enterpriseId: entA, employeePrincipalId: e, projectId: proj,
+      segments: [{ weightBps: 3000, validFrom: T("2026-09-01T00:00:00+08:00"), validUntil: null }],
+      expectedPolicyVersion: null, reason: "9月起30%", idempotencyKey: `d5-${randomUUID()}`, actorAdminId: admin,
+    });
+    await publishProjectIntent(db, {
+      enterpriseId: entA, employeePrincipalId: e, projectId: proj,
+      segments: [{ weightBps: 7000, validFrom: T("2026-09-10T00:00:00+08:00"), validUntil: T("2026-09-20T00:00:00+08:00") }],
+      expectedPolicyVersion: 1, reason: "局部70%", idempotencyKey: `d6-${randomUUID()}`, actorAdminId: admin,
+    });
+    const overview = await getEmployeePolicyOverview(db, entA, e);
+    expect(overview.rules.map((rule) => `${rule.weightBps}@${rule.validFrom.toISOString()}-${rule.validUntil?.toISOString() ?? "open"}`).sort()).toEqual([
+      "3000@2026-08-31T16:00:00.000Z-2026-09-09T16:00:00.000Z",
+      "3000@2026-09-19T16:00:00.000Z-open",
+      "7000@2026-09-09T16:00:00.000Z-2026-09-19T16:00:00.000Z",
+    ]);
+  });
+
+  it("退出再加入的新 stint 带权重：旧 stint 段裁剪到新 stint 之前", async () => {
+    const e = randomUUID();
+    const proj = randomUUID();
+    await db.insertInto("principal").values([
+      { id: e, enterprise_id: entA, type: "EMPLOYEE", name: "差集员工C" },
+      { id: proj, enterprise_id: entA, type: "PROJECT", name: "差集项目C" },
+    ]).execute();
+    const firstStint = await createProjectMembership(db, {
+      enterpriseId: entA, projectId: proj, employeePrincipalId: e,
+      joinedAt: T("2026-08-01T00:00:00+08:00"), leftAt: null,
+      weight: { weightBps: 5000, validFrom: T("2026-08-01T00:00:00+08:00") },
+      reason: "第一段50%", idempotencyKey: `d7-${randomUUID()}`, actorAdminId: admin,
+    });
+    void firstStint;
+    await reviseProjectMembership(db, {
+      enterpriseId: entA, projectId: proj, employeePrincipalId: e, membershipId: await activeMembershipId(e, proj),
+      expectedRevision: 1, leftAt: T("2026-08-31T00:00:00+08:00"),
+      reason: "8月底退出", idempotencyKey: `d8-${randomUUID()}`, actorAdminId: admin,
+    });
+    await createProjectMembership(db, {
+      enterpriseId: entA, projectId: proj, employeePrincipalId: e,
+      joinedAt: T("2026-09-15T00:00:00+08:00"), leftAt: null,
+      weight: { weightBps: 8000, validFrom: T("2026-09-15T00:00:00+08:00") },
+      reason: "新stint 80%", idempotencyKey: `d9-${randomUUID()}`, actorAdminId: admin,
+    });
+    const overview = await getEmployeePolicyOverview(db, entA, e);
+    expect(overview.rules.map((rule) => `${rule.weightBps}@${rule.validFrom.toISOString()}-${rule.validUntil?.toISOString() ?? "open"}`).sort()).toEqual([
+      "5000@2026-07-31T16:00:00.000Z-2026-08-30T16:00:00.000Z",
+      "8000@2026-09-14T16:00:00.000Z-open",
+    ]);
   });
 });
 

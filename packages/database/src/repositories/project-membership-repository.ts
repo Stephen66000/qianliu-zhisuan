@@ -12,7 +12,7 @@ import {
 } from "./project-allocation-common.js";
 import type { AllocationDb } from "./project-allocation-common.js";
 import {
-  publishEmployeeRulesInTx, type DesiredRuleInput, type PublishRulesOutcome,
+  publishEmployeeRulesInTx, subtractRuleCuts, type DesiredRuleInput, type PublishRulesOutcome,
 } from "./employee-allocation-policy-repository.js";
 
 export class MembershipOverlapConflictError extends Error {
@@ -263,16 +263,40 @@ async function publishWeightForMembership(
       AND employee_principal_id = ${params.employeePrincipalId}
       AND is_current`.execute(tx);
   const currentPolicyId = rows[0]?.policy_id;
+  // 新 stint 的权重区间（未显式给出时默认整个参与区间）。
+  const newSegment = {
+    from: params.weight.validFrom ?? params.weightDefaultFrom,
+    until: params.weight.validUntil === undefined ? params.weightDefaultUntil : params.weight.validUntil,
+  };
   if (currentPolicyId !== undefined) {
-    const { rows: keptRows } = await sql<{
+    const { rows: currentRows } = await sql<{
       project_principal_id: string; membership_id: string; weight_bps: number;
       valid_from: Date; valid_until: Date | null;
     }>`
       SELECT project_principal_id, membership_id, weight_bps, valid_from, valid_until
       FROM employee_project_allocation_rule
-      WHERE policy_id = ${currentPolicyId}
-        AND project_principal_id <> ${params.projectId}`.execute(tx);
-    kept.push(...keptRows);
+      WHERE policy_id = ${currentPolicyId}`.execute(tx);
+    // 其他项目原样保留；当前项目旧段按新段区间做差集（80 终审 P1-3）：
+    // 新 stint 的权重覆盖与之相交的部分，之前的历史段必须留下。
+    const sameProject = currentRows
+      .filter((row) => row.project_principal_id === params.projectId)
+      .map((row) => ({
+        membershipId: row.membership_id, weightBps: row.weight_bps,
+        validFrom: row.valid_from, validUntil: row.valid_until,
+      }));
+    const remainder = subtractRuleCuts(sameProject, [newSegment]);
+    kept.push(
+      ...currentRows
+        .filter((row) => row.project_principal_id !== params.projectId)
+        .map((row) => ({
+          project_principal_id: row.project_principal_id, membership_id: row.membership_id,
+          weight_bps: row.weight_bps, valid_from: row.valid_from, valid_until: row.valid_until,
+        })),
+      ...remainder.map((segment) => ({
+        project_principal_id: params.projectId, membership_id: segment.membershipId,
+        weight_bps: segment.weightBps, valid_from: segment.validFrom, valid_until: segment.validUntil,
+      })),
+    );
   }
 
   const rules: DesiredRuleInput[] = [
@@ -287,9 +311,8 @@ async function publishWeightForMembership(
       projectPrincipalId: params.projectId,
       membershipId: params.membershipId,
       weightBps: params.weight.weightBps,
-      // 未显式给出权重区间时默认整个参与区间。
-      validFrom: params.weight.validFrom ?? params.weightDefaultFrom,
-      validUntil: params.weight.validUntil === undefined ? params.weightDefaultUntil : params.weight.validUntil,
+      validFrom: newSegment.from,
+      validUntil: newSegment.until,
     },
   ];
   return publishEmployeeRulesInTx(tx, {

@@ -67,6 +67,47 @@ export async function resolveAllocationPrincipal(
   return { id: row.id, type: row.type, name: row.name };
 }
 
+/** 指定批次不可用（跨企业/跨账期/非成功或不存在）：对外统一不可访问语义（80 终审 P1-2）。 */
+export class AllocationRunNotAccessibleError extends Error {
+  constructor(public readonly runId: string, public readonly month: string) {
+    super(`allocation run ${runId} not accessible for ${month}`);
+    this.name = "AllocationRunNotAccessibleError";
+  }
+}
+
+/**
+ * 归集批次统一解析：显式 run_id 必须是同企业、同路径账期的 SUCCEEDED 批次
+ * （允许读取同月历史批次）；否则抛 AllocationRunNotAccessibleError。未指定时取当月 current。
+ * 汇总与明细必须复用同一解析结果，避免一个响应混用两个账期/批次。
+ */
+export async function resolveAllocationRunRef(
+  db: AllocationDb,
+  enterpriseId: string,
+  month: string,
+  runId: string | undefined,
+): Promise<string | null> {
+  if (runId !== undefined) {
+    const day = `${month}-01`;
+    const row = await db.selectFrom("project_allocation_run")
+      .select(["id"])
+      .where("id", "=", runId)
+      .where("enterprise_id", "=", enterpriseId)
+      .where("period_month", "=", day)
+      .where("status", "=", "SUCCEEDED")
+      .executeTakeFirst();
+    if (row === undefined) throw new AllocationRunNotAccessibleError(runId, month);
+    return row.id;
+  }
+  const current = await db.selectFrom("project_allocation_run")
+    .select(["id"])
+    .where("enterprise_id", "=", enterpriseId)
+    .where("period_month", "=", `${month}-01`)
+    .where("is_current", "=", true)
+    .where("status", "=", "SUCCEEDED")
+    .executeTakeFirst();
+  return current?.id ?? null;
+}
+
 export type ActiveMembershipRevision = Selectable<ProjectMembershipRevisionTable>;
 
 /** 员工全部当前有效参与（ACTIVE 修订，含冗余主体列）。 */

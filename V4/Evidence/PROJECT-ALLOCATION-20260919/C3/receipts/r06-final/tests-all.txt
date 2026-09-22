@@ -1,0 +1,24 @@
+$ 根 typecheck/lint/build：11 包 Done / 11 包 Done / 11 包 Done（exit 0）
+
+$ cd packages/database && vitest run foundation+compute+close+invariance+cutover+backfill+migration
+ ✓ src/__tests-integration__/migration.integration.test.ts (7 tests) 12197ms
+ ✓ src/__tests-integration__/project-allocation-compute.integration.test.ts (8 tests) 13000ms
+ ✓ src/__tests-integration__/project-allocation-invariance.integration.test.ts (1 test) 14326ms
+ ✓ src/__tests-integration__/principal-attribution-backfill.integration.test.ts (4 tests) 15236ms
+ ✓ src/__tests-integration__/project-allocation-foundation.integration.test.ts (22 tests) 15413ms
+ ✓ src/__tests-integration__/provider-finance-cutover.integration.test.ts (3 tests) 16422ms
+ ✓ src/__tests-integration__/project-allocation-close.integration.test.ts (14 tests) 16829ms
+ Test Files  7 passed (7)
+      Tests  59 passed (59)
+
+$ cd packages/domain && pnpm run test
+ Test Files  13 passed (13)
+      Tests  205 passed (205)
+
+$ cd apps/control-api && vitest run project-allocation-routes
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+
+$ cd apps/web && pnpm run test
+ Test Files  78 passed (78)
+      Tests  476 passed (476)

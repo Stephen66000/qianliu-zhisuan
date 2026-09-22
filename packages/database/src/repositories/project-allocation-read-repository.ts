@@ -5,7 +5,7 @@
  */
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
-import { allocationGeneration } from "./project-allocation-common.js";
+import { allocationGeneration, resolveAllocationRunRef } from "./project-allocation-common.js";
 
 export interface AllocationRunStatus {
   enabled: boolean;
@@ -18,6 +18,17 @@ export interface AllocationRunStatus {
     completeness: { unknownApiCostLineCount?: number; unknownPackageCostLineCount?: number } | null;
   } | null;
   lastError: string | null;
+  /**
+   * 该账期最近一个未完成/失败批次（80 终审 P2）。库约束 is_current ⇒ SUCCEEDED，
+   * 只查 current 永远看不到 QUEUED/RUNNING/FAILED；此字段用于"计算中/失败"展示，
+   * 不覆盖仍可读的 current 成功结果。
+   */
+  latestRun: {
+    id: string;
+    status: "QUEUED" | "RUNNING" | "FAILED";
+    createdAt: string | null;
+    lastError: string | null;
+  } | null;
 }
 
 function monthFirstDay(month: string): string {
@@ -51,6 +62,14 @@ export async function getAllocationRunStatus(
     .where("period_month", "=", day)
     .executeTakeFirst();
 
+  const pending = await db.selectFrom("project_allocation_run")
+    .select(["id", "status", "created_at", "last_error"])
+    .where("enterprise_id", "=", enterpriseId)
+    .where("period_month", "=", day)
+    .where("status", "in", ["QUEUED", "RUNNING", "FAILED"])
+    .orderBy("created_at", "desc")
+    .executeTakeFirst();
+
   return {
     enabled: anyEnable !== undefined,
     currentRun: run === undefined ? null : {
@@ -64,6 +83,12 @@ export async function getAllocationRunStatus(
       completeness: run.completeness as { unknownApiCostLineCount?: number; unknownPackageCostLineCount?: number } | null,
     },
     lastError: run?.last_error ?? null,
+    latestRun: pending === undefined ? null : {
+      id: pending.id,
+      status: pending.status as "QUEUED" | "RUNNING" | "FAILED",
+      createdAt: pending.created_at?.toISOString() ?? null,
+      lastError: pending.last_error ?? null,
+    },
   };
 }
 
@@ -155,16 +180,11 @@ export async function getUnallocatedSummary(
   db: Kysely<Database>,
   enterpriseId: string,
   month: string,
+  runId?: string,
 ): Promise<UnallocatedSummary> {
   const day = monthFirstDay(month);
-  const run = await db.selectFrom("project_allocation_run")
-    .select(["id"])
-    .where("enterprise_id", "=", enterpriseId)
-    .where("period_month", "=", day)
-    .where("is_current", "=", true)
-    .where("status", "=", "SUCCEEDED")
-    .executeTakeFirst();
-  if (run === undefined) {
+  const runId_ = await resolveAllocationRunRef(db, enterpriseId, month, runId);
+  if (runId_ === null) {
     return { runId: null, tokens: "0", byReason: {}, apiCostByCurrency: {}, packageCostCny: "0", lineCount: 0, resourceResidual: [] };
   }
   const { rows } = await sql<{
@@ -177,11 +197,11 @@ export async function getUnallocatedSummary(
            SUM(share_package_cost)::text AS package_cny,
            COUNT(*)::int AS n
     FROM project_allocation_line
-    WHERE run_id = ${run.id} AND target_type = 'UNALLOCATED'
+    WHERE run_id = ${runId_} AND target_type = 'UNALLOCATED'
     GROUP BY unallocated_reason`.execute(db);
   const residual = await db.selectFrom("project_allocation_resource_residual")
     .select(["provider_resource_id", "amount", "note"])
-    .where("run_id", "=", run.id)
+    .where("run_id", "=", runId_)
     .execute();
 
   const byReason: Record<string, string> = {};
@@ -198,7 +218,7 @@ export async function getUnallocatedSummary(
     lineCount += row.n;
   }
   return {
-    runId: run.id,
+    runId: runId_,
     tokens,
     byReason,
     apiCostByCurrency: apiCost,
@@ -254,14 +274,7 @@ export async function listAllocationLines(
   projectId: string,
   params: { runId?: string; employeeId?: string; source?: string; limit: number; offset: number },
 ): Promise<{ runId: string | null; lines: AllocationLineRow[]; total: number; limit: number; offset: number }> {
-  const day = monthFirstDay(month);
-  const runId = params.runId ?? (await db.selectFrom("project_allocation_run")
-    .select(["id"])
-    .where("enterprise_id", "=", enterpriseId)
-    .where("period_month", "=", day)
-    .where("is_current", "=", true)
-    .where("status", "=", "SUCCEEDED")
-    .executeTakeFirst())?.id ?? null;
+  const runId = await resolveAllocationRunRef(db, enterpriseId, month, params.runId);
   if (runId === null) return { runId: null, lines: [], total: 0, limit: params.limit, offset: params.offset };
 
   const { rows } = await sql<AllocationLineRow & { total: number }>`
@@ -318,14 +331,7 @@ export async function listUnallocatedLines(
     limit: number; offset: number;
   },
 ): Promise<{ runId: string | null; lines: UnallocatedLineRow[]; total: number; limit: number; offset: number }> {
-  const day = monthFirstDay(month);
-  const runId = params.runId ?? (await db.selectFrom("project_allocation_run")
-    .select(["id"])
-    .where("enterprise_id", "=", enterpriseId)
-    .where("period_month", "=", day)
-    .where("is_current", "=", true)
-    .where("status", "=", "SUCCEEDED")
-    .executeTakeFirst())?.id ?? null;
+  const runId = await resolveAllocationRunRef(db, enterpriseId, month, params.runId);
   if (runId === null) return { runId: null, lines: [], total: 0, limit: params.limit, offset: params.offset };
 
   const { rows } = await sql<UnallocatedLineRow & { total: number }>`

@@ -9,10 +9,11 @@ import { createKysely, migrateToLatest } from "../index.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import type { Database } from "../kysely.js";
 import {
-  createProjectMembership, publishEmployeeRules,
+  createProjectMembership, publishEmployeeRules, publishProjectIntent,
   enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns, projectAllocationTick,
   reviseProjectAccountingLifecycle, listAllocationLines, markAllocationDirty,
-  getAllocationRunStatus, OperatingBillRepository, AllocationNotReadyError,
+  getAllocationRunStatus, getUnallocatedSummary, listUnallocatedLines,
+  AllocationRunNotAccessibleError, OperatingBillRepository, AllocationNotReadyError,
 } from "../index.js";
 
 let pg: PostgresTestInstance;
@@ -619,6 +620,39 @@ describe("P1-a：digest 命中幂等再发布（R02 返修）", () => {
   });
 });
 
+describe("80 终审 P1-2：指定批次绑定企业账期", () => {
+  it("跨账期 run_id 拒绝；同月历史批次允许且汇总明细同源", async () => {
+    const month = "2025-12";
+    const otherMonthRun = randomUUID();
+    const historicalRun = randomUUID();
+    const currentRun = randomUUID();
+    for (const [id, day, digest, isCurrent] of [
+      [currentRun, "2025-12-01", "d-cur", true],
+      [historicalRun, "2025-12-01", "d-hist", false],
+      [otherMonthRun, "2025-11-01", "d-nov", false],
+    ] as const) {
+      await sql`INSERT INTO project_allocation_run
+        (id, enterprise_id, period_month, schema_version, algorithm_version, status, generation, actor_type, is_current, input_digest)
+      VALUES (${id}::uuid, ${ent}::uuid, ${day}::date, '1', '1', 'SUCCEEDED', 1, 'SYSTEM', ${isCurrent}, ${digest})`.execute(db);
+    }
+
+    // 跨账期：统一解析器必须拒绝（旧实现会把 11 月批次混进 12 月响应）。
+    await expect(getUnallocatedSummary(db, ent, month, otherMonthRun))
+      .rejects.toThrow(AllocationRunNotAccessibleError);
+    await expect(listAllocationLines(db, ent, month, projectA, { runId: otherMonthRun, limit: 25, offset: 0 }))
+      .rejects.toThrow(AllocationRunNotAccessibleError);
+
+    // 同月历史批次：允许读取，且汇总与明细必须解析到同一个批次。
+    const summary = await getUnallocatedSummary(db, ent, month, historicalRun);
+    const detail = await listUnallocatedLines(db, ent, month, { runId: historicalRun, limit: 25, offset: 0 });
+    expect(summary.runId).toBe(historicalRun);
+    expect(detail.runId).toBe(historicalRun);
+
+    // 未指定时取当月 current。
+    expect((await getUnallocatedSummary(db, ent, month)).runId).toBe(currentRun);
+  });
+});
+
 describe("P1-b：人工指定同事务推脏（方案 A）", () => {
   it("assignRequestToProject→脏代次前进→结账被拒→重算为 MANUAL_ASSIGNMENT→结账放行", async () => {
     const month = "2026-10";
@@ -694,5 +728,61 @@ describe("P1-b：人工指定同事务推脏（方案 A）", () => {
       enterpriseId: ent, adminId: admin, month, allowIncomplete: true, note: "P1-b 重算后结账",
     });
     expect(closed.status).toBe("CLOSED");
+  });
+});
+
+describe("80 终审 P1-3：修改未来权重后历史月份重算不漂移", () => {
+  it("8 月 40% → 9 月改 60%：8 月重算仍按 40% 归集，不落未分配", async () => {
+    const month = "2025-10";
+    const employee6 = randomUUID();
+    const project = randomUUID();
+    await db.insertInto("principal").values([
+      { id: employee6, enterprise_id: ent, type: "EMPLOYEE", name: "漂移员工" },
+      { id: project, enterprise_id: ent, type: "PROJECT", name: "漂移项目" },
+    ]).execute();
+    const request = await seedLedgerLine(employee6, T("2025-10-15T10:00:00+08:00"), 1_000n, "0.5000");
+    const key6 = randomUUID();
+    await db.insertInto("principal_key").values([
+      { id: key6, enterprise_id: ent, principal_id: employee6, key_prefix: "drift", key_digest: "drift-digest" },
+    ]).execute();
+    await sql`UPDATE ai_request SET principal_key_id = ${key6} WHERE id = ${request}`.execute(db);
+    await createProjectMembership(db, {
+      enterpriseId: ent, projectId: project, employeePrincipalId: employee6,
+      joinedAt: T("2025-10-01T00:00:00+08:00"), leftAt: null,
+      reason: "加入", idempotencyKey: "drift-join", actorAdminId: admin,
+    });
+    await publishProjectIntent(db, {
+      enterpriseId: ent, employeePrincipalId: employee6, projectId: project,
+      segments: [{ weightBps: 4000, validFrom: T("2025-10-01T00:00:00+08:00"), validUntil: null }],
+      expectedPolicyVersion: null, reason: "10月起40%", idempotencyKey: "drift-r1", actorAdminId: admin,
+    });
+    await enableProjectAllocation(db, { enterpriseId: ent, startMonth: month, actorAdminId: admin });
+    expect((await runDueAllocationRuns(db, "drift-worker"))[0]?.status).toBe("SUCCEEDED");
+    const before = await sql<{ sources: string; share: string; bps: number | null }>`
+      SELECT string_agg(DISTINCT l.allocation_source, ',') AS sources,
+             MAX(l.share_input_tokens)::text AS share, MAX(l.weight_bps)::int AS bps
+      FROM project_allocation_line l JOIN project_allocation_run r ON r.id = l.run_id
+      WHERE r.enterprise_id = ${ent} AND r.is_current AND l.ai_request_id = ${request}`.execute(db);
+    expect(before.rows[0]?.sources).toBe("MEMBERSHIP_RULE,UNALLOCATED");
+    expect(before.rows[0]?.bps).toBe(4000);
+
+    // 修改"未来"权重：11 月起 60%。affectedMonths 会把 10 月推脏并触发重算。
+    await publishProjectIntent(db, {
+      enterpriseId: ent, employeePrincipalId: employee6, projectId: project,
+      segments: [{ weightBps: 6000, validFrom: T("2025-11-01T00:00:00+08:00"), validUntil: null }],
+      expectedPolicyVersion: 1, reason: "11月起改60%", idempotencyKey: "drift-r2", actorAdminId: admin,
+    });
+    // tick 自动登记"已脏未消费"账期并重算（P2-c 路径），无需人工点重建。
+    const driftTick = await projectAllocationTick(db, "drift-worker");
+    expect(driftTick.runsExecuted).toBeGreaterThanOrEqual(1);
+    const after = await sql<{ sources: string; share: string; bps: number | null }>`
+      SELECT string_agg(DISTINCT l.allocation_source, ',') AS sources,
+             MAX(l.share_input_tokens)::text AS share, MAX(l.weight_bps)::int AS bps
+      FROM project_allocation_line l JOIN project_allocation_run r ON r.id = l.run_id
+      WHERE r.enterprise_id = ${ent} AND r.is_current AND l.ai_request_id = ${request}`.execute(db);
+    // 修复前：当前规则只剩 11 月 60%，10 月行漂移为 NO_EFFECTIVE_RULE 全额未分配。
+    expect(after.rows[0]?.sources).toBe("MEMBERSHIP_RULE,UNALLOCATED");
+    expect(after.rows[0]?.bps).toBe(4000);
+    expect(after.rows[0]?.share).toBe(before.rows[0]?.share);
   });
 });

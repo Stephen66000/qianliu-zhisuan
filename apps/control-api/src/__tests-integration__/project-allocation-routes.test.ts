@@ -332,6 +332,50 @@ describe("项目账归集端点（WP05）", () => {
     expect(list.statusCode).toBe(200);
   });
 
+  it("80-P1-2：跨账期 run_id 统一 404；同月历史批次 200 且汇总明细同源", async () => {
+    const sepRun = randomUUID();
+    const augRun = randomUUID();
+    await db.insertInto("project_allocation_run").values([
+      { id: sepRun, enterprise_id: ent, period_month: "2026-09-01", schema_version: "1",
+        algorithm_version: "1", status: "SUCCEEDED", generation: 1, actor_type: "SYSTEM",
+        is_current: true, input_digest: "d-sep" },
+      { id: augRun, enterprise_id: ent, period_month: "2026-08-01", schema_version: "1",
+        algorithm_version: "1", status: "SUCCEEDED", generation: 1, actor_type: "SYSTEM",
+        is_current: true, input_digest: "d-aug" },
+    ]).execute();
+
+    // 旧实现：HTTP 200，顶层来自 9 月、detail 来自 8 月（混用两个账期）。
+    const crossMonth = await app.inject({
+      method: "GET", url: `/operating-bills/2026-09/project-unallocated?run_id=${augRun}`,
+      headers: { cookie: superCookie },
+    });
+    expect(crossMonth.statusCode).toBe(404);
+    expect(crossMonth.json().error).toBe("not_found");
+
+    const linesCross = await app.inject({
+      method: "GET", url: `/operating-bills/2026-09/projects/${projectP}/allocation-lines?run_id=${augRun}`,
+      headers: { cookie: superCookie },
+    });
+    expect(linesCross.statusCode).toBe(404);
+    expect(linesCross.json().error).toBe("not_found");
+
+    // 同月历史批次（9 月的 current 之外再造一个非 current 成功批次）：可读且同源。
+    const sepHistorical = randomUUID();
+    await db.insertInto("project_allocation_run").values({
+      id: sepHistorical, enterprise_id: ent, period_month: "2026-09-01", schema_version: "1",
+      algorithm_version: "1", status: "SUCCEEDED", generation: 1, actor_type: "SYSTEM",
+      is_current: false, input_digest: "d-sep-hist",
+    }).execute();
+    const sameMonth = await app.inject({
+      method: "GET", url: `/operating-bills/2026-09/project-unallocated?run_id=${sepHistorical}`,
+      headers: { cookie: superCookie },
+    });
+    expect(sameMonth.statusCode).toBe(200);
+    const body = sameMonth.json();
+    expect(body.runId).toBe(sepHistorical);
+    expect(body.detail.runId).toBe(sepHistorical);
+  });
+
   it("F-2：项目明细主体类型合同——不存在/跨企业/类型不符统一 404，不返回 200 空集", async () => {
     const cases: Array<[string, string]> = [
       ["不存在的项目", randomUUID()],

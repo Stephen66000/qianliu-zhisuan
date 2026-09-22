@@ -113,6 +113,13 @@ export function OperatingBillProjectAllocationPage() {
                 </p>
               )}
               {status.data.lastError && <p className="text-xs text-red-600">{status.data.lastError}</p>}
+              {status.data.latestRun && status.data.latestRun.status !== "SUCCEEDED" && (
+                <p className="text-xs text-neutral-500">
+                  {status.data.latestRun.status === "QUEUED" && "已登记批次，等待执行"}
+                  {status.data.latestRun.status === "RUNNING" && "批次计算中"}
+                  {status.data.latestRun.status === "FAILED" && `批次失败：${status.data.latestRun.lastError ?? "未知原因"}`}
+                </p>
+              )}
             </BillCard>
             <BillCard>
               <p className="text-xs text-neutral-500">未分配 Token</p>
