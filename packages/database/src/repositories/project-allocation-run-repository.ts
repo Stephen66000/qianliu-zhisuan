@@ -100,7 +100,12 @@ interface RuleRow {
 export async function loadAllocationContexts(
   db: Kysely<Database>,
   enterpriseId: string,
-): Promise<{ contextsByEmployee: Map<string, EmployeeAllocationContext>; ruleDigest: string; membershipDigest: string }> {
+): Promise<{
+  contextsByEmployee: Map<string, EmployeeAllocationContext>;
+  ruleDigest: string;
+  membershipDigest: string;
+  accountingDigest: string;
+}> {
   const { rows: rules } = await sql<RuleRow>`
     SELECT ru.employee_principal_id, ru.policy_id, ru.membership_id, ru.membership_revision_id,
            ru.project_principal_id, ru.weight_bps::int AS weight_bps, ru.valid_from, ru.valid_until
@@ -170,6 +175,12 @@ export async function loadAllocationContexts(
     membershipDigest: digest(memberships.map((m) => [
       m.membership_id, m.project_principal_id,
       m.joined_at.toISOString(), m.left_at?.toISOString() ?? null,
+    ])),
+    // 核算窗口直接决定权重是否生效（窗口外 → 待修复/未分配），必须进输入摘要：
+    // 否则"先发布规则、后月中开始核算"这类只动窗口的变更会被幂等短路当成无变化。
+    accountingDigest: digest(accounting.map((row) => [
+      row.project_principal_id,
+      row.started_at.toISOString(), row.ended_at?.toISOString() ?? null,
     ])),
   };
 }
@@ -423,8 +434,14 @@ export async function executeAllocationRun(
       SELECT COALESCE((SELECT strict_writes_enabled FROM provider_finance_runtime_state
         WHERE enterprise_id = ${run.enterprise_id}::uuid), false) AS enabled`.execute(db);
     const financeEnabled = financeRows[0]?.enabled ?? false;
+    const { rows: enablement } = await sql<{ earliest: string | null }>`
+      SELECT MIN(period_month)::text AS earliest FROM project_allocation_period
+      WHERE enterprise_id = ${run.enterprise_id}`.execute(db);
+    const earliest = enablement[0]?.earliest ?? null;
+    const historicalCutoff = earliest === null ? null : operatingBillMonthRange(earliest.slice(0, 7)).start;
+
     const started = Date.now();
-    const [lines, { contextsByEmployee, ruleDigest, membershipDigest }] = await Promise.all([
+    const [lines, { contextsByEmployee, ruleDigest, membershipDigest, accountingDigest }] = await Promise.all([
       loadAllocationSourceLines(db, run.enterprise_id, month),
       loadAllocationContexts(db, run.enterprise_id),
     ]);
@@ -436,16 +453,18 @@ export async function executeAllocationRun(
     // P1-3：事实内容摘要——行数 + 逐行内容（覆盖 token/费用/币种/状态/结算时间/
     // 资源/主体/attempt 等影响归集的列）。行数相同、内容被原地修改（如 finance
     // 回填 UPDATE）时 digest 仍变化，确保重算不被幂等跳过。
+    // R02 P1：摘要必须覆盖**全部决定归集结果的输入**。核算窗口曾遗漏，导致"先发布
+    // 规则、后月中开始核算"这类只动窗口的变更被幂等短路吞掉，把陈旧结果冻入结账
+    // 引用（fail-open）。现纳入 accountingDigest；口径开关与历史截断仅影响
+    // account_at 与原因码，一并计入以保完备。
     const factXor = contentXor(lines);
     const inputDigest = createHash("sha256")
-      .update(JSON.stringify([run.period_month, lines.length, factXor, ruleDigest, membershipDigest, manualDigest]))
+      .update(JSON.stringify([
+        run.period_month, lines.length, factXor,
+        ruleDigest, membershipDigest, accountingDigest, manualDigest,
+        financeEnabled ? "finance:on" : "finance:off", earliest ?? "no-enablement",
+      ]))
       .digest("hex");
-
-    const { rows: enablement } = await sql<{ earliest: string | null }>`
-      SELECT MIN(period_month)::text AS earliest FROM project_allocation_period
-      WHERE enterprise_id = ${run.enterprise_id}`.execute(db);
-    const earliest = enablement[0]?.earliest ?? null;
-    const historicalCutoff = earliest === null ? null : operatingBillMonthRange(earliest.slice(0, 7)).start;
 
     const lineById = new Map(lines.map((line) => [line.ledgerLineId, line]));
     const result = allocateMonth({
@@ -608,11 +627,15 @@ export async function executeAllocationRun(
         .where("id", "=", run.id)
         .executeTakeFirst();
       if (dirty && captured && dirty.generation <= (captured.input_dirty_generation ?? 0)) {
+        // 清除/对齐都按"读取到的代次"做条件写入：期间若有并发标记推进了代次，
+        // 则不改动（保留 dirty，让闸门继续拒绝、调度继续登记）。无条件清除会吞掉
+        // 并发标记，使账期"闸门拒绝但自动恢复丢失"，只能人工重建（R02 §4-②）。
+        let clearGeneration = dirty.generation;
         if (existing !== undefined) {
-          // 幂等命中：本批次以摘要相等证明了"当前输入与已发布批次完全一致"，
-          // 因此该脏代次已被既有发布结果满足。把代次对齐到发布批次捕获的代次，
-          // 使结账闸门（generation > captured → stale_input）按事实放行。
-          // 条件更新：若期间又有并发标记推进了代次，则不改动，保持 dirty 让闸门拒绝。
+          // 幂等命中：本批次以摘要相等证明了"当前输入与已发布批次完全一致"
+          // （摘要已覆盖行事实/规则/参与/核算窗口/人工指定），因此该脏代次已被既有
+          // 发布结果满足。把代次对齐到发布批次捕获的代次，使结账闸门
+          // （generation > captured → stale_input）按事实放行。
           const published = await tx.selectFrom("project_allocation_run")
             .select(["input_dirty_generation"])
             .where("enterprise_id", "=", run.enterprise_id)
@@ -627,12 +650,14 @@ export async function executeAllocationRun(
               .where("period_month", "=", run.period_month.slice(0, 10))
               .where("generation", "=", dirty.generation)
               .execute();
+            clearGeneration = publishedCaptured;
           }
         }
         await tx.updateTable("project_allocation_dirty")
           .set({ dirty: false })
           .where("enterprise_id", "=", run.enterprise_id)
           .where("period_month", "=", run.period_month.slice(0, 10))
+          .where("generation", "=", clearGeneration)
           .execute();
       }
     });

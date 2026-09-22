@@ -11,7 +11,7 @@ import type { Database } from "../kysely.js";
 import {
   createProjectMembership, publishEmployeeRules,
   enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns, projectAllocationTick,
-  reviseProjectAccountingLifecycle, listAllocationLines,
+  reviseProjectAccountingLifecycle, listAllocationLines, markAllocationDirty,
   OperatingBillRepository, AllocationNotReadyError,
 } from "../index.js";
 
@@ -336,14 +336,11 @@ describe("P1-2：date-only 结束核算统一排他边界", () => {
 });
 
 describe("P1-a：digest 命中幂等再发布（R02 返修）", () => {
-  it("启用→SUCCEEDED→STARTED 推脏但内容未变→再登记执行→no-op 成功、dirty 清除、close 放行", async () => {
-    // 触发路径与生产一致：新项目开始核算同事务无条件推进账期代次，而归集的四个
-    // 摘要（行事实/规则/成员/人工指定）都没变 → 新批次必然命中已发布摘要。
+  it("启用→SUCCEEDED→代次前进但摘要未变（重建/无关标记）→no-op 成功、dirty 清除、close 放行", async () => {
+    // 摘要命中方向的触发路径：配置类写入会给账期推脏，但若归集的全部输入
+    // （行事实/规则/参与/核算窗口/人工指定）都没变（例如运营点"重建批次"、
+    // 或为无关项目做的标记落到该账期），新批次必然命中已发布摘要。
     const month = "2026-07";
-    const project = randomUUID();
-    await db.insertInto("principal").values([
-      { id: project, enterprise_id: ent, type: "PROJECT", name: "P1-a 新项目" },
-    ]).execute();
     await seedLedgerLine(employee1, T("2026-07-15T10:00:00+08:00"), 400_000n, "1.2000");
     await enableProjectAllocation(db, { enterpriseId: ent, startMonth: month, actorAdminId: admin });
     const first = await runDueAllocationRuns(db, "p1a-worker");
@@ -353,14 +350,7 @@ describe("P1-a：digest 命中幂等再发布（R02 返修）", () => {
       WHERE enterprise_id = ${ent} AND period_month = '2026-07-01' AND is_current`.execute(db);
     expect(published.rows[0]?.input_digest).not.toBeNull();
 
-    const started = await reviseProjectAccountingLifecycle(db, {
-      enterpriseId: ent, projectId: project,
-      effectiveAt: T("2026-07-01T00:00:00+08:00"), effectiveAtIsDateOnly: true,
-      reason: "P1-a 开始核算", expectedVersion: 0, actorAdminId: admin,
-    });
-    expect(started.mode).toBe("STARTED");
-    expect(started.affectedMonths).toContain(month);
-
+    await markAllocationDirty(db, ent, [month]);
     const stale = await sql<{ generation: string; dirty: boolean }>`
       SELECT generation::text, dirty FROM project_allocation_dirty
       WHERE enterprise_id = ${ent} AND period_month = '2026-07-01'`.execute(db);
@@ -393,6 +383,7 @@ describe("P1-a：digest 命中幂等再发布（R02 返修）", () => {
     expect(succeeded).toHaveLength(2);
     expect(succeeded.filter((row) => row.input_digest !== null)).toHaveLength(1);
     expect(succeeded.filter((row) => row.is_current)).toHaveLength(1);
+    expect(succeeded.filter((row) => row.is_current)[0]?.id).toBe(published.rows[0]!.id);
 
     // 脏代次被消费：与已发布批次捕获的代次对齐并清标记。
     const consumed = await sql<{ generation: string; dirty: boolean }>`
@@ -406,6 +397,87 @@ describe("P1-a：digest 命中幂等再发布（R02 返修）", () => {
       enterpriseId: ent, adminId: admin, month, allowIncomplete: true, note: "P1-a digest 命中后结账",
     });
     expect(closed.status).toBe("CLOSED");
+  });
+
+  it("R02-P1 回归：核算窗口变化必须真实重算，不得被幂等短路吞掉（fail-open）", async () => {
+    // 摘要未覆盖核算窗口时：先发布规则、后月中开始核算会把同一批行从
+    // MEMBERSHIP_RULE 改为待修复未分配（金额量级变化），却被 no-op 跳过 →
+    // 代次对齐清脏 → 结账把陈旧归集冻入 ref。摘要纳入核算窗口后必须重算。
+    const month = "2026-06";
+    const employee4 = randomUUID();
+    const project = randomUUID();
+    await db.insertInto("principal").values([
+      { id: employee4, enterprise_id: ent, type: "EMPLOYEE", name: "R02 员工" },
+      { id: project, enterprise_id: ent, type: "PROJECT", name: "R02 无窗口项目" },
+    ]).execute();
+    const request = await seedLedgerLine(employee4, T("2026-06-10T10:00:00+08:00"), 200_000n, "0.6000");
+    const key4 = randomUUID();
+    await db.insertInto("principal_key").values([
+      { id: key4, enterprise_id: ent, principal_id: employee4, key_prefix: "r02", key_digest: "r02-digest" },
+    ]).execute();
+    await sql`UPDATE ai_request SET principal_key_id = ${key4} WHERE id = ${request}`.execute(db);
+    await createProjectMembership(db, {
+      enterpriseId: ent, projectId: project, employeePrincipalId: employee4,
+      joinedAt: T("2026-06-01T00:00:00+08:00"), leftAt: null,
+      reason: "R02 加入", idempotencyKey: "r02-join", actorAdminId: admin,
+    });
+    const membership = await sql<{ membership_id: string }>`
+      SELECT r.membership_id FROM project_membership_revision r
+      JOIN project_membership m ON m.id = r.membership_id
+      WHERE r.enterprise_id = ${ent} AND m.employee_principal_id = ${employee4} AND r.status = 'ACTIVE'
+      LIMIT 1`.execute(db);
+    // 项目此时**没有核算窗口**（合法）：规则照常生效 → 先发布 MEMBERSHIP_RULE。
+    await publishEmployeeRules(db, {
+      enterpriseId: ent, employeePrincipalId: employee4, actorAdminId: admin,
+      reason: "R02 规则", idempotencyKey: "r02-rules", expectedPolicyVersion: 0,
+      rules: [{
+        projectPrincipalId: project, membershipId: membership.rows[0]!.membership_id,
+        weightBps: 10000, validFrom: T("2026-06-01T00:00:00+08:00"), validUntil: null,
+      }],
+    });
+    await enableProjectAllocation(db, { enterpriseId: ent, startMonth: month, actorAdminId: admin });
+    const before = await runDueAllocationRuns(db, "r02p1-worker");
+    expect(before[0]?.status).toBe("SUCCEEDED");
+    const beforeSources = await sql<{ sources: string }>`
+      SELECT string_agg(DISTINCT allocation_source, ',') AS sources
+      FROM project_allocation_line l JOIN project_allocation_run r ON r.id = l.run_id
+      WHERE r.enterprise_id = ${ent} AND r.is_current AND l.ai_request_id = ${request}`.execute(db);
+    expect(beforeSources.rows[0]?.sources).toBe("MEMBERSHIP_RULE");
+
+    // 月中开始核算（窗口起点晚于请求时点）→ 该行应变为"规则待修复/未分配"。
+    const started = await reviseProjectAccountingLifecycle(db, {
+      enterpriseId: ent, projectId: project,
+      effectiveAt: T("2026-06-20T00:00:00+08:00"), effectiveAtIsDateOnly: false,
+      reason: "R02 月中开始核算", expectedVersion: 0, actorAdminId: admin,
+    });
+    expect(started.mode).toBe("STARTED");
+    expect(started.affectedMonths).toContain(month);
+
+    const tick = await projectAllocationTick(db, "r02p1-worker");
+    expect(tick.runsExecuted).toBeGreaterThanOrEqual(1);
+    const after = await sql<{ sources: string; reason: string | null; digest: string | null }>`
+      SELECT string_agg(DISTINCT allocation_source, ',') AS sources,
+             MAX(unallocated_reason) AS reason,
+             MAX(r.input_digest) AS digest
+      FROM project_allocation_line l JOIN project_allocation_run r ON r.id = l.run_id
+      WHERE r.enterprise_id = ${ent} AND r.is_current AND l.ai_request_id = ${request}`.execute(db);
+    expect(after.rows[0]?.sources).toBe("UNALLOCATED");
+    expect(after.rows[0]?.reason).toBe("RULE_PENDING_REPAIR");
+
+    // 结账冻结的必须是重算后的结果（修复前会冻结陈旧的 MEMBERSHIP_RULE）。
+    const closed = await newRepo().closeMonth({
+      enterpriseId: ent, adminId: admin, month, allowIncomplete: true, note: "R02-P1 重算后结账",
+    });
+    expect(closed.status).toBe("CLOSED");
+    const frozen = await sql<{ run_id: string }>`
+      SELECT r.run_id::text FROM operating_bill_project_allocation_ref r
+      JOIN operating_bill_version v ON v.id = r.bill_version_id
+      JOIN operating_bill_period p ON p.id = v.period_id
+      WHERE p.enterprise_id = ${ent} AND p.period_month = '2026-06-01'`.execute(db);
+    const currentRun = await sql<{ id: string }>`
+      SELECT id FROM project_allocation_run
+      WHERE enterprise_id = ${ent} AND period_month = '2026-06-01' AND is_current`.execute(db);
+    expect(frozen.rows[0]?.run_id).toBe(currentRun.rows[0]?.id);
   });
 });
 
