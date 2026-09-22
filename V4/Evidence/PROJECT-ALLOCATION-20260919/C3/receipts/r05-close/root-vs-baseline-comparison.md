@@ -49,3 +49,17 @@
 （auth 登录链路）。**零候选归因回归**。候选自身涉及的套件（close 12、compute 8、
 foundation 19、invariance 1、cutover 3、backfill 4、migration 7、finance 相关、domain 205、
 routes 13、web 476）全绿。
+
+## 证据缺口与 R05 补充（P2-1）
+
+- 本表"基线同期结果"列是在 `/tmp/c3-baseline-r05` 现场测得的，但**基线侧原始日志未归档**
+  （工作树已删除）；其中 5 行可由 R01 期回执（`receipts/baseline-red-*.txt`、`root-test-*.txt`）互证，
+  另外 5 行仅以本表为准。R05 复核（`79-R05-review.md`）在独立新建的 2b33719 工作树上重测了
+  两个 flake 文件，结论一致。
+- `root-full-suite.txt` 末尾的 `ROOT_TEST_EXIT=0` 是管道/tee 捕获伪影：真实信号是同文件中的
+  `[ERR_PNPM_RECURSIVE_FAIL] Summary: 3 fails, 7 passes`。
+- **两个 flake 文件的根因（R05 定位，预存在、非候选引入）**：`/auth/login` 按
+  `(created_at, id)` 取"第一个企业"（`apps/control-api/src/auth/routes.ts:37-38,52-55`），而这两个
+  测试在一条 INSERT 里随机 UUID 播种两个企业、管理员只属于 A；随机序约 50% 取到 B → 401 →
+  无 `set-cookie` → `beforeAll` 抛 TypeError。两文件与认证链路相对基线逐字节一致。
+  记入蓄水池：认证登录的企业选择应按请求上下文（而非随机序）确定。

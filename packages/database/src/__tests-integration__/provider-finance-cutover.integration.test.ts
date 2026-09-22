@@ -371,7 +371,8 @@ describe("provider finance cutover rehearsal", () => {
         occurredAt: PROVIDER_FINANCE_CUTOVER, evidenceRef: "switch-owner",
         idempotencyKey: randomUUID() });
 
-      // 归集侧：员工 + 一条 2026-09 消费行（settled_at 为空，切换口径后其 account_at 变化）。
+      // 归集侧：员工 + 一条消费行（created_at 2026-09-20、settled_at 2026-10-03）：
+      // 切换严格写口径后 account_at 由 created_at 变为 settled_at，该行移出 2026-09 账期。
       const principalId = randomUUID(); const keyId = randomUUID(); const requestId = randomUUID();
       await db.insertInto("principal").values({ id: principalId, enterprise_id: enterpriseId,
         type: "EMPLOYEE", name: "Switch Employee" }).execute();
