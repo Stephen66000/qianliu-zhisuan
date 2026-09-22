@@ -266,4 +266,44 @@ describe("GS-7 无规则与边界", () => {
     });
     expect(result.shares[0]?.unallocatedReason).toBe("HISTORICAL_UNKNOWN");
   });
+
+  it("cutoff 之前但有参与证据且无有效规则 → NO_EFFECTIVE_RULE（R02 P1 契约：历史未知须无参与证据）", () => {
+    const ctx: EmployeeAllocationContext = {
+      employeePrincipalId: "emp-1", segments: [],
+      memberships: [{
+        membershipId: "m-early", projectPrincipalId: "pA",
+        joinedAt: T("2026-07-01T00:00:00Z"), leftAt: null,
+      }],
+      accountingByProject: new Map(),
+    };
+    const result = allocateMonth({
+      lines: [poolLine({ requestStartedAt: T("2026-08-01T00:00:00Z"), inputTokens: 10n })],
+      contextsByEmployee: new Map([["emp-1", ctx]]),
+      historicalCutoff: T("2026-09-01T00:00:00Z"),
+    });
+    expect(result.shares[0]?.unallocatedReason).toBe("NO_EFFECTIVE_RULE");
+    expect(result.shares[0]?.shareInputTokens).toBe("10.0000");
+  });
+
+  it("cutoff 之前有参与但规则待修复 → RULE_PENDING_REPAIR 优先于历史未知", () => {
+    const ctx: EmployeeAllocationContext = {
+      employeePrincipalId: "emp-1",
+      segments: [{
+        policyId: "pol-1", membershipId: "m-early", membershipRevisionId: "rev-1",
+        projectPrincipalId: "pA", weightBps: 10000,
+        validFrom: T("2026-08-01T00:00:00Z"), validUntil: null,
+      }],
+      memberships: [{
+        membershipId: "m-early", projectPrincipalId: "pA",
+        joinedAt: T("2026-09-15T00:00:00Z"), leftAt: null,
+      }],
+      accountingByProject: new Map(),
+    };
+    const result = allocateMonth({
+      lines: [poolLine({ requestStartedAt: T("2026-08-01T00:00:00Z"), inputTokens: 10n })],
+      contextsByEmployee: new Map([["emp-1", ctx]]),
+      historicalCutoff: T("2026-09-01T00:00:00Z"),
+    });
+    expect(result.shares[0]?.unallocatedReason).toBe("RULE_PENDING_REPAIR");
+  });
 });

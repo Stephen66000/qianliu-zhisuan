@@ -51,6 +51,35 @@ export interface AccountingLifecycleResult {
   affectedMonths: string[];
 }
 
+export interface ProjectAccountingProfileView {
+  version: number;
+  startedAt: string;
+  endedAt: string | null;
+}
+
+/**
+ * 当前核算窗口（无配置返回 null）。页面提交生命周期修订前先读该版本作为
+ * expectedVersion，避免硬编码 0 对已配置项目必然冲突。
+ */
+export async function getProjectAccountingProfile(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  projectId: string,
+): Promise<ProjectAccountingProfileView | null> {
+  const current = await db.selectFrom("project_accounting_profile_version")
+    .select(["version", "accounting_started_at", "accounting_ended_at"])
+    .where("enterprise_id", "=", enterpriseId)
+    .where("project_principal_id", "=", projectId)
+    .where("is_current", "=", true)
+    .executeTakeFirst();
+  if (current === undefined) return null;
+  return {
+    version: current.version,
+    startedAt: current.accounting_started_at.toISOString(),
+    endedAt: current.accounting_ended_at?.toISOString() ?? null,
+  };
+}
+
 /**
  * 核算生命周期修订：无配置 + effectiveAt → 开始；开放中 + effectiveAt → 结束（裁剪权重）。
  * 已结束后再修订拒绝（重启核算属新需求，不在本期合同内）。

@@ -7,7 +7,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 
 import {
   useAllocationLines, useAllocationStatus, useCreateAllocationRun,
-  useEnableAllocation, useUnallocated,
+  useEnableAllocation, useUnallocated, type UnallocatedView,
 } from "../api/project-allocation";
 import { BillCard, SectionHeading } from "../components/operating-bill/BillShared";
 import { operatingBillMonth, OperatingBillShell } from "../components/operating-bill/OperatingBillShell";
@@ -31,6 +31,30 @@ const SOURCE_LABELS: Record<string, string> = {
   MEMBERSHIP_RULE: "成员规则分摊",
   UNALLOCATED: "未分配",
 };
+
+/**
+ * 企业级未分配明细（合同 §3.3：汇总及明细）。项目明细只含本项目份额，
+ * 因此未分配的来源行在这里单独呈现，避免与项目口径混算。
+ */
+function UnallocatedDetailList({ view }: { view: UnallocatedView | undefined }) {
+  const lines = view?.detail?.lines ?? [];
+  return (
+    <>
+      {lines.slice(0, 5).map((line) => (
+        <p key={line.ledgerLineId} className="mt-1 text-xs text-neutral-500">
+          {REASON_LABELS[line.unallocatedReason ?? ""] ?? line.unallocatedReason ?? "未分配"}
+          {" · "}
+          {line.employeeName ?? "未知员工"}
+          {" · "}
+          {line.shareInputTokens} Token
+        </p>
+      ))}
+      {(view?.detail?.total ?? 0) > 5 && (
+        <p className="mt-1 text-xs text-neutral-400">共 {view?.detail?.total ?? 0} 条未分配源行</p>
+      )}
+    </>
+  );
+}
 
 export function OperatingBillProjectAllocationPage() {
   const { principalId } = useParams<{ principalId: string }>();
@@ -98,6 +122,8 @@ export function OperatingBillProjectAllocationPage() {
                   .map(([reason, tokens]) => `${REASON_LABELS[reason] ?? reason} ${tokens}`)
                   .join("；") || "无明细"}
               </p>
+              {/* 项目明细只含本项目份额；企业级未分配明细在此呈现（合同 §3.3）。 */}
+              <UnallocatedDetailList view={unallocated.data} />
             </BillCard>
             <BillCard>
               <p className="text-xs text-neutral-500">批次操作</p>

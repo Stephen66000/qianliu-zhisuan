@@ -32,7 +32,7 @@
 | `operating_bill_project_allocation_ref` | 账单冻结引用：bill_version 唯一+复合 FK；run FK **RESTRICT**；ref 不可变触发器 |
 | `project_allocation_period` | 启用登记（首次启用事务内登记初始化任务） |
 | `project_allocation_dirty` | (企业,账期) 脏代次 generation+dirty；配置写事务同事务推进 |
-| `project_allocation_scan_watermark` | 按企业 ledger_line/归属快照 created_at 水位 |
+| `project_allocation_scan_watermark` | 按企业 `ledger_line.created_at` 水位（仅兜迟到插入；其余事实变更由写入方同事务推脏，见 R02 修复） |
 
 共享前置（IF NOT EXISTS，down 不删）：`principal(enterprise_id,id)`、`operating_bill_version/provider_resource/unified_model(enterprise_id,id)` 复合唯一；`btree_gist` 扩展（P3-2 保守回退）。
 
@@ -47,7 +47,7 @@
 ## 5. 更新与任务
 
 1. 配置写事务同事务推 dirty generation；事务后 worker 消费，无同步全量扫描。
-2. GET 全部纯读（任务数 0）；首次计算仅由启用登记事务创建；新结算由 worker 周期补偿扫描（created_at 水位+重叠回看）登记待更新——**不改 Gateway/结算路径**（B02 最严格解释；新鲜度不足再议阶段二，需用户确认）。
+2. GET 全部纯读（任务数 0）；首次计算仅由启用登记事务创建；新结算由 worker 周期补偿扫描（ledger_line.created_at 水位+重叠回看）登记待更新，配置类与回填类变更由写入事务内直接推脏——**不改 Gateway/结算路径**（B02 最严格解释；新鲜度不足再议阶段二，需用户确认）。
 3. 单任务＝部分唯一索引；同输入+算法幂等；运行中新变更只推进代次，完成后对比补算。
 4. 自动刷新最小间隔默认 30s；失败有界退避（默认 3 次）；租约超时回收；执行者代次校验；SYSTEM/ADMIN actor 分记。
 5. 结账：close 前校验启用账期存在 is_current run 且输入 digest 与锁定源一致（否则 `allocation_not_ready`/`allocation_stale`）；冻结只写 ref 表（run_id/schema/algorithm/input_digest/result_hash/守恒汇总/完整性/生成时间）；`sourceFacts.accountFacts` 原样；并发按既有写屏障串行。

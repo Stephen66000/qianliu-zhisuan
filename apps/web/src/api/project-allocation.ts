@@ -23,6 +23,8 @@ export interface ProjectMembershipsView {
   total: number;
   limit: number;
   offset: number;
+  /** 当前核算窗口（无配置为 null）：生命周期修订的 expectedVersion 来源。 */
+  accountingProfile: { version: number; startedAt: string; endedAt: string | null } | null;
 }
 
 export function useProjectMemberships(projectId: string, at?: string) {
@@ -170,6 +172,16 @@ export function useAllocationLines(month: string, projectId: string, offset: num
   });
 }
 
+export interface UnallocatedDetailLine {
+  ledgerLineId: string;
+  requestId: string;
+  employeeName: string | null;
+  unallocatedReason: string | null;
+  shareInputTokens: string;
+  shareOutputTokens: string;
+  providerResourceId: string | null;
+}
+
 export interface UnallocatedView {
   runId: string | null;
   tokens: string;
@@ -177,12 +189,22 @@ export interface UnallocatedView {
   apiCostByCurrency: Record<string, string>;
   packageCostCny: string;
   lineCount: number;
+  /** 未分配明细（合同 §3.3：汇总及明细）；项目明细本身只含该项目份额。 */
+  detail: {
+    runId: string | null;
+    lines: UnallocatedDetailLine[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
 }
 
-export function useUnallocated(month: string) {
+export function useUnallocated(month: string, detailLimit = 10) {
   return useQuery({
-    queryKey: ["project-unallocated", month],
-    queryFn: () => get<UnallocatedView>(`/operating-bills/${month}/project-unallocated`),
+    queryKey: ["project-unallocated", month, detailLimit],
+    queryFn: () => get<UnallocatedView>(
+      `/operating-bills/${month}/project-unallocated?limit=${detailLimit}`,
+    ),
     enabled: /^\d{4}-\d{2}$/.test(month),
     retry: 1,
   });

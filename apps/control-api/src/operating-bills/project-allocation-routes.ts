@@ -6,11 +6,13 @@ import { sql } from "kysely";
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
-  getAllocationRunStatus, getUnallocatedSummary, listAllocationLines,
-  enqueueAllocationRun, enableProjectAllocation,
+  getAllocationRunStatus, getUnallocatedSummary, listAllocationLines, listUnallocatedLines,
+  enqueueAllocationRun, enableProjectAllocation, resolveAllocationPrincipal,
+  PrincipalNotAccessibleError,
 } from "@qianliu/database";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function registerOperatingBillAllocationRoutes(app: FastifyInstance): void {
   app.get<{ Params: { month: string } }>("/operating-bills/:month/project-allocation-status", {
@@ -88,6 +90,15 @@ export function registerOperatingBillAllocationRoutes(app: FastifyInstance): voi
       if (!MONTH_RE.test(req.params.month)) {
         return reply.code(400).send({ error: "invalid_request", message: "账期格式不合法" });
       }
+      // 主体类型合同：项目明细要求本企业 PROJECT；不存在/跨企业/类型不符统一 404。
+      try {
+        await resolveAllocationPrincipal(app.db, req.admin!.enterpriseId, req.params.projectId, "PROJECT");
+      } catch (error) {
+        if (error instanceof PrincipalNotAccessibleError) {
+          return reply.code(404).send({ error: "not_found", message: "对象不存在或不可访问" });
+        }
+        throw error;
+      }
       const result = await listAllocationLines(app.db, req.admin!.enterpriseId, req.params.month, req.params.projectId, {
         runId: query.run_id,
         employeeId: query.employee_id,
@@ -105,8 +116,38 @@ export function registerOperatingBillAllocationRoutes(app: FastifyInstance): voi
     if (!MONTH_RE.test(req.params.month)) {
       return reply.code(400).send({ error: "invalid_request", message: "账期格式不合法" });
     }
+    const query = req.query as {
+      run_id?: string; reason?: string; employee_id?: string; resource_id?: string;
+      limit?: string; offset?: string;
+    };
+    // 员工筛选走企业 + 类型解析：不存在/跨企业/类型不符统一 404，避免泄露或静默空集。
+    try {
+      for (const [value, label] of [
+        [query.employee_id, "员工标识"], [query.resource_id, "资源标识"],
+      ] as const) {
+        if (value !== undefined && !UUID_RE.test(value)) {
+          return reply.code(400).send({ error: "invalid_request", message: `${label}格式不合法` });
+        }
+      }
+      if (query.employee_id !== undefined) {
+        await resolveAllocationPrincipal(app.db, req.admin!.enterpriseId, query.employee_id, "EMPLOYEE");
+      }
+    } catch (error) {
+      if (error instanceof PrincipalNotAccessibleError) {
+        return reply.code(404).send({ error: "not_found", message: "对象不存在或不可访问" });
+      }
+      throw error;
+    }
     const summary = await getUnallocatedSummary(app.db, req.admin!.enterpriseId, req.params.month);
-    return reply.code(200).send({ month: req.params.month, ...summary });
+    const detail = await listUnallocatedLines(app.db, req.admin!.enterpriseId, req.params.month, {
+      runId: query.run_id,
+      reason: query.reason,
+      employeeId: query.employee_id,
+      resourceId: query.resource_id,
+      limit: Math.min(Math.max(Number(query.limit ?? 25), 1), 100),
+      offset: Math.min(Math.max(Number(query.offset ?? 0), 0), 100_000),
+    });
+    return reply.code(200).send({ month: req.params.month, ...summary, detail });
   });
 }
 

@@ -331,4 +331,46 @@ describe("项目账归集端点（WP05）", () => {
     });
     expect(list.statusCode).toBe(200);
   });
+
+  it("F-2：项目明细主体类型合同——不存在/跨企业/类型不符统一 404，不返回 200 空集", async () => {
+    const cases: Array<[string, string]> = [
+      ["不存在的项目", randomUUID()],
+      ["跨企业项目", projectOtherEnt],
+      ["员工 ID 冒充项目", employee1],
+    ];
+    for (const [label, id] of cases) {
+      const response = await app.inject({
+        method: "GET", url: `/operating-bills/2026-09/projects/${id}/allocation-lines`,
+        headers: { cookie: superCookie },
+      });
+      expect(response.statusCode, label).toBe(404);
+      expect(response.json().error, label).toBe("not_found");
+    }
+  });
+
+  it("F-3：未分配端点返回汇总及明细；跨企业员工筛选 404、非法标识 400", async () => {
+    const ok = await app.inject({
+      method: "GET", url: "/operating-bills/2026-09/project-unallocated?reason=NO_MEMBERSHIP&limit=5",
+      headers: { cookie: superCookie },
+    });
+    expect(ok.statusCode).toBe(200);
+    const body = ok.json();
+    expect(body.detail).toBeTruthy();
+    expect(Array.isArray(body.detail.lines)).toBe(true);
+    expect(typeof body.detail.total).toBe("number");
+    expect(body.detail.limit).toBe(5);
+
+    const crossEnterprise = await app.inject({
+      method: "GET", url: `/operating-bills/2026-09/project-unallocated?employee_id=${employeeOther}`,
+      headers: { cookie: superCookie },
+    });
+    expect(crossEnterprise.statusCode).toBe(404);
+
+    const malformed = await app.inject({
+      method: "GET", url: "/operating-bills/2026-09/project-unallocated?resource_id=not-a-uuid",
+      headers: { cookie: superCookie },
+    });
+    expect(malformed.statusCode).toBe(400);
+    expect(malformed.json().error).toBe("invalid_request");
+  });
 });

@@ -513,10 +513,17 @@ export async function executeAllocationRun(
               FULL OUTER JOIN snapshot_authority snap
                 ON snap.provider_resource_id = plan.provider_resource_id
           ), line_allocated AS (
+            -- 源行拆分到多个目标时会生成多行份额，每行都带整行源套餐成本；
+            -- 必须按 ledger_line_id 去重后再求和，否则减数被放大、余量被低估。
             SELECT provider_resource_id, SUM(source_package_cost)::numeric(24,8) AS amount
-              FROM project_allocation_line
-             WHERE run_id = ${run.id}::uuid AND resource_mode = 'CODING_PLAN'
-               AND source_package_cost IS NOT NULL
+              FROM (
+                SELECT DISTINCT ON (ledger_line_id)
+                       ledger_line_id, provider_resource_id, source_package_cost
+                  FROM project_allocation_line
+                 WHERE run_id = ${run.id}::uuid AND resource_mode = 'CODING_PLAN'
+                   AND source_package_cost IS NOT NULL
+                 ORDER BY ledger_line_id, provider_resource_id
+              ) distinct_source_lines
              GROUP BY provider_resource_id
           )
           SELECT authority.provider_resource_id,
@@ -575,10 +582,13 @@ export async function executeAllocationRun(
           .where("id", "=", run.id)
           .execute();
       } else {
+        // 幂等命中（同输入同算法已发布）：no-op 成功。绝不写 input_digest——
+        // 写回会与已发布批次构成 (enterprise_id, period_month, input_digest,
+        // algorithm_version) 重复，直接违反 project_allocation_run_published_idem_uq，
+        // 使该批次反复失败并把账期永久卡在 stale_input。既有发布批次保持 current。
         await tx.updateTable("project_allocation_run")
           .set({
             status: "SUCCEEDED",
-            input_digest: inputDigest,
             finished_at: new Date(),
             duration_ms: Date.now() - started,
             updated_at: new Date(),
@@ -598,6 +608,27 @@ export async function executeAllocationRun(
         .where("id", "=", run.id)
         .executeTakeFirst();
       if (dirty && captured && dirty.generation <= (captured.input_dirty_generation ?? 0)) {
+        if (existing !== undefined) {
+          // 幂等命中：本批次以摘要相等证明了"当前输入与已发布批次完全一致"，
+          // 因此该脏代次已被既有发布结果满足。把代次对齐到发布批次捕获的代次，
+          // 使结账闸门（generation > captured → stale_input）按事实放行。
+          // 条件更新：若期间又有并发标记推进了代次，则不改动，保持 dirty 让闸门拒绝。
+          const published = await tx.selectFrom("project_allocation_run")
+            .select(["input_dirty_generation"])
+            .where("enterprise_id", "=", run.enterprise_id)
+            .where("period_month", "=", run.period_month.slice(0, 10))
+            .where("is_current", "=", true)
+            .executeTakeFirst();
+          const publishedCaptured = published?.input_dirty_generation ?? null;
+          if (publishedCaptured !== null && dirty.generation > publishedCaptured) {
+            await tx.updateTable("project_allocation_dirty")
+              .set({ generation: publishedCaptured })
+              .where("enterprise_id", "=", run.enterprise_id)
+              .where("period_month", "=", run.period_month.slice(0, 10))
+              .where("generation", "=", dirty.generation)
+              .execute();
+          }
+        }
         await tx.updateTable("project_allocation_dirty")
           .set({ dirty: false })
           .where("enterprise_id", "=", run.enterprise_id)
@@ -626,7 +657,8 @@ export async function executeAllocationRun(
         await tx.updateTable("project_allocation_run")
           .set({
             last_error: message.slice(0, 2000),
-            lease_expires_at: new Date(Date.now() - backoffMs),
+            // 退避到期在未来：认领条件为 lease_expires_at < now()，写成过去会立刻被回收重烧尝试额度。
+            lease_expires_at: new Date(Date.now() + backoffMs),
             updated_at: new Date(),
           })
           .where("id", "=", run.id)

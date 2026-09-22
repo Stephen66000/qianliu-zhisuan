@@ -9,6 +9,7 @@ import { requireAuth } from "../plugins/auth-guard.js";
 import {
   createProjectMembership, listProjectMemberships, reviseProjectMembership,
   reviseProjectAccountingLifecycle,
+  getProjectAccountingProfile,
   getEmployeePolicyOverview, previewPolicyChange, publishProjectIntent,
   MembershipNotFoundError, MembershipOverlapConflictError, MembershipRevisionConflictError,
   AccountingVersionConflictError, AccountingAlreadyEndedError, AccountingEffectiveBeforeStartError,
@@ -142,6 +143,10 @@ export function registerProjectAllocationRoutes(app: FastifyInstance): void {
         })),
         counts: result.counts,
         total: result.total, limit: result.limit, offset: result.offset,
+        // 当前核算窗口版本：页面据此提交 expectedVersion（不硬编码 0）。
+        accountingProfile: await getProjectAccountingProfile(
+          app.db, req.admin!.enterpriseId, req.params.projectId,
+        ),
       });
     } catch (error) {
       const mapped = mapRepositoryError(error);

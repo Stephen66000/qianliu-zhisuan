@@ -1,0 +1,17 @@
+$ corepack pnpm run typecheck   # 仓库根
+apps/control-api typecheck: Done
+apps/gateway typecheck: Done
+apps/worker typecheck: Done
+EXIT=0
+
+$ corepack pnpm run lint
+apps/worker lint: Done
+apps/gateway lint: Done
+apps/control-api lint: Done
+EXIT=0
+
+$ corepack pnpm run build
+apps/control-api build: Done
+apps/gateway build: Done
+apps/worker build: Done
+EXIT=0

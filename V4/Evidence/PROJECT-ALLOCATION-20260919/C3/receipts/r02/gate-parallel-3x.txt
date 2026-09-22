@@ -1,0 +1,9 @@
+=== RUN 1: 4 文件并行（文档原命令） ===
+ Test Files  4 passed (4)
+      Tests  36 passed (36)
+=== RUN 2: 4 文件并行（文档原命令） ===
+ Test Files  4 passed (4)
+      Tests  36 passed (36)
+=== RUN 3: 4 文件并行（文档原命令） ===
+ Test Files  4 passed (4)
+      Tests  36 passed (36)

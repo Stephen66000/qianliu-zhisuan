@@ -1,0 +1,25 @@
+$ vitest run close   # 8 tests
+ ✓ src/__tests-integration__/project-allocation-close.integration.test.ts (8 tests) 37931ms
+   ✓ 结账冻结（H02/H04） > 启用但无批次：close 拒绝（allocation_not_ready）  668ms
+   ✓ 结账冻结（H02/H04） > 执行批次后 close：ref 写入且被引用 run 禁删；脏输入再 close 拒绝  4699ms
+   ✓ 结账冻结（H02/H04） > 旧账兼容（H03）：未启用企业 close 无 ref，旧口径可读  1891ms
+   ✓ 补偿扫描 tick（A03 阶段一） > 新结算 → tick 推脏 → 登记并执行 → 再 tick 无事发生  5560ms
+   ✓ 补偿扫描 tick（A03 阶段一） > P2-c：纯规则变更（无新 ledger 行）→ tick 自行登记重算，不依赖人工重建  2239ms
+   ✓ P1-2：date-only 结束核算统一排他边界 > 结束日期当天全天请求仍按权重归集；规则段与 profile 边界一致  346ms
+   ✓ P1-a：digest 命中幂等再发布（R02 返修） > 启用→SUCCEEDED→STARTED 推脏但内容未变→再登记执行→no-op 成功、dirty 清除、close 放行  1877ms
+   ✓ P1-b：人工指定同事务推脏（方案 A） > assignRequestToProject→脏代次前进→结账被拒→重算为 MANUAL_ASSIGNMENT→结账放行  1135ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+$ vitest run compute
+ ✓ src/__tests-integration__/project-allocation-compute.integration.test.ts (8 tests) 11644ms
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+$ vitest run foundation+invariance+migration
+ Test Files  3 passed (3)
+      Tests  27 passed (27)
+
+$ vitest run principal-attribution-backfill
+ Test Files  1 passed (1)
+      Tests  4 passed (4)

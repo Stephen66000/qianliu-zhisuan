@@ -178,11 +178,10 @@ export interface ProjectAllocationDirtyTable {
   last_marked_at: Generated<Date>;
 }
 
-/** 补偿扫描水位（按企业一行）：ledger_line / 归属快照按 created_at 前进，不依赖最大 settled_at。 */
+/** 补偿扫描水位（按企业一行）：只兜 ledger_line 迟到插入；其余事实变更由写入方同事务推脏。 */
 export interface ProjectAllocationScanWatermarkTable {
   enterprise_id: string;
   ledger_line_watermark: Date;
-  attribution_watermark: Date;
   updated_at: Generated<Date>;
 }
 

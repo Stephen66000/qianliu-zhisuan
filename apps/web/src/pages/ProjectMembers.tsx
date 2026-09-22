@@ -334,14 +334,17 @@ export function ProjectMembersPage() {
             className="rounded border border-neutral-400 px-3 py-1.5 text-sm"
             onClick={() => {
               const input = document.getElementById("lifecycle-date") as HTMLInputElement | null;
+              // 先取当前核算窗口版本：无配置时 0（开始核算），已有配置时用实际版本，
+              // 否则服务端严格相等校验必然回 409 版本冲突，页面上的"结束核算"根本走不通。
               reviseLifecycle.mutate({
                 effectiveAt: input?.value ?? todayInput(),
                 reason: "页面操作核算生命周期",
-                expectedVersion: 0,
+                expectedVersion: memberships.data?.accountingProfile?.version ?? 0,
               }, {
                 onSuccess: (data) => {
                   const mode = (data as { mode?: string }).mode === "ENDED" ? "结束" : "开始";
                   setMessage(`已${mode}核算`);
+                  void memberships.refetch();
                 },
                 onError: (error) => setMessage(`操作失败：${(error as Error).message}`),
               });

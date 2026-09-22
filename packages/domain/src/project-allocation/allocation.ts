@@ -219,6 +219,24 @@ function attachCostShares(
   }
 }
 
+/**
+ * 未分配原因判定次序：待修复 > 历史关系未知 > 有参与但无有效规则 > 无参与。
+ * HISTORICAL_UNKNOWN 只在"启用起始账期之前 **且无参与证据**"时成立；
+ * 该时点已有参与区间却无有效规则的行属 NO_EFFECTIVE_RULE，不得归入历史未知。
+ */
+function unallocatedReasonFor(
+  requestStartedAt: Date,
+  hasMembership: boolean,
+  rulePendingRepair: boolean,
+  historicalCutoff: Date | null,
+): UnallocatedReason {
+  if (rulePendingRepair) return "RULE_PENDING_REPAIR";
+  if (!hasMembership && historicalCutoff !== null && requestStartedAt.getTime() < historicalCutoff.getTime()) {
+    return "HISTORICAL_UNKNOWN";
+  }
+  return hasMembership ? "NO_EFFECTIVE_RULE" : "NO_MEMBERSHIP";
+}
+
 /** 优先级 3/4：员工待分配池按有效权重归集；余量进入未分配（0% 段产生显式零份额行）。 */
 function allocatePoolLine(
   line: AllocationSourceLine,
@@ -232,11 +250,7 @@ function allocatePoolLine(
   if (weights.length === 0) {
     const hasMembership = context?.memberships.some((membership) =>
       intervalCovers({ from: membership.joinedAt, until: membership.leftAt }, line.requestStartedAt)) ?? false;
-    const reason: UnallocatedReason = rulePendingRepair
-      ? "RULE_PENDING_REPAIR"
-      : historicalCutoff !== null && line.requestStartedAt.getTime() < historicalCutoff.getTime()
-        ? "HISTORICAL_UNKNOWN"
-        : hasMembership ? "NO_EFFECTIVE_RULE" : "NO_MEMBERSHIP";
+    const reason = unallocatedReasonFor(line.requestStartedAt, hasMembership, rulePendingRepair, historicalCutoff);
     const shares = [unallocatedShare(line, reason, 10000)];
     attachCostShares(line, shares, [{ key: UNALLOCATED_TARGET_KEY, bps: 10000 }]);
     return shares;

@@ -121,6 +121,33 @@ export function enumerateShanghaiMonths(from: Date, until: Date | null, now: Dat
   return months;
 }
 
+/**
+ * 事实写入路径的账期推导（与补偿扫描、account_at 同口径）：
+ * finance 严格写开启用 settled_at，否则 created_at，取北京自然月。
+ * 供人工指定/归属回填/finance 回填在同一事务内按批去重后标记脏代次。
+ */
+export async function allocationMonthsForRequests(
+  db: AllocationDb,
+  enterpriseId: string,
+  requestIds: readonly string[],
+): Promise<string[]> {
+  if (requestIds.length === 0) return [];
+  const { rows } = await sql<{ month: string }>`
+    WITH finance_state AS (
+      SELECT COALESCE((SELECT strict_writes_enabled FROM provider_finance_runtime_state
+        WHERE enterprise_id = ${enterpriseId}::uuid), false) AS enabled
+    )
+    SELECT DISTINCT to_char(
+             CASE WHEN finance.enabled THEN ll.settled_at ELSE ll.created_at END
+               AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM') AS month
+      FROM ledger_line ll CROSS JOIN finance_state finance
+     WHERE ll.enterprise_id = ${enterpriseId}::uuid
+       AND ll.ai_request_id = ANY(${[...requestIds]}::uuid[])
+       AND (CASE WHEN finance.enabled THEN ll.settled_at ELSE ll.created_at END) IS NOT NULL
+     ORDER BY month`.execute(db);
+  return rows.map((row) => row.month);
+}
+
 /** 推进归集脏代次：同事务 upsert，generation+1。month 为 "YYYY-MM"。 */
 export async function markAllocationDirty(
   db: AllocationDb,

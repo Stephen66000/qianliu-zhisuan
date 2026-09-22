@@ -13,6 +13,7 @@ import {
   enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns,
   markAllocationDirty, getUnallocatedSummary,
 } from "../index.js";
+import { ProviderFinanceUsageBackfill } from "../repositories/provider-finance-usage-backfill.js";
 
 let pg: PostgresTestInstance;
 let db: Kysely<Database>;
@@ -107,7 +108,8 @@ async function seedLedgerLine(
   occurredAt: Date,
   inputTokens: bigint,
   apiCost: string,
-  currency: "CNY" | "USD",
+  /** null = 币种未知（UNKNOWN_COST 形态要求 api_cost_currency IS NULL）。 */
+  currency: "CNY" | "USD" | null,
 ): Promise<string> {
   const request = randomUUID();
   await db.insertInto("ai_request").values({
@@ -385,7 +387,7 @@ describe("P1 修复专项", () => {
 
   it("P1-3：finance 原地 UPDATE 改变行内容 → digest 变化强制重算，dirty 不被错误清除", async () => {
     // 第一轮：正常行 → 计算成功。
-    const request = await seedLedgerLine(employee1, new Date("2026-08-20T12:00:00+08:00"), 10_000n, "1.0000");
+    const request = await seedLedgerLine(employee1, new Date("2026-08-20T12:00:00+08:00"), 10_000n, "1.0000", null);
     await markAllocationDirty(db, ent, ["2026-08"]);
     await enqueueAllocationRun(db, {
       enterpriseId: ent, month: "2026-08", actorType: "SYSTEM", actorAdminId: null,
@@ -428,5 +430,103 @@ describe("P1 修复专项", () => {
       SELECT dirty FROM project_allocation_dirty
       WHERE enterprise_id = ${ent} AND period_month = '2026-08-01'`.execute(db);
     expect(dirty.rows[0]?.dirty).toBe(false);
+  });
+});
+
+describe("R02 返修回归：退避与 finance 回填推脏", () => {
+  /** 独立企业夹具（API 资源形态），避免污染既有用例的固定企业。 */
+  async function seedApiEnterprise(suffix: string) {
+    const eid = randomUUID();
+    const aid = randomUUID();
+    const emp = randomUUID();
+    const res = randomUUID();
+    const key = randomUUID();
+    const model = randomUUID();
+    const prov = randomUUID();
+    await db.insertInto("enterprise").values({ id: eid, name: `R02-${suffix}` }).execute();
+    await db.insertInto("admin_user").values({ id: aid, enterprise_id: eid, username: `r02-${suffix}`, password_hash: "x" }).execute();
+    await db.insertInto("principal").values({ id: emp, enterprise_id: eid, type: "EMPLOYEE", name: "员工" }).execute();
+    await db.insertInto("provider").values({ id: prov, enterprise_id: eid, code: `r02p-${suffix}`, name: "厂商", adapter_type: "openai" }).execute();
+    await db.insertInto("provider_resource").values({ id: res, enterprise_id: eid, provider_id: prov, name: "API", mode: "API", credential_type: "API_KEY" }).execute();
+    await db.insertInto("principal_key").values({ id: key, enterprise_id: eid, principal_id: emp, key_prefix: `r02k-${suffix}`, key_digest: `r02d-${suffix}` }).execute();
+    await db.insertInto("unified_model").values({ id: model, enterprise_id: eid, alias: "r02-model", display_name: "模型" }).execute();
+    return { eid, aid, emp, res, key, model };
+  }
+  type Fixture = Awaited<ReturnType<typeof seedApiEnterprise>>;
+
+  /** 独立企业的账本行：与 seedLedgerLine 同形，但不补币种/结算时间，便于逐例核定。 */
+  async function seedForeignLine(f: Fixture, at: Date, tokens: bigint, apiCost: string): Promise<string> {
+    const request = randomUUID();
+    await db.insertInto("ai_request").values({
+      id: request, enterprise_id: f.eid, principal_id: f.emp, principal_key_id: f.key,
+      protocol: "openai", unified_model: "r02-model", unified_model_id: f.model, status: "SUCCEEDED",
+      started_at: at, finished_at: new Date(at.getTime() + 1000),
+    }).execute();
+    const attempt = await db.insertInto("upstream_attempt").values({
+      ai_request_id: request, enterprise_id: f.eid, attempt_no: 1, provider_resource_id: f.res,
+      upstream_model: "r02-model", finished_at: new Date(at.getTime() + 1000),
+      http_status: 200, response_committed: true,
+    }).returning("id").executeTakeFirstOrThrow();
+    const usage = await db.insertInto("usage_event").values({
+      ai_request_id: request, enterprise_id: f.eid, upstream_attempt_id: attempt.id,
+      provider_resource_id: f.res, input_tokens: tokens, output_tokens: 0n,
+      usage_quality: "PROVIDER_REPORTED", dedup_key: `r02-${request}`, created_at: at,
+    }).returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("ledger_line").values({
+      ai_request_id: request, enterprise_id: f.eid, usage_event_id: usage.id,
+      upstream_attempt_id: attempt.id, provider_resource_id: f.res, principal_id: f.emp,
+      resource_mode: "API", raw_input_tokens: tokens, raw_output_tokens: 0n, raw_cache_tokens: 0n,
+      api_cost: apiCost, usage_quality: "PROVIDER_REPORTED", created_at: at,
+    }).execute();
+    await db.insertInto("ledger_transaction").values({
+      ai_request_id: request, enterprise_id: f.eid, principal_id: f.emp,
+      total_input_tokens: tokens, total_output_tokens: 0n, total_cache_tokens: 0n,
+      total_deducted_quota: 0n, total_api_cost: apiCost, usage_quality: "PROVIDER_REPORTED",
+      attempt_count: 1, status: "SETTLED", created_at: at,
+    }).execute();
+    return request;
+  }
+
+  it("R02-1：可重试失败写未来退避租约，退避窗口内不被重认领", async () => {
+    const f = await seedApiEnterprise("backoff");
+    const request = await seedForeignLine(f, T("2026-10-15T12:00:00+08:00"), 1_000n, "1.0000");
+    // 人工指定到非 PROJECT 主体：发布时 allocation line 契约触发器必然拒绝，走可重试失败路径。
+    await db.insertInto("operating_bill_request_project_assignment").values({
+      enterprise_id: f.eid, ai_request_id: request, project_principal_id: f.emp,
+      assigned_by: f.aid, reason: "R02 非法目标",
+    }).execute();
+    await enableProjectAllocation(db, { enterpriseId: f.eid, startMonth: "2026-10", actorAdminId: f.aid });
+    const results = await runDueAllocationRuns(db, "backoff-worker");
+    expect(results).toHaveLength(1);
+    expect(results[0]?.status).toBe("FAILED");
+    const { rows } = await sql<{ status: string; attempt: number; last_error: string | null; lease: Date }>`
+      SELECT status, attempt, last_error, lease_expires_at AS lease FROM project_allocation_run
+      WHERE enterprise_id = ${f.eid} AND period_month = '2026-10-01'`.execute(db);
+    const run = rows[0]!;
+    expect(run.status).toBe("RUNNING");
+    expect(run.attempt).toBe(1);
+    expect((run.last_error ?? "").length).toBeGreaterThan(0);
+    // 旧 bug 写成 Date.now() - backoffMs（过去）→ 立即被回收并烧光尝试额度；修复后租约必须在未来。
+    expect(run.lease.getTime()).toBeGreaterThan(Date.now());
+    // 退避窗口内不被重认领：claim 条件为 lease_expires_at < now()，未到期即不成立。
+    const again = await runDueAllocationRuns(db, "backoff-worker");
+    expect(again).toHaveLength(0);
+  });
+
+  it("R02-2：finance 原地回填改变行内容 → 同事务推进归集脏代次", async () => {
+    const f = await seedApiEnterprise("backfill");
+    const request = await seedForeignLine(f, T("2026-10-15T12:00:00+08:00"), 1_000n, "1.0000");
+    await sql`UPDATE ledger_line SET billing_rule_snapshot = '{"currency":"CNY"}'::jsonb
+      WHERE ai_request_id = ${request}`.execute(db);
+    const report = await new ProviderFinanceUsageBackfill(db).run(f.eid, true);
+    expect(report.mode).toBe("APPLY");
+    expect(report.changed.apiCostCurrency).toBe(1);
+    // 原地 UPDATE 不前进 created_at，水位扫描看不见它：必须由回填自身推脏，否则结账会冻结陈旧归集。
+    const { rows } = await sql<{ generation: string; dirty: boolean }>`
+      SELECT generation::text, dirty FROM project_allocation_dirty
+      WHERE enterprise_id = ${f.eid} AND period_month = '2026-10-01'`.execute(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.dirty).toBe(true);
+    expect(Number(rows[0]?.generation)).toBeGreaterThanOrEqual(1);
   });
 });

@@ -413,9 +413,11 @@ export {
   type ReviseMembershipInput,
 } from "./repositories/project-membership-repository.js";
 export {
-  reviseProjectAccountingLifecycle, AccountingVersionConflictError,
+  reviseProjectAccountingLifecycle, getProjectAccountingProfile,
+  AccountingVersionConflictError,
   AccountingAlreadyEndedError, AccountingEffectiveBeforeStartError,
   type ReviseAccountingLifecycleInput, type AccountingLifecycleResult,
+  type ProjectAccountingProfileView,
 } from "./repositories/project-accounting-lifecycle-repository.js";
 export {
   publishEmployeeRules, publishProjectIntent, getEmployeePolicyOverview, previewPolicyChange,
@@ -437,8 +439,10 @@ export {
   type EnableAllocationInput, type EnqueueRunResult, type ExecuteRunResult,
 } from "./repositories/project-allocation-run-repository.js";
 export {
-  getAllocationRunStatus, listProjectAllocationSummaries, getUnallocatedSummary, listAllocationLines,
-  type AllocationRunStatus, type ProjectAllocationSummary, type UnallocatedSummary, type AllocationLineRow,
+  getAllocationRunStatus, listProjectAllocationSummaries, getUnallocatedSummary,
+  listAllocationLines, listUnallocatedLines,
+  type AllocationRunStatus, type ProjectAllocationSummary, type UnallocatedSummary,
+  type AllocationLineRow, type UnallocatedLineRow,
 } from "./repositories/project-allocation-read-repository.js";
 export {
   freezeProjectAllocationForClose, AllocationNotReadyError,

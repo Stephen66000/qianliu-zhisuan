@@ -33,6 +33,14 @@ it("只补缺失归属并保留旧版本、已归属请求和原始费用，调�
   expect(snapshots[0]!.organization_unit_id).toBeNull();
   expect(snapshots[1]).toMatchObject({version:2,supersedes_id:snapshots[0]!.id,organization_unit_id:input.departmentId,snapshot_origin:"CORRECTION",created_by:t.adminId});
   expect(await db.selectFrom("ledger_line").selectAll().where("enterprise_id","=",t.enterpriseId).orderBy("id").execute()).toEqual(original);
+  // P1-b（R02 返修）：归属回填是同事务推脏的归集输入事实来源之一；不推脏会让
+  // 结账闸门把陈旧归集当成新鲜结果冻进 ref。按批聚合后一次标记受影响账期。
+  const dirtyRows = await sql<{ generation: string; dirty: boolean }>`
+    SELECT generation::text, dirty FROM project_allocation_dirty
+    WHERE enterprise_id = ${t.enterpriseId} AND period_month = '2026-09-01'`.execute(db);
+  expect(dirtyRows.rows).toHaveLength(1);
+  expect(BigInt(dirtyRows.rows[0]!.generation)).toBeGreaterThanOrEqual(1n);
+  expect(dirtyRows.rows[0]!.dirty).toBe(true);
   await expect(confirmPrincipalAttributionBackfill(db,confirm)).rejects.toThrow("重新预览");
   await savePrincipalAccounting(db,{enterpriseId:t.enterpriseId,principalId:t.a,adminId:t.adminId,departmentName:"销售部",expectedVersion:1});
   const bill=await loadOperatingDepartmentAccounts(db,t.enterpriseId,"2026-09");

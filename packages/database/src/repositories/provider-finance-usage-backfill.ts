@@ -1,6 +1,7 @@
 import { sql, type Kysely, type Transaction } from "kysely";
 
 import type { Database } from "../kysely.js";
+import { allocationMonthsForRequests, markAllocationDirty } from "./project-allocation-common.js";
 import type { FinanceUsageBackfillReport } from "./provider-finance-cutover-types.js";
 import { PROVIDER_FINANCE_CUTOVER } from "./provider-finance-types.js";
 
@@ -152,6 +153,23 @@ export class ProviderFinanceUsageBackfill {
           JOIN ledger_line line ON line.id=before.id
       `.execute(trx);
       const changed = changedResult.rows[0]!;
+      // finance 回填是原地 UPDATE（不前进 created_at），水位扫描看不见它：
+      // 必须在本事务内按实际变更行推进归集脏代次，否则结账会把陈旧归集冻入 ref。
+      const changedRequests = await sql<{ ai_request_id: string }>`
+        SELECT DISTINCT line.ai_request_id
+          FROM provider_finance_usage_backfill_before before
+          JOIN ledger_line line ON line.id=before.id
+         WHERE (before.settlement_missing AND line.settled_at IS NOT NULL)
+            OR (before.currency_missing AND line.api_cost_currency IS NOT NULL)
+            OR (before.status_missing AND line.api_cost_status IS NOT NULL)
+            OR (before.period_missing AND line.subscription_period_id IS NOT NULL)
+      `.execute(trx);
+      await markAllocationDirty(
+        trx, enterpriseId,
+        await allocationMonthsForRequests(
+          trx, enterpriseId, changedRequests.rows.map((row) => row.ai_request_id),
+        ),
+      );
       return this.backfillReport(enterpriseId, "APPLY", eligible, {
         settlementTime: numericCount(changed.settlement_time),
         apiCostCurrency: numericCount(changed.currency),

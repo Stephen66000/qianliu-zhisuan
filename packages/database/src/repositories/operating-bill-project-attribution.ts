@@ -1,6 +1,7 @@
 import type { Kysely } from "kysely";
 
 import type { Database } from "../kysely.js";
+import { allocationMonthsForRequests, markAllocationDirty } from "./project-allocation-common.js";
 import { markUsageAggregateDirtyForRequest } from "./usage-aggregate-repository.js";
 
 interface ProjectAttributionInput {
@@ -67,4 +68,9 @@ export async function appendProjectAttributionCorrection(
     }).execute();
   }
   await markUsageAggregateDirtyForRequest(db, input.enterpriseId, input.requestId);
+  // 人工指定是归集输入事实：同事务按该请求的归属月推进脏代次（账期口径与扫描一致）。
+  await markAllocationDirty(
+    db, input.enterpriseId,
+    await allocationMonthsForRequests(db, input.enterpriseId, [input.requestId]),
+  );
 }

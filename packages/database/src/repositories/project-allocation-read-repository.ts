@@ -287,9 +287,76 @@ export async function listAllocationLines(
     LEFT JOIN principal emp ON emp.id = l.source_principal_id AND emp.enterprise_id = l.enterprise_id
     WHERE l.run_id = ${runId}
       AND l.enterprise_id = ${enterpriseId}
-      AND (l.target_type = 'UNALLOCATED' OR l.target_project_principal_id = ${projectId}::uuid)
+      AND l.target_type = 'PROJECT' AND l.target_project_principal_id = ${projectId}::uuid
       AND (${params.employeeId ?? null}::uuid IS NULL OR l.source_principal_id = ${params.employeeId ?? null}::uuid)
       AND (${params.source ?? null}::text IS NULL OR l.allocation_source = ${params.source ?? null}::text)
+    ORDER BY l.ledger_line_id
+    LIMIT ${params.limit} OFFSET ${params.offset}`.execute(db);
+  const total = rows[0]?.total ?? 0;
+  const lines = rows.map(({ total: _total, ...rest }) => rest);
+  return { runId, lines, total, limit: params.limit, offset: params.offset };
+}
+
+export interface UnallocatedLineRow extends AllocationLineRow {
+  unallocatedReason: string | null;
+  providerResourceId: string | null;
+}
+
+/**
+ * 未分配明细（合同 §3.3：原因、员工、资源筛选；汇总及明细）。
+ * 企业级口径：未分配份额不属任何项目，行按 target_type='UNALLOCATED' 选取。
+ */
+export async function listUnallocatedLines(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  month: string,
+  params: {
+    runId?: string; reason?: string; employeeId?: string; resourceId?: string;
+    limit: number; offset: number;
+  },
+): Promise<{ runId: string | null; lines: UnallocatedLineRow[]; total: number; limit: number; offset: number }> {
+  const day = monthFirstDay(month);
+  const runId = params.runId ?? (await db.selectFrom("project_allocation_run")
+    .select(["id"])
+    .where("enterprise_id", "=", enterpriseId)
+    .where("period_month", "=", day)
+    .where("is_current", "=", true)
+    .where("status", "=", "SUCCEEDED")
+    .executeTakeFirst())?.id ?? null;
+  if (runId === null) return { runId: null, lines: [], total: 0, limit: params.limit, offset: params.offset };
+
+  const { rows } = await sql<UnallocatedLineRow & { total: number }>`
+    SELECT l.ledger_line_id::text AS "ledgerLineId",
+           l.ai_request_id::text AS "requestId",
+           l.upstream_attempt_id::text AS "upstreamAttemptId",
+           l.source_principal_id::text AS "sourcePrincipalId",
+           emp.name AS "employeeName",
+           l.allocation_source::text AS "allocationSource",
+           l.weight_bps::int AS "weightBps",
+           l.request_started_at::text AS "requestStartedAt",
+           l.accounted_at::text AS "accountedAt",
+           l.source_input_tokens::text AS "sourceInputTokens",
+           l.source_output_tokens::text AS "sourceOutputTokens",
+           l.share_input_tokens::text AS "shareInputTokens",
+           l.share_output_tokens::text AS "shareOutputTokens",
+           NULL::int AS ratio,
+           l.source_api_cost::text AS "sourceApiCost",
+           l.share_api_cost::text AS "shareApiCost",
+           l.api_cost_currency AS "apiCostCurrency",
+           l.source_package_cost::text AS "sourcePackageCost",
+           l.share_package_cost::text AS "sharePackageCost",
+           l.usage_quality AS "usageQuality",
+           l.provider_resource_id::text AS "providerResourceId",
+           l.unallocated_reason AS "unallocatedReason",
+           COUNT(*) OVER ()::int AS total
+    FROM project_allocation_line l
+    LEFT JOIN principal emp ON emp.id = l.source_principal_id AND emp.enterprise_id = l.enterprise_id
+    WHERE l.run_id = ${runId}
+      AND l.enterprise_id = ${enterpriseId}
+      AND l.target_type = 'UNALLOCATED'
+      AND (${params.reason ?? null}::text IS NULL OR l.unallocated_reason = ${params.reason ?? null}::text)
+      AND (${params.employeeId ?? null}::uuid IS NULL OR l.source_principal_id = ${params.employeeId ?? null}::uuid)
+      AND (${params.resourceId ?? null}::uuid IS NULL OR l.provider_resource_id = ${params.resourceId ?? null}::uuid)
     ORDER BY l.ledger_line_id
     LIMIT ${params.limit} OFFSET ${params.offset}`.execute(db);
   const total = rows[0]?.total ?? 0;

@@ -33,7 +33,7 @@
 2. **date-only 结束核算权重裁剪差一天**：project-accounting-lifecycle-repository.ts:88-94（profile ended_at=输入日+24h）与 :120-130（clipRules 收到未 +24h 的当日零点）边界语义不一致——最后一天请求落入 NO_EFFECTIVE_RULE。与成员退出路径（统一 +1 天，有测试）不一致；date-only 路径无测试覆盖。建议 clip 使用相同转换边界并补用例。
 3. **input_digest 仅含行数**：run-repository.ts:403-410（digest=sha256(period, lines.length, …)）；内容不同行数相同的源事实（如 provider-finance-usage-backfill.ts:82-116 原地 UPDATE）digest 碰撞→重算被幂等跳过、dirty 被清、旧值冒充最新。违反计划 §6.5/§8.1.5。建议 digest 纳入逐行内容聚合 hash。
 
-**非阻断（7 项）**：发布缺租约属主校验（唯一约束兜底不腐化）；扫描头注与 attribution 水位列写而不用（D2 范围）；preview 未做类型边界（400 而非 404，无泄露）；30s 冷却未显式实现；diag*.ts ×7 入库；审计 change_summary 缺幂等键/原因/账期；扫描可能为早于 startMonth 的账期建冗余批次。
+**非阻断（7 项）**：发布缺租约属主校验（唯一约束兜底不腐化）；扫描头注与 attribution 水位列写而不用（已由 R02 返修移除该列并改正头注，见 72-R02-rework.md）；preview 未做类型边界（400 而非 404，无泄露）；30s 冷却未显式实现；diag*.ts ×7 入库；审计 change_summary 缺幂等键/原因/账期；扫描可能为早于 startMonth 的账期建冗余批次。
 
 **信息**：61-FREEZE"当前候选 a97cf1c"笔误应为 88d0279；"24 个归集用例"实测 23；"71 测试"统计口径建议写入 README。
 

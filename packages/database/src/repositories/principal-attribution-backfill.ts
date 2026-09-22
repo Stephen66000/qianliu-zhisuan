@@ -6,6 +6,7 @@ import {
   guardOperatingBillLedgerWrite,
   OperatingBillClosedError,
 } from "./operating-bill-write-barrier.js";
+import { allocationMonthsForRequests, markAllocationDirty } from "./project-allocation-common.js";
 import { markUsageAggregateDirtyForRequests } from "./usage-aggregate-repository.js";
 
 export interface AttributionBackfillInput {
@@ -171,6 +172,11 @@ export async function confirmPrincipalAttributionBackfill(
       trx,
     );
     await markUsageAggregateDirtyForRequests(trx, input.enterpriseId, ids);
+    // 归属回填是归集输入事实：同事务按批聚合受影响账期后一次标记（禁止逐行标记）。
+    await markAllocationDirty(
+      trx, input.enterpriseId,
+      await allocationMonthsForRequests(trx, input.enterpriseId, ids),
+    );
     await trx
       .insertInto("operation_log")
       .values({ actor_source: "ADMIN",

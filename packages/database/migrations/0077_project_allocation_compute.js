@@ -203,7 +203,6 @@ export async function up(db) {
   await sql`CREATE TABLE project_allocation_scan_watermark (
     enterprise_id uuid PRIMARY KEY,
     ledger_line_watermark timestamptz NOT NULL DEFAULT '1970-01-01',
-    attribution_watermark timestamptz NOT NULL DEFAULT '1970-01-01',
     updated_at timestamptz NOT NULL DEFAULT now()
   )`.execute(db);
 

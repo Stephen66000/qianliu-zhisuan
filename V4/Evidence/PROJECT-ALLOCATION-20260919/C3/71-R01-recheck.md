@@ -1,3 +1,12 @@
+> **撤回声明（2026-09-22）**：本报告的"新候选整体可判 PASS"结论**作废**。
+> 第三方独立审核 + 实施者实证复现发现：§3 所谓"existing 幂等短路按 digest 匹配"确实按
+> digest 匹配，但短路分支把 `input_digest` **写回当前批次**，必撞
+> `project_allocation_run_published_idem_uq`，一次 `runDueAllocationRuns` 内烧完全部尝试额度
+> 转终态 FAILED，`dirty.generation` 永不消费 → 该账期**永久无法结账**；同时失败退避符号
+> 写反、人工指定/回填不在变更识别内、`HISTORICAL_UNKNOWN` 缺"无参与证据"前提。
+> 本报告 §3 的"观察项：backfill 不改变 digest —— 语义正确"正是该盲区：digest 能否识别
+> 与"是否有东西触发重算"是两件事。返修记录见 `72-R02-rework.md`，最终判定以 R02 为准。
+
 # R01 复核轮报告 — 三项 P1 修复复核（候选 HEAD 1e2f96f）
 
 日期：2026-09-21。复核上下文：独立代理（只读，未修改任何文件；复核后 git status 干净）。
