@@ -12,7 +12,7 @@ import {
   createProjectMembership, publishEmployeeRules,
   enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns, projectAllocationTick,
   reviseProjectAccountingLifecycle, listAllocationLines, markAllocationDirty,
-  OperatingBillRepository, AllocationNotReadyError,
+  getAllocationRunStatus, OperatingBillRepository, AllocationNotReadyError,
 } from "../index.js";
 
 let pg: PostgresTestInstance;
@@ -385,18 +385,122 @@ describe("P1-a：digest 命中幂等再发布（R02 返修）", () => {
     expect(succeeded.filter((row) => row.is_current)).toHaveLength(1);
     expect(succeeded.filter((row) => row.is_current)[0]?.id).toBe(published.rows[0]!.id);
 
-    // 脏代次被消费：与已发布批次捕获的代次对齐并清标记。
+    // 脏代次被消费：清 dirty 标志（闸门按"未消费"判定，不再改写代次）。
     const consumed = await sql<{ generation: string; dirty: boolean }>`
       SELECT generation::text, dirty FROM project_allocation_dirty
       WHERE enterprise_id = ${ent} AND period_month = '2026-07-01'`.execute(db);
     expect(consumed.rows[0]?.dirty).toBe(false);
-    expect(BigInt(consumed.rows[0]!.generation))
-      .toBe(BigInt(published.rows[0]!.input_dirty_generation));
+    // 只读状态与闸门同谓词：已消费即不再报告陈旧。
+    const statusView = await getAllocationRunStatus(db, ent, month);
+    expect(statusView.currentRun?.stale).toBe(false);
 
     const closed = await newRepo().closeMonth({
       enterpriseId: ent, adminId: admin, month, allowIncomplete: true, note: "P1-a digest 命中后结账",
     });
     expect(closed.status).toBe("CLOSED");
+  });
+
+  it("R03-P1：人工指定 A→B→A 输入回到历史状态 → 确定性重发布为 current，close 冻结新批次", async () => {
+    // 幂等索引限定 current 维度后：命中历史批次不再等价于"无需发布"，而是
+    // "输入回到某个历史状态"，必须重发布为 current，否则 current 批次仍指向 B。
+    const month = "2026-05";
+    const employee5 = randomUUID();
+    const projectA2 = randomUUID();
+    const projectB2 = randomUUID();
+    await db.insertInto("principal").values([
+      { id: employee5, enterprise_id: ent, type: "EMPLOYEE", name: "R03 员工" },
+      { id: projectA2, enterprise_id: ent, type: "PROJECT", name: "R03 项目A" },
+      { id: projectB2, enterprise_id: ent, type: "PROJECT", name: "R03 项目B" },
+    ]).execute();
+    const request = await seedLedgerLine(employee5, T("2026-05-12T10:00:00+08:00"), 300_000n, "0.9000");
+    const key5 = randomUUID();
+    await db.insertInto("principal_key").values([
+      { id: key5, enterprise_id: ent, principal_id: employee5, key_prefix: "r03", key_digest: "r03-digest" },
+    ]).execute();
+    await sql`UPDATE ai_request SET principal_key_id = ${key5} WHERE id = ${request}`.execute(db);
+    await enableProjectAllocation(db, { enterpriseId: ent, startMonth: month, actorAdminId: admin });
+
+    const publish = async (projectId: string, reason: string): Promise<string> => {
+      await newRepo().assignRequestToProject({
+        enterpriseId: ent, adminId: admin, month, requestId: request,
+        projectPrincipalId: projectId, reason,
+      });
+      await enqueueAllocationRun(db, { enterpriseId: ent, month, actorType: "SYSTEM", actorAdminId: null });
+      const results = await runDueAllocationRuns(db, `r03-${reason}`);
+      expect(results[0]?.status, reason).toBe("SUCCEEDED");
+      return results[0]!.runId;
+    };
+    const currentOf = async (): Promise<{ id: string; digest: string | null }> => {
+      const { rows } = await sql<{ id: string; digest: string | null }>`
+        SELECT id, input_digest AS digest FROM project_allocation_run
+        WHERE enterprise_id = ${ent} AND period_month = '2026-05-01' AND is_current`.execute(db);
+      return { id: rows[0]!.id, digest: rows[0]!.digest };
+    };
+
+    const firstA = await publish(projectA2, "A");
+    const digestA = (await currentOf()).digest;
+    expect(digestA).not.toBeNull();
+    await publish(projectB2, "B");
+    expect((await currentOf()).id).not.toBe(firstA);
+
+    // 回到 A：摘要与历史批次相同，但历史批次非 current → 必须重发布为 current。
+    const backToA = await publish(projectA2, "A2");
+    const currentAfter = await currentOf();
+    expect(currentAfter.id).toBe(backToA);
+    expect(currentAfter.digest).toBe(digestA);
+
+    const currentSources = await sql<{ sources: string; target: string | null }>`
+      SELECT string_agg(DISTINCT l.allocation_source, ',') AS sources,
+             MAX(l.target_project_principal_id::text) AS target
+      FROM project_allocation_line l JOIN project_allocation_run r ON r.id = l.run_id
+      WHERE r.enterprise_id = ${ent} AND r.is_current AND l.ai_request_id = ${request}`.execute(db);
+    expect(currentSources.rows[0]?.sources).toBe("MANUAL_ASSIGNMENT");
+    expect(currentSources.rows[0]?.target).toBe(projectA2);
+
+    const dirty = await sql<{ dirty: boolean }>`
+      SELECT dirty FROM project_allocation_dirty
+      WHERE enterprise_id = ${ent} AND period_month = '2026-05-01'`.execute(db);
+    expect(dirty.rows[0]?.dirty).toBe(false);
+
+    const closed = await newRepo().closeMonth({
+      enterpriseId: ent, adminId: admin, month, allowIncomplete: true, note: "R03-P1 回到历史状态后结账",
+    });
+    expect(closed.status).toBe("CLOSED");
+    const frozen = await sql<{ run_id: string }>`
+      SELECT r.run_id::text FROM operating_bill_project_allocation_ref r
+      JOIN operating_bill_version v ON v.id = r.bill_version_id
+      JOIN operating_bill_period p ON p.id = v.period_id
+      WHERE p.enterprise_id = ${ent} AND p.period_month = '2026-05-01'`.execute(db);
+    expect(frozen.rows[0]?.run_id).toBe(backToA);
+  });
+
+  it("R03-P1：no-op 执行期间并发推脏 → 代次守卫不吞标记，闸门拒绝结账", async () => {
+    const month = "2026-04";
+    await seedLedgerLine(employee1, T("2026-04-09T10:00:00+08:00"), 120_000n, "0.4000");
+    await enableProjectAllocation(db, { enterpriseId: ent, startMonth: month, actorAdminId: admin });
+    const first = await runDueAllocationRuns(db, "r03c-worker");
+    expect(first[0]?.status).toBe("SUCCEEDED");
+
+    // 登记（捕获代次 G）之后、执行之前再推一次脏（G+1）：no-op 的捕获代次已落后，
+    // 守卫必须拒绝清除标记 —— 否则并发标记被吞、闸门误判为新鲜。
+    await markAllocationDirty(db, ent, [month]);
+    const enqueued = await enqueueAllocationRun(db, {
+      enterpriseId: ent, month, actorType: "SYSTEM", actorAdminId: null,
+    });
+    expect(enqueued.created).toBe(true);
+    await markAllocationDirty(db, ent, [month]);
+    const second = await runDueAllocationRuns(db, "r03c-worker");
+    expect(second[0]?.status).toBe("SUCCEEDED");
+
+    const dirty = await sql<{ generation: string; dirty: boolean }>`
+      SELECT generation::text, dirty FROM project_allocation_dirty
+      WHERE enterprise_id = ${ent} AND period_month = '2026-04-01'`.execute(db);
+    expect(dirty.rows[0]?.dirty).toBe(true);
+    const statusView = await getAllocationRunStatus(db, ent, month);
+    expect(statusView.currentRun?.stale).toBe(true);
+    await expect(newRepo().closeMonth({
+      enterpriseId: ent, adminId: admin, month, allowIncomplete: true, note: "R03-P1 并发推脏结账",
+    })).rejects.toThrow(AllocationNotReadyError);
   });
 
   it("R02-P1 回归：核算窗口变化必须真实重算，不得被幂等短路吞掉（fail-open）", async () => {

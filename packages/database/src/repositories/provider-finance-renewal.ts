@@ -4,6 +4,7 @@ import { Money, money, lockResource } from "./provider-finance-core.js";
 import { ProviderFinanceError } from "./provider-finance-types.js";
 import { loadLegacySubscriptionFee } from "./provider-finance-period-facts.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
+import { markAllocationDirty, shanghaiMonthOf } from "./project-allocation-common.js";
 import { nextSubscriptionEnd } from "./subscription-renewal-calendar.js";
 
 async function resourceState(db: Kysely<Database>, enterpriseId: string, resourceId: string) {
@@ -101,6 +102,8 @@ export async function renewDueSubscription(db: Kysely<Database>, enterpriseId: s
       provider_resource_id: resourceId, finance_event_id: event.id, product_name: plan.template.product_name,
       period_start: start, period_end_exclusive: end, source: "RENEWAL", migration_source_record_id: null,
       created_by_admin_user_id: null }).execute();
+    // 系统续订也是 CODING_PLAN 现金事件（余量 authority），同事务按周期起始月推脏。
+    await markAllocationDirty(trx, enterpriseId, [shanghaiMonthOf(start)]);
     return true;
   });
 }

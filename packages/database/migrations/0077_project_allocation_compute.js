@@ -57,9 +57,11 @@ export async function up(db) {
     ON project_allocation_run(enterprise_id, period_month) WHERE status IN ('QUEUED', 'RUNNING')`.execute(db);
   await sql`CREATE UNIQUE INDEX project_allocation_run_current_uq
     ON project_allocation_run(enterprise_id, period_month) WHERE is_current`.execute(db);
+  // 当前发布幂等：同输入摘要+算法的**当前**发布至多一份（R03 P1 合同修订：
+  // 输入回到历史状态时允许确定性重发布为 current；历史批次本身仍不可复活）。
   await sql`CREATE UNIQUE INDEX project_allocation_run_published_idem_uq
     ON project_allocation_run(enterprise_id, period_month, input_digest, algorithm_version)
-    WHERE status = 'SUCCEEDED' AND input_digest IS NOT NULL`.execute(db);
+    WHERE status = 'SUCCEEDED' AND input_digest IS NOT NULL AND is_current`.execute(db);
   await sql`CREATE INDEX project_allocation_run_history_idx
     ON project_allocation_run(enterprise_id, period_month, created_at DESC)`.execute(db);
   await sql`CREATE FUNCTION validate_project_allocation_run() RETURNS trigger LANGUAGE plpgsql AS $fn$

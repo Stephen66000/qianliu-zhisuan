@@ -450,6 +450,23 @@ export async function executeAllocationRun(
       FROM operating_bill_request_project_assignment
       WHERE enterprise_id = ${run.enterprise_id}`.execute(db);
     const manualDigest = assignmentRows[0]?.digest ?? "none";
+    // 余量 authority（CODING_PLAN 当月现金事件）也是发布输出的一部分：并入摘要，
+    // 否则现金事件变化而其它输入未变时会被幂等短路跳过、余量表保持陈旧（R03 §4-②）。
+    // 资源快照 authority 属估计口径、高频采集，按"下次任意输入变更刷新"接受滞后，不入摘要。
+    const { rows: planCashRows } = await sql<{ digest: string }>`
+      SELECT md5(string_agg(resource_id::text || ':' || amount::text, ',' ORDER BY resource_id)) AS digest
+        FROM (
+          SELECT event.provider_resource_id AS resource_id, SUM(event.cash_paid_cny)::numeric(24,8) AS amount
+            FROM provider_finance_event event
+            JOIN provider_resource resource
+              ON resource.enterprise_id = event.enterprise_id
+             AND resource.id = event.provider_resource_id AND resource.mode = 'CODING_PLAN'
+           WHERE event.enterprise_id = ${run.enterprise_id}::uuid
+             AND event.event_type IN ('CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL','REVERSAL')
+             AND event.occurred_at >= ${monthRange.start} AND event.occurred_at < ${monthRange.end}
+           GROUP BY event.provider_resource_id
+        ) authority`.execute(db);
+    const planCashDigest = planCashRows[0]?.digest ?? "none";
     // P1-3：事实内容摘要——行数 + 逐行内容（覆盖 token/费用/币种/状态/结算时间/
     // 资源/主体/attempt 等影响归集的列）。行数相同、内容被原地修改（如 finance
     // 回填 UPDATE）时 digest 仍变化，确保重算不被幂等跳过。
@@ -461,7 +478,7 @@ export async function executeAllocationRun(
     const inputDigest = createHash("sha256")
       .update(JSON.stringify([
         run.period_month, lines.length, factXor,
-        ruleDigest, membershipDigest, accountingDigest, manualDigest,
+        ruleDigest, membershipDigest, accountingDigest, manualDigest, planCashDigest,
         financeEnabled ? "finance:on" : "finance:off", earliest ?? "no-enablement",
       ]))
       .digest("hex");
@@ -485,7 +502,11 @@ export async function executeAllocationRun(
       .digest("hex");
 
     await db.transaction().execute(async (tx) => {
-      // 同输入+同算法幂等：已发布则直接返回成功（不重复发布）。
+      // 不变量：current 批次永远反映当前输入状态。
+      // 同输入+同算法幂等只在"命中批次就是 current"时成立（该输入状态的当前发布已存在，
+      // 无需重复发布）；命中**非 current 的历史批次**意味着输入回到了某个历史状态
+      // （如人工指定 A→B→A），此时必须确定性重发布为 current——幂等索引已限定为
+      // current 维度（R03 P1 合同修订），因此同摘要重发布合法，且不依赖"认出旧状态"。
       const existing = await tx.selectFrom("project_allocation_run")
         .select(["id"])
         .where("enterprise_id", "=", run.enterprise_id)
@@ -493,6 +514,7 @@ export async function executeAllocationRun(
         .where("input_digest", "=", inputDigest)
         .where("algorithm_version", "=", ALLOCATION_ALGORITHM_VERSION)
         .where("status", "=", "SUCCEEDED")
+        .where("is_current", "=", true)
         .executeTakeFirst();
 
       if (!existing) {
@@ -601,10 +623,9 @@ export async function executeAllocationRun(
           .where("id", "=", run.id)
           .execute();
       } else {
-        // 幂等命中（同输入同算法已发布）：no-op 成功。绝不写 input_digest——
-        // 写回会与已发布批次构成 (enterprise_id, period_month, input_digest,
-        // algorithm_version) 重复，直接违反 project_allocation_run_published_idem_uq，
-        // 使该批次反复失败并把账期永久卡在 stale_input。既有发布批次保持 current。
+        // 幂等命中且命中批次就是 current：no-op 成功。绝不写 input_digest、不夺
+        // current、不写份额与余量——该输入状态的当前发布已存在，重复发布无意义且
+        // 会占满幂等键。既有发布批次继续供读。
         await tx.updateTable("project_allocation_run")
           .set({
             status: "SUCCEEDED",
@@ -616,7 +637,8 @@ export async function executeAllocationRun(
           .execute();
       }
 
-      // 消费脏代次：未前进则清除 dirty；前进则保留（由调度再登记补算）。
+      // 消费脏代次：本批次捕获的代次不小于当前代次，说明输入已被本批次覆盖
+      // （发布覆盖，或 no-op 证明与 current 一致），清除 dirty 标志。
       const dirty = await tx.selectFrom("project_allocation_dirty")
         .select(["generation"])
         .where("enterprise_id", "=", run.enterprise_id)
@@ -627,37 +649,15 @@ export async function executeAllocationRun(
         .where("id", "=", run.id)
         .executeTakeFirst();
       if (dirty && captured && dirty.generation <= (captured.input_dirty_generation ?? 0)) {
-        // 清除/对齐都按"读取到的代次"做条件写入：期间若有并发标记推进了代次，
-        // 则不改动（保留 dirty，让闸门继续拒绝、调度继续登记）。无条件清除会吞掉
-        // 并发标记，使账期"闸门拒绝但自动恢复丢失"，只能人工重建（R02 §4-②）。
-        let clearGeneration = dirty.generation;
-        if (existing !== undefined) {
-          // 幂等命中：本批次以摘要相等证明了"当前输入与已发布批次完全一致"
-          // （摘要已覆盖行事实/规则/参与/核算窗口/人工指定），因此该脏代次已被既有
-          // 发布结果满足。把代次对齐到发布批次捕获的代次，使结账闸门
-          // （generation > captured → stale_input）按事实放行。
-          const published = await tx.selectFrom("project_allocation_run")
-            .select(["input_dirty_generation"])
-            .where("enterprise_id", "=", run.enterprise_id)
-            .where("period_month", "=", run.period_month.slice(0, 10))
-            .where("is_current", "=", true)
-            .executeTakeFirst();
-          const publishedCaptured = published?.input_dirty_generation ?? null;
-          if (publishedCaptured !== null && dirty.generation > publishedCaptured) {
-            await tx.updateTable("project_allocation_dirty")
-              .set({ generation: publishedCaptured })
-              .where("enterprise_id", "=", run.enterprise_id)
-              .where("period_month", "=", run.period_month.slice(0, 10))
-              .where("generation", "=", dirty.generation)
-              .execute();
-            clearGeneration = publishedCaptured;
-          }
-        }
+        // 条件清除：期间若有并发标记推进了代次，则不改动（保留 dirty，让闸门继续拒绝、
+        // 调度继续登记）。无条件清除会吞掉并发标记，使账期"闸门拒绝但自动恢复丢失"，
+        // 只能人工重建（R02 §4-②）。闸门按"未消费的脏代次"判定（dirty 标志位 AND
+        // 代次前进），故此处只需清标志，不再改写代次。
         await tx.updateTable("project_allocation_dirty")
           .set({ dirty: false })
           .where("enterprise_id", "=", run.enterprise_id)
           .where("period_month", "=", run.period_month.slice(0, 10))
-          .where("generation", "=", clearGeneration)
+          .where("generation", "=", dirty.generation)
           .execute();
       }
     });

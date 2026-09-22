@@ -1,0 +1,11 @@
+$ cd packages/domain && pnpm run test
+ Test Files  13 passed (13)
+      Tests  205 passed (205)
+
+$ cd apps/control-api && vitest run project-allocation-routes
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+
+$ cd apps/web && pnpm run test
+ Test Files  78 passed (78)
+      Tests  476 passed (476)

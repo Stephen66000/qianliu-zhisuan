@@ -56,14 +56,20 @@ export async function freezeProjectAllocationForClose(
   }
 
   if (input.requireConsistency) {
-    const { rows: dirtyRows } = await sql<{ generation: string | null }>`
-      SELECT generation::text AS generation FROM project_allocation_dirty
+    // 陈旧判定的精确谓词（R03 P1）：只有**未消费的脏代次**才拒绝结账——
+    // dirty 标志位为真且 generation 前进了。清标志只可能由"成功执行且捕获代次
+    // 覆盖当前代次"的批次完成（发布覆盖，或 no-op 证明当前输入与 current 批次
+    // 同一状态），因此 dirty=false 一律代表当前输入已反映在当前发布里。
+    // 不无条件比较原始代次：代次单调累加，任何配置变更都会推进它，那样会把
+    // 已被消费的账期误判为陈旧。
+    const { rows: dirtyRows } = await sql<{ generation: string | null; dirty: boolean | null }>`
+      SELECT generation::text AS generation, dirty FROM project_allocation_dirty
       WHERE enterprise_id = ${input.enterpriseId} AND period_month = ${day}::date`.execute(trx);
     const generation = dirtyRows[0]?.generation === null || dirtyRows[0]?.generation === undefined
       ? "0" : dirtyRows[0].generation;
     const captured = run.input_dirty_generation === null || run.input_dirty_generation === undefined
       ? "0" : run.input_dirty_generation;
-    if (BigInt(generation) > BigInt(captured)) {
+    if (dirtyRows[0]?.dirty === true && BigInt(generation) > BigInt(captured)) {
       throw new AllocationNotReadyError("stale_input");
     }
   }

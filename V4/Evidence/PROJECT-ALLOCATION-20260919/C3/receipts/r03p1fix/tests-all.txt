@@ -1,0 +1,26 @@
+$ corepack pnpm run typecheck（根）
+11
+exit=0
+
+$ corepack pnpm run lint（根）
+11
+exit=0
+
+$ cd packages/database && vitest run close（11 tests：P1-a / R02-P1 / R03-P1 A→B→A / R03-P1 并发推脏 / P1-b / P2-c）
+ ✓ src/__tests-integration__/project-allocation-close.integration.test.ts (11 tests) 9665ms
+   ✓ 结账冻结（H02/H04） > 执行批次后 close：ref 写入且被引用 run 禁删；脏输入再 close 拒绝  307ms
+   ✓ 补偿扫描 tick（A03 阶段一） > P2-c：纯规则变更（无新 ledger 行）→ tick 自行登记重算，不依赖人工重建  517ms
+   ✓ P1-a：digest 命中幂等再发布（R02 返修） > R03-P1：人工指定 A→B→A 输入回到历史状态 → 确定性重发布为 current，close 冻结新批次  484ms
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+
+$ vitest run compute+foundation+invariance+backfill+migration+subscription-auto-renewal+provider-finance-ledger
+ ✓ src/__tests-integration__/principal-attribution-backfill.integration.test.ts (4 tests) 41925ms
+ ✓ src/__tests-integration__/migration.integration.test.ts (7 tests) 42161ms
+ ✓ src/__tests-integration__/project-allocation-invariance.integration.test.ts (1 test) 46618ms
+ ✓ src/__tests-integration__/project-allocation-foundation.integration.test.ts (19 tests) 48089ms
+ ✓ src/__tests-integration__/project-allocation-compute.integration.test.ts (8 tests) 48797ms
+ ✓ src/__tests-integration__/provider-finance-ledger.integration.test.ts (3 tests) 49269ms
+ ✓ src/__tests-integration__/subscription-auto-renewal.integration.test.ts (10 tests) 54677ms
+ Test Files  7 passed (7)
+      Tests  52 passed (52)

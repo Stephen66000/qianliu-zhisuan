@@ -148,6 +148,12 @@ export async function allocationMonthsForRequests(
   return rows.map((row) => row.month);
 }
 
+/** 单时点的北京自然月（"YYYY-MM"）：余量 authority 等按事件时点归月的写入方使用。 */
+export function shanghaiMonthOf(value: Date): string {
+  const { year, month } = shanghaiYearMonth(value);
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
 /** 推进归集脏代次：同事务 upsert，generation+1。month 为 "YYYY-MM"。 */
 export async function markAllocationDirty(
   db: AllocationDb,

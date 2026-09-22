@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { sql, type Kysely, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
+import { markAllocationDirty, shanghaiMonthOf } from "./project-allocation-common.js";
 import { Money, eventView, lockResource, money, stableHash, validateOrdinaryOccurredAt } from "./provider-finance-core.js";
 import {
   PROVIDER_FINANCE_CUTOVER, ProviderFinanceError, type DuplicateConfirmationInput,
@@ -113,6 +114,9 @@ export class ProviderFinanceEventRepository {
       const response = { event: eventView(row), periodId: period.id };
       await this.auditAndRemember(trx, input, eventType, row.id, requestHash, response);
       await this.consumeDuplicateCandidate(trx, duplicate.candidateId, row.id);
+      // CODING_PLAN 现金事件是归集余量（C08）的 authority：同事务按事件月推脏，
+      // 使套餐购买/续订后余量表随下一个批次刷新，而不是等下次任意输入变更。
+      await markAllocationDirty(trx, input.enterpriseId, [shanghaiMonthOf(input.occurredAt)]);
       return response;
     });
     if ("duplicate" in result) {
@@ -370,7 +374,7 @@ export class ProviderFinanceEventRepository {
         evidenceRef: input.evidenceRef });
       const replay = await this.replay(trx, eventInput, requestHash);
       if (replay) return { ...replay as FinanceEventView, replayed: true };
-      await lockResource(trx, input.enterpriseId, original.provider_resource_id);
+      const resource = await lockResource(trx, input.enterpriseId, original.provider_resource_id);
       const replayAfterLock = await this.replay(trx, eventInput, requestHash);
       if (replayAfterLock) return { ...replayAfterLock as FinanceEventView, replayed: true };
       await guardOperatingBillLedgerWrite(trx, input.enterpriseId, original.occurred_at);
@@ -389,6 +393,10 @@ export class ProviderFinanceEventRepository {
         .where("finance_event_id", "=", original.id).execute();
       const response = eventView(row);
       await this.auditAndRemember(trx, eventInput, "REVERSAL", row.id, requestHash, response);
+      // 冲正同上：套餐资源的冲正计入余量 authority，同事务按原事件月推脏。
+      if (resource.mode === "CODING_PLAN") {
+        await markAllocationDirty(trx, input.enterpriseId, [shanghaiMonthOf(original.occurred_at)]);
+      }
       return response;
     });
   }

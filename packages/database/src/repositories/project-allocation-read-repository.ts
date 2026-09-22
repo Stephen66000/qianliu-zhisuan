@@ -24,7 +24,7 @@ function monthFirstDay(month: string): string {
   return `${month}-01`;
 }
 
-/** 计算状态（GET 纯读）：stale = dirty.generation > run.input_dirty_generation。 */
+/** 计算状态（GET 纯读）：stale 与结账闸门同谓词——未消费的脏代次（dirty 且代次前进）。 */
 export async function getAllocationRunStatus(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -45,7 +45,7 @@ export async function getAllocationRunStatus(
     .where("is_current", "=", true)
     .executeTakeFirst();
   const dirty = await db.selectFrom("project_allocation_dirty")
-    .select(["generation"])
+    .select(["generation", "dirty"])
     .where("enterprise_id", "=", enterpriseId)
     .where("period_month", "=", day)
     .executeTakeFirst();
@@ -56,7 +56,9 @@ export async function getAllocationRunStatus(
       id: run.id,
       status: run.status,
       computedAt: run.finished_at?.toISOString() ?? null,
-      stale: dirty !== undefined && (run.input_dirty_generation ?? 0) < dirty.generation,
+      // 与结账闸门（project-allocation-freeze.ts）同一谓词：未消费的脏代次才算陈旧。
+      stale: dirty !== undefined && dirty.dirty === true
+        && (run.input_dirty_generation ?? 0) < dirty.generation,
       inputDigest: run.input_digest,
       completeness: run.completeness as { unknownApiCostLineCount?: number; unknownPackageCostLineCount?: number } | null,
     },

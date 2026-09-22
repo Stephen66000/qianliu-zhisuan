@@ -26,9 +26,9 @@
 | `project_membership_revision` | 冗余 project/employee 主体列；UNIQUE(membership,revision)；ACTIVE 区间 EXCLUDE（btree_gist，仅 ACTIVE 行）；幂等键部分唯一 `(enterprise,idempotency_key)`；supersedes/created_by 复合 FK；触发器：禁 DELETE，UPDATE 仅 ACTIVE→SUPERSEDED/VOID |
 | `employee_project_allocation_policy` | 员工级版本+is_current+input_hash+幂等键；触发器同上模式，EMPLOYEE 校验 |
 | `employee_project_allocation_rule` | policy+membership+revision 复合 FK；weight_bps 0..10000（0 合法显式段，P3-3）；区间⊆参与修订（触发器）；触发器校验 policy 同员工、修订链一致；发布后禁改 |
-| `project_allocation_run` | 活动/当前/已发布幂等三个部分唯一；`CHECK (NOT is_current OR status='SUCCEEDED')`；SUCCEEDED/FAILED 仅允许 is_current true→false（输入摘要/守恒/result_hash 冻结）；QUEUED/RUNNING 身份列不可变、状态只进不退；陈旧度不入库，由 `dirty.generation > run.input_dirty_generation` 推导 |
+| `project_allocation_run` | 活动/当前/**当前发布幂等**三个部分唯一（已发布幂等索引限定 `is_current`，见 `76-CONTRACT-AMENDMENT-01`）；`CHECK (NOT is_current OR status='SUCCEEDED')`；SUCCEEDED/FAILED 仅允许 is_current true→false（输入摘要/守恒/result_hash 冻结）；QUEUED/RUNNING 身份列不可变、状态只进不退；陈旧度不入库，由**未消费的脏代次**推导：`dirty.dirty = true AND dirty.generation > run.input_dirty_generation`（`project-allocation-freeze.ts` 与只读状态同谓词） |
 | `project_allocation_line` | 逐行证据：ledger/request/attempt/资源/模型、双时间戳、来源四值、权重（仅 MEMBERSHIP_RULE 非空）、policy/membership/revision 引用、token 份额 numeric(24,4)、api 金额源精度+币种、`package_cost_currency='CNY'` 固定、质量、原因码（含 HISTORICAL_UNKNOWN）；目标=零 UUID 哨兵+UNIQUE(run,line,target_type,target)；触发器：禁 UPDATE/DELETE，INSERT 校验目标是同企业 PROJECT 主体；复合 FK 全覆盖（ledger/request/attempt 三列不建 FK——热事实表代价，由装载企业过滤+守恒核对兜底） |
-| `project_allocation_resource_residual` | 资源级套餐余量（C08）；复合 FK run+资源 |
+| `project_allocation_resource_residual` | 资源级套餐余量（C08）；复合 FK run+资源。authority 分两类：**plan-cash**（`provider_finance_event` 的 CODING_PLAN 购买/续订/冲正，低频高金额）纳入 `inputDigest` 且写入方同事务推脏；**资源快照**（`provider_resource_operating_snapshot`，高频采集、估计口径）不入摘要、不挂钩，按"下次任意输入变更刷新"接受滞后。余量不进 close ref、不进守恒，不影响结账正确性（R03 决策，见 `77-R03-P1-fix.md`）。 |
 | `operating_bill_project_allocation_ref` | 账单冻结引用：bill_version 唯一+复合 FK；run FK **RESTRICT**；ref 不可变触发器 |
 | `project_allocation_period` | 启用登记（首次启用事务内登记初始化任务） |
 | `project_allocation_dirty` | (企业,账期) 脏代次 generation+dirty；配置写事务同事务推进 |
@@ -48,7 +48,7 @@
 
 1. 配置写事务同事务推 dirty generation；事务后 worker 消费，无同步全量扫描。
 2. GET 全部纯读（任务数 0）；首次计算仅由启用登记事务创建；新结算由 worker 周期补偿扫描（ledger_line.created_at 水位+重叠回看）登记待更新，配置类与回填类变更由写入事务内直接推脏——**不改 Gateway/结算路径**（B02 最严格解释；新鲜度不足再议阶段二，需用户确认）。
-3. 单任务＝部分唯一索引；同输入+算法幂等；运行中新变更只推进代次，完成后对比补算。
+3. 单任务＝部分唯一索引；同输入+算法幂等**限定当前发布**（同摘要的历史批次不复活，输入回到历史状态时确定性重发布为 current，见 `76-CONTRACT-AMENDMENT-01`）；运行中新变更只推进代次，完成后对比补算。
 4. 自动刷新最小间隔默认 30s；失败有界退避（默认 3 次）；租约超时回收；执行者代次校验；SYSTEM/ADMIN actor 分记。
 5. 结账：close 前校验启用账期存在 is_current run 且输入 digest 与锁定源一致（否则 `allocation_not_ready`/`allocation_stale`）；冻结只写 ref 表（run_id/schema/algorithm/input_digest/result_hash/守恒汇总/完整性/生成时间）；`sourceFacts.accountFacts` 原样；并发按既有写屏障串行。
 
@@ -66,4 +66,4 @@ weight_bps=0 合法保存、进时间线与审计；结果全部未分配，原�
 
 ## 9. 合同决策点（沿 C2 评审已确认方向）
 
-D1 新增 4 张实现层表；D2 阶段一变更识别仅补偿扫描（不改 Gateway）；D3 revision 冗余列+EXCLUDE（btree_gist）；D4 逐行瞬时匹配+展示层并集分段（数值等价）；D5 run 幂等键=(企业,账期,input_digest,algorithm_version)。
+D1 新增 4 张实现层表；D2 阶段一变更识别仅补偿扫描（不改 Gateway）；D3 revision 冗余列+EXCLUDE（btree_gist）；D4 逐行瞬时匹配+展示层并集分段（数值等价）；D5 run 幂等键=(企业,账期,input_digest,algorithm_version)**且限定 `is_current`**（R03 P1 修订：current 批次永远反映当前输入状态）。
