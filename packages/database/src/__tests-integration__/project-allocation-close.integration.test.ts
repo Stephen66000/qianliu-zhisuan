@@ -503,6 +503,40 @@ describe("P1-a：digest 命中幂等再发布（R02 返修）", () => {
     })).rejects.toThrow(AllocationNotReadyError);
   });
 
+  it("R04-P1 回归：两位数代次边界不退化（bigint 经 pg 返回字符串）", async () => {
+    // 构造 captured=9 / generation=10 的跨位边界：裸字符串比较在此处方向反转。
+    const month = "2026-02";
+    const request = await seedLedgerLine(employee1, T("2026-02-11T10:00:00+08:00"), 60_000n, "0.2000");
+    await enableProjectAllocation(db, { enterpriseId: ent, startMonth: month, actorAdminId: admin });
+    expect((await runDueAllocationRuns(db, "r04-worker"))[0]?.status).toBe("SUCCEEDED");
+    // 内容变更（人工指定）使下一批次必须真实发布，从而让 current 批次捕获到 9。
+    await newRepo().assignRequestToProject({
+      enterpriseId: ent, adminId: admin, month, requestId: request,
+      projectPrincipalId: projectA, reason: "R04 边界内容变更",
+    });
+    for (let i = 0; i < 7; i += 1) await markAllocationDirty(db, ent, [month]);
+    await enqueueAllocationRun(db, { enterpriseId: ent, month, actorType: "SYSTEM", actorAdminId: null });
+    expect((await runDueAllocationRuns(db, "r04-worker"))[0]?.status).toBe("SUCCEEDED");
+    await markAllocationDirty(db, ent, [month]);
+    const state = await sql<{ captured: string; generation: string }>`
+      SELECT r.input_dirty_generation::text AS captured, d.generation::text AS generation
+      FROM project_allocation_run r, project_allocation_dirty d
+      WHERE r.enterprise_id = ${ent} AND r.period_month = '2026-02-01' AND r.is_current
+        AND d.enterprise_id = ${ent} AND d.period_month = '2026-02-01'`.execute(db);
+    expect(state.rows[0]).toEqual({ captured: "9", generation: "10" });
+
+    // 登记判定 10 > 9：必须新建批次（"9" >= "10" 的字符串比较会误判为已最新而卡死账期）。
+    const enqueued = await enqueueAllocationRun(db, {
+      enterpriseId: ent, month, actorType: "SYSTEM", actorAdminId: null,
+    });
+    expect(enqueued.created).toBe(true);
+    // 只读状态与闸门同谓词：未消费的脏代次 → stale 且 close 拒绝。
+    expect((await getAllocationRunStatus(db, ent, month)).currentRun?.stale).toBe(true);
+    await expect(newRepo().closeMonth({
+      enterpriseId: ent, adminId: admin, month, allowIncomplete: true, note: "R04-P1 边界结账",
+    })).rejects.toThrow(AllocationNotReadyError);
+  });
+
   it("R02-P1 回归：核算窗口变化必须真实重算，不得被幂等短路吞掉（fail-open）", async () => {
     // 摘要未覆盖核算窗口时：先发布规则、后月中开始核算会把同一批行从
     // MEMBERSHIP_RULE 改为待修复未分配（金额量级变化），却被 no-op 跳过 →

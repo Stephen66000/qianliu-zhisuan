@@ -13,6 +13,7 @@ import {
 } from "@qianliu/domain";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
 import { liveLineFactCtes } from "./operating-bill-account-month-lines.js";
+import { allocationGeneration } from "./project-allocation-common.js";
 
 export const ALLOCATION_SCHEMA_VERSION = "1";
 export const ALLOCATION_ALGORITHM_VERSION = "1";
@@ -278,7 +279,7 @@ export async function enqueueAllocationRun(
       .executeTakeFirst();
     const generation = dirty?.generation ?? 0;
     if (current && current.status === "SUCCEEDED"
-      && (current.input_dirty_generation ?? 0) >= generation) {
+      && allocationGeneration(current.input_dirty_generation) >= allocationGeneration(generation)) {
       return { runId: current.id, status: "SUCCEEDED", created: false };
     }
     const run = await tx.insertInto("project_allocation_run")
@@ -648,7 +649,8 @@ export async function executeAllocationRun(
         .select(["input_dirty_generation"])
         .where("id", "=", run.id)
         .executeTakeFirst();
-      if (dirty && captured && dirty.generation <= (captured.input_dirty_generation ?? 0)) {
+      if (dirty && captured
+        && allocationGeneration(dirty.generation) <= allocationGeneration(captured.input_dirty_generation)) {
         // 条件清除：期间若有并发标记推进了代次，则不改动（保留 dirty，让闸门继续拒绝、
         // 调度继续登记）。无条件清除会吞掉并发标记，使账期"闸门拒绝但自动恢复丢失"，
         // 只能人工重建（R02 §4-②）。闸门按"未消费的脏代次"判定（dirty 标志位 AND

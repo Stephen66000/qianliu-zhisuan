@@ -5,6 +5,7 @@
  */
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
+import { allocationGeneration } from "./project-allocation-common.js";
 
 export interface AllocationRunStatus {
   enabled: boolean;
@@ -58,7 +59,7 @@ export async function getAllocationRunStatus(
       computedAt: run.finished_at?.toISOString() ?? null,
       // 与结账闸门（project-allocation-freeze.ts）同一谓词：未消费的脏代次才算陈旧。
       stale: dirty !== undefined && dirty.dirty === true
-        && (run.input_dirty_generation ?? 0) < dirty.generation,
+        && allocationGeneration(run.input_dirty_generation) < allocationGeneration(dirty.generation),
       inputDigest: run.input_digest,
       completeness: run.completeness as { unknownApiCostLineCount?: number; unknownPackageCostLineCount?: number } | null,
     },

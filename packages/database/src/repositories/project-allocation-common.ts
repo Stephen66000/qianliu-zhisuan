@@ -154,6 +154,17 @@ export function shanghaiMonthOf(value: Date): string {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
+/**
+ * 脏代次取整比较。bigint 列经 pg 驱动返回**字符串**（本仓未注册 type parser，
+ * Kysely 声明的 number 与运行时不符）：裸比较会退化成字典序，在两位数边界上
+ * 方向反转（"10" <= "9" 为真），导致吞标记、登记失效与读模型/闸门不一致（R04 P1）。
+ * 所有代次比较必须经此函数。
+ */
+export function allocationGeneration(value: string | number | bigint | null | undefined): bigint {
+  if (value === null || value === undefined) return 0n;
+  return BigInt(value);
+}
+
 /** 推进归集脏代次：同事务 upsert，generation+1。month 为 "YYYY-MM"。 */
 export async function markAllocationDirty(
   db: AllocationDb,
