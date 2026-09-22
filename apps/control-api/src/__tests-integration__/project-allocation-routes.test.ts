@@ -352,6 +352,21 @@ describe("项目账归集端点（WP05）", () => {
     expect(crossMonth.statusCode).toBe(404);
     expect(crossMonth.json().error).toBe("not_found");
 
+    // R06 P2-1：非法批次标识（含字面 null/空串形态）不得透传到 PG（500），统一 400。
+    for (const bad of ["not-a-uuid", "null", ""]) {
+      const badDetail = await app.inject({
+        method: "GET", url: `/operating-bills/2026-09/project-unallocated?run_id=${encodeURIComponent(bad)}`,
+        headers: { cookie: superCookie },
+      });
+      expect(badDetail.statusCode, `unallocated run_id=${bad}`).toBe(400);
+      const badLines = await app.inject({
+        method: "GET", url: `/operating-bills/2026-09/projects/${projectP}/allocation-lines?run_id=${encodeURIComponent(bad)}`,
+        headers: { cookie: superCookie },
+      });
+      expect(badLines.statusCode, `allocation-lines run_id=${bad}`).toBe(400);
+      expect(badLines.json().error).toBe("invalid_request");
+    }
+
     const linesCross = await app.inject({
       method: "GET", url: `/operating-bills/2026-09/projects/${projectP}/allocation-lines?run_id=${augRun}`,
       headers: { cookie: superCookie },

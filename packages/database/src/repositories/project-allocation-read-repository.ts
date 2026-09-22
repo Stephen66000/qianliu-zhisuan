@@ -182,7 +182,6 @@ export async function getUnallocatedSummary(
   month: string,
   runId?: string,
 ): Promise<UnallocatedSummary> {
-  const day = monthFirstDay(month);
   const runId_ = await resolveAllocationRunRef(db, enterpriseId, month, runId);
   if (runId_ === null) {
     return { runId: null, tokens: "0", byReason: {}, apiCostByCurrency: {}, packageCostCny: "0", lineCount: 0, resourceResidual: [] };

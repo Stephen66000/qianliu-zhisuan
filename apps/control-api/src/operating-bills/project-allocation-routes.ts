@@ -90,6 +90,9 @@ export function registerOperatingBillAllocationRoutes(app: FastifyInstance): voi
       if (!MONTH_RE.test(req.params.month)) {
         return reply.code(400).send({ error: "invalid_request", message: "账期格式不合法" });
       }
+      if (query.run_id !== undefined && !UUID_RE.test(query.run_id)) {
+        return reply.code(400).send({ error: "invalid_request", message: "批次标识格式不合法" });
+      }
       // 主体类型合同：项目明细要求本企业 PROJECT；不存在/跨企业/类型不符统一 404。
       // 指定批次必须属于同企业同账期且 SUCCEEDED，否则一个响应可能混用两个账期/批次（80 终审 P1-2）。
       try {
@@ -124,7 +127,7 @@ export function registerOperatingBillAllocationRoutes(app: FastifyInstance): voi
     // 员工筛选走企业 + 类型解析：不存在/跨企业/类型不符统一 404，避免泄露或静默空集。
     try {
       for (const [value, label] of [
-        [query.employee_id, "员工标识"], [query.resource_id, "资源标识"],
+        [query.run_id, "批次标识"], [query.employee_id, "员工标识"], [query.resource_id, "资源标识"],
       ] as const) {
         if (value !== undefined && !UUID_RE.test(value)) {
           return reply.code(400).send({ error: "invalid_request", message: `${label}格式不合法` });

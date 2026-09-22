@@ -7,7 +7,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 
 import {
   useAllocationLines, useAllocationStatus, useCreateAllocationRun,
-  useEnableAllocation, useUnallocated, type UnallocatedView,
+  useEnableAllocation, useUnallocated, type UnallocatedView, type AllocationStatusView,
 } from "../api/project-allocation";
 import { BillCard, SectionHeading } from "../components/operating-bill/BillShared";
 import { operatingBillMonth, OperatingBillShell } from "../components/operating-bill/OperatingBillShell";
@@ -31,6 +31,15 @@ const SOURCE_LABELS: Record<string, string> = {
   MEMBERSHIP_RULE: "成员规则分摊",
   UNALLOCATED: "未分配",
 };
+
+/** 最近一个未完成/失败批次的展示（QUEUED/RUNNING/FAILED；current 恒为成功结果）。 */
+function LatestRunNote({ run }: { run: AllocationStatusView["latestRun"] }) {
+  if (run === null || run === undefined || run.status === "SUCCEEDED") return null;
+  const label = run.status === "QUEUED" ? "已登记批次，等待执行"
+    : run.status === "RUNNING" ? "批次计算中"
+      : `批次失败：${run.lastError ?? "未知原因"}`;
+  return <p className="text-xs text-neutral-500">{label}</p>;
+}
 
 /**
  * 企业级未分配明细（合同 §3.3：汇总及明细）。项目明细只含本项目份额，
@@ -113,13 +122,7 @@ export function OperatingBillProjectAllocationPage() {
                 </p>
               )}
               {status.data.lastError && <p className="text-xs text-red-600">{status.data.lastError}</p>}
-              {status.data.latestRun && status.data.latestRun.status !== "SUCCEEDED" && (
-                <p className="text-xs text-neutral-500">
-                  {status.data.latestRun.status === "QUEUED" && "已登记批次，等待执行"}
-                  {status.data.latestRun.status === "RUNNING" && "批次计算中"}
-                  {status.data.latestRun.status === "FAILED" && `批次失败：${status.data.latestRun.lastError ?? "未知原因"}`}
-                </p>
-              )}
+              <LatestRunNote run={status.data?.latestRun} />
             </BillCard>
             <BillCard>
               <p className="text-xs text-neutral-500">未分配 Token</p>

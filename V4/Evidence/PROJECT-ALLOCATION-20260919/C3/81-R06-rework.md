@@ -88,3 +88,19 @@
    （可按惯例在 /tmp 副本回退 `a1a004b` 版本验证）；
 4. P2：`latestRun` 只读非成功批次、不覆盖 current；
 5. 三连跑与各套件回执可复现；无范围外改动（diff 面与记录一致）。
+
+## 8. R06 复核后的两项补充修复（勘误）
+
+R06（`82-R06-review.md`）确认四项修复全部闭合（含两组 /tmp 回退实证），另发现两项由本轮引入的 P2：
+
+- **P2-2（必修门禁红灯）**：`OperatingBillProjectAllocation.tsx` 因 latestRun 展示三元嵌套复杂度 32>30，
+  根 lint exit 1。**且 81 §5 的"lint exit 0"回执是错的**——当时用 `pnpm run lint | grep -c` 的管道，
+  捕获到的是 grep 的退出码而非 pnpm 的。已废弃该方法，改用直接执行并记录真实退出码
+  （`receipts/r06-final/gates-true-exits.txt`）。修复：抽 `LatestRunNote` 组件（复杂度回落）。
+- **P2-1**：非法/字面 `null`/空串 `run_id` 会透传到 PG 抛 22P02 → HTTP 500。修复：两个读端点对
+  `run_id` 补 `UUID_RE` 校验（与 `employee_id`/`resource_id` 同一模式）→ 400 `invalid_request`；
+  routes 用例补三条 400 断言。
+- 顺带：`getUnallocatedSummary` 重构后遗留的未用变量 `day` 触发 lint `no-unused-vars`，已删。
+
+门禁（真实退出码）：typecheck/lint/build 均 exit 0；close+invariance 15/15；routes 14/14；web 476/476。
+此两项为机械性修复，未再送独立复核（按"不过度治理"），由用户决定是否需要窄复核。

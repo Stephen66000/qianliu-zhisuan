@@ -1,0 +1,4 @@
+# 门禁真实退出码（R06 P2-2 纠正：此前 receipt 用管道 grep 的退出码冒充 pnpm 的，已废弃该方法）
+TYPECHECK_EXIT=0
+LINT_EXIT=0
+BUILD_EXIT=0
