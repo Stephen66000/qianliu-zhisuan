@@ -314,6 +314,29 @@ export function registerProjectAllocationRoutes(app: FastifyInstance): void {
     }
   });
 
+/** 意图段真实校验（80 终审 P1-1）：缺失字段不得静默补成"当前时间/0%"。 */
+function parseIntentSegments(
+  raw: Array<{ validFrom?: string; validUntil?: string | null; weightBps?: number }> | undefined,
+): Array<{ weightBps: number; validFrom: Date; validUntil: Date | null }> | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const segments: Array<{ weightBps: number; validFrom: Date; validUntil: Date | null }> = [];
+  for (const segment of raw) {
+    if (segment === null || typeof segment !== "object") return null;
+    const { weightBps, validFrom, validUntil } = segment;
+    // 0–10000 的上界不在此处拦截：单段超界走域级 weight_exceeded 结构化冲突（既有合同）。
+    if (typeof weightBps !== "number" || !Number.isInteger(weightBps) || weightBps < 0) return null;
+    if (typeof validFrom !== "string" || validFrom.trim() === "" || Number.isNaN(new Date(validFrom).getTime())) return null;
+    let until: Date | null = null;
+    if (validUntil !== undefined && validUntil !== null) {
+      if (typeof validUntil !== "string" || Number.isNaN(new Date(validUntil).getTime())) return null;
+      until = new Date(validUntil);
+      if (until.getTime() <= new Date(validFrom).getTime()) return null;
+    }
+    segments.push({ weightBps, validFrom: new Date(validFrom), validUntil: until });
+  }
+  return segments;
+}
+
   app.post<{ Params: { projectId: string } }>(
     "/principals/:projectId/project-allocation-intents/preview",
     { preHandler: [requireAuth] },
@@ -322,7 +345,8 @@ export function registerProjectAllocationRoutes(app: FastifyInstance): void {
         employeePrincipalId?: string; expectedPolicyVersion?: number;
         segments?: Array<{ validFrom?: string; validUntil?: string; weightBps?: number }>;
       };
-      if (!body.employeePrincipalId || !Array.isArray(body.segments)) {
+      const previewSegments = parseIntentSegments(body.segments);
+      if (!body.employeePrincipalId || previewSegments === null) {
         return reply.code(400).send({ error: "invalid_request", message: "请求参数不合法" });
       }
       try {
@@ -330,11 +354,7 @@ export function registerProjectAllocationRoutes(app: FastifyInstance): void {
           enterpriseId: req.admin!.enterpriseId,
           employeePrincipalId: body.employeePrincipalId,
           projectPrincipalId: req.params.projectId,
-          segments: body.segments.map((segment) => ({
-            weightBps: segment.weightBps ?? 0,
-            validFrom: new Date(segment.validFrom ?? Date.now()),
-            validUntil: segment.validUntil === undefined || segment.validUntil === null ? null : new Date(segment.validUntil),
-          })),
+          segments: previewSegments,
           expectedPolicyVersion: body.expectedPolicyVersion ?? null,
         });
         return reply.code(200).send({
@@ -372,7 +392,8 @@ export function registerProjectAllocationRoutes(app: FastifyInstance): void {
         employeePrincipalId?: string; expectedPolicyVersion?: number; reason?: string; idempotencyKey?: string;
         segments?: Array<{ validFrom?: string; validUntil?: string | null; weightBps?: number }>;
       };
-      if (!body.employeePrincipalId || body.expectedPolicyVersion === undefined || !Array.isArray(body.segments) || !body.reason) {
+      const publishSegments = parseIntentSegments(body.segments);
+      if (!body.employeePrincipalId || body.expectedPolicyVersion === undefined || publishSegments === null || !body.reason) {
         return reply.code(400).send({ error: "invalid_request", message: "请求参数不合法" });
       }
       try {
@@ -380,11 +401,7 @@ export function registerProjectAllocationRoutes(app: FastifyInstance): void {
           enterpriseId: req.admin!.enterpriseId,
           projectId: req.params.projectId,
           employeePrincipalId: body.employeePrincipalId,
-          segments: body.segments.map((segment) => ({
-            weightBps: segment.weightBps ?? 0,
-            validFrom: new Date(segment.validFrom ?? Date.now()),
-            validUntil: segment.validUntil === undefined || segment.validUntil === null ? null : new Date(segment.validUntil),
-          })),
+          segments: publishSegments,
           expectedPolicyVersion: body.expectedPolicyVersion,
           reason: body.reason,
           idempotencyKey: body.idempotencyKey ?? null,
@@ -395,7 +412,7 @@ export function registerProjectAllocationRoutes(app: FastifyInstance): void {
           targetType: "employee_project_allocation_policy",
           targetId: body.employeePrincipalId,
           summary: {
-            projectId: req.params.projectId, segments: body.segments.length,
+            projectId: req.params.projectId, segments: publishSegments.length,
             outcome: outcome.outcome, ...(outcome.outcome === "PUBLISHED" ? { version: outcome.version } : {}),
           },
         });

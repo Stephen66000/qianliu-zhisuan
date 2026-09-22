@@ -1,0 +1,12 @@
+# V1.5 收口前门禁（真实退出码）
+
+$ corepack pnpm run typecheck
+exit=0
+$ corepack pnpm run lint
+exit=0
+$ corepack pnpm run build
+exit=0
+$ node scripts/check-source-size.mjs
+exit=0
+$ apps/web pnpm run test
+exit=0

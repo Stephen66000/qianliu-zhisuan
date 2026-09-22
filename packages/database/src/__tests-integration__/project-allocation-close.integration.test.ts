@@ -13,6 +13,8 @@ import {
   enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns, projectAllocationTick,
   reviseProjectAccountingLifecycle, listAllocationLines, markAllocationDirty,
   getAllocationRunStatus, getUnallocatedSummary, listUnallocatedLines,
+  listProjectAllocationSummaries, getProjectAccountingProfile,
+  AccountingAlreadyEndedError, AccountingEffectiveBeforeStartError,
   AllocationRunNotAccessibleError, OperatingBillRepository, AllocationNotReadyError,
 } from "../index.js";
 
@@ -784,5 +786,107 @@ describe("80 终审 P1-3：修改未来权重后历史月份重算不漂移", ()
     expect(after.rows[0]?.sources).toBe("MEMBERSHIP_RULE,UNALLOCATED");
     expect(after.rows[0]?.bps).toBe(4000);
     expect(after.rows[0]?.share).toBe(before.rows[0]?.share);
+  });
+});
+
+describe("定向覆盖补强（80-P1-2）：lifecycle 与读模型", () => {
+  it("getProjectAccountingProfile：无配置 null；STARTED/ENDED 后返回版本与窗口", async () => {
+    const project = randomUUID();
+    await db.insertInto("principal").values([
+      { id: project, enterprise_id: ent, type: "PROJECT", name: "覆盖项目" },
+    ]).execute();
+    expect(await getProjectAccountingProfile(db, ent, project)).toBeNull();
+    await reviseProjectAccountingLifecycle(db, {
+      enterpriseId: ent, projectId: project,
+      effectiveAt: T("2025-11-01T00:00:00+08:00"), effectiveAtIsDateOnly: true,
+      reason: "开始核算", expectedVersion: 0, actorAdminId: admin,
+    });
+    const open = await getProjectAccountingProfile(db, ent, project);
+    expect(open).toMatchObject({ version: 1, startedAt: "2025-10-31T16:00:00.000Z", endedAt: null });
+    await reviseProjectAccountingLifecycle(db, {
+      enterpriseId: ent, projectId: project,
+      effectiveAt: T("2025-11-20T00:00:00+08:00"), effectiveAtIsDateOnly: true,
+      reason: "结束核算", expectedVersion: 1, actorAdminId: admin,
+    });
+    const closed = await getProjectAccountingProfile(db, ent, project);
+    expect(closed).toMatchObject({ version: 2, endedAt: "2025-11-20T16:00:00.000Z" });
+    // 已结束再修订 → AccountingAlreadyEndedError；结束时刻早于开始 → EffectiveBeforeStart。
+    await expect(reviseProjectAccountingLifecycle(db, {
+      enterpriseId: ent, projectId: project,
+      effectiveAt: T("2025-12-01T00:00:00+08:00"), effectiveAtIsDateOnly: false,
+      reason: "再修订", expectedVersion: 2, actorAdminId: admin,
+    })).rejects.toThrow(AccountingAlreadyEndedError);
+    const project2 = randomUUID();
+    await db.insertInto("principal").values([
+      { id: project2, enterprise_id: ent, type: "PROJECT", name: "覆盖项目2" },
+    ]).execute();
+    await reviseProjectAccountingLifecycle(db, {
+      enterpriseId: ent, projectId: project2,
+      effectiveAt: T("2025-11-10T00:00:00+08:00"), effectiveAtIsDateOnly: false,
+      reason: "开始核算2", expectedVersion: 0, actorAdminId: admin,
+    });
+    await expect(reviseProjectAccountingLifecycle(db, {
+      enterpriseId: ent, projectId: project2,
+      effectiveAt: T("2025-11-01T00:00:00+08:00"), effectiveAtIsDateOnly: false,
+      reason: "结束早于开始", expectedVersion: 1, actorAdminId: admin,
+    })).rejects.toThrow(AccountingEffectiveBeforeStartError);
+  });
+
+  it("读模型：无 run 返回空形态；有 run 时项目汇总/未分配汇总/明细同源可读", async () => {
+    const month = "2025-12";
+    const ent2 = randomUUID();
+    const admin2 = randomUUID();
+    const project = randomUUID();
+    const employee = randomUUID();
+    const provider2 = randomUUID();
+    const resource2 = randomUUID();
+    const key7 = randomUUID();
+    await db.insertInto("enterprise").values({ id: ent2, name: "读模型企业" }).execute();
+    await db.insertInto("admin_user").values({ id: admin2, enterprise_id: ent2, username: "cov", password_hash: "x" }).execute();
+    await db.insertInto("principal").values([
+      { id: project, enterprise_id: ent2, type: "PROJECT", name: "读模型项目" },
+      { id: employee, enterprise_id: ent2, type: "EMPLOYEE", name: "读模型员工" },
+    ]).execute();
+    await db.insertInto("provider").values({ id: provider2, enterprise_id: ent2, code: "cov", name: "覆盖厂商", adapter_type: "openai" }).execute();
+    await db.insertInto("provider_resource").values({ id: resource2, enterprise_id: ent2, provider_id: provider2, name: "覆盖资源", mode: "API", credential_type: "API_KEY" }).execute();
+    await db.insertInto("principal_key").values({ id: key7, enterprise_id: ent2, principal_id: employee, key_prefix: "cov", key_digest: "cov-digest" }).execute();
+
+    // 无 run：三处读模型都返回 runId=null 空形态。
+    expect((await getUnallocatedSummary(db, ent2, month)).runId).toBeNull();
+    expect((await listProjectAllocationSummaries(db, ent2, month)).runId).toBeNull();
+    expect((await listUnallocatedLines(db, ent2, month, { limit: 25, offset: 0 })).lines).toEqual([]);
+
+    const at = T("2025-12-15T10:00:00+08:00");
+    const request = randomUUID();
+    await db.insertInto("ai_request").values({ id: request, enterprise_id: ent2, principal_id: employee,
+      principal_key_id: key7, protocol: "openai", unified_model: "m", status: "SUCCEEDED",
+      started_at: at, finished_at: new Date(at.getTime() + 1000) }).execute();
+    const attempt = await db.insertInto("upstream_attempt").values({ ai_request_id: request,
+      enterprise_id: ent2, attempt_no: 1, provider_resource_id: resource2, upstream_model: "m",
+      finished_at: new Date(at.getTime() + 1000), http_status: 200, response_committed: true })
+      .returning("id").executeTakeFirstOrThrow();
+    const usage = await db.insertInto("usage_event").values({ ai_request_id: request, enterprise_id: ent2,
+      upstream_attempt_id: attempt.id, provider_resource_id: resource2, input_tokens: 2_000n,
+      output_tokens: 0n, usage_quality: "PROVIDER_REPORTED", dedup_key: `cov-${request}`, created_at: at })
+      .returning("id").executeTakeFirstOrThrow();
+    await db.insertInto("ledger_line").values({ ai_request_id: request, enterprise_id: ent2,
+      usage_event_id: usage.id, upstream_attempt_id: attempt.id, provider_resource_id: resource2,
+      principal_id: employee, resource_mode: "API", raw_input_tokens: 2_000n, raw_output_tokens: 0n,
+      raw_cache_tokens: 0n, api_cost: "0.4000", usage_quality: "PROVIDER_REPORTED", created_at: at }).execute();
+    await sql`UPDATE ledger_line SET api_cost_currency = 'CNY' WHERE ai_request_id = ${request}`.execute(db);
+
+    await enableProjectAllocation(db, { enterpriseId: ent2, startMonth: month, actorAdminId: admin2 });
+    expect((await runDueAllocationRuns(db, "cov-worker"))[0]?.status).toBe("SUCCEEDED");
+
+    const summary = await getUnallocatedSummary(db, ent2, month);
+    expect(summary.runId).not.toBeNull();
+    expect(summary.byReason.NO_MEMBERSHIP).toBe("2000.0000");
+    const { runId, summaries } = await listProjectAllocationSummaries(db, ent2, month);
+    expect(runId).not.toBeNull();
+    expect(summaries.size).toBe(0);
+    const detail = await listUnallocatedLines(db, ent2, month, { reason: "NO_MEMBERSHIP", limit: 25, offset: 0 });
+    expect(detail.total).toBe(1);
+    expect(detail.lines[0]?.unallocatedReason).toBe("NO_MEMBERSHIP");
+    expect(detail.lines[0]?.requestId).toBe(request);
   });
 });

@@ -1,501 +1,509 @@
 {
- "schema_version": "1.0",
- "risk_level": "HIGH",
- "runtime": {
-  "node": "22.17.x",
-  "pnpm": "11.11.0"
- },
- "coverage": {
-  "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度、员工模型规则授权、厂商分层超时与上游切换、经营账户聚合、模型下钻与结算屏障）",
-  "statements": 95,
-  "branches": 85,
-  "functions": 90,
-  "lines": 95,
-  "ratchets": [
-   {
-    "scope": "domain",
-    "report": "packages/domain/coverage/coverage-summary.json",
-    "minimum": {
-     "statements": 97.37,
-     "branches": 89.63,
-     "functions": 95.83,
-     "lines": 97.37
-    }
-   },
-   {
-    "scope": "control-api-security",
-    "report": "apps/control-api/coverage/coverage-summary.json",
-    "minimum": {
-     "statements": 100,
-     "branches": 94.44,
-     "functions": 100,
-     "lines": 100
-    }
-   },
-   {
-    "scope": "observability-remediation",
-    "report": "packages/observability/coverage/coverage-summary.json",
-    "minimum": {
-     "statements": 100,
-     "branches": 88.88,
-     "functions": 100,
-     "lines": 100
-    }
-   },
-   {
-    "scope": "provider-secret",
-    "report": "packages/provider-adapters/coverage/coverage-summary.json",
-    "minimum": {
-     "statements": 100,
-     "branches": 87.5,
-     "functions": 100,
-     "lines": 100
-    }
-   },
-   {
-    "scope": "worker-scheduler",
-    "report": "apps/worker/coverage/coverage-summary.json",
-    "minimum": {
-     "statements": 100,
-     "branches": 96,
-     "functions": 100,
-     "lines": 100
-    }
-   },
-   {
-    "scope": "pool029-node-authorization",
-    "report": "coverage/pool029-node/coverage-summary.json",
-    "minimum": {
-     "statements": 95.73,
-     "branches": 86.19,
-     "functions": 92.68,
-     "lines": 95.73
-    }
-   },
-   {
-    "scope": "pool029-web-authorization",
-    "report": "apps/web/coverage/pool029-web/coverage-summary.json",
-    "minimum": {
-     "statements": 99.65,
-     "branches": 88.81,
-     "functions": 95.23,
-     "lines": 99.65
-    }
-   },
-   {
-    "scope": "pool030-gateway-timeout",
-    "report": "apps/gateway/coverage/pool030-gateway/coverage-summary.json",
-    "minimum": {
-     "statements": 100,
-     "branches": 100,
-     "functions": 100,
-     "lines": 100
-    }
-   },
-   {
-    "scope": "pool030-provider-timeout",
-    "report": "packages/provider-adapters/coverage/pool030-provider/coverage-summary.json",
-    "minimum": {
-     "statements": 100,
-     "branches": 100,
-     "functions": 100,
-     "lines": 100
-    }
-   },
-   {
-    "scope": "pool043-node-operating-bill-accounts",
-    "report": "coverage/pool043-node/coverage-summary.json",
-    "minimum": {
-     "statements": 95,
-     "branches": 85,
-     "functions": 90,
-     "lines": 95
-    }
-   },
-   {
-    "scope": "pool043-gateway-model-identity",
-    "report": "apps/gateway/coverage/pool043-gateway/coverage-summary.json",
-    "minimum": {
-     "statements": 95,
-     "branches": 85,
-     "functions": 90,
-     "lines": 95
-    }
-   },
-   {
-    "scope": "pool043-web-operating-bill-accounts",
-    "report": "apps/web/coverage/pool043-web/coverage-summary.json",
-    "minimum": {
-     "statements": 95,
-     "branches": 85,
-     "functions": 90,
-     "lines": 95
-    }
-   },
-   {
-    "scope": "pool040-gateway-revoked-settlement",
-    "report": "apps/gateway/coverage/pool040-gateway/coverage-summary.json",
-    "minimum": {
-     "statements": 95,
-     "branches": 85,
-     "functions": 90,
-     "lines": 95
-    }
-   }
-  ]
- },
- "mutation": {
-  "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理 + packages/database 员工模型授权集合规则、经营账户聚合与结算屏障 + Gateway/Provider Adapter 分层超时与切换策略",
-  "break": 70,
-  "target": 80,
-  "survivor_dispositions": [
-   {
-    "report": "apps/gateway/reports/mutation/pool043.json",
-    "file": "src/auth/current-model-authorization.ts",
-    "max_survived": 0,
-    "max_no_coverage": 1,
-    "owner": "仟流智算 Gateway 负责人",
-    "decision": "CROSS_PACKAGE_INTEGRATION",
-    "reason": "授权结果、Key 过期边界、空白名单、计费规则映射与 get/has 分支的非等价变异均已杀死；仅空 allowed_model_ids 的 null fallback 由真实 PostgreSQL Gateway 集成链覆盖，package-local per-test 无法归因",
-    "action": "锁定 0 survived／1 no-coverage，禁止增长；跨 package 归因能力或 Key 白名单合同变化时立即重审并收紧基线",
-    "due_on": "2026-09-01"
-   },
-   {
-    "file": "src/billing-rule.ts",
-    "max_survived": 33,
-    "max_no_coverage": 7,
-    "owner": "仟流智算计费模块负责人",
-    "decision": "TEST_DEBT",
-    "reason": "现有分支覆盖已达门禁，但边界与防御分支仍有存活变异",
-    "action": "补齐时区、空配置、规则排序和价格边界定向测试，禁止数量增长",
-    "due_on": "2026-09-01"
-   },
-   {
-    "file": "src/dispatch-policy.ts",
-    "max_survived": 19,
-    "max_no_coverage": 6,
-    "owner": "仟流智算调度模块负责人",
-    "decision": "TEST_DEBT",
-    "reason": "历史策略组合与异常目标分支未全部被变异断言覆盖",
-    "action": "补齐不完整时间窗、倍率边界和非法切换目标测试，禁止数量增长",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "apps/gateway/reports/mutation/pool043.json",
-    "file": "src/pipeline/real-pipeline.ts",
-    "max_survived": 9,
-    "max_no_coverage": 0,
-    "owner": "仟流智算 Gateway 负责人",
-    "decision": "TEST_DEBT",
-    "reason": "剩余 9 个变异仅涉及决策审计上下文字段、null fallback 与 best-effort 日志标签；核心授权、决策写失败终态化、结算顺序和补充证据重试分支的非等价变异均已杀死",
-    "action": "锁定 9 survived／0 no-coverage，禁止增长；补齐上下文字段逐项与日志标签断言后收紧基线",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "apps/gateway/reports/mutation/pool040.json",
-    "file": "src/pipeline/revoked-attempt-settlement.ts",
-    "max_survived": 0,
-    "max_no_coverage": 0,
-    "owner": "仟流智算 Gateway 负责人",
-    "decision": "EQUIVALENT",
-    "reason": "Key 过期、空白名单、模型缺失、Grant 撤权、route/resource fallback、非探针与 probe 释放路径的 136 个精准变异已全部杀死，无剩余变异债务",
-    "action": "锁定零 survivor／零 no-coverage；最终撤权分类或 failover 语义变化时重新执行 POOL-040 变异",
-    "due_on": "2026-09-01"
-   },
-   {
-    "file": "src/quota-gate.ts",
-    "max_survived": 5,
-    "max_no_coverage": 0,
-    "owner": "仟流智算额度模块负责人",
-    "decision": "TEST_DEBT",
-    "reason": "授权起止时刻与零值等价边界仍有存活变异",
-    "action": "补齐 validFrom/validUntil 精确边界断言，禁止数量增长",
-    "due_on": "2026-08-15"
-   },
-   {
-    "file": "src/reconciliation.ts",
-    "max_survived": 2,
-    "max_no_coverage": 0,
-    "owner": "仟流智算对账模块负责人",
-    "decision": "TEST_DEBT",
-    "reason": "两类缺失差异的独立严重度断言不足",
-    "action": "分别覆盖 MISSING_USAGE 与 ORPHAN_LEDGER_LINE，禁止数量增长",
-    "due_on": "2026-08-15"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool043.json",
-    "file": "src/repositories/gateway-ledger-guarded-writes.ts",
-    "max_survived": 0,
-    "max_no_coverage": 0,
-    "owner": "仟流智算网关账本模块负责人",
-    "decision": "EQUIVALENT",
-    "reason": "兼容写入保护层的身份、终态、缺失 request/attempt、幂等与数据库冲突分支已由实库测试全部杀死变异，无剩余变异债务",
-    "action": "锁定零 survivor/零 no-coverage；兼容入口或锁序变化时必须重新执行 POOL-043 变异与实库并发测试",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool039043-integration.json",
-    "file": "src/repositories/gateway-ledger-request-facts.ts",
-    "max_survived": 3,
-    "max_no_coverage": 3,
-    "owner": "仟流智算网关账本模块负责人",
-    "decision": "TEST_DEBT",
-    "reason": "SELECT EXISTS 必返回一行的 optional chaining 变异等价；其余缺口限于 Attempt 无事实的精确错误分支与零行质量回退，不影响已覆盖的成功汇总、缺行拒绝和终态原子回滚",
-    "action": "补 Attempt 已结束但无事实、零 Attempt／零行口径的真实 PostgreSQL 表驱动测试，数量禁止增长",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool043.json",
-    "file": "src/repositories/gateway-ledger-settlement-assertions.ts",
-    "max_survived": 4,
-    "max_no_coverage": 0,
-    "owner": "仟流智算网关账本模块负责人",
-    "decision": "EQUIVALENT",
-    "reason": "actual 已确定为非 null bigint 后，expected 的 null／undefined 前置判断与最终 bigint 严格相等结果等价；其余 293 个变异均被杀死或超时",
-    "action": "锁定 4 个等价 survivor 与零 no-coverage；可选 bigint 归一语义变化时立即重审",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool043.json",
-    "file": "src/repositories/gateway-ledger-settlement.ts",
-    "max_survived": 14,
-    "max_no_coverage": 67,
-    "owner": "仟流智算网关账本模块负责人",
-    "decision": "CROSS_PACKAGE_INTEGRATION",
-    "reason": "拆分纯断言后，package-local Stryker 无法把 Gateway 真实 PostgreSQL pipeline 测试归因到事务编排中的 quota／lease 分支；这些分支已由 POOL-043 Gateway 实库测试和 Codex CLI E2E 覆盖。其余 survivor 来自唯一约束、request 行锁、SELECT EXISTS 固定返回形态及集合等价变换",
-    "action": "锁定本次 14 survived／67 no-coverage，不允许增长；结算锁、quota、lease 或跨 package 变异归因能力变化时重新执行并收紧基线",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool039043-integration.json",
-    "file": "src/repositories/gateway-ledger-settlement.ts",
-    "max_survived": 2,
-    "max_no_coverage": 1,
-    "owner": "仟流智算网关账本模块负责人",
-    "decision": "EQUIVALENT",
-    "reason": "request 行锁已序列化 Attempt 更新，删除 Attempt 的重复 FOR UPDATE 不改变结果；0044 的 usage_event 唯一索引使重复 ledger line 防御分支不可达",
-    "action": "锁定 2 survived／1 no-coverage；request 锁序或 0044 唯一索引变化时立即重审",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool039043-integration.json",
-    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
-    "max_survived": 39,
-    "max_no_coverage": 11,
-    "owner": "仟流智算网关账本模块负责人",
-    "decision": "TEST_DEBT",
-    "reason": "核心 request/attempt/usage/ledger/quota/lease/transaction 事务、七个写点回滚、Grant/Lease 排序与企业/主体归属变异已全部杀死；剩余为双边冗余零事实校验、唯一索引下不可达防御，以及 Coding Plan 元数据、overage 和终态重放逐字段断言矩阵",
-    "action": "补 Coding Plan 零成本、非法计费元数据、overage 与终态重放字段漂移表驱动测试；锁定 39 survived／11 no-coverage，禁止增长",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool043.json",
-    "file": "src/repositories/operating-bill-account-aggregate.ts",
-    "max_survived": 3,
-    "max_no_coverage": 0,
-    "owner": "仟流智算经营账单模块负责人",
-    "decision": "EQUIVALENT",
-    "reason": "同时间最大值重复赋值不改变结果；非空事实集合保证最近时间非空；整月 Token 为 null 时 decimal 归零后仍由零分母分支返回 null，三个变异均无可观察语义差异",
-    "action": "锁定三个等价变异数量；累计器不变量或 null 数值归一语义变化时立即重审并补测",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool043.json",
-    "file": "src/repositories/operating-bill-cost-quality.ts",
-    "max_survived": 0,
-    "max_no_coverage": 0,
-    "owner": "仟流智算经营账单模块负责人",
-    "decision": "EQUIVALENT",
-    "reason": "未知 API 成本、套餐成本、null/零值与金额精度分支已全部杀死变异，无剩余变异债务",
-    "action": "锁定零 survivor/零 no-coverage；成本口径变化时重新执行 POOL-043 变异测试",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool043.json",
-    "file": "src/repositories/operating-bill-write-barrier.ts",
-    "max_survived": 1,
-    "max_no_coverage": 1,
-    "owner": "仟流智算经营账单模块负责人",
-    "decision": "EQUIVALENT",
-    "reason": "SELECT EXISTS 必定返回一行，故 rows[0] 的 optional chaining 与空结果默认值不可观察；真实行锁竞争与屏障结果均已覆盖",
-    "action": "锁定 1 个等价 survivor 与 1 个同源 no-coverage；SQL 查询形态变化时立即重审",
-    "due_on": "2026-09-01"
-   },
-   {
-    "report": "packages/database/reports/mutation/pool039043-resource.json",
-    "file": "src/repositories/resource-pool-repository.ts",
-    "max_survived": 0,
-    "max_no_coverage": 0,
-    "owner": "仟流智算资源池负责人",
-    "decision": "EQUIVALENT",
-    "reason": "半开探针租约获取、过期接管与 fencing release 的 29 个精准变异已全部杀死，无剩余变异债务",
-    "action": "锁定零 survivor／零 no-coverage；探针 TTL 或 fencing 合同变化时重新执行资源池变异",
-    "due_on": "2026-09-01"
-   },
-   {
-    "file": "src/routing-policy.ts",
-    "max_survived": 13,
-    "max_no_coverage": 0,
-    "owner": "仟流智算路由模块负责人",
-    "decision": "TEST_DEBT",
-    "reason": "零候选、零权重和评分因子细节断言仍不足",
-    "action": "补齐排除集、空候选、零权重和因子名称/数值断言，禁止数量增长",
-    "due_on": "2026-09-01"
-   }
-  ]
- },
- "complexity": {
-  "default_max": 30,
-  "legacy_exceptions_are_locked_in_eslint_config": true,
-  "crap_equivalent": "ESLint 圈复杂度上限 + 覆盖率防下降阀；任一下降即 CI 失败",
-  "exception_policy": {
-   "owner": "仟流智算技术负责人",
-   "reason": "历史生产代码拆分风险高，本轮只锁定现状并禁止继续增长",
-   "reviewed_on": "2026-08-18",
-   "review_due": "2026-09-18",
-   "exit": "函数复杂度降至 30 以下后删除对应 ESLint 例外"
+  "schema_version": "1.0",
+  "risk_level": "HIGH",
+  "runtime": {
+    "node": "22.17.x",
+    "pnpm": "11.11.0"
   },
-  "exceptions": [
-   {
-    "file": "apps/control-api/src/read-models/routes.ts",
-    "max": 35
-   },
-   {
-    "file": "apps/gateway/src/pipeline/real-pipeline.ts",
-    "max": 182
-   },
-   {
-    "file": "apps/web/src/pages/Principals.tsx",
-    "max": 48
-   },
-   {
-    "file": "apps/web/src/pages/QuotaRules.tsx",
-    "max": 84
-   },
-   {
-    "file": "apps/web/src/pages/RequestDrilldown.tsx",
-    "max": 31
-   },
-   {
-    "file": "apps/web/src/pages/Resources.tsx",
-    "max": 59
-   },
-   {
-    "file": "apps/web/src/pages/Usage.tsx",
-    "max": 37
-   },
-   {
-    "file": "packages/database/src/repositories/dashboard-repository.ts",
-    "max": 31
-   },
-   {
-    "file": "packages/database/src/repositories/dispatch-policy-repository.ts",
-    "max": 32
-   }
-  ]
- },
- "duplication": {
-  "max_percent": 5,
-  "min_lines": 20,
-  "min_tokens": 100
- },
- "source_size": {
-  "default_max_logical_lines": 400,
-  "legacy_exception_policy": "不得超过登记基线；低于 400 行后删除例外",
-  "exception_policy": {
-   "owner": "仟流智算技术负责人",
-   "reason": "历史生产文件拆分需独立回归；2026-09-14 I1 审核按防增长阀登记基线，拆分计划见审核报告 F-P2-3",
-   "reviewed_on": "2026-09-14",
-   "review_due": "2026-10-14",
-   "exit": "拆分且回归通过后降至 400 逻辑行以内"
+  "coverage": {
+    "scope": "packages/domain/src + 本次高风险变更（登录限速、Origin、canary、停机、凭证包装、Worker 调度、员工模型规则授权、厂商分层超时与上游切换、经营账户聚合、模型下钻与结算屏障）",
+    "statements": 95,
+    "branches": 85,
+    "functions": 90,
+    "lines": 95,
+    "ratchets": [
+      {
+        "scope": "domain",
+        "report": "packages/domain/coverage/coverage-summary.json",
+        "minimum": {
+          "statements": 97.37,
+          "branches": 89.63,
+          "functions": 95.83,
+          "lines": 97.37
+        }
+      },
+      {
+        "scope": "control-api-security",
+        "report": "apps/control-api/coverage/coverage-summary.json",
+        "minimum": {
+          "statements": 100,
+          "branches": 94.44,
+          "functions": 100,
+          "lines": 100
+        }
+      },
+      {
+        "scope": "observability-remediation",
+        "report": "packages/observability/coverage/coverage-summary.json",
+        "minimum": {
+          "statements": 100,
+          "branches": 88.88,
+          "functions": 100,
+          "lines": 100
+        }
+      },
+      {
+        "scope": "provider-secret",
+        "report": "packages/provider-adapters/coverage/coverage-summary.json",
+        "minimum": {
+          "statements": 100,
+          "branches": 87.5,
+          "functions": 100,
+          "lines": 100
+        }
+      },
+      {
+        "scope": "worker-scheduler",
+        "report": "apps/worker/coverage/coverage-summary.json",
+        "minimum": {
+          "statements": 100,
+          "branches": 96,
+          "functions": 100,
+          "lines": 100
+        }
+      },
+      {
+        "scope": "pool029-node-authorization",
+        "report": "coverage/pool029-node/coverage-summary.json",
+        "minimum": {
+          "statements": 95.73,
+          "branches": 86.19,
+          "functions": 92.68,
+          "lines": 95.73
+        }
+      },
+      {
+        "scope": "pool029-web-authorization",
+        "report": "apps/web/coverage/pool029-web/coverage-summary.json",
+        "minimum": {
+          "statements": 99.65,
+          "branches": 88.81,
+          "functions": 95.23,
+          "lines": 99.65
+        }
+      },
+      {
+        "scope": "pool030-gateway-timeout",
+        "report": "apps/gateway/coverage/pool030-gateway/coverage-summary.json",
+        "minimum": {
+          "statements": 100,
+          "branches": 100,
+          "functions": 100,
+          "lines": 100
+        }
+      },
+      {
+        "scope": "pool030-provider-timeout",
+        "report": "packages/provider-adapters/coverage/pool030-provider/coverage-summary.json",
+        "minimum": {
+          "statements": 100,
+          "branches": 100,
+          "functions": 100,
+          "lines": 100
+        }
+      },
+      {
+        "scope": "pool043-node-operating-bill-accounts",
+        "report": "coverage/pool043-node/coverage-summary.json",
+        "minimum": {
+          "statements": 95,
+          "branches": 85,
+          "functions": 90,
+          "lines": 95
+        }
+      },
+      {
+        "scope": "pool043-gateway-model-identity",
+        "report": "apps/gateway/coverage/pool043-gateway/coverage-summary.json",
+        "minimum": {
+          "statements": 95,
+          "branches": 85,
+          "functions": 90,
+          "lines": 95
+        }
+      },
+      {
+        "scope": "pool043-web-operating-bill-accounts",
+        "report": "apps/web/coverage/pool043-web/coverage-summary.json",
+        "minimum": {
+          "statements": 95,
+          "branches": 85,
+          "functions": 90,
+          "lines": 95
+        }
+      },
+      {
+        "scope": "pool040-gateway-revoked-settlement",
+        "report": "apps/gateway/coverage/pool040-gateway/coverage-summary.json",
+        "minimum": {
+          "statements": 95,
+          "branches": 85,
+          "functions": 90,
+          "lines": 95
+        }
+      }
+    ]
   },
-  "exceptions": [
-   {
-    "file": "apps/control-api/src/directory/routes.ts",
-    "baseline": 443
-   },
-   {
-    "file": "apps/control-api/src/principals/routes.ts",
-    "baseline": 453
-   },
-   {
-    "file": "apps/control-api/src/providers/routes.ts",
-    "baseline": 576
-   },
-   {
-    "file": "apps/control-api/src/resource-insights/query.ts",
-    "baseline": 403
-   },
-   {
-    "file": "apps/control-api/src/resource-insights/routes.ts",
-    "baseline": 404
-   },
-   {
-    "file": "apps/web/src/components/quota/QuotaBillingSection.tsx",
-    "baseline": 678
-   },
-   {
-    "file": "apps/web/src/components/resources/ProviderManagementDialog.tsx",
-    "baseline": 439
-   },
-   {
-    "file": "apps/web/src/components/resources/ResourceModelDiscovery.tsx",
-    "baseline": 723
-   },
-   {
-    "file": "apps/web/src/pages/Admins.tsx",
-    "baseline": 446
-   },
-   {
-    "file": "apps/web/src/pages/Usage.tsx",
-    "baseline": 525
-   },
-   {
-    "file": "apps/web/src/pages/runtime-assurance/NotificationRecipientsPanel.tsx",
-    "baseline": 426
-   },
-   {
-    "file": "apps/worker/src/main.ts",
-    "baseline": 860
-   },
-   {
-    "file": "apps/worker/src/reporting/report-jobs.ts",
-    "baseline": 711
-   },
-   {
-    "file": "packages/database/src/repositories/directory-import-apply.ts",
-    "baseline": 438
-   },
-   {
-    "file": "packages/database/src/repositories/directory-repository.ts",
-    "baseline": 438
-   },
-   {
-    "file": "packages/database/src/repositories/provider-repository.ts",
-    "baseline": 774
-   },
-   {
-    "file": "packages/provider-adapters/src/model-discovery.ts",
-    "baseline": 484
-   },
-   {
-    "file": "apps/web/src/api/hooks.ts",
-    "baseline": 440
-   },
-   {
-    "file": "apps/web/src/components/operating-bill/ValueRealizationSection.tsx",
-    "baseline": 527
-   }
+  "mutation": {
+    "scope": "packages/domain 核心计费、额度、对账、调度、路由规则 + apps/worker 调度等待清理 + packages/database 员工模型授权集合规则、经营账户聚合与结算屏障 + Gateway/Provider Adapter 分层超时与切换策略",
+    "break": 70,
+    "target": 80,
+    "survivor_dispositions": [
+      {
+        "report": "apps/gateway/reports/mutation/pool043.json",
+        "file": "src/auth/current-model-authorization.ts",
+        "max_survived": 0,
+        "max_no_coverage": 1,
+        "owner": "仟流智算 Gateway 负责人",
+        "decision": "CROSS_PACKAGE_INTEGRATION",
+        "reason": "授权结果、Key 过期边界、空白名单、计费规则映射与 get/has 分支的非等价变异均已杀死；仅空 allowed_model_ids 的 null fallback 由真实 PostgreSQL Gateway 集成链覆盖，package-local per-test 无法归因",
+        "action": "锁定 0 survived／1 no-coverage，禁止增长；跨 package 归因能力或 Key 白名单合同变化时立即重审并收紧基线",
+        "due_on": "2026-09-01"
+      },
+      {
+        "file": "src/billing-rule.ts",
+        "max_survived": 33,
+        "max_no_coverage": 7,
+        "owner": "仟流智算计费模块负责人",
+        "decision": "TEST_DEBT",
+        "reason": "现有分支覆盖已达门禁，但边界与防御分支仍有存活变异",
+        "action": "补齐时区、空配置、规则排序和价格边界定向测试，禁止数量增长",
+        "due_on": "2026-09-01"
+      },
+      {
+        "file": "src/dispatch-policy.ts",
+        "max_survived": 19,
+        "max_no_coverage": 6,
+        "owner": "仟流智算调度模块负责人",
+        "decision": "TEST_DEBT",
+        "reason": "历史策略组合与异常目标分支未全部被变异断言覆盖",
+        "action": "补齐不完整时间窗、倍率边界和非法切换目标测试，禁止数量增长",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "apps/gateway/reports/mutation/pool043.json",
+        "file": "src/pipeline/real-pipeline.ts",
+        "max_survived": 9,
+        "max_no_coverage": 0,
+        "owner": "仟流智算 Gateway 负责人",
+        "decision": "TEST_DEBT",
+        "reason": "剩余 9 个变异仅涉及决策审计上下文字段、null fallback 与 best-effort 日志标签；核心授权、决策写失败终态化、结算顺序和补充证据重试分支的非等价变异均已杀死",
+        "action": "锁定 9 survived／0 no-coverage，禁止增长；补齐上下文字段逐项与日志标签断言后收紧基线",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "apps/gateway/reports/mutation/pool040.json",
+        "file": "src/pipeline/revoked-attempt-settlement.ts",
+        "max_survived": 0,
+        "max_no_coverage": 0,
+        "owner": "仟流智算 Gateway 负责人",
+        "decision": "EQUIVALENT",
+        "reason": "Key 过期、空白名单、模型缺失、Grant 撤权、route/resource fallback、非探针与 probe 释放路径的 136 个精准变异已全部杀死，无剩余变异债务",
+        "action": "锁定零 survivor／零 no-coverage；最终撤权分类或 failover 语义变化时重新执行 POOL-040 变异",
+        "due_on": "2026-09-01"
+      },
+      {
+        "file": "src/quota-gate.ts",
+        "max_survived": 5,
+        "max_no_coverage": 0,
+        "owner": "仟流智算额度模块负责人",
+        "decision": "TEST_DEBT",
+        "reason": "授权起止时刻与零值等价边界仍有存活变异",
+        "action": "补齐 validFrom/validUntil 精确边界断言，禁止数量增长",
+        "due_on": "2026-08-15"
+      },
+      {
+        "file": "src/reconciliation.ts",
+        "max_survived": 2,
+        "max_no_coverage": 0,
+        "owner": "仟流智算对账模块负责人",
+        "decision": "TEST_DEBT",
+        "reason": "两类缺失差异的独立严重度断言不足",
+        "action": "分别覆盖 MISSING_USAGE 与 ORPHAN_LEDGER_LINE，禁止数量增长",
+        "due_on": "2026-08-15"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/gateway-ledger-guarded-writes.ts",
+        "max_survived": 0,
+        "max_no_coverage": 0,
+        "owner": "仟流智算网关账本模块负责人",
+        "decision": "EQUIVALENT",
+        "reason": "兼容写入保护层的身份、终态、缺失 request/attempt、幂等与数据库冲突分支已由实库测试全部杀死变异，无剩余变异债务",
+        "action": "锁定零 survivor/零 no-coverage；兼容入口或锁序变化时必须重新执行 POOL-043 变异与实库并发测试",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool039043-integration.json",
+        "file": "src/repositories/gateway-ledger-request-facts.ts",
+        "max_survived": 3,
+        "max_no_coverage": 3,
+        "owner": "仟流智算网关账本模块负责人",
+        "decision": "TEST_DEBT",
+        "reason": "SELECT EXISTS 必返回一行的 optional chaining 变异等价；其余缺口限于 Attempt 无事实的精确错误分支与零行质量回退，不影响已覆盖的成功汇总、缺行拒绝和终态原子回滚",
+        "action": "补 Attempt 已结束但无事实、零 Attempt／零行口径的真实 PostgreSQL 表驱动测试，数量禁止增长",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/gateway-ledger-settlement-assertions.ts",
+        "max_survived": 4,
+        "max_no_coverage": 0,
+        "owner": "仟流智算网关账本模块负责人",
+        "decision": "EQUIVALENT",
+        "reason": "actual 已确定为非 null bigint 后，expected 的 null／undefined 前置判断与最终 bigint 严格相等结果等价；其余 293 个变异均被杀死或超时",
+        "action": "锁定 4 个等价 survivor 与零 no-coverage；可选 bigint 归一语义变化时立即重审",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/gateway-ledger-settlement.ts",
+        "max_survived": 14,
+        "max_no_coverage": 67,
+        "owner": "仟流智算网关账本模块负责人",
+        "decision": "CROSS_PACKAGE_INTEGRATION",
+        "reason": "拆分纯断言后，package-local Stryker 无法把 Gateway 真实 PostgreSQL pipeline 测试归因到事务编排中的 quota／lease 分支；这些分支已由 POOL-043 Gateway 实库测试和 Codex CLI E2E 覆盖。其余 survivor 来自唯一约束、request 行锁、SELECT EXISTS 固定返回形态及集合等价变换",
+        "action": "锁定本次 14 survived／67 no-coverage，不允许增长；结算锁、quota、lease 或跨 package 变异归因能力变化时重新执行并收紧基线",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool039043-integration.json",
+        "file": "src/repositories/gateway-ledger-settlement.ts",
+        "max_survived": 2,
+        "max_no_coverage": 1,
+        "owner": "仟流智算网关账本模块负责人",
+        "decision": "EQUIVALENT",
+        "reason": "request 行锁已序列化 Attempt 更新，删除 Attempt 的重复 FOR UPDATE 不改变结果；0044 的 usage_event 唯一索引使重复 ledger line 防御分支不可达",
+        "action": "锁定 2 survived／1 no-coverage；request 锁序或 0044 唯一索引变化时立即重审",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool039043-integration.json",
+        "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+        "max_survived": 39,
+        "max_no_coverage": 11,
+        "owner": "仟流智算网关账本模块负责人",
+        "decision": "TEST_DEBT",
+        "reason": "核心 request/attempt/usage/ledger/quota/lease/transaction 事务、七个写点回滚、Grant/Lease 排序与企业/主体归属变异已全部杀死；剩余为双边冗余零事实校验、唯一索引下不可达防御，以及 Coding Plan 元数据、overage 和终态重放逐字段断言矩阵",
+        "action": "补 Coding Plan 零成本、非法计费元数据、overage 与终态重放字段漂移表驱动测试；锁定 39 survived／11 no-coverage，禁止增长",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/operating-bill-account-aggregate.ts",
+        "max_survived": 3,
+        "max_no_coverage": 0,
+        "owner": "仟流智算经营账单模块负责人",
+        "decision": "EQUIVALENT",
+        "reason": "同时间最大值重复赋值不改变结果；非空事实集合保证最近时间非空；整月 Token 为 null 时 decimal 归零后仍由零分母分支返回 null，三个变异均无可观察语义差异",
+        "action": "锁定三个等价变异数量；累计器不变量或 null 数值归一语义变化时立即重审并补测",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/operating-bill-cost-quality.ts",
+        "max_survived": 0,
+        "max_no_coverage": 0,
+        "owner": "仟流智算经营账单模块负责人",
+        "decision": "EQUIVALENT",
+        "reason": "未知 API 成本、套餐成本、null/零值与金额精度分支已全部杀死变异，无剩余变异债务",
+        "action": "锁定零 survivor/零 no-coverage；成本口径变化时重新执行 POOL-043 变异测试",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool043.json",
+        "file": "src/repositories/operating-bill-write-barrier.ts",
+        "max_survived": 1,
+        "max_no_coverage": 1,
+        "owner": "仟流智算经营账单模块负责人",
+        "decision": "EQUIVALENT",
+        "reason": "SELECT EXISTS 必定返回一行，故 rows[0] 的 optional chaining 与空结果默认值不可观察；真实行锁竞争与屏障结果均已覆盖",
+        "action": "锁定 1 个等价 survivor 与 1 个同源 no-coverage；SQL 查询形态变化时立即重审",
+        "due_on": "2026-09-01"
+      },
+      {
+        "report": "packages/database/reports/mutation/pool039043-resource.json",
+        "file": "src/repositories/resource-pool-repository.ts",
+        "max_survived": 0,
+        "max_no_coverage": 0,
+        "owner": "仟流智算资源池负责人",
+        "decision": "EQUIVALENT",
+        "reason": "半开探针租约获取、过期接管与 fencing release 的 29 个精准变异已全部杀死，无剩余变异债务",
+        "action": "锁定零 survivor／零 no-coverage；探针 TTL 或 fencing 合同变化时重新执行资源池变异",
+        "due_on": "2026-09-01"
+      },
+      {
+        "file": "src/routing-policy.ts",
+        "max_survived": 13,
+        "max_no_coverage": 0,
+        "owner": "仟流智算路由模块负责人",
+        "decision": "TEST_DEBT",
+        "reason": "零候选、零权重和评分因子细节断言仍不足",
+        "action": "补齐排除集、空候选、零权重和因子名称/数值断言，禁止数量增长",
+        "due_on": "2026-09-01"
+      }
+    ]
+  },
+  "complexity": {
+    "default_max": 30,
+    "legacy_exceptions_are_locked_in_eslint_config": true,
+    "crap_equivalent": "ESLint 圈复杂度上限 + 覆盖率防下降阀；任一下降即 CI 失败",
+    "exception_policy": {
+      "owner": "仟流智算技术负责人",
+      "reason": "历史生产代码拆分风险高，本轮只锁定现状并禁止继续增长",
+      "reviewed_on": "2026-08-18",
+      "review_due": "2026-09-18",
+      "exit": "函数复杂度降至 30 以下后删除对应 ESLint 例外"
+    },
+    "exceptions": [
+      {
+        "file": "apps/control-api/src/read-models/routes.ts",
+        "max": 35
+      },
+      {
+        "file": "apps/gateway/src/pipeline/real-pipeline.ts",
+        "max": 182
+      },
+      {
+        "file": "apps/web/src/pages/Principals.tsx",
+        "max": 48
+      },
+      {
+        "file": "apps/web/src/pages/QuotaRules.tsx",
+        "max": 84
+      },
+      {
+        "file": "apps/web/src/pages/RequestDrilldown.tsx",
+        "max": 31
+      },
+      {
+        "file": "apps/web/src/pages/Resources.tsx",
+        "max": 59
+      },
+      {
+        "file": "apps/web/src/pages/Usage.tsx",
+        "max": 37
+      },
+      {
+        "file": "packages/database/src/repositories/dashboard-repository.ts",
+        "max": 31
+      },
+      {
+        "file": "packages/database/src/repositories/dispatch-policy-repository.ts",
+        "max": 32
+      }
+    ]
+  },
+  "duplication": {
+    "max_percent": 5,
+    "min_lines": 20,
+    "min_tokens": 100
+  },
+  "source_size": {
+    "default_max_logical_lines": 400,
+    "legacy_exception_policy": "不得超过登记基线；低于 400 行后删除例外",
+    "exception_policy": {
+      "owner": "仟流智算技术负责人",
+      "reason": "历史生产文件与归集候选内聚文件按防增长阀登记基线；2026-09-22 登记归集两文件（domain 纯函数 allocation.ts、database 桶导出 index.ts），拆分计划见 80-CODEX-final-review.md 返修记录",
+      "reviewed_on": "2026-09-22",
+      "review_due": "2026-10-22",
+      "exit": "拆分且回归通过后降至 400 逻辑行以内"
+    },
+    "exceptions": [
+      {
+        "file": "apps/control-api/src/directory/routes.ts",
+        "baseline": 443
+      },
+      {
+        "file": "apps/control-api/src/principals/routes.ts",
+        "baseline": 453
+      },
+      {
+        "file": "apps/control-api/src/providers/routes.ts",
+        "baseline": 576
+      },
+      {
+        "file": "apps/control-api/src/resource-insights/query.ts",
+        "baseline": 403
+      },
+      {
+        "file": "apps/control-api/src/resource-insights/routes.ts",
+        "baseline": 404
+      },
+      {
+        "file": "apps/web/src/components/quota/QuotaBillingSection.tsx",
+        "baseline": 678
+      },
+      {
+        "file": "apps/web/src/components/resources/ProviderManagementDialog.tsx",
+        "baseline": 439
+      },
+      {
+        "file": "apps/web/src/components/resources/ResourceModelDiscovery.tsx",
+        "baseline": 723
+      },
+      {
+        "file": "apps/web/src/pages/Admins.tsx",
+        "baseline": 446
+      },
+      {
+        "file": "apps/web/src/pages/Usage.tsx",
+        "baseline": 525
+      },
+      {
+        "file": "apps/web/src/pages/runtime-assurance/NotificationRecipientsPanel.tsx",
+        "baseline": 426
+      },
+      {
+        "file": "apps/worker/src/main.ts",
+        "baseline": 860
+      },
+      {
+        "file": "apps/worker/src/reporting/report-jobs.ts",
+        "baseline": 711
+      },
+      {
+        "file": "packages/database/src/repositories/directory-import-apply.ts",
+        "baseline": 438
+      },
+      {
+        "file": "packages/database/src/repositories/directory-repository.ts",
+        "baseline": 438
+      },
+      {
+        "file": "packages/database/src/repositories/provider-repository.ts",
+        "baseline": 774
+      },
+      {
+        "file": "packages/provider-adapters/src/model-discovery.ts",
+        "baseline": 484
+      },
+      {
+        "file": "apps/web/src/api/hooks.ts",
+        "baseline": 440
+      },
+      {
+        "file": "apps/web/src/components/operating-bill/ValueRealizationSection.tsx",
+        "baseline": 527
+      },
+      {
+        "file": "packages/domain/src/project-allocation/allocation.ts",
+        "baseline": 450
+      },
+      {
+        "file": "packages/database/src/index.ts",
+        "baseline": 440
+      }
+    ]
+  },
+  "security_exceptions": [
+    {
+      "advisory": "GHSA-qwww-vcr4-c8h2",
+      "dependency": "react-router",
+      "reason": "公告仅影响 React Server Components Mode；当前 Web 仅使用 BrowserRouter 客户端 SPA，不包含 RSC/server 路由入口。上游尚无可安装修复版本。",
+      "verification": "rg -n 'react-router/(rsc|dom/server)|createRequestHandler|RSCRouteConfig|decodeReply' apps/web/src",
+      "expires_on": "2026-09-01",
+      "action": "每次依赖审计复核上游修复版本；引入 SSR/RSC 前立即取消例外"
+    }
   ]
- },
- "security_exceptions": [
-  {
-   "advisory": "GHSA-qwww-vcr4-c8h2",
-   "dependency": "react-router",
-   "reason": "公告仅影响 React Server Components Mode；当前 Web 仅使用 BrowserRouter 客户端 SPA，不包含 RSC/server 路由入口。上游尚无可安装修复版本。",
-   "verification": "rg -n 'react-router/(rsc|dom/server)|createRequestHandler|RSCRouteConfig|decodeReply' apps/web/src",
-   "expires_on": "2026-09-01",
-   "action": "每次依赖审计复核上游修复版本；引入 SSR/RSC 前立即取消例外"
-  }
- ]
 }

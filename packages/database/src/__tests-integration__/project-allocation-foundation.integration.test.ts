@@ -460,6 +460,35 @@ describe("生命周期结束裁剪（M04）", () => {
   });
 });
 
+describe("80-P1-2：参与修订幂等重放", () => {
+  it("同一 idempotencyKey 的修订重放返回原结果，不产生新修订", async () => {
+    const e = randomUUID();
+    await db.insertInto("principal").values({ id: e, enterprise_id: entA, type: "EMPLOYEE", name: "重放员工" }).execute();
+    await createProjectMembership(db, {
+      enterpriseId: entA, projectId: projectP, employeePrincipalId: e,
+      joinedAt: T("2026-07-01T00:00:00+08:00"), leftAt: null,
+      reason: "加入", idempotencyKey: `replay-create-${randomUUID()}`, actorAdminId: admin,
+    });
+    const key = `replay-revise-${randomUUID()}`;
+    const payload = {
+      enterpriseId: entA, projectId: projectP, employeePrincipalId: e,
+      membershipId: await activeMembershipId(e, projectP), expectedRevision: 1,
+      leftAt: T("2026-07-20T00:00:00+08:00"), reason: "退出", idempotencyKey: key, actorAdminId: admin,
+    };
+    const first = await revise(db, payload);
+    const replayed = await revise(db, payload);
+    // 重放返回原修订结果（同一修订号、replay 标记），不产生新修订。
+    expect(replayed).toMatchObject({
+      membershipId: first.membershipId, revision: first.revision, replay: true,
+    });
+    const { rows } = await sql<{ n: number }>`
+      SELECT COUNT(*)::int AS n FROM project_membership_revision r
+      JOIN project_membership m ON m.id = r.membership_id
+      WHERE r.enterprise_id = ${entA} AND m.employee_principal_id = ${e}`.execute(db);
+    expect(rows[0]?.n).toBe(2);
+  });
+});
+
 describe("80 终审 P1-3：项目意图按区间差集保留同项目历史段", () => {
   it("开放旧段中途改权重：8 月 40% 保留、9 月起 60%", async () => {
     const e = randomUUID();

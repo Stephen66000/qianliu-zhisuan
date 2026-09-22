@@ -391,6 +391,55 @@ describe("项目账归集端点（WP05）", () => {
     expect(body.detail.runId).toBe(sepHistorical);
   });
 
+  it("80-P1-1：意图段真实校验——空对象/缺字段/超范围一律 400，不再静默补默认值", async () => {
+    const badBodies = [
+      { employeePrincipalId: employee1, segments: [{}] },
+      { employeePrincipalId: employee1, segments: [{ validFrom: "2026-09-01T00:00:00+08:00" }] },
+      { employeePrincipalId: employee1, segments: [{ weightBps: 1.5, validFrom: "2026-09-01T00:00:00+08:00" }] },
+      { employeePrincipalId: employee1, segments: [{ weightBps: -1, validFrom: "2026-09-01T00:00:00+08:00" }] },
+      { employeePrincipalId: employee1, segments: [{ weightBps: 4000 }] },
+      { employeePrincipalId: employee1, segments: [{ weightBps: 4000, validFrom: "not-a-date" }] },
+      { employeePrincipalId: employee1, segments: [] },
+    ];
+    for (const [i, payload] of badBodies.entries()) {
+      const preview = await app.inject({
+        method: "POST", url: `/principals/${projectP}/project-allocation-intents/preview`,
+        headers: { cookie: superCookie }, payload,
+      });
+      expect(preview.statusCode, `preview case ${i}`).toBe(400);
+      const publish = await app.inject({
+        method: "POST", url: `/principals/${projectP}/project-allocation-intents/versions`,
+        headers: { cookie: superCookie },
+        payload: { ...payload, expectedPolicyVersion: 0, reason: "80-P1-1 负例" },
+      });
+      expect(publish.statusCode, `publish case ${i}`).toBe(400);
+      expect(publish.json().error).toBe("invalid_request");
+    }
+
+    // 合法段（有生效成员关系的员工 + 真实区间）照常通过：校验不误伤。
+    const ok = await app.inject({
+      method: "POST", url: `/principals/${projectP}/project-allocation-intents/preview`,
+      headers: { cookie: superCookie },
+      payload: {
+        employeePrincipalId: employee1,
+        segments: [{ weightBps: 4000, validFrom: "2026-09-01T00:00:00+08:00", validUntil: null }],
+      },
+    });
+    expect(ok.statusCode).toBe(200);
+
+    // 单段 >10000 不在路由层拦截：保留域级 weight_exceeded 结构化冲突（既有合同）。
+    const overBps = await app.inject({
+      method: "POST", url: `/principals/${projectP}/project-allocation-intents/versions`,
+      headers: { cookie: superCookie },
+      payload: {
+        employeePrincipalId: employee1, expectedPolicyVersion: null, reason: "超上界",
+        segments: [{ weightBps: 10001, validFrom: "2026-10-05T00:00:00+08:00" }],
+      },
+    });
+    expect(overBps.statusCode).toBe(400);
+    expect(overBps.json().error).toBe("weight_exceeded");
+  });
+
   it("F-2：项目明细主体类型合同——不存在/跨企业/类型不符统一 404，不返回 200 空集", async () => {
     const cases: Array<[string, string]> = [
       ["不存在的项目", randomUUID()],
