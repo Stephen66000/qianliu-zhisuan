@@ -10,6 +10,9 @@ function discovery(version: string | null | undefined): ModelDiscoveryResponse {
   return { source: "PROVIDER_API", source_version: "deepseek-list-models-v2", discovered_at: "2026-09-10T00:00:00Z",
     models: [{ id: "deepseek-v4-flash", displayName: "deepseek-v4-flash", modelType: "CHAT",
       capabilities: ["chat", "stream"], source: "PROVIDER_API", compatible: true, unavailableReason: null,
+      // P1 合同：fresh discovery 载荷始终携带 selectable/credential_validation。
+      selectable: true,
+      credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-10T00:00:00Z" },
       facts: { officialVersion: version, fieldEvidence: version ? { official_version: [{
         url: "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/", checkedAt: "2026-09-10T00:00:00Z", extractedValue: version,
       }] } : {} } }] };
@@ -35,7 +38,7 @@ it("勾选或全选依然提交原API模型ID，不提交官方版本字符串",
   const user = userEvent.setup(), { selected, getCredentials } = view(discovery("DeepSeek-V4-Flash-0731"));
   await user.click(screen.getByRole("checkbox"));
   expect(selected).toHaveBeenLastCalledWith(["deepseek-v4-flash"]);
-  await user.click(screen.getByRole("button", { name: "全选兼容模型" }));
+  await user.click(screen.getByRole("button", { name: "全选就绪模型" }));
   expect(selected).toHaveBeenLastCalledWith(["deepseek-v4-flash"]);
   expect(getCredentials).not.toHaveBeenCalled();
 });

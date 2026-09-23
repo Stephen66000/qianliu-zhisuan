@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 
 /**
- * 迁移 0077 —— 项目归集计算层（v1.2 计划 §4/§6/§8，候选 C3 合同 10-WP01-contract.md §3）。
+ * 迁移 0080 —— 项目归集计算层（UAT 已执行 Kimi 0076–0078 后顺延；v1.2 计划 §4/§6/§8）。
  *
  * run/line 只追加：SUCCEEDED/FAILED 后不可变（仅 is_current 可被新批次接管）；
  * 非成功状态禁止 is_current（CHECK）。企业边界全部复合 FK；目标列（零 UUID 哨兵）

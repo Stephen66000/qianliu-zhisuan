@@ -256,4 +256,80 @@ describe("Coding Plan 额度同步恢复", () => {
       await db.destroy();
     }
   });
+
+  it("审核修复（P1）：生产大写厂商 code（Kimi）不再被额度同步整体跳过", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const enterpriseId = randomUUID();
+      const providerId = randomUUID();
+      const resourceId = randomUUID();
+      const kek = Buffer.alloc(32, 5);
+      const kekBase64 = kek.toString("base64");
+      await db.insertInto("enterprise").values({
+        id: enterpriseId,
+        name: "大写厂商 code 额度同步测试",
+      }).execute();
+      // 生产历史形态：provider.code = "Kimi"（大写）。
+      await db.insertInto("provider").values({
+        id: providerId,
+        enterprise_id: enterpriseId,
+        code: "Kimi",
+        name: "Kimi 生产大写",
+        adapter_type: "OPENAI_COMPATIBLE",
+        status: "ACTIVE",
+      }).execute();
+      await db.insertInto("provider_resource").values({
+        id: resourceId,
+        enterprise_id: enterpriseId,
+        provider_id: providerId,
+        name: "Kimi Coding Plan（大写 code）",
+        mode: "CODING_PLAN",
+        credential_type: "SUBSCRIPTION_SESSION",
+        credential_ciphertext: JSON.stringify(encryptCredential("kimi-upper-test", kek)),
+        status: "CREDENTIAL_INVALID",
+        cooldown_until: null,
+      }).execute();
+
+      const fetch = vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          usage: {
+            limit: "100", used: "10", remaining: "90",
+            resetTime: "2026-09-08T04:00:00.000Z",
+          },
+          limits: [{
+            window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+            detail: {
+              limit: "100", used: "0", remaining: "100",
+              resetTime: "2026-09-03T17:00:00.000Z",
+            },
+          }],
+        }),
+      })) as unknown as QuotaFetch;
+      const now = new Date("2026-09-03T12:00:00.000Z");
+
+      // 修复前：supportsQuotaSync 严格比较 === "kimi"，大写 code 资源被跳过
+      //（resourcesScanned=0）。修复后：canonicalProviderCode 规范化后正常纳入。
+      await expect(runCodingPlanQuotaTick({ db, kekBase64, fetch, now }))
+        .resolves.toEqual({
+          resourcesScanned: 1,
+          windowsUpserted: 2,
+          resourcesRecovered: 0,
+          failed: 0,
+        });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(await db.selectFrom("provider_quota_window")
+        .select(["window_type", "sync_status"])
+        .where("provider_resource_id", "=", resourceId)
+        .orderBy("window_type", "asc")
+        .execute()).toEqual([
+        { window_type: "FIVE_HOUR", sync_status: "SUCCESS" },
+        { window_type: "WEEKLY", sync_status: "SUCCESS" },
+      ]);
+    } finally {
+      await db.destroy();
+    }
+  });
 });

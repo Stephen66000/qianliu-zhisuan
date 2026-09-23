@@ -73,10 +73,15 @@ describe("SyncModelsPanel 模型同步过滤与状态呈现", () => {
           source_version: "kimi-code-models-v1",
           discovered_at: "2026-09-13T12:00:00Z",
           models: [
-            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
-            { id: "k3-256k", displayName: "k3-256k", modelType: "CHAT", capabilities: ["chat"], compatible: false, unavailableReason: "当前套餐未开通此模型权限" },
-            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
-            { id: "kimi-for-coding-highspeed", displayName: "kimi-for-coding-highspeed", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
+            // P1 合同：sync 响应携带 selectable/credential_validation，仅 READY 可加入。
+            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
+            { id: "k3-256k", displayName: "k3-256k", modelType: "CHAT", capabilities: ["chat"], compatible: false, unavailableReason: "当前套餐未开通此模型权限",
+              selectable: false, credential_validation: { status: "PLAN_NOT_ENTITLED", http_status: 403, error_code: "MODEL_PROBE_PLAN_NOT_ENTITLED", retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
+            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
+            { id: "kimi-for-coding-highspeed", displayName: "kimi-for-coding-highspeed", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
           ],
           catalog_diff: { added: [], retained: ["k3"], not_advertised: [] },
         };
@@ -125,8 +130,10 @@ describe("SyncModelsPanel 模型同步过滤与状态呈现", () => {
           source_version: "kimi-code-models-v1",
           discovered_at: "2026-09-13T12:00:00Z",
           models: [
-            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
-            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null },
+            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
+            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-13T12:00:00Z" } },
           ],
           catalog_diff: { added: [], retained: ["k3"], not_advertised: ["k3-256k"] },
         };
@@ -153,5 +160,89 @@ describe("SyncModelsPanel 模型同步过滤与状态呈现", () => {
 
     // 告警横幅不应显示，因为 k3 仍在服务且在官方列表中，not_advertised 的是已归档的 k3-256k
     expect(screen.queryByText(/厂商官方当前已不再列出以下模型/)).not.toBeInTheDocument();
+  });
+
+  it("审核修复（P1）：探针失败模型不再被静默隐藏——列出并给出原因", async () => {
+    vi.spyOn(clientModule, "post").mockImplementation(async (url: string) => {
+      if (url.includes("/models/sync")) {
+        return {
+          source: "OFFICIAL_DOCUMENTATION",
+          source_version: "kimi-code-models-v1",
+          discovered_at: "2026-09-22T03:00:00Z",
+          models: [
+            { id: "k3", displayName: "k3", modelType: "CHAT", capabilities: ["chat"], compatible: true, unavailableReason: null,
+              selectable: true, credential_validation: { status: "READY", http_status: 200, error_code: null, retryable: false, checked_at: "2026-09-22T03:00:00Z" } },
+            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: false,
+              unavailableReason: "当前套餐未开通此模型权限",
+              selectable: false, credential_validation: { status: "PLAN_NOT_ENTITLED", http_status: 403, error_code: "MODEL_PROBE_PLAN_NOT_ENTITLED", retryable: false, checked_at: "2026-09-22T03:00:00Z" } },
+          ],
+          catalog_diff: { added: [], retained: ["k3"], not_advertised: [] },
+        };
+      }
+      return {};
+    });
+
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SyncModelsPanel
+          target={{ id: "res-1", name: "Kimi", provider_id: "kimi", mode: "CODING_PLAN", status: "ACTIVE" } as unknown as ProviderResourceItem}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+
+    const syncBtn = screen.getByRole("button", { name: "立即同步" });
+    await user.click(syncBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/以下 1 个模型凭证探针未通过或证据已过期，暂不可加入/)).toBeInTheDocument();
+    });
+    // 探针失败模型必须可见并带脱敏原因，而不是从面板消失。
+    expect(screen.getByText(/kimi-for-coding（当前套餐未开通此模型权限 · HTTP 403）/)).toBeInTheDocument();
+    // 不再出现误导性的"均已接入"文案。
+    expect(screen.queryByText(/当前所有可用模型均已接入服务中/)).not.toBeInTheDocument();
+  });
+
+  it("审核修复（P1）：全部模型探针失败（READY=0）时明示配置问题，不误报均已接入", async () => {
+    vi.spyOn(clientModule, "post").mockImplementation(async (url: string) => {
+      if (url.includes("/models/sync")) {
+        return {
+          source: "OFFICIAL_DOCUMENTATION",
+          source_version: "kimi-code-models-v1",
+          discovered_at: "2026-09-22T03:00:00Z",
+          models: [
+            { id: "kimi-for-coding", displayName: "kimi-for-coding", modelType: "CHAT", capabilities: ["chat"], compatible: false,
+              unavailableReason: "凭证鉴权失败",
+              selectable: false, credential_validation: { status: "AUTH_FAILED", http_status: 401, error_code: "MODEL_PROBE_AUTH_FAILED", retryable: false, checked_at: "2026-09-22T03:00:00Z" } },
+            { id: "kimi-for-coding-highspeed", displayName: "kimi-for-coding-highspeed", modelType: "CHAT", capabilities: ["chat"], compatible: false,
+              unavailableReason: "凭证鉴权失败",
+              selectable: false, credential_validation: { status: "AUTH_FAILED", http_status: 401, error_code: "MODEL_PROBE_AUTH_FAILED", retryable: false, checked_at: "2026-09-22T03:00:00Z" } },
+          ],
+          catalog_diff: { added: [], retained: [], not_advertised: [] },
+        };
+      }
+      return {};
+    });
+
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SyncModelsPanel
+          target={{ id: "res-1", name: "Kimi", provider_id: "kimi", mode: "CODING_PLAN", status: "ACTIVE" } as unknown as ProviderResourceItem}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+
+    const syncBtn = screen.getByRole("button", { name: "立即同步" });
+    await user.click(syncBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/以下 2 个模型凭证探针未通过或证据已过期，暂不可加入/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/请检查凭证\/端点配置后重新检测/)).toBeInTheDocument();
+    expect(screen.queryByText(/当前所有可用模型均已接入服务中/)).not.toBeInTheDocument();
+    expect(screen.queryByText("立即同步之后")).not.toBeInTheDocument();
   });
 });

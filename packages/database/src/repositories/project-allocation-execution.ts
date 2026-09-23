@@ -15,8 +15,7 @@ import { liveLineFactCtes } from "./operating-bill-account-month-lines.js";
 import { allocationGeneration } from "./project-allocation-common.js";
 import { publishOrNoopRun } from "./project-allocation-publish.js";
 
-export const ALLOCATION_SCHEMA_VERSION = "1";
-export const ALLOCATION_ALGORITHM_VERSION = "1";
+export { ALLOCATION_SCHEMA_VERSION, ALLOCATION_ALGORITHM_VERSION } from "./project-allocation-common.js";
 const RUN_LEASE_MS = 5 * 60_000;
 const MAX_RUN_FAILURES = 3;
 

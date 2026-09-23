@@ -21,6 +21,8 @@ import { upstreamFailure } from "./upstream-failure.js";
 import { toChatCompletionsRequest } from "./openai-compatible-request.js";
 import { failedOutcome, parseJsonResponse, parseStreamingResponse } from "./openai-compatible-response.js";
 import { chatCompletionsUrl, createLayeredTimeout, defaultFetch } from "./openai-compatible-timeout.js";
+import { resolveProviderEndpoint, capabilityConfiguredEndpoints } from "./endpoint-policy.js";
+import { canonicalProviderCode } from "./provider-code.js";
 
 export { toChatCompletionsRequest } from "./openai-compatible-request.js";
 export { chatAssistantToResponsesOutput } from "./openai-compatible-conversion.js";
@@ -32,15 +34,40 @@ type ProviderCode = AdapterResource["providerCode"];
 
 /** Shared endpoint selection for business calls and credential probes. */
 export function providerChatBaseUrl(provider: ProviderCode, env: NodeJS.ProcessEnv = process.env): string {
-  const p = String(provider).toLowerCase();
+  // P3：函数内规范化，调用方不再需要自行 toLowerCase。
+  const p = canonicalProviderCode(provider);
   const envKey = BASE_URL_ENV[p];
   return (envKey ? env[envKey] : undefined) ?? DEFAULT_BASE_URL[p] ?? env[`${String(provider).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_BASE_URL`] ?? "";
 }
 
 export function providerChatConfigHash(provider: ProviderCode, mode: string, model: string,
-  env: NodeJS.ProcessEnv = process.env): string {
+  opts: { env?: NodeJS.ProcessEnv; resolvedBaseUrl?: string } = {}): string {
+  // 终审整改二：哈希必须覆盖 resolveProviderEndpoint 裁决出的实际 canonical
+  // 端点（capability base_url / endpoints[mode] 参与解析），而不是只看
+  // 环境变量/内置默认地址——否则端点配置变更后故障证据身份不变，
+  // 凭证恢复会对着新端点复用旧证据。
+  const baseUrl = opts.resolvedBaseUrl ?? providerChatBaseUrl(provider, opts.env ?? process.env);
   return createHash("sha256").update(JSON.stringify({ provider, mode, model,
-    baseUrl: providerChatBaseUrl(provider, env), protocol: "chat", version: 1 })).digest("hex");
+    baseUrl, protocol: "chat", version: 1 })).digest("hex");
+}
+
+/**
+ * 终审整改二：凭证恢复与 Gateway 故障证据共用的配置哈希入口。
+ * 与 caller 内部完全同源：先经 resolveProviderEndpoint（CHAT_COMPLETIONS）
+ * 解析实际端点，再对解析结果计算 providerChatConfigHash。
+ * 端点无法解析（歧义/缺失）时抛错，由调用方失败关闭（configuration_changed）。
+ */
+export function capabilityChatConfigHash(provider: ProviderCode, mode: string, model: string,
+  capabilitySet: unknown, env: NodeJS.ProcessEnv = process.env): string {
+  const endpoint = resolveProviderEndpoint({
+    providerCode: canonicalProviderCode(provider),
+    resourceMode: mode as "API" | "CODING_PLAN",
+    operation: "CHAT_COMPLETIONS",
+    configuredEndpoints: capabilityConfiguredEndpoints(capabilitySet),
+    env,
+  });
+  if (!endpoint.ok || !endpoint.url) throw new Error("upstream_endpoint_ambiguous");
+  return providerChatConfigHash(provider, mode, model, { env, resolvedBaseUrl: endpoint.url });
 }
 
 const BASE_URL_ENV: Record<string, string> = {
@@ -89,9 +116,43 @@ export function createOpenAiCompatibleCaller(
       return failedOutcome(401, "upstream_credential_missing");
     }
 
-    const baseUrl = resource.baseUrl || providerChatBaseUrl(resource.providerCode, env);
+    // WP02：进入请求转换/错误映射/镜像能力分支前统一规范化 providerCode，
+    // 生产 code=Kimi 与预置 code=kimi 走同一策略。
+    resource = { ...resource, providerCode: canonicalProviderCode(resource.providerCode) };
+
+    // WP01/RC-0：模式化端点解析。业务调用、权限探针、真实验证、凭证恢复
+    // 共用 resolveProviderEndpoint，历史无 scope 的 Moonshot base_url
+    // 不再覆盖 Kimi Coding Plan 端点。
+    const endpoint = resolveProviderEndpoint({
+      providerCode: resource.providerCode,
+      resourceMode: resource.mode,
+      operation: "CHAT_COMPLETIONS",
+      // P2：模式专属 endpoints[mode] 与历史 base_url 一并进入策略，
+      // Gateway / 验证 / 恢复链路 capability_set 配置的 CODING_PLAN 专属
+      // 地址在此优先命中（MODE_SCOPED_CONFIG）。
+      configuredEndpoints: { base_url: resource.baseUrl ?? null, endpoints: resource.endpoints ?? null },
+      env,
+    });
+    // 审核修复（P1）：端点歧义/base_url 缺失是本侧配置错误，不是上游故障。
+    // 不再合成 HTTP 500（曾使探针显示"上游暂不可用，可重试"——RC-2 证据失真）：
+    // status=0 + failureLayer=CLIENT + 预置 CONFIGURATION_ERROR 信号，
+    // 消费方（探针映射/凭证恢复/Gateway 隔离）据此判为不可重试的配置错误。
+    if (!endpoint.ok) {
+      return {
+        ...failedOutcome(0, "upstream_endpoint_ambiguous"),
+        upstreamCode: "upstream_endpoint_ambiguous",
+        failureLayer: "CLIENT",
+        unifiedAvailabilitySignal: "CONFIGURATION_ERROR",
+      };
+    }
+    const baseUrl = endpoint.url;
     if (!baseUrl) {
-      return failedOutcome(500, "upstream_base_url_missing");
+      return {
+        ...failedOutcome(0, "upstream_base_url_missing"),
+        upstreamCode: "upstream_base_url_missing",
+        failureLayer: "CLIENT",
+        unifiedAvailabilitySignal: "CONFIGURATION_ERROR",
+      };
     }
 
     if (hasImageInput(request.body) && modelSupportsImages(resource.providerCode, resource.upstreamModel) === false) {
@@ -143,7 +204,10 @@ export function createOpenAiCompatibleCaller(
       timeout.dispose();
       return {
         ...failedOutcome(response.status, failure.code),
-        upstreamConfigHash: providerChatConfigHash(resource.providerCode, resource.mode, resource.upstreamModel, env),
+        // 终审整改二：故障证据哈希绑定本次调用实际解析出的端点，
+        // 与凭证恢复侧 capabilityChatConfigHash 同源可对齐。
+        upstreamConfigHash: providerChatConfigHash(resource.providerCode, resource.mode, resource.upstreamModel,
+          { env, resolvedBaseUrl: baseUrl }),
         upstreamErrorKind: failure.kind,
         upstreamCode: failure.code,
         ...(failure.evidence && requestShapeSummary ? {
@@ -200,7 +264,8 @@ export function resolveProviderSecret(input: {
   }
 
   const env = input.env ?? process.env;
-  const p = String(input.providerCode).toLowerCase();
+  // P3：canonical code 命中 SECRET_ENV，禁止零散 toLowerCase。
+  const p = canonicalProviderCode(input.providerCode);
   const secretKey = SECRET_ENV[p];
   return new SecretValue((secretKey ? env[secretKey] : undefined) ?? env[`${String(input.providerCode).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`] ?? "");
 }

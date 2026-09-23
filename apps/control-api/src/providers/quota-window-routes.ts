@@ -1,6 +1,7 @@
 /** POOL-032：厂商 Coding Plan 额度窗口同步与查询 API。 */
 import type { FastifyInstance, FastifyReply } from "fastify";
 import {
+  canonicalProviderCode,
   decryptCredential,
   queryCodingPlanQuota,
   ProviderCodingPlanQuotaError,
@@ -10,8 +11,10 @@ import {
 import { requireAuth } from "../plugins/auth-guard.js";
 
 function isProviderCode(code: string): code is ProviderCode {
-  const lower = (code || "").toLowerCase();
-  return lower === "deepseek" || lower === "kimi" || lower === "zhipu";
+  // P3：canonical code 判定，禁止零散 toLowerCase（调用方 queryCodingPlanQuota
+  // 内部同样规范化，大写历史 code 行为等价）。
+  const canonical = canonicalProviderCode(code);
+  return canonical === "deepseek" || canonical === "kimi" || canonical === "zhipu";
 }
 
 export function registerProviderQuotaWindowRoutes(app: FastifyInstance): void {

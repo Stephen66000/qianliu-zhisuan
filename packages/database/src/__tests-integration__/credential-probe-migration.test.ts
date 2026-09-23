@@ -36,11 +36,14 @@ it("0073 backfills only correlated historical Chat failures and preserves probe 
       credential_version: 1, credential_digest: "a".repeat(64), config_hash: "b".repeat(64), status: "FAILED",
       http_status: 401, error_code: "HTTP_401", evidence: null, usage: null, finished_at: new Date(),
       expires_at: new Date(), retry_at: new Date() }).execute();
-    // 先回退上层迁移（0077..0074），0073 的破坏性回退仍被证据数据拒绝。
-    expect(await migrateDown(db)).toBe("0077_project_allocation_compute");
-    expect(await migrateDown(db)).toBe("0076_project_allocation_relations");
-    expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-    expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
+    // 先回退归集与模型探针的上层迁移；0073 的破坏性回退仍被证据数据拒绝。
+    await expect(migrateDown(db)).resolves.toBe("0080_project_allocation_compute");
+    await expect(migrateDown(db)).resolves.toBe("0079_project_allocation_relations");
+    await expect(migrateDown(db)).resolves.toBe("0078_provider_model_probe_enum_checks");
+    await expect(migrateDown(db)).resolves.toBe("0077_provider_model_probe_run_identity");
+    await expect(migrateDown(db)).resolves.toBe("0076_provider_model_probe");
+    await expect(migrateDown(db)).resolves.toBe("0075_provider_resource_archive");
+    await expect(migrateDown(db)).resolves.toBe("0074_runtime_notification_recipients");
     await expect(migrateDown(db)).rejects.toThrow("0073 contains probe evidence");
   } finally { await db.destroy(); await pg.stop(); }
 }, 120_000);

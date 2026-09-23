@@ -5,7 +5,7 @@
 import { sql, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import type { AllocationSourceLine, MonthAllocationResult } from "@qianliu/domain";
-import { ALLOCATION_ALGORITHM_VERSION } from "./project-allocation-execution.js";
+import { ALLOCATION_ALGORITHM_VERSION } from "./project-allocation-common.js";
 
 const ZERO_TARGET = "00000000-0000-0000-0000-000000000000";
 

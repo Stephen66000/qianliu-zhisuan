@@ -8,6 +8,10 @@ import { createHash } from "node:crypto";
 import { sql, type Kysely, type Selectable, type Transaction } from "kysely";
 import type { Database, ProjectMembershipRevisionTable } from "../kysely.js";
 
+/** 归集批次的持久化合同版本，由登记、执行与发布共同使用。 */
+export const ALLOCATION_SCHEMA_VERSION = "1";
+export const ALLOCATION_ALGORITHM_VERSION = "1";
+
 export type AllocationDb = Kysely<Database> | Transaction<Database>;
 
 export type AllocationPrincipalType = "EMPLOYEE" | "PROJECT";

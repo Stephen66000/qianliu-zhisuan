@@ -183,6 +183,51 @@ export interface ProviderModelOnboardingTable {
   created_at: Generated<Date>;
 }
 
+/**
+ * WP04：探针 run 的 endpoint_scope 取值域。前四值为端点策略 EndpointScope；
+ * 端点解析歧义时 run 以 "ENDPOINT_SCOPE_AMBIGUOUS" 落库（host 为 "unresolved"
+ * 或歧义 host）。F-P2-2：类型如实扩列，消除仓储层 as 收窄强转。
+ */
+export type ProbeRunEndpointScope =
+  | "MODE_SCOPED_CONFIG" | "ENV" | "LEGACY_BASE_URL" | "MODE_DEFAULT"
+  | "ENDPOINT_SCOPE_AMBIGUOUS";
+
+/** WP04：权限探针运行（脱敏；不含 Key/Authorization/Prompt/正文）。 */
+export interface ProviderModelProbeRunTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_id: string | null;
+  provider_resource_id: string | null;
+  provider_code: string;
+  resource_mode: "API" | "CODING_PLAN";
+  credential_fingerprint: string;
+  endpoint_scope: ProbeRunEndpointScope;
+  endpoint_host: string;
+  discovery_source: string | null;
+  discovery_source_hash: string | null;
+  parser_version: string | null;
+  status: "COMPLETED" | "FAILED";
+  idempotency_key: string;
+  request_hash: string;
+  started_at: Generated<Date>;
+  finished_at: Date | null;
+}
+
+/** WP04：权限探针明细（模型级状态/HTTP/统一错误码/可重试性）。 */
+export interface ProviderModelProbeItemTable {
+  id: Generated<string>;
+  probe_run_id: string;
+  upstream_model: string;
+  validation_status: "NOT_RUN" | "READY" | "AUTH_FAILED" | "PLAN_NOT_ENTITLED"
+    | "REQUEST_REJECTED" | "RATE_LIMITED" | "UPSTREAM_UNAVAILABLE" | "NETWORK_FAILED";
+  http_status: number | null;
+  error_code: string | null;
+  error_category: string | null;
+  retryable: boolean;
+  diagnostic_hash: string | null;
+  checked_at: Date | null;
+}
+
 export interface ProviderModelValidationTable {
   id: Generated<string>;
   enterprise_id: string;

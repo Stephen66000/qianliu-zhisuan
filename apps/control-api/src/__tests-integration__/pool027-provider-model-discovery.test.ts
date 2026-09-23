@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { credentialFingerprint } from "@qianliu/provider-adapters";
 import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
@@ -18,8 +19,9 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
   await db.insertInto("enterprise").values([
-    { id: enterpriseId, name: "pool027" },
-    { id: otherEnterpriseId, name: "pool027-other" },
+    // 登录路由取 created_at 最小的企业；显式时间戳消除同语句插入的排序不确定性。
+    { id: enterpriseId, name: "pool027", created_at: new Date("2026-09-21T00:00:00.000Z") },
+    { id: otherEnterpriseId, name: "pool027-other", created_at: new Date("2026-09-21T00:00:01.000Z") },
   ]).execute();
   await db.insertInto("admin_user").values({
     enterprise_id: enterpriseId, username: "pool027", display_name: "POOL-027",
@@ -74,8 +76,22 @@ function onboard(idempotencyKey: string, name: string) {
 }
 
 function mockOfficialDocs() {
-  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = String(input);
+    // WP04：权限探针为 POST chat/completions，返回最小 2xx 完成响应；
+    // 其余（GET 官方文档）返回文档正文。
+    if ((init?.method ?? "GET") === "POST") {
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "application/json" },
+        json: async () => ({
+          id: "probe-1", object: "chat.completion",
+          choices: [{ message: { role: "assistant", content: "ok" } }],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+      } as unknown as Response;
+    }
     const body = url.includes("kimi")
       ? "Model ID | `k3` | `k3-256k` | `kimi-for-coding` | `kimi-for-coding-highspeed`"
       : "| 模型 ID | `glm-5.2` | `glm-5.3` |\n| 上下文 | 256K | 1M | 最大输出 | 128K | 128K |";
@@ -176,7 +192,34 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     expect(discovery.json().models.map((model: { id: string }) => model.id)).toEqual([
       "k3", "k3-256k", "kimi-for-coding", "kimi-for-coding-highspeed",
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // 1 次官方文档 + 4 次模型权限探针；探针与文档都不得指向 Moonshot 开放平台。
+    const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(calledUrls.filter((url) => url.includes("www.kimi.com"))).toHaveLength(1);
+    expect(calledUrls.some((url) => url.includes("api.moonshot.cn"))).toBe(false);
+    expect(calledUrls.some((url) => url.endsWith("/models"))).toBe(false);
+  });
+
+  it("P2 ad-hoc 检测同键 singleflight 复用、探针 run 以 provider_resource_id=null 幂等落库且脱敏", async () => {
+    mockOfficialDocs();
+    const payload = { provider_id: providerId, mode: "CODING_PLAN", credential_plaintext: "probe-flight-key" };
+    const first = await app.inject({ method: "POST", url: "/provider-resources/model-discovery", headers: { cookie }, payload });
+    expect(first.statusCode).toBe(200);
+    expect(first.json().reused).toBe(false);
+    const second = await app.inject({ method: "POST", url: "/provider-resources/model-discovery", headers: { cookie }, payload });
+    expect(second.statusCode).toBe(200);
+    // 同 enterprise+provider+mode+凭证指纹+端点 scope/host → 60s 内复用同一飞行结果。
+    expect(second.json().reused).toBe(true);
+    // 仅落一条探针 run：未绑定资源 → provider_resource_id=null；复用结果幂等去重。
+    const runs = await db.selectFrom("provider_model_probe_run").selectAll()
+      .where("credential_fingerprint", "=", credentialFingerprint("probe-flight-key")).execute();
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.provider_resource_id).toBeNull();
+    expect(runs[0]!.provider_id).toBe(providerId);
+    // 脱敏：run 行不包含 Key 明文。
+    expect(JSON.stringify(runs[0])).not.toContain("probe-flight-key");
+    const items = await db.selectFrom("provider_model_probe_item").selectAll()
+      .where("probe_run_id", "=", runs[0]!.id).execute();
+    expect(items.length).toBeGreaterThan(0);
   });
 
   it("相同幂等键不重复创建；第二资源复用统一模型只增加路由", async () => {
@@ -340,11 +383,24 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
       status: "PENDING_CONFIG",
     }).returningAll().executeTakeFirstOrThrow();
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ data: [{ id: "deepseek-v4-flash-vision-exp" }] }),
-    } as Response);
+    fetchMock.mockImplementation(async (input, init) => {
+      // 第一跳：List Models；其后：权限探针 POST（WP04 合同：2xx = READY）。
+      if ((init?.method ?? "GET") === "POST") {
+        return {
+          ok: true, status: 200,
+          headers: { get: () => "application/json" },
+          json: async () => ({
+            id: "probe-1", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true, status: 200,
+        json: async () => ({ data: [{ id: "deepseek-v4-flash-vision-exp" }] }),
+      } as unknown as Response;
+    });
     const firstSync = await app.inject({
       method: "POST",
       url: `/provider-resources/${resourceId}/models/sync`,
@@ -412,5 +468,225 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
     });
     expect(confirm.statusCode).toBe(409);
     expect(confirm.json().error).toBe("model_discovery_stale");
+  });
+
+  it("终审整改一：READY 证据身份不匹配或过期时 GET/confirm 拒绝并返回 MODEL_VALIDATION_STALE", async () => {
+    mockOfficialDocs();
+    // 复用既有 zhipu provider（本用例为文件末位，改动状态不影响前面的用例），
+    // 新建专属资源承载证据身份矩阵。
+    const created = await app.inject({
+      method: "POST", url: "/provider-resources", headers: { cookie },
+      payload: { provider_id: providerId, name: "智谱 Stale A", mode: "CODING_PLAN",
+        credential_type: "API_KEY", credential_plaintext: "stale-evidence-key" },
+    });
+    expect(created.statusCode).toBe(201);
+    const resourceId = created.json().resource.id as string;
+    const sync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(sync.statusCode).toBe(200);
+
+    const getPayload = async () => (await app.inject({
+      method: "GET", url: `/provider-resources/${resourceId}/models`, headers: { cookie },
+    })).json();
+    // 基线：证据身份一致 → CURRENT，READY 模型可选。
+    expect((await getPayload()).probe_evidence).toEqual({ status: "CURRENT" });
+    const readyModel = (await getPayload()).models
+      .find((model: { credential_validation?: { status?: string } }) => model.credential_validation?.status === "READY");
+    expect(readyModel).toBeTruthy();
+    expect(readyModel.selectable).toBe(true);
+
+    const expectGetStale = async (reason: string) => {
+      const payload = await getPayload();
+      expect(payload.probe_evidence).toEqual({
+        status: "MODEL_VALIDATION_STALE", reason, requires: "SYNC_OR_PROBE",
+      });
+      for (const model of payload.models) {
+        expect(model.credential_validation?.status ?? null).not.toBe("READY");
+        expect(model.selectable).toBe(false);
+      }
+    };
+    const expectConfirmStale = async () => {
+      const response = await app.inject({
+        method: "POST", url: `/provider-resources/${resourceId}/models/confirm`, headers: { cookie },
+        payload: { selected_model_ids: ["glm-5.2"] },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().error).toBe("MODEL_VALIDATION_STALE");
+    };
+
+    // 1) Key 轮换：凭证指纹变化 → 新探针 run 之前证据即失效。
+    await db.updateTable("provider_resource")
+      .set({ credential_fingerprint: "0".repeat(64) })
+      .where("id", "=", resourceId).execute();
+    await expectGetStale("CREDENTIAL_FINGERPRINT_MISMATCH");
+    await expectConfirmStale();
+    await db.updateTable("provider_resource")
+      .set({ credential_fingerprint: credentialFingerprint("stale-evidence-key") })
+      .where("id", "=", resourceId).execute();
+
+    // 2) 解析端点变更：capability_set.endpoints[mode] 改变 scope。
+    await db.updateTable("provider")
+      .set({ capability_set: { endpoints: { CODING_PLAN: "https://open.bigmodel.cn/api/coding/paas/v4" } } })
+      .where("id", "=", providerId).execute();
+    await expectGetStale("ENDPOINT_MISMATCH");
+    await expectConfirmStale();
+    await db.updateTable("provider").set({ capability_set: null })
+      .where("id", "=", providerId).execute();
+
+    // 3) 官方目录哈希变更。
+    const originalHash = (await db.selectFrom("provider_model_discovery")
+      .select("source_content_hash")
+      .where("provider_resource_id", "=", resourceId).where("status", "=", "SUCCEEDED")
+      .orderBy("discovered_at", "desc").executeTakeFirstOrThrow()).source_content_hash;
+    await db.updateTable("provider_model_discovery")
+      .set({ source_content_hash: "sha256:rotated-catalog" })
+      .where("provider_resource_id", "=", resourceId).execute();
+    await expectGetStale("DISCOVERY_SOURCE_HASH_MISMATCH");
+    await expectConfirmStale();
+    await db.updateTable("provider_model_discovery")
+      .set({ source_content_hash: originalHash })
+      .where("provider_resource_id", "=", resourceId).execute();
+
+    // 4) 模型集变化：从当前成功快照删除一个模型。
+    const successfulId = (await db.selectFrom("provider_model_discovery").select("id")
+      .where("provider_resource_id", "=", resourceId).where("status", "=", "SUCCEEDED")
+      .orderBy("discovered_at", "desc").executeTakeFirstOrThrow()).id;
+    await db.deleteFrom("provider_model_discovery_item")
+      .where("discovery_id", "=", successfulId).where("upstream_model", "=", "glm-5.3").execute();
+    await expectGetStale("MODEL_SET_MISMATCH");
+    await expectConfirmStale();
+
+    // 5) 过期证据（期间没有任何新探针 run）：把 run 开始时间拨回 25 小时前。
+    await db.updateTable("provider_model_probe_run")
+      .set({ started_at: new Date(Date.now() - 25 * 60 * 60 * 1000) })
+      .where("provider_resource_id", "=", resourceId).execute();
+    await expectGetStale("EVIDENCE_EXPIRED");
+    await expectConfirmStale();
+
+    // 恢复：重新同步生成新快照与新探针 run → 证据回到 CURRENT，可确认。
+    await db.updateTable("provider_model_discovery")
+      .set({ source_checked_at: new Date(Date.now() - 61_000), discovered_at: new Date(Date.now() - 61_000) })
+      .where("provider_resource_id", "=", resourceId).execute();
+    const resync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(resync.statusCode).toBe(200);
+    expect((await getPayload()).probe_evidence).toEqual({ status: "CURRENT" });
+    const confirmAgain = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/confirm`, headers: { cookie },
+      payload: { selected_model_ids: ["glm-5.2"] },
+    });
+    expect(confirmAgain.statusCode).toBe(200);
+  });
+
+  it("审核修复（P1）：官方下架模型（REMOVED 行）不使当次同步的新鲜证据被判 STALE", async () => {
+    mockOfficialDocs();
+    const created = await app.inject({
+      method: "POST", url: "/provider-resources", headers: { cookie },
+      payload: { provider_id: providerId, name: "智谱 Removed Row", mode: "CODING_PLAN",
+        credential_type: "API_KEY", credential_plaintext: "removed-row-key" },
+    });
+    expect(created.statusCode).toBe(201);
+    const resourceId = created.json().resource.id as string;
+    const sync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(sync.statusCode).toBe(200);
+
+    // 官方目录下架 glm-5.3（文档正文与 etag 均变化）→ 重新同步：
+    // 新发现只含 glm-5.2，新探针 run 针对新目录；glm-5.3 保留为 REMOVED 行。
+    // 先回拨检查时间越过 60s 同步缓存（与上一用例恢复步骤同法）。
+    await db.updateTable("provider_model_discovery")
+      .set({ source_checked_at: new Date(Date.now() - 61_000), discovered_at: new Date(Date.now() - 61_000) })
+      .where("provider_resource_id", "=", resourceId).execute();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return {
+          ok: true, status: 200, headers: { get: () => "application/json" },
+          json: async () => ({
+            id: "probe-2", object: "chat.completion",
+            choices: [{ message: { role: "assistant", content: "ok" } }],
+            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          }),
+        } as unknown as Response;
+      }
+      const body = String(input).includes("kimi")
+        ? "Model ID | `k3` | `k3-256k` | `kimi-for-coding` | `kimi-for-coding-highspeed`"
+        : "| 模型 ID | `glm-5.2` |\n| 上下文 | 256K |";
+      return {
+        ok: true, status: 200, url: String(input),
+        headers: { get: (name: string) => name === "etag" ? "test-docs-v2" : null },
+        text: async () => body,
+      } as unknown as Response;
+    });
+    const resync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(resync.statusCode).toBe(200);
+
+    // 前提成立：glm-5.3 确实以 REMOVED 行保留在快照中。
+    const removedRows = await db.selectFrom("provider_model_discovery_item")
+      .select(["upstream_model", "availability_status"])
+      .where("availability_status", "=", "REMOVED")
+      .where("enterprise_id", "=", enterpriseId)
+      .where("upstream_model", "=", "glm-5.3").execute();
+    expect(removedRows.length).toBeGreaterThan(0);
+
+    // 修复点：证据身份只看在列模型——REMOVED 行不参与，证据保持 CURRENT。
+    const payload = await (await app.inject({
+      method: "GET", url: `/provider-resources/${resourceId}/models`, headers: { cookie },
+    })).json();
+    expect(payload.probe_evidence).toEqual({ status: "CURRENT" });
+    const readyModel = payload.models
+      .find((model: { credential_validation?: { status?: string } }) => model.credential_validation?.status === "READY");
+    expect(readyModel).toBeTruthy();
+    expect(readyModel.selectable).toBe(true);
+
+    const confirm = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/confirm`, headers: { cookie },
+      payload: { selected_model_ids: ["glm-5.2"] },
+    });
+    expect(confirm.statusCode).toBe(200);
+  });
+
+  it("审核修复（P1）：大写厂商 code（Zhipu）不丢失 glm-5.3 专属真实验证", async () => {
+    mockOfficialDocs();
+    // 生产历史形态：provider.code = "Zhipu"（大写）。
+    const upperProviderId = randomUUID();
+    await db.insertInto("provider").values({
+      id: upperProviderId, enterprise_id: enterpriseId, code: "Zhipu", name: "智谱大写",
+      adapter_type: "OPENAI_COMPATIBLE", status: "ACTIVE",
+    }).execute();
+    const created = await app.inject({
+      method: "POST", url: "/provider-resources", headers: { cookie },
+      payload: { provider_id: upperProviderId, name: "智谱大写 A", mode: "CODING_PLAN",
+        credential_type: "API_KEY", credential_plaintext: "upper-zhipu-key" },
+    });
+    expect(created.statusCode).toBe(201);
+    const resourceId = created.json().resource.id as string;
+    const sync = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/sync`, headers: { cookie }, payload: {},
+    });
+    expect(sync.statusCode).toBe(200);
+    const confirm = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/confirm`, headers: { cookie },
+      payload: { selected_model_ids: ["glm-5.3"] },
+    });
+    expect(confirm.statusCode).toBe(200);
+
+    const upstream = mockValidationUpstream();
+    const validation = await app.inject({
+      method: "POST", url: `/provider-resources/${resourceId}/models/glm-5.3/validate`, headers: { cookie },
+      payload: { idempotency_key: "glm53-upper-validation-001", confirm_quota_consumption: true },
+    });
+    expect(validation.statusCode).toBe(200);
+    expect(validation.json().validation).toMatchObject({ status: "SUCCEEDED", upstreamModel: "glm-5.3" });
+    // canonicalProviderCode 后 glm-5.3 专属分支生效：reasoning_effort=max + 工具验证。
+    const bodies = upstream.mock.calls
+      .map(([, init]) => { try { return JSON.parse(String(init?.body)); } catch { return null; } })
+      .filter(Boolean) as Array<Record<string, unknown>>;
+    expect(bodies.some((body) => body.reasoning_effort === "max")).toBe(true);
+    expect(bodies.some((body) => Array.isArray(body.tools) && body.tools.length > 0)).toBe(true);
   });
 });

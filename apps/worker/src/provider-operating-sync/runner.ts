@@ -5,6 +5,7 @@ import {
   ResourcePoolRepository,
 } from "@qianliu/database";
 import {
+  canonicalProviderCode,
   decodeKek,
   decryptCredential,
   PROVIDER_OPERATING_ADAPTER_VERSION,
@@ -32,8 +33,14 @@ function shanghaiSyncDay(now: Date): Date {
   return new Date(`${day}T00:00:00.000Z`);
 }
 
-function isProviderCode(value: string): value is ProviderCode {
-  return value === "deepseek" || value === "kimi" || value === "zhipu";
+/**
+ * F-P2-7：canonical code 判定（与额度同步 runner 同一修复）——生产历史
+ * code（"DeepSeek"/"Zhipu"/"Kimi"）不再被严格比较静默跳过；命中时返回
+ * 规范化 code，下游一律消费 canonical 值。
+ */
+function operatingProviderCode(value: string): ProviderCode | null {
+  const code = canonicalProviderCode(value);
+  return code === "deepseek" || code === "kimi" || code === "zhipu" ? code : null;
 }
 
 /** API 充值流水晚于最后一次厂商快照时，当天允许额外同步一次余额。 */
@@ -130,7 +137,8 @@ export async function runProviderOperatingSyncTick(input: {
     let errorCode: string | null = null;
     let failureReason: string | null = null;
     try {
-      if (!isProviderCode(resource.provider_code) || !resource.credential_ciphertext) {
+      const operatingCode = operatingProviderCode(resource.provider_code);
+      if (!operatingCode || !resource.credential_ciphertext) {
         notSupported += 1;
         errorCode = resource.credential_ciphertext ? "PROVIDER_NOT_SUPPORTED" : "CREDENTIAL_MISSING";
         failureReason = resource.credential_ciphertext
@@ -142,7 +150,7 @@ export async function runProviderOperatingSyncTick(input: {
           kek,
         );
         const balance = await queryProviderOperatingBalance({
-          providerCode: resource.provider_code,
+          providerCode: operatingCode,
           mode: resource.mode,
           credential,
           fetch: input.fetch,

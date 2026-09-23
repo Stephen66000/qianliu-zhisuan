@@ -1,4 +1,5 @@
 import type { ProviderCode, ResourceMode } from "./model-discovery.js";
+import { canonicalProviderCode } from "./provider-code.js";
 
 export const PROVIDER_OPERATING_ADAPTER_VERSION = "pool20-025-v1";
 
@@ -46,7 +47,8 @@ export async function queryProviderOperatingBalance(input: {
   timeoutMs?: number;
   now?: Date;
 }): Promise<ProviderOperatingBalance | null> {
-  if (input.providerCode !== "deepseek" || input.mode !== "API") return null;
+  // F-P2-7：canonical code 判定，生产历史 code（如 "DeepSeek"）不再静默跳过。
+  if (canonicalProviderCode(input.providerCode) !== "deepseek" || input.mode !== "API") return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), input.timeoutMs ?? 8_000);
   try {

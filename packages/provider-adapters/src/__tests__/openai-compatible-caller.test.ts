@@ -3,6 +3,7 @@ import {
   chatAssistantToResponsesOutput,
   createOpenAiCompatibleCaller,
   encryptCredential,
+  providerChatConfigHash,
   resolveProviderSecret,
   responsesToChatCompletions,
   SecretValue,
@@ -1201,6 +1202,28 @@ describe("OpenAI-compatible HTTP caller", () => {
     expect(JSON.stringify(outcome)).not.toContain(canary);
   });
 
+  it("终审整改二：故障证据哈希绑定 resolveProviderEndpoint 实际端点，端点配置变更即变化", async () => {
+    const env = { KIMI_CODING_BASE_URL: "https://env-kimi.example" };
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async () => jsonResponse({ error: { type: "authentication_error" } }, 401),
+      env,
+    });
+    const base = { providerCode: "kimi" as const, mode: "CODING_PLAN" as const, upstreamModel: "k3" };
+    // mode 专属端点：证据哈希必须等于对该端点的 capabilityChatConfigHash 口径。
+    const scoped = await caller(
+      resource({ ...base, endpoints: { CODING_PLAN: "https://scoped-kimi.example/v1" } }),
+      responsesRequest(), 1,
+    );
+    expect(scoped.status).toBe(401);
+    expect(scoped.upstreamConfigHash).toBe(providerChatConfigHash("kimi", "CODING_PLAN", "k3",
+      { env, resolvedBaseUrl: "https://scoped-kimi.example/v1" }));
+    // 无 mode 专属端点时解析落到 ENV（KIMI_CODING_BASE_URL），哈希随之不同。
+    const unscoped = await caller(resource(base), responsesRequest(), 1);
+    expect(unscoped.upstreamConfigHash).toBe(providerChatConfigHash("kimi", "CODING_PLAN", "k3",
+      { env, resolvedBaseUrl: "https://env-kimi.example" }));
+    expect(scoped.upstreamConfigHash).not.toBe(unscoped.upstreamConfigHash);
+  });
+
   it.each([
     ["1211", "CONFIGURATION_ERROR"],
     ["1308", "QUOTA_EXHAUSTED"],
@@ -1865,6 +1888,62 @@ describe("OpenAI-compatible HTTP caller", () => {
       "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
     );
     expect(calls).toBe(1);
+  });
+
+  it("P2：capability_set.endpoints[mode] 模式专属地址优先于历史 Moonshot base_url", async () => {
+    let calledUrl = "";
+    const fetch: HttpFetch = async (url) => {
+      calledUrl = url;
+      return jsonResponse({
+        choices: [{ message: { content: "ok" } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+      });
+    };
+    const caller = createOpenAiCompatibleCaller({ fetch, env: {} });
+
+    // 生产 Provider 形态：base_url=历史 Moonshot 平台地址 + endpoints.CODING_PLAN 显式 Coding 地址。
+    const outcome = await caller(
+      resource({
+        providerCode: "Kimi",
+        mode: "CODING_PLAN",
+        upstreamModel: "k3",
+        baseUrl: "https://api.moonshot.cn/v1",
+        endpoints: { CODING_PLAN: "https://coding-gateway.corp.example/v1" },
+        secret: new SecretValue("kimi-real"),
+      }),
+      responsesRequest(),
+      1,
+    );
+
+    expect(outcome.error).toBeUndefined();
+    expect(calledUrl).toBe("https://coding-gateway.corp.example/v1/chat/completions");
+  });
+
+  it("审核修复（P1）：端点歧义是本侧配置错误——不合成上游 500，返回 CONFIGURATION_ERROR 信号", async () => {
+    const fetch: HttpFetch = async () => {
+      throw new Error("端点歧义时不应发起任何上游请求");
+    };
+    const caller = createOpenAiCompatibleCaller({ fetch, env: {} });
+
+    // Kimi CODING_PLAN + 未知自定义域名 → resolveProviderEndpoint 失败关闭。
+    const outcome = await caller(
+      resource({
+        providerCode: "kimi",
+        mode: "CODING_PLAN",
+        upstreamModel: "k3",
+        baseUrl: "https://relay.example.internal/v1",
+        secret: new SecretValue("kimi-real"),
+      }),
+      responsesRequest(),
+      1,
+    );
+
+    expect(outcome.status).toBe(0);
+    expect(outcome.committed).toBe(false);
+    expect(outcome.error).toBe("upstream_endpoint_ambiguous");
+    expect(outcome.upstreamCode).toBe("upstream_endpoint_ambiguous");
+    expect(outcome.failureLayer).toBe("CLIENT");
+    expect(outcome.unifiedAvailabilitySignal).toBe("CONFIGURATION_ERROR");
   });
 });
 

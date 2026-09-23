@@ -192,7 +192,66 @@ export function isProviderCode(value: string): value is ProviderCode {
   return typeof value === "string" && /^[a-zA-Z0-9_-]+$/.test(value.trim());
 }
 
+/** 模型级凭证验证公开结构（脱敏：不含 Key/Authorization/正文）。 */
+export interface PublicCredentialValidation {
+  status: string;
+  http_status: number | null;
+  error_code: string | null;
+  retryable: boolean;
+  checked_at: string;
+  /** F-P2-4：探针请求实际命中的解析端点（scope/host），可回答"打到哪个 host"。 */
+  endpoint_scope?: string | null;
+  endpoint_host?: string | null;
+}
+
+function toPublicModel(model: DiscoveredProviderModel) {
+  const validation = model.credentialValidation ?? null;
+  // P1 整改：READY 是唯一可用口径。selectable 与废弃兼容字段 compatible
+  // 都严格等价于 credentialValidation.status === "READY"；
+  // 未探针（credential_validation=null，含 EMBEDDING/IMAGE）与 NOT_RUN
+  // （探针上限外）一律不可选，杜绝无 READY 证据的模型被确认。
+  const ready = validation?.status === "READY";
+  return {
+    id: model.id,
+    displayName: model.displayName,
+    modelType: model.modelType,
+    capabilities: model.capabilities,
+    source: model.source,
+    // 兼容字段（废弃）：等价于 credential_validation.status === "READY"；
+    // 仅旧客户端继续读取，新前端应使用 credential_validation/selectable。
+    compatible: ready,
+    unavailableReason: model.unavailableReason,
+    facts: model.facts,
+    credential_validation: validation ? {
+      status: validation.status,
+      http_status: validation.httpStatus,
+      error_code: validation.errorCode,
+      retryable: validation.retryable,
+      checked_at: validation.checkedAt,
+      endpoint_scope: validation.endpointScope ?? null,
+      endpoint_host: validation.endpointHost ?? null,
+    } satisfies PublicCredentialValidation : null,
+    selectable: ready,
+  };
+}
+
+/** WP03：官方发现、Gateway 兼容与凭证验证三层计数，供页面顶部展示。 */
+export function discoverySummary(models: Array<{ modelType: string; compatible: boolean; credential_validation: PublicCredentialValidation | null }>) {
+  return {
+    discovered: models.length,
+    gateway_supported: models.filter((model) => model.modelType === "CHAT").length,
+    credential_ready: models.filter((model) => model.credential_validation?.status === "READY").length,
+    // F-P2-10：NOT_RUN（探针上限外未探针）不是失败，不计入 credential_failed。
+    credential_failed: models.filter((model) => model.credential_validation !== null
+      && model.credential_validation.status !== "READY"
+      && model.credential_validation.status !== "NOT_RUN").length,
+  };
+}
+
 export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverProviderModels>>) {
+  // WP03/WP05：官方发现的模型全部返回，不再按 compatible 过滤，
+  // 也不再无条件排除 k3-256k；失败模型保留行并带状态/原因，前端禁选。
+  const models = discovery.models.map(toPublicModel);
   return {
     source: discovery.source,
     source_version: discovery.sourceVersion,
@@ -205,7 +264,8 @@ export function publicDiscovery(discovery: Awaited<ReturnType<typeof discoverPro
     discovered_at: discovery.discoveredAt.toISOString(),
     stale: discovery.stale,
     reused: discovery.reused,
-    models: discovery.models.filter((model) => model.compatible && model.id !== "k3-256k"),
+    models,
+    summary: discoverySummary(models),
     catalog_diff: discovery.catalogDiff ? {
       added: discovery.catalogDiff.added,
       retained: discovery.catalogDiff.retained,
@@ -253,6 +313,36 @@ export function publicStoredDiscovery(input: {
   failureCode?: string | null;
 }) {
   const checkedAt = input.discovery.source_checked_at ?? input.discovery.discovered_at;
+  // WP03/WP05：存储快照同样返回全部官方发现模型，不再静默过滤 compatible=false
+  // 或硬编码排除 k3-256k。
+  // P1 整改：快照行本身没有探针证据列，credential_validation=null，
+  // 因此 selectable 一律 false（只允许 READY 被确认）；GET /models 会用
+  // 最近一次探针运行回填 credential_validation 并把 READY 置为可选。
+  const models: Array<{
+    id: string;
+    displayName: string;
+    modelType: "CHAT" | "EMBEDDING" | "IMAGE" | "UNKNOWN";
+    capabilities: string[];
+    source: string;
+    compatible: boolean;
+    unavailableReason: string | null;
+    facts: Record<string, unknown>;
+    credential_validation: PublicCredentialValidation | null;
+    selectable: boolean;
+    availabilityStatus: "AVAILABLE" | "REMOVED";
+  }> = input.items.map((item) => ({
+    id: item.upstream_model,
+    displayName: item.display_name,
+    modelType: item.model_type,
+    capabilities: item.capabilities,
+    source: item.source,
+    compatible: item.compatible,
+    unavailableReason: item.unavailable_reason,
+    facts: item.facts,
+    credential_validation: null,
+    selectable: false,
+    availabilityStatus: item.availability_status,
+  }));
   return {
     source: input.discovery.source,
     source_version: input.discovery.source_version,
@@ -265,17 +355,8 @@ export function publicStoredDiscovery(input: {
     discovered_at: input.discovery.discovered_at.toISOString(),
     stale: input.itemsStale || input.discovery.stale,
     reused: input.reused ?? false,
-    models: input.items.filter((item) => item.compatible && item.upstream_model !== "k3-256k").map((item) => ({
-      id: item.upstream_model,
-      displayName: item.display_name,
-      modelType: item.model_type,
-      capabilities: item.capabilities,
-      source: item.source,
-      compatible: item.compatible,
-      unavailableReason: item.unavailable_reason,
-      facts: item.facts,
-      availabilityStatus: item.availability_status,
-    })),
+    models,
+    summary: discoverySummary(models),
     catalog_diff: input.catalogDiff ? {
       added: input.catalogDiff.added,
       retained: input.catalogDiff.retained,
@@ -290,9 +371,15 @@ export function publicStoredDiscovery(input: {
   };
 }
 
-export function selectCompatibleModels(models: DiscoveredProviderModel[], selectedIds: string[]) {
+/**
+ * P1 整改：确认接入的唯一门槛是凭证探针 READY（取代旧 compatible 过滤）。
+ * credentialValidation 缺失（未探针）或状态非 READY 的模型一律拒绝，
+ * 且所选集合必须全部命中，否则整体返回 null（409 model_selection_stale）。
+ */
+export function selectReadyModels(models: DiscoveredProviderModel[], selectedIds: string[]) {
   const selected = new Set(selectedIds);
-  const matches = models.filter((model) => selected.has(model.id) && model.compatible);
+  const matches = models.filter((model) =>
+    selected.has(model.id) && model.credentialValidation?.status === "READY");
   return matches.length === selected.size ? matches : null;
 }
 

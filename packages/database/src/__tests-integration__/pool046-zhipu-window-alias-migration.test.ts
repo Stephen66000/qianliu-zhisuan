@@ -290,8 +290,11 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0073_credential_chat_probe", "Success"],
         ["0074_runtime_notification_recipients", "Success"],
         ["0075_provider_resource_archive", "Success"],
-        ["0076_project_allocation_relations", "Success"],
-        ["0077_project_allocation_compute", "Success"],
+        ["0076_provider_model_probe", "Success"],
+        ["0077_provider_model_probe_run_identity", "Success"],
+        ["0078_provider_model_probe_enum_checks", "Success"],
+        ["0079_project_allocation_relations", "Success"],
+        ["0080_project_allocation_compute", "Success"],
       ]);
 
       expect(await db.selectFrom("dispatch_policy")
@@ -334,8 +337,11 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow();
       expect(afterSecondUp).toEqual(migratedTarget);
 
-      expect(await migrateDown(db)).toBe("0077_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0076_project_allocation_relations");
+      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
+      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
+      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
+      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
+      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
       expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
       expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
       expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
@@ -434,8 +440,11 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0073_credential_chat_probe", "Success"],
         ["0074_runtime_notification_recipients", "Success"],
         ["0075_provider_resource_archive", "Success"],
-        ["0076_project_allocation_relations", "Success"],
-        ["0077_project_allocation_compute", "Success"],
+        ["0076_provider_model_probe", "Success"],
+        ["0077_provider_model_probe_run_identity", "Success"],
+        ["0078_provider_model_probe_enum_checks", "Success"],
+        ["0079_project_allocation_relations", "Success"],
+        ["0080_project_allocation_compute", "Success"],
       ]);
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows"])

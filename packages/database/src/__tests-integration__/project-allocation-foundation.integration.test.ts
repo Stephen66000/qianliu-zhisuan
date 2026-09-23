@@ -112,7 +112,7 @@ async function insertLine(params: {
 }
 
 describe("迁移与触发器合同", () => {
-  it("0076/0077 迁移后新表存在；类型/边界触发器与复合 FK 生效", async () => {
+  it("0079/0080 迁移后新表存在；类型/边界触发器与复合 FK 生效", async () => {
     expect((await sql<{ reg: string | null }>`
       SELECT to_regclass('public.project_allocation_run') AS reg`.execute(db)).rows[0]?.reg)
       .toBe("project_allocation_run");

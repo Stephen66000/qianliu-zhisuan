@@ -6,21 +6,29 @@ import {
   ModelValidationInProgressError,
 } from "@qianliu/database";
 import {
-  builtinProviderModelDiscovery,
+  capabilityConfiguredEndpoints,
+  canonicalProviderCode,
   credentialFingerprint,
-  decryptCredential,
   discoverProviderModels,
   encryptCredential,
-  officialSourceConfig,
-  providerModelDiscoveryDescriptor,
   ProviderModelDiscoveryError,
   validateProviderModel,
   type DiscoveredProviderModel,
-  type EncryptedCredential,
   type HttpFetch,
 } from "@qianliu/provider-adapters";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
+  decryptResourceCredential,
+  officialSourceOverridesFromEnv,
+  persistProbeRun,
+  syncResourceModels,
+} from "./model-discovery-sync.js";
+import {
+  applyProbeEvidenceOverlay,
+  currentAvailableModelIds,
+  evaluateProbeEvidenceIdentity,
+  probeEndpointIdentity,
+} from "./probe-evidence.js";import {
   ConfirmDiscoveredModelsSchema,
   ModelDiscoverySchema,
   ModelValidationSchema,
@@ -31,12 +39,11 @@ import {
   operatingSnapshotModeError,
   publicDiscovery,
   publicStoredDiscovery,
-  selectCompatibleModels,
+  selectReadyModels,
   sendDiscoveryError,
   toOperatingSnapshotInput,
 } from "./contracts.js";
 
-const SYNC_CACHE_TTL_MS = 60_000;
 const syncFlights = new Map<string, Promise<Record<string, unknown>>>();
 
 export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void {
@@ -48,17 +55,50 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     if (!provider || !isProviderCode(provider.code)) {
       return reply.code(404).send({ error: "provider_not_found", message: "厂商不存在或不受支持" });
     }
-    const capSet = provider.capability_set as Record<string, unknown> | null;
-    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+    const configured = capabilityConfiguredEndpoints(provider.capability_set);
+    const baseUrl = configured.base_url ?? undefined;
+    // P2：cacheKey/singleflight 口径 = enterprise + provider + mode +
+    // credential fingerprint + endpoint scope/host。同企业、同厂商、同模式、
+    // 同凭证、同端点的并发/60s 内重复检测共享同一次发现与探针飞行，
+    // 不重复打上游；Key、模式化端点或端点归属任一变化即产生新飞行。
+    const fingerprint = credentialFingerprint(parsed.data.credential_plaintext);
+    // F-P2-13：端点身份公式收敛到 probeEndpointIdentity（与 persistProbeRun/
+    // 证据身份校验同源），不再本地复制兜底逻辑。
+    const { endpointScope, endpointHost } = probeEndpointIdentity({
+      providerCode: provider.code,
+      mode: parsed.data.mode,
+      capabilitySet: provider.capability_set,
+    });
+    const cacheKey = [
+      req.admin!.enterpriseId, provider.id, parsed.data.mode,
+      fingerprint, endpointScope, endpointHost,
+    ].join(":");
     try {
-      return publicDiscovery(await discoverProviderModels({
+      const discovery = await discoverProviderModels({
         providerCode: provider.code,
         mode: parsed.data.mode,
         credential: parsed.data.credential_plaintext,
         baseUrl,
+        endpoints: configured.endpoints ?? undefined,
+        cacheKey,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
         probePermissions: true,
-      }));
+      });
+      // P2：ad-hoc 检测同样落探针证据（未绑定资源 → provider_resource_id=null）。
+      // reused 结果 discoveredAt 相同 → 同一 idempotency_key 幂等去重；
+      // 落库内容仅指纹/scope/host/状态/HTTP/错误码/诊断哈希，无 Key、
+      // Authorization、Prompt 或原始错误正文。
+      await persistProbeRun(app, {
+        enterpriseId: req.admin!.enterpriseId,
+        providerId: provider.id,
+        providerResourceId: null,
+        providerCode: provider.code,
+        mode: parsed.data.mode,
+        capabilitySet: provider.capability_set,
+        credential: parsed.data.credential_plaintext,
+        discovery,
+      });
+      return publicDiscovery(discovery);
     } catch (cause) {
       return sendDiscoveryError(reply, cause);
     }
@@ -72,8 +112,8 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
     if (!provider || !isProviderCode(provider.code)) {
       return reply.code(404).send({ error: "provider_not_found", message: "厂商不存在或不受支持" });
     }
-    const capSet = provider.capability_set as Record<string, unknown> | null;
-    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+    const configured = capabilityConfiguredEndpoints(provider.capability_set);
+    const baseUrl = configured.base_url ?? undefined;
     const { credential_plaintext, operating_snapshot, selected_model_ids, idempotency_key, ...resource } = parsed.data;
     if (operating_snapshot) {
       const financeError = app.providerFinanceMode === "OFF" ? null
@@ -90,14 +130,16 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         mode: resource.mode,
         credential: credential_plaintext,
         baseUrl,
+        endpoints: configured.endpoints ?? undefined,
         officialSourceOverrides: officialSourceOverridesFromEnv(),
         probePermissions: true,
       });
-      const selected = selectCompatibleModels(discovery.models, selected_model_ids);
+      // P1：只有探针 READY 的模型可 onboard；fresh discovery 带 credentialValidation。
+      const selected = selectReadyModels(discovery.models, selected_model_ids);
       if (!selected) {
         return reply.code(409).send({
           error: "model_selection_stale",
-          message: "所选模型已不可用或与 Gateway 不兼容，请重新检测",
+          message: "所选模型未通过凭证探针验证（仅 READY 可确认），请重新检测后再接入",
         });
       }
       const result = await app.providerRepo.onboardResourceModels({
@@ -125,6 +167,17 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         },
         discovery,
         selectedModels: selected,
+      });
+      // WP04：接入后绑定 resource 的探针证据落库。
+      await persistProbeRun(app, {
+        enterpriseId: req.admin!.enterpriseId,
+        providerId: provider.id,
+        providerResourceId: result.resourceId,
+        providerCode: provider.code,
+        mode: resource.mode,
+        capabilitySet: provider.capability_set,
+        credential: credential_plaintext,
+        discovery,
       });
       await app.auditRepo.write({
         enterprise_id: req.admin!.enterpriseId, admin_user_id: req.admin!.adminUserId,
@@ -156,7 +209,35 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
         integrationStates: states,
         failureCode: latest.discovery.failure_code,
       });
-      return { ...publicResult, discovery: latest.discovery, items: latest.items, items_stale: latest.items_stale };
+      // 终审整改一：READY 探针证据必须与当前资源（凭证指纹 + 解析端点）
+      // 和当前成功发现（目录哈希 + 模型集 + 新鲜度）身份一致才可回填；
+      // 不一致即 MODEL_VALIDATION_STALE——不回填任何 READY 证据，
+      // 页面模型全部不可选，要求重新同步或重新检测。
+      // F-P2-9：资源行改用仓储方法 getResourceForModelDiscovery——与
+      // confirm/sync 同一过滤口径（校验 provider/resource 状态），替换原先
+      // 内联手写 Kysely join 的胖路由查询（原实现不校验状态且逻辑重复）。
+      const resourceRow = await app.providerRepo.getResourceForModelDiscovery(
+        req.admin!.enterpriseId, req.params.id,
+      );
+      if (!resourceRow) return reply.code(404).send({ error: "not_found", message: "资源不存在或当前不可用" });
+      const probeRun = await app.providerRepo.latestModelProbeRun(req.admin!.enterpriseId, req.params.id);
+      let probeEvidence: Record<string, unknown> | null = null;
+      if (probeRun) {
+        const identity = evaluateProbeEvidenceIdentity({
+          providerCode: resourceRow.provider_code,
+          mode: resourceRow.mode as "API" | "CODING_PLAN",
+          capabilitySet: resourceRow.provider_capability_set,
+          credentialFingerprint: resourceRow.credential_fingerprint,
+          discoverySourceHash: snapshot.source_content_hash ?? null,
+          modelIds: currentAvailableModelIds(latest.items),
+          probeRun,
+        });
+        probeEvidence = identity.valid
+          ? applyProbeEvidenceOverlay(publicResult, probeRun)
+          : { status: "MODEL_VALIDATION_STALE", reason: identity.reason, requires: "SYNC_OR_PROBE" };
+      }
+      return { ...publicResult, probe_evidence: probeEvidence,
+        discovery: latest.discovery, items: latest.items, items_stale: latest.items_stale };
     },
   );
 
@@ -190,13 +271,50 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       if (latest.items_stale) {
         return reply.code(409).send({ error: "model_discovery_stale", message: "最近一次模型同步失败或来源已过期，请同步成功后再确认接入" });
       }
-      const candidates = latest.items.map((item): DiscoveredProviderModel => ({
-        id: item.upstream_model, displayName: item.display_name, modelType: item.model_type,
-        capabilities: item.capabilities, source: item.source, compatible: item.compatible,
-        unavailableReason: item.unavailable_reason, facts: item.facts as unknown as DiscoveredProviderModel["facts"],
-      }));
-      const selected = selectCompatibleModels(candidates, parsed.data.selected_model_ids);
-      if (!selected) return reply.code(409).send({ error: "model_selection_stale", message: "所选模型不可用，请先同步" });
+      // P1：用最近一次探针运行回填模型级 credentialValidation，
+      // 确认门槛与 GET /models 展示一致（仅 READY 可确认）。
+      const probeRun = await app.providerRepo.latestModelProbeRun(req.admin!.enterpriseId, req.params.id);
+      // 终审整改一：READY 证据身份必须与当前资源/当前成功发现一致，
+      // 否则 409 MODEL_VALIDATION_STALE，要求重新同步或重新检测。
+      if (probeRun) {
+        const identity = evaluateProbeEvidenceIdentity({
+          providerCode: resource.provider_code,
+          mode: resource.mode as "API" | "CODING_PLAN",
+          capabilitySet: resource.provider_capability_set,
+          credentialFingerprint: resource.credential_fingerprint,
+          discoverySourceHash: (latest.successful_discovery ?? latest.discovery).source_content_hash ?? null,
+          modelIds: currentAvailableModelIds(latest.items),
+          probeRun,
+        });
+        if (!identity.valid) {
+          return reply.code(409).send({ error: "MODEL_VALIDATION_STALE", reason: identity.reason,
+            message: "探针证据与当前凭证/端点/官方目录不一致或已过期，请重新同步模型或重新检测" });
+        }
+      }
+      const evidenceByModel = new Map((probeRun?.items ?? []).map((item) => [item.upstream_model, item]));
+      const candidates = latest.items.map((item): DiscoveredProviderModel => {
+        const evidence = evidenceByModel.get(item.upstream_model);
+        return {
+          id: item.upstream_model, displayName: item.display_name, modelType: item.model_type,
+          capabilities: item.capabilities, source: item.source, compatible: item.compatible,
+          unavailableReason: item.unavailable_reason, facts: item.facts as unknown as DiscoveredProviderModel["facts"],
+          ...(evidence ? {
+            credentialValidation: {
+              status: evidence.validation_status,
+              httpStatus: evidence.http_status,
+              errorCode: evidence.error_code,
+              retryable: evidence.retryable,
+              checkedAt: (evidence.checked_at ?? probeRun!.run.finished_at ?? probeRun!.run.started_at ?? new Date()).toISOString(),
+              // F-P2-4：证据携带 run 冻结的端点 scope/host。
+              endpointScope: probeRun!.run.endpoint_scope,
+              endpointHost: probeRun!.run.endpoint_host,
+            },
+          } : {}),
+        };
+      });
+      const selected = selectReadyModels(candidates, parsed.data.selected_model_ids);
+      if (!selected) return reply.code(409).send({ error: "model_selection_stale",
+        message: "所选模型未通过凭证探针验证（仅 READY 可确认），请先同步模型" });
       const models = await app.providerRepo.attachDiscoveredModels({
         enterpriseId: req.admin!.enterpriseId, providerCode: resource.provider_code,
         resourceId: resource.id, models: selected,
@@ -242,18 +360,25 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       const requestId = `mdv-${randomUUID()}`;
       let evidence;
       try {
-        const capSet = (target as { provider_capability_set?: unknown }).provider_capability_set as Record<string, unknown> | null;
-        const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+        // P2：统一抽取 base_url + endpoints[mode]，模式专属地址经同一策略生效。
+        const configured = capabilityConfiguredEndpoints(
+          (target as { provider_capability_set?: unknown }).provider_capability_set,
+        );
         const credential = decryptResourceCredential(target.credential_ciphertext, app.credentialKek);
+        // 审核修复（P1）：生产历史 code 可能为 "Zhipu"，严格比较会丢失
+        // glm-5.3 专属的 reasoning_effort=max 与工具真实验证。统一规范化后比较。
+        const validationProviderCode = canonicalProviderCode(target.provider_code);
+        const isGlm53 = validationProviderCode === "zhipu" && req.params.upstreamModel === "glm-5.3";
         evidence = await validateProviderModel({
           providerCode: target.provider_code,
           mode: target.mode,
           resourceId: req.params.resourceId,
           upstreamModel: req.params.upstreamModel,
           credential,
-          baseUrl,
-          reasoningEffort: target.provider_code === "zhipu" && req.params.upstreamModel === "glm-5.3" ? "max" : undefined,
-          runToolCheck: target.provider_code === "zhipu" && req.params.upstreamModel === "glm-5.3",
+          baseUrl: configured.base_url ?? undefined,
+          endpoints: configured.endpoints ?? undefined,
+          reasoningEffort: isGlm53 ? "max" : undefined,
+          runToolCheck: isGlm53,
           fetch: globalThis.fetch as unknown as HttpFetch,
           env: process.env,
           requestId,
@@ -288,114 +413,4 @@ export function registerProviderModelDiscoveryRoutes(app: FastifyInstance): void
       return { validation: result };
     },
   );
-}
-
-async function syncResourceModels(
-  app: FastifyInstance,
-  enterpriseId: string,
-  adminUserId: string,
-  resourceId: string,
-  reply: { code(status: number): { send(body: unknown): unknown } },
-): Promise<Record<string, unknown>> {
-  const resource = await app.providerRepo.getResourceForModelDiscovery(enterpriseId, resourceId);
-  if (!resource || !isProviderCode(resource.provider_code) || !resource.credential_ciphertext) {
-    const isolated = await app.db.selectFrom("provider_resource").select("id")
-      .where("id", "=", resourceId).where("enterprise_id", "=", enterpriseId)
-      .where("status", "=", "CREDENTIAL_INVALID").executeTakeFirst();
-    if (isolated) return reply.code(409).send({ error: "credential_isolated",
-      message: "资源因 Chat 鉴权失败已隔离，请先在供给与健康中验证当前凭证" }) as Record<string, unknown>;
-    return reply.code(404).send({ error: "not_found", message: "资源不存在或没有可用凭证" }) as Record<string, unknown>;
-  }
-  const latest = await app.providerRepo.latestModelDiscovery(enterpriseId, resource.id);
-  const lastChecked = latest?.successful_discovery?.source_checked_at ?? null;
-  const hasIncompatibleItems = latest?.items?.some((item) => !item.compatible);
-  if (latest?.successful_discovery && !latest.successful_discovery.stale && lastChecked && Date.now() - lastChecked.getTime() < SYNC_CACHE_TTL_MS && !hasIncompatibleItems) {
-    const states = await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, latest.items.map((item) => item.upstream_model));
-    return publicStoredDiscovery({
-      discovery: latest.successful_discovery,
-      items: latest.items,
-      itemsStale: false,
-      integrationStates: states,
-      reused: true,
-    });
-  }
-  try {
-    const capSet = (resource as { provider_capability_set?: unknown }).provider_capability_set as Record<string, unknown> | null;
-    const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
-    const credential = decryptResourceCredential(resource.credential_ciphertext, app.credentialKek);
-    const discovery = await discoverProviderModels({
-      providerCode: resource.provider_code,
-      mode: resource.mode,
-      credential,
-      baseUrl,
-      cacheKey: `${enterpriseId}:${resource.id}`,
-      forceRefresh: true,
-      officialSourceOverrides: officialSourceOverridesFromEnv(),
-      probePermissions: true,
-    });
-    const saved = await app.providerRepo.recordModelDiscovery(enterpriseId, resource.id, discovery);
-    const states = await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, discovery.models.map((model) => model.id));
-    const catalogDiff = saved.catalogDiff ?? { added: [], retained: [], notAdvertised: [] };
-    await app.auditRepo.write({
-      enterprise_id: enterpriseId, admin_user_id: adminUserId,
-      action: "provider_resource.models_sync", target_type: "provider_resource", target_id: resource.id,
-      change_summary: {
-        source: discovery.source, parser_version: discovery.parserVersion,
-        source_url: discovery.sourceUrl, source_content_hash: discovery.sourceContentHash,
-        added: catalogDiff.added.length, retained: catalogDiff.retained.length,
-        not_advertised: catalogDiff.notAdvertised.length, reused: discovery.reused,
-      }, result: "SUCCESS",
-    });
-    return publicDiscovery({ ...discovery, catalogDiff, integrationStates: states });
-  } catch (cause) {
-    if (!(cause instanceof ProviderModelDiscoveryError)) throw cause;
-    const descriptor = providerModelDiscoveryDescriptor(resource.provider_code, resource.mode);
-    const sourceConfig = officialSourceConfig(resource.provider_code, resource.mode, officialSourceOverridesFromEnv());
-    const failed = await app.providerRepo.recordModelDiscoveryFailure(enterpriseId, resource.id, {
-      ...descriptor,
-      sourceUrl: descriptor.source === "OFFICIAL_DOCUMENTATION" ? sourceConfig.coreUrl : null,
-      sourceEtag: null,
-      sourceLastModified: null,
-      sourceContentHash: null,
-      sourceCheckedAt: new Date(),
-      discoveredAt: new Date(),
-      failureCode: cause.code,
-    });
-    await app.auditRepo.write({
-      enterprise_id: enterpriseId, admin_user_id: adminUserId,
-      action: "provider_resource.models_sync", target_type: "provider_resource", target_id: resource.id,
-      change_summary: { discovery_id: failed.id, failure_code: cause.code, parser_version: cause.parserVersion ?? descriptor.parserVersion },
-      result: "FAILURE",
-    });
-    if (["RATE_LIMITED", "UPSTREAM_UNAVAILABLE", "OFFICIAL_SOURCE_UNAVAILABLE", "OFFICIAL_SOURCE_TOO_LARGE"].includes(cause.code)) {
-      const successful = latest?.successful_discovery;
-      if (successful && latest.items.length > 0) {
-        const states = await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, latest.items.map((item) => item.upstream_model));
-        return publicStoredDiscovery({
-          discovery: { ...successful, source: "LAST_SUCCESSFUL_SNAPSHOT", stale: true },
-          items: latest.items,
-          itemsStale: true,
-          integrationStates: states,
-          failureCode: cause.code,
-        });
-      }
-      const fallback = builtinProviderModelDiscovery({ providerCode: resource.provider_code, mode: resource.mode });
-      if (fallback) {
-        fallback.failureCode = cause.code;
-        const saved = await app.providerRepo.recordModelDiscovery(enterpriseId, resource.id, fallback);
-        const states = await app.providerRepo.modelIntegrationStates(enterpriseId, resource.id, fallback.models.map((model) => model.id));
-        return publicDiscovery({ ...fallback, catalogDiff: saved.catalogDiff, integrationStates: states });
-      }
-    }
-    return sendDiscoveryError(reply, cause) as Record<string, unknown>;
-  }
-}
-
-function decryptResourceCredential(raw: string, kek: Buffer): string {
-  const encrypted = (typeof raw === "string" ? JSON.parse(raw) : raw) as EncryptedCredential;
-  return decryptCredential(encrypted, kek);
-}
-
-function officialSourceOverridesFromEnv() {
-  return {};
 }

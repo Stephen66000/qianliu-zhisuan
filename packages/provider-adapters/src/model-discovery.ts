@@ -1,8 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { DEEPSEEK_VERSION_URL, enrichDeepSeekVersions } from "./deepseek-model-version.js";
 import {
   ProviderModelDiscoveryError,
-  type DiscoveredProviderModel,
   type DiscoveryFetch, type DiscoveryResponse, type ModelDiscoveryResult,
   type OfficialSourceConfig, type OfficialSourceOverrides, type ProviderCode, type ResourceMode,
 } from "./model-discovery-contract.js";
@@ -10,18 +9,13 @@ import {
   cloneDiscoveryResult, discoverOfficialModelPageUrls, normalizeModel, parseOfficialDocuments,
   type FetchedDocument,
 } from "./model-discovery-parser.js";
-import { SecretValue } from "./secret-value.js";
-import { createOpenAiCompatibleCaller } from "./openai-compatible-caller.js";
-import type { HttpFetch } from "./openai-compatible-types.js";
-
 import { findKnownProvider, resolveProviderModelsUrl } from "./known-providers.js";
+import { resolveProviderEndpoint } from "./endpoint-policy.js";
+import { probeModelPermissions } from "./model-discovery-probe.js";
+import type { HttpFetch } from "./openai-compatible-types.js";
+import { canonicalProviderCode } from "./provider-code.js";
 
 export * from "./model-discovery-contract.js";
-
-const ENDPOINTS: Record<"deepseek" | "kimi", string> = {
-  deepseek: "https://api.deepseek.com/models",
-  kimi: "https://api.moonshot.cn/v1/models",
-};
 
 const PARSER_VERSIONS = {
   zhipu: "zhipu-docs-v1",
@@ -70,6 +64,19 @@ const KIMI_CODING_PLAN_CATALOG = ["k3", "k3-256k", "kimi-for-coding", "kimi-for-
 const resultCache = new Map<string, { expiresAt: number; result: ModelDiscoveryResult }>();
 const inFlight = new Map<string, Promise<ModelDiscoveryResult>>();
 
+// F-P2-11：cacheKey 含凭证指纹（高基数），无淘汰机制时每次换 Key 永久新增
+// 缓存项，长跑内存单调增长。两表均做 FIFO 淘汰（TTL 60s 内 200 项远超
+// 并发检测需求，命中语义不受影响）。
+const MAX_CACHE_ENTRIES = 200;
+
+function evictOldest(map: Map<string, unknown>): void {
+  while (map.size >= MAX_CACHE_ENTRIES) {
+    const oldest = map.keys().next();
+    if (oldest.done) break;
+    map.delete(oldest.value);
+  }
+}
+
 export function clearProviderModelDiscoveryCache(): void {
   resultCache.clear();
   inFlight.clear();
@@ -79,7 +86,8 @@ export function providerModelDiscoveryDescriptor(
   providerCode: ProviderCode,
   mode: ResourceMode,
 ): Pick<ModelDiscoveryResult, "source" | "sourceVersion" | "parserVersion"> {
-  const p = (providerCode || "").toLowerCase();
+  // WP02：进入 Adapter 前统一规范化，禁止 Kimi/kimi 大小写导致分支失效。
+  const p = canonicalProviderCode(providerCode);
   if ((p === "zhipu" || p === "kimi") &&
       (p === "zhipu" || mode === "CODING_PLAN")) {
     const parserVersion = PARSER_VERSIONS[p as "zhipu" | "kimi"];
@@ -93,16 +101,17 @@ export function builtinProviderModelDiscovery(input: {
   mode: ResourceMode;
   now?: Date;
 }): ModelDiscoveryResult | null {
-  const ids = input.providerCode === "zhipu"
+  const providerCode = canonicalProviderCode(input.providerCode);
+  const ids = providerCode === "zhipu"
     ? ZHIPU_CATALOG[input.mode]
-    : input.providerCode === "kimi" && input.mode === "CODING_PLAN"
+    : providerCode === "kimi" && input.mode === "CODING_PLAN"
       ? KIMI_CODING_PLAN_CATALOG
       : null;
   if (!ids) return null;
   const now = input.now ?? new Date();
   return {
     source: "BUILTIN_FALLBACK",
-    sourceVersion: `builtin-${input.providerCode}-${input.mode.toLowerCase()}-v1`,
+    sourceVersion: `builtin-${providerCode}-${input.mode.toLowerCase()}-v1`,
     parserVersion: null,
     sourceUrl: null,
     sourceEtag: null,
@@ -125,12 +134,18 @@ export function officialSourceConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): OfficialSourceConfig {
   const key = `${providerCode}:${mode}` as const;
-  const p = (providerCode || "").toLowerCase();
+  // WP02：规范化后再匹配内置回退与 envPrefix，Zhipu/Kimi 大写不再误配。
+  const p = canonicalProviderCode(providerCode);
   const defaults = (p === "zhipu" || p === "kimi")
     ? DEFAULT_OFFICIAL_SOURCES[p as "zhipu" | "kimi"][mode]
     : undefined;
-  if (!defaults) return { coreUrl: ENDPOINTS[p as "deepseek" | "kimi"] ?? resolveProviderModelsUrl(providerCode) };
-  const envPrefix = providerCode === "zhipu"
+  if (!defaults) {
+    // F-P2-5：无官方文档来源的厂商（如 DeepSeek）同样经端点策略取发现地址，
+    // 与 PROVIDER_API 链路口径一致；策略无法解析时保留既有猜测兜底。
+    const viaPolicy = resolveProviderModelsEndpoint({ providerCode: p, mode, env });
+    return { coreUrl: viaPolicy.ok ? viaPolicy.url : resolveProviderModelsUrl(p) };
+  }
+  const envPrefix = p === "zhipu"
     ? `QIANLIU_ZHIPU_${mode === "CODING_PLAN" ? "CODING_PLAN" : "API"}`
     : "QIANLIU_KIMI_CODING_PLAN";
   const envCore = env[`${envPrefix}_CORE_URL`];
@@ -148,6 +163,8 @@ export async function discoverProviderModels(input: {
   mode: ResourceMode;
   credential: string;
   baseUrl?: string;
+  /** P2：capability_set.endpoints 模式专属地址，与 baseUrl 一并进入端点策略。 */
+  endpoints?: Partial<Record<ResourceMode, string>>;
   fetch?: DiscoveryFetch;
   timeoutMs?: number;
   now?: Date;
@@ -168,9 +185,11 @@ export async function discoverProviderModels(input: {
   }
   const work = discoverProviderModelsUncached(input);
   if (!cacheKey) return work;
+  evictOldest(inFlight);
   inFlight.set(cacheKey, work);
   try {
     const result = await work;
+    evictOldest(resultCache);
     resultCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, result });
     return result;
   } finally {
@@ -178,95 +197,37 @@ export async function discoverProviderModels(input: {
   }
 }
 
-async function probeModelPermissions(
-  providerCode: ProviderCode,
-  mode: ResourceMode,
-  credential: string,
-  models: DiscoveredProviderModel[],
-  fetcher?: HttpFetch,
-  env: NodeJS.ProcessEnv = process.env,
-  baseUrl?: string,
-): Promise<void> {
-  const caller = createOpenAiCompatibleCaller({
-    ...(fetcher ? { fetch: fetcher } : {}),
-    env,
-    requestTimeoutMs: 60_000,
-    firstByteTimeoutMs: 30_000,
-    streamIdleTimeoutMs: 30_000,
+/**
+ * F-P2-5：模型发现来源 URL 统一经端点策略（MODEL_DISCOVERY_SOURCE）解析，
+ * 不再各处手拼 legacy baseUrl——发现链路与探针/验证/恢复/Gateway 口径一致，
+ * 策略枚举的 MODEL_DISCOVERY_SOURCE operation 自此有真实消费者。
+ */
+export function resolveProviderModelsEndpoint(input: {
+  providerCode: string;
+  mode: ResourceMode;
+  baseUrl?: string;
+  endpoints?: Partial<Record<ResourceMode, string>>;
+  env?: NodeJS.ProcessEnv;
+}): { ok: true; url: string; scope: string; host: string } | { ok: false } {
+  const resolved = resolveProviderEndpoint({
+    providerCode: input.providerCode,
+    resourceMode: input.mode,
+    operation: "MODEL_DISCOVERY_SOURCE",
+    configuredEndpoints: { base_url: input.baseUrl ?? null, endpoints: input.endpoints ?? null },
+    env: input.env,
   });
-  const chatModels = models.filter((m) => m.modelType === "CHAT");
-  // 若厂商模型数量较多（如 Qwen/OpenAI/SiliconFlow 包含数十甚至数百模型），
-  // 全量串行探活会导致严重耗时或上游频控。探查前 5 个典型模型即可确认接口与 Key 健康度。
-  const modelsToProbe = chatModels.length > 5 ? chatModels.slice(0, 5) : chatModels;
-  for (const model of modelsToProbe) {
-    if (providerCode === "kimi" && mode === "CODING_PLAN" && model.id === "k3-256k") {
-      model.compatible = false;
-      model.unavailableReason = "当前套餐未开通此模型权限 (HTTP 403)";
-      continue;
-    }
-    const isK3 = providerCode === "kimi" && /^(?:kimi-)?k3(?:-|$)/i.test(model.id);
-    try {
-      const outcome = await caller({
-        providerCode,
-        resourceId: "probe",
-        mode,
-        upstreamModel: model.id,
-        concurrencyLimit: 1,
-        baseUrl,
-        secret: new SecretValue(credential),
-      }, {
-        requestId: `probe-${randomUUID()}`,
-        unifiedModel: model.id,
-        stream: false,
-        capability: "chat",
-        body: {
-          model: model.id,
-          messages: [{ role: "user", content: "hi" }],
-          ...(isK3 ? { reasoning_effort: "low" } : {}),
-        },
-      }, 1);
-      const ok = outcome.status >= 200 && outcome.status < 300;
-      if (ok) {
-        model.compatible = true;
-        model.unavailableReason = null;
-      } else {
-        if (outcome.status === 403) {
-          model.compatible = false;
-          model.unavailableReason = "当前套餐/凭证未开通此模型权限 (HTTP 403)";
-        } else if (outcome.status === 401) {
-          model.compatible = false;
-          model.unavailableReason = "凭证鉴权失败 (HTTP 401)";
-        } else if (outcome.status === 400 || outcome.status === 404) {
-          model.compatible = false;
-          model.unavailableReason = "当前套餐不支持此模型 (HTTP 404)";
-        } else {
-          // 对于已知基础核心模型（如 Kimi k3），非明确权限拒绝（如 5xx 或探针网络波动）不武断判定为不兼容
-          if (model.id === "k3" || model.id === "kimi-for-coding" || model.id === "kimi-for-coding-highspeed") {
-            model.compatible = true;
-            model.unavailableReason = null;
-          } else {
-            model.compatible = false;
-            model.unavailableReason = `模型不可用 (${outcome.upstreamCode || `HTTP_${outcome.status}`})`;
-          }
-        }
-      }
-    } catch {
-      if (model.id === "k3" || model.id === "kimi-for-coding" || model.id === "kimi-for-coding-highspeed") {
-        model.compatible = true;
-        model.unavailableReason = null;
-      } else {
-        model.compatible = false;
-        model.unavailableReason = "模型探活超时或连接失败";
-      }
-    }
-  }
+  if (!resolved.ok) return { ok: false };
+  const trimmed = resolved.url.trim().replace(/\/+$/, "");
+  const url = trimmed.endsWith("/models") ? trimmed : `${trimmed}/models`;
+  return { ok: true, url, scope: resolved.scope, host: resolved.host };
 }
 
-async function discoverProviderModelsUncached(input: {
+async function discoverProviderModelsUncached(rawInput: {
   providerCode: ProviderCode;
   mode: ResourceMode;
   credential: string;
   baseUrl?: string;
+  endpoints?: Partial<Record<ResourceMode, string>>;
   fetch?: DiscoveryFetch;
   timeoutMs?: number;
   now?: Date;
@@ -274,7 +235,11 @@ async function discoverProviderModelsUncached(input: {
   env?: NodeJS.ProcessEnv;
   probePermissions?: boolean;
 }): Promise<ModelDiscoveryResult> {
+  // P3：规范化产出新对象，不再改写调用方入参（历史直接 input.providerCode=
+  // 赋值会突变调用方对象）。
+  const input = { ...rawInput, providerCode: canonicalProviderCode(rawInput.providerCode) };
   const now = input.now ?? new Date();
+  // WP02：所有下游（Parser/Descriptor/探针/端点策略）只接收 canonical code。
   const fetcher = input.fetch ?? (globalThis.fetch as unknown as DiscoveryFetch);
   const descriptor = providerModelDiscoveryDescriptor(input.providerCode, input.mode);
   let result: ModelDiscoveryResult;
@@ -292,17 +257,31 @@ async function discoverProviderModelsUncached(input: {
       input.fetch ? (input.fetch as unknown as HttpFetch) : undefined,
       input.env,
       input.baseUrl,
+      input.endpoints,
     );
   }
   return result;
 }
 
 async function discoverFromProviderApi(
-  input: { providerCode: ProviderCode; mode: ResourceMode; credential: string; timeoutMs?: number; baseUrl?: string },
+  input: {
+    providerCode: ProviderCode; mode: ResourceMode; credential: string; timeoutMs?: number;
+    baseUrl?: string; endpoints?: Partial<Record<ResourceMode, string>>; env?: NodeJS.ProcessEnv;
+  },
   fetcher: DiscoveryFetch,
   now: Date,
 ): Promise<ModelDiscoveryResult> {
-  const sourceUrl = resolveProviderModelsUrl(input.providerCode, input.baseUrl);
+  // F-P2-5：发现来源 URL 经端点策略解析（MODEL_DISCOVERY_SOURCE），不再直接
+  // 消费 legacy baseUrl 拼 /models；策略判歧义时失败关闭。
+  const modelsEndpoint = resolveProviderModelsEndpoint({
+    providerCode: input.providerCode, mode: input.mode,
+    baseUrl: input.baseUrl, endpoints: input.endpoints, env: input.env,
+  });
+  if (!modelsEndpoint.ok) {
+    throw new ProviderModelDiscoveryError("OFFICIAL_SOURCE_AMBIGUOUS",
+      "模型发现端点归属歧义，请在 capability 中配置模式专属地址");
+  }
+  const sourceUrl = modelsEndpoint.url;
   const response = await fetchWithTimeout(fetcher, sourceUrl, {
     authorization: `Bearer ${input.credential}`,
     accept: "application/json",
@@ -494,7 +473,7 @@ function assertOfficialUrl(providerCode: ProviderCode, rawUrl: string): void {
   } catch {
     throw new ProviderModelDiscoveryError("OFFICIAL_SOURCE_UNAVAILABLE", "官方来源 URL 无效");
   }
-  const p = (providerCode || "").toLowerCase() as keyof typeof OFFICIAL_HOSTS;
+  const p = canonicalProviderCode(providerCode) as keyof typeof OFFICIAL_HOSTS;
   const allowed = OFFICIAL_HOSTS[p];
   if (parsed.protocol !== "https:" || !allowed?.has(parsed.hostname)) {
     throw new ProviderModelDiscoveryError("OFFICIAL_SOURCE_UNAVAILABLE", "官方来源 URL 不在厂商 HTTPS 白名单内");

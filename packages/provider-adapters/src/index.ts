@@ -10,7 +10,7 @@
  */
 
 import type { Outcome } from "@qianliu/contracts";
-export { providerChatBaseUrl, providerChatConfigHash } from "./openai-compatible-caller.js";
+export { providerChatBaseUrl, providerChatConfigHash, capabilityChatConfigHash } from "./openai-compatible-caller.js";
 import type { SecretValue } from "./secret-value.js";
 
 export {
@@ -35,6 +35,8 @@ export interface AdapterResource {
   concurrencyLimit: number;
   /** 自定义或预设厂商 Base URL（如 https://dashscope.aliyuncs.com/compatible-mode/v1） */
   baseUrl?: string;
+  /** P2：capability_set.endpoints 模式专属地址（API / CODING_PLAN），优先级高于 baseUrl。 */
+  endpoints?: Partial<Record<"API" | "CODING_PLAN", string>>;
   /** 凭证（SecretValue 包装，脱敏安全）。 */
   secret: SecretValue;
 }
@@ -89,6 +91,7 @@ export {
   clearProviderModelDiscoveryCache,
   officialSourceConfig,
   providerModelDiscoveryDescriptor,
+  resolveProviderModelsEndpoint,
   ProviderModelDiscoveryError,
   type DiscoveryErrorCode,
   type DiscoverySource,
@@ -109,6 +112,25 @@ export {
   type ModelValidationCheck,
   type ModelValidationEvidence,
 } from "./model-validation.js";
+
+export {
+  canonicalProviderCode,
+  isKnownCanonicalProviderCode,
+  type CanonicalProviderCode,
+} from "./provider-code.js";
+
+export {
+  resolveProviderEndpoint,
+  capabilityConfiguredEndpoints,
+  KIMI_API_MODE_DEFAULT_URL,
+  KIMI_CODING_PLAN_DEFAULT_URL,
+  KIMI_CODING_PLAN_QUOTA_URL,
+  ZHIPU_CODING_PLAN_QUOTA_URL,
+  type EndpointOperation,
+  type EndpointScope,
+  type ConfiguredEndpoints,
+  type ResolvedEndpoint,
+} from "./endpoint-policy.js";
 
 export {
   queryCodingPlanQuota,

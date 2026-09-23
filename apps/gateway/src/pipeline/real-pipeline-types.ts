@@ -46,6 +46,8 @@ export interface RouteCandidateRow {
   secret?: SecretValue;
   concurrencyLimit?: number;
   baseUrl?: string;
+  /** P2：capability_set.endpoints 模式专属地址，随 AdapterResource 进入端点策略。 */
+  endpoints?: Partial<Record<"API" | "CODING_PLAN", string>>;
 }
 
 export interface RealPipelineDeps {

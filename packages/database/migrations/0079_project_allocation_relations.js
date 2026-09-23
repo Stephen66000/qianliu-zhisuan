@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 
 /**
- * 迁移 0076 —— 项目归集管理层（v1.2 计划 §3/§6，候选 C3 合同 10-WP01-contract.md §3）。
+ * 迁移 0079 —— 项目归集管理层（UAT 已执行 Kimi 0076–0078 后顺延；v1.2 计划 §3/§6）。
  *
  * 管理归集层新表：不修改 principal/ledger/usage/operating_bill 既有列，不回写原始事实。
  * 历史不可变约束沿用 0065 触发器范式：版本行禁 DELETE；UPDATE 仅允许指针列单向关闭。

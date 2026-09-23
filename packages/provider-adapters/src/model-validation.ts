@@ -31,6 +31,8 @@ export async function validateProviderModel(input: {
   upstreamModel: string;
   credential: string;
   baseUrl?: string;
+  /** P2：capability_set.endpoints 模式专属地址，经同一 resolveProviderEndpoint 生效。 */
+  endpoints?: Partial<Record<AdapterResource["mode"], string>>;
   reasoningEffort?: "low" | "high" | "max";
   runToolCheck: boolean;
   fetch?: HttpFetch;
@@ -53,6 +55,7 @@ export async function validateProviderModel(input: {
     upstreamModel: input.upstreamModel,
     concurrencyLimit: 1,
     baseUrl: input.baseUrl,
+    endpoints: input.endpoints,
     secret: new SecretValue(input.credential),
   };
   const checks: ModelValidationCheck[] = [];

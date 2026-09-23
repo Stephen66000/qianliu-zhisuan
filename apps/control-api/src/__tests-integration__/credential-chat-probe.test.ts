@@ -1,27 +1,44 @@
 import { randomUUID } from "node:crypto";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { CredentialChatProbeRepository, ResourcePoolRepository } from "@qianliu/database";
-import { encryptCredential, providerChatConfigHash } from "@qianliu/provider-adapters";
+import { encryptCredential, capabilityChatConfigHash } from "@qianliu/provider-adapters";
 import { app, db, adminCookie, ENT_ID, ADM_ID } from "./w19-admin-fixture.js";
 
 const secret = "private-probe-key-canary";
-const configHash = (p: string, mode: string, model: string) => providerChatConfigHash(p as "kimi", mode, model);
+// 终审整改二：测试侧配置哈希与生产恢复链路同源（capabilityChatConfigHash）。
+const configHash = (p: string, mode: string, model: string, capabilitySet: unknown = null) =>
+  capabilityChatConfigHash(p as "kimi", mode, model, capabilitySet);
 const success = { status: 200, committed: true,
   usage: { input: 2, output: 1, cache: 0, quality: "ACTUAL" as const } };
 afterEach(() => vi.unstubAllGlobals());
 
-async function seed() {
+async function seed(opts: { code?: string; capabilitySet?: Record<string, unknown> } = {}) {
+  const code = opts.code ?? "kimi";
   let provider = await db.selectFrom("provider").selectAll().where("enterprise_id", "=", ENT_ID)
-    .where("code", "=", "kimi").executeTakeFirst();
+    .where("code", "=", code).executeTakeFirst();
   provider ??= await db.insertInto("provider").values({ enterprise_id: ENT_ID,
-    name: "Kimi probe", code: "kimi", adapter_type: "OPENAI_COMPATIBLE", status: "ACTIVE" })
+    name: `Kimi probe ${code}`, code, adapter_type: "OPENAI_COMPATIBLE", status: "ACTIVE",
+    ...(opts.capabilitySet ? { capability_set: opts.capabilitySet } : {}) })
     .returningAll().executeTakeFirstOrThrow();
+  // 已存在的 provider 也要保证 capability_set 与用例一致（文件内各用例共享同一数据库）。
+  if (opts.capabilitySet) {
+    provider = await db.updateTable("provider").set({ capability_set: opts.capabilitySet })
+      .where("id", "=", provider.id).returningAll().executeTakeFirstOrThrow();
+  }
   const r = await db.insertInto("provider_resource").values({ enterprise_id: ENT_ID,
     provider_id: provider.id, name: "probe", mode: "CODING_PLAN", credential_type: "API_KEY",
     credential_version: 1, credential_ciphertext: JSON.stringify(encryptCredential(secret, app.credentialKek)),
     status: "ACTIVE" }).returningAll().executeTakeFirstOrThrow();
+  // 终审整改二：故障证据哈希模拟 Gateway 行为——对 capability_set 解析出的
+  // 实际端点计算；端点歧义（未知自定义域名）时无有效证据哈希。
+  let failureHash: string;
+  try {
+    failureHash = configHash("kimi", "CODING_PLAN", "k3-256k", opts.capabilitySet ?? null);
+  } catch {
+    failureHash = "unresolvable-endpoint";
+  }
   await new ResourcePoolRepository(db).recordFailure(r.id, "UPSTREAM_CREDENTIAL_INVALID", new Date(),
-    { upstreamModel: "k3-256k", upstreamConfigHash: configHash("kimi", "CODING_PLAN", "k3-256k") });
+    { upstreamModel: "k3-256k", upstreamConfigHash: failureHash });
   return r.id;
 }
 function post(id: string, key = randomUUID(), body = {}) {
@@ -183,5 +200,71 @@ describe("credential Chat recovery", () => {
     const quota = await app.inject({ method: "POST", url: `/provider-resources/${id}/quota-sync`, headers: { cookie: adminCookie } });
     expect(quota.statusCode).toBe(409);
     expect(quota.json().error).toBe("credential_isolated");
+  });
+
+  it.each(["Kimi", "KIMI"])("P1: production code %s with legacy Moonshot base_url recovers via the Coding endpoint", async code => {
+    const id = await seed({ code, capabilitySet: { base_url: "https://api.moonshot.cn/v1" } });
+    const fetch = vi.fn(async () => response()); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.statusCode).toBe(200);
+    expect(result.json().probe).toMatchObject({ status: "RECOVERED", upstreamModel: "k3-256k" });
+    // RC-0：历史 Moonshot 平台 base_url 是 API 模式地址，不得覆盖 Coding Plan 端点。
+    expect(fetch.mock.calls[0]![0]).toBe("https://api.kimi.com/coding/v1/chat/completions");
+    expect(result.body).not.toContain(secret);
+  });
+
+  it("P1: lowercase code with Moonshot base_url also resolves to the Coding endpoint", async () => {
+    const id = await seed({ code: "kimi", capabilitySet: { base_url: "https://api.moonshot.cn/v1" } });
+    const fetch = vi.fn(async () => response()); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.statusCode).toBe(200);
+    expect(fetch.mock.calls[0]![0]).toBe("https://api.kimi.com/coding/v1/chat/completions");
+  });
+
+  it("P1: unsupported provider codes are still rejected before any upstream call", async () => {
+    const id = await seed({ code: "qwen" });
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.statusCode).toBe(409);
+    expect(result.json().error).toBe("provider_unsupported");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("P1: unknown custom base_url host fails closed instead of silently calling the Coding endpoint", async () => {
+    const id = await seed({ code: "kimi", capabilitySet: { base_url: "https://relay.example.internal/v1" } });
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    // 终审整改二：端点无法解析时配置哈希失败关闭——恢复请求直接 409，
+    // 不产生任何上游调用，也不与旧故障证据对齐。
+    expect(result.statusCode).toBe(409);
+    expect(result.json().error).toBe("configuration_changed");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("终审整改二：mode 专属端点配置未变时凭证恢复仍可对齐并成功", async () => {
+    const capabilitySet = { endpoints: { CODING_PLAN: "https://api.kimi.com/coding/v1" } };
+    const id = await seed({ capabilitySet });
+    const fetch = vi.fn(async () => response()); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.statusCode).toBe(200);
+    expect(result.json().probe.status).toBe("RECOVERED");
+    // 调用确实落在 mode 专属端点上（MODE_SCOPED_CONFIG）。
+    expect(fetch.mock.calls[0]![0]).toBe("https://api.kimi.com/coding/v1/chat/completions");
+  });
+
+  it("终审整改二：端点配置变更后旧故障证据触发 configuration_changed，不发起上游调用", async () => {
+    const capabilitySet = { endpoints: { CODING_PLAN: "https://api.kimi.com/coding/v1" } };
+    const id = await seed({ capabilitySet });
+    // 故障证据按端点 A 记录（seed 内 capabilityChatConfigHash）；此后管理员
+    // 把 CODING_PLAN 端点切到 B——恢复必须拒绝，而不是对着新端点复用旧证据。
+    await db.updateTable("provider").set({
+      capability_set: { endpoints: { CODING_PLAN: "https://api.kimi.com/coding/v2" } },
+    }).where("id", "=", (await db.selectFrom("provider_resource").select("provider_id")
+      .where("id", "=", id).executeTakeFirstOrThrow()).provider_id).execute();
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const result = await post(id);
+    expect(result.statusCode).toBe(409);
+    expect(result.json().error).toBe("configuration_changed");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

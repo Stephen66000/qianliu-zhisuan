@@ -128,6 +128,8 @@ export {
   type UpdateProviderInput,
   type DeleteResourceSafelyResult,
 } from "./repositories/provider-repository.js";
+export { type ModelProbeRunInput } from "./repositories/provider-model-discovery-repository.js";
+export { type ProbeRunEndpointScope } from "./kysely-operations-tables.js";
 export {
   DEFAULT_RESET_TIMEZONE,
   calculateQuotaPeriod,
@@ -420,12 +422,15 @@ export {
   type ProjectAccountingProfileView,
 } from "./repositories/project-accounting-lifecycle-repository.js";
 export {
-  publishEmployeeRules, publishProjectIntent, getEmployeePolicyOverview, previewPolicyChange,
+  publishEmployeeRules, publishProjectIntent,
   AllocationPolicyVersionConflictError, AllocationRuleConflictError,
   type PublishRulesInput, type PublishRulesOutcome, type DesiredRuleInput,
-  type EmployeePolicyOverview, type PolicyPreviewResult, type PolicyPreviewSegment,
   type ProjectIntentSegment,
 } from "./repositories/employee-allocation-policy-repository.js";
+export {
+  getEmployeePolicyOverview, previewPolicyChange,
+  type EmployeePolicyOverview, type PolicyPreviewResult, type PolicyPreviewSegment,
+} from "./repositories/employee-allocation-policy-preview.js";
 export {
   enumerateShanghaiMonths, markAllocationDirty, resolveAllocationPrincipal,
   lockEmployeeAllocationScope, lockProjectAccountingScope, allocationInputHash,
@@ -444,10 +449,5 @@ export {
   type AllocationRunStatus, type ProjectAllocationSummary, type UnallocatedSummary,
   type AllocationLineRow, type UnallocatedLineRow,
 } from "./repositories/project-allocation-read-repository.js";
-export {
-  freezeProjectAllocationForClose, AllocationNotReadyError,
-} from "./repositories/project-allocation-freeze.js";
-export {
-  projectAllocationTick,
-  type AllocationScanResult,
-} from "./repositories/project-allocation-scan.js";
+export { freezeProjectAllocationForClose, AllocationNotReadyError } from "./repositories/project-allocation-freeze.js";
+export { projectAllocationTick, type AllocationScanResult } from "./repositories/project-allocation-scan.js";

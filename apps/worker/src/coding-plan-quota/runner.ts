@@ -18,6 +18,7 @@ import {
   type EncryptedCredential,
   type QuotaFetch,
   type QuotaWindow,
+  canonicalProviderCode,
   decryptCredential,
   decodeKek,
   queryCodingPlanQuota,
@@ -43,8 +44,14 @@ interface CodingPlanResourceRow {
 
 type QuotaProviderCode = Extract<ProviderCode, "kimi" | "zhipu">;
 
-function supportsQuotaSync(code: string): code is QuotaProviderCode {
-  return code === "kimi" || code === "zhipu";
+// 审核修复（P1）：生产历史 code 可能为 "Kimi"/"Zhipu"（大写），严格比较会
+// 把整条资源跳过（WP02 额度同步覆盖的残余漏洞）。与 Adapter/探针同口径：
+// 先经 canonicalProviderCode 规范化，再匹配额度同步支持的厂商。
+function quotaProviderCode(rawCode: string): QuotaProviderCode | null {
+  const code = canonicalProviderCode(rawCode);
+  if (code === "kimi") return "kimi";
+  if (code === "zhipu") return "zhipu";
+  return null;
 }
 
 function quotaWindowsConfirmRecovery(
@@ -116,15 +123,21 @@ export async function runCodingPlanQuotaTick(input: {
   const lastSyncAt = new Map(lastSyncRows.map((row) => [
     row.provider_resource_id, row.last_collected_at?.getTime() ?? null,
   ]));
-  const resources = candidates.filter((resource): resource is CodingPlanResourceRow & {
+  // 审核修复（P1）：规范化后的厂商 code 回写进资源行，下游
+  // queryCodingPlanQuota / 恢复判定 / 日志全部使用 canonical code。
+  const resources = candidates.flatMap((raw): Array<CodingPlanResourceRow & {
     provider_code: QuotaProviderCode;
-  } => {
-    if (!supportsQuotaSync(resource.provider_code)) return false;
+  }> => {
+    const code = quotaProviderCode(raw.provider_code);
+    if (code === null) return [];
+    const resource: CodingPlanResourceRow & { provider_code: QuotaProviderCode } = { ...raw, provider_code: code };
     if (resource.status === "ACTIVE" || resource.status === "DEGRADED") {
       const last = lastSyncAt.get(resource.id);
-      return last === undefined || last === null || last <= now.getTime() - healthySyncIntervalMs;
+      const due = last === undefined || last === null || last <= now.getTime() - healthySyncIntervalMs;
+      return due ? [resource] : [];
     }
-    return resource.cooldown_until === null || resource.cooldown_until <= now;
+    const cooled = resource.cooldown_until === null || resource.cooldown_until <= now;
+    return cooled ? [resource] : [];
   });
 
   let windowsUpserted = 0;

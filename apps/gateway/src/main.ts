@@ -9,7 +9,7 @@
  *   - 缺凭证/Base URL 明确失败，生产路径不返回 Stub 模拟结果。
  */
 import { createKysely, GatewayLedgerRepository, ResourcePoolRepository, DispatchPolicyRepository, QuotaGateRepository, RuntimeAssuranceRepository } from "@qianliu/database";
-import { decodeKek, resolveProviderSecret } from "@qianliu/provider-adapters";
+import { capabilityConfiguredEndpoints, decodeKek, resolveProviderSecret } from "@qianliu/provider-adapters";
 import { installGracefulShutdown } from "@qianliu/observability";
 import { buildGateway } from "./server.js";
 import { createRealPipeline, type RouteCandidateRow } from "./pipeline/real-pipeline.js";
@@ -68,8 +68,10 @@ async function start(): Promise<void> {
       .where("provider_resource.archived_at", "is", null)
       .execute();
     return routes.map((r) => {
-      const capSet = r.provider_capability_set as Record<string, unknown> | null;
-      const baseUrl = typeof capSet?.base_url === "string" ? capSet.base_url : undefined;
+      // P2：统一经 capabilityConfiguredEndpoints 抽取 base_url 与
+      // endpoints[API|CODING_PLAN]，模式专属地址随 AdapterResource
+      // 进入 resolveProviderEndpoint（MODE_SCOPED_CONFIG 优先）。
+      const configured = capabilityConfiguredEndpoints(r.provider_capability_set);
       return {
         routeId: r.route_id,
         resourceId: r.resource_id,
@@ -84,7 +86,8 @@ async function start(): Promise<void> {
         principalId: "", // 路由候选不携带主体；pipeline 用已认证的 principal.principalId 做额度/账本归因（R2-N1）
         providerId: r.provider_id,
         unifiedModelId: r.unified_model_id,
-        baseUrl,
+        baseUrl: configured.base_url ?? undefined,
+        endpoints: configured.endpoints ?? undefined,
         secret: resolveProviderSecret({
           providerCode: r.provider_code as "deepseek" | "zhipu" | "kimi",
           credentialCiphertext: r.credential_ciphertext,

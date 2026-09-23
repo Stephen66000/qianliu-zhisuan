@@ -1,6 +1,6 @@
 import { sql, type Selectable } from "kysely";
 import type { ModelDiscoveryResult, DiscoveredProviderModel } from "@qianliu/provider-adapters";
-import type { ProviderModelValidationTable } from "../kysely-operations-tables.js";
+import type { ProviderModelValidationTable, ProbeRunEndpointScope } from "../kysely-operations-tables.js";
 import { ProviderOperatingRepository } from "./provider-operating-repository.js";
 import {
   EnterpriseReferenceError,
@@ -10,6 +10,33 @@ import {
 } from "./provider-types.js";
 
 type ProviderModelValidation = Selectable<ProviderModelValidationTable>;
+
+/** WP04：一次权限探针运行的持久化输入（全部为脱敏证据，不含 Key/正文）。 */
+export interface ModelProbeRunInput {
+  enterpriseId: string;
+  providerId?: string | null;
+  providerResourceId?: string | null;
+  providerCode: string;
+  resourceMode: "API" | "CODING_PLAN";
+  credentialFingerprint: string;
+  endpointScope: ProbeRunEndpointScope;
+  endpointHost: string;
+  discoverySource?: string | null;
+  discoverySourceHash?: string | null;
+  parserVersion?: string | null;
+  idempotencyKey: string;
+  requestHash: string;
+  items: Array<{
+    upstreamModel: string;
+    validationStatus: string;
+    httpStatus: number | null;
+    errorCode: string | null;
+    errorCategory: string | null;
+    retryable: boolean;
+    diagnosticHash: string | null;
+    checkedAt: Date | null;
+  }>;
+}
 
 /** 模型发现快照、字段 Evidence、双层状态与验证互斥。 */
 export abstract class ProviderModelDiscoveryRepository extends ProviderOperatingRepository {
@@ -28,6 +55,83 @@ export abstract class ProviderModelDiscoveryRepository extends ProviderOperating
       .where("provider_resource.status", "in", ["ACTIVE", "DEGRADED"])
       .where("provider.status", "=", "ACTIVE")
       .executeTakeFirst();
+  }
+
+  /**
+   * WP04：持久化一次权限探针运行与模型级明细（加法写入，不影响历史快照）。
+   * run 身份 = (enterprise_id, idempotency_key)，idempotency_key 由调用方构造为
+   * requestHash:discoveredAt——request_hash 覆盖 凭证 fingerprint、endpoint
+   * scope/host、官方目录哈希与模型集，Key/端点/目录任一变化即新 run。
+   * P2：原 select-then-insert 存在并发竞态（双 INSERT 重复 run/item），改为
+   * 唯一约束 (enterprise_id, idempotency_key) + INSERT ON CONFLICT DO NOTHING
+   * 原子幂等，冲突后回查复用已有 run，items 只挂在胜出 run 上；
+   * 删除 catch(() => null) 静默吞错——写入错误由调用方记录并兜底，
+   * 不再无声丢失。
+   */
+  async recordModelProbeRun(input: ModelProbeRunInput): Promise<string | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const inserted = await trx.insertInto("provider_model_probe_run").values({
+        enterprise_id: input.enterpriseId,
+        provider_id: input.providerId ?? null,
+        provider_resource_id: input.providerResourceId ?? null,
+        provider_code: input.providerCode,
+        resource_mode: input.resourceMode,
+        credential_fingerprint: input.credentialFingerprint,
+        endpoint_scope: input.endpointScope as "MODE_SCOPED_CONFIG" | "ENV" | "LEGACY_BASE_URL" | "MODE_DEFAULT",
+        endpoint_host: input.endpointHost,
+        discovery_source: input.discoverySource ?? null,
+        discovery_source_hash: input.discoverySourceHash ?? null,
+        parser_version: input.parserVersion ?? null,
+        status: "COMPLETED",
+        idempotency_key: input.idempotencyKey,
+        request_hash: input.requestHash,
+        finished_at: new Date(),
+      }).onConflict((oc) => oc.columns(["enterprise_id", "idempotency_key"]).doNothing())
+        .returning("id").executeTakeFirst();
+      if (inserted) {
+        if (input.items.length > 0) {
+          await trx.insertInto("provider_model_probe_item").values(input.items.map((item) => ({
+            probe_run_id: inserted.id,
+            upstream_model: item.upstreamModel,
+            validation_status: item.validationStatus as
+              "NOT_RUN" | "READY" | "AUTH_FAILED" | "PLAN_NOT_ENTITLED"
+              | "REQUEST_REJECTED" | "RATE_LIMITED" | "UPSTREAM_UNAVAILABLE" | "NETWORK_FAILED",
+            http_status: item.httpStatus,
+            error_code: item.errorCode,
+            error_category: item.errorCategory,
+            retryable: item.retryable,
+            diagnostic_hash: item.diagnosticHash,
+            checked_at: item.checkedAt,
+          }))).execute();
+        }
+        return inserted.id;
+      }
+      // 并发竞态落败方：复用胜出 run（0077 唯一约束已保证恰一条）。
+      const existing = await trx.selectFrom("provider_model_probe_run")
+        .select("id")
+        .where("enterprise_id", "=", input.enterpriseId)
+        .where("idempotency_key", "=", input.idempotencyKey)
+        .executeTakeFirst();
+      return existing?.id ?? null;
+    });
+  }
+
+  /** WP04：最近一次探针运行及其明细（按资源维度；接入前 run 无资源维度返回 null）。 */
+  async latestModelProbeRun(enterpriseId: string, resourceId: string) {
+    const run = await this.db.selectFrom("provider_model_probe_run")
+      .selectAll()
+      .where("enterprise_id", "=", enterpriseId)
+      .where("provider_resource_id", "=", resourceId)
+      // P3：id 决胜——同毫秒 started_at 并列时取后写入的 run，排序确定。
+      .orderBy("started_at", "desc")
+      .orderBy("id", "desc")
+      .executeTakeFirst();
+    if (!run) return null;
+    const items = await this.db.selectFrom("provider_model_probe_item")
+      .selectAll()
+      .where("probe_run_id", "=", run.id)
+      .execute();
+    return { run, items };
   }
 
   async recordModelDiscoveryFailure(

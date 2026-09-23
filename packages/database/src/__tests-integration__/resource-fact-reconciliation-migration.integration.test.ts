@@ -60,8 +60,11 @@ describe("0062 resource status event timestamp repair", () => {
       expect(events[2]!.created_at.getTime()).toBeGreaterThan(events[1]!.created_at.getTime());
       expect(events.slice(1).map((event) => event.time_reliable)).toEqual([true, true]);
 
-      expect(await migrateDown(db)).toBe("0077_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0076_project_allocation_relations");
+      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
+      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
+      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
+      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
+      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
       expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
       expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
       expect(await migrateDown(db)).toBe("0073_credential_chat_probe");

@@ -2,17 +2,38 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CredentialChatProbeRepository, CredentialProbeConflict, credentialProbeView } from "@qianliu/database";
-import { createOpenAiCompatibleCaller, decryptCredential, SecretValue, providerChatConfigHash, type HttpFetch } from "@qianliu/provider-adapters";
+import { canonicalProviderCode, capabilityChatConfigHash, capabilityConfiguredEndpoints, createOpenAiCompatibleCaller, decryptCredential, SecretValue, type HttpFetch } from "@qianliu/provider-adapters";
 import type { Outcome } from "@qianliu/contracts";
 import { requireAuth } from "../plugins/auth-guard.js";
 
 const schema = z.object({ idempotency_key: z.string().uuid(), confirm_quota_consumption: z.literal(true) }).strict();
+/** Chat 验证恢复支持的厂商集合（canonical code）。 */
+const CHAT_PROBE_PROVIDER_CODES = new Set(["kimi", "zhipu", "deepseek"]);
+/**
+ * P1 整改：生产历史 Provider code 可能为 `Kimi`/`KIMI`/`DeepSeek` 等大小写变体，
+ * 旧实现严格比较小写字面量，直接抛 provider_unsupported，导致凭证恢复链路
+ * 在进入 caller 之前就被拒绝。统一先经 canonicalProviderCode 规范化，
+ * 网关侧 auth_failure_config_hash（WP02 后同样以 canonical code 计算）因此可对齐。
+ */
 function providerCode(value: string): "kimi" | "zhipu" | "deepseek" {
-  if (value === "kimi" || value === "zhipu" || value === "deepseek") return value;
+  const canonical = canonicalProviderCode(value);
+  if (CHAT_PROBE_PROVIDER_CODES.has(canonical)) return canonical as "kimi" | "zhipu" | "deepseek";
   throw new CredentialProbeConflict("provider_unsupported");
 }
-function configHash(provider: string, mode: string, model: string) {
-  return providerChatConfigHash(providerCode(provider), mode, model);
+/**
+ * 终审整改二：配置哈希与 Gateway 故障证据同源——对 capability_set
+ * （base_url + endpoints[mode]）经 resolveProviderEndpoint 解析出的实际
+ * canonical 端点计算 providerChatConfigHash。端点解析失败（歧义/缺失）
+ * 时失败关闭为 configuration_changed，不与任何旧证据对齐。
+ */
+function configHash(provider: string, mode: string, model: string, capabilitySet: unknown) {
+  // provider_unsupported 在规范化处抛出，不得被端点歧义的失败关闭吞掉。
+  const canonical = providerCode(provider);
+  try {
+    return capabilityChatConfigHash(canonical, mode, model, capabilitySet);
+  } catch {
+    throw new CredentialProbeConflict("configuration_changed");
+  }
 }
 const messages: Record<string, string> = {
   not_found: "资源不存在", not_isolated: "资源当前不是凭证隔离状态，请刷新页面",
@@ -50,9 +71,18 @@ export function registerCredentialProbeRoutes(app: FastifyInstance) {
         const caller = createOpenAiCompatibleCaller({ requestTimeoutMs: 60_000,
           firstByteTimeoutMs: 30_000, firstByteTimeoutMsForResource: () => 30_000,
           fetch: globalThis.fetch as unknown as HttpFetch });
+        // P1/P2/RC-0：把 Provider capability_set 的 base_url 与模式专属
+        // endpoints[mode] 一并交给统一的 Mode-aware 端点策略裁决。
+        // Kimi CODING_PLAN 的历史 Moonshot 平台地址会被忽略并命中 Coding
+        // 端点；显式配置的 endpoints.CODING_PLAN 优先命中；未知自定义域名
+        // 则失败关闭（upstream_endpoint_ambiguous），不做任何静默回退。
+        const configured = capabilityConfiguredEndpoints(started.provider.capability_set);
         outcome = await caller({ providerCode: providerCode(started.provider.code),
           resourceId: started.resource.id, mode: started.resource.mode,
-          upstreamModel: started.probe.upstream_model, concurrencyLimit: 1, secret }, {
+          upstreamModel: started.probe.upstream_model, concurrencyLimit: 1,
+          ...(configured.base_url ? { baseUrl: configured.base_url } : {}),
+          ...(configured.endpoints ? { endpoints: configured.endpoints } : {}),
+          secret }, {
           requestId: `credential-probe-${started.probe.id}`, capability: "chat",
           unifiedModel: started.probe.upstream_model, stream: false, abort: abort.signal,
           maxOutputTokens: 32,

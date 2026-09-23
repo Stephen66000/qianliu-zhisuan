@@ -22,7 +22,11 @@ beforeAll(async () => {
   await db.insertInto("enterprise").values([{ id: ent, name: "设置测试", created_at: new Date("2020-01-01") }, { id: otherEnt, name: "其他企业" }]).execute();
   const password_hash = await hashPassword("Settings-Test-2026!");
   await db.insertInto("admin_user").values({ id: owner, enterprise_id: ent, username: "owner", display_name: "负责人", password_hash }).execute();
-  expect(await migrateToLatest(db)).toEqual(["0072_admin_roles_security", "0073_credential_chat_probe", "0074_runtime_notification_recipients", "0075_provider_resource_archive", "0076_project_allocation_relations", "0077_project_allocation_compute"]);
+  expect(await migrateToLatest(db)).toEqual([
+    "0072_admin_roles_security", "0073_credential_chat_probe", "0074_runtime_notification_recipients",
+    "0075_provider_resource_archive", "0076_provider_model_probe", "0077_provider_model_probe_run_identity",
+    "0078_provider_model_probe_enum_checks", "0079_project_allocation_relations", "0080_project_allocation_compute",
+  ]);
   await db.insertInto("admin_user").values([{ id: custom, enterprise_id: ent, username: "custom", display_name: "查看账号", role_code: "CUSTOM", password_hash },
     { id: otherEnt, enterprise_id: otherEnt, username: "other", password_hash }]).execute();
   app = buildControlApi(db); await app.ready(); ownerCookie = (await session(owner)).cookie;
