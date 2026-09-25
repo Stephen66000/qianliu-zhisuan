@@ -4,6 +4,7 @@ import { sql } from "kysely";
 import { startPostgresContainer } from "@qianliu/testing";
 import { createKysely, migrateDown, ProviderFinanceActivationRepository } from "../index.js";
 import { createMigrator } from "../migrator.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 /**
  * 0078 迁移与激活控制仓储集成测试（WP01 / PFA-03、PFA-06、PFA-09、PFH-07）。
@@ -369,6 +370,10 @@ describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
           activated_by_admin_user_id: adminId,
           activated_at: new Date("2026-09-21T10:05:00.000Z"),
         })).execute();
+      // 当前迁移头为 0083（资金集成追加）。先安全回退 0083，使 0082 成为最后已应用
+      // 迁移，再验证其 down 的 ACTIVATED 守卫拒绝；随后 0082 down 成功、0081 被
+      // 就绪事实挡住的语义保持不变。
+      await rollbackTo(db, "0083_provider_finance_resource_opening_trigger");
       await expect(migrateDown(db)).rejects.toThrow(/0079 rollback blocked/);
       // 被守卫拒绝后，草稿列与已激活候选必须原样保留。
       const draftColumnAfterBlock = await sql<{ count: string }>`

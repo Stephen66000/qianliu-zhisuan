@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { createKysely, migrateDown, migrateToLatest } from "../index.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import type { Database } from "../kysely.js";
+import { rollbackTo } from "./migration-rollback.js";
 import {
   createProjectMembership, listProjectMemberships, reviseProjectMembership,
   reviseProjectAccountingLifecycle, AccountingVersionConflictError,
@@ -804,6 +805,9 @@ describe("dirty 同事务与月份口径", () => {
 
 describe("迁移回退保护", () => {
   it("有数据时 down 拒绝删除归集表；共享索引/扩展保留（空表回退路径由 ladder 覆盖）", async () => {
+    // 当前迁移头为 0083（资金集成追加 0081-0083）。先安全回退 0083/0082/0081，
+    // 使 0080 成为最后已应用迁移，再验证 0080 down 的有数据拒绝保护。
+    await rollbackTo(db, "0081_provider_finance_activation");
     await expect(migrateDown(db)).rejects.toThrow(/Cannot drop/);
     await migrateToLatest(db);
     const indexes = await sql<{ indexname: string }>`
