@@ -14,7 +14,7 @@ import { createTaskObserver } from "./runtime-assurance/observed-task.js";
 import { createKysely, OperatingBillRepository, ReconciliationRepository, RuntimeAssuranceRepository, SupplyForecastRepository, UsageAggregateRepository } from "@qianliu/database";
 import { runProjectAllocationTickSafely } from "./project-allocation-tick.js";
 import { readFeatureFlags, WECOM_API_ORIGIN } from "@qianliu/config";
-import { generateOperatingBill } from "./operating-bill/runner.js";
+import { runOperatingBillTask } from "./operating-bill/runner.js";
 import {
   decodeKek,
   encryptCredential,
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
   }
 
   if (command === "operating-bill") {
-    await runOperatingBillTask(args.slice(1));
+    await runOperatingBillCommand(args.slice(1));
     return;
   }
 
@@ -173,7 +173,7 @@ async function runReconciliationTask(args: string[]): Promise<void> {
   }
 }
 
-async function runOperatingBillTask(args: string[]): Promise<void> {
+async function runOperatingBillCommand(args: string[]): Promise<void> {
   const enterpriseId = arg(args, "--enterprise");
   const month = arg(args, "--month");
   if (!enterpriseId || !month) {
@@ -181,12 +181,12 @@ async function runOperatingBillTask(args: string[]): Promise<void> {
   }
   const db = createKysely();
   try {
-    const bill = await generateOperatingBill(new OperatingBillRepository(db), enterpriseId, month);
-    console.log(JSON.stringify({
-      event: "operating_bill_generated", enterprise_id: enterpriseId, month,
-      status: bill.status, version: bill.version, total_cost: bill.summary.totalCost,
-      gap_count: bill.gaps.length, generated_at: bill.generatedAt,
-    }));
+    // PFA-09：月账聚合必须走静默门禁，避免静默期内打漂已冻结候选的经营账单事实。
+    // 门禁内聚在 runOperatingBillTask 内（其只调用 generateOperatingBillGuarded），
+    // 本命令是月账唯一生产入口，不存在绕过门禁的第二入口。
+    await runOperatingBillTask({
+      db, repository: new OperatingBillRepository(db), enterpriseId, month,
+    });
   } finally {
     await db.destroy();
   }

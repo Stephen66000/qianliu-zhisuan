@@ -35,6 +35,39 @@ it("new Coding Plan sends the actual unchecked renewal choice with the registrat
   await user.type(screen.getByLabelText("订阅金额"),"99");
   await user.type(screen.getByLabelText("人民币实付"),"99");
   await user.type(screen.getByLabelText("服务周期开始日"),"2026-09-07");
+  await user.type(screen.getByLabelText("说明"),"九月续费");
+  await user.type(screen.getByLabelText("证据引用"),"invoice-2026-09");
   await user.click(screen.getByRole("button",{name:"入账确认"}));
-  expect(mutate).toHaveBeenCalledWith(expect.objectContaining({kind:"CODING_PLAN",payload:expect.objectContaining({auto_renew:false,account_amount:"99.00"})}),expect.anything());
+  expect(mutate).toHaveBeenCalledWith({
+    kind:"CODING_PLAN",
+    payload:{
+      kind:"RENEWAL",product_name:"other",auto_renew:false,service_period_start:"2026-09-07",
+      account_currency:"CNY",account_amount:"99.00",cash_paid_cny:"99.00",
+      occurred_at:expect.any(String),description:"九月续费",evidence_ref:"invoice-2026-09",
+      idempotency_key:expect.any(String),
+    },
+  },expect.anything());
+});
+it("daily API recharge sends description and evidence and blocks submission without them", async () => {
+  const user=userEvent.setup();render(<ProviderFinancePanel resources={resources} providers={providers} mode="ACTIVE" />);
+  await user.click(screen.getByRole("button",{name:"充值／订阅"}));
+  await user.type(screen.getByLabelText("充值金额"),"120");
+  await user.type(screen.getByLabelText("人民币实付"),"120");
+  await user.click(screen.getByRole("button",{name:"入账确认"}));
+  expect(mutate).not.toHaveBeenCalled();
+  expect(screen.getByRole("alert")).toHaveTextContent("必须填写事实说明");
+  await user.type(screen.getByLabelText("说明"),"九月 API 充值");
+  await user.click(screen.getByRole("button",{name:"入账确认"}));
+  expect(mutate).not.toHaveBeenCalled();
+  expect(screen.getByRole("alert")).toHaveTextContent("必须填写证据引用");
+  await user.type(screen.getByLabelText("证据引用"),"receipt-2026-09");
+  await user.click(screen.getByRole("button",{name:"入账确认"}));
+  expect(mutate).toHaveBeenCalledWith({
+    kind:"API",
+    payload:{
+      account_currency:"CNY",account_amount:"120.00",cash_paid_cny:"120.00",
+      occurred_at:expect.any(String),description:"九月 API 充值",evidence_ref:"receipt-2026-09",
+      idempotency_key:expect.any(String),
+    },
+  },expect.anything());
 });

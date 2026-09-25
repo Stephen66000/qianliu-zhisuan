@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OperatingBill } from "../api/operating-bills";
 import { OperatingBillPage, parseSnapshotCsv } from "./OperatingBill";
+import { money } from "./OperatingBillShared";
 
 import { analysisFixture } from "../__tests__/operating-analysis-fixture";
 
@@ -70,6 +71,11 @@ vi.mock("../api/v2-hooks", () => ({
 }));
 
 describe("POOL-025 经营账单", () => {
+  it("已知金额格式化与未知金额占位保持不同语义", () => {
+    expect(money("12.34")).toBe("¥12.34");
+    expect(money(null)).toBe("—");
+  });
+
   beforeEach(() => {
     currentBill = bill;
     mutate.mockReset();

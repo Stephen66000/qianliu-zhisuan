@@ -4,6 +4,7 @@ import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/test
 import { createKysely } from "../kysely.js";
 import { createMigrator, migrateDown } from "../migrator.js";
 import * as pool046Migration from "../../migrations/0045_zhipu_weekday_window_alias.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -258,7 +259,10 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
 
       const migrated = await migrator.migrateToLatest();
       expect(migrated.error).toBeUndefined();
-      expect(migrated.results?.map((result) => [result.migrationName, result.status])).toEqual([
+      // 台账断言锚定「本用例关心的迁移区间」而非「当时的迁移头」：迁移头会随其他
+      // 工作包继续追加（见 migration-rollback.ts docstring），用前缀匹配替代全量清单。
+      const executed = migrated.results?.map((result) => [result.migrationName, result.status]) ?? [];
+      expect(executed.slice(0, 28)).toEqual([
         ["0045_zhipu_weekday_window_alias", "Success"],
         ["0046_directory_import_foundation", "Success"],
         ["0047_usage_bucket_aggregate", "Success"],
@@ -295,7 +299,11 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0078_provider_model_probe_enum_checks", "Success"],
         ["0079_project_allocation_relations", "Success"],
         ["0080_project_allocation_compute", "Success"],
+      ["0081_provider_finance_activation", "Success"],
+      ["0082_provider_finance_candidate_draft", "Success"],
+      ["0083_provider_finance_resource_opening_trigger", "Success"],
       ]);
+      expect(executed.every(([, status]) => status === "Success")).toBe(true);
 
       expect(await db.selectFrom("dispatch_policy")
         .select("match_unified_model").where("id", "=", policyId).executeTakeFirstOrThrow())
@@ -337,15 +345,9 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow();
       expect(afterSecondUp).toEqual(migratedTarget);
 
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      // 回滚链锚定「目标迁移」而非「当时的迁移头」（惯例见 migration-rollback.ts docstring）。
+      const rolledBackLedger = await rollbackTo(db, "0072_admin_roles_security");
+      expect(rolledBackLedger.at(-1)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
@@ -379,11 +381,11 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
       expect(await db.selectFrom("dispatch_policy")
         .select("match_unified_model").where("id", "=", currentPolicyId).executeTakeFirstOrThrow())
         .toEqual({ match_unified_model: "ql-glm-5.2" });
-      const rolledBack = await db.selectFrom("billing_rule")
+      const billingRuleAfterRollback = await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows", "updated_at"])
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow();
-      expect(rolledBack.days_of_week).toEqual(allDays);
-      expect(rolledBack.time_windows).toEqual(targetWindows);
+      expect(billingRuleAfterRollback.days_of_week).toEqual(allDays);
+      expect(billingRuleAfterRollback.time_windows).toEqual(targetWindows);
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows"])
         .where("id", "=", legacyTargetRuleId).executeTakeFirstOrThrow())
@@ -404,7 +406,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows", "updated_at"])
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow())
-        .toEqual(rolledBack);
+        .toEqual(billingRuleAfterRollback);
 
       const replayed = await migrator.migrateToLatest();
       expect(replayed.error).toBeUndefined();
@@ -445,6 +447,9 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         ["0078_provider_model_probe_enum_checks", "Success"],
         ["0079_project_allocation_relations", "Success"],
         ["0080_project_allocation_compute", "Success"],
+        ["0081_provider_finance_activation", "Success"],
+        ["0082_provider_finance_candidate_draft", "Success"],
+        ["0083_provider_finance_resource_opening_trigger", "Success"],
       ]);
       expect(await db.selectFrom("billing_rule")
         .select(["days_of_week", "time_windows"])

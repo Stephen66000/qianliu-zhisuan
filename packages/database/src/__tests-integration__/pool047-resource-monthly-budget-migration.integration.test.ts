@@ -4,6 +4,7 @@ import { sql } from "kysely";
 import { startPostgresContainer } from "@qianliu/testing";
 import { createKysely, migrateDown } from "../index.js";
 import { createMigrator } from "../migrator.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 describe.sequential("POOL20-047 API 资源月预算迁移", () => {
   it("约束月份、版本和当前指针，已有事实时拒绝破坏性回退", async () => {
@@ -60,15 +61,10 @@ describe.sequential("POOL20-047 API 资源月预算迁移", () => {
         request_hash: "b".repeat(64),
         response_snapshot: {},
       }).execute()).rejects.toThrow();
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      // 回滚链锚定「目标迁移」而非「当时的迁移头」：仓库继续追加迁移时本用例仍有效
+      // （惯例见 migration-rollback.ts docstring）。
+      const rolledBack = await rollbackTo(db, "0072_admin_roles_security");
+      expect(rolledBack.at(-1)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");

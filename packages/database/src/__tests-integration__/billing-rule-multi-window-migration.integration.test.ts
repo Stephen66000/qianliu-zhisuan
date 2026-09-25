@@ -4,6 +4,7 @@ import { createKysely } from "../kysely.js";
 import { createMigrator, migrateDown, migrateToLatest } from "../migrator.js";
 import { GatewayLedgerRepository } from "../repositories/gateway-ledger-repository.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -87,15 +88,10 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      // 回滚链锚定「目标迁移」而非「当时的迁移头」：仓库继续追加迁移时本用例仍有效
+      // （惯例见 migration-rollback.ts docstring）。
+      const rolledBack = await rollbackTo(db, "0072_admin_roles_security");
+      expect(rolledBack.at(-1)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");

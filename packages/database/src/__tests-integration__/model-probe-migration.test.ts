@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { startPostgresContainer } from "@qianliu/testing";
 import { createKysely, ProviderRepository, type Database } from "../index.js";
 import { createMigrator, migrateDown } from "../migrator.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 /** WP04：0076 探针运行/明细迁移与仓储持久化（脱敏，无 Key/正文列）。 */
 describe("0076 provider_model_probe 迁移与探针证据", () => {
@@ -109,12 +110,10 @@ describe("0076 provider_model_probe 迁移与探针证据", () => {
       }
 
       // 有证据后拒绝回滚（与 0073 同样的防丢证据门禁）。
-      // 先回退归集，再回退 0078（枚举 CHECK）与 0077（run 身份约束），
-      // 最后由 0076 的探针证据门禁拒绝破坏性回退。
-      await expect(migrateDown(db)).resolves.toBe("0080_project_allocation_compute");
-      await expect(migrateDown(db)).resolves.toBe("0079_project_allocation_relations");
-      await expect(migrateDown(db)).resolves.toBe("0078_provider_model_probe_enum_checks");
-      await expect(migrateDown(db)).resolves.toBe("0077_provider_model_probe_run_identity");
+      // 0077（run 身份唯一约束）起为后续新增且可回滚：先回滚到 0077（跳过其后追加的
+      // 迁移头，惯例见 migration-rollback.ts docstring），再触发 0076 门禁。
+      const rolledBack = await rollbackTo(db, "0077_provider_model_probe_run_identity");
+      expect(rolledBack.at(-1)).toBe("0077_provider_model_probe_run_identity");
       await expect(migrateDown(db)).rejects.toThrow("0076 contains probe evidence");
     } finally { await db.destroy(); await pg.stop(); }
   }, 180_000);

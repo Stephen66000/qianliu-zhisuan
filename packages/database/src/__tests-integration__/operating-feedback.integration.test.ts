@@ -139,11 +139,11 @@ it("failed zero-consumption API record cannot hide known spending; a real unpric
   await db.updateTable("ai_request").set({status:"FAILED"}).where("id","=",failed).execute();
   await db.updateTable("upstream_attempt").set({response_committed:false}).where("ai_request_id","=",failed).execute();
   await db.updateTable("ledger_line").set({api_cost:null,api_cost_currency:null,api_cost_status:"UNKNOWN_COST"}).where("ai_request_id","=",failed).execute();
-  expect(await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now)).toMatchObject({state:"NORMAL",balance:"97.50000000"});
+  expect(await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now)).toMatchObject({state:"INCOMPLETE_USAGE_COST",balance:null});
   expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:"2.50000000"});
   let report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
   expect(report.summary.companyTokens).toBe("100");
-  expect(report.apiAccounts[0]?.months[8]).toMatchObject({apiSpend:"2.50",apiSpendComplete:true});
+  expect(report.apiAccounts[0]?.months[8]).toMatchObject({apiSpend:"2.50",apiSpendComplete:false});
   const unpriced=await seedAnalysisUsage(t,t.a,"deepseek",25n,new Date("2026-09-04T00:00:00Z"),"0","UNKNOWN");
   await db.updateTable("ledger_line").set({api_cost:null,api_cost_currency:null,api_cost_status:"UNKNOWN_COST"}).where("ai_request_id","=",unpriced).execute();
   expect((await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now))?.state).toBe("INCOMPLETE_USAGE_COST");

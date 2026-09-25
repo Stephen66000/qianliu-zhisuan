@@ -82,9 +82,13 @@ beforeAll(async () => {
     : await startPostgresContainer("pool043_control_api");
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
+  // 登录路由是一期单企业口径（取 `created_at` 最早、同值时按 `id` 排序的第一条企业）。
+  // 两条企业若在同一语句插入会得到完全相同的 `created_at`，此时谁被选中只取决于随机 UUID
+  // 的字典序 —— 夹具会约 50% 概率把会话落到隔离企业上，导致登录取不到 `pool043-owner`。
+  // 因此显式把被测企业锚定为更早创建，消除这条与被测语义无关的随机性。
   await db.insertInto("enterprise").values([
-    { id: enterpriseId, name: "POOL-043 API 企业" },
-    { id: otherEnterpriseId, name: "POOL-043 隔离企业" },
+    { id: enterpriseId, name: "POOL-043 API 企业", created_at: new Date("2020-01-01T00:00:00.000Z") },
+    { id: otherEnterpriseId, name: "POOL-043 隔离企业", created_at: new Date("2020-01-02T00:00:00.000Z") },
   ]).execute();
   const passwordHash = await hashPassword(password);
   await db.insertInto("admin_user").values([

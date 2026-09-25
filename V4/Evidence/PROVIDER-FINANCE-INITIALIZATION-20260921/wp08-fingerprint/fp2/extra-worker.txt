@@ -1,0 +1,3 @@
+apps/worker/tsconfig.tsbuildinfo
+packages/database/tsconfig.tsbuildinfo
+packages/domain/tsconfig.tsbuildinfo

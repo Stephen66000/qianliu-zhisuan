@@ -16,8 +16,9 @@ const Common = z.object({
   account_currency: Currency,
   occurred_at: z.string().datetime({ offset: true }),
   external_reference: z.string().trim().min(1).max(255).nullable().optional(),
-  description: z.string().trim().min(1).max(1000).nullable().optional(),
-  evidence_ref: z.string().trim().min(1).max(4000).nullable().optional(),
+  // PFH-06：期初、历史充值、购买、续费与冲销必须提供说明与证据，不得由兼容接口绕过。
+  description: z.string().trim().min(1, "必须填写事实说明").max(1000),
+  evidence_ref: z.string().trim().min(1, "必须填写证据引用").max(4000),
   idempotency_key: z.string().trim().min(8).max(128),
 });
 export const OpeningBalanceBody = Common.omit({ external_reference: true }).extend({
@@ -42,10 +43,6 @@ export const SubscriptionBody = Common.extend({
 }).refine((value) => !value.service_period_end
   || value.service_period_end >= value.service_period_start, {
   path: ["service_period_end"], message: "服务周期结束日不得早于开始日",
-}).refine((value) => !value.service_period_end
-  || value.service_period_end === defaultServiceEndDate(value.service_period_start)
-  || Boolean(value.description), {
-  path: ["description"], message: "非默认自然月周期必须在说明中填写调整原因",
 });
 export const BalanceQuery = z.object({
   currency: Currency,

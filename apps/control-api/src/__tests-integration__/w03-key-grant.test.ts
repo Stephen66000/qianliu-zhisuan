@@ -37,11 +37,15 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
 
+  // 登录路由是一期单企业口径（取 `created_at` 最早、同值时按 `id` 排序的第一条企业）。
+  // 迁移里 `defaultTo("now()")` 落库为**常量默认值**，同一语句插入的两条企业会得到完全相同
+  // 的 `created_at`，谁被选中只取决于随机 UUID 的字典序 —— 夹具约 50% 概率把会话落到
+  // `其他测试企业`，导致登录取不到本企业管理员。显式锚定被测企业更早创建以消除该随机性。
   await db
     .insertInto("enterprise")
     .values([
-      { id: ENT_ID, name: "仟流测试企业" },
-      { id: FOREIGN_ENT_ID, name: "其他测试企业" },
+      { id: ENT_ID, name: "仟流测试企业", created_at: new Date("2020-01-01T00:00:00.000Z") },
+      { id: FOREIGN_ENT_ID, name: "其他测试企业", created_at: new Date("2020-01-02T00:00:00.000Z") },
     ])
     .execute();
   await db

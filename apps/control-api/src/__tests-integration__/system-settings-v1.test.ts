@@ -7,6 +7,7 @@ import {
   type PostgresTestInstance,
 } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 const PASSWORD = "System-Settings-2026!";
 const enterpriseId = randomUUID();
@@ -95,15 +96,11 @@ describe("系统设置第一版：企业信息", () => {
       default_currency: "SGD",
       version: 2,
     });
-    expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-    expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-    expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-    expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-    expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-    expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-    expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-    expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-    expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+    // 回滚链断言以「目标迁移」而不是「当时的迁移头」为锚点：迁移头会随每个工作包
+    // 继续增长（0078 资金账本初始化控制结构、0079 候选草稿载荷……），写死首个回滚项
+    // 会随无关迁移的加入而失效，且与被测守卫语义无关。
+    const rolledBack = await rollbackTo(db, "0072_admin_roles_security");
+    expect(rolledBack.at(-1)).toBe("0072_admin_roles_security");
     await expect(migrateDown(db)).rejects.toThrow(
       "0071 down refused: enterprise contact details already contain data",
     );

@@ -275,7 +275,7 @@ export async function dispatchAllCardsToUser(
       });
       console.log(`[worker] [4/5] 演练模式：已生成登顶流动红旗卡片`);
     } else if (endpoint && client) {
-      const pngBuffer = renderSvgToPng(top1Svg);
+      const pngBuffer = await renderSvgToPng(top1Svg);
       const mediaId = await client.uploadMedia(
         endpoint as EndpointConfig,
         pngBuffer,
@@ -373,7 +373,7 @@ export async function dispatchAllCardsToUser(
       });
       console.log(`[worker] [5/5] 演练模式：已生成超越 50% 员工成长激励卡`);
     } else if (endpoint && client) {
-      const pngBuffer = renderSvgToPng(over50Svg);
+      const pngBuffer = await renderSvgToPng(over50Svg);
       const mediaId = await client.uploadMedia(
         endpoint as EndpointConfig,
         pngBuffer,

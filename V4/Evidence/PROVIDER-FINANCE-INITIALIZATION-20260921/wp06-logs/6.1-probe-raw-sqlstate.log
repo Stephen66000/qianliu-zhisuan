@@ -1,0 +1,2 @@
+INJECT 40001 -> raw code="40001" message="simulated serialization failure"
+INJECT 40P01 -> raw code="40P01" message="simulated deadlock detected"

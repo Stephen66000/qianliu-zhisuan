@@ -1,7 +1,7 @@
 import { ResourceUsageOverviewPanel } from "./ResourceUsageOverviewPanel";
 import { QuotaWindowPanel } from "./QuotaWindowPanel";
 import { ResourceHealthPanel } from "./ResourceHealthPanel";
-import { ProviderFinancePanel } from "./ProviderFinancePanel";
+import { FinanceInitializationPanel } from "./FinanceInitializationPanel";
 import { formatDateTimeFull, formatDecimal } from "../../lib/format";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
@@ -74,8 +74,7 @@ export function ResourceOtherTabs({ model }: { model: ResourcesPageModel }) {
       ) : null}
 
       {activeTab === "finance" && providerFinanceMode !== "OFF" ? (
-        <ProviderFinancePanel
-          mode={providerFinanceMode}
+        <FinanceInitializationPanel
           providers={providerOptions}
           resources={resources}
         />

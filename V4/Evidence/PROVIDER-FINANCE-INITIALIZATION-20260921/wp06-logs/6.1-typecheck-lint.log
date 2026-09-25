@@ -1,0 +1,7 @@
+# WP06 补正 | typecheck + lint | HEAD=ddd1fc2f54ec254c6eb77825f0bc7d47d61317f8 | 2026-09-21T20:48:47Z
+# cmd: pnpm --filter @qianliu/database run typecheck
+$ tsc -p tsconfig.json --noEmit
+TYPECHECK_EXIT=0
+# cmd: pnpm --filter @qianliu/database run lint
+$ eslint src --max-warnings=0
+LINT_EXIT=0

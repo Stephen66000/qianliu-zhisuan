@@ -4,6 +4,7 @@ import { sql } from "kysely";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createKysely } from "../kysely.js";
 import { createMigrator, migrateDown, migrateToLatest } from "../migrator.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -57,23 +58,20 @@ describe("0063 operating snapshot subscription period binding", () => {
         collected_at: new Date(), total_quota: "1", quota_unit: "TOKEN",
       }).execute()).rejects.toThrow();
 
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
-      expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
-      expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
-      expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
-      expect(await migrateDown(db)).toBe("0068_alert_resource_context");
-      expect(await migrateDown(db)).toBe("0067_admin_cleanup");
-      expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
-      expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
-      expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
+      // 回滚链自当前迁移头逐级回退到 0064：中间每一步都必须成功，
+      // 若把迁移头写死（例如 0072），后续新增迁移就会让这条与被测守卫无关的断言失效，
+      // 因此用 rollbackTo 以「目标迁移」而不是「当时的迁移头」作为锚点。
+      const rolledBack = await rollbackTo(db, "0064_quota_pricing_and_policy_archive");
+      expect(rolledBack.at(-1)).toBe("0064_quota_pricing_and_policy_archive");
+      // 守卫链上的历史迁移必须确实被回退过（顺序即回滚顺序，从迁移头往下降）。
+      expect(rolledBack).toContain("0072_admin_roles_security");
+      expect(rolledBack).toContain("0071_enterprise_contact_details");
+      expect(rolledBack).toContain("0070_alert_recovery_evidence");
+      expect(rolledBack).toContain("0069_auth_error_evidence");
+      expect(rolledBack).toContain("0068_alert_resource_context");
+      expect(rolledBack).toContain("0067_admin_cleanup");
+      expect(rolledBack).toContain("0066_subscription_auto_renewal");
+      expect(rolledBack).toContain("0065_principal_accounting_assignment");
       await expect(migrateDown(db)).rejects.toThrow(
         /0063 rollback blocked: subscription-bound operating facts exist/,
       );

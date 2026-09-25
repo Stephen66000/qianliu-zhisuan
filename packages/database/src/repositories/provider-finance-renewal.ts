@@ -1,10 +1,12 @@
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
-import { Money, money, lockResource } from "./provider-finance-core.js";
+import { Money, lockResource } from "./provider-finance-core.js";
 import { ProviderFinanceError } from "./provider-finance-types.js";
 import { loadLegacySubscriptionFee } from "./provider-finance-period-facts.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
 import { markAllocationDirty, shanghaiMonthOf } from "./project-allocation-common.js";
+import { insertSubscriptionTx } from "./provider-finance-activation-writes.js";
+import { listQuiescentEnterpriseIds } from "./provider-finance-quiescence.js";
 import { nextSubscriptionEnd } from "./subscription-renewal-calendar.js";
 
 async function resourceState(db: Kysely<Database>, enterpriseId: string, resourceId: string) {
@@ -91,24 +93,29 @@ export async function renewDueSubscription(db: Kysely<Database>, enterpriseId: s
     const prior = await trx.selectFrom("provider_finance_event").select("id").where("enterprise_id", "=", enterpriseId)
       .where("provider_resource_id", "=", resourceId).where("idempotency_key", "=", idempotencyKey).executeTakeFirst();
     if (prior) return false; // Reversal/replay cannot silently recreate an already recorded renewal.
-    const event = await trx.insertInto("provider_finance_event").values({
-      enterprise_id: enterpriseId, provider_resource_id: resourceId, event_type: "CODING_PLAN_RENEWAL",
-      account_amount: money(plan.amount), account_currency: plan.currency as "CNY" | "USD", cash_paid_cny: money(plan.cash),
-      occurred_at: start, external_reference: null, description: `${resource.name} 系统续订 ¥${new Money(plan.cash).toFixed(2)}`,
-      evidence_ref: "按已登记订阅金额和周期自动续记", source: "SYSTEM_RENEWAL", idempotency_key: idempotencyKey,
-      created_by_admin_user_id: null,
-    }).returning("id").executeTakeFirstOrThrow();
-    await trx.insertInto("provider_subscription_period").values({ enterprise_id: enterpriseId,
-      provider_resource_id: resourceId, finance_event_id: event.id, product_name: plan.template.product_name,
-      period_start: start, period_end_exclusive: end, source: "RENEWAL", migration_source_record_id: null,
-      created_by_admin_user_id: null }).execute();
+    // 自动续订与手工登记订阅复用同一个写入原语（3.1）：事件与周期同生同死。
+    await insertSubscriptionTx(trx, {
+      enterpriseId, resourceId, adminId: null, kind: "RENEWAL",
+      productName: plan.template.product_name, accountAmount: plan.amount,
+      accountCurrency: plan.currency as "CNY" | "USD", cashPaidCny: plan.cash,
+      occurredAt: start, description: `${resource.name} 系统续订 ¥${new Money(plan.cash).toFixed(2)}`,
+      evidenceRef: "按已登记订阅金额和周期自动续记", idempotencyKey,
+      periodStart: start, periodEndExclusive: end,
+    }, { source: "SYSTEM_RENEWAL", periodSource: "RENEWAL", actorAdminId: null });
     // 系统续订也是 CODING_PLAN 现金事件（余量 authority），同事务按周期起始月推脏。
     await markAllocationDirty(trx, enterpriseId, [shanghaiMonthOf(start)]);
     return true;
   });
 }
 
-/** Each transaction creates at most one period; repeated ticks recover downtime without duplicate charges. */
+/**
+ * Each transaction creates at most one period; repeated ticks recover downtime without duplicate charges.
+ *
+ * PFA-09 静默门禁：处于**有效**静默租约内的企业整企业跳过。自动续订会写入资金事件与
+ * 订阅周期（都在完整事实水位里），继续跑会让已冻结的候选立刻漂移，也可能在管理员
+ * 即将激活的同一窗口里凭空多出一笔真实扣费。跳过不是失败：返回 `skippedQuiescentEnterprises`
+ * 供观测，租约到期或被解除后下一个 tick 自动恢复（无需人工干预）。
+ */
 export async function runSubscriptionAutoRenewals(db: Kysely<Database>, now = new Date()) {
   const due = await sql<{ enterprise_id: string; id: string }>`SELECT resource.enterprise_id,resource.id
     FROM provider_resource resource JOIN provider ON provider.id=resource.provider_id AND provider.enterprise_id=resource.enterprise_id
@@ -119,8 +126,13 @@ export async function runSubscriptionAutoRenewals(db: Kysely<Database>, now = ne
     WHERE resource.mode='CODING_PLAN' AND resource.status<>'DELETED'
       AND resource.subscription_auto_renew_enabled AND latest.period_end_exclusive<=${now}
     ORDER BY latest.period_end_exclusive,resource.id`.execute(db);
+  const quiescent = new Set(await listQuiescentEnterpriseIds(db, now));
+  const runnable = due.rows.filter((resource) => !quiescent.has(resource.enterprise_id));
+  const skippedQuiescentEnterprises = [...new Set(due.rows
+    .filter((resource) => quiescent.has(resource.enterprise_id))
+    .map((resource) => resource.enterprise_id))].sort();
   let created = 0; const failures: Array<{ resourceId: string; code: string }> = [];
-  for (const resource of due.rows) {
+  for (const resource of runnable) {
     try {
       for (let i = 0; i < 12; i += 1) {
         if (!await renewDueSubscription(db, resource.enterprise_id, resource.id, now)) break;
@@ -130,5 +142,5 @@ export async function runSubscriptionAutoRenewals(db: Kysely<Database>, now = ne
       failures.push({ resourceId: resource.id, code: error instanceof ProviderFinanceError ? error.code : error instanceof Error ? error.name : "UNKNOWN" });
     }
   }
-  return { scanned: due.rows.length, created, failures };
+  return { scanned: due.rows.length, created, failures, skippedQuiescentEnterprises };
 }

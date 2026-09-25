@@ -1,0 +1,26 @@
+# WP06 6.1 domain | HEAD=ddd1fc2f54ec254c6eb77825f0bc7d47d61317f8 | 2026-09-21T20:24:38Z
+# cmd: pnpm --filter @qianliu/domain run test  (= vitest run --config ../../vitest.config.ts)
+$ vitest run --config ../../vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/domain
+
+ ✓ src/__tests__/provider-finance-activation.test.ts (18 tests) 13ms
+ ✓ src/__tests__/api-multiplier.test.ts (11 tests) 49ms
+ ✓ src/__tests__/runtime-assurance.test.ts (9 tests) 22ms
+ ✓ src/__tests__/dispatch-policy.test.ts (38 tests) 44ms
+ ✓ src/__tests__/provider-finance-activation-projection.test.ts (23 tests) 27ms
+ ✓ src/__tests__/routing-policy.test.ts (11 tests) 39ms
+ ✓ src/__tests__/billing-rule.test.ts (31 tests) 43ms
+ ✓ src/__tests__/client-identity.test.ts (10 tests) 7ms
+ ✓ src/__tests__/resource-lifecycle.test.ts (30 tests) 9ms
+ ✓ src/__tests__/domain.test.ts (5 tests) 5ms
+ ✓ src/__tests__/supply-forecast.test.ts (14 tests) 9ms
+ ✓ src/__tests__/quota-gate.test.ts (11 tests) 5ms
+ ✓ src/__tests__/reconciliation.test.ts (10 tests) 6ms
+
+ Test Files  13 passed (13)
+      Tests  221 passed (221)
+   Start at  04:24:39
+   Duration  1.94s (transform 679ms, setup 0ms, collect 2.77s, tests 278ms, environment 2ms, prepare 2.68s)
+
+EXIT=0

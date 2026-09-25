@@ -63,6 +63,13 @@ describe("Gateway 首字节超时策略", () => {
     expect(policy(resource("kimi", "API"))).toBe(120_000);
   });
 
+  it("未列入厂商映射的资源回退全局首字节门限", () => {
+    const policy = createFirstByteTimeoutPolicy({
+      GATEWAY_UPSTREAM_FIRST_BYTE_TIMEOUT_MS: "45000",
+    });
+    expect(policy(resource("custom-provider", "API"))).toBe(45_000);
+  });
+
   it.each(["0", "-1", "1.5", "NaN", "9007199254740992"])(
     "启动时拒绝任意厂商或模式的无效门限 %s",
     (value) => {
@@ -118,6 +125,13 @@ describe("Gateway 流式空闲超时策略", () => {
     });
     expect(policy(resource("deepseek", "API"))).toBe(45_000);
     expect(policy(resource("zhipu", "CODING_PLAN"))).toBe(120_000);
+  });
+
+  it("未列入厂商映射的资源回退全局流式空闲门限", () => {
+    const policy = createStreamIdleTimeoutPolicy({
+      GATEWAY_UPSTREAM_STREAM_IDLE_TIMEOUT_MS: "50000",
+    });
+    expect(policy(resource("custom-provider", "API"))).toBe(50_000);
   });
 
   it.each(["0", "-1", "1.5", "NaN", "9007199254740992"])(

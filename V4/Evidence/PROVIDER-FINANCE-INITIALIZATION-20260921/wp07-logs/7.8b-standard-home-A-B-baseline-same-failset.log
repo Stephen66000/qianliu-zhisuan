@@ -1,0 +1,90 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database
+
+ × src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回 143ms
+   → expected '280' to be '200' // Object.is equality
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > 上月无对应日（asOf=3 月 30 日）时同期窗口截止上月月末并标记截断 29ms
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > R01-F03：同厂商资源同步混合新鲜度/缺失/失败不被最新同步掩盖，并给出范围 16ms
+ × src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > R01-F01：资金读模型同期窗口复用权威缺口规则（已知部分保留、缺口显式） 23ms
+   → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ × src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口 25ms
+   → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > R01-F02：同期 Token 质量与未知数进入契约（分母不完整可见） 28ms
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > R01：企业时区非上海时，员工同期窗口按企业时区计算 30ms
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：恢复待确认、额度耗尽与限流文案按状态证据呈现（状态恢复分支） 22ms
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01/G02：余额桥接完整时有已知金额且允许比较 39ms
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01/G02：故障注入（缺失期末快照）时透出已知套餐金额（已知部分保留） 45ms
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：经营账单无总额且无缺口原因时回退到跨币种提示（bill fallback） 18ms
+ × src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入） 86ms
+   → expected '' to contain 'API_USAGE_COST_UNKNOWN:1'
+ ✓ src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：员工同期窗口在企业不存在时传播明确错误 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回
+AssertionError: expected '280' to be '200' // Object.is equality
+
+Expected: [32m"2[7m0[27m0"[39m
+Received: [31m"2[7m8[27m0"[39m
+
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:263:52
+    261| 
+    262|     // Token：当月 SUCCEEDED 合计 = (100+50) + (30+20) = 200；失败行 80 不计入。
+    263|     expect(summary.tokenUsage.current.totalTokens).toBe("200");
+       |                                                    ^
+    264|     expect(summary.tokenUsage.current.inputTokens).toBe("130");
+    265|     expect(summary.tokenUsage.current.outputTokens).toBe("70");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > R01-F01：资金读模型同期窗口复用权威缺口规则（已知部分保留、缺口显式）
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:412:37
+    410|     const window = await loadWindowOperatingFinance(db, enterpriseId, …
+    411|     expect(window.totalSpends).toEqual([{ currency: "CNY", amount: "12…
+    412|     expect(window.incompleteReason).toContain("API_USAGE_COST_UNKNOWN"…
+       |                                     ^
+    413|     expect(window.incompleteReason).toContain("CASH_PAID_CNY_MISSING");
+    414|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:427:60
+    425|     expect(summary.monthlyCost.previous?.totalSpends)
+    426|       .toEqual([{ currency: "CNY", amount: "12.50000000" }]);
+    427|     expect(summary.monthlyCost.previous?.incompleteReason).toContain("…
+       |                                                            ^
+    428|     expect(summary.monthlyCost.previous?.incompleteReason).toContain("…
+    429|     expect(summary.monthlyCost.previous?.window.rangeStart).toBe("2026…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入）
+AssertionError: expected '' to contain 'API_USAGE_COST_UNKNOWN:1'
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- API_USAGE_COST_UNKNOWN:1[39m
+
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:898:20
+    896|     const reason = window.incompleteReason ?? "";
+    897|     // 正控制逐码命中
+    898|     expect(reason).toContain("API_USAGE_COST_UNKNOWN:1");
+       |                    ^
+    899|     expect(reason).toContain("API_COST_CURRENCY_MISSING:1");
+    900|     expect(reason).toContain("API_COST_CURRENCY_CONFLICT:1");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 9 passed (13)
+   Start at  05:41:49
+   Duration  5.85s (transform 938ms, setup 0ms, collect 2.01s, tests 3.59s, environment 0ms, prepare 64ms)
+
+undefined
+/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run --config ../../vitest.config.ts src/__tests-integration__/standard-home.integration.test.ts '--maxWorkers=1' '--reporter=verbose'

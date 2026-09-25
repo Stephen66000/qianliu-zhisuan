@@ -1,0 +1,357 @@
+name: qianliu-zhisuan
+services:
+  caddy:
+    depends_on:
+      control-api:
+        condition: service_started
+        required: true
+      gateway:
+        condition: service_started
+        required: true
+    image: caddy:2.9-alpine
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 80
+        published: "8081"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /Users/mac/Projects/仟流智算-provider-finance-init-20260921/deploy/caddy/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: volume
+        source: caddy-data
+        target: /data
+        volume: {}
+      - type: volume
+        source: caddy-config
+        target: /config
+        volume: {}
+  control-api:
+    build:
+      context: /Users/mac/Projects/仟流智算-provider-finance-init-20260921
+      dockerfile: apps/control-api/Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+        required: true
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    environment:
+      CONTENT_RETENTION_MODE: METADATA_ONLY
+      CONTROL_API_HOST: 0.0.0.0
+      COOKIE_SECRET: JpTqeoDvVLhDibkRpMtpIT6Rll48dBg3b3g7U+q4wrQ=
+      CREDENTIAL_KEK: G4LLEevqHCv8XSjAkoLI/akfb9+LT1qxoiED8PEdPBY=
+      DATABASE_URL: postgres://qianliu:qianliu_dev_only@postgres:5432/qianliu
+      DEEPSEEK_BASE_URL: http://stub-upstream:9299/v1
+      FEATURE_DEPARTMENT_COST: "true"
+      FEATURE_DIRECTORY_IMPORT: "true"
+      FEATURE_PROCUREMENT_REVIEW: "true"
+      FEATURE_RESOURCE_UTILIZATION_V2: "true"
+      FEATURE_USAGE_OVERVIEW_V2: "true"
+      GATEWAY_KEY_PEPPER: XJkknj90DnZbnyJrHKdjyjial7Fx8T8XFmDTuw1vKy4=
+      KIMI_CODING_BASE_URL: http://stub-upstream:9299/v1
+      LOG_LEVEL: info
+      NODE_ENV: production
+      POSTGRES_DB: qianliu
+      POSTGRES_PASSWORD: wp08_local_only_password
+      POSTGRES_USER: qianliu
+      PROVIDER_FINANCE_MODE: ACTIVE
+      QIANLIU_PUBLIC_HOST: localhost
+      REDIS_URL: redis://redis:6379
+      RUNTIME_ASSURANCE_INTERVAL_MS: "30000"
+      RUNTIME_ASSURANCE_MODE: OBSERVE
+      RUNTIME_ASSURANCE_WECOM_NOTIFY: "false"
+      SESSION_AFFINITY_HMAC_KEY: 0eYulyPffgaSaaDytJIel1WJA5l3/feyBjVJytIu9bI=
+      USAGE_AGGREGATE_DIRTY_LIMIT: "200"
+      WEB_ORIGIN: http://127.0.0.1:8080
+      WORKER_HEALTH_PORT: "9191"
+      ZHIPU_CODING_BASE_URL: http://stub-upstream:9299/v1
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 8788
+        published: "8788"
+        protocol: tcp
+    restart: unless-stopped
+    stop_grace_period: 20s
+  gateway:
+    build:
+      context: /Users/mac/Projects/仟流智算-provider-finance-init-20260921
+      dockerfile: apps/gateway/Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+        required: true
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    environment:
+      CONTENT_RETENTION_MODE: METADATA_ONLY
+      COOKIE_SECRET: JpTqeoDvVLhDibkRpMtpIT6Rll48dBg3b3g7U+q4wrQ=
+      CREDENTIAL_KEK: G4LLEevqHCv8XSjAkoLI/akfb9+LT1qxoiED8PEdPBY=
+      DATABASE_URL: postgres://qianliu:qianliu_dev_only@postgres:5432/qianliu
+      DEEPSEEK_BASE_URL: http://stub-upstream:9299/v1
+      FEATURE_DEPARTMENT_COST: "true"
+      FEATURE_DIRECTORY_IMPORT: "true"
+      FEATURE_PROCUREMENT_REVIEW: "true"
+      FEATURE_RESOURCE_UTILIZATION_V2: "true"
+      FEATURE_USAGE_OVERVIEW_V2: "true"
+      GATEWAY_HOST: 0.0.0.0
+      GATEWAY_KEY_PEPPER: XJkknj90DnZbnyJrHKdjyjial7Fx8T8XFmDTuw1vKy4=
+      KIMI_CODING_BASE_URL: https://api.kimi.com/coding/v1
+      LOG_LEVEL: info
+      NODE_ENV: production
+      POSTGRES_DB: qianliu
+      POSTGRES_PASSWORD: wp08_local_only_password
+      POSTGRES_USER: qianliu
+      PROVIDER_FINANCE_MODE: ACTIVE
+      QIANLIU_PUBLIC_HOST: localhost
+      REDIS_URL: redis://redis:6379
+      RUNTIME_ASSURANCE_INTERVAL_MS: "30000"
+      RUNTIME_ASSURANCE_MODE: OBSERVE
+      RUNTIME_ASSURANCE_WECOM_NOTIFY: "false"
+      SESSION_AFFINITY_HMAC_KEY: 0eYulyPffgaSaaDytJIel1WJA5l3/feyBjVJytIu9bI=
+      USAGE_AGGREGATE_DIRTY_LIMIT: "200"
+      WEB_ORIGIN: http://127.0.0.1:8080
+      WORKER_HEALTH_PORT: "9191"
+      ZHIPU_CODING_BASE_URL: http://stub-upstream:9299/v1
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 8787
+        published: "8787"
+        protocol: tcp
+    restart: unless-stopped
+    stop_grace_period: 20s
+  migrate:
+    build:
+      context: /Users/mac/Projects/仟流智算-provider-finance-init-20260921
+      dockerfile: apps/control-api/Dockerfile
+    command:
+      - node
+      - --import
+      - tsx
+      - packages/database/src/cli/migrate.ts
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+    environment:
+      CONTENT_RETENTION_MODE: METADATA_ONLY
+      COOKIE_SECRET: JpTqeoDvVLhDibkRpMtpIT6Rll48dBg3b3g7U+q4wrQ=
+      CREDENTIAL_KEK: G4LLEevqHCv8XSjAkoLI/akfb9+LT1qxoiED8PEdPBY=
+      DATABASE_URL: postgres://qianliu:qianliu_dev_only@postgres:5432/qianliu
+      DEEPSEEK_BASE_URL: http://stub-upstream:9299/v1
+      FEATURE_DEPARTMENT_COST: "true"
+      FEATURE_DIRECTORY_IMPORT: "true"
+      FEATURE_PROCUREMENT_REVIEW: "true"
+      FEATURE_RESOURCE_UTILIZATION_V2: "true"
+      FEATURE_USAGE_OVERVIEW_V2: "true"
+      GATEWAY_KEY_PEPPER: XJkknj90DnZbnyJrHKdjyjial7Fx8T8XFmDTuw1vKy4=
+      KIMI_CODING_BASE_URL: http://stub-upstream:9299/v1
+      LOG_LEVEL: info
+      NODE_ENV: production
+      POSTGRES_DB: qianliu
+      POSTGRES_PASSWORD: wp08_local_only_password
+      POSTGRES_USER: qianliu
+      PROVIDER_FINANCE_MODE: ACTIVE
+      QIANLIU_PUBLIC_HOST: localhost
+      REDIS_URL: redis://redis:6379
+      RUNTIME_ASSURANCE_INTERVAL_MS: "30000"
+      RUNTIME_ASSURANCE_MODE: OBSERVE
+      RUNTIME_ASSURANCE_WECOM_NOTIFY: "false"
+      SESSION_AFFINITY_HMAC_KEY: 0eYulyPffgaSaaDytJIel1WJA5l3/feyBjVJytIu9bI=
+      USAGE_AGGREGATE_DIRTY_LIMIT: "200"
+      WEB_ORIGIN: http://127.0.0.1:8080
+      WORKER_HEALTH_PORT: "9191"
+      ZHIPU_CODING_BASE_URL: http://stub-upstream:9299/v1
+    networks:
+      default: null
+    restart: "no"
+  postgres:
+    environment:
+      POSTGRES_DB: qianliu
+      POSTGRES_PASSWORD: qianliu_dev_only
+      POSTGRES_USER: qianliu
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U qianliu -d qianliu
+      timeout: 2s
+      interval: 2s
+      retries: 30
+    image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 5432
+        published: "5433"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+        volume: {}
+      - type: bind
+        source: /Users/mac/Projects/仟流智算-provider-finance-init-20260921/deploy/postgres-init
+        target: /docker-entrypoint-initdb.d
+        read_only: true
+        bind:
+          create_host_path: true
+  redis:
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 2s
+      interval: 2s
+      retries: 30
+    image: redis:8-alpine@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 6379
+        published: "6380"
+        protocol: tcp
+    restart: unless-stopped
+  stub-upstream:
+    command:
+      - node
+      - /stub/server.mjs
+    environment:
+      STUB_PORT: "9299"
+    image: node:22.17.1-alpine
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 9299
+        published: "9299"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /tmp/wp08/stub
+        target: /stub
+        read_only: true
+        bind:
+          create_host_path: true
+  web:
+    build:
+      context: /Users/mac/Projects/仟流智算-provider-finance-init-20260921
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      control-api:
+        condition: service_started
+        required: true
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 80
+        published: "8080"
+        protocol: tcp
+    restart: unless-stopped
+  worker:
+    build:
+      context: /Users/mac/Projects/仟流智算-provider-finance-init-20260921
+      dockerfile: apps/worker/Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+        required: true
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    environment:
+      CONTENT_RETENTION_MODE: METADATA_ONLY
+      COOKIE_SECRET: JpTqeoDvVLhDibkRpMtpIT6Rll48dBg3b3g7U+q4wrQ=
+      CREDENTIAL_KEK: G4LLEevqHCv8XSjAkoLI/akfb9+LT1qxoiED8PEdPBY=
+      DATABASE_URL: postgres://qianliu:qianliu_dev_only@postgres:5432/qianliu
+      DEEPSEEK_BASE_URL: http://stub-upstream:9299/v1
+      FEATURE_DEPARTMENT_COST: "true"
+      FEATURE_DIRECTORY_IMPORT: "true"
+      FEATURE_PROCUREMENT_REVIEW: "true"
+      FEATURE_RESOURCE_UTILIZATION_V2: "true"
+      FEATURE_USAGE_OVERVIEW_V2: "true"
+      GATEWAY_KEY_PEPPER: XJkknj90DnZbnyJrHKdjyjial7Fx8T8XFmDTuw1vKy4=
+      KIMI_CODING_BASE_URL: http://stub-upstream:9299/v1
+      LOG_LEVEL: info
+      NODE_ENV: production
+      POSTGRES_DB: qianliu
+      POSTGRES_PASSWORD: wp08_local_only_password
+      POSTGRES_USER: qianliu
+      PROVIDER_FINANCE_MODE: ACTIVE
+      QIANLIU_PUBLIC_HOST: localhost
+      REDIS_URL: redis://redis:6379
+      RUNTIME_ASSURANCE_INTERVAL_MS: "30000"
+      RUNTIME_ASSURANCE_MODE: OBSERVE
+      RUNTIME_ASSURANCE_WECOM_NOTIFY: "false"
+      SESSION_AFFINITY_HMAC_KEY: 0eYulyPffgaSaaDytJIel1WJA5l3/feyBjVJytIu9bI=
+      USAGE_AGGREGATE_DIRTY_LIMIT: "200"
+      WEB_ORIGIN: http://127.0.0.1:8080
+      WORKER_HEALTH_PORT: "9191"
+      ZHIPU_CODING_BASE_URL: http://stub-upstream:9299/v1
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - '-'
+        - http://127.0.0.1:9191/health
+      timeout: 3s
+      interval: 15s
+      retries: 5
+      start_period: 10s
+    networks:
+      default: null
+    restart: unless-stopped
+networks:
+  default:
+    name: qianliu-zhisuan_default
+volumes:
+  caddy-config:
+    name: qianliu-zhisuan_caddy-config
+  caddy-data:
+    name: qianliu-zhisuan_caddy-data
+  postgres-data:
+    name: qianliu-zhisuan_postgres-data
+x-postgres-image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+x-redis-image: redis:8-alpine@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb

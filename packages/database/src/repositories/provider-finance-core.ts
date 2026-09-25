@@ -1,14 +1,16 @@
 import { createHash } from "node:crypto";
-import { Decimal } from "decimal.js";
 import type { Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import { PROVIDER_FINANCE_CUTOVER, ProviderFinanceError, type FinanceCurrency, type FinanceEventType, type FinanceEventView } from "./provider-finance-types.js";
 
-export const Money = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
+/**
+ * 金额标度与余额公式的唯一定义在领域层
+ * （`@qianliu/domain` 的 provider-finance-balance-components）。
+ * 此处仅再导出，保持既有调用点不变；禁止在本层另建第二套金额/冲销语义。
+ */
+import { Money, money } from "@qianliu/domain";
 
-export function money(value: Decimal.Value): string {
-  return new Money(value).toDecimalPlaces(8).toFixed(8);
-}
+export { Money, money };
 
 export function stableHash(value: unknown): string {
   const normalize = (item: unknown): unknown => {
@@ -56,7 +58,8 @@ export async function lockResource(
   trx: Transaction<Database>, enterpriseId: string, resourceId: string,
 ) {
   const resource = await trx.selectFrom("provider_resource")
-    .select(["id", "mode"]).where("enterprise_id", "=", enterpriseId)
+    // created_at：F-P2-6 期初生效时点下界（不得早于资源创建）校验所需。
+    .select(["id", "mode", "created_at"]).where("enterprise_id", "=", enterpriseId)
     .where("id", "=", resourceId).where("status", "<>", "DELETED")
     .forUpdate().executeTakeFirst();
   if (!resource) throw new ProviderFinanceError("NOT_FOUND", "厂商资源不存在");

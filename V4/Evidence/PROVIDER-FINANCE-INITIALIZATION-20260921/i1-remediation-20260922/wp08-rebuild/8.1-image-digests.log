@@ -1,0 +1,114 @@
+# WP08 7.1 候选镜像摘要（本地构建，未推送任何 registry）— I1 整改后重建
+# 采集时刻(UTC): 2026-09-22T10:43:05Z
+# 候选 commit: 94482f06e5ac69a80357b6e17b9786f7690265c4
+# 候选 tree:   fb1212dba13963014cef18da4ed6fd7457c51b48
+# 索引摘要:    4f14d9dde58ef0157c8ba34b2b80333f289b922e392870ee6358ab7c78c41d15
+# VERSION:     2.5.8
+# 宿主平台:    linux/arm64
+
+## docker images（候选仓库:标签 / ID / 大小）
+qianliu-candidate/control-api:94482f06e5ac  ID=eea31225e5a3  Size=706MB
+qianliu-candidate/control-api:c9bc9b93deb2  ID=2a2c4df520c0  Size=702MB
+qianliu-candidate/gateway:94482f06e5ac  ID=4f390ed6fec1  Size=708MB
+qianliu-candidate/gateway:c9bc9b93deb2  ID=4d8754d4838f  Size=702MB
+qianliu-candidate/web:94482f06e5ac  ID=a4121ce4d23e  Size=51.5MB
+qianliu-candidate/web:c9bc9b93deb2  ID=9cf25cb9c0d1  Size=51.5MB
+qianliu-candidate/worker:94482f06e5ac  ID=1a0f00d4f160  Size=739MB
+qianliu-candidate/worker:c9bc9b93deb2  ID=a05b6bd46f4c  Size=732MB
+
+==================================================================
+### control-api
+------------------------------------------------------------------
+-- image ID / Created / Size / Platform
+ID=sha256:eea31225e5a3bcf324e2ce25d124dccfff3f619bbcad970214a278abc5d9da50
+Created=2026-09-22T10:38:23.765335094Z
+Size=705548546
+Architecture=arm64
+Os=linux
+-- RepoDigests（本地构建应为 []，证明未推送 registry）
+[]
+-- 候选回执标签（revision / version / source-tree / index-sha256）
+{"org.opencontainers.image.revision":"94482f06e5ac69a80357b6e17b9786f7690265c4","org.opencontainers.image.title":"qianliu-zhisuan","org.opencontainers.image.version":"2.5.8","qianliu.candidate.change":"provider-finance-initialization","qianliu.candidate.index-sha256":"4f14d9dde58ef0157c8ba34b2b80333f289b922e392870ee6358ab7c78c41d15","qianliu.candidate.source-tree":"fb1212dba13963014cef18da4ed6fd7457c51b48","qianliu.candidate.workpackage":"WP08"}
+-- 层 diffID（构建产物逐层指纹，可比对复现）
+["sha256:0b83d017db6efafadf6b3f18d087d2ce1d67d8f0e927dc7254b0ad088074cd3a","sha256:b7a5f19a908a8795e2d1741668075413c9e8fc61856a0851ddacb76992cff992","sha256:bc407b048da8a1fa9f5d9b739bb43d1497c9385102e60c45e2100ca9a1b40140","sha256:2df53ceb6ce43195c3edb91ad4abbc9c2f2181939eb0fb6361d88d07c68a6f57","sha256:993f80b56976647dc03e147c7f1e1a677e2f2782795b53eb85bb91d7e03bb5e1","sha256:b0210df54c2b4744d82c46505d83303997404d1d91e37f2ba6dca79988985dd7","sha256:6b0ddc497aa9a5fd2b4dc2b041ae4b58ce4a6f7a176cb06f36a2e5fc3cf5dcd8","sha256:dd5bc8d7478aff670523f0ceeb1ee28e22effcf431bf310c6ac4c05c1ff48200","sha256:afe7f94484efaf551de94820e519e3c8cbc187d762b419bb3951b585c14343f3","sha256:a4990f868df4c52ea19b3859c3d93f6bc680409f68d70e3780d13c9d025b2620","sha256:e0a10b32c392dba1aa998615443acfc7681c0461ba47c8467cfc0eaa1adf9209","sha256:e89fc048628c737e247511045ca5915bcfcf6681f054fda91595612daea6a777","sha256:c919dd9f5aa5e52e8c557391b57cfa6fcf20c4977a62df9abe00182cfe42d3bc","sha256:1a9c2dca554505a801790b4706a4752abbfd9744f4a2ec54149890724d99c077","sha256:5cb9f6d9320c671cf35acbf0e24082be61dd1b1cf8ba3a15ab7e2bfafee85dde","sha256:8de4d1263b51292f1c215cce4ca7e813276c1c35698147ffa7e587f99d92f782","sha256:9d0d63c2c9e5ce444579593fc2002220975fe9b43b34c4015d09fa989b256ce1","sha256:6030890da6d1b6987e116ff89c2a5b99894c2429144f81e63cec0797c2ae207a","sha256:5ea36a4284b744433913c93b3f5ca0b8ab792c47b20503d375ab20855a67595e","sha256:ecef72d718a178ca56c274de88acb8b7d89051ffdd07058ee9112208f0c1b2a6","sha256:8fb18b2acb0b3a59732b71a3f0b50c823172a7650560f23de9baaf769a00eb94","sha256:0347dc08bc4a3f64150e15dea1b4fb2db0491d19878f21b6243fac6bf31c1f7b","sha256:60782fe5772a5f1d41768f7152feeb38d8ababe9ec65fe6533a383ddb16b023f"]
+-- 入口 / 暴露端口 / 工作目录
+Entrypoint=["docker-entrypoint.sh"]
+Cmd=["node","--import","tsx","apps/control-api/src/main.ts"]
+ExposedPorts={"8788/tcp":{}}
+WorkDir=/app
+
+==================================================================
+### gateway
+------------------------------------------------------------------
+-- image ID / Created / Size / Platform
+ID=sha256:4f390ed6fec116038359c0208756b1ff6c30e340d69e1411522c1532a42fb764
+Created=2026-09-22T10:39:26.527885012Z
+Size=707988003
+Architecture=arm64
+Os=linux
+-- RepoDigests（本地构建应为 []，证明未推送 registry）
+[]
+-- 候选回执标签（revision / version / source-tree / index-sha256）
+{"org.opencontainers.image.revision":"94482f06e5ac69a80357b6e17b9786f7690265c4","org.opencontainers.image.title":"qianliu-zhisuan","org.opencontainers.image.version":"2.5.8","qianliu.candidate.change":"provider-finance-initialization","qianliu.candidate.index-sha256":"4f14d9dde58ef0157c8ba34b2b80333f289b922e392870ee6358ab7c78c41d15","qianliu.candidate.source-tree":"fb1212dba13963014cef18da4ed6fd7457c51b48","qianliu.candidate.workpackage":"WP08"}
+-- 层 diffID（构建产物逐层指纹，可比对复现）
+["sha256:0b83d017db6efafadf6b3f18d087d2ce1d67d8f0e927dc7254b0ad088074cd3a","sha256:b7a5f19a908a8795e2d1741668075413c9e8fc61856a0851ddacb76992cff992","sha256:bc407b048da8a1fa9f5d9b739bb43d1497c9385102e60c45e2100ca9a1b40140","sha256:2df53ceb6ce43195c3edb91ad4abbc9c2f2181939eb0fb6361d88d07c68a6f57","sha256:89c4406935f96e2f4cf68c2a1f5e84415d2b77e9cefe5d1d949629f2617290bd","sha256:71ac36ff3333833b38cccbe090348c89ba1e8b77e00bea78c270c755b76c2527","sha256:28ef128fd045d02a783ba482faaa65a3d378498d401aaf5889cecec3100ec1eb","sha256:632d9ffe04a0d554116a76b3996277b4eafc39be3fb0ce00e49ff8138ee781f8","sha256:593b8f5faa075853119e8a85a1f5f69a28b3992a68450d959b5b922efee3486c","sha256:2f97f0c07d62f2c5ad6ef2d143800003f88476823e9b5f98b43beb2c2b064827","sha256:33d6b6196c394a499d89998e4884b2cb93178281e8f2d0baac9c886b94e901e1","sha256:ad8052d65278b38cfbd6548b0150a97c1be2b20f7f66a7b87e591f72837d3e27","sha256:a62acd646debee4decafa2e50e65ed82a00911efe46e2a480ba9805428b3f45c","sha256:903b1e7e06579b97636e49b5e4b82bb331e53c9d45c2941d2d8bbae5b60a52ee","sha256:7d97a64e71c1327a1e1137c8f12a606cdad094ea55dd7c27f272dc1c4f5ce290","sha256:6a6e34da1ce49bbe8cc9d033631e43921643b71db2a5990893434a3a94281bf1","sha256:ee750a4ebd52504665914fe203d1b8d0e58bcb67ae2936b2f2a44513d39425ac","sha256:0019d292c31b33b8b630164a12924e5993a9605a6a338cc48fc946ae1c216c5d","sha256:8ba256416bc7d2b0a932e3a4a73f893bee951c4390b64570974b072488198b9e","sha256:64acfbff1a74b919f821be36908704e6451fdd62768c41f32fc698f7da16f994","sha256:a791d0c606030e6c2d4873bd014f6c6e7a5251e3b1f47a30cd19a62e94062f06","sha256:bb5e0481bcd3c6ec830a47bb5d55762b70b83ef3a2368a8b526d76a1a23c9fcb"]
+-- 入口 / 暴露端口 / 工作目录
+Entrypoint=["docker-entrypoint.sh"]
+Cmd=["node","--import","tsx","apps/gateway/src/main.ts"]
+ExposedPorts={"8787/tcp":{}}
+WorkDir=/app
+
+==================================================================
+### worker
+------------------------------------------------------------------
+-- image ID / Created / Size / Platform
+ID=sha256:1a0f00d4f160fdcce27de317653d2e43ea6e1ffd8425bc1bd15302eec1caeea4
+Created=2026-09-22T10:41:02.425555417Z
+Size=739269882
+Architecture=arm64
+Os=linux
+-- RepoDigests（本地构建应为 []，证明未推送 registry）
+[]
+-- 候选回执标签（revision / version / source-tree / index-sha256）
+{"org.opencontainers.image.revision":"94482f06e5ac69a80357b6e17b9786f7690265c4","org.opencontainers.image.title":"qianliu-zhisuan","org.opencontainers.image.version":"2.5.8","qianliu.candidate.change":"provider-finance-initialization","qianliu.candidate.index-sha256":"4f14d9dde58ef0157c8ba34b2b80333f289b922e392870ee6358ab7c78c41d15","qianliu.candidate.source-tree":"fb1212dba13963014cef18da4ed6fd7457c51b48","qianliu.candidate.workpackage":"WP08"}
+-- 层 diffID（构建产物逐层指纹，可比对复现）
+["sha256:0b83d017db6efafadf6b3f18d087d2ce1d67d8f0e927dc7254b0ad088074cd3a","sha256:b7a5f19a908a8795e2d1741668075413c9e8fc61856a0851ddacb76992cff992","sha256:bc407b048da8a1fa9f5d9b739bb43d1497c9385102e60c45e2100ca9a1b40140","sha256:2df53ceb6ce43195c3edb91ad4abbc9c2f2181939eb0fb6361d88d07c68a6f57","sha256:f2816b28b4ec51fa4aa900e4180e8070d5ee3ff96c469368716ea561c31db07d","sha256:b9d71be103bd499111ae49c67a4343be66c0e51b692bd1eb02d98af316bbaa0a","sha256:3db4699a36b6a463111dac7c38aa482db6787810fbe9e2dbbdc40c787f11388d","sha256:1e4d837ec4a7475ee5f6bacdc1944109214b07aed8dac4b7cf026c5bd6101976","sha256:1c73618125080e90e283d05a4ab008e0f1425e81b1a8d33c2cbad8d8381e2cf7","sha256:931246e6784f6c1f9c33929d6076920adcfb6d1bfedf86c0900d5bf12d12afed","sha256:cad875fb66275d639b96e0d70af316fbc8bd82aef9cd12752e952d14a7d20d38","sha256:5591009d2ee0b7d47d60f451b07e18c15b6135855b18fa32c33fc43ed54d4854","sha256:a973daef7d7a211fc5ca1ab36d007f89625fed3f786458609e23e06a7cb76e51","sha256:bb958fc9d63826cac4177de2818e81d094098b064ae176b26c5a554677b8f3bd","sha256:c67a1a2e15fe68d127d121ca2904b3f00b009653a492cb8a0180602fbd4fc7c2","sha256:296035a1487c57f2b7ab0eed8d7cfa26b1cfc6400eea11a26b03b066669efe7f","sha256:c942a838d7405ac2592dd7eecf633ad9ee2baa26e2263ef45ea7efe4bfe3a707","sha256:5d1876ccb6cd0ae9087121cfc6831edaed6b0ba496003881437a3fa772ace4e1","sha256:804d5f5c8c9ae873c75b4cc73ece8c99ae8e4c3d04203ed77b7442a6860033c9","sha256:50936079dc42799d10baab32a4ca10ac0ac6bc3ab5c9a56721ab6ae1886cae00","sha256:05eef290bbd36c0199fddf7d0d65ff4736f65822a681f4d5d82e0f3a162a7bbf","sha256:b56df455e3e642bd69f4ac734226646a33c3a9df2cf80c246c273b641f828dca","sha256:7d3378005223723f17bfc503896529112fb72bdfd667191e3834311ccf1c9a23"]
+-- 入口 / 暴露端口 / 工作目录
+Entrypoint=["docker-entrypoint.sh"]
+Cmd=["node","--import","tsx","apps/worker/src/main.ts","runtime-assurance-scheduler"]
+ExposedPorts=null
+WorkDir=/app
+
+==================================================================
+### web
+------------------------------------------------------------------
+-- image ID / Created / Size / Platform
+ID=sha256:a4121ce4d23e33321bd5c0dfbe0a3e067de1c2d9ca7bc4ff131f2e269df4578b
+Created=2026-09-22T10:42:46.325920007Z
+Size=51485780
+Architecture=arm64
+Os=linux
+-- RepoDigests（本地构建应为 []，证明未推送 registry）
+[]
+-- 候选回执标签（revision / version / source-tree / index-sha256）
+{"maintainer":"NGINX Docker Maintainers <docker-maint@nginx.com>","org.opencontainers.image.revision":"94482f06e5ac69a80357b6e17b9786f7690265c4","org.opencontainers.image.title":"qianliu-zhisuan","org.opencontainers.image.version":"2.5.8","qianliu.candidate.change":"provider-finance-initialization","qianliu.candidate.index-sha256":"4f14d9dde58ef0157c8ba34b2b80333f289b922e392870ee6358ab7c78c41d15","qianliu.candidate.source-tree":"fb1212dba13963014cef18da4ed6fd7457c51b48","qianliu.candidate.workpackage":"WP08"}
+-- 层 diffID（构建产物逐层指纹，可比对复现）
+["sha256:a16e98724c05975ee8c40d8fe389c3481373d34ab20a1cf52ea2accc43f71f4c","sha256:3459dc8f926a274f60633e093c2a9ee4397b725b7e073fb6c8acb1fd60746c30","sha256:9aad78ecf38071e3f8840ed045b8942764c9422f57a93f7ce3ef454cefea1493","sha256:c32437183174478433490733569987446b0c6ade7da0cbecc2c7dafc55235902","sha256:0fe7bdfe639df8fee4697dd80e4543ac826a673e2b70ad08880a1ebd2f2afeaf","sha256:4a651ac2c218aee739601deb108b7d1e76b3b1ae32af9808a580fb7a773c2169","sha256:97ca58bb468d55a95784fdad4e026713bc3ed4265a24a46fc168d37517cd31f4","sha256:96a0d9b1e80c2cf10de96bbd18d2d5f275b8a08feacf5878a80facef2e674017","sha256:786767e9ed9ba4810982902e648d8b6c3b9fcb3d7990c726c9d504dde7e248dc","sha256:ad02061ab829edb48918d4f36074f210f1b8415ee6e300ba6f34b8624ea33bf4"]
+-- 入口 / 暴露端口 / 工作目录
+Entrypoint=["/docker-entrypoint.sh"]
+Cmd=["nginx","-g","daemon off;"]
+ExposedPorts={"80/tcp":{}}
+WorkDir=/
+
+==================================================================
+## 基础镜像 digest（与 deploy/compose.yaml 的锁定值比对）
+postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+  ID=sha256:8ee7c900f4de054e8f0a3b42b8f5da38b8fba57c3ccd7c1a02be28cb0b06494f  Created=2026-07-07T17:46:49.401690597Z
+redis:8-alpine@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb
+  ID=sha256:04b6608ced2c02ed2a55e36a5774133fffb867ed1a072a77969451fe5faed728  Created=2026-07-24T17:22:03.583840141Z
+node:22.17.1-alpine
+  ID=sha256:1a983c6aa33343b9632eafeb66683bc5a1e3be624c1636e5d894f7601648c026  Created=2025-07-16T05:09:30Z
+nginx:1.27-alpine
+  ID=sha256:96868d9fa38f469a86d2f25787e43ee9ad330339d30be260aa9f5a338bb03751  Created=2025-04-16T14:50:31Z
+caddy:2.9-alpine
+  ID=sha256:a25aa7a81139a6c5ce7d97655b0a637c859b9113a979431a8ed079b34e2ed231  Created=2025-01-08T17:30:49Z

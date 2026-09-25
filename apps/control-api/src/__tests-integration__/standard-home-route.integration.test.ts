@@ -23,8 +23,10 @@ beforeAll(async () => {
   await migrateToLatest(db);
   const passwordHash = await hashPassword(password);
   await db.insertInto("enterprise").values([
-    { id: enterpriseA, name: "standard-home-a" },
-    { id: enterpriseB, name: "standard-home-b" },
+    // 登录路由取 created_at 最小的企业；迁移默认值是**常量**，同语句插入会并列，
+    // 显式时间戳消除排序不确定性（同类收口见 pool027）。
+    { id: enterpriseA, name: "standard-home-a", created_at: new Date("2020-01-01T00:00:00.000Z") },
+    { id: enterpriseB, name: "standard-home-b", created_at: new Date("2020-01-02T00:00:00.000Z") },
   ]).execute();
   await db.insertInto("admin_user").values([
     {

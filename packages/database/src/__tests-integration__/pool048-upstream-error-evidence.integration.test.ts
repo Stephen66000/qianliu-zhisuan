@@ -6,6 +6,7 @@ import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/test
 import { createKysely } from "../kysely.js";
 import { createMigrator, migrateDown } from "../migrator.js";
 import { GatewayLedgerRepository } from "../repositories/gateway-ledger-repository.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -166,14 +167,9 @@ describe("POOL20-048 0055 上游错误证据", () => {
       await expect(db.updateTable("upstream_attempt").set({
         request_shape_summary: { oversized: "x".repeat(5_000) },
       }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow();
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
+      // 回滚链锚定「目标迁移」而非「当时的迁移头」（惯例见 migration-rollback.ts docstring）。
+      const rolledBack = await rollbackTo(db, "0073_credential_chat_probe");
+      expect(rolledBack.at(-1)).toBe("0073_credential_chat_probe");
       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");

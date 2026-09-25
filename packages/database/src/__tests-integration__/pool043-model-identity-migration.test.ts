@@ -4,6 +4,7 @@ import { createKysely } from "../kysely.js";
 import { createMigrator, migrateDown } from "../migrator.js";
 import { GatewayLedgerRepository } from "../repositories/gateway-ledger-repository.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -53,7 +54,10 @@ describe("POOL-043 稳定模型身份迁移", () => {
 
       const migrated = await migrator.migrateToLatest();
       expect(migrated.error).toBeUndefined();
-      expect(migrated.results?.map((result) => [result.migrationName, result.status])).toEqual([
+      // 台账断言锚定「本用例关心的迁移区间」而非「当时的迁移头」：迁移头会随其他
+      // 工作包继续追加（见 migration-rollback.ts docstring），用前缀匹配替代全量清单。
+      const executed = migrated.results?.map((result) => [result.migrationName, result.status]) ?? [];
+      expect(executed.slice(0, 30)).toEqual([
         ["0043_single_owner_rule_history", "Success"],
         ["0044_operating_bill_model_identity", "Success"],
         ["0045_zhipu_weekday_window_alias", "Success"],
@@ -92,7 +96,11 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0078_provider_model_probe_enum_checks", "Success"],
         ["0079_project_allocation_relations", "Success"],
         ["0080_project_allocation_compute", "Success"],
+      ["0081_provider_finance_activation", "Success"],
+      ["0082_provider_finance_candidate_draft", "Success"],
+      ["0083_provider_finance_resource_opening_trigger", "Success"],
       ]);
+      expect(executed.every(([, status]) => status === "Success")).toBe(true);
       const rows = await db.selectFrom("ai_request")
         .select(["id", "unified_model", "unified_model_id"]).orderBy("id").execute();
       expect(rows).toEqual([
@@ -129,15 +137,9 @@ describe("POOL-043 稳定模型身份迁移", () => {
         unified_model: "ql-deepseek-v4-flash", unified_model_id: modelA,
       });
 
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      // 回滚链锚定「目标迁移」而非「当时的迁移头」（惯例见 migration-rollback.ts docstring）。
+      const rolledBack = await rollbackTo(db, "0072_admin_roles_security");
+      expect(rolledBack.at(-1)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
@@ -189,7 +191,9 @@ describe("POOL-043 稳定模型身份迁移", () => {
       expect(await migrateDown(db)).toBe("0043_single_owner_rule_history");
       const reapplied = await migrator.migrateToLatest();
       expect(reapplied.error).toBeUndefined();
-      expect(reapplied.results?.map((result) => [result.migrationName, result.status])).toEqual([
+      // 台账断言锚定「0043..0072 区间」而非「当时的迁移头」（惯例见 migration-rollback.ts）。
+      const reappliedExecuted = reapplied.results?.map((result) => [result.migrationName, result.status]) ?? [];
+      expect(reappliedExecuted.slice(0, 30)).toEqual([
         ["0043_single_owner_rule_history", "Success"],
         ["0044_operating_bill_model_identity", "Success"],
         ["0045_zhipu_weekday_window_alias", "Success"],
@@ -228,7 +232,11 @@ describe("POOL-043 稳定模型身份迁移", () => {
         ["0078_provider_model_probe_enum_checks", "Success"],
         ["0079_project_allocation_relations", "Success"],
         ["0080_project_allocation_compute", "Success"],
+      ["0081_provider_finance_activation", "Success"],
+      ["0082_provider_finance_candidate_draft", "Success"],
+      ["0083_provider_finance_resource_opening_trigger", "Success"],
       ]);
+      expect(reappliedExecuted.every(([, status]) => status === "Success")).toBe(true);
       const rebound = await db.selectFrom("ai_request")
         .select(["unified_model", "unified_model_id"])
         .where("id", "=", rows[0]!.id)

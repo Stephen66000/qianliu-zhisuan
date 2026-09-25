@@ -1,0 +1,38 @@
+# WP08 候选栈最终身份快照（演练结束、拆栈前）
+# 时刻(UTC): 2026-09-22T10:59:01Z
+
+## 容器（名称 / 镜像 / 状态 / 端口绑定）
+qianliu-zhisuan-caddy-1	caddy:2.9-alpine	Up 15 minutes	443/tcp, 2019/tcp, 443/udp, 127.0.0.1:8081->80/tcp
+qianliu-zhisuan-control-api-1	qianliu-candidate/control-api:94482f06e5ac	Up 4 minutes	127.0.0.1:8788->8788/tcp
+qianliu-zhisuan-gateway-1	qianliu-candidate/gateway:94482f06e5ac	Up 15 minutes	127.0.0.1:8787->8787/tcp
+qianliu-zhisuan-postgres-1	postgres:17-alpine	Up 15 minutes (healthy)	127.0.0.1:5433->5432/tcp
+qianliu-zhisuan-redis-1	redis:8-alpine	Up 15 minutes (healthy)	127.0.0.1:6380->6379/tcp
+qianliu-zhisuan-stub-upstream-1	node:22.17.1-alpine	Up 15 minutes	127.0.0.1:9299->9299/tcp
+qianliu-zhisuan-web-1	qianliu-candidate/web:94482f06e5ac	Up 15 minutes	127.0.0.1:8080->80/tcp
+qianliu-zhisuan-worker-1	qianliu-candidate/worker:94482f06e5ac	Up 4 minutes (healthy)	
+
+## 候选镜像（仓库:标签 / ID / 大小）
+qianliu-candidate/control-api:94482f06e5ac	eea31225e5a3	706MB
+qianliu-candidate/control-api:c9bc9b93deb2	2a2c4df520c0	702MB
+qianliu-candidate/gateway:94482f06e5ac	4f390ed6fec1	708MB
+qianliu-candidate/gateway:c9bc9b93deb2	4d8754d4838f	702MB
+qianliu-candidate/web:94482f06e5ac	a4121ce4d23e	51.5MB
+qianliu-candidate/web:c9bc9b93deb2	9cf25cb9c0d1	51.5MB
+qianliu-candidate/worker:94482f06e5ac	1a0f00d4f160	739MB
+qianliu-candidate/worker:c9bc9b93deb2	a05b6bd46f4c	732MB
+
+## 候选镜像回执标签（revision）
+qianliu-candidate/control-api:94482f06e5ac revision=94482f06e5ac69a80357b6e17b9786f7690265c4
+qianliu-candidate/gateway:94482f06e5ac revision=94482f06e5ac69a80357b6e17b9786f7690265c4
+qianliu-candidate/worker:94482f06e5ac revision=94482f06e5ac69a80357b6e17b9786f7690265c4
+qianliu-candidate/web:94482f06e5ac revision=94482f06e5ac69a80357b6e17b9786f7690265c4
+
+## 监听端口（应全部为 127.0.0.1 回环，无 0.0.0.0 暴露）
+qianliu-zhisuan-caddy-1	443/tcp, 2019/tcp, 443/udp, 127.0.0.1:8081->80/tcp
+qianliu-zhisuan-control-api-1	127.0.0.1:8788->8788/tcp
+qianliu-zhisuan-gateway-1	127.0.0.1:8787->8787/tcp
+qianliu-zhisuan-postgres-1	127.0.0.1:5433->5432/tcp
+qianliu-zhisuan-redis-1	127.0.0.1:6380->6379/tcp
+qianliu-zhisuan-stub-upstream-1	127.0.0.1:9299->9299/tcp
+qianliu-zhisuan-web-1	127.0.0.1:8080->80/tcp
+qianliu-zhisuan-worker-1	

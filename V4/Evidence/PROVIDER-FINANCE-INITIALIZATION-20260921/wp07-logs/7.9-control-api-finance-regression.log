@@ -1,0 +1,57 @@
+# WP07 v2 | control-api 资金回归分片 | HEAD=05d1dc5b958423378dc61bc3adab7ab2e7fe9d17 | 2026-09-21T21:42:05Z
+===== provider-finance =====
+   ✓ provider finance routes > records a Coding Plan and exposes its service period  601ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  05:42:06
+   Duration  7.70s (transform 1.23s, setup 0ms, collect 1.76s, tests 5.71s, environment 0ms, prepare 61ms)
+
+===== provider-finance-activation.http =====
+ ✓ src/__tests-integration__/provider-finance-activation.http.test.ts (13 tests) 5257ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  05:42:15
+   Duration  7.34s (transform 1.23s, setup 0ms, collect 1.83s, tests 5.26s, environment 0ms, prepare 69ms)
+
+===== pool025-operating-bill =====
+   ✓ POOL-025 企业 AI 算力月度经营账单 > 0053 已有期初事实时拒绝破坏性回退  1770ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  05:42:23
+   Duration  8.68s (transform 1.29s, setup 0ms, collect 1.91s, tests 6.53s, environment 0ms, prepare 54ms)
+
+===== pool043-operating-bill-accounts =====
+ ✓ src/__tests-integration__/pool043-operating-bill-accounts.test.ts (5 tests) 4313ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  05:42:33
+   Duration  6.59s (transform 1.37s, setup 0ms, collect 2.06s, tests 4.31s, environment 0ms, prepare 50ms)
+
+===== subscription-renewal-flow =====
+   ✓ API registration opt-in reaches scheduled renewal, history and procurement, then cancellation stops future entries  366ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  05:42:41
+   Duration  6.02s (transform 1.28s, setup 0ms, collect 1.83s, tests 3.97s, environment 0ms, prepare 53ms)
+
+===== standard-home-route.integration =====
+ ✓ src/__tests-integration__/standard-home-route.integration.test.ts (2 tests) 4120ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  05:42:48
+   Duration  7.02s (transform 1.66s, setup 0ms, collect 2.65s, tests 4.12s, environment 0ms, prepare 53ms)
+
+===== w18-dashboard-usage =====
+ ✓ src/__tests-integration__/w18-dashboard-usage.test.ts (19 tests) 4474ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  05:42:56
+   Duration  6.55s (transform 1.28s, setup 0ms, collect 1.82s, tests 4.47s, environment 0ms, prepare 70ms)
+

@@ -1,0 +1,1241 @@
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(17,27): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(19,25): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(25,25): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(28,22): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(40,36): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(57,77): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(63,9): error TS2322: Type '{ status: number; committed: boolean; usage: { input: number; output: number; cache: number; quality: "ACTUAL"; }; }' is not assignable to type 'Outcome'.
+  The types of 'usage.quality' are incompatible between these types.
+    Type '"ACTUAL"' is not assignable to type 'UsageQuality'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(68,48): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(69,23): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(75,29): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(77,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(79,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(82,33): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(84,34): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(87,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(91,32): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(108,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(110,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(112,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(123,61): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(125,46): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(126,45): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(131,79): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(133,43): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(134,64): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(135,38): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(136,41): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(138,9): error TS2322: Type '{ status: number; committed: boolean; usage: { input: number; output: number; cache: number; quality: "ACTUAL"; }; }' is not assignable to type 'Outcome'.
+  The types of 'usage.quality' are incompatible between these types.
+    Type '"ACTUAL"' is not assignable to type 'UsageQuality'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(140,48): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(144,77): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(151,7): error TS2322: Type '{ status: number; committed: boolean; usage: { input: number; output: number; cache: number; quality: "ACTUAL"; }; }' is not assignable to type 'Outcome'.
+  The types of 'usage.quality' are incompatible between these types.
+    Type '"ACTUAL"' is not assignable to type 'UsageQuality'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(153,46): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(157,7): error TS2322: Type '{ status: number; committed: boolean; usage: { input: number; output: number; cache: number; quality: "ACTUAL"; }; }' is not assignable to type 'Outcome'.
+  The types of 'usage.quality' are incompatible between these types.
+    Type '"ACTUAL"' is not assignable to type 'UsageQuality'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(167,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(169,24): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(185,77): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(189,7): error TS2322: Type '{ status: number; committed: boolean; usage: { input: number; output: number; cache: number; quality: "ACTUAL"; }; }' is not assignable to type 'Outcome'.
+  The types of 'usage.quality' are incompatible between these types.
+    Type '"ACTUAL"' is not assignable to type 'UsageQuality'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(191,46): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(192,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(198,38): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(212,33): error TS2493: Tuple type '[]' of length '0' has no element at index '0'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(221,33): error TS2493: Tuple type '[]' of length '0' has no element at index '0'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(252,33): error TS2493: Tuple type '[]' of length '0' has no element at index '0'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(260,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/credential-chat-probe.test.ts(262,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(7,29): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(9,29): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(21,30): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(23,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(25,37): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(29,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(30,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(31,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(32,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/deepseek-version-sync.test.ts(43,29): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(44,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(45,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(47,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(51,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(62,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(68,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(76,34): error TS2345: Argument of type 'Response' is not assignable to parameter of type '{ headers: Record<string, string | string[] | undefined>; }'.
+  Types of property 'headers' are incompatible.
+    Type 'OutgoingHttpHeaders' is not assignable to type 'Record<string, string | string[] | undefined>'.
+      'string' index signatures are incompatible.
+        Type 'OutgoingHttpHeader | undefined' is not assignable to type 'string | string[] | undefined'.
+          Type 'number' is not assignable to type 'string | string[] | undefined'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(132,35): error TS2345: Argument of type 'Response' is not assignable to parameter of type '{ headers: Record<string, string | string[] | undefined>; }'.
+  Types of property 'headers' are incompatible.
+    Type 'OutgoingHttpHeaders' is not assignable to type 'Record<string, string | string[] | undefined>'.
+      'string' index signatures are incompatible.
+        Type 'OutgoingHttpHeader | undefined' is not assignable to type 'string | string[] | undefined'.
+          Type 'number' is not assignable to type 'string | string[] | undefined'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(169,42): error TS2345: Argument of type 'Response' is not assignable to parameter of type '{ headers: Record<string, string | string[] | undefined>; }'.
+  Types of property 'headers' are incompatible.
+    Type 'OutgoingHttpHeaders' is not assignable to type 'Record<string, string | string[] | undefined>'.
+      'string' index signatures are incompatible.
+        Type 'OutgoingHttpHeader | undefined' is not assignable to type 'string | string[] | undefined'.
+          Type 'number' is not assignable to type 'string | string[] | undefined'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(270,10): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(292,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(308,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(312,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(330,10): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(344,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(349,31): error TS7006: Parameter 'log' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(358,8): error TS7006: Parameter 'log' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(374,23): error TS7006: Parameter 'log' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(381,41): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool015-admin-lifecycle.test.ts(384,30): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(34,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(39,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(45,26): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(51,25): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(59,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(79,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(80,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(81,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(82,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(86,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(90,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(94,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(99,29): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(102,24): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(106,25): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(110,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(129,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(138,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(146,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(147,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(151,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(155,10): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(156,10): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(158,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(166,51): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(176,14): error TS2339: Property 'deleteFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(177,14): error TS2339: Property 'deleteFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(178,53): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(183,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(187,59): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(194,32): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(195,41): error TS7006: Parameter 'row' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(196,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(201,38): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(202,18): error TS7031: Binding element 'fn' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(222,37): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(223,18): error TS7031: Binding element 'fn' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(231,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(234,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(243,39): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(247,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(250,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(254,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(259,38): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(260,18): error TS7031: Binding element 'fn' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(288,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(289,18): error TS7031: Binding element 'fn' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(292,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(299,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(312,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(314,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(347,15): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(355,23): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(361,71): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(378,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(383,33): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(387,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(399,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(427,41): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(431,35): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(435,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(441,39): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(445,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(457,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(459,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(498,37): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(522,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(547,34): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(562,33): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(595,30): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(596,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(597,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(680,41): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts(683,30): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(18,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(19,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(25,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(29,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(34,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(46,13): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(87,27): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(90,29): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(92,24): error TS7006: Parameter 'event' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(119,28): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(119,65): error TS7006: Parameter 'eb' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool026-deployment-logs.test.ts(161,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(19,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(20,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(21,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(26,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(30,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(38,27): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(53,33): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(111,36): error TS18048: 'init' is possibly 'undefined'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(150,28): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(152,28): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(170,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(171,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(172,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(178,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(213,27): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(220,28): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(229,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(234,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(239,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(240,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(248,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(249,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(254,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(256,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(271,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(273,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(280,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(282,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(298,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(305,28): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(337,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(338,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(342,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(356,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(378,42): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(427,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(433,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(437,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(519,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(524,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(529,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(534,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(538,36): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(542,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(547,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(552,36): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(555,14): error TS2339: Property 'deleteFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(561,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts(568,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(30,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(31,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(32,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(33,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(37,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(44,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(47,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(51,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(59,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(62,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(66,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(74,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(82,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(87,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(95,33): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(153,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(159,26): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(164,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(168,28): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(170,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(193,39): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(197,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(200,37): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(203,32): error TS7006: Parameter 'row' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(213,29): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(218,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(227,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(228,32): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(230,165): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(231,167): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(239,97): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(240,66): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(242,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(243,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(246,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(252,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(255,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(259,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(272,153): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(273,150): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(281,80): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(282,66): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(284,26): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(287,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(297,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(301,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(305,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(309,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(313,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(317,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(322,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(328,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(339,30): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(350,26): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(353,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(360,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(363,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(367,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(373,30): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(375,153): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(376,150): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(390,80): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(391,66): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(393,26): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(400,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(403,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(407,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(424,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(531,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(538,32): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(554,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(564,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(572,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(575,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(582,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(584,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(597,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(610,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(618,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(630,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(633,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(638,29): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(646,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(659,32): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(674,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(691,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(694,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(721,27): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(725,26): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(729,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(731,30): error TS7006: Parameter 'row' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts(753,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(40,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(41,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(42,46): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(43,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(44,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(48,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(52,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(56,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(63,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(70,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(80,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(92,13): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(99,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(102,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(128,24): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(154,13): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(187,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(189,26): error TS7006: Parameter 'r' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(190,26): error TS7006: Parameter 'r' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(193,36): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(224,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(226,26): error TS7006: Parameter 'r' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(277,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(282,14): error TS2339: Property 'transaction' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(282,43): error TS7006: Parameter 'trx' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(294,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(304,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(308,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(314,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(336,12): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(374,58): error TS2339: Property 'provider_resource_id' does not exist on type '{ unified_model_id: string; }'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(418,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(437,16): error TS2339: Property 'transaction' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(437,45): error TS7006: Parameter 'trx' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(442,16): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(454,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(457,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(460,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(468,16): error TS2339: Property 'transaction' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(468,45): error TS7006: Parameter 'trx' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(472,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(477,26): error TS7006: Parameter 'row' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(479,16): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(499,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(518,14): error TS2339: Property 'transaction' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(518,43): error TS7006: Parameter 'trx' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(528,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(532,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(536,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(540,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool033-access-config-regression.test.ts(544,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(23,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(24,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(25,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(26,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(30,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(34,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(38,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(42,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(46,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(52,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(64,13): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(71,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(75,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(80,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(83,26): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(89,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(90,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(119,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(123,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(127,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(131,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(135,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(140,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(144,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(149,36): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(154,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(155,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(189,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(195,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(201,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(205,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(209,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(230,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(239,67): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(242,75): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(262,99): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(263,69): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(266,28): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(270,37): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(273,30): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(278,32): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(281,36): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(285,39): error TS7006: Parameter 'row' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(286,39): error TS7006: Parameter 'row' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(288,19): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(292,23): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(294,24): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(297,34): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(301,23): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(305,23): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(309,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(313,37): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(328,65): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(331,81): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(350,105): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(351,75): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(353,36): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(356,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(358,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(360,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(363,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(367,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(370,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(372,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(374,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(407,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(411,26): error TS7006: Parameter 'version' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(412,26): error TS7006: Parameter 'version' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(413,34): error TS7006: Parameter 'version' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(418,29): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(420,32): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(423,41): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(426,84): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(429,72): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(441,97): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(442,66): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(444,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(446,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(449,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(452,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(454,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(457,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(460,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(463,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(465,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pool039-lock-order.test.ts(467,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(40,124): error TS2322: Type 'unknown' is not assignable to type 'InjectPayload | undefined'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(45,27): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(49,24): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(50,24): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(52,19): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(52,58): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(58,59): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(59,19): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(60,55): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(61,17): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(61,47): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(76,19): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(89,36): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(96,34): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(105,21): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-configurations-http.test.ts(105,60): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/pricing-evidence-boundaries.test.ts(75,24): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(48,3): error TS2741: Property 'adminId' is missing in type 'Seeded' but required in type '{ enterpriseId: string; adminId: string; }'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(156,26): error TS2322: Type 'unknown' is not assignable to type 'InjectPayload | undefined'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(168,18): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(168,30): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(169,24): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(346,20): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(346,32): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(347,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(353,23): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(353,35): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(354,23): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(362,27): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(363,27): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(369,28): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(370,28): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(375,19): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(375,31): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(376,19): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(382,25): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(382,37): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(383,25): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(390,20): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(390,32): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(391,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(411,20): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(411,32): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(412,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(605,32): error TS2345: Argument of type '"provider_finance_runtime_state"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(605,66): error TS2349: This expression is not callable.
+  Each member of the union type '{ <SE extends SelectExpression<{ [x: string]: never; }, any>>(selections: readonly SE[]): SelectQueryBuilder<{ [x: string]: never; }, any, { [E in FlattenSelectExpression<SE> as ExtractAliasFromSelectExpression<...>]: SelectType<...>; }>; <CB extends SelectCallback<...>>(callback: CB): SelectQueryBuilder<...>; <SE e...' has signatures, but none of those signatures are compatible with each other.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(667,32): error TS2345: Argument of type '"provider_finance_runtime_state"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(667,66): error TS2349: This expression is not callable.
+  Each member of the union type '{ <SE extends SelectExpression<{ [x: string]: never; }, any>>(selections: readonly SE[]): SelectQueryBuilder<{ [x: string]: never; }, any, { [E in FlattenSelectExpression<SE> as ExtractAliasFromSelectExpression<...>]: SelectType<...>; }>; <CB extends SelectCallback<...>>(callback: CB): SelectQueryBuilder<...>; <SE e...' has signatures, but none of those signatures are compatible with each other.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(278,85): error TS2322: Type 'unknown' is not assignable to type 'InjectPayload | undefined'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(389,21): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(389,33): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(390,27): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(458,20): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(458,32): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(459,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(460,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(474,25): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(474,37): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(475,25): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(487,21): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(487,33): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(488,27): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(768,23): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(768,35): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(769,23): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(779,12): error TS18048: 'logAfter' is possibly 'undefined'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(779,23): error TS18048: 'logBefore' is possibly 'undefined'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(816,21): error TS2345: Argument of type '"resource_purchase_record"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(817,10): error TS2349: This expression is not callable.
+  Each member of the union type '{ <SE extends SelectExpression<{ [x: string]: never; }, any>>(selections: readonly SE[]): SelectQueryBuilder<{ [x: string]: never; }, any, { [E in FlattenSelectExpression<SE> as ExtractAliasFromSelectExpression<...>]: SelectType<...>; }>; <CB extends SelectCallback<...>>(callback: CB): SelectQueryBuilder<...>; <SE e...' has signatures, but none of those signatures are compatible with each other.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(820,21): error TS2345: Argument of type '"provider_finance_runtime_state"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(821,10): error TS2349: This expression is not callable.
+  Each member of the union type '{ <SE extends SelectExpression<{ [x: string]: never; }, any>>(selections: readonly SE[]): SelectQueryBuilder<{ [x: string]: never; }, any, { [E in FlattenSelectExpression<SE> as ExtractAliasFromSelectExpression<...>]: SelectType<...>; }>; <CB extends SelectCallback<...>>(callback: CB): SelectQueryBuilder<...>; <SE e...' has signatures, but none of those signatures are compatible with each other.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(7,12): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(9,26): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(11,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(24,20): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(36,52): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(38,29): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(40,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(42,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/resource-model-visibility.test.ts(53,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(19,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(20,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(21,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(22,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(27,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(36,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(40,64): error TS2493: Tuple type '[]' of length '0' has no element at index '0'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(41,3): error TS2698: Spread types may only be created from object types.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(42,26): error TS2352: Conversion of type 'undefined' to type '{ headers?: Record<string, string> | undefined; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(51,34): error TS2345: Argument of type '{ method: string; url: string; payload: { name: string; department_label: string; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(54,35): error TS2345: Argument of type '{ method: string; url: string; payload: { provider_user_id: string; expected_version: number; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(61,35): error TS2345: Argument of type '{ method: string; url: string; payload: { type: string; name: string; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(63,39): error TS2345: Argument of type '{ method: string; url: string; payload: { person_id: string; expected_version: number; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(69,34): error TS2345: Argument of type '{ method: string; url: string; payload: { type: string; name: string; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(71,36): error TS2345: Argument of type '{ method: string; url: string; payload: { person_id: string; expected_version: number; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(79,31): error TS2345: Argument of type '{ method: string; url: string; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(81,35): error TS2345: Argument of type '{ method: string; url: string; payload: { status: string; expected_version: any; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(106,34): error TS2345: Argument of type '{ method: string; url: string; payload: { name: string; rule_type: string; version: { unified_signal: string; action: string; recovery_method: string; fallback_duration_seconds: number; priority: number; }; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(109,36): error TS2345: Argument of type '{ method: string; url: string; payload: { expected_version: number; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(118,33): error TS2345: Argument of type '{ method: string; url: string; payload: { expected_version: number; version: { priority: number; }; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(123,31): error TS2345: Argument of type '{ method: string; url: string; payload: { expected_version: any; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(128,33): error TS2345: Argument of type '{ method: string; url: string; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(133,33): error TS2345: Argument of type '{ method: string; url: string; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(135,33): error TS2345: Argument of type '{ method: string; url: string; payload: { source_rule_version: number; expected_version: any; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(143,33): error TS2345: Argument of type '{ method: string; url: string; payload: { name: string; rule_type: string; version: { unified_signal: string; action: string; recovery_method: string; fallback_duration_seconds: number; priority: number; }; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(144,35): error TS2345: Argument of type '{ method: string; url: string; payload: { expected_version: number; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(156,32): error TS2345: Argument of type '{ method: string; url: string; payload: { corp_id: string; agent_id: string; secret: string; status: string; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(166,15): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(174,29): error TS2345: Argument of type '{ method: string; url: string; payload: { name: string; department_label: string; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(177,29): error TS2345: Argument of type '{ method: string; url: string; payload: { name: string; department_label: string; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(182,34): error TS2345: Argument of type '{ method: string; url: string; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(190,32): error TS2345: Argument of type '{ method: string; url: string; payload: { recipients: { SYSTEM_FAILURE: any[]; UPSTREAM_RESOURCE: any[]; FINANCE_SECURITY: any[]; PERSONNEL_ACCOUNT: any[]; }; }; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/runtime-assurance.test.ts(209,34): error TS2345: Argument of type '{ method: string; url: string; }' is not assignable to parameter of type 'undefined'.
+apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts(22,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts(23,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts(25,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts(31,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts(38,30): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts(41,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts(46,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/standard-home-route.integration.test.ts(57,13): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(39,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(40,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(47,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(52,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(61,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(72,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(78,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(248,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(256,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(267,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(289,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(294,23): error TS7006: Parameter 'log' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(297,10): error TS7006: Parameter 'log' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(358,16): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(362,10): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(369,10): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(375,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(413,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(447,12): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(456,12): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(464,10): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(498,32): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(503,26): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(512,31): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(518,16): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w02-auth-principal.test.ts(522,16): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(37,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(38,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(45,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(52,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(82,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(87,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(101,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(141,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(154,14): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(195,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(203,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(205,26): error TS7006: Parameter 'item' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(223,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(273,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(290,8): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(326,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(352,14): error TS2339: Property 'deleteFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(363,29): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(400,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(405,40): error TS7006: Parameter 'key' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(408,28): error TS7006: Parameter 'key' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(452,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(469,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(485,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(487,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(537,15): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/w03-key-grant.test.ts(542,33): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(30,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(31,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(33,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(36,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(44,27): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(62,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(174,30): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(224,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(228,36): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(234,36): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(241,33): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(273,10): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(379,29): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(486,35): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(492,35): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(501,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(525,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(531,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(532,16): error TS7006: Parameter 'eb' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(532,23): error TS2347: Untyped function calls may not accept type arguments.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(539,35): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(545,35): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(603,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(609,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(616,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(621,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(649,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(653,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(656,37): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(672,36): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(676,36): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(680,43): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(683,39): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(696,28): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(726,15): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(732,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w04-provider-route.test.ts(735,23): error TS7006: Parameter 'r' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(33,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(34,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(36,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(39,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(44,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(58,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(71,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(76,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(91,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(97,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(109,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(121,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(136,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(153,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(173,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(190,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(204,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(219,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(238,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(256,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(277,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(291,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(307,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(460,34): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(463,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(469,16): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(474,16): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(504,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(522,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(527,31): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(529,34): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(533,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(551,16): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(556,32): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(561,30): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(567,16): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(574,16): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(586,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(611,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(615,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(620,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(627,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(631,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(635,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(642,35): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(646,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(651,30): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(656,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(662,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(694,14): error TS2339: Property 'deleteFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(698,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(702,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(707,16): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(724,16): error TS2339: Property 'deleteFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(726,16): error TS2339: Property 'deleteFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(727,16): error TS2339: Property 'deleteFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(732,31): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(739,36): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(747,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(770,34): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(777,34): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(786,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(797,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(866,26): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(869,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(994,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(997,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(1000,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(1013,16): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(1018,16): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts(1026,51): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(20,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(21,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(23,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(26,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(31,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(45,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(52,6): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(59,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(68,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-fixture.ts(85,6): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-writes.test.ts(71,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-writes.test.ts(79,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-writes.test.ts(104,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-writes.test.ts(113,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-writes.test.ts(140,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-admin-writes.test.ts(145,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-billing-rules.test.ts(9,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-billing-rules.test.ts(18,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-billing-rules.test.ts(84,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-billing-rules.test.ts(93,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-config-archive.test.ts(8,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-config-archive.test.ts(39,37): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-config-archive.test.ts(73,34): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-config-archive.test.ts(79,28): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-config-archive.test.ts(101,27): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(9,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(18,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(20,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(24,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(65,48): error TS7006: Parameter 'principal' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(76,44): error TS7006: Parameter 'principal' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(156,44): error TS7006: Parameter 'principal' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(160,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(176,44): error TS7006: Parameter 'principal' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(181,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(185,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(187,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(227,32): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(230,29): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(240,24): error TS2339: Property 'transaction' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(240,53): error TS7006: Parameter 'trx' implicitly has an 'any' type.
+apps/control-api/src/__tests-integration__/w19-dispatch-lifecycle.test.ts(258,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(25,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(42,15): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'QueryExecutorProvider'.
+  Property 'getExecutor' is missing in type 'Database' but required in type 'QueryExecutorProvider'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(46,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(76,22): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(84,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(96,21): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(119,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(125,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(153,14): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(172,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(184,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(187,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(199,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(209,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w19-resource-recovery.test.ts(214,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-department-costs.test.ts(1017,40): error TS2345: Argument of type '"department_budget"' is not assignable to parameter of type '"enterprise" | "billing_rule" | "credential_chat_probe" | "admin_role" | "kysely_migration" | "kysely_migration_lock" | "_w01_baseline_probe" | "admin_user" | "admin_session" | ... 76 more ... | "operating_bill_resource_confirmation"'.
+apps/control-api/src/__tests-integration__/w20-department-costs.test.ts(1044,26): error TS2345: Argument of type '"department_budget"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/w20-department-costs.test.ts(1044,47): error TS2349: This expression is not callable.
+  Each member of the union type '{ (update: UpdateObjectExpression<{ [x: string]: never; }, any, any>): UpdateQueryBuilder<{ [x: string]: never; }, any, any, UpdateResult>; <RE extends ReferenceExpression<...>>(key: RE, value: ValueExpression<...>): UpdateQueryBuilder<...>; } | ... 174 more ... | { ...; }' has signatures, but none of those signatures are compatible with each other.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(38,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(39,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(42,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(47,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(58,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(74,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(81,6): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(88,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(107,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(119,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(124,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(139,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(155,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(186,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(212,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(229,6): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(290,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(334,8): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(355,8): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(379,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(383,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(392,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(403,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(458,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(470,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(484,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(514,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(524,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(531,8): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(536,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(541,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(553,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(568,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(581,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(592,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(597,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(608,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(621,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(649,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(674,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(686,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(697,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(709,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(724,8): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(782,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(793,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(804,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(829,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(908,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(919,8): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(938,8): error TS2339: Property 'updateTable' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-diagnostics-alerts.test.ts(949,8): error TS2339: Property 'selectFrom' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-resource-insights.test.ts(759,12): error TS2571: Object is of type 'unknown'.
+apps/control-api/src/__tests-integration__/w20-resource-insights.test.ts(760,12): error TS2571: Object is of type 'unknown'.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(22,3): error TS2740: Type 'Kysely<Database>' is missing the following properties from type 'Database': credential_chat_probe, admin_role, kysely_migration, kysely_migration_lock, and 82 more.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(23,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(24,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(27,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(33,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(38,24): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(48,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(59,12): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(76,25): error TS2345: Argument of type 'Database' is not assignable to parameter of type 'Kysely<Database>'.
+  Type 'Database' is missing the following properties from type 'Kysely<Database>': #private, schema, dynamic, introspection, and 24 more.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(89,20): error TS2339: Property 'destroy' does not exist on type 'Database'.
+apps/control-api/src/__tests-integration__/w20-usage-overview.test.ts(152,14): error TS2339: Property 'insertInto' does not exist on type 'Database'.
+apps/control-api/src/wecom/__tests__/callback-routes.test.ts(17,18): error TS2532: Object is possibly 'undefined'.
+packages/database/src/index.ts(7,45): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/index.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/credential-chat-probe.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/credential-probe-models.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-lifecycle.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/billing-rule-applicability.ts'
+    Imported via "./kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/migrator.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/principal-cleanup-preview.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/principal-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/directory-import-apply.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/directory-repository-types.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/directory-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/directory-repository-source-run.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/audit-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/deployment-log-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/admin-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/key-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/grant-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-validation.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/principal-access-locks.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-lock-context.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/principal-access-config-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/principal-single-rule.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-operating-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-operating.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-model-utils.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-deletion.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/billing-rule-persistence.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/pricing-write-guard.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/gateway-ledger-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/gateway-ledger-types.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/gateway-ledger-settlement.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-write-barrier.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/gateway-ledger-request-facts.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/request-attribution-writer.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/usage-aggregate-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/usage-aggregate-rebuild.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/subscription-period-attribution.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/gateway-ledger-terminal-rejection.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/gateway-ledger-guarded-writes.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/resource-pool-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/quota-gate-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dispatch-policy-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dispatch-operating-input.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dispatch-pricing-readiness.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dispatch-policy-clone.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/reconciliation-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-helpers.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-overages.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-breakdown.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-resource-usage.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/monthly-operating-cost.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/resource-model-usage.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-resource-status.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-home.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/usage-overview-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/usage-overview-facts.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-types.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/department-cost-evidence.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/department-cost-read-model.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/department-cost-read-model-query.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-home-metrics.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-home-providers.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-home-costs.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-gaps.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-core.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-registered-history.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/supply-forecast-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/usage-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-draft.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-project-metadata.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-account-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-account-frozen.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-account-frozen-detail.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-account-live.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-account-live-detail.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-opening-balance.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-period.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-project-attribution.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-balances.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-balance-facts.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-events.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-activation-writes.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-month-opening.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-period-facts.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-finance-projection.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-bill-read.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-operating-snapshot-writer.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/admin-write-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/admin-billing-writes.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/alert-event-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/alert-event-operational-derivations.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/alert-event-request-derivations.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/alert-event-background.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/alert-event-recovery.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/runtime-assurance-events.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/runtime-assurance-core.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/runtime-assurance-rules.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/runtime-assurance-directory.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/alert-observation-writer.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-quota-window-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-cutover-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-usage-backfill.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-legacy-resolution.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-activation-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-quiescence.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-activation-preview.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-activation-facts.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-activation-coordinator.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-usage-repairs.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operational-fault-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/quota-pricing-configuration.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dispatch-policy-archive.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-analysis-purchases.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-analysis-repository.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-analysis-usage.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/principal-accounting.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/operating-department-accounts.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/principal-attribution-backfill.ts'
+    Imported via "../kysely.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-finance-renewal.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/index.ts(25,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/migrator.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./migrator.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/index.ts'
+    Imported via "../../../../packages/database/src/migrator.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src/__tests-integration__/system-settings-v2.test.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(3,47): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/credential-chat-probe.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./repositories/credential-chat-probe.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./repositories/credential-chat-probe.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/index.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(4,37): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-admin-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(13,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-operations-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-operations-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-operations-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "../kysely-operations-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-model-discovery-repository.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(18,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-finance-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-finance-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-finance-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(21,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/employee-model-rule-types.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./employee-model-rule-types.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./employee-model-rule-types.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "../employee-model-rule-types.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-quota.ts'
+    Imported via "../employee-model-rule-types.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-repository.ts'
+    Imported via "./employee-model-rule-types.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/index.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(25,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-availability-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-availability-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-availability-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-directory-tables.ts'
+    Imported via "./kysely-availability-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "../kysely-availability-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/runtime-assurance-repository.ts'
+    Imported via "./kysely-availability-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/index.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(29,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-directory-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-directory-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-directory-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-directory-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/index.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(30,47): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/provider-quota-window-types.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./provider-quota-window-types.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./provider-quota-window-types.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "../provider-quota-window-types.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/provider-quota-window-repository.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(35,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-w20-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-w20-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-w20-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(41,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-core-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-core-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-core-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(46,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-resource-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-resource-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-resource-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(51,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-ledger-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-ledger-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-ledger-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "../kysely-ledger-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/pricing-set-validation.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/kysely.ts(55,8): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely-finance-activation-tables.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./kysely-finance-activation-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+    Imported via "./kysely-finance-activation-tables.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/kysely.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/repositories/credential-chat-probe.ts(8,44): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/credential-probe-models.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/repositories/credential-probe-models.ts(3,42): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-lifecycle.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./employee-model-rule-lifecycle.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/credential-probe-models.ts'
+    Imported via "./employee-model-rule-lifecycle.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-repository.ts'
+    Imported via "./employee-model-rule-lifecycle.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/resource-pool-repository.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/repositories/employee-model-rule-lifecycle.ts(4,39): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-authorization-policy.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./employee-model-authorization-policy.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-lifecycle.ts'
+    Imported via "./employee-model-authorization-policy.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/key-repository.ts'
+    Imported via "./employee-model-authorization-policy.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-validation.ts'
+    Imported via "./employee-model-authorization-policy.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/principal-access-config-utils.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"
+packages/database/src/repositories/employee-model-rule-lifecycle.ts(5,43): error TS6059: File '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/billing-rule-applicability.ts' is not under 'rootDir' '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via "./billing-rule-applicability.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-lifecycle.ts'
+    Imported via "./billing-rule-applicability.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-validation.ts'
+    Imported via "./billing-rule-applicability.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/employee-model-rule-repository.ts'
+    Imported via "./repositories/billing-rule-applicability.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/index.ts'
+    Imported via "./billing-rule-applicability.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dispatch-operating-input.ts'
+    Imported via "./billing-rule-applicability.js" from file '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/src/repositories/dashboard-resource-usage.ts'
+  File is ECMAScript module because '/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database/package.json' has field "type" with value "module"

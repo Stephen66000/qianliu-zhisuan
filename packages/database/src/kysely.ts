@@ -56,6 +56,10 @@ import type {
   ProjectAllocationResourceResidualTable, ProjectAllocationRunTable,
   ProjectAllocationScanWatermarkTable, ProjectMembershipRevisionTable, ProjectMembershipTable,
 } from "./kysely-allocation-tables.js";
+import type {
+  ProviderFinanceActivationAttemptTable, ProviderFinanceActivationQuiescenceTable,
+  ProviderResourceFinanceStateTable,
+} from "./kysely-finance-activation-tables.js";
 
 export type * from "./kysely-operations-tables.js";
 export type * from "./employee-model-rule-types.js";
@@ -64,6 +68,7 @@ export type * from "./kysely-directory-tables.js";
 export type * from "./provider-quota-window-types.js";
 export type * from "./kysely-w20-tables.js";
 export type * from "./kysely-finance-tables.js";
+export type * from "./kysely-finance-activation-tables.js";
 export type * from "./kysely-core-tables.js";
 export type * from "./kysely-resource-tables.js";
 export type * from "./kysely-ledger-tables.js";
@@ -102,6 +107,9 @@ export interface Database {
   provider_finance_idempotency: ProviderFinanceIdempotencyTable;
   provider_finance_duplicate_candidate: ProviderFinanceDuplicateCandidateTable;
   provider_finance_legacy_cost_resolution: ProviderFinanceLegacyCostResolutionTable;
+  provider_finance_activation_attempt: ProviderFinanceActivationAttemptTable;
+  provider_finance_activation_quiescence: ProviderFinanceActivationQuiescenceTable;
+  provider_resource_finance_state: ProviderResourceFinanceStateTable;
   provider_quota_window: ProviderQuotaWindowTable; provider_model_discovery: ProviderModelDiscoveryTable;
   provider_model_discovery_item: ProviderModelDiscoveryItemTable;
   provider_model_onboarding: ProviderModelOnboardingTable; provider_model_validation: ProviderModelValidationTable;

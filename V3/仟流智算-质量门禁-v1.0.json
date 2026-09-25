@@ -404,10 +404,10 @@
     "legacy_exception_policy": "不得超过登记基线；低于 400 行后删除例外",
     "exception_policy": {
       "owner": "仟流智算技术负责人",
-      "reason": "历史生产文件与归集候选内聚文件按防增长阀登记基线；2026-09-22 登记归集两文件（domain 纯函数 allocation.ts、database 桶导出 index.ts），拆分计划见 80-CODEX-final-review.md 返修记录",
+      "reason": "历史生产文件与归集候选内聚文件按防增长阀登记基线；2026-09-22 登记归集两文件（domain 纯函数 allocation.ts、database 桶导出 index.ts），拆分计划见 80-CODEX-final-review.md 返修记录；同日 I1 资金账本第二轮复核登记资金初始化候选新增的 5 个仓储/前端文件（拆分需独立回归，见 I1 复审申请报告 20260922），其中 3 处已机械拆分（provider-finance-activation-projection/activation、database index barrel）并删除例外，剩余 5 文件须在 review_due 前拆分或说明不可拆分理由",
       "reviewed_on": "2026-09-22",
       "review_due": "2026-10-22",
-      "exit": "拆分且回归通过后降至 400 逻辑行以内"
+      "exit": "拆分且回归通过后降至 400 逻辑行以内；资金初始化新增例外的退出条件为：按仓储读写面/前端表单面继续下沉至 400 逻辑行以内，并以回归套件（单测 + 集成 + 门禁）验证后删除例外"
     },
     "exceptions": [
       {
@@ -493,6 +493,26 @@
       {
         "file": "packages/database/src/index.ts",
         "baseline": 440
+      },
+      {
+        "file": "apps/web/src/components/resources/ActivationDraftEditor.tsx",
+        "baseline": 492
+      },
+      {
+        "file": "apps/web/src/components/resources/activation-draft-model.ts",
+        "baseline": 418
+      },
+      {
+        "file": "packages/database/src/repositories/provider-finance-activation-coordinator.ts",
+        "baseline": 569
+      },
+      {
+        "file": "packages/database/src/repositories/provider-finance-activation-facts.ts",
+        "baseline": 442
+      },
+      {
+        "file": "packages/database/src/repositories/provider-finance-activation-repository.ts",
+        "baseline": 501
       }
     ]
   },

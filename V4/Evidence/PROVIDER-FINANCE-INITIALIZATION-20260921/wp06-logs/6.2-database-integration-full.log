@@ -1,0 +1,791 @@
+# WP06 6.2 database 全量集成 | HEAD=ddd1fc2f54ec254c6eb77825f0bc7d47d61317f8 | 2026-09-21T20:28:11Z
+# cmd: pnpm --filter @qianliu/database run test:integration  (= vitest run --config ../../vitest.config.ts src/__tests-integration__ --maxWorkers=4)
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database
+
+ ❯ src/__tests-integration__/runtime-admin-migrations.integration.test.ts (1 test | 1 failed) 7006ms
+   × 0067/0068 运行保障与管理员迁移 > 补齐历史异常资源，并阻止存在已清理管理员时回退 7004ms
+     → expected '0079_provider_finance_candidate_draft' to be '0073_credential_chat_probe' // Object.is equality
+ ❯ src/__tests-integration__/runtime-admin-release-rehearsal.integration.test.ts (1 test | 1 failed) 10726ms
+   × 0066 备份可恢复，0067/0068 保留管理员历史引用且归档后禁止回退 10725ms
+     → expected [ '0067_admin_cleanup', …(12) ] to deeply equal [ '0067_admin_cleanup', …(5) ]
+ ❯ src/__tests-integration__/standard-home.integration.test.ts (13 tests | 4 failed) 9942ms
+   × 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回 711ms
+     → expected '280' to be '200' // Object.is equality
+   ✓ 标准版首页聚合（getStandardHomeSummary） > 上月无对应日（asOf=3 月 30 日）时同期窗口截止上月月末并标记截断 149ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > R01-F03：同厂商资源同步混合新鲜度/缺失/失败不被最新同步掩盖，并给出范围 86ms
+   × 标准版首页聚合（getStandardHomeSummary） > R01-F01：资金读模型同期窗口复用权威缺口规则（已知部分保留、缺口显式） 127ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × 标准版首页聚合（getStandardHomeSummary） > V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口 155ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   ✓ 标准版首页聚合（getStandardHomeSummary） > R01-F02：同期 Token 质量与未知数进入契约（分母不完整可见） 97ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > R01：企业时区非上海时，员工同期窗口按企业时区计算 78ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：恢复待确认、额度耗尽与限流文案按状态证据呈现（状态恢复分支） 35ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01/G02：余额桥接完整时有已知金额且允许比较 102ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01/G02：故障注入（缺失期末快照）时透出已知套餐金额（已知部分保留） 188ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：经营账单无总额且无缺口原因时回退到跨币种提示（bill fallback） 34ms
+   × 标准版首页聚合（getStandardHomeSummary） > V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入） 340ms
+     → expected '' to contain 'API_USAGE_COST_UNKNOWN:1'
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G01：员工同期窗口在企业不存在时传播明确错误 3ms
+ ❯ src/__tests-integration__/pool046-zhipu-window-alias-migration.test.ts (1 test | 1 failed) 8255ms
+   × POOL-046 0045 智谱时段与 alias 迁移 > 只迁移目标配置、保持历史账本不变，并支持幂等 up/down 与重放 3814ms
+     → expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(32) ] to deeply equal [ [ …(2) ], [ …(2) ], [ …(2) ], …(25) ]
+ ❯ src/__tests-integration__/model-probe-migration.test.ts (3 tests | 1 failed) 23700ms
+   × 0076 provider_model_probe 迁移与探针证据 > 加法迁移可应用/回滚，探针证据按 request_hash 幂等且随凭证指纹失效 6394ms
+     → expected '0079_provider_finance_candidate_draft' to be '0077_provider_model_probe_run_identity' // Object.is equality
+   ✓ 0076 provider_model_probe 迁移与探针证据 > 0077 run 身份原子化：同 idempotency_key 并发写入恰一条 run，item 不重复，写入错误不再静默  7669ms
+   ✓ 0076 provider_model_probe 迁移与探针证据 > 终审整改三：0077 预检 fail-closed——存在重复 run 时拒绝执行且证据零损失  9634ms
+ ❯ src/__tests-integration__/exception-center-contract.integration.test.ts (55 tests | 55 skipped) 9189ms
+   ↓ F01 retains failed sync history before the first visit and separates recurrence
+   ↓ F02 splits a recovered episode before a new failure without a page visit
+   ↓ F03 uses the triggering request month and keeps the observation clock separate
+   ↓ F02 cannot split an episode on another model's success or on a success after the incoming failure
+   ↓ usage/fee/forecast warnings are excluded from active and historical lists without deleting facts
+   ↓ real failed requests use occurrence dates, include missing routing/stream classes and skip ordinary quota/policy/cancel outcomes
+   ↓ absence, normal resource state and unrelated model successes cannot turn observations green; matching success can
+   ↓ recovery follows stable model identity across renames and never accepts a recycled alias
+   ↓ manual handling needs a note and commits it together with audit; failed audit rolls back
+   ↓ background failure is recovered only by a later completed task, not by opening the page
+   ↓ late failures cannot lower the recovery barrier, and request completion orders long requests
+   ↓ planned runtime blocks are excluded from new and historical faults without hiding upstream blocks or cross-tenant uncertainty
+   ↓ refuses successful-looking recovery when resource evidence is invalid
+   ↓ refuses successful-looking recovery when request-status evidence is invalid
+   ↓ refuses successful-looking recovery when request-error evidence is invalid
+   ↓ refuses successful-looking recovery when http evidence is invalid
+   ↓ refuses successful-looking recovery when attempt-error evidence is invalid
+   ↓ refuses successful-looking recovery when observed-time evidence is invalid
+   ↓ refuses successful-looking recovery when trigger-time evidence is invalid
+   ↓ refuses successful-looking recovery when future evidence is invalid
+   ↓ refuses successful-looking recovery when resource-state evidence is invalid
+   ↓ refuses successful-looking recovery when failures evidence is invalid
+   ↓ refuses successful-looking recovery when credential evidence is invalid
+   ↓ refuses successful-looking recovery when block evidence is invalid
+   ↓ refuses successful-looking recovery when legacy-key evidence is invalid
+   ↓ positive recovery preserves prior human RESOLVED and its audit/time
+   ↓ positive recovery preserves prior human IGNORED and its audit/time
+   ↓ concurrent observation writers retain the earliest occurrence and latest completion
+   ↓ quota sync fault uses current failed evidence (SUCCESS/true/null), not usage ratio
+   ↓ quota sync fault uses current failed evidence (UNSUPPORTED/true/null), not usage ratio
+   ↓ quota sync fault uses current failed evidence (STALE/true/null), not usage ratio
+   ↓ quota sync fault uses current failed evidence (STALE/true/failed), not usage ratio
+   ↓ quota sync fault uses current failed evidence (FAILED/true/null), not usage ratio
+   ↓ quota sync fault uses current failed evidence (FAILED/false/null), not usage ratio
+   ↓ background sources and quota-window queries remain tenant isolated
+   ↓ operating sync surfaces either failed component (FAILED/SUCCESS)
+   ↓ operating sync surfaces either failed component (SUCCESS/FAILED)
+   ↓ operating sync surfaces either failed component (FAILED/FAILED)
+   ↓ operating sync surfaces either failed component (SUCCESS/NOT_SUPPORTED)
+   ↓ operating sync surfaces either failed component (SUCCESS/SUCCESS)
+   ↓ directory faults require failure, or a partial outcome with failed rows (FAILED/0)
+   ↓ directory faults require failure, or a partial outcome with failed rows (PARTIAL/1)
+   ↓ directory faults require failure, or a partial outcome with failed rows (PARTIAL/0)
+   ↓ directory faults require failure, or a partial outcome with failed rows (SUCCEEDED/1)
+   ↓ directory faults require failure, or a partial outcome with failed rows (QUEUED/0)
+   ↓ only open upstream blocks, not planned or completed blocks, generate availability faults
+   ↓ quota recovery requires all current windows to complete after the fault and at least one real success
+   ↓ operating recovery requires a later successful balance and nonfailed cost after the fault
+   ↓ reconciliation requires resolved status and timestamp before recording objective proof
+   ↓ migration 0070 refuses rollback once any real recovery evidence exists
+   ↓ cross-tenant attempt metadata cannot prove another tenant's recovery
+   ↓ dispatch anomalies preserve mismatch and unexplained-baseline details, timestamps and resource fallback
+   ↓ operational faults isolate tenants, preserve human handling and reject stale failures or successes
+   ↓ late observations correct a recovered occurrence date without reopening it and recheck unsupported legacy recovery
+   ↓ legacy request records are refreshed without duplicate facts, while note length and handler identity remain enforced
+ ❯ src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts (6 tests | 1 failed) 13472ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 聚合真实账本、多模型当前 alias，并按当前价格版本估算余额 Token  334ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 同厂商多账号按各账号余额与价格分别估算，缺价或混合币种明确拒绝  1426ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 未知 usage 与零用量不伪造精确 Token 或余额估算  391ms
+   × POOL-042 首页 API 资源 Token 摘要 > POOL20-045：用量总览只统计成功消耗，失败诊断行不污染任何指标 228ms
+     → expected { providerCode: 'pool20-045', …(41) } to match object { monthlyTotalTokens: '120', …(5) }
+(46 matching properties omitted from actual)
+   ✓ POOL-042 首页 API 资源 Token 摘要 > POOL20-051：独立展示 API Grant、已记录 Token、余额和历史未归属守恒 202ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 覆盖套餐、缺余额、零价格与 HIGH/MEDIUM 估算可信度  2441ms
+ ❯ src/__tests-integration__/pool047-resource-monthly-budget-migration.integration.test.ts (1 test | 1 failed) 10453ms
+   × POOL20-047 API 资源月预算迁移 > 约束月份、版本和当前指针，已有事实时拒绝破坏性回退 10452ms
+     → expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+ ❯ src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts (1 test | 1 failed) 10495ms
+   × 0062 resource status event timestamp repair > uses an insert-time SQL clock and keeps the safe default after rollback 4533ms
+     → expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+ ❯ src/__tests-integration__/w20-final-migration.integration.test.ts (2 tests | 2 failed) 9867ms
+   × W20-10 0045 到 0051 升级、回退与读模型重建 > 同一 1.0 数据可升级、重建派生聚合、允许条件下 down 并再次升级 4732ms
+     → expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(31) ] to deeply equal [ [ …(2) ], [ …(2) ], [ …(2) ], …(24) ]
+   × W20-10 0045 到 0051 升级、回退与读模型重建 > 0053 已有期初余额事实时拒绝破坏性回退 388ms
+     → expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+ ❯ src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts (1 test | 1 failed) 11505ms
+   × POOL20-048 0055 上游错误证据 > 0054 旧行升级为 null，写边界拒绝正文并在有证据时禁止破坏性 down 5551ms
+     → expected '0079_provider_finance_candidate_draft' to be '0073_credential_chat_probe' // Object.is equality
+ ❯ src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts (1 test | 1 failed) 12223ms
+   × 0021 billing_rule 多时间窗迁移 > 旧单窗自动回填，且最近迁移可回滚/重建 6986ms
+     → expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+ ❯ src/__tests-integration__/pool043-model-identity-migration.test.ts (1 test | 1 failed) 11260ms
+   × POOL-043 稳定模型身份迁移 > 只按可证明 alias 回填，保留历史 alias、未知 NULL 和企业组合外键，并可回滚 3698ms
+     → expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(34) ] to deeply equal [ [ …(2) ], [ …(2) ], [ …(2) ], …(27) ]
+ ❯ src/__tests-integration__/principal-key-single-active-migration.integration.test.ts (1 test | 1 failed) 9453ms
+   × 0023 Principal Key 单 ACTIVE 迁移 > 修复历史重复 Key，并以 partial unique index 消除并发插入竞态 4165ms
+     → expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+ ❯ src/__tests-integration__/credential-probe-migration.test.ts (1 test | 1 failed) 8928ms
+   × 0073 backfills only correlated historical Chat failures and preserves probe facts on rollback 8928ms
+     → expected '0079_provider_finance_candidate_draft' to be '0077_provider_model_probe_run_identity' // Object.is equality
+ ❯ src/__tests-integration__/runtime-assurance-foundation.integration.test.ts (1 test | 1 failed) 8911ms
+   × RA-W01 0030 运行保障底座迁移 > 空库升级、依次回滚 0031/0030、重升后 Schema 指纹一致 4466ms
+     → expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+ ✓ src/__tests-integration__/alert-event-dispatch-scale.integration.test.ts (1 test) 21017ms
+   ✓ 异常中心调度历史容量 > 65,535 条正常历史决策不会耗尽绑定参数或产生异常  21016ms
+ ✓ src/__tests-integration__/pool010-provider-operating.test.ts (5 tests) 21920ms
+   ✓ POOL-010 厂商资源经营快照 > 厂商购买额度与主体 Grant 分列，既有未知值不伪造 0  309ms
+   ✓ POOL-010 厂商资源经营快照 > 0025～0029 可连续回滚并重新升级  14288ms
+ ✓ src/__tests-integration__/usage-overview.integration.test.ts (14 tests) 16555ms
+   ✓ W20-04 UsageOverviewRepository > 完整桶水位时实际读聚合，与 LIVE 账本的指标趋势排名一致  4472ms
+   ✓ W20-04 UsageOverviewRepository > DST 23 小时日的 HOUR 聚合趋势与 LIVE 同源守恒  498ms
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (8 tests) 15551ms
+   ✓ three months of data use three as denominator; zero-consumption failed audit rows do not taint month quality  855ms
+   ✓ confirmed resource renewals automatically appear once; legacy paid subscriptions are included without migration duplication  652ms
+   ✓ system-synced paid subscription renewal automatically enters monthly procurement with its real source  1429ms
+   ✓ failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal  1907ms
+{"level":30,"time":1790022607229,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022609743,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":2512.5557499999995,"msg":"request completed"}
+{"level":30,"time":1790022609745,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022611711,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":1965.4023749999906,"msg":"request completed"}
+{"level":30,"time":1790022611713,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022613417,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":1702.7200840000005,"msg":"request completed"}
+{"level":30,"time":1790022613420,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+ ✓ src/__tests-integration__/usage-aggregate.integration.test.ts (7 tests) 11453ms
+   ✓ W20-04 UsageAggregateRepository > 纽约 DST 回拨保留两个 01 时桶，春季自然日只有 23 个小时桶  788ms
+   ✓ W20-04 UsageAggregateRepository > 定时保鲜当前空小时，每日补算范围同时产生 HOUR/DAY 空桶水位  501ms
+{"level":30,"time":1790022615534,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":200},"responseTime":2113.9265000000014,"msg":"request completed"}
+{"level":30,"time":1790022615537,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022617836,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":200},"responseTime":2298.8510839999944,"msg":"request completed"}
+{"level":30,"time":1790022617838,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022621342,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":200},"responseTime":3504.151666000005,"msg":"request completed"}
+{"level":30,"time":1790022621347,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022623508,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":200},"responseTime":2159.7402500000026,"msg":"request completed"}
+{"level":30,"time":1790022623510,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022625140,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":200},"responseTime":1629.7837500000023,"msg":"request completed"}
+{"level":30,"time":1790022625146,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+ ✓ src/__tests-integration__/provider-finance-activation-apply.integration.test.ts (13 tests) 17865ms
+   ✓ PF-INIT WP03：企业级原子激活 > 激活成功：事实落库、严格写开启、范围资源 READY、候选 ACTIVATED 与不可变回执；同键同候选重放  3447ms
+   ✓ PF-INIT WP03：企业级原子激活 > 幂等冲突：同键不同候选 IDEMPOTENCY_CONFLICT；已激活不同请求 ALREADY_ACTIVATED  463ms
+   ✓ PF-INIT WP03：企业级原子激活 > legacy 锁与 v1 锁：任一被占用即立即 409 ACTIVATION_IN_PROGRESS，释放后恢复正常  760ms
+   ✓ PF-INIT WP03：企业级原子激活 > 双管理员并发激活：最多一组初始化事实与一个激活结果，另一请求失败关闭  419ms
+   ✓ PF-INIT WP03：企业级原子激活 > 静默门禁：无租约、剩余不足 5 分钟、未排空都拒绝且零写入  875ms
+   ✓ PF-INIT WP03：企业级原子激活 > 候选已冻结的切换后未结算可修复行可通过排空并在同一事务修复；在途请求与未结束 Attempt 不豁免  2516ms
+   ✓ PF-INIT WP03：企业级原子激活 > 排空豁免只认候选冻结行：预检后出现的同形状行与新行都被挡下且不被修复  1146ms
+   ✓ PF-INIT WP03：企业级原子激活 > 候选过期 409 CANDIDATE_EXPIRED；预检后新增事实 409 CANDIDATE_STALE 且零写入  1050ms
+   ✓ PF-INIT WP03：企业级原子激活 > 固定修复行集只锁定候选主键：新增行不会被吸收，也不放行激活  702ms
+   ✓ PF-INIT WP03：企业级原子激活 > 中途故障整体回滚；进程提交前退出时候选保持 PREVIEWED 且不存在 ACTIVATING  468ms
+   ✓ PF-INIT WP03：企业级原子激活 > Coding Plan 购买、跨切换周期与旧记录 MIGRATED 关闭：周期唯一归属且关闭有不可变映射  570ms
+{"level":30,"time":1790022626968,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":200},"responseTime":1820.9390840000124,"msg":"request completed"}
+{"level":30,"time":1790022626970,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022629071,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":200},"responseTime":2100.9089169999934,"msg":"request completed"}
+{"level":30,"time":1790022629074,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-b","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+ ✓ src/__tests-integration__/pool043-operating-bill-accounts.integration.test.ts (12 tests) 13000ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 返回员工月度字段、provider/model 稳定分组、历史 alias 与未知口径  343ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 结账冻结账户事实，底层账本变化不改写历史，但展示最新正式 alias  408ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > SQL 下推请求分页保留全量 total，并用 request ID 稳定解决同时间次序  337ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 未指定 provider 时先合并同一 request 的跨厂商账本行，再计数和分页  351ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 真实 PostgreSQL 对无法证明稳定 ID 的历史 alias 保持未解析并可冻结追溯  421ms
+   ✓ POOL-043 经营员工账与项目账 PostgreSQL 聚合 > 新资金账按当月 Token 分订阅费，筛选分页不改变分母，项目参与同一分配  1253ms
+{"level":30,"time":1790022631882,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-b","res":{"statusCode":200},"responseTime":2808.397041999997,"msg":"request completed"}
+{"level":30,"time":1790022631883,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-c","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022634055,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-c","res":{"statusCode":200},"responseTime":2171.7717080000148,"msg":"request completed"}
+{"level":30,"time":1790022634056,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-d","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022636646,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-d","res":{"statusCode":200},"responseTime":2589.5104580000043,"msg":"request completed"}
+{"level":30,"time":1790022636648,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-e","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022639160,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-e","res":{"statusCode":200},"responseTime":2511.797709000006,"msg":"request completed"}
+{"level":30,"time":1790022639162,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-f","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022640841,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-f","res":{"statusCode":200},"responseTime":1677.9132500000123,"msg":"request completed"}
+{"level":30,"time":1790022640843,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-g","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022642842,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-g","res":{"statusCode":200},"responseTime":1998.8727499999804,"msg":"request completed"}
+{"level":30,"time":1790022642845,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-h","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022644681,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-h","res":{"statusCode":200},"responseTime":1835.8318750000035,"msg":"request completed"}
+{"level":30,"time":1790022644683,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-i","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022646618,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-i","res":{"statusCode":200},"responseTime":1934.7216250000056,"msg":"request completed"}
+{"level":30,"time":1790022646621,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-j","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022648463,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-j","res":{"statusCode":200},"responseTime":1842.6651669999992,"msg":"request completed"}
+{"level":30,"time":1790022648465,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-k","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+ ✓ src/__tests-integration__/pool043-operating-bill-concurrency.integration.test.ts (57 tests) 17769ms
+   ✓ POOL-043 结账与项目归属并发边界 > usage→ledger 窗口不可见半成品，IN_PROGRESS 使关账 fail-close 直到原子 finalize  383ms
+   ✓ POOL-043 结账与项目归属并发边界 > finalize 拒绝事务外旧 totals 与未完成 attempt，且不发布 terminal  316ms
+   ✓ POOL-043 结账与项目归属并发边界 > finalize 逐项拒绝旧 totals、缺 ledger line 与错误主体  463ms
+   ✓ POOL-043 结账与项目归属并发边界 > 非终态撤权清算故障整体回滚，重试成功且重放不重复退额度  436ms
+   ✓ POOL-043 结账与项目归属并发边界 > 非终态清算提交后发生同 Grant 新预占，旧 Attempt 重放不得再次扣减  303ms
+   ✓ POOL-043 结账与项目归属并发边界 > 无事实早退可幂等发布 terminal，随后所有结算写入口均 fail-closed  436ms
+{"level":30,"time":1790022651486,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-k","res":{"statusCode":200},"responseTime":3020.3258749999804,"msg":"request completed"}
+{"level":30,"time":1790022651489,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-l","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022654016,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-l","res":{"statusCode":200},"responseTime":2527.2494999999763,"msg":"request completed"}
+{"level":30,"time":1790022654018,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-m","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790022656175,"pid":35318,"hostname":"Stephen-macbook.local","reqId":"req-m","res":{"statusCode":200},"responseTime":2156.8087920000253,"msg":"request completed"}
+ ✓ src/__tests-integration__/operating-snapshot-subscription-period-migration.integration.test.ts (1 test) 18432ms
+   ✓ 0063 operating snapshot subscription period binding > 只允许额度配置关联同企业同资源的订阅周期  13044ms
+ ✓ src/__tests-integration__/provider-finance-activation-migration.integration.test.ts (5 tests) 48097ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 候选 TTL 固定 30 分钟、状态白名单不含 ACTIVATING、终态不可修改  8185ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 企业级激活幂等键唯一，且预检候选不进入资金事实表  6419ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 静默租约上限 60 分钟、审计留痕、到期自动失效且不可复活  6894ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 资源资金状态：新 API 资源在已激活企业下默认 PENDING，未激活则不纳入门禁  9790ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > Gateway 可服务资源排除 PENDING，就绪后恢复；存在激活事实时拒绝回退  16806ms
+ ❯ src/__tests-integration__/w20-standard-capacity.integration.test.ts (2 tests | 1 failed) 183909ms
+   ✓ W20-10 标准容量合同 > 100 员工、100 项目与 200 Principal 达到冻结包络 29ms
+   × W20-10 标准容量合同 > 1,000,000 ledger 的常用管理、单主体聚合、资源与部门月账 P95 达标 74613ms
+     → expected 3023.273709000001 to be less than or equal to 1000
+ ✓ src/__tests-integration__/pool022-supply-forecast.test.ts (1 test) 10474ms
+   ✓ POOL-022 供给预测生产闭环 > API 按金额、套餐按扣减额度计算，同 Tick 幂等且经营快照更新后立即补新预测  1481ms
+ ✓ src/__tests-integration__/subscription-auto-renewal.integration.test.ts (10 tests) 16159ms
+   ✓ migration up/down/up is reversible before instructions or system facts exist  964ms
+   ✓ due-time creation is atomic, concurrent/repeated ticks create one record, and reports update automatically  632ms
+   ✓ cancellation keeps existing periods and money, blocks later renewal and is not undone by replay  964ms
+   ✓ scheduled catch-up persists missed periods, skips cancelled resources and never bypasses closed months  438ms
+   ✓ August registered Kimi and Zhipu fees appear in history, August totals and procurement without September duplicates  469ms
+   ✓ new other-provider plan persists opt-out, then opt-in runs scheduler, history and procurement once, cancellation stops it  630ms
+ ✓ src/__tests-integration__/dispatch-pricing-concurrency.test.ts (4 tests) 7155ms
+ ✓ src/__tests-integration__/migration.integration.test.ts (7 tests) 11507ms
+   ✓ Kysely 迁移框架（PG17 Testcontainer） > migrateToLatest 建表（含 schema_migrations 与 _w01_baseline_probe）  2065ms
+ ✓ src/__tests-integration__/quota-pricing-configuration.test.ts (23 tests) 9396ms
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (5 tests) 13752ms
+   ✓ 经营分析真实数据链 > 混合未知计量时保留已记录 Token、YTD 与峰值参考值，并标明不完整  328ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  696ms
+   ✓ 经营分析真实数据链 > 跨企业隔离，未知用量和无人数不伪装为零或人均  823ms
+   ✓ 经营分析真实数据链 > 项目通过负责人归部门，新关系不搬迁旧请求，资料不足必须明确失败  322ms
+   ✓ 经营分析真实数据链 > 手工员工负责人没有 person_id 时，结账后仍保留负责人  333ms
+ ✓ src/__tests-integration__/pool029-authorization-rule-migration.test.ts (2 tests) 5781ms
+   ✓ 0038 员工模型授权规则迁移 > 把既有 Key 权限冻结为手工基线，回滚不改写 Key  1042ms
+ ✓ src/__tests-integration__/dispatch-pricing-readiness.test.ts (20 tests) 7520ms
+ ✓ src/__tests-integration__/directory-repository.integration.test.ts (5 tests) 9024ms
+   ✓ DirectoryRepository > Excel 逐项导入可部分成功，重试不重复建人；导入只建 Person 不建 Principal（Scenario 1.1/1.2）  2506ms
+   ✓ DirectoryRepository > 导入 10 人建 10 条 Person 0 条 Principal；activateMembers 精准开通并幂等（Scenario 1.1/2.1/2.2）  870ms
+ ✓ src/__tests-integration__/principal-attribution-backfill.integration.test.ts (4 tests) 10078ms
+   ✓ 只补缺失归属并保留旧版本、已归属请求和原始费用，调部门后历史不漂移  366ms
+   ✓ 已录入项目负责人提供部门建议，缺失快照一次建立且聚合桶按批次刷新  437ms
+   ✓ 跨企业和失效预览被拒绝，已结账月份不能补写  371ms
+ ✓ src/__tests-integration__/w17-reconciliation.test.ts (4 tests) 8633ms
+ ✓ src/__tests-integration__/w20-resource-procurement-migration.integration.test.ts (1 test) 7698ms
+   ✓ W20-08/09 资源利用与采购复盘迁移 > 仅允许成对的正数 API 月预算，备注保持账期、长度、版本和幂等约束  2021ms
+ ✓ src/__tests-integration__/pool039-lock-order-migration.integration.test.ts (1 test) 7671ms
+   ✓ POOL-039 0043 单人规则历史迁移 > 兼容既有版本，限制编辑/发布槽位，历史存在时拒绝破坏性 down，并支持回滚重放  1893ms
+ ✓ src/__tests-integration__/pool035-pool-quotas-migration.test.ts (1 test) 8432ms
+   ✓ 0040 员工模型授权规则厂商级额度迁移 > 新增 pool_quotas jsonb 列（默认 []），支持读写厂商级额度并回滚  1814ms
+ ✓ src/__tests-integration__/usage-repository.integration.test.ts (4 tests) 9577ms
+ ✓ src/__tests-integration__/principal-key-permission-migration.integration.test.ts (1 test) 6403ms
+   ✓ 0022 Principal Key 最小模型权限迁移 > 历史 NULL 冻结迁移时 ACTIVE 模型，新 Key 默认空数组，回滚不恢复隐式语义  928ms
+ ✓ src/__tests-integration__/pool032-provider-quota-window-migration.test.ts (1 test) 6227ms
+   ✓ 0041 厂商额度窗口迁移 > 新增 provider_quota_window 表（约束/唯一索引），支持写入、保鲜与回滚  2026ms
+ ✓ src/__tests-integration__/provider-finance-cutover.integration.test.ts (2 tests) 14841ms
+   ✓ provider finance cutover rehearsal > reports manual blockers and only backfills four allowed usage fields  8146ms
+   ✓ provider finance cutover rehearsal > returns GO candidate only when opening, monthly and balance conservation are complete  1449ms
+ ✓ src/__tests-integration__/provider-finance-ledger.integration.test.ts (3 tests) 11433ms
+   ✓ 0059 provider finance ledger contract > enforces tenant, mode, signed adjustment, immutable facts and exact reversal  3035ms
+   ✓ 0059 provider finance ledger contract > blocks destructive rollback after provider finance facts exist  3539ms
+ ✓ src/__tests-integration__/provider-finance-activation-preview.integration.test.ts (4 tests) 10942ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 只读投影零写入，候选元数据仅在独立控制事务落库  3491ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 水位确定且新增 ledger_line 使旧水位失效  534ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 固定修复行集只包含候选时点已存在的资格行，不吸收之后新增的行  926ms
+ ✓ src/__tests-integration__/provider-finance-repository.integration.test.ts (8 tests) 7734ms
+{"event":"usage_aggregate_0054_capacity","ledger_rows":1000000,"usage_event_rows":1000000,"migration_ms":6159,"dirty_buckets":776,"rebuild_batch_limit":1000}
+ ✓ src/__tests-integration__/usage-aggregate-migration-capacity.integration.test.ts (1 test) 491933ms
+   ✓ POOL20-045 0054 百万存量迁移 > 失败整体回滚；百万 ledger/usage_event 迁移受控生成 dirty 并可恢复读模型  483122ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/exception-center-contract.integration.test.ts [ src/__tests-integration__/exception-center-contract.integration.test.ts ]
+AssertionError: expected [ …(10) ] to deeply equal [ Array(3) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "0070_alert_recovery_evidence",[22m
+[2m    "0071_enterprise_contact_details",[22m
+[2m    "0072_admin_roles_security",[22m
+[31m+   "0073_credential_chat_probe",[39m
+[31m+   "0074_runtime_notification_recipients",[39m
+[31m+   "0075_provider_resource_archive",[39m
+[31m+   "0076_provider_model_probe",[39m
+[31m+   "0077_provider_model_probe_run_identity",[39m
+[31m+   "0078_provider_finance_activation",[39m
+[31m+   "0079_provider_finance_candidate_draft",[39m
+[2m  ][22m
+
+ ❯ src/__tests-integration__/exception-center-contract.integration.test.ts:27:37
+     25|   const source = await createMigrator(db).migrateTo("0069_auth_error_e…
+     26|   expect(source.error).toBeUndefined();
+     27|   expect(await migrateToLatest(db)).toEqual([
+       |                                     ^
+     28|     "0070_alert_recovery_evidence",
+     29|     "0071_enterprise_contact_details",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/21]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 20 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts > 0021 billing_rule 多时间窗迁移 > 旧单窗自动回填，且最近迁移可回滚/重建
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+
+Expected: [32m"007[7m2_admin_roles_security[27m"[39m
+Received: [31m"007[7m9_provider_finance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts:90:37
+     88|       });
+     89| 
+     90|       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+       |                                     ^
+     91|       expect(await migrateDown(db)).toBe("0071_enterprise_contact_deta…
+     92|       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/21]⎯
+
+ FAIL  src/__tests-integration__/credential-probe-migration.test.ts > 0073 backfills only correlated historical Chat failures and preserves probe facts on rollback
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0077_provider_model_probe_run_identity' // Object.is equality
+
+Expected: [32m"007[7m7[27m_provider_[7mmodel_probe_run_identity[27m"[39m
+Received: [31m"007[7m9[27m_provider_[7mfinance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/credential-probe-migration.test.ts:40:5
+     38|       expires_at: new Date(), retry_at: new Date() }).execute();
+     39|     // 0074-0077 为其后新增且可回滚（本用例无探针 run 行），逐层回滚后触发 0073 门禁。
+     40|     await expect(migrateDown(db)).resolves.toBe("0077_provider_model_p…
+       |     ^
+     41|     await expect(migrateDown(db)).resolves.toBe("0076_provider_model_p…
+     42|     await expect(migrateDown(db)).resolves.toBe("0075_provider_resourc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/21]⎯
+
+ FAIL  src/__tests-integration__/model-probe-migration.test.ts > 0076 provider_model_probe 迁移与探针证据 > 加法迁移可应用/回滚，探针证据按 request_hash 幂等且随凭证指纹失效
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0077_provider_model_probe_run_identity' // Object.is equality
+
+Expected: [32m"007[7m7[27m_provider_[7mmodel_probe_run_identity[27m"[39m
+Received: [31m"007[7m9[27m_provider_[7mfinance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/model-probe-migration.test.ts:113:7
+    111|       // 有证据后拒绝回滚（与 0073 同样的防丢证据门禁）。
+    112|       // 0077（run 身份唯一约束）为最新迁移且可回滚，先回滚一层再触发 0076 门禁。
+    113|       await expect(migrateDown(db)).resolves.toBe("0077_provider_model…
+       |       ^
+    114|       await expect(migrateDown(db)).rejects.toThrow("0076 contains pro…
+    115|     } finally { await db.destroy(); await pg.stop(); }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/21]⎯
+
+ FAIL  src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts > POOL-042 首页 API 资源 Token 摘要 > POOL20-045：用量总览只统计成功消耗，失败诊断行不污染任何指标
+AssertionError: expected { providerCode: 'pool20-045', …(41) } to match object { monthlyTotalTokens: '120', …(5) }
+(46 matching properties omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "costRate24h": "0.00416667",[39m
+[31m+   "costRate24h": "0.37916667",[39m
+[2m    "modelTokenBreakdown": [[22m
+[32m-     ObjectContaining {[39m
+[31m+     {[39m
+[31m+       "cacheTokens": "110",[39m
+[31m+       "inputTokens": "1099",[39m
+[2m        "modelAlias": "ql-k3-256k",[22m
+[32m-       "totalTokens": "120",[39m
+[32m-       "unknownCount": 0,[39m
+[32m-       "usageQuality": "EXACT",[39m
+[31m+       "outputTokens": "21",[39m
+[31m+       "reasoningTokens": "10",[39m
+[31m+       "totalTokens": "1120",[39m
+[31m+       "unifiedModelId": "3e587700-367d-42d7-8985-00f9949ee38f",[39m
+[31m+       "unknownCount": 1,[39m
+[31m+       "usageQuality": "UNKNOWN",[39m
+[2m      },[22m
+[2m    ],[22m
+[32m-   "monthlyTotalTokens": "120",[39m
+[32m-   "monthlyUnknownCount": 0,[39m
+[32m-   "monthlyUsageQuality": "EXACT",[39m
+[32m-   "tokenRate24h": "5.00",[39m
+[31m+   "monthlyTotalTokens": "1120",[39m
+[31m+   "monthlyUnknownCount": 1,[39m
+[31m+   "monthlyUsageQuality": "UNKNOWN",[39m
+[31m+   "tokenRate24h": null,[39m
+[2m  }[22m
+
+ ❯ src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts:360:18
+    358|     );
+    359|     const item = overview.providerSummaries.find((row) => row.provider…
+    360|     expect(item).toMatchObject({
+       |                  ^
+    361|       monthlyTotalTokens: "120",
+    362|       monthlyUsageQuality: "EXACT",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/21]⎯
+
+ FAIL  src/__tests-integration__/pool043-model-identity-migration.test.ts > POOL-043 稳定模型身份迁移 > 只按可证明 alias 回填，保留历史 alias、未知 NULL 和企业组合外键，并可回滚
+AssertionError: expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(34) ] to deeply equal [ [ …(2) ], [ …(2) ], [ …(2) ], …(27) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -117,6 +117,34 @@[39m
+[2m    ],[22m
+[2m    [[22m
+[2m      "0072_admin_roles_security",[22m
+[2m      "Success",[22m
+[2m    ],[22m
+[31m+   [[39m
+[31m+     "0073_credential_chat_probe",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0074_runtime_notification_recipients",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0075_provider_resource_archive",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0076_provider_model_probe",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0077_provider_model_probe_run_identity",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0078_provider_finance_activation",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0079_provider_finance_candidate_draft",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[2m  ][22m
+
+ ❯ src/__tests-integration__/pool043-model-identity-migration.test.ts:56:88
+     54|       const migrated = await migrator.migrateToLatest();
+     55|       expect(migrated.error).toBeUndefined();
+     56|       expect(migrated.results?.map((result) => [result.migrationName, …
+       |                                                                                        ^
+     57|         ["0043_single_owner_rule_history", "Success"],
+     58|         ["0044_operating_bill_model_identity", "Success"],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/21]⎯
+
+ FAIL  src/__tests-integration__/pool046-zhipu-window-alias-migration.test.ts > POOL-046 0045 智谱时段与 alias 迁移 > 只迁移目标配置、保持历史账本不变，并支持幂等 up/down 与重放
+AssertionError: expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(32) ] to deeply equal [ [ …(2) ], [ …(2) ], [ …(2) ], …(25) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -109,6 +109,34 @@[39m
+[2m    ],[22m
+[2m    [[22m
+[2m      "0072_admin_roles_security",[22m
+[2m      "Success",[22m
+[2m    ],[22m
+[31m+   [[39m
+[31m+     "0073_credential_chat_probe",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0074_runtime_notification_recipients",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0075_provider_resource_archive",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0076_provider_model_probe",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0077_provider_model_probe_run_identity",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0078_provider_finance_activation",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0079_provider_finance_candidate_draft",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[2m  ][22m
+
+ ❯ src/__tests-integration__/pool046-zhipu-window-alias-migration.test.ts:261:88
+    259|       const migrated = await migrator.migrateToLatest();
+    260|       expect(migrated.error).toBeUndefined();
+    261|       expect(migrated.results?.map((result) => [result.migrationName, …
+       |                                                                                        ^
+    262|         ["0045_zhipu_weekday_window_alias", "Success"],
+    263|         ["0046_directory_import_foundation", "Success"],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/21]⎯
+
+ FAIL  src/__tests-integration__/pool047-resource-monthly-budget-migration.integration.test.ts > POOL20-047 API 资源月预算迁移 > 约束月份、版本和当前指针，已有事实时拒绝破坏性回退
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+
+Expected: [32m"007[7m2_admin_roles_security[27m"[39m
+Received: [31m"007[7m9_provider_finance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/pool047-resource-monthly-budget-migration.integration.test.ts:63:37
+     61|         response_snapshot: {},
+     62|       }).execute()).rejects.toThrow();
+     63|       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+       |                                     ^
+     64|       expect(await migrateDown(db)).toBe("0071_enterprise_contact_deta…
+     65|       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/21]⎯
+
+ FAIL  src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts > POOL20-048 0055 上游错误证据 > 0054 旧行升级为 null，写边界拒绝正文并在有证据时禁止破坏性 down
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0073_credential_chat_probe' // Object.is equality
+
+Expected: [32m"007[7m3_credential_chat_probe[27m"[39m
+Received: [31m"007[7m9_provider_finance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts:169:37
+    167|         request_shape_summary: { oversized: "x".repeat(5_000) },
+    168|       }).where("id", "=", unsafeAttempt.id).execute()).rejects.toThrow…
+    169|       expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
+       |                                     ^
+    170|       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+    171|       expect(await migrateDown(db)).toBe("0071_enterprise_contact_deta…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/21]⎯
+
+ FAIL  src/__tests-integration__/principal-key-single-active-migration.integration.test.ts > 0023 Principal Key 单 ACTIVE 迁移 > 修复历史重复 Key，并以 partial unique index 消除并发插入竞态
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+
+Expected: [32m"007[7m2_admin_roles_security[27m"[39m
+Received: [31m"007[7m9_provider_finance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/principal-key-single-active-migration.integration.test.ts:103:37
+    101|       });
+    102| 
+    103|       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+       |                                     ^
+    104|       expect(await migrateDown(db)).toBe("0071_enterprise_contact_deta…
+    105|       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/21]⎯
+
+ FAIL  src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts > 0062 resource status event timestamp repair > uses an insert-time SQL clock and keeps the safe default after rollback
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+
+Expected: [32m"007[7m2_admin_roles_security[27m"[39m
+Received: [31m"007[7m9_provider_finance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts:63:37
+     61|       expect(events.slice(1).map((event) => event.time_reliable)).toEq…
+     62| 
+     63|       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+       |                                     ^
+     64|       expect(await migrateDown(db)).toBe("0071_enterprise_contact_deta…
+     65|       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/21]⎯
+
+ FAIL  src/__tests-integration__/runtime-admin-migrations.integration.test.ts > 0067/0068 运行保障与管理员迁移 > 补齐历史异常资源，并阻止存在已清理管理员时回退
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0073_credential_chat_probe' // Object.is equality
+
+Expected: [32m"007[7m3_credential_chat_probe[27m"[39m
+Received: [31m"007[7m9_provider_finance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/runtime-admin-migrations.integration.test.ts:147:37
+    145|           .executeTakeFirstOrThrow(),
+    146|       ).toEqual({ resource_id: resource.id });
+    147|       expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
+       |                                     ^
+    148|       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+    149|       expect(await migrateDown(db)).toBe("0071_enterprise_contact_deta…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/21]⎯
+
+ FAIL  src/__tests-integration__/runtime-admin-release-rehearsal.integration.test.ts > 0066 备份可恢复，0067/0068 保留管理员历史引用且归档后禁止回退
+AssertionError: expected [ '0067_admin_cleanup', …(12) ] to deeply equal [ '0067_admin_cleanup', …(5) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -3,6 +3,13 @@[39m
+[2m    "0068_alert_resource_context",[22m
+[2m    "0069_auth_error_evidence",[22m
+[2m    "0070_alert_recovery_evidence",[22m
+[2m    "0071_enterprise_contact_details",[22m
+[2m    "0072_admin_roles_security",[22m
+[31m+   "0073_credential_chat_probe",[39m
+[31m+   "0074_runtime_notification_recipients",[39m
+[31m+   "0075_provider_resource_archive",[39m
+[31m+   "0076_provider_model_probe",[39m
+[31m+   "0077_provider_model_probe_run_identity",[39m
+[31m+   "0078_provider_finance_activation",[39m
+[31m+   "0079_provider_finance_candidate_draft",[39m
+[2m  ][22m
+
+ ❯ src/__tests-integration__/runtime-admin-release-rehearsal.integration.test.ts:107:39
+    105|         .executeTakeFirstOrThrow(),
+    106|     ).toEqual({ id: adminId, status: "DISABLED" });
+    107|     expect(await migrateToLatest(db)).toEqual([
+       |                                       ^
+    108|       "0067_admin_cleanup",
+    109|       "0068_alert_resource_context",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/21]⎯
+
+ FAIL  src/__tests-integration__/runtime-assurance-foundation.integration.test.ts > RA-W01 0030 运行保障底座迁移 > 空库升级、依次回滚 0031/0030、重升后 Schema 指纹一致
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+
+Expected: [32m"007[7m2_admin_roles_security[27m"[39m
+Received: [31m"007[7m9_provider_finance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/runtime-assurance-foundation.integration.test.ts:98:37
+     96| 
+     97|       const before = await schemaFingerprint(db);
+     98|       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+       |                                     ^
+     99|       expect(await migrateDown(db)).toBe("0071_enterprise_contact_deta…
+    100|       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/21]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回
+AssertionError: expected '280' to be '200' // Object.is equality
+
+Expected: [32m"2[7m0[27m0"[39m
+Received: [31m"2[7m8[27m0"[39m
+
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:263:52
+    261| 
+    262|     // Token：当月 SUCCEEDED 合计 = (100+50) + (30+20) = 200；失败行 80 不计入。
+    263|     expect(summary.tokenUsage.current.totalTokens).toBe("200");
+       |                                                    ^
+    264|     expect(summary.tokenUsage.current.inputTokens).toBe("130");
+    265|     expect(summary.tokenUsage.current.outputTokens).toBe("70");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/21]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > R01-F01：资金读模型同期窗口复用权威缺口规则（已知部分保留、缺口显式）
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:412:37
+    410|     const window = await loadWindowOperatingFinance(db, enterpriseId, …
+    411|     expect(window.totalSpends).toEqual([{ currency: "CNY", amount: "12…
+    412|     expect(window.incompleteReason).toContain("API_USAGE_COST_UNKNOWN"…
+       |                                     ^
+    413|     expect(window.incompleteReason).toContain("CASH_PAID_CNY_MISSING");
+    414|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/21]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:427:60
+    425|     expect(summary.monthlyCost.previous?.totalSpends)
+    426|       .toEqual([{ currency: "CNY", amount: "12.50000000" }]);
+    427|     expect(summary.monthlyCost.previous?.incompleteReason).toContain("…
+       |                                                            ^
+    428|     expect(summary.monthlyCost.previous?.incompleteReason).toContain("…
+    429|     expect(summary.monthlyCost.previous?.window.rangeStart).toBe("2026…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/21]⎯
+
+ FAIL  src/__tests-integration__/standard-home.integration.test.ts > 标准版首页聚合（getStandardHomeSummary） > V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入）
+AssertionError: expected '' to contain 'API_USAGE_COST_UNKNOWN:1'
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- API_USAGE_COST_UNKNOWN:1[39m
+
+ ❯ src/__tests-integration__/standard-home.integration.test.ts:898:20
+    896|     const reason = window.incompleteReason ?? "";
+    897|     // 正控制逐码命中
+    898|     expect(reason).toContain("API_USAGE_COST_UNKNOWN:1");
+       |                    ^
+    899|     expect(reason).toContain("API_COST_CURRENCY_MISSING:1");
+    900|     expect(reason).toContain("API_COST_CURRENCY_CONFLICT:1");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/21]⎯
+
+ FAIL  src/__tests-integration__/w20-final-migration.integration.test.ts > W20-10 0045 到 0051 升级、回退与读模型重建 > 同一 1.0 数据可升级、重建派生聚合、允许条件下 down 并再次升级
+AssertionError: expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(31) ] to deeply equal [ [ …(2) ], [ …(2) ], [ …(2) ], …(24) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -105,6 +105,34 @@[39m
+[2m    ],[22m
+[2m    [[22m
+[2m      "0072_admin_roles_security",[22m
+[2m      "Success",[22m
+[2m    ],[22m
+[31m+   [[39m
+[31m+     "0073_credential_chat_probe",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0074_runtime_notification_recipients",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0075_provider_resource_archive",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0076_provider_model_probe",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0077_provider_model_probe_run_identity",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0078_provider_finance_activation",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[31m+   [[39m
+[31m+     "0079_provider_finance_candidate_draft",[39m
+[31m+     "Success",[39m
+[31m+   ],[39m
+[2m  ][22m
+
+ ❯ src/__tests-integration__/w20-final-migration.integration.test.ts:160:88
+    158|       const upgraded = await migrator.migrateToLatest();
+    159|       expect(upgraded.error).toBeUndefined();
+    160|       expect(upgraded.results?.map((result) => [result.migrationName, …
+       |                                                                                        ^
+    161|         ["0046_directory_import_foundation", "Success"],
+    162|         ["0047_usage_bucket_aggregate", "Success"],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/21]⎯
+
+ FAIL  src/__tests-integration__/w20-final-migration.integration.test.ts > W20-10 0045 到 0051 升级、回退与读模型重建 > 0053 已有期初余额事实时拒绝破坏性回退
+AssertionError: expected '0079_provider_finance_candidate_draft' to be '0072_admin_roles_security' // Object.is equality
+
+Expected: [32m"007[7m2_admin_roles_security[27m"[39m
+Received: [31m"007[7m9_provider_finance_candidate_draft[27m"[39m
+
+ ❯ src/__tests-integration__/w20-final-migration.integration.test.ts:417:37
+    415|       await expect(db.deleteFrom("operating_bill_opening_balance")
+    416|         .where("provider_resource_id", "=", resourceId).execute()).rej…
+    417|       expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+       |                                     ^
+    418|       expect(await migrateDown(db)).toBe("0071_enterprise_contact_deta…
+    419|       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/21]⎯
+
+ FAIL  src/__tests-integration__/w20-standard-capacity.integration.test.ts > W20-10 标准容量合同 > 1,000,000 ledger 的常用管理、单主体聚合、资源与部门月账 P95 达标
+AssertionError: expected 3023.273709000001 to be less than or equal to 1000
+ ❯ src/__tests-integration__/w20-standard-capacity.integration.test.ts:281:36
+    279|     expect(commonAdminP95).toBeLessThanOrEqual(500);
+    280|     expect(subjectUsageP95).toBeLessThanOrEqual(800);
+    281|     expect(resourceUtilizationP95).toBeLessThanOrEqual(1_000);
+       |                                    ^
+    282|     expect(departmentBillP95).toBeLessThanOrEqual(1_000);
+    283|   }, 300_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/21]⎯
+
+
+ Test Files  17 failed | 32 passed (49)
+      Tests  20 failed | 252 passed | 55 skipped (327)
+   Start at  04:28:12
+   Duration  556.44s (transform 4.12s, setup 0ms, collect 65.80s, tests 1253.32s, environment 12ms, prepare 7.20s)
+
+JSON report written to /Users/mac/Projects/仟流智算-provider-finance-init-20260921/V4/Evidence/PROVIDER-FINANCE-INITIALIZATION-20260921/wp06-logs/6.2-database-integration-full.json
+EXIT=1

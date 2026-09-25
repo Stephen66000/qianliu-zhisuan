@@ -1,0 +1,43 @@
+# WP07 | 7.2 Gateway 静默门禁（既有套件，任务 5 证据）| HEAD=f6045a55c1b608c34653b47d811a92d521b1f2a8 | 2026-09-21T21:14:31Z
+# cmd: pnpm --filter @qianliu/gateway exec vitest run --config ../../vitest.config.ts src/__tests-integration__/provider-finance-quiescence-gate.test.ts --maxWorkers=1
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/gateway
+
+{"level":30,"time":1790025278093,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"fe920de5-358e-419b-b41d-7588db316efc","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790025278107,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"fe920de5-358e-419b-b41d-7588db316efc","res":{"statusCode":200},"responseTime":13.336708999999246,"msg":"request completed"}
+{"level":30,"time":1790025278111,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"49d970d7-e3ae-4929-b81c-23c8f9182e6d","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790025278115,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"49d970d7-e3ae-4929-b81c-23c8f9182e6d","res":{"statusCode":503},"responseTime":4.00841599999967,"msg":"request completed"}
+{"level":30,"time":1790025278116,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"bf80dd0e-f7f9-4c74-ae99-50692dd167d3","req":{"method":"POST","url":"/v1/messages","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790025278121,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"bf80dd0e-f7f9-4c74-ae99-50692dd167d3","res":{"statusCode":503},"responseTime":4.36254099999951,"msg":"request completed"}
+{"level":30,"time":1790025278121,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"7b88839a-c7dc-493f-888c-54fd3dacf428","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790025278123,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"7b88839a-c7dc-493f-888c-54fd3dacf428","res":{"statusCode":503},"responseTime":1.8696250000002692,"msg":"request completed"}
+{"level":30,"time":1790025278124,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"27c14bca-ea98-43ee-9ba2-a80aec965ffd","req":{"method":"GET","url":"/v1/models","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790025278136,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"27c14bca-ea98-43ee-9ba2-a80aec965ffd","res":{"statusCode":200},"responseTime":11.177333000000544,"msg":"request completed"}
+{"level":30,"time":1790025278136,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"20dbadba-31db-46af-90cc-c1dbaa54f9ca","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790025278137,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"20dbadba-31db-46af-90cc-c1dbaa54f9ca","res":{"statusCode":401},"responseTime":0.3859579999998459,"msg":"request completed"}
+{"level":30,"time":1790025278139,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"62cf601d-01b8-4654-9b2c-1a569882fd2b","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790025278143,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"62cf601d-01b8-4654-9b2c-1a569882fd2b","res":{"statusCode":200},"responseTime":3.9358329999995476,"msg":"request completed"}
+{"level":30,"time":1790025278145,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"904c1e5e-107a-4cc5-b846-61256499c59d","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790025278150,"pid":47326,"hostname":"Stephen-macbook.local","reqId":"904c1e5e-107a-4cc5-b846-61256499c59d","res":{"statusCode":200},"responseTime":4.764166999999361,"msg":"request completed"}
+ ✓ src/__tests-integration__/provider-finance-quiescence-gate.test.ts (2 tests) 3455ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  05:14:32
+   Duration  5.74s (transform 936ms, setup 0ms, collect 2.05s, tests 3.46s, environment 0ms, prepare 67ms)
+
+GATEWAY_EXIT=0
+
+# WP07 | 7.3 Worker 静默门禁（既有套件，任务 5 证据）| 2026-09-21T21:14:38Z
+# cmd: pnpm --filter @qianliu/worker exec vitest run --config ../../vitest.config.ts src/__tests-integration__/provider-finance-quiescence-worker.integration.test.ts --maxWorkers=1
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/worker
+
+ ✓ src/__tests-integration__/provider-finance-quiescence-worker.integration.test.ts (3 tests) 3320ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  05:14:39
+   Duration  5.53s (transform 1.05s, setup 0ms, collect 1.96s, tests 3.32s, environment 0ms, prepare 48ms)
+
+WORKER_EXIT=0

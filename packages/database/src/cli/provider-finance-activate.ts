@@ -1,36 +1,24 @@
-import { createKysely } from "../kysely.js";
-import { ProviderFinanceCutoverRepository } from "../repositories/provider-finance-cutover-repository.js";
+/**
+ * 旧严格写激活 CLI —— 已失败关闭（裁决① / PFA-04、PFA-06）。
+ *
+ * 背景：本入口原先直接调用 `ProviderFinanceCutoverRepository.activateStrictWrites`，
+ * 只做单月守恒检查即可把 `strict_writes_enabled` 置为 true，绕过候选、静默租约、
+ * 30 分钟 TTL、事实水位复验与企业级幂等，属于资金账本初始化的旁路。
+ *
+ * 现状：企业级激活只能通过 Control API 的候选流程
+ * （activation-preview → activate）完成；新协调器按“先 legacy 锁、再 v1 锁”的固定
+ * 顺序取锁，并要求目标企业处于有效静默租约内。
+ * 本 CLI 在候选协调器接线完成前一律失败关闭，禁止任何绕过初始化的激活写入。
+ *
+ * 退出码：2 —— 表示“入口已停用”，与业务冲突（1）区分，便于运维脚本识别。
+ */
 
-function argument(name: string): string | undefined {
-  const prefix = `--${name}=`;
-  const inline = process.argv.find((item) => item.startsWith(prefix));
-  if (inline) return inline.slice(prefix.length);
-  const index = process.argv.indexOf(`--${name}`);
-  return index >= 0 ? process.argv[index + 1] : undefined;
-}
+const MESSAGE = [
+  "provider-finance-activate CLI 已停用：企业级严格资金写激活只能通过候选流程完成。",
+  "请使用：GET /provider-finance/activation-state → POST /provider-finance/activation-preview",
+  "→ POST /provider-finance/activate（需有效静默租约、未过期候选与企业级幂等键）。",
+  "禁止直接调用 activateStrictWrites 绕过候选、静默门禁与事实水位复验。",
+].join("\n");
 
-const enterpriseId = argument("enterprise");
-const adminId = argument("admin");
-const month = argument("month") ?? "2026-09";
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-if (!enterpriseId || !uuid.test(enterpriseId)) throw new Error("--enterprise must be a UUID");
-if (!adminId || !uuid.test(adminId)) throw new Error("--admin must be a UUID");
-if (argument("confirm-enterprise") !== enterpriseId) {
-  throw new Error("activation requires --confirm-enterprise matching --enterprise");
-}
-if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) throw new Error("--month must be YYYY-MM");
-
-const db = createKysely();
-try {
-  const result = await new ProviderFinanceCutoverRepository(db)
-    .activateStrictWrites(enterpriseId, adminId, month);
-  process.stdout.write(`${JSON.stringify({
-    mode: "ACTIVATE_STRICT_WRITES",
-    enterpriseId,
-    month,
-    decision: "ACTIVATED",
-    ...result,
-  }, null, 2)}\n`);
-} finally {
-  await db.destroy();
-}
+process.stderr.write(`${MESSAGE}\n`);
+process.exitCode = 2;

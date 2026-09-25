@@ -1,0 +1,19 @@
+# WP07 v2 | database lint + control-api typecheck/lint + web 资金面 sanity | HEAD=05d1dc5b958423378dc61bc3adab7ab2e7fe9d17 | 2026-09-21T21:43:16Z
+===== database lint =====
+$ eslint src --max-warnings=0
+DATABASE_LINT_EXIT=0
+===== control-api typecheck =====
+$ tsc -p tsconfig.json --noEmit
+CONTROL_TYPE_EXIT=0
+===== control-api lint =====
+$ eslint src --max-warnings=0
+CONTROL_LINT_EXIT=0
+===== web 资金面单测 =====
+
+ ✓ src/components/resources/activation-draft-model.test.ts (12 tests) 13ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  05:43:29
+   Duration  738ms (transform 56ms, setup 0ms, collect 57ms, tests 13ms, environment 0ms, prepare 82ms)
+

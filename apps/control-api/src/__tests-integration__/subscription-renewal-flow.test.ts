@@ -27,7 +27,7 @@ it("API registration opt-in reaches scheduled renewal, history and procurement, 
     const response=await app.inject({method:"POST",url:`/provider-resources/${resource}/finance/subscriptions`,headers,payload:{
       kind:"PURCHASE",product_name:"Other",auto_renew:auto,account_currency:"CNY",account_amount:"99",cash_paid_cny:"99",
       occurred_at:`${day}T00:00:00+08:00`,service_period_start:day,service_period_end:day,
-      description:"一天测试周期",idempotency_key:randomUUID()}});
+      description:"一天测试周期",evidence_ref:"renewal-flow:采购订单-2026-09",idempotency_key:randomUUID()}});
     expect(response.statusCode,response.body).toBe(201);
   };
   const status=async () => (await app.inject({method:"GET",url:`/provider-resources/${resource}/finance/auto-renewal`,headers})).json();

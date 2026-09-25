@@ -17,7 +17,7 @@ function assertValidPng(pngBuffer: Buffer): void {
 }
 
 describe("SVG Templates & PNG Rendering Pipeline", () => {
-  it("场景一：generatePersonalWeeklySvg (个人周报小结)", () => {
+  it("场景一：generatePersonalWeeklySvg (个人周报小结)", async () => {
     const data: PersonalWeeklyReportData = {
       userName: "张三",
       dateRange: "一周小结 9.7-9.11",
@@ -49,11 +49,15 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
 
     // 渲染 PNG 并验证
-    const png = renderSvgToPng(svg);
+    const png = await renderSvgToPng(svg);
     assertValidPng(png);
+    // 不只检查 PNG 文件头：中文姓名应能区分，内嵌品牌 Logo 不能被渲染器吞掉。
+    const otherName = await renderSvgToPng(generatePersonalWeeklySvg({ ...data, userName: "李四" }));
+    expect(png.equals(otherName)).toBe(false);
+    expect(png.equals(await renderSvgToPng(svg.replace(/<image\b[^>]*\/>/, "")))).toBe(false);
   });
 
-  it("场景一：generatePersonalWeeklySvg 支持 5 项指标自适应收缩", () => {
+  it("场景一：generatePersonalWeeklySvg 支持 5 项指标自适应收缩", async () => {
     const data: PersonalWeeklyReportData = {
       userName: "李四",
       dateRange: "一周小结 9.7-9.11",
@@ -70,11 +74,11 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     expect(svg).toContain("核心主力模型");
     expect(svg).toContain("DeepSeek V3");
 
-    const png = renderSvgToPng(svg);
+    const png = await renderSvgToPng(svg);
     assertValidPng(png);
   });
 
-  it("场景二：generateCompanyWeeklySvg (全员用量看板)", () => {
+  it("场景二：generateCompanyWeeklySvg (全员用量看板)", async () => {
     const data: CompanyWeeklyReportData = {
       enterpriseName: "仟流智算创新科技",
       dateRange: "9.7 - 9.13",
@@ -142,11 +146,11 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     // 严禁包含 Emoji
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
 
-    const png = renderSvgToPng(svg);
+    const png = await renderSvgToPng(svg);
     assertValidPng(png);
   });
 
-  it("场景三(a)：generateIncentiveTop1Svg (登顶第 1 名流动红旗)", () => {
+  it("场景三(a)：generateIncentiveTop1Svg (登顶第 1 名流动红旗)", async () => {
     const data: IncentiveTop1ReportData = {
       userName: "张三",
       periodLabel: "登顶周榜首 · 9.7-9.13 (第37周)",
@@ -171,11 +175,11 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
 
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
 
-    const png = renderSvgToPng(svg);
+    const png = await renderSvgToPng(svg);
     assertValidPng(png);
   });
 
-  it("场景三(b)：generateIncentiveOver50Svg (超越 50% 员工成长卡)", () => {
+  it("场景三(b)：generateIncentiveOver50Svg (超越 50% 员工成长卡)", async () => {
     const data: IncentiveOver50ReportData = {
       userName: "李四",
       monthTitle: "9月份使用 Token 数量",
@@ -199,11 +203,11 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
 
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
 
-    const png = renderSvgToPng(svg);
+    const png = await renderSvgToPng(svg);
     assertValidPng(png);
   });
 
-  it("场景四：generateDailyTokenReportSvg (全员 Token 消费日报纯白竖版)", () => {
+  it("场景四：generateDailyTokenReportSvg (全员 Token 消费日报纯白竖版)", async () => {
     const data: DailyTokenReportData = {
       enterpriseName: "河南仟流科技",
       reportDate: "9.13 (昨日全天)",
@@ -256,7 +260,7 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     // 严禁包含 Emoji
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
 
-    const png = renderSvgToPng(svg);
+    const png = await renderSvgToPng(svg);
     assertValidPng(png);
   });
 });

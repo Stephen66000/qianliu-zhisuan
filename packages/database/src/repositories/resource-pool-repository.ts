@@ -397,6 +397,8 @@ export class ResourcePoolRepository {
    * 可服务资源硬过滤（WT-07 同池选择；W12 评分在此之后）。
    * 规则：ACTIVE/DEGRADED 直接可服务；UNAVAILABLE 且冷却到期 → 半开探测；
    * 终态隔离（CREDENTIAL_INVALID/EXHAUSTED/EXPIRED）与冷却中 UNAVAILABLE 排除。
+   * PFH-07：企业激活严格资金写后新建的 API 资源在完成期初登记前为 PENDING，
+   * 资金未就绪资源不得承载生产流量（无记录表示未纳入门禁）。
    */
   async listServableResources(
     enterpriseId: string,
@@ -404,15 +406,20 @@ export class ResourcePoolRepository {
     now: Date = new Date(),
   ): Promise<ServableResource[]> {
     let query = this.db
-      .selectFrom("provider_resource")
-      .selectAll()
-      .where("enterprise_id", "=", enterpriseId);
+      .selectFrom("provider_resource as resource")
+      .leftJoin("provider_resource_finance_state as finance_state", (join) => join
+        .onRef("finance_state.provider_resource_id", "=", "resource.id")
+        .onRef("finance_state.enterprise_id", "=", "resource.enterprise_id"))
+      .selectAll("resource")
+      .select("finance_state.state as finance_state")
+      .where("resource.enterprise_id", "=", enterpriseId);
     if (poolId !== undefined) {
-      query = query.where("resource_pool_id", "=", poolId);
+      query = query.where("resource.resource_pool_id", "=", poolId);
     }
     const rows = await query.execute();
     const servable: ServableResource[] = [];
     for (const row of rows) {
+      if (row.finance_state === "PENDING") continue;
       const admission = evaluateAdmission(toRuntimeState(row), now.getTime());
       if (!admission.admit) continue;
       servable.push({

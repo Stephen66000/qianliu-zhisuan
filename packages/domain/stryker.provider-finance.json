@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "I1 复审 R3 整改：资金核心路径（domain 激活投影五模块）增量变异测试。覆盖草稿规范化、期初解析、守恒窗口、余额公式、缺口发射——即 PFH-01~06 唯一公式与失败关闭语义的载体。阈值沿用 GAP-MUT-1 惯例 ≥80%。",
+  "packageManager": "pnpm",
+  "reporters": ["clear-text", "json"],
+  "jsonReporter": { "fileName": "reports/mutation/provider-finance-domain.json" },
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.provider-finance.mutation.config.ts" },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/provider-finance-activation-projection.ts",
+    "src/provider-finance-activation-balances.ts",
+    "src/provider-finance-activation-conservation.ts",
+    "src/provider-finance-activation-draft.ts",
+    "src/provider-finance-activation-inputs.ts"
+  ],
+  "thresholds": { "high": 100, "low": 80, "break": 70 },
+  "timeoutMS": 60000,
+  "concurrency": 2,
+  "disableTypeChecks": true,
+  "cleanTempDir": true
+}

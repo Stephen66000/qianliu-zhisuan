@@ -1,0 +1,55 @@
+# WP07 v2 | database 切换/账本/分析/账单 分片回归 | HEAD=05d1dc5b958423378dc61bc3adab7ab2e7fe9d17 | 2026-09-21T21:40:46Z
+===== provider-finance-cutover =====
+   ✓ provider finance cutover rehearsal > reports manual blockers and only backfills four allowed usage fields  3010ms
+   ✓ provider finance cutover rehearsal > returns GO candidate only when opening, monthly and balance conservation are complete  351ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  05:40:47
+   Duration  7.73s (transform 1.10s, setup 0ms, collect 2.16s, tests 5.34s, environment 0ms, prepare 54ms)
+
+===== provider-finance-ledger =====
+   ✓ 0059 provider finance ledger contract > enforces tenant, mode, signed adjustment, immutable facts and exact reversal  1002ms
+   ✓ 0059 provider finance ledger contract > blocks destructive rollback after provider finance facts exist  1281ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  05:40:56
+   Duration  6.12s (transform 862ms, setup 0ms, collect 1.84s, tests 4.04s, environment 0ms, prepare 70ms)
+
+===== operating-feedback =====
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (8 tests) 4325ms
+   ✓ failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal  379ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  05:41:03
+   Duration  6.51s (transform 943ms, setup 0ms, collect 1.89s, tests 4.33s, environment 0ms, prepare 54ms)
+
+===== operating-analysis =====
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (5 tests) 3714ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  353ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  05:41:10
+   Duration  5.67s (transform 884ms, setup 0ms, collect 1.72s, tests 3.71s, environment 0ms, prepare 54ms)
+
+===== standard-home =====
+ Test Files  1 failed (1)
+      Tests  4 failed | 9 passed (13)
+   Start at  05:41:17
+   Duration  5.41s (transform 895ms, setup 0ms, collect 1.76s, tests 3.39s, environment 0ms, prepare 76ms)
+
+undefined
+/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run --config ../../vitest.config.ts src/__tests-integration__/standard-home.integration.test.ts '--maxWorkers=1'
+===== subscription-auto-renewal =====
+
+ ✓ src/__tests-integration__/subscription-auto-renewal.integration.test.ts (10 tests) 3979ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  05:41:24
+   Duration  5.94s (transform 848ms, setup 0ms, collect 1.71s, tests 3.98s, environment 0ms, prepare 56ms)
+

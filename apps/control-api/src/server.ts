@@ -34,6 +34,9 @@ import {
   PrincipalAccessConfigRepository,
   ProviderQuotaWindowRepository,
   ProviderFinanceRepository,
+  ProviderFinanceActivationRepository,
+  ProviderFinanceActivationPreviewRepository,
+  ProviderFinanceActivationCoordinator,
   ResourcePoolRepository,
   DEFAULT_THRESHOLDS,
   type AlertThresholds,
@@ -70,6 +73,7 @@ import { registerEnterpriseSettingsRoutes } from "./enterprise-settings/routes.j
 import { registerDepartmentCostRoutes } from "./department-costs/routes.js";
 import { registerDirectoryRoutes } from "./directory/routes.js";
 import { registerProviderFinanceRoutes } from "./provider-finance/routes.js";
+import { registerProviderFinanceActivationRoutes } from "./provider-finance/activation-routes.js";
 import { wecomCallbackRoutes } from "./wecom/callback-routes.js";
 import { configuredWebOrigins, isCrossSiteMutation } from "./security/origin-policy.js";
 import {
@@ -120,6 +124,9 @@ declare module "fastify" {
     principalAccessConfigRepo: PrincipalAccessConfigRepository;
     quotaWindowRepo: ProviderQuotaWindowRepository;
     providerFinanceRepo: ProviderFinanceRepository;
+    providerFinanceActivationRepo: ProviderFinanceActivationRepository;
+    providerFinanceActivationPreviewRepo: ProviderFinanceActivationPreviewRepository;
+    providerFinanceActivationCoordinator: ProviderFinanceActivationCoordinator;
     poolRepo: ResourcePoolRepository;
     featureFlags: FeatureFlags;
     providerFinanceMode: ProviderFinanceMode;
@@ -240,6 +247,12 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
   app.decorate("principalAccessConfigRepo", new PrincipalAccessConfigRepository(db));
   app.decorate("quotaWindowRepo", new ProviderQuotaWindowRepository(db));
   app.decorate("providerFinanceRepo", new ProviderFinanceRepository(db));
+  app.decorate("providerFinanceActivationRepo", new ProviderFinanceActivationRepository(db));
+  // WP04：预检只读投影与控制面激活协调器分列装饰，激活路径只走协调器的那一个事务。
+  app.decorate("providerFinanceActivationPreviewRepo",
+    new ProviderFinanceActivationPreviewRepository(db));
+  app.decorate("providerFinanceActivationCoordinator",
+    new ProviderFinanceActivationCoordinator(db));
   app.decorate("poolRepo", new ResourcePoolRepository(db));
   app.decorate("featureFlags", featureFlags);
   app.decorate("providerFinanceMode", providerFinanceMode);
@@ -291,6 +304,7 @@ export function buildControlApi(db: Kysely<Database>, _opts: ControlApiOptions =
     registerProviderRoutes(child);
     if (providerFinanceMode !== "OFF") {
       registerProviderFinanceRoutes(child, { mode: providerFinanceMode });
+      registerProviderFinanceActivationRoutes(child, { mode: providerFinanceMode });
     }
     registerDashboardRoutes(child, {
       usageOverviewV2: featureFlags.FEATURE_USAGE_OVERVIEW_V2,

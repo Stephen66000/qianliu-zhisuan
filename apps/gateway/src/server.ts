@@ -14,6 +14,7 @@ import {
   createPrincipalAuth,
   type PrincipalAuthResult,
 } from "./auth/principal-auth.js";
+import { chainGuards, createQuiescenceGate } from "./admission/enterprise-maintenance.js";
 import { registerModelsRoute, type AuthHandler } from "./routes/models.js";
 import { registerChatRoute, type PipelineHandler } from "./routes/chat.js";
 import { registerMessagesRoute } from "./routes/messages.js";
@@ -128,10 +129,14 @@ export function buildGateway(
     await registerRequestId(child);
     const auth: AuthHandler = createPrincipalAuth(db, pepper);
     const authorizeModel: AuthHandler = createModelAuthorization(db);
+    // PFA-09：静默期内目标企业的新模型调用在 pipeline 之前被短路（零上游、零账本事实）。
+    const maintenanceGate: AuthHandler = createQuiescenceGate(db);
+    const guardedModelAuthorization: AuthHandler =
+      chainGuards(maintenanceGate, authorizeModel);
     registerModelsRoute(child, db, auth);
-    registerChatRoute(child, auth, authorizeModel, pipelineHandler);
-    registerMessagesRoute(child, auth, authorizeModel, pipelineHandler);
-    registerResponsesRoute(child, auth, authorizeModel, pipelineHandler);
+    registerChatRoute(child, auth, guardedModelAuthorization, pipelineHandler);
+    registerMessagesRoute(child, auth, guardedModelAuthorization, pipelineHandler);
+    registerResponsesRoute(child, auth, guardedModelAuthorization, pipelineHandler);
     registerUnsupportedRoutes(child, auth);
   });
 

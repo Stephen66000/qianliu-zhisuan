@@ -364,9 +364,10 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
   });
 
   it("R01-F01：资金读模型同期窗口复用权威缺口规则（已知部分保留、缺口显式）", async () => {
-    const prevStart = new Date("2026-07-31T16:00:00.000Z");
-    const prevEnd = new Date("2026-08-10T06:00:00.000Z");
-    const inWindow = new Date("2026-08-05T03:00:00.000Z");
+    // 用 10 月的上月同期窗，使缺口事实落在固定资金切换时点之后。
+    const prevStart = new Date("2026-08-31T16:00:00.000Z");
+    const prevEnd = new Date("2026-09-10T06:00:00.000Z");
+    const inWindow = new Date("2026-09-05T03:00:00.000Z");
     const openaiOk = (await db.selectFrom("provider_resource")
       .where("enterprise_id", "=", enterpriseId)
       .where("name", "=", "OpenAI API 主")
@@ -401,8 +402,8 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
         enterprise_id: enterpriseId, provider_resource_id: planResource.id,
         finance_event_id: event.id, product_name: "测试套餐",
         // 周期边界须为北京时间自然日零点（0059 range check）；带 finance_event_id 的周期 source 须为 PURCHASE/RENEWAL
-        period_start: new Date("2026-08-04T16:00:00.000Z"),
-        period_end_exclusive: new Date("2026-09-04T16:00:00.000Z"),
+        period_start: new Date("2026-09-04T16:00:00.000Z"),
+        period_end_exclusive: new Date("2026-10-04T16:00:00.000Z"),
         source: "PURCHASE", created_by_admin_user_id: adminId,
       }).execute();
     });
@@ -414,11 +415,10 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
   });
 
   it("V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口", async () => {
-    // 依赖上方 R01-F01 用例已写入同期窗事实：PRICED_USAGE 12.50、UNKNOWN_COST 行、
-    // 未登记现金支出的套餐采购事件。
+    // 依赖上方 R01-F01 在切换后 9 月写入的同期窗事实。
     const summary = await getStandardHomeSummary(db, {
-      enterpriseId, asOf,
-      bill: await new OperatingBillRepository(db).getBill(enterpriseId, "2026-09"),
+      enterpriseId, asOf: new Date("2026-10-10T06:00:00.000Z"),
+      bill: await new OperatingBillRepository(db).getBill(enterpriseId, "2026-10"),
       financeRead: true,
     });
     expect(summary.monthlyCost.previous?.basis).toBe("FINANCE_READ_MODEL");
@@ -426,7 +426,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
       .toEqual([{ currency: "CNY", amount: "12.50000000" }]);
     expect(summary.monthlyCost.previous?.incompleteReason).toContain("API_USAGE_COST_UNKNOWN");
     expect(summary.monthlyCost.previous?.incompleteReason).toContain("CASH_PAID_CNY_MISSING");
-    expect(summary.monthlyCost.previous?.window.rangeStart).toBe("2026-07-31T16:00:00.000Z");
+    expect(summary.monthlyCost.previous?.window.rangeStart).toBe("2026-08-31T16:00:00.000Z");
     expect(summary.monthlyCost.previous?.window.truncated).toBe(false);
   });
 
@@ -724,7 +724,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     await openingFor(rRechargeNoCash, "nocash");
     await openingFor(rRechargeWithCash, "withcash");
 
-    const inWin = new Date("2026-08-05T00:00:00.000Z");
+    const inWin = new Date("2026-09-05T00:00:00.000Z");
     const line = async (resourceId: string, extra: {
       api_cost?: string | null; api_cost_currency?: "CNY" | "USD" | null;
       api_cost_status?: "PRICED_USAGE" | "UNKNOWN_COST" | null;
@@ -892,7 +892,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     }).execute();
 
     const window = await loadWindowOperatingFinance(db, ent,
-      new Date("2026-07-31T16:00:00.000Z"), new Date("2026-08-10T06:00:00.000Z"));
+      new Date("2026-08-31T16:00:00.000Z"), new Date("2026-09-10T06:00:00.000Z"));
     const reason = window.incompleteReason ?? "";
     // 正控制逐码命中
     expect(reason).toContain("API_USAGE_COST_UNKNOWN:1");

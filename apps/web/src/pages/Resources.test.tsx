@@ -111,6 +111,40 @@ async function detectModels(user: ReturnType<typeof userEvent.setup>) {
   expect((await screen.findAllByText("kimi-k2")).length).toBeGreaterThan(0);
 }
 
+/**
+ * 资金标签页现在按 `activation-state` 在「初始化向导」（未激活）与「日常资金面板」
+ * （`strict_writes_enabled=true`）之间切换。本组用例验证的是**已激活**账本上的
+ * 日常充值／订阅入口，因此显式声明已激活状态；其余资金读接口维持原有空数据回退。
+ */
+function financeReadFallback(path: string, mode: ProviderFinanceMode) {
+  if (path.startsWith("/provider-finance/activation-state")) {
+    return {
+      mode, cutover_at: "2026-08-31T16:00:00.000Z", strict_writes_enabled: true,
+      scope_summary: null,
+      quiescence: {
+        status: null, active: false, started_at: null, expires_at: null, released_at: null,
+        release_reason: null, remaining_seconds: 0, insufficient_for_activation: false,
+        drain: {
+          in_progress_requests: 0, open_attempts: 0, unpaired_usage_lines: 0,
+          pending_ledger_transactions: 0, exonerated_usage_lines: 0, drained: true,
+        },
+      },
+      latest_candidate: null,
+      activation_receipt: {
+        candidateId: "cand-1", candidateHash: "hash-1", factWatermarkHash: "wm-1",
+        activatedAt: "2026-09-01T00:00:00.000Z", activatedByAdminUserId: "admin-1",
+        factCounts: {
+          openings: 1, recharges: 0, purchases: 0, carryovers: 0, legacyResolutions: 0, usageRepairs: 0,
+        },
+        monthsChecked: ["2026-08"], conservationPassed: true, conservationFailures: [],
+      },
+      activated_at: "2026-09-01T00:00:00.000Z", activated_by_admin_user_id: "admin-1",
+    };
+  }
+  if (path.includes("/finance/events")) return { items: [], total: 0 };
+  return { periods: [] };
+}
+
 function renderPage(path = "/resources", financeMode: ProviderFinanceMode = "OFF") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return { ...render(
@@ -185,7 +219,7 @@ describe("厂商资源四 Tab", () => {
         codingPlanOrders: [], codingPlanFixedCostCny: "0", operatingCostCny: "0",
         operatingCostByCurrency: [], currentApiBalances: [{ currency: "CNY", amount: "498.39" }],
         currentApiBalancesComplete: true, complete: true, gaps: [] }
-      : path.includes("/finance/events") ? { items: [], total: 0 } : { periods: [] });
+      : financeReadFallback(path, "DARK"));
     renderPage("/resources", "DARK");
     expect(screen.getAllByRole("tab")).toHaveLength(5);
     await user.click(screen.getByRole("tab", { name: "充值与订阅" }));
@@ -208,20 +242,25 @@ describe("厂商资源四 Tab", () => {
         codingPlanFixedCostCny: "0", operatingCostCny: "0",
         operatingCostByCurrency: [], currentApiBalances: [],
         currentApiBalancesComplete: true, complete: true, gaps: [] }
-      : path.includes("/finance/events") ? { items: [], total: 0 } : { periods: [] });
+      : financeReadFallback(path, "ACTIVE"));
     postMock.mockResolvedValue({ event: { id: "event-1" }, periodId: "period-1" });
     renderPage("/resources?tab=finance", "ACTIVE");
-    await user.click(screen.getByRole("button", { name: "充值／订阅" }));
+    // 资金标签页先异步读取 activation-state 才渲染日常面板，因此这里等待入口出现。
+    await user.click(await screen.findByRole("button", { name: "充值／订阅" }));
     await user.click(screen.getByRole("button", { name: "Coding Plan" }));
     await user.type(screen.getByLabelText("订阅金额"), "199");
     await user.type(screen.getByLabelText("人民币实付"), "199");
     await user.type(screen.getByLabelText("服务周期开始日"), "2026-09-19");
+    await user.type(screen.getByLabelText("说明"), "九月订阅");
+    await user.type(screen.getByLabelText("证据引用"), "invoice-2026-09");
     await user.click(screen.getByRole("button", { name: "入账确认" }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith(
       `/provider-resources/${resource.id}/finance/subscriptions`,
-      expect.objectContaining({ kind: "RENEWAL", product_name: "Kimi 套餐",
+      { kind: "RENEWAL", product_name: "Kimi 套餐", auto_renew: true,
+        service_period_start: "2026-09-19", account_currency: "CNY",
         account_amount: "199.00", cash_paid_cny: "199.00",
-        service_period_start: "2026-09-19" }),
+        occurred_at: expect.any(String), description: "九月订阅",
+        evidence_ref: "invoice-2026-09", idempotency_key: expect.any(String) },
     ));
   });
 });

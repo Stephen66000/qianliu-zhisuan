@@ -66,7 +66,7 @@ describe("POOL-043 上游前撤权结算", () => {
     }));
   });
 
-  it("API零Token失败Attempt标记为CONFIRMED_ZERO_NO_UPSTREAM且成本为0", async () => {
+  it("已触达上游的API零Token失败Attempt保持UNKNOWN_COST，不冒充确认零费用", async () => {
     const createUsageAndLedgerLineIfAbsent = vi.fn().mockResolvedValue({
       line: { deducted_quota: null }, created: true,
     });
@@ -87,11 +87,13 @@ describe("POOL-043 上游前撤权结算", () => {
         cacheMissPrice: "0.002", outputPrice: "0.008", currency: "CNY", priority: 1,
       },
     });
+    // 本函数只在 upstream caller 执行后被调用，0 Token 不能证明未触达上游：
+    // 费用未知必须保持 UNKNOWN_COST，只有预上游拒绝路径才允许确认零（见下方正控制）。
     expect(createUsageAndLedgerLineIfAbsent).toHaveBeenCalledWith(expect.objectContaining({
       ledger_line: expect.objectContaining({
-        api_cost: "0.00000000",
+        api_cost: null,
         api_cost_currency: null,
-        api_cost_status: "CONFIRMED_ZERO_NO_UPSTREAM",
+        api_cost_status: "UNKNOWN_COST",
       }),
     }));
   });

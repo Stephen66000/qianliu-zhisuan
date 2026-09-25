@@ -1,0 +1,61 @@
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(48,3): error TS2741: Property 'adminId' is missing in type 'Seeded' but required in type '{ enterpriseId: string; adminId: string; }'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(156,26): error TS2322: Type 'unknown' is not assignable to type 'InjectPayload | undefined'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(168,18): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(168,30): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(169,24): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(346,20): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(346,32): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(347,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(353,23): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(353,35): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(354,23): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(362,27): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(363,27): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(369,28): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(370,28): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(375,19): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(375,31): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(376,19): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(382,25): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(382,37): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(383,25): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(390,20): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(390,32): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(391,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(411,20): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(411,32): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(412,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(605,32): error TS2345: Argument of type '"provider_finance_runtime_state"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(605,66): error TS2349: This expression is not callable.
+  Each member of the union type '{ <SE extends SelectExpression<{ [x: string]: never; }, any>>(selections: readonly SE[]): SelectQueryBuilder<{ [x: string]: never; }, any, { [E in FlattenSelectExpression<SE> as ExtractAliasFromSelectExpression<...>]: SelectType<...>; }>; <CB extends SelectCallback<...>>(callback: CB): SelectQueryBuilder<...>; <SE e...' has signatures, but none of those signatures are compatible with each other.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(667,32): error TS2345: Argument of type '"provider_finance_runtime_state"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/provider-finance-activation.http.test.ts(667,66): error TS2349: This expression is not callable.
+  Each member of the union type '{ <SE extends SelectExpression<{ [x: string]: never; }, any>>(selections: readonly SE[]): SelectQueryBuilder<{ [x: string]: never; }, any, { [E in FlattenSelectExpression<SE> as ExtractAliasFromSelectExpression<...>]: SelectType<...>; }>; <CB extends SelectCallback<...>>(callback: CB): SelectQueryBuilder<...>; <SE e...' has signatures, but none of those signatures are compatible with each other.

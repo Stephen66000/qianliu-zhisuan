@@ -50,12 +50,14 @@ describe("Daily Token Report Image Generator", () => {
     expect(svg).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
   });
 
-  it("renderSvgToPng: 将 SVG 转换为有效的 PNG 格式 Buffer", () => {
+  it("renderSvgToPng: 将 SVG 转换为有效的 PNG 格式 Buffer", async () => {
     const svg = generateDailyReportSvg(mockReportData);
-    const pngBuffer = renderSvgToPng(svg);
+    const pngBuffer = await renderSvgToPng(svg);
 
     expect(pngBuffer).toBeInstanceOf(Buffer);
     expect(pngBuffer.length).toBeGreaterThan(1000);
+    expect(pngBuffer.readUInt32BE(16)).toBe(1080);
+    expect(pngBuffer.readUInt32BE(20)).toBe(1520);
 
     // 校验 PNG 魔数标头 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
     const isPng =

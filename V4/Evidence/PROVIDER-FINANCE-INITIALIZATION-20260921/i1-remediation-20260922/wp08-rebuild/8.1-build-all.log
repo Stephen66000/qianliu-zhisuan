@@ -1,0 +1,905 @@
+# WP08 7.1 候选镜像构建（本地，不推送、不登录任何 registry）
+# 构建时刻(UTC): 2026-09-22T10:36:39Z
+# 构建上下文: /Users/mac/Projects/仟流智算-provider-finance-init-20260921 （deploy/compose.yaml 声明的 context=.. 即仓库根）
+# 候选 commit: 94482f06e5ac69a80357b6e17b9786f7690265c4
+# 候选 tree:   fb1212dba13963014cef18da4ed6fd7457c51b48
+# 索引摘要:    4f14d9dde58ef0157c8ba34b2b80333f289b922e392870ee6358ab7c78c41d15
+# VERSION:     2.5.8
+# 平台:        linux/arm64
+
+==================================================================
+### 构建 control-api
+### image: qianliu-candidate/control-api:94482f06e5ac
+### dockerfile: apps/control-api/Dockerfile   context: .
+### 起始: 2026-09-22T10:36:39Z
+==================================================================
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.26kB 0.0s done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/library/node:22.17.1-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 392B done
+#3 DONE 0.0s
+
+#4 [ 1/20] FROM docker.io/library/node:22.17.1-alpine
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 6.11MB 0.7s done
+#5 DONE 0.8s
+
+#6 [ 2/20] RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
+#6 3.912 Preparing pnpm@11.11.0 for immediate activation...
+#6 DONE 10.2s
+
+#7 [ 3/20] WORKDIR /app
+#7 DONE 0.0s
+
+#8 [ 4/20] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+#8 DONE 0.0s
+
+#9 [ 5/20] COPY apps/gateway/package.json apps/gateway/
+#9 DONE 0.0s
+
+#10 [ 6/20] COPY apps/control-api/package.json apps/control-api/
+#10 DONE 0.0s
+
+#11 [ 7/20] COPY apps/worker/package.json apps/worker/
+#11 DONE 0.0s
+
+#12 [ 8/20] COPY apps/web/package.json apps/web/
+#12 DONE 0.3s
+
+#13 [ 9/20] COPY packages/contracts/package.json packages/contracts/
+#13 DONE 0.1s
+
+#14 [10/20] COPY packages/domain/package.json packages/domain/
+#14 DONE 0.0s
+
+#15 [11/20] COPY packages/config/package.json packages/config/
+#15 DONE 0.0s
+
+#16 [12/20] COPY packages/testing/package.json packages/testing/
+#16 DONE 0.0s
+
+#17 [13/20] COPY packages/observability/package.json packages/observability/
+#17 DONE 0.0s
+
+#18 [14/20] COPY packages/provider-adapters/package.json packages/provider-adapters/
+#18 DONE 0.0s
+
+#19 [15/20] COPY packages/database/package.json packages/database/
+#19 DONE 0.0s
+
+#20 [16/20] RUN pnpm install --frozen-lockfile
+#20 1.136 Scope: all 12 workspace projects
+#20 1.303 ? Verifying lockfile against supply-chain policies (928 entries)...
+#20 1.312 Lockfile is up to date, resolution step is skipped
+#20 1.451 Progress: resolved 1, reused 0, downloaded 0, added 0
+#20 1.690 Packages: +837
+#20 1.690 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#20 2.455 Progress: resolved 837, reused 0, downloaded 0, added 0
+#20 5.192 Progress: resolved 837, reused 0, downloaded 1, added 0
+#20 6.228 Progress: resolved 837, reused 0, downloaded 36, added 17
+#20 6.933 
+#20 6.933    ╭──────────────────────────────────────────────╮
+#20 6.933    │                                              │
+#20 6.933    │     Update available! 11.11.0 → 12.5.1.      │
+#20 6.933    │     Changelog: https://pnpm.io/v/12.5.1      │
+#20 6.933    │   To update, run: corepack use pnpm@12.5.1   │
+#20 6.933    │                                              │
+#20 6.933    ╰──────────────────────────────────────────────╯
+#20 6.933 
+#20 7.284 Progress: resolved 837, reused 0, downloaded 117, added 116
+#20 8.583 [WARN] Tarball download average speed 22 KiB/s (size 28 KiB) is below 50 KiB/s: https://registry.npmjs.org/typed-rest-client/-/typed-rest-client-2.3.1.tgz (GET)
+#20 8.667 Progress: resolved 837, reused 0, downloaded 131, added 131
+#20 8.685 [WARN] Tarball download average speed 46 KiB/s (size 64 KiB) is below 50 KiB/s: https://registry.npmjs.org/qs/-/qs-6.15.1.tgz (GET)
+#20 8.786 [WARN] Tarball download average speed 18 KiB/s (size 27 KiB) is below 50 KiB/s: https://registry.npmjs.org/object-inspect/-/object-inspect-1.13.4.tgz (GET)
+#20 8.789 [WARN] Tarball download average speed 19 KiB/s (size 28 KiB) is below 50 KiB/s: https://registry.npmjs.org/semver/-/semver-7.8.5.tgz (GET)
+#20 9.609 Progress: resolved 837, reused 0, downloaded 181, added 181
+#20 11.45 Progress: resolved 837, reused 0, downloaded 209, added 207
+#20 12.46 Progress: resolved 837, reused 0, downloaded 247, added 246
+#20 13.47 Progress: resolved 837, reused 0, downloaded 295, added 295
+#20 14.55 Progress: resolved 837, reused 0, downloaded 333, added 330
+#20 16.03 Progress: resolved 837, reused 0, downloaded 345, added 341
+#20 16.13 [WARN] Tarball download average speed 25 KiB/s (size 68 KiB) is below 50 KiB/s: https://registry.npmjs.org/decimal.js/-/decimal.js-10.6.0.tgz (GET)
+#20 17.04 Progress: resolved 837, reused 0, downloaded 387, added 349
+#20 18.25 Progress: resolved 837, reused 0, downloaded 438, added 409
+#20 20.39 Progress: resolved 837, reused 0, downloaded 438, added 412
+#20 21.56 Progress: resolved 837, reused 0, downloaded 452, added 420
+#20 22.67 Progress: resolved 837, reused 0, downloaded 477, added 433
+#20 23.73 Progress: resolved 837, reused 0, downloaded 510, added 481
+#20 23.97 [WARN] Request took 13907ms: https://registry.npmjs.org/@typescript-eslint%2Fvisitor-keys
+#20 24.77 Progress: resolved 837, reused 0, downloaded 536, added 534
+#20 25.12 [WARN] Request took 11453ms: https://registry.npmjs.org/caniuse-lite
+#20 25.93 [WARN] Request took 16002ms: https://registry.npmjs.org/@typescript-eslint%2Ftype-utils
+#20 26.16 Progress: resolved 837, reused 0, downloaded 566, added 566
+#20 27.20 Progress: resolved 837, reused 0, downloaded 602, added 588
+#20 27.64 [WARN] Request took 10601ms: https://registry.npmjs.org/electron-to-chromium
+#20 27.91 [WARN] Tarball download average speed 33 KiB/s (size 35 KiB) is below 50 KiB/s: https://registry.npmjs.org/saxes/-/saxes-5.0.1.tgz (GET)
+#20 27.95 [WARN] Tarball download average speed 43 KiB/s (size 64 KiB) is below 50 KiB/s: https://registry.npmjs.org/fast-json-stringify/-/fast-json-stringify-7.0.1.tgz (GET)
+#20 28.23 Progress: resolved 837, reused 0, downloaded 624, added 623
+#20 28.56 [WARN] Request took 18536ms: https://registry.npmjs.org/@typescript-eslint%2Ftypes
+#20 28.76 [WARN] Request took 11604ms: https://registry.npmjs.org/eslint-plugin-react-hooks
+#20 28.97 [WARN] Request took 19051ms: https://registry.npmjs.org/@typescript-eslint%2Feslint-plugin
+#20 29.24 [WARN] Request took 19325ms: https://registry.npmjs.org/@typescript-eslint%2Fparser
+#20 29.28 Progress: resolved 837, reused 0, downloaded 652, added 652
+#20 30.29 Progress: resolved 837, reused 0, downloaded 688, added 688
+#20 30.77 [WARN] Tarball download average speed 35 KiB/s (size 57 KiB) is below 50 KiB/s: https://registry.npmjs.org/@testing-library/jest-dom/-/jest-dom-6.9.1.tgz (GET)
+#20 30.86 [WARN] Tarball download average speed 44 KiB/s (size 46 KiB) is below 50 KiB/s: https://registry.npmjs.org/postcss/-/postcss-8.5.6.tgz (GET)
+#20 31.25 [WARN] Tarball download average speed 43 KiB/s (size 69 KiB) is below 50 KiB/s: https://registry.npmjs.org/@testing-library/user-event/-/user-event-14.6.1.tgz (GET)
+#20 31.29 Progress: resolved 837, reused 0, downloaded 723, added 723
+#20 31.78 [WARN] Tarball download average speed 35 KiB/s (size 136 KiB) is below 50 KiB/s: https://registry.npmjs.org/@hookform/resolvers/-/resolvers-5.5.7.tgz (GET)
+#20 32.29 Progress: resolved 837, reused 0, downloaded 750, added 750
+#20 32.45 [WARN] Tarball download average speed 41 KiB/s (size 135 KiB) is below 50 KiB/s: https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz (GET)
+#20 32.77 [WARN] Tarball download average speed 36 KiB/s (size 53 KiB) is below 50 KiB/s: https://registry.npmjs.org/readable-stream/-/readable-stream-4.7.0.tgz (GET)
+#20 33.93 [WARN] Tarball download average speed 41 KiB/s (size 285 KiB) is below 50 KiB/s: https://registry.npmjs.org/@tanstack/query-core/-/query-core-5.90.20.tgz (GET)
+#20 34.27 Progress: resolved 837, reused 0, downloaded 767, added 767
+#20 34.50 [WARN] Tarball download average speed 19 KiB/s (size 26 KiB) is below 50 KiB/s: https://registry.npmjs.org/@grpc/proto-loader/-/proto-loader-0.8.1.tgz (GET)
+#20 35.27 Progress: resolved 837, reused 0, downloaded 791, added 781
+#20 35.66 [WARN] Tarball download average speed 45 KiB/s (size 132 KiB) is below 50 KiB/s: https://registry.npmjs.org/bare-path/-/bare-path-3.1.1.tgz (GET)
+#20 36.27 Progress: resolved 837, reused 0, downloaded 820, added 820
+#20 36.80 [WARN] Tarball download average speed 31 KiB/s (size 48 KiB) is below 50 KiB/s: https://registry.npmjs.org/tweetnacl/-/tweetnacl-0.14.5.tgz (GET)
+#20 37.29 Progress: resolved 837, reused 0, downloaded 823, added 823
+#20 37.82 [WARN] Tarball download average speed 33 KiB/s (size 34 KiB) is below 50 KiB/s: https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz (GET)
+#20 38.37 Progress: resolved 837, reused 0, downloaded 827, added 827
+#20 39.37 Progress: resolved 837, reused 0, downloaded 830, added 829
+#20 39.96 [WARN] Tarball download average speed 42 KiB/s (size 308 KiB) is below 50 KiB/s: https://registry.npmjs.org/lodash/-/lodash-4.18.1.tgz (GET)
+#20 40.39 Progress: resolved 837, reused 0, downloaded 831, added 831
+#20 41.38 Progress: resolved 837, reused 0, downloaded 832, added 832
+#20 43.10 Progress: resolved 837, reused 0, downloaded 833, added 832
+#20 44.10 Progress: resolved 837, reused 0, downloaded 833, added 833
+#20 46.17 [WARN] Request took 14297ms: https://registry.npmjs.org/react-router
+#20 46.34 Progress: resolved 837, reused 0, downloaded 834, added 833
+#20 47.34 Progress: resolved 837, reused 0, downloaded 834, added 834
+#20 48.35 Progress: resolved 837, reused 0, downloaded 835, added 835
+#20 51.16 [WARN] Tarball download average speed 37 KiB/s (size 623 KiB) is below 50 KiB/s: https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.5.tgz (GET)
+#20 51.27 Progress: resolved 837, reused 0, downloaded 836, added 835
+#20 52.07 Progress: resolved 837, reused 0, downloaded 837, added 837, done
+#20 54.63 [WARN] Request took 22749ms: https://registry.npmjs.org/react
+#20 58.70 [WARN] Request took 12037ms: https://registry.npmjs.org/tldts
+#20 61.12 [WARN] Request took 29268ms: https://registry.npmjs.org/react-refresh
+#20 63.74 [WARN] Request took 16842ms: https://registry.npmjs.org/typescript
+#20 87.94 [WARN] Request took 57255ms: https://registry.npmjs.org/playwright-core
+#20 89.64 ✓ Lockfile passes supply-chain policies (928 entries in 1m 28.3s)
+#20 89.68 .../argon2@0.41.1/node_modules/argon2 install$ node-gyp-build
+#20 89.72 .../esbuild@0.23.1/node_modules/esbuild postinstall$ node install.js
+#20 89.72 .../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+#20 89.81 .../esbuild@0.23.1/node_modules/esbuild postinstall: Done
+#20 89.82 .../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+#20 89.84 .../argon2@0.41.1/node_modules/argon2 install: Done
+#20 90.11 
+#20 90.11 devDependencies:
+#20 90.11 + @eslint/js 9.18.0
+#20 90.11 + @stryker-mutator/core 9.6.1
+#20 90.11 + @stryker-mutator/vitest-runner 9.6.1
+#20 90.11 + @types/node 22.20.1
+#20 90.11 + @typescript-eslint/eslint-plugin 8.65.0
+#20 90.11 + @typescript-eslint/parser 8.65.0
+#20 90.11 + @vitest/coverage-v8 3.2.4
+#20 90.11 + eslint 9.18.0
+#20 90.11 + eslint-plugin-react 7.37.4
+#20 90.11 + eslint-plugin-react-hooks 5.2.0
+#20 90.11 + globals 15.14.0
+#20 90.11 + jscpd 5.0.14
+#20 90.11 + prettier 3.4.2
+#20 90.11 + tsx 4.19.2
+#20 90.11 + typescript 5.9.3
+#20 90.11 + vitest 3.2.4
+#20 90.11 
+#20 90.34 Done in 1m 30.1s using pnpm v11.11.0
+#20 DONE 91.3s
+
+#21 [17/20] COPY tsconfig.base.json ./
+#21 DONE 0.0s
+
+#22 [18/20] COPY VERSION ./
+#22 DONE 0.0s
+
+#23 [19/20] COPY packages/ packages/
+#23 DONE 0.4s
+
+#24 [20/20] COPY apps/control-api/ apps/control-api/
+#24 DONE 0.1s
+
+#25 exporting to image
+#25 exporting layers
+#25 exporting layers 9.2s done
+#25 writing image sha256:eea31225e5a3bcf324e2ce25d124dccfff3f619bbcad970214a278abc5d9da50 done
+#25 naming to docker.io/qianliu-candidate/control-api:94482f06e5ac done
+#25 DONE 9.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/jyy1evuwz4uvoqgny36eldd6d
+BUILD_control-api_EXIT=0
+### 结束: 2026-09-22T10:38:33Z
+
+==================================================================
+### 构建 gateway
+### image: qianliu-candidate/gateway:94482f06e5ac
+### dockerfile: apps/gateway/Dockerfile   context: .
+### 起始: 2026-09-22T10:38:33Z
+==================================================================
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.53kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22.17.1-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 392B done
+#3 DONE 0.0s
+
+#4 [ 1/19] FROM docker.io/library/node:22.17.1-alpine
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 4.30MB 0.1s done
+#5 DONE 0.1s
+
+#6 [ 2/19] RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
+#6 0.278 Preparing pnpm@11.11.0 for immediate activation...
+#6 DONE 7.5s
+
+#7 [ 3/19] WORKDIR /app
+#7 DONE 0.0s
+
+#8 [ 4/19] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+#8 DONE 0.0s
+
+#9 [ 5/19] COPY apps/gateway/package.json apps/gateway/
+#9 DONE 0.0s
+
+#10 [ 6/19] COPY apps/control-api/package.json apps/control-api/
+#10 DONE 0.0s
+
+#11 [ 7/19] COPY apps/worker/package.json apps/worker/
+#11 DONE 0.0s
+
+#12 [ 8/19] COPY apps/web/package.json apps/web/
+#12 DONE 0.0s
+
+#13 [ 9/19] COPY packages/contracts/package.json packages/contracts/
+#13 DONE 0.0s
+
+#14 [10/19] COPY packages/domain/package.json packages/domain/
+#14 DONE 0.0s
+
+#15 [11/19] COPY packages/config/package.json packages/config/
+#15 DONE 0.0s
+
+#16 [12/19] COPY packages/testing/package.json packages/testing/
+#16 DONE 0.0s
+
+#17 [13/19] COPY packages/observability/package.json packages/observability/
+#17 DONE 0.0s
+
+#18 [14/19] COPY packages/provider-adapters/package.json packages/provider-adapters/
+#18 DONE 0.0s
+
+#19 [15/19] COPY packages/database/package.json packages/database/
+#19 DONE 0.0s
+
+#20 [16/19] RUN pnpm install --frozen-lockfile
+#20 0.680 Scope: all 12 workspace projects
+#20 0.848 ? Verifying lockfile against supply-chain policies (928 entries)...
+#20 0.861 Lockfile is up to date, resolution step is skipped
+#20 0.993 Progress: resolved 1, reused 0, downloaded 0, added 0
+#20 1.140 Packages: +837
+#20 1.140 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#20 1.995 Progress: resolved 837, reused 0, downloaded 0, added 0
+#20 3.394 Progress: resolved 837, reused 0, downloaded 1, added 0
+#20 4.395 Progress: resolved 837, reused 0, downloaded 50, added 50
+#20 5.578 Progress: resolved 837, reused 0, downloaded 102, added 102
+#20 6.316 [WARN] Tarball download average speed 22 KiB/s (size 24 KiB) is below 50 KiB/s: https://registry.npmjs.org/diff-match-patch/-/diff-match-patch-1.0.5.tgz (GET)
+#20 6.526 [WARN] Tarball download average speed 4 KiB/s (size 7 KiB) is below 50 KiB/s: https://registry.npmjs.org/@babel/plugin-transform-explicit-resource-management/-/plugin-transform-explicit-resource-management-7.29.7.tgz (GET)
+#20 6.551 Progress: resolved 837, reused 0, downloaded 116, added 102
+#20 6.666 
+#20 6.666    ╭──────────────────────────────────────────────╮
+#20 6.666    │                                              │
+#20 6.666    │     Update available! 11.11.0 → 12.5.1.      │
+#20 6.666    │     Changelog: https://pnpm.io/v/12.5.1      │
+#20 6.666    │   To update, run: corepack use pnpm@12.5.1   │
+#20 6.666    │                                              │
+#20 6.666    ╰──────────────────────────────────────────────╯
+#20 6.666 
+#20 7.553 Progress: resolved 837, reused 0, downloaded 173, added 173
+#20 8.560 Progress: resolved 837, reused 0, downloaded 218, added 218
+#20 9.137 [WARN] Tarball download average speed 23 KiB/s (size 29 KiB) is below 50 KiB/s: https://registry.npmjs.org/esbuild/-/esbuild-0.23.1.tgz (GET)
+#20 9.563 Progress: resolved 837, reused 0, downloaded 258, added 258
+#20 9.687 [WARN] Tarball download average speed 46 KiB/s (size 62 KiB) is below 50 KiB/s: https://registry.npmjs.org/tr46/-/tr46-5.1.1.tgz (GET)
+#20 10.56 Progress: resolved 837, reused 0, downloaded 310, added 310
+#20 11.58 Progress: resolved 837, reused 0, downloaded 356, added 356
+#20 12.58 Progress: resolved 837, reused 0, downloaded 421, added 421
+#20 13.58 Progress: resolved 837, reused 0, downloaded 477, added 474
+#20 14.59 Progress: resolved 837, reused 0, downloaded 507, added 507
+#20 15.59 Progress: resolved 837, reused 0, downloaded 551, added 551
+#20 16.57 [WARN] Tarball download average speed 13 KiB/s (size 20 KiB) is below 50 KiB/s: https://registry.npmjs.org/buffer/-/buffer-5.7.1.tgz (GET)
+#20 16.59 Progress: resolved 837, reused 0, downloaded 592, added 592
+#20 17.59 Progress: resolved 837, reused 0, downloaded 615, added 615
+#20 18.22 [WARN] Tarball download average speed 29 KiB/s (size 34 KiB) is below 50 KiB/s: https://registry.npmjs.org/avvio/-/avvio-9.3.0.tgz (GET)
+#20 18.60 Progress: resolved 837, reused 0, downloaded 640, added 640
+#20 18.67 [WARN] Tarball download average speed 38 KiB/s (size 64 KiB) is below 50 KiB/s: https://registry.npmjs.org/fast-json-stringify/-/fast-json-stringify-7.0.1.tgz (GET)
+#20 19.60 Progress: resolved 837, reused 0, downloaded 664, added 664
+#20 19.61 [WARN] Tarball download average speed 21 KiB/s (size 42 KiB) is below 50 KiB/s: https://registry.npmjs.org/@adobe/css-tools/-/css-tools-4.5.0.tgz (GET)
+#20 19.61 [WARN] Tarball download average speed 38 KiB/s (size 131 KiB) is below 50 KiB/s: https://registry.npmjs.org/bluebird/-/bluebird-3.4.7.tgz (GET)
+#20 19.81 [WARN] Tarball download average speed 40 KiB/s (size 60 KiB) is below 50 KiB/s: https://registry.npmjs.org/dom-accessibility-api/-/dom-accessibility-api-0.6.3.tgz (GET)
+#20 20.12 [WARN] Tarball download average speed 36 KiB/s (size 45 KiB) is below 50 KiB/s: https://registry.npmjs.org/autoprefixer/-/autoprefixer-10.4.20.tgz (GET)
+#20 20.26 [WARN] Tarball download average speed 31 KiB/s (size 54 KiB) is below 50 KiB/s: https://registry.npmjs.org/@babel/runtime/-/runtime-7.29.7.tgz (GET)
+#20 20.27 [WARN] Tarball download average speed 29 KiB/s (size 56 KiB) is below 50 KiB/s: https://registry.npmjs.org/fast-uri/-/fast-uri-4.1.3.tgz (GET)
+#20 20.60 Progress: resolved 837, reused 0, downloaded 695, added 695
+#20 20.81 [WARN] Tarball download average speed 30 KiB/s (size 74 KiB) is below 50 KiB/s: https://registry.npmjs.org/@tanstack/react-query/-/react-query-5.90.20.tgz (GET)
+#20 21.35 [WARN] Tarball download average speed 25 KiB/s (size 44 KiB) is below 50 KiB/s: https://registry.npmjs.org/postcss-selector-parser/-/postcss-selector-parser-6.1.4.tgz (GET)
+#20 21.37 [WARN] Tarball download average speed 45 KiB/s (size 142 KiB) is below 50 KiB/s: https://registry.npmjs.org/@types/react/-/react-19.1.1.tgz (GET)
+#20 21.45 [WARN] Tarball download average speed 46 KiB/s (size 135 KiB) is below 50 KiB/s: https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz (GET)
+#20 21.60 Progress: resolved 837, reused 0, downloaded 721, added 721
+#20 21.74 [WARN] Tarball download average speed 22 KiB/s (size 57 KiB) is below 50 KiB/s: https://registry.npmjs.org/@testing-library/jest-dom/-/jest-dom-6.9.1.tgz (GET)
+#20 21.90 [WARN] Tarball download average speed 26 KiB/s (size 57 KiB) is below 50 KiB/s: https://registry.npmjs.org/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz (GET)
+#20 22.40 [WARN] Tarball download average speed 23 KiB/s (size 230 KiB) is below 50 KiB/s: https://registry.npmjs.org/es-abstract/-/es-abstract-1.24.2.tgz (GET)
+#20 22.61 Progress: resolved 837, reused 0, downloaded 754, added 754
+#20 22.92 [WARN] Tarball download average speed 35 KiB/s (size 212 KiB) is below 50 KiB/s: https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz (GET)
+#20 23.28 [WARN] Tarball download average speed 41 KiB/s (size 53 KiB) is below 50 KiB/s: https://registry.npmjs.org/testcontainers/-/testcontainers-12.0.4.tgz (GET)
+#20 23.61 Progress: resolved 837, reused 0, downloaded 776, added 776
+#20 24.61 Progress: resolved 837, reused 0, downloaded 806, added 806
+#20 25.61 Progress: resolved 837, reused 0, downloaded 818, added 818
+#20 26.61 Progress: resolved 837, reused 0, downloaded 823, added 823
+#20 26.95 [WARN] Tarball download average speed 49 KiB/s (size 71 KiB) is below 50 KiB/s: https://registry.npmjs.org/@eslint-community/regexpp/-/regexpp-4.12.2.tgz (GET)
+#20 27.21 [WARN] Tarball download average speed 49 KiB/s (size 114 KiB) is below 50 KiB/s: https://registry.npmjs.org/minimatch/-/minimatch-10.2.5.tgz (GET)
+#20 27.47 [WARN] Tarball download average speed 29 KiB/s (size 81 KiB) is below 50 KiB/s: https://registry.npmjs.org/@js-sdsl/ordered-map/-/ordered-map-4.4.2.tgz (GET)
+#20 27.61 Progress: resolved 837, reused 0, downloaded 827, added 827
+#20 27.88 [WARN] Request took 17094ms: https://registry.npmjs.org/caniuse-lite
+#20 28.98 Progress: resolved 837, reused 0, downloaded 828, added 828
+#20 29.99 Progress: resolved 837, reused 0, downloaded 829, added 829
+#20 32.50 Progress: resolved 837, reused 0, downloaded 830, added 829
+#20 33.42 [WARN] Tarball download average speed 42 KiB/s (size 426 KiB) is below 50 KiB/s: https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.14.4.tgz (GET)
+#20 33.50 Progress: resolved 837, reused 0, downloaded 832, added 832
+#20 34.51 Progress: resolved 837, reused 0, downloaded 833, added 833
+#20 34.82 [WARN] Request took 14471ms: https://registry.npmjs.org/react-is
+#20 36.66 [WARN] Request took 16021ms: https://registry.npmjs.org/react
+#20 36.74 [WARN] Tarball download average speed 44 KiB/s (size 609 KiB) is below 50 KiB/s: https://registry.npmjs.org/bare-url/-/bare-url-2.4.6.tgz (GET)
+#20 36.77 Progress: resolved 837, reused 0, downloaded 834, added 833
+#20 37.78 Progress: resolved 837, reused 0, downloaded 834, added 834
+#20 38.78 Progress: resolved 837, reused 0, downloaded 835, added 835
+#20 39.22 [WARN] Request took 18899ms: https://registry.npmjs.org/react-dom
+#20 41.12 Progress: resolved 837, reused 0, downloaded 836, added 835
+#20 41.20 [WARN] Request took 21865ms: https://registry.npmjs.org/playwright-core
+#20 42.12 Progress: resolved 837, reused 0, downloaded 836, added 836
+#20 42.17 [WARN] Request took 21841ms: https://registry.npmjs.org/react-hook-form
+#20 42.26 Progress: resolved 837, reused 0, downloaded 837, added 837, done
+#20 43.42 [WARN] Request took 21423ms: https://registry.npmjs.org/scheduler
+#20 43.95 [WARN] Request took 16829ms: https://registry.npmjs.org/tldts-core
+#20 43.96 ✓ Lockfile passes supply-chain policies (928 entries in 43.1s)
+#20 43.96 .../argon2@0.41.1/node_modules/argon2 install$ node-gyp-build
+#20 43.99 .../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+#20 43.99 .../esbuild@0.23.1/node_modules/esbuild postinstall$ node install.js
+#20 44.07 .../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+#20 44.08 .../esbuild@0.23.1/node_modules/esbuild postinstall: Done
+#20 44.11 .../argon2@0.41.1/node_modules/argon2 install: Done
+#20 44.26 
+#20 44.26 devDependencies:
+#20 44.26 + @eslint/js 9.18.0
+#20 44.26 + @stryker-mutator/core 9.6.1
+#20 44.26 + @stryker-mutator/vitest-runner 9.6.1
+#20 44.26 + @types/node 22.20.1
+#20 44.26 + @typescript-eslint/eslint-plugin 8.65.0
+#20 44.26 + @typescript-eslint/parser 8.65.0
+#20 44.26 + @vitest/coverage-v8 3.2.4
+#20 44.26 + eslint 9.18.0
+#20 44.26 + eslint-plugin-react 7.37.4
+#20 44.26 + eslint-plugin-react-hooks 5.2.0
+#20 44.26 + globals 15.14.0
+#20 44.26 + jscpd 5.0.14
+#20 44.26 + prettier 3.4.2
+#20 44.26 + tsx 4.19.2
+#20 44.26 + typescript 5.9.3
+#20 44.26 + vitest 3.2.4
+#20 44.26 
+#20 44.34 Done in 44.1s using pnpm v11.11.0
+#20 DONE 44.7s
+
+#21 [17/19] COPY tsconfig.base.json ./
+#21 DONE 0.0s
+
+#22 [18/19] COPY packages/ packages/
+#22 DONE 0.3s
+
+#23 [19/19] COPY apps/gateway/ apps/gateway/
+#23 DONE 0.1s
+
+#24 exporting to image
+#24 exporting layers
+#24 exporting layers 6.3s done
+#24 writing image sha256:4f390ed6fec116038359c0208756b1ff6c30e340d69e1411522c1532a42fb764 done
+#24 naming to docker.io/qianliu-candidate/gateway:94482f06e5ac done
+#24 DONE 6.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/r2i9r1t9bxrc9pfmslw8dmzt1
+BUILD_gateway_EXIT=0
+### 结束: 2026-09-22T10:39:32Z
+
+==================================================================
+### 构建 worker
+### image: qianliu-candidate/worker:94482f06e5ac
+### dockerfile: apps/worker/Dockerfile   context: .
+### 起始: 2026-09-22T10:39:32Z
+==================================================================
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.45kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22.17.1-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 392B done
+#3 DONE 0.0s
+
+#4 [ 1/20] FROM docker.io/library/node:22.17.1-alpine
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 4.52MB 0.2s done
+#5 DONE 0.2s
+
+#6 [ 2/20] RUN if ! apk add --no-cache font-wqy-zenhei font-dejavu fontconfig; then       sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories &&       apk add --no-cache font-wqy-zenhei font-dejavu fontconfig;     fi && fc-cache -fv
+#6 0.313 fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/APKINDEX.tar.gz
+#6 3.394 fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/aarch64/APKINDEX.tar.gz
+#6 5.144 (1/11) Installing libexpat (2.8.4-r0)
+#6 5.827 (2/11) Installing brotli-libs (1.1.0-r2)
+#6 6.542 (3/11) Installing libbz2 (1.0.8-r6)
+#6 6.860 (4/11) Installing libpng (1.6.57-r0)
+#6 7.390 (5/11) Installing freetype (2.13.3-r0)
+#6 8.380 (6/11) Installing fontconfig (2.15.0-r3)
+#6 9.008 (7/11) Installing encodings (1.0.7-r1)
+#6 10.03 (8/11) Installing libfontenc (1.1.8-r0)
+#6 10.23 (9/11) Installing mkfontscale (1.2.3-r1)
+#6 10.54 (10/11) Installing font-dejavu (2.37-r6)
+#6 16.31 (11/11) Installing font-wqy-zenhei (0.9.45-r4)
+#6 22.52 Executing busybox-1.37.0-r18.trigger
+#6 22.61 Executing fontconfig-2.15.0-r3.trigger
+#6 22.68 Executing mkfontscale-1.2.3-r1.trigger
+#6 22.73 OK: 40 MiB in 29 packages
+#6 23.01 Font directories:
+#6 23.01 	/root/.local/share/fonts
+#6 23.01 	/usr/local/share/fonts
+#6 23.01 	/usr/share/fonts
+#6 23.01 	/root/.fonts
+#6 23.01 	/usr/share/fonts/dejavu
+#6 23.01 	/usr/share/fonts/encodings
+#6 23.01 	/usr/share/fonts/wqy-zenhei
+#6 23.01 	/usr/share/fonts/encodings/large
+#6 23.01 /root/.local/share/fonts: skipping, no such directory
+#6 23.01 /usr/local/share/fonts: skipping, no such directory
+#6 23.01 /usr/share/fonts: caching, new cache contents: 0 fonts, 3 dirs
+#6 23.01 /usr/share/fonts/dejavu: caching, new cache contents: 22 fonts, 0 dirs
+#6 23.01 /usr/share/fonts/encodings: caching, new cache contents: 0 fonts, 1 dirs
+#6 23.02 /usr/share/fonts/encodings/large: caching, new cache contents: 0 fonts, 0 dirs
+#6 23.02 /usr/share/fonts/wqy-zenhei: caching, new cache contents: 3 fonts, 0 dirs
+#6 23.02 /root/.fonts: skipping, no such directory
+#6 23.02 /usr/share/fonts/dejavu: skipping, looped directory detected
+#6 23.02 /usr/share/fonts/encodings: skipping, looped directory detected
+#6 23.02 /usr/share/fonts/wqy-zenhei: skipping, looped directory detected
+#6 23.02 /usr/share/fonts/encodings/large: skipping, looped directory detected
+#6 25.03 /var/cache/fontconfig: cleaning cache directory
+#6 25.03 /root/.cache/fontconfig: not cleaning non-existent cache directory
+#6 25.03 /root/.fontconfig: not cleaning non-existent cache directory
+#6 25.03 fc-cache: succeeded
+#6 DONE 25.1s
+
+#7 [ 3/20] RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
+#7 0.353 Preparing pnpm@11.11.0 for immediate activation...
+#7 DONE 5.9s
+
+#8 [ 4/20] WORKDIR /app
+#8 DONE 0.0s
+
+#9 [ 5/20] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+#9 DONE 0.0s
+
+#10 [ 6/20] COPY apps/gateway/package.json apps/gateway/
+#10 DONE 0.0s
+
+#11 [ 7/20] COPY apps/control-api/package.json apps/control-api/
+#11 DONE 0.0s
+
+#12 [ 8/20] COPY apps/worker/package.json apps/worker/
+#12 DONE 0.0s
+
+#13 [ 9/20] COPY apps/web/package.json apps/web/
+#13 DONE 0.0s
+
+#14 [10/20] COPY packages/contracts/package.json packages/contracts/
+#14 DONE 0.0s
+
+#15 [11/20] COPY packages/domain/package.json packages/domain/
+#15 DONE 0.0s
+
+#16 [12/20] COPY packages/config/package.json packages/config/
+#16 DONE 0.0s
+
+#17 [13/20] COPY packages/testing/package.json packages/testing/
+#17 DONE 0.0s
+
+#18 [14/20] COPY packages/observability/package.json packages/observability/
+#18 DONE 0.0s
+
+#19 [15/20] COPY packages/provider-adapters/package.json packages/provider-adapters/
+#19 DONE 0.0s
+
+#20 [16/20] COPY packages/database/package.json packages/database/
+#20 DONE 0.0s
+
+#21 [17/20] RUN pnpm install --frozen-lockfile
+#21 0.767 Scope: all 12 workspace projects
+#21 0.960 ? Verifying lockfile against supply-chain policies (928 entries)...
+#21 0.969 Lockfile is up to date, resolution step is skipped
+#21 1.065 Progress: resolved 1, reused 0, downloaded 0, added 0
+#21 1.175 Packages: +837
+#21 1.175 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#21 2.072 Progress: resolved 837, reused 0, downloaded 0, added 0
+#21 3.136 Progress: resolved 837, reused 0, downloaded 1, added 0
+#21 4.115 
+#21 4.115    ╭──────────────────────────────────────────────╮
+#21 4.115    │                                              │
+#21 4.115    │     Update available! 11.11.0 → 12.5.1.      │
+#21 4.115    │     Changelog: https://pnpm.io/v/12.5.1      │
+#21 4.115    │   To update, run: corepack use pnpm@12.5.1   │
+#21 4.115    │                                              │
+#21 4.115    ╰──────────────────────────────────────────────╯
+#21 4.115 
+#21 4.137 Progress: resolved 837, reused 0, downloaded 55, added 55
+#21 5.140 Progress: resolved 837, reused 0, downloaded 125, added 124
+#21 6.151 Progress: resolved 837, reused 0, downloaded 170, added 169
+#21 7.224 [WARN] Tarball download average speed 48 KiB/s (size 50 KiB) is below 50 KiB/s: https://registry.npmjs.org/postcss/-/postcss-8.5.23.tgz (GET)
+#21 7.247 Progress: resolved 837, reused 0, downloaded 183, added 179
+#21 8.490 Progress: resolved 837, reused 0, downloaded 198, added 183
+#21 9.186 [WARN] Tarball download average speed 29 KiB/s (size 30 KiB) is below 50 KiB/s: https://registry.npmjs.org/es-module-lexer/-/es-module-lexer-1.7.0.tgz (GET)
+#21 9.502 Progress: resolved 837, reused 0, downloaded 269, added 246
+#21 10.50 Progress: resolved 837, reused 0, downloaded 331, added 329
+#21 11.52 Progress: resolved 837, reused 0, downloaded 370, added 370
+#21 12.53 Progress: resolved 837, reused 0, downloaded 428, added 427
+#21 13.53 Progress: resolved 837, reused 0, downloaded 482, added 482
+#21 14.56 Progress: resolved 837, reused 0, downloaded 535, added 529
+#21 15.56 Progress: resolved 837, reused 0, downloaded 586, added 586
+#21 16.51 [WARN] Tarball download average speed 30 KiB/s (size 32 KiB) is below 50 KiB/s: https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz (GET)
+#21 16.58 Progress: resolved 837, reused 0, downloaded 626, added 622
+#21 17.62 Progress: resolved 837, reused 0, downloaded 657, added 657
+#21 18.62 Progress: resolved 837, reused 0, downloaded 701, added 698
+#21 19.63 Progress: resolved 837, reused 0, downloaded 741, added 741
+#21 20.63 Progress: resolved 837, reused 0, downloaded 780, added 779
+#21 21.63 Progress: resolved 837, reused 0, downloaded 812, added 812
+#21 21.76 [WARN] Tarball download average speed 46 KiB/s (size 72 KiB) is below 50 KiB/s: https://registry.npmjs.org/yargs/-/yargs-17.7.3.tgz (GET)
+#21 22.63 Progress: resolved 837, reused 0, downloaded 825, added 825
+#21 23.36 [WARN] Request took 14547ms: https://registry.npmjs.org/@typescript-eslint%2Fvisitor-keys
+#21 23.64 Progress: resolved 837, reused 0, downloaded 828, added 828
+#21 24.53 [WARN] Tarball download average speed 31 KiB/s (size 132 KiB) is below 50 KiB/s: https://registry.npmjs.org/bare-path/-/bare-path-3.1.1.tgz (GET)
+#21 24.64 Progress: resolved 837, reused 0, downloaded 829, added 829
+#21 25.66 Progress: resolved 837, reused 0, downloaded 832, added 832
+#21 26.22 [WARN] Tarball download average speed 14 KiB/s (size 69 KiB) is below 50 KiB/s: https://registry.npmjs.org/@testing-library/user-event/-/user-event-14.6.1.tgz (GET)
+#21 26.28 [WARN] Tarball download average speed 24 KiB/s (size 81 KiB) is below 50 KiB/s: https://registry.npmjs.org/@opentelemetry/sdk-trace-base/-/sdk-trace-base-2.8.0.tgz (GET)
+#21 26.66 Progress: resolved 837, reused 0, downloaded 834, added 834
+#21 27.97 Progress: resolved 837, reused 0, downloaded 835, added 834
+#21 28.98 Progress: resolved 837, reused 0, downloaded 835, added 835
+#21 29.93 [WARN] Request took 10270ms: https://registry.npmjs.org/react-hook-form
+#21 30.03 Progress: resolved 837, reused 0, downloaded 836, added 836
+#21 30.43 Progress: resolved 837, reused 0, downloaded 837, added 837, done
+#21 30.68 [WARN] Request took 11016ms: https://registry.npmjs.org/react-router-dom
+#21 32.77 [WARN] Request took 10209ms: https://registry.npmjs.org/tldts
+#21 32.93 [WARN] Request took 13263ms: https://registry.npmjs.org/react-refresh
+#21 33.09 [WARN] Request took 12150ms: https://registry.npmjs.org/scheduler
+#21 35.55 [WARN] Request took 15298ms: https://registry.npmjs.org/rollup
+#21 39.34 [WARN] Request took 20693ms: https://registry.npmjs.org/playwright
+#21 43.36 [WARN] Request took 10233ms: https://registry.npmjs.org/tldts
+#21 47.48 [WARN] Request took 24587ms: https://registry.npmjs.org/typescript
+#21 56.21 ✓ Lockfile passes supply-chain policies (928 entries in 55.2s)
+#21 56.24 .../argon2@0.41.1/node_modules/argon2 install$ node-gyp-build
+#21 56.26 .../esbuild@0.23.1/node_modules/esbuild postinstall$ node install.js
+#21 56.26 .../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+#21 56.32 .../esbuild@0.23.1/node_modules/esbuild postinstall: Done
+#21 56.32 .../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+#21 56.34 .../argon2@0.41.1/node_modules/argon2 install: Done
+#21 56.72 
+#21 56.72 devDependencies:
+#21 56.72 + @eslint/js 9.18.0
+#21 56.72 + @stryker-mutator/core 9.6.1
+#21 56.72 + @stryker-mutator/vitest-runner 9.6.1
+#21 56.72 + @types/node 22.20.1
+#21 56.72 + @typescript-eslint/eslint-plugin 8.65.0
+#21 56.72 + @typescript-eslint/parser 8.65.0
+#21 56.72 + @vitest/coverage-v8 3.2.4
+#21 56.72 + eslint 9.18.0
+#21 56.72 + eslint-plugin-react 7.37.4
+#21 56.72 + eslint-plugin-react-hooks 5.2.0
+#21 56.72 + globals 15.14.0
+#21 56.72 + jscpd 5.0.14
+#21 56.72 + prettier 3.4.2
+#21 56.72 + tsx 4.19.2
+#21 56.72 + typescript 5.9.3
+#21 56.72 + vitest 3.2.4
+#21 56.72 
+#21 56.84 Done in 56.6s using pnpm v11.11.0
+#21 DONE 57.4s
+
+#22 [18/20] COPY tsconfig.base.json ./
+#22 DONE 0.0s
+
+#23 [19/20] COPY packages/ packages/
+#23 DONE 0.2s
+
+#24 [20/20] COPY apps/worker/ apps/worker/
+#24 DONE 0.1s
+
+#25 exporting to image
+#25 exporting layers
+#25 exporting layers 7.6s done
+#25 writing image sha256:1a0f00d4f160fdcce27de317653d2e43ea6e1ffd8425bc1bd15302eec1caeea4 done
+#25 naming to docker.io/qianliu-candidate/worker:94482f06e5ac done
+#25 DONE 7.6s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/km5o0it732q21hko7ceee3av8
+BUILD_worker_EXIT=0
+### 结束: 2026-09-22T10:41:10Z
+
+==================================================================
+### 构建 web
+### image: qianliu-candidate/web:94482f06e5ac
+### dockerfile: apps/web/Dockerfile   context: .
+### 起始: 2026-09-22T10:41:10Z
+==================================================================
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.35kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22.17.1-alpine
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 392B done
+#4 DONE 0.0s
+
+#5 [runtime 1/3] FROM docker.io/library/nginx:1.27-alpine
+#5 CACHED
+
+#6 [build  1/21] FROM docker.io/library/node:22.17.1-alpine
+#6 CACHED
+
+#7 [internal] load build context
+#7 transferring context: 3.99MB 0.2s done
+#7 DONE 0.2s
+
+#8 [build  2/21] RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
+#8 ...
+
+#9 [runtime 2/3] RUN printf 'server {\n  listen 80;\n  root /usr/share/nginx/html;\n  index index.html;\n  location /api/ {\n    rewrite ^/api(/.*)$ $1 break;\n    proxy_pass http://control-api:8788;\n    proxy_set_header Host $host;\n    proxy_set_header X-Forwarded-For $remote_addr;\n    proxy_set_header X-Forwarded-Proto $scheme;\n  }\n  location / { try_files $uri $uri/ /index.html; }\n}\n' > /etc/nginx/conf.d/default.conf
+#9 DONE 0.9s
+
+#8 [build  2/21] RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
+#8 1.214 Preparing pnpm@11.11.0 for immediate activation...
+#8 DONE 7.4s
+
+#10 [build  3/21] WORKDIR /app
+#10 DONE 0.0s
+
+#11 [build  4/21] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+#11 DONE 0.0s
+
+#12 [build  5/21] COPY apps/gateway/package.json apps/gateway/
+#12 DONE 0.0s
+
+#13 [build  6/21] COPY apps/control-api/package.json apps/control-api/
+#13 DONE 0.0s
+
+#14 [build  7/21] COPY apps/worker/package.json apps/worker/
+#14 DONE 0.0s
+
+#15 [build  8/21] COPY apps/web/package.json apps/web/
+#15 DONE 0.0s
+
+#16 [build  9/21] COPY packages/contracts/package.json packages/contracts/
+#16 DONE 0.0s
+
+#17 [build 10/21] COPY packages/domain/package.json packages/domain/
+#17 DONE 0.0s
+
+#18 [build 11/21] COPY packages/config/package.json packages/config/
+#18 DONE 0.0s
+
+#19 [build 12/21] COPY packages/testing/package.json packages/testing/
+#19 DONE 0.0s
+
+#20 [build 13/21] COPY packages/observability/package.json packages/observability/
+#20 DONE 0.0s
+
+#21 [build 14/21] COPY packages/provider-adapters/package.json packages/provider-adapters/
+#21 DONE 0.0s
+
+#22 [build 15/21] COPY packages/database/package.json packages/database/
+#22 DONE 0.0s
+
+#23 [build 16/21] RUN pnpm install --frozen-lockfile
+#23 0.741 Scope: all 12 workspace projects
+#23 1.183 ? Verifying lockfile against supply-chain policies (928 entries)...
+#23 1.219 Lockfile is up to date, resolution step is skipped
+#23 1.445 Progress: resolved 1, reused 0, downloaded 0, added 0
+#23 1.750 Packages: +837
+#23 1.750 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#23 1.805 [WARN] GET https://registry.npmjs.org/@babel%2Fplugin-syntax-jsx error (ETIMEDOUT). Will retry in 10 seconds. 2 retries left.
+#23 1.807 [WARN] GET https://registry.npmjs.org/@babel%2Fplugin-syntax-typescript error (ETIMEDOUT). Will retry in 10 seconds. 2 retries left.
+#23 1.808 [WARN] GET https://registry.npmjs.org/@babel%2Fplugin-transform-explicit-resource-management error (ETIMEDOUT). Will retry in 10 seconds. 2 retries left.
+#23 1.810 [WARN] GET https://registry.npmjs.org/@babel%2Fplugin-transform-destructuring error (ETIMEDOUT). Will retry in 10 seconds. 2 retries left.
+#23 1.811 [WARN] GET https://registry.npmjs.org/@babel%2Fplugin-transform-modules-commonjs error (ETIMEDOUT). Will retry in 10 seconds. 2 retries left.
+#23 1.812 [WARN] GET https://registry.npmjs.org/@babel%2Fplugin-transform-react-jsx-self error (ETIMEDOUT). Will retry in 10 seconds. 2 retries left.
+#23 2.447 Progress: resolved 837, reused 0, downloaded 0, added 0
+#23 3.493 Progress: resolved 837, reused 0, downloaded 1, added 1
+#23 4.929 Progress: resolved 837, reused 0, downloaded 2, added 1
+#23 5.513 
+#23 5.513    ╭──────────────────────────────────────────────╮
+#23 5.513    │                                              │
+#23 5.513    │     Update available! 11.11.0 → 12.5.1.      │
+#23 5.513    │     Changelog: https://pnpm.io/v/12.5.1      │
+#23 5.513    │   To update, run: corepack use pnpm@12.5.1   │
+#23 5.513    │                                              │
+#23 5.513    ╰──────────────────────────────────────────────╯
+#23 5.513 
+#23 5.930 Progress: resolved 837, reused 0, downloaded 71, added 71
+#23 6.929 Progress: resolved 837, reused 0, downloaded 128, added 127
+#23 7.929 Progress: resolved 837, reused 0, downloaded 178, added 178
+#23 9.002 Progress: resolved 837, reused 0, downloaded 214, added 214
+#23 9.997 Progress: resolved 837, reused 0, downloaded 267, added 267
+#23 11.01 Progress: resolved 837, reused 0, downloaded 307, added 306
+#23 12.03 Progress: resolved 837, reused 0, downloaded 359, added 359
+#23 12.87 [WARN] Request took 11584ms: https://registry.npmjs.org/@babel%2Fplugin-syntax-typescript
+#23 12.88 [WARN] Request took 11584ms: https://registry.npmjs.org/@babel%2Fplugin-transform-react-jsx-self
+#23 13.03 Progress: resolved 837, reused 0, downloaded 409, added 409
+#23 13.06 [WARN] Request took 11775ms: https://registry.npmjs.org/@babel%2Fplugin-transform-explicit-resource-management
+#23 13.11 [WARN] Request took 11818ms: https://registry.npmjs.org/@babel%2Fplugin-transform-destructuring
+#23 13.12 [WARN] Request took 11834ms: https://registry.npmjs.org/@babel%2Fplugin-transform-modules-commonjs
+#23 13.35 [WARN] Request took 12069ms: https://registry.npmjs.org/@babel%2Fplugin-syntax-jsx
+#23 14.04 Progress: resolved 837, reused 0, downloaded 460, added 460
+#23 15.25 Progress: resolved 837, reused 0, downloaded 502, added 502
+#23 15.50 [WARN] Tarball download average speed 45 KiB/s (size 58 KiB) is below 50 KiB/s: https://registry.npmjs.org/es-iterator-helpers/-/es-iterator-helpers-1.4.0.tgz (GET)
+#23 16.26 Progress: resolved 837, reused 0, downloaded 534, added 534
+#23 16.76 [WARN] Tarball download average speed 30 KiB/s (size 60 KiB) is below 50 KiB/s: https://registry.npmjs.org/node-addon-api/-/node-addon-api-8.9.0.tgz (GET)
+#23 17.26 Progress: resolved 837, reused 0, downloaded 563, added 563
+#23 18.26 Progress: resolved 837, reused 0, downloaded 596, added 596
+#23 19.27 Progress: resolved 837, reused 0, downloaded 625, added 625
+#23 19.62 [WARN] Tarball download average speed 21 KiB/s (size 23 KiB) is below 50 KiB/s: https://registry.npmjs.org/react/-/react-19.1.1.tgz (GET)
+#23 20.27 Progress: resolved 837, reused 0, downloaded 647, added 647
+#23 21.27 Progress: resolved 837, reused 0, downloaded 680, added 680
+#23 21.47 [WARN] Tarball download average speed 31 KiB/s (size 74 KiB) is below 50 KiB/s: https://registry.npmjs.org/@tanstack/react-query/-/react-query-5.90.20.tgz (GET)
+#23 21.48 [WARN] Tarball download average speed 38 KiB/s (size 69 KiB) is below 50 KiB/s: https://registry.npmjs.org/@testing-library/user-event/-/user-event-14.6.1.tgz (GET)
+#23 21.71 [WARN] Tarball download average speed 42 KiB/s (size 54 KiB) is below 50 KiB/s: https://registry.npmjs.org/@babel/runtime/-/runtime-7.29.7.tgz (GET)
+#23 22.27 Progress: resolved 837, reused 0, downloaded 710, added 710
+#23 23.27 Progress: resolved 837, reused 0, downloaded 733, added 733
+#23 24.28 Progress: resolved 837, reused 0, downloaded 760, added 760
+#23 24.82 [WARN] Tarball download average speed 26 KiB/s (size 30 KiB) is below 50 KiB/s: https://registry.npmjs.org/@redis/time-series/-/time-series-5.8.2.tgz (GET)
+#23 25.13 [WARN] Tarball download average speed 45 KiB/s (size 189 KiB) is below 50 KiB/s: https://registry.npmjs.org/sucrase/-/sucrase-3.35.1.tgz (GET)
+#23 25.28 Progress: resolved 837, reused 0, downloaded 786, added 786
+#23 26.28 Progress: resolved 837, reused 0, downloaded 808, added 808
+#23 27.28 Progress: resolved 837, reused 0, downloaded 823, added 823
+#23 27.57 [WARN] Tarball download average speed 49 KiB/s (size 109 KiB) is below 50 KiB/s: https://registry.npmjs.org/cpu-features/-/cpu-features-0.0.10.tgz (GET)
+#23 28.28 Progress: resolved 837, reused 0, downloaded 825, added 825
+#23 29.29 Progress: resolved 837, reused 0, downloaded 826, added 826
+#23 29.46 [WARN] Tarball download average speed 16 KiB/s (size 48 KiB) is below 50 KiB/s: https://registry.npmjs.org/tweetnacl/-/tweetnacl-0.14.5.tgz (GET)
+#23 30.29 Progress: resolved 837, reused 0, downloaded 828, added 828
+#23 31.29 Progress: resolved 837, reused 0, downloaded 829, added 829
+#23 31.49 [WARN] Tarball download average speed 41 KiB/s (size 251 KiB) is below 50 KiB/s: https://registry.npmjs.org/ssh2/-/ssh2-1.17.0.tgz (GET)
+#23 31.77 [WARN] Tarball download average speed 28 KiB/s (size 285 KiB) is below 50 KiB/s: https://registry.npmjs.org/@tanstack/query-core/-/query-core-5.90.20.tgz (GET)
+#23 32.43 Progress: resolved 837, reused 0, downloaded 833, added 832
+#23 33.52 Progress: resolved 837, reused 0, downloaded 834, added 833
+#23 34.82 Progress: resolved 837, reused 0, downloaded 835, added 834
+#23 35.83 Progress: resolved 837, reused 0, downloaded 835, added 835
+#23 37.31 [WARN] Request took 14288ms: https://registry.npmjs.org/react-hook-form
+#23 37.41 [WARN] Request took 14348ms: https://registry.npmjs.org/react-refresh
+#23 37.68 [WARN] Request took 15704ms: https://registry.npmjs.org/playwright-core
+#23 39.17 [WARN] Request took 17130ms: https://registry.npmjs.org/playwright
+#23 39.83 [WARN] Tarball download average speed 39 KiB/s (size 609 KiB) is below 50 KiB/s: https://registry.npmjs.org/bare-url/-/bare-url-2.4.6.tgz (GET)
+#23 40.14 Progress: resolved 837, reused 0, downloaded 836, added 835
+#23 41.14 Progress: resolved 837, reused 0, downloaded 836, added 836
+#23 41.43 [WARN] Request took 18365ms: https://registry.npmjs.org/react-is
+#23 47.91 [WARN] Request took 18843ms: https://registry.npmjs.org/typescript
+#23 48.13 [WARN] Request took 23475ms: https://registry.npmjs.org/scheduler
+#23 48.15 ✓ Lockfile passes supply-chain policies (928 entries in 46.9s)
+#23 49.63 Progress: resolved 837, reused 0, downloaded 837, added 836
+#23 49.65 Progress: resolved 837, reused 0, downloaded 837, added 837, done
+#23 50.20 .../argon2@0.41.1/node_modules/argon2 install$ node-gyp-build
+#23 50.23 .../esbuild@0.23.1/node_modules/esbuild postinstall$ node install.js
+#23 50.23 .../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+#23 50.29 .../esbuild@0.23.1/node_modules/esbuild postinstall: Done
+#23 50.29 .../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+#23 50.31 .../argon2@0.41.1/node_modules/argon2 install: Done
+#23 50.50 
+#23 50.50 devDependencies:
+#23 50.50 + @eslint/js 9.18.0
+#23 50.50 + @stryker-mutator/core 9.6.1
+#23 50.50 + @stryker-mutator/vitest-runner 9.6.1
+#23 50.50 + @types/node 22.20.1
+#23 50.50 + @typescript-eslint/eslint-plugin 8.65.0
+#23 50.50 + @typescript-eslint/parser 8.65.0
+#23 50.50 + @vitest/coverage-v8 3.2.4
+#23 50.50 + eslint 9.18.0
+#23 50.50 + eslint-plugin-react 7.37.4
+#23 50.50 + eslint-plugin-react-hooks 5.2.0
+#23 50.50 + globals 15.14.0
+#23 50.50 + jscpd 5.0.14
+#23 50.50 + prettier 3.4.2
+#23 50.50 + tsx 4.19.2
+#23 50.50 + typescript 5.9.3
+#23 50.50 + vitest 3.2.4
+#23 50.50 
+#23 50.60 Done in 50.3s using pnpm v11.11.0
+#23 DONE 51.1s
+
+#24 [build 17/21] COPY tsconfig.base.json vitest.config.ts eslint.config.mjs ./
+#24 DONE 0.1s
+
+#25 [build 18/21] COPY packages/ packages/
+#25 DONE 0.2s
+
+#26 [build 19/21] COPY apps/web/ apps/web/
+#26 DONE 0.1s
+
+#27 [build 20/21] RUN pnpm --filter "@qianliu/contracts" --filter "@qianliu/domain" run build
+#27 1.138 Scope: 2 of 12 workspace projects
+#27 1.159 packages/contracts build$ tsc -p tsconfig.json --noEmit
+#27 1.159 packages/domain build$ tsc -p tsconfig.json --noEmit
+#27 2.418 packages/contracts build: Done
+#27 2.482 packages/domain build: Done
+#27 DONE 2.5s
+
+#28 [build 21/21] RUN pnpm --filter "@qianliu/web" run build
+#28 2.039 $ tsc -p tsconfig.json --noEmit && vite build
+#28 29.48 vite v7.1.7 building for production...
+#28 29.82 transforming...
+#28 33.24 ✓ 1863 modules transformed.
+#28 33.57 rendering chunks...
+#28 33.58 computing gzip size...
+#28 33.61 dist/index.html                                  1.44 kB │ gzip:   0.79 kB
+#28 33.61 dist/assets/qianliu-logo-primary-By9IDn8v.png  789.27 kB
+#28 33.61 dist/assets/index-DqYBnHBs.css                  39.49 kB │ gzip:   7.93 kB
+#28 33.61 dist/assets/index-DoINWJee.js                  945.87 kB │ gzip: 261.08 kB
+#28 33.61 
+#28 33.61 (!) Some chunks are larger than 500 kB after minification. Consider:
+#28 33.61 - Using dynamic import() to code-split the application
+#28 33.61 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+#28 33.61 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#28 33.61 ✓ built in 4.11s
+#28 DONE 33.7s
+
+#29 [runtime 3/3] COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+#29 DONE 0.0s
+
+#30 exporting to image
+#30 exporting layers 0.0s done
+#30 writing image sha256:a4121ce4d23e33321bd5c0dfbe0a3e067de1c2d9ca7bc4ff131f2e269df4578b done
+#30 naming to docker.io/qianliu-candidate/web:94482f06e5ac done
+#30 DONE 0.0s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/l9vk9g7pkc1qfz1d32t2v969j
+BUILD_web_EXIT=0
+### 结束: 2026-09-22T10:42:46Z
+
+==================================================================
+### 全部构建完成: 2026-09-22T10:42:46Z
+qianliu-candidate/control-api:94482f06e5ac  ID=eea31225e5a3  Created=4 minutes ago  Size=706MB
+qianliu-candidate/control-api:c9bc9b93deb2  ID=2a2c4df520c0  Created=13 hours ago  Size=702MB
+qianliu-candidate/gateway:94482f06e5ac  ID=4f390ed6fec1  Created=3 minutes ago  Size=708MB
+qianliu-candidate/gateway:c9bc9b93deb2  ID=4d8754d4838f  Created=13 hours ago  Size=702MB
+qianliu-candidate/web:94482f06e5ac  ID=a4121ce4d23e  Created=Less than a second ago  Size=51.5MB
+qianliu-candidate/web:c9bc9b93deb2  ID=9cf25cb9c0d1  Created=13 hours ago  Size=51.5MB
+qianliu-candidate/worker:94482f06e5ac  ID=1a0f00d4f160  Created=About a minute ago  Size=739MB
+qianliu-candidate/worker:c9bc9b93deb2  ID=a05b6bd46f4c  Created=13 hours ago  Size=732MB

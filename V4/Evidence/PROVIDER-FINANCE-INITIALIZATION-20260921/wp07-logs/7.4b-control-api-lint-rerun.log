@@ -1,0 +1,2 @@
+$ eslint src --max-warnings=0
+LINT_EXIT=0

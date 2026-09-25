@@ -39,6 +39,8 @@ it("UAT Kimi 0078 已应用且有探针证据时，归集 0079/0080 顺序升级
 
     expect(await migrateToLatest(db)).toEqual([
       "0079_project_allocation_relations", "0080_project_allocation_compute",
+      "0081_provider_finance_activation", "0082_provider_finance_candidate_draft",
+      "0083_provider_finance_resource_opening_trigger",
     ]);
     expect(await db.selectFrom("provider_model_probe_run").select("id")
       .where("id", "=", run.id).executeTakeFirst()).toEqual({ id: run.id });

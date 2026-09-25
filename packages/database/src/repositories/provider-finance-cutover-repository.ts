@@ -1,5 +1,5 @@
 import { sql, type Kysely, type Transaction } from "kysely";
-import { Decimal } from "decimal.js";
+import { balanceFormulaMatches } from "@qianliu/domain";
 
 import type { Database } from "../kysely.js";
 import type {
@@ -375,12 +375,8 @@ export class ProviderFinanceCutoverRepository {
       );
       let formulaMatches: boolean | null = null;
       if (view?.balance !== null && view?.balance !== undefined) {
-        const expected = new Decimal(view.components.openingBalance)
-          .plus(view.components.openingCorrections).plus(view.components.recharges)
-          .plus(view.components.balanceReconciliations)
-          .plus(view.components.legacyCostAdjustments).plus(view.components.reversals)
-          .minus(view.components.usageDebits).toDecimalPlaces(8).toFixed(8);
-        formulaMatches = expected === view.balance;
+        // 单一公式来源：与余额查询、候选投影共用同一实现，本处不得重写符号。
+        formulaMatches = balanceFormulaMatches(view.components, view.balance);
       }
       return { resourceId: pair.provider_resource_id, currency: pair.account_currency,
         state: view?.state ?? "RESOURCE_MISSING", balance: view?.balance ?? null, formulaMatches };

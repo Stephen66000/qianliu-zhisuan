@@ -1,0 +1,21 @@
+# WP07 | 7.4 control-api typecheck + eslint（0 警告门禁）| HEAD=f6045a55c1b608c34653b47d811a92d521b1f2a8 | 2026-09-21T21:14:39Z
+# cmd: pnpm --filter @qianliu/control-api run typecheck
+$ tsc -p tsconfig.json --noEmit
+TYPECHECK_EXIT=0
+
+# cmd: pnpm --filter @qianliu/control-api run lint
+$ eslint src --max-warnings=0
+
+/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts
+  367:5  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  831:5  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  904:7  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  944:7  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+✖ 4 problems (0 errors, 4 warnings)
+
+ESLint found too many warnings (maximum: 0).
+/Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/control-api:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @qianliu/control-api@0.3.0 lint: `eslint src --max-warnings=0`
+Exit status 1
+LINT_EXIT=1

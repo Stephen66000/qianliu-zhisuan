@@ -1,0 +1,163 @@
+# WP06 6.2 web 全量（WP05 新增 36 项在内）| HEAD=ddd1fc2f54ec254c6eb77825f0bc7d47d61317f8 | 2026-09-21T20:40:38Z
+# cmd: cd apps/web && pnpm exec vitest run --config vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-init-20260921/apps/web
+
+ ✓ src/components/resources/ProviderFinancePanel.test.tsx (3 tests) 1083ms
+   ✓ new Coding Plan sends the actual unchecked renewal choice with the registration  519ms
+   ✓ daily API recharge sends description and evidence and blocks submission without them  424ms
+ ✓ src/components/resources/ProviderFinanceActivationWizard.test.tsx (10 tests) 1681ms
+   ✓ 不可逆激活确认 > GO_CANDIDATE：需逐字输入企业 ID 才能提交，且只发送 confirm_enterprise_id  455ms
+   ✓ 不可逆激活确认 > ACTIVATION_RETRY_REQUIRED：不自动重试，弹窗保留，人工重试复用同一幂等键  346ms
+   ✓ 不可逆激活确认 > CANDIDATE_STALE：立即清除可激活状态，必须重新预检  352ms
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 2608ms
+   ✓ POOL-043 经营账单员工账／项目账 > 员工账直接消费后端合计并保留月份、厂商和员工搜索  494ms
+   ✓ POOL-043 经营账单员工账／项目账 > 请求明细覆盖错误重试与空态  415ms
+ ✓ src/pages/QuotaModelDisable.test.tsx (9 tests) 2437ms
+   ✓ 停用入口明确且不恢复旧管理区，未选择/已停用/待配置时不能执行  394ms
+   ✓ 停用后可存档：取消不写入；存档默认隐藏；取消存档仍保持停用  540ms
+ ✓ src/pages/Principals.test.tsx (20 tests) 3228ms
+   ✓ W19 使用主体 > B 方式：员工主体联想点选企微候选人，自动带出部门并绑定 person_id 提交（Scenario 3.1/3.2）  457ms
+   ✓ W19 使用主体 > B 方式：点选后手动修改名称会解除自然人绑定  424ms
+ ✓ src/pages/Usage.test.tsx (13 tests) 1846ms
+   ✓ W18 用量账本 > 模块默认进入概览且不查询请求明细，点击页签后进入明细  378ms
+   ✓ W18 用量账本 > 点击快捷时间（今天）快速设置开始与结束时间  379ms
+ ✓ src/pages/QuotaRules.coverage.test.tsx (6 tests) 1907ms
+   ✓ 调度模型与资源按已就绪路由联动，未就绪和已归档模型不能误选  989ms
+   ✓ 存档先确认且携带版本；默认隐藏，查看存档可找回历史策略  498ms
+   ✓ 表格区分待生效、已过期、停用、套餐和缺价，不把缺价当免费  414ms
+ ✓ src/pages/Resources.test.tsx (23 tests) 5553ms
+   ✓ 厂商资源四 Tab > 默认资源利用，切换后只显示当前面板并按需启用供给预测  309ms
+   ✓ 厂商资源四 Tab > DARK增加充值与订阅Tab，统一充值订阅入口且入账保持关闭  314ms
+   ✓ 厂商资源四 Tab > ACTIVE从充值订阅按钮登记Coding Plan并包含自然月周期入口  855ms
+   ✓ POOL-010 厂商经营快照 > 创建套餐只录总额度与重置规则，系统字段不允许手填  618ms
+   ✓ POOL-010 厂商经营快照 > 套餐切回 API 后可正常登记，隐藏的重置周期不阻塞提交  457ms
+   ✓ POOL-010 厂商经营快照 > PATCH 使用 expected_version 保存配置，并展示 v2/v1 历史  388ms
+   ✓ POOL-010 厂商经营快照 > API旧快照金额不再显示或提供编辑入口  320ms
+   ✓ POOL-027 模型发现向导 > 检测后默认只全选 READY 模型，向量模型不可误选  613ms
+   ✓ POOL-032 厂商额度窗口 > 方式 A + 方式 B：选择厂商自动预填 [厂商名]-[YYMMDD]，提交时确保末尾带有日期后缀  433ms
+ ✓ src/pages/Admins.test.tsx (5 tests) 1378ms
+   ✓ POOL-015 管理员管理 > 创建管理员后仅在一次性窗口展示初始密码  1068ms
+ ✓ src/pages/RuntimeAssurance.test.tsx (8 tests) 1830ms
+   ✓ 运行保障异常中心 > 支持异常中心与通知人员 Tab 切换  309ms
+   ✓ 运行保障异常中心 > 每条异常选择已处理后必须填写说明才保存  448ms
+   ✓ 运行保障异常中心 > 查看详情打开右侧抽屉并展示关联请求  357ms
+ ✓ src/pages/QuotaPricingWorkflow.test.tsx (8 tests) 7125ms
+   ✓ saves pending model/route and explicit multiplier prices in one request  812ms
+   ✓ refuses missing prices and retains the draft and idempotency key after a conflict  714ms
+   ✓ copies the full same-provider set with different effective dates and allows queue editing  623ms
+   ✓ clears copied prices and queued rules when switching resource or model  761ms
+   ✓ adds/removes windows and queued rules before saving the reviewed set  1187ms
+   ✓ clearing the resource resets route defaults and prevents a stale-resource submission  923ms
+   ✓ 取消新建规则丢弃整套草稿、沿用来源及错误，重新打开可正常新建  1663ms
+   ✓ 取消新建调度策略不发送写请求，重新打开恢复空白草稿  440ms
+ ✓ src/pages/OperatingBill.test.tsx (11 tests) 1321ms
+   ✓ POOL-025 经营账单 > 展示真实成本口径并可切换经营账单页签  452ms
+ ✓ src/pages/EmployeeModelRules.test.tsx (4 tests) 2871ms
+   ✓ POOL-029 批量模型授权页面 > 创建、编辑、校验、发布、停用与新版本操作都调用对应 mutation  1829ms
+   ✓ POOL-029 批量模型授权页面 > POOL-035 勾选厂商型号后展开厂商级额度输入并随 payload 提交，旧版本回退展示版本级额度  567ms
+ ✓ src/components/principals/PrincipalAccessConfigPanel.test.tsx (3 tests) 760ms
+   ✓ 接入配置暂不可用存量授权 > 保存 K3 时原样携带已配置但耗尽的 DeepSeek 型号  526ms
+ ✓ src/components/usage/UsageOverviewPanel.test.tsx (11 tests) 1850ms
+   ✓ W20-04 用量概览 Web > 从 URL 恢复主体/周期/单项目并传给后端聚合  600ms
+ ✓ src/pages/Dashboard.test.tsx (21 tests) 1125ms
+ ✓ src/components/resources/ResourceUtilizationPanel.test.tsx (23 tests) 987ms
+   ✓ W20-08 资源利用事实 Web > API 显示 Token 利用率，无预算仍可计算，费用保留且不混入余额  310ms
+   ✓ W20-08 资源利用事实 Web > POOL20-047：API 资源按当前选择月份设置预算，Coding Plan 不出现入口  407ms
+ ✓ src/components/quota/QuotaBillingSection.filter.test.tsx (8 tests) 1229ms
+ ✓ src/pages/runtime-assurance/NotificationRecipientsPanel.test.tsx (5 tests) 973ms
+ ✓ src/pages/QuotaRules.lifecycle.test.tsx (4 tests) 1158ms
+   ✓ POOL20-036～037 配置归档与调度恢复 > POOL20-049：新接入的待配置模型可正式启用  334ms
+   ✓ POOL20-036～037 配置归档与调度恢复 > 统一模型归档先显示冻结文案，取消零写入，确认才调用 API  350ms
+   ✓ POOL20-036～037 配置归档与调度恢复 > RETIRED 策略拆分恢复原配置与复制草稿，恢复需确认  344ms
+ ✓ src/pages/ChangePassword.test.tsx (2 tests) 1066ms
+   ✓ POOL-015 修改管理员密码 > 两次新密码不一致时阻止提交  608ms
+   ✓ POOL-015 修改管理员密码 > 匹配时提交当前密码和新密码  456ms
+ ✓ src/pages/runtime-assurance/AlertsPanel.test.tsx (17 tests) 1145ms
+ ✓ src/components/principals/DirectoryPanel.test.tsx (8 tests) 2025ms
+   ✓ W20-02/03 组织通讯录 Web > 来源显示已配置状态，Secret 只写且保存成功后清空  876ms
+   ✓ W20-02/03 组织通讯录 Web > A 方式：未开通显示开通按钮、已开通显示标签；勾选后批量开通并确认（Scenario 2.1/2.2）  320ms
+ ✓ src/components/usage/UsageOverviewRange.test.tsx (2 tests) 721ms
+   ✓ POOL20-053 explicit range refresh with real Query cache > calendar selects that day; shortcuts return to Shanghai today and keep the selected subject  402ms
+   ✓ POOL20-053 explicit range refresh with real Query cache > repeated shortcuts and returning to a cached period issue fresh requests within 15 seconds  318ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 713ms
+   ✓ 经营分析报表 > 年度实付按 12 个月展开，总计使用后端金额  383ms
+ ✓ src/components/quota/DepartmentBudgetPanel.test.tsx (3 tests) 734ms
+   ✓ W20-06 部门预算 Web > 展示预算、归集成本、真实 Token、使用率、警戒线和状态并带版本保存  644ms
+ ✓ src/pages/QuotaRules.principals.test.tsx (2 tests) 765ms
+   ✓ 调度策略主体范围 > 按名称搜索并提交多个当前企业主体 ID  726ms
+ ✓ src/components/principals/HistoricalAttributionPanel.test.tsx (2 tests) 656ms
+   ✓ 现有负责人部门仅作建议，预览后才能提交确认并保留审核依据  529ms
+ ✓ src/components/quota/ModelRuleCard.test.tsx (5 tests) 582ms
+ ✓ src/components/operating-bill/OperatingBillShell.test.tsx (3 tests) 965ms
+   ✓ POOL-043 经营账单壳层 > 回退开关隐藏新增部门和采购页签，保留 1.0 页签  542ms
+ ✓ src/components/resources/ResourceModelDiscovery.version.test.tsx (4 tests) 271ms
+ ✓ src/pages/runtime-assurance/AlertDetailDrawer.test.tsx (8 tests) 549ms
+   ✓ preserves all seven detail sections, state semantics and approved layout: new  341ms
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 407ms
+ ✓ src/pages/OperatingBillRechargeEntry.test.tsx (3 tests) 520ms
+ ✓ src/pages/OperatingBill.pool043-routing.test.tsx (3 tests) 550ms
+   ✓ POOL-043 旧主体页分流 > 显式 overview 页签仍命中月度总览  353ms
+ ✓ src/pages/RequestDrilldown.test.tsx (1 test) 303ms
+   ✓ POOL20-031/032 请求决策详情 > 拆分调度与计价，默认摘要展示并折叠可复制的技术详情  302ms
+ ✓ src/api/operating-bill-accounts.test.tsx (3 tests) 222ms
+ ✓ src/pages/SystemSettings.test.tsx (4 tests) 480ms
+ ✓ src/components/operating-bill/AccountShared.test.tsx (4 tests) 355ms
+ ✓ src/components/operating-bill/FinancialLedgerSection.test.tsx (1 test) 382ms
+   ✓ FinancialLedgerSection 财务账 > 正确渲染收支台账、每百万 Token 综合花费列以及导出功能  380ms
+ ✓ src/pages/QuotaRules.dependencies.test.tsx (3 tests) 349ms
+ ✓ src/components/operating-bill/ValueRealizationSection.test.tsx (6 tests) 331ms
+ ✓ src/components/resources/FinanceInitializationPanel.test.tsx (6 tests) 437ms
+ ✓ src/pages/QuotaRules.test.tsx (4 tests) 421ms
+   ✓ 计价规则 Web 表单 > 规则经济字段不可原地编辑，只允许生命周期启停  414ms
+ ✓ src/components/resources/ResourceUsageOverviewPanel.test.tsx (3 tests) 414ms
+   ✓ 厂商资源用量总览 > 上方显示厂商总体，下方固定显示模型 + 具体资源明细  393ms
+ ✓ src/pages/runtime-assurance/AlertHandlingForm.test.tsx (3 tests) 493ms
+   ✓ cancel and no selection never submit; whitespace fails; errors retain the entered explanation  336ms
+ ✓ src/pages/Alerts.test.tsx (5 tests) 585ms
+ ✓ src/components/resources/SubscriptionAutoRenewal.test.tsx (3 tests) 264ms
+ ✓ src/pages/Settings.test.tsx (2 tests) 491ms
+   ✓ POOL-026 系统升级日志 > 默认展示企业信息并保存联系人、邮箱和统计口径  403ms
+ ✓ src/components/operating-bill/OperatingAnalysisPartial.test.tsx (3 tests) 465ms
+ ✓ src/api/operating-bills.pool043.test.tsx (7 tests) 344ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 485ms
+   ✓ 主体账按厂商分列 > 每列一个数，订阅列显示后端分配金额，不重复展示整份套餐价格  479ms
+ ✓ src/components/resources/CredentialProbeAction.test.tsx (3 tests) 311ms
+ ✓ src/components/dashboard/ResourceBreakdown.pool042.test.tsx (1 test) 243ms
+ ✓ src/components/layout/Layout.pool043.test.tsx (2 tests) 320ms
+ ✓ src/components/operating-bill/MonthlyPayments.test.tsx (3 tests) 203ms
+ ✓ src/components/resources/ResourceModelDiscovery.sync.test.tsx (2 tests) 268ms
+ ✓ src/components/writes/IntegerAmountInput.test.tsx (2 tests) 196ms
+ ✓ src/components/writes/MoneyAmountInput.test.tsx (3 tests) 445ms
+   ✓ POOL-019 金额输入 > 失焦固定两位并在只读态增加千分位，聚焦后保持可编辑原值  311ms
+ ✓ src/pages/RequestDrilldown.pool048.test.tsx (2 tests) 158ms
+ ✓ src/components/layout/Sidebar.test.tsx (2 tests) 152ms
+ ✓ src/components/states/states.test.tsx (7 tests) 366ms
+ ✓ src/api/employee-model-rules.test.tsx (2 tests) 126ms
+ ✓ src/pages/RequestDrilldown.pool20.test.tsx (1 test) 71ms
+ ✓ src/components/operating-bill/BillStat.test.tsx (6 tests) 99ms
+ ✓ src/App.pool043.test.tsx (5 tests) 124ms
+ ✓ src/components/dashboard/standard-home-model.test.ts (35 tests) 19ms
+ ✓ src/components/resources/resource-page-display.test.tsx (7 tests) 127ms
+ ✓ src/api/auth.test.tsx (1 test) 101ms
+ ✓ src/lib/format.test.ts (5 tests) 44ms
+ ✓ src/components/quota/pricing-copy.test.ts (4 tests) 27ms
+ ✓ src/api/hooks-alerts.test.tsx (2 tests) 89ms
+ ✓ src/api/operating-bill-payments.test.ts (3 tests) 16ms
+ ✓ src/lib/price-unit.test.ts (9 tests) 21ms
+ ✓ src/api/admins.test.tsx (1 test) 22ms
+ ✓ src/components/quota/model-rule-grouping.test.ts (5 tests) 26ms
+ ✓ src/components/resources/activation-preflight-model.test.ts (8 tests) 5ms
+ ✓ src/pages/runtime-assurance/alert-presenters.test.ts (17 tests) 5ms
+ ✓ src/components/resources/activation-draft-model.test.ts (12 tests) 19ms
+ ✓ src/pages/runtime-assurance/alert-guidance.test.ts (17 tests) 3ms
+ ✓ src/feature-flags.test.ts (1 test) 2ms
+ ✓ src/components/resources/ResourceTable.models.test.ts (5 tests) 3ms
+
+ Test Files  82 passed (82)
+      Tests  513 passed (513)
+   Start at  04:40:39
+   Duration  31.70s (transform 4.82s, setup 26.61s, collect 25.75s, tests 65.05s, environment 62.79s, prepare 10.83s)
+
+JSON report written to /Users/mac/Projects/仟流智算-provider-finance-init-20260921/V4/Evidence/PROVIDER-FINANCE-INITIALIZATION-20260921/wp06-logs/6.2-web-full.json
+WEB_EXIT=0

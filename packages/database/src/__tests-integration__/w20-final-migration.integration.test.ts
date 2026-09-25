@@ -6,6 +6,7 @@ import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/test
 import { createKysely } from "../kysely.js";
 import { createMigrator, migrateDown } from "../migrator.js";
 import { UsageAggregateRepository } from "../repositories/usage-aggregate-repository.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -157,7 +158,10 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
 
       const upgraded = await migrator.migrateToLatest();
       expect(upgraded.error).toBeUndefined();
-      expect(upgraded.results?.map((result) => [result.migrationName, result.status])).toEqual([
+      // 台账断言锚定「本用例关心的迁移区间」而非「当时的迁移头」：迁移头会随其他
+      // 工作包继续追加（见 migration-rollback.ts docstring），用前缀匹配替代全量清单。
+      const upgradedExecuted = upgraded.results?.map((result) => [result.migrationName, result.status]) ?? [];
+      expect(upgradedExecuted.slice(0, 27)).toEqual([
         ["0046_directory_import_foundation", "Success"],
         ["0047_usage_bucket_aggregate", "Success"],
         ["0048_department_cost_budget_and_purchase", "Success"],
@@ -193,7 +197,11 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0078_provider_model_probe_enum_checks", "Success"],
         ["0079_project_allocation_relations", "Success"],
         ["0080_project_allocation_compute", "Success"],
+      ["0081_provider_finance_activation", "Success"],
+      ["0082_provider_finance_candidate_draft", "Success"],
+      ["0083_provider_finance_resource_opening_trigger", "Success"],
       ]);
+      expect(upgradedExecuted.every(([, status]) => status === "Success")).toBe(true);
 
       const aggregates = new UsageAggregateRepository(db);
       await aggregates.markRequestDirty(enterpriseId, requestId);
@@ -253,15 +261,9 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       expect(qualityConstraint.rows[0]?.definition).toContain("MIXED");
       await db.updateTable("usage_event").set({ usage_quality: "MIXED" })
         .where("enterprise_id", "=", enterpriseId).execute();
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      // 回滚链锚定「目标迁移」而非「当时的迁移头」（惯例见 migration-rollback.ts docstring）。
+      const rolledBack = await rollbackTo(db, "0072_admin_roles_security");
+      expect(rolledBack.at(-1)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
@@ -330,7 +332,9 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
 
       const reupgraded = await migrator.migrateToLatest();
       expect(reupgraded.error).toBeUndefined();
-      expect(reupgraded.results?.map((result) => [result.migrationName, result.status])).toEqual([
+      // 台账断言锚定「0046..0072 区间」而非「当时的迁移头」（惯例见 migration-rollback.ts）。
+      const reupgradedExecuted = reupgraded.results?.map((result) => [result.migrationName, result.status]) ?? [];
+      expect(reupgradedExecuted.slice(0, 27)).toEqual([
         ["0046_directory_import_foundation", "Success"],
         ["0047_usage_bucket_aggregate", "Success"],
         ["0048_department_cost_budget_and_purchase", "Success"],
@@ -366,7 +370,11 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         ["0078_provider_model_probe_enum_checks", "Success"],
         ["0079_project_allocation_relations", "Success"],
         ["0080_project_allocation_compute", "Success"],
+      ["0081_provider_finance_activation", "Success"],
+      ["0082_provider_finance_candidate_draft", "Success"],
+      ["0083_provider_finance_resource_opening_trigger", "Success"],
       ]);
+      expect(reupgradedExecuted.every(([, status]) => status === "Success")).toBe(true);
       const restored = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.usage_bucket_aggregate') AS reg
       `.execute(db);
@@ -438,15 +446,9 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
         .execute()).rejects.toThrow(/append-only/i);
       await expect(db.deleteFrom("operating_bill_opening_balance")
         .where("provider_resource_id", "=", resourceId).execute()).rejects.toThrow(/append-only/i);
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      // 回滚链锚定「目标迁移」而非「当时的迁移头」（惯例见 migration-rollback.ts docstring）。
+      const rolledBack2 = await rollbackTo(db, "0072_admin_roles_security");
+      expect(rolledBack2.at(-1)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");

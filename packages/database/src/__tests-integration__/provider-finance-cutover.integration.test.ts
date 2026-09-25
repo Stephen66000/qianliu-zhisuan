@@ -9,6 +9,7 @@ import {
   PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
   enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns, projectAllocationTick,
 } from "../index.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -258,15 +259,9 @@ describe("provider finance cutover rehearsal", () => {
       });
       expect(afterResolution.failures)
         .not.toContainEqual(expect.objectContaining({ code: "API_USAGE_CLASSIFICATION_MISMATCH" }));
-      await expect(migrateDown(db)).resolves.toBe("0080_project_allocation_compute");
-      await expect(migrateDown(db)).resolves.toBe("0079_project_allocation_relations");
-      await expect(migrateDown(db)).resolves.toBe("0078_provider_model_probe_enum_checks");
-      await expect(migrateDown(db)).resolves.toBe("0077_provider_model_probe_run_identity");
-      await expect(migrateDown(db)).resolves.toBe("0076_provider_model_probe");
-      await expect(migrateDown(db)).resolves.toBe("0075_provider_resource_archive");
-      await expect(migrateDown(db)).resolves.toBe("0074_runtime_notification_recipients");
-      await expect(migrateDown(db)).resolves.toBe("0073_credential_chat_probe");
-      await expect(migrateDown(db)).resolves.toBe("0072_admin_roles_security");
+      // 迁移头会随其他工作包继续增长（0073～0078）；先回滚到 0072，再逐级验证守卫链。
+      const rolledBack = await rollbackTo(db, "0072_admin_roles_security");
+      expect(rolledBack.at(-1)).toBe("0072_admin_roles_security");
       await expect(migrateDown(db)).resolves.toBe("0071_enterprise_contact_details");
       await expect(migrateDown(db)).resolves.toBe("0070_alert_recovery_evidence");
       await expect(migrateDown(db)).resolves.toBe("0069_auth_error_evidence");

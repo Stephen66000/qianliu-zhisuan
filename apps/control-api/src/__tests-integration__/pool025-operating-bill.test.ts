@@ -7,6 +7,7 @@ import { digestSessionToken, generateSessionToken } from "@qianliu/provider-adap
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 import { SESSION_COOKIE_NAME } from "../plugins/auth-guard.js";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -673,33 +674,12 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
   });
 
   it("0053 已有期初事实时拒绝破坏性回退", async () => {
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
-      expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
-      expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
-      expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
-      expect(await migrateDown(db)).toBe("0068_alert_resource_context");
-      expect(await migrateDown(db)).toBe("0067_admin_cleanup");
-      expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
-      expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
-      expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
-      expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
-      expect(await migrateDown(db)).toBe("0062_resource_fact_reconciliation");
-      expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
-      expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
-      expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
-    expect(await migrateDown(db)).toBe("0058_principal_grant_archive");
-    expect(await migrateDown(db)).toBe("0057_model_discovery_v12");
-    expect(await migrateDown(db)).toBe("0056_resource_monthly_budget");
-    expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
-    expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
+    // 回滚链断言以「目标迁移」而不是「当时的迁移头」为锚点：迁移头会随每个工作包增长
+    // （0078 资金账本初始化控制结构、0079 候选草稿载荷……），写死首个回滚项会随无关
+    // 迁移的加入而失效（同类收口见 WP02/WP03）。这里锚定到 0054，再验证 0053 的守卫。
+    const rolledBack = await rollbackTo(db, "0054_usage_aggregate_settlement_time");
+    expect(rolledBack.at(-1)).toBe("0054_usage_aggregate_settlement_time");
+    // 0053 仍在已应用状态：它持有期初事实，必须拒绝回退。
     await expect(migrateDown(db)).rejects.toThrow("0053 contains opening balance facts");
   });
 });

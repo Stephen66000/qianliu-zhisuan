@@ -1,6 +1,8 @@
 import { sql, type Kysely } from "kysely";
+import { readProviderFinanceMode } from "@qianliu/config";
 import {
   type Database,
+  listQuiescentEnterpriseIds,
   ProviderRepository,
   ResourcePoolRepository,
 } from "@qianliu/database";
@@ -24,6 +26,10 @@ interface SyncResource {
 
 export interface ProviderOperatingSyncResult {
   resourcesScanned: number; snapshotsCreated: number; failed: number; notSupported: number;
+  /** PFA-09：因目标企业处于有效静默租约内而整企业跳过的资源数。 */
+  skippedQuiescentResources: number;
+  /** 资金停写门禁命中时标记（DARK/OFF 下零写入零上游调用）。 */
+  skipped?: "FINANCE_MODE_INACTIVE";
 }
 
 function shanghaiSyncDay(now: Date): Date {
@@ -102,9 +108,36 @@ async function recoverFromFetchedBalance(
   }
 }
 
-export async function runProviderOperatingSyncTick(input: {
+export interface ProviderOperatingSyncInput {
   db: Kysely<Database>; kekBase64: string; fetch?: ProviderOperatingFetch; now?: Date;
-}): Promise<ProviderOperatingSyncResult> {
+  env?: NodeJS.ProcessEnv;
+}
+
+/**
+ * 资金停写门禁：DARK/OFF 下厂商经营事实（快照与同步尝试）一律不写入、上游不触达，
+ * 仅 ACTIVE 执行同步。口径与订阅续订 runner（FINANCE_MODE_INACTIVE）一致，fail-closed。
+ */
+export function financeModeInactiveSkip(
+  env: NodeJS.ProcessEnv | undefined,
+): ProviderOperatingSyncResult | null {
+  if (readProviderFinanceMode(env ?? process.env) !== "ACTIVE") {
+    return { resourcesScanned: 0, snapshotsCreated: 0, failed: 0, notSupported: 0,
+      skippedQuiescentResources: 0, skipped: "FINANCE_MODE_INACTIVE" };
+  }
+  return null;
+}
+
+export async function runProviderOperatingSyncTick(
+  input: ProviderOperatingSyncInput,
+): Promise<ProviderOperatingSyncResult> {
+  const skip = financeModeInactiveSkip(input.env);
+  if (skip) return skip;
+  return runProviderOperatingSyncTickInActiveMode(input);
+}
+
+async function runProviderOperatingSyncTickInActiveMode(
+  input: ProviderOperatingSyncInput,
+): Promise<ProviderOperatingSyncResult> {
   const now = input.now ?? new Date();
   const syncDay = shanghaiSyncDay(now);
   const nextSyncAt = new Date(now.getTime() + 24 * 60 * 60 * 1_000);
@@ -126,7 +159,12 @@ export async function runProviderOperatingSyncTick(input: {
   let snapshotsCreated = 0;
   let failed = 0;
   let notSupported = 0;
-  for (const resource of resources) {
+  // PFA-09：厂商经营快照属于完整事实水位的一部分（provider_resource_operating_snapshot）。
+  // 目标企业处于有效静默租约内时整企业跳过，否则已冻结的候选会被同步写入立刻打漂。
+  const quiescent = new Set(await listQuiescentEnterpriseIds(input.db, now));
+  const scoped = resources.filter((resource) => !quiescent.has(resource.enterprise_id));
+  const skippedQuiescentResources = resources.length - scoped.length;
+  for (const resource of scoped) {
     await recoverFromFreshPositiveBalance(input.db, poolRepo, resource);
     if (await shouldSkipDailySync(input.db, resource, syncDay)) continue;
     const startedAt = new Date(now);
@@ -215,5 +253,6 @@ export async function runProviderOperatingSyncTick(input: {
       adapter_version: PROVIDER_OPERATING_ADAPTER_VERSION,
     }).onConflict((oc) => oc.columns(["enterprise_id", "provider_resource_id", "sync_day"]).doNothing()).execute();
   }
-  return { resourcesScanned: resources.length, snapshotsCreated, failed, notSupported };
+  return { resourcesScanned: scoped.length, snapshotsCreated, failed, notSupported,
+    skippedQuiescentResources };
 }

@@ -1,0 +1,78 @@
+# WP08 本地候选验证叠加层。
+# 用途：在**仅本机回环**的前提下运行候选镜像，并加挂本地 stub 上游。
+# 与 deploy/compose.yaml 叠加使用：
+#   QIANLIU_ENV_FILE=/tmp/wp08/local.env docker compose \
+#     -f deploy/compose.yaml -f /tmp/wp08/compose.wp08-local.yaml up -d
+#
+# 与候选树的关系：本文件位于仓库之外，**不属于任何镜像的构建上下文**，
+# 不改动候选 commit c9bc9b9 的源码树；仅用于验证期编排。
+#
+# 用 `!override`（整体替换）而非 `!reset`（清空）来改写 ports，
+# 以确保候选服务的发布端口集合完全由本文件决定，无残留。
+#
+# 候选绑定：四个业务服务与一次性 migrate 全部 `!reset` 掉 build 块，
+# 改为直接引用 7.1 构建的**候选镜像**（带 revision/source-tree 标签）。
+# 目的：容器运行的字节就是候选镜像，而不是"现场 build cache 重新构建"，
+# 使「容器 ↔ 镜像 ↔ commit」成为可核验的等式而非推断。
+# 变量 ${CANDIDATE_TAG:?} 由调用方注入候选短哈希（缺省即失败，防止误用漂移镜像）。
+
+services:
+  # 一次性迁移服务：同样固定为候选 control-api 镜像（迁移代码随候选源码一起冻结）。
+  migrate:
+    image: "qianliu-candidate/control-api:${CANDIDATE_TAG:?必须显式注入候选短哈希}"
+    build: !reset
+
+  # 候选服务端口统一收回回环（显式重申 compose.yaml 的 127.0.0.1 绑定，防止漂移）。
+  postgres:
+    ports: !override
+      - "127.0.0.1:5433:5432"
+
+  redis:
+    ports: !override
+      - "127.0.0.1:6380:6379"
+
+  control-api:
+    image: "qianliu-candidate/control-api:${CANDIDATE_TAG:?必须显式注入候选短哈希}"
+    build: !reset
+    ports: !override
+      - "127.0.0.1:8788:8788"
+
+  gateway:
+    image: "qianliu-candidate/gateway:${CANDIDATE_TAG:?必须显式注入候选短哈希}"
+    build: !reset
+    # compose.yaml 的 environment 块会把 ${KIMI_CODING_BASE_URL:-<真实厂商地址>} 写进容器，
+    # 且 environment 优先级高于 env_file；WP08 只允许 stub 上游，故在此显式钉死为本地 stub。
+    environment:
+      KIMI_CODING_BASE_URL: http://stub-upstream:9299/v1
+      DEEPSEEK_BASE_URL: http://stub-upstream:9299/v1
+      ZHIPU_CODING_BASE_URL: http://stub-upstream:9299/v1
+    ports: !override
+      - "127.0.0.1:8787:8787"
+
+  worker:
+    image: "qianliu-candidate/worker:${CANDIDATE_TAG:?必须显式注入候选短哈希}"
+    build: !reset
+
+  web:
+    image: "qianliu-candidate/web:${CANDIDATE_TAG:?必须显式注入候选短哈希}"
+    build: !reset
+    ports: !override
+      - "127.0.0.1:8080:80"
+
+  # Caddy 在 compose.yaml 中发布 80/443（全网卡）。WP08 严禁开放公网端口，
+  # 故整体替换为仅回环的 8081→80（无 TLS、无域名、无 ACME）。
+  caddy:
+    ports: !override
+      - "127.0.0.1:8081:80"
+
+  # 本地 stub 上游：只挂容器私网 + 回环统计端口；不转发、不持有任何真实厂商凭证。
+  stub-upstream:
+    image: node:22.17.1-alpine
+    restart: unless-stopped
+    command: ["node", "/stub/server.mjs"]
+    environment:
+      STUB_PORT: "9299"
+    volumes:
+      - /tmp/wp08/stub:/stub:ro
+    ports:
+      - "127.0.0.1:9299:9299"

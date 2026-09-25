@@ -119,4 +119,59 @@ describe("POOL20-025 每日经营同步", () => {
       await db.destroy();
     }
   });
+
+  it("资金停写门禁：DARK/OFF 零写入零上游调用；ACTIVE 行为不变", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const enterpriseId = randomUUID(); const providerId = randomUUID(); const resourceId = randomUUID();
+      const kek = Buffer.alloc(32, 9); const kekBase64 = kek.toString("base64");
+      await db.insertInto("enterprise").values({ id: enterpriseId, name: "停写门禁测试" }).execute();
+      await db.insertInto("provider").values({
+        id: providerId, enterprise_id: enterpriseId, code: "deepseek", name: "DeepSeek", adapter_type: "OPENAI_COMPATIBLE",
+      }).execute();
+      await db.insertInto("provider_resource").values({
+        id: resourceId, enterprise_id: enterpriseId, provider_id: providerId, name: "DeepSeek API",
+        mode: "API", credential_type: "API_KEY", credential_ciphertext: JSON.stringify(encryptCredential("sk-test", kek)),
+      }).execute();
+      const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({
+        is_available: true,
+        balance_infos: [{ currency: "CNY", total_balance: "50", granted_balance: "0", topped_up_balance: "50" }],
+      }) })) as unknown as ProviderOperatingFetch;
+      const now = new Date("2026-08-20T01:00:00Z");
+
+      // DARK/OFF：整个 tick 零扫描、零快照、零 attempt、零上游调用（fail-closed）。
+      for (const mode of ["DARK", "OFF"] as const) {
+        await expect(runProviderOperatingSyncTick({
+          db, kekBase64, fetch, now, env: { PROVIDER_FINANCE_MODE: mode },
+        })).resolves.toMatchObject({
+          resourcesScanned: 0, snapshotsCreated: 0, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0, skipped: "FINANCE_MODE_INACTIVE",
+        });
+      }
+      expect(fetch).toHaveBeenCalledTimes(0);
+      expect(await db.selectFrom("provider_resource_operating_sync_attempt").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(0);
+      const darkSnapshots = await db.selectFrom("provider_resource_operating_snapshot")
+        .select(({ fn }) => fn.countAll<string>().as("count"))
+        .where("enterprise_id", "=", enterpriseId).executeTakeFirstOrThrow();
+      expect(Number(darkSnapshots.count)).toBe(0);
+
+      // ACTIVE（显式 env）：本企业快照 + attempt 正常写入，与门禁引入前一致。
+      // 结果计数是全库口径（同容器其他用例资源也在扫描范围），故按本企业 DB 状态断言。
+      await runProviderOperatingSyncTick({
+        db, kekBase64, fetch, now, env: { PROVIDER_FINANCE_MODE: "ACTIVE" },
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const activeSnapshots = await db.selectFrom("provider_resource_operating_snapshot")
+        .select(({ fn }) => fn.countAll<string>().as("count"))
+        .where("enterprise_id", "=", enterpriseId)
+        .where("source", "=", "PROVIDER_SYNC").executeTakeFirstOrThrow();
+      expect(Number(activeSnapshots.count)).toBe(1);
+      expect(await db.selectFrom("provider_resource_operating_sync_attempt").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(1);
+    } finally {
+      await db.destroy();
+    }
+  });
 });

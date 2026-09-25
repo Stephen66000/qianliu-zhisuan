@@ -1,0 +1,47 @@
+# WP07 | 7.5 集成测试文件类型检查（修正路径重跑）| 2026-09-21T21:16:07Z
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(278,85): error TS2322: Type 'unknown' is not assignable to type 'InjectPayload | undefined'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(389,21): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(389,33): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(390,27): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(458,20): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(458,32): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(459,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(460,20): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(474,25): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(474,37): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(475,25): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(487,21): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(487,33): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(488,27): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(768,23): error TS2339: Property 'statusCode' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(768,35): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(actual: any, message?: string | undefined): Assertion<any>', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+  Overload 2 of 2, '(val: any, message?: string | undefined): Assertion', gave the following error.
+    Argument of type '(body: InjectPayload) => Chain' is not assignable to parameter of type 'string'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(769,23): error TS2339: Property 'json' does not exist on type 'void & Promise<Response> & Chain'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(779,12): error TS18048: 'logAfter' is possibly 'undefined'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(779,23): error TS18048: 'logBefore' is possibly 'undefined'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(816,21): error TS2345: Argument of type '"resource_purchase_record"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(817,10): error TS2349: This expression is not callable.
+  Each member of the union type '{ <SE extends SelectExpression<{ [x: string]: never; }, any>>(selections: readonly SE[]): SelectQueryBuilder<{ [x: string]: never; }, any, { [E in FlattenSelectExpression<SE> as ExtractAliasFromSelectExpression<...>]: SelectType<...>; }>; <CB extends SelectCallback<...>>(callback: CB): SelectQueryBuilder<...>; <SE e...' has signatures, but none of those signatures are compatible with each other.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(820,21): error TS2345: Argument of type '"provider_finance_runtime_state"' is not assignable to parameter of type 'TableExpressionOrList<Database, never>'.
+apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts(821,10): error TS2349: This expression is not callable.
+  Each member of the union type '{ <SE extends SelectExpression<{ [x: string]: never; }, any>>(selections: readonly SE[]): SelectQueryBuilder<{ [x: string]: never; }, any, { [E in FlattenSelectExpression<SE> as ExtractAliasFromSelectExpression<...>]: SelectType<...>; }>; <CB extends SelectCallback<...>>(callback: CB): SelectQueryBuilder<...>; <SE e...' has signatures, but none of those signatures are compatible with each other.
+TSC_INTEGRATION_EXIT=2

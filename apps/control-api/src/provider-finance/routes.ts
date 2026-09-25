@@ -1,5 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { ProviderFinanceError, getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal } from "@qianliu/database";
+import {
+  ProviderFinanceActivationError, ProviderFinanceError, assessResourceFinanceEnablement,
+  getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal,
+} from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   BalanceQuery, currentShanghaiMonthRange, dayAfterShanghaiDate, defaultServiceEndDate,
@@ -34,6 +37,17 @@ function financeFailure(error: unknown, reply: FastifyReply) {
     ...(error.detail ? { detail: error.detail } : {}) });
 }
 
+/** 资源级资金启用的失败映射（`ProviderFinanceActivationError`）：冲突类 409，其余 400。 */
+function activationFailure(error: unknown, reply: FastifyReply) {
+  if (!(error instanceof ProviderFinanceActivationError)) throw error;
+  const conflict = error.code === "RESOURCE_FINANCE_CONFLICT"
+    || error.code === "RESOURCE_FINANCE_NOT_READY";
+  return reply.code(conflict ? 409 : 400).send({
+    error: error.code.toLowerCase(), message: error.message,
+    ...(error.detail ? { detail: error.detail } : {}),
+  });
+}
+
 export function registerProviderFinanceRoutes(
   app: FastifyInstance,
   options: { mode: "DARK" | "ACTIVE" },
@@ -55,15 +69,67 @@ export function registerProviderFinanceRoutes(
       const params = ResourceParams.safeParse(req.params); const body = OpeningBalanceBody.safeParse(req.body);
       if (!params.success || !body.success) return invalid(reply, body.success ? undefined : body.error.issues[0]?.message);
       try {
+        const enterpriseId = req.admin!.enterpriseId;
+        // PFH-06/PFH-07：期初只能通过“资源级资金启用”登记。
+        // 企业已激活严格写后，存量资源属于企业初始化范围，禁止用兼容期初接口绕过候选补写；
+        // 只有激活后新建、仍处于 PENDING 的资源才可在此完成资源级期初登记。
+        const financeState = await app.providerFinanceActivationRepo
+          .loadResourceFinanceState(enterpriseId, params.data.id);
+        if (!financeState) {
+          return reply.code(409).send({
+            error: "resource_finance_scope_conflict",
+            message: "该资源属于企业初始化范围，请通过资金账本初始化候选登记期初余额",
+          });
+        }
+        if (financeState.state !== "PENDING") {
+          return reply.code(409).send({
+            error: "resource_finance_already_ready",
+            message: "该资源资金账户已就绪，如需变更请使用期初更正",
+          });
+        }
         const event = await app.providerFinanceRepo.recordOpeningBalance({
-          enterpriseId: req.admin!.enterpriseId, resourceId: params.data.id,
+          enterpriseId, resourceId: params.data.id,
           adminId: req.admin!.adminUserId, accountAmount: body.data.account_amount,
           accountCurrency: body.data.account_currency, occurredAt: new Date(body.data.occurred_at),
-          description: body.data.description ?? null, evidenceRef: body.data.evidence_ref ?? null,
+          description: body.data.description, evidenceRef: body.data.evidence_ref,
           idempotencyKey: body.data.idempotency_key,
         });
         return reply.code(event.replayed ? 200 : 201).send({ event });
       } catch (error) { return financeFailure(error, reply); }
+    });
+
+  // 激活后的**资源级资金启用**（PFH-07 / 计划 §6.3-3）：新 API 资源由 0078 触发器种入
+  // PENDING 并调度拦截；登记完必要币种期初后，在此完成资源级守恒检查并提升 READY。
+  // 这是 PENDING → READY 的唯一生产入口（`markResourceFinanceReady` 的另一调用方只在测试中）。
+  app.post("/provider-resources/:id/finance/readiness", { preHandler: writeGuards },
+    async (req, reply) => {
+      const params = ResourceParams.safeParse(req.params);
+      if (!params.success) return invalid(reply);
+      try {
+        const enterpriseId = req.admin!.enterpriseId;
+        const resourceId = params.data.id;
+        const state = await app.providerFinanceActivationRepo
+          .loadResourceFinanceState(enterpriseId, resourceId);
+        if (!state) {
+          return reply.code(409).send({
+            error: "resource_finance_scope_conflict",
+            message: "该资源属于企业初始化范围，请通过资金账本初始化候选登记期初余额",
+          });
+        }
+        const assessment = await assessResourceFinanceEnablement(app.db, { enterpriseId, resourceId });
+        // 已在 READY：幂等返回当前状态与守恒证据，不重复写版本。
+        // 守恒未通过：返回阻断项（资源保持 PENDING，继续被调度拦截），由运维补齐后重试。
+        if (state.state === "READY" || !assessment.ready) {
+          return reply.code(200).send({ state, ...assessment });
+        }
+        // 守恒通过：带乐观版本校验提升 READY；并发改动时失败关闭为 409。
+        const promoted = await app.providerFinanceActivationRepo.markResourceFinanceReady({
+          enterpriseId, resourceId, adminId: req.admin!.adminUserId,
+          requiredCurrencies: assessment.requiredCurrencies, now: new Date(),
+          expectedVersion: state.version,
+        });
+        return reply.code(200).send({ state: promoted, ...assessment });
+      } catch (error) { return activationFailure(error, reply); }
     });
 
   app.post("/provider-resources/:id/finance/opening-balance-corrections", { preHandler: writeGuards },
@@ -75,8 +141,8 @@ export function registerProviderFinanceRoutes(
           enterpriseId: req.admin!.enterpriseId, resourceId: params.data.id,
           adminId: req.admin!.adminUserId, openingEventId: body.data.opening_event_id,
           accountAmount: body.data.account_amount, accountCurrency: body.data.account_currency,
-          occurredAt: new Date(body.data.occurred_at), description: body.data.description ?? null,
-          evidenceRef: body.data.evidence_ref ?? null, idempotencyKey: body.data.idempotency_key,
+          occurredAt: new Date(body.data.occurred_at), description: body.data.description,
+          evidenceRef: body.data.evidence_ref, idempotencyKey: body.data.idempotency_key,
         });
         return reply.code(event.replayed ? 200 : 201).send({ event });
       } catch (error) { return financeFailure(error, reply); }
@@ -92,7 +158,7 @@ export function registerProviderFinanceRoutes(
           adminId: req.admin!.adminUserId, accountAmount: body.data.account_amount,
           accountCurrency: body.data.account_currency, cashPaidCny: body.data.cash_paid_cny,
           occurredAt: new Date(body.data.occurred_at), externalReference: body.data.external_reference ?? null,
-          description: body.data.description ?? null, evidenceRef: body.data.evidence_ref ?? null,
+          description: body.data.description, evidenceRef: body.data.evidence_ref,
           idempotencyKey: body.data.idempotency_key,
         });
         return reply.code(event.replayed ? 200 : 201).send({ event });
@@ -114,7 +180,7 @@ export function registerProviderFinanceRoutes(
           periodEndExclusive: dayAfterShanghaiDate(body.data.service_period_end
             ?? defaultServiceEndDate(body.data.service_period_start)),
           externalReference: body.data.external_reference ?? null,
-          description: body.data.description ?? null, evidenceRef: body.data.evidence_ref ?? null,
+          description: body.data.description, evidenceRef: body.data.evidence_ref,
           idempotencyKey: body.data.idempotency_key,
         });
         return reply.code(result.event.replayed ? 200 : 201).send(result);

@@ -80,6 +80,13 @@ describe("POOL-029 批量模型授权页面", () => {
     expect(screen.getByText("暂无批量授权规则")).toBeInTheDocument();
   });
 
+  it("嵌入使用主体时显示局部标题和授权说明", () => {
+    render(<MemoryRouter><EmployeeModelRulesPage embedded /></MemoryRouter>);
+    expect(screen.getByRole("heading", { name: "批量模型授权" })).toBeInTheDocument();
+    expect(screen.getByText("集中选择员工、模型与额度，校验后显式发布；单名员工仍在「使用主体」中配置。"))
+      .toBeInTheDocument();
+  });
+
   it("按员工和厂商模型展示就绪原因、权限变更预览、版本历史和显式发布入口", async () => {
     render(<MemoryRouter><EmployeeModelRulesPage /></MemoryRouter>);
     expect(screen.getByRole("heading", { name: "批量模型授权" })).toBeInTheDocument();

@@ -1,0 +1,138 @@
+# WP08 7.2 双端停写演练（PFA-08）
+# 开始(UTC): 2026-09-22T10:53:53Z
+# 企业: WP08-SYNTHETIC 既有企业（本地一次性合成数据，非真实业务）
+# 服务: qianliu-candidate/control-api 与 .../worker，同一候选 commit 94482f06e5ac
+
+=============== 0. 前置：把基线强制置为 ACTIVE ===============
+   Container qianliu-zhisuan-worker-1  Recreate
+   Container qianliu-zhisuan-control-api-1  Recreate
+   Container qianliu-zhisuan-worker-1  Recreated
+   Container qianliu-zhisuan-control-api-1  Recreated
+   Container qianliu-zhisuan-migrate-1  Started
+   Container qianliu-zhisuan-worker-1  Started
+   Container qianliu-zhisuan-control-api-1  Started
+  就绪：mode=ACTIVE（HTTP 200，等待 9s）
+
+=============== A. 基线（PROVIDER_FINANCE_MODE=ACTIVE） ===============
+  control-api  MODE=ACTIVE
+  worker       MODE=ACTIVE
+-- 写入口在 ACTIVE 下不得被暗门禁拦下（预期业务拒绝，而非「资金写入口尚未启用」）
+  POST /provider-resources/:id/finance/opening-balances      503 PASSED(未拦)
+  POST /provider-resources/:id/finance/recharges             503 PASSED(未拦)
+  POST /provider-resources/:id/finance/subscriptions         503 PASSED(未拦)
+  POST /provider-resources/:id/finance/auto-renewal/cancel   503 PASSED(未拦)
+  POST /provider-finance-events/:id/reversal                 503 PASSED(未拦)
+  POST /provider-finance/activation-preview                  400 PASSED(未拦)
+  POST /provider-finance/activation-quiescence               201 PASSED(未拦)
+  POST /provider-finance/activation-quiescence/release       400 PASSED(未拦)
+-- ACTIVE 下业务拒绝体示例（证明写入口可达、只是被业务前置条件挡住）
+  {"error":"finance_write_contract_inactive","message":"严格资金写合同尚未通过守恒门启用"}
+-- 既有资金事实基线
+  runtime_state=7 | strict_true=6
+  events=8 ledger=16 ai_request=16 attempts=19 quiescence=9
+  fact_fingerprint=bef0edc66e642f6eba58c0912b8f8649
+-- Worker 续订 tick（ACTIVE）
+  MODE=ACTIVE RESULT={"scanned":0,"created":0,"failures":[],"skippedQuiescentEnterprises":[]}
+
+=============== B. 同时切 DARK（Control API + Worker） ===============
+   Container qianliu-zhisuan-worker-1  Recreate
+   Container qianliu-zhisuan-control-api-1  Recreate
+   Container qianliu-zhisuan-control-api-1  Recreated
+   Container qianliu-zhisuan-worker-1  Recreated
+   Container qianliu-zhisuan-migrate-1  Started
+   Container qianliu-zhisuan-worker-1  Started
+   Container qianliu-zhisuan-control-api-1  Started
+  就绪：mode=DARK（HTTP 200，等待 5s）
+  control-api  MODE=DARK  运行中=true
+  worker       MODE=DARK  运行中=true
+-- 写入口必须被拦下（响应体 = 「资金写入口尚未启用」）
+  POST /provider-resources/:id/finance/opening-balances      404 BLOCKED(暗门禁)
+  POST /provider-resources/:id/finance/recharges             404 BLOCKED(暗门禁)
+  POST /provider-resources/:id/finance/subscriptions         404 BLOCKED(暗门禁)
+  POST /provider-resources/:id/finance/auto-renewal/cancel   404 BLOCKED(暗门禁)
+  POST /provider-finance-events/:id/reversal                 404 BLOCKED(暗门禁)
+  POST /provider-finance/activation-preview                  404 BLOCKED(暗门禁)
+  POST /provider-finance/activation-quiescence               404 BLOCKED(暗门禁)
+  POST /provider-finance/activation-quiescence/release       404 BLOCKED(暗门禁)
+-- 读接口按合同保留
+  GET /provider-finance/activation-state                           200  保留 ✅ {"mode":"DARK","cutover_at":"2026-08-31T16:00:00.000Z","strict_wri
+  GET /provider-finance/summary?month=2026-09                      200  保留 ✅ {"month":"2026-09","timezone":"Asia/Shanghai","cashOutflowCny":"19
+  GET /provider-finance/resources?month=2026-09                    200  保留 ✅ {"month":"2026-09","resources":[{"resourceId":"44444444-4444-4444-
+  GET /provider-resources/66666666-6666-4666-8666-666666666666/finance/balance?currency=CNY 200  保留 ✅ {"providerResourceId":"66666666-6666-4666-8666-666666666666","curr
+  GET /provider-resources/66666666-6666-4666-8666-666666666666/finance/events 200  保留 ✅ {"items":[],"total":0}
+  GET /provider-resources/66666666-6666-4666-8666-666666666666/finance/auto-renewal 409  保留 ✅ {"error":"invalid_mode","message":"该资源不适用套餐自动�
+  GET /provider-resources/66666666-6666-4666-8666-666666666666/subscription-periods 404  保留 ✅ {"error":"not_found","message":"Coding Plan资源不存在"}
+  GET /provider-finance/reconciliation-cases                       200  保留 ✅ {"items":[],"total":0}
+-- Worker 续订 tick（DARK）
+  MODE=DARK RESULT={"scanned":0,"created":0,"failures":[],"skipped":"FINANCE_MODE_INACTIVE"}
+-- DARK 期间既有资金事实与 strict_writes_enabled 必须逐字节不变
+  runtime_state=7 | strict_true=6
+  events=8 ledger=16 ai_request=16 attempts=19 quiescence=9
+  fact_fingerprint=bef0edc66e642f6eba58c0912b8f8649
+
+=============== C. 恢复 ACTIVE 前的重新预检（只读） ===============
+-- 事实快照（预检前）
+  runtime_state=7 | strict_true=6
+  events=8 ledger=16 ai_request=16 attempts=19 quiescence=9
+  fact_fingerprint=bef0edc66e642f6eba58c0912b8f8649
+-- 以候选镜像执行 finance:preflight（只读，不带 --apply-usage-backfill）
+        "resolvedLegacyApiRows": 0,
+        "attributedCodingPlanRows": 0,
+        "tokenFactMismatches": 0
+      },
+      "balances": [],
+      "monthlyComplete": false,
+      "passed": false,
+      "failures": [
+        {
+          "code": "OPENING_BALANCE_UNCONFIRMED",
+          "count": 1
+        },
+        {
+          "code": "LEGACY_PURCHASE_REQUIRES_REVIEW",
+          "count": 1
+        },
+        {
+          "code": "MONTHLY_FINANCE_INCOMPLETE",
+          "count": 1
+        }
+      ]
+    },
+    "decision": "NO_GO"
+  }
+  exit status 2
+PREFLIGHT_EXIT=2
+-- 事实快照（预检后，应与前完全一致）
+  runtime_state=7 | strict_true=6
+  events=8 ledger=16 ai_request=16 attempts=19 quiescence=9
+  fact_fingerprint=bef0edc66e642f6eba58c0912b8f8649
+  ★ 预检为只读：快照逐行一致 ✅
+
+=============== D. 恢复 ACTIVE ===============
+   Container qianliu-zhisuan-control-api-1  Recreate
+   Container qianliu-zhisuan-worker-1  Recreate
+   Container qianliu-zhisuan-control-api-1  Recreated
+   Container qianliu-zhisuan-worker-1  Recreated
+   Container qianliu-zhisuan-migrate-1  Started
+   Container qianliu-zhisuan-worker-1  Started
+   Container qianliu-zhisuan-control-api-1  Started
+  就绪：mode=ACTIVE（HTTP 200，等待 5s）
+  control-api  MODE=ACTIVE  运行中=true
+  worker       MODE=ACTIVE  运行中=true
+-- 写入口恢复（不得再返回门禁体）
+  POST /provider-resources/:id/finance/opening-balances      503 PASSED(未拦)
+  POST /provider-resources/:id/finance/recharges             503 PASSED(未拦)
+  POST /provider-resources/:id/finance/subscriptions         503 PASSED(未拦)
+  POST /provider-resources/:id/finance/auto-renewal/cancel   503 PASSED(未拦)
+  POST /provider-finance-events/:id/reversal                 503 PASSED(未拦)
+  POST /provider-finance/activation-preview                  400 PASSED(未拦)
+  POST /provider-finance/activation-quiescence               201 PASSED(未拦)
+  POST /provider-finance/activation-quiescence/release       400 PASSED(未拦)
+-- Worker 续订 tick（恢复 ACTIVE）
+  MODE=ACTIVE RESULT={"scanned":0,"created":0,"failures":[],"skippedQuiescentEnterprises":[]}
+-- 既有资金事实与 strict_writes_enabled 全程不变
+  runtime_state=7 | strict_true=6
+  events=8 ledger=16 ai_request=16 attempts=19 quiescence=9
+  fact_fingerprint=bef0edc66e642f6eba58c0912b8f8649
+
+# 结束(UTC): 2026-09-22T10:54:59Z

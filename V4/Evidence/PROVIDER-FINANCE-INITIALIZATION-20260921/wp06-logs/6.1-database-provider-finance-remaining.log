@@ -1,0 +1,27 @@
+# WP06 6.1（补正后重跑）| HEAD=ddd1fc2f54ec254c6eb77825f0bc7d47d61317f8 | 2026-09-21T20:49:23Z
+# cmd: pnpm --filter @qianliu/database exec vitest run --config ../../vitest.config.ts src/__tests-integration__/provider-finance-activation-preview.integration.test.ts src/__tests-integration__/provider-finance-activation-migration.integration.test.ts src/__tests-integration__/provider-finance-ledger.integration.test.ts src/__tests-integration__/provider-finance-cutover.integration.test.ts src/__tests-integration__/provider-finance-repository.integration.test.ts --maxWorkers=1
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database
+
+ ✓ src/__tests-integration__/provider-finance-activation-migration.integration.test.ts (5 tests) 13577ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 候选 TTL 固定 30 分钟、状态白名单不含 ACTIVATING、终态不可修改  2866ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 企业级激活幂等键唯一，且预检候选不进入资金事实表  2573ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 静默租约上限 60 分钟、审计留痕、到期自动失效且不可复活  2866ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 资源资金状态：新 API 资源在已激活企业下默认 PENDING，未激活则不纳入门禁  2428ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > Gateway 可服务资源排除 PENDING，就绪后恢复；存在激活事实时拒绝回退  2841ms
+ ✓ src/__tests-integration__/provider-finance-cutover.integration.test.ts (2 tests) 4575ms
+   ✓ provider finance cutover rehearsal > reports manual blockers and only backfills four allowed usage fields  2474ms
+   ✓ provider finance cutover rehearsal > returns GO candidate only when opening, monthly and balance conservation are complete  347ms
+ ✓ src/__tests-integration__/provider-finance-ledger.integration.test.ts (3 tests) 4115ms
+   ✓ 0059 provider finance ledger contract > enforces tenant, mode, signed adjustment, immutable facts and exact reversal  1000ms
+   ✓ 0059 provider finance ledger contract > blocks destructive rollback after provider finance facts exist  1350ms
+ ✓ src/__tests-integration__/provider-finance-activation-preview.integration.test.ts (4 tests) 3249ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 只读投影零写入，候选元数据仅在独立控制事务落库  1025ms
+ ✓ src/__tests-integration__/provider-finance-repository.integration.test.ts (8 tests) 3137ms
+
+ Test Files  5 passed (5)
+      Tests  22 passed (22)
+   Start at  04:49:24
+   Duration  34.54s (transform 912ms, setup 0ms, collect 4.50s, tests 28.65s, environment 1ms, prepare 354ms)
+
+EXIT=0

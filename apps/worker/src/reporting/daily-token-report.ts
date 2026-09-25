@@ -83,7 +83,7 @@ export function generateDailyReportSvg(data: DailyReportData): string {
 /**
  * 转换 SVG 为高清 PNG 图像 Buffer（标准 2x 视网膜清晰度 1080 宽）
  */
-export function renderSvgToPng(svgString: string): Buffer {
+export function renderSvgToPng(svgString: string): Promise<Buffer> {
   return renderSharedSvgToPng(svgString, { fitWidth: 1080 });
 }
 
@@ -199,7 +199,7 @@ export async function runDailyTokenReport(
 
   // 4. 生成符合仟流设计规范的纯白竖版 SVG 并渲染为 PNG 图片
   const svg = generateDailyReportSvg(reportData);
-  const pngBuffer = renderSvgToPng(svg);
+  const pngBuffer = await renderSvgToPng(svg);
 
   // 5. 确定接收人列表
   let recipients = options.recipients;

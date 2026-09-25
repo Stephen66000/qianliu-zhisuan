@@ -28,6 +28,16 @@ beforeAll(async () => {
     "0070_alert_recovery_evidence",
     "0071_enterprise_contact_details",
     "0072_admin_roles_security",
+    "0073_credential_chat_probe",
+    "0074_runtime_notification_recipients",
+    "0075_provider_resource_archive",
+    "0076_provider_model_probe",
+    "0077_provider_model_probe_run_identity",
+    "0078_provider_model_probe_enum_checks",
+    "0079_project_allocation_relations",
+    "0080_project_allocation_compute",
+    "0081_provider_finance_activation",
+    "0082_provider_finance_candidate_draft",
   ]);
 }, 120_000);
 afterAll(async () => {
@@ -1430,6 +1440,20 @@ it("migration 0070 refuses rollback once any real recovery evidence exists", asy
     new Date("2026-08-20"),
     t.enterpriseId,
   );
+  for (const expected of [
+    "0082_provider_finance_candidate_draft",
+    "0081_provider_finance_activation",
+    "0080_project_allocation_compute",
+    "0079_project_allocation_relations",
+    "0078_provider_model_probe_enum_checks",
+    "0077_provider_model_probe_run_identity",
+    "0076_provider_model_probe",
+    "0075_provider_resource_archive",
+    "0074_runtime_notification_recipients",
+    "0073_credential_chat_probe",
+  ]) {
+    expect(await migrateDown(db)).toBe(expected);
+  }
   expect(await migrateDown(db)).toBe("0072_admin_roles_security");
   expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
   await expect(migrateDown(db)).rejects.toThrow(

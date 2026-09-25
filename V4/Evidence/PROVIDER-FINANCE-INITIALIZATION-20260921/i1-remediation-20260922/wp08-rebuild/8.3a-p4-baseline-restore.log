@@ -1,0 +1,31 @@
+# PFA-09 池内企业基线恢复（P4 = 77777777-0000-4000-8000-000000000071）
+# 时刻(UTC): 2026-09-22T10:56:59Z
+# 背景：一次**无效**的 PFA-09 运行（租户 Cookie 过期，控制面全线 401）在第 10 节仍成功
+#       写入了合成订阅夹具，使 P4 在**激活之前**就带有一条 CODING_PLAN_PURCHASE 资金事件与订阅期。
+#       这是本轮会话自己制造的状态污染（非候选代码问题）。PFA-09 第 9 节假定池内企业 pristine
+#       （原冻结运行中 P3 即如此），故此处把这 5 行合成数据删除，恢复到该节所依赖的基线。
+#       仅作用于本地一次性容器库；删除对象为合成企业 P4 的合成行。
+
+## 删除前计数
+provider|1
+provider_finance_duplicate_candidate|0
+provider_finance_event|1
+provider_finance_idempotency|1
+provider_finance_reconciliation_case|0
+provider_resource|1
+provider_subscription_period|1
+
+## 执行删除（事件 → 幂等键 → 订阅期 → 资源 → 供应商；自上而下解除引用）
+ERROR:  provider_finance_event is append-only
+CONTEXT:  PL/pgSQL function provider_finance_reject_event_mutation() line 3 at RAISE
+BEGIN
+
+## 删除后计数（应为全 0）
+provider|1
+provider_finance_event|1
+provider_finance_idempotency|1
+provider_resource|1
+provider_subscription_period|1
+
+## P4 runtime_state（应为 0 行 = 未激活）
+0

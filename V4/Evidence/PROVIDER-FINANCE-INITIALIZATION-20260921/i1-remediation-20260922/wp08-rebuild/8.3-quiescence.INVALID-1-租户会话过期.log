@@ -1,0 +1,277 @@
+# WP08 7.3 激活前静默演练（PFA-09）
+# 时刻(UTC): 2026-09-22T10:55:19Z
+# 候选镜像: qianliu-candidate/control-api:94482f06e5ac qianliu-candidate/control-api:c9bc9b93deb2 qianliu-candidate/gateway:94482f06e5ac qianliu-candidate/gateway:c9bc9b93deb2 qianliu-candidate/web:94482f06e5ac qianliu-candidate/web:c9bc9b93deb2 qianliu-candidate/worker:94482f06e5ac qianliu-candidate/worker:c9bc9b93deb2 
+# 上游: 仅本地桩 http://127.0.0.1:9299（记录每次入站调用）；无公网端口；无真实厂商请求
+
+=============== 0. 基线与清理：本机全部合成企业均无有效静默租约 ===============
+  A: status= active= drained=
+  C: status= active= drained=
+  E: status= active= drained=
+  F: status= active= drained=
+  基线：A ai_request=16；E finance_event=0 ledger_line=0
+
+=============== 1. [A] 静默租约时长边界：上限 60 分钟 ===============
+  duration_seconds=3601  -> 401  {"error":"unauthenticated","message":"会话无效或已过期"}
+  [FAIL] 越界时长 3601 被拒 期望=400 实际=401
+  duration_seconds=0     -> 401  {"error":"unauthenticated","message":"会话无效或已过期"}
+  [FAIL] 越界时长 0 被拒 期望=400 实际=401
+  duration_seconds=-5    -> 401  {"error":"unauthenticated","message":"会话无效或已过期"}
+  [FAIL] 越界时长 -5 被拒 期望=400 实际=401
+  [FAIL] 上限时长 3600 接受 期望=201 实际=401
+Traceback (most recent call last):
+  File "<string>", line 2, in <module>
+    s=datetime.datetime.fromisoformat(sys.argv[1].replace('Z','+00:00'))
+ValueError: Invalid isoformat string: ''
+  [FAIL] 租约时长恰为 3600 秒 期望=3600 实际=
+  lease started_at= expires_at= status=
+
+=============== 2. [A] 静默期内 Gateway admission 零上游 ===============
+  [PASS] 静默期内模型调用被拦 = 503
+  [PASS] 错误码为 enterprise_maintenance = enterprise_maintenance
+  [PASS] 标注 retryable = True
+  [FAIL] maintenance_until = 租约到期时间 期望= 实际=2026-09-22T11:54:55.969Z
+  [PASS] retry-after: 60 = 60
+  [PASS] 桩上游命中数（零上游） = 0
+  [PASS] ai_request 无新增 = 16
+  [PASS] upstream_attempt 无新增 = 16
+  [PASS] usage_event 无新增 = 16
+  [PASS] ledger_line 无新增 = 16
+  [PASS] 只读元数据 /v1/models 不受门禁 = 200
+  503 响应体（脱敏，无凭证）：{"error":{"message":"该企业正在进行资金账本初始化静默期，暂时停止新的模型调用，请稍后重试","type":"service_unavailable_error","code":"enterprise_maintenance","param":null,"retryable":true,"request_id":"24c866d8-ae9b-427c-880c-199d3712a567","maintenance_until":"2026-09-22T11:54:55.969Z"}}
+
+=============== 3. [A] 在途请求继续排空 ===============
+  [FAIL] 解除租约（带原因） 期望=200 实际=401
+  [FAIL] 在途请求提交后建立 600 秒静默租约 期望=201 实际=401
+  租约生效瞬间：active= remaining=s in_progress_requests=
+  [FAIL] in_progress_requests 期望≥1 实际=
+  [FAIL] 在途未排空时预检失败关闭 期望=409 实际=401
+  [FAIL] 错误码 activation_not_quiescent 期望=activation_not_quiescent 实际=unauthenticated
+  [FAIL] 拒绝原因指向在途未排空 不含 "在途" 实际=会话无效或已过期
+  [PASS] 静默期内新请求仍被拦 = 503
+  [FAIL] 在途慢响应正常完成（未被门禁中止） 期望=200 实际=503
+  [FAIL] 在途响应来自桩上游 不含 "wp08-stub-ok" 实际={"error":{"message":"该企业正在进行资金账本初始化静默期，暂时停止新的模型调用，请稍后重试","type":"service_unavailable_error","code":"enterprise_maintenance","param":null,"retryable":true,"request_id":"5de66e27-8384-4712-bb86-667e74900a0e","maintenance_until":"2026-09-22T11:54:55.969Z"}}
+  [FAIL] 在途请求已完成（排空） 期望=0 实际=
+  [FAIL] 未配对用量行=0 期望=0 实际=
+  [FAIL] 待结算交易=0 期望=0 实际=
+  [FAIL] 排空判定 drained 期望=True 实际=
+  [FAIL] 桩命中数=1（仅放行的在途请求；被拦请求零上游） 期望=1 实际=0
+  在途排空阻塞响应（脱敏）：{"error":"unauthenticated","message":"会话无效或已过期"}
+
+=============== 4. [A] Worker 共享门禁：静默企业被跳过 ===============
+  {
+      "quiescentIds": [
+          "11111111-1111-4111-8111-111111111111"
+      ],
+      "tick": {
+          "scanned": 0,
+          "created": 0,
+          "failures": [],
+          "skippedQuiescentEnterprises": []
+      }
+  }
+  [PASS] Worker 门禁（listQuiescentEnterpriseIds）恰好只列出本轮静默企业 A = ["11111111-1111-4111-8111-111111111111"]
+  [FAIL] 600 秒租约仍有充足剩余（insufficient=false） 期望=False 实际=
+  [FAIL] 剩余时间约 600 秒 期望∈[560,600] 实际=
+
+=============== 5. [A] 租约到期自动恢复 ===============
+  [FAIL] 控制面租约自动转为 EXPIRED 期望=EXPIRED 实际=
+  [FAIL] active=false 期望=False 实际=
+  [FAIL] activation-state 亦显示 active=false 期望=False 实际=
+  [FAIL] strict_writes_enabled 未被静默演练改变 期望=False 实际=
+  [PASS] 到期后数据面流量自动恢复（不再 503） = 200
+  [PASS] 到期后桩上游收到 1 次调用 = 1
+  Worker 门禁（到期后）: []
+  [PASS] 到期后企业 A 不再被 Worker 门禁跳过
+
+=============== 6. [E] 该租约下生成的旧候选在租约过期后不得继续激活 ===============
+  [FAIL] 建立 3600 秒静默租约（E） 期望=201 实际=401
+  [FAIL] 预检返回 200 期望=200 实际=401
+  [FAIL] 预检结论 GO_CANDIDATE 期望=GO_CANDIDATE 实际=
+  candidate_id=
+  candidate_hash=
+  preview_committed_at=
+  expires_at=
+Traceback (most recent call last):
+  File "<string>", line 2, in <module>
+    s=datetime.datetime.fromisoformat(sys.argv[1].replace('Z','+00:00'))
+ValueError: Invalid isoformat string: ''
+  [FAIL] 候选 TTL 恰为 1800 秒（30 分钟） 期望=1800 实际=
+  [FAIL] 库层 expires_at=created_at+30min（CHECK 强制） 期望=true 实际=ERROR:  invalid input syntax for type uuid: ""
+LINE 1: ...)::text from provider_finance_activation_attempt where id=''
+                                                                     ^
+  [PASS] 连续读取不滑动 TTL = 
+  [FAIL] 失败探针（哈希不符）失败关闭 期望=409 实际=401
+  [FAIL] 失败探针错误码 candidate_stale 期望=candidate_stale 实际=unauthenticated
+  [PASS] 失败探针后 TTL 仍不滑动 = 
+  [FAIL] TTL 由库层 CHECK 固定（读取/失败/重放均不能延长） 期望=true 实际=ERROR:  invalid input syntax for type uuid: ""
+LINE 1: ...)::text from provider_finance_activation_attempt where id=''
+                                                                     ^
+  [FAIL] 候选当前仍在有效 TTL 内 期望=true 实际=ERROR:  invalid input syntax for type uuid: ""
+LINE 1: ...)::text from provider_finance_activation_attempt where id=''
+                                                                     ^
+  [FAIL] 租约过期后旧候选激活被拒 期望=409 实际=401
+  [FAIL] 错误码 activation_not_quiescent 期望=activation_not_quiescent 实际=unauthenticated
+  [FAIL] 候选仍在有效 TTL 内（证明拒绝来自租约而非候选） 期望=true 实际=ERROR:  invalid input syntax for type uuid: ""
+LINE 1: ...)::text from provider_finance_activation_attempt where id=''
+                                                                     ^
+  [FAIL] 候选状态仍为 PREVIEWED 期望=PREVIEWED 实际=ERROR:  invalid input syntax for type uuid: ""
+LINE 1: ... status from provider_finance_activation_attempt where id=''
+                                                                     ^
+  [PASS] 未发生任何资金写入（finance_event） = 0
+  [PASS] 未发生任何账本写入（ledger_line） = 0
+  [FAIL] strict_writes_enabled 仍未开启 期望=False 实际=
+  拒绝响应（脱敏）：{"error":"unauthenticated","message":"会话无效或已过期"}
+
+=============== 7. [E] 激活需剩余 ≥5 分钟 ===============
+  [FAIL] 重建 3600 秒租约 期望=201 实际=401
+  [FAIL] 剩余时间约 120 秒 期望∈[100,140] 实际=
+  [FAIL] 标记为不足以激活 期望=True 实际=
+  [FAIL] 剩余不足 5 分钟时激活被拒 期望=409 实际=401
+  [FAIL] 错误码 activation_not_quiescent 期望=activation_not_quiescent 实际=unauthenticated
+  [FAIL] 提示重新建立静默期 不含 "静默期" 实际=会话无效或已过期
+  [FAIL] 返回剩余秒数约 120 期望∈[100,140] 实际=
+  [PASS] 仍未发生资金写入 = 0
+  拒绝响应（脱敏）：{"error":"unauthenticated","message":"会话无效或已过期"}
+
+=============== 8. [C] 候选 TTL 30 分钟：过期候选不可激活 ===============
+  [FAIL] 建立 3600 秒租约（C） 期望=201 实际=401
+  [FAIL] 预检成功（C） 期望=200 实际=401
+  [FAIL] 候选 TTL 由库层 CHECK 固定为 30 分钟 期望=true 实际=ERROR:  invalid input syntax for type uuid: ""
+LINE 1: ...)::text from provider_finance_activation_attempt where id=''
+                                                                     ^
+  前移候选行 id=ERROR:  invalid input syntax for type uuid: ""（created_at=now()-31min；原行已按本地时钟注入移除）
+  [FAIL] 前移候选仍满足库层 TTL CHECK 期望=true 实际=ERROR:  invalid input syntax for type uuid: "ERROR:  invalid input syntax for type uuid: """
+LINE 1: ...from provider_finance_activation_attempt where id='ERROR:  i...
+                                                             ^
+  [FAIL] 前移候选已过期 期望=true 实际=ERROR:  invalid input syntax for type uuid: "ERROR:  invalid input syntax for type uuid: """
+LINE 1: ...from provider_finance_activation_attempt where id='ERROR:  i...
+                                                             ^
+  [FAIL] 成为该企业最新候选（activation-state 可见且已标记过期） 期望=ERROR:  invalid input syntax for type uuid: ""|True 实际=|
+  [FAIL] 过期候选激活被拒 期望=409 实际=400
+  [FAIL] 错误码 candidate_expired 期望=candidate_expired 实际=Bad Request
+  [PASS] 未发生资金写入（C） = 0
+  [FAIL] strict_writes_enabled 未开启（C） 期望=False 实际=
+  拒绝响应（脱敏）：{"statusCode":400,"code":"FST_ERR_CTP_INVALID_JSON_BODY","error":"Bad Request","message":"Body is not valid JSON but content-type is set to 'application/json'"}
+
+=============== 9. [P4] 正向路径：TTL 内 + 剩余 ≥5 分钟 → 激活成功与幂等重放 ===============
+  本次正向激活企业：P4 = 77777777-0000-4000-8000-000000000071（池中首个尚未激活者）
+  [FAIL] 建立 3600 秒静默租约（P4） 期望=201 实际=401
+  [FAIL] 激活前 strict_writes_enabled=false 期望=False 实际=
+  [PASS] 激活前无已激活回执 = 
+  [FAIL] 预检成功（F） 期望=200 实际=401
+  [FAIL] 预检结论 GO_CANDIDATE（F） 期望=GO_CANDIDATE 实际=
+  [FAIL] 静默租约剩余充足（insufficient=false） 期望=False 实际=
+  [FAIL] 激活成功 期望=200 实际=401
+  [FAIL] 非重放（首次） 期望=False 实际=
+  [FAIL] 回执守恒通过 期望=True 实际=
+  回执：candidate_id= activatedAt= factCounts=
+  [FAIL] 相同幂等键重放成功 期望=200 实际=401
+  [FAIL] 标记为重放 期望=True 实际=
+  [PASS] 重放回执与首次一致 = 
+  [FAIL] strict_writes_enabled 已开启 期望=True 实际=
+  [FAIL] activation_receipt 已落库 期望=True 实际=False
+  [PASS] activated_at 已落库 = 
+  [FAIL] 库层 strict_writes_enabled=true 期望=true 实际=
+  [FAIL] 候选行状态 ACTIVATED 期望=ACTIVATED 实际=ERROR:  invalid input syntax for type uuid: ""
+LINE 1: ... status from provider_finance_activation_attempt where id=''
+                                                                     ^
+-- 附加观测：激活终态不可逆（同企业不可再创建候选；租约仍有效，故先过静默门禁才会到该判定）
+  [FAIL] 已激活企业不可重复创建初始化候选 期望=409 实际=401
+  [FAIL] 错误码 already_activated 期望=already_activated 实际=unauthenticated
+
+=============== 10. [P4] Worker 自动续订：静默期跳过 → 到期自动恢复 ===============
+-- 建合成订阅（CODING_PLAN，周期 [上海昨日零点, 上海今日零点) ）
+  WP08JSON {"mode":"fixture","todayShanghai":"2026-09-22","templatePeriod":["2026-09-20T16:00:00.000Z","2026-09-21T16:00:00.000Z"],"eventId":"dc277efc-ef3e-4cd8-b52d-b108fa6eebce","resourceId":"77777777-3333-4333-8333-77770000aa02"}
+  -- fixture:
+  {
+   "mode": "fixture",
+   "todayShanghai": "2026-09-22",
+   "templatePeriod": [
+    "2026-09-20T16:00:00.000Z",
+    "2026-09-21T16:00:00.000Z"
+   ],
+   "eventId": "dc277efc-ef3e-4cd8-b52d-b108fa6eebce",
+   "resourceId": "77777777-3333-4333-8333-77770000aa02"
+  }
+  [PASS] 合成订阅已写入 含 "templatePeriod"
+  [FAIL] 自动续订窗口已到期（scanned ≥ 1） 期望=1 实际=0
+-- 建立静默租约（F）后跑一次真实 Worker tick
+  [FAIL] 建立 3600 秒静默租约（F） 期望=201 实际=401
+  WP08JSON {"tick":{"scanned":0,"created":0,"failures":[],"skippedQuiescentEnterprises":[]}}
+  -- tick:
+  {
+   "tick": {
+    "scanned": 0,
+    "created": 0,
+    "failures": [],
+    "skippedQuiescentEnterprises": []
+   }
+  }
+  [PASS] 静默期 tick 未创建续订 = 0
+  [FAIL] 静默期 tick 将该企业列为跳过 不含 "77777777-0000-4000-8000-000000000071" 实际=WP08JSON {"tick":{"scanned":0,"created":0,"failures":[],"skippedQuiescentEnterprises":[]}}
+-- tick:
+{
+ "tick": {
+  "scanned": 0,
+  "created": 0,
+  "failures": [],
+  "skippedQuiescentEnterprises": []
+ }
+}
+-- 租约到期后（本地时钟注入）再跑一次 tick
+  WP08JSON {"tick":{"scanned":0,"created":0,"failures":[],"skippedQuiescentEnterprises":[]}}
+  -- tick:
+  {
+   "tick": {
+    "scanned": 0,
+    "created": 0,
+    "failures": [],
+    "skippedQuiescentEnterprises": []
+   }
+  }
+  [FAIL] 到期后 tick 自动恢复并创建 1 条续订 期望=1 实际=0
+  [PASS] 到期后不再列为跳过 = []
+  WP08JSON {"events":[{"id":"dc277efc-ef3e-4cd8-b52d-b108fa6eebce","event_type":"CODING_PLAN_PURCHASE","source":"ADMIN","cash_paid_cny":"199.00000000","occurred_at":"2026-09-20T16:00:00.000Z"}]}
+  -- events:
+  {
+   "events": [
+    {
+     "id": "dc277efc-ef3e-4cd8-b52d-b108fa6eebce",
+     "event_type": "CODING_PLAN_PURCHASE",
+     "source": "ADMIN",
+     "cash_paid_cny": "199.00000000",
+     "occurred_at": "2026-09-20T16:00:00.000Z"
+    }
+   ]
+  }
+  [FAIL] 存在 SYSTEM_RENEWAL 资金事件（续订已真实落库） 不含 "SYSTEM_RENEWAL" 实际=WP08JSON {"events":[{"id":"dc277efc-ef3e-4cd8-b52d-b108fa6eebce","event_type":"CODING_PLAN_PURCHASE","source":"ADMIN","cash_paid_cny":"199.00000000","occurred_at":"2026-09-20T16:00:00.000Z"}]}
+-- events:
+{
+ "events": [
+  {
+   "id": "dc277efc-ef3e-4cd8-b52d-b108fa6eebce",
+   "event_type": "CODING_PLAN_PURCHASE",
+   "source": "ADMIN",
+   "cash_paid_cny": "199.00000000",
+   "occurred_at": "2026-09-20T16:00:00.000Z"
+  }
+ ]
+}
+  [FAIL] 续订事件恰好 1 条 期望=1 实际=0
+  [PASS] 重复 tick 不重复扣费（幂等） = 0
+
+=============== 11. 收尾：清理演练租约（不改动任何资金事实） ===============
+  release(A) -> 401
+  release(C) -> 401
+  release(E) -> 401
+  release(P4) -> 401
+  演练涉及企业的 strict_writes_enabled（终态）：
+    A = 
+    C = 
+    E = 
+    P4 = 
+  A/C/E 全程 false（演练零资金写入）；P4 为本地合成企业上的一次性正向激活（不可逆，仅本地一次性库）。
+
+# 结束(UTC): 2026-09-22T10:55:48Z
+# 断言汇总: PASS=28 FAIL=77
+# RESULT: NO-GO

@@ -40,7 +40,15 @@ beforeAll(async () => {
   await migrateToLatest(db);
 
   // 种子：企业 + 管理员
-  await db.insertInto("enterprise").values({ id: ENT_ID, name: "仟流测试企业" }).execute();
+  // 登录路由是一期单企业口径（取 `created_at` 最早、同值时按 `id` 排序的第一条企业）。
+  // 迁移里 `defaultTo("now()")` 落库为**常量默认值**，若本文件后续再插入一条企业，两条会拿到
+  // 完全相同的 `created_at`，谁被选中就只取决于随机 UUID 的字典序 —— 约 50% 概率把会话落到
+  // 隔离企业上，导致 `loginAsAdmin()` 取到 401。显式锚定被测企业更早创建以消除该随机性。
+  await db.insertInto("enterprise").values({
+    id: ENT_ID,
+    name: "仟流测试企业",
+    created_at: new Date("2020-01-01T00:00:00.000Z"),
+  }).execute();
   await db.insertInto("unified_model").values({
     id: ACCESS_MODEL_ID,
     enterprise_id: ENT_ID,
@@ -238,7 +246,11 @@ describe("W02 认证与 Principal", () => {
     const otherAdminId = randomUUID();
     await db
       .insertInto("enterprise")
-      .values({ id: otherEnterpriseId, name: "隔离企业" })
+      .values({
+        id: otherEnterpriseId,
+        name: "隔离企业",
+        created_at: new Date("2020-01-02T00:00:00.000Z"),
+      })
       .execute();
     await db
       .insertInto("admin_user")

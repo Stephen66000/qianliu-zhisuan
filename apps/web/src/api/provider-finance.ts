@@ -18,6 +18,34 @@ export const FINANCE_QUERY_KEYS = {
   periods: (resourceId: string) => ["provider-finance", "periods", resourceId] as const,
 };
 
+/**
+ * 资金事实变化后的统一缓存刷新（PFU-04 Scenario: Activation succeeds）。
+ *
+ * 资金事实会影响厂商资源、资金摘要/余额/周期、经营账单（含各分页前缀）、
+ * 经营分析、首页聚合，以及资源利用/采购/采购复核视图，因此这里集中一处失效，
+ * 避免调用点各自漏刷一个命名空间。
+ * 初始化激活（`provider-finance-activation.ts`）与日常入账共用本函数。
+ * 注意按命名空间前缀失效（不带月份），因为激活会影响所有月份的利用/采购视图。
+ */
+export function invalidateProviderFinanceCaches(client: {
+  invalidateQueries: (filters: {
+    queryKey?: readonly unknown[];
+    predicate?: (query: { queryKey: readonly unknown[] }) => boolean;
+  }) => Promise<unknown>;
+}): void {
+  void client.invalidateQueries({ queryKey: ["provider-finance"] });
+  void client.invalidateQueries({ queryKey: ["provider-resources"] });
+  void client.invalidateQueries({ queryKey: ["operating-bill"] });
+  void client.invalidateQueries({ queryKey: ["operating-analysis"] });
+  void client.invalidateQueries({
+    predicate: (query) => String(query.queryKey[0]).startsWith("operating-bill-"),
+  });
+  void client.invalidateQueries({ queryKey: ["dashboard"] });
+  void client.invalidateQueries({ queryKey: ["resource-utilization"] });
+  void client.invalidateQueries({ queryKey: ["resource-purchases"] });
+  void client.invalidateQueries({ queryKey: ["procurement-review"] });
+}
+
 export function currentShanghaiMonth(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit",
@@ -72,17 +100,7 @@ export function useRecordProviderFinance(resourceId: string | null) {
         ? post(`/provider-resources/${resourceId}/finance/recharges`, input.payload)
         : post(`/provider-resources/${resourceId}/finance/subscriptions`, input.payload);
     },
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["provider-finance"] });
-      void client.invalidateQueries({ queryKey: ["operating-bill"] });
-      void client.invalidateQueries({ queryKey: ["operating-analysis"] });
-      void client.invalidateQueries({
-        predicate: (query) =>
-          String(query.queryKey[0]).startsWith("operating-bill-"),
-      });
-      void client.invalidateQueries({ queryKey: ["dashboard"] });
-      void client.invalidateQueries({ queryKey: ["provider-resources"] });
-    },
+    onSuccess: () => invalidateProviderFinanceCaches(client),
   });
 }
 
@@ -96,16 +114,6 @@ export function useConfirmProviderFinanceDuplicate() {
         request_hash: input.requestHash,
         idempotency_key: input.idempotencyKey,
       }),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["provider-finance"] });
-      void client.invalidateQueries({ queryKey: ["operating-bill"] });
-      void client.invalidateQueries({ queryKey: ["operating-analysis"] });
-      void client.invalidateQueries({
-        predicate: (query) =>
-          String(query.queryKey[0]).startsWith("operating-bill-"),
-      });
-      void client.invalidateQueries({ queryKey: ["dashboard"] });
-      void client.invalidateQueries({ queryKey: ["provider-resources"] });
-    },
+    onSuccess: () => invalidateProviderFinanceCaches(client),
   });
 }

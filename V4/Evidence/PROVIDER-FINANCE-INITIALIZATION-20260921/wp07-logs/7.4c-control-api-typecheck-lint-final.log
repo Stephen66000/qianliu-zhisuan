@@ -1,0 +1,5 @@
+# WP07 | 7.4b control-api typecheck + lint（终审锚定轮）| HEAD=f6045a55c1b608c34653b47d811a92d521b1f2a8 | 2026-09-21T21:18:32Z
+$ tsc -p tsconfig.json --noEmit
+TYPECHECK_EXIT=0
+$ eslint src --max-warnings=0
+LINT_EXIT=0

@@ -18,8 +18,13 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
   const passwordHash = await hashPassword(password);
+  // 登录路由是一期单企业口径（取 `created_at` 最早、同值时按 `id` 排序的第一条企业）。
+  // 迁移里 `defaultTo("now()")` 落库为**常量默认值**，同一语句插入的两条企业会得到完全相同
+  // 的 `created_at`，此时谁被选中只取决于随机 UUID 的字典序 —— 夹具会约 50% 概率把会话落到
+  // `deploy-b` 企业上，导致登录取不到 `deploy-a`。显式锚定被测企业更早创建以消除该随机性。
   await db.insertInto("enterprise").values([
-    { id: enterpriseA, name: "deploy-a" }, { id: enterpriseB, name: "deploy-b" },
+    { id: enterpriseA, name: "deploy-a", created_at: new Date("2020-01-01T00:00:00.000Z") },
+    { id: enterpriseB, name: "deploy-b", created_at: new Date("2020-01-02T00:00:00.000Z") },
   ]).execute();
   await db.insertInto("admin_user").values({
     enterprise_id: enterpriseA, username: "deploy-a", display_name: "deploy-a",

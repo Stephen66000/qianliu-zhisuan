@@ -71,6 +71,7 @@ export function ProviderFinancePanel({
   const [cashPaidCny, setCashPaidCny] = useState("");
   const [occurredAt, setOccurredAt] = useState(localShanghaiNow);
   const [description, setDescription] = useState("");
+  const [evidenceRef, setEvidenceRef] = useState("");
   const [externalReference, setExternalReference] = useState("");
   const [subscriptionKind, setSubscriptionKind] = useState<"PURCHASE" | "RENEWAL">("RENEWAL");
   const [productName, setProductName] = useState("");
@@ -104,7 +105,7 @@ export function ProviderFinancePanel({
     providers.find((provider) => provider.id === resource.provider_id)?.name ?? "未知厂商";
 
   const resetEntry = () => {
-    setAmount(""); setCashPaidCny(""); setDescription(""); setExternalReference("");
+    setAmount(""); setCashPaidCny(""); setDescription(""); setEvidenceRef(""); setExternalReference("");
     setPeriodStart(""); setPeriodEnd(""); setOccurredAt(localShanghaiNow());
     setValidationError(""); setIdempotencyKey(crypto.randomUUID());
     setDuplicate(null); setAutoRenew(true);
@@ -118,6 +119,15 @@ export function ProviderFinancePanel({
     }
     if (kind === "CODING_PLAN" && (!productName.trim() || !periodStart)) {
       setValidationError("Coding Plan 必须填写产品名称和服务周期开始日");
+      return;
+    }
+    // PFH-06：日常充值、购买与续费同样必须提供说明与证据引用，不得跳过。
+    if (!description.trim()) {
+      setValidationError("必须填写事实说明");
+      return;
+    }
+    if (!evidenceRef.trim()) {
+      setValidationError("必须填写证据引用");
       return;
     }
     setValidationError("");
@@ -134,7 +144,8 @@ export function ProviderFinancePanel({
       cash_paid_cny: cashPaidCny,
       occurred_at: shanghaiIso(occurredAt),
       ...(externalReference.trim() ? { external_reference: externalReference.trim() } : {}),
-      ...(description.trim() ? { description: description.trim() } : {}),
+      description: description.trim(),
+      evidence_ref: evidenceRef.trim(),
       idempotency_key: idempotencyKey,
     } }, { onSuccess: () => { resetEntry(); setEntryOpen(false); },
       onError: (error) => {
@@ -211,7 +222,8 @@ export function ProviderFinancePanel({
           <FormField htmlFor="finance-cash" label="人民币实付"><MoneyAmountInput id="finance-cash" onChange={setCashPaidCny} value={cashPaidCny} /></FormField>
           <FormField htmlFor="finance-occurred" label={kind === "API" ? "充值时间" : "扣费时间"}><input className={INPUT_CLASS} id="finance-occurred" onChange={(event) => setOccurredAt(event.target.value)} type="datetime-local" value={occurredAt} /></FormField>
           <FormField htmlFor="finance-reference" label="付款凭证号（可选）"><input className={INPUT_CLASS} id="finance-reference" onChange={(event) => setExternalReference(event.target.value)} value={externalReference} /></FormField>
-          <div className="md:col-span-2"><FormField htmlFor="finance-description" label="说明"><textarea className={`${INPUT_CLASS} min-h-20 w-full py-2`} id="finance-description" onChange={(event) => setDescription(event.target.value)} value={description} /></FormField></div>
+          <div className="md:col-span-2"><FormField hint="必填：说明本次资金事实的用途与来源" htmlFor="finance-description" label="说明"><textarea className={`${INPUT_CLASS} min-h-20 w-full py-2`} id="finance-description" onChange={(event) => setDescription(event.target.value)} value={description} /></FormField></div>
+          <div className="md:col-span-2"><FormField hint="必填：可追溯的证据引用，例如付款凭证号、订单号或快照编号" htmlFor="finance-evidence" label="证据引用"><input className={INPUT_CLASS} id="finance-evidence" onChange={(event) => setEvidenceRef(event.target.value)} value={evidenceRef} /></FormField></div>
         </div>
         {kind === "CODING_PLAN" ? <p className="mt-3 text-[12px] text-ql-fg-secondary">勾选后按登记金额和周期自动续订，可在当前服务周期旁取消。</p> : null}
         {validationError || mutation.error || confirmDuplicate.error ? <p className="mt-3 text-[12px] text-ql-danger" role="alert">{validationError || mutation.error?.message || confirmDuplicate.error?.message}</p> : null}

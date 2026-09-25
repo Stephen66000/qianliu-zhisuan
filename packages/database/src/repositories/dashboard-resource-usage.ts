@@ -125,6 +125,7 @@ function groupKey(providerCode: string, mode: Mode): string {
   return `${providerCode}:${mode}`;
 }
 
+/** 管理展示只汇总成功请求；失败 Attempt 的诊断 Token 留在账本与资金完整性口径。 */
 export async function queryUsageRows(
   db: Kysely<Database>, enterpriseId: string, start: Date, end: Date,
 ): Promise<UsageRow[]> {
@@ -158,12 +159,7 @@ export async function queryUsageRows(
         ON um.id = ar.unified_model_id AND um.enterprise_id = ${enterpriseId}
      WHERE ll.enterprise_id = ${enterpriseId}
        AND ll.created_at >= ${start} AND ll.created_at < ${end}
-       AND (
-         ar.status = 'SUCCEEDED'
-         OR (ll.raw_input_tokens > 0 OR ll.raw_output_tokens > 0
-             OR COALESCE(ll.raw_cache_tokens, 0) > 0 OR COALESCE(ll.raw_reasoning_tokens, 0) > 0
-             OR COALESCE(ll.api_cost, 0) > 0)
-       )
+       AND ar.status = 'SUCCEEDED'
      GROUP BY p.code, p.name, pr.mode, pr.id, pr.name, pr.status, ua.upstream_model,
               ar.unified_model_id, COALESCE(um.alias, ar.unified_model)
      ORDER BY p.code, pr.mode, COALESCE(um.alias, ar.unified_model)

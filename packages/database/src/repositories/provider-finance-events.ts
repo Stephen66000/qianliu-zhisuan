@@ -5,7 +5,10 @@ import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js
 import { markAllocationDirty, shanghaiMonthOf } from "./project-allocation-common.js";
 import { Money, eventView, lockResource, money, stableHash, validateOrdinaryOccurredAt } from "./provider-finance-core.js";
 import {
-  PROVIDER_FINANCE_CUTOVER, ProviderFinanceError, type DuplicateConfirmationInput,
+  insertFinanceEventTx, insertOpeningBalanceTx, insertRechargeTx, insertSubscriptionTx,
+} from "./provider-finance-activation-writes.js";
+import {
+  ProviderFinanceError, type DuplicateConfirmationInput,
   type FinanceCurrency, type FinanceEventInput, type FinanceEventType, type FinanceEventView,
   type OpeningCorrectionInput, type ReverseFinanceEventInput, type SubscriptionInput,
 } from "./provider-finance-types.js";
@@ -22,35 +25,20 @@ export class ProviderFinanceEventRepository {
   }
 
   async recordOpeningBalance(input: FinanceEventInput): Promise<FinanceEventView> {
-    if (input.occurredAt.getTime() !== PROVIDER_FINANCE_CUTOVER.getTime()) {
-      throw new ProviderFinanceError("INVALID_REQUEST", "期初余额时间必须等于新账本切换时点");
-    }
-    return this.recordSimpleEvent("API_OPENING_BALANCE", input, null);
+    // F-P2-6：期初时点校验在事务内持锁后进行（需资源 created_at 作下界、
+    // 既有期初行作多币种同点约束），见 recordSimpleEvent 的 API_OPENING_BALANCE 分支。
+    return this.recordSimpleEvent("API_OPENING_BALANCE", input);
   }
 
   async recordRecharge(input: FinanceEventInput): Promise<FinanceEventView> {
     validateOrdinaryOccurredAt(input.occurredAt);
-    return this.recordSimpleEvent("API_RECHARGE", input, input.cashPaidCny ?? null);
+    return this.recordSimpleEvent("API_RECHARGE", input);
   }
 
   async recordSubscription(input: SubscriptionInput): Promise<{
     event: FinanceEventView; periodId: string;
   }> {
     validateOrdinaryOccurredAt(input.occurredAt);
-    if (input.periodStart.getTime() >= input.periodEndExclusive.getTime()) {
-      throw new ProviderFinanceError("INVALID_REQUEST", "订阅周期结束必须晚于开始");
-    }
-    const shanghaiOffset = 8 * 3600_000;
-    const dayMs = 24 * 3600_000;
-    if ((input.periodStart.getTime() + shanghaiOffset) % dayMs !== 0
-      || (input.periodEndExclusive.getTime() + shanghaiOffset) % dayMs !== 0) {
-      throw new ProviderFinanceError("INVALID_REQUEST", "订阅周期必须使用上海自然日零点边界");
-    }
-    const shanghaiDay = (value: Date) => new Date(value.getTime() + 8 * 3600_000)
-      .toISOString().slice(0, 10);
-    if (shanghaiDay(input.occurredAt) !== shanghaiDay(input.periodStart)) {
-      throw new ProviderFinanceError("INVALID_REQUEST", "扣费日期必须等于服务周期开始日");
-    }
     const eventType = input.kind === "PURCHASE"
       ? "CODING_PLAN_PURCHASE" : "CODING_PLAN_RENEWAL";
     const requestHash = stableHash({ eventType, enterpriseId: input.enterpriseId,
@@ -91,29 +79,14 @@ export class ProviderFinanceEventRepository {
       await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const duplicate = await this.authorizeDuplicate(trx, eventType, input, requestHash);
       if (duplicate.requirement) return { duplicate: duplicate.requirement };
-      const row = await trx.insertInto("provider_finance_event").values({
-        enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
-        event_type: eventType, account_amount: money(input.accountAmount),
-        account_currency: input.accountCurrency, cash_paid_cny: money(input.cashPaidCny!),
-        occurred_at: input.occurredAt, external_reference: input.externalReference ?? null,
-        reversal_of_event_id: null, correction_of_event_id: null, reconciliation_case_id: null,
-        description: input.description ?? null, evidence_ref: input.evidenceRef ?? null,
-        source: "ADMIN", idempotency_key: input.idempotencyKey,
-        created_by_admin_user_id: input.adminId,
-      }).returningAll().executeTakeFirstOrThrow();
-      const period = await trx.insertInto("provider_subscription_period").values({
-        enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
-        finance_event_id: row.id, product_name: input.productName,
-        period_start: input.periodStart, period_end_exclusive: input.periodEndExclusive,
-        source: input.kind, migration_source_record_id: null, reversed_by_event_id: null,
-        created_by_admin_user_id: input.adminId,
-      }).returning("id").executeTakeFirstOrThrow();
+      // 事件与周期由 3.1 原语同生同死写入，激活事务复用同一段代码。
+      const written = await insertSubscriptionTx(trx, input);
       // A newly registered subscription starts a new standing renewal instruction; replay does not undo cancellation.
       await trx.updateTable("provider_resource").set({ subscription_auto_renew_enabled: input.autoRenew ?? true })
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.resourceId).execute();
-      const response = { event: eventView(row), periodId: period.id };
-      await this.auditAndRemember(trx, input, eventType, row.id, requestHash, response);
-      await this.consumeDuplicateCandidate(trx, duplicate.candidateId, row.id);
+      const response = { event: written.event, periodId: written.periodId };
+      await this.auditAndRemember(trx, input, eventType, written.event.id, requestHash, response);
+      await this.consumeDuplicateCandidate(trx, duplicate.candidateId, written.event.id);
       // CODING_PLAN 现金事件是归集余量（C08）的 authority：同事务按事件月推脏，
       // 使套餐购买/续订后余量表随下一个批次刷新，而不是等下次任意输入变更。
       await markAllocationDirty(trx, input.enterpriseId, [shanghaiMonthOf(input.occurredAt)]);
@@ -129,7 +102,6 @@ export class ProviderFinanceEventRepository {
   private async recordSimpleEvent(
     eventType: "API_OPENING_BALANCE" | "API_RECHARGE",
     input: FinanceEventInput,
-    expectedCash: string | null,
   ): Promise<FinanceEventView> {
     const requestHash = stableHash({ eventType, enterpriseId: input.enterpriseId,
       resourceId: input.resourceId, adminId: input.adminId, accountAmount: input.accountAmount,
@@ -141,25 +113,43 @@ export class ProviderFinanceEventRepository {
       if (earlyReplay) return { ...earlyReplay as FinanceEventView, replayed: true };
       const resource = await lockResource(trx, input.enterpriseId, input.resourceId);
       if (resource.mode !== "API") throw new ProviderFinanceError("INVALID_MODE", "请选择 API 资源");
+      // F-P2-6：激活后资源级期初使用资源自身生效时点——不得早于资源创建、不得在未来，
+      // 多币种期初保持同一资源生效时点（首个期初锚定；历史初始化路径不经此入口）。
+      if (eventType === "API_OPENING_BALANCE") {
+        if (input.occurredAt.getTime() < resource.created_at.getTime()) {
+          throw new ProviderFinanceError("INVALID_REQUEST", "期初时间不得早于资源创建时点");
+        }
+        if (input.occurredAt.getTime() > Date.now()) {
+          throw new ProviderFinanceError("INVALID_REQUEST", "期初时间不能晚于当前时间");
+        }
+        const existingOpenings = await trx.selectFrom("provider_finance_event")
+          .select("occurred_at")
+          .where("enterprise_id", "=", input.enterpriseId)
+          .where("provider_resource_id", "=", input.resourceId)
+          .where("event_type", "=", "API_OPENING_BALANCE")
+          .execute();
+        if (existingOpenings.some((row) => row.occurred_at.getTime() !== input.occurredAt.getTime())) {
+          throw new ProviderFinanceError("INVALID_REQUEST", "多币种期初必须使用同一资源生效时点");
+        }
+      }
       const replay = await this.replay(trx, input, requestHash);
       if (replay) return { ...replay as FinanceEventView, replayed: true };
       await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
       const duplicate = await this.authorizeDuplicate(trx, eventType, input, requestHash);
       if (duplicate.requirement) return { duplicate: duplicate.requirement };
-      const row = await trx.insertInto("provider_finance_event").values({
-        enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
-        event_type: eventType, account_amount: money(input.accountAmount),
-        account_currency: input.accountCurrency,
-        cash_paid_cny: expectedCash === null ? null : money(expectedCash),
-        occurred_at: input.occurredAt, external_reference: input.externalReference ?? null,
-        reversal_of_event_id: null, correction_of_event_id: null, reconciliation_case_id: null,
-        description: input.description ?? null, evidence_ref: input.evidenceRef ?? null,
-        source: "ADMIN", idempotency_key: input.idempotencyKey,
-        created_by_admin_user_id: input.adminId,
-      }).returningAll().executeTakeFirstOrThrow();
-      const response = eventView(row);
-      await this.auditAndRemember(trx, input, eventType, row.id, requestHash, response);
-      await this.consumeDuplicateCandidate(trx, duplicate.candidateId, row.id);
+      // 期初与充值由 3.1 原语落库：期初时点由入口语义决定（资源级=资源生效时点，
+      // 历史初始化=切换时点缺省）且不带实付，充值强制正金额。
+      const response = eventType === "API_OPENING_BALANCE"
+        ? await insertOpeningBalanceTx(trx, {
+          enterpriseId: input.enterpriseId, resourceId: input.resourceId, adminId: input.adminId,
+          accountAmount: input.accountAmount, accountCurrency: input.accountCurrency,
+          occurredAt: input.occurredAt,
+          description: input.description ?? null, evidenceRef: input.evidenceRef ?? null,
+          externalReference: input.externalReference ?? null, idempotencyKey: input.idempotencyKey,
+        })
+        : await insertRechargeTx(trx, input);
+      await this.auditAndRemember(trx, input, eventType, response.id, requestHash, response);
+      await this.consumeDuplicateCandidate(trx, duplicate.candidateId, response.id);
       return response;
     });
     if ("duplicate" in result) {
@@ -328,31 +318,37 @@ export class ProviderFinanceEventRepository {
   }
 
   async recordOpeningCorrection(input: OpeningCorrectionInput): Promise<FinanceEventView> {
-    if (input.occurredAt.getTime() !== PROVIDER_FINANCE_CUTOVER.getTime()) {
-      throw new ProviderFinanceError("INVALID_REQUEST", "期初更正时间必须等于新账本切换时点");
-    }
     const requestHash = stableHash({ ...input, occurredAt: input.occurredAt.toISOString() });
     return this.db.transaction().execute(async (trx) => {
       const earlyReplay = await this.replay(trx, input, requestHash);
       if (earlyReplay) return { ...earlyReplay as FinanceEventView, replayed: true };
       const resource = await lockResource(trx, input.enterpriseId, input.resourceId);
       if (resource.mode !== "API") throw new ProviderFinanceError("INVALID_MODE", "请选择 API 资源");
+      // F-P2-6：期初更正追随其原始期初时点（初始化期初仍锚定切换时点，口径不变）。
+      const original = await trx.selectFrom("provider_finance_event")
+        .select(["event_type", "occurred_at"])
+        .where("enterprise_id", "=", input.enterpriseId)
+        .where("id", "=", input.openingEventId)
+        .executeTakeFirst();
+      if (!original || original.event_type !== "API_OPENING_BALANCE") {
+        throw new ProviderFinanceError("NOT_FOUND", "原始期初事件不存在");
+      }
+      if (input.occurredAt.getTime() !== original.occurred_at.getTime()) {
+        throw new ProviderFinanceError("INVALID_REQUEST", "期初更正时间必须等于原始期初时点");
+      }
       const replay = await this.replay(trx, input, requestHash);
       if (replay) return { ...replay as FinanceEventView, replayed: true };
       await guardOperatingBillLedgerWrite(trx, input.enterpriseId, input.occurredAt);
-      const row = await trx.insertInto("provider_finance_event").values({
-        enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
-        event_type: "API_OPENING_BALANCE_CORRECTION", account_amount: money(input.accountAmount),
-        account_currency: input.accountCurrency, cash_paid_cny: null,
-        occurred_at: PROVIDER_FINANCE_CUTOVER, external_reference: null,
-        reversal_of_event_id: null, correction_of_event_id: input.openingEventId,
-        reconciliation_case_id: null, description: input.description ?? null,
-        evidence_ref: input.evidenceRef ?? null, source: "ADMIN",
-        idempotency_key: input.idempotencyKey, created_by_admin_user_id: input.adminId,
-      }).returningAll().executeTakeFirstOrThrow();
-      const response = eventView(row);
-      await this.auditAndRemember(trx, input, "API_OPENING_BALANCE_CORRECTION", row.id, requestHash, response);
-      return response;
+      const row = await insertFinanceEventTx(trx, {
+        enterpriseId: input.enterpriseId, resourceId: input.resourceId, adminId: input.adminId,
+        eventType: "API_OPENING_BALANCE_CORRECTION", accountAmount: input.accountAmount,
+        accountCurrency: input.accountCurrency, cashPaidCny: null,
+        occurredAt: original.occurred_at, correctionOfEventId: input.openingEventId,
+        description: input.description ?? null, evidenceRef: input.evidenceRef ?? null,
+        source: "ADMIN", idempotencyKey: input.idempotencyKey,
+      });
+      await this.auditAndRemember(trx, input, "API_OPENING_BALANCE_CORRECTION", row.id, requestHash, row);
+      return row;
     });
   }
 
@@ -378,20 +374,18 @@ export class ProviderFinanceEventRepository {
       const replayAfterLock = await this.replay(trx, eventInput, requestHash);
       if (replayAfterLock) return { ...replayAfterLock as FinanceEventView, replayed: true };
       await guardOperatingBillLedgerWrite(trx, input.enterpriseId, original.occurred_at);
-      const row = await trx.insertInto("provider_finance_event").values({
-        enterprise_id: input.enterpriseId, provider_resource_id: original.provider_resource_id,
-        event_type: "REVERSAL", account_amount: eventInput.accountAmount,
-        account_currency: original.account_currency, cash_paid_cny: eventInput.cashPaidCny ?? null,
-        occurred_at: original.occurred_at, external_reference: null,
-        reversal_of_event_id: original.id, correction_of_event_id: null,
-        reconciliation_case_id: null, description: input.reason, evidence_ref: input.evidenceRef,
-        source: "SYSTEM_REVERSAL", idempotency_key: input.idempotencyKey,
-        created_by_admin_user_id: input.adminId,
-      }).returningAll().executeTakeFirstOrThrow();
+      const row = await insertFinanceEventTx(trx, {
+        enterpriseId: input.enterpriseId, resourceId: original.provider_resource_id, adminId: input.adminId,
+        eventType: "REVERSAL", accountAmount: eventInput.accountAmount,
+        accountCurrency: original.account_currency, cashPaidCny: eventInput.cashPaidCny ?? null,
+        occurredAt: original.occurred_at, reversalOfEventId: original.id,
+        description: input.reason, evidenceRef: input.evidenceRef,
+        source: "SYSTEM_REVERSAL", idempotencyKey: input.idempotencyKey,
+      });
       await trx.updateTable("provider_subscription_period").set({ reversed_by_event_id: row.id })
         .where("enterprise_id", "=", input.enterpriseId)
         .where("finance_event_id", "=", original.id).execute();
-      const response = eventView(row);
+      const response = row;
       await this.auditAndRemember(trx, eventInput, "REVERSAL", row.id, requestHash, response);
       // 冲正同上：套餐资源的冲正计入余量 authority，同事务按原事件月推脏。
       if (resource.mode === "CODING_PLAN") {

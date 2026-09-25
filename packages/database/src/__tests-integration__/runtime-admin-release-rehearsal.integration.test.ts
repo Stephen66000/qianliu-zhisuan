@@ -104,21 +104,16 @@ it("0066 备份可恢复，0067/0068 保留管理员历史引用且归档后禁�
         .where("id", "=", adminId)
         .executeTakeFirstOrThrow(),
     ).toEqual({ id: adminId, status: "DISABLED" });
-    expect(await migrateToLatest(db)).toEqual([
+    // 台账断言锚定「0066 之后的必经迁移」而非「当时的迁移头」：迁移头会随其他工作包
+    // 继续追加（见 migration-rollback.ts docstring），用前缀匹配替代全量清单。
+    const executed = await migrateToLatest(db);
+    expect(executed.slice(0, 6)).toEqual([
       "0067_admin_cleanup",
       "0068_alert_resource_context",
       "0069_auth_error_evidence",
       "0070_alert_recovery_evidence",
       "0071_enterprise_contact_details",
       "0072_admin_roles_security",
-      "0073_credential_chat_probe",
-      "0074_runtime_notification_recipients",
-      "0075_provider_resource_archive",
-      "0076_provider_model_probe",
-      "0077_provider_model_probe_run_identity",
-      "0078_provider_model_probe_enum_checks",
-      "0079_project_allocation_relations",
-      "0080_project_allocation_compute",
     ]);
     expect(
       await db

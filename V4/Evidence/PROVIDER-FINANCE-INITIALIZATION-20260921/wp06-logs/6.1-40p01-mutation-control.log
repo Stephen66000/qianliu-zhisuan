@@ -1,0 +1,49 @@
+# WP06 补正 | 变异对照（负向控制）：把 40P01 期望值改为 40001_MUTATION_CONTROL，观察实际收到值
+# cmd: pnpm --filter @qianliu/database exec vitest run --config ../../vitest.config.ts <file> --maxWorkers=1 -t '40P01 覆盖语句边界'
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database
+
+ ❯ src/__tests-integration__/provider-finance-activation-apply.integration.test.ts (13 tests | 1 failed | 12 skipped) 3126ms
+   ↓ PF-INIT WP03：企业级原子激活 > 激活成功：事实落库、严格写开启、范围资源 READY、候选 ACTIVATED 与不可变回执；同键同候选重放
+   ↓ PF-INIT WP03：企业级原子激活 > 幂等冲突：同键不同候选 IDEMPOTENCY_CONFLICT；已激活不同请求 ALREADY_ACTIVATED
+   ↓ PF-INIT WP03：企业级原子激活 > legacy 锁与 v1 锁：任一被占用即立即 409 ACTIVATION_IN_PROGRESS，释放后恢复正常
+   ↓ PF-INIT WP03：企业级原子激活 > 双管理员并发激活：最多一组初始化事实与一个激活结果，另一请求失败关闭
+   ↓ PF-INIT WP03：企业级原子激活 > 静默门禁：无租约、剩余不足 5 分钟、未排空都拒绝且零写入
+   ↓ PF-INIT WP03：企业级原子激活 > 候选已冻结的切换后未结算可修复行可通过排空并在同一事务修复；在途请求与未结束 Attempt 不豁免
+   ↓ PF-INIT WP03：企业级原子激活 > 排空豁免只认候选冻结行：预检后出现的同形状行与新行都被挡下且不被修复
+   ↓ PF-INIT WP03：企业级原子激活 > 候选过期 409 CANDIDATE_EXPIRED；预检后新增事实 409 CANDIDATE_STALE 且零写入
+   ↓ PF-INIT WP03：企业级原子激活 > 固定修复行集只锁定候选主键：新增行不会被吸收，也不放行激活
+   ↓ PF-INIT WP03：企业级原子激活 > 允许字段直测：settled_at 可修复，非目标字段改动被逐行哈希挡住
+   ↓ PF-INIT WP03：企业级原子激活 > 中途故障整体回滚；进程提交前退出时候选保持 PREVIEWED 且不存在 ACTIVATING
+   × PF-INIT WP03：企业级原子激活 > 40001 覆盖语句与提交边界、40P01 覆盖语句边界，均映射为 ACTIVATION_RETRY_REQUIRED，且协调器零自动重试 948ms
+     → expected '40P01' to be '40001_MUTATION_CONTROL' // Object.is equality
+   ↓ PF-INIT WP03：企业级原子激活 > Coding Plan 购买、跨切换周期与旧记录 MIGRATED 关闭：周期唯一归属且关闭有不可变映射
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/provider-finance-activation-apply.integration.test.ts > PF-INIT WP03：企业级原子激活 > 40001 覆盖语句与提交边界、40P01 覆盖语句边界，均映射为 ACTIVATION_RETRY_REQUIRED，且协调器零自动重试
+AssertionError: expected '40P01' to be '40001_MUTATION_CONTROL' // Object.is equality
+
+Expected: [32m"40[7m0[27m01[7m_MUTATION_CONTROL[27m"[39m
+Received: [31m"40[7mP[27m01"[39m
+
+ ❯ src/__tests-integration__/provider-finance-activation-apply.integration.test.ts:894:57
+    892|           END $$`.execute(trx);
+    893|         }).catch((error: unknown) => error);
+    894|       expect((deadlockError as { code?: string }).code).toBe("40001_MU…
+       |                                                         ^
+    895|       // 同上：消息文本来自本条 DO 块，证明 40P01 注入确实执行（而非仅被 grep 到）。
+    896|       expect((deadlockError as { message?: string }).message).toContai…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 skipped (13)
+   Start at  04:49:01
+   Duration  5.29s (transform 925ms, setup 0ms, collect 1.94s, tests 3.13s, environment 0ms, prepare 61ms)
+
+undefined
+/Users/mac/Projects/仟流智算-provider-finance-init-20260921/packages/database:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run --config ../../vitest.config.ts src/__tests-integration__/provider-finance-activation-apply.integration.test.ts '--maxWorkers=1' -t '40P01 覆盖语句边界'
+MUTATION_EXIT=1

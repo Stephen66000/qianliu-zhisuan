@@ -194,7 +194,7 @@ export async function checkAndDispatchTop1Milestone(
     return { triggered: false, reason: "NO_ACTIVE_ENDPOINT" };
   }
 
-  const pngBuffer = renderSvgToPng(svg);
+  const pngBuffer = await renderSvgToPng(svg);
   const client = new WecomAppClient(kekBase64);
   const mediaId = await client.uploadMedia(
     endpoint as EndpointConfig,
@@ -361,7 +361,7 @@ export async function checkAndDispatchOver50Milestone(
       continue;
     }
 
-    const pngBuffer = renderSvgToPng(svg);
+    const pngBuffer = await renderSvgToPng(svg);
     const mediaId = await client.uploadMedia(
       endpoint as EndpointConfig,
       pngBuffer,

@@ -1,0 +1,47 @@
+# WP08 演练栈拆除记录
+# 时刻(UTC): 2026-09-22T10:59:43Z
+$ docker compose -f deploy/compose.yaml -f /tmp/wp08/compose.wp08-local.yaml down
+ Container qianliu-zhisuan-web-1  Stopping
+ Container qianliu-zhisuan-worker-1  Stopping
+ Container qianliu-zhisuan-caddy-1  Stopping
+ Container qianliu-zhisuan-stub-upstream-1  Stopping
+ Container qianliu-zhisuan-worker-1  Stopped
+ Container qianliu-zhisuan-worker-1  Removing
+ Container qianliu-zhisuan-worker-1  Removed
+ Container qianliu-zhisuan-web-1  Stopped
+ Container qianliu-zhisuan-web-1  Removing
+ Container qianliu-zhisuan-web-1  Removed
+ Container qianliu-zhisuan-caddy-1  Stopped
+ Container qianliu-zhisuan-caddy-1  Removing
+ Container qianliu-zhisuan-caddy-1  Removed
+ Container qianliu-zhisuan-control-api-1  Stopping
+ Container qianliu-zhisuan-gateway-1  Stopping
+ Container qianliu-zhisuan-control-api-1  Stopped
+ Container qianliu-zhisuan-control-api-1  Removing
+ Container qianliu-zhisuan-control-api-1  Removed
+ Container qianliu-zhisuan-gateway-1  Stopped
+ Container qianliu-zhisuan-gateway-1  Removing
+ Container qianliu-zhisuan-gateway-1  Removed
+ Container qianliu-zhisuan-migrate-1  Stopping
+ Container qianliu-zhisuan-redis-1  Stopping
+ Container qianliu-zhisuan-migrate-1  Stopped
+ Container qianliu-zhisuan-migrate-1  Removing
+ Container qianliu-zhisuan-migrate-1  Removed
+ Container qianliu-zhisuan-postgres-1  Stopping
+ Container qianliu-zhisuan-postgres-1  Stopped
+ Container qianliu-zhisuan-postgres-1  Removing
+ Container qianliu-zhisuan-postgres-1  Removed
+ Container qianliu-zhisuan-redis-1  Stopped
+ Container qianliu-zhisuan-redis-1  Removing
+ Container qianliu-zhisuan-redis-1  Removed
+ Container qianliu-zhisuan-stub-upstream-1  Stopped
+ Container qianliu-zhisuan-stub-upstream-1  Removing
+ Container qianliu-zhisuan-stub-upstream-1  Removed
+ Network qianliu-zhisuan_default  Removing
+ Network qianliu-zhisuan_default  Removed
+
+# 拆除后容器（应为空）
+# 本地卷保留（便于复审方复核）：
+qianliu-zhisuan_caddy-config
+qianliu-zhisuan_caddy-data
+qianliu-zhisuan_postgres-data

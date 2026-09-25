@@ -7,6 +7,7 @@ import {
   type Database,
 } from "../index.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -95,15 +96,9 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
       ]);
 
       const before = await schemaFingerprint(db);
-      expect(await migrateDown(db)).toBe("0080_project_allocation_compute");
-      expect(await migrateDown(db)).toBe("0079_project_allocation_relations");
-      expect(await migrateDown(db)).toBe("0078_provider_model_probe_enum_checks");
-      expect(await migrateDown(db)).toBe("0077_provider_model_probe_run_identity");
-      expect(await migrateDown(db)).toBe("0076_provider_model_probe");
-      expect(await migrateDown(db)).toBe("0075_provider_resource_archive");
-      expect(await migrateDown(db)).toBe("0074_runtime_notification_recipients");
-      expect(await migrateDown(db)).toBe("0073_credential_chat_probe");
-      expect(await migrateDown(db)).toBe("0072_admin_roles_security");
+      // 回滚链锚定「目标迁移」而非「当时的迁移头」（惯例见 migration-rollback.ts docstring）。
+      const rolledBackLedger = await rollbackTo(db, "0072_admin_roles_security");
+      expect(rolledBackLedger.at(-1)).toBe("0072_admin_roles_security");
       expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
       expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
       expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
@@ -146,10 +141,10 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
       expect(await migrateDown(db)).toBe("0032_admin_lifecycle");
       expect(await migrateDown(db)).toBe("0031_gateway_stream_resilience");
       expect(await migrateDown(db)).toBe("0030_runtime_assurance_foundation");
-      const rolledBack = await sql<{ reg: string | null }>`
+      const regAfterRollback = await sql<{ reg: string | null }>`
         SELECT to_regclass('public.availability_rule') AS reg
       `.execute(db);
-      expect(rolledBack.rows[0]!.reg).toBeNull();
+      expect(regAfterRollback.rows[0]!.reg).toBeNull();
 
       const rebuilt = await migrateToLatest(db);
       expect(rebuilt).toContain("0030_runtime_assurance_foundation");
