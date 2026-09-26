@@ -161,7 +161,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       // 台账断言锚定「本用例关心的迁移区间」而非「当时的迁移头」：迁移头会随其他
       // 工作包继续追加（见 migration-rollback.ts docstring），用前缀匹配替代全量清单。
       const upgradedExecuted = upgraded.results?.map((result) => [result.migrationName, result.status]) ?? [];
-      expect(upgradedExecuted.slice(0, 27)).toEqual([
+      expect(upgradedExecuted.slice(0, 38)).toEqual([
         ["0046_directory_import_foundation", "Success"],
         ["0047_usage_bucket_aggregate", "Success"],
         ["0048_department_cost_budget_and_purchase", "Success"],
@@ -334,7 +334,7 @@ describe("W20-10 0045 到 0051 升级、回退与读模型重建", () => {
       expect(reupgraded.error).toBeUndefined();
       // 台账断言锚定「0046..0072 区间」而非「当时的迁移头」（惯例见 migration-rollback.ts）。
       const reupgradedExecuted = reupgraded.results?.map((result) => [result.migrationName, result.status]) ?? [];
-      expect(reupgradedExecuted.slice(0, 27)).toEqual([
+      expect(reupgradedExecuted.slice(0, 38)).toEqual([
         ["0046_directory_import_foundation", "Success"],
         ["0047_usage_bucket_aggregate", "Success"],
         ["0048_department_cost_budget_and_purchase", "Success"],

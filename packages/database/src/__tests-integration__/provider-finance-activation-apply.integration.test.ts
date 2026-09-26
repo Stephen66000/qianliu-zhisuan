@@ -867,6 +867,9 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
           enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId, adminId: seeded.adminId,
           accountAmount: "123", accountCurrency: "CNY", description: "模拟写入",
           evidenceRef: "evidence://simulated", idempotencyKey: "simulated-opening",
+          // 激活前写入期初只能走历史初始化路径（MIGRATION 源、锚定切换时点），
+          // 与协调器 writeOpenings 的真实写法一致；否则 0083 触发器按合同拒绝。
+          source: "MIGRATION",
         });
         await insertSubscriptionTx(trx, {
           enterpriseId: seeded.enterpriseId, resourceId: seeded.planResourceId, adminId: seeded.adminId,

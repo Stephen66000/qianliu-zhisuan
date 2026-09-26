@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { sql } from "kysely";
 import { createKysely, GatewayLedgerRepository, migrateToLatest, ProviderFinanceRepository,
   PROVIDER_FINANCE_CUTOVER } from "../index.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -31,9 +32,12 @@ beforeAll(async () => {
   }).execute();
   await db.insertInto("provider_resource").values([
     { id: apiResourceId, enterprise_id: enterpriseId, provider_id: providerId,
-      name: "DeepSeek API", mode: "API", credential_type: "API_KEY" },
+      name: "DeepSeek API", mode: "API", credential_type: "API_KEY",
+      // F-P2-6：资源级期初不得早于资源创建时点——夹具资源为切换前既有资源。
+      created_at: new Date("2026-08-01T00:00:00.000Z") },
     { id: planResourceId, enterprise_id: enterpriseId, provider_id: providerId,
-      name: "Plan", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION" },
+      name: "Plan", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION",
+      created_at: new Date("2026-08-01T00:00:00.000Z") },
   ]).execute();
   await db.insertInto("principal").values({
     id: principalId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "Finance User",
@@ -44,6 +48,18 @@ beforeAll(async () => {
     key_prefix: "ql-finance", key_digest: "finance-test-digest", allowed_model_ids: [],
     ip_allowlist: [], expires_at: null, quota_limit: null, concurrency_limit: null,
     last_used_at: null, revoked_at: null,
+  }).execute();
+  // F-P2-6 前置事实：资源级 ADMIN 期初要求企业已激活（0061 shape_check 要求
+  // activated_at 与 activated_by_admin_user_id 成对，复合外键指向 admin_user）。
+  await sql`
+    INSERT INTO provider_finance_runtime_state
+      (enterprise_id, strict_writes_enabled, activated_at, activated_by_admin_user_id, updated_at)
+    VALUES (${enterpriseId}::uuid, true, now(), ${adminId}::uuid, now())
+    ON CONFLICT (enterprise_id) DO NOTHING
+  `.execute(db);
+  // 0083 触发器前置：资源级 ADMIN 期初要求资源处于 PENDING。
+  await db.insertInto("provider_resource_finance_state").values({
+    enterprise_id: enterpriseId, provider_resource_id: apiResourceId, state: "PENDING",
   }).execute();
   await db.destroy();
 }, 120_000);
@@ -188,14 +204,14 @@ describe("ProviderFinanceRepository", () => {
         effective_until: new Date("2026-08-19T00:00:00Z"),
         reset_cycle: "MONTHLY", usage_calculation: "SYSTEM_LEDGER",
       }).returning("id").executeTakeFirstOrThrow();
-      await db.insertInto("provider_subscription_period").values({
+      const carryoverPeriodId = (await db.insertInto("provider_subscription_period").values({
         enterprise_id: enterpriseId, provider_resource_id: resourceId,
         finance_event_id: null, product_name: "Carryover Plan",
         period_start: new Date("2026-08-18T16:00:00Z"),
         period_end_exclusive: new Date("2026-09-18T16:00:00Z"),
         source: "MIGRATED_CARRYOVER", migration_source_record_id: legacySnapshot.id,
         created_by_admin_user_id: adminId,
-      }).execute();
+      }).returning("id").executeTakeFirstOrThrow()).id;
       await db.insertInto("provider_resource_operating_snapshot").values({
         enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 2,
         source: "ADMIN", collected_at: new Date("2026-09-03T00:00:00Z"),
@@ -226,6 +242,7 @@ describe("ProviderFinanceRepository", () => {
         provider_resource_id: resourceId, principal_id: principalId, resource_mode: "CODING_PLAN",
         raw_input_tokens: 100n, raw_output_tokens: 23n, raw_cache_tokens: 0n,
         raw_reasoning_tokens: 0n, deducted_quota: 123n, api_cost: null,
+        api_cost_status: "NOT_APPLICABLE", subscription_period_id: carryoverPeriodId,
         usage_quality: "PROVIDER_REPORTED", billing_rule_id: null, rule_version: null,
         multiplier: "1", billing_rule_snapshot: null,
         settled_at: new Date("2026-08-20T00:01:00Z"),
@@ -404,7 +421,9 @@ describe("ProviderFinanceRepository", () => {
       await db.insertInto("provider_resource").values({
         id: incompleteResourceId, enterprise_id: enterpriseId, provider_id: provider.id,
         name: "Incomplete API", mode: "API", credential_type: "API_KEY",
+        created_at: new Date("2026-08-01T00:00:00.000Z"),
       }).execute();
+      // PENDING 财务状态由 0081 自动播种触发器生成（已激活企业的 API 资源），无需手工插入。
       const finance = new ProviderFinanceRepository(db);
       await finance.recordOpeningBalance({
         enterpriseId, resourceId: incompleteResourceId, adminId, accountAmount: "10",
@@ -428,7 +447,9 @@ describe("ProviderFinanceRepository", () => {
           upstream_attempt_id: attempt.id, provider_resource_id: incompleteResourceId,
           principal_id: principalId, resource_mode: "API", raw_input_tokens: 1n,
           raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
-          api_cost: "1", settled_at: new Date("2026-09-03T01:00:00.000Z"),
+          // 0059 fact-shape：UNKNOWN_COST 须 api_cost 与 api_cost_currency 皆为 NULL。
+          api_cost: null, api_cost_status: "UNKNOWN_COST",
+          settled_at: new Date("2026-09-03T01:00:00.000Z"),
           usage_quality: "PROVIDER_REPORTED" },
       });
       expect(await finance.getCurrentBalance(enterpriseId, incompleteResourceId, "CNY",
@@ -440,7 +461,6 @@ describe("ProviderFinanceRepository", () => {
         complete: false,
         gaps: expect.arrayContaining([
           { code: "API_USAGE_COST_UNKNOWN", count: 1 },
-          { code: "API_COST_CURRENCY_MISSING", count: 1 },
         ]),
       });
     } finally { await db.destroy(); }

@@ -57,7 +57,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
       // 台账断言锚定「本用例关心的迁移区间」而非「当时的迁移头」：迁移头会随其他
       // 工作包继续追加（见 migration-rollback.ts docstring），用前缀匹配替代全量清单。
       const executed = migrated.results?.map((result) => [result.migrationName, result.status]) ?? [];
-      expect(executed.slice(0, 30)).toEqual([
+      expect(executed.slice(0, 41)).toEqual([
         ["0043_single_owner_rule_history", "Success"],
         ["0044_operating_bill_model_identity", "Success"],
         ["0045_zhipu_weekday_window_alias", "Success"],
@@ -193,7 +193,7 @@ describe("POOL-043 稳定模型身份迁移", () => {
       expect(reapplied.error).toBeUndefined();
       // 台账断言锚定「0043..0072 区间」而非「当时的迁移头」（惯例见 migration-rollback.ts）。
       const reappliedExecuted = reapplied.results?.map((result) => [result.migrationName, result.status]) ?? [];
-      expect(reappliedExecuted.slice(0, 30)).toEqual([
+      expect(reappliedExecuted.slice(0, 41)).toEqual([
         ["0043_single_owner_rule_history", "Success"],
         ["0044_operating_bill_model_identity", "Success"],
         ["0045_zhipu_weekday_window_alias", "Success"],

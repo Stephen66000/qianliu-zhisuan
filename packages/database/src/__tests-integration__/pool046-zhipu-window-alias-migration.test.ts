@@ -262,7 +262,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
       // 台账断言锚定「本用例关心的迁移区间」而非「当时的迁移头」：迁移头会随其他
       // 工作包继续追加（见 migration-rollback.ts docstring），用前缀匹配替代全量清单。
       const executed = migrated.results?.map((result) => [result.migrationName, result.status]) ?? [];
-      expect(executed.slice(0, 28)).toEqual([
+      expect(executed.slice(0, 39)).toEqual([
         ["0045_zhipu_weekday_window_alias", "Success"],
         ["0046_directory_import_foundation", "Success"],
         ["0047_usage_bucket_aggregate", "Success"],

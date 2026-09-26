@@ -93,6 +93,8 @@ export async function createAnalysisFixture(
         name: code,
         mode: code === "deepseek" ? "API" : "CODING_PLAN",
         credential_type: "API_KEY",
+        // F-P2-6：资源级期初不得早于资源创建时点——夹具资源为切换前既有资源。
+        created_at: new Date("2026-08-01T00:00:00+08:00"),
       })
       .returning("id")
       .executeTakeFirstOrThrow();

@@ -133,6 +133,10 @@ it("failed zero-consumption API record cannot hide known spending; a real unpric
   const finance=new ProviderFinanceRepository(db);
   await sql`INSERT INTO provider_finance_runtime_state (enterprise_id,strict_writes_enabled,activated_at,activated_by_admin_user_id,updated_at)
     VALUES (${t.enterpriseId}::uuid,true,now(),${t.adminId}::uuid,now())`.execute(db);
+  // F-P2-6 前置事实：0083 触发器要求资源级 ADMIN 期初的资源处于 PENDING。
+  await db.insertInto("provider_resource_finance_state").values({
+    enterprise_id: t.enterpriseId, provider_resource_id: resourceId, state: "PENDING",
+  }).execute();
   await finance.recordOpeningBalance({enterpriseId:t.enterpriseId,resourceId,adminId:t.adminId,accountAmount:"100",accountCurrency:"CNY",occurredAt:new Date("2026-09-01T00:00:00+08:00"),idempotencyKey:randomUUID()});
   await seedAnalysisUsage(t,t.a,"deepseek",100n,new Date("2026-09-02T00:00:00Z"),"2.5");
   const failed=await seedAnalysisUsage(t,t.a,"deepseek",0n,new Date("2026-09-03T00:00:00Z"),"0","UNKNOWN");

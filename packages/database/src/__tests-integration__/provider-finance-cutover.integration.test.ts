@@ -4,7 +4,8 @@ import { sql } from "kysely";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 
 import {
-  createKysely, GatewayLedgerRepository, migrateDown, migrateToLatest, ProviderFinanceCutoverRepository,
+  createKysely, GatewayLedgerRepository, insertOpeningBalanceTx, migrateDown, migrateToLatest,
+  ProviderFinanceCutoverRepository,
   OperatingBillRepository, ProviderFinanceRepository, PROVIDER_FINANCE_CUTOVER,
   PROVIDER_FINANCE_LEGACY_COST_CUTOFF,
   enableProjectAllocation, enqueueAllocationRun, runDueAllocationRuns, projectAllocationTick,
@@ -142,11 +143,14 @@ describe("provider finance cutover rehearsal", () => {
         changed: { settlementTime: 0, apiCostCurrency: 0,
           apiCostStatus: 0, subscriptionPeriod: 0 } });
 
-      await new ProviderFinanceRepository(db).recordOpeningBalance({
+      // F-P2-6 合同：激活前、锚定切换时点的期初属历史初始化路径（MIGRATION 源，
+      // 0083 触发器仅要求切换时点）；资源级 ADMIN 期初须企业已激活，编排前不存在。
+      await db.transaction().execute((trx) => insertOpeningBalanceTx(trx, {
         enterpriseId, resourceId: apiResourceId, adminId, accountAmount: "50",
         accountCurrency: "CNY", occurredAt: PROVIDER_FINANCE_CUTOVER,
         evidenceRef: "owner-confirmed-opening", idempotencyKey: randomUUID(),
-      });
+        source: "MIGRATION", description: null,
+      }));
       const carryover = await db.insertInto("provider_subscription_period").values({
         enterprise_id: enterpriseId, provider_resource_id: planResourceId,
         finance_event_id: null, product_name: "Kimi Plan",
@@ -292,14 +296,16 @@ describe("provider finance cutover rehearsal", () => {
       await db.insertInto("provider_resource").values({ id: resourceId,
         enterprise_id: enterpriseId, provider_id: providerId, name: "Green API",
         mode: "API", credential_type: "API_KEY" }).execute();
-      await new ProviderFinanceRepository(db).recordOpeningBalance({ enterpriseId,
-        resourceId, adminId, accountAmount: "20", accountCurrency: "CNY",
+      await db.transaction().execute((trx) => insertOpeningBalanceTx(trx, {
+        enterpriseId, resourceId, adminId, accountAmount: "20", accountCurrency: "CNY",
         occurredAt: PROVIDER_FINANCE_CUTOVER, evidenceRef: "green-owner-confirmation",
-        idempotencyKey: randomUUID() });
-      await new ProviderFinanceRepository(db).recordOpeningBalance({ enterpriseId,
-        resourceId, adminId, accountAmount: "5", accountCurrency: "USD",
+        idempotencyKey: randomUUID(), source: "MIGRATION", description: null,
+      }));
+      await db.transaction().execute((trx) => insertOpeningBalanceTx(trx, {
+        enterpriseId, resourceId, adminId, accountAmount: "5", accountCurrency: "USD",
         occurredAt: PROVIDER_FINANCE_CUTOVER, evidenceRef: "green-owner-confirmation-usd",
-        idempotencyKey: randomUUID() });
+        idempotencyKey: randomUUID(), source: "MIGRATION", description: null,
+      }));
       const cutover = new ProviderFinanceCutoverRepository(db);
       const preflight = await cutover.buildPreflightReport(enterpriseId);
       expect(preflight).toMatchObject({ ready: true, blockers: [] });
@@ -364,10 +370,11 @@ describe("provider finance cutover rehearsal", () => {
         code: "switch", name: "Switch Provider", adapter_type: "OPENAI_COMPATIBLE" }).execute();
       await db.insertInto("provider_resource").values({ id: resourceId, enterprise_id: enterpriseId,
         provider_id: providerId, name: "Switch API", mode: "API", credential_type: "API_KEY" }).execute();
-      await new ProviderFinanceRepository(db).recordOpeningBalance({ enterpriseId, resourceId,
-        adminId, accountAmount: "20", accountCurrency: "CNY",
+      await db.transaction().execute((trx) => insertOpeningBalanceTx(trx, {
+        enterpriseId, resourceId, adminId, accountAmount: "20", accountCurrency: "CNY",
         occurredAt: PROVIDER_FINANCE_CUTOVER, evidenceRef: "switch-owner",
-        idempotencyKey: randomUUID() });
+        idempotencyKey: randomUUID(), source: "MIGRATION", description: null,
+      }));
 
       // 归集侧：员工 + 一条消费行（created_at 2026-09-20、settled_at 2026-10-03）：
       // 切换严格写口径后 account_at 由 created_at 变为 settled_at，该行移出 2026-09 账期。

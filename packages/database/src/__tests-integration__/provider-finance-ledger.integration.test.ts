@@ -61,7 +61,7 @@ describe("0059 provider finance ledger contract", () => {
         event_type: "API_OPENING_BALANCE", account_amount: "0", account_currency: "CNY",
         cash_paid_cny: null, occurred_at: cutover, external_reference: null,
         reversal_of_event_id: null, correction_of_event_id: null, reconciliation_case_id: null,
-        description: null, evidence_ref: "opening-proof", source: "ADMIN",
+        description: null, evidence_ref: "opening-proof", source: "MIGRATION",
         idempotency_key: randomUUID(), created_by_admin_user_id: adminId,
       }).returningAll().executeTakeFirstOrThrow();
       await expect(db.insertInto("provider_finance_event").values({
@@ -69,7 +69,7 @@ describe("0059 provider finance ledger contract", () => {
         event_type: "API_OPENING_BALANCE", account_amount: "0", account_currency: "CNY",
         cash_paid_cny: null, occurred_at: cutover, external_reference: null,
         reversal_of_event_id: null, correction_of_event_id: null, reconciliation_case_id: null,
-        description: null, evidence_ref: "duplicate", source: "ADMIN",
+        description: null, evidence_ref: "duplicate", source: "MIGRATION",
         idempotency_key: randomUUID(), created_by_admin_user_id: adminId,
       }).execute()).rejects.toThrow();
       const recharge = await db.insertInto("provider_finance_event").values({

@@ -57,6 +57,17 @@ describe("经营分析真实数据链", () => {
   it("YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token", async () => {
     const t = await tenant(),
       finance = new ProviderFinanceRepository(db);
+    // F-P2-6 前置事实：企业已激活 + 资源 PENDING（资源级 ADMIN 期初门槛）。
+    await sql`
+      INSERT INTO provider_finance_runtime_state
+        (enterprise_id, strict_writes_enabled, activated_at, activated_by_admin_user_id, updated_at)
+      VALUES (${t.enterpriseId}::uuid, true, now(), ${t.adminId}::uuid, now())
+      ON CONFLICT (enterprise_id) DO NOTHING
+    `.execute(db);
+    await db.insertInto("provider_resource_finance_state").values({
+      enterprise_id: t.enterpriseId, provider_resource_id: t.resources.get("deepseek")!,
+      state: "PENDING",
+    }).execute();
     await finance.recordOpeningBalance({
       enterpriseId: t.enterpriseId,
       adminId: t.adminId,
@@ -78,11 +89,12 @@ describe("经营分析真实数据链", () => {
     });
     await finance.recordRecharge({enterpriseId:t.enterpriseId,adminId:t.adminId,resourceId:t.resources.get("deepseek")!,accountAmount:"50",accountCurrency:"CNY",cashPaidCny:"50",occurredAt:new Date("2026-09-01T00:00:00+08:00"),idempotencyKey:randomUUID()});
     await usage(t,t.a,"deepseek",50n,new Date("2026-09-01T00:00:00+08:00"),"2");
+    const subscriptionPeriodIds = new Map<string, string>();
     for (const [code, amount] of [
       ["kimi", "199"],
       ["zhipu", "99"],
-    ])
-      await finance.recordSubscription({
+    ]) {
+      const { periodId } = await finance.recordSubscription({
         enterpriseId: t.enterpriseId,
         adminId: t.adminId,
         resourceId: t.resources.get(code!)!,
@@ -96,9 +108,23 @@ describe("经营分析真实数据链", () => {
         productName: code!,
         idempotencyKey: randomUUID(),
       });
-    await usage(t, t.a, "kimi", 100n, new Date("2026-08-02T00:00:00Z"));
-    await usage(t, t.a, "kimi", 100n, new Date("2026-09-02T00:00:00Z"));
-    await usage(t, t.b, "zhipu", 200n, new Date("2026-09-03T00:00:00Z"));
+      subscriptionPeriodIds.set(code!, periodId);
+    }
+    // 8 月 kimi 用量归属切换前既有周期（MIGRATED_CARRYOVER：无资金事件，不影响实付口径）。
+    const kimiCarryoverPeriodId = (await db.insertInto("provider_subscription_period").values({
+      enterprise_id: t.enterpriseId, provider_resource_id: t.resources.get("kimi")!,
+      finance_event_id: null, product_name: "kimi",
+      period_start: new Date("2026-08-01T00:00:00+08:00"),
+      period_end_exclusive: new Date("2026-09-01T00:00:00+08:00"),
+      source: "MIGRATED_CARRYOVER", migration_source_record_id: randomUUID(),
+      created_by_admin_user_id: t.adminId,
+    }).returning("id").executeTakeFirstOrThrow()).id;
+    await usage(t, t.a, "kimi", 100n, new Date("2026-08-02T00:00:00Z"),
+      "0", "PROVIDER_REPORTED", kimiCarryoverPeriodId);
+    await usage(t, t.a, "kimi", 100n, new Date("2026-09-02T00:00:00Z"),
+      "0", "PROVIDER_REPORTED", subscriptionPeriodIds.get("kimi")!);
+    await usage(t, t.b, "zhipu", 200n, new Date("2026-09-03T00:00:00Z"),
+      "0", "PROVIDER_REPORTED", subscriptionPeriodIds.get("zhipu")!);
     await usage(
       t,
       t.a,
@@ -146,7 +172,8 @@ describe("经营分析真实数据链", () => {
       apiSpend: "12.00",
       endingBalance: "258.00",
     });
-    await usage(t, t.a, "kimi", 900n, new Date("2026-09-05T00:00:00Z"));
+    await usage(t, t.a, "kimi", 900n, new Date("2026-09-05T00:00:00Z"),
+      "0", "PROVIDER_REPORTED", subscriptionPeriodIds.get("kimi")!);
     const august = await loadOperatingAnalysis(
       db,
       t.enterpriseId,

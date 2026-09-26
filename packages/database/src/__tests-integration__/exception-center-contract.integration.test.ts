@@ -38,6 +38,7 @@ beforeAll(async () => {
     "0080_project_allocation_compute",
     "0081_provider_finance_activation",
     "0082_provider_finance_candidate_draft",
+    "0083_provider_finance_resource_opening_trigger",
   ]);
 }, 120_000);
 afterAll(async () => {
@@ -1441,6 +1442,7 @@ it("migration 0070 refuses rollback once any real recovery evidence exists", asy
     t.enterpriseId,
   );
   for (const expected of [
+    "0083_provider_finance_resource_opening_trigger",
     "0082_provider_finance_candidate_draft",
     "0081_provider_finance_activation",
     "0080_project_allocation_compute",
