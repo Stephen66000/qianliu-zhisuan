@@ -1,0 +1,36 @@
+{
+  "branch": "codex/provider-finance-main-integration-20260925",
+  "mainBase": "13890f70aac8c52b5ab0e0705c899a6cdb442762",
+  "codeHead": "330fc16dfc2c9546f3e9d7655a4df67f18f811e0",
+  "codeTree": "e5e4da9df60d69b3191533f8cd928e938d873664",
+  "previousBaseline": "bc44371fa06e7b16b94c507a6f1c4c56ae8f2e50",
+  "verdict": "V1.5_LOCAL_PASS",
+  "workingTreeClean": true,
+  "archivedLogs": [
+    {
+      "file": "pf-v15-bc44371-workbuddy-fulltest-final.log",
+      "sha256": "a1e823885ae72ba36f2b58b6ca14cacdfb6d1fcfcae13aba0e3a3bd8f52e8dd8",
+      "note": "2026-09-25 单次全量 pnpm test，最终 exit 1（Docker 不可用所致），如实保留"
+    },
+    {
+      "file": "pf-v15-bc44371-fix-database-10-final3.log",
+      "sha256": "5adb1462f665bbbbd9420e994b2996c4fb94bafce0cece13e968fa78d9276133",
+      "note": "Database 10 files / 101 tests，exit 0"
+    },
+    {
+      "file": "pf-v15-bc44371-resume-control-api-6.log",
+      "sha256": "0c4037f0bd196979af5c7a67ff439112168084831a04609d10db7bee04644f58",
+      "note": "Control API 6 files / 57 tests，exit 0"
+    },
+    {
+      "file": "pf-v15-bc44371-resume-web.log",
+      "sha256": "87265b9fa0f8528413ae0ff00119c6a114fbe6d79aab825b93ea553005a3f0d4",
+      "note": "Web 86 files / 552 tests，exit 0"
+    }
+  ],
+  "deploymentAuthorized": false,
+  "productionMigrationAuthorized": false,
+  "productionMoneyEntryAuthorized": false,
+  "productionFinanceActivationAuthorized": false,
+  "createdAt": "2026-09-26T21:52:00+08:00"
+}

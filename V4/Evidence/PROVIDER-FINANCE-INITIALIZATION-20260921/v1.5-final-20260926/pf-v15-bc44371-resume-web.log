@@ -1,0 +1,103 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-provider-finance-main-integration-20260925/apps/web
+
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 1119ms
+ ✓ src/pages/QuotaPricingWorkflow.test.tsx (8 tests) 2344ms
+   ✓ saves pending model/route and explicit multiplier prices in one request  446ms
+   ✓ 取消新建规则丢弃整套草稿、沿用来源及错误，重新打开可正常新建  458ms
+ ✓ src/pages/Principals.test.tsx (20 tests) 1808ms
+   ✓ W19 使用主体 > B 方式：员工主体联想点选企微候选人，自动带出部门并绑定 person_id 提交（Scenario 3.1/3.2）  370ms
+   ✓ W19 使用主体 > B 方式：点选后手动修改名称会解除自然人绑定  386ms
+ ✓ src/pages/Resources.test.tsx (23 tests) 1821ms
+   ✓ 厂商资源四 Tab > ACTIVE从充值订阅按钮登记Coding Plan并包含自然月周期入口  301ms
+   ✓ POOL-010 厂商经营快照 > 创建套餐只录总额度与重置规则，系统字段不允许手填  304ms
+ ✓ src/pages/EmployeeModelRules.test.tsx (5 tests) 975ms
+   ✓ POOL-029 批量模型授权页面 > 创建、编辑、校验、发布、停用与新版本操作都调用对应 mutation  627ms
+ ✓ src/components/usage/UsageOverviewPanel.test.tsx (11 tests) 528ms
+ ✓ src/pages/OperatingBill.test.tsx (12 tests) 420ms
+ ✓ src/pages/QuotaModelDisable.test.tsx (9 tests) 958ms
+ ✓ src/components/resources/ProviderFinancePanel.test.tsx (3 tests) 671ms
+   ✓ new Coding Plan sends the actual unchecked renewal choice with the registration  338ms
+ ✓ src/components/resources/ProviderFinanceActivationWizard.test.tsx (12 tests) 834ms
+ ✓ src/pages/Dashboard.test.tsx (21 tests) 266ms
+ ✓ src/components/principals/DirectoryPanel.test.tsx (8 tests) 575ms
+ ✓ src/pages/RuntimeAssurance.test.tsx (8 tests) 560ms
+ ✓ src/pages/ProjectMembers.test.tsx (12 tests) 503ms
+ ✓ src/pages/Usage.test.tsx (13 tests) 494ms
+ ✓ src/components/quota/QuotaBillingSection.filter.test.tsx (8 tests) 399ms
+ ✓ src/pages/OperatingBillProjectAllocation.test.tsx (11 tests) 315ms
+ ✓ src/api/project-allocation.test.tsx (8 tests) 361ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 235ms
+ ✓ src/pages/Admins.test.tsx (5 tests) 394ms
+ ✓ src/components/operating-bill/OperatingBillShell.test.tsx (3 tests) 167ms
+ ✓ src/pages/QuotaRules.coverage.test.tsx (6 tests) 372ms
+ ✓ src/pages/QuotaRules.lifecycle.test.tsx (4 tests) 401ms
+ ✓ src/pages/ChangePassword.test.tsx (2 tests) 328ms
+ ✓ src/pages/OperatingBillRechargeEntry.test.tsx (3 tests) 190ms
+ ✓ src/pages/OperatingBill.pool043-routing.test.tsx (3 tests) 140ms
+ ✓ src/pages/runtime-assurance/AlertsPanel.test.tsx (17 tests) 303ms
+ ✓ src/components/operating-bill/AccountShared.test.tsx (4 tests) 117ms
+ ✓ src/pages/QuotaRules.principals.test.tsx (2 tests) 247ms
+ ✓ src/components/principals/PrincipalAccessConfigPanel.test.tsx (3 tests) 268ms
+ ✓ src/pages/runtime-assurance/NotificationRecipientsPanel.test.tsx (5 tests) 246ms
+ ✓ src/components/usage/UsageOverviewRange.test.tsx (2 tests) 239ms
+ ✓ src/api/operating-bill-accounts.test.tsx (3 tests) 185ms
+ ✓ src/components/resources/ResourceUtilizationPanel.test.tsx (23 tests) 232ms
+ ✓ src/components/layout/Layout.pool043.test.tsx (2 tests) 120ms
+ ✓ src/components/principals/HistoricalAttributionPanel.test.tsx (2 tests) 240ms
+ ✓ src/components/quota/DepartmentBudgetPanel.test.tsx (3 tests) 181ms
+ ✓ src/components/quota/ModelRuleCard.test.tsx (5 tests) 149ms
+ ✓ src/pages/runtime-assurance/AlertDetailDrawer.test.tsx (8 tests) 150ms
+ ✓ src/components/resources/ResourceModelDiscovery.sync.test.tsx (4 tests) 152ms
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 153ms
+ ✓ src/pages/SystemSettings.test.tsx (4 tests) 135ms
+ ✓ src/components/resources/FinanceInitializationPanel.test.tsx (6 tests) 100ms
+ ✓ src/components/resources/SubscriptionAutoRenewal.test.tsx (3 tests) 123ms
+ ✓ src/pages/Alerts.test.tsx (5 tests) 133ms
+ ✓ src/pages/QuotaRules.test.tsx (4 tests) 122ms
+ ✓ src/components/layout/Sidebar.test.tsx (2 tests) 86ms
+ ✓ src/api/operating-bills.pool043.test.tsx (7 tests) 90ms
+ ✓ src/components/operating-bill/ValueRealizationSection.test.tsx (6 tests) 107ms
+ ✓ src/pages/RequestDrilldown.test.tsx (1 test) 123ms
+ ✓ src/components/writes/MoneyAmountInput.test.tsx (3 tests) 102ms
+ ✓ src/pages/QuotaRules.dependencies.test.tsx (3 tests) 106ms
+ ✓ src/components/resources/ResourceUsageOverviewPanel.test.tsx (3 tests) 109ms
+ ✓ src/components/resources/ResourceModelDiscovery.version.test.tsx (4 tests) 104ms
+ ✓ src/components/operating-bill/FinancialLedgerSection.test.tsx (1 test) 94ms
+ ✓ src/pages/runtime-assurance/AlertHandlingForm.test.tsx (3 tests) 91ms
+ ✓ src/components/writes/IntegerAmountInput.test.tsx (2 tests) 88ms
+ ✓ src/components/operating-bill/MonthlyPayments.test.tsx (3 tests) 76ms
+ ✓ src/api/employee-model-rules.test.tsx (2 tests) 73ms
+ ✓ src/pages/Settings.test.tsx (2 tests) 82ms
+ ✓ src/components/resources/CredentialProbeAction.test.tsx (3 tests) 79ms
+ ✓ src/components/states/states.test.tsx (7 tests) 65ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 87ms
+ ✓ src/api/auth.test.tsx (1 test) 65ms
+ ✓ src/components/operating-bill/OperatingAnalysisPartial.test.tsx (3 tests) 73ms
+ ✓ src/components/dashboard/ResourceBreakdown.pool042.test.tsx (1 test) 65ms
+ ✓ src/pages/RequestDrilldown.pool048.test.tsx (2 tests) 43ms
+ ✓ src/components/resources/resource-page-display.test.tsx (7 tests) 42ms
+ ✓ src/App.pool043.test.tsx (5 tests) 36ms
+ ✓ src/components/operating-bill/BillStat.test.tsx (6 tests) 32ms
+ ✓ src/pages/RequestDrilldown.pool20.test.tsx (1 test) 29ms
+ ✓ src/api/hooks-alerts.test.tsx (2 tests) 22ms
+ ✓ src/components/dashboard/standard-home-model.test.ts (35 tests) 18ms
+ ✓ src/components/quota/model-rule-grouping.test.ts (5 tests) 15ms
+ ✓ src/lib/price-unit.test.ts (9 tests) 16ms
+ ✓ src/lib/format.test.ts (5 tests) 14ms
+ ✓ src/api/operating-bill-payments.test.ts (3 tests) 14ms
+ ✓ src/api/admins.test.tsx (1 test) 12ms
+ ✓ src/components/quota/pricing-copy.test.ts (4 tests) 13ms
+ ✓ src/components/resources/activation-draft-model.test.ts (12 tests) 8ms
+ ✓ src/components/resources/activation-preflight-model.test.ts (9 tests) 5ms
+ ✓ src/pages/runtime-assurance/alert-presenters.test.ts (17 tests) 4ms
+ ✓ src/pages/runtime-assurance/alert-guidance.test.ts (17 tests) 4ms
+ ✓ src/api/provider-finance.test.tsx (1 test) 3ms
+ ✓ src/components/resources/ResourceTable.models.test.ts (5 tests) 2ms
+ ✓ src/feature-flags.test.ts (1 test) 2ms
+
+ Test Files  86 passed (86)
+      Tests  552 passed (552)
+   Start at  21:20:30
+   Duration  619.18s (transform 3.31s, setup 168.93s, collect 82.14s, tests 22.87s, environment 265.01s, prepare 31.77s)
+
