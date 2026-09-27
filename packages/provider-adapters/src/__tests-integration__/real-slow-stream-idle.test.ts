@@ -10,7 +10,7 @@
  *
  * 全部使用本机回环地址与合成内容，不使用生产用户流量。
  */
-import { createServer, request as httpRequest, type Server } from "node:http";
+import { createServer, request as httpRequest, type Server, type IncomingMessage, type ServerResponse } from "node:http";
 import { describe, expect, it } from "vitest";
 import {
   createOpenAiCompatibleCaller,
@@ -46,10 +46,10 @@ function streamRequest(): AdapterRequest {
 
 /** 首块后行为由 onFirstChunk 回调决定；server.close() 由测试收尾。 */
 function startSlowServer(
-  onFirstChunk: (res: import("node:http").ServerResponse) => void | Promise<void>,
+  onFirstChunk: (res: ServerResponse) => void | Promise<void>,
 ): Promise<{ server: Server; url: string }> {
   return new Promise((resolve) => {
-    const server = createServer((req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => {
+    const server = createServer((req: IncomingMessage, res: ServerResponse) => {
       res.writeHead(200, { "content-type": "text/event-stream" });
       res.write("data: {\"choices\":[{\"delta\":{\"content\":\"首块\"}}]}\n\n");
       void onFirstChunk(res);

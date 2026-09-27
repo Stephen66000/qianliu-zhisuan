@@ -142,12 +142,23 @@ export function deriveUndiciDispatcherOptions(input: {
       throw new Error(`${name} 必须是正整数毫秒`);
     }
   }
-  return {
-    bodyTimeout: input.streamIdleTimeoutMs + UNDICI_TIMEOUT_MARGIN_MS,
-    headersTimeout:
-      Math.max(input.firstByteTimeoutMs, input.requestTimeoutMs)
-      + UNDICI_TIMEOUT_MARGIN_MS,
-  };
+  // 先计算派生值，再统一校验：加余量可能突破 Number.MAX_SAFE_INTEGER，
+  // 派生失败与输入非法必须用不同错误信息区分。
+  const bodyTimeout = input.streamIdleTimeoutMs + UNDICI_TIMEOUT_MARGIN_MS;
+  const headersTimeout =
+    Math.max(input.firstByteTimeoutMs, input.requestTimeoutMs)
+    + UNDICI_TIMEOUT_MARGIN_MS;
+  if (!Number.isSafeInteger(bodyTimeout) || bodyTimeout <= 0) {
+    throw new Error(
+      `bodyTimeout 派生失败：streamIdleTimeoutMs(${input.streamIdleTimeoutMs}) + ${UNDICI_TIMEOUT_MARGIN_MS} 不是正安全整数`,
+    );
+  }
+  if (!Number.isSafeInteger(headersTimeout) || headersTimeout <= 0) {
+    throw new Error(
+      `headersTimeout 派生失败：max(firstByteTimeoutMs(${input.firstByteTimeoutMs}), requestTimeoutMs(${input.requestTimeoutMs})) + ${UNDICI_TIMEOUT_MARGIN_MS} 不是正安全整数`,
+    );
+  }
+  return { bodyTimeout, headersTimeout };
 }
 
 export function chatCompletionsUrl(baseUrl: string): string {

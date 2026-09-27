@@ -293,4 +293,49 @@ describe("Undici dispatcher 时限派生公式", () => {
       })).toThrow(`${field} 必须是正整数毫秒`);
     },
   );
+
+  it("派生值加余量后突破安全整数上限时拒绝并区分派生失败", () => {
+    // 恰好溢出：MAX_SAFE_INTEGER + 30_000 不是安全整数。
+    expect(() => deriveUndiciDispatcherOptions({
+      streamIdleTimeoutMs: Number.MAX_SAFE_INTEGER,
+      firstByteTimeoutMs: 30_000,
+      requestTimeoutMs: 600_000,
+    })).toThrow("bodyTimeout 派生失败");
+
+    expect(() => deriveUndiciDispatcherOptions({
+      streamIdleTimeoutMs: 300_000,
+      firstByteTimeoutMs: 30_000,
+      requestTimeoutMs: Number.MAX_SAFE_INTEGER,
+    })).toThrow("headersTimeout 派生失败");
+  });
+
+  it("派生值恰为安全整数上界的边界组合通过校验", () => {
+    // MAX_SAFE_INTEGER - 30_000 + 30_000 = MAX_SAFE_INTEGER，仍为安全整数。
+    expect(deriveUndiciDispatcherOptions({
+      streamIdleTimeoutMs: Number.MAX_SAFE_INTEGER - 30_000,
+      firstByteTimeoutMs: 30_000,
+      requestTimeoutMs: 600_000,
+    })).toEqual({ bodyTimeout: Number.MAX_SAFE_INTEGER, headersTimeout: 630_000 });
+
+    expect(deriveUndiciDispatcherOptions({
+      streamIdleTimeoutMs: 300_000,
+      firstByteTimeoutMs: 30_000,
+      requestTimeoutMs: Number.MAX_SAFE_INTEGER - 30_000,
+    })).toEqual({ bodyTimeout: 330_000, headersTimeout: Number.MAX_SAFE_INTEGER });
+  });
+
+  it("距安全整数上界不足 30_000 余量的组合被拒绝", () => {
+    // MAX_SAFE_INTEGER - 29_999 + 30_000 = MAX_SAFE_INTEGER + 1，溢出。
+    expect(() => deriveUndiciDispatcherOptions({
+      streamIdleTimeoutMs: Number.MAX_SAFE_INTEGER - 29_999,
+      firstByteTimeoutMs: 30_000,
+      requestTimeoutMs: 600_000,
+    })).toThrow("bodyTimeout 派生失败");
+
+    expect(() => deriveUndiciDispatcherOptions({
+      streamIdleTimeoutMs: 300_000,
+      firstByteTimeoutMs: Number.MAX_SAFE_INTEGER - 29_999,
+      requestTimeoutMs: 600_000,
+    })).toThrow("headersTimeout 派生失败");
+  });
 });
