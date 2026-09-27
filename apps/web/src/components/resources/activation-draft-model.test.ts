@@ -11,8 +11,9 @@ import { describe, expect, it } from "vitest";
 import {
   ACTIVATION_MAX_DRAFT_ROWS, buildActivationDraft, countActiveRows, emptyDraftState,
   isValidAccountAmount, isValidCashPaidCny, newLocalRowId, toInstant, validateDraft,
-  validateLegacyRow, validateOpeningRow, type ActivationDraftState, type LegacyRowState,
-  type OpeningRowState,
+  validateLegacyRow, validateOpeningRow, validateRechargeRow,
+  type ActivationDraftState, type LegacyRowState, type OpeningRowState,
+  type RechargeRowState,
 } from "./activation-draft-model";
 
 const CUTOVER = "2026-08-31T16:00:00.000Z";
@@ -95,6 +96,70 @@ describe("请求体卫生", () => {
   it("未填写切换时点时，期初行被本地拦下（不产生无意义请求）", () => {
     const row = openingRow({ accountAmount: "10" });
     expect(validateOpeningRow(row, null).map((issue) => issue.message).join("")).toContain("尚未取得资金切换时点");
+  });
+});
+
+describe("历史 API 充值：六项最小表单", () => {
+  function rechargeRow(patch: Partial<RechargeRowState> = {}): RechargeRowState {
+    return {
+      id: newLocalRowId(), resourceId: RESOURCE, accountCurrency: "CNY", accountAmount: "50",
+      cashPaidCny: "50.00", occurredAtLocal: "2026-09-05T10:00", externalReference: "DS-ORDER-9",
+      ...patch,
+    };
+  }
+
+  it("合法六项行通过校验，载荷只含六项业务字段", () => {
+    const row = rechargeRow();
+    expect(validateRechargeRow(row)).toEqual([]);
+    const payload = buildActivationDraft(stateWith({ historicalApiRecharges: [row] }), CUTOVER);
+    expect(payload.historical_api_recharges).toEqual([{
+      resource_id: RESOURCE,
+      account_currency: "CNY",
+      account_amount: "50",
+      cash_paid_cny: "50.00",
+      occurred_at: "2026-09-05T02:00:00.000Z",
+      external_reference: "DS-ORDER-9",
+    }]);
+    // 事实说明、证据引用、来源旧记录与幂等键不再由表单发送（服务端自动生成）。
+    const serialized = JSON.stringify(payload.historical_api_recharges[0]);
+    expect(serialized).not.toContain("description");
+    expect(serialized).not.toContain("evidence_ref");
+    expect(serialized).not.toContain("source_record_id");
+    expect(serialized).not.toContain("record_idempotency_key");
+  });
+
+  it("缺失订单号或无效时间被本地拦下", () => {
+    const issues = validateRechargeRow(rechargeRow({ externalReference: " " }));
+    expect(issues.map((issue) => issue.field)).toContain("externalReference");
+    expect(validateRechargeRow(rechargeRow({ occurredAtLocal: "not-a-time" }))
+      .map((issue) => issue.field)).toContain("occurredAt");
+  });
+
+  it("同一厂商资源下重复订单号被草稿级检查拦下；不同资源可用同一订单号", () => {
+    const state = stateWith({
+      historicalApiRecharges: [rechargeRow(), rechargeRow({ id: newLocalRowId() })],
+    });
+    const duplicateIssues = validateDraft(state, CUTOVER)
+      .filter((issue) => issue.section === "historicalApiRecharges");
+    expect(duplicateIssues).toHaveLength(2);
+    expect(duplicateIssues.every((issue) => issue.field === "externalReference")).toBe(true);
+    const distinctResources = stateWith({
+      historicalApiRecharges: [
+        rechargeRow(),
+        rechargeRow({ id: newLocalRowId(), resourceId: "22222222-2222-4222-8222-222222222222" }),
+      ],
+    });
+    expect(validateDraft(distinctResources, CUTOVER)).toEqual([]);
+  });
+
+  it("整行皆空时省略该行，不报错也不进入请求体", () => {
+    const blank: RechargeRowState = {
+      id: newLocalRowId(), resourceId: "", accountCurrency: "CNY", accountAmount: "",
+      cashPaidCny: "", occurredAtLocal: "", externalReference: "",
+    };
+    expect(validateDraft(stateWith({ historicalApiRecharges: [blank] }), CUTOVER)).toEqual([]);
+    expect(buildActivationDraft(stateWith({ historicalApiRecharges: [blank] }), CUTOVER)
+      .historical_api_recharges).toEqual([]);
   });
 });
 

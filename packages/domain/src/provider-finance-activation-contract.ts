@@ -67,7 +67,11 @@ export interface HistoricalRechargeDraftItem {
   external_reference: string;
   description: string;
   evidence_ref: string;
-  source_record_id: string;
+  /**
+   * 来源旧购买记录：可空。历史充值没有对应的旧 `resource_purchase_record` 时为 null，
+   * 此时仅凭真实厂商充值订单号（external_reference）录入，来源标识与幂等键由服务端推导。
+   */
+  source_record_id: string | null;
   record_idempotency_key: string;
 }
 
@@ -151,7 +155,8 @@ export interface NormalizedRecharge {
   externalReference: string;
   description: string;
   evidenceRef: string;
-  sourceRecordId: string;
+  /** null 表示无对应旧购买记录；落库来源标识由 `legacySourceMarker` 回退到业务订单号。 */
+  sourceRecordId: string | null;
   recordIdempotencyKey: string;
 }
 

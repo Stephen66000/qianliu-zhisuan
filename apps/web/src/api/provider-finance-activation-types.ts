@@ -222,10 +222,11 @@ export interface HistoricalRechargeDraftPayload {
   cash_paid_cny: string;
   occurred_at: string;
   external_reference: string;
-  description: string;
-  evidence_ref: string;
-  source_record_id: string;
-  record_idempotency_key: string;
+  /** 内部字段：服务端缺省自动生成，表单不再要求管理员填写。 */
+  description?: string;
+  evidence_ref?: string;
+  source_record_id?: string | null;
+  record_idempotency_key?: string;
 }
 
 export interface CodingPlanPurchaseDraftPayload {

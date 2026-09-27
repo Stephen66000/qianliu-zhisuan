@@ -176,6 +176,32 @@ export function computeCollectionDigest(rows: readonly unknown[]): string {
   return hashStable(rows);
 }
 
+// ===== 历史 API 充值内部字段推导（充值表单最小修复：无旧记录时仅凭订单号录入） =====
+
+/** 事实说明固定模板：`历史 API 充值:<充值订单号>`。系统内部生成，不要求管理员填写。 */
+export function rechargeFactDescription(externalReference: string): string {
+  return `历史 API 充值:${externalReference}`;
+}
+
+/** 证据引用固定模板：`provider-order:<充值订单号>`。系统内部生成，不要求管理员填写。 */
+export function rechargeEvidenceRef(externalReference: string): string {
+  return `provider-order:${externalReference}`;
+}
+
+/**
+ * 记录级幂等键（确定性、无随机数、无时钟）：`pf-r:<厂商资源ID>:<订单号128位摘要>`，
+ * 共 6+36+1+32 = 75 字符——至少包含厂商资源 ID 与充值订单号（后者经确定性摘要进入）。
+ *
+ * 长度约束：激活协调器会再加 `activation:<候选ID>:` 前缀（48 字符），
+ * 数据库 `provider_finance_event.idempotency_key` 为 varchar(128)，
+ * 因此记录级键必须 ≤ 80 字符。相同资源+订单号的重复提交得到同一键；
+ * 跨候选的重复入账由 `provider_finance_event (enterprise_id, provider_resource_id,
+ * external_reference)` 唯一索引兜底。
+ */
+export function rechargeRecordIdempotencyKey(resourceId: string, externalReference: string): string {
+  return `pf-r:${resourceId}:${sha256Hex(`${resourceId}\u0000${externalReference}`).slice(0, 32)}`;
+}
+
 // ===== 草稿规范化（任务 1.2） =====
 
 function compareStrings(a: string, b: string): number {
@@ -211,12 +237,12 @@ export function normalizeDraftItem(
     externalReference: requireText(item.external_reference, "外部引用"),
     description: requireText(item.description, "充值说明"),
     evidenceRef: requireText(item.evidence_ref, "充值证据"),
-    sourceRecordId: item.source_record_id,
+    sourceRecordId: item.source_record_id ?? null,
     recordIdempotencyKey: item.record_idempotency_key,
   })).sort((a, b) => compareStrings(a.resourceId, b.resourceId)
     || compareStrings(a.accountCurrency, b.accountCurrency)
     || compareStrings(a.occurredAt, b.occurredAt)
-    || compareStrings(a.sourceRecordId, b.sourceRecordId));
+    || compareStrings(a.sourceRecordId ?? "", b.sourceRecordId ?? ""));
 
   const purchases: NormalizedCodingPlanPurchase[] = draft.coding_plan_purchases.map((item) => {
     const bounds = shanghaiPeriodBounds(item.service_period_start, item.service_period_end);

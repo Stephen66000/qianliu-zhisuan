@@ -12,6 +12,9 @@ import {
   normalizeCashPaidCny,
   normalizeDraftItem,
   shanghaiPeriodBounds,
+  rechargeEvidenceRef,
+  rechargeFactDescription,
+  rechargeRecordIdempotencyKey,
   sortActivationGaps,
   stableStringify,
   type ActivationDraft,
@@ -260,5 +263,50 @@ describe("静默租约判定", () => {
     expect(evaluateQuiescenceLease(
       { status: "RELEASED", expiresAt: "2026-09-21T10:30:00.000Z" }, now).active).toBe(false);
     expect(evaluateQuiescenceLease(null, now).active).toBe(false);
+  });
+});
+
+describe("历史 API 充值：无旧记录时的内部字段推导", () => {
+  it("事实说明与证据引用使用固定模板", () => {
+    expect(rechargeFactDescription("DS-ORDER-9")).toBe("历史 API 充值:DS-ORDER-9");
+    expect(rechargeEvidenceRef("DS-ORDER-9")).toBe("provider-order:DS-ORDER-9");
+  });
+
+  it("幂等键确定性：相同资源+订单得到相同键，资源或订单变化则键变化", () => {
+    const key = rechargeRecordIdempotencyKey(RESOURCE, "DS-ORDER-9");
+    expect(key).toBe(rechargeRecordIdempotencyKey(RESOURCE, "DS-ORDER-9"));
+    expect(key).not.toBe(rechargeRecordIdempotencyKey(OTHER_RESOURCE, "DS-ORDER-9"));
+    expect(key).not.toBe(rechargeRecordIdempotencyKey(RESOURCE, "DS-ORDER-10"));
+    expect(key).toMatch(/^pf-r:[0-9a-f-]{36}:[a-f0-9]{32}$/);
+    // 协调器再加 48 字符 `activation:<候选ID>:` 前缀后仍须落在 varchar(128) 内。
+    expect(key.length).toBeLessThanOrEqual(80);
+    expect(key.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("source_record_id 可空：null 通过规范化，来源标识回退由落库层处理", () => {
+    const draft = baseDraft();
+    draft.historical_api_recharges = [{
+      resource_id: RESOURCE,
+      account_currency: "CNY",
+      account_amount: "50",
+      cash_paid_cny: "50.00",
+      occurred_at: "2026-09-05T02:00:00.000Z",
+      external_reference: "DS-ORDER-9",
+      description: "历史 API 充值:DS-ORDER-9",
+      evidence_ref: "provider-order:DS-ORDER-9",
+      source_record_id: null,
+      record_idempotency_key: rechargeRecordIdempotencyKey(RESOURCE, "DS-ORDER-9"),
+    }];
+    const candidate = normalizeDraftItem(draft, "77777777-7777-4777-8777-777777777777");
+    const recharge = candidate.historicalApiRecharges[0]!;
+    expect(recharge.sourceRecordId).toBeNull();
+    expect(recharge.externalReference).toBe("DS-ORDER-9");
+  });
+
+  it("source_record_id 存在时旧路径语义不变", () => {
+    const candidate = normalizeDraftItem(baseDraft(), "77777777-7777-4777-8777-777777777777");
+    const recharge = candidate.historicalApiRecharges[0]!;
+    expect(recharge.sourceRecordId).toBe("33333333-3333-4333-8333-333333333333");
+    expect(recharge.recordIdempotencyKey).toBe("history-recharge-1");
   });
 });

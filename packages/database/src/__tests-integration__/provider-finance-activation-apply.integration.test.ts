@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "kysely";
-import type { ActivationDraft } from "@qianliu/domain";
+import { rechargeRecordIdempotencyKey, type ActivationDraft } from "@qianliu/domain";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { countFinanceGaps } from "../repositories/provider-finance-gaps.js";
 
@@ -9,6 +9,7 @@ import {
   createKysely,
   GatewayLedgerRepository,
   insertOpeningBalanceTx,
+  insertRechargeTx,
   insertSubscriptionTx,
   mapActivationFailure,
   migrateToLatest,
@@ -1181,6 +1182,83 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
         .where("action", "=", "provider_finance.legacy_purchase.close").executeTakeFirstOrThrow();
       expect((closure.change_summary as Record<string, unknown>).external_reference)
         .toBe("ORD-RECHARGE-1");
+      await assertNoActivating(db, seeded.enterpriseId);
+    } finally {
+      await db.destroy();
+    }
+  }, 120_000);
+
+  // =====================================================================
+  // 9. 无旧购买记录的历史充值（充值表单最小修复 2026-09-27）
+  // =====================================================================
+
+  it("无旧记录的历史充值：仅凭订单号落库；同候选重放与重复订单号都不重复入账", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pf03_recharge_no_source");
+      const ORDER = "DS-ORDER-NO-SOURCE";
+      const recharge = {
+        resource_id: seeded.apiResourceId,
+        account_currency: "CNY" as const,
+        account_amount: "50",
+        cash_paid_cny: "50.00",
+        occurred_at: "2026-09-05T02:00:00.000Z",
+        external_reference: ORDER,
+        description: `历史 API 充值:${ORDER}`,
+        evidence_ref: `provider-order:${ORDER}`,
+        source_record_id: null,
+        record_idempotency_key: rechargeRecordIdempotencyKey(seeded.apiResourceId, ORDER),
+      };
+      const draft: ActivationDraft = {
+        ...draftFor(seeded.apiResourceId), historical_api_recharges: [recharge],
+      };
+      await startLease(db, seeded);
+      const preview = await previewGo(db, seeded, draft);
+      const repo = new ProviderFinanceActivationCoordinator(db);
+      const outcome = await repo.activate(activateInput(seeded, preview, draft, "key-no-source"));
+      expect(outcome.replayed).toBe(false);
+      expect(outcome.receipt.factCounts.recharges).toBe(1);
+
+      // 无旧记录：来源标识回退为真实厂商充值订单号，不生成虚假旧记录 UUID。
+      const event = await db.selectFrom("provider_finance_event")
+        .select(["external_reference", "description", "evidence_ref", "source"])
+        .where("enterprise_id", "=", seeded.enterpriseId)
+        .where("event_type", "=", "API_RECHARGE").executeTakeFirstOrThrow();
+      expect(event).toMatchObject({
+        external_reference: ORDER,
+        description: `历史 API 充值:${ORDER}`,
+        evidence_ref: `provider-order:${ORDER}`,
+        source: "MIGRATION",
+      });
+
+      // 同一请求重放：同键同候选 → replayed=true，仍只有一条充值事件。
+      const replay = await repo.activate(activateInput(seeded, preview, draft, "key-no-source"));
+      expect(replay.replayed).toBe(true);
+      expect(replay.receipt.factCounts.recharges).toBe(1);
+
+      // 重复订单号（不同幂等键）：external_reference 唯一索引兜底，不得重复入账。
+      let duplicateError: { code?: string } | null = null;
+      try {
+        await db.transaction().execute(async (trx) => {
+          await insertRechargeTx(trx, {
+            enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId,
+            adminId: seeded.adminId, accountAmount: "50", accountCurrency: "CNY",
+            cashPaidCny: "50.00", occurredAt: new Date("2026-09-05T02:00:00.000Z"),
+            externalReference: ORDER, description: `历史 API 充值:${ORDER}`,
+            evidenceRef: `provider-order:${ORDER}`,
+            idempotencyKey: "different-key-same-order",
+          }, { source: "MIGRATION" });
+        });
+      } catch (error) {
+        duplicateError = error as { code?: string };
+      }
+      expect(duplicateError?.code).toBe("23505");
+      const rechargeCount = await sql<{ count: string }>`
+        SELECT COUNT(*)::text AS count FROM provider_finance_event
+         WHERE enterprise_id=${seeded.enterpriseId}::uuid AND event_type='API_RECHARGE'`
+        .execute(db);
+      expect(Number(rechargeCount.rows[0]!.count)).toBe(1);
       await assertNoActivating(db, seeded.enterpriseId);
     } finally {
       await db.destroy();

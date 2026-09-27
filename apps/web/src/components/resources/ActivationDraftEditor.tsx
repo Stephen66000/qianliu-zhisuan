@@ -5,7 +5,8 @@
  * 旧购买记录关闭。约定：
  *  - 期初时点固定为资金切换时点，**只读不可编辑**（计划 v1.2 §4.2）；
  *  - 金额空值与 `0` 严格区分：留空显示「未填写」且不自动补 0（PFU-05）；
- *  - 说明与证据引用对所有资金事实必填（PFH-06）；
+ *  - 说明与证据引用对期初、购买与跨切换周期必填（PFH-06）；历史 API 充值行的
+ *    说明/证据引用/来源旧记录/幂等键由系统内部自动生成，不提供输入框；
  *  - `UNKNOWN_COST` 不是本编辑器可以关闭的对象，只能走既有的历史费用处置闭环（PFH-02）。
  */
 import { Plus, Trash2 } from "lucide-react";
@@ -177,6 +178,11 @@ function OpeningRowFields({ row, index, issues, readOnly, cutoverAt, resourceOpt
   );
 }
 
+/**
+ * 历史充值行：管理员只填写六项（厂商资源、币种、到账金额、人民币实付、充值时间、
+ * 充值订单号）。事实说明、证据引用、来源旧记录与幂等键由系统内部自动生成，
+ * 不再提供输入框（充值表单最小修复 2026-09-27）。
+ */
 function RechargeRowFields({ row, index, issues, readOnly, resourceOptions, onPatch, onRemove }: {
   row: RechargeRowState; index: number; issues: DraftIssue[]; readOnly: boolean;
   resourceOptions: ResourceOption[]; onPatch: (patch: Partial<RechargeRowState>) => void;
@@ -201,24 +207,10 @@ function RechargeRowFields({ row, index, issues, readOnly, resourceOptions, onPa
       <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "occurredAt")} htmlFor={`${rowId}-occurred`} label="充值时间">
         <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-occurred`} onChange={(event) => onPatch({ occurredAtLocal: event.target.value })} type="datetime-local" value={row.occurredAtLocal} />
       </FormField>
-      <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "externalReference")} hint="厂商订单号，必填"
-        htmlFor={`${rowId}-reference`} label="外部引用">
+      <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "externalReference")}
+        hint="必填；同一厂商资源下不得重复" htmlFor={`${rowId}-reference`} label="充值订单号">
         <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-reference`} onChange={(event) => onPatch({ externalReference: event.target.value })} value={row.externalReference} />
       </FormField>
-      <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "sourceRecordId")} hint="对应旧购买记录 ID"
-        htmlFor={`${rowId}-source`} label="来源旧记录">
-        <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-source`} onChange={(event) => onPatch({ sourceRecordId: event.target.value })} value={row.sourceRecordId} />
-      </FormField>
-      <div className="md:col-span-2">
-        <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "description")} htmlFor={`${rowId}-description`} label="事实说明">
-          <textarea className={`${INPUT_CLASS} min-h-16 w-full py-2`} disabled={readOnly} id={`${rowId}-description`} onChange={(event) => onPatch({ description: event.target.value })} value={row.description} />
-        </FormField>
-      </div>
-      <div className="md:col-span-2">
-        <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "evidenceRef")} htmlFor={`${rowId}-evidence`} label="证据引用">
-          <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-evidence`} onChange={(event) => onPatch({ evidenceRef: event.target.value })} value={row.evidenceRef} />
-        </FormField>
-      </div>
     </RowShell>
   );
 }
@@ -430,11 +422,10 @@ export function ActivationDraftEditor({
 
       <DraftSectionCard
         addLabel="添加历史充值" count={state.historicalApiRecharges.length}
-        description="切换时点后的每条真实 API 充值：到账金额、人民币实付、时间、订单引用、说明与证据。"
+        description="切换时点后的每条真实 API 充值，只填六项：到账金额、人民币实付、充值时间、充值订单号、厂商资源与币种；事实说明、证据引用与幂等键由系统内部生成。"
         onAdd={() => setSection("historicalApiRecharges", [...state.historicalApiRecharges, {
           id: newLocalRowIdFor("recharge"), resourceId: "", accountCurrency: "CNY", accountAmount: "",
-          cashPaidCny: "", occurredAtLocal: "", externalReference: "", description: "",
-          evidenceRef: "", sourceRecordId: "", recordIdempotencyKey: newRecordIdempotencyKey(),
+          cashPaidCny: "", occurredAtLocal: "", externalReference: "",
         }])}
         readOnly={readOnly} testId="draft-section-recharges" title={DRAFT_SECTION_LABELS.historicalApiRecharges}
       >

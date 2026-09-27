@@ -13,6 +13,11 @@
  *  - 金额填写 `0` 是**有效零值**，原样发送；
  *  - 金额留空表示**未填写**，绝不自动转换为 `0`；整行内容皆空时整行省略，
  *    由服务端投影给出 `MISSING_OPENING_BALANCE` 缺口。
+ *
+ * 历史 API 充值行（充值表单最小修复 2026-09-27）：
+ *  - 管理员只填六项：厂商资源、币种、到账金额、人民币实付、充值时间、充值订单号；
+ *  - 事实说明、证据引用、来源旧记录与记录级幂等键由服务端自动生成，载荷不再携带；
+ *  - 草稿内检查同一厂商资源下充值订单号不得重复（数据库唯一索引兜底）。
  */
 
 import type {
@@ -52,6 +57,11 @@ export interface OpeningRowState {
   sourceRecordId: string;
 }
 
+/**
+ * 历史 API 充值行：管理员只填写六项（厂商资源、币种、到账金额、人民币实付、
+ * 充值时间、充值订单号）。事实说明、证据引用、来源旧记录与记录级幂等键属于
+ * 系统内部字段，由服务端按确定性规则自动生成（充值表单最小修复 2026-09-27）。
+ */
 export interface RechargeRowState {
   id: string;
   resourceId: string;
@@ -60,10 +70,6 @@ export interface RechargeRowState {
   cashPaidCny: string;
   occurredAtLocal: string;
   externalReference: string;
-  description: string;
-  evidenceRef: string;
-  sourceRecordId: string;
-  recordIdempotencyKey: string;
 }
 
 export interface PurchaseRowState {
@@ -246,13 +252,7 @@ export function validateRechargeRow(row: RechargeRowState): DraftIssue[] {
   collect(issues, section, row.id, "cashPaidCny", requireCashPaid(row.cashPaidCny));
   collect(issues, section, row.id, "occurredAt", requireInstant(row.occurredAtLocal, "充值时间"));
   collect(issues, section, row.id, "externalReference",
-    requireText(row.externalReference, "厂商订单号", ACTIVATION_EXTERNAL_REFERENCE_MAX_LENGTH));
-  collect(issues, section, row.id, "description",
-    requireText(row.description, "事实说明", ACTIVATION_DESCRIPTION_MAX_LENGTH));
-  collect(issues, section, row.id, "evidenceRef",
-    requireText(row.evidenceRef, "证据引用", ACTIVATION_EVIDENCE_MAX_LENGTH));
-  collect(issues, section, row.id, "sourceRecordId", requireUuid(row.sourceRecordId, "对应旧购买记录"));
-  collect(issues, section, row.id, "recordIdempotencyKey", requireRecordKey(row.recordIdempotencyKey));
+    requireText(row.externalReference, "充值订单号", ACTIVATION_EXTERNAL_REFERENCE_MAX_LENGTH));
   return issues;
 }
 
@@ -338,7 +338,7 @@ function isOpeningRowBlank(row: OpeningRowState): boolean {
 
 function isRechargeRowBlank(row: RechargeRowState): boolean {
   return isBlank([row.resourceId, row.accountAmount, row.cashPaidCny, row.occurredAtLocal,
-    row.externalReference, row.description, row.evidenceRef, row.sourceRecordId]);
+    row.externalReference]);
 }
 
 function isPurchaseRowBlank(row: PurchaseRowState): boolean {
@@ -376,8 +376,23 @@ function collectOpeningIssues(state: ActivationDraftState, cutoverAt: string | n
 }
 
 function collectRechargeIssues(state: ActivationDraftState): DraftIssue[] {
-  return state.historicalApiRecharges.filter((row) => !isRechargeRowBlank(row))
-    .flatMap((row) => validateRechargeRow(row));
+  const rows = state.historicalApiRecharges.filter((row) => !isRechargeRowBlank(row));
+  const issues = rows.flatMap((row) => validateRechargeRow(row));
+  // 草稿内防重：同一厂商资源下充值订单号不得重复（服务端还有数据库唯一索引兜底）。
+  const byKey = new Map<string, RechargeRowState[]>();
+  for (const row of rows) {
+    const key = `${row.resourceId.trim()}|${row.externalReference.trim()}`;
+    const group = byKey.get(key);
+    if (group) group.push(row); else byKey.set(key, [row]);
+  }
+  for (const group of byKey.values()) {
+    if (group.length < 2) continue;
+    for (const row of group) {
+      issues.push({ section: "historicalApiRecharges", rowId: row.id, field: "externalReference",
+        message: "同一厂商资源下充值订单号不得重复" });
+    }
+  }
+  return issues;
 }
 
 function collectPurchaseIssues(state: ActivationDraftState): DraftIssue[] {
@@ -425,6 +440,7 @@ function toOpeningPayload(row: OpeningRowState, cutoverAt: string): OpeningBalan
 }
 
 function toRechargePayload(row: RechargeRowState): HistoricalRechargeDraftPayload {
+  // 载荷只含管理员填写的六项：事实说明、证据引用、来源旧记录与幂等键由服务端生成。
   return {
     resource_id: row.resourceId.trim(),
     account_currency: row.accountCurrency,
@@ -432,10 +448,6 @@ function toRechargePayload(row: RechargeRowState): HistoricalRechargeDraftPayloa
     cash_paid_cny: row.cashPaidCny.trim(),
     occurred_at: toInstant(row.occurredAtLocal) ?? "",
     external_reference: row.externalReference.trim(),
-    description: row.description.trim(),
-    evidence_ref: row.evidenceRef.trim(),
-    source_record_id: row.sourceRecordId.trim(),
-    record_idempotency_key: row.recordIdempotencyKey,
   };
 }
 

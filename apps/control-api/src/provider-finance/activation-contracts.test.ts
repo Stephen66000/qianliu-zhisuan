@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  rechargeRecordIdempotencyKey,
+} from "@qianliu/domain";
+import {
   ActivationDraftSchema,
   ActivationRequestBody,
   LegacyPurchaseResolutionDraftSchema,
@@ -128,6 +131,64 @@ describe("激活草稿合同", () => {
       ...base,
       coding_plan_purchases: [{ ...base.coding_plan_purchases[0]!, service_period_end: "2026-08-01" }],
     }).success).toBe(false);
+  });
+});
+
+describe("历史 API 充值草稿：无旧记录最小录入", () => {
+  function rechargeDraft(overrides: Record<string, unknown> = {}) {
+    return minimalDraft({
+      historical_api_recharges: [{
+        resource_id: RESOURCE,
+        account_currency: "CNY",
+        account_amount: "50",
+        cash_paid_cny: "50.00",
+        occurred_at: "2026-09-05T02:00:00.000Z",
+        external_reference: "DS-ORDER-9",
+        ...overrides,
+      }],
+    });
+  }
+
+  it("source_record_id 缺失时通过校验，内部字段由服务端确定性生成", () => {
+    const parsed = ActivationDraftSchema.parse(rechargeDraft());
+    expect(parsed.historical_api_recharges[0]!.source_record_id).toBeUndefined();
+    const draft = toActivationDraft(parsed);
+    const recharge = draft.historical_api_recharges[0]!;
+    expect(recharge.source_record_id).toBeNull();
+    expect(recharge.description).toBe("历史 API 充值:DS-ORDER-9");
+    expect(recharge.evidence_ref).toBe("provider-order:DS-ORDER-9");
+    expect(recharge.record_idempotency_key)
+      .toBe(rechargeRecordIdempotencyKey(RESOURCE, "DS-ORDER-9"));
+    // 确定性：相同资源+订单的重复提交得到同一幂等键。
+    const replayed = toActivationDraft(ActivationDraftSchema.parse(rechargeDraft()));
+    expect(replayed.historical_api_recharges[0]!.record_idempotency_key)
+      .toBe(recharge.record_idempotency_key);
+  });
+
+  it("显式提供内部字段时旧路径语义不变（带旧 source_record_id 兼容）", () => {
+    const parsed = ActivationDraftSchema.parse(rechargeDraft({
+      description: "历史充值（迁移）",
+      evidence_ref: "evidence://deepseek/recharge-1",
+      source_record_id: EVENT,
+      record_idempotency_key: "history-recharge-1",
+    }));
+    const draft = toActivationDraft(parsed);
+    const recharge = draft.historical_api_recharges[0]!;
+    expect(recharge.source_record_id).toBe(EVENT);
+    expect(recharge.description).toBe("历史充值（迁移）");
+    expect(recharge.evidence_ref).toBe("evidence://deepseek/recharge-1");
+    expect(recharge.record_idempotency_key).toBe("history-recharge-1");
+  });
+
+  it("source_record_id 显式 null 合法，非法 UUID 被拒绝", () => {
+    expect(ActivationDraftSchema.safeParse(rechargeDraft({ source_record_id: null })).success).toBe(true);
+    expect(ActivationDraftSchema.safeParse(rechargeDraft({ source_record_id: "not-a-uuid" })).success).toBe(false);
+  });
+
+  it("充值订单号必填且不得超过 255 字", () => {
+    expect(ActivationDraftSchema.safeParse(rechargeDraft({ external_reference: "" })).success).toBe(false);
+    expect(ActivationDraftSchema.safeParse(rechargeDraft({ external_reference: "x".repeat(256) })).success).toBe(false);
+    expect(ActivationDraftSchema.safeParse(rechargeDraft({ external_reference: "x".repeat(255) })).success).toBe(true);
   });
 });
 

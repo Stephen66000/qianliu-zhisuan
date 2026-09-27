@@ -4,6 +4,9 @@ import {
   ACTIVATION_EVIDENCE_MAX_LENGTH,
   ACTIVATION_MAX_DRAFT_ROWS,
   PROVIDER_FINANCE_ACTIVATION_SCHEMA_VERSION,
+  rechargeEvidenceRef,
+  rechargeFactDescription,
+  rechargeRecordIdempotencyKey,
   type ActivationDraft,
 } from "@qianliu/domain";
 
@@ -39,6 +42,14 @@ export const OpeningBalanceDraftSchema = z.object({
   source_record_id: z.string().uuid().nullable().optional(),
 }).strict();
 
+/**
+ * 历史 API 充值草稿。
+ *
+ * 充值表单最小修复（2026-09-27）：`source_record_id` 可空——历史充值没有对应的旧
+ * `resource_purchase_record` 时，允许仅凭真实厂商充值订单号录入；
+ * 事实说明、证据引用与记录级幂等键改为**可选**，缺省由服务端按确定性规则生成
+ * （见 `toActivationDraft`），不再要求管理员手工填写；显式提供时旧路径语义不变。
+ */
 export const HistoricalRechargeDraftSchema = z.object({
   resource_id: ResourceId,
   account_currency: Currency,
@@ -46,10 +57,10 @@ export const HistoricalRechargeDraftSchema = z.object({
   cash_paid_cny: CashPaidCny,
   occurred_at: Instant,
   external_reference: z.string().trim().min(1).max(255),
-  description: Description,
-  evidence_ref: Evidence,
-  source_record_id: z.string().uuid(),
-  record_idempotency_key: RecordIdempotencyKey,
+  description: Description.optional(),
+  evidence_ref: Evidence.optional(),
+  source_record_id: z.string().uuid().nullable().optional(),
+  record_idempotency_key: RecordIdempotencyKey.optional(),
 }).strict();
 
 export const CodingPlanPurchaseDraftSchema = z.object({
@@ -162,10 +173,12 @@ export function toActivationDraft(input: ActivationDraftInput): ActivationDraft 
       cash_paid_cny: item.cash_paid_cny,
       occurred_at: item.occurred_at,
       external_reference: item.external_reference,
-      description: item.description,
-      evidence_ref: item.evidence_ref,
-      source_record_id: item.source_record_id,
-      record_idempotency_key: item.record_idempotency_key,
+      // 内部字段缺省自动生成（确定性、无随机数）；显式提供时保持旧路径语义不变。
+      description: item.description ?? rechargeFactDescription(item.external_reference),
+      evidence_ref: item.evidence_ref ?? rechargeEvidenceRef(item.external_reference),
+      source_record_id: item.source_record_id ?? null,
+      record_idempotency_key: item.record_idempotency_key
+        ?? rechargeRecordIdempotencyKey(item.resource_id, item.external_reference),
     })),
     coding_plan_purchases: input.coding_plan_purchases.map((item) => ({
       resource_id: item.resource_id,
