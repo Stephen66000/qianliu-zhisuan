@@ -703,6 +703,9 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     const rWithPeriod = await mk("有订阅周期", "CODING_PLAN");
     const rRechargeNoCash = await mk("充值未登记现金");
     const rRechargeWithCash = await mk("充值已登记现金");
+    // 合法零费用行：CONFIRMED_ZERO_NO_UPSTREAM + api_cost=0 + 币种为空（0059 形状合同），
+    // 不得计入任何缺口（与 usage-backfill / cutover-repository 的权威口径一致）。
+    const rZeroConfirmed = await mk("合法零费用");
     // 遗留成本解决记录的触发器要求 DeepSeek 形态资源。
     const providerDeep = await db.insertInto("provider").values({
       enterprise_id: ent, code: "deepseek", name: "缺口 DeepSeek", adapter_type: "deepseek",
@@ -727,7 +730,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     const inWin = new Date("2026-09-05T00:00:00.000Z");
     const line = async (resourceId: string, extra: {
       api_cost?: string | null; api_cost_currency?: "CNY" | "USD" | null;
-      api_cost_status?: "PRICED_USAGE" | "UNKNOWN_COST" | null;
+      api_cost_status?: "PRICED_USAGE" | "UNKNOWN_COST" | "CONFIRMED_ZERO_NO_UPSTREAM" | null;
       billing_rule_snapshot?: Record<string, unknown> | null;
       subscription_period_id?: string | null;
       resolution_id?: string | null;
@@ -796,6 +799,11 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     });
     await line(rNoOpening, { api_cost: "7", api_cost_currency: "CNY", api_cost_status: "PRICED_USAGE" });
     await line(rNoPeriod, { api_cost: null, api_cost_status: null, mode: "CODING_PLAN" });
+    // 合法零费用行（反控制）：无论快照币种是否为空，都不得计入任何缺口码。
+    await line(rZeroConfirmed, {
+      api_cost: "0", api_cost_status: "CONFIRMED_ZERO_NO_UPSTREAM",
+      billing_rule_snapshot: {},
+    });
 
     // 反控制：同类事实但已补齐，不应计数。
     // 解决记录要求精确指向该资源的余额快照。

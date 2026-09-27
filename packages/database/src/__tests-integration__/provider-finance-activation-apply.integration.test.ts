@@ -294,6 +294,63 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     }
   });
 
+  it("CONFIRMED_ZERO_NO_UPSTREAM 合法零费用行不计缺口、预检不报 MISSING_API_CURRENCY；真实已计价缺币种仍计", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pf03_zero_confirmed");
+      const at = new Date("2026-09-10T04:00:00.000Z");
+      // 生产已核实的形态：api_cost=0、币种为空（0059 形状合同要求保持为空）、快照币种为空。
+      await insertLedgerLine(db, seeded, {
+        mode: "API", resourceId: seeded.apiResourceId, settledAt: at, createdAt: at,
+        apiCost: "0", apiCostStatus: "CONFIRMED_ZERO_NO_UPSTREAM", tokens: 0, outputTokens: 0,
+      });
+      const gaps = await countFinanceGaps(db, seeded.enterpriseId, PROVIDER_FINANCE_CUTOVER,
+        new Date("2026-10-01T00:00:00+08:00"));
+      expect(gaps.find((gap) => gap.code === "API_COST_CURRENCY_MISSING")?.count).toBe("0");
+      expect(gaps.find((gap) => gap.code === "API_USAGE_COST_UNKNOWN")?.count).toBe("0");
+      await startLease(db, seeded);
+      // 预检侧：合法零费用行不得映射为 MISSING_API_CURRENCY（月度缺口→激活缺口口径一致）。
+      const previewRepo = new ProviderFinanceActivationPreviewRepository(db);
+      const before = await previewRepo.previewActivation({
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId,
+        draft: draftFor(seeded.apiResourceId),
+      });
+      expect(before.gaps.some((gap) => gap.code === "MISSING_API_CURRENCY")).toBe(false);
+
+      // 反控制：真实已计价非零（PRICED_USAGE）但币种缺失仍计缺口并进入预检。
+      // 该形态在 0059 形状约束下不可新写入：临时解除约束注入遗留行，再以 NOT VALID 重建。
+      await db.schema.alterTable("ledger_line")
+        .dropConstraint("ledger_line_api_cost_fact_shape_check").execute();
+      await insertLedgerLine(db, seeded, {
+        mode: "API", resourceId: seeded.apiResourceId, settledAt: at, createdAt: at,
+        apiCost: "3.5", apiCostStatus: "PRICED_USAGE", tokens: 5, outputTokens: 5,
+      });
+      await sql`ALTER TABLE ledger_line ADD CONSTRAINT
+        ledger_line_api_cost_fact_shape_check CHECK (
+          api_cost_status IS NULL
+          OR (api_cost_status='PRICED_USAGE' AND resource_mode='API'
+            AND api_cost IS NOT NULL AND api_cost_currency IS NOT NULL)
+          OR (api_cost_status='CONFIRMED_ZERO_NO_UPSTREAM' AND resource_mode='API'
+            AND api_cost=0 AND api_cost_currency IS NULL)
+          OR (api_cost_status='UNKNOWN_COST' AND resource_mode='API'
+            AND api_cost IS NULL AND api_cost_currency IS NULL)
+          OR (api_cost_status='NOT_APPLICABLE' AND resource_mode='CODING_PLAN'
+            AND api_cost IS NULL AND api_cost_currency IS NULL)
+        ) NOT VALID`.execute(db);
+      const after = await countFinanceGaps(db, seeded.enterpriseId, PROVIDER_FINANCE_CUTOVER,
+        new Date("2026-10-01T00:00:00+08:00"));
+      expect(after.find((gap) => gap.code === "API_COST_CURRENCY_MISSING")?.count).toBe("1");
+      const preview = await previewRepo.previewActivation({
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId,
+        draft: draftFor(seeded.apiResourceId),
+      });
+      expect(preview.gaps.some((gap) => gap.code === "MISSING_API_CURRENCY")).toBe(true);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it("激活成功：事实落库、严格写开启、范围资源 READY、候选 ACTIVATED 与不可变回执；同键同候选重放", async () => {
     const db = createKysely(pg.connectionString);
     try {

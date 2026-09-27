@@ -45,6 +45,9 @@ export async function countFinanceGaps(
     SELECT 'API_COST_CURRENCY_MISSING', COUNT(*)::text
       FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
        AND api_cost IS NOT NULL AND api_cost_currency IS NULL
+       -- 与 usage-backfill / cutover-repository 的 missing_api_currency 口径一致：
+       -- CONFIRMED_ZERO_NO_UPSTREAM 行按 0059 事实形状合同必须保持币种为空，属合法已知 0。
+       AND api_cost_status IS DISTINCT FROM 'CONFIRMED_ZERO_NO_UPSTREAM'
        AND COALESCE(settled_at, created_at)>=${effectiveStart}
        AND COALESCE(settled_at, created_at)<${end}
     UNION ALL
