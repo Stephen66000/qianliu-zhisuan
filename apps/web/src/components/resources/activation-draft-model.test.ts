@@ -10,10 +10,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACTIVATION_MAX_DRAFT_ROWS, buildActivationDraft, countActiveRows, emptyDraftState,
-  isValidAccountAmount, isValidCashPaidCny, newLocalRowId, toInstant, validateDraft,
-  validateHistoricalCostRow, validateLegacyRow, validateOpeningRow, validateRechargeRow,
-  type ActivationDraftState, type HistoricalCostRowState, type LegacyRowState,
-  type OpeningRowState, type RechargeRowState,
+  isValidAccountAmount, isValidCashPaidCny, newLocalRowId, toInstant, validateCarryoverRow,
+  validateDraft, validateHistoricalCostRow, validateLegacyRow, validateOpeningRow,
+  validateRechargeRow,
+  type ActivationDraftState, type CarryoverRowState, type HistoricalCostRowState,
+  type LegacyRowState, type OpeningRowState, type RechargeRowState,
 } from "./activation-draft-model";
 
 const CUTOVER = "2026-08-31T16:00:00.000Z";
@@ -271,5 +272,36 @@ describe("历史 API 消耗行（0084）：四字段与正数输入", () => {
     ] };
     expect(validateDraft(distinct, CUTOVER).filter((issue) =>
       issue.message.includes("最多只能登记一条历史 API 消耗"))).toEqual([]);
+  });
+});
+
+describe("跨切换周期行（管理员声明）：四字段 payload 与本地校验", () => {
+  const carryRow = (): CarryoverRowState => ({
+    id: "carry-1", resourceId: RESOURCE, productName: "GLM Coding Plan",
+    periodStart: "2026-08-26", periodEnd: "2026-09-25",
+    snapshotId: "", description: "", evidenceRef: "",
+  });
+
+  it("合法四字段行零问题；payload 只含四项业务字段且 snapshot_id=null", () => {
+    expect(validateCarryoverRow(carryRow())).toEqual([]);
+    const payload = buildActivationDraft(
+      { ...emptyDraftState(), codingPlanCarryovers: [carryRow()] }, CUTOVER);
+    expect(payload.coding_plan_carryovers).toEqual([{
+      resource_id: RESOURCE, product_name: "GLM Coding Plan",
+      period_start: "2026-08-26", period_end: "2026-09-25", snapshot_id: null,
+    }]);
+    expect(Object.keys(payload.coding_plan_carryovers[0]!).sort()).toEqual([
+      "period_end", "period_start", "product_name", "resource_id", "snapshot_id",
+    ]);
+  });
+
+  it("隐藏字段缺失/为空不影响本地校验；带旧快照引用时保持 UUID 校验", () => {
+    expect(validateCarryoverRow({ ...carryRow(), description: "", evidenceRef: "" })).toEqual([]);
+    expect(validateCarryoverRow({ ...carryRow(), snapshotId: "not-a-uuid" })
+      .some((issue) => issue.field === "snapshotId")).toBe(true);
+    expect(validateCarryoverRow({
+      ...carryRow(),
+      snapshotId: "44444444-4444-4444-8444-444444444444",
+    })).toEqual([]);
   });
 });

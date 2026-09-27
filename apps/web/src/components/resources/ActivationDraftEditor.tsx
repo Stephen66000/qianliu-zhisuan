@@ -321,19 +321,10 @@ function CarryoverRowFields({ row, index, issues, readOnly, resourceOptions, onP
       <FormField error={errorFor(issues, "codingPlanCarryovers", row.id, "periodEnd")} htmlFor={`${rowId}-end`} label="周期结束日">
         <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-end`} onChange={(event) => onPatch({ periodEnd: event.target.value })} type="date" value={row.periodEnd} />
       </FormField>
-      <FormField error={errorFor(issues, "codingPlanCarryovers", row.id, "snapshotId")} hint="跨切换快照 ID" htmlFor={`${rowId}-snapshot`} label="快照引用">
-        <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-snapshot`} onChange={(event) => onPatch({ snapshotId: event.target.value })} value={row.snapshotId} />
-      </FormField>
-      <div className="md:col-span-2">
-        <FormField error={errorFor(issues, "codingPlanCarryovers", row.id, "description")} htmlFor={`${rowId}-description`} label="事实说明">
-          <textarea className={`${INPUT_CLASS} min-h-16 w-full py-2`} disabled={readOnly} id={`${rowId}-description`} onChange={(event) => onPatch({ description: event.target.value })} value={row.description} />
-        </FormField>
-      </div>
-      <div className="md:col-span-2">
-        <FormField error={errorFor(issues, "codingPlanCarryovers", row.id, "evidenceRef")} htmlFor={`${rowId}-evidence`} label="证据引用">
-          <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-evidence`} onChange={(event) => onPatch({ evidenceRef: event.target.value })} value={row.evidenceRef} />
-        </FormField>
-      </div>
+      {/* 管理员声明路径（2026-09-27 最小兼容修复）：每行只有四项输入。
+          快照引用/事实说明/证据引用不再向管理员展示——说明与证据由服务端按
+          资源、产品、周期确定性生成；隐藏字段保留在行状态里以兼容
+          localStorage v1 已保存草稿的完整恢复，但不进入预检载荷。 */}
     </RowShell>
   );
 }

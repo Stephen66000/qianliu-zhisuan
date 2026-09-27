@@ -1,5 +1,6 @@
 import { sql, type Transaction } from "kysely";
 import {
+  carryoverDraftKey,
   computeCandidateHash,
   normalizeDraftItem,
   projectActivationCandidate,
@@ -480,7 +481,8 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
         migrationSourceRecordId: carryover.snapshotId,
         description: carryover.description, evidenceRef: carryover.evidenceRef,
       });
-      periodIdByDraftKey.set(carryover.snapshotId, result.periodId);
+      // 带快照引用的键即快照 id（旧路径）；管理员声明路径用确定性摘要键。
+      periodIdByDraftKey.set(carryoverDraftKey(carryover), result.periodId);
       written += 1;
     }
     return written;

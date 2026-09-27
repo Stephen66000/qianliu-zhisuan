@@ -57,6 +57,8 @@ const GAP_CODE_LABELS: Partial<Record<ActivationGapCode, string>> = {
   UNATTRIBUTED_PLAN_USAGE: "Coding Plan 用量无法唯一归属周期",
   OVERLAPPING_PERIOD: "存在重叠且归属不唯一的周期",
   INVALID_SERVICE_PERIOD: "扣费日期必须等于服务开始日",
+  CARRYOVER_NOT_CROSSING_CUTOVER: "跨切换周期必须真实跨过资金切换时点",
+  CARRYOVER_PERIOD_OVERLAP: "同资源的跨切换周期在草稿中互相重叠",
   LEGACY_RECORD_UNCLOSED: "旧购买记录没有唯一关闭结果",
   LEGACY_RECORD_UNKNOWN: "关闭决定引用了范围外的旧购买记录",
   LEGACY_MIGRATION_REFERENCE_MISSING: "MIGRATED 缺少外部订单引用",

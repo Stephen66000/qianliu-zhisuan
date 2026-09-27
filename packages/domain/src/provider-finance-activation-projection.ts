@@ -149,6 +149,39 @@ function collectScopeAndModeGaps(
       gaps.push(gap("RESOURCE_MODE_MISMATCH", "PERIOD", "跨切换周期只能登记在套餐资源上",
         { resourceId: carryover.resourceId }));
     }
+    // 管理员声明路径与旧快照路径同规则：周期必须真实跨过固定切换时点
+    // （开始 < 切换且结束(排他) > 切换），只用于覆盖切换后用量。
+    if (!(carryover.periodStart < cutoverAt && carryover.periodEndExclusive > cutoverAt)) {
+      gaps.push(gap("CARRYOVER_NOT_CROSSING_CUTOVER", "PERIOD",
+        "跨切换周期必须真实跨过资金切换时点", {
+          resourceId: carryover.resourceId,
+          detail: `${carryover.periodStart} .. ${carryover.periodEndExclusive}`,
+        }));
+    }
+  }
+  // 草稿内重叠检测：同资源的跨切换周期互相重叠会让覆盖它们的用量行产生
+  // 归属歧义（PFH-03），无用量行时也会造成重复周期，一并失败关闭。
+  const carryoversByResource = new Map<string, NormalizedActivationCandidate["codingPlanCarryovers"]>();
+  for (const carryover of input.draft.codingPlanCarryovers) {
+    const group = carryoversByResource.get(carryover.resourceId);
+    if (group) group.push(carryover); else carryoversByResource.set(carryover.resourceId, [carryover]);
+  }
+  for (const resourceId of [...carryoversByResource.keys()].sort(compareStrings)) {
+    const group = [...carryoversByResource.get(resourceId)!]
+      .sort((left, right) => compareStrings(left.periodStart, right.periodStart)
+        || compareStrings(left.periodEndExclusive, right.periodEndExclusive));
+    for (let i = 1; i < group.length; i += 1) {
+      const prev = group[i - 1]!;
+      const curr = group[i]!;
+      if (curr.periodStart < prev.periodEndExclusive) {
+        gaps.push(gap("CARRYOVER_PERIOD_OVERLAP", "PERIOD",
+          "同资源的跨切换周期在草稿中互相重叠", {
+            resourceId,
+            detail: `${prev.periodStart}..${prev.periodEndExclusive} vs `
+              + `${curr.periodStart}..${curr.periodEndExclusive}`,
+          }));
+      }
+    }
   }
 }
 

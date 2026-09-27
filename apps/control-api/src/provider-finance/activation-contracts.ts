@@ -114,9 +114,12 @@ export const CodingPlanCarryoverDraftSchema = z.object({
   product_name: z.string().trim().min(1).max(255),
   period_start: ShanghaiDay,
   period_end: ShanghaiDay,
-  snapshot_id: z.string().uuid(),
-  description: Description,
-  evidence_ref: Evidence,
+  // 管理员声明路径（新服务器不存在旧库快照 UUID）可缺省/显式 null；
+  // 提供时保持旧路径严格关联语义。
+  snapshot_id: z.string().uuid().nullable().optional(),
+  // 缺省/为 null 时说明与证据引用由服务端按资源、产品、周期确定性生成（ADMIN_DECLARED_CARRYOVER）。
+  description: Description.nullable().optional(),
+  evidence_ref: Evidence.nullable().optional(),
 }).strict().refine((value) => value.period_end >= value.period_start, {
   path: ["period_end"], message: "周期结束日不得早于开始日",
 });
@@ -255,9 +258,9 @@ export function toActivationDraft(input: ActivationDraftInput): ActivationDraft 
       product_name: item.product_name,
       period_start: item.period_start,
       period_end: item.period_end,
-      snapshot_id: item.snapshot_id,
-      description: item.description,
-      evidence_ref: item.evidence_ref,
+      snapshot_id: item.snapshot_id ?? null,
+      description: item.description ?? null,
+      evidence_ref: item.evidence_ref ?? null,
     })),
     legacy_purchase_resolutions: input.legacy_purchase_resolutions.map((item) => ({
       legacy_record_id: item.legacy_record_id,

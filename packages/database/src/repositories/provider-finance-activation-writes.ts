@@ -306,8 +306,13 @@ export interface CarryoverPeriodWriteInput {
   /** 跨切换时点的既有周期，上海自然日边界。 */
   periodStart: Date;
   periodEndExclusive: Date;
-  /** 运营快照 id；作为 `migration_source_record_id` 承担唯一性。 */
-  migrationSourceRecordId: string;
+  /**
+   * 旧库运营快照 id（非空时作为 `migration_source_record_id` 承担唯一性）；
+   * **null 表示管理员声明的新服务器迁移跨切换周期**（新库不存在旧库快照 UUID，
+   * 2026-09-27 最小兼容修复）：按企业+资源+产品+周期+来源幂等查重，无既有行才插入
+   * `migration_source_record_id = NULL`（0082 后 schema 允许）。
+   */
+  migrationSourceRecordId: string | null;
   description: string | null;
   evidenceRef: string | null;
 }
@@ -316,8 +321,11 @@ export interface CarryoverPeriodWriteInput {
  * 跨切换周期：切换时点前就已存在、跨过切换时点的既有套餐周期。
  *
  * 它不产生新的资金事件（钱在切换前已付），因此 `source='MIGRATED_CARRYOVER'`
- * 且 `finance_event_id IS NULL`；唯一性由 `migration_source_record_id` 保证。
- * 写入它的意义是让切换后的套餐用量能唯一归属到真实周期。
+ * 且 `finance_event_id IS NULL`。带快照引用时唯一性由 `migration_source_record_id`
+ * 保证；管理员声明（null）路径按
+ * 企业+资源+产品+period_start+period_end_exclusive+source 查找既有相同行并幂等返回。
+ * 写入它的意义是让切换后的套餐用量能唯一归属到真实周期；
+ * 不得创建伪快照，也不影响当前资源额度配置。
  */
 export async function insertCarryoverPeriodTx(
   trx: Transaction<Database>, input: CarryoverPeriodWriteInput,
@@ -327,11 +335,25 @@ export async function insertCarryoverPeriodTx(
   if (input.periodStart.getTime() >= input.periodEndExclusive.getTime()) {
     throw new ProviderFinanceError("INVALID_REQUEST", "跨切换周期结束必须晚于开始");
   }
-  const existing = await trx.selectFrom("provider_subscription_period").select("id")
-    .where("enterprise_id", "=", input.enterpriseId)
-    .where("migration_source_record_id", "=", input.migrationSourceRecordId)
-    .executeTakeFirst();
-  if (existing) return { periodId: existing.id };
+  if (input.migrationSourceRecordId !== null) {
+    const existing = await trx.selectFrom("provider_subscription_period").select("id")
+      .where("enterprise_id", "=", input.enterpriseId)
+      .where("migration_source_record_id", "=", input.migrationSourceRecordId)
+      .executeTakeFirst();
+    if (existing) return { periodId: existing.id };
+  } else {
+    // 管理员声明路径：同一（企业、资源、产品、周期）只允许一条声明行。
+    const existing = await trx.selectFrom("provider_subscription_period").select("id")
+      .where("enterprise_id", "=", input.enterpriseId)
+      .where("provider_resource_id", "=", input.resourceId)
+      .where("product_name", "=", input.productName)
+      .where("period_start", "=", input.periodStart)
+      .where("period_end_exclusive", "=", input.periodEndExclusive)
+      .where("source", "=", "MIGRATED_CARRYOVER")
+      .where("migration_source_record_id", "is", null)
+      .executeTakeFirst();
+    if (existing) return { periodId: existing.id };
+  }
   const period = await trx.insertInto("provider_subscription_period").values({
     enterprise_id: input.enterpriseId, provider_resource_id: input.resourceId,
     finance_event_id: null, product_name: input.productName,

@@ -6,6 +6,7 @@
  * 因此本模块只做纯计算：无数据库访问、无时钟读取、无随机数。
  */
 import {
+  carryoverDraftKey,
   USAGE_REPAIR_FIELDS,
   hashStable,
   type NormalizedActivationCandidate,
@@ -116,9 +117,11 @@ export function virtualPeriodsOf(candidate: NormalizedActivationCandidate): Arra
     });
   }
   for (const carryover of candidate.codingPlanCarryovers) {
+    // 带快照引用的键即快照 id（旧路径）；管理员声明路径用确定性摘要键（无快照也能稳定派生）。
+    const key = carryoverDraftKey(carryover);
     periods.push({
-      id: `draft:${carryover.snapshotId}`,
-      key: carryover.snapshotId,
+      id: `draft:${key}`,
+      key,
       resourceId: carryover.resourceId,
       periodStart: carryover.periodStart,
       periodEndExclusive: carryover.periodEndExclusive,

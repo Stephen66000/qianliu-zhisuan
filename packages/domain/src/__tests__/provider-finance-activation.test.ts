@@ -12,6 +12,9 @@ import {
   normalizeCashPaidCny,
   normalizeDraftItem,
   shanghaiPeriodBounds,
+  carryoverDraftKey,
+  carryoverEvidenceRef,
+  carryoverFactDescription,
   historicalCostEvidenceRef,
   historicalCostFactDescription,
   historicalCostIdempotencyKey,
@@ -438,5 +441,71 @@ describe("历史 API 消耗：正数输入规范化为负向资金事实（0084�
     ];
     expect(normalizeDraftItem(currencies, "77777777-7777-4777-8777-777777777777")
       .historicalApiCosts).toHaveLength(2);
+  });
+});
+
+describe("管理员声明跨切换周期：无旧库快照（2026-09-27 最小兼容修复）", () => {
+  const carryDraft = (snapshot_id: string | null): ActivationDraft => {
+    const draft = baseDraft();
+    draft.coding_plan_carryovers = [{
+      resource_id: OTHER_RESOURCE, product_name: "GLM Coding Plan Pro",
+      period_start: "2026-08-26", period_end: "2026-09-25", snapshot_id,
+      description: snapshot_id === null ? null : "跨切换时点周期",
+      evidence_ref: snapshot_id === null ? null : "evidence://zhipu/carryover-1",
+    }];
+    return draft;
+  };
+
+  it("无 snapshot：说明/证据由服务端确定性生成，明确为管理员确认的新服务器迁移跨切换周期", () => {
+    const candidate = normalizeDraftItem(carryDraft(null),
+      "77777777-7777-4777-8777-777777777777");
+    const row = candidate.codingPlanCarryovers[0]!;
+    expect(row.snapshotId).toBeNull();
+    expect(row.description).toBe(carryoverFactDescription(
+      "GLM Coding Plan Pro", "2026-08-26", "2026-09-25"));
+    expect(row.description).toContain("管理员确认的新服务器迁移跨切换周期");
+    expect(row.description).toContain("GLM Coding Plan Pro");
+    expect(row.description).toContain("2026-08-26");
+    expect(row.description).toContain("2026-09-25");
+    expect(row.evidenceRef).toBe(
+      carryoverEvidenceRef(OTHER_RESOURCE, "GLM Coding Plan Pro", "2026-08-26", "2026-09-25"));
+    expect(row.evidenceRef).toMatch(/^admin-declared:cross-cutover-period:[0-9a-f]{32}$/);
+  });
+
+  it("无 snapshot 的草稿周期键确定性（资源/产品/周期任一变化则键变化）", () => {
+    const candidate = normalizeDraftItem(carryDraft(null),
+      "77777777-7777-4777-8777-777777777777");
+    const key = carryoverDraftKey(candidate.codingPlanCarryovers[0]!);
+    expect(key).toMatch(/^admin:[0-9a-f]{32}$/);
+    expect(key).toBe(carryoverDraftKey(candidate.codingPlanCarryovers[0]!));
+    const shifted = normalizeDraftItem((() => {
+      const draft = carryDraft(null);
+      draft.coding_plan_carryovers[0]!.period_end = "2026-09-26";
+      return draft;
+    })(), "77777777-7777-4777-8777-777777777777");
+    expect(carryoverDraftKey(shifted.codingPlanCarryovers[0]!)).not.toBe(key);
+  });
+
+  it("带 snapshot 旧路径保持：说明/证据原样保留，键即快照 id", () => {
+    const candidate = normalizeDraftItem(carryDraft("44444444-4444-4444-8444-444444444444"),
+      "77777777-7777-4777-8777-777777777777");
+    const row = candidate.codingPlanCarryovers[0]!;
+    expect(row.snapshotId).toBe("44444444-4444-4444-8444-444444444444");
+    expect(row.description).toBe("跨切换时点周期");
+    expect(row.evidenceRef).toBe("evidence://zhipu/carryover-1");
+    expect(carryoverDraftKey(row)).toBe("44444444-4444-4444-8444-444444444444");
+  });
+
+  it("无 snapshot 的跨切换周期进入候选哈希：草稿变化则哈希变化", () => {
+    const enterpriseId = "77777777-7777-4777-8777-777777777777";
+    const withCarryover = computeCandidateHash({
+      enterpriseId, candidate: normalizeDraftItem(carryDraft(null), enterpriseId),
+      factWatermarkHash: "f".repeat(64),
+    });
+    const without = computeCandidateHash({
+      enterpriseId, candidate: normalizeDraftItem(baseDraft(), enterpriseId),
+      factWatermarkHash: "f".repeat(64),
+    });
+    expect(withCarryover).not.toBe(without);
   });
 });

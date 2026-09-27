@@ -173,3 +173,42 @@ describe("草稿本机自动保存", () => {
     expect(() => clearDraftAutosave(null, ENTERPRISE_A, CUTOVER)).not.toThrow();
   });
 });
+
+describe("既有 localStorage v1 草稿兼容（管理员声明跨切换周期改造）", () => {
+  it("已自动保存的六类行草稿（含跨切换隐藏字段）刷新后完整恢复，不丢行不丢字段", () => {
+    const storage = memoryStorage();
+    const savedDraft: ActivationDraftState = {
+      ...emptyDraftState(),
+      historicalApiRecharges: [{
+        id: "row-1", resourceId: ENTERPRISE_A, accountCurrency: "CNY", accountAmount: "50",
+        cashPaidCny: "50.00", occurredAtLocal: "2026-09-05T10:00", externalReference: "DS-9",
+      }],
+      historicalApiCosts: [{
+        id: "cost-1", resourceId: ENTERPRISE_A, accountCurrency: "CNY",
+        costAmount: "40.4572", costUntilLocal: "2026-09-10T12:00",
+      }],
+      codingPlanPurchases: [{
+        id: "p-1", resourceId: ENTERPRISE_A, kind: "RENEWAL", productName: "GLM Coding Plan",
+        accountAmount: "20", accountCurrency: "CNY", cashPaidCny: "20.00",
+        servicePeriodStart: "2026-09-25", servicePeriodEnd: "2026-10-24",
+        occurredAtLocal: "2026-09-25T10:00", externalReference: "ZP-R1", autoRenew: true,
+        description: "", evidenceRef: "", sourceRecordId: "", carryoverSnapshotId: "",
+        recordIdempotencyKey: "idem-zp-r1",
+      }],
+      codingPlanCarryovers: [{
+        id: "carry-1", resourceId: ENTERPRISE_A, productName: "GLM Coding Plan",
+        periodStart: "2026-08-26", periodEnd: "2026-09-25",
+        snapshotId: "", description: "", evidenceRef: "",
+      }],
+      legacyResolutions: [{
+        id: "legacy-1", legacyRecordId: ENTERPRISE_A, resourceId: ENTERPRISE_A,
+        resolution: "MIGRATED", financeEventId: "", migratedExternalReference: "ORD-1",
+        reason: "", evidenceRef: "",
+      }],
+    };
+    expect(saveDraftAutosave(storage, savedDraft, ENTERPRISE_A, CUTOVER, "2026-09-27T09:00:00.000Z"))
+      .toBe(true);
+    // 恢复走同一 v1 key + schema_version，六行全部原样回来。
+    expect(loadDraftAutosave(storage, ENTERPRISE_A, CUTOVER)).toEqual(savedDraft);
+  });
+});

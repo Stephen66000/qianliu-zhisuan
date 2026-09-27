@@ -342,11 +342,10 @@ export function validateCarryoverRow(row: CarryoverRowState): DraftIssue[] {
     requireText(row.productName, "产品名称", ACTIVATION_EXTERNAL_REFERENCE_MAX_LENGTH));
   collect(issues, section, row.id, "periodStart", requireShanghaiDay(row.periodStart, "周期开始日"));
   collect(issues, section, row.id, "periodEnd", requireShanghaiDay(row.periodEnd, "周期结束日"));
-  collect(issues, section, row.id, "snapshotId", requireUuid(row.snapshotId, "跨切换快照"));
-  collect(issues, section, row.id, "description",
-    requireText(row.description, "事实说明", ACTIVATION_DESCRIPTION_MAX_LENGTH));
-  collect(issues, section, row.id, "evidenceRef",
-    requireText(row.evidenceRef, "证据引用", ACTIVATION_EVIDENCE_MAX_LENGTH));
+  // 空快照引用 = 管理员声明路径（UI 不再提供输入框）；非空时保持严格 UUID 校验。
+  if (row.snapshotId.trim() !== "") {
+    collect(issues, section, row.id, "snapshotId", requireUuid(row.snapshotId, "跨切换快照"));
+  }
   if (isValidShanghaiDay(row.periodEnd) && isValidShanghaiDay(row.periodStart)
     && row.periodEnd < row.periodStart) {
     collect(issues, section, row.id, "periodEnd", "周期结束日不得早于开始日");
@@ -563,14 +562,16 @@ function toPurchasePayload(row: PurchaseRowState): CodingPlanPurchaseDraftPayloa
 }
 
 function toCarryoverPayload(row: CarryoverRowState): CodingPlanCarryoverDraftPayload {
+  // 管理员声明路径（2026-09-27 最小兼容修复）：UI 只有四项；快照引用恒为 null，
+  // 说明与证据引用由服务端按资源、产品、周期确定性生成（ADMIN_DECLARED_CARRYOVER）。
+  // snapshotId/description/evidenceRef 作为隐藏状态保留在行状态里以兼容
+  // localStorage v1 已保存草稿的完整恢复，但不进入载荷。
   return {
     resource_id: row.resourceId.trim(),
     product_name: row.productName.trim(),
     period_start: row.periodStart.trim(),
     period_end: row.periodEnd.trim(),
-    snapshot_id: row.snapshotId.trim(),
-    description: row.description.trim(),
-    evidence_ref: row.evidenceRef.trim(),
+    snapshot_id: null,
   };
 }
 

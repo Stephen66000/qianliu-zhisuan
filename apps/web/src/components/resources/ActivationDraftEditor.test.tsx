@@ -92,3 +92,30 @@ describe("历史 API 消耗行（0084）：只保留四项", () => {
     expect(screen.queryAllByLabelText("证据引用")).toHaveLength(0);
   });
 });
+
+describe("跨切换周期行（管理员声明）：只保留四项", () => {
+  function stateWithCarryoverRow(): ActivationDraftState {
+    return {
+      ...emptyDraftState(),
+      codingPlanCarryovers: [{
+        id: newLocalRowId(), resourceId: RESOURCE, productName: "GLM Coding Plan",
+        periodStart: "2026-08-26", periodEnd: "2026-09-25",
+        snapshotId: "", description: "", evidenceRef: "",
+      }],
+    };
+  }
+
+  it("显示厂商资源、产品名称、周期开始日、周期结束日", () => {
+    renderEditor(stateWithCarryoverRow());
+    for (const label of ["产品名称", "周期开始日", "周期结束日"]) {
+      expect(screen.getByLabelText(label)).toBeDefined();
+    }
+  });
+
+  it("不再出现快照引用、事实说明、证据引用输入框", () => {
+    renderEditor(stateWithCarryoverRow());
+    expect(screen.queryByLabelText("快照引用")).toBeNull();
+    expect(screen.queryAllByLabelText("事实说明")).toHaveLength(0);
+    expect(screen.queryAllByLabelText("证据引用")).toHaveLength(0);
+  });
+});

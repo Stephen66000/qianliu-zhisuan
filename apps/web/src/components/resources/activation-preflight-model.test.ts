@@ -149,7 +149,7 @@ describe("静默与排空两段式门禁", () => {
 });
 
 describe("回执摘要", () => {
-  it("汇总六类写入事实计数", () => {
+  it("汇总七类写入事实计数（含历史消耗）", () => {
     const receipt: ActivationReceiptView = {
       candidateId: "cand-1", candidateHash: "hash-1", factWatermarkHash: "wm-1",
       activatedAt: "2026-09-22T03:00:00.000Z", activatedByAdminUserId: "admin-1",
@@ -157,6 +157,6 @@ describe("回执摘要", () => {
       monthsChecked: ["2026-08", "2026-09"], conservationPassed: true, conservationFailures: [],
     };
     expect(receiptFactCountSummary(receipt)).toBe(
-      "期初 2 · 历史充值 1 · 购买/续费 1 · 跨切换周期 0 · 旧记录关闭 3 · 用量修复 4");
+      "期初 2 · 历史充值 1 · 历史消耗 0 · 购买/续费 1 · 跨切换周期 0 · 旧记录关闭 3 · 用量修复 4");
   });
 });

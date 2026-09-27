@@ -125,9 +125,15 @@ export interface CodingPlanCarryoverDraftItem {
   period_start: string;
   /** 上海自然日的结束日（含当日）。 */
   period_end: string;
-  snapshot_id: string;
-  description: string;
-  evidence_ref: string;
+  /**
+   * 旧库运营快照引用；管理员声明路径（新服务器上不存在旧库快照 UUID）传 null。
+   * 非空时保持既有严格关联语义；为空时走 ADMIN_DECLARED_CARRYOVER：
+   * 说明与证据引用由服务端确定性生成。
+   */
+  snapshot_id: string | null;
+  /** 管理员声明路径可为 null（服务端生成）；显式提供的旧路径保持必填。 */
+  description: string | null;
+  evidence_ref: string | null;
 }
 
 export type LegacyPurchaseResolutionKind =
@@ -226,7 +232,8 @@ export interface NormalizedCodingPlanCarryover {
   productName: string;
   periodStart: string;
   periodEndExclusive: string;
-  snapshotId: string;
+  /** null 表示管理员声明的新服务器迁移跨切换周期（无旧库快照）。 */
+  snapshotId: string | null;
   description: string;
   evidenceRef: string;
 }
@@ -265,6 +272,7 @@ export type ActivationGapCode =
   | "MISSING_PURCHASE_AMOUNT" | "MISSING_PURCHASE_CASH_PAID" | "MISSING_EVIDENCE"
   | "HISTORICAL_COST_AMOUNT_INVALID" | "HISTORICAL_COST_TIME_INVALID"
   | "UNATTRIBUTED_PLAN_USAGE" | "OVERLAPPING_PERIOD" | "INVALID_SERVICE_PERIOD"
+  | "CARRYOVER_NOT_CROSSING_CUTOVER" | "CARRYOVER_PERIOD_OVERLAP"
   | "LEGACY_RECORD_UNCLOSED" | "LEGACY_RECORD_UNKNOWN" | "LEGACY_MIGRATION_REFERENCE_MISSING"
   | "LEGACY_REPRESENTATION_MISMATCH" | "LEGACY_REJECTION_EVIDENCE_MISSING"
   | "UNKNOWN_COST" | "MISSING_API_CURRENCY" | "CONFLICTING_API_CURRENCY"

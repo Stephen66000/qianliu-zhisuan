@@ -282,6 +282,52 @@ export function historicalCostAccountAmount(costAmount: string): string {
   return toDecimal(costAmount, "实际消耗金额").negated().toFixed(ACTIVATION_ACCOUNT_AMOUNT_SCALE);
 }
 
+// ===== 管理员声明跨切换周期内部字段推导（2026-09-27 最小兼容修复） =====
+
+/**
+ * 管理员声明的跨切换周期确定性幂等摘要输入：资源、产品、开始日、结束日。
+ * （期间是否真实跨过切换时点由投影校验，不参与摘要。）
+ */
+function carryoverDigestInput(
+  resourceId: string, productName: string, periodStartDay: string, periodEndDay: string,
+): string {
+  return [resourceId, productName, periodStartDay, periodEndDay].join("\u0000");
+}
+
+/**
+ * 管理员声明路径的事实说明固定模板：明确为**管理员确认的新服务器迁移跨切换
+ * 周期**（非旧库快照、非厂商官方证据），并包含产品与开始/结束日。
+ */
+export function carryoverFactDescription(
+  productName: string, periodStartDay: string, periodEndDay: string,
+): string {
+  return "跨切换套餐周期（管理员确认的新服务器迁移跨切换周期，非旧库快照）"
+    + ` · 产品 ${productName} · 周期 ${periodStartDay} 至 ${periodEndDay}（含当日）`;
+}
+
+/** 管理员声明路径的证据引用固定模板：`admin-declared:cross-cutover-period:<摘要前32>`。 */
+export function carryoverEvidenceRef(
+  resourceId: string, productName: string, periodStartDay: string, periodEndDay: string,
+): string {
+  const digest = sha256Hex(carryoverDigestInput(resourceId, productName, periodStartDay, periodEndDay));
+  return `admin-declared:cross-cutover-period:${digest.slice(0, 32)}`;
+}
+
+/**
+ * 跨切换周期的草稿周期键（`draft:<key>` 虚拟周期 id 与激活侧
+ * `periodIdByDraftKey` 的统一键）：带快照引用时键即快照 id（旧路径语义不变）；
+ * 管理员声明路径用资源+产品+开始日+结束日的确定性摘要，无随机数、无时钟。
+ */
+export function carryoverDraftKey(carryover: {
+  snapshotId: string | null; resourceId: string; productName: string;
+  periodStart: string; periodEndExclusive: string;
+}): string {
+  if (carryover.snapshotId !== null) return carryover.snapshotId;
+  const digest = sha256Hex(carryoverDigestInput(carryover.resourceId, carryover.productName,
+    carryover.periodStart, carryover.periodEndExclusive));
+  return `admin:${digest.slice(0, 32)}`;
+}
+
 // ===== 草稿规范化（任务 1.2） =====
 
 function compareStrings(a: string, b: string): number {
@@ -386,18 +432,25 @@ export function normalizeDraftItem(
 
   const carryovers: NormalizedCodingPlanCarryover[] = draft.coding_plan_carryovers.map((item) => {
     const bounds = shanghaiPeriodBounds(item.period_start, item.period_end);
+    // snapshot_id 为空 → ADMIN_DECLARED_CARRYOVER：说明/证据由服务端确定性生成，
+    // 不要求不存在的旧库快照 UUID；非空时保持既有必填与严格关联语义。
+    const snapshotId = item.snapshot_id ?? null;
     return {
       resourceId: item.resource_id,
       productName: requireText(item.product_name, "产品名称"),
       periodStart: bounds.periodStart,
       periodEndExclusive: bounds.periodEndExclusive,
-      snapshotId: item.snapshot_id,
-      description: requireText(item.description, "跨切换周期说明"),
-      evidenceRef: requireText(item.evidence_ref, "跨切换周期证据"),
+      snapshotId,
+      description: snapshotId === null
+        ? carryoverFactDescription(item.product_name, item.period_start, item.period_end)
+        : requireText(item.description, "跨切换周期说明"),
+      evidenceRef: snapshotId === null
+        ? carryoverEvidenceRef(item.resource_id, item.product_name, item.period_start, item.period_end)
+        : requireText(item.evidence_ref, "跨切换周期证据"),
     };
   }).sort((a, b) => compareStrings(a.resourceId, b.resourceId)
     || compareStrings(a.periodStart, b.periodStart)
-    || compareStrings(a.snapshotId, b.snapshotId));
+    || compareStrings(a.snapshotId ?? "", b.snapshotId ?? ""));
 
   const resolutions: NormalizedLegacyPurchaseResolution[] = draft.legacy_purchase_resolutions.map((item) => ({
     legacyRecordId: item.legacy_record_id,

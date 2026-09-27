@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  carryoverDraftKey,
+  carryoverEvidenceRef,
+  carryoverFactDescription,
   historicalCostEvidenceRef,
   historicalCostFactDescription,
   historicalCostIdempotencyKey,
@@ -295,5 +298,63 @@ describe("历史 API 消耗合同（0084）", () => {
       historical_api_costs: [costRow, { ...costRow, resource_id: OTHER }],
     }));
     expect(distinct.success).toBe(true);
+  });
+});
+
+describe("管理员声明跨切换周期合同（无旧库快照）", () => {
+  const carryRow = {
+    resource_id: OTHER,
+    product_name: "GLM Coding Plan Pro",
+    period_start: "2026-08-26",
+    period_end: "2026-09-25",
+    snapshot_id: null,
+  };
+
+  it("四字段（snapshot_id=null、无说明/证据）接受，载荷归一为 null 内部字段", () => {
+    const parsed = ActivationDraftSchema.parse(minimalDraft({ coding_plan_carryovers: [carryRow] }));
+    const draft = toActivationDraft(parsed);
+    expect(draft.coding_plan_carryovers[0]).toEqual({
+      ...carryRow, description: null, evidence_ref: null,
+    });
+    // 显式 null 与缺省等价。
+    const explicitNull = ActivationDraftSchema.parse(minimalDraft({
+      coding_plan_carryovers: [{
+        ...carryRow,
+        snapshot_id: undefined, description: undefined, evidence_ref: undefined,
+      }],
+    }));
+    expect(toActivationDraft(explicitNull).coding_plan_carryovers[0]).toEqual({
+      ...carryRow, description: null, evidence_ref: null,
+    });
+  });
+
+  it("显式提供 snapshot_id + 说明/证据的旧路径继续兼容；非法快照 UUID 拒绝", () => {
+    const legacy = ActivationDraftSchema.safeParse(minimalDraft({
+      coding_plan_carryovers: [{
+        ...carryRow, snapshot_id: "44444444-4444-4444-8444-444444444444",
+        description: "跨切换时点周期", evidence_ref: "evidence://zhipu/carryover-1",
+      }],
+    }));
+    expect(legacy.success).toBe(true);
+    const badSnapshot = ActivationDraftSchema.safeParse(minimalDraft({
+      coding_plan_carryovers: [{ ...carryRow, snapshot_id: "not-a-uuid" }],
+    }));
+    expect(badSnapshot.success).toBe(false);
+  });
+
+  it("服务端默认说明/证据/草稿键可由领域纯函数复现（normalizeDraftItem 输入合同一致）", () => {
+    expect(carryoverFactDescription(carryRow.product_name, carryRow.period_start, carryRow.period_end))
+      .toContain("管理员确认的新服务器迁移跨切换周期");
+    expect(carryoverEvidenceRef(carryRow.resource_id, carryRow.product_name,
+      carryRow.period_start, carryRow.period_end))
+      .toMatch(/^admin-declared:cross-cutover-period:[0-9a-f]{32}$/);
+    expect(carryoverDraftKey({
+      snapshotId: null, resourceId: carryRow.resource_id, productName: carryRow.product_name,
+      periodStart: "2026-08-25T16:00:00.000Z", periodEndExclusive: "2026-09-25T16:00:00.000Z",
+    })).toMatch(/^admin:[0-9a-f]{32}$/);
+    expect(carryoverDraftKey({
+      snapshotId: "44444444-4444-4444-8444-444444444444", resourceId: carryRow.resource_id,
+      productName: carryRow.product_name, periodStart: "x", periodEndExclusive: "y",
+    })).toBe("44444444-4444-4444-8444-444444444444");
   });
 });

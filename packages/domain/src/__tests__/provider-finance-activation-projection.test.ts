@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  carryoverDraftKey,
   computeCandidateHash,
   conservationMonths,
   money,
@@ -699,6 +700,74 @@ describe("跨切换周期虚拟周期", () => {
     expect(result.projected.codingPlanUsageAttributed).toBe(true);
     expect(result.usageRepairTargets.find((entry) => entry.ledgerLineId === line.id)?.subscriptionPeriodId)
       .toBe("draft:carryover-1");
+  });
+
+  it("管理员声明（无快照）跨切换周期同样承接套餐用量归属并关闭缺口", () => {
+    const draft = draftOf({
+      api_opening_balances: happyDraft().api_opening_balances,
+      coding_plan_carryovers: [{
+        resource_id: PLAN_RESOURCE, product_name: "智谱 Coding Plan",
+        period_start: "2026-08-26", period_end: "2026-09-25",
+        snapshot_id: null, description: null, evidence_ref: null,
+      }],
+    });
+    const line = planLine({
+      id: "aaaaaaaa-0000-4000-8000-000000000005",
+      settledAt: "2026-09-05T04:00:00.000Z", subscriptionPeriodId: null,
+    });
+    const result = projectActivationCandidate(baseInput({
+      draft: normalizeDraftItem(draft, API_RESOURCE),
+      periods: [],
+      legacyPurchases: [],
+      ledgerLines: [line],
+    }));
+    expect(result.gaps).toEqual([]);
+    expect(result.decision).toBe("GO_CANDIDATE");
+    expect(result.projected.codingPlanUsageAttributed).toBe(true);
+    const carryover = normalizeDraftItem(draft, API_RESOURCE).codingPlanCarryovers[0]!;
+    expect(carryover.snapshotId).toBeNull();
+    expect(carryover.evidenceRef).toMatch(/^admin-declared:cross-cutover-period:[0-9a-f]{32}$/);
+    expect(result.usageRepairTargets.find((entry) => entry.ledgerLineId === line.id)?.subscriptionPeriodId)
+      .toBe(`draft:${carryoverDraftKey(carryover)}`);
+  });
+
+  it("不跨切换时点的跨切换周期被拒绝（结束日在切换时点前的周期不覆盖任何切换后用量）", () => {
+    const draft = draftOf({
+      api_opening_balances: happyDraft().api_opening_balances,
+      coding_plan_carryovers: [{
+        resource_id: PLAN_RESOURCE, product_name: "智谱 Coding Plan",
+        period_start: "2026-08-01", period_end: "2026-08-20",
+        snapshot_id: null, description: null, evidence_ref: null,
+      }],
+    });
+    const result = projectActivationCandidate(baseInput({
+      draft: normalizeDraftItem(draft, API_RESOURCE), legacyPurchases: [],
+    }));
+    expect(result.decision).toBe("NO_GO");
+    expect(result.gaps.some((entry) => entry.code === "CARRYOVER_NOT_CROSSING_CUTOVER")).toBe(true);
+  });
+
+  it("同资源的重叠跨切换周期被拒绝（无快照路径同样失败关闭）", () => {
+    const draft = draftOf({
+      api_opening_balances: happyDraft().api_opening_balances,
+      coding_plan_carryovers: [
+        {
+          resource_id: PLAN_RESOURCE, product_name: "智谱 Coding Plan",
+          period_start: "2026-08-26", period_end: "2026-09-25",
+          snapshot_id: null, description: null, evidence_ref: null,
+        },
+        {
+          resource_id: PLAN_RESOURCE, product_name: "智谱 Coding Plan",
+          period_start: "2026-08-18", period_end: "2026-09-17",
+          snapshot_id: null, description: null, evidence_ref: null,
+        },
+      ],
+    });
+    const result = projectActivationCandidate(baseInput({
+      draft: normalizeDraftItem(draft, API_RESOURCE), legacyPurchases: [],
+    }));
+    expect(result.decision).toBe("NO_GO");
+    expect(result.gaps.some((entry) => entry.code === "CARRYOVER_PERIOD_OVERLAP")).toBe(true);
   });
 });
 

@@ -25,6 +25,7 @@ export type ActivationGapCode =
   | "MISSING_PURCHASE_AMOUNT" | "MISSING_PURCHASE_CASH_PAID" | "MISSING_EVIDENCE"
   | "HISTORICAL_COST_AMOUNT_INVALID" | "HISTORICAL_COST_TIME_INVALID"
   | "UNATTRIBUTED_PLAN_USAGE" | "OVERLAPPING_PERIOD" | "INVALID_SERVICE_PERIOD"
+  | "CARRYOVER_NOT_CROSSING_CUTOVER" | "CARRYOVER_PERIOD_OVERLAP"
   | "LEGACY_RECORD_UNCLOSED" | "LEGACY_RECORD_UNKNOWN" | "LEGACY_MIGRATION_REFERENCE_MISSING"
   | "LEGACY_REPRESENTATION_MISMATCH" | "LEGACY_REJECTION_EVIDENCE_MISSING"
   | "UNKNOWN_COST" | "MISSING_API_CURRENCY" | "CONFLICTING_API_CURRENCY"
@@ -269,9 +270,10 @@ export interface CodingPlanCarryoverDraftPayload {
   product_name: string;
   period_start: string;
   period_end: string;
-  snapshot_id: string;
-  description: string;
-  evidence_ref: string;
+  /** null = 管理员声明的新服务器迁移跨切换周期（服务端生成说明/证据）。 */
+  snapshot_id: string | null;
+  description?: string | null;
+  evidence_ref?: string | null;
 }
 
 export type LegacyResolution = "MIGRATED" | "ALREADY_REPRESENTED" | "REJECTED_WITH_EVIDENCE";

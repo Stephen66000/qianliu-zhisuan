@@ -11,6 +11,7 @@ import { countFinanceGaps } from "../repositories/provider-finance-gaps.js";
 import {
   createKysely,
   GatewayLedgerRepository,
+  insertCarryoverPeriodTx,
   insertOpeningBalanceTx,
   insertRechargeTx,
   insertSubscriptionTx,
@@ -22,10 +23,14 @@ import {
   ProviderFinanceActivationError,
   ProviderFinanceActivationPreviewRepository,
   ProviderFinanceError,
+  shanghaiDayOf,
   toBalanceComponents,
   applyUsageRepairsTx,
   type ActivateInput,
 } from "../index.js";
+
+/** 故意回滚标记：事务体内断言完成后抛出，外层捕获即视为「已验证并回滚」。 */
+class VerifiedRollbackMarker extends Error {}
 
 /**
  * WP03 集成测试（PFA-02～PFA-07、PFH-02～PFH-05）。
@@ -43,6 +48,7 @@ const CUTOVER_ISO = PROVIDER_FINANCE_CUTOVER.toISOString();
 const LEGACY_LOCK = (enterpriseId: string) => `provider-finance-activation:${enterpriseId}`;
 const V1_LOCK = (enterpriseId: string) => `qianliu:provider-finance-activation:v1:${enterpriseId}`;
 const DAY_MS = 86_400_000;
+const CUTOVER_ISO_MS = Date.parse("2026-08-31T16:00:00.000Z");
 const SHANGHAI_OFFSET_MS = 8 * 3_600_000;
 
 /** 把一个瞬时按上海时区折算成 `YYYY-MM-DD` 自然日。 */
@@ -1349,6 +1355,139 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       expect(components.reversals).toBe("0.00000000");
 
       await assertNoActivating(db, seeded.enterpriseId);
+    } finally {
+      await db.destroy();
+    }
+  }, 120_000);
+
+  it("管理员声明跨切换周期（无快照）：预检关闭套餐用量缺口；激活写周期不写资金事件；重放不重复", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pf03_admin_carryover");
+      // 用量行落在守恒窗口内（切换时点后 1 天与当前时间取较晚者，再回退 1 天缓冲），
+      // 避免硬编码日期随时间漂移出窗口。
+      const settledAt = new Date(Math.max(CUTOVER_ISO_MS + DAY_MS, Date.now()) - DAY_MS);
+      const lineId = await insertLedgerLine(db, seeded, {
+        mode: "CODING_PLAN", resourceId: seeded.planResourceId,
+        settledAt, createdAt: new Date(settledAt.getTime() + 1_000),
+        apiCost: null, apiCostStatus: "NOT_APPLICABLE",
+      });
+      // 先证明：无覆盖周期时该用量行产生缺口（NO_GO）。
+      const previewRepo = new ProviderFinanceActivationPreviewRepository(db);
+      const before = await previewRepo.previewActivation({
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, draft: draftFor(seeded.apiResourceId),
+      });
+      expect(before.decision).toBe("NO_GO");
+      expect(before.gaps.some((entry) => entry.code === "UNATTRIBUTED_PLAN_USAGE")).toBe(true);
+
+      // 管理员声明跨切换周期：四字段、无旧库快照 UUID（新库不可能存在）。
+      // 开始日固定在切换前（2026-08-26，真实业务口径）；结束日在当前上海日之后 3 天。
+      const periodEndDay = shanghaiDay(new Date(Date.now() + 3 * DAY_MS));
+      const draft: ActivationDraft = {
+        ...draftFor(seeded.apiResourceId),
+        coding_plan_carryovers: [{
+          resource_id: seeded.planResourceId, product_name: "GLM Coding Plan",
+          period_start: "2026-08-26", period_end: periodEndDay,
+          snapshot_id: null, description: null, evidence_ref: null,
+        }],
+      };
+      const preview = await previewGo(db, seeded, draft);
+      await startLease(db, seeded);
+      const snapshotTableBefore = await sql<{ count: string }>`
+        SELECT count(*)::text AS count FROM provider_resource_operating_snapshot
+         WHERE enterprise_id=${seeded.enterpriseId}::uuid`.execute(db);
+      const coordinator = new ProviderFinanceActivationCoordinator(db);
+      const outcome = await coordinator.activate(
+        activateInput(seeded, preview, draft, "activate-admin-carryover-1"));
+      expect(outcome.replayed).toBe(false);
+      expect(outcome.receipt.factCounts.carryovers).toBe(1);
+
+      // 只写订阅周期，不写资金事件、不创建伪快照。
+      const events = await db.selectFrom("provider_finance_event")
+        .select(["event_type", "account_amount"])
+        .where("enterprise_id", "=", seeded.enterpriseId)
+        .execute();
+      expect(events).toHaveLength(1);
+      expect(events[0]!.event_type).toBe("API_OPENING_BALANCE");
+      const periodRow = await db.selectFrom("provider_subscription_period").selectAll()
+        .where("enterprise_id", "=", seeded.enterpriseId)
+        .where("source", "=", "MIGRATED_CARRYOVER")
+        .executeTakeFirstOrThrow();
+      expect(periodRow.migration_source_record_id).toBeNull();
+      expect(periodRow.finance_event_id).toBeNull();
+      expect(periodRow.product_name).toBe("GLM Coding Plan");
+      expect(shanghaiDayOf(periodRow.period_start)).toBe("2026-08-26");
+      expect(shanghaiDayOf(periodRow.period_end_exclusive))
+        .toBe(shanghaiDay(new Date(new Date(periodEndDay).getTime() + DAY_MS)));
+      const snapshotTableAfter = await sql<{ count: string }>`
+        SELECT count(*)::text AS count FROM provider_resource_operating_snapshot
+         WHERE enterprise_id=${seeded.enterpriseId}::uuid`.execute(db);
+      expect(snapshotTableAfter.rows[0]!.count).toBe(snapshotTableBefore.rows[0]!.count);
+
+      // 用量唯一归属：草稿周期被回填到用量行（periodIdByDraftKey 解析）。
+      const repaired = await db.selectFrom("ledger_line").select("subscription_period_id")
+        .where("id", "=", lineId).executeTakeFirstOrThrow();
+      expect(repaired.subscription_period_id).toBe(periodRow.id);
+
+      // 同键重放：replayed=true，周期不重复。
+      const replay = await coordinator.activate(
+        activateInput(seeded, preview, draft, "activate-admin-carryover-1"));
+      expect(replay.replayed).toBe(true);
+      const periodCount = await sql<{ count: string }>`
+        SELECT count(*)::text AS count FROM provider_subscription_period
+         WHERE enterprise_id=${seeded.enterpriseId}::uuid
+           AND source='MIGRATED_CARRYOVER'`.execute(db);
+      expect(Number(periodCount.rows[0]!.count)).toBe(1);
+
+      await assertNoActivating(db, seeded.enterpriseId);
+    } finally {
+      await db.destroy();
+    }
+  }, 120_000);
+
+  it("insertCarryoverPeriodTx：带快照引用旧路径按源记录幂等；管理员声明路径按六元组幂等", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pf03_carryover_idem");
+      const start = new Date("2026-08-25T16:00:00.000Z");
+      const end = new Date("2026-09-25T16:00:00.000Z");
+      await db.transaction().execute(async (trx) => {
+        // 带快照引用（旧路径）：同一 migration_source_record_id 幂等返回。
+        const legacySnapshotId = randomUUID();
+        const first = await insertCarryoverPeriodTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.planResourceId,
+          adminId: seeded.adminId, productName: "Kimi Allegretto",
+          periodStart: start, periodEndExclusive: end,
+          migrationSourceRecordId: legacySnapshotId, description: null, evidenceRef: null,
+        });
+        const again = await insertCarryoverPeriodTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.planResourceId,
+          adminId: seeded.adminId, productName: "Kimi Allegretto",
+          periodStart: start, periodEndExclusive: end,
+          migrationSourceRecordId: legacySnapshotId, description: null, evidenceRef: null,
+        });
+        expect(again.periodId).toBe(first.periodId);
+        // 管理员声明路径（null）：同一（企业、资源、产品、周期、来源、NULL 源）幂等返回。
+        const declared = await insertCarryoverPeriodTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.planResourceId,
+          adminId: seeded.adminId, productName: "GLM Coding Plan",
+          periodStart: start, periodEndExclusive: end,
+          migrationSourceRecordId: null, description: null, evidenceRef: null,
+        });
+        const declaredAgain = await insertCarryoverPeriodTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.planResourceId,
+          adminId: seeded.adminId, productName: "GLM Coding Plan",
+          periodStart: start, periodEndExclusive: end,
+          migrationSourceRecordId: null, description: null, evidenceRef: null,
+        });
+        expect(declaredAgain.periodId).toBe(declared.periodId);
+        expect(declared.periodId).not.toBe(first.periodId);
+        throw new VerifiedRollbackMarker();
+      }).catch((error) => {
+        if (!(error instanceof VerifiedRollbackMarker)) throw error;
+      });
     } finally {
       await db.destroy();
     }
