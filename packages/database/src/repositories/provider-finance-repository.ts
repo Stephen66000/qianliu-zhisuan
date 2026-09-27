@@ -61,7 +61,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
             UNION ALL
             SELECT provider_resource_id, account_currency, -account_amount
               FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
-               AND event_type='API_LEGACY_COST_ADJUSTMENT'
+               AND event_type IN ('API_LEGACY_COST_ADJUSTMENT','API_HISTORICAL_USAGE_COST')
                AND occurred_at>=${start} AND occurred_at<${end} AND occurred_at<=${asOf}
           ) cost GROUP BY provider_resource_id, currency`.execute(trx),
         sql<{ provider_resource_id: string; currency: FinanceCurrency; amount: string }>`

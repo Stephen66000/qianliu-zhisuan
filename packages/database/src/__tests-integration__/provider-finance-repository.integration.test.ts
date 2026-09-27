@@ -151,6 +151,12 @@ describe("ProviderFinanceRepository", () => {
           operatingCostCny: "104.55405484",
           currentApiBalances: [{ currency: "CNY", amount: "495.44594516" }],
         });
+      expect(await repo.listResourceFinanceViews(isolatedEnterpriseId, "2026-09",
+        new Date("2026-09-27T12:00:00+08:00"))).toEqual([
+        expect.objectContaining({ resourceId: isolatedResourceId,
+          accounts: [expect.objectContaining({ currency: "CNY",
+            monthlyApiCost: "104.55405484", balance: "495.44594516" })] }),
+      ]);
       expect(await repo.getCurrentBalance(isolatedEnterpriseId, isolatedResourceId, "CNY",
         new Date("2026-09-27T12:00:00+08:00"))).toMatchObject({
         balance: "495.44594516",
