@@ -27,6 +27,7 @@ import {
   type NormalizedActivationCandidate,
   type NormalizedCodingPlanCarryover,
   type NormalizedCodingPlanPurchase,
+  type NormalizedHistoricalCost,
   type NormalizedLegacyPurchaseResolution,
   type NormalizedOpeningBalance,
   type NormalizedRecharge,
@@ -202,6 +203,70 @@ export function rechargeRecordIdempotencyKey(resourceId: string, externalReferen
   return `pf-r:${resourceId}:${sha256Hex(`${resourceId}\u0000${externalReference}`).slice(0, 32)}`;
 }
 
+// ===== 历史 API 消耗内部字段推导（2026-09-27 最小增量，0084） =====
+
+/**
+ * 历史 API 消耗的确定性幂等摘要输入：资源、币种、切换时点、截止时间、金额。
+ * 全部参与摘要，保证「同一资源、币种、切换点、截止时间和金额的同一历史消耗」
+ * 得到同一键，任一维度不同则键不同（不重复入账的确定性基础）。
+ */
+function historicalCostDigestInput(
+  resourceId: string, currency: string, costUntilAt: string, costAmount: string,
+): string {
+  return [resourceId, currency, PROVIDER_FINANCE_CUTOVER_ISO, costUntilAt, costAmount].join("\u0000");
+}
+
+/** 事实说明固定模板：`历史 API 消耗:<成本截止时间>`。系统内部生成，不要求管理员填写。 */
+export function historicalCostFactDescription(costUntilAt: string): string {
+  return `历史 API 消耗:${normalizeInstant(costUntilAt, "成本截止时间")}`;
+}
+
+/** 证据引用固定模板：`provider-usage:<幂等摘要前 32 位十六进制>`。系统内部生成。 */
+export function historicalCostEvidenceRef(
+  resourceId: string, currency: string, costUntilAt: string, costAmount: string,
+): string {
+  const digest = sha256Hex(historicalCostDigestInput(resourceId, currency,
+    normalizeInstant(costUntilAt, "成本截止时间"), costAmount));
+  return `provider-usage:${digest.slice(0, 32)}`;
+}
+
+/**
+ * 记录级幂等键（确定性、无随机数、无时钟）：`pf-u:<厂商资源ID>:<128位摘要前32>`，
+ * 共 5+36+1+32 = 74 字符——至少包含资源、币种、切换时点、截止时间与金额。
+ *
+ * 长度约束：激活协调器会再加 `activation:<候选ID>:` 前缀（48 字符），
+ * 数据库 `provider_finance_event.idempotency_key` 为 varchar(128)，
+ * 因此记录级键必须 ≤ 80 字符。相同（资源、币种、切换点、截止时间、金额）的
+ * 重复提交得到同一键；重放与重复入账由
+ * `provider_finance_idempotency_key_uq (enterprise_id, provider_resource_id, idempotency_key)`
+ * 唯一索引兜底。
+ */
+export function historicalCostIdempotencyKey(
+  resourceId: string, currency: string, costUntilAt: string, costAmount: string,
+): string {
+  const digest = sha256Hex(historicalCostDigestInput(resourceId, currency,
+    normalizeInstant(costUntilAt, "成本截止时间"), costAmount));
+  return `pf-u:${resourceId}:${digest.slice(0, 32)}`;
+}
+
+/**
+ * 界面输入的实际消耗金额规范化：必须大于 0、最多八位小数；
+ * 落账负向金额由 {@link historicalCostAccountAmount} 统一取负，调用方不得自行取反。
+ */
+export function normalizeHistoricalCostAmount(value: string | number, label = "实际消耗金额"): string {
+  const decimal = toDecimal(value, label);
+  if (!decimal.gt(0)) throw new Error(`${label} 必须大于 0`);
+  if (decimal.decimalPlaces() > ACTIVATION_ACCOUNT_AMOUNT_SCALE) {
+    throw new Error(`${label} 最多保留 ${ACTIVATION_ACCOUNT_AMOUNT_SCALE} 位小数`);
+  }
+  return decimal.toFixed(ACTIVATION_ACCOUNT_AMOUNT_SCALE);
+}
+
+/** 正数消耗金额 → 负向资金事实金额（唯一取负点）。 */
+export function historicalCostAccountAmount(costAmount: string): string {
+  return toDecimal(costAmount, "实际消耗金额").negated().toFixed(ACTIVATION_ACCOUNT_AMOUNT_SCALE);
+}
+
 // ===== 草稿规范化（任务 1.2） =====
 
 function compareStrings(a: string, b: string): number {
@@ -243,6 +308,28 @@ export function normalizeDraftItem(
     || compareStrings(a.accountCurrency, b.accountCurrency)
     || compareStrings(a.occurredAt, b.occurredAt)
     || compareStrings(a.sourceRecordId ?? "", b.sourceRecordId ?? ""));
+
+  const historicalCosts: NormalizedHistoricalCost[] = draft.historical_api_costs.map((item) => {
+    const costAmount = normalizeHistoricalCostAmount(item.cost_amount);
+    const occurredAt = normalizeInstant(item.cost_until_at, "成本截止时间");
+    if (occurredAt < PROVIDER_FINANCE_CUTOVER_ISO) {
+      throw new Error("成本截止时间不得早于资金切换时点");
+    }
+    return {
+      resourceId: item.resource_id,
+      accountCurrency: item.account_currency,
+      costAmount,
+      accountAmount: historicalCostAccountAmount(costAmount),
+      occurredAt,
+      description: historicalCostFactDescription(occurredAt),
+      evidenceRef: historicalCostEvidenceRef(item.resource_id, item.account_currency, occurredAt, costAmount),
+      recordIdempotencyKey: historicalCostIdempotencyKey(
+        item.resource_id, item.account_currency, occurredAt, costAmount),
+    };
+  }).sort((a, b) => compareStrings(a.resourceId, b.resourceId)
+    || compareStrings(a.accountCurrency, b.accountCurrency)
+    || compareStrings(a.occurredAt, b.occurredAt)
+    || compareStrings(a.costAmount, b.costAmount));
 
   const purchases: NormalizedCodingPlanPurchase[] = draft.coding_plan_purchases.map((item) => {
     const bounds = shanghaiPeriodBounds(item.service_period_start, item.service_period_end);
@@ -303,6 +390,7 @@ export function normalizeDraftItem(
     cutoverAt: PROVIDER_FINANCE_CUTOVER_ISO,
     apiOpeningBalances: openings,
     historicalApiRecharges: recharges,
+    historicalApiCosts: historicalCosts,
     codingPlanPurchases: purchases,
     codingPlanCarryovers: carryovers,
     legacyPurchaseResolutions: resolutions,
@@ -342,6 +430,7 @@ export function computeCandidateHash(input: ActivationCandidateHashInput): strin
     required_accounts: scopeAccounts,
     api_opening_balances: candidate.apiOpeningBalances,
     historical_api_recharges: candidate.historicalApiRecharges,
+    historical_api_costs: candidate.historicalApiCosts,
     coding_plan_purchases: candidate.codingPlanPurchases,
     coding_plan_carryovers: candidate.codingPlanCarryovers,
     legacy_purchase_resolutions: candidate.legacyPurchaseResolutions,

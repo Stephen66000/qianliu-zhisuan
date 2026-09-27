@@ -1,8 +1,8 @@
 /**
  * 初始化草稿编辑器（WP05 任务 5.2；PFU-02、PFU-05、PFH-01～PFH-03）。
  *
- * 覆盖五类事实：API 期初余额、历史 API 充值、Coding Plan 购买/续费、跨切换周期、
- * 旧购买记录关闭。约定：
+ * 覆盖六类事实：API 期初余额、历史 API 充值、历史 API 消耗（0084）、
+ * Coding Plan 购买/续费、跨切换周期、旧购买记录关闭。约定：
  *  - 期初时点固定为资金切换时点，**只读不可编辑**（计划 v1.2 §4.2）；
  *  - 金额空值与 `0` 严格区分：留空显示「未填写」且不自动补 0（PFU-05）；
  *  - 说明与证据引用对期初、购买与跨切换周期必填（PFH-06）；历史 API 充值行的
@@ -19,8 +19,8 @@ import {
   ACTIVATION_DESCRIPTION_MAX_LENGTH, ACTIVATION_EVIDENCE_MAX_LENGTH,
   DRAFT_SECTION_LABELS, newRecordIdempotencyKey,
   type ActivationDraftState, type CarryoverRowState, type DraftIssue, type DraftSection,
-  type FinanceCurrencyCode, type LegacyRowState, type OpeningRowState,
-  type PurchaseRowState, type RechargeRowState,
+  type FinanceCurrencyCode, type HistoricalCostRowState, type LegacyRowState,
+  type OpeningRowState, type PurchaseRowState, type RechargeRowState,
 } from "./activation-draft-model";
 
 export interface ResourceOption { id: string; mode: "API" | "CODING_PLAN"; label: string }
@@ -210,6 +210,39 @@ function RechargeRowFields({ row, index, issues, readOnly, resourceOptions, onPa
       <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "externalReference")}
         hint="必填；同一厂商资源下不得重复" htmlFor={`${rowId}-reference`} label="充值订单号">
         <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-reference`} onChange={(event) => onPatch({ externalReference: event.target.value })} value={row.externalReference} />
+      </FormField>
+    </RowShell>
+  );
+}
+
+/**
+ * 历史 API 消耗行（0084）：管理员只填四项（厂商资源、币种、实际消耗金额、成本截止时间）。
+ * 期间开始固定为资金切换时点（只读展示）；金额只接受正数，负向落账由服务端统一取负；
+ * 说明、证据引用与幂等键由系统内部生成，不提供输入框。
+ */
+function HistoricalCostRowFields({ row, index, issues, readOnly, cutoverAt, resourceOptions, onPatch, onRemove }: {
+  row: HistoricalCostRowState; index: number; issues: DraftIssue[]; readOnly: boolean;
+  cutoverAt: string | null; resourceOptions: ResourceOption[];
+  onPatch: (patch: Partial<HistoricalCostRowState>) => void; onRemove: () => void;
+}) {
+  const rowId = `cost-${index}`;
+  return (
+    <RowShell onRemove={onRemove} readOnly={readOnly} title={`历史消耗 ${index + 1}`}>
+      <ResourceSelect disabled={readOnly} id={`${rowId}-resource`} onChange={(value) => onPatch({ resourceId: value })}
+        options={resourceOptions} value={row.resourceId} />
+      <FormField htmlFor={`${rowId}-currency`} label="币种">
+        <CurrencySelect disabled={readOnly} id={`${rowId}-currency`} onChange={(value) => onPatch({ accountCurrency: value })} value={row.accountCurrency} />
+      </FormField>
+      <FormField error={errorFor(issues, "historicalApiCosts", row.id, "costAmount")}
+        hint="实际消耗金额，必须大于 0，最多八位小数；落账由系统记为负向资金事实"
+        htmlFor={`${rowId}-amount`} label="实际消耗金额">
+        <AccountAmountInput disabled={readOnly} id={`${rowId}-amount`} onChange={(value) => onPatch({ costAmount: value })} value={row.costAmount} />
+      </FormField>
+      <FormField error={errorFor(issues, "historicalApiCosts", row.id, "costUntil")} htmlFor={`${rowId}-until`} label="成本截止时间">
+        <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-until`} onChange={(event) => onPatch({ costUntilLocal: event.target.value })} type="datetime-local" value={row.costUntilLocal} />
+      </FormField>
+      <FormField hint="期间开始固定为资金切换时点" htmlFor={`${rowId}-from`} label="期间开始（固定）">
+        <input className={INPUT_CLASS} disabled id={`${rowId}-from`} readOnly value={cutoverAt ? formatDateTimeFull(cutoverAt) : ""} />
       </FormField>
     </RowShell>
   );
@@ -434,6 +467,25 @@ export function ActivationDraftEditor({
             index={index} issues={issues} key={row.id}
             onPatch={(change) => patch<RechargeRowState>("historicalApiRecharges", row.id, change)}
             onRemove={() => removeRow("historicalApiRecharges", row.id)}
+            readOnly={readOnly} resourceOptions={apiOptions} row={row}
+          />
+        ))}
+      </DraftSectionCard>
+
+      <DraftSectionCard
+        addLabel="添加历史消耗" count={state.historicalApiCosts.length}
+        description="切换时点后、上新服务器前的真实 API 计价汇总（来自旧库核实）：只填四项，金额为正数，落账由系统记为负向资金事实，计入历史 API 成本口径。"
+        onAdd={() => setSection("historicalApiCosts", [...state.historicalApiCosts, {
+          id: newLocalRowIdFor("cost"), resourceId: "", accountCurrency: "CNY",
+          costAmount: "", costUntilLocal: "",
+        }])}
+        readOnly={readOnly} testId="draft-section-costs" title={DRAFT_SECTION_LABELS.historicalApiCosts}
+      >
+        {state.historicalApiCosts.map((row, index) => (
+          <HistoricalCostRowFields
+            cutoverAt={cutoverAt} index={index} issues={issues} key={row.id}
+            onPatch={(change) => patch<HistoricalCostRowState>("historicalApiCosts", row.id, change)}
+            onRemove={() => removeRow("historicalApiCosts", row.id)}
             readOnly={readOnly} resourceOptions={apiOptions} row={row}
           />
         ))}

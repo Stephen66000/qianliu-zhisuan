@@ -23,6 +23,7 @@ export type ActivationGapCode =
   | "OPENING_TIME_MISMATCH" | "RESOURCE_MODE_MISMATCH" | "UNKNOWN_RESOURCE"
   | "REQUIRED_CURRENCY_UNRESOLVED" | "MISSING_RECHARGE_AMOUNT" | "MISSING_RECHARGE_CASH_PAID"
   | "MISSING_PURCHASE_AMOUNT" | "MISSING_PURCHASE_CASH_PAID" | "MISSING_EVIDENCE"
+  | "HISTORICAL_COST_AMOUNT_INVALID" | "HISTORICAL_COST_TIME_INVALID"
   | "UNATTRIBUTED_PLAN_USAGE" | "OVERLAPPING_PERIOD" | "INVALID_SERVICE_PERIOD"
   | "LEGACY_RECORD_UNCLOSED" | "LEGACY_RECORD_UNKNOWN" | "LEGACY_MIGRATION_REFERENCE_MISSING"
   | "LEGACY_REPRESENTATION_MISMATCH" | "LEGACY_REJECTION_EVIDENCE_MISSING"
@@ -136,6 +137,8 @@ export interface ActivationReceiptView {
   factCounts: {
     openings: number; recharges: number; purchases: number;
     carryovers: number; legacyResolutions: number; usageRepairs: number;
+    /** 0084 新增；历史回执缺省视为 0。 */
+    historicalUsageCosts?: number;
   };
   monthsChecked: string[];
   conservationPassed: boolean;
@@ -229,6 +232,19 @@ export interface HistoricalRechargeDraftPayload {
   record_idempotency_key?: string;
 }
 
+/**
+ * 历史 API 消耗草稿载荷（0084）：管理员只填四项，正数金额由服务端规范化为
+ * 负向资金事实；说明/证据/幂等键全部由服务端确定性生成，不出现在载荷中。
+ */
+export interface HistoricalApiCostDraftPayload {
+  resource_id: string;
+  account_currency: "CNY" | "USD";
+  /** 界面输入的实际消耗金额，必须大于 0。 */
+  cost_amount: string;
+  /** 成本截止时间（UTC ISO）；期间开始固定为资金切换时点。 */
+  cost_until_at: string;
+}
+
 export interface CodingPlanPurchaseDraftPayload {
   resource_id: string;
   kind: "PURCHASE" | "RENEWAL";
@@ -274,6 +290,7 @@ export interface ActivationDraftPayload {
   schema_version: string;
   api_opening_balances: OpeningBalanceDraftPayload[];
   historical_api_recharges: HistoricalRechargeDraftPayload[];
+  historical_api_costs: HistoricalApiCostDraftPayload[];
   coding_plan_purchases: CodingPlanPurchaseDraftPayload[];
   coding_plan_carryovers: CodingPlanCarryoverDraftPayload[];
   legacy_purchase_resolutions: LegacyPurchaseResolutionDraftPayload[];

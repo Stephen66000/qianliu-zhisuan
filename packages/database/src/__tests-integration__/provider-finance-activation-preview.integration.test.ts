@@ -95,6 +95,7 @@ describe.sequential("PF-INIT WP02：只读候选投影与事实水位", () => {
         occurred_at: CUTOVER_ISO, description: "切换时点厂商余额",
         evidence_ref: "evidence://opening", source_record_id: null,
       }],
+      historical_api_costs: [],
       historical_api_recharges: [],
       coding_plan_purchases: [],
       coding_plan_carryovers: [],

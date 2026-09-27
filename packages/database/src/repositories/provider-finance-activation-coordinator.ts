@@ -21,8 +21,9 @@ import {
   ProviderFinanceActivationError, type ActivationCandidateView,
 } from "./provider-finance-activation-types.js";
 import {
-  closeLegacyPurchaseTx, insertCarryoverPeriodTx, insertOpeningBalanceTx, insertRechargeTx,
-  insertSubscriptionTx, legacySourceMarker, writeActivationAuditTx,
+  closeLegacyPurchaseTx, insertCarryoverPeriodTx, insertHistoricalUsageCostTx,
+  insertOpeningBalanceTx, insertRechargeTx, insertSubscriptionTx, legacySourceMarker,
+  writeActivationAuditTx,
 } from "./provider-finance-activation-writes.js";
 import { applyUsageRepairsTx, type UsageRepairApplyResult } from "./provider-finance-usage-repairs.js";
 import { ProviderFinanceError, type FinanceCurrency } from "./provider-finance-types.js";
@@ -107,6 +108,7 @@ interface ReverifiedCandidate {
 interface DraftWriteCounts {
   openings: number;
   recharges: number;
+  historicalUsageCosts: number;
   purchases: number;
   carryovers: number;
   legacyResolutions: number;
@@ -350,11 +352,13 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
     const periodIdByDraftKey = new Map<string, string>();
     const openings = await this.writeOpenings(trx, input, reverified, namespace);
     const recharges = await this.writeRecharges(trx, input, reverified, namespace);
+    const historicalUsageCosts = await this.writeHistoricalUsageCosts(trx, input, reverified, namespace);
     const purchases = await this.writePurchases(trx, input, reverified, namespace, periodIdByDraftKey);
     const carryovers = await this.writeCarryovers(trx, input, reverified, periodIdByDraftKey);
     const legacyResolutions = await this.writeLegacyClosures(trx, input, reverified, namespace);
     return {
-      openings, recharges, purchases, carryovers, legacyResolutions, periodIdByDraftKey,
+      openings, recharges, historicalUsageCosts, purchases, carryovers, legacyResolutions,
+      periodIdByDraftKey,
     };
   }
 
@@ -404,6 +408,28 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
         evidenceRef: recharge.evidenceRef,
         idempotencyKey: `${namespace}${recharge.recordIdempotencyKey}`,
       }, { source: "MIGRATION" });
+      written += 1;
+    }
+    return written;
+  }
+
+  /**
+   * 历史 API 消耗（0084）：负向资金事实与期初、充值等在同一 `SERIALIZABLE` 事务内一次写入。
+   * 记录级幂等键由草稿规范化确定性生成；重放时
+   * `provider_finance_idempotency_key_uq` 唯一索引兜底，不会重复入账。
+   */
+  private async writeHistoricalUsageCosts(
+    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate, namespace: string,
+  ): Promise<number> {
+    let written = 0;
+    for (const cost of reverified.candidate.historicalApiCosts) {
+      await insertHistoricalUsageCostTx(trx, {
+        enterpriseId: input.enterpriseId, resourceId: cost.resourceId, adminId: input.adminId,
+        accountCurrency: cost.accountCurrency, costAmount: cost.costAmount,
+        occurredAt: new Date(cost.occurredAt),
+        description: cost.description, evidenceRef: cost.evidenceRef,
+        idempotencyKey: `${namespace}${cost.recordIdempotencyKey}`,
+      });
       written += 1;
     }
     return written;
@@ -583,7 +609,9 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
       activatedAt: now.toISOString(),
       activatedByAdminUserId: input.adminId,
       factCounts: {
-        openings: writes.openings, recharges: writes.recharges, purchases: writes.purchases,
+        openings: writes.openings, recharges: writes.recharges,
+        historicalUsageCosts: writes.historicalUsageCosts,
+        purchases: writes.purchases,
         carryovers: writes.carryovers, legacyResolutions: writes.legacyResolutions,
         usageRepairs: repairs.appliedRows,
       },
@@ -675,7 +703,8 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
 function emptyDraft(): ActivationDraft {
   return {
     schema_version: "1", api_opening_balances: [], historical_api_recharges: [],
-    coding_plan_purchases: [], coding_plan_carryovers: [], legacy_purchase_resolutions: [],
+    historical_api_costs: [], coding_plan_purchases: [], coding_plan_carryovers: [],
+    legacy_purchase_resolutions: [],
   };
 }
 

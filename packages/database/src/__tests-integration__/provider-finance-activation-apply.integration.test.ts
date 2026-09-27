@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "kysely";
-import { rechargeRecordIdempotencyKey, type ActivationDraft } from "@qianliu/domain";
+import {
+  historicalCostIdempotencyKey, rechargeRecordIdempotencyKey,
+  type ActivationDraft,
+} from "@qianliu/domain";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { countFinanceGaps } from "../repositories/provider-finance-gaps.js";
 
@@ -11,6 +14,7 @@ import {
   insertOpeningBalanceTx,
   insertRechargeTx,
   insertSubscriptionTx,
+  loadBalanceFactTotals,
   mapActivationFailure,
   migrateToLatest,
   PROVIDER_FINANCE_CUTOVER,
@@ -18,6 +22,7 @@ import {
   ProviderFinanceActivationError,
   ProviderFinanceActivationPreviewRepository,
   ProviderFinanceError,
+  toBalanceComponents,
   applyUsageRepairsTx,
   type ActivateInput,
 } from "../index.js";
@@ -127,6 +132,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
         evidence_ref: "evidence://opening", source_record_id: null,
       }],
       historical_api_recharges: [],
+      historical_api_costs: [],
       coding_plan_purchases: [],
       coding_plan_carryovers: [],
       legacy_purchase_resolutions: [],
@@ -1032,6 +1038,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
         schema_version: "1",
         api_opening_balances: draftFor(seeded.apiResourceId).api_opening_balances,
         historical_api_recharges: [],
+        historical_api_costs: [],
         coding_plan_purchases: [{
           resource_id: seeded.planResourceId, kind: "PURCHASE", product_name: "Kimi 套餐",
           account_amount: "199", account_currency: "CNY", cash_paid_cny: "199",
@@ -1259,6 +1266,86 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
          WHERE enterprise_id=${seeded.enterpriseId}::uuid AND event_type='API_RECHARGE'`
         .execute(db);
       expect(Number(rechargeCount.rows[0]!.count)).toBe(1);
+      await assertNoActivating(db, seeded.enterpriseId);
+    } finally {
+      await db.destroy();
+    }
+  }, 120_000);
+
+  // =====================================================================
+  // 历史 API 消耗（0084，2026-09-27 最小增量·功能 B）
+  // =====================================================================
+
+  it("历史 API 消耗与期初/充值在同一 SERIALIZABLE 事务一次写入；重放不重复；余额满足 0+100+500-40.4572", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pf03_hist_cost");
+      const draft: ActivationDraft = {
+        ...draftFor(seeded.apiResourceId),
+        historical_api_recharges: [{
+          resource_id: seeded.apiResourceId, account_currency: "CNY", account_amount: "500",
+          cash_paid_cny: "500.00", occurred_at: "2026-09-05T02:00:00.000Z",
+          external_reference: "DS-ORDER-HC-1", description: "历史 API 充值:DS-ORDER-HC-1",
+          evidence_ref: "provider-order:DS-ORDER-HC-1", source_record_id: null,
+          record_idempotency_key: rechargeRecordIdempotencyKey(seeded.apiResourceId, "DS-ORDER-HC-1"),
+        }],
+        historical_api_costs: [{
+          resource_id: seeded.apiResourceId, account_currency: "CNY",
+          cost_amount: "40.4572", cost_until_at: "2026-09-10T04:00:00.000Z",
+        }],
+      };
+      const preview = await previewGo(db, seeded, draft);
+      // 激活前必须建立有效静默租约（PFA-09；其他激活用例同口径）。
+      await startLease(db, seeded);
+      const coordinator = new ProviderFinanceActivationCoordinator(db);
+      const outcome = await coordinator.activate(
+        activateInput(seeded, preview, draft, "activate-hist-cost-1"));
+      expect(outcome.replayed).toBe(false);
+      expect(outcome.receipt.factCounts.historicalUsageCosts).toBe(1);
+
+      // 落账形状：负向资金事实、cash_paid_cny 为空、MIGRATION 来源、确定性幂等键。
+      const event = await db.selectFrom("provider_finance_event").select([
+        "event_type", "account_amount", "account_currency", "cash_paid_cny", "occurred_at",
+        "description", "evidence_ref", "source", "idempotency_key",
+      ])
+        .where("enterprise_id", "=", seeded.enterpriseId)
+        .where("event_type", "=", "API_HISTORICAL_USAGE_COST")
+        .executeTakeFirstOrThrow();
+      expect(event.account_amount).toBe("-40.45720000");
+      expect(event.account_currency).toBe("CNY");
+      expect(event.cash_paid_cny).toBeNull();
+      expect(event.occurred_at.toISOString()).toBe("2026-09-10T04:00:00.000Z");
+      expect(event.description).toBe("历史 API 消耗:2026-09-10T04:00:00.000Z");
+      expect(event.evidence_ref).toMatch(/^provider-usage:[0-9a-f]{32}$/);
+      expect(event.source).toBe("MIGRATION");
+      expect(event.idempotency_key).toBe(`activation:${preview.candidateId}:${
+        historicalCostIdempotencyKey(seeded.apiResourceId, "CNY", "2026-09-10T04:00:00.000Z", "40.45720000")}`);
+
+      // 同键同候选重放：replayed=true，事件不重复入账。
+      const replay = await coordinator.activate(
+        activateInput(seeded, preview, draft, "activate-hist-cost-1"));
+      expect(replay.replayed).toBe(true);
+      const costCount = await sql<{ count: string }>`
+        SELECT count(*)::text AS count FROM provider_finance_event
+         WHERE enterprise_id=${seeded.enterpriseId}::uuid
+           AND event_type='API_HISTORICAL_USAGE_COST'`.execute(db);
+      expect(Number(costCount.rows[0]!.count)).toBe(1);
+
+      // 余额口径：0 + 100（期初）+ 500（充值）- 40.4572（历史消耗负项）= 559.5428。
+      // 历史消耗计入 legacyCostAdjustments（历史 API 成本）分量，与数据库聚合同一口径。
+      const totals = await loadBalanceFactTotals(db, {
+        enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId, currency: "CNY",
+        eventsFrom: null, eventsTo: new Date("2026-09-30T00:00:00.000Z"),
+        ledgerFrom: PROVIDER_FINANCE_CUTOVER, ledgerTo: new Date("2026-09-30T00:00:00.000Z"),
+      });
+      const components = toBalanceComponents(totals);
+      expect(components.openingBalance).toBe("100.00000000");
+      expect(components.recharges).toBe("500.00000000");
+      expect(components.legacyCostAdjustments).toBe("-40.45720000");
+      expect(components.usageDebits).toBe("0.00000000");
+      expect(components.reversals).toBe("0.00000000");
+
       await assertNoActivating(db, seeded.enterpriseId);
     } finally {
       await db.destroy();

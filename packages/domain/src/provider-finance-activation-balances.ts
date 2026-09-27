@@ -76,6 +76,15 @@ export function projectAccountBalances(
     const key = accountKey(recharge.resourceId, recharge.accountCurrency);
     virtualRecharges.set(key, money(new Money(virtualRecharges.get(key) ?? 0).plus(recharge.accountAmount)));
   }
+  // 历史 API 消耗：负向资金事实，落入「历史 API 成本」口径（legacyCostAdjustments 分量）。
+  // 与数据库聚合（provider-finance-balance-facts.ts 的 legacy_costs 桶同时聚合
+  // API_LEGACY_COST_ADJUSTMENT 与 API_HISTORICAL_USAGE_COST）保持同一口径；
+  // 负号已由草稿规范化统一产生（historicalCostAccountAmount），此处按原符号相加。
+  const virtualHistoricalCosts = new Map<string, string>();
+  for (const cost of input.draft.historicalApiCosts) {
+    const key = accountKey(cost.resourceId, cost.accountCurrency);
+    virtualHistoricalCosts.set(key, money(new Money(virtualHistoricalCosts.get(key) ?? 0).plus(cost.accountAmount)));
+  }
   const usageDebitDeltas = computeUsageDebitDeltas(input, plan);
   const realComponents = new Map(input.accountComponents.map((row) => [accountKey(row.resourceId, row.currency), row]));
   const accountKeys = [...new Set([...realComponents.keys(), ...scopeAccounts.keys()])].sort(compareStrings);
@@ -88,6 +97,7 @@ export function projectAccountBalances(
     const components = addBalanceComponents(base, {
       openingBalance: virtualOpenings.get(key) ?? null,
       recharges: virtualRecharges.get(key) ?? null,
+      legacyCostAdjustments: virtualHistoricalCosts.get(key) ?? null,
       usageDebits: usageDebitDeltas.get(key) ?? null,
     });
     // 非平凡校验：数据库独立算出的余额必须等于用共享公式重算的结果。

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  historicalCostEvidenceRef,
+  historicalCostFactDescription,
+  historicalCostIdempotencyKey,
   rechargeRecordIdempotencyKey,
 } from "@qianliu/domain";
 import {
@@ -212,5 +215,65 @@ describe("激活与静默租约请求体", () => {
     expect(QuiescenceStartBody.safeParse({ duration_seconds: 3600 }).success).toBe(true);
     expect(QuiescenceStartBody.safeParse({ duration_seconds: 3601 }).success).toBe(false);
     expect(QuiescenceStartBody.safeParse({}).success).toBe(true);
+  });
+});
+
+
+describe("历史 API 消耗合同（0084）", () => {
+  const costRow = {
+    resource_id: RESOURCE,
+    account_currency: "CNY",
+    cost_amount: "40.4572",
+    cost_until_at: "2026-09-10T04:00:00.000Z",
+  };
+
+  it("接受四字段草稿，载荷不含说明/证据/幂等键（strict 拒绝未知字段）", () => {
+    const parsed = ActivationDraftSchema.parse(minimalDraft({ historical_api_costs: [costRow] }));
+    expect(parsed.historical_api_costs).toHaveLength(1);
+    const draft = toActivationDraft(parsed);
+    expect(draft.historical_api_costs[0]).toEqual(costRow);
+    // 未知内部字段拒绝：说明/证据/幂等键由服务端生成，不接受客户端提交。
+    const withExtra = ActivationDraftSchema.safeParse(minimalDraft({
+      historical_api_costs: [{ ...costRow, description: "管理员写的说明" }],
+    }));
+    expect(withExtra.success).toBe(false);
+  });
+
+  it("缺字段拒绝：金额缺失、非法币种、非法时间都不通过", () => {
+    for (const broken of [
+      { ...costRow, cost_amount: undefined },
+      { ...costRow, cost_amount: "0" },
+      { ...costRow, cost_amount: "-5" },
+      { ...costRow, cost_amount: "1.123456789" },
+      { ...costRow, account_currency: "EUR" },
+      { ...costRow, cost_until_at: "2026-09-10 04:00:00" },
+    ]) {
+      expect(ActivationDraftSchema.safeParse(minimalDraft({ historical_api_costs: [broken] })).success)
+        .toBe(false);
+    }
+  });
+
+  it("成本截止时间不得早于切换时点、不得晚于当前时间", () => {
+    const beforeCutover = ActivationDraftSchema.safeParse(minimalDraft({
+      historical_api_costs: [{ ...costRow, cost_until_at: "2026-08-31T15:59:59.999Z" }],
+    }));
+    expect(beforeCutover.success).toBe(false);
+    const inFuture = ActivationDraftSchema.safeParse(minimalDraft({
+      historical_api_costs: [{ ...costRow, cost_until_at: "2099-01-01T00:00:00.000Z" }],
+    }));
+    expect(inFuture.success).toBe(false);
+    const atCutover = ActivationDraftSchema.parse(minimalDraft({
+      historical_api_costs: [{ ...costRow, cost_until_at: "2026-08-31T16:00:00.000Z" }],
+    }));
+    expect(atCutover.historical_api_costs[0]!.cost_until_at).toBe("2026-08-31T16:00:00.000Z");
+  });
+
+  it("服务端默认说明/证据/幂等键可由领域纯函数复现（normalizeDraftItem 输入合同一致）", () => {
+    expect(historicalCostFactDescription("2026-09-10T04:00:00.000Z"))
+      .toBe("历史 API 消耗:2026-09-10T04:00:00.000Z");
+    expect(historicalCostEvidenceRef(RESOURCE, "CNY", "2026-09-10T04:00:00.000Z", "40.4572"))
+      .toMatch(/^provider-usage:[0-9a-f]{32}$/);
+    expect(historicalCostIdempotencyKey(RESOURCE, "CNY", "2026-09-10T04:00:00.000Z", "40.4572"))
+      .toMatch(/^pf-u:/);
   });
 });

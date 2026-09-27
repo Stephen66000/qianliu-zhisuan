@@ -38,6 +38,7 @@ function eventLabel(type: ProviderFinanceEvent["eventType"]): string {
     API_RECHARGE: "API 充值",
     API_BALANCE_RECONCILIATION: "余额对账",
     API_LEGACY_COST_ADJUSTMENT: "历史 API 成本封口",
+    API_HISTORICAL_USAGE_COST: "历史 API 消耗",
     CODING_PLAN_PURCHASE: "Coding Plan 购买",
     CODING_PLAN_RENEWAL: "Coding Plan 续费",
     REVERSAL: "冲销",

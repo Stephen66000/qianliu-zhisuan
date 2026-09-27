@@ -61,7 +61,9 @@ export async function loadBalanceFactTotals(
              COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_OPENING_BALANCE_CORRECTION'),0)::text AS corrections,
              COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_RECHARGE'),0)::text AS recharges,
              COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_BALANCE_RECONCILIATION'),0)::text AS reconciliations,
-             COALESCE(SUM(account_amount) FILTER (WHERE event_type='API_LEGACY_COST_ADJUSTMENT'),0)::text AS legacy_costs,
+             COALESCE(SUM(account_amount) FILTER (
+               WHERE event_type IN ('API_LEGACY_COST_ADJUSTMENT','API_HISTORICAL_USAGE_COST')
+             ),0)::text AS legacy_costs,
              COALESCE(SUM(account_amount) FILTER (WHERE event_type='REVERSAL'),0)::text AS reversals,
              COUNT(*) FILTER (WHERE event_type='API_OPENING_BALANCE')::text AS opening_count,
              (ARRAY_AGG(id ORDER BY occurred_at DESC, created_at DESC, id DESC))[1] AS latest_id,
@@ -96,6 +98,10 @@ export async function loadBalanceFactTotals(
  * 分量映射：唯一填写点是这里。
  * 每个分量都必须经过共享的 `money()` 归一化（SQL 的 `::text` 会给出 `1` 这类非标度化文本），
  * 否则响应形状会从八位小数标度退化为原始文本。
+ *
+ * 「历史 API 成本」口径（legacyCostAdjustments 分量）同时聚合
+ * `API_LEGACY_COST_ADJUSTMENT`（UNKNOWN_COST 处置封口）与 `API_HISTORICAL_USAGE_COST`
+ * （0084 历史消耗负项）；两者都是负向资金事实，按原符号相加。
  */
 export function toBalanceComponents(totals: BalanceFactTotals): BalanceComponents {
   return {

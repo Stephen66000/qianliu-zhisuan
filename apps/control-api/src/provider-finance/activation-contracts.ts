@@ -4,6 +4,7 @@ import {
   ACTIVATION_EVIDENCE_MAX_LENGTH,
   ACTIVATION_MAX_DRAFT_ROWS,
   PROVIDER_FINANCE_ACTIVATION_SCHEMA_VERSION,
+  PROVIDER_FINANCE_CUTOVER_ISO,
   rechargeEvidenceRef,
   rechargeFactDescription,
   rechargeRecordIdempotencyKey,
@@ -62,6 +63,29 @@ export const HistoricalRechargeDraftSchema = z.object({
   source_record_id: z.string().uuid().nullable().optional(),
   record_idempotency_key: RecordIdempotencyKey.optional(),
 }).strict();
+
+/**
+ * 历史 API 消耗草稿（0084，2026-09-27 最小增量）。
+ *
+ * 管理员只填四项；`cost_amount` 是界面输入的**正数**实际消耗金额（服务端规范化后
+ * 才转成负向资金事实），事实说明、证据引用与记录级幂等键由服务端按资源、币种、
+ * 切换时点、截止时间和金额确定性生成（见 `toActivationDraft`），不提供输入字段。
+ * 成本截止时间不得早于固定资金切换时点，不得晚于服务器当前时间。
+ */
+export const HistoricalApiCostDraftSchema = z.object({
+  resource_id: ResourceId,
+  account_currency: Currency,
+  cost_amount: z.union([z.string(), z.number()]).transform(String)
+    .refine((value) => /^\d+(?:\.\d{1,8})?$/.test(value), "实际消耗金额必须为非负且最多八位小数")
+    .refine((value) => Number(value) > 0, "实际消耗金额必须大于 0"),
+  cost_until_at: Instant,
+}).strict()
+  .refine((value) => value.cost_until_at >= PROVIDER_FINANCE_CUTOVER_ISO, {
+    path: ["cost_until_at"], message: "成本截止时间不得早于资金切换时点",
+  })
+  .refine((value) => new Date(value.cost_until_at).getTime() <= Date.now(), {
+    path: ["cost_until_at"], message: "成本截止时间不得晚于当前时间",
+  });
 
 export const CodingPlanPurchaseDraftSchema = z.object({
   resource_id: ResourceId,
@@ -122,6 +146,7 @@ export const ActivationDraftSchema = z.object({
   schema_version: z.literal(PROVIDER_FINANCE_ACTIVATION_SCHEMA_VERSION),
   api_opening_balances: DraftRows(OpeningBalanceDraftSchema).default([]),
   historical_api_recharges: DraftRows(HistoricalRechargeDraftSchema).default([]),
+  historical_api_costs: DraftRows(HistoricalApiCostDraftSchema).default([]),
   coding_plan_purchases: DraftRows(CodingPlanPurchaseDraftSchema).default([]),
   coding_plan_carryovers: DraftRows(CodingPlanCarryoverDraftSchema).default([]),
   legacy_purchase_resolutions: DraftRows(LegacyPurchaseResolutionDraftSchema).default([]),
@@ -179,6 +204,14 @@ export function toActivationDraft(input: ActivationDraftInput): ActivationDraft 
       source_record_id: item.source_record_id ?? null,
       record_idempotency_key: item.record_idempotency_key
         ?? rechargeRecordIdempotencyKey(item.resource_id, item.external_reference),
+    })),
+    // 历史 API 消耗：内部字段全部由服务端按资源、币种、切换时点、截止时间、金额
+    // 确定性生成（0084）；管理员载荷只含四项业务字段。
+    historical_api_costs: input.historical_api_costs.map((item) => ({
+      resource_id: item.resource_id,
+      account_currency: item.account_currency,
+      cost_amount: item.cost_amount,
+      cost_until_at: item.cost_until_at,
     })),
     coding_plan_purchases: input.coding_plan_purchases.map((item) => ({
       resource_id: item.resource_id,

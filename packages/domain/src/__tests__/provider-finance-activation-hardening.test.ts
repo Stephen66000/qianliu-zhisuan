@@ -93,6 +93,7 @@ function minimalDraft(overrides: Partial<ActivationDraft> = {}): ActivationDraft
     schema_version: "1",
     api_opening_balances: [],
     historical_api_recharges: [],
+    historical_api_costs: [],
     coding_plan_purchases: [],
     coding_plan_carryovers: [],
     legacy_purchase_resolutions: [],
@@ -537,6 +538,7 @@ describe("computeMonthlyGapDeltas 逐月抵消", () => {
       ledgerLines: [priced, notOperating, outOfMonth],
       draft: normalizeDraftItem(minimalDraft({
         historical_api_recharges: [rechargeIn("2026-09-05T02:00:00.000Z", "r-1")],
+        historical_api_costs: [],
         coding_plan_purchases: [purchaseIn("2026-09-06T02:00:00.000Z", "p-1")],
       }), API_RESOURCE),
       monthlyGaps: [{

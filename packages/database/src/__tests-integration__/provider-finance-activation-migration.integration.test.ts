@@ -23,6 +23,7 @@ describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
     return {
       schema_version: "1",
       api_opening_balances: [],
+      historical_api_costs: [],
       historical_api_recharges: [],
       coding_plan_purchases: [],
       coding_plan_carryovers: [],

@@ -18,12 +18,19 @@
  *  - 管理员只填六项：厂商资源、币种、到账金额、人民币实付、充值时间、充值订单号；
  *  - 事实说明、证据引用、来源旧记录与记录级幂等键由服务端自动生成，载荷不再携带；
  *  - 草稿内检查同一厂商资源下充值订单号不得重复（数据库唯一索引兜底）。
+ *
+ * 历史 API 消耗行（0084，2026-09-27 最小增量）：
+ *  - 管理员只填四项：厂商资源、币种、实际消耗金额（界面输入正数）、成本截止时间；
+ *  - 期间开始固定使用资金切换时点，不提供输入框；
+ *  - 服务端把正数规范化为负向资金事实（account_amount = -cost_amount），
+ *    并按资源、币种、切换时点、截止时间、金额确定性生成说明/证据/幂等键。
  */
 
 import type {
   ActivationDraftPayload,
   CodingPlanCarryoverDraftPayload,
   CodingPlanPurchaseDraftPayload,
+  HistoricalApiCostDraftPayload,
   HistoricalRechargeDraftPayload,
   LegacyPurchaseResolutionDraftPayload,
   LegacyResolution,
@@ -72,6 +79,18 @@ export interface RechargeRowState {
   externalReference: string;
 }
 
+/**
+ * 历史 API 消耗行：管理员只填四项；`costAmount` 必须是正数
+ * （负向落账由服务端统一取负，管理员不得输入负数）。
+ */
+export interface HistoricalCostRowState {
+  id: string;
+  resourceId: string;
+  accountCurrency: FinanceCurrencyCode;
+  costAmount: string;
+  costUntilLocal: string;
+}
+
 export interface PurchaseRowState {
   id: string;
   resourceId: string;
@@ -117,6 +136,7 @@ export interface LegacyRowState {
 export interface ActivationDraftState {
   apiOpeningBalances: OpeningRowState[];
   historicalApiRecharges: RechargeRowState[];
+  historicalApiCosts: HistoricalCostRowState[];
   codingPlanPurchases: PurchaseRowState[];
   codingPlanCarryovers: CarryoverRowState[];
   legacyResolutions: LegacyRowState[];
@@ -127,6 +147,7 @@ export type DraftSection = keyof ActivationDraftState;
 export const DRAFT_SECTION_LABELS: Record<DraftSection, string> = {
   apiOpeningBalances: "API 期初余额",
   historicalApiRecharges: "历史 API 充值",
+  historicalApiCosts: "历史 API 消耗",
   codingPlanPurchases: "Coding Plan 购买/续费",
   codingPlanCarryovers: "跨切换周期",
   legacyResolutions: "旧购买记录关闭",
@@ -149,8 +170,8 @@ export function newRecordIdempotencyKey(): string {
 
 export function emptyDraftState(): ActivationDraftState {
   return {
-    apiOpeningBalances: [], historicalApiRecharges: [], codingPlanPurchases: [],
-    codingPlanCarryovers: [], legacyResolutions: [],
+    apiOpeningBalances: [], historicalApiRecharges: [], historicalApiCosts: [],
+    codingPlanPurchases: [], codingPlanCarryovers: [], legacyResolutions: [],
   };
 }
 
@@ -256,6 +277,35 @@ export function validateRechargeRow(row: RechargeRowState): DraftIssue[] {
   return issues;
 }
 
+/**
+ * 历史 API 消耗行校验：金额必须为正数且最多八位小数；截止时间必须是有效上海时间，
+ * 且不得早于资金切换时点（期间开始固定为切换时点）、不得晚于当前时间。
+ */
+export function validateHistoricalCostRow(row: HistoricalCostRowState, cutoverAt: string | null): DraftIssue[] {
+  const issues: DraftIssue[] = [];
+  const section: DraftSection = "historicalApiCosts";
+  collect(issues, section, row.id, "resourceId", requireUuid(row.resourceId, "厂商资源"));
+  if (row.costAmount.trim() === "") {
+    collect(issues, section, row.id, "costAmount", "实际消耗金额未填写");
+  } else if (!isValidAccountAmount(row.costAmount.trim())) {
+    collect(issues, section, row.id, "costAmount", "实际消耗金额必须为正数且最多八位小数");
+  } else if (!(Number(row.costAmount.trim()) > 0)) {
+    collect(issues, section, row.id, "costAmount", "实际消耗金额必须大于 0（负向落账由系统完成）");
+  }
+  const untilInstant = toInstant(row.costUntilLocal);
+  if (untilInstant === null) {
+    collect(issues, section, row.id, "costUntil", "成本截止时间必须填写有效的上海时间");
+  } else {
+    if (cutoverAt !== null && untilInstant < cutoverAt) {
+      collect(issues, section, row.id, "costUntil", "成本截止时间不得早于资金切换时点");
+    }
+    if (untilInstant > new Date().toISOString()) {
+      collect(issues, section, row.id, "costUntil", "成本截止时间不得晚于当前时间");
+    }
+  }
+  return issues;
+}
+
 export function validatePurchaseRow(row: PurchaseRowState): DraftIssue[] {
   const issues: DraftIssue[] = [];
   const section: DraftSection = "codingPlanPurchases";
@@ -341,6 +391,10 @@ function isRechargeRowBlank(row: RechargeRowState): boolean {
     row.externalReference]);
 }
 
+function isCostRowBlank(row: HistoricalCostRowState): boolean {
+  return isBlank([row.resourceId, row.costAmount, row.costUntilLocal]);
+}
+
 function isPurchaseRowBlank(row: PurchaseRowState): boolean {
   return isBlank([row.resourceId, row.productName, row.accountAmount, row.cashPaidCny,
     row.servicePeriodStart, row.servicePeriodEnd, row.occurredAtLocal, row.externalReference,
@@ -362,6 +416,7 @@ export function countActiveRows(state: ActivationDraftState): Record<DraftSectio
   return {
     apiOpeningBalances: state.apiOpeningBalances.filter((row) => !isOpeningRowBlank(row)).length,
     historicalApiRecharges: state.historicalApiRecharges.filter((row) => !isRechargeRowBlank(row)).length,
+    historicalApiCosts: state.historicalApiCosts.filter((row) => !isCostRowBlank(row)).length,
     codingPlanPurchases: state.codingPlanPurchases.filter((row) => !isPurchaseRowBlank(row)).length,
     codingPlanCarryovers: state.codingPlanCarryovers.filter((row) => !isCarryoverRowBlank(row)).length,
     legacyResolutions: state.legacyResolutions.filter((row) => !isLegacyRowBlank(row)).length,
@@ -395,6 +450,27 @@ function collectRechargeIssues(state: ActivationDraftState): DraftIssue[] {
   return issues;
 }
 
+function collectCostIssues(state: ActivationDraftState, cutoverAt: string | null): DraftIssue[] {
+  const rows = state.historicalApiCosts.filter((row) => !isCostRowBlank(row));
+  const issues = rows.flatMap((row) => validateHistoricalCostRow(row, cutoverAt));
+  // 草稿内防重：同一厂商资源、币种、截止时间的消耗行会得到同一确定性幂等键，
+  // 直接在草稿内拦下，避免必然失败的预检往返。
+  const byKey = new Map<string, HistoricalCostRowState[]>();
+  for (const row of rows) {
+    const key = `${row.resourceId.trim()}|${row.accountCurrency}|${toInstant(row.costUntilLocal) ?? row.costUntilLocal.trim()}`;
+    const group = byKey.get(key);
+    if (group) group.push(row); else byKey.set(key, [row]);
+  }
+  for (const group of byKey.values()) {
+    if (group.length < 2) continue;
+    for (const row of group) {
+      issues.push({ section: "historicalApiCosts", rowId: row.id, field: "costUntil",
+        message: "同一厂商资源、币种与截止时间的历史消耗不得重复登记" });
+    }
+  }
+  return issues;
+}
+
 function collectPurchaseIssues(state: ActivationDraftState): DraftIssue[] {
   return state.codingPlanPurchases.filter((row) => !isPurchaseRowBlank(row))
     .flatMap((row) => validatePurchaseRow(row));
@@ -413,6 +489,7 @@ function collectLegacyIssues(state: ActivationDraftState): DraftIssue[] {
 export function validateDraft(state: ActivationDraftState, cutoverAt: string | null): DraftIssue[] {
   const issues = [
     ...collectOpeningIssues(state, cutoverAt), ...collectRechargeIssues(state),
+    ...collectCostIssues(state, cutoverAt),
     ...collectPurchaseIssues(state), ...collectCarryoverIssues(state), ...collectLegacyIssues(state),
   ];
   for (const [section, count] of Object.entries(countActiveRows(state))) {
@@ -448,6 +525,17 @@ function toRechargePayload(row: RechargeRowState): HistoricalRechargeDraftPayloa
     cash_paid_cny: row.cashPaidCny.trim(),
     occurred_at: toInstant(row.occurredAtLocal) ?? "",
     external_reference: row.externalReference.trim(),
+  };
+}
+
+function toCostPayload(row: HistoricalCostRowState): HistoricalApiCostDraftPayload {
+  // 载荷只含管理员填写的四项：说明、证据与幂等键由服务端按
+  // 资源、币种、切换时点、截止时间、金额确定性生成。
+  return {
+    resource_id: row.resourceId.trim(),
+    account_currency: row.accountCurrency,
+    cost_amount: row.costAmount.trim(),
+    cost_until_at: toInstant(row.costUntilLocal) ?? "",
   };
 }
 
@@ -510,6 +598,8 @@ export function buildActivationDraft(
       .map((row) => toOpeningPayload(row, cutoverAt)),
     historical_api_recharges: state.historicalApiRecharges.filter((row) => !isRechargeRowBlank(row))
       .map(toRechargePayload),
+    historical_api_costs: state.historicalApiCosts.filter((row) => !isCostRowBlank(row))
+      .map(toCostPayload),
     coding_plan_purchases: state.codingPlanPurchases.filter((row) => !isPurchaseRowBlank(row))
       .map(toPurchasePayload),
     coding_plan_carryovers: state.codingPlanCarryovers.filter((row) => !isCarryoverRowBlank(row))

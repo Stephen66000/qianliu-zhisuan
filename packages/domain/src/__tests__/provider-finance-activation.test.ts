@@ -12,6 +12,9 @@ import {
   normalizeCashPaidCny,
   normalizeDraftItem,
   shanghaiPeriodBounds,
+  historicalCostEvidenceRef,
+  historicalCostFactDescription,
+  historicalCostIdempotencyKey,
   rechargeEvidenceRef,
   rechargeFactDescription,
   rechargeRecordIdempotencyKey,
@@ -53,6 +56,7 @@ function baseDraft(): ActivationDraft {
       source_record_id: "33333333-3333-4333-8333-333333333333",
       record_idempotency_key: "history-recharge-1",
     }],
+    historical_api_costs: [],
     coding_plan_purchases: [{
       resource_id: OTHER_RESOURCE,
       kind: "PURCHASE",
@@ -308,5 +312,91 @@ describe("历史 API 充值：无旧记录时的内部字段推导", () => {
     const recharge = candidate.historicalApiRecharges[0]!;
     expect(recharge.sourceRecordId).toBe("33333333-3333-4333-8333-333333333333");
     expect(recharge.recordIdempotencyKey).toBe("history-recharge-1");
+  });
+});
+
+
+describe("历史 API 消耗：正数输入规范化为负向资金事实（0084）", () => {
+  const costDraft = (cost_amount: string, cost_until_at: string): ActivationDraft => {
+    const draft = baseDraft();
+    draft.historical_api_costs = [{
+      resource_id: RESOURCE,
+      account_currency: "CNY",
+      cost_amount,
+      cost_until_at,
+    }];
+    return draft;
+  };
+
+  it("事实说明、证据引用与幂等键由系统按资源/币种/切换时点/截止时间/金额确定性生成", () => {
+    expect(historicalCostFactDescription("2026-09-05T02:00:00.000Z"))
+      .toBe("历史 API 消耗:2026-09-05T02:00:00.000Z");
+    const evidence = historicalCostEvidenceRef(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4572");
+    const evidenceAgain = historicalCostEvidenceRef(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4572");
+    expect(evidence).toBe(evidenceAgain);
+    expect(evidence).toMatch(/^provider-usage:[0-9a-f]{32}$/);
+    expect(evidence).not.toBe(
+      historicalCostEvidenceRef(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4573"));
+  });
+
+  it("幂等键确定性且长度满足 varchar(128)（含协调器 48 字符前缀）", () => {
+    const key = historicalCostIdempotencyKey(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4572");
+    expect(key).toBe(historicalCostIdempotencyKey(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4572"));
+    expect(key).not.toBe(historicalCostIdempotencyKey(RESOURCE, "USD", "2026-09-05T02:00:00.000Z", "40.4572"));
+    expect(key).not.toBe(historicalCostIdempotencyKey(RESOURCE, "CNY", "2026-09-06T02:00:00.000Z", "40.4572"));
+    expect(key).not.toBe(historicalCostIdempotencyKey(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4573"));
+    expect(key).toMatch(/^pf-u:[0-9a-f-]{36}:[0-9a-f]{32}$/);
+    expect(key.length).toBeLessThanOrEqual(80);
+    const withNamespace = "activation:" + "c".repeat(36) + ":" + key;
+    expect(withNamespace.length).toBeLessThanOrEqual(128);
+  });
+
+  it("正数金额规范化为负向 account_amount，costAmount 保留正数口径", () => {
+    const candidate = normalizeDraftItem(costDraft("40.4572", "2026-09-05T02:00:00.000Z"),
+      "77777777-7777-4777-8777-777777777777");
+    const cost = candidate.historicalApiCosts[0]!;
+    expect(cost.costAmount).toBe("40.45720000");
+    expect(cost.accountAmount).toBe("-40.45720000");
+    expect(cost.occurredAt).toBe("2026-09-05T02:00:00.000Z");
+    expect(cost.description).toBe("历史 API 消耗:2026-09-05T02:00:00.000Z");
+    expect(cost.evidenceRef).toMatch(/^provider-usage:[0-9a-f]{32}$/);
+    expect(cost.recordIdempotencyKey).toBe(
+      historicalCostIdempotencyKey(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.45720000"));
+  });
+
+  it("截止时间早于切换时点被拒绝；等于切换时点允许", () => {
+    expect(() => normalizeDraftItem(costDraft("10", "2026-08-31T15:59:59.999Z"),
+      "77777777-7777-4777-8777-777777777777")).toThrow("不得早于资金切换时点");
+    const at = normalizeDraftItem(costDraft("10", PROVIDER_FINANCE_CUTOVER_ISO),
+      "77777777-7777-4777-8777-777777777777");
+    expect(at.historicalApiCosts[0]!.occurredAt).toBe(PROVIDER_FINANCE_CUTOVER_ISO);
+  });
+
+  it("金额必须大于 0：0 与负数输入被拒绝", () => {
+    expect(() => normalizeDraftItem(costDraft("0", "2026-09-05T02:00:00.000Z"),
+      "77777777-7777-4777-8777-777777777777")).toThrow("必须大于 0");
+    expect(() => normalizeDraftItem(costDraft("-5", "2026-09-05T02:00:00.000Z"),
+      "77777777-7777-4777-8777-777777777777")).toThrow();
+  });
+
+  it("相同金额等价写法得到同一幂等键与同一候选哈希", () => {
+    const left = normalizeDraftItem(costDraft("40.4572", "2026-09-05T02:00:00.000Z"),
+      "77777777-7777-4777-8777-777777777777");
+    const right = normalizeDraftItem(costDraft("40.45720000", "2026-09-05T02:00:00.000Z"),
+      "77777777-7777-4777-8777-777777777777");
+    expect(stableStringify(left)).toBe(stableStringify(right));
+  });
+
+  it("historical_api_costs 进入候选哈希：草稿变化则哈希变化", () => {
+    const enterpriseId = "77777777-7777-4777-8777-777777777777";
+    const withCost = computeCandidateHash({
+      enterpriseId, candidate: normalizeDraftItem(costDraft("40.4572", "2026-09-05T02:00:00.000Z"), enterpriseId),
+      factWatermarkHash: "f".repeat(64),
+    });
+    const withoutCost = computeCandidateHash({
+      enterpriseId, candidate: normalizeDraftItem(baseDraft(), enterpriseId),
+      factWatermarkHash: "f".repeat(64),
+    });
+    expect(withCost).not.toBe(withoutCost);
   });
 });

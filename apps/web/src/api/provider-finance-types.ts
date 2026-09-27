@@ -3,6 +3,7 @@ export type FinanceCurrency = "CNY" | "USD";
 export type FinanceEventType =
   | "API_OPENING_BALANCE" | "API_OPENING_BALANCE_CORRECTION" | "API_RECHARGE"
   | "API_BALANCE_RECONCILIATION" | "API_LEGACY_COST_ADJUSTMENT"
+  | "API_HISTORICAL_USAGE_COST"
   | "CODING_PLAN_PURCHASE" | "CODING_PLAN_RENEWAL" | "REVERSAL";
 
 export interface ProviderFinanceBalance {

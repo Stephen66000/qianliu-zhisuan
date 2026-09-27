@@ -11,9 +11,9 @@ import { describe, expect, it } from "vitest";
 import {
   ACTIVATION_MAX_DRAFT_ROWS, buildActivationDraft, countActiveRows, emptyDraftState,
   isValidAccountAmount, isValidCashPaidCny, newLocalRowId, toInstant, validateDraft,
-  validateLegacyRow, validateOpeningRow, validateRechargeRow,
-  type ActivationDraftState, type LegacyRowState, type OpeningRowState,
-  type RechargeRowState,
+  validateHistoricalCostRow, validateLegacyRow, validateOpeningRow, validateRechargeRow,
+  type ActivationDraftState, type HistoricalCostRowState, type LegacyRowState,
+  type OpeningRowState, type RechargeRowState,
 } from "./activation-draft-model";
 
 const CUTOVER = "2026-08-31T16:00:00.000Z";
@@ -194,6 +194,7 @@ describe("旧购买记录关闭", () => {
     const payload = buildActivationDraft(stateWith({ legacyResolutions: [closed] }), CUTOVER);
     expect(Object.keys(payload)).toEqual([
       "schema_version", "api_opening_balances", "historical_api_recharges",
+      "historical_api_costs",
       "coding_plan_purchases", "coding_plan_carryovers", "legacy_purchase_resolutions",
     ]);
   });
@@ -205,5 +206,55 @@ describe("行数上限", () => {
       openingRow({ id: `row-${index}`, accountAmount: "1" }));
     const issues = validateDraft(stateWith({ apiOpeningBalances: rows }), CUTOVER);
     expect(issues.map((issue) => issue.message).some((message) => message.includes("不得超过"))).toBe(true);
+  });
+});
+
+describe("历史 API 消耗行（0084）：四字段与正数输入", () => {
+  const CUTOVER = "2026-08-31T16:00:00.000Z";
+  const costRow = (): HistoricalCostRowState => ({
+    id: "cost-1", resourceId: RESOURCE, accountCurrency: "CNY",
+    costAmount: "40.4572", costUntilLocal: "2026-09-10T12:00",
+  });
+
+  it("合法行零问题，payload 只含四项且金额保持正数", () => {
+    expect(validateHistoricalCostRow(costRow(), CUTOVER)).toEqual([]);
+    const state = { ...emptyDraftState(), historicalApiCosts: [costRow()] };
+    const payload = buildActivationDraft(state, CUTOVER);
+    expect(payload.historical_api_costs).toEqual([{
+      resource_id: RESOURCE, account_currency: "CNY",
+      cost_amount: "40.4572", cost_until_at: "2026-09-10T04:00:00.000Z",
+    }]);
+  });
+
+  it("金额必须为正数：空、0、负数、超精度都报错", () => {
+    const state = { ...emptyDraftState(), historicalApiCosts: [costRow()] };
+    for (const [amount, field] of [["", "costAmount"], ["0", "costAmount"]] as const) {
+      const broken = { ...state, historicalApiCosts: [{ ...costRow(), costAmount: amount }] };
+      expect(validateDraft(broken, CUTOVER).some((issue) => issue.field === field)).toBe(true);
+    }
+    for (const amount of ["-5", "1.123456789"]) {
+      const broken = { ...state, historicalApiCosts: [{ ...costRow(), costAmount: amount }] };
+      expect(validateDraft(broken, CUTOVER).some((issue) => issue.field === "costAmount")).toBe(true);
+    }
+  });
+
+  it("截止时间不得早于切换时点、不得晚于当前时间；空行整行省略", () => {
+    const state = { ...emptyDraftState(), historicalApiCosts: [costRow()] };
+    const early = { ...state, historicalApiCosts: [{ ...costRow(), costUntilLocal: "2026-08-31T23:00" }] };
+    expect(validateDraft(early, CUTOVER).some((issue) =>
+      issue.field === "costUntil" && issue.message.includes("不得早于资金切换时点"))).toBe(true);
+    const future = { ...state, historicalApiCosts: [{ ...costRow(), costUntilLocal: "2099-01-01T08:00" }] };
+    expect(validateDraft(future, CUTOVER).some((issue) =>
+      issue.field === "costUntil" && issue.message.includes("不得晚于当前时间"))).toBe(true);
+    expect(buildActivationDraft({ ...emptyDraftState(),
+      historicalApiCosts: [{ id: "blank", resourceId: "", accountCurrency: "CNY",
+        costAmount: "", costUntilLocal: "" }] }, CUTOVER).historical_api_costs).toEqual([]);
+  });
+
+  it("同一资源、币种、截止时间的消耗行在草稿内防重", () => {
+    const state = { ...emptyDraftState(), historicalApiCosts: [costRow(), { ...costRow(), id: "cost-2" }] };
+    const issues = validateDraft(state, CUTOVER);
+    expect(issues.filter((issue) => issue.field === "costUntil"
+      && issue.message.includes("不得重复登记")).length).toBe(2);
   });
 });

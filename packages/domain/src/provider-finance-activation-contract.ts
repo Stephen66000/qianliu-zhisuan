@@ -75,6 +75,27 @@ export interface HistoricalRechargeDraftItem {
   record_idempotency_key: string;
 }
 
+/**
+ * 历史 API 消耗草稿（2026-09-27 最小增量）。
+ *
+ * 旧 MacMini 数据库与阿里云新数据库相互独立：管理员从旧库核实了一段
+ * 「切换时点后、上新服务器前」的 API 实际计价汇总。该成本不是新库 ledger_line，
+ * 不能伪装成负期初余额，也不能改充值金额凑数。
+ *
+ * 管理员只填四项；`cost_amount` 是界面输入的**正数**实际消耗金额，
+ * 服务端规范化后才转成负向资金事实（`account_amount = -cost_amount`）。
+ * 期间开始固定使用资金切换时点，不提供输入框；事实说明、证据引用与记录级
+ * 幂等键由系统按资源、币种、切换时点、截止时间和金额确定性生成。
+ */
+export interface HistoricalApiCostDraftItem {
+  resource_id: string;
+  account_currency: ActivationCurrency;
+  /** 界面输入的实际消耗金额，必须大于 0；落账规范化为负向 `account_amount`。 */
+  cost_amount: string;
+  /** 成本截止时间（UTC ISO）：不得早于资金切换时点，不得晚于当前时间。 */
+  cost_until_at: string;
+}
+
 export interface CodingPlanPurchaseDraftItem {
   resource_id: string;
   kind: "PURCHASE" | "RENEWAL";
@@ -129,6 +150,7 @@ export interface ActivationDraft {
   schema_version: string;
   api_opening_balances: OpeningBalanceDraftItem[];
   historical_api_recharges: HistoricalRechargeDraftItem[];
+  historical_api_costs: HistoricalApiCostDraftItem[];
   coding_plan_purchases: CodingPlanPurchaseDraftItem[];
   coding_plan_carryovers: CodingPlanCarryoverDraftItem[];
   legacy_purchase_resolutions: LegacyPurchaseResolutionDraftItem[];
@@ -157,6 +179,24 @@ export interface NormalizedRecharge {
   evidenceRef: string;
   /** null 表示无对应旧购买记录；落库来源标识由 `legacySourceMarker` 回退到业务订单号。 */
   sourceRecordId: string | null;
+  recordIdempotencyKey: string;
+}
+
+/**
+ * 规范化历史 API 消耗：`costAmount` 保留管理员输入的正数口径（便于幂等键与哈希
+ * 复现），`accountAmount` 是落账负向资金事实（`= -costAmount`，八位小数）。
+ */
+export interface NormalizedHistoricalCost {
+  resourceId: string;
+  accountCurrency: ActivationCurrency;
+  /** 正数实际消耗金额（八位小数字符串）。 */
+  costAmount: string;
+  /** 负向落账金额（八位小数字符串）。 */
+  accountAmount: string;
+  /** 成本截止时间（UTC ISO）；期间开始固定为资金切换时点。 */
+  occurredAt: string;
+  description: string;
+  evidenceRef: string;
   recordIdempotencyKey: string;
 }
 
@@ -206,6 +246,7 @@ export interface NormalizedActivationCandidate {
   cutoverAt: string;
   apiOpeningBalances: NormalizedOpeningBalance[];
   historicalApiRecharges: NormalizedRecharge[];
+  historicalApiCosts: NormalizedHistoricalCost[];
   codingPlanPurchases: NormalizedCodingPlanPurchase[];
   codingPlanCarryovers: NormalizedCodingPlanCarryover[];
   legacyPurchaseResolutions: NormalizedLegacyPurchaseResolution[];
@@ -222,6 +263,7 @@ export type ActivationGapCode =
   | "OPENING_TIME_MISMATCH" | "RESOURCE_MODE_MISMATCH" | "UNKNOWN_RESOURCE"
   | "REQUIRED_CURRENCY_UNRESOLVED" | "MISSING_RECHARGE_AMOUNT" | "MISSING_RECHARGE_CASH_PAID"
   | "MISSING_PURCHASE_AMOUNT" | "MISSING_PURCHASE_CASH_PAID" | "MISSING_EVIDENCE"
+  | "HISTORICAL_COST_AMOUNT_INVALID" | "HISTORICAL_COST_TIME_INVALID"
   | "UNATTRIBUTED_PLAN_USAGE" | "OVERLAPPING_PERIOD" | "INVALID_SERVICE_PERIOD"
   | "LEGACY_RECORD_UNCLOSED" | "LEGACY_RECORD_UNKNOWN" | "LEGACY_MIGRATION_REFERENCE_MISSING"
   | "LEGACY_REPRESENTATION_MISMATCH" | "LEGACY_REJECTION_EVIDENCE_MISSING"
@@ -349,6 +391,11 @@ export interface ActivationReceipt {
     carryovers: number;
     legacyResolutions: number;
     usageRepairs: number;
+    /**
+     * 历史 API 消耗事件数（0084 新增）。可选：候选存档中的历史回执没有该字段，
+     * 缺省视为 0，保证旧回执反序列化兼容。
+     */
+    historicalUsageCosts?: number;
   };
   monthsChecked: string[];
   conservationPassed: boolean;

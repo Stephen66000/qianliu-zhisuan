@@ -99,6 +99,7 @@ function collectScopeAndModeGaps(
   const draftResourceIds = new Set<string>([
     ...input.draft.apiOpeningBalances.map((item) => item.resourceId),
     ...input.draft.historicalApiRecharges.map((item) => item.resourceId),
+    ...input.draft.historicalApiCosts.map((item) => item.resourceId),
     ...input.draft.codingPlanPurchases.map((item) => item.resourceId),
     ...input.draft.codingPlanCarryovers.map((item) => item.resourceId),
     ...input.draft.legacyPurchaseResolutions.map((item) => item.resourceId),
@@ -126,6 +127,13 @@ function collectScopeAndModeGaps(
     if (resource && resource.mode !== "API") {
       gaps.push(gap("RESOURCE_MODE_MISMATCH", "RECHARGE", "历史 API 充值只能登记在 API 资源上",
         { resourceId: recharge.resourceId, accountCurrency: recharge.accountCurrency }));
+    }
+  }
+  for (const cost of input.draft.historicalApiCosts) {
+    const resource = resourcesById.get(cost.resourceId);
+    if (resource && resource.mode !== "API") {
+      gaps.push(gap("RESOURCE_MODE_MISMATCH", "USAGE", "历史 API 消耗只能登记在 API 资源上",
+        { resourceId: cost.resourceId, accountCurrency: cost.accountCurrency }));
     }
   }
   for (const purchase of input.draft.codingPlanPurchases) {
@@ -306,7 +314,34 @@ function collectLegacyResolutionGaps(input: ActivationProjectionInput, gaps: Act
 }
 
 /** 草稿行自身必填项（防御性：合同已强制，这里保证投影不依赖校验层）。 */
-function collectDraftRowGaps(input: ActivationProjectionInput, gaps: ActivationGap[]): void {
+function collectDraftRowGaps(
+  input: ActivationProjectionInput, cutoverAt: string, gaps: ActivationGap[],
+): void {
+  for (const cost of input.draft.historicalApiCosts) {
+    // 金额：规范化后仍必须大于 0（落账负向金额由共享实现统一取负）。
+    if (Number(cost.costAmount) <= 0) {
+      gaps.push(gap("HISTORICAL_COST_AMOUNT_INVALID", "USAGE",
+        "历史 API 消耗的金额必须大于 0", {
+          resourceId: cost.resourceId, accountCurrency: cost.accountCurrency,
+          detail: cost.costAmount,
+        }));
+    }
+    // 时间边界：期间开始固定为切换时点，截止不得早于切换时点、不得晚于候选水位。
+    if (cost.occurredAt < cutoverAt) {
+      gaps.push(gap("HISTORICAL_COST_TIME_INVALID", "USAGE",
+        "成本截止时间不得早于资金切换时点", {
+          resourceId: cost.resourceId, accountCurrency: cost.accountCurrency,
+          detail: cost.occurredAt,
+        }));
+    }
+    if (cost.occurredAt > input.snapshotAt) {
+      gaps.push(gap("HISTORICAL_COST_TIME_INVALID", "USAGE",
+        "成本截止时间不得晚于当前时间", {
+          resourceId: cost.resourceId, accountCurrency: cost.accountCurrency,
+          detail: cost.occurredAt,
+        }));
+    }
+  }
   for (const recharge of input.draft.historicalApiRecharges) {
     if (!recharge.accountAmount || Number(recharge.accountAmount) <= 0) {
       gaps.push(gap("MISSING_RECHARGE_AMOUNT", "RECHARGE", "历史充值缺少到账金额",
@@ -372,7 +407,7 @@ export function projectActivationCandidate(
   collectLegacyResolutionGaps(input, gaps);
 
   // --- 草稿行自身必填项（防御性：合同已强制，这里保证投影不依赖校验层） ---
-  collectDraftRowGaps(input, gaps);
+  collectDraftRowGaps(input, cutoverAt, gaps);
 
   // --- Coding Plan 用量唯一归属（PFH-03） ---
   collectPlanAttributionGaps(plan, gaps);

@@ -313,6 +313,7 @@ function completeDraft(synthetic: Synthetic) {
       evidence_ref: "synthetic://deepseek-recharge-1",
       source_record_id: randomUUID(), record_idempotency_key: "syn-api-recharge-1",
     }],
+    historical_api_costs: [],
     coding_plan_purchases: [{
       resource_id: synthetic.planResourceId, kind: "PURCHASE",
       product_name: `${SYNTHETIC_TAG} 智谱 Coding Plan`,
@@ -346,6 +347,7 @@ function incompleteDraft(synthetic: Synthetic) {
       evidence_ref: "synthetic://deepseek-recharge-0",
       source_record_id: randomUUID(), record_idempotency_key: "syn-api-recharge-0",
     }],
+    historical_api_costs: [],
     coding_plan_purchases: [],
     coding_plan_carryovers: [],
     legacy_purchase_resolutions: [],

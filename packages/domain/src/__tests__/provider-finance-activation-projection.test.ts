@@ -124,6 +124,7 @@ function happyDraft(): ActivationDraft {
       external_reference: "ORD-1", description: "9月5日历史充值", evidence_ref: "evidence://deepseek/ord-1",
       source_record_id: LEGACY_ID, record_idempotency_key: "recharge-ord-1",
     }],
+    historical_api_costs: [],
     coding_plan_purchases: [],
     coding_plan_carryovers: [],
     legacy_purchase_resolutions: [{
@@ -558,6 +559,7 @@ function draftOf(overrides: Partial<ActivationDraft> = {}): ActivationDraft {
     schema_version: "1",
     api_opening_balances: [],
     historical_api_recharges: [],
+    historical_api_costs: [],
     coding_plan_purchases: [],
     coding_plan_carryovers: [],
     legacy_purchase_resolutions: [],
@@ -634,6 +636,7 @@ function candidateOf(overrides: Partial<NormalizedActivationCandidate> = {}): No
     cutoverAt: CUTOVER,
     apiOpeningBalances: [opening()],
     historicalApiRecharges: [],
+    historicalApiCosts: [],
     codingPlanPurchases: [],
     codingPlanCarryovers: [],
     legacyPurchaseResolutions: [],
@@ -664,6 +667,7 @@ describe("输入边界失败关闭", () => {
 describe("跨切换周期虚拟周期", () => {
   it("虚拟周期 id 由记录幂等键与快照 id 稳定派生", () => {
     const periods = virtualPeriodsOf(candidateOf({
+      historicalApiCosts: [],
       codingPlanPurchases: [purchase()],
       codingPlanCarryovers: [carryover()],
     }));
@@ -774,6 +778,7 @@ describe("资源模式错配", () => {
         description: "误登记充值", evidence_ref: "evidence://x", source_record_id: LEGACY_ID,
         record_idempotency_key: "recharge-ord-x",
       }],
+      historical_api_costs: [],
       coding_plan_purchases: [{
         resource_id: API_RESOURCE, kind: "PURCHASE", product_name: "误登记产品",
         account_amount: "199", account_currency: "CNY", cash_paid_cny: "199.00",
@@ -938,6 +943,7 @@ describe("草稿行必填项（防御层）", () => {
         historicalApiRecharges: [recharge({
           accountAmount: "0.00000000", cashPaidCny: "0.00", evidenceRef: "  ",
         })],
+        historicalApiCosts: [],
         codingPlanPurchases: [purchase({
           accountAmount: "0.00000000", cashPaidCny: "0.00", evidenceRef: "",
         })],

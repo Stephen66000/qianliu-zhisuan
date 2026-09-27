@@ -66,3 +66,29 @@ describe("历史 API 充值行：只保留六项", () => {
     expect(screen.getByLabelText("证据引用")).toBeDefined();
   });
 });
+
+describe("历史 API 消耗行（0084）：只保留四项", () => {
+  function stateWithCostRow(): ActivationDraftState {
+    return {
+      ...emptyDraftState(),
+      historicalApiCosts: [{
+        id: newLocalRowId(), resourceId: RESOURCE, accountCurrency: "CNY",
+        costAmount: "40.4572", costUntilLocal: "2026-09-10T12:00",
+      }],
+    };
+  }
+
+  it("显示厂商资源、币种、实际消耗金额、成本截止时间与固定期间开始", () => {
+    renderEditor(stateWithCostRow());
+    for (const label of ["厂商资源", "币种", "实际消耗金额", "成本截止时间", "期间开始（固定）"]) {
+      expect(screen.getByLabelText(label)).toBeDefined();
+    }
+  });
+
+  it("不出现事实说明、证据引用、幂等键或充值订单号输入框", () => {
+    renderEditor(stateWithCostRow());
+    expect(screen.queryByLabelText("充值订单号")).toBeNull();
+    expect(screen.queryAllByLabelText("事实说明")).toHaveLength(0);
+    expect(screen.queryAllByLabelText("证据引用")).toHaveLength(0);
+  });
+});

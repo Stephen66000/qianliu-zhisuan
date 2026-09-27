@@ -13,7 +13,7 @@
  *    立即清除可激活状态并提示重新预检（PFU-03）。
  */
 import { AlertTriangle, ClipboardCheck, RotateCcw, ShieldAlert } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError } from "../../api/client";
 import {
@@ -37,6 +37,9 @@ import {
   buildActivationDraft, countActiveRows, emptyDraftState, newRecordIdempotencyKey, validateDraft,
   type ActivationDraftState,
 } from "./activation-draft-model";
+import {
+  clearDraftAutosave, loadDraftAutosave, saveDraftAutosave,
+} from "./draft-autosave";
 import { useNowTicker } from "./use-now-ticker";
 
 const DECISION_LABELS: Record<string, string> = {
@@ -215,7 +218,15 @@ export function ProviderFinanceActivationWizard({
 }: ActivationWizardProps) {
   const client = useQueryClient();
   const nowMs = useNowTicker(1_000);
-  const [draft, setDraft] = useState<ActivationDraftState>(emptyDraftState);
+  // 本机自动保存（2026-09-27 功能 A）：key 按 enterpriseId + cutoverAt 隔离。
+  // 恢复放在 lazy initializer 里完成——首帧即持有恢复值，React StrictMode 的
+  // 双挂载不会产生「先空状态后保存」覆盖已有草稿的窗口；保存副作用只在
+  // 水合标记置位之后运行。
+  const draftStorage = typeof window === "undefined" ? null : window.localStorage;
+  const [draft, setDraft] = useState<ActivationDraftState>(() =>
+    loadDraftAutosave(draftStorage, enterpriseId, state.cutover_at) ?? emptyDraftState());
+  const autosaveHydratedRef = useRef(false);
+  const [autosaveSavedAt, setAutosaveSavedAt] = useState<string | null>(null);
   const [preview, setPreview] = useState<ActivationPreviewView | null>(null);
   const [hold, setHold] = useState<PreviewHold | null>(null);
   // 持有候选的发起时刻：只有当读模型的时间戳不早于它时，`latest_candidate` 才算「已确认」。
@@ -251,6 +262,19 @@ export function ProviderFinanceActivationWizard({
     if (hold !== null && holdEvaluation.cleared) setHold(null);
   }, [hold, holdEvaluation.cleared]);
 
+  // 草稿变化后自动保存完整草稿状态；预检、候选过期、静默租约开始/释放都不清除草稿，
+  // 只有激活成功（submitActivation onSuccess）才清除对应 key。
+  useEffect(() => {
+    if (!autosaveHydratedRef.current) {
+      autosaveHydratedRef.current = true;
+      return;
+    }
+    const savedAt = new Date().toISOString();
+    if (saveDraftAutosave(draftStorage, draft, enterpriseId, state.cutover_at, savedAt)) {
+      setAutosaveSavedAt(savedAt);
+    }
+  }, [draft, draftStorage, enterpriseId, state.cutover_at]);
+
   const activateError = activateMutation.error;
   const activateErrorCode = activateError instanceof ApiError ? activateError.code : null;
 
@@ -283,7 +307,13 @@ export function ProviderFinanceActivationWizard({
       candidate_id: hold.candidateId, candidate_hash: hold.candidateHash,
       idempotency_key: idempotencyKey, confirm_enterprise_id: confirmEnterpriseId,
     }, {
-      onSuccess: () => setConfirmOpen(false),
+      onSuccess: () => {
+        // 只有激活成功才清除对应本机草稿（其他任何路径不得清除）。
+        clearDraftAutosave(draftStorage, enterpriseId, state.cutover_at);
+        setDraft(emptyDraftState());
+        setAutosaveSavedAt(null);
+        setConfirmOpen(false);
+      },
       onError: (error) => {
         const code = error instanceof ApiError ? error.code : null;
         // 候选已失效：清除可激活状态并强制重新预检（PFU-03）。
@@ -334,6 +364,27 @@ export function ProviderFinanceActivationWizard({
         quiescence={state.quiescence}
         releasing={releaseLease.isPending} starting={startLease.isPending} writeEnabled={writeEnabled}
       />
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ql-border-zone bg-ql-surface px-4 py-2"
+        data-testid="draft-autosave-bar">
+        <p className="text-[12px] text-ql-fg-tertiary" data-testid="draft-autosave-status" role="status">
+          {autosaveSavedAt
+            ? `草稿已自动保存到本机 · ${formatDateTimeFull(autosaveSavedAt)}`
+            : "本机草稿：尚未保存（填写后自动保存到本机浏览器）"}
+        </p>
+        <button
+          className="rounded-lg border border-ql-border px-3 py-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+          data-testid="draft-autosave-clear" disabled={!canOperate}
+          onClick={() => {
+            clearDraftAutosave(draftStorage, enterpriseId, state.cutover_at);
+            setDraft(emptyDraftState());
+            setAutosaveSavedAt(null);
+          }}
+          type="button"
+        >
+          清除本机草稿
+        </button>
+      </div>
 
       <ActivationDraftEditor
         cutoverAt={state.cutover_at} issues={issues} legacySuggestions={legacySuggestions}

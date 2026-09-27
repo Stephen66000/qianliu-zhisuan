@@ -52,6 +52,8 @@ const GAP_CODE_LABELS: Partial<Record<ActivationGapCode, string>> = {
   MISSING_PURCHASE_AMOUNT: "购买缺少原币金额",
   MISSING_PURCHASE_CASH_PAID: "购买缺少人民币实付",
   MISSING_EVIDENCE: "缺少证据引用",
+  HISTORICAL_COST_AMOUNT_INVALID: "历史 API 消耗的金额必须大于 0",
+  HISTORICAL_COST_TIME_INVALID: "历史 API 消耗的截止时间超出允许窗口",
   UNATTRIBUTED_PLAN_USAGE: "Coding Plan 用量无法唯一归属周期",
   OVERLAPPING_PERIOD: "存在重叠且归属不唯一的周期",
   INVALID_SERVICE_PERIOD: "扣费日期必须等于服务开始日",
@@ -298,7 +300,8 @@ export function formatRemainingSeconds(seconds: number): string {
 export function receiptFactCountSummary(receipt: ActivationReceiptView): string {
   const counts = receipt.factCounts;
   return [
-    `期初 ${counts.openings}`, `历史充值 ${counts.recharges}`, `购买/续费 ${counts.purchases}`,
+    `期初 ${counts.openings}`, `历史充值 ${counts.recharges}`,
+    `历史消耗 ${counts.historicalUsageCosts ?? 0}`, `购买/续费 ${counts.purchases}`,
     `跨切换周期 ${counts.carryovers}`, `旧记录关闭 ${counts.legacyResolutions}`,
     `用量修复 ${counts.usageRepairs}`,
   ].join(" · ");

@@ -140,6 +140,7 @@ function httpDraft(apiResourceId: string) {
       occurred_at: CUTOVER_ISO, description: "切换时点厂商余额",
       evidence_ref: EVIDENCE_MARKER, source_record_id: null,
     }],
+    historical_api_costs: [],
     historical_api_recharges: [],
     coding_plan_purchases: [],
     coding_plan_carryovers: [],
@@ -221,6 +222,7 @@ async function insertExpiredCandidate(seeded: Seeded) {
   const candidateId = randomUUID();
   const hash = "a".repeat(64);
   const draft = JSON.stringify({ schema_version: "1", api_opening_balances: [],
+    historical_api_costs: [],
     historical_api_recharges: [], coding_plan_purchases: [], coding_plan_carryovers: [],
     legacy_purchase_resolutions: [] });
   await sql`

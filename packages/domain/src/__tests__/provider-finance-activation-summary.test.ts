@@ -130,6 +130,7 @@ describe("草稿规范化排序", () => {
         recharge("2026-09-05T02:00:00.000Z", OTHER_LEGACY_ID, "k-2"),
         recharge("2026-09-05T02:00:00.000Z", LEGACY_ID, "k-1"),
       ],
+      historical_api_costs: [],
       coding_plan_purchases: [
         planPurchase("A", LEGACY_ID, "k-6"),
         planPurchase("B", null, "k-5"),

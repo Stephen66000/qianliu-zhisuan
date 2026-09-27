@@ -189,6 +189,46 @@ export async function insertRechargeTx(
 }
 
 /**
+ * 历史 API 消耗写入输入（0084，2026-09-27 最小增量）。
+ *
+ * `costAmount` 是管理员界面输入的**正数**实际消耗金额；落账负向金额由本原语
+ * 统一取负（`account_amount = -cost_amount`），调用方不得自行取反。
+ * `cash_paid_cny` 恒为 null（历史消耗没有人民币实付语义，0084 shape 约束）；
+ * 不得绑定 reversal / correction / reconciliation / legacy_cost_resolution。
+ */
+export interface HistoricalUsageCostWriteInput {
+  enterpriseId: string;
+  resourceId: string;
+  adminId: string;
+  accountCurrency: FinanceCurrency;
+  /** 正数实际消耗金额（八位小数字符串）。 */
+  costAmount: string;
+  /** 成本截止时间；期间开始固定为资金切换时点。 */
+  occurredAt: Date;
+  description: string | null;
+  evidenceRef: string | null;
+  idempotencyKey: string;
+}
+
+/** 历史 API 消耗：正数输入规范化为负向资金事实，与 0084 CHECK 约束一一对应。 */
+export async function insertHistoricalUsageCostTx(
+  trx: Transaction<Database>, input: HistoricalUsageCostWriteInput,
+): Promise<FinanceEventView> {
+  const cost = new Money(input.costAmount);
+  if (!cost.gt(0)) {
+    throw new ProviderFinanceError("INVALID_REQUEST", "历史 API 消耗金额必须大于 0");
+  }
+  return insertFinanceEventTx(trx, {
+    enterpriseId: input.enterpriseId, resourceId: input.resourceId, adminId: input.adminId,
+    eventType: "API_HISTORICAL_USAGE_COST", accountAmount: cost.negated().toFixed(8),
+    accountCurrency: input.accountCurrency, cashPaidCny: null,
+    occurredAt: input.occurredAt, externalReference: null,
+    description: input.description, evidenceRef: input.evidenceRef,
+    source: "MIGRATION", idempotencyKey: input.idempotencyKey,
+  });
+}
+
+/**
  * 订阅/续费写入输入。
  *
  * 与日常 `SubscriptionInput` 结构兼容（后者可直接传入），
