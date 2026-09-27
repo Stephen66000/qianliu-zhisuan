@@ -7,7 +7,7 @@ import {
   type AdapterResource,
   type HttpResponseLike,
 } from "../index.js";
-import { createLayeredTimeout, deriveUndiciDispatcherOptions } from "../openai-compatible-timeout.js";
+import { createLayeredTimeout, deriveUndiciDispatcherOptions, deriveUndiciDispatcherOptionsForRequest } from "../openai-compatible-timeout.js";
 
 function resource(overrides: Partial<AdapterResource> = {}): AdapterResource {
   return {
@@ -29,6 +29,16 @@ function streamRequest(): AdapterRequest {
     stream: true,
     body: { model: "deepseek-chat", messages: [{ role: "user", content: "hi" }], stream: true },
     onStreamChunk: () => undefined,
+  };
+}
+
+function nonStreamRequest(): AdapterRequest {
+  return {
+    requestId: "req-idle-json-1",
+    unifiedModel: "qianliu-deepseek",
+    capability: "chat",
+    stream: false,
+    body: { model: "deepseek-chat", messages: [{ role: "user", content: "hi" }] },
   };
 }
 
@@ -236,6 +246,92 @@ describe("统一 300 秒空闲门限：上游原始块计时", () => {
       vi.useRealTimers();
     }
   });
+
+  it("非流式请求的 dispatcher bodyTimeout 绑定总时限，不被流式空闲门限截断", async () => {
+    let captured: unknown;
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async (_url, init) => {
+        captured = (init as { dispatcher?: unknown }).dispatcher;
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => "application/json" },
+          json: async () => ({
+            id: "chatcmpl-json",
+            choices: [{ message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+            usage: { prompt_tokens: 1, completion_tokens: 1 },
+          }),
+          text: async () => "",
+          body: null,
+        };
+      },
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+      firstByteTimeoutMs: 120_000,
+      streamIdleTimeoutMs: 1_000,
+      requestTimeoutMs: 40_000,
+    });
+
+    const outcome = await caller(resource(), nonStreamRequest(), 1);
+
+    expect(outcome).toMatchObject({ status: 200, committed: true });
+    expect(captured).toBeInstanceOf(Agent);
+    const kOptions = Object.getOwnPropertySymbols(captured)
+      .find((symbol) => symbol.description === "options");
+    const dispatcherOptions = (captured as Record<symbol, unknown>)[kOptions!] as {
+      bodyTimeout?: number;
+      headersTimeout?: number;
+    };
+    // bodyTimeout = 总时限 + 余量（70 秒），绝不能是空闲 + 余量（31 秒）。
+    expect(dispatcherOptions.bodyTimeout).toBe(40_000 + 30_000);
+    expect(dispatcherOptions.bodyTimeout).not.toBe(1_000 + 30_000);
+    // headersTimeout = max(首字节 120 秒, 总时限 40 秒) + 余量。
+    expect(dispatcherOptions.headersTimeout).toBe(120_000 + 30_000);
+  });
+
+  it("流式与非流式不复用同一 dispatcher（缓存键为实际派生时限组合）", async () => {
+    const seen: unknown[] = [];
+    let respondStream = true;
+    const caller = createOpenAiCompatibleCaller({
+      fetch: async (_url, init) => {
+        seen.push((init as { dispatcher?: unknown }).dispatcher);
+        if (respondStream) return scriptedStreamResponse(init!.signal, []);
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => "application/json" },
+          json: async () => ({
+            id: "chatcmpl-json",
+            choices: [{ message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+            usage: { prompt_tokens: 1, completion_tokens: 1 },
+          }),
+          text: async () => "",
+          body: null,
+        };
+      },
+      env: { DEEPSEEK_BASE_URL: "https://deepseek.example" },
+      firstByteTimeoutMs: 120_000,
+      streamIdleTimeoutMs: 300_000,
+      requestTimeoutMs: 600_000,
+    });
+
+    vi.useFakeTimers();
+    try {
+      respondStream = true;
+      const streamPending = caller(resource(), streamRequest(), 1);
+      await vi.advanceTimersByTimeAsync(300_000);
+      await streamPending;
+      respondStream = false;
+      await caller(resource(), nonStreamRequest(), 1);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toBeInstanceOf(Agent);
+    expect(seen[1]).toBeInstanceOf(Agent);
+    // 两种形态派生出的 bodyTimeout 不同，禁止复用同一底层兜底时限。
+    expect(seen[1]).not.toBe(seen[0]);
+  });
 });
 
 describe("分层超时 dispose 守卫", () => {
@@ -336,6 +432,37 @@ describe("Undici dispatcher 时限派生公式", () => {
       streamIdleTimeoutMs: 300_000,
       firstByteTimeoutMs: Number.MAX_SAFE_INTEGER - 29_999,
       requestTimeoutMs: 600_000,
+    })).toThrow("headersTimeout 派生失败");
+  });
+
+  it("按请求形态派生：流式绑定空闲门限，非流式绑定总时限", () => {
+    const base = {
+      streamIdleTimeoutMs: 1_000,
+      firstByteTimeoutMs: 30_000,
+      requestTimeoutMs: 40_000,
+    };
+
+    // 流式：bodyTimeout = 空闲 + 余量。
+    expect(deriveUndiciDispatcherOptionsForRequest({ ...base, stream: true }))
+      .toEqual({ bodyTimeout: 31_000, headersTimeout: 70_000 });
+    // 非流式：bodyTimeout = 总时限 + 余量，与流式空闲门限无关。
+    expect(deriveUndiciDispatcherOptionsForRequest({ ...base, stream: false }))
+      .toEqual({ bodyTimeout: 70_000, headersTimeout: 70_000 });
+  });
+
+  it("非流式派生值加余量溢出时按 bodyTimeout 派生失败拒绝", () => {
+    expect(() => deriveUndiciDispatcherOptionsForRequest({
+      streamIdleTimeoutMs: 300_000,
+      firstByteTimeoutMs: 30_000,
+      requestTimeoutMs: Number.MAX_SAFE_INTEGER,
+      stream: false,
+    })).toThrow("bodyTimeout 派生失败");
+
+    expect(() => deriveUndiciDispatcherOptionsForRequest({
+      streamIdleTimeoutMs: 300_000,
+      firstByteTimeoutMs: Number.MAX_SAFE_INTEGER - 29_999,
+      requestTimeoutMs: 600_000,
+      stream: false,
     })).toThrow("headersTimeout 派生失败");
   });
 });

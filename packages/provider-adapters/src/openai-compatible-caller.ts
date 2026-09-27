@@ -20,7 +20,8 @@ import { buildRequestShapeSummary } from "./upstream-error-evidence.js";
 import { upstreamFailure } from "./upstream-failure.js";
 import { toChatCompletionsRequest } from "./openai-compatible-request.js";
 import { failedOutcome, parseJsonResponse, parseStreamingResponse } from "./openai-compatible-response.js";
-import { chatCompletionsUrl, createLayeredTimeout, createUpstreamDispatcher, defaultFetch } from "./openai-compatible-timeout.js";
+import { Agent } from "undici";
+import { chatCompletionsUrl, createLayeredTimeout, defaultFetch, deriveUndiciDispatcherOptionsForRequest } from "./openai-compatible-timeout.js";
 import { resolveProviderEndpoint, capabilityConfiguredEndpoints } from "./endpoint-policy.js";
 import { canonicalProviderCode } from "./provider-code.js";
 
@@ -175,14 +176,20 @@ export function createOpenAiCompatibleCaller(
     });
     // 显式协调 Undici headers/body 时限：业务 AbortSignal 必须先触发并留下
     // 对应 failureLayer；底层时限只作兜底，不得与业务门限设为相同值。
-    const dispatcherKey = `${resolvedFirstByteMs}:${resolvedIdleMs}:${requestTimeoutMs}`;
+    // bodyTimeout 按请求形态派生：流式绑定空闲门限，非流式绑定总时限——
+    // 非流式响应没有块间空闲语义，禁止被流式空闲门限提前截断。
+    const dispatcherOptions = deriveUndiciDispatcherOptionsForRequest({
+      streamIdleTimeoutMs: resolvedIdleMs,
+      firstByteTimeoutMs: resolvedFirstByteMs,
+      requestTimeoutMs,
+      stream: request.stream === true,
+    });
+    // 缓存键为实际派生时限组合：流式/非流式（乃至不同空闲配置）派生值不同，
+    // 天然不复用同一 dispatcher，不会交叉污染底层时限。
+    const dispatcherKey = `${dispatcherOptions.bodyTimeout}:${dispatcherOptions.headersTimeout}`;
     let dispatcher = dispatchers.get(dispatcherKey);
     if (!dispatcher) {
-      dispatcher = createUpstreamDispatcher({
-        streamIdleTimeoutMs: resolvedIdleMs,
-        firstByteTimeoutMs: resolvedFirstByteMs,
-        requestTimeoutMs,
-      });
+      dispatcher = new Agent(dispatcherOptions);
       dispatchers.set(dispatcherKey, dispatcher);
     }
 

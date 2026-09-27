@@ -107,6 +107,13 @@ export function createLayeredTimeout(input: {
  */
 export const UNDICI_TIMEOUT_MARGIN_MS = 30_000;
 
+function requireSafePositive(value: number, message: string): number {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 /**
  * 按派生时限构造显式 Undici dispatcher（生产上游 Caller 兜底时限）。
  */
@@ -119,6 +126,50 @@ export function createUpstreamDispatcher(input: {
 }
 
 /**
+ * 按请求形态派生显式 Undici dispatcher 时限（生产上游 Caller 唯一入口）。
+ *
+ * - 流式：`bodyTimeout = streamIdleTimeoutMs + 30_000`，业务 `STREAM_IDLE_TIMEOUT`
+ *   AbortSignal 先于底层 body timeout 触发。
+ * - 非流式：`bodyTimeout = requestTimeoutMs + 30_000`。非流式响应没有
+ *   "块间空闲"语义，bodyTimeout 不得绑定流式空闲门限——否则空闲门限较短时
+ *   （如管理/验证调用的紧凑配置）合法的延迟正文会在业务总时限之前被底层
+ *   截断成协议错误。
+ * - 两种形态的 `headersTimeout` 均为 `max(firstByteTimeoutMs, requestTimeoutMs) + 30_000`。
+ *
+ * 派生值与单测断言共用本函数，公式、校验和测试保持一致。
+ */
+export function deriveUndiciDispatcherOptionsForRequest(input: {
+  streamIdleTimeoutMs: number;
+  firstByteTimeoutMs: number;
+  requestTimeoutMs: number;
+  stream: boolean;
+}): { bodyTimeout: number; headersTimeout: number } {
+  for (const [name, value] of [
+    ["streamIdleTimeoutMs", input.streamIdleTimeoutMs],
+    ["firstByteTimeoutMs", input.firstByteTimeoutMs],
+    ["requestTimeoutMs", input.requestTimeoutMs],
+  ] as const) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`${name} 必须是正整数毫秒`);
+    }
+  }
+  const bodyTimeout = input.stream
+    ? requireSafePositive(
+        input.streamIdleTimeoutMs + UNDICI_TIMEOUT_MARGIN_MS,
+        `bodyTimeout 派生失败：streamIdleTimeoutMs(${input.streamIdleTimeoutMs}) + ${UNDICI_TIMEOUT_MARGIN_MS} 不是正安全整数`,
+      )
+    : requireSafePositive(
+        input.requestTimeoutMs + UNDICI_TIMEOUT_MARGIN_MS,
+        `bodyTimeout 派生失败：requestTimeoutMs(${input.requestTimeoutMs}) + ${UNDICI_TIMEOUT_MARGIN_MS} 不是正安全整数`,
+      );
+  const headersTimeout = requireSafePositive(
+    Math.max(input.firstByteTimeoutMs, input.requestTimeoutMs) + UNDICI_TIMEOUT_MARGIN_MS,
+    `headersTimeout 派生失败：max(firstByteTimeoutMs(${input.firstByteTimeoutMs}), requestTimeoutMs(${input.requestTimeoutMs})) + ${UNDICI_TIMEOUT_MARGIN_MS} 不是正安全整数`,
+  );
+  return { bodyTimeout, headersTimeout };
+}
+
+/**
  * 派生生产 Caller 的显式 Undici dispatcher 时限（与业务分层超时同源）。
  *
  * - `bodyTimeout = streamIdleTimeoutMs + 30_000`：业务 `STREAM_IDLE_TIMEOUT`
@@ -127,6 +178,8 @@ export function createUpstreamDispatcher(input: {
  *   业务 `FIRST_BYTE_TIMEOUT` 与 600 秒 `REQUEST_TIMEOUT` 均先于底层触发。
  *
  * 派生值与单测断言共用本函数，公式、校验和测试保持一致。
+ * 非流式请求必须走 `deriveUndiciDispatcherOptionsForRequest`（bodyTimeout
+ * 绑定总时限而非流式空闲门限）。
  */
 export function deriveUndiciDispatcherOptions(input: {
   streamIdleTimeoutMs: number;
@@ -144,21 +197,16 @@ export function deriveUndiciDispatcherOptions(input: {
   }
   // 先计算派生值，再统一校验：加余量可能突破 Number.MAX_SAFE_INTEGER，
   // 派生失败与输入非法必须用不同错误信息区分。
-  const bodyTimeout = input.streamIdleTimeoutMs + UNDICI_TIMEOUT_MARGIN_MS;
-  const headersTimeout =
-    Math.max(input.firstByteTimeoutMs, input.requestTimeoutMs)
-    + UNDICI_TIMEOUT_MARGIN_MS;
-  if (!Number.isSafeInteger(bodyTimeout) || bodyTimeout <= 0) {
-    throw new Error(
+  return {
+    bodyTimeout: requireSafePositive(
+      input.streamIdleTimeoutMs + UNDICI_TIMEOUT_MARGIN_MS,
       `bodyTimeout 派生失败：streamIdleTimeoutMs(${input.streamIdleTimeoutMs}) + ${UNDICI_TIMEOUT_MARGIN_MS} 不是正安全整数`,
-    );
-  }
-  if (!Number.isSafeInteger(headersTimeout) || headersTimeout <= 0) {
-    throw new Error(
+    ),
+    headersTimeout: requireSafePositive(
+      Math.max(input.firstByteTimeoutMs, input.requestTimeoutMs) + UNDICI_TIMEOUT_MARGIN_MS,
       `headersTimeout 派生失败：max(firstByteTimeoutMs(${input.firstByteTimeoutMs}), requestTimeoutMs(${input.requestTimeoutMs})) + ${UNDICI_TIMEOUT_MARGIN_MS} 不是正安全整数`,
-    );
-  }
-  return { bodyTimeout, headersTimeout };
+    ),
+  };
 }
 
 export function chatCompletionsUrl(baseUrl: string): string {

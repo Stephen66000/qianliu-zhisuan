@@ -34,4 +34,4 @@
 - 外部行为：长流式请求最多允许连续 300 秒无上游数据；空闲超时提示发生变化；旧空闲覆盖变量失效。
 - 验证区域：确定性假时钟测试、真实 HTTP 慢流、三协议集成、WorkBuddy 5.5.6 经等效公网链路的 300 秒真实时间验收。
 - 对应计划：`V4/全平台流式空闲300秒与超时提示开发计划-v1.1-20260922.md`。
-- 授权状态：`DISCUSSION_APPROVED / IMPLEMENTATION_NOT_AUTHORIZED`；OpenSpec 工件完成不授权代码实施、部署或生产配置变更。
+- 授权状态：`IMPLEMENTATION_AUTHORIZED_LOCAL_ONLY`（2026-09-27 已授权本地实施 WP1—WP5 及 tasks 1—7、8.1—8.2；2026-09-28 修复轮续授权）`/ DEPLOYMENT_NOT_AUTHORIZED`：候选镜像、生产配置与发布未授权，生产部署（tasks 8.3）仍需单独授权。
