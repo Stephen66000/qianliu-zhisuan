@@ -329,12 +329,16 @@ describe("历史 API 消耗：正数输入规范化为负向资金事实（0084�
   };
 
   it("事实说明、证据引用与幂等键由系统按资源/币种/切换时点/截止时间/金额确定性生成", () => {
-    expect(historicalCostFactDescription("2026-09-05T02:00:00.000Z"))
-      .toBe("历史 API 消耗:2026-09-05T02:00:00.000Z");
+    // 说明明确是管理员确认的旧库汇总，并包含币种/切换时点/截止时间/正数金额（R4）。
+    expect(historicalCostFactDescription("2026-09-05T02:00:00.000Z", "CNY", "40.45720000"))
+      .toBe("历史 API 消耗（管理员确认的旧库计价汇总，非厂商官方证据）"
+        + ` · 币种 CNY · 切换时点 ${PROVIDER_FINANCE_CUTOVER_ISO}`
+        + " · 成本截止 2026-09-05T02:00:00.000Z · 实际消耗金额 40.45720000（正数，落账取负）");
     const evidence = historicalCostEvidenceRef(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4572");
     const evidenceAgain = historicalCostEvidenceRef(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4572");
     expect(evidence).toBe(evidenceAgain);
-    expect(evidence).toMatch(/^provider-usage:[0-9a-f]{32}$/);
+    // 证据前缀是管理员申报语义（R4），不得被误解为厂商官方用量证据。
+    expect(evidence).toMatch(/^admin-declared:legacy-db-api-cost:[0-9a-f]{32}$/);
     expect(evidence).not.toBe(
       historicalCostEvidenceRef(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.4573"));
   });
@@ -358,8 +362,11 @@ describe("历史 API 消耗：正数输入规范化为负向资金事实（0084�
     expect(cost.costAmount).toBe("40.45720000");
     expect(cost.accountAmount).toBe("-40.45720000");
     expect(cost.occurredAt).toBe("2026-09-05T02:00:00.000Z");
-    expect(cost.description).toBe("历史 API 消耗:2026-09-05T02:00:00.000Z");
-    expect(cost.evidenceRef).toMatch(/^provider-usage:[0-9a-f]{32}$/);
+    expect(cost.description).toBe(historicalCostFactDescription(
+      "2026-09-05T02:00:00.000Z", "CNY", "40.45720000"));
+    expect(cost.description).toContain("管理员确认的旧库计价汇总");
+    expect(cost.description).toContain("40.45720000");
+    expect(cost.evidenceRef).toMatch(/^admin-declared:legacy-db-api-cost:[0-9a-f]{32}$/);
     expect(cost.recordIdempotencyKey).toBe(
       historicalCostIdempotencyKey(RESOURCE, "CNY", "2026-09-05T02:00:00.000Z", "40.45720000"));
   });
@@ -398,5 +405,38 @@ describe("历史 API 消耗：正数输入规范化为负向资金事实（0084�
       factWatermarkHash: "f".repeat(64),
     });
     expect(withCost).not.toBe(withoutCost);
+  });
+
+  it("同一资源与币种的多条历史消耗被权威侧拒绝（不同截止时间或金额也不放行，R2）", () => {
+    const duplicate = baseDraft();
+    duplicate.historical_api_costs = [
+      { resource_id: RESOURCE, account_currency: "CNY",
+        cost_amount: "40.4572", cost_until_at: "2026-09-05T02:00:00.000Z" },
+      { resource_id: RESOURCE, account_currency: "CNY",
+        cost_amount: "10.00000000", cost_until_at: "2026-09-15T02:00:00.000Z" },
+    ];
+    expect(() => normalizeDraftItem(duplicate, "77777777-7777-4777-8777-777777777777"))
+      .toThrow("同一厂商资源与币种最多只能登记一条");
+  });
+
+  it("不同资源（或不同币种）各一条历史消耗仍被接受（不改其他多行语义，R2）", () => {
+    const two = baseDraft();
+    two.historical_api_costs = [
+      { resource_id: RESOURCE, account_currency: "CNY",
+        cost_amount: "40.4572", cost_until_at: "2026-09-05T02:00:00.000Z" },
+      { resource_id: OTHER_RESOURCE, account_currency: "CNY",
+        cost_amount: "10.00000000", cost_until_at: "2026-09-05T02:00:00.000Z" },
+    ];
+    expect(normalizeDraftItem(two, "77777777-7777-4777-8777-777777777777")
+      .historicalApiCosts).toHaveLength(2);
+    const currencies = baseDraft();
+    currencies.historical_api_costs = [
+      { resource_id: RESOURCE, account_currency: "CNY",
+        cost_amount: "40.4572", cost_until_at: "2026-09-05T02:00:00.000Z" },
+      { resource_id: RESOURCE, account_currency: "USD",
+        cost_amount: "10.00000000", cost_until_at: "2026-09-05T02:00:00.000Z" },
+    ];
+    expect(normalizeDraftItem(currencies, "77777777-7777-4777-8777-777777777777")
+      .historicalApiCosts).toHaveLength(2);
   });
 });

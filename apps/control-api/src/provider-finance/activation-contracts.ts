@@ -150,7 +150,26 @@ export const ActivationDraftSchema = z.object({
   coding_plan_purchases: DraftRows(CodingPlanPurchaseDraftSchema).default([]),
   coding_plan_carryovers: DraftRows(CodingPlanCarryoverDraftSchema).default([]),
   legacy_purchase_resolutions: DraftRows(LegacyPurchaseResolutionDraftSchema).default([]),
-}).strict();
+}).strict()
+  // 历史 API 消耗的期间开始固定为切换时点：同一（资源、币种）多条必然重叠并
+  // 重复扣减，权威侧直接拒绝（不同截止时间或金额也不放行；数据库还有
+  // 0084 partial unique index 兜底）。其余资金事件类型的多行语义不受影响。
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    for (const cost of value.historical_api_costs) {
+      const key = `${cost.resource_id}|${cost.account_currency}`;
+      if (seen.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["historical_api_costs"],
+          message: "同一厂商资源与币种最多只能登记一条历史 API 消耗"
+            + "（期间开始固定为资金切换时点，多条必然重叠并重复扣减）",
+        });
+        return;
+      }
+      seen.add(key);
+    }
+  });
 
 /** 激活请求体：身份只用于二次确认，权威企业与管理员来自会话（PFA-07）。 */
 export const ActivationRequestBody = z.object({

@@ -16,6 +16,8 @@ import { ACTIVATION_QUERY_KEY } from "../../api/provider-finance-activation";
 import type {
   ActivationCandidateMetadata, ActivationPreviewView, ActivationStateView, QuiescenceView,
 } from "../../api/provider-finance-activation-types";
+import { emptyDraftState } from "./activation-draft-model";
+import { draftAutosaveKey, saveDraftAutosave } from "./draft-autosave";
 import { ProviderFinanceActivationWizard } from "./ProviderFinanceActivationWizard";
 
 const http = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
@@ -268,6 +270,53 @@ describe("失败关闭", () => {
     // 草稿只读：无法新增任何草稿行，也不可能绕过服务端权威身份。
     expect(screen.queryByRole("button", { name: "添加期初行" })).not.toBeInTheDocument();
     expect(http.post).not.toHaveBeenCalled();
+  });
+});
+
+describe("清除本机草稿二次确认（复核修复 R3）", () => {
+  const DRAFT_KEY = draftAutosaveKey(ENTERPRISE, CUTOVER);
+  const SEEDED_NOTE = "需要被恢复的期初说明";
+
+  function seedDraft() {
+    saveDraftAutosave(window.localStorage, {
+      ...emptyDraftState(),
+      apiOpeningBalances: [{
+        id: "row-1", resourceId: RESOURCE, accountCurrency: "CNY", accountAmount: "100",
+        description: SEEDED_NOTE, evidenceRef: "evidence://seed", sourceRecordId: "",
+      }],
+    }, ENTERPRISE, CUTOVER, PAST);
+  }
+
+  it("恢复后第一次单击只进入确认态，不删除本机草稿；取消不删除", async () => {
+    const user = userEvent.setup();
+    seedDraft();
+    renderWizard();
+    // 草稿被恢复（挂载即持有恢复值）。
+    expect(screen.getByDisplayValue(SEEDED_NOTE)).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("draft-autosave-clear"));
+    expect(screen.getByTestId("draft-autosave-clear")).toHaveTextContent("确认清除本机草稿");
+    expect(window.localStorage.getItem(DRAFT_KEY)).toContain(SEEDED_NOTE);
+
+    await user.click(screen.getByTestId("draft-autosave-clear-cancel"));
+    expect(screen.getByTestId("draft-autosave-clear")).toHaveTextContent("清除本机草稿");
+    expect(window.localStorage.getItem(DRAFT_KEY)).toContain(SEEDED_NOTE);
+    expect(screen.queryByTestId("draft-autosave-clear-cancel")).not.toBeInTheDocument();
+  });
+
+  it("确认态下第二次单击才删除本机草稿", async () => {
+    const user = userEvent.setup();
+    seedDraft();
+    renderWizard();
+    expect(screen.getByDisplayValue(SEEDED_NOTE)).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("draft-autosave-clear"));
+    await user.click(screen.getByTestId("draft-autosave-clear"));
+    // removeItem 已执行：原草稿内容不再保留（若空草稿随后被自动保存，也不含业务数据）。
+    const raw = window.localStorage.getItem(DRAFT_KEY);
+    expect(raw === null || !raw.includes(SEEDED_NOTE)).toBe(true);
+    // 确认态退出。
+    expect(screen.getByTestId("draft-autosave-clear")).toHaveTextContent("清除本机草稿");
   });
 });
 

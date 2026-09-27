@@ -227,6 +227,9 @@ export function ProviderFinanceActivationWizard({
     loadDraftAutosave(draftStorage, enterpriseId, state.cutover_at) ?? emptyDraftState());
   const autosaveHydratedRef = useRef(false);
   const [autosaveSavedAt, setAutosaveSavedAt] = useState<string | null>(null);
+  // 清除本机草稿的两步确认（复核修复 R3）：第一次单击只进入确认态，不删除；
+  // 只有确认态下的第二次单击才真正 removeItem + 清空状态，避免误触。
+  const [confirmingDraftClear, setConfirmingDraftClear] = useState(false);
   const [preview, setPreview] = useState<ActivationPreviewView | null>(null);
   const [hold, setHold] = useState<PreviewHold | null>(null);
   // 持有候选的发起时刻：只有当读模型的时间戳不早于它时，`latest_candidate` 才算「已确认」。
@@ -372,17 +375,32 @@ export function ProviderFinanceActivationWizard({
             ? `草稿已自动保存到本机 · ${formatDateTimeFull(autosaveSavedAt)}`
             : "本机草稿：尚未保存（填写后自动保存到本机浏览器）"}
         </p>
+        {confirmingDraftClear && (
+          <button
+            className="rounded-lg border border-ql-border px-3 py-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+            data-testid="draft-autosave-clear-cancel" disabled={!canOperate}
+            onClick={() => setConfirmingDraftClear(false)}
+            type="button"
+          >
+            取消
+          </button>
+        )}
         <button
           className="rounded-lg border border-ql-border px-3 py-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
           data-testid="draft-autosave-clear" disabled={!canOperate}
           onClick={() => {
+            if (!confirmingDraftClear) {
+              setConfirmingDraftClear(true);
+              return;
+            }
             clearDraftAutosave(draftStorage, enterpriseId, state.cutover_at);
             setDraft(emptyDraftState());
             setAutosaveSavedAt(null);
+            setConfirmingDraftClear(false);
           }}
           type="button"
         >
-          清除本机草稿
+          {confirmingDraftClear ? "确认清除本机草稿" : "清除本机草稿"}
         </button>
       </div>
 

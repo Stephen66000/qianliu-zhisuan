@@ -38,17 +38,88 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** 结构校验：六类草稿行数组齐全、每行都有 string id；不校验业务字段（服务端是最终门禁）。 */
+// ===== 完整运行时结构校验（复核修复 R1，2026-09-27） =====
+//
+// 只校验「本版本 ActivationDraftState 所需字段的类型」：字符串字段必须是 string
+// （允许空串——草稿允许填到一半），枚举字段必须落在当前枚举集合内，布尔字段必须
+// 是 boolean。不做任何金额格式校验或数值转换（服务端是最终门禁）；
+// 任何一行结构不兼容 → 整个草稿整体忽略返回 null，绝不部分恢复。
+
+const FINANCE_CURRENCIES = new Set(["CNY", "USD"]);
+const PURCHASE_KINDS = new Set(["PURCHASE", "RENEWAL"]);
+const LEGACY_RESOLUTIONS = new Set(["MIGRATED", "ALREADY_REPRESENTED", "REJECTED_WITH_EVIDENCE"]);
+
+function hasAllStrings(row: Record<string, unknown>, fields: readonly string[]): boolean {
+  return fields.every((field) => typeof row[field] === "string");
+}
+
+function hasEnum(row: Record<string, unknown>, field: string, allowed: Set<string>): boolean {
+  return typeof row[field] === "string" && allowed.has(row[field] as string);
+}
+
+/** 期初行：resourceId / 币种 / 金额 / 说明 / 证据 / 来源旧记录。 */
+function isOpeningRow(row: Record<string, unknown>): boolean {
+  return hasAllStrings(row, ["resourceId", "accountAmount", "description", "evidenceRef", "sourceRecordId"])
+    && hasEnum(row, "accountCurrency", FINANCE_CURRENCIES);
+}
+
+/** 历史充值行：管理员六项。 */
+function isRechargeRow(row: Record<string, unknown>): boolean {
+  return hasAllStrings(row, ["resourceId", "accountAmount", "cashPaidCny", "occurredAtLocal", "externalReference"])
+    && hasEnum(row, "accountCurrency", FINANCE_CURRENCIES);
+}
+
+/** 历史消耗行：管理员四项。 */
+function isCostRow(row: Record<string, unknown>): boolean {
+  return hasAllStrings(row, ["resourceId", "costAmount", "costUntilLocal"])
+    && hasEnum(row, "accountCurrency", FINANCE_CURRENCIES);
+}
+
+/** Coding Plan 购买/续费行：含 kind 枚举与 autoRenew 布尔。 */
+function isPurchaseRow(row: Record<string, unknown>): boolean {
+  return hasAllStrings(row, ["resourceId", "productName", "accountAmount", "cashPaidCny",
+    "servicePeriodStart", "servicePeriodEnd", "occurredAtLocal", "externalReference",
+    "description", "evidenceRef", "sourceRecordId", "carryoverSnapshotId", "recordIdempotencyKey"])
+    && hasEnum(row, "accountCurrency", FINANCE_CURRENCIES)
+    && hasEnum(row, "kind", PURCHASE_KINDS)
+    && typeof row.autoRenew === "boolean";
+}
+
+/** 跨切换周期行。 */
+function isCarryoverRow(row: Record<string, unknown>): boolean {
+  return hasAllStrings(row, ["resourceId", "productName", "periodStart", "periodEnd",
+    "snapshotId", "description", "evidenceRef"]);
+}
+
+/** 旧购买记录关闭行：resolution 枚举。 */
+function isLegacyRow(row: Record<string, unknown>): boolean {
+  return hasAllStrings(row, ["legacyRecordId", "resourceId", "financeEventId",
+    "migratedExternalReference", "reason", "evidenceRef"])
+    && hasEnum(row, "resolution", LEGACY_RESOLUTIONS);
+}
+
+const SECTION_ROW_VALIDATORS = {
+  apiOpeningBalances: isOpeningRow,
+  historicalApiRecharges: isRechargeRow,
+  historicalApiCosts: isCostRow,
+  codingPlanPurchases: isPurchaseRow,
+  codingPlanCarryovers: isCarryoverRow,
+  legacyResolutions: isLegacyRow,
+} as const satisfies Record<keyof ActivationDraftState, (row: Record<string, unknown>) => boolean>;
+
+/**
+ * 结构校验：六类草稿行数组齐全、每行都有 string id，且**逐字段**满足当前版本
+ * 行结构（字符串类型、币种/决定/购买类型枚举、布尔字段）。id-only 或缺字段的
+ * 旧/损坏行一律判为结构不兼容。
+ */
 function isActivationDraftState(value: unknown): value is ActivationDraftState {
   if (!isRecord(value)) return false;
-  const sections: Array<keyof ActivationDraftState> = [
-    "apiOpeningBalances", "historicalApiRecharges", "historicalApiCosts",
-    "codingPlanPurchases", "codingPlanCarryovers", "legacyResolutions",
-  ];
+  const sections = Object.keys(SECTION_ROW_VALIDATORS) as Array<keyof ActivationDraftState>;
   return sections.every((section) => {
     const rows = value[section];
     if (!Array.isArray(rows)) return false;
-    return rows.every((row) => isRecord(row) && typeof row.id === "string");
+    const validateRow = SECTION_ROW_VALIDATORS[section];
+    return rows.every((row) => isRecord(row) && typeof row.id === "string" && validateRow(row));
   });
 }
 

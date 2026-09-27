@@ -269,11 +269,31 @@ describe("历史 API 消耗合同（0084）", () => {
   });
 
   it("服务端默认说明/证据/幂等键可由领域纯函数复现（normalizeDraftItem 输入合同一致）", () => {
-    expect(historicalCostFactDescription("2026-09-10T04:00:00.000Z"))
-      .toBe("历史 API 消耗:2026-09-10T04:00:00.000Z");
+    expect(historicalCostFactDescription("2026-09-10T04:00:00.000Z", "CNY", "40.45720000"))
+      .toContain("管理员确认的旧库计价汇总");
+    expect(historicalCostFactDescription("2026-09-10T04:00:00.000Z", "CNY", "40.45720000"))
+      .toContain("40.45720000");
     expect(historicalCostEvidenceRef(RESOURCE, "CNY", "2026-09-10T04:00:00.000Z", "40.4572"))
-      .toMatch(/^provider-usage:[0-9a-f]{32}$/);
+      .toMatch(/^admin-declared:legacy-db-api-cost:[0-9a-f]{32}$/);
     expect(historicalCostIdempotencyKey(RESOURCE, "CNY", "2026-09-10T04:00:00.000Z", "40.4572"))
       .toMatch(/^pf-u:/);
+  });
+
+  it("同一资源与币种的多条历史消耗被合同拒绝（不同截止时间也不放行，R2）", () => {
+    const duplicate = ActivationDraftSchema.safeParse(minimalDraft({
+      historical_api_costs: [
+        { ...costRow, cost_until_at: "2026-09-05T02:00:00.000Z" },
+        { ...costRow, cost_until_at: "2026-09-15T02:00:00.000Z", cost_amount: "10" },
+      ],
+    }));
+    expect(duplicate.success).toBe(false);
+    if (!duplicate.success) {
+      expect(JSON.stringify(duplicate.error.issues)).toContain("最多只能登记一条历史 API 消耗");
+    }
+    // 不同资源各一条不受影响。
+    const distinct = ActivationDraftSchema.safeParse(minimalDraft({
+      historical_api_costs: [costRow, { ...costRow, resource_id: OTHER }],
+    }));
+    expect(distinct.success).toBe(true);
   });
 });

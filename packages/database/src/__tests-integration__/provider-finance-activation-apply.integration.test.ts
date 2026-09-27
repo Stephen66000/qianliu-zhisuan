@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "kysely";
 import {
-  historicalCostIdempotencyKey, rechargeRecordIdempotencyKey,
+  historicalCostFactDescription, historicalCostIdempotencyKey, rechargeRecordIdempotencyKey,
   type ActivationDraft,
 } from "@qianliu/domain";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -1316,8 +1316,10 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       expect(event.account_currency).toBe("CNY");
       expect(event.cash_paid_cny).toBeNull();
       expect(event.occurred_at.toISOString()).toBe("2026-09-10T04:00:00.000Z");
-      expect(event.description).toBe("历史 API 消耗:2026-09-10T04:00:00.000Z");
-      expect(event.evidence_ref).toMatch(/^provider-usage:[0-9a-f]{32}$/);
+      expect(event.description).toBe(historicalCostFactDescription(
+        "2026-09-10T04:00:00.000Z", "CNY", "40.45720000"));
+      expect(event.description).toContain("管理员确认的旧库计价汇总");
+      expect(event.evidence_ref).toMatch(/^admin-declared:legacy-db-api-cost:[0-9a-f]{32}$/);
       expect(event.source).toBe("MIGRATION");
       expect(event.idempotency_key).toBe(`activation:${preview.candidateId}:${
         historicalCostIdempotencyKey(seeded.apiResourceId, "CNY", "2026-09-10T04:00:00.000Z", "40.45720000")}`);

@@ -216,18 +216,33 @@ function historicalCostDigestInput(
   return [resourceId, currency, PROVIDER_FINANCE_CUTOVER_ISO, costUntilAt, costAmount].join("\u0000");
 }
 
-/** 事实说明固定模板：`历史 API 消耗:<成本截止时间>`。系统内部生成，不要求管理员填写。 */
-export function historicalCostFactDescription(costUntilAt: string): string {
-  return `历史 API 消耗:${normalizeInstant(costUntilAt, "成本截止时间")}`;
+/**
+ * 事实说明固定模板（复核修复 R4）：明确这是**管理员确认的旧库计价汇总**（非厂商
+ * 官方证据），并包含币种、切换时点、成本截止时间与正数消耗金额（落账由系统取负）。
+ * 系统内部生成，不要求管理员填写。
+ */
+export function historicalCostFactDescription(
+  costUntilAt: string, currency: string, costAmount: string,
+): string {
+  return [
+    "历史 API 消耗（管理员确认的旧库计价汇总，非厂商官方证据）",
+    `币种 ${currency}`,
+    `切换时点 ${PROVIDER_FINANCE_CUTOVER_ISO}`,
+    `成本截止 ${normalizeInstant(costUntilAt, "成本截止时间")}`,
+    `实际消耗金额 ${costAmount}（正数，落账取负）`,
+  ].join(" · ");
 }
 
-/** 证据引用固定模板：`provider-usage:<幂等摘要前 32 位十六进制>`。系统内部生成。 */
+/**
+ * 证据引用固定模板（复核修复 R4）：`admin-declared:legacy-db-api-cost:<摘要前32>`。
+ * 明确语义是管理员申报的旧库核对结果，避免被误解为厂商官方用量证据。系统内部生成。
+ */
 export function historicalCostEvidenceRef(
   resourceId: string, currency: string, costUntilAt: string, costAmount: string,
 ): string {
   const digest = sha256Hex(historicalCostDigestInput(resourceId, currency,
     normalizeInstant(costUntilAt, "成本截止时间"), costAmount));
-  return `provider-usage:${digest.slice(0, 32)}`;
+  return `admin-declared:legacy-db-api-cost:${digest.slice(0, 32)}`;
 }
 
 /**
@@ -321,7 +336,7 @@ export function normalizeDraftItem(
       costAmount,
       accountAmount: historicalCostAccountAmount(costAmount),
       occurredAt,
-      description: historicalCostFactDescription(occurredAt),
+      description: historicalCostFactDescription(occurredAt, item.account_currency, costAmount),
       evidenceRef: historicalCostEvidenceRef(item.resource_id, item.account_currency, occurredAt, costAmount),
       recordIdempotencyKey: historicalCostIdempotencyKey(
         item.resource_id, item.account_currency, occurredAt, costAmount),
@@ -330,6 +345,17 @@ export function normalizeDraftItem(
     || compareStrings(a.accountCurrency, b.accountCurrency)
     || compareStrings(a.occurredAt, b.occurredAt)
     || compareStrings(a.costAmount, b.costAmount));
+
+  // 权威侧防重叠重复扣减（复核修复 R2）：期间开始固定为切换时点，因此同一
+  // （资源、币种）的多条历史消耗区间必然重叠。列表已按资源、币种排序，相邻比较即可。
+  for (let i = 1; i < historicalCosts.length; i += 1) {
+    const prev = historicalCosts[i - 1]!;
+    const curr = historicalCosts[i]!;
+    if (prev.resourceId === curr.resourceId && prev.accountCurrency === curr.accountCurrency) {
+      throw new Error("历史 API 消耗：同一厂商资源与币种最多只能登记一条"
+        + "（期间开始固定为资金切换时点，多条必然重叠并重复扣减）");
+    }
+  }
 
   const purchases: NormalizedCodingPlanPurchase[] = draft.coding_plan_purchases.map((item) => {
     const bounds = shanghaiPeriodBounds(item.service_period_start, item.service_period_end);

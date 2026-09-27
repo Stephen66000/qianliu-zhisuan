@@ -251,10 +251,25 @@ describe("历史 API 消耗行（0084）：四字段与正数输入", () => {
         costAmount: "", costUntilLocal: "" }] }, CUTOVER).historical_api_costs).toEqual([]);
   });
 
-  it("同一资源、币种、截止时间的消耗行在草稿内防重", () => {
+  it("同一资源、币种的历史消耗在草稿内防重（不同截止时间也不放行，R2）", () => {
     const state = { ...emptyDraftState(), historicalApiCosts: [costRow(), { ...costRow(), id: "cost-2" }] };
     const issues = validateDraft(state, CUTOVER);
     expect(issues.filter((issue) => issue.field === "costUntil"
-      && issue.message.includes("不得重复登记")).length).toBe(2);
+      && issue.message.includes("最多只能登记一条历史 API 消耗")).length).toBe(2);
+    // 不同截止时间 + 不同金额同样拦截（期间开始固定为切换时点，必然重叠）。
+    const overlap = { ...emptyDraftState(), historicalApiCosts: [
+      costRow(),
+      { ...costRow(), id: "cost-2", costAmount: "10", costUntilLocal: "2026-09-20T12:00" },
+    ] };
+    const overlapIssues = validateDraft(overlap, CUTOVER);
+    expect(overlapIssues.filter((issue) =>
+      issue.message.includes("最多只能登记一条历史 API 消耗")).length).toBe(2);
+    // 不同资源各一条不受影响（不改其他多行语义）。
+    const distinct = { ...emptyDraftState(), historicalApiCosts: [
+      costRow(),
+      { ...costRow(), id: "cost-2", resourceId: "22222222-2222-4222-8222-222222222222" },
+    ] };
+    expect(validateDraft(distinct, CUTOVER).filter((issue) =>
+      issue.message.includes("最多只能登记一条历史 API 消耗"))).toEqual([]);
   });
 });

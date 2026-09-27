@@ -94,6 +94,68 @@ describe("草稿本机自动保存", () => {
     expect(() => clearDraftAutosave(storage, ENTERPRISE_B, CUTOVER)).not.toThrow();
   });
 
+  it("结构校验完整：id-only、缺字段、字段类型错误、非法币种/枚举/布尔一律整体忽略（R1）", () => {
+    const storage = memoryStorage();
+    const key = draftAutosaveKey(ENTERPRISE_A, CUTOVER);
+    const costRow = {
+      id: "cost-1", resourceId: ENTERPRISE_A, accountCurrency: "CNY",
+      costAmount: "40.4572", costUntilLocal: "2026-09-10T12:00",
+    };
+    // 六类行的完整合法样例（含购买行 kind/autoRenew 与旧记录 resolution）。
+    const validDraft = {
+      ...emptyDraftState(),
+      historicalApiCosts: [costRow],
+      codingPlanPurchases: [{
+        id: "p-1", resourceId: ENTERPRISE_A, kind: "PURCHASE", productName: "Plan",
+        accountAmount: "100", accountCurrency: "CNY", cashPaidCny: "100.00",
+        servicePeriodStart: "2026-09-01", servicePeriodEnd: "2026-09-30",
+        occurredAtLocal: "2026-09-01T10:00", externalReference: "P-1", autoRenew: true,
+        description: "", evidenceRef: "", sourceRecordId: "", carryoverSnapshotId: "",
+        recordIdempotencyKey: "idem-key-1",
+      }],
+      legacyResolutions: [{
+        id: "l-1", legacyRecordId: ENTERPRISE_A, resourceId: ENTERPRISE_A,
+        resolution: "MIGRATED", financeEventId: "", migratedExternalReference: "ORD-1",
+        reason: "", evidenceRef: "",
+      }],
+    };
+    const brokenRows: unknown[] = [
+      // id-only（旧版本/损坏行的典型形态）。
+      { id: "cost-1" },
+      // 缺字段。
+      { id: "cost-1", resourceId: ENTERPRISE_A, accountCurrency: "CNY", costAmount: "40.4572" },
+      // 字段类型错误（金额被写成数字）。
+      { ...costRow, costAmount: 40.4572 },
+      // 字段类型错误（布尔字段被写成字符串）。
+      { ...validDraft.codingPlanPurchases[0], autoRenew: "true" },
+      // 非法币种。
+      { ...costRow, accountCurrency: "EUR" },
+      // 非法购买类型。
+      { ...validDraft.codingPlanPurchases[0], kind: "SUBSCRIPTION" },
+      // 非法旧记录关闭决定。
+      { ...validDraft.legacyResolutions[0], resolution: "CLOSED" },
+    ];
+    for (const broken of brokenRows) {
+      // 故意把坏行放进它所属的分区；分区不匹配也会被判为结构不兼容，同样返回 null。
+      const target = (broken === brokenRows[3] ? "codingPlanPurchases"
+        : broken === brokenRows[5] ? "codingPlanPurchases"
+        : broken === brokenRows[6] ? "legacyResolutions" : "historicalApiCosts") as
+        keyof typeof validDraft;
+      storage.setItem(key, JSON.stringify({
+        schema_version: DRAFT_AUTOSAVE_SCHEMA_VERSION, enterprise_id: ENTERPRISE_A,
+        cutover_at: CUTOVER, saved_at: "2026-09-27T08:00:00.000Z",
+        draft: { ...validDraft, [target]: [broken] },
+      }));
+      expect(loadDraftAutosave(storage, ENTERPRISE_A, CUTOVER)).toBeNull();
+    }
+    // 完整合法结构恢复成功（不做金额转换、不部分恢复）。
+    storage.setItem(key, JSON.stringify({
+      schema_version: DRAFT_AUTOSAVE_SCHEMA_VERSION, enterprise_id: ENTERPRISE_A,
+      cutover_at: CUTOVER, saved_at: "2026-09-27T08:00:00.000Z", draft: validDraft,
+    }));
+    expect(loadDraftAutosave(storage, ENTERPRISE_A, CUTOVER)).toEqual(validDraft);
+  });
+
   it("存储写入失败返回 false、读取失败返回 null，绝不抛出", () => {
     const throwing: DraftStorage = {
       getItem: () => { throw new Error("quota"); },

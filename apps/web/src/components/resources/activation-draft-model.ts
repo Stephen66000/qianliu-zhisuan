@@ -453,11 +453,12 @@ function collectRechargeIssues(state: ActivationDraftState): DraftIssue[] {
 function collectCostIssues(state: ActivationDraftState, cutoverAt: string | null): DraftIssue[] {
   const rows = state.historicalApiCosts.filter((row) => !isCostRowBlank(row));
   const issues = rows.flatMap((row) => validateHistoricalCostRow(row, cutoverAt));
-  // 草稿内防重：同一厂商资源、币种、截止时间的消耗行会得到同一确定性幂等键，
-  // 直接在草稿内拦下，避免必然失败的预检往返。
+  // 草稿内防重（复核修复 R2）：期间开始固定为切换时点，同一（厂商资源、币种）
+  // 的第二条历史消耗与第一条区间必然重叠并重复扣减——不同截止时间或金额也不放行。
+  // 直接在草稿内拦下，避免必然失败的预检往返；服务端与数据库唯一索引兜底。
   const byKey = new Map<string, HistoricalCostRowState[]>();
   for (const row of rows) {
-    const key = `${row.resourceId.trim()}|${row.accountCurrency}|${toInstant(row.costUntilLocal) ?? row.costUntilLocal.trim()}`;
+    const key = `${row.resourceId.trim()}|${row.accountCurrency}`;
     const group = byKey.get(key);
     if (group) group.push(row); else byKey.set(key, [row]);
   }
@@ -465,7 +466,8 @@ function collectCostIssues(state: ActivationDraftState, cutoverAt: string | null
     if (group.length < 2) continue;
     for (const row of group) {
       issues.push({ section: "historicalApiCosts", rowId: row.id, field: "costUntil",
-        message: "同一厂商资源、币种与截止时间的历史消耗不得重复登记" });
+        message: "同一厂商资源与币种最多只能登记一条历史 API 消耗"
+          + "（期间开始固定为资金切换时点，多条必然重叠并重复扣减）" });
     }
   }
   return issues;

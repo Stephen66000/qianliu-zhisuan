@@ -61,7 +61,7 @@ async function insertHistoricalCostEvent(
   db: Executor, seed: MinimalSeed,
   overrides: {
     accountAmount?: string; cashPaidCny?: string | null; legacyCostResolutionId?: string | null;
-    idempotencyKey?: string;
+    idempotencyKey?: string; occurredAt?: Date;
   } = {},
 ): Promise<void> {
   await db.insertInto("provider_finance_event").values({
@@ -71,14 +71,14 @@ async function insertHistoricalCostEvent(
     account_amount: overrides.accountAmount ?? "-40.45720000",
     account_currency: "CNY",
     cash_paid_cny: overrides.cashPaidCny === undefined ? null : overrides.cashPaidCny,
-    occurred_at: new Date("2026-09-10T04:00:00.000Z"),
+    occurred_at: overrides.occurredAt ?? new Date("2026-09-10T04:00:00.000Z"),
     external_reference: null,
     reversal_of_event_id: null,
     correction_of_event_id: null,
     reconciliation_case_id: null,
     legacy_cost_resolution_id: overrides.legacyCostResolutionId ?? null,
-    description: "历史 API 消耗:2026-09-10T04:00:00.000Z",
-    evidence_ref: "provider-usage:00000000000000000000000000000000",
+    description: "历史 API 消耗（管理员确认的旧库计价汇总）",
+    evidence_ref: "admin-declared:legacy-db-api-cost:00000000000000000000000000000000",
     source: "MIGRATION",
     idempotency_key: overrides.idempotencyKey ?? "pf-u-test-0001",
     created_by_admin_user_id: seed.adminId,
@@ -112,6 +112,12 @@ async function constraintDefinition(db: Executor, name: string): Promise<string>
   return row.rows[0]?.definition ?? "";
 }
 
+async function indexExists(db: Executor, name: string): Promise<boolean> {
+  const row = await sql`
+    SELECT 1 FROM pg_indexes WHERE indexname = ${name} LIMIT 1`.execute(db);
+  return row.rows.length > 0;
+}
+
 describe("0084 历史 API 消耗事件类型迁移", () => {
   it("fresh DB 到 0084：类型与 shape 约束包含新事件并拒绝非法形状", async () => {
     const db = createKysely(pg.connectionString);
@@ -123,10 +129,51 @@ describe("0084 历史 API 消耗事件类型迁移", () => {
       expect(typeCheck).toContain("API_HISTORICAL_USAGE_COST");
       const shapeCheck = await constraintDefinition(db, "provider_finance_event_shape_check");
       expect(shapeCheck).toContain("API_HISTORICAL_USAGE_COST");
+      // 复核修复 R2：partial unique index（企业+资源+币种，仅限历史消耗事件）。
+      expect(await indexExists(db, "provider_finance_event_historical_usage_cost_uq")).toBe(true);
 
       const seed = await seedMinimal(db);
       // 合法形状（负金额、cash_paid_cny 为空、无任何绑定）：事务内可写入并读出，随后回滚。
       await assertEventInsertable(db, seed);
+      // 复核修复 R2：同一（企业、资源、币种）第二条历史消耗被唯一索引拒绝——
+      // 不同的截止时间（occurred_at）与金额都不能绕过；事务内验证并整体回滚。
+      await db.transaction().execute(async (trx) => {
+        await insertHistoricalCostEvent(trx, seed, { idempotencyKey: `pf-u-uniq-${randomUUID().slice(0, 8)}` });
+        await expect(insertHistoricalCostEvent(trx, seed, {
+          idempotencyKey: `pf-u-uniq-${randomUUID().slice(0, 8)}`,
+          accountAmount: "-50.00000000",
+          occurredAt: new Date("2026-09-20T04:00:00.000Z"),
+        })).rejects.toMatchObject({ code: "23505" });
+        throw new VerifiedRollback();
+      }).catch((error) => {
+        if (!(error instanceof VerifiedRollback)) throw error;
+      });
+      // 唯一性只限定在同一币种内：不同币种各一条仍被接受（不改其他多行语义）。
+      await db.transaction().execute(async (trx) => {
+        await insertHistoricalCostEvent(trx, seed, { idempotencyKey: `pf-u-uniq-${randomUUID().slice(0, 8)}` });
+        await trx.insertInto("provider_finance_event").values({
+          enterprise_id: seed.enterpriseId,
+          provider_resource_id: seed.apiResourceId,
+          event_type: "API_HISTORICAL_USAGE_COST",
+          account_amount: "-10.00000000",
+          account_currency: "USD",
+          cash_paid_cny: null,
+          occurred_at: new Date("2026-09-10T04:00:00.000Z"),
+          external_reference: null,
+          reversal_of_event_id: null,
+          correction_of_event_id: null,
+          reconciliation_case_id: null,
+          legacy_cost_resolution_id: null,
+          description: "历史 API 消耗（USD）",
+          evidence_ref: "admin-declared:legacy-db-api-cost:test",
+          source: "MIGRATION",
+          idempotency_key: `pf-u-uniq-${randomUUID().slice(0, 8)}`,
+          created_by_admin_user_id: seed.adminId,
+        }).execute();
+        throw new VerifiedRollback();
+      }).catch((error) => {
+        if (!(error instanceof VerifiedRollback)) throw error;
+      });
       // 非法形状：正金额 → 23514 check violation（失败即无残留）。
       await expect(insertHistoricalCostEvent(db, seed, { accountAmount: "10.00000000" }))
         .rejects.toMatchObject({ code: "23514" });
@@ -168,6 +215,8 @@ describe("0084 历史 API 消耗事件类型迁移", () => {
       const shapeAfterDown = await constraintDefinition(db, "provider_finance_event_shape_check");
       expect(shapeAfterDown).not.toContain("API_HISTORICAL_USAGE_COST");
       expect(shapeAfterDown).toContain("API_LEGACY_COST_ADJUSTMENT");
+      // down 精确删除本迁移创建的 partial unique index（复核修复 R2）。
+      expect(await indexExists(db, "provider_finance_event_historical_usage_cost_uq")).toBe(false);
 
       // 重新前向：rollbackTo 会把 0083 一并回退（0082 成为最后已应用），
       // 因此 migrateToLatest 依次重放 0083 与 0084。
@@ -180,6 +229,8 @@ describe("0084 历史 API 消耗事件类型迁移", () => {
         ]);
       const shapeAfterUp = await constraintDefinition(db, "provider_finance_event_shape_check");
       expect(shapeAfterUp).toContain("API_HISTORICAL_USAGE_COST");
+      // up 重放后 partial unique index 恢复。
+      expect(await indexExists(db, "provider_finance_event_historical_usage_cost_uq")).toBe(true);
       // 且迁移后的表仍接受合法历史消耗事实（事务回滚，不残留）。
       const seed = await seedMinimal(db);
       await assertEventInsertable(db, seed);
