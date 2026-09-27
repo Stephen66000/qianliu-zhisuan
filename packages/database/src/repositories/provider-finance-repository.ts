@@ -226,7 +226,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
           UNION ALL
           SELECT account_currency AS currency, -account_amount AS amount
             FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
-             AND event_type='API_LEGACY_COST_ADJUSTMENT'
+             AND event_type IN ('API_LEGACY_COST_ADJUSTMENT','API_HISTORICAL_USAGE_COST')
              AND occurred_at>=${start} AND occurred_at<${end}
         ) cost
         GROUP BY currency ORDER BY currency`.execute(trx),

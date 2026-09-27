@@ -31,7 +31,7 @@ export async function loadOperatingAnalysis(
     .execute(async (trx) => {
       await sql`SET TRANSACTION READ ONLY`.execute(trx);
       const finance = new ProviderFinanceRepository(trx);
-      const [facts, cashRows, views] = await Promise.all([
+      const [facts, cashRows, views, officialApiBalances] = await Promise.all([
         loadAnalysisUsage(trx, enterpriseId, now),
         loadAnalysisPurchases(trx, enterpriseId, selectedMonth, now),
         Promise.all(
@@ -46,6 +46,32 @@ export async function loadOperatingAnalysis(
             );
           }),
         ),
+        sql<{
+          provider_code: string; provider_name: string; provider_resource_id: string;
+          resource_name: string; currency: string; current_balance: string;
+          collected_at: Date; balance_updated_at: Date | null;
+        }>`
+          SELECT DISTINCT ON (snapshot.provider_resource_id)
+                 provider.code AS provider_code, provider.name AS provider_name,
+                 resource.id AS provider_resource_id, resource.name AS resource_name,
+                 snapshot.currency, snapshot.current_balance::text AS current_balance,
+                 snapshot.collected_at, snapshot.balance_updated_at
+            FROM provider_resource_operating_snapshot snapshot
+            JOIN provider_resource resource
+              ON resource.enterprise_id=snapshot.enterprise_id
+             AND resource.id=snapshot.provider_resource_id
+            JOIN provider
+              ON provider.enterprise_id=resource.enterprise_id
+             AND provider.id=resource.provider_id
+           WHERE snapshot.enterprise_id=${enterpriseId}::uuid
+             AND resource.mode='API' AND resource.status<>'DELETED'
+             AND snapshot.source='PROVIDER_SYNC'
+             AND snapshot.balance_source='PROVIDER_API'
+             AND snapshot.current_balance IS NOT NULL
+             AND snapshot.currency IS NOT NULL
+             AND snapshot.collected_at<=${now}
+           ORDER BY snapshot.provider_resource_id, snapshot.collected_at DESC,
+                    snapshot.version DESC`.execute(trx),
       ]);
       const payments = cashRows.filter((row) => row.month === selectedMonth).map((row) => ({
         id: row.id, providerResourceId: row.resource_id, providerName: row.provider_name,
@@ -289,6 +315,16 @@ export async function loadOperatingAnalysis(
         plans,
         purchases,
         apiAccounts: apiReviews,
+        officialApiBalances: officialApiBalances.rows.map((row) => ({
+          providerCode: row.provider_code,
+          providerName: row.provider_name,
+          providerResourceId: row.provider_resource_id,
+          resourceName: row.resource_name,
+          currency: row.currency,
+          balance: row.current_balance,
+          asOf: (row.balance_updated_at ?? row.collected_at).toISOString(),
+          syncedAt: row.collected_at.toISOString(),
+        })),
         cashSummary,
         payments,
         summary: {

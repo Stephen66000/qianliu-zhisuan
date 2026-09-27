@@ -141,6 +141,19 @@ describe("经营分析真实数据链", () => {
       new Date("2026-09-20T00:00:00Z"),
       "50",
     );
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: t.enterpriseId,
+      provider_resource_id: t.resources.get("deepseek")!,
+      version: 1,
+      source: "PROVIDER_SYNC",
+      collected_at: new Date("2026-09-06T00:00:22+08:00"),
+      currency: "CNY",
+      current_balance: "356.61",
+      provider_balance_available: true,
+      balance_source: "PROVIDER_API",
+      balance_updated_at: new Date("2026-09-06T00:00:22+08:00"),
+      usage_calculation: "SYSTEM_LEDGER",
+    }).execute();
     const report = await loadOperatingAnalysis(
       db,
       t.enterpriseId,
@@ -172,6 +185,11 @@ describe("经营分析真实数据链", () => {
       apiSpend: "12.00",
       endingBalance: "258.00",
     });
+    expect(report.officialApiBalances).toEqual([
+      expect.objectContaining({ providerCode: "deepseek", providerName: "DeepSeek",
+        resourceName: "deepseek", currency: "CNY", balance: "356.61000000",
+        syncedAt: "2026-09-05T16:00:22.000Z" }),
+    ]);
     await usage(t, t.a, "kimi", 900n, new Date("2026-09-05T00:00:00Z"),
       "0", "PROVIDER_REPORTED", subscriptionPeriodIds.get("kimi")!);
     const august = await loadOperatingAnalysis(

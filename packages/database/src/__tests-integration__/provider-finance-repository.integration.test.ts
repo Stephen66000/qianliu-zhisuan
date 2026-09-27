@@ -4,6 +4,7 @@ import { sql } from "kysely";
 import { createKysely, GatewayLedgerRepository, migrateToLatest, ProviderFinanceRepository,
   PROVIDER_FINANCE_CUTOVER } from "../index.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+import { insertHistoricalUsageCostTx } from "../repositories/provider-finance-activation-writes.js";
 
 let pg: PostgresTestInstance;
 let enterpriseId: string;
@@ -67,6 +68,98 @@ beforeAll(async () => {
 afterAll(async () => { await pg?.stop(); }, 60_000);
 
 describe("ProviderFinanceRepository", () => {
+  it("includes historical API usage cost in the monthly summary without changing the balance formula", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const isolatedEnterpriseId = randomUUID(); const isolatedAdminId = randomUUID();
+      const isolatedProviderId = randomUUID(); const isolatedResourceId = randomUUID();
+      const isolatedPrincipalId = randomUUID(); const isolatedKeyId = randomUUID();
+      await db.insertInto("enterprise").values({ id: isolatedEnterpriseId,
+        name: "Historical Cost Summary" }).execute();
+      await db.insertInto("admin_user").values({ id: isolatedAdminId,
+        enterprise_id: isolatedEnterpriseId, username: `historical-${isolatedAdminId}`,
+        password_hash: "not-used", status: "ACTIVE" }).execute();
+      await db.insertInto("provider").values({ id: isolatedProviderId,
+        enterprise_id: isolatedEnterpriseId, code: "deepseek", name: "DeepSeek",
+        adapter_type: "OPENAI_COMPATIBLE" }).execute();
+      await db.insertInto("provider_finance_runtime_state").values({
+        enterprise_id: isolatedEnterpriseId, strict_writes_enabled: true,
+        activated_at: new Date("2026-09-01T00:00:00+08:00"),
+        activated_by_admin_user_id: isolatedAdminId,
+      }).execute();
+      await db.insertInto("provider_resource").values({ id: isolatedResourceId,
+        enterprise_id: isolatedEnterpriseId, provider_id: isolatedProviderId,
+        name: "DeepSeek API", mode: "API", credential_type: "API_KEY",
+        created_at: new Date("2026-08-01T00:00:00Z") }).execute();
+      await db.insertInto("principal").values({ id: isolatedPrincipalId,
+        enterprise_id: isolatedEnterpriseId, type: "EMPLOYEE", name: "Cost User" }).execute();
+      await db.insertInto("principal_key").values({ id: isolatedKeyId,
+        enterprise_id: isolatedEnterpriseId, principal_id: isolatedPrincipalId,
+        key_prefix: "ql-cost", key_digest: randomUUID() }).execute();
+
+      const repo = new ProviderFinanceRepository(db);
+      await repo.recordOpeningBalance({ enterpriseId: isolatedEnterpriseId,
+        resourceId: isolatedResourceId, adminId: isolatedAdminId, accountAmount: "0",
+        accountCurrency: "CNY", occurredAt: PROVIDER_FINANCE_CUTOVER,
+        evidenceRef: "opening-zero", idempotencyKey: randomUUID() });
+      await repo.recordRecharge({ enterpriseId: isolatedEnterpriseId,
+        resourceId: isolatedResourceId, adminId: isolatedAdminId, accountAmount: "600",
+        accountCurrency: "CNY", cashPaidCny: "600",
+        occurredAt: new Date("2026-09-03T09:27:00+08:00"),
+        externalReference: "recharge-600", idempotencyKey: randomUUID() });
+      await db.transaction().execute((trx) => insertHistoricalUsageCostTx(trx, {
+        enterpriseId: isolatedEnterpriseId, resourceId: isolatedResourceId,
+        adminId: isolatedAdminId, accountCurrency: "CNY", costAmount: "40.4572",
+        occurredAt: new Date("2026-09-21T00:00:00+08:00"),
+        description: "old database total", evidenceRef: "legacy-db",
+        idempotencyKey: randomUUID(),
+      }));
+
+      const requestId = randomUUID();
+      await db.insertInto("ai_request").values({ id: requestId,
+        enterprise_id: isolatedEnterpriseId, principal_id: isolatedPrincipalId,
+        principal_key_id: isolatedKeyId, protocol: "openai", unified_model: "deepseek-chat",
+        status: "SUCCEEDED", started_at: new Date("2026-09-27T10:00:00+08:00"),
+        finished_at: new Date("2026-09-27T10:00:01+08:00") }).execute();
+      const attempt = await db.insertInto("upstream_attempt").values({
+        ai_request_id: requestId, enterprise_id: isolatedEnterpriseId, attempt_no: 1,
+        provider_resource_id: isolatedResourceId, upstream_model: "deepseek-chat",
+        response_committed: true, started_at: new Date("2026-09-27T10:00:00+08:00"),
+        finished_at: new Date("2026-09-27T10:00:01+08:00"), http_status: 200,
+      }).returning("id").executeTakeFirstOrThrow();
+      const usage = await db.insertInto("usage_event").values({ ai_request_id: requestId,
+        enterprise_id: isolatedEnterpriseId, upstream_attempt_id: attempt.id,
+        provider_resource_id: isolatedResourceId, input_tokens: 1n, output_tokens: 1n,
+        cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: "PROVIDER_REPORTED",
+        dedup_key: `historical-summary:${requestId}`,
+        created_at: new Date("2026-09-27T10:00:01+08:00"),
+      }).returning("id").executeTakeFirstOrThrow();
+      await db.insertInto("ledger_line").values({ ai_request_id: requestId,
+        enterprise_id: isolatedEnterpriseId, usage_event_id: usage.id,
+        upstream_attempt_id: attempt.id, provider_resource_id: isolatedResourceId,
+        principal_id: isolatedPrincipalId, resource_mode: "API", raw_input_tokens: 1n,
+        raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+        api_cost: "64.09685484", api_cost_currency: "CNY",
+        api_cost_status: "PRICED_USAGE", usage_quality: "PROVIDER_REPORTED",
+        billing_rule_snapshot: { currency: "CNY", source: "summary-test" },
+        settled_at: new Date("2026-09-27T10:00:01+08:00"),
+        created_at: new Date("2026-09-27T10:00:01+08:00") }).execute();
+
+      expect(await repo.getMonthlyFinanceSummary(isolatedEnterpriseId, "2026-09"))
+        .toMatchObject({
+          apiOperatingCosts: [{ currency: "CNY", amount: "104.55405484" }],
+          operatingCostCny: "104.55405484",
+          currentApiBalances: [{ currency: "CNY", amount: "495.44594516" }],
+        });
+      expect(await repo.getCurrentBalance(isolatedEnterpriseId, isolatedResourceId, "CNY",
+        new Date("2026-09-27T12:00:00+08:00"))).toMatchObject({
+        balance: "495.44594516",
+        components: { recharges: "600.00000000", legacyCostAdjustments: "-40.45720000",
+          usageDebits: "64.09685484" },
+      });
+    } finally { await db.destroy(); }
+  });
+
   it("records one opening and recharge idempotently, then projects one balance", async () => {
     const db = createKysely(pg.connectionString);
     try {

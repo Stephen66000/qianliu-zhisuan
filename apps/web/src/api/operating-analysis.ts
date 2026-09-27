@@ -89,6 +89,16 @@ export interface OperatingAnalysis {
       endingBalance: string | null;
     }>;
   }>;
+  officialApiBalances?: Array<{
+    providerCode: string;
+    providerName: string;
+    providerResourceId: string;
+    resourceName: string;
+    currency: string;
+    balance: string;
+    asOf: string;
+    syncedAt: string;
+  }>;
 }
 export const OPERATING_REFRESH_MS = 30_000;
 export function useOperatingAnalysis(month: string, enabled = true) {
