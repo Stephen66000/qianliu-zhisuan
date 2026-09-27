@@ -121,6 +121,7 @@ async function start(): Promise<void> {
     ) => dispatchRepo.resolveResourceOperatingInput(enterpriseId, winnerResourceId, now, upstreamModel),
     maxAttempts: 2,
     halfOpenProbeLeaseMs: upstreamRuntime.halfOpenProbeLeaseMs,
+    concurrencyLeaseTtlMs: upstreamRuntime.concurrencyLeaseTtlMs,
     truncationConfig: readTruncationConfig(process.env),
   });
   const app = buildGateway(db, pepper, pipeline, { port, host });

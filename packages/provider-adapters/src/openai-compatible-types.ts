@@ -17,6 +17,8 @@ export type HttpFetch = (
     headers: Record<string, string>;
     body: string;
     signal: AbortSignal;
+    /** 显式 Undici dispatcher；标准 fetch mock 可忽略该字段。 */
+    dispatcher?: unknown;
   },
 ) => Promise<HttpResponseLike>;
 

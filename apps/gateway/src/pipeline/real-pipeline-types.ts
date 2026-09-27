@@ -80,6 +80,8 @@ export interface RealPipelineDeps {
   capacityWaitMs?: number;
   capacityPollMs?: number;
   halfOpenProbeLeaseMs?: number;
+  /** Coding Plan 并发租约 TTL；生产 runtime 从总调用时限同源派生。 */
+  concurrencyLeaseTtlMs?: number;
   truncationConfig?: TruncationConfig | null;
 }
 
@@ -105,6 +107,7 @@ export interface PipelineContext {
   capacityWaitMs: number;
   capacityPollMs: number;
   halfOpenProbeLeaseMs: number;
+  concurrencyLeaseTtlMs: number;
 }
 
 export interface QuotaSettlement {

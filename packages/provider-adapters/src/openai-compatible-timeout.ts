@@ -1,4 +1,4 @@
-import { fetch as undiciFetch } from "undici";
+import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
 import type { HttpFetch, HttpResponseLike } from "./openai-compatible-types.js";
 
 type TimeoutFailureLayer =
@@ -36,6 +36,7 @@ export function createLayeredTimeout(input: {
   let lastChunkAt: number | undefined;
   let timeoutLayer: TimeoutFailureLayer | null = null;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
   const abortFor = (layer: TimeoutFailureLayer) => {
     if (signal.aborted) return;
     timeoutLayer = layer;
@@ -50,6 +51,7 @@ export function createLayeredTimeout(input: {
     input.requestTimeoutMs,
   );
   const resetIdle = () => {
+    if (disposed) return;
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(
       () => abortFor("STREAM_IDLE_TIMEOUT"),
@@ -75,6 +77,7 @@ export function createLayeredTimeout(input: {
     },
     markFirstByte,
     markChunk() {
+      if (disposed) return;
       markFirstByte();
       lastChunkAt = Date.now();
       resetIdle();
@@ -89,10 +92,61 @@ export function createLayeredTimeout(input: {
       return { status: 0, code: "transport_error", layer: "UPSTREAM_NETWORK" };
     },
     dispose() {
+      disposed = true;
       clearTimeout(firstByteTimer);
       clearTimeout(requestTimer);
       if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = undefined;
     },
+  };
+}
+
+/**
+ * Undici dispatcher 时限安全余量：底层时限必须晚于业务层对应计时器，
+ * 避免与 300 秒空闲门限设为相同值竞争终止。
+ */
+export const UNDICI_TIMEOUT_MARGIN_MS = 30_000;
+
+/**
+ * 按派生时限构造显式 Undici dispatcher（生产上游 Caller 兜底时限）。
+ */
+export function createUpstreamDispatcher(input: {
+  streamIdleTimeoutMs: number;
+  firstByteTimeoutMs: number;
+  requestTimeoutMs: number;
+}): Dispatcher {
+  return new Agent(deriveUndiciDispatcherOptions(input));
+}
+
+/**
+ * 派生生产 Caller 的显式 Undici dispatcher 时限（与业务分层超时同源）。
+ *
+ * - `bodyTimeout = streamIdleTimeoutMs + 30_000`：业务 `STREAM_IDLE_TIMEOUT`
+ *   AbortSignal 先于底层 body timeout 触发。
+ * - `headersTimeout = max(firstByteTimeoutMs, requestTimeoutMs) + 30_000`：
+ *   业务 `FIRST_BYTE_TIMEOUT` 与 600 秒 `REQUEST_TIMEOUT` 均先于底层触发。
+ *
+ * 派生值与单测断言共用本函数，公式、校验和测试保持一致。
+ */
+export function deriveUndiciDispatcherOptions(input: {
+  streamIdleTimeoutMs: number;
+  firstByteTimeoutMs: number;
+  requestTimeoutMs: number;
+}): { bodyTimeout: number; headersTimeout: number } {
+  for (const [name, value] of [
+    ["streamIdleTimeoutMs", input.streamIdleTimeoutMs],
+    ["firstByteTimeoutMs", input.firstByteTimeoutMs],
+    ["requestTimeoutMs", input.requestTimeoutMs],
+  ] as const) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`${name} 必须是正整数毫秒`);
+    }
+  }
+  return {
+    bodyTimeout: input.streamIdleTimeoutMs + UNDICI_TIMEOUT_MARGIN_MS,
+    headersTimeout:
+      Math.max(input.firstByteTimeoutMs, input.requestTimeoutMs)
+      + UNDICI_TIMEOUT_MARGIN_MS,
   };
 }
 

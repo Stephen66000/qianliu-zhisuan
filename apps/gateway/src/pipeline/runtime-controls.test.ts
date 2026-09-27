@@ -45,3 +45,53 @@ describe("mapToClassification", () => {
     expect(classification).toBe("UPSTREAM_CREDENTIAL_INVALID");
   });
 });
+
+describe("acquireConcurrencyLeaseWithWait 并发租约 TTL", () => {
+  it("显式传入的 leaseTtlMs 透传给仓储 acquireLease，不再依赖 60 秒默认值", async () => {
+    const { acquireConcurrencyLeaseWithWait } = await import("./runtime-controls.js");
+    const seen: Array<Record<string, unknown>> = [];
+    const quotaRepo = {
+      acquireLease: async (input: Record<string, unknown>) => {
+        seen.push(input);
+        return "lease-1";
+      },
+    } as never;
+
+    const leaseId = await acquireConcurrencyLeaseWithWait({
+      quotaRepo,
+      enterpriseId: "ent-1",
+      providerResourceId: "res-1",
+      aiRequestId: "ai-req-1",
+      waitMs: 0,
+      pollMs: 10,
+      leaseTtlMs: 660_000,
+      cancelled: () => false,
+    });
+
+    expect(leaseId).toBe("lease-1");
+    expect(seen[0]).toMatchObject({ leaseTtlMs: 660_000 });
+  });
+
+  it("未传 leaseTtlMs 时不注入字段，仓储保持既有默认行为", async () => {
+    const { acquireConcurrencyLeaseWithWait } = await import("./runtime-controls.js");
+    const seen: Array<Record<string, unknown>> = [];
+    const quotaRepo = {
+      acquireLease: async (input: Record<string, unknown>) => {
+        seen.push(input);
+        return "lease-2";
+      },
+    } as never;
+
+    await acquireConcurrencyLeaseWithWait({
+      quotaRepo,
+      enterpriseId: "ent-1",
+      providerResourceId: "res-1",
+      aiRequestId: "ai-req-2",
+      waitMs: 0,
+      pollMs: 10,
+      cancelled: () => false,
+    });
+
+    expect(seen[0]).not.toHaveProperty("leaseTtlMs");
+  });
+});

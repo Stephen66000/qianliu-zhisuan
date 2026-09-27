@@ -60,6 +60,8 @@ export async function acquireConcurrencyLeaseWithWait(input: {
   aiRequestId: string;
   waitMs: number;
   pollMs: number;
+  /** 并发租约 TTL；由生产 runtime 从总调用时限同源派生，不再依赖 60 秒默认值。 */
+  leaseTtlMs?: number;
   cancelled: () => boolean;
 }): Promise<string | null> {
   const deadline = Date.now() + Math.max(0, input.waitMs);
@@ -68,6 +70,7 @@ export async function acquireConcurrencyLeaseWithWait(input: {
       enterpriseId: input.enterpriseId,
       providerResourceId: input.providerResourceId,
       aiRequestId: input.aiRequestId,
+      ...(input.leaseTtlMs === undefined ? {} : { leaseTtlMs: input.leaseTtlMs }),
     });
     if (lease !== null) return lease;
     const remaining = deadline - Date.now();

@@ -77,3 +77,50 @@ describe("attemptDiagnosticUpdate", () => {
     })).toEqual({ upstream_error_evidence: evidence, request_shape_summary: safeShape });
   });
 });
+
+describe("统一 300 秒空闲超时北向错误合同", () => {
+  const idleTimeoutOutcome: Outcome = {
+    status: 504,
+    committed: false,
+    error: "upstream_timeout",
+    failureLayer: "STREAM_IDLE_TIMEOUT",
+    usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+  };
+
+  it("仅 STREAM_IDLE_TIMEOUT 返回统一中文提示（未提交 HTTP 504 路径）", async () => {
+    const app = Fastify();
+    app.post("/", async (_request, reply) => sendPipelineResponse(
+      { reply, capability: "chat", traceId: "trace", requestId: "ai-req-1", streamWriter: null } as PipelineContext,
+      { finalOutcome: idleTimeoutOutcome, finalOutcomeProviderCode: "deepseek" } as PipelineExecutionState,
+    ));
+    try {
+      const response = await app.inject({ method: "POST", url: "/" });
+      expect(response.statusCode).toBe(504);
+      expect(response.json().error).toMatchObject({
+        message: "上游模型响应中断，等待超时。请稍后重试，或切换其他模型。",
+        code: "upstream_timeout",
+        failure_layer: "STREAM_IDLE_TIMEOUT",
+        request_id: "ai-req-1",
+      });
+    } finally { await app.close(); }
+  });
+
+  it.each([
+    ["FIRST_BYTE_TIMEOUT", "upstream_timeout"],
+    ["REQUEST_TIMEOUT", "upstream_timeout"],
+  ] as const)("其他超时失败层 %s 不套用空闲超时提示", async (failureLayer, error) => {
+    const result = northboundFailurePresentation({
+      status: 504, committed: false, error, failureLayer,
+      usage: { input: 0, output: 0, cache: 0, quality: "UNKNOWN" },
+    } as Outcome, "DeepSeek ", false);
+    expect(result.message).not.toBe("上游模型响应中断，等待超时。请稍后重试，或切换其他模型。");
+  });
+
+  it("已提交流内错误同样携带统一提示与真实请求 ID", () => {
+    const result = northboundFailurePresentation({
+      ...idleTimeoutOutcome,
+      committed: true,
+    }, "DeepSeek ", false);
+    expect(result.message).toBe("上游模型响应中断，等待超时。请稍后重试，或切换其他模型。");
+  });
+});

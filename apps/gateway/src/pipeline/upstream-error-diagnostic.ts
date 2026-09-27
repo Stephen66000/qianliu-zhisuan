@@ -17,6 +17,9 @@ export function attemptDiagnosticUpdate(outcome: Outcome): {
   };
 }
 
+/** 仅 `failureLayer=STREAM_IDLE_TIMEOUT` 使用的统一文案（300 秒空闲合同）。 */
+export const STREAM_IDLE_TIMEOUT_MESSAGE = "上游模型响应中断，等待超时。请稍后重试，或切换其他模型。";
+
 export function northboundFailurePresentation(
   outcome: Outcome,
   providerDisplayName: string,
@@ -27,6 +30,9 @@ export function northboundFailurePresentation(
   message: string;
   param: string | null;
 } {
+  if (outcome.failureLayer === "STREAM_IDLE_TIMEOUT") {
+    return { diagnosticExtension: {}, message: STREAM_IDLE_TIMEOUT_MESSAGE, param: null };
+  }
   if (outcome.error === MODEL_IMAGE_UNSUPPORTED || outcome.error === IMAGE_INPUT_UNSUPPORTED) {
     return { diagnosticExtension: {}, message: outcome.error === MODEL_IMAGE_UNSUPPORTED
       ? "模型不支持图片" : "图片输入格式不受支持，无法完整转发图片", param: outcome.error === MODEL_IMAGE_UNSUPPORTED ? "model" : capability === "responses" ? "input" : "messages" };

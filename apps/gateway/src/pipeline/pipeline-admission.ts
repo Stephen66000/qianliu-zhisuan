@@ -21,6 +21,7 @@ export interface PipelineConfig {
   capacityWaitMs: number;
   capacityPollMs: number;
   halfOpenProbeLeaseMs: number;
+  concurrencyLeaseTtlMs: number;
 }
 
 export async function preparePipelineContext(

@@ -231,7 +231,9 @@ async function* readSseData(
   const decoder = new TextDecoder();
   let buffer = "";
   for await (const chunk of body) {
-    onChunk();
+    // 仅非空原始块是上游活跃证据（统一 300 秒空闲合同）：零长度 TCP 块、
+    // 空读取不得刷新上游空闲计时，防止无数据活动无限续期空闲窗口。
+    if (chunk.byteLength > 0) onChunk();
     buffer += decoder.decode(chunk, { stream: true });
     // 对累计缓冲区归一化，覆盖 "\r" / "\n" 恰好跨 TCP chunk 的边界。
     buffer = buffer.replace(/\r\n/g, "\n");

@@ -20,7 +20,7 @@ import { buildRequestShapeSummary } from "./upstream-error-evidence.js";
 import { upstreamFailure } from "./upstream-failure.js";
 import { toChatCompletionsRequest } from "./openai-compatible-request.js";
 import { failedOutcome, parseJsonResponse, parseStreamingResponse } from "./openai-compatible-response.js";
-import { chatCompletionsUrl, createLayeredTimeout, defaultFetch } from "./openai-compatible-timeout.js";
+import { chatCompletionsUrl, createLayeredTimeout, createUpstreamDispatcher, defaultFetch } from "./openai-compatible-timeout.js";
 import { resolveProviderEndpoint, capabilityConfiguredEndpoints } from "./endpoint-policy.js";
 import { canonicalProviderCode } from "./provider-code.js";
 
@@ -109,7 +109,12 @@ export function createOpenAiCompatibleCaller(
   const { env = process.env, fetch: fetchImpl = defaultFetch } = options;
   const requestTimeoutMs = options.requestTimeoutMs ?? 10 * 60_000;
   const firstByteTimeoutMs = options.firstByteTimeoutMs ?? 30_000;
-  const streamIdleTimeoutMs = options.streamIdleTimeoutMs ?? 45_000;
+  // 统一 300 秒空闲门限（POOL-034 后续统一）：与生产 Gateway 策略默认值一致，
+  // 避免旁路/新接入的正式调用回退到历史 45 秒。
+  const streamIdleTimeoutMs = options.streamIdleTimeoutMs ?? 300_000;
+  // 按"首字节+空闲+总时限"组合缓存 dispatcher，避免每请求新建连接池；
+  // 生产装配下组合数有限（空闲统一 300 秒，首字节按厂商/模式有限集合）。
+  const dispatchers = new Map<string, unknown>();
 
   return async (resource, request) => {
     if (!resource.secret.isConfigured()) {
@@ -160,12 +165,26 @@ export function createOpenAiCompatibleCaller(
     }
     const chatBody = toChatCompletionsRequest(resource, request);
     if (!preservesImageInputs(request.body, chatBody)) return failedOutcome(400, IMAGE_INPUT_UNSUPPORTED);
+    const resolvedFirstByteMs = resolveFirstByteTimeoutMs(resource, firstByteTimeoutMs, options.firstByteTimeoutMsForResource);
+    const resolvedIdleMs = resolveStreamIdleTimeoutMs(resource, streamIdleTimeoutMs, options.streamIdleTimeoutMsForResource);
     const timeout = createLayeredTimeout({
       requestAbort: request.abort,
       requestTimeoutMs,
-      firstByteTimeoutMs: resolveFirstByteTimeoutMs(resource, firstByteTimeoutMs, options.firstByteTimeoutMsForResource),
-      streamIdleTimeoutMs: resolveStreamIdleTimeoutMs(resource, streamIdleTimeoutMs, options.streamIdleTimeoutMsForResource),
+      firstByteTimeoutMs: resolvedFirstByteMs,
+      streamIdleTimeoutMs: resolvedIdleMs,
     });
+    // 显式协调 Undici headers/body 时限：业务 AbortSignal 必须先触发并留下
+    // 对应 failureLayer；底层时限只作兜底，不得与业务门限设为相同值。
+    const dispatcherKey = `${resolvedFirstByteMs}:${resolvedIdleMs}:${requestTimeoutMs}`;
+    let dispatcher = dispatchers.get(dispatcherKey);
+    if (!dispatcher) {
+      dispatcher = createUpstreamDispatcher({
+        streamIdleTimeoutMs: resolvedIdleMs,
+        firstByteTimeoutMs: resolvedFirstByteMs,
+        requestTimeoutMs,
+      });
+      dispatchers.set(dispatcherKey, dispatcher);
+    }
 
     let response: HttpResponseLike;
     try {
@@ -179,6 +198,7 @@ export function createOpenAiCompatibleCaller(
         },
         body: JSON.stringify(chatBody),
         signal: timeout.signal,
+        dispatcher,
       });
     } catch {
       const cancelled = request.abort?.aborted === true;

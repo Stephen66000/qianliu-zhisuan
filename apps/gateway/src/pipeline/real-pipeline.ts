@@ -19,9 +19,13 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     capacityWaitMs: deps.capacityWaitMs ?? 2_000,
     capacityPollMs: deps.capacityPollMs ?? 25,
     halfOpenProbeLeaseMs: deps.halfOpenProbeLeaseMs ?? 11 * 60_000,
+    concurrencyLeaseTtlMs: deps.concurrencyLeaseTtlMs ?? 11 * 60_000,
   };
   if (!Number.isSafeInteger(config.halfOpenProbeLeaseMs) || config.halfOpenProbeLeaseMs <= 0) {
     throw new Error("halfOpenProbeLeaseMs 必须是正整数毫秒");
+  }
+  if (!Number.isSafeInteger(config.concurrencyLeaseTtlMs) || config.concurrencyLeaseTtlMs <= 0) {
+    throw new Error("concurrencyLeaseTtlMs 必须是正整数毫秒");
   }
 
   return async (input) => {

@@ -323,6 +323,7 @@ async function reserveCodingPlanQuota(
     aiRequestId: context.requestId,
     waitMs: context.capacityWaitMs,
     pollMs: context.capacityPollMs,
+    leaseTtlMs: context.concurrencyLeaseTtlMs,
     cancelled: () => context.downstreamAbort.signal.aborted,
   });
   if (leaseId === null) {

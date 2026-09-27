@@ -19,7 +19,7 @@ const resource = (
 });
 
 describe("Gateway 生产上游 Caller 装配", () => {
-  it("冻结 main.ts 实际使用的厂商门限、空闲门限和总门限", () => {
+  it("冻结 main.ts 实际使用的厂商首字节门限、统一空闲门限和总门限", () => {
     const env = {
       GATEWAY_UPSTREAM_FIRST_BYTE_TIMEOUT_MS: "40000",
       GATEWAY_KIMI_FIRST_BYTE_TIMEOUT_MS: "120000",
@@ -31,18 +31,29 @@ describe("Gateway 生产上游 Caller 装配", () => {
     expect(options.env).toBe(env);
     expect(options.firstByteTimeoutMsForResource?.(resource("deepseek"))).toBe(40_000);
     expect(options.firstByteTimeoutMsForResource?.(resource("kimi"))).toBe(120_000);
-    // 空闲门限为厂商/模式策略（POOL-034）：未覆盖的厂商回退全局 50 秒。
+    // 统一 300 秒空闲门限：显式配置仍生效，但厂商/模式覆盖已移除。
     expect(options.streamIdleTimeoutMsForResource?.(resource("deepseek", "API"))).toBe(50_000);
     expect(options.streamIdleTimeoutMsForResource?.(resource("kimi", "CODING_PLAN"))).toBe(50_000);
     expect(options.requestTimeoutMs).toBe(700_000);
   });
 
-  it("智谱 Coding Plan 空闲门限默认放宽到 120 秒，智谱 API 与其他厂商仍为 45 秒", () => {
-    const options = createProductionCallerOptions({});
-    expect(options.streamIdleTimeoutMsForResource?.(resource("zhipu", "CODING_PLAN"))).toBe(120_000);
-    expect(options.streamIdleTimeoutMsForResource?.(resource("zhipu", "API"))).toBe(45_000);
-    expect(options.streamIdleTimeoutMsForResource?.(resource("deepseek", "API"))).toBe(45_000);
-    expect(options.streamIdleTimeoutMsForResource?.(resource("kimi", "CODING_PLAN"))).toBe(45_000);
+  it("统一空闲门限：智谱 Coding Plan 特例与厂商覆盖全部失效，默认 300000", () => {
+    const options = createProductionCallerOptions({
+      GATEWAY_ZHIPU_CODING_PLAN_STREAM_IDLE_TIMEOUT_MS: "130000",
+      GATEWAY_KIMI_STREAM_IDLE_TIMEOUT_MS: "90000",
+    });
+    expect(options.streamIdleTimeoutMsForResource?.(resource("zhipu", "CODING_PLAN"))).toBe(300_000);
+    expect(options.streamIdleTimeoutMsForResource?.(resource("zhipu", "API"))).toBe(300_000);
+    expect(options.streamIdleTimeoutMsForResource?.(resource("deepseek", "API"))).toBe(300_000);
+    expect(options.streamIdleTimeoutMsForResource?.(resource("kimi", "CODING_PLAN"))).toBe(300_000);
+  });
+
+  it("旧空闲覆盖变量产生脱敏弃用提示", () => {
+    const seen: string[] = [];
+    createProductionCallerOptions({
+      GATEWAY_ZHIPU_CODING_PLAN_STREAM_IDLE_TIMEOUT_MS: "130000",
+    }, { onLegacyOverride: (name) => seen.push(name) });
+    expect(seen).toEqual(["GATEWAY_ZHIPU_CODING_PLAN_STREAM_IDLE_TIMEOUT_MS"]);
   });
 
   it("生产入口将完整选项交给真实 Caller 工厂", () => {
@@ -62,6 +73,16 @@ describe("Gateway 生产上游 Caller 装配", () => {
 
     expect(runtime.requestTimeoutMs).toBe(700_000);
     expect(runtime.halfOpenProbeLeaseMs).toBe(760_000);
+  });
+
+  it("并发租约 TTL 与总调用时限同源派生并覆盖 60000ms 安全余量", () => {
+    const runtime = createProductionUpstreamRuntime({
+      GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS: "700000",
+    });
+    expect(runtime.concurrencyLeaseTtlMs).toBe(760_000);
+
+    const defaults = createProductionUpstreamRuntime({});
+    expect(defaults.concurrencyLeaseTtlMs).toBe(660_000);
   });
 
   it("空的总超时配置回退生产默认值", () => {

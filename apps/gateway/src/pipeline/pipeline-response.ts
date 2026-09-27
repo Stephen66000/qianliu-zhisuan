@@ -1,6 +1,6 @@
 import type { Outcome } from "@qianliu/contracts";
 import { buildResponsesResponse, writeResponsesSse } from "../routes/responses-protocol.js";
-import { northboundFailurePresentation } from "./upstream-error-diagnostic.js";
+import { northboundFailurePresentation, STREAM_IDLE_TIMEOUT_MESSAGE } from "./upstream-error-diagnostic.js";
 import { publishFailedRequest } from "./pipeline-failure-settlement.js";
 import {
   providerDisplayName,
@@ -57,9 +57,11 @@ function sendFinalOutcomeFailure(
       code: outcome.error === "stream_interrupted_after_commit"
         ? "upstream_stream_interrupted"
         : outcome.error!,
-      message: outcome.error === "upstream_timeout"
-        ? "上游流超时"
-        : "上游流在输出期间中断",
+      message: outcome.failureLayer === "STREAM_IDLE_TIMEOUT"
+        ? STREAM_IDLE_TIMEOUT_MESSAGE
+        : outcome.error === "upstream_timeout"
+          ? "上游流超时"
+          : "上游流在输出期间中断",
       requestId,
     });
     return;
@@ -101,6 +103,7 @@ function sendFinalOutcomeFailure(
       param: presentation.param,
       retryable: status !== 400 && !quotaExhausted,
       ...presentation.diagnosticExtension,
+      ...(outcome.failureLayer ? { failure_layer: outcome.failureLayer } : {}),
       ...(outcome.retryAfterMs === undefined ? {} : { retry_after_ms: outcome.retryAfterMs }),
       request_id: requestId,
       ...(quotaExhausted || windowExhausted ? {
