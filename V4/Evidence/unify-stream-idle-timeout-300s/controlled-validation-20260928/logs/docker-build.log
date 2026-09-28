@@ -1,0 +1,157 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.53kB 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22.17.1-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 392B done
+#3 DONE 0.0s
+
+#4 [ 1/19] FROM docker.io/library/node:22.17.1-alpine
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 8.61MB 0.2s done
+#5 DONE 0.2s
+
+#6 [ 2/19] RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
+#6 CACHED
+
+#7 [ 3/19] WORKDIR /app
+#7 CACHED
+
+#8 [ 4/19] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+#8 DONE 0.1s
+
+#9 [ 5/19] COPY apps/gateway/package.json apps/gateway/
+#9 DONE 0.0s
+
+#10 [ 6/19] COPY apps/control-api/package.json apps/control-api/
+#10 DONE 0.0s
+
+#11 [ 7/19] COPY apps/worker/package.json apps/worker/
+#11 DONE 0.0s
+
+#12 [ 8/19] COPY apps/web/package.json apps/web/
+#12 DONE 0.0s
+
+#13 [ 9/19] COPY packages/contracts/package.json packages/contracts/
+#13 DONE 0.0s
+
+#14 [10/19] COPY packages/domain/package.json packages/domain/
+#14 DONE 0.0s
+
+#15 [11/19] COPY packages/config/package.json packages/config/
+#15 DONE 0.0s
+
+#16 [12/19] COPY packages/testing/package.json packages/testing/
+#16 DONE 0.0s
+
+#17 [13/19] COPY packages/observability/package.json packages/observability/
+#17 DONE 0.0s
+
+#18 [14/19] COPY packages/provider-adapters/package.json packages/provider-adapters/
+#18 DONE 0.0s
+
+#19 [15/19] COPY packages/database/package.json packages/database/
+#19 DONE 0.0s
+
+#20 [16/19] RUN pnpm install --frozen-lockfile
+#20 1.399 Scope: all 12 workspace projects
+#20 1.608 ? Verifying lockfile against supply-chain policies (927 entries)...
+#20 1.645 Lockfile is up to date, resolution step is skipped
+#20 1.851 Progress: resolved 1, reused 0, downloaded 0, added 0
+#20 2.086 Packages: +837
+#20 2.086 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#20 2.856 Progress: resolved 837, reused 0, downloaded 0, added 0
+#20 5.210 Progress: resolved 837, reused 0, downloaded 1, added 0
+#20 5.955 
+#20 5.955    ╭──────────────────────────────────────────────╮
+#20 5.955    │                                              │
+#20 5.955    │     Update available! 11.11.0 → 12.6.0.      │
+#20 5.955    │     Changelog: https://pnpm.io/v/12.6.0      │
+#20 5.955    │   To update, run: corepack use pnpm@12.6.0   │
+#20 5.955    │                                              │
+#20 5.955    ╰──────────────────────────────────────────────╯
+#20 5.955 
+#20 6.212 Progress: resolved 837, reused 0, downloaded 58, added 58
+#20 7.212 Progress: resolved 837, reused 0, downloaded 128, added 128
+#20 8.212 Progress: resolved 837, reused 0, downloaded 183, added 182
+#20 9.210 Progress: resolved 837, reused 0, downloaded 225, added 225
+#20 10.21 Progress: resolved 837, reused 0, downloaded 241, added 241
+#20 11.21 Progress: resolved 837, reused 0, downloaded 281, added 281
+#20 12.21 Progress: resolved 837, reused 0, downloaded 310, added 310
+#20 13.21 Progress: resolved 837, reused 0, downloaded 356, added 356
+#20 14.21 Progress: resolved 837, reused 0, downloaded 400, added 400
+#20 15.21 Progress: resolved 837, reused 0, downloaded 443, added 443
+#20 16.29 Progress: resolved 837, reused 0, downloaded 487, added 487
+#20 17.44 Progress: resolved 837, reused 0, downloaded 541, added 541
+#20 18.44 Progress: resolved 837, reused 0, downloaded 605, added 605
+#20 19.44 Progress: resolved 837, reused 0, downloaded 627, added 627
+#20 20.44 Progress: resolved 837, reused 0, downloaded 672, added 672
+#20 21.45 Progress: resolved 837, reused 0, downloaded 716, added 714
+#20 22.45 Progress: resolved 837, reused 0, downloaded 752, added 752
+#20 23.45 Progress: resolved 837, reused 0, downloaded 785, added 785
+#20 24.45 Progress: resolved 837, reused 0, downloaded 818, added 818
+#20 25.45 Progress: resolved 837, reused 0, downloaded 828, added 828
+#20 26.45 Progress: resolved 837, reused 0, downloaded 830, added 830
+#20 27.46 Progress: resolved 837, reused 0, downloaded 832, added 832
+#20 28.46 Progress: resolved 837, reused 0, downloaded 834, added 834
+#20 29.46 Progress: resolved 837, reused 0, downloaded 835, added 835
+#20 31.04 [WARN] Tarball download average speed 33 KiB/s (size 251 KiB) is below 50 KiB/s: https://registry.npmjs.org/ssh2/-/ssh2-1.17.0.tgz (GET)
+#20 31.06 Progress: resolved 837, reused 0, downloaded 836, added 835
+#20 31.51 ✓ Lockfile passes supply-chain policies (927 entries in 29.9s)
+#20 32.06 Progress: resolved 837, reused 0, downloaded 836, added 836
+#20 34.15 Progress: resolved 837, reused 0, downloaded 837, added 836
+#20 34.15 Progress: resolved 837, reused 0, downloaded 837, added 837, done
+#20 34.65 .../argon2@0.41.1/node_modules/argon2 install$ node-gyp-build
+#20 34.66 .../esbuild@0.23.1/node_modules/esbuild postinstall$ node install.js
+#20 34.66 .../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+#20 34.72 .../esbuild@0.23.1/node_modules/esbuild postinstall: Done
+#20 34.72 .../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+#20 34.75 .../argon2@0.41.1/node_modules/argon2 install: Done
+#20 34.88 
+#20 34.88 devDependencies:
+#20 34.88 + @eslint/js 9.18.0
+#20 34.88 + @stryker-mutator/core 9.6.1
+#20 34.88 + @stryker-mutator/vitest-runner 9.6.1
+#20 34.88 + @types/node 22.20.1
+#20 34.88 + @typescript-eslint/eslint-plugin 8.65.0
+#20 34.88 + @typescript-eslint/parser 8.65.0
+#20 34.88 + @vitest/coverage-v8 3.2.4
+#20 34.88 + eslint 9.18.0
+#20 34.88 + eslint-plugin-react 7.37.4
+#20 34.88 + eslint-plugin-react-hooks 5.2.0
+#20 34.88 + globals 15.14.0
+#20 34.88 + jscpd 5.0.14
+#20 34.88 + prettier 3.4.2
+#20 34.88 + tsx 4.19.2
+#20 34.88 + typescript 5.9.3
+#20 34.88 + vitest 3.2.4
+#20 34.88 
+#20 34.96 Done in 34.5s using pnpm v11.11.0
+#20 DONE 35.8s
+
+#21 [17/19] COPY tsconfig.base.json ./
+#21 DONE 0.0s
+
+#22 [18/19] COPY packages/ packages/
+#22 DONE 0.1s
+
+#23 [19/19] COPY apps/gateway/ apps/gateway/
+#23 DONE 0.0s
+
+#24 exporting to image
+#24 exporting layers
+#24 exporting layers 5.6s done
+#24 writing image sha256:b6799eb235c6be585e61a9c946297f9003e8be661ad480dd5b2d3b6b1866950f
+#24 writing image sha256:b6799eb235c6be585e61a9c946297f9003e8be661ad480dd5b2d3b6b1866950f done
+#24 naming to docker.io/library/qianliu-gateway:stream-idle-300s-30337df done
+#24 DONE 5.7s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/y31mc8p1r4y37ump6zhwr7lkt
+BUILD_EXIT=0

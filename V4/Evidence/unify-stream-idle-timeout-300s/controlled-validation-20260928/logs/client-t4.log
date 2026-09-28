@@ -1,0 +1,3 @@
+[client] T4 start 2026-09-28T02:18:10.094Z
+PASS T4 Responses 慢聚合 >330s 连接保持 :: status=200 elapsed=340.4s events=9 completed=true usage={"input_tokens":12,"input_tokens_details":{"cached_tokens":0},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":20}
+SUMMARY total=1 pass=1 fail=0

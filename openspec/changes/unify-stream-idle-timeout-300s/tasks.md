@@ -1,8 +1,8 @@
 # Tasks
 
-> 状态：`IMPLEMENTATION_AUTHORIZED_LOCAL_ONLY`（2026-09-27 授权 WP1—WP5 及 8.1—8.2；生产发布 8.3 仍未授权）。
-> 1.2 / 4.2 / 6.3 / 6.4 因生产访问、Docker 与受控代理条件暂缺，保持未勾选并在验证报告中登记为 PENDING / BUSINESS_PENDING。
-> 8.1 候选镜像未构建（IMAGE_PENDING，本环境无 Docker）、8.2 因文字与实际交付不一致退回未勾选——本地 Git 提交不视同候选镜像。
+> 状态：`IMPLEMENTATION_AUTHORIZED_LOCAL_ONLY`（2026-09-27 授权 WP1—WP5 及 8.1—8.2；2026-09-28 追加授权受控环境预验收与本地候选镜像构建；推送、生产配置修改与生产发布 8.3 仍未授权）。
+> 1.2 / 6.4 因生产访问与 WorkBuddy 隔离客户端条件暂缺，保持未勾选并在验证报告中登记为 PENDING / BUSINESS_PENDING。
+> 2026-09-28 受控预验收完成：候选镜像已从 30337df 真实构建并通过 /health 预检（8.1/8.2 据实勾选）；4.2 数据库级租约回归 10/10 通过（隔离 PostgreSQL）；6.3 全链路受控验证通过（加速 T1/T2/T3 + 真实时间 340.4 秒 T4）。详见 `V4/Evidence/unify-stream-idle-timeout-300s/controlled-validation-20260928/预验收报告-20260928.md`。
 
 ## 1. 基线与证据
 
@@ -26,7 +26,7 @@
 ## 4. 并发租约与清理
 
 - [x] 4.1 从生产 runtime 的 `requestTimeoutMs` 同源派生 Coding Plan 并发租约 TTL（总时限加 60 秒），显式传入租约仓储，并用装配测试验证默认值不再是 60 秒。
-- [ ] 4.2 增加长请求租约回归，验证跨越 300 秒窗口时租约不会被回收或重复放行，请求完成、取消和超时后均只释放一次。（PENDING：数据库级集成测试需 Docker/postgres 容器，本环境不可用；TTL 派生与透传已由装配级测试覆盖，DB 级回归在受控环境补齐）
+- [x] 4.2 增加长请求租约回归，验证跨越 300 秒窗口时租约不会被回收或重复放行，请求完成、取消和超时后均只释放一次。（2026-09-28 受控环境补齐：隔离 PostgreSQL（postgres:17-alpine pinned digest）真实迁移 + 真实 QuotaGateRepository SQL，确定性时钟推进 10/10 通过——660 秒 TTL 落库、t+300s 不提前回收且并发满不重复放行、释放幂等（重复释放不改变 released_at）、expires_at 严格边界（恰在 expires_at 不回收、+1ms 回收并放行）；同源派生 concurrencyLeaseTtlMs=660000 断言通过。证据：controlled-validation-20260928/logs/lease-regression.log）
 - [x] 4.3 回归额度预占和失败结算，验证部分用量保持既有质量标记、未知用量不伪造为精确零值、没有重复结算。（沿用既有 attempt-usage-settlement 定向回归）
 
 ## 5. 错误合同与 Attempt 边界
@@ -39,7 +39,7 @@
 
 - [x] 6.1 回归 Messages 五秒 ping，验证 ping 在空闲期间持续发送、客户端可解析且不会刷新上游空闲计时。（2026-09-27：messages-protocol 定向回归通过；ping 为下游活动，上游计时只由非空原始块刷新，单测覆盖）
 - [x] 6.2 验证 Chat 已提交后连续空闲 300 秒时，可控代理保持连接直至收到流内错误；记录并验证生效的代理指令和数值。（2026-09-27：北向端到端真实 300 秒实测——慢上游→Gateway /v1/chat/completions（真实 Chat 路由+StreamWriter）→本地可控反代→HTTP 客户端，实测 301.4 秒收到 `code=upstream_timeout`+约定中文文案+真实 request_id 流内错误帧并正常收尾（northbound-slow-stream-idle.test.ts）；Caller 层 300 秒计时另由 real-slow-stream-idle.test.ts 真实时间实证；生产代理指令与数值见部署差异文档 §4，待部署窗口核验）
-- [ ] 6.3 验证 Responses 上游持续有数据但下游聚合等待超过 330 秒时仍保持连接，并将可控 `/v1/*` 入口等待配置为覆盖 600 秒总时限及至少 60 秒发送余量。（PENDING：完整网关栈 + 生产级反代的 660 秒配置核验需受控环境；660 秒目标已写入 spec 与部署文档）
+- [x] 6.3 验证 Responses 上游持续有数据但下游聚合等待超过 330 秒时仍保持连接，并将可控 `/v1/*` 入口等待配置为覆盖 600 秒总时限及至少 60 秒发送余量。（2026-09-28 受控全链路补齐：慢上游（9399，仅回环）→ 候选 Gateway 容器（镜像 qianliu-gateway:stream-idle-300s-30337df）→ 可控反代（58080，requestTimeout=0/headersTimeout=660s/keepAliveTimeout=660s/upstreamSocketIdle=720s，全部 ≥660 秒或显式关闭）→ HTTP 客户端。加速路径 T1 Responses SSE 完整事件流/T2 非流式 JSON/T3 上游 401 错误合同（502 + code=invalid_api_key + request_id + failure_layer=UPSTREAM_HTTP）全过；真实时间 T4：上游每 10 秒持续发数据约 335 秒，聚合等待 340.4 秒连接保持并返回完整 Responses SSE（ai_request SUCCEEDED、response_committed=t）。注：并发租约仅 CODING_PLAN 资源获取，本 E2E 资源为 API 模式；租约行为由 4.2 数据库级回归覆盖。证据：controlled-validation-20260928/logs/client-t1-t3.log、client-t4.log、upstream.log、proxy.log）
 - [ ] 6.4 通过 WorkBuddy 5.5.6 运行等效公网慢流，记录中文提示、请求 ID 和 3003 包装；若客户端提前断开，明确标记业务验收失败并停止宣称完整支持。（BUSINESS_PENDING：需 WorkBuddy 真实客户端与公网链路）
 
 ## 7. 候选验证
@@ -50,6 +50,6 @@
 
 ## 8. 发布准备与授权闸门
 
-- [ ] 8.1 生成候选镜像、环境变量差异、代理差异和回滚步骤，验证原镜像与原配置可恢复且没有数据库迁移。（IMAGE_PENDING：环境变量/代理差异、发布与回滚步骤文档已就绪且无数据库迁移，但候选镜像未构建——本环境无 Docker；镜像构建在部署授权后执行，完成后方可勾选）
-- [ ] 8.2 在不修改生产的前提下提交代码验证、候选镜像、部署步骤和回滚证据供审核，并确认生产部署任务保持未执行。（未完成：代码验证、部署步骤与回滚证据已交付，但候选镜像缺失（IMAGE_PENDING），与任务文字不一致；镜像构建后与本项一并复核勾选）
+- [x] 8.1 生成候选镜像、环境变量差异、代理差异和回滚步骤，验证原镜像与原配置可恢复且没有数据库迁移。（2026-09-28：候选镜像已从精确提交 30337df87ba（detached build worktree，非 evidence carrier）真实构建：qianliu-gateway:stream-idle-300s-30337df，ID sha256:b6799eb235c6…，linux/arm64，构建 exit 0，OCI 标签 org.opencontainers.image.revision/source/version；/health 预检 200；容器级受控链路验证通过。环境变量/代理差异与回滚步骤见部署差异文档；本变更迁移头与基线一致（head=0084，无新增迁移）。镜像仅存本地，未推送 Registry）
+- [x] 8.2 在不修改生产的前提下提交代码验证、候选镜像、部署步骤和回滚证据供审核，并确认生产部署任务保持未执行。（2026-09-28：代码验证（前两轮门禁证据）、候选镜像（8.1）、部署步骤与回滚证据均已交付且绑定候选 30337df；4.2/6.3 受控验证补齐后本项文字与交付一致。生产部署任务 8.3 保持未执行、未授权；未推送、未修改生产配置）
 - [ ] 8.3 仅在取得单独部署授权后选择合适窗口发布，核验服务器提交／镜像／容器／路由／公网响应与 WorkBuddy 结果，并将业务接受与技术部署分别记录。

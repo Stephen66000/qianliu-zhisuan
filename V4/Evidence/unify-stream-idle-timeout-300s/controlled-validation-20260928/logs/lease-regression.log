@@ -1,0 +1,12 @@
+migrations_applied=85 head=0084_provider_finance_historical_usage_cost
+PASS B1 同源派生 leaseTtl=660s :: requestTimeoutMs=600000 concurrencyLeaseTtlMs=660000
+PASS B2a 获取租约成功 :: leaseId=3e63b9f7-a2d4-49f6-8905-e63ccd35ac48
+PASS B2b TTL=660s 落库 :: expires_at-acquired_at=661366ms
+PASS B3a t+300s 不提前回收 :: reclaimed=0
+PASS B3b 并发满不重复放行 :: secondAcquire=rejected(null)
+PASS B4 释放只发生一次（幂等） :: before=null first=2026-09-28T01:58:09.733Z second=2026-09-28T01:58:09.733Z
+PASS B4b 释放后活跃并发=0 :: active=0
+PASS B5a 恰在 expires_at 不回收（严格 <） :: reclaimed=0
+PASS B5b expires_at+1ms 回收 1 条 :: reclaimed=1
+PASS B5c 回收后新请求放行 :: newLease=true
+SUMMARY total=10 pass=10 fail=0

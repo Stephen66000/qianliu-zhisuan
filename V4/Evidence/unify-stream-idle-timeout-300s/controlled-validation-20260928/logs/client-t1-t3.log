@@ -1,0 +1,6 @@
+PASS T1 加速 Responses SSE 成功路径 :: status=200 ct=text/event-stream events=response.created,response.in_progress,response.output_item.added,response.content_part.added,response.output_text.delta,response.output_text.done,response.content_part.done,response.output_item.done,response.completed elapsed=0.3s usage={"input_tokens":12,"input_tokens_details":{"cached_tokens":0},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":20}
+PASS T2 加速 Responses JSON 成功路径 :: status=200 id=resp_9df243c2-ecef-4900-8fbd-9f581f527b7f status=completed usage={"input_tokens":12,"input_tokens_details":{"cached_tokens":0},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":20}
+PASS T3 失败路径错误合同 :: status=502 code=invalid_api_key type=server_error request_id=present failure_layer=UPSTREAM_HTTP message="invalid_api_key"
+[client] T4 start 2026-09-28T02:15:23.530Z
+FAIL T4 Responses 慢聚合 >330s 连接保持 :: status=503 elapsed=0.0s events=0 completed=false usage=null
+SUMMARY total=4 pass=3 fail=1

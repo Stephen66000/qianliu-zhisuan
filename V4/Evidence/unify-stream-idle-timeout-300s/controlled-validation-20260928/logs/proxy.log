@@ -1,0 +1,13 @@
+[proxy] listening on 127.0.0.1:58080 -> http://127.0.0.1:58787
+[proxy] effective waits: requestTimeout=0 headersTimeout=660000 keepAliveTimeout=660000 timeout=0 upstreamSocketIdle=720000 (all >= 660s or disabled)
+[proxy] listening on 127.0.0.1:58080 -> http://127.0.0.1:58787
+[proxy] effective waits: requestTimeout=0 headersTimeout=660000 keepAliveTimeout=660000 timeout=0 upstreamSocketIdle=720000 (all >= 660s or disabled)
+[proxy] /v1/responses completed in 0.3s status=502
+[proxy] /v1/responses completed in 0.0s status=503
+[proxy] /v1/responses completed in 0.0s status=503
+[proxy] /v1/responses completed in 0.0s status=503
+[proxy] /v1/responses completed in 0.3s status=200
+[proxy] /v1/responses completed in 0.1s status=200
+[proxy] /v1/responses completed in 0.1s status=502
+[proxy] /v1/responses completed in 0.0s status=503
+[proxy] /v1/responses completed in 340.4s status=200
