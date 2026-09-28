@@ -40,7 +40,7 @@
 - [x] 6.1 回归 Messages 五秒 ping，验证 ping 在空闲期间持续发送、客户端可解析且不会刷新上游空闲计时。（2026-09-27：messages-protocol 定向回归通过；ping 为下游活动，上游计时只由非空原始块刷新，单测覆盖）
 - [x] 6.2 验证 Chat 已提交后连续空闲 300 秒时，可控代理保持连接直至收到流内错误；记录并验证生效的代理指令和数值。（2026-09-27：北向端到端真实 300 秒实测——慢上游→Gateway /v1/chat/completions（真实 Chat 路由+StreamWriter）→本地可控反代→HTTP 客户端，实测 301.4 秒收到 `code=upstream_timeout`+约定中文文案+真实 request_id 流内错误帧并正常收尾；Caller 层 300 秒计时另由 real-slow-stream-idle.test.ts 真实时间实证。2026-09-28 生产只读核验：Nginx `proxy_buffering off`、`proxy_read_timeout 600s`、`proxy_send_timeout 600s`，可覆盖本场景；Responses 600s 总时限仍须按 6.3 在部署时提升代理至至少 660s。）
 - [x] 6.3 验证 Responses 上游持续有数据但下游聚合等待超过 330 秒时仍保持连接，并将可控 `/v1/*` 入口等待配置为覆盖 600 秒总时限及至少 60 秒发送余量。（2026-09-28 受控全链路补齐：慢上游（9399，仅回环）→ 候选 Gateway 容器（镜像 qianliu-gateway:stream-idle-300s-30337df）→ 可控反代（58080，requestTimeout=0/headersTimeout=660s/keepAliveTimeout=660s/upstreamSocketIdle=720s，全部 ≥660 秒或显式关闭）→ HTTP 客户端。加速路径 T1 Responses SSE 完整事件流/T2 非流式 JSON/T3 上游 401 错误合同（502 + code=invalid_api_key + request_id + failure_layer=UPSTREAM_HTTP）全过；真实时间 T4：上游每 10 秒持续发数据约 335 秒，聚合等待 340.4 秒连接保持并返回完整 Responses SSE（ai_request SUCCEEDED、response_committed=t）。注：并发租约仅 CODING_PLAN 资源获取，本 E2E 资源为 API 模式；租约行为由 4.2 数据库级回归覆盖。证据：controlled-validation-20260928/logs/client-t1-t3.log、client-t4.log、upstream.log、proxy.log）
-- [ ] 6.4 通过 WorkBuddy 运行等效公网慢流，记录中文提示、请求 ID 和 3003 包装；若客户端提前断开，明确标记业务验收失败并停止宣称完整支持。（BUSINESS_PENDING：当前实际客户端版本为 5.6.2；公网技术链路已部署，但尚未执行会向 WorkBuddy 发送消息的真实客户端测试）
+- [ ] 6.4 通过 WorkBuddy 运行等效公网慢流，记录中文提示、请求 ID 和 3003 包装；若客户端提前断开，明确标记业务验收失败并停止宣称完整支持。（BUSINESS_PENDING：当前实际客户端版本为 5.6.2；`ql-glm-5.3-flash` 正常流式冒烟已完整返回 20 行及结束标记，未出现 3003。该结果只证明正常路径，无连续 300 秒静默，不能代替超时提示专项验收；按用户决定停止人为造故障，等待真实环境反馈）
 
 ## 7. 候选验证
 

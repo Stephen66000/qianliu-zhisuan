@@ -73,4 +73,6 @@ Nginx 生效配置：
 
 ## 6. 业务接受边界
 
-当前 WorkBuddy 实际版本为 5.6.2，模型选择为 GLM-5.3-Flash。尚未向 WorkBuddy 发送业务验收消息，也未人为制造 300 秒上游静默；tasks 6.4 继续为 `BUSINESS_PENDING`。技术部署 PASS 不等于已证明 WorkBuddy 会在真实 300 秒断流时展示预期中文提示和 3003 包装。
+当前 WorkBuddy 实际版本为 5.6.2，实际选择模型为 `ql-glm-5.3-flash`。用户已执行一条无敏感数据的正常流式冒烟请求；客户端完整返回 `STREAM_SMOKE_01` 至 `STREAM_SMOKE_20`，并以 `STREAM_IDLE_300S_DEPLOYMENT_SMOKE_OK` 正常结束，未出现 3003。因此正常 WorkBuddy → 公网 Gateway → 智谱模型链路记为 **PASS**。
+
+该请求没有发生连续 300 秒上游静默，不能证明真实断流时的中文提示和 3003 包装。按用户决定，不再人为制造故障或继续扩大测试；tasks 6.4 继续保持 `BUSINESS_PENDING`，等待真实环境自然反馈。若再次发生，按错误时间、Request ID、模型和客户端错误报告核对 `failure_layer=STREAM_IDLE_TIMEOUT` 与约定中文提示。
