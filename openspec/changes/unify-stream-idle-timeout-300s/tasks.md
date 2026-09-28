@@ -1,6 +1,6 @@
 # Tasks
 
-> 状态：`IMPLEMENTATION_AUTHORIZED_LOCAL_ONLY`（2026-09-27 授权 WP1—WP5 及 8.1—8.2；2026-09-28 追加授权受控环境预验收与本地候选镜像构建；推送、生产配置修改与生产发布 8.3 仍未授权）。
+> 状态：`TECHNICAL_DEPLOYMENT_PASS / BUSINESS_ACCEPTANCE_PENDING`（2026-09-28 用户已单独授权并执行 tasks 8.3；候选分支已推送，生产 Gateway 与 Nginx 已切换并验证；未执行数据库迁移。tasks 6.4 WorkBuddy 业务验收继续独立保持 BUSINESS_PENDING）。
 > 1.2 已于 2026-09-28 通过生产只读预检补齐；6.4 因 WorkBuddy 隔离客户端条件暂缺，保持未勾选并登记为 BUSINESS_PENDING。
 > 2026-09-28 受控预验收完成：候选镜像已从 30337df 真实构建并通过 /health 预检（8.1/8.2 据实勾选）；4.2 数据库级租约回归 10/10 通过（隔离 PostgreSQL）；6.3 全链路受控验证通过（加速 T1/T2/T3 + 真实时间 340.4 秒 T4）。详见 `V4/Evidence/unify-stream-idle-timeout-300s/controlled-validation-20260928/预验收报告-20260928.md`。
 
@@ -40,7 +40,7 @@
 - [x] 6.1 回归 Messages 五秒 ping，验证 ping 在空闲期间持续发送、客户端可解析且不会刷新上游空闲计时。（2026-09-27：messages-protocol 定向回归通过；ping 为下游活动，上游计时只由非空原始块刷新，单测覆盖）
 - [x] 6.2 验证 Chat 已提交后连续空闲 300 秒时，可控代理保持连接直至收到流内错误；记录并验证生效的代理指令和数值。（2026-09-27：北向端到端真实 300 秒实测——慢上游→Gateway /v1/chat/completions（真实 Chat 路由+StreamWriter）→本地可控反代→HTTP 客户端，实测 301.4 秒收到 `code=upstream_timeout`+约定中文文案+真实 request_id 流内错误帧并正常收尾；Caller 层 300 秒计时另由 real-slow-stream-idle.test.ts 真实时间实证。2026-09-28 生产只读核验：Nginx `proxy_buffering off`、`proxy_read_timeout 600s`、`proxy_send_timeout 600s`，可覆盖本场景；Responses 600s 总时限仍须按 6.3 在部署时提升代理至至少 660s。）
 - [x] 6.3 验证 Responses 上游持续有数据但下游聚合等待超过 330 秒时仍保持连接，并将可控 `/v1/*` 入口等待配置为覆盖 600 秒总时限及至少 60 秒发送余量。（2026-09-28 受控全链路补齐：慢上游（9399，仅回环）→ 候选 Gateway 容器（镜像 qianliu-gateway:stream-idle-300s-30337df）→ 可控反代（58080，requestTimeout=0/headersTimeout=660s/keepAliveTimeout=660s/upstreamSocketIdle=720s，全部 ≥660 秒或显式关闭）→ HTTP 客户端。加速路径 T1 Responses SSE 完整事件流/T2 非流式 JSON/T3 上游 401 错误合同（502 + code=invalid_api_key + request_id + failure_layer=UPSTREAM_HTTP）全过；真实时间 T4：上游每 10 秒持续发数据约 335 秒，聚合等待 340.4 秒连接保持并返回完整 Responses SSE（ai_request SUCCEEDED、response_committed=t）。注：并发租约仅 CODING_PLAN 资源获取，本 E2E 资源为 API 模式；租约行为由 4.2 数据库级回归覆盖。证据：controlled-validation-20260928/logs/client-t1-t3.log、client-t4.log、upstream.log、proxy.log）
-- [ ] 6.4 通过 WorkBuddy 5.5.6 运行等效公网慢流，记录中文提示、请求 ID 和 3003 包装；若客户端提前断开，明确标记业务验收失败并停止宣称完整支持。（BUSINESS_PENDING：需 WorkBuddy 真实客户端与公网链路）
+- [ ] 6.4 通过 WorkBuddy 运行等效公网慢流，记录中文提示、请求 ID 和 3003 包装；若客户端提前断开，明确标记业务验收失败并停止宣称完整支持。（BUSINESS_PENDING：当前实际客户端版本为 5.6.2；公网技术链路已部署，但尚未执行会向 WorkBuddy 发送消息的真实客户端测试）
 
 ## 7. 候选验证
 
@@ -52,4 +52,4 @@
 
 - [x] 8.1 生成候选镜像、环境变量差异、代理差异和回滚步骤，验证原镜像与原配置可恢复且没有数据库迁移。（2026-09-28：候选镜像已从精确提交 30337df87ba（detached build worktree，非 evidence carrier）真实构建：qianliu-gateway:stream-idle-300s-30337df，ID sha256:b6799eb235c6…，linux/arm64，构建 exit 0，OCI 标签 org.opencontainers.image.revision/source/version；/health 预检 200；容器级受控链路验证通过。环境变量/代理差异与回滚步骤见部署差异文档；本变更迁移头与基线一致（head=0084，无新增迁移）。镜像仅存本地，未推送 Registry）
 - [x] 8.2 在不修改生产的前提下提交代码验证、候选镜像、部署步骤和回滚证据供审核，并确认生产部署任务保持未执行。（2026-09-28：代码验证（前两轮门禁证据）、候选镜像（8.1）、部署步骤与回滚证据均已交付且绑定候选 30337df；4.2/6.3 受控验证补齐后本项文字与交付一致。生产部署任务 8.3 保持未执行、未授权；未推送、未修改生产配置）
-- [ ] 8.3 仅在取得单独部署授权后选择合适窗口发布，核验服务器提交／镜像／容器／路由／公网响应与 WorkBuddy 结果，并将业务接受与技术部署分别记录。
+- [x] 8.3 仅在取得单独部署授权后选择合适窗口发布，核验服务器提交／镜像／容器／路由／公网响应与 WorkBuddy 结果，并将业务接受与技术部署分别记录。（2026-09-28：用户单独授权后执行；精确候选 `30337df` 在服务器原生 amd64 构建，镜像 `sha256:f24f1545b559…` 带 OCI revision；运行容器绑定同一镜像和新 release 目录；有效 idle=300000ms、旧 idle 覆盖=0；Nginx buffering off、读写 660s；本机与公网 health=200、无鉴权 models=401；其他服务未重启；旧镜像与代理配置均保留可回滚。技术部署 PASS，WorkBuddy 业务接受仍由 6.4 独立保持 BUSINESS_PENDING。证据：`V4/Evidence/unify-stream-idle-timeout-300s/production-deployment-20260928.md`）
