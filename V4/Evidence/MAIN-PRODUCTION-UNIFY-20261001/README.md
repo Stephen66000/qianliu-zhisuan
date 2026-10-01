@@ -39,3 +39,5 @@
 ## Worker Linux 原生依赖构建返修
 
 第二次切换时三个 HTTP 入口已就绪，但 Worker 因缺少 Canvas Linux musl 原生二进制持续重启，严格健康门禁据实回退。pnpm 将下载失败的可选平台包省略，安装步骤仍返回成功。Worker Dockerfile 现显式应用编排已有的 NPM_REGISTRY，并在镜像导出前加载 Canvas、渲染一个 PNG；缺少原生依赖将直接阻止构建。lockfile 及供应链策略不放宽，应用源码保持不变。
+
+镜像源设置使用 pnpm 11 的 project scope：global scope 需要额外全局 bin PATH，与容器内项目依赖安装无关。已在独立临时项目验证 project scope 正确写入项目 .npmrc，原工作区和用户的 registry 设置保持不变。
