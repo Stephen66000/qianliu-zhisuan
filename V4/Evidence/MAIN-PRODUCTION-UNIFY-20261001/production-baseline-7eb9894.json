@@ -1,0 +1,43 @@
+{
+  "revision": "7eb98941b62f4b32f10ba07269244f8d02205469",
+  "services": {
+    "control-api": {
+      "image_id": "sha256:3e26c42f9fda098c95fcedf2698b056e9eb72f34832a3896d59fcdf931bfb806",
+      "revision": "7eb98941b62f4b32f10ba07269244f8d02205469",
+      "environment_preserved": true,
+      "ports_preserved": true,
+      "source": {
+        "files": 554,
+        "sha256": "753034b1758e47c9c36601dc800f05ef1e5159a68d089abd55b93f93e6fd3401"
+      }
+    },
+    "gateway": {
+      "image_id": "sha256:669a4a62a12e8725f33bf3a1fe8a749ee6332b621d223db155350e12a8b1fbab",
+      "revision": "7eb98941b62f4b32f10ba07269244f8d02205469",
+      "environment_preserved": true,
+      "ports_preserved": true,
+      "source": {
+        "files": 493,
+        "sha256": "51c36f1ac25f1d7a02b597106c022ebd4bbab1d61004ec26b2a4ecce5d72889b"
+      }
+    },
+    "worker": {
+      "image_id": "sha256:44bda98d5217a9e39c7855a387d96fe2852591aa7ae3943c2d0cc9b3205b64ee",
+      "revision": "7eb98941b62f4b32f10ba07269244f8d02205469",
+      "environment_preserved": true,
+      "ports_preserved": true,
+      "source": {
+        "files": 457,
+        "sha256": "6da22a5dd4e143b12ae8db63d456b1dd061f959b0e4c0569b886687c9cf9451e"
+      }
+    },
+    "web": {
+      "image_id": "sha256:5d3946f48dc8b9a190975ac96d3974ad43a2561f19442e0d346830db7d72b481",
+      "revision": "7eb98941b62f4b32f10ba07269244f8d02205469",
+      "environment_preserved": true,
+      "ports_preserved": true
+    }
+  },
+  "migration": "0085_historical_usage_not_migrated",
+  "public_frontend_sha256": "63a6aa7274c4505e711100d7e75a03b408e0555b1634a252308c4a5b47b4ab5c"
+}

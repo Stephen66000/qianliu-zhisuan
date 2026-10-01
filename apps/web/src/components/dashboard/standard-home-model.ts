@@ -80,6 +80,7 @@ export function previousTokenQualityNote(
 const COST_GAP_LABELS: Array<[string, string]> = [
   ["API_USAGE_COST_NOT_MIGRATED", "该历史区间金额未迁移（不可计算）"],
   ["API_USAGE_COST_UNKNOWN", "存在未知 API 费用"],
+  ["API_COST_UNKNOWN", "存在未知 API 费用"],
   ["API_COST_CURRENCY_MISSING", "有费用缺少币种"],
   ["API_COST_CURRENCY_CONFLICT", "有费用币种与计价规则冲突"],
   ["OPENING_BALANCE_MISSING", "有账户缺少期初余额"],
@@ -227,7 +228,7 @@ export function buildOverviewCards(
       primary: costAmounts[0] ?? null,
       additional: costAmounts.slice(1),
       emptyText: costAmounts.length === 0
-        ? cost.current.incompleteReason ?? "暂无可计算费用"
+        ? cost.current.incompleteReason ? costGapLabel(cost.current.incompleteReason) : "暂无可计算费用"
         : null,
       delta: costDelta,
       footnote: `上月同期 ${costPreviousText}`,

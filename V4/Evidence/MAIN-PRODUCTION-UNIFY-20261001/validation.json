@@ -7,13 +7,13 @@
   "focused_tests": {
     "database_migration_and_null_cost": 5,
     "usage_and_settlement": 35,
-    "web": 41,
+    "web": 42,
     "worker": 41,
     "control_api": 2,
     "gateway_with_real_300s_idle": 60,
     "provider_adapters": 96
   },
-  "total_tests": 280,
+  "total_tests": 281,
   "real_paid_model_calls": 0,
   "real_wecom_messages_sent": 0,
   "production_migrations_executed_by_this_task": 0,

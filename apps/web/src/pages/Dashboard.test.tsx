@@ -322,6 +322,21 @@ describe("标准版首页（两分区）", () => {
     expect(within(costCard).getByText("金额存在缺口，不计算百分比")).toBeInTheDocument();
   });
 
+  it("费用不可计算时显示可读说明，不将状态码或假零作为金额", () => {
+    const data = seededHome();
+    data.monthlyCost.current.totalSpends = [];
+    data.monthlyCost.current.incompleteReason = "API_COST_UNKNOWN";
+    useStandardHomeMock.mockReturnValue({
+      isLoading: false, error: null, data, isFetching: false, refetch: vi.fn(),
+    });
+    renderPage();
+    const costCard = screen.getByTestId("home-cost-card");
+    expect(within(costCard).getByText("存在未知 API 费用")).toBeInTheDocument();
+    expect(costCard.textContent).not.toContain("API_COST_UNKNOWN");
+    expect(costCard.textContent).not.toContain("¥0.00");
+    expect(within(costCard).getByText("金额存在缺口，不计算百分比")).toBeInTheDocument();
+  });
+
   it("R01-F01：同期费用存在缺口时不输出百分比并说明缺口", () => {
     const data = seededHome();
     data.monthlyCost.previous!.incompleteReason = "CASH_PAID_CNY_MISSING:1";
