@@ -30,14 +30,24 @@ rollback() {
   echo 'ROLLBACK: previous four application images and their effective environment restored'
 }
 health() {
-  local try
+  local try control gateway web worker
   for try in $(seq 1 30); do
-    if [[ "$(curl --connect-timeout 2 --max-time 3 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9092/health)" == 200 ]] \
-      && [[ "$(curl --connect-timeout 2 --max-time 3 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9093/health)" == 200 ]] \
-      && [[ "$(curl --connect-timeout 2 --max-time 3 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9091/)" == 200 ]] \
-      && [[ "$(docker inspect --format '{{.State.Health.Status}}' ic-worker)" == healthy ]]; then return 0; fi
+    # A connection refusal while a process starts is a failed readiness attempt,
+    # not an ERR trap inside command substitution. The final gate remains strict.
+    control="$(curl --connect-timeout 2 --max-time 3 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9092/health || true)"
+    gateway="$(curl --connect-timeout 2 --max-time 3 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9093/health || true)"
+    web="$(curl --connect-timeout 2 --max-time 3 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9091/ || true)"
+    worker="$(docker inspect --format '{{.State.Health.Status}}' ic-worker || true)"
+    echo "READINESS attempt=$try control=$control gateway=$gateway web=$web worker=$worker"
+    if [[ "$control/$gateway/$web/$worker" == 200/200/200/healthy ]]; then return 0; fi
     sleep 2
   done
+  mkdir -p "$bt/health-failure"
+  for service in control-api gateway worker web; do
+    docker logs --tail 40 "ic-$service" > "$bt/health-failure/$service.log" 2>&1 || true
+    docker inspect --format '{{json .State}}' "ic-$service" > "$bt/health-failure/$service-state.json" 2>&1 || true
+  done
+  echo 'HEALTH_FAILED: deadline reached; diagnostics saved before rollback'
   return 1
 }
 verify() {

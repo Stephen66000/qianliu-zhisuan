@@ -1,0 +1,3 @@
+PASS: transient connection refusal
+PASS: endpoint never ready
+PASS: worker remains starting

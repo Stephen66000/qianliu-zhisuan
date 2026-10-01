@@ -16,5 +16,6 @@
   "total_tests": 280,
   "real_paid_model_calls": 0,
   "real_wecom_messages_sent": 0,
-  "production_migrations_executed_by_this_task": 0
+  "production_migrations_executed_by_this_task": 0,
+  "release_readiness_cases": 3
 }
