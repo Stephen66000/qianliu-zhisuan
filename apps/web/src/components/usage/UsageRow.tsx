@@ -24,10 +24,16 @@ function StatusCell({ status }: { status: string }) {
 }
 
 function ApiCostCell({ record }: { record: UsageRecord }) {
+  if (record.costStatus === "NOT_MIGRATED" || record.costNotMigrated) {
+    return <span className="text-ql-fg-tertiary">未迁移/不可计算</span>;
+  }
   if (!record.hasSettlement) {
     return <span className="text-ql-fg-tertiary">未结算</span>;
   }
-  if (record.totalApiCost === "0" || record.totalApiCost === "0.00000000") {
+  if (record.costStatus === "UNKNOWN_COST" || record.totalApiCost === null) {
+    return <span className="text-ql-fg-tertiary">未知</span>;
+  }
+  if (record.costStatus === "NOT_APPLICABLE" || record.totalApiCost === "0" || record.totalApiCost === "0.00000000") {
     return <span className="text-ql-fg-secondary">套餐内</span>;
   }
   const symbol = record.costCurrency === "USD" ? "$" : "¥";

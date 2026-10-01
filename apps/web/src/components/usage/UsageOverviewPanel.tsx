@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useUsageOverview } from "../../api/v2-hooks";
 import { formatCount, formatMoney } from "../../lib/format";
+import { unavailableUsageCostLabel } from "../../lib/usage-cost";
 import { ErrorState } from "../states/ErrorState";
 import { LoadingState } from "../states/LoadingState";
 import { usageInputClass } from "./UsageSearchField";
@@ -28,7 +29,8 @@ export function UsageOverviewPanel() {
   if (query.isLoading) return <LoadingState label="正在汇总周期用量…" rows={5}/>;
   if (query.error || !query.data) return <ErrorState message={query.error?.message ?? "周期用量加载失败"} onRetry={() => void query.refetch()}/>;
   const data = query.data;
-  const metrics = [["活跃主体", formatCount(String(data.metrics.activeSubjects))], ["请求数", formatCount(data.metrics.requestCount)], ["token使用量", formatCount(data.metrics.realTokens)], ["API 费用", `¥${formatMoney(data.metrics.apiCost)}`], ["套餐扣减", formatCount(data.metrics.deductedQuota)]];
+  const costDisplay = unavailableUsageCostLabel(data.metrics.apiCost, data.metrics.apiCostStatus) ?? `¥${formatMoney(data.metrics.apiCost!)}`;
+  const metrics = [["活跃主体", formatCount(String(data.metrics.activeSubjects))], ["请求数", formatCount(data.metrics.requestCount)], ["token使用量", formatCount(data.metrics.realTokens)], ["API 费用", costDisplay], ["套餐扣减", formatCount(data.metrics.deductedQuota)]];
   const max = Math.max(1, ...data.trend.map((item) => Number(item.realTokens)));
   return <div className="space-y-3">
     <div className="rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
@@ -46,7 +48,8 @@ export function UsageOverviewPanel() {
       const usedTokensNum = Number(item.realTokens ?? 0);
       const usageRate = allocatedQuotaNum > 0 ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%` : "—";
       const remainingQuota = allocatedQuotaNum > 0 ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum))) : "不限";
-      return <tr className="border-b border-ql-border-zone" key={item.subjectId}><td className="px-3 py-2">{index + 1}</td><td><button className="text-ql-action" onClick={() => set("subject_id", item.subjectId)} type="button">{item.subjectName}</button></td><td>{item.departmentLabel ?? "—"}</td><td className="text-right">{formatCount(item.requestCount)}</td><td className="text-right font-mono">{allocatedQuotaNum > 0 ? formatCount(item.allocatedQuota!) : "不限"}</td><td className="text-right font-mono">{formatCount(item.realTokens)}</td><td className="text-right font-mono">{usageRate}</td><td className="text-right font-mono">{remainingQuota}</td><td className="pr-3 text-right">¥{formatMoney(item.apiCost)}</td></tr>;
+      const costText = unavailableUsageCostLabel(item.apiCost, item.apiCostStatus) ?? `¥${formatMoney(item.apiCost!)}`;
+      return <tr className="border-b border-ql-border-zone" key={item.subjectId}><td className="px-3 py-2">{index + 1}</td><td><button className="text-ql-action" onClick={() => set("subject_id", item.subjectId)} type="button">{item.subjectName}</button></td><td>{item.departmentLabel ?? "—"}</td><td className="text-right">{formatCount(item.requestCount)}</td><td className="text-right font-mono">{allocatedQuotaNum > 0 ? formatCount(item.allocatedQuota!) : "不限"}</td><td className="text-right font-mono">{formatCount(item.realTokens)}</td><td className="text-right font-mono">{usageRate}</td><td className="text-right font-mono">{remainingQuota}</td><td className="pr-3 text-right">{costText}</td></tr>;
     })}</tbody></table>{data.ranking.length === 0 ? <p className="p-6 text-center text-[13px] text-ql-fg-tertiary">本周期暂无已结算用量</p> : null}</div></section>
   </div>;
 }

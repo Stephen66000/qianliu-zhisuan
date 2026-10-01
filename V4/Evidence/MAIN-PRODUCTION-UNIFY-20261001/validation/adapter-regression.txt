@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/main-production-unify-20261001/仟流智算/packages/provider-adapters
+
+ ✓ src/__tests__/openai-compatible-stream-idle.test.ts (16 tests) 12ms
+ ✓ src/__tests__/openai-compatible-caller.test.ts (80 tests) 83ms
+
+ Test Files  2 passed (2)
+      Tests  96 passed (96)
+   Start at  22:35:01
+   Duration  603ms (transform 255ms, setup 0ms, collect 609ms, tests 95ms, environment 0ms, prepare 107ms)

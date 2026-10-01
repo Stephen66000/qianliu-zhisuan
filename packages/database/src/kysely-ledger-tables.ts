@@ -20,6 +20,8 @@ export interface AiRequestTable {
   agent_identity_source: Generated<string>; agent_identity_confidence: Generated<string>;
   client_identity_rule_version: Generated<string>; started_at: Generated<Date>; finished_at: Date | null;
   error_classification: string | null; error_code: string | null;
+  import_source: Generated<string | null>;
+  import_run_id: Generated<string | null>;
 }
 export interface RouteCandidateTable {
   id: Generated<string>; ai_request_id: string; enterprise_id: string; provider_resource_id: string;
@@ -48,7 +50,7 @@ export interface LedgerLineTable {
   raw_input_tokens: bigint; raw_output_tokens: bigint; raw_cache_tokens: bigint;
   raw_reasoning_tokens: Generated<bigint>; deducted_quota: bigint | null; api_cost: string | null;
   api_cost_currency: Generated<"CNY" | "USD" | null>;
-  api_cost_status: Generated<"PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | null>;
+  api_cost_status: Generated<"PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null>;
   legacy_cost_resolution_id: Generated<string | null>; subscription_period_id: Generated<string | null>;
   settled_at: Generated<Date | null>; usage_quality: string; billing_rule_id: string | null;
   rule_version: string | null; multiplier: string | null; billing_rule_snapshot: Record<string, unknown> | null;
@@ -70,10 +72,48 @@ export interface LedgerTransactionTable {
   id: Generated<string>; ai_request_id: string; enterprise_id: string; principal_id: string;
   total_input_tokens: Generated<bigint>; total_output_tokens: Generated<bigint>;
   total_cache_tokens: Generated<bigint>; total_reasoning_tokens: Generated<bigint>;
-  total_deducted_quota: Generated<bigint>; total_api_cost: Generated<string>;
+  total_deducted_quota: Generated<bigint>; total_api_cost: Generated<string | null>;
+  api_cost_status: Generated<"PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null>;
   overage: Generated<boolean | null>; usage_quality: string; attempt_count: Generated<number>;
   status: Generated<string>; created_at: Generated<Date>;
 }
 export interface PrincipalAgentExpectationTable {
   id: Generated<string>; enterprise_id: string; principal_id: string; agent_family: string; created_at: Generated<Date>;
+}
+
+export interface HistoricalImportRunTable {
+  id: string;
+  enterprise_id: string;
+  manifest_hash: string;
+  source_package_hash: string;
+  source_system: Generated<string>;
+  window_start: Date;
+  window_end: Date;
+  total_requests: number;
+  request_id_digest: string;
+  input_tokens: bigint;
+  output_tokens: bigint;
+  cache_tokens: bigint;
+  reasoning_tokens: bigint;
+  status: "RUNNING" | "COMPLETED" | "FAILED" | "ROLLED_BACK";
+  pre_cutover_snapshot: Generated<Record<string, unknown> | null>;
+  post_cutover_snapshot: Generated<Record<string, unknown> | null>;
+  pre_finance_snapshot: Generated<Record<string, unknown> | null>;
+  post_finance_snapshot: Generated<Record<string, unknown> | null>;
+  baseline_summary: Generated<Record<string, unknown>>;
+  created_at: Generated<Date>;
+  started_at: Generated<Date>;
+  completed_at: Date | null;
+  rolled_back_at: Date | null;
+  rollback_summary: Generated<Record<string, unknown> | null>;
+}
+
+export interface HistoricalImportRunItemTable {
+  id: Generated<string>;
+  run_id: string;
+  enterprise_id: string;
+  entity_type: string;
+  entity_id: string;
+  canonical_digest: string;
+  created_at: Generated<Date>;
 }

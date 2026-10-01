@@ -27,5 +27,9 @@ COPY tsconfig.base.json ./
 COPY packages/ packages/
 COPY apps/worker/ apps/worker/
 
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION \
+      org.opencontainers.image.source="https://github.com/Stephen66000/qianliu-zhisuan"
+
 ENV NODE_ENV=production
 CMD ["node", "--import", "tsx", "apps/worker/src/main.ts", "runtime-assurance-scheduler"]

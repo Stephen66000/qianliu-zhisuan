@@ -14,6 +14,7 @@ import { LoadingState } from "../components/states/LoadingState";
 import { ErrorState } from "../components/states/ErrorState";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { formatCount, formatDateTimeFull, formatDuration, formatMoney } from "../lib/format";
+import { unavailableUsageCostLabel } from "../lib/usage-cost";
 
 interface RequestDrilldownProps {
   requestId: string;
@@ -71,9 +72,10 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
             <Field
               label="API 费用"
               value={
-                settlement.totalApiCost === "0" || settlement.totalApiCost === "0.00000000"
-                  ? "套餐内"
-                  : `¥${formatMoney(settlement.totalApiCost)}`
+                unavailableUsageCostLabel(settlement.totalApiCost, settlement.apiCostStatus)
+                  ?? (settlement.totalApiCost === "0" || settlement.totalApiCost === "0.00000000"
+                    ? "套餐内"
+                    : `¥${formatMoney(settlement.totalApiCost!)}`)
               }
             />
             <Field label="Attempt 数" value={String(settlement.attemptCount)} />

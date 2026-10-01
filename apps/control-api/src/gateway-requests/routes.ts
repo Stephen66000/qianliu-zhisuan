@@ -59,6 +59,7 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
               totalReasoningTokens: transaction.total_reasoning_tokens,
               totalDeductedQuota: transaction.total_deducted_quota,
               totalApiCost: transaction.total_api_cost,
+              apiCostStatus: transaction.api_cost_status ?? null,
               usageQuality: transaction.usage_quality,
               attemptCount: transaction.attempt_count,
               status: transaction.status,

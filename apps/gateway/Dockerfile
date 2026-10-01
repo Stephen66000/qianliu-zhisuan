@@ -27,6 +27,10 @@ COPY tsconfig.base.json ./
 COPY packages/ packages/
 COPY apps/gateway/ apps/gateway/
 
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION \
+      org.opencontainers.image.source="https://github.com/Stephen66000/qianliu-zhisuan"
+
 ENV NODE_ENV=production
 EXPOSE 8787
 # tsx 直跑 TS（与 pnpm start 一致）

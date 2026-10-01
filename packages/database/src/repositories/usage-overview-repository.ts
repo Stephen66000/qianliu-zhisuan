@@ -29,7 +29,8 @@ export interface UsageOverviewMetrics {
   cacheTokens: string;
   reasoningTokens: string;
   realTokens: string;
-  apiCost: string;
+  apiCost: string | null;
+  apiCostStatus: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED";
   deductedQuota: string;
   usageQuality: UsageQualitySummary;
   providerReportedCount: number;
@@ -101,7 +102,8 @@ interface AggregateRow {
   cache_tokens: string;
   reasoning_tokens: string;
   real_tokens: string;
-  api_cost: string;
+  api_cost: string | null;
+  api_cost_status: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED";
   deducted_quota: string;
   provider_reported_count: bigint | string;
   estimated_count: bigint | string;
@@ -209,7 +211,19 @@ export class UsageOverviewRepository {
              COALESCE(SUM(total_cache_tokens), 0)::text AS cache_tokens,
              COALESCE(SUM(total_reasoning_tokens), 0)::text AS reasoning_tokens,
              COALESCE(SUM(total_input_tokens + total_output_tokens), 0)::text AS real_tokens,
-             COALESCE(SUM(total_api_cost), 0)::text AS api_cost,
+             CASE
+               WHEN bool_or(api_cost_status = 'NOT_MIGRATED') THEN 'NOT_MIGRATED'
+               WHEN bool_or(api_cost_status = 'UNKNOWN_COST') THEN 'UNKNOWN_COST'
+               WHEN bool_and(api_cost_status = 'NOT_APPLICABLE') THEN 'NOT_APPLICABLE'
+               WHEN COALESCE(SUM(CASE WHEN api_cost_status NOT IN ('NOT_APPLICABLE') THEN total_api_cost::numeric ELSE 0 END), 0) = 0 THEN 'CONFIRMED_ZERO_NO_UPSTREAM'
+               ELSE 'PRICED_USAGE'
+             END AS api_cost_status,
+             CASE
+               WHEN bool_or(api_cost_status = 'NOT_MIGRATED') THEN NULL
+               WHEN bool_or(api_cost_status = 'UNKNOWN_COST') THEN NULL
+               WHEN bool_and(api_cost_status = 'NOT_APPLICABLE') THEN NULL
+               ELSE COALESCE(SUM(CASE WHEN api_cost_status NOT IN ('NOT_APPLICABLE') THEN total_api_cost::numeric ELSE 0 END), 0)::text
+             END AS api_cost,
              COALESCE(SUM(total_deducted_quota), 0)::text AS deducted_quota,
              COALESCE(SUM(provider_reported_count), 0) AS provider_reported_count,
              COALESCE(SUM(estimated_count), 0) AS estimated_count,
@@ -266,7 +280,19 @@ export class UsageOverviewRepository {
              COALESCE(SUM(f.total_cache_tokens), 0)::text AS cache_tokens,
              COALESCE(SUM(f.total_reasoning_tokens), 0)::text AS reasoning_tokens,
              COALESCE(SUM(f.total_input_tokens + f.total_output_tokens), 0)::text AS real_tokens,
-             COALESCE(SUM(f.total_api_cost), 0)::text AS api_cost,
+             CASE
+               WHEN bool_or(f.api_cost_status = 'NOT_MIGRATED') THEN 'NOT_MIGRATED'
+               WHEN bool_or(f.api_cost_status = 'UNKNOWN_COST') THEN 'UNKNOWN_COST'
+               WHEN bool_and(f.api_cost_status = 'NOT_APPLICABLE') THEN 'NOT_APPLICABLE'
+               WHEN COALESCE(SUM(CASE WHEN f.api_cost_status NOT IN ('NOT_APPLICABLE') THEN f.total_api_cost::numeric ELSE 0 END), 0) = 0 THEN 'CONFIRMED_ZERO_NO_UPSTREAM'
+               ELSE 'PRICED_USAGE'
+             END AS api_cost_status,
+             CASE
+               WHEN bool_or(f.api_cost_status = 'NOT_MIGRATED') THEN NULL
+               WHEN bool_or(f.api_cost_status = 'UNKNOWN_COST') THEN NULL
+               WHEN bool_and(f.api_cost_status = 'NOT_APPLICABLE') THEN NULL
+               ELSE COALESCE(SUM(CASE WHEN f.api_cost_status NOT IN ('NOT_APPLICABLE') THEN f.total_api_cost::numeric ELSE 0 END), 0)::text
+             END AS api_cost,
              COALESCE(SUM(f.total_deducted_quota), 0)::text AS deducted_quota
              ,COALESCE(SUM(f.provider_reported_count), 0) AS provider_reported_count
              ,COALESCE(SUM(f.estimated_count), 0) AS estimated_count
@@ -327,7 +353,19 @@ export class UsageOverviewRepository {
                   AND pg.status = 'ACTIVE'
                   AND (pg.valid_until IS NULL OR pg.valid_until > ${rangeEnd})
              ), '0') AS allocated_quota,
-             SUM(f.total_api_cost)::text AS api_cost,
+             CASE
+               WHEN bool_or(f.api_cost_status = 'NOT_MIGRATED') THEN 'NOT_MIGRATED'
+               WHEN bool_or(f.api_cost_status = 'UNKNOWN_COST') THEN 'UNKNOWN_COST'
+               WHEN bool_and(f.api_cost_status = 'NOT_APPLICABLE') THEN 'NOT_APPLICABLE'
+               WHEN COALESCE(SUM(CASE WHEN f.api_cost_status NOT IN ('NOT_APPLICABLE') THEN f.total_api_cost::numeric ELSE 0 END), 0) = 0 THEN 'CONFIRMED_ZERO_NO_UPSTREAM'
+               ELSE 'PRICED_USAGE'
+             END AS api_cost_status,
+             CASE
+               WHEN bool_or(f.api_cost_status = 'NOT_MIGRATED') THEN NULL
+               WHEN bool_or(f.api_cost_status = 'UNKNOWN_COST') THEN NULL
+               WHEN bool_and(f.api_cost_status = 'NOT_APPLICABLE') THEN NULL
+               ELSE SUM(CASE WHEN f.api_cost_status NOT IN ('NOT_APPLICABLE') THEN f.total_api_cost::numeric ELSE 0 END)::text
+             END AS api_cost,
              SUM(f.total_deducted_quota)::text AS deducted_quota,
              SUM(f.provider_reported_count) AS provider_reported_count,
              SUM(f.estimated_count) AS estimated_count,
@@ -357,6 +395,7 @@ function zeroAggregateRow(): AggregateRow {
   return {
     active_subjects: 0n, request_count: 0n, input_tokens: "0", output_tokens: "0",
     cache_tokens: "0", reasoning_tokens: "0", real_tokens: "0", api_cost: "0",
+    api_cost_status: "CONFIRMED_ZERO_NO_UPSTREAM",
     deducted_quota: "0", provider_reported_count: 0n, estimated_count: 0n,
     account_aggregated_count: 0n, mixed_count: 0n, unknown_count: 0n,
     fact_watermark: null,
@@ -375,6 +414,7 @@ function mapCountMetrics(row: Omit<AggregateRow, "active_subjects" | "fact_water
     outputTokens: row.output_tokens, cacheTokens: row.cache_tokens,
     reasoningTokens: row.reasoning_tokens, realTokens: row.real_tokens,
     apiCost: normalizeApiCost(row.api_cost),
+    apiCostStatus: row.api_cost_status,
     deductedQuota: row.deducted_quota,
     usageQuality: summarizeUsageQuality(requestCount, {
       providerReportedCount, estimatedCount, accountAggregatedCount, mixedCount, unknownCount,
@@ -387,7 +427,8 @@ function mapMetrics(row: AggregateRow): UsageOverviewMetrics {
   return { activeSubjects: Number(row.active_subjects), ...mapCountMetrics(row) };
 }
 
-function normalizeApiCost(value: string): string {
+function normalizeApiCost(value: string | null): string | null {
+  if (value === null || value === undefined) return null;
   if (/^[+-]?0+(?:\.0+)?$/.test(value)) return "0";
   const [whole, fraction = ""] = value.split(".");
   return `${whole}.${fraction.padEnd(8, "0")}`;

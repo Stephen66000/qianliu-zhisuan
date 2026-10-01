@@ -160,6 +160,7 @@ async function seedRequest(
     total_reasoning_tokens: reasoning,
     total_deducted_quota: deducted,
     total_api_cost: cost,
+    api_cost_status: Number(cost) === 0 ? "CONFIRMED_ZERO_NO_UPSTREAM" : "PRICED_USAGE",
     usage_quality: usageQuality,
     attempt_count: 1,
     status: ledgerStatus,

@@ -23,7 +23,8 @@ export interface GatewayRequestDetail {
     totalCacheTokens: string;
     totalReasoningTokens: string;
     totalDeductedQuota: string;
-    totalApiCost: string;
+    totalApiCost: string | null;
+    apiCostStatus?: string | null;
     usageQuality: string;
     attemptCount: number;
     status: string;

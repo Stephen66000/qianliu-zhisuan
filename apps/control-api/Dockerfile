@@ -24,6 +24,10 @@ COPY VERSION ./
 COPY packages/ packages/
 COPY apps/control-api/ apps/control-api/
 
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION \
+      org.opencontainers.image.source="https://github.com/Stephen66000/qianliu-zhisuan"
+
 ENV NODE_ENV=production
 EXPOSE 8788
 CMD ["node", "--import", "tsx", "apps/control-api/src/main.ts"]

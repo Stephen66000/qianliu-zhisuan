@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/main-production-unify-20261001/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/pf0085-historical-usage-not-migrated.integration.test.ts (5 tests) 2877ms
+   ✓ Migration 0085: Historical Usage NOT_MIGRATED and Import Run > migrates from clean database to 0085 and verifies additive columns and constraints  913ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  22:42:29
+   Duration  3.96s (transform 340ms, setup 0ms, collect 840ms, tests 2.88s, environment 0ms, prepare 59ms)

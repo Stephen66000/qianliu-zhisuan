@@ -30,6 +30,10 @@ RUN pnpm --filter "@qianliu/web" run build
 
 # ---------- stage 2: runtime（nginx 静态服务 + API 反代）----------
 FROM nginx:1.27-alpine AS runtime
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION \
+      org.opencontainers.image.source="https://github.com/Stephen66000/qianliu-zhisuan"
+
 # /api/* 反代到 control-api（rewrite 去掉 /api 前缀）；其余 SPA fallback 到 index.html。
 # 这样 nginx 能区分 API 请求（/api/*）与 SPA 前端路由（两者路径可能重叠）。
 RUN printf 'server {\n\

@@ -81,7 +81,8 @@ export function assertTransactionMatches(
     || BigInt(transaction.total_cache_tokens) !== input.total_cache_tokens
     || BigInt(transaction.total_reasoning_tokens) !== (input.total_reasoning_tokens ?? 0n)
     || BigInt(transaction.total_deducted_quota) !== input.total_deducted_quota
-    || !new Decimal(transaction.total_api_cost).eq(input.total_api_cost)
+    || !optionalDecimalEquals(transaction.total_api_cost, input.total_api_cost)
+    || (input.api_cost_status !== undefined && transaction.api_cost_status !== (input.api_cost_status ?? null))
     || transaction.overage !== (input.overage ?? false)
     || transaction.usage_quality !== input.usage_quality
     || transaction.attempt_count !== input.attempt_count

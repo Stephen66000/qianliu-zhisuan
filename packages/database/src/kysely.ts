@@ -45,7 +45,7 @@ import type {
   ReconciliationDiscrepancyTable, ReconciliationRunTable, ResourceStatusEventTable, SupplyForecastTable,
 } from "./kysely-resource-tables.js";
 import type {
-  AiRequestTable, BillingRuleTable, LedgerLineTable, LedgerTransactionTable, ModelRouteTable,
+  AiRequestTable, BillingRuleTable, HistoricalImportRunItemTable, HistoricalImportRunTable, LedgerLineTable, LedgerTransactionTable, ModelRouteTable,
   PrincipalAgentExpectationTable, RouteCandidateTable, UnifiedModelTable, UpstreamAttemptTable,
   UsageEventTable,
 } from "./kysely-ledger-tables.js";
@@ -116,7 +116,7 @@ export interface Database {
   provider_model_probe_run: ProviderModelProbeRunTable;
   provider_model_probe_item: ProviderModelProbeItemTable;
   resource_status_event: ResourceStatusEventTable; unified_model: UnifiedModelTable; model_route: ModelRouteTable;
-  ai_request: AiRequestTable; route_candidate: RouteCandidateTable; upstream_attempt: UpstreamAttemptTable;
+  ai_request: AiRequestTable; historical_import_run: HistoricalImportRunTable; historical_import_run_item: HistoricalImportRunItemTable; route_candidate: RouteCandidateTable; upstream_attempt: UpstreamAttemptTable;
   usage_event: UsageEventTable; ledger_line: LedgerLineTable; billing_rule: BillingRuleTable;
   ledger_transaction: LedgerTransactionTable; usage_bucket_aggregate: UsageBucketAggregateTable;
   usage_aggregate_dirty_bucket: UsageAggregateDirtyBucketTable;

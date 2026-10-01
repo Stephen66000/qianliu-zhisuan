@@ -1,4 +1,3 @@
-import { Decimal } from "decimal.js";
 import { type Kysely, type Transaction } from "kysely";
 
 import type { Database } from "../kysely.js";
@@ -14,6 +13,7 @@ import {
   assertUsageLineInputCoherent,
   assertUsageMatches,
   GatewayLedgerSettlementConflictError,
+  optionalDecimalEquals,
 } from "./gateway-ledger-settlement-assertions.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
 import { loadRequestSettlementFacts } from "./gateway-ledger-request-facts.js";
@@ -299,7 +299,7 @@ async function assertRequestReadyToFinalize(
     || facts.totalCacheTokens !== input.total_cache_tokens
     || facts.totalReasoningTokens !== (input.total_reasoning_tokens ?? 0n)
     || facts.totalDeductedQuota !== input.total_deducted_quota
-    || !new Decimal(facts.totalApiCost).eq(input.total_api_cost)
+    || !optionalDecimalEquals(facts.totalApiCost, input.total_api_cost)
     || summarizeLedgerUsageQuality(
       facts.usageQualities.map((usage_quality) => ({ usage_quality })),
     ) !== input.usage_quality) {
@@ -360,6 +360,27 @@ export async function settleRequestAccounting(
   }
 }
 
+async function resolveTransactionCostStatus(
+  db: Kysely<Database>,
+  input: CreateLedgerTransactionInput,
+): Promise<NonNullable<CreateLedgerTransactionInput["api_cost_status"]>> {
+  const lines = await db.selectFrom("ledger_line")
+    .select(["resource_mode", "api_cost_status"])
+    .where("enterprise_id", "=", input.enterprise_id)
+    .where("ai_request_id", "=", input.ai_request_id)
+    .execute();
+  if (lines.some(line => line.api_cost_status === "NOT_MIGRATED")) return "NOT_MIGRATED";
+  if (lines.some(line => line.api_cost_status === "UNKNOWN_COST")) return "UNKNOWN_COST";
+  if (lines.length > 0 && lines.every(line => line.resource_mode === "CODING_PLAN"
+    || line.api_cost_status === "NOT_APPLICABLE")) return "NOT_APPLICABLE";
+  if (lines.some(line => line.api_cost_status === "PRICED_USAGE")) return "PRICED_USAGE";
+  if (lines.some(line => line.api_cost_status === "CONFIRMED_ZERO_NO_UPSTREAM")) {
+    return "CONFIRMED_ZERO_NO_UPSTREAM";
+  }
+  if (input.total_api_cost === null) return "UNKNOWN_COST";
+  return Number(input.total_api_cost) === 0 ? "CONFIRMED_ZERO_NO_UPSTREAM" : "PRICED_USAGE";
+}
+
 export async function insertLedgerTransaction(
   db: Kysely<Database>,
   input: CreateLedgerTransactionInput,
@@ -374,6 +395,7 @@ export async function insertLedgerTransaction(
     total_reasoning_tokens: input.total_reasoning_tokens ?? 0n,
     total_deducted_quota: input.total_deducted_quota,
     total_api_cost: input.total_api_cost,
+    api_cost_status: input.api_cost_status ?? await resolveTransactionCostStatus(db, input),
     overage: input.overage ?? false,
     usage_quality: input.usage_quality,
     attempt_count: input.attempt_count,

@@ -97,13 +97,13 @@ export interface UsageOverview {
   metrics: {
     activeSubjects: number; requestCount: string; inputTokens: string; outputTokens: string;
     realTokens: string; cacheTokens: string; reasoningTokens: string;
-    apiCost: string; deductedQuota: string;
+    apiCost: string | null; apiCostStatus?: string; deductedQuota: string;
     usageQuality: "NO_DATA" | "PROVIDER_REPORTED" | "ESTIMATED" | "ACCOUNT_AGGREGATED" | "MIXED" | "UNKNOWN";
     providerReportedCount: number; estimatedCount: number; accountAggregatedCount: number;
     mixedCount: number; unknownCount: number;
   };
-  trend: Array<{ bucketStart: string; bucketEnd: string; label: string; collectionStatus: "COMPLETE" | "MISSING"; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number }>;
-  ranking: Array<{ subjectId: string; subjectName: string; departmentLabel: string | null; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; allocatedQuota?: string; apiCost: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number; share: string }>;
+  trend: Array<{ bucketStart: string; bucketEnd: string; label: string; collectionStatus: "COMPLETE" | "MISSING"; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string | null; apiCostStatus?: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number }>;
+  ranking: Array<{ subjectId: string; subjectName: string; departmentLabel: string | null; requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; allocatedQuota?: string; apiCost: string | null; apiCostStatus?: string; deductedQuota: string; usageQuality?: UsageOverview["metrics"]["usageQuality"]; providerReportedCount?: number; estimatedCount?: number; accountAggregatedCount?: number; mixedCount?: number; unknownCount?: number; share: string }>;
   factWatermark: string | null;
   generatedAt: string;
   detailQuery: {

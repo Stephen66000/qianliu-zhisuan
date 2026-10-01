@@ -1,0 +1,14 @@
+{
+  "control-api": {
+    "files": 554,
+    "sha256": "753034b1758e47c9c36601dc800f05ef1e5159a68d089abd55b93f93e6fd3401"
+  },
+  "gateway": {
+    "files": 493,
+    "sha256": "51c36f1ac25f1d7a02b597106c022ebd4bbab1d61004ec26b2a4ecce5d72889b"
+  },
+  "worker": {
+    "files": 457,
+    "sha256": "6da22a5dd4e143b12ae8db63d456b1dd061f959b0e4c0569b886687c9cf9451e"
+  }
+}

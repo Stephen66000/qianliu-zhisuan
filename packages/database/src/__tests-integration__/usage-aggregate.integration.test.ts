@@ -112,6 +112,7 @@ async function seedSettledRequest(input: SeedInput): Promise<string> {
     total_reasoning_tokens: reasoningTokens,
     total_deducted_quota: deductedQuota,
     total_api_cost: apiCost,
+    api_cost_status: Number(apiCost) === 0 ? "CONFIRMED_ZERO_NO_UPSTREAM" : "PRICED_USAGE",
     usage_quality: quality,
     attempt_count: input.withLine === false ? 0 : 1,
     status: "SETTLED",

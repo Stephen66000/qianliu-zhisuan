@@ -78,7 +78,7 @@ export interface LedgerLineInput {
   deducted_quota?: bigint | null;
   api_cost?: string | null;
   api_cost_currency?: "CNY" | "USD" | null;
-  api_cost_status?: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | null;
+  api_cost_status?: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null;
   subscription_period_id?: string | null;
   settled_at?: Date | null;
   usage_quality: string;
@@ -140,7 +140,8 @@ export interface CreateLedgerTransactionInput {
   total_cache_tokens: bigint;
   total_reasoning_tokens?: bigint;
   total_deducted_quota: bigint;
-  total_api_cost: string;
+  total_api_cost: string | null;
+  api_cost_status?: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null;
   /** 请求结算时冻结的超额事实。 */
   overage?: boolean;
   usage_quality: string;

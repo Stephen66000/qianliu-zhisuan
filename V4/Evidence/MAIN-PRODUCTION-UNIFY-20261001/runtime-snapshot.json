@@ -1,0 +1,22 @@
+{
+  "github_main": "cfe818ec861d3f066a15b9d0759b72a962841645",
+  "stream_candidate": "30337df87ba721bcab932d77d880f50649374bc9",
+  "gateway_archive_sha256": "773bc942e78cbe08040c961e41f48c9812fe26bc1ec9b99024e249047ac49c0a",
+  "worker_archive_sha256": "5e93405c8523a2474cdbb606eb6116e54176412753848d40a3ec0a1cb34f46a6",
+  "copied_runtime_paths": [
+    "packages/database/src/kysely-ledger-tables.ts",
+    "packages/database/src/kysely-w20-tables.ts",
+    "packages/database/src/kysely.ts",
+    "packages/database/src/repositories/gateway-ledger-settlement-assertions.ts",
+    "packages/database/src/repositories/gateway-ledger-settlement.ts",
+    "packages/database/src/repositories/gateway-ledger-types.ts",
+    "packages/database/src/repositories/resource-model-usage.ts",
+    "packages/database/src/repositories/usage-aggregate-rebuild.ts",
+    "packages/database/src/repositories/usage-overview-facts.ts",
+    "packages/database/src/repositories/usage-overview-repository.ts",
+    "packages/database/src/repositories/usage-repository.ts",
+    "apps/worker/src/reporting/report-jobs.ts"
+  ],
+  "production_migration_head": "0085_historical_usage_not_migrated",
+  "authorization": "User approved diagnosis, homepage fix, main integration, candidate validation, local/server synchronization. No historical import or financial mutation is included."
+}

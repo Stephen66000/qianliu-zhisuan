@@ -27,7 +27,8 @@ export interface UsageBucketAggregateTable {
   unified_model_id: string | null; request_count: Generated<bigint>;
   input_tokens: Generated<bigint>; output_tokens: Generated<bigint>;
   cache_tokens: Generated<bigint>; reasoning_tokens: Generated<bigint>;
-  deducted_quota: Generated<bigint>; api_cost: Generated<string>;
+  deducted_quota: Generated<bigint>; api_cost: Generated<string | null>;
+  api_cost_status: Generated<"PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null>;
   provider_reported_count: Generated<bigint>; estimated_count: Generated<bigint>;
   account_aggregated_count: Generated<bigint>; mixed_count: Generated<bigint>;
   unknown_count: Generated<bigint>;

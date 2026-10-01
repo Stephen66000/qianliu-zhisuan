@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/main-production-unify-20261001/仟流智算/packages/database
+
+ ✓ src/repositories/gateway-ledger-settlement-quality.test.ts (14 tests) 16ms
+ ✓ src/__tests-integration__/usage-aggregate.integration.test.ts (7 tests) 3816ms
+   ✓ W20-04 UsageAggregateRepository > 纽约 DST 回拨保留两个 01 时桶，春季自然日只有 23 个小时桶  336ms
+ ✓ src/__tests-integration__/usage-overview.integration.test.ts (14 tests) 4266ms
+   ✓ W20-04 UsageOverviewRepository > 完整桶水位时实际读聚合，与 LIVE 账本的指标趋势排名一致  1047ms
+
+ Test Files  3 passed (3)
+      Tests  35 passed (35)
+   Start at  22:30:49
+   Duration  5.24s (transform 516ms, setup 0ms, collect 1.91s, tests 8.10s, environment 0ms, prepare 307ms)

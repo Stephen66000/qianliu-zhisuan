@@ -149,7 +149,7 @@ export function buildLiveUsageFacts(
            1::bigint AS request_count,
            lt.total_input_tokens, lt.total_output_tokens,
            lt.total_cache_tokens, lt.total_reasoning_tokens,
-           lt.total_deducted_quota, lt.total_api_cost,
+           lt.total_deducted_quota, lt.total_api_cost, lt.api_cost_status,
            CASE WHEN lt.usage_quality IN ('PROVIDER_REPORTED', 'UPSTREAM_REPORTED') THEN 1 ELSE 0 END::bigint AS provider_reported_count,
            CASE WHEN lt.usage_quality = 'ESTIMATED' OR lt.usage_quality LIKE 'MIXED:%ESTIMATED%'
                 THEN 1 ELSE 0 END::bigint AS estimated_count,
@@ -210,6 +210,7 @@ export function buildAggregateUsageFacts(
            aggregate.reasoning_tokens AS total_reasoning_tokens,
            aggregate.deducted_quota AS total_deducted_quota,
            aggregate.api_cost AS total_api_cost,
+           aggregate.api_cost_status,
            aggregate.provider_reported_count, aggregate.estimated_count,
            aggregate.account_aggregated_count, aggregate.mixed_count,
            aggregate.unknown_count

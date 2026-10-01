@@ -64,8 +64,13 @@ export interface UsageRecord {
   totalCacheTokens: string;
   totalReasoningTokens: string;
   totalDeductedQuota: string;
-  totalApiCost: string;
+  /** null 表示 NOT_MIGRATED 或未结算/不可计算：根据 Owner 决策该历史区间的金额明确不迁移。 */
+  totalApiCost: string | null;
   costCurrency: string | null;
+  /** 显式金额状态 */
+  costStatus: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null;
+  /** NOT_MIGRATED 时为 true，前端应展示"未迁移/不可计算"而非数字。严格读取显式状态。 */
+  costNotMigrated: boolean;
   usageQuality: string;
   attemptCount: number;
   hasSettlement: boolean;
@@ -107,7 +112,8 @@ interface UsageSqlRow {
   total_cache_tokens: bigint;
   total_reasoning_tokens: bigint;
   total_deducted_quota: bigint;
-  total_api_cost: string;
+  total_api_cost: string | null;
+  cost_status: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null;
   usage_quality: string;
   attempt_count: number | bigint;
   has_settlement: boolean;
@@ -253,7 +259,8 @@ export class UsageRepository {
         COALESCE(lt.total_cache_tokens, 0) AS total_cache_tokens,
         COALESCE(lt.total_reasoning_tokens, 0) AS total_reasoning_tokens,
         COALESCE(lt.total_deducted_quota, 0) AS total_deducted_quota,
-        COALESCE(lt.total_api_cost, 0)::text AS total_api_cost,
+        lt.total_api_cost::text AS total_api_cost,
+        lt.api_cost_status AS cost_status,
         COALESCE(lt.usage_quality, 'UNKNOWN') AS usage_quality,
         COALESCE(lt.attempt_count, 0) AS attempt_count,
         (lt.id IS NOT NULL) AS has_settlement
@@ -291,43 +298,49 @@ export class UsageRepository {
       OFFSET ${offset}
     `.execute(this.db);
 
-    const records: UsageRecord[] = result.rows.map((row) => ({
-      requestId: row.request_id,
-      principalId: row.principal_id,
-      principalName: row.principal_name,
-      principalType: row.principal_type,
-      clientId: row.client_id,
-      agentFamily: row.agent_family,
-      agentVersion: row.agent_version,
-      agentIdentitySource: row.agent_identity_source,
-      agentIdentityConfidence: row.agent_identity_confidence,
-      clientIdentityRuleVersion: row.client_identity_rule_version,
-      unifiedModel: row.unified_model,
-      status: row.request_status,
-      errorClassification: row.error_classification,
-      errorCode: row.error_code,
-      startedAt: row.started_at.toISOString(),
-      finishedAt: row.finished_at?.toISOString() ?? null,
-      durationMs: row.finished_at
-        ? row.finished_at.getTime() - row.started_at.getTime()
-        : null,
-      finalProviderId: row.final_provider_id,
-      finalProviderCode: row.final_provider_code,
-      finalProviderName: row.final_provider_name,
-      finalProviderResourceId: row.final_resource_id,
-      finalProviderResourceName: row.final_resource_name,
-      costCurrency: row.cost_currency ?? (Number(row.total_api_cost) > 0 ? "CNY" : null),
-      overage: row.overage,
-      totalInputTokens: row.total_input_tokens.toString(),
-      totalOutputTokens: row.total_output_tokens.toString(),
-      totalCacheTokens: row.total_cache_tokens.toString(),
-      totalReasoningTokens: row.total_reasoning_tokens.toString(),
-      totalDeductedQuota: row.total_deducted_quota.toString(),
-      totalApiCost: row.total_api_cost,
-      usageQuality: row.usage_quality,
-      attemptCount: Number(row.attempt_count),
-      hasSettlement: row.has_settlement,
-    }));
+    const records: UsageRecord[] = result.rows.map((row) => {
+      const isNotMigrated = row.cost_status === "NOT_MIGRATED";
+      const apiCostIsNull = row.total_api_cost === null || row.total_api_cost === undefined;
+      return {
+        requestId: row.request_id,
+        principalId: row.principal_id,
+        principalName: row.principal_name,
+        principalType: row.principal_type,
+        clientId: row.client_id,
+        agentFamily: row.agent_family,
+        agentVersion: row.agent_version,
+        agentIdentitySource: row.agent_identity_source,
+        agentIdentityConfidence: row.agent_identity_confidence,
+        clientIdentityRuleVersion: row.client_identity_rule_version,
+        unifiedModel: row.unified_model,
+        status: row.request_status,
+        errorClassification: row.error_classification,
+        errorCode: row.error_code,
+        startedAt: row.started_at.toISOString(),
+        finishedAt: row.finished_at?.toISOString() ?? null,
+        durationMs: row.finished_at
+          ? row.finished_at.getTime() - row.started_at.getTime()
+          : null,
+        finalProviderId: row.final_provider_id,
+        finalProviderCode: row.final_provider_code,
+        finalProviderName: row.final_provider_name,
+        finalProviderResourceId: row.final_resource_id,
+        finalProviderResourceName: row.final_resource_name,
+        costCurrency: isNotMigrated ? null : (row.cost_currency ?? (apiCostIsNull ? null : (Number(row.total_api_cost) > 0 ? "CNY" : null))),
+        overage: row.overage,
+        totalInputTokens: row.total_input_tokens.toString(),
+        totalOutputTokens: row.total_output_tokens.toString(),
+        totalCacheTokens: row.total_cache_tokens.toString(),
+        totalReasoningTokens: row.total_reasoning_tokens.toString(),
+        totalDeductedQuota: row.total_deducted_quota.toString(),
+        totalApiCost: isNotMigrated ? null : row.total_api_cost,
+        costStatus: row.cost_status,
+        costNotMigrated: isNotMigrated,
+        usageQuality: row.usage_quality,
+        attemptCount: Number(row.attempt_count),
+        hasSettlement: row.has_settlement,
+      };
+    });
 
     return { records, total, limit, offset };
   }

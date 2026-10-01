@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/main-production-unify-20261001/仟流智算/apps/control-api
+
+{"level":30,"time":1790865083194,"pid":76229,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790865083240,"pid":76229,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":46.09129200000007,"msg":"request completed"}
+{"level":30,"time":1790865083241,"pid":76229,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/dashboard/home","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790865083242,"pid":76229,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":401},"responseTime":0.21145900000010442,"msg":"request completed"}
+{"level":30,"time":1790865083242,"pid":76229,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"GET","url":"/dashboard/home","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1790865083307,"pid":76229,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":64.76620900000034,"msg":"request completed"}
+ ✓ src/__tests-integration__/standard-home-route.integration.test.ts (2 tests) 3650ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  22:31:15
+   Duration  7.80s (transform 1.77s, setup 0ms, collect 2.99s, tests 3.65s, environment 0ms, prepare 362ms)

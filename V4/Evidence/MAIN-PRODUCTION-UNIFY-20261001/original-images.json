@@ -1,0 +1,6 @@
+{
+  "control-api": "sha256:1dfbfe35247f3301e4ca4716e3e7205349bb6c55e5479350589b11a6f8e8db9e",
+  "gateway": "sha256:cdff6d3ac8ce2db76c9f47b0bdd2df8c137c0f90ecdd3d3b369b8996fac0983f",
+  "worker": "sha256:2deed4668914152fae5eee77afdb47432abffa67a95a898ac460bc3b3930a125",
+  "web": "sha256:ff68a7b575c0a3025456cbb95596245f5aff900f457a1aa1c8088b79a96f4847"
+}

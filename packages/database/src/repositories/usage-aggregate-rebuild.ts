@@ -43,7 +43,7 @@ export async function rebuildUsageAggregateBucket(
                ar.unified_model_id,
                lt.total_input_tokens, lt.total_output_tokens,
                lt.total_cache_tokens, lt.total_reasoning_tokens,
-               lt.total_deducted_quota, lt.total_api_cost,
+               lt.total_deducted_quota, lt.total_api_cost, lt.api_cost_status,
                lt.usage_quality,
                COALESCE(final_line.ledger_watermark, lt.created_at) AS ledger_watermark,
                lt.created_at AS settled_at
@@ -90,7 +90,19 @@ export async function rebuildUsageAggregateBucket(
                sum(total_cache_tokens)::bigint AS cache_tokens,
                sum(total_reasoning_tokens)::bigint AS reasoning_tokens,
                sum(total_deducted_quota)::bigint AS deducted_quota,
-               sum(total_api_cost)::numeric(30, 8) AS api_cost,
+               CASE
+                 WHEN bool_or(api_cost_status = 'NOT_MIGRATED') THEN 'NOT_MIGRATED'
+                 WHEN bool_or(api_cost_status = 'UNKNOWN_COST') THEN 'UNKNOWN_COST'
+                 WHEN bool_and(api_cost_status = 'NOT_APPLICABLE') THEN 'NOT_APPLICABLE'
+                 WHEN COALESCE(sum(CASE WHEN api_cost_status NOT IN ('NOT_APPLICABLE') THEN total_api_cost::numeric ELSE 0 END), 0) = 0 THEN 'CONFIRMED_ZERO_NO_UPSTREAM'
+                 ELSE 'PRICED_USAGE'
+               END AS api_cost_status,
+               CASE
+                 WHEN bool_or(api_cost_status = 'NOT_MIGRATED') THEN NULL
+                 WHEN bool_or(api_cost_status = 'UNKNOWN_COST') THEN NULL
+                 WHEN bool_and(api_cost_status = 'NOT_APPLICABLE') THEN NULL
+                 ELSE sum(CASE WHEN api_cost_status NOT IN ('NOT_APPLICABLE') THEN total_api_cost::numeric ELSE 0 END)::numeric(30, 8)
+               END AS api_cost,
                count(*) FILTER (WHERE usage_quality IN ('PROVIDER_REPORTED', 'UPSTREAM_REPORTED'))::bigint AS provider_reported_count,
                count(*) FILTER (
                  WHERE usage_quality = 'ESTIMATED' OR usage_quality LIKE 'MIXED:%ESTIMATED%'
@@ -128,7 +140,7 @@ export async function rebuildUsageAggregateBucket(
           enterprise_id, bucket_granularity, bucket_start, timezone,
           source_principal_id, project_principal_id, provider_resource_id,
           unified_model_id, request_count, input_tokens, output_tokens,
-          cache_tokens, reasoning_tokens, deducted_quota, api_cost,
+          cache_tokens, reasoning_tokens, deducted_quota, api_cost, api_cost_status,
           provider_reported_count, estimated_count, account_aggregated_count,
           mixed_count, unknown_count,
           fact_watermark, max_fact_at, dirty, generated_at
@@ -137,7 +149,7 @@ export async function rebuildUsageAggregateBucket(
                ${input.bucketStart}, ${input.timezone},
                source_principal_id, project_principal_id, provider_resource_id,
                unified_model_id, request_count, input_tokens, output_tokens,
-               cache_tokens, reasoning_tokens, deducted_quota, api_cost,
+               cache_tokens, reasoning_tokens, deducted_quota, api_cost, api_cost_status,
                provider_reported_count, estimated_count, account_aggregated_count,
                mixed_count, unknown_count,
                fact_watermark, max_fact_at, false, ${generatedAt}
@@ -154,6 +166,7 @@ export async function rebuildUsageAggregateBucket(
           reasoning_tokens = EXCLUDED.reasoning_tokens,
           deducted_quota = EXCLUDED.deducted_quota,
           api_cost = EXCLUDED.api_cost,
+          api_cost_status = EXCLUDED.api_cost_status,
           provider_reported_count = EXCLUDED.provider_reported_count,
           estimated_count = EXCLUDED.estimated_count,
           account_aggregated_count = EXCLUDED.account_aggregated_count,

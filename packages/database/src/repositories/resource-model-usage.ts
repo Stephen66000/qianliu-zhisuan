@@ -174,7 +174,7 @@ export async function loadResourceModelUsageDetails(
       quotaUnit: model.mode === "CODING_PLAN" ? snapshot?.quota_unit ?? null : null,
       currency: snapshot?.currency ?? null,
       monthlyCost: model.mode === "API"
-        ? monthly.cost.toDecimalPlaces(8).toFixed(8)
+        ? (monthly.costKnown ? monthly.cost.toDecimalPlaces(8).toFixed(8) : null)
         : null,
       monthlyCostReason: model.mode === "CODING_PLAN"
         ? "套餐固定费，不按模型拆分"
@@ -182,7 +182,7 @@ export async function loadResourceModelUsageDetails(
           ? null
           : monthly.unknownCount > 0
             ? `已记录费用；另有 ${monthly.unknownCount} 笔费用未知`
-            : "已记录费用；存在费用未回传",
+            : "该区间含未迁移或未回传费用，金额不可计算",
       monthlyTotalTokens: integer(monthly.input.plus(monthly.output)),
       usageQuality: monthlyQuality,
       unknownCount: monthly.unknownCount,

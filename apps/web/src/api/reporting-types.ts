@@ -289,8 +289,10 @@ export interface UsageRecord {
   totalCacheTokens: string;
   totalReasoningTokens: string;
   totalDeductedQuota: string;
-  totalApiCost: string;
+  totalApiCost: string | null;
   costCurrency?: string | null;
+  costStatus?: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null;
+  costNotMigrated?: boolean;
   usageQuality: string;
   attemptCount: number;
   hasSettlement: boolean;
