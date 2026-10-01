@@ -21,7 +21,11 @@ COPY packages/testing/package.json packages/testing/
 COPY packages/observability/package.json packages/observability/
 COPY packages/provider-adapters/package.json packages/provider-adapters/
 COPY packages/database/package.json packages/database/
-RUN pnpm install --frozen-lockfile
+ARG NPM_REGISTRY=https://registry.npmjs.org
+RUN pnpm config set --global registry "${NPM_REGISTRY}" && pnpm install --frozen-lockfile
+# pnpm may omit a failed optional native download while reporting install success.
+# This module is required by the Worker, so prove it can render before exporting an image.
+RUN node -e "const {createCanvas}=require('./apps/worker/node_modules/@napi-rs/canvas'); createCanvas(1,1).toBuffer('image/png')"
 
 COPY tsconfig.base.json ./
 COPY packages/ packages/
