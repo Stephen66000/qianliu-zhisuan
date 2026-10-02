@@ -2,8 +2,10 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import sys
 
-script = Path(__file__).with_name("release-main-unify-20261001-bt.sh").read_text()
+script_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).with_name("release-main-unify-20261001-bt.sh")
+script = script_path.read_text()
 health = script[script.index("health() {"):script.index("\nverify() {")]
 
 cases = [

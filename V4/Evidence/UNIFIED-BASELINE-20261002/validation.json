@@ -1,0 +1,35 @@
+{
+  "businessSourceBase": "444e0151c36df264b2b5c141c5fc22d64f1f762d",
+  "businessSourceDelta": "NONE",
+  "deploymentScope": [
+    "control-api",
+    "gateway",
+    "worker",
+    "web"
+  ],
+  "checks": {
+    "gatewayProtocolAndTimeoutTests": 31,
+    "readinessCases": 3,
+    "fourServiceTypecheck": "PASS",
+    "releaseBashSyntax": "PASS",
+    "embeddedPythonSyntax": "PASS",
+    "runtimeSourceFingerprints": "GENERATED"
+  },
+  "releaseChecks": [
+    "Pinned pre-release images",
+    "Preserve effective environment, ports, mounts, and command",
+    "Wait for existing Gateway connections",
+    "Build all four images from one GitHub main SHA",
+    "Verify OCI revision and running source fingerprints",
+    "Verify public frontend and Gateway health/authentication",
+    "Preserve PostgreSQL and Redis containers",
+    "Rollback entire application set on failed verification"
+  ],
+  "localPreservation": {
+    "trackedModifiedFiles": 26,
+    "untrackedSourceAndCollisionFiles": 29,
+    "snapshotBranch": "codex/preserved-local-before-unify-20261002",
+    "primaryCheckout": "main"
+  },
+  "status": "LOCAL_READY_PRODUCTION_PENDING"
+}
