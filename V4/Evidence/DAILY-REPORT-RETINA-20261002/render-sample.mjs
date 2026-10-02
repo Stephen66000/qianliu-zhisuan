@@ -1,0 +1,17 @@
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+const root = process.cwd();
+const {generateDailyTokenReportSvg} = await import(pathToFileURL(resolve(root, 'apps/worker/src/reporting/templates/daily-token-report-svg.ts')));
+const {renderSvgToPng} = await import(pathToFileURL(resolve(root, 'apps/worker/src/reporting/render-png.ts')));
+const svg = generateDailyTokenReportSvg({enterpriseName:'示例企业',reportDate:'2026-10-01 (昨日全天)',totalRequests:'2',totalTokens:'1.4 万',activeEmployees:1,topUsers:[{rank:1,name:'测试成员',department:'技术部',requests:'2',tokens:'1.4 万',share:'100.0%'}],topModels:[{model:'K3',tokens:'1.4 万',requests:'2',share:'100.0%'}]});
+const current = await renderSvgToPng(svg, {fitWidth:1080});
+const referenceSvg = svg.replace(/(<svg\b[^>]*\bwidth=")540("[^>]*\bheight=")760("[^>]*>)/, '$11080$21520$3');
+if (svg === referenceSvg) throw new Error('Reference SVG size not changed');
+const reference = await renderSvgToPng(referenceSvg, {fitWidth:1080});
+if (!current.equals(reference)) throw new Error('Report does not match a directly rasterized 1080px reference');
+const result = {width:current.readUInt32BE(16),height:current.readUInt32BE(20),bytes:current.length,sha256:createHash('sha256').update(current).digest('hex'),matchesHighResolutionReference:true,syntheticData:true};
+if (result.width !== 1080 || result.height !== 1520) throw new Error('Invalid sample report dimensions');
+if (process.argv[2]) await writeFile(process.argv[2], current); else process.stdout.write(current);
+process.stderr.write(JSON.stringify(result)+'\n');

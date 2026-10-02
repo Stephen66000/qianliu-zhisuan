@@ -1,0 +1,16 @@
+{
+  "baselineCommit": "7a3204fb56e528fd17198b119d5c209b2d025afc",
+  "tests": 49,
+  "typecheck": "PASS",
+  "lint": "PASS",
+  "build": "PASS",
+  "realWecomTestMessages": 0,
+  "localSample": {
+    "width": 1080,
+    "height": 1520,
+    "bytes": 97306,
+    "sha256": "1144e62bb1831baab085ff03ff0bc1c2de995b56adca551d75a7d8f05a3c8bd4",
+    "matchesHighResolutionReference": true,
+    "syntheticData": true
+  }
+}

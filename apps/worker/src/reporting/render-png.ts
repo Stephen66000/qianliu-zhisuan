@@ -1,4 +1,5 @@
 import { createCanvas, Image } from "@napi-rs/canvas";
+import { prepareSvgRasterSize } from "./svg-raster-size.js";
 
 export interface RenderPngOptions {
   fitWidth?: number;
@@ -35,11 +36,15 @@ export async function renderSvgToPng(svgString: string, options?: RenderPngOptio
   const svg = withoutEmbeddedPngs
     .replaceAll(`font-family="${templateFontStack}"`, `font-family="${escapedFamily}"`)
     .replace(/<svg\b(?![^>]*\bfont-family=)/, `<svg font-family="${escapedFamily}"`);
+  const raster = prepareSvgRasterSize(svg, fitWidth);
   const image = new Image();
-  image.src = Buffer.from(svg);
+  image.src = Buffer.from(raster.svg);
   await image.decode();
   if (image.width <= 0 || image.height <= 0) throw new Error("SVG has no renderable dimensions");
-  const outputHeight = Math.max(1, Math.round(image.height * fitWidth / image.width));
+  if (image.width !== raster.width || image.height !== raster.height) {
+    throw new Error("SVG decoder did not preserve the requested raster dimensions");
+  }
+  const outputHeight = raster.height;
   const bitmaps = await Promise.all(embeddedPngs.map(async (embedded) => {
     const bitmap = new Image();
     bitmap.src = embedded.data;
@@ -48,19 +53,10 @@ export async function renderSvgToPng(svgString: string, options?: RenderPngOptio
   }));
   const canvas = createCanvas(fitWidth, outputHeight);
   const context = canvas.getContext("2d");
-  context.drawImage(image, 0, 0, fitWidth, outputHeight);
+  context.drawImage(image, 0, 0);
 
   if (embeddedPngs.length > 0) {
-    const viewBox = svgString.match(/<svg\b[^>]*\bviewBox="([^"]+)"/)?.[1]
-      ?.split(/[\s,]+/).map(Number);
-    if (viewBox && viewBox.length !== 4) throw new Error("Invalid SVG viewBox for embedded PNG");
-    const minX = viewBox?.[0] ?? 0;
-    const minY = viewBox?.[1] ?? 0;
-    const viewWidth = viewBox?.[2] ?? image.width;
-    const viewHeight = viewBox?.[3] ?? image.height;
-    if (!viewWidth || !viewHeight || ![minX, minY, viewWidth, viewHeight].every(Number.isFinite)) {
-      throw new Error("Invalid SVG viewBox for embedded PNG");
-    }
+    const [minX, minY, viewWidth, viewHeight] = raster.viewBox;
     const scale = Math.min(fitWidth / viewWidth, outputHeight / viewHeight);
     const offsetX = (fitWidth - viewWidth * scale) / 2;
     const offsetY = (outputHeight - viewHeight * scale) / 2;

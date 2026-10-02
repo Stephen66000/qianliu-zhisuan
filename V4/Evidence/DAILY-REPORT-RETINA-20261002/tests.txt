@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/daily-report-retina-20261002/仟流智算/apps/worker
+
+ ✓ src/reporting/__tests__/quote-library.test.ts (6 tests) 11ms
+ ✓ src/reporting/__tests__/format-utils.test.ts (20 tests) 44ms
+ ✓ src/runtime-assurance/__tests__/wecom-client-media.test.ts (3 tests) 7ms
+ ✓ src/reporting/__tests__/render-png-resolution.test.ts (8 tests) 114ms
+ ✓ src/reporting/__tests__/svg-templates.test.ts (6 tests) 153ms
+ ✓ src/reporting/__tests__/report-jobs.test.ts (4 tests) 3ms
+ ✓ src/reporting/__tests__/daily-token-report.test.ts (2 tests) 73ms
+
+ Test Files  7 passed (7)
+      Tests  49 passed (49)
+   Start at  09:36:50
+   Duration  2.59s (transform 1.67s, setup 0ms, collect 8.48s, tests 405ms, environment 1ms, prepare 1.27s)
