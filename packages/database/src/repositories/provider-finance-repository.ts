@@ -2,6 +2,7 @@ import { historicalMonthlyFinance, summarizeFinanceOrders, resourcePlanCostsWith
 import { sql, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
+import { operatingBillResourceScope } from "./operating-bill-resource-scope.js";
 import { Money, money } from "./provider-finance-core.js";
 import { ProviderFinanceReconciliationRepository } from "./provider-finance-reconciliation.js";
 import { loadFinanceMonthOpening } from "./provider-finance-month-opening.js";
@@ -40,7 +41,8 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
             .onRef("provider.enterprise_id", "=", "provider_resource.enterprise_id"))
           .select(["provider_resource.id", "provider_resource.mode", "provider.code as provider_code"])
           .where("provider_resource.enterprise_id", "=", enterpriseId)
-          .where("provider_resource.status", "<>", "DELETED").execute(),
+          .where("provider_resource.status", "<>", "DELETED")
+          .where(operatingBillResourceScope("provider_resource", "provider", start, end)).execute(),
         sql<{ provider_resource_id: string; currency: FinanceCurrency }>`
           SELECT DISTINCT provider_resource_id, currency FROM (
             SELECT provider_resource_id, account_currency AS currency
@@ -174,7 +176,8 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
           monthlyRecharge: money(recharge.get(key(item.account.provider_resource_id,
             item.account.currency)) ?? 0),
           monthlyApiCost: money(costs.get(key(item.account.provider_resource_id,
-            item.account.currency)) ?? 0) });
+            item.account.currency)) ?? 0),
+          hasMonthlyApiCostFacts: costs.has(key(item.account.provider_resource_id, item.account.currency)) });
         accountsByResource.set(item.account.provider_resource_id, list);
       }
       return resources.map((resource) => {

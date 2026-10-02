@@ -194,6 +194,8 @@ describe("tokenQualityLabel（质量文案三态）", () => {
 describe("costGapLabel（缺口码映射全表）", () => {
   it("六个缺口码逐一映射，分隔符为顿号", () => {
     expect(costGapLabel("API_USAGE_COST_UNKNOWN:1")).toBe("存在未知 API 费用");
+    expect(costGapLabel("API_LEGACY_ARCHIVED")).toBe("历史账期费用尚未确认");
+    expect(costGapLabel("API_USAGE_COST_NOT_MIGRATED:1")).toBe("该历史区间金额未迁移（不可计算）");
     expect(costGapLabel("API_COST_CURRENCY_MISSING:1")).toBe("有费用缺少币种");
     expect(costGapLabel("API_COST_CURRENCY_CONFLICT:1")).toBe("有费用币种与计价规则冲突");
     expect(costGapLabel("OPENING_BALANCE_MISSING:1")).toBe("有账户缺少期初余额");

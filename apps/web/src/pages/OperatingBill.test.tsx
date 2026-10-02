@@ -178,6 +178,71 @@ describe("POOL-025 经营账单", () => {
     expect(screen.getByText(/存在尚未计价的 API 请求/)).toBeInTheDocument();
   });
 
+  it("本月无未知费用时显示明确零费用，并说明上月待核实记录阻断结转", () => {
+    currentBill = {
+      ...bill, month: "2026-10",
+      summary: { ...bill.summary, openingBalance: null, openingBalances: [],
+        endingBalance: null, endingBalances: [], apiCost: "0.00000000", totalCost: "0.00000000",
+        apiSpendStatus: "CALCULABLE", apiSpendReason: null, monthlyRecharge: "0.00000000",
+        rechargeAmounts: [{ currency: "CNY", amount: "0.00000000" }],
+        apiSpends: [{ currency: "CNY", amount: "0.00000000" }],
+        totalSpends: [{ currency: "CNY", amount: "0.00000000" }] },
+      providers: [{ ...bill.providers[0]!, mode: "API", providerName: "DeepSeek",
+        resourceName: "DeepSeek", openingBalance: null, endingBalance: null,
+        apiCost: "0.00000000", apiSpendStatus: "CALCULABLE", apiSpendReason: null }],
+      gaps: [
+        { code: "API_MONTH_OPENING_COST_UNKNOWN", providerResourceId: "r1",
+          message: "DeepSeek：9 月 28—30 日有 4 笔 API 请求费用待核实",
+          requestRangeTo: "2026-09-30T10:01:02.536Z" },
+        { code: "API_BALANCE_COST_UNKNOWN", providerResourceId: "r1",
+          message: "同一账户当前余额待核实" },
+      ],
+    };
+    render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
+    expect(screen.queryByText(/期初余额未登记/)).toBeNull();
+    expect(screen.queryByText(/存在尚未计价的 API 请求，当前金额/)).toBeNull();
+    expect(screen.getByText(/资金初始余额已登记；历史费用仍有待核实记录/)).toBeInTheDocument();
+    expect(screen.getByText(/9 月 28—30 日有 4 笔/)).toBeInTheDocument();
+    expect(screen.queryByText("同一账户当前余额待核实")).toBeNull();
+    const detailLink = new URL(screen.getByRole("link", { name: "核查该资源历史用量" }).getAttribute("href")!, "https://test.local");
+    expect(detailLink.searchParams.get("provider_resource_id")).toBe("r1");
+    expect(detailLink.searchParams.get("to")).toBe("2026-09-30T10:01:02.536Z");
+    expect(detailLink.searchParams.has("from")).toBe(false);
+    for (const label of ["API 花费", "本月总花费", "本月充值"]) {
+      const card = screen.getAllByText(label).map((node) => node.closest("article")).find(Boolean)!;
+      expect(card).toHaveTextContent("¥0.00");
+    }
+    for (const label of ["期初余额", "期末余额"]) {
+      const card = screen.getAllByText(label).map((node) => node.closest("article")).find(Boolean)!;
+      expect(card).toHaveTextContent("—");
+      expect(card).not.toHaveTextContent("¥0.00");
+    }
+  });
+
+  it("同资源不同币种的资金缺口不会互相遮蔽", () => {
+    currentBill = { ...bill, gaps: [
+      { code: "API_MONTH_OPENING_COST_UNKNOWN", providerResourceId: "r1",
+        field: "month_opening_balance:CNY", message: "人民币月初结余待核实" },
+      { code: "API_BALANCE_COST_UNKNOWN", providerResourceId: "r1",
+        field: "balance:USD", message: "美元期末余额待核实" },
+    ] };
+    render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
+    expect(screen.getByText(/人民币月初结余待核实/)).toBeInTheDocument();
+    expect(screen.getByText(/美元期末余额待核实/)).toBeInTheDocument();
+  });
+
+  it("已知本月费用与负余额核对提示分别展示", () => {
+    currentBill = { ...bill,
+      summary: { ...bill.summary, apiCost: "7", apiSpends: [{ currency: "CNY", amount: "7" }] },
+      gaps: [{ code: "API_NEGATIVE_RECONCILIATION_REQUIRED", providerResourceId: "r1",
+        message: "DeepSeek 内部账本计算为负余额，需要核对充值与消耗记录" }],
+    };
+    render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
+    expect(screen.getByText(/内部账本出现负余额/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "核对资金记录" })).toHaveAttribute("href", "/resources");
+    expect(screen.queryByText(/存在尚未计价的 API 请求/)).toBeNull();
+  });
+
   it("资金缺口明确缺少期初时仍提示登记", () => {
     currentBill = {
       ...bill,

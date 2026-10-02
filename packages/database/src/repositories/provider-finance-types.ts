@@ -144,6 +144,8 @@ export interface ResourceFinanceView {
     monthOpeningBalance: string | null;
     monthlyRecharge: string;
     monthlyApiCost: string;
+    /** Distinguishes a priced zero or cost event from the no-facts default zero. */
+    hasMonthlyApiCostFacts?: boolean;
   }>;
   monthlyPlanCashCny: string;
   currentPeriod: null | {

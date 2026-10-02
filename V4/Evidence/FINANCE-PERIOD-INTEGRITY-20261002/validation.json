@@ -1,0 +1,106 @@
+{
+  "baseCommit": "32b508cf72a1b2bfb200081d55a05c44e38b45b4",
+  "status": "LOCAL_VALIDATED_PRODUCTION_REPLAY_PENDING",
+  "changes": [
+    "Monthly expense quality is independent of accumulated balance uncertainty",
+    "Archived resources with no relevant period or funding facts do not create opening obligations",
+    "Known currency zero costs and recharges are explicit",
+    "Unconfirmed opening/ending balances remain null with a resource and time-range explanation",
+    "Pre-cutover and uncovered historical costs remain incomplete"
+  ],
+  "tests": {
+    "databaseFocused": 61,
+    "webFocused": 74,
+    "finalAffectedFinanceIntegration": 12,
+    "typecheck": "PASS (database and four apps)",
+    "changedFileLint": "PASS",
+    "webBuild": "PASS",
+    "releaseReadinessCases": 3
+  },
+  "review": "Independent targeted review findings closed; not a full-workspace audit",
+  "productionSafety": [
+    "No financial fact mutation",
+    "Read-only database transaction enforced for baseline and candidate replay",
+    "Financial event and unknown-cost row hashes compared before deployment",
+    "Same GitHub revision for all four services, with rollback and runtime fingerprint checks"
+  ],
+  "remainingEvidenceBoundary": "Cancelled requests without measured upstream usage remain unconfirmed, not assumed zero.",
+  "files": [
+    {
+      "path": "apps/web/src/components/dashboard/standard-home-model.test.ts",
+      "sha256": "37cb223070b5419f7983f83132a0452333929294e560159f7724729e0017b50e"
+    },
+    {
+      "path": "apps/web/src/components/dashboard/standard-home-model.ts",
+      "sha256": "f2ab173b2d7f69cf99efb83682db2ceb0ab9862671ca9d97f8b64b021a9c16c2"
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/BalanceQualityNotice.tsx",
+      "sha256": "07a973c7cb24cfa6abcd9851fc21f1f8dd369247a2cf3c3f4ab5d37aa98e5f2b"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBill.test.tsx",
+      "sha256": "57fcf1fc28271598eaca3a48735cf0f5f8850bbc1a7b35df350e75ee7b5311ce"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillOverview.tsx",
+      "sha256": "592b887c14ebac99b709ab7e1b6602f9b369a0d3f8040c4ae9c87eef18f4d202"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/finance-period-cost-integrity.integration.test.ts",
+      "sha256": "f18ceb24f5aa7c88cb677aaefc766122c3aca5369b20280b01f1b87061f2644c"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/operating-bill-resource-scope.integration.test.ts",
+      "sha256": "d158111eb231e169af346e0a0389e4acb0afe1e9a44cb084090059493bc6f97c"
+    },
+    {
+      "path": "packages/database/src/repositories/dashboard-home-costs.ts",
+      "sha256": "1d0b4a532999c5516a2b4cf11373a446f9f189c41ab2f5a46387976c562ad7df"
+    },
+    {
+      "path": "packages/database/src/repositories/dashboard-home.test.ts",
+      "sha256": "20e3de1ed998a849f19b230425a0e9c171c098d810129a8fbcb97460a62210c8"
+    },
+    {
+      "path": "packages/database/src/repositories/dashboard-home.ts",
+      "sha256": "add7275d12d47f0208b494364ec05f0e0f6b635463584babfc5fba01a6a74cee"
+    },
+    {
+      "path": "packages/database/src/repositories/monthly-operating-cost.ts",
+      "sha256": "e86cbfd7a520468b1ae3db9b77682686f7a86043a3ca6e56932437c6fc1f32f4"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-draft.ts",
+      "sha256": "e3da3c1a373c255ec82c9346ec4c0554121857ac5f04fadd7d1d2ed221c73a75"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-finance-projection.ts",
+      "sha256": "d26e5bd1954178dcd7fa1f71a902a0eac688b16a14ad86133559e61fa8aedd08"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-finance-quality.ts",
+      "sha256": "f04c1652e8a40d66cef51f48c65df362165590031ec63e88a538a077986ec353"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-resource-scope.ts",
+      "sha256": "1fa2f191e22f68023d851cde236c999b506601888a1aa31b5f7e7b8edcd8a195"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-api-cost-gaps.ts",
+      "sha256": "c8c27c2d694c1a55d6600ff00dc2aae5164aeb4ae9377bcaf1687ddf9c851d4a"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-gaps.ts",
+      "sha256": "70567521d50d204a7b6d520764a87ed4e6c54f1e2db56fcf3ef95723572c6c62"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-repository.ts",
+      "sha256": "c7c600b156be779ea7a1c7cb407e6e3a1a21b52f5e02ca14b8e42566535d76a3"
+    },
+    {
+      "path": "packages/database/src/repositories/provider-finance-types.ts",
+      "sha256": "d576f7ca6f59aec8036ca0616b2be052f50af8af2a452d00cb35d5517422a9f1"
+    }
+  ]
+}

@@ -79,6 +79,7 @@ export function previousTokenQualityNote(
 /** R01-F01：资金完整性缺口码 → 老板可读说明（展示层映射，语义以权威 countFinanceGaps 为准）。 */
 const COST_GAP_LABELS: Array<[string, string]> = [
   ["API_USAGE_COST_NOT_MIGRATED", "该历史区间金额未迁移（不可计算）"],
+  ["API_LEGACY_ARCHIVED", "历史账期费用尚未确认"],
   ["API_USAGE_COST_UNKNOWN", "存在未知 API 费用"],
   ["API_COST_UNKNOWN", "存在未知 API 费用"],
   ["API_COST_CURRENCY_MISSING", "有费用缺少币种"],

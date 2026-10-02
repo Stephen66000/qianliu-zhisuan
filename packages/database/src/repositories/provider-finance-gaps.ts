@@ -1,3 +1,4 @@
+import { API_COST_GAP_CODES, loadApiCostGaps } from "./provider-finance-api-cost-gaps.js";
 import { PROVIDER_FINANCE_CUTOVER } from "./provider-finance-types.js";
 /**
  * 资金完整性缺口计数（权威口径单一来源，区间化；R01-F01 抽取为独立模块）。
@@ -26,40 +27,10 @@ export async function countFinanceGaps(
       { code: "CASH_PAID_CNY_MISSING", count: "0" },
     ];
   }
-  const gapResult = await sql<{ code: string; count: string }>`
-    SELECT 'API_USAGE_COST_UNKNOWN' AS code, COUNT(*)::text AS count
-      FROM ledger_line line
-      LEFT JOIN provider_finance_legacy_cost_resolution resolution
-        ON resolution.enterprise_id=line.enterprise_id
-       AND resolution.id=line.legacy_cost_resolution_id
-     WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='API'
-       AND (line.api_cost_status='UNKNOWN_COST'
-         OR (line.api_cost_status IS NULL AND (line.api_cost IS NULL
-           OR line.raw_input_tokens > 0 OR line.raw_output_tokens > 0
-           OR COALESCE(line.raw_cache_tokens, 0) > 0
-           OR COALESCE(line.raw_reasoning_tokens, 0) > 0)))
-       AND COALESCE(line.settled_at, line.created_at)>=${effectiveStart}
-       AND COALESCE(line.settled_at, line.created_at)<${end}
-       AND (resolution.id IS NULL OR resolution.status<>'RESOLVED')
-    UNION ALL
-    SELECT 'API_COST_CURRENCY_MISSING', COUNT(*)::text
-      FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
-       AND api_cost IS NOT NULL AND api_cost_currency IS NULL
-       -- 与 usage-backfill / cutover-repository 的 missing_api_currency 口径一致：
-       -- CONFIRMED_ZERO_NO_UPSTREAM 行按 0059 事实形状合同必须保持币种为空，属合法已知 0。
-       AND api_cost_status IS DISTINCT FROM 'CONFIRMED_ZERO_NO_UPSTREAM'
-       AND COALESCE(settled_at, created_at)>=${effectiveStart}
-       AND COALESCE(settled_at, created_at)<${end}
-    UNION ALL
-    SELECT 'API_COST_CURRENCY_CONFLICT', COUNT(*)::text
-      FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid AND resource_mode='API'
-       AND api_cost_currency IS NOT NULL
-       AND billing_rule_snapshot->>'currency' IS NOT NULL
-       AND billing_rule_snapshot->>'currency' <> api_cost_currency
-       AND COALESCE(settled_at, created_at)>=${effectiveStart}
-       AND COALESCE(settled_at, created_at)<${end}
-    UNION ALL
-    SELECT 'OPENING_BALANCE_MISSING', COUNT(*)::text FROM (
+  const [apiGaps, gapResult] = await Promise.all([
+    loadApiCostGaps(db, enterpriseId, start, end),
+    sql<{ code: string; count: string }>`
+    SELECT 'OPENING_BALANCE_MISSING' AS code, COUNT(*)::text AS count FROM (
       SELECT DISTINCT line.provider_resource_id, line.api_cost_currency
         FROM ledger_line line
        WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='API'
@@ -84,7 +55,13 @@ export async function countFinanceGaps(
       FROM provider_finance_event WHERE enterprise_id=${enterpriseId}::uuid
        AND event_type IN ('API_RECHARGE','CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL')
        AND cash_paid_cny IS NULL AND occurred_at>=${effectiveStart} AND occurred_at<${end}
-  `.execute(db);
-  return gapResult.rows;
+  `.execute(db),
+  ]);
+  return [
+    ...API_COST_GAP_CODES.map((code) => ({ code,
+      count: apiGaps.filter((gap) => gap.code === code)
+        .reduce((sum, gap) => sum + BigInt(gap.count), 0n).toString() })),
+    ...gapResult.rows,
+  ];
 }
 

@@ -32,11 +32,14 @@ import type {
   StandardHomeWindow,
 } from "./dashboard-home-types.js";
 
-function billIncompleteReason(bill: OperatingBillSnapshot): string | null {
+export function billIncompleteReason(bill: Pick<OperatingBillSnapshot, "summary">): string | null {
   const summary = bill.summary;
-  if (summary.totalSpends.length > 0) return summary.apiSpendReason ?? null;
-  return summary.apiSpendReason
-    ?? (summary.packageCost === null ? "待补套餐费用" : "不可跨币种合计；已知项保留");
+  if (summary.apiSpendReason) return summary.apiSpendReason;
+  if (summary.totalSpends.length > 0) return null;
+  if (summary.packageCost === null) return "待补套餐费用";
+  // Empty currency arrays are not evidence of missing expense facts or mixed currencies.
+  return summary.apiSpendStatus === "CALCULABLE" || summary.apiSpendStatus === "NOT_APPLICABLE"
+    ? null : "本期费用缺少可计算事实";
 }
 
 function windowToIso(window: { start: Date; end: Date; truncated: boolean }): StandardHomeWindow {

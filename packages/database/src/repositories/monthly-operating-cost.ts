@@ -3,6 +3,7 @@ import { sql, type Kysely } from "kysely";
 
 import type { Database } from "../kysely.js";
 import { summarizeMonthlyOperatingCosts } from "./monthly-operating-summary.js";
+import { operatingBillResourceScope } from "./operating-bill-resource-scope.js";
 
 export { summarizeMonthlyOperatingCosts } from "./monthly-operating-summary.js";
 
@@ -336,6 +337,7 @@ export async function loadMonthlyOperatingCosts(
            ORDER BY s.collected_at DESC, s.version DESC LIMIT 1
         ) ending ON true
        WHERE pr.enterprise_id = ${enterpriseId}::uuid AND pr.status <> 'DELETED'
+         AND ${operatingBillResourceScope("pr", "p", periodStart, periodEnd)}
        ORDER BY p.code, pr.name, pr.id
     `.execute(db),
     sql<RechargeRow>`

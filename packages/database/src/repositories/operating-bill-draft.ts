@@ -21,6 +21,7 @@ import {
   unknownApiCostGaps,
 } from "./operating-bill-cost-quality.js";
 import { loadMonthlyOperatingCosts } from "./monthly-operating-cost.js";
+import { operatingBillResourceScope } from "./operating-bill-resource-scope.js";
 import { apiBalanceGaps, balanceBridgeFacts, monthlyProviderCostFields, monthlySummaryFields } from "./operating-bill-monthly-cost.js";
 import { providerFactEvidence } from "./operating-bill-provider-evidence.js";
 import {
@@ -59,7 +60,10 @@ export async function buildOperatingBillDraft(
         WITH resources AS (
           SELECT pr.id, pr.provider_id, pr.name, pr.mode, pr.status
             FROM provider_resource pr
+            JOIN provider scope_provider ON scope_provider.id = pr.provider_id
+             AND scope_provider.enterprise_id = pr.enterprise_id
            WHERE pr.enterprise_id = ${enterpriseId} AND pr.status <> 'DELETED'
+             AND ${operatingBillResourceScope("pr", "scope_provider", start, end)}
         ), latest AS (
           SELECT DISTINCT ON (s.provider_resource_id) s.*
             FROM provider_resource_operating_snapshot s

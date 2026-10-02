@@ -10,6 +10,7 @@ import {
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { groupCurrencyAmounts, type CurrencyAmount } from "../lib/currency";
 import { Cell, currencyFacts, currencyMoney, Num, Table } from "./OperatingBillShared";
+import { BalanceQualityNotice } from "../components/operating-bill/BalanceQualityNotice";
 import { BillStat } from "../components/operating-bill/BillStat";
 import { MonthlyPayments } from "../components/operating-bill/MonthlyPayments";
 
@@ -109,6 +110,7 @@ export function OperatingBillOverview({
           补充资金记录。
         </p>
       ) : null}
+      <BalanceQualityNotice gaps={bill.gaps} />
       {bill.gaps.some(gap=>gap.code==='API_COST_UNKNOWN')?<p role="alert" className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning">存在尚未计价的 API 请求，当前金额仅包含已确认部分。<Link className="underline" to="/usage">核查用量</Link></p>:null}
       <BillCard className="overflow-hidden">
         <SectionHeading title="厂商投入构成" />

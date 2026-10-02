@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { billIncompleteReason } from "./dashboard-home.js";
+import type { OperatingBillSnapshot } from "./operating-bill-types.js";
 import { previousShanghaiMonthWindow } from "./dashboard-home-metrics.js";
 
 /** UTC 时刻 → 北京时刻字符串校验（窗口边界一律按北京时间自然月界）。 */
@@ -50,5 +52,26 @@ describe("previousShanghaiMonthWindow（标准版首页同期窗口）", () => {
     expect(beijing(window.start)).toBe("2025-12-01T00:00:00+08:00");
     expect(beijing(window.end)).toBe("2025-12-15T12:00:00+08:00");
     expect(window.truncated).toBe(false);
+  });
+});
+
+
+describe("billIncompleteReason uses expense quality, not missing currency arrays", () => {
+  const expense = (overrides: Partial<OperatingBillSnapshot["summary"]> = {}) => ({
+    summary: { apiSpendStatus: "CALCULABLE", apiSpendReason: null, packageCost: "0.00000000",
+      totalSpends: [], ...overrides } as OperatingBillSnapshot["summary"],
+  });
+  it("does not invent a currency gap for a complete zero-cost month", () => {
+    expect(billIncompleteReason(expense())).toBeNull();
+  });
+  it("does not let known amounts hide an actual current-period unknown cost", () => {
+    expect(billIncompleteReason(expense({ apiSpendStatus: "INCOMPLETE",
+      apiSpendReason: "API_COST_UNKNOWN", totalSpends: [{ currency: "CNY", amount: "3.25" }] })))
+      .toBe("API_COST_UNKNOWN");
+  });
+  it("retains missing-plan and missing-expense explanations", () => {
+    expect(billIncompleteReason(expense({ packageCost: null }))).toBe("待补套餐费用");
+    expect(billIncompleteReason(expense({ apiSpendStatus: "INCOMPLETE" })))
+      .toBe("本期费用缺少可计算事实");
   });
 });

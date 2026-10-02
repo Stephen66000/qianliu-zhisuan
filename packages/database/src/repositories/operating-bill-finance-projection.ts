@@ -2,6 +2,9 @@ import { Decimal } from "decimal.js";
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import type { OperatingBillSnapshot, OperatingBillSubjectRow } from "./operating-bill-types.js";
+import { PROVIDER_FINANCE_CUTOVER } from "./provider-finance-types.js";
+import { loadApiCostGaps } from "./provider-finance-api-cost-gaps.js";
+import { balanceQualityGaps, monthlyExpenseGaps } from "./operating-bill-finance-quality.js";
 import type { ResourceFinanceView } from "./provider-finance-types.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
 
@@ -24,11 +27,33 @@ function one(values: Array<{ currency: string; amount: string }>): string | null
   return values.length === 0 ? "0.00000000" : values.length === 1 ? values[0]!.amount : null;
 }
 
+function hasExpenseFacts(account: ResourceFinanceView["accounts"][number]): boolean {
+  return account.hasMonthlyApiCostFacts === true || !new Money(account.monthlyApiCost).isZero();
+}
+
 export async function projectOperatingBillFinance(
   db: Kysely<Database>, enterpriseId: string, month: string,
   snapshot: OperatingBillSnapshot, views: ResourceFinanceView[],
 ): Promise<OperatingBillSnapshot> {
   const byResource = new Map(views.map((view) => [view.resourceId, view]));
+  const { start, end } = operatingBillMonthRange(month);
+  const [monthlyFacts, historicalFacts] = await Promise.all([
+    loadApiCostGaps(db, enterpriseId, start, end),
+    loadApiCostGaps(db, enterpriseId, PROVIDER_FINANCE_CUTOVER, start),
+  ]);
+  const names = new Map(snapshot.providers.map((provider) => [provider.providerResourceId, provider.resourceName]));
+  const financeGaps = balanceQualityGaps(views, historicalFacts, names);
+  const archivedExpenseGaps = views.filter((view) => view.mode === "API"
+    && (end <= PROVIDER_FINANCE_CUTOVER || view.accounts.some((account) => account.balanceState === "LEGACY_ARCHIVED")))
+    .map((view) => ({ code: "API_LEGACY_ARCHIVED", providerResourceId: view.resourceId,
+      field: "ledger_line.api_cost",
+      message: `${names.get(view.resourceId) ?? view.resourceId} 本期属于资金切账前历史区间，费用不能由切账后账户的零金额推定` }));
+  // A future opening can provide an account key, but cannot establish an earlier zero-cost month.
+  const missingAccountGaps = financeGaps.filter((gap) => gap.code === "API_OPENING_BALANCE_MISSING"
+    && !byResource.get(gap.providerResourceId!)?.accounts.some((account) =>
+      gap.field === `balance:${account.currency}` && hasExpenseFacts(account)));
+  const expenseGaps = [...monthlyExpenseGaps(monthlyFacts, names), ...archivedExpenseGaps, ...missingAccountGaps];
+  const incompleteResources = new Set(expenseGaps.map((gap) => gap.providerResourceId));
   // eslint-disable-next-line complexity -- API and Coding Plan project mutually exclusive finance facts.
   const providers = snapshot.providers.map((provider) => {
     const view = byResource.get(provider.providerResourceId);
@@ -39,6 +64,9 @@ export async function projectOperatingBillFinance(
       servicePeriodStart: view.currentPeriod ? shanghaiDate(view.currentPeriod.periodStart) : null,
       servicePeriodEnd: view.currentPeriod ? shanghaiDate(view.currentPeriod.periodEndExclusive) : null };
     const account = view.accounts.length === 1 ? view.accounts[0] : null;
+    const expenseIncomplete = incompleteResources.has(view.resourceId);
+    const expenseReason = expenseGaps.filter((gap) => gap.providerResourceId === view.resourceId)
+      .map((gap) => gap.code).join("、");
     return { ...provider, currency: account?.currency ?? null,
       openingBalanceCurrency: account?.currency ?? null,
       endingBalanceCurrency: account?.currency ?? null,
@@ -49,23 +77,24 @@ export async function projectOperatingBillFinance(
         currency: item.currency, amount: item.monthlyRecharge,
       })),
       endingBalance: account?.balanceState === "NORMAL" ? account.balance : null,
-      apiCost: account?.monthlyApiCost ?? null,
-      ledgerApiCost: account?.monthlyApiCost ?? null,
-      apiSpendStatus: account?.balanceState === "NORMAL" ? "CALCULABLE" : "INCOMPLETE",
-      apiSpendReason: account?.balanceState === "NORMAL" ? null
-        : account?.balanceState ?? "API_FINANCE_ACCOUNT_NOT_UNIQUE",
-      totalCost: account?.monthlyApiCost ?? null };
+      apiCost: expenseIncomplete ? null : account?.monthlyApiCost ?? null,
+      ledgerApiCost: expenseIncomplete ? null : account?.monthlyApiCost ?? null,
+      apiSpendStatus: account && !expenseIncomplete ? "CALCULABLE" : "INCOMPLETE",
+      apiSpendReason: expenseIncomplete ? expenseReason : account ? null : "API_FINANCE_ACCOUNT_NOT_UNIQUE",
+      totalCost: expenseIncomplete ? null : account?.monthlyApiCost ?? null };
   });
   const apiViews = views.filter((view) => view.mode === "API");
   const apiSpends = group(apiViews.flatMap((view) => view.accounts
-    .filter((account) => !new Money(account.monthlyApiCost).isZero())
+    .filter((account) => !incompleteResources.has(view.resourceId) || hasExpenseFacts(account))
     .map((account) => ({ currency: account.currency, amount: account.monthlyApiCost }))));
   const packageCosts = group(providers.filter((p) => p.mode === "CODING_PLAN" && p.packageCost !== null)
     .filter((p) => !new Money(p.packageCost!).isZero())
     .map((p) => ({ currency: "CNY", amount: p.packageCost! })));
   const totalSpends = group([...apiSpends, ...packageCosts]);
   const rechargeAmounts = group(apiViews.flatMap((view) => view.accounts
-    .filter((account) => !new Money(account.monthlyRecharge).isZero())
+    .filter((account) => !new Money(account.monthlyRecharge).isZero()
+      || account.hasMonthlyApiCostFacts === true
+      || (account.balanceState !== "MISSING_OPENING_BALANCE" && account.balanceState !== "LEGACY_ARCHIVED"))
     .map((account) => ({ currency: account.currency, amount: account.monthlyRecharge }))));
   const openingBalances = group(apiViews.flatMap((view) => view.accounts
     .filter((account) => account.monthOpeningState === "NORMAL" && account.monthOpeningBalance !== null)
@@ -78,6 +107,8 @@ export async function projectOperatingBillFinance(
   );
   const financeResourceIds = new Set(views.map((view) => view.resourceId));
   const retainedGaps = snapshot.gaps.filter((gap) => {
+    // Replace legacy created_at/null-only expense checks with the shared settlement-window facts.
+    if (gap.code === "API_COST_UNKNOWN") return false;
     if (!gap.providerResourceId || !financeResourceIds.has(gap.providerResourceId)) return true;
     const view = byResource.get(gap.providerResourceId);
     if (view?.mode === "API" && view.accounts.length === 0) return true;
@@ -87,36 +118,29 @@ export async function projectOperatingBillFinance(
       "API_NEGATIVE_BALANCE_BRIDGE", "API_SPEND_NOT_CALCULABLE", "API_COST_UNKNOWN",
       "PLAN_FACT_MISSING", "UNALLOCATED_PACKAGE_COST"].includes(gap.code);
   });
-  const stateCode = {
-    MISSING_OPENING_BALANCE: "API_OPENING_BALANCE_MISSING",
-    INCOMPLETE_USAGE_COST: "API_COST_UNKNOWN",
-    NEGATIVE_RECONCILIATION_REQUIRED: "API_NEGATIVE_RECONCILIATION_REQUIRED",
-    LEGACY_ARCHIVED: "API_LEGACY_ARCHIVED",
-  } as const;
-  const financeGaps = apiViews.flatMap((view) => view.accounts.flatMap((account) =>
-    account.balanceState === "NORMAL" ? [] : [{
-      code: stateCode[account.balanceState],
-      message: `${view.resourceId} 的 ${account.currency} 资金账户状态为 ${account.balanceState}`,
-      providerResourceId: view.resourceId,
-      field: account.balanceState === "INCOMPLETE_USAGE_COST" ? "ledger_line.api_cost" : "balance",
-    }]));
   const seenGaps = new Set<string>();
   const allocationGaps: OperatingBillSnapshot["gaps"] = new Money(allocation.unallocatedCost).gt(0)
     ? [{ code: "UNALLOCATED_PACKAGE_COST", message: `仍有 ${allocation.unallocatedCost} 元套餐费用缺少完整用量归属` }] : [];
-  const gaps = [...retainedGaps, ...financeGaps, ...allocationGaps].filter((gap) => {
+  const gaps = [...retainedGaps, ...expenseGaps, ...financeGaps, ...allocationGaps].filter((gap) => {
     const key = `${gap.code}:${gap.providerResourceId ?? ""}:${gap.field ?? ""}`;
     if (seenGaps.has(key)) return false;
     seenGaps.add(key); return true;
   });
-  const apiIncomplete = financeGaps.length > 0;
+  const apiIncomplete = expenseGaps.length > 0;
+  const openingComplete = apiViews.every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
+    account.monthOpeningState === "NORMAL" && account.monthOpeningBalance !== null));
+  const endingComplete = apiViews.every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
+    account.balanceState === "NORMAL" && account.balance !== null));
   return { ...snapshot, providers, subjects: allocation.subjects, gaps,
     sourceFacts: { ...snapshot.sourceFacts, providerFinance: { resourceViews: views } },
     summary: { ...snapshot.summary,
-    apiCost: one(apiSpends), ledgerApiCost: one(apiSpends), packageCost: one(packageCosts),
+    apiCost: apiIncomplete ? null : one(apiSpends), ledgerApiCost: apiIncomplete ? null : one(apiSpends),
+    packageCost: one(packageCosts),
     apiSpendStatus: apiIncomplete ? "INCOMPLETE" : "CALCULABLE",
-    apiSpendReason: apiIncomplete ? financeGaps.map((gap) => gap.code).join("、") : null,
-    totalCost: one(totalSpends), monthlyRecharge: one(rechargeAmounts),
-    openingBalance: one(openingBalances), endingBalance: one(endingBalances),
+    apiSpendReason: apiIncomplete ? expenseGaps.map((gap) => gap.code).join("、") : null,
+    totalCost: apiIncomplete ? null : one(totalSpends), monthlyRecharge: one(rechargeAmounts),
+    openingBalance: openingComplete ? one(openingBalances) : null,
+    endingBalance: endingComplete ? one(endingBalances) : null,
     endingBalanceCurrency: endingBalances.length === 1 ? endingBalances[0]!.currency : null,
     openingBalances, rechargeAmounts, endingBalances, apiSpends, packageCosts, totalSpends,
     unallocatedCost: allocation.unallocatedCost } };
