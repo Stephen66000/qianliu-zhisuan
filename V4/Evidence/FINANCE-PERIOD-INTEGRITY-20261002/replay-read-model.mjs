@@ -1,4 +1,5 @@
-// Runs only SELECTs inside a database-enforced read-only repeatable-read snapshot.
+// Runs bills in a read-only repeatable-read snapshot, then the home composer with
+// a read-only pool (the usage overview owns its own repeatable-read transaction).
 // Output contains operational financial data and must stay in the protected server evidence directory.
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
@@ -9,7 +10,10 @@ const {sql}=require('kysely');
 const {createKysely,OperatingBillRepository,getStandardHomeSummary}=await import(pathToFileURL(resolve('packages/database/src/index.ts')));
 const {readProviderFinanceMode}=await import(pathToFileURL(resolve('packages/config/src/index.ts')));
 const months=(process.env.FINANCE_REPLAY_MONTHS || '2026-09,2026-10').split(',');
-const db=createKysely();
+const connectionUrl=new URL(process.env.DATABASE_URL);
+connectionUrl.searchParams.set('options',`${connectionUrl.searchParams.get('options') || ''} -c default_transaction_read_only=on`.trim());
+const db=createKysely(connectionUrl.toString());
+let homeOptions;
 try {
  const result=await db.transaction().setIsolationLevel('repeatable read').execute(async trx=>{
   await sql`SET TRANSACTION READ ONLY`.execute(trx);
@@ -30,11 +34,16 @@ try {
    response.months.push({month,status:b.status,summary:b.summary,providers:b.providers.map(p=>({name:p.resourceName,mode:p.mode,
      opening:p.openingBalance,ending:p.endingBalance,apiCost:p.apiCost,apiSpendStatus:p.apiSpendStatus,apiSpendReason:p.apiSpendReason})),gaps:b.gaps});
    if(month===currentMonth){
-    const home=await getStandardHomeSummary(trx,{enterpriseId:e.id,asOf:now,bill:b,financeRead:!!b.sourceFacts?.providerFinance});
-    response.home={monthlyCost:home.monthlyCost,resources:home.resources};
+    homeOptions={enterpriseId:e.id,asOf:now,bill:b,financeRead:!!b.sourceFacts?.providerFinance};
    }
   }
   return response;
  });
+ if(homeOptions){
+  const readonly=await sql`SHOW default_transaction_read_only`.execute(db);
+  if(readonly.rows[0]?.default_transaction_read_only!=='on')throw new Error('Home replay pool is not read-only');
+  const home=await getStandardHomeSummary(db,homeOptions);
+  result.home={monthlyCost:home.monthlyCost,resources:home.resources};
+ }
  console.log(JSON.stringify(result,null,2));
 } finally {await db.destroy();}
