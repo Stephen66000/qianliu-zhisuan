@@ -166,6 +166,29 @@ describe("POOL-025 经营账单", () => {
     );
   });
 
+  it("上月有期初但计价不完整时不误报未登记", () => {
+    currentBill = {
+      ...bill, month: "2026-10",
+      providers: [{ ...bill.providers[0]!, mode: "API", openingBalance: null,
+        apiSpendStatus: "INCOMPLETE", apiSpendReason: "INCOMPLETE_USAGE_COST" }],
+      gaps: [{ code: "API_COST_UNKNOWN", message: "上月存在尚未计价请求" }],
+    };
+    render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
+    expect(screen.queryByText(/期初余额未登记/)).toBeNull();
+    expect(screen.getByText(/存在尚未计价的 API 请求/)).toBeInTheDocument();
+  });
+
+  it("资金缺口明确缺少期初时仍提示登记", () => {
+    currentBill = {
+      ...bill,
+      providers: [{ ...bill.providers[0]!, mode: "API", openingBalance: null,
+        apiSpendStatus: "INCOMPLETE", apiSpendReason: "MISSING_OPENING_BALANCE" }],
+      gaps: [{ code: "API_OPENING_BALANCE_MISSING", message: "未登记期初余额" }],
+    };
+    render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
+    expect(screen.getByText(/期初余额未登记/)).toBeInTheDocument();
+  });
+
   it("POOL20-039/047：CNY、USD 与跨币种时六项保留各自金额和币种", () => {
     currentBill = {
       ...bill,

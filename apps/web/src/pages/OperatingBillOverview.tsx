@@ -94,9 +94,10 @@ export function OperatingBillOverview({
           <BillStat key={label} label={label!} value={value!} />
         ))}
       </div>
-      {bill.providers.some(
-        (row) => row.mode === "API" && row.openingBalance === null,
-      ) ? (
+      {bill.gaps.some((gap) => gap.code === "API_OPENING_BALANCE_MISSING") ||
+      bill.providers.some((row) => row.mode === "API" &&
+        (row.apiSpendStatus === "OPENING_BALANCE_MISSING" ||
+          row.apiSpendReason === "MISSING_OPENING_BALANCE")) ? (
         <p
           role="alert"
           className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning"

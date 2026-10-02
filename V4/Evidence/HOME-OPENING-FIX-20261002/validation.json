@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-02",
+  "baseCommit": "890ec47e402ec300e68e6993ac33d7f6985582b3",
+  "status": "TARGETED_CANDIDATE_PASS_WITH_KNOWN_BASELINE_FAILURES",
+  "deployment": "NOT_DEPLOYED",
+  "findings": [
+    "Homepage excluded DELETED resources but did not exclude archived provider/resource records.",
+    "Opening balance alert used null amount instead of explicit missing-opening state; unresolved prior usage cost can also make opening amount null.",
+    "Month opening already carries previous closing before the Beijing month boundary; regression proves September 145 opening/October midnight recharge 20/October balance 165."
+  ],
+  "checks": [
+    {
+      "command": "pnpm --filter @qianliu/web exec vitest run --config vitest.config.ts src/pages/OperatingBill.test.tsx",
+      "exitCode": 0,
+      "passed": 14
+    },
+    {
+      "command": "pnpm --filter @qianliu/database exec vitest run --config ../../vitest.config.ts src/__tests-integration__/standard-home.integration.test.ts src/__tests-integration__/provider-finance-repository.integration.test.ts --maxWorkers=2",
+      "exitCode": 1,
+      "passed": 22,
+      "failed": 2,
+      "note": "Both failures reproduced on unchanged base 7a3204f: legacy ledger_transaction fixtures omit non-null api_cost_status. New archive and carryover regressions pass."
+    },
+    {
+      "command": "pnpm --filter @qianliu/web typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm --filter @qianliu/database typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint <five changed TS/TSX paths> --max-warnings=0",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm --filter @qianliu/web build",
+      "exitCode": 0,
+      "note": "Existing bundle-size warning."
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "productionDataVerification": "Archived resource flag and service revisions verified via existing BaoTa terminal. Financial balances not modified.",
+  "files": [
+    {
+      "path": "apps/web/src/pages/OperatingBill.test.tsx",
+      "sha256": "1a3290b6be581092ede9aea8dd5691783627ca47c45e47425df8a62395b7cad2"
+    },
+    {
+      "path": "apps/web/src/pages/OperatingBillOverview.tsx",
+      "sha256": "1f87346ca98b3879fe8016a257501897427583d0956caf0ec8f8b77f70f682d3"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/provider-finance-repository.integration.test.ts",
+      "sha256": "d74988cf3862501249360bb44180d3a1a6b60c7df4d04846dbc9463dad42db48"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/standard-home.integration.test.ts",
+      "sha256": "1d2607963197077fe674575c4f47f810599243ea32d65e3ef52405b3bb787322"
+    },
+    {
+      "path": "packages/database/src/repositories/dashboard-home-providers.ts",
+      "sha256": "3017bc8280d16f9fa0acb9fe7a6d75e1df4b3f3b0b2d59d2351af7c72de5b28e"
+    }
+  ],
+  "productionDiagnosis": {
+    "controlApiRevision": "7a3204fb56e528fd17198b119d5c209b2d025afc",
+    "webRevision": "7a3204fb56e528fd17198b119d5c209b2d025afc",
+    "workerRevision": "890ec47e402ec300e68e6993ac33d7f6985582b3",
+    "archivedResourceId": "8a223425-5405-4173-adcc-eb8652fa6d76",
+    "archivedAt": "2026-09-30T20:29:27.097+08:00",
+    "note": "Read-only production query confirms archive flag; deployed homepage lacked filtering fix."
+  },
+  "deploymentScope": [
+    "control-api",
+    "web"
+  ],
+  "deploymentScriptSha256": "852d17ebb19e106d5c1899836823bfaba04dc0c47c589057b4d7910cff7dec37",
+  "revalidation": {
+    "baseCommit": "890ec47e402ec300e68e6993ac33d7f6985582b3",
+    "archiveTests": 1,
+    "financeTests": 10,
+    "webTests": 14,
+    "passed": 25,
+    "controlApiTypecheckExitCode": 0,
+    "logs": [
+      "archive-test.log",
+      "finance-test.log",
+      "web-test.log"
+    ]
+  }
+}

@@ -283,6 +283,7 @@ export async function loadStandardHomeResources(
         FROM provider_resource pr
         JOIN provider p ON p.id = pr.provider_id AND p.enterprise_id = ${enterpriseId}
        WHERE pr.enterprise_id = ${enterpriseId} AND pr.status <> 'DELETED'
+         AND pr.archived_at IS NULL AND p.archived_at IS NULL
        ORDER BY p.name ASC, pr.name ASC
     `.execute(db),
     new ProviderRepository(db).listLatestOperatingSyncStates(enterpriseId),
@@ -311,10 +312,13 @@ export async function loadStandardHomeResources(
     .map((rows) => providerRow(rows, reasonByResource, syncByResource, snapshotByResource, now))
     .sort((left, right) => left.providerName.localeCompare(right.providerName, "zh-Hans-CN"));
 
+  const visibleResourceIds = new Set(resourceRows.rows.map((row) => row.resource_id));
   const resourceUpdatedAt = [
     ...resourceRows.rows.map((row) => row.updated_at),
-    ...syncStates.map((state) => state.completed_at),
-    ...latestSnapshots.map((s) => s.collected_at),
+    ...syncStates.filter((state) => visibleResourceIds.has(state.provider_resource_id))
+      .map((state) => state.completed_at),
+    ...latestSnapshots.filter((snapshot) => visibleResourceIds.has(snapshot.provider_resource_id))
+      .map((snapshot) => snapshot.collected_at),
   ].reduce<Date | null>((latest, value) => !latest || (value && value > latest) ? value : latest, null);
   return {
     providerCount: providers.length,

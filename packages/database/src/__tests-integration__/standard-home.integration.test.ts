@@ -317,6 +317,27 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     expect(summary.activeProjects.previous.window.truncated).toBe(true);
   });
 
+  it("归档厂商和归档资源均不进入首页清单、数量或关注统计", async () => {
+    const baseline = await loadStandardHomeResources(db, enterpriseId, asOf);
+    const archivedProvider = await createResource({ providerCode: "archived-provider",
+      providerName: "历史归档厂商", name: "仍有资源", mode: "API", status: "UNAVAILABLE" });
+    const archivedResource = await createResource({ providerCode: "mixed-archive",
+      providerName: "混合归档厂商", name: "历史资源", mode: "API", status: "UNAVAILABLE" });
+    await createResource({ providerCode: "mixed-archive", providerName: "混合归档厂商",
+      name: "当前资源", mode: "CODING_PLAN" });
+    await db.updateTable("provider").set({ archived_at: asOf })
+      .where("id", "=", archivedProvider.providerId).execute();
+    await db.updateTable("provider_resource").set({ archived_at: asOf })
+      .where("id", "=", archivedResource.resourceId).execute();
+    const result = await loadStandardHomeResources(db, enterpriseId, asOf);
+    expect(result.providerCount).toBe(baseline.providerCount + 1);
+    expect(result.resourceCount).toBe(baseline.resourceCount + 1);
+    expect(result.attentionProviderCount).toBe(baseline.attentionProviderCount);
+    expect(result.providers.some((row) => row.providerCode === "archived-provider")).toBe(false);
+    expect(result.providers.find((row) => row.providerCode === "mixed-archive"))
+      .toMatchObject({ resourceCount: 1, attention: null });
+  });
+
   it("R01-F03：同厂商资源同步混合新鲜度/缺失/失败不被最新同步掩盖，并给出范围", async () => {
     const freshAt = new Date(asOf.getTime() - 3_600_000);
     const staleAt = new Date("2026-09-01T05:00:00.000Z");

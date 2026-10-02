@@ -511,6 +511,57 @@ describe("ProviderFinanceRepository", () => {
     } finally { await db.destroy(); }
   });
 
+  it("October opening carries September closing and excludes October midnight recharge", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const provider = await db.selectFrom("provider").select("id")
+        .where("enterprise_id", "=", enterpriseId).executeTakeFirstOrThrow();
+      const resourceId = randomUUID();
+      await db.insertInto("provider_resource").values({ id: resourceId,
+        enterprise_id: enterpriseId, provider_id: provider.id, name: "Monthly carryover API",
+        mode: "API", credential_type: "API_KEY", created_at: new Date("2026-08-01T00:00:00Z"),
+      }).execute();
+      const finance = new ProviderFinanceRepository(db);
+      await finance.recordOpeningBalance({ enterpriseId, resourceId, adminId,
+        accountAmount: "100", accountCurrency: "CNY", occurredAt: PROVIDER_FINANCE_CUTOVER,
+        evidenceRef: "September opening", idempotencyKey: randomUUID() });
+      for (const [amount, at] of [["50", "2026-09-30T23:59:58+08:00"],
+        ["20", "2026-10-01T00:00:00+08:00"]] as const) {
+        await finance.recordRecharge({ enterpriseId, resourceId, adminId,
+          accountAmount: amount, accountCurrency: "CNY", cashPaidCny: amount,
+          occurredAt: new Date(at), externalReference: randomUUID(), idempotencyKey: randomUUID() });
+      }
+      const ledger = new GatewayLedgerRepository(db);
+      const requestId = randomUUID();
+      await ledger.createRequest({ id: requestId, enterprise_id: enterpriseId,
+        principal_id: principalId, principal_key_id: principalKeyId, protocol: "OPENAI_CHAT",
+        unified_model: "deepseek-chat", unified_model_id: null });
+      const attempt = await ledger.createAttempt({ ai_request_id: requestId,
+        enterprise_id: enterpriseId, attempt_no: 1, provider_resource_id: resourceId,
+        upstream_model: "deepseek-chat" });
+      await ledger.createUsageAndLedgerLineIfAbsent({
+        usage: { ai_request_id: requestId, enterprise_id: enterpriseId,
+          upstream_attempt_id: attempt.id, provider_resource_id: resourceId,
+          input_tokens: 1n, output_tokens: 1n, cache_tokens: 0n, reasoning_tokens: 0n,
+          usage_quality: "PROVIDER_REPORTED", dedup_key: `${requestId}:attempt1` },
+        ledger_line: { ai_request_id: requestId, enterprise_id: enterpriseId,
+          upstream_attempt_id: attempt.id, provider_resource_id: resourceId,
+          principal_id: principalId, resource_mode: "API", raw_input_tokens: 1n,
+          raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+          api_cost: "5", api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
+          settled_at: new Date("2026-09-30T23:59:59+08:00"), usage_quality: "PROVIDER_REPORTED" },
+      });
+      const septemberClosing = await finance.getCurrentBalance(enterpriseId, resourceId,
+        "CNY", new Date("2026-09-30T23:59:59.999+08:00"));
+      expect(septemberClosing).toMatchObject({ state: "NORMAL", balance: "145.00000000" });
+      const october = await finance.listResourceFinanceViews(enterpriseId, "2026-10",
+        new Date("2026-10-01T00:00:01+08:00"));
+      expect(october.find((view) => view.resourceId === resourceId)?.accounts[0])
+        .toMatchObject({ monthOpeningState: "NORMAL", monthOpeningBalance: septemberClosing!.balance,
+          monthlyRecharge: "20.00000000", balance: "165.00000000" });
+    } finally { await db.destroy(); }
+  });
+
   it("fails closed when a post-cutover API cost fact is unclassified", async () => {
     const db = createKysely(pg.connectionString);
     try {
