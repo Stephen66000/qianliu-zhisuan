@@ -4,6 +4,7 @@ import type { UsageRecord } from "../../api/types";
 import { formatCount, formatDateTimeFull, formatDuration, formatMoney } from "../../lib/format";
 import { RequestDrilldown } from "../../pages/RequestDrilldown";
 import { StatusTag } from "../dashboard/StatusTag";
+import { unavailableUsageCostLabel } from "../../lib/usage-cost";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "等待中", SUCCEEDED: "成功", FAILED: "失败",
@@ -29,6 +30,9 @@ function ApiCostCell({ record }: { record: UsageRecord }) {
   }
   if (!record.hasSettlement) {
     return <span className="text-ql-fg-tertiary">未结算</span>;
+  }
+  if (record.costStatus === "EXCLUDED_NO_RECORDED_COST") {
+    return <span className="text-ql-fg-tertiary">{unavailableUsageCostLabel(record.totalApiCost, record.costStatus)}</span>;
   }
   if (record.costStatus === "UNKNOWN_COST" || record.totalApiCost === null) {
     return <span className="text-ql-fg-tertiary">未知</span>;

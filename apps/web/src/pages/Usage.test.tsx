@@ -94,6 +94,16 @@ describe("W18 用量账本", () => {
     useUsageMock.mockReset();
   });
 
+  it("已明确处置的取消请求展示未记录费用、不计入，其他未知仍保留", () => {
+    useUsageMock.mockReturnValue({ isLoading: false, refetch: vi.fn(), data: usageResult([
+      { ...sampleRecord(), status: "CANCELLED", totalApiCost: "0.00000000", costStatus: "EXCLUDED_NO_RECORDED_COST" },
+      { ...sampleRecord(), requestId: "request-unknown", status: "CANCELLED", totalApiCost: null, costStatus: "UNKNOWN_COST" },
+    ], 2) });
+    renderUsage();
+    expect(screen.getByText("未记录费用，不计入")).toBeInTheDocument();
+    expect(within(screen.getByRole("table")).getByText("未知")).toBeInTheDocument();
+  });
+
   it("模块默认进入概览且不查询请求明细，点击页签后进入明细", async () => {
     const user = userEvent.setup();
     useUsageMock.mockReturnValue({ isLoading: false, data: usageResult([], 0), refetch: vi.fn() });

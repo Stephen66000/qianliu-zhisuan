@@ -10,6 +10,7 @@
  * 由网关侧写入时已脱敏，本路由原样返回不二次加工。
  */
 import type { FastifyInstance } from "fastify";
+import { loadUsageCostDispositionProjections, loadExcludedUsageCostLineIds } from "@qianliu/database";
 import {
   parseRequestShapeSummary,
   parseUpstreamErrorEvidence,
@@ -37,6 +38,9 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
         return reply.code(404).send({ error: "not_found", message: "请求不存在" });
       }
       const transaction = await app.ledgerRepo.getLedgerTransaction(req.params.id);
+      const cost = transaction ? (await loadUsageCostDispositionProjections(
+        app.db, ent, [req.params.id],
+      )).get(req.params.id) : undefined;
       return {
         request: {
           id: request.id,
@@ -58,8 +62,8 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
               totalCacheTokens: transaction.total_cache_tokens,
               totalReasoningTokens: transaction.total_reasoning_tokens,
               totalDeductedQuota: transaction.total_deducted_quota,
-              totalApiCost: transaction.total_api_cost,
-              apiCostStatus: transaction.api_cost_status ?? null,
+              totalApiCost: cost ? cost.totalApiCost : transaction.total_api_cost,
+              apiCostStatus: cost?.apiCostStatus ?? transaction.api_cost_status ?? null,
               usageQuality: transaction.usage_quality,
               attemptCount: transaction.attempt_count,
               status: transaction.status,
@@ -106,9 +110,10 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
       if (!request) {
         return reply.code(404).send({ error: "not_found", message: "请求不存在" });
       }
-      const [attempts, ledgerLines] = await Promise.all([
+      const [attempts, ledgerLines, excludedLineIds] = await Promise.all([
         app.ledgerRepo.listAttempts(req.params.id),
         app.ledgerRepo.listLedgerLines(req.params.id),
+        loadExcludedUsageCostLineIds(app.db, ent, req.params.id),
       ]);
       // ledger_line.upstream_attempt_id → 该 attempt 的计量明细（可能多条，但通常一条）
       const linesByAttempt = new Map<string, typeof ledgerLines>();
@@ -141,6 +146,7 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
             reasoningTokens: l.raw_reasoning_tokens,
             deductedQuota: l.deducted_quota,
             apiCost: l.api_cost,
+            apiCostStatus: excludedLineIds.has(l.id) ? "EXCLUDED_NO_RECORDED_COST" : l.api_cost_status,
             usageQuality: l.usage_quality,
             billingRuleId: l.billing_rule_id,
             ruleVersion: l.rule_version,
@@ -157,6 +163,7 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
           reasoningTokens: l.raw_reasoning_tokens,
           deductedQuota: l.deducted_quota,
           apiCost: l.api_cost,
+          apiCostStatus: excludedLineIds.has(l.id) ? "EXCLUDED_NO_RECORDED_COST" : l.api_cost_status,
           usageQuality: l.usage_quality,
           billingRuleId: l.billing_rule_id,
           ruleVersion: l.rule_version,

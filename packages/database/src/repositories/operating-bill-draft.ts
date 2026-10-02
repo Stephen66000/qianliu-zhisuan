@@ -22,6 +22,7 @@ import {
 } from "./operating-bill-cost-quality.js";
 import { loadMonthlyOperatingCosts } from "./monthly-operating-cost.js";
 import { operatingBillResourceScope } from "./operating-bill-resource-scope.js";
+import { effectiveReportedApiCostSql } from "./usage-cost-disposition-projection.js";
 import { apiBalanceGaps, balanceBridgeFacts, monthlyProviderCostFields, monthlySummaryFields } from "./operating-bill-monthly-cost.js";
 import { providerFactEvidence } from "./operating-bill-provider-evidence.js";
 import {
@@ -100,8 +101,8 @@ export async function buildOperatingBillDraft(
                SUM(ll.raw_reasoning_tokens)::text AS reasoning_tokens,
                COALESCE(SUM(ll.deducted_quota), 0)::text AS deducted_quota,
                (CASE WHEN COUNT(*) FILTER (WHERE ll.resource_mode = 'API')
-                           = COUNT(ll.api_cost) FILTER (WHERE ll.resource_mode = 'API')
-                     THEN COALESCE(SUM(ll.api_cost) FILTER (WHERE ll.resource_mode = 'API'), 0)
+                           = COUNT(${effectiveReportedApiCostSql("ll")}) FILTER (WHERE ll.resource_mode = 'API')
+                     THEN COALESCE(SUM(${effectiveReportedApiCostSql("ll")}) FILTER (WHERE ll.resource_mode = 'API'), 0)
                      ELSE NULL END)::text AS api_cost,
                COUNT(DISTINCT (ll.created_at AT TIME ZONE 'Asia/Shanghai')::date)::text AS active_days,
                COUNT(DISTINCT ll.ai_request_id)::text AS request_count,
@@ -125,8 +126,8 @@ export async function buildOperatingBillDraft(
                SUM(ll.raw_reasoning_tokens)::text AS reasoning_tokens,
                COALESCE(SUM(ll.deducted_quota), 0)::text AS deducted_quota,
                (CASE WHEN COUNT(*) FILTER (WHERE ll.resource_mode = 'API')
-                           = COUNT(ll.api_cost) FILTER (WHERE ll.resource_mode = 'API')
-                     THEN COALESCE(SUM(ll.api_cost) FILTER (WHERE ll.resource_mode = 'API'), 0)
+                           = COUNT(${effectiveReportedApiCostSql("ll")}) FILTER (WHERE ll.resource_mode = 'API')
+                     THEN COALESCE(SUM(${effectiveReportedApiCostSql("ll")}) FILTER (WHERE ll.resource_mode = 'API'), 0)
                      ELSE NULL END)::text AS api_cost,
                COUNT(DISTINCT (ll.created_at AT TIME ZONE 'Asia/Shanghai')::date)::text AS active_days,
                COUNT(DISTINCT ll.ai_request_id)::text AS request_count,

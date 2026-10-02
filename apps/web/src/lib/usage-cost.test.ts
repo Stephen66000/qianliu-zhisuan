@@ -4,6 +4,7 @@ import { unavailableUsageCostLabel } from "./usage-cost";
 describe("missing usage cost labels", () => {
   it.each([
     [null, "NOT_MIGRATED", "未迁移/不可计算"],
+    ["0.00000000", "EXCLUDED_NO_RECORDED_COST", "未记录费用，不计入"],
     [null, "UNKNOWN_COST", "未知"],
     [null, "NOT_APPLICABLE", "套餐内"],
     [null, undefined, "未知"],

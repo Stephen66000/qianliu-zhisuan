@@ -1,6 +1,7 @@
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { PROVIDER_FINANCE_CUTOVER } from "./provider-finance-types.js";
+import { effectiveUsageCostDispositionSql } from "./provider-finance-usage-dispositions.js";
 
 export const API_COST_GAP_CODES = [
   "API_USAGE_COST_UNKNOWN", "API_COST_CURRENCY_MISSING", "API_COST_CURRENCY_CONFLICT",
@@ -48,7 +49,8 @@ export async function loadApiCostGaps(
             OR (line.api_cost_status IS NULL AND (line.api_cost IS NULL
               OR line.raw_input_tokens > 0 OR line.raw_output_tokens > 0
               OR COALESCE(line.raw_cache_tokens,0) > 0 OR COALESCE(line.raw_reasoning_tokens,0) > 0)))
-          AND (resolution.id IS NULL OR resolution.status<>'RESOLVED')),
+          AND (resolution.id IS NULL OR resolution.status<>'RESOLVED')
+          AND NOT ${effectiveUsageCostDispositionSql("line")}),
         ('API_COST_CURRENCY_MISSING',
           line.api_cost IS NOT NULL AND line.api_cost_currency IS NULL
           AND line.api_cost_status IS DISTINCT FROM 'CONFIRMED_ZERO_NO_UPSTREAM'),

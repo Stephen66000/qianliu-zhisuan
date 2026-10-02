@@ -291,7 +291,7 @@ export interface UsageRecord {
   totalDeductedQuota: string;
   totalApiCost: string | null;
   costCurrency?: string | null;
-  costStatus?: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null;
+  costStatus?: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | "EXCLUDED_NO_RECORDED_COST" | null;
   costNotMigrated?: boolean;
   usageQuality: string;
   attemptCount: number;

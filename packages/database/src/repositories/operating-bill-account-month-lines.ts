@@ -3,6 +3,7 @@ import { operatingConsumptionFilter } from "./operating-consumption-filter.js";
 import { sql, type RawBuilder } from "kysely";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
 import { liveProjectMetadataJoins } from "./operating-bill-project-metadata.js";
+import { effectiveReportedApiCostSql } from "./usage-cost-disposition-projection.js";
 
 /** Resolve the whole month's resource denominator before subject, provider or page filters. */
 function accountMonthLineCtes(enterpriseId: string, start: Date, end: Date) {
@@ -96,7 +97,7 @@ export function liveLineFactCtes(
              ll.account_at AS created_at, ll.usage_quality, ll.resource_mode,
              ll.raw_input_tokens, ll.raw_output_tokens,
              ll.raw_cache_tokens, ll.raw_reasoning_tokens,
-             ll.deducted_quota, ll.api_cost,
+             ll.deducted_quota, ${effectiveReportedApiCostSql("ll")} AS api_cost,
              CASE
                WHEN ll.resource_mode <> 'CODING_PLAN' THEN 0::numeric
                WHEN ll.finance_enabled AND COALESCE(month_fee.amount,0) = 0 THEN 0::numeric

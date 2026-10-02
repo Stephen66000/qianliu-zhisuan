@@ -8,6 +8,7 @@
 import type { Kysely, RawBuilder } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
+import { loadUsageCostDispositionProjections } from "./usage-cost-disposition-projection.js";
 
 export interface UsageQuery {
   enterpriseId: string;
@@ -68,7 +69,7 @@ export interface UsageRecord {
   totalApiCost: string | null;
   costCurrency: string | null;
   /** 显式金额状态 */
-  costStatus: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | null;
+  costStatus: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED" | "EXCLUDED_NO_RECORDED_COST" | null;
   /** NOT_MIGRATED 时为 true，前端应展示"未迁移/不可计算"而非数字。严格读取显式状态。 */
   costNotMigrated: boolean;
   usageQuality: string;
@@ -298,9 +299,16 @@ export class UsageRepository {
       OFFSET ${offset}
     `.execute(this.db);
 
+    const costProjections = await loadUsageCostDispositionProjections(
+      this.db, query.enterpriseId, result.rows.map((row) => row.request_id),
+    );
     const records: UsageRecord[] = result.rows.map((row) => {
-      const isNotMigrated = row.cost_status === "NOT_MIGRATED";
-      const apiCostIsNull = row.total_api_cost === null || row.total_api_cost === undefined;
+      const projection = costProjections.get(row.request_id);
+      const costStatus = projection?.apiCostStatus ?? row.cost_status;
+      const totalApiCost = projection ? projection.totalApiCost : row.total_api_cost;
+      const costCurrency = projection ? projection.costCurrency : row.cost_currency;
+      const isNotMigrated = costStatus === "NOT_MIGRATED";
+      const apiCostIsNull = totalApiCost === null || totalApiCost === undefined;
       return {
         requestId: row.request_id,
         principalId: row.principal_id,
@@ -326,15 +334,15 @@ export class UsageRepository {
         finalProviderName: row.final_provider_name,
         finalProviderResourceId: row.final_resource_id,
         finalProviderResourceName: row.final_resource_name,
-        costCurrency: isNotMigrated ? null : (row.cost_currency ?? (apiCostIsNull ? null : (Number(row.total_api_cost) > 0 ? "CNY" : null))),
+        costCurrency: isNotMigrated ? null : (costCurrency ?? (apiCostIsNull ? null : (Number(totalApiCost) > 0 ? "CNY" : null))),
         overage: row.overage,
         totalInputTokens: row.total_input_tokens.toString(),
         totalOutputTokens: row.total_output_tokens.toString(),
         totalCacheTokens: row.total_cache_tokens.toString(),
         totalReasoningTokens: row.total_reasoning_tokens.toString(),
         totalDeductedQuota: row.total_deducted_quota.toString(),
-        totalApiCost: isNotMigrated ? null : row.total_api_cost,
-        costStatus: row.cost_status,
+        totalApiCost: isNotMigrated ? null : totalApiCost,
+        costStatus,
         costNotMigrated: isNotMigrated,
         usageQuality: row.usage_quality,
         attemptCount: Number(row.attempt_count),

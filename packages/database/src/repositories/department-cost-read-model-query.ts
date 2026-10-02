@@ -6,6 +6,8 @@ import type {
   RawPackageSummary, RawRequestRow,
 } from "./department-cost-read-model-query-types.js";
 import { emptyRawCost, summarizeEnterpriseCosts } from "./department-cost-read-model-summary.js";
+import { effectiveReportedApiCostSql } from "./usage-cost-disposition-projection.js";
+import { effectiveUsageCostDispositionSql } from "./provider-finance-usage-dispositions.js";
 
 export type {
   RawCostRow, RawEnterpriseSummary, RawPackageSummary,
@@ -107,7 +109,7 @@ function costCtes(
       SELECT la.organization_unit_id AS department_id,
              coalesce(la.cost_category, 'UNASSIGNED') AS cost_category,
              ll.resource_mode, ll.raw_input_tokens, ll.raw_output_tokens,
-             CASE WHEN ll.resource_mode = 'API' THEN ll.api_cost ELSE 0::numeric END AS api_line_cost,
+             CASE WHEN ll.resource_mode = 'API' THEN ${effectiveReportedApiCostSql("ll")} ELSE 0::numeric END AS api_line_cost,
              CASE
                WHEN ll.resource_mode <> 'CODING_PLAN' THEN 0::numeric
                WHEN ps.cost_known IS NOT TRUE THEN NULL
@@ -200,6 +202,7 @@ function financeCostCtes(
                WHEN line.api_cost_status='PRICED_USAGE' AND line.api_cost_currency IS NOT NULL
                  THEN line.api_cost
                WHEN line.api_cost_status='CONFIRMED_ZERO_NO_UPSTREAM' THEN 0::numeric
+               WHEN ${effectiveUsageCostDispositionSql("line")} THEN 0::numeric
                WHEN line.api_cost_status='UNKNOWN_COST' AND resolution.status='RESOLVED'
                  AND resolution.window_end_inclusive>=COALESCE(line.settled_at,line.created_at)
                  THEN 0::numeric
@@ -247,7 +250,7 @@ function apiOnlyCostCtes(
       SELECT la.organization_unit_id AS department_id,
              coalesce(la.cost_category, 'UNASSIGNED') AS cost_category,
              ll.resource_mode, ll.raw_input_tokens, ll.raw_output_tokens,
-             CASE WHEN ll.resource_mode = 'API' THEN ll.api_cost ELSE 0::numeric END AS api_line_cost,
+             CASE WHEN ll.resource_mode = 'API' THEN ${effectiveReportedApiCostSql("ll")} ELSE 0::numeric END AS api_line_cost,
              CASE WHEN ll.resource_mode = 'CODING_PLAN' THEN NULL ELSE 0::numeric END AS package_line_cost
         FROM ledger_line ll
         LEFT JOIN latest_attribution la ON la.ai_request_id = ll.ai_request_id

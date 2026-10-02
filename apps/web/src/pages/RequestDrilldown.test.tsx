@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestDrilldown } from "./RequestDrilldown.js";
 
 const clipboardWrite = vi.fn();
+const costProjection = vi.hoisted(() => ({
+  total: "0.00100000" as string | null,
+  line: "0.00100000" as string | null,
+  status: undefined as string | undefined,
+}));
 
 vi.mock("../api/hooks", () => ({
   useGatewayRequest: () => ({
@@ -17,7 +22,8 @@ vi.mock("../api/hooks", () => ({
       },
       settlement: {
         totalInputTokens: "100", totalOutputTokens: "20", totalCacheTokens: "10",
-        totalReasoningTokens: "0", totalDeductedQuota: "0", totalApiCost: "0.00100000",
+        totalReasoningTokens: "0", totalDeductedQuota: "0", totalApiCost: costProjection.total,
+        apiCostStatus: costProjection.status,
         usageQuality: "PROVIDER_REPORTED", attemptCount: 1, status: "SETTLED",
       },
     },
@@ -35,7 +41,7 @@ vi.mock("../api/hooks", () => ({
       responseCommitted: false, switchReason: null,
       metering: [{
         inputTokens: "100", outputTokens: "20", cacheTokens: "10", reasoningTokens: "0",
-        deductedQuota: null, apiCost: "0.00100000", usageQuality: "PROVIDER_REPORTED",
+        deductedQuota: null, apiCost: costProjection.line, apiCostStatus: costProjection.status, usageQuality: "PROVIDER_REPORTED",
         billingRuleId: "rule-1", ruleVersion: "deepseek-v1", multiplier: null,
         billingRuleSnapshot: {
           ruleType: "API_PRICE", effectiveFrom: "2026-08-01T00:00:00.000Z",
@@ -60,11 +66,23 @@ vi.mock("../api/hooks", () => ({
 describe("POOL20-031/032 请求决策详情", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    costProjection.total = "0.00100000";
+    costProjection.line = "0.00100000";
+    costProjection.status = undefined;
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: clipboardWrite },
     });
     clipboardWrite.mockResolvedValue(undefined);
+  });
+
+  it("结算与原始计量明细一致说明费用未记录且不计入", () => {
+    costProjection.total = "0.00000000";
+    costProjection.line = null;
+    costProjection.status = "EXCLUDED_NO_RECORDED_COST";
+    render(<RequestDrilldown requestId="request-1" />);
+    expect(screen.getAllByText("未记录费用，不计入")).toHaveLength(2);
+    expect(screen.queryByText("未知")).not.toBeInTheDocument();
   });
 
   it("拆分调度与计价，默认摘要展示并折叠可复制的技术详情", async () => {

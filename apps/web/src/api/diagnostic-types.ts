@@ -49,6 +49,7 @@ export interface AttemptMetering {
   reasoningTokens: string;
   deductedQuota: string | null;
   apiCost: string | null;
+  apiCostStatus?: string | null;
   usageQuality: string;
   billingRuleId: string | null;
   ruleVersion: string | null;
@@ -111,6 +112,7 @@ export interface AttemptsResult {
     reasoningTokens: string;
     deductedQuota: string | null;
     apiCost: string | null;
+    apiCostStatus?: string | null;
     usageQuality: string;
     billingRuleId: string | null;
     ruleVersion: string | null;

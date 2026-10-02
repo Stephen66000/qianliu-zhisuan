@@ -1,5 +1,22 @@
 import type { Generated } from "kysely";
 
+export interface ProviderFinanceUsageCostDispositionTable {
+  id: Generated<string>;
+  enterprise_id: string;
+  provider_resource_id: string;
+  ledger_line_id: string;
+  ai_request_id: string;
+  decision: "EXCLUDE_NO_SERVER_COST";
+  original_ledger_fact: Record<string, unknown>;
+  server_cost_evidence: Record<string, unknown>;
+  reason: string;
+  evidence_ref: string;
+  decided_by_admin_user_id: string;
+  idempotency_key: string;
+  request_hash: string;
+  created_at: Generated<Date>;
+}
+
 export type ProviderFinanceEventType =
   | "API_OPENING_BALANCE"
   | "API_OPENING_BALANCE_CORRECTION"

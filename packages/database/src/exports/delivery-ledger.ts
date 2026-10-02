@@ -136,6 +136,7 @@ export {
   type SupplyForecastTickResult,
 } from "../repositories/supply-forecast-repository.js";
 
+export { loadUsageCostDispositionProjections, loadExcludedUsageCostLineIds } from "../repositories/usage-cost-disposition-projection.js";
 export {
   UsageRepository,
   type UsageQuery,

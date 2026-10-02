@@ -6,6 +6,7 @@ import {
   type BalanceComponents,
 } from "@qianliu/domain";
 import { PROVIDER_FINANCE_CUTOVER, type FinanceCurrency } from "./provider-finance-types.js";
+import { effectiveUsageCostDispositionSql } from "./provider-finance-usage-dispositions.js";
 
 type Executor = Kysely<Database> | Transaction<Database>;
 
@@ -143,6 +144,7 @@ export async function loadUnknownCostRows(
         AND COALESCE(line.settled_at, line.created_at) <= ${input.asOf}
         AND (resolution.id IS NULL OR resolution.status<>'RESOLVED'
           OR resolution.window_end_inclusive>${input.asOf})
+        AND NOT ${effectiveUsageCostDispositionSql("line")}
       ORDER BY COALESCE(line.settled_at, line.created_at), line.id LIMIT 100`.execute(db);
   return result.rows;
 }

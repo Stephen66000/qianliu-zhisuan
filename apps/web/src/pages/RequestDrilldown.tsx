@@ -208,6 +208,8 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                         {m.deductedQuota !== null ? ` · 扣减 ${m.deductedQuota}` : ""}
                         {m.apiCost !== null && m.apiCost !== "0" && m.apiCost !== "0.00000000"
                           ? ` · 费用 ${formatMoney(m.apiCost)} 元`
+                          : m.apiCostStatus === "EXCLUDED_NO_RECORDED_COST"
+                            ? ` · ${unavailableUsageCostLabel(m.apiCost, m.apiCostStatus)}`
                           : " · 套餐内"}
                         {m.billingRuleSnapshot?.matchedWindow
                           ? ` · 命中时段 ${m.billingRuleSnapshot.matchedWindow.timezone} ${m.billingRuleSnapshot.matchedWindow.startTime}–${m.billingRuleSnapshot.matchedWindow.endTime}`
@@ -257,7 +259,9 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                       <Field label="生效时间" value={snapshot?.effectiveFrom ? formatDateTimeFull(snapshot.effectiveFrom) : "—"} />
                       <Field label="单价（缓存/输入/输出）" value={prices} />
                       <Field label="倍率" value={metering.multiplier ? `×${metering.multiplier}` : "—"} />
-                      <Field label="最终费用" value={metering.apiCost === null ? "套餐内" : `¥${formatMoney(metering.apiCost)}`} />
+                      <Field label="最终费用" value={metering.apiCost !== null ? `¥${formatMoney(metering.apiCost)}`
+                        : metering.apiCostStatus === "EXCLUDED_NO_RECORDED_COST"
+                          ? unavailableUsageCostLabel(metering.apiCost, metering.apiCostStatus)! : "套餐内"} />
                     </div>
                   </div>
                 );

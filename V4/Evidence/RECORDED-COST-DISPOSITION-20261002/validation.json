@@ -1,0 +1,19 @@
+{
+  "baseline": "58c022300928073eeb9bda30501e33178905a7db",
+  "status": "LOCAL_VALIDATED",
+  "scope": "Explicit administrator exclusions for exact cancelled requests with no recorded server cost; original ledger facts preserved",
+  "checks": {
+    "databaseFinance": 40,
+    "readSideDatabase": 4,
+    "costUnit": 38,
+    "web": 23,
+    "http": 1,
+    "typecheck": "PASS database and four applications",
+    "changedFileLint": "PASS",
+    "webBuild": "PASS"
+  },
+  "knownBaselineFailures": [
+    "Older w18/w20/pool043 integration fixtures omit api_cost_status required by baseline migration 0085; seed failures precede changed paths."
+  ],
+  "deployment": "GitHub first; additive migration 0086; same source revision for all four applications; preview and audited exact-row apply"
+}

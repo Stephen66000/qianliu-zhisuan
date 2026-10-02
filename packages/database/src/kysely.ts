@@ -13,7 +13,7 @@ import type {
 } from "./kysely-operations-tables.js";
 import type {
   ProviderFinanceDuplicateCandidateTable, ProviderFinanceEventTable, ProviderFinanceIdempotencyTable,
-  ProviderFinanceLegacyCostResolutionTable, ProviderFinanceReconciliationCaseTable,
+  ProviderFinanceLegacyCostResolutionTable, ProviderFinanceReconciliationCaseTable, ProviderFinanceUsageCostDispositionTable,
   ProviderSubscriptionPeriodTable,
 } from "./kysely-finance-tables.js";
 import type {
@@ -107,6 +107,7 @@ export interface Database {
   provider_finance_idempotency: ProviderFinanceIdempotencyTable;
   provider_finance_duplicate_candidate: ProviderFinanceDuplicateCandidateTable;
   provider_finance_legacy_cost_resolution: ProviderFinanceLegacyCostResolutionTable;
+  provider_finance_usage_cost_disposition: ProviderFinanceUsageCostDispositionTable;
   provider_finance_activation_attempt: ProviderFinanceActivationAttemptTable;
   provider_finance_activation_quiescence: ProviderFinanceActivationQuiescenceTable;
   provider_resource_finance_state: ProviderResourceFinanceStateTable;

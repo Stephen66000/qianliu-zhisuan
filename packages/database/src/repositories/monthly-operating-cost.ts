@@ -4,6 +4,7 @@ import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { summarizeMonthlyOperatingCosts } from "./monthly-operating-summary.js";
 import { operatingBillResourceScope } from "./operating-bill-resource-scope.js";
+import { effectiveReportedApiCostSql } from "./usage-cost-disposition-projection.js";
 
 export { summarizeMonthlyOperatingCosts } from "./monthly-operating-summary.js";
 
@@ -231,9 +232,9 @@ export async function loadMonthlyOperatingCosts(
   const ledgerPromise = knownLedgerCosts === undefined
     ? sql<LedgerRow>`
         SELECT provider_resource_id,
-               CASE WHEN COUNT(*) = COUNT(api_cost)
-                    THEN COALESCE(SUM(api_cost), 0)::text ELSE NULL END AS amount
-          FROM ledger_line
+               CASE WHEN COUNT(*) = COUNT(${effectiveReportedApiCostSql("ll")})
+                    THEN COALESCE(SUM(${effectiveReportedApiCostSql("ll")}), 0)::text ELSE NULL END AS amount
+          FROM ledger_line ll
          WHERE enterprise_id = ${enterpriseId}::uuid AND resource_mode = 'API'
            AND created_at >= ${periodStart} AND created_at < ${periodEnd}
          GROUP BY provider_resource_id
