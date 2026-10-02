@@ -1,0 +1,92 @@
+{
+  "baseCommit": "9b8b95471aaac96807d59945a6f47594b776fde1",
+  "status": "LOCAL_VALIDATION_PASS_LINUX_PENDING",
+  "cause": "Both weekly jobs called the shared renderer without fitWidth and produced its default 540px images. Existing shared renderer already sets dimensions before SVG decoding.",
+  "change": "Pass fitWidth=1080 for company and personal weekly jobs; retain all templates, fonts, logos, data, and delivery semantics.",
+  "checks": {
+    "reportingTestsPassed": 48,
+    "workerTypecheck": 0,
+    "workerBuild": 0,
+    "changedFileLint": 0,
+    "shellContract": 0,
+    "diffCheck": 0
+  },
+  "localSamples": {
+    "platform": "darwin",
+    "results": [
+      {
+        "kind": "company",
+        "width": 1080,
+        "height": 1520,
+        "decodedSize": [
+          1080,
+          1520
+        ],
+        "pngBytes": 217294,
+        "sha256": "15e648203303d562706184d0d5b06a1af34798056f349aa4df68bdbab6596859",
+        "matchesHighResolutionReference": true,
+        "originalViewBox": "0 0 540 760",
+        "syntheticData": true
+      },
+      {
+        "kind": "personal",
+        "width": 1080,
+        "height": 1538,
+        "decodedSize": [
+          1080,
+          1538
+        ],
+        "pngBytes": 119237,
+        "sha256": "f93eadda0787ac4ce589d4e1ad8de61c3b19117e5d43833d5088c2488d5895d0",
+        "matchesHighResolutionReference": true,
+        "originalViewBox": "47 65 446 635",
+        "syntheticData": true
+      },
+      {
+        "kind": "daily",
+        "width": 1080,
+        "height": 1520,
+        "decodedSize": [
+          1080,
+          1520
+        ],
+        "pngBytes": 98026,
+        "sha256": "7eed7677d04041ee6452344ddb7674ba0e26a30a4f11f31c2b762464bc8c77c9",
+        "matchesHighResolutionReference": true,
+        "originalViewBox": "0 0 540 760",
+        "syntheticData": true
+      }
+    ]
+  },
+  "scope": [
+    "company weekly",
+    "personal weekly"
+  ],
+  "unchanged": [
+    "templates",
+    "statistics",
+    "font mapping",
+    "logo handling",
+    "daily report",
+    "push mechanism"
+  ],
+  "deployment": "Worker only after Linux sample validation",
+  "files": [
+    {
+      "path": "apps/worker/src/reporting/report-jobs.ts",
+      "sha256": "713dbeaca4870da3a9ab6b1ac4f546b1e757c8f16cfa147d34d7c058c6d7aa3a"
+    },
+    {
+      "path": "apps/worker/src/reporting/__tests__/weekly-report-resolution.integration.test.ts",
+      "sha256": "1b44fd256f67a9d8c393c8c2e23f801a900e3bb75dfd0967f013d0d506322b3d"
+    },
+    {
+      "path": "deploy/scripts/release-weekly-retina-20261002-bt.sh",
+      "sha256": "026a03dd19ae3f4ef5c1ebe4dc7f337c3fd04f2a49da928c84c0e7546f509aae"
+    },
+    {
+      "path": "V4/Evidence/WEEKLY-REPORT-RETINA-20261002/render-samples.mjs",
+      "sha256": "9d5974d182e9682f7a8404bd943a5fe5329d8292fbe6bdc824e5af1704790c7e"
+    }
+  ]
+}

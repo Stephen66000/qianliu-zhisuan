@@ -352,7 +352,7 @@ export async function runCompanyWeeklyReport(
   };
 
   const svg = generateCompanyWeeklySvg(reportData);
-  const pngBuffer = await renderSvgToPng(svg);
+  const pngBuffer = await renderSvgToPng(svg, { fitWidth: 1080 });
 
   // 3. 确定接收人列表
   let recipients = options.recipients;
@@ -788,7 +788,7 @@ export async function runPersonalWeeklyReports(
       continue;
     }
 
-    const pngBuffer = await renderSvgToPng(svg);
+    const pngBuffer = await renderSvgToPng(svg, { fitWidth: 1080 });
     const mediaId = await client.uploadMedia(
       endpoint as EndpointConfig,
       pngBuffer,
