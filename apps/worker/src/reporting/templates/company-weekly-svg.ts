@@ -250,7 +250,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
     <!-- Block 3: 使用模型表格 -->
     <text x="87" y="${table2TitleY}" font-size="13" font-weight="700" fill="#172033">使用模型</text>
-    <text x="453" y="${table2TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">本${data.reportMonth ? "月" : "周"}调用 ${data.topModels.length} 个模型</text>
+    <text x="453" y="${table2TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${data.reportMonth ? "本月热门" : "本周调用"} ${data.topModels.length} 个模型</text>
 
     <text x="87" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">模型</text>
     <text x="220" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${data.reportMonth ? "全月消耗" : "7天消耗"}</text>
