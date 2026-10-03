@@ -200,7 +200,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
     </g>
 
     <g transform="translate(202, ${kpiTopY})">
-      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">Token 消耗总量</text>
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">${data.reportMonth ? "额度扣减总量" : "Token 消耗总量"}</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(monthConsumedClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthConsumedUnit}</tspan></text>
     </g>
 
@@ -226,6 +226,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
     </g>
 
     <!-- 分割线 1 -->
+    ${data.reportMonth ? `<text x="87" y="${kpiTopY + kpiRowStep + 46}" font-size="8.5" fill="#7D8FA4">额度按规则扣减；Token 为统计用量</text>` : ""}
     <line x1="87" y1="${div1Y}" x2="453" y2="${div1Y}" stroke="#F1F5F9" stroke-width="1" />
 
     <!-- Block 2: 全员使用量表格 -->

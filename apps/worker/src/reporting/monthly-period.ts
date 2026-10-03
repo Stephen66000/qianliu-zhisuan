@@ -20,9 +20,11 @@ export function completedReportMonth(month?: string, now = new Date()) {
 /** Historical month-end allocation, never the new month's mutable quota counter.
  * Later grant edits have no retained historical value and are displayed as missing. */
 export async function queryMonthEndAllocation(db: Kysely<Database>, enterpriseId: string, end: Date, principalId?: string): Promise<number | null> {
-  const rows = await db.selectFrom("principal_grant").select(["quota_value", "updated_at", "status", "valid_from", "valid_until"])
-    .where("enterprise_id", "=", enterpriseId).where("created_at", "<", end)
-    .$if(Boolean(principalId), qb => qb.where("principal_id", "=", principalId!)).execute();
+  const rows = await db.selectFrom("principal_grant as grant")
+    .innerJoin("principal as pr", join => join.onRef("pr.id", "=", "grant.principal_id").onRef("pr.enterprise_id", "=", "grant.enterprise_id"))
+    .select(["grant.quota_value", "grant.updated_at", "grant.status", "grant.valid_from", "grant.valid_until"])
+    .where("grant.enterprise_id", "=", enterpriseId).where("grant.created_at", "<", end).where("pr.type", "=", "EMPLOYEE")
+    .$if(Boolean(principalId), qb => qb.where("grant.principal_id", "=", principalId!)).execute();
   if (rows.some(row => row.updated_at >= end)) return null;
   return rows.filter(row => row.status === "ACTIVE" && row.valid_from < end && (row.valid_until === null || row.valid_until >= end))
     .reduce((total, row) => total + Number(row.quota_value), 0);

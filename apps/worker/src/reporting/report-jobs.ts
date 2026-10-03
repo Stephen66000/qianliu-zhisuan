@@ -249,17 +249,21 @@ function periodicContext(db: Kysely<Database>, options: { reportMonth?: string; 
   return { monthly, timezone, anchorDate, divisor: monthly?.days ?? 7,
     period: monthly ? "MONTH" as const : "WEEK" as const,
     noun: monthly ? "月" : "周", fileKind: monthly ? "monthly" : "weekly",
+    quotaCaption: monthly ? "当月分配额度" : "本月总 Token",
+    consumedCaption: monthly ? "额度扣减总量" : "Token 消耗总量（本月）",
+    remainingCaption: monthly ? "月末剩余额度" : "剩余 Token 总量",
     usageRepo: monthly ? new UsageOverviewRepository(db) : new UsageOverviewRepository(db, () => anchorDate),
     dateRange: (start: Date, end: Date) => monthly?.dateRange ?? formatDateRange(start, new Date(end.getTime() - 1000), timezone) };
 }
 
-async function companyQuotaView(db: Kysely<Database>, enterpriseId: string, monthly: ReturnType<typeof completedReportMonth> | null, deductedQuota: string) {
+async function companyQuotaView(db: Kysely<Database>, enterpriseId: string, monthly: ReturnType<typeof completedReportMonth> | null, deductedQuota: string, consumedTokens: number) {
   const current = monthly ? null : await queryEnterpriseQuotaSummary(db, enterpriseId);
   const total = monthly ? await queryMonthEndAllocation(db, enterpriseId, monthly.end) : current!.quotaTotal;
   const used = monthly ? Number(deductedQuota) : current!.quotaUsed;
   const remaining = total === null ? null : Math.max(0, total - used);
   return { total: total === null ? "未留存" : formatTokenVolume(total),
-    remaining: remaining === null ? "未留存" : formatTokenVolume(remaining) };
+    remaining: remaining === null ? "未留存" : formatTokenVolume(remaining),
+    consumed: formatTokenVolume(monthly ? used : consumedTokens) };
 }
 
 export interface RunCompanyWeeklyReportOptions {
@@ -331,7 +335,7 @@ export async function runCompanyWeeklyReport(
     anchor: anchorDate,
   });
   const monthConsumed = Number(monthOverview.metrics.realTokens);
-  const quota = await companyQuotaView(db, enterpriseId, monthly, overview.metrics.deductedQuota);
+  const quota = await companyQuotaView(db, enterpriseId, monthly, overview.metrics.deductedQuota, monthConsumed);
 
   // 1. 查询模型消耗 Top 3
   const topModelsData = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, undefined, 3, Boolean(monthly));
@@ -367,7 +371,7 @@ export async function runCompanyWeeklyReport(
     dateRange: dateRangeStr,
     reportMonth: monthly?.label,
     monthQuotaTotal: quota.total,
-    monthConsumedTokens: formatTokenVolume(monthConsumed),
+    monthConsumedTokens: quota.consumed,
     monthQuotaRemaining: quota.remaining,
     totalRequests: `${formatNumber(requestCount)} 次`,
     totalTokens: formatTokenVolume(totalTokens),
@@ -487,9 +491,9 @@ export async function runCompanyWeeklyReport(
   const summaryText = [
     `📊 【${enterprise.name}】全员用量${context.noun}报小结 (${dateRangeStr})`,
     "━━━━━━━━━━━━━━━━━━",
-    `💎 本月总 Token：${quota.total}`,
-    `🔥 Token 消耗总量（本月）：${formatTokenVolume(monthConsumed)}`,
-    `🧮 剩余 Token 总量：${quota.remaining}`,
+    `💎 ${context.quotaCaption}：${quota.total}`,
+    `🔥 ${context.consumedCaption}：${quota.consumed}`,
+    `🧮 ${context.remainingCaption}：${quota.remaining}`,
     `⚡ 全${context.noun}消耗总量：${formatTokenVolume(totalTokens)}`,
     `📈 日均使用水平：${formatTokenVolume(totalTokens / divisor, { isDailyAvg: true })}`,
     `🚀 全${context.noun}总请求数：${formatNumber(requestCount)} 次`,
