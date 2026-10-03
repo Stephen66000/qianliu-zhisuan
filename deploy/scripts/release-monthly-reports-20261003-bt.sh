@@ -96,7 +96,14 @@ case "$mode" in
     initial_head="$(db_head)"
     require_db
     [[ -z "$(git -C "$repo" status --porcelain -uno)" ]] || { echo 'Server source has tracked modifications'; exit 2; }
-    GIT_TERMINAL_PROMPT=0 git -C "$repo" fetch origin main
+    # Verify GitHub's live main, then reuse the exact objects fetched for this
+    # revision. Avoid a second full negotiation on the server's slow GitHub link.
+    remote_head="$(GIT_TERMINAL_PROMPT=0 timeout 45s git -c http.version=HTTP/1.1 -C "$repo" ls-remote origin refs/heads/main | awk '{print $1}')"
+    [[ "$remote_head" == "$revision" ]] || { echo 'GitHub main does not match approved revision'; exit 2; }
+    if [[ "$(git -C "$repo" rev-parse origin/main)" != "$revision" ]] || ! git -C "$repo" cat-file -e "$revision^{commit}"; then
+      GIT_TERMINAL_PROMPT=0 timeout 90s git -c http.version=HTTP/1.1 -c fetch.negotiationAlgorithm=skipping \
+        -C "$repo" fetch --no-tags origin "$revision:refs/remotes/origin/main"
+    fi
     [[ "$(git -C "$repo" rev-parse origin/main)" == "$revision" ]] || { echo 'GitHub main does not match approved revision'; exit 2; }
     [[ ! -e "$release" ]] || { echo 'Release directory already exists; inspect it before reuse'; exit 2; }
     stage="${release}.preparing-$$"
