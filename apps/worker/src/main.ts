@@ -35,6 +35,11 @@ import { createClient } from "redis";
 import {
   runDailyTokenReport,
   runCompanyWeeklyReport,
+  runCompanyMonthlyReport,
+  runPersonalMonthlyReports,
+  runMonthlyReportTick,
+  monthlyReportDue,
+  RedisMonthlyReportStore,
   runPersonalWeeklyReports,
   runIncentiveChecks,
   dispatchAllCardsToUser,
@@ -46,6 +51,11 @@ import {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
+
+  if (command === "report-company-monthly" || command === "report-personal-monthly") {
+    await runMonthlyReportCommand(command, args.slice(1));
+    return;
+  }
 
   if (command === "reconciliation") {
     await runReconciliationTask(args.slice(1));
@@ -265,6 +275,7 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   let lastDailyAggregateDate: string | null = null;
   let lastDailyReportDate: string | null = null;
   let lastWeeklyReportDate: string | null = null;
+  let lastMonthlyReportDate: string | null = null;
   let lastIncentiveCheckDate: string | null = null;
   const wecom = new WecomAppClient(
     requiredEnv("CREDENTIAL_KEK"), fetch, Date.now, process.env.RUNTIME_ASSURANCE_ADMIN_URL,
@@ -463,6 +474,25 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             }
           }
 
+          // 每月 1 日北京时间 09:00~09:30，统计完整上月；不在窗口外补发。
+          if (monthlyReportDue(now) && lastMonthlyReportDate !== shanghaiDate) {
+            try {
+              const enterprises = await db.selectFrom("enterprise").select("id").where("status", "=", "ACTIVE").execute();
+              let complete = true;
+              for (const ent of enterprises) {
+                const result = await runMonthlyReportTick({ db, now, enterpriseId: ent.id,
+                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
+                  store: redisClient ? new RedisMonthlyReportStore(redisClient) : null });
+                complete &&= result.complete;
+                console.log(JSON.stringify({ event: "monthly_token_report_scheduler_completed", enterprise_id: ent.id, ...result }));
+              }
+              if (complete) lastMonthlyReportDate = shanghaiDate;
+            } catch (error) {
+              console.error(JSON.stringify({ event: "monthly_token_report_scheduler_failed",
+                error_type: error instanceof Error ? error.name : typeof error }));
+            }
+          }
+
           // 周三至周日上午 09:30 ~ 09:59（上海时间）执行激励巡检（登顶流动红旗与超越50%员工成长卡）
           // 严格限定在上午 09:30~09:59 触发，下午或晚上即使服务重启也绝对不触发
           const isWedToSun = shanghaiDay === 0 || shanghaiDay >= 3;
@@ -657,6 +687,19 @@ async function runDailyTokenReportCommand(args: string[]): Promise<void> {
   } finally {
     await db.destroy();
   }
+}
+
+async function runMonthlyReportCommand(command: string, args: string[]): Promise<void> {
+  const db = createKysely();
+  try {
+    const enterpriseId = arg(args, "--enterprise") ?? (await db.selectFrom("enterprise").select("id").orderBy("created_at").limit(1).executeTakeFirst())?.id;
+    if (!enterpriseId) throw new Error("缺少企业");
+    const options = { db, enterpriseId, kekBase64: requiredEnv("CREDENTIAL_KEK"), month: arg(args, "--month"), dryRun: args.includes("--dry-run") };
+    const result = command === "report-company-monthly" ? await runCompanyMonthlyReport({ ...options,
+      recipients: arg(args, "--recipients")?.split(",").map(value => value.trim()).filter(Boolean) })
+      : await runPersonalMonthlyReports({ ...options, userPersonId: arg(args, "--user") });
+    console.log(JSON.stringify(result, (key, value: unknown) => ["svg", "pngBuffer"].includes(key) ? undefined : value));
+  } finally { await db.destroy(); }
 }
 
 async function runReportCompanyWeeklyCommand(args: string[]): Promise<void> {

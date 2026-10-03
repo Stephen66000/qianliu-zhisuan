@@ -20,6 +20,7 @@ import {
   type PersonalWeeklyReportData,
 } from "./templates/personal-weekly-svg.js";
 
+import { completedReportMonth, queryMonthEndAllocation } from "./monthly-period.js";
 import { pickPersonalWeeklyQuote } from "./quote-library.js";
 
 export interface ModelUsageSummary {
@@ -38,9 +39,11 @@ export async function queryTopModelsForRange(
   rangeEnd: Date,
   principalId?: string,
   limit: number = 5,
+  employeesOnly: boolean = false,
 ): Promise<ModelUsageSummary[]> {
   try {
     const principalFilter = principalId ? sql`AND lt.principal_id = ${principalId}` : sql``;
+    const employeeFilter = employeesOnly ? sql`AND EXISTS (SELECT 1 FROM principal pr WHERE pr.id=ar.principal_id AND pr.enterprise_id=ar.enterprise_id AND pr.type='EMPLOYEE')` : sql``;
     const result = await sql<{
       model_name: string | null;
       request_count: string | number | bigint;
@@ -61,6 +64,7 @@ export async function queryTopModelsForRange(
          AND lt.created_at >= ${rangeStart}
          AND lt.created_at < ${rangeEnd}
          ${principalFilter}
+         ${employeeFilter}
        GROUP BY COALESCE(um.display_name, ar.unified_model)
        ORDER BY total_tokens DESC, request_count DESC
        LIMIT ${limit}
@@ -74,6 +78,7 @@ export async function queryTopModelsForRange(
         requestCount: Number(r.request_count ?? 0),
       }));
     }
+    if (employeesOnly) return []; // Closed-month reports use the same settled facts as their totals.
 
     // 备用兜底查询 usage_event
     const fallbackRows = await db
@@ -99,6 +104,7 @@ export async function queryTopModelsForRange(
       .where("r.status", "=", "SUCCEEDED")
       .where("r.started_at", ">=", rangeStart)
       .where("r.started_at", "<", rangeEnd)
+      .$if(employeesOnly, qb => qb.where(sql<boolean>`EXISTS (SELECT 1 FROM principal pr WHERE pr.id=r.principal_id AND pr.enterprise_id=r.enterprise_id AND pr.type='EMPLOYEE')`))
       .$if(Boolean(principalId), (qb) => qb.where("r.principal_id", "=", principalId!))
       .groupBy(sql`COALESCE(um.display_name, r.unified_model)`)
       .orderBy(sql`sum(u.input_tokens + u.output_tokens)`, "desc")
@@ -236,6 +242,26 @@ export async function resolveWecomRecipients(
   return Array.from(new Set(resolvedRecipients));
 }
 
+function periodicContext(db: Kysely<Database>, options: { reportMonth?: string; targetDate?: Date }, enterpriseTimezone: string | null) {
+  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth) : null;
+  const timezone = monthly ? "Asia/Shanghai" : enterpriseTimezone || "Asia/Shanghai";
+  const anchorDate = monthly?.anchor ?? options.targetDate ?? new Date(Date.now() - 24 * 3600_000);
+  return { monthly, timezone, anchorDate, divisor: monthly?.days ?? 7,
+    period: monthly ? "MONTH" as const : "WEEK" as const,
+    noun: monthly ? "月" : "周", fileKind: monthly ? "monthly" : "weekly",
+    usageRepo: monthly ? new UsageOverviewRepository(db) : new UsageOverviewRepository(db, () => anchorDate),
+    dateRange: (start: Date, end: Date) => monthly?.dateRange ?? formatDateRange(start, new Date(end.getTime() - 1000), timezone) };
+}
+
+async function companyQuotaView(db: Kysely<Database>, enterpriseId: string, monthly: ReturnType<typeof completedReportMonth> | null, deductedQuota: string) {
+  const current = monthly ? null : await queryEnterpriseQuotaSummary(db, enterpriseId);
+  const total = monthly ? await queryMonthEndAllocation(db, enterpriseId, monthly.end) : current!.quotaTotal;
+  const used = monthly ? Number(deductedQuota) : current!.quotaUsed;
+  const remaining = total === null ? null : Math.max(0, total - used);
+  return { total: total === null ? "未留存" : formatTokenVolume(total),
+    remaining: remaining === null ? "未留存" : formatTokenVolume(remaining) };
+}
+
 export interface RunCompanyWeeklyReportOptions {
   db: Kysely<Database>;
   kekBase64: string;
@@ -243,6 +269,8 @@ export interface RunCompanyWeeklyReportOptions {
   targetDate?: Date; // 默认为上周某天（即以当前时间推算的上周自然周）
   recipients?: string[];
   dryRun?: boolean;
+  /** @internal Supplied by the completed-month wrappers. */
+  reportMonth?: string;
 }
 
 export interface RunCompanyWeeklyReportResult {
@@ -276,22 +304,19 @@ export async function runCompanyWeeklyReport(
     throw new Error(`Enterprise not found: ${enterpriseId}`);
   }
 
-  const timezone = enterprise.timezone || "Asia/Shanghai";
-  // 默认锚定上周日（即上周范围内）
-  const now = new Date();
-  const anchorDate = options.targetDate ?? new Date(now.getTime() - 24 * 3600_000);
-
-  const usageRepo = new UsageOverviewRepository(db, () => anchorDate);
+  const context = periodicContext(db, options, enterprise.timezone);
+  const { monthly, timezone, anchorDate, usageRepo, divisor } = context;
   const overview = await usageRepo.getOverview({
     enterpriseId,
     subjectType: "EMPLOYEE",
-    period: "WEEK",
+    period: context.period,
+    timezone,
     anchor: anchorDate,
   });
 
   const rangeStart = new Date(overview.range.from);
   const rangeEnd = new Date(overview.range.to);
-  const dateRangeStr = formatDateRange(rangeStart, new Date(rangeEnd.getTime() - 1000), timezone);
+  const dateRangeStr = context.dateRange(rangeStart, rangeEnd);
 
   const totalTokens = Number(overview.metrics.realTokens);
   const requestCount = Number(overview.metrics.requestCount);
@@ -302,22 +327,22 @@ export async function runCompanyWeeklyReport(
     enterpriseId,
     subjectType: "EMPLOYEE",
     period: "MONTH",
+    timezone,
     anchor: anchorDate,
   });
   const monthConsumed = Number(monthOverview.metrics.realTokens);
-  const { quotaTotal, quotaUsed } = await queryEnterpriseQuotaSummary(db, enterpriseId);
-  const quotaRemaining = Math.max(0, quotaTotal - quotaUsed);
+  const quota = await companyQuotaView(db, enterpriseId, monthly, overview.metrics.deductedQuota);
 
   // 1. 查询模型消耗 Top 3
-  const topModelsData = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, undefined, 3);
-  const totalModelTokens = topModelsData.reduce((acc, m) => acc + m.tokens, 0);
+  const topModelsData = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, undefined, 3, Boolean(monthly));
+  const totalModelTokens = monthly ? totalTokens : topModelsData.reduce((acc, m) => acc + m.tokens, 0);
 
   const topModels = topModelsData.map((m) => {
     const share = totalModelTokens > 0 ? `${((m.tokens / totalModelTokens) * 100).toFixed(1)}%` : "0.0%";
     return {
       model: m.model,
       tokens: formatTokenVolume(m.tokens),
-      dailyTokens: formatTokenVolume(m.tokens / 7, { isDailyAvg: true }),
+      dailyTokens: formatTokenVolume(m.tokens / divisor, { isDailyAvg: true }),
       requests: formatNumber(m.requestCount),
       share,
     };
@@ -332,7 +357,7 @@ export async function runCompanyWeeklyReport(
       department: u.departmentLabel ?? "核心团队",
       requests: formatNumber(u.requestCount),
       tokens: formatTokenVolume(uTokens),
-      dailyTokens: formatTokenVolume(uTokens / 7, { isDailyAvg: true }),
+      dailyTokens: formatTokenVolume(uTokens / divisor, { isDailyAvg: true }),
       share: formatPercentage(u.share),
     };
   });
@@ -340,12 +365,13 @@ export async function runCompanyWeeklyReport(
   const reportData: CompanyWeeklyReportData = {
     enterpriseName: enterprise.name,
     dateRange: dateRangeStr,
-    monthQuotaTotal: formatTokenVolume(quotaTotal),
+    reportMonth: monthly?.label,
+    monthQuotaTotal: quota.total,
     monthConsumedTokens: formatTokenVolume(monthConsumed),
-    monthQuotaRemaining: formatTokenVolume(quotaRemaining),
+    monthQuotaRemaining: quota.remaining,
     totalRequests: `${formatNumber(requestCount)} 次`,
     totalTokens: formatTokenVolume(totalTokens),
-    dailyAvgTokens: formatTokenVolume(totalTokens / 7, { isDailyAvg: true }),
+    dailyAvgTokens: formatTokenVolume(totalTokens / divisor, { isDailyAvg: true }),
     totalEmployees: activeEmployees,
     topUsers,
     topModels,
@@ -453,20 +479,20 @@ export async function runCompanyWeeklyReport(
   const mediaId = await client.uploadMedia(
     endpoint as EndpointConfig,
     pngBuffer,
-    `company_weekly_${dateRangeStr.replace(/\s+/g, "")}.png`,
+    `company_${context.fileKind}_${dateRangeStr.replace(/\s+/g, "")}.png`,
   );
 
   await client.sendImageMessage(endpoint as EndpointConfig, recipients, mediaId);
 
   const summaryText = [
-    `📊 【${enterprise.name}】全员用量周报小结 (${dateRangeStr})`,
+    `📊 【${enterprise.name}】全员用量${context.noun}报小结 (${dateRangeStr})`,
     "━━━━━━━━━━━━━━━━━━",
-    `💎 本月总 Token：${formatTokenVolume(quotaTotal)}`,
+    `💎 本月总 Token：${quota.total}`,
     `🔥 Token 消耗总量（本月）：${formatTokenVolume(monthConsumed)}`,
-    `🧮 剩余 Token 总量：${formatTokenVolume(quotaRemaining)}`,
-    `⚡ 全周消耗总量：${formatTokenVolume(totalTokens)}`,
-    `📈 日均使用水平：${formatTokenVolume(totalTokens / 7, { isDailyAvg: true })}`,
-    `🚀 全周总请求数：${formatNumber(requestCount)} 次`,
+    `🧮 剩余 Token 总量：${quota.remaining}`,
+    `⚡ 全${context.noun}消耗总量：${formatTokenVolume(totalTokens)}`,
+    `📈 日均使用水平：${formatTokenVolume(totalTokens / divisor, { isDailyAvg: true })}`,
+    `🚀 全${context.noun}总请求数：${formatNumber(requestCount)} 次`,
     `👥 活跃员工总数：${activeEmployees} 人`,
     "━━━━━━━━━━━━━━━━━━",
     "详见上方管理看板长图 👆",
@@ -492,7 +518,11 @@ export interface RunPersonalWeeklyReportsOptions {
   enterpriseId: string;
   targetDate?: Date;
   userPersonId?: string;
+  shouldSend?: (principalId: string) => Promise<boolean>;
+  onSent?: (principalId: string) => Promise<void>;
   dryRun?: boolean;
+  /** @internal Supplied by the completed-month wrappers. */
+  reportMonth?: string;
 }
 
 export interface PersonalWeeklyItemResult {
@@ -525,22 +555,25 @@ export async function runPersonalWeeklyReports(
     throw new Error(`Enterprise not found: ${enterpriseId}`);
   }
 
-  const timezone = enterprise.timezone || "Asia/Shanghai";
+  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth) : null;
+  const timezone = monthly ? "Asia/Shanghai" : enterprise.timezone || "Asia/Shanghai";
   const now = new Date();
-  const anchorDate = options.targetDate ?? new Date(now.getTime() - 24 * 3600_000);
+  const anchorDate = monthly?.anchor ?? options.targetDate ?? new Date(now.getTime() - 24 * 3600_000);
 
-  const usageRepo = new UsageOverviewRepository(db, () => anchorDate);
+  const usageRepo = monthly ? new UsageOverviewRepository(db) : new UsageOverviewRepository(db, () => anchorDate);
   const overview = await usageRepo.getOverview({
     enterpriseId,
     subjectType: "EMPLOYEE",
-    period: "WEEK",
+    period: monthly ? "MONTH" : "WEEK",
+    ...(monthly ? { timezone: "Asia/Shanghai" } : {}),
     anchor: anchorDate,
   });
 
   const rangeStart = new Date(overview.range.from);
   const rangeEnd = new Date(overview.range.to);
-  const dateRangeStr = formatDateRange(rangeStart, new Date(rangeEnd.getTime() - 1000), timezone);
-  const weekLabel = `一周小结 ${dateRangeStr}`;
+  const dateRangeStr = monthly?.dateRange ?? formatDateRange(rangeStart, new Date(rangeEnd.getTime() - 1000), timezone);
+  const divisor = monthly?.days ?? 7;
+  const weekLabel = `${monthly ? "月度小结" : "一周小结"} ${dateRangeStr}`;
 
   // 筛选需要推送的员工列表
   let targetRanking: typeof overview.ranking = [];
@@ -661,6 +694,7 @@ export async function runPersonalWeeklyReports(
 
   for (const item of targetRanking) {
     const principalId = item.subjectId;
+    if (!dryRun && options.shouldSend && !await options.shouldSend(principalId)) continue;
     const tokens = Number(item.realTokens);
     const requests = Number(item.requestCount);
 
@@ -676,8 +710,9 @@ export async function runPersonalWeeklyReports(
       .executeTakeFirst();
 
     // 查询最晚物理调用时间与主力模型
-    const latestTime = await queryLatestRequestTime(db, enterpriseId, principalId, rangeStart, rangeEnd, timezone);
-    const userModels = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, principalId, 1);
+    const latest = await queryLatestRequestTime(db, enterpriseId, principalId, rangeStart, rangeEnd, timezone);
+    const latestTime = monthly && latest === "周内深度协同" ? "月内暂无成功请求" : latest;
+    const userModels = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, principalId, 1, Boolean(monthly));
     const topModelName = userModels[0]?.model;
 
     // 计算当月剩余额度（本月分配额度 - 本月使用额度）
@@ -686,7 +721,7 @@ export async function runPersonalWeeklyReports(
     const monthStart = new Date(Date.UTC(currentYear, currentMonth, 1));
     const nextMonthStart = new Date(Date.UTC(currentYear, currentMonth + 1, 1));
 
-    const grantRow = await sql<{ allocated_quota: string }>`
+    const grantRow = monthly ? null : await sql<{ allocated_quota: string }>`
       SELECT COALESCE(SUM(quota_value), 0)::text AS allocated_quota
         FROM principal_grant
        WHERE enterprise_id = ${enterpriseId}
@@ -694,9 +729,10 @@ export async function runPersonalWeeklyReports(
          AND status = 'ACTIVE'
          AND (valid_until IS NULL OR valid_until > ${rangeEnd})
     `.execute(db);
-    const allocatedQuotaNum = Number(grantRow.rows[0]?.allocated_quota ?? 0);
+    const allocatedQuotaNum = monthly ? await queryMonthEndAllocation(db, enterpriseId, monthly.end, principalId)
+      : Number(grantRow?.rows[0]?.allocated_quota ?? 0);
 
-    const monthUsageRow = await sql<{ month_tokens: string }>`
+    const monthUsageRow = monthly ? null : await sql<{ month_tokens: string }>`
       SELECT COALESCE(SUM(lt.total_input_tokens + lt.total_output_tokens), 0)::text AS month_tokens
         FROM ledger_transaction lt
        WHERE lt.enterprise_id = ${enterpriseId}
@@ -705,10 +741,11 @@ export async function runPersonalWeeklyReports(
          AND lt.created_at >= ${monthStart}
          AND lt.created_at < ${nextMonthStart}
     `.execute(db);
-    const monthTokensNum = Number(monthUsageRow.rows[0]?.month_tokens ?? 0);
+    const monthTokensNum = monthly ? Number(item.deductedQuota) : Number(monthUsageRow?.rows[0]?.month_tokens ?? 0);
 
     let remainingQuotaValue = "不限";
-    if (allocatedQuotaNum > 0) {
+    if (allocatedQuotaNum === null) remainingQuotaValue = "历史额度未留存";
+    else if (allocatedQuotaNum > 0) {
       const remaining = allocatedQuotaNum - monthTokensNum;
       remainingQuotaValue = remaining > 0 ? formatTokenVolume(remaining) : "0 (已超额)";
     }
@@ -719,19 +756,19 @@ export async function runPersonalWeeklyReports(
         value: `${formatNumber(requests)} 次`,
       },
       {
-        label: "周消耗 Token 总量",
+        label: `${monthly ? "月" : "周"}消耗 Token 总量`,
         value: formatTokenVolume(tokens),
       },
       {
         label: "日均使用量",
-        value: formatTokenVolume(tokens / 7, { isDailyAvg: true }),
+        value: formatTokenVolume(tokens / divisor, { isDailyAvg: true }),
       },
       {
         label: "最晚请求时间",
         value: latestTime,
       },
       {
-        label: "本月剩余额度",
+        label: monthly ? "月末剩余额度" : "本月剩余额度",
         value: remainingQuotaValue,
       },
     ];
@@ -792,16 +829,16 @@ export async function runPersonalWeeklyReports(
     const mediaId = await client.uploadMedia(
       endpoint as EndpointConfig,
       pngBuffer,
-      `weekly_${identity.provider_user_id}.png`,
+      `${monthly ? "monthly" : "weekly"}_${identity.provider_user_id}.png`,
     );
 
     await client.sendImageMessage(endpoint as EndpointConfig, [identity.provider_user_id], mediaId);
 
     const personalSummary = [
-      `👋 ${item.subjectName}，您上一周的 AI 协同小结已生成！`,
+      `👋 ${item.subjectName}，您${monthly ? monthly.label : "上一周"}的 AI 协同小结已生成！`,
       "━━━━━━━━━━━━━━━━━━",
-      `⚡ 周总消耗：${formatTokenVolume(tokens)}`,
-      `📈 日均用量：${formatTokenVolume(tokens / 7, { isDailyAvg: true })}`,
+      `⚡ ${monthly ? "月" : "周"}总消耗：${formatTokenVolume(tokens)}`,
+      `📈 日均用量：${formatTokenVolume(tokens / divisor, { isDailyAvg: true })}`,
       `⏱ 最晚请求：${latestTime}`,
       "━━━━━━━━━━━━━━━━━━",
       "专属记录已送达，快打开看看吧！",
@@ -809,6 +846,7 @@ export async function runPersonalWeeklyReports(
 
     await client.sendTextMessage(endpoint as EndpointConfig, [identity.provider_user_id], personalSummary);
 
+    if (options.onSent) await options.onSent(principalId);
     results.push({
       personId: identity.person_id,
       userName: item.subjectName,

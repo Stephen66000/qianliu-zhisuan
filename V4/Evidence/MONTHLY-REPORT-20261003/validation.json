@@ -1,0 +1,23 @@
+{
+  "baseline": "7f3557f7afabcd6665aea39932895899272e318b",
+  "status": "LOCAL_VALIDATED",
+  "scope": [
+    "Completed Beijing natural month",
+    "Weekly layout, 2x fonts/logo",
+    "Calendar-day averages",
+    "Historical month-end quota, no current counters",
+    "Monthly first-day 09:00-09:30 window, durable recipient receipts"
+  ],
+  "checks": {
+    "reportingTests": 31,
+    "finalAffectedTests": 17,
+    "typecheck": "PASS database and four applications",
+    "changedFileLint": "PASS",
+    "workerBuild": "PASS",
+    "localVisualReview": "PASS"
+  },
+  "nextScheduledRun": "2026-11-01T09:00:00+08:00",
+  "reportMonthForNextRun": "2026-10",
+  "productionPreview": "Read-only database pool and dryRun; no WeCom delivery",
+  "dataSafety": "No schema or financial fact writes"
+}

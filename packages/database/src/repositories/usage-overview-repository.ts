@@ -19,6 +19,8 @@ export interface UsageOverviewQuery {
   subjectId?: string;
   period: UsageOverviewPeriod;
   anchor: Date;
+  /** Internal report override; ordinary requests use the enterprise timezone. */
+  timezone?: string;
 }
 
 export interface UsageOverviewMetrics {

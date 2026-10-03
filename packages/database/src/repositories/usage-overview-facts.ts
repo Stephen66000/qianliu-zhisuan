@@ -31,7 +31,7 @@ export async function resolveUsageOverviewRange(
 ): Promise<UsageOverviewRange | undefined> {
   const result = await sql<UsageOverviewRange>`
     WITH settings AS (
-      SELECT timezone
+      SELECT COALESCE(${input.timezone ?? null}, timezone) AS timezone
         FROM enterprise
        WHERE id = ${input.enterpriseId}
     ), local_bounds AS (
