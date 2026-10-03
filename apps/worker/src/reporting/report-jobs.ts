@@ -160,6 +160,7 @@ export async function queryLatestRequestTime(
   rangeStart: Date,
   rangeEnd: Date,
   timezone: string,
+  includeDate = false,
 ): Promise<string> {
   try {
     const row = await db
@@ -175,6 +176,12 @@ export async function queryLatestRequestTime(
       .executeTakeFirst();
 
     if (row?.started_at) {
+      if (includeDate) {
+        const parts = new Intl.DateTimeFormat("zh-CN", { timeZone: timezone, month: "numeric", day: "numeric",
+          hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(row.started_at));
+        const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
+        return `${part("month")}月${part("day")}日 ${part("hour")}:${part("minute")}`;
+      }
       return formatLatestRequestTime(new Date(row.started_at), timezone);
     }
   } catch {
@@ -714,7 +721,7 @@ export async function runPersonalWeeklyReports(
       .executeTakeFirst();
 
     // 查询最晚物理调用时间与主力模型
-    const latest = await queryLatestRequestTime(db, enterpriseId, principalId, rangeStart, rangeEnd, timezone);
+    const latest = await queryLatestRequestTime(db, enterpriseId, principalId, rangeStart, rangeEnd, timezone, Boolean(monthly));
     const latestTime = monthly && latest === "周内深度协同" ? "月内暂无成功请求" : latest;
     const userModels = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, principalId, 1, Boolean(monthly));
     const topModelName = userModels[0]?.model;

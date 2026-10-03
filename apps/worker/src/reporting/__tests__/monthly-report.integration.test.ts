@@ -45,6 +45,7 @@ describe("closed-month reports share the weekly high-resolution layout",()=>{
     const preview=await runPersonalMonthlyReports({db,enterpriseId,kekBase64:"unused",month:"2026-09",userPersonId:personId,dryRun:true});
     expect(preview[0]).toMatchObject({totalTokens:150000,requestCount:2,status:"DRY_RUN"});
     expect(preview[0]!.svg).toContain("月度小结 2026 年 9 月");expect(preview[0]!.svg).toContain("月消耗 Token 总量");
+    expect(preview[0]!.svg).toContain("9月30日 23:59");
     expect(preview[0]!.svg).toContain("0.5 万 /天");expect(preview[0]!.svg).toContain("15.0 万");
     const png=await renderSvgToPng(preview[0]!.svg!,{fitWidth:1080});expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1538]);
     const upload=vi.spyOn(WecomAppClient.prototype,"uploadMedia").mockResolvedValue("synthetic-media");
