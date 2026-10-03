@@ -170,6 +170,28 @@ export {
   type StateTransition,
 } from "./resource-lifecycle.js";
 
+// ===== CPQW：Coding Plan 窗口额度阻断记录（纯函数状态机，计划§4）=====
+export {
+  QUOTA_BLOCK_SCHEMA_VERSION,
+  QUOTA_BLOCK_WINDOW_TYPES,
+  QUOTA_BLOCK_RESET_SOURCES,
+  parseQuotaBlockState,
+  serializeQuotaBlockState,
+  mergeQuotaExhaustion,
+  applyQuotaObservation,
+  definiteZeroWindows,
+  quotaObservationConfirmsRecovery,
+  nextQuotaCheckAt,
+  type QuotaBlockWindowType,
+  type QuotaBlockResetSource,
+  type QuotaBlockWindow,
+  type QuotaBlockState,
+  type QuotaExhaustionObservation,
+  type QuotaWindowObservation,
+  type QuotaObservationOutcome,
+} from "./quota-block.js";
+
+
 // ===== M3/W12：路由评分与选择（多因子、稳定 tie-break、Affinity）=====
 export {
   ROUTING_POLICY,

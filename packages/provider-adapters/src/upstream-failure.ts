@@ -24,6 +24,8 @@ export async function upstreamFailure(
   signal: NonNullable<Outcome["unifiedAvailabilitySignal"]>;
   retryAfterMs?: number;
   recoverAt?: string;
+  /** CPQW：recoverAt 来自响应内重置时间还是 Retry-After（计划§2 时间优先级）。 */
+  recoverAtSource?: "RESET_AT" | "RETRY_AFTER";
   evidence?: UpstreamErrorEvidence;
 }> {
   let code = `upstream_http_${response.status}`;
@@ -68,8 +70,7 @@ export async function upstreamFailure(
     ? classifyRateLimit(message)
     : "UNKNOWN";
   const retry = parseRetryAfter(response.headers?.get("retry-after") ?? null);
-  const recoverAt = parseRecoverAt(resetValue) ??
-    (retry.retryAfterMs === undefined ? undefined : new Date(Date.now() + retry.retryAfterMs).toISOString());
+  const { recoverAt, recoverAtSource } = deriveRecoverAt(resetValue, retry.retryAfterMs);
   return {
     code,
     kind,
@@ -83,6 +84,21 @@ export async function upstreamFailure(
     ...(evidence ? { evidence } : {}),
     ...retry,
     ...(recoverAt === undefined ? {} : { recoverAt }),
+    ...(recoverAtSource === undefined ? {} : { recoverAtSource }),
+  };
+}
+
+/** CPQW：恢复时间来源分派——响应内重置时间优先，其次 Retry-After 推导。 */
+function deriveRecoverAt(
+  resetValue: unknown,
+  retryAfterMs: number | undefined,
+): { recoverAt?: string; recoverAtSource?: "RESET_AT" | "RETRY_AFTER" } {
+  const bodyResetAt = parseRecoverAt(resetValue);
+  if (bodyResetAt !== undefined) return { recoverAt: bodyResetAt, recoverAtSource: "RESET_AT" };
+  if (retryAfterMs === undefined) return {};
+  return {
+    recoverAt: new Date(Date.now() + retryAfterMs).toISOString(),
+    recoverAtSource: "RETRY_AFTER",
   };
 }
 

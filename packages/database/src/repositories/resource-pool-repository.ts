@@ -12,7 +12,7 @@
  *     只能解除 RATE_LIMITED/EXHAUSTED，不能证明 Chat 鉴权有效。
  */
 import { randomUUID } from "node:crypto";
-import type { Kysely, Selectable } from "kysely";
+import { sql, type Kysely, type Selectable, type Transaction } from "kysely";
 import type { Database, ProviderResourceTable, ResourceStatusEventTable } from "../kysely.js";
 import {
   deriveResourceTransition,
@@ -33,6 +33,49 @@ import { refreshEmployeeKeyModels } from "./employee-model-rule-lifecycle.js";
 
 export type ResourceStatusEvent = Selectable<ResourceStatusEventTable>;
 export type ProviderResourceRow = Selectable<ProviderResourceTable>;
+
+/**
+ * CPQW：额度恢复后在同事务内刷新该资源关联主体的 Key 模型集合。
+ * 按 principal ID 稳定排序串行刷新，沿用现有授权互斥语义（计划§7）。
+ */
+export async function refreshResourcePrincipalKeyModelsTx(
+  trx: Transaction<Database>,
+  row: Pick<ProviderResourceRow, "enterprise_id" | "provider_id" | "id">,
+): Promise<string[]> {
+  const provider = await trx.selectFrom("provider").select("code")
+    .where("enterprise_id", "=", row.enterprise_id)
+    .where("id", "=", row.provider_id)
+    .executeTakeFirstOrThrow();
+  const [poolPrincipals, assignmentPrincipals, manualPrincipals] = await Promise.all([
+    trx.selectFrom("principal_grant").select("principal_id")
+      .where("enterprise_id", "=", row.enterprise_id)
+      .where("provider", "=", provider.code)
+      .where("status", "=", "ACTIVE")
+      .execute(),
+    trx.selectFrom("employee_model_rule_assignment").select("principal_id")
+      .where("enterprise_id", "=", row.enterprise_id)
+      .where("provider_resource_id", "=", row.id)
+      .where("status", "=", "ACTIVE")
+      .execute(),
+    trx.selectFrom("principal_model_manual_authorization")
+      .innerJoin("model_route", (join) => join
+        .onRef("model_route.enterprise_id", "=", "principal_model_manual_authorization.enterprise_id")
+        .onRef("model_route.unified_model_id", "=", "principal_model_manual_authorization.unified_model_id"))
+      .select("principal_model_manual_authorization.principal_id")
+      .where("principal_model_manual_authorization.enterprise_id", "=", row.enterprise_id)
+      .where("model_route.provider_resource_id", "=", row.id)
+      .execute(),
+  ]);
+  const principalIds = [...new Set([
+    ...poolPrincipals.map((item) => item.principal_id),
+    ...assignmentPrincipals.map((item) => item.principal_id),
+    ...manualPrincipals.map((item) => item.principal_id),
+  ])].sort((left, right) => left.localeCompare(right, "en"));
+  for (const principalId of principalIds) {
+    await refreshEmployeeKeyModels(trx, row.enterprise_id, principalId);
+  }
+  return principalIds;
+}
 
 /** 可服务资源视图（硬过滤后的路由候选输入）。 */
 export interface ServableResource {
@@ -88,6 +131,13 @@ export class ResourcePoolRepository {
         .where("id", "=", resourceId)
         .forUpdate()
         .executeTakeFirstOrThrow();
+      // CPQW（计划§7）：CP 资源的实际调用失败即使不迁移 status 也递增额度代次，
+      // 使同 token 的在途额度查询结果失效（同状态 ≠ 同故障）。
+      if (row.mode === "CODING_PLAN") {
+        await trx.updateTable("provider_resource")
+          .set({ quota_state_revision: sql`quota_state_revision + 1`, updated_at: now })
+          .where("id", "=", resourceId).execute();
+      }
       // Even a repeated 401 invalidates a running probe, although the visible state is unchanged.
       if (classification === "UPSTREAM_CREDENTIAL_INVALID") {
         await trx.updateTable("provider_resource").set({
@@ -165,6 +215,12 @@ export class ResourcePoolRepository {
         .where("id", "=", resourceId)
         .forUpdate()
         .executeTakeFirstOrThrow();
+      // CPQW（计划§7）：CP 资源的实际调用成功同样递增额度代次。
+      if (row.mode === "CODING_PLAN") {
+        await trx.updateTable("provider_resource")
+          .set({ quota_state_revision: sql`quota_state_revision + 1`, updated_at: new Date() })
+          .where("id", "=", resourceId).execute();
+      }
       const transition = deriveSuccessTransition(toRuntimeState(row));
       if (!transition) return null;
       await this.applyTransitionTx(trx, row, transition, null, "system");
@@ -187,38 +243,7 @@ export class ResourcePoolRepository {
         updated_at: new Date(),
       }).where("id", "=", resourceId).execute();
       await this.applyTransitionTx(trx, row, transition, null, "system");
-      const provider = await trx.selectFrom("provider").select("code")
-        .where("enterprise_id", "=", row.enterprise_id)
-        .where("id", "=", row.provider_id)
-        .executeTakeFirstOrThrow();
-      const [poolPrincipals, assignmentPrincipals, manualPrincipals] = await Promise.all([
-        trx.selectFrom("principal_grant").select("principal_id")
-          .where("enterprise_id", "=", row.enterprise_id)
-          .where("provider", "=", provider.code)
-          .where("status", "=", "ACTIVE")
-          .execute(),
-        trx.selectFrom("employee_model_rule_assignment").select("principal_id")
-          .where("enterprise_id", "=", row.enterprise_id)
-          .where("provider_resource_id", "=", resourceId)
-          .where("status", "=", "ACTIVE")
-          .execute(),
-        trx.selectFrom("principal_model_manual_authorization")
-          .innerJoin("model_route", (join) => join
-            .onRef("model_route.enterprise_id", "=", "principal_model_manual_authorization.enterprise_id")
-            .onRef("model_route.unified_model_id", "=", "principal_model_manual_authorization.unified_model_id"))
-          .select("principal_model_manual_authorization.principal_id")
-          .where("principal_model_manual_authorization.enterprise_id", "=", row.enterprise_id)
-          .where("model_route.provider_resource_id", "=", resourceId)
-          .execute(),
-      ]);
-      const principalIds = [...new Set([
-        ...poolPrincipals.map((item) => item.principal_id),
-        ...assignmentPrincipals.map((item) => item.principal_id),
-        ...manualPrincipals.map((item) => item.principal_id),
-      ])].sort((left, right) => left.localeCompare(right, "en"));
-      for (const principalId of principalIds) {
-        await refreshEmployeeKeyModels(trx, row.enterprise_id, principalId);
-      }
+      await refreshResourcePrincipalKeyModelsTx(trx, row);
       return transition;
     });
   }
@@ -412,7 +437,10 @@ export class ResourcePoolRepository {
         .onRef("finance_state.enterprise_id", "=", "resource.enterprise_id"))
       .selectAll("resource")
       .select("finance_state.state as finance_state")
-      .where("resource.enterprise_id", "=", enterpriseId);
+      .where("resource.enterprise_id", "=", enterpriseId)
+      // CPQW（F2 硬门禁）：活跃额度阻断记录存在时即使 status 被人工改回也阻止生成；
+      // 记录只在额度事务证实全部窗口恢复后清空。
+      .where("resource.quota_block_state", "is", null);
     if (poolId !== undefined) {
       query = query.where("resource.resource_pool_id", "=", poolId);
     }

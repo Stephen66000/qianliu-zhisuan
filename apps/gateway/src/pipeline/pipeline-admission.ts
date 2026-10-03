@@ -1,6 +1,6 @@
 import { hasImageInput, modelSupportsImages, MODEL_IMAGE_UNSUPPORTED } from "@qianliu/provider-adapters";
 import type { ClaimRequestResult, AvailabilityEvent } from "@qianliu/database";
-import { identifyClient, type RoutingCandidateInput } from "@qianliu/domain";
+import { identifyClient, parseQuotaBlockState, type RoutingCandidateInput } from "@qianliu/domain";
 import { createChatStreamWriter, type GatewayStreamWriter } from "../routes/chat-protocol.js";
 import { createMessagesStreamWriter } from "../routes/messages-protocol.js";
 import type { PipelineHandler } from "../routes/chat.js";
@@ -9,6 +9,11 @@ import { fingerprintRequest } from "./request-idempotency.js";
 import { resolveRequestModelIdentity } from "./request-model-identity.js";
 import { buildEffectiveBody } from "./history-truncation.js";
 import { sendRuntimeBlock } from "./runtime-controls.js";
+import {
+  buildQuotaWindowPresentation,
+  canonicalCodingPlanProvider,
+  presentationFromStoredBlock,
+} from "./quota-window-presentation.js";
 import {
   invocationCandidateKey,
   type PipelineContext,
@@ -136,15 +141,18 @@ export async function preparePipelineContext(
     return null;
   }
 
+  // CPQW（F3，计划§6）：状态过滤前判定 intent（scopePlanOnlyCandidates）。
+  const { planOnly, candidates: modeScopedCandidates } = scopePlanOnlyCandidates(imageCompatibleCandidates);
+
   const servableById = new Map(
     (await deps.poolRepo.listServableResources(principal.enterpriseId)).map((resource) => [resource.id, resource]),
   );
   const candidateByInvocationKey = new Map(
-    imageCompatibleCandidates.map((candidate) => [invocationCandidateKey(candidate), candidate]),
+    modeScopedCandidates.map((candidate) => [invocationCandidateKey(candidate), candidate]),
   );
   let blockingEvent: AvailabilityEvent | null = null;
   const runtimeAllowedCandidates: RouteCandidateRow[] = [];
-  for (const candidate of imageCompatibleCandidates) {
+  for (const candidate of modeScopedCandidates) {
     if (deps.runtimeAssuranceRepo && deps.runtimeAssuranceMode === "ENFORCE") {
       const open = await deps.runtimeAssuranceRepo.findOpenBlock(candidate.resourceId, candidate.upstreamModel);
       if (open) {
@@ -198,7 +206,7 @@ export async function preparePipelineContext(
   if (eligible.length === 0) {
     await sendNoEligibleResponse({
       deps, reply, capability, traceId, requestId, principalEnterpriseId: principal.enterpriseId,
-      blockingEvent, grantAuthorizedCandidates,
+      blockingEvent, grantAuthorizedCandidates: modeScopedCandidates,
     });
     return null;
   }
@@ -225,6 +233,7 @@ export async function preparePipelineContext(
     eligible,
     candidateByInvocationKey,
     affinityResourceId,
+    planOnly,
     ...config,
   };
 }
@@ -239,6 +248,9 @@ async function sendNoEligibleResponse(input: {
   blockingEvent: AvailabilityEvent | null;
   grantAuthorizedCandidates: RouteCandidateRow[];
 }): Promise<void> {
+  // CPQW（计划§2）：准入拒绝优先给出具体窗口提示；多个 CP 资源阻断不可用
+  // 一个账号时间代表 → MODEL_POOL 聚合。
+  if (await sendQuotaBlockedAdmission(input)) return;
   if (input.blockingEvent) {
     await input.deps.ledgerRepo.updateRequestStatus(
       input.requestId, "FAILED", "RUNTIME_ASSURANCE_BLOCKED", input.blockingEvent.event_number,
@@ -277,6 +289,83 @@ async function sendNoEligibleResponse(input: {
   input.reply.code(503).send({
     error: { message: "无可用上游资源", type: "server_error", code: "no_healthy_candidate", param: null, retryable: true, request_id: input.requestId },
   });
+}
+
+/**
+ * CPQW（F3，计划§6）：原始有效授权集合中存在启用未归档 CP 路由即 PLAN_ONLY；
+ * 临时耗尽不改变意图，API 候选从初始选路起被排除，不回退隐式付费 API。
+ */
+export function scopePlanOnlyCandidates<T extends { mode: "API" | "CODING_PLAN" }>(
+  candidates: readonly T[],
+): { planOnly: boolean; candidates: T[] } {
+  const planOnly = candidates.some((candidate) => candidate.mode === "CODING_PLAN");
+  return {
+    planOnly,
+    candidates: planOnly ? candidates.filter((candidate) => candidate.mode === "CODING_PLAN") : [...candidates],
+  };
+}
+
+/**
+ * CPQW：准入期活跃 block 的窗口耗尽呈现。单个阻断资源 → RESOURCE（存储记录），
+ * 多个阻断资源 → MODEL_POOL 聚合，不用一个账号时间代表。
+ */
+async function sendQuotaBlockedAdmission(input: {
+  deps: RealPipelineDeps;
+  reply: Parameters<PipelineHandler>[0]["reply"];
+  traceId: string;
+  requestId: string;
+  grantAuthorizedCandidates: RouteCandidateRow[];
+}): Promise<boolean> {
+  const candidateResources = await Promise.all(
+    input.grantAuthorizedCandidates.map((candidate) => input.deps.poolRepo.getResource(candidate.resourceId)),
+  );
+  const quotaBlocked = input.grantAuthorizedCandidates
+    .map((candidate, index) => ({ candidate, row: candidateResources[index] ?? null }))
+    .filter((item) => item.row !== null && item.row.mode === "CODING_PLAN" && item.row.quota_block_state !== null);
+  if (quotaBlocked.length === 0) return false;
+  const now = new Date();
+  const distinctResources = [...new Map(quotaBlocked.map((item) => [item.row!.id, item])).values()];
+  const presentation = distinctResources.length === 1
+    ? quotaBlockPresentationForResource(distinctResources[0]!, now)
+    : buildQuotaWindowPresentation({ windows: [], unknownWindow: true, now, scope: "MODEL_POOL" });
+  await input.deps.ledgerRepo.updateRequestStatus(
+    input.requestId, "FAILED", "UPSTREAM_BILLING_BLOCKED", "provider_quota_exhausted",
+  );
+  if (presentation.retryAfterSeconds !== null) {
+    input.reply.header("retry-after", presentation.retryAfterSeconds);
+  }
+  input.reply.code(429).header("x-request-id", input.traceId).send({
+    error: {
+      message: presentation.message,
+      type: "rate_limit_error",
+      code: "provider_quota_exhausted",
+      param: null,
+      retryable: presentation.retryable,
+      ...("provider" in presentation && presentation.provider ? { provider: presentation.provider } : {}),
+      quota_block_scope: presentation.quota_block_scope,
+      quota_windows: presentation.quota_windows,
+      quota_window_unknown: presentation.quota_window_unknown,
+      next_reset_at: presentation.next_reset_at,
+      not_calculable_reason: presentation.not_calculable_reason,
+      ...(presentation.retry_after_ms === undefined ? {} : { retry_after_ms: presentation.retry_after_ms }),
+      request_id: input.requestId,
+    },
+  });
+  return true;
+}
+
+function quotaBlockPresentationForResource(
+  item: { candidate: RouteCandidateRow; row: Awaited<ReturnType<RealPipelineDeps["poolRepo"]["getResource"]>> | null },
+  now: Date,
+) {
+  if (item.row === undefined || item.row === null) {
+    return buildQuotaWindowPresentation({ windows: [], unknownWindow: true, now });
+  }
+  const providerCode = canonicalCodingPlanProvider(item.candidate.providerCode);
+  const stored = parseQuotaBlockState(item.row.quota_block_state);
+  return stored
+    ? presentationFromStoredBlock({ block: stored, providerCode, now })
+    : buildQuotaWindowPresentation({ providerCode, windows: [], unknownWindow: true, now });
 }
 
 function sendIdempotencyReplay(

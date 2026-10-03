@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-03",
+  "timezone": "Asia/Shanghai",
+  "sourceRevision": "7f3557f7afabcd6665aea39932895899272e318b",
+  "cliVersion": "1.13.1",
+  "validationCommand": "OPENSPEC_TELEMETRY=0 node /Users/mac/.npm/_npx/7a74150b208fdb68/node_modules/@fission-ai/openspec/bin/openspec.js validate coding-plan-quota-window-recovery --strict --no-interactive --json",
+  "validationExitCode": 0,
+  "validation": {
+    "items": [
+      {
+        "id": "coding-plan-quota-window-recovery",
+        "type": "change",
+        "valid": true,
+        "issues": [],
+        "durationMs": 19
+      }
+    ],
+    "summary": {
+      "totals": {
+        "items": 1,
+        "passed": 1,
+        "failed": 0
+      },
+      "byType": {
+        "change": {
+          "items": 1,
+          "passed": 1,
+          "failed": 0
+        }
+      }
+    },
+    "version": "1.0",
+    "root": {
+      "path": "/Users/mac/Projects/仟流智算",
+      "source": "nearest"
+    }
+  },
+  "checks": {
+    "planSha256": "958e9660eefe054f8edb9cca598035ec30ae64057828e6bba378a405e6788014",
+    "originalSha256": "22b59945157faad6bddb7768252ed69b6b7948c02e13406646fb0f6aaeea51fb",
+    "requirements": 9,
+    "scenarios": 32,
+    "tasksTotal": 22,
+    "tasksCompleted": 0,
+    "sampleTimeConsistent": true
+  },
+  "review": {
+    "planLevel": "PASS",
+    "p1DesignClosed": [
+      "F1",
+      "F2",
+      "F3",
+      "F4"
+    ],
+    "p2DesignClosed": [
+      "P2-1",
+      "P2-2",
+      "P2-3"
+    ],
+    "implementation": "NOT_STARTED",
+    "implementationAuthorized": false,
+    "deploymentAuthorized": false,
+    "migrationFilesCreated": false,
+    "trackedBusinessDiffEmpty": true
+  },
+  "limits": [
+    "Design closure only, not implementation verification",
+    "No provider or production API calls",
+    "v1.0 and initial audit preserved"
+  ]
+}

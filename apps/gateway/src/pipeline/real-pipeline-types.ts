@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Kysely } from "kysely";
-import type { Outcome } from "@qianliu/contracts";
+import type { Outcome, QuotaBlockErrorDetail } from "@qianliu/contracts";
 import type {
   Database,
   DispatchPolicyRepository,
@@ -103,6 +103,11 @@ export interface PipelineContext {
   eligible: RoutingCandidateInput[];
   candidateByInvocationKey: Map<string, RouteCandidateRow>;
   affinityResourceId: string | null;
+  /**
+   * CPQW（F3）：原始有效授权集合存在启用未归档 CP 路由时为 true；
+   * 初始候选、SWITCH、重选与 Attempt 前均排除 API（无隐式付费回退）。
+   */
+  planOnly: boolean;
   maxAttempts: number;
   capacityWaitMs: number;
   capacityPollMs: number;
@@ -121,6 +126,9 @@ export interface DeferredResourceEffect {
   classification: string | null;
   resource: RouteCandidateRow;
   probeLease: HalfOpenProbeLease | null;
+  /** CPQW（F4）：Attempt 实际调用时的资源/凭证代次，供耗尽故障条件提交核验。 */
+  resourceVersion: number | null;
+  credentialVersion: number | null;
 }
 
 export type AttemptStepResult = "CONTINUE" | "BREAK" | "RETURNED";
@@ -132,6 +140,8 @@ export interface PipelineExecutionState {
   winner: ScoredCandidate | undefined;
   finalOutcome: Outcome | null;
   finalOutcomeProviderCode: string | null;
+  /** CPQW：终态资源模式感知的错误分类（CP 窗口耗尽按 UPSTREAM_BILLING_BLOCKED）。 */
+  finalOutcomeClassification: string | null;
   finalSignalResult: SignalResult | null;
   attemptNo: number;
   dispatchFinalAction: "ALLOW" | "SWITCH" | "RATE_LIMIT" | "REJECT" | "ALLOW_OVERAGE" | null;
@@ -150,8 +160,16 @@ export interface PipelineExecutionState {
   capacityRetryAfterMs: number;
   halfOpenProbeBusy: boolean;
   quotaExhaustedDuringDispatch: boolean;
+  /** CPQW：true = 厂商窗口 block 门禁（UPSTREAM_BILLING_BLOCKED）；false = 主体额度（DOWNSTREAM_AUTH_OR_QUOTA）。 */
+  quotaBlockAdmissionRejection: boolean;
   quotaExhaustedProviderCode: string | null;
   quotaExhaustedResetAt: string | null;
+  /** CPQW：窗口额度耗尽呈现（首次失败/准入拒绝/重复请求共用，计划§2/§3）。 */
+  quotaWindowPresentation: (QuotaBlockErrorDetail & {
+    message: string;
+    retryAfterSeconds: number | null;
+    errorCode: "upstream_window_exhausted" | "upstream_quota_exhausted";
+  }) | null;
   requestOverage: boolean;
   pendingQuotaSettlements: QuotaSettlement[];
   pendingLeaseIds: string[];
@@ -166,6 +184,7 @@ export function createExecutionState(context: PipelineContext): PipelineExecutio
     winner: undefined,
     finalOutcome: null,
     finalOutcomeProviderCode: null,
+    finalOutcomeClassification: null,
     finalSignalResult: null,
     attemptNo: 0,
     dispatchFinalAction: null,
@@ -181,8 +200,10 @@ export function createExecutionState(context: PipelineContext): PipelineExecutio
     capacityRetryAfterMs: context.capacityPollMs,
     halfOpenProbeBusy: false,
     quotaExhaustedDuringDispatch: false,
+    quotaBlockAdmissionRejection: false,
     quotaExhaustedProviderCode: null,
     quotaExhaustedResetAt: null,
+    quotaWindowPresentation: null,
     requestOverage: false,
     pendingQuotaSettlements: [],
     pendingLeaseIds: [],

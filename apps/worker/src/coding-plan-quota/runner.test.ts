@@ -129,6 +129,7 @@ describe("Coding Plan 额度同步恢复", () => {
           windowsUpserted: 2,
           resourcesRecovered: 0,
           failed: 0,
+          superseded: 0,
         });
       expect((await db.selectFrom("provider_resource").select([
         "status", "cooldown_until", "credential_refresh_status", "refresh_error_classification",
@@ -236,6 +237,7 @@ describe("Coding Plan 额度同步恢复", () => {
         windowsUpserted: 2,
         resourcesRecovered: 1,
         failed: 0,
+        superseded: 0,
       });
       expect((await db.selectFrom("provider_resource")
         .select(["status", "cooldown_until"])
@@ -318,6 +320,7 @@ describe("Coding Plan 额度同步恢复", () => {
           windowsUpserted: 2,
           resourcesRecovered: 0,
           failed: 0,
+          superseded: 0,
         });
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(await db.selectFrom("provider_quota_window")

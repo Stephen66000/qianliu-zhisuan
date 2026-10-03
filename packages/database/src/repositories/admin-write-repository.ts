@@ -8,6 +8,8 @@
 import type { Kysely } from "kysely";
 import { appendOperatingSnapshot } from "./provider-operating-snapshot-writer.js";
 import { sql } from "kysely";
+import { randomUUID } from "node:crypto";
+import { QUOTA_BLOCK_SCHEMA_VERSION, parseQuotaBlockState } from "@qianliu/domain";
 import type { Database } from "../kysely.js";
 import type {
   ProviderResource,
@@ -64,7 +66,9 @@ export class AdminWriteRepository {
       };
       const updated = await trx
         .updateTable("provider_resource")
-        .set({ ...resourcePatch, version: sql`version + 1`, updated_at: new Date() })
+        .set({ ...resourcePatch, version: sql`version + 1`, updated_at: new Date(),
+          // CPQW（计划§7）：管理前提写入使在途额度查询 token 失效。
+          quota_state_revision: sql`quota_state_revision + 1` })
         .where("id", "=", id)
         .where("enterprise_id", "=", enterpriseId)
         .where(versionLock(expectedVersion))
@@ -276,6 +280,21 @@ export class AdminWriteRepository {
       }
 
       const now = new Date();
+      const rotatedCredentialVersion = rotation ? (row.credential_version ?? 0) + 1 : null;
+      // CPQW（计划§4/§7）：凭证轮换废弃旧 incident，替换为新凭证 unknownWindow
+      // 待确认记录，不把新凭证推定为有余量；无轮换时保留额度事实（恢复点击不能清除）。
+      // 两种情况都递增额度代次，使在途额度查询 token 失效。
+      const previousBlock = row.quota_block_state !== null ? parseQuotaBlockState(row.quota_block_state) : null;
+      const quotaBlockState = rotation && row.quota_block_state !== null
+        ? {
+          schemaVersion: QUOTA_BLOCK_SCHEMA_VERSION,
+          incidentId: randomUUID(),
+          credentialVersion: rotatedCredentialVersion,
+          startedAt: now.toISOString(),
+          unknownWindow: true,
+          windows: [],
+        }
+        : row.quota_block_state;
       const updated = await trx
         .updateTable("provider_resource")
         .set({
@@ -288,9 +307,11 @@ export class AdminWriteRepository {
             ? {
                 credential_ciphertext: JSON.stringify(rotation.credential_encrypted),
                 credential_fingerprint: rotation.credential_fingerprint,
-                credential_version: (row.credential_version ?? 0) + 1,
+                credential_version: rotatedCredentialVersion,
               }
             : {}),
+          ...(quotaBlockState !== row.quota_block_state ? { quota_block_state: quotaBlockState as unknown as Record<string, unknown> } : {}),
+          quota_state_revision: sql`quota_state_revision + 1`,
           updated_at: now,
         })
         .where("id", "=", resourceId)
@@ -312,6 +333,27 @@ export class AdminWriteRepository {
           actor: "admin",
         })
         .execute();
+
+      // 复审缺陷 2：轮换废弃旧 incident 时，同一事务内关闭其绑定的 OPEN 额度事件，
+      // 否则新凭证额度恢复后旧事件仍 OPEN，ENFORCE 下继续阻断调用。
+      // 不发 RECOVERY 通知：新凭证的 unknown 待确认记录仍阻断（额度未证实）。
+      // 记录损坏（不可解析）时退化为关闭该资源全部绑定额度事件（fail-closed）。
+      if (rotation && row.quota_block_state !== null) {
+        let closure = trx
+          .updateTable("availability_event")
+          .set({
+            status: "CANCELLED",
+            recovered_at: now,
+            recovery_reason: "凭证轮换：旧额度 incident 随凭证更换废弃",
+            updated_at: now,
+          })
+          .where("provider_resource_id", "=", resourceId)
+          .where("status", "=", "OPEN");
+        closure = previousBlock !== null
+          ? closure.where("quota_block_incident_id", "=", previousBlock.incidentId)
+          : closure.where("quota_block_incident_id", "is not", null);
+        await closure.execute();
+      }
 
       return updated as ProviderResource;
     });

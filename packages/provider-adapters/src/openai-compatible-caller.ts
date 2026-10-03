@@ -245,6 +245,7 @@ export function createOpenAiCompatibleCaller(
         firstByteAt: timeout.firstByteAt,
         failureLayer: "UPSTREAM_HTTP",
         ...(failure.recoverAt === undefined ? {} : { recoverAt: failure.recoverAt }),
+        ...(failure.recoverAtSource === undefined ? {} : { upstreamRecoverAtSource: failure.recoverAtSource }),
         ...(failure.retryAfterMs === undefined
           ? {}
           : { retryAfterMs: failure.retryAfterMs }),

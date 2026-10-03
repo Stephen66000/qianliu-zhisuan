@@ -25,7 +25,7 @@ import {
 import { WecomAppClient } from "./runtime-assurance/wecom-client.js";
 import { runRuntimeAssuranceTick } from "./runtime-assurance/runner.js";
 import { runSchedulerLoop, startHealthServer, type SchedulerHealth } from "./runtime-assurance/scheduler.js";
-import { runScheduledOperationalTasks } from "./runtime-assurance/scheduled-tasks.js";
+import { runIsolatedOperationalTask, runScheduledOperationalTasks, summarizeIsolatedOperationalRound } from "./runtime-assurance/scheduled-tasks.js";
 import { runSupplyForecastTick } from "./supply-forecast/runner.js";
 import { runCodingPlanQuotaTick } from "./coding-plan-quota/runner.js";
 import { runDirectorySyncTick } from "./directory/runner.js";
@@ -322,28 +322,52 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
           event: "subscription_auto_renewal_tick_failed", error_type: cause instanceof Error ? cause.name : typeof cause,
         })),
         core: async () => {
-          await runInfrastructureChecks({ db, observe });
-          const runtime = await runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() });
-          const forecast = await runSupplyForecastTick(supplyForecastRepository);
+          // CPQW（计划§8）：独立任务各自捕错；前置失败仍尝试 quota，单资源失败
+          // 不阻止其他任务；全部尝试完成后再汇总，任一必需任务失败整轮标失败
+          // 并反映到调度健康，不以 catch 伪装成功。
+          const taskFailures: string[] = [];
+          const runIsolated = <T>(task: string, work: () => Promise<T>) =>
+            runIsolatedOperationalTask(task, work, (failedTask, error) => {
+              taskFailures.push(failedTask);
+              console.error(JSON.stringify({
+                event: "operational_task_failed", task: failedTask,
+                error_type: error instanceof Error ? error.name : typeof error,
+                message: error instanceof Error ? error.message : String(error),
+              }));
+            });
+          await runIsolated("infrastructure", () => runInfrastructureChecks({ db, observe }));
+          const runtime = await runIsolated("runtime_assurance", () =>
+            runRuntimeAssuranceTick({ repository, wecom, wecomNotify: wecomNotifyEnabled() }));
+          const forecast = await runIsolated("supply_forecast", () =>
+            runSupplyForecastTick(supplyForecastRepository));
           // POOL-032：厂商 Coding Plan 额度窗口同步（失败保鲜，不影响 runtime/forecast）。
-          const quota = await runCodingPlanQuotaTick({ db, kekBase64: requiredEnv("CREDENTIAL_KEK") });
-          const operating = await runProviderOperatingSyncTick({
-            db, kekBase64: requiredEnv("CREDENTIAL_KEK"),
-          });
-          console.log(JSON.stringify({
-            event: "supply_forecast_tick_completed",
-            resources_scanned: forecast.resourcesScanned,
-            snapshots_created: forecast.snapshotsCreated,
-            snapshots_skipped: forecast.snapshotsSkipped,
-          }));
-          console.log(JSON.stringify({
-            event: "quota_window_tick_completed",
-            resources_scanned: quota.resourcesScanned,
-            windows_upserted: quota.windowsUpserted,
-            resources_recovered: quota.resourcesRecovered,
-            failed: quota.failed,
-          }));
-          console.log(JSON.stringify({ event: "provider_operating_sync_tick_completed", ...operating }));
+          const quota = await runIsolated("quota_window", () =>
+            runCodingPlanQuotaTick({ db, kekBase64: requiredEnv("CREDENTIAL_KEK") }));
+          const operating = await runIsolated("provider_operating", () =>
+            runProviderOperatingSyncTick({
+              db, kekBase64: requiredEnv("CREDENTIAL_KEK"),
+            }));
+          if (forecast) {
+            console.log(JSON.stringify({
+              event: "supply_forecast_tick_completed",
+              resources_scanned: forecast.resourcesScanned,
+              snapshots_created: forecast.snapshotsCreated,
+              snapshots_skipped: forecast.snapshotsSkipped,
+            }));
+          }
+          if (quota) {
+            console.log(JSON.stringify({
+              event: "quota_window_tick_completed",
+              resources_scanned: quota.resourcesScanned,
+              windows_upserted: quota.windowsUpserted,
+              resources_recovered: quota.resourcesRecovered,
+              failed: quota.failed,
+              superseded: quota.superseded,
+            }));
+          }
+          if (operating) {
+            console.log(JSON.stringify({ event: "provider_operating_sync_tick_completed", ...operating }));
+          }
           if (readFeatureFlags(process.env).FEATURE_DIRECTORY_IMPORT) {
             try {
               const dirSync = await runDirectorySyncTick({
@@ -361,7 +385,10 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
               }));
             }
           }
-          return { runtime, forecast, quota, operating };
+          return summarizeIsolatedOperationalRound(
+            { runtime, forecast, quota, operating },
+            taskFailures,
+          );
         },
         // eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：用量聚合编排分支密集，随 main.ts 859 行体量拆分（F-P2-3）一并处理。
         aggregate: () => observe("usage_aggregate", "用量聚合重建", async () => {

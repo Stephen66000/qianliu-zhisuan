@@ -28,6 +28,8 @@ export async function executeSelectedAttempt(
     grantId,
     reservedEstimate,
     reservedProjectedRemaining,
+    resourceVersion,
+    credentialVersion,
   } = prepared.value;
   const { deps, body, principal, requestId } = context;
   const adapter = resolveAdapter(candidate.adapterType ?? candidate.providerCode, deps.caller);
@@ -53,7 +55,7 @@ export async function executeSelectedAttempt(
       : {}),
   }, state.attemptNo);
 
-  const classification = outcome.error ? mapToClassification(outcome) : null;
+  const classification = outcome.error ? mapToClassification(outcome, candidate.mode) : null;
   const persistedDeductedQuota = await persistAttemptUsageEvidence({
     ledgerRepo: deps.ledgerRepo,
     outcome,
@@ -99,10 +101,14 @@ export async function executeSelectedAttempt(
   }
   if (leaseId) state.pendingLeaseIds.push(leaseId);
   if (resourceConfig) {
-    state.deferredResourceEffects.push({ outcome, classification, resource: resourceConfig, probeLease });
+    state.deferredResourceEffects.push({
+      outcome, classification, resource: resourceConfig, probeLease,
+      resourceVersion, credentialVersion,
+    });
   }
   state.finalOutcome = outcome;
   state.finalOutcomeProviderCode = candidate.providerCode;
+  state.finalOutcomeClassification = classification;
 
   if (candidate.mode === "CODING_PLAN" && classification === "UPSTREAM_BILLING_BLOCKED") return "BREAK";
   if (!shouldAttemptUpstreamFailover(outcome, classification as ErrorClassification | null)) return "BREAK";

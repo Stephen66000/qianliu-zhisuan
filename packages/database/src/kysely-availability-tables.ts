@@ -84,6 +84,8 @@ export interface AvailabilityEventTable {
   trigger_ai_request_id: string | null;
   trigger_principal_id: string | null;
   recovery_method: string;
+  /** 0087：绑定明确 CP 耗尽 incident；带标签的事件只由有效额度事务关闭，不受纯时钟恢复。 */
+  quota_block_incident_id: string | null;
   dedup_key: string;
   status: Generated<"OPEN" | "RECOVERED" | "MANUALLY_RECOVERED" | "CANCELLED">;
   started_at: Generated<Date>;

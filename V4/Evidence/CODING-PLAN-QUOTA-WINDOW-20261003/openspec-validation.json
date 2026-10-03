@@ -1,0 +1,97 @@
+{
+  "reviewedAt": "2026-10-03",
+  "timezone": "Asia/Shanghai",
+  "cliVersion": "1.13.1",
+  "sourceRevision": "7f3557f7afabcd6665aea39932895899272e318b",
+  "planSha256": "22b59945157faad6bddb7768252ed69b6b7948c02e13406646fb0f6aaeea51fb",
+  "command": "OPENSPEC_TELEMETRY=0 node /Users/mac/.npm/_npx/7a74150b208fdb68/node_modules/@fission-ai/openspec/bin/openspec.js validate coding-plan-quota-window-recovery --strict --no-interactive --json",
+  "exitCode": 0,
+  "validation": {
+    "items": [
+      {
+        "id": "coding-plan-quota-window-recovery",
+        "type": "change",
+        "valid": true,
+        "issues": [],
+        "durationMs": 17
+      }
+    ],
+    "summary": {
+      "totals": {
+        "items": 1,
+        "passed": 1,
+        "failed": 0
+      },
+      "byType": {
+        "change": {
+          "items": 1,
+          "passed": 1,
+          "failed": 0
+        }
+      }
+    },
+    "version": "1.0",
+    "root": {
+      "path": "/Users/mac/Projects/仟流智算",
+      "source": "nearest"
+    }
+  },
+  "planningArtifactStatus": {
+    "isPlanningComplete": true,
+    "artifacts": [
+      {
+        "id": "proposal",
+        "outputPath": "proposal.md",
+        "status": "done",
+        "requires": []
+      },
+      {
+        "id": "specs",
+        "outputPath": "specs/**/*.md",
+        "status": "done",
+        "requires": [
+          "proposal"
+        ]
+      },
+      {
+        "id": "design",
+        "outputPath": "design.md",
+        "status": "done",
+        "requires": [
+          "proposal"
+        ]
+      },
+      {
+        "id": "tasks",
+        "outputPath": "tasks.md",
+        "status": "done",
+        "requires": [
+          "specs",
+          "design"
+        ]
+      }
+    ],
+    "implementationTasksCompleted": 0,
+    "reviewTasksTotal": 10
+  },
+  "reviewResult": {
+    "structural": "PASS",
+    "implementationReadiness": "NOT_READY",
+    "p1": 4,
+    "p2": 3,
+    "implementationAuthorized": false,
+    "deploymentAuthorized": false
+  },
+  "syntheticAdmissionCheck": {
+    "quotaSyncConfirmed": false,
+    "state": "RATE_LIMITED",
+    "atCooldownDeadline": {
+      "admit": true,
+      "probe": true,
+      "blockReason": null
+    },
+    "note": "Local pure function reproduction only; no provider/network invocation"
+  },
+  "sourcePlanUnchanged": true,
+  "trackedBusinessDiffEmpty": true
+}

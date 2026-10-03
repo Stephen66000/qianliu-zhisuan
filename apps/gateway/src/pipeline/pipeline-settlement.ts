@@ -1,11 +1,22 @@
-import { summarizeLedgerUsageQuality } from "@qianliu/database";
-import { availabilitySignalSummary, clampProviderWindowRecoveryAt, type ErrorClassification } from "@qianliu/domain";
+import { summarizeLedgerUsageQuality, QuotaBlockRepository } from "@qianliu/database";
+import {
+  availabilitySignalSummary,
+  clampProviderWindowRecoveryAt,
+  parseQuotaBlockState,
+  type ErrorClassification,
+} from "@qianliu/domain";
 import {
   calculateDispatchSaving,
   dispatchCounterfactualEvidence,
   dispatchSavingFields,
 } from "./billing.js";
 import { summarizePricingEvidence } from "./pricing-evidence.js";
+import { attributeQuotaExhaustion } from "./quota-exhaustion-attribution.js";
+import {
+  buildQuotaWindowPresentation,
+  canonicalCodingPlanProvider,
+  presentationFromStoredBlock,
+} from "./quota-window-presentation.js";
 import {
   latestProviderQuotaResetAt,
   mapToClassification,
@@ -51,7 +62,9 @@ export async function settlePipelineRequest(
       attempt_count: persistedAttempts.length,
       overage: state.requestOverage,
       request_status: state.finalOutcome.committed && !state.finalOutcome.error ? "SUCCEEDED" : "FAILED",
-      error_classification: state.finalOutcome.error ? mapToClassification(state.finalOutcome) : null,
+      error_classification: state.finalOutcome.error
+        ? (state.finalOutcomeClassification ?? mapToClassification(state.finalOutcome))
+        : null,
       error_code: state.finalOutcome.error ?? null,
       quota_settlements: state.pendingQuotaSettlements,
       release_lease_ids: state.pendingLeaseIds,
@@ -108,6 +121,69 @@ export async function settlePipelineRequest(
 
   for (const effect of state.deferredResourceEffects) {
     const { outcome, classification, resource, probeLease } = effect;
+    const settlementNow = new Date();
+    // CPQW（计划§5/§7）：CP 明确窗口/套餐耗尽 → 同一资源优先事务保存 block、
+    // EXHAUSTED 与绑定 incident 的额度事件；普通 recordSignal/recordFailure 不再重复执行。
+    const cpDefiniteExhaustion = resource.mode === "CODING_PLAN"
+      && (outcome.upstreamErrorKind === "WINDOW_EXHAUSTED" || outcome.upstreamErrorKind === "QUOTA_EXHAUSTED");
+    if (cpDefiniteExhaustion) {
+      await runBestEffort(request.log, "settle coding plan quota exhaustion", async () => {
+        const observations = await attributeQuotaExhaustion({
+          db: deps.db,
+          enterpriseId: principal.enterpriseId,
+          resourceId: resource.resourceId,
+          outcome,
+          now: settlementNow,
+        });
+        const quotaBlockRepo = new QuotaBlockRepository(deps.db);
+        const fault = await quotaBlockRepo.recordCodingPlanExhaustionFault({
+          resourceId: resource.resourceId,
+          expectedResourceVersion: effect.resourceVersion,
+          expectedCredentialVersion: effect.credentialVersion,
+          observations,
+          now: settlementNow,
+          runtimeAssurance: deps.runtimeAssuranceRepo && resource.providerId
+            ? {
+                mode: deps.runtimeAssuranceMode ?? "OBSERVE",
+                wecomNotify: deps.runtimeAssuranceWecomNotify ?? false,
+              }
+            : null,
+          signal: {
+            providerId: resource.providerId ?? "",
+            unifiedModelId: resource.unifiedModelId ?? null,
+            upstreamModel: resource.upstreamModel,
+            upstreamCode: outcome.upstreamCode ?? outcome.error ?? null,
+            sanitizedSummary: availabilitySignalSummary("QUOTA_EXHAUSTED"),
+            aiRequestId: requestId,
+            principalId,
+          },
+        });
+        // 复审缺陷 3：生产 code 可能大写（Kimi/Zhipu），统一 canonical 化。
+        const providerCode = canonicalCodingPlanProvider(resource.providerCode);
+        if (fault.status === "COMMITTED" && fault.block) {
+          state.quotaWindowPresentation = buildQuotaWindowPresentation({
+            providerCode,
+            windows: fault.block.windows.map((window) => ({
+              type: window.type, resetAt: window.resetAt, resetSource: window.resetSource,
+            })),
+            unknownWindow: fault.block.unknownWindow,
+            now: settlementNow,
+          });
+        } else {
+          // Token 失配（迟到失败/轮换后新故障）：读当前记录呈现，不覆盖新事实。
+          const row = await deps.poolRepo.getResource(resource.resourceId);
+          const stored = row?.quota_block_state ? parseQuotaBlockState(row.quota_block_state) : null;
+          state.quotaWindowPresentation = stored
+            ? presentationFromStoredBlock({ block: stored, providerCode, now: settlementNow })
+            : null;
+        }
+      });
+      if (probeLease) {
+        await runBestEffort(request.log, "release post-settlement half-open probe", () =>
+          deps.poolRepo.releaseHalfOpenProbe(resource.resourceId, probeLease.acquiredAt));
+      }
+      continue;
+    }
     if (outcome.upstreamErrorKind === "WINDOW_EXHAUSTED") {
       const recoveryCheckedAt = Date.now();
       const recoverAt = outcome.recoverAt ?? await latestProviderQuotaResetAt(

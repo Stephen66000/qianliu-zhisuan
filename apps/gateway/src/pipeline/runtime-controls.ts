@@ -95,10 +95,15 @@ export function mapToClassification(
     unifiedAvailabilitySignal?: string | null;
     upstreamCode?: string | null;
   },
+  resourceMode?: "API" | "CODING_PLAN",
 ): string | null {
   if (!outcome.error) return null;
   if (outcome.committed) return "STREAM_INTERRUPTED_AFTER_COMMIT";
-  if (outcome.upstreamErrorKind === "WINDOW_EXHAUSTED") return "UPSTREAM_RATE_LIMITED";
+  // CPQW（计划§5）：CP 明确窗口耗尽与套餐耗尽统一 UPSTREAM_BILLING_BLOCKED→EXHAUSTED；
+  // 普通 API 资源的窗口限流仍按 UPSTREAM_RATE_LIMITED 处理。
+  if (outcome.upstreamErrorKind === "WINDOW_EXHAUSTED") {
+    return resourceMode === "CODING_PLAN" ? "UPSTREAM_BILLING_BLOCKED" : "UPSTREAM_RATE_LIMITED";
+  }
   if (outcome.upstreamErrorKind === "QUOTA_EXHAUSTED") return "UPSTREAM_BILLING_BLOCKED";
   if (outcome.status === 401) return "UPSTREAM_CREDENTIAL_INVALID";
   if (outcome.status === 403) {

@@ -47,7 +47,8 @@ export class RuntimeAssuranceEventsRepository extends RuntimeAssuranceRulesRepos
             ? { recover_at: input.upstreamRecoverAt }
             : {}),
         }).where("id", "=", existing.id).returningAll().executeTakeFirstOrThrow();
-        if (input.wecomNotify && await this.enqueueEventDeliveryTx(trx, updated, input.principalId, "TRIGGER")) {
+        if (input.wecomNotify && input.principalId !== null
+        && await this.enqueueEventDeliveryTx(trx, updated, input.principalId, "TRIGGER")) {
           updated = await trx.updateTable("availability_event").set({
             affected_person_count: sql`affected_person_count + 1`, updated_at: now,
           }).where("id", "=", existing.id).returningAll().executeTakeFirstOrThrow();
@@ -74,7 +75,8 @@ export class RuntimeAssuranceEventsRepository extends RuntimeAssuranceRulesRepos
         recover_at: recoverAt,
         affected_request_count: 1,
       }).returningAll().executeTakeFirstOrThrow();
-      if (input.wecomNotify && await this.enqueueEventDeliveryTx(trx, created, input.principalId, "TRIGGER")) {
+      if (input.wecomNotify && input.principalId !== null
+      && await this.enqueueEventDeliveryTx(trx, created, input.principalId, "TRIGGER")) {
         return trx.updateTable("availability_event").set({ affected_person_count: 1 })
           .where("id", "=", created.id).returningAll().executeTakeFirstOrThrow();
       }
@@ -101,7 +103,8 @@ export class RuntimeAssuranceEventsRepository extends RuntimeAssuranceRulesRepos
       const existing = await trx.selectFrom("availability_event").selectAll()
         .where("dedup_key", "=", dedupKey).where("status", "=", "OPEN").forUpdate().executeTakeFirst();
       if (existing) {
-        if (input.wecomNotify && await this.enqueueEventDeliveryTx(trx, existing, input.principalId, "TRIGGER")) {
+        if (input.wecomNotify && input.principalId !== null
+          && await this.enqueueEventDeliveryTx(trx, existing, input.principalId, "TRIGGER")) {
           return trx.updateTable("availability_event").set({
             affected_person_count: sql`affected_person_count + 1`, updated_at: input.now,
           }).where("id", "=", existing.id).returningAll().executeTakeFirstOrThrow();
@@ -117,7 +120,8 @@ export class RuntimeAssuranceEventsRepository extends RuntimeAssuranceRulesRepos
         trigger_ai_request_id: input.aiRequestId, trigger_principal_id: input.principalId,
         recovery_method: "SCHEDULE_END", dedup_key: dedupKey, affected_request_count: 1,
       }).returningAll().executeTakeFirstOrThrow();
-      if (input.wecomNotify && await this.enqueueEventDeliveryTx(trx, created, input.principalId, "TRIGGER")) {
+      if (input.wecomNotify && input.principalId !== null
+      && await this.enqueueEventDeliveryTx(trx, created, input.principalId, "TRIGGER")) {
         return trx.updateTable("availability_event").set({ affected_person_count: 1 })
           .where("id", "=", created.id).returningAll().executeTakeFirstOrThrow();
       }
@@ -169,9 +173,128 @@ export class RuntimeAssuranceEventsRepository extends RuntimeAssuranceRulesRepos
     });
   }
 
+  /**
+   * CPQW：在调用方资源优先事务内记录绑定 incident 的额度熔断事件。
+   * 与 recordSignal 的差异：dedup 以 incidentId 为代次、recover_at 固定 null
+   * （不受纯时钟恢复）、写入 quota_block_incident_id；规则匹配在事务外完成。
+   */
+  async recordQuotaIncidentSignal(
+    trx: Transaction<Database>,
+    input: SignalInput & { incidentId: string },
+  ): Promise<SignalResult> {
+    const now = input.now ?? new Date();
+    if (input.mode === "OFF") return { decision: "ALLOW", event: null, matchedRule: null, recoverAt: null };
+    const rules = await this.activeRuleSnapshots(now);
+    const matched = matchAvailabilityRule(rules, {
+      now,
+      providerId: input.providerId,
+      providerResourceId: input.providerResourceId,
+      unifiedModelId: input.unifiedModelId,
+      upstreamModel: input.upstreamModel,
+      unifiedSignal: input.signal,
+    }, AVAILABILITY_RULE_TYPE.UPSTREAM_SIGNAL);
+    if (!matched || matched.action === AVAILABILITY_ACTION.WARN_ONLY || input.mode === "OBSERVE") {
+      await this.upsertObservationAlert(input, matched, now);
+      return { decision: matched ? "WARN_ONLY" : "ALLOW", event: null, matchedRule: matched, recoverAt: null };
+    }
+    const dedupKey = [matched.id, input.providerResourceId, input.upstreamModel, input.signal, input.incidentId].join(":");
+    await sql`SELECT pg_advisory_xact_lock(hashtext(${dedupKey}))`.execute(trx);
+    const existing = await trx.selectFrom("availability_event").selectAll()
+      .where("dedup_key", "=", dedupKey).where("status", "=", "OPEN").forUpdate().executeTakeFirst();
+    if (existing) {
+      let updated = await trx.updateTable("availability_event").set({
+        affected_request_count: sql`affected_request_count + 1`, updated_at: now,
+      }).where("id", "=", existing.id).returningAll().executeTakeFirstOrThrow();
+      if (input.wecomNotify && input.principalId !== null
+        && await this.enqueueEventDeliveryTx(trx, updated, input.principalId, "TRIGGER")) {
+        updated = await trx.updateTable("availability_event").set({
+          affected_person_count: sql`affected_person_count + 1`, updated_at: now,
+        }).where("id", "=", existing.id).returningAll().executeTakeFirstOrThrow();
+      }
+      return { decision: "BLOCKED_UPSTREAM", event: updated, matchedRule: matched, recoverAt: null };
+    }
+    const created = await trx.insertInto("availability_event").values({
+      event_number: eventNumber(now),
+      availability_rule_id: matched.ruleId,
+      rule_version_id: matched.id,
+      rule_version: matched.ruleVersion,
+      provider_id: input.providerId,
+      provider_resource_id: input.providerResourceId,
+      unified_model_id: input.unifiedModelId,
+      upstream_model: input.upstreamModel,
+      unified_signal: input.signal,
+      upstream_code: input.upstreamCode ?? null,
+      sanitized_summary: input.sanitizedSummary?.slice(0, 255) ?? null,
+      availability_decision: "BLOCKED_UPSTREAM",
+      trigger_ai_request_id: input.aiRequestId,
+      trigger_principal_id: input.principalId,
+      recovery_method: matched.recoveryMethod ?? "MANUAL",
+      quota_block_incident_id: input.incidentId,
+      dedup_key: dedupKey,
+      recover_at: null,
+      affected_request_count: 1,
+    }).returningAll().executeTakeFirstOrThrow();
+    if (input.wecomNotify && input.principalId !== null
+      && await this.enqueueEventDeliveryTx(trx, created, input.principalId, "TRIGGER")) {
+      return {
+        decision: "BLOCKED_UPSTREAM",
+        event: await trx.updateTable("availability_event").set({ affected_person_count: 1 })
+          .where("id", "=", created.id).returningAll().executeTakeFirstOrThrow(),
+        matchedRule: matched,
+        recoverAt: null,
+      };
+    }
+    return { decision: "BLOCKED_UPSTREAM", event: created, matchedRule: matched, recoverAt: null };
+  }
+
+  /**
+   * CPQW：关闭同资源同 incident 的 OPEN 额度事件（只由有效额度事务调用）。
+   * 即使原规则 recovery_method=MANUAL 也随证实恢复自动解除；RECOVERY 通知与 recoverEvent 同源。
+   */
+  async recoverQuotaIncidentEventsTx(
+    trx: Transaction<Database>,
+    providerResourceId: string,
+    incidentId: string,
+    now: Date,
+    notify = true,
+  ): Promise<number> {
+    const events = await trx.selectFrom("availability_event").selectAll()
+      .where("provider_resource_id", "=", providerResourceId)
+      .where("quota_block_incident_id", "=", incidentId)
+      .where("status", "=", "OPEN")
+      .forUpdate().execute();
+    let closed = 0;
+    for (const event of events) {
+      const recovered = await trx.updateTable("availability_event").set({
+        status: "RECOVERED",
+        recovered_at: now,
+        recovery_reason: "厂商额度窗口确认恢复",
+        updated_at: now,
+      }).where("id", "=", event.id).returningAll().executeTakeFirstOrThrow();
+      closed += 1;
+      if (notify) {
+        const recipients = await trx.selectFrom("notification_delivery")
+          .select("recipient_person_id").distinct()
+          .where("availability_event_id", "=", event.id)
+          .where("delivery_type", "=", "TRIGGER").execute();
+        if (recipients.length > 0) {
+          for (const recipient of recipients) {
+            await this.enqueuePersonDeliveryTx(trx, recovered, recipient.recipient_person_id, "RECOVERY");
+          }
+        } else if (event.trigger_principal_id) {
+          await this.enqueueEventDeliveryTx(trx, recovered, event.trigger_principal_id, "RECOVERY");
+        }
+      }
+    }
+    return closed;
+  }
+
   async recoverDueEvents(now = new Date(), notify = true): Promise<AvailabilityEvent[]> {
     const due = await this.db.selectFrom("availability_event").selectAll()
-      .where("status", "=", "OPEN").where("recover_at", "is not", null).where("recover_at", "<=", now).execute();
+      .where("status", "=", "OPEN").where("recover_at", "is not", null).where("recover_at", "<=", now)
+      // CPQW：绑定额度 incident 的事件只由有效额度事务关闭，不受纯时钟恢复。
+      .where("quota_block_incident_id", "is", null)
+      .execute();
     const recovered: AvailabilityEvent[] = [];
     for (const event of due) recovered.push(await this.recoverEvent(event.id, "到达规则恢复时间", false, notify, now));
     return recovered;

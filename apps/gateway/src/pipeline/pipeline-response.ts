@@ -7,6 +7,7 @@ import {
   sendDispatchTermination,
   sendRuntimeBlock,
 } from "./runtime-controls.js";
+import { canonicalCodingPlanProvider } from "./quota-window-presentation.js";
 import type { PipelineContext, PipelineExecutionState } from "./real-pipeline-types.js";
 
 export async function sendPipelineResponse(
@@ -52,67 +53,113 @@ function sendFinalOutcomeFailure(
     sendRuntimeBlock(reply, capability, traceId, requestId, state.finalSignalResult.event);
     return;
   }
+  const quotaExhausted = outcome.upstreamErrorKind === "QUOTA_EXHAUSTED";
+  const windowExhausted = outcome.upstreamErrorKind === "WINDOW_EXHAUSTED";
+  const quotaPresentation = (quotaExhausted || windowExhausted) && state.quotaWindowPresentation
+    ? state.quotaWindowPresentation
+    : null;
   if (streamWriter?.committed) {
     streamWriter.fail({
       code: outcome.error === "stream_interrupted_after_commit"
         ? "upstream_stream_interrupted"
-        : outcome.error!,
+        : quotaPresentation
+          ? quotaPresentation.errorCode
+          : outcome.error!,
       message: outcome.failureLayer === "STREAM_IDLE_TIMEOUT"
         ? STREAM_IDLE_TIMEOUT_MESSAGE
-        : outcome.error === "upstream_timeout"
-          ? "上游流超时"
-          : "上游流在输出期间中断",
+        : quotaPresentation
+          ? quotaPresentation.message
+          : outcome.error === "upstream_timeout"
+            ? "上游流超时"
+            : "上游流在输出期间中断",
       requestId,
     });
     return;
   }
+  reply.code(quotaFailureStatus(outcome)).header("x-request-id", traceId).send({
+    error: quotaFailureErrorEnvelope(context, state, outcome, quotaPresentation),
+  });
+}
+
+/** 未提交失败的状态码（计划§3：额度/窗口耗尽与 429 统一 429）。 */
+function quotaFailureStatus(outcome: Outcome): number {
   const quotaExhausted = outcome.upstreamErrorKind === "QUOTA_EXHAUSTED";
   const windowExhausted = outcome.upstreamErrorKind === "WINDOW_EXHAUSTED";
-  const status = outcome.status === 400
+  return outcome.status === 400
     ? 400
     : quotaExhausted || windowExhausted || outcome.status === 429
       ? 429
       : outcome.status === 504
         ? 504
         : 502;
+}
+
+/** 组装错误外壳；有窗口呈现时按冻结合同展开，否则沿用旧渲染。 */
+function quotaFailureErrorEnvelope(
+  context: PipelineContext,
+  state: PipelineExecutionState,
+  outcome: Outcome,
+  quotaPresentation: PipelineExecutionState["quotaWindowPresentation"],
+): Record<string, unknown> {
+  const { reply, capability, requestId } = context;
+  const quotaExhausted = outcome.upstreamErrorKind === "QUOTA_EXHAUSTED";
+  const windowExhausted = outcome.upstreamErrorKind === "WINDOW_EXHAUSTED";
+  const status = quotaFailureStatus(outcome);
   const errorType = status === 400
     ? "invalid_request_error"
     : status === 429
       ? "rate_limit_error"
       : "server_error";
-  const errorCode = quotaExhausted
-    ? "upstream_quota_exhausted"
-    : windowExhausted
-      ? "upstream_window_exhausted"
-      : outcome.upstreamErrorEvidence?.messageCategory === "MODEL_IMAGE_UNSUPPORTED"
-        ? "model_image_unsupported" : outcome.error;
+  const errorCode = quotaPresentation
+    ? quotaPresentation.errorCode
+    : quotaExhausted
+      ? "upstream_quota_exhausted"
+      : windowExhausted
+        ? "upstream_window_exhausted"
+        : outcome.upstreamErrorEvidence?.messageCategory === "MODEL_IMAGE_UNSUPPORTED"
+          ? "model_image_unsupported" : outcome.error;
+  // 复审缺陷 3：兜底路径同样 canonical 化，避免大写生产 code 显示“该厂商”。
+  const fallbackProviderCode = canonicalCodingPlanProvider(state.finalOutcomeProviderCode)
+    ?? state.finalOutcomeProviderCode;
   const presentation = northboundFailurePresentation(
     outcome,
-    providerDisplayName(state.finalOutcomeProviderCode),
+    providerDisplayName(fallbackProviderCode),
     quotaExhausted || windowExhausted,
     capability,
   );
-  if (outcome.retryAfterMs !== undefined) {
-    reply.header("retry-after", Math.max(1, Math.ceil(outcome.retryAfterMs / 1_000)));
-  }
-  reply.code(status).header("x-request-id", traceId).send({
-    error: {
-      message: presentation.message,
-      type: errorType,
-      code: errorCode,
-      param: presentation.param,
-      retryable: status !== 400 && !quotaExhausted,
-      ...presentation.diagnosticExtension,
-      ...(outcome.failureLayer ? { failure_layer: outcome.failureLayer } : {}),
-      ...(outcome.retryAfterMs === undefined ? {} : { retry_after_ms: outcome.retryAfterMs }),
-      request_id: requestId,
-      ...(quotaExhausted || windowExhausted ? {
-        provider: state.finalOutcomeProviderCode,
-        next_reset_at: outcome.recoverAt ?? null,
-        not_calculable_reason: outcome.recoverAt ? null : "PROVIDER_RESET_TIME_UNKNOWN",
-      } : {}),
-    },
-  });
+  const retryHeader = quotaPresentation
+    ? quotaPresentation.retryAfterSeconds
+    : outcome.retryAfterMs !== undefined
+      ? Math.max(1, Math.ceil(outcome.retryAfterMs / 1_000))
+      : null;
+  if (retryHeader !== null) reply.header("retry-after", retryHeader);
+  return {
+    message: quotaPresentation ? quotaPresentation.message : presentation.message,
+    type: errorType,
+    code: errorCode,
+    param: presentation.param,
+    retryable: quotaPresentation ? quotaPresentation.retryable : status !== 400 && !quotaExhausted,
+    ...presentation.diagnosticExtension,
+    ...(outcome.failureLayer ? { failure_layer: outcome.failureLayer } : {}),
+    ...(quotaPresentation
+      ? (quotaPresentation.retry_after_ms === undefined ? {} : { retry_after_ms: quotaPresentation.retry_after_ms })
+      : outcome.retryAfterMs === undefined ? {} : { retry_after_ms: outcome.retryAfterMs }),
+    request_id: requestId,
+    ...(quotaPresentation ? {
+      ...("provider" in quotaPresentation && quotaPresentation.provider
+        ? { provider: quotaPresentation.provider }
+        : {}),
+      quota_block_scope: quotaPresentation.quota_block_scope,
+      quota_windows: quotaPresentation.quota_windows,
+      quota_window_unknown: quotaPresentation.quota_window_unknown,
+      next_reset_at: quotaPresentation.next_reset_at,
+      not_calculable_reason: quotaPresentation.not_calculable_reason,
+    } : quotaExhausted || windowExhausted ? {
+      provider: canonicalCodingPlanProvider(state.finalOutcomeProviderCode),
+      next_reset_at: outcome.recoverAt ?? null,
+      not_calculable_reason: outcome.recoverAt ? null : "PROVIDER_RESET_TIME_UNKNOWN",
+    } : {}),
+  };
 }
 
 function sendSuccessfulOutcome(context: PipelineContext, outcome: Outcome): void {
@@ -249,19 +296,39 @@ async function sendMissingOutcomeResponse(
     return;
   }
   if (state.quotaExhaustedDuringDispatch) {
-    await publishFailedRequest(context, state, "DOWNSTREAM_AUTH_OR_QUOTA", "provider_quota_exhausted");
+    // 厂商窗口 block 门禁是上游计费事实；主体额度耗尽（reserve 拒绝）保持下游语义。
+    await publishFailedRequest(
+      context, state,
+      state.quotaBlockAdmissionRejection ? "UPSTREAM_BILLING_BLOCKED" : "DOWNSTREAM_AUTH_OR_QUOTA",
+      "provider_quota_exhausted",
+    );
+    const presentation = state.quotaWindowPresentation;
     const providerName = providerDisplayName(state.quotaExhaustedProviderCode);
+    if (presentation?.retryAfterSeconds !== null && presentation) {
+      reply.header("retry-after", presentation.retryAfterSeconds);
+    }
     reply.code(429).header("x-request-id", traceId).send({
       error: {
-        message: `${providerName}厂商额度已用完，请等待额度重置${state.quotaExhaustedResetAt ? `（${state.quotaExhaustedResetAt}）` : "（下一重置时间未知）"}`,
+        message: presentation?.message ?? `${providerName}厂商额度已用完，请等待额度重置${state.quotaExhaustedResetAt ? `（${state.quotaExhaustedResetAt}）` : "（下一重置时间未知）"}`,
         type: "rate_limit_error",
         code: "provider_quota_exhausted",
         param: null,
-        retryable: false,
+        retryable: presentation?.retryable ?? false,
         request_id: requestId,
-        provider: state.quotaExhaustedProviderCode,
-        next_reset_at: state.quotaExhaustedResetAt,
-        not_calculable_reason: state.quotaExhaustedResetAt ? null : "PROVIDER_RESET_TIME_UNKNOWN",
+        ...(canonicalCodingPlanProvider(state.quotaExhaustedProviderCode)
+          ? { provider: canonicalCodingPlanProvider(state.quotaExhaustedProviderCode) }
+          : {}),
+        ...(presentation ? {
+          quota_block_scope: presentation.quota_block_scope,
+          quota_windows: presentation.quota_windows,
+          quota_window_unknown: presentation.quota_window_unknown,
+          next_reset_at: presentation.next_reset_at,
+          not_calculable_reason: presentation.not_calculable_reason,
+          ...(presentation.retry_after_ms === undefined ? {} : { retry_after_ms: presentation.retry_after_ms }),
+        } : {
+          next_reset_at: state.quotaExhaustedResetAt,
+          not_calculable_reason: state.quotaExhaustedResetAt ? null : "PROVIDER_RESET_TIME_UNKNOWN",
+        }),
       },
     });
     return;

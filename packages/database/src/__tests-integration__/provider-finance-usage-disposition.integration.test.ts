@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import type { Kysely } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "kysely";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -86,6 +87,11 @@ const octoberStart = new Date("2026-10-01T00:00:00+08:00");
 
 describe("0086 explicit server-recorded-cost accounting decisions", () => {
   it("upgrades an existing 0085 database without changing its ledger facts", async () => {
+    // CPQW：迁移头随后续工作包追加；先回退比 0086 更新的迁移再锚定 0086（惯例见
+    // pool046 注释与 migration-rollback.ts docstring）。
+    while (await latestMigrationIs(db, "0086_provider_finance_usage_cost_disposition") === false) {
+      await migrateDown(db);
+    }
     expect(await migrateDown(db)).toBe("0086_provider_finance_usage_cost_disposition");
     const f = await fixture();
     const item = await line(f);
@@ -181,6 +187,22 @@ describe("0086 explicit server-recorded-cost accounting decisions", () => {
       .where("id", "=", row.id).execute()).rejects.toThrow(/append-only/);
     await expect(db.deleteFrom("provider_finance_usage_cost_disposition").where("id", "=", row.id).execute())
       .rejects.toThrow(/append-only/);
+    // CPQW：先回退比 0086 更新的迁移（0087 等），使 0086 成为可回滚的最近迁移；
+    // 0086 自身的 down 守卫随后拒绝回退（审计事实保留）。
+    while (await latestMigrationIs(db, "0086_provider_finance_usage_cost_disposition") === false) {
+      await migrateDown(db);
+    }
     await expect(migrateDown(db)).rejects.toThrow(/0086 rollback blocked/);
   });
 });
+
+/** 当前最新已应用迁移是否等于目标（供迁移测试锚定，而非假设迁移头）。 */
+async function latestMigrationIs(db: Kysely<unknown>, expected: string): Promise<boolean> {
+  const row = await db.selectFrom("kysely_migration")
+    .select("name")
+    .orderBy("timestamp", "desc")
+    .orderBy("name", "desc")
+    .limit(1)
+    .executeTakeFirst();
+  return row?.name === expected;
+}

@@ -18,6 +18,10 @@ export interface ProviderResourceTable {
   resource_pool_id: string | null; credential_expires_at: Date | null; credential_refresh_status: Generated<string>;
   last_refresh_at: Date | null; refresh_error_classification: string | null; consecutive_failures: Generated<number>;
   cooldown_until: Date | null; last_probe_at: Date | null; version: Generated<number>;
+  /** 额度状态单调代次（0087）：每次有效额度写入递增，供额度查询 token 防旧结果覆盖（F4）。pg int8 读出为字符串，读侧须 Number()。 */
+  quota_state_revision: Generated<number>;
+  /** 当前耗尽记录（0087，白名单 schema v1）；NULL 表示无活跃记录。 */
+  quota_block_state: Record<string, unknown> | null;
   monthly_budget_amount: Generated<string | null>; monthly_budget_currency: Generated<string | null>;
   archived_at: Generated<Date | null>;
   created_at: Generated<Date>; updated_at: Generated<Date>;

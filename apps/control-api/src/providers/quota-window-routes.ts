@@ -1,4 +1,4 @@
-/** POOL-032：厂商 Coding Plan 额度窗口同步与查询 API。 */
+/** POOL-032 / CPQW：厂商 Coding Plan 额度窗口同步与查询 API。 */
 import type { FastifyInstance, FastifyReply } from "fastify";
 import {
   canonicalProviderCode,
@@ -8,6 +8,7 @@ import {
   type EncryptedCredential,
   type ProviderCode,
 } from "@qianliu/provider-adapters";
+import { QuotaBlockRepository } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 
 function isProviderCode(code: string): code is ProviderCode {
@@ -53,49 +54,63 @@ export function registerProviderQuotaWindowRoutes(app: FastifyInstance): void {
           message: "非 Coding Plan 套餐资源，无厂商窗口额度",
         });
       }
+      // CPQW（计划§7）：管理员手动 GET 与 Worker 共用同一条件提交入口；
+      // GET 前捕获 queryToken，提交时全匹配才写入当前事实。
+      const quotaBlockRepo = new QuotaBlockRepository(app.db);
+      const capture = await quotaBlockRepo.captureQuotaQueryToken(resource.id);
+      if (capture === null || capture.credentialCiphertext === null) {
+        return reply.code(404).send({ error: "not_found", message: "资源不存在或没有可用凭证" });
+      }
       try {
         const credential = decryptCredential(
-          JSON.parse(resource.credential_ciphertext) as EncryptedCredential, app.credentialKek,
+          JSON.parse(capture.credentialCiphertext) as EncryptedCredential, app.credentialKek,
         );
         const result = await queryCodingPlanQuota({
           providerCode: resource.provider_code, mode: resource.mode, credential,
         });
-        for (const window of result.windows) {
-          await app.quotaWindowRepo.upsertCurrentWindow({
-            enterprise_id: req.admin!.enterpriseId,
-            provider_resource_id: resource.id,
-            window_type: window.windowType,
-            limit_value: window.limit,
-            used_value: window.used,
-            remaining_value: window.remaining,
+        const commit = await quotaBlockRepo.commitQuotaQueryResult({
+          token: capture.token,
+          source: "MANUAL_SYNC",
+          adapterVersion: result.adapterVersion,
+          providerDataAt: result.providerDataAt,
+          windows: result.windows.map((window) => ({
+            windowType: window.windowType,
+            limit: window.limit,
+            used: window.used,
+            remaining: window.remaining,
             unit: window.unit,
             ratio: window.ratio,
-            reset_at: window.resetAt,
-            provider_data_at: result.providerDataAt,
-            source: "MANUAL_SYNC",
-            adapter_version: result.adapterVersion,
-            sync_status: window.unsupported ? "UNSUPPORTED" : "SUCCESS",
-            sync_error_code: null,
-          });
-        }
+            resetAt: window.resetAt,
+            unsupported: Boolean(window.unsupported),
+          })),
+          now: new Date(),
+        });
         await app.auditRepo.write({
           enterprise_id: req.admin!.enterpriseId, admin_user_id: req.admin!.adminUserId,
           action: "provider_resource.quota_sync", target_type: "provider_resource",
           target_id: resource.id,
-          change_summary: { windows: result.windows.length, adapter: result.adapterVersion },
-          result: "SUCCESS",
+          change_summary: {
+            windows: result.windows.length, adapter: result.adapterVersion,
+            commitStatus: commit.status,
+            ...(commit.status === "SUPERSEDED" ? { supersededReason: commit.reason } : {}),
+          },
+          result: commit.status === "COMMITTED" ? "SUCCESS" : "FAILURE",
         });
         const windows = await app.quotaWindowRepo.listCurrentWindowsByResource(resource.id);
-        return { windows };
+        return {
+          windows,
+          commit: { status: commit.status, ...(commit.status === "SUPERSEDED" ? { reason: commit.reason } : {}) },
+        };
       } catch (cause) {
         const code = cause instanceof ProviderCodingPlanQuotaError ? cause.code : "UPSTREAM_UNAVAILABLE";
-        // 失败保鲜：标记两个窗口类型 stale/failed，不动已有数值。
-        for (const windowType of ["FIVE_HOUR", "WEEKLY"] as const) {
-          await app.quotaWindowRepo.markStale(
-            req.admin!.enterpriseId, resource.id, windowType, "MANUAL_SYNC",
-            "pool032-v1", code,
-          );
-        }
+        // 失败也走条件提交：仅保鲜观察与 nextCheck，不动 block 与未来 reset。
+        await quotaBlockRepo.commitQuotaQueryFailure({
+          token: capture.token,
+          source: "MANUAL_SYNC",
+          adapterVersion: "pool032-v1",
+          errorCode: code,
+          now: new Date(),
+        }).catch(() => undefined);
         await app.auditRepo.write({
           enterprise_id: req.admin!.enterpriseId,
           admin_user_id: req.admin!.adminUserId,

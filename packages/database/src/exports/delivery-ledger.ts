@@ -173,6 +173,21 @@ export {
   type CurrentQuotaWindow,
 } from "../repositories/provider-quota-window-repository.js";
 
+export {
+  /** CPQW 5.2：授权变更后的 Key 模型缓存重算（管理路径/验收测试共用接缝）。 */
+  refreshEmployeeKeyModels,
+} from "../repositories/employee-model-rule-lifecycle.js";
+
+export {
+  QuotaBlockRepository,
+  codingPlanQuotaEndpointHash,
+  type QuotaQueryToken,
+  type QuotaQueryCapture,
+  type QuotaCommitResult,
+  type QuotaCommitSupersededReason,
+  type QuotaCommitWindow,
+} from "../repositories/quota-block-repository.js";
+
 export { OperationalFaultRepository } from "../repositories/operational-fault-repository.js";
 
 export {

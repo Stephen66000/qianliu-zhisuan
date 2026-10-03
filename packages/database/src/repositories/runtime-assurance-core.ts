@@ -70,8 +70,8 @@ export interface SignalInput {
   upstreamCode?: string | null;
   sanitizedSummary?: string | null;
   upstreamRecoverAt?: Date | null;
-  aiRequestId: string;
-  principalId: string;
+  aiRequestId: string | null;
+  principalId: string | null;
   now?: Date;
   mode: "OFF" | "OBSERVE" | "ENFORCE";
   wecomNotify: boolean;

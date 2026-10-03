@@ -128,28 +128,36 @@ const request = (url: "/v1/chat/completions" | "/v1/messages") => app.inject({
 });
 
 describe("RA-W04 Gateway 运行保障纵向链路", () => {
-  it("智谱额度信号产生唯一事件并返回中文恢复合同", async () => {
+  it("智谱额度信号产生唯一事件并返回窗口耗尽合同（CPQW）", async () => {
     const first = await request("/v1/chat/completions");
-    expect(first.statusCode).toBe(503);
+    // CPQW（计划§3）：明确 CP 套餐耗尽返回 429 rate_limit_error 与冻结窗口字段；
+    // 事件绑定 incident 仍唯一（同 incident 去重）。
+    expect(first.statusCode).toBe(429);
     expect(first.json().error).toMatchObject({
-      code: "upstream_availability_blocked", retryable: true,
+      type: "rate_limit_error",
+      code: "upstream_quota_exhausted",
+      quota_block_scope: "RESOURCE",
+      quota_window_unknown: true,
+      next_reset_at: null,
+      not_calculable_reason: "PROVIDER_RESET_TIME_UNKNOWN",
+      retryable: false,
     });
-    expect(first.json().error.message).toContain("上游额度已耗尽");
-    expect(first.json().error.event_id).toMatch(/^BRK-/);
-    expect(first.json().error.recover_at).toBeDefined();
+    expect(first.json().error.message).toContain("套餐额度已用完");
 
     const second = await request("/v1/chat/completions");
-    expect(second.statusCode).toBe(503);
+    expect(second.statusCode).toBe(429);
+    expect(second.json().error.code).toBe("provider_quota_exhausted");
     const open = await db.selectFrom("availability_event").selectAll().where("status", "=", "OPEN").execute();
     expect(open).toHaveLength(1);
   });
 
-  it("Anthropic 外层协议保留，内部同样包含事件和恢复字段", async () => {
+  it("Messages 协议沿用共有 {error:{...}} 外壳并承载同一窗口语义", async () => {
     const response = await request("/v1/messages");
-    expect(response.statusCode).toBe(503);
-    expect(response.json()).toMatchObject({
-      type: "error",
-      error: { type: "api_error", event_id: expect.stringMatching(/^BRK-/) },
+    expect(response.statusCode).toBe(429);
+    expect(response.json().error).toMatchObject({
+      type: "rate_limit_error",
+      code: "provider_quota_exhausted",
+      quota_block_scope: "RESOURCE",
     });
   });
 
@@ -159,23 +167,28 @@ describe("RA-W04 Gateway 运行保障纵向链路", () => {
     const poolRepo = new ResourcePoolRepository(db);
     await poolRepo.adminRecover(resourceId);
     await poolRepo.recordSuccess(resourceId);
+    // CPQW：额度 block 是独立事实，测试重置需一并清除（管理恢复点击不清除额度事实）。
+    await db.updateTable("provider_resource").set({ quota_block_state: null }).where("id", "=", resourceId).execute();
     mode = "WINDOW";
 
     const response = await request("/v1/messages");
+    // CPQW（计划§5）：明确 5 小时窗口耗尽统一 EXHAUSTED+block；响应为窗口合同
+    // 而非通用熔断 503。响应时间取响应内未来 reset（30 天）。
     expect(response.statusCode).toBe(429);
-    expect(response.json()).toMatchObject({
-      type: "error",
-      error: {
-        type: "rate_limit_error",
-        code: "upstream_availability_blocked",
-        retryable: true,
-        event_id: expect.stringMatching(/^BRK-/),
-      },
+    expect(response.json().error).toMatchObject({
+      type: "rate_limit_error",
+      code: "upstream_window_exhausted",
+      retryable: true,
+      quota_block_scope: "RESOURCE",
+      quota_window_unknown: false,
     });
+    expect(response.json().error.quota_windows).toEqual([
+      { type: "FIVE_HOUR", reset_at: expect.any(String), reset_source: "UPSTREAM_RESET_AT" },
+    ]);
     expect(response.headers["retry-after"]).toBeDefined();
-    const recoverAt = Date.parse(response.json().error.recover_at);
-    expect(recoverAt).toBeGreaterThan(Date.now());
-    expect(recoverAt).toBeLessThanOrEqual(Date.now() + 6 * 60 * 60_000);
+    const resetAt = Date.parse(response.json().error.next_reset_at);
+    expect(resetAt).toBeGreaterThan(Date.now());
+    expect(resetAt).toBeLessThanOrEqual(Date.now() + 31 * 24 * 60 * 60_000);
   });
 
   it("普通 5xx 连续发生只 DEGRADED + 预警，不创建硬熔断事件", async () => {
@@ -184,6 +197,7 @@ describe("RA-W04 Gateway 运行保障纵向链路", () => {
     const poolRepo = new ResourcePoolRepository(db);
     await poolRepo.adminRecover(resourceId);
     await poolRepo.recordSuccess(resourceId);
+    await db.updateTable("provider_resource").set({ quota_block_state: null }).where("id", "=", resourceId).execute();
     mode = "TECHNICAL";
     for (let index = 0; index < 4; index += 1) await request("/v1/chat/completions");
     const resource = await db.selectFrom("provider_resource").selectAll().where("id", "=", resourceId).executeTakeFirstOrThrow();

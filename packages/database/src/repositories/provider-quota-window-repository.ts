@@ -1,5 +1,5 @@
 /** POOL-032：厂商 Coding Plan 额度窗口快照仓储。 */
-import { type Kysely } from "kysely";
+import { type Kysely, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
 import type {
   QuotaWindowSource,
@@ -60,11 +60,16 @@ export class ProviderQuotaWindowRepository {
    * 幂等写入当前窗口快照。事务 + 行锁内：旧当前行归档（is_current=false），
    * 插入新当前行；失败时调用方应改用 markStale 保鲜，不调用本方法。
    * 同步成功时 last_success_at = collected_at；UNSUPPORTED 也走此路径（数值为 null）。
+   * 传入 trx 时在外部事务内执行（kysely 嵌套事务退化为 SAVEPOINT），供额度条件提交复用。
    */
-  async upsertCurrentWindow(input: QuotaWindowUpsertInput, collectedAt: Date = new Date()): Promise<void> {
-    await this.db.transaction().execute(async (trx) => {
+  async upsertCurrentWindow(
+    input: QuotaWindowUpsertInput,
+    collectedAt: Date = new Date(),
+    trx?: Transaction<Database>,
+  ): Promise<void> {
+    const run = async (db: Kysely<Database> | Transaction<Database>) => {
       // 锁住该资源该窗口的当前行（若存在），避免并发双写。
-      await trx.selectFrom("provider_quota_window")
+      await db.selectFrom("provider_quota_window")
         .select("id")
         .where("provider_resource_id", "=", input.provider_resource_id)
         .where("window_type", "=", input.window_type)
@@ -72,14 +77,14 @@ export class ProviderQuotaWindowRepository {
         .forUpdate()
         .execute();
       // 归档旧当前行。
-      await trx.updateTable("provider_quota_window")
+      await db.updateTable("provider_quota_window")
         .set({ is_current: false })
         .where("provider_resource_id", "=", input.provider_resource_id)
         .where("window_type", "=", input.window_type)
         .where("is_current", "=", true)
         .execute();
       // 读旧当前行的 last_success_at 用于延续保鲜时间戳。
-      const previous = await trx.selectFrom("provider_quota_window")
+      const previous = await db.selectFrom("provider_quota_window")
         .select("last_success_at")
         .where("provider_resource_id", "=", input.provider_resource_id)
         .where("window_type", "=", input.window_type)
@@ -89,7 +94,7 @@ export class ProviderQuotaWindowRepository {
       const lastSuccessAt = input.sync_status === "SUCCESS" || input.sync_status === "UNSUPPORTED"
         ? collectedAt
         : previous?.last_success_at ?? null;
-      await trx.insertInto("provider_quota_window").values({
+      await db.insertInto("provider_quota_window").values({
         enterprise_id: input.enterprise_id,
         provider_resource_id: input.provider_resource_id,
         window_type: input.window_type,
@@ -108,12 +113,15 @@ export class ProviderQuotaWindowRepository {
         sync_error_code: input.sync_error_code,
         last_success_at: lastSuccessAt,
       }).execute();
-    });
+    };
+    if (trx) await run(trx);
+    else await this.db.transaction().execute(run);
   }
 
   /**
    * 同步失败保鲜：不动当前行的数值，只更新 sync_status=STALE/FAILED + 错误码 + collected_at。
    * 若该窗口从未有当前行（首次就失败），插入一条 FAILED 空快照（无数值）。
+   * 传入 trx 时在外部事务内执行，供额度条件提交复用。
    */
   async markStale(
     enterpriseId: string,
@@ -123,9 +131,10 @@ export class ProviderQuotaWindowRepository {
     adapterVersion: string,
     errorCode: string,
     collectedAt: Date = new Date(),
+    trx?: Transaction<Database>,
   ): Promise<void> {
-    await this.db.transaction().execute(async (trx) => {
-      const current = await trx.selectFrom("provider_quota_window")
+    const run = async (db: Kysely<Database> | Transaction<Database>) => {
+      const current = await db.selectFrom("provider_quota_window")
         .select(["id", "sync_status"])
         .where("provider_resource_id", "=", providerResourceId)
         .where("window_type", "=", windowType)
@@ -134,12 +143,12 @@ export class ProviderQuotaWindowRepository {
         .executeTakeFirst();
       if (current) {
         // 有历史快照 → 标记 STALE（数据仍可展示，但提示过期）。
-        await trx.updateTable("provider_quota_window").set({
+        await db.updateTable("provider_quota_window").set({
           sync_status: "STALE", sync_error_code: errorCode, collected_at: collectedAt,
         }).where("id", "=", current.id).execute();
       } else {
         // 从未成功 → 插入 FAILED 空快照（无数值，前端显示「未同步/失败」）。
-        await trx.insertInto("provider_quota_window").values({
+        await db.insertInto("provider_quota_window").values({
           enterprise_id: enterpriseId,
           provider_resource_id: providerResourceId,
           window_type: windowType,
@@ -150,7 +159,9 @@ export class ProviderQuotaWindowRepository {
           sync_status: "FAILED", sync_error_code: errorCode, last_success_at: null,
         }).execute();
       }
-    });
+    };
+    if (trx) await run(trx);
+    else await this.db.transaction().execute(run);
   }
 
   /** 列出企业下所有资源的当前窗口快照。 */

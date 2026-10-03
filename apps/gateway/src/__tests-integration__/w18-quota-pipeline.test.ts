@@ -723,13 +723,15 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
         .where("id", "=", fx.resourceId)
         .executeTakeFirstOrThrow();
       expect(resource.status).toBe("EXHAUSTED");
-      expect(resource.cooldown_until).toBeNull();
+      // CPQW（计划§5）：未知窗口阻断的下一检查取 now+5min（调度用），不再为 null。
+      expect(resource.cooldown_until).not.toBeNull();
+      expect(resource.quota_block_state).not.toBeNull();
     } finally {
       await fx.close();
     }
   });
 
-  it("Kimi 403 五小时窗口耗尽按厂商时间进入 RATE_LIMITED，到期可半开恢复", async () => {
+  it("Kimi 403 五小时窗口耗尽进入 EXHAUSTED 并保存 block，时间取零值快照（PROVIDER_SNAPSHOT）", async () => {
     const resetAt = new Date(Date.now() + 2 * 60 * 60_000);
     const fx = await buildFixture({
       mode: "CODING_PLAN",
@@ -751,7 +753,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
         window_type: "FIVE_HOUR",
         limit_value: "100",
         used_value: "98",
-        remaining_value: "2",
+        remaining_value: "0",
         unit: "POINT",
         ratio: "0.980000",
         reset_at: resetAt,
@@ -775,17 +777,26 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       });
 
       expect(response.statusCode).toBe(429);
+      // CPQW：明确 5 小时耗尽 → EXHAUSTED + block；时间由零值快照兜底（PROVIDER_SNAPSHOT），
+      // 到期只安排额度 GET，不再生成半开探测（计划§5）。
       expect(response.json().error).toMatchObject({
         code: "upstream_window_exhausted",
         retryable: true,
         next_reset_at: resetAt.toISOString(),
+        quota_block_scope: "RESOURCE",
+        quota_window_unknown: false,
       });
+      expect(response.json().error.quota_windows).toEqual([
+        { type: "FIVE_HOUR", reset_at: resetAt.toISOString(), reset_source: "PROVIDER_SNAPSHOT" },
+      ]);
+      expect(Number(response.headers["retry-after"])).toBeGreaterThan(0);
       const resource = await db.selectFrom("provider_resource")
-        .select(["status", "cooldown_until"])
+        .select(["status", "cooldown_until", "quota_block_state"])
         .where("id", "=", fx.resourceId)
         .executeTakeFirstOrThrow();
-      expect(resource.status).toBe("RATE_LIMITED");
+      expect(resource.status).toBe("EXHAUSTED");
       expect(resource.cooldown_until?.toISOString()).toBe(resetAt.toISOString());
+      expect(resource.quota_block_state).not.toBeNull();
     } finally {
       await fx.close();
     }

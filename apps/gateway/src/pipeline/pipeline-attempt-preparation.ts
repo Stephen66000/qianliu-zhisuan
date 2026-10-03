@@ -1,5 +1,5 @@
 import { OperatingBillClosedError, type UpstreamAttempt } from "@qianliu/database";
-import { QUOTA_DECISION, ROUTING_POLICY, type RoutingCandidateInput } from "@qianliu/domain";
+import { parseQuotaBlockState, QUOTA_DECISION, ROUTING_POLICY, type RoutingCandidateInput } from "@qianliu/domain";
 import {
   getCurrentInvocationAuthorization,
   type CurrentInvocationAuthorization,
@@ -15,6 +15,11 @@ import {
 import { publishFailedRequest } from "./pipeline-failure-settlement.js";
 import { attemptDispatchGuard } from "./attempt-dispatch-guard.js";
 import { finalizeDispatchCheckFailure } from "./dispatch-check-failure.js";
+import {
+  buildQuotaWindowPresentation,
+  canonicalCodingPlanProvider,
+  presentationFromStoredBlock,
+} from "./quota-window-presentation.js";
 import {
   acquireConcurrencyLeaseWithWait,
   estimateRawTokens,
@@ -39,6 +44,9 @@ export interface PreparedAttempt {
   grantId: string | null;
   reservedEstimate: bigint;
   reservedProjectedRemaining: bigint;
+  /** CPQW（F4）：Attempt 实际调用时的资源/凭证代次快照。 */
+  resourceVersion: number | null;
+  credentialVersion: number | null;
 }
 
 export type AttemptPreparationResult =
@@ -61,17 +69,9 @@ export async function prepareSelectedAttempt(
 ): Promise<AttemptPreparationResult> {
   const { deps, principal, body, request, reply, requestId, traceId } = context;
   const candidate = state.winner!.input;
-  const grantStillActive = await deps.quotaRepo.hasActiveGrant({
-    enterpriseId: principal.enterpriseId,
-    principalId: context.principalId,
-    provider: candidate.providerCode,
-    modelAlias: body.model,
-  });
-  if (!grantStillActive) {
-    state.grantRevokedDuringDispatch = true;
-    state.triedResourceIds.add(candidate.resourceId);
-    return { kind: "STOP", result: "CONTINUE" };
-  }
+  const preflight = await prepareAttemptPreflight(context, state, candidate);
+  if (preflight.kind === "STOP") return preflight;
+  const { resourceVersion, credentialVersion } = preflight;
   const probeLease = candidate.probe
     ? await deps.poolRepo.acquireHalfOpenProbeLease(
       candidate.resourceId, new Date(), context.halfOpenProbeLeaseMs,
@@ -280,6 +280,8 @@ export async function prepareSelectedAttempt(
       grantId,
       reservedEstimate,
       reservedProjectedRemaining,
+      resourceVersion,
+      credentialVersion,
     },
   };
 }
@@ -376,4 +378,67 @@ async function releaseAttemptReservations(
   if (grantId) await context.deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
   if (leaseId) await context.deps.quotaRepo.releaseLease(leaseId);
   if (probeLease) await context.deps.poolRepo.releaseHalfOpenProbe(resourceId, probeLease.acquiredAt);
+}
+
+/**
+ * Attempt 前置检查：PLAN_ONLY 最后防线、授权仍有效、资源/凭证代次快照
+ * 与活跃 block 硬门禁（计划§5/§6/§7）。
+ */
+async function prepareAttemptPreflight(
+  context: PipelineContext,
+  state: PipelineExecutionState,
+  candidate: RoutingCandidateInput,
+): Promise<{ kind: "STOP"; result: AttemptStepResult } | { kind: "READY"; resourceVersion: number | null; credentialVersion: number | null }> {
+  const { deps, principal, body } = context;
+  // CPQW（F3）：PLAN_ONLY 在 Attempt 前的最后防线——任何路径都不向付费 API 生成 Attempt。
+  if (context.planOnly && candidate.mode === "API") {
+    state.triedResourceIds.add(candidate.resourceId);
+    return { kind: "STOP", result: "BREAK" };
+  }
+  const grantStillActive = await deps.quotaRepo.hasActiveGrant({
+    enterpriseId: principal.enterpriseId,
+    principalId: context.principalId,
+    provider: candidate.providerCode,
+    modelAlias: body.model,
+  });
+  if (!grantStillActive) {
+    state.grantRevokedDuringDispatch = true;
+    state.triedResourceIds.add(candidate.resourceId);
+    return { kind: "STOP", result: "CONTINUE" };
+  }
+  // CPQW（F4）：捕获实际调用时的资源/凭证代次，供耗尽故障条件提交核验。
+  const resourceSnapshot = await deps.poolRepo.getResource(candidate.resourceId);
+  // CPQW（F2 硬门禁）：Attempt 前检查活跃 block，不能只看 status；
+  // 人工把 status 改回 DEGRADED 也不能穿透额度事实。
+  if (candidate.mode === "CODING_PLAN"
+    && resourceSnapshot !== null && resourceSnapshot !== undefined
+    && resourceSnapshot.quota_block_state !== null) {
+    applyQuotaBlockAdmissionStop(state, candidate, resourceSnapshot.quota_block_state);
+    return { kind: "STOP", result: "BREAK" };
+  }
+  return {
+    kind: "READY",
+    resourceVersion: resourceSnapshot?.version ?? null,
+    credentialVersion: resourceSnapshot?.credential_version ?? null,
+  };
+}
+
+/**
+ * CPQW：Attempt 前命中活跃 block 的终止态——沿用额度耗尽的状态位与
+ * provider_quota_exhausted code，但呈现来自存储记录（EXHAUSTION_RECORD）。
+ */
+function applyQuotaBlockAdmissionStop(
+  state: PipelineExecutionState,
+  candidate: RoutingCandidateInput,
+  rawBlock: Record<string, unknown>,
+): void {
+  state.quotaExhaustedDuringDispatch = true;
+  state.quotaBlockAdmissionRejection = true;
+  state.quotaExhaustedProviderCode = candidate.providerCode;
+  const providerCode = canonicalCodingPlanProvider(candidate.providerCode);
+  const stored = parseQuotaBlockState(rawBlock);
+  state.quotaWindowPresentation = stored
+    ? presentationFromStoredBlock({ block: stored, providerCode, now: new Date() })
+    : buildQuotaWindowPresentation({ providerCode, windows: [], unknownWindow: true, now: new Date() });
+  state.triedResourceIds.add(candidate.resourceId);
 }

@@ -95,6 +95,11 @@ export interface Outcome {
   requestShapeSummary?: RequestShapeSummary;
   /** 上游明确恢复时间；没有可靠字段时保持缺失。 */
   recoverAt?: string;
+  /**
+   * CPQW：recoverAt 的来源（计划§2 时间优先级）。
+   * RESET_AT = 厂商响应内未来重置时间；RETRY_AFTER = 明确耗尽响应的 Retry-After 推导。
+   */
+  upstreamRecoverAtSource?: "RESET_AT" | "RETRY_AFTER";
   /** 收到上游首个响应字节的时间（epoch ms），仅记元数据。 */
   firstByteAt?: number;
   /** 收到上游最后一个数据块的时间（epoch ms），仅用于超时排障，不落库（POOL-034）。 */
@@ -144,6 +149,50 @@ export interface GatewayError {
     requestId?: string;
     provider?: string;
   };
+}
+
+// ===== CPQW：Coding Plan 窗口额度耗尽北向错误合同（计划§3 冻结）=====
+
+/** 阻断作用范围：单资源可归属 = RESOURCE；多资源不可聚合 = MODEL_POOL。 */
+export type QuotaBlockErrorScope = "RESOURCE" | "MODEL_POOL";
+
+/** 预计恢复时间来源（冻结枚举；null = 未知）。 */
+export type QuotaBlockResetSource =
+  | "UPSTREAM_RESET_AT"
+  | "UPSTREAM_RETRY_AFTER"
+  | "PROVIDER_SNAPSHOT"
+  | "EXHAUSTION_RECORD";
+
+/** 整体时间不可计算原因（冻结枚举；null = 可计算）。 */
+export type QuotaBlockNotCalculableReason =
+  | "PROVIDER_RESET_TIME_UNKNOWN"
+  | "PROVIDER_RESET_TIME_PASSED"
+  | "MULTIPLE_RESOURCE_RESET_TIMES";
+
+/** quota_windows 数组元素：按 FIVE_HOUR、WEEKLY 排序。 */
+export interface QuotaBlockErrorWindow {
+  type: "FIVE_HOUR" | "WEEKLY";
+  reset_at: string | null;
+  reset_source: QuotaBlockResetSource | null;
+}
+
+/**
+ * 窗口额度耗尽错误扩展（HTTP 429 / type=rate_limit_error 内的冻结字段）。
+ * 空数组不表示已恢复；quota_window_unknown=true 表示存在无法归属窗口的套餐阻断。
+ */
+export interface QuotaBlockErrorDetail {
+  /** 可明确时 canonical kimi／zhipu；跨厂商池无法归属时省略。 */
+  provider?: "kimi" | "zhipu";
+  quota_block_scope: QuotaBlockErrorScope;
+  quota_windows: QuotaBlockErrorWindow[];
+  quota_window_unknown: boolean;
+  /** 同资源全部阻断时间 max ISO；未知、已过去或多资源不可聚合为 null。 */
+  next_reset_at: string | null;
+  not_calculable_reason: QuotaBlockNotCalculableReason | null;
+  /** 有未来整体时间时 max(1000, ceil(reset-now))，否则省略。 */
+  retry_after_ms?: number;
+  /** 可信未来时间时 true（届时可发起新请求）；否则 false，用户仍可稍后手动重试。 */
+  retryable: boolean;
 }
 
 // ===== 结算（Settlement）=====
