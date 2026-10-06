@@ -110,15 +110,29 @@ export async function listProjectAllocationSummaries(
   db: Kysely<Database>,
   enterpriseId: string,
   month: string,
+  runId?: string,
 ): Promise<{ runId: string | null; summaries: Map<string, ProjectAllocationSummary> }> {
   const day = monthFirstDay(month);
-  const run = await db.selectFrom("project_allocation_run")
-    .select(["id"])
-    .where("enterprise_id", "=", enterpriseId)
-    .where("period_month", "=", day)
-    .where("is_current", "=", true)
-    .where("status", "=", "SUCCEEDED")
-    .executeTakeFirst();
+  // F-007 补遗：调用方解析过的显式批次直接绑定（同企业+同账期+SUCCEEDED 校验保留），
+  // 未指定时才解析 current，避免同一响应内多处解析混用批次。
+  let run;
+  if (runId !== undefined) {
+    run = await db.selectFrom("project_allocation_run")
+      .select(["id"])
+      .where("id", "=", runId)
+      .where("enterprise_id", "=", enterpriseId)
+      .where("period_month", "=", day)
+      .where("status", "=", "SUCCEEDED")
+      .executeTakeFirst();
+  } else {
+    run = await db.selectFrom("project_allocation_run")
+      .select(["id"])
+      .where("enterprise_id", "=", enterpriseId)
+      .where("period_month", "=", day)
+      .where("is_current", "=", true)
+      .where("status", "=", "SUCCEEDED")
+      .executeTakeFirst();
+  }
   if (run === undefined) return { runId: null, summaries: new Map() };
 
   const { rows } = await sql<{

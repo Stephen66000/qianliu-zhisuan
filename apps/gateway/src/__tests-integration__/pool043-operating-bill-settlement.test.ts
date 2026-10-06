@@ -854,7 +854,8 @@ describe("POOL-043 真实 pipeline 结算与关账 completion barrier", () => {
         total_cache_tokens: "0",
         total_reasoning_tokens: "0",
         total_deducted_quota: "0",
-        total_api_cost: "0.00000000",
+        // F-020/0085：费用未知的请求不再写 0 占位，单一原币总额为 NULL（UNKNOWN_COST）。
+        total_api_cost: null,
         usage_quality: "ESTIMATED",
       });
       expect(await scenarioLedgerRepo.getRequest(requestId)).toMatchObject({
@@ -1066,7 +1067,8 @@ describe("POOL-043 真实 pipeline 结算与关账 completion barrier", () => {
         total_output_tokens: "5",
         total_cache_tokens: "3",
         total_reasoning_tokens: "0",
-        total_api_cost: "0.00000000",
+        // F-020/0085：UNKNOWN 零用量行存在时混合形态不冒充精确 0，总额为 NULL。
+        total_api_cost: null,
         usage_quality: "MIXED:PROVIDER_REPORTED+UNKNOWN",
       });
       expect(await scenarioLedgerRepo.getRequest(requestId)).toMatchObject({

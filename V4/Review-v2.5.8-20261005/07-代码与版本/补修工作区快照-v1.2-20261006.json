@@ -1,0 +1,236 @@
+{
+  "base_commit": "de07cdf86dea1582ae5a945c9a174682ca77e5ef",
+  "kind": "uncommitted_workspace_repair_snapshot",
+  "scope": "tracked changes plus untracked apps/packages files",
+  "file_count": 45,
+  "files": [
+    {
+      "path": "apps/control-api/src/__tests-integration__/pool027-provider-model-discovery.test.ts",
+      "sha256": "4696e75dfcc3cc6f2a100e6464057efdc330ce12f551439042c6e0308e9442b2",
+      "bytes": 44311
+    },
+    {
+      "path": "apps/control-api/src/__tests-integration__/project-allocation-routes.test.ts",
+      "sha256": "b6f71e981e8758bc7d867e179a8cbf09ca47f4d858c72ec0657ff9e552d23951",
+      "bytes": 26627
+    },
+    {
+      "path": "apps/control-api/src/__tests-integration__/w03-key-grant.test.ts",
+      "sha256": "661eff263defff93029e0e3c1c46ef2813ad4ee63e461066c3fa1942024851bb",
+      "bytes": 22241
+    },
+    {
+      "path": "apps/control-api/src/auth/routes.ts",
+      "sha256": "48ff3ab06eeca709170c29f0a4a779a513e35e8acf818843a629d738b6e884c8",
+      "bytes": 5558
+    },
+    {
+      "path": "apps/control-api/src/keys/routes.ts",
+      "sha256": "9f8571f3964866c06f04f1db9728ca38bd264d42c22c92ce6053123a47f07f6f",
+      "bytes": 12049
+    },
+    {
+      "path": "apps/control-api/src/operating-bills/account-routes.ts",
+      "sha256": "2128ed8e7e9bf1a0f67a7313fd420f3ee9c4b60a7f0c13935b3daf4efc134e93",
+      "bytes": 7711
+    },
+    {
+      "path": "apps/control-api/src/operating-bills/project-allocation-routes.ts",
+      "sha256": "8a7ad8925334a9e5f7bc84d7d487435da54a7f5da74c52b761969e28dbc31193",
+      "bytes": 9017
+    },
+    {
+      "path": "apps/gateway/src/__tests-integration__/cpqw-quota-window.test.ts",
+      "sha256": "97dc7fb880a7b95cc90763a9909231f29e3d58bae3631a5fc2211e91c0d60499",
+      "bytes": 28248
+    },
+    {
+      "path": "apps/gateway/src/__tests-integration__/pool043-operating-bill-settlement.test.ts",
+      "sha256": "46e7d6b4bafe11ebeabef5fafaef3f3278494d5b64d78913bd424c6b33553b38",
+      "bytes": 47414
+    },
+    {
+      "path": "apps/gateway/src/__tests-integration__/w18-quota-pipeline.test.ts",
+      "sha256": "c816d185f68b7a5bf7598505af8a2d7b59bbd184fe2f2901ee2dfa5b43aeb6a0",
+      "bytes": 72643
+    },
+    {
+      "path": "apps/gateway/src/auth/principal-auth.ts",
+      "sha256": "6f500c6e33189332519f5a1ba47b639ee6c27577cf085d41188067bce1422d6e",
+      "bytes": 6728
+    },
+    {
+      "path": "apps/gateway/src/pipeline/attempt-usage-settlement.ts",
+      "sha256": "1d1e67c3cac783df010173b6a8b8decff92d9fdbe4212d50332b7fe4f102c781",
+      "bytes": 10611
+    },
+    {
+      "path": "apps/gateway/src/pipeline/billing.pool043.test.ts",
+      "sha256": "65b6828d09e4cba0ea23d48f228f9d4b55e9f2d488ef9b88dbf891bd7e83d5d3",
+      "bytes": 3220
+    },
+    {
+      "path": "apps/gateway/src/pipeline/billing.ts",
+      "sha256": "1951c7e6d815ee5f648e333071f35c9e8d5b102d54195d5ec4a567657236e2a8",
+      "bytes": 8092
+    },
+    {
+      "path": "apps/gateway/src/pipeline/pipeline-admission.ts",
+      "sha256": "a73591ad222833488ba84ab72f1a9531b08c453d0b36b791ebaaf19c0740b933",
+      "bytes": 17201
+    },
+    {
+      "path": "apps/gateway/src/pipeline/pipeline-key-limits.ts",
+      "sha256": "21cf250b88f5efb61e333668d03fc9a544bd18ce3627d89408b4a5f8ab88df32",
+      "bytes": 5502
+    },
+    {
+      "path": "apps/gateway/src/pipeline/pipeline-settlement.ts",
+      "sha256": "274c366fa2ae6fff63a1832f1a4f88be8f4fe22c09ff74a8cedad81acc717d8b",
+      "bytes": 12978
+    },
+    {
+      "path": "apps/gateway/src/pipeline/pricing-evidence.ts",
+      "sha256": "0900c4d72a63c87e4ed6d75ea59c2333faa6f98c483aaa8c860b8feb31fc5de2",
+      "bytes": 2855
+    },
+    {
+      "path": "apps/gateway/src/pipeline/real-pipeline-types.ts",
+      "sha256": "3346fdcfa7e1b870e6f8c4d904d33b76198e5b427182b87b783f397e045a9275",
+      "bytes": 7968
+    },
+    {
+      "path": "apps/gateway/src/pipeline/real-pipeline.ts",
+      "sha256": "2013f338e92fd29361214aa2f5b1528097c5fe024d98479d2f517797584807df",
+      "bytes": 2075
+    },
+    {
+      "path": "apps/gateway/src/pipeline/request-model-identity.test.ts",
+      "sha256": "a7e3654209586bc189152e160cfb720401122a9a2d1f25ae6a8b475bb7d5a839",
+      "bytes": 986
+    },
+    {
+      "path": "apps/web/src/api/hooks.ts",
+      "sha256": "16aa7cb5b315cd58f16564d88e1bc8c48aff79beac9d32b74e7cd4d2cc02ced1",
+      "bytes": 17764
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/FinancialLedgerSection.test.tsx",
+      "sha256": "23a92b5a950426cd392866dc60aa9ba0de9a200f8f4f187b9c892ed47ab336d8",
+      "bytes": 9330
+    },
+    {
+      "path": "apps/web/src/components/operating-bill/FinancialLedgerSection.tsx",
+      "sha256": "e80b95b6650913a7b59ef80d574f2c4fd436ff2f2ed105ef4bf2617228b5db85",
+      "bytes": 17687
+    },
+    {
+      "path": "packages/database/migrations/0088_principal_key_limit_enforcement.js",
+      "sha256": "ad454f6ecc9b76c85de42f8c0bfa5c5cd082254d848d540073cf444911a1dde3",
+      "bytes": 1720
+    },
+    {
+      "path": "packages/database/migrations/0089_model_validation_binding.js",
+      "sha256": "328a24e28b473925f76a6049f5fc1555bcb7893e5ea1f3d89a10e6123450731d",
+      "bytes": 1885
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/admin-session-certification.integration.test.ts",
+      "sha256": "3059ce7db23061dac70557e06f6c23fe134d75cb69deeb4121fbc7e784cfa669",
+      "bytes": 4582
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/project-allocation-close.integration.test.ts",
+      "sha256": "c23dd525a03bd978684799ae303f3cd8642cc6b5a8f03f7debcb548ee60643af",
+      "bytes": 51575
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/project-allocation-compute.integration.test.ts",
+      "sha256": "f72b634e81ddb08b1212d5e1e8fb1d0c7e5a667afb98061b45613b25a3ed20f2",
+      "bytes": 27966
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/quota-block-repository.integration.test.ts",
+      "sha256": "68415454834c6c1393f65bf3fdbe53600f0a73c3c4db35f22b1998fa8b37a7d4",
+      "bytes": 25164
+    },
+    {
+      "path": "packages/database/src/kysely-core-tables.ts",
+      "sha256": "511b78188d0c2b8c8962119e749fcef6e2c35fe5082b57d01df184110fda1473",
+      "bytes": 4047
+    },
+    {
+      "path": "packages/database/src/kysely-operations-tables.ts",
+      "sha256": "7c0d584d29115ad033424b72d6fe8132380e677ed9eff16cc367720e94e8d60d",
+      "bytes": 8951
+    },
+    {
+      "path": "packages/database/src/repositories/admin-repository.ts",
+      "sha256": "6056c05809688038ebb38c5bacc6e3a9eaf9d26d7b6a0aec0c288b30f10fa475",
+      "bytes": 13565
+    },
+    {
+      "path": "packages/database/src/repositories/admin-write-repository.ts",
+      "sha256": "8418f0385f5e5ba7ac07e65384f7062e3e0d7a8070004f5fadfdf4292a22aee0",
+      "bytes": 15326
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-repository.ts",
+      "sha256": "ee67e36130a8180c53ba023110ad990576b874fc9cb4bb44442619fac1e5a819",
+      "bytes": 11862
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-request-facts.ts",
+      "sha256": "e4d6f3138ba1271c20e0211ec90e83dd593b298c4f6184bedef3fd3b60ffd4d6",
+      "bytes": 4535
+    },
+    {
+      "path": "packages/database/src/repositories/model-validation-binding.ts",
+      "sha256": "94dde63611f04c6a0a3c5208c769e1ae0093b4d5e16a9cd0469f35018ed195ef",
+      "bytes": 1916
+    },
+    {
+      "path": "packages/database/src/repositories/project-allocation-read-repository.ts",
+      "sha256": "4df8ed8d2a608f2211e12980985096ec2614adad71af2e7da8eba94e69671615",
+      "bytes": 16835
+    },
+    {
+      "path": "packages/database/src/repositories/provider-model-discovery-repository.ts",
+      "sha256": "aa6825b15e3b6c19bff9c3646b40495895ce99fcdb3f56387c339eb5e2bc0154",
+      "bytes": 20854
+    },
+    {
+      "path": "packages/database/src/repositories/quota-gate-repository.ts",
+      "sha256": "aba5e0cd0cc7376353203f5dc6f050edcbd004b9bb18e3e7e8b7c4c055a5db22",
+      "bytes": 16029
+    },
+    {
+      "path": "packages/domain/src/__tests__/dispatch-policy.test.ts",
+      "sha256": "598b46bd88f93cdf5348ae98fb1f013c5d0f347ca57d4b30c3c97d3ad804be84",
+      "bytes": 15931
+    },
+    {
+      "path": "packages/domain/src/__tests__/ip-allowlist.test.ts",
+      "sha256": "957de567de04f7dc486a4088fee8e08c5621f1925ecf709cc7ee1a6098ae5ef7",
+      "bytes": 2795
+    },
+    {
+      "path": "packages/domain/src/dispatch-policy.ts",
+      "sha256": "4233ebde29b477ccd2ff284d685b7d23e31b2e9352a70a07735e33dba881b64a",
+      "bytes": 14863
+    },
+    {
+      "path": "packages/domain/src/index.ts",
+      "sha256": "57911791821e703cabe12b7a9fec00d095ce9ab58b6b473c791fa331723e33d9",
+      "bytes": 13268
+    },
+    {
+      "path": "packages/domain/src/ip-allowlist.ts",
+      "sha256": "352b9e880ea741851bd74a4ecc22d569bcd1297e3a8a22d7b92f1b9f796d422f",
+      "bytes": 4370
+    }
+  ],
+  "tests": "implementer_reported_not_rerun",
+  "deployed": false,
+  "tag_created": false
+}

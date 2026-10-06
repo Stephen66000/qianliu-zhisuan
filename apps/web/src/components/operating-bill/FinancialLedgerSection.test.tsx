@@ -101,4 +101,78 @@ describe("FinancialLedgerSection 财务账", () => {
     render(<FinancialLedgerSection analysis={analysis} />);
     expect(screen.getAllByText("多币种（不合并）").length).toBeGreaterThan(0);
   });
+
+  it("F-020：原币 USD 的 API 消耗不与人民币套餐费合并为用量总花费", () => {
+    const analysis = analysisFixture();
+    const usdAccount = analysis.apiAccounts[0]!;
+    analysis.apiAccounts = [{ ...usdAccount, currency: "USD",
+      totals: { ...usdAccount.totals, apiSpend: "14.70000000", endingBalance: "80.00" },
+      months: usdAccount.months.map((month) => month.month === "2026-09"
+        ? { ...month, apiSpend: "14.70000000", apiSpendComplete: true, endingBalance: "80.00" }
+        : month) }];
+    const model = buildFinancialLedgerModel(analysis);
+    expect(model.rows[0]).toMatchObject({ apiCurrency: "USD", apiSpend: "14.70000000",
+      usageSpendTotal: null, costPerMillion: null });
+    expect(model.totals.usageSpendTotal).toBeNull();
+
+    render(<FinancialLedgerSection analysis={analysis} />);
+    expect(screen.getAllByText("USD 14.70").length).toBeGreaterThan(0);
+    expect(screen.queryByText("¥ 635.80")).toBeNull();
+
+    const csv = financialLedgerCsv(model);
+    expect(csv).toContain("14.70000000");
+    expect(csv).not.toContain("635.80");
+  });
+
+  it("F-020 补遗：美元账户的人民币充值恒按 ¥ 展示并计入现金合计", () => {
+    const analysis = analysisFixture();
+    const account = analysis.apiAccounts[0]!;
+    analysis.apiAccounts = [{ ...account, currency: "USD" }];
+    const model = buildFinancialLedgerModel(analysis);
+    // paidCny=600 为人民币实付：不随账户币种（USD）标记，也不被多币种门禁清空。
+    expect(model.rows[0]).toMatchObject({ apiCurrency: "USD", apiSpend: "104.55405484",
+      apiRecharge: "600.00000000" });
+    render(<FinancialLedgerSection analysis={analysis} />);
+    expect(screen.getAllByText("¥ 600.00").length).toBeGreaterThan(0);
+    expect(screen.queryByText("USD 600.00")).toBeNull();
+    const csv = financialLedgerCsv(model);
+    expect(csv).toContain("API现金充值(¥)");
+  });
+
+  it("F-020 补遗：跨月不同币种的年度 API 消耗不合并（一月人民币二月美元）", () => {
+    const analysis = analysisFixture();
+    const cnyAccount = analysis.apiAccounts[0]!;
+    analysis.apiAccounts = [
+      { ...cnyAccount, months: cnyAccount.months.map((month) => month.month === "2026-09"
+        ? month : { ...month }) },
+      { ...cnyAccount, currency: "USD", months: cnyAccount.months.map((month) => month.month === "2026-08"
+        ? { month: "2026-08", openingBalance: "0.00", recharge: "50.00", paidCny: "50.00",
+          apiSpend: "12.00000000", apiSpendComplete: true, endingBalance: "38.00" }
+        : month.month === "2026-09"
+          ? { ...month, apiSpend: null, apiSpendComplete: false, openingBalance: null,
+            recharge: null, paidCny: null, endingBalance: null }
+          : month) },
+    ];
+    const model = buildFinancialLedgerModel(analysis);
+    expect(model.rows).toHaveLength(2);
+    const august = model.rows.find((row) => row.month === "2026-08")!;
+    const september = model.rows.find((row) => row.month === "2026-09")!;
+    expect(august).toMatchObject({ apiCurrency: "USD", apiSpend: "12.00000000" });
+    expect(september).toMatchObject({ apiCurrency: "CNY", apiSpend: "104.55405484" });
+    // 年度合计：币种集合 {USD, CNY} → 不可比，API 消耗与用量总花费不合并。
+    expect(model.totals.apiCurrency).toBeNull();
+    expect(model.totals.apiSpend).toBeNull();
+    expect(model.totals.usageSpendTotal).toBeNull();
+    // 人民币现金充值仍可合计。
+    expect(model.totals.apiRecharge).toBe("650.00000000");
+
+    render(<FinancialLedgerSection analysis={analysis} />);
+    expect(screen.getByText("USD 12.00")).toBeInTheDocument();
+    expect(screen.queryByText("CNY 116.55")).toBeNull();
+    const csv = financialLedgerCsv(model);
+    // 年度累计行的 API 消耗列为空（不静默相加）。
+    const totalRow = csv.split("\n").find((line) => line.startsWith("年度累计"))!;
+    const columns = totalRow.split(",");
+    expect(columns[4]).toBe("");
+  });
 });

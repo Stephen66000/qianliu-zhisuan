@@ -81,6 +81,8 @@ export interface PrincipalKeyTable {
   expires_at: Date | null;
   quota_limit: bigint | null;
   concurrency_limit: number | null;
+  /** 0088：Key 级 Token 已用计数（reserve 预估、settle 校正）；NULL quota_limit 时不启用。 */
+  used_tokens: Generated<bigint>;
   status: Generated<"ACTIVE" | "REVOKED">;
   created_at: Generated<Date>;
   last_used_at: Date | null;

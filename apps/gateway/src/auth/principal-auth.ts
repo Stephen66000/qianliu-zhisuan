@@ -9,6 +9,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import type { Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { digestApiKey } from "@qianliu/provider-adapters";
+import { ipMatchesAllowlist } from "@qianliu/domain";
 import { fromClassification } from "../plugins/error-envelope.js";
 import { ERROR_CLASSIFICATION } from "@qianliu/domain";
 
@@ -20,6 +21,12 @@ export interface PrincipalAuthResult {
   allowedModelIds: string[];
   /** POOL-043：模型鉴权已确认的稳定 ID，仅对当前请求有效。 */
   authorizedModelId: string | null;
+  /** Key 级 IP 白名单（CIDR 数组）；null=不限制，空数组=拒绝所有来源。 */
+  ipAllowlist: string[] | null;
+  /** Key 级 Token 额度上限；null=跟随主体 Grant 与资源级限制。 */
+  quotaLimit: bigint | null;
+  /** Key 级最大并发请求数；null=不限制，0=禁止调用。 */
+  concurrencyLimit: number | null;
 }
 
 declare module "fastify" {
@@ -59,6 +66,9 @@ export function createPrincipalAuth(db: Kysely<Database>, pepper: string) {
         "principal_key.status as key_status",
         "principal_key.expires_at as expires_at",
         "principal_key.allowed_model_ids as allowed_model_ids",
+        "principal_key.ip_allowlist as ip_allowlist",
+        "principal_key.quota_limit as quota_limit",
+        "principal_key.concurrency_limit as concurrency_limit",
       ])
       .where("principal_key.key_digest", "=", digest)
       .executeTakeFirst();
@@ -91,6 +101,17 @@ export function createPrincipalAuth(db: Kysely<Database>, pepper: string) {
       return sendAuthError(reply, err);
     }
 
+    // TRD §5.3：IP 白名单在 Key 校验后执行。null=不限制；非空但未命中（含空数组）即拒绝。
+    if (row.ip_allowlist !== null && !ipMatchesAllowlist(req.ip, row.ip_allowlist)) {
+      const err = fromClassification(
+        ERROR_CLASSIFICATION.DOWNSTREAM_AUTH_OR_QUOTA,
+        "key_ip_not_allowed",
+        "来源 IP 不在该 Key 的白名单内",
+        req.requestId,
+      );
+      return sendAuthError(reply, err);
+    }
+
     req.principal = {
       principalId: row.principal_id,
       enterpriseId: row.enterprise_id,
@@ -98,6 +119,9 @@ export function createPrincipalAuth(db: Kysely<Database>, pepper: string) {
       // 防御滚动升级或异常历史数据：NULL 也必须 fail-closed，绝不解释为“全部模型”。
       allowedModelIds: row.allowed_model_ids ?? [],
       authorizedModelId: null,
+      ipAllowlist: row.ip_allowlist,
+      quotaLimit: row.quota_limit === null ? null : BigInt(row.quota_limit),
+      concurrencyLimit: row.concurrency_limit,
     };
   };
 }

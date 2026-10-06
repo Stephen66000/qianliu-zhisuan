@@ -125,6 +125,24 @@ export class GatewayLedgerRepository {
     await updateUnsettledRequestStatus(this.db, id, status, errorClassification, errorCode);
   }
 
+  /**
+   * Key 级并发限制的在途请求计数（TRD §5.3）。
+   * claimRequest 已提交自身 IN_PROGRESS 行后才计数（commit-before-count），
+   * 并发下至多允许 limit 个通过（fail-closed 可能轻微多拒）。
+   * started_at 窗口防崩溃残留永久占用并发位。
+   */
+  async countInFlightByPrincipalKey(principalKeyId: string, windowMs: number): Promise<number> {
+    const cutoff = new Date(Date.now() - windowMs);
+    const row = await this.db
+      .selectFrom("ai_request")
+      .select((eb) => eb.fn.countAll().as("cnt"))
+      .where("principal_key_id", "=", principalKeyId)
+      .where("status", "=", "IN_PROGRESS")
+      .where("started_at", ">", cutoff)
+      .executeTakeFirstOrThrow();
+    return Number((row as { cnt: bigint | number }).cnt);
+  }
+
   async getRequest(id: string): Promise<AiRequest | undefined> {
     return this.db.selectFrom("ai_request").selectAll().where("id", "=", id).executeTakeFirst();
   }

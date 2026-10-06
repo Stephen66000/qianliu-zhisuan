@@ -108,6 +108,8 @@ export interface PipelineContext {
    * 初始候选、SWITCH、重选与 Attempt 前均排除 API（无隐式付费回退）。
    */
   planOnly: boolean;
+  /** F-014：Key 级 Token 额度预占；未配置 Key 级额度时为 null。 */
+  keyReservation: PrincipalKeyReservation | null;
   maxAttempts: number;
   capacityWaitMs: number;
   capacityPollMs: number;
@@ -119,6 +121,12 @@ export interface QuotaSettlement {
   grant_id: string;
   reserved_estimate: bigint;
   actual_deducted: bigint;
+}
+
+/** Key 级额度预占记录（F-014）：请求结束时按实扣校正 used_tokens。 */
+export interface PrincipalKeyReservation {
+  principalKeyId: string;
+  reservedEstimate: bigint;
 }
 
 export interface DeferredResourceEffect {

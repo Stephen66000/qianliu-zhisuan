@@ -11,7 +11,8 @@ export interface RequestSettlementFacts {
   totalCacheTokens: bigint;
   totalReasoningTokens: bigint;
   totalDeductedQuota: bigint;
-  totalApiCost: string;
+  /** 单一币种下的 API 费用合计；混合币种或费用未知时为 null（F-020：不得跨币种相加）。 */
+  totalApiCost: string | null;
   usageQualities: string[];
 }
 
@@ -72,6 +73,7 @@ export async function loadRequestSettlementFacts(
     deducted_quota: string;
     api_cost: string;
     api_cost_known: boolean;
+    priced_api_currencies: string;
     usage_qualities: string[] | null;
   }>`
     SELECT COALESCE(SUM(raw_input_tokens), 0)::text AS input_tokens,
@@ -82,12 +84,14 @@ export async function loadRequestSettlementFacts(
            COALESCE(SUM(api_cost) FILTER (WHERE resource_mode = 'API'), 0)::text AS api_cost,
            COUNT(*) FILTER (WHERE resource_mode = 'API')
              = COUNT(api_cost) FILTER (WHERE resource_mode = 'API') AS api_cost_known,
+           COUNT(DISTINCT api_cost_currency) FILTER (WHERE resource_mode = 'API' AND api_cost IS NOT NULL)::text AS priced_api_currencies,
            ARRAY_AGG(DISTINCT usage_quality) AS usage_qualities
       FROM ledger_line
      WHERE enterprise_id = ${enterpriseId}
        AND ai_request_id = ${requestId}
   `.execute(db);
   const total = totals.rows[0]!;
+  const mixedApiCostCurrency = Number(total.priced_api_currencies) > 1;
   return {
     attemptCount: Number(attempt.total),
     totalInputTokens: BigInt(total.input_tokens),
@@ -95,7 +99,9 @@ export async function loadRequestSettlementFacts(
     totalCacheTokens: BigInt(total.cache_tokens),
     totalReasoningTokens: BigInt(total.reasoning_tokens),
     totalDeductedQuota: BigInt(total.deducted_quota),
-    totalApiCost: new Decimal(total.api_cost_known ? total.api_cost : "0").toFixed(8),
+    totalApiCost: total.api_cost_known && !mixedApiCostCurrency
+      ? new Decimal(total.api_cost).toFixed(8)
+      : null,
     usageQualities: total.usage_qualities ?? [],
   };
 }

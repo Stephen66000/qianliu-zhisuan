@@ -238,6 +238,10 @@ export interface ProviderModelValidationTable {
   request_fingerprint: string;
   status: "IN_PROGRESS" | "SUCCEEDED" | "FAILED";
   result: Record<string, unknown>;
+  /** 0089：验证开始时的资源凭证指纹快照（F-099 绑定）；NULL=资源无指纹。 */
+  credential_fingerprint: string | null;
+  /** 0089：验证开始时的调用配置哈希（capabilityChatConfigHash）；NULL=当时无法解析。 */
+  caller_config_hash: string | null;
   started_at: Generated<Date>;
   finished_at: Date | null;
   created_at: Generated<Date>;

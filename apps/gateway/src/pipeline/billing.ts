@@ -170,6 +170,8 @@ export async function calculateDispatchSaving(input: {
   invokedResourceIds: Set<string>;
   transactionUsage: { input: number; output: number; cache: number } | null;
   actualCost: string | null;
+  /** F-020：actualCost 的单一币种（混合/未知为 null）。 */
+  actualCostCurrency?: string | null;
   actualPricingEvidenceComplete: boolean;
   baselineRule?: BillingRule | null;
   ledgerRepo: GatewayLedgerRepository;
@@ -202,6 +204,8 @@ export async function calculateDispatchSaving(input: {
     counterfactualCost,
     actualCost: input.actualPricingEvidenceComplete ? input.actualCost : null,
     actionExecuted,
+    counterfactualCurrency: counterfactualBilling?.currency ?? null,
+    actualCurrency: input.actualCostCurrency ?? null,
   });
   if (actionExecuted && input.baselineCandidate?.mode !== "API") {
     saving = { saving: "NOT_CALCULABLE", reason: "package_cost_not_comparable" };

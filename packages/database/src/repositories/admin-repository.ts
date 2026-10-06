@@ -315,6 +315,39 @@ export class AdminRepository {
       .executeTakeFirstOrThrow();
   }
 
+  /**
+   * 条件发证（F-050）：仅当 admin_user 当前 password_hash 仍等于登录时验证过的哈希
+   * 才创建会话。行锁（FOR UPDATE）把发证与 changeOwnPassword/resetPassword 的改密
+   * 事务串行化：改密先提交 → 复核失败拒绝发证；发证先提交 → 改密事务随后撤销该会话。
+   * 关闭"旧密码登录与改密并发，产生改密后仍有效的旧密码会话"窗口。
+   */
+  async createSessionIfPasswordHashMatches(
+    adminUserId: string,
+    verifiedPasswordHash: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<AdminSession | null> {
+    return this.db.transaction().execute(async (trx) => {
+      const current = await trx
+        .selectFrom("admin_user")
+        .select(["password_hash"])
+        .where("id", "=", adminUserId)
+        .where("archived_at", "is", null)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!current || current.password_hash !== verifiedPasswordHash) return null;
+      return trx
+        .insertInto("admin_session")
+        .values({
+          admin_user_id: adminUserId,
+          token_hash: tokenHash,
+          expires_at: expiresAt,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    });
+  }
+
   /** 找到有效 session 并附带管理员信息（扁平字段）。 */
   async findSessionByTokenHash(tokenHash: string): Promise<
     | {

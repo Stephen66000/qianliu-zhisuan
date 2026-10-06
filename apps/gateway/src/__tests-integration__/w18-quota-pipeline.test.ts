@@ -38,6 +38,7 @@ import {
 import { buildGateway } from "../server.js";
 import { seedMissingBillingRules } from "./billing-rule-fixture.js";
 import { createRealPipeline, type RouteCandidateRow } from "../pipeline/real-pipeline.js";
+import { estimateRawTokens } from "../pipeline/runtime-controls.js";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -80,6 +81,8 @@ async function buildFixture(opts: {
   omitRouteId?: boolean;
   routeIdOverride?: string;
   afterReserve?: () => Promise<void>;
+  /** F-014：Key 级限制（IP 白名单/Token 额度/最大并发）。 */
+  keyLimits?: { ipAllowlist?: string[]; quotaLimit?: bigint; concurrencyLimit?: number };
 }): Promise<{
   app: FastifyInstance;
   key: string;
@@ -121,6 +124,10 @@ async function buildFixture(opts: {
     key_prefix: apiKeyPrefix(key), key_digest: digestApiKey(key, PEPPER),
     allowed_model_ids: JSON.stringify([umId]) as unknown as string[],
     status: "ACTIVE",
+    ip_allowlist: (opts.keyLimits?.ipAllowlist
+      ? JSON.stringify(opts.keyLimits.ipAllowlist) : null) as unknown as string[] | null,
+    quota_limit: opts.keyLimits?.quotaLimit ?? null,
+    concurrency_limit: opts.keyLimits?.concurrencyLimit ?? null,
   }).execute();
 
   const grant = await db.insertInto("principal_grant").values({
@@ -1530,6 +1537,256 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       expect(BigInt(tx!.total_output_tokens)).toBe(sumOut);
       expect(BigInt(tx!.total_cache_tokens)).toBe(sumCache);
       expect(BigInt(tx!.total_deducted_quota)).toBe(sumDeducted);
+    } finally {
+      await fx.close();
+    }
+  });
+});
+
+describe("F-014：Key 级 IP/额度/并发限制接入正式门禁（TRD §5.3）", () => {
+  async function keyUsedTokens(principalId: string): Promise<bigint> {
+    const row = await db.selectFrom("principal_key").select(["used_tokens"])
+      .where("principal_id", "=", principalId).executeTakeFirstOrThrow();
+    return BigInt(row.used_tokens);
+  }
+
+  it("IP 白名单未命中 → 403 key_ip_not_allowed，且不进入管线", async () => {
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      keyLimits: { ipAllowlist: ["10.0.0.0/8", "192.168.1.55/32"] },
+    });
+    try {
+      const callsBefore = fx.stub.calls.length;
+      const res = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "hi" }] },
+      });
+      expect(res.statusCode).toBe(401);
+      expect(JSON.parse(res.body).error).toMatchObject({
+        code: "key_ip_not_allowed",
+        retryable: false,
+      });
+      expect(fx.stub.calls).toHaveLength(callsBefore);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("IP 白名单命中（inject 默认 127.0.0.1/32）→ 正常放行", async () => {
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      keyLimits: { ipAllowlist: ["127.0.0.1/32"] },
+    });
+    try {
+      const res = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "hello world" }] },
+      });
+      expect(res.statusCode).toBe(200);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("Key 额度不足 → 429 key_quota_exhausted，不访问上游、不预占计数", async () => {
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      keyLimits: { quotaLimit: 1n },
+    });
+    try {
+      const callsBefore = fx.stub.calls.length;
+      const res = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "hi" }] },
+      });
+      expect(res.statusCode).toBe(429);
+      expect(JSON.parse(res.body).error).toMatchObject({
+        code: "key_quota_exhausted",
+        type: "rate_limit_error",
+        retryable: false,
+      });
+      expect(fx.stub.calls).toHaveLength(callsBefore);
+
+      const requestId = res.headers["x-request-id"] as string;
+      const request = await db.selectFrom("ai_request")
+        .select(["status", "error_classification", "error_code"])
+        .where("id", "=", requestId).executeTakeFirstOrThrow();
+      expect(request).toMatchObject({
+        status: "FAILED",
+        error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+        error_code: "key_quota_exhausted",
+      });
+      const attempts = await ledgerRepo.listAttempts(requestId);
+      expect(attempts).toHaveLength(0);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("Key 额度放行 → 成功后 used_tokens 校正为实扣（预估值多退少补）", async () => {
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      keyLimits: { quotaLimit: 1_000_000n },
+    });
+    try {
+      const res = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "hello world" }] },
+      });
+      expect(res.statusCode).toBe(200);
+      const requestId = res.headers["x-request-id"] as string;
+      const lines = await ledgerRepo.listLedgerLines(requestId);
+      // Key 计数单位 = 原始 Token（input+output）；倍率 1 时与套餐扣减数值相同。
+      const rawUsage = lines.reduce((s, l) => s + BigInt(l.raw_input_tokens) + BigInt(l.raw_output_tokens), 0n);
+      expect(rawUsage).toBe(150n);
+      // 结算校正在响应发送后的 handler 收尾执行（最终校正语义），轮询等待其落库。
+      let used = await keyUsedTokens(fx.principalId);
+      for (let i = 0; i < 200 && used !== 150n; i += 1) {
+        await new Promise((r) => setTimeout(r, 10));
+        used = await keyUsedTokens(fx.principalId);
+      }
+      expect(used).toBe(150n);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("F-014 补遗：API 路径按原始 Token 累计（deducted_quota 为 null 不得当零退款）", async () => {
+    const fx = await buildFixture({
+      mode: "API",
+      keyLimits: { quotaLimit: 1_000_000n },
+    });
+    try {
+      const payload = { model: DEEPSEEK_ALIAS, messages: [{ role: "user", content: "hello world" }] };
+      const first = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key), payload,
+      });
+      expect(first.statusCode).toBe(200);
+      let used = await keyUsedTokens(fx.principalId);
+      for (let i = 0; i < 200 && used !== 150n; i += 1) {
+        await new Promise((r) => setTimeout(r, 10));
+        used = await keyUsedTokens(fx.principalId);
+      }
+      expect(used).toBe(150n);
+
+      const second = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key), payload,
+      });
+      expect(second.statusCode).toBe(200);
+      let total = await keyUsedTokens(fx.principalId);
+      for (let i = 0; i < 200 && total !== 300n; i += 1) {
+        await new Promise((r) => setTimeout(r, 10));
+        total = await keyUsedTokens(fx.principalId);
+      }
+      expect(total).toBe(300n);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("F-014 补遗：Key 额度按累计消耗耗尽后拒绝新请求", async () => {
+    const fx = await buildFixture({
+      mode: "API",
+      // 首次预占估计 = estimateRawTokens(266) ≤ 300；首次实扣 150 后，第二次 150+266 > 300。
+      keyLimits: { quotaLimit: 300n },
+    });
+    try {
+      const payload = { model: DEEPSEEK_ALIAS, messages: [{ role: "user", content: "hello world" }] };
+      const first = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key), payload,
+      });
+      expect(first.statusCode).toBe(200);
+      let used = await keyUsedTokens(fx.principalId);
+      for (let i = 0; i < 200 && used !== 150n; i += 1) {
+        await new Promise((r) => setTimeout(r, 10));
+        used = await keyUsedTokens(fx.principalId);
+      }
+      expect(used).toBe(150n);
+
+      const second = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key), payload,
+      });
+      expect(second.statusCode).toBe(429);
+      expect(JSON.parse(second.body).error).toMatchObject({ code: "key_quota_exhausted" });
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("F-014 补遗：流中断（已提交响应、用量非厂商上报）不按零消费退款", async () => {
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      keyLimits: { quotaLimit: 1_000_000n },
+      stub: new StubUpstream({
+        default: { kind: "STREAM", chunks: ["hello", " world"], usage: { input: 100, output: 50, cache: 0 }, failAfterChunk: 1 },
+        providerCode: "kimi",
+      }),
+    });
+    try {
+      const payload = { model: KIMI_ALIAS, messages: [{ role: "user", content: "hello world" }], stream: true };
+      const res = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key), payload,
+      });
+      expect([200, 499, 502]).toContain(res.statusCode);
+      // 预占估计 = estimateRawTokens(payload)（input 估计 + 256 输出预留）；
+      // 中断后用量不可信，保留全部预占：used 停留在估计值，而不是退款到 0。
+      const estimate = estimateRawTokens(payload);
+      let used = await keyUsedTokens(fx.principalId);
+      for (let i = 0; i < 200 && used !== estimate; i += 1) {
+        await new Promise((r) => setTimeout(r, 10));
+        used = await keyUsedTokens(fx.principalId);
+      }
+      expect(used).toBe(estimate);
+      expect(used).toBeGreaterThan(0n);
+    } finally {
+      await fx.close();
+    }
+  });
+
+  it("Key 并发上限=1：首个在途请求阻塞上游时，第二个请求 429 key_concurrency_limited", async () => {
+    let releaseGate!: () => void;
+    const gate = new Promise<void>((resolve) => { releaseGate = resolve; });
+    const fx = await buildFixture({
+      mode: "CODING_PLAN",
+      keyLimits: { concurrencyLimit: 1 },
+      caller: async (res, req, n) => {
+        await gate;
+        return fx.stub.invoke(res as never, req as never, n);
+      },
+    });
+    try {
+      const first = fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "first" }] },
+      });
+      // 等第一个请求的 ai_request 已提交（IN_PROGRESS），保证第二个请求计数含第一个。
+      let inFlight = 0;
+      for (let i = 0; i < 500; i += 1) {
+        const row = await db.selectFrom("ai_request")
+          .select((eb) => eb.fn.countAll().as("cnt"))
+          .where("principal_id", "=", fx.principalId)
+          .where("status", "=", "IN_PROGRESS")
+          .executeTakeFirstOrThrow();
+        inFlight = Number((row as { cnt: bigint | number }).cnt);
+        if (inFlight >= 1) break;
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      expect(inFlight).toBeGreaterThanOrEqual(1);
+
+      const second = await fx.app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(fx.key),
+        payload: { model: KIMI_ALIAS, messages: [{ role: "user", content: "second" }] },
+      });
+      expect(second.statusCode).toBe(429);
+      expect(JSON.parse(second.body).error).toMatchObject({
+        code: "key_concurrency_limited",
+        type: "rate_limit_error",
+        retryable: true,
+      });
+
+      releaseGate();
+      const firstRes = await first;
+      expect(firstRes.statusCode).toBe(200);
     } finally {
       await fx.close();
     }

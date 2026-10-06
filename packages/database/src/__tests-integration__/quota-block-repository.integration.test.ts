@@ -11,7 +11,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { sql } from "kysely";
+import { sql, type Kysely } from "kysely";
 import {
   AdminWriteRepository,
   createKysely,
@@ -128,6 +128,11 @@ describe("0087 迁移", () => {
         },
       });
       expect(fault.status).toBe("COMMITTED");
+      // 迁移头随后续迁移前移（0088 起）；先把更晚的迁移回退完，再验证 0087 自身的 down 守卫
+      // （惯例同 provider-finance-usage-disposition 的 latestMigrationIs 锚定循环）。
+      while ((await latestMigrationIs(t.db, "0087_coding_plan_quota_block_state")) === false) {
+        await migrateDown(t.db);
+      }
       await expect(migrateDown(t.db)).rejects.toThrow(/quota block facts exist/);
     } finally {
       await t.db.destroy();
@@ -508,3 +513,14 @@ describe("复审缺陷回归", () => {
     }
   });
 });
+
+/** 当前最新已应用迁移是否等于目标（供迁移测试锚定，而非假设迁移头）。 */
+async function latestMigrationIs(db: Kysely<unknown>, expected: string): Promise<boolean> {
+  const row = await db.selectFrom("kysely_migration")
+    .select("name")
+    .orderBy("timestamp", "desc")
+    .orderBy("name", "desc")
+    .limit(1)
+    .executeTakeFirst();
+  return row?.name === expected;
+}

@@ -375,3 +375,48 @@ describe("computeDispatchSaving 反事实节省（WT-17，§9.1 行 620-632）",
     })).toEqual({ saving: "NOT_CALCULABLE", reason: "invalid_cost_value" });
   });
 });
+
+describe("computeDispatchSaving 币种一致性（F-020）", () => {
+  it("两侧币种已知且不同 → NOT_CALCULABLE currency_mismatch，不得静默跨币种相减", () => {
+    const r = computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: "0.10000000",
+      actualCost: "0.06000000",
+      actionExecuted: true,
+      counterfactualCurrency: "USD",
+      actualCurrency: "CNY",
+    });
+    expect(r.saving).toBe("NOT_CALCULABLE");
+    expect(r.reason).toBe("currency_mismatch");
+  });
+
+  it("两侧币种相同 → 正常计算", () => {
+    const r = computeDispatchSaving({
+      finalAction: "SWITCH",
+      counterfactualCost: "0.10000000",
+      actualCost: "0.06000000",
+      actionExecuted: true,
+      counterfactualCurrency: "CNY",
+      actualCurrency: "CNY",
+    });
+    expect(r.saving).toBe("0.04000000");
+    expect(r.reason).toBeNull();
+  });
+
+  it("币种未知（null/缺省）时保持既有行为，不新增拒绝", () => {
+    for (const currencies of [
+      { counterfactualCurrency: null, actualCurrency: "CNY" },
+      { counterfactualCurrency: "CNY", actualCurrency: null },
+      {},
+    ]) {
+      const r = computeDispatchSaving({
+        finalAction: "SWITCH",
+        counterfactualCost: "0.10000000",
+        actualCost: "0.06000000",
+        actionExecuted: true,
+        ...currencies,
+      });
+      expect(r.saving).toBe("0.04000000");
+    }
+  });
+});

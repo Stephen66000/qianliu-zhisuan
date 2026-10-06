@@ -300,11 +300,15 @@ export function useRestoreResourceRoute(resourceId: string) {
   });
 }
 
-/** 启用未在服务的模型路由：必要时先把统一模型置为 ACTIVE，再启用路由（乐观锁取自实时数据）。 */
+/** 启用未在服务的模型路由：先启用路由（未通过真实验证会被 409 拒绝且不产生副作用），成功后再把统一模型置为 ACTIVE（F-099）。 */
 export function useEnableResourceRoute(resourceId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (route: ResourceRouteItem) => {
+      await patch(`/model-routes/${route.id}`, {
+        expected_version: route.version,
+        enabled: true,
+      });
       const models = await get<UnifiedModelsResult>("/unified-models?archived=all");
       const unified = models.models.find((m) => m.id === route.unified_model_id);
       if (!unified) throw new Error("统一模型不存在，请刷新后重试");
@@ -314,10 +318,6 @@ export function useEnableResourceRoute(resourceId: string) {
           status: "ACTIVE",
         });
       }
-      await patch(`/model-routes/${route.id}`, {
-        expected_version: route.version,
-        enabled: true,
-      });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });

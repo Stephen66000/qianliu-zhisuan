@@ -9,6 +9,9 @@ const principal: PrincipalAuthResult = {
   keyId: "key-1",
   allowedModelIds: ["model-stable-1"],
   authorizedModelId: "model-stable-1",
+  ipAllowlist: null,
+  quotaLimit: null,
+  concurrencyLimit: null,
 };
 
 describe("POOL-043 请求模型身份", () => {

@@ -11,6 +11,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { ActiveKeyExistsError, PrincipalNotActiveError } from "@qianliu/database";
+import { isValidIpAllowlistEntry } from "@qianliu/domain";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 
@@ -19,6 +20,19 @@ const KeyModelAuthorizationSchema = z.object({
     .array(z.string().uuid())
     .max(256)
     .refine((ids) => new Set(ids).size === ids.length, "allowed_model_ids 不能重复"),
+});
+
+// F-014（TRD §5.3）：Key 级 IP/额度/并发限制与 Key 一同创建；未传即不启用该级限制。
+const KeyLimitsSchema = KeyModelAuthorizationSchema.extend({
+  ip_allowlist: z.array(z.string().trim().min(1).max(64))
+    .max(64)
+    .refine((entries) => entries.every((entry) => isValidIpAllowlistEntry(entry)),
+      "ip_allowlist 条目必须是合法 IP 或 CIDR")
+    .optional(),
+  quota_limit: z.string().regex(/^\d+$/, "quota_limit 必须是非负整数字符串")
+    .transform((value) => BigInt(value))
+    .optional(),
+  concurrency_limit: z.number().int().min(0).max(65535).optional(),
 });
 
 async function findInvalidModelIds(
@@ -47,7 +61,7 @@ export function registerKeyRoutes(app: FastifyInstance): void {
       const { id: principalId } = req.params;
       const ent = req.admin!.enterpriseId;
 
-      const parsed = KeyModelAuthorizationSchema.safeParse(req.body);
+      const parsed = KeyLimitsSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.code(400).send({
           error: "invalid_request",
@@ -89,6 +103,9 @@ export function registerKeyRoutes(app: FastifyInstance): void {
       try {
         created = await app.keyRepo.create(ent, principalId, {
           allowedModelIds: parsed.data.allowed_model_ids,
+          ipAllowlist: parsed.data.ip_allowlist ?? null,
+          quotaLimit: parsed.data.quota_limit ?? null,
+          concurrencyLimit: parsed.data.concurrency_limit ?? null,
         });
       } catch (error) {
         if (error instanceof ActiveKeyExistsError) {
@@ -116,6 +133,9 @@ export function registerKeyRoutes(app: FastifyInstance): void {
           principal_id: principalId,
           key_prefix: created.record.key_prefix,
           allowed_model_ids: created.record.allowed_model_ids,
+          ip_allowlist: created.record.ip_allowlist,
+          quota_limit: created.record.quota_limit?.toString() ?? null,
+          concurrency_limit: created.record.concurrency_limit,
         },
         result: "SUCCESS",
       });
@@ -131,6 +151,9 @@ export function registerKeyRoutes(app: FastifyInstance): void {
           status: created.record.status,
           created_at: created.record.created_at,
           allowed_model_ids: created.record.allowed_model_ids,
+          ip_allowlist: created.record.ip_allowlist,
+          quota_limit: created.record.quota_limit?.toString() ?? null,
+          concurrency_limit: created.record.concurrency_limit,
         },
       });
     },
@@ -298,6 +321,9 @@ export function registerKeyRoutes(app: FastifyInstance): void {
           last_used_at: k.last_used_at,
           expires_at: k.expires_at,
           allowed_model_ids: k.allowed_model_ids,
+          ip_allowlist: k.ip_allowlist,
+          quota_limit: k.quota_limit?.toString() ?? null,
+          concurrency_limit: k.concurrency_limit,
         })),
       };
     },

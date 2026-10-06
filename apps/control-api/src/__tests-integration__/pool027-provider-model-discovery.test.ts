@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { credentialFingerprint } from "@qianliu/provider-adapters";
 import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
+import { capabilityChatConfigHash } from "@qianliu/provider-adapters";
 import { hashPassword } from "../auth/password.js";
 
 let pg: PostgresTestInstance;
@@ -688,5 +689,189 @@ describe("POOL-027 厂商模型自动发现与接入", () => {
       .filter(Boolean) as Array<Record<string, unknown>>;
     expect(bodies.some((body) => body.reasoning_effort === "max")).toBe(true);
     expect(bodies.some((body) => Array.isArray(body.tools) && body.tools.length > 0)).toBe(true);
+  });
+});
+
+describe("F-099：启用门禁与统一模型状态无关（ACTIVE 共享模型不能绕过独立真实验证）", () => {
+  /** 与仓储 readModelValidationBinding 同源计算当前调用配置哈希。 */
+  const currentConfigHash = (mode: string, upstreamModel: string, capabilitySet: unknown): string =>
+    capabilityChatConfigHash("zhipu", mode, upstreamModel, capabilitySet, process.env);
+
+  async function providerCapabilitySet(): Promise<unknown> {
+    const row = await db.selectFrom("provider").select(["code", "capability_set"])
+      .where("id", "=", providerId).executeTakeFirstOrThrow();
+    return row.capability_set;
+  }
+
+  it("ACTIVE 统一模型下复用其新建的默认禁用路由：未验证 409，绑定一致的 SUCCEEDED 证据后放行", async () => {
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: enterpriseId, provider_id: providerId, name: `F099-CP-${randomUUID().slice(0, 8)}`,
+      mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_version: 1,
+    }).returningAll().executeTakeFirstOrThrow();
+    const model = await db.insertInto("unified_model").values({
+      enterprise_id: enterpriseId, alias: `f099-glm-${randomUUID().slice(0, 8)}`,
+      display_name: "F-099 共享模型", status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    const route = await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: model.id,
+      provider_resource_id: resource.id, upstream_model: "glm-5.2",
+      priority: 100, weight: 1, enabled: false,
+    }).returningAll().executeTakeFirstOrThrow();
+
+    const rejected = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(rejected.statusCode).toBe(409);
+    expect(rejected.json().error).toBe("model_route_validation_required");
+
+    await db.insertInto("provider_model_validation").values({
+      enterprise_id: enterpriseId, provider_resource_id: resource.id, unified_model_id: model.id,
+      upstream_model: "glm-5.2", idempotency_key: `f099-${randomUUID()}`,
+      request_fingerprint: "f099-fingerprint", status: "SUCCEEDED", finished_at: new Date(),
+      credential_fingerprint: resource.credential_fingerprint,
+      caller_config_hash: currentConfigHash(resource.mode, "glm-5.2", await providerCapabilitySet()),
+    }).execute();
+
+    const enabled = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(enabled.statusCode).toBe(200);
+    expect(enabled.json().route.enabled).toBe(true);
+  });
+
+  it("F-099 补遗：换凭证后旧验证记录不可放行，凭证一致后可放行", async () => {
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: enterpriseId, provider_id: providerId, name: `F099-Rot-${randomUUID().slice(0, 8)}`,
+      mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_version: 1,
+      credential_fingerprint: "fp-old",
+    }).returningAll().executeTakeFirstOrThrow();
+    const model = await db.insertInto("unified_model").values({
+      enterprise_id: enterpriseId, alias: `f099-rot-${randomUUID().slice(0, 8)}`,
+      display_name: "F-099 轮换模型", status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    const route = await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: model.id,
+      provider_resource_id: resource.id, upstream_model: "glm-5.2",
+      priority: 100, weight: 1, enabled: false,
+    }).returningAll().executeTakeFirstOrThrow();
+
+    await db.insertInto("provider_model_validation").values({
+      enterprise_id: enterpriseId, provider_resource_id: resource.id, unified_model_id: model.id,
+      upstream_model: "glm-5.2", idempotency_key: `f099-rot-${randomUUID()}`,
+      request_fingerprint: "f099-rot", status: "SUCCEEDED", finished_at: new Date(),
+      credential_fingerprint: "fp-rotated",
+      caller_config_hash: currentConfigHash(resource.mode, "glm-5.2", await providerCapabilitySet()),
+    }).execute();
+
+    const rejected = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(rejected.statusCode).toBe(409);
+    expect(rejected.json().error).toBe("model_route_validation_required");
+
+    await db.updateTable("provider_resource").set({ credential_fingerprint: "fp-rotated" })
+      .where("id", "=", resource.id).execute();
+    const enabled = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(enabled.statusCode).toBe(200);
+  });
+
+  it("F-099 补遗：调用配置变更后，旧配置下的验证不可再次放行", async () => {
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: enterpriseId, provider_id: providerId, name: `F099-Cfg-${randomUUID().slice(0, 8)}`,
+      mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_version: 1,
+    }).returningAll().executeTakeFirstOrThrow();
+    const model = await db.insertInto("unified_model").values({
+      enterprise_id: enterpriseId, alias: `f099-cfg-${randomUUID().slice(0, 8)}`,
+      display_name: "F-099 配置模型", status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    const route = await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: model.id,
+      provider_resource_id: resource.id, upstream_model: "glm-5.2",
+      priority: 100, weight: 1, enabled: false,
+    }).returningAll().executeTakeFirstOrThrow();
+
+    await db.insertInto("provider_model_validation").values({
+      enterprise_id: enterpriseId, provider_resource_id: resource.id, unified_model_id: model.id,
+      upstream_model: "glm-5.2", idempotency_key: `f099-cfg-${randomUUID()}`,
+      request_fingerprint: "f099-cfg", status: "SUCCEEDED", finished_at: new Date(),
+      credential_fingerprint: resource.credential_fingerprint,
+      caller_config_hash: currentConfigHash(resource.mode, "glm-5.2", await providerCapabilitySet()),
+    }).execute();
+
+    const firstEnable = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(firstEnable.statusCode).toBe(200);
+
+    // 变更调用配置（模式专属端点指向另一地址）→ 当前哈希与验证快照不一致。
+    await db.updateTable("provider").set({
+      capability_set: { endpoints: { CODING_PLAN: "https://alt.example.com/v1" } },
+    }).where("id", "=", providerId).execute();
+    const reEnable = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: firstEnable.json().route.version, enabled: true },
+    });
+    expect(reEnable.statusCode).toBe(409);
+    expect(reEnable.json().error).toBe("model_route_validation_required");
+  });
+
+  it("F-099 补遗：配置变更前启动、变更后才完成的验证不可放行（快照固化于开始时点）", async () => {
+    const resource = await db.insertInto("provider_resource").values({
+      enterprise_id: enterpriseId, provider_id: providerId, name: `F099-Late-${randomUUID().slice(0, 8)}`,
+      mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_version: 1,
+      credential_fingerprint: "fp-a",
+    }).returningAll().executeTakeFirstOrThrow();
+    const model = await db.insertInto("unified_model").values({
+      enterprise_id: enterpriseId, alias: `f099-late-${randomUUID().slice(0, 8)}`,
+      display_name: "F-099 迟到验证模型", status: "ACTIVE",
+    }).returningAll().executeTakeFirstOrThrow();
+    const route = await db.insertInto("model_route").values({
+      enterprise_id: enterpriseId, unified_model_id: model.id,
+      provider_resource_id: resource.id, upstream_model: "glm-5.2",
+      priority: 100, weight: 1, enabled: false,
+    }).returningAll().executeTakeFirstOrThrow();
+
+    // 验证开始：快照 fp-a。
+    const started = await db.insertInto("provider_model_validation").values({
+      enterprise_id: enterpriseId, provider_resource_id: resource.id, unified_model_id: model.id,
+      upstream_model: "glm-5.2", idempotency_key: `f099-late-${randomUUID()}`,
+      request_fingerprint: "f099-late", status: "IN_PROGRESS",
+      credential_fingerprint: "fp-a",
+      caller_config_hash: currentConfigHash(resource.mode, "glm-5.2", await providerCapabilitySet()),
+    }).returningAll().executeTakeFirstOrThrow();
+    // 验证进行中凭证轮换。
+    await db.updateTable("provider_resource").set({ credential_fingerprint: "fp-b" })
+      .where("id", "=", resource.id).execute();
+    // 验证完成：记录仍保留开始时的 fp-a 快照。
+    await db.updateTable("provider_model_validation").set({ status: "SUCCEEDED", finished_at: new Date() })
+      .where("id", "=", started.id).execute();
+
+    const rejected = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(rejected.statusCode).toBe(409);
+    expect(rejected.json().error).toBe("model_route_validation_required");
+
+    // 当前凭证的新验证可放行。
+    await db.insertInto("provider_model_validation").values({
+      enterprise_id: enterpriseId, provider_resource_id: resource.id, unified_model_id: model.id,
+      upstream_model: "glm-5.2", idempotency_key: `f099-late2-${randomUUID()}`,
+      request_fingerprint: "f099-late2", status: "SUCCEEDED", finished_at: new Date(),
+      credential_fingerprint: "fp-b",
+      caller_config_hash: currentConfigHash(resource.mode, "glm-5.2", await providerCapabilitySet()),
+    }).execute();
+    const enabled = await app.inject({
+      method: "PATCH", url: `/model-routes/${route.id}`, headers: { cookie },
+      payload: { expected_version: route.version, enabled: true },
+    });
+    expect(enabled.statusCode).toBe(200);
   });
 });

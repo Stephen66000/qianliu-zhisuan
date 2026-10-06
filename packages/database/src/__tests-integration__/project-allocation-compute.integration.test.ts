@@ -169,6 +169,7 @@ async function seedLedgerLine(
     total_cache_tokens: 0n,
     total_deducted_quota: 0n,
     total_api_cost: apiCost,
+    api_cost_status: "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED",
     attempt_count: 1,
     status: "SETTLED",
@@ -481,7 +482,8 @@ describe("R02 返修回归：退避与 finance 回填推脏", () => {
     await db.insertInto("ledger_transaction").values({
       ai_request_id: request, enterprise_id: f.eid, principal_id: f.emp,
       total_input_tokens: tokens, total_output_tokens: 0n, total_cache_tokens: 0n,
-      total_deducted_quota: 0n, total_api_cost: apiCost, usage_quality: "PROVIDER_REPORTED",
+      total_deducted_quota: 0n, total_api_cost: apiCost, api_cost_status: "PRICED_USAGE",
+      usage_quality: "PROVIDER_REPORTED",
       attempt_count: 1, status: "SETTLED", created_at: at,
     }).execute();
     return request;

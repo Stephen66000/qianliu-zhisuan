@@ -9,6 +9,7 @@ import { preparePipelineContext } from "./pipeline-admission.js";
 import { runPipelineAttempts } from "./pipeline-attempts.js";
 import { sendPipelineResponse } from "./pipeline-response.js";
 import { settlePipelineRequest } from "./pipeline-settlement.js";
+import { settlePrincipalKeyReservation } from "./pipeline-key-limits.js";
 import { createExecutionState, type RealPipelineDeps } from "./real-pipeline-types.js";
 
 export type { RealPipelineDeps, RouteCandidateRow } from "./real-pipeline-types.js";
@@ -32,8 +33,13 @@ export function createRealPipeline(deps: RealPipelineDeps): PipelineHandler {
     const context = await preparePipelineContext(input, deps, config);
     if (!context) return;
     const state = createExecutionState(context);
-    if (await runPipelineAttempts(context, state)) return;
-    await settlePipelineRequest(context, state);
-    await sendPipelineResponse(context, state);
+    try {
+      if (await runPipelineAttempts(context, state)) return;
+      await settlePipelineRequest(context, state);
+      await sendPipelineResponse(context, state);
+    } finally {
+      // F-014：Key 级额度预占在一切退出路径上按实扣校正（含直接返回与异常）。
+      await settlePrincipalKeyReservation(context);
+    }
   };
 }

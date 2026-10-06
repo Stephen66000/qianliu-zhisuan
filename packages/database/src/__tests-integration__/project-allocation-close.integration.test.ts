@@ -114,6 +114,8 @@ async function seedLedgerLine(principalId: string, occurredAt: Date, inputTokens
     total_reasoning_tokens: 0n,
     total_deducted_quota: 0n,
     total_api_cost: apiCost,
+    // 0085 起为 NOT NULL；种子全部为已知费用 → PRICED_USAGE（line 层币种在下方补 CNY）。
+    api_cost_status: "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED",
     attempt_count: 1,
     status: "SETTLED",

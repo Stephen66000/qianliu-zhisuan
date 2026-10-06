@@ -273,6 +273,9 @@ export function computeDispatchSaving(input: {
   actualCost: string | null;
   /** 动作是否实际执行并改变了资源/行为（SWITCH 实际切换=true；仅提示=false）。 */
   actionExecuted: boolean;
+  /** F-020：两侧金额币种；两侧都已知且不同时不可计算，不得静默跨币种相减。 */
+  counterfactualCurrency?: string | null;
+  actualCurrency?: string | null;
 }): { saving: string | "NOT_CALCULABLE"; reason: string | null } {
   // 仅提示、用户没有改变行为 → NOT_CALCULABLE（行 631）
   if (!input.actionExecuted) {
@@ -281,6 +284,13 @@ export function computeDispatchSaving(input: {
   // 基线不可比 → NOT_CALCULABLE（行 628, 631）
   if (input.counterfactualCost === null || input.actualCost === null) {
     return { saving: "NOT_CALCULABLE", reason: "baseline_not_comparable" };
+  }
+  // 币种不一致 → NOT_CALCULABLE（受控换算事实不存在时不做静默换汇）
+  const counterfactualCurrency = input.counterfactualCurrency ?? null;
+  const actualCurrency = input.actualCurrency ?? null;
+  if (counterfactualCurrency !== null && actualCurrency !== null
+    && counterfactualCurrency !== actualCurrency) {
+    return { saving: "NOT_CALCULABLE", reason: "currency_mismatch" };
   }
   const cf = decimalToScaled(input.counterfactualCost, 8);
   const actual = decimalToScaled(input.actualCost, 8);

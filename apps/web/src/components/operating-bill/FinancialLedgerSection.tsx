@@ -108,7 +108,9 @@ export function buildFinancialLedgerModel(analysis: OperatingAnalysis): Financia
     const currencies = [...new Set(accountMonths.map((item) => item.currency))];
     const multiCurrency = currencies.length > 1;
     const apiCurrency = currencies.length === 1 ? currencies[0]! : null;
-    const apiRecharge = accountMonths.length > 0 && !multiCurrency
+    // F-020 补遗：API 现金充值（cash_paid_cny）恒为人民币实付，跨账户/跨月可直接合计，
+    // 不随账户币种变化；消耗与余额仍按账户币种保守处理。
+    const apiRecharge = accountMonths.length > 0
       ? sumKnown(accountMonths.map((item) => item.paidCny)) : null;
     const apiSpend = accountMonths.length > 0 && !multiCurrency
       ? sumKnown(accountMonths.map((item) => item.apiSpend)) : null;
@@ -118,7 +120,10 @@ export function buildFinancialLedgerModel(analysis: OperatingAnalysis): Financia
     const hasFinancialFact = accountMonths.length > 0 || isNonZero(planPaid) || isNonZero(cashOutTotal);
     if (!hasFinancialFact) return [];
     const planCost = planPaid;
-    const usageSpendTotal = sumKnown([apiSpend, planCost]);
+    // F-020：API 消耗为原币金额，仅与人民币套餐费可比（CNY 或无 API 消耗）时才合并展示。
+    const usageSpendTotal = apiSpend === null || apiCurrency === "CNY"
+      ? sumKnown([apiSpend, planCost])
+      : null;
     return [{
       month: usage.month, planPaid, apiRecharge, cashOutTotal, apiSpend, planCost,
       usageSpendTotal, tokensTotal: usage.totalTokens,
@@ -127,14 +132,19 @@ export function buildFinancialLedgerModel(analysis: OperatingAnalysis): Financia
     }];
   });
   const latest = rows.at(-1);
-  const multiCurrency = rows.some((row) => row.multiCurrency);
+  // F-020 补遗：年度合计的币种集合必须覆盖所有月份——不同月份使用不同账户币种时
+  // 也不得直接相加（单月多币种与跨月混合都不可比）。
+  const rowCurrencies = [...new Set(
+    rows.map((row) => row.apiCurrency).filter((value): value is string => value !== null),
+  )];
+  const multiCurrency = rows.some((row) => row.multiCurrency) || rowCurrencies.length > 1;
   const apiCurrency = multiCurrency ? null
-    : [...new Set(rows.map((row) => row.apiCurrency).filter((value): value is string => value !== null))].at(0) ?? null;
+    : rowCurrencies.at(0) ?? null;
   const usageSpendTotal = sumKnown(rows.map((row) => row.usageSpendTotal));
   const tokensTotal = sumKnown(rows.map((row) => row.tokensTotal));
   const totals = {
     planPaid: sumKnown(rows.map((row) => row.planPaid)),
-    apiRecharge: multiCurrency ? null : sumKnown(rows.map((row) => row.apiRecharge)),
+    apiRecharge: sumKnown(rows.map((row) => row.apiRecharge)),
     cashOutTotal: analysis.cashSummary.yearCash,
     apiSpend: multiCurrency ? null : sumKnown(rows.map((row) => row.apiSpend)),
     planCost: sumKnown(rows.map((row) => row.planCost)),
@@ -158,8 +168,9 @@ export function buildFinancialLedgerModel(analysis: OperatingAnalysis): Financia
 }
 
 export function financialLedgerCsv(model: FinancialLedgerModel): string {
-  const headers = ["账期月份", "Coding Plan采购实付", "API现金充值", "本月现金流出合计",
-    "API实际计价消耗", "套餐计入费用", "本月用量总花费", "实际产出Token",
+  // F-020 补遗：现金/套餐列恒为人民币实付口径，表头标注单位；余额列保留币种列。
+  const headers = ["账期月份", "Coding Plan采购实付(¥)", "API现金充值(¥)", "本月现金流出合计(¥)",
+    "API实际计价消耗", "套餐计入费用(¥)", "本月用量总花费(¥)", "实际产出Token",
     "每百万Token花费(元/M)", "活跃人数", "月末账本余额", "余额币种"];
   const raw = (value: string | number | null) => value === null ? "" : String(value);
   const rows = model.rows.map((row) => [row.month, raw(row.planPaid), raw(row.apiRecharge),
@@ -201,7 +212,7 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
         <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
           <div className="text-xs text-ql-fg-secondary mb-1">年度用量总花费（实际核算）</div>
           <div className="text-2xl font-bold text-ql-action tabular-nums">{money(totals.usageSpendTotal)}</div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">API实际消耗 + 套餐计入费用</div>
+          <div className="text-[11px] text-ql-fg-tertiary mt-1">API实际消耗 + 套餐计入费用；币种不可比时不合并</div>
         </div>
         <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
           <div className="text-xs text-ql-fg-secondary mb-1">综合每百万 Token 成本</div>
@@ -240,10 +251,10 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead className="bg-ql-surface-subtle text-ql-fg-secondary border-b border-ql-border-zone font-medium">
-              <tr><th className="p-3">账期月份</th><th className="p-3 text-right">Coding Plan 采购实付</th>
-                <th className="p-3 text-right">API 现金充值</th><th className="p-3 text-right font-bold text-ql-fg">本月现金流出合计</th>
-                <th className="p-3 text-right">API 实际计价消耗</th><th className="p-3 text-right">套餐计入费用</th>
-                <th className="p-3 text-right font-bold text-ql-action">本月用量总花费</th><th className="p-3 text-right">实际产出 Token</th>
+              <tr><th className="p-3">账期月份</th><th className="p-3 text-right">Coding Plan 采购实付（¥）</th>
+                <th className="p-3 text-right">API 现金充值（¥）</th><th className="p-3 text-right font-bold text-ql-fg">本月现金流出合计（¥）</th>
+                <th className="p-3 text-right">API 实际计价消耗</th><th className="p-3 text-right">套餐计入费用（¥）</th>
+                <th className="p-3 text-right font-bold text-ql-action">本月用量总花费（¥）</th><th className="p-3 text-right">实际产出 Token</th>
                 <th className="p-3 text-right font-bold text-ql-accent bg-ql-surface-brand-soft/40">每百万 Token 花费</th>
                 <th className="p-3 text-right">活跃人数</th><th className="p-3 text-right">月末账本余额</th></tr>
             </thead>
@@ -252,7 +263,8 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
                 : rows.map((row) => <tr className="hover:bg-ql-surface-subtle" key={row.month}>
                   <td className="p-3 font-semibold text-ql-action">{row.month}</td>
                   <td className="p-3 text-right tabular-nums">{money(row.planPaid)}</td>
-                  <td className="p-3 text-right tabular-nums">{apiMoney(row.apiRecharge, row.apiCurrency, row.multiCurrency)}</td>
+                  {/* API 充值为现金实付（cash_paid_cny），恒按人民币展示，不随账户币种变化。 */}
+                  <td className="p-3 text-right tabular-nums">{money(row.apiRecharge)}</td>
                   <td className="p-3 text-right tabular-nums font-bold text-ql-fg">{money(row.cashOutTotal)}</td>
                   <td className="p-3 text-right tabular-nums">{apiMoney(row.apiSpend, row.apiCurrency, row.multiCurrency)}</td>
                   <td className="p-3 text-right tabular-nums">{money(row.planCost)}</td>
@@ -266,7 +278,7 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
             <tfoot className="bg-ql-surface-subtle font-semibold border-t-2 border-ql-border">
               <tr><td className="p-3 text-ql-fg">年度累计（{model.periodLabel}）</td>
                 <td className="p-3 text-right tabular-nums">{money(totals.planPaid)}</td>
-                <td className="p-3 text-right tabular-nums">{apiMoney(totals.apiRecharge, totals.apiCurrency, totals.multiCurrency)}</td>
+                <td className="p-3 text-right tabular-nums">{money(totals.apiRecharge)}</td>
                 <td className="p-3 text-right tabular-nums font-bold">{money(totals.cashOutTotal)}</td>
                 <td className="p-3 text-right tabular-nums">{apiMoney(totals.apiSpend, totals.apiCurrency, totals.multiCurrency)}</td>
                 <td className="p-3 text-right tabular-nums">{money(totals.planCost)}</td>

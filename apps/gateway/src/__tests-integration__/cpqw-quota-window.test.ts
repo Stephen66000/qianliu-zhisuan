@@ -467,3 +467,130 @@ describe("CPQW：窗口额度提示与自动恢复（Gateway）", () => {
     }
   });
 });
+
+describe("F-009：PLAN_ONLY 意图先于图片能力过滤（计划§6 隐式付费例外不复存在）", () => {
+  it("图片请求过滤掉 CP 文本模型后，残留 API 候选不得把请求判为可走付费 API → 400 且零上游", async () => {
+    const principalId = randomUUID();
+    await db.insertInto("principal").values({
+      id: principalId, enterprise_id: ENT_ID, type: "EMPLOYEE", name: `F009-${principalId.slice(0, 8)}`,
+    }).execute();
+    // zhipu CP 路由：upstream_model 属于 ZHIPU_TEXT_MODELS（glm-5.2 → modelSupportsImages=false）
+    const zhipuProviderId = (await db.insertInto("provider").values({
+      enterprise_id: ENT_ID, code: "zhipu", name: "Zhipu-F009", adapter_type: "zhipu",
+    }).returningAll().executeTakeFirstOrThrow()).id;
+    const cpTextResource = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID, provider_id: zhipuProviderId, name: `F009-CP-${randomUUID().slice(0, 8)}`,
+      mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", credential_version: 1,
+    }).returningAll().executeTakeFirstOrThrow();
+    await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID, unified_model_id: kimiUmId,
+      provider_resource_id: cpTextResource.id, upstream_model: "glm-5.2", priority: 100, weight: 1,
+    }).execute();
+    // 同一统一模型别名下的 deepseek API 路由（能力未知 → 不会被图片过滤剔除）
+    const apiResource = await db.insertInto("provider_resource").values({
+      enterprise_id: ENT_ID, provider_id: deepseekProviderId, name: `F009-API-${randomUUID().slice(0, 8)}`,
+      mode: "API", credential_type: "API_KEY",
+    }).returningAll().executeTakeFirstOrThrow();
+    await db.insertInto("model_route").values({
+      enterprise_id: ENT_ID, unified_model_id: kimiUmId,
+      provider_resource_id: apiResource.id, upstream_model: "deepseek-chat", priority: 200, weight: 1,
+    }).execute();
+    await seedMissingBillingRules(db, ENT_ID);
+
+    const key = generateApiKey();
+    await db.insertInto("principal_key").values({
+      enterprise_id: ENT_ID, principal_id: principalId,
+      key_prefix: apiKeyPrefix(key), key_digest: digestApiKey(key, PEPPER),
+      allowed_model_ids: JSON.stringify([kimiUmId]) as unknown as string[],
+      status: "ACTIVE",
+    }).execute();
+    await db.insertInto("principal_grant").values({
+      enterprise_id: ENT_ID, principal_id: principalId, provider: "zhipu",
+      model_alias: KIMI_ALIAS, quota_value: 1_000_000n,
+    }).execute();
+    await db.insertInto("principal_grant").values({
+      enterprise_id: ENT_ID, principal_id: principalId, provider: "deepseek",
+      model_alias: KIMI_ALIAS, quota_value: 1_000_000n,
+    }).execute();
+
+    const calls: Array<{ resourceId: string; mode: string }> = [];
+    const caller = makeCaller(async () => {
+      throw new Error("PLAN_ONLY 图片请求不得触达任何上游资源");
+    }, calls);
+    const listCandidates = async (entId: string, model: string): Promise<RouteCandidateRow[]> => {
+      const routes = await db
+        .selectFrom("model_route")
+        .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
+        .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
+        .innerJoin("provider", "provider.id", "provider_resource.provider_id")
+        .select([
+          "model_route.id as route_id",
+          "provider_resource.id as resource_id",
+          "provider.code as provider_code",
+          "provider.id as provider_row_id",
+          "unified_model.id as unified_model_id",
+          "model_route.upstream_model",
+          "model_route.priority",
+          "model_route.weight",
+          "provider_resource.mode",
+          "provider_resource.status",
+        ])
+        .where("model_route.enterprise_id", "=", entId)
+        .where("unified_model.alias", "=", model)
+        .where("model_route.enabled", "=", true)
+        .execute();
+      return routes
+        .filter((r) => [cpTextResource.id, apiResource.id].includes(r.resource_id))
+        .map((r) => ({
+          routeId: r.route_id,
+          resourceId: r.resource_id,
+          providerCode: r.provider_code,
+          providerId: r.provider_row_id,
+          unifiedModelId: r.unified_model_id,
+          upstreamModel: r.upstream_model,
+          priority: r.priority,
+          weight: r.weight,
+          mode: r.mode as "API" | "CODING_PLAN",
+          status: r.status,
+          probe: false,
+          principalId,
+        }));
+    };
+    const pipeline = createRealPipeline({
+      db, ledgerRepo, caller, poolRepo, quotaRepo: new QuotaGateRepository(db), listCandidates,
+      maxAttempts: 2,
+    });
+    const app = buildGateway(db, PEPPER, pipeline);
+    await app.ready();
+    try {
+      const res = await app.inject({
+        method: "POST", url: "/v1/chat/completions", headers: authHeader(key),
+        payload: {
+          model: KIMI_ALIAS,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: "看图说话" },
+              { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } },
+            ],
+          }],
+        },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatchObject({
+        code: "model_image_unsupported",
+        type: "invalid_request_error",
+        retryable: false,
+      });
+      expect(calls).toHaveLength(0);
+      const requestId = res.headers["x-request-id"] as string;
+      const request = await db.selectFrom("ai_request")
+        .select(["status", "error_classification", "error_code"])
+        .where("id", "=", requestId).executeTakeFirstOrThrow();
+      expect(request).toMatchObject({ status: "FAILED", error_classification: "CLIENT_INVALID" });
+      expect(request.error_code).toContain("model_image_unsupported");
+    } finally {
+      await app.close();
+    }
+  });
+});

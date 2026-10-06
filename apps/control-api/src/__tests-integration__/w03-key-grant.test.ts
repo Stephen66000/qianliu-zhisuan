@@ -145,6 +145,46 @@ describe("W03 下游 Key 与 Grant", () => {
     expect(stored.allowed_model_ids).toEqual([ACTIVE_MODEL_ID]);
   });
 
+  it("生成 Key 可携带 IP/额度/并发限制并落库；非法 CIDR 被拒（F-014）", async () => {
+    const pid = await createPrincipal("EMPLOYEE", "Key 级限制员工");
+    const invalid = await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/key`,
+      headers: { cookie: adminCookie },
+      payload: {
+        allowed_model_ids: [ACTIVE_MODEL_ID],
+        ip_allowlist: ["203.0.113.1/24"],
+      },
+    });
+    expect(invalid.statusCode).toBe(400);
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/principals/${pid}/key`,
+      headers: { cookie: adminCookie },
+      payload: {
+        allowed_model_ids: [ACTIVE_MODEL_ID],
+        ip_allowlist: ["203.0.113.0/24", "2001:db8::/32"],
+        quota_limit: "500000",
+        concurrency_limit: 2,
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.metadata.ip_allowlist).toEqual(["203.0.113.0/24", "2001:db8::/32"]);
+    expect(body.metadata.quota_limit).toBe("500000");
+    expect(body.metadata.concurrency_limit).toBe(2);
+
+    const stored = await db
+      .selectFrom("principal_key")
+      .select(["ip_allowlist", "quota_limit", "concurrency_limit"])
+      .where("id", "=", body.metadata.id)
+      .executeTakeFirstOrThrow();
+    expect(stored.ip_allowlist).toEqual(["203.0.113.0/24", "2001:db8::/32"]);
+    expect(BigInt(stored.quota_limit!)).toBe(500_000n);
+    expect(stored.concurrency_limit).toBe(2);
+  });
+
   it("生成 Key 拒绝非本企业、非 ACTIVE 与重复模型", async () => {
     for (const allowedModelIds of [
       [INACTIVE_MODEL_ID],

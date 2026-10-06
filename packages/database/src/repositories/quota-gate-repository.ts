@@ -9,7 +9,7 @@
  *     并发租约获取（活跃数 < limit，行锁防穿透）/释放。
  *   - 并发不穿透：PostgreSQL 行锁（W14 离线可测）；Redis 短期计数在 W25 叠加。
  */
-import { type Kysely } from "kysely";
+import { type Kysely, sql } from "kysely";
 import type { Database } from "../kysely.js";
 import {
   evaluateQuotaGate,
@@ -347,5 +347,61 @@ export class QuotaGateRepository {
       .where("released_at", "is", null)
       .executeTakeFirstOrThrow();
     return Number((row as { cnt: bigint | number }).cnt);
+  }
+
+  /**
+   * Key 级 Token 额度预占（TRD §5.3；条件 UPDATE 原子判定）。
+   * quota_limit 为 NULL（或 Key 不存在）= 不启用 Key 级额度，直接放行。
+   * 预估值随请求结束由 settlePrincipalKeyQuota 校正。
+   */
+  async reservePrincipalKeyQuota(input: {
+    enterpriseId: string;
+    principalKeyId: string;
+    estimatedCost: bigint;
+  }): Promise<"NOT_CONFIGURED" | "RESERVED" | "EXHAUSTED"> {
+    const key = await this.db
+      .selectFrom("principal_key")
+      .select(["quota_limit"])
+      .where("id", "=", input.principalKeyId)
+      .where("enterprise_id", "=", input.enterpriseId)
+      .where("status", "=", "ACTIVE")
+      .executeTakeFirst();
+    if (!key || key.quota_limit === null) return "NOT_CONFIGURED";
+    const updated = await this.db
+      .updateTable("principal_key")
+      .set({ used_tokens: sql`principal_key.used_tokens + ${input.estimatedCost}` })
+      .where("id", "=", input.principalKeyId)
+      .where("enterprise_id", "=", input.enterpriseId)
+      .where("status", "=", "ACTIVE")
+      .where((eb) => sql`principal_key.used_tokens + ${input.estimatedCost} <= ${eb.ref("principal_key.quota_limit")}`)
+      .returningAll()
+      .executeTakeFirst();
+    return updated ? "RESERVED" : "EXHAUSTED";
+  }
+
+  /**
+   * Key 级额度结算校正：used = max(0, used - 预占 + 实扣)。
+   * 与请求终态结算分属两个事务；崩溃残留只会偏大（保守，不会放水）。
+   */
+  async settlePrincipalKeyQuota(
+    principalKeyId: string,
+    reservedEstimate: bigint,
+    actualDeducted: bigint,
+  ): Promise<void> {
+    await this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .selectFrom("principal_key")
+        .select(["used_tokens"])
+        .where("id", "=", principalKeyId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!row) return;
+      const next = BigInt(row.used_tokens) - reservedEstimate + actualDeducted;
+      await trx
+        .updateTable("principal_key")
+        .set({ used_tokens: next < 0n ? 0n : next })
+        .where("id", "=", principalKeyId)
+        .execute();
+    });
   }
 }

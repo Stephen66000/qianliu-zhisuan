@@ -5,6 +5,7 @@ import { createChatStreamWriter, type GatewayStreamWriter } from "../routes/chat
 import { createMessagesStreamWriter } from "../routes/messages-protocol.js";
 import type { PipelineHandler } from "../routes/chat.js";
 import { sendModelNotAllowed } from "../auth/principal-auth.js";
+import { enforceKeyLimitsAndAssembleContext } from "./pipeline-key-limits.js";
 import { fingerprintRequest } from "./request-idempotency.js";
 import { resolveRequestModelIdentity } from "./request-model-identity.js";
 import { buildEffectiveBody } from "./history-truncation.js";
@@ -130,7 +131,11 @@ export async function preparePipelineContext(
 
   // Before truncation, quota reservation or any upstream invocation; use exact routed models.
   const containsImages = hasImageInput(body);
-  const imageCompatibleCandidates = grantAuthorizedCandidates.filter((candidate) =>
+  // CPQW（F3，计划§6 / F-009）：意图判定先于图片能力过滤——若先按图片能力过滤，
+  // 集合内的 CP 文本模型（明确不支持图片）会被滤掉，残留的 API 候选会把原为
+  // PLAN_ONLY 的请求误判成可走付费 API；改为先固定意图，再在相同意图内过滤。
+  const { planOnly, candidates: modeScopedCandidates } = scopePlanOnlyCandidates(grantAuthorizedCandidates);
+  const imageCompatibleCandidates = modeScopedCandidates.filter((candidate) =>
     !containsImages || modelSupportsImages(candidate.providerCode, candidate.upstreamModel) !== false);
   if (imageCompatibleCandidates.length === 0) {
     await deps.ledgerRepo.updateRequestStatus(requestId, "FAILED", "CLIENT_INVALID", MODEL_IMAGE_UNSUPPORTED);
@@ -141,18 +146,15 @@ export async function preparePipelineContext(
     return null;
   }
 
-  // CPQW（F3，计划§6）：状态过滤前判定 intent（scopePlanOnlyCandidates）。
-  const { planOnly, candidates: modeScopedCandidates } = scopePlanOnlyCandidates(imageCompatibleCandidates);
-
   const servableById = new Map(
     (await deps.poolRepo.listServableResources(principal.enterpriseId)).map((resource) => [resource.id, resource]),
   );
   const candidateByInvocationKey = new Map(
-    modeScopedCandidates.map((candidate) => [invocationCandidateKey(candidate), candidate]),
+    imageCompatibleCandidates.map((candidate) => [invocationCandidateKey(candidate), candidate]),
   );
   let blockingEvent: AvailabilityEvent | null = null;
   const runtimeAllowedCandidates: RouteCandidateRow[] = [];
-  for (const candidate of modeScopedCandidates) {
+  for (const candidate of imageCompatibleCandidates) {
     if (deps.runtimeAssuranceRepo && deps.runtimeAssuranceMode === "ENFORCE") {
       const open = await deps.runtimeAssuranceRepo.findOpenBlock(candidate.resourceId, candidate.upstreamModel);
       if (open) {
@@ -213,7 +215,8 @@ export async function preparePipelineContext(
   const affinityResourceId = deps.resolveAffinity
     ? await deps.resolveAffinity(principal.principalId, body.model)
     : null;
-  return {
+  // F-014：Key 级并发/额度门禁在准入末段执行，拒绝时已写 FAILED 并发送响应。
+  return enforceKeyLimitsAndAssembleContext({
     deps,
     request,
     reply,
@@ -235,7 +238,7 @@ export async function preparePipelineContext(
     affinityResourceId,
     planOnly,
     ...config,
-  };
+  });
 }
 
 async function sendNoEligibleResponse(input: {

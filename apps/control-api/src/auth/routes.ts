@@ -66,7 +66,14 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const token = generateSessionToken();
     const tokenHash = digestSessionToken(token);
     const expiresAt = new Date(now + (enterprise.session_minutes * 60_000 || SESSION_TTL));
-    const session = await app.adminRepo.createSession(admin.id, tokenHash, expiresAt);
+    // F-050：发证绑定已验证的密码哈希——改密并发提交后，在途的旧密码登录不再产生有效会话。
+    const session = await app.adminRepo.createSessionIfPasswordHashMatches(
+      admin.id, admin.password_hash, tokenHash, expiresAt,
+    );
+    if (!session) {
+      loginRateLimiter.recordFailure(rateLimitKey, now);
+      return reply.code(401).send({ error: "invalid_credentials", message: "用户名或密码错误" });
+    }
     await app.db.updateTable("admin_session").set({ user_agent: req.headers["user-agent"]?.slice(0, 512) ?? null,
       ip_address: req.ip.slice(0, 64), last_seen_at: new Date(now) }).where("id", "=", session.id).execute();
 

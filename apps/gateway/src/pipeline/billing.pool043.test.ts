@@ -44,4 +44,31 @@ describe("POOL-043 请求级 API 费用证据", () => {
     expect(() => summarizePricingEvidence([line({ api_cost: "not-a-decimal" })]))
       .toThrow("invalid_decimal8:not-a-decimal");
   });
+
+  it("F-020：混合币种的已计价行不产生单一原币总额，并标记混合", () => {
+    expect(summarizePricingEvidence([
+      line({ api_cost: "1.00000000", api_cost_currency: "CNY", provider_resource_id: "resource-cny" }),
+      line({ api_cost: "0.20000000", api_cost_currency: "USD", provider_resource_id: "resource-usd" }),
+    ])).toMatchObject({
+      actualCost: null, actualCostCurrency: null,
+      mixedApiCostCurrency: true, complete: true,
+    });
+  });
+
+  it("F-020：单一币种时返回币种，CP 行不影响币种判定", () => {
+    expect(summarizePricingEvidence([
+      line({ api_cost: "1.00000000", api_cost_currency: "USD" }),
+      line({ resource_mode: "CODING_PLAN", api_cost: null, billing_rule_id: null }),
+    ])).toMatchObject({ actualCost: "1.00000000", actualCostCurrency: "USD", mixedApiCostCurrency: false });
+  });
+
+  it("F-020：零消费占位行（cost=0、currency=null）不参与混合币种判定（与复核 SQL 的 COUNT(DISTINCT) 语义一致）", () => {
+    expect(summarizePricingEvidence([
+      line({ api_cost: "0.00000000", api_cost_currency: null, provider_resource_id: "resource-zero" }),
+      line({ api_cost: "0.66000000", api_cost_currency: "CNY", provider_resource_id: "resource-cny" }),
+    ])).toMatchObject({
+      actualCost: "0.66000000", actualCostCurrency: "CNY",
+      mixedApiCostCurrency: false, unknownApiCost: false,
+    });
+  });
 });

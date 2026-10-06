@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   getAllocationRunStatus, getUnallocatedSummary, listAllocationLines, listUnallocatedLines,
-  enqueueAllocationRun, enableProjectAllocation, resolveAllocationPrincipal,
+  enqueueAllocationRun, enableProjectAllocation, resolveAllocationPrincipal, resolveAllocationRunRef,
   PrincipalNotAccessibleError, AllocationRunNotAccessibleError,
 } from "@qianliu/database";
 
@@ -143,11 +143,29 @@ export function registerOperatingBillAllocationRoutes(app: FastifyInstance): voi
       throw error;
     }
     try {
-      // 汇总与明细必须复用同一个已解析批次：显式 run_id 经统一解析器校验
-      // （同企业/同账期/SUCCEEDED），杜绝顶层与 detail 各取一个批次的混用。
-      const summary = await getUnallocatedSummary(app.db, req.admin!.enterpriseId, req.params.month, query.run_id);
+      // F-007：run_id 未指定时也只解析一次 current 批次，汇总与明细绑定同一 runId，
+      // 发布新批次并发下不再出现"汇总读 A、明细读 B"的跨批次混用；无批次时
+      // 直接返回统一空态，不做第二次解析。
+      const resolvedRunId = await resolveAllocationRunRef(
+        app.db, req.admin!.enterpriseId, req.params.month, query.run_id,
+      );
+      if (resolvedRunId === null) {
+        return reply.code(200).send({
+          month: req.params.month,
+          runId: null, tokens: "0", byReason: {}, apiCostByCurrency: {}, packageCostCny: "0",
+          lineCount: 0, resourceResidual: [],
+          detail: {
+            runId: null, lines: [], total: 0,
+            limit: Math.min(Math.max(Number(query.limit ?? 25), 1), 100),
+            offset: Math.min(Math.max(Number(query.offset ?? 0), 0), 100_000),
+          },
+        });
+      }
+      // 显式或已解析的 run_id 经统一解析器校验（同企业/同账期/SUCCEEDED），
+      // 汇总与明细复用同一解析结果，杜绝顶层与 detail 混用批次。
+      const summary = await getUnallocatedSummary(app.db, req.admin!.enterpriseId, req.params.month, resolvedRunId);
       const detail = await listUnallocatedLines(app.db, req.admin!.enterpriseId, req.params.month, {
-        runId: query.run_id,
+        runId: resolvedRunId,
         reason: query.reason,
         employeeId: query.employee_id,
         resourceId: query.resource_id,

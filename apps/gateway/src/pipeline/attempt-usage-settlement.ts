@@ -228,7 +228,11 @@ export async function finalizeFailedRequestFromPersistedFactsIfAny(
     total_deducted_quota: lines.reduce(
       (sum, line) => sum + BigInt(line.deducted_quota ?? 0), 0n,
     ),
-    total_api_cost: pricing.actualCost ?? "0.00000000",
+    // F-020：混合币种或费用未知 → 单一原币总额不可计算（UNKNOWN_COST + NULL）。
+    total_api_cost: pricing.mixedApiCostCurrency || pricing.unknownApiCost
+      ? null
+      : (pricing.actualCost ?? "0.00000000"),
+    api_cost_status: pricing.mixedApiCostCurrency ? "UNKNOWN_COST" : undefined,
     usage_quality: summarizeLedgerUsageQuality(lines),
     attempt_count: attempts.length,
     overage: input.overage ?? false,

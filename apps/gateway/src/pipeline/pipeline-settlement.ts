@@ -24,51 +24,71 @@ import {
 } from "./runtime-controls.js";
 import type { PipelineContext, PipelineExecutionState } from "./real-pipeline-types.js";
 
+interface FrozenLedgerSettlement {
+  transactionApiCost: string | null;
+  actualCostCurrency: string | null;
+  transactionUsage: { input: number; output: number; cache: number } | null;
+  actualPricingEvidenceComplete: boolean;
+  actualPricingEvidence: Array<Record<string, unknown>>;
+}
+
+/** 冻结请求级账本终态（F-020：混合币种/费用未知 → UNKNOWN_COST + NULL 总额）。 */
+async function freezeRequestLedgerSettlement(
+  context: PipelineContext,
+  state: PipelineExecutionState,
+): Promise<FrozenLedgerSettlement> {
+  const { deps, requestId, principal, principalId } = context;
+  const lines = await deps.ledgerRepo.listLedgerLines(requestId);
+  const persistedAttempts = await deps.ledgerRepo.listAttempts(requestId);
+  const sumIn = lines.reduce((acc, line) => acc + BigInt(line.raw_input_tokens), 0n);
+  const sumOut = lines.reduce((acc, line) => acc + BigInt(line.raw_output_tokens), 0n);
+  const sumCache = lines.reduce((acc, line) => acc + BigInt(line.raw_cache_tokens), 0n);
+  const sumReasoning = lines.reduce((acc, line) => acc + BigInt(line.raw_reasoning_tokens), 0n);
+  const sumDeducted = lines.reduce((acc, line) => acc + BigInt(line.deducted_quota ?? 0), 0n);
+  const pricingEvidence = summarizePricingEvidence(lines);
+  const usageQuality = summarizeLedgerUsageQuality(lines);
+  await deps.ledgerRepo.finalizeLedgerSettlementIfAbsent({
+    ai_request_id: requestId,
+    enterprise_id: principal.enterpriseId,
+    principal_id: principalId,
+    total_input_tokens: sumIn,
+    total_output_tokens: sumOut,
+    total_cache_tokens: sumCache,
+    total_reasoning_tokens: sumReasoning,
+    total_deducted_quota: sumDeducted,
+    total_api_cost: pricingEvidence.mixedApiCostCurrency || pricingEvidence.unknownApiCost
+      ? null
+      : (pricingEvidence.actualCost ?? "0.00000000"),
+    api_cost_status: pricingEvidence.mixedApiCostCurrency ? "UNKNOWN_COST" : undefined,
+    usage_quality: usageQuality,
+    attempt_count: persistedAttempts.length,
+    overage: state.requestOverage,
+    request_status: state.finalOutcome!.committed && !state.finalOutcome!.error ? "SUCCEEDED" : "FAILED",
+    error_classification: state.finalOutcome!.error
+      ? (state.finalOutcomeClassification ?? mapToClassification(state.finalOutcome!))
+      : null,
+    error_code: state.finalOutcome!.error ?? null,
+    quota_settlements: state.pendingQuotaSettlements,
+    release_lease_ids: state.pendingLeaseIds,
+  });
+  return {
+    transactionApiCost: pricingEvidence.actualCost,
+    actualCostCurrency: pricingEvidence.actualCostCurrency,
+    transactionUsage: { input: Number(sumIn), output: Number(sumOut), cache: Number(sumCache) },
+    actualPricingEvidenceComplete: pricingEvidence.complete,
+    actualPricingEvidence: pricingEvidence.items,
+  };
+}
+
 /** 冻结请求级账本并在终态之后执行资源健康与 Runtime Assurance 副作用。 */
 export async function settlePipelineRequest(
   context: PipelineContext,
   state: PipelineExecutionState,
 ): Promise<void> {
   const { deps, request, requestId, principal, principalId, requestStartedAt } = context;
-  let transactionApiCost: string | null = null;
-  let transactionUsage: { input: number; output: number; cache: number } | null = null;
-  let actualPricingEvidenceComplete = false;
-  let actualPricingEvidence: Array<Record<string, unknown>> = [];
+  let frozen: FrozenLedgerSettlement | null = null;
   if (state.finalOutcome) {
-    const lines = await deps.ledgerRepo.listLedgerLines(requestId);
-    const persistedAttempts = await deps.ledgerRepo.listAttempts(requestId);
-    const sumIn = lines.reduce((acc, line) => acc + BigInt(line.raw_input_tokens), 0n);
-    const sumOut = lines.reduce((acc, line) => acc + BigInt(line.raw_output_tokens), 0n);
-    const sumCache = lines.reduce((acc, line) => acc + BigInt(line.raw_cache_tokens), 0n);
-    const sumReasoning = lines.reduce((acc, line) => acc + BigInt(line.raw_reasoning_tokens), 0n);
-    const sumDeducted = lines.reduce((acc, line) => acc + BigInt(line.deducted_quota ?? 0), 0n);
-    transactionUsage = { input: Number(sumIn), output: Number(sumOut), cache: Number(sumCache) };
-    const pricingEvidence = summarizePricingEvidence(lines);
-    transactionApiCost = pricingEvidence.actualCost;
-    actualPricingEvidenceComplete = pricingEvidence.complete;
-    actualPricingEvidence = pricingEvidence.items;
-    const usageQuality = summarizeLedgerUsageQuality(lines);
-    await deps.ledgerRepo.finalizeLedgerSettlementIfAbsent({
-      ai_request_id: requestId,
-      enterprise_id: principal.enterpriseId,
-      principal_id: principalId,
-      total_input_tokens: sumIn,
-      total_output_tokens: sumOut,
-      total_cache_tokens: sumCache,
-      total_reasoning_tokens: sumReasoning,
-      total_deducted_quota: sumDeducted,
-      total_api_cost: transactionApiCost ?? "0.00000000",
-      usage_quality: usageQuality,
-      attempt_count: persistedAttempts.length,
-      overage: state.requestOverage,
-      request_status: state.finalOutcome.committed && !state.finalOutcome.error ? "SUCCEEDED" : "FAILED",
-      error_classification: state.finalOutcome.error
-        ? (state.finalOutcomeClassification ?? mapToClassification(state.finalOutcome))
-        : null,
-      error_code: state.finalOutcome.error ?? null,
-      quota_settlements: state.pendingQuotaSettlements,
-      release_lease_ids: state.pendingLeaseIds,
-    });
+    frozen = await freezeRequestLedgerSettlement(context, state);
     if (deps.dispatchRepo && state.dispatchFinalAction !== null && state.dispatchDispatchInput !== null) {
       await runBestEffort(request.log, "enrich post-settlement dispatch evidence", async () => {
         const { counterfactualBilling, counterfactualCost, saving } = await calculateDispatchSaving({
@@ -77,9 +97,10 @@ export async function settlePipelineRequest(
           baselineCandidate: state.dispatchBaselineCandidate,
           baselineRule: state.dispatchBaselineRule ?? null,
           invokedResourceIds: state.invokedResourceIds,
-          transactionUsage,
-          actualCost: transactionApiCost,
-          actualPricingEvidenceComplete,
+          transactionUsage: frozen!.transactionUsage,
+          actualCost: frozen!.transactionApiCost,
+          actualCostCurrency: frozen!.actualCostCurrency,
+          actualPricingEvidenceComplete: frozen!.actualPricingEvidenceComplete,
           ledgerRepo: deps.ledgerRepo,
           enterpriseId: principal.enterpriseId,
           requestStartedAt,
@@ -102,12 +123,12 @@ export async function settlePipelineRequest(
             matchedEndTime: state.dispatchMatchedPolicy?.matchEndTime ?? null,
             ...dispatchCounterfactualEvidence(state.dispatchBaselineCandidate, counterfactualBilling),
             executedResourceIds: [...state.invokedResourceIds],
-            usageEvidence: transactionUsage,
-            actualPricingEvidence,
+            usageEvidence: frozen!.transactionUsage,
+            actualPricingEvidence: frozen!.actualPricingEvidence,
             savingCalculationVersion: "pool-021-v1",
           },
           counterfactualCost,
-          actualCost: transactionApiCost,
+          actualCost: frozen!.transactionApiCost,
           ...dispatchSavingFields(saving),
         };
         try {

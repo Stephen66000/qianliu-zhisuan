@@ -308,6 +308,7 @@ export {
 } from "./runtime-assurance.js";
 
 export * from "./client-identity.js";
+export * from "./ip-allowlist.js";
 
 // ===== PF-INIT/WP01：资金账本初始化（规范化、周期语义、候选哈希、守恒摘要）=====
 export {

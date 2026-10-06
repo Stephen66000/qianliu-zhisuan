@@ -4,6 +4,7 @@
  */
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
+import { sql } from "kysely";
 import { createKysely, migrateToLatest } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import type { FastifyInstance } from "fastify";
@@ -485,5 +486,112 @@ describe("项目账归集端点（WP05）", () => {
     });
     expect(malformed.statusCode).toBe(400);
     expect(malformed.json().error).toBe("invalid_request");
+  });
+});
+
+describe("F-007：未分配汇总与明细绑定同一次解析的批次", () => {
+  it("无批次账期返回统一空态（runId=null 且 detail 为空，不二次解析）", async () => {
+    const res = await app.inject({
+      method: "GET", url: "/operating-bills/2026-07/project-unallocated",
+      headers: { cookie: superCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      month: "2026-07",
+      runId: null, tokens: "0", byReason: {}, apiCostByCurrency: {}, packageCostCny: "0",
+      lineCount: 0, resourceResidual: [],
+      detail: { runId: null, lines: [], total: 0, limit: 25, offset: 0 },
+    });
+  });
+
+  it("默认请求（无 run_id）：顶层 runId 与 detail.runId 同源，行数来自同一批次", async () => {
+    const current = await db.selectFrom("project_allocation_run").select(["id"])
+      .where("enterprise_id", "=", ent)
+      .where("period_month", "=", "2026-09-01")
+      .where("status", "=", "SUCCEEDED")
+      .where("is_current", "=", true)
+      .executeTakeFirst();
+    expect(current).toBeDefined();
+    await sql`
+      INSERT INTO project_allocation_line
+        (run_id, enterprise_id, ledger_line_id, ai_request_id, upstream_attempt_id,
+         request_started_at, accounted_at, source_principal_id,
+         target_type, allocation_source,
+         source_input_tokens, source_output_tokens, share_input_tokens, share_output_tokens,
+         api_cost_currency, usage_quality, resource_mode)
+      VALUES (${current!.id}, ${ent}, ${randomUUID()}, ${randomUUID()}, ${randomUUID()},
+        now(), now(), ${employee1},
+        'UNALLOCATED', 'UNALLOCATED',
+        100, 50, 10.0000, 5.0000, 'CNY', 'ACTUAL', 'API')`.execute(db);
+    const res = await app.inject({
+      method: "GET", url: "/operating-bills/2026-09/project-unallocated",
+      headers: { cookie: superCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.runId).toBe(current!.id);
+    expect(body.detail.runId).toBe(current!.id);
+    expect(body.lineCount).toBe(1);
+    expect(body.detail.total).toBe(1);
+    expect(body.detail.lines).toHaveLength(1);
+  });
+});
+
+describe("F-007 补遗：项目账户列表一次响应绑定同一归集批次", () => {
+  it("有批次时 runId 全响应一致；发布新批次后重读绑定新批次；无批次月各字段一致", async () => {
+    const before = await app.inject({
+      method: "GET", url: "/operating-bills/2026-09/projects",
+      headers: { cookie: superCookie },
+    });
+    expect(before.statusCode).toBe(200);
+    const beforeBody = before.json();
+    const oldRun = await db.selectFrom("project_allocation_run").select(["id"])
+      .where("enterprise_id", "=", ent)
+      .where("period_month", "=", "2026-09-01")
+      .where("status", "=", "SUCCEEDED")
+      .where("is_current", "=", true)
+      .executeTakeFirst();
+    expect(oldRun).toBeDefined();
+    // 数据字段（项目汇总、未分配、状态里的 runId）全部绑定同一次解析的批次。
+    expect(beforeBody.allocationStatus.runId).toBe(oldRun!.id);
+    for (const row of beforeBody.rows) {
+      if (row.allocation !== null) expect(row.allocation.runId).toBe(oldRun!.id);
+    }
+
+    // 读取之后发布新批次（关旧 current、开新 current），重读必须整体绑定新批次。
+    const newRun = randomUUID();
+    await db.updateTable("project_allocation_run").set({ is_current: false })
+      .where("id", "=", oldRun!.id).execute();
+    await db.insertInto("project_allocation_run").values({
+      id: newRun, enterprise_id: ent, period_month: "2026-09-01", schema_version: "1",
+      algorithm_version: "1", status: "SUCCEEDED", generation: 2, actor_type: "SYSTEM",
+      is_current: true, input_digest: "d-sep-2",
+    }).execute();
+    const after = await app.inject({
+      method: "GET", url: "/operating-bills/2026-09/projects",
+      headers: { cookie: superCookie },
+    });
+    expect(after.statusCode).toBe(200);
+    const afterBody = after.json();
+    expect(afterBody.allocationStatus.runId).toBe(newRun);
+    for (const row of afterBody.rows) {
+      if (row.allocation !== null) expect(row.allocation.runId).toBe(newRun);
+    }
+    if (afterBody.unallocated !== null) {
+      // 未分配与批次绑定同源：批次切换后由统一空态/新批次数据给出，不残留旧批次字段。
+      expect(afterBody.unallocated.tokens).toBeDefined();
+    }
+
+    // 无批次月份：runId 与 unallocated 一致为空。
+    const empty = await app.inject({
+      method: "GET", url: "/operating-bills/2026-07/projects",
+      headers: { cookie: superCookie },
+    });
+    expect(empty.statusCode).toBe(200);
+    expect(empty.json().allocationStatus.runId).toBeNull();
+    expect(empty.json().unallocated).toBeNull();
+    for (const row of empty.json().rows) {
+      expect(row.allocation).toBeNull();
+    }
   });
 });

@@ -1,6 +1,7 @@
 import { sql, type Selectable } from "kysely";
 import type { ModelDiscoveryResult, DiscoveredProviderModel } from "@qianliu/provider-adapters";
 import type { ProviderModelValidationTable, ProbeRunEndpointScope } from "../kysely-operations-tables.js";
+import { readModelValidationBinding } from "./model-validation-binding.js";
 import { ProviderOperatingRepository } from "./provider-operating-repository.js";
 import {
   EnterpriseReferenceError,
@@ -354,6 +355,11 @@ export abstract class ProviderModelDiscoveryRepository extends ProviderOperating
         .where("upstream_model", "=", input.upstreamModel)
         .where("archived_at", "is", null).executeTakeFirst();
       if (!target) throw new EnterpriseReferenceError("model route is not in enterprise");
+      // F-099 补遗：验证开始时快照当前凭证指纹与调用配置，供启用门禁比对
+      // （配置变更前启动、变更后才完成的验证不作为当前配置的放行依据）。
+      const binding = await readModelValidationBinding(
+        trx, input.enterpriseId, input.resourceId, input.upstreamModel,
+      );
       const validation = await trx.insertInto("provider_model_validation").values({
         enterprise_id: input.enterpriseId,
         provider_resource_id: input.resourceId,
@@ -361,6 +367,8 @@ export abstract class ProviderModelDiscoveryRepository extends ProviderOperating
         upstream_model: input.upstreamModel,
         idempotency_key: input.idempotencyKey,
         request_fingerprint: input.requestFingerprint,
+        credential_fingerprint: binding.credentialFingerprint,
+        caller_config_hash: binding.callerConfigHash,
         status: "IN_PROGRESS",
         result: {},
         started_at: new Date(),

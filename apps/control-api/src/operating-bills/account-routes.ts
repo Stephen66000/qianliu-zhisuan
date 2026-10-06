@@ -9,6 +9,7 @@ import {
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   getAllocationRunStatus, listProjectAllocationSummaries, getUnallocatedSummary,
+  resolveAllocationRunRef,
 } from "@qianliu/database";
 
 const MonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
@@ -82,9 +83,17 @@ export function registerOperatingBillAccountRoutes(app: FastifyInstance): void {
         );
         // 原位增强（合同 11 §3.3）：旧字段不变，追加归集汇总/状态/未分配；
         // 未启用或无批次时不返回假 0，只标记状态。
+        // F-007 补遗：同一次响应只解析一次目标归集批次——项目汇总与未分配金额
+        // 绑定同一 runId（含无批次时的统一空态）；status 的 enabled/stale/计算中
+        // 为实时操作状态，不参与数据绑定。
+        const resolvedRunId = await resolveAllocationRunRef(app.db, req.admin!.enterpriseId, month.data, undefined);
         const [allocation, unallocated, status] = await Promise.all([
-          listProjectAllocationSummaries(app.db, req.admin!.enterpriseId, month.data),
-          getUnallocatedSummary(app.db, req.admin!.enterpriseId, month.data),
+          listProjectAllocationSummaries(
+            app.db, req.admin!.enterpriseId, month.data, resolvedRunId ?? undefined,
+          ),
+          resolvedRunId === null
+            ? Promise.resolve(null)
+            : getUnallocatedSummary(app.db, req.admin!.enterpriseId, month.data, resolvedRunId),
           getAllocationRunStatus(app.db, req.admin!.enterpriseId, month.data),
         ]);
         return {
@@ -113,7 +122,7 @@ export function registerOperatingBillAccountRoutes(app: FastifyInstance): void {
             computedAt: status.currentRun?.computedAt ?? null,
             lastError: status.lastError,
           },
-          unallocated: allocation.runId === null ? null : {
+          unallocated: allocation.runId === null || unallocated === null ? null : {
             tokens: unallocated.tokens,
             byReason: unallocated.byReason,
             apiCostByCurrency: unallocated.apiCostByCurrency,

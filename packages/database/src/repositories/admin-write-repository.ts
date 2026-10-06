@@ -7,6 +7,7 @@
  */
 import type { Kysely } from "kysely";
 import { appendOperatingSnapshot } from "./provider-operating-snapshot-writer.js";
+import { readModelValidationBinding } from "./model-validation-binding.js";
 import { sql } from "kysely";
 import { randomUUID } from "node:crypto";
 import { QUOTA_BLOCK_SCHEMA_VERSION, parseQuotaBlockState } from "@qianliu/domain";
@@ -112,20 +113,29 @@ export class AdminWriteRepository {
   ): Promise<ModelRoute | null> {
     return this.db.transaction().execute(async (trx) => {
       if (patch.enabled === true) {
+        // F-099：启用门禁与统一模型状态无关——先把统一模型置 ACTIVE 再启用路由
+        // 不能绕过该 (资源, 模型) 的独立真实验证；且验证记录必须绑定当前的凭证指纹
+        // 与调用配置哈希（0089），换凭证/换配置前启动、变更后才完成的验证不放行。
         const target = await trx.selectFrom("model_route")
-          .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
-          .select(["model_route.unified_model_id", "model_route.provider_resource_id", "model_route.upstream_model", "unified_model.status"])
+          .select(["provider_resource_id", "upstream_model"])
           .where("model_route.id", "=", id)
           .where("model_route.enterprise_id", "=", enterpriseId)
           .where("model_route.archived_at", "is", null)
+          .forUpdate()
           .executeTakeFirst();
-        if (target?.status === "PENDING_CONFIG") {
+        if (target) {
+          const binding = await readModelValidationBinding(
+            trx, enterpriseId, target.provider_resource_id, target.upstream_model,
+          );
           const validated = await trx.selectFrom("provider_model_validation")
             .select("id")
             .where("enterprise_id", "=", enterpriseId)
             .where("provider_resource_id", "=", target.provider_resource_id)
             .where("upstream_model", "=", target.upstream_model)
             .where("status", "=", "SUCCEEDED")
+            .where((eb) => sql`
+              ${eb.ref("credential_fingerprint")} is not distinct from ${binding.credentialFingerprint}
+              and ${eb.ref("caller_config_hash")} is not distinct from ${binding.callerConfigHash}`)
             .executeTakeFirst();
           if (!validated) throw new ModelRouteNotReadyError();
         }
