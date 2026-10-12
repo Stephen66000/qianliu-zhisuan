@@ -1,0 +1,6 @@
+# 智谱 Coding Plan 首字节等待 60 秒；作为最后一层 Compose 配置使用。
+# 不改变 API 模式、其他厂商、流式空闲或总请求时限。
+services:
+  gateway:
+    environment:
+      GATEWAY_ZHIPU_CODING_PLAN_FIRST_BYTE_TIMEOUT_MS: "60000"

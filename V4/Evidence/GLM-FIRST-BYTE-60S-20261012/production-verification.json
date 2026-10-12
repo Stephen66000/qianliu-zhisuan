@@ -1,0 +1,69 @@
+{
+  "status": "TECHNICAL_DEPLOYMENT_PASS",
+  "business_acceptance": "PENDING_REAL_WORKBUDDY_REQUEST",
+  "authorization": "User explicitly approved changing GLM Coding Plan first-byte timeout from 30 seconds to 60 seconds in this conversation.",
+  "deployed_at": "2026-10-12T14:49:40.115472917+08:00",
+  "host": "47.97.96.126",
+  "compose_directory": "/root/docker/qianliu-unified-0dae33492d27/deploy/bt",
+  "changed_configuration": {
+    "file": "/root/docker/qianliu-unified-0dae33492d27/deploy/bt/runtime.json",
+    "service": "gateway",
+    "variable": "GATEWAY_ZHIPU_CODING_PLAN_FIRST_BYTE_TIMEOUT_MS",
+    "previous_override": null,
+    "previous_effective_ms": 30000,
+    "new_override": "60000",
+    "new_effective_ms": 60000,
+    "merged_compose_configuration_changed_only_by_this_variable": true
+  },
+  "deployment": {
+    "action": "docker compose up -d --no-deps --no-build --force-recreate gateway using the existing compose.yaml and runtime.json",
+    "gateway_image": "ic-gateway:main-0dae33492d27",
+    "gateway_image_id_unchanged": true,
+    "other_container_ids_and_start_times_unchanged": true,
+    "other_runtime_environment_values_unchanged": true,
+    "gateway_ports_mounts_command_and_entrypoint_unchanged": true,
+    "inflight_requests_before": 0,
+    "gateway_established_connections_before": 0
+  },
+  "validation": {
+    "resolved_policy_from_production_container_source_and_environment": {
+      "zhipu_coding_plan_first_byte_ms": 60000,
+      "zhipu_api_first_byte_ms": 30000,
+      "deepseek_api_first_byte_ms": 30000,
+      "kimi_coding_plan_first_byte_ms": 120000,
+      "stream_idle_ms": 300000,
+      "request_timeout_ms": 600000
+    },
+    "gateway_running": true,
+    "local_gateway_health": "PASS",
+    "public_gateway_health": {
+      "url": "https://ic-gw.qianliuai.com/health",
+      "http_status": 200,
+      "body": {"status": "ok", "service": "gateway"}
+    },
+    "structured_warning_or_error_logs_since_new_gateway_start": 0,
+    "real_model_inference_triggered_by_this_repair": false
+  },
+  "server_artifacts": {
+    "backup": "/root/docker/qianliu-unified-0dae33492d27/deploy/bt/runtime.pre-glm-first-byte-60s-20261012T064938Z.json",
+    "deployment_receipt": "/root/docker/qianliu-unified-0dae33492d27/deploy/bt/glm-first-byte-60s-20261012T064938Z.json",
+    "repair_script": "/root/docker/qianliu-unified-0dae33492d27/deploy/bt/glm-first-byte-60s-repair-20261012.py"
+  },
+  "evidence_provenance": "Local summary transcribed from verified BaoTa terminal output and the server deployment receipt; public health independently checked with curl. Configuration backups containing credentials remain on the server with mode 0600.",
+  "remaining_validation": "Retry a real WorkBuddy task and correlate new request IDs and first-byte timing. Configuration and health checks do not establish that upstream latency incidents are eliminated.",
+  "configuration_versioning": {
+    "tracked_compose_overlay": "deploy/compose.glm-first-byte-60s.yaml",
+    "overlay_order": "Apply after the deployment's existing Compose files, including runtime.json when present.",
+    "local_compose_validation": "PASS: the only merged configuration delta is GATEWAY_ZHIPU_CODING_PLAN_FIRST_BYTE_TIMEOUT_MS=60000",
+    "first_byte_policy_tests": {"passed": 26, "failed": 0},
+    "policy_source_unchanged_between_production_base_and_local_main": true,
+    "preexisting_version_drift": {
+      "local_main": "9e41aa722945ad9a4d256ffc73547acd2bc1bb06",
+      "github_main": "de07cdf86dea1582ae5a945c9a174682ca77e5ef",
+      "production_image_source": "0dae33492d275761a1645a69fe41ae712da27dfb",
+      "production_to_local_changed_files": 92,
+      "additional_source_migrations": ["0087_coding_plan_quota_block_state", "0088_principal_key_limit_enforcement", "0089_model_validation_binding"]
+    },
+    "publication_and_release_scope": "PENDING_USER_SCOPE_CHOICE: GLM-only branch based on production, or full latest-main release with historical changes."
+  }
+}
