@@ -9,8 +9,6 @@
  *    说明/证据引用/来源旧记录/幂等键由系统内部自动生成，不提供输入框；
  *  - `UNKNOWN_COST` 不是本编辑器可以关闭的对象，只能走既有的历史费用处置闭环（PFH-02）。
  */
-import { Plus, Trash2 } from "lucide-react";
-import type { ReactNode } from "react";
 
 import { formatDateTimeFull } from "../../lib/format";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
@@ -23,6 +21,7 @@ import {
   type OpeningRowState, type PurchaseRowState, type RechargeRowState,
 } from "./activation-draft-model";
 import { Button } from "../ui/Button";
+import { CurrencySelect, AccountAmountInput, ResourceSelect, DraftSectionCard, RowShell } from "./ActivationDraftControls";
 
 export interface ResourceOption { id: string; mode: "API" | "CODING_PLAN"; label: string }
 
@@ -48,90 +47,6 @@ function updateRow<TRow extends { id: string }>(
   rows: TRow[], id: string, patch: Partial<TRow>,
 ): TRow[] {
   return rows.map((row) => (row.id === id ? { ...row, ...patch } : row));
-}
-
-function CurrencySelect({ id, value, onChange, disabled }: {
-  id: string; value: FinanceCurrencyCode; disabled: boolean;
-  onChange: (value: FinanceCurrencyCode) => void;
-}) {
-  return (
-    <select className={INPUT_CLASS} disabled={disabled} id={id}
-      onChange={(event) => onChange(event.target.value as FinanceCurrencyCode)} value={value}>
-      <option value="CNY">CNY</option>
-      <option value="USD">USD</option>
-    </select>
-  );
-}
-
-/**
- * 账户金额输入（原币，最多 8 位小数）。
- *
- * 不复用 `MoneyAmountInput`：后者面向**人民币实付**的 2 位小数口径，会对 8 位小数金额
- * 做无意义（但非破坏性）的显示分支。这里保持「原样字符串」，不引入任何隐式取整，
- * 避免把「未填写」误变成 `0` 或把 `0` 误当成空（PFU-05）。
- */
-function AccountAmountInput({ id, value, disabled, onChange }: {
-  id: string; value: string; disabled: boolean; onChange: (value: string) => void;
-}) {
-  return (
-    <input className={INPUT_CLASS} disabled={disabled} id={id} inputMode="decimal"
-      onChange={(event) => onChange(event.target.value.replaceAll(",", ""))} value={value} />
-  );
-}
-
-function ResourceSelect({ id, value, options, disabled, label = "厂商资源", onChange }: {
-  id: string; value: string; options: ResourceOption[]; disabled: boolean; label?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <FormField htmlFor={id} label={label}>
-      <select className={INPUT_CLASS} disabled={disabled} id={id}
-        onChange={(event) => onChange(event.target.value)} value={value}>
-        <option value="">请选择</option>
-        {options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-      </select>
-    </FormField>
-  );
-}
-
-function DraftSectionCard({ title, description, count, readOnly, addLabel, onAdd, children, testId }: {
-  title: string; description: string; count: number; readOnly: boolean;
-  addLabel: string; onAdd: () => void; children: ReactNode; testId: string;
-}) {
-  return (
-    <section className="mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4" data-testid={testId}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h4 className="text-[14px] font-semibold text-ql-fg">{title}<span className="ml-2 text-[13px] font-normal text-ql-fg-tertiary">已填写 {count} 行</span></h4>
-          <p className="mt-1 text-[13px] text-ql-fg-tertiary">{description}</p>
-        </div>
-        {readOnly ? null : (
-          <Button variant="secondary" data-write-action onClick={onAdd} type="button">
-            <Plus aria-hidden className="h-3.5 w-3.5" />{addLabel}
-          </Button>
-        )}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function RowShell({ title, readOnly, onRemove, children }: {
-  title: string; readOnly: boolean; onRemove: () => void; children: ReactNode;
-}) {
-  return (
-    <div className="mt-3 rounded-lg border border-ql-border bg-ql-surface-subtle p-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] font-medium text-ql-fg-secondary">{title}</p>
-        {readOnly ? null : (
-          <Button variant="ghost" size="sm" aria-label={`删除 ${title}`}  onClick={onRemove} type="button">
-            <Trash2 aria-hidden className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
-      <div className="mt-2 grid gap-3 md:grid-cols-2">{children}</div>
-    </div>
-  );
 }
 
 function OpeningRowFields({ row, index, issues, readOnly, cutoverAt, resourceOptions, onPatch, onRemove }: {
