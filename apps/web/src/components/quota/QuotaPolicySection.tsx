@@ -271,58 +271,52 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                     <td className="p-2 text-right">
                       {policy.status === "DRAFT" ? (
                         <>
-                          <button data-write-action
-                            className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                          <Button variant="ghost" size="sm" data-write-action
                             onClick={() => editPolicy(policy)}
                             type="button"
                           >
                             编辑
-                          </button>
-                          <button
-                            className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                          </Button>
+                          <Button variant="ghost" size="sm"
                             onClick={() => transitionPolicy.mutate({ policy, action: "validate" })}
                             type="button"
                           >
                             校验
-                          </button>
+                          </Button>
                         </>
                       ) : null}
                       {policy.status === "VALIDATED" ? (
-                        <button data-write-action
-                          className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        <Button variant="ghost" size="sm" data-write-action
                           onClick={() => setPolicyActionTarget({ policy, action: "publish" })}
                           type="button"
                         >
                           发布
-                        </button>
+                        </Button>
                       ) : null}
                       {policy.status === "PUBLISHED" ? (
-                        <button data-write-action
-                          className="rounded-md px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
+                        <Button variant="ghost" size="sm" data-write-action
                           onClick={() => setPolicyActionTarget({ policy, action: "retire" })}
                           type="button"
                         >
                           停用
-                        </button>
+                        </Button>
                       ) : null}
                       {policy.status === "RETIRED" ? (
                         <>
-                          {!policy.archivedAt ? <button data-write-action type="button" className="rounded-md px-2 py-1 text-ql-action"
-                            onClick={() => setPolicyActionTarget({ policy, action: "archive" })}>存档</button> : null}
-                          <button data-write-action
-                            className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                          {!policy.archivedAt ? <Button variant="ghost" size="sm" data-write-action type="button"
+                            onClick={() => setPolicyActionTarget({ policy, action: "archive" })}>存档</Button> : null}
+                          <Button variant="ghost" size="sm" data-write-action
                             onClick={() => setPolicyActionTarget({ policy, action: "restore" })}
                             type="button"
                           >
                             恢复原配置
-                          </button>
-                          <button
-                            className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                          </Button>
+                          <Button variant="ghost" size="sm"
                             onClick={() => transitionPolicy.mutate({ policy, action: "copy" })}
                             type="button"
                           >
                             复制为新版本
-                          </button>
+                          </Button>
                         </>
                       ) : null}
                     </td>

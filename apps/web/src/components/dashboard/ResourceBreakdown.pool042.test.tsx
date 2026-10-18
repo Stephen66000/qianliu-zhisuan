@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { ResourceBreakdownItem } from "../../api/types";
 import { ResourceBreakdown } from "./ResourceBreakdown";
@@ -84,6 +84,8 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
         status: "DEGRADED",
       }),
     ]} />);
+
+    for (const toggle of screen.getAllByRole("button", { name: /^展开/ })) fireEvent.click(toggle);
 
     expect(screen.queryByText("估算计量")).not.toBeInTheDocument();
     expect(screen.queryByText("精确计量")).not.toBeInTheDocument();

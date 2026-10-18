@@ -123,26 +123,24 @@ export function QuotaRouteSection({ model, managementOnly = false }: { model: Qu
                   <td className="p-2">{route.archived_at ? "已归档" : route.enabled ? "启用" : "停用"}</td>
                   <td className="p-2 text-right">
                     {route.archived_at ? (
-                      <button data-write-action
-                        className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                      <Button variant="ghost" size="sm" data-write-action
                         onClick={() => archiveConfig.mutate({ kind: "route", item: route, archive: false })}
                         type="button"
                       >
                         取消归档
-                      </button>
+                      </Button>
                     ) : route.enabled ? (
-                      <button
-                        className="rounded-md px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
+                      <Button variant="ghost" size="sm"
                         onClick={() => setDisableRouteTarget(route)}
                         type="button"
                       >
                         停用
-                      </button>
+                      </Button>
                     ) : <>
-                      <button data-write-action className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
-                        onClick={() => updateRoute.mutate({ route, enabled: true })} type="button">启用</button>
-                      <button className="rounded-md px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
-                        onClick={() => setArchiveTarget({ kind: "route", item: route })} type="button">归档</button>
+                      <Button variant="ghost" size="sm" data-write-action
+                        onClick={() => updateRoute.mutate({ route, enabled: true })} type="button">启用</Button>
+                      <Button variant="ghost" size="sm"
+                        onClick={() => setArchiveTarget({ kind: "route", item: route })} type="button">归档</Button>
                     </>}
                   </td>
                 </tr>

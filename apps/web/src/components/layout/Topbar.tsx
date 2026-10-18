@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 /**
  * W18 顶部栏 —— 页面标题槽 + 主题切换三态 + 用户菜单。
  *
@@ -64,15 +65,14 @@ export function Topbar({ admin, theme }: TopbarProps) {
       <div className="flex items-center gap-3">
         <Link to="/change-password" className="text-[13px] text-ql-action">修改密码</Link>
         <span className="hidden text-[13px] leading-5 text-ql-fg-secondary sm:inline">{admin.displayName || admin.username}</span>
-        <button
-          className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-ql-fg-tertiary hover:bg-ql-surface-subtle hover:text-ql-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
+        <Button variant="ghost" size="sm"
           disabled={logout.isPending}
           onClick={handleLogout}
           type="button"
         >
           <LogOut aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           退出
-        </button>
+        </Button>
       </div>
     </header>
   );

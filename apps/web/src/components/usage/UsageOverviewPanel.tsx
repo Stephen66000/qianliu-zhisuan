@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useUsageOverview } from "../../api/v2-hooks";
@@ -49,7 +50,7 @@ export function UsageOverviewPanel() {
       const usageRate = allocatedQuotaNum > 0 ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%` : "—";
       const remainingQuota = allocatedQuotaNum > 0 ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum))) : "不限";
       const costText = unavailableUsageCostLabel(item.apiCost, item.apiCostStatus) ?? `¥${formatMoney(item.apiCost!)}`;
-      return <tr className="border-b border-ql-border-zone" key={item.subjectId}><td className="px-3 py-2">{index + 1}</td><td><button className="text-ql-action" onClick={() => set("subject_id", item.subjectId)} type="button">{item.subjectName}</button></td><td>{item.departmentLabel ?? "—"}</td><td className="text-right">{formatCount(item.requestCount)}</td><td className="text-right font-mono">{allocatedQuotaNum > 0 ? formatCount(item.allocatedQuota!) : "不限"}</td><td className="text-right font-mono">{formatCount(item.realTokens)}</td><td className="text-right font-mono">{usageRate}</td><td className="text-right font-mono">{remainingQuota}</td><td className="pr-3 text-right">{costText}</td></tr>;
+      return <tr className="border-b border-ql-border-zone" key={item.subjectId}><td className="px-3 py-2">{index + 1}</td><td><Button variant="ghost" size="sm"  onClick={() => set("subject_id", item.subjectId)} type="button">{item.subjectName}</Button></td><td>{item.departmentLabel ?? "—"}</td><td className="text-right">{formatCount(item.requestCount)}</td><td className="text-right font-mono">{allocatedQuotaNum > 0 ? formatCount(item.allocatedQuota!) : "不限"}</td><td className="text-right font-mono">{formatCount(item.realTokens)}</td><td className="text-right font-mono">{usageRate}</td><td className="text-right font-mono">{remainingQuota}</td><td className="pr-3 text-right">{costText}</td></tr>;
     })}</tbody></table>{data.ranking.length === 0 ? <p className="p-6 text-center text-[13px] text-ql-fg-tertiary">本周期暂无已结算用量</p> : null}</div></section>
   </div>;
 }

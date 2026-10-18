@@ -360,12 +360,12 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
               <CheckCircle2 className="h-4 w-4" /> 已保存
             </span>
           )}
-          <Button data-write-action
+          <Button loading={saveMutation.isPending} loadingText="保存中…" data-write-action
             variant="primary"
             onClick={handleSave}
             disabled={saveMutation.isPending || summary.providerCount === 0}
           >
-            {saveMutation.isPending ? "保存中…" : "保存并生效"}
+            保存并生效
           </Button>
         </div>
       </div>

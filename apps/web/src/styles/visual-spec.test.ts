@@ -71,7 +71,7 @@ describe("视觉规范：Tailwind 构建产物", () => {
 
   it("Button 每个变体、尺寸输出的类名都有样式", () => {
     const variants: ButtonVariant[] = ["primary", "secondary", "ghost", "danger"];
-    const sizes: ButtonSize[] = ["md", "sm"];
+    const sizes: ButtonSize[] = ["md", "sm", "form"];
     for (const variant of variants) {
       for (const size of sizes) {
         for (const name of buttonClassName(variant, size).split(" ")) {

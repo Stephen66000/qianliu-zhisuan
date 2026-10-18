@@ -31,7 +31,7 @@ export function ChangePasswordPage() {
         <label className="flex flex-col gap-1"><span className="text-sm">确认新密码</span><input aria-label="确认新密码" autoComplete="new-password" className="h-10 rounded-lg border border-ql-border-strong px-3" onChange={(e) => setConfirmPassword(e.target.value)} required type="password" value={confirmPassword} /></label>
         <p className="text-[13px] text-ql-fg-secondary">需为 12～128 位，并同时包含大写字母、小写字母、数字和特殊字符。</p>
         {localError || apiError ? <p className="rounded-lg bg-ql-danger-soft px-3 py-2 text-sm text-ql-danger" role="alert">{localError ?? apiError}</p> : null}
-        <Button variant="primary" className="h-10" disabled={mutation.isPending || Boolean(localError)} type="submit">确认修改并重新登录</Button>
+        <Button size="form" variant="primary"  disabled={mutation.isPending || Boolean(localError)} type="submit">确认修改并重新登录</Button>
       </form>
     </div>
   );

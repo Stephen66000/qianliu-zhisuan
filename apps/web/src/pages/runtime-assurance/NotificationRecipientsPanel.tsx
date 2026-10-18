@@ -202,13 +202,12 @@ export function NotificationRecipientsPanel() {
             )}
             <span>{testResult.msg}</span>
           </div>
-          <button
-            className="text-ql-fg-tertiary hover:text-ql-fg"
+          <Button aria-label="关闭发送结果" variant="ghost" size="sm"
             onClick={() => setTestResult(null)}
             type="button"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -311,27 +310,26 @@ export function NotificationRecipientsPanel() {
                           )}
 
                           {/* 测试发送按钮 */}
-                          <button
+                          <Button variant="ghost" size="sm"
                             aria-label={`向 ${person.name} 测试发送企微消息`}
-                            className="ml-1 rounded-md p-1 text-ql-fg-tertiary hover:bg-ql-surface-muted hover:text-ql-action disabled:opacity-50"
+                            className="ml-1"
                             disabled={testMutation.isPending || !hasWecom}
                             onClick={() => handleTest(person)}
                             title={hasWecom ? "向此人发送测试消息" : "此人未配企微 userid，无法发送"}
                             type="button"
                           >
                             <Send className="h-3 w-3" />
-                          </button>
+                          </Button>
 
                           {/* 移除按钮 */}
-                          <button
+                          <Button variant="ghost" size="sm"
                             aria-label={`移除 ${person.name}`}
-                            className="rounded-md p-1 text-ql-fg-tertiary hover:bg-ql-surface-muted hover:text-ql-danger"
                             onClick={() => handleRemovePerson(cat, id)}
                             title="移除此接收人"
                             type="button"
                           >
                             <X className="h-3 w-3" />
-                          </button>
+                          </Button>
                         </div>
                       );
                     })}
@@ -342,8 +340,7 @@ export function NotificationRecipientsPanel() {
               {/* 添加人员触发与下拉 */}
               <div className="relative mt-3">
                 {!isPickerOpen ? (
-                  <button
-                    className="flex items-center gap-1.5 rounded-lg border border-dashed border-ql-border-strong px-3 py-1.5 text-[13px] font-medium text-ql-action hover:border-ql-action hover:bg-ql-action-soft"
+                  <Button variant="secondary" size="sm"
                     onClick={() => {
                       setActivePickerCategory(cat);
                       setSearchQuery("");
@@ -352,7 +349,7 @@ export function NotificationRecipientsPanel() {
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>添加通知人员</span>
-                  </button>
+                  </Button>
                 ) : (
                   <div className="rounded-xl border border-ql-border-strong bg-ql-surface p-3 shadow-ql-raised z-20">
                     <div className="flex items-center justify-between gap-2 pb-2 border-b border-ql-border">
@@ -366,13 +363,12 @@ export function NotificationRecipientsPanel() {
                           value={searchQuery}
                         />
                       </div>
-                      <button
-                        className="rounded-md p-1 text-ql-fg-tertiary hover:text-ql-fg"
+                      <Button aria-label="关闭人员选择" variant="ghost" size="sm"
                         onClick={() => setActivePickerCategory(null)}
                         type="button"
                       >
                         <X className="h-3.5 w-3.5" />
-                      </button>
+                      </Button>
                     </div>
 
                     <div className="mt-2 max-h-48 overflow-y-auto space-y-1">

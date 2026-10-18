@@ -150,12 +150,12 @@ export function EnterpriseSettingsPanel() {
           >
             取消修改
           </Button>
-          <Button
+          <Button loading={update.isPending} loadingText="保存中…"
             variant="primary"
             disabled={!name.trim() || update.isPending}
             type="submit"
           >
-            {update.isPending ? "保存中…" : "保存企业信息"}
+            保存企业信息
           </Button>
         </div>
       </div>

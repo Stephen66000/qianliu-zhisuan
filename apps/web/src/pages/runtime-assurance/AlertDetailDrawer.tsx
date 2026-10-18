@@ -1,3 +1,4 @@
+import { Button } from "../../components/ui/Button";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { AlertHandlingForm } from "./AlertHandlingForm";
@@ -61,14 +62,13 @@ export function AlertDetailDrawer({
             </h2>
             <p className="mt-1 text-[13px] text-ql-fg-tertiary">{alert.id}</p>
           </div>
-          <button
+          <Button variant="ghost" size="sm"
             aria-label="关闭异常详情"
-            className="rounded-lg p-1 text-ql-fg-tertiary hover:bg-ql-surface-subtle"
             onClick={onClose}
             type="button"
           >
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </header>
         <div className="space-y-5 p-5">
           <div className="flex flex-wrap gap-2">

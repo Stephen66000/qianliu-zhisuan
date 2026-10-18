@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResourceUtilization } from "../../api/v2-types";
@@ -193,8 +193,9 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).getByText("0 / 0")).toBeInTheDocument();
     expect(within(row).getByText("0.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 0"));
     expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
-    expect(within(row).getByText("分配额度 100 POINT")).toBeInTheDocument();
-    expect(within(row).getByText("2026-08-01～2026-09-01")).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button"));
+    expect(screen.getByRole("region", { name: "Kimi · Coding Plan详情" })).toHaveTextContent("100 POINT");
+    expect(screen.getByText("2026-08-01～2026-09-01")).toBeInTheDocument();
     expect(within(row).queryByText(/2099/)).not.toBeInTheDocument();
     expect(within(row).getByText("暂无结算用量")).toBeInTheDocument();
   });
@@ -226,7 +227,8 @@ describe("W20-08 资源利用事实 Web", () => {
     });
     renderPanel();
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
-    expect(within(row).getByText("分配额度 300,000,000 TOKEN")).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button"));
+    expect(screen.getByRole("region", { name: "Kimi · Coding Plan详情" })).toHaveTextContent("300,000,000 TOKEN");
     expect(within(row).getByText("90.0%")).toBeInTheDocument();
     expect(within(row).queryByText("部分调用缺少扣减额度，利用率暂不可算")).not.toBeInTheDocument();
     expect(within(row).queryByText("缺少订阅额度事实")).not.toBeInTheDocument();
@@ -252,7 +254,8 @@ describe("W20-08 资源利用事实 Web", () => {
     });
     renderPanel();
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
-    expect(within(row).getByText("分配额度 3,530,100,000 TOKEN")).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button"));
+    expect(screen.getByRole("region", { name: "Kimi · Coding Plan详情" })).toHaveTextContent("3,530,100,000 TOKEN");
   });
 
   it("POOL20-041：缺订阅结束日期时不把额度比例包装为周期累计", () => {
@@ -284,7 +287,8 @@ describe("W20-08 资源利用事实 Web", () => {
     const row = screen.getByText("Kimi · 周期待补套餐").closest("tr")!;
     expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
     expect(within(row).getByText("90.0%")).toBeInTheDocument();
-    expect(within(row).getByText("2026-08-01～未知")).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button"));
+    expect(screen.getByText("2026-08-01～未知")).toBeInTheDocument();
   });
 
   it.each(["INSUFFICIENT_HISTORY", "ZERO_BASELINE"] as const)("%s 显示占位及悬停原因，不回退旧额度利用率", (reason) => {

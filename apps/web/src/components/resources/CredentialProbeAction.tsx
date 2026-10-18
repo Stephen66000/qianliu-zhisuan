@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get, post } from "../../api/client";
@@ -43,9 +44,8 @@ export function CredentialProbeAction({ resourceId, isolated }: { resourceId: st
       <p>验证会使用导致隔离的模型与当前凭证，只发送一个小请求；通过后恢复服务。</p>
       <label className="flex items-center gap-2"><input type="checkbox" checked={confirmed}
         disabled={mutation.isPending} onChange={e => setConfirmed(e.target.checked)} />允许本次验证消耗少量厂商额度</label>
-      <button type="button" disabled={!confirmed || mutation.isPending}
-        className="rounded-md border border-ql-action px-3 py-1.5 text-ql-action disabled:opacity-50"
-        onClick={() => mutation.mutate()}>{mutation.isPending ? "正在验证…" : "验证当前凭证并恢复"}</button>
+      <Button loading={mutation.isPending} loadingText="正在验证…" variant="secondary" size="sm" type="button" disabled={!confirmed || mutation.isPending}
+        onClick={() => mutation.mutate()}>验证当前凭证并恢复</Button>
     </> : null}
     {latest ? <p role="status">{isolated && latest.status === "RECOVERED"
       ? "历史验证通过；当前资源已再次隔离" : labels[latest.status] ?? latest.status} · 模型 {latest.upstreamModel}

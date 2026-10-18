@@ -1,3 +1,4 @@
+import { Button } from "../../components/ui/Button";
 import { ChevronRight, Search } from "lucide-react";
 
 import type { AlertItem } from "../../api/types";
@@ -172,14 +173,13 @@ export function AlertRow({
         ) : null}
       </td>
       <td className="p-3">
-        <button
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-ql-action"
+        <Button variant="ghost" size="sm"
           onClick={onView}
           type="button"
         >
           查看
           <ChevronRight className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </td>
     </tr>
   );

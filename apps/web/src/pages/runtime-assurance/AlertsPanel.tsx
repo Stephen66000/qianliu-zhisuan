@@ -1,3 +1,4 @@
+import { Button } from "../../components/ui/Button";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
@@ -171,8 +172,8 @@ export function AlertsPanel() {
           role="alert"
         >
           主体、资源或厂商关联信息加载失败；异常事实仍保留显示，筛选和归属信息可能不完整。
-          <button
-            className="ml-2 underline"
+          <Button variant="ghost" size="sm"
+            className="ml-2"
             onClick={() => {
               void principalsQuery.refetch();
               void resourcesQuery.refetch();
@@ -181,7 +182,7 @@ export function AlertsPanel() {
             type="button"
           >
             重试关联信息
-          </button>
+          </Button>
         </div>
       ) : null}
       <AlertFilters
@@ -277,9 +278,9 @@ function PanelError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="rounded-lg bg-ql-danger-soft p-3 text-sm text-ql-danger">
       加载失败。
-      <button className="ml-2 underline" onClick={onRetry} type="button">
+      <Button variant="ghost" size="sm" className="ml-2" onClick={onRetry} type="button">
         重试
-      </button>
+      </Button>
     </div>
   );
 }

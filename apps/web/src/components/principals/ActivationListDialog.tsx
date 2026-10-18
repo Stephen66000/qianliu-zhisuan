@@ -8,6 +8,7 @@ import {
   useActivateDirectoryListPreview, useActivateDirectoryMembersByList,
 } from "../../api/v2-hooks";
 import { ConfirmDialog } from "../writes/ConfirmDialog";
+import { buttonClassName } from "../ui/Button";
 
 interface ActivationListDialogProps {
   open: boolean;
@@ -53,7 +54,7 @@ export function ActivationListDialog({ open, onClose }: ActivationListDialogProp
       title="上传名单批量开通"
     >
       <div className="space-y-3">
-        <label className="flex h-9 cursor-pointer items-center justify-center gap-1 rounded-lg border border-dashed border-ql-border-strong px-3 text-[13px] text-ql-action">
+        <label className={buttonClassName("secondary", "md", "cursor-pointer")}>
           <Upload className="h-4 w-4"/>{identifiers.length > 0 ? "重新上传名单" : "选择名单文件（.xlsx）"}
           <input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadList(file); event.target.value = ""; }} type="file"/>
         </label>

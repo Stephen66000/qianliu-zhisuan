@@ -1,3 +1,4 @@
+import { Button } from "../components/ui/Button";
 /**
  * W20 异常告警看板 —— 四告警域 + 标记已处理 + 追踪到请求。
  *
@@ -133,32 +134,29 @@ function AlertCard({
         <span className="ml-auto flex items-center gap-2">
           <StatusTag tone={isOpen ? "warning" : "neutral"}>{STATUS_LABEL[alert.status]}</StatusTag>
           {alert.aiRequestId ? (
-            <button
-              className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-action"
+            <Button variant="ghost" size="sm"
               onClick={onToggle}
               type="button"
             >
               {expanded ? "收起请求" : "追踪请求"}
-            </button>
+            </Button>
           ) : null}
           {isOpen ? (
             <>
-              <button
-                className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-success hover:bg-ql-success-soft disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-action"
+              <Button variant="ghost" size="sm"
                 disabled={pending}
                 onClick={() => onDisposition("RESOLVED")}
                 type="button"
               >
                 标记已处理
-              </button>
-              <button
-                className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-fg-tertiary hover:bg-ql-surface-muted disabled:opacity-50"
+              </Button>
+              <Button variant="ghost" size="sm"
                 disabled={pending}
                 onClick={() => onDisposition("IGNORED")}
                 type="button"
               >
                 忽略
-              </button>
+              </Button>
             </>
           ) : null}
         </span>

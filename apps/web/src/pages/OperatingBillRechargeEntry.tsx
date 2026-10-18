@@ -134,13 +134,13 @@ export function RechargeEntry({ bill }: { bill: OperatingBill }) {
           {mutation.error ? (
             <span className="text-[13px] text-ql-danger">{mutation.error.message}</span>
           ) : null}
-          <Button data-write-action
+          <Button loading={mutation.isPending} loadingText="登记中…" data-write-action
             variant="primary"
             disabled={mutation.isPending}
             onClick={save}
             type="button"
           >
-            {mutation.isPending ? "登记中…" : "确认充值并重算"}
+            确认充值并重算
           </Button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { get, put } from "../../api/client";
@@ -125,12 +126,11 @@ export function PrincipalAccountingPanel({
             </p>
           ) : null}
           <div className="mt-3 flex justify-end gap-3">
-            <button type="button" onClick={onClose}>
+            <Button variant="ghost" size="sm" type="button" onClick={onClose}>
               取消
-            </button>
-            <button data-write-action
+            </Button>
+            <Button variant="ghost" size="sm" data-write-action
               type="button"
-              className="text-ql-action"
               disabled={
                 mutation.isPending ||
                 (principal.type === "EMPLOYEE"
@@ -140,7 +140,7 @@ export function PrincipalAccountingPanel({
               onClick={() => mutation.mutate()}
             >
               保存归属
-            </button>
+            </Button>
           </div>
           <HistoricalAttributionPanel principalId={principal.id} departments={query.data?.departments ?? []} suggestedDepartmentId={query.data?.suggestedDepartmentId} />
         </>

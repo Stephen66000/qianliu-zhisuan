@@ -34,13 +34,12 @@ export function PrincipalKeyDialog(props: PrincipalKeyDialogProps) {
               复制 Key
             </Button>
           ) : null}
-          <button
-            className="h-9 rounded-lg border border-ql-action px-4 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+          <Button variant="secondary" size="md"
             onClick={props.onCopy}
             type="button"
           >
             复制完整接入信息
-          </button>
+          </Button>
           <Button
             variant="secondary"
             onClick={props.onClose}

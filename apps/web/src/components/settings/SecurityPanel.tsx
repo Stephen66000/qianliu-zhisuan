@@ -31,7 +31,7 @@ function SessionTable() {
   return <section className="mt-8"><h2 className="mb-4 font-semibold">有效会话</h2>
     {query.error && <p role="alert">{query.error.message}</p>}
     <div className="overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th>账号</th><th>设备</th><th>最近活动</th><th>操作</th></tr></thead><tbody>{query.data?.sessions.map(s => <tr key={s.id} className="border-b border-ql-border-zone">
-      <td className="py-4">{s.display_name || s.username}</td><td className="max-w-xs break-words">{deviceName(s.user_agent)}</td><td>{s.last_seen_at ? new Date(s.last_seen_at).toLocaleString("zh-CN") : "未记录"}</td><td>{s.id === query.data.current_session_id ? "当前会话" : canEdit ? <button className="text-ql-danger" disabled={revoke.isPending} onClick={() => { if (window.confirm("结束该会话？该设备需要重新登录。")) revoke.mutate(s.id); }}>强制退出</button> : "—"}</td>
+      <td className="py-4">{s.display_name || s.username}</td><td className="max-w-xs break-words">{deviceName(s.user_agent)}</td><td>{s.last_seen_at ? new Date(s.last_seen_at).toLocaleString("zh-CN") : "未记录"}</td><td>{s.id === query.data.current_session_id ? "当前会话" : canEdit ? <Button variant="ghost" size="sm"  disabled={revoke.isPending} onClick={() => { if (window.confirm("结束该会话？该设备需要重新登录。")) revoke.mutate(s.id); }}>强制退出</Button> : "—"}</td>
     </tr>)}</tbody></table></div>{revoke.error && <p role="alert">{revoke.error.message}</p>}
   </section>;
 }

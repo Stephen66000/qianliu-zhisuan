@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get, post } from "../../api/client";
@@ -233,16 +234,15 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
         </p>
       ) : null}
       <div className="flex justify-end gap-3">
-        <button type="button" onClick={onClose}>
+        <Button variant="ghost" size="sm" type="button" onClick={onClose}>
           取消
-        </button>
-        <button data-write-action
+        </Button>
+        <Button variant="ghost" size="sm" data-write-action
           type="submit"
-          className="text-ql-action"
           disabled={create.isPending}
         >
           创建
-        </button>
+        </Button>
       </div>
     </form>
   );

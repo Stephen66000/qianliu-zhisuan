@@ -97,8 +97,8 @@ export function LoginPage() {
               {errorMessage}
             </p>
           ) : null}
-          <Button className="mt-1 h-10 w-full" disabled={login.isPending} type="submit" variant="primary">
-            {login.isPending ? "正在登录…" : "登录"}
+          <Button loading={login.isPending} loadingText="正在登录…" size="form" className="mt-1 w-full" disabled={login.isPending} type="submit" variant="primary">
+            登录
           </Button>
         </form>
       </div>

@@ -421,11 +421,11 @@ export function ProviderFinanceActivationWizard({
               预检只读：不会写入任何资金事实。已填 {totalRows} 行草稿。
             </p>
           </div>
-          <Button
-            variant="primary" className="h-10"
+          <Button loading={previewMutation.isPending} loadingText="预检中…" size="form"
+            variant="primary"
             data-write-action disabled={!canSubmitPreview} onClick={runPreview} type="button"
           >
-            <RotateCcw aria-hidden className="h-4 w-4" />{previewMutation.isPending ? "预检中…" : "执行预检"}
+            <RotateCcw aria-hidden className="h-4 w-4" />执行预检
           </Button>
         </div>
 
@@ -503,8 +503,8 @@ function PreviewResult({ preview, holdEvaluation, nowMs, resourceLabel, onActiva
       <ActivationGapReport preview={preview} resourceLabel={resourceLabel} />
 
       <div className="mt-4 flex justify-end">
-        <Button
-          variant="danger" className="h-10"
+        <Button size="form"
+          variant="danger"
           data-write-action disabled={!holdEvaluation.activatable} onClick={onActivate} type="button"
         >
           <ShieldAlert aria-hidden className="h-4 w-4" />进入不可逆激活确认

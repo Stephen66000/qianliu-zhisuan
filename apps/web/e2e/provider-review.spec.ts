@@ -100,7 +100,7 @@ test("厂商模块复盘：真实接口与页面一致、四 Tab 按需加载、
     if (request.url().includes("/provider-resources/usage-overview")) overviewRequests.push(request.url());
   });
   await page.goto("/resources");
-  await expect(page.getByRole("columnheader", { name: "利用率" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "利用率 / 无调用" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "凭证指纹" })).toHaveCount(0);
   await expect(page.getByText(/逐资源查看请求|按登记事实展示/)).toHaveCount(0);
   const month = await page.getByLabel("资源利用月份").inputValue();
@@ -111,12 +111,12 @@ test("厂商模块复盘：真实接口与页面一致、四 Tab 按需加载、
     expect(fact.basis).toBe("CURRENT_MONTH_VS_UP_TO_3_COMPLETE_MONTHS");
     const row = page.locator("#resource-utilization").getByRole("row")
       .filter({ has: page.getByText(`${resource.providerName} · ${resource.resourceName}`, { exact: true }) });
-    const rate = row.locator("td").nth(4);
+    const rate = row.locator("td").nth(3).locator("span").first();
     const expectedPercent = fact.rate === null ? "—" : new Intl.NumberFormat("en-US", {
       style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false,
     }).format(Number(fact.rate));
     await expect(rate).toHaveText(expectedPercent);
-    await expect(rate.locator("span")).toHaveAttribute("title", new RegExp(`本月真实 Token ${formatCount(fact.currentMonthTokens)}`));
+    await expect(rate).toHaveAttribute("title", new RegExp(`本月真实 Token ${formatCount(fact.currentMonthTokens)}`));
   }
   expect(overviewRequests).toHaveLength(0);
   await expect(page.locator("#resource-utilization").getByText("90.0%", { exact: true })).toHaveCount(2);
@@ -127,16 +127,17 @@ test("厂商模块复盘：真实接口与页面一致、四 Tab 按需加载、
   const overview = await apiGet<ResourceUsageOverview>(page, "/provider-resources/usage-overview");
   expect(overview.providerSummaries.find((item) => item.providerCode === "deepseek" && item.mode === "API")?.allocatedQuota).toBe("300000000");
   const models = page.getByRole("heading", { name: "模型使用明细" }).locator("../..").locator("table");
-  await expect(models.locator("th")).toHaveCount(7);
-  for (const row of await models.locator("tbody tr").all()) await expect(row.locator("td")).toHaveCount(7);
+  await expect(models.locator("th")).toHaveCount(5);
+  for (const row of await models.locator("tbody tr:not([hidden])").filter({ has: page.getByRole("button") }).all()) await expect(row.locator("td")).toHaveCount(5);
   await expect(page.getByRole("columnheader", { name: "所属资源余额 / 剩余额度" })).toHaveCount(0);
   await expect(page.getByText(/按厂商与模式汇总|每行对应一个具体模型/)).toHaveCount(0);
   const plans = overview.modelDetails.filter((item) => item.mode === "CODING_PLAN");
   expect(plans.length).toBeGreaterThan(0);
   await expect(models.getByText("不涉及", { exact: true })).toHaveCount(plans.length);
-  const summaries = page.getByRole("heading", { name: "厂商总体使用情况" }).locator("../..").locator("tbody tr");
-  for (const [index, item] of overview.providerSummaries.entries()) {
-    await expect(summaries.nth(index).locator("td").nth(6)).toHaveText(item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota));
+  for (const item of overview.providerSummaries) {
+    const label = `${item.providerName} ${item.mode === "API" ? "API" : "Coding Plan"}`;
+    await page.getByRole("button", { name: `展开${label}详情`, exact: true }).click();
+    await expect(page.getByRole("region", { name: `${label}详情`, exact: true })).toContainText(item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota));
   }
   await page.screenshot({ path: testInfo.outputPath("usage-overview.png"), fullPage: true });
 

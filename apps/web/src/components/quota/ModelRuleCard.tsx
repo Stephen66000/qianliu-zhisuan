@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useMemo, useState } from "react";
 import { Sun, Zap, Clock, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { StatusTag } from "../dashboard/StatusTag";
@@ -119,36 +120,33 @@ export function ModelRuleCard({
   const renderRuleActions = (rule: BillingRule) => {
     if (rule.archived_at) {
       return (
-        <button
+        <Button variant="ghost" size="sm"
           type="button"
           disabled={isUpdating}
-          className="rounded-md px-2 py-1 text-[13px] text-ql-action hover:bg-ql-action-soft disabled:opacity-50"
           onClick={() => onArchiveRule?.(rule, false)}
         >
           取消归档
-        </button>
+        </Button>
       );
     }
     return (
       <div className="flex items-center gap-1">
-        <button
+        <Button variant="ghost" size="sm"
           data-write-action
           type="button"
           disabled={isUpdating}
-          className="rounded-md px-2 py-1 text-[13px] text-ql-fg-secondary hover:bg-ql-surface-muted disabled:opacity-50"
           onClick={() => onUpdateRule?.(rule, { enabled: !rule.enabled })}
         >
           {rule.enabled ? "停用" : "启用"}
-        </button>
+        </Button>
         {!rule.enabled && onSetArchiveTarget ? (
-          <button
+          <Button variant="ghost" size="sm"
             type="button"
             disabled={isUpdating}
-            className="rounded-md px-2 py-1 text-[13px] text-ql-fg-secondary hover:bg-ql-surface-muted disabled:opacity-50"
             onClick={() => onSetArchiveTarget({ kind: "rule", item: rule })}
           >
             归档
-          </button>
+          </Button>
         ) : null}
       </div>
     );
@@ -200,13 +198,12 @@ export function ModelRuleCard({
         <div className="flex items-center gap-2">
           <StatusTag tone={groupStatusTone}>{groupStatusLabel}</StatusTag>
           {onAdjustPricing ? (
-            <button
+            <Button variant="secondary" size="sm"
               type="button"
-              className="rounded-md border border-ql-border bg-ql-surface px-2.5 py-1 text-[13px] font-medium text-ql-fg hover:border-ql-action hover:text-ql-action transition-colors"
               onClick={() => onAdjustPricing(group)}
             >
               调整价格
-            </button>
+            </Button>
           ) : null}
           <span className="text-[13px] text-ql-fg-tertiary tabular-nums">
             共 {group.allRules.length} 条规则版本
@@ -270,14 +267,13 @@ export function ModelRuleCard({
               <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-ql-border bg-ql-surface-subtle/50 p-6 text-center">
                 <p className="text-[13px] text-ql-fg-tertiary mb-2">未配置全天基础计费规则</p>
                 {onConfigureBaseRule ? (
-                  <button
+                  <Button variant="secondary" size="sm"
                     type="button"
                     onClick={() => onConfigureBaseRule(group)}
-                    className="inline-flex items-center gap-1 rounded-md border border-ql-border bg-ql-surface px-2.5 py-1 text-[13px] font-medium text-ql-action hover:border-ql-action hover:bg-ql-action-soft transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     配置基础规则
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             )}
@@ -318,14 +314,13 @@ export function ModelRuleCard({
                 <span>高峰期规则（时段浮动）</span>
               </div>
               {onAddPeakWindow ? (
-                <button
+                <Button variant="ghost" size="sm"
                   type="button"
                   onClick={() => onAddPeakWindow(group)}
-                  className="inline-flex items-center gap-1 text-[13px] text-ql-action hover:underline"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   添加高峰时段
-                </button>
+                </Button>
               ) : null}
             </div>
 
@@ -390,14 +385,13 @@ export function ModelRuleCard({
                   未配置高峰期时段规则（全天执行基础单价）
                 </p>
                 {onAddPeakWindow ? (
-                  <button
+                  <Button variant="secondary" size="sm"
                     type="button"
                     onClick={() => onAddPeakWindow(group)}
-                    className="inline-flex items-center gap-1 rounded-md border border-ql-border bg-ql-surface px-2.5 py-1 text-[13px] font-medium text-ql-action hover:border-ql-action hover:bg-ql-action-soft transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     配置高峰期规则
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             )}

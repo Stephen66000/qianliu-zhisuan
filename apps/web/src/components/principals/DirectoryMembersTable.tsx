@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 /**
  * 通讯录成员表 —— A 方式开通的勾选与单行操作（复选框 / 全选当前页 / 开通按钮）。
  */
@@ -59,9 +60,9 @@ export function DirectoryMembersTable({
             ? <StatusTag tone="success">已开通</StatusTag>
             : (
               <div className="flex justify-end items-center gap-1">
-                <button className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50" disabled={activating || deleting} onClick={() => onActivate(member.person_id)} type="button">开通 AI</button>
+                <Button variant="ghost" size="sm"  disabled={activating || deleting} onClick={() => onActivate(member.person_id)} type="button">开通 AI</Button>
                 {onDelete ? (
-                  <button className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-50" disabled={activating || deleting} onClick={() => onDelete(member.person_id, member.name)} type="button">清理</button>
+                  <Button variant="ghost" size="sm"  disabled={activating || deleting} onClick={() => onDelete(member.person_id, member.name)} type="button">清理</Button>
                 ) : null}
               </div>
             )}</td>

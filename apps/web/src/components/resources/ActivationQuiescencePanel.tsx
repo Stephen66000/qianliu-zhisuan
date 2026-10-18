@@ -130,15 +130,14 @@ export function ActivationQuiescencePanel({
               />
             </FormField>
           </div>
-          <Button
-            variant="primary" className="h-10"
+          <Button size="form"
+            variant="primary"
             disabled={starting} data-write-action onClick={() => onStart(minutes)} type="button"
           >
             <TimerReset aria-hidden className="h-4 w-4" />{starting ? "启动中…" : "启动静默租约"}
           </Button>
           {quiescence.active ? (
-            <Button
-              className="h-10"
+            <Button size="form"
               disabled={releasing} onClick={() => setReleaseOpen((open) => !open)} type="button"
               variant="secondary"
             >
@@ -162,14 +161,13 @@ export function ActivationQuiescencePanel({
               />
             </FormField>
           </div>
-          <button
-            className="h-10 rounded-lg border border-ql-danger px-4 text-[13px] text-ql-danger disabled:opacity-50"
+          <Button loading={releasing} loadingText="解除中…" variant="danger" size="form"
             disabled={releasing || reason.trim() === ""}
             onClick={() => { onRelease(reason.trim()); setReason(""); setReleaseOpen(false); }}
             type="button"
           >
-            {releasing ? "解除中…" : "确认解除"}
-          </button>
+            确认解除
+          </Button>
         </div>
       ) : null}
 

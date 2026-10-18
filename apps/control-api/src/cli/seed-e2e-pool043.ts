@@ -105,11 +105,11 @@ export async function seedPool043OperatingBill(
   await db.insertInto("ledger_transaction").values([
     { id: IDS.flashTransaction, ai_request_id: IDS.flashRequest, enterprise_id: enterpriseId,
       principal_id: IDS.employee, total_input_tokens: 150n, total_output_tokens: 30n,
-      total_cache_tokens: 20n, total_deducted_quota: 0n, total_api_cost: "3.2",
+      total_cache_tokens: 20n, total_deducted_quota: 0n, api_cost_status: "PRICED_USAGE", total_api_cost: "3.2",
       usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED", created_at: flashAt },
     { id: IDS.proTransaction, ai_request_id: IDS.proRequest, enterprise_id: enterpriseId,
       principal_id: IDS.employee, total_input_tokens: 200n, total_output_tokens: 50n,
-      total_cache_tokens: 40n, total_deducted_quota: 0n, total_api_cost: "4.8",
+      total_cache_tokens: 40n, total_deducted_quota: 0n, api_cost_status: "PRICED_USAGE", total_api_cost: "4.8",
       usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED", created_at: proAt },
   ]).execute();
   await db.insertInto("provider_resource_operating_snapshot").values([

@@ -149,7 +149,7 @@ export function ProjectMembersPage() {
                 onChange={(event) => setReason(event.target.value)}
               />
             </label>
-            <Button
+            <Button data-write-action
               disabled={!employeeId || !reason || createMembership.isPending}
               variant="primary"
               onClick={() => {
@@ -200,10 +200,10 @@ export function ProjectMembersPage() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => setIntentFor(row)}>
+                      <Button data-write-action size="sm" onClick={() => setIntentFor(row)}>
                         调整权重
                       </Button>
-                      <Button
+                      <Button data-write-action
                         disabled={row.status !== "ACTIVE"}
                         size="sm"
                         onClick={() => {
@@ -247,7 +247,7 @@ export function ProjectMembersPage() {
                   onChange={(event) => setIntentBps(event.target.value)}
                 />
               </label>
-              <Button
+              <Button data-write-action
                 disabled={intentBps === "" || previewIntent.isPending}
                 onClick={() => {
                   previewIntent.mutate({
@@ -264,7 +264,7 @@ export function ProjectMembersPage() {
                 预览
               </Button>
               {previewData && (
-                <Button
+                <Button data-write-action
                   disabled={publishIntent.isPending || previewData.conflicts.length > 0}
                   variant="primary"
                   onClick={() => {
@@ -329,7 +329,7 @@ export function ProjectMembersPage() {
                 className={FIELD_CLASS}
               />
             </label>
-            <Button
+            <Button data-write-action
               disabled={reviseLifecycle.isPending}
               onClick={() => {
                 const input = document.getElementById("lifecycle-date") as HTMLInputElement | null;

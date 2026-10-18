@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
 
@@ -66,12 +67,12 @@ function BudgetRow({ billStatus, month, row }: {
     <td>{row.budgetUsageRate === null ? "—" : `${(Number(row.budgetUsageRate) * 100).toFixed(1)}%`}</td>
     <td><input aria-label={`${row.departmentName}警戒线`} className={`${INPUT_CLASS} w-24`} disabled={billStatus === "CLOSED"} max="1" min="0.00000001" onChange={(event) => setWarning(event.target.value)} step="0.01" type="number" value={warning}/></td>
     <td><StatusTag tone={state.tone}>{state.label}</StatusTag></td>
-    <td className="pr-2 text-right"><button data-write-action className="rounded-lg border border-ql-border px-3 py-2 text-ql-action disabled:opacity-50" disabled={!row.departmentId || !valid || billStatus === "CLOSED" || save.isPending} onClick={() => {
+    <td className="pr-2 text-right"><Button variant="secondary" size="sm" data-write-action  disabled={!row.departmentId || !valid || billStatus === "CLOSED" || save.isPending} onClick={() => {
       if (!row.departmentId) return;
       void save.mutateAsync({
         departmentId: row.departmentId, amount, currency: row.budget?.currency ?? "CNY",
         warning_threshold: warning, expected_version: row.budget?.version ?? 0,
       });
-    }} type="button">{billStatus === "CLOSED" ? "已结账" : save.isPending ? "保存中" : "保存"}</button>{save.error ? <p className="mt-1 text-[13px] text-ql-danger">{save.error.message}</p> : null}</td>
+    }} type="button">{billStatus === "CLOSED" ? "已结账" : save.isPending ? "保存中" : "保存"}</Button>{save.error ? <p className="mt-1 text-[13px] text-ql-danger">{save.error.message}</p> : null}</td>
   </tr>;
 }

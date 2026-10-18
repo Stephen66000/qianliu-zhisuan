@@ -1,3 +1,4 @@
+import { Button } from "../components/ui/Button";
 /**
  * W20 路由过程下钻 —— 候选 / Attempt / 调度决策（PRD §10.3 可展开"路由过程"）。
  *
@@ -343,13 +344,12 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                 </summary>
                 <div className="min-w-0 border-t border-ql-border-zone p-3">
                   <div className="mb-2 flex justify-end">
-                    <button
-                      className="rounded-md px-2 py-1 text-[13px] text-ql-action hover:bg-ql-action-soft"
+                    <Button variant="ghost" size="sm"
                       onClick={() => void navigator.clipboard?.writeText(technicalJson)}
                       type="button"
                     >
                       复制技术详情
-                    </button>
+                    </Button>
                   </div>
                   <pre className="max-w-full whitespace-pre-wrap break-all font-mono text-[13px] leading-5 text-ql-fg-secondary">
                     {technicalJson}

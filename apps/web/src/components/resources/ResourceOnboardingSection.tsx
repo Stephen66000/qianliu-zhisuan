@@ -64,8 +64,8 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField error={errors.provider_id?.message} htmlFor="res-provider" label="厂商">
-              <div className="flex gap-2">
-                <select className={`${INPUT_CLASS} flex-1`} id="res-provider" {...register("provider_id", {
+              <div className="flex min-w-0 flex-wrap gap-2">
+                <select className={`${INPUT_CLASS} min-w-0 flex-1`} id="res-provider" {...register("provider_id", {
                   onChange: (e) => {
                     clearCreateDiscovery();
                     const selectedId = e.target.value;
@@ -85,20 +85,20 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                     </option>
                   ))}
                 </select>
-                <button data-write-action
-                  className="h-10 shrink-0 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                <Button variant="secondary" size="form" data-write-action
+                  className="shrink-0"
                   onClick={() => setShowNewProvider((v) => !v)}
                   type="button"
                 >
                   新建厂商
-                </button>
-                <button data-write-action
-                  className="h-10 shrink-0 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] font-medium text-ql-fg-secondary hover:bg-ql-surface-subtle"
+                </Button>
+                <Button variant="secondary" size="form" data-write-action
+                  className="shrink-0"
                   onClick={() => setShowManageProviders(true)}
                   type="button"
                 >
                   管理厂商
-                </button>
+                </Button>
               </div>
             </FormField>
             {showNewProvider ? (
@@ -173,7 +173,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                   >
                     取消
                   </Button>
-                  <Button
+                  <Button loading={createProviderMutation.isPending} loadingText="创建中…"
                     variant="primary"
                     disabled={createProviderMutation.isPending || !newProviderCode.trim() || !newProviderName.trim()}
                     onClick={() =>
@@ -185,7 +185,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                     }
                     type="button"
                   >
-                    {createProviderMutation.isPending ? "创建中…" : "确认创建厂商"}
+                    确认创建厂商
                   </Button>
                 </div>
               </div>
@@ -365,12 +365,12 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
             >
               取消
             </Button>
-            <Button
+            <Button loading={createMutation.isPending} loadingText="接入中…"
               variant="primary" className="min-w-[5.5rem]"
               disabled={createMutation.isPending}
               type="submit"
             >
-              {createMutation.isPending ? "接入中…" : "确认接入"}
+              确认接入
             </Button>
           </div>
         </form>

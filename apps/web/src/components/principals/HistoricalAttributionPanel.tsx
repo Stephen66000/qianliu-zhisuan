@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { post } from "../../api/client";
@@ -70,13 +71,12 @@ export function HistoricalAttributionPanel({
   const busy = inspect.isPending || confirm.isPending;
   return (
     <section className="mt-4 border-t border-ql-border pt-4">
-      <button
+      <Button variant="ghost" size="sm"
         type="button"
-        className="text-ql-action"
         onClick={() => setOpen(!open)}
       >
         补齐历史归属
-      </button>
+      </Button>
       {open ? (
         <div className="mt-3 space-y-3">
           <p className="text-[13px] text-ql-fg-secondary">
@@ -138,10 +138,9 @@ export function HistoricalAttributionPanel({
               placeholder="例如：确认该员工在此期间始终属于研发部"
             />
           </label>
-          <button
+          <Button variant="ghost" size="sm"
             type="button"
             disabled={busy || !from || !to || !department || !reason.trim()}
-            className="text-ql-action disabled:opacity-50"
             onClick={() => {
               setPreview(null);
               setDone(null);
@@ -149,21 +148,21 @@ export function HistoricalAttributionPanel({
             }}
           >
             预览待补齐记录
-          </button>
+          </Button>
           {preview ? (
             <div className="rounded-lg bg-ql-surface-subtle p-3">
               <p>
                 {preview.principalName} · {from} 至 {to} ·{" "}
                 {preview.departmentName}：待补齐 {preview.requestCount} 条请求
               </p>
-              <button data-write-action
+              <Button variant="ghost" size="sm" data-write-action
                 type="button"
-                className="mt-2 text-ql-action disabled:opacity-50"
+                className="mt-2"
                 disabled={busy || preview.requestCount === 0}
                 onClick={() => confirm.mutate()}
               >
                 确认补齐历史归属
-              </button>
+              </Button>
             </div>
           ) : null}
           {done !== null ? (

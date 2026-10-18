@@ -124,9 +124,9 @@ function RowShell({ title, readOnly, onRemove, children }: {
       <div className="flex items-center justify-between gap-2">
         <p className="text-[13px] font-medium text-ql-fg-secondary">{title}</p>
         {readOnly ? null : (
-          <button aria-label={`删除 ${title}`} className="rounded-md p-1 text-ql-fg-tertiary hover:text-ql-danger" onClick={onRemove} type="button">
+          <Button variant="ghost" size="sm" aria-label={`删除 ${title}`}  onClick={onRemove} type="button">
             <Trash2 aria-hidden className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         )}
       </div>
       <div className="mt-2 grid gap-3 md:grid-cols-2">{children}</div>
@@ -420,8 +420,8 @@ export function ActivationDraftEditor({
           <div className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning" data-testid="required-accounts-hint">
             激活范围内仍有 {missingAccounts.length} 个必要账户没有期初草稿行：
             {missingAccounts.map((account) => (
-              <button
-                className="ml-2 rounded-md border border-ql-warning px-2 py-0.5"
+              <Button variant="secondary" size="sm"
+                className="ml-2"
                 key={`${account.resource_id}:${account.currency}`}
                 onClick={() => setSection("apiOpeningBalances", [...state.apiOpeningBalances, {
                   id: newLocalRowIdFor("opening"), resourceId: account.resource_id,
@@ -431,7 +431,7 @@ export function ActivationDraftEditor({
                 type="button"
               >
                 补齐 {account.currency}
-              </button>
+              </Button>
             ))}
           </div>
         ) : null}
@@ -537,8 +537,8 @@ export function ActivationDraftEditor({
           <div className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning" data-testid="legacy-suggestions">
             预检发现 {unclosedSuggestions.length} 条未关闭旧记录：
             {unclosedSuggestions.map((suggestion) => (
-              <button
-                className="ml-2 rounded-md border border-ql-warning px-2 py-0.5"
+              <Button variant="secondary" size="sm"
+                className="ml-2"
                 key={suggestion.legacyRecordId}
                 onClick={() => setSection("legacyResolutions", [...state.legacyResolutions, {
                   id: newLocalRowIdFor("legacy"), legacyRecordId: suggestion.legacyRecordId,
@@ -548,7 +548,7 @@ export function ActivationDraftEditor({
                 type="button"
               >
                 补齐 {suggestion.legacyRecordId.slice(0, 8)}
-              </button>
+              </Button>
             ))}
           </div>
         ) : null}

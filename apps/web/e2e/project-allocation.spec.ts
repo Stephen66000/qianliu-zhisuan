@@ -19,18 +19,19 @@ test.describe("项目成员与 AI 用量归集 U01", () => {
     await expect(page.getByText("当前成员").first()).toBeVisible();
   });
 
-  test("项目账列表渲染归集列；明细页未启用时展示引导而非假数据", async ({ page }) => {
+  test("无项目调用时列表展示空态；明细页未启用时展示引导而非假数据", async ({ page }) => {
     await login(page);
-    await page.goto("/operating-bill/projects");
+    await page.goto("/operating-bill/projects?month=2026-08");
     await expect(page.getByRole("heading", { name: "项目账" }).or(page.getByText("项目账")).first()).toBeVisible();
-    // 归集列表头存在（增强列）。
-    await expect(page.getByRole("columnheader", { name: "归集" })).toBeVisible();
+    // 夹具只给员工记了调用；项目没有直接调用，不能凭空产生账单行。
+    await expect(page.getByText("没有项目账单记录", { exact: true })).toBeVisible();
 
-    await page.goto(`/operating-bill/projects/${E2E_IDS.pool043Project}/allocation`);
+    await page.goto(`/operating-bill/projects/${E2E_IDS.pool043Project}/allocation?month=2026-08`);
     await expect(page.getByText("项目归集明细")).toBeVisible();
     // 未启用或未计算：不出现伪造的 0 批次，而显示启用引导/空态。
     const enableHint = page.getByRole("button", { name: "启用项目归集" });
     const emptyHint = page.getByText("该账期还没有可用的归集批次");
-    await expect(enableHint.or(emptyHint)).toBeVisible();
+    await expect(enableHint).toBeVisible();
+    await expect(emptyHint).toBeVisible();
   });
 });

@@ -191,7 +191,7 @@ export function DirectoryPanel() {
         </select>
         <input aria-label={sourceType === "WECOM" ? "企业 ID" : "应用 ID"} className={INPUT_CLASS} onChange={(event) => setIdentity(event.target.value)} placeholder={sourceType === "WECOM" ? "Corp ID" : "App ID"} value={identity}/>
         <input aria-label="应用 Secret" autoComplete="new-password" className={INPUT_CLASS} onChange={(event) => setSecret(event.target.value)} placeholder="Secret 只写不回显" type="password" value={secret}/>
-        <div className="flex gap-2"><button data-write-action className="h-9 rounded-lg border border-ql-border px-3 text-[13px] text-ql-action disabled:opacity-50" disabled={!identity.trim() || !secret || saveSource.isPending} onClick={() => void save()} type="button">保存连接</button>
+        <div className="flex gap-2"><Button variant="secondary" size="md" data-write-action  disabled={!identity.trim() || !secret || saveSource.isPending} onClick={() => void save()} type="button">保存连接</Button>
           <Button data-write-action variant="primary" disabled={!currentSource || startSync.isPending} onClick={() => void sync()} type="button"><RefreshCw className="h-4 w-4"/>同步</Button></div>
       </div>
       {saveSource.error || startSync.error ? <p className="mt-2 text-[13px] text-ql-danger" role="alert">{(saveSource.error ?? startSync.error)?.message}</p> : null}
@@ -200,7 +200,7 @@ export function DirectoryPanel() {
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">Excel 导入</h2><p className="mt-1 text-[13px] text-ql-fg-tertiary">固定 .xlsx 模板，最多 5 MiB / 1,000 行；导入只建立候选档案，不自动开通。</p></div>
         <div className="flex gap-2"><Button variant="secondary" onClick={() => void downloadTemplate()} type="button"><Download className="h-4 w-4"/>下载模板</Button>
-          <button className="flex h-9 items-center gap-1 rounded-lg border border-ql-border px-3 text-[13px] text-ql-action" onClick={() => setListUploadOpen(true)} type="button"><Upload className="h-4 w-4"/>上传名单开通 AI</button>
+          <Button variant="secondary" size="md"  onClick={() => setListUploadOpen(true)} type="button"><Upload className="h-4 w-4"/>上传名单开通 AI</Button>
           <label className={buttonClassName("primary", "md", "cursor-pointer")}><Upload className="h-4 w-4"/>上传文件<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadExcel(file); event.target.value = ""; }} type="file"/></label></div>
       </div>{excel.error ? <p className="mt-2 text-[13px] text-ql-danger">{excel.error.message}</p> : null}
     </section>
@@ -224,7 +224,7 @@ export function DirectoryPanel() {
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={() => setSelectedPersonIds(new Set())} type="button">清空选择</Button>
           {selectedRows.some((member) => !isActivated(member)) ? (
-            <button className="h-8 rounded-lg border border-ql-danger/40 px-3 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-50" disabled={batchDeleteMembers.isPending} onClick={() => setBatchDeleteConfirmOpen(true)} type="button">批量清理档案</button>
+            <Button variant="secondary" size="sm"  disabled={batchDeleteMembers.isPending} onClick={() => setBatchDeleteConfirmOpen(true)} type="button">批量清理档案</Button>
           ) : null}
           <Button variant="primary" size="sm" disabled={activate.isPending} onClick={() => setBatchConfirmOpen(true)} type="button">批量开通 AI</Button>
         </div>

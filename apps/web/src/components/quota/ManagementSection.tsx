@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { Plus } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -25,15 +26,15 @@ export function ManagementSection({
           <h2 className="text-[14px] font-semibold text-ql-fg">{title}</h2>
           <p className="mt-1 text-[13px] leading-5 text-ql-fg-secondary">{hint}</p>
         </div>
-        {!hideAction ? <button
-          className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-ql-border px-3 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft disabled:cursor-not-allowed disabled:opacity-50"
+        {!hideAction ? <Button variant="secondary" size="sm"
+          className="shrink-0"
           disabled={actionDisabled}
           onClick={onAction}
           type="button"
         >
           <Plus aria-hidden className="h-3.5 w-3.5" />
           {actionLabel}
-        </button> : null}
+        </Button> : null}
       </div>
       {children}
     </section>

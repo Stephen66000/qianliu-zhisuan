@@ -67,12 +67,12 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
             >
               取消
             </Button>
-            <Button
+            <Button loading={editMutation.isPending} loadingText="保存中…"
               variant="primary"
               disabled={editMutation.isPending}
               type="submit"
             >
-              {editMutation.isPending ? "保存中…" : "保存修改"}
+              保存修改
             </Button>
           </div>
         </form>
@@ -225,12 +225,12 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
             >
               取消
             </Button>
-            <Button
+            <Button loading={operatingMutation.isPending} loadingText="保存中…"
               variant="primary"
               disabled={operatingMutation.isPending}
               type="submit"
             >
-              {operatingMutation.isPending ? "保存中…" : "保存额度配置"}
+              保存额度配置
             </Button>
           </div>
         </form>

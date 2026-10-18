@@ -9,10 +9,12 @@ import type { ResourceBreakdownItem } from "../../api/types";
 import type { ReactNode } from "react";
 import { formatCount, formatDateTimeShort, formatDecimal, formatMoney, formatRatePerHour } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
+import { ExpandableTableRow, RowDetail } from "../ui/ExpandableTableRow";
 import { StatusTag } from "./StatusTag";
 
 interface ResourceBreakdownProps {
   items: ResourceBreakdownItem[];
+  scope?: string;
 }
 
 const MODE_LABEL: Record<ResourceBreakdownItem["mode"], string> = {
@@ -20,54 +22,38 @@ const MODE_LABEL: Record<ResourceBreakdownItem["mode"], string> = {
   CODING_PLAN: "Coding Plan",
 };
 
-export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
+export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left">
+      <table className="w-full min-w-[36rem] border-collapse text-left [&_td]:py-2.5 [&_td]:pr-3">
         <thead>
           <tr className="whitespace-nowrap border-b border-ql-border text-[13px] leading-5 text-ql-fg-tertiary">
-            <th className="py-2 pr-4 font-medium">厂商</th>
-            <th className="py-2 pr-4 font-medium">模式</th>
+            <th className="py-2 pr-4 font-medium">厂商 / 模式</th>
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
-            <th className="py-2 pr-4 text-right font-medium">分配额度</th>
             <th className="py-2 pr-4 text-right font-medium">当前余额</th>
-            <th className="py-2 pr-4 text-right font-medium">当前订阅金额</th>
             <th className="py-2 pr-4 text-right font-medium">本月花费</th>
             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
-            <th className="py-2 pr-4 text-right font-medium">消耗速度</th>
-            <th className="py-2 pr-4 font-medium">预计耗尽</th>
-            <th className="py-2 font-medium">状态</th>
+            <th className="py-2 font-medium">状态 / 预计耗尽</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr
-              className="border-b border-ql-border-zone text-[13px] leading-5 text-ql-fg last:border-b-0 hover:bg-ql-surface-subtle"
-              key={`${item.providerCode}-${item.mode}`}
+            <ExpandableTableRow key={`${scope}:${item.providerCode}:${item.mode}`} columns={6}
+              label={`${item.providerName} ${MODE_LABEL[item.mode]}`}
+              leading={<><span className="font-medium">{item.providerName}</span><span className="block text-ql-fg-tertiary">{MODE_LABEL[item.mode]}</span></>}
+              details={<>
+                <RowDetail label="分配额度">{item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}</RowDetail>
+                <RowDetail label="当前订阅金额">{item.mode === "API" ? "—" : <>{item.packageCost === null ? "套餐费用待补" : `${item.currency ?? ""} ${formatMoney(item.packageCost)}`}<span className="block text-ql-fg-tertiary">订阅周期 {subscriptionPeriod(item)}</span></>}</RowDetail>
+                <RowDetail label="消耗速度">{usageRateText(item)}</RowDetail>
+                <RowDetail label="预计耗尽">{forecastExhaustionText(item)}{item.forecastConfidence ? <span className="block text-ql-fg-tertiary">可信度 {item.forecastConfidence}</span> : null}</RowDetail>
+              </>}
             >
-              <td className="py-2.5 pr-4 font-medium">{item.providerName}</td>
-              <td className="py-2.5 pr-4 text-ql-fg-secondary">{MODE_LABEL[item.mode]}</td>
-              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.accountCount}
-              </td>
-              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}
-              </td>
+              <td className="text-right [font-variant-numeric:tabular-nums]">{item.accountCount}</td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.mode === "API"
                   ? item.currentBalance === null ? "余额待补"
                     : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`
                   : item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
-              </td>
-              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {item.mode === "API" ? "—" : (
-                  <>{item.packageCost === null
-                    ? "套餐费用待补"
-                    : `${item.currency ?? ""} ${formatMoney(item.packageCost)}`}
-                    <span className="block text-[13px] text-ql-fg-tertiary">
-                      订阅周期 {subscriptionPeriod(item)}
-                    </span></>
-                )}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.monthlyCost === null
@@ -86,13 +72,8 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {monthlyTokenText(item)}
               </td>
-              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
-                {usageRateText(item)}
-              </td>
-              <td className="py-2.5 pr-4 text-ql-fg-secondary">
-                {forecastExhaustionText(item)}
-              </td>
               <td className="py-2.5">
+                <span className="mb-1 block text-ql-fg-secondary">预计耗尽：{forecastExhaustionText(item)}</span>
                 <a href="/resources?tab=supply-health#resource-health" title={item.abnormalResources.map((resource) =>
                   `${resource.resourceName}：${resourceStatusLabel(resource.status, item.mode)}`
                 ).join("；") || "全部资源正常"}>
@@ -106,7 +87,7 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                   ) : null}
                 </a>
               </td>
-            </tr>
+            </ExpandableTableRow>
           ))}
         </tbody>
       </table>

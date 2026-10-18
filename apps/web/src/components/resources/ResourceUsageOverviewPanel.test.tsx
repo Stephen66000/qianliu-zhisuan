@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -88,20 +88,24 @@ describe("厂商资源用量总览", () => {
     expect(screen.queryByRole("columnheader", { name: "已用额度" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "当前余额" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "所属资源余额 / 剩余额度" })).not.toBeInTheDocument();
-    const providerRow = screen.getAllByText("DeepSeek").find((node) => node.tagName === "TD")!.closest("tr")!;
-    expect(within(providerRow).getByText("1,000")).toBeInTheDocument();
+    const providerRow = screen.getAllByText("DeepSeek")[0]!.closest("tr")!;
+    expect(within(providerRow).getByText(/预计耗尽/)).toBeVisible();
+    fireEvent.click(within(providerRow).getByRole("button"));
+    expect(screen.getByRole("region", { name: "DeepSeek API详情" })).toHaveTextContent("1,000");
     expect(within(providerRow).getByText("已记录；另有 2 笔计量未知")).toBeInTheDocument();
 
     const apiRow = screen.getByText("ql-deepseek-v4").closest("tr")!;
     expect(within(apiRow).getByText("CNY 12.10")).toBeInTheDocument();
     expect(within(apiRow).queryByText("CNY 87.90")).not.toBeInTheDocument();
     expect(within(apiRow).getByText("已记录；另有 2 笔计量未知")).toBeInTheDocument();
-    expect(within(apiRow).getByText("4.17 Token/小时")).toBeInTheDocument();
+    fireEvent.click(within(apiRow).getByRole("button"));
+    expect(screen.getByRole("region", { name: "ql-deepseek-v4 · DeepSeek 主账号详情" })).toHaveTextContent("4.17 Token/小时");
     const planRow = screen.getByText("ql-kimi-k3").closest("tr")!;
     expect(within(planRow).getByText("不涉及")).toBeInTheDocument();
     expect(within(planRow).queryByText("65 POINT")).not.toBeInTheDocument();
     expect(within(planRow).queryByText("共享资源")).not.toBeInTheDocument();
-    expect(within(planRow).getByText("2.5 POINT/小时")).toBeInTheDocument();
+    fireEvent.click(within(planRow).getByRole("button"));
+    expect(screen.getByRole("region", { name: "ql-kimi-k3 · Kimi 套餐详情" })).toHaveTextContent("2.5 POINT/小时");
     const legacyRow = screen.getByText("qianliu-deepseek").closest("tr")!;
     expect(within(legacyRow).getAllByText("已下架").length).toBeGreaterThanOrEqual(1);
   });

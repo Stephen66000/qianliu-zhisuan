@@ -300,8 +300,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                     <p className="text-[13px] font-medium text-ql-fg">时间窗口</p>
                     <p className="text-[13px] text-ql-fg-tertiary">可配置多段；开始含、结束不含。</p>
                   </div>
-                  <button
-                    className="rounded-md px-2 py-1 text-[13px] text-ql-action hover:bg-ql-action-soft"
+                  <Button variant="ghost" size="sm"
                     onClick={() => appendRuleWindow({
                       timezone: "Asia/Shanghai",
                       days_of_week: "1,2,3,4,5,6,7",
@@ -311,7 +310,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                     type="button"
                   >
                     添加窗口
-                  </button>
+                  </Button>
                 </div>
                 {(ruleForm.formState.errors.windows as { message?: string } | undefined)?.message ? (
                   <p className="mb-2 text-[13px] text-ql-danger">
@@ -372,13 +371,12 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                         />
                       </FormField>
                       <div className="flex items-end">
-                        <button data-write-action
-                          className="h-9 rounded-md px-2 text-[13px] text-ql-danger hover:bg-ql-danger-soft"
+                        <Button variant="ghost" size="md" data-write-action
                           onClick={() => removeRuleWindow(index)}
                           type="button"
                         >
                           删除
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -440,18 +438,18 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               {model.queuedRules.map((rule, index) => <div key={index} className="mb-2 rounded-md border p-2 text-[13px]">
                 {rule.rule_version} · {rule.upstream_model} · {rule.currency} · 命中 {rule.cache_hit_price || "—"} / 未命中 {rule.cache_miss_price || "—"} / 输出 {rule.output_price || "—"} ({rule.currency}/百万 Token) · 倍率 {rule.multiplier || "—"}
                 <span className="block">{rule.windows.length ? rule.windows.map((window) => `${window.timezone} ${window.days_of_week || "每天"} ${window.start_time}–${window.end_time}`).join("；") : "全天"} · {rule.effective_from}</span>
-                <button data-write-action type="button" className="ml-3 text-ql-action" onClick={() => {
+                <Button variant="ghost" size="sm" data-write-action type="button" className="ml-3" onClick={() => {
                   const parsed = BillingRuleSchema.safeParse(ruleForm.getValues());
                   if (!parsed.success) { void ruleForm.trigger(); return; }
                   const current = parsed.data; ruleForm.reset(rule);
                   model.setQueuedRules(model.queuedRules.map((item, position) => position === index ? current : item));
-                }}>编辑</button>
-                <button type="button" className="ml-3 text-ql-danger" onClick={() => model.setQueuedRules(model.queuedRules.filter((_, position) => position !== index))}>移除</button>
+                }}>编辑</Button>
+                <Button variant="ghost" size="sm" type="button" className="ml-3" onClick={() => model.setQueuedRules(model.queuedRules.filter((_, position) => position !== index))}>移除</Button>
               </div>)}
-              <button type="button" className="text-ql-action" onClick={ruleForm.handleSubmit((values) => {
+              <Button variant="ghost" size="sm" type="button"  onClick={ruleForm.handleSubmit((values) => {
                 model.setQueuedRules([...model.queuedRules, values]);
                 ruleForm.setValue("rule_version", `${values.rule_version.slice(0, 50)}-next`);
-              })}>加入规则集并配置下一时段</button>
+              })}>加入规则集并配置下一时段</Button>
             </div>
             <div className="md:col-span-4 flex justify-end gap-2">
               <Button type="button" disabled={createRule.isPending}
@@ -529,13 +527,12 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             </div>
 
             {isFiltered ? (
-              <button
+              <Button variant="ghost" size="sm"
                 type="button"
                 onClick={resetFilters}
-                className="h-8 rounded-md px-2.5 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
               >
                 重置筛选
-              </button>
+              </Button>
             ) : null}
 
             <div className="hidden h-5 w-px bg-ql-border-zone xl:block" />
@@ -599,13 +596,13 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             <div className="py-12 text-center text-[13px] text-ql-fg-tertiary">
               未找到符合筛选条件的计价规则
               {isFiltered ? (
-                <button
+                <Button variant="ghost" size="sm"
                   type="button"
                   onClick={resetFilters}
-                  className="ml-2 text-ql-action underline hover:no-underline"
+                  className="ml-2"
                 >
                   清除筛选
-                </button>
+                </Button>
               ) : null}
             </div>
           ) : viewMode === "card" ? (
@@ -675,16 +672,16 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                     </td>
                     <td className="p-2 text-right whitespace-nowrap">
                       {rule.archived_at ? (
-                        <button className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        <Button variant="ghost" size="sm"
                           onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: false })}
-                          type="button">取消归档</button>
+                          type="button">取消归档</Button>
                       ) : <>
-                        <button data-write-action className="rounded-md px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        <Button variant="ghost" size="sm" data-write-action
                           onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
-                          type="button">{rule.enabled ? "停用" : "启用"}</button>
-                        {!rule.enabled ? <button className="rounded-md px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                          type="button">{rule.enabled ? "停用" : "启用"}</Button>
+                        {!rule.enabled ? <Button variant="ghost" size="sm"
                           onClick={() => setArchiveTarget({ kind: "rule", item: rule })}
-                          type="button">归档</button> : null}
+                          type="button">归档</Button> : null}
                       </>}
                     </td>
                   </tr>

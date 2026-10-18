@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get, post } from "../../api/client";
 import { formatMoney, formatShanghaiDate } from "../../lib/format";
@@ -21,8 +22,8 @@ export function SubscriptionAutoRenewal({ resourceId, writable }: { resourceId: 
     <span className="font-medium">自动续订：{data.enabled ? "已开启" : "已取消"}</span>
     {data.enabled && data.nextRenewalAt ? <span>下次 {formatShanghaiDate(data.nextRenewalAt)}{data.cashPaidCny ? ` · ¥${formatMoney(data.cashPaidCny)}` : ""}</span> : null}
     {data.enabled && data.blockedReason ? <span role="status" className="text-ql-warning">{data.blockedReason}</span> : null}
-    {data.enabled ? <button data-write-action type="button" className="ml-auto rounded-md border border-ql-border px-3 py-1.5 text-ql-danger disabled:opacity-50"
-      disabled={!writable || cancel.isPending} onClick={() => cancel.mutate()}>{cancel.isPending ? "取消中…" : "取消自动续订"}</button> : <span className="text-ql-fg-tertiary">本期和历史记录保留</span>}
+    {data.enabled ? <Button loading={cancel.isPending} loadingText="取消中…" variant="secondary" size="sm" data-write-action type="button" className="ml-auto"
+      disabled={!writable || cancel.isPending} onClick={() => cancel.mutate()}>取消自动续订</Button> : <span className="text-ql-fg-tertiary">本期和历史记录保留</span>}
     {cancel.error ? <span role="alert" className="w-full text-ql-danger">{cancel.error.message}</span> : null}
   </div>;
 }

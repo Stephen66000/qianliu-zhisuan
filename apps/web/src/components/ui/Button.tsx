@@ -15,11 +15,13 @@
 import type { ComponentProps } from "react";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-export type ButtonSize = "md" | "sm";
+export type ButtonSize = "md" | "sm" | "form";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  loading?: boolean;
+  loadingText?: string;
 }
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
@@ -32,6 +34,7 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
 const SIZE_CLASS: Record<ButtonSize, string> = {
   md: "ql-btn-md",
   sm: "ql-btn-sm",
+  form: "ql-btn-form",
 };
 
 export function buttonClassName(
@@ -47,7 +50,18 @@ export function Button({
   size = "md",
   className,
   type = "button",
+  loading,
+  loadingText = "处理中…",
+  disabled,
+  children,
   ...rest
 }: ButtonProps) {
-  return <button className={buttonClassName(variant, size, className)} type={type} {...rest} />;
+  return <button className={buttonClassName(variant, size, className)} type={type}
+    {...rest} disabled={disabled || loading} aria-busy={loading || rest["aria-busy"]}
+    aria-label={rest["aria-label"] ?? (loading ? loadingText : undefined)}>
+    <span className="inline-grid items-center justify-items-center">
+      <span className="col-start-1 row-start-1 inline-flex items-center gap-2" style={loading ? { visibility: "hidden" } : undefined}>{children}</span>
+      {loading !== undefined ? <span className="col-start-1 row-start-1" aria-hidden style={loading ? undefined : { visibility: "hidden" }}>{loadingText}</span> : null}
+    </span>
+  </button>;
 }

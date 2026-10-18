@@ -193,23 +193,21 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                   {plaintextKey ? plaintextKey : `${activeKey.key_prefix}••••••••`}
                 </code>
                 {plaintextKey ? (
-                  <button
-                    className="flex items-center gap-1 rounded-md border border-ql-border bg-ql-surface px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                  <Button variant="secondary" size="sm"
                     onClick={() => void copyJustKey()}
                     type="button"
                   >
                     <Copy aria-hidden className="h-3.5 w-3.5" />
                     复制 Key
-                  </button>
+                  </Button>
                 ) : null}
                 <StatusTag tone="neutral">有效</StatusTag>
-                <button data-write-action
-                  className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-warning hover:bg-ql-warning-soft"
+                <Button variant="ghost" size="sm" data-write-action
                   onClick={() => setResetConfirm(true)}
                   type="button"
                 >
                   重置 Key
-                </button>
+                </Button>
                 {copyStatus === "success-key" ? (
                   <span className="text-[13px] text-ql-success" role="status">Key 已复制</span>
                 ) : null}
@@ -350,11 +348,10 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                     ) : grant.status === "DISABLED" ? (
                       <div className="flex items-center gap-2">
                         <span>已停用</span>
-                        <button
-                          className="rounded-md px-2 py-1 text-[13px] text-ql-action hover:bg-ql-action-soft"
+                        <Button variant="ghost" size="sm"
                           onClick={() => setArchiveGrantTarget(grant)}
                           type="button"
-                        >归档</button>
+                        >归档</Button>
                       </div>
                     ) : (
                       "已过期"

@@ -242,15 +242,14 @@ export function PrincipalsPage() {
                         <div className="flex justify-end gap-1">
                           {!p.archived_at &&
                           featureFlags.FEATURE_DEPARTMENT_COST ? (
-                            <button data-write-action
-                              className="rounded-md px-2 py-1 text-[13px] text-ql-action"
+                            <Button variant="ghost" size="sm" data-write-action
                               onClick={() => setAccountingTarget(p)}
                               type="button"
                             >
                               {p.type === "EMPLOYEE"
                                 ? "所属部门"
                                 : "项目负责人"}
-                            </button>
+                            </Button>
                           ) : null}
                           {p.type === "PROJECT" ? (
                             <Link
@@ -260,16 +259,14 @@ export function PrincipalsPage() {
                               成员与归集
                             </Link>
                           ) : null}
-                          <button
-                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                          <Button variant="ghost" size="sm"
                         onClick={() => setSelected(selected?.id === p.id ? null : p)}
                         type="button"
                       >
                         {selected?.id === p.id ? "收起配置" : "接入配置"}
-                      </button>
+                      </Button>
                           {!p.archived_at ? (
-                            <button
-                              className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                            <Button variant="ghost" size="sm"
                               onClick={() => {
                                 setEditTarget(p);
                                 setEditName(p.name);
@@ -277,36 +274,33 @@ export function PrincipalsPage() {
                               type="button"
                             >
                               编辑
-                            </button>
+                            </Button>
                           ) : null}
                           {!p.archived_at && p.status !== "DISABLED" ? (
-                        <button data-write-action
-                          className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-danger"
+                        <Button variant="ghost" size="sm" data-write-action
                           onClick={() => setDisableTarget(p)}
                           type="button"
                         >
                           停用
-                        </button>
+                        </Button>
                       ) : null}
                           {!p.archived_at && p.status === "DISABLED" ? (
-                        <button data-write-action
-                          className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                        <Button variant="ghost" size="sm" data-write-action
                           disabled={reactivateMutation.isPending}
                           onClick={() => reactivateMutation.mutate(p)}
                           type="button"
                         >
                           重新启用
-                        </button>
+                        </Button>
                       ) : null}
                           {!p.archived_at ? (
-                        <button data-write-action
-                          className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft"
+                        <Button variant="ghost" size="sm" data-write-action
                           disabled={previewMutation.isPending}
                           onClick={() => previewMutation.mutate(p)}
                           type="button"
                         >
                           清理
-                        </button>
+                        </Button>
                       ) : null}
                         </div>
                       </td>

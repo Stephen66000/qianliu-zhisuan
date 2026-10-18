@@ -239,7 +239,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
       <form data-write-action className="mb-6 rounded-xl border border-ql-border p-5" onSubmit={submit}>
         <div className="mb-4 flex items-center justify-between">
           <div><h2 className="font-semibold">{editing ? `编辑 ${editing.name} v${editing.version}` : "新建批量授权规则"}</h2><p className="mt-1 text-[13px] text-ql-fg-tertiary">保存只形成草稿，不会扩大任何员工权限。</p></div>
-          {editing ? <button data-write-action className="text-sm text-ql-action" onClick={() => { setEditing(null); setForm(initialForm()); }} type="button">取消编辑</button> : null}
+          {editing ? <Button variant="ghost" size="sm" data-write-action  onClick={() => { setEditing(null); setForm(initialForm()); }} type="button">取消编辑</Button> : null}
         </div>
         <div className="grid gap-4 md:grid-cols-4">
           <label className="text-sm">规则名称<input className={`${INPUT} mt-1`} onChange={(event) => setForm((old) => ({ ...old, name: event.target.value }))} required value={form.name} /></label>
@@ -311,9 +311,9 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
               <td className="p-3"><StatusTag tone={statusTone(rule.status)}>{rule.status}</StatusTag></td>
               <td className="p-3">{rule.validation_snapshot ? rule.validation_snapshot.ready ? <PermissionChangeSummary validation={rule.validation_snapshot} providerNameOfResource={providerNameOfResource} /> : rule.validation_snapshot.issues.map((issue) => issue.message).join("；") : "尚未校验"}</td>
               <td className="p-3"><div className="flex flex-wrap gap-3 whitespace-nowrap">
-                <button className="text-ql-action" onClick={() => setHistoryRuleId(rule.rule_id)} type="button">历史</button>
-                {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <button data-write-action className="text-ql-action" onClick={() => edit(rule)} type="button">编辑</button> : null}
-                {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <button className="text-ql-action" onClick={() => validateRule.mutate(rule.id)} type="button">校验</button> : null}
+                <Button variant="ghost" size="sm"  onClick={() => setHistoryRuleId(rule.rule_id)} type="button">历史</Button>
+                {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <Button variant="ghost" size="sm" data-write-action  onClick={() => edit(rule)} type="button">编辑</Button> : null}
+                {rule.status === "DRAFT" || rule.status === "VALIDATED" ? <Button variant="ghost" size="sm"  onClick={() => validateRule.mutate(rule.id)} type="button">校验</Button> : null}
                 {rule.status === "VALIDATED" ? <span className="inline-flex items-center gap-2">
                   <select
                     aria-label="池额度方式"
@@ -324,15 +324,15 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
                     <option value="ADD">追加额度（默认）</option>
                     <option value="SET">设置总额度</option>
                   </select>
-                  <button data-write-action className="text-ql-action" onClick={() => publishRule.mutate({ versionId: rule.id, expectedLockVersion: rule.lock_version, idempotencyKey: crypto.randomUUID(), quotaMode })} type="button">发布</button>
+                  <Button variant="ghost" size="sm" data-write-action  onClick={() => publishRule.mutate({ versionId: rule.id, expectedLockVersion: rule.lock_version, idempotencyKey: crypto.randomUUID(), quotaMode })} type="button">发布</Button>
                 </span> : null}
-                {rule.status === "PUBLISHED" ? <><button className="text-ql-action" onClick={() => createVersion.mutate(rule.rule_id)} type="button">新建版本</button><button data-write-action className="text-ql-danger" onClick={() => disableRule.mutate(rule.id)} type="button">停用</button></> : null}
+                {rule.status === "PUBLISHED" ? <><Button variant="ghost" size="sm"  onClick={() => createVersion.mutate(rule.rule_id)} type="button">新建版本</Button><Button variant="ghost" size="sm" data-write-action  onClick={() => disableRule.mutate(rule.id)} type="button">停用</Button></> : null}
               </div></td>
             </tr>)}</tbody>
           </table>
         </div>
         {historyRuleId ? <section className="mt-4 rounded-xl border border-ql-border p-4" aria-label="规则版本历史">
-          <div className="flex items-center justify-between"><h2 className="font-semibold">规则版本历史</h2><button className="text-sm text-ql-action" onClick={() => setHistoryRuleId(null)} type="button">关闭</button></div>
+          <div className="flex items-center justify-between"><h2 className="font-semibold">规则版本历史</h2><Button variant="ghost" size="sm"  onClick={() => setHistoryRuleId(null)} type="button">关闭</Button></div>
           <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-[13px] text-ql-fg-tertiary"><th className="p-2">版本</th><th className="p-2">状态</th><th className="p-2">员工/模型范围</th><th className="p-2">额度</th><th className="p-2">发布时间</th><th className="p-2">停用时间</th></tr></thead><tbody>{historyVersions.map((version) => <tr className="border-b border-ql-border-zone last:border-0" key={version.id}><td className="p-2">v{version.version}</td><td className="p-2"><StatusTag tone={statusTone(version.status)}>{version.status}</StatusTag></td><td className="p-2">{version.employee_scope === "ALL" ? "当前全部员工" : `${version.principal_ids.length} 名员工`} / {version.model_scope === "ALL" ? "当前全部就绪模型" : `${version.model_targets.length} 个模型`}</td><td className="p-2">{formatPoolQuotaSummary(version, providerNameOf)}</td><td className="p-2">{version.published_at ? new Date(version.published_at).toLocaleString() : "—"}</td><td className="p-2">{version.disabled_at ? new Date(version.disabled_at).toLocaleString() : "—"}</td></tr>)}</tbody></table></div>
         </section> : null}
       </QueryGate>

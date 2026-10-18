@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { useState } from "react";
 import { INPUT_CLASS } from "../writes/FormField";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
@@ -20,10 +21,6 @@ export function ModelDisableAction({ model, inline = false }: { model: QuotaRule
   const selectClass = inline
     ? "h-8 max-w-[200px] rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg focus:border-ql-action focus:outline-none"
     : `${INPUT_CLASS} max-w-md`;
-
-  const btnBaseClass = inline
-    ? "h-8 rounded-md border px-2.5 text-[13px]"
-    : "h-9 rounded-lg border px-3 text-[13px]";
 
   return (
     <div data-write-action className={containerClass}>
@@ -50,10 +47,9 @@ export function ModelDisableAction({ model, inline = false }: { model: QuotaRule
         ))}
       </select>
       {model.showArchived ? (
-        <button
+        <Button variant="secondary" size="sm"
           data-write-action
           type="button"
-          className={`${btnBaseClass} border-ql-border text-ql-action disabled:opacity-50 hover:bg-ql-action-soft`}
           title="取消存档仅恢复显示，不会自动启用"
           disabled={!mayDisable || !selected?.archived_at || busy}
           onClick={() => {
@@ -61,13 +57,12 @@ export function ModelDisableAction({ model, inline = false }: { model: QuotaRule
           }}
         >
           取消存档
-        </button>
+        </Button>
       ) : (
         <>
-          <button
+          <Button variant="secondary" size="sm"
             data-write-action
             type="button"
-            className={`${btnBaseClass} border-ql-danger text-ql-danger disabled:opacity-50 hover:bg-ql-danger-soft`}
             title={mayDisable ? undefined : "需要额度规则和厂商资源的操作权限"}
             disabled={!mayDisable || !selected || selected.status !== "ACTIVE" || busy}
             onClick={() => {
@@ -75,11 +70,10 @@ export function ModelDisableAction({ model, inline = false }: { model: QuotaRule
             }}
           >
             停用模型
-          </button>
-          <button
+          </Button>
+          <Button variant="secondary" size="sm"
             data-write-action
             type="button"
-            className={`${btnBaseClass} border-ql-border text-ql-fg-secondary disabled:opacity-50 hover:bg-ql-surface-muted`}
             title="模型必须先停用才能存档"
             disabled={!mayDisable || !selected || selected.status !== "DISABLED" || busy}
             onClick={() => {
@@ -87,7 +81,7 @@ export function ModelDisableAction({ model, inline = false }: { model: QuotaRule
             }}
           >
             存档模型
-          </button>
+          </Button>
         </>
       )}
       <span role="status" className="text-[13px] font-medium text-ql-fg-secondary">

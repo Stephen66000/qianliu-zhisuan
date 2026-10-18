@@ -103,9 +103,8 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               管理已添加的上游厂商。无关联资源的厂商可安全删除并释放厂商代码。
             </p>
           </div>
-          <button
+          <Button aria-label="关闭厂商管理" variant="ghost" size="sm"
             type="button"
-            className="rounded-md p-1.5 text-ql-fg-tertiary hover:bg-ql-surface-subtle hover:text-ql-fg"
             onClick={() => {
               setShowManageProviders(false);
               setEditingId(null);
@@ -114,7 +113,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
             }}
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         {/* 厂商列表 */}
@@ -150,23 +149,21 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                               if (e.key === "Escape") cancelEdit();
                             }}
                           />
-                          <button
+                          <Button aria-label="保存" variant="ghost" size="sm"
                             type="button"
-                            className="p-1 rounded-md text-ql-action hover:bg-ql-action-soft"
                             onClick={() => saveEdit(provider.id)}
                             disabled={updateProviderMutation.isPending || !editingName.trim()}
                             title="保存"
                           >
                             <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button aria-label="取消" variant="ghost" size="sm"
                             type="button"
-                            className="p-1 rounded-md text-ql-fg-tertiary hover:bg-ql-surface"
                             onClick={cancelEdit}
                             title="取消"
                           >
                             <X className="h-3.5 w-3.5" />
-                          </button>
+                          </Button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
@@ -196,13 +193,13 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                         {isConfirmingDelete ? (
                           <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
                             <span className="text-[13px] text-ql-danger font-medium">确定删除？</span>
-                            <Button
+                            <Button loading={deleteProviderMutation.isPending} loadingText="删除中…"
                               type="button"
                               variant="danger" size="sm"
                               onClick={() => handleDelete(provider.id)}
                               disabled={deleteProviderMutation.isPending}
                             >
-                              {deleteProviderMutation.isPending ? "删除中…" : "确定"}
+                              确定
                             </Button>
                             <Button
                               type="button"
@@ -214,44 +211,36 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                             </Button>
                           </div>
                         ) : provider.archived_at ? (
-                          <button
+                          <Button loading={unarchiveProviderMutation.isPending} loadingText="恢复中…" variant="ghost" size="sm"
                             type="button"
-                            className="flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-ql-action hover:bg-ql-action-soft transition-colors"
                             disabled={unarchiveProviderMutation.isPending}
                             onClick={() => unarchiveProviderMutation.mutate(provider.id)}
                           >
-                            {unarchiveProviderMutation.isPending ? "恢复中…" : "取消归档"}
-                          </button>
+                            取消归档
+                          </Button>
                         ) : (
                           <>
-                            <button
+                            <Button variant="ghost" size="sm"
                               type="button"
-                              className="flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-ql-action hover:bg-ql-action-soft transition-colors"
                               onClick={() => startEdit(provider.id, provider.name)}
                             >
                               <Edit2 className="h-3 w-3" />
                               编辑
-                            </button>
-                            <button
+                            </Button>
+                            <Button loading={archiveProviderMutation.isPending} loadingText="归档中…" variant="ghost" size="sm"
                               type="button"
-                              className="flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-ql-fg-secondary hover:bg-ql-surface-subtle transition-colors"
                               disabled={archiveProviderMutation.isPending}
                               onClick={() => archiveProviderMutation.mutate(provider.id)}
                             >
-                              {archiveProviderMutation.isPending ? "归档中…" : "归档"}
-                            </button>
-                            <button
+                              归档
+                            </Button>
+                            <Button variant="ghost" size="sm"
                               type="button"
-                              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[13px] transition-colors ${
-                                resourceCount > 0
-                                  ? "text-ql-fg-disabled hover:text-ql-danger hover:bg-ql-danger-soft"
-                                  : "text-ql-danger hover:bg-ql-danger-soft"
-                              }`}
                               onClick={() => setConfirmDeleteId(provider.id)}
                             >
                               <Trash2 className="h-3 w-3" />
                               删除
-                            </button>
+                            </Button>
                           </>
                         )}
                       </div>
@@ -302,13 +291,13 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                             >
                               取消
                             </Button>
-                            <Button
+                            <Button loading={deleteProviderMutation.isPending} loadingText="删除中…"
                               type="button"
                               variant="danger" size="sm"
                               onClick={() => handleDelete(provider.id)}
                               disabled={deleteProviderMutation.isPending}
                             >
-                              {deleteProviderMutation.isPending ? "删除中…" : "确认删除"}
+                              确认删除
                             </Button>
                           </div>
                         </div>
@@ -416,28 +405,27 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               >
                 取消
               </Button>
-              <Button
+              <Button loading={createProviderMutation.isPending} loadingText="创建中…"
                 type="button"
                 variant="primary" size="sm"
                 disabled={createProviderMutation.isPending || !newCode.trim() || !newName.trim()}
                 onClick={handleCreate}
               >
-                {createProviderMutation.isPending ? "创建中…" : "确认创建"}
+                确认创建
               </Button>
             </div>
           </div>
         ) : (
           <div className="mt-4 flex justify-between items-center border-t border-ql-border pt-3">
-            <button
+            <Button variant="ghost" size="sm"
               type="button"
-              className="flex items-center gap-1 text-[13px] font-medium text-ql-action hover:underline"
               onClick={() => {
                 setShowAddInline(true);
               }}
             >
               <Plus className="h-4 w-4" />
               新建厂商
-            </button>
+            </Button>
             <Button
               type="button"
               variant="secondary"

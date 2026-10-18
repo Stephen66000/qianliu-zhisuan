@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 /**
  * POOL-032：厂商额度窗口面板。
  *
@@ -106,14 +107,13 @@ function QuotaWindowResourceCard({
           <span className="rounded-md bg-ql-surface-brand-soft px-2 py-0.5 text-[12px] font-medium text-ql-action">
             Coding Plan
           </span>
-          <button data-write-action
-            className="h-8 rounded-lg border border-ql-action px-3 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50"
+          <Button loading={sync.isPending} loadingText="同步中…" variant="secondary" size="sm" data-write-action
             disabled={sync.isPending}
             onClick={() => sync.mutate()}
             type="button"
           >
-            {sync.isPending ? "同步中…" : "立即同步"}
-          </button>
+            立即同步
+          </Button>
         </div>
       </div>
 

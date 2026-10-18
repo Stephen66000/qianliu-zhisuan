@@ -52,39 +52,35 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
                   <td className="p-2">{model.display_name}</td>
                   <td className="p-2">{model.archived_at ? "已归档" : model.status === "ACTIVE" ? "启用" : model.status === "PENDING_CONFIG" ? "待配置" : "停用"}</td>
                   <td className="p-2 text-right">
-                    <button
-                      className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                    <Button variant="ghost" size="sm"
                       onClick={() => setSelectedModelId(model.id)}
                       type="button"
                     >
                       管理路由
-                    </button>
+                    </Button>
                     {model.archived_at ? (
-                      <button data-write-action
-                        className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                      <Button variant="ghost" size="sm" data-write-action
                         onClick={() => archiveConfig.mutate({ kind: "model", item: model, archive: false })}
                         type="button"
                       >
                         取消归档
-                      </button>
+                      </Button>
                     ) : model.status === "ACTIVE" ? (
-                      <button
-                        className="rounded-md px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
+                      <Button variant="ghost" size="sm"
                         onClick={() => setDisableModelTarget(model)}
                         type="button"
                       >
                         停用
-                      </button>
+                      </Button>
                     ) : model.status === "PENDING_CONFIG" ? (
-                      <button data-write-action className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft" onClick={() => updateModel.mutate({ model, status: "ACTIVE" })} type="button">启用</button>
+                      <Button variant="ghost" size="sm" data-write-action  onClick={() => updateModel.mutate({ model, status: "ACTIVE" })} type="button">启用</Button>
                     ) : (
-                      <button
-                        className="rounded-md px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                      <Button variant="ghost" size="sm"
                         onClick={() => setArchiveTarget({ kind: "model", item: model })}
                         type="button"
                       >
                         归档
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>

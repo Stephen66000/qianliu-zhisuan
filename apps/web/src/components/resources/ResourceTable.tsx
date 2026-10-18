@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { Server } from "lucide-react";
 import { get } from "../../api/client";
 import type { ProviderResourceItem, ProviderResourceOperatingSnapshot } from "../../api/types";
@@ -126,8 +127,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                   </td>
                   <td className="py-2.5 text-right">
                     <div className="flex flex-wrap justify-end gap-1">
-                      <button data-write-action
-                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                      <Button variant="ghost" size="sm" data-write-action
                         onClick={() => {
                           setEditTarget(r);
                           editReset({
@@ -138,16 +138,14 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                         type="button"
                       >
                         编辑
-                      </button>
-                      <button data-write-action
-                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                      </Button>
+                      <Button variant="ghost" size="sm" data-write-action
                         onClick={() => {
                           setSyncTarget(r);
                         }}
                         type="button"
-                      >同步模型</button>
-                      {r.mode === "CODING_PLAN" ? <button data-write-action
-                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                      >同步模型</Button>
+                      {r.mode === "CODING_PLAN" ? <Button variant="ghost" size="sm" data-write-action
                         onClick={async () => {
                           setOperatingTarget(r);
                           setOperatingDraft(operatingDraftFromResource(r));
@@ -160,42 +158,38 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                         type="button"
                       >
                         更新额度配置
-                      </button> : null}
+                      </Button> : null}
                       {ISOLATED.has(r.status) ? (
-                      <button data-write-action
-                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-warning hover:bg-ql-warning-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-warning"
+                      <Button variant="ghost" size="sm" data-write-action
                         onClick={() => setRecoverTarget(r)}
                         type="button"
                       >
                         恢复
-                      </button>
+                      </Button>
                       ) : null}
                       {r.archived_at ? (
-                        <button data-write-action
-                          className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
+                        <Button loading={unarchiveResourceMutation.isPending} loadingText="恢复中…" variant="ghost" size="sm" data-write-action
                           disabled={unarchiveResourceMutation.isPending}
                           onClick={() => unarchiveResourceMutation.mutate(r.id)}
                           type="button"
                         >
-                          {unarchiveResourceMutation.isPending ? "恢复中…" : "取消归档"}
-                        </button>
+                          取消归档
+                        </Button>
                       ) : (
                         <>
-                          <button data-write-action
-                            className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-fg-secondary hover:bg-ql-surface-subtle"
+                          <Button loading={archiveResourceMutation.isPending} loadingText="归档中…" variant="ghost" size="sm" data-write-action
                             disabled={archiveResourceMutation.isPending}
                             onClick={() => archiveResourceMutation.mutate(r.id)}
                             type="button"
                           >
-                            {archiveResourceMutation.isPending ? "归档中…" : "归档"}
-                          </button>
-                          <button data-write-action
-                            className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft"
+                            归档
+                          </Button>
+                          <Button variant="ghost" size="sm" data-write-action
                             onClick={() => setDeleteResourceTarget(r)}
                             type="button"
                           >
                             删除
-                          </button>
+                          </Button>
                         </>
                       )}
                     </div>

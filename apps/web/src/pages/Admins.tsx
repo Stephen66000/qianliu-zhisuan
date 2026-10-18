@@ -114,13 +114,13 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
           <code className="mt-3 block select-all rounded-lg bg-ql-surface px-3 py-2 text-sm text-ql-fg">
             {oneTimePassword.password}
           </code>
-          <button
-            className="mt-3 text-sm text-ql-action"
+          <Button variant="ghost" size="sm"
+            className="mt-3"
             onClick={() => setOneTimePassword(null)}
             type="button"
           >
             清除明文
-          </button>
+          </Button>
         </section>
       ) : null}
 
@@ -241,9 +241,8 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
                         }
                         value={renames[admin.id] ?? admin.display_name}
                       />
-                      <button
+                      <Button variant="ghost" size="sm"
                         disabled={!canEdit || archived}
-                        className="text-ql-action"
                         onClick={() =>
                           renameAdmin.mutate({
                             id: admin.id,
@@ -256,7 +255,7 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
                         type="button"
                       >
                         保存
-                      </button>
+                      </Button>
                     </div>
                   </td>
                   <td className="p-3">
@@ -301,8 +300,7 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
                     <div className="flex gap-3 whitespace-nowrap">
                       {canEdit && !archived && admin.id !== currentId ? (
                         <>
-                          <button
-                            className="text-ql-action"
+                          <Button variant="ghost" size="sm"
                             onClick={() => {
                               setResetTarget(admin.id);
                               setResetValue("");
@@ -310,13 +308,8 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
                             type="button"
                           >
                             重置密码
-                          </button>
-                          <button
-                            className={
-                              admin.status === "ACTIVE"
-                                ? "text-ql-danger"
-                                : "text-ql-action"
-                            }
+                          </Button>
+                          <Button variant="ghost" size="sm"
                             onClick={() =>
                               setStatus.mutate({
                                 id: admin.id,
@@ -329,16 +322,15 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
                             type="button"
                           >
                             {admin.status === "ACTIVE" ? "停用" : "启用"}
-                          </button>
+                          </Button>
                           {admin.status === "DISABLED" ? (
-                            <button
-                              className="inline-flex items-center gap-1 text-ql-danger"
+                            <Button variant="ghost" size="sm"
                               onClick={() => setCleanupTarget(admin.id)}
                               type="button"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               清理
-                            </button>
+                            </Button>
                           ) : null}
                         </>
                       ) : (
@@ -413,14 +405,13 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
                   清理后，该账号将从管理员列表移除且不能再登录，现有会话立即失效；历史操作记录继续保留。
                 </p>
               </div>
-              <button
+              <Button variant="ghost" size="sm"
                 aria-label="关闭清理确认"
-                className="text-ql-fg-tertiary"
                 onClick={() => setCleanupTarget(null)}
                 type="button"
               >
                 <X className="h-5 w-5" />
-              </button>
+              </Button>
             </div>
             <p className="mt-4 rounded-lg bg-ql-surface-subtle px-3 py-2 text-sm font-medium text-ql-fg">
               {admins.find((item) => item.id === cleanupTarget)?.username}

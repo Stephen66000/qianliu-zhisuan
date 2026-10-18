@@ -71,10 +71,10 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><h3 className="text-[13px] font-semibold text-ql-fg">检测当前凭证可用模型</h3>
         <p className="mt-1 text-[13px] text-ql-fg-tertiary">检测只在服务端执行；不把厂商宣传页全集当作当前账号权限。</p></div>
-      <button className="h-9 rounded-lg border border-ql-action px-3 text-[13px] font-medium text-ql-action disabled:opacity-60"
+      <Button loading={mutation.isPending} loadingText="检测中…" variant="secondary" size="md"
         disabled={mutation.isPending} onClick={detect} type="button">
-        {mutation.isPending ? "检测中…" : "检测可用模型"}
-      </button>
+        检测可用模型
+      </Button>
     </div>
       {props.discovery ? <div className="mt-3 space-y-2">
         <DiscoveryMeta discovery={props.discovery} />
@@ -119,31 +119,28 @@ export function CreateModelDiscoveryPanel(props: CreatePanelProps) {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button
+          <Button variant="secondary" size="sm"
             type="button"
-            className="px-2.5 py-1 rounded-md border border-ql-border bg-ql-surface text-[13px] font-medium text-ql-action hover:bg-ql-action-soft transition-colors"
             onClick={() => props.onSelectedModelIdsChange(selectableModels.map((m) => m.id))}
           >
             全选就绪模型
-          </button>
-          <button
+          </Button>
+          <Button variant="secondary" size="sm"
             type="button"
-            className="px-2.5 py-1 rounded-md border border-ql-border bg-ql-surface text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft transition-colors"
             onClick={() => props.onSelectedModelIdsChange([])}
           >
             清空选择
-          </button>
+          </Button>
           {selectableModels.some((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id)) && (
-            <button
+            <Button variant="secondary" size="sm"
               type="button"
-              className="px-2.5 py-1 rounded-md border border-ql-border bg-ql-surface text-[13px] font-medium text-ql-fg hover:bg-ql-surface-subtle transition-colors"
               onClick={() => {
                 const core = selectableModels.filter((m) => /(-plus|-max|-turbo|-chat|-reasoner)/i.test(m.id));
                 props.onSelectedModelIdsChange(core.map((m) => m.id));
               }}
             >
               仅选推荐
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -234,10 +231,10 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
         <p className="mt-1 text-[13px] text-ql-fg-tertiary">查看并管理已接入模型（支持一键下架），或从厂商凭证检测同步新模型。</p>
       </div>
       <div className="flex items-center gap-2">
-        <button data-write-action className="h-9 rounded-lg border border-ql-action px-3 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-60"
+        <Button loading={sync.isPending} loadingText="同步中…" variant="secondary" size="md" data-write-action
           disabled={sync.isPending} onClick={() => sync.mutate()} type="button">
-          {sync.isPending ? "同步中…" : "立即同步"}
-        </button>
+          立即同步
+        </Button>
         <Button variant="secondary"
           onClick={onClose} type="button">
           关闭
@@ -248,7 +245,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
     {retireMessage ? (
       <div className="mt-3 flex items-center justify-between rounded-lg border border-ql-success bg-ql-success-soft px-3 py-2 text-[13px] text-ql-success">
         <span>{retireMessage}</span>
-        <button type="button" className="text-ql-fg-tertiary hover:text-ql-fg text-[13px]" onClick={() => setRetireMessage(null)}>✕</button>
+        <Button aria-label="关闭模型同步提示" variant="ghost" size="sm" type="button"  onClick={() => setRetireMessage(null)}>✕</Button>
       </div>
     ) : null}
 
@@ -268,7 +265,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
           <li>若全系统无其他可用厂商路由，将同步归档统一模型</li>
         </ul>
         <div className="mt-3 flex gap-2">
-          <Button
+          <Button loading={retire.isPending} loadingText="下架中…"
             type="button"
             data-write-action
             disabled={retire.isPending}
@@ -284,7 +281,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
               });
             }}
           >
-            {retire.isPending ? "下架中…" : "确认下架"}
+            确认下架
           </Button>
           <Button
             type="button"
@@ -361,9 +358,8 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                     </span>
                   ) : null}
                 </div>
-                <button
+                <Button variant="secondary" size="sm"
                   data-write-action
-                  className="rounded-md border border-ql-danger px-2.5 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-60"
                   disabled={retire.isPending}
                   onClick={() => {
                     setRetireTarget(route);
@@ -372,7 +368,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                   type="button"
                 >
                   下架模型
-                </button>
+                </Button>
               </div>
             );
           })}
@@ -428,9 +424,8 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                   </div>
                   <div className="flex items-center gap-2">
                     <EnableRouteButton route={route} resourceId={target.id} onDone={setRetireMessage} />
-                    <button
+                    <Button variant="secondary" size="sm"
                       data-write-action
-                      className="rounded-md border border-ql-border px-2.5 py-1 text-[13px] font-medium text-ql-fg-secondary hover:border-ql-danger hover:text-ql-danger hover:bg-ql-danger-soft disabled:opacity-60"
                       disabled={retire.isPending}
                       onClick={() => {
                         setRetireTarget(route);
@@ -439,7 +434,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                       type="button"
                     >
                       下架清理
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -469,9 +464,8 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                         下架于 {formatDateTimeFull(route.archived_at)}
                       </span>
                     ) : null}
-                    <button
+                    <Button variant="secondary" size="sm"
                       data-write-action
-                      className="rounded-md border border-ql-border px-2.5 py-1 text-[13px] font-medium text-ql-fg-secondary hover:border-ql-action hover:text-ql-action hover:bg-ql-action-soft disabled:opacity-60"
                       disabled={restore.isPending}
                       onClick={() => {
                         setRestoreTarget(route);
@@ -480,7 +474,7 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                       type="button"
                     >
                       恢复上架
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -509,13 +503,13 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
           const validation = validationResults[model.upstreamModel];
           return <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ql-border-zone bg-ql-surface px-3 py-2" key={model.routeId ?? model.upstreamModel}>
             <span><strong className="font-mono">{model.upstreamModel}</strong><span className="ml-2 text-ql-fg-tertiary">{validation?.status === "SUCCEEDED" ? "READY · 可启用" : validation?.status === "FAILED" ? `验证失败 · ${validation.errorCode ?? "未知错误"}` : "待验证"}</span></span>
-            <button className="rounded-md border border-ql-action px-3 py-1.5 text-ql-action disabled:opacity-60" disabled={validate.isPending} onClick={() => validate.mutate(model.upstreamModel)} type="button">{validate.isPending ? "验证中…" : "真实验证（会消耗额度）"}</button>
+            <Button loading={validate.isPending} loadingText="验证中…" variant="secondary" size="sm"  disabled={validate.isPending} onClick={() => validate.mutate(model.upstreamModel)} type="button">真实验证（会消耗额度）</Button>
           </div>;
         })}
       </div>
       <div className="mt-2 flex gap-3">
         <Link className="font-medium text-ql-action" to="/quota-rules">继续配置</Link>
-        <button className="text-ql-fg-secondary" onClick={onClose} type="button">关闭</button>
+        <Button variant="ghost" size="sm"  onClick={onClose} type="button">关闭</Button>
       </div>
     </div> : discovery ? <div className="mt-3 space-y-2">
       <DiscoveryMeta discovery={discovery} />
@@ -569,20 +563,18 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
                 已选 <strong className="text-ql-action font-semibold">{selectedJoinableCount}</strong> / {joinable.length} 个待加入模型
               </span>
               <div className="flex items-center gap-1.5">
-                <button
+                <Button variant="secondary" size="sm"
                   type="button"
-                  className="px-2.5 py-1 rounded-md border border-ql-border bg-ql-surface text-[13px] font-medium text-ql-fg hover:bg-ql-surface-subtle"
                   onClick={() => setSelectedIds(joinable.map((m) => m.id))}
                 >
                   全选
-                </button>
-                <button
+                </Button>
+                <Button variant="secondary" size="sm"
                   type="button"
-                  className="px-2.5 py-1 rounded-md border border-ql-border bg-ql-surface text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft"
                   onClick={() => setSelectedIds([])}
                 >
                   清空选择
-                </button>
+                </Button>
               </div>
             </div>
             {joinable.map((model) => (
@@ -603,9 +595,9 @@ export function SyncModelsPanel({ target, onClose }: { target: ProviderResourceI
       })()}
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onClose} type="button">取消</Button>
-        <Button data-write-action variant="primary"
+        <Button loading={confirm.isPending} loadingText="加入中…" data-write-action variant="primary"
           disabled={selectedIds.length === 0 || confirm.isPending} onClick={() => confirm.mutate()} type="button">
-          {confirm.isPending ? "加入中…" : "确认加入所选模型"}
+          确认加入所选模型
         </Button>
       </div>
     </div> : null}
@@ -645,9 +637,8 @@ function EnableRouteButton({
   if (route.enabled) return null;
   return (
     <span className="inline-flex items-center gap-1.5">
-      <button
+      <Button loading={enable.isPending} loadingText="启用中…" variant="secondary" size="sm"
         data-write-action
-        className="rounded-md border border-ql-action px-2.5 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-60"
         disabled={enable.isPending}
         title="启用统一模型与模型路由；配置生效计价规则后即可对外服务"
         onClick={() => {
@@ -659,8 +650,8 @@ function EnableRouteButton({
         }}
         type="button"
       >
-        {enable.isPending ? "启用中…" : "启用"}
-      </button>
+        启用
+      </Button>
       {enable.error ? (
         <span className="text-[13px] text-ql-danger">{enable.error.message}</span>
       ) : null}
@@ -693,7 +684,7 @@ function RestoreRouteConfirm({
         <li>下架时归档的计价规则与员工授权不会自动恢复，需重新配置</li>
       </ul>
       <div className="mt-3 flex gap-2">
-        <Button
+        <Button loading={restore.isPending} loadingText="恢复中…"
           type="button"
           data-write-action
           disabled={restore.isPending}
@@ -706,7 +697,7 @@ function RestoreRouteConfirm({
             });
           }}
         >
-          {restore.isPending ? "恢复中…" : "确认恢复上架"}
+          确认恢复上架
         </Button>
         <Button
           type="button"

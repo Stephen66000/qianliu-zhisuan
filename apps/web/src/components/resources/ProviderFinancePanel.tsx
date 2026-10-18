@@ -1,6 +1,6 @@
 import { SubscriptionHistory } from "./SubscriptionHistory";
 import { SubscriptionAutoRenewal } from "./SubscriptionAutoRenewal";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleDollarSign, Plus } from "lucide-react";
 
 import type {
@@ -82,8 +82,10 @@ export function ProviderFinancePanel({
   const [validationError, setValidationError] = useState("");
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [duplicate, setDuplicate] = useState<null | {
-    candidateId: string; confirmationToken: string; requestHash: string;
+    candidateId: string; confirmationToken: string; requestHash: string; idempotencyKey: string;
   }>(null);
+
+  const entryInFlight = useRef(false);
 
   useEffect(() => {
     if (!resources.some((resource) => resource.id === resourceId)) {
@@ -111,8 +113,10 @@ export function ProviderFinancePanel({
     setPeriodStart(""); setPeriodEnd(""); setOccurredAt(localShanghaiNow());
     setValidationError(""); setIdempotencyKey(crypto.randomUUID());
     setDuplicate(null); setAutoRenew(true);
+    mutation.reset?.(); confirmDuplicate.reset?.();
   };
   const submit = () => {
+    if (entryInFlight.current || mode !== "ACTIVE") return;
     const moneyError = validateMoneyAmount(amount, true)
       ?? validateMoneyAmount(cashPaidCny, true);
     if (!resourceId || moneyError || !occurredAt) {
@@ -133,6 +137,7 @@ export function ProviderFinancePanel({
       return;
     }
     setValidationError("");
+    entryInFlight.current = true;
     mutation.mutate({ kind, payload: {
       ...(kind === "CODING_PLAN" ? {
         kind: subscriptionKind,
@@ -157,9 +162,17 @@ export function ProviderFinancePanel({
         if (typeof detail.candidateId === "string" && typeof detail.confirmationToken === "string"
           && typeof detail.requestHash === "string") setDuplicate({
           candidateId: detail.candidateId, confirmationToken: detail.confirmationToken,
-          requestHash: detail.requestHash,
+          requestHash: detail.requestHash, idempotencyKey: crypto.randomUUID(),
         });
-      } });
+      }, onSettled: () => { entryInFlight.current = false; } });
+  };
+  const submitDuplicate = () => {
+    if (!duplicate || entryInFlight.current || mode !== "ACTIVE") return;
+    entryInFlight.current = true;
+    confirmDuplicate.mutate(duplicate, {
+      onSuccess: () => { resetEntry(); setEntryOpen(false); },
+      onSettled: () => { entryInFlight.current = false; },
+    });
   };
 
   const summaryValue = summary.data;
@@ -175,7 +188,7 @@ export function ProviderFinancePanel({
           </div>
           <div className="flex items-center gap-2">
             <input aria-label="资金历史月份" className={INPUT_CLASS} onChange={(event) => setMonth(event.target.value)} type="month" value={month} />
-            <Button data-write-action variant="primary" className="h-10" onClick={() => setEntryOpen((open) => { if (!open && selected) setKind(selected.mode); return !open; })} type="button">
+            <Button data-write-action variant="primary" size="form" disabled={mutation.isPending || confirmDuplicate.isPending} onClick={() => { if (entryOpen) { resetEntry(); setEntryOpen(false); } else { if (selected) setKind(selected.mode); setEntryOpen(true); } }} type="button">
               <Plus aria-hidden className="h-4 w-4" />充值／订阅
             </Button>
           </div>
@@ -200,11 +213,11 @@ export function ProviderFinancePanel({
       </section>
 
       {entryOpen ? <section className="mt-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4" aria-label="充值登记">
-        <div className="mb-4 flex gap-2" role="group" aria-label="充值类型">
+        <fieldset disabled={!!duplicate || mutation.isPending || confirmDuplicate.isPending} className="mb-4 flex gap-2" aria-label="充值类型">
           <TypeButton active={kind === "API"} label="API 充值" onClick={() => { setKind("API"); setResourceId(resources.find((r) => r.mode === "API")?.id ?? null); }} />
           <TypeButton active={kind === "CODING_PLAN"} label="Coding Plan" onClick={() => { setKind("CODING_PLAN"); setResourceId(resources.find((r) => r.mode === "CODING_PLAN")?.id ?? null); }} />
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        </fieldset>
+        <fieldset disabled={!!duplicate || mutation.isPending || confirmDuplicate.isPending} className="grid min-w-0 gap-4 md:grid-cols-2">
           <FormField htmlFor="finance-resource" label="厂商产品模型">
             <select className={INPUT_CLASS} id="finance-resource" onChange={(event) => setResourceId(event.target.value || null)} value={resourceId ?? ""}>
               <option value="">请选择</option>
@@ -226,15 +239,24 @@ export function ProviderFinancePanel({
           <FormField htmlFor="finance-reference" label="付款凭证号（可选）"><input className={INPUT_CLASS} id="finance-reference" onChange={(event) => setExternalReference(event.target.value)} value={externalReference} /></FormField>
           <div className="md:col-span-2"><FormField hint="必填：说明本次资金事实的用途与来源" htmlFor="finance-description" label="说明"><textarea className={`${INPUT_CLASS} min-h-20 w-full py-2`} id="finance-description" onChange={(event) => setDescription(event.target.value)} value={description} /></FormField></div>
           <div className="md:col-span-2"><FormField hint="必填：可追溯的证据引用，例如付款凭证号、订单号或快照编号" htmlFor="finance-evidence" label="证据引用"><input className={INPUT_CLASS} id="finance-evidence" onChange={(event) => setEvidenceRef(event.target.value)} value={evidenceRef} /></FormField></div>
-        </div>
+        </fieldset>
         {kind === "CODING_PLAN" ? <p className="mt-3 text-[13px] text-ql-fg-secondary">勾选后按登记金额和周期自动续订，可在当前服务周期旁取消。</p> : null}
-        {validationError || mutation.error || confirmDuplicate.error ? <p className="mt-3 text-[13px] text-ql-danger" role="alert">{validationError || mutation.error?.message || confirmDuplicate.error?.message}</p> : null}
-        {kind === "CODING_PLAN" ? <label className="mt-3 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={autoRenew} onChange={(event) => setAutoRenew(event.target.checked)} />自动续订</label> : null}
-        <div className="mt-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => { resetEntry(); setEntryOpen(false); }} type="button">取消</Button>{duplicate ? <button data-write-action className="rounded-lg bg-ql-warning px-4 py-2 text-[13px] font-medium text-ql-on-action disabled:opacity-50" disabled={confirmDuplicate.isPending} onClick={() => confirmDuplicate.mutate({ ...duplicate, idempotencyKey: crypto.randomUUID() }, { onSuccess: () => { resetEntry(); setEntryOpen(false); } })} type="button">{confirmDuplicate.isPending ? "确认中…" : "确认重复入账"}</button> : <Button data-write-action variant="primary" disabled={mode !== "ACTIVE" || mutation.isPending} onClick={submit} type="button">{mutation.isPending ? "入账中…" : "入账确认"}</Button>}</div>
+        {validationError || mutation.error || confirmDuplicate.error ? <p className="mt-3 text-[13px] text-ql-danger" role="alert">{validationError || confirmDuplicate.error?.message || mutation.error?.message}</p> : null}
+        {kind === "CODING_PLAN" ? <label className="mt-3 flex items-center gap-2 text-[13px]"><input type="checkbox" disabled={!!duplicate || mutation.isPending || confirmDuplicate.isPending} checked={autoRenew} onChange={(event) => setAutoRenew(event.target.checked)} />自动续订</label> : null}
+        {duplicate ? <p id="duplicate-finance-warning" role="alert" className="mt-4 rounded-lg border border-ql-warning/30 bg-ql-warning-soft p-3 text-[13px] text-ql-warning">
+          检测到相同资金事实。确认后将额外写入一笔资金记录，请先核对金额、时间和凭证；如为重复操作，请取消。
+        </p> : null}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button disabled={mutation.isPending || confirmDuplicate.isPending} onClick={() => { resetEntry(); setEntryOpen(false); }}>取消</Button>
+          {duplicate ? <Button data-write-action variant="primary" aria-describedby="duplicate-finance-warning"
+            disabled={mode !== "ACTIVE"} loading={confirmDuplicate.isPending} loadingText="确认中…" onClick={submitDuplicate}>确认重复入账</Button>
+            : <Button data-write-action variant="primary" disabled={mode !== "ACTIVE"} loading={mutation.isPending}
+              loadingText="入账中…" onClick={submit}>入账确认</Button>}
+        </div>
       </section> : null}
 
       <section className="mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4">
-        <div className="grid gap-3 md:grid-cols-2"><FormField htmlFor="finance-history-resource" label="历史记录资源"><select className={INPUT_CLASS} id="finance-history-resource" onChange={(event) => { setResourceId(event.target.value || null); const resource = resources.find((r) => r.id === event.target.value); if (resource) setKind(resource.mode); }} value={resourceId ?? ""}><option value="">请选择</option>{resources.map((resource) => <option key={resource.id} value={resource.id}>{providerName(resource)} · {resource.name}</option>)}</select></FormField>{selected?.mode === "CODING_PLAN" ? <FinanceMetric label="当前服务周期" value={periods.data?.periods.find((period) => period.current_status === "ACTIVE") ? `${formatShanghaiDate(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.period_start)} ～ ${formatShanghaiDate(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.period_end_exclusive)} · ${formatCount(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.token_usage.true_tokens)} Token` : "无有效周期"} /> : null}</div>
+        <div className="grid gap-3 md:grid-cols-2"><FormField htmlFor="finance-history-resource" label="历史记录资源"><select disabled={entryOpen} className={INPUT_CLASS} id="finance-history-resource" onChange={(event) => { setResourceId(event.target.value || null); const resource = resources.find((r) => r.id === event.target.value); if (resource) setKind(resource.mode); }} value={resourceId ?? ""}><option value="">请选择</option>{resources.map((resource) => <option key={resource.id} value={resource.id}>{providerName(resource)} · {resource.name}</option>)}</select></FormField>{selected?.mode === "CODING_PLAN" ? <FinanceMetric label="当前服务周期" value={periods.data?.periods.find((period) => period.current_status === "ACTIVE") ? `${formatShanghaiDate(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.period_start)} ～ ${formatShanghaiDate(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.period_end_exclusive)} · ${formatCount(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.token_usage.true_tokens)} Token` : "无有效周期"} /> : null}</div>
         {selected?.mode === "CODING_PLAN" ? <SubscriptionAutoRenewal key={selected.id} resourceId={selected.id} writable={mode === "ACTIVE"} /> : null}
         {selected?.mode === "CODING_PLAN" ? <SubscriptionHistory periods={periods.data?.periods ?? []} /> : null}
         <h3 className="mt-4 text-[14px] font-semibold text-ql-fg">{month} 资金记录</h3>
