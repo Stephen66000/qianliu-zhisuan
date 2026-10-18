@@ -185,14 +185,14 @@ export function DirectoryPanel() {
           <p className="mt-1 text-[13px] text-ql-fg-tertiary">只从企业微信或飞书读取，不向外部通讯录回写。</p>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-[10rem_1fr_1fr_auto]">
-        <select aria-label="通讯录来源" className={INPUT_CLASS} onChange={(event) => { setSourceType(event.target.value as "WECOM" | "FEISHU"); setIdentity(""); setSecret(""); }} value={sourceType}>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <select aria-label="通讯录来源" className={`${INPUT_CLASS} min-w-0 w-full`} onChange={(event) => { setSourceType(event.target.value as "WECOM" | "FEISHU"); setIdentity(""); setSecret(""); }} value={sourceType}>
           <option value="WECOM">企业微信</option><option value="FEISHU">飞书</option>
         </select>
-        <input aria-label={sourceType === "WECOM" ? "企业 ID" : "应用 ID"} className={INPUT_CLASS} onChange={(event) => setIdentity(event.target.value)} placeholder={sourceType === "WECOM" ? "Corp ID" : "App ID"} value={identity}/>
-        <input aria-label="应用 Secret" autoComplete="new-password" className={INPUT_CLASS} onChange={(event) => setSecret(event.target.value)} placeholder="Secret 只写不回显" type="password" value={secret}/>
-        <div className="flex gap-2"><Button variant="secondary" size="md" data-write-action  disabled={!identity.trim() || !secret || saveSource.isPending} onClick={() => void save()} type="button">保存连接</Button>
-          <Button data-write-action variant="primary" disabled={!currentSource || startSync.isPending} onClick={() => void sync()} type="button"><RefreshCw className="h-4 w-4"/>同步</Button></div>
+        <input aria-label={sourceType === "WECOM" ? "企业 ID" : "应用 ID"} className={`${INPUT_CLASS} min-w-0 w-full`} onChange={(event) => setIdentity(event.target.value)} placeholder={sourceType === "WECOM" ? "Corp ID" : "App ID"} value={identity}/>
+        <input aria-label="应用 Secret" autoComplete="new-password" className={`${INPUT_CLASS} min-w-0 w-full`} onChange={(event) => setSecret(event.target.value)} placeholder="Secret 只写不回显" type="password" value={secret}/>
+        <div className="flex gap-2"><Button variant="secondary" size="form" data-write-action  disabled={!identity.trim() || !secret || saveSource.isPending} onClick={() => void save()} type="button">保存连接</Button>
+          <Button data-write-action variant="primary" size="form" disabled={!currentSource || startSync.isPending} onClick={() => void sync()} type="button"><RefreshCw className="h-4 w-4"/>同步</Button></div>
       </div>
       {saveSource.error || startSync.error ? <p className="mt-2 text-[13px] text-ql-danger" role="alert">{(saveSource.error ?? startSync.error)?.message}</p> : null}
     </section>
