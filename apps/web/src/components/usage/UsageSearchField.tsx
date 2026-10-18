@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Search } from "lucide-react";
+import { Button } from "../ui/Button";
 
 export const usageInputClass =
   "h-9 min-w-0 w-full rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg outline-none focus:border-ql-action focus:ring-1 focus:ring-ql-action";
@@ -32,7 +33,7 @@ export function UsageSearchField({
       role="search"
     >
       <label
-        className={hideLabel ? "sr-only" : "mb-1 block text-[12px] text-ql-fg-secondary"}
+        className={hideLabel ? "sr-only" : "mb-1 block text-[13px] text-ql-fg-secondary"}
         htmlFor={inputId}
       >
         用量搜索
@@ -57,13 +58,13 @@ export function UsageSearchField({
             value={value}
           />
         </span>
-        <button
-          className="h-9 shrink-0 rounded-lg bg-ql-action px-3 text-[13px] font-medium text-white hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action disabled:opacity-50"
+        <Button
+          variant="primary" className="shrink-0"
           disabled={pending}
           type="submit"
         >
           {pending ? "查询中…" : "查询"}
-        </button>
+        </Button>
       </div>
     </form>
   );

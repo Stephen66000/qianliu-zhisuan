@@ -169,7 +169,7 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
                       {member.name}
                       {member.employee_number ? ` · 工号: ${member.employee_number}` : ""}
                     </span>
-                    <span className="block text-[12px] text-ql-fg-tertiary">
+                    <span className="block text-[13px] text-ql-fg-tertiary">
                       {member.department_name ?? "待归属"}
                       {member.external_member_id
                         ? ` · 企微账号: ${member.external_member_id}`
@@ -214,7 +214,7 @@ export function PrincipalCreateForm({ onClose }: { onClose: () => void }) {
         )}
       </div>
       {type === "EMPLOYEE" && selectedPerson ? (
-        <p className="text-[12px] text-ql-fg-secondary" role="status">
+        <p className="text-[13px] text-ql-fg-secondary" role="status">
           已绑定企微候选人「{selectedPerson.name}」
           {selectedPerson.external_member_id ? `（企微ID: ${selectedPerson.external_member_id}）` : ""}
           {selectedPerson.employee_number ? `（工号: ${selectedPerson.employee_number}）` : ""}

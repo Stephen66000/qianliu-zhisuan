@@ -8,7 +8,7 @@ export function DepartmentBudgetEntry() {
   if (!flags.FEATURE_DEPARTMENT_COST) return null;
   return <>
     <div className="mb-4 flex justify-end">
-      <button className="rounded-lg border border-ql-border px-3 py-2 text-[12px] font-medium text-ql-action" onClick={() => setExpanded((value) => !value)} type="button">
+      <button className="rounded-lg border border-ql-border px-3 py-2 text-[13px] font-medium text-ql-action" onClick={() => setExpanded((value) => !value)} type="button">
         {expanded ? "收起部门预算" : "部门预算 · 2.0"}
       </button>
     </div>

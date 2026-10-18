@@ -57,18 +57,18 @@ export function ActivationListDialog({ open, onClose }: ActivationListDialogProp
           <Upload className="h-4 w-4"/>{identifiers.length > 0 ? "重新上传名单" : "选择名单文件（.xlsx）"}
           <input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadList(file); event.target.value = ""; }} type="file"/>
         </label>
-        {listPreview.error ? <p className="text-[12px] text-ql-danger" role="alert">{listPreview.error.message}</p> : null}
+        {listPreview.error ? <p className="text-[13px] text-ql-danger" role="alert">{listPreview.error.message}</p> : null}
         {!result && identifiers.length > 0 ? <div className="rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
-          <p className="text-[12px] text-ql-fg-secondary">识别到 {identifiers.length} 个标识：</p>
-          <p className="mt-1 max-h-24 overflow-y-auto text-[12px] text-ql-fg-tertiary">{identifiers.join("、")}</p>
+          <p className="text-[13px] text-ql-fg-secondary">识别到 {identifiers.length} 个标识：</p>
+          <p className="mt-1 max-h-24 overflow-y-auto text-[13px] text-ql-fg-tertiary">{identifiers.join("、")}</p>
         </div> : null}
         {result ? <div className="rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
           {result.notFound.length > 0 ? <>
-            <p className="text-[12px] text-ql-warning">以下 {result.notFound.length} 项在通讯录候选库中未找到，请核实：</p>
-            <p className="mt-1 max-h-24 overflow-y-auto text-[12px] text-ql-fg-tertiary">{result.notFound.join("、")}</p>
-          </> : <p className="text-[12px] text-ql-fg-secondary">全部标识均已处理。</p>}
+            <p className="text-[13px] text-ql-warning">以下 {result.notFound.length} 项在通讯录候选库中未找到，请核实：</p>
+            <p className="mt-1 max-h-24 overflow-y-auto text-[13px] text-ql-fg-tertiary">{result.notFound.join("、")}</p>
+          </> : <p className="text-[13px] text-ql-fg-secondary">全部标识均已处理。</p>}
         </div> : null}
-        {activateByList.error ? <p className="text-[12px] text-ql-danger" role="alert">{activateByList.error.message}</p> : null}
+        {activateByList.error ? <p className="text-[13px] text-ql-danger" role="alert">{activateByList.error.message}</p> : null}
       </div>
     </ConfirmDialog>
   );

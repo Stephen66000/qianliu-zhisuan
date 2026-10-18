@@ -61,7 +61,7 @@ export function ResourceTabs({
         <button
           aria-controls={`resource-tab-panel-${tab.id}`}
           aria-selected={activeTab === tab.id}
-          className={`whitespace-nowrap border-b-2 px-4 py-2 text-[13px] ${activeTab === tab.id ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`}
+          className={`whitespace-nowrap border-b-2 px-4 py-2 text-[13px] ${activeTab === tab.id ? "border-ql-action text-ql-action" : "border-transparent text-ql-fg-secondary"}`}
           id={`resource-tab-${tab.id}`}
           key={tab.id}
           onClick={() => onSelect(tab.id)}

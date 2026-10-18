@@ -14,6 +14,7 @@ import { ModelRuleCard } from "./ModelRuleCard";
 import { groupRulesByModel, getRuleStatusCategory, type ModelRuleGroup } from "./model-rule-grouping";
 import { copyPrice, pricingCopyCandidates, currentPricingSet } from "./pricing-copy";
 import { toPerMillion, toPerToken } from "../../lib/price-unit";
+import { Button } from "../ui/Button";
 
 // eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：规则卡片区编排组件，条件渲染密集，拆分计划见审核报告 F-P2-3。
 export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
@@ -296,11 +297,11 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               <div className="md:col-span-4 rounded-lg border border-ql-border-zone p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <div>
-                    <p className="text-[12px] font-medium text-ql-fg">时间窗口</p>
-                    <p className="text-[11px] text-ql-fg-tertiary">可配置多段；开始含、结束不含。</p>
+                    <p className="text-[13px] font-medium text-ql-fg">时间窗口</p>
+                    <p className="text-[13px] text-ql-fg-tertiary">可配置多段；开始含、结束不含。</p>
                   </div>
                   <button
-                    className="rounded px-2 py-1 text-[12px] text-ql-action hover:bg-ql-action-soft"
+                    className="rounded-md px-2 py-1 text-[13px] text-ql-action hover:bg-ql-action-soft"
                     onClick={() => appendRuleWindow({
                       timezone: "Asia/Shanghai",
                       days_of_week: "1,2,3,4,5,6,7",
@@ -313,14 +314,14 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                   </button>
                 </div>
                 {(ruleForm.formState.errors.windows as { message?: string } | undefined)?.message ? (
-                  <p className="mb-2 text-[11px] text-ql-danger">
+                  <p className="mb-2 text-[13px] text-ql-danger">
                     {(ruleForm.formState.errors.windows as { message?: string }).message}
                   </p>
                 ) : null}
                 <div className="flex flex-col gap-2">
                   {ruleWindowFields.map((field, index) => (
                     <div
-                      className="grid grid-cols-1 gap-2 rounded border border-ql-border-zone p-2 md:grid-cols-5"
+                      className="grid grid-cols-1 gap-2 rounded-md border border-ql-border-zone p-2 md:grid-cols-5"
                       key={field.id}
                     >
                       <FormField
@@ -372,7 +373,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                       </FormField>
                       <div className="flex items-end">
                         <button data-write-action
-                          className="h-9 rounded px-2 text-[12px] text-ql-danger hover:bg-ql-danger-soft"
+                          className="h-9 rounded-md px-2 text-[13px] text-ql-danger hover:bg-ql-danger-soft"
                           onClick={() => removeRuleWindow(index)}
                           type="button"
                         >
@@ -398,7 +399,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             >
               <input className={INPUT_CLASS} id="rule-cache-hit" placeholder="例如: 0.5" {...ruleForm.register("cache_hit_price")} />
               {ruleForm.watch("cache_hit_price") ? (
-                <span className="mt-1 block text-[11px] font-mono text-ql-fg-tertiary">
+                <span className="mt-1 block text-[13px] font-mono text-ql-fg-tertiary">
                   换算单价：{toPerToken(ruleForm.watch("cache_hit_price"))} {ruleForm.watch("currency") ?? "CNY"}/Token
                 </span>
               ) : null}
@@ -410,7 +411,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             >
               <input className={INPUT_CLASS} id="rule-cache-miss" placeholder="例如: 1.0" {...ruleForm.register("cache_miss_price")} />
               {ruleForm.watch("cache_miss_price") ? (
-                <span className="mt-1 block text-[11px] font-mono text-ql-fg-tertiary">
+                <span className="mt-1 block text-[13px] font-mono text-ql-fg-tertiary">
                   换算单价：{toPerToken(ruleForm.watch("cache_miss_price"))} {ruleForm.watch("currency") ?? "CNY"}/Token
                 </span>
               ) : null}
@@ -422,7 +423,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             >
               <input className={INPUT_CLASS} id="rule-output" placeholder="例如: 2.0" {...ruleForm.register("output_price")} />
               {ruleForm.watch("output_price") ? (
-                <span className="mt-1 block text-[11px] font-mono text-ql-fg-tertiary">
+                <span className="mt-1 block text-[13px] font-mono text-ql-fg-tertiary">
                   换算单价：{toPerToken(ruleForm.watch("output_price"))} {ruleForm.watch("currency") ?? "CNY"}/Token
                 </span>
               ) : null}
@@ -436,7 +437,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             </FormField>
             <PricingPreview values={ruleForm.watch()} />
             <div className="md:col-span-4">
-              {model.queuedRules.map((rule, index) => <div key={index} className="mb-2 rounded border p-2 text-xs">
+              {model.queuedRules.map((rule, index) => <div key={index} className="mb-2 rounded-md border p-2 text-[13px]">
                 {rule.rule_version} · {rule.upstream_model} · {rule.currency} · 命中 {rule.cache_hit_price || "—"} / 未命中 {rule.cache_miss_price || "—"} / 输出 {rule.output_price || "—"} ({rule.currency}/百万 Token) · 倍率 {rule.multiplier || "—"}
                 <span className="block">{rule.windows.length ? rule.windows.map((window) => `${window.timezone} ${window.days_of_week || "每天"} ${window.start_time}–${window.end_time}`).join("；") : "全天"} · {rule.effective_from}</span>
                 <button data-write-action type="button" className="ml-3 text-ql-action" onClick={() => {
@@ -453,8 +454,8 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               })}>加入规则集并配置下一时段</button>
             </div>
             <div className="md:col-span-4 flex justify-end gap-2">
-              <button type="button" disabled={createRule.isPending}
-                className="h-9 rounded-lg border border-ql-border px-4 text-[13px] disabled:opacity-60"
+              <Button type="button" disabled={createRule.isPending}
+                variant="secondary"
                 onClick={() => {
                   setShowRuleForm(false);
                   ruleForm.reset({ rule_type: "API_PRICE", rule_version: "v1", provider_resource_id: "",
@@ -464,24 +465,24 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                   model.routeForm.reset();
                   model.setSelectedRuleRouteId(""); model.setQueuedRules([]); model.setSourceRuleIds([]);
                   model.setReplaceExisting(false); model.setSubmissionId(crypto.randomUUID()); createRule.reset();
-                }}>取消</button>
-              <button data-write-action
-                className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
+                }}>取消</Button>
+              <Button data-write-action
+                variant="primary"
                 disabled={createRule.isPending}
                 type="submit"
               >
                 保存并启用
-              </button>
+              </Button>
             </div>
           </form>
         ) : null}
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-[12px] font-medium text-ql-fg-secondary">厂商：</span>
+              <span className="text-[13px] font-medium text-ql-fg-secondary">厂商：</span>
               <select
                 aria-label="筛选厂商"
-                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg focus:border-ql-action focus:outline-none"
                 value={filterProvider}
                 onChange={(e) => {
                   setFilterProvider(e.target.value);
@@ -496,10 +497,10 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[12px] font-medium text-ql-fg-secondary">模型：</span>
+              <span className="text-[13px] font-medium text-ql-fg-secondary">模型：</span>
               <select
                 aria-label="筛选模型"
-                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg focus:border-ql-action focus:outline-none"
                 value={filterModel}
                 onChange={(e) => setFilterModel(e.target.value)}
               >
@@ -511,10 +512,10 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[12px] font-medium text-ql-fg-secondary">状态：</span>
+              <span className="text-[13px] font-medium text-ql-fg-secondary">状态：</span>
               <select
                 aria-label="筛选状态"
-                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+                className="h-8 rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg focus:border-ql-action focus:outline-none"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
@@ -531,7 +532,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="h-8 rounded-md px-2.5 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                className="h-8 rounded-md px-2.5 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
               >
                 重置筛选
               </button>
@@ -543,7 +544,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            <div data-testid="rule-count-summary" className="text-[12px] text-ql-fg-tertiary">
+            <div data-testid="rule-count-summary" className="text-[13px] text-ql-fg-tertiary">
               {isFiltered ? (
                 <span>显示 <strong className="font-mono text-ql-fg">{filteredRules.length}</strong> / 共 {rules.length} 条规则</span>
               ) : (
@@ -551,13 +552,13 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               )}
             </div>
 
-            <div className="flex items-center rounded-md border border-ql-border bg-ql-surface p-0.5 text-[12px]">
+            <div className="flex items-center rounded-md border border-ql-border bg-ql-surface p-0.5 text-[13px]">
               <button
                 type="button"
                 aria-label="卡片聚合视图"
-                className={`flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+                className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors ${
                   viewMode === "card"
-                    ? "bg-ql-action text-white"
+                    ? "bg-ql-action-soft text-ql-action"
                     : "text-ql-fg-secondary hover:text-ql-fg"
                 }`}
                 onClick={() => setViewMode("card")}
@@ -568,9 +569,9 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               <button
                 type="button"
                 aria-label="明细表格视图"
-                className={`flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+                className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors ${
                   viewMode === "table"
-                    ? "bg-ql-action text-white"
+                    ? "bg-ql-action-soft text-ql-action"
                     : "text-ql-fg-secondary hover:text-ql-fg"
                 }`}
                 onClick={() => setViewMode("table")}
@@ -581,7 +582,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
             </div>
           </div>
         </div>
-        <p className="mb-3 text-[11px] text-ql-fg-tertiary">
+        <p className="mb-3 text-[13px] text-ql-fg-tertiary">
           价格、倍率、时间窗和优先级属于规则版本，不可原地改写；变更时请新建
           rule_version，并用生效/失效时间完成切换。
         </p>
@@ -626,7 +627,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
               ))}
             </div>
           ) : (
-            <table className="w-full border-collapse text-left text-[12px]">
+            <table className="w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-ql-border text-ql-fg-tertiary">
                   <th className="p-2 font-medium">版本</th>
@@ -648,7 +649,7 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                     <td className="p-2">
                       <span className="font-medium text-ql-fg">{rule.upstream_model ?? "全部"}</span>
                       {rule.provider_resource_id && resourceMap.get(rule.provider_resource_id) ? (
-                        <span className="block text-[11px] text-ql-fg-tertiary">
+                        <span className="block text-[13px] text-ql-fg-tertiary">
                           {resourceMap.get(rule.provider_resource_id)?.name}
                         </span>
                       ) : null}
@@ -674,14 +675,14 @@ export function QuotaBillingSection({ model }: { model: QuotaRulesPageModel }) {
                     </td>
                     <td className="p-2 text-right whitespace-nowrap">
                       {rule.archived_at ? (
-                        <button className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        <button className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                           onClick={() => archiveConfig.mutate({ kind: "rule", item: rule, archive: false })}
                           type="button">取消归档</button>
                       ) : <>
-                        <button data-write-action className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        <button data-write-action className="rounded-md px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
                           onClick={() => updateRule.mutate({ rule, patch: { enabled: !rule.enabled } })}
                           type="button">{rule.enabled ? "停用" : "启用"}</button>
-                        {!rule.enabled ? <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        {!rule.enabled ? <button className="rounded-md px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
                           onClick={() => setArchiveTarget({ kind: "rule", item: rule })}
                           type="button">归档</button> : null}
                       </>}

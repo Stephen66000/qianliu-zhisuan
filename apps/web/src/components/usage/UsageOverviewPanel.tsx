@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useUsageOverview } from "../../api/v2-hooks";
+import type { UsageOverview } from "../../api/v2-types";
 import { formatCount, formatMoney } from "../../lib/format";
 import { unavailableUsageCostLabel } from "../../lib/usage-cost";
 import { ErrorState } from "../states/ErrorState";
@@ -31,19 +32,18 @@ export function UsageOverviewPanel() {
   const data = query.data;
   const costDisplay = unavailableUsageCostLabel(data.metrics.apiCost, data.metrics.apiCostStatus) ?? `¥${formatMoney(data.metrics.apiCost!)}`;
   const metrics = [["活跃主体", formatCount(String(data.metrics.activeSubjects))], ["请求数", formatCount(data.metrics.requestCount)], ["token使用量", formatCount(data.metrics.realTokens)], ["API 费用", costDisplay], ["套餐扣减", formatCount(data.metrics.deductedQuota)]];
-  const max = Math.max(1, ...data.trend.map((item) => Number(item.realTokens)));
   return <div className="space-y-3">
     <div className="rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
       <div className="grid grid-cols-2 items-start gap-2 lg:grid-cols-[88px_180px_148px_minmax(0,1fr)]">
         <select aria-label="用量主体类型" className={usageInputClass} onChange={(event) => set("subject_type", event.target.value)} value={subjectType}><option value="EMPLOYEE">员工</option><option value="PROJECT">项目</option></select>
-        <div aria-label="用量周期" className="flex h-9 items-center gap-1" role="group">{([["TODAY", "今日"], ["WEEK", "本周"], ["MONTH", "本月"]] as const).map(([value, label]) => <button aria-pressed={period === value} className={`h-full flex-1 rounded border text-[12px] ${period === value ? "border-ql-action text-ql-action" : "border-ql-border-zone"}`} key={value} onClick={() => chooseRange(value, today())} type="button">{label}</button>)}</div>
+        <div aria-label="用量周期" className="flex h-9 items-center gap-1" role="group">{([["TODAY", "今日"], ["WEEK", "本周"], ["MONTH", "本月"]] as const).map(([value, label]) => <button aria-pressed={period === value} className={`h-full flex-1 rounded-md border text-[13px] ${period === value ? "border-ql-action text-ql-action" : "border-ql-border-zone"}`} key={value} onClick={() => chooseRange(value, today())} type="button">{label}</button>)}</div>
         <input aria-label="用量锚点" className={`${usageInputClass} col-span-2 lg:col-span-1`} onChange={(event) => { if (event.target.value) chooseRange("TODAY", event.target.value); }} type="date" value={Number.isFinite(Date.parse(anchor)) ? new Date(Date.parse(anchor) + 8 * 60 * 60_000).toISOString().slice(0, 10) : today()}/>
         <div className="col-span-2 min-w-0 lg:col-span-1"><UsageSubjectPicker compact onChange={(value) => set("subject_id", value)} subjectType={subjectType} value={subjectId} /></div>
       </div>
     </div>
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">{metrics.map(([label, value]) => <article className="min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface px-3 py-2" key={label}><p className="text-[12px] text-ql-fg-tertiary">{label}</p><strong className="mt-1 block break-all font-mono text-[clamp(12px,1.4vw,20px)] font-semibold leading-7">{value}</strong></article>)}</div>
-    <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-3"><div className="flex items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">趋势</h2><p className="mt-1 text-[11px] text-ql-fg-tertiary">{new Date(data.range.from).toLocaleString("zh-CN")} — {new Date(data.range.to).toLocaleString("zh-CN")} · {data.timezone}</p></div><span className="text-right text-[11px] text-ql-fg-tertiary">数据时间 {new Date(data.generatedAt).toLocaleString("zh-CN")}</span></div><div className="mt-2 flex h-24 items-end gap-1 overflow-x-auto" aria-label="用量趋势图">{data.trend.map((item) => <div className="flex min-w-6 flex-1 flex-col items-center justify-end gap-1" key={item.bucketStart}><span className="text-[10px] text-ql-fg-tertiary">{Number(item.realTokens) ? formatCount(item.realTokens) : ""}</span><div className="w-full rounded-t bg-ql-action" style={{ height: `${Math.max(2, Number(item.realTokens) / max * 56)}px` }}/><span className="whitespace-nowrap text-[10px] text-ql-fg-tertiary">{item.label}</span></div>)}</div></section>
-    <section className="overflow-hidden rounded-xl border border-ql-border-zone bg-ql-surface"><div className="flex items-center justify-between px-3 py-2"><h2 className="text-[15px] font-semibold">消耗排名</h2><Link className="text-[12px] text-ql-action" to={`?tab=details&subject_type=${data.detailQuery.subjectType}&settled_only=${String(data.detailQuery.settledOnly)}&status=SUCCEEDED&from=${encodeURIComponent(data.detailQuery.from)}&to_exclusive=${encodeURIComponent(data.detailQuery.toExclusive)}${data.detailQuery.principalId ? `&principal_id=${data.detailQuery.principalId}` : ""}${data.detailQuery.projectId ? `&project_id=${data.detailQuery.projectId}` : ""}`}>查看请求明细</Link></div><div className="overflow-x-auto"><table className="w-full text-left text-[12px]"><thead><tr className="border-y border-ql-border-zone bg-ql-surface-subtle text-ql-fg-tertiary"><th className="px-3 py-2">排名</th><th>主体</th><th>部门</th><th className="text-right">请求</th><th className="text-right">分配额度</th><th className="text-right">token使用量</th><th className="text-right">token使用率</th><th className="text-right">剩余额度</th><th className="pr-3 text-right">API 费用</th></tr></thead><tbody>{data.ranking.map((item, index) => {
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">{metrics.map(([label, value]) => <article className="min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface px-3 py-2" key={label}><p className="text-[13px] text-ql-fg-tertiary">{label}</p><strong className="mt-1 block break-all font-mono text-[clamp(12px,1.4vw,20px)] font-semibold leading-7">{value}</strong></article>)}</div>
+    <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-3"><div className="flex items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">趋势</h2><p className="mt-1 text-[13px] text-ql-fg-tertiary">{new Date(data.range.from).toLocaleString("zh-CN")} — {new Date(data.range.to).toLocaleString("zh-CN")} · {data.timezone}</p></div><span className="text-right text-[13px] text-ql-fg-tertiary">数据时间 {new Date(data.generatedAt).toLocaleString("zh-CN")}</span></div><TrendBars trend={data.trend} /></section>
+    <section className="overflow-hidden rounded-xl border border-ql-border-zone bg-ql-surface"><div className="flex items-center justify-between px-3 py-2"><h2 className="text-[15px] font-semibold">消耗排名</h2><Link className="text-[13px] text-ql-action" to={`?tab=details&subject_type=${data.detailQuery.subjectType}&settled_only=${String(data.detailQuery.settledOnly)}&status=SUCCEEDED&from=${encodeURIComponent(data.detailQuery.from)}&to_exclusive=${encodeURIComponent(data.detailQuery.toExclusive)}${data.detailQuery.principalId ? `&principal_id=${data.detailQuery.principalId}` : ""}${data.detailQuery.projectId ? `&project_id=${data.detailQuery.projectId}` : ""}`}>查看请求明细</Link></div><div className="overflow-x-auto"><table className="w-full text-left text-[13px]"><thead><tr className="border-y border-ql-border-zone bg-ql-surface-subtle text-ql-fg-tertiary"><th className="px-3 py-2">排名</th><th>主体</th><th>部门</th><th className="text-right">请求</th><th className="text-right">分配额度</th><th className="text-right">token使用量</th><th className="text-right">token使用率</th><th className="text-right">剩余额度</th><th className="pr-3 text-right">API 费用</th></tr></thead><tbody>{data.ranking.map((item, index) => {
       const allocatedQuotaNum = item.allocatedQuota ? Number(item.allocatedQuota) : 0;
       const usedTokensNum = Number(item.realTokens ?? 0);
       const usageRate = allocatedQuotaNum > 0 ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%` : "—";
@@ -52,4 +52,51 @@ export function UsageOverviewPanel() {
       return <tr className="border-b border-ql-border-zone" key={item.subjectId}><td className="px-3 py-2">{index + 1}</td><td><button className="text-ql-action" onClick={() => set("subject_id", item.subjectId)} type="button">{item.subjectName}</button></td><td>{item.departmentLabel ?? "—"}</td><td className="text-right">{formatCount(item.requestCount)}</td><td className="text-right font-mono">{allocatedQuotaNum > 0 ? formatCount(item.allocatedQuota!) : "不限"}</td><td className="text-right font-mono">{formatCount(item.realTokens)}</td><td className="text-right font-mono">{usageRate}</td><td className="text-right font-mono">{remainingQuota}</td><td className="pr-3 text-right">{costText}</td></tr>;
     })}</tbody></table>{data.ranking.length === 0 ? <p className="p-6 text-center text-[13px] text-ql-fg-tertiary">本周期暂无已结算用量</p> : null}</div></section>
   </div>;
+}
+
+/** 一屏最多标几个日期刻度：柱子再多（如满月 30 天），相邻刻度之间也至少隔几根柱子，不会互相压住。 */
+const MAX_TREND_LABELS = 6;
+
+/**
+ * 趋势柱状图。柱子上不再逐个写数值（满月 30 根柱子时数值必然重叠），
+ * 改为：标题下方写峰值，每根柱子悬停或读屏时给出日期和精确值；日期刻度按间隔抽样。
+ */
+function TrendBars({ trend }: { trend: UsageOverview["trend"] }) {
+  const values = trend.map((item) => Number(item.realTokens) || 0);
+  const max = Math.max(1, ...values);
+  const peakIndex = values.indexOf(Math.max(...values, 0));
+  const labelCount = Math.min(trend.length, MAX_TREND_LABELS);
+  // 在固定的刻度预算内覆盖首尾，不能再额外追加末尾日期。
+  const labelIndices = new Set(Array.from({ length: labelCount }, (_, index) =>
+    labelCount === 1 ? 0 : Math.round(index * (trend.length - 1) / (labelCount - 1))));
+  return (
+    <>
+      {peakIndex >= 0 && values[peakIndex]! > 0 ? (
+        <p className="mt-1 text-[13px] text-ql-fg-secondary">
+          峰值 {trend[peakIndex]!.label} · {formatCount(trend[peakIndex]!.realTokens)} Token
+        </p>
+      ) : null}
+      <div aria-label="用量趋势图" className="mt-2 flex h-24 items-end gap-1 overflow-x-auto" role="group">
+        {trend.map((item, index) => {
+          const summary = `${item.label}：${formatCount(item.realTokens)} Token`;
+          return (
+            <div
+              className="flex min-w-6 flex-1 flex-col items-center justify-end gap-1"
+              key={item.bucketStart}
+              title={summary}
+            >
+              <span className="sr-only">{summary}</span>
+              <div
+                className="w-full rounded-t-md bg-ql-action"
+                style={{ height: `${Math.max(2, (values[index]! / max) * 72)}px` }}
+              />
+              <span aria-hidden className="h-4 whitespace-nowrap text-[12px] leading-4 text-ql-fg-tertiary">
+                {labelIndices.has(index) ? item.label : ""}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
 }

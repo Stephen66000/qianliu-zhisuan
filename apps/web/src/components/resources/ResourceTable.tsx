@@ -18,10 +18,10 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
   const { query, setRecoverTarget, setEditTarget, setSyncTarget, setDeleteResourceTarget, setOperatingTarget, setOperatingDraft, setOperatingValidationError, setOperatingHistory, editReset, resources, providerOptions, showArchived, setShowArchived, archiveResourceMutation, unarchiveResourceMutation } = model;
   return <>
       <div className="mb-2 flex justify-end">
-        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-ql-fg-muted select-none">
+        <label className="flex cursor-pointer items-center gap-1.5 text-[13px] text-ql-fg-tertiary select-none">
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-ql-border text-ql-action focus:ring-ql-action"
+            className="h-3.5 w-3.5 rounded-md border-ql-border text-ql-action focus:ring-ql-action"
             checked={showArchived}
             onChange={(e) => setShowArchived(e.target.checked)}
           />
@@ -46,7 +46,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
               <col className="w-[7%]" /><col className="w-[10%]" /><col className="w-[15%]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
+              <tr className="border-b border-ql-border text-[13px] leading-[18px] text-ql-fg-tertiary">
                 <th className="py-2 pr-4 font-medium">名称</th>
                 <th className="py-2 pr-4 font-medium">厂商/模型</th>
                 <th className="py-2 pr-4 font-medium">模式</th>
@@ -67,14 +67,14 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                   <td className="py-2.5 pr-4 font-medium">
                     {r.name}
                     {r.archived_at ? (
-                      <span className="ml-1.5 rounded bg-ql-surface-subtle border border-ql-border px-1.5 py-0.5 text-[10px] font-normal text-ql-fg-muted">已归档</span>
+                      <span className="ml-1.5 rounded-md bg-ql-surface-subtle border border-ql-border px-1.5 py-0.5 text-[12px] font-normal text-ql-fg-tertiary">已归档</span>
                     ) : null}
                   </td>
                   <td className="py-2.5 pr-4 text-ql-fg-secondary">
                     <span className="block">
                       {providerOptions.find((provider) => provider.id === r.provider_id)?.name ?? "—"}
                     </span>
-                    <span className="font-mono text-[11px] text-ql-fg-tertiary">
+                    <span className="font-mono text-[13px] text-ql-fg-tertiary">
                       {resourceModelNames(r)}
                     </span>
                   </td>
@@ -127,7 +127,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                   <td className="py-2.5 text-right">
                     <div className="flex flex-wrap justify-end gap-1">
                       <button data-write-action
-                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={() => {
                           setEditTarget(r);
                           editReset({
@@ -140,14 +140,14 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                         编辑
                       </button>
                       <button data-write-action
-                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={() => {
                           setSyncTarget(r);
                         }}
                         type="button"
                       >同步模型</button>
                       {r.mode === "CODING_PLAN" ? <button data-write-action
-                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={async () => {
                           setOperatingTarget(r);
                           setOperatingDraft(operatingDraftFromResource(r));
@@ -163,7 +163,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                       </button> : null}
                       {ISOLATED.has(r.status) ? (
                       <button data-write-action
-                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-warning hover:bg-ql-warning-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-warning"
+                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-warning hover:bg-ql-warning-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-warning"
                         onClick={() => setRecoverTarget(r)}
                         type="button"
                       >
@@ -172,7 +172,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                       ) : null}
                       {r.archived_at ? (
                         <button data-write-action
-                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                          className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                           disabled={unarchiveResourceMutation.isPending}
                           onClick={() => unarchiveResourceMutation.mutate(r.id)}
                           type="button"
@@ -182,7 +182,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                       ) : (
                         <>
                           <button data-write-action
-                            className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-fg-secondary hover:bg-ql-surface-subtle"
+                            className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-fg-secondary hover:bg-ql-surface-subtle"
                             disabled={archiveResourceMutation.isPending}
                             onClick={() => archiveResourceMutation.mutate(r.id)}
                             type="button"
@@ -190,7 +190,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                             {archiveResourceMutation.isPending ? "归档中…" : "归档"}
                           </button>
                           <button data-write-action
-                            className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
+                            className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft"
                             onClick={() => setDeleteResourceTarget(r)}
                             type="button"
                           >

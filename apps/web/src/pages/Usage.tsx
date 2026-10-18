@@ -22,6 +22,7 @@ import { UsageOverviewPanel } from "../components/usage/UsageOverviewPanel";
 import { useFeatureFlags } from "../feature-flags";
 
 import { UsageKeywordSearch } from "../components/usage/UsageSearchField";
+import { Button } from "../components/ui/Button";
 
 const PAGE_SIZE = 20;
 
@@ -67,7 +68,7 @@ function ProjectFilter({ principals, value, onChange }: {
   onChange: (value: string) => void;
 }) {
   return <label>
-    <span className="mb-1 block text-[12px] text-ql-fg-secondary">项目</span>
+    <span className="mb-1 block text-[13px] text-ql-fg-secondary">项目</span>
     <select aria-label="项目" className={`${inputClass} w-full`} onChange={(event) => onChange(event.target.value)} value={value}>
       <option value="">全部项目</option>
       {principals.filter((principal) => principal.type === "PROJECT").map((principal) => (
@@ -87,7 +88,7 @@ export function UsagePage() {
   if (!flags.FEATURE_USAGE_OVERVIEW_V2 || tab === "details" || legacyDetails) return <UsageDetailsPage />;
   return <PageShell title="用量账本">
     <div className="mb-3 flex gap-2 border-b border-ql-border">
-      <button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">用量概览</button>
+      <button className="border-b-2 border-ql-action px-4 py-2 text-[13px] text-ql-action" type="button">用量概览</button>
       <button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => { const next = new URLSearchParams(params); next.set("tab", "details"); setParams(next, { replace: true }); }} type="button">请求明细</button>
     </div>
     <UsageOverviewPanel />
@@ -249,12 +250,12 @@ function UsageDetailsPage() {
   return (
     <PageShell description="按主体、姓名或项目查找用量，查看每次请求的消耗明细" title="用量账本">
 
-      <div className="mb-4 flex gap-2 border-b border-ql-border">{featureFlags.FEATURE_USAGE_OVERVIEW_V2 ? <button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "overview")} type="button">用量概览</button> : null}<button className="border-b-2 border-ql-brand px-4 py-2 text-[13px] text-ql-brand" type="button">请求明细</button></div>
+      <div className="mb-4 flex gap-2 border-b border-ql-border">{featureFlags.FEATURE_USAGE_OVERVIEW_V2 ? <button className="border-b-2 border-transparent px-4 py-2 text-[13px] text-ql-fg-secondary" onClick={() => setFilter("tab", "overview")} type="button">用量概览</button> : null}<button className="border-b-2 border-ql-action px-4 py-2 text-[13px] text-ql-action" type="button">请求明细</button></div>
       <div className="mb-4 rounded-xl border border-ql-border-zone bg-ql-surface-subtle p-3">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <UsageKeywordSearch key={searchParams.get("search") ?? ""} initialValue={searchParams.get("search") ?? ""} onSearch={(value) => setFilter("search", value)} />
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">主体</span>
+            <span className="mb-1 block text-[13px] text-ql-fg-secondary">主体</span>
             <select
               aria-label="主体"
               className={`${inputClass} w-full`}
@@ -269,14 +270,14 @@ function UsageDetailsPage() {
           </label>
           <ProjectFilter principals={principalItems} value={searchParamValue(searchParams, "project_id")} onChange={(value) => setFilter("project_id", value)} />
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">Agent</span>
+            <span className="mb-1 block text-[13px] text-ql-fg-secondary">Agent</span>
             <select aria-label="Agent" className={`${inputClass} w-full`} onChange={(event) => setFilter("agent_family", event.target.value)} value={searchParams.get("agent_family") ?? ""}>
               <option value="">全部 Agent</option>
               {Object.entries(AGENT_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">厂商</span>
+            <span className="mb-1 block text-[13px] text-ql-fg-secondary">厂商</span>
             <select
               aria-label="厂商筛选"
               className={`${inputClass} w-full`}
@@ -297,7 +298,7 @@ function UsageDetailsPage() {
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">厂商资源</span>
+            <span className="mb-1 block text-[13px] text-ql-fg-secondary">厂商资源</span>
             <select
               aria-label="厂商资源"
               className={`${inputClass} w-full`}
@@ -311,7 +312,7 @@ function UsageDetailsPage() {
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">统一模型</span>
+            <span className="mb-1 block text-[13px] text-ql-fg-secondary">统一模型</span>
             <select
               aria-label="统一模型"
               className={`${inputClass} w-full`}
@@ -325,7 +326,7 @@ function UsageDetailsPage() {
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">状态</span>
+            <span className="mb-1 block text-[13px] text-ql-fg-secondary">状态</span>
             <select
               aria-label="状态"
               className={`${inputClass} w-full`}
@@ -340,7 +341,7 @@ function UsageDetailsPage() {
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">开始时间（从）</span>
+            <span className="mb-1 block text-[13px] text-ql-fg-secondary">开始时间（从）</span>
             <input
               aria-label="开始时间"
               className={`${inputClass} w-full`}
@@ -350,7 +351,7 @@ function UsageDetailsPage() {
             />
           </label>
           <label>
-            <span className="mb-1 block text-[12px] text-ql-fg-secondary">结束时间（到）</span>
+            <span className="mb-1 block text-[13px] text-ql-fg-secondary">结束时间（到）</span>
             <input
               aria-label="结束时间"
               className={`${inputClass} w-full`}
@@ -369,8 +370,8 @@ function UsageDetailsPage() {
             只看超额
           </label>
           <div className="flex items-center gap-2 self-end">
-            <button
-              className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg hover:border-ql-border-strong disabled:cursor-not-allowed disabled:opacity-50"
+            <Button
+              variant="secondary"
               disabled={query.isLoading || total === 0}
               onClick={openExportConfirm}
               title="导出当前筛选条件的 CSV 明细"
@@ -378,9 +379,9 @@ function UsageDetailsPage() {
             >
               <Download aria-hidden className="h-4 w-4" />
               导出明细
-            </button>
-            <button
-              className="flex h-9 items-center justify-center gap-1 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg hover:border-ql-border-strong disabled:cursor-not-allowed disabled:opacity-50"
+            </Button>
+            <Button
+              variant="secondary"
               disabled={!hasFilters}
               onClick={() => {
                 setExpandedId(null);
@@ -390,33 +391,33 @@ function UsageDetailsPage() {
             >
               <X aria-hidden className="h-4 w-4" />
               清除筛选
-            </button>
+            </Button>
           </div>
           <div className="col-span-full flex flex-wrap items-center gap-1.5 border-t border-ql-border-zone pt-2.5">
-            <span className="text-[12px] text-ql-fg-tertiary">快捷时间：</span>
+            <span className="text-[13px] text-ql-fg-tertiary">快捷时间：</span>
             <button
-              className="h-6 rounded border border-ql-border bg-ql-surface px-2 text-[11px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
+              className="h-6 rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
               onClick={() => applyQuickRange("today")}
               type="button"
             >
               今天
             </button>
             <button
-              className="h-6 rounded border border-ql-border bg-ql-surface px-2 text-[11px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
+              className="h-6 rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
               onClick={() => applyQuickRange("24h")}
               type="button"
             >
               近 24 小时
             </button>
             <button
-              className="h-6 rounded border border-ql-border bg-ql-surface px-2 text-[11px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
+              className="h-6 rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
               onClick={() => applyQuickRange("7d")}
               type="button"
             >
               近 7 天
             </button>
             <button
-              className="h-6 rounded border border-ql-border bg-ql-surface px-2 text-[11px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
+              className="h-6 rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg-secondary hover:border-ql-border-strong hover:text-ql-fg"
               onClick={() => applyQuickRange("30d")}
               type="button"
             >
@@ -444,7 +445,7 @@ function UsageDetailsPage() {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
+                <tr className="border-b border-ql-border text-[13px] leading-[18px] text-ql-fg-tertiary">
                   <th aria-label="展开" className="py-2 pr-2 font-medium" />
                   <th className="py-2 pr-4 font-medium">请求 ID</th>
                   <th className="py-2 pr-4 font-medium">发起主体</th>
@@ -477,26 +478,26 @@ function UsageDetailsPage() {
             </table>
           </div>
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-[12px] leading-[18px] text-ql-fg-tertiary">
+            <p className="text-[13px] leading-[18px] text-ql-fg-tertiary">
               共 {formatCount(String(total))} 条 · 第 {page + 1} / {totalPages} 页
             </p>
             <div className="flex items-center gap-2">
-              <button
-                className="h-8 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg hover:border-ql-border-strong disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
+              <Button
+                variant="secondary" size="sm"
                 disabled={page === 0}
                 onClick={() => setPage(Math.max(0, page - 1))}
                 type="button"
               >
                 上一页
-              </button>
-              <button
-                className="h-8 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg hover:border-ql-border-strong disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
+              </Button>
+              <Button
+                variant="secondary" size="sm"
                 disabled={page + 1 >= totalPages}
                 onClick={() => setPage(page + 1)}
                 type="button"
               >
                 下一页
-              </button>
+              </Button>
             </div>
           </div>
         </>
@@ -504,18 +505,18 @@ function UsageDetailsPage() {
       {/* 导出确认弹窗 */}
       {exportConfirmOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ql-overlay p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="export-confirm-title"
           onClick={(e) => { if (e.target === e.currentTarget) setExportConfirmOpen(false); }}
         >
-          <div className="w-full max-w-sm rounded-2xl border border-ql-border bg-ql-surface shadow-xl">
+          <div className="w-full max-w-sm rounded-2xl border border-ql-border bg-ql-surface shadow-ql-raised">
             <div className="border-b border-ql-border px-5 py-4">
               <h2 id="export-confirm-title" className="text-[15px] font-semibold text-ql-fg">
                 确认导出明细
               </h2>
-              <p className="mt-0.5 text-[12px] text-ql-fg-secondary">
+              <p className="mt-0.5 text-[13px] text-ql-fg-secondary">
                 请确认以下导出范围，文件格式为 CSV
               </p>
             </div>
@@ -540,20 +541,20 @@ function UsageDetailsPage() {
               )}
             </div>
             <div className="flex justify-end gap-2 border-t border-ql-border px-5 py-3">
-              <button
-                className="h-8 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px] text-ql-fg hover:border-ql-border-strong"
+              <Button
+                variant="secondary" size="sm"
                 onClick={() => setExportConfirmOpen(false)}
                 type="button"
               >
                 取消
-              </button>
-              <button
-                className="h-8 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover"
+              </Button>
+              <Button
+                variant="primary" size="sm"
                 onClick={doExport}
                 type="button"
               >
                 确认导出
-              </button>
+              </Button>
             </div>
           </div>
         </div>

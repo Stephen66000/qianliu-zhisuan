@@ -29,7 +29,7 @@ export function ActivationReceiptPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-[14px] font-semibold text-ql-fg">严格资金写激活回执</h3>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+          <p className="mt-1 text-[13px] text-ql-fg-tertiary">
             激活时间 {formatDateTimeFull(activatedAtValue)} · 操作管理员 {receipt.activatedByAdminUserId}
           </p>
         </div>
@@ -39,7 +39,7 @@ export function ActivationReceiptPanel({
             : <><TriangleAlert aria-hidden className="h-3.5 w-3.5" />守恒未通过</>}
         </span>
       </div>
-      <dl className="mt-3 grid gap-3 text-[12px] sm:grid-cols-2">
+      <dl className="mt-3 grid gap-3 text-[13px] sm:grid-cols-2">
         <div>
           <dt className="text-ql-fg-tertiary">候选 ID</dt>
           <dd className="mt-0.5 font-mono text-ql-fg">{receipt.candidateId}</dd>
@@ -58,10 +58,10 @@ export function ActivationReceiptPanel({
         </div>
       </dl>
       {compact ? null : (
-        <p className="mt-3 text-[12px] text-ql-fg-secondary">写入事实：{receiptFactCountSummary(receipt)}</p>
+        <p className="mt-3 text-[13px] text-ql-fg-secondary">写入事实：{receiptFactCountSummary(receipt)}</p>
       )}
       {receipt.conservationFailures.length > 0 ? (
-        <ul className="mt-3 space-y-1 text-[12px] text-ql-danger" role="alert">
+        <ul className="mt-3 space-y-1 text-[13px] text-ql-danger" role="alert">
           {receipt.conservationFailures.map((failure) => (
             <li key={failure.code}>{failure.code}（{failure.count}）</li>
           ))}

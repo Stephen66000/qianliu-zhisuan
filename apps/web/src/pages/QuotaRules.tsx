@@ -19,7 +19,7 @@ export function QuotaRulesPage() {
         <button role="tab" aria-selected={tab === "pricing"} onClick={() => setTab("pricing")} className={`p-3 border-b-2 ${tab === "pricing" ? "border-ql-action text-ql-action" : "border-transparent"}`}>计价</button>
         <button role="tab" aria-selected={tab === "dispatch"} onClick={() => setTab("dispatch")} className={`p-3 border-b-2 ${tab === "dispatch" ? "border-ql-action text-ql-action" : "border-transparent"}`}>调度策略</button>
       </div>
-      <label className="mb-4 inline-flex items-center gap-2 text-[12px] text-ql-fg-secondary">
+      <label className="mb-4 inline-flex items-center gap-2 text-[13px] text-ql-fg-secondary">
         <input checked={model.showArchived} onChange={(event) => model.setShowArchived(event.target.checked)} type="checkbox" />
         查看存档
       </label>

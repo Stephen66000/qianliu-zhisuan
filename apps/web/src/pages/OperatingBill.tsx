@@ -1,7 +1,6 @@
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useOperatingBill } from "../api/operating-bills";
 import { useOperatingAnalysis } from "../api/operating-analysis";
-import { buttonSecondary } from "../components/operating-bill/BillShared";
 import { operatingBillMonth, OperatingBillShell, type OperatingBillSection } from "../components/operating-bill/OperatingBillShell";
 import { OperatingPlans } from "../components/operating-bill/OperatingPlans";
 import { OperatingProcurement } from "../components/operating-bill/OperatingProcurement";
@@ -14,6 +13,7 @@ import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
 import { useFeatureFlags } from "../feature-flags";
 import { OperatingBillOverview } from "./OperatingBillOverview";
+import { Button } from "../components/ui/Button";
 export { parseSnapshotCsv } from "./OperatingBillOverview";
 
 type TabId = Exclude<
@@ -64,7 +64,7 @@ export function OperatingBillPage() {
         />
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-end gap-3 text-[12px] text-ql-fg-secondary">
+          <div className="flex flex-wrap items-center justify-end gap-3 text-[13px] text-ql-fg-secondary">
             <span>
               更新于{" "}
               {accountTime(
@@ -75,14 +75,14 @@ export function OperatingBillPage() {
                   : analysis.data.generatedAt,
               )}
             </span>
-            <button
-              className={buttonSecondary}
+            <Button
+              variant="secondary"
               onClick={refresh}
               disabled={analysis.isFetching}
               type="button"
             >
               刷新
-            </button>
+            </Button>
           </div>
           {error ? (
             <p role="alert" className="text-[13px] text-ql-danger">

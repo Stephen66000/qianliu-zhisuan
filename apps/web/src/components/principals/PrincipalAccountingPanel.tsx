@@ -116,7 +116,7 @@ export function PrincipalAccountingPanel({
               </select>
             </label>
           )}
-          <p className="mt-3 text-[12px] text-ql-fg-secondary">
+          <p className="mt-3 text-[13px] text-ql-fg-secondary">
             从保存后的新请求生效，历史归属保留。
           </p>
           {mutation.error ? (

@@ -22,6 +22,7 @@ import {
   type FinanceCurrencyCode, type HistoricalCostRowState, type LegacyRowState,
   type OpeningRowState, type PurchaseRowState, type RechargeRowState,
 } from "./activation-draft-model";
+import { Button } from "../ui/Button";
 
 export interface ResourceOption { id: string; mode: "API" | "CODING_PLAN"; label: string }
 
@@ -101,13 +102,13 @@ function DraftSectionCard({ title, description, count, readOnly, addLabel, onAdd
     <section className="mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4" data-testid={testId}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="text-[14px] font-semibold text-ql-fg">{title}<span className="ml-2 text-[12px] font-normal text-ql-fg-tertiary">已填写 {count} 行</span></h4>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">{description}</p>
+          <h4 className="text-[14px] font-semibold text-ql-fg">{title}<span className="ml-2 text-[13px] font-normal text-ql-fg-tertiary">已填写 {count} 行</span></h4>
+          <p className="mt-1 text-[13px] text-ql-fg-tertiary">{description}</p>
         </div>
         {readOnly ? null : (
-          <button className="flex h-9 items-center gap-1.5 rounded-lg border border-ql-border px-3 text-[13px]" data-write-action onClick={onAdd} type="button">
+          <Button variant="secondary" data-write-action onClick={onAdd} type="button">
             <Plus aria-hidden className="h-3.5 w-3.5" />{addLabel}
-          </button>
+          </Button>
         )}
       </div>
       {children}
@@ -121,9 +122,9 @@ function RowShell({ title, readOnly, onRemove, children }: {
   return (
     <div className="mt-3 rounded-lg border border-ql-border bg-ql-surface-subtle p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[12px] font-medium text-ql-fg-secondary">{title}</p>
+        <p className="text-[13px] font-medium text-ql-fg-secondary">{title}</p>
         {readOnly ? null : (
-          <button aria-label={`删除 ${title}`} className="rounded p-1 text-ql-fg-tertiary hover:text-ql-danger" onClick={onRemove} type="button">
+          <button aria-label={`删除 ${title}`} className="rounded-md p-1 text-ql-fg-tertiary hover:text-ql-danger" onClick={onRemove} type="button">
             <Trash2 aria-hidden className="h-3.5 w-3.5" />
           </button>
         )}
@@ -366,13 +367,13 @@ function LegacyRowFields({ row, index, issues, readOnly, resourceOptions, onPatc
           <FormField error={errorFor(issues, "legacyResolutions", row.id, "evidenceRef")} hint="必填" htmlFor={`${rowId}-evidence`} label="拒绝证据">
             <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-evidence`} onChange={(event) => onPatch({ evidenceRef: event.target.value })} value={row.evidenceRef} />
           </FormField>
-          <p className="text-[12px] text-ql-warning md:col-span-2">
+          <p className="text-[13px] text-ql-warning md:col-span-2">
             该决定只关闭这条旧购买记录；<code>UNKNOWN_COST</code> 用量缺口仍必须独立处理，不能借此关闭。
           </p>
         </>
       ) : null}
       {row.resolution === "MIGRATED" ? (
-        <p className="text-[12px] text-ql-fg-tertiary md:col-span-2">
+        <p className="text-[13px] text-ql-fg-tertiary md:col-span-2">
           MIGRATED 会写入 <code>API_RECHARGE</code> 事件，因此还需要在「历史 API 充值」中登记对应的到账金额、实付与证据。
         </p>
       ) : null}
@@ -416,11 +417,11 @@ export function ActivationDraftEditor({
         readOnly={readOnly} testId="draft-section-openings" title={DRAFT_SECTION_LABELS.apiOpeningBalances}
       >
         {missingAccounts.length > 0 ? (
-          <div className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning" data-testid="required-accounts-hint">
+          <div className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning" data-testid="required-accounts-hint">
             激活范围内仍有 {missingAccounts.length} 个必要账户没有期初草稿行：
             {missingAccounts.map((account) => (
               <button
-                className="ml-2 rounded border border-ql-warning px-2 py-0.5"
+                className="ml-2 rounded-md border border-ql-warning px-2 py-0.5"
                 key={`${account.resource_id}:${account.currency}`}
                 onClick={() => setSection("apiOpeningBalances", [...state.apiOpeningBalances, {
                   id: newLocalRowIdFor("opening"), resourceId: account.resource_id,
@@ -533,11 +534,11 @@ export function ActivationDraftEditor({
         readOnly={readOnly} testId="draft-section-legacy" title={DRAFT_SECTION_LABELS.legacyResolutions}
       >
         {unclosedSuggestions.length > 0 ? (
-          <div className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning" data-testid="legacy-suggestions">
+          <div className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning" data-testid="legacy-suggestions">
             预检发现 {unclosedSuggestions.length} 条未关闭旧记录：
             {unclosedSuggestions.map((suggestion) => (
               <button
-                className="ml-2 rounded border border-ql-warning px-2 py-0.5"
+                className="ml-2 rounded-md border border-ql-warning px-2 py-0.5"
                 key={suggestion.legacyRecordId}
                 onClick={() => setSection("legacyResolutions", [...state.legacyResolutions, {
                   id: newLocalRowIdFor("legacy"), legacyRecordId: suggestion.legacyRecordId,

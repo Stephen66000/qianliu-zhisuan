@@ -108,7 +108,7 @@ export function OperatingBillShell({
             type="month"
             value={month}
           />
-          <span className="text-[11px] text-ql-fg-tertiary">北京时间自然月</span>
+          <span className="text-[13px] text-ql-fg-tertiary">北京时间自然月</span>
         </label>
       </header>
       <nav

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { OperatingAnalysis } from "../../api/operating-analysis";
 import { BillCard, SectionHeading } from "./BillShared";
 import { formatMoney } from "../../lib/format";
+import { Button } from "../ui/Button";
 
 const DECIMAL_SCALE = 100_000_000n;
 
@@ -204,75 +205,75 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
   return (
     <div className="space-y-5" role="region" aria-label="财务账">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">年度实付总采购（现金流出）</div>
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">年度实付总采购（现金流出）</div>
           <div className="text-2xl font-bold text-ql-fg tabular-nums">{money(totals.cashOutTotal)}</div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">真实资金事件，不从套餐周期反推付款</div>
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">真实资金事件，不从套餐周期反推付款</div>
         </div>
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">年度用量总花费（实际核算）</div>
-          <div className="text-2xl font-bold text-ql-action tabular-nums">{money(totals.usageSpendTotal)}</div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">API实际消耗 + 套餐计入费用；币种不可比时不合并</div>
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">年度用量总花费（实际核算）</div>
+          <div className="text-2xl font-bold text-ql-fg tabular-nums">{money(totals.usageSpendTotal)}</div>
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">API实际消耗 + 套餐计入费用；币种不可比时不合并</div>
         </div>
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">综合每百万 Token 成本</div>
-          <div className="text-2xl font-bold text-ql-accent tabular-nums">
-            {totals.costPerMillion === null ? "—" : `¥ ${totals.costPerMillion}`} <span className="text-xs font-normal text-ql-fg-secondary">/ M</span>
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">综合每百万 Token 成本</div>
+          <div className="text-2xl font-bold text-ql-accent-text tabular-nums">
+            {totals.costPerMillion === null ? "—" : `¥ ${totals.costPerMillion}`} <span className="text-[13px] font-normal text-ql-fg-secondary">/ M</span>
           </div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">仅在费用与 Token 均完整时展示</div>
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">仅在费用与 Token 均完整时展示</div>
         </div>
-        <div className="rounded-xl border border-ql-success/40 bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">官方账户可用余额</div>
-          <div className="text-2xl font-bold text-ql-success tabular-nums">
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">官方账户可用余额</div>
+          <div className="text-2xl font-bold text-ql-fg tabular-nums">
             {multipleOfficialAccounts ? "多账户（不合并）"
               : official ? `${official.currency} ${formatMoney(official.balance)}` : "—"}
           </div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">
             {multipleOfficialAccounts ? `共 ${model.officialBalances.length} 个资源，请按资源查看官方余额`
               : official ? `${official.providerName} 官方 API · 同步于 ${shanghaiTime(official.syncedAt)}` : "尚无厂商余额同步快照"}
           </div>
-          <div className="text-[11px] text-ql-success mt-1">实际可用资金以厂商官方余额为准</div>
+          <div className="text-[13px] text-ql-fg-secondary mt-1">实际可用资金以厂商官方余额为准</div>
         </div>
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">仟流内部账本余额</div>
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">仟流内部账本余额</div>
           <div className="text-2xl font-bold text-ql-fg tabular-nums">
             {apiMoney(totals.endingBalance, totals.apiCurrency, totals.multiCurrency)}
           </div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">仅核算仟流登记充值与可归因消耗；不会覆盖官方余额</div>
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">仅核算仟流登记充值与可归因消耗；不会覆盖官方余额</div>
         </div>
       </div>
 
       <BillCard className="overflow-hidden">
         <div className="p-4 border-b border-ql-border-zone flex items-center justify-between">
           <SectionHeading title={`${model.year} 年度经营收支总台账`} />
-          <button className="px-3 py-1.5 rounded-lg border border-ql-border text-xs font-medium hover:bg-ql-surface-subtle text-ql-fg transition"
-            onClick={exportCsv} type="button">📥 导出 CSV</button>
+          <Button variant="secondary" size="sm"
+            onClick={exportCsv} type="button">📥 导出 CSV</Button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-[13px] text-left">
             <thead className="bg-ql-surface-subtle text-ql-fg-secondary border-b border-ql-border-zone font-medium">
               <tr><th className="p-3">账期月份</th><th className="p-3 text-right">Coding Plan 采购实付（¥）</th>
                 <th className="p-3 text-right">API 现金充值（¥）</th><th className="p-3 text-right font-bold text-ql-fg">本月现金流出合计（¥）</th>
                 <th className="p-3 text-right">API 实际计价消耗</th><th className="p-3 text-right">套餐计入费用（¥）</th>
-                <th className="p-3 text-right font-bold text-ql-action">本月用量总花费（¥）</th><th className="p-3 text-right">实际产出 Token</th>
-                <th className="p-3 text-right font-bold text-ql-accent bg-ql-surface-brand-soft/40">每百万 Token 花费</th>
+                <th className="p-3 text-right font-semibold text-ql-fg">本月用量总花费（¥）</th><th className="p-3 text-right">实际产出 Token</th>
+                <th className="p-3 text-right font-semibold text-ql-fg">每百万 Token 花费</th>
                 <th className="p-3 text-right">活跃人数</th><th className="p-3 text-right">月末账本余额</th></tr>
             </thead>
             <tbody className="divide-y divide-ql-border-zone">
               {rows.length === 0 ? <tr><td className="p-6 text-center text-ql-fg-secondary" colSpan={11}>当前年度尚无已登记资金事实</td></tr>
                 : rows.map((row) => <tr className="hover:bg-ql-surface-subtle" key={row.month}>
-                  <td className="p-3 font-semibold text-ql-action">{row.month}</td>
+                  <td className="p-3 font-semibold text-ql-fg">{row.month}</td>
                   <td className="p-3 text-right tabular-nums">{money(row.planPaid)}</td>
                   {/* API 充值为现金实付（cash_paid_cny），恒按人民币展示，不随账户币种变化。 */}
                   <td className="p-3 text-right tabular-nums">{money(row.apiRecharge)}</td>
                   <td className="p-3 text-right tabular-nums font-bold text-ql-fg">{money(row.cashOutTotal)}</td>
                   <td className="p-3 text-right tabular-nums">{apiMoney(row.apiSpend, row.apiCurrency, row.multiCurrency)}</td>
                   <td className="p-3 text-right tabular-nums">{money(row.planCost)}</td>
-                  <td className="p-3 text-right tabular-nums font-bold text-ql-action">{money(row.usageSpendTotal)}</td>
+                  <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{money(row.usageSpendTotal)}</td>
                   <td className="p-3 text-right tabular-nums">{tokenBillions(row.tokensTotal)}</td>
-                  <td className="p-3 text-right tabular-nums font-bold text-ql-accent bg-ql-surface-brand-soft/30">{row.costPerMillion === null ? "—" : `¥ ${row.costPerMillion} / M`}</td>
+                  <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{row.costPerMillion === null ? "—" : `¥ ${row.costPerMillion} / M`}</td>
                   <td className="p-3 text-right tabular-nums">{row.activeUsers === null ? "—" : `${row.activeUsers} 人`}</td>
-                  <td className="p-3 text-right tabular-nums text-ql-success font-medium">{apiMoney(row.endingBalance, row.apiCurrency, row.multiCurrency)}</td>
+                  <td className="p-3 text-right tabular-nums text-ql-fg font-medium">{apiMoney(row.endingBalance, row.apiCurrency, row.multiCurrency)}</td>
                 </tr>)}
             </tbody>
             <tfoot className="bg-ql-surface-subtle font-semibold border-t-2 border-ql-border">
@@ -282,11 +283,11 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
                 <td className="p-3 text-right tabular-nums font-bold">{money(totals.cashOutTotal)}</td>
                 <td className="p-3 text-right tabular-nums">{apiMoney(totals.apiSpend, totals.apiCurrency, totals.multiCurrency)}</td>
                 <td className="p-3 text-right tabular-nums">{money(totals.planCost)}</td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-action">{money(totals.usageSpendTotal)}</td>
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{money(totals.usageSpendTotal)}</td>
                 <td className="p-3 text-right tabular-nums">{tokenBillions(totals.tokensTotal)}</td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-accent bg-ql-surface-brand-soft/50">{totals.costPerMillion === null ? "—" : `¥ ${totals.costPerMillion} / M`}</td>
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{totals.costPerMillion === null ? "—" : `¥ ${totals.costPerMillion} / M`}</td>
                 <td className="p-3 text-right tabular-nums">{totals.activeUsers === null ? "—" : `${totals.activeUsers} 人`}</td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">{apiMoney(totals.endingBalance, totals.apiCurrency, totals.multiCurrency)}</td>
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{apiMoney(totals.endingBalance, totals.apiCurrency, totals.multiCurrency)}</td>
               </tr>
             </tfoot>
           </table>

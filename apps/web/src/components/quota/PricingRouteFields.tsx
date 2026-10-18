@@ -60,11 +60,11 @@ export function PricingRouteFields({ model: m }: { model: QuotaRulesPageModel })
           {candidates.map((rule) => <option key={rule.id} value={rule.id}>{rule.upstream_model} · {rule.rule_version} · {rule.currency}</option>)}
         </select>
       </FormField>
-      {m.sourceRuleIds.length > 0 ? <p className="mt-2 text-xs">已沿用 {m.sourceRuleIds.length} 条规则；目标模型和生效时间已更新，请核对后保存。</p> : null}
-      <label className="mt-3 flex gap-2 text-xs"><input type="checkbox" checked={m.replaceExisting}
+      {m.sourceRuleIds.length > 0 ? <p className="mt-2 text-[13px]">已沿用 {m.sourceRuleIds.length} 条规则；目标模型和生效时间已更新，请核对后保存。</p> : null}
+      <label className="mt-3 flex gap-2 text-[13px]"><input type="checkbox" checked={m.replaceExisting}
         onChange={(event) => m.setReplaceExisting(event.target.checked)} />
         从新生效时间起替换此资源、此模型的整套旧价格（历史结算保留）</label>
-      {selectedRoute && !selectedRoute.enabled ? <p className="mt-2 text-xs">启用前需在厂商资源的模型同步面板完成真实验证。</p> : null}
+      {selectedRoute && !selectedRoute.enabled ? <p className="mt-2 text-[13px]">启用前需在厂商资源的模型同步面板完成真实验证。</p> : null}
     </div>
   </>;
 }

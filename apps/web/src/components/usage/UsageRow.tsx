@@ -58,11 +58,11 @@ export function UsageRow({ record, expanded, onToggle }: {
           {expanded ? <ChevronDown aria-hidden className="h-4 w-4" /> : <ChevronRight aria-hidden className="h-4 w-4" />}
         </button>
       </td>
-      <td className="max-w-[10rem] truncate py-2.5 pr-4 font-mono text-[12px] text-ql-fg-secondary">{record.requestId}</td>
+      <td className="max-w-[10rem] truncate py-2.5 pr-4 font-mono text-[13px] text-ql-fg-secondary">{record.requestId}</td>
       <td className="whitespace-nowrap py-2.5 pr-4 font-medium">{record.principalName}</td>
       <td className="whitespace-nowrap py-2.5 pr-4 text-ql-fg-secondary">
         <span className="block text-ql-fg">{AGENT_LABEL[record.agentFamily] ?? record.agentFamily}</span>
-        <span className="block text-[11px]" title={record.clientId ?? undefined}>
+        <span className="block text-[13px]" title={record.clientId ?? undefined}>
           {record.agentVersion ? `v${record.agentVersion}` : "版本未知"} · {AGENT_SOURCE_LABEL[record.agentIdentitySource] ?? record.agentIdentitySource}
         </span>
       </td>
@@ -70,7 +70,7 @@ export function UsageRow({ record, expanded, onToggle }: {
       <td className="min-w-[9rem] py-2.5 pr-4 text-ql-fg-secondary">
         {record.finalProviderResourceName ? <>
           <span className="block text-ql-fg">{record.finalProviderResourceName}</span>
-          <span className="block text-[12px]">{record.finalProviderName ?? record.finalProviderCode ?? "未知厂商"}</span>
+          <span className="block text-[13px]">{record.finalProviderName ?? record.finalProviderCode ?? "未知厂商"}</span>
         </> : "—"}
       </td>
       <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">{formatCount(record.totalInputTokens)}</td>
@@ -78,7 +78,7 @@ export function UsageRow({ record, expanded, onToggle }: {
       <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">{formatCount(record.totalCacheTokens)}</td>
       <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
         {formatCount(record.totalDeductedQuota)}
-        {record.overage === true ? <span className="ml-1 text-[11px] text-ql-danger">超额</span> : null}
+        {record.overage === true ? <span className="ml-1 text-[13px] text-ql-danger">超额</span> : null}
       </td>
       <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]"><ApiCostCell record={record} /></td>
       <td className="py-2.5 pr-4"><StatusCell status={record.status} /></td>

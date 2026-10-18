@@ -25,9 +25,9 @@ import {
   IntegerAmountInput,
   normalizeIntegerAmountInput,
 } from "../components/writes/IntegerAmountInput";
+import { Button } from "../components/ui/Button";
 
 const INPUT = "h-10 w-full rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-sm focus:outline focus:outline-2 focus:outline-ql-action";
-const BUTTON = "h-9 rounded-lg bg-ql-action px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50";
 
 function localDateTime(date: Date): string {
   const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
@@ -100,7 +100,7 @@ function PermissionChangeSummary({
   ] as const;
   return <div>
     <span>{validation.principal_count} 人 × {validation.model_count} 模型 = {validation.assignment_count} 项</span>
-    <details className="mt-1 text-xs text-ql-fg-tertiary">
+    <details className="mt-1 text-[13px] text-ql-fg-tertiary">
       <summary className="cursor-pointer text-ql-action">新增 {changes.added.length} / 保留 {changes.retained.length} / 撤销 {changes.removed.length}</summary>
       <div className="mt-2 space-y-2">
         {sections.map(([label, items]) => {
@@ -238,7 +238,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
       {mutationError ? <p className="mb-4 rounded-lg bg-ql-danger-soft px-3 py-2 text-sm text-ql-danger" role="alert">{mutationError}</p> : null}
       <form data-write-action className="mb-6 rounded-xl border border-ql-border p-5" onSubmit={submit}>
         <div className="mb-4 flex items-center justify-between">
-          <div><h2 className="font-semibold">{editing ? `编辑 ${editing.name} v${editing.version}` : "新建批量授权规则"}</h2><p className="mt-1 text-xs text-ql-fg-tertiary">保存只形成草稿，不会扩大任何员工权限。</p></div>
+          <div><h2 className="font-semibold">{editing ? `编辑 ${editing.name} v${editing.version}` : "新建批量授权规则"}</h2><p className="mt-1 text-[13px] text-ql-fg-tertiary">保存只形成草稿，不会扩大任何员工权限。</p></div>
           {editing ? <button data-write-action className="text-sm text-ql-action" onClick={() => { setEditing(null); setForm(initialForm()); }} type="button">取消编辑</button> : null}
         </div>
         <div className="grid gap-4 md:grid-cols-4">
@@ -253,16 +253,16 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
         {selectedProviders.length > 0 ? (
           <div className="mt-4 rounded-xl border border-ql-border p-4">
             <legend className="px-2 text-sm font-semibold">厂商级池额度（可选）</legend>
-            <p className="mb-3 mt-1 text-xs text-ql-fg-tertiary">为每个厂商单独设置池额度；未填或留空的厂商回退上方版本级 Token 额度。</p>
+            <p className="mb-3 mt-1 text-[13px] text-ql-fg-tertiary">为每个厂商单独设置池额度；未填或留空的厂商回退上方版本级 Token 额度。</p>
             <div className="space-y-3">
               {selectedProviders.map((provider) => {
                 const draft = form.poolQuotas[provider.code];
                 return (
                   <div className="grid items-end gap-3 rounded-lg border border-ql-border-zone p-3 md:grid-cols-12" key={provider.code}>
                     <div className="text-sm font-medium md:col-span-2">{provider.name}</div>
-                    <label className="text-xs md:col-span-4">池额度<IntegerAmountInput className={`${INPUT} mt-1`} id={`pool-quota-${provider.code}`} onChange={(quotaValue) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: quotaValue, allow_overage: draft?.allow_overage ?? false, valid_until: draft?.valid_until ?? "" } } }))} value={draft?.quota_value ?? ""} /></label>
-                    <label className="flex items-center gap-2 text-xs md:col-span-2"><input checked={draft?.allow_overage ?? false} onChange={(event) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: draft?.quota_value ?? "", allow_overage: event.target.checked, valid_until: draft?.valid_until ?? "" } } }))} type="checkbox" />允许超额</label>
-                    <label className="text-xs md:col-span-4">池失效时间（可选）<input className={`${INPUT} mt-1`} aria-label={`${provider.name} 池失效时间`} onChange={(event) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: draft?.quota_value ?? "", allow_overage: draft?.allow_overage ?? false, valid_until: event.target.value } } }))} type="datetime-local" value={draft?.valid_until ?? ""} /></label>
+                    <label className="text-[13px] md:col-span-4">池额度<IntegerAmountInput className={`${INPUT} mt-1`} id={`pool-quota-${provider.code}`} onChange={(quotaValue) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: quotaValue, allow_overage: draft?.allow_overage ?? false, valid_until: draft?.valid_until ?? "" } } }))} value={draft?.quota_value ?? ""} /></label>
+                    <label className="flex items-center gap-2 text-[13px] md:col-span-2"><input checked={draft?.allow_overage ?? false} onChange={(event) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: draft?.quota_value ?? "", allow_overage: event.target.checked, valid_until: draft?.valid_until ?? "" } } }))} type="checkbox" />允许超额</label>
+                    <label className="text-[13px] md:col-span-4">池失效时间（可选）<input className={`${INPUT} mt-1`} aria-label={`${provider.name} 池失效时间`} onChange={(event) => setForm((old) => ({ ...old, poolQuotas: { ...old.poolQuotas, [provider.code]: { quota_value: draft?.quota_value ?? "", allow_overage: draft?.allow_overage ?? false, valid_until: event.target.value } } }))} type="datetime-local" value={draft?.valid_until ?? ""} /></label>
                   </div>
                 );
               })}
@@ -288,7 +288,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
             <div className="mb-3 flex gap-4 text-sm"><label><input checked={form.modelScope === "SELECTED"} onChange={() => setForm((old) => ({ ...old, modelScope: "SELECTED" }))} type="radio" /> 指定模型</label><label><input checked={form.modelScope === "ALL"} onChange={() => setForm((old) => ({ ...old, modelScope: "ALL" }))} type="radio" /> 当前全部就绪模型</label></div>
             <input className={INPUT} onChange={(event) => setModelSearch(event.target.value)} placeholder="搜索厂商、资源或模型" value={modelSearch} />
             <div className="mt-3 max-h-56 space-y-3 overflow-y-auto">
-              {[...groupedModels.entries()].map(([provider, items]) => <div key={provider}><h3 className="text-xs font-semibold text-ql-fg-tertiary">{provider}</h3>{items.map((model) => {
+              {[...groupedModels.entries()].map(([provider, items]) => <div key={provider}><h3 className="text-[13px] font-semibold text-ql-fg-tertiary">{provider}</h3>{items.map((model) => {
                 const target = { unified_model_id: model.unified_model_id, provider_resource_id: model.provider_resource_id };
                 return <label className={`mt-1 flex items-start gap-2 rounded-lg p-2 text-sm ${model.ready ? "hover:bg-ql-surface-subtle" : "text-ql-fg-tertiary"}`} key={targetKey(target)}>
                   <input checked={(form.modelScope === "ALL" && model.ready) || form.modelTargets.some((item) => targetKey(item) === targetKey(target))} disabled={form.modelScope === "ALL" || !model.ready} onChange={() => toggleModel(target)} type="checkbox" />
@@ -298,12 +298,12 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
             </div>
           </fieldset>
         </div>
-        <div className="mt-4 flex justify-end"><button data-write-action className={BUTTON} disabled={createRule.isPending || updateRule.isPending} type="submit">{editing ? "保存草稿" : "创建草稿"}</button></div>
+        <div className="mt-4 flex justify-end"><Button data-write-action variant="primary" disabled={createRule.isPending || updateRule.isPending} type="submit">{editing ? "保存草稿" : "创建草稿"}</Button></div>
       </form>
 
       <QueryGate emptyDescription="先创建草稿，校验就绪后再发布。" emptyIcon={ShieldCheck} emptyTitle="暂无批量授权规则" error={rules.error ?? catalog.error} isEmpty={latestRules.length === 0} isLoading={rules.isLoading || catalog.isLoading} onRetry={() => { void rules.refetch(); void catalog.refetch(); }}>
         <div className="overflow-x-auto rounded-xl border border-ql-border">
-          <table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-xs text-ql-fg-tertiary"><th className="p-3">规则/版本</th><th className="p-3">范围</th><th className="p-3">额度</th><th className="p-3">状态</th><th className="p-3">就绪结果</th><th className="p-3">操作</th></tr></thead>
+          <table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-[13px] text-ql-fg-tertiary"><th className="p-3">规则/版本</th><th className="p-3">范围</th><th className="p-3">额度</th><th className="p-3">状态</th><th className="p-3">就绪结果</th><th className="p-3">操作</th></tr></thead>
             <tbody>{latestRules.map((rule) => <tr className="border-b border-ql-border-zone last:border-0" key={rule.id}>
               <td className="p-3 font-medium">{rule.name}<small className="block text-ql-fg-tertiary">v{rule.version}</small></td>
               <td className="p-3">{rule.employee_scope === "ALL" ? "当前全部员工" : `${rule.principal_ids.length} 名员工`} / {rule.model_scope === "ALL" ? "当前全部就绪模型" : `${rule.model_targets.length} 个模型`}</td>
@@ -333,7 +333,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
         </div>
         {historyRuleId ? <section className="mt-4 rounded-xl border border-ql-border p-4" aria-label="规则版本历史">
           <div className="flex items-center justify-between"><h2 className="font-semibold">规则版本历史</h2><button className="text-sm text-ql-action" onClick={() => setHistoryRuleId(null)} type="button">关闭</button></div>
-          <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-xs text-ql-fg-tertiary"><th className="p-2">版本</th><th className="p-2">状态</th><th className="p-2">员工/模型范围</th><th className="p-2">额度</th><th className="p-2">发布时间</th><th className="p-2">停用时间</th></tr></thead><tbody>{historyVersions.map((version) => <tr className="border-b border-ql-border-zone last:border-0" key={version.id}><td className="p-2">v{version.version}</td><td className="p-2"><StatusTag tone={statusTone(version.status)}>{version.status}</StatusTag></td><td className="p-2">{version.employee_scope === "ALL" ? "当前全部员工" : `${version.principal_ids.length} 名员工`} / {version.model_scope === "ALL" ? "当前全部就绪模型" : `${version.model_targets.length} 个模型`}</td><td className="p-2">{formatPoolQuotaSummary(version, providerNameOf)}</td><td className="p-2">{version.published_at ? new Date(version.published_at).toLocaleString() : "—"}</td><td className="p-2">{version.disabled_at ? new Date(version.disabled_at).toLocaleString() : "—"}</td></tr>)}</tbody></table></div>
+          <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-ql-border text-[13px] text-ql-fg-tertiary"><th className="p-2">版本</th><th className="p-2">状态</th><th className="p-2">员工/模型范围</th><th className="p-2">额度</th><th className="p-2">发布时间</th><th className="p-2">停用时间</th></tr></thead><tbody>{historyVersions.map((version) => <tr className="border-b border-ql-border-zone last:border-0" key={version.id}><td className="p-2">v{version.version}</td><td className="p-2"><StatusTag tone={statusTone(version.status)}>{version.status}</StatusTag></td><td className="p-2">{version.employee_scope === "ALL" ? "当前全部员工" : `${version.principal_ids.length} 名员工`} / {version.model_scope === "ALL" ? "当前全部就绪模型" : `${version.model_targets.length} 个模型`}</td><td className="p-2">{formatPoolQuotaSummary(version, providerNameOf)}</td><td className="p-2">{version.published_at ? new Date(version.published_at).toLocaleString() : "—"}</td><td className="p-2">{version.disabled_at ? new Date(version.disabled_at).toLocaleString() : "—"}</td></tr>)}</tbody></table></div>
         </section> : null}
       </QueryGate>
     </>
@@ -343,7 +343,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
       <section aria-labelledby="batch-authorization-title">
         <header className="mb-5">
           <h2 className="text-[18px] font-semibold text-ql-fg" id="batch-authorization-title">批量模型授权</h2>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">集中选择员工、模型与额度，校验后显式发布；单名员工仍在「使用主体」中配置。</p>
+          <p className="mt-1 text-[13px] text-ql-fg-tertiary">集中选择员工、模型与额度，校验后显式发布；单名员工仍在「使用主体」中配置。</p>
         </header>
         {content}
       </section>

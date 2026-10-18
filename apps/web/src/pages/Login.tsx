@@ -8,10 +8,10 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import qianliuLogo from "../assets/qianliu-logo-primary.png";
 import { useAdminSession, useLogin } from "../api/auth";
 import { ApiError } from "../api/client";
 import { LoadingState } from "../components/states/LoadingState";
+import { Button } from "../components/ui/Button";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -63,12 +63,10 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-ql-canvas px-4">
       <div className="w-full max-w-sm rounded-2xl border border-ql-border bg-ql-surface p-8">
         <div className="mb-6 flex items-center gap-2">
-          <span aria-hidden className="flex h-9 w-9 items-center justify-center overflow-hidden">
-            <img className="h-12 w-12 max-w-none object-contain" src={qianliuLogo} />
-          </span>
+          <span aria-hidden className="ql-logo h-9 w-9" />
           <div>
             <h1 className="text-[18px] font-semibold leading-[26px] text-ql-fg">仟流智算</h1>
-            <p className="text-[12px] leading-[18px] text-ql-fg-tertiary">管理后台</p>
+            <p className="text-[13px] leading-[18px] text-ql-fg-tertiary">管理后台</p>
           </div>
         </div>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -99,13 +97,9 @@ export function LoginPage() {
               {errorMessage}
             </p>
           ) : null}
-          <button
-            className="mt-1 h-10 w-full rounded-lg bg-ql-action text-[14px] font-medium text-white hover:bg-ql-action-hover disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
-            disabled={login.isPending}
-            type="submit"
-          >
+          <Button className="mt-1 h-10 w-full" disabled={login.isPending} type="submit" variant="primary">
             {login.isPending ? "正在登录…" : "登录"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

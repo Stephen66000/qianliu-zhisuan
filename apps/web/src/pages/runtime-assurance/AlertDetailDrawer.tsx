@@ -45,13 +45,13 @@ export function AlertDetailDrawer({
         : "neutral";
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/30"
+      className="fixed inset-0 z-50 flex justify-end bg-ql-overlay"
       role="presentation"
     >
       <aside
         aria-labelledby="alert-detail-title"
         aria-modal="true"
-        className="h-full w-full max-w-xl overflow-y-auto border-l border-ql-border bg-ql-surface shadow-2xl"
+        className="h-full w-full max-w-xl overflow-y-auto border-l border-ql-border bg-ql-surface shadow-ql-raised"
         role="dialog"
       >
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-ql-border bg-ql-surface px-5 py-4">
@@ -59,7 +59,7 @@ export function AlertDetailDrawer({
             <h2 className="font-semibold text-ql-fg" id="alert-detail-title">
               异常详情
             </h2>
-            <p className="mt-1 text-[11px] text-ql-fg-tertiary">{alert.id}</p>
+            <p className="mt-1 text-[13px] text-ql-fg-tertiary">{alert.id}</p>
           </div>
           <button
             aria-label="关闭异常详情"
@@ -115,18 +115,18 @@ export function AlertDetailDrawer({
               <p className="text-[13px] font-medium text-ql-fg">
                 {alert.title}
               </p>
-              <p className="mt-1 text-[12px] leading-5 text-ql-fg-secondary">
+              <p className="mt-1 text-[13px] leading-5 text-ql-fg-secondary">
                 {alert.detail ?? "无补充说明"}
               </p>
             </div>
           </DetailSection>
           <DetailSection title="影响范围">
-            <p className="text-[12px] leading-5 text-ql-fg-secondary">
+            <p className="text-[13px] leading-5 text-ql-fg-secondary">
               {guidance.scope}
             </p>
           </DetailSection>
           <DetailSection title="处理建议">
-            <p className="text-[12px] leading-5 text-ql-fg-secondary">
+            <p className="text-[13px] leading-5 text-ql-fg-secondary">
               {guidance.advice}
             </p>
           </DetailSection>
@@ -141,7 +141,7 @@ export function AlertDetailDrawer({
           </DetailSection>
           <DetailSection title="恢复依据">
             <div
-              className={`rounded-lg p-3 text-[12px] leading-5 ${recovered ? "bg-ql-success-soft text-ql-success" : "bg-ql-warning-soft text-ql-warning"}`}
+              className={`rounded-lg p-3 text-[13px] leading-5 ${recovered ? "bg-ql-success-soft text-ql-success" : "bg-ql-warning-soft text-ql-warning"}`}
             >
               {recovered
                 ? `${String(alert.recoveryEvidence?.summary)} · ${formatTime(String(alert.recoveryEvidence?.verifiedAt))}`
@@ -161,7 +161,7 @@ export function AlertDetailDrawer({
                 <RequestDrilldown requestId={alert.aiRequestId} />
               </div>
             ) : null}
-            <ol className="space-y-3 border-l border-ql-border pl-4 text-[12px] text-ql-fg-secondary">
+            <ol className="space-y-3 border-l border-ql-border pl-4 text-[13px] text-ql-fg-secondary">
               <li>
                 <span className="font-medium text-ql-fg">
                   {formatTime(alert.firstSeenAt)}
@@ -210,8 +210,8 @@ function DetailSection({
 function DetailValue({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] text-ql-fg-tertiary">{label}</p>
-      <p className="mt-1 text-[12px] text-ql-fg">{value}</p>
+      <p className="text-[13px] text-ql-fg-tertiary">{label}</p>
+      <p className="mt-1 text-[13px] text-ql-fg">{value}</p>
     </div>
   );
 }

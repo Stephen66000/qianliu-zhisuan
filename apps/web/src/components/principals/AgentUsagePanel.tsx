@@ -35,12 +35,12 @@ export function AgentUsagePanel({ principalId }: { principalId: string }) {
   return <div className="mt-4 rounded-lg border border-ql-border-zone bg-ql-surface p-4">
     <h3 className="text-[13px] font-semibold text-ql-fg">Agent 配置与实际使用</h3>
     <fieldset className="mt-3 rounded-md border border-ql-border-zone bg-ql-surface-subtle p-3">
-      <legend className="px-1 text-[12px] font-medium text-ql-fg">计划／预期 Agent</legend>
-      <p className="mb-2 text-[11px] text-ql-fg-tertiary">由管理员手工维护，表示计划使用哪些客户端，不是系统识别结果。</p>
+      <legend className="px-1 text-[13px] font-medium text-ql-fg">计划／预期 Agent</legend>
+      <p className="mb-2 text-[13px] text-ql-fg-tertiary">由管理员手工维护，表示计划使用哪些客户端，不是系统识别结果。</p>
       <div className="flex flex-wrap gap-3">
       {EXPECTED_AGENT_OPTIONS.map(([value, label]) => {
         const selected = query.data?.expectedAgentFamilies.includes(value) ?? false;
-        return <label className="flex items-center gap-1 text-[12px]" key={value}>
+        return <label className="flex items-center gap-1 text-[13px]" key={value}>
           <input checked={selected} disabled={updateExpectedAgents.isPending} onChange={() => {
             const current = query.data?.expectedAgentFamilies ?? [];
             updateExpectedAgents.mutate(selected
@@ -52,17 +52,17 @@ export function AgentUsagePanel({ principalId }: { principalId: string }) {
       </div>
     </fieldset>
     <div className="mt-4 border-t border-ql-border-zone pt-3">
-      <h4 className="text-[12px] font-medium text-ql-fg">实际观测 Agent</h4>
-      <p className="mt-1 text-[11px] text-ql-fg-tertiary">按真实请求聚合，仅用于统计诊断，不参与鉴权、模型权限、额度、计费或调度。Other 表示有客户端标识但规则未匹配；Unknown 表示标识不足或属于历史迁移数据。</p>
+      <h4 className="text-[13px] font-medium text-ql-fg">实际观测 Agent</h4>
+      <p className="mt-1 text-[13px] text-ql-fg-tertiary">按真实请求聚合，仅用于统计诊断，不参与鉴权、模型权限、额度、计费或调度。Other 表示有客户端标识但规则未匹配；Unknown 表示标识不足或属于历史迁移数据。</p>
     {query.isLoading
-      ? <p className="mt-3 text-[12px] text-ql-fg-tertiary">正在读取…</p>
+      ? <p className="mt-3 text-[13px] text-ql-fg-tertiary">正在读取…</p>
       : (query.data?.agents.length ?? 0) === 0
-        ? <p className="mt-3 text-[12px] text-ql-fg-tertiary">尚未观察到 Agent 请求</p>
+        ? <p className="mt-3 text-[13px] text-ql-fg-tertiary">尚未观察到 Agent 请求</p>
         : <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-left text-[12px]">
+          <table className="w-full text-left text-[13px]">
             <thead className="text-ql-fg-secondary"><tr><th className="p-2">Agent / 版本</th><th className="p-2">识别来源</th><th className="p-2 text-right">请求</th><th className="p-2 text-right">Token</th><th className="p-2 text-right">API 费用</th><th className="p-2">首次使用</th><th className="p-2">最近使用</th><th className="p-2">模型</th><th className="p-2">追溯</th></tr></thead>
             <tbody>{query.data?.agents.map((agent) => <tr className="border-t border-ql-border-zone" key={agent.agentFamily}>
-              <td className="p-2 font-medium">{AGENT_LABEL[agent.agentFamily] ?? agent.agentFamily}<span className="block font-normal text-ql-fg-tertiary">{agent.latestVersion ? `v${agent.latestVersion}` : "版本未知"}</span>{(query.data?.expectedAgentFamilies.length ?? 0) > 0 && !query.data?.expectedAgentFamilies.includes(agent.agentFamily) ? <span className="block text-[11px] font-normal text-ql-warning">与预期不一致</span> : null}</td>
+              <td className="p-2 font-medium">{AGENT_LABEL[agent.agentFamily] ?? agent.agentFamily}<span className="block font-normal text-ql-fg-tertiary">{agent.latestVersion ? `v${agent.latestVersion}` : "版本未知"}</span>{(query.data?.expectedAgentFamilies.length ?? 0) > 0 && !query.data?.expectedAgentFamilies.includes(agent.agentFamily) ? <span className="block text-[13px] font-normal text-ql-warning">与预期不一致</span> : null}</td>
               <td className="p-2 text-ql-fg-secondary">{(agent.identitySources ?? [agent.identitySource]).join("、")}<span className="block text-ql-fg-tertiary">{agent.identityConfidence}</span></td>
               <td className="p-2 text-right">{formatCount(agent.requestCount)}</td>
               <td className="p-2 text-right">{formatCount(agent.totalTokens)}</td>

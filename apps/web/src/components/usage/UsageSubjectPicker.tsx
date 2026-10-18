@@ -7,6 +7,7 @@ import {
 } from "../../api/v2-hooks";
 
 import { UsageSearchField, usageInputClass } from "./UsageSearchField";
+import { Button } from "../ui/Button";
 
 const PAGE_SIZE = 20;
 
@@ -120,7 +121,7 @@ export function UsageSubjectPicker({
         value={search}
       />
       <div className="min-w-0">
-        <label className="mb-1 block text-[12px] text-ql-fg-secondary">
+        <label className="mb-1 block text-[13px] text-ql-fg-secondary">
           <span className={compact ? "sr-only" : ""}>匹配主体</span>
           <select
             aria-label={selectLabel}
@@ -147,29 +148,29 @@ export function UsageSubjectPicker({
           </select>
         </label>
         {(!compact || total > PAGE_SIZE || optionsQuery.error) ? <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="whitespace-nowrap text-[11px] text-ql-fg-tertiary">
+          <span className="whitespace-nowrap text-[13px] text-ql-fg-tertiary">
             {optionsQuery.error ? "主体列表加载失败" : `共 ${total} 个`}
           </span>
           {total > PAGE_SIZE ? (
             <>
-              <button
+              <Button
                 aria-label="主体上一页"
-                className="h-8 rounded-lg border border-ql-border bg-ql-surface px-2 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+                variant="secondary" size="sm"
                 disabled={offset === 0}
                 onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
                 type="button"
               >
                 上一页
-              </button>
-              <button
+              </Button>
+              <Button
                 aria-label="主体下一页"
-                className="h-8 rounded-lg border border-ql-border bg-ql-surface px-2 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+                variant="secondary" size="sm"
                 disabled={offset + PAGE_SIZE >= total}
                 onClick={() => setOffset(offset + PAGE_SIZE)}
                 type="button"
               >
                 下一页
-              </button>
+              </Button>
             </>
           ) : null}
         </div> : null}
@@ -177,7 +178,7 @@ export function UsageSubjectPicker({
       {exactError ? (
         <p
           aria-live="polite"
-          className="text-[12px] text-ql-warning sm:col-span-2"
+          className="text-[13px] text-ql-warning sm:col-span-2"
           role="status"
         >
           {exactError}

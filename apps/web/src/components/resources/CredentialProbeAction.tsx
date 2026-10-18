@@ -38,13 +38,13 @@ export function CredentialProbeAction({ resourceId, isolated }: { resourceId: st
     ]);
   } });
   const latest = query.data?.probes[0] ?? mutation.data?.probe;
-  return <div className="mt-3 space-y-2 text-[12px]">
+  return <div className="mt-3 space-y-2 text-[13px]">
     {isolated && access.can("resources", "operate") ? <>
       <p>验证会使用导致隔离的模型与当前凭证，只发送一个小请求；通过后恢复服务。</p>
       <label className="flex items-center gap-2"><input type="checkbox" checked={confirmed}
         disabled={mutation.isPending} onChange={e => setConfirmed(e.target.checked)} />允许本次验证消耗少量厂商额度</label>
       <button type="button" disabled={!confirmed || mutation.isPending}
-        className="rounded border border-ql-action px-3 py-1.5 text-ql-action disabled:opacity-50"
+        className="rounded-md border border-ql-action px-3 py-1.5 text-ql-action disabled:opacity-50"
         onClick={() => mutation.mutate()}>{mutation.isPending ? "正在验证…" : "验证当前凭证并恢复"}</button>
     </> : null}
     {latest ? <p role="status">{isolated && latest.status === "RECOVERED"

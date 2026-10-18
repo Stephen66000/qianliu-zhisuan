@@ -118,7 +118,7 @@ export function OperatingBillProjectsPage() {
                                 {row.subjectName}
                               </span>
                               {row.isUnassigned ? (
-                                <span className="ml-2 text-[11px] text-ql-warning">未归属</span>
+                                <span className="ml-2 text-[13px] text-ql-warning">未归属</span>
                               ) : null}
                             </AccountCell>
                             <AccountCell>
@@ -131,14 +131,14 @@ export function OperatingBillProjectsPage() {
                             <SubjectUsageCells providers={dynamicProviders} row={row} />
                             <AccountCell>
                               {(query.data as { allocationStatus?: { status: string | null; stale?: boolean } }).allocationStatus === undefined ? null : (
-                                <span className="flex flex-col text-[11px] text-ql-fg-muted">
+                                <span className="flex flex-col text-[13px] text-ql-fg-tertiary">
                                   <span>
                                     {(row as { allocation?: { totalTokens: string } | null }).allocation
                                       ? `归集 ${Number((row as { allocation?: { totalTokens: string } | null }).allocation!.totalTokens).toLocaleString("zh-CN")} Token`
                                       : "无归集批次"}
                                   </span>
                                   <Link
-                                    className="text-[11px] text-ql-accent hover:underline"
+                                    className="text-[13px] text-ql-action hover:underline"
                                     to={`/operating-bill/projects/${row.subjectId}/allocation?month=${month}`}
                                   >
                                     查看归集明细

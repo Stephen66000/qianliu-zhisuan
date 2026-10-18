@@ -46,12 +46,12 @@ export function PrincipalScopeField(props: Props) {
   ].some((value) => value.toLowerCase().includes(query)));
   return <div className="md:col-span-4 rounded-lg border border-ql-border-zone bg-ql-surface p-3">
     <div className="mb-2 flex items-center justify-between gap-3">
-      <div><p className="text-[12px] font-medium text-ql-fg">主体范围</p>
-        <p className="text-[11px] text-ql-fg-tertiary">按名称选择，系统只提交稳定主体 ID。</p></div>
+      <div><p className="text-[13px] font-medium text-ql-fg">主体范围</p>
+        <p className="text-[13px] text-ql-fg-tertiary">按名称选择，系统只提交稳定主体 ID。</p></div>
       <input aria-label="搜索主体" className={`${INPUT_CLASS} w-56`}
         onChange={(event) => props.onSearch(event.target.value)} placeholder="搜索员工、项目或部门" value={props.search} />
     </div>
-    <div className="mb-3 flex gap-4 text-[12px]">
+    <div className="mb-3 flex gap-4 text-[13px]">
       <label className="flex items-center gap-2"><input checked={props.mode === "ALL"}
         onChange={() => props.onModeChange("ALL")} type="radio" />全部主体</label>
       <label className="flex items-center gap-2"><input checked={props.mode === "SELECTED"}
@@ -62,7 +62,7 @@ export function PrincipalScopeField(props: Props) {
         {filtered.map((principal) => {
           const selected = props.selectedIds.includes(principal.id);
           const selectable = principal.status === "ACTIVE" && principal.archived_at === null;
-          return <label className="flex items-start gap-2 text-[12px]" key={principal.id}>
+          return <label className="flex items-start gap-2 text-[13px]" key={principal.id}>
             <input checked={selected} disabled={!selectable} onChange={(event) => {
               const next = event.target.checked
                 ? [...props.selectedIds, principal.id]
@@ -76,10 +76,10 @@ export function PrincipalScopeField(props: Props) {
         })}
       </div>
       <div className="mt-2 flex flex-wrap gap-1">{props.selectedIds.map((id) =>
-        <span className="rounded bg-ql-surface-brand-soft px-2 py-1 text-[11px] text-ql-action" key={id}>
+        <span className="rounded-md bg-ql-surface-brand-soft px-2 py-1 text-[13px] text-ql-action" key={id}>
           {principalDisplayLabel(principalById.get(id), id)}
         </span>)}</div>
-      {props.error ? <p className="mt-2 text-[11px] text-ql-danger" role="alert">{props.error}</p> : null}
-    </> : <p className="text-[12px] text-ql-fg-secondary">该策略将匹配当前企业的全部主体。</p>}
+      {props.error ? <p className="mt-2 text-[13px] text-ql-danger" role="alert">{props.error}</p> : null}
+    </> : <p className="text-[13px] text-ql-fg-secondary">该策略将匹配当前企业的全部主体。</p>}
   </div>;
 }

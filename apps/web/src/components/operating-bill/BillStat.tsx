@@ -64,7 +64,7 @@ export function BillStat({
     >
       <span
         data-fit="label"
-        className={`block whitespace-nowrap text-[12px] ${
+        className={`block whitespace-nowrap text-[13px] ${
           highlight ? "font-semibold text-ql-action" : "text-ql-fg-secondary"
         }`}
       >
@@ -81,7 +81,7 @@ export function BillStat({
       >
         {display.text}
         {display.unit ? (
-          <span className="ml-1 text-[11px] font-normal text-ql-fg-secondary">
+          <span className="ml-1 text-[13px] font-normal text-ql-fg-secondary">
             {display.unit}
           </span>
         ) : null}

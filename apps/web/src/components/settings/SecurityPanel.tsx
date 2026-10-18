@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSecuritySettings, useSaveSecurity, useSessions, useRevokeSession, type SecuritySettings } from "../../api/settings";
 import { useAccess } from "../../permissions";
+import { Button } from "../ui/Button";
 export function SecurityPanel() {
   const query = useSecuritySettings();
   if (query.isLoading) return <p>正在读取登录策略…</p>;
@@ -19,7 +20,7 @@ function SecurityForm({ settings, password }: { settings: SecuritySettings; pass
       <label className="flex justify-between border-b border-ql-border py-5">登录失败次数<input aria-label="登录失败次数" className="ql-input w-32" type="number" min={3} max={10} value={draft.login_max_failures} onChange={e => setDraft({ ...draft, login_max_failures: Number(e.target.value) })}/></label>
       <label className="flex justify-between border-b border-ql-border py-5">失败计数窗口（分钟）<input aria-label="失败计数窗口" className="ql-input w-32" type="number" min={5} max={60} value={draft.login_lock_minutes} onChange={e => setDraft({ ...draft, login_lock_minutes: Number(e.target.value) })}/></label>
       <label className="flex justify-between border-b border-ql-border py-5">会话有效期<select className="ql-input" value={draft.session_minutes} onChange={e => setDraft({ ...draft, session_minutes: Number(e.target.value) })}>{[15,30,60,120,480,1440].map(n => <option key={n} value={n}>{n < 60 ? n + " 分钟" : n / 60 + " 小时"}</option>)}</select></label>
-      {canEdit && <div className="mt-5 text-right"><button className="rounded-lg bg-ql-action px-4 py-2 text-white">保存登录策略</button></div>}
+      {canEdit && <div className="mt-5 text-right"><Button variant="primary" type="submit">保存登录策略</Button></div>}
     </fieldset>
     {mutation.error && <p role="alert" className="text-ql-danger">{mutation.error.message}</p>}
     {mutation.isSuccess && <p role="status">登录策略已保存</p>}

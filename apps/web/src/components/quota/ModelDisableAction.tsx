@@ -18,16 +18,16 @@ export function ModelDisableAction({ model, inline = false }: { model: QuotaRule
     : "mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-ql-border-zone p-3";
 
   const selectClass = inline
-    ? "h-8 max-w-[200px] rounded-md border border-ql-border bg-ql-surface px-2 text-[12px] text-ql-fg focus:border-ql-action focus:outline-none"
+    ? "h-8 max-w-[200px] rounded-md border border-ql-border bg-ql-surface px-2 text-[13px] text-ql-fg focus:border-ql-action focus:outline-none"
     : `${INPUT_CLASS} max-w-md`;
 
   const btnBaseClass = inline
-    ? "h-8 rounded-md border px-2.5 text-[12px]"
-    : "h-9 rounded-lg border px-3 text-[12px]";
+    ? "h-8 rounded-md border px-2.5 text-[13px]"
+    : "h-9 rounded-lg border px-3 text-[13px]";
 
   return (
     <div data-write-action className={containerClass}>
-      <label htmlFor="disable-pricing-model" className="text-[12px] font-medium text-ql-fg-secondary whitespace-nowrap">
+      <label htmlFor="disable-pricing-model" className="text-[13px] font-medium text-ql-fg-secondary whitespace-nowrap">
         模型调整：
       </label>
       <select
@@ -67,7 +67,7 @@ export function ModelDisableAction({ model, inline = false }: { model: QuotaRule
           <button
             data-write-action
             type="button"
-            className={`${btnBaseClass} border-ql-danger text-ql-danger disabled:opacity-50 hover:bg-red-50`}
+            className={`${btnBaseClass} border-ql-danger text-ql-danger disabled:opacity-50 hover:bg-ql-danger-soft`}
             title={mayDisable ? undefined : "需要额度规则和厂商资源的操作权限"}
             disabled={!mayDisable || !selected || selected.status !== "ACTIVE" || busy}
             onClick={() => {
@@ -90,7 +90,7 @@ export function ModelDisableAction({ model, inline = false }: { model: QuotaRule
           </button>
         </>
       )}
-      <span role="status" className="text-[12px] font-medium text-ql-fg-secondary">
+      <span role="status" className="text-[13px] font-medium text-ql-fg-secondary">
         {status}
       </span>
     </div>

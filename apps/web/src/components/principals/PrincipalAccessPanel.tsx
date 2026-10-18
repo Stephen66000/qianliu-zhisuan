@@ -11,6 +11,7 @@ import { formatCount } from "../../lib/format";
 import { AgentUsagePanel } from "./AgentUsagePanel";
 import { PrincipalAccessConfigPanel } from "./PrincipalAccessConfigPanel";
 import { PrincipalKeyDialog } from "./PrincipalKeyDialog";
+import { Button } from "../ui/Button";
 
 function shouldRevealKey(mounted: boolean, currentId: string, requestedId: string): boolean {
   return mounted && currentId === requestedId;
@@ -174,7 +175,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
             <Settings2 aria-hidden className="h-4 w-4" />
             {principal.name} · 接入配置
           </h2>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+          <p className="mt-1 text-[13px] text-ql-fg-tertiary">
             生成 Key → 按厂商配置额度与型号 → 保存生效 → 复制接入信息。
           </p>
         </div>
@@ -188,12 +189,12 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
           ) : activeKey ? (
             <div className="mt-2">
               <div className="flex flex-wrap items-center gap-2">
-                <code className="rounded bg-ql-surface-muted px-2 py-1 text-[12px]">
+                <code className="rounded-md bg-ql-surface-muted px-2 py-1 text-[13px]">
                   {plaintextKey ? plaintextKey : `${activeKey.key_prefix}••••••••`}
                 </code>
                 {plaintextKey ? (
                   <button
-                    className="flex items-center gap-1 rounded-md border border-ql-border bg-ql-surface px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                    className="flex items-center gap-1 rounded-md border border-ql-border bg-ql-surface px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                     onClick={() => void copyJustKey()}
                     type="button"
                   >
@@ -203,39 +204,39 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                 ) : null}
                 <StatusTag tone="neutral">有效</StatusTag>
                 <button data-write-action
-                  className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-warning hover:bg-ql-warning-soft"
+                  className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-warning hover:bg-ql-warning-soft"
                   onClick={() => setResetConfirm(true)}
                   type="button"
                 >
                   重置 Key
                 </button>
                 {copyStatus === "success-key" ? (
-                  <span className="text-[11px] text-ql-success" role="status">Key 已复制</span>
+                  <span className="text-[13px] text-ql-success" role="status">Key 已复制</span>
                 ) : null}
               </div>
             </div>
           ) : null}
 
           {activeKey ? null : (
-            <button
-              className="mt-3 flex h-9 items-center gap-1.5 rounded-lg bg-ql-action px-3 text-[13px] font-medium text-white disabled:opacity-60"
+            <Button
+              variant="primary" className="mt-3"
               disabled={createKey.isPending || principal.status !== "ACTIVE"}
               onClick={() => createKey.mutate()}
               type="button"
             >
               <KeyRound aria-hidden className="h-4 w-4" />
               生成 Key
-            </button>
+            </Button>
           )}
           {createKey.error || resetKey.error ? (
-            <p className="mt-2 text-[12px] text-ql-danger" role="alert">
+            <p className="mt-2 text-[13px] text-ql-danger" role="alert">
               {(createKey.error ?? resetKey.error)?.message}
             </p>
           ) : null}
 
           <div className="mt-4 border-t border-ql-border-zone pt-3">
             <h3 className="text-[13px] font-semibold text-ql-fg">接入信息</h3>
-            <dl className="mt-2 grid grid-cols-[5rem_1fr] gap-1 text-[12px]">
+            <dl className="mt-2 grid grid-cols-[5rem_1fr] gap-1 text-[13px]">
               <dt className="text-ql-fg-tertiary">Base URL</dt>
               <dd className="break-all font-mono text-ql-fg">
                 {gatewayBaseUrl}
@@ -255,25 +256,25 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
               </dd>
             </dl>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                className="h-8 rounded-md bg-ql-action px-3 text-[12px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              <Button
+                variant="primary" size="sm"
                 disabled={!plaintextKey}
                 onClick={() => void copyConnectionInfo()}
                 type="button"
               >
                 复制接入信息
-              </button>
-              <button
-                className="h-8 rounded-md border border-ql-border bg-ql-surface px-3 text-[12px] font-medium text-ql-fg disabled:cursor-not-allowed disabled:opacity-50 hover:bg-ql-surface-subtle"
+              </Button>
+              <Button
+                variant="secondary" size="sm"
                 disabled={!plaintextKey}
                 onClick={() => void copyJustKey()}
                 type="button"
               >
                 复制 Key
-              </button>
+              </Button>
               {plaintextKey ? (
-                <button
-                  className="h-8 rounded-md border border-ql-border px-3 text-[12px] text-ql-fg-secondary"
+                <Button
+                  variant="secondary" size="sm"
                   onClick={() => {
                     setPlaintextKey(null);
                     setCopyStatus("idle");
@@ -281,20 +282,20 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                   type="button"
                 >
                   清除一次性 Key
-                </button>
+                </Button>
               ) : (
-                <span className="text-[11px] text-ql-warning">
+                <span className="text-[13px] text-ql-warning">
                   完整 Key 已不可恢复；如未保存，请重置 Key。
                 </span>
               )}
               {copyStatus === "success-key" ? (
-                <span className="text-[11px] text-ql-success" role="status">Key 复制成功</span>
+                <span className="text-[13px] text-ql-success" role="status">Key 复制成功</span>
               ) : null}
               {copyStatus === "success-info" || copyStatus === "success" ? (
-                <span className="text-[11px] text-ql-success" role="status">接入信息复制成功</span>
+                <span className="text-[13px] text-ql-success" role="status">接入信息复制成功</span>
               ) : null}
               {copyStatus === "error" ? (
-                <span className="text-[11px] text-ql-danger" role="alert">复制失败，请检查剪贴板权限</span>
+                <span className="text-[13px] text-ql-danger" role="alert">复制失败，请检查剪贴板权限</span>
               ) : null}
             </div>
           </div>
@@ -302,7 +303,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
 
         <div className="rounded-lg border border-ql-border-zone bg-ql-surface p-4">
           <h3 className="text-[13px] font-semibold text-ql-fg">型号与额度</h3>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+          <p className="mt-1 text-[13px] text-ql-fg-tertiary">
             按厂商开通额度池；厂商下型号默认全开，可单个掐掉。
           </p>
           <div className="mt-3">
@@ -313,7 +314,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
 
       {grants.length > 0 ? (
         <div className="mt-4 overflow-x-auto rounded-lg border border-ql-border-zone bg-ql-surface">
-          <table className="w-full border-collapse text-left text-[12px]">
+          <table className="w-full border-collapse text-left text-[13px]">
             <thead>
               <tr className="border-b border-ql-border text-ql-fg-tertiary">
                 <th className="p-2 font-medium">模型</th>
@@ -350,7 +351,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                       <div className="flex items-center gap-2">
                         <span>已停用</span>
                         <button
-                          className="rounded px-2 py-1 text-[11px] text-ql-action hover:bg-ql-action-soft"
+                          className="rounded-md px-2 py-1 text-[13px] text-ql-action hover:bg-ql-action-soft"
                           onClick={() => setArchiveGrantTarget(grant)}
                           type="button"
                         >归档</button>
@@ -363,7 +364,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
               ))}
             </tbody>
           </table>
-          <p className="border-t border-ql-border-zone p-2 text-[12px] text-ql-fg-tertiary">
+          <p className="border-t border-ql-border-zone p-2 text-[13px] text-ql-fg-tertiary">
             额度为只读展示；调额、超额开关与停用请在上方「接入配置」面板中操作。
           </p>
         </div>

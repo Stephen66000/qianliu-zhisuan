@@ -21,12 +21,12 @@ export function FormField({ label, htmlFor, error, hint, children }: FormFieldPr
       </label>
       {children}
       {error ? (
-        <p className="flex items-center gap-1 text-[12px] leading-[18px] text-ql-danger" role="alert">
+        <p className="flex items-center gap-1 text-[13px] leading-[18px] text-ql-danger" role="alert">
           <CircleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />
           {error}
         </p>
       ) : hint ? (
-        <p className="text-[12px] leading-[18px] text-ql-fg-tertiary">{hint}</p>
+        <p className="text-[13px] leading-[18px] text-ql-fg-tertiary">{hint}</p>
       ) : null}
     </div>
   );

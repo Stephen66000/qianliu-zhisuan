@@ -28,7 +28,7 @@ export function ResourceOtherTabs({ model }: { model: ResourcesPageModel }) {
           <p className="mt-3 text-[13px] text-ql-fg-tertiary">暂无预测快照</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full border-collapse text-left text-[12px]">
+            <table className="w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-ql-border text-ql-fg-tertiary">
                   <th className="p-2 font-medium">资源</th>

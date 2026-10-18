@@ -3,6 +3,7 @@
  *
  * 厂商经营快照与主体 Grant 分列，前端只展示后端口径，不重算。
  * API 速度按金额/小时，套餐速度按额度/小时；不可计算原因不伪装成“无风险”。
+ * 只在厂商资源页使用（不在首页看板），字号按页面规范：表格与说明文字 13px。
  */
 import type { ResourceBreakdownItem } from "../../api/types";
 import type { ReactNode } from "react";
@@ -24,7 +25,7 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-left">
         <thead>
-          <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
+          <tr className="whitespace-nowrap border-b border-ql-border text-[13px] leading-5 text-ql-fg-tertiary">
             <th className="py-2 pr-4 font-medium">厂商</th>
             <th className="py-2 pr-4 font-medium">模式</th>
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
@@ -63,7 +64,7 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                   <>{item.packageCost === null
                     ? "套餐费用待补"
                     : `${item.currency ?? ""} ${formatMoney(item.packageCost)}`}
-                    <span className="block text-[11px] text-ql-fg-tertiary">
+                    <span className="block text-[13px] text-ql-fg-tertiary">
                       订阅周期 {subscriptionPeriod(item)}
                     </span></>
                 )}
@@ -75,7 +76,7 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                     <>
                       {`${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
                       {item.mode === "CODING_PLAN" && Number(item.monthlyCost) === 0 && Number(item.packageCost ?? 0) > 0 ? (
-                        <span className="block text-[11px] text-ql-fg-tertiary">
+                        <span className="block text-[13px] text-ql-fg-tertiary">
                           本期尚未到续费扣款日
                         </span>
                       ) : null}
@@ -99,7 +100,7 @@ export function ResourceBreakdown({ items }: ResourceBreakdownProps) {
                     {resourceStatusLabel(item.status, item.mode)}
                   </StatusTag>
                   {item.abnormalResources.length > 0 ? (
-                    <span className="mt-1 block max-w-36 text-[11px] text-ql-fg-tertiary">
+                    <span className="mt-1 block max-w-36 text-[13px] text-ql-fg-tertiary">
                       {item.abnormalResources.map((resource) => resource.resourceName).join("、")}
                     </span>
                   ) : null}
@@ -126,7 +127,7 @@ function monthlyTokenText(item: ResourceBreakdownItem): ReactNode {
     <span title={`输入 ${item.monthlyInputTokens ?? "—"}；输出 ${item.monthlyOutputTokens ?? "—"}；缓存 ${item.monthlyCacheTokens ?? "—"}；推理 ${item.monthlyReasoningTokens ?? "—"}`}>
       {formatCount(item.monthlyTotalTokens)}
       {unknown > 0 ? (
-        <span className="block text-[11px] text-ql-fg-tertiary">
+        <span className="block text-[13px] text-ql-fg-tertiary">
           已记录；另有 {unknown} 笔计量未知
         </span>
       ) : null}
@@ -141,7 +142,7 @@ function usageRateText(item: ResourceBreakdownItem): ReactNode {
     <>
       {item.tokenRate24h === null ? "Token 不可计算" : `${formatTokenRate(item.tokenRate24h)} Token/小时`}
       {item.costRate24h === null ? null : (
-        <span className="block text-[11px] text-ql-fg-tertiary">
+        <span className="block text-[13px] text-ql-fg-tertiary">
           {item.currency ?? "金额"} {formatMoney(item.costRate24h)}/小时
         </span>
       )}

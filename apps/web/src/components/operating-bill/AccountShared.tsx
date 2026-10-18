@@ -9,6 +9,7 @@ import { formatCount, formatMoney } from "../../lib/format";
 import { StatusTag } from "../dashboard/StatusTag";
 import { BillStat } from "./BillStat";
 import { inputClass } from "./BillShared";
+import { Button } from "../ui/Button";
 
 const qualityLabels: Record<OperatingBillUsageQuality, string> = {
   EXACT: "精确用量",
@@ -206,7 +207,7 @@ export function AccountTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[92rem] text-left text-[13px]">
-        <thead className="border-y border-ql-border-zone bg-ql-surface-subtle text-[12px] text-ql-fg-tertiary">
+        <thead className="border-y border-ql-border-zone bg-ql-surface-subtle text-[13px] text-ql-fg-tertiary">
           <tr>
             {headers.map((header, index) => (
               <th
@@ -250,21 +251,21 @@ export function AccountPagination({
   const end = Math.min(offset + limit, total);
   return (
     <nav aria-label="账单分页" className="flex items-center justify-end gap-3 border-t border-ql-border-zone px-4 py-3">
-      <span className="text-[12px] text-ql-fg-secondary">
+      <span className="text-[13px] text-ql-fg-secondary">
         {start}–{end} / {total}
       </span>
-      <button
-        className="rounded-lg border border-ql-border-zone px-3 py-1.5 text-[12px] text-ql-fg disabled:opacity-40"
+      <Button
+        variant="secondary" size="sm"
         disabled={offset === 0}
         onClick={() => onOffsetChange(Math.max(0, offset - limit))}
         type="button"
-      >上一页</button>
-      <button
-        className="rounded-lg border border-ql-border-zone px-3 py-1.5 text-[12px] text-ql-fg disabled:opacity-40"
+      >上一页</Button>
+      <Button
+        variant="secondary" size="sm"
         disabled={offset + limit >= total}
         onClick={() => onOffsetChange(offset + limit)}
         type="button"
-      >下一页</button>
+      >下一页</Button>
     </nav>
   );
 }

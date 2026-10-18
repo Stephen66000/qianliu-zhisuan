@@ -44,7 +44,7 @@ export function Topbar({ admin, theme }: TopbarProps) {
             <button
               aria-pressed={active}
               className={[
-                "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] leading-[18px]",
+                "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] leading-[18px]",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action",
                 active
                   ? "bg-ql-surface-brand-soft font-medium text-ql-action"

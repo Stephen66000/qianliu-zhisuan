@@ -3,6 +3,7 @@ import { Check, Edit2, Trash2, X, Plus } from "lucide-react";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 import { COMMON_PROVIDER_PRESETS, findKnownProvider } from "./known-providers";
+import { Button } from "../ui/Button";
 
 function providerBaseUrl(capabilitySet: Record<string, unknown> | null | undefined): string | undefined {
   const value = capabilitySet?.base_url;
@@ -93,18 +94,18 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-xl border border-ql-border bg-ql-surface p-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ql-overlay backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg rounded-xl border border-ql-border bg-ql-surface p-5 shadow-ql-raised animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between pb-3 border-b border-ql-border">
           <div>
             <h3 className="text-[16px] font-semibold text-ql-fg">厂商管理</h3>
-            <p className="text-[12px] text-ql-fg-muted mt-0.5">
+            <p className="text-[13px] text-ql-fg-tertiary mt-0.5">
               管理已添加的上游厂商。无关联资源的厂商可安全删除并释放厂商代码。
             </p>
           </div>
           <button
             type="button"
-            className="rounded-md p-1.5 text-ql-fg-muted hover:bg-ql-surface-subtle hover:text-ql-fg"
+            className="rounded-md p-1.5 text-ql-fg-tertiary hover:bg-ql-surface-subtle hover:text-ql-fg"
             onClick={() => {
               setShowManageProviders(false);
               setEditingId(null);
@@ -119,7 +120,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
         {/* 厂商列表 */}
         <div className="mt-4 max-h-[60vh] overflow-y-auto space-y-2.5 pr-1">
           {providerOptions.length === 0 ? (
-            <div className="py-8 text-center text-[13px] text-ql-fg-muted">
+            <div className="py-8 text-center text-[13px] text-ql-fg-tertiary">
               暂无已添加的厂商
             </div>
           ) : (
@@ -142,7 +143,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                             type="text"
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}
-                            className="w-full px-2 py-1 border border-ql-action rounded text-[13px] bg-ql-surface text-ql-fg focus:outline-none"
+                            className="w-full px-2 py-1 border border-ql-action rounded-md text-[13px] bg-ql-surface text-ql-fg focus:outline-none"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === "Enter") saveEdit(provider.id);
@@ -151,7 +152,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                           />
                           <button
                             type="button"
-                            className="p-1 rounded text-ql-action hover:bg-ql-action-soft"
+                            className="p-1 rounded-md text-ql-action hover:bg-ql-action-soft"
                             onClick={() => saveEdit(provider.id)}
                             disabled={updateProviderMutation.isPending || !editingName.trim()}
                             title="保存"
@@ -160,7 +161,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                           </button>
                           <button
                             type="button"
-                            className="p-1 rounded text-ql-fg-muted hover:bg-ql-surface"
+                            className="p-1 rounded-md text-ql-fg-tertiary hover:bg-ql-surface"
                             onClick={cancelEdit}
                             title="取消"
                           >
@@ -173,14 +174,14 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                             {provider.name}
                           </span>
                           {provider.archived_at ? (
-                            <span className="rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[10px] text-ql-fg-muted">已归档</span>
+                            <span className="rounded-md bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[12px] text-ql-fg-tertiary">已归档</span>
                           ) : null}
-                          <span className="rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[11px] font-mono text-ql-fg-secondary">
+                          <span className="rounded-md bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[12px] font-mono text-ql-fg-secondary">
                             {provider.code}
                           </span>
                           {baseUrl ? (
                             <span
-                              className="max-w-[160px] truncate rounded bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[10px] text-ql-fg-muted font-mono"
+                              className="max-w-[160px] truncate rounded-md bg-ql-surface border border-ql-border px-1.5 py-0.5 text-[12px] text-ql-fg-tertiary font-mono"
                               title={baseUrl}
                             >
                               {baseUrl}
@@ -194,28 +195,28 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                       <div className="flex items-center gap-1">
                         {isConfirmingDelete ? (
                           <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
-                            <span className="text-[12px] text-ql-danger font-medium">确定删除？</span>
-                            <button
+                            <span className="text-[13px] text-ql-danger font-medium">确定删除？</span>
+                            <Button
                               type="button"
-                              className="px-2 py-1 rounded bg-ql-danger text-white text-[11px] font-medium hover:bg-ql-danger-hover disabled:opacity-60 shadow-sm"
+                              variant="danger" size="sm"
                               onClick={() => handleDelete(provider.id)}
                               disabled={deleteProviderMutation.isPending}
                             >
                               {deleteProviderMutation.isPending ? "删除中…" : "确定"}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
-                              className="px-2 py-1 rounded bg-ql-surface border border-ql-border text-[11px] text-ql-fg hover:bg-ql-surface-subtle"
+                              variant="secondary" size="sm"
                               onClick={() => setConfirmDeleteId(null)}
                               disabled={deleteProviderMutation.isPending}
                             >
                               取消
-                            </button>
+                            </Button>
                           </div>
                         ) : provider.archived_at ? (
                           <button
                             type="button"
-                            className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-ql-action hover:bg-ql-action-soft transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-ql-action hover:bg-ql-action-soft transition-colors"
                             disabled={unarchiveProviderMutation.isPending}
                             onClick={() => unarchiveProviderMutation.mutate(provider.id)}
                           >
@@ -225,7 +226,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                           <>
                             <button
                               type="button"
-                              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-ql-action hover:bg-ql-action-soft transition-colors"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-ql-action hover:bg-ql-action-soft transition-colors"
                               onClick={() => startEdit(provider.id, provider.name)}
                             >
                               <Edit2 className="h-3 w-3" />
@@ -233,7 +234,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                             </button>
                             <button
                               type="button"
-                              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] text-ql-fg-secondary hover:bg-ql-surface-subtle transition-colors"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-ql-fg-secondary hover:bg-ql-surface-subtle transition-colors"
                               disabled={archiveProviderMutation.isPending}
                               onClick={() => archiveProviderMutation.mutate(provider.id)}
                             >
@@ -241,9 +242,9 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                             </button>
                             <button
                               type="button"
-                              className={`flex items-center gap-1 px-2 py-1 rounded text-[12px] transition-colors ${
+                              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[13px] transition-colors ${
                                 resourceCount > 0
-                                  ? "text-ql-fg-muted/60 hover:text-ql-danger hover:bg-ql-danger-soft"
+                                  ? "text-ql-fg-disabled hover:text-ql-danger hover:bg-ql-danger-soft"
                                   : "text-ql-danger hover:bg-ql-danger-soft"
                               }`}
                               onClick={() => setConfirmDeleteId(provider.id)}
@@ -257,7 +258,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between text-[12px] text-ql-fg-muted pt-1 border-t border-ql-border/50">
+                  <div className="flex items-center justify-between text-[13px] text-ql-fg-tertiary pt-1 border-t border-ql-border/50">
                     <span>
                       已关联 <strong className="text-ql-fg">{resourceCount}</strong> 个资源账号
                     </span>
@@ -265,23 +266,23 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
 
                   {/* 删除二次确认提示 */}
                   {isConfirmingDelete && (
-                    <div className="mt-2 rounded border border-ql-danger/30 bg-ql-danger-soft p-2 text-[12px]">
+                    <div className="mt-2 rounded-md border border-ql-danger/30 bg-ql-danger-soft p-2 text-[13px]">
                       {resourceCount > 0 ? (
                         <div>
                           <p className="text-ql-danger font-medium">
                             该厂商名下仍有 {resourceCount} 个绑定的资源账号。
                           </p>
-                          <p className="text-ql-fg-muted mt-0.5">
+                          <p className="text-ql-fg-tertiary mt-0.5">
                             为保证路由与审计完整，无法直接删除。请先在资源列表中删除或迁移关联账号。
                           </p>
                           <div className="mt-2 flex justify-end">
-                            <button
+                            <Button
                               type="button"
-                              className="px-2.5 py-1 rounded bg-ql-surface border border-ql-border text-[11px] text-ql-fg hover:bg-ql-surface-subtle"
+                              variant="secondary" size="sm"
                               onClick={() => setConfirmDeleteId(null)}
                             >
                               我知道了
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -289,26 +290,26 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                           <p className="text-ql-danger font-medium">
                             确定要删除厂商 “{provider.name} ({provider.code})” 吗？
                           </p>
-                          <p className="text-ql-fg-muted mt-0.5">
+                          <p className="text-ql-fg-tertiary mt-0.5">
                             该厂商无关联资源，删除后将释放厂商代码，此操作不可撤销。
                           </p>
                           <div className="mt-2 flex justify-end gap-2">
-                            <button
+                            <Button
                               type="button"
-                              className="px-2.5 py-1 rounded bg-ql-surface border border-ql-border text-[11px] text-ql-fg hover:bg-ql-surface-subtle"
+                              variant="secondary" size="sm"
                               onClick={() => setConfirmDeleteId(null)}
                               disabled={deleteProviderMutation.isPending}
                             >
                               取消
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
-                              className="px-2.5 py-1 rounded bg-ql-danger text-white text-[11px] font-medium hover:bg-ql-danger-hover disabled:opacity-60"
+                              variant="danger" size="sm"
                               onClick={() => handleDelete(provider.id)}
                               disabled={deleteProviderMutation.isPending}
                             >
                               {deleteProviderMutation.isPending ? "删除中…" : "确认删除"}
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -322,17 +323,17 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
 
         {/* 错误提示 */}
         {deleteProviderMutation.error && (
-          <p className="mt-3 text-[12px] text-ql-danger" role="alert">
+          <p className="mt-3 text-[13px] text-ql-danger" role="alert">
             {deleteProviderMutation.error.message}
           </p>
         )}
         {updateProviderMutation.error && (
-          <p className="mt-3 text-[12px] text-ql-danger" role="alert">
+          <p className="mt-3 text-[13px] text-ql-danger" role="alert">
             {updateProviderMutation.error.message}
           </p>
         )}
         {archiveProviderMutation.error && (
-          <p className="mt-3 text-[12px] text-ql-danger" role="alert">
+          <p className="mt-3 text-[13px] text-ql-danger" role="alert">
             {archiveProviderMutation.error.message}
           </p>
         )}
@@ -342,15 +343,15 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
           <div className="mt-4 rounded-lg border border-ql-border bg-ql-surface-subtle p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-medium text-ql-fg">新建厂商</span>
-              <span className="text-[11px] text-ql-fg-muted">主流厂商已内置官方协议与接口</span>
+              <span className="text-[13px] text-ql-fg-tertiary">主流厂商已内置官方协议与接口</span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 pb-2 mb-2 border-b border-ql-border/50">
-              <span className="text-[11px] text-ql-fg-muted mr-1">快捷填入：</span>
+              <span className="text-[13px] text-ql-fg-tertiary mr-1">快捷填入：</span>
               {COMMON_PROVIDER_PRESETS.map((preset) => (
                 <button
                   key={preset.code}
                   type="button"
-                  className="inline-flex items-center rounded-md border border-ql-border bg-ql-surface px-2 py-0.5 text-[11px] text-ql-fg-secondary hover:border-ql-action hover:text-ql-action hover:bg-ql-action-soft/40 transition-colors"
+                  className="inline-flex items-center rounded-md border border-ql-border bg-ql-surface px-2 py-0.5 text-[12px] text-ql-fg-secondary hover:border-ql-action hover:text-ql-action hover:bg-ql-action-soft/40 transition-colors"
                   onClick={() => {
                     setNewCode(preset.code);
                     setNewName(preset.name);
@@ -400,12 +401,12 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               </FormField>
             </div>
             {createProviderMutation.error && (
-              <p className="mb-2 text-[12px] text-ql-danger">{createProviderMutation.error.message}</p>
+              <p className="mb-2 text-[13px] text-ql-danger">{createProviderMutation.error.message}</p>
             )}
             <div className="flex justify-end gap-2">
-              <button
+              <Button
                 type="button"
-                className="h-8 rounded-md border border-ql-border px-3 text-[12px] text-ql-fg-secondary hover:bg-ql-surface"
+                variant="secondary" size="sm"
                 onClick={() => {
                   setShowAddInline(false);
                   setNewCode("");
@@ -414,15 +415,15 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
                 }}
               >
                 取消
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="h-8 rounded-md bg-ql-action px-3 text-[12px] font-medium text-white hover:bg-ql-action-hover disabled:opacity-60"
+                variant="primary" size="sm"
                 disabled={createProviderMutation.isPending || !newCode.trim() || !newName.trim()}
                 onClick={handleCreate}
               >
                 {createProviderMutation.isPending ? "创建中…" : "确认创建"}
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -437,9 +438,9 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               <Plus className="h-4 w-4" />
               新建厂商
             </button>
-            <button
+            <Button
               type="button"
-              className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px] font-medium text-ql-fg hover:bg-ql-surface-subtle"
+              variant="secondary"
               onClick={() => {
                 setShowManageProviders(false);
                 setEditingId(null);
@@ -448,7 +449,7 @@ export function ProviderManagementDialog({ model }: { model: ResourcesPageModel 
               }}
             >
               关闭
-            </button>
+            </Button>
           </div>
         )}
       </div>

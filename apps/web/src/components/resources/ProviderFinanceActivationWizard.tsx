@@ -41,6 +41,7 @@ import {
   clearDraftAutosave, loadDraftAutosave, saveDraftAutosave,
 } from "./draft-autosave";
 import { useNowTicker } from "./use-now-ticker";
+import { Button } from "../ui/Button";
 
 const DECISION_LABELS: Record<string, string> = {
   GO_CANDIDATE: "可激活候选（GO_CANDIDATE）",
@@ -58,7 +59,7 @@ function ActivationGapReport({ preview, resourceLabel }: {
   const groups = groupGapsByCategory(preview.gaps);
   if (groups.length === 0) {
     return (
-      <p className="mt-3 text-[12px] text-ql-success" data-testid="activation-gaps-empty">
+      <p className="mt-3 text-[13px] text-ql-success" data-testid="activation-gaps-empty">
         预检未发现结构性缺口。
       </p>
     );
@@ -67,7 +68,7 @@ function ActivationGapReport({ preview, resourceLabel }: {
     <div className="mt-3 space-y-3" data-testid="activation-gaps">
       {groups.map((group) => (
         <div className="rounded-lg border border-ql-border bg-ql-surface-subtle p-3" key={group.category}>
-          <p className="text-[12px] font-semibold text-ql-fg">
+          <p className="text-[13px] font-semibold text-ql-fg">
             {group.label}<span className="ml-2 font-normal text-ql-fg-tertiary">{group.gaps.length} 项</span>
           </p>
           <ul className="mt-2 space-y-1.5">
@@ -84,9 +85,9 @@ function GapRow({ gap, index, resourceLabel }: {
   gap: ActivationGapView; index: number; resourceLabel: (resourceId: string) => string;
 }) {
   return (
-    <li className="text-[12px] text-ql-fg-secondary" data-testid={`activation-gap-${gap.code}`}>
+    <li className="text-[13px] text-ql-fg-secondary" data-testid={`activation-gap-${gap.code}`}>
       <span className="font-medium text-ql-fg">{gapCodeLabel(gap)}</span>
-      <span className="ml-2 rounded bg-ql-surface px-1.5 py-0.5 font-mono text-[11px] text-ql-fg-tertiary">
+      <span className="ml-2 rounded-md bg-ql-surface px-1.5 py-0.5 font-mono text-[12px] text-ql-fg-tertiary">
         {gap.code}
       </span>
       <span className="ml-2 text-ql-fg-tertiary">{gapLocator(gap, resourceLabel)}</span>
@@ -131,11 +132,11 @@ function ActivationConfirmDialog({
       <h3 className="flex items-center gap-1.5 text-[14px] font-semibold text-ql-danger">
         <ShieldAlert aria-hidden className="h-4 w-4" />不可逆激活确认
       </h3>
-      <p className="mt-1 text-[12px] text-ql-fg-secondary">
-        激活会写入资金事实并开启严格资金写入口，**不可撤销**。请逐项核对后输入企业 ID 确认。
+      <p className="mt-1 text-[13px] text-ql-fg-secondary">
+        激活会写入资金事实并开启严格资金写入口，<strong className="font-semibold">不可撤销</strong>。请逐项核对后输入企业 ID 确认。
       </p>
 
-      <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2">
+      <dl className="mt-3 grid gap-2 text-[13px] sm:grid-cols-2">
         <ConfirmField label="目标企业" value={enterpriseId} />
         <ConfirmField label="候选 ID" value={hold.candidateId} />
         <ConfirmField label="候选哈希" value={hold.candidateHash} mono />
@@ -152,7 +153,7 @@ function ActivationConfirmDialog({
       </dl>
 
       <div className="mt-3 rounded-lg border border-ql-border bg-ql-surface px-3 py-2">
-        <p className="text-[12px] text-ql-fg-tertiary" data-testid="confirm-scope-months">
+        <p className="text-[13px] text-ql-fg-tertiary" data-testid="confirm-scope-months">
           覆盖月份：{scope.months.join("、") || "—"}
         </p>
       </div>
@@ -167,21 +168,21 @@ function ActivationConfirmDialog({
       </div>
 
       {errorMessage ? (
-        <p className="mt-3 text-[12px] text-ql-danger" role="alert" data-testid="activation-error">
+        <p className="mt-3 text-[13px] text-ql-danger" role="alert" data-testid="activation-error">
           {errorMessage}{retryable ? "（事务已整体回滚，可用同一幂等键重试）" : ""}
         </p>
       ) : null}
 
       <div className="mt-4 flex justify-end gap-2">
-        <button className="rounded-lg border border-ql-border px-4 py-2 text-[13px]" onClick={onCancel} type="button">
+        <Button variant="secondary" onClick={onCancel} type="button">
           取消
-        </button>
-        <button
-          className="rounded-lg bg-ql-danger px-4 py-2 text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        </Button>
+        <Button
+          variant="danger"
           data-write-action disabled={!matches || pending} onClick={() => onConfirm(typed.trim())} type="button"
         >
           {pending ? "激活中…" : "确认不可逆激活"}
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -344,17 +345,17 @@ export function ProviderFinanceActivationWizard({
     <div data-testid="activation-wizard">
       <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4" aria-label="初始化状态">
         <h2 className="text-[15px] font-semibold text-ql-fg">资金账本初始化</h2>
-        <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+        <p className="mt-1 text-[13px] text-ql-fg-tertiary">
           严格资金写入口尚未开启。请补齐 API 期初、历史充值、Coding Plan 与旧记录关闭，
           预检通过后执行不可逆激活。切换时点 {formatDateTimeFull(state.cutover_at)}。
         </p>
         {writeEnabled ? null : (
-          <p className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning">
+          <p className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning">
             当前为只读验收模式（DARK）：可以填写与查看草稿，预检与激活暂不可用。
           </p>
         )}
         {canOperate ? null : (
-          <p className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning">
+          <p className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning">
             当前账号无 <code>resources.operate</code> 权限，草稿与激活均只读。
           </p>
         )}
@@ -370,23 +371,23 @@ export function ProviderFinanceActivationWizard({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ql-border-zone bg-ql-surface px-4 py-2"
         data-testid="draft-autosave-bar">
-        <p className="text-[12px] text-ql-fg-tertiary" data-testid="draft-autosave-status" role="status">
+        <p className="text-[13px] text-ql-fg-tertiary" data-testid="draft-autosave-status" role="status">
           {autosaveSavedAt
             ? `草稿已自动保存到本机 · ${formatDateTimeFull(autosaveSavedAt)}`
             : "本机草稿：尚未保存（填写后自动保存到本机浏览器）"}
         </p>
         {confirmingDraftClear && (
-          <button
-            className="rounded-lg border border-ql-border px-3 py-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+          <Button
+            variant="secondary" size="sm"
             data-testid="draft-autosave-clear-cancel" disabled={!canOperate}
             onClick={() => setConfirmingDraftClear(false)}
             type="button"
           >
             取消
-          </button>
+          </Button>
         )}
-        <button
-          className="rounded-lg border border-ql-border px-3 py-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+        <Button
+          variant="secondary" size="sm"
           data-testid="draft-autosave-clear" disabled={!canOperate}
           onClick={() => {
             if (!confirmingDraftClear) {
@@ -401,7 +402,7 @@ export function ProviderFinanceActivationWizard({
           type="button"
         >
           {confirmingDraftClear ? "确认清除本机草稿" : "清除本机草稿"}
-        </button>
+        </Button>
       </div>
 
       <ActivationDraftEditor
@@ -416,20 +417,20 @@ export function ProviderFinanceActivationWizard({
             <h3 className="flex items-center gap-1.5 text-[14px] font-semibold text-ql-fg">
               <ClipboardCheck aria-hidden className="h-4 w-4" />结构化预检
             </h3>
-            <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+            <p className="mt-1 text-[13px] text-ql-fg-tertiary">
               预检只读：不会写入任何资金事实。已填 {totalRows} 行草稿。
             </p>
           </div>
-          <button
-            className="flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover disabled:cursor-not-allowed disabled:opacity-50"
+          <Button
+            variant="primary" className="h-10"
             data-write-action disabled={!canSubmitPreview} onClick={runPreview} type="button"
           >
             <RotateCcw aria-hidden className="h-4 w-4" />{previewMutation.isPending ? "预检中…" : "执行预检"}
-          </button>
+          </Button>
         </div>
 
         {issues.length > 0 ? (
-          <ul className="mt-3 space-y-1 text-[12px] text-ql-danger" data-testid="activation-draft-issues" role="alert">
+          <ul className="mt-3 space-y-1 text-[13px] text-ql-danger" data-testid="activation-draft-issues" role="alert">
             {issues.map((issue, index) => (
               <li key={`${issue.section}-${issue.rowId}-${issue.field}-${index}`}>
                 {issue.section} · {issue.message}
@@ -438,12 +439,12 @@ export function ProviderFinanceActivationWizard({
           </ul>
         ) : null}
         {!gate.ready ? (
-          <ul className="mt-3 space-y-1 text-[12px] text-ql-warning">
+          <ul className="mt-3 space-y-1 text-[13px] text-ql-warning">
             {gate.blockers.map((blocker) => <li key={blocker}>静默门禁未满足：{blocker}</li>)}
           </ul>
         ) : null}
         {previewMutation.error ? (
-          <p className="mt-3 text-[12px] text-ql-danger" role="alert" data-testid="preview-error">
+          <p className="mt-3 text-[13px] text-ql-danger" role="alert" data-testid="preview-error">
             {previewErrorMessage(previewMutation.error)}
           </p>
         ) : null}
@@ -461,7 +462,7 @@ export function ProviderFinanceActivationWizard({
       ) : null}
 
       {!confirmOpen && activateMutation.isSuccess ? (
-        <p className="mt-4 flex items-center gap-1.5 text-[12px] text-ql-success" role="status">
+        <p className="mt-4 flex items-center gap-1.5 text-[13px] text-ql-success" role="status">
           激活完成，正在切换到日常资金面板…
         </p>
       ) : null}
@@ -480,20 +481,20 @@ function PreviewResult({ preview, holdEvaluation, nowMs, resourceLabel, onActiva
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] font-medium text-ql-fg">
           {DECISION_LABELS[preview.decision] ?? preview.decision}
-          <span className="ml-2 font-mono text-[11px] text-ql-fg-tertiary">
+          <span className="ml-2 font-mono text-[13px] text-ql-fg-tertiary">
             候选 {preview.candidate_id}
           </span>
         </p>
-        <p className="text-[12px] text-ql-fg-tertiary">
+        <p className="text-[13px] text-ql-fg-tertiary">
           TTL 到期 {formatDateTimeFull(preview.expires_at)}（剩余 {remainingSeconds(preview.expires_at, nowMs)} 秒）
         </p>
       </div>
-      <p className="mt-1 break-all font-mono text-[11px] text-ql-fg-tertiary" data-testid="preview-candidate-hash">
+      <p className="mt-1 break-all font-mono text-[13px] text-ql-fg-tertiary" data-testid="preview-candidate-hash">
         候选哈希 {preview.candidate_hash} · 事实水位 {preview.fact_watermark_hash}
       </p>
 
       {holdEvaluation.reason ? (
-        <p className="mt-3 flex items-start gap-1.5 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning"
+        <p className="mt-3 flex items-start gap-1.5 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning"
           data-testid="activation-hold-reason">
           <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />{holdEvaluation.reason}
         </p>
@@ -502,12 +503,12 @@ function PreviewResult({ preview, holdEvaluation, nowMs, resourceLabel, onActiva
       <ActivationGapReport preview={preview} resourceLabel={resourceLabel} />
 
       <div className="mt-4 flex justify-end">
-        <button
-          className="flex h-10 items-center gap-1.5 rounded-lg bg-ql-danger px-4 text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        <Button
+          variant="danger" className="h-10"
           data-write-action disabled={!holdEvaluation.activatable} onClick={onActivate} type="button"
         >
           <ShieldAlert aria-hidden className="h-4 w-4" />进入不可逆激活确认
-        </button>
+        </Button>
       </div>
     </div>
   );

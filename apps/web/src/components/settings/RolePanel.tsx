@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ADMIN_MODULES, type AdminPermissions } from "@qianliu/contracts";
 import { useRole, useSaveRole, type CustomRole } from "../../api/settings";
 import { useAccess } from "../../permissions";
+import { Button } from "../ui/Button";
 export function RolePanel() {
   const query = useRole();
   const [selected, setSelected] = useState("CUSTOM");
@@ -31,6 +32,6 @@ function RoleEditor({ role, superRole }: { role: CustomRole | null; superRole: b
     </tbody></table>
     {save.error && <p role="alert" className="mt-4 text-ql-danger">{save.error.message}</p>}
     {save.isSuccess && <p role="status">角色与权限已保存</p>}
-    {editable && <div className="mt-5 text-right"><button className="rounded-lg bg-ql-action px-4 py-2 text-white disabled:opacity-50" disabled={!name.trim() || save.isPending}>保存角色与权限</button></div>}
+    {editable && <div className="mt-5 text-right"><Button variant="primary" type="submit" disabled={!name.trim() || save.isPending}>保存角色与权限</Button></div>}
   </form>;
 }

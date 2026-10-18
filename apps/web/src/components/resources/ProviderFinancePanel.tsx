@@ -24,6 +24,7 @@ import { formatCount, formatDateTimeFull, formatMoney, formatShanghaiDate } from
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { MoneyAmountInput, validateMoneyAmount } from "../writes/MoneyAmountInput";
 import { QueryGate } from "../states/QueryGate";
+import { Button } from "../ui/Button";
 
 type EntryKind = "API" | "CODING_PLAN";
 
@@ -168,19 +169,19 @@ export function ProviderFinancePanel({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-[15px] font-semibold text-ql-fg">充值与订阅</h2>
-            <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+            <p className="mt-1 text-[13px] text-ql-fg-tertiary">
               API 余额与 Coding Plan 费用只认本模块资金账本；历史默认显示所选自然月。
             </p>
           </div>
           <div className="flex items-center gap-2">
             <input aria-label="资金历史月份" className={INPUT_CLASS} onChange={(event) => setMonth(event.target.value)} type="month" value={month} />
-            <button data-write-action className="flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover" onClick={() => setEntryOpen((open) => { if (!open && selected) setKind(selected.mode); return !open; })} type="button">
+            <Button data-write-action variant="primary" className="h-10" onClick={() => setEntryOpen((open) => { if (!open && selected) setKind(selected.mode); return !open; })} type="button">
               <Plus aria-hidden className="h-4 w-4" />充值／订阅
-            </button>
+            </Button>
           </div>
         </div>
         {mode === "DARK" ? (
-          <p className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning">
+          <p className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning">
             当前为只读验收模式：可以查看和测试表单，入账确认暂未开放。
           </p>
         ) : null}
@@ -226,10 +227,10 @@ export function ProviderFinancePanel({
           <div className="md:col-span-2"><FormField hint="必填：说明本次资金事实的用途与来源" htmlFor="finance-description" label="说明"><textarea className={`${INPUT_CLASS} min-h-20 w-full py-2`} id="finance-description" onChange={(event) => setDescription(event.target.value)} value={description} /></FormField></div>
           <div className="md:col-span-2"><FormField hint="必填：可追溯的证据引用，例如付款凭证号、订单号或快照编号" htmlFor="finance-evidence" label="证据引用"><input className={INPUT_CLASS} id="finance-evidence" onChange={(event) => setEvidenceRef(event.target.value)} value={evidenceRef} /></FormField></div>
         </div>
-        {kind === "CODING_PLAN" ? <p className="mt-3 text-[12px] text-ql-fg-secondary">勾选后按登记金额和周期自动续订，可在当前服务周期旁取消。</p> : null}
-        {validationError || mutation.error || confirmDuplicate.error ? <p className="mt-3 text-[12px] text-ql-danger" role="alert">{validationError || mutation.error?.message || confirmDuplicate.error?.message}</p> : null}
+        {kind === "CODING_PLAN" ? <p className="mt-3 text-[13px] text-ql-fg-secondary">勾选后按登记金额和周期自动续订，可在当前服务周期旁取消。</p> : null}
+        {validationError || mutation.error || confirmDuplicate.error ? <p className="mt-3 text-[13px] text-ql-danger" role="alert">{validationError || mutation.error?.message || confirmDuplicate.error?.message}</p> : null}
         {kind === "CODING_PLAN" ? <label className="mt-3 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={autoRenew} onChange={(event) => setAutoRenew(event.target.checked)} />自动续订</label> : null}
-        <div className="mt-4 flex justify-end gap-2"><button className="rounded-lg border border-ql-border px-4 py-2 text-[13px]" onClick={() => { resetEntry(); setEntryOpen(false); }} type="button">取消</button>{duplicate ? <button data-write-action className="rounded-lg bg-ql-warning px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50" disabled={confirmDuplicate.isPending} onClick={() => confirmDuplicate.mutate({ ...duplicate, idempotencyKey: crypto.randomUUID() }, { onSuccess: () => { resetEntry(); setEntryOpen(false); } })} type="button">{confirmDuplicate.isPending ? "确认中…" : "确认重复入账"}</button> : <button data-write-action className="rounded-lg bg-ql-action px-4 py-2 text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={mode !== "ACTIVE" || mutation.isPending} onClick={submit} type="button">{mutation.isPending ? "入账中…" : "入账确认"}</button>}</div>
+        <div className="mt-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => { resetEntry(); setEntryOpen(false); }} type="button">取消</Button>{duplicate ? <button data-write-action className="rounded-lg bg-ql-warning px-4 py-2 text-[13px] font-medium text-ql-on-action disabled:opacity-50" disabled={confirmDuplicate.isPending} onClick={() => confirmDuplicate.mutate({ ...duplicate, idempotencyKey: crypto.randomUUID() }, { onSuccess: () => { resetEntry(); setEntryOpen(false); } })} type="button">{confirmDuplicate.isPending ? "确认中…" : "确认重复入账"}</button> : <Button data-write-action variant="primary" disabled={mode !== "ACTIVE" || mutation.isPending} onClick={submit} type="button">{mutation.isPending ? "入账中…" : "入账确认"}</Button>}</div>
       </section> : null}
 
       <section className="mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4">
@@ -237,16 +238,16 @@ export function ProviderFinancePanel({
         {selected?.mode === "CODING_PLAN" ? <SubscriptionAutoRenewal key={selected.id} resourceId={selected.id} writable={mode === "ACTIVE"} /> : null}
         {selected?.mode === "CODING_PLAN" ? <SubscriptionHistory periods={periods.data?.periods ?? []} /> : null}
         <h3 className="mt-4 text-[14px] font-semibold text-ql-fg">{month} 资金记录</h3>
-        {events.isLoading ? <p className="py-4 text-[12px] text-ql-fg-tertiary">读取中…</p> : events.error ? <p className="py-4 text-[12px] text-ql-danger">{events.error.message}</p> : events.data?.items.length ? <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[48rem] text-left text-[12px]"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th className="py-2">类型</th><th>原币金额</th><th>人民币实付</th><th>发生时间</th><th>说明</th></tr></thead><tbody>{events.data.items.map((event) => <tr className="border-b border-ql-border-zone" key={event.id}><td className="py-2 whitespace-nowrap">{eventLabel(event.eventType)}{event.eventType === "CODING_PLAN_RENEWAL" ? <span className="ml-2 whitespace-nowrap text-[11px] text-ql-fg-tertiary">{event.source === "SYSTEM_RENEWAL" ? "系统续订" : "人工续订"}</span> : null}</td><td>{event.accountCurrency} {formatMoney(event.accountAmount)}</td><td>{event.cashPaidCny === null ? "—" : `¥${formatMoney(event.cashPaidCny)}`}</td><td>{formatDateTimeFull(event.occurredAt)}</td><td>{event.description ?? "—"}</td></tr>)}</tbody></table></div> : <p className="py-4 text-[12px] text-ql-fg-tertiary">该月暂无资金记录</p>}
+        {events.isLoading ? <p className="py-4 text-[13px] text-ql-fg-tertiary">读取中…</p> : events.error ? <p className="py-4 text-[13px] text-ql-danger">{events.error.message}</p> : events.data?.items.length ? <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[48rem] text-left text-[13px]"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th className="py-2">类型</th><th>原币金额</th><th>人民币实付</th><th>发生时间</th><th>说明</th></tr></thead><tbody>{events.data.items.map((event) => <tr className="border-b border-ql-border-zone" key={event.id}><td className="py-2 whitespace-nowrap">{eventLabel(event.eventType)}{event.eventType === "CODING_PLAN_RENEWAL" ? <span className="ml-2 whitespace-nowrap text-[13px] text-ql-fg-tertiary">{event.source === "SYSTEM_RENEWAL" ? "系统续订" : "人工续订"}</span> : null}</td><td>{event.accountCurrency} {formatMoney(event.accountAmount)}</td><td>{event.cashPaidCny === null ? "—" : `¥${formatMoney(event.cashPaidCny)}`}</td><td>{formatDateTimeFull(event.occurredAt)}</td><td>{event.description ?? "—"}</td></tr>)}</tbody></table></div> : <p className="py-4 text-[13px] text-ql-fg-tertiary">该月暂无资金记录</p>}
       </section>
     </div>
   );
 }
 
 function FinanceMetric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2"><p className="text-[11px] text-ql-fg-tertiary">{label}</p><p className="mt-1 font-mono text-[14px] font-semibold text-ql-fg">{value}</p></div>;
+  return <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2"><p className="text-[13px] text-ql-fg-tertiary">{label}</p><p className="mt-1 font-mono text-[14px] font-semibold text-ql-fg">{value}</p></div>;
 }
 
 function TypeButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return <button aria-pressed={active} className={`rounded-lg px-4 py-2 text-[13px] ${active ? "bg-ql-action text-white" : "border border-ql-border bg-ql-surface text-ql-fg"}`} onClick={onClick} type="button">{label}</button>;
+  return <button aria-pressed={active} className={`rounded-lg px-4 py-2 text-[13px] ${active ? "border border-ql-action bg-ql-action-soft font-medium text-ql-action" : "border border-ql-border bg-ql-surface text-ql-fg"}`} onClick={onClick} type="button">{label}</button>;
 }

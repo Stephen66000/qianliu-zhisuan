@@ -9,6 +9,7 @@ import {
 } from "../components/operating-bill/BillShared";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { groupCurrencyAmounts, type CurrencyAmount } from "../lib/currency";
+import { resourceStatusLabel } from "../lib/resource-status";
 import { Cell, currencyFacts, currencyMoney, Num, Table } from "./OperatingBillShared";
 import { BalanceQualityNotice } from "../components/operating-bill/BalanceQualityNotice";
 import { BillStat } from "../components/operating-bill/BillStat";
@@ -132,7 +133,7 @@ export function OperatingBillOverview({
             >
               <Cell>
                 {row.providerName}
-                <span className="block text-[11px] text-ql-fg-tertiary">
+                <span className="block text-[13px] text-ql-fg-tertiary">
                   {row.resourceName}
                 </span>
               </Cell>
@@ -154,7 +155,7 @@ export function OperatingBillOverview({
                 <StatusTag
                   tone={row.status === "ACTIVE" ? "success" : "warning"}
                 >
-                  {row.status}
+                  {resourceStatusLabel(row.status, row.mode)}
                 </StatusTag>
               </Cell>
             </tr>

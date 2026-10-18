@@ -4,6 +4,9 @@
  * 色值锁定，禁止修改品牌原色；RGB 通道变量兼容 Tailwind 透明度（rgb(var(--x) / <alpha>)）。
  * 浅色令牌 = 规范 §3.2；深色令牌 = 规范 §3.3。
  * 主题切换由 <html data-theme> 驱动（见 src/theme/，规范 §4）。
+ *
+ * 深色 *-soft 令牌直接存“原色按规范透明度叠在 surface 上”的最终色（不透明），
+ * 组件可以直接用 bg-ql-*-soft，不必再配透明度；叠在 canvas / raised 上时对比度同样 ≥4.5:1。
  */
 
 :root,
@@ -32,6 +35,8 @@
   --ql-warning-soft: 251 239 233; /* #FBEFE9 */
   --ql-danger: 199 53 46; /* #C7352E */
   --ql-danger-soft: 253 237 236; /* #FDEDEC */
+  --ql-on-action: 255 255 255; /* 实色按钮（action / danger / warning）上的文字与图标 */
+  --ql-overlay: rgb(15 27 46 / 0.48); /* 弹窗、抽屉遮罩（完整色值，不走透明度通道） */
 
   /* 阴影（规范 §7：默认卡片不用阴影；浮层用 raised；核心区用 zone-focus，仪表盘补充 §2） */
   --ql-shadow-raised: 0 12px 32px rgb(15 27 46 / 0.12);
@@ -56,15 +61,17 @@
   --ql-text-disabled: 101 117 138; /* #65758A */
   --ql-action-primary: 110 160 245; /* #6EA0F5 */
   --ql-action-primary-hover: 138 181 250; /* #8AB5FA */
-  --ql-action-primary-soft: 65 126 224; /* rgba(65,126,224,0.18) → 配合 /0.18 使用 */
+  --ql-action-primary-soft: 28 52 88; /* #1C3458 = rgba(65,126,224,0.18) 叠在 surface 上的最终色 */
   --ql-accent-visual: 0 210 212; /* #00D2D4 */
   --ql-accent-text: 93 228 230; /* #5DE4E6 */
   --ql-success: 92 203 118; /* #5CCB76 */
-  --ql-success-soft: 52 168 83; /* rgba(52,168,83,0.16) → 配合 /0.16 使用 */
+  --ql-success-soft: 25 57 62; /* #19393E = rgba(52,168,83,0.16) 叠在 surface 上的最终色 */
   --ql-warning: 240 160 126; /* #F0A07E */
-  --ql-warning-soft: 217 119 87; /* rgba(217,119,87,0.16) → 配合 /0.16 使用 */
+  --ql-warning-soft: 52 49 63; /* #34313F = rgba(217,119,87,0.16) 叠在 surface 上的最终色 */
   --ql-danger: 255 116 108; /* #FF746C */
-  --ql-danger-soft: 234 67 53; /* rgba(234,67,53,0.16) → 配合 /0.16 使用 */
+  --ql-danger-soft: 54 41 57; /* #362939 = rgba(234,67,53,0.16) 叠在 surface 上的最终色 */
+  --ql-on-action: 15 27 46; /* 深色主蓝变亮后改用深字：主蓝上 6.6:1，危险红上 6.5:1 */
+  --ql-overlay: rgb(3 9 18 / 0.68);
 
   --ql-shadow-raised: 0 16px 40px rgb(3 9 18 / 0.42);
   --ql-shadow-zone-focus: 0 4px 16px rgb(3 9 18 / 0.3);
@@ -129,8 +136,7 @@ body {
   }
 }
 
-/* 状态标签底（HOME-STANDARD R01-F05）：浅色用 soft 实色值，深色按规范 §3.3 用原色 16% 透明度。
- * 深色 --ql-*-soft 令牌是需配合透明度使用的原始 RGB 通道，直接 bg-ql-*-soft 会得到饱和实色底。 */
+/* 状态标签底（HOME-STANDARD R01-F05）。深色 *-soft 令牌已存最终色，两个主题都直接使用。 */
 .ql-status-success {
   color: rgb(var(--ql-success));
   background-color: rgb(var(--ql-success-soft));
@@ -146,15 +152,6 @@ body {
 .ql-status-neutral {
   color: rgb(var(--ql-text-secondary));
   background-color: rgb(var(--ql-surface-muted));
-}
-[data-theme="dark"] .ql-status-success {
-  background-color: rgb(var(--ql-success-soft) / 0.16);
-}
-[data-theme="dark"] .ql-status-warning {
-  background-color: rgb(var(--ql-warning-soft) / 0.16);
-}
-[data-theme="dark"] .ql-status-danger {
-  background-color: rgb(var(--ql-danger-soft) / 0.16);
 }
 [data-theme="dark"] .ql-status-neutral {
   background-color: rgb(var(--ql-surface-muted) / 0.6);

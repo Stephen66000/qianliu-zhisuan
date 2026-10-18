@@ -6,11 +6,12 @@ import { MoneyAmountInput } from "../writes/MoneyAmountInput";
 import { formatCount, formatDateTimeFull, formatMoney } from "../../lib/format";
 import { MONEY_OPERATING_KEYS, RESET_CYCLE_LABELS, operatingFieldsForMode, operatingMoneyError, planDraftError } from "./resource-form-contract";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
+import { Button } from "../ui/Button";
 
 function ReadOnlyMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2">
-      <p className="text-[11px] text-ql-fg-tertiary">{label}</p>
+      <p className="text-[13px] text-ql-fg-tertiary">{label}</p>
       <p className="mt-1 font-mono text-[13px] text-ql-fg">{value}</p>
     </div>
   );
@@ -28,7 +29,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
         >
           <div className="mb-3">
             <h2 className="text-[14px] font-semibold text-ql-fg">编辑厂商资源</h2>
-            <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+            <p className="mt-1 text-[13px] text-ql-fg-tertiary">
               厂商、模式和凭证类型不可原地修改；凭证轮换使用独立恢复流程。
             </p>
           </div>
@@ -56,8 +57,8 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
             </p>
           ) : null}
           <div className="mt-4 flex justify-end gap-2">
-            <button data-write-action
-              className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px]"
+            <Button data-write-action
+              variant="secondary"
               onClick={() => {
                 setEditTarget(null);
                 editReset();
@@ -65,14 +66,14 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
               type="button"
             >
               取消
-            </button>
-            <button
-              className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
+            </Button>
+            <Button
+              variant="primary"
               disabled={editMutation.isPending}
               type="submit"
             >
               {editMutation.isPending ? "保存中…" : "保存修改"}
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}
@@ -97,7 +98,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
           <h2 className="text-[14px] font-semibold text-ql-fg">
             更新「{operatingTarget.name}」经营数据
           </h2>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+          <p className="mt-1 text-[13px] text-ql-fg-tertiary">
             只需维护当前订阅额度和重置规则；系统根据当前周期账本自动统计已用、剩余与下一重置日期。
             保存后立即作为当前订阅周期配置，历史修改记录和旧账本继续保留。
           </p>
@@ -177,7 +178,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
           {operatingHistory.length > 0 ? (
             <div className="mt-4 overflow-x-auto">
               <h3 className="mb-2 text-[13px] font-semibold text-ql-fg">历史修改记录（倒序）</h3>
-              <table className="w-full text-left text-[12px]">
+              <table className="w-full text-left text-[13px]">
                 <thead>
                   <tr className="border-b border-ql-border text-ql-fg-tertiary">
                     <th className="p-2">版本/来源</th>
@@ -217,20 +218,20 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
             </p>
           ) : null}
           <div className="mt-4 flex justify-end gap-2">
-            <button data-write-action
-              className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[13px]"
+            <Button data-write-action
+              variant="secondary"
               onClick={() => setOperatingTarget(null)}
               type="button"
             >
               取消
-            </button>
-            <button
-              className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
+            </Button>
+            <Button
+              variant="primary"
               disabled={operatingMutation.isPending}
               type="submit"
             >
               {operatingMutation.isPending ? "保存中…" : "保存额度配置"}
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}

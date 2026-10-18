@@ -12,7 +12,7 @@ describe("本月采购按付款记录联动",()=>{
     expect(screen.getByRole("heading",{name:"本月采购"})).toBeInTheDocument();
     expect(screen.queryByText("本月买了什么")).not.toBeInTheDocument();
     expect(screen.getByText("人工续订").parentElement).toHaveClass("whitespace-nowrap");
-    expect(screen.getByText("人工续订")).toHaveClass("text-[11px]");
+    expect(screen.getByText("人工续订")).toHaveClass("text-[13px]");
     expect(screen.getByText("Kimi ¥199.00")).toBeInTheDocument();
     expect(screen.getByText("2026-09-01 08:00:00")).toBeInTheDocument();
   });

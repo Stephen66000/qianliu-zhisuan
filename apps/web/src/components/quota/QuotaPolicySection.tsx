@@ -7,6 +7,7 @@ import { PrincipalScopeField, principalScopeText } from "./PrincipalScopeField";
 import { WeekdayPicker, formatDaysOfWeek } from "./WeekdayPicker";
 import { formatLifecycle } from "../../pages/quota-rule-contract";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
+import { Button } from "../ui/Button";
 
 export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
   const { models, resources, showPolicyForm, setShowPolicyForm, editingPolicy, setEditingPolicy, policyForm, selectedPolicyAction, principalScopeMode, selectedPrincipalIds, principals, principalSearch, setPrincipalSearch, createPolicy, policies, editPolicy, setPolicyActionTarget, transitionPolicy, principalById, policiesQuery } = model;
@@ -178,7 +179,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
               search={principalSearch}
               selectedIds={selectedPrincipalIds}
             />
-            <label className="flex items-center gap-2 self-end pb-2 text-[12px] text-ql-fg">
+            <label className="flex items-center gap-2 self-end pb-2 text-[13px] text-ql-fg">
               <input type="checkbox" {...policyForm.register("match_forecast_exhaust_risk")} />
               仅预计耗尽时命中
             </label>
@@ -190,23 +191,23 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
               <input className={INPUT_CLASS} id="policy-description" {...policyForm.register("description")} />
             </FormField>
             <div className="md:col-span-4 flex justify-end gap-2">
-              <button type="button" disabled={createPolicy.isPending}
-                className="h-9 rounded-lg border border-ql-border px-4 text-[13px] disabled:opacity-60"
+              <Button type="button" disabled={createPolicy.isPending}
+                variant="secondary"
                 onClick={() => {
                   setShowPolicyForm(false); setEditingPolicy(null); policyForm.reset();
                   setPrincipalSearch(""); createPolicy.reset();
-                }}>取消</button>
-              <button data-write-action
-                className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white disabled:opacity-60"
+                }}>取消</Button>
+              <Button data-write-action
+                variant="primary"
                 disabled={createPolicy.isPending}
                 type="submit"
               >
                 {editingPolicy ? "保存草稿" : "创建草稿"}
-              </button>
+              </Button>
             </div>
           </form>
         ) : null}
-        <p className="mb-3 text-[11px] leading-5 text-ql-fg-tertiary">
+        <p className="mb-3 text-[13px] leading-5 text-ql-fg-tertiary">
           生命周期：草稿 → 校验通过 → 发布 → 停用。只有已发布策略进入 Gateway 热路径；
           调度先于计价执行，REJECT 不进入上游、Attempt、Usage 或计量。调度优先级与计价优先级分别只在各自体系内比较。
         </p>
@@ -220,7 +221,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
           onRetry={() => void policiesQuery.refetch()}
         >
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-[12px]">
+            <table className="w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-ql-border text-ql-fg-tertiary">
                   <th className="p-2 font-medium">版本</th>
@@ -260,7 +261,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                         {policy.archivedAt ? "已存档" : policy.status}
                       </StatusTag>
                     </td>
-                    <td className="min-w-64 p-2 text-[11px] leading-5 text-ql-fg-tertiary">
+                    <td className="min-w-64 p-2 text-[13px] leading-5 text-ql-fg-tertiary">
                       <span className="block">创建 {formatLifecycle(policy.createdAt, policy.createdByAdminId)}</span>
                       {policy.validatedAt ? <span className="block">校验 {formatLifecycle(policy.validatedAt, policy.validatedByAdminId)}</span> : null}
                       {policy.publishedAt ? <span className="block">发布 {formatLifecycle(policy.publishedAt, policy.publishedByAdminId)}</span> : null}
@@ -271,14 +272,14 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                       {policy.status === "DRAFT" ? (
                         <>
                           <button data-write-action
-                            className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                            className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                             onClick={() => editPolicy(policy)}
                             type="button"
                           >
                             编辑
                           </button>
                           <button
-                            className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                            className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                             onClick={() => transitionPolicy.mutate({ policy, action: "validate" })}
                             type="button"
                           >
@@ -288,7 +289,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                       ) : null}
                       {policy.status === "VALIDATED" ? (
                         <button data-write-action
-                          className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                          className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                           onClick={() => setPolicyActionTarget({ policy, action: "publish" })}
                           type="button"
                         >
@@ -297,7 +298,7 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                       ) : null}
                       {policy.status === "PUBLISHED" ? (
                         <button data-write-action
-                          className="rounded px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
+                          className="rounded-md px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
                           onClick={() => setPolicyActionTarget({ policy, action: "retire" })}
                           type="button"
                         >
@@ -306,17 +307,17 @@ export function QuotaPolicySection({ model }: { model: QuotaRulesPageModel }) {
                       ) : null}
                       {policy.status === "RETIRED" ? (
                         <>
-                          {!policy.archivedAt ? <button data-write-action type="button" className="rounded px-2 py-1 text-ql-action"
+                          {!policy.archivedAt ? <button data-write-action type="button" className="rounded-md px-2 py-1 text-ql-action"
                             onClick={() => setPolicyActionTarget({ policy, action: "archive" })}>存档</button> : null}
                           <button data-write-action
-                            className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                            className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                             onClick={() => setPolicyActionTarget({ policy, action: "restore" })}
                             type="button"
                           >
                             恢复原配置
                           </button>
                           <button
-                            className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                            className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                             onClick={() => transitionPolicy.mutate({ policy, action: "copy" })}
                             type="button"
                           >

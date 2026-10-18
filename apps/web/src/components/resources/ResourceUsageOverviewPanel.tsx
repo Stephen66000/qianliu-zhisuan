@@ -29,7 +29,7 @@ export function ResourceUsageOverviewPanel() {
           <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[15px] font-semibold text-ql-fg">厂商总体使用情况</h2>
-              <span className="rounded-md bg-ql-surface-subtle px-2.5 py-1 text-[11px] text-ql-fg-secondary">
+              <span className="rounded-md bg-ql-surface-subtle px-2.5 py-1 text-[13px] text-ql-fg-secondary">
                 统计周期：{data.generatedAt ? `${data.generatedAt.slice(0, 4)}年${data.generatedAt.slice(5, 7)}月（当月自然月）` : "当月自然月"}
               </span>
             </div>
@@ -39,7 +39,7 @@ export function ResourceUsageOverviewPanel() {
           <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[15px] font-semibold text-ql-fg">模型使用明细</h2>
-              <span className="text-[11px] text-ql-fg-tertiary">
+              <span className="text-[13px] text-ql-fg-tertiary">
                 包含当月已上架模型及产生过调用的历史模型
               </span>
             </div>
@@ -47,7 +47,7 @@ export function ResourceUsageOverviewPanel() {
               <p className="py-5 text-center text-[13px] text-ql-fg-tertiary">暂无已登记模型</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[60rem] border-collapse text-left text-[12px]">
+                <table className="w-full min-w-[60rem] border-collapse text-left text-[13px]">
                   <thead>
                     <tr className="border-b border-ql-border text-ql-fg-tertiary">
                       <th className="py-2 pr-4 font-medium">模型</th>
@@ -79,7 +79,7 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
         <div className="flex items-center gap-1.5">
           <span>{item.modelAlias}</span>
           {item.historicalUnattributed ? (
-            <span className="rounded bg-ql-surface-subtle px-1.5 py-0.5 text-[10px] font-normal text-ql-fg-tertiary">
+            <span className="rounded-md bg-ql-surface-subtle px-1.5 py-0.5 text-[12px] font-normal text-ql-fg-tertiary">
               已下架
             </span>
           ) : null}
@@ -87,7 +87,7 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
       </td>
       <td className="py-2.5 pr-4">
         {item.providerName} · {item.resourceName}
-        <span className="block text-[10px] text-ql-fg-tertiary">
+        <span className="block text-[13px] text-ql-fg-tertiary">
           {item.mode === "API" ? "API" : "Coding Plan"}
         </span>
       </td>
@@ -96,7 +96,7 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
           ? <span className="text-ql-fg-tertiary">{item.monthlyCostReason ?? "不可计算"}</span>
           : <>{`${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
             {item.monthlyCostReason ? (
-              <span className="block text-[10px] text-ql-fg-tertiary">{item.monthlyCostReason}</span>
+              <span className="block text-[13px] text-ql-fg-tertiary">{item.monthlyCostReason}</span>
             ) : null}</>}
       </td>
       <td className="py-2.5 pr-4 text-right font-mono">
@@ -112,7 +112,7 @@ function ModelUsageRow({ item }: { item: ResourceModelUsageDetail }) {
           ? formatDateTimeShort(item.forecastExhaustAt)
           : item.forecastNotCalculableReason ?? "不可计算"}
         {item.forecastConfidence ? (
-          <span className="block text-[10px] text-ql-fg-tertiary">可信度 {item.forecastConfidence}</span>
+          <span className="block text-[13px] text-ql-fg-tertiary">可信度 {item.forecastConfidence}</span>
         ) : null}
       </td>
       <td className="py-2.5">
@@ -130,13 +130,13 @@ function modelTokenText(item: ResourceModelUsageDetail) {
   if (item.monthlyTotalTokens === "0" && unknown > 0) {
     return <>
       <span className="font-sans">暂无成功计量</span>
-      <span className="block font-sans text-[10px] text-ql-fg-tertiary">{unknown} 笔计量未知</span>
+      <span className="block font-sans text-[13px] text-ql-fg-tertiary">{unknown} 笔计量未知</span>
     </>;
   }
   return <>
     {formatCount(item.monthlyTotalTokens)}
     {unknown > 0 ? (
-      <span className="block font-sans text-[10px] text-ql-fg-tertiary">
+      <span className="block font-sans text-[13px] text-ql-fg-tertiary">
         已记录；另有 {unknown} 笔计量未知
       </span>
     ) : null}

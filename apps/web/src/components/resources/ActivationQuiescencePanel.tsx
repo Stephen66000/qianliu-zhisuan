@@ -14,6 +14,7 @@ import {
   evaluateQuiescenceGate, formatRemainingSeconds, prePersistBlockers,
 } from "./activation-preflight-model";
 import type { QuiescenceView } from "../../api/provider-finance-activation-types";
+import { Button } from "../ui/Button";
 
 const DEFAULT_LEASE_MINUTES = 30;
 const MAX_LEASE_MINUTES = 60;
@@ -27,7 +28,7 @@ function DrainChecklist({ quiescence }: { quiescence: QuiescenceView }) {
     { label: "候选修复豁免行", value: quiescence.drain.exonerated_usage_lines },
   ];
   return (
-    <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-3 lg:grid-cols-5">
+    <dl className="mt-3 grid gap-2 text-[13px] sm:grid-cols-3 lg:grid-cols-5">
       {items.map((item) => (
         <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2" key={item.label}>
           <dt className="text-ql-fg-tertiary">{item.label}</dt>
@@ -70,7 +71,7 @@ export function ActivationQuiescencePanel({
           <h3 className="flex items-center gap-1.5 text-[14px] font-semibold text-ql-fg">
             <ShieldCheck aria-hidden className="h-4 w-4" />静默与排空
           </h3>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+          <p className="mt-1 text-[13px] text-ql-fg-tertiary">
             预检与激活要求目标企业处于静默租约内且排空完成；租约最长 {MAX_LEASE_MINUTES} 分钟，到期自动恢复流量。
           </p>
         </div>
@@ -79,7 +80,7 @@ export function ActivationQuiescencePanel({
         </span>
       </div>
 
-      <div className="mt-3 grid gap-3 text-[12px] sm:grid-cols-3">
+      <div className="mt-3 grid gap-3 text-[13px] sm:grid-cols-3">
         <div>
           <p className="text-ql-fg-tertiary">租约状态</p>
           <p className="mt-0.5 text-ql-fg">{quiescence.status ?? "未建立"}{quiescence.active ? "（有效）" : ""}</p>
@@ -101,19 +102,19 @@ export function ActivationQuiescencePanel({
       <DrainChecklist quiescence={quiescence} />
 
       {gate.blockers.length > 0 ? (
-        <ul className="mt-3 space-y-1 text-[12px] text-ql-warning" data-testid="quiescence-blockers">
+        <ul className="mt-3 space-y-1 text-[13px] text-ql-warning" data-testid="quiescence-blockers">
           {gate.blockers.map((blocker) => <li key={blocker}>ACTIVATION_NOT_QUIESCENT：{blocker}</li>)}
         </ul>
       ) : null}
 
       {drainNotes.length > 0 ? (
-        <ul className="mt-2 space-y-1 text-[12px] text-ql-fg-tertiary" data-testid="quiescence-drain-notes">
+        <ul className="mt-2 space-y-1 text-[13px] text-ql-fg-tertiary" data-testid="quiescence-drain-notes">
           {drainNotes.map((note) => <li key={note}>{note}</li>)}
         </ul>
       ) : null}
 
       {quiescence.released_at ? (
-        <p className="mt-2 text-[12px] text-ql-fg-tertiary">
+        <p className="mt-2 text-[13px] text-ql-fg-tertiary">
           最近解除：{formatDateTimeFull(quiescence.released_at)} · 原因 {quiescence.release_reason ?? "—"}
         </p>
       ) : null}
@@ -129,23 +130,24 @@ export function ActivationQuiescencePanel({
               />
             </FormField>
           </div>
-          <button
-            className="flex h-10 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white hover:bg-ql-action-hover disabled:opacity-50"
+          <Button
+            variant="primary" className="h-10"
             disabled={starting} data-write-action onClick={() => onStart(minutes)} type="button"
           >
             <TimerReset aria-hidden className="h-4 w-4" />{starting ? "启动中…" : "启动静默租约"}
-          </button>
+          </Button>
           {quiescence.active ? (
-            <button
-              className="h-10 rounded-lg border border-ql-border px-4 text-[13px] disabled:opacity-50"
+            <Button
+              className="h-10"
               disabled={releasing} onClick={() => setReleaseOpen((open) => !open)} type="button"
+              variant="secondary"
             >
               解除租约
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-[12px] text-ql-fg-tertiary">
+        <p className="mt-3 text-[13px] text-ql-fg-tertiary">
           {writeEnabled ? "当前账号无 resources.operate 权限，只能查看静默状态。" : "当前为 DARK 只读模式，静默租约操作不可用。"}
         </p>
       )}
@@ -171,7 +173,7 @@ export function ActivationQuiescencePanel({
         </div>
       ) : null}
 
-      {error ? <p className="mt-3 text-[12px] text-ql-danger" role="alert">{error}</p> : null}
+      {error ? <p className="mt-3 text-[13px] text-ql-danger" role="alert">{error}</p> : null}
     </section>
   );
 }

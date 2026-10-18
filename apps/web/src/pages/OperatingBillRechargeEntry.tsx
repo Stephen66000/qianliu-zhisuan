@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { type OperatingBill, useRecordResourcePurchase } from "../api/operating-bills";
 import {
   BillCard,
-  buttonPrimary,
   inputClass,
   SectionHeading,
 } from "../components/operating-bill/BillShared";
@@ -12,6 +11,7 @@ import {
   normalizeMoneyAmount,
   validateMoneyAmount,
 } from "../components/writes/MoneyAmountInput";
+import { Button } from "../components/ui/Button";
 
 function localDateTimeInput(value: Date): string {
   return new Date(value.getTime() - value.getTimezoneOffset() * 60_000)
@@ -129,19 +129,19 @@ export function RechargeEntry({ bill }: { bill: OperatingBill }) {
         />
         <div className="flex items-center justify-end gap-3 md:col-span-5">
           {validationError ? (
-            <span className="text-[12px] text-ql-danger" role="alert">{validationError}</span>
+            <span className="text-[13px] text-ql-danger" role="alert">{validationError}</span>
           ) : null}
           {mutation.error ? (
-            <span className="text-[12px] text-ql-danger">{mutation.error.message}</span>
+            <span className="text-[13px] text-ql-danger">{mutation.error.message}</span>
           ) : null}
-          <button data-write-action
-            className={buttonPrimary}
+          <Button data-write-action
+            variant="primary"
             disabled={mutation.isPending}
             onClick={save}
             type="button"
           >
             {mutation.isPending ? "登记中…" : "确认充值并重算"}
-          </button>
+          </Button>
         </div>
       </div>
     </BillCard>

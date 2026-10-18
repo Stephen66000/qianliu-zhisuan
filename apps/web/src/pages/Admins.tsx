@@ -9,13 +9,14 @@ import {
   useResetAdminPassword,
   useSetAdminStatus,
 } from "../api/admins";
-import { INPUT_CLASS, BUTTON_CLASS, errorText } from "../components/settings/admin-display";
+import { INPUT_CLASS, errorText } from "../components/settings/admin-display";
 import { useAdminSession } from "../api/auth";
 import { useRole } from "../api/settings";
 import { PageShell } from "../components/layout/PageShell";
 import { QueryGate } from "../components/states/QueryGate";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { AdminRoleField } from "../components/settings/AdminRoleField";
+import { Button } from "../components/ui/Button";
 
 export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
   const session = useAdminSession();
@@ -107,7 +108,7 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
           role="status"
         >
           <h2 className="text-sm font-semibold text-ql-fg">一次性密码窗口</h2>
-          <p className="mt-1 text-xs text-ql-fg-secondary">
+          <p className="mt-1 text-[13px] text-ql-fg-secondary">
             请安全交付给 {oneTimePassword.username}；刷新或清除后无法恢复。
           </p>
           <code className="mt-3 block select-all rounded-lg bg-ql-surface px-3 py-2 text-sm text-ql-fg">
@@ -131,14 +132,14 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
           </div>
           {customRole ? (
             <Link
-              className="text-xs text-ql-action hover:underline"
+              className="text-[13px] text-ql-action hover:underline"
               to="/settings?tab=accounts&section=roles"
             >
               配置「{customRole.name}」权限 →
             </Link>
           ) : (
             <Link
-              className="inline-flex items-center gap-1 rounded-md bg-ql-surface-subtle px-2.5 py-1 text-xs text-ql-action hover:underline"
+              className="inline-flex items-center gap-1 rounded-md bg-ql-surface-subtle px-2.5 py-1 text-[13px] text-ql-action hover:underline"
               to="/settings?tab=accounts&section=roles"
             >
               <span className="font-medium text-ql-action">尚未配置自定义岗位？</span>前往配置岗位与权限 →
@@ -173,13 +174,13 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
             type="password"
             value={password}
           />
-          <button
-            className={BUTTON_CLASS}
+          <Button
+            variant="primary"
             disabled={createAdmin.isPending}
             type="submit"
           >
             创建管理员
-          </button>
+          </Button>
         </form>
       </section>}
 
@@ -206,7 +207,7 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
         <div className="overflow-x-auto rounded-xl border border-ql-border bg-ql-surface">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-ql-border text-xs text-ql-fg-tertiary">
+              <tr className="border-b border-ql-border text-[13px] text-ql-fg-tertiary">
                 <th className="p-3">用户名</th>
                 <th className="p-3">显示名称</th>
                 <th className="p-3">状态</th>
@@ -363,7 +364,7 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
             重置 {admins.find((item) => item.id === resetTarget)?.username}{" "}
             的密码
           </h2>
-          <p className="mt-1 text-xs text-ql-fg-secondary">
+          <p className="mt-1 text-[13px] text-ql-fg-secondary">
             保存后旧密码和现有会话立即失效，目标管理员首次登录必须修改密码。
           </p>
           <div className="mt-3 flex gap-3">
@@ -376,29 +377,28 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
               type="password"
               value={resetValue}
             />
-            <button className={BUTTON_CLASS} type="submit">
+            <Button variant="primary" type="submit">
               确认重置
-            </button>
-            <button
-              className="px-3 text-sm"
+            </Button>
+            <Button
               onClick={() => setResetTarget(null)}
-              type="button"
+              variant="ghost"
             >
               取消
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}
 
       {cleanupTarget ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ql-overlay px-4"
           role="presentation"
         >
           <section
             aria-labelledby="cleanup-admin-title"
             aria-modal="true"
-            className="w-full max-w-md rounded-xl border border-ql-border bg-ql-surface p-5 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-ql-border bg-ql-surface p-5 shadow-ql-raised"
             role="dialog"
           >
             <div className="flex items-start justify-between gap-4">
@@ -429,15 +429,15 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
               </span>
             </p>
             <div className="mt-5 flex justify-end gap-3">
-              <button
-                className="rounded-lg border border-ql-border-strong px-3 py-2 text-sm text-ql-fg"
+              <Button
+                variant="secondary"
                 onClick={() => setCleanupTarget(null)}
                 type="button"
               >
                 取消
-              </button>
-              <button
-                className="rounded-lg bg-ql-danger px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              </Button>
+              <Button
+                variant="danger"
                 disabled={cleanupAdmin.isPending}
                 onClick={() =>
                   cleanupAdmin.mutate(
@@ -448,7 +448,7 @@ export function AdminsPage({ embedded = false }: { embedded?: boolean }) {
                 type="button"
               >
                 确认清理
-              </button>
+              </Button>
             </div>
           </section>
         </div>

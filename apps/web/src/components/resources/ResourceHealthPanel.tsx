@@ -51,15 +51,15 @@ function HealthResourceCard({
           <p className="text-[13px] font-medium text-ql-fg">
             {providerName} · {resource.name}
           </p>
-          <p className="text-[11px] text-ql-fg-tertiary">{resource.mode === "CODING_PLAN" ? "套餐" : "API"}</p>
+          <p className="text-[13px] text-ql-fg-tertiary">{resource.mode === "CODING_PLAN" ? "套餐" : "API"}</p>
         </div>
         <StatusBadge label={healthQuery.data?.status_label} mode={resource.mode} status={resource.status} />
       </div>
 
       {healthQuery.isLoading ? (
-        <p className="mt-2 text-[12px] text-ql-fg-tertiary">加载健康详情…</p>
+        <p className="mt-2 text-[13px] text-ql-fg-tertiary">加载健康详情…</p>
       ) : healthQuery.isError ? (
-        <p className="mt-2 text-[12px] text-ql-danger">健康详情获取失败</p>
+        <p className="mt-2 text-[13px] text-ql-danger">健康详情获取失败</p>
       ) : healthQuery.data ? (
         <HealthDetail resource={resource} />
       ) : null}
@@ -75,7 +75,7 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
   return (
     <div className="mt-2 space-y-2">
       {/* 调度影响 + 恢复说明 */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
         <span className="text-ql-fg-secondary">
           调度影响：<span className="text-ql-fg">{health.dispatch_impact}</span>
         </span>
@@ -89,7 +89,7 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
 
       {/* 原因码 */}
       {health.reason_label ? (
-        <p className="text-[12px] text-ql-fg-secondary">
+        <p className="text-[13px] text-ql-fg-secondary">
           状态原因：<span className="text-ql-fg">{health.reason_label}</span>
           {health.error_classification ? (
             <span className="ml-1 text-ql-fg-tertiary">（{health.error_classification}）</span>
@@ -99,7 +99,7 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
 
       {/* 失败证据 */}
       {resource.status !== "ACTIVE" ? (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ql-fg-tertiary">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ql-fg-tertiary">
           <span>连续失败 {resource.consecutive_failures} 次</span>
           {health.first_occurred_at ? <span>首次：{formatDateTimeFull(health.first_occurred_at)}</span> : null}
           {health.last_occurred_at ? <span>最近：{formatDateTimeFull(health.last_occurred_at)}</span> : null}
@@ -115,11 +115,11 @@ function HealthDetail({ resource }: { resource: ProviderResourceItem }) {
         </div>
       ) : null}
       {health.status_event_time_reliable === false ? (
-        <p className="text-[11px] text-ql-warning">历史状态事件的时间被旧迁移冻结，首次/最近时间不展示；最近成功取真实请求账本。</p>
+        <p className="text-[13px] text-ql-warning">历史状态事件的时间被旧迁移冻结，首次/最近时间不展示；最近成功取真实请求账本。</p>
       ) : null}
 
       {/* 恢复说明 */}
-      <p className="text-[12px] text-ql-fg-secondary">
+      <p className="text-[13px] text-ql-fg-secondary">
         <span className="text-ql-fg-tertiary">恢复：</span>{health.recovery_guide}
       </p>
       <CredentialProbeAction resourceId={resource.id} isolated={health.status === "CREDENTIAL_INVALID"} />
@@ -139,11 +139,11 @@ function StatusBadge({ status, mode, label: providedLabel }: {
 
   const colorClass =
     tone === "neutral" ? "bg-ql-surface-brand-soft text-ql-action"
-    : tone === "warning" ? "bg-ql-surface-warning-soft text-ql-warning"
-    : "bg-ql-surface-danger-soft text-ql-danger";
+    : tone === "warning" ? "bg-ql-warning-soft text-ql-warning"
+    : "bg-ql-danger-soft text-ql-danger";
 
   return (
-    <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${colorClass}`}>
+    <span className={`rounded-md px-2 py-0.5 text-[12px] font-medium ${colorClass}`}>
       {label}
     </span>
   );

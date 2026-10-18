@@ -167,7 +167,7 @@ export function AlertsPanel() {
     <>
       {lookupFailed ? (
         <div
-          className="mb-4 rounded-lg bg-ql-warning-soft px-3 py-2 text-[12px] text-ql-warning"
+          className="mb-4 rounded-lg bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning"
           role="alert"
         >
           主体、资源或厂商关联信息加载失败；异常事实仍保留显示，筛选和归属信息可能不完整。
@@ -198,7 +198,7 @@ export function AlertsPanel() {
         providers={providers}
         search={search}
       />
-      <div className="mb-3 flex items-center justify-between text-[12px] text-ql-fg-secondary">
+      <div className="mb-3 flex items-center justify-between text-[13px] text-ql-fg-secondary">
         <span>共 {visible.length} 条异常</span>
         <span>按首次发生日期筛选；已处理须填写说明</span>
       </div>
@@ -210,9 +210,9 @@ export function AlertsPanel() {
       {!alertsQuery.isLoading && visible.length === 0 ? <Empty /> : null}
       {visible.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-ql-border bg-ql-surface">
-          <table className="w-full min-w-[960px] text-left text-[12px]">
+          <table className="w-full min-w-[960px] text-left text-[13px]">
             <thead>
-              <tr className="border-b border-ql-border bg-ql-surface-subtle text-[11px] text-ql-fg-tertiary">
+              <tr className="border-b border-ql-border bg-ql-surface-subtle text-[13px] text-ql-fg-tertiary">
                 <th className="p-3">发生时间</th>
                 <th className="p-3">使用主体</th>
                 <th className="p-3">厂商 / 资源</th>
@@ -289,7 +289,7 @@ function Empty() {
     <div className="flex flex-col items-center gap-2 py-12 text-sm text-ql-fg-tertiary">
       <ShieldCheck className="h-6 w-6" />
       <span>当前筛选条件下没有异常</span>
-      <span className="text-[11px]">可以调整月份、主体、厂商或搜索词</span>
+      <span className="text-[13px]">可以调整月份、主体、厂商或搜索词</span>
     </div>
   );
 }

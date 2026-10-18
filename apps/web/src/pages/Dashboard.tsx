@@ -26,6 +26,7 @@ import {
   countDelta,
   overviewFootnote,
 } from "../components/dashboard/standard-home-model";
+import { Button } from "../components/ui/Button";
 
 export function DashboardPage() {
   const query = useStandardHome();
@@ -67,15 +68,15 @@ export function DashboardPage() {
     <div className="flex flex-col gap-5">
       <DashboardHeader
         action={(
-          <button
-            className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg-secondary transition-colors hover:border-ql-border-strong hover:text-ql-fg focus-visible:outline-2 focus-visible:outline-ql-action disabled:opacity-60"
+          <Button
+            variant="secondary"
             disabled={query.isFetching}
             onClick={() => void query.refetch()}
             type="button"
           >
             <RefreshCw aria-hidden className={`size-4 ${query.isFetching ? "animate-spin" : ""}`} />
             刷新
-          </button>
+          </Button>
         )}
         asOf={data.asOf}
         month={data.month}

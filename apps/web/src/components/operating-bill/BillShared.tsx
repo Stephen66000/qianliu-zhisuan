@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 
 import { StatusTag } from "../dashboard/StatusTag";
+import { buttonClassName } from "../ui/Button";
 
-export const buttonPrimary =
-  "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-ql-action px-3.5 text-[13px] font-medium text-white hover:bg-ql-action-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action";
+/** 用于 <Link> 等非 button 元素；按钮本身请用 <Button>。 */
+export const buttonPrimary = buttonClassName("primary");
 
-export const buttonSecondary =
-  "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-ql-border bg-ql-surface px-3.5 text-[13px] font-medium text-ql-fg hover:border-ql-border-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action";
+export const buttonSecondary = buttonClassName("secondary");
 
 export const inputClass =
   "h-9 rounded-lg border border-ql-border bg-ql-surface px-3 text-[13px] text-ql-fg outline-none focus:border-ql-action focus:ring-1 focus:ring-ql-action";
@@ -43,7 +43,7 @@ export function SectionHeading({
           {title}
         </h2>
         {description ? (
-          <p className="mt-0.5 text-[12px] text-ql-fg-tertiary">
+          <p className="mt-0.5 text-[13px] text-ql-fg-tertiary">
             {description}
           </p>
         ) : null}

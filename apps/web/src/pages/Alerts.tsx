@@ -126,7 +126,7 @@ function AlertCard({
     <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
       <div className="flex flex-wrap items-center gap-2">
         <StatusTag tone={severityTone(alert.severity)}>{alert.severity}</StatusTag>
-        <span className="text-[12px] leading-[18px] text-ql-fg-tertiary">
+        <span className="text-[13px] leading-[18px] text-ql-fg-tertiary">
           {DOMAIN_LABEL[alert.domain]}
         </span>
         <span className="text-[14px] font-medium leading-[22px] text-ql-fg">{alert.title}</span>
@@ -134,7 +134,7 @@ function AlertCard({
           <StatusTag tone={isOpen ? "warning" : "neutral"}>{STATUS_LABEL[alert.status]}</StatusTag>
           {alert.aiRequestId ? (
             <button
-              className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-action"
+              className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-action"
               onClick={onToggle}
               type="button"
             >
@@ -144,7 +144,7 @@ function AlertCard({
           {isOpen ? (
             <>
               <button
-                className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-success hover:bg-ql-success-soft disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-action"
+                className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-success hover:bg-ql-success-soft disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-action"
                 disabled={pending}
                 onClick={() => onDisposition("RESOLVED")}
                 type="button"
@@ -152,7 +152,7 @@ function AlertCard({
                 标记已处理
               </button>
               <button
-                className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-fg-tertiary hover:bg-ql-surface-muted disabled:opacity-50"
+                className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-fg-tertiary hover:bg-ql-surface-muted disabled:opacity-50"
                 disabled={pending}
                 onClick={() => onDisposition("IGNORED")}
                 type="button"

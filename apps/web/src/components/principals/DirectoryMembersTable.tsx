@@ -33,13 +33,13 @@ export function DirectoryMembersTable({
 }: DirectoryMembersTableProps) {
   return (
     <QueryGate emptyDescription="配置通讯录来源并执行同步，或上传标准模板。" emptyIcon={Users} emptyTitle="暂无通讯录成员" error={error} isEmpty={filteredRows.length === 0} isLoading={isLoading} onRetry={onRetry}>
-      <div className="overflow-x-auto"><table className="w-full text-left text-[12px]"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary">
+      <div className="overflow-x-auto"><table className="w-full text-left text-[13px]"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary">
         <th className="w-8 py-2"><input aria-label="全选当前页" checked={pageAllSelected} onChange={onTogglePage} type="checkbox"/></th>
         <th className="py-2">成员 / 唯一标识</th><th>工号</th><th>部门</th><th>来源</th><th>主体</th><th>接入配置</th><th className="text-right">操作</th></tr></thead><tbody>{filteredRows.map((member) => <tr className="border-b border-ql-border-zone" key={member.person_id}>
           <td className="py-2"><input aria-label={`选择 ${member.name}`} checked={selectedPersonIds.has(member.person_id)} onChange={() => onTogglePerson(member.person_id)} type="checkbox"/></td>
           <td className="py-2">
             <div className="font-medium text-ql-fg">{member.name}</div>
-            <div className="text-[11px] text-ql-fg-tertiary">
+            <div className="text-[13px] text-ql-fg-tertiary">
               {member.external_member_id ? (
                 <>
                   <span>{member.source_type === "WECOM" ? "企微ID" : member.source_type === "FEISHU" ? "飞书ID" : "外部ID"}: {maskUserId(member.external_member_id)}</span>
@@ -59,9 +59,9 @@ export function DirectoryMembersTable({
             ? <StatusTag tone="success">已开通</StatusTag>
             : (
               <div className="flex justify-end items-center gap-1">
-                <button className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50" disabled={activating || deleting} onClick={() => onActivate(member.person_id)} type="button">开通 AI</button>
+                <button className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50" disabled={activating || deleting} onClick={() => onActivate(member.person_id)} type="button">开通 AI</button>
                 {onDelete ? (
-                  <button className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-50" disabled={activating || deleting} onClick={() => onDelete(member.person_id, member.name)} type="button">清理</button>
+                  <button className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-50" disabled={activating || deleting} onClick={() => onDelete(member.person_id, member.name)} type="button">清理</button>
                 ) : null}
               </div>
             )}</td>

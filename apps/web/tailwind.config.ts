@@ -39,6 +39,8 @@ export default {
         "ql-warning-soft": ql("--ql-warning-soft"),
         "ql-danger": ql("--ql-danger"),
         "ql-danger-soft": ql("--ql-danger-soft"),
+        "ql-on-action": ql("--ql-on-action"),
+        "ql-overlay": "var(--ql-overlay)",
       },
       fontFamily: {
         sans: ["var(--ql-font-sans)"],

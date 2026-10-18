@@ -1,6 +1,7 @@
 import { ManagementSection } from "./ManagementSection";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
+import { Button } from "../ui/Button";
 
 export function QuotaModelSection({ model, managementOnly = false }: { model: QuotaRulesPageModel; managementOnly?: boolean }) {
   const { showModelForm, setShowModelForm, modelForm, visibleModels, setSelectedModelId, archiveConfig, setDisableModelTarget, updateModel, setArchiveTarget, createModel } = model;
@@ -28,14 +29,14 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
               <input className={INPUT_CLASS} id="model-display-name" {...modelForm.register("display_name")} />
             </FormField>
             <div className="sm:col-span-2 flex justify-end">
-              <button data-write-action className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white" type="submit">
+              <Button data-write-action variant="primary" type="submit">
                 创建模型
-              </button>
+              </Button>
             </div>
           </form>
         ) : null}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-[12px]">
+          <table className="w-full border-collapse text-left text-[13px]">
             <thead>
               <tr className="border-b border-ql-border text-ql-fg-tertiary">
                 <th className="p-2 font-medium">别名</th>
@@ -52,7 +53,7 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
                   <td className="p-2">{model.archived_at ? "已归档" : model.status === "ACTIVE" ? "启用" : model.status === "PENDING_CONFIG" ? "待配置" : "停用"}</td>
                   <td className="p-2 text-right">
                     <button
-                      className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                      className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                       onClick={() => setSelectedModelId(model.id)}
                       type="button"
                     >
@@ -60,7 +61,7 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
                     </button>
                     {model.archived_at ? (
                       <button data-write-action
-                        className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                         onClick={() => archiveConfig.mutate({ kind: "model", item: model, archive: false })}
                         type="button"
                       >
@@ -68,17 +69,17 @@ export function QuotaModelSection({ model, managementOnly = false }: { model: Qu
                       </button>
                     ) : model.status === "ACTIVE" ? (
                       <button
-                        className="rounded px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
+                        className="rounded-md px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
                         onClick={() => setDisableModelTarget(model)}
                         type="button"
                       >
                         停用
                       </button>
                     ) : model.status === "PENDING_CONFIG" ? (
-                      <button data-write-action className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft" onClick={() => updateModel.mutate({ model, status: "ACTIVE" })} type="button">启用</button>
+                      <button data-write-action className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft" onClick={() => updateModel.mutate({ model, status: "ACTIVE" })} type="button">启用</button>
                     ) : (
                       <button
-                        className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                        className="rounded-md px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
                         onClick={() => setArchiveTarget({ kind: "model", item: model })}
                         type="button"
                       >

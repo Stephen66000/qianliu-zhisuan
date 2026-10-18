@@ -54,7 +54,7 @@ export function OperatingTrends({ data }: { data: OperatingAnalysis }) {
                 {recent.map((row) => (
                   <div
                     key={row.month}
-                    className="mb-2 grid grid-cols-[32px_1fr] items-center gap-2 text-[12px]"
+                    className="mb-2 grid grid-cols-[32px_1fr] items-center gap-2 text-[13px]"
                   >
                     <span>{Number(row.month.slice(5))} 月</span>
                     <div>

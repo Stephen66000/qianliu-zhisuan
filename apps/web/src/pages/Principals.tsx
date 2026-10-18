@@ -30,6 +30,7 @@ import {
   TYPE_LABEL,
   type PrincipalTab,
 } from "./principal-page-support";
+import { Button } from "../components/ui/Button";
 
 export function PrincipalsPage() {
   const featureFlags = useFeatureFlags();
@@ -138,11 +139,11 @@ export function PrincipalsPage() {
       title="使用主体"
     >
       <div className="mb-4 flex gap-2 border-b border-ql-border">
-        <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "principals" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("principals")} type="button">使用主体</button>
+        <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "principals" ? "border-ql-action text-ql-action" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("principals")} type="button">使用主体</button>
         {featureFlags.FEATURE_DIRECTORY_IMPORT ? (
-          <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "directory" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("directory")} type="button">组织通讯录</button>
+          <button className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "directory" ? "border-ql-action text-ql-action" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("directory")} type="button">组织通讯录</button>
         ) : null}
-        <button data-write-action className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "batch-authorization" ? "border-ql-brand text-ql-brand" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("batch-authorization")} type="button">批量模型授权</button>
+        <button data-write-action className={`border-b-2 px-4 py-2 text-[13px] ${activeTab === "batch-authorization" ? "border-ql-action text-ql-action" : "border-transparent text-ql-fg-secondary"}`} onClick={() => selectTab("batch-authorization")} type="button">批量模型授权</button>
       </div>
       {activeTab === "batch-authorization" ? (
         <EmployeeModelRulesPage embedded />
@@ -165,14 +166,14 @@ export function PrincipalsPage() {
             <option value="archived">归档</option>
           </select>
         </label>
-        <button
-          className="flex h-9 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[14px] font-medium text-white hover:bg-ql-action-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
+        <Button
+          variant="primary"
           onClick={() => setShowCreate((v) => !v)}
           type="button"
         >
           <Plus aria-hidden className="h-4 w-4" />
           新建主体
-        </button>
+        </Button>
       </div>
 
           {showCreate ? (
@@ -192,7 +193,7 @@ export function PrincipalsPage() {
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
+                  <tr className="border-b border-ql-border text-[13px] leading-[18px] text-ql-fg-tertiary">
                     <th className="py-2 pr-4 font-medium">名称</th>
                     <th className="py-2 pr-4 font-medium">类型</th>
                     <th className="py-2 pr-4 font-medium">部门</th>
@@ -210,7 +211,7 @@ export function PrincipalsPage() {
                       <td className="py-2.5 pr-4 font-medium">
                         <div>{p.name}</div>
                         {p.type === "EMPLOYEE" && (p.employee_number || p.mobile) ? (
-                          <div className="text-[11px] font-normal text-ql-fg-tertiary">
+                          <div className="text-[13px] font-normal text-ql-fg-tertiary">
                             {p.employee_number ? `工号: ${p.employee_number}` : ""}
                             {p.employee_number && p.mobile ? " · " : ""}
                             {p.mobile ? (p.employee_number ? `手机: ${maskMobile(p.mobile)}` : `账号/手机: ${maskMobile(p.mobile)}`) : ""}
@@ -242,7 +243,7 @@ export function PrincipalsPage() {
                           {!p.archived_at &&
                           featureFlags.FEATURE_DEPARTMENT_COST ? (
                             <button data-write-action
-                              className="rounded-md px-2 py-1 text-[12px] text-ql-action"
+                              className="rounded-md px-2 py-1 text-[13px] text-ql-action"
                               onClick={() => setAccountingTarget(p)}
                               type="button"
                             >
@@ -253,14 +254,14 @@ export function PrincipalsPage() {
                           ) : null}
                           {p.type === "PROJECT" ? (
                             <Link
-                              className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                              className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                               to={`/principals/${p.id}/project-members`}
                             >
                               成员与归集
                             </Link>
                           ) : null}
                           <button
-                        className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                        className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                         onClick={() => setSelected(selected?.id === p.id ? null : p)}
                         type="button"
                       >
@@ -268,7 +269,7 @@ export function PrincipalsPage() {
                       </button>
                           {!p.archived_at ? (
                             <button
-                              className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                              className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                               onClick={() => {
                                 setEditTarget(p);
                                 setEditName(p.name);
@@ -280,7 +281,7 @@ export function PrincipalsPage() {
                           ) : null}
                           {!p.archived_at && p.status !== "DISABLED" ? (
                         <button data-write-action
-                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-danger"
+                          className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ql-danger"
                           onClick={() => setDisableTarget(p)}
                           type="button"
                         >
@@ -289,7 +290,7 @@ export function PrincipalsPage() {
                       ) : null}
                           {!p.archived_at && p.status === "DISABLED" ? (
                         <button data-write-action
-                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft"
+                          className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft"
                           disabled={reactivateMutation.isPending}
                           onClick={() => reactivateMutation.mutate(p)}
                           type="button"
@@ -299,7 +300,7 @@ export function PrincipalsPage() {
                       ) : null}
                           {!p.archived_at ? (
                         <button data-write-action
-                          className="rounded-md px-2 py-1 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft"
+                          className="rounded-md px-2 py-1 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft"
                           disabled={previewMutation.isPending}
                           onClick={() => previewMutation.mutate(p)}
                           type="button"

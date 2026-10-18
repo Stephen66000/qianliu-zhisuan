@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useChangeOwnPassword } from "../api/admins";
 import { ApiError } from "../api/client";
+import { Button } from "../components/ui/Button";
 
 export function ChangePasswordPage() {
   const navigate = useNavigate();
@@ -28,9 +29,9 @@ export function ChangePasswordPage() {
         <label className="flex flex-col gap-1"><span className="text-sm">当前密码</span><input aria-label="当前密码" autoComplete="current-password" className="h-10 rounded-lg border border-ql-border-strong px-3" onChange={(e) => setCurrentPassword(e.target.value)} required type="password" value={currentPassword} /></label>
         <label className="flex flex-col gap-1"><span className="text-sm">新密码</span><input aria-label="新密码" autoComplete="new-password" className="h-10 rounded-lg border border-ql-border-strong px-3" onChange={(e) => setNewPassword(e.target.value)} required type="password" value={newPassword} /></label>
         <label className="flex flex-col gap-1"><span className="text-sm">确认新密码</span><input aria-label="确认新密码" autoComplete="new-password" className="h-10 rounded-lg border border-ql-border-strong px-3" onChange={(e) => setConfirmPassword(e.target.value)} required type="password" value={confirmPassword} /></label>
-        <p className="text-xs text-ql-fg-secondary">需为 12～128 位，并同时包含大写字母、小写字母、数字和特殊字符。</p>
+        <p className="text-[13px] text-ql-fg-secondary">需为 12～128 位，并同时包含大写字母、小写字母、数字和特殊字符。</p>
         {localError || apiError ? <p className="rounded-lg bg-ql-danger-soft px-3 py-2 text-sm text-ql-danger" role="alert">{localError ?? apiError}</p> : null}
-        <button className="h-10 rounded-lg bg-ql-action font-medium text-white disabled:opacity-50" disabled={mutation.isPending || Boolean(localError)} type="submit">确认修改并重新登录</button>
+        <Button variant="primary" className="h-10" disabled={mutation.isPending || Boolean(localError)} type="submit">确认修改并重新登录</Button>
       </form>
     </div>
   );

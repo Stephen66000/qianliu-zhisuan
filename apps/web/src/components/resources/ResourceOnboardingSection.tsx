@@ -14,6 +14,7 @@ import {
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
 import { COMMON_PROVIDER_PRESETS, findKnownProvider } from "./known-providers";
+import { Button } from "../ui/Button";
 
 export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel }) {
   const {
@@ -27,14 +28,14 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
   } = model;
   return <>
       <div className="mb-4 flex justify-end">
-        <button
-          className="flex h-9 items-center gap-1.5 rounded-lg bg-ql-action px-4 text-[14px] font-medium text-white hover:bg-ql-action-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
+        <Button
+          variant="primary"
           onClick={() => setShowCreate((v) => !v)}
           type="button"
         >
           <Plus aria-hidden className="h-4 w-4" />
           登记资源
-        </button>
+        </Button>
       </div>
 
       {featureFlags.FEATURE_RESOURCE_UTILIZATION_V2
@@ -57,7 +58,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
             createMutation.mutate(finalValues);
           })}
         >
-          <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[12px] text-ql-fg-secondary">
+          <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[13px] text-ql-fg-secondary">
             第 1 步填写资源与凭证 → 第 2 步服务端检测模型 → 第 3 步选择兼容模型 → 第 4 步确认接入。
             系统会自动创建或复用统一模型和路由，但不会扩大任何员工 Key 权限。
           </div>
@@ -104,10 +105,10 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
               <div className="sm:col-span-2 flex flex-col gap-3 rounded-lg border border-ql-border-zone bg-ql-surface p-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-semibold text-ql-fg">新建上游厂商</span>
-                  <span className="text-[12px] text-ql-fg-muted">主流厂商已内置官方协议与接口，可直接快捷点选</span>
+                  <span className="text-[13px] text-ql-fg-tertiary">主流厂商已内置官方协议与接口，可直接快捷点选</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 pb-1 border-b border-ql-border/50">
-                  <span className="text-[12px] text-ql-fg-muted mr-1">快捷选择：</span>
+                  <span className="text-[13px] text-ql-fg-tertiary mr-1">快捷选择：</span>
                   {COMMON_PROVIDER_PRESETS.map((preset) => (
                     <button
                       key={preset.code}
@@ -162,18 +163,18 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                   </FormField>
                 </div>
                 {createProviderMutation.error ? (
-                  <p className="text-[12px] text-ql-danger">{createProviderMutation.error.message}</p>
+                  <p className="text-[13px] text-ql-danger">{createProviderMutation.error.message}</p>
                 ) : null}
                 <div className="flex justify-end gap-2">
-                  <button
-                    className="h-9 rounded-lg border border-ql-border px-3 text-[12px] text-ql-fg-secondary hover:bg-ql-surface-subtle"
+                  <Button
+                    variant="secondary"
                     onClick={() => setShowNewProvider(false)}
                     type="button"
                   >
                     取消
-                  </button>
-                  <button
-                    className="h-9 rounded-lg bg-ql-action px-4 text-[12px] font-medium text-white hover:bg-ql-action-hover disabled:opacity-60"
+                  </Button>
+                  <Button
+                    variant="primary"
                     disabled={createProviderMutation.isPending || !newProviderCode.trim() || !newProviderName.trim()}
                     onClick={() =>
                       createProviderMutation.mutate({
@@ -185,7 +186,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                     type="button"
                   >
                     {createProviderMutation.isPending ? "创建中…" : "确认创建厂商"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : null}
@@ -294,7 +295,7 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
             />
             <div className="sm:col-span-2 border-t border-ql-border pt-3">
               <h3 className="text-[13px] font-semibold text-ql-fg">厂商经营快照（可选）</h3>
-              <p className="mt-1 text-[12px] text-ql-fg-tertiary">
+              <p className="mt-1 text-[13px] text-ql-fg-tertiary">
                 未录入字段显示“未录入/未同步”，不会用主体分配额度代替。
               </p>
             </div>
@@ -313,18 +314,18 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                   <input className={INPUT_CLASS} id="res-quota-unit" {...register("quota_unit")} />
                 </FormField>
                 <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 sm:col-span-2">
-                  <p className="text-[12px] font-medium text-ql-fg">系统自动计算</p>
-                  <p className="mt-1 text-[12px] leading-5 text-ql-fg-tertiary">
+                  <p className="text-[13px] font-medium text-ql-fg">系统自动计算</p>
+                  <p className="mt-1 text-[13px] leading-5 text-ql-fg-tertiary">
                     已用额度取当前周期内该资源的账本扣减；剩余额度和下一次重置日期由系统生成。
                   </p>
                 </div>
                 <FormField htmlFor="res-package-name" label="套餐名称">
                   <input className={INPUT_CLASS} id="res-package-name" {...register("package_name")} />
                 </FormField>
-                <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[12px] text-ql-fg-tertiary">订阅金额和服务周期在“充值与订阅”中登记。</div>
+                <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[13px] text-ql-fg-tertiary">订阅金额和服务周期在“充值与订阅”中登记。</div>
               </>
             ) : (
-              <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[12px] text-ql-fg-tertiary sm:col-span-2">API 期初、充值、余额和费用统一由“充值与订阅”资金账本管理。</div>
+              <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[13px] text-ql-fg-tertiary sm:col-span-2">API 期初、充值、余额和费用统一由“充值与订阅”资金账本管理。</div>
             )}
             {createMode === "CODING_PLAN" ? (
               <>
@@ -354,8 +355,8 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
             </p>
           ) : null}
           <div className="flex justify-end gap-2">
-            <button data-write-action
-              className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[14px] font-medium text-ql-fg hover:border-ql-border-strong"
+            <Button data-write-action
+              variant="secondary"
               onClick={() => {
                 setShowCreate(false);
                 reset();
@@ -363,14 +364,14 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
               type="button"
             >
               取消
-            </button>
-            <button
-              className="h-9 min-w-[5.5rem] rounded-lg bg-ql-action px-4 text-[14px] font-medium text-white hover:bg-ql-action-hover disabled:cursor-not-allowed disabled:opacity-60"
+            </Button>
+            <Button
+              variant="primary" className="min-w-[5.5rem]"
               disabled={createMutation.isPending}
               type="submit"
             >
               {createMutation.isPending ? "接入中…" : "确认接入"}
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}

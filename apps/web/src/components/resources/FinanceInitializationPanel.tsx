@@ -23,6 +23,7 @@ import { ProviderFinancePanel } from "./ProviderFinancePanel";
 import { ActivationReceiptPanel } from "./ActivationReceiptPanel";
 import { ProviderFinanceActivationWizard } from "./ProviderFinanceActivationWizard";
 import type { ResourceOption } from "./ActivationDraftEditor";
+import { Button } from "../ui/Button";
 
 const TAB_PANEL_ID = "resource-tab-panel-finance";
 const TAB_ID = "resource-tab-finance";
@@ -77,13 +78,13 @@ export function FinanceInitializationPanel({
           <h2 className="flex items-center gap-1.5 text-[15px] font-semibold text-ql-fg">
             <CircleDollarSign aria-hidden className="h-4 w-4" />资金账本状态不可用
           </h2>
-          <p className="mt-1 text-[12px] text-ql-danger" role="alert">
+          <p className="mt-1 text-[13px] text-ql-danger" role="alert">
             {state.error?.message ?? "未能读取资金账本状态，请稍后重试。"}
           </p>
-          <button className="mt-3 rounded-lg border border-ql-border px-4 py-2 text-[13px]"
+          <Button variant="secondary" className="mt-3"
             onClick={() => void state.refetch()} type="button">
             重新读取
-          </button>
+          </Button>
         </section>
       </PanelShell>
     );

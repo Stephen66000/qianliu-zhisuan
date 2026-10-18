@@ -3,6 +3,88 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* 全局键盘焦点环（Web 规范 1.0 焦点与可访问性）：2px 功能蓝 + 2px 间隙。
+   * 组件自带 focus-visible 样式时以组件为准。 */
+  :focus-visible {
+    outline: 2px solid rgb(var(--ql-action-primary));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* 按钮（Button 组件与 buttonClassName() 共用）。secondary 为默认，primary 每个操作区最多一个。
+   * 这一层的类只有在源码里以完整字面量出现时才会进入构建产物，不要拼接类名。 */
+  .ql-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    white-space: nowrap;
+  }
+  .ql-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .ql-btn-md {
+    height: 2.25rem;
+    padding: 0 1rem;
+  }
+  .ql-btn-sm {
+    height: 2rem;
+    padding: 0 0.75rem;
+    font-size: 13px;
+  }
+  .ql-btn-primary {
+    background-color: rgb(var(--ql-action-primary));
+    color: rgb(var(--ql-on-action));
+  }
+  .ql-btn-primary:hover:not(:disabled) {
+    background-color: rgb(var(--ql-action-primary-hover));
+  }
+  .ql-btn-secondary {
+    border-color: rgb(var(--ql-border-strong));
+    background-color: rgb(var(--ql-surface));
+    color: rgb(var(--ql-text-primary));
+  }
+  .ql-btn-secondary:hover:not(:disabled) {
+    background-color: rgb(var(--ql-surface-subtle));
+  }
+  .ql-btn-ghost {
+    background-color: transparent;
+    color: rgb(var(--ql-text-secondary));
+  }
+  .ql-btn-ghost:hover:not(:disabled) {
+    background-color: rgb(var(--ql-surface-subtle));
+    color: rgb(var(--ql-text-primary));
+  }
+  .ql-btn-danger {
+    background-color: rgb(var(--ql-danger));
+    color: rgb(var(--ql-on-action));
+  }
+  .ql-btn-danger:hover:not(:disabled) {
+    background-color: rgb(var(--ql-danger) / 0.9);
+  }
+
+  /* 产品标识：透明底主版 + 深色反白版，随 data-theme 切换（不加底板、阴影、描边）。 */
+  .ql-logo {
+    display: inline-block;
+    flex-shrink: 0;
+    background-image: url("../assets/qianliu-mark.svg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+  }
+  [data-theme="dark"] .ql-logo {
+    background-image: url("../assets/qianliu-mark-dark.svg");
+  }
+}
+
 .operating-report {
   container-type: inline-size;
 }
@@ -26,6 +108,6 @@
 }
 /* Read-only module pages retain filters and tables; annotated mutation controls are hidden. */
 .ql-readonly [data-write-action] { display: none !important; }
-.settings-surface .ql-input { min-height: 38px; border: 1px solid rgb(var(--ql-border)); border-radius: 7px; padding: 6px 10px; background: rgb(var(--ql-surface)); color: rgb(var(--ql-text-primary)); }
+.settings-surface .ql-input { min-height: 38px; border: 1px solid rgb(var(--ql-border-strong)); border-radius: 8px; padding: 6px 10px; background: rgb(var(--ql-surface)); color: rgb(var(--ql-text-primary)); }
 .settings-surface .ql-input:focus { outline: 2px solid rgb(var(--ql-action-primary)); outline-offset: 1px; }
 .settings-surface .ql-input:disabled { background: rgb(var(--ql-surface-muted)); }

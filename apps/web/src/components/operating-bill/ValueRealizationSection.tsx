@@ -318,48 +318,48 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
     <div className="space-y-5" role="region" aria-label="价值体现">
       {/* 顶部四大价值指标卡 */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">当月账号等效少购节约</div>
-          <div className="text-2xl font-bold text-ql-success tabular-nums">
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">当月账号等效少购节约</div>
+          <div className="text-2xl font-bold text-ql-accent-text tabular-nums">
             {show(view.totalSavedMoney, (v) => `¥ ${fmt(v)}`)}
           </div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">{view.card1Sub}</div>
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">{view.card1Sub}</div>
         </div>
 
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">账号平均复用倍比</div>
-          <div className="text-2xl font-bold text-ql-action tabular-nums">
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">账号平均复用倍比</div>
+          <div className="text-2xl font-bold text-ql-fg tabular-nums">
             {show(view.avgMultiplexRatio, (v) => `${v.toFixed(1)}x`)}
           </div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">{view.card2Sub}</div>
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">{view.card2Sub}</div>
         </div>
 
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">Coding Plan 实际摊薄单价</div>
-          <div className="text-2xl font-bold text-ql-accent tabular-nums">
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">Coding Plan 实际摊薄单价</div>
+          <div className="text-2xl font-bold text-ql-fg tabular-nums">
             {view.summary ? (
               <>
                 ¥ {view.summary.weightedUnitCost.toFixed(2)}{" "}
-                <span className="text-xs font-normal text-ql-fg-secondary">/ 百万 Token</span>
+                <span className="text-[13px] font-normal text-ql-fg-secondary">/ 百万 Token</span>
               </>
             ) : (
               NA
             )}
           </div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">
             较官方同级 API 市价相当于{" "}
-            <span className="font-semibold text-ql-success">
+            <span className="font-semibold text-ql-fg">
               {show(view.summary, (s) => `${s.weightedDiscount.toFixed(1)} 折`)}
             </span>
           </div>
         </div>
 
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4 shadow-sm">
-          <div className="text-xs text-ql-fg-secondary mb-1">Coding Plan 等效采购降本</div>
-          <div className="text-2xl font-bold text-ql-success tabular-nums">
+        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
+          <div className="text-[13px] text-ql-fg-secondary mb-1">Coding Plan 等效采购降本</div>
+          <div className="text-2xl font-bold text-ql-fg tabular-nums">
             {show(view.summary, (s) => `¥ ${fmt(s.totalPlanSavings)}`)}
           </div>
-          <div className="text-[11px] text-ql-fg-tertiary mt-1">
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">
             本月包月产出折合官方 API 市价成本差额
           </div>
         </div>
@@ -369,12 +369,12 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
       <BillCard className="overflow-hidden">
         <div className="p-4 border-b border-ql-border-zone flex items-center justify-between">
           <SectionHeading title="1. 账号复用核算表" />
-          <span className="text-xs font-semibold text-ql-success bg-ql-success-soft px-2.5 py-1 rounded-md">
+          <span className="text-[13px] font-medium text-ql-fg-secondary bg-ql-surface-muted px-2.5 py-1 rounded-md">
             {view.badge1}
           </span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-[13px] text-left">
             <thead className="bg-ql-surface-subtle text-ql-fg-secondary border-b border-ql-border-zone font-medium">
               <tr>
                 <th className="p-3">产品 / 厂商</th>
@@ -391,17 +391,17 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
               <tr className="hover:bg-ql-surface-subtle">
                 <td className="p-3 font-semibold text-ql-fg">Kimi Coding Plan</td>
                 <td className="p-3 text-right tabular-nums">1 个</td>
-                <td className="p-3 text-right tabular-nums font-semibold text-ql-action">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.kimiReuse, (r) => `${r.users} 人 (全员)`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.kimiReuse, (r) => `${r.users.toFixed(1)}x`)}
                 </td>
-                <td className="p-3 text-right tabular-nums text-ql-success">
+                <td className="p-3 text-right tabular-nums text-ql-fg">
                   {show(view.kimiReuse, (r) => `${r.savedAccounts} 个`)}
                 </td>
                 <td className="p-3 text-right tabular-nums">{priceText(view.kimi)}</td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.kimiReuse, (r) => `¥ ${fmt(r.savedMoney)}`)}
                 </td>
                 <td className="p-3 text-right text-ql-fg-secondary">支撑良好，可满足 6~8 人使用</td>
@@ -409,17 +409,17 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
               <tr className="hover:bg-ql-surface-subtle">
                 <td className="p-3 font-semibold text-ql-fg">智谱 Coding Plan</td>
                 <td className="p-3 text-right tabular-nums">1 个</td>
-                <td className="p-3 text-right tabular-nums font-semibold text-ql-action">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.zhipuReuse, (r) => `${r.users} 人`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.zhipuReuse, (r) => `${r.users.toFixed(1)}x`)}
                 </td>
-                <td className="p-3 text-right tabular-nums text-ql-success">
+                <td className="p-3 text-right tabular-nums text-ql-fg">
                   {show(view.zhipuReuse, (r) => `${r.savedAccounts} 个`)}
                 </td>
                 <td className="p-3 text-right tabular-nums">{priceText(view.zhipu)}</td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.zhipuReuse, (r) => `¥ ${fmt(r.savedMoney)}`)}
                 </td>
                 <td className="p-3 text-right text-ql-fg-secondary">支撑良好，可满足 6~8 人使用</td>
@@ -427,7 +427,7 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
               <tr className="hover:bg-ql-surface-subtle">
                 <td className="p-3 font-semibold text-ql-fg">DeepSeek (API 集中托管)</td>
                 <td className="p-3 text-right tabular-nums">1 个企业 Key</td>
-                <td className="p-3 text-right tabular-nums font-semibold text-ql-action">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.activeCount, (v) => `${v} 人 (全员)`)}
                 </td>
                 <td className="p-3 text-right tabular-nums">—</td>
@@ -444,16 +444,16 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                 <td className="p-3 text-right tabular-nums">
                   {show(view.activeCount, (v) => `${v} 人使用`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.avgMultiplexRatio, (v) => `${v.toFixed(1)}x`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.totalSavedAccounts, (v) => `${v} 个账号`)}
                 </td>
                 <td className="p-3 text-right tabular-nums">
                   {show(view.summary, (s) => `¥ ${fmt(s.totalPlanPrice)}`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.totalSavedMoney, (v) => `¥ ${fmt(v)}`)}
                 </td>
                 <td className="p-3 text-right text-ql-fg-secondary">—</td>
@@ -467,22 +467,22 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
       <BillCard className="overflow-hidden">
         <div className="p-4 border-b border-ql-border-zone flex items-center justify-between">
           <SectionHeading title="2. Coding Plan 额度摊薄单价与超值对比" />
-          <span className="text-xs font-semibold text-ql-action bg-ql-action-soft px-2.5 py-1 rounded-md">
+          <span className="text-[13px] font-medium text-ql-fg-secondary bg-ql-surface-muted px-2.5 py-1 rounded-md">
             {view.badge2}
           </span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full text-[13px] text-left">
             <thead className="bg-ql-surface-subtle text-ql-fg-secondary border-b border-ql-border-zone font-medium">
               <tr>
                 <th className="p-3">套餐产品</th>
                 <th className="p-3 text-right">本月实付月费</th>
                 <th className="p-3 text-right">当月实际产出 Token</th>
-                <th className="p-3 text-right font-bold text-ql-accent">实际摊薄单价</th>
+                <th className="p-3 text-right font-semibold text-ql-fg">实际摊薄单价</th>
                 <th className="p-3 text-right">官方同级 API 市价</th>
                 <th className="p-3 text-right">等效 API 采购成本</th>
-                <th className="p-3 text-right font-bold text-ql-success">直接降本金额</th>
-                <th className="p-3 text-right font-bold text-ql-success">等效折扣率</th>
+                <th className="p-3 text-right font-semibold text-ql-fg">直接降本金额</th>
+                <th className="p-3 text-right font-semibold text-ql-fg">等效折扣率</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ql-border-zone">
@@ -492,7 +492,7 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                 <td className="p-3 text-right tabular-nums font-medium">
                   {show(view.kimi.tokensM, tokensText)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-accent">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.kimi.value, (p) => `¥ ${p.unitCost.toFixed(2)} / M`)}
                 </td>
                 <td className="p-3 text-right tabular-nums text-ql-fg-secondary">
@@ -501,10 +501,10 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                 <td className="p-3 text-right tabular-nums">
                   {show(view.kimi.tokensM, (t) => `¥ ${fmt(t * OFFICIAL_RATE_REFERENCE.kimi)}`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.kimi.value, (p) => `¥ ${fmt(p.savings)}`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-semibold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.kimi.value, (p) => discountText(p.discount))}
                 </td>
               </tr>
@@ -514,7 +514,7 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                 <td className="p-3 text-right tabular-nums font-medium">
                   {show(view.zhipu.tokensM, tokensText)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-accent">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.zhipu.value, (p) => `¥ ${p.unitCost.toFixed(2)} / M`)}
                 </td>
                 <td className="p-3 text-right tabular-nums text-ql-fg-secondary">
@@ -523,10 +523,10 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                 <td className="p-3 text-right tabular-nums">
                   {show(view.zhipu.tokensM, (t) => `¥ ${fmt(t * OFFICIAL_RATE_REFERENCE.zhipu)}`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.zhipu.value, (p) => `¥ ${fmt(p.savings)}`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-semibold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.zhipu.value, (p) => discountText(p.discount))}
                 </td>
               </tr>
@@ -543,7 +543,7 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                     (s) => `${s.totalPlanTokensM.toFixed(2)} M (${(s.totalPlanTokensM / 100).toFixed(3)}亿)`,
                   )}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-accent">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.summary, (s) => `¥ ${s.weightedUnitCost.toFixed(2)} / M`)}
                 </td>
                 <td className="p-3 text-right tabular-nums text-ql-fg-secondary">
@@ -552,17 +552,17 @@ export function ValueRealizationSection({ analysis, month }: ValueRealizationSec
                 <td className="p-3 text-right tabular-nums">
                   {show(view.summary, (s) => `¥ ${fmt(s.totalOfficialCost)}`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.summary, (s) => `¥ ${fmt(s.totalPlanSavings)}`)}
                 </td>
-                <td className="p-3 text-right tabular-nums font-bold text-ql-success">
+                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">
                   {show(view.summary, (s) => discountText(s.weightedDiscount))}
                 </td>
               </tr>
             </tfoot>
           </table>
         </div>
-        <p className="p-3 text-[11px] text-ql-fg-tertiary border-t border-ql-border-zone">
+        <p className="p-3 text-[13px] text-ql-fg-tertiary border-t border-ql-border-zone">
           {view.referenceNote}
         </p>
       </BillCard>

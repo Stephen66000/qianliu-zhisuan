@@ -12,6 +12,7 @@ import {
   useSaveNotificationRecipients,
   useTestNotification,
 } from "../../api/runtime-assurance";
+import { Button } from "../../components/ui/Button";
 
 const CATEGORIES: NotificationCategory[] = [
   "SYSTEM_FAILURE",
@@ -157,14 +158,14 @@ export function NotificationRecipientsPanel() {
       <div className="rounded-xl border border-ql-danger/20 bg-ql-danger-soft p-5 text-center">
         <CircleAlert className="mx-auto mb-2 h-6 w-6 text-ql-danger" />
         <p className="text-sm font-medium text-ql-danger">加载通知人员配置失败</p>
-        <p className="mt-1 text-xs text-ql-fg-secondary">{recipientsQuery.error?.message}</p>
-        <button
-          className="mt-3 rounded-lg bg-ql-action px-3 py-1.5 text-xs text-white"
+        <p className="mt-1 text-[13px] text-ql-fg-secondary">{recipientsQuery.error?.message}</p>
+        <Button
+          variant="primary" size="sm" className="mt-3"
           onClick={() => recipientsQuery.refetch()}
           type="button"
         >
           重试
-        </button>
+        </Button>
       </div>
     );
   }
@@ -173,29 +174,29 @@ export function NotificationRecipientsPanel() {
     <div className="space-y-6 pb-12">
       {/* 提示消息 */}
       {saveSuccessMsg && (
-        <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-xs font-medium text-emerald-800 border border-emerald-200" role="status">
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+        <div className="flex items-center gap-2 rounded-lg bg-ql-success-soft p-3 text-[13px] font-medium text-ql-success border border-ql-success/30" role="status">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-ql-success" />
           <span>{saveSuccessMsg}</span>
         </div>
       )}
       {saveMutation.isError && (
-        <div className="flex items-center gap-2 rounded-lg bg-ql-danger-soft p-3 text-xs font-medium text-ql-danger border border-ql-danger/20" role="alert">
+        <div className="flex items-center gap-2 rounded-lg bg-ql-danger-soft p-3 text-[13px] font-medium text-ql-danger border border-ql-danger/20" role="alert">
           <CircleAlert className="h-4 w-4 shrink-0" />
           <span>保存失败：{saveMutation.error?.message}</span>
         </div>
       )}
       {testResult && (
         <div
-          className={`flex items-center justify-between rounded-lg p-3 text-xs font-medium border ${
+          className={`flex items-center justify-between rounded-lg p-3 text-[13px] font-medium border ${
             testResult.success
-              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+              ? "bg-ql-success-soft text-ql-success border-ql-success/30"
               : "bg-ql-danger-soft text-ql-danger border-ql-danger/20"
           }`}
           role="status"
         >
           <div className="flex items-center gap-2">
             {testResult.success ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-ql-success" />
             ) : (
               <CircleAlert className="h-4 w-4 shrink-0 text-ql-danger" />
             )}
@@ -235,30 +236,30 @@ export function NotificationRecipientsPanel() {
           return (
             <div
               key={cat}
-              className="rounded-xl border border-ql-border bg-ql-surface p-5 shadow-sm transition hover:border-ql-border-strong"
+              className="rounded-xl border border-ql-border bg-ql-surface p-5 transition hover:border-ql-border-strong"
             >
               {/* 卡片头部 */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ql-border pb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ql-surface-muted text-xs font-semibold text-ql-fg">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ql-surface-muted text-[12px] font-semibold text-ql-fg">
                     {index + 1}
                   </span>
                   <h4 className="text-[15px] font-semibold text-ql-fg">{meta.title}</h4>
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${meta.badgeColor}`}
+                    className={`rounded-full border px-2 py-0.5 text-[12px] font-medium ${meta.badgeColor}`}
                   >
                     {meta.badge}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-ql-fg-tertiary">
+                  <span className="text-[13px] text-ql-fg-tertiary">
                     已选 <span className="font-semibold text-ql-fg">{personIds.length}</span> 人
                   </span>
                 </div>
               </div>
 
               {/* 卡片场景描述 */}
-              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-ql-fg-secondary">
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[13px] text-ql-fg-secondary">
                 <p>{meta.description}</p>
                 <p className="text-ql-fg-tertiary">典型事件：{meta.examples}</p>
               </div>
@@ -266,7 +267,7 @@ export function NotificationRecipientsPanel() {
               {/* 已选人员标签列表 */}
               <div className="mt-4 min-h-[48px] rounded-lg bg-ql-surface-subtle p-3">
                 {personIds.length === 0 ? (
-                  <div className="flex items-center gap-1.5 py-1 text-xs text-ql-fg-tertiary">
+                  <div className="flex items-center gap-1.5 py-1 text-[13px] text-ql-fg-tertiary">
                     <AlertTriangle className="h-3.5 w-3.5 text-ql-warning" />
                     <span>暂未指定人员（发生此类异常时将仅在异常中心记录，不推企业微信）</span>
                   </div>
@@ -280,13 +281,13 @@ export function NotificationRecipientsPanel() {
                       return (
                         <div
                           key={id}
-                          className="flex items-center gap-2 rounded-lg border border-ql-border bg-ql-surface px-2.5 py-1.5 text-xs shadow-xs"
+                          className="flex items-center gap-2 rounded-lg border border-ql-border bg-ql-surface px-2.5 py-1.5 text-[13px]"
                         >
                           <div className="flex items-center gap-1.5">
                             <User className="h-3.5 w-3.5 text-ql-fg-secondary" />
                             <span className="font-medium text-ql-fg">{person.name}</span>
                             {person.department_label && (
-                              <span className="text-[11px] text-ql-fg-tertiary">
+                              <span className="text-[13px] text-ql-fg-tertiary">
                                 ({person.department_label})
                               </span>
                             )}
@@ -295,14 +296,14 @@ export function NotificationRecipientsPanel() {
                           {/* 企微状态徽标 */}
                           {hasWecom ? (
                             <span
-                              className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700 font-mono"
+                              className="rounded-md bg-ql-success-soft px-1.5 py-0.5 text-[12px] text-ql-success font-mono"
                               title={`企业微信 userid: ${person.wecom_identity?.provider_user_id}`}
                             >
                               {person.wecom_identity?.provider_user_id}
                             </span>
                           ) : (
                             <span
-                              className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700"
+                              className="rounded-md bg-ql-warning-soft px-1.5 py-0.5 text-[12px] text-ql-warning"
                               title="该人员未配置企微 userid，可能无法接收企微通知"
                             >
                               未配企微ID
@@ -312,7 +313,7 @@ export function NotificationRecipientsPanel() {
                           {/* 测试发送按钮 */}
                           <button
                             aria-label={`向 ${person.name} 测试发送企微消息`}
-                            className="ml-1 rounded p-1 text-ql-fg-tertiary hover:bg-ql-surface-muted hover:text-ql-action disabled:opacity-50"
+                            className="ml-1 rounded-md p-1 text-ql-fg-tertiary hover:bg-ql-surface-muted hover:text-ql-action disabled:opacity-50"
                             disabled={testMutation.isPending || !hasWecom}
                             onClick={() => handleTest(person)}
                             title={hasWecom ? "向此人发送测试消息" : "此人未配企微 userid，无法发送"}
@@ -324,7 +325,7 @@ export function NotificationRecipientsPanel() {
                           {/* 移除按钮 */}
                           <button
                             aria-label={`移除 ${person.name}`}
-                            className="rounded p-1 text-ql-fg-tertiary hover:bg-ql-surface-muted hover:text-ql-danger"
+                            className="rounded-md p-1 text-ql-fg-tertiary hover:bg-ql-surface-muted hover:text-ql-danger"
                             onClick={() => handleRemovePerson(cat, id)}
                             title="移除此接收人"
                             type="button"
@@ -342,7 +343,7 @@ export function NotificationRecipientsPanel() {
               <div className="relative mt-3">
                 {!isPickerOpen ? (
                   <button
-                    className="flex items-center gap-1.5 rounded-lg border border-dashed border-ql-border-strong px-3 py-1.5 text-xs font-medium text-ql-action hover:border-ql-action hover:bg-ql-action-subtle/10"
+                    className="flex items-center gap-1.5 rounded-lg border border-dashed border-ql-border-strong px-3 py-1.5 text-[13px] font-medium text-ql-action hover:border-ql-action hover:bg-ql-action-soft"
                     onClick={() => {
                       setActivePickerCategory(cat);
                       setSearchQuery("");
@@ -353,20 +354,20 @@ export function NotificationRecipientsPanel() {
                     <span>添加通知人员</span>
                   </button>
                 ) : (
-                  <div className="rounded-xl border border-ql-border-strong bg-ql-surface p-3 shadow-lg ring-1 ring-black/5 z-20">
+                  <div className="rounded-xl border border-ql-border-strong bg-ql-surface p-3 shadow-ql-raised z-20">
                     <div className="flex items-center justify-between gap-2 pb-2 border-b border-ql-border">
                       <div className="flex items-center gap-2 flex-1">
                         <Search className="h-3.5 w-3.5 text-ql-fg-tertiary" />
                         <input
                           autoFocus
-                          className="w-full text-xs text-ql-fg bg-transparent outline-hidden"
+                          className="w-full text-[13px] text-ql-fg bg-transparent outline-hidden"
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="搜索通讯录人员姓名、部门或企业微信 userid..."
                           value={searchQuery}
                         />
                       </div>
                       <button
-                        className="rounded p-1 text-ql-fg-tertiary hover:text-ql-fg"
+                        className="rounded-md p-1 text-ql-fg-tertiary hover:text-ql-fg"
                         onClick={() => setActivePickerCategory(null)}
                         type="button"
                       >
@@ -376,7 +377,7 @@ export function NotificationRecipientsPanel() {
 
                     <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
                       {filteredPeople.length === 0 ? (
-                        <div className="py-4 text-center text-xs text-ql-fg-tertiary">
+                        <div className="py-4 text-center text-[13px] text-ql-fg-tertiary">
                           {searchQuery ? "未找到匹配的人员" : "通讯录中暂无可选人员"}
                         </div>
                       ) : (
@@ -385,29 +386,29 @@ export function NotificationRecipientsPanel() {
                           return (
                             <button
                               key={person.id}
-                              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-left hover:bg-ql-surface-subtle"
+                              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] text-left hover:bg-ql-surface-subtle"
                               onClick={() => handleAddPerson(cat, person.id)}
                               type="button"
                             >
                               <div className="flex items-center gap-2">
                                 <span className="font-medium text-ql-fg">{person.name}</span>
                                 {person.department_label && (
-                                  <span className="text-ql-fg-tertiary text-[11px]">
+                                  <span className="text-ql-fg-tertiary text-[13px]">
                                     ({person.department_label})
                                   </span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2">
                                 {hasWecom ? (
-                                  <span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 px-1 rounded">
+                                  <span className="font-mono text-[12px] text-ql-success bg-ql-success-soft px-1 rounded-md">
                                     {person.wecom_identity?.provider_user_id}
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] text-amber-700 bg-amber-50 px-1 rounded">
+                                  <span className="text-[12px] text-ql-warning bg-ql-warning-soft px-1 rounded-md">
                                     未绑企微
                                   </span>
                                 )}
-                                <span className="text-[11px] text-ql-action">选择</span>
+                                <span className="text-[13px] text-ql-action">选择</span>
                               </div>
                             </button>
                           );
@@ -423,16 +424,16 @@ export function NotificationRecipientsPanel() {
       </div>
 
       {/* 底部浮动/固定操作栏 */}
-      <div className="sticky bottom-0 z-10 flex items-center justify-between rounded-xl border border-ql-border bg-ql-surface/95 px-5 py-3.5 shadow-md backdrop-blur-xs">
-        <div className="text-xs text-ql-fg-secondary">
+      <div className="sticky bottom-0 z-10 flex items-center justify-between rounded-xl border border-ql-border bg-ql-surface/95 px-5 py-3.5 shadow-ql-raised backdrop-blur-xs">
+        <div className="text-[13px] text-ql-fg-secondary">
           {isDirty ? (
-            <span className="flex items-center gap-1.5 font-medium text-amber-600">
+            <span className="flex items-center gap-1.5 font-medium text-ql-warning">
               <AlertTriangle className="h-4 w-4" />
               有未保存的人员配置变更，请点击“保存配置”生效。
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-ql-fg-tertiary">
-              <Check className="h-4 w-4 text-emerald-600" />
+              <Check className="h-4 w-4 text-ql-success" />
               当前配置已是最新状态。
             </span>
           )}
@@ -440,26 +441,26 @@ export function NotificationRecipientsPanel() {
 
         <div className="flex items-center gap-3">
           {isDirty && (
-            <button
-              className="flex items-center gap-1.5 rounded-lg border border-ql-border px-3.5 py-2 text-xs font-medium text-ql-fg hover:bg-ql-surface-subtle"
+            <Button
+              variant="secondary"
               disabled={saveMutation.isPending}
               onClick={handleReset}
               type="button"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               <span>放弃修改</span>
-            </button>
+            </Button>
           )}
 
-          <button
-            className="flex items-center gap-1.5 rounded-lg bg-ql-action px-5 py-2 text-xs font-medium text-white shadow-xs hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          <Button
+            variant="primary"
             disabled={!isDirty || saveMutation.isPending}
             onClick={handleSave}
             type="button"
           >
             <Save className="h-3.5 w-3.5" />
             <span>{saveMutation.isPending ? "正在保存..." : "保存配置"}</span>
-          </button>
+          </Button>
         </div>
       </div>
     </div>

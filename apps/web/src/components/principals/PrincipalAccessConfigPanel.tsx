@@ -20,6 +20,7 @@ import type {
   AccessConfigPutResult,
   AccessConfiguration,
 } from "../../api/types";
+import { Button } from "../ui/Button";
 
 /** 千分位格式化（展示层；内部状态仍是纯数字字符串）。 */
 function formatThousands(value: string): string {
@@ -142,8 +143,8 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
     return { totalQuota, providerCount, modelCount };
   }, [drafts]);
 
-  if (configQuery.isLoading) return <p className="text-muted">加载接入配置…</p>;
-  if (configQuery.isError) return <p className="text-destructive">加载失败：{configQuery.error.message}</p>;
+  if (configQuery.isLoading) return <p className="text-ql-fg-tertiary">加载接入配置…</p>;
+  if (configQuery.isError) return <p className="text-ql-danger">加载失败：{configQuery.error.message}</p>;
   if (!config) return null;
 
   const updateDraft = (providerCode: string, patch: Partial<ProviderDraft>) => {
@@ -187,11 +188,11 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
   return (
     <section aria-label="接入配置" className="space-y-4">
       {config.manual_pending_takeover.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+        <div className="flex items-start gap-2 rounded-lg border border-ql-warning/30 bg-ql-warning-soft p-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-ql-warning" />
           <div>
             <p className="font-medium">历史手工授权待接管</p>
-            <p className="text-muted-foreground">
+            <p className="text-ql-fg-secondary">
               该员工存在 {config.manual_pending_takeover.length} 个历史手工授权型号。保存本页配置后将自动接管，
               期间权限不会中断。
             </p>
@@ -218,7 +219,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                   {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <span className="font-medium">{provider.provider_name}</span>
                   {provider.pool && (
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-ql-fg-secondary">
                       已用 {formatThousands(provider.pool.quota_used)} / {formatThousands(provider.pool.quota_value)}
                     </span>
                   )}
@@ -251,7 +252,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                 <div className="border-t p-3 space-y-3">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label className="block text-sm">
-                      <span className="mb-1 block text-muted-foreground">Token 额度</span>
+                      <span className="mb-1 block text-ql-fg-secondary">Token 额度</span>
                       <input
                         aria-label={`${provider.provider_name} Token 额度`}
                         type="text"
@@ -271,7 +272,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                       允许超额
                     </label>
                     <label className="block text-sm">
-                      <span className="mb-1 block text-muted-foreground">有效期（可选）</span>
+                      <span className="mb-1 block text-ql-fg-secondary">有效期（可选）</span>
                       <input
                         type="datetime-local"
                         className="w-full rounded-md border px-3 py-2"
@@ -282,7 +283,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                   </div>
 
                   <div>
-                    <p className="mb-2 text-sm text-muted-foreground">
+                    <p className="mb-2 text-sm text-ql-fg-secondary">
                       型号（默认全开，可单个掐掉）
                     </p>
                     <div className="space-y-1">
@@ -299,17 +300,17 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                             }}
                           />
                           <span>{model.display_name}</span>
-                          <span className="text-muted-foreground">({model.alias})</span>
+                          <span className="text-ql-fg-secondary">({model.alias})</span>
                         </label>
                       ))}
                       {notReadyModels.length > 0 && (
-                        <details className="mt-1 rounded border border-dashed bg-muted/30 px-3 py-1.5">
-                          <summary className="cursor-pointer select-none text-xs text-muted-foreground">
+                        <details className="mt-1 rounded-md border border-dashed border-ql-border bg-ql-surface-subtle px-3 py-1.5">
+                          <summary className="cursor-pointer select-none text-[13px] text-ql-fg-secondary">
                             另有 {notReadyModels.length} 个未就绪型号（未启用，不参与授权，点击展开详情）
                           </summary>
                           <div className="mt-1 space-y-1">
                             {notReadyModels.map((model) => (
-                              <div key={model.unified_model_id} className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <div key={model.unified_model_id} className="flex items-center gap-2 text-sm text-ql-fg-secondary">
                                 <input
                                   aria-label={`${model.display_name}（暂不可用）`}
                                   checked={draft.enabled_model_ids.has(model.unified_model_id)}
@@ -318,8 +319,8 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                                   type="checkbox"
                                 />
                                 <span>{model.display_name}</span>
-                                <span className="text-muted-foreground">({model.alias})</span>
-                                <span className="text-xs">
+                                <span className="text-ql-fg-secondary">({model.alias})</span>
+                                <span className="text-[13px]">
                                   {draft.enabled_model_ids.has(model.unified_model_id) ? "已配置，暂不可用" : "未开通"}：
                                   {model.unavailable_reasons.join("；")}
                                 </span>
@@ -338,35 +339,34 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
       </div>
 
       {saveError && (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+        <div className="flex items-start gap-2 rounded-lg border border-ql-danger/30 bg-ql-danger-soft p-3 text-sm text-ql-danger" role="alert">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>保存失败：{saveError}。页面已恢复为上次生效的配置。</span>
         </div>
       )}
 
-      <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
+      <div className="flex items-center justify-between rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-4">
         <div>
           <p className="font-medium">
             已开通 {summary.providerCount} 个厂商，共 {summary.modelCount} 个型号
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-ql-fg-secondary">
             总额度 {summary.totalQuota.toLocaleString()} Token（各厂商池之和）
           </p>
         </div>
         <div className="flex items-center gap-3">
           {saveSuccess && (
-            <span className="flex items-center gap-1 text-sm text-green-600">
+            <span className="flex items-center gap-1 text-sm text-ql-success">
               <CheckCircle2 className="h-4 w-4" /> 已保存
             </span>
           )}
-          <button data-write-action
-            type="button"
-            className="rounded-md border border-primary/30 bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:border-primary/20 disabled:bg-primary/5 disabled:opacity-50"
+          <Button data-write-action
+            variant="primary"
             onClick={handleSave}
             disabled={saveMutation.isPending || summary.providerCount === 0}
           >
             {saveMutation.isPending ? "保存中…" : "保存并生效"}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

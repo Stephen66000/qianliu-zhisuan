@@ -7,6 +7,7 @@
 import { TriangleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
+import { Button } from "../ui/Button";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -63,7 +64,7 @@ export function ConfirmDialog({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ql-canvas/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ql-overlay p-4"
       onClick={onCancel}
       role="dialog"
     >
@@ -87,29 +88,23 @@ export function ConfirmDialog({
         </div>
         {children ? <div className="mt-4">{children}</div> : null}
         <div className="mt-6 flex justify-end gap-2">
-          <button
-            className="h-9 rounded-lg border border-ql-border bg-ql-surface px-4 text-[14px] font-medium text-ql-fg hover:border-ql-border-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ql-action"
+          <Button
+            variant="secondary"
             disabled={loading}
             onClick={onCancel}
             ref={cancelRef}
             type="button"
           >
             {cancelLabel}
-          </button>
-          <button
-            className={[
-              "h-9 min-w-[5.5rem] rounded-lg px-4 text-[14px] font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
-              danger
-                ? "bg-ql-danger hover:opacity-90 focus-visible:outline-ql-danger"
-                : "bg-ql-action hover:bg-ql-action-hover focus-visible:outline-ql-action",
-              loading ? "cursor-not-allowed opacity-60" : "",
-            ].join(" ")}
+          </Button>
+          <Button
+            className="min-w-[5.5rem]"
             disabled={loading}
             onClick={onConfirm}
-            type="button"
+            variant={danger ? "danger" : "primary"}
           >
             {loading ? "处理中…" : confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

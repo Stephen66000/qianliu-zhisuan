@@ -1,6 +1,7 @@
 import { ManagementSection } from "./ManagementSection";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import type { QuotaRulesPageModel } from "../../pages/quota-rules-page-model";
+import { Button } from "../ui/Button";
 
 export function QuotaRouteSection({ model, managementOnly = false }: { model: QuotaRulesPageModel; managementOnly?: boolean }) {
   const { setSelectedModelId, archiveConfig, canCreateRoute, hasActiveModels, showRouteForm, setShowRouteForm, routeForm, selectedModelId, setSelectedRuleRouteId, models, resources, routes, setDisableRouteTarget, ruleForm, setArchiveTarget, createRoute, updateRoute } = model;
@@ -91,14 +92,14 @@ export function QuotaRouteSection({ model, managementOnly = false }: { model: Qu
               <input className={INPUT_CLASS} id="route-weight" type="number" {...routeForm.register("weight")} />
             </FormField>
             <div className="md:col-span-5 flex justify-end">
-              <button data-write-action className="h-9 rounded-lg bg-ql-action px-4 text-[13px] font-medium text-white" type="submit">
+              <Button data-write-action variant="primary" type="submit">
                 创建路由
-              </button>
+              </Button>
             </div>
           </form>
         ) : null}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-[12px]">
+          <table className="w-full border-collapse text-left text-[13px]">
             <thead>
               <tr className="border-b border-ql-border text-ql-fg-tertiary">
                 <th className="p-2 font-medium">上游模型</th>
@@ -123,7 +124,7 @@ export function QuotaRouteSection({ model, managementOnly = false }: { model: Qu
                   <td className="p-2 text-right">
                     {route.archived_at ? (
                       <button data-write-action
-                        className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                        className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                         onClick={() => archiveConfig.mutate({ kind: "route", item: route, archive: false })}
                         type="button"
                       >
@@ -131,16 +132,16 @@ export function QuotaRouteSection({ model, managementOnly = false }: { model: Qu
                       </button>
                     ) : route.enabled ? (
                       <button
-                        className="rounded px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
+                        className="rounded-md px-2 py-1 text-ql-danger hover:bg-ql-danger-soft"
                         onClick={() => setDisableRouteTarget(route)}
                         type="button"
                       >
                         停用
                       </button>
                     ) : <>
-                      <button data-write-action className="rounded px-2 py-1 text-ql-action hover:bg-ql-action-soft"
+                      <button data-write-action className="rounded-md px-2 py-1 text-ql-action hover:bg-ql-action-soft"
                         onClick={() => updateRoute.mutate({ route, enabled: true })} type="button">启用</button>
-                      <button className="rounded px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
+                      <button className="rounded-md px-2 py-1 text-ql-fg-secondary hover:bg-ql-surface-muted"
                         onClick={() => setArchiveTarget({ kind: "route", item: route })} type="button">归档</button>
                     </>}
                   </td>

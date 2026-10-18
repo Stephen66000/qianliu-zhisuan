@@ -13,7 +13,7 @@ describe("Sidebar", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("img", { name: "仟流科技 Logo" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "仟流智算 Logo" })).toBeInTheDocument();
     expect(screen.getByText("仟流智算")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "返回首页看板" })).toHaveAttribute("href", "/dashboard");
     const entries = [

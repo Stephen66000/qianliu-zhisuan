@@ -46,7 +46,7 @@ export function QuotaWindowPanel({ resources, providers }: QuotaWindowPanelProps
         ))}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-ql-border-zone pt-3 text-[11px] text-ql-fg-tertiary">
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-ql-border-zone pt-3 text-[13px] text-ql-fg-tertiary">
         <span className="font-medium text-ql-fg-secondary">口径说明</span>
         <span>● 厂商事实（本区，百分比/额度点）</span>
         <span>○ 本地累计（账本 token）</span>
@@ -76,15 +76,15 @@ function QuotaWindowResourceCard({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-[13px] font-semibold text-ql-fg">{resource.name}</p>
-            <p className="mt-0.5 text-[11px] text-ql-fg-tertiary">
+            <p className="mt-0.5 text-[13px] text-ql-fg-tertiary">
               {providerName} · API · 按 token 计费
             </p>
           </div>
-          <span className="rounded-md bg-ql-surface-muted px-2 py-0.5 text-[11px] font-medium text-ql-fg-secondary">
+          <span className="rounded-md bg-ql-surface-muted px-2 py-0.5 text-[12px] font-medium text-ql-fg-secondary">
             API 计费
           </span>
         </div>
-        <p className="mt-3 text-[12px] text-ql-fg-tertiary">
+        <p className="mt-3 text-[13px] text-ql-fg-tertiary">
           不适用 — 非 Coding Plan 套餐资源，无厂商窗口额度。
         </p>
       </article>
@@ -98,16 +98,16 @@ function QuotaWindowResourceCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[13px] font-semibold text-ql-fg">{resource.name}</p>
-          <p className="mt-0.5 text-[11px] text-ql-fg-tertiary">
+          <p className="mt-0.5 text-[13px] text-ql-fg-tertiary">
             {providerName} · CODING_PLAN · 资源 ID {resource.id.slice(0, 8)}…
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="rounded-md bg-ql-surface-brand-soft px-2 py-0.5 text-[11px] font-medium text-ql-action">
+          <span className="rounded-md bg-ql-surface-brand-soft px-2 py-0.5 text-[12px] font-medium text-ql-action">
             Coding Plan
           </span>
           <button data-write-action
-            className="h-8 rounded-lg border border-ql-action px-3 text-[12px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50"
+            className="h-8 rounded-lg border border-ql-action px-3 text-[13px] font-medium text-ql-action hover:bg-ql-action-soft disabled:opacity-50"
             disabled={sync.isPending}
             onClick={() => sync.mutate()}
             type="button"
@@ -119,14 +119,14 @@ function QuotaWindowResourceCard({
 
       {/* 同步中的瞬时提示（后端仍在调用厂商） */}
       {sync.isPending ? (
-        <p className="mt-3 rounded-md bg-ql-warning-soft px-2.5 py-1.5 text-[11px] text-ql-warning">
+        <p className="mt-3 rounded-md bg-ql-warning-soft px-2.5 py-1.5 text-[13px] text-ql-warning">
           同步中… 正在调用厂商额度接口（超时 10s，最多重试 2 次）。
         </p>
       ) : null}
 
       {windows.length === 0 ? (
         // 从未同步：无任何窗口快照。
-        <p className="mt-3 text-[12px] text-ql-fg-tertiary">
+        <p className="mt-3 text-[13px] text-ql-fg-tertiary">
           未同步 — 点击右上「立即同步」首次拉取厂商额度。
         </p>
       ) : (
@@ -140,7 +140,7 @@ function QuotaWindowResourceCard({
       <FreshnessRow windows={windows} />
 
       {sync.isError ? (
-        <p className="mt-2 rounded-md bg-ql-danger-soft px-2.5 py-1.5 text-[11px] text-ql-danger" role="alert">
+        <p className="mt-2 rounded-md bg-ql-danger-soft px-2.5 py-1.5 text-[13px] text-ql-danger" role="alert">
           {sync.error.message}
         </p>
       ) : null}
@@ -154,8 +154,8 @@ function QuotaWindowCard({ window }: { window: ProviderQuotaWindow }) {
   if (window.sync_status === "UNSUPPORTED" || !hasValue) {
     return (
       <div className="rounded-lg bg-ql-surface p-3">
-        <p className="text-[12px] font-semibold text-ql-fg-secondary">{WINDOW_TITLE[window.window_type]}</p>
-        <p className="mt-2 text-[12px] text-ql-fg-tertiary">
+        <p className="text-[13px] font-semibold text-ql-fg-secondary">{WINDOW_TITLE[window.window_type]}</p>
+        <p className="mt-2 text-[13px] text-ql-fg-tertiary">
           厂商未提供实时查询
           <br />
           <span className="text-ql-fg-tertiary">厂商公开接口未解析该窗口已用/剩余，不显示估算值</span>
@@ -181,11 +181,11 @@ function QuotaWindowCard({ window }: { window: ProviderQuotaWindow }) {
   return (
     <div className="rounded-lg bg-ql-surface p-3">
       <div className="flex items-center justify-between">
-        <p className="text-[12px] font-semibold text-ql-fg-secondary">
+        <p className="text-[13px] font-semibold text-ql-fg-secondary">
           {WINDOW_TITLE[window.window_type]}
         </p>
         {window.reset_at ? (
-          <span className="text-[11px] text-ql-fg-tertiary">重置 {formatDateTimeFull(window.reset_at)}</span>
+          <span className="text-[13px] text-ql-fg-tertiary">重置 {formatDateTimeFull(window.reset_at)}</span>
         ) : null}
       </div>
       <div className="mt-2 flex items-baseline gap-1">
@@ -193,14 +193,14 @@ function QuotaWindowCard({ window }: { window: ProviderQuotaWindow }) {
         {window.limit_value !== null ? (
           <span className="text-[13px] text-ql-fg-tertiary">/ {formatDecimal(window.limit_value)}</span>
         ) : null}
-        {unitLabel ? <span className="text-[11px] text-ql-fg-tertiary">{unitLabel}</span> : null}
+        {unitLabel ? <span className="text-[13px] text-ql-fg-tertiary">{unitLabel}</span> : null}
       </div>
       {ratioPct !== null ? (
-        <div className="mt-2 h-2 overflow-hidden rounded bg-ql-surface-muted">
-          <div className={`h-full rounded ${barTone}`} style={{ width: `${ratioPct}%` }} />
+        <div className="mt-2 h-2 overflow-hidden rounded-md bg-ql-surface-muted">
+          <div className={`h-full rounded-md ${barTone}`} style={{ width: `${ratioPct}%` }} />
         </div>
       ) : null}
-      <p className="mt-1.5 text-[11px] text-ql-fg-tertiary">
+      <p className="mt-1.5 text-[13px] text-ql-fg-tertiary">
         已用 {formatDecimal(window.used_value!)}
         {window.remaining_value !== null ? ` · 剩余 ${formatDecimal(window.remaining_value)}` : ""}
         {window.reset_at ? ` · 重置 ${formatDateTimeFull(window.reset_at)}` : ""}
@@ -212,7 +212,7 @@ function QuotaWindowCard({ window }: { window: ProviderQuotaWindow }) {
 /** 整张资源卡的同步新鲜度提示 + 失败保鲜说明。 */
 function FreshnessRow({ windows }: { windows: ProviderQuotaWindow[] }) {
   if (windows.length === 0) {
-    return <p className="mt-2.5 text-[11px] text-ql-fg-tertiary">○ 从未成功同步</p>;
+    return <p className="mt-2.5 text-[13px] text-ql-fg-tertiary">○ 从未成功同步</p>;
   }
   // 取代表窗口（优先 SUCCESS，其次 STALE，最后 FAILED）判定整卡新鲜度。
   const ranked = [...windows].sort(byFreshnessRank);
@@ -222,10 +222,10 @@ function FreshnessRow({ windows }: { windows: ProviderQuotaWindow[] }) {
   if (head.sync_status === "STALE") {
     return (
       <div className="mt-2.5">
-        <p className="text-[11px] text-ql-warning">
+        <p className="text-[13px] text-ql-warning">
           ⚠ 数据已过期 · 最后成功 {head.last_success_at ? formatDateTimeFull(head.last_success_at) : "无"}
         </p>
-        <p className="mt-2 rounded-md bg-ql-danger-soft px-2.5 py-1.5 text-[11px] text-ql-danger">
+        <p className="mt-2 rounded-md bg-ql-danger-soft px-2.5 py-1.5 text-[13px] text-ql-danger">
           {reason
             ? `同步失败 · ${reason}，已保留上次成功快照，不影响 Gateway 正常请求与资源健康状态。重试将在下个周期自动进行。`
             : "同步失败，已保留上次成功快照。重试将在下个周期自动进行。"}
@@ -235,7 +235,7 @@ function FreshnessRow({ windows }: { windows: ProviderQuotaWindow[] }) {
   }
   if (head.sync_status === "FAILED") {
     return (
-      <p className="mt-2.5 text-[11px] text-ql-fg-tertiary">
+      <p className="mt-2.5 text-[13px] text-ql-fg-tertiary">
         ○ 从未成功同步{reason ? `（${reason}）` : ""}
       </p>
     );
@@ -243,7 +243,7 @@ function FreshnessRow({ windows }: { windows: ProviderQuotaWindow[] }) {
   // SUCCESS / UNSUPPORTED：显示最近一次数据时间。
   const dataAt = head.provider_data_at ?? head.collected_at;
   return (
-    <p className="mt-2.5 text-[11px] text-ql-success">
+    <p className="mt-2.5 text-[13px] text-ql-success">
       ✓ 同步成功 · 数据截至 {formatDateTimeFull(dataAt)} · 来源 {head.adapter_version}
     </p>
   );

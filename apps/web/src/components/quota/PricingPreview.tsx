@@ -25,7 +25,7 @@ export function PricingPreview({ values }: { values: Pick<Partial<BillingRuleVal
     }
     return raw;
   };
-  return <div className="md:col-span-4 rounded border border-ql-border p-3 text-xs" aria-label="有效单价预览">
+  return <div className="md:col-span-4 rounded-md border border-ql-border p-3 text-[13px]" aria-label="有效单价预览">
     此规则生效时的最终单价（{values.currency ?? "CNY"}/百万 Token）：
     缓存命中输入 {price(values.cache_hit_price)}；未命中输入 {price(values.cache_miss_price)}；输出 {price(values.output_price)}。
     {values.pricing_mode === "MULTIPLIER" ? ` 已按 ${multiplier || "未配置"} 倍计算。` : "绝对单价。"}

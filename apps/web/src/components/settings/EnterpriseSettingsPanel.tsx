@@ -5,6 +5,7 @@ import {
 } from "../../api/v2-hooks";
 import { ErrorState } from "../states/ErrorState";
 import { LoadingState } from "../states/LoadingState";
+import { Button } from "../ui/Button";
 
 const INPUT =
   "ql-input mt-1 w-full rounded-lg border border-ql-border-strong bg-ql-surface px-3 text-sm";
@@ -136,26 +137,26 @@ export function EnterpriseSettingsPanel() {
         </p>
       ) : null}
       <div className="flex items-center justify-between gap-4">
-        <span className="text-xs text-ql-fg-tertiary">
+        <span className="text-[13px] text-ql-fg-tertiary">
           {update.isSuccess
             ? "企业信息已保存"
             : `配置版本 v${settings.version}`}
         </span>
         <div className="flex gap-3">
-          <button
-            className="rounded-lg border border-ql-border-strong px-4 py-2 text-sm"
+          <Button
+            variant="secondary"
             onClick={reset}
             type="button"
           >
             取消修改
-          </button>
-          <button
-            className="rounded-lg bg-ql-action px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          </Button>
+          <Button
+            variant="primary"
             disabled={!name.trim() || update.isPending}
             type="submit"
           >
             {update.isPending ? "保存中…" : "保存企业信息"}
-          </button>
+          </Button>
         </div>
       </div>
     </form>

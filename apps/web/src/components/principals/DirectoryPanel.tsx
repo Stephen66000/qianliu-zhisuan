@@ -12,6 +12,7 @@ import { ConfirmDialog } from "../writes/ConfirmDialog";
 import { INPUT_CLASS } from "../writes/FormField";
 import { ActivationListDialog } from "./ActivationListDialog";
 import { DirectoryMembersTable, isActivated } from "./DirectoryMembersTable";
+import { Button, buttonClassName } from "../ui/Button";
 
 type ActivationFilter = "all" | "inactive" | "active";
 
@@ -27,13 +28,13 @@ function RunResultSection({ runId }: { runId: string }) {
         </StatusTag>
       </div>
       {run.data ? (
-        <p className="mt-2 text-[12px] text-ql-fg-secondary">
+        <p className="mt-2 text-[13px] text-ql-fg-secondary">
           共 {run.data.run.total_count} · 成功 {run.data.run.success_count} · 冲突 {run.data.run.conflict_count} · 失败 {run.data.run.failed_count}
         </p>
       ) : null}
       {(items.data?.items ?? []).length ? (
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-left text-[12px]">
+          <table className="w-full text-left text-[13px]">
             <thead>
               <tr className="border-b border-ql-border text-ql-fg-tertiary">
                 <th className="py-2">行</th>
@@ -181,7 +182,7 @@ export function DirectoryPanel() {
               {currentSource?.status === "ACTIVE" ? "已配置" : "未配置"}
             </StatusTag>
           </div>
-          <p className="mt-1 text-[12px] text-ql-fg-tertiary">只从企业微信或飞书读取，不向外部通讯录回写。</p>
+          <p className="mt-1 text-[13px] text-ql-fg-tertiary">只从企业微信或飞书读取，不向外部通讯录回写。</p>
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-[10rem_1fr_1fr_auto]">
@@ -191,24 +192,24 @@ export function DirectoryPanel() {
         <input aria-label={sourceType === "WECOM" ? "企业 ID" : "应用 ID"} className={INPUT_CLASS} onChange={(event) => setIdentity(event.target.value)} placeholder={sourceType === "WECOM" ? "Corp ID" : "App ID"} value={identity}/>
         <input aria-label="应用 Secret" autoComplete="new-password" className={INPUT_CLASS} onChange={(event) => setSecret(event.target.value)} placeholder="Secret 只写不回显" type="password" value={secret}/>
         <div className="flex gap-2"><button data-write-action className="h-9 rounded-lg border border-ql-border px-3 text-[13px] text-ql-action disabled:opacity-50" disabled={!identity.trim() || !secret || saveSource.isPending} onClick={() => void save()} type="button">保存连接</button>
-          <button data-write-action className="flex h-9 items-center gap-1 rounded-lg bg-ql-action px-3 text-[13px] text-white disabled:opacity-50" disabled={!currentSource || startSync.isPending} onClick={() => void sync()} type="button"><RefreshCw className="h-4 w-4"/>同步</button></div>
+          <Button data-write-action variant="primary" disabled={!currentSource || startSync.isPending} onClick={() => void sync()} type="button"><RefreshCw className="h-4 w-4"/>同步</Button></div>
       </div>
-      {saveSource.error || startSync.error ? <p className="mt-2 text-[12px] text-ql-danger" role="alert">{(saveSource.error ?? startSync.error)?.message}</p> : null}
+      {saveSource.error || startSync.error ? <p className="mt-2 text-[13px] text-ql-danger" role="alert">{(saveSource.error ?? startSync.error)?.message}</p> : null}
     </section>
 
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">Excel 导入</h2><p className="mt-1 text-[12px] text-ql-fg-tertiary">固定 .xlsx 模板，最多 5 MiB / 1,000 行；导入只建立候选档案，不自动开通。</p></div>
-        <div className="flex gap-2"><button className="flex h-9 items-center gap-1 rounded-lg border border-ql-border px-3 text-[13px]" onClick={() => void downloadTemplate()} type="button"><Download className="h-4 w-4"/>下载模板</button>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">Excel 导入</h2><p className="mt-1 text-[13px] text-ql-fg-tertiary">固定 .xlsx 模板，最多 5 MiB / 1,000 行；导入只建立候选档案，不自动开通。</p></div>
+        <div className="flex gap-2"><Button variant="secondary" onClick={() => void downloadTemplate()} type="button"><Download className="h-4 w-4"/>下载模板</Button>
           <button className="flex h-9 items-center gap-1 rounded-lg border border-ql-border px-3 text-[13px] text-ql-action" onClick={() => setListUploadOpen(true)} type="button"><Upload className="h-4 w-4"/>上传名单开通 AI</button>
-          <label className="flex h-9 cursor-pointer items-center gap-1 rounded-lg bg-ql-action px-3 text-[13px] text-white"><Upload className="h-4 w-4"/>上传文件<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadExcel(file); event.target.value = ""; }} type="file"/></label></div>
-      </div>{excel.error ? <p className="mt-2 text-[12px] text-ql-danger">{excel.error.message}</p> : null}
+          <label className={buttonClassName("primary", "md", "cursor-pointer")}><Upload className="h-4 w-4"/>上传文件<input accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadExcel(file); event.target.value = ""; }} type="file"/></label></div>
+      </div>{excel.error ? <p className="mt-2 text-[13px] text-ql-danger">{excel.error.message}</p> : null}
     </section>
 
     {runId ? <RunResultSection runId={runId} /> : null}
 
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-[15px] font-semibold">通讯录成员</h2><p className="mt-1 text-[12px] text-ql-fg-tertiary">导入先入候选库；按需勾选开通 AI 员工主体，既有 Key 和授权不会被重置。</p></div>
+        <div><h2 className="text-[15px] font-semibold">通讯录成员</h2><p className="mt-1 text-[13px] text-ql-fg-tertiary">导入先入候选库；按需勾选开通 AI 员工主体，既有 Key 和授权不会被重置。</p></div>
         <div className="flex items-center gap-2">
           <select aria-label="开通状态筛选" className={`${INPUT_CLASS} h-9 w-auto`} onChange={(event) => setActivationFilter(event.target.value as ActivationFilter)} value={activationFilter}>
             <option value="all">全部人员</option>
@@ -221,14 +222,14 @@ export function DirectoryPanel() {
       {selectedRows.length > 0 ? <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ql-action-soft bg-ql-action-soft/40 px-3 py-2">
         <p className="text-[13px] text-ql-fg-secondary">已选择 {selectedRows.length} 人（其中未开通 {selectedRows.filter((member) => !isActivated(member)).length} 人）</p>
         <div className="flex gap-2">
-          <button className="h-8 rounded-lg border border-ql-border bg-ql-surface px-3 text-[12px] text-ql-fg-secondary" onClick={() => setSelectedPersonIds(new Set())} type="button">清空选择</button>
+          <Button variant="secondary" size="sm" onClick={() => setSelectedPersonIds(new Set())} type="button">清空选择</Button>
           {selectedRows.some((member) => !isActivated(member)) ? (
-            <button className="h-8 rounded-lg border border-ql-danger/40 px-3 text-[12px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-50" disabled={batchDeleteMembers.isPending} onClick={() => setBatchDeleteConfirmOpen(true)} type="button">批量清理档案</button>
+            <button className="h-8 rounded-lg border border-ql-danger/40 px-3 text-[13px] font-medium text-ql-danger hover:bg-ql-danger-soft disabled:opacity-50" disabled={batchDeleteMembers.isPending} onClick={() => setBatchDeleteConfirmOpen(true)} type="button">批量清理档案</button>
           ) : null}
-          <button className="h-8 rounded-lg bg-ql-action px-3 text-[12px] font-medium text-white disabled:opacity-50" disabled={activate.isPending} onClick={() => setBatchConfirmOpen(true)} type="button">批量开通 AI</button>
+          <Button variant="primary" size="sm" disabled={activate.isPending} onClick={() => setBatchConfirmOpen(true)} type="button">批量开通 AI</Button>
         </div>
       </div> : null}
-      {batchNotice ? <p className="mb-3 text-[12px] text-ql-fg-secondary" role="status">{batchNotice}</p> : null}
+      {batchNotice ? <p className="mb-3 text-[13px] text-ql-fg-secondary" role="status">{batchNotice}</p> : null}
       <DirectoryMembersTable
         activating={activate.isPending}
         deleting={deleteMember.isPending || batchDeleteMembers.isPending}
@@ -267,7 +268,7 @@ export function DirectoryPanel() {
       open={deleteTarget !== null}
       title="清理候选人员档案"
     >
-      {deleteError ? <p className="mt-2 text-[12px] text-ql-danger" role="alert">{deleteError}</p> : null}
+      {deleteError ? <p className="mt-2 text-[13px] text-ql-danger" role="alert">{deleteError}</p> : null}
     </ConfirmDialog>
 
     <ConfirmDialog
@@ -281,7 +282,7 @@ export function DirectoryPanel() {
       open={batchDeleteConfirmOpen}
       title="批量清理候选人员档案"
     >
-      {batchDeleteError ? <p className="mt-2 text-[12px] text-ql-danger" role="alert">{batchDeleteError}</p> : null}
+      {batchDeleteError ? <p className="mt-2 text-[13px] text-ql-danger" role="alert">{batchDeleteError}</p> : null}
     </ConfirmDialog>
 
     <ActivationListDialog onClose={() => setListUploadOpen(false)} open={listUploadOpen} />

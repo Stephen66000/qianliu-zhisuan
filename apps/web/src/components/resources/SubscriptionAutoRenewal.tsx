@@ -14,14 +14,14 @@ export function SubscriptionAutoRenewal({ resourceId, writable }: { resourceId: 
     refetchInterval: 30_000, refetchIntervalInBackground: false });
   const cancel = useMutation({ mutationFn: () => post(`/provider-resources/${resourceId}/finance/auto-renewal/cancel`, {}),
     onSuccess: () => { void client.invalidateQueries({ queryKey: ["provider-finance"] }); } });
-  if (query.isLoading) return <p className="text-[12px] text-ql-fg-tertiary">正在读取自动续订…</p>;
-  if (!query.data) return <p role="alert" className="text-[12px] text-ql-danger">{query.error?.message ?? "自动续订状态读取失败"}</p>;
+  if (query.isLoading) return <p className="text-[13px] text-ql-fg-tertiary">正在读取自动续订…</p>;
+  if (!query.data) return <p role="alert" className="text-[13px] text-ql-danger">{query.error?.message ?? "自动续订状态读取失败"}</p>;
   const data = query.data;
-  return <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-ql-border p-3 text-[12px]">
+  return <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-ql-border p-3 text-[13px]">
     <span className="font-medium">自动续订：{data.enabled ? "已开启" : "已取消"}</span>
     {data.enabled && data.nextRenewalAt ? <span>下次 {formatShanghaiDate(data.nextRenewalAt)}{data.cashPaidCny ? ` · ¥${formatMoney(data.cashPaidCny)}` : ""}</span> : null}
     {data.enabled && data.blockedReason ? <span role="status" className="text-ql-warning">{data.blockedReason}</span> : null}
-    {data.enabled ? <button data-write-action type="button" className="ml-auto rounded border border-ql-border px-3 py-1.5 text-ql-danger disabled:opacity-50"
+    {data.enabled ? <button data-write-action type="button" className="ml-auto rounded-md border border-ql-border px-3 py-1.5 text-ql-danger disabled:opacity-50"
       disabled={!writable || cancel.isPending} onClick={() => cancel.mutate()}>{cancel.isPending ? "取消中…" : "取消自动续订"}</button> : <span className="text-ql-fg-tertiary">本期和历史记录保留</span>}
     {cancel.error ? <span role="alert" className="w-full text-ql-danger">{cancel.error.message}</span> : null}
   </div>;

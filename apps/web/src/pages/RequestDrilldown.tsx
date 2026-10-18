@@ -49,7 +49,7 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
       {request.status === "FAILED" || settlement?.status === "FAILED" ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ql-danger/20 bg-ql-danger-soft px-3 py-2 text-[12px] text-ql-danger">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ql-danger/20 bg-ql-danger-soft px-3 py-2 text-[13px] text-ql-danger">
           <span>本次请求未成功完成。实际消耗已如实入账；技术诊断、错误堆栈与重试轨迹请前往异常中心查看。</span>
           <a
             className="font-medium text-ql-action hover:underline"
@@ -101,7 +101,7 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
           <div className="mt-2 overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-ql-border text-[12px] leading-[18px] text-ql-fg-tertiary">
+                <tr className="border-b border-ql-border text-[13px] leading-[18px] text-ql-fg-tertiary">
                   <th className="py-1.5 pr-4 font-medium">上游模型</th>
                   <th className="py-1.5 pr-4 text-right font-medium">优先级</th>
                   <th className="py-1.5 pr-4 text-right font-medium">权重</th>
@@ -120,7 +120,7 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                     <td className="py-2 pr-4 text-right [font-variant-numeric:tabular-nums]">{c.priority}</td>
                     <td className="py-2 pr-4 text-right [font-variant-numeric:tabular-nums]">{c.weight}</td>
                     <td className="py-2 pr-4 text-right [font-variant-numeric:tabular-nums]">{c.totalScore ?? "—"}</td>
-                    <td className="py-2 pr-4 font-mono text-[12px] text-ql-fg-tertiary">
+                    <td className="py-2 pr-4 font-mono text-[13px] text-ql-fg-tertiary">
                       {c.scoreFactors ? JSON.stringify(c.scoreFactors) : "—"}
                     </td>
                     <td className="py-2">
@@ -162,27 +162,27 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                   ) : null}
                   {a.responseCommitted ? <StatusTag tone="neutral">流式已提交</StatusTag> : null}
                   {a.switchReason ? (
-                    <span className="text-[12px] text-ql-fg-tertiary">切换：{a.switchReason}</span>
+                    <span className="text-[13px] text-ql-fg-tertiary">切换：{a.switchReason}</span>
                   ) : null}
                   {a.errorClassification ? (
                     <StatusTag tone="warning">{a.errorClassification}</StatusTag>
                   ) : null}
                   {a.failureLayer ? (
-                    <span className="text-[12px] text-ql-fg-tertiary">故障层：{a.failureLayer}</span>
+                    <span className="text-[13px] text-ql-fg-tertiary">故障层：{a.failureLayer}</span>
                   ) : null}
                   {a.firstByteAt ? (
-                    <span className="text-[12px] text-ql-fg-tertiary">
+                    <span className="text-[13px] text-ql-fg-tertiary">
                       首字节 {formatDuration(new Date(a.firstByteAt).getTime() - new Date(a.startedAt).getTime())}
                     </span>
                   ) : null}
-                  <span className="ml-auto text-[12px] text-ql-fg-tertiary">
+                  <span className="ml-auto text-[13px] text-ql-fg-tertiary">
                     {a.finishedAt
                       ? formatDuration(new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime())
                       : "进行中"}
                   </span>
                 </div>
                 {a.upstreamErrorEvidence ? (
-                  <div className="mt-1.5 rounded-md bg-ql-danger-soft px-2.5 py-2 text-[12px] leading-[18px] text-ql-fg-secondary">
+                  <div className="mt-1.5 rounded-md bg-ql-danger-soft px-2.5 py-2 text-[13px] leading-[18px] text-ql-fg-secondary">
                     <span className="font-medium text-ql-danger">上游拒绝：{diagnosticCategory(a.upstreamErrorEvidence.messageCategory)}</span>
                     {a.upstreamErrorEvidence.type ? ` · type ${a.upstreamErrorEvidence.type}` : ""}
                     {a.upstreamErrorEvidence.code ? ` · code ${a.upstreamErrorEvidence.code}` : ""}
@@ -200,7 +200,7 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                   <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 border-t border-ql-border-zone pt-1.5">
                     {a.metering.map((m, i) => (
                       <span
-                        className="text-[12px] leading-[18px] text-ql-fg-tertiary [font-variant-numeric:tabular-nums]"
+                        className="text-[13px] leading-[18px] text-ql-fg-tertiary [font-variant-numeric:tabular-nums]"
                         key={i}
                       >
                         输入 {m.inputTokens} · 输出 {m.outputTokens} · 缓存 {m.cacheTokens}
@@ -338,20 +338,20 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
             </div>
             {technicalJson ? (
               <details className="mt-3 min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface">
-                <summary className="cursor-pointer px-3 py-2 text-[12px] font-medium text-ql-fg-secondary">
+                <summary className="cursor-pointer px-3 py-2 text-[13px] font-medium text-ql-fg-secondary">
                   技术详情（调度输入快照）
                 </summary>
                 <div className="min-w-0 border-t border-ql-border-zone p-3">
                   <div className="mb-2 flex justify-end">
                     <button
-                      className="rounded px-2 py-1 text-[12px] text-ql-action hover:bg-ql-action-soft"
+                      className="rounded-md px-2 py-1 text-[13px] text-ql-action hover:bg-ql-action-soft"
                       onClick={() => void navigator.clipboard?.writeText(technicalJson)}
                       type="button"
                     >
                       复制技术详情
                     </button>
                   </div>
-                  <pre className="max-w-full whitespace-pre-wrap break-all font-mono text-[12px] leading-5 text-ql-fg-secondary">
+                  <pre className="max-w-full whitespace-pre-wrap break-all font-mono text-[13px] leading-5 text-ql-fg-secondary">
                     {technicalJson}
                   </pre>
                 </div>
@@ -361,7 +361,7 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
         )}
       </section>
 
-      <p className="text-[12px] leading-[18px] text-ql-fg-tertiary">
+      <p className="text-[13px] leading-[18px] text-ql-fg-tertiary">
         请求 {request.id} · 开始于 {formatDateTimeFull(request.startedAt)}
       </p>
     </div>
@@ -409,7 +409,7 @@ function requestShapeText(shape: RequestShapeSummary): string {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 items-start justify-between gap-2">
-      <span className="shrink-0 text-[12px] text-ql-fg-tertiary">{label}</span>
+      <span className="shrink-0 text-[13px] text-ql-fg-tertiary">{label}</span>
       <span className="min-w-0 break-words text-right [font-variant-numeric:tabular-nums] text-ql-fg">{value}</span>
     </div>
   );

@@ -100,7 +100,7 @@ export function ModelChoice(props: {
   const versionSource = props.model.facts?.fieldEvidence?.official_version?.[0];
   const selectable = isModelSelectable(props.model);
   const status = modelStatusLine(props.model);
-  return <label className="flex items-start gap-2 rounded-md border border-ql-border-zone px-3 py-2 text-[12px]">
+  return <label className="flex items-start gap-2 rounded-md border border-ql-border-zone px-3 py-2 text-[13px]">
     <input checked={props.selected} disabled={!selectable}
       onChange={(event) => props.onChange(event.target.checked)} type="checkbox" />
     <span><strong className="font-mono">{props.model.id}</strong>

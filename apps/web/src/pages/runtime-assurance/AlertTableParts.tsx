@@ -41,7 +41,7 @@ export function AlertFilters({
 }) {
   return (
     <div className="mb-4 grid gap-3 rounded-xl border border-ql-border bg-ql-surface p-4 sm:grid-cols-2 xl:grid-cols-[160px_220px_190px_minmax(240px,1fr)]">
-      <label className="text-[11px] text-ql-fg-tertiary">
+      <label className="text-[13px] text-ql-fg-tertiary">
         发生月份
         <input
           aria-label="异常月份"
@@ -51,7 +51,7 @@ export function AlertFilters({
           value={month}
         />
       </label>
-      <label className="text-[11px] text-ql-fg-tertiary">
+      <label className="text-[13px] text-ql-fg-tertiary">
         使用主体
         <select
           aria-label="异常使用主体"
@@ -68,7 +68,7 @@ export function AlertFilters({
           ))}
         </select>
       </label>
-      <label className="text-[11px] text-ql-fg-tertiary">
+      <label className="text-[13px] text-ql-fg-tertiary">
         厂商
         <select
           aria-label="异常厂商"
@@ -85,7 +85,7 @@ export function AlertFilters({
           ))}
         </select>
       </label>
-      <label className="text-[11px] text-ql-fg-tertiary">
+      <label className="text-[13px] text-ql-fg-tertiary">
         搜索
         <span className="relative mt-1 block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ql-fg-tertiary" />
@@ -126,7 +126,7 @@ export function AlertRow({
     <tr className="border-b border-ql-border-zone last:border-0 hover:bg-ql-surface-subtle">
       <td className="p-3 text-ql-fg-secondary">
         {formatTime(alert.firstSeenAt)}
-        <span className="mt-1 block text-[10px] text-ql-fg-tertiary">
+        <span className="mt-1 block text-[13px] text-ql-fg-tertiary">
           更新 {formatTime(alert.lastSeenAt)}
         </span>
       </td>
@@ -135,20 +135,20 @@ export function AlertRow({
       </td>
       <td className="p-3 text-ql-fg">
         {providerName ?? "—"}
-        <span className="mt-1 block text-[10px] text-ql-fg-tertiary">
+        <span className="mt-1 block text-[13px] text-ql-fg-tertiary">
           {resourceName ?? "未关联资源"}
         </span>
       </td>
       <td className="max-w-[320px] p-3">
         <span className="font-medium text-ql-fg">{alert.title}</span>
-        <span className="mt-1 block truncate text-[11px] text-ql-fg-secondary">
+        <span className="mt-1 block truncate text-[13px] text-ql-fg-secondary">
           {alert.detail ?? DOMAIN_LABEL[alert.domain]}
         </span>
       </td>
       <td className="p-3">
         <select
           aria-label={`${alert.title} 是否处理`}
-          className="h-8 rounded-lg border border-ql-border-strong bg-ql-surface px-2 text-[12px] text-ql-fg disabled:cursor-not-allowed disabled:opacity-70"
+          className="h-8 rounded-lg border border-ql-border-strong bg-ql-surface px-2 text-[13px] text-ql-fg disabled:cursor-not-allowed disabled:opacity-70"
           disabled={!isActionable(alert) || pending}
           onChange={(e) => {
             if (e.target.value === "yes") onHandle();
@@ -166,14 +166,14 @@ export function AlertRow({
           {recoveryText(alert)}
         </StatusTag>
         {recovered && alert.sourceClearedAt ? (
-          <span className="mt-1 block text-[10px] text-ql-fg-tertiary">
+          <span className="mt-1 block text-[13px] text-ql-fg-tertiary">
             {formatTime(alert.sourceClearedAt)}
           </span>
         ) : null}
       </td>
       <td className="p-3">
         <button
-          className="inline-flex items-center gap-1 text-[12px] font-medium text-ql-action"
+          className="inline-flex items-center gap-1 text-[13px] font-medium text-ql-action"
           onClick={onView}
           type="button"
         >

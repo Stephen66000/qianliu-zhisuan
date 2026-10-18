@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -210,5 +210,51 @@ describe("W20-04 用量概览 Web", () => {
     useUsageOverviewMock.mockReturnValueOnce({ isLoading: false, error: null, data: overview({ ranking: [], trend: [] }), refetch: vi.fn() });
     renderPanel();
     expect(screen.getByText("本周期暂无已结算用量")).toBeInTheDocument();
+  });
+
+  it.each([12, 24, 29, 30, 31])("%i 个趋势桶的日期刻度不超过六个，并保留首尾", (count) => {
+    const seed = overview().trend[0]!;
+    const trend = Array.from({ length: count }, (_, index) => ({
+      ...seed, bucketStart: `2026-09-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+      label: `09/${String(index + 1).padStart(2, "0")}`, realTokens: String((index + 1) * 1000),
+    }));
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: overview({ trend }) });
+    renderPanel();
+    const chart = screen.getByRole("group", { name: "用量趋势图" });
+    const labels = within(chart).getAllByText(/^\d{2}\/\d{2}$/);
+    expect(labels.length).toBeLessThanOrEqual(6);
+    expect(within(chart).getByText("09/01", { exact: true })).toBeInTheDocument();
+    expect(within(chart).getByText(`09/${String(count).padStart(2, "0")}`, { exact: true })).toBeInTheDocument();
+  });
+
+  it("趋势峰值包含日期和精确值，每根柱子保留悬停及读屏文字", () => {
+    const seed = overview().trend[0]!;
+    const trend = ["1000", "3000", "2000"].map((value, index) => ({
+      ...seed, bucketStart: `2026-09-0${index + 1}T00:00:00Z`, label: `09/0${index + 1}`, realTokens: value,
+    }));
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: overview({ trend }) });
+    renderPanel();
+    expect(screen.getByText("峰值 09/02 · 3,000 Token")).toBeInTheDocument();
+    const chart = screen.getByRole("group", { name: "用量趋势图" });
+    for (const item of trend) {
+      const summary = `${item.label}：${Number(item.realTokens).toLocaleString("zh-CN")} Token`;
+      expect(within(chart).getByTitle(summary)).toBeInTheDocument();
+      expect(within(chart).getByText(summary, { exact: true })).not.toHaveAttribute("aria-hidden");
+    }
+  });
+
+  it("单个趋势桶保留唯一日期刻度", () => {
+    const trend = [{ ...overview().trend[0]!, label: "09/01" }];
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: overview({ trend }) });
+    renderPanel();
+    expect(within(screen.getByRole("group", { name: "用量趋势图" })).getAllByText(/^\d{2}\/\d{2}$/)).toHaveLength(1);
+  });
+
+  it("全零趋势不宣称正峰值，但保留精确零值的悬停信息", () => {
+    const trend = [{ ...overview().trend[0]!, realTokens: "0" }];
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: overview({ trend }) });
+    renderPanel();
+    expect(screen.queryByText(/^峰值 /)).toBeNull();
+    expect(screen.getByTitle("周一：0 Token")).toBeInTheDocument();
   });
 });

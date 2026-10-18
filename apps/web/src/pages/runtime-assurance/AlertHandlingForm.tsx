@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AlertItem } from "../../api/types";
 import { INPUT_CLASS } from "../../components/writes/FormField";
 import { isActionable, isHandled, formatTime } from "./alert-presenters";
+import { Button } from "../../components/ui/Button";
 
 export function AlertHandlingForm({
   alert,
@@ -27,7 +28,7 @@ export function AlertHandlingForm({
   }, [editing]);
   return (
     <div>
-      <label className="text-[11px] text-ql-fg-tertiary">
+      <label className="text-[13px] text-ql-fg-tertiary">
         是否处理
         <select
           aria-label="详情是否处理"
@@ -42,21 +43,21 @@ export function AlertHandlingForm({
           <option value="yes">是</option>
         </select>
       </label>
-      <p className="mt-2 text-[11px] text-ql-fg-tertiary">
+      <p className="mt-2 text-[13px] text-ql-fg-tertiary">
         选择“是”后须填写说明并保存；人工处理不会替代系统的恢复验证。
       </p>
       {alert.resolutionNote ? (
-        <p className="mt-3 rounded-lg bg-ql-surface-subtle p-3 text-[12px] text-ql-fg-secondary">
+        <p className="mt-3 rounded-lg bg-ql-surface-subtle p-3 text-[13px] text-ql-fg-secondary">
           {alert.resolutionNote}
         </p>
       ) : null}
       {handled && !alert.resolutionNote?.trim() ? (
-        <p className="mt-2 text-xs text-ql-warning">
+        <p className="mt-2 text-[13px] text-ql-warning">
           这条历史处理记录缺少说明，请补充。
         </p>
       ) : null}
       {handled ? (
-        <p className="mt-2 text-xs text-ql-fg-secondary">
+        <p className="mt-2 text-[13px] text-ql-fg-secondary">
           处理人：{alert.handledBy ?? alert.resolvedBy ?? "未记录"} ·{" "}
           {formatTime(alert.resolvedAt)}
         </p>
@@ -69,7 +70,7 @@ export function AlertHandlingForm({
             if (note.trim()) onHandle(note);
           }}
         >
-          <label className="block text-xs text-ql-fg-secondary">
+          <label className="block text-[13px] text-ql-fg-secondary">
             处理说明（必填）
             <textarea
               ref={noteInput}
@@ -83,26 +84,26 @@ export function AlertHandlingForm({
             />
           </label>
           {handledError ? (
-            <p role="alert" className="text-xs text-ql-danger">
+            <p role="alert" className="text-[13px] text-ql-danger">
               保存失败，说明已保留，请重试。
             </p>
           ) : null}
           <div className="flex justify-end gap-2">
-            <button data-write-action
+            <Button data-write-action
               type="button"
-              className="rounded-lg border px-3 py-2 text-xs"
+              variant="secondary"
               onClick={() => setEditing(false)}
               disabled={handledPending}
             >
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="rounded-lg bg-ql-action px-3 py-2 text-xs text-white disabled:opacity-50"
+              variant="primary"
               disabled={!note.trim() || handledPending}
             >
               {handledPending ? "保存中…" : "保存处理说明"}
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}

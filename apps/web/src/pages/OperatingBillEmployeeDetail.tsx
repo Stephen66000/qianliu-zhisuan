@@ -29,6 +29,7 @@ import { EmptyState } from "../components/states/EmptyState";
 import { ErrorState } from "../components/states/ErrorState";
 import { LoadingState } from "../components/states/LoadingState";
 import { useRedirectOnUnauthorized } from "../components/useRedirectOnUnauthorized";
+import { Button } from "../components/ui/Button";
 
 const modelHeaders = [
   "正式 alias",
@@ -96,7 +97,7 @@ export function OperatingBillEmployeeDetailPage() {
                   <h2 className="text-[20px] font-semibold text-ql-fg">{query.data.employee.principalName}</h2>
                   <UsageQualityTag quality={query.data.totals.usageQuality} />
                 </div>
-                <p className="text-[12px] text-ql-fg-tertiary">先看厂商合计，再展开到当前正式模型 alias</p>
+                <p className="text-[13px] text-ql-fg-tertiary">先看厂商合计，再展开到当前正式模型 alias</p>
               </div>
             </div>
             <select
@@ -115,7 +116,7 @@ export function OperatingBillEmployeeDetailPage() {
           </div>
           <MetricGrid totals={query.data.totals} />
           {query.data.gaps.length > 0 ? (
-            <div className="rounded-xl border border-ql-warning bg-ql-warning-soft px-4 py-3 text-[12px] text-ql-warning">
+            <div className="rounded-xl border border-ql-warning bg-ql-warning-soft px-4 py-3 text-[13px] text-ql-warning">
               {query.data.gaps.length} 个历史 alias 暂未解析到稳定模型 ID：
               {query.data.gaps.map((gap) => gap.historicalAlias).join("、")}。历史名称保持原样，不改写。
             </div>
@@ -143,7 +144,7 @@ export function OperatingBillEmployeeDetailPage() {
                     <span className="font-semibold text-ql-fg">{provider.providerName}</span>
                     <UsageQualityTag quality={provider.totals.usageQuality} />
                   </span>
-                  <span className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-ql-fg-secondary">
+                  <span className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-ql-fg-secondary">
                     <span>总 Token <b className="text-ql-fg">{accountCount(provider.totals.totalTokens, provider.totals.usageQuality)}</b></span>
                     <span>请求 <b className="text-ql-fg">{provider.totals.requestCount}</b></span>
                     <span>账本 API 计价 <b className="text-ql-fg">{accountMoney(provider.totals.apiCost)}</b></span>
@@ -173,7 +174,7 @@ export function OperatingBillEmployeeDetailPage() {
                             <tr className="border-b border-ql-border-zone">
                               <AccountCell>
                                 <span className="font-medium text-ql-fg">{modelAlias}</span>
-                                {model.identityStatus === "UNRESOLVED" ? <span className="block text-[11px] text-ql-warning">身份未解析</span> : null}
+                                {model.identityStatus === "UNRESOLVED" ? <span className="block text-[13px] text-ql-warning">身份未解析</span> : null}
                               </AccountCell>
                               <AccountCell>{historicalAliases.join("、") || "—"}</AccountCell>
                               <AccountCell numeric>{accountCount(model.totals.totalTokens, model.totals.usageQuality)}</AccountCell>
@@ -265,9 +266,9 @@ function ModelRequests({
         <EmptyState description="该模型当前页没有 usage / settlement 请求事实。" icon={FileSearch} title="没有请求明细" />
         {page > 1 ? (
           <div className="flex justify-end">
-            <button className={buttonSecondary} onClick={() => setPage((value) => value - 1)} type="button">
+            <Button variant="secondary" onClick={() => setPage((value) => value - 1)} type="button">
               返回上一页
-            </button>
+            </Button>
           </div>
         ) : null}
       </div>
@@ -278,10 +279,10 @@ function ModelRequests({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] font-medium text-ql-fg">{model.currentAlias ?? model.historicalAliases[0] ?? "未解析模型"} · 请求证据</p>
-        <p className="text-[12px] text-ql-fg-tertiary">共 {query.data.total} 条 · 第 {page} / {pages} 页</p>
+        <p className="text-[13px] text-ql-fg-tertiary">共 {query.data.total} 条 · 第 {page} / {pages} 页</p>
       </div>
       <div className="overflow-x-auto rounded-lg border border-ql-border-zone bg-ql-surface">
-        <table className="w-full min-w-[82rem] text-left text-[12px]">
+        <table className="w-full min-w-[82rem] text-left text-[13px]">
           <thead className="bg-ql-surface-muted text-ql-fg-tertiary">
             <tr>{["request ID", "模型 alias", "总 Token", "输入 / 输出 / 缓存", "额度扣减", "账本 API 计价", "套餐分摊", "状态", "用量口径", "时间"].map((header) => <th className="px-3 py-2 font-medium" key={header}>{header}</th>)}</tr>
           </thead>
@@ -291,7 +292,7 @@ function ModelRequests({
                 <td className="px-3 py-2 font-mono text-ql-fg">{item.requestId}</td>
                 <td className="px-3 py-2 text-ql-fg-secondary">
                   {item.currentAlias ?? "当前 alias 未解析"}
-                  {item.modelAliasAtRequest !== item.currentAlias ? <span className="block text-[11px] text-ql-fg-tertiary">历史：{item.modelAliasAtRequest}</span> : null}
+                  {item.modelAliasAtRequest !== item.currentAlias ? <span className="block text-[13px] text-ql-fg-tertiary">历史：{item.modelAliasAtRequest}</span> : null}
                 </td>
                 <td className="px-3 py-2 tabular-nums">{accountCount(item.tokens.totalTokens, item.usageQuality)}</td>
                 <td className="px-3 py-2 tabular-nums">{accountCount(item.tokens.inputTokens, item.usageQuality)} / {accountCount(item.tokens.outputTokens, item.usageQuality)} / {accountCount(item.tokens.cacheTokens, item.usageQuality)}</td>
@@ -307,8 +308,8 @@ function ModelRequests({
         </table>
       </div>
       <div className="flex justify-end gap-2">
-        <button className={buttonSecondary} disabled={page <= 1} onClick={() => setPage((value) => value - 1)} type="button">上一页</button>
-        <button className={buttonSecondary} disabled={page >= pages} onClick={() => setPage((value) => value + 1)} type="button">下一页</button>
+        <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} type="button">上一页</Button>
+        <Button variant="secondary" disabled={page >= pages} onClick={() => setPage((value) => value + 1)} type="button">下一页</Button>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { formatCount, formatDecimal, formatMoney } from "../../lib/format";
 import { QueryGate } from "../states/QueryGate";
 import { Gauge } from "lucide-react";
 import type { ResourceUtilization } from "../../api/v2-types";
+import { Button } from "../ui/Button";
 
 function currentMonth(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
@@ -49,9 +50,9 @@ function recentUsageDisplay(row: ResourceUtilization) {
     timeZone: "Asia/Shanghai",
   });
   if (row.continuousNoCallDays === 0) {
-    return <>{time}<span className="block text-[11px] text-ql-success">今日有使用</span></>;
+    return <>{time}<span className="block text-[13px] text-ql-success">今日有使用</span></>;
   }
-  return <>{time}<span className="block text-[11px] text-ql-fg-tertiary">
+  return <>{time}<span className="block text-[13px] text-ql-fg-tertiary">
     {row.continuousNoCallDays === null ? "距最近使用时间未知" : `距最近使用 ${row.continuousNoCallDays} 天`}
   </span></>;
 }
@@ -85,36 +86,36 @@ export function ResourceUtilizationPanel({ resources: _resources }: { resources:
       <input aria-label="资源利用月份" className="ql-input" onChange={(event) => setMonth(event.target.value)} type="month" value={month}/>
     </div>
     <QueryGate emptyDescription="登记并产生资源事实后显示利用率。" emptyIcon={Gauge} emptyTitle="暂无资源利用数据" error={query.error} isEmpty={rows.length === 0} isLoading={query.isLoading} onRetry={() => void query.refetch()}>
-      <div className="overflow-x-auto"><table className="w-full min-w-[68rem] text-left text-[12px] [&_th]:pr-4 [&_td]:pr-4"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th scope="col" className="py-2">资源</th><th scope="col">形态</th><th scope="col" className="text-right">请求 / 真实 Token</th><th scope="col" className="text-right">费用</th><th scope="col">利用率</th><th scope="col">订阅周期</th><th scope="col">最近使用 / 无调用</th><th scope="col">预算</th></tr></thead><tbody>{rows.map((row) => {
+      <div className="overflow-x-auto"><table className="w-full min-w-[68rem] text-left text-[13px] [&_th]:pr-4 [&_td]:pr-4"><thead><tr className="border-b border-ql-border text-ql-fg-tertiary"><th scope="col" className="py-2">资源</th><th scope="col">形态</th><th scope="col" className="text-right">请求 / 真实 Token</th><th scope="col" className="text-right">费用</th><th scope="col">利用率</th><th scope="col">订阅周期</th><th scope="col">最近使用 / 无调用</th><th scope="col">预算</th></tr></thead><tbody>{rows.map((row) => {
         return <tr className="border-b border-ql-border-zone align-top" key={row.resourceId}>
           <td className="py-2 font-medium">{row.providerName} · {row.resourceName}</td>
           <td>{row.mode === "API" ? "API" : "Coding Plan"}</td>
           <td className="text-right font-mono">{row.requestCount} / {formatCount(row.realTokens)}</td>
-          <td className="text-right font-mono">{row.mode === "API" ? <>{row.apiCost === null ? "API 花费不可计算" : `${row.currency ?? "CNY"} ${formatMoney(row.apiCost)}`}</> : <>{row.packageCost === null ? "套餐费用未知" : `${row.currency ?? "CNY"} ${formatMoney(row.packageCost)}`}<span className="block text-[10px] text-ql-fg-tertiary">分配额度 {row.allocatedQuota ? `${formatCount(row.allocatedQuota)} ${row.quotaUnit ?? ""}` : (row.totalQuota === null ? "待补" : `${formatCount(row.totalQuota)} ${row.quotaUnit ?? ""}`)}</span></>}</td>
+          <td className="text-right font-mono">{row.mode === "API" ? <>{row.apiCost === null ? "API 花费不可计算" : `${row.currency ?? "CNY"} ${formatMoney(row.apiCost)}`}</> : <>{row.packageCost === null ? "套餐费用未知" : `${row.currency ?? "CNY"} ${formatMoney(row.packageCost)}`}<span className="block text-[13px] text-ql-fg-tertiary">分配额度 {row.allocatedQuota ? `${formatCount(row.allocatedQuota)} ${row.quotaUnit ?? ""}` : (row.totalQuota === null ? "待补" : `${formatCount(row.totalQuota)} ${row.quotaUnit ?? ""}`)}</span></>}</td>
           <td>{utilizationDisplay(row)}</td>
           <td>{subscriptionDisplay(row)}</td>
           <td>{recentUsageDisplay(row)}</td>
-          <td>{row.mode === "API" ? <div>{row.budgetAmount ? <><span>{row.budgetCurrency} {formatMoney(row.budgetAmount)}</span><span className="block text-[10px] text-ql-fg-tertiary">差额 {row.budgetDifference === null ? "不可计算" : `${row.budgetCurrency} ${formatMoney(row.budgetDifference)}`}</span></> : null}<button className="block text-ql-action" onClick={() => { setBudgetTarget(row.resourceId); setBudget(row.budgetAmount ?? ""); setBudgetCurrency(row.budgetCurrency ?? row.currency ?? "CNY"); }} type="button">{row.budgetAmount ? "修改月预算" : "设置月预算"}</button></div> : "—"}</td>
+          <td>{row.mode === "API" ? <div>{row.budgetAmount ? <><span>{row.budgetCurrency} {formatMoney(row.budgetAmount)}</span><span className="block text-[13px] text-ql-fg-tertiary">差额 {row.budgetDifference === null ? "不可计算" : `${row.budgetCurrency} ${formatMoney(row.budgetDifference)}`}</span></> : null}<button className="block text-ql-action" onClick={() => { setBudgetTarget(row.resourceId); setBudget(row.budgetAmount ?? ""); setBudgetCurrency(row.budgetCurrency ?? row.currency ?? "CNY"); }} type="button">{row.budgetAmount ? "修改月预算" : "设置月预算"}</button></div> : "—"}</td>
         </tr>;
       })}</tbody></table></div>
     </QueryGate>
     {budgetTarget && budgetRow ? <section aria-label="API 资源月预算设置" className="mt-4 rounded-xl border border-ql-border bg-ql-surface-subtle p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h3 className="text-[14px] font-semibold">设置 API 资源月预算</h3><p className="mt-1 text-[11px] text-ql-fg-tertiary">预算只用于当月经营利用率，不改变 Gateway 权限、员工额度或历史账单。</p></div>
-        <button className="text-[12px] text-ql-action" onClick={closeBudget} type="button">取消</button>
+        <div><h3 className="text-[14px] font-semibold">设置 API 资源月预算</h3><p className="mt-1 text-[13px] text-ql-fg-tertiary">预算只用于当月经营利用率，不改变 Gateway 权限、员工额度或历史账单。</p></div>
+        <button className="text-[13px] text-ql-action" onClick={closeBudget} type="button">取消</button>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-4">
-        <label className="text-[12px]">资源<input className="ql-input mt-1 w-full" disabled value={`${budgetRow.providerName} · ${budgetRow.resourceName}`} /></label>
-        <label className="text-[12px]">预算月份<input className="ql-input mt-1 w-full" disabled type="month" value={month} /></label>
-        <label className="text-[12px]">金额<input aria-label="月预算金额" className="ql-input mt-1 w-full" min="0.00000001" onChange={(event) => setBudget(event.target.value)} step="0.01" type="number" value={budget} /></label>
-        <label className="text-[12px]">币种<select aria-label="月预算币种" className="ql-input mt-1 w-full" onChange={(event) => setBudgetCurrency(event.target.value)} value={budgetCurrency}><option value="CNY">CNY</option><option value="USD">USD</option></select></label>
+        <label className="text-[13px]">资源<input className="ql-input mt-1 w-full" disabled value={`${budgetRow.providerName} · ${budgetRow.resourceName}`} /></label>
+        <label className="text-[13px]">预算月份<input className="ql-input mt-1 w-full" disabled type="month" value={month} /></label>
+        <label className="text-[13px]">金额<input aria-label="月预算金额" className="ql-input mt-1 w-full" min="0.00000001" onChange={(event) => setBudget(event.target.value)} step="0.01" type="number" value={budget} /></label>
+        <label className="text-[13px]">币种<select aria-label="月预算币种" className="ql-input mt-1 w-full" onChange={(event) => setBudgetCurrency(event.target.value)} value={budgetCurrency}><option value="CNY">CNY</option><option value="USD">USD</option></select></label>
       </div>
       <div className="mt-4 flex flex-wrap justify-end gap-3">
-        {budgetQuery.data?.current?.status === "ACTIVE" ? <button className="text-[12px] text-ql-danger" disabled={saveBudget.isPending} onClick={() => submitBudget(true)} type="button">清除本月预算</button> : null}
-        <button data-write-action className="rounded-lg bg-ql-action px-4 py-2 text-[12px] font-medium text-white disabled:opacity-50" disabled={!budget || saveBudget.isPending || budgetQuery.isLoading} onClick={() => submitBudget(false)} type="button">{saveBudget.isPending ? "保存中…" : "保存月预算"}</button>
+        {budgetQuery.data?.current?.status === "ACTIVE" ? <button className="text-[13px] text-ql-danger" disabled={saveBudget.isPending} onClick={() => submitBudget(true)} type="button">清除本月预算</button> : null}
+        <Button data-write-action variant="primary" disabled={!budget || saveBudget.isPending || budgetQuery.isLoading} onClick={() => submitBudget(false)} type="button">{saveBudget.isPending ? "保存中…" : "保存月预算"}</Button>
       </div>
-      {saveBudget.error || budgetQuery.error ? <p className="mt-2 text-[12px] text-ql-danger">{(saveBudget.error ?? budgetQuery.error)?.message}</p> : null}
-      {budgetQuery.data?.history.length ? <details className="mt-4 text-[12px]"><summary className="cursor-pointer text-ql-action">查看历史版本</summary><ul className="mt-2 space-y-1 text-ql-fg-secondary">{budgetQuery.data.history.map((item) => <li key={item.id}>v{item.version} · {item.status === "CLEARED" ? "已清除" : `${item.currency} ${formatMoney(item.amount ?? "0")}`} · {item.createdBy} · {new Date(item.createdAt).toLocaleString("zh-CN")}</li>)}</ul></details> : null}
+      {saveBudget.error || budgetQuery.error ? <p className="mt-2 text-[13px] text-ql-danger">{(saveBudget.error ?? budgetQuery.error)?.message}</p> : null}
+      {budgetQuery.data?.history.length ? <details className="mt-4 text-[13px]"><summary className="cursor-pointer text-ql-action">查看历史版本</summary><ul className="mt-2 space-y-1 text-ql-fg-secondary">{budgetQuery.data.history.map((item) => <li key={item.id}>v{item.version} · {item.status === "CLEARED" ? "已清除" : `${item.currency} ${formatMoney(item.amount ?? "0")}`} · {item.createdBy} · {new Date(item.createdAt).toLocaleString("zh-CN")}</li>)}</ul></details> : null}
     </section> : null}
   </section>;
 }
