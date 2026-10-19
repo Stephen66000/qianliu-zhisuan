@@ -451,6 +451,51 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     expect(summary.monthlyCost.previous?.window.truncated).toBe(false);
   });
 
+  it("费用MTD分子分母都截到同一时刻，查询不写历史账本", async () => {
+    const resource = await createResource({ providerCode: "mtd", providerName: "MTD", name: "MTD API", mode: "API" });
+    for (const [at, cost] of [
+      ["2031-09-18T03:00:00Z", "10"],
+      ["2031-09-19T03:13:00Z", "100"],
+      ["2031-10-18T03:00:00Z", "15"],
+      ["2031-10-19T03:13:00Z", "100"],
+      ["2031-10-20T03:00:00Z", "200"],
+    ]) {
+      await addLine({ principalId: employeeA, keyId: keyA, resourceId: resource.resourceId,
+        at: new Date(at!), input: 1n, output: 1n, apiCost: cost!, apiCostStatus: "PRICED_USAGE" });
+    }
+    await addLine({ principalId: employeeA, keyId: keyA, resourceId: resource.resourceId,
+      at: new Date("2031-10-18T04:00:00Z"), input: 1n, output: 1n, apiCost: null, apiCostStatus: "UNKNOWN_COST" });
+    const bill = await new OperatingBillRepository(db).getBill(enterpriseId, "2031-10");
+    const before = await db.selectFrom("ledger_line").selectAll().where("enterprise_id", "=", enterpriseId).orderBy("id").execute();
+    const summary = await getStandardHomeSummary(db, {
+      enterpriseId, asOf: new Date("2031-10-19T03:13:00Z"), bill, financeRead: true,
+    });
+    const mtd = summary.monthlyCost.mtdComparison!;
+    const readOnlyWindow = await db.transaction().execute(async (trx) => {
+      await sql`SET TRANSACTION READ ONLY`.execute(trx);
+      return loadWindowOperatingFinance(trx, enterpriseId, new Date("2031-09-30T16:00:00Z"), new Date("2031-10-19T03:13:00Z"));
+    });
+    expect(readOnlyWindow.totalSpends).toEqual(mtd.current.totalSpends);
+    expect(await db.selectFrom("ledger_line").selectAll().where("enterprise_id", "=", enterpriseId).orderBy("id").execute()).toEqual(before);
+    expect(mtd.basis).toBe("FINANCE_READ_MODEL");
+    expect(mtd.current.totalSpends).toEqual([{ currency: "CNY", amount: "15.00000000" }]);
+    expect(mtd.previous.totalSpends).toEqual([{ currency: "CNY", amount: "10.00000000" }]);
+    expect(mtd.current.window).toEqual({ rangeStart: "2031-09-30T16:00:00.000Z", rangeEndExclusive: "2031-10-19T03:13:00.000Z", truncated: false });
+    expect(mtd.previous.window).toEqual({ rangeStart: "2031-08-31T16:00:00.000Z", rangeEndExclusive: "2031-09-19T03:13:00.000Z", truncated: false });
+    expect(mtd.current.incompleteReason).toContain("API_USAGE_COST_UNKNOWN");
+    expect(summary.monthlyCost.current.totalSpends).toEqual(bill.summary.totalSpends);
+    expect(await db.selectFrom("ledger_line").select(["api_cost", "api_cost_status"])
+      .where("provider_resource_id", "=", resource.resourceId).orderBy("created_at").execute())
+      .toEqual([
+        { api_cost: "10", api_cost_status: "PRICED_USAGE" },
+        { api_cost: "100", api_cost_status: "PRICED_USAGE" },
+        { api_cost: "15", api_cost_status: "PRICED_USAGE" },
+        { api_cost: null, api_cost_status: "UNKNOWN_COST" },
+        { api_cost: "100", api_cost_status: "PRICED_USAGE" },
+        { api_cost: "200", api_cost_status: "PRICED_USAGE" },
+      ]);
+  });
+
   it("R01-F02：同期 Token 质量与未知数进入契约（分母不完整可见）", async () => {
     const zhipuRow = (await db.selectFrom("provider_resource")
       .where("enterprise_id", "=", enterpriseId)

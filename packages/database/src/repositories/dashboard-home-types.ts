@@ -52,6 +52,12 @@ export interface StandardHomeTokenUsage {
 export interface StandardHomeMonthlyCost {
   month: string;
   billStatus: "DRAFT" | "CLOSED";
+  /** 同一账本日期口径的双期 MTD；只读已记录金额，不代表未知费用已结清。 */
+  mtdComparison?: {
+    basis: "FINANCE_READ_MODEL";
+    current: MtdCostPeriod;
+    previous: MtdCostPeriod;
+  };
   current: {
     totalSpends: CurrencyAmount[];
     apiSpends: CurrencyAmount[];
@@ -64,6 +70,12 @@ export interface StandardHomeMonthlyCost {
     basis: "FINANCE_READ_MODEL" | "BALANCE_BRIDGE";
     window: StandardHomeWindow;
   } | null;
+}
+
+export interface MtdCostPeriod {
+  totalSpends: CurrencyAmount[];
+  incompleteReason: string | null;
+  window: StandardHomeWindow;
 }
 
 export interface StandardHomeActiveEmployees {

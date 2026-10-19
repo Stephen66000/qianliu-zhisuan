@@ -1,0 +1,50 @@
+{
+  "status": "LOCAL_CANDIDATE_NOT_DEPLOYED",
+  "base": "574374acc13649679e43c86778a9e050741e2e31",
+  "scope": "Read-only paired MTD. Historical previous-period cost shows explanation, no percentage; complete periods compare normally. No September data changes.",
+  "files": {
+    "apps/web/src/api/reporting-types.ts": "63f9a5042080153c42040f5d1e5f6b87378b03895267330addcab25ae092b913",
+    "apps/web/src/components/dashboard/standard-home-model.test.ts": "6aac3a6e6e00cf34e844e512cb6db19d57cef9d0045b3b07f193f287b4770fbf",
+    "apps/web/src/components/dashboard/standard-home-model.ts": "e320b3274101c8cbaad176f84903d7c3aa713442e1847af45fec768b365ad382",
+    "apps/web/src/pages/Dashboard.test.tsx": "fd97f7c7ab10e00e685b318eff090a60001c0c647641595891ee9b001b329a49",
+    "packages/database/src/__tests-integration__/standard-home.integration.test.ts": "c2e43f5a1bb75a8e6c1debd9a97dedfdf8b938adf478a5515df1ea60ad204bea",
+    "packages/database/src/repositories/dashboard-home-types.ts": "5b2c5a7982ebd0684bded0e691604299ee1cf89a4c6d9688558dd796c3ea6b1f",
+    "packages/database/src/repositories/dashboard-home.ts": "44fc78f25e9d3d1127cedcee4d7f64321497da5ce81236b3d5656249d13c68d4"
+  },
+  "productionWrites": false,
+  "productionDeployment": false,
+  "testFixture": {
+    "asOf": "2026-10-19T04:39:02.137514Z",
+    "currentRecordedExpense": "256.36670312",
+    "previousRecordedExpense": "199.00000000",
+    "displayChange": null,
+    "basis": "FINANCE_READ_MODEL",
+    "liveData": false,
+    "displayReason": "上月历史费用无法拆分同期"
+  },
+  "validation": {
+    "uniqueTestsPassed": 109,
+    "webTests": 65,
+    "standardHomeIntegration": 15,
+    "homeUnitTests": 17,
+    "financePeriodIntegration": 12,
+    "typecheck": [
+      "database",
+      "control-api",
+      "web"
+    ],
+    "lint": "PASS",
+    "webBuild": "PASS",
+    "diffCheck": "PASS",
+    "browserPreview": "PASS",
+    "productionUnchangedByThisTask": true
+  },
+  "displaySuffixRemoved": true,
+  "businessAcceptance": "LOCAL_ACCEPTED_SCENARIOS_VERIFIED_PRODUCTION_PENDING",
+  "novemberCompleteSyntheticExample": {
+    "current": "300",
+    "previous": "250",
+    "delta": "+20.0%",
+    "liveData": false
+  }
+}

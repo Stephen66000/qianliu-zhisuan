@@ -170,6 +170,35 @@ export interface OverviewCostCard {
   footnote: string;
 }
 
+/** 双期完整且币种可比才显示 MTD 环比；历史汇总不可拆分时保留原账并解释。 */
+function mtdCostCard(
+  mtd: NonNullable<StandardHomeSummary["monthlyCost"]["mtdComparison"]>,
+): OverviewCostCard {
+  const { current, previous } = mtd;
+  const hasGap = current.incompleteReason !== null || previous.incompleteReason !== null;
+  const historicalPrevious = previous.incompleteReason?.includes("API_USAGE_COST_NOT_MIGRATED") ?? false;
+  const percent = hasGap ? null : moneyChangePercent(current.totalSpends, previous.totalSpends);
+  const previousZero = previous.totalSpends.length > 0
+    && previous.totalSpends.every((fact) => /^0+(?:\.0+)?$/.test(fact.amount));
+  const amounts = current.totalSpends.map((fact) => currencyMoney(fact.amount, fact.currency));
+  const delta = historicalPrevious ? "上月历史费用无法拆分同期"
+    : hasGap ? "费用尚未完整，暂不显示环比"
+      : percent ? `较上月同期 ${percent}`
+        : previousZero ? "上月同期为 0，不计算百分比"
+          : "同期无可比金额或币种不一致，不计算百分比";
+  const previousText = previous.totalSpends.length > 0
+    ? currencyFacts(previous.totalSpends, null) : "暂无可比金额";
+  return {
+    primary: amounts[0] ?? null,
+    additional: amounts.slice(1),
+    emptyText: amounts.length === 0 ? "暂无已记录费用" : null,
+    delta,
+    footnote: historicalPrevious
+      ? `上月历史费用仅有汇总，未按日拆分${current.incompleteReason ? "；本期部分费用待确认" : ""}`
+      : `上月同期 ${previousText}${hasGap ? "；部分费用待确认" : ""}`,
+  };
+}
+
 /** 概览四卡文案模型（R01-F01/F02 可比性规则集中于此，页面组件只渲染）。 */
 export function buildOverviewCards(
   data: StandardHomeSummary,
@@ -227,7 +256,7 @@ export function buildOverviewCards(
       delta: tokenDelta,
       footnote: `上月同期 ${tokenPrevious.value} ${tokenPrevious.unit}${previousTokenNote ? `（${previousTokenNote}）` : ""}`,
     },
-    cost: {
+    cost: cost.mtdComparison?.basis === "FINANCE_READ_MODEL" ? mtdCostCard(cost.mtdComparison) : {
       primary: costAmounts[0] ?? null,
       additional: costAmounts.slice(1),
       emptyText: costAmounts.length === 0

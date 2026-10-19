@@ -225,6 +225,12 @@ export interface StandardHomeSummary {
   monthlyCost: {
     month: string;
     billStatus: "DRAFT" | "CLOSED";
+    /** 新后端显式提供同口径双期 MTD；缺失时沿用旧版完整性规则。 */
+    mtdComparison?: {
+      basis: "FINANCE_READ_MODEL";
+      current: { totalSpends: Array<{ currency: string; amount: string }>; incompleteReason: string | null; window: StandardHomeWindow };
+      previous: { totalSpends: Array<{ currency: string; amount: string }>; incompleteReason: string | null; window: StandardHomeWindow };
+    };
     current: {
       totalSpends: Array<{ currency: string; amount: string }>;
       apiSpends: Array<{ currency: string; amount: string }>;

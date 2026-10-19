@@ -480,3 +480,21 @@ describe("标准版首页（两分区）", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
+
+
+it("费用卡解释上期历史汇总无法拆分，不显示部分金额环比", () => {
+  const data = seededHome();
+  data.monthlyCost.mtdComparison = {
+    basis: "FINANCE_READ_MODEL",
+    current: { totalSpends: [{ currency: "CNY", amount: "256.36670312" }], incompleteReason: "API_USAGE_COST_UNKNOWN:4", window: windowFixture() },
+    previous: { totalSpends: [{ currency: "CNY", amount: "199.00000000" }], incompleteReason: "API_USAGE_COST_NOT_MIGRATED:2999", window: windowFixture() },
+  };
+  useStandardHomeMock.mockReturnValue({ isLoading: false, error: null, data, isFetching: false, refetch: vi.fn() });
+  renderPage();
+  const card = within(screen.getByTestId("home-cost-card"));
+  expect(card.getByText("¥256.37")).toBeInTheDocument();
+  expect(card.getByText("上月历史费用无法拆分同期")).toBeInTheDocument();
+  expect(card.queryByText(/28.8%/)).not.toBeInTheDocument();
+  expect(card.getByText(/上月历史费用仅有汇总，未按日拆分/)).toBeInTheDocument();
+  expect(card.queryByText("¥12,800.00")).not.toBeInTheDocument();
+});

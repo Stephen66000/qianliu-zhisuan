@@ -427,3 +427,93 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
     expect(costGapLabel("UNKNOWN_NEW_CODE")).toBe("UNKNOWN_NEW_CODE");
   });
 });
+
+
+describe("双期完整的费用 MTD 环比", () => {
+  function mtdFixture() {
+    const data = cardsFixture();
+    const period = (amount: string, start: string, end: string, incompleteReason: string | null = null) => ({
+      totalSpends: [{ currency: "CNY", amount }], incompleteReason,
+      window: { rangeStart: start, rangeEndExclusive: end, truncated: false },
+    });
+    data.monthlyCost.mtdComparison = {
+      basis: "FINANCE_READ_MODEL",
+      current: period("256.36670312", "2026-09-30T16:00:00Z", "2026-10-19T03:13:00Z", "API_USAGE_COST_UNKNOWN:4"),
+      previous: period("199.00000000", "2026-08-31T16:00:00Z", "2026-09-19T03:13:00Z", "API_USAGE_COST_NOT_MIGRATED:2999"),
+    };
+    return data;
+  }
+
+  it("10月对9月历史汇总：不显示误导的199元分母与百分比，原账保持不变", () => {
+    const data = mtdFixture();
+    const before = structuredClone(data);
+    const card = buildOverviewCards(data).cost;
+    expect(card.primary).toBe("¥256.37");
+    expect(card.delta).toBe("上月历史费用无法拆分同期");
+    expect(card.footnote).not.toContain("¥199.00");
+    expect(card.footnote).toContain("上月历史费用仅有汇总，未按日拆分");
+    expect(card.delta).not.toContain("%");
+    expect(data).toEqual(before);
+  });
+
+  it("完整双期正常显示下降比例；当前整月账单金额不能代替MTD分子", () => {
+    const data = mtdFixture();
+    const mtd = data.monthlyCost.mtdComparison!;
+    mtd.current.totalSpends[0]!.amount = "159.20000000";
+    mtd.current.incompleteReason = null;
+    mtd.previous.incompleteReason = null;
+    expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 -20.0%");
+    expect(buildOverviewCards(data).cost.primary).toBe("¥159.20");
+    expect(buildOverviewCards(data).cost.footnote).not.toContain("尚未确定");
+  });
+
+  it.each(["0", "-1"])("上期为%s时不强行显示百分比", (amount) => {
+    const data = mtdFixture();
+    data.monthlyCost.mtdComparison!.previous.totalSpends[0]!.amount = amount;
+    data.monthlyCost.mtdComparison!.current.incompleteReason = null;
+    data.monthlyCost.mtdComparison!.previous.incompleteReason = null;
+    expect(buildOverviewCards(data).cost.delta).not.toMatch(/[%]/);
+  });
+
+  it("多币种、异币种以及缺币种仍然阻止比较", () => {
+    const data = mtdFixture();
+    const mtd = data.monthlyCost.mtdComparison!;
+    mtd.current.incompleteReason = null;
+    mtd.previous.incompleteReason = null;
+    mtd.current.totalSpends.push({ currency: "USD", amount: "1" });
+    expect(buildOverviewCards(data).cost.delta).not.toContain("%");
+    mtd.current.totalSpends = [{ currency: "USD", amount: "10" }];
+    expect(buildOverviewCards(data).cost.delta).not.toContain("%");
+    mtd.current.totalSpends = [{ currency: "CNY", amount: "10" }];
+    mtd.previous.incompleteReason = "API_COST_CURRENCY_MISSING:1";
+    expect(buildOverviewCards(data).cost.delta).not.toContain("%");
+  });
+
+  it("上期无金额不把空数组当成零；旧后端仍保留原来的缺口阻断", () => {
+    const data = mtdFixture();
+    data.monthlyCost.mtdComparison!.previous.totalSpends = [];
+    expect(buildOverviewCards(data).cost.delta).not.toContain("%");
+    delete data.monthlyCost.mtdComparison;
+    data.monthlyCost.current.incompleteReason = "API_USAGE_COST_UNKNOWN:4";
+    expect(buildOverviewCards(data).cost.delta).toBe("金额存在缺口，不计算百分比");
+  });
+});
+
+
+it("11月对10月：双期完整即可自然恢复环比，不按月份硬编码放行", () => {
+  const data = cardsFixture();
+  data.monthlyCost.mtdComparison = {
+    basis: "FINANCE_READ_MODEL",
+    current: { totalSpends: [{ currency: "CNY", amount: "300" }], incompleteReason: null,
+      window: { rangeStart: "2026-10-31T16:00:00Z", rangeEndExclusive: "2026-11-19T03:13:00Z", truncated: false } },
+    previous: { totalSpends: [{ currency: "CNY", amount: "250" }], incompleteReason: null,
+      window: { rangeStart: "2026-09-30T16:00:00Z", rangeEndExclusive: "2026-10-19T03:13:00Z", truncated: false } },
+  };
+  expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 +20.0%");
+  expect(buildOverviewCards(data).cost.delta).not.toContain("已记录费用");
+  data.monthlyCost.mtdComparison.previous.incompleteReason = "API_USAGE_COST_UNKNOWN:4";
+  expect(buildOverviewCards(data).cost.delta).toBe("费用尚未完整，暂不显示环比");
+  data.monthlyCost.mtdComparison.previous.incompleteReason = null;
+  data.monthlyCost.mtdComparison.current.incompleteReason = "CASH_PAID_CNY_MISSING:1";
+  expect(buildOverviewCards(data).cost.delta).toBe("费用尚未完整，暂不显示环比");
+});

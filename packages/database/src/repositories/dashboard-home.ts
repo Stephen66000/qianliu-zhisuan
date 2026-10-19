@@ -5,7 +5,8 @@
  *   - dashboard-home-types.ts    响应契约类型；
  *   - dashboard-home-metrics.ts  同期窗口 + Token/员工/项目指标（与目的页同源）；
  *   - dashboard-home-providers.ts 接入资源区按厂商聚合（调用状态与同步状态分别判断）；
- *   - dashboard-home-costs.ts    上月同期费用（资金读模型 / 余额桥接两口径，真实窗口聚合）。
+ *   - dashboard-home-costs.ts    费用真实窗口聚合；资金读模型提供同查询的双期 MTD 已记录金额。
+ * 月账单字段保持原合同，mtdComparison 仅补充同截止时刻的展示数据；不修改任何账本事实。
  * 不复制计价、分摊、健康判定算法。
  */
 import type { Kysely } from "kysely";
@@ -67,6 +68,7 @@ export async function getStandardHomeSummary(
     employeePrevious,
     bridgeSummary,
     financeWindow,
+    currentFinanceWindow,
     resources,
   ] = await Promise.all([
     new UsageOverviewRepository(db).getOverview({
@@ -85,6 +87,10 @@ export async function getStandardHomeSummary(
       : null,
     financeRead
       ? loadWindowOperatingFinance(db, enterpriseId, prevShanghai.start, prevShanghai.end)
+      : null,
+    // 整月账单可能含未来日期的已登记费用；MTD 分子和分母必须使用相同查询及截止时刻。
+    financeRead
+      ? loadWindowOperatingFinance(db, enterpriseId, shanghaiMonth.start, asOf)
       : null,
     loadStandardHomeResources(db, enterpriseId, asOf),
   ]);
@@ -132,6 +138,11 @@ export async function getStandardHomeSummary(
     monthlyCost: {
       month: bill.month,
       billStatus: bill.status,
+      ...(currentFinanceWindow && financeWindow ? { mtdComparison: {
+        basis: "FINANCE_READ_MODEL" as const,
+        current: { ...currentFinanceWindow, window: windowToIso({ start: shanghaiMonth.start, end: asOf, truncated: false }) },
+        previous: { ...financeWindow, window: windowToIso(prevShanghai) },
+      } } : {}),
       current: {
         totalSpends: bill.summary.totalSpends,
         apiSpends: bill.summary.apiSpends,
