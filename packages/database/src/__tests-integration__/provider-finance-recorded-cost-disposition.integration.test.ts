@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { sql } from "kysely";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createKysely, migrateToLatest } from "../index.js";
@@ -226,5 +227,77 @@ describe("exact server-recorded-cost decisions", () => {
     const stored = await writes(f);
     expect(stored.dispositions.map(row => row.ledger_line_id)).toEqual([first.lineId]);
     expect(stored.audits).toHaveLength(1);
+  });
+});
+
+async function enableRecordedCostPolicy(f: Tenant, since = "2026-09-27T00:00:00+08:00") {
+  await sql`INSERT INTO provider_finance_recorded_cost_policy
+    (enterprise_id,provider_resource_id,authorized_by_admin_user_id,reason,evidence_ref,created_at)
+    VALUES (${f.enterpriseId}::uuid,${f.resourceId}::uuid,${f.adminId}::uuid,
+      'Owner approved recorded costs only','test:owner-policy',${new Date(since)})`.execute(db);
+}
+async function policyApplies(f: Tenant, lineId: string) {
+  const r = await sql<{ applies: boolean }>`SELECT provider_finance_usage_cost_exclusion_applies(
+    ${f.enterpriseId}::uuid,${lineId}::uuid) AS applies`.execute(db);
+  return r.rows[0]!.applies;
+}
+
+describe("owner-scoped accounting policy for future unrecorded cancellations", () => {
+  it("requires explicit policy activation, preserves all original facts, and removes false gaps across read paths", async () => {
+    const f = await tenant(), request = await cancelledRequest(f, true);
+    expect(await policyApplies(f, request.lineId)).toBe(false);
+    const before = await originalFacts(f);
+    await enableRecordedCostPolicy(f);
+    expect(await policyApplies(f, request.lineId)).toBe(true);
+    expect(await originalFacts(f)).toEqual(before);
+    expect(await loadUnknownCostRows(db, { enterpriseId: f.enterpriseId, resourceId: f.resourceId, asOf: septemberEnd })).toEqual([]);
+    expect(await loadApiCostGaps(db, f.enterpriseId, septemberStart, octoberStart)).toEqual([]);
+    expect(await writes(f)).toEqual({ dispositions: [], audits: [] });
+  });
+  it("never sweeps older requests or another tenant into an activated policy", async () => {
+    const f = await tenant(), old = await cancelledRequest(f);
+    await enableRecordedCostPolicy(f, "2026-09-29T00:00:00+08:00");
+    expect(await policyApplies(f, old.lineId)).toBe(false);
+    const other = await tenant(), otherRequest = await cancelledRequest(other);
+    expect(await policyApplies(other, otherRequest.lineId)).toBe(false);
+  });
+  it.each(["line", "usage", "transaction"] as const)("keeps a cancellation with recorded %s tokens unresolved", async source => {
+    const f = await tenant(), request = await cancelledRequest(f);
+    await enableRecordedCostPolicy(f);
+    if (source === "line") await db.updateTable("ledger_line").set({ raw_input_tokens: 1n }).where("id", "=", request.lineId).execute();
+    if (source === "usage") await db.updateTable("usage_event").set({ output_tokens: 1n }).where("id", "=", request.usageId).execute();
+    if (source === "transaction") await db.updateTable("ledger_transaction").set({ total_cache_tokens: 1n }).where("ai_request_id", "=", request.requestId).execute();
+    expect(await policyApplies(f, request.lineId)).toBe(false);
+  });
+  it.each(["pricing", "dispatch", "transaction"] as const)("actual %s cost takes precedence over automatic exclusion", async source => {
+    const f = await tenant(), request = await cancelledRequest(f);
+    await enableRecordedCostPolicy(f);
+    expect(await policyApplies(f, request.lineId)).toBe(true);
+    if (source === "pricing") await db.updateTable("ledger_line").set({ billing_rule_snapshot: { apiCost: "0.125" } }).where("id", "=", request.lineId).execute();
+    if (source === "dispatch") await db.insertInto("dispatch_decision").values({ enterprise_id: f.enterpriseId,
+      ai_request_id: request.requestId, final_action: "ALLOW", reason_code: "NO_MATCH", actual_cost: "0.125", decided_at: at }).execute();
+    if (source === "transaction") await db.updateTable("ledger_transaction").set({ total_api_cost: "0.125", api_cost_status: "PRICED_USAGE" }).where("ai_request_id", "=", request.requestId).execute();
+    expect(await policyApplies(f, request.lineId)).toBe(false);
+  });
+  it("retains non-cancellation errors and malformed or negative cost evidence", async () => {
+    const f = await tenant(), request = await cancelledRequest(f);
+    await enableRecordedCostPolicy(f);
+    await db.updateTable("ai_request").set({ error_code: "transport_error" }).where("id", "=", request.requestId).execute();
+    expect(await policyApplies(f, request.lineId)).toBe(false);
+    await db.updateTable("ai_request").set({ error_code: "client_cancelled" }).where("id", "=", request.requestId).execute();
+    for (const apiCost of ["not-a-price", "-0.01"]) {
+      await db.updateTable("ledger_line").set({ billing_rule_snapshot: { apiCost } }).where("id", "=", request.lineId).execute();
+      expect(await policyApplies(f, request.lineId)).toBe(false);
+    }
+  });
+  it("refuses multi-attempt requests and respects disabling the policy", async () => {
+    const f = await tenant(), request = await cancelledRequest(f);
+    await enableRecordedCostPolicy(f);
+    await sql`UPDATE provider_finance_recorded_cost_policy SET enabled=false WHERE enterprise_id=${f.enterpriseId}::uuid`.execute(db);
+    expect(await policyApplies(f, request.lineId)).toBe(false);
+    await sql`UPDATE provider_finance_recorded_cost_policy SET enabled=true WHERE enterprise_id=${f.enterpriseId}::uuid`.execute(db);
+    await db.insertInto("upstream_attempt").values({ ai_request_id: request.requestId, enterprise_id: f.enterpriseId,
+      provider_resource_id: f.resourceId, attempt_no: 2, upstream_model: "deepseek-chat", started_at: at, finished_at: at }).execute();
+    expect(await policyApplies(f, request.lineId)).toBe(false);
   });
 });
