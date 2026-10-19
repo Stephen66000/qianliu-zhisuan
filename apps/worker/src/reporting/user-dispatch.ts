@@ -63,6 +63,7 @@ export async function dispatchAllCardsToUser(
   options: DispatchAllCardsOptions,
 ): Promise<DispatchAllCardsSummary> {
   const { db, kekBase64, enterpriseId, targetUser, dryRun = false } = options;
+  if (!dryRun) throw new Error("Use report-delivery controlled resend; direct card dispatch is preview-only.");
 
   const enterprise = await db
     .selectFrom("enterprise")

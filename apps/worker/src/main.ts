@@ -1,3 +1,6 @@
+import { runReportRollbackCompat } from "./reporting/rollback-compat.js";
+import { runDeliveryCommand } from "./reporting/delivery-cli.js";
+import { runReportDeliveryTick } from "./reporting/delivery-scheduler.js";
 import { runSubscriptionRenewalTick } from "./subscription-renewal/runner.js";
 import { runInfrastructureChecks } from "./runtime-assurance/infrastructure-checks.js";
 import { createTaskObserver } from "./runtime-assurance/observed-task.js";
@@ -37,9 +40,6 @@ import {
   runCompanyWeeklyReport,
   runCompanyMonthlyReport,
   runPersonalMonthlyReports,
-  runMonthlyReportTick,
-  monthlyReportDue,
-  RedisMonthlyReportStore,
   runPersonalWeeklyReports,
   runIncentiveChecks,
   dispatchAllCardsToUser,
@@ -51,6 +51,11 @@ import {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
+  if (command === "report-rollback-compat") { await runReportRollbackCompat(args.slice(1)); return; }
+  if (command === "report-delivery") { await runDeliveryCommand(args.slice(1)); return; }
+  if (["daily-token-report", "report-company-weekly", "report-personal-weekly", "report-company-monthly", "report-personal-monthly", "check-incentives", "dispatch-user-cards", "send-user-cards"].includes(command ?? "") && !args.includes("--dry-run")) {
+    throw new Error("Legacy report commands are preview-only. Use report-delivery with a frozen identity, preview hash and explicit --execute.");
+  }
 
   if (command === "report-company-monthly" || command === "report-personal-monthly") {
     await runMonthlyReportCommand(command, args.slice(1));
@@ -230,24 +235,6 @@ async function runRuntimeAssuranceOnce(): Promise<void> {
   }
 }
 
-async function redisSafeGet(client: ReturnType<typeof createClient> | null, key: string): Promise<string | null> {
-  if (!client || !client.isOpen) return null;
-  try {
-    return await client.get(key);
-  } catch {
-    return null;
-  }
-}
-
-async function redisSafeSet(client: ReturnType<typeof createClient> | null, key: string, val: string, ttlSeconds: number): Promise<void> {
-  if (!client || !client.isOpen) return;
-  try {
-    await client.set(key, val, { EX: ttlSeconds });
-  } catch {
-    // ignore
-  }
-}
-
 async function runRuntimeAssuranceScheduler(): Promise<void> {
   const db = createKysely();
   const observe = createTaskObserver(db);
@@ -273,10 +260,6 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
   const supplyForecastRepository = new SupplyForecastRepository(db);
   const usageAggregateRepository = new UsageAggregateRepository(db);
   let lastDailyAggregateDate: string | null = null;
-  let lastDailyReportDate: string | null = null;
-  let lastWeeklyReportDate: string | null = null;
-  let lastMonthlyReportDate: string | null = null;
-  let lastIncentiveCheckDate: string | null = null;
   const wecom = new WecomAppClient(
     requiredEnv("CREDENTIAL_KEK"), fetch, Date.now, process.env.RUNTIME_ASSURANCE_ADMIN_URL,
   );
@@ -390,7 +373,6 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
             taskFailures,
           );
         },
-        // eslint-disable-next-line complexity -- 已登记例外（2026-09-14 I1 审核）：用量聚合编排分支密集，随 main.ts 859 行体量拆分（F-P2-3）一并处理。
         aggregate: () => observe("usage_aggregate", "用量聚合重建", async () => {
           const now = new Date();
           const shanghaiDate = new Intl.DateTimeFormat("en-CA", {
@@ -408,160 +390,15 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
           }));
 
           await runProjectAllocationTickSafely(db, `worker-${process.pid}`);
-          const shanghaiHour = Number(new Intl.DateTimeFormat("en-US", {
-            timeZone: "Asia/Shanghai", hour: "numeric", hour12: false,
-          }).format(now));
-          const shanghaiMinute = Number(new Intl.DateTimeFormat("en-US", {
-            timeZone: "Asia/Shanghai", minute: "numeric",
-          }).format(now));
-          const shanghaiDay = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" })).getDay();
-
-          // 每日上午 09:00 ~ 09:30（上海时间）自动生成昨日全员 Token 消费长图并推送指定人
-          const isDailyReportWindow = shanghaiHour === 9 && shanghaiMinute < 30;
-          if (isDailyReportWindow && lastDailyReportDate !== shanghaiDate) {
-            try {
-              const enterprises = await db
-                .selectFrom("enterprise")
-                .select("id")
-                .where("status", "=", "ACTIVE")
-                .execute();
-              for (const ent of enterprises) {
-                const redisDailyKey = `scheduler:daily_report:${ent.id}:${shanghaiDate}`;
-                const alreadyDone = await redisSafeGet(redisClient, redisDailyKey);
-                if (alreadyDone) continue;
-
-                const reportResult = await runDailyTokenReport({
-                  db,
-                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
-                  enterpriseId: ent.id,
-                });
-                await redisSafeSet(redisClient, redisDailyKey, "1", 86400 * 2);
-                console.log(JSON.stringify({
-                  event: "daily_token_report_scheduler_completed",
-                  enterprise_id: ent.id,
-                  status: reportResult.status,
-                  recipients: reportResult.recipients,
-                  media_id: reportResult.mediaId,
-                }));
-              }
-              lastDailyReportDate = shanghaiDate;
-            } catch (error) {
-              console.error(JSON.stringify({
-                event: "daily_token_report_scheduler_failed",
-                error_type: error instanceof Error ? error.name : typeof error,
-                message: error instanceof Error ? error.message : String(error),
-              }));
-            }
-          }
-
-          // 每周一上午 09:00 ~ 09:30（上海时间）推送团队全员周报与员工个人周报
-          // 严格限定在周一早 09:00~09:30，超过时间段即使重启也绝不补发打扰
-          const isWeeklyReportWindow = shanghaiDay === 1 && shanghaiHour === 9 && shanghaiMinute < 30;
-          if (isWeeklyReportWindow && lastWeeklyReportDate !== shanghaiDate) {
-            try {
-              const enterprises = await db
-                .selectFrom("enterprise")
-                .select("id")
-                .where("status", "=", "ACTIVE")
-                .execute();
-              for (const ent of enterprises) {
-                const redisWeeklyKey = `scheduler:weekly_report:${ent.id}:${shanghaiDate}`;
-                const alreadyDone = await redisSafeGet(redisClient, redisWeeklyKey);
-                if (alreadyDone) continue;
-
-                const companyResult = await runCompanyWeeklyReport({
-                  db,
-                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
-                  enterpriseId: ent.id,
-                });
-                console.log(JSON.stringify({
-                  event: "company_weekly_report_scheduler_completed",
-                  enterprise_id: ent.id,
-                  status: companyResult.status,
-                }));
-                const personalResults = await runPersonalWeeklyReports({
-                  db,
-                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
-                  enterpriseId: ent.id,
-                });
-                console.log(JSON.stringify({
-                  event: "personal_weekly_report_scheduler_completed",
-                  enterprise_id: ent.id,
-                  count: personalResults.length,
-                }));
-                await redisSafeSet(redisClient, redisWeeklyKey, "1", 86400 * 7);
-              }
-              lastWeeklyReportDate = shanghaiDate;
-            } catch (error) {
-              console.error(JSON.stringify({
-                event: "weekly_token_report_scheduler_failed",
-                error_type: error instanceof Error ? error.name : typeof error,
-                message: error instanceof Error ? error.message : String(error),
-              }));
-            }
-          }
-
-          // 每月 1 日北京时间 09:00~09:30，统计完整上月；不在窗口外补发。
-          if (monthlyReportDue(now) && lastMonthlyReportDate !== shanghaiDate) {
-            try {
-              const enterprises = await db.selectFrom("enterprise").select("id").where("status", "=", "ACTIVE").execute();
-              let complete = true;
-              for (const ent of enterprises) {
-                const result = await runMonthlyReportTick({ db, now, enterpriseId: ent.id,
-                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
-                  store: redisClient ? new RedisMonthlyReportStore(redisClient) : null });
-                complete &&= result.complete;
-                console.log(JSON.stringify({ event: "monthly_token_report_scheduler_completed", enterprise_id: ent.id, ...result }));
-              }
-              if (complete) lastMonthlyReportDate = shanghaiDate;
-            } catch (error) {
-              console.error(JSON.stringify({ event: "monthly_token_report_scheduler_failed",
-                error_type: error instanceof Error ? error.name : typeof error }));
-            }
-          }
-
-          // 周三至周日上午 09:30 ~ 09:59（上海时间）执行激励巡检（登顶流动红旗与超越50%员工成长卡）
-          // 严格限定在上午 09:30~09:59 触发，下午或晚上即使服务重启也绝对不触发
-          const isWedToSun = shanghaiDay === 0 || shanghaiDay >= 3;
-          const isIncentiveWindow = shanghaiHour === 9 && shanghaiMinute >= 30;
-          if (isWedToSun && isIncentiveWindow && lastIncentiveCheckDate !== shanghaiDate) {
-            try {
-              const enterprises = await db
-                .selectFrom("enterprise")
-                .select("id")
-                .where("status", "=", "ACTIVE")
-                .execute();
-              for (const ent of enterprises) {
-                const redisIncentiveKey = `scheduler:incentive_check:${ent.id}:${shanghaiDate}`;
-                const alreadyDone = await redisSafeGet(redisClient, redisIncentiveKey);
-                if (alreadyDone) continue;
-
-                const incentiveResult = await runIncentiveChecks({
-                  db,
-                  kekBase64: requiredEnv("CREDENTIAL_KEK"),
-                  enterpriseId: ent.id,
-                  milestoneStore,
-                });
-                await redisSafeSet(redisClient, redisIncentiveKey, "1", 86400 * 2);
-                console.log(JSON.stringify({
-                  event: "incentive_check_scheduler_completed",
-                  enterprise_id: ent.id,
-                  top1_triggered: incentiveResult.top1Result?.triggered,
-                  over50_count: incentiveResult.over50Results?.filter((r) => r.triggered).length ?? 0,
-                }));
-              }
-              lastIncentiveCheckDate = shanghaiDate;
-            } catch (error) {
-              console.error(JSON.stringify({
-                event: "incentive_check_scheduler_failed",
-                error_type: error instanceof Error ? error.name : typeof error,
-                message: error instanceof Error ? error.message : String(error),
-              }));
-            }
-          }
-
           return aggregate;
         }),
+        reports: async () => { const result = await runReportDeliveryTick({ db, now: new Date(), kekBase64: requiredEnv("CREDENTIAL_KEK"),
+          enabledAt: process.env.WECOM_REPORT_DELIVERY_ENABLED_AT, paused: process.env.WECOM_REPORT_DELIVERY_PAUSED,
+          milestoneStore, legacyGet: async key => {
+            if (!redisClient?.isOpen) throw new Error("REPORT_LEGACY_STORE_UNAVAILABLE");
+            return redisClient.get(key);
+          } }); console.log(JSON.stringify({ event: "report_delivery_tick_completed", ...result })); return result; },
+        onReportError: cause => console.error(JSON.stringify({ event: "report_delivery_tick_failed", error_type: cause instanceof Error ? cause.name : typeof cause })),
         onAggregateError: (cause) => console.error(JSON.stringify({
           event: "usage_aggregate_tick_failed",
           error_type: cause instanceof Error ? cause.name : typeof cause,

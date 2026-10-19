@@ -6,8 +6,8 @@ export type CompanyMonthlyReportOptions = Omit<RunCompanyWeeklyReportOptions, "t
 export type PersonalMonthlyReportOptions = Omit<RunPersonalWeeklyReportsOptions, "targetDate" | "reportMonth"> & { month?: string };
 
 export function runCompanyMonthlyReport(options: CompanyMonthlyReportOptions) {
-  return runCompanyWeeklyReport({ ...options, reportMonth: completedReportMonth(options.month).month });
+  return runCompanyWeeklyReport({ ...options, reportMonth: completedReportMonth(options.month, options.now ?? options.clock?.()).month });
 }
 export function runPersonalMonthlyReports(options: PersonalMonthlyReportOptions) {
-  return runPersonalWeeklyReports({ ...options, reportMonth: completedReportMonth(options.month).month });
+  return runPersonalWeeklyReports({ ...options, reportMonth: completedReportMonth(options.month, options.now ?? options.clock?.()).month });
 }

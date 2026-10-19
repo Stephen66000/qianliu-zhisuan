@@ -31,6 +31,8 @@ describe("Report and Incentive Jobs Logic", () => {
 
       await store.recordUserAwardedTop1ThisWeek(entId, week, user);
       expect(await store.hasUserAwardedTop1ThisWeek(entId, week, user)).toBe(true);
+      await store.recordUserAwardedTop1ThisWeek(entId, week, user);
+      expect(await store.getUserTop1WinCount(entId,user)).toBe(1);
       expect(await store.hasUserAwardedTop1ThisWeek(entId, week, "user-200")).toBe(false);
     });
 

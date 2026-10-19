@@ -9,13 +9,17 @@ import { WECOM_API_ORIGIN } from "@qianliu/config";
 
 const REQUEST_TIMEOUT_MS = 8_000;
 
-interface WecomResponse {
+export interface WecomResponse {
   errcode?: number;
   errmsg?: string;
   access_token?: string;
   expires_in?: number;
   msgid?: string;
   media_id?: string;
+  invaliduser?: string;
+  unlicenseduser?: string;
+  invalidparty?: string;
+  invalidtag?: string;
 }
 
 export interface WecomSendResult {
@@ -23,6 +27,7 @@ export interface WecomSendResult {
   providerMessageId?: string;
   providerErrorCode?: string;
   classification?: string;
+  invalidRecipients?: string[];
 }
 
 type FetchLike = typeof fetch;
@@ -64,9 +69,9 @@ function fixedMessage(context: DeliveryContext, detailUrl: string | null): strin
   ].join("\n");
 }
 
-function classify(code: number): WecomSendResult {
+export function classify(code: number): WecomSendResult {
   if (code === 0) return { status: "SENT" };
-  if ([-1, 40014, 42001, 45009].includes(code)) {
+  if ([-1, 40014, 42001, 45009, 40007, 42002].includes(code)) {
     return { status: "RETRYABLE_FAILED", providerErrorCode: String(code), classification: "WECOM_RETRYABLE" };
   }
   if ([60020, 60021, 60111, 81013, 82001].includes(code)) {
@@ -84,6 +89,7 @@ export interface EndpointConfig {
 }
 
 export class WecomAppClient {
+  readonly requestCounts = { token: 0, media: 0, message: 0 };
   private readonly tokens = new Map<string, { token: string; expiresAt: number }>();
 
   constructor(
@@ -107,8 +113,7 @@ export class WecomAppClient {
         token = await this.getEndpointAccessToken(context.endpoint, true);
         response = await this.postMessage(context, token);
       }
-      const result = classify(response.errcode ?? -1);
-      return response.errcode === 0 ? { ...result, providerMessageId: response.msgid } : result;
+      return parseMessageReceipt(response, [context.identity.provider_user_id]);
     } catch {
       return { status: "RETRYABLE_FAILED", classification: "WECOM_NETWORK_OR_PROTOCOL_ERROR" };
     }
@@ -124,7 +129,10 @@ export class WecomAppClient {
     url.searchParams.set("corpid", endpoint.corp_id);
     url.searchParams.set("corpsecret", secret);
     const response = await this.fetchJson(url, { method: "GET" });
-    if (response.errcode !== 0 || !response.access_token) throw new Error("WECOM_TOKEN_REJECTED");
+    if (response.errcode !== 0 || typeof response.access_token !== "string" || !response.access_token) {
+      throw new WecomPreparationError(response.errcode === 0
+        ? { status: "PERMANENT_FAILED", classification: "WECOM_INVALID_TOKEN_RECEIPT" } : classify(response.errcode ?? -1));
+    }
     const expiresMs = Math.max(300_000, (response.expires_in ?? 7200) * 1000);
     this.tokens.set(key, { token: response.access_token, expiresAt: this.now() + expiresMs });
     return response.access_token;
@@ -144,7 +152,7 @@ export class WecomAppClient {
       const boundary = `----WebKitFormBoundary${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
       const headerText = [
         `--${boundary}`,
-        `Content-Disposition: form-data; name="media"; filename="${filename}"; filelength=${imageBuffer.length}`,
+        `Content-Disposition: form-data; name="media"; filename="${filename.replace(/["\r\n]/g, "_")}"; filelength=${imageBuffer.length}`,
         `Content-Type: image/png`,
         "",
         "",
@@ -153,16 +161,17 @@ export class WecomAppClient {
       const footer = Buffer.from(`\r\n--${boundary}--\r\n`, "utf-8");
       const body = Buffer.concat([header, imageBuffer, footer]);
 
+      this.requestCounts.media++;
       const res = await this.fetchImpl(url, {
         method: "POST",
         headers: {
           "Content-Type": `multipart/form-data; boundary=${boundary}`,
-          "Content-Length": String(body.length),
         },
         body,
         signal: AbortSignal.timeout(20_000),
       });
-      return (await res.json()) as WecomResponse & { media_id?: string };
+      if (!res.ok) throw new Error("WECOM_MEDIA_HTTP_FAILED");
+      return (await res.json()) as WecomResponse;
     };
 
     let response = await doUpload(token);
@@ -171,8 +180,9 @@ export class WecomAppClient {
       response = await doUpload(token);
     }
 
-    if (response.errcode !== 0 || !response.media_id) {
-      throw new Error(`WECOM_MEDIA_UPLOAD_FAILED: ${response.errmsg ?? response.errcode}`);
+    if (response.errcode !== 0 || typeof response.media_id !== "string" || !response.media_id) {
+      throw new WecomPreparationError(response.errcode === 0
+        ? { status: "PERMANENT_FAILED", classification: "WECOM_INVALID_MEDIA_RECEIPT" } : classify(response.errcode ?? -1));
     }
     return response.media_id;
   }
@@ -204,8 +214,7 @@ export class WecomAppClient {
       token = await this.getEndpointAccessToken(endpoint, true);
       response = await doPost(token);
     }
-    const result = classify(response.errcode ?? -1);
-    return response.errcode === 0 ? { ...result, providerMessageId: response.msgid } : result;
+    return parseMessageReceipt(response, toUsers);
   }
 
   async sendTextMessage(
@@ -235,8 +244,32 @@ export class WecomAppClient {
       token = await this.getEndpointAccessToken(endpoint, true);
       response = await doPost(token);
     }
-    const result = classify(response.errcode ?? -1);
-    return response.errcode === 0 ? { ...result, providerMessageId: response.msgid } : result;
+    return parseMessageReceipt(response, toUsers);
+  }
+
+  /** Report executor owns retries and counts each actual message request. */
+  async sendReportMessage(endpoint: EndpointConfig, user: string,
+    message: { kind: "IMAGE"; mediaId: string } | { kind: "TEXT"; content: string },
+    beforeSend: () => Promise<boolean> = async () => true,
+  ): Promise<ReportSendResult> {
+    let token: string;
+    try { token = await this.getEndpointAccessToken(endpoint); }
+    catch (error) { return error instanceof WecomPreparationError ? error.result : { status: "RETRYABLE_FAILED", classification: "TOKEN_PREPARATION_FAILED" }; }
+    if (!await beforeSend()) return { status: "RETRYABLE_FAILED", classification: "SEND_GUARD_CLOSED" };
+    const url = new URL("/cgi-bin/message/send", WECOM_API_ORIGIN);
+    url.searchParams.set("access_token", token);
+    try {
+      const response = await this.fetchJson(url, { method: "POST",
+        headers: { "content-type": "application/json" }, body: JSON.stringify({
+          touser: user, agentid: Number(endpoint.agent_id), safe: 0,
+          msgtype: message.kind === "IMAGE" ? "image" : "text",
+          ...(message.kind === "IMAGE" ? { image: { media_id: message.mediaId } } : { text: { content: message.content } }),
+        }) });
+      if (response.errcode === 40014 || response.errcode === 42001) {
+        this.tokens.delete(`${endpoint.id ?? endpoint.corp_id}:${endpoint.secret_fingerprint}`);
+      }
+      return parseReportReceipt(response, user);
+    } catch { return { status: "UNKNOWN", classification: "MESSAGE_RESPONSE_LOST_OR_INVALID" }; }
   }
 
   private async postMessage(context: DeliveryContext, token: string): Promise<WecomResponse> {
@@ -270,7 +303,48 @@ export class WecomAppClient {
 
   private async fetchJson(url: URL, init: RequestInit): Promise<WecomResponse> {
     if (url.origin !== WECOM_API_ORIGIN) throw new Error("WECOM_HOST_NOT_ALLOWED");
+    if (url.pathname.endsWith("/gettoken")) this.requestCounts.token++;
+    if (url.pathname.endsWith("/message/send")) this.requestCounts.message++;
     const response = await this.fetchImpl(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    if (!response.ok) throw new Error("WECOM_HTTP_FAILED");
     return await response.json() as WecomResponse;
   }
+}
+
+export type ReportSendResult = Omit<WecomSendResult, "status"> & {
+  status: WecomSendResult["status"] | "UNKNOWN";
+};
+export class WecomPreparationError extends Error {
+  constructor(readonly result: WecomSendResult) { super("WECOM_MEDIA_REJECTED"); }
+}
+
+export function parseReportReceipt(response: WecomResponse, user: string): ReportSendResult {
+  if (!response || typeof response.errcode !== "number" || !Number.isInteger(response.errcode)) {
+    return { status: "UNKNOWN", classification: "WECOM_INVALID_RECEIPT" };
+  }
+  if (response.errcode !== 0) return classify(response.errcode);
+  const fields = [response.invaliduser, response.unlicenseduser, response.invalidparty, response.invalidtag];
+  if (fields.some(value => value !== undefined && typeof value !== "string")) {
+    return { status: "UNKNOWN", classification: "WECOM_INVALID_RECIPIENT_FIELDS" };
+  }
+  const rejected = `${response.invaliduser ?? ""}|${response.unlicenseduser ?? ""}`.split("|").filter(Boolean);
+  if (rejected.some(item => item.toLowerCase() === user.toLowerCase())) {
+    return { status: "PERMANENT_FAILED", classification: "WECOM_RECIPIENT_REJECTED", invalidRecipients: rejected };
+  }
+  if (rejected.length || response.invalidparty || response.invalidtag || typeof response.msgid !== "string" || !response.msgid) {
+    return { status: "UNKNOWN", classification: "WECOM_UNATTRIBUTABLE_RECEIPT" };
+  }
+  return { status: "SENT", providerMessageId: response.msgid };
+}
+
+function parseMessageReceipt(response: WecomResponse, users: string[]): WecomSendResult {
+  const rejected = typeof response?.invaliduser === "string" ? response.invaliduser : "";
+  const unlicensed = typeof response?.unlicenseduser === "string" ? response.unlicenseduser : "";
+  const invalid = `${rejected}|${unlicensed}`.split("|").filter(Boolean);
+  if (invalid.length) return { status: "PERMANENT_FAILED", classification: "WECOM_PARTIAL_RECIPIENT_REJECTION", invalidRecipients: invalid };
+  const result = parseReportReceipt(response, users[0] ?? "");
+  // Existing alert/outbox callers have no UNKNOWN state and historically retry protocol failures.
+  // Report sends use parseReportReceipt directly and retain UNKNOWN to prevent automatic replay.
+  if (result.status === "UNKNOWN") return { ...result, status: "RETRYABLE_FAILED" };
+  return { ...result, status: result.status };
 }

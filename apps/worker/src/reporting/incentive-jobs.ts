@@ -1,7 +1,7 @@
 import type { Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { UsageOverviewRepository } from "@qianliu/database";
-import { WecomAppClient, type EndpointConfig } from "../runtime-assurance/wecom-client.js";
+import { deliverReport, type DeliveryOptions } from "./delivery.js";
 import {
   formatDateRange,
   formatModelName,
@@ -27,7 +27,7 @@ import {
 import { queryTopModelsForRange } from "./report-jobs.js";
 import { pickTop1IncentiveQuote } from "./quote-library.js";
 
-export interface IncentiveCheckOptions {
+export interface IncentiveCheckOptions extends DeliveryOptions {
   db: Kysely<Database>;
   kekBase64: string;
   enterpriseId: string;
@@ -62,7 +62,7 @@ export interface IncentiveCheckResult {
  * 格式化 ISO 周数字符串，如 "2026-W37"
  */
 function getIsoWeekString(date: Date): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -80,7 +80,7 @@ export async function checkAndDispatchTop1Milestone(
   const now = options.now ?? new Date();
 
   // 1. 周一(1)、周二(2)静默期一律不发（可通过 force 强制测试触发）
-  const dayOfWeek = now.getDay(); // 0 is Sunday, 1 is Monday, 2 is Tuesday
+  const dayOfWeek = new Date(now.getTime() + 8 * 3600_000).getUTCDay(); // 0 is Sunday, 1 is Monday, 2 is Tuesday
   if (!options.force && (dayOfWeek === 1 || dayOfWeek === 2)) {
     return { triggered: false, reason: "SILENT_PERIOD_MON_TUE" };
   }
@@ -105,7 +105,7 @@ export async function checkAndDispatchTop1Milestone(
     day: "2-digit",
   }).format(now);
 
-  const weekStr = getIsoWeekString(now);
+  const weekStr = getIsoWeekString(new Date(now.getTime() + 8 * 3600_000));
 
   // 2. 检查当天全团队是否已经发放过流动红旗（每天全团队限发 1 张，可通过 force 强制触发）
   const issuedToday = await store.hasTop1IssuedToday(enterpriseId, dateStr);
@@ -179,10 +179,6 @@ export async function checkAndDispatchTop1Milestone(
     .where("pei.status", "=", "ACTIVE")
     .executeTakeFirst();
 
-  if (!identity?.provider_user_id) {
-    return { triggered: false, reason: "NO_WECOM_IDENTITY", winnerName: topUser.subjectName };
-  }
-
   const endpoint = await db
     .selectFrom("notification_endpoint")
     .selectAll()
@@ -190,19 +186,7 @@ export async function checkAndDispatchTop1Milestone(
     .where("status", "=", "ACTIVE")
     .executeTakeFirst();
 
-  if (!endpoint) {
-    return { triggered: false, reason: "NO_ACTIVE_ENDPOINT" };
-  }
-
   const pngBuffer = await renderSvgToPng(svg);
-  const client = new WecomAppClient(kekBase64);
-  const mediaId = await client.uploadMedia(
-    endpoint as EndpointConfig,
-    pngBuffer,
-    `milestone_top1_${winnerPrincipalId}.png`,
-  );
-
-  await client.sendImageMessage(endpoint as EndpointConfig, [identity.provider_user_id], mediaId);
 
   const textMsg = [
     `🏆 恭喜 ${topUser.subjectName}！您已登顶本周全员 AI 协同榜首！`,
@@ -213,7 +197,14 @@ export async function checkAndDispatchTop1Milestone(
     "专属荣誉记录已送达上方👆，快分享给你的朋友吧！",
   ].join("\n");
 
-  await client.sendTextMessage(endpoint as EndpointConfig, [identity.provider_user_id], textMsg);
+  const delivery = await deliverReport({ db, kekBase64, enterpriseId, type: "TOP1", periodKey: weekStr,
+    recipientRef: winnerPrincipalId, targetUserId: identity?.provider_user_id, endpointId: endpoint?.id,
+    periodStart: rangeStart, periodEnd: rangeEnd,
+    claims: [`top1:day:${dateStr}`, `top1:week:${weekStr}:${winnerPrincipalId}`],
+    snapshot: { png: pngBuffer.toString("base64"), text: textMsg, filename: "milestone_top1.png" },
+    deliveryWindow: options.deliveryWindow, clock: options.clock,
+  });
+  if (delivery.status !== "SENT") return { triggered: false, reason: delivery.status, winnerName: topUser.subjectName };
 
   // 记录频控
   await store.recordTop1IssuedToday(enterpriseId, dateStr);
@@ -223,7 +214,6 @@ export async function checkAndDispatchTop1Milestone(
     triggered: true,
     winnerName: topUser.subjectName,
     tokens: winnerTokens,
-    mediaId,
     svg,
   };
 }
@@ -296,10 +286,10 @@ export async function checkAndDispatchOver50Milestone(
         .where("status", "=", "ACTIVE")
         .executeTakeFirst();
 
-  const client = dryRun ? null : new WecomAppClient(kekBase64);
   const results: NonNullable<IncentiveCheckResult["over50Results"]> = [];
 
   for (const item of activeRankings) {
+    try {
     const userTokens = Number(item.realTokens);
     if (userTokens <= medianTokens) {
       continue; // 未超过中位数
@@ -351,24 +341,7 @@ export async function checkAndDispatchOver50Milestone(
       continue;
     }
 
-    if (!identity?.provider_user_id || !endpoint || !client) {
-      results.push({
-        triggered: false,
-        reason: !identity ? "NO_WECOM_IDENTITY" : "NO_ACTIVE_ENDPOINT",
-        userName: item.subjectName,
-        tokens: userTokens,
-      });
-      continue;
-    }
-
     const pngBuffer = await renderSvgToPng(svg);
-    const mediaId = await client.uploadMedia(
-      endpoint as EndpointConfig,
-      pngBuffer,
-      `milestone_over50_${principalId}.png`,
-    );
-
-    await client.sendImageMessage(endpoint as EndpointConfig, [identity.provider_user_id], mediaId);
 
     const textMsg = [
       `🎉 恭喜 ${item.subjectName}！您本月的 Token 消耗已经超过了 50% 的同事！`,
@@ -379,7 +352,16 @@ export async function checkAndDispatchOver50Milestone(
       "专属成长记录已送到上方👆，快打开看看吧！",
     ].join("\n");
 
-    await client.sendTextMessage(endpoint as EndpointConfig, [identity.provider_user_id], textMsg);
+    const delivery = await deliverReport({ db, kekBase64, enterpriseId, type: "OVER50", periodKey: monthStr,
+      recipientRef: principalId, targetUserId: identity?.provider_user_id, endpointId: endpoint?.id,
+      periodStart: rangeStart, periodEnd: rangeEnd, claims: [`over50:month:${monthStr}:${principalId}`],
+      snapshot: { png: pngBuffer.toString("base64"), text: textMsg, filename: "milestone_over50.png" },
+      deliveryWindow: options.deliveryWindow, clock: options.clock,
+    });
+    if (delivery.status !== "SENT") {
+      results.push({ triggered: false, reason: delivery.status, userName: item.subjectName, tokens: userTokens });
+      continue;
+    }
 
     await store.recordUserAwardedOver50ThisMonth(enterpriseId, monthStr, principalId);
 
@@ -387,9 +369,13 @@ export async function checkAndDispatchOver50Milestone(
       triggered: true,
       userName: item.subjectName,
       tokens: userTokens,
-      mediaId,
-      svg,
+        svg,
     });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "incentive_recipient_blocked", enterprise_id: enterpriseId,
+        principal_id: item.subjectId, error_type: error instanceof Error ? error.name : typeof error }));
+      results.push({ triggered: false, reason: "DELIVERY_FAILED", userName: item.subjectName, tokens: Number(item.realTokens) });
+    }
   }
 
   return results;

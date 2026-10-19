@@ -4,7 +4,10 @@ export async function runScheduledOperationalTasks<T>(input: {
   onRenewalError?: (cause: unknown) => void;
   aggregate: () => Promise<unknown>;
   onAggregateError?: (cause: unknown) => void;
+  reports?: () => Promise<unknown>;
+  onReportError?: (cause: unknown) => void;
 }): Promise<{ core: T; aggregate: unknown | null }> {
+  try {
   if (input.renewals) {
     try { await input.renewals(); } catch (cause) { if (input.onRenewalError) input.onRenewalError(cause); else throw cause; }
   }
@@ -14,6 +17,12 @@ export async function runScheduledOperationalTasks<T>(input: {
   } catch (cause) {
     input.onAggregateError?.(cause);
     return { core, aggregate: null };
+  }
+  } finally {
+    if (input.reports) {
+      try { await input.reports(); }
+      catch (cause) { if (input.onReportError) input.onReportError(cause); else throw cause; }
+    }
   }
 }
 

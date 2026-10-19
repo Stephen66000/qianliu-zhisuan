@@ -30,7 +30,7 @@ export async function runMonthlyReportTick(input: Omit<CompanyMonthlyReportOptio
   if (!input.store) return { status: "NO_DURABLE_STORE", complete: false };
   const month = completedReportMonth(undefined, input.now).month;
   const key = `scheduler:monthly_report:${input.enterpriseId}:${month}`;
-  if (await input.store.has(`${key}:complete`)) return { status: "ALREADY_SENT", complete: true, month };
+  if (await input.store.has(`${key}:complete`)) return { status: "LEGACY_UNVERIFIED", complete: false, month };
   const token = randomUUID();
   if (!await input.store.acquire(`${key}:lock`, token)) return { status: "BUSY", complete: false, month };
   try {
@@ -45,7 +45,7 @@ export async function runMonthlyReportTick(input: Omit<CompanyMonthlyReportOptio
       shouldSend: async principalId => !await store.has(`${key}:personal:${principalId}`),
       onSent: principalId => store.mark(`${key}:personal:${principalId}`),
     });
-    const complete = personal.every(result => result.status === "SENT");
+    const complete = personal.length > 0 && personal.every(result => result.status === "SENT");
     if (complete) await input.store.mark(`${key}:complete`);
     return { status: complete ? "SENT" : "RECIPIENTS_PENDING", complete, month };
   } finally { await input.store.release(`${key}:lock`, token); }

@@ -2,7 +2,7 @@ import { type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { UsageOverviewRepository } from "@qianliu/database";
 import { renderSvgToPng as renderSharedSvgToPng } from "./render-png.js";
-import { WecomAppClient, type EndpointConfig } from "../runtime-assurance/wecom-client.js";
+import { deliverReport, reportRecipientRef, type DeliveryOptions, type DeliveryStatus } from "./delivery.js";
 import { resolveWecomRecipients, queryTopModelsForRange } from "./report-jobs.js";
 import {
   formatNumber,
@@ -87,7 +87,7 @@ export function renderSvgToPng(svgString: string): Promise<Buffer> {
   return renderSharedSvgToPng(svgString, { fitWidth: 1080 });
 }
 
-export interface RunDailyReportOptions {
+export interface RunDailyReportOptions extends DeliveryOptions {
   db: Kysely<Database>;
   kekBase64: string;
   enterpriseId: string;
@@ -104,7 +104,7 @@ export interface RunDailyReportResult {
   activeEmployees: number;
   recipients: string[];
   mediaId?: string;
-  status: "SENT" | "DRY_RUN" | "NO_RECIPIENTS" | "NO_ACTIVE_ENDPOINT";
+  status: DeliveryStatus | "DRY_RUN" | "NO_RECIPIENTS" | "NO_ACTIVE_ENDPOINT";
 }
 
 /**
@@ -114,7 +114,7 @@ export async function runDailyTokenReport(
   options: RunDailyReportOptions,
 ): Promise<RunDailyReportResult> {
   const { db, kekBase64, enterpriseId, dryRun = false } = options;
-  const now = new Date();
+  const now = options.now ?? options.clock?.() ?? new Date();
   const targetDate = options.targetDate ?? new Date(now.getTime() - 24 * 3600_000);
 
   // 1. 获取企业信息
@@ -255,7 +255,7 @@ export async function runDailyTokenReport(
       requestCount,
       activeEmployees,
       recipients: [],
-      status: "NO_RECIPIENTS",
+      status: "NO_ELIGIBLE_RECIPIENTS",
     };
   }
 
@@ -266,28 +266,6 @@ export async function runDailyTokenReport(
     .where("provider", "=", "WECOM_APP")
     .where("status", "=", "ACTIVE")
     .executeTakeFirst();
-
-  if (!endpoint) {
-    return {
-      reportDate: dateStr,
-      enterpriseName: enterprise.name,
-      totalTokens,
-      requestCount,
-      activeEmployees,
-      recipients,
-      status: "NO_ACTIVE_ENDPOINT",
-    };
-  }
-
-  const client = new WecomAppClient(kekBase64);
-  const mediaId = await client.uploadMedia(
-    endpoint as EndpointConfig,
-    pngBuffer,
-    `token_daily_report_${dateStr}.png`,
-  );
-
-  // 发送图片消息
-  await client.sendImageMessage(endpoint as EndpointConfig, recipients, mediaId);
 
   // 伴随发送核心文字摘要卡片
   const summaryText = [
@@ -300,7 +278,15 @@ export async function runDailyTokenReport(
     "详见上方高清长图 👆",
   ].join("\n");
 
-  await client.sendTextMessage(endpoint as EndpointConfig, recipients, summaryText);
+  const deliveries = [];
+  for (const recipient of recipients) deliveries.push(await deliverReport({ db, kekBase64, enterpriseId,
+    type: "DAILY", periodKey: dateStr, recipientRef: await reportRecipientRef(db, enterpriseId, recipient), targetUserId: recipient, endpointId: endpoint?.id,
+    periodStart: rangeFrom, periodEnd: rangeTo,
+    snapshot: { png: pngBuffer.toString("base64"), text: summaryText, filename: `token_daily_report_${dateStr}.png` },
+    deliveryWindow: options.deliveryWindow, clock: options.clock,
+  }));
+  const deliveryStatus = deliveries.every(item => item.status === "SENT") ? "SENT"
+    : deliveries.some(item => item.status === "UNKNOWN") ? "UNKNOWN" : "DELIVERY_FAILED";
 
   return {
     reportDate: dateStr,
@@ -309,7 +295,6 @@ export async function runDailyTokenReport(
     requestCount,
     activeEmployees,
     recipients,
-    mediaId,
-    status: "SENT",
+    status: deliveryStatus,
   };
 }

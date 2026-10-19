@@ -49,10 +49,9 @@ describe("closed-month reports share the weekly high-resolution layout",()=>{
     expect(preview[0]!.svg).toContain("0.5 万 /天");expect(preview[0]!.svg).toContain("15.0 万");
     const png=await renderSvgToPng(preview[0]!.svg!,{fitWidth:1080});expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1538]);
     const upload=vi.spyOn(WecomAppClient.prototype,"uploadMedia").mockResolvedValue("synthetic-media");
-    const image=vi.spyOn(WecomAppClient.prototype,"sendImageMessage").mockResolvedValue({status:"SENT"});
-    vi.spyOn(WecomAppClient.prototype,"sendTextMessage").mockResolvedValue({status:"SENT"});
-    const sent=vi.fn();await runPersonalMonthlyReports({db,enterpriseId,kekBase64:"unused",month:"2026-09",userPersonId:personId,onSent:sent});
-    expect(upload.mock.calls[0]![2]).toBe("monthly_synthetic-member.png");expect(image.mock.calls[0]![1]).toEqual(["synthetic-member"]);expect(sent).toHaveBeenCalledTimes(1);
+    const image=vi.spyOn(WecomAppClient.prototype,"sendReportMessage").mockResolvedValue({status:"SENT",providerMessageId:"synthetic-message"});
+    const sent=vi.fn();await runPersonalMonthlyReports({db,enterpriseId,kekBase64:"unused",month:"2026-09",userPersonId:personId,onSent:sent,deliveryWindow:{start:new Date(Date.now()-1000),end:new Date(Date.now()+60_000)}});
+    expect(upload.mock.calls[0]![2]).toBe("monthly_synthetic-member.png");expect(image.mock.calls[0]![1]).toEqual("synthetic-member");expect(sent).toHaveBeenCalledTimes(1);
   });
   it("does not invent a historical allocation after the grant has been edited",async()=>{
     await db.updateTable("principal_grant").set({updated_at:new Date("2026-10-02T00:00:00+08:00"),quota_value:999999999n})
@@ -60,4 +59,29 @@ describe("closed-month reports share the weekly high-resolution layout",()=>{
     const result=await runCompanyMonthlyReport({db,enterpriseId,kekBase64:"unused",month:"2026-09",dryRun:true});
     expect(result.totalTokens).toBe(150000);expect(result.svg).toContain("未留存");expect(result.svg).not.toContain("99999");
   });
+  it("a missing identity is recorded and does not block the next personal report",async()=>{
+    vi.restoreAllMocks();
+    let missingPrincipal="";
+    for(const [name,tokens,hasIdentity] of [["缺身份成员",60000n,false],["后续正常成员",30000n,true]] as const){
+      const person=(await db.insertInto("person").values({enterprise_id:enterpriseId,name}).returning("id").executeTakeFirstOrThrow()).id;
+      const principal=(await db.insertInto("principal").values({enterprise_id:enterpriseId,person_id:person,type:"EMPLOYEE",name}).returning("id").executeTakeFirstOrThrow()).id;
+      if(hasIdentity)await db.insertInto("person_external_identity").values({enterprise_id:enterpriseId,person_id:person,provider:"WECOM",provider_user_id:"later-valid-member",status:"ACTIVE"}).execute();
+      else missingPrincipal=principal;
+      const key=(await db.insertInto("principal_key").values({enterprise_id:enterpriseId,principal_id:principal,key_prefix:"multi",key_digest:randomUUID()}).returning("id").executeTakeFirstOrThrow()).id;
+      const request=randomUUID(),at=new Date("2026-09-20T00:00:00+08:00");
+      await db.insertInto("ai_request").values({id:request,enterprise_id:enterpriseId,principal_id:principal,principal_key_id:key,protocol:"OPENAI_CHAT",unified_model:"GLM-5",status:"SUCCEEDED",started_at:at,finished_at:at}).execute();
+      await db.insertInto("ledger_transaction").values({enterprise_id:enterpriseId,ai_request_id:request,principal_id:principal,total_input_tokens:tokens,total_output_tokens:0n,total_deducted_quota:tokens/3n,total_api_cost:"0",api_cost_status:"NOT_APPLICABLE",usage_quality:"UPSTREAM_REPORTED",attempt_count:1,status:"SETTLED",created_at:at}).execute();
+    }
+    vi.spyOn(WecomAppClient.prototype,"uploadMedia").mockResolvedValue("multi-member-media");
+    const send=vi.spyOn(WecomAppClient.prototype,"sendReportMessage").mockResolvedValue({status:"SENT",providerMessageId:"multi-receipt"});
+    const results=await runPersonalMonthlyReports({db,enterpriseId,kekBase64:"unused",month:"2026-09",
+      deliveryWindow:{start:new Date(Date.now()-1000),end:new Date(Date.now()+60_000)}});
+    expect(results.find(r=>r.userName==="缺身份成员")!.status).toBe("DELIVERY_FAILED");
+    expect(results.find(r=>r.userName==="后续正常成员")!.status).toBe("SENT");
+    expect(send.mock.calls.some(call=>call[1]==="later-valid-member")).toBe(true);
+    const {ReportDeliveryRepository}=await import("@qianliu/database");const repo=new ReportDeliveryRepository(db);
+    const [bundle]=await repo.bundles(enterpriseId,"PERSONAL_MONTHLY","2026-09",missingPrincipal);
+    expect((await repo.messages(enterpriseId,bundle!.id))[0]!.classification).toBe("NO_WECOM_IDENTITY");
+  });
+
 });
