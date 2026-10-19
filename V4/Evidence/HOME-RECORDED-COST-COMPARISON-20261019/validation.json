@@ -1,0 +1,65 @@
+{
+  "base": "23eb2e1317745dea93aeebd59172fa073e9aef4c",
+  "scope": "Frontend MTD comparison of recorded amounts; known gaps remain disclosed. No ledger mutation or historical allocation.",
+  "userRequirement": "按199，截止到今天是多少就是多少算",
+  "comparisonUsesQueriedPreviousAmount": true,
+  "cases": [
+    {
+      "current": "263.03",
+      "previous": "199",
+      "delta": "+32.2%"
+    },
+    {
+      "current": "263.03",
+      "previous": "250",
+      "delta": "+5.2%"
+    },
+    {
+      "current": "256.36670312",
+      "previous": "199",
+      "delta": "+28.8%"
+    }
+  ],
+  "guardsRetained": [
+    "previous zero or negative",
+    "missing amounts",
+    "multiple currencies",
+    "currency mismatch",
+    "currency missing or conflicting"
+  ],
+  "validation": {
+    "webTests": 684,
+    "webTestFiles": 94,
+    "typecheck": "PASS via web build",
+    "lint": "PASS full web",
+    "productionBuild": "PASS",
+    "diffCheck": "PASS"
+  },
+  "logs": {
+    "tests": {
+      "sha256": "e93be73451948cb011076a4ee6fc62955a19777a66a7a702800784d67e1cc848",
+      "path": "/Users/mac/Desktop/仟流智算-视觉升级计划与接管资料-20261018/已记录金额环比修正-20261019/tests.log",
+      "exitCode": 0
+    },
+    "lint": {
+      "sha256": "5d34889c1e3b860978c69e5a6af0a5fb0b4079c8719c04e0a24d56302306dc05",
+      "path": "/Users/mac/Desktop/仟流智算-视觉升级计划与接管资料-20261018/已记录金额环比修正-20261019/lint.log",
+      "exitCode": 0
+    },
+    "build": {
+      "sha256": "cc855153c7649293af5314718a93bcea6a3c7cfcb3ceecc85a238384bf4f9363",
+      "path": "/Users/mac/Desktop/仟流智算-视觉升级计划与接管资料-20261018/已记录金额环比修正-20261019/build.log",
+      "exitCode": 0
+    }
+  },
+  "files": {
+    "apps/web/src/components/dashboard/standard-home-model.ts": "9df3f4b23fd98ebe583ef106c0f385b7d4a4bac6d642556d2b9470a6f0713faf",
+    "apps/web/src/components/dashboard/standard-home-model.test.ts": "0bf360407cfdd5675c4095643be39340bea7f809035b62b3f0355be29bbee099",
+    "apps/web/src/pages/Dashboard.test.tsx": "599577a550570ffcc2008327468dbd37ab50f31a96c95e492f76a0c74eb5e49c"
+  },
+  "databaseFilesChanged": false,
+  "plannedDeployment": [
+    "web"
+  ],
+  "recordedAt": "2026-10-19T08:40:25.682520+00:00"
+}

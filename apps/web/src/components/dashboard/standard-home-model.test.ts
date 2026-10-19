@@ -429,7 +429,7 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
 });
 
 
-describe("双期完整的费用 MTD 环比", () => {
+describe("双期已记录金额的费用 MTD 环比", () => {
   function mtdFixture() {
     const data = cardsFixture();
     const period = (amount: string, start: string, end: string, incompleteReason: string | null = null) => ({
@@ -444,16 +444,24 @@ describe("双期完整的费用 MTD 环比", () => {
     return data;
   }
 
-  it("10月对9月历史汇总：不显示误导的199元分母与百分比，原账保持不变", () => {
+  it("10月对9月：以同期已记录的199元作分母，保留缺口与原始数据", () => {
     const data = mtdFixture();
     const before = structuredClone(data);
     const card = buildOverviewCards(data).cost;
     expect(card.primary).toBe("¥256.37");
-    expect(card.delta).toBe("上月历史费用无法拆分同期");
-    expect(card.footnote).not.toContain("¥199.00");
-    expect(card.footnote).toContain("上月历史费用仅有汇总，未按日拆分");
-    expect(card.delta).not.toContain("%");
+    expect(card.delta).toBe("较上月同期 +28.8%");
+    expect(card.footnote).toContain("上月同期 ¥199.00");
+    expect(card.footnote).toContain("按已记录金额比较，部分费用待确认");
     expect(data).toEqual(before);
+  });
+
+  it("按当前截图263.03元计算；之后的金额变化实时反映，不写死199元分母", () => {
+    const data = mtdFixture();
+    const mtd = data.monthlyCost.mtdComparison!;
+    mtd.current.totalSpends[0]!.amount = "263.03";
+    expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 +32.2%");
+    mtd.previous.totalSpends[0]!.amount = "250";
+    expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 +5.2%");
   });
 
   it("完整双期正常显示下降比例；当前整月账单金额不能代替MTD分子", () => {
@@ -500,7 +508,7 @@ describe("双期完整的费用 MTD 环比", () => {
 });
 
 
-it("11月对10月：双期完整即可自然恢复环比，不按月份硬编码放行", () => {
+it("11月对10月：继续按已记录金额比较，不按月份切换规则", () => {
   const data = cardsFixture();
   data.monthlyCost.mtdComparison = {
     basis: "FINANCE_READ_MODEL",
@@ -512,8 +520,10 @@ it("11月对10月：双期完整即可自然恢复环比，不按月份硬编码
   expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 +20.0%");
   expect(buildOverviewCards(data).cost.delta).not.toContain("已记录费用");
   data.monthlyCost.mtdComparison.previous.incompleteReason = "API_USAGE_COST_UNKNOWN:4";
-  expect(buildOverviewCards(data).cost.delta).toBe("费用尚未完整，暂不显示环比");
+  expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 +20.0%");
+  expect(buildOverviewCards(data).cost.footnote).toContain("按已记录金额比较");
   data.monthlyCost.mtdComparison.previous.incompleteReason = null;
   data.monthlyCost.mtdComparison.current.incompleteReason = "CASH_PAID_CNY_MISSING:1";
-  expect(buildOverviewCards(data).cost.delta).toBe("费用尚未完整，暂不显示环比");
+  expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 +20.0%");
+  expect(buildOverviewCards(data).cost.footnote).toContain("部分费用待确认");
 });

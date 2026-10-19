@@ -3,7 +3,7 @@
  *
  * 硬约束：不重算计价/分摊/聚合；仅做"后端十进制文本 → 人类可读文本"的转换
  * （单位缩放、百分比、数量差、窗口描述）。同期比较的可比性规则（上期 0、
- * 未知、多币种不可比不输出正常百分比）在此处统一实现。
+ * 无已记录金额、多币种不可比不输出正常百分比）在此处统一实现。
  */
 import type { StandardHomeSummary, StandardHomeWindow } from "../../api/types";
 import { currencyFacts, currencyMoney } from "../../lib/currency";
@@ -170,22 +170,21 @@ export interface OverviewCostCard {
   footnote: string;
 }
 
-/** 双期完整且币种可比才显示 MTD 环比；历史汇总不可拆分时保留原账并解释。 */
+/** 按双期已记录金额比较 MTD；费用缺口保留说明，不改写或摊分历史费用。 */
 function mtdCostCard(
   mtd: NonNullable<StandardHomeSummary["monthlyCost"]["mtdComparison"]>,
 ): OverviewCostCard {
   const { current, previous } = mtd;
   const hasGap = current.incompleteReason !== null || previous.incompleteReason !== null;
-  const historicalPrevious = previous.incompleteReason?.includes("API_USAGE_COST_NOT_MIGRATED") ?? false;
-  const percent = hasGap ? null : moneyChangePercent(current.totalSpends, previous.totalSpends);
+  const currencyGap = [current, previous].some((period) =>
+    /API_COST_CURRENCY_(?:MISSING|CONFLICT)/.test(period.incompleteReason ?? ""));
+  const percent = currencyGap ? null : moneyChangePercent(current.totalSpends, previous.totalSpends);
   const previousZero = previous.totalSpends.length > 0
     && previous.totalSpends.every((fact) => /^0+(?:\.0+)?$/.test(fact.amount));
   const amounts = current.totalSpends.map((fact) => currencyMoney(fact.amount, fact.currency));
-  const delta = historicalPrevious ? "上月历史费用无法拆分同期"
-    : hasGap ? "费用尚未完整，暂不显示环比"
-      : percent ? `较上月同期 ${percent}`
-        : previousZero ? "上月同期为 0，不计算百分比"
-          : "同期无可比金额或币种不一致，不计算百分比";
+  const delta = percent ? `较上月同期 ${percent}`
+    : previousZero ? "上月同期为 0，不计算百分比"
+      : "同期无可比金额或币种不一致，不计算百分比";
   const previousText = previous.totalSpends.length > 0
     ? currencyFacts(previous.totalSpends, null) : "暂无可比金额";
   return {
@@ -193,9 +192,7 @@ function mtdCostCard(
     additional: amounts.slice(1),
     emptyText: amounts.length === 0 ? "暂无已记录费用" : null,
     delta,
-    footnote: historicalPrevious
-      ? `上月历史费用仅有汇总，未按日拆分${current.incompleteReason ? "；本期部分费用待确认" : ""}`
-      : `上月同期 ${previousText}${hasGap ? "；部分费用待确认" : ""}`,
+    footnote: `上月同期 ${previousText}${hasGap ? "；按已记录金额比较，部分费用待确认" : ""}`,
   };
 }
 
