@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/home-cost-comparison-20261019/仟流智算/packages/database
+
+ ✓ src/__tests-integration__/subscription-link-repair.integration.test.ts (4 tests) 2658ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  13:02:47
+   Duration  4.48s (transform 815ms, setup 0ms, collect 1.65s, tests 2.66s, environment 0ms, prepare 48ms)
+

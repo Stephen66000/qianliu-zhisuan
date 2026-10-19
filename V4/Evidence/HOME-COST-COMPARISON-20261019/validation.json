@@ -40,45 +40,45 @@
       "command": "corepack pnpm@11.11.0 --filter @qianliu/database exec vitest run --config ../../vitest.config.ts <7 focused files> --maxWorkers=2",
       "testsPassed": 61,
       "exitCode": 0,
-      "log": "final-database-tests.log"
+      "log": "final-database-tests.txt"
     },
     {
       "command": "corepack pnpm@11.11.0 --filter @qianliu/database exec vitest run --config ../../vitest.config.ts src/__tests-integration__/subscription-link-repair.integration.test.ts --maxWorkers=1",
       "testsPassed": 4,
       "exitCode": 0,
-      "log": "repair-executor-tests.log",
+      "log": "repair-executor-tests.txt",
       "note": "final target and timezone validation; subset of the 61, not an extra count"
     },
     {
       "command": "corepack pnpm@11.11.0 --filter @qianliu/web exec vitest run src/components/dashboard/standard-home-model.test.ts src/pages/Dashboard.test.tsx",
       "testsPassed": 57,
       "exitCode": 0,
-      "log": "web-tests.log"
+      "log": "web-tests.txt"
     },
     {
       "command": "database typecheck",
       "exitCode": 0,
-      "log": "database-typecheck.log"
+      "log": "database-typecheck.txt"
     },
     {
       "command": "control-api typecheck",
       "exitCode": 0,
-      "log": "control-api-typecheck.log"
+      "log": "control-api-typecheck.txt"
     },
     {
       "command": "web typecheck/build",
       "exitCode": 0,
       "logs": [
-        "web-typecheck.log",
-        "web-build.log"
+        "web-typecheck.txt",
+        "web-build.txt"
       ]
     },
     {
       "command": "eslint changed source and test files --max-warnings=0",
       "exitCode": 0,
       "logs": [
-        "lint.log",
-        "production-refined-lint.log"
+        "lint.txt",
+        "production-refined-lint.txt"
       ]
     },
     {

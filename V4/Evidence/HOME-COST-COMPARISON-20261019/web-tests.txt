@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/home-cost-comparison-20261019/仟流智算/apps/web
+
+ ✓ src/components/dashboard/standard-home-model.test.ts (35 tests) 23ms
+ ✓ src/pages/Dashboard.test.tsx (22 tests) 273ms
+
+ Test Files  2 passed (2)
+      Tests  57 passed (57)
+   Start at  12:30:20
+   Duration  2.07s (transform 248ms, setup 507ms, collect 531ms, tests 296ms, environment 1.07s, prepare 611ms)
+
