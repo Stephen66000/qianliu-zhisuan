@@ -71,6 +71,19 @@ vi.mock("../api/v2-hooks", () => ({
 }));
 
 describe("POOL-025 经营账单", () => {
+  it("shows a separately labelled provisional balance while keeping unknown-cost warnings", () => {
+    currentBill = { ...bill, summary: { ...bill.summary, endingBalance: null,
+      endingBalances: [], provisionalEndingBalances: [{ currency: "CNY", amount: "362.35721028" }] },
+      gaps: [{ code: "API_BALANCE_COST_UNKNOWN", providerResourceId: "r1",
+        message: "DeepSeek 有5条费用待核实" },
+        { code: "API_COST_UNKNOWN", message: "本月有5条未计价请求" }] };
+    render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
+    const card = screen.getByText("期末余额（暂算）").closest("article")!;
+    expect(card).toHaveTextContent("¥362.36");
+    expect(screen.getByText(/不代表厂商确认余额/)).toBeInTheDocument();
+    expect(screen.getByText(/存在尚未计价的 API 请求/)).toBeInTheDocument();
+    expect(screen.queryByText("期末余额", { exact: true })).toBeNull();
+  });
   it("已知金额格式化与未知金额占位保持不同语义", () => {
     expect(money("12.34")).toBe("¥12.34");
     expect(money(null)).toBe("—");

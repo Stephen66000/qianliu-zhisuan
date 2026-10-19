@@ -140,6 +140,8 @@ export interface ResourceFinanceView {
     currency: FinanceCurrency;
     balanceState: FinanceBalanceState;
     balance: string | null;
+    /** Based only on recorded costs, never a confirmed supplier balance. */
+    recordedBalance?: string | null;
     monthOpeningState: FinanceBalanceState;
     monthOpeningBalance: string | null;
     monthlyRecharge: string;

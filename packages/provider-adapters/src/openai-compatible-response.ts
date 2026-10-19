@@ -76,9 +76,10 @@ export async function parseStreamingResponse(
   let sawPartialOutput = false;
   let sawDone = false;
   let sawUsage = false;
+  let sawUsageFooter = false;
   let forwarded = false;
   try {
-    for await (const data of readSseData(response.body, () => timeout.markChunk())) {
+    for await (const data of readSseData(response.body, () => timeout.markChunk(), request.abort)) {
       if (data === "[DONE]") {
         sawDone = true;
         break;
@@ -90,7 +91,7 @@ export async function parseStreamingResponse(
         // caller 尚未向北向提交任何事件；任一损坏 data 都可能是被截断的正文，
         // 不能静默跳过后再用后续 usage/[DONE] 伪装成完整成功。
         timeout.dispose();
-        return streamFailure(usage, sawPartialOutput, forwarded, false, timeout);
+        return streamFailure(usage, sawPartialOutput, forwarded, false, timeout, sawUsageFooter);
       }
       const root = isRecord(payload) ? payload : {};
       if (root.usage !== undefined) {
@@ -100,18 +101,16 @@ export async function parseStreamingResponse(
         if (reportedUsage !== null) {
           usage = reportedUsage;
           sawUsage = true;
+          sawUsageFooter = isUsageFooter(root);
         }
       }
       if (root.error !== undefined) {
         timeout.dispose();
-        return streamFailure(usage, sawPartialOutput, forwarded, false, timeout);
+        return streamFailure(usage, sawPartialOutput, forwarded, false, timeout, sawUsageFooter);
       }
 
       // 先转发完整 data 事件，再继续聚合计量与工具调用。回调不做持久化。
-      if (request.onStreamChunk) {
-        await request.onStreamChunk(root);
-        forwarded = true;
-      }
+      forwarded = await forwardStreamChunk(request, root) || forwarded;
 
       const choices = Array.isArray(root.choices) ? root.choices : [];
       for (const rawChoice of choices) {
@@ -149,7 +148,14 @@ export async function parseStreamingResponse(
       forwarded,
       cancelled,
       timeout,
+      sawUsageFooter,
     );
+    timeout.dispose();
+    return failure;
+  }
+
+  if (request.abort?.aborted) {
+    const failure = streamFailure(usage, sawPartialOutput, forwarded, true, timeout, sawUsageFooter);
     timeout.dispose();
     return failure;
   }
@@ -157,14 +163,14 @@ export async function parseStreamingResponse(
   // Chat / Messages 通过 onStreamChunk 已逐事件提交；Responses 暂无原生透传，
   // 仍由 caller 聚合后做受限转换。无 [DONE] 的正常 EOF 一律按中断处理。
   if (!sawDone) {
-    const failure = streamFailure(usage, sawPartialOutput, forwarded, false, timeout);
+    const failure = streamFailure(usage, sawPartialOutput, forwarded, false, timeout, sawUsageFooter);
     timeout.dispose();
     return failure;
   }
   // 所有真实 caller 都请求 stream_options.include_usage。若流虽发出 [DONE] 却没有
   // 最终 usage，不能把零值冒充厂商精确计量；按不完整流在北向提交前失败并允许切换。
   if (!sawUsage) {
-    const failure = streamFailure(usage, sawPartialOutput, forwarded, false, timeout);
+    const failure = streamFailure(usage, sawPartialOutput, forwarded, false, timeout, sawUsageFooter);
     timeout.dispose();
     return failure;
   }
@@ -186,12 +192,32 @@ export async function parseStreamingResponse(
   return outcome;
 }
 
+function isUsageFooter(root: Record<string, unknown>): boolean {
+  // include_usage ends with a separate choices=[] usage frame. A usage object
+  // attached to a delta may be an interim counter and cannot confirm the cost.
+  return Array.isArray(root.choices) && root.choices.length === 0;
+}
+
+async function forwardStreamChunk(request: AdapterRequest, root: Record<string, unknown>): Promise<boolean> {
+  if (!request.onStreamChunk || request.abort?.aborted) return false;
+  try {
+    await request.onStreamChunk(root);
+    return true;
+  } catch (error) {
+    if (!request.abort?.aborted) throw error;
+    // Parse already-buffered usage after the downstream closes. The reader
+    // stops before requesting another upstream chunk; no live-stream draining.
+    return false;
+  }
+}
+
 function streamFailure(
   usage: Usage,
   sawPartialOutput: boolean,
   forwarded: boolean,
   cancelled: boolean,
   timeout: LayeredTimeout,
+  sawUsageFooter: boolean,
 ): Outcome {
   const hasReportedUsage = usage.input > 0
     || usage.output > 0
@@ -208,9 +234,9 @@ function streamFailure(
   return {
     ...failedOutcome(timeout.timedOut ? 504 : 0, error),
     committed: forwarded,
-    // 中断流的最终厂商计量可能不完整；保留已收到的数值，但明确降级为估算，
-    // 让 failover 前置 Attempt 仍可独立入账且不会冒充厂商最终精确值。
-    usage: sawPartialOutput || hasReportedUsage
+    // 取消前已收到完整计量尾包时保留厂商证据（包括明确的零用量）；
+    // 其余中断只保留估算数值，不能冒充完整厂商计量。
+    usage: cancelled && sawUsageFooter ? usage : sawPartialOutput || hasReportedUsage
       ? { ...usage, quality: "ESTIMATED" }
       : usage,
     firstByteAt: timeout.firstByteAt,
@@ -227,6 +253,7 @@ function streamFailure(
 async function* readSseData(
   body: AsyncIterable<Uint8Array>,
   onChunk: () => void,
+  abort?: AbortSignal,
 ): AsyncGenerator<string> {
   const decoder = new TextDecoder();
   let buffer = "";
@@ -249,6 +276,9 @@ async function* readSseData(
       if (data) yield data;
       boundary = buffer.indexOf("\n\n");
     }
+    // Client cancellation aborts the network immediately. Consume only complete
+    // SSE events already delivered in this chunk; never drain a live upstream.
+    if (abort?.aborted) return;
   }
   buffer += decoder.decode();
   const data = buffer

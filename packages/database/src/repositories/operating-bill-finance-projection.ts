@@ -131,6 +131,19 @@ export async function projectOperatingBillFinance(
     account.monthOpeningState === "NORMAL" && account.monthOpeningBalance !== null));
   const endingComplete = apiViews.every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
     account.balanceState === "NORMAL" && account.balance !== null));
+  // A partial balance is useful only when every account has an established
+  // opening and the only uncertainty is unpriced usage. Never silently drop a
+  // missing account/currency, or turn a partial amount into a confirmed balance.
+  const canShowProvisional = !endingComplete && apiViews.length > 0
+    && !gaps.some((gap) => ["API_COST_CURRENCY_MISSING", "API_COST_CURRENCY_CONFLICT"].includes(gap.code))
+    && apiViews.every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
+      ["NORMAL", "INCOMPLETE_USAGE_COST"].includes(account.balanceState)
+      && (account.recordedBalance ?? account.balance) !== null
+      && (account.recordedBalance ?? account.balance) !== undefined));
+  const provisionalEndingBalances = canShowProvisional
+    ? group(apiViews.flatMap((view) => view.accounts.map((account) => ({
+      currency: account.currency, amount: (account.recordedBalance ?? account.balance)!,
+    })))) : [];
   return { ...snapshot, providers, subjects: allocation.subjects, gaps,
     sourceFacts: { ...snapshot.sourceFacts, providerFinance: { resourceViews: views } },
     summary: { ...snapshot.summary,
@@ -142,7 +155,7 @@ export async function projectOperatingBillFinance(
     openingBalance: openingComplete ? one(openingBalances) : null,
     endingBalance: endingComplete ? one(endingBalances) : null,
     endingBalanceCurrency: endingBalances.length === 1 ? endingBalances[0]!.currency : null,
-    openingBalances, rechargeAmounts, endingBalances, apiSpends, packageCosts, totalSpends,
+    openingBalances, rechargeAmounts, endingBalances, provisionalEndingBalances, apiSpends, packageCosts, totalSpends,
     unallocatedCost: allocation.unallocatedCost } };
 }
 

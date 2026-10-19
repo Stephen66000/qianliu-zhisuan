@@ -116,6 +116,7 @@ export interface OperatingBill {
     openingBalances?: Array<{ currency: string; amount: string }>;
     rechargeAmounts?: Array<{ currency: string; amount: string }>;
     endingBalances?: Array<{ currency: string; amount: string }>;
+    provisionalEndingBalances?: Array<{ currency: string; amount: string }>;
     apiSpends?: Array<{ currency: string; amount: string }>;
     packageCosts?: Array<{ currency: string; amount: string }>;
     totalSpends?: Array<{ currency: string; amount: string }>;

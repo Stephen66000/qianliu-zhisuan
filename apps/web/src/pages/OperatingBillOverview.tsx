@@ -45,6 +45,8 @@ export function OperatingBillOverview({
     ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
     : "不限";
 
+  const provisionalBalance = bill.summary.endingBalance === null
+    && (bill.summary.provisionalEndingBalances?.length ?? 0) > 0;
   const metrics = [
     ["本月分配额度", allocatedQuotaNum > 0 ? formatCount(allocatedQuota!) : "不限"],
     ["本月token使用量", monthTokens === null || monthTokens === undefined ? "—" : formatCount(monthTokens)],
@@ -63,8 +65,10 @@ export function OperatingBillOverview({
       ),
     ],
     [
-      "期末余额",
-      currencyFacts(bill.summary.endingBalances, bill.summary.endingBalance, bill.summary.endingBalanceCurrency),
+      provisionalBalance ? "期末余额（暂算）" : "期末余额",
+      provisionalBalance
+        ? currencyFacts(bill.summary.provisionalEndingBalances, null)
+        : currencyFacts(bill.summary.endingBalances, bill.summary.endingBalance, bill.summary.endingBalanceCurrency),
     ],
     ["API 花费", currencyFacts(apiSpends, null)],
     [
@@ -111,7 +115,7 @@ export function OperatingBillOverview({
           补充资金记录。
         </p>
       ) : null}
-      <BalanceQualityNotice gaps={bill.gaps} />
+      <BalanceQualityNotice gaps={bill.gaps} provisionalBalance={provisionalBalance} />
       {bill.gaps.some(gap=>gap.code==='API_COST_UNKNOWN')?<p role="alert" className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning">存在尚未计价的 API 请求，当前金额仅包含已确认部分。<Link className="underline" to="/usage">核查用量</Link></p>:null}
       <BillCard className="overflow-hidden">
         <SectionHeading title="厂商投入构成" />

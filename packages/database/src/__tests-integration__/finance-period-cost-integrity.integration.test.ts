@@ -122,6 +122,7 @@ describe("monthly expenses remain independent of accumulated balance uncertainty
     const bill = await new OperatingBillRepository(db, "DARK").getBill(f.enterpriseId, "2026-10");
     expect(bill.summary).toMatchObject({ apiCost: null, totalCost: null, apiSpendStatus: "INCOMPLETE",
       apiSpendReason: "API_COST_UNKNOWN", openingBalance: "240.00000000", endingBalance: null,
+      provisionalEndingBalances: [{ currency: "CNY", amount: "236.75000000" }],
       apiSpends: [{ currency: "CNY", amount: "3.25000000" }] });
     expect(bill.gaps.find((gap) => gap.code === "API_COST_UNKNOWN"))
       .toMatchObject({ requestRangeFrom: "2026-09-30T16:00:00.000Z",
@@ -139,6 +140,7 @@ describe("monthly expenses remain independent of accumulated balance uncertainty
     expect(bill.summary).toMatchObject({ totalCost: "0.00000000", apiSpendReason: null,
       openingBalance: "240.00000000", endingBalance: "240.00000000",
       totalSpends: [{ currency: "CNY", amount: "0.00000000" }] });
+    expect(bill.summary.provisionalEndingBalances).toEqual([]);
     expect(billIncompleteReason(bill)).toBeNull();
     expect(bill.gaps).toEqual([]);
   });
@@ -157,6 +159,7 @@ describe("monthly expenses remain independent of accumulated balance uncertainty
     ]);
     const bill = await new OperatingBillRepository(db, "DARK").getBill(f.enterpriseId, "2026-10");
     expect(bill.summary.apiCost).toBeNull();
+    expect(bill.summary.provisionalEndingBalances).toEqual([]);
     expect(bill.gaps.map((gap) => gap.code)).toEqual(expect.arrayContaining([
       "API_COST_UNKNOWN", "API_COST_CURRENCY_MISSING", "API_COST_CURRENCY_CONFLICT",
     ]));
@@ -218,6 +221,7 @@ describe("monthly expenses remain independent of accumulated balance uncertainty
     expect(bill.summary).toMatchObject({ apiCost: `${cost}.00000000`, totalCost: `${cost}.00000000`,
       apiSpendStatus: "CALCULABLE", apiSpendReason: null,
       totalSpends: [{ currency: "CNY", amount: `${cost}.00000000` }] });
+    expect(bill.summary.provisionalEndingBalances).toEqual([]);
     expect(bill.providers.find((provider) => provider.providerResourceId === resourceId))
       .toMatchObject({ apiCost: `${cost}.00000000`, apiSpendStatus: "CALCULABLE",
         openingBalance: null, endingBalance: null });

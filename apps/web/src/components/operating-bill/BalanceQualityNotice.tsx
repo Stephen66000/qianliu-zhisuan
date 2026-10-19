@@ -2,7 +2,9 @@ import { Link } from "react-router-dom";
 import type { OperatingBill } from "../../api/operating-bills";
 
 /** Registered funding and an unconfirmed month-end balance are different facts. */
-export function BalanceQualityNotice({ gaps }: { gaps: OperatingBill["gaps"] }) {
+export function BalanceQualityNotice({ gaps, provisionalBalance = false }: {
+  gaps: OperatingBill["gaps"]; provisionalBalance?: boolean;
+}) {
   const opening = gaps.filter((gap) => gap.code === "API_MONTH_OPENING_COST_UNKNOWN");
   const accountKey = (gap: OperatingBill["gaps"][number]) =>
     `${gap.providerResourceId ?? ""}:${gap.field?.split(":").slice(1).join(":") ?? ""}`;
@@ -14,7 +16,9 @@ export function BalanceQualityNotice({ gaps }: { gaps: OperatingBill["gaps"] }) 
   if (notices.length === 0 && negative.length === 0) return null;
   return <>
     {notices.length > 0 ? <div role="alert" className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning">
-      <p>{opening.length > 0
+      <p>{provisionalBalance
+        ? "期末余额按已记录费用暂算，仍有费用待对账；核实后可能调整，不代表厂商确认余额。"
+        : opening.length > 0
         ? "资金初始余额已登记；历史费用仍有待核实记录，本月期初结余暂无法确认。"
         : "账户费用仍有待核实记录，期末余额暂无法确认。"}</p>
       {notices.map((gap) => {

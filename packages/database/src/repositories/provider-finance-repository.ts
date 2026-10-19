@@ -1,3 +1,4 @@
+import { balanceAmount } from "@qianliu/domain";
 import { historicalMonthlyFinance, summarizeFinanceOrders, resourcePlanCostsWithHistory } from "./provider-finance-registered-history.js";
 import { sql, type Transaction } from "kysely";
 import type { Database } from "../kysely.js";
@@ -171,6 +172,10 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
         list.push({ currency: item.account.currency,
           balanceState: item.balance?.state ?? "MISSING_OPENING_BALANCE",
           balance: item.balance?.balance ?? null,
+          // Separate estimate: the confirmed balance must remain null while
+          // upstream fees are unknown. Reuse the canonical component formula.
+          recordedBalance: item.balance?.state === "INCOMPLETE_USAGE_COST"
+            ? balanceAmount(item.balance.components) : item.balance?.balance ?? null,
           monthOpeningState: item.opening?.state ?? "MISSING_OPENING_BALANCE",
           monthOpeningBalance: item.opening?.balance ?? null,
           monthlyRecharge: money(recharge.get(key(item.account.provider_resource_id,
