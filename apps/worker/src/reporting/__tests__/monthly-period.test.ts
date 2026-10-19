@@ -37,11 +37,11 @@ describe("monthly delivery restart receipts",()=>{
     const sent:string[]=[];let fail=true;
     const personal=vi.fn(async(options:Parameters<NonNullable<Parameters<typeof runMonthlyReportTick>[0]["personal"]>>[0])=>{
       for(const id of ["a","b"]){if(!await options.shouldSend!(id))continue;if(id==="b"&&fail){fail=false;throw new Error("delivery failed");}sent.push(id);await options.onSent!(id);}
-      return [];
+      return [{personId:"person",userName:"test",totalTokens:1,requestCount:1,status:"SENT" as const}];
     });
     await expect(runMonthlyReportTick({...base,store,company,personal})).rejects.toThrow("delivery failed");
     expect(await runMonthlyReportTick({...base,store,company,personal})).toMatchObject({status:"SENT",month:"2026-09"});
-    expect(await runMonthlyReportTick({...base,store,company,personal})).toMatchObject({status:"ALREADY_SENT"});
+    expect(await runMonthlyReportTick({...base,store,company,personal})).toMatchObject({status:"LEGACY_UNVERIFIED",complete:false});
     expect(company).toHaveBeenCalledTimes(1);expect(sent).toEqual(["a","b"]);
   });
   it("sends nothing without durable storage or outside the delivery window",async()=>{

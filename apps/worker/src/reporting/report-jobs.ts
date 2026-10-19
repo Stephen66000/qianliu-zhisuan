@@ -1,7 +1,7 @@
 import { sql, type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { UsageOverviewRepository } from "@qianliu/database";
-import { WecomAppClient, type EndpointConfig } from "../runtime-assurance/wecom-client.js";
+import { deliverReport, reportRecipientRef, type DeliveryOptions, type DeliveryStatus } from "./delivery.js";
 import {
   formatDateRange,
   formatLatestRequestTime,
@@ -117,7 +117,7 @@ export async function queryTopModelsForRange(
       requestCount: Number(m.req_count),
     }));
   } catch {
-    return [];
+    throw new Error("REPORT_MODEL_FACTS_UNAVAILABLE");
   }
 }
 
@@ -146,7 +146,7 @@ export async function queryEnterpriseQuotaSummary(
       quotaUsed: Number(row?.quota_used ?? 0),
     };
   } catch {
-    return { quotaTotal: 0, quotaUsed: 0 };
+    throw new Error("REPORT_QUOTA_FACTS_UNAVAILABLE");
   }
 }
 
@@ -185,7 +185,7 @@ export async function queryLatestRequestTime(
       return formatLatestRequestTime(new Date(row.started_at), timezone);
     }
   } catch {
-    // 忽略异常，降级返回默认值
+    throw new Error("REPORT_LATEST_REQUEST_FACTS_UNAVAILABLE");
   }
   return "周内深度协同";
 }
@@ -249,10 +249,10 @@ export async function resolveWecomRecipients(
   return Array.from(new Set(resolvedRecipients));
 }
 
-function periodicContext(db: Kysely<Database>, options: { reportMonth?: string; targetDate?: Date }, enterpriseTimezone: string | null) {
-  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth) : null;
+function periodicContext(db: Kysely<Database>, options: { reportMonth?: string; targetDate?: Date } & DeliveryOptions, enterpriseTimezone: string | null) {
+  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth, options.now ?? options.clock?.()) : null;
   const timezone = monthly ? "Asia/Shanghai" : enterpriseTimezone || "Asia/Shanghai";
-  const anchorDate = monthly?.anchor ?? options.targetDate ?? new Date(Date.now() - 24 * 3600_000);
+  const anchorDate = monthly?.anchor ?? options.targetDate ?? new Date((options.now?.getTime() ?? options.clock?.().getTime() ?? Date.now()) - 24 * 3600_000);
   return { monthly, timezone, anchorDate, divisor: monthly?.days ?? 7,
     period: monthly ? "MONTH" as const : "WEEK" as const,
     noun: monthly ? "月" : "周", fileKind: monthly ? "monthly" : "weekly",
@@ -273,7 +273,7 @@ async function companyQuotaView(db: Kysely<Database>, enterpriseId: string, mont
     consumed: formatTokenVolume(monthly ? used : consumedTokens) };
 }
 
-export interface RunCompanyWeeklyReportOptions {
+export interface RunCompanyWeeklyReportOptions extends DeliveryOptions {
   db: Kysely<Database>;
   kekBase64: string;
   enterpriseId: string;
@@ -292,7 +292,7 @@ export interface RunCompanyWeeklyReportResult {
   activeEmployees: number;
   recipients: string[];
   mediaId?: string;
-  status: "SENT" | "DRY_RUN" | "NO_RECIPIENTS" | "NO_ACTIVE_ENDPOINT";
+  status: DeliveryStatus | "DRY_RUN" | "NO_RECIPIENTS" | "NO_ACTIVE_ENDPOINT";
   svg?: string;
   pngBuffer?: Buffer;
 }
@@ -463,7 +463,7 @@ export async function runCompanyWeeklyReport(
       requestCount,
       activeEmployees,
       recipients: [],
-      status: "NO_RECIPIENTS",
+      status: "NO_ELIGIBLE_RECIPIENTS",
     };
   }
 
@@ -473,27 +473,6 @@ export async function runCompanyWeeklyReport(
     .where("provider", "=", "WECOM_APP")
     .where("status", "=", "ACTIVE")
     .executeTakeFirst();
-
-  if (!endpoint) {
-    return {
-      enterpriseName: enterprise.name,
-      dateRange: dateRangeStr,
-      totalTokens,
-      requestCount,
-      activeEmployees,
-      recipients,
-      status: "NO_ACTIVE_ENDPOINT",
-    };
-  }
-
-  const client = new WecomAppClient(kekBase64);
-  const mediaId = await client.uploadMedia(
-    endpoint as EndpointConfig,
-    pngBuffer,
-    `company_${context.fileKind}_${dateRangeStr.replace(/\s+/g, "")}.png`,
-  );
-
-  await client.sendImageMessage(endpoint as EndpointConfig, recipients, mediaId);
 
   const summaryText = [
     `📊 【${enterprise.name}】全员用量${context.noun}报小结 (${dateRangeStr})`,
@@ -509,7 +488,18 @@ export async function runCompanyWeeklyReport(
     "详见上方管理看板长图 👆",
   ].join("\n");
 
-  await client.sendTextMessage(endpoint as EndpointConfig, recipients, summaryText);
+  const deliveries = [];
+  for (const recipient of recipients) {
+    deliveries.push(await deliverReport({ db, kekBase64, enterpriseId,
+      type: monthly ? "COMPANY_MONTHLY" : "COMPANY_WEEKLY", periodKey: monthly?.month ?? rangeStart.toISOString(),
+      recipientRef: await reportRecipientRef(db, enterpriseId, recipient), targetUserId: recipient, endpointId: endpoint?.id,
+      periodStart: rangeStart, periodEnd: rangeEnd,
+      snapshot: { png: pngBuffer.toString("base64"), text: summaryText, filename: `company_${context.fileKind}.png` },
+      deliveryWindow: options.deliveryWindow, clock: options.clock,
+    }));
+  }
+  const deliveryStatus = deliveries.every(item => item.status === "SENT") ? "SENT"
+    : deliveries.some(item => item.status === "UNKNOWN") ? "UNKNOWN" : "DELIVERY_FAILED";
 
   return {
     enterpriseName: enterprise.name,
@@ -518,12 +508,11 @@ export async function runCompanyWeeklyReport(
     requestCount,
     activeEmployees,
     recipients,
-    mediaId,
-    status: "SENT",
+    status: deliveryStatus,
   };
 }
 
-export interface RunPersonalWeeklyReportsOptions {
+export interface RunPersonalWeeklyReportsOptions extends DeliveryOptions {
   db: Kysely<Database>;
   kekBase64: string;
   enterpriseId: string;
@@ -542,7 +531,7 @@ export interface PersonalWeeklyItemResult {
   providerUserId?: string;
   totalTokens: number;
   requestCount: number;
-  status: "SENT" | "DRY_RUN" | "NO_WECOM_IDENTITY" | "NO_ACTIVE_ENDPOINT";
+  status: DeliveryStatus | "DRY_RUN" | "NO_WECOM_IDENTITY" | "NO_ACTIVE_ENDPOINT";
   mediaId?: string;
   svg?: string;
 }
@@ -566,9 +555,9 @@ export async function runPersonalWeeklyReports(
     throw new Error(`Enterprise not found: ${enterpriseId}`);
   }
 
-  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth) : null;
+  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth, options.now ?? options.clock?.()) : null;
   const timezone = monthly ? "Asia/Shanghai" : enterprise.timezone || "Asia/Shanghai";
-  const now = new Date();
+  const now = options.now ?? options.clock?.() ?? new Date();
   const anchorDate = monthly?.anchor ?? options.targetDate ?? new Date(now.getTime() - 24 * 3600_000);
 
   const usageRepo = monthly ? new UsageOverviewRepository(db) : new UsageOverviewRepository(db, () => anchorDate);
@@ -700,11 +689,11 @@ export async function runPersonalWeeklyReports(
         .where("status", "=", "ACTIVE")
         .executeTakeFirst();
 
-  const client = dryRun ? null : new WecomAppClient(kekBase64);
   const results: PersonalWeeklyItemResult[] = [];
 
   for (const item of targetRanking) {
     const principalId = item.subjectId;
+    try {
     if (!dryRun && options.shouldSend && !await options.shouldSend(principalId)) continue;
     const tokens = Number(item.realTokens);
     const requests = Number(item.requestCount);
@@ -813,37 +802,7 @@ export async function runPersonalWeeklyReports(
       continue;
     }
 
-    if (!identity?.provider_user_id) {
-      results.push({
-        personId: principalId,
-        userName: item.subjectName,
-        totalTokens: tokens,
-        requestCount: requests,
-        status: "NO_WECOM_IDENTITY",
-      });
-      continue;
-    }
-
-    if (!endpoint || !client) {
-      results.push({
-        personId: identity.person_id,
-        userName: item.subjectName,
-        providerUserId: identity.provider_user_id,
-        totalTokens: tokens,
-        requestCount: requests,
-        status: "NO_ACTIVE_ENDPOINT",
-      });
-      continue;
-    }
-
     const pngBuffer = await renderSvgToPng(svg, { fitWidth: 1080 });
-    const mediaId = await client.uploadMedia(
-      endpoint as EndpointConfig,
-      pngBuffer,
-      `${monthly ? "monthly" : "weekly"}_${identity.provider_user_id}.png`,
-    );
-
-    await client.sendImageMessage(endpoint as EndpointConfig, [identity.provider_user_id], mediaId);
 
     const personalSummary = [
       `👋 ${item.subjectName}，您${monthly ? monthly.label : "上一周"}的 AI 协同小结已生成！`,
@@ -855,18 +814,29 @@ export async function runPersonalWeeklyReports(
       "专属记录已送达，快打开看看吧！",
     ].join("\n");
 
-    await client.sendTextMessage(endpoint as EndpointConfig, [identity.provider_user_id], personalSummary);
+    const delivery = await deliverReport({ db, kekBase64, enterpriseId,
+      type: monthly ? "PERSONAL_MONTHLY" : "PERSONAL_WEEKLY", periodKey: monthly?.month ?? rangeStart.toISOString(),
+      recipientRef: principalId, targetUserId: identity?.provider_user_id, endpointId: endpoint?.id,
+      periodStart: rangeStart, periodEnd: rangeEnd,
+      snapshot: { png: pngBuffer.toString("base64"), text: personalSummary, filename: `${monthly ? "monthly" : "weekly"}_${identity?.provider_user_id ?? principalId}.png` },
+      deliveryWindow: options.deliveryWindow, clock: options.clock,
+    });
 
-    if (options.onSent) await options.onSent(principalId);
+    if (delivery.status === "SENT" && options.onSent) await options.onSent(principalId);
     results.push({
-      personId: identity.person_id,
+      personId: identity?.person_id ?? principalId,
       userName: item.subjectName,
-      providerUserId: identity.provider_user_id,
+      providerUserId: identity?.provider_user_id,
       totalTokens: tokens,
       requestCount: requests,
-      status: "SENT",
-      mediaId,
+      status: delivery.status,
     });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "personal_report_recipient_blocked", enterprise_id: enterpriseId,
+        principal_id: principalId, error_type: error instanceof Error ? error.name : typeof error }));
+      results.push({ personId: principalId, userName: item.subjectName, totalTokens: Number(item.realTokens),
+        requestCount: Number(item.requestCount), status: "DELIVERY_FAILED" });
+    }
   }
 
   return results;

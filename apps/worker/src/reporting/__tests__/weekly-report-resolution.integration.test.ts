@@ -66,17 +66,15 @@ describe("Weekly jobs produce actual 2x images before delivery", () => {
   it("personal delivery uploads a 1080x1538 image without changing its crop or recipients", async () => {
     const sizes = captureDecodedSizes();
     const upload = vi.spyOn(WecomAppClient.prototype, "uploadMedia").mockResolvedValue("synthetic-media");
-    const sendImage = vi.spyOn(WecomAppClient.prototype, "sendImageMessage")
-      .mockResolvedValue({ status: "SENT" });
-    vi.spyOn(WecomAppClient.prototype, "sendTextMessage").mockResolvedValue({ status: "SENT" });
+    const sendImage = vi.spyOn(WecomAppClient.prototype, "sendReportMessage").mockResolvedValue({ status: "SENT", providerMessageId: "synthetic-message" });
     const results = await runPersonalWeeklyReports({ db, enterpriseId, kekBase64: "unused",
-      targetDate, userPersonId: memberPersonId });
+      targetDate, userPersonId: memberPersonId, deliveryWindow: {start:new Date(Date.now()-1000),end:new Date(Date.now()+60_000)} });
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ userName: memberName, status: "SENT", totalTokens: 0 });
     expect(upload).toHaveBeenCalledTimes(1);
     expect(pngSize(upload.mock.calls[0]![1])).toEqual([1080, 1538]);
     expect(sizes[0]).toEqual([1080, 1538]);
-    expect(sendImage.mock.calls[0]![1]).toEqual(["synthetic-member"]);
+    expect(sendImage.mock.calls[0]![1]).toEqual("synthetic-member");
     const preview = await runPersonalWeeklyReports({ db, enterpriseId, kekBase64: "unused",
       targetDate, userPersonId: memberPersonId, dryRun: true });
     expect(preview[0]!.svg).toContain('viewBox="47 65 446 635"');

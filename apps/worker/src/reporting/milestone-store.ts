@@ -39,6 +39,7 @@ export class MemoryMilestoneStore implements MilestoneStore {
     if (!this.weeklyTop1Users.has(key)) {
       this.weeklyTop1Users.set(key, new Set());
     }
+    if (this.weeklyTop1Users.get(key)!.has(userId)) return;
     this.weeklyTop1Users.get(key)!.add(userId);
 
     const countKey = `${enterpriseId}:${userId}`;
@@ -89,12 +90,12 @@ export class RedisMilestoneStore implements MilestoneStore {
 
   async recordUserAwardedTop1ThisWeek(enterpriseId: string, weekStr: string, userId: string): Promise<void> {
     const key = `milestone:top1:users:${enterpriseId}:${weekStr}`;
-    await this.redis.sAdd(key, userId);
-    await this.redis.expire(key, 86400 * 14); // 保留14天
-
     const countKey = `milestone:top1:wincount:${enterpriseId}:${userId}`;
-    await this.redis.incr(countKey);
-    await this.redis.expire(countKey, 86400 * 365); // 登顶次数统计保留365天
+    await this.redis.eval(`
+      local added=redis.call('SADD',KEYS[1],ARGV[1])
+      redis.call('EXPIRE',KEYS[1],ARGV[2])
+      if added==1 then redis.call('INCR',KEYS[2]); redis.call('EXPIRE',KEYS[2],ARGV[3]) end
+      return added`, { keys: [key, countKey], arguments: [userId, String(86400*14), String(86400*365)] });
   }
 
   async getUserTop1WinCount(enterpriseId: string, userId: string): Promise<number> {

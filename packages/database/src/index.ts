@@ -74,3 +74,4 @@ export { freezeProjectAllocationForClose, AllocationNotReadyError } from "./repo
 export { projectAllocationTick, type AllocationScanResult } from "./repositories/project-allocation-scan.js";
 
 export const DATABASE_VERSION = "0.3.0" as const;
+export * from "./report-delivery-repository.js";
