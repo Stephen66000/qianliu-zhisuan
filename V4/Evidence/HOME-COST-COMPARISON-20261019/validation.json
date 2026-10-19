@@ -1,0 +1,100 @@
+{
+  "status": "OWNER_APPROVED_PLAN_A_PRE_EXECUTION",
+  "baseMain": "14fd2f5250575041355b9e6171b5f8fa8e0ea76c",
+  "sourceManifest": "source-manifest.json",
+  "productionRepaired": false,
+  "productionUploads": false,
+  "productionRepairWrites": false,
+  "committed": false,
+  "pushed": false,
+  "deployed": false,
+  "businessAcceptance": "NOT_COMPLETE",
+  "serverAuthority": "APPROVED_PLAN_A_ONLY",
+  "privateEvidenceRoot": "/Users/mac/Documents/Codex/2026-10-19/首页费用生产核验",
+  "privateEvidenceIndexSha256": "05bdc3f569d2b9a0707440005419c98e4025744e86718f860038d6a7201d0445",
+  "productionAudit": {
+    "snapshot1": "593893:593893:",
+    "snapshot2": "594098:594098:",
+    "historicalFixedSetAndPeriodsAndEventsStableAcrossSnapshots": true,
+    "eligibleSeptemberLinks": 8478,
+    "comparisonSubsetLinks": 7605,
+    "zeroOrMultiplePeriodMatches": 0,
+    "septemberHistoricalApiRowsNeedingEvidence": 3047,
+    "comparisonApiMissingRows": 2999,
+    "octoberUnknownApiRows": 4,
+    "closedPeriodsFound": 0,
+    "candidateSqlVerifiedAgainstProduction": true,
+    "accountingFourPreviewOnly": true,
+    "migrationHead": "0090_report_delivery",
+    "existingWorkerRevision": "b3746191d8a1581357829795c60744b934a7650f",
+    "healthHttpCodes": {
+      "web": 200,
+      "control-api": 200,
+      "gateway": 200
+    },
+    "proposedManifestSha256": "dbc28416bd945e3cae49a9cb07e6e147d953661c5f2a8c286e6a839cfd2b6f8f"
+  },
+  "testsPassed": 118,
+  "checks": [
+    {
+      "command": "corepack pnpm@11.11.0 --filter @qianliu/database exec vitest run --config ../../vitest.config.ts <7 focused files> --maxWorkers=2",
+      "testsPassed": 61,
+      "exitCode": 0,
+      "log": "final-database-tests.log"
+    },
+    {
+      "command": "corepack pnpm@11.11.0 --filter @qianliu/database exec vitest run --config ../../vitest.config.ts src/__tests-integration__/subscription-link-repair.integration.test.ts --maxWorkers=1",
+      "testsPassed": 4,
+      "exitCode": 0,
+      "log": "repair-executor-tests.log",
+      "note": "final target and timezone validation; subset of the 61, not an extra count"
+    },
+    {
+      "command": "corepack pnpm@11.11.0 --filter @qianliu/web exec vitest run src/components/dashboard/standard-home-model.test.ts src/pages/Dashboard.test.tsx",
+      "testsPassed": 57,
+      "exitCode": 0,
+      "log": "web-tests.log"
+    },
+    {
+      "command": "database typecheck",
+      "exitCode": 0,
+      "log": "database-typecheck.log"
+    },
+    {
+      "command": "control-api typecheck",
+      "exitCode": 0,
+      "log": "control-api-typecheck.log"
+    },
+    {
+      "command": "web typecheck/build",
+      "exitCode": 0,
+      "logs": [
+        "web-typecheck.log",
+        "web-build.log"
+      ]
+    },
+    {
+      "command": "eslint changed source and test files --max-warnings=0",
+      "exitCode": 0,
+      "logs": [
+        "lint.log",
+        "production-refined-lint.log"
+      ]
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "limitations": [
+    "No production repair or deployment executed",
+    "Historical API source pricing is unavailable in the queried production facts",
+    "Four current-period accounting exclusions are previewed only and require a separate decision",
+    "A fixes confirmed links and expense semantics, not the full percentage defect",
+    "Full test suite/formal release audit not performed",
+    "Previous canary command only scanned local log framework; no production secret scan",
+    "Candidate Web is intentionally excluded from recommended first-stage rollout"
+  ],
+  "approvedManifestSha256Status": "APPROVED_EXACT_8478_ROWS",
+  "authorization": "authorization.json"
+}

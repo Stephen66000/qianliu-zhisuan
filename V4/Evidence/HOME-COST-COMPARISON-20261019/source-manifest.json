@@ -1,0 +1,20 @@
+{
+  "baseMain": "14fd2f5250575041355b9e6171b5f8fa8e0ea76c",
+  "branch": "codex/home-cost-comparison-20261019",
+  "files": {
+    "V4/Evidence/HOME-COST-COMPARISON-20261019/subscription-link-audit.sql": "19bfd84624dea8f1e73c3b0713c839ca5621ab801b1061c5c753e08269a71197",
+    "apps/web/src/components/dashboard/standard-home-model.test.ts": "d174d3ee1dbcc8b704cd80d3557a6130d82c09e62c3ed973b0d407fcfd6e1f9c",
+    "apps/web/src/components/dashboard/standard-home-model.ts": "4da57ffd05382706f513a43d04b32065a237779fbbd298d2713c94a7f9c43a72",
+    "packages/database/src/__tests-integration__/home-cost-comparison.integration.test.ts": "c27b7bf2b54f0d0f3a19f6584d4737333459aaa685e9ff80e2963bf041f14ca0",
+    "packages/database/src/__tests-integration__/standard-home.integration.test.ts": "e9e6af2fc4d46d9fc27832fe18ab4bc54dd922a1e9546ebc7a274c304cea91d0",
+    "packages/database/src/__tests-integration__/subscription-link-repair.integration.test.ts": "08c56310ffc6cbb12e4ed60ed4f826fc14fadd8ce5a1d69efcdb9ede810b06c8",
+    "packages/database/src/cli/provider-finance-subscription-repair-preview.ts": "4249298c633898cc0ca3d1365b9d31c308092524230336bb45ba6418040498b5",
+    "packages/database/src/repositories/dashboard-home-costs.test.ts": "d513d32c0d5f2bef75b65635a45d04737841e14af6bc751d1ee2d4d60c4d0a49",
+    "packages/database/src/repositories/dashboard-home-costs.ts": "d04f9e4ff0566726cbc70187f0c0602999713af4e11019e5d36180e25747bee1",
+    "packages/database/src/repositories/provider-finance-gaps.ts": "06ec9af2bebd83659948383068cfab1999d2f546795e1f50a054fcf2750e4da2",
+    "packages/database/src/repositories/provider-finance-repository.ts": "24d36feb751d7ce08b21511fe7779cb155907ecb93bfae64f392a6ef215bebf3",
+    "packages/database/src/repositories/provider-finance-subscription-coverage.ts": "f5d1ea20962b8fb69353d4f2eb1053e201b712552be8aec46e414a7ae95642e2",
+    "packages/database/src/repositories/provider-finance-subscription-link-repair.ts": "85a9c9a4b44733c7dd33dc928e8eaf2b1d43af33ae56430345dbe6add8f59a43",
+    "packages/database/src/repositories/provider-finance-subscription-repair-preview.ts": "65ed90a94f78c1e34c059c753dfd08b269c49013acdad4c193af8e0b732394d8"
+  }
+}

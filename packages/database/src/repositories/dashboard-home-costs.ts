@@ -18,21 +18,21 @@ import {
   type MonthlyOperatingCostSummary,
 } from "./monthly-operating-cost.js";
 import { summarizeMonthlyOperatingCosts } from "./monthly-operating-summary.js";
-import { countFinanceGaps } from "./provider-finance-gaps.js";
+import { countOperatingExpenseGaps } from "./provider-finance-gaps.js";
 import { historicalMonthlyFinance } from "./provider-finance-registered-history.js";
 import { Money, money } from "./provider-finance-core.js";
 import type { CurrencyAmount } from "./dashboard-home-types.js";
 
 function groupCurrencyAmounts(values: CurrencyAmount[]): CurrencyAmount[] {
-  const totals = new Map<string, number>();
+  const totals = new Map<string, InstanceType<typeof Money>>();
   for (const value of values) {
-    totals.set(value.currency, (totals.get(value.currency) ?? 0) + Number(value.amount));
+    totals.set(value.currency, (totals.get(value.currency) ?? new Money(0)).plus(value.amount));
   }
   return [...totals.entries()].sort(([left], [right]) => left.localeCompare(right))
-    .map(([currency, amount]) => ({ currency, amount: amount.toFixed(8) }));
+    .map(([currency, amount]) => ({ currency, amount: money(amount) }));
 }
 
-/** 资金读模型口径的上月同期费用（显式窗口重跑；缺口规则复用权威区间化 countFinanceGaps）。 */
+/** 资金读模型口径的上月同期费用（显式窗口重跑；缺口规则复用权威区间化 countOperatingExpenseGaps）。 */
 export async function loadWindowOperatingFinance(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -65,7 +65,7 @@ export async function loadWindowOperatingFinance(
          AND event.event_type IN ('CODING_PLAN_PURCHASE','CODING_PLAN_RENEWAL','REVERSAL')
          AND event.occurred_at >= ${start} AND event.occurred_at < ${end}
     `.execute(db),
-    countFinanceGaps(db, enterpriseId, start, end),
+    countOperatingExpenseGaps(db, enterpriseId, start, end),
     historicalMonthlyFinance(db, enterpriseId, start, end),
   ]);
   const historicalPlanCash = historical.amounts
@@ -115,7 +115,9 @@ export function bridgeIncompleteReason(summary: MonthlyOperatingCostSummary): st
   if (summary.totalSpends.length === 0 && knownSpends.length === 0) {
     return summary.apiSpendReason ?? "同期费用缺少可计算事实";
   }
-  // 总额完整（totalSpends 非空）：无缺口。总额不完整但已有已知部分透出：
-  // 缺口已可解释（已知部分 + 缺口），无需重复 apiSpendReason，由前端脚注透出"已知部分"。
+  if (summary.apiSpendStatus !== "CALCULABLE" && summary.apiSpendStatus !== "NOT_APPLICABLE") {
+    return summary.apiSpendReason ?? "同期 API 费用不完整";
+  }
+  if (summary.totalSpends.length === 0) return "同期套餐费用不完整";
   return null;
 }

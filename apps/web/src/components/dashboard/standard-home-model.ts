@@ -76,7 +76,7 @@ export function previousTokenQualityNote(
   return null;
 }
 
-/** R01-F01：资金完整性缺口码 → 老板可读说明（展示层映射，语义以权威 countFinanceGaps 为准）。 */
+/** R01-F01：资金完整性缺口码 → 老板可读说明（展示层映射，语义以权威 countOperatingExpenseGaps 为准）。 */
 const COST_GAP_LABELS: Array<[string, string]> = [
   ["API_USAGE_COST_NOT_MIGRATED", "该历史区间金额未迁移（不可计算）"],
   ["API_LEGACY_ARCHIVED", "历史账期费用尚未确认"],
@@ -85,6 +85,8 @@ const COST_GAP_LABELS: Array<[string, string]> = [
   ["API_COST_CURRENCY_MISSING", "有费用缺少币种"],
   ["API_COST_CURRENCY_CONFLICT", "有费用币种与计价规则冲突"],
   ["OPENING_BALANCE_MISSING", "有账户缺少期初余额"],
+  ["SUBSCRIPTION_PERIOD_AMBIGUOUS", "有套餐用量匹配多个订阅周期"],
+  ["SUBSCRIPTION_FEE_MISSING", "有订阅周期缺少已确认套餐费用"],
   ["SUBSCRIPTION_PERIOD_MISSING", "有套餐用量缺少订阅周期"],
   ["CASH_PAID_CNY_MISSING", "有充值或套餐采购未登记现金支出"],
 ];

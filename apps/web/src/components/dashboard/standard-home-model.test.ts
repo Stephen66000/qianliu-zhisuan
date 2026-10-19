@@ -199,6 +199,8 @@ describe("costGapLabel（缺口码映射全表）", () => {
     expect(costGapLabel("API_COST_CURRENCY_MISSING:1")).toBe("有费用缺少币种");
     expect(costGapLabel("API_COST_CURRENCY_CONFLICT:1")).toBe("有费用币种与计价规则冲突");
     expect(costGapLabel("OPENING_BALANCE_MISSING:1")).toBe("有账户缺少期初余额");
+    expect(costGapLabel("SUBSCRIPTION_PERIOD_AMBIGUOUS:1")).toBe("有套餐用量匹配多个订阅周期");
+    expect(costGapLabel("SUBSCRIPTION_FEE_MISSING:1")).toBe("有订阅周期缺少已确认套餐费用");
     expect(costGapLabel("SUBSCRIPTION_PERIOD_MISSING:1")).toBe("有套餐用量缺少订阅周期");
     expect(costGapLabel("CASH_PAID_CNY_MISSING:1")).toBe("有充值或套餐采购未登记现金支出");
     expect(costGapLabel("API_USAGE_COST_UNKNOWN:1、OPENING_BALANCE_MISSING:1")).toBe(

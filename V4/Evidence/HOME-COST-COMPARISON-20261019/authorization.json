@@ -1,0 +1,20 @@
+{
+  "status": "APPROVED_PLAN_A",
+  "recordedAt": "2026-10-19T13:54:34.399537+08:00",
+  "source": "Direct user instruction in this chat",
+  "userInstruction": "批准按方案 A 执行。仅提交推送本次修复、补齐核验清单中的 8,478 条关联并发布 Control API；不改 API 金额，不执行 4 条会计处置，不改其他服务。完成后提交数据前后核对、实际发布版本和首页验证结果，保留未解决的费用缺口。",
+  "approvalRef": "user-approved:01a15264-bf56-7b13-8ed5-ed18cf52c7ee:plan-A:2026-10-19",
+  "manifestSha256": "dbc28416bd945e3cae49a9cb07e6e147d953661c5f2a8c286e6a839cfd2b6f8f",
+  "rowCount": 8478,
+  "approved": [
+    "commit and push task-scoped repair to main",
+    "fixed-row subscription link repair",
+    "Control API only release"
+  ],
+  "excluded": [
+    "API amount modifications",
+    "four accounting dispositions",
+    "Web/Gateway/Worker/PostgreSQL/Redis changes",
+    "database migrations"
+  ]
+}

@@ -157,7 +157,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     }
     await db.insertInto("ledger_transaction").values({
       ai_request_id: input.requestId, enterprise_id: enterpriseId,
-      principal_id: input.principalId, usage_quality: "PROVIDER_REPORTED",
+      principal_id: input.principalId, usage_quality: "PROVIDER_REPORTED", api_cost_status: "UNKNOWN_COST",
       status: input.status ?? "SETTLED", created_at: input.at,
     }).execute();
   }
@@ -495,7 +495,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     }).execute();
     await db.insertInto("ledger_transaction").values({
       ai_request_id: requestId, enterprise_id: enterpriseNy, principal_id: nyEmployee,
-      usage_quality: "PROVIDER_REPORTED", status: "SETTLED", created_at: at,
+      usage_quality: "PROVIDER_REPORTED", api_cost_status: "UNKNOWN_COST", status: "SETTLED", created_at: at,
     }).execute();
 
     const summary = await getStandardHomeSummary(db, {
@@ -670,10 +670,10 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     // 无该花费事实（缺口不可凭空标记，未知金额只能由权威缺口规则识别，不能臆造）。
     expect(summary.monthlyCost.previous?.totalSpends)
       .toEqual([{ currency: "CNY", amount: "200.00000000" }]);
-    expect(summary.monthlyCost.previous?.incompleteReason).toBeNull();
+    expect(summary.monthlyCost.previous?.incompleteReason).toBe("待补期末余额");
   });
 
-  it("V14-C4 G01：经营账单无总额且无缺口原因时回退到跨币种提示（bill fallback）", async () => {
+  it("V14-C4 G01：经营账单明确可计算且无缺口时不凭空推断跨币种", async () => {
     const ent = randomUUID();
     await db.insertInto("enterprise").values({ id: ent, name: "账单回退企业" }).execute();
     const summary = await getStandardHomeSummary(db, {
@@ -694,7 +694,7 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
       financeRead: false,
     });
     expect(summary.monthlyCost.current.totalSpends).toEqual([]);
-    expect(summary.monthlyCost.current.incompleteReason).toBe("不可跨币种合计；已知项保留");
+    expect(summary.monthlyCost.current.incompleteReason).toBeNull();
   });
 
   it("V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入）", async () => {

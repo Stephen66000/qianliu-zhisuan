@@ -8,7 +8,7 @@ import { ProviderFinanceReconciliationRepository } from "./provider-finance-reco
 import { loadFinanceMonthOpening } from "./provider-finance-month-opening.js";
 import { loadLegacySubscriptionFee, loadSubscriptionPeriodUsage } from "./provider-finance-period-facts.js";
 import type { FinanceCurrency, MonthlyFinanceSummary, ResourceFinanceView } from "./provider-finance-types.js";
-import { countFinanceGaps } from "./provider-finance-gaps.js";
+import { countOperatingExpenseGaps } from "./provider-finance-gaps.js";
 
 export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepository {
   async getMonthlyFinanceSummary(
@@ -233,7 +233,7 @@ export class ProviderFinanceRepository extends ProviderFinanceReconciliationRepo
              AND occurred_at>=${start} AND occurred_at<${end}
         ) cost
         GROUP BY currency ORDER BY currency`.execute(trx),
-      countFinanceGaps(trx, enterpriseId, start, end),
+      countOperatingExpenseGaps(trx, enterpriseId, start, end),
     ]);
     const historical = await historicalMonthlyFinance(trx, enterpriseId, start, end);
     eventAmounts.rows.push(...historical.amounts);

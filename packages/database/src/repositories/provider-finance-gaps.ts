@@ -1,9 +1,10 @@
+import { loadSubscriptionCoverage, subscriptionExpenseGaps } from "./provider-finance-subscription-coverage.js";
 import { API_COST_GAP_CODES, loadApiCostGaps } from "./provider-finance-api-cost-gaps.js";
 import { PROVIDER_FINANCE_CUTOVER } from "./provider-finance-types.js";
 /**
  * 资金完整性缺口计数（权威口径单一来源，区间化；R01-F01 抽取为独立模块）。
- * 月度汇总（loadMonthlyFinanceSummary，整月边界）与标准版首页同期窗口
- * （dashboard-home-costs.ts，显式窗口）共用同一规则；遗漏金额只能标记为缺口，
+ * 严格账本/激活预检使用本函数；月度汇总与首页同期使用下方现金费用视图。
+ * 两者共用 API/现金事实规则；遗漏金额只能标记为缺口，
  * 不得视为已知 0。接受 Kysely 实例或事务（Transaction 满足 Kysely 接口）。
  */
 import type { Kysely } from "kysely";
@@ -65,3 +66,17 @@ export async function countFinanceGaps(
   ];
 }
 
+/** Cash expense completeness is distinct from persisted usage attribution quality.
+ * The strict ledger/activation check above intentionally still requires stored links.
+ * A unique paid period already represented in the cash reader needs no extra expense.
+ */
+export async function countOperatingExpenseGaps(
+  db: Kysely<Database>, enterpriseId: string, start: Date, end: Date,
+): Promise<Array<{ code: string; count: string }>> {
+  const [gaps, coverage] = await Promise.all([
+    countFinanceGaps(db, enterpriseId, start, end),
+    loadSubscriptionCoverage(db, enterpriseId, start, end),
+  ]);
+  return [...gaps.filter((gap) => gap.code !== "SUBSCRIPTION_PERIOD_MISSING"),
+    ...subscriptionExpenseGaps(coverage)];
+}
