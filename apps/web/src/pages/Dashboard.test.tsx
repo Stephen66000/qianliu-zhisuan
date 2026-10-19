@@ -482,7 +482,7 @@ describe("标准版首页（两分区）", () => {
 });
 
 
-it("费用卡比较同期已记录金额，显示199元分母和费用缺口说明", () => {
+it("费用卡保留金额和同期环比，不再显示上月金额与说明行", () => {
   const data = seededHome();
   data.monthlyCost.mtdComparison = {
     basis: "FINANCE_READ_MODEL",
@@ -494,7 +494,7 @@ it("费用卡比较同期已记录金额，显示199元分母和费用缺口说�
   const card = within(screen.getByTestId("home-cost-card"));
   expect(card.getByText("¥256.37")).toBeInTheDocument();
   expect(card.getByText("较上月同期 +28.8%")).toBeInTheDocument();
-  expect(card.getByText(/上月同期 ¥199.00/)).toBeInTheDocument();
-  expect(card.getByText(/按已记录金额比较，部分费用待确认/)).toBeInTheDocument();
+  expect(card.queryByText(/上月同期 ¥199.00/)).not.toBeInTheDocument();
+  expect(card.queryByText(/按已记录金额比较，部分费用待确认/)).not.toBeInTheDocument();
   expect(card.queryByText("¥12,800.00")).not.toBeInTheDocument();
 });

@@ -444,14 +444,13 @@ describe("双期已记录金额的费用 MTD 环比", () => {
     return data;
   }
 
-  it("10月对9月：以同期已记录的199元作分母，保留缺口与原始数据", () => {
+  it("10月对9月：以同期已记录的199元作分母，保持原始数据不变", () => {
     const data = mtdFixture();
     const before = structuredClone(data);
     const card = buildOverviewCards(data).cost;
     expect(card.primary).toBe("¥256.37");
     expect(card.delta).toBe("较上月同期 +28.8%");
-    expect(card.footnote).toContain("上月同期 ¥199.00");
-    expect(card.footnote).toContain("按已记录金额比较，部分费用待确认");
+    expect(card.footnote).toBe("");
     expect(data).toEqual(before);
   });
 
@@ -521,9 +520,9 @@ it("11月对10月：继续按已记录金额比较，不按月份切换规则", 
   expect(buildOverviewCards(data).cost.delta).not.toContain("已记录费用");
   data.monthlyCost.mtdComparison.previous.incompleteReason = "API_USAGE_COST_UNKNOWN:4";
   expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 +20.0%");
-  expect(buildOverviewCards(data).cost.footnote).toContain("按已记录金额比较");
+  expect(buildOverviewCards(data).cost.footnote).toBe("");
   data.monthlyCost.mtdComparison.previous.incompleteReason = null;
   data.monthlyCost.mtdComparison.current.incompleteReason = "CASH_PAID_CNY_MISSING:1";
   expect(buildOverviewCards(data).cost.delta).toBe("较上月同期 +20.0%");
-  expect(buildOverviewCards(data).cost.footnote).toContain("部分费用待确认");
+  expect(buildOverviewCards(data).cost.footnote).toBe("");
 });

@@ -170,12 +170,11 @@ export interface OverviewCostCard {
   footnote: string;
 }
 
-/** 按双期已记录金额比较 MTD；费用缺口保留说明，不改写或摊分历史费用。 */
+/** 按双期已记录金额比较 MTD，不改写或摊分历史费用。 */
 function mtdCostCard(
   mtd: NonNullable<StandardHomeSummary["monthlyCost"]["mtdComparison"]>,
 ): OverviewCostCard {
   const { current, previous } = mtd;
-  const hasGap = current.incompleteReason !== null || previous.incompleteReason !== null;
   const currencyGap = [current, previous].some((period) =>
     /API_COST_CURRENCY_(?:MISSING|CONFLICT)/.test(period.incompleteReason ?? ""));
   const percent = currencyGap ? null : moneyChangePercent(current.totalSpends, previous.totalSpends);
@@ -185,14 +184,12 @@ function mtdCostCard(
   const delta = percent ? `较上月同期 ${percent}`
     : previousZero ? "上月同期为 0，不计算百分比"
       : "同期无可比金额或币种不一致，不计算百分比";
-  const previousText = previous.totalSpends.length > 0
-    ? currencyFacts(previous.totalSpends, null) : "暂无可比金额";
   return {
     primary: amounts[0] ?? null,
     additional: amounts.slice(1),
     emptyText: amounts.length === 0 ? "暂无已记录费用" : null,
     delta,
-    footnote: `上月同期 ${previousText}${hasGap ? "；按已记录金额比较，部分费用待确认" : ""}`,
+    footnote: "",
   };
 }
 
