@@ -23,6 +23,7 @@ export interface DailyTokenReportData {
   totalRequests: string;    // e.g. "245"
   totalTokens: string;      // e.g. "4,207.8 万"
   activeEmployees: number;  // e.g. 1
+  totalModels?: number;    // 完整统计模型数，独立于 Top3 展示条数。
   totalEmployees?: number;  // e.g. 4
   topUsers: DailyUserRow[];
   topModels: DailyModelRow[];
@@ -61,6 +62,8 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
   // Block 3: 使用模型表格（区块标题 20px + 表头 16px + 模型数据行）
   const modelRowStep = 24;
   const modelRowCount = Math.min(data.topModels.length, 3);
+  const totalModels = data.totalModels ?? data.topModels.length;
+  const modelCountCaption = `昨日调用 ${totalModels} 个模型${totalModels > modelRowCount ? ` · 展示 Top ${modelRowCount}` : ""}`;
   const hBlock3 = 36 + modelRowCount * modelRowStep;
   // Block 4: 品牌底栏（38px）
   const hBlock4 = 38;
@@ -210,7 +213,7 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
 
     <!-- Block 3: 使用模型表格 -->
     <text x="${X_LEFT}" y="${table2TitleY}" font-size="13" font-weight="700" fill="#172033">使用模型</text>
-    <text x="${X_RIGHT}" y="${table2TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日调用 ${data.topModels.length} 个模型</text>
+    <text x="${X_RIGHT}" y="${table2TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(modelCountCaption)}</text>
 
     <text x="${X_LEFT}" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">模型</text>
     <text x="265" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">昨日消耗</text>

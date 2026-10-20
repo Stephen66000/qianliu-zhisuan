@@ -67,4 +67,22 @@ describe("Daily Token Report Image Generator", () => {
       pngBuffer[3] === 0x47; // 'G'
     expect(isPng).toBe(true);
   });
+  it("模型总数来自完整汇总，表格仍只展示前三项", () => {
+    const svg = generateDailyReportSvg({ ...mockReportData, totalTokens: 254778397, requestCount: 1983, totalModels: 4, topModels: [
+      { model: "deepseek-flash", tokens: 161882485, requestCount: 1265 },
+      { model: "GLM 5.3 Flash", tokens: 89654981, requestCount: 695 },
+      { model: "GLM 5.3", tokens: 3236275, requestCount: 18 },
+    ] });
+    expect(svg).toContain("昨日调用 4 个模型");
+    expect(svg).toContain("展示 Top 3");
+    expect(svg).toContain(">GLM 5.3 Flash</text>");
+    expect(svg).toContain(">GLM 5.3</text>");
+    expect(svg).not.toContain(">K3</text>");
+    const visibleText = svg.replace(/<[^>]+>/g, "");
+    expect(visibleText).toContain("8965.5 万");
+    expect(visibleText).toContain("323.6 万");
+    expect(visibleText).toContain("35.2%");
+    expect(visibleText).toContain("1.3%");
+  });
+
 });
