@@ -29,10 +29,21 @@ export interface ModelUsageSummary {
   requestCount: number;
 }
 
-/**
- * 统计指定时间范围内企业的模型消耗分布
- */
+export interface ModelUsageForRange {
+  models: ModelUsageSummary[];
+  totalModels: number;
+}
+
+/** 保留周报、月报与激励的既有 Top-N 调用合同。 */
 export async function queryTopModelsForRange(
+  db: Kysely<Database>, enterpriseId: string, rangeStart: Date, rangeEnd: Date,
+  principalId?: string, limit = 5, employeesOnly = false,
+): Promise<ModelUsageSummary[]> {
+  return (await queryModelUsageForRange(db, enterpriseId, rangeStart, rangeEnd, principalId, limit, employeesOnly)).models;
+}
+
+/** 同一次查询内统计完整模型数，再应用展示条数限制，保持数据快照一致。 */
+export async function queryModelUsageForRange(
   db: Kysely<Database>,
   enterpriseId: string,
   rangeStart: Date,
@@ -40,16 +51,18 @@ export async function queryTopModelsForRange(
   principalId?: string,
   limit: number = 5,
   employeesOnly: boolean = false,
-): Promise<ModelUsageSummary[]> {
+): Promise<ModelUsageForRange> {
   try {
     const principalFilter = principalId ? sql`AND lt.principal_id = ${principalId}` : sql``;
     const employeeFilter = employeesOnly ? sql`AND EXISTS (SELECT 1 FROM principal pr WHERE pr.id=ar.principal_id AND pr.enterprise_id=ar.enterprise_id AND pr.type='EMPLOYEE')` : sql``;
     const result = await sql<{
       model_name: string | null;
+      model_count: string | number | bigint;
       request_count: string | number | bigint;
       total_tokens: string | number | bigint;
     }>`
       SELECT COALESCE(um.display_name, ar.unified_model) AS model_name,
+             COUNT(*) OVER () AS model_count,
              COUNT(ar.id) AS request_count,
              COALESCE(SUM(lt.total_input_tokens + lt.total_output_tokens), 0) AS total_tokens
         FROM ledger_transaction lt
@@ -72,13 +85,14 @@ export async function queryTopModelsForRange(
 
     const rows = result.rows || [];
     if (rows.length > 0) {
-      return rows.map((r) => ({
+      const models = rows.map((r) => ({
         model: formatModelName(r.model_name ?? "通用模型"),
         tokens: Number(r.total_tokens ?? 0),
         requestCount: Number(r.request_count ?? 0),
       }));
+      return { models, totalModels: Number(rows[0]!.model_count) };
     }
-    if (employeesOnly) return []; // Closed-month reports use the same settled facts as their totals.
+    if (employeesOnly) return { models: [], totalModels: 0 }; // Closed-month reports use the same settled facts as their totals.
 
     // 备用兜底查询 usage_event
     const fallbackRows = await db
@@ -99,6 +113,7 @@ export async function queryTopModelsForRange(
         sql<string>`COALESCE(um.display_name, r.unified_model)`.as("unified_model"),
         sql<string>`coalesce(sum(u.input_tokens + u.output_tokens), 0)`.as("total_tokens"),
         sql<string>`count(r.id)`.as("req_count"),
+        sql<string>`count(*) over ()`.as("model_count"),
       ])
       .where("r.enterprise_id", "=", enterpriseId)
       .where("r.status", "=", "SUCCEEDED")
@@ -111,11 +126,12 @@ export async function queryTopModelsForRange(
       .limit(limit)
       .execute();
 
-    return fallbackRows.map((m) => ({
+    const models = fallbackRows.map((m) => ({
       model: formatModelName(m.unified_model),
       tokens: Number(m.total_tokens),
       requestCount: Number(m.req_count),
     }));
+    return { models, totalModels: Number(fallbackRows[0]?.model_count ?? 0) };
   } catch {
     throw new Error("REPORT_MODEL_FACTS_UNAVAILABLE");
   }

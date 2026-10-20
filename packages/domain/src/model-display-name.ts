@@ -48,7 +48,9 @@ export function formatModelName(rawName: string): string {
   if (lower === "deepseek") return "DeepSeek";
 
   // 智谱 GLM（先 5.x 精确版本，再 4.x 精确版本，最后泛型兜底）
-  if (lower.includes("glm-5.3")) return "GLM 5.3";
+  // 完整型号优先，避免把 Flash 或未来未知后缀折叠成基础版。
+  if (/^glm-5\.3[- ]flash(?:\[1m\])?$/.test(lower)) return "GLM 5.3 Flash";
+  if (/^glm-5\.3(?:\[1m\])?$/.test(lower)) return "GLM 5.3";
   if (lower.includes("glm-5.2")) return "GLM 5.2";
   if (/glm[- ]5(?![.\d])/.test(lower)) return "GLM 5";
   if (lower.includes("glm-4.7")) return "GLM 4.7";

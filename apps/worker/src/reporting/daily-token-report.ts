@@ -3,7 +3,7 @@ import type { Database } from "@qianliu/database";
 import { UsageOverviewRepository } from "@qianliu/database";
 import { renderSvgToPng as renderSharedSvgToPng } from "./render-png.js";
 import { deliverReport, reportRecipientRef, type DeliveryOptions, type DeliveryStatus } from "./delivery.js";
-import { resolveWecomRecipients, queryTopModelsForRange } from "./report-jobs.js";
+import { resolveWecomRecipients, queryModelUsageForRange } from "./report-jobs.js";
 import {
   formatNumber,
   formatTokenVolume,
@@ -33,6 +33,7 @@ export interface DailyReportData {
   cacheTokens: number;
   requestCount: number;
   activeEmployees: number;
+  totalModels?: number;
   topUsers: Array<{
     rank: number;
     name: string;
@@ -59,6 +60,7 @@ export function generateDailyReportSvg(data: DailyReportData): string {
     totalRequests: formatNumber(data.requestCount),
     totalTokens: formatTokenVolume(data.totalTokens),
     activeEmployees: data.activeEmployees,
+    totalModels: data.totalModels,
     topUsers: data.topUsers.map((u) => ({
       rank: u.rank,
       name: u.name,
@@ -165,7 +167,8 @@ export async function runDailyTokenReport(
   const rangeFrom = new Date(overview.range.from);
   const rangeTo = new Date(overview.range.to);
 
-  const topModelsRaw = await queryTopModelsForRange(db, enterpriseId, rangeFrom, rangeTo, undefined, 3);
+  const modelUsage = await queryModelUsageForRange(db, enterpriseId, rangeFrom, rangeTo, undefined, 3);
+  const topModelsRaw = modelUsage.models;
   const topModels = topModelsRaw.map((m) => {
     const shareStr = totalTokens > 0 ? formatPercentage(m.tokens / totalTokens) : "0.0%";
     return {
@@ -193,6 +196,7 @@ export async function runDailyTokenReport(
     cacheTokens,
     requestCount,
     activeEmployees,
+    totalModels: modelUsage.totalModels,
     topUsers,
     topModels,
   };

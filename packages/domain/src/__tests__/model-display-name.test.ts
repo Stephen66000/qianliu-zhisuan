@@ -72,6 +72,24 @@ describe("智谱 GLM 精确版本优先", () => {
   });
 });
 
+describe("GLM 5.3 型号边界", () => {
+  it.each([
+    "GLM-5.3-Flash", "glm-5.3-flash", "ql-glm-5.3-flash", "QL-GLM-5.3-FLASH",
+    "GLM 5.3 Flash", "智谱 GLM-5.3-Flash", "qianliu-zhipu-glm-5.3-flash", "glm-5.3-flash[1m]",
+  ])("保留 Flash 变体：%s", (input) => {
+    expect(formatModelName(input)).toBe("GLM 5.3 Flash");
+  });
+
+  it.each(["glm-5.30", "GLM-5.3-experimental", "glm-5.3-flash-experimental"])("未知版本或后缀不折叠为基础版：%s", (input) => {
+    expect(formatModelName(input)).toBe(input);
+  });
+
+  it("保留基础版及既有客户端上下文标记的兼容语义", () => {
+    expect(formatModelName("ql-glm-5.3")).toBe("GLM 5.3");
+    expect(formatModelName("glm-5.3[1m]")).toBe("GLM 5.3");
+  });
+});
+
 describe("Kimi / K3 档位优先", () => {
   it("k3 档位与厂商名分别处理", () => {
     expect(formatModelName("k3-256k")).toBe("K3 256K");
