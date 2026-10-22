@@ -70,8 +70,8 @@ const VISUAL_SPEC_PATTERNS = [
   },
 ];
 
-/** 实色主按钮 / 危险按钮的底色：不带变体前缀的 bg-ql-action / bg-ql-danger，含 50% 以上透明度写法。 */
-const SOLID_FILL = "(^|\\s)bg-ql-(action|danger)(\\x2F(?:[5-9][0-9]|100))?(?=\\s|$)";
+/** 实色按钮底色：含变体链、important 前缀及 50%–100% 整数透明度；弱底仍允许。 */
+const SOLID_FILL = "(^|\\s)(?:[^\\s]*:)?!?bg-ql-(action|danger)(\\x2F(?:[5-9][0-9]|100))?(?=\\s|$)";
 const SOLID_BUTTON_MESSAGE =
   "按钮用 <Button variant=\"primary|danger\">（src/components/ui/Button.tsx）；<Link> 等非 button 元素用 buttonClassName()；选中态用 bg-ql-action-soft。";
 /** 模板字符串在 ${} 前以类名前缀结尾，说明在拼接类名。 */
@@ -89,11 +89,11 @@ function visualSpecSelectors() {
     { selector: `${buttonClassName} TemplateElement[value.raw=/${SOLID_FILL}/]`, message: SOLID_BUTTON_MESSAGE },
     // 任何字符串里同时出现实色底和 text-ql-on-action：这是手写实色按钮的样式，常见于先存常量再传给 className。
     {
-      selector: `Literal[value=/^(?=.*${SOLID_FILL})(?=.*text-ql-on-action)/]`,
+      selector: `Literal[value=/^(?=[\\s\\S]*${SOLID_FILL})(?=[\\s\\S]*text-ql-on-action)/]`,
       message: SOLID_BUTTON_MESSAGE,
     },
     {
-      selector: `TemplateElement[value.raw=/^(?=.*${SOLID_FILL})(?=.*text-ql-on-action)/]`,
+      selector: `TemplateElement[value.raw=/^(?=[\\s\\S]*${SOLID_FILL})(?=[\\s\\S]*text-ql-on-action)/]`,
       message: SOLID_BUTTON_MESSAGE,
     },
     {

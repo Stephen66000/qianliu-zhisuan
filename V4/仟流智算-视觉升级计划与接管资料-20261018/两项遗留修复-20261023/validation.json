@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-23",
+  "status": "LOCAL_VALIDATED_NOT_DEPLOYED",
+  "baseCommit": "fe920468ea50d90f96f4fe5ffda39766073a42cd",
+  "sourceState": "uncommitted working tree",
+  "sourceLock": "source-lock.json",
+  "sourceLockVerified": true,
+  "findings": {
+    "F-P2-01": {
+      "status": "FIXED_LOCAL_VALIDATED",
+      "remainingQuotaUnit": "existing provider quotaUnit; missing or blank displays 单位未知",
+      "allocatedQuotaUnit": "Token; principal_grant.quota_unit is fixed TOKEN",
+      "header": "余额 / 剩余额度",
+      "serverCalculationChanged": false
+    },
+    "Q-P2-03": {
+      "status": "FIXED_LOCAL_VALIDATED",
+      "coverage": [
+        "hover",
+        "dark",
+        "important",
+        "combined variants",
+        "named-group variants",
+        "arbitrary variants including ::",
+        "integer opacity 50–100",
+        "multiline constants"
+      ],
+      "preserved": [
+        "semantic soft colors",
+        "opacity below 50",
+        "ordinary non-button backgrounds"
+      ],
+      "arbitraryOpacityParsingAdded": false
+    }
+  },
+  "checks": {
+    "webTests": {
+      "status": "PASS",
+      "files": 94,
+      "tests": 719,
+      "log": "web-tests.log"
+    },
+    "webLint": {
+      "status": "PASS",
+      "exitCode": 0,
+      "log": "web-lint.log"
+    },
+    "webTypecheck": {
+      "status": "PASS",
+      "exitCode": 0,
+      "log": "typecheck-build.log"
+    },
+    "webProductionBuild": {
+      "status": "PASS",
+      "exitCode": 0,
+      "log": "typecheck-build.log",
+      "assetsSha256": {
+        "assets/index-BXY_lnML.js": "ad7e08b04a57bdcbc6c9d429c1fe2c70b8abdcb10ae20bbe16f7bd8f3cbdecc6",
+        "assets/index-CzhcZiDC.css": "755d52ac4dd8e0d7471c6ee00d335b2a6c8b0d902d1f58a22ee91c254fb774af",
+        "assets/index-DGv7YCOA.css": "0743404e7143975324e8d7f027bfc229353ed443e3d988d1664defbf122d8ce4",
+        "assets/index-DuMls2Vt.js": "ad7e08b04a57bdcbc6c9d429c1fe2c70b8abdcb10ae20bbe16f7bd8f3cbdecc6",
+        "favicon-dark.png": "b931884067ca17a75ee6fd44656372d2fdd36eef437fc06a2c2256d86e5302e6",
+        "favicon.png": "502a2f7b5b39b939ae86457d91b2ded9c7527420590014ecd9950382f84c6a98",
+        "favicon.svg": "40a8cca35665817fdbebc2da43bc2a59a4f9ea2938e593aa0369052e39ab422b",
+        "index.html": "1e34b21bee8212198b4c487df2a2e0b052c9904d2e9e211e1cec6662221b2421"
+      }
+    },
+    "diffCheck": {
+      "status": "PASS",
+      "exitCode": 0,
+      "log": "diff-check.log"
+    },
+    "browser": {
+      "status": "PASS",
+      "build": "production",
+      "api": "mocked fixture",
+      "matrix": [
+        "1024 light",
+        "1024 dark",
+        "1440 light",
+        "1440 dark"
+      ],
+      "providerRowsPerCase": 6,
+      "keyboardExpansion": true,
+      "pageHorizontalOverflow": false,
+      "errors": 0,
+      "writeRequests": 0,
+      "result": "browser-result.json",
+      "visualInspection": [
+        "quota-units-1024-light.png",
+        "quota-units-1440-dark.png"
+      ]
+    }
+  },
+  "warnings": [
+    "Existing bundle chunk above 500 kB remains.",
+    "Build output uses a new temporary directory outside the project; Vite reports that it will not empty that directory. No cleanup override used."
+  ],
+  "verificationNotes": [
+    "Initial browser columnheader role locator timed out although the page had rendered the correct th. The final script targets the visible th; failure evidence is retained.",
+    "An initial review found consecutive-colon arbitrary variants not covered; the prefix expression and regression case were corrected before the final 719-test run."
+  ],
+  "delivery": {
+    "committed": false,
+    "pushed": false,
+    "deployed": false,
+    "databaseOperationsPerformed": false,
+    "realApiAcceptanceRerun": false,
+    "productionAcceptancePerformed": false
+  },
+  "historicalEvidenceUnmodified": true,
+  "remaining": [
+    "This patch has not been deployed per user instruction.",
+    "Full post-release core read/write acceptance evidence remains pending in the handover package.",
+    "AI scope and official design-source SVG replacement remain deferred.",
+    "Original full external visual audit remains absent from this package."
+  ],
+  "recordedStage": "PRE_COMMIT_VALIDATION",
+  "deliveryStatusNote": "delivery and sourceState describe the validation-time snapshot. Subsequent local commit identity is recorded by Git; see 本地提交说明.txt. No push or deployment."
+}

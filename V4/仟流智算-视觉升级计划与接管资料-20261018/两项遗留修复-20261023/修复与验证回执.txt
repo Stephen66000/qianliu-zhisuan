@@ -1,0 +1,35 @@
+两项视觉遗留修复与验证回执（2026-10-23）
+
+结论：F-P2-01、Q-P2-03 已在本地修复并验证通过。下文记录提交前的验证快照；后续本地提交身份以 Git 历史为准，见本地提交说明.txt。本次未推送、未部署。
+基线提交：fe920468ea50d90f96f4fe5ffda39766073a42cd
+候选身份：该基线上的未提交工作区；5 个源码/测试文件 SHA256 见 source-lock.json。
+
+一、额度单位（F-P2-01）
+- 厂商总览列名改为“余额 / 剩余额度”。
+- Coding Plan 剩余额度展示厂商原生 quotaUnit；null、空串或空白单位明确显示“单位未知”；额度 null 保持“—”，零额度保持 0。
+- 展开详情的分配额度显示 Token。它来自 principal_grant.quota_value 汇总；现有授权合同固定 quota_unit=TOKEN，不使用厂商套餐的 POINT 等单位替代。
+- 来源：packages/database/src/repositories/dashboard-breakdown.ts 的 sumAllocatedQuota；packages/database/src/repositories/grant-repository.ts 的固定 TOKEN 写入。
+- API 余额继续按既有币种和金额格式展示；未改变计算、DTO、权限或数据库。
+
+二、视觉 lint 前缀（Q-P2-03）
+- 手写实色按钮规则覆盖 hover:、dark:、!、多重前缀、具名 group 和任意变体，包括 [&::before]。
+- JSX 字符串、模板与多行常量使用同一识别规则。
+- 保持既有 50%–100% 整数透明度口径；soft、低透明度和普通非按钮背景继续合法。未扩展任意 opacity 表达式解析。
+
+三、最终验证
+- 完整前端单测：94 个文件，719 项通过。
+- 完整前端 lint、TypeScript 无输出检查、生产构建、限定差异 whitespace 检查：通过。
+- 生产构建浏览器：浅/深主题 × 1024/1440，共 4 组；每组核验 API、POINT、TOKEN 大整数、未知单位、零额度、未知额度六类数据，键盘展开详情；页面无整体横向溢出，表头 13px，页面异常和写请求均为 0。
+- 浏览器使用明确的模拟 API 数据，无数据库访问；本轮未重跑真实 API 写入或生产验收。
+- 保留既有大于 500kB 分包提示。构建使用全新临时目录，Vite 提示不自动清空该目录；未使用清空参数。
+- 初次浏览器脚本的 columnheader 角色定位超时；截图显示表头已正确渲染。改为实际可见 th 定位后四组合通过；失败记录保留。
+- 初次差异复核发现连续冒号任意变体缺口，修复并增加回归后重新运行最终完整检查。
+
+四、交付边界
+本批状态为 LOCAL_VALIDATED_NOT_DEPLOYED。用户明确要求暂时不要部署。
+历史 0001–0009、10月18日审计、10月19日发布回执保持原文；它们绑定历史候选。
+本次没有更改 API/数据库、运行服务或生产环境，也没有恢复 AI 暂缓范围。
+整轮 M3 的上线后核心读写完整收口记录仍待补，不能由本次本地验证替代。
+
+文件：validation.json（验证结果）、source-lock.json（源码身份）、0010-额度单位与lint前缀修复.patch（五文件增量）、browser-check.mjs / browser-fixture.json（浏览器复现）、测试/构建日志、4 张截图。
+复现：在 apps/web 执行现有 test/lint/typecheck/build；browser-check.mjs 接收本地生产构建目录作为唯一参数。

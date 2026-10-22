@@ -3,6 +3,7 @@
  *
  * 厂商经营快照与主体 Grant 分列，前端只展示后端口径，不重算。
  * API 速度按金额/小时，套餐速度按额度/小时；不可计算原因不伪装成“无风险”。
+ * 分配额度汇总 principal_grant（固定 TOKEN），不能沿用厂商套餐的 quotaUnit。
  * 只在厂商资源页使用（不在首页看板），字号按页面规范：表格与说明文字 13px。
  */
 import type { ResourceBreakdownItem } from "../../api/types";
@@ -30,7 +31,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
           <tr className="whitespace-nowrap border-b border-ql-border text-[13px] leading-5 text-ql-fg-tertiary">
             <th className="py-2 pr-4 font-medium">厂商 / 模式</th>
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
-            <th className="py-2 pr-4 text-right font-medium">当前余额</th>
+            <th className="py-2 pr-4 text-right font-medium">余额 / 剩余额度</th>
             <th className="py-2 pr-4 text-right font-medium">本月花费</th>
             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
             <th className="py-2 font-medium">状态 / 预计耗尽</th>
@@ -42,7 +43,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
               label={`${item.providerName} ${MODE_LABEL[item.mode]}`}
               leading={<><span className="font-medium">{item.providerName}</span><span className="block text-ql-fg-tertiary">{MODE_LABEL[item.mode]}</span></>}
               details={<>
-                <RowDetail label="分配额度">{item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}</RowDetail>
+                <RowDetail label="分配额度">{item.allocatedQuota === null ? "—" : `${formatCount(item.allocatedQuota)} Token`}</RowDetail>
                 <RowDetail label="当前订阅金额">{item.mode === "API" ? "—" : <>{item.packageCost === null ? "套餐费用待补" : `${item.currency ?? ""} ${formatMoney(item.packageCost)}`}<span className="block text-ql-fg-tertiary">订阅周期 {subscriptionPeriod(item)}</span></>}</RowDetail>
                 <RowDetail label="消耗速度">{usageRateText(item)}</RowDetail>
                 <RowDetail label="预计耗尽">{forecastExhaustionText(item)}{item.forecastConfidence ? <span className="block text-ql-fg-tertiary">可信度 {item.forecastConfidence}</span> : null}</RowDetail>
@@ -53,7 +54,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
                 {item.mode === "API"
                   ? item.currentBalance === null ? "余额待补"
                     : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`
-                  : item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
+                  : item.remainingQuota === null ? "—" : `${formatCount(item.remainingQuota)} ${item.quotaUnit?.trim() || "单位未知"}`}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.monthlyCost === null

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>仟流智算视觉升级 · 当前状态</title>
+<style>body{font:16px/1.75 system-ui,sans-serif;max-width:1080px;margin:36px auto;padding:0 24px;color:#172033;background:#f4f7fb}h1{font-size:28px}h2{font-size:21px}section{padding:24px;background:white;border:1px solid #d8e1eb;border-radius:12px;margin:20px 0}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:640px}td,th{text-align:left;border-bottom:1px solid #d8e1eb;padding:12px;vertical-align:top}a{color:#2f6fce}.note{color:#526175}.status{border-left:4px solid #2f6fce;padding-left:16px}li{margin:8px 0}</style></head><body>
+<h1>仟流智算视觉升级：当前状态与接管索引</h1>
+<p>更新日期：2026-10-23</p><p class="status"><strong>两项遗留已本地修复并验证通过；本次尚未部署。</strong><br>用户要求暂时不要部署。历史发布与本次本地修复分别记录。</p>
+<section><h2>完成状态</h2><div class="table-wrap"><table><thead><tr><th>项目</th><th>状态</th><th>边界</th></tr></thead><tbody>
+<tr><td>F-P2-01 额度单位</td><td>本地修复并验证通过</td><td>套餐剩余额度用厂商原生单位；主体分配额度用 Token；未知单位明确提示。</td></tr>
+<tr><td>Q-P2-03 lint 前缀漏检</td><td>本地修复并验证通过</td><td>覆盖 hover / dark / important / 任意变体及多行常量；保留合法弱底。</td></tr>
+<tr><td>本次验证</td><td>94 文件 / 719 项单测通过</td><td>lint、类型检查、生产构建通过；浅深 × 1024/1440 浏览器四组合通过。</td></tr>
+<tr><td>本次交付</td><td>仅做本地 Git 提交</td><td>未推送、未部署；验证快照摘要见 source-lock.json，提交身份以 Git 历史为准。</td></tr>
+<tr><td>历史 M1 / M2</td><td>已有完成证据</td><td>0009 与 R2 完成开发、本地验收；M2 是隔离本机真实 API 验收。</td></tr>
+<tr><td>历史正式发布</td><td>10月19日已有发布回执</td><td>不代表本次两项修复已上线。</td></tr>
+<tr><td>完整 M3 收口</td><td>待补完整线上核心读写记录</td><td>保留既有发布事实，不将本次本地验证替代生产业务验收。</td></tr>
+</tbody></table></div></section>
+<section><h2>本次验证与证据</h2><p>单测、完整前端 lint、类型检查与生产构建均通过。生产构建浏览器采用模拟 API，核验 API 金额、POINT、TOKEN 大整数、未知单位、零额度和未知额度；键盘可展开，无页面整体横向溢出，未访问数据库。</p><p class="note">既有大分包提示保留。历史计划、R1/R2 审计和回执均保留原文；历史文档中的“未部署”、两个 P2 未修等状态须按其日期理解。首页费用早期验收稿的口径由后续费用卡回执覆盖。</p><ul>
+<li><a href="两项遗留修复-20261023/本地提交说明.txt">本地提交说明</a></li>
+<li><a href="两项遗留修复-20261023/修复与验证回执.txt">本次修复与验证回执</a></li>
+<li><a href="两项遗留修复-20261023/validation.json">本次验证数据</a></li>
+<li><a href="两项遗留修复-20261023/source-lock.json">本次源码身份</a></li>
+<li><a href="两项遗留修复-20261023/0010-额度单位与lint前缀修复.patch">0010 两项修复增量补丁</a></li>
+<li><a href="剩余实施计划-已确认-v0.2-20261018.html">已确认 v0.2 原计划</a></li>
+<li><a href="第三批收口-0009/验收与交付.html">0009 原交付</a></li>
+<li><a href="发布前审计-v1.5-20261018/有界复审-R2/两项阻断关闭与复审结论.html">10月18日 R2 历史复审</a></li>
+<li><a href="阿里云正式升级-20261019/发布回执.json">10月19日正式发布回执</a></li>
+<li><a href="已记录金额环比修正-20261019/发布回执.json">费用环比修正发布回执</a></li>
+<li><a href="费用卡说明行移除-20261019/发布回执.json">费用说明行移除发布回执</a></li>
+<li><a href="升级计划与当前状态-历史快照-20261018.html">10月18日总览历史快照</a></li>
+</ul></section>
+<section><h2>浏览器验证截图</h2><ul>
+<li><a href="两项遗留修复-20261023/quota-units-1024-light.png">1024px · 浅色</a></li>
+<li><a href="两项遗留修复-20261023/quota-units-1024-dark.png">1024px · 深色</a></li>
+<li><a href="两项遗留修复-20261023/quota-units-1440-light.png">1440px · 浅色</a></li>
+<li><a href="两项遗留修复-20261023/quota-units-1440-dark.png">1440px · 深色</a></li>
+</ul></section>
+<section><h2>继续保留的边界</h2><ul><li>本次两项修复尚未部署，线上状态没有因本次操作改变。</li><li>完整上线后核心读写验收记录待补；本次未重跑真实 API 写入或生产验收。</li><li>AI 新增能力、入口和占位 UI 继续暂缓；工程 SVG 沿用，正式设计源文件到位后另行替换。</li><li>最早完整外部视觉审核报告仍未包含在资料包内，四项之外的原始范围尚不能完整追溯。</li></ul></section>
+</body></html>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { ResourceBreakdownItem } from "../../api/types";
 import { ResourceBreakdown } from "./ResourceBreakdown";
@@ -89,8 +89,7 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
 
     expect(screen.queryByText("估算计量")).not.toBeInTheDocument();
     expect(screen.queryByText("精确计量")).not.toBeInTheDocument();
-    expect(screen.getByText("当前余额")).toBeInTheDocument();
-    expect(screen.queryByText("剩余额度 / 当前余额")).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "余额 / 剩余额度" })).toBeInTheDocument();
     expect(screen.queryByText("ql-unknown-model")).not.toBeInTheDocument();
     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.getByText("不可计算（计量未知）")).toBeInTheDocument();
@@ -107,5 +106,59 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
     expect(screen.getByText("CUSTOM")).toBeInTheDocument();
     expect(screen.getByText("限流冷却")).toBeInTheDocument();
     expect(screen.getByText("可用（降权）")).toBeInTheDocument();
+  });
+});
+
+describe("厂商总览额度单位", () => {
+  it.each(["POINT", "TOKEN", "CREDIT"])("剩余额度保留厂商 %s 单位，分配额度保留授权 Token 单位", (quotaUnit) => {
+    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit, remainingQuota: "1200", allocatedQuota: "2500" })]} />);
+    const row = screen.getByText("基础厂商").closest("tr")!;
+    expect(within(row).getByText(`1,200 ${quotaUnit}`)).toBeVisible();
+    fireEvent.click(within(row).getByRole("button", { name: "展开基础厂商 Coding Plan详情" }));
+    const details = screen.getByRole("region", { name: "基础厂商 Coding Plan详情" });
+    expect(within(details).getByText("2,500 Token")).toBeVisible();
+    expect(within(details).queryByText(`2,500 ${quotaUnit}`)).not.toBeInTheDocument();
+  });
+
+  it.each([null, "", "   "])("缺失单位 %j 明确未知，不猜测套餐单位", (quotaUnit) => {
+    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit, remainingQuota: "80", allocatedQuota: "50" })]} />);
+    const row = screen.getByText("基础厂商").closest("tr")!;
+    expect(within(row).getByText("80 单位未知")).toBeVisible();
+    fireEvent.click(within(row).getByRole("button"));
+    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("50 Token");
+  });
+
+  it("零额度有单位，单位首尾空白不进入展示", () => {
+    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit: " POINT ", remainingQuota: "0", allocatedQuota: "0" })]} />);
+    const row = screen.getByText("基础厂商").closest("tr")!;
+    expect(within(row).getByText("0 POINT")).toBeVisible();
+    fireEvent.click(within(row).getByRole("button"));
+    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("0 Token");
+  });
+
+  it("大整数额度带单位且不损失精度", () => {
+    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit: "TOKEN", remainingQuota: "9007199254740993", allocatedQuota: "9007199254740995" })]} />);
+    const row = screen.getByText("基础厂商").closest("tr")!;
+    expect(within(row).getByText("9,007,199,254,740,993 TOKEN")).toBeVisible();
+    fireEvent.click(within(row).getByRole("button"));
+    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("9,007,199,254,740,995 Token");
+  });
+
+  it("未知额度保留占位，不伪装成零额度", () => {
+    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit: "POINT", remainingQuota: null, allocatedQuota: null })]} />);
+    const row = screen.getByText("基础厂商").closest("tr")!;
+    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(/^—$/);
+    fireEvent.click(within(row).getByRole("button"));
+    const details = screen.getByRole("region", { name: "基础厂商 Coding Plan详情" });
+    expect(within(details).getByText("分配额度").nextElementSibling).toHaveTextContent(/^—$/);
+  });
+
+  it.each(["CNY", "USD"])("API 余额保留 %s 金额口径，分配额度使用 Token", (currency) => {
+    render(<ResourceBreakdown items={[item({ currency, quotaUnit: "POINT", currentBalance: "12.34", allocatedQuota: "2500" })]} />);
+    const row = screen.getByText("基础厂商").closest("tr")!;
+    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(`${currency} 12.34`);
+    expect(within(row).queryByText(/POINT/)).not.toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button"));
+    expect(screen.getByRole("region", { name: "基础厂商 API详情" })).toHaveTextContent("2,500 Token");
   });
 });

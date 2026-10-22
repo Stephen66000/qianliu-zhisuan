@@ -41,6 +41,43 @@ describe("视觉规范 lint：复核回归夹具", () => {
   });
 
   it.each([
+    "hover:bg-ql-action", "dark:bg-ql-danger", "!bg-ql-action",
+    "sm:dark:hover:!bg-ql-danger/50", "dark:bg-ql-action/100",
+    "group-hover/menu:bg-ql-action/90", "data-[state=open]:bg-ql-danger",
+    "[&:hover]:bg-ql-action", "[&::before]:bg-ql-action",
+    "supports-[display:grid]:hover:!bg-ql-danger",
+  ])("拦截带变体或 important 的实色按钮：%s", async (value) => {
+    const messages = await visualMessages(`export const Fixture = () => <button className=${JSON.stringify(value)}>保存</button>;`);
+    expect(messages.some((message) => message.includes("按钮用 <Button"))).toBe(true);
+  });
+
+  it.each([
+    'export const Fixture = () => <button className={`px-4 dark:hover:!bg-ql-danger/90`}>保存</button>;',
+    'const fill = "hover:bg-ql-action text-ql-on-action"; export const Fixture = () => <button className={fill}>保存</button>;',
+    'const fill = `\ntext-ql-on-action\nsm:dark:!bg-ql-danger/50\n`; export const Fixture = () => <button className={fill}>保存</button>;',
+    'const fill = "hover:bg-ql-action\\ntext-ql-on-action"; export const Fixture = () => <button className={fill}>保存</button>;',
+  ])("模板和常量也拦截带前缀的实色按钮：%s", async (source) => {
+    const messages = await visualMessages(source);
+    expect(messages.some((message) => message.includes("按钮用 <Button"))).toBe(true);
+  });
+
+  it.each([
+    '<button className="hover:bg-ql-action-soft">选中</button>',
+    '<button className="dark:hover:!bg-ql-danger-soft">选中</button>',
+    '<button className="hover:bg-ql-action/49">选中</button>',
+    '<button className="dark:!bg-ql-danger/40">选中</button>',
+    '<button className="bg-ql-action/0">选中</button>',
+    '<button className="dark:hover:bg-ql-action-hover">选中</button>',
+    '<div className="hover:bg-ql-action">内容</div>',
+  ])("前缀修复仍放过弱底、低透明度及非按钮背景：%s", async (jsx) => {
+    expect(await visualMessages(`export const Fixture = () => ${jsx};`)).toEqual([]);
+  });
+
+  it.each(["dark:hover:!bg-ql-danger-soft", "dark:!bg-ql-danger/40"])("弱底常量保留合法语义：%s", async (value) => {
+    expect(await visualMessages(`const fill = ${JSON.stringify(`${value} text-ql-on-action`)}; export const Fixture = () => <button className={fill}>选中</button>;`)).toEqual([]);
+  });
+
+  it.each([
     "text-ql-fg-muted", "bg-ql-surface-warning-soft", "bg-ql-surface-danger-soft",
     "border-ql-brand", "text-ql-brand", "hover:bg-ql-action-subtle",
     "border-warning/30", "bg-warning/10", "text-warning",

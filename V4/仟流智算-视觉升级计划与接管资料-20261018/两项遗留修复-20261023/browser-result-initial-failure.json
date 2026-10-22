@@ -1,0 +1,8 @@
+{
+  "status": "FAIL",
+  "environment": "local production build; mocked API; no database",
+  "cases": [],
+  "errors": [],
+  "writeRequests": [],
+  "failure": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('columnheader', { name: '余额 / 剩余额度', exact: true }) to be visible\u001b[22m\n\n    at /Users/mac/Projects/仟流智算/V4/仟流智算-视觉升级计划与接管资料-20261018/两项遗留修复-20261023/browser-check.mjs:52:78"
+}

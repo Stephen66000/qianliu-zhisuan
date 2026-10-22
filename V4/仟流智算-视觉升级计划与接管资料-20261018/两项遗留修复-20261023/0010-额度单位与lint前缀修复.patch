@@ -1,0 +1,207 @@
+diff --git a/apps/web/src/components/dashboard/ResourceBreakdown.pool042.test.tsx b/apps/web/src/components/dashboard/ResourceBreakdown.pool042.test.tsx
+index 42828d1..2364a6e 100644
+--- a/apps/web/src/components/dashboard/ResourceBreakdown.pool042.test.tsx
++++ b/apps/web/src/components/dashboard/ResourceBreakdown.pool042.test.tsx
+@@ -1,4 +1,4 @@
+-import { fireEvent, render, screen } from "@testing-library/react";
++import { fireEvent, render, screen, within } from "@testing-library/react";
+ import { describe, expect, it } from "vitest";
+ import type { ResourceBreakdownItem } from "../../api/types";
+ import { ResourceBreakdown } from "./ResourceBreakdown";
+@@ -89,8 +89,7 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
+ 
+     expect(screen.queryByText("估算计量")).not.toBeInTheDocument();
+     expect(screen.queryByText("精确计量")).not.toBeInTheDocument();
+-    expect(screen.getByText("当前余额")).toBeInTheDocument();
+-    expect(screen.queryByText("剩余额度 / 当前余额")).not.toBeInTheDocument();
++    expect(screen.getByRole("columnheader", { name: "余额 / 剩余额度" })).toBeInTheDocument();
+     expect(screen.queryByText("ql-unknown-model")).not.toBeInTheDocument();
+     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
+     expect(screen.getByText("不可计算（计量未知）")).toBeInTheDocument();
+@@ -109,3 +108,57 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
+     expect(screen.getByText("可用（降权）")).toBeInTheDocument();
+   });
+ });
++
++describe("厂商总览额度单位", () => {
++  it.each(["POINT", "TOKEN", "CREDIT"])("剩余额度保留厂商 %s 单位，分配额度保留授权 Token 单位", (quotaUnit) => {
++    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit, remainingQuota: "1200", allocatedQuota: "2500" })]} />);
++    const row = screen.getByText("基础厂商").closest("tr")!;
++    expect(within(row).getByText(`1,200 ${quotaUnit}`)).toBeVisible();
++    fireEvent.click(within(row).getByRole("button", { name: "展开基础厂商 Coding Plan详情" }));
++    const details = screen.getByRole("region", { name: "基础厂商 Coding Plan详情" });
++    expect(within(details).getByText("2,500 Token")).toBeVisible();
++    expect(within(details).queryByText(`2,500 ${quotaUnit}`)).not.toBeInTheDocument();
++  });
++
++  it.each([null, "", "   "])("缺失单位 %j 明确未知，不猜测套餐单位", (quotaUnit) => {
++    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit, remainingQuota: "80", allocatedQuota: "50" })]} />);
++    const row = screen.getByText("基础厂商").closest("tr")!;
++    expect(within(row).getByText("80 单位未知")).toBeVisible();
++    fireEvent.click(within(row).getByRole("button"));
++    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("50 Token");
++  });
++
++  it("零额度有单位，单位首尾空白不进入展示", () => {
++    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit: " POINT ", remainingQuota: "0", allocatedQuota: "0" })]} />);
++    const row = screen.getByText("基础厂商").closest("tr")!;
++    expect(within(row).getByText("0 POINT")).toBeVisible();
++    fireEvent.click(within(row).getByRole("button"));
++    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("0 Token");
++  });
++
++  it("大整数额度带单位且不损失精度", () => {
++    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit: "TOKEN", remainingQuota: "9007199254740993", allocatedQuota: "9007199254740995" })]} />);
++    const row = screen.getByText("基础厂商").closest("tr")!;
++    expect(within(row).getByText("9,007,199,254,740,993 TOKEN")).toBeVisible();
++    fireEvent.click(within(row).getByRole("button"));
++    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("9,007,199,254,740,995 Token");
++  });
++
++  it("未知额度保留占位，不伪装成零额度", () => {
++    render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit: "POINT", remainingQuota: null, allocatedQuota: null })]} />);
++    const row = screen.getByText("基础厂商").closest("tr")!;
++    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(/^—$/);
++    fireEvent.click(within(row).getByRole("button"));
++    const details = screen.getByRole("region", { name: "基础厂商 Coding Plan详情" });
++    expect(within(details).getByText("分配额度").nextElementSibling).toHaveTextContent(/^—$/);
++  });
++
++  it.each(["CNY", "USD"])("API 余额保留 %s 金额口径，分配额度使用 Token", (currency) => {
++    render(<ResourceBreakdown items={[item({ currency, quotaUnit: "POINT", currentBalance: "12.34", allocatedQuota: "2500" })]} />);
++    const row = screen.getByText("基础厂商").closest("tr")!;
++    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(`${currency} 12.34`);
++    expect(within(row).queryByText(/POINT/)).not.toBeInTheDocument();
++    fireEvent.click(within(row).getByRole("button"));
++    expect(screen.getByRole("region", { name: "基础厂商 API详情" })).toHaveTextContent("2,500 Token");
++  });
++});
+diff --git a/apps/web/src/components/dashboard/ResourceBreakdown.tsx b/apps/web/src/components/dashboard/ResourceBreakdown.tsx
+index d19c34f..98d312b 100644
+--- a/apps/web/src/components/dashboard/ResourceBreakdown.tsx
++++ b/apps/web/src/components/dashboard/ResourceBreakdown.tsx
+@@ -3,6 +3,7 @@
+  *
+  * 厂商经营快照与主体 Grant 分列，前端只展示后端口径，不重算。
+  * API 速度按金额/小时，套餐速度按额度/小时；不可计算原因不伪装成“无风险”。
++ * 分配额度汇总 principal_grant（固定 TOKEN），不能沿用厂商套餐的 quotaUnit。
+  * 只在厂商资源页使用（不在首页看板），字号按页面规范：表格与说明文字 13px。
+  */
+ import type { ResourceBreakdownItem } from "../../api/types";
+@@ -30,7 +31,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
+           <tr className="whitespace-nowrap border-b border-ql-border text-[13px] leading-5 text-ql-fg-tertiary">
+             <th className="py-2 pr-4 font-medium">厂商 / 模式</th>
+             <th className="py-2 pr-4 text-right font-medium">账号数</th>
+-            <th className="py-2 pr-4 text-right font-medium">当前余额</th>
++            <th className="py-2 pr-4 text-right font-medium">余额 / 剩余额度</th>
+             <th className="py-2 pr-4 text-right font-medium">本月花费</th>
+             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
+             <th className="py-2 font-medium">状态 / 预计耗尽</th>
+@@ -42,7 +43,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
+               label={`${item.providerName} ${MODE_LABEL[item.mode]}`}
+               leading={<><span className="font-medium">{item.providerName}</span><span className="block text-ql-fg-tertiary">{MODE_LABEL[item.mode]}</span></>}
+               details={<>
+-                <RowDetail label="分配额度">{item.allocatedQuota === null ? "—" : formatCount(item.allocatedQuota)}</RowDetail>
++                <RowDetail label="分配额度">{item.allocatedQuota === null ? "—" : `${formatCount(item.allocatedQuota)} Token`}</RowDetail>
+                 <RowDetail label="当前订阅金额">{item.mode === "API" ? "—" : <>{item.packageCost === null ? "套餐费用待补" : `${item.currency ?? ""} ${formatMoney(item.packageCost)}`}<span className="block text-ql-fg-tertiary">订阅周期 {subscriptionPeriod(item)}</span></>}</RowDetail>
+                 <RowDetail label="消耗速度">{usageRateText(item)}</RowDetail>
+                 <RowDetail label="预计耗尽">{forecastExhaustionText(item)}{item.forecastConfidence ? <span className="block text-ql-fg-tertiary">可信度 {item.forecastConfidence}</span> : null}</RowDetail>
+@@ -53,7 +54,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
+                 {item.mode === "API"
+                   ? item.currentBalance === null ? "余额待补"
+                     : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`
+-                  : item.remainingQuota === null ? "—" : formatCount(item.remainingQuota)}
++                  : item.remainingQuota === null ? "—" : `${formatCount(item.remainingQuota)} ${item.quotaUnit?.trim() || "单位未知"}`}
+               </td>
+               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+                 {item.monthlyCost === null
+diff --git a/apps/web/src/components/resources/ResourceUsageOverviewPanel.test.tsx b/apps/web/src/components/resources/ResourceUsageOverviewPanel.test.tsx
+index 1ef9748..ba8239f 100644
+--- a/apps/web/src/components/resources/ResourceUsageOverviewPanel.test.tsx
++++ b/apps/web/src/components/resources/ResourceUsageOverviewPanel.test.tsx
+@@ -86,7 +86,7 @@ describe("厂商资源用量总览", () => {
+     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
+     expect(screen.queryByRole("columnheader", { name: "余额可承载 Token" })).not.toBeInTheDocument();
+     expect(screen.queryByRole("columnheader", { name: "已用额度" })).not.toBeInTheDocument();
+-    expect(screen.getByRole("columnheader", { name: "当前余额" })).toBeInTheDocument();
++    expect(screen.getByRole("columnheader", { name: "余额 / 剩余额度" })).toBeInTheDocument();
+     expect(screen.queryByRole("columnheader", { name: "所属资源余额 / 剩余额度" })).not.toBeInTheDocument();
+     const providerRow = screen.getAllByText("DeepSeek")[0]!.closest("tr")!;
+     expect(within(providerRow).getByText(/预计耗尽/)).toBeVisible();
+diff --git a/apps/web/src/styles/visual-spec.lint.test.ts b/apps/web/src/styles/visual-spec.lint.test.ts
+index d423a05..6560ceb 100644
+--- a/apps/web/src/styles/visual-spec.lint.test.ts
++++ b/apps/web/src/styles/visual-spec.lint.test.ts
+@@ -40,6 +40,43 @@ describe("视觉规范 lint：复核回归夹具", () => {
+     expect(messages.some((message) => message.includes("按钮用 <Button"))).toBe(true);
+   });
+ 
++  it.each([
++    "hover:bg-ql-action", "dark:bg-ql-danger", "!bg-ql-action",
++    "sm:dark:hover:!bg-ql-danger/50", "dark:bg-ql-action/100",
++    "group-hover/menu:bg-ql-action/90", "data-[state=open]:bg-ql-danger",
++    "[&:hover]:bg-ql-action", "[&::before]:bg-ql-action",
++    "supports-[display:grid]:hover:!bg-ql-danger",
++  ])("拦截带变体或 important 的实色按钮：%s", async (value) => {
++    const messages = await visualMessages(`export const Fixture = () => <button className=${JSON.stringify(value)}>保存</button>;`);
++    expect(messages.some((message) => message.includes("按钮用 <Button"))).toBe(true);
++  });
++
++  it.each([
++    'export const Fixture = () => <button className={`px-4 dark:hover:!bg-ql-danger/90`}>保存</button>;',
++    'const fill = "hover:bg-ql-action text-ql-on-action"; export const Fixture = () => <button className={fill}>保存</button>;',
++    'const fill = `\ntext-ql-on-action\nsm:dark:!bg-ql-danger/50\n`; export const Fixture = () => <button className={fill}>保存</button>;',
++    'const fill = "hover:bg-ql-action\\ntext-ql-on-action"; export const Fixture = () => <button className={fill}>保存</button>;',
++  ])("模板和常量也拦截带前缀的实色按钮：%s", async (source) => {
++    const messages = await visualMessages(source);
++    expect(messages.some((message) => message.includes("按钮用 <Button"))).toBe(true);
++  });
++
++  it.each([
++    '<button className="hover:bg-ql-action-soft">选中</button>',
++    '<button className="dark:hover:!bg-ql-danger-soft">选中</button>',
++    '<button className="hover:bg-ql-action/49">选中</button>',
++    '<button className="dark:!bg-ql-danger/40">选中</button>',
++    '<button className="bg-ql-action/0">选中</button>',
++    '<button className="dark:hover:bg-ql-action-hover">选中</button>',
++    '<div className="hover:bg-ql-action">内容</div>',
++  ])("前缀修复仍放过弱底、低透明度及非按钮背景：%s", async (jsx) => {
++    expect(await visualMessages(`export const Fixture = () => ${jsx};`)).toEqual([]);
++  });
++
++  it.each(["dark:hover:!bg-ql-danger-soft", "dark:!bg-ql-danger/40"])("弱底常量保留合法语义：%s", async (value) => {
++    expect(await visualMessages(`const fill = ${JSON.stringify(`${value} text-ql-on-action`)}; export const Fixture = () => <button className={fill}>选中</button>;`)).toEqual([]);
++  });
++
+   it.each([
+     "text-ql-fg-muted", "bg-ql-surface-warning-soft", "bg-ql-surface-danger-soft",
+     "border-ql-brand", "text-ql-brand", "hover:bg-ql-action-subtle",
+diff --git a/eslint.config.mjs b/eslint.config.mjs
+index 30aad37..1784bb6 100644
+--- a/eslint.config.mjs
++++ b/eslint.config.mjs
+@@ -70,8 +70,8 @@ const VISUAL_SPEC_PATTERNS = [
+   },
+ ];
+ 
+-/** 实色主按钮 / 危险按钮的底色：不带变体前缀的 bg-ql-action / bg-ql-danger，含 50% 以上透明度写法。 */
+-const SOLID_FILL = "(^|\\s)bg-ql-(action|danger)(\\x2F(?:[5-9][0-9]|100))?(?=\\s|$)";
++/** 实色按钮底色：含变体链、important 前缀及 50%–100% 整数透明度；弱底仍允许。 */
++const SOLID_FILL = "(^|\\s)(?:[^\\s]*:)?!?bg-ql-(action|danger)(\\x2F(?:[5-9][0-9]|100))?(?=\\s|$)";
+ const SOLID_BUTTON_MESSAGE =
+   "按钮用 <Button variant=\"primary|danger\">（src/components/ui/Button.tsx）；<Link> 等非 button 元素用 buttonClassName()；选中态用 bg-ql-action-soft。";
+ /** 模板字符串在 ${} 前以类名前缀结尾，说明在拼接类名。 */
+@@ -89,11 +89,11 @@ function visualSpecSelectors() {
+     { selector: `${buttonClassName} TemplateElement[value.raw=/${SOLID_FILL}/]`, message: SOLID_BUTTON_MESSAGE },
+     // 任何字符串里同时出现实色底和 text-ql-on-action：这是手写实色按钮的样式，常见于先存常量再传给 className。
+     {
+-      selector: `Literal[value=/^(?=.*${SOLID_FILL})(?=.*text-ql-on-action)/]`,
++      selector: `Literal[value=/^(?=[\\s\\S]*${SOLID_FILL})(?=[\\s\\S]*text-ql-on-action)/]`,
+       message: SOLID_BUTTON_MESSAGE,
+     },
+     {
+-      selector: `TemplateElement[value.raw=/^(?=.*${SOLID_FILL})(?=.*text-ql-on-action)/]`,
++      selector: `TemplateElement[value.raw=/^(?=[\\s\\S]*${SOLID_FILL})(?=[\\s\\S]*text-ql-on-action)/]`,
+       message: SOLID_BUTTON_MESSAGE,
+     },
+     {

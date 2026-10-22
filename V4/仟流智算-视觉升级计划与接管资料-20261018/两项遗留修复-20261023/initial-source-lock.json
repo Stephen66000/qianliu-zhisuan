@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-23",
+  "repository": "/Users/mac/Projects/仟流智算",
+  "baseCommit": "fe920468ea50d90f96f4fe5ffda39766073a42cd",
+  "branch": "codex/wecom-report-model-labels-main",
+  "sourceState": "uncommitted working tree",
+  "changedFiles": {
+    "eslint.config.mjs": "f91fbf1250ef9552d95a13696e028bf94c8799bb41e9455927609c77d5969407",
+    "apps/web/src/components/dashboard/ResourceBreakdown.tsx": "f4152c554014553fea3b2d7c6f9055b2187540761de472fcc16c4f5efe10bc93",
+    "apps/web/src/components/dashboard/ResourceBreakdown.pool042.test.tsx": "f01860363b23450adb35081251046d509164afa538517afc70fbd45d0a03c715",
+    "apps/web/src/components/resources/ResourceUsageOverviewPanel.test.tsx": "20c2d9eb5f68f53f6dbcce5fa50860fbe54d86011b357000ebd58b8bb9e7db2c",
+    "apps/web/src/styles/visual-spec.lint.test.ts": "08a6b703477dee43469a1dee4db8b850344d2724a7687386d765cdd88ef8c3f8"
+  },
+  "buildOutput": "/var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/qianliu-visual-p2-20261023-1cs7yktz/dist",
+  "scope": [
+    "F-P2-01 quota units",
+    "Q-P2-03 lint prefix matching"
+  ],
+  "databaseChanged": false,
+  "deploymentPerformed": false
+}

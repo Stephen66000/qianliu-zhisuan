@@ -1,0 +1,18 @@
+vite v7.1.7 building for production...
+transforming...
+✓ 1874 modules transformed.
+
+(!) outDir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/qianliu-visual-p2-20261023-1cs7yktz/dist is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+rendering chunks...
+computing gzip size...
+../../../../../../var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/qianliu-visual-p2-20261023-1cs7yktz/dist/index.html                   1.85 kB │ gzip:   0.97 kB
+../../../../../../var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/qianliu-visual-p2-20261023-1cs7yktz/dist/assets/index-CzhcZiDC.css   41.71 kB │ gzip:   8.58 kB
+../../../../../../var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/qianliu-visual-p2-20261023-1cs7yktz/dist/assets/index-DuMls2Vt.js   962.19 kB │ gzip: 269.07 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.91s

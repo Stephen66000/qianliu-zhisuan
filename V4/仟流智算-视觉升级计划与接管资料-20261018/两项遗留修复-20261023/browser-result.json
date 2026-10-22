@@ -1,0 +1,182 @@
+{
+  "status": "PASS",
+  "environment": "local production build; mocked API; no database",
+  "cases": [
+    {
+      "width": 1024,
+      "theme": "light",
+      "rows": [
+        {
+          "label": "API 金额 API",
+          "balance": "CNY 87.90",
+          "allocated": "1,000 Token"
+        },
+        {
+          "label": "POINT 套餐 Coding Plan",
+          "balance": "1,200 POINT",
+          "allocated": "2,500 Token"
+        },
+        {
+          "label": "TOKEN 大数值 Coding Plan",
+          "balance": "9,007,199,254,740,993 TOKEN",
+          "allocated": "9,007,199,254,740,995 Token"
+        },
+        {
+          "label": "单位未知套餐 Coding Plan",
+          "balance": "80 单位未知",
+          "allocated": "50 Token"
+        },
+        {
+          "label": "零额度套餐 Coding Plan",
+          "balance": "0 POINT",
+          "allocated": "0 Token"
+        },
+        {
+          "label": "额度缺失套餐 Coding Plan",
+          "balance": "—",
+          "allocated": "—"
+        }
+      ],
+      "pageOverflow": false,
+      "headerFont": "13px",
+      "screenshot": "quota-units-1024-light.png"
+    },
+    {
+      "width": 1024,
+      "theme": "dark",
+      "rows": [
+        {
+          "label": "API 金额 API",
+          "balance": "CNY 87.90",
+          "allocated": "1,000 Token"
+        },
+        {
+          "label": "POINT 套餐 Coding Plan",
+          "balance": "1,200 POINT",
+          "allocated": "2,500 Token"
+        },
+        {
+          "label": "TOKEN 大数值 Coding Plan",
+          "balance": "9,007,199,254,740,993 TOKEN",
+          "allocated": "9,007,199,254,740,995 Token"
+        },
+        {
+          "label": "单位未知套餐 Coding Plan",
+          "balance": "80 单位未知",
+          "allocated": "50 Token"
+        },
+        {
+          "label": "零额度套餐 Coding Plan",
+          "balance": "0 POINT",
+          "allocated": "0 Token"
+        },
+        {
+          "label": "额度缺失套餐 Coding Plan",
+          "balance": "—",
+          "allocated": "—"
+        }
+      ],
+      "pageOverflow": false,
+      "headerFont": "13px",
+      "screenshot": "quota-units-1024-dark.png"
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "rows": [
+        {
+          "label": "API 金额 API",
+          "balance": "CNY 87.90",
+          "allocated": "1,000 Token"
+        },
+        {
+          "label": "POINT 套餐 Coding Plan",
+          "balance": "1,200 POINT",
+          "allocated": "2,500 Token"
+        },
+        {
+          "label": "TOKEN 大数值 Coding Plan",
+          "balance": "9,007,199,254,740,993 TOKEN",
+          "allocated": "9,007,199,254,740,995 Token"
+        },
+        {
+          "label": "单位未知套餐 Coding Plan",
+          "balance": "80 单位未知",
+          "allocated": "50 Token"
+        },
+        {
+          "label": "零额度套餐 Coding Plan",
+          "balance": "0 POINT",
+          "allocated": "0 Token"
+        },
+        {
+          "label": "额度缺失套餐 Coding Plan",
+          "balance": "—",
+          "allocated": "—"
+        }
+      ],
+      "pageOverflow": false,
+      "headerFont": "13px",
+      "screenshot": "quota-units-1440-light.png"
+    },
+    {
+      "width": 1440,
+      "theme": "dark",
+      "rows": [
+        {
+          "label": "API 金额 API",
+          "balance": "CNY 87.90",
+          "allocated": "1,000 Token"
+        },
+        {
+          "label": "POINT 套餐 Coding Plan",
+          "balance": "1,200 POINT",
+          "allocated": "2,500 Token"
+        },
+        {
+          "label": "TOKEN 大数值 Coding Plan",
+          "balance": "9,007,199,254,740,993 TOKEN",
+          "allocated": "9,007,199,254,740,995 Token"
+        },
+        {
+          "label": "单位未知套餐 Coding Plan",
+          "balance": "80 单位未知",
+          "allocated": "50 Token"
+        },
+        {
+          "label": "零额度套餐 Coding Plan",
+          "balance": "0 POINT",
+          "allocated": "0 Token"
+        },
+        {
+          "label": "额度缺失套餐 Coding Plan",
+          "balance": "—",
+          "allocated": "—"
+        }
+      ],
+      "pageOverflow": false,
+      "headerFont": "13px",
+      "screenshot": "quota-units-1440-dark.png"
+    }
+  ],
+  "errors": [],
+  "writeRequests": [],
+  "apiRequests": [
+    "/auth/me",
+    "/provider-resources/usage-overview",
+    "/provider-resources",
+    "/providers",
+    "/auth/me",
+    "/provider-resources/usage-overview",
+    "/provider-resources",
+    "/providers",
+    "/auth/me",
+    "/provider-resources/usage-overview",
+    "/provider-resources",
+    "/providers",
+    "/auth/me",
+    "/provider-resources/usage-overview",
+    "/provider-resources",
+    "/providers"
+  ]
+}

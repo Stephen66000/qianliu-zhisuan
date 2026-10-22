@@ -1,0 +1,110 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算/apps/web
+
+ ✓ src/pages/QuotaPricingWorkflow.test.tsx (8 tests) 2638ms
+   ✓ saves pending model/route and explicit multiplier prices in one request  480ms
+   ✓ copies the full same-provider set with different effective dates and allows queue editing  304ms
+   ✓ 取消新建规则丢弃整套草稿、沿用来源及错误，重新打开可正常新建  567ms
+ ✓ src/pages/Resources.test.tsx (23 tests) 1741ms
+ ✓ src/pages/Principals.test.tsx (20 tests) 1783ms
+   ✓ W19 使用主体 > B 方式：员工主体联想点选企微候选人，自动带出部门并绑定 person_id 提交（Scenario 3.1/3.2）  383ms
+   ✓ W19 使用主体 > B 方式：点选后手动修改名称会解除自然人绑定  391ms
+ ✓ src/pages/EmployeeModelRules.test.tsx (5 tests) 907ms
+   ✓ POOL-029 批量模型授权页面 > 创建、编辑、校验、发布、停用与新版本操作都调用对应 mutation  582ms
+ ✓ src/pages/OperatingBillAccounts.test.tsx (16 tests) 940ms
+ ✓ src/pages/QuotaModelDisable.test.tsx (9 tests) 916ms
+ ✓ src/components/resources/ProviderFinanceActivationWizard.test.tsx (14 tests) 918ms
+ ✓ src/components/resources/ProviderFinancePanel.test.tsx (4 tests) 734ms
+ ✓ src/components/principals/DirectoryPanel.test.tsx (8 tests) 546ms
+ ✓ src/components/usage/UsageOverviewPanel.test.tsx (19 tests) 542ms
+ ✓ src/pages/RuntimeAssurance.test.tsx (8 tests) 498ms
+ ✓ src/components/resources/ProviderFinancePanel.confirmation.test.tsx (14 tests) 542ms
+ ✓ src/pages/OperatingBill.test.tsx (18 tests) 467ms
+ ✓ src/pages/ProjectMembers.test.tsx (12 tests) 476ms
+ ✓ src/pages/Usage.test.tsx (14 tests) 459ms
+ ✓ src/pages/Admins.test.tsx (5 tests) 382ms
+ ✓ src/components/quota/QuotaBillingSection.filter.test.tsx (8 tests) 375ms
+ ✓ src/api/project-allocation.test.tsx (8 tests) 360ms
+ ✓ src/pages/QuotaRules.coverage.test.tsx (6 tests) 325ms
+ ✓ src/pages/ChangePassword.test.tsx (2 tests) 292ms
+ ✓ src/pages/QuotaRules.lifecycle.test.tsx (4 tests) 322ms
+ ✓ src/pages/OperatingBillProjectAllocation.test.tsx (11 tests) 281ms
+ ✓ src/pages/runtime-assurance/AlertsPanel.test.tsx (17 tests) 261ms
+ ✓ src/pages/Dashboard.test.tsx (23 tests) 241ms
+ ✓ src/components/resources/ResourceUtilizationPanel.test.tsx (23 tests) 254ms
+ ✓ src/pages/runtime-assurance/NotificationRecipientsPanel.test.tsx (5 tests) 241ms
+ ✓ src/pages/QuotaRules.principals.test.tsx (2 tests) 229ms
+ ✓ src/components/principals/PrincipalAccessConfigPanel.test.tsx (3 tests) 227ms
+ ✓ src/components/principals/HistoricalAttributionPanel.test.tsx (2 tests) 209ms
+ ✓ src/components/dashboard/ResourceBreakdown.pool042.test.tsx (12 tests) 204ms
+ ✓ src/components/usage/UsageOverviewRange.test.tsx (2 tests) 217ms
+ ✓ src/pages/OperatingBillProcurement.test.tsx (5 tests) 197ms
+ ✓ src/api/operating-bill-accounts.test.tsx (3 tests) 187ms
+ ✓ src/pages/OperatingBillRechargeEntry.test.tsx (3 tests) 167ms
+ ✓ src/components/quota/DepartmentBudgetPanel.test.tsx (3 tests) 159ms
+ ✓ src/components/operating-bill/OperatingBillShell.test.tsx (3 tests) 153ms
+ ✓ src/pages/runtime-assurance/AlertDetailDrawer.test.tsx (8 tests) 151ms
+ ✓ src/components/quota/ModelRuleCard.test.tsx (5 tests) 139ms
+ ✓ src/pages/SystemSettings.test.tsx (4 tests) 141ms
+ ✓ src/components/resources/ResourceModelDiscovery.sync.test.tsx (4 tests) 141ms
+ ✓ src/pages/OperatingBillDepartments.test.tsx (2 tests) 118ms
+ ✓ src/pages/OperatingBill.pool043-routing.test.tsx (3 tests) 122ms
+ ✓ src/components/resources/ResourceUsageOverviewPanel.test.tsx (3 tests) 133ms
+ ✓ src/pages/QuotaRules.test.tsx (4 tests) 116ms
+ ✓ src/components/resources/SubscriptionAutoRenewal.test.tsx (3 tests) 115ms
+ ✓ src/pages/RequestDrilldown.test.tsx (2 tests) 108ms
+ ✓ src/pages/Alerts.test.tsx (5 tests) 111ms
+ ✓ src/components/operating-bill/AccountShared.test.tsx (4 tests) 112ms
+ ✓ src/pages/QuotaRules.dependencies.test.tsx (3 tests) 100ms
+ ✓ src/components/layout/Layout.pool043.test.tsx (2 tests) 101ms
+ ✓ src/components/resources/FinanceInitializationPanel.test.tsx (6 tests) 104ms
+ ✓ src/components/ui/ExpandableTableRow.test.tsx (1 test) 93ms
+ ✓ src/components/operating-bill/ValueRealizationSection.test.tsx (6 tests) 96ms
+ ✓ src/components/writes/MoneyAmountInput.test.tsx (3 tests) 92ms
+ ✓ src/components/resources/ActivationDraftEditor.test.tsx (7 tests) 93ms
+ ✓ src/components/resources/ResourceModelDiscovery.version.test.tsx (4 tests) 99ms
+ ✓ src/pages/runtime-assurance/AlertHandlingForm.test.tsx (3 tests) 91ms
+ ✓ src/pages/Settings.test.tsx (2 tests) 80ms
+ ✓ src/api/operating-bills.pool043.test.tsx (7 tests) 80ms
+ ✓ src/components/layout/Sidebar.test.tsx (2 tests) 77ms
+ ✓ src/components/writes/IntegerAmountInput.test.tsx (2 tests) 79ms
+ ✓ src/components/resources/CredentialProbeAction.test.tsx (3 tests) 78ms
+ ✓ src/components/operating-bill/MonthlyPayments.test.tsx (3 tests) 71ms
+ ✓ src/api/employee-model-rules.test.tsx (2 tests) 72ms
+ ✓ src/components/operating-bill/SubjectUsageCells.test.tsx (2 tests) 72ms
+ ✓ src/components/operating-bill/OperatingAnalysisPartial.test.tsx (3 tests) 75ms
+ ✓ src/components/operating-bill/FinancialLedgerSection.test.tsx (6 tests) 76ms
+ ✓ src/components/ui/Button.test.tsx (1 test) 67ms
+ ✓ src/components/states/states.test.tsx (7 tests) 68ms
+ ✓ src/api/auth.test.tsx (1 test) 65ms
+ ✓ src/pages/RequestDrilldown.pool048.test.tsx (2 tests) 41ms
+ ✓ src/components/resources/resource-page-display.test.tsx (7 tests) 38ms
+ ✓ src/App.pool043.test.tsx (5 tests) 33ms
+ ✓ src/components/operating-bill/BillStat.test.tsx (6 tests) 29ms
+ ✓ src/pages/RequestDrilldown.pool20.test.tsx (1 test) 24ms
+ ✓ src/components/dashboard/standard-home-model.test.ts (43 tests) 17ms
+ ✓ src/api/hooks-alerts.test.tsx (2 tests) 16ms
+ ✓ src/components/quota/model-rule-grouping.test.ts (5 tests) 14ms
+ ✓ src/lib/format.test.ts (5 tests) 13ms
+ ✓ src/lib/price-unit.test.ts (9 tests) 14ms
+ ✓ src/api/operating-bill-payments.test.ts (3 tests) 11ms
+ ✓ src/api/admins.test.tsx (1 test) 11ms
+ ✓ src/components/quota/pricing-copy.test.ts (4 tests) 10ms
+ ✓ src/components/resources/activation-draft-model.test.ts (22 tests) 9ms
+ ✓ src/components/resources/activation-preflight-model.test.ts (9 tests) 5ms
+ ✓ src/components/resources/draft-autosave.test.ts (9 tests) 5ms
+ ✓ src/pages/runtime-assurance/alert-presenters.test.ts (17 tests) 4ms
+ ✓ src/pages/runtime-assurance/alert-guidance.test.ts (17 tests) 3ms
+ ✓ src/api/provider-finance.test.tsx (1 test) 2ms
+ ✓ src/components/resources/ResourceTable.models.test.ts (5 tests) 2ms
+ ✓ src/lib/usage-cost.test.ts (7 tests) 2ms
+ ✓ src/feature-flags.test.ts (1 test) 1ms
+ ✓ src/styles/visual-spec.lint.test.ts (70 tests) 699ms
+   ✓ 视觉规范 lint：复核回归夹具 > 拦截手写实色按钮：JSX 表达式字符串  503ms
+ ✓ src/styles/visual-spec.test.ts (3 tests) 727ms
+
+ Test Files  94 passed (94)
+      Tests  719 passed (719)
+   Start at  00:33:20
+   Duration  73.02s (transform 1.53s, setup 8.36s, collect 7.45s, tests 24.46s, environment 19.20s, prepare 4.00s)
+

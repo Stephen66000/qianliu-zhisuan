@@ -1,0 +1,16 @@
+{
+  "status": "FAIL",
+  "environment": "local production build; mocked API; no database",
+  "cases": [],
+  "errors": [],
+  "writeRequests": [],
+  "apiRequests": [
+    "/auth/me",
+    "/provider-resources/usage-overview",
+    "/provider-resources",
+    "/providers"
+  ],
+  "failure": "locator.waitFor: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('columnheader', { name: '余额 / 剩余额度', exact: true }) to be visible\u001b[22m\n\n    at /Users/mac/Projects/仟流智算/V4/仟流智算-视觉升级计划与接管资料-20261018/两项遗留修复-20261023/browser-check.mjs:53:78",
+  "pageUrl": "http://127.0.0.1:50737/resources?tab=usage-overview",
+  "pageText": "仟流智算\n首页看板\n使用主体\n厂商资源\n额度规则\n用量账本\n经营账单\n运行保障\n系统设置\n跟随系统\n浅色\n深色\n修改密码\n额度单位展示验收\n退出\n厂商资源\n\n厂商 API 与 Coding Plan 资源、资金账本、凭证安全与受控恢复\n\n资源利用\n用量总览\n额度窗口\n供给与健康\n厂商总体使用情况\n统计周期：2026年08月（当月自然月）\n厂商 / 模式\t账号数\t余额 / 剩余额度\t本月花费\t本月 Token\t状态 / 预计耗尽\n\nAPI 金额\nAPI\n\t1\tCNY 87.90\tCNY 12.10\t100\n已记录；另有 2 笔计量未知\n\t\n预计耗尽：09-03 13:22\n正常\n\nPOINT 套餐\nCoding Plan\n\t1\t1,200 POINT\tCNY 12.10\t100\n已记录；另有 2 笔计量未知\n\t\n预计耗尽：09-03 13:22\n正常\n\nTOKEN 大数值\nCoding Plan\n\t1\t9,007,199,254,740,993 TOKEN\tCNY 12.10\t100\n已记录；另有 2 笔计量未知\n\t\n预计耗尽：09-03 13:22\n正常\n\n单位未知套餐\nCoding Plan\n\t1\t80 单位未知\tCNY 12.10\t100\n已记录；另有 2 笔计量未知\n\t\n预计耗尽：09-03 13:22\n正常\n\n零额度套餐\nCoding Plan\n\t1\t0 POINT\tCNY 12.10\t100\n已记录；另有 2 笔计量未知\n\t\n预计耗尽：09-03 13:22\n正常\n\n额度缺失套餐\nCoding Plan\n\t1\t—\tCNY 12.10\t100\n已记录；另有 2 笔计量未知\n\t\n预计耗尽：09-03 13:22\n正常\n模型使用明细\n包含当月已上架模型及产生过调用的历史模型\n\n暂无已登记模型"
+}
