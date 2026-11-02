@@ -1,0 +1,29 @@
+ M apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts
+ M apps/control-api/src/__tests-integration__/w19-billing-rules.test.ts
+ M apps/control-api/src/provider-finance/consumer-projection.test.ts
+ M apps/control-api/src/providers/finance-usage-overview.ts
+ M apps/control-api/src/read-models/billing-rule-contract.ts
+ M apps/control-api/src/read-models/routes.ts
+ M apps/control-api/src/resource-insights/query.ts
+ M apps/gateway/src/pipeline/billing-evidence.test.ts
+ M apps/gateway/src/pipeline/billing.ts
+ M packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts
+ M packages/database/src/exports/delivery-ledger.ts
+ M packages/database/src/kysely-ledger-tables.ts
+ M packages/database/src/repositories/billing-rule-persistence.ts
+ M packages/database/src/repositories/dashboard-breakdown.ts
+ M packages/database/src/repositories/dashboard-home-costs.ts
+ M packages/database/src/repositories/dashboard-monthly-spend.ts
+ M packages/database/src/repositories/dashboard-repository.ts
+ M packages/domain/src/billing-rule.ts
+?? V4/Evidence/API-COST-OFFICIAL-BALANCE/
+?? apps/control-api/src/__tests-integration__/resource-insights-api-cost-evidence.test.ts
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/BLOCKER-glm-flash.md
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/contracts/
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/plan.md
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/report.md
+?? packages/database/migrations/0093_billing_rule_source_status.js
+?? packages/database/src/__tests-integration__/api-cost-estimation-attempts.integration.test.ts
+?? packages/database/src/__tests-integration__/api-cost-estimation.integration.test.ts
+?? packages/database/src/__tests-integration__/api-cost-readers-alignment.integration.test.ts
+?? packages/database/src/repositories/api-cost-estimation.ts

@@ -1,0 +1,181 @@
+diff --git a/apps/control-api/src/read-models/billing-rule-contract.ts b/apps/control-api/src/read-models/billing-rule-contract.ts
+index 3ed1fdc..d7bae4b 100644
+--- a/apps/control-api/src/read-models/billing-rule-contract.ts
++++ b/apps/control-api/src/read-models/billing-rule-contract.ts
+@@ -40,6 +40,8 @@ const BillingRuleSchema = z.object({
+   currency: z.string().length(3).optional(),
+   priority: z.number().int().min(0).optional(),
+   source: z.string().max(255).nullable().optional(),
++  // ACE-02 场景 3：价格依据核实状态；缺省落库 UNVERIFIED（不得宣称为已核实官方价）。
++  source_status: z.enum(["VERIFIED", "UNVERIFIED"]).optional(),
+ });
+ 
+ type BillingRuleInput = z.infer<typeof BillingRuleSchema>;
+diff --git a/apps/control-api/src/read-models/routes.ts b/apps/control-api/src/read-models/routes.ts
+index 751e0df..c3fda99 100644
+--- a/apps/control-api/src/read-models/routes.ts
++++ b/apps/control-api/src/read-models/routes.ts
+@@ -108,6 +108,7 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
+       currency: input.currency,
+       priority: input.priority,
+       source: input.source,
++      source_status: input.source_status,
+     }).catch((error: unknown) => { if (error instanceof PricingModeConflictError) return null; throw error; });
+     if (!rule) return reply.code(409).send({ error: "pricing_mode_conflict", message: "绝对价格与倍率计价冲突，请通过新建规则替换整套旧价格" });
+     await app.auditRepo.write({
+diff --git a/apps/gateway/src/pipeline/billing-evidence.test.ts b/apps/gateway/src/pipeline/billing-evidence.test.ts
+index cd435f5..e9df026 100644
+--- a/apps/gateway/src/pipeline/billing-evidence.test.ts
++++ b/apps/gateway/src/pipeline/billing-evidence.test.ts
+@@ -1,6 +1,7 @@
+ import { expect, it, vi } from "vitest";
+ import type { GatewayLedgerRepository } from "@qianliu/database";
+ import type { RoutingCandidateInput } from "@qianliu/domain";
++import type { BillingRule } from "@qianliu/domain";
+ import { computeBilling, computeBillingFromRule, calculateDispatchSaving, dispatchCounterfactualEvidence,
+   dispatchSavingFields } from "./billing.js";
+ 
+@@ -10,7 +11,9 @@ function row(patch: Partial<Row> = {}): Row {
+     provider_resource_id: "baseline", upstream_model: "model", effective_from: new Date(0), effective_to: null,
+     timezone: null, days_of_week: null, start_time: null, end_time: null, time_windows: null,
+     multiplier: "3", cache_hit_price: "0.000001", cache_miss_price: "0.000002", output_price: "0.000004",
+-    currency: "CNY", priority: 1, ...patch };
++    // S1 合同 §3.5：迁移 0093 后 listActiveBillingRules 返回类型新增必填 source_status，
++    // 夹具缺省取存量行默认值 UNVERIFIED（迁移 DEFAULT），非删除既有断言。
++    currency: "CNY", priority: 1, source_status: "UNVERIFIED" as const, ...patch };
+ }
+ function repository(rows: Row[]) {
+   // Mock only the persistence read boundary. All matching, arithmetic and snapshots below are real.
+@@ -69,3 +72,21 @@ it.each([
+   expect(result.saving).toEqual({ saving: "NOT_CALCULABLE", reason });
+   expect(dispatchSavingFields(result.saving)).toEqual({ dispatchSaving: null, savingCalculable: false, notCalculableReason: reason });
+ });
++
++
++// S1 合同 §3.5：价格依据状态随快照冻结（ACE-02 场景 3）——未核实不得宣称为已核实官方价。
++it("快照冻结 sourceStatus：VERIFIED 原样透传、缺省按 UNVERIFIED 解释", async () => {
++  const verified = repository([row({ source_status: "VERIFIED" })]);
++  const result = await computeBilling(verified.ledger, "enterprise", "baseline", "model", "API", 1000, usage);
++  expect(result.ruleSnapshot).toMatchObject({ sourceStatus: "VERIFIED" });
++
++  // computeBillingFromRule 直接收域层 BillingRule：旧构造无 sourceStatus（undefined）→ 快照按 UNVERIFIED。
++  const legacyRule: BillingRule = {
++    id: "legacy", ruleType: "API_PRICE", ruleVersion: "v0", providerResourceId: null,
++    upstreamModel: null, effectiveFrom: 0, effectiveTo: null, timezone: null, daysOfWeek: null,
++    startTime: null, endTime: null, timeWindows: null, multiplier: null, cacheHitPrice: "0.000001",
++    cacheMissPrice: "0.000002", outputPrice: "0.000004", currency: "CNY", priority: 1,
++  };
++  expect(computeBillingFromRule(legacyRule, "API", 1000, usage).ruleSnapshot)
++    .toMatchObject({ sourceStatus: "UNVERIFIED" });
++});
+\ No newline at end of file
+diff --git a/apps/gateway/src/pipeline/billing.ts b/apps/gateway/src/pipeline/billing.ts
+index 857aa48..2ceadde 100644
+--- a/apps/gateway/src/pipeline/billing.ts
++++ b/apps/gateway/src/pipeline/billing.ts
+@@ -58,6 +58,7 @@ export async function computeBilling(
+       outputPrice: rule.output_price,
+       currency: rule.currency,
+       priority: rule.priority,
++      sourceStatus: rule.source_status,
+     }),
+   );
+ 
+@@ -142,6 +143,8 @@ function billingRuleSnapshot(
+     outputPrice: rule.outputPrice,
+     currency: rule.currency,
+     priority: rule.priority,
++    // ACE-02 场景 3：价格依据状态随快照冻结；旧数据/旧构造缺省按未核实解释。
++    sourceStatus: rule.sourceStatus ?? "UNVERIFIED",
+   };
+ }
+ 
+diff --git a/packages/database/src/exports/delivery-ledger.ts b/packages/database/src/exports/delivery-ledger.ts
+index c05e0de..16b5de7 100644
+--- a/packages/database/src/exports/delivery-ledger.ts
++++ b/packages/database/src/exports/delivery-ledger.ts
+@@ -137,6 +137,18 @@ export {
+ } from "../repositories/supply-forecast-repository.js";
+ 
+ export { loadUsageCostDispositionProjections, loadExcludedUsageCostLineIds } from "../repositories/usage-cost-disposition-projection.js";
++
++export {
++  loadApiCostEstimation,
++  type ApiCostEstimation,
++  type ApiCostEstimationAmount,
++  type ApiCostEstimationCompleteness,
++  type ApiCostEstimationGap,
++  type ApiCostEstimationGapReason,
++  type ApiCostEstimationPriceBasis,
++  type ApiCostEstimationQuery,
++  type BillingRuleSourceStatus,
++} from "../repositories/api-cost-estimation.js";
+ export {
+   UsageRepository,
+   type UsageQuery,
+diff --git a/packages/database/src/kysely-ledger-tables.ts b/packages/database/src/kysely-ledger-tables.ts
+index cbf9373..5cbc745 100644
+--- a/packages/database/src/kysely-ledger-tables.ts
++++ b/packages/database/src/kysely-ledger-tables.ts
+@@ -64,7 +64,8 @@ export interface BillingRuleTable {
+   timezone: string | null; days_of_week: number[] | null; start_time: string | null; end_time: string | null;
+   time_windows: Generated<BillingRuleWindow[] | null>; multiplier: string | null; cache_hit_price: string | null;
+   cache_miss_price: string | null; output_price: string | null; currency: Generated<string>;
+-  priority: Generated<number>; enabled: Generated<boolean>; source: string | null; version: Generated<number>;
++  priority: Generated<number>; enabled: Generated<boolean>; source: string | null;
++  source_status: Generated<"VERIFIED" | "UNVERIFIED">; version: Generated<number>;
+   archived_at: Generated<Date | null>; archived_by_admin_id: string | null;
+   created_at: Generated<Date>; updated_at: Generated<Date>;
+ }
+diff --git a/packages/database/src/repositories/billing-rule-persistence.ts b/packages/database/src/repositories/billing-rule-persistence.ts
+index e66b896..d1191a3 100644
+--- a/packages/database/src/repositories/billing-rule-persistence.ts
++++ b/packages/database/src/repositories/billing-rule-persistence.ts
+@@ -35,6 +35,7 @@ export class BillingRulePersistence {
+       output_price: string | null;
+       currency: string;
+       priority: number;
++      source_status: "VERIFIED" | "UNVERIFIED";
+     }>
+   > {
+     return this.db
+@@ -78,6 +79,7 @@ export class BillingRulePersistence {
+       priority: number;
+       enabled: boolean;
+       source: string | null;
++      source_status: "VERIFIED" | "UNVERIFIED";
+       version: number;
+       archived_at: Date | null;
+       archived_by_admin_id: string | null;
+@@ -122,6 +124,8 @@ export class BillingRulePersistence {
+     currency?: string;
+     priority?: number;
+     source?: string | null;
++    /** 价格依据核实状态（ACE-02 场景 3）；缺省 UNVERIFIED，不得宣称为已核实官方价。 */
++    source_status?: "VERIFIED" | "UNVERIFIED";
+   }) {
+     const firstWindow = input.time_windows?.[0];
+     const create = async (db: Kysely<Database>) => {
+@@ -154,6 +158,9 @@ export class BillingRulePersistence {
+         currency: input.currency ?? "CNY",
+         priority: input.priority ?? 100,
+         source: input.source ?? null,
++        // 缺省落库走 0093 列 DEFAULT 'UNVERIFIED'（S1 §3.5）；仅在显式传入时写列，
++        // 保证同一 repository 仍可在迁移回滚链的 0093 之前 schema 头上执行（kysely 忽略 undefined）。
++        source_status: input.source_status,
+       })
+       .returningAll()
+       .executeTakeFirstOrThrow();
+diff --git a/packages/domain/src/billing-rule.ts b/packages/domain/src/billing-rule.ts
+index be9b367..2c61b48 100644
+--- a/packages/domain/src/billing-rule.ts
++++ b/packages/domain/src/billing-rule.ts
+@@ -51,6 +51,8 @@ export interface BillingRule {
+   outputPrice: string | null;
+   currency: string;
+   priority: number; // 数值小优先
++  /** 价格依据核实状态（ACE-02 场景 3）；可选项，读取旧数据/旧构造时缺省按 UNVERIFIED 解释。 */
++  sourceStatus?: "VERIFIED" | "UNVERIFIED";
+ }
+ 
+ /** 匹配结果（冻结到 ledger_line）。 */

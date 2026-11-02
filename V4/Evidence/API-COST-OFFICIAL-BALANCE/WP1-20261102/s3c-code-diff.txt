@@ -1,0 +1,268 @@
+diff --git a/packages/database/src/__tests-integration__/operating-analysis.integration.test.ts b/packages/database/src/__tests-integration__/operating-analysis.integration.test.ts
+index 3690429..0e547d3 100644
+--- a/packages/database/src/__tests-integration__/operating-analysis.integration.test.ts
++++ b/packages/database/src/__tests-integration__/operating-analysis.integration.test.ts
+@@ -178,11 +178,18 @@ describe("经营分析真实数据链", () => {
+       totalTokens: "850",
+     });
+     expect(report.cashSummary).toMatchObject({ yearCash: "448.00" });
++    // S3c 断言迁移（追加合同 §1 / ACE-06）：apiSpend 改由 loadApiCostEstimation 同源估算，
++    // 按 settled_at 半开窗口聚合整个 operatingBillMonthRange、无 asOf 截断（S1 估算合同；
++    // 与经营账单 draft、首页读者同期间语义），故 09-20 结算的已计价行（50.00）计入 9 月
++    // 估算：2+10+50=62.00；不再沿用资金视图 settled_at<=asOf 的旧值 12.00。
++    // opening/recharge/paidCny/ending 为资金域轨迹字段（WP2/WP4 处置），仍走资金视图
++    // asOf 口径，数值不变。
+     expect(report.apiAccounts[0]!.months[8]).toMatchObject({
+       openingBalance: "100.00",
+       recharge: "170.00",
+       paidCny: "150.00",
+-      apiSpend: "12.00",
++      apiSpend: "62.00",
++      apiSpendComplete: true,
+       endingBalance: "258.00",
+     });
+     expect(report.officialApiBalances).toEqual([
+@@ -221,6 +228,144 @@ describe("经营分析真实数据链", () => {
+     expect(updated.months[8]!.employeeCount).toBe(1);
+   }, 30_000);
+ 
++  // ---- S3c（追加合同 §4）：年度聚合 apiSpend/apiSpendComplete 同源估算对齐用例 ----
++  it("S3c：无资金事件、有已结算已计价行时月度 apiSpend 取估算字面值（ACE-03/06）", async () => {
++    // 不登记任何期初/充值/资金激活事件——估算不依赖资金初始化（ACE-03）。
++    const t = await tenant();
++    await usage(t, t.a, "deepseek", 100n, new Date("2026-09-02T00:00:00Z"), "7.5");
++    const report = await loadOperatingAnalysis(
++      db,
++      t.enterpriseId,
++      "2026-09",
++      new Date("2026-09-06T12:00:00Z"),
++    );
++    const account = report.apiAccounts.find(
++      (row) => row.providerCode === "deepseek",
++    );
++    expect(account).toBeDefined();
++    expect(account!.months[8]).toMatchObject({
++      apiSpend: "7.50",
++      apiSpendComplete: true,
++    });
++    // apiReviews totals 随新源自然更新（合同 §1.2）：1-8 月无 API 行为精确 0，合计不变。
++    expect(account!.totals.apiSpend).toBe("7.50");
++    expect(account!.totals.apiSpendComplete).toBe(true);
++  });
++
++  it("S3c：多币种估算不混加，apiSpend 为 null 且不完整（ACE-07）", async () => {
++    const t = await tenant();
++    await usage(t, t.a, "deepseek", 10n, new Date("2026-09-02T00:00:00Z"), "2");
++    const usd = await usage(
++      t,
++      t.a,
++      "deepseek",
++      10n,
++      new Date("2026-09-03T00:00:00Z"),
++      "3",
++    );
++    await db
++      .updateTable("ledger_line")
++      .set({ api_cost_currency: "USD" })
++      .where("ai_request_id", "=", usd)
++      .execute();
++    const report = await loadOperatingAnalysis(
++      db,
++      t.enterpriseId,
++      "2026-09",
++      new Date("2026-09-06T12:00:00Z"),
++    );
++    const rows = report.apiAccounts.filter(
++      (row) => row.providerCode === "deepseek",
++    );
++    expect(rows.map((row) => row.currency).sort()).toEqual(["CNY", "USD"]);
++    for (const row of rows) {
++      expect(row.months[8]).toMatchObject({
++        apiSpend: null,
++        apiSpendComplete: false,
++      });
++    }
++  });
++
++  it("S3c：混合已知与缺口时保留已计价金额并标记不完整（ACE-04）", async () => {
++    const t = await tenant();
++    await usage(t, t.a, "deepseek", 100n, new Date("2026-09-02T00:00:00Z"), "2.5");
++    const gap = await usage(
++      t,
++      t.a,
++      "deepseek",
++      25n,
++      new Date("2026-09-03T00:00:00Z"),
++      "0",
++      "UNKNOWN",
++    );
++    await db
++      .updateTable("ledger_line")
++      .set({ api_cost: null, api_cost_currency: null, api_cost_status: "UNKNOWN_COST" })
++      .where("ai_request_id", "=", gap)
++      .execute();
++    const report = await loadOperatingAnalysis(
++      db,
++      t.enterpriseId,
++      "2026-09",
++      new Date("2026-09-06T12:00:00Z"),
++    );
++    expect(
++      report.apiAccounts.find((row) => row.providerCode === "deepseek")!.months[8],
++    ).toMatchObject({ apiSpend: "2.50", apiSpendComplete: false });
++  });
++
++  it("S3c：资金轨迹字段（期初/充值/实付/期末）与估算 apiSpend 并存产出", async () => {
++    const t = await tenant();
++    const finance = new ProviderFinanceRepository(db);
++    // F-P2-6 前置事实：企业已激活 + 资源 PENDING（资源级 ADMIN 期初门槛）。
++    await sql`
++      INSERT INTO provider_finance_runtime_state
++        (enterprise_id, strict_writes_enabled, activated_at, activated_by_admin_user_id, updated_at)
++      VALUES (${t.enterpriseId}::uuid, true, now(), ${t.adminId}::uuid, now())
++      ON CONFLICT (enterprise_id) DO NOTHING
++    `.execute(db);
++    await db.insertInto("provider_resource_finance_state").values({
++      enterprise_id: t.enterpriseId,
++      provider_resource_id: t.resources.get("deepseek")!,
++      state: "PENDING",
++    }).execute();
++    await finance.recordOpeningBalance({
++      enterpriseId: t.enterpriseId,
++      adminId: t.adminId,
++      resourceId: t.resources.get("deepseek")!,
++      accountAmount: "80",
++      accountCurrency: "CNY",
++      occurredAt: new Date("2026-09-01T00:00:00+08:00"),
++      idempotencyKey: randomUUID(),
++    });
++    await finance.recordRecharge({
++      enterpriseId: t.enterpriseId,
++      adminId: t.adminId,
++      resourceId: t.resources.get("deepseek")!,
++      accountAmount: "20",
++      accountCurrency: "CNY",
++      cashPaidCny: "20",
++      occurredAt: new Date("2026-09-02T00:00:00+08:00"),
++      idempotencyKey: randomUUID(),
++    });
++    await usage(t, t.a, "deepseek", 10n, new Date("2026-09-02T00:00:00Z"), "4");
++    const report = await loadOperatingAnalysis(
++      db,
++      t.enterpriseId,
++      "2026-09",
++      new Date("2026-09-06T12:00:00Z"),
++    );
++    // 轨迹字段仍由资金域产出（WP2/WP4 处置），apiSpend 已切同源估算（ACE-03/06）。
++    expect(report.apiAccounts[0]!.months[8]).toMatchObject({
++      openingBalance: "80.00",
++      recharge: "20.00",
++      paidCny: "20.00",
++      apiSpend: "4.00",
++      apiSpendComplete: true,
++      endingBalance: "96.00",
++    });
++  });
++
+   it("跨企业隔离，未知用量和无人数不伪装为零或人均", async () => {
+     const t = await tenant();
+     await usage(
+diff --git a/packages/database/src/repositories/operating-analysis-repository.ts b/packages/database/src/repositories/operating-analysis-repository.ts
+index 47eb4a0..0be671a 100644
+--- a/packages/database/src/repositories/operating-analysis-repository.ts
++++ b/packages/database/src/repositories/operating-analysis-repository.ts
+@@ -1,6 +1,10 @@
+ import { loadAnalysisPurchases } from "./operating-analysis-purchases.js";
+ import { sql, type Kysely } from "kysely";
+ import type { Database } from "../kysely.js";
++import {
++  loadApiCostEstimation,
++  type ApiCostEstimation,
++} from "./api-cost-estimation.js";
+ import { ProviderFinanceRepository } from "./provider-finance-repository.js";
+ import { operatingBillMonthRange } from "./operating-bill-month.js";
+ import {
+@@ -186,6 +190,39 @@ export async function loadOperatingAnalysis(
+             ),
+         ),
+       ].sort();
++      // S3c（追加合同 §1 / ACE-03/04/06/07）：月度 apiSpend/apiSpendComplete 的数据源从
++      // 资金账户 monthlyApiCost（loadResourceFinanceViews）改为统一入口 loadApiCostEstimation：
++      // 按企业＋该月 operatingBillMonthRange 期间的 settled_at 半开窗口聚合 API 模式账本行，
++      // 不依赖期初/充值/余额/资金初始化（ACE-03）。资源范围收敛到该厂商当月 views 内的 API
++      // 资源集合（operatingBillResourceScope 保证当月有结算行的资源必在 views 中），使各
++      // (providerCode, currency) 行金额互斥可加、各行合计与同厂商估算一致、全部行合计与
++      // 全企业估算一致（ACE-06 同源）。12 个月×逐厂商聚合与既有每月 loadResourceFinanceViews
++      // 的调用量级相当（追加合同 §1.3）；api-cost-estimation.ts 为 S1 产物，语义未改。
++      const providerCodes = [...new Set(keys.map((key) => key.split(":")[0]!))];
++      const estimationByMonthProvider = new Map<string, ApiCostEstimation>();
++      await Promise.all(
++        months.flatMap((month, i) => {
++          const { start, end } = operatingBillMonthRange(month);
++          // 与 views 相同的加载门槛：未开始的月份/超出所选月份的月份不产出估算。
++          if (start > now || month > selectedMonth) return [];
++          return providerCodes.map(async (providerCode) => {
++            const resourceIds = views[i]!
++              .filter(
++                (view) =>
++                  view.mode === "API" && view.providerCode === providerCode,
++              )
++              .map((view) => view.resourceId);
++            estimationByMonthProvider.set(
++              `${month}|${providerCode}`,
++              await loadApiCostEstimation(trx, enterpriseId, {
++                start,
++                end,
++                resourceIds,
++              }),
++            );
++          });
++        }),
++      );
+       const apiAccounts = keys.map((key) => {
+         const [providerCode, currency] = key.split(":") as [string, string];
+         return {
+@@ -208,6 +245,32 @@ export async function loadOperatingAnalysis(
+             const valid = month <= currentMonth && accounts.length > 0;
+             const paid = cashRows.filter((row) => row.month === month && row.currency === currency
+               && resources.some((resource) => resource.resourceId === row.resource_id));
++            // S3c（追加合同 §1）：apiSpend/apiSpendComplete 改由同源估算派生——
++            //   多币种 → null＋false（ACE-07 不混加）；单币种 → 该币种估算金额字面值
++            //   （沿用本文件既有 toFixed(2) 展示精度）；期间无 API 行（含仅明确零/合法处置
++            //   排除）→ 精确 0＋完整；有缺口行（KNOWN_PARTIAL）→ 已知金额照出（有则）、
++            //   complete=false，缺口且无已知金额 → null（ACE-04 不把缺失冒充零、已知部分
++            //   保留）；估算未加载（未来/超出所选月份）→ null＋false（与既有 valid=false
++            //   语义一致）。
++            // 资金域轨迹字段（opening/recharge/paidCny/ending）原样保留（WP2/WP4 处置）。
++            const estimation =
++              estimationByMonthProvider.get(`${month}|${providerCode}`) ?? null;
++            const currencyAmounts = estimation === null
++              ? []
++              : estimation.amounts.filter((entry) => entry.currency === currency);
++            const mixedCurrency =
++              estimation !== null && estimation.amounts.length > 1;
++            const apiSpend: string | null =
++              estimation === null || mixedCurrency
++                ? null
++                : currencyAmounts.length === 1
++                  ? addAnalysis([currencyAmounts[0]!.amount]).toFixed(2)
++                  : estimation.completeness !== "KNOWN_PARTIAL"
++                    ? addAnalysis([]).toFixed(2)
++                    : null;
++            const apiSpendComplete =
++              estimation !== null && !mixedCurrency &&
++              estimation.completeness !== "KNOWN_PARTIAL";
+             return {
+               month,
+               openingBalance:
+@@ -227,8 +290,8 @@ export async function loadOperatingAnalysis(
+               paidCny: month <= currentMonth
+                 ? paid.some((row) => row.cash === null) ? null : addAnalysis(paid.map((row) => row.cash!)).toFixed(2)
+                 : null,
+-              apiSpend: valid && accounts.every((a) => a.balanceState !== "LEGACY_ARCHIVED") ? addAnalysis(accounts.map((a) => a.monthlyApiCost)).toFixed(2) : null,
+-              apiSpendComplete: valid && accounts.every((a) => a.balanceState !== "INCOMPLETE_USAGE_COST" && a.balanceState !== "LEGACY_ARCHIVED"),
++              apiSpend,
++              apiSpendComplete,
+               endingBalance:
+                 valid &&
+                 accounts.every(

@@ -1,0 +1,634 @@
+diff --git a/apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts b/apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts
+index b218513..a021666 100644
+--- a/apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts
++++ b/apps/control-api/src/__tests-integration__/pool025-operating-bill.test.ts
+@@ -54,6 +54,14 @@ async function addUsage(input: {
+     raw_output_tokens: BigInt(input.output), raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+     deducted_quota: input.deducted === null ? null : BigInt(input.deducted),
+     api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", created_at: occurredAt,
++    // S3b：经营账单当前期 API 费用主口径切同源估算（合同 §1.3，settled_at 半开窗口 +
++    // 币种分桶），夹具补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts /
++    // 0085 shape；NULL settled_at 仅存在于 seed 工具，见 s1-settled-at-null-investigation.md §3）。
++    settled_at: occurredAt,
++    ...(input.mode === "API" ? {
++      api_cost_status: input.cost === null ? "UNKNOWN_COST" as const : "PRICED_USAGE" as const,
++      api_cost_currency: input.cost === null ? null : "CNY",
++    } : {}),
+   }).returningAll().executeTakeFirstOrThrow();
+   await db.insertInto("ledger_transaction").values({
+     ai_request_id: requestId,
+@@ -205,7 +213,10 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
+     expect(draft.json().providers.find((row: { providerResourceId: string }) => row.providerResourceId === apiResource.id))
+       .toMatchObject({
+         purchases: [{ type: "API_RECHARGE", amount: "50.00000000", currency: "CNY", source: "ADMIN" }],
+-        apiCost: null, apiSpendReason: "待补期末余额",
++        // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2 / AFR-07）：API 费用主口径切估算后，
++        // 无账本行的期间估算为精确 0（不再由余额差/资金缺口补造费用或置 null）；
++        // apiSpendReason 仍为余额桥接机制状态（桥接字段保留产出，WP2/WP4 处置）。
++        apiCost: "0.00000000", apiSpendReason: "待补期末余额",
+         confirmation: { status: "PENDING", matchesCurrentFacts: false },
+       });
+     for (const resource of resources) {
+@@ -268,7 +279,8 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
+     );
+     expect(beforeProvider).toMatchObject({
+       openingBalance: null, endingBalance: "70.00000000",
+-      apiCost: null, apiSpendReason: "待补期初余额",
++      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：无账本行 → 估算精确 0，不再随桥接缺口置 null。
++      apiCost: "0.00000000", apiSpendReason: "待补期初余额",
+     });
+ 
+     const recorded = await app.inject({
+@@ -283,7 +295,11 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
+       (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
+     )).toMatchObject({
+       openingBalance: "100.00000000", rechargeAmount: "0.00000000",
+-      endingBalance: "70.00000000", apiCost: "30.00000000",
++      endingBalance: "70.00000000",
++      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2“不以余额差补造用量或费用”）：
++      // 期初 100 + 充值 0 − 期末 70 的桥接值 30 不再冒充 API 费用主口径；
++      // 无账本行时估算为精确 0。桥接值仍经 balanceBridgeFacts/opening/ending/recharge 保留。
++      apiCost: "0.00000000",
+     });
+     expect(await db.selectFrom("provider_resource_operating_snapshot")
+       .select(({ fn }) => fn.countAll().as("count"))
+@@ -374,7 +390,8 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
+     expect(corrected.statusCode).toBe(201);
+     expect(corrected.json().providers.find(
+       (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
+-    )).toMatchObject({ openingBalance: "90.00000000", endingBalance: "70.00000000", apiCost: "20.00000000" });
++    // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：同上，桥接差 20 不再作为 API 费用主口径。
++    )).toMatchObject({ openingBalance: "90.00000000", endingBalance: "70.00000000", apiCost: "0.00000000" });
+     expect(await db.selectFrom("operating_bill_opening_balance").select("version")
+       .where("provider_resource_id", "=", resource.id).where("reason", "is not", null)
+       .orderBy("version").execute())
+@@ -407,7 +424,10 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
+     expect(july.json().providers.find(
+       (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
+     )).toMatchObject({
+-      openingBalance: "70.00000000", endingBalance: "50.00000000", apiCost: "20.00000000",
++      openingBalance: "70.00000000", endingBalance: "50.00000000",
++      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：上月关账→本月期初链路保留（桥接字段
++      // 照常产出 70/50），但 API 费用主口径为估算：无账本行 → 精确 0。
++      apiCost: "0.00000000",
+     });
+     expect(july.json().sourceFacts.balanceBridgeFacts).toEqual(expect.arrayContaining([
+       expect.objectContaining({
+@@ -481,7 +501,9 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
+     )).toMatchObject({
+       openingBalance: "100.00000000", openingBalanceCurrency: "CNY",
+       endingBalance: "90.00000000",
+-      apiCost: "10.00000000",
++      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：8 月无账本行 → 估算精确 0；
++      // 快照回退链（OPERATING_SNAPSHOT 期初）保留在桥接字段与 balanceBridgeFacts。
++      apiCost: "0.00000000",
+     });
+     expect(augustFallback.json().sourceFacts.balanceBridgeFacts).toEqual(expect.arrayContaining([
+       expect.objectContaining({
+@@ -601,12 +623,17 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
+ 
+     const reopen = await app.inject({ method: "POST", url: "/operating-bills/2026-08/reopen", headers: { cookie }, payload: { reason: "对账修正" } });
+     expect(reopen.statusCode).toBe(200);
++    // 断言迁移（S3b 合同 §1.3）：draft API 费用主口径为估算——reopen 后按当前账本
++    // 计价事实（已改为 99.99）重算 99.99+300=399.99；上一断言已证明已关账版本 1 的
++    // 快照内容不变（AFR-06）。原断言的 12.34 来自余额桥接（冻结于快照的 100−87.66），
++    // 新口径下不再作为 draft 主值。
+     expect(reopen.json()).toMatchObject({ status: "DRAFT", version: 1, summary: {
+-      totalCost: "312.34000000", apiCost: "12.34000000", ledgerApiCost: "99.99000000",
++      totalCost: "399.99000000", apiCost: "99.99000000", ledgerApiCost: "99.99000000",
+     } });
+     const reclose = await app.inject({ method: "POST", url: "/operating-bills/2026-08/close", headers: { cookie }, payload: { allow_incomplete: false, note: "修正后结账" } });
+     expect(reclose.statusCode).toBe(200);
+-    expect(reclose.json()).toMatchObject({ status: "CLOSED", version: 2, summary: { totalCost: "312.34000000" } });
++    // 断言迁移（S3b 合同 §1.3）：v2 冻结当前 draft 估算口径（99.99+300=399.99）。
++    expect(reclose.json()).toMatchObject({ status: "CLOSED", version: 2, summary: { totalCost: "399.99000000" } });
+     expect(reclose.json().versions).toHaveLength(2);
+ 
+     await app.inject({ method: "POST", url: "/operating-bills/2026-08/reopen", headers: { cookie }, payload: { reason: "并发验收" } });
+@@ -622,7 +649,9 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
+       method: "GET", url: "/operating-bills/2026-07", headers: { cookie },
+     });
+     expect(draft.json().summary).toMatchObject({
+-      apiCost: null, apiSpendStatus: "OPENING_BALANCE_MISSING",
++      // 断言迁移（S3b 合同 §1.3 / AFR-07）：7 月无账本行 → 估算精确 0（资金缺口不再
++      // 驱动费用缺失语义）；apiSpendStatus/Reason 仍为余额桥接机制字段（保留产出）。
++      apiCost: "0.00000000", apiSpendStatus: "OPENING_BALANCE_MISSING",
+       apiSpendReason: "待补期初余额",
+       packageCost: null,
+       apiSpends: [], totalSpends: [],
+diff --git a/apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts b/apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts
+index f56ceb6..c002543 100644
+--- a/apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts
++++ b/apps/control-api/src/__tests-integration__/provider-finance-wp07-acceptance.http.test.ts
+@@ -401,7 +401,11 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
+       openingBalance: preBill.summary.openingBalance,
+       subjects: preBill.subjects.map((row) => ({ principalId: row.principalId,
+         principalType: row.principalType, totalTokens: row.totalTokens })) })}`);
+-    expect(preBill.summary.apiCost).toBeNull();
++    // 断言迁移（S3b 合同 §1.3 / AFR-07 场景“缺期初但费用已计价”）：激活前无期初/期末
++    // 余额桥，旧口径因此置 null；新口径主值＝同源估算——已定价已结算的 1.25 照常透出，
++    // 不再据资金缺口隐藏费用估算。totalCost 仍为 null（套餐快照缺 package_cost，无可
++    // 合并的套餐分量，非资金缺口所致）。
++    expect(preBill.summary.apiCost).toBe("1.25000000");
+     expect(preBill.summary.totalCost).toBeNull();
+   }, 120_000);
+ 
+diff --git a/apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts b/apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts
+index 46d5658..3b0bc36 100644
+--- a/apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts
++++ b/apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts
+@@ -230,6 +230,10 @@ async function seedFullData(): Promise<{
+       raw_cache_tokens: 0n,
+       deducted_quota: 300n,
+       usage_quality: "PROVIDER_REPORTED",
++      // S3b：queryUsageRows 期间过滤统一 settled_at 半开窗口（合同 §1.2）；生产结算链
++      // 对每条已结算账本行都写 settled_at（s1-settled-at-null-investigation.md §3）。
++      created_at: new Date(),
++      settled_at: new Date(),
+     })
+     .execute();
+ 
+@@ -570,6 +574,14 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
+         principal_id: seededPrincipalId, resource_mode: input.mode, raw_input_tokens: 1n,
+         raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+         api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", created_at: input.at,
++        // S3a：首页/总览 API 费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
++        // 夹具补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
++        // S3b：queryUsageRows 期间过滤统一 settled_at 半开窗口（合同 §1.2），CODING_PLAN
++        // 行同样由生产结算链写入 settled_at，故所有行补齐。
++        settled_at: input.at,
++        ...(input.mode === "API" ? {
++          api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
++        } : {}),
+       }).execute();
+       await db.insertInto("ledger_transaction").values({
+         ai_request_id: requestId, enterprise_id: ENT_ID, principal_id: seededPrincipalId,
+@@ -666,6 +678,8 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
+       principal_id: seededPrincipalId, resource_mode: "API", raw_input_tokens: 100n,
+       raw_output_tokens: 20n, raw_cache_tokens: 40n, raw_reasoning_tokens: 5n,
+       api_cost: "0.24", usage_quality: "PROVIDER_REPORTED", created_at: usedAt,
++      // S3a：同上，补齐生产结算链必写的结算与计价字段。
++      settled_at: usedAt, api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
+     }).execute();
+ 
+     const response = await app.inject({
+diff --git a/apps/control-api/src/__tests-integration__/w20-resource-insights.test.ts b/apps/control-api/src/__tests-integration__/w20-resource-insights.test.ts
+index 07c0195..3b03956 100644
+--- a/apps/control-api/src/__tests-integration__/w20-resource-insights.test.ts
++++ b/apps/control-api/src/__tests-integration__/w20-resource-insights.test.ts
+@@ -738,7 +738,10 @@ describe("W20-09 轻量采购复盘", () => {
+     expect(byId.get(apiResourceId)).toMatchObject({
+       purchaseCashAmount: "120.00000000",
+       purchaseCashAmounts: [{ currency: "CNY", amount: "120.00000000" }],
+-      apiCost: null,
++      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：该夹具账本行 settled_at 为 NULL
++      //（未结算事实），按新口径不落入任何结算窗口 → 估算精确 0，桥接缺口不再把
++      // 主口径置 null；ledgerApiCost（created_at 核对证据）与桥接 reason 字段保留。
++      apiCost: "0.00000000",
+       ledgerApiCost: "12.50000000",
+       apiSpendReason: "待补期初余额",
+       utilizationRate: null,
+diff --git a/apps/control-api/src/provider-finance/dashboard-projection.test.ts b/apps/control-api/src/provider-finance/dashboard-projection.test.ts
+index 51d1343..7fc76ed 100644
+--- a/apps/control-api/src/provider-finance/dashboard-projection.test.ts
++++ b/apps/control-api/src/provider-finance/dashboard-projection.test.ts
+@@ -3,26 +3,77 @@ import type { DashboardSummary, MonthlyFinanceSummary } from "@qianliu/database"
+ 
+ import { projectDashboardFinance, shanghaiDateAt, shanghaiMonthAt } from "./dashboard-projection.js";
+ 
+-const base = {
+-  monthlyPackagePayment: "999", monthlyPackagePayments: [], monthlyApiCost: "999",
+-  monthlyApiCosts: [], monthlyApiSpendReason: "old", monthlyTotalSpend: "999",
+-  monthlyTotalSpends: [], monthlyRechargeAmount: "999", monthlyRechargeAmounts: [],
++/**
++ * 断言迁移依据（WP1 S3b 合同 §1.1 / WP0 contracts.md C1 / ACE-06/07）：
++ * /dashboard finance 开路径对首页 API 费用字段（monthlyApiCost(s)/Reason）的资金读模型
++ * 覆盖移除——API 分量改由 getSummary 已经 applyApiCostEstimationToSpend 供给的同源估算值
++ * 透传；资金读模型仅保留套餐分量（packagePayment 系列，含 complete 缺口表达）与
++ * recharge 系列；totalSpend(s) 由套餐分量 + 估算 API 分量按币种重新合计。
++ */
++const estimationSummary = {
++  monthlyPackagePayment: "999", monthlyPackagePayments: [],
++  monthlyApiCost: "1.05000000",
++  monthlyApiCosts: [{ currency: "CNY", amount: "1.05000000" }],
++  monthlyApiSpendReason: null,
++  monthlyTotalSpend: "1.05000000",
++  monthlyTotalSpends: [{ currency: "CNY", amount: "1.05000000" }],
++  monthlyRechargeAmount: "999", monthlyRechargeAmounts: [],
+ } as unknown as DashboardSummary;
+ 
+-it("projects the unique finance ledger into dashboard money fields", () => {
+-  const finance = {
+-    complete: true, codingPlanFixedCostCny: "199.00000000",
+-    apiOperatingCosts: [{ currency: "CNY", amount: "108.43000000" }],
+-    apiRecharges: [{ currency: "CNY", amount: "600.00000000" }], gaps: [],
+-  } as unknown as MonthlyFinanceSummary;
+-  expect(projectDashboardFinance(base, finance)).toMatchObject({
++const finance = {
++  complete: true, codingPlanFixedCostCny: "199.00000000",
++  apiOperatingCosts: [{ currency: "CNY", amount: "108.43000000" }],
++  apiRecharges: [{ currency: "CNY", amount: "600.00000000" }], gaps: [],
++} as unknown as MonthlyFinanceSummary;
++
++it("finance 开路径透传同源估算 API 金额，仅覆盖套餐与充值并重算总额", () => {
++  expect(projectDashboardFinance(estimationSummary, finance)).toMatchObject({
+     monthlyPackagePayment: "199.00000000",
+-    monthlyApiCost: "108.43000000",
+-    monthlyTotalSpend: "307.43000000",
++    monthlyApiCost: "1.05000000",
++    monthlyApiCosts: [{ currency: "CNY", amount: "1.05000000" }],
++    monthlyApiSpendReason: null,
++    monthlyTotalSpend: "200.05000000",
++    monthlyTotalSpends: [{ currency: "CNY", amount: "200.05000000" }],
+     monthlyRechargeAmount: "600.00000000",
+   });
+ });
+ 
++it("finance 开/关两路首页 API 金额同值；套餐缺口（complete=false）只影响套餐与总额", () => {
++  const projected = projectDashboardFinance(estimationSummary, finance);
++  // 开路径 API 字段与关路径（getSummary 原值）逐字段相等（ACE-06：全部消费视图同源）。
++  expect(projected.monthlyApiCost).toBe(estimationSummary.monthlyApiCost);
++  expect(projected.monthlyApiCosts).toEqual(estimationSummary.monthlyApiCosts);
++  expect(projected.monthlyApiSpendReason).toBe(estimationSummary.monthlyApiSpendReason);
++
++  const incomplete = { ...finance, complete: false } as unknown as MonthlyFinanceSummary;
++  const projectedIncomplete = projectDashboardFinance(estimationSummary, incomplete);
++  expect(projectedIncomplete.monthlyApiCost).toBe(estimationSummary.monthlyApiCost);
++  expect(projectedIncomplete.monthlyPackagePayment).toBeNull();
++  expect(projectedIncomplete.monthlyTotalSpend).toBeNull();
++  expect(projectedIncomplete.monthlyRechargeAmount).toBeNull();
++});
++
++it("混币估算分量不与套餐混加：总额 scalar 为 null，分列保留各币种", () => {
++  const mixed = {
++    ...estimationSummary,
++    monthlyApiCost: null,
++    monthlyApiCosts: [
++      { currency: "CNY", amount: "1.05000000" },
++      { currency: "USD", amount: "2.00000000" },
++    ],
++    monthlyApiSpendReason: "币种不一致：CNY、USD",
++    monthlyTotalSpend: null,
++    monthlyTotalSpends: [],
++  } as unknown as DashboardSummary;
++  // 总额语义与 applyApiCostEstimationToSpend 一致：API 分量不可合并为单一金额时，
++  // totalSpend/totalSpends 不产出（不混币相加），开/关两路同值。
++  expect(projectDashboardFinance(mixed, finance)).toMatchObject({
++    monthlyApiCost: null,
++    monthlyTotalSpend: null,
++    monthlyTotalSpends: [],
++  });
++});
++
+ describe("Shanghai month", () => {
+   it("uses the local natural month at UTC boundaries", () => {
+     expect(shanghaiMonthAt(new Date("2026-09-30T16:00:00.000Z"))).toBe("2026-10");
+diff --git a/apps/control-api/src/provider-finance/dashboard-projection.ts b/apps/control-api/src/provider-finance/dashboard-projection.ts
+index 0d54899..1f4aaa2 100644
+--- a/apps/control-api/src/provider-finance/dashboard-projection.ts
++++ b/apps/control-api/src/provider-finance/dashboard-projection.ts
+@@ -12,33 +12,52 @@ function singleAmount(values: Array<{ currency: string; amount: string }>): stri
+   return values.length === 1 ? values[0]!.amount : values.length === 0 ? "0.00000000" : null;
+ }
+ 
+-function combineOperatingCosts(finance: MonthlyFinanceSummary) {
++/** 按币种合并金额分量（不混币相加，多币种时 scalar 由 singleAmount 判 null）。 */
++function combineTotals(
++  components: Array<Array<{ currency: string; amount: string }>>,
++): Array<{ currency: string; amount: string }> {
+   const totals = new Map<string, Decimal>();
+-  for (const item of finance.apiOperatingCosts) {
+-    totals.set(item.currency, (totals.get(item.currency) ?? new Money(0)).plus(item.amount));
++  for (const component of components) {
++    for (const item of component) {
++      totals.set(item.currency, (totals.get(item.currency) ?? new Money(0)).plus(item.amount));
++    }
+   }
+-  const plan = new Money(finance.codingPlanFixedCostCny);
+-  if (!plan.isZero()) totals.set("CNY", (totals.get("CNY") ?? new Money(0)).plus(plan));
+   return [...totals.entries()].sort(([left], [right]) => left.localeCompare(right))
+     .map(([currency, amount]) => ({ currency, amount: amount.toDecimalPlaces(8).toFixed(8) }));
+ }
+ 
++/**
++ * /dashboard 首页 finance 开路径投影（S3b 合同 §1.1 / ACE-06/07 / WP0 C1）。
++ *
++ * 前置条件：summary 必须来自 DashboardRepository.getSummary——其 monthlyApiCost(s)/
++ * monthlyApiSpendReason/totalSpend(s) 已由 applyApiCostEstimationToSpend（dashboard-
++ * monthly-spend.ts）按 loadApiCostEstimation 同源供给（WP1 S3a）。本函数因此：
++ *   - API 费用字段不再用资金读模型覆盖（finance.apiOperatingCosts 弃用），
++ *     开/关两条路径的首页 API 金额恒等于同一估算值；
++ *   - 套餐分量（monthlyPackagePayment 系列，含 finance.complete 的套餐缺口表达）
++ *     与资金域其余字段（monthlyRechargeAmount 系列）原样保留资金读模型取值；
++ *   - monthlyTotalSpend(s) 由“资金读模型套餐分量 + 估算 API 分量”按币种重新合计。
++ */
+ export function projectDashboardFinance(
+   summary: DashboardSummary,
+   finance: MonthlyFinanceSummary,
+ ): DashboardSummary {
+   const packagePayments = new Money(finance.codingPlanFixedCostCny).isZero()
+     ? [] : [{ currency: "CNY", amount: finance.codingPlanFixedCostCny }];
+-  const totalSpends = combineOperatingCosts(finance);
++  const packagePayment = finance.complete ? singleAmount(packagePayments) : null;
++  const totalComplete = packagePayment !== null && summary.monthlyApiCost !== null;
++  const totalSpends = totalComplete
++    ? combineTotals([packagePayments, summary.monthlyApiCosts])
++    : [];
+   return {
+     ...summary,
+-    monthlyPackagePayment: finance.complete ? singleAmount(packagePayments) : null,
++    monthlyPackagePayment: packagePayment,
+     monthlyPackagePayments: packagePayments,
+-    monthlyApiCost: finance.complete ? singleAmount(finance.apiOperatingCosts) : null,
+-    monthlyApiCosts: finance.apiOperatingCosts,
+-    monthlyApiSpendReason: finance.complete ? null
+-      : finance.gaps.map((gap) => `${gap.code}:${gap.count}`).join("、"),
+-    monthlyTotalSpend: finance.complete ? singleAmount(totalSpends) : null,
++    // API 分量＝估算同源值（getSummary 已按 applyApiCostEstimationToSpend 供给），不再覆盖。
++    monthlyApiCost: summary.monthlyApiCost,
++    monthlyApiCosts: summary.monthlyApiCosts,
++    monthlyApiSpendReason: summary.monthlyApiSpendReason,
++    monthlyTotalSpend: totalComplete ? singleAmount(totalSpends) : null,
+     monthlyTotalSpends: totalSpends,
+     monthlyRechargeAmount: finance.complete ? singleAmount(finance.apiRecharges) : null,
+     monthlyRechargeAmounts: finance.apiRecharges,
+diff --git a/packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts b/packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts
+index 7b34f4c..738e0e5 100644
+--- a/packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts
++++ b/packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts
+@@ -51,7 +51,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
+   async function addLine(input: {
+     resourceId: string; modelId: string | null; historicalAlias: string; upstreamModel: string;
+     input: bigint; output: bigint; cache: bigint; reasoning: bigint;
+-    cost: string | null; quality: string; at: Date;
++    cost: string | null; quality: string; at: Date; currency?: string;
+     deductedQuota?: bigint | null;
+     mode?: "API" | "CODING_PLAN";
+     requestStatus?: "SUCCEEDED" | "FAILED";
+@@ -88,6 +88,17 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
+       raw_reasoning_tokens: input.reasoning, deducted_quota: input.deductedQuota ?? null,
+       api_cost: input.cost,
+       usage_quality: input.quality, created_at: input.at,
++      // S3a：首页/总览 API 汇总费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
++      // 已计价夹具行补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
++      // S3b：queryUsageRows 期间过滤统一 settled_at 半开窗口（合同 §1.2），因此所有已结算
++      // 夹具行（含 cost=null 与 CODING_PLAN）一律补 settled_at——生产结算链对每条已结算
++      // 账本行都写 settled_at（gateway-ledger-settlement.ts:197 / attempt-usage-settlement.ts:109，
++      // 见 s1-settled-at-null-investigation.md §3），NULL settled_at 仅存在于 seed 工具。
++      settled_at: input.at,
++      ...(input.cost !== null && (input.mode ?? "API") === "API" ? {
++        api_cost_status: "PRICED_USAGE" as const,
++        api_cost_currency: input.currency ?? "CNY",
++      } : {}),
+     }).execute();
+   }
+ 
+@@ -220,6 +231,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
+             resourceId: resource.id, modelId, historicalAlias: `old-${input.code}`,
+             upstreamModel, input: 10n, output: 0n, cache: 0n, reasoning: 0n,
+             cost: index === 0 ? "0.1" : "0.4", quality: "PROVIDER_REPORTED",
++            currency: input.currencies[index]!,
+             at: new Date(now.getTime() - 30 * 60 * 1000),
+           });
+         }
+@@ -261,7 +273,10 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
+     });
+     expect(items.find((row) => row.providerCode === "multi-currency")).toMatchObject({
+       currentBalance: null, monthlyCost: null, estimatedBalanceTokens: null,
+-      monthlyCostReason: expect.stringMatching(/multi-currency-0 CNY.*multi-currency-1 USD/),
++      // S3a 断言迁移（依据：S3a §1.2 用量总览 API 汇总行费用由 loadApiCostEstimation 同源
++      // 供给＋ACE-07 混币不合并）：混币拒绝语义保留，理由文案改为估算缺口口径的明确币种
++      // 列表（原为逐资源余额桥接行列表）。
++      monthlyCostReason: "币种不一致：CNY、USD",
+       balanceTokenEstimateReason: "PRICE_CURRENCY_MISMATCH",
+     });
+   });
+diff --git a/packages/database/src/repositories/dashboard-resource-usage.ts b/packages/database/src/repositories/dashboard-resource-usage.ts
+index 3db8195..54282d4 100644
+--- a/packages/database/src/repositories/dashboard-resource-usage.ts
++++ b/packages/database/src/repositories/dashboard-resource-usage.ts
+@@ -3,6 +3,7 @@ import { Decimal } from "decimal.js";
+ import { sql, type Kysely } from "kysely";
+ import type { Database } from "../kysely.js";
+ import { listEnabledBillingRulesAt } from "./billing-rule-applicability.js";
++import { effectiveReportedApiCostSql } from "./usage-cost-disposition-projection.js";
+ import type {
+   ResourceBreakdownItem,
+   ResourceModelTokenBreakdown,
+@@ -125,7 +126,17 @@ function groupKey(providerCode: string, mode: Mode): string {
+   return `${providerCode}:${mode}`;
+ }
+ 
+-/** 管理展示只汇总成功请求；失败 Attempt 的诊断 Token 留在账本与资金完整性口径。 */
++/**
++ * 管理展示只汇总成功请求；失败 Attempt 的诊断 Token 留在账本与资金完整性口径。
++ *
++ * S3b（WP1 合同 §1.2 / ACE-06/07）：期间过滤统一为 settled_at 半开窗口、费用取
++ * effectiveReportedApiCostSql 处置投影（而非裸 api_cost），与 loadApiCostEstimation
++ * （api-cost-estimation.ts）/loadWindowOperatingFinance 同口径。改前该查询用
++ * created_at（请求账本新增时间）+裸 api_cost，与估算读取并存两套期间/费用口径
++ * （inv-b §6 移交项）；消费方：loadDashboardResourceUsage（月度+24h 窗口，经
++ * dashboard-breakdown 供 Token 速率/成本速率）、loadResourceModelUsageDetails
++ * （模型行 monthlyCost）、tokenTotalsForRange（仅消费 Token/质量，费用字段不用）。
++ */
+ export async function queryUsageRows(
+   db: Kysely<Database>, enterpriseId: string, start: Date, end: Date,
+ ): Promise<UsageRow[]> {
+@@ -139,10 +150,10 @@ export async function queryUsageRows(
+            SUM(ll.raw_output_tokens)::text AS output_tokens,
+            SUM(ll.raw_cache_tokens)::text AS cache_tokens,
+            SUM(ll.raw_reasoning_tokens)::text AS reasoning_tokens,
+-           COALESCE(SUM(ll.api_cost::numeric), 0)::text AS api_cost,
++           COALESCE(SUM(${effectiveReportedApiCostSql("ll")}), 0)::text AS api_cost,
+            COALESCE(SUM(ll.deducted_quota), 0)::text AS deducted_quota,
+            COUNT(*)::text AS line_count,
+-           COUNT(ll.api_cost)::text AS known_cost_count,
++           COUNT(${effectiveReportedApiCostSql("ll")})::text AS known_cost_count,
+            COUNT(ll.deducted_quota)::text AS known_quota_count,
+            COUNT(*) FILTER (
+              WHERE upper(ll.usage_quality) LIKE '%UNKNOWN%'
+@@ -158,7 +169,7 @@ export async function queryUsageRows(
+       LEFT JOIN unified_model um
+         ON um.id = ar.unified_model_id AND um.enterprise_id = ${enterpriseId}
+      WHERE ll.enterprise_id = ${enterpriseId}
+-       AND ll.created_at >= ${start} AND ll.created_at < ${end}
++       AND ll.settled_at >= ${start} AND ll.settled_at < ${end}
+        AND ar.status = 'SUCCEEDED'
+      GROUP BY p.code, p.name, pr.mode, pr.id, pr.name, pr.status, ua.upstream_model,
+               ar.unified_model_id, COALESCE(um.alias, ar.unified_model)
+diff --git a/packages/database/src/repositories/operating-bill-draft.ts b/packages/database/src/repositories/operating-bill-draft.ts
+index c78eb5d..652c6ea 100644
+--- a/packages/database/src/repositories/operating-bill-draft.ts
++++ b/packages/database/src/repositories/operating-bill-draft.ts
+@@ -23,7 +23,11 @@ import {
+ import { loadMonthlyOperatingCosts } from "./monthly-operating-cost.js";
+ import { operatingBillResourceScope } from "./operating-bill-resource-scope.js";
+ import { effectiveReportedApiCostSql } from "./usage-cost-disposition-projection.js";
+-import { apiBalanceGaps, balanceBridgeFacts, monthlyProviderCostFields, monthlySummaryFields } from "./operating-bill-monthly-cost.js";
++import { loadApiCostEstimation } from "./api-cost-estimation.js";
++import {
++  apiBalanceGaps, balanceBridgeFacts, estimatedApiCostFields,
++  monthlyProviderCostFields, monthlySummaryFields,
++} from "./operating-bill-monthly-cost.js";
+ import { providerFactEvidence } from "./operating-bill-provider-evidence.js";
+ import {
+   MoneyDecimal, amount, assessPlanResource, decimal, gapForResource, integerText,
+@@ -209,6 +213,24 @@ export async function buildOperatingBillDraft(
+       `.execute(db),
+     ]);
+     const resources = resourceResult.rows;
++    // S3b（合同 §1.3 / ACE-03/06/07）：当前 draft 的资源级与汇总 API 费用主口径改由
++    // 同源估算供给——loadApiCostEstimation（settled_at 半开窗口 + 处置投影金额，
++    // 不依赖期初/充值/余额/资金账户）。选择“按资源调用”（而非全企业一次后拆分）：
++    // providers 行需要资源级金额字面值，且 api-cost-estimation.ts 为 S1/S2/S3a 产物、
++    // 本包不得新增按资源分组的聚合查询；资源范围互斥切分，故汇总行另取一次全企业
++    // 估算，其金额/缺口与按资源结果恒等（行分类按行互斥、逐行落入唯一资源）。
++    // 余额桥接机制（opening/ending/recharge、balanceBridgeFacts、previous_closing 链）
++    // 与账单完整性缺口机制（apiBalanceGaps/unknownApiCostGaps）原样保留（AFR-06；WP2/WP4 处置）。
++    const apiResourceIds = resources.filter((row) => row.mode === "API").map((row) => row.resource_id);
++    const [estimationPairs, enterpriseEstimation] = await Promise.all([
++      Promise.all(apiResourceIds.map(async (resourceId) => [
++        resourceId,
++        await loadApiCostEstimation(db, enterpriseId, { start, end, resourceIds: [resourceId] }),
++      ] as const)),
++      loadApiCostEstimation(db, enterpriseId, { start, end }),
++    ]);
++    const estimationByResource = new Map(estimationPairs);
++    const estimatedSummary = estimatedApiCostFields(enterpriseEstimation);
+     const purchasesByResource = new Map<string, PurchaseFactRow[]>();
+     for (const purchase of purchasesResult.rows) {
+       const list = purchasesByResource.get(purchase.provider_resource_id) ?? [];
+@@ -345,7 +367,8 @@ export async function buildOperatingBillDraft(
+         monthlyBudgetAmount: row.budget_amount,
+         monthlyBudgetCurrency: row.budget_currency,
+         monthlyBudgetAt: row.budget_at?.toISOString() ?? null,
+-        ...monthlyProviderCostFields(monthlyCost, nullableAmount(resourceLedgerApiCost)),
++        ...monthlyProviderCostFields(monthlyCost, nullableAmount(resourceLedgerApiCost),
++          estimatedApiCostFields(estimationByResource.get(row.resource_id) ?? null).apiCost),
+         totalQuota: row.total_quota, usedQuota: row.used_quota, remainingQuota: row.remaining_quota,
+         quotaUnit: row.quota_unit, utilization,
+         activePrincipalCount,
+@@ -363,7 +386,7 @@ export async function buildOperatingBillDraft(
+       status: "DRAFT", version: period?.current_version ?? 0, generatedAt: new Date().toISOString(),
+       closedAt: null, closedBy: null, closeNote: null,
+       summary: {
+-        ...monthlySummaryFields(monthlyOperatingCosts),
++        ...monthlySummaryFields(monthlyOperatingCosts, estimatedSummary),
+         ledgerApiCost: nullableAmount(ledgerApiCost),
+         planUtilization: planUtilization ? planUtilization.toDecimalPlaces(2).toFixed(2) : null,
+         activePrincipalCount: new Set(sourceUsage.map((item) => item.principal_id)).size,
+diff --git a/packages/database/src/repositories/operating-bill-monthly-cost.ts b/packages/database/src/repositories/operating-bill-monthly-cost.ts
+index 861a75f..c605876 100644
+--- a/packages/database/src/repositories/operating-bill-monthly-cost.ts
++++ b/packages/database/src/repositories/operating-bill-monthly-cost.ts
+@@ -1,6 +1,7 @@
+ import { Decimal } from "decimal.js";
+ 
+-import type { MonthlyOperatingCostResource, MonthlyOperatingCosts } from "./monthly-operating-cost.js";
++import type { ApiCostEstimation } from "./api-cost-estimation.js";
++import type { CurrencyAmount, MonthlyOperatingCostResource, MonthlyOperatingCosts } from "./monthly-operating-cost.js";
+ import type { OperatingBillGap, OperatingBillProviderRow, OperatingBillSnapshot } from "./operating-bill-types.js";
+ 
+ const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
+@@ -27,16 +28,52 @@ export function apiBalanceGaps(
+   }];
+ }
+ 
++/**
++ * 同源估算 → 账单 API 费用值（S3b 合同 §1.3 / ACE-03/04/06/07）：
++ *   - 单币种已知金额：直接采用估算金额字面值（8 位小数，已知部分保留——KNOWN_PARTIAL
++ *     但有金额时照常透出，缺口语义由既有完整性机制表达）；
++ *   - 无金额且非 KNOWN_PARTIAL（无 API 账本行 / 仅明确零与合法处置排除）：精确 0；
++ *   - 多币种或 KNOWN_PARTIAL 且无金额：null（不混币相加，不把缺失冒充零）。
++ * 传 null（非 API 资源 / 未加载估算）返回 null + 空分列。
++ */
++export function estimatedApiCostFields(
++  estimation: Pick<ApiCostEstimation, "amounts" | "completeness"> | null,
++): { apiCost: string | null; apiSpends: CurrencyAmount[] } {
++  if (estimation === null) return { apiCost: null, apiSpends: [] };
++  const apiSpends: CurrencyAmount[] = estimation.amounts.map((amount) => ({
++    currency: amount.currency, amount: amount.amount,
++  }));
++  if (apiSpends.length === 1) return { apiCost: apiSpends[0]!.amount, apiSpends };
++  if (apiSpends.length === 0 && estimation.completeness !== "KNOWN_PARTIAL") {
++    return { apiCost: "0.00000000", apiSpends };
++  }
++  return { apiCost: null, apiSpends };
++}
++
++function groupByCurrency(
++  facts: CurrencyAmount[],
++): CurrencyAmount[] {
++  const totals = new Map<string, Decimal>();
++  for (const fact of facts) {
++    totals.set(fact.currency, (totals.get(fact.currency) ?? new MoneyDecimal(0)).plus(fact.amount));
++  }
++  return [...totals.entries()].sort(([left], [right]) => left.localeCompare(right))
++    .map(([currency, amountValue]) => ({ currency, amount: amount(amountValue) }));
++}
++
+ export function monthlyProviderCostFields(
+   cost: MonthlyOperatingCostResource,
+   ledgerApiCost: string | null,
++  estimatedApiCost: string | null,
+ ): Pick<OperatingBillProviderRow,
+   "apiCost" | "ledgerApiCost" | "openingBalance" | "rechargeAmount" | "apiSpendStatus" |
+   "apiSpendReason" | "packageCost" | "totalCost" | "endingBalance" |
+   "openingBalanceCurrency" | "rechargeAmounts" | "endingBalanceCurrency" |
+   "apiSpendCurrency" | "packageCostCurrency"> {
++  // S3b（合同 §1.3）：apiCost/totalCost 的 API 分量改由同源估算供给；
++  // opening/recharge/ending/apiSpendStatus/Reason 等余额桥接机制字段原样保留（WP2/WP4 处置）。
+   return {
+-    apiCost: cost.apiSpend,
++    apiCost: estimatedApiCost,
+     ledgerApiCost,
+     openingBalance: cost.openingBalance,
+     openingBalanceCurrency: cost.openingBalanceCurrency,
+@@ -46,8 +83,8 @@ export function monthlyProviderCostFields(
+     apiSpendReason: cost.apiSpendReason,
+     packageCost: cost.packageCost,
+     packageCostCurrency: cost.packageCostCurrency,
+-    totalCost: cost.apiSpend === null || cost.packageCost === null
+-      ? null : amount(new MoneyDecimal(cost.apiSpend).plus(cost.packageCost)),
++    totalCost: estimatedApiCost === null || cost.packageCost === null
++      ? null : amount(new MoneyDecimal(estimatedApiCost).plus(cost.packageCost)),
+     endingBalance: cost.endingBalance,
+     endingBalanceCurrency: cost.endingBalanceCurrency,
+     apiSpendCurrency: cost.apiSpendCurrency,
+@@ -56,14 +93,22 @@ export function monthlyProviderCostFields(
+ 
+ export function monthlySummaryFields(
+   costs: MonthlyOperatingCosts,
++  estimatedApi: { apiCost: string | null; apiSpends: CurrencyAmount[] },
+ ): Pick<OperatingBillSnapshot["summary"],
+   "totalCost" | "apiCost" | "openingBalance" | "monthlyRecharge" | "apiSpendStatus" |
+   "apiSpendReason" | "packageCost" | "endingBalance" | "endingBalanceCurrency" |
+   "openingBalances" | "rechargeAmounts" | "endingBalances" | "apiSpends" |
+   "packageCosts" | "totalSpends"> {
++  // S3b（合同 §1.3）：apiCost/apiSpends 改由同源估算供给；totalCost/totalSpends 由
++  // 套餐分量（原口径）与估算 API 分量按币种重新合计（单一币种才出 scalar，不混币相加）；
++  // openingBalance/monthlyRecharge/endingBalance/apiSpendStatus/Reason 等桥接字段原样保留。
++  const totalComplete = estimatedApi.apiCost !== null && costs.summary.packageCost !== null;
++  const totalSpends = totalComplete
++    ? groupByCurrency([...costs.summary.packageCosts, ...estimatedApi.apiSpends])
++    : [];
+   return {
+-    totalCost: costs.summary.totalSpend,
+-    apiCost: costs.summary.apiSpend,
++    totalCost: totalSpends.length === 1 ? totalSpends[0]!.amount : null,
++    apiCost: estimatedApi.apiCost,
+     openingBalance: costs.summary.openingBalance,
+     monthlyRecharge: costs.summary.rechargeAmount,
+     apiSpendStatus: costs.summary.apiSpendStatus,
+@@ -75,9 +120,9 @@ export function monthlySummaryFields(
+     openingBalances: costs.summary.openingBalances,
+     rechargeAmounts: costs.summary.rechargeAmounts,
+     endingBalances: costs.summary.endingBalances,
+-    apiSpends: costs.summary.apiSpends,
++    apiSpends: estimatedApi.apiSpends,
+     packageCosts: costs.summary.packageCosts,
+-    totalSpends: costs.summary.totalSpends,
++    totalSpends,
+   };
+ }
+ 
