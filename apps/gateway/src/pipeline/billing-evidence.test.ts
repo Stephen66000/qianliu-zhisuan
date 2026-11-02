@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import type { GatewayLedgerRepository } from "@qianliu/database";
 import type { RoutingCandidateInput } from "@qianliu/domain";
+import type { BillingRule } from "@qianliu/domain";
 import { computeBilling, computeBillingFromRule, calculateDispatchSaving, dispatchCounterfactualEvidence,
   dispatchSavingFields } from "./billing.js";
 
@@ -10,7 +11,9 @@ function row(patch: Partial<Row> = {}): Row {
     provider_resource_id: "baseline", upstream_model: "model", effective_from: new Date(0), effective_to: null,
     timezone: null, days_of_week: null, start_time: null, end_time: null, time_windows: null,
     multiplier: "3", cache_hit_price: "0.000001", cache_miss_price: "0.000002", output_price: "0.000004",
-    currency: "CNY", priority: 1, ...patch };
+    // S1 合同 §3.5：迁移 0093 后 listActiveBillingRules 返回类型新增必填 source_status，
+    // 夹具缺省取存量行默认值 UNVERIFIED（迁移 DEFAULT），非删除既有断言。
+    currency: "CNY", priority: 1, source_status: "UNVERIFIED" as const, ...patch };
 }
 function repository(rows: Row[]) {
   // Mock only the persistence read boundary. All matching, arithmetic and snapshots below are real.
@@ -68,4 +71,22 @@ it.each([
     enterpriseId: "enterprise", requestStartedAt: 1000, ...patch });
   expect(result.saving).toEqual({ saving: "NOT_CALCULABLE", reason });
   expect(dispatchSavingFields(result.saving)).toEqual({ dispatchSaving: null, savingCalculable: false, notCalculableReason: reason });
+});
+
+
+// S1 合同 §3.5：价格依据状态随快照冻结（ACE-02 场景 3）——未核实不得宣称为已核实官方价。
+it("快照冻结 sourceStatus：VERIFIED 原样透传、缺省按 UNVERIFIED 解释", async () => {
+  const verified = repository([row({ source_status: "VERIFIED" })]);
+  const result = await computeBilling(verified.ledger, "enterprise", "baseline", "model", "API", 1000, usage);
+  expect(result.ruleSnapshot).toMatchObject({ sourceStatus: "VERIFIED" });
+
+  // computeBillingFromRule 直接收域层 BillingRule：旧构造无 sourceStatus（undefined）→ 快照按 UNVERIFIED。
+  const legacyRule: BillingRule = {
+    id: "legacy", ruleType: "API_PRICE", ruleVersion: "v0", providerResourceId: null,
+    upstreamModel: null, effectiveFrom: 0, effectiveTo: null, timezone: null, daysOfWeek: null,
+    startTime: null, endTime: null, timeWindows: null, multiplier: null, cacheHitPrice: "0.000001",
+    cacheMissPrice: "0.000002", outputPrice: "0.000004", currency: "CNY", priority: 1,
+  };
+  expect(computeBillingFromRule(legacyRule, "API", 1000, usage).ruleSnapshot)
+    .toMatchObject({ sourceStatus: "UNVERIFIED" });
 });

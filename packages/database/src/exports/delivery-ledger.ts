@@ -137,6 +137,18 @@ export {
 } from "../repositories/supply-forecast-repository.js";
 
 export { loadUsageCostDispositionProjections, loadExcludedUsageCostLineIds } from "../repositories/usage-cost-disposition-projection.js";
+
+export {
+  loadApiCostEstimation,
+  type ApiCostEstimation,
+  type ApiCostEstimationAmount,
+  type ApiCostEstimationCompleteness,
+  type ApiCostEstimationGap,
+  type ApiCostEstimationGapReason,
+  type ApiCostEstimationPriceBasis,
+  type ApiCostEstimationQuery,
+  type BillingRuleSourceStatus,
+} from "../repositories/api-cost-estimation.js";
 export {
   UsageRepository,
   type UsageQuery,

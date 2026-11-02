@@ -35,6 +35,7 @@ export class BillingRulePersistence {
       output_price: string | null;
       currency: string;
       priority: number;
+      source_status: "VERIFIED" | "UNVERIFIED";
     }>
   > {
     return this.db
@@ -78,6 +79,7 @@ export class BillingRulePersistence {
       priority: number;
       enabled: boolean;
       source: string | null;
+      source_status: "VERIFIED" | "UNVERIFIED";
       version: number;
       archived_at: Date | null;
       archived_by_admin_id: string | null;
@@ -122,6 +124,8 @@ export class BillingRulePersistence {
     currency?: string;
     priority?: number;
     source?: string | null;
+    /** 价格依据核实状态（ACE-02 场景 3）；缺省 UNVERIFIED，不得宣称为已核实官方价。 */
+    source_status?: "VERIFIED" | "UNVERIFIED";
   }) {
     const firstWindow = input.time_windows?.[0];
     const create = async (db: Kysely<Database>) => {
@@ -154,6 +158,9 @@ export class BillingRulePersistence {
         currency: input.currency ?? "CNY",
         priority: input.priority ?? 100,
         source: input.source ?? null,
+        // 缺省落库走 0093 列 DEFAULT 'UNVERIFIED'（S1 §3.5）；仅在显式传入时写列，
+        // 保证同一 repository 仍可在迁移回滚链的 0093 之前 schema 头上执行（kysely 忽略 undefined）。
+        source_status: input.source_status,
       })
       .returningAll()
       .executeTakeFirstOrThrow();

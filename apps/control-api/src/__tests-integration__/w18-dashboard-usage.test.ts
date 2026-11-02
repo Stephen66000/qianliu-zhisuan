@@ -230,6 +230,10 @@ async function seedFullData(): Promise<{
       raw_cache_tokens: 0n,
       deducted_quota: 300n,
       usage_quality: "PROVIDER_REPORTED",
+      // S3b：queryUsageRows 期间过滤统一 settled_at 半开窗口（合同 §1.2）；生产结算链
+      // 对每条已结算账本行都写 settled_at（s1-settled-at-null-investigation.md §3）。
+      created_at: new Date(),
+      settled_at: new Date(),
     })
     .execute();
 
@@ -570,6 +574,14 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
         principal_id: seededPrincipalId, resource_mode: input.mode, raw_input_tokens: 1n,
         raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
         api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", created_at: input.at,
+        // S3a：首页/总览 API 费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
+        // 夹具补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
+        // S3b：queryUsageRows 期间过滤统一 settled_at 半开窗口（合同 §1.2），CODING_PLAN
+        // 行同样由生产结算链写入 settled_at，故所有行补齐。
+        settled_at: input.at,
+        ...(input.mode === "API" ? {
+          api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
+        } : {}),
       }).execute();
       await db.insertInto("ledger_transaction").values({
         ai_request_id: requestId, enterprise_id: ENT_ID, principal_id: seededPrincipalId,
@@ -666,6 +678,8 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
       principal_id: seededPrincipalId, resource_mode: "API", raw_input_tokens: 100n,
       raw_output_tokens: 20n, raw_cache_tokens: 40n, raw_reasoning_tokens: 5n,
       api_cost: "0.24", usage_quality: "PROVIDER_REPORTED", created_at: usedAt,
+      // S3a：同上，补齐生产结算链必写的结算与计价字段。
+      settled_at: usedAt, api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
     }).execute();
 
     const response = await app.inject({

@@ -58,6 +58,7 @@ export async function computeBilling(
       outputPrice: rule.output_price,
       currency: rule.currency,
       priority: rule.priority,
+      sourceStatus: rule.source_status,
     }),
   );
 
@@ -142,6 +143,8 @@ function billingRuleSnapshot(
     outputPrice: rule.outputPrice,
     currency: rule.currency,
     priority: rule.priority,
+    // ACE-02 场景 3：价格依据状态随快照冻结；旧数据/旧构造缺省按未核实解释。
+    sourceStatus: rule.sourceStatus ?? "UNVERIFIED",
   };
 }
 

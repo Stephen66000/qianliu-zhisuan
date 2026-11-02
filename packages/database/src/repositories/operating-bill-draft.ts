@@ -23,7 +23,11 @@ import {
 import { loadMonthlyOperatingCosts } from "./monthly-operating-cost.js";
 import { operatingBillResourceScope } from "./operating-bill-resource-scope.js";
 import { effectiveReportedApiCostSql } from "./usage-cost-disposition-projection.js";
-import { apiBalanceGaps, balanceBridgeFacts, monthlyProviderCostFields, monthlySummaryFields } from "./operating-bill-monthly-cost.js";
+import { loadApiCostEstimation } from "./api-cost-estimation.js";
+import {
+  apiBalanceGaps, balanceBridgeFacts, estimatedApiCostFields,
+  monthlyProviderCostFields, monthlySummaryFields,
+} from "./operating-bill-monthly-cost.js";
 import { providerFactEvidence } from "./operating-bill-provider-evidence.js";
 import {
   MoneyDecimal, amount, assessPlanResource, decimal, gapForResource, integerText,
@@ -209,6 +213,24 @@ export async function buildOperatingBillDraft(
       `.execute(db),
     ]);
     const resources = resourceResult.rows;
+    // S3b（合同 §1.3 / ACE-03/06/07）：当前 draft 的资源级与汇总 API 费用主口径改由
+    // 同源估算供给——loadApiCostEstimation（settled_at 半开窗口 + 处置投影金额，
+    // 不依赖期初/充值/余额/资金账户）。选择“按资源调用”（而非全企业一次后拆分）：
+    // providers 行需要资源级金额字面值，且 api-cost-estimation.ts 为 S1/S2/S3a 产物、
+    // 本包不得新增按资源分组的聚合查询；资源范围互斥切分，故汇总行另取一次全企业
+    // 估算，其金额/缺口与按资源结果恒等（行分类按行互斥、逐行落入唯一资源）。
+    // 余额桥接机制（opening/ending/recharge、balanceBridgeFacts、previous_closing 链）
+    // 与账单完整性缺口机制（apiBalanceGaps/unknownApiCostGaps）原样保留（AFR-06；WP2/WP4 处置）。
+    const apiResourceIds = resources.filter((row) => row.mode === "API").map((row) => row.resource_id);
+    const [estimationPairs, enterpriseEstimation] = await Promise.all([
+      Promise.all(apiResourceIds.map(async (resourceId) => [
+        resourceId,
+        await loadApiCostEstimation(db, enterpriseId, { start, end, resourceIds: [resourceId] }),
+      ] as const)),
+      loadApiCostEstimation(db, enterpriseId, { start, end }),
+    ]);
+    const estimationByResource = new Map(estimationPairs);
+    const estimatedSummary = estimatedApiCostFields(enterpriseEstimation);
     const purchasesByResource = new Map<string, PurchaseFactRow[]>();
     for (const purchase of purchasesResult.rows) {
       const list = purchasesByResource.get(purchase.provider_resource_id) ?? [];
@@ -345,7 +367,8 @@ export async function buildOperatingBillDraft(
         monthlyBudgetAmount: row.budget_amount,
         monthlyBudgetCurrency: row.budget_currency,
         monthlyBudgetAt: row.budget_at?.toISOString() ?? null,
-        ...monthlyProviderCostFields(monthlyCost, nullableAmount(resourceLedgerApiCost)),
+        ...monthlyProviderCostFields(monthlyCost, nullableAmount(resourceLedgerApiCost),
+          estimatedApiCostFields(estimationByResource.get(row.resource_id) ?? null).apiCost),
         totalQuota: row.total_quota, usedQuota: row.used_quota, remainingQuota: row.remaining_quota,
         quotaUnit: row.quota_unit, utilization,
         activePrincipalCount,
@@ -363,7 +386,7 @@ export async function buildOperatingBillDraft(
       status: "DRAFT", version: period?.current_version ?? 0, generatedAt: new Date().toISOString(),
       closedAt: null, closedBy: null, closeNote: null,
       summary: {
-        ...monthlySummaryFields(monthlyOperatingCosts),
+        ...monthlySummaryFields(monthlyOperatingCosts, estimatedSummary),
         ledgerApiCost: nullableAmount(ledgerApiCost),
         planUtilization: planUtilization ? planUtilization.toDecimalPlaces(2).toFixed(2) : null,
         activePrincipalCount: new Set(sourceUsage.map((item) => item.principal_id)).size,

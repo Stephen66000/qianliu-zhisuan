@@ -3,6 +3,7 @@ import { Decimal } from "decimal.js";
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
 import { listEnabledBillingRulesAt } from "./billing-rule-applicability.js";
+import { effectiveReportedApiCostSql } from "./usage-cost-disposition-projection.js";
 import type {
   ResourceBreakdownItem,
   ResourceModelTokenBreakdown,
@@ -125,7 +126,17 @@ function groupKey(providerCode: string, mode: Mode): string {
   return `${providerCode}:${mode}`;
 }
 
-/** 管理展示只汇总成功请求；失败 Attempt 的诊断 Token 留在账本与资金完整性口径。 */
+/**
+ * 管理展示只汇总成功请求；失败 Attempt 的诊断 Token 留在账本与资金完整性口径。
+ *
+ * S3b（WP1 合同 §1.2 / ACE-06/07）：期间过滤统一为 settled_at 半开窗口、费用取
+ * effectiveReportedApiCostSql 处置投影（而非裸 api_cost），与 loadApiCostEstimation
+ * （api-cost-estimation.ts）/loadWindowOperatingFinance 同口径。改前该查询用
+ * created_at（请求账本新增时间）+裸 api_cost，与估算读取并存两套期间/费用口径
+ * （inv-b §6 移交项）；消费方：loadDashboardResourceUsage（月度+24h 窗口，经
+ * dashboard-breakdown 供 Token 速率/成本速率）、loadResourceModelUsageDetails
+ * （模型行 monthlyCost）、tokenTotalsForRange（仅消费 Token/质量，费用字段不用）。
+ */
 export async function queryUsageRows(
   db: Kysely<Database>, enterpriseId: string, start: Date, end: Date,
 ): Promise<UsageRow[]> {
@@ -139,10 +150,10 @@ export async function queryUsageRows(
            SUM(ll.raw_output_tokens)::text AS output_tokens,
            SUM(ll.raw_cache_tokens)::text AS cache_tokens,
            SUM(ll.raw_reasoning_tokens)::text AS reasoning_tokens,
-           COALESCE(SUM(ll.api_cost::numeric), 0)::text AS api_cost,
+           COALESCE(SUM(${effectiveReportedApiCostSql("ll")}), 0)::text AS api_cost,
            COALESCE(SUM(ll.deducted_quota), 0)::text AS deducted_quota,
            COUNT(*)::text AS line_count,
-           COUNT(ll.api_cost)::text AS known_cost_count,
+           COUNT(${effectiveReportedApiCostSql("ll")})::text AS known_cost_count,
            COUNT(ll.deducted_quota)::text AS known_quota_count,
            COUNT(*) FILTER (
              WHERE upper(ll.usage_quality) LIKE '%UNKNOWN%'
@@ -158,7 +169,7 @@ export async function queryUsageRows(
       LEFT JOIN unified_model um
         ON um.id = ar.unified_model_id AND um.enterprise_id = ${enterpriseId}
      WHERE ll.enterprise_id = ${enterpriseId}
-       AND ll.created_at >= ${start} AND ll.created_at < ${end}
+       AND ll.settled_at >= ${start} AND ll.settled_at < ${end}
        AND ar.status = 'SUCCEEDED'
      GROUP BY p.code, p.name, pr.mode, pr.id, pr.name, pr.status, ua.upstream_model,
               ar.unified_model_id, COALESCE(um.alias, ar.unified_model)

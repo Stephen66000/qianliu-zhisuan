@@ -51,6 +51,8 @@ export interface BillingRule {
   outputPrice: string | null;
   currency: string;
   priority: number; // 数值小优先
+  /** 价格依据核实状态（ACE-02 场景 3）；可选项，读取旧数据/旧构造时缺省按 UNVERIFIED 解释。 */
+  sourceStatus?: "VERIFIED" | "UNVERIFIED";
 }
 
 /** 匹配结果（冻结到 ledger_line）。 */

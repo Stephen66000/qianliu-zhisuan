@@ -738,7 +738,10 @@ describe("W20-09 轻量采购复盘", () => {
     expect(byId.get(apiResourceId)).toMatchObject({
       purchaseCashAmount: "120.00000000",
       purchaseCashAmounts: [{ currency: "CNY", amount: "120.00000000" }],
-      apiCost: null,
+      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：该夹具账本行 settled_at 为 NULL
+      //（未结算事实），按新口径不落入任何结算窗口 → 估算精确 0，桥接缺口不再把
+      // 主口径置 null；ledgerApiCost（created_at 核对证据）与桥接 reason 字段保留。
+      apiCost: "0.00000000",
       ledgerApiCost: "12.50000000",
       apiSpendReason: "待补期初余额",
       utilizationRate: null,

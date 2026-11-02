@@ -41,7 +41,11 @@ import { buildResourceBreakdown } from "./dashboard-breakdown.js";
 import { loadResourceModelUsageDetails } from "./resource-model-usage.js";
 import { loadDashboardResourceStatus } from "./dashboard-resource-status.js";
 import { loadMonthlyOperatingCosts } from "./monthly-operating-cost.js";
-import { summarizeDashboardMonthlySpend } from "./dashboard-monthly-spend.js";
+import {
+  applyApiCostEstimationToSpend,
+  summarizeDashboardMonthlySpend,
+} from "./dashboard-monthly-spend.js";
+import { loadApiCostEstimation } from "./api-cost-estimation.js";
 
 export type * from "./dashboard-types.js";
 
@@ -63,10 +67,6 @@ export class DashboardRepository {
     const monthlyOperatingCosts = await loadMonthlyOperatingCosts(
       this.db, enterpriseId, monthStart, monthEnd,
     );
-    const dashboardSpend = summarizeDashboardMonthlySpend(
-      monthlyOperatingCosts.resources, monthStart, monthEnd,
-    );
-
     // 并行执行独立聚合查询
     const [
       resourceAccountCount,
@@ -77,6 +77,7 @@ export class DashboardRepository {
       resourceStatus,
       overageList,
       monthlyTokenUsage,
+      apiCostEstimation,
     ] = await Promise.all([
       this.countResources(enterpriseId),
       this.countActiveEmployees(enterpriseId, monthStart, monthEnd),
@@ -86,7 +87,14 @@ export class DashboardRepository {
       loadDashboardResourceStatus(this.db, enterpriseId),
       listDashboardOverages(this.db, enterpriseId),
       getMonthlyTokenUsage(this.db, enterpriseId, monthStart, monthEnd),
+      // S3a（ACE-03/06）：首页 API 费用分量改由同源估算供给，不依赖资金账户/期初/余额，
+      // 与用量总览、同期窗口共享 loadApiCostEstimation 单一来源。
+      loadApiCostEstimation(this.db, enterpriseId, { start: monthStart, end: monthEnd }),
     ]);
+    const dashboardSpend = applyApiCostEstimationToSpend(
+      summarizeDashboardMonthlySpend(monthlyOperatingCosts.resources, monthStart, monthEnd),
+      apiCostEstimation,
+    );
 
     return {
       resourceAccountCount,

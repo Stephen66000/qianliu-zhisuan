@@ -401,7 +401,11 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
       openingBalance: preBill.summary.openingBalance,
       subjects: preBill.subjects.map((row) => ({ principalId: row.principalId,
         principalType: row.principalType, totalTokens: row.totalTokens })) })}`);
-    expect(preBill.summary.apiCost).toBeNull();
+    // 断言迁移（S3b 合同 §1.3 / AFR-07 场景“缺期初但费用已计价”）：激活前无期初/期末
+    // 余额桥，旧口径因此置 null；新口径主值＝同源估算——已定价已结算的 1.25 照常透出，
+    // 不再据资金缺口隐藏费用估算。totalCost 仍为 null（套餐快照缺 package_cost，无可
+    // 合并的套餐分量，非资金缺口所致）。
+    expect(preBill.summary.apiCost).toBe("1.25000000");
     expect(preBill.summary.totalCost).toBeNull();
   }, 120_000);
 

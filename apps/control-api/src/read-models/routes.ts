@@ -108,6 +108,7 @@ export function registerReadModelRoutes(app: FastifyInstance): void {
       currency: input.currency,
       priority: input.priority,
       source: input.source,
+      source_status: input.source_status,
     }).catch((error: unknown) => { if (error instanceof PricingModeConflictError) return null; throw error; });
     if (!rule) return reply.code(409).send({ error: "pricing_mode_conflict", message: "绝对价格与倍率计价冲突，请通过新建规则替换整套旧价格" });
     await app.auditRepo.write({

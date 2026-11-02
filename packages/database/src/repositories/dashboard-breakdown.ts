@@ -3,6 +3,8 @@ import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "../kysely.js";
 import { decimalTextsEqual, sumDecimalTexts } from "./dashboard-helpers.js";
+import { loadApiCostEstimation } from "./api-cost-estimation.js";
+import { apiEstimationGapText } from "./dashboard-monthly-spend.js";
 import { loadDashboardResourceUsage } from "./dashboard-resource-usage.js";
 import type { ResourceBreakdownItem } from "./dashboard-types.js";
 import type { MonthlyOperatingCostResource } from "./monthly-operating-cost.js";
@@ -220,6 +222,40 @@ async function latestProviderForecast(
   };
 }
 
+/**
+ * S3a（ACE-03/04/06/07）：由同源估算推导 API 汇总行费用三元组。
+ * 已知部分保留：有缺口但金额可知时照常透出金额，缺口进 reason；混币不合并（明确不一致）；
+ * ZERO_CONFIRMED/无 API 行为明确零，不冒充未知。
+ */
+function apiCostFromEstimation(
+  estimation: NonNullable<Awaited<ReturnType<typeof loadApiCostEstimation>>>,
+  fallbackCurrency: string | null,
+): { monthlyCost: string | null; monthlyCostReason: string | null; currency: string | null } {
+  const gapText = apiEstimationGapText(estimation.gaps);
+  if (estimation.amounts.length === 1) {
+    return {
+      monthlyCost: estimation.amounts[0]!.amount,
+      monthlyCostReason: gapText,
+      currency: estimation.amounts[0]!.currency,
+    };
+  }
+  if (estimation.amounts.length === 0 && estimation.completeness !== "KNOWN_PARTIAL") {
+    return { monthlyCost: "0.00000000", monthlyCostReason: null, currency: fallbackCurrency };
+  }
+  if (estimation.amounts.length === 0) {
+    return {
+      monthlyCost: null,
+      monthlyCostReason: gapText ?? "API 费用估算不完整",
+      currency: fallbackCurrency,
+    };
+  }
+  return {
+    monthlyCost: null,
+    monthlyCostReason: `币种不一致：${estimation.amounts.map((entry) => entry.currency).join("、")}`,
+    currency: fallbackCurrency,
+  };
+}
+
 export async function buildResourceBreakdown(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -274,11 +310,27 @@ export async function buildResourceBreakdown(
       counts[resource.status] = (counts[resource.status] ?? 0) + 1;
       return counts;
     }, {});
-    const [operating, allocatedQuota, forecast] = await Promise.all([
+    const [operating, allocatedQuota, forecast, apiEstimation] = await Promise.all([
       sumProviderOperatingSnapshot(db, enterpriseId, providerCode, mode, currentOperatingSnapshots),
       sumAllocatedQuota(db, enterpriseId, providerCode, mode, now),
       latestProviderForecast(db, enterpriseId, providerCode, mode, currentOperatingSnapshots),
+      // S3a（ACE-03/06）：API 汇总行的费用改由同源估算供给（该 providerCode+mode 的
+      // 资源集合范围、企业时区当月期间），资金开/关两条路径读到同一数值；
+      // CODING_PLAN 套餐口径不变。
+      mode === "API"
+        ? loadApiCostEstimation(db, enterpriseId, {
+          start: monthStart,
+          end: monthEnd,
+          resourceIds: groupStatuses.map((resource) => resource.resource_id),
+        })
+        : Promise.resolve(null),
     ]);
+    const apiCost = apiEstimation
+      ? apiCostFromEstimation(apiEstimation, operating.currency)
+      : { monthlyCost: null, monthlyCostReason: null, currency: null };
+    const apiMonthlyCost = apiCost.monthlyCost;
+    const apiMonthlyCostReason = apiCost.monthlyCostReason;
+    const apiCurrency = apiCost.currency;
     const usage = usageFor(providerCode, mode, groupStatuses.map((resource) => {
       const snapshot = operatingSnapshotByResource.get(resource.resource_id);
       return {
@@ -299,15 +351,21 @@ export async function buildResourceBreakdown(
     const costValuesComplete = costValues.every((value) => value !== null);
     const costCurrenciesComplete = costRows.length > 0 && costCurrencies.size === 1 &&
       costRows.every((cost) => cost.currency !== null);
-    const monthlyCost = costValuesComplete && costCurrenciesComplete
-      ? sumDecimalTexts(costValues as string[])
-      : null;
-    const incompleteCost = costRows.find((cost, index) => costValues[index] === null);
-    const monthlyCostReason = incompleteCost
-      ? incompleteCost.apiSpendReason ?? `${incompleteCost.resourceName} 套餐费用待补`
-      : !costCurrenciesComplete
-        ? `币种不一致：${costRows.map((cost) => `${cost.resourceName} ${cost.currency ?? "缺币种"}`).join("、")}`
+    const monthlyCost = mode === "API"
+      ? apiMonthlyCost
+      : costValuesComplete && costCurrenciesComplete
+        ? sumDecimalTexts(costValues as string[])
         : null;
+    const monthlyCostReason = mode === "API"
+      ? apiMonthlyCostReason
+      : (() => {
+        const incompleteCost = costRows.find((cost, index) => costValues[index] === null);
+        return incompleteCost
+          ? incompleteCost.apiSpendReason ?? `${incompleteCost.resourceName} 套餐费用待补`
+          : !costCurrenciesComplete
+            ? `币种不一致：${costRows.map((cost) => `${cost.resourceName} ${cost.currency ?? "缺币种"}`).join("、")}`
+            : null;
+      })();
     breakdown.push({
       providerCode,
       providerName: row.provider_name,
@@ -318,7 +376,9 @@ export async function buildResourceBreakdown(
       remainingQuota: operating.remaining,
       quotaUnit: operating.quotaUnit,
       allocatedQuota,
-      currency: costCurrencies.size === 1 ? [...costCurrencies][0]! : operating.currency,
+      currency: mode === "API"
+        ? apiCurrency
+        : costCurrencies.size === 1 ? [...costCurrencies][0]! : operating.currency,
       rechargeAmount: operating.recharge,
       currentBalance: operating.balance,
       currentPeriodCost: operating.periodCost,

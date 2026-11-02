@@ -51,7 +51,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
   async function addLine(input: {
     resourceId: string; modelId: string | null; historicalAlias: string; upstreamModel: string;
     input: bigint; output: bigint; cache: bigint; reasoning: bigint;
-    cost: string | null; quality: string; at: Date;
+    cost: string | null; quality: string; at: Date; currency?: string;
     deductedQuota?: bigint | null;
     mode?: "API" | "CODING_PLAN";
     requestStatus?: "SUCCEEDED" | "FAILED";
@@ -88,6 +88,17 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       raw_reasoning_tokens: input.reasoning, deducted_quota: input.deductedQuota ?? null,
       api_cost: input.cost,
       usage_quality: input.quality, created_at: input.at,
+      // S3a：首页/总览 API 汇总费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
+      // 已计价夹具行补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
+      // S3b：queryUsageRows 期间过滤统一 settled_at 半开窗口（合同 §1.2），因此所有已结算
+      // 夹具行（含 cost=null 与 CODING_PLAN）一律补 settled_at——生产结算链对每条已结算
+      // 账本行都写 settled_at（gateway-ledger-settlement.ts:197 / attempt-usage-settlement.ts:109，
+      // 见 s1-settled-at-null-investigation.md §3），NULL settled_at 仅存在于 seed 工具。
+      settled_at: input.at,
+      ...(input.cost !== null && (input.mode ?? "API") === "API" ? {
+        api_cost_status: "PRICED_USAGE" as const,
+        api_cost_currency: input.currency ?? "CNY",
+      } : {}),
     }).execute();
   }
 
@@ -220,6 +231,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
             resourceId: resource.id, modelId, historicalAlias: `old-${input.code}`,
             upstreamModel, input: 10n, output: 0n, cache: 0n, reasoning: 0n,
             cost: index === 0 ? "0.1" : "0.4", quality: "PROVIDER_REPORTED",
+            currency: input.currencies[index]!,
             at: new Date(now.getTime() - 30 * 60 * 1000),
           });
         }
@@ -261,7 +273,10 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     });
     expect(items.find((row) => row.providerCode === "multi-currency")).toMatchObject({
       currentBalance: null, monthlyCost: null, estimatedBalanceTokens: null,
-      monthlyCostReason: expect.stringMatching(/multi-currency-0 CNY.*multi-currency-1 USD/),
+      // S3a 断言迁移（依据：S3a §1.2 用量总览 API 汇总行费用由 loadApiCostEstimation 同源
+      // 供给＋ACE-07 混币不合并）：混币拒绝语义保留，理由文案改为估算缺口口径的明确币种
+      // 列表（原为逐资源余额桥接行列表）。
+      monthlyCostReason: "币种不一致：CNY、USD",
       balanceTokenEstimateReason: "PRICE_CURRENCY_MISMATCH",
     });
   });

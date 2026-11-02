@@ -190,4 +190,64 @@ describe("W19 计价规则", () => {
     expect(mixedSemantics.statusCode).toBe(400);
     expect(mixedSemantics.json().message).toContain("API 价格规则不能配置额度倍率");
   });
+
+  // S1 合同 §3.5：source_status 接受 VERIFIED/UNVERIFIED、缺省落库 UNVERIFIED、响应透出（ACE-02 场景 3）。
+  it("POST/GET /billing-rules 承接 source_status：缺省 UNVERIFIED、显式 VERIFIED 透出、非法值拒绝", async () => {
+    const defaulted = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: {
+        rule_type: "API_PRICE",
+        rule_version: "source-status-default-v1",
+        effective_from: "2026-07-01T00:00:00.000Z",
+        cache_miss_price: "0.000001",
+      },
+    });
+    expect(defaulted.statusCode).toBe(201);
+    expect(defaulted.json().rule.source_status).toBe("UNVERIFIED");
+
+    const verified = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: {
+        rule_type: "API_PRICE",
+        rule_version: "source-status-verified-v1",
+        effective_from: "2026-07-01T00:00:00.000Z",
+        cache_miss_price: "0.000001",
+        source_status: "VERIFIED",
+      },
+    });
+    expect(verified.statusCode).toBe(201);
+    expect(verified.json().rule.source_status).toBe("VERIFIED");
+
+    const listed = await app.inject({
+      method: "GET",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+    });
+    expect(listed.statusCode).toBe(200);
+    const statuses = Object.fromEntries(
+      listed.json().rules.map((rule: { rule_version: string; source_status: string }) => [
+        rule.rule_version, rule.source_status,
+      ]),
+    );
+    expect(statuses["source-status-default-v1"]).toBe("UNVERIFIED");
+    expect(statuses["source-status-verified-v1"]).toBe("VERIFIED");
+
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/billing-rules",
+      headers: { cookie: adminCookie },
+      payload: {
+        rule_type: "API_PRICE",
+        rule_version: "source-status-invalid-v1",
+        effective_from: "2026-07-01T00:00:00.000Z",
+        cache_miss_price: "0.000001",
+        source_status: "OFFICIAL",
+      },
+    });
+    expect(invalid.statusCode).toBe(400);
+  });
 });

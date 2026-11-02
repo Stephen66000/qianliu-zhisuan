@@ -4,6 +4,10 @@ import type {
   CurrencyAmount,
   MonthlyOperatingCostResource,
 } from "./monthly-operating-cost.js";
+import type {
+  ApiCostEstimation,
+  ApiCostEstimationGap,
+} from "./api-cost-estimation.js";
 
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
 
@@ -104,6 +108,53 @@ export function summarizeDashboardMonthlySpend(
     apiCost,
     apiCosts,
     apiCostReason: apiComplete ? null : "账本费用或币种事实不完整",
+    totalSpend,
+    totalSpends,
+  };
+}
+
+/** 估算缺口 → 展示文案；PRICE_BASIS_UNVERIFIED 为信息项，不参与完整性（WP1 plan §4.2）。 */
+export function apiEstimationGapText(gaps: ApiCostEstimationGap[]): string | null {
+  const text = gaps
+    .filter((gap) => gap.reason !== "PRICE_BASIS_UNVERIFIED")
+    .map((gap) => `${gap.reason}:${gap.count}`)
+    .join("、");
+  return text.length > 0 ? text : null;
+}
+
+/**
+ * 首页 API 费用分量改由同源估算供给（WP1 S3a / ACE-03/06/07）：
+ *   - monthlyApiCost(s) 直接采用 loadApiCostEstimation 的按币种 amounts（八位小数字面值，
+ *     不混币相加）；已知部分保留——KNOWN_PARTIAL 且有金额时照常透出金额，缺口进 apiCostReason；
+ *   - 套餐分量（packagePayment 系列）不动；资金字段（recharge 等）不在本函数职责内；
+ *   - totalSpend(s) 由套餐分量与估算分量按币种重新合计。
+ */
+export function applyApiCostEstimationToSpend(
+  spend: DashboardMonthlySpend,
+  estimation: Pick<ApiCostEstimation, "amounts" | "completeness" | "gaps">,
+): DashboardMonthlySpend {
+  const apiCosts: CurrencyAmount[] = estimation.amounts.map((amount) => ({
+    currency: amount.currency,
+    amount: amount.amount,
+  }));
+  const apiCost = apiCosts.length === 1
+    ? apiCosts[0]!.amount
+    : apiCosts.length === 0 && estimation.completeness !== "KNOWN_PARTIAL"
+      ? "0.00000000"
+      : null;
+  const apiCostReason = apiCost !== null
+    ? apiEstimationGapText(estimation.gaps)
+    : apiCosts.length > 1
+      ? `币种不一致：${apiCosts.map((entry) => entry.currency).join("、")}`
+      : apiEstimationGapText(estimation.gaps) ?? "API 费用估算不完整";
+  const totalComplete = spend.packagePayment !== null && apiCost !== null;
+  const totalSpends = totalComplete ? group([...spend.packagePayments, ...apiCosts]) : [];
+  const totalSpend = totalComplete ? scalar(totalSpends, true, "0.00000000") : null;
+  return {
+    ...spend,
+    apiCost,
+    apiCosts,
+    apiCostReason,
     totalSpend,
     totalSpends,
   };
