@@ -35,10 +35,10 @@ describe("closed-month reports share the weekly high-resolution layout",()=>{
     try{
       const result=await runCompanyMonthlyReport({db,enterpriseId,kekBase64:"unused",month:"2026-09",dryRun:true});
       expect(result).toMatchObject({status:"DRY_RUN",totalTokens:150000,requestCount:2});
-      expect(result.svg).toContain("全员用量月报");expect(result.svg).toContain("2026 年 9 月 · 9.1 - 9.30");
-      expect(result.svg).toContain("历史余额待核账");expect(result.svg).not.toContain("额度扣减总量</text>");expect(result.svg).toContain("15.0");
-      expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("全周");expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("7天");expect(result.svg).toContain('viewBox="0 0 540 900"');
-      expect([result.pngBuffer!.readUInt32BE(16),result.pngBuffer!.readUInt32BE(20)]).toEqual([1080,1800]);expect(sizes[0]).toEqual([1080,1800]);
+      expect(result.svg).toContain("Token使用量月报");expect(result.svg).toContain("2026年9月");expect(result.svg).not.toContain("9.1 - 9.30");
+      expect(result.monthlyMetrics).toMatchObject({allocatedTokens:"200000",usedTokens:"150000",remainingTokens:"50000",usageRate:"75.0%"});expect(result.summaryText).toContain("当月Token使用率：75.0%");expect(result.svg).not.toContain("额度扣减总量</text>");expect(result.svg).toContain("15.0");
+      expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("全周");expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("7天");expect(result.svg).toContain('viewBox="0 0 540 843"');
+      expect([result.pngBuffer!.readUInt32BE(16),result.pngBuffer!.readUInt32BE(20)]).toEqual([1080,1686]);expect(sizes[0]).toEqual([1080,1686]);
     }finally{spy.mockRestore();}
   });
   it("renders and delivers a personal month card using the existing font, crop and recipient",async()=>{
@@ -56,8 +56,19 @@ describe("closed-month reports share the weekly high-resolution layout",()=>{
   it("does not invent a historical allocation after the grant has been edited",async()=>{
     await db.updateTable("principal_grant").set({updated_at:new Date("2026-10-02T00:00:00+08:00"),quota_value:999999999n})
       .where("enterprise_id","=",enterpriseId).where("provider","=","zhipu").execute();
+    await expect(runCompanyMonthlyReport({db,enterpriseId,kekBase64:"unused",month:"2026-09",dryRun:true})).rejects.toThrow("MONTHLY_ALLOCATION_NOT_PROVABLE");
+  });
+  it("uses frozen monthly limits after a grant edit and rejects an unproven monthly limit",async()=>{
+    const principal=await db.selectFrom("principal").select("id").where("enterprise_id","=",enterpriseId).where("person_id","=",personId).executeTakeFirstOrThrow();
+    const openedAt=new Date("2026-09-01T00:00:00+08:00");
+    const period=await db.insertInto("principal_quota_period").values({enterprise_id:enterpriseId,principal_id:principal.id,provider:"zhipu",
+      period_key:"2026-09",period_start:openedAt,period_end:new Date("2026-10-01T00:00:00+08:00"),timezone:"Asia/Shanghai",
+      quota_basis:"RAW_TOKEN",limit_value:200000n,allow_overage:false,open_grant_version:1,
+      created_at:openedAt,updated_at:openedAt,limit_updated_at:openedAt}).returning("id").executeTakeFirstOrThrow();
     const result=await runCompanyMonthlyReport({db,enterpriseId,kekBase64:"unused",month:"2026-09",dryRun:true});
-    expect(result.totalTokens).toBe(150000);expect(result.svg).toContain("未留存");expect(result.svg).not.toContain("99999");
+    expect(result.monthlyMetrics).toMatchObject({allocatedTokens:"200000",usedTokens:"150000",remainingTokens:"50000",usageRate:"75.0%"});
+    await db.updateTable("principal_quota_period").set({limit_updated_at:new Date("2026-10-02T00:00:00+08:00")}).where("id","=",period.id).execute();
+    await expect(runCompanyMonthlyReport({db,enterpriseId,kekBase64:"unused",month:"2026-09",dryRun:true})).rejects.toThrow("MONTHLY_ALLOCATION_NOT_PROVABLE");
   });
   it("a missing identity is recorded and does not block the next personal report",async()=>{
     vi.restoreAllMocks();

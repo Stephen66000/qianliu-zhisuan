@@ -1,0 +1,98 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/report-worker-correction/仟流智算/apps/worker
+
+ ✓ src/reporting/__tests__/monthly-report.integration.test.ts (4 tests) 3227ms
+ ✓ src/reporting/__tests__/model-report-labels.integration.test.ts (4 tests) 6611ms
+   ✓ report model identity and complete counts > counts four used models before limiting the table to three without changing any totals  1047ms
+   ✓ report model identity and complete counts > retains principal, tenant and exclusive time-range filters for both count and Top3  498ms
+   ✓ report model identity and complete counts > the actual daily job passes four to the renderer while keeping the original three rows  2387ms
+ ✓ src/reporting/__tests__/delivery.integration.test.ts (13 tests) 3110ms
+ ✓ src/__tests-integration__/directory-sync-worker.test.ts (2 tests) 2271ms
+   ✓ directory sync worker > 凭证只在内存解密，通过统一 staging/apply 完成部分成功且重复快照不重复建人  975ms
+ ✓ src/reporting/__tests__/weekly-report-resolution.integration.test.ts (2 tests) 2456ms
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"dd86e80b-05f4-4e5d-b0c3-f91cf5118e96","provider":"kimi","windows":2,"recovered":false}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"dd86e80b-05f4-4e5d-b0c3-f91cf5118e96","provider":"kimi","windows":2,"recovered":true}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 智谱周窗口不支持时，以可知的 5 小时窗口自动恢复
+{"event":"quota_sync_success","resource_id":"1c1cc570-94b1-4b13-9949-a6d02e5a6b02","provider":"zhipu","windows":2,"recovered":true}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 审核修复（P1）：生产大写厂商 code（Kimi）不再被额度同步整体跳过
+{"event":"quota_sync_success","resource_id":"23700407-b337-4492-be6c-c6e0668630c3","provider":"kimi","windows":2,"recovered":false}
+
+ ✓ src/coding-plan-quota/runner.test.ts (3 tests) 2346ms
+   ✓ Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实  912ms
+ ✓ src/__tests-integration__/provider-finance-quiescence-worker.integration.test.ts (3 tests) 2267ms
+stderr | src/__tests-integration__/runtime-assurance-worker.test.ts > RA-W05A/W05B/W06 Worker 闭环 > 调度循环成功和失败均更新健康状态并响应停止信号
+{"event":"runtime_assurance_tick_failed","error_type":"TypeError"}
+
+ ✓ src/__tests-integration__/runtime-assurance-worker.test.ts (5 tests) 2422ms
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles PONG and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-redis.test.ts (3 tests) 2628ms
+   ✓ real Redis connection handles SILENT and closes every socket  2540ms
+ ✓ src/reporting/__tests__/report-facts-legacy.integration.test.ts (2 tests) 2236ms
+ ✓ src/provider-operating-sync/runner.test.ts (2 tests) 2681ms
+   ✓ POOL20-025 每日经营同步 > 成功追加不可变快照；同日幂等；失败只留原因并保鲜最后成功值  915ms
+ ✓ src/reporting/__tests__/milestone-store.integration.test.ts (1 test) 433ms
+   ✓ Redis milestone compatibility receipts > parallel or resumed success increments the weekly win count once  432ms
+ ✓ src/runtime-assurance/__tests__/wecom-report-http.test.ts (14 tests) 190ms
+ ✓ src/reporting/__tests__/svg-templates.test.ts (6 tests) 123ms
+ ✓ src/reporting/__tests__/render-png-resolution.test.ts (8 tests) 95ms
+ ✓ src/reporting/__tests__/daily-token-report.test.ts (3 tests) 57ms
+ ✓ src/reporting/__tests__/company-monthly-contract.test.ts (3 tests) 55ms
+ ✓ src/runtime-assurance/scheduler.test.ts (4 tests) 22ms
+ ✓ src/directory/connector.test.ts (11 tests) 21ms
+ ✓ src/reporting/__tests__/format-utils.test.ts (20 tests) 18ms
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:control-api"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-probes.test.ts (6 tests) 10ms
+ ✓ src/runtime-assurance/scheduler-loop.test.ts (6 tests) 8ms
+ ✓ src/reporting/__tests__/monthly-period.test.ts (13 tests) 10ms
+ ✓ src/reporting/__tests__/quote-library.test.ts (6 tests) 7ms
+stderr | src/runtime-assurance/observed-task.test.ts > database failure does not replace the original error; recovery flushes the pending failure first
+{"event":"task_fault_record_unavailable","task":"task"}
+
+ ✓ src/runtime-assurance/observed-task.test.ts (3 tests) 5ms
+ ✓ src/reporting/__tests__/delivery-scheduler.test.ts (12 tests) 6ms
+ ✓ src/usage-aggregate/runner.test.ts (2 tests) 4ms
+ ✓ src/reporting/__tests__/report-jobs.test.ts (4 tests) 2ms
+ ✓ src/operating-bill/runner.test.ts (4 tests) 4ms
+ ✓ src/runtime-assurance/__tests__/wecom-client-media.test.ts (3 tests) 4ms
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+ ✓ src/runtime-assurance/infrastructure-checks.test.ts (2 tests) 3ms
+ ✓ src/runtime-assurance/scheduled-tasks.test.ts (3 tests) 4ms
+ ✓ src/subscription-renewal/runner.test.ts (3 tests) 3ms
+
+ Test Files  33 passed (33)
+      Tests  180 passed (180)
+   Start at  13:20:02
+   Duration  49.21s (transform 1.34s, setup 0ms, collect 11.12s, tests 33.34s, environment 3ms, prepare 1.35s)
+

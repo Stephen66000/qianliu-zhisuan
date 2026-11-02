@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 760" width="540" height="760">
+  <!-- Pure White Background -->
+  <rect x="0" y="0" width="540" height="760" fill="#FFFFFF"/>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
+    <!-- Block 1: 顶栏小结 (标题 + 6大数字 2×3) -->
+    <text x="87" y="76" font-size="20" font-weight="700" fill="#172033">仟流科技 · 全员用量月报<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">2026 年 10 月</tspan></text>
+
+    <text x="87" y="94" font-size="10" fill="#7D8FA4">2026 年 10 月 · 10.1 - 10.31（北京时间完整自然月）</text>
+    <!-- 第 1 行：月度额度视角（本月总 Token / Token 消耗总量 / 剩余 Token 总量） -->
+    <g transform="translate(87, 116)">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">单月分配额度</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">22.0 <tspan font-size="15" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+    </g>
+
+    <g transform="translate(202, 116)">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">当月Token使用率</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">123.2 <tspan font-size="15" font-weight="500" fill="#7D8FA4">%</tspan></text>
+    </g>
+
+    <g transform="translate(320, 116)">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">月末剩余额度</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">-5.1 <tspan font-size="15" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+    </g>
+
+    <!-- 第 2 行：本周用量视角（全周总请求次数 / 全周 Token 消耗总量 / 团队日均使用量） -->
+    <g transform="translate(87, 188)">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">全月总请求次数</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">2.3 <tspan font-size="15" font-weight="500" fill="#7D8FA4">万</tspan></text>
+    </g>
+
+    <g transform="translate(202, 188)">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">全月Token使用量</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">27.1 <tspan font-size="15" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+    </g>
+
+    <g transform="translate(320, 188)">
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">团队日均使用量</text>
+      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">8740.2 <tspan font-size="15" font-weight="500" fill="#7D8FA4">万 /天</tspan></text>
+    </g>
+
+    <!-- 分割线 1 -->
+    <text x="87" y="234" font-size="8.5" fill="#7D8FA4">使用率＝全月Token使用量 ÷ 分配额度；剩余额度保留超额负值</text>
+    <line x1="87" y1="266" x2="453" y2="266" stroke="#F1F5F9" stroke-width="1" />
+
+    <!-- Block 2: 全员使用量表格 -->
+    <text x="87" y="312" font-size="13" font-weight="700" fill="#172033">全员使用量</text>
+    <text x="453" y="312" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">全员 4 人</text>
+
+    <!-- 列标题：按比例精细重排，彻底消除长部门重叠 -->
+    <text x="96" y="332" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="middle">排名</text>
+    <text x="112" y="332" font-size="10" font-weight="500" fill="#7D8FA4">成员</text>
+    <text x="160" y="332" font-size="10" font-weight="500" fill="#7D8FA4">所属团队</text>
+    <text x="264" y="332" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">请求数</text>
+    <text x="330" y="332" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">全月总消耗</text>
+    <text x="405" y="332" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">日均使用量</text>
+    <text x="453" y="332" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">占比</text>
+
+    <!-- 用户数据行 -->
+
+      <!-- Row 1: 曹磊 -->
+
+        <circle cx="96" cy="350" r="7.5" fill="#FEF3C7" />
+        <text x="96" y="354" font-size="9.5" font-weight="700" fill="#D97706" text-anchor="middle">1</text>
+
+      <text x="112" y="354" font-size="10.5" font-weight="700" fill="#172033">曹磊</text>
+      <text x="160" y="354" font-size="9.5" font-weight="500" fill="#7D8FA4">技术部</text>
+      <text x="264" y="354" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">15,323 <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="330" y="354" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">19.4 <tspan font-size="9" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+      <text x="405" y="354" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">6265.9 <tspan font-size="9" font-weight="500" fill="#7D8FA4">万 /天</tspan></text>
+      <text x="453" y="354" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">71.7%</text>
+
+
+      <!-- Row 2: 王涛 -->
+
+        <circle cx="96" cy="374" r="7.5" fill="#E2E8F0" />
+        <text x="96" y="378" font-size="9.5" font-weight="700" fill="#64748B" text-anchor="middle">2</text>
+
+      <text x="112" y="378" font-size="10.5" font-weight="700" fill="#172033">王涛</text>
+      <text x="160" y="378" font-size="9.5" font-weight="500" fill="#7D8FA4">技术部</text>
+      <text x="264" y="378" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">4,994 <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="330" y="378" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">6.3 <tspan font-size="9" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+      <text x="405" y="378" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">2027.4 <tspan font-size="9" font-weight="500" fill="#7D8FA4">万 /天</tspan></text>
+      <text x="453" y="378" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">23.2%</text>
+
+
+      <!-- Row 3: 邱志杰 -->
+
+        <circle cx="96" cy="398" r="7.5" fill="#FFEDD5" />
+        <text x="96" y="402" font-size="9.5" font-weight="700" fill="#EA580C" text-anchor="middle">3</text>
+
+      <text x="112" y="402" font-size="10.5" font-weight="700" fill="#172033">邱志杰</text>
+      <text x="160" y="402" font-size="9.5" font-weight="500" fill="#7D8FA4">技术部</text>
+      <text x="264" y="402" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">2,217 <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="330" y="402" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">1.4 <tspan font-size="9" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+      <text x="405" y="402" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">446.8 <tspan font-size="9" font-weight="500" fill="#7D8FA4">万 /天</tspan></text>
+      <text x="453" y="402" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">5.1%</text>
+
+
+      <!-- Row 4: 李佳 -->
+
+        <text x="96" y="426" font-size="10" font-weight="500" fill="#94A3B8" text-anchor="middle">4</text>
+
+      <text x="112" y="426" font-size="10.5" font-weight="700" fill="#172033">李佳</text>
+      <text x="160" y="426" font-size="9.5" font-weight="500" fill="#7D8FA4">总经理办公室</text>
+      <text x="264" y="426" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">73 <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="330" y="426" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">5.0 <tspan font-size="9" font-weight="500" fill="#7D8FA4">万</tspan></text>
+      <text x="405" y="426" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">0.2 <tspan font-size="9" font-weight="500" fill="#7D8FA4">万 /天</tspan></text>
+      <text x="453" y="426" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">0.0%</text>
+
+
+    <!-- 分割线 2 -->
+    <line x1="87" y1="462" x2="453" y2="462" stroke="#F1F5F9" stroke-width="1" />
+
+    <!-- Block 3: 使用模型表格 -->
+    <text x="87" y="508" font-size="13" font-weight="700" fill="#172033">使用模型</text>
+    <text x="453" y="508" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">本月热门 3 个模型</text>
+
+    <text x="87" y="528" font-size="10" font-weight="500" fill="#7D8FA4">模型</text>
+    <text x="220" y="528" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">全月消耗</text>
+    <text x="306" y="528" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">日均消耗</text>
+    <text x="390" y="528" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">请求数</text>
+    <text x="453" y="528" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">占比</text>
+
+    <!-- 模型数据行 -->
+
+      <!-- Model Row 1: deepseek-flash -->
+      <text x="87" y="550" font-size="10.5" font-weight="700" fill="#172033">deepseek-flash</text>
+      <text x="220" y="550" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">20.2 <tspan font-size="9" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+      <text x="306" y="550" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">6518.3 <tspan font-size="9" font-weight="500" fill="#7D8FA4">万 /天</tspan></text>
+      <text x="390" y="550" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">16,188 <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="453" y="550" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">74.6%</text>
+
+
+      <!-- Model Row 2: GLM 5.3 Flash -->
+      <text x="87" y="574" font-size="10.5" font-weight="700" fill="#172033">GLM 5.3 Flash</text>
+      <text x="220" y="574" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">4.5 <tspan font-size="9" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+      <text x="306" y="574" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">1441.9 <tspan font-size="9" font-weight="500" fill="#7D8FA4">万 /天</tspan></text>
+      <text x="390" y="574" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">4,379 <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="453" y="574" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">16.5%</text>
+
+
+      <!-- Model Row 3: GLM 5.3 -->
+      <text x="87" y="598" font-size="10.5" font-weight="700" fill="#172033">GLM 5.3</text>
+      <text x="220" y="598" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">2.4 <tspan font-size="9" font-weight="500" fill="#7D8FA4">亿</tspan></text>
+      <text x="306" y="598" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">779.5 <tspan font-size="9" font-weight="500" fill="#7D8FA4">万 /天</tspan></text>
+      <text x="390" y="598" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">1,963 <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="453" y="598" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">8.9%</text>
+
+
+    <!-- 分割线 3 -->
+    <line x1="87" y1="634" x2="453" y2="634" stroke="#F1F5F9" stroke-width="1" />
+
+    <!-- Block 4: 品牌底栏 -->
+    <text x="87" y="682" font-size="15" font-weight="700" fill="#172033">仟流智算</text>
+    <text x="87" y="700" font-size="11" font-weight="500" fill="#7D8FA4" letter-spacing="0.8">Qianliu IC</text>
+
+    <!-- 官方矢量 Logo：38x38，右边缘 X=453，蓝色拐角底部与 Qianliu IC 底线 Y 对齐 -->
+    <image href="data:image/png;base64,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" x="415" y="662" width="38" height="38"/>
+  </g>
+</svg>

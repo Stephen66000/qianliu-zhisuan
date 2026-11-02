@@ -1,3 +1,4 @@
+import { generateCompanyMonthlySvg } from "./company-monthly-svg.js";
 import { escapeXml } from "../format-utils.js";
 import { QIANLIU_LOGO_DATA_URI } from "./logo-base64.js";
 
@@ -24,6 +25,7 @@ export interface CompanyWeeklyReportData {
   reportMonth?: string;
   reportTimezone?: string;
   dateRange: string;      // e.g. "9.7 - 9.13 (第37周)"
+  monthTokenUsageRate?: string;
   monthQuotaTotal: string;   // e.g. "500.0"（本月总 Token 额度，万/亿）
   monthConsumedTokens: string; // e.g. "128.5"（本月 Token 消耗总量，万/亿）
   monthQuotaRemaining: string; // e.g. "371.5"（剩余 Token 总量，万/亿）
@@ -53,6 +55,7 @@ export interface CompanyWeeklyReportData {
  * - 纯矢量设计，严禁 Emoji。
  */
 export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string {
+  if (data.reportMonth) return generateCompanyMonthlySvg(data);
   const cardWidth = 540;
   const quotaRows = data.quotaRows ?? [];
   const quotaHeight = quotaRows.length ? 56 + quotaRows.length * 44 : 0;

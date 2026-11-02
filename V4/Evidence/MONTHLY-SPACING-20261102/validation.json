@@ -1,0 +1,28 @@
+{
+  "status": "LOCAL_VALIDATED",
+  "scope": "Monthly only; section gaps +50%, data rows rendered font -2px",
+  "base": "1b3960ecd9647b062ec2c7a4e66628cb36f84636",
+  "sourceSha256": {
+    "apps/worker/src/reporting/__tests__/company-monthly-contract.test.ts": "5f577cd81c6cfbc7ad5dae2512b9cbafda5b16a0facbfafa7699d4cd08119254",
+    "apps/worker/src/reporting/__tests__/monthly-report.integration.test.ts": "8f2aad0cccae1d2da2dcf10827b82ea0f649f900242a81818783e312a7371832",
+    "apps/worker/src/reporting/templates/company-monthly-svg.ts": "7666e2cad75643f99b2ac98871ba69aa6e701d4c726ad639163e6b65003de35f"
+  },
+  "checks": {
+    "reportingFiles": 15,
+    "reportingTests": 101,
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "PNGVisualReview": "PASS"
+  },
+  "sectionGapFactor": 1.5,
+  "exportedRowFontReductionPixels": 2,
+  "titleAndHeaderFontsChanged": false,
+  "weeklyChanged": false,
+  "calculationsChanged": false,
+  "fourMemberCanvas": [
+    1080,
+    1594
+  ],
+  "sideMarginsChanged": false,
+  "realPreviewDataPublished": false
+}

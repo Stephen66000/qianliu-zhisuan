@@ -1,0 +1,40 @@
+{
+  "status": "LOCAL_MERGE_VALIDATION_PASS",
+  "featureCommit": "1c44f5c8a38c76d9fddd6ff74ec2df7b673b0b30",
+  "integratedMain": "f27cb50d63a2387018c62b93a0d8d74426ed816a",
+  "authorization": "Push to GitHub and merge main. No production deployment or migration.",
+  "preserved": "main monthly layout and numeric KPI contract; monthly ledger and quota unit semantics from feature",
+  "newCompatibility": "Prefer proven frozen monthly limits after grant edits; missing historical facts remain blocked.",
+  "validation": {
+    "worker": "34 files / 196 tests passed initially; two test fixture compatibility failures then fixed; final targeted 2 files / 3 tests passed. All 199 cases covered, no unresolved failure or skip.",
+    "domainMonthBoundary": "11 tests passed",
+    "databaseTypecheck": "passed",
+    "workerTypecheck": "passed",
+    "workerLint": "passed; changed final two tests lint passed",
+    "sourceSize": "671 files passed",
+    "architecture": "671 production files passed",
+    "mutationDisposition": "9 reports / 21 files passed; historical 4 timeout mutants recorded"
+  },
+  "priorAcceptance": "../pre-release-20261102/final-acceptance.json remains historical evidence for feature commit; no full capacity/mutation suite repeated",
+  "sourceSha256": {
+    "apps/worker/src/reporting/report-facts.ts": "f67eaf340fd8dba591679eca79c1971771e453a1cb08835a4ef315dab887a5d0",
+    "apps/worker/src/reporting/report-jobs.ts": "42202f8d73b39836ee2ed483b2c50916701d38b0c1c6b62c57255b9e922ab53d",
+    "apps/worker/src/reporting/templates/company-monthly-svg.ts": "7666e2cad75643f99b2ac98871ba69aa6e701d4c726ad639163e6b65003de35f",
+    "apps/worker/src/reporting/templates/company-report-frame.ts": "eb10676bce44de65574af8faabe36c33aec0ec8d17bd09d640b35265cb0b3982",
+    "apps/worker/src/reporting/templates/company-weekly-svg.ts": "4e1376fa9adbddd210b9b6cbe74f7295edeed2c90edca3fe1aacd9a0fb57bdc1",
+    "apps/worker/src/reporting/__tests__/monthly-report.integration.test.ts": "4aa58be2a28bd799be05add856dbc0c25f44c1e80f7460d33af3c3d5abca527a",
+    "apps/worker/src/reporting/__tests__/report-facts-legacy.integration.test.ts": "9253e92aa80e8ae7893096499ea48e3e9a40329d75e4236150a211eae28d0635",
+    "apps/worker/src/reporting/__tests__/report-layout-preview.test.ts": "49c8b3d1a35044ee21e32465bd330b339fd872978dfccb8ce859d5723c039fc5"
+  },
+  "logsSha256": {
+    "architecture.log": "cbe40a34b738932eaea3fd9bfd36a07fdc679f6e15b0a6a875d623915afa3e84",
+    "mutation-disposition.log": "0d30cbcafc54ed5acd516dd58639c8775f81920cc12a4a581fa319a2f7599830",
+    "source-size.log": "561cbf6a8e08761def731abaa1e5778bc13b109ae507776884c59f9fb72d690f",
+    "worker-lint.log": "5d34889c1e3b860978c69e5a6af0a5fb0b4079c8719c04e0a24d56302306dc05",
+    "worker-targeted-final.log": "d2c063dea9ab20b247ca7a36e0ac252062b3b5cf4398bfcc051c2dbf874b096c",
+    "worker-targeted-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worker-tests.log": "f7ab8800283741e938f671256e6755db73bf492575a0bd7b84bd824701b2e8e4",
+    "worker-typecheck.log": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630"
+  },
+  "productionActions": []
+}

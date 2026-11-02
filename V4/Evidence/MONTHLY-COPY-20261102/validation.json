@@ -1,0 +1,24 @@
+{
+  "status": "LOCAL_VALIDATED",
+  "scope": "Monthly wording only, plus removal of visible explanatory annotations",
+  "baseCommit": "2cfb2b0b4ac1412b59cc3a94dc1eae2fa3018394",
+  "sourceSha256": {
+    "apps/worker/src/reporting/__tests__/company-monthly-contract.test.ts": "b80b28a326b4267b8f4fe8194d967291935c3002b3996962dbdd613ba36adf26",
+    "apps/worker/src/reporting/__tests__/monthly-report.integration.test.ts": "e95087db1204f592dcdbc109569b83e9a9a830cb8592ac04e8060cb8e4c1f0c1",
+    "apps/worker/src/reporting/company-report-presentation.ts": "a02f39b9d67cf944ce72ffbf681256c971283a7e0ebbdbb48f4781a0ac7f4f68",
+    "apps/worker/src/reporting/report-jobs.ts": "42202f8d73b39836ee2ed483b2c50916701d38b0c1c6b62c57255b9e922ab53d",
+    "apps/worker/src/reporting/templates/company-monthly-svg.ts": "55653a717680233a77049b6e806820e7a8958a03482294c59a1e960c6bce1a78"
+  },
+  "checks": {
+    "reportingTests": 101,
+    "reportingFiles": 15,
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "geometry": "UNCHANGED except removed annotation text node",
+    "canvas": [
+      1080,
+      1520
+    ]
+  },
+  "realPreviewDataPublished": false
+}
