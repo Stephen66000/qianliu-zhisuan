@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-02",
+  "base": "a814dc3a5b06d7f0b72907487c4b23250909bfa9",
+  "scope": "Company monthly report only; six numeric KPIs and restored original table layout",
+  "sourceSha256": {
+    "apps/worker/src/reporting/__tests__/monthly-report.integration.test.ts": "eafab347c4736548b22a5fa24131a82745e281cef4e762a625353213449cedaa",
+    "apps/worker/src/reporting/report-facts.ts": "9bbaa165a2a49ebe122c4a6e4892b85db500451775ce099d3b29500919bb5612",
+    "apps/worker/src/reporting/report-jobs.ts": "479c8455ccb400c30c1d3a8a9c98daab93912a1199d20655859d678ebc865a79",
+    "apps/worker/src/reporting/templates/company-weekly-svg.ts": "4e1376fa9adbddd210b9b6cbe74f7295edeed2c90edca3fe1aacd9a0fb57bdc1",
+    "apps/worker/src/reporting/__tests__/company-monthly-contract.test.ts": "888afe5989d13c4147f6a57816371f680861b8b4b054f6568d433a1878dc21bc",
+    "apps/worker/src/reporting/company-monthly-metrics.ts": "5e080e2437546c730a66bc134232f79b6fb6c75c19ac0bd5a9e5c127446d5229",
+    "apps/worker/src/reporting/company-report-presentation.ts": "5877fdd61a00612070d3650e64de26a19e4814aacd9e094d3eb95532c369dfd6",
+    "apps/worker/src/reporting/templates/company-monthly-svg.ts": "3a954bb30f83a79460215fd668c42f5f101365981108822bf41141a91da27c53"
+  },
+  "workerTests": 180,
+  "workerTestFiles": 33,
+  "workerTypecheck": "PASS",
+  "workerLint": "PASS",
+  "sourceWhitespace": "PASS",
+  "originalMemberAndModelRowRenderers": "BYTE_IDENTICAL",
+  "canvas": [
+    1080,
+    1520
+  ],
+  "productionReadOnlyAllocation": {
+    "grants": 16,
+    "changedAfterMonthEnd": 0,
+    "allocated": "2200000000"
+  },
+  "month": "2026-10",
+  "expectedKpis": [
+    "22.0 亿",
+    "123.2%",
+    "-5.1 亿",
+    "2.3 万",
+    "27.1 亿",
+    "8740.2 万 /天"
+  ],
+  "deploymentAtThisValidation": false
+}

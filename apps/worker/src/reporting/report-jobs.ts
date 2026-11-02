@@ -1,3 +1,5 @@
+import type { companyMonthlyMetrics } from "./company-monthly-metrics.js";
+import { companyReportPresentation } from "./company-report-presentation.js";
 import { type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
 import { deliverReport, reportRecipientRef, type DeliveryOptions, type DeliveryStatus } from "./delivery.js";
@@ -155,6 +157,7 @@ export interface RunCompanyWeeklyReportResult {
   svg?: string;
   pngBuffer?: Buffer;
   summaryText?: string;
+  monthlyMetrics?: ReturnType<typeof companyMonthlyMetrics>;
 }
 
 /**
@@ -186,6 +189,7 @@ export async function runCompanyWeeklyReport(
   const requestCount = Number(overview.metrics.requestCount);
   const activeEmployees = overview.metrics.activeSubjects;
   const quota = facts.quota;
+  const presentation = companyReportPresentation(Boolean(monthly), facts);
   const topModelsData = facts.models.models;
   const totalModelTokens = totalTokens;
 
@@ -219,13 +223,14 @@ export async function runCompanyWeeklyReport(
     dateRange: dateRangeStr,
     reportMonth: monthly?.label,
     reportTimezone: timezone,
-    monthQuotaTotal: quota.scopeLabel,
-    monthConsumedTokens: quota.statusLabel,
-    monthQuotaRemaining: quota.policyLabel,
+    monthQuotaTotal: presentation.monthQuotaTotal,
+    monthTokenUsageRate: presentation.monthTokenUsageRate,
+    monthConsumedTokens: presentation.monthConsumedTokens,
+    monthQuotaRemaining: presentation.monthQuotaRemaining,
     quotaRows: quota.rows,
     quotaAsOf: quota.asOfLabel,
     totalModels: facts.models.totalModels,
-    totalRequests: `${formatNumber(requestCount)} 次`,
+    totalRequests: presentation.totalRequests,
     totalTokens: formatTokenVolume(totalTokens),
     dailyAvgTokens: formatTokenVolume(totalTokens / divisor, { isDailyAvg: true }),
     totalEmployees: activeEmployees,
@@ -289,14 +294,10 @@ export async function runCompanyWeeklyReport(
   const summaryText = [
     `📊 【${enterprise.name}】全员用量${context.noun}报小结 (${dateRangeStr})`,
     "━━━━━━━━━━━━━━━━━━",
-    `💎 额度范围：${quota.scopeLabel}`,
-    `🔥 额度状态：${quota.statusLabel}`,
-    `🧮 超额策略：${quota.policyLabel}`,
-    `额度${quota.asOfLabel}；${quota.rows.map(row => `${row.provider}（${row.basis}）：${row.detail}`).join("；")}`,
-    "成功请求统计；额度包含失败实耗，按预占归属月计量。",
-    `⚡ 全${context.noun}消耗总量：${formatTokenVolume(totalTokens)}`,
+    ...presentation.quotaSummaryLines,
+    `⚡ 全${context.noun}Token使用量：${formatTokenVolume(totalTokens)}`,
     `📈 日均使用水平：${formatTokenVolume(totalTokens / divisor, { isDailyAvg: true })}`,
-    `🚀 全${context.noun}总请求数：${formatNumber(requestCount)} 次`,
+    `🚀 全${context.noun}总请求数：${presentation.totalRequests}`,
     `👥 活跃员工总数：${activeEmployees} 人`,
     "━━━━━━━━━━━━━━━━━━",
     "详见上方管理看板长图 👆",
@@ -314,6 +315,7 @@ export async function runCompanyWeeklyReport(
       svg,
       pngBuffer,
       summaryText,
+      monthlyMetrics: presentation.monthlyMetrics,
     };
   }
 

@@ -35,9 +35,13 @@ export async function readEmployeeReportFacts(db: Kysely<Database>, input: {
     // A legacy cumulative counter cannot prove a month-end balance or its historical unit.
     const grants = await trx.selectFrom("principal_grant as g")
       .innerJoin("principal as p", join => join.onRef("p.id", "=", "g.principal_id").onRef("p.enterprise_id", "=", "g.enterprise_id"))
-      .select(["g.principal_id", "g.provider", "g.updated_at", "g.status", "g.valid_until"])
+      .select(["g.principal_id", "g.provider", "g.quota_value", "g.updated_at", "g.status", "g.valid_until"])
       .where("g.enterprise_id", "=", input.enterpriseId).where("p.type", "=", "EMPLOYEE")
       .where("g.created_at", "<", end).where("g.valid_from", "<", end).execute();
+    // Reuse the established month-end allocation cutoff; include employees without activity.
+    const companyMonthlyAllocation = input.period !== "MONTH" || grants.some(grant => grant.updated_at >= end)
+      ? null : grants.filter(grant => grant.status === "ACTIVE" && (grant.valid_until === null || grant.valid_until >= end))
+        .reduce((sum, grant) => sum + BigInt(grant.quota_value), 0n).toString();
     const monthlySchema = await sql<{ present: boolean }>`SELECT to_regclass('principal_quota_period') IS NOT NULL AS present`.execute(trx);
     const periods = monthlySchema.rows[0]?.present
       ? await readQuotaPeriodsInTransaction(trx, { enterpriseId: input.enterpriseId, periodKey: cutoff.periodKey, asOf: end }) : [];
@@ -112,6 +116,6 @@ export async function readEmployeeReportFacts(db: Kysely<Database>, input: {
     return { factVersion: "employee-report-v2", generatedAt: generatedAt.toISOString(), scope: { type: "EMPLOYEE" as const, enterpriseId: input.enterpriseId },
       snapshotMetadata: { factVersion: "employee-report-v2", generatedAt: generatedAt.toISOString(), scope: "EMPLOYEE" as const,
         timezone: input.timezone, quotaPeriodKey: cutoff.periodKey, quotaAsOf: end.toISOString(), provenance: "repeatable-read;activity=settled-successful-employee;quota=attempt-reservation-month" },
-      overview, models, quota: quotaForPrincipal(), quotaForPrincipal, personal, provenance: "repeatable-read;activity=settled-successful-employee;quota=attempt-reservation-month" };
+      overview, models, companyMonthlyAllocation, quota: quotaForPrincipal(), quotaForPrincipal, personal, provenance: "repeatable-read;activity=settled-successful-employee;quota=attempt-reservation-month" };
   });
 }
