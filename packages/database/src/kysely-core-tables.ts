@@ -7,6 +7,7 @@ export interface KyselyMigrationLockTable {
   id: number;
 }
 export interface EnterpriseTable {
+  employee_quota_monthly_from: Generated<Date | null>;
   session_minutes: Generated<number>;
   login_max_failures: Generated<number>;
   login_lock_minutes: Generated<number>;
@@ -89,6 +90,7 @@ export interface PrincipalKeyTable {
   revoked_at: Date | null;
 }
 export interface PrincipalGrantTable {
+  quota_basis: Generated<"RAW_TOKEN" | "PLAN_QUOTA" | null>;
   id: Generated<string>;
   enterprise_id: string;
   principal_id: string;

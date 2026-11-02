@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "mode": "READ_ONLY_PREFLIGHT",
+  "enterpriseId": "49b32954-c754-455b-a6cc-a71d86d23b0f",
+  "observedAt": "2026-11-01T12:00:00.000Z",
+  "activation": {
+    "earliestCompleteMonth": "2026-12",
+    "earliestStart": "2026-11-30T16:00:00.000Z",
+    "configuredStart": null,
+    "month": "2026-12",
+    "timezone": "Asia/Shanghai",
+    "start": "2026-11-30T16:00:00.000Z",
+    "end": "2026-12-31T16:00:00.000Z",
+    "carryOver": false
+  },
+  "status": "GO",
+  "reasons": [],
+  "pools": [
+    {
+      "principalId": "5f5798c8-0b42-46e6-8fee-d687f82f98fb",
+      "provider": "deepseek",
+      "grantId": "77ac1a95-d5b9-4b45-9420-72d342de7f9d",
+      "basis": "RAW_TOKEN",
+      "expectedBasis": "RAW_TOKEN",
+      "allowOverage": true,
+      "configuredLimit": "100000000",
+      "validUntil": null,
+      "legacy": {
+        "periodAnchor": "2026-09-18T16:00:00.000Z",
+        "nextResetAt": null,
+        "usedValue": "388884913",
+        "quality": "LEGACY_PENDING_RECONCILIATION"
+      },
+      "availableRouteModes": [
+        "API"
+      ],
+      "routes": [
+        {
+          "routeId": "9ee36aac-4f34-4507-8022-851688fa7b82",
+          "modelId": "18300ca1-f26a-43b6-a7fc-c9cfea9a4b07",
+          "model": "synthetic-API-0",
+          "resourceId": "fb4d8820-a0fd-4239-88ba-a854cecc5055",
+          "mode": "API"
+        }
+      ],
+      "status": "GO",
+      "issues": []
+    }
+  ],
+  "limits": "Configuration preview only; no runtime model call, activation, initialization, legacy reset, reconciliation apply or historical resend.",
+  "hash": "e9f9d72be3685dcd8e857455c7572cda555102651bef1f4889cc57da4427a44d"
+}

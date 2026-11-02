@@ -1,0 +1,15 @@
+{
+  "imageIdUnchanged": "sha256:cfd0d2799c9685b4c4e137a73988e1ab50df3eba6cd6c022dac376b39439ca9f",
+  "sourceSnapshotUnchanged": "d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912",
+  "lockSha256Unchanged": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "originalInputAndPngSvgHashesMatchInitialCopies": true,
+  "inputSha256": "dc49f03aa369fd4c65eab6b30c9fa1754b15a03d93d150d46073b790d01644e6",
+  "rendererSha256": "814da78f0de8d7aabf8fe31d6e6ffde6c78d4f8ec65205c6d4b753e869453f62",
+  "visualInspection": {
+    "performed": true,
+    "companyNoTextOverlap": true,
+    "personalNoTextOverlap": true,
+    "chineseReadable": true
+  },
+  "noPgOrHealthOrBuildRerun": true
+}

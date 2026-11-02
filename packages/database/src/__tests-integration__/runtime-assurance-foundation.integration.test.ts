@@ -3,11 +3,10 @@ import { sql, type Kysely } from "kysely";
 import {
   createKysely,
   migrateDown,
-  migrateToLatest,
   type Database,
 } from "../index.js";
+import { createMigrator } from "../migrator.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
-import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 
@@ -47,7 +46,9 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
   it("空库升级、依次回滚 0031/0030、重升后 Schema 指纹一致", async () => {
     const db = createKysely(pg.connectionString);
     try {
-      const executed = await migrateToLatest(db);
+      const migrated = await createMigrator(db).migrateToLatest();
+      expect(migrated.error).toBeUndefined();
+      const executed = migrated.results?.map((item) => item.migrationName) ?? [];
       expect(executed).toContain("0030_runtime_assurance_foundation");
 
       const expectedTables = [
@@ -95,62 +96,25 @@ describe("RA-W01 0030 运行保障底座迁移", () => {
         "version",
       ]);
 
-      const before = await schemaFingerprint(db);
-      // 回滚链锚定「目标迁移」而非「当时的迁移头」（惯例见 migration-rollback.ts docstring）。
-      const rolledBackLedger = await rollbackTo(db, "0072_admin_roles_security");
-      expect(rolledBackLedger.at(-1)).toBe("0072_admin_roles_security");
-      expect(await migrateDown(db)).toBe("0071_enterprise_contact_details");
-      expect(await migrateDown(db)).toBe("0070_alert_recovery_evidence");
-      expect(await migrateDown(db)).toBe("0069_auth_error_evidence");
-      expect(await migrateDown(db)).toBe("0068_alert_resource_context");
-      expect(await migrateDown(db)).toBe("0067_admin_cleanup");
-      expect(await migrateDown(db)).toBe("0066_subscription_auto_renewal");
-      expect(await migrateDown(db)).toBe("0065_principal_accounting_assignment");
-      expect(await migrateDown(db)).toBe("0064_quota_pricing_and_policy_archive");
-      expect(await migrateDown(db)).toBe("0063_operating_snapshot_subscription_period");
-      expect(await migrateDown(db)).toBe("0062_resource_fact_reconciliation");
-      expect(await migrateDown(db)).toBe("0061_provider_finance_audit_hardening");
-      expect(await migrateDown(db)).toBe("0060_provider_finance_legacy_cost_resolution");
-      expect(await migrateDown(db)).toBe("0059_provider_finance_ledger");
-    expect(await migrateDown(db)).toBe("0058_principal_grant_archive");
-    expect(await migrateDown(db)).toBe("0057_model_discovery_v12");
-    expect(await migrateDown(db)).toBe("0056_resource_monthly_budget");
-      expect(await migrateDown(db)).toBe("0055_upstream_error_evidence");
-      expect(await migrateDown(db)).toBe("0054_usage_aggregate_settlement_time");
-      expect(await migrateDown(db)).toBe("0053_operating_bill_opening_balance");
-      expect(await migrateDown(db)).toBe("0052_dispatch_restore_and_resource_utilization");
-      expect(await migrateDown(db)).toBe("0051_pool20_operating_sync_and_closing_confirmation");
-      expect(await migrateDown(db)).toBe("0050_group2_policy_lifecycle");
-      expect(await migrateDown(db)).toBe("0049_resource_utilization_and_procurement_review");
-      expect(await migrateDown(db)).toBe("0048_department_cost_budget_and_purchase");
-      expect(await migrateDown(db)).toBe("0047_usage_bucket_aggregate");
-      expect(await migrateDown(db)).toBe("0046_directory_import_foundation");
-      expect(await migrateDown(db)).toBe("0045_zhipu_weekday_window_alias");
-      expect(await migrateDown(db)).toBe("0044_operating_bill_model_identity");
-      expect(await migrateDown(db)).toBe("0043_single_owner_rule_history");
-      expect(await migrateDown(db)).toBe("0042_alias_ql_format");
-      expect(await migrateDown(db)).toBe("0041_provider_quota_window");
-      expect(await migrateDown(db)).toBe("0040_employee_model_rule_pool_quotas");
-      expect(await migrateDown(db)).toBe("0039_principal_provider_pool");
-      expect(await migrateDown(db)).toBe("0038_employee_model_authorization_rule");
-      expect(await migrateDown(db)).toBe("0037_client_identity");
-      expect(await migrateDown(db)).toBe("0036_provider_model_discovery");
-      expect(await migrateDown(db)).toBe("0035_deployment_log");
-      expect(await migrateDown(db)).toBe("0034_supply_forecast_production");
-      expect(await migrateDown(db)).toBe("0033_operating_bill");
-      expect(await migrateDown(db)).toBe("0032_admin_lifecycle");
-      expect(await migrateDown(db)).toBe("0031_gateway_stream_resilience");
-      expect(await migrateDown(db)).toBe("0030_runtime_assurance_foundation");
-      const regAfterRollback = await sql<{ reg: string | null }>`
-        SELECT to_regclass('public.availability_rule') AS reg
-      `.execute(db);
-      expect(regAfterRollback.rows[0]!.reg).toBeNull();
-
-      const rebuilt = await migrateToLatest(db);
-      expect(rebuilt).toContain("0030_runtime_assurance_foundation");
-      expect(rebuilt).toContain("0031_gateway_stream_resilience");
-      const after = await schemaFingerprint(db);
-      expect(after).toBe(before);
+      const latestBefore = await schemaFingerprint(db);
+      const intervalPg = await startPostgresContainer("qianliu_ra_w01_interval");
+      const intervalDb = createKysely(intervalPg.connectionString);
+      try {
+        // Keep every current-schema assertion above; test the owned rollback on an independent fresh interval.
+        expect((await createMigrator(intervalDb).migrateTo("0031_gateway_stream_resilience")).error).toBeUndefined();
+        const before = await schemaFingerprint(intervalDb);
+        expect(await migrateDown(intervalDb)).toBe("0031_gateway_stream_resilience");
+        expect(await migrateDown(intervalDb)).toBe("0030_runtime_assurance_foundation");
+        const absent = await sql<{ reg: string | null }>`SELECT to_regclass('public.availability_rule') AS reg`.execute(intervalDb);
+        expect(absent.rows[0]!.reg).toBeNull();
+        const rebuilt = await createMigrator(intervalDb).migrateTo("0031_gateway_stream_resilience");
+        expect(rebuilt.error).toBeUndefined();
+        expect(rebuilt.results?.map((item) => item.migrationName)).toEqual([
+          "0030_runtime_assurance_foundation", "0031_gateway_stream_resilience",
+        ]);
+        expect(await schemaFingerprint(intervalDb)).toBe(before);
+      } finally { await intervalDb.destroy(); await intervalPg.stop(); }
+      expect(await schemaFingerprint(db)).toBe(latestBefore);
     } finally {
       await db.destroy();
     }

@@ -1,0 +1,308 @@
+{
+  "synthetic": true,
+  "scope": {
+    "enterpriseName": "合成预览企业",
+    "periodKey": "2026-10",
+    "timezone": "Asia/Shanghai",
+    "days": 31,
+    "employeeCount": 7,
+    "sameMonthAndEmployeeScope": true
+  },
+  "team": {
+    "requests": 22607,
+    "rawTokens": 2710000000
+  },
+  "models": [
+    {
+      "model": "DeepSeek V3",
+      "provider": "DeepSeek",
+      "rawTokens": 1500000000,
+      "requests": 12500
+    },
+    {
+      "model": "GLM 5.3 Flash",
+      "provider": "智谱",
+      "rawTokens": 800000000,
+      "requests": 6500
+    },
+    {
+      "model": "GLM 5.3",
+      "provider": "智谱",
+      "rawTokens": 300000000,
+      "requests": 2000
+    },
+    {
+      "model": "K3",
+      "provider": "Kimi",
+      "rawTokens": 110000000,
+      "requests": 1607
+    }
+  ],
+  "members": [
+    {
+      "index": 1,
+      "name": "欧阳测试特别长姓名成员",
+      "department": "跨部门人工智能产品研发与创新团队",
+      "requests": 3230,
+      "rawTokens": 387142858,
+      "rawTokensByProvider": {
+        "DeepSeek": 214285715,
+        "智谱": 157142858,
+        "Kimi": 15714285
+      },
+      "quotas": {
+        "DeepSeek": {
+          "basis": "RAW_TOKEN",
+          "limit": 100000000,
+          "used": 214285715,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "智谱": {
+          "basis": "PLAN_QUOTA",
+          "limit": 100000000,
+          "used": 40000000,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "Kimi": {
+          "basis": "PLAN_QUOTA",
+          "limit": null,
+          "used": null,
+          "reserved": 5000000,
+          "allowOverage": null,
+          "quality": "UNKNOWN"
+        }
+      }
+    },
+    {
+      "index": 2,
+      "name": "合成成员2",
+      "department": "跨部门人工智能产品研发与创新团队",
+      "requests": 3230,
+      "rawTokens": 387142857,
+      "rawTokensByProvider": {
+        "DeepSeek": 214285715,
+        "智谱": 157142857,
+        "Kimi": 15714285
+      },
+      "quotas": {
+        "DeepSeek": {
+          "basis": "RAW_TOKEN",
+          "limit": 100000000,
+          "used": 214285715,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "智谱": {
+          "basis": "PLAN_QUOTA",
+          "limit": 100000000,
+          "used": 40000000,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "Kimi": {
+          "basis": "PLAN_QUOTA",
+          "limit": null,
+          "used": null,
+          "reserved": 5000000,
+          "allowOverage": null,
+          "quality": "UNKNOWN"
+        }
+      }
+    },
+    {
+      "index": 3,
+      "name": "合成成员3",
+      "department": "跨部门人工智能产品研发与创新团队",
+      "requests": 3230,
+      "rawTokens": 387142857,
+      "rawTokensByProvider": {
+        "DeepSeek": 214285714,
+        "智谱": 157142857,
+        "Kimi": 15714286
+      },
+      "quotas": {
+        "DeepSeek": {
+          "basis": "RAW_TOKEN",
+          "limit": 100000000,
+          "used": 214285714,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "智谱": {
+          "basis": "PLAN_QUOTA",
+          "limit": 100000000,
+          "used": 40000000,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "Kimi": {
+          "basis": "PLAN_QUOTA",
+          "limit": null,
+          "used": null,
+          "reserved": 5000000,
+          "allowOverage": null,
+          "quality": "UNKNOWN"
+        }
+      }
+    },
+    {
+      "index": 4,
+      "name": "合成成员4",
+      "department": "跨部门人工智能产品研发与创新团队",
+      "requests": 3230,
+      "rawTokens": 387142857,
+      "rawTokensByProvider": {
+        "DeepSeek": 214285714,
+        "智谱": 157142857,
+        "Kimi": 15714286
+      },
+      "quotas": {
+        "DeepSeek": {
+          "basis": "RAW_TOKEN",
+          "limit": 100000000,
+          "used": 214285714,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "智谱": {
+          "basis": "PLAN_QUOTA",
+          "limit": 100000000,
+          "used": 40000000,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "Kimi": {
+          "basis": "PLAN_QUOTA",
+          "limit": null,
+          "used": null,
+          "reserved": 5000000,
+          "allowOverage": null,
+          "quality": "UNKNOWN"
+        }
+      }
+    },
+    {
+      "index": 5,
+      "name": "合成成员5",
+      "department": "跨部门人工智能产品研发与创新团队",
+      "requests": 3229,
+      "rawTokens": 387142857,
+      "rawTokensByProvider": {
+        "DeepSeek": 214285714,
+        "智谱": 157142857,
+        "Kimi": 15714286
+      },
+      "quotas": {
+        "DeepSeek": {
+          "basis": "RAW_TOKEN",
+          "limit": 100000000,
+          "used": 214285714,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "智谱": {
+          "basis": "PLAN_QUOTA",
+          "limit": 100000000,
+          "used": 40000000,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "Kimi": {
+          "basis": "PLAN_QUOTA",
+          "limit": null,
+          "used": null,
+          "reserved": 5000000,
+          "allowOverage": null,
+          "quality": "UNKNOWN"
+        }
+      }
+    },
+    {
+      "index": 6,
+      "name": "合成成员6",
+      "department": "跨部门人工智能产品研发与创新团队",
+      "requests": 3229,
+      "rawTokens": 387142857,
+      "rawTokensByProvider": {
+        "DeepSeek": 214285714,
+        "智谱": 157142857,
+        "Kimi": 15714286
+      },
+      "quotas": {
+        "DeepSeek": {
+          "basis": "RAW_TOKEN",
+          "limit": 100000000,
+          "used": 214285714,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "智谱": {
+          "basis": "PLAN_QUOTA",
+          "limit": 100000000,
+          "used": 40000000,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "Kimi": {
+          "basis": "PLAN_QUOTA",
+          "limit": null,
+          "used": null,
+          "reserved": 5000000,
+          "allowOverage": null,
+          "quality": "UNKNOWN"
+        }
+      }
+    },
+    {
+      "index": 7,
+      "name": "合成成员7",
+      "department": "跨部门人工智能产品研发与创新团队",
+      "requests": 3229,
+      "rawTokens": 387142857,
+      "rawTokensByProvider": {
+        "DeepSeek": 214285714,
+        "智谱": 157142857,
+        "Kimi": 15714286
+      },
+      "quotas": {
+        "DeepSeek": {
+          "basis": "RAW_TOKEN",
+          "limit": 100000000,
+          "used": 214285714,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "智谱": {
+          "basis": "PLAN_QUOTA",
+          "limit": 100000000,
+          "used": 40000000,
+          "reserved": 0,
+          "allowOverage": true
+        },
+        "Kimi": {
+          "basis": "PLAN_QUOTA",
+          "limit": null,
+          "used": null,
+          "reserved": 5000000,
+          "allowOverage": null,
+          "quality": "UNKNOWN"
+        }
+      }
+    }
+  ],
+  "personalMemberIndex": 1,
+  "displayPrecision": {
+    "teamVolumeDecimals": 1,
+    "memberVolumeDecimals": 2,
+    "dailyTenThousandDecimals": 1,
+    "sharePercentDecimals": 1
+  },
+  "notes": [
+    "All raw counts are synthetic; exact total selected as 2710000000, not original production2709467730.",
+    "Only RAW_TOKEN quota is required to equal same-scope provider raw usage; Coding Plan uses separate quota units.",
+    "Display volumes/shares are rounded from exact integers; no forced normalization to100%.",
+    "Kimi limit/used remain UNKNOWN; only known reservation is aggregated."
+  ]
+}

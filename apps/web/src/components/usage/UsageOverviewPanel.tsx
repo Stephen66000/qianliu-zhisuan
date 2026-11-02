@@ -31,6 +31,7 @@ export function UsageOverviewPanel() {
   if (query.isLoading) return <LoadingState label="正在汇总周期用量…" rows={5}/>;
   if (query.error || !query.data) return <ErrorState message={query.error?.message ?? "周期用量加载失败"} onRetry={() => void query.refetch()}/>;
   const data = query.data;
+  const employeeScope = subjectType === "EMPLOYEE";
   const costDisplay = unavailableUsageCostLabel(data.metrics.apiCost, data.metrics.apiCostStatus) ?? `¥${formatMoney(data.metrics.apiCost!)}`;
   const metrics = [["活跃主体", formatCount(String(data.metrics.activeSubjects))], ["请求数", formatCount(data.metrics.requestCount)], ["token使用量", formatCount(data.metrics.realTokens)], ["API 费用", costDisplay], ["套餐扣减", formatCount(data.metrics.deductedQuota)]];
   return <div className="space-y-3">
@@ -44,15 +45,23 @@ export function UsageOverviewPanel() {
     </div>
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">{metrics.map(([label, value]) => <article className="min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface px-3 py-2" key={label}><p className="text-[13px] text-ql-fg-tertiary">{label}</p><strong className="mt-1 block break-all font-mono text-[clamp(12px,1.4vw,20px)] font-semibold leading-7">{value}</strong></article>)}</div>
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-3"><div className="flex items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">趋势</h2><p className="mt-1 text-[13px] text-ql-fg-tertiary">{new Date(data.range.from).toLocaleString("zh-CN")} — {new Date(data.range.to).toLocaleString("zh-CN")} · {data.timezone}</p></div><span className="text-right text-[13px] text-ql-fg-tertiary">数据时间 {new Date(data.generatedAt).toLocaleString("zh-CN")}</span></div><TrendBars trend={data.trend} /></section>
-    <section className="overflow-hidden rounded-xl border border-ql-border-zone bg-ql-surface"><div className="flex items-center justify-between px-3 py-2"><h2 className="text-[15px] font-semibold">消耗排名</h2><Link className="text-[13px] text-ql-action" to={`?tab=details&subject_type=${data.detailQuery.subjectType}&settled_only=${String(data.detailQuery.settledOnly)}&status=SUCCEEDED&from=${encodeURIComponent(data.detailQuery.from)}&to_exclusive=${encodeURIComponent(data.detailQuery.toExclusive)}${data.detailQuery.principalId ? `&principal_id=${data.detailQuery.principalId}` : ""}${data.detailQuery.projectId ? `&project_id=${data.detailQuery.projectId}` : ""}`}>查看请求明细</Link></div><div className="overflow-x-auto"><table className="w-full text-left text-[13px]"><thead><tr className="border-y border-ql-border-zone bg-ql-surface-subtle text-ql-fg-tertiary"><th className="px-3 py-2">排名</th><th>主体</th><th>部门</th><th className="text-right">请求</th><th className="text-right">分配额度</th><th className="text-right">token使用量</th><th className="text-right">token使用率</th><th className="text-right">剩余额度</th><th className="pr-3 text-right">API 费用</th></tr></thead><tbody>{data.ranking.map((item, index) => {
-      const allocatedQuotaNum = item.allocatedQuota ? Number(item.allocatedQuota) : 0;
-      const usedTokensNum = Number(item.realTokens ?? 0);
-      const usageRate = allocatedQuotaNum > 0 ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%` : "—";
-      const remainingQuota = allocatedQuotaNum > 0 ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum))) : "不限";
+    <section className="overflow-hidden rounded-xl border border-ql-border-zone bg-ql-surface"><div className="flex items-center justify-between px-3 py-2"><h2 className="text-[15px] font-semibold">消耗排名</h2><Link className="text-[13px] text-ql-action" to={`?tab=details&subject_type=${data.detailQuery.subjectType}&settled_only=${String(data.detailQuery.settledOnly)}&status=SUCCEEDED&from=${encodeURIComponent(data.detailQuery.from)}&to_exclusive=${encodeURIComponent(data.detailQuery.toExclusive)}${data.detailQuery.principalId ? `&principal_id=${data.detailQuery.principalId}` : ""}${data.detailQuery.projectId ? `&project_id=${data.detailQuery.projectId}` : ""}`}>查看请求明细</Link></div>{employeeScope ? <p className="px-3 pb-2 text-[13px] text-ql-fg-tertiary">员工额度请在「使用主体 → 接入配置」按厂商、月份和单位查看。</p> : null}<div aria-label="用量排名表格" className="overflow-x-auto" role="region" tabIndex={0}><table className="w-full text-left text-[13px]"><thead><tr className="border-y border-ql-border-zone bg-ql-surface-subtle text-ql-fg-tertiary"><th className="px-3 py-2">排名</th><th>主体</th><th>部门</th><th className="text-right">请求</th>{!employeeScope ? <th className="text-right">分配额度</th> : null}<th className="text-right">token使用量</th>{employeeScope ? <th className="text-right">厂商额度</th> : <><th className="text-right">token使用率</th><th className="text-right">剩余额度</th></>}<th className="pr-3 text-right">API 费用</th></tr></thead><tbody>{data.ranking.map((item, index) => {
+      const projectQuota = employeeScope ? null : projectQuotaLabels(item);
       const costText = unavailableUsageCostLabel(item.apiCost, item.apiCostStatus) ?? `¥${formatMoney(item.apiCost!)}`;
-      return <tr className="border-b border-ql-border-zone" key={item.subjectId}><td className="px-3 py-2">{index + 1}</td><td><Button variant="ghost" size="sm"  onClick={() => set("subject_id", item.subjectId)} type="button">{item.subjectName}</Button></td><td>{item.departmentLabel ?? "—"}</td><td className="text-right">{formatCount(item.requestCount)}</td><td className="text-right font-mono">{allocatedQuotaNum > 0 ? formatCount(item.allocatedQuota!) : "不限"}</td><td className="text-right font-mono">{formatCount(item.realTokens)}</td><td className="text-right font-mono">{usageRate}</td><td className="text-right font-mono">{remainingQuota}</td><td className="pr-3 text-right">{costText}</td></tr>;
+      return <tr className="border-b border-ql-border-zone" key={item.subjectId}><td className="px-3 py-2">{index + 1}</td><td><Button variant="ghost" size="sm"  onClick={() => set("subject_id", item.subjectId)} type="button">{item.subjectName}</Button></td><td>{item.departmentLabel ?? "—"}</td><td className="text-right">{formatCount(item.requestCount)}</td>{projectQuota ? <td className="text-right font-mono">{projectQuota.allocated}</td> : null}<td className="text-right font-mono">{formatCount(item.realTokens)}</td>{projectQuota ? <><td className="text-right font-mono">{projectQuota.usageRate}</td><td className="text-right font-mono">{projectQuota.remaining}</td></> : <td className="text-right"><Link className="text-ql-action" to="/principals" aria-label={`${item.subjectName}按厂商池查看额度`}>按厂商池查看</Link></td>}<td className="pr-3 text-right">{costText}</td></tr>;
     })}</tbody></table>{data.ranking.length === 0 ? <p className="p-6 text-center text-[13px] text-ql-fg-tertiary">本周期暂无已结算用量</p> : null}</div></section>
   </div>;
+}
+
+/** Preserve the existing project presentation contract; employee quotas never enter this calculation. */
+function projectQuotaLabels(item: UsageOverview["ranking"][number]) {
+  const allocated = item.allocatedQuota ? Number(item.allocatedQuota) : 0;
+  const used = Number(item.realTokens ?? 0);
+  return {
+    allocated: allocated > 0 ? formatCount(item.allocatedQuota!) : "不限",
+    usageRate: allocated > 0 ? `${((used / allocated) * 100).toFixed(1)}%` : "—",
+    remaining: allocated > 0 ? formatCount(String(Math.max(0, allocated - used))) : "不限",
+  };
 }
 
 /** 一屏最多标几个日期刻度：柱子再多（如满月 30 天），相邻刻度之间也至少隔几根柱子，不会互相压住。 */
@@ -77,7 +86,7 @@ function TrendBars({ trend }: { trend: UsageOverview["trend"] }) {
           峰值 {trend[peakIndex]!.label} · {formatCount(trend[peakIndex]!.realTokens)} Token
         </p>
       ) : null}
-      <div aria-label="用量趋势图" className="mt-2 flex h-24 items-end gap-1 overflow-x-auto" role="group">
+      <div aria-label="用量趋势图" className="relative mt-2 flex h-24 items-end gap-1 overflow-x-auto" role="group" tabIndex={0}>
         {trend.map((item, index) => {
           const summary = `${item.label}：${formatCount(item.realTokens)} Token`;
           return (

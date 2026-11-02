@@ -1,0 +1,374 @@
+{
+  "kind": "LOCAL_THIRD_LOCK_CANDIDATE_INTL_PROOF_NOT_PRODUCTION_UPGRADE",
+  "node": "v22.23.4",
+  "icu": "78.3",
+  "tz": "2026e",
+  "platform": "darwin",
+  "arch": "arm64",
+  "sourceSha256": "015ab06909aeef9e89faaf3c19a631ca24003e37c9983ce6b9ccb6f65a79f2ec",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "businessTimezone": "Asia/Shanghai",
+  "scope": "Approved 2026+ Shanghai business months with representable Date bounds; not universal IANA equivalence",
+  "checks": [
+    {
+      "year": 2026,
+      "month": 1,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 2,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 3,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 4,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 5,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 6,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 7,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 8,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 9,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 10,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 11,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2026,
+      "month": 12,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 1,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 2,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 3,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 4,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 5,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 6,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 7,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 8,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 9,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 10,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 11,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2027,
+      "month": 12,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 1,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 2,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 3,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 4,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 5,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 6,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 7,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 8,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 9,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 10,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 11,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2028,
+      "month": 12,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 1,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 2,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 3,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 4,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 5,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 6,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 7,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 8,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 9,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 10,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 11,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2029,
+      "month": 12,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 1,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 2,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 3,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 4,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 5,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 6,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 7,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 8,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 9,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 10,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 11,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    },
+    {
+      "year": 2030,
+      "month": 12,
+      "firstDelta": -28800000,
+      "secondDelta": 0
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 # 仟流智算 control-api 镜像（W24）。
 # 单阶段 tsx 方案（与开发一致），架构无关。control-api 依赖 argon2（native，onlyBuiltDependencies 已白名单）。
 
-FROM node:22.17.1-alpine
+FROM node:22.23.4-alpine
 RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
 WORKDIR /app
 

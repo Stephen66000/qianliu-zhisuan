@@ -3,7 +3,7 @@
 # 架构无关。生产用 nginx 比 vite preview 更轻更稳。
 
 # ---------- stage 1: build ----------
-FROM node:22.17.1-alpine AS build
+FROM node:22.23.4-alpine AS build
 RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./

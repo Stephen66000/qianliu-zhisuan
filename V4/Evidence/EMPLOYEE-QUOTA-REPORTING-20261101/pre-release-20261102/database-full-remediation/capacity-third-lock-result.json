@@ -1,0 +1,16 @@
+{
+  "exitCode": 1,
+  "seconds": 79.94,
+  "testFileSha256": "c0d7e10f7c0b09d6e35a65c8e085e182022ee39544485901b96266773cc43a2f",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "dataRows": 1000000,
+  "sampleCount": 20,
+  "warmups": 2,
+  "capsMs": [
+    500,
+    800,
+    1000,
+    1000
+  ],
+  "unchangedTestDataQueriesAndCaps": true
+}

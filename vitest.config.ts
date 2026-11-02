@@ -19,7 +19,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
-      exclude: ["**/node_modules/**", "**/dist/**", "**/__tests__/**", "**/*.test.ts"],
+      exclude: ["**/node_modules/**", "**/dist/**", "**/__tests__/**", "**/*.test.ts", "**/.stryker-tmp/**"],
       thresholds: {
         statements: 95,
         branches: 85,

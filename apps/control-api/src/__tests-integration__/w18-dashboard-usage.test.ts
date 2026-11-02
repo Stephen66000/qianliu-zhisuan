@@ -179,7 +179,7 @@ async function seedFullData(): Promise<{
       total_output_tokens: 100n,
       total_cache_tokens: 0n,
       total_deducted_quota: 300n,
-      total_api_cost: "0.00000000", // CODING_PLAN 套餐内
+      total_api_cost: null, api_cost_status: "NOT_APPLICABLE", // CODING_PLAN has no API amount
       overage: true,
       usage_quality: "UPSTREAM_REPORTED",
       attempt_count: 1,
@@ -297,7 +297,7 @@ async function seedFullData(): Promise<{
       total_output_tokens: 5n,
       total_cache_tokens: 0n,
       total_deducted_quota: 15n,
-      total_api_cost: "0.00000000",
+      total_api_cost: null, api_cost_status: "NOT_APPLICABLE",
       usage_quality: "UPSTREAM_REPORTED",
       attempt_count: 1,
       status: "SETTLED",
@@ -475,7 +475,7 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
         ai_request_id: requestId, enterprise_id: ENT_ID, principal_id: principal.id,
         total_input_tokens: input, total_output_tokens: output,
         total_cache_tokens: 3n, total_reasoning_tokens: 2n,
-        total_deducted_quota: 0n, total_api_cost: "0", usage_quality: "PROVIDER_REPORTED",
+        total_deducted_quota: 0n, total_api_cost: null, api_cost_status: "UNKNOWN_COST", usage_quality: "PROVIDER_REPORTED",
         attempt_count: 1, status: "SETTLED", created_at: new Date(),
       }).execute();
       return principal;
@@ -575,7 +575,8 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
         ai_request_id: requestId, enterprise_id: ENT_ID, principal_id: seededPrincipalId,
         total_input_tokens: 1n, total_output_tokens: 1n, total_cache_tokens: 0n,
         total_deducted_quota: input.mode === "CODING_PLAN" ? 2n : 0n,
-        total_api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
+        total_api_cost: input.mode === "API" ? input.cost : null,
+        api_cost_status: input.mode === "API" ? "PRICED_USAGE" : "NOT_APPLICABLE", usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
         status: "SETTLED", created_at: input.at,
       }).execute();
     };
@@ -802,7 +803,8 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
       total_output_tokens: 1n,
       total_cache_tokens: 0n,
       total_deducted_quota: 0n,
-      total_api_cost: "0",
+      total_api_cost: null,
+      api_cost_status: "UNKNOWN_COST",
       usage_quality: "PROVIDER_REPORTED",
       attempt_count: 1,
       status: "SETTLED",
@@ -1019,7 +1021,7 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
         ai_request_id: requestId, enterprise_id: isolatedEnterpriseId, principal_id: principalId,
         total_input_tokens: row.input, total_output_tokens: row.output,
         total_cache_tokens: row.cache, total_reasoning_tokens: row.reasoning,
-        total_deducted_quota: 0n, total_api_cost: "0", usage_quality: row.quality,
+        total_deducted_quota: 0n, total_api_cost: null, api_cost_status: "UNKNOWN_COST", usage_quality: row.quality,
         attempt_count: 1, status: "SETTLED", created_at: new Date(row.at),
       }).execute();
     }

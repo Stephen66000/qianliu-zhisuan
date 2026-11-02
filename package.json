@@ -5,7 +5,7 @@
   "description": "仟流智算企业 AI Gateway 与桌面管理 Web（v0.3）",
   "type": "module",
   "engines": {
-    "node": ">=22.17 <23"
+    "node": ">=22.23.4 <23"
   },
   "packageManager": "pnpm@11.11.0",
   "scripts": {
@@ -21,7 +21,7 @@
     "evidence:canary": "corepack pnpm@11.11.0 --filter @qianliu/observability run evidence:canary",
     "audit:prod": "corepack pnpm@11.11.0 audit --prod --audit-level moderate",
     "quality:coverage:domain": "corepack pnpm@11.11.0 --filter @qianliu/domain run test:coverage",
-    "quality:coverage:changed": "corepack pnpm@11.11.0 --filter @qianliu/control-api exec vitest run --config ../../vitest.config.ts src/auth/login-rate-limiter.test.ts src/security/origin-policy.test.ts --coverage --coverage.include='src/auth/login-rate-limiter.ts' --coverage.include='src/security/origin-policy.ts' && corepack pnpm@11.11.0 --filter @qianliu/observability exec vitest run --config ../../vitest.config.ts --coverage --coverage.include='src/canary.ts' --coverage.include='src/graceful-shutdown.ts' && corepack pnpm@11.11.0 --filter @qianliu/provider-adapters exec vitest run --config ../../vitest.config.ts --coverage --coverage.include='src/secret-value.ts' && corepack pnpm@11.11.0 --filter @qianliu/worker exec vitest run --config ../../vitest.config.ts --coverage --coverage.include='src/runtime-assurance/scheduler.ts'",
+    "quality:coverage:changed": "corepack pnpm@11.11.0 --filter @qianliu/control-api exec vitest run --config ../../vitest.config.ts src/auth/login-rate-limiter.test.ts src/security/origin-policy.test.ts --coverage --coverage.include='src/auth/login-rate-limiter.ts' --coverage.include='src/security/origin-policy.ts' && corepack pnpm@11.11.0 --filter @qianliu/observability exec vitest run --config ../../vitest.config.ts --coverage --coverage.include='src/canary.ts' --coverage.include='src/graceful-shutdown.ts' && corepack pnpm@11.11.0 --filter @qianliu/provider-adapters exec vitest run --config ../../vitest.config.ts src/__tests__/secret-value.test.ts --coverage --coverage.include='src/secret-value.ts' && corepack pnpm@11.11.0 --filter @qianliu/worker exec vitest run --config ../../vitest.config.ts --coverage --coverage.include='src/runtime-assurance/scheduler.ts'",
     "quality:coverage:pool029": "corepack pnpm@11.11.0 exec vitest run --config vitest.pool029.config.ts --coverage && corepack pnpm@11.11.0 --dir apps/web exec vitest run --config vitest.pool029.config.ts --coverage",
     "quality:coverage:pool030": "corepack pnpm@11.11.0 --dir apps/gateway exec vitest run --config vitest.pool030.config.ts --coverage && corepack pnpm@11.11.0 --dir packages/provider-adapters exec vitest run --config vitest.pool030.config.ts --coverage",
     "quality:coverage:pool040": "corepack pnpm@11.11.0 --dir apps/gateway exec vitest run --config vitest.pool040.mutation.config.ts --coverage",
@@ -31,11 +31,11 @@
     "quality:mutation:pool039": "corepack pnpm@11.11.0 --filter @qianliu/database exec stryker run stryker.pool039.config.json && corepack pnpm@11.11.0 --dir apps/gateway exec stryker run stryker.pool039.config.json",
     "quality:mutation:pool043": "corepack pnpm@11.11.0 --filter @qianliu/database exec stryker run stryker.pool043.config.json && corepack pnpm@11.11.0 --filter @qianliu/database exec stryker run stryker.pool043-v22.config.json && corepack pnpm@11.11.0 --filter @qianliu/gateway exec stryker run stryker.pool043.config.json",
     "quality:mutation:pool021-r2": "corepack pnpm@11.11.0 --dir packages/provider-adapters exec stryker run stryker.pool021-r2.config.json",
-    "quality:mutation": "corepack pnpm@11.11.0 --filter @qianliu/domain exec stryker run stryker.config.json && corepack pnpm@11.11.0 --filter @qianliu/worker exec stryker run stryker.config.json && corepack pnpm@11.11.0 --filter @qianliu/database exec stryker run stryker.pool029.config.json && corepack pnpm@11.11.0 run quality:mutation:pool039 && corepack pnpm@11.11.0 run quality:mutation:pool043 && corepack pnpm@11.11.0 run quality:mutation:pool021-r2 && corepack pnpm@11.11.0 --dir apps/gateway exec stryker run stryker.pool030.config.json && corepack pnpm@11.11.0 --dir packages/provider-adapters exec stryker run stryker.pool030.config.json && node scripts/check-mutation-disposition.mjs",
+    "quality:mutation": "node scripts/run-mutation-suites.mjs",
     "quality:architecture": "node scripts/check-architecture.mjs",
     "quality:licenses": "corepack pnpm@11.11.0 licenses list --prod --json | node scripts/check-licenses.mjs",
     "quality:size": "node scripts/check-source-size.mjs",
-    "quality:duplication": "jscpd apps packages --min-lines 20 --min-tokens 100 --threshold 5 --ignore '**/dist/**,**/coverage/**,**/reports/**,**/__tests__/**,**/__tests-integration__/**,**/*.test.ts,**/*.test.tsx' --reporters console",
+    "quality:duplication": "jscpd apps packages --min-lines 20 --min-tokens 100 --threshold 5 --ignore '**/.stryker-tmp/**,**/dist/**,**/coverage/**,**/reports/**,**/__tests__/**,**/__tests-integration__/**,**/*.test.ts,**/*.test.tsx' --reporters console",
     "quality": "corepack pnpm@11.11.0 run typecheck && corepack pnpm@11.11.0 run lint && corepack pnpm@11.11.0 run test && corepack pnpm@11.11.0 run build && corepack pnpm@11.11.0 run quality:coverage && corepack pnpm@11.11.0 run quality:architecture && corepack pnpm@11.11.0 run quality:size && corepack pnpm@11.11.0 run quality:duplication && corepack pnpm@11.11.0 run audit:prod && corepack pnpm@11.11.0 run quality:licenses && corepack pnpm@11.11.0 run evidence:canary"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { sql } from "kysely";
 import {
   historicalCostFactDescription, historicalCostIdempotencyKey, rechargeRecordIdempotencyKey,
@@ -216,18 +216,18 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     return counts;
   }
 
-  async function startLease(db: Db, seeded: Seeded, durationSeconds = 3600): Promise<void> {
+  async function startLease(db: Db, seeded: Seeded, durationSeconds = 3600, now = new Date()): Promise<void> {
     const repo = new ProviderFinanceActivationCoordinator(db);
     await repo.startQuiescenceLease({
-      enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, now: new Date(), durationSeconds,
+      enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, now, durationSeconds,
     });
   }
 
   /** 预检出一个 GO 候选，返回候选视图与激活入参骨架。 */
-  async function previewGo(db: Db, seeded: Seeded, draft: ActivationDraft) {
+  async function previewGo(db: Db, seeded: Seeded, draft: ActivationDraft, now?: Date) {
     const repo = new ProviderFinanceActivationPreviewRepository(db);
     const preview = await repo.previewActivation({
-      enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, draft,
+      enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, draft, now,
     });
     expect(preview.decision).toBe("GO_CANDIDATE");
     expect(preview.gaps).toEqual([]);
@@ -1077,6 +1077,8 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       const nextMonthStart = new Date(Date.UTC(y, m + 1, 1) - SHANGHAI_OFFSET_MS);  // 上海下月 1 日 00:00
       const serviceStartDay = shanghaiDay(monthStart);                              // 本月 1 日
       const serviceEndDay = shanghaiDay(new Date(nextMonthStart.getTime() - DAY_MS)); // 本月最后一日
+      // Inject a shared snapshot after the day-3 usage fixture, including on month days 1 and 2.
+      const fixtureNow = new Date(Math.max(Date.now(), monthStart.getTime() + 3 * DAY_MS));
       const purchasedAt = new Date(monthStart.getTime() + 10 * 3_600_000);          // 服务开始日 10:00
       const planLine = await insertLedgerLine(db, seeded, {
         mode: "CODING_PLAN", resourceId: seeded.planResourceId,
@@ -1119,14 +1121,17 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
           migrated_external_reference: "ORD-PLAN-1", reason: null, evidence_ref: null,
         }],
       };
-      await startLease(db, seeded);
-      const preview = await previewGo(db, seeded, draft);
+      // Candidate persistence also reads Date directly; freeze Date only, leaving DB/network timers real.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(fixtureNow);
+      await startLease(db, seeded, 3600, fixtureNow);
+      const preview = await previewGo(db, seeded, draft, fixtureNow);
       // 固定修复行集只有那一条套餐用量行；eligibleRows 计的是"行数"而非"字段数"。
       expect(preview.usageRepairs.eligibleRows).toBe(1);
 
       const repo = new ProviderFinanceActivationCoordinator(db);
       const outcome = await repo.activate(activateInput(seeded, preview, draft, "key-plan", {
-        adminId: seeded.adminId,
+        adminId: seeded.adminId, now: fixtureNow,
       }));
       // 与候选 id 无关的显式断言：覆盖率而非占位。
       expect(outcome.receipt.factCounts.purchases).toBe(1);
@@ -1180,6 +1185,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       expect(closures.count).toBe("1");
       await assertNoActivating(db, seeded.enterpriseId);
     } finally {
+      vi.useRealTimers();
       await db.destroy();
     }
   });

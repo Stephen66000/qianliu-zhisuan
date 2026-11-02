@@ -94,7 +94,7 @@ async function seedLedgerLine(principalId: string, occurredAt: Date, inputTokens
   await db.insertInto("ledger_transaction").values({
     ai_request_id: request, enterprise_id: ent, principal_id: principalId,
     total_input_tokens: inputTokens, total_output_tokens: 0n, total_cache_tokens: 0n,
-    total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: apiCost,
+    total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: apiCost, api_cost_status: "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED", created_at: occurredAt,
   }).execute();
   await sql`UPDATE ledger_line SET api_cost_currency='CNY' WHERE ai_request_id=${request}`.execute(db);

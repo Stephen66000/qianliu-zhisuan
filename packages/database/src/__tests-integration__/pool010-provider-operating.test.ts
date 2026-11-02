@@ -13,6 +13,7 @@ import {
   ProviderRepository,
   type Database,
 } from "../index.js";
+import { createMigrator } from "../migrator.js";
 
 describe.sequential("POOL-010 厂商资源经营快照", () => {
   let pg: PostgresTestInstance;
@@ -432,19 +433,25 @@ describe.sequential("POOL-010 厂商资源经营快照", () => {
   });
 
   it("0025～0029 可连续回滚并重新升级", async () => {
-    let rolledBack: string | null;
-    do {
-      rolledBack = await migrateDown(db);
-    } while (rolledBack !== null && !rolledBack.startsWith("0025_"));
-    expect(rolledBack).toMatch(/^0025_/);
-    const afterDown = await sql<{ table_name: string | null }>`
-      SELECT to_regclass('provider_resource_operating_snapshot')::text AS table_name
-    `.execute(db);
-    expect(afterDown.rows[0]?.table_name).toBeNull();
-    await migrateToLatest(db);
-    const afterUp = await sql<{ table_name: string | null }>`
-      SELECT to_regclass('provider_resource_operating_snapshot')::text AS table_name
-    `.execute(db);
-    expect(afterUp.rows[0]?.table_name).toBe("provider_resource_operating_snapshot");
+    const rollbackPg = await startPostgresContainer("pool010_rollback_interval");
+    const rollbackDb = createKysely(rollbackPg.connectionString);
+    try {
+      expect((await createMigrator(rollbackDb).migrateTo("0029_provider_quota_auto_calculation")).error).toBeUndefined();
+      const rolledBack: string[] = [];
+      for (let i = 0; i < 5; i++) rolledBack.push((await migrateDown(rollbackDb))!);
+      expect(rolledBack).toEqual([
+        "0029_provider_quota_auto_calculation", "0028_enterprise_reference_guards", "0027_usage_ledger_filters",
+        "0026_provider_resource_operating_snapshot", "0025_principal_archive",
+      ]);
+      const afterDown = await sql<{ table_name: string | null }>`
+        SELECT to_regclass('provider_resource_operating_snapshot')::text AS table_name
+      `.execute(rollbackDb);
+      expect(afterDown.rows[0]?.table_name).toBeNull();
+      expect((await createMigrator(rollbackDb).migrateTo("0029_provider_quota_auto_calculation")).error).toBeUndefined();
+      const afterUp = await sql<{ table_name: string | null }>`
+        SELECT to_regclass('provider_resource_operating_snapshot')::text AS table_name
+      `.execute(rollbackDb);
+      expect(afterUp.rows[0]?.table_name).toBe("provider_resource_operating_snapshot");
+    } finally { await rollbackDb.destroy(); await rollbackPg.stop(); }
   });
 });

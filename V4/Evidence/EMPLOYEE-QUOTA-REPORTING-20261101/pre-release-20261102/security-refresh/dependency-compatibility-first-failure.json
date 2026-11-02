@@ -1,0 +1,44 @@
+{
+  "node": "v22.23.4",
+  "icu": "78.3",
+  "tz": "2026e",
+  "lockSha256": "4eda45f53d0f9e85c92266e053390ee92cff49ed60ea30a08ad1afd4edaab5e0",
+  "versions": {
+    "exceljs": "4.4.0",
+    "archiverExcel": "5.3.2",
+    "glob7": "7.2.3",
+    "glob7Minimatch": "11.0.1",
+    "readdirMinimatch": "11.0.1",
+    "testcontainers": "12.0.4",
+    "archiverTools": "7.0.1",
+    "archiverUtils5": "5.0.2",
+    "glob14": "14.0.2"
+  },
+  "checks": [
+    {
+      "name": "actual scoped dependency exports and glob7 nonull internals",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS buffer and file read/write preserves Chinese dates styles UUID conditional format",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS streaming writer and streaming reader preserve all committed rows",
+      "status": "PASS"
+    },
+    {
+      "name": "real directory template export and XLSX parser still enforce business template",
+      "status": "PASS"
+    },
+    {
+      "name": "glob7 callback and sync brace globstar dot ignore matchBase and nonull semantics",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'charAt')"
+    }
+  ],
+  "synthetic": true,
+  "productionOperations": false,
+  "status": "FAIL",
+  "failure": "TypeError: Cannot read properties of undefined (reading 'charAt')"
+}

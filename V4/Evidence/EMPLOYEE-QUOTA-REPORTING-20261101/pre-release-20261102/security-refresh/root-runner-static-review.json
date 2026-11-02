@@ -1,0 +1,106 @@
+{
+  "suiteCount": 16,
+  "uniqueReportCount": 16,
+  "rootGateReportCount": 9,
+  "rootGateReportsMissingGenerator": [],
+  "suites": [
+    {
+      "cwd": "packages/domain",
+      "config": "packages/domain/stryker.config.json",
+      "report": "packages/domain/reports/mutation/mutation.json",
+      "configExists": true
+    },
+    {
+      "cwd": "apps/worker",
+      "config": "apps/worker/stryker.config.json",
+      "report": "apps/worker/reports/mutation/mutation.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/database",
+      "config": "packages/database/stryker.pool029.config.json",
+      "report": "packages/database/reports/mutation/pool029.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/database",
+      "config": "packages/database/stryker.pool039.config.json",
+      "report": "packages/database/reports/mutation/pool039.json",
+      "configExists": true
+    },
+    {
+      "cwd": "apps/gateway",
+      "config": "apps/gateway/stryker.pool039.config.json",
+      "report": "apps/gateway/reports/mutation/pool039.json",
+      "configExists": true
+    },
+    {
+      "cwd": "apps/gateway",
+      "config": "apps/gateway/stryker.pool040.config.json",
+      "report": "apps/gateway/reports/mutation/pool040.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/database",
+      "config": "packages/database/stryker.pool043.config.json",
+      "report": "packages/database/reports/mutation/pool043.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/database",
+      "config": "packages/database/stryker.pool043-v22.config.json",
+      "report": "packages/database/reports/mutation/pool043-v22.json",
+      "configExists": true
+    },
+    {
+      "cwd": "apps/gateway",
+      "config": "apps/gateway/stryker.pool043.config.json",
+      "report": "apps/gateway/reports/mutation/pool043.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/database",
+      "config": "packages/database/stryker.pool039043-integration.config.json",
+      "report": "packages/database/reports/mutation/pool039043-integration.json",
+      "configExists": true
+    },
+    {
+      "cwd": ".",
+      "config": "stryker.resource-pool.config.json",
+      "report": "packages/database/reports/mutation/pool039043-resource.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/provider-adapters",
+      "config": "packages/provider-adapters/stryker.pool021-r2.config.json",
+      "report": "packages/provider-adapters/reports/mutation/pool021-r2.json",
+      "configExists": true
+    },
+    {
+      "cwd": "apps/gateway",
+      "config": "apps/gateway/stryker.pool030.config.json",
+      "report": "apps/gateway/reports/mutation/pool030.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/provider-adapters",
+      "config": "packages/provider-adapters/stryker.pool030.config.json",
+      "report": "packages/provider-adapters/reports/mutation/pool030.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/domain",
+      "config": "packages/domain/stryker.provider-finance.json",
+      "report": "packages/domain/reports/mutation/provider-finance-domain.json",
+      "configExists": true
+    },
+    {
+      "cwd": "packages/provider-adapters",
+      "config": "packages/provider-adapters/stryker.pool048.config.json",
+      "report": "packages/provider-adapters/reports/mutation/pool048.json",
+      "configExists": true
+    }
+  ],
+  "ambientDatabaseIsolation": "DATABASE_URL, REDIS_URL and *_DATABASE_URL removed; includes POOL043_CONCURRENCY_DATABASE_URL override used by tests",
+  "note": "Static peer review only; no wrapper/test was executed."
+}

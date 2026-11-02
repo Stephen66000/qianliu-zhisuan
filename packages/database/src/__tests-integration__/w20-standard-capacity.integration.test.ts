@@ -96,13 +96,13 @@ beforeAll(async () => {
       enterprise_id, bucket_granularity, bucket_start, timezone,
       source_principal_id, project_principal_id, provider_resource_id,
       request_count, input_tokens, output_tokens, cache_tokens,
-      reasoning_tokens, deducted_quota, api_cost, fact_watermark,
+      reasoning_tokens, deducted_quota, api_cost, api_cost_status, fact_watermark,
       max_fact_at, dirty, generated_at
     )
     SELECT ${enterpriseId}::uuid, 'DAY', day_start, 'Asia/Shanghai', p.id,
            CASE WHEN p.type = 'PROJECT' THEN p.id ELSE NULL END,
            ${resourceId}::uuid,
-           162, 3240, 1620, 0, 0, 4860, 48.60000000,
+           162, 3240, 1620, 0, 0, 4860, 48.60000000, 'PRICED_USAGE',
            day_start + interval '23 hours', day_start + interval '23 hours',
            false, '2026-09-01 00:00:00+00'::timestamptz
       FROM principal p
@@ -158,7 +158,7 @@ beforeAll(async () => {
       INSERT INTO ledger_transaction (
         id, ai_request_id, enterprise_id, principal_id,
         total_input_tokens, total_output_tokens, total_cache_tokens,
-        total_reasoning_tokens, total_deducted_quota, total_api_cost,
+        total_reasoning_tokens, total_deducted_quota, total_api_cost, api_cost_status,
         usage_quality, attempt_count, status, created_at
       )
       SELECT ('50000000-0000-4000-8000-' || lpad(to_hex(g), 12, '0'))::uuid,
@@ -166,7 +166,7 @@ beforeAll(async () => {
              ${enterpriseId}::uuid,
              ('40000000-0000-4000-8000-'
                || lpad(to_hex(((g - 1) % 200) + 1), 12, '0'))::uuid,
-             20, 10, 0, 0, 0, 0.00030000,
+             20, 10, 0, 0, 0, 0.00030000, 'PRICED_USAGE',
              'PROVIDER_REPORTED', 1, 'SETTLED',
              '2026-08-01 00:00:00+00'::timestamptz
                + (((g - 1) % 2678400) * interval '1 second')

@@ -22,7 +22,7 @@
     "react-dom": "19.1.1",
     "react-hook-form": "7.55.0",
     "react-router-dom": "7.18.2",
-    "zod": "4.1.11"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0",

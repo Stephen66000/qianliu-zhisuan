@@ -118,8 +118,8 @@ describe("POOL-029 批量模型授权页面", () => {
     await user.click(screen.getByText("Kimi High · Plan A").closest("label")!.querySelector("input")!);
     await user.click(screen.getByText("Kimi High · Plan A").closest("label")!.querySelector("input")!);
     await user.type(screen.getByLabelText("规则名称"), "新规则");
-    await user.clear(screen.getByLabelText("Token 额度"));
-    await user.type(screen.getByLabelText("Token 额度"), "2000000");
+    await user.clear(screen.getByLabelText("分配额度"));
+    await user.type(screen.getByLabelText("分配额度"), "2000000");
     await user.type(screen.getByLabelText("失效时间（可选）"), "2026-09-01T00:00");
     await user.clear(screen.getByLabelText("生效时间"));
     await user.type(screen.getByLabelText("生效时间"), "2026-08-02T00:00");
@@ -155,7 +155,7 @@ describe("POOL-029 批量模型授权页面", () => {
     render(<MemoryRouter><EmployeeModelRulesPage /></MemoryRouter>);
 
     // 已发布规则 v2 带 pool_quotas（Kimi 500 万），额度列按厂商展示而非版本级单值。
-    expect(screen.getByText("Kimi 5,000,000 Token")).toBeInTheDocument();
+    expect(screen.getByText("Kimi 5,000,000 额度")).toBeInTheDocument();
 
     // 勾选 Kimi 型号后厂商级额度块出现该厂商输入。
     await user.type(screen.getByPlaceholderText("搜索厂商、资源或模型"), "Kimi");

@@ -1,0 +1,853 @@
+[
+  {
+    "name": "@fastify/busboy",
+    "version": "3.2.0",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/@fastify+busboy@3.2.0/node_modules/@fastify/busboy",
+    "dependents": [
+      {
+        "name": "@fastify/multipart",
+        "version": "10.1.0",
+        "dependents": [
+          {
+            "name": "@qianliu/control-api",
+            "version": "0.3.0",
+            "depField": "dependencies"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "@grpc/grpc-js",
+    "version": "1.14.4",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/@grpc+grpc-js@1.14.4/node_modules/@grpc/grpc-js",
+    "dependents": [
+      {
+        "name": "dockerode",
+        "version": "5.0.1",
+        "dependents": [
+          {
+            "name": "testcontainers",
+            "version": "12.0.4",
+            "dependents": [
+              {
+                "name": "@qianliu/testing",
+                "version": "0.3.0",
+                "depField": "dependencies"
+              },
+              {
+                "name": "@testcontainers/postgresql",
+                "version": "12.0.4",
+                "dependents": [
+                  {
+                    "name": "@qianliu/testing",
+                    "version": "0.3.0",
+                    "depField": "dependencies"
+                  }
+                ]
+              },
+              {
+                "name": "@testcontainers/redis",
+                "version": "12.0.4",
+                "dependents": [
+                  {
+                    "name": "@qianliu/testing",
+                    "version": "0.3.0",
+                    "depField": "dependencies"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "brace-expansion",
+    "version": "1.1.18",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/brace-expansion@1.1.18/node_modules/brace-expansion",
+    "dependents": [
+      {
+        "name": "minimatch",
+        "version": "3.1.5",
+        "dependents": [
+          {
+            "name": "glob",
+            "version": "7.2.3",
+            "dependents": [
+              {
+                "name": "archiver-utils",
+                "version": "2.1.0",
+                "dependents": [
+                  {
+                    "name": "archiver",
+                    "version": "5.3.2",
+                    "dependents": [
+                      {
+                        "name": "exceljs",
+                        "version": "4.4.0",
+                        "dependents": [
+                          {
+                            "name": "@qianliu/control-api",
+                            "version": "0.3.0",
+                            "depField": "dependencies"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "archiver-utils",
+                "version": "3.0.4",
+                "dependents": [
+                  {
+                    "name": "zip-stream",
+                    "version": "4.1.1",
+                    "dependents": [
+                      {
+                        "name": "archiver",
+                        "version": "5.3.2",
+                        "deduped": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "rimraf",
+                "version": "2.7.1",
+                "dependents": [
+                  {
+                    "name": "fstream",
+                    "version": "1.0.12",
+                    "dependents": [
+                      {
+                        "name": "unzipper",
+                        "version": "0.10.14",
+                        "dependents": [
+                          {
+                            "name": "exceljs",
+                            "version": "4.4.0",
+                            "deduped": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "brace-expansion",
+    "version": "2.1.4",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/brace-expansion@2.1.4/node_modules/brace-expansion",
+    "dependents": [
+      {
+        "name": "minimatch",
+        "version": "5.1.9",
+        "dependents": [
+          {
+            "name": "readdir-glob",
+            "version": "1.1.3",
+            "dependents": [
+              {
+                "name": "archiver",
+                "version": "5.3.2",
+                "dependents": [
+                  {
+                    "name": "exceljs",
+                    "version": "4.4.0",
+                    "dependents": [
+                      {
+                        "name": "@qianliu/control-api",
+                        "version": "0.3.0",
+                        "depField": "dependencies"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "archiver",
+                "version": "7.0.1",
+                "dependents": [
+                  {
+                    "name": "testcontainers",
+                    "version": "12.0.4",
+                    "dependents": [
+                      {
+                        "name": "@qianliu/testing",
+                        "version": "0.3.0",
+                        "depField": "dependencies"
+                      },
+                      {
+                        "name": "@testcontainers/postgresql",
+                        "version": "12.0.4",
+                        "dependents": [
+                          {
+                            "name": "@qianliu/testing",
+                            "version": "0.3.0",
+                            "depField": "dependencies"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "@testcontainers/redis",
+                        "version": "12.0.4",
+                        "dependents": [
+                          {
+                            "name": "@qianliu/testing",
+                            "version": "0.3.0",
+                            "depField": "dependencies"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "minimatch",
+        "version": "9.0.9",
+        "dependents": [
+          {
+            "name": "glob",
+            "version": "10.5.0",
+            "dependents": [
+              {
+                "name": "archiver-utils",
+                "version": "5.0.2",
+                "dependents": [
+                  {
+                    "name": "archiver",
+                    "version": "7.0.1",
+                    "deduped": true
+                  },
+                  {
+                    "name": "zip-stream",
+                    "version": "6.0.1",
+                    "dependents": [
+                      {
+                        "name": "archiver",
+                        "version": "7.0.1",
+                        "deduped": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "fast-uri",
+    "version": "3.1.6",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/fast-uri@3.1.6/node_modules/fast-uri",
+    "dependents": [
+      {
+        "name": "@fastify/ajv-compiler",
+        "version": "4.0.5",
+        "dependents": [
+          {
+            "name": "fastify",
+            "version": "5.12.4",
+            "dependents": [
+              {
+                "name": "@qianliu/control-api",
+                "version": "0.3.0",
+                "depField": "dependencies"
+              },
+              {
+                "name": "@qianliu/gateway",
+                "version": "0.3.0",
+                "depField": "dependencies"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "ajv",
+        "version": "8.20.0",
+        "dependents": [
+          {
+            "name": "@fastify/ajv-compiler",
+            "version": "4.0.5",
+            "deduped": true
+          },
+          {
+            "name": "@hookform/resolvers",
+            "version": "5.5.7",
+            "peersSuffixHash": "9fda",
+            "dependents": [
+              {
+                "name": "@qianliu/web",
+                "version": "0.3.0",
+                "depField": "dependencies"
+              }
+            ]
+          },
+          {
+            "name": "ajv-formats",
+            "version": "3.0.1",
+            "peersSuffixHash": "2cb7",
+            "dependents": [
+              {
+                "name": "@fastify/ajv-compiler",
+                "version": "4.0.5",
+                "deduped": true
+              },
+              {
+                "name": "fast-json-stringify",
+                "version": "7.0.1",
+                "dependents": [
+                  {
+                    "name": "@fastify/fast-json-stringify-compiler",
+                    "version": "5.1.0",
+                    "dependents": [
+                      {
+                        "name": "fastify",
+                        "version": "5.12.4",
+                        "deduped": true
+                      }
+                    ]
+                  },
+                  {
+                    "name": "fastify",
+                    "version": "5.12.4",
+                    "deduped": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "fast-json-stringify",
+            "version": "7.0.1",
+            "deduped": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "fast-uri",
+    "version": "4.1.3",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/fast-uri@4.1.3/node_modules/fast-uri",
+    "dependents": [
+      {
+        "name": "fast-json-stringify",
+        "version": "7.0.1",
+        "dependents": [
+          {
+            "name": "@fastify/fast-json-stringify-compiler",
+            "version": "5.1.0",
+            "dependents": [
+              {
+                "name": "fastify",
+                "version": "5.12.4",
+                "dependents": [
+                  {
+                    "name": "@qianliu/control-api",
+                    "version": "0.3.0",
+                    "depField": "dependencies"
+                  },
+                  {
+                    "name": "@qianliu/gateway",
+                    "version": "0.3.0",
+                    "depField": "dependencies"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "fastify",
+            "version": "5.12.4",
+            "deduped": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "fastify",
+    "version": "5.12.4",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/fastify@5.12.4/node_modules/fastify",
+    "dependents": [
+      {
+        "name": "@qianliu/control-api",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      },
+      {
+        "name": "@qianliu/gateway",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      }
+    ]
+  },
+  {
+    "name": "glob",
+    "version": "7.2.3",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob",
+    "dependents": [
+      {
+        "name": "archiver-utils",
+        "version": "2.1.0",
+        "dependents": [
+          {
+            "name": "archiver",
+            "version": "5.3.2",
+            "dependents": [
+              {
+                "name": "exceljs",
+                "version": "4.4.0",
+                "dependents": [
+                  {
+                    "name": "@qianliu/control-api",
+                    "version": "0.3.0",
+                    "depField": "dependencies"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "archiver-utils",
+        "version": "3.0.4",
+        "dependents": [
+          {
+            "name": "zip-stream",
+            "version": "4.1.1",
+            "dependents": [
+              {
+                "name": "archiver",
+                "version": "5.3.2",
+                "deduped": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "rimraf",
+        "version": "2.7.1",
+        "dependents": [
+          {
+            "name": "fstream",
+            "version": "1.0.12",
+            "dependents": [
+              {
+                "name": "unzipper",
+                "version": "0.10.14",
+                "dependents": [
+                  {
+                    "name": "exceljs",
+                    "version": "4.4.0",
+                    "deduped": true
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "glob",
+    "version": "10.5.0",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@10.5.0/node_modules/glob",
+    "dependents": [
+      {
+        "name": "archiver-utils",
+        "version": "5.0.2",
+        "dependents": [
+          {
+            "name": "archiver",
+            "version": "7.0.1",
+            "dependents": [
+              {
+                "name": "testcontainers",
+                "version": "12.0.4",
+                "dependents": [
+                  {
+                    "name": "@qianliu/testing",
+                    "version": "0.3.0",
+                    "depField": "dependencies"
+                  },
+                  {
+                    "name": "@testcontainers/postgresql",
+                    "version": "12.0.4",
+                    "dependents": [
+                      {
+                        "name": "@qianliu/testing",
+                        "version": "0.3.0",
+                        "depField": "dependencies"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "@testcontainers/redis",
+                    "version": "12.0.4",
+                    "dependents": [
+                      {
+                        "name": "@qianliu/testing",
+                        "version": "0.3.0",
+                        "depField": "dependencies"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "zip-stream",
+            "version": "6.0.1",
+            "dependents": [
+              {
+                "name": "archiver",
+                "version": "7.0.1",
+                "deduped": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "minimatch",
+    "version": "3.1.5",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/minimatch@3.1.5/node_modules/minimatch",
+    "dependents": [
+      {
+        "name": "glob",
+        "version": "7.2.3",
+        "dependents": [
+          {
+            "name": "archiver-utils",
+            "version": "2.1.0",
+            "dependents": [
+              {
+                "name": "archiver",
+                "version": "5.3.2",
+                "dependents": [
+                  {
+                    "name": "exceljs",
+                    "version": "4.4.0",
+                    "dependents": [
+                      {
+                        "name": "@qianliu/control-api",
+                        "version": "0.3.0",
+                        "depField": "dependencies"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "archiver-utils",
+            "version": "3.0.4",
+            "dependents": [
+              {
+                "name": "zip-stream",
+                "version": "4.1.1",
+                "dependents": [
+                  {
+                    "name": "archiver",
+                    "version": "5.3.2",
+                    "deduped": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "rimraf",
+            "version": "2.7.1",
+            "dependents": [
+              {
+                "name": "fstream",
+                "version": "1.0.12",
+                "dependents": [
+                  {
+                    "name": "unzipper",
+                    "version": "0.10.14",
+                    "dependents": [
+                      {
+                        "name": "exceljs",
+                        "version": "4.4.0",
+                        "deduped": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "minimatch",
+    "version": "5.1.9",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/minimatch@5.1.9/node_modules/minimatch",
+    "dependents": [
+      {
+        "name": "readdir-glob",
+        "version": "1.1.3",
+        "dependents": [
+          {
+            "name": "archiver",
+            "version": "5.3.2",
+            "dependents": [
+              {
+                "name": "exceljs",
+                "version": "4.4.0",
+                "dependents": [
+                  {
+                    "name": "@qianliu/control-api",
+                    "version": "0.3.0",
+                    "depField": "dependencies"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "archiver",
+            "version": "7.0.1",
+            "dependents": [
+              {
+                "name": "testcontainers",
+                "version": "12.0.4",
+                "dependents": [
+                  {
+                    "name": "@qianliu/testing",
+                    "version": "0.3.0",
+                    "depField": "dependencies"
+                  },
+                  {
+                    "name": "@testcontainers/postgresql",
+                    "version": "12.0.4",
+                    "dependents": [
+                      {
+                        "name": "@qianliu/testing",
+                        "version": "0.3.0",
+                        "depField": "dependencies"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "@testcontainers/redis",
+                    "version": "12.0.4",
+                    "dependents": [
+                      {
+                        "name": "@qianliu/testing",
+                        "version": "0.3.0",
+                        "depField": "dependencies"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "minimatch",
+    "version": "9.0.9",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/minimatch@9.0.9/node_modules/minimatch",
+    "dependents": [
+      {
+        "name": "glob",
+        "version": "10.5.0",
+        "dependents": [
+          {
+            "name": "archiver-utils",
+            "version": "5.0.2",
+            "dependents": [
+              {
+                "name": "archiver",
+                "version": "7.0.1",
+                "dependents": [
+                  {
+                    "name": "testcontainers",
+                    "version": "12.0.4",
+                    "dependents": [
+                      {
+                        "name": "@qianliu/testing",
+                        "version": "0.3.0",
+                        "depField": "dependencies"
+                      },
+                      {
+                        "name": "@testcontainers/postgresql",
+                        "version": "12.0.4",
+                        "dependents": [
+                          {
+                            "name": "@qianliu/testing",
+                            "version": "0.3.0",
+                            "depField": "dependencies"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "@testcontainers/redis",
+                        "version": "12.0.4",
+                        "dependents": [
+                          {
+                            "name": "@qianliu/testing",
+                            "version": "0.3.0",
+                            "depField": "dependencies"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "zip-stream",
+                "version": "6.0.1",
+                "dependents": [
+                  {
+                    "name": "archiver",
+                    "version": "7.0.1",
+                    "deduped": true
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "undici",
+    "version": "7.29.0",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/undici@7.29.0/node_modules/undici",
+    "dependents": [
+      {
+        "name": "@qianliu/gateway",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      },
+      {
+        "name": "@qianliu/provider-adapters",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      }
+    ]
+  },
+  {
+    "name": "undici",
+    "version": "8.9.0",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/undici@8.9.0/node_modules/undici",
+    "dependents": [
+      {
+        "name": "testcontainers",
+        "version": "12.0.4",
+        "dependents": [
+          {
+            "name": "@qianliu/testing",
+            "version": "0.3.0",
+            "depField": "dependencies"
+          },
+          {
+            "name": "@testcontainers/postgresql",
+            "version": "12.0.4",
+            "dependents": [
+              {
+                "name": "@qianliu/testing",
+                "version": "0.3.0",
+                "depField": "dependencies"
+              }
+            ]
+          },
+          {
+            "name": "@testcontainers/redis",
+            "version": "12.0.4",
+            "dependents": [
+              {
+                "name": "@qianliu/testing",
+                "version": "0.3.0",
+                "depField": "dependencies"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "zod",
+    "version": "4.1.11",
+    "path": "/Users/mac/Projects/仟流智算/node_modules/.pnpm/zod@4.1.11/node_modules/zod",
+    "dependents": [
+      {
+        "name": "@hookform/resolvers",
+        "version": "5.5.7",
+        "peersSuffixHash": "9fda",
+        "dependents": [
+          {
+            "name": "@qianliu/web",
+            "version": "0.3.0",
+            "depField": "dependencies"
+          }
+        ]
+      },
+      {
+        "name": "@qianliu/config",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      },
+      {
+        "name": "@qianliu/control-api",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      },
+      {
+        "name": "@qianliu/gateway",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      },
+      {
+        "name": "@qianliu/web",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      },
+      {
+        "name": "@qianliu/worker",
+        "version": "0.3.0",
+        "depField": "dependencies"
+      }
+    ]
+  }
+]

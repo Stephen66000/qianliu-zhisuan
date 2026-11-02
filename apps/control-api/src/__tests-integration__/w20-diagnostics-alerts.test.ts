@@ -219,6 +219,7 @@ async function seedRequestChain(): Promise<{
       total_cache_tokens: 0n,
       total_deducted_quota: 450n,
       total_api_cost: "0.02000000",
+      api_cost_status: "PRICED_USAGE",
       usage_quality: "UPSTREAM_REPORTED",
       attempt_count: 2,
       status: "SETTLED",

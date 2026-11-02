@@ -1,6 +1,8 @@
+import { mapActivationFailure } from "./provider-finance-activation-errors.js";
+export { mapActivationFailure } from "./provider-finance-activation-errors.js";
+import { writeActivationDraftFacts, emptyActivationDraft, type DraftWriteCounts } from "./provider-finance-activation-draft-writer.js";
 import { sql, type Transaction } from "kysely";
 import {
-  carryoverDraftKey,
   computeCandidateHash,
   normalizeDraftItem,
   projectActivationCandidate,
@@ -22,12 +24,10 @@ import {
   ProviderFinanceActivationError, type ActivationCandidateView,
 } from "./provider-finance-activation-types.js";
 import {
-  closeLegacyPurchaseTx, insertCarryoverPeriodTx, insertHistoricalUsageCostTx,
-  insertOpeningBalanceTx, insertRechargeTx, insertSubscriptionTx, legacySourceMarker,
   writeActivationAuditTx,
 } from "./provider-finance-activation-writes.js";
 import { applyUsageRepairsTx, type UsageRepairApplyResult } from "./provider-finance-usage-repairs.js";
-import { ProviderFinanceError, type FinanceCurrency } from "./provider-finance-types.js";
+import type { FinanceCurrency } from "./provider-finance-types.js";
 
 /**
  * 企业级原子激活协调器（WP03 任务 3.3、3.4；design §7）。
@@ -106,16 +106,6 @@ interface ReverifiedCandidate {
   projected: ProjectedFinanceSummary;
 }
 
-interface DraftWriteCounts {
-  openings: number;
-  recharges: number;
-  historicalUsageCosts: number;
-  purchases: number;
-  carryovers: number;
-  legacyResolutions: number;
-  periodIdByDraftKey: Map<string, string>;
-}
-
 export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivationRepository {
   /**
    * 激活入口。唯一的 `SERIALIZABLE` 事务边界。
@@ -148,7 +138,7 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
     // 排空门禁必须晚于候选复验：只有此时候选固定修复行集才是可信的豁免依据。
     await this.assertDrained(trx, input.enterpriseId, candidate);
 
-    const writes = await this.writeDraftFacts(trx, input, candidate, reverified);
+    const writes = await writeActivationDraftFacts(trx, input, candidate, reverified);
     const repairs = await this.applyCandidateRepairs(trx, input, candidate, reverified, writes);
     const conservation = await this.assertRealFactConservation(trx, input, reverified, now);
 
@@ -345,195 +335,6 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
 
   // ===== 步骤 7～8：初始化事实与旧记录关闭 =====
 
-  private async writeDraftFacts(
-    trx: Transaction<Database>, input: ActivateInput,
-    candidate: ActivationCandidateView, reverified: ReverifiedCandidate,
-  ): Promise<DraftWriteCounts> {
-    const namespace = `activation:${candidate.candidateId}:`;
-    const periodIdByDraftKey = new Map<string, string>();
-    const openings = await this.writeOpenings(trx, input, reverified, namespace);
-    const recharges = await this.writeRecharges(trx, input, reverified, namespace);
-    const historicalUsageCosts = await this.writeHistoricalUsageCosts(trx, input, reverified, namespace);
-    const purchases = await this.writePurchases(trx, input, reverified, namespace, periodIdByDraftKey);
-    const carryovers = await this.writeCarryovers(trx, input, reverified, periodIdByDraftKey);
-    const legacyResolutions = await this.writeLegacyClosures(trx, input, reverified, namespace);
-    return {
-      openings, recharges, historicalUsageCosts, purchases, carryovers, legacyResolutions,
-      periodIdByDraftKey,
-    };
-  }
-
-  private async writeOpenings(
-    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate, namespace: string,
-  ): Promise<number> {
-    let written = 0;
-    for (const opening of reverified.candidate.apiOpeningBalances) {
-      const existing = await trx.selectFrom("provider_finance_event").select(["account_amount"])
-        .where("enterprise_id", "=", input.enterpriseId)
-        .where("provider_resource_id", "=", opening.resourceId)
-        .where("account_currency", "=", opening.accountCurrency)
-        .where("event_type", "=", "API_OPENING_BALANCE").executeTakeFirst();
-      if (existing) {
-        // 已存在金额相同的原始期初视为已满足（PFH-01 只允许一条）；金额不同即缺口，不得覆盖。
-        if (existing.account_amount !== opening.accountAmount) {
-          throw new ProviderFinanceActivationError(
-            "CANDIDATE_STALE", "该账户已存在金额不同的原始期初余额，不得覆盖",
-            { resourceId: opening.resourceId, accountCurrency: opening.accountCurrency });
-        }
-        continue;
-      }
-      await insertOpeningBalanceTx(trx, {
-        enterpriseId: input.enterpriseId, resourceId: opening.resourceId, adminId: input.adminId,
-        accountAmount: opening.accountAmount, accountCurrency: opening.accountCurrency,
-        description: opening.description, evidenceRef: opening.evidenceRef,
-        idempotencyKey: `${namespace}opening:${opening.resourceId}:${opening.accountCurrency}`,
-        source: "MIGRATION", externalReference: null,
-      });
-      written += 1;
-    }
-    return written;
-  }
-
-  private async writeRecharges(
-    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate, namespace: string,
-  ): Promise<number> {
-    let written = 0;
-    for (const recharge of reverified.candidate.historicalApiRecharges) {
-      await insertRechargeTx(trx, {
-        enterpriseId: input.enterpriseId, resourceId: recharge.resourceId, adminId: input.adminId,
-        accountAmount: recharge.accountAmount, accountCurrency: recharge.accountCurrency,
-        cashPaidCny: recharge.cashPaidCny, occurredAt: new Date(recharge.occurredAt),
-        // 迁移行写来源标记（旧账本据此排除该记录）；订单引用仍留在草稿与关闭审计里。
-        externalReference: legacySourceMarker(recharge.sourceRecordId, recharge.externalReference),
-        description: recharge.description,
-        evidenceRef: recharge.evidenceRef,
-        idempotencyKey: `${namespace}${recharge.recordIdempotencyKey}`,
-      }, { source: "MIGRATION" });
-      written += 1;
-    }
-    return written;
-  }
-
-  /**
-   * 历史 API 消耗（0084）：负向资金事实与期初、充值等在同一 `SERIALIZABLE` 事务内一次写入。
-   * 记录级幂等键由草稿规范化确定性生成；重放时
-   * `provider_finance_idempotency_key_uq` 唯一索引兜底，不会重复入账。
-   */
-  private async writeHistoricalUsageCosts(
-    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate, namespace: string,
-  ): Promise<number> {
-    let written = 0;
-    for (const cost of reverified.candidate.historicalApiCosts) {
-      await insertHistoricalUsageCostTx(trx, {
-        enterpriseId: input.enterpriseId, resourceId: cost.resourceId, adminId: input.adminId,
-        accountCurrency: cost.accountCurrency, costAmount: cost.costAmount,
-        occurredAt: new Date(cost.occurredAt),
-        description: cost.description, evidenceRef: cost.evidenceRef,
-        idempotencyKey: `${namespace}${cost.recordIdempotencyKey}`,
-      });
-      written += 1;
-    }
-    return written;
-  }
-
-  private async writePurchases(
-    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate,
-    namespace: string, periodIdByDraftKey: Map<string, string>,
-  ): Promise<number> {
-    let written = 0;
-    for (const purchase of reverified.candidate.codingPlanPurchases) {
-      const result = await insertSubscriptionTx(trx, {
-        enterpriseId: input.enterpriseId, resourceId: purchase.resourceId, adminId: input.adminId,
-        kind: purchase.kind, productName: purchase.productName,
-        accountAmount: purchase.accountAmount, accountCurrency: purchase.accountCurrency,
-        cashPaidCny: purchase.cashPaidCny, occurredAt: new Date(purchase.occurredAt),
-        // 迁移行写来源标记（旧账本据此排除该记录）；订单引用仍留在草稿与关闭审计里。
-        externalReference: legacySourceMarker(purchase.sourceRecordId, purchase.externalReference),
-        description: purchase.description,
-        evidenceRef: purchase.evidenceRef,
-        idempotencyKey: `${namespace}${purchase.recordIdempotencyKey}`,
-        periodStart: new Date(purchase.periodStart),
-        periodEndExclusive: new Date(purchase.periodEndExclusive),
-      }, {
-        source: "MIGRATION",
-        // 由旧购买记录迁移而来：周期必须绑定源记录，便于后续审计追溯。
-        periodSource: purchase.sourceRecordId === null ? purchase.kind : "MIGRATED_PURCHASE",
-        migrationSourceRecordId: purchase.sourceRecordId,
-        actorAdminId: input.adminId,
-      });
-      periodIdByDraftKey.set(purchase.recordIdempotencyKey, result.periodId);
-      written += 1;
-    }
-    return written;
-  }
-
-  private async writeCarryovers(
-    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate,
-    periodIdByDraftKey: Map<string, string>,
-  ): Promise<number> {
-    let written = 0;
-    for (const carryover of reverified.candidate.codingPlanCarryovers) {
-      const result = await insertCarryoverPeriodTx(trx, {
-        enterpriseId: input.enterpriseId, resourceId: carryover.resourceId, adminId: input.adminId,
-        productName: carryover.productName,
-        periodStart: new Date(carryover.periodStart),
-        periodEndExclusive: new Date(carryover.periodEndExclusive),
-        migrationSourceRecordId: carryover.snapshotId,
-        description: carryover.description, evidenceRef: carryover.evidenceRef,
-      });
-      // 带快照引用的键即快照 id（旧路径）；管理员声明路径用确定性摘要键。
-      periodIdByDraftKey.set(carryoverDraftKey(carryover), result.periodId);
-      written += 1;
-    }
-    return written;
-  }
-
-  /**
-   * 旧购买记录关闭（PFH-02）。
-   *
-   * MIGRATED 的"金额事实"由第 7 步写出的草稿明细行承载；
-   * 这里把「旧记录 → 资金事件」的不可变映射写进关闭审计，
-   * 并校验草稿行确实按 `sourceRecordId + externalReference` 绑定了该记录。
-   */
-  private async writeLegacyClosures(
-    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate, namespace: string,
-  ): Promise<number> {
-    let written = 0;
-    for (const resolution of reverified.candidate.legacyPurchaseResolutions) {
-      const migratedEventId = resolution.resolution === "MIGRATED"
-        ? await this.findMigratedEventId(trx, input, reverified, resolution.legacyRecordId,
-          resolution.migratedExternalReference, namespace)
-        : null;
-      await closeLegacyPurchaseTx(trx, {
-        enterpriseId: input.enterpriseId, resourceId: resolution.resourceId, adminId: input.adminId,
-        legacyRecordId: resolution.legacyRecordId, resolution: resolution.resolution,
-        migratedEventId, representedEventId: resolution.financeEventId,
-        externalReference: resolution.migratedExternalReference,
-        reason: resolution.reason, evidenceRef: resolution.evidenceRef,
-      });
-      written += 1;
-    }
-    return written;
-  }
-
-  private async findMigratedEventId(
-    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate,
-    legacyRecordId: string, externalReference: string | null, namespace: string,
-  ): Promise<string | null> {
-    const recharge = reverified.candidate.historicalApiRecharges.find((row) =>
-      row.sourceRecordId === legacyRecordId && row.externalReference === externalReference);
-    const purchase = reverified.candidate.codingPlanPurchases.find((row) =>
-      row.sourceRecordId === legacyRecordId && row.externalReference === externalReference);
-    const idempotencyKey = recharge
-      ? `${namespace}${recharge.recordIdempotencyKey}`
-      : purchase ? `${namespace}${purchase.recordIdempotencyKey}` : null;
-    if (!idempotencyKey) return null;
-    const event = await trx.selectFrom("provider_finance_event").select("id")
-      .where("enterprise_id", "=", input.enterpriseId).where("idempotency_key", "=", idempotencyKey)
-      .executeTakeFirst();
-    return event?.id ?? null;
-  }
-
   // ===== 步骤 9：四字段修复 =====
 
   private async applyCandidateRepairs(
@@ -564,7 +365,7 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
    * 因此守恒必须由真实数据独立成立，而不是靠虚拟事实兜底。
    *
    * 唯一豁免的是 `LEGACY_RECORD` 类缺口：关闭决定保存在本事务的关闭审计里
-   * （见 {@link writeLegacyClosures}），不在投影输入里重复声明；
+   * （见 draft writer 的 writeLegacyClosures），不在投影输入里重复声明；
    * 资金、Token、周期归属与经营账单守恒一律不得豁免。
    */
   private async assertRealFactConservation(
@@ -574,7 +375,7 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
     const snapshotAt = now.toISOString();
     const scope = await loadActivationScope(trx, { enterpriseId: input.enterpriseId, snapshotAt });
     const facts = await loadProjectionFacts(trx, { enterpriseId: input.enterpriseId, scope });
-    const empty = normalizeDraftItem(emptyDraft(), input.enterpriseId);
+    const empty = normalizeDraftItem(emptyActivationDraft(), input.enterpriseId);
     const projection = projectActivationCandidate({
       enterpriseId: input.enterpriseId, snapshotAt, resources: scope.resources, accounts: scope.accounts,
       financeEvents: facts.financeEvents, periods: facts.periods, legacyPurchases: facts.legacyPurchases,
@@ -702,14 +503,6 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
 
 // ===== 辅助 =====
 
-function emptyDraft(): ActivationDraft {
-  return {
-    schema_version: "1", api_opening_balances: [], historical_api_recharges: [],
-    historical_api_costs: [], coding_plan_purchases: [], coding_plan_carryovers: [],
-    legacy_purchase_resolutions: [],
-  };
-}
-
 async function tryAdvisoryLock(trx: Transaction<Database>, key: string): Promise<boolean> {
   const row = await sql<{ acquired: boolean }>`
     SELECT pg_try_advisory_xact_lock(hashtextextended(${key}::text, 0::bigint)) AS acquired
@@ -738,36 +531,4 @@ function assertSameBaseline(
         "CANDIDATE_STALE", `用量行 ${left.ledgerLineId} 的修复基准在锁内重算后发生变化，请重新预检`);
     }
   }
-}
-
-function sqlStateOf(error: unknown): string | null {
-  if (error === null || typeof error !== "object") return null;
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "string" ? code : null;
-}
-
-/**
- * 事务执行边界之外的故障映射（design §7）。
- *
- * - `40001`（序列化失败）/ `40P01`（死锁）→ `ACTIVATION_RETRY_REQUIRED`、`retryable=true`；
- * - `ProviderFinanceError`（Tx 原语的确定性输入校验，如"账户金额必须为正"）→
- *   `FACT_WRITE_INVALID`（400）：这类错误是**确定性**的，重试或重新预检都不会改变结果，
- *   不能改写成 `CANDIDATE_STALE`——那会暗示"重新预检可解"，误导管理员陷入无意义循环，
- *   也掩盖了原始错误码；
- * - 其它错误原样抛出；
- * - 本函数**不做任何重试**：协调器、仓储与 HTTP 层都不得自动重试，
- *   管理员必须先重读 activation-state 再决定是否重提（水位变化会变成 `CANDIDATE_STALE`）。
- */
-export function mapActivationFailure(error: unknown): unknown {
-  const state = sqlStateOf(error);
-  if (state === "40001" || state === "40P01") {
-    return new ProviderFinanceActivationError(
-      "ACTIVATION_RETRY_REQUIRED", "激活事务与并发写入冲突，请重读激活状态后再提交",
-      { sqlstate: state, retryable: true }, true);
-  }
-  if (error instanceof ProviderFinanceError) {
-    return new ProviderFinanceActivationError(
-      "FACT_WRITE_INVALID", `初始化事实写入参数不合法：${error.message}`, { code: error.code }, false);
-  }
-  return error;
 }

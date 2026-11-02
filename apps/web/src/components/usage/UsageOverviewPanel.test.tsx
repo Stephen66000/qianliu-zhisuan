@@ -257,4 +257,28 @@ describe("W20-04 用量概览 Web", () => {
     expect(screen.queryByText(/^峰值 /)).toBeNull();
     expect(screen.getByTitle("周一：0 Token")).toBeInTheDocument();
   });
+  it("员工22亿旧配置与27.1亿实际用量不再混算，零配置不冒充不限", () => {
+    const base = overview();
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, data: overview({ subjectType: "EMPLOYEE", subjectId: null,
+      ranking: [ { ...base.ranking[0]!, subjectId: "employee-one", subjectName: "混合单位员工", allocatedQuota: "2200000000", realTokens: "2709467730" },
+        { ...base.ranking[0]!, subjectId: "employee-zero", subjectName: "零配置员工", allocatedQuota: "0", realTokens: "120" } ] }), refetch: vi.fn() });
+    renderPanel("/usage?tab=overview&subject_type=EMPLOYEE&period=MONTH");
+    const ranking = screen.getByRole("region", { name: "用量排名表格" });
+    expect(within(ranking).getByText("2,709,467,730")).toBeInTheDocument();
+    expect(within(ranking).getByText("厂商额度")).toBeInTheDocument();
+    expect(within(ranking).getByRole("link", { name: "混合单位员工按厂商池查看额度" })).toHaveAttribute("href", "/principals");
+    expect(within(ranking).getByRole("link", { name: "零配置员工按厂商池查看额度" })).toHaveAttribute("href", "/principals");
+    for (const misleading of ["分配额度", "token使用率", "剩余额度", "2,200,000,000", "不限", "18.1 亿"]) expect(within(ranking).queryByText(misleading, { exact: true })).toBeNull();
+  });
+  it("项目仍沿用原分配、使用率与剩余展示合同", () => {
+    const base = overview();
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, data: overview({ ranking: [{ ...base.ranking[0]!, allocatedQuota: "1000", realTokens: "120" }] }), refetch: vi.fn() });
+    renderPanel();
+    const ranking = screen.getByRole("region", { name: "用量排名表格" });
+    expect(within(ranking).getByText("分配额度")).toBeInTheDocument();
+    expect(within(ranking).getByText("12.0%")).toBeInTheDocument();
+    expect(within(ranking).getByText("880")).toBeInTheDocument();
+    expect(within(ranking).queryByText("按厂商池查看")).toBeNull();
+  });
+
 });

@@ -51,3 +51,4 @@ V3/Evidence/**/*.tmp
 .corepack-bin/
 .zcode/
 .stryker-tmp/
+.local-runtime/

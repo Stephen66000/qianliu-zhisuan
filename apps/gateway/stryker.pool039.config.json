@@ -1,14 +1,30 @@
 {
   "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "packageManager": "pnpm",
-  "reporters": ["clear-text", "json"],
-  "jsonReporter": { "fileName": "reports/mutation/pool039.json" },
-  "plugins": ["@stryker-mutator/vitest-runner"],
+  "reporters": [
+    "clear-text",
+    "json"
+  ],
+  "jsonReporter": {
+    "fileName": "reports/mutation/pool039.json"
+  },
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
   "testRunner": "vitest",
-  "vitest": { "configFile": "vitest.pool039.mutation.config.ts" },
+  "vitest": {
+    "configFile": "vitest.pool039.mutation.config.ts"
+  },
   "coverageAnalysis": "perTest",
-  "mutate": ["src/auth/current-model-authorization.ts:338:9-338:85"],
-  "thresholds": { "high": 100, "low": 100, "break": 100 },
+  "mutate": [
+    "src/auth/current-model-authorization.ts:338:9-338:85",
+    "src/auth/current-model-authorization.ts:339:1-342:2"
+  ],
+  "thresholds": {
+    "high": 100,
+    "low": 100,
+    "break": 100
+  },
   "timeoutMS": 120000,
   "concurrency": 1,
   "disableTypeChecks": true,

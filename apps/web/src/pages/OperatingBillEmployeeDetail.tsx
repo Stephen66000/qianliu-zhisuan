@@ -114,7 +114,7 @@ export function OperatingBillEmployeeDetailPage() {
               ))}
             </select>
           </div>
-          <MetricGrid totals={query.data.totals} />
+          <MetricGrid totals={query.data.totals} quotaScope="EMPLOYEE" />
           {query.data.gaps.length > 0 ? (
             <div className="rounded-xl border border-ql-warning bg-ql-warning-soft px-4 py-3 text-[13px] text-ql-warning">
               {query.data.gaps.length} 个历史 alias 暂未解析到稳定模型 ID：

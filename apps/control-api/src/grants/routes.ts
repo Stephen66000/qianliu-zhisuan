@@ -11,7 +11,7 @@
  * 一期 quota_unit 固定 TOKEN。
  */
 import type { FastifyInstance } from "fastify";
-import { GrantNotArchivableError, PrincipalNotActiveError } from "@qianliu/database";
+import { GrantNotArchivableError, PrincipalNotActiveError, MonthlyQuotaRequiresPoolConfigurationError } from "@qianliu/database";
 import { z } from "zod";
 import { requireAuth } from "../plugins/auth-guard.js";
 
@@ -88,6 +88,12 @@ export function registerGrantRoutes(app: FastifyInstance): void {
           valid_until: parsed.data.valid_until ? new Date(parsed.data.valid_until) : null,
         });
       } catch (error) {
+        if (error instanceof MonthlyQuotaRequiresPoolConfigurationError) {
+          return reply.code(409).send({
+            error: "monthly_quota_requires_pool_configuration",
+            message: "员工月度额度请通过接入配置按厂商池设置",
+          });
+        }
         if (error instanceof PrincipalNotActiveError) {
           return reply.code(409).send({
             error: "invalid_state",

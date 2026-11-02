@@ -122,6 +122,7 @@ async function seedCompleteRequest(input: number, output: number): Promise<strin
     total_cache_tokens: 0n,
     total_deducted_quota: 0n,
     total_api_cost: "0.00100000",
+    api_cost_status: "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED",
     attempt_count: 1,
     status: "SETTLED",

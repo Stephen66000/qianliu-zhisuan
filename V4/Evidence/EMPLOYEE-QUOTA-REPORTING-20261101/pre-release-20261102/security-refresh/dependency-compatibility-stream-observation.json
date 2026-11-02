@@ -1,0 +1,38 @@
+{
+  "node": "v22.23.4",
+  "icu": "78.3",
+  "tz": "2026e",
+  "lockSha256": "4eda45f53d0f9e85c92266e053390ee92cff49ed60ea30a08ad1afd4edaab5e0",
+  "versions": {
+    "exceljs": "4.4.0",
+    "archiverExcel": "5.3.2",
+    "glob7": "7.2.3",
+    "glob7Minimatch": "11.0.1",
+    "readdirMinimatch": "11.0.1",
+    "testcontainers": "12.0.4",
+    "archiverTools": "7.0.1",
+    "archiverUtils5": "5.0.2",
+    "glob14": "14.0.2"
+  },
+  "checks": [
+    {
+      "name": "actual scoped dependency exports and glob7 nonull internals",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS buffer and file read/write preserves Chinese dates styles UUID conditional format",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS streaming writer and streaming reader preserve all committed rows",
+      "status": "FAIL",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n+   {\n+     sharedString: 65\n+   },\n-   '合成员工63',\n    75600\n  ]\n",
+      "stack": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n+   {\n+     sharedString: 65\n+   },\n-   '合成员工63',\n    75600\n  ]\n\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:45:272)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async check (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:31:35)\n    at async <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:43:2)"
+    }
+  ],
+  "synthetic": true,
+  "productionOperations": false,
+  "status": "FAIL",
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n+   {\n+     sharedString: 65\n+   },\n-   '合成员工63',\n    75600\n  ]\n",
+  "stack": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n+   {\n+     sharedString: 65\n+   },\n-   '合成员工63',\n    75600\n  ]\n\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:45:272)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async check (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:31:35)\n    at async <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:43:2)"
+}

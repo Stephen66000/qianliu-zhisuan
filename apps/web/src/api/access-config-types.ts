@@ -10,6 +10,22 @@ export interface AccessConfigModel {
   enabled: boolean;
 }
 
+export interface AccessConfigQuotaView {
+  mode: "MONTHLY" | "LEGACY_PENDING_RECONCILIATION";
+  period_key: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  timezone: string;
+  quota_basis: "RAW_TOKEN" | "PLAN_QUOTA" | null;
+  policy_effective_from: string | null;
+  limit_value: string | null;
+  used_value: string | null;
+  reserved_value: string | null;
+  available_value: string | null;
+  overage_value: string | null;
+  completeness: "COMPLETE" | "UNKNOWN" | "LEGACY_PENDING_RECONCILIATION";
+}
+
 export interface AccessConfigPool {
   grant_id: string;
   quota_value: string;
@@ -18,6 +34,7 @@ export interface AccessConfigPool {
   valid_until: string | null;
   source: "MANAGED_SINGLE" | "MANAGED_BATCH" | "MANUAL_PENDING";
   over_limit: boolean;
+  quota?: AccessConfigQuotaView;
 }
 
 export interface AccessConfigProvider {
@@ -36,7 +53,7 @@ export interface AccessConfiguration {
     authorization_status: "PENDING" | "AUTHORIZED";
   } | null;
   providers: AccessConfigProvider[];
-  summary: { total_quota: string; provider_count: number; model_count: number };
+  summary: { total_quota: string | null; quota_aggregation?: "PER_PROVIDER"; provider_count: number; model_count: number };
   manual_pending_takeover: string[];
   config_version: number;
 }

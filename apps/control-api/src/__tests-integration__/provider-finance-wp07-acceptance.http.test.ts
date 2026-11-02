@@ -82,6 +82,19 @@ function pickAnchorMonth(): { month: string; start: Date; next: Date } {
   };
 }
 
+/** Formal conservation scope covers every Shanghai month from cutover to the frozen snapshot, not only the populated fixture month. */
+function expectedConservationMonths(snapshotAt: string): string[] {
+  const first = shanghaiDay(PROVIDER_FINANCE_CUTOVER).slice(0, 7);
+  const last = shanghaiDay(new Date(snapshotAt)).slice(0, 7);
+  const result: string[] = [];
+  for (let month = first; month <= last;) {
+    result.push(month);
+    const [year, number] = month.split("-").map(Number);
+    month = new Date(Date.UTC(year!, number!, 1)).toISOString().slice(0, 7);
+  }
+  return result;
+}
+
 const anchor = pickAnchorMonth();
 /** 合成事实的全部时间锚点（上海自然月内，且严格早于 now）。 */
 const AT = {
@@ -506,10 +519,10 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
     // 投影摘要（预检响应用领域字段名；`scope_summary` 只给范围计数，业务结论在 `projected`）。
     expect(body.projected).toMatchObject({
       tokenConserved: true, codingPlanUsageAttributed: true, operatingBillsComplete: true,
-      monthsChecked: [anchor.month] });
+      monthsChecked: expectedConservationMonths(body.snapshot_at) });
     expect(body.scope_summary).toMatchObject({
       apiResources: 1, codingPlanResources: 1, requiredAccounts: 1, legacyRecords: 1,
-      months: [anchor.month] });
+      months: expectedConservationMonths(body.snapshot_at) });
     expect(body.usage_repairs.eligibleRows).toBe(1);
     candidate = { candidate_id: body.candidate_id, candidate_hash: body.candidate_hash,
       fact_watermark_hash: body.fact_watermark_hash, expires_at: body.expires_at };
@@ -650,7 +663,7 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
       product_name: `${SYNTHETIC_TAG} 智谱 Coding Plan`,
       period_start: anchor.start.toISOString(),
       period_end_exclusive: anchor.next.toISOString(),
-      current_status: "ACTIVE",
+      current_status: anchor.next.getTime() <= Date.now() ? "EXPIRED" : "ACTIVE",
       fixed_fee_amount: "199.00000000", fixed_fee_currency: "CNY",
       fixed_cash_paid_cny: "199.00000000",
       token_usage: expect.objectContaining({ input_tokens: "40", output_tokens: "10",
@@ -689,7 +702,7 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
     expect(resources.json().resources).toEqual(expect.arrayContaining([
       expect.objectContaining({ resourceId: synthetic.planResourceId, mode: "CODING_PLAN",
         monthlyPlanCashCny: "199.00000000",
-        currentPeriod: expect.objectContaining({ id: period.id }) }),
+        currentPeriod: anchor.next.getTime() <= Date.now() ? null : expect.objectContaining({ id: period.id }) }),
       expect.objectContaining({ resourceId: synthetic.apiResourceId, mode: "API",
         accounts: [expect.objectContaining({ currency: "CNY", monthlyRecharge: "50.00000000",
           monthlyApiCost: "1.25000000", balance: BALANCE_AFTER_POST_RECHARGE })] }),

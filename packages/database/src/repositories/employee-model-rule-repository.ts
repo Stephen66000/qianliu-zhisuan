@@ -17,6 +17,7 @@ import { captureManualBaseline, lockRuleFamily, lockVersion, providerCodesForRul
 import { resolvePoolQuota } from "./employee-model-rule-quota.js";
 import { disableEmployeeRuleVersion, refreshEmployeeKeyModels } from "./employee-model-rule-lifecycle.js";
 import { listEnabledBillingRulesAt } from "./billing-rule-applicability.js";
+import { recordEmployeeQuotaChange, employeeQuotaChangeContext } from "./principal-access-quota-management.js";
 
 export function publishRequestHash(quotaMode: "SET" | "ADD" | undefined) {
   return createHash("sha256").update(JSON.stringify({ quota_mode: quotaMode ?? "SET" })).digest("hex");
@@ -279,19 +280,22 @@ export class EmployeeModelRuleRepository {
         // POOL-033：规则只管型号准入开关，额度归主体×厂商池。每主体每厂商至多一个 ACTIVE 池
         // （由迁移 0039 唯一索引保证）；本规则发布只确保池存在（不存在则建空池待管理员填额度），
         // 随后所有该厂商下的 target 共享同一池 grant_id。
-        const targetByProvider = new Map<string, { unified_model_id: string; provider_resource_id: string; alias: string }[]>();
+        const targetByProvider = new Map<string, {
+          unified_model_id: string; provider_resource_id: string; alias: string; mode: string;
+        }[]>();
         for (const target of validation.model_targets) {
           const route = await trx.selectFrom("model_route")
             .innerJoin("unified_model", "unified_model.id", "model_route.unified_model_id")
             .innerJoin("provider_resource", "provider_resource.id", "model_route.provider_resource_id")
             .innerJoin("provider", "provider.id", "provider_resource.provider_id")
-            .select(["unified_model.alias", "provider.code"])
+            .select(["unified_model.alias", "provider.code", "provider_resource.mode"])
             .where("model_route.enterprise_id", "=", input.enterpriseId)
             .where("model_route.unified_model_id", "=", target.unified_model_id)
             .where("model_route.provider_resource_id", "=", target.provider_resource_id)
             .where("model_route.enabled", "=", true).executeTakeFirstOrThrow();
           const bucket = targetByProvider.get(route.code) ?? [];
-          bucket.push({ unified_model_id: target.unified_model_id, provider_resource_id: target.provider_resource_id, alias: route.alias });
+          bucket.push({ unified_model_id: target.unified_model_id, provider_resource_id: target.provider_resource_id,
+            alias: route.alias, mode: route.mode });
           targetByProvider.set(route.code, bucket);
         }
         for (const [providerCode, targets] of targetByProvider) {
@@ -307,6 +311,11 @@ export class EmployeeModelRuleRepository {
             .where("status", "=", "ACTIVE")
             .forUpdate()
             .executeTakeFirst();
+          const { basis, before: beforeQuota } = await employeeQuotaChangeContext(trx, {
+            enterpriseId: input.enterpriseId, principalId, provider: providerCode,
+            modes: targets.map((target) => target.mode), grantId: poolGrant?.id ?? null,
+            basisError: (message) => new EmployeeModelRuleError("NOT_READY", message),
+          });
           if (!poolGrant) {
             // 建池：用该厂商的额度（厂商级优先，回退版本级）。单人页保存时规则额度为 NULL，池额度由
             // 编排端点单独管理。并发安全：唯一索引冲突时重查（另一事务已建池）。
@@ -314,6 +323,7 @@ export class EmployeeModelRuleRepository {
               enterprise_id: input.enterpriseId, principal_id: principalId, provider: providerCode,
               model_alias: "*", pool_model_alias: "*", quota_unit: "TOKEN",
               quota_value: poolQuota.quota_value,
+              quota_basis: basis,
               allow_overage: poolQuota.allow_overage, valid_from: version.valid_from, valid_until: poolQuota.valid_until,
               status: "ACTIVE", authorization_rule_version_id: version.id,
             }).onConflict((oc) => oc.doNothing()).returning("id").executeTakeFirst();
@@ -339,15 +349,22 @@ export class EmployeeModelRuleRepository {
             }
             await trx.updateTable("principal_grant")
               .set({ quota_value: sql`quota_value + ${poolQuota.quota_value}`, authorization_rule_version_id: version.id,
+                quota_basis: beforeQuota?.quota_basis ?? basis,
                 version: sql`version + 1`, updated_at: new Date() })
               .where("id", "=", poolGrant.id).execute();
           } else {
             await trx.updateTable("principal_grant").set({
               quota_value: poolQuota.quota_value, allow_overage: poolQuota.allow_overage,
+              quota_basis: beforeQuota?.quota_basis ?? basis,
               valid_until: poolQuota.valid_until, authorization_rule_version_id: version.id,
               version: sql`version + 1`, updated_at: new Date(),
             }).where("id", "=", poolGrant.id).execute();
           }
+          await recordEmployeeQuotaChange(trx, {
+            enterpriseId: input.enterpriseId, principalId, provider: providerCode,
+            grantId: poolGrant.id, adminUserId: input.adminUserId,
+            action: input.quotaMode, before: beforeQuota,
+          });
           // 每个 target 建一条型号级行（pool_model_alias=NULL）用于"准入开关 + 池回退查询"，
           // 不再独立计数；assignment 指向池 grant_id。
           for (const t of targets) {

@@ -1,0 +1,9 @@
+{
+  "exitCode": 1,
+  "log": "full-bounded-tests.log",
+  "actualRootScript": "test / scripts/run-bounded-vitest.mjs",
+  "productionDatabaseOrRealProviderSecretsInherited": false,
+  "sanitizedEnvironmentNames": [
+    "WEREAD_API_KEY"
+  ]
+}

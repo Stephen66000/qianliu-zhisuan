@@ -20,6 +20,7 @@ export async function login(page: Page): Promise<void> {
 }
 
 export const E2E_IDS = {
+  department: "00000000-0000-4000-8000-000000000003",
   resource: "00000000-0000-4000-8000-000000000011",
   isolatedResource: "00000000-0000-4000-8000-000000000012",
   model: "00000000-0000-4000-8000-000000000013",

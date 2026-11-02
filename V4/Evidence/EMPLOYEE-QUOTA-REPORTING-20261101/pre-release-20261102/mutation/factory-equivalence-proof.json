@@ -1,0 +1,33 @@
+{
+  "source": "apps/gateway/src/upstream-caller-factory.ts",
+  "sourceSha256": "261aa1d39ad78607e0ce4488ec95fa869650c4b1fb85642876244e57eed68fbe",
+  "report": "apps/gateway/reports/mutation/pool030.json",
+  "survivors": [
+    {
+      "id": "7",
+      "mutatorName": "StringLiteral",
+      "replacement": "\"\"",
+      "status": "Survived",
+      "static": false,
+      "testsCompleted": 4,
+      "coveredBy": [
+        "35",
+        "39",
+        "40",
+        "41"
+      ],
+      "location": {
+        "end": {
+          "column": 112,
+          "line": 46
+        },
+        "start": {
+          "column": 106,
+          "line": 46
+        }
+      }
+    }
+  ],
+  "proof": "Both calls receive the same internal options.requestTimeoutMs and equal immutable safety constants 60000. No async operation or callback occurs between the calls. If the derived duration is unsafe, the first probe call throws and the second call is unreachable. Otherwise the identical second addition is safe and returns the same duration. The label is only read in the helper error branch, so replacing the second concurrency label with an empty string cannot affect outputs, exceptions, emitted logs or the factory arguments for any admissible environment input. This assumes the ordinary unmodified Number builtin and this exact caller implementation; no Number.isSafeInteger spy is used.",
+  "reReview": "Reprove if either safety constant, call ordering, timeout derivation, label usage or runtime semantics change."
+}

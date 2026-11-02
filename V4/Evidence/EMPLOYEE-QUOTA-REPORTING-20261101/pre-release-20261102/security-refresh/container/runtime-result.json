@@ -1,0 +1,162 @@
+{
+  "platform": "linux/amd64 application images on Linux arm64 Docker Desktop emulator",
+  "sourceSnapshot": "d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "overallAcceptance": "ENGINEERING_ONLY_ACTUAL_PATH_SCOPE_ACCEPTED_PRODUCTION_PENDING",
+  "userScopeDecision": "ACTUAL_BUSINESS_PATHS_ONLY_NO_THIRD_PARTY_PATCH",
+  "extraWorkbookReader": "UNCERTIFIED_UNUSED_API_ORIGINAL_FAIL_PROBES_PRESERVED",
+  "productionOperations": false,
+  "safety": "Synthetic child-process env only; unique private bridge network and random 127.0.0.1 published ports; no user volumes/env files; external delivery paused; third security lock actual-path engineering proof; unused WorkbookReader remains UNCERTIFIED; user accepted actual business-path scope only",
+  "steps": [
+    {
+      "postgresReady": true,
+      "postgresVersion": "postgres (PostgreSQL) 17.10",
+      "redisVersion": "Redis server v=8.8.1 sha=00000000:1 malloc=jemalloc-5.3.0 bits=64 build=d33bed2818608ed4",
+      "redisPong": "PONG"
+    },
+    {
+      "mode": "schema0092",
+      "node": "v22.23.4",
+      "platform": "linux",
+      "arch": "x64",
+      "migrationHead": "0092_employee_monthly_quota",
+      "monthlyTablePresent": true,
+      "realTokens": "1000",
+      "totalModels": 4,
+      "quotaStatus": "历史余额待核账",
+      "initialized": 3,
+      "synthetic": true
+    },
+    {
+      "mode": "schema0091",
+      "node": "v22.23.4",
+      "platform": "linux",
+      "arch": "x64",
+      "migrationHead": "0091_recorded_cost_accounting_policy",
+      "monthlyTablePresent": false,
+      "realTokens": "1000",
+      "totalModels": 4,
+      "quotaStatus": "历史余额待核账",
+      "initialized": 0,
+      "synthetic": true
+    },
+    {
+      "service": "control-api",
+      "url": "http://127.0.0.1:58133/health",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"service\":\"control-api\"}"
+    },
+    {
+      "service": "gateway",
+      "url": "http://127.0.0.1:56706/health",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"service\":\"gateway\"}"
+    },
+    {
+      "service": "worker",
+      "url": "container-loopback:9191/health",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"startedAt\":\"2026-11-02T09:05:30.031Z\",\"lastTickAt\":\"2026-11-02T09:05:30.100Z\",\"lastSuccessAt\":\"2026-11-02T09:05:31.120Z\",\"lastErrorAt\":null,\"lastErrorCode\":null,\"running\":true}"
+    },
+    {
+      "service": "web",
+      "url": "http://127.0.0.1:56707/",
+      "status": 200,
+      "body": "<!doctype html>\n<html lang=\"zh-CN\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>仟流智算</title>\n    <!-- SVG 图标内置深浅两版（随系统配色切换）；PNG 留给不支持 SVG 图标的浏览器。 -->\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <link rel=\"icon\" type=\"image/png\" sizes=\"64x64\" href=\"/favicon.png\" media=\"(prefers-color-scheme: light)\" />\n    <link rel=\"icon\" type=\"image/png\" sizes=\"64x64\" href=\"/favicon-dark.png\" media=\"(prefers-color-scheme: dark)\" />\n    <script>\n      /*\n       * 主题防闪烁初始化（仟流 Web 产品视觉规范 §4）：\n       * 挂载前读取偏好（ql-theme-preference: system|light|dark，默认 system），\n       * 解析后写入 data-theme + color-scheme，避免先闪错主题。\n       * 与 src/theme/theme.ts 的键名/取值保持一致。\n       */\n      (function () {\n        var preference = \"system\";\n        try {\n          var stored = window.localStorage.getItem(\"ql-theme-preference\");\n          if (stored === \"system\" || stored === \"light\" || stored === \"dark\") {\n            preference = stored;\n          }\n        } catch (e) {\n          /* localStorage 不可用时按 system 处理 */\n        }\n        var resolved = preference;\n        if (preference === \"system\") {\n          resolved = window.matchMedia(\"(prefers-color-scheme: dark)\").matches ? \"dark\" : \"light\";\n        }\n        document.documentElement.dataset.theme = resolved;\n        document.documentElement.style.colorScheme = resolved;\n      })();\n    </script>\n    <script type=\"module\" crossorigin src=\"/assets/index-C6TPGeuZ."
+    },
+    {
+      "service": "web-api-proxy",
+      "url": "http://127.0.0.1:56707/api/health",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"service\":\"control-api\"}"
+    },
+    {
+      "platform": "linux",
+      "arch": "x64",
+      "node": "v22.23.4",
+      "icu": "78.3",
+      "tz": "2026e",
+      "rendered": [
+        {
+          "name": "company",
+          "width": 1080,
+          "height": 2168
+        },
+        {
+          "name": "personal",
+          "width": 1080,
+          "height": 2294
+        }
+      ]
+    },
+    {
+      "service": "worker-post-tick",
+      "url": "container-loopback:9191/health",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"startedAt\":\"2026-11-02T09:05:30.031Z\",\"lastTickAt\":\"2026-11-02T09:05:30.100Z\",\"lastSuccessAt\":\"2026-11-02T09:05:31.120Z\",\"lastErrorAt\":null,\"lastErrorCode\":null,\"running\":true}"
+    }
+  ],
+  "result": "PASS",
+  "images": [
+    {
+      "service": "worker",
+      "id": "sha256:cfd0d2799c9685b4c4e137a73988e1ab50df3eba6cd6c022dac376b39439ca9f",
+      "architecture": "amd64",
+      "os": "linux",
+      "revision": "sourceSnapshot:d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912"
+    },
+    {
+      "service": "control-api",
+      "id": "sha256:f385d9ea284d7b3555cdc2de8fe968a1eca838e0dc998b78910d12bc46f5700a",
+      "architecture": "amd64",
+      "os": "linux",
+      "revision": "sourceSnapshot:d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912"
+    },
+    {
+      "service": "gateway",
+      "id": "sha256:c0472017bc233274d9658120d9fa8b749c5af22d66f713d1474d3a418b663f68",
+      "architecture": "amd64",
+      "os": "linux",
+      "revision": "sourceSnapshot:d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912"
+    },
+    {
+      "service": "web",
+      "id": "sha256:1e4112ee8222f1aa7df9c3bd540718921a982a74fb07b832b9c76ec40e745531",
+      "architecture": "amd64",
+      "os": "linux",
+      "revision": "sourceSnapshot:d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912"
+    }
+  ],
+  "cleanedOwnContainers": true,
+  "visualInspection": {
+    "performed": true,
+    "company": {
+      "width": 1080,
+      "height": 2168,
+      "cjkReadable": true,
+      "sevenMembersAndFlashRowsDistinct": true,
+      "quotaBlockNoTableOverlap": true
+    },
+    "personal": {
+      "width": 1080,
+      "height": 2294,
+      "cjkReadable": true,
+      "longNameAndProviderUnitsReadable": true
+    },
+    "data": "synthetic layout fixture, not production usage"
+  },
+  "capacityWindow": {
+    "originalAssertionsPassedBeforeRuntime": true,
+    "evidence": "../../database-full-remediation/capacity-third-lock-final-work-mem16.result.json",
+    "noP95ValuesInvented": true
+  },
+  "finalPreview": {
+    "company": "consistent-preview/linux-amd64-company-consistent.png",
+    "personal": "consistent-preview/linux-amd64-personal-consistent.png",
+    "input": "consistent-preview/fixture-input.json",
+    "inputSha256": "dc49f03aa369fd4c65eab6b30c9fa1754b15a03d93d150d46073b790d01644e6",
+    "arithmetic": "consistent-preview/arithmetic-result.json",
+    "originalRetained": "initial-preview/",
+    "fixtureOnlyNoProductChange": true
+  }
+}

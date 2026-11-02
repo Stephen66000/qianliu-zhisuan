@@ -32,11 +32,12 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "corepack pnpm@11.11.0 --filter @qianliu/control-api dev",
+      command: "corepack pnpm@11.11.0 --filter @qianliu/control-api start",
       url: `http://127.0.0.1:${controlApiPort}/health`,
       env: {
         CONTROL_API_PORT: String(controlApiPort),
-        WEB_ORIGIN: process.env.WEB_ORIGIN ?? `http://127.0.0.1:${webPort}`,
+        NODE_OPTIONS: process.env.E2E_CONTROL_API_NODE_OPTIONS ?? "",
+        WEB_ORIGIN: process.env.WEB_ORIGIN ?? `http://127.0.0.1:${webPort},http://127.0.0.1:${controlApiPort}`,
         FEATURE_DIRECTORY_IMPORT: "true",
         FEATURE_USAGE_OVERVIEW_V2: "true",
         FEATURE_DEPARTMENT_COST: "true",

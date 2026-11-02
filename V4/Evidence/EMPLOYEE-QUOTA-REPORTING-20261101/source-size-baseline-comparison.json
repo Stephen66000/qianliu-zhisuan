@@ -1,0 +1,44 @@
+[
+  {
+    "file": "apps/web/src/components/resources/activation-draft-model.ts",
+    "baselineHeadLogicalLines": 482,
+    "currentLogicalLines": 482,
+    "preexistingSameSize": true,
+    "message": "apps/web/src/components/resources/activation-draft-model.ts: 482 logical lines，超过遗留基线 418"
+  },
+  {
+    "file": "packages/database/src/repositories/provider-finance-activation-coordinator.ts",
+    "baselineHeadLogicalLines": 593,
+    "currentLogicalLines": 593,
+    "preexistingSameSize": true,
+    "message": "packages/database/src/repositories/provider-finance-activation-coordinator.ts: 593 logical lines，超过遗留基线 569"
+  },
+  {
+    "file": "packages/database/src/repositories/quota-block-repository.ts",
+    "baselineHeadLogicalLines": 510,
+    "currentLogicalLines": 510,
+    "preexistingSameSize": true,
+    "message": "packages/database/src/repositories/quota-block-repository.ts: 510 logical lines，未登记例外"
+  },
+  {
+    "file": "packages/database/src/repositories/usage-overview-repository.ts",
+    "baselineHeadLogicalLines": 407,
+    "currentLogicalLines": 407,
+    "preexistingSameSize": true,
+    "message": "packages/database/src/repositories/usage-overview-repository.ts: 407 logical lines，未登记例外"
+  },
+  {
+    "file": "packages/database/src/repositories/usage-repository.ts",
+    "baselineHeadLogicalLines": 408,
+    "currentLogicalLines": 408,
+    "preexistingSameSize": true,
+    "message": "packages/database/src/repositories/usage-repository.ts: 408 logical lines，未登记例外"
+  },
+  {
+    "file": "packages/domain/src/provider-finance-activation-projection.ts",
+    "baselineHeadLogicalLines": 426,
+    "currentLogicalLines": 426,
+    "preexistingSameSize": true,
+    "message": "packages/domain/src/provider-finance-activation-projection.ts: 426 logical lines，未登记例外"
+  }
+]

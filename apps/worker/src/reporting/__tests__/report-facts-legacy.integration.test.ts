@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "kysely";
-import { createKysely, migrateToLatest } from "@qianliu/database";
+import { createKysely } from "@qianliu/database";
+import { createMigrator } from "../../../../../packages/database/src/migrator.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { readEmployeeReportFacts, reportQuotaCutoff } from "../report-facts.js";
 let pg: PostgresTestInstance; let db: ReturnType<typeof createKysely>; let enterpriseId: string;
 beforeAll(async () => {
-  pg=await startPostgresContainer("report_a_legacy"); db=createKysely(pg.connectionString); await migrateToLatest(db);
+  pg=await startPostgresContainer("report_a_legacy"); db=createKysely(pg.connectionString); const migrated=await createMigrator(db).migrateTo("0091_recorded_cost_accounting_policy"); if(migrated.error)throw migrated.error;
   enterpriseId=(await db.insertInto("enterprise").values({name:"独立报表验收",timezone:"Asia/Shanghai"}).returning("id").executeTakeFirstOrThrow()).id;
   for (const type of ["EMPLOYEE","PROJECT"] as const) {
     const person=(await db.insertInto("person").values({enterprise_id:enterpriseId,name:type}).returning("id").executeTakeFirstOrThrow()).id;

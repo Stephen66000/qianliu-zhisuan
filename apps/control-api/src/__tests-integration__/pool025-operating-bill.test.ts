@@ -2,12 +2,11 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { sql } from "kysely";
-import { createKysely, loadMonthlyOperatingCosts, migrateDown, migrateToLatest, type Database } from "@qianliu/database";
+import { createKysely, loadMonthlyOperatingCosts, migrateToLatest, type Database } from "@qianliu/database";
 import { digestSessionToken, generateSessionToken } from "@qianliu/provider-adapters";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
 import { SESSION_COOKIE_NAME } from "../plugins/auth-guard.js";
-import { rollbackTo } from "./migration-rollback.js";
 
 let pg: PostgresTestInstance;
 let db: Database;
@@ -65,7 +64,8 @@ async function addUsage(input: {
     total_cache_tokens: 0n,
     total_reasoning_tokens: 0n,
     total_deducted_quota: BigInt(input.deducted ?? 0),
-    total_api_cost: input.mode === "API" ? (input.cost ?? "0") : "0",
+    total_api_cost: input.mode === "API" ? input.cost : null,
+    api_cost_status: input.mode === "CODING_PLAN" ? "NOT_APPLICABLE" : input.cost === null ? "UNKNOWN_COST" : "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED",
     attempt_count: 1,
     status: "SETTLED",
@@ -674,12 +674,13 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
   });
 
   it("0053 已有期初事实时拒绝破坏性回退", async () => {
-    // 回滚链断言以「目标迁移」而不是「当时的迁移头」为锚点：迁移头会随每个工作包增长
-    // （0078 资金账本初始化控制结构、0079 候选草稿载荷……），写死首个回滚项会随无关
-    // 迁移的加入而失效（同类收口见 WP02/WP03）。这里锚定到 0054，再验证 0053 的守卫。
-    const rolledBack = await rollbackTo(db, "0054_usage_aggregate_settlement_time");
-    expect(rolledBack.at(-1)).toBe("0054_usage_aggregate_settlement_time");
-    // 0053 仍在已应用状态：它持有期初事实，必须拒绝回退。
-    await expect(migrateDown(db)).rejects.toThrow("0053 contains opening balance facts");
+    // Exercise only 0053's data-preservation guard; unrelated later rollback guards must remain intact.
+    const before = await db.selectFrom("operating_bill_opening_balance").selectAll().orderBy("id").execute();
+    expect(before.length).toBeGreaterThan(0);
+    const migrationPath = new URL("../../../../packages/database/migrations/0053_operating_bill_opening_balance.js", import.meta.url).href;
+    const migration = await import(migrationPath);
+    await expect(migration.down(db)).rejects.toThrow("0053 contains opening balance facts");
+    expect(await db.selectFrom("operating_bill_opening_balance").selectAll().orderBy("id").execute()).toEqual(before);
+
   });
 });

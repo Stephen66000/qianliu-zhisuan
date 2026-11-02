@@ -1,0 +1,59 @@
+{
+  "node": "v22.23.4",
+  "icu": "78.3",
+  "tz": "2026e",
+  "lockSha256": "2ba90546425d4383ee57c9801c44c1fb5eca45a4f8cabbd0fda41810e99030e6",
+  "versions": {
+    "exceljs": "4.4.0",
+    "archiverExcel": "7.0.1",
+    "unzipper": "0.12.5",
+    "readdirMinimatch": "11.0.1",
+    "testcontainers": "12.0.4",
+    "archiverTools": "7.0.1",
+    "archiverUtils5": "5.0.2",
+    "glob14": "14.0.2"
+  },
+  "checks": [
+    {
+      "name": "actual parent-upgraded dependency exports retain ExcelJS CJS archive factory",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS buffer and file read/write preserves Chinese dates styles UUID conditional format",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS streaming writer and streaming reader preserve all committed rows",
+      "status": "FAIL",
+      "error": "Error: input source must be valid Stream or Buffer instance",
+      "stack": "Error: input source must be valid Stream or Buffer instance\n    at Archiver.append (/Users/mac/Projects/仟流智算/node_modules/.pnpm/archiver@7.0.1/node_modules/archiver/lib/core.js:583:24)\n    at WorkbookWriter._openStream (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-writer.js:70:14)\n    at get stream (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/worksheet-writer.js:201:37)\n    at WorksheetWriter._writeOpenWorksheet (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/worksheet-writer.js:579:10)\n    at new WorksheetWriter (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/worksheet-writer.js:189:10)\n    at WorkbookWriter.addWorksheet (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-writer.js:158:23)\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-parent-upgrade.mjs:42:158)\n    at check (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-parent-upgrade.mjs:30:41)\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-parent-upgrade.mjs:41:8)"
+    },
+    {
+      "name": "real directory template export and XLSX parser still enforce business template",
+      "status": "PASS"
+    },
+    {
+      "name": "glob14 Promise and sync brace globstar dot ignore matchBase semantics",
+      "status": "PASS"
+    },
+    {
+      "name": "glob14 Promise and sync follow finite internal symlink without losing deep path",
+      "status": "PASS"
+    },
+    {
+      "name": "readdir-glob callback and match events honor braces dot skip ignore and follow",
+      "status": "PASS"
+    },
+    {
+      "name": "archiver-utils5 glob14 expand negation uniqueness filter and mapping contract",
+      "status": "PASS"
+    },
+    {
+      "name": "actual ExcelJS and testcontainers archiver7 produce readable glob ZIPs",
+      "status": "PASS"
+    }
+  ],
+  "synthetic": true,
+  "productionOperations": false,
+  "status": "FAIL"
+}

@@ -1,0 +1,16 @@
+{
+  "pnpm-lock.yaml": "a6cf17d0dc906db431bdcc1cd96957a4ff42c84628e7b3e1a63eb4c79579864d",
+  "package.json": "07d092b5b9781816e77f6b5d40ac4f94dfa9423761fdc8a9076b635c4cf29be7",
+  "V3/仟流智算-质量门禁-v1.0.json": "f130fe1bf065e62047deeb64ef04b3a7928ce589446cb49f7e9ae034f67b27f1",
+  "apps/web/package.json": "afab2dea302c08c0033707e0f3fee006f2560570e787f793eacbba96c6f8bd02",
+  "apps/control-api/package.json": "bbf441e2f9b0b1953271041ad6d2590b09a14022fb85dbc826646a3ba64b41ab",
+  "apps/worker/package.json": "74026a5c61c9a401b28b78a84fc206d074b827ec2d3246cc32d59cb32ef51c3c",
+  "apps/gateway/package.json": "7ac96a47dd97056e5867256beabc4c364f2c021338a8a2934d846dddc3059f6c",
+  "packages/database/package.json": "06d13a5c436f219ade5f59af682dcab46bb3473e08e95fe68154116f7ebb992e",
+  "packages/provider-adapters/package.json": "d5d3834b56608f3685c87d8acab6fea91e67bffa9ed79c40c196db7606968672",
+  "packages/config/package.json": "128013c311ea280a7540bf84cf3a0784aeba18168d0a97c8d635c339166c4317",
+  "packages/contracts/package.json": "859eea59b883c2fd29bacd92e4b756b61252a6382b87b985beb9dcb44d75093d",
+  "packages/observability/package.json": "09d366c4ab6614cb220285886a021f89c3650d2a24419fcd4c1c25ac1eb6f0fe",
+  "packages/testing/package.json": "4d2f4bcc9f6ad9bacd94e27555c62129df5b7cfc9c742d3ea4eed3fbb7042dec",
+  "packages/domain/package.json": "c5dcf18e5187307f0f772349f7ac40907815858f60e6e7d479dec52b29fe49d4"
+}

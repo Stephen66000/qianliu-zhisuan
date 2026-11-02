@@ -1,3 +1,4 @@
+import type { EmployeeQuotaSettlement } from "../employee-quota-types.js";
 import type { Selectable } from "kysely";
 import type {
   AiRequestTable,
@@ -111,15 +112,13 @@ export interface PersistAttemptUsageAccountingInput extends CreateUsageLedgerLin
     http_status: number;
     response_committed: boolean;
     finished_at: Date;
-    error_classification: string;
-    error_code: string;
+    error_classification: string | null;
+    error_code: string | null;
     switch_reason: string | null;
+    first_byte_at?: Date | null;
+    failure_layer?: string | null;
   };
-  quota_settlements?: Array<{
-    grant_id: string;
-    reserved_estimate: bigint;
-    actual_deducted: bigint;
-  }>;
+  quota_settlements?: EmployeeQuotaSettlement[];
   release_lease_ids?: string[];
 }
 
@@ -153,11 +152,7 @@ export interface FinalizeLedgerSettlementInput extends CreateLedgerTransactionIn
   error_classification?: string | null;
   error_code?: string | null;
   /** 与请求终态同事务提交，避免额度已预占但账本未终结。 */
-  quota_settlements?: Array<{
-    grant_id: string;
-    reserved_estimate: bigint;
-    actual_deducted: bigint;
-  }>;
+  quota_settlements?: EmployeeQuotaSettlement[];
   /** 与请求终态同事务释放的并发租约。 */
   release_lease_ids?: string[];
 }

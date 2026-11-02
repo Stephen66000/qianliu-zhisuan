@@ -1,0 +1,161 @@
+{
+  "company": {
+    "enterpriseName": "合成预览企业",
+    "reportMonth": "2026 年 10 月",
+    "reportTimezone": "Asia/Shanghai",
+    "dateRange": "2026 年 10 月 · 10.1 - 10.31",
+    "monthQuotaTotal": "3个厂商池",
+    "monthConsumedTokens": "1项超额，1项待核",
+    "monthQuotaRemaining": "历史策略待核",
+    "totalRequests": "22,607 次",
+    "totalTokens": "27.1 亿",
+    "dailyAvgTokens": "8741.9 万 /天",
+    "totalEmployees": 7,
+    "totalModels": 4,
+    "quotaRows": [
+      {
+        "provider": "DeepSeek",
+        "basis": "实际 Token",
+        "detail": "分配 7.0 亿 · 已用 15.0 亿 · 超额 8.0 亿"
+      },
+      {
+        "provider": "智谱",
+        "basis": "套餐折算额度",
+        "detail": "分配 7.0 亿 · 已用 2.8 亿 · 可用 4.2 亿"
+      },
+      {
+        "provider": "Kimi",
+        "basis": "套餐折算额度",
+        "detail": "额度已用待核 · 预占 3500.0 万 · 余额待核 / 暂定"
+      }
+    ],
+    "quotaAsOf": "截至10月31日",
+    "topUsers": [
+      {
+        "rank": 1,
+        "name": "欧阳测试特别长姓名成员",
+        "department": "跨部门人工智能产品研发与创新团队",
+        "requests": "3,230 次",
+        "tokens": "3.87 亿",
+        "dailyTokens": "1248.8 万 /天",
+        "share": "14.3%"
+      },
+      {
+        "rank": 2,
+        "name": "合成成员2",
+        "department": "跨部门人工智能产品研发与创新团队",
+        "requests": "3,230 次",
+        "tokens": "3.87 亿",
+        "dailyTokens": "1248.8 万 /天",
+        "share": "14.3%"
+      },
+      {
+        "rank": 3,
+        "name": "合成成员3",
+        "department": "跨部门人工智能产品研发与创新团队",
+        "requests": "3,230 次",
+        "tokens": "3.87 亿",
+        "dailyTokens": "1248.8 万 /天",
+        "share": "14.3%"
+      },
+      {
+        "rank": 4,
+        "name": "合成成员4",
+        "department": "跨部门人工智能产品研发与创新团队",
+        "requests": "3,230 次",
+        "tokens": "3.87 亿",
+        "dailyTokens": "1248.8 万 /天",
+        "share": "14.3%"
+      },
+      {
+        "rank": 5,
+        "name": "合成成员5",
+        "department": "跨部门人工智能产品研发与创新团队",
+        "requests": "3,229 次",
+        "tokens": "3.87 亿",
+        "dailyTokens": "1248.8 万 /天",
+        "share": "14.3%"
+      },
+      {
+        "rank": 6,
+        "name": "合成成员6",
+        "department": "跨部门人工智能产品研发与创新团队",
+        "requests": "3,229 次",
+        "tokens": "3.87 亿",
+        "dailyTokens": "1248.8 万 /天",
+        "share": "14.3%"
+      },
+      {
+        "rank": 7,
+        "name": "合成成员7",
+        "department": "跨部门人工智能产品研发与创新团队",
+        "requests": "3,229 次",
+        "tokens": "3.87 亿",
+        "dailyTokens": "1248.8 万 /天",
+        "share": "14.3%"
+      }
+    ],
+    "topModels": [
+      {
+        "model": "DeepSeek V3",
+        "tokens": "15.0 亿",
+        "dailyTokens": "4838.7 万 /天",
+        "requests": "12,500 次",
+        "share": "55.4%"
+      },
+      {
+        "model": "GLM 5.3 Flash",
+        "tokens": "8.0 亿",
+        "dailyTokens": "2580.6 万 /天",
+        "requests": "6,500 次",
+        "share": "29.5%"
+      },
+      {
+        "model": "GLM 5.3",
+        "tokens": "3.0 亿",
+        "dailyTokens": "967.7 万 /天",
+        "requests": "2,000 次",
+        "share": "11.1%"
+      }
+    ]
+  },
+  "personal": {
+    "userName": "欧阳测试特别长姓名成员",
+    "dateRange": "月度小结 2026 年 10 月",
+    "quote": "功不求疾，但求有恒",
+    "metrics": [
+      {
+        "label": "总请求次数",
+        "value": "3,230 次"
+      },
+      {
+        "label": "月消耗 Token 总量",
+        "value": "3.87 亿"
+      },
+      {
+        "label": "日均使用量",
+        "value": "1248.8 万 /天"
+      },
+      {
+        "label": "最晚请求时间",
+        "value": "10月31日 23:59"
+      },
+      {
+        "label": "额度截至10月31日",
+        "value": "1项超额，1项待核"
+      },
+      {
+        "label": "DeepSeek · 实际 Token",
+        "value": "分配 1.0 亿 · 已用 2.14 亿 · 超额 1.14 亿"
+      },
+      {
+        "label": "智谱 · 套餐折算额度",
+        "value": "分配 1.0 亿 · 已用 4000.0 万 · 可用 6000.0 万"
+      },
+      {
+        "label": "Kimi · 套餐折算额度",
+        "value": "额度已用待核 · 预占 500.0 万 · 余额待核 / 暂定"
+      }
+    ]
+  }
+}

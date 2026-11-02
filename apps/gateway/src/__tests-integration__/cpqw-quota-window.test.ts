@@ -258,6 +258,9 @@ describe("CPQW：窗口额度提示与自动恢复（Gateway）", () => {
       const attempts = await ledgerRepo.listAttempts(requestId);
       expect(attempts).toHaveLength(1);
       expect(attempts[0]!.provider_resource_id).toBe(fx.cpResourceId);
+      expect(await ledgerRepo.getRequest(requestId)).toMatchObject({
+        status: "FAILED", error_classification: "UPSTREAM_BILLING_BLOCKED", error_code: "upstream_http_429",
+      });
 
       // 资源事实：EXHAUSTED + 活跃 block（incident + FIVE_HOUR 未来重置点）。
       const row = await db.selectFrom("provider_resource")

@@ -1,7 +1,5 @@
 import type { EmployeeQuotaPeriod } from "../employee-quota-types.js";
-import type { Kysely } from "kysely";
-import type { Database } from "../kysely.js";
-type QuotaDb = Kysely<Database>;
+import type { QuotaDb } from "./employee-quota-period-repository.js";
 export interface ReadEmployeeQuotaPeriodsInput {
   enterpriseId: string;
   principalIds?: string[];

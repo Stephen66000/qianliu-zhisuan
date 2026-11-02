@@ -1,0 +1,153 @@
+[
+  {
+    "scope": "domain",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T06:45:55.876353+00:00",
+    "finishedAt": "2026-11-02T06:46:01.950165+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "packages/domain/coverage/coverage-summary.json",
+    "actual": {
+      "statements": 98.02,
+      "branches": 91.48,
+      "functions": 97.91,
+      "lines": 98.02
+    },
+    "minimum": {
+      "statements": 97.37,
+      "branches": 89.63,
+      "functions": 95.83,
+      "lines": 97.37
+    },
+    "violations": []
+  },
+  {
+    "scope": "control-api-security",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T06:46:01.952409+00:00",
+    "finishedAt": "2026-11-02T06:46:04.188893+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "apps/control-api/coverage/coverage-summary.json",
+    "actual": {
+      "statements": 100,
+      "branches": 94.44,
+      "functions": 100,
+      "lines": 100
+    },
+    "minimum": {
+      "statements": 100,
+      "branches": 94.44,
+      "functions": 100,
+      "lines": 100
+    },
+    "violations": []
+  },
+  {
+    "scope": "observability-remediation",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T06:46:04.189880+00:00",
+    "finishedAt": "2026-11-02T06:46:05.478431+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "packages/observability/coverage/coverage-summary.json",
+    "actual": {
+      "statements": 100,
+      "branches": 88.88,
+      "functions": 100,
+      "lines": 100
+    },
+    "minimum": {
+      "statements": 100,
+      "branches": 88.88,
+      "functions": 100,
+      "lines": 100
+    },
+    "violations": []
+  },
+  {
+    "scope": "provider-secret",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T06:46:05.480456+00:00",
+    "finishedAt": "2026-11-02T06:50:07.585108+00:00",
+    "exitCode": 130,
+    "reportFresh": false,
+    "report": "packages/provider-adapters/coverage/coverage-summary.json",
+    "actual": null,
+    "minimum": {
+      "statements": 100,
+      "branches": 87.5,
+      "functions": 100,
+      "lines": 100
+    },
+    "violations": [
+      "report_not_fresh"
+    ]
+  },
+  {
+    "scope": "pool030-gateway-timeout",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T06:50:07.587708+00:00",
+    "finishedAt": "2026-11-02T06:50:09.668099+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "apps/gateway/coverage/pool030-gateway/coverage-summary.json",
+    "actual": {
+      "statements": 100,
+      "branches": 100,
+      "functions": 100,
+      "lines": 100
+    },
+    "minimum": {
+      "statements": 100,
+      "branches": 100,
+      "functions": 100,
+      "lines": 100
+    },
+    "violations": []
+  },
+  {
+    "scope": "pool030-provider-timeout",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T06:50:09.668659+00:00",
+    "finishedAt": "2026-11-02T06:50:10.590690+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "packages/provider-adapters/coverage/pool030-provider/coverage-summary.json",
+    "actual": {
+      "statements": 100,
+      "branches": 100,
+      "functions": 100,
+      "lines": 100
+    },
+    "minimum": {
+      "statements": 100,
+      "branches": 100,
+      "functions": 100,
+      "lines": 100
+    },
+    "violations": []
+  },
+  {
+    "scope": "pool040-gateway-revoked-settlement",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T06:50:10.592771+00:00",
+    "finishedAt": "2026-11-02T06:50:13.107816+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "apps/gateway/coverage/pool040-gateway/coverage-summary.json",
+    "actual": {
+      "statements": 100,
+      "branches": 100,
+      "functions": 100,
+      "lines": 100
+    },
+    "minimum": {
+      "statements": 95,
+      "branches": 85,
+      "functions": 90,
+      "lines": 95
+    },
+    "violations": []
+  }
+]

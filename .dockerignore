@@ -8,6 +8,7 @@
 **/test-results
 **/playwright-report
 **/.stryker-tmp
+.local-runtime
 **/__MACOSX
 .git
 ._DS_Store

@@ -20,6 +20,7 @@ export default defineConfig({
       "src/pages/OperatingBillAccounts.test.tsx",
       "src/pages/Dashboard.test.tsx",
       "src/components/usage/UsageOverviewPanel.test.tsx",
+      "src/lib/usage-quality.test.ts",
     ],
     setupFiles: ["./src/test-setup.ts"],
     coverage: {
@@ -34,6 +35,7 @@ export default defineConfig({
         "src/components/layout/Sidebar.tsx",
         "src/components/layout/Topbar.tsx",
         "src/components/operating-bill/AccountShared.tsx",
+        "src/components/operating-bill/SubjectUsageCells.tsx",
         "src/components/operating-bill/OperatingBillShell.tsx",
         "src/pages/OperatingBill.tsx",
         "src/pages/OperatingBillOverview.tsx",

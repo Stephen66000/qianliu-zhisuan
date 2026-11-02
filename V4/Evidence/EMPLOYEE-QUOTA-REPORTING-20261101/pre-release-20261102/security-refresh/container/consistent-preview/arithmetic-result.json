@@ -1,0 +1,76 @@
+{
+  "status": "PASS_SYNTHETIC_FIXTURE_ONLY",
+  "inputSha256": "dc49f03aa369fd4c65eab6b30c9fa1754b15a03d93d150d46073b790d01644e6",
+  "node": "v22.23.4",
+  "platform": "linux",
+  "arch": "x64",
+  "icu": "78.3",
+  "tz": "2026e",
+  "days": 31,
+  "team": {
+    "requests": 22607,
+    "memberRequests": [
+      3230,
+      3230,
+      3230,
+      3230,
+      3229,
+      3229,
+      3229
+    ],
+    "requestSum": 22607,
+    "rawTokens": 2710000000,
+    "memberRawTokenSum": 2710000000,
+    "modelRawTokenSum": 2710000000,
+    "modelRequestSum": 22607,
+    "dailyRawExact": 87419354.83870968,
+    "dailyDisplay": "8741.9 万 /天",
+    "deepSeek": {
+      "limit": 700000000,
+      "used": 1500000000,
+      "reserved": 0
+    },
+    "deepSeekOverage": 800000000,
+    "zhipu": {
+      "limit": 700000000,
+      "used": 280000000,
+      "reserved": 0
+    },
+    "kimi": {
+      "limit": null,
+      "used": null,
+      "reserved": 35000000
+    }
+  },
+  "personal": {
+    "rawTokens": 387142858,
+    "requests": 3230,
+    "deepSeek": {
+      "basis": "RAW_TOKEN",
+      "limit": 100000000,
+      "used": 214285715,
+      "reserved": 0,
+      "allowOverage": true
+    },
+    "deepSeekOverage": 114285715,
+    "dailyDisplay": "1248.8 万 /天"
+  },
+  "allDisplayRatesDerivedFromIntegers": true,
+  "roundedDisplayNotExactSum": true,
+  "images": [
+    {
+      "name": "company",
+      "width": 1080,
+      "height": 2168,
+      "pngSha256": "2e099145bb71823b2eea2c2fc2f98ccd45db8aeee5ff7f4db8f1a3743b464254"
+    },
+    {
+      "name": "personal",
+      "width": 1080,
+      "height": 2294,
+      "pngSha256": "19bec6efa4b15526b1a2329c6edf81231c7df64834b50fef9c8c62b60297ece8"
+    }
+  ],
+  "noProductSourceOrLockOrImageOrContextChanged": true,
+  "noPgOrHealthRerun": true
+}

@@ -12,6 +12,7 @@
   "mutate": [
     "src/billing-rule.ts",
     "src/quota-gate.ts",
+    "src/employee-quota-period.ts",
     "src/reconciliation.ts",
     "src/dispatch-policy.ts",
     "src/routing-policy.ts"

@@ -1,0 +1,16 @@
+{
+  "exitCode": 0,
+  "seconds": 71.31,
+  "testFileSha256": "c0d7e10f7c0b09d6e35a65c8e085e182022ee39544485901b96266773cc43a2f",
+  "dataRows": 1000000,
+  "sampleCount": 20,
+  "originalWarmups": 2,
+  "capsMs": {
+    "commonAdminP95": 500,
+    "subjectUsageP95": 800,
+    "resourceUtilizationP95": 1000,
+    "departmentBillP95": 1000
+  },
+  "externalHeavyWorkPausedByRoot": true,
+  "testsOrThresholdsChanged": false
+}

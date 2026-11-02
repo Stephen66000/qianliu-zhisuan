@@ -1,0 +1,19 @@
+{
+  "recordedAt": "2026-11-01T15:05:50.156314+00:00",
+  "purpose": "Implementation baseline / monthly rollout read-only production preflight",
+  "attempt": "Existing previously authorized Chrome production terminal binding",
+  "result": "MAC_LOCKED_CHROME_NOT_CONNECTED",
+  "browserBindingAvailable": false,
+  "inventoryBrowsers": [
+    "MCP Apps",
+    "IAB"
+  ],
+  "nativeInventoryError": "Mac is locked; automatic unlock unavailable; manual unlock required",
+  "approvedEntryRetested": false,
+  "historicalHttp404Reconfirmed": false,
+  "productionQueriesExecuted": 0,
+  "newProductionEvidence": false,
+  "alternativeAuthenticationRouteAttempted": false,
+  "productionMutations": false,
+  "messagesSent": 0
+}

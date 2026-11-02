@@ -38,7 +38,7 @@ it("API registration opt-in reaches scheduled renewal, history and procurement, 
   await register("2026-09-02",true);expect(await status()).toMatchObject({enabled:true});
   await runSubscriptionAutoRenewals(db,new Date("2026-09-03T00:00:00+08:00"));
   await runSubscriptionAutoRenewals(db,new Date("2026-09-03T00:00:00+08:00"));
-  const history=(await app.inject({method:"GET",url:`/provider-resources/${resource}/finance/events`,headers})).json();
+  const history=(await app.inject({method:"GET",url:`/provider-resources/${resource}/finance/events?from=2026-09-01T00:00:00%2B08:00&to=2026-10-01T00:00:00%2B08:00`,headers})).json();
   expect(history.items.filter((row:{source:string})=>row.source==="SYSTEM_RENEWAL")).toHaveLength(1);
   const summary=(await app.inject({method:"GET",url:"/provider-finance/summary?month=2026-09",headers})).json();
   expect(summary).toMatchObject({codingPlanFixedCostCny:"297.00000000",cashOutflowCny:"297.00000000"});

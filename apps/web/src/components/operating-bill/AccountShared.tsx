@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -70,17 +71,20 @@ export function accountTime(value: string | null): string {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
-export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
-  const tokenValue = (value: string | null) =>
-    totals.usageQuality === "UNKNOWN" ? null : value;
-  const allocatedQuotaNum = totals.allocatedQuota ? Number(totals.allocatedQuota) : 0;
-  const usedTokensNum = totals.totalTokens ? Number(totals.totalTokens) : 0;
-  const usageRate = allocatedQuotaNum > 0 && totals.totalTokens !== null
-    ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%`
-    : "—";
-  const remainingQuota = allocatedQuotaNum > 0 && totals.totalTokens !== null
-    ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
-    : "不限";
+/** Existing project/department display only; employee budgets must never use this mixed-pool legacy projection. */
+export function legacyAccountQuota(allocatedQuota: string | null | undefined, totalTokens: string | null) {
+  const allocated = allocatedQuota ? Number(allocatedQuota) : 0;
+  const used = totalTokens ? Number(totalTokens) : 0;
+  return {
+    allocated: allocated > 0 ? formatCount(allocatedQuota!) : "不限",
+    usageRate: allocated > 0 && totalTokens !== null ? `${((used / allocated) * 100).toFixed(1)}%` : "—",
+    remaining: allocated > 0 && totalTokens !== null ? formatCount(String(Math.max(0, allocated - used))) : "不限",
+  };
+}
+
+export function MetricGrid({ totals, quotaScope }: { totals: OperatingBillMetricTotals; quotaScope?: "EMPLOYEE" }) {
+  const tokenValue = (value: string | null) => totals.usageQuality === "UNKNOWN" ? null : value;
+  const quota = quotaScope === "EMPLOYEE" ? null : legacyAccountQuota(totals.allocatedQuota, totals.totalTokens);
 
   const metrics: Array<{
     label: string;
@@ -90,7 +94,7 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
   }> = [
     {
       label: "本月分配额度",
-      value: allocatedQuotaNum > 0 ? formatCount(totals.allocatedQuota!) : "不限",
+      value: quota?.allocated ?? null,
       tokens: true,
     },
     {
@@ -100,11 +104,11 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
     },
     {
       label: "token使用率",
-      value: usageRate,
+      value: quota?.usageRate ?? null,
     },
     {
       label: "本月剩余额度",
-      value: remainingQuota,
+      value: quota?.remaining ?? null,
       tokens: true,
     },
     {
@@ -139,13 +143,14 @@ export function MetricGrid({ totals }: { totals: OperatingBillMetricTotals }) {
       aria-label="账单指标"
       className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
     >
-      {metrics.map((metric) => (
+      {metrics.filter(metric => quotaScope !== "EMPLOYEE" || !["本月分配额度", "token使用率", "本月剩余额度"].includes(metric.label)).map((metric) => (
         <BillStat
           key={metric.label}
           {...metric}
           missing="未知"
         />
       ))}
+      {quotaScope === "EMPLOYEE" ? <p className="col-span-full text-[13px] text-ql-fg-secondary">员工额度按厂商、月份和单位分列，请在<Link className="text-ql-action" to="/principals">员工接入配置</Link>查看；本页不推算历史余额。</p> : null}
     </section>
   );
 }

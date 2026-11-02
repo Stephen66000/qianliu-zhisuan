@@ -1,0 +1,34 @@
+{
+  "packageManager": "pnpm",
+  "reporters": [
+    "clear-text",
+    "json",
+    "progress-append-only"
+  ],
+  "jsonReporter": {
+    "fileName": "packages/database/reports/mutation/pool039043-resource.json"
+  },
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.resource-pool.mutation.config.ts"
+  },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "packages/database/src/repositories/resource-pool-repository.ts:177:1-207:2"
+  ],
+  "thresholds": {
+    "high": 100,
+    "low": 80,
+    "break": 80
+  },
+  "timeoutMS": 120000,
+  "concurrency": 1,
+  "disableTypeChecks": true,
+  "cleanTempDir": true,
+  "ignorePatterns": [
+    "**/coverage"
+  ]
+}

@@ -1,0 +1,10 @@
+[
+  {
+    "check": "typecheck",
+    "exitCode": 0
+  },
+  {
+    "check": "lint",
+    "exitCode": 0
+  }
+]

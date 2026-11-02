@@ -1,0 +1,27 @@
+{
+  "authorizedByUser": true,
+  "requestedModel": "GPT-6.1 Sol",
+  "configuredToolModel": "gpt-6.1-sol",
+  "agents": [
+    {
+      "task": "monthly_database",
+      "status": "COMPLETED_LOCAL_WORK",
+      "model": "gpt-6.1-sol"
+    },
+    {
+      "task": "gateway_monthly",
+      "status": "COMPLETED_LOCAL_WORK",
+      "model": "gpt-6.1-sol"
+    },
+    {
+      "task": "reporting_consistency",
+      "status": "COMPLETED_LOCAL_WORK",
+      "model": "gpt-6.1-sol"
+    }
+  ],
+  "rootResponsibility": "Control API/Web and integration/verification",
+  "quotaBeforeAllowed": true,
+  "quotaFinalAllowed": true,
+  "quotaFinalPrimaryUsedPercent": 3,
+  "productionActions": false
+}

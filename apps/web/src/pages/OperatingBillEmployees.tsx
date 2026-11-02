@@ -91,7 +91,7 @@ export function OperatingBillEmployeesPage() {
           <ErrorState message={query.error?.message ?? "员工账加载失败"} onRetry={() => void query.refetch()} />
         ) : (
           <>
-            <MetricGrid totals={query.data.totals} />
+            <MetricGrid totals={query.data.totals} quotaScope="EMPLOYEE" />
             {(() => {
               const dynamicProviders = extractProviderColumns(query.data.rows);
               return (
@@ -104,7 +104,7 @@ export function OperatingBillEmployeesPage() {
                     />
                   ) : (
                     <AccountTable
-                      headers={["员工", ...getSubjectUsageHeaders(dynamicProviders)]}
+                      headers={["员工", ...getSubjectUsageHeaders(dynamicProviders, "EMPLOYEE")]}
                       leadingTextColumns={1}
                     >
                       {query.data.rows.map((row) => {
@@ -127,7 +127,7 @@ export function OperatingBillEmployeesPage() {
                                 </span>
                               )}
                             </AccountCell>
-                            <SubjectUsageCells providers={dynamicProviders} row={row} />
+                            <SubjectUsageCells providers={dynamicProviders} row={row} quotaScope="EMPLOYEE" />
                           </tr>
                         );
                       })}

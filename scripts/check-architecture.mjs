@@ -3,11 +3,13 @@ import path from "node:path";
 import ts from "typescript";
 
 const root = process.cwd();
+const generatedDirectories = new Set([".stryker-tmp", "coverage", "dist", "node_modules", "reports"]);
 
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map(async (entry) => {
     const target = path.join(directory, entry.name);
+    if (entry.isDirectory() && generatedDirectories.has(entry.name)) return [];
     return entry.isDirectory() ? walk(target) : [target];
   }));
   return nested.flat();

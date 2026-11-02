@@ -7,9 +7,9 @@ import type { PipelineContext, PipelineExecutionState } from "./real-pipeline-ty
 export async function finalizeDispatchCheckFailure(
   context: PipelineContext,
   state: PipelineExecutionState,
-  prepared: Pick<PreparedAttempt, "candidate" | "attempt" | "grantId" | "reservedEstimate" | "leaseId" | "probeLease">,
+  prepared: Pick<PreparedAttempt, "candidate" | "attempt" | "grantId" | "reservedEstimate" | "leaseId" | "probeLease" | "monthlyQuota">,
 ): Promise<void> {
-  const { candidate, attempt, grantId, reservedEstimate, leaseId, probeLease } = prepared;
+  const { candidate, attempt, grantId, reservedEstimate, leaseId, probeLease, monthlyQuota } = prepared;
   const errorCode = "dispatch_check_failed_before_upstream";
   // Do not serialize arbitrary DB/transport error messages: they may contain query parameters.
   context.request.log.error({ requestId: context.requestId, attemptId: attempt.id, errorCode },
@@ -30,7 +30,7 @@ export async function finalizeDispatchCheckFailure(
         error_classification: "INTERNAL", error_code: errorCode, switch_reason: null,
       },
       quotaSettlements: [...state.pendingQuotaSettlements,
-        ...(grantId ? [{ grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n }] : [])],
+        ...(grantId ? [{ grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n, ...(monthlyQuota ? { period_id: monthlyQuota.periodId, usage_id: monthlyQuota.usageId } : {}) }] : [])],
       releaseLeaseIds: [...state.pendingLeaseIds, ...(leaseId ? [leaseId] : [])],
       overage: state.requestOverage,
     });

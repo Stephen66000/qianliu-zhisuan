@@ -18,7 +18,8 @@ import type { FastifyInstance } from "fastify";
 import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { hashPassword } from "../auth/password.js";
-import { EmployeeModelRuleRepository } from "@qianliu/database";
+import { EmployeeModelRuleRepository, EmployeeQuotaRepository } from "@qianliu/database";
+import { employeeQuotaMonth } from "@qianliu/domain";
 import { sql } from "kysely";
 
 let pg: PostgresTestInstance;
@@ -259,6 +260,87 @@ describe("POOL-041 接入配置重复输入 fail-fast", () => {
       message: "enabled_model_ids 不能重复",
     });
     expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
+  });
+});
+
+describe("员工月度额度与接入配置同源", () => {
+  it("SET与停用再启用保留本月已用，GET返回同源额度及审计", async () => {
+    const month = employeeQuotaMonth(new Date(), "Asia/Shanghai");
+    await db.updateTable("enterprise").set({ employee_quota_monthly_from: month.periodStart })
+      .where("id", "=", enterpriseId).execute();
+    try {
+      const principalId = await createEmployeeWithKey("月额度配置");
+      const pool = { provider_code: "deepseek", quota_value: "3000", enabled_model_ids: [proModelId] };
+      const created = await putAccessConfig(principalId, 1, "monthly-initial-config", [pool]);
+      expect(created.statusCode).toBe(200);
+      const key = await db.selectFrom("principal_key").select("id").where("principal_id", "=", principalId).executeTakeFirstOrThrow();
+      const requestId = randomUUID();
+      await db.insertInto("ai_request").values({
+        id: requestId, enterprise_id: enterpriseId, principal_id: principalId, principal_key_id: key.id,
+        protocol: "OPENAI_CHAT", unified_model: "qianliu-deepseek-pro", status: "IN_PROGRESS",
+      }).execute();
+      const quotas = new EmployeeQuotaRepository(db);
+      const reserved = await quotas.reserveEmployeeQuota({
+        enterpriseId, principalId, provider: "deepseek", modelAlias: "qianliu-deepseek-pro",
+        requestId, attemptNo: 1, basis: "RAW_TOKEN", estimatedCost: 1300n,
+      });
+      expect(reserved.mode).toBe("MONTHLY");
+      await quotas.settleEmployeeQuota({
+        enterpriseId, principalId, requestId, periodId: reserved.periodId!, usageId: reserved.usageId!,
+        actual: 1200n, usageQuality: "PROVIDER_REPORTED",
+      });
+      const changed = await putAccessConfig(principalId, 2, "monthly-change-config", [{ ...pool, quota_value: "2000" }]);
+      expect(changed.statusCode).toBe(200);
+      const read = await app.inject({ method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie } });
+      expect(read.statusCode).toBe(200);
+      const current = read.json().providers.find((item: { provider_code: string }) => item.provider_code === "deepseek").pool;
+      expect(current).toMatchObject({ quota_used: "1200", allow_overage: false, quota: {
+        mode: "MONTHLY", period_key: month.periodKey, quota_basis: "RAW_TOKEN", limit_value: "2000",
+        used_value: "1200", reserved_value: "0", available_value: "800", overage_value: "0", completeness: "COMPLETE",
+      } });
+      expect((await putAccessConfig(principalId, 3, "monthly-disable-config", [])).statusCode).toBe(200);
+      expect((await putAccessConfig(principalId, 4, "monthly-reenable-config", [{ ...pool, quota_value: "2000" }])).statusCode).toBe(200);
+      const periods = await db.selectFrom("principal_quota_period").selectAll().where("principal_id", "=", principalId).execute();
+      expect(periods).toHaveLength(1);
+      expect(String(periods[0]!.used_value)).toBe("1200");
+      const batch = await ruleRepo.create(enterpriseId, adminId, {
+        name: "月额度批量追加", employee_scope: "SELECTED", principal_ids: [principalId],
+        model_scope: "SELECTED", model_targets: [{ unified_model_id: proModelId, provider_resource_id: resourceId }],
+        quota_value: 500n, allow_overage: false, valid_from: month.periodStart, valid_until: null, pool_quotas: [],
+      });
+      expect((await ruleRepo.validate(enterpriseId, batch.id)).ready).toBe(true);
+      const validated = await db.selectFrom("employee_model_rule_version").select("lock_version").where("id", "=", batch.id).executeTakeFirstOrThrow();
+      await ruleRepo.publish({
+        enterpriseId, versionId: batch.id, expectedLockVersion: validated.lock_version,
+        idempotencyKey: "monthly-batch-add", adminUserId: adminId, quotaMode: "ADD",
+      });
+      const afterAdd = await db.selectFrom("principal_quota_period").selectAll().where("principal_id", "=", principalId).executeTakeFirstOrThrow();
+      expect(String(afterAdd.limit_value)).toBe("2500");
+      expect(String(afterAdd.used_value)).toBe("1200");
+      const audit = await db.selectFrom("operation_log").select("change_summary")
+        .where("enterprise_id", "=", enterpriseId).where("action", "=", "principal_quota.change").execute();
+      expect(audit.some((item) => JSON.stringify(item.change_summary).includes('"operation":"DISABLE"'))).toBe(true);
+      expect(audit.some((item) => JSON.stringify(item.change_summary).includes('"operation":"ADD"'))).toBe(true);
+    } finally {
+      await db.updateTable("enterprise").set({ employee_quota_monthly_from: null }).where("id", "=", enterpriseId).execute();
+    }
+  });
+
+  it("已计划月度策略的员工不能通过旧型号级入口创建另一份额度", async () => {
+    const month = employeeQuotaMonth(new Date(), "Asia/Shanghai");
+    await db.updateTable("enterprise").set({ employee_quota_monthly_from: month.periodStart }).where("id", "=", enterpriseId).execute();
+    try {
+      const principalId = await createEmployeeWithKey("旧入口月额度");
+      const result = await app.inject({
+        method: "POST", url: `/principals/${principalId}/grants`, headers: { cookie },
+        payload: { provider: "deepseek", model_alias: "qianliu-deepseek-pro", quota_value: "1000", allow_overage: true },
+      });
+      expect(result.statusCode).toBe(409);
+      expect(result.json()).toMatchObject({ error: "monthly_quota_requires_pool_configuration" });
+      expect(await db.selectFrom("principal_grant").select("id").where("principal_id", "=", principalId).execute()).toHaveLength(0);
+    } finally {
+      await db.updateTable("enterprise").set({ employee_quota_monthly_from: null }).where("id", "=", enterpriseId).execute();
+    }
   });
 });
 
@@ -556,5 +638,62 @@ describe("P1-02：单人接入与 Gateway 计费准入使用同一合同", () =>
     expect(response.statusCode).toBe(422);
     expect(response.json()).toMatchObject({ error: "not_ready" });
     expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
+  });
+});
+
+
+describe("月度额度计量基础与项目隔离", () => {
+  it("单一模式换基础或同池混用都明确拒绝，原配置与月账不变", async () => {
+    const month = employeeQuotaMonth(new Date(), "Asia/Shanghai");
+    await db.updateTable("enterprise").set({ employee_quota_monthly_from: month.periodStart }).where("id", "=", enterpriseId).execute();
+    try {
+      const cpResource = randomUUID(), cpModel = randomUUID();
+      await db.insertInto("provider_resource").values({ id: cpResource, enterprise_id: enterpriseId, provider_id: providerId,
+        name: "同厂商套餐隔离夹具", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION", status: "ACTIVE" }).execute();
+      await db.insertInto("unified_model").values({ id: cpModel, enterprise_id: enterpriseId, alias: `plan-${cpModel}`,
+        display_name: "同厂商套餐", status: "ACTIVE" }).execute();
+      await db.insertInto("model_route").values({ enterprise_id: enterpriseId, unified_model_id: cpModel,
+        provider_resource_id: cpResource, upstream_model: "plan-test", enabled: true }).execute();
+      await db.insertInto("billing_rule").values({ enterprise_id: enterpriseId, provider_resource_id: cpResource,
+        upstream_model: "plan-test", rule_type: "MODEL_TIER", rule_version: "plan-test-v1", multiplier: "0.5",
+        effective_from: new Date("2026-01-01T00:00:00Z"), enabled: true }).execute();
+      const principalId = await createEmployeeWithKey("计量基础冻结");
+      const pool = { provider_code: "deepseek", quota_value: "1000", enabled_model_ids: [proModelId] };
+      expect((await putAccessConfig(principalId, 1, "basis-initial-config", [pool])).statusCode).toBe(200);
+      const before = await accessConfigurationSideEffects(principalId);
+      const rows = await db.selectFrom("principal_quota_period").selectAll().where("principal_id", "=", principalId).execute();
+      const changed = await putAccessConfig(principalId, 2, "basis-change-config", [{ ...pool, enabled_model_ids: [cpModel] }]);
+      expect(changed.statusCode).toBe(422);
+      const mixed = await putAccessConfig(principalId, 2, "basis-mixed-config", [{ ...pool, enabled_model_ids: [proModelId, cpModel] }]);
+      expect(mixed.statusCode).toBe(422);
+      expect(await accessConfigurationSideEffects(principalId)).toEqual(before);
+      expect(await db.selectFrom("principal_quota_period").selectAll().where("principal_id", "=", principalId).execute()).toEqual(rows);
+      expect((await putAccessConfig(principalId, 2, "basis-disable-config", [])).statusCode).toBe(200);
+      const reenabled = await putAccessConfig(principalId, 3, "basis-reenable-conflict", [{ ...pool, enabled_model_ids: [cpModel] }]);
+      expect(reenabled.statusCode).toBe(422);
+      expect(await db.selectFrom("principal_quota_period").selectAll().where("principal_id", "=", principalId).execute()).toEqual(rows);
+    } finally {
+      await db.updateTable("enterprise").set({ employee_quota_monthly_from: null }).where("id", "=", enterpriseId).execute();
+    }
+  });
+
+  it("员工月度策略不改变项目的配置读写与legacy计数来源", async () => {
+    const month = employeeQuotaMonth(new Date(), "Asia/Shanghai");
+    await db.updateTable("enterprise").set({ employee_quota_monthly_from: month.periodStart }).where("id", "=", enterpriseId).execute();
+    try {
+      const principalId = await createEmployeeWithKey("项目额度隔离");
+      await db.updateTable("principal").set({ type: "PROJECT" }).where("id", "=", principalId).execute();
+      expect((await putAccessConfig(principalId, 1, "monthly-project-config", [{
+        provider_code: "deepseek", quota_value: "1000", enabled_model_ids: [proModelId],
+      }])).statusCode).toBe(200);
+      const response = await app.inject({ method: "GET", url: `/principals/${principalId}/access-configuration`, headers: { cookie } });
+      expect(response.statusCode).toBe(200);
+      const pool = response.json().providers.find((item: { provider_code: string }) => item.provider_code === "deepseek").pool;
+      expect(pool.quota).toBeUndefined();
+      expect(pool.quota_used).toBe("0");
+      expect(await db.selectFrom("principal_quota_period").select("id").where("principal_id", "=", principalId).execute()).toHaveLength(0);
+    } finally {
+      await db.updateTable("enterprise").set({ employee_quota_monthly_from: null }).where("id", "=", enterpriseId).execute();
+    }
   });
 });

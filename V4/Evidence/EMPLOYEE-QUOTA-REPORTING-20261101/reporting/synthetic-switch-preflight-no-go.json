@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "mode": "READ_ONLY_PREFLIGHT",
+  "enterpriseId": "558d6210-57a8-447e-9503-90212e7a4b69",
+  "observedAt": "2026-11-01T12:00:00.000Z",
+  "activation": {
+    "earliestCompleteMonth": "2026-12",
+    "earliestStart": "2026-11-30T16:00:00.000Z",
+    "configuredStart": null,
+    "month": "2026-12",
+    "timezone": "Asia/Shanghai",
+    "start": "2026-11-30T16:00:00.000Z",
+    "end": "2026-12-31T16:00:00.000Z",
+    "carryOver": false
+  },
+  "status": "NO_GO",
+  "reasons": [
+    "POOL_NO_GO:04dd3bef-09ab-463f-91db-66b205aa7b9b:deepseek"
+  ],
+  "pools": [
+    {
+      "principalId": "04dd3bef-09ab-463f-91db-66b205aa7b9b",
+      "provider": "deepseek",
+      "grantId": "a8c6e8ca-97e2-4189-b5fa-a817658eb734",
+      "basis": "RAW_TOKEN",
+      "expectedBasis": null,
+      "allowOverage": true,
+      "configuredLimit": "100000000",
+      "validUntil": null,
+      "legacy": {
+        "periodAnchor": "2026-09-18T16:00:00.000Z",
+        "nextResetAt": null,
+        "usedValue": "388884913",
+        "quality": "LEGACY_PENDING_RECONCILIATION"
+      },
+      "availableRouteModes": [
+        "API",
+        "CODING_PLAN"
+      ],
+      "routes": [
+        {
+          "routeId": "4239d3b6-8f7f-40a0-95a1-efa2411e1fa8",
+          "modelId": "97183645-3d90-4bf4-93dc-b818fe03e8c0",
+          "model": "synthetic-API-0",
+          "resourceId": "d50545b0-9302-4648-928d-98448e02d22e",
+          "mode": "API"
+        },
+        {
+          "routeId": "a468f570-4578-465e-8240-a40310328e8f",
+          "modelId": "f57e7e01-ebd7-479e-800e-59c62ecaab26",
+          "model": "synthetic-CODING_PLAN-1",
+          "resourceId": "0f5fe1a9-31e3-4ffe-be77-592df4efca52",
+          "mode": "CODING_PLAN"
+        }
+      ],
+      "status": "NO_GO",
+      "issues": [
+        "MIXED_API_AND_PLAN_POOL"
+      ]
+    }
+  ],
+  "limits": "Configuration preview only; no runtime model call, activation, initialization, legacy reset, reconciliation apply or historical resend.",
+  "hash": "6be030f8a43cc548afc93e3ccd1739c11584f119dd5640eeb0838fb5fee3b336"
+}

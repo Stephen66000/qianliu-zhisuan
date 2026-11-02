@@ -1,0 +1,32 @@
+{
+  "result": "PASS_ACTUAL_API_WEB_PATHS_ONLY",
+  "api": {
+    "files": 63,
+    "passed": 457,
+    "failed": 0,
+    "skipped": 0
+  },
+  "web": {
+    "files": 95,
+    "passed": 734,
+    "failed": 0,
+    "skipped": 0
+  },
+  "e2e": {
+    "passed": 36,
+    "failed": 0,
+    "skipped": 0,
+    "directory": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/e2e/run-1793601756519",
+    "workers": 1,
+    "playwright": "1.55.0"
+  },
+  "node": "v22.23.4",
+  "icu": "78.3",
+  "tz": "2026e",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "scopedSourceSnapshot": "d8aae7f177591a0450f5d3562b721d810684e7e56cc7c16250405912ac3ff8f1",
+  "sourceBinding": "captured after runs; rebind after final freeze if files unchanged",
+  "extraWorkbookReader": "UNCERTIFIED_UNUSED_API_ORIGINAL_FAIL_PROBES_PRESERVED",
+  "candidateScopeAcceptance": "USER_ACCEPTED_ACTUAL_BUSINESS_PATHS_ONLY",
+  "productionBusinessAcceptance": false
+}

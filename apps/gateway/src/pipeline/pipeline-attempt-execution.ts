@@ -3,7 +3,7 @@ import type { ErrorClassification } from "@qianliu/domain";
 import { shouldAttemptUpstreamFailover } from "../upstream-failover-policy.js";
 import { resolveAdapter } from "./adapter-registry.js";
 import { persistAttemptUsageEvidence } from "./attempt-usage-settlement.js";
-import { prepareSelectedAttempt } from "./pipeline-attempt-preparation.js";
+import { prepareSelectedAttempt, type PreparedAttempt } from "./pipeline-attempt-preparation.js";
 import { attemptDiagnosticUpdate } from "./upstream-error-diagnostic.js";
 import { mapToClassification } from "./runtime-controls.js";
 import type {
@@ -26,8 +26,8 @@ export async function executeSelectedAttempt(
     attempt,
     leaseId,
     grantId,
+    monthlyQuota,
     reservedEstimate,
-    reservedProjectedRemaining,
     resourceVersion,
     credentialVersion,
   } = prepared.value;
@@ -56,6 +56,8 @@ export async function executeSelectedAttempt(
   }, state.attemptNo);
 
   const classification = outcome.error ? mapToClassification(outcome, candidate.mode) : null;
+  let persistedRaw = 0n;
+  let persistedQuality = "UNKNOWN";
   const persistedDeductedQuota = await persistAttemptUsageEvidence({
     ledgerRepo: deps.ledgerRepo,
     outcome,
@@ -69,6 +71,11 @@ export async function executeSelectedAttempt(
     resourceMode: candidate.mode,
     upstreamModel: candidate.upstreamModel,
     billingRule: invocationAuthorization.billingRule,
+    ...(monthlyQuota && grantId ? { monthlyAccounting: { ...monthlyQuota, grantId, reservedEstimate, leaseId,
+      attemptResult: { http_status: outcome.status, response_committed: outcome.committed,
+        first_byte_at: outcome.firstByteAt ? new Date(outcome.firstByteAt) : null, finished_at: new Date(),
+        error_classification: classification, error_code: outcome.error ?? null, switch_reason: null } } } : {}),
+    onPersistedQuotaUsage: ({ raw, quality }) => { persistedRaw = raw; persistedQuality = quality; },
   });
   await deps.ledgerRepo.updateAttemptResult(attempt.id, {
     http_status: outcome.status,
@@ -81,24 +88,7 @@ export async function executeSelectedAttempt(
     ...attemptDiagnosticUpdate(outcome),
     switch_reason: null,
   });
-  if (candidate.mode === "CODING_PLAN" && grantId) {
-    // Measured consumption belongs to this attempt even if its response failed.
-    // UNKNOWN stays null in the ledger; only its unconsumed reservation is returned here.
-    const actualDeducted = persistedDeductedQuota ?? 0n;
-    if (persistedDeductedQuota !== null) {
-      const pendingAdjustment = state.pendingQuotaSettlements
-        .filter((item) => item.grant_id === grantId)
-        .reduce((sum, item) => sum + item.reserved_estimate - item.actual_deducted, 0n);
-      const available = reservedEstimate + reservedProjectedRemaining + pendingAdjustment;
-      const availableBeforeRequest = available > 0n ? available : 0n;
-      state.requestOverage ||= actualDeducted > 0n && actualDeducted > availableBeforeRequest;
-    }
-    state.pendingQuotaSettlements.push({
-      grant_id: grantId,
-      reserved_estimate: reservedEstimate,
-      actual_deducted: actualDeducted,
-    });
-  }
+  recordAttemptQuotaSettlement(state, prepared.value, persistedDeductedQuota, persistedRaw, persistedQuality);
   if (leaseId) state.pendingLeaseIds.push(leaseId);
   if (resourceConfig) {
     state.deferredResourceEffects.push({
@@ -115,4 +105,34 @@ export async function executeSelectedAttempt(
   state.triedResourceIds.add(candidate.resourceId);
   await deps.ledgerRepo.updateAttemptResult(attempt.id, { switch_reason: classification });
   return "CONTINUE";
+}
+
+function recordAttemptQuotaSettlement(
+  state: PipelineExecutionState, prepared: PreparedAttempt, persistedDeductedQuota: bigint | null,
+  persistedRaw: bigint, persistedQuality: string,
+): void {
+  const { candidate, grantId, monthlyQuota, reservedEstimate, reservedProjectedRemaining } = prepared;
+  if ((monthlyQuota || candidate.mode === "CODING_PLAN") && grantId) {
+    // Measured consumption belongs to this attempt even if its response failed.
+    // UNKNOWN stays null in the ledger; only its unconsumed reservation is returned here.
+    const actualDeducted = monthlyQuota && candidate.mode === "API"
+      ? persistedRaw : persistedDeductedQuota ?? 0n;
+    if (monthlyQuota ? persistedQuality !== "UNKNOWN" : persistedDeductedQuota !== null) {
+      const pendingAdjustment = monthlyQuota ? 0n : state.pendingQuotaSettlements
+        .filter((item) => item.grant_id === grantId && item.period_id === undefined
+          && item.usage_status !== "UNKNOWN")
+        .reduce((sum, item) => sum + item.reserved_estimate - item.actual_deducted, 0n);
+      const available = reservedEstimate + reservedProjectedRemaining + pendingAdjustment;
+      const availableBeforeRequest = available > 0n ? available : 0n;
+      state.requestOverage ||= actualDeducted > 0n && actualDeducted > availableBeforeRequest;
+    }
+    state.pendingQuotaSettlements.push({
+      grant_id: grantId,
+      reserved_estimate: reservedEstimate,
+      actual_deducted: actualDeducted,
+      ...(monthlyQuota ? { period_id: monthlyQuota.periodId, usage_id: monthlyQuota.usageId,
+        usage_status: persistedQuality === "UNKNOWN" || (candidate.mode === "CODING_PLAN" && persistedDeductedQuota === null)
+          ? "UNKNOWN" as const : undefined, usage_quality: persistedQuality } : {}),
+    });
+  }
 }

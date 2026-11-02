@@ -1,0 +1,20 @@
+{
+  "sourceFile": "packages/provider-adapters/src/upstream-error-evidence.ts",
+  "currentSourceSha256": "e3be1c2da60247b236f814cd74a7880bdf241687d2603b606348aa8e85f9788e",
+  "headSourceSha256": "e3be1c2da60247b236f814cd74a7880bdf241687d2603b606348aa8e85f9788e",
+  "currentSourceEqualsHEAD": true,
+  "actualCurrentTargetConfig": [
+    "src/upstream-error-evidence.ts:73:1-103:2",
+    "src/upstream-error-evidence.ts:225:1-234:2",
+    "src/upstream-error-evidence.ts:236:1-263:2",
+    "src/upstream-error-evidence.ts:307:1-334:2"
+  ],
+  "currentConfigSha256": "b9f89812a40842d1d54e7ad63504ae5e39212f8feba0377c2028d83025d73714",
+  "headConfigExists": true,
+  "headMutate": [
+    "src/upstream-error-evidence.ts:73:1-103:2",
+    "src/upstream-error-evidence.ts:225:1-234:2",
+    "src/upstream-error-evidence.ts:236:1-263:2",
+    "src/upstream-error-evidence.ts:307:1-334:2"
+  ]
+}

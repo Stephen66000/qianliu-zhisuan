@@ -87,14 +87,14 @@ async function addApiUsage(input: {
     upstream_attempt_id: attempt.id, provider_resource_id: apiResourceId,
     principal_id: employeeId, resource_mode: "API",
     raw_input_tokens: BigInt(input.inputTokens), raw_output_tokens: BigInt(input.outputTokens),
-    raw_cache_tokens: 0n, deducted_quota: null, api_cost: input.cost,
+    raw_cache_tokens: 0n, deducted_quota: null, api_cost: input.cost, api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
     usage_quality: "PROVIDER_REPORTED", created_at: input.startedAt,
   }).execute();
   await db.insertInto("ledger_transaction").values({
     ai_request_id: requestId, enterprise_id: enterpriseId, principal_id: employeeId,
     total_input_tokens: BigInt(input.inputTokens),
     total_output_tokens: BigInt(input.outputTokens), total_cache_tokens: 0n,
-    total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: input.cost,
+    total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: input.cost, api_cost_status: "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED",
     created_at: input.startedAt,
   }).execute();
@@ -140,14 +140,14 @@ async function settleApiUsage(input: {
     raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
     deducted_quota: input.deductedQuota === null || input.deductedQuota === undefined
       ? null : BigInt(input.deductedQuota),
-    api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", created_at: input.startedAt,
+    api_cost: resourceMode === "API" ? input.cost : null, api_cost_status: resourceMode === "API" ? "PRICED_USAGE" : "NOT_APPLICABLE", api_cost_currency: resourceMode === "API" ? "CNY" : null, usage_quality: "PROVIDER_REPORTED", created_at: input.startedAt,
   }).execute();
   await input.beforeFinalize?.(requestId);
   await new GatewayLedgerRepository(db).finalizeLedgerSettlementIfAbsent({
     ai_request_id: requestId, enterprise_id: enterpriseId, principal_id: input.principalId,
     total_input_tokens: BigInt(input.tokens), total_output_tokens: 0n, total_cache_tokens: 0n,
     total_reasoning_tokens: 0n, total_deducted_quota: BigInt(input.deductedQuota ?? 0),
-    total_api_cost: input.cost,
+    total_api_cost: input.cost, api_cost_status: resourceMode === "API" ? "PRICED_USAGE" : "NOT_APPLICABLE",
     usage_quality: "PROVIDER_REPORTED", attempt_count: 1, request_status: "SUCCEEDED",
   });
   return requestId;
@@ -628,14 +628,14 @@ describe("W20-06/07 部门预算、唯一归属与采购记录", () => {
       upstream_attempt_id: attempt.id, provider_resource_id: apiResourceId,
       principal_id: principalId, resource_mode: "API", raw_input_tokens: 80n,
       raw_output_tokens: 20n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
-      deducted_quota: null, api_cost: "3.25000000", usage_quality: "PROVIDER_REPORTED",
+      deducted_quota: null, api_cost: "3.25000000", api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY", usage_quality: "PROVIDER_REPORTED",
       created_at: usedAt,
     }).execute();
     const finalization = {
       ai_request_id: requestId, enterprise_id: enterpriseId, principal_id: principalId,
       total_input_tokens: 80n, total_output_tokens: 20n, total_cache_tokens: 0n,
       total_reasoning_tokens: 0n, total_deducted_quota: 0n,
-      total_api_cost: "3.25000000", usage_quality: "PROVIDER_REPORTED",
+      total_api_cost: "3.25000000", api_cost_status: "PRICED_USAGE", usage_quality: "PROVIDER_REPORTED",
       attempt_count: 1, request_status: "SUCCEEDED",
     } as const;
     const ledgerRepo = new GatewayLedgerRepository(db);

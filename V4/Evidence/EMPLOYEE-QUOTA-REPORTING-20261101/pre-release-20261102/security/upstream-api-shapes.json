@@ -1,0 +1,374 @@
+[
+  {
+    "package": "minimatch",
+    "version": "11.0.1",
+    "tarball": "https://registry.npmjs.org/minimatch/-/minimatch-11.0.1.tgz",
+    "file": "package/package.json",
+    "relevantLines": [
+      {
+        "line": 3,
+        "text": "  \"name\": \"minimatch\","
+      },
+      {
+        "line": 7,
+        "text": "    \"type\": \"git\","
+      },
+      {
+        "line": 8,
+        "text": "    \"url\": \"git@github.com:isaacs/minimatch\""
+      },
+      {
+        "line": 10,
+        "text": "  \"main\": \"./dist/commonjs/index.js\","
+      },
+      {
+        "line": 12,
+        "text": "  \"exports\": {"
+      },
+      {
+        "line": 45,
+        "text": "    \"node\": \"18 || 20 || >=22\""
+      },
+      {
+        "line": 62,
+        "text": "    \"exports\": {"
+      },
+      {
+        "line": 68,
+        "text": "  \"type\": \"module\","
+      }
+    ]
+  },
+  {
+    "package": "minimatch",
+    "version": "11.0.1",
+    "tarball": "https://registry.npmjs.org/minimatch/-/minimatch-11.0.1.tgz",
+    "file": "package/dist/commonjs/index.js",
+    "relevantLines": [
+      {
+        "line": 3,
+        "text": "exports.unescape = exports.escape = exports.Minimatch = exports.match = exports.braceExpand = exports.defaults = exports.filter = exports.GLOBSTAR = exports.sep = exports.minimatch = void 0;"
+      },
+      {
+        "line": 15,
+        "text": "    return new Minimatch(pattern, options).match(p);"
+      },
+      {
+        "line": 17,
+        "text": "exports.minimatch = minimatch;"
+      },
+      {
+        "line": 27,
+        "text": "exports.sep = defaultPlatform === 'win32' ? path.win32.sep : path.posix.sep;"
+      },
+      {
+        "line": 28,
+        "text": "exports.minimatch.sep = exports.sep;"
+      },
+      {
+        "line": 29,
+        "text": "exports.GLOBSTAR = Symbol('globstar **');"
+      },
+      {
+        "line": 30,
+        "text": "exports.minimatch.GLOBSTAR = exports.GLOBSTAR;"
+      },
+      {
+        "line": 31,
+        "text": "const filter = (pattern, options = {}) => (p) => (0, exports.minimatch)(p, pattern, options);"
+      },
+      {
+        "line": 32,
+        "text": "exports.filter = filter;"
+      },
+      {
+        "line": 33,
+        "text": "exports.minimatch.filter = exports.filter;"
+      },
+      {
+        "line": 37,
+        "text": "        return exports.minimatch;"
+      },
+      {
+        "line": 39,
+        "text": "    const orig = exports.minimatch;"
+      },
+      {
+        "line": 42,
+        "text": "        Minimatch: class Minimatch extends orig.Minimatch {"
+      },
+      {
+        "line": 47,
+        "text": "                return orig.defaults(ext(def, options)).Minimatch;"
+      },
+      {
+        "line": 57,
+        "text": "        GLOBSTAR: exports.GLOBSTAR,"
+      },
+      {
+        "line": 60,
+        "text": "exports.defaults = defaults;"
+      },
+      {
+        "line": 61,
+        "text": "exports.minimatch.defaults = exports.defaults;"
+      },
+      {
+        "line": 82,
+        "text": "exports.braceExpand = braceExpand;"
+      },
+      {
+        "line": 83,
+        "text": "exports.minimatch.braceExpand = exports.braceExpand;"
+      },
+      {
+        "line": 85,
+        "text": "    const mm = new Minimatch(pattern, options);"
+      },
+      {
+        "line": 92,
+        "text": "exports.match = match;"
+      },
+      {
+        "line": 93,
+        "text": "exports.minimatch.match = exports.match;"
+      },
+      {
+        "line": 197,
+        "text": "// The last path that Minimatch#match split, and its parts. A path is"
+      },
+      {
+        "line": 202,
+        "text": "// The last path that Minimatch#match checked before splitting it. If"
+      },
+      {
+        "line": 235,
+        "text": "        host !== exports.GLOBSTAR &&"
+      }
+    ]
+  },
+  {
+    "package": "archiver",
+    "version": "8.0.0",
+    "tarball": "https://registry.npmjs.org/archiver/-/archiver-8.0.0.tgz",
+    "file": "package/package.json",
+    "relevantLines": [
+      {
+        "line": 11,
+        "text": "    \"type\": \"git\","
+      },
+      {
+        "line": 18,
+        "text": "  \"type\": \"module\","
+      },
+      {
+        "line": 19,
+        "text": "  \"exports\": \"./index.js\","
+      },
+      {
+        "line": 25,
+        "text": "    \"node\": \">=18\""
+      }
+    ]
+  },
+  {
+    "package": "archiver",
+    "version": "8.0.0",
+    "tarball": "https://registry.npmjs.org/archiver/-/archiver-8.0.0.tgz",
+    "file": "package/index.js",
+    "relevantLines": [
+      {
+        "line": 6,
+        "text": "export { Archiver };"
+      },
+      {
+        "line": 8,
+        "text": "export class ZipArchive extends Archiver {"
+      },
+      {
+        "line": 19,
+        "text": "export class TarArchive extends Archiver {"
+      },
+      {
+        "line": 30,
+        "text": "export class JsonArchive extends Archiver {"
+      }
+    ]
+  },
+  {
+    "package": "readdir-glob",
+    "version": "3.0.0",
+    "tarball": "https://registry.npmjs.org/readdir-glob/-/readdir-glob-3.0.0.tgz",
+    "file": "package/package.json",
+    "relevantLines": [
+      {
+        "line": 8,
+        "text": "    \"type\": \"git\","
+      },
+      {
+        "line": 11,
+        "text": "  \"main\": \"./dist/index.js\","
+      },
+      {
+        "line": 19,
+        "text": "  \"exports\": {"
+      },
+      {
+        "line": 31,
+        "text": "    \"minimatch\": \"^10.2.2\""
+      },
+      {
+        "line": 64,
+        "text": "    \"node\": \">=18\""
+      }
+    ]
+  },
+  {
+    "package": "glob",
+    "version": "14.0.2",
+    "tarball": "https://registry.npmjs.org/glob/-/glob-14.0.2.tgz",
+    "file": "package/package.json",
+    "relevantLines": [
+      {
+        "line": 6,
+        "text": "  \"type\": \"module\","
+      },
+      {
+        "line": 9,
+        "text": "    \"exports\": {"
+      },
+      {
+        "line": 24,
+        "text": "  \"main\": \"./dist/commonjs/index.min.js\","
+      },
+      {
+        "line": 27,
+        "text": "  \"exports\": {"
+      },
+      {
+        "line": 51,
+        "text": "    \"type\": \"git\","
+      },
+      {
+        "line": 83,
+        "text": "    \"minimatch\": \"^11.0.0\","
+      },
+      {
+        "line": 105,
+        "text": "    \"node\": \"18 || 20 || >=22\""
+      },
+      {
+        "line": 109,
+        "text": "    \"file:../../../../developer/isaacs/minimatch\": true,"
+      },
+      {
+        "line": 110,
+        "text": "    \"minimatch\": true,"
+      }
+    ]
+  },
+  {
+    "package": "glob",
+    "version": "14.0.2",
+    "tarball": "https://registry.npmjs.org/glob/-/glob-14.0.2.tgz",
+    "file": "package/dist/commonjs/index.js",
+    "relevantLines": [
+      {
+        "line": 3,
+        "text": "exports.glob = exports.sync = exports.iterate = exports.iterateSync = exports.stream = exports.streamSync = exports.Ignore = exports.hasMagic = exports.Glob = exports.unescape = exports.escape = void 0;"
+      },
+      {
+        "line": 4,
+        "text": "exports.globStreamSync = globStreamSync;"
+      },
+      {
+        "line": 5,
+        "text": "exports.globStream = globStream;"
+      },
+      {
+        "line": 6,
+        "text": "exports.globSync = globSync;"
+      },
+      {
+        "line": 7,
+        "text": "exports.globIterateSync = globIterateSync;"
+      },
+      {
+        "line": 8,
+        "text": "exports.globIterate = globIterate;"
+      },
+      {
+        "line": 9,
+        "text": "const minimatch_1 = require(\"minimatch\");"
+      },
+      {
+        "line": 12,
+        "text": "var minimatch_2 = require(\"minimatch\");"
+      },
+      {
+        "line": 40,
+        "text": "exports.streamSync = globStreamSync;"
+      },
+      {
+        "line": 41,
+        "text": "exports.stream = Object.assign(globStream, { sync: globStreamSync });"
+      },
+      {
+        "line": 42,
+        "text": "exports.iterateSync = globIterateSync;"
+      },
+      {
+        "line": 43,
+        "text": "exports.iterate = Object.assign(globIterate, {"
+      },
+      {
+        "line": 46,
+        "text": "exports.sync = Object.assign(globSync, {"
+      },
+      {
+        "line": 50,
+        "text": "exports.glob = Object.assign(glob_, {"
+      },
+      {
+        "line": 53,
+        "text": "    sync: exports.sync,"
+      },
+      {
+        "line": 55,
+        "text": "    stream: exports.stream,"
+      },
+      {
+        "line": 57,
+        "text": "    streamSync: exports.streamSync,"
+      },
+      {
+        "line": 59,
+        "text": "    iterate: exports.iterate,"
+      },
+      {
+        "line": 61,
+        "text": "    iterateSync: exports.iterateSync,"
+      },
+      {
+        "line": 67,
+        "text": "exports.glob.glob = exports.glob;"
+      }
+    ]
+  },
+  {
+    "package": "unzipper",
+    "version": "0.12.5",
+    "tarball": "https://registry.npmjs.org/unzipper/-/unzipper-0.12.5.tgz",
+    "file": "package/package.json",
+    "relevantLines": [
+      {
+        "line": 21,
+        "text": "    \"type\": \"git\","
+      },
+      {
+        "line": 58,
+        "text": "  \"main\": \"unzip.js\","
+      }
+    ]
+  }
+]

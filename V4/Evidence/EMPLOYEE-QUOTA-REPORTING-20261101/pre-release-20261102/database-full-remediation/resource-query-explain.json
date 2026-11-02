@@ -1,0 +1,139 @@
+{
+  "diagnosticOnly": true,
+  "canonicalSeedPreserved": true,
+  "endpoint": "/provider-resources/utilization?month=2026-08",
+  "environment": [
+    {
+      "version": "PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+      "pg_version": "170010",
+      "work_mem": "4MB",
+      "shared_buffers": "128MB",
+      "jit": "on",
+      "parallel_workers": "2"
+    }
+  ],
+  "indexes": [
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_enterprise_created_request_idx",
+      "indexdef": "CREATE INDEX ledger_line_enterprise_created_request_idx ON public.ledger_line USING btree (enterprise_id, created_at, ai_request_id)"
+    },
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_enterprise_resource_created_idx",
+      "indexdef": "CREATE INDEX ledger_line_enterprise_resource_created_idx ON public.ledger_line USING btree (enterprise_id, provider_resource_id, created_at DESC)"
+    },
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_enterprise_resource_request_idx",
+      "indexdef": "CREATE INDEX ledger_line_enterprise_resource_request_idx ON public.ledger_line USING btree (enterprise_id, provider_resource_id, ai_request_id)"
+    },
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_pkey",
+      "indexdef": "CREATE UNIQUE INDEX ledger_line_pkey ON public.ledger_line USING btree (id)"
+    },
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_principal_idx",
+      "indexdef": "CREATE INDEX ledger_line_principal_idx ON public.ledger_line USING btree (principal_id, created_at)"
+    },
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_request_idx",
+      "indexdef": "CREATE INDEX ledger_line_request_idx ON public.ledger_line USING btree (ai_request_id)"
+    },
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_resource_month_cover_idx",
+      "indexdef": "CREATE INDEX ledger_line_resource_month_cover_idx ON public.ledger_line USING btree (enterprise_id, provider_resource_id, created_at) INCLUDE (ai_request_id, raw_input_tokens, raw_output_tokens, api_cost, deducted_quota)"
+    },
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_resource_settled_idx",
+      "indexdef": "CREATE INDEX ledger_line_resource_settled_idx ON public.ledger_line USING btree (enterprise_id, provider_resource_id, COALESCE(settled_at, created_at) DESC, created_at DESC, id DESC)"
+    },
+    {
+      "tablename": "ledger_line",
+      "indexname": "ledger_line_unique_usage_event_idx",
+      "indexdef": "CREATE UNIQUE INDEX ledger_line_unique_usage_event_idx ON public.ledger_line USING btree (usage_event_id)"
+    },
+    {
+      "tablename": "ledger_transaction",
+      "indexname": "ledger_transaction_enterprise_created_idx",
+      "indexdef": "CREATE INDEX ledger_transaction_enterprise_created_idx ON public.ledger_transaction USING btree (enterprise_id, created_at DESC, ai_request_id)"
+    },
+    {
+      "tablename": "ledger_transaction",
+      "indexname": "ledger_transaction_pkey",
+      "indexdef": "CREATE UNIQUE INDEX ledger_transaction_pkey ON public.ledger_transaction USING btree (id)"
+    },
+    {
+      "tablename": "ledger_transaction",
+      "indexname": "ledger_transaction_request_text_trgm_idx",
+      "indexdef": "CREATE INDEX ledger_transaction_request_text_trgm_idx ON public.ledger_transaction USING gin (((ai_request_id)::text) gin_trgm_ops)"
+    },
+    {
+      "tablename": "ledger_transaction",
+      "indexname": "ledger_transaction_unique_request",
+      "indexdef": "CREATE UNIQUE INDEX ledger_transaction_unique_request ON public.ledger_transaction USING btree (ai_request_id)"
+    },
+    {
+      "tablename": "provider_resource",
+      "indexname": "provider_resource_archive_idx",
+      "indexdef": "CREATE INDEX provider_resource_archive_idx ON public.provider_resource USING btree (enterprise_id, archived_at)"
+    },
+    {
+      "tablename": "provider_resource",
+      "indexname": "provider_resource_enterprise_id_id_uq",
+      "indexdef": "CREATE UNIQUE INDEX provider_resource_enterprise_id_id_uq ON public.provider_resource USING btree (enterprise_id, id)"
+    },
+    {
+      "tablename": "provider_resource",
+      "indexname": "provider_resource_enterprise_id_uq",
+      "indexdef": "CREATE UNIQUE INDEX provider_resource_enterprise_id_uq ON public.provider_resource USING btree (enterprise_id, id)"
+    },
+    {
+      "tablename": "provider_resource",
+      "indexname": "provider_resource_pkey",
+      "indexdef": "CREATE UNIQUE INDEX provider_resource_pkey ON public.provider_resource USING btree (id)"
+    },
+    {
+      "tablename": "provider_resource",
+      "indexname": "provider_resource_pool_idx",
+      "indexdef": "CREATE INDEX provider_resource_pool_idx ON public.provider_resource USING btree (enterprise_id, resource_pool_id, status)"
+    },
+    {
+      "tablename": "usage_bucket_aggregate",
+      "indexname": "usage_bucket_aggregate_dimensions_uq",
+      "indexdef": "CREATE UNIQUE INDEX usage_bucket_aggregate_dimensions_uq ON public.usage_bucket_aggregate USING btree (enterprise_id, bucket_granularity, bucket_start, timezone, source_principal_id, project_principal_id, provider_resource_id, unified_model_id) NULLS NOT DISTINCT"
+    },
+    {
+      "tablename": "usage_bucket_aggregate",
+      "indexname": "usage_bucket_aggregate_dirty_idx",
+      "indexdef": "CREATE INDEX usage_bucket_aggregate_dirty_idx ON public.usage_bucket_aggregate USING btree (enterprise_id, dirty, bucket_start) WHERE (dirty = true)"
+    },
+    {
+      "tablename": "usage_bucket_aggregate",
+      "indexname": "usage_bucket_aggregate_pkey",
+      "indexdef": "CREATE UNIQUE INDEX usage_bucket_aggregate_pkey ON public.usage_bucket_aggregate USING btree (id)"
+    },
+    {
+      "tablename": "usage_bucket_aggregate",
+      "indexname": "usage_bucket_aggregate_range_idx",
+      "indexdef": "CREATE INDEX usage_bucket_aggregate_range_idx ON public.usage_bucket_aggregate USING btree (enterprise_id, bucket_granularity, bucket_start)"
+    }
+  ],
+  "distribution": [
+    {
+      "rows": "1000000",
+      "requests": "1000000",
+      "resources": "1",
+      "first_created": "2026-08-01T00:00:00.000Z",
+      "last_created": "2026-08-12T13:46:39.000Z",
+      "tokens": "30000000",
+      "money": "300.00000000"
+    }
+  ],
+  "queries": []
+}

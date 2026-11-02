@@ -38,13 +38,19 @@ export async function readEmployeeReportFacts(db: Kysely<Database>, input: {
       .select(["g.principal_id", "g.provider", "g.quota_value", "g.updated_at", "g.status", "g.valid_until"])
       .where("g.enterprise_id", "=", input.enterpriseId).where("p.type", "=", "EMPLOYEE")
       .where("g.created_at", "<", end).where("g.valid_from", "<", end).execute();
-    // Reuse the established month-end allocation cutoff; include employees without activity.
-    const companyMonthlyAllocation = input.period !== "MONTH" || grants.some(grant => grant.updated_at >= end)
-      ? null : grants.filter(grant => grant.status === "ACTIVE" && (grant.valid_until === null || grant.valid_until >= end))
-        .reduce((sum, grant) => sum + BigInt(grant.quota_value), 0n).toString();
     const monthlySchema = await sql<{ present: boolean }>`SELECT to_regclass('principal_quota_period') IS NOT NULL AS present`.execute(trx);
     const periods = monthlySchema.rows[0]?.present
       ? await readQuotaPeriodsInTransaction(trx, { enterpriseId: input.enterpriseId, periodKey: cutoff.periodKey, asOf: end }) : [];
+    const scopedGrants = grants.filter(grant => grant.updated_at >= end
+      || (grant.status === "ACTIVE" && (grant.valid_until === null || grant.valid_until >= end)));
+    // Prefer proven month-end limits once monthly accounts exist. Never fill missing
+    // monthly facts with mutable grants; legacy months retain the established KPI contract.
+    const monthlyAllocationKnown = periods.every(period => period.quality === "COMPLETE")
+      && scopedGrants.every(grant => periods.some(period => period.principal_id === grant.principal_id && period.provider === grant.provider));
+    const companyMonthlyAllocation = input.period !== "MONTH" ? null : periods.length
+      ? monthlyAllocationKnown ? periods.reduce((sum, period) => sum + BigInt(period.limit_value), 0n).toString() : null
+      : grants.some(grant => grant.updated_at >= end) ? null
+        : scopedGrants.reduce((sum, grant) => sum + BigInt(grant.quota_value), 0n).toString();
     const quotaMonth = employeeQuotaMonth(new Date(end.getTime() - 1), input.timezone);
     const legacyUsage = await trx.selectFrom("ledger_line as l")
       .innerJoin("principal as p", join => join.onRef("p.id", "=", "l.principal_id").onRef("p.enterprise_id", "=", "l.enterprise_id"))

@@ -1,0 +1,76 @@
+[
+  {
+    "check": "database-final",
+    "exitCode": 0,
+    "paths": [
+      "src/__tests-integration__/employee-monthly-quota.integration.test.ts",
+      "src/repositories/principal-access-quota-view.test.ts",
+      "src/repositories/principal-access-config-repository.mutation.test.ts",
+      "src/repositories/employee-model-rule-repository.mutation.test.ts",
+      "src/repositories/principal-access-read-model.mutation.test.ts"
+    ],
+    "missingRequestedPaths": [
+      "src/__tests-integration__/pool024-directory.test.ts"
+    ],
+    "log": "database-final.log",
+    "missingPathCorrection": {
+      "correctPath": "src/__tests-integration__/directory-repository.integration.test.ts",
+      "separateRun": "database-directory-final.log",
+      "exitCode": 0,
+      "testsPassed": 6
+    }
+  },
+  {
+    "check": "gateway-final",
+    "exitCode": 0,
+    "paths": [
+      "src/__tests-integration__/employee-monthly-quota.test.ts",
+      "src/__tests-integration__/quota-dispatch-boundaries.test.ts",
+      "src/__tests-integration__/cpqw-quota-window.test.ts"
+    ],
+    "missingRequestedPaths": [],
+    "log": "gateway-final.log"
+  },
+  {
+    "check": "control-final",
+    "exitCode": 0,
+    "paths": [
+      "src/__tests-integration__/pool033-access-config-regression.test.ts",
+      "src/__tests-integration__/pool029-employee-model-rules.test.ts"
+    ],
+    "missingRequestedPaths": [],
+    "log": "control-final.log"
+  },
+  {
+    "check": "worker-final",
+    "exitCode": 0,
+    "paths": [
+      "src/reporting"
+    ],
+    "missingRequestedPaths": [],
+    "log": "worker-final.log"
+  },
+  {
+    "check": "web-final",
+    "exitCode": 0,
+    "paths": [
+      "src/components/principals/PrincipalAccessConfigPanel.test.tsx",
+      "src/pages/EmployeeModelRules.test.tsx",
+      "src/pages/Principals.test.tsx"
+    ],
+    "missingRequestedPaths": [],
+    "log": "web-final.log"
+  },
+  {
+    "check": "database-directory-final",
+    "exitCode": 0,
+    "log": "database-directory-final.log",
+    "testsPassed": 6
+  },
+  {
+    "check": "domain-final",
+    "exitCode": 0,
+    "log": "domain-final.log",
+    "testsPassed": 6
+  }
+]

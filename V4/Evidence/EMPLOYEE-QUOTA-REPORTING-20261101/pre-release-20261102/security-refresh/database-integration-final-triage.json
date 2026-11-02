@@ -1,0 +1,382 @@
+[
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "141",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 95,
+        "line": 188
+      },
+      "start": {
+        "column": 72,
+        "line": 188
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "  if (lines.length > 1) throw new GatewayLedgerSettlementConflictError(\"duplicate_ledger_line\");"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "66",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 20,
+        "line": 140
+      },
+      "start": {
+        "column": 7,
+        "line": 140
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "  if (attemptResult) attemptQuery = attemptQuery.forUpdate();"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "67",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 20,
+        "line": 140
+      },
+      "start": {
+        "column": 7,
+        "line": 140
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (attemptResult) attemptQuery = attemptQuery.forUpdate();"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "138",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 23,
+        "line": 188
+      },
+      "start": {
+        "column": 7,
+        "line": 188
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (lines.length > 1) throw new GatewayLedgerSettlementConflictError(\"duplicate_ledger_line\");"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "186",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 49,
+        "line": 318
+      },
+      "start": {
+        "column": 47,
+        "line": 318
+      }
+    },
+    "replacement": "[\"Stryker was here\"]",
+    "original": [
+      "  const monthly = (input.quota_settlements ?? []).filter(item => item.period_id || item.usage_id);"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "196",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 40,
+        "line": 322
+      },
+      "start": {
+        "column": 9,
+        "line": 322
+      }
+    },
+    "replacement": "item.period_id && item.usage_id",
+    "original": [
+      "    if (item.period_id || item.usage_id) continue;"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "235",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 34,
+        "line": 345
+      },
+      "start": {
+        "column": 22,
+        "line": 345
+      }
+    },
+    "replacement": "used >= quota",
+    "original": [
+      "      overage_value: used > quota ? used - quota : 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-request-facts.ts",
+    "id": "18",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 35,
+        "line": 45
+      },
+      "start": {
+        "column": 7,
+        "line": 45
+      }
+    },
+    "replacement": "missingLine.rows[0].missing",
+    "original": [
+      "  if (missingLine.rows[0]?.missing) {"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-request-facts.ts",
+    "id": "24",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 42,
+        "line": 65
+      },
+      "start": {
+        "column": 7,
+        "line": 65
+      }
+    },
+    "replacement": "missingAttemptFact.rows[0].missing",
+    "original": [
+      "  if (missingAttemptFact.rows[0]?.missing) {"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "350",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 30,
+        "line": 95
+      },
+      "start": {
+        "column": 5,
+        "line": 95
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    usage.input_tokens !== 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "353",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 31,
+        "line": 96
+      },
+      "start": {
+        "column": 5,
+        "line": 96
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    usage.output_tokens !== 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "356",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 30,
+        "line": 97
+      },
+      "start": {
+        "column": 5,
+        "line": 97
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    usage.cache_tokens !== 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "359",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 42,
+        "line": 98
+      },
+      "start": {
+        "column": 5,
+        "line": 98
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    (usage.reasoning_tokens ?? 0n) !== 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "363",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 38,
+        "line": 99
+      },
+      "start": {
+        "column": 5,
+        "line": 99
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    usage.usage_quality !== \"UNKNOWN\","
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "371",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 33,
+        "line": 101
+      },
+      "start": {
+        "column": 5,
+        "line": 101
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    line.raw_input_tokens !== 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "374",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 34,
+        "line": 102
+      },
+      "start": {
+        "column": 5,
+        "line": 102
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    line.raw_output_tokens !== 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "377",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 33,
+        "line": 103
+      },
+      "start": {
+        "column": 5,
+        "line": 103
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    line.raw_cache_tokens !== 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "380",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 45,
+        "line": 104
+      },
+      "start": {
+        "column": 5,
+        "line": 104
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    (line.raw_reasoning_tokens ?? 0n) !== 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "388",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 37,
+        "line": 106
+      },
+      "start": {
+        "column": 5,
+        "line": 106
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    line.usage_quality !== \"UNKNOWN\","
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-terminal-rejection.ts",
+    "id": "428",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 29,
+        "line": 144
+      },
+      "start": {
+        "column": 21,
+        "line": 144
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    request_status: \"FAILED\","
+    ]
+  }
+]

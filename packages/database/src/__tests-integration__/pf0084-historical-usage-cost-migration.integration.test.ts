@@ -219,8 +219,8 @@ describe("0084 历史 API 消耗事件类型迁移", () => {
       expect(await indexExists(db, "provider_finance_event_historical_usage_cost_uq")).toBe(false);
 
       // 重新前向：rollbackTo 会把 0083 一并回退（0082 成为最后已应用），
-      // 因此 migrateToLatest 依次重放 0083 与 0084。
-      const { results, error } = await createMigrator(db).migrateToLatest();
+      // 因此定向 migrateTo(0084) 依次重放 0083 与 0084，不包含后续迁移。
+      const { results, error } = await createMigrator(db).migrateTo("0084_provider_finance_historical_usage_cost");
       expect(error).toBeUndefined();
       expect((results ?? []).map((row) => row.migrationName))
         .toEqual([
@@ -242,7 +242,8 @@ describe("0084 历史 API 消耗事件类型迁移", () => {
   it("0084 单步 down 后新事件类型被 0060 类型约束拒绝（失败关闭）", async () => {
     const db = createKysely(pg.connectionString);
     try {
-      await migrateToLatest(db);
+      const targeted = await createMigrator(db).migrateTo("0084_provider_finance_historical_usage_cost");
+      expect(targeted.error).toBeUndefined();
       const seed = await seedMinimal(db);
       const downed = await migrateDown(db);
       expect(downed).toBe("0084_provider_finance_historical_usage_cost");

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { sql } from "kysely";
 import { createKysely, GatewayLedgerRepository, migrateToLatest,
@@ -45,7 +45,7 @@ beforeAll(async () => {
   cookie = (Array.isArray(setCookie) ? setCookie[0] : setCookie)!.split(";")[0]!;
 }, 120_000);
 
-afterAll(async () => { await app?.close(); await db?.destroy(); await pg?.stop(); }, 60_000);
+afterAll(async () => { await app?.close(); await db?.destroy(); await pg?.stop(); vi.useRealTimers(); }, 60_000);
 
 /**
  * PFH-07：企业激活后新建 API 资源默认 PENDING，其期初只能通过资源级资金启用登记。
@@ -59,6 +59,8 @@ async function seedPendingFinanceState(resourceId: string) {
     ON CONFLICT (provider_resource_id) DO NOTHING
   `.execute(db);
 }
+
+afterEach(() => { vi.useRealTimers(); });
 
 describe("provider finance routes", () => {
   it("does not expose ACTIVE writes before the database contract is activated", async () => {
@@ -156,7 +158,7 @@ describe("provider finance routes", () => {
       headers: { cookie } });
     expect(after.json()).toMatchObject({ state: "NORMAL", balance: "65.00000000" });
     const history = await app.inject({ method: "GET",
-      url: `/provider-resources/${apiResourceId}/finance/events?type=API_RECHARGE`,
+      url: `/provider-resources/${apiResourceId}/finance/events?type=API_RECHARGE&from=2026-09-01T00:00:00%2B08:00&to=2026-10-01T00:00:00%2B08:00`,
       headers: { cookie } });
     expect(history.statusCode).toBe(200);
     expect(history.json()).toMatchObject({ total: 1,
@@ -177,6 +179,9 @@ describe("provider finance routes", () => {
   });
 
   it("records a Coding Plan and exposes its service period", async () => {
+    // 九月事实的当前周期测试固定业务 Date，HTTP/PG 与计时器保持真实。
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-10T04:00:00.000Z"));
     const response = await app.inject({ method: "POST",
       url: `/provider-resources/${planResourceId}/finance/subscriptions`, headers: { cookie },
       payload: { kind: "PURCHASE", product_name: "Kimi Coding Plan",
@@ -202,7 +207,7 @@ describe("provider finance routes", () => {
       product_name: "Kimi Coding Plan",
       period_start: "2026-09-01T16:00:00.000Z",
       period_end_exclusive: "2026-10-01T16:00:00.000Z",
-      current_status: "ACTIVE",
+      current_status: new Date("2026-10-01T16:00:00.000Z").getTime() <= Date.now() ? "EXPIRED" : "ACTIVE",
       fixed_fee_amount: "199.00000000", fixed_fee_currency: "CNY",
       fixed_cash_paid_cny: "199.00000000",
       token_usage: expect.objectContaining({ input_tokens: "0", output_tokens: "0",
@@ -401,7 +406,8 @@ describe("provider finance routes", () => {
     await ledger.finalizeLedgerSettlementIfAbsent({ ai_request_id: unknownRequestId,
       enterprise_id: enterpriseId, principal_id: unknownPrincipalId,
       total_input_tokens: 1n, total_output_tokens: 1n, total_cache_tokens: 0n,
-      total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: "0",
+      total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: null,
+      api_cost_status: "UNKNOWN_COST",
       usage_quality: "PROVIDER_REPORTED", attempt_count: 1, request_status: "SUCCEEDED" });
     const incompleteDepartments = await app.inject({ method: "GET",
       url: "/operating-bills/2026-09/departments", headers: { cookie } });
@@ -420,6 +426,9 @@ describe("provider finance routes", () => {
   });
 
   it("保存额度配置后立即更新当前订阅周期，并继承登记金额", async () => {
+    // 九月事实的当前周期测试固定业务 Date，HTTP/PG 与计时器保持真实。
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-10T04:00:00.000Z"));
     const resources = await app.inject({ method: "GET",
       url: "/provider-resources", headers: { cookie } });
     const resource = resources.json().resources.find(

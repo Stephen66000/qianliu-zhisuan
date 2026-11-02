@@ -1,0 +1,59 @@
+{
+  "kind": "CANDIDATE_INTL_BINDING_NOT_PRODUCTION_RUNTIME_UPGRADE",
+  "businessProfile": {
+    "artifact": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/production-readonly-preflight.json",
+    "sha256": "4d7fadcca65686c4d979cfb54466f9737380bf4f99f984cea9800b4f8be1c472",
+    "enterpriseCount": 1,
+    "activeEnterpriseCount": 1,
+    "timezone": "Asia/Shanghai",
+    "dateScope": "2026 onward, current/next month Date bounds representable",
+    "productionOldRuntimeIdentityIsRetained": true
+  },
+  "source": {
+    "file": "packages/domain/src/employee-quota-period.ts",
+    "sha256": "015ab06909aeef9e89faaf3c19a631ca24003e37c9983ce6b9ccb6f65a79f2ec"
+  },
+  "candidate": {
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "node": "22.23.4",
+    "icu": "78.3",
+    "tz": "2026e",
+    "localProof": {
+      "artifact": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/employee-shanghai-local-third-lock-proof.json",
+      "sha256": "77df0e5ecb43f65c75ac1fee9e408526602e6aa09719df60debe4b0a1cf02738",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "officialLinuxBaseProof": {
+      "artifact": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/employee-shanghai-linux-candidate-proof.json",
+      "sha256": "dac443e6fac276842c738d59bdb6bd1d7e28d1eaa83219b883019a5e60902170",
+      "platform": "linux",
+      "arch": "x64",
+      "imageDigest": "sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914",
+      "network": "none",
+      "businessApplicationOrDatabaseRun": false
+    },
+    "fullFourServiceImageIdentityVerified": false
+  },
+  "equivalenceScope": {
+    "strictMutationIds": [
+      "617",
+      "619",
+      "622",
+      "671",
+      "675"
+    ],
+    "profileConstrainedMutationIds": [
+      "628"
+    ],
+    "argument": "UTC+08 Shanghai: T -> T-8h -> delta0, return in iteration2; no all-IANA equivalence claim"
+  },
+  "mustReproveAfter": [
+    "source change",
+    "candidate runtime/ICU/tz change",
+    "business profile/timezone change",
+    "lock change before acceptance",
+    "four service images differ from approved base runtime"
+  ],
+  "noGatePolicyEditedByThisArtifact": true
+}

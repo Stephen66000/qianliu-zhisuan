@@ -1,0 +1,17 @@
+{
+  "archive": "formal-validation-logs.tar.gz",
+  "sha256": "373cf35022f28e2830cb346e769f51da22e3374cf3c123f0bc1f74847b9f7201",
+  "logs": {
+    "database-full-remediation/capacity-third-lock-final-work-mem16.log": "7af567e63f9743960d50c9921faa52575c761624187685b00123950176131cbd",
+    "database-full-remediation/database-third-lock-non-capacity-canonical.log": "07b2b9b9e490d580708c89ff3625c50c44161e4ad923ae290eb5959056a189d4",
+    "database-full-remediation/resource-memory-fix-regression.log": "9397a6b5ca7e6acf76231eac584a28009d136d010a5f27587f5a65fe054ebc2b",
+    "final-original-lint.log": "a3bf603ef19396fbcf2be173b529c75872ef926d4afccea1fc5ce5ad684ecee3",
+    "final-original-typecheck.log": "dffd19a93601432492e34f2314444b5fb87f25879efa27cca8d788956c1835dc",
+    "security-refresh/original-coverage-ratchet-final.log": "9965bec1d7c1080a2c25206020157ceb28d74766aa15ea18dc0448f73539e9e9",
+    "security-refresh/original-two-ratchets-driver.log": "9866935116801adb2eca796786aa4c5bd2fc5146ee01741c705fa529d74b9e91",
+    "security/third-candidate/final-codex-local-protocol-e2e.log": "93934bbf8c2ddfed131b17ff1157ac6275ed2b657994921be7bce4c7308d3a06",
+    "security/third-candidate/remaining-packages-full.log": "a817d1ff950d07f48e91492778d140dbd96504015f7cc17f4c8a9786b136882d"
+  },
+  "rawContentsUnmodified": true,
+  "reason": "Ignored raw logs archived as formal evidence; no force-add"
+}

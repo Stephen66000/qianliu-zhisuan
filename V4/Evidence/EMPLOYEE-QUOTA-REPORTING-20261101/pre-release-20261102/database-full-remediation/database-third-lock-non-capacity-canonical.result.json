@@ -1,0 +1,113 @@
+{
+  "status": "PASS_NON_SLA_CAPACITY_BUSINESS_SCOPE",
+  "runtime": "Node22.23.4",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "command": "corepack pnpm@11.11.0 exec vitest run --config ../../vitest.config.ts --maxWorkers=1 --exclude \"**/w20-standard-capacity.integration.test.ts\"",
+  "cwd": "packages/database",
+  "exitCode": 0,
+  "filesPassed": 102,
+  "testsPassed": 772,
+  "failed": 0,
+  "skipped": 0,
+  "durationSeconds": 831.21,
+  "preservedMillionMigration": {
+    "ledgerRows": 1000000,
+    "usageRows": 1000000,
+    "migrationMs": 90783,
+    "originalThresholdMs": 120000,
+    "dirtyBuckets": 776
+  },
+  "excludedScope": [
+    {
+      "path": "src/__tests-integration__/w20-standard-capacity.integration.test.ts",
+      "reason": "SLA capacity separately executed on same third lock: resource P95 1141.722ms exceeds1000ms; FAIL not overridden"
+    },
+    {
+      "path": "packages/database/mutation-fixtures/source-resolution.case.ts",
+      "reason": "Non-business mutation diagnostic outside ordinary src test collection"
+    }
+  ],
+  "interruptedAttempt": "database-third-lock-non-capacity.log is early SIGINT after erroneous exclusion filename, not acceptance evidence",
+  "frozenCoreFilesUnchanged": [
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-settlement.ts",
+      "unchanged": true,
+      "sha256": "f0b630a1dfc0b4a214d39fc7d9bbf612bcdf84d699b1da38d8489d73e5d39f68"
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-guarded-writes.ts",
+      "unchanged": true,
+      "sha256": "7b15884de95880cac0988f36cf45a51368e89d2c47c7857a70607693adb3313c"
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-request-facts.ts",
+      "unchanged": true,
+      "sha256": "e4d6f3138ba1271c20e0211ec90e83dd593b298c4f6184bedef3fd3b60ffd4d6"
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-terminal-rejection.ts",
+      "unchanged": true,
+      "sha256": "b3561dcae5fe141d6ffd0bd9aa0c29e74da6adfd6df377b345042cc549c99360"
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-settlement-assertions.ts",
+      "unchanged": true,
+      "sha256": "48a61556e3e0e35a2c6b8288b54c95c352b6ffcda97a287bc4cae63efd073200"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-aggregate.ts",
+      "unchanged": true,
+      "sha256": "157fbc24c0246e8836143cd1554a0900f057ad143f610b6428ee2efce61e2543"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-write-barrier.ts",
+      "unchanged": true,
+      "sha256": "4d25dbfa162796ab3c3b054995c6c6728337c811be60199e07ce28bbb78eafdc"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/gateway-compat-cost-status.integration.test.ts",
+      "unchanged": true,
+      "sha256": "16d0fc93634ebce9067be9bb68987038a365081cb32268503e3ea897f77dfc71"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool048-upstream-error-evidence.integration.test.ts",
+      "unchanged": true,
+      "sha256": "f6a12350bdfdd6c1dd11352cec07b6ab33e7e40d6227d09d48423c59b7475b2f"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/employee-monthly-quota.integration.test.ts",
+      "unchanged": true,
+      "sha256": "22e7c58666f91900a327147fa9a34e9064c4f5df786143f79e3037bdaae51be2"
+    },
+    {
+      "path": "packages/database/src/__tests-integration__/pool043-operating-bill-concurrency.integration.test.ts",
+      "unchanged": true,
+      "sha256": "ad501c882cd990a6e2d02317e1b009c5c82f15bcf6786e57a5152e088f0a046e"
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-cost-status.test.ts",
+      "unchanged": true,
+      "sha256": "d8ba1db68862c23ab1456a1ea6e7d54f975119897f89772622cb8b7e7bda8f9f"
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-terminal-contract.test.ts",
+      "unchanged": true,
+      "sha256": "bfab3a93099b18570b59ac5ca1aed65b1fee8a6c336fa334ef4e3d8c749d9317"
+    },
+    {
+      "path": "packages/database/src/repositories/gateway-ledger-settlement-quality.test.ts",
+      "unchanged": true,
+      "sha256": "bbe61f0aa0df797718f1351afb715c02b43458abf27b6b2d01f0a6ea2788b483"
+    },
+    {
+      "path": "packages/database/src/repositories/operating-bill-account-aggregate.test.ts",
+      "unchanged": true,
+      "sha256": "8cbb14a8726640d04d9308805efe3b3ff26b7aaf9bf01b6f03de8e88f4513f23"
+    }
+  ],
+  "pending": [
+    "Resource SLA fix and same original capacity revalidation",
+    "Final expanded-scope coverage and mutation under G ownership",
+    "Strict-equivalence candidate root review; not registered exceptions"
+  ]
+}

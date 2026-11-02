@@ -346,3 +346,21 @@ describe("W11 凭证生命周期与账号池", () => {
     expect(result.passed).toBe(true);
   });
 });
+
+it("default half-open lease lasts eleven minutes and retains fencing at its exact expiry boundary", async () => {
+  const resource = await db.insertInto("provider_resource").values({
+    enterprise_id: ENT_ID, provider_id: providerId, name: "default-lease-boundary",
+    mode: "CODING_PLAN", credential_type: "API_KEY", status: "UNAVAILABLE", cooldown_until: new Date(0),
+  }).returning("id").executeTakeFirstOrThrow();
+  const startedAt = new Date();
+  const first = await poolRepo.acquireHalfOpenProbeLease(resource.id, startedAt);
+  expect(first).not.toBeNull();
+  const expiry = new Date(startedAt.getTime() + 11 * 60_000);
+  expect(await poolRepo.acquireHalfOpenProbeLease(resource.id, new Date(expiry.getTime() - 1))).toBeNull();
+  const replacement = await poolRepo.acquireHalfOpenProbeLease(resource.id, expiry);
+  expect(replacement).toMatchObject({ resourceId: resource.id, acquiredAt: expiry });
+  await poolRepo.releaseHalfOpenProbe(resource.id, first!.acquiredAt);
+  expect((await poolRepo.getResource(resource.id))!.last_probe_at).toEqual(expiry);
+  await poolRepo.releaseHalfOpenProbe(resource.id, replacement!.acquiredAt);
+  expect((await poolRepo.getResource(resource.id))!.last_probe_at).toBeNull();
+});

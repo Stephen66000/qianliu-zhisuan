@@ -144,7 +144,7 @@ it("failed zero-consumption API record cannot hide known spending; a real unpric
   await db.updateTable("upstream_attempt").set({response_committed:false}).where("ai_request_id","=",failed).execute();
   await db.updateTable("ledger_line").set({api_cost:null,api_cost_currency:null,api_cost_status:"UNKNOWN_COST"}).where("ai_request_id","=",failed).execute();
   expect(await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now)).toMatchObject({state:"INCOMPLETE_USAGE_COST",balance:null});
-  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:"2.50000000"});
+  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:null});
   let report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
   expect(report.summary.companyTokens).toBe("100");
   expect(report.apiAccounts[0]?.months[8]).toMatchObject({apiSpend:"2.50",apiSpendComplete:false});
@@ -153,7 +153,7 @@ it("failed zero-consumption API record cannot hide known spending; a real unpric
   expect((await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now))?.state).toBe("INCOMPLETE_USAGE_COST");
   report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
   expect(report.apiAccounts[0]?.months[8]).toMatchObject({apiSpend:"2.50",apiSpendComplete:false});
-  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:"2.50000000"});
+  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:null});
   const accounts=await new OperatingBillAccountRepository(db).listAccounts(t.enterpriseId,"2026-09","EMPLOYEE",{limit:20,offset:0});
   expect(accounts.totals).toMatchObject({apiCost:null,knownApiCost:"2.50000000"});
   const departments=await loadOperatingDepartmentAccounts(db,t.enterpriseId,"2026-09");

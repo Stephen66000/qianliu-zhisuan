@@ -1,0 +1,73 @@
+{
+  "node": "v22.23.4",
+  "icu": "78.3",
+  "tz": "2026e",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "versions": {
+    "exceljs": "4.4.0",
+    "archiverExcel": "5.3.2",
+    "excelUtils": "2.1.0",
+    "excelUtilsGlob": "14.0.2",
+    "zipUtils": "3.0.4",
+    "zipUtilsGlob": "14.0.2",
+    "unzipper": "0.12.5",
+    "readdirMinimatch": "11.0.1",
+    "testcontainers": "12.0.4",
+    "archiverTools": "7.0.1",
+    "archiverUtils5": "5.0.2",
+    "glob14": "14.0.2"
+  },
+  "checks": [
+    {
+      "name": "actual scoped glob parent overrides retain original ExcelJS archiver5 CJS factory",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS buffer and file read/write preserves Chinese dates styles UUID conditional format",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS streaming writer and streaming reader preserve all committed rows",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading '0')",
+      "stack": "TypeError: Cannot read properties of undefined (reading '0')\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-final.mjs:46:405)\n    at Array.map (<anonymous>)\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-final.mjs:46:304)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async check (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-final.mjs:33:35)\n    at async <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-final.mjs:44:2)"
+    },
+    {
+      "name": "unzipper0.12.5 streaming reader decodes a normal exported XLSX independently of writer",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'sheets')",
+      "stack": "TypeError: Cannot read properties of undefined (reading 'sheets')\n    at WorkbookReader._parseWorksheet (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:303:54)\n    at _parseWorksheet.next (<anonymous>)\n    at Async-from-Sync Iterator.next (<anonymous>)\n    at WorkbookReader.parse (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:147:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async [Symbol.asyncIterator] (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:72:39)\n    at async <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-final.mjs:51:19)\n    at async check (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-final.mjs:33:35)\n    at async <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility-final.mjs:49:2)"
+    },
+    {
+      "name": "real directory template export and XLSX parser still enforce business template",
+      "status": "PASS"
+    },
+    {
+      "name": "glob14 Promise and sync brace globstar dot ignore matchBase semantics",
+      "status": "PASS"
+    },
+    {
+      "name": "glob14 Promise and sync follow finite internal symlink without losing deep path",
+      "status": "PASS"
+    },
+    {
+      "name": "readdir-glob callback and match events honor braces dot skip ignore and follow",
+      "status": "PASS"
+    },
+    {
+      "name": "archiver-utils5 glob14 expand negation uniqueness filter and mapping contract",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS utils2 and zip-stream utils3 glob14 expand/filter/mapping/negation match exact fixture",
+      "status": "PASS"
+    },
+    {
+      "name": "actual original ExcelJS archiver5 and testcontainers archiver7 produce readable glob ZIPs",
+      "status": "PASS"
+    }
+  ],
+  "synthetic": true,
+  "productionOperations": false,
+  "status": "FAIL"
+}

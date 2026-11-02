@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "node": "v22.23.4",
+  "rows": 64,
+  "writer": "ExcelJS4.4 WorkbookWriter with original archiver5.3.2",
+  "verification": "standard Workbook.xlsx.readFile, exact Chinese names and amounts all rows",
+  "streamReader": "NOT_USED_IN_THIS_CHECK; separate original stream-reader probes remain FAIL",
+  "productionOperations": false
+}

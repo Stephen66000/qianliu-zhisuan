@@ -1,0 +1,31 @@
+[
+  {
+    "service": "worker",
+    "platform": "linux/amd64",
+    "tag": "qianliu-acceptance-d619248548f2-worker:local",
+    "sourceSnapshot": "d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912",
+    "exitCode": 0
+  },
+  {
+    "service": "control-api",
+    "platform": "linux/amd64",
+    "tag": "qianliu-acceptance-d619248548f2-control-api:local",
+    "sourceSnapshot": "d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912",
+    "exitCode": 0
+  },
+  {
+    "service": "gateway",
+    "platform": "linux/amd64",
+    "tag": "qianliu-acceptance-d619248548f2-gateway:local",
+    "sourceSnapshot": "d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912",
+    "exitCode": 0
+  },
+  {
+    "service": "web",
+    "platform": "linux/amd64",
+    "tag": "qianliu-acceptance-d619248548f2-web:local",
+    "sourceSnapshot": "d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912",
+    "gatewayBaseUrl": "http://127.0.0.1:56706/v1",
+    "exitCode": 0
+  }
+]

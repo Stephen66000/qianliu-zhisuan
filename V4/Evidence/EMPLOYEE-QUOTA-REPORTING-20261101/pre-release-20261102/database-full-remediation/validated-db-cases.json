@@ -1,0 +1,44 @@
+{
+  "status": "ALL_DB_CASES_PASSED_WITH_UNCHANGED_ISOLATED_REPLAYS",
+  "singleInitialNonCapacityBatchGreen": false,
+  "scopeFiles": 103,
+  "uniqueCases": 742,
+  "skippedCases": 0,
+  "nonCapacityBatch": {
+    "log": "database-all-non-capacity.log",
+    "filesPassed": 101,
+    "testsPassed": 739,
+    "oneFailure": "pool039 30s timeout during concurrent workload"
+  },
+  "unchangedTimeoutReplay": {
+    "log": "pool039-unchanged-isolated.log",
+    "testsPassed": 1,
+    "testMilliseconds": 2516,
+    "timeoutUnchanged": true
+  },
+  "capacity": {
+    "initialConcurrentFailureLog": "capacity-first.log",
+    "initialResourceP95Ms": 1494.9222080000036,
+    "isolatedLog": "capacity-isolated.log",
+    "isolatedTestsPassed": 2,
+    "p95": {
+      "commonAdminP95Ms": 1.7263330000059796,
+      "subjectUsageP95Ms": 9.670083999997587,
+      "resourceUtilizationP95Ms": 656.2516660000038,
+      "departmentBillP95Ms": 828.5371659999946
+    },
+    "dataRows": 1000000,
+    "sampleCount": 20,
+    "warmups": 2,
+    "capsUnchanged": {
+      "commonAdminP95Ms": 500,
+      "subjectUsageP95Ms": 800,
+      "resourceUtilizationP95Ms": 1000,
+      "departmentBillP95Ms": 1000
+    },
+    "context": "capacity-isolated-context.json",
+    "result": "capacity-isolated-result.json"
+  },
+  "sourceOrTimeoutChangedToFixTiming": false,
+  "productionChanges": false
+}

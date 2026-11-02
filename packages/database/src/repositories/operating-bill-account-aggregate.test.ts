@@ -128,6 +128,31 @@ describe("POOL-043 账户聚合纯函数", () => {
     });
   });
 
+  it("UNKNOWN 质量不能抹掉已证的正 Token 或独立已知费用小计", () => {
+    const accumulator = newAccountAccumulator();
+    addAccountFact(accumulator, fact({ qualities: ["UNKNOWN"], inputTokens: "90", outputTokens: "10", apiCost: null }));
+    expect(finishAccountTotals(accumulator)).toMatchObject({
+      totalTokens: "100", inputTokens: "90", outputTokens: "10", usageQuality: "UNKNOWN", apiCost: null,
+    });
+    const summary = finishAccountSummary({ inputTokens: "90", outputTokens: "10", cacheTokens: "5", reasoningTokens: "2",
+      deductedQuota: null, apiCost: null, knownApiCost: "2.50", packageAllocatedCost: "0", qualities: ["UNKNOWN"],
+      activeDays: 1, requestCount: 2, lastUsedAt: null });
+    expect(summary).toMatchObject({ totalTokens: "100", inputTokens: "90", outputTokens: "10", apiCost: null, knownApiCost: "2.50000000", usageQuality: "UNKNOWN" });
+  });
+
+  it("已证零 Token 仍是精确零，显式空的已知成本小计回退到已证 API 费用", () => {
+    const accumulator = newAccountAccumulator();
+    addAccountFact(accumulator, fact({ inputTokens: "0", outputTokens: "0", cacheTokens: "0", reasoningTokens: "0" }));
+    expect(finishAccountTotals(accumulator)).toMatchObject({
+      inputTokens: "0", outputTokens: "0", totalTokens: "0", usageQuality: "EXACT",
+    });
+    expect(finishAccountSummary({
+      inputTokens: "0", outputTokens: "0", cacheTokens: "0", reasoningTokens: "0",
+      deductedQuota: "0", apiCost: "1.25", knownApiCost: null, packageAllocatedCost: "0",
+      qualities: ["PROVIDER_REPORTED"], activeDays: 1, requestCount: 1, lastUsedAt: null,
+    })).toMatchObject({ totalTokens: "0", usageQuality: "EXACT", apiCost: "1.25000000", knownApiCost: "1.25000000" });
+  });
+
   it("不同计量口径合并为 MIXED，数值保留但必须由 UI 标注", () => {
     const accumulator = newAccountAccumulator();
     addAccountFact(accumulator, fact({ qualities: ["PROVIDER_REPORTED"] }));

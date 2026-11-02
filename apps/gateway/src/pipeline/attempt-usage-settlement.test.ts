@@ -306,3 +306,19 @@ describe("POOL-043 上游前撤权结算", () => {
     expect(finalizeLedgerSettlementIfAbsent).not.toHaveBeenCalled();
   });
 });
+
+it("rejects before upstream with a definite zero and defaults omitted overage and classification", async () => {
+  const finalize = vi.fn().mockResolvedValue(undefined);
+  await finalizeRejectedAttemptBeforeUpstream({
+    ledgerRepo: { finalizeRejectedAttemptSettlementIfAbsent: finalize } as unknown as GatewayLedgerRepository,
+    requestId: "request-defaults", enterpriseId: "enterprise-1", principalId: "principal-1",
+    attemptId: "attempt-defaults", attemptNo: 1, resourceId: "resource-1", resourceMode: "API",
+    errorCode: "dispatch_changed_before_upstream",
+    attemptResult: { http_status: 403, response_committed: false, finished_at: new Date("2026-11-01T00:00:00Z"),
+      error_classification: null, error_code: "dispatch_changed_before_upstream", switch_reason: null },
+  });
+  expect(finalize).toHaveBeenCalledWith(expect.objectContaining({
+    overage: false, error_classification: "DOWNSTREAM_AUTH_OR_QUOTA",
+    ledger_line: expect.objectContaining({ api_cost: "0.00000000", api_cost_status: "CONFIRMED_ZERO_NO_UPSTREAM" }),
+  }));
+});

@@ -1,0 +1,160 @@
+{
+  "recordedAt": "2026-11-02T05:15:02.661915+00:00",
+  "method": "Existing authenticated BaoTa Chrome terminal; SELECT-only psql with PGOPTIONS default_transaction_read_only=on; visually inspected output manually transcribed",
+  "entry": "https://uat-bt.bjhub.cn/xterm",
+  "transactionReadOnly": "on",
+  "migrationHead": "0091_recorded_cost_accounting_policy",
+  "new0092Installed": false,
+  "enterprise": {
+    "id": "b7620107-3fa8-49aa-97a2-05f79f2a326c",
+    "timezone": "Asia/Shanghai"
+  },
+  "employeeProviderPools": [
+    {
+      "provider": "DeepSeek",
+      "pools": 4,
+      "allocated": 500000000,
+      "allAllowOverage": true,
+      "authorizedRouteModes": [
+        "API"
+      ],
+      "authorizedModels": 2
+    },
+    {
+      "provider": "Kimi",
+      "pools": 4,
+      "allocated": 500000000,
+      "allAllowOverage": true,
+      "authorizedRouteModes": [
+        "CODING_PLAN"
+      ],
+      "authorizedModels": 1
+    },
+    {
+      "provider": "zhipu",
+      "pools": 4,
+      "allocated": 1200000000,
+      "allAllowOverage": true,
+      "authorizedRouteModes": [
+        "CODING_PLAN"
+      ],
+      "authorizedModels": 2
+    }
+  ],
+  "legacyCounterAnchor": "2026-09-19T17:33:48.199719+08:00",
+  "services": [
+    {
+      "name": "ic-worker",
+      "image": "ic-worker:model-labels-45e1c3a6ca61",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "name": "ic-gateway",
+      "image": "ic-gateway:cancelled-cost-4691a9a847cf",
+      "state": "running",
+      "dockerHealth": "not_reported"
+    },
+    {
+      "name": "ic-control-api",
+      "image": "ic-control-api:cancelled-cost-4691a9a847cf",
+      "state": "running",
+      "dockerHealth": "not_reported"
+    },
+    {
+      "name": "ic-web",
+      "image": "ic-web:cancelled-cost-4691a9a847cf",
+      "state": "running",
+      "dockerHealth": "not_reported"
+    }
+  ],
+  "gatewayNodeVersion": "22.17.1",
+  "productionServiceSourceCommit": "4691a9a847cfa690da8f7bdb2688945dc11bd234",
+  "productionServiceSourceIsAncestorOfCurrentHead": true,
+  "limitations": [
+    "Inventory does not execute live model credential probes or freeze the future rollout configuration",
+    "New monthly policy metadata/basis columns are not installed in production",
+    "Worker content is still the published old version; this does not verify the unpublished implementation",
+    "The subsequent separate readonly session completed weekly transport backfill; this verifies the old published reliability layer, not new code content or human receipt."
+  ],
+  "candidateRolloutStatus": "PRECONDITIONS_INVENTORIED_NOT_ACTIVATED_NOT_DEPLOYED",
+  "productionWrites": false,
+  "messagesSent": 0,
+  "alternativeAuthRouteAttempted": false,
+  "runtimeSupplement": {
+    "recordedAt": "2026-11-02T05:33:06.287512+00:00",
+    "method": "Separate existing authenticated terminal; SHOW read_only + enterprise COUNT + docker exec node metadata only",
+    "transactionReadOnly": "on",
+    "enterpriseCount": 1,
+    "activeEnterpriseCount": 1,
+    "gateway": {
+      "node": "22.17.1",
+      "icu": "77.1",
+      "tz": "2025b",
+      "arch": "x64",
+      "platform": "linux"
+    },
+    "productionWrites": false,
+    "modelRequests": 0,
+    "messagesSent": 0
+  },
+  "weeklyTransportBackfill": {
+    "method": "SELECT schedule/bundle/message/attempt via read-only psql; visually inspected output manually transcribed",
+    "scheduleDates": [
+      "2026-10-26",
+      "2026-11-02"
+    ],
+    "scheduleStatus": "DISCOVERED",
+    "rows": [
+      {
+        "date": "2026-10-26",
+        "type": "COMPANY_WEEKLY",
+        "periodKey": "2026-10-18T16:00:00.000Z",
+        "bundles": 1,
+        "messages": 2,
+        "attempts": 2,
+        "messageRequests": 2,
+        "uniqueReceipts": 2
+      },
+      {
+        "date": "2026-10-26",
+        "type": "PERSONAL_WEEKLY",
+        "periodKey": "2026-10-18T16:00:00.000Z",
+        "bundles": 4,
+        "messages": 8,
+        "attempts": 8,
+        "messageRequests": 8,
+        "uniqueReceipts": 8
+      },
+      {
+        "date": "2026-11-02",
+        "type": "COMPANY_WEEKLY",
+        "periodKey": "2026-10-25T16:00:00.000Z",
+        "bundles": 1,
+        "messages": 2,
+        "attempts": 2,
+        "messageRequests": 2,
+        "uniqueReceipts": 2
+      },
+      {
+        "date": "2026-11-02",
+        "type": "PERSONAL_WEEKLY",
+        "periodKey": "2026-10-25T16:00:00.000Z",
+        "bundles": 4,
+        "messages": 8,
+        "attempts": 8,
+        "messageRequests": 8,
+        "uniqueReceipts": 8
+      }
+    ],
+    "allMessagesSent": true,
+    "maxAttemptCount": 1,
+    "allAttemptReceiptsMatchMessage": true,
+    "allAttemptsInRealWindow": true,
+    "unexpectedDuplicateObserved": false,
+    "recipientImageConfirmation": "PENDING",
+    "recipientTextConfirmation": "PENDING",
+    "contentStatus": "OLD_PUBLISHED_VERSION_QUOTA_CONTENT_DEFECT_UNRESOLVED",
+    "notNewCandidateAcceptance": true
+  }
+}

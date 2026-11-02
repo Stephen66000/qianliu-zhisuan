@@ -1,0 +1,50 @@
+[
+  {
+    "check": "typecheck",
+    "exitCode": 0,
+    "seconds": 36.86,
+    "log": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security/new-runtime-typecheck.log"
+  },
+  {
+    "check": "lint",
+    "exitCode": 0,
+    "seconds": 17.89,
+    "log": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security/new-runtime-lint.log"
+  },
+  {
+    "check": "build",
+    "exitCode": 0,
+    "seconds": 15.18,
+    "log": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security/new-runtime-build.log"
+  },
+  {
+    "check": "quality:architecture",
+    "exitCode": 0,
+    "seconds": 1.08,
+    "log": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security/new-runtime-quality-architecture.log"
+  },
+  {
+    "check": "quality:size",
+    "exitCode": 0,
+    "seconds": 0.4,
+    "log": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security/new-runtime-quality-size.log"
+  },
+  {
+    "check": "quality:duplication",
+    "exitCode": 0,
+    "seconds": 0.46,
+    "log": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security/new-runtime-quality-duplication.log"
+  },
+  {
+    "check": "quality:licenses",
+    "exitCode": 0,
+    "seconds": 0.75,
+    "log": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security/new-runtime-quality-licenses.log"
+  },
+  {
+    "check": "evidence:canary",
+    "exitCode": 0,
+    "seconds": 1.06,
+    "log": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security/new-runtime-evidence-canary.log"
+  }
+]

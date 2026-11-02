@@ -1,4 +1,5 @@
-import { accountApiMoney } from "./AccountShared";
+import { Link } from "react-router-dom";
+import { accountApiMoney, legacyAccountQuota } from "./AccountShared";
 import { Fragment } from "react";
 
 import type { OperatingBillEmployeeRow } from "../../api/operating-bill-accounts";
@@ -9,7 +10,6 @@ import {
   accountTime,
 } from "./AccountShared";
 
-import { formatCount } from "../../lib/format";
 
 export interface DynamicProviderCol {
   code: string;
@@ -41,6 +41,7 @@ export function extractProviderColumns(
 
 export function getSubjectUsageHeaders(
   providers: DynamicProviderCol[] = DEFAULT_PROVIDER_COLS,
+  quotaScope?: "EMPLOYEE",
 ): string[] {
   const providerHeaders = providers.flatMap((p) => [
     `${p.name} Token`,
@@ -51,10 +52,7 @@ export function getSubjectUsageHeaders(
         : `${p.name} 订阅金额`,
   ]);
   return [
-    "本月分配额度",
-    "本月token使用量",
-    "token使用率",
-    "本月剩余额度",
+    ...(quotaScope === "EMPLOYEE" ? ["本月token使用量", "厂商额度"] : ["本月分配额度", "本月token使用量", "token使用率", "本月剩余额度"]),
     "输入 Token",
     "输出 Token",
     "缓存命中 Token",
@@ -71,35 +69,21 @@ export const subjectUsageHeaders = getSubjectUsageHeaders();
 export function SubjectUsageCells({
   row,
   providers = DEFAULT_PROVIDER_COLS,
+  quotaScope,
 }: {
   row: OperatingBillEmployeeRow;
   providers?: DynamicProviderCol[];
+  quotaScope?: "EMPLOYEE";
 }) {
   const { totals } = row;
-  const allocatedQuota = row.allocatedQuota ?? totals.allocatedQuota;
-  const allocatedQuotaNum = allocatedQuota ? Number(allocatedQuota) : 0;
-  const usedTokensNum = totals.totalTokens ? Number(totals.totalTokens) : 0;
-  const usageRate = allocatedQuotaNum > 0 && totals.totalTokens !== null
-    ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%`
-    : "—";
-  const remainingQuota = allocatedQuotaNum > 0 && totals.totalTokens !== null
-    ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
-    : "不限";
+  const quota = quotaScope === "EMPLOYEE" ? null : legacyAccountQuota(row.allocatedQuota ?? totals.allocatedQuota, totals.totalTokens);
 
   return (
     <>
-      <AccountCell numeric>
-        {allocatedQuotaNum > 0 ? formatCount(allocatedQuota!) : "不限"}
-      </AccountCell>
-      <AccountCell numeric>
-        {accountCount(totals.totalTokens, totals.usageQuality)}
-      </AccountCell>
-      <AccountCell numeric>
-        {usageRate}
-      </AccountCell>
-      <AccountCell numeric>
-        {remainingQuota}
-      </AccountCell>
+      {quota ? <AccountCell numeric>{quota.allocated}</AccountCell> : null}
+      <AccountCell numeric>{accountCount(totals.totalTokens, totals.usageQuality)}</AccountCell>
+      {quota ? <><AccountCell numeric>{quota.usageRate}</AccountCell><AccountCell numeric>{quota.remaining}</AccountCell></> :
+        <AccountCell><Link className="text-ql-action" to="/principals" aria-label={`${row.subjectName}按厂商池查看额度`}>按厂商池查看</Link></AccountCell>}
       {[
         totals.inputTokens,
         totals.outputTokens,

@@ -1,7 +1,8 @@
+import { migrateToPreMonthlyFixtureHead } from "./migration-pre-monthly-fixture.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "kysely";
 import { createKysely } from "../kysely.js";
-import { createMigrator, migrateDown, migrateToLatest } from "../migrator.js";
+import { createMigrator, migrateDown } from "../migrator.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { rollbackTo } from "./migration-rollback.js";
 
@@ -63,7 +64,7 @@ describe("0023 Principal Key 单 ACTIVE 迁移", () => {
           )
       `.execute(db);
 
-      const executed = await migrateToLatest(db);
+      const executed = await migrateToPreMonthlyFixtureHead(db);
       expect(executed).toContain("0023_principal_key_single_active");
       const keys = await sql`
         SELECT id, status, revoked_at

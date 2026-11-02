@@ -42,24 +42,23 @@ export function createProductionUpstreamRuntime(
       );
     },
   });
-  const halfOpenProbeLeaseMs = options.requestTimeoutMs + HALF_OPEN_PROBE_LEASE_SAFETY_MS;
-  if (!Number.isSafeInteger(halfOpenProbeLeaseMs)) {
-    throw new Error(
-      `GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS 过大，无法增加 ${HALF_OPEN_PROBE_LEASE_SAFETY_MS}ms 探针安全余量`,
-    );
-  }
-  const concurrencyLeaseTtlMs = options.requestTimeoutMs + CONCURRENCY_LEASE_SAFETY_MS;
-  if (!Number.isSafeInteger(concurrencyLeaseTtlMs)) {
-    throw new Error(
-      `GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS 过大，无法增加 ${CONCURRENCY_LEASE_SAFETY_MS}ms 并发租约安全余量`,
-    );
-  }
+  const halfOpenProbeLeaseMs = timeoutWithSafety(options.requestTimeoutMs, HALF_OPEN_PROBE_LEASE_SAFETY_MS, "探针");
+  const concurrencyLeaseTtlMs = timeoutWithSafety(options.requestTimeoutMs, CONCURRENCY_LEASE_SAFETY_MS, "并发租约");
   return {
     caller: factory(options),
     requestTimeoutMs: options.requestTimeoutMs,
     halfOpenProbeLeaseMs,
     concurrencyLeaseTtlMs,
   };
+}
+
+/** Validate each derived duration through the same addition rule, without a duplicate unreachable guard. */
+function timeoutWithSafety(timeoutMs: number, safetyMs: number, label: string): number {
+  const duration = timeoutMs + safetyMs;
+  if (!Number.isSafeInteger(duration)) {
+    throw new Error(`GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS 过大，无法增加 ${safetyMs}ms ${label}安全余量`);
+  }
+  return duration;
 }
 
 export function createProductionCallerOptions(

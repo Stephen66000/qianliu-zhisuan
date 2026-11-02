@@ -1,0 +1,38 @@
+{
+  "command": [
+    "corepack",
+    "pnpm@11.11.0",
+    "-r",
+    "--workspace-concurrency=1",
+    "--no-bail",
+    "--filter",
+    "./apps/**",
+    "--filter",
+    "./packages/**",
+    "--filter",
+    "!@qianliu/web",
+    "--filter",
+    "!@qianliu/database",
+    "--filter",
+    "!@qianliu/control-api",
+    "exec",
+    "vitest",
+    "run",
+    "--config",
+    "../../vitest.config.ts",
+    "--no-file-parallelism",
+    "--maxWorkers=1",
+    "--maxConcurrency=1"
+  ],
+  "exitCode": 0,
+  "seconds": 1490.2,
+  "runtime": "22.23.4",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "excludedPackagesHaveSeparateFullPackageRuns": [
+    "@qianliu/control-api",
+    "@qianliu/web",
+    "@qianliu/database"
+  ],
+  "noTestThresholdOrTimeoutChanges": true,
+  "productionOperations": false
+}
